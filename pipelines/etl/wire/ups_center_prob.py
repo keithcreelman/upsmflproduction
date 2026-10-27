@@ -6,8 +6,9 @@ decided by the league's deterministic clinching engine (site/shared/standings_cl
 X / Y / Z / E letters), never by a simulation that rounds to 100.0 or 0.0. A forecast of 0.9996 is "99.96%", a forecast of
 0.00004 is "<0.01%". The simulation's own precision is kept: the ledger stores the exact percent beside the printed text.
 
-The engine runs in node. If node, the schedule or the standings cannot be read, there are no clinch flags, and then NOTHING
-prints as 100% or 0%: the rule fails closed.
+The engine runs in node. If node or the standings cannot be read, there are no clinch flags at all. If only MFL's schedule is
+missing, the engine still runs but makes no division, bye or elimination claims: only the playoff-spot letter (X) can show.
+Whatever it cannot prove prints below 100% and above 0%: the rule fails closed.
 
     python3 ups_center_prob.py            # self-check
 """
@@ -165,7 +166,7 @@ def league_input(standings, divisions, through_week, last_week, schedule=None):
 
 
 def compute_clinch(standings, divisions, through_week, last_week, schedule=None, node=None):
-    """{status, reason, byFid} for ctx["clinch"]. status 'ok' = the engine ran; anything else = no flags (fail closed)."""
+    """{status, reason, byFid} for ctx["clinch"]. status 'ok' = the engine ran (with no schedule, only the X letter can be set); anything else = no flags (fail closed)."""
     inp, why = league_input(standings, divisions, through_week, last_week, schedule)
     if inp is None:
         return {"status": "unavailable", "reason": why, "byFid": {}}

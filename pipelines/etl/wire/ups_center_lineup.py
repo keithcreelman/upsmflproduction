@@ -8,7 +8,8 @@ say what the best lineup was, but it may only call a start a miss when the infor
   - a projection counts only if it was captured before that player's own NFL kickoff (wire_data.pregame_projections is the
     kickoff-strict source; a capture after kickoff is not what the manager saw and is never presented as pregame evidence);
   - if both players have one: the bench player must out-project the starter by MORE than MARGIN to be a "miss"; otherwise the
-    start was "reasonable" and the gap is scoring variance, not a decision;
+    start was "reasonable" and the gap is scoring variance, not a decision. The sentence says "favored his starters" ONLY when
+    the starters were projected at least as high everywhere; a small bench edge reads "no clear reason to change the lineup";
   - if either lacks one: "unknown". The report says so and does not call it a mistake. Nothing is inferred or invented.
 
 Pure functions, no network: the data layer hands in rows and projections.
@@ -68,17 +69,27 @@ def judge(rows, pregame, missing=None, margin=MARGIN):
         a, b = pregame.get(rp), pregame.get(d)
         if a and b:
             verdict = "miss" if a["value"] > b["value"] + margin else "reasonable"
+            edge = "starter" if b["value"] >= a["value"] else "coin_flip"      # who the pregame numbers favored
         else:
-            verdict = "unknown"
+            verdict, edge = "unknown", None
         swaps.append({"out": {"pid": d, "name": info[d]["name"], "score": pool[d][0], "proj": b["value"] if b else None},
                       "in": {"pid": rp, "name": info[rp]["name"], "score": pool[rp][0], "proj": a["value"] if a else None},
-                      "gain": round(pool[rp][0] - pool[d][0], 1), "verdict": verdict,
+                      "gain": round(pool[rp][0] - pool[d][0], 1), "verdict": verdict, "edge": edge,
                       "why": None if verdict != "unknown" else "; ".join(
                           "%s: %s" % (info[x]["name"], missing.get(x, "no pregame projection")) for x in (rp, d) if x not in pregame)})
     kinds = {s["verdict"] for s in swaps}
     summary = ("none" if not swaps else "miss" if "miss" in kinds else
                "reasonable" if kinds == {"reasonable"} else "unknown" if kinds == {"unknown"} else "partial")
     return {"actual": actual, "best": best, "swaps": swaps, "summary": summary}
+
+
+def _no_clear_case(swaps, lead=True):
+    """Why the known swaps are not misses, said truthfully: 'favored his starters' ONLY when the pregame numbers did favor the
+    starter in every known swap; when any was a small bench edge (a coin flip, within MARGIN) it says there was no clear case."""
+    if all(x.get("edge") == "starter" for x in swaps):
+        return ("MFL&rsquo;s pregame projections favored his starters at every spot" if lead else "it favored his starters")
+    return ("MFL&rsquo;s pregame projections showed no clear reason to change the lineup (a small edge for a bench player is a coin flip)"
+            if lead else "it showed no clear reason to change the lineup (a small edge for a bench player is a coin flip)")
 
 
 def sentence(j, best_text, fmt=lambda x: "%.1f" % x):
@@ -93,13 +104,13 @@ def sentence(j, best_text, fmt=lambda x: "%.1f" % x):
         return base + " MFL&rsquo;s pregame projections favored %s (%s) over %s (%s), so that call went against the projections." % (
             _html.escape(m["in"]["name"]), fmt(m["in"]["proj"]), _html.escape(m["out"]["name"]), fmt(m["out"]["proj"])), nums
     if s == "reasonable":
-        return base + " MFL&rsquo;s pregame projections favored his starters at every spot, so the gap is scoring variance, not a lineup decision.", nums
+        return base + " " + _no_clear_case(sw) + ", so the gap is scoring variance, not a lineup decision.", nums
     unk = len([x for x in sw if x["verdict"] == "unknown"])
     if s == "partial":
         nums += [unk, len(sw)]
-        return base + (" Where MFL has a pregame projection for both players it favored his starters; for %d of %d changes it has none "
+        return base + (" Where MFL has a pregame projection for both players, %s; for %d of %d changes it has none "
                        "for one of them (a capture counts only before the player&rsquo;s own kickoff), so this report does not call those a mistake.") % (
-            unk, len(sw)), nums
+            _no_clear_case([x for x in sw if x["verdict"] == "reasonable"], lead=False), unk, len(sw)), nums
     tail = " (a capture counts only before the player&rsquo;s own kickoff), so this report does not judge the lineup."
     if len(sw) > 1:
         nums.append(len(sw))
