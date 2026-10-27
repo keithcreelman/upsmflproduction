@@ -267,6 +267,8 @@
     }
     function paint() {
       var keep = el.querySelector && el.querySelector("[data-note]"); if (keep) st.note = keep.value;
+      // Read which roster lists are open from the page itself (a `toggle` event can arrive after a data refresh re-renders).
+      Array.prototype.forEach.call(el.querySelectorAll("details[data-open]"), function (d) { st.open[d.getAttribute("data-open")] = d.open; });
       var focus = document.activeElement, fq = focus && focus.getAttribute && focus.getAttribute("data-q"), pos = focus && focus.selectionStart;
       el.innerHTML = '<div class="fo-tb">' + proposalCard() + impactCard() + reviewCard() + "</div>";
       if (fq) { var n = el.querySelector('[data-q="' + fq + '"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }
