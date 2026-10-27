@@ -86,12 +86,31 @@
     return Object.keys(s).sort();
   }
 
-  // Cap money a side may attach is an ESTIMATE here (50% of the non-taxi salary it sends, rounded down in $K).
-  // The server applies the league's own basis; the builder only shows this as a hint (R2 is undecided).
-  function capMoneyHintK(d, from) {
+  // The most cap money a team may include: half the NON-TAXI player salary it sends, in whole $K rounded down (canon §A6; the shared
+  // rule UPS_TRADE_RULES.capMoneyMaxK). Two-team: counted per side (everything this team sends). Three-team: per movement
+  // (only what goes to that destination). Picks carry no salary. The server applies its own basis and is the authority (R2 is undecided),
+  // so this is the page's guard against an amount the rule would refuse, never a ruling.
+  function capMoneyMaxK(d, from, to) {
+    var f = pad4(from), t = pad4(to), three = d.teams.length === 3, total = 0;
+    d.items.forEach(function (i) {
+      if (i.from !== f || (three && i.to !== t) || i.taxi || !/^P_/.test(i.token)) return;
+      total += Number(i.salary) || 0;
+    });
+    return R.capMoneyMaxK(total);
+  }
+  function capMoneyHintK(d, from) {          // back-compat: everything this team sends
     var total = 0;
     d.items.forEach(function (i) { if (i.from === pad4(from) && !i.taxi && /^P_/.test(i.token)) total += Number(i.salary) || 0; });
     return R.capMoneyMaxK(total);
+  }
+  // A draft with every cap-money amount held to its maximum; clamped lists the keys that were reduced.
+  function clampCap(d) {
+    var n = clone(d), clamped = [];
+    Object.keys(n.capK).forEach(function (k) {
+      var p = k.split(">"), max = capMoneyMaxK(n, p[0], p[1]);
+      if (n.capK[k] > max) { clamped.push(k); if (max > 0) n.capK[k] = max; else delete n.capK[k]; }
+    });
+    return { draft: n, clamped: clamped };
   }
 
   // Is the proposal structurally COMPLETE? This is the owner's own unfinished state, not a rule verdict, and it mirrors the
@@ -199,7 +218,7 @@
   var api = {
     sendPlan: sendPlan, summary: summary, setExt: setExt, extensionRequests: extensionRequests,
     emptyDraft: emptyDraft, withTeams: withTeams, addItem: addItem, removeItem: removeItem, setCapK: setCapK, hasItem: hasItem,
-    movements: movements, parties: parties, capMoneyHintK: capMoneyHintK, gaps: gaps, request: request, signature: signature,
+    movements: movements, parties: parties, capMoneyHintK: capMoneyHintK, capMoneyMaxK: capMoneyMaxK, clampCap: clampCap, gaps: gaps, request: request, signature: signature,
     readiness: readiness, lockView: lockView, reasonText: reasonText, pad4: pad4
   };
   root.UPS_TRADE_BUILDER_CORE = api;

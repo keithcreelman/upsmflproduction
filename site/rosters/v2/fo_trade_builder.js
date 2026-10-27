@@ -127,11 +127,54 @@
       after.starters.forEach(function (s) { var g = s.group || "—"; (groups[g] = groups[g] || { g: g, before: 0, after: 0 }).after += s.v || 0; });
       var byPos = Object.keys(groups).map(function (g) { var x = groups[g]; x.delta = x.after - x.before; return x; }).sort(function (a, b) { return Math.abs(b.delta) - Math.abs(a.delta); });
       var rep = function (lu) { return lu.starters.filter(function (s) { return s.rep || s.empty; }).length; };
-      teamsOut[f] = { before: tm.total, after: after.total, delta: after.total - tm.total, slots: slots, byPos: byPos,
+      // ── every traded player: what he is worth on THIS roster (starter vs bench), who he moves, and his own effect ──
+      var val = function (pid) { return Number(m.values[pid]) || 0; };
+      var grp = function (pos) { return m.lineup.posGroup(pos); };
+      var inSet = {}, outSet = {}; inPlayers.forEach(function (p) { inSet[p.pid] = 1; }); outPids.forEach(function (pid) { outSet[pid] = 1; });
+      var afterStart = {}, beforeStart = {};
+      after.starters.forEach(function (s) { if (s.pid && !s.rep) afterStart[s.pid] = s.slot; });
+      before.starters.forEach(function (s) { if (s.pid && !s.rep) beforeStart[s.pid] = s; });
+      var benched = Object.keys(beforeStart).filter(function (pid) { return !outSet[pid] && !(pid in afterStart); });     // starters pushed to the bench
+      var rosterAfter = tm.team.players.filter(function (p) { return !outSet[p.pid] && TF.availableNow(p) && grp(p.pos) !== "OTH"; }).concat(inPlayers.filter(function (p) { return after.notCounted.indexOf(p.pid) === -1; }));
+      var depthOf = function (g, list) { return list.filter(function (p) { return grp(p.pos) === g; }).sort(function (a, b) { return val(b.pid) - val(a.pid); }); };
+      var players = [];
+      inPlayers.forEach(function (p) {
+        var g = grp(p.pos), x = { pid: p.pid, name: nameOf(p.pid), pos: p.pos, dir: "in", ppg: val(p.pid), role: "bench", slot: "", depth: "", displaces: "", note: "", lineupDelta: 0 };
+        if (after.notCounted.indexOf(p.pid) !== -1) { x.role = "out"; players.push(x); return; }
+        var without = TF.tradeLineup(m, f, outPids, inPlayers.filter(function (q) { return q.pid !== p.pid; }));
+        x.lineupDelta = after.total - without.total;
+        if (p.pid in afterStart) {
+          x.role = "starter"; x.slot = slotLabel[afterStart[p.pid]] || afterStart[p.pid];
+          var held = before.starters.filter(function (s) { return s.slot === afterStart[p.pid]; })[0], parts = [];
+          if (held && held.pid && !held.rep) parts.push(outSet[held.pid] ? "Replaces " + nameOf(held.pid) + " (leaving)" : "Takes " + nameOf(held.pid) + "’s slot");
+          if (held && held.rep) parts.push("Takes a slot that was at replacement level");
+          benched.filter(function (pid) { return grp((tm.team.players.filter(function (q) { return q.pid === pid; })[0] || {}).pos) === g; }).forEach(function (pid) { parts.push("Pushes " + nameOf(pid) + " to the bench"); });
+          x.displaces = parts.join("; ");
+        } else {
+          var list = depthOf(g, rosterAfter), idx = list.map(function (q) { return q.pid; }).indexOf(p.pid);
+          x.depth = g + (idx + 1);
+          x.displaces = idx > 0 ? "Behind " + list.slice(0, Math.min(idx, 2)).map(function (q) { return nameOf(q.pid); }).join(", ") : "";
+        }
+        players.push(x);
+      });
+      outPids.forEach(function (pid) {
+        var rec = tm.team.players.filter(function (q) { return q.pid === pid; })[0] || { pid: pid, pos: "" };
+        var wasStarter = pid in beforeStart, x = { pid: pid, name: nameOf(pid), pos: rec.pos, dir: "out", ppg: val(pid), role: "left", lineupDelta: 0, displaces: "", note: wasStarter ? "Was a starter (" + (slotLabel[beforeStart[pid].slot] || beforeStart[pid].slot) + ")" : "Was a bench player" };
+        if (wasStarter) { x.lineupDelta = TF.tradeLineup(m, f, [pid], []).total - tm.total; var now = bySlot[beforeStart[pid].slot]; if (now) x.displaces = "Slot now: " + (now.rep ? "replacement level" : now.empty ? "empty" : nameOf(now.pid)); }
+        players.push(x);
+      });
+      var touched = {}; players.forEach(function (x) { if (x.pos) touched[grp(x.pos)] = 1; });
+      var line = function (list) { return list.slice(0, 4).map(function (q) { return nameOf(q.pid) + " " + (Math.round(val(q.pid) * 10) / 10).toFixed(1); }).join(" · ") || "none"; };
+      var depth = Object.keys(touched).filter(function (g) { return g !== "OTH"; }).map(function (g) {
+        var b = depthOf(g, tm.team.players.filter(function (p) { return TF.availableNow(p) && grp(p.pos) !== "OTH"; })), a = depthOf(g, rosterAfter);
+        return { g: g, before: "(" + b.length + ") " + line(b), after: "(" + a.length + ") " + line(a) };
+      });
+      teamsOut[f] = { before: tm.total, after: after.total, delta: after.total - tm.total, slots: slots, byPos: byPos, players: players, depth: depth,
         leaving: outPids.map(nameOf), entering: inPlayers.map(function (p) { return nameOf(p.pid); }),
         notCounted: after.notCounted.map(nameOf), repBefore: rep(before), repAfter: rep(after) };
     });
-    return { state: "ok", teams: teamsOut };
+    var F = root.UPS_PLAYER_FACTS;
+    return { state: "ok", teams: teamsOut, basis: "Year-to-date points per week, not a projection. " + (F && F.basis ? F.basis(ss).text : "") };
   }
   function impact(draft) { return { cap: capImpacts(draft), lineup: lineupImpacts(draft), ext: extImpacts(draft) }; }
 
@@ -144,9 +187,20 @@
       .then(function (r) { return r.json(); }, function () { return null; });
   }
 
+  // The extension choice popup is the Front Office's own dialog; its buttons are handled here and handed to the builder.
+  var current = null;
+  function wireDialog() {
+    var body = document.getElementById("fo-about-body");
+    if (!body || body.__tbWired) return;
+    body.__tbWired = true;
+    body.addEventListener("click", function (e) { if (current) current.dialogAction(e.target); });
+  }
   function mount(host) {
     var c = cfg();
-    return root.UPS_TRADE_BUILDER_VIEW.mount(host, {
+    wireDialog();
+    current = root.UPS_TRADE_BUILDER_VIEW.mount(host, {
+      openDialog: function (title, html) { H.openDialog(title, html, { variant: "team" }); },
+      closeDialog: function () { H.closeAbout(); },
       teams: teams(),
       assets: function (fid) { return { players: playersOf(fid), picks: picksOf(fid) }; },
       ctx: { leagueId: DATA.config().leagueId, season: DATA.config().season, viewerFid: FO.viewerFid() },
@@ -159,6 +213,7 @@
       sendNotice: c.sendNotice || "Sending from the Front Office is not turned on yet. Nothing here sends a trade; use the Trade War Room to send.",
       warRoomUrl: ("warRoomUrl" in c) ? c.warRoomUrl : (FO.warRoomUrl ? FO.warRoomUrl({}) : "")
     });
+    return current;
   }
 
   root.UPS_FO_TRADE_BUILDER = { mount: mount, _picksOf: picksOf, _impact: impact, _playersOf: playersOf };

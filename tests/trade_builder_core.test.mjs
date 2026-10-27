@@ -192,3 +192,22 @@ test("pre-trade extension choices: stored per player, dropped with the player, i
   assert.equal(Object.keys(C.removeItem(d, "P_1234", "0003").ext).length, 0);                         // player removed: choice removed
   assert.equal(Object.keys(C.setExt(d, "0003", "P_NOT_THERE", "1YR|NONE").ext).length, 1);           // unselected player: ignored
 });
+
+test("cap money maximum: half the NON-TAXI player salary sent, per side for two teams and per destination for three", () => {
+  const two = twoTeam();                                    // 0003 sends $21K (non-taxi) + $5K taxi + a pick? (pick is from 0007)
+  assert.equal(C.capMoneyMaxK(two, "0003", "0007"), 10);
+  assert.equal(C.capMoneyMaxK(two, "0007", "0003"), 0);     // a pick carries no salary
+  let d = C.emptyDraft(["0003", "0007", "0011"]);
+  d = C.addItem(d, { from: "0003", to: "0007", token: "P_1", salary: 9999 });
+  d = C.addItem(d, { from: "0003", to: "0011", token: "P_2", salary: 10000 });
+  assert.equal(C.capMoneyMaxK(d, "0003", "0007"), 4);       // floor(9999 / 2000)
+  assert.equal(C.capMoneyMaxK(d, "0003", "0011"), 5);
+});
+test("clampCap holds an amount to its maximum and drops it when nothing supports it", () => {
+  let d = C.setCapK(twoTeam(), "0003", "0007", 25);
+  const r = C.clampCap(d);
+  assert.deepEqual(r.clamped, ["0003>0007"]); assert.equal(r.draft.capK["0003>0007"], 10);
+  const gone = C.clampCap(C.setCapK(C.removeItem(twoTeam(), "P_1234", "0003"), "0003", "0007", 3));
+  assert.equal(gone.draft.capK["0003>0007"], undefined);
+  assert.deepEqual(C.clampCap(C.setCapK(twoTeam(), "0003", "0007", 10)).clamped, []);
+});
