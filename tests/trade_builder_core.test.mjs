@@ -256,27 +256,80 @@ test("clampCap holds an amount to its maximum and drops it when nothing supports
   assert.deepEqual(C.clampCap(C.setCapK(twoTeam(), "0003", "0007", 10)).clamped, []);
 });
 
-// ── MAT-1 (Codex review of #1409): a franchise that already used its extension on a player must never be offered another one ──
+// ── Pre-trade extension facts (Codex MAT-1 on #1409, then the Front Office facts connection) ──
 const X = require("../site/shared/pretrade_extension.js").UPS_PRETRADE_EXT;
 // Rico Dowdle as recorded 2026-10-20 (data/mfl-snapshots/2026-10-20/rosters.json, Blake Bombers): one year left, contract already carries "Ext: Blake".
 const rico = { id: "14823", position: "RB", salary: 11000, years: 1, type: "Vet-Ext1", special: "CL 2| TCV 12K| AAV 11K| Y1-1K, Y2-11K| GTD: 9K| Ext: Blake", isTaxi: false };
+// A valid FIRST extension: a final-year WR whose franchise has not extended him.
+const first = { id: "16614", position: "WR", salary: 14000, years: 1, type: "Rookie-Draft", special: "CL 1| TCV 14K| AAV 14K| Y1-14K", isTaxi: false };
+const FULL = (already) => ({ history_ok: true, already_extended_by_this_franchise: already, server_confirmed: true });
 const optionsFor = (p, facts) => { const a = C.extensionInput(p, facts); return a ? X.buildSyntheticExtensionOptions(a) : []; };
-test("no authoritative facts -> no extension input at all: no badge, no choices (never inferred from the contract or its Ext: text)", () => {
-  for (const facts of [null, undefined, {}, { already_extended_by_this_franchise: "no" }, { already_extended_by_this_franchise: null }]) {
-    assert.equal(C.extensionInput(rico, facts), null);
-    assert.deepEqual(optionsFor(rico, facts), []);
-  }
+
+test("no complete facts -> no extension input at all: no badge, no choices (never inferred from the contract or its Ext: text)", () => {
+  const missing = [null, undefined, {}, { already_extended_by_this_franchise: false },                    // the old, partial shape no longer suffices
+    { history_ok: true, already_extended_by_this_franchise: false },                                         // history read, but the server did not confirm
+    { history_ok: true, already_extended_by_this_franchise: false, server_confirmed: false },
+    { history_ok: false, already_extended_by_this_franchise: false, server_confirmed: true },               // history unreadable
+    { history_ok: "true", already_extended_by_this_franchise: false, server_confirmed: true },
+    { history_ok: true, already_extended_by_this_franchise: null, server_confirmed: true },
+    { history_ok: true, already_extended_by_this_franchise: "no", server_confirmed: true },
+    { server_confirmed: true }];
+  for (const facts of missing) { assert.equal(C.extensionInput(first, facts), null, JSON.stringify(facts)); assert.deepEqual(optionsFor(first, facts), []); }
 });
-test("Rico Dowdle: the sending franchise already extended him (facts say so) -> no 1YR or 2YR option", () => {
-  assert.deepEqual(optionsFor(rico, { already_extended_by_this_franchise: true }), []);
+test("a valid first extension: full facts (history read, not yet extended, server confirmed) -> the 1-year and 2-year options", () => {
+  assert.deepEqual(optionsFor(first, FULL(false)).map((o) => o.option_key), ["1YR|NONE", "2YR|NONE"]);
 });
-test("a same-franchise repeat extension is blocked, while a first extension on the same contract shape is offered (the flag is what decides)", () => {
-  const first = optionsFor(rico, { already_extended_by_this_franchise: false });
-  assert.deepEqual(first.map((o) => o.option_key), ["1YR|NONE", "2YR|NONE"]);
-  assert.equal(C.extensionInput(rico, { already_extended_by_this_franchise: true }).already_extended_by_this_franchise, true);
-  assert.deepEqual(optionsFor({ ...rico, special: "CL 2| TCV 12K| AAV 11K| Y1-1K, Y2-11K| GTD: 9K" }, { already_extended_by_this_franchise: true }), []);
+test("Rico Dowdle: Blake already extended him (full facts say so) -> no 1YR or 2YR option, even though the server confirmed the probe", () => {
+  assert.deepEqual(optionsFor(rico, FULL(true)), []);
+  assert.deepEqual(optionsFor({ ...rico, special: "CL 2| TCV 12K| AAV 11K| Y1-1K, Y2-11K| GTD: 9K" }, FULL(true)), []);  // the flag decides, not the Ext: text
 });
-test("the shared rule's own gates still apply when the facts say 'not yet extended' (not final year, tagged)", () => {
-  assert.deepEqual(optionsFor({ ...rico, years: 2 }, { already_extended_by_this_franchise: false }), []);
-  assert.deepEqual(optionsFor({ ...rico, type: "Vet-Tag" }, { already_extended_by_this_franchise: false }), []);
+test("the shared rule's own gates still apply when the facts are complete (not final year, tagged)", () => {
+  assert.deepEqual(optionsFor({ ...first, years: 2 }, FULL(false)), []);
+  assert.deepEqual(optionsFor({ ...first, type: "Vet-Tag" }, FULL(false)), []);
+});
+
+// historyFacts: the worker's /trade-workbench response -> this franchise's history fact for one player
+const WB = (ok, flagged) => ({ meta: { counts: { extension_history_ok: ok } }, teams: [
+  { franchise_id: "0010", assets: [{ type: "PLAYER", player_id: "14823", ...(flagged ? { already_extended_by_this_franchise: true } : {}) }, { type: "PLAYER", player_id: "9" }, { type: "DRAFT_PICK", asset_id: "FP_x" }] },
+  { franchise_id: "0008", assets: [{ type: "PLAYER", player_id: "16614" }] }] });
+test("historyFacts: history_ok must be exactly true; the flag marks Rico; an unflagged player on a readable history is 'not extended'", () => {
+  assert.deepEqual(C.historyFacts(WB(true, true), "0010", "14823"), { history_ok: true, already_extended_by_this_franchise: true });
+  assert.deepEqual(C.historyFacts(WB(true, true), "0010", "9"), { history_ok: true, already_extended_by_this_franchise: false });
+  assert.deepEqual(C.historyFacts(WB(true, false), "0008", "16614"), { history_ok: true, already_extended_by_this_franchise: false });
+});
+test("historyFacts: unreadable history (false / missing / not boolean) or an unknown franchise or player gives nothing, never 'not extended'", () => {
+  for (const ok of [false, undefined, null, "true", 1]) assert.equal(C.historyFacts(WB(ok, false), "0008", "16614"), null);
+  assert.equal(C.historyFacts({ teams: WB(true).teams }, "0008", "16614"), null);       // no meta at all
+  assert.equal(C.historyFacts(WB(true, false), "0099", "16614"), null);                 // franchise not in the response
+  assert.equal(C.historyFacts(WB(true, false), "0008", "77"), null);                    // player not among its assets
+  assert.equal(C.historyFacts(null, "0008", "16614"), null);
+});
+// probeResult: the compliance-preview answer to a probe for ONE extension request
+test("probeResult: confirmed only when the answer is ok, the extension part was evaluated, and the player is not refused", () => {
+  const okResp = (skipped, cap) => ({ ok: true, compliance: { extension_skipped: skipped, cap: cap || { status: "ok" } } });
+  assert.deepEqual(C.probeResult(okResp([]), "16614"), { confirmed: true, reason: "" });
+  assert.deepEqual(C.probeResult(okResp([{ player_id: "999", reason: "x" }]), "16614"), { confirmed: true, reason: "" });   // another player's refusal
+  const window = C.probeResult(okResp([{ player_id: "16614", reason: "outside_window" }]), "16614");                         // the acquisition window
+  assert.deepEqual(window, { confirmed: false, reason: "outside_window" });
+  assert.equal(C.probeResult(okResp([{ player_id: "16614", reason: "authority_unavailable:history" }]), "16614").confirmed, false);
+  assert.equal(C.probeResult(okResp([], { status: "unavailable", reason: "extension_salaries_unavailable" }), "16614").confirmed, false);
+  for (const bad of [null, undefined, {}, { ok: false }, { ok: true }, { ok: true, compliance: {} }, { ok: true, compliance: { extension_skipped: "x" } }, "x"]) assert.equal(C.probeResult(bad, "16614").confirmed, false, JSON.stringify(bad));
+});
+test("extensionFacts combines history and probe, and is null unless both are complete", () => {
+  const h = { history_ok: true, already_extended_by_this_franchise: false }, p = { confirmed: true };
+  assert.deepEqual(C.extensionFacts(h, p), FULL(false));
+  assert.deepEqual(C.extensionFacts({ ...h, already_extended_by_this_franchise: true }, p), FULL(true));
+  for (const [hh, pp] of [[null, p], [h, null], [h, { confirmed: false }], [{ history_ok: false, already_extended_by_this_franchise: false }, p], [{ history_ok: true }, p], [{}, {}]]) assert.equal(C.extensionFacts(hh, pp), null);
+});
+test("end to end on the pure pieces: Rico (flagged on Blake's history) and a valid first extension", () => {
+  const ricoFacts = C.extensionFacts(C.historyFacts(WB(true, true), "0010", "14823"), { confirmed: true });
+  assert.deepEqual(optionsFor(rico, ricoFacts), []);
+  const firstFacts = C.extensionFacts(C.historyFacts(WB(true, false), "0008", "16614"), C.probeResult({ ok: true, compliance: { extension_skipped: [] } }, "16614"));
+  assert.deepEqual(optionsFor(first, firstFacts).map((o) => o.option_key), ["1YR|NONE", "2YR|NONE"]);
+  const noHistory = C.extensionFacts(C.historyFacts(WB(false, false), "0008", "16614"), { confirmed: true });
+  assert.deepEqual(optionsFor(first, noHistory), []);
+});
+test("probeAsset carries no eligibility claim (the flag is false, for the worker to judge)", () => {
+  assert.equal(C.probeAsset(first).already_extended_by_this_franchise, false);
+  assert.equal(C.probeAsset(null), null);
 });

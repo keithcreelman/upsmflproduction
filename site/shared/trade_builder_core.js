@@ -57,31 +57,69 @@
   }
   // The extension_requests rows the server reads (the same row the Trade War Room sends), one per extended player.
   // optionsFor(item) returns that player's options from the shared rule (UPS_PRETRADE_EXT); a choice with no matching option is dropped.
+  // One extension_requests row (the row the Trade War Room sends and the server reads) for an item and one of its options.
+  function extensionRow(i, opt) {
+    return { player_id: i.token.replace(/^P_/, ""), player_name: i.label, from_franchise_id: i.from, to_franchise_id: i.to, applies_to_acquirer: true,
+      option_key: opt.option_key, extension_term: opt.extension_term, loaded_indicator: opt.loaded_indicator, preview_id: opt.preview_id == null ? null : opt.preview_id,
+      preview_contract_info_string: opt.preview_contract_info_string || null, new_contract_status: opt.new_contract_status || null,
+      new_contract_length: opt.new_contract_length == null ? null : opt.new_contract_length, new_TCV: opt.new_TCV == null ? null : opt.new_TCV,
+      new_aav_current: opt.new_aav_current == null ? null : opt.new_aav_current, new_aav_future: opt.new_aav_future == null ? null : opt.new_aav_future };
+  }
   function extensionRequests(d, optionsFor) {
     var out = [];
     d.items.forEach(function (i) {
       var key = (d.ext || {})[i.from + "|" + i.token]; if (!key || !optionsFor) return;
       var opt = (optionsFor(i) || []).filter(function (o) { return o.option_key === key; })[0];
-      if (!opt) return;
-      out.push({ player_id: i.token.replace(/^P_/, ""), player_name: i.label, from_franchise_id: i.from, to_franchise_id: i.to, applies_to_acquirer: true,
-        option_key: opt.option_key, extension_term: opt.extension_term, loaded_indicator: opt.loaded_indicator, preview_id: opt.preview_id == null ? null : opt.preview_id,
-        preview_contract_info_string: opt.preview_contract_info_string || null, new_contract_status: opt.new_contract_status || null,
-        new_contract_length: opt.new_contract_length == null ? null : opt.new_contract_length, new_TCV: opt.new_TCV == null ? null : opt.new_TCV,
-        new_aav_current: opt.new_aav_current == null ? null : opt.new_aav_current, new_aav_future: opt.new_aav_future == null ? null : opt.new_aav_future });
+      if (opt) out.push(extensionRow(i, opt));
     });
     return out;
   }
 
-  // The input to the shared pre-trade extension rule (UPS_PRETRADE_EXT) for ONE player of the SENDING franchise. It exists only when the
-  // authoritative extension facts for that franchise and player are available (the worker's `already_extended_by_this_franchise`, stamped
-  // from the extension history; canon: the sending team must currently hold its own extension right). Without them it is null, and the
-  // builder shows no "Extension eligible" badge and no extension choices: eligibility is never inferred from contract shape or `Ext:` text.
-  // p is a Front Office player ({ position, salary, years, type, special, isTaxi }); facts is { already_extended_by_this_franchise: boolean }.
+  // ── Pre-trade extension FACTS. An extension badge and its choices appear only when ALL of these hold for this franchise and player:
+  //   history_ok       the worker could READ its extension history (`/trade-workbench` meta.counts.extension_history_ok === true);
+  //   already_extended whether this franchise already used its extension on him (a boolean, only known when history_ok);
+  //   server_confirmed the worker's own full eligibility check (owner, final year, tag, MYAC lock, September deadline and the acquisition
+  //                    window, history, restructure, price) accepted a probe request for him (the compliance preview).
+  // The history flag alone is NOT eligibility, and nothing is inferred from contract shape or `Ext:` text. Anything missing = no input.
+
+  // From the worker's /trade-workbench response: this franchise's history fact for one player, or null when the history was not readable
+  // (history_ok must be exactly true) or the player is not among that franchise's assets (we do not guess "not extended").
+  function historyFacts(wb, fid, pid) {
+    var ok = wb && wb.meta && wb.meta.counts && wb.meta.counts.extension_history_ok === true;
+    if (!ok) return null;
+    var team = ((wb && wb.teams) || []).filter(function (t) { return pad4(t && t.franchise_id) === pad4(fid); })[0];
+    var asset = team && (team.assets || []).filter(function (a) { return a && String(a.type).toUpperCase() === "PLAYER" && String(a.player_id || "").replace(/\D/g, "") === String(pid).replace(/\D/g, ""); })[0];
+    if (!asset) return null;
+    return { history_ok: true, already_extended_by_this_franchise: asset.already_extended_by_this_franchise === true };
+  }
+  // From the compliance-preview response to a probe carrying ONE extension request for `pid`: did the worker's full eligibility check accept it?
+  // Confirmed only when the response is ok, the extension part could be evaluated, and the player is not in `extension_skipped`.
+  // Anything else (a refusal, an unreadable authority, an error, a missing field) is NOT confirmed; `reason` carries the worker's own reason.
+  function probeResult(resp, pid) {
+    var id = String(pid).replace(/\D/g, "");
+    if (!resp || typeof resp !== "object" || resp.ok === false || !resp.compliance || !Array.isArray(resp.compliance.extension_skipped)) return { confirmed: false, reason: "no_answer" };
+    if (resp.compliance.cap && resp.compliance.cap.reason === "extension_salaries_unavailable") return { confirmed: false, reason: "extension_salaries_unavailable" };
+    var hit = resp.compliance.extension_skipped.filter(function (x) { return String(x && x.player_id || "").replace(/\D/g, "") === id; })[0];
+    return hit ? { confirmed: false, reason: String(hit.reason || "refused") } : { confirmed: true, reason: "" };
+  }
+  // The combined facts the extension input needs, or null when any part is missing.
+  function extensionFacts(history, probe) {
+    if (!history || history.history_ok !== true || typeof history.already_extended_by_this_franchise !== "boolean") return null;
+    if (!probe || probe.confirmed !== true) return null;
+    return { history_ok: true, already_extended_by_this_franchise: history.already_extended_by_this_franchise, server_confirmed: true };
+  }
+  // The input to the shared pre-trade extension rule (UPS_PRETRADE_EXT) for ONE player of the SENDING franchise. Null (no badge, no choices)
+  // unless every fact above is present. p is a Front Office player ({ position, salary, years, type, special, isTaxi }).
   function extensionInput(p, facts) {
-    if (!p || !facts || typeof facts.already_extended_by_this_franchise !== "boolean") return null;
+    if (!p || !facts || facts.history_ok !== true || facts.server_confirmed !== true || typeof facts.already_extended_by_this_franchise !== "boolean") return null;
     var info = str(p.special), cl = /(?:^|\|)\s*CL\s*(\d+)/i.exec(info);
     return { type: "PLAYER", position: p.position, salary: p.salary, years: p.years, contract_type: p.type, contract_info: info,
       contract_length: cl ? parseInt(cl[1], 10) : 0, taxi: !!p.isTaxi, already_extended_by_this_franchise: facts.already_extended_by_this_franchise };
+  }
+  // The same asset WITHOUT any facts, used only to build a PROBE request for the worker to judge. Never shown; never an eligibility claim.
+  function probeAsset(p) {
+    var info = str(p && p.special), cl = /(?:^|\|)\s*CL\s*(\d+)/i.exec(info);
+    return p ? { type: "PLAYER", position: p.position, salary: p.salary, years: p.years, contract_type: p.type, contract_info: info, contract_length: cl ? parseInt(cl[1], 10) : 0, taxi: !!p.isTaxi, already_extended_by_this_franchise: false } : null;
   }
 
   // One movement per (from, to) pair: the shape both the two- and three-team server paths read.
@@ -234,7 +272,7 @@
   }
 
   var api = {
-    extensionInput: extensionInput, sendPlan: sendPlan, summary: summary, setExt: setExt, extensionRequests: extensionRequests,
+    extensionRow: extensionRow, extensionInput: extensionInput, extensionFacts: extensionFacts, historyFacts: historyFacts, probeResult: probeResult, probeAsset: probeAsset, sendPlan: sendPlan, summary: summary, setExt: setExt, extensionRequests: extensionRequests,
     emptyDraft: emptyDraft, withTeams: withTeams, addItem: addItem, removeItem: removeItem, setCapK: setCapK, hasItem: hasItem,
     movements: movements, parties: parties, capMoneyHintK: capMoneyHintK, capMoneyMaxK: capMoneyMaxK, clampCap: clampCap, gaps: gaps, request: request, signature: signature,
     readiness: readiness, lockView: lockView, reasonText: reasonText, pad4: pad4
