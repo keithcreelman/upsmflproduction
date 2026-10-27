@@ -244,6 +244,7 @@
       "shared/player_profile_master.js",
       "rosters/v2/fo_hub.js",
       "rosters/v2/fo_overview.js",
+      "rosters/v2/fo_roster.js",
       "rosters/v2/front_office.js"
     ];
     function candidatesFor(path) {

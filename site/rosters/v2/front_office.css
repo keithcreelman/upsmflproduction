@@ -1109,3 +1109,39 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-about-body details { margin: 4px 0; } .fo-about-body summary { cursor: pointer; font-size: 13px; }
 @media (max-width: 1100px) { .fo-ov-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 820px) { .fo-ov-grid { grid-template-columns: 1fr; } }
+
+/* ── Roster → Performance (#1338) ── */
+.fo-perf-wrap[hidden], #fo-contract-table-wrap[hidden] { display: none; }
+.fo-perf-table { min-width: 860px; }
+.fo-perf-table th { white-space: nowrap; }
+.fo-th-sort { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-transform: inherit; letter-spacing: inherit; }
+.fo-th-sort:hover { color: var(--text); }
+.fo-perf-player .fo-plink { font-weight: 600; text-decoration: none; }
+.fo-perf-sub { font-size: 11px; }
+.fo-muted { color: var(--muted); }
+.fo-bye { color: var(--warn); font-weight: 700; font-size: 11px; letter-spacing: 0.4px; }
+.fo-slot { display: inline-block; padding: 0 7px; border-radius: 10px; font-size: 11px; line-height: 18px; border: 1px solid var(--border); white-space: nowrap; }
+.fo-slot-start { color: #bfdbfe; border-color: rgba(91, 141, 255, 0.5); background: rgba(91, 141, 255, 0.12); }
+.fo-slot-bench { color: var(--muted); }
+.fo-slot-off { color: var(--muted); border-style: dashed; }
+
+/* ── Bye planner (#1338) ── */
+.fo-inline { display: inline-flex; align-items: center; gap: 6px; flex-direction: row; font-size: 12px; color: var(--muted); }
+.fo-inline select { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 3px 6px; }
+.fo-bye-grid { min-width: 720px; }
+.fo-bye-grid th[scope="row"] { text-align: left; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.fo-bye-wk button { background: none; border: 0; color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; padding: 2px 4px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; width: 100%; }
+.fo-bye-wk.sel button { color: var(--text); background: var(--accent-soft); }
+.fo-bye-wk.short button { color: var(--err); }
+.fo-bye-wk.heavy button { color: var(--warn); }
+.fo-bye-cost { font-size: 10px; font-weight: 500; color: var(--muted); }
+.fo-bye-cell { text-align: center; font-variant-numeric: tabular-nums; font-size: 12px; }
+.fo-bye-cell.ok { color: var(--muted); }
+.fo-bye-cell.sub { color: #fcd34d; background: rgba(251, 191, 36, 0.08); }
+.fo-bye-cell.empty { color: #fecaca; background: rgba(239, 68, 68, 0.22); font-weight: 700; }
+.fo-bye-cell.sel { outline: 1px solid var(--accent-soft); outline-offset: -1px; }
+.fo-bye-out { list-style: none; padding: 0; margin: 6px 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 16px; font-size: 13px; }
+.fo-bye-h { margin: 10px 0 4px; font-size: 13px; }
+.fo-bye-key { padding: 0 4px; border-radius: 3px; }
+.fo-bye-key.empty { color: #fecaca; background: rgba(239, 68, 68, 0.22); }
+.fo-bye-key.sub { color: #fcd34d; background: rgba(251, 191, 36, 0.12); }
