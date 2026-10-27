@@ -71,6 +71,12 @@ jobs:
       - name: UPS Center editorial standards
         run: python pipelines/etl/wire/test_ups_center_standards.py
 
+      # Offline: the REAL gather() against recorded Week 7 I/O -- the week's rows are read from D1 once and serve both the
+      # bust/bargain evidence and the lineup analysis; the schedule and standings reach the clinching engine; run.json
+      # records the flags.
+      - name: UPS Center gather (recorded Week 7)
+        run: python pipelines/etl/wire/test_ups_center_gather.py
+
       # Offline: the season simulation crowns exactly one champion per division
       # in every simulated season, breaks division ties in MFL's order (record,
       # division record, head-to-head, points, All-Play), and division odds total
