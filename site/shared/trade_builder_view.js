@@ -256,6 +256,9 @@
         (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> (optional; not needed to finish a trade here)</p>' : "") + "</div>";
     }
 
+    // Replacing the markup blurs a focused field, which can fire its `change` handler and call render() again mid-write.
+    // A nested call is deferred to just after the current one, never run inside it.
+    var rendering = false, again = false;
     function render() {
       if (rendering) { again = true; return; }
       rendering = true;
