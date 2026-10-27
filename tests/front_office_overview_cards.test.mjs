@@ -12,35 +12,34 @@ import { t, test, run } from "./fixtures/mini_test.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SRC = fs.readFileSync(process.env.FO_OVERVIEW_JS || path.join(ROOT, "site/rosters/v2/fo_overview.js"), "utf8");
-const CAL = JSON.parse(fs.readFileSync(path.join(ROOT, "tests/fixtures/mfl_calendar_trade_events_2026.json"), "utf8"));
 const ctx = vm.createContext({ document: { addEventListener() {}, getElementById() { return null; } }, Intl, Date });
 ctx.window = ctx;
 vm.runInContext(SRC, ctx);
 const OV = ctx.UPS_FO_OVERVIEW;
 const ms = (iso) => Date.parse(iso);
 
-test("Trade deadline = MFL's first 'No Trades Allowed' (Tue Nov 24, 12:00 PM ET), not the league calendar's Nov 25", () => {
-  t.ok(OV && typeof OV.tradeDeadlineFrom === "function", "exposed for tests");
-  const d = OV.tradeDeadlineFrom(CAL, ms("2026-10-20T20:00:00-04:00"));
-  t.equal(d.state, "upcoming");
-  t.equal(d.label, "Tue, Nov 24, 12:00 PM ET", "Eastern time, MFL's earliest TRADE event");
-  t.ok(/formatToParts/.test(SRC) && !/toLocaleString\("en-US", \{ timeZone: "America\/New_York", weekday/.test(SRC), "built from date parts: Safari's toLocaleString adds \"at\"");
-  t.equal(d.days, 35, "Oct 20 → Nov 24 in Eastern calendar days");
-  t.equal(d.events, 3, "three TRADE events read; the waiver event ignored");
-  const after = OV.tradeDeadlineFrom(CAL, ms("2026-11-24T12:00:01-05:00"));
-  t.equal(after.state, "closed", "one second after noon: closed");
-  t.equal(OV.tradeDeadlineFrom(CAL, ms("2026-11-24T09:00:00-05:00")).days, 0, "the morning of: today");
-  t.equal(OV.tradeDeadlineFrom({ calendar: { event: [] } }, Date.now()), null, "no TRADE event → nothing invented");
-  const ended = { calendar: { event: [{ type: "TRADE", start_time: "1790000000", end_time: "1790003600" }] } };
-  t.equal(OV.tradeDeadlineFrom(ended, ms("2026-10-20T12:00:00-04:00")), null, "a TRADE blackout that already ended doesn't count");
+test("Trade deadline = MFL's own lock as the worker reads it (trade_lock): today Tue Nov 24 12:00 PM ET; Wed 8 PM once corrected", () => {
+  t.ok(OV && typeof OV.tradeDeadlineFromLock === "function", "exposed for tests");
+  const tue = { state: "upcoming", start_unix: 1795539600, label: "Tue, Nov 24, 12:00 PM ET" };
+  const d = OV.tradeDeadlineFromLock(tue, ms("2026-10-20T20:00:00-04:00"));
+  t.equal(d.state, "upcoming"); t.equal(d.label, "Tue, Nov 24, 12:00 PM ET"); t.equal(d.days, 35, "Oct 20 → Nov 24 in Eastern calendar days");
+  t.equal(OV.tradeDeadlineFromLock(tue, ms("2026-11-24T12:00:00-05:00")).state, "upcoming", "inside the start second MFL still accepts");
+  t.equal(OV.tradeDeadlineFromLock(tue, ms("2026-11-24T12:00:01-05:00")).state, "closed", "from the next second: closed, as MFL refuses");
+  const wed = OV.tradeDeadlineFromLock({ state: "upcoming", start_unix: 1795654800, label: "Wed, Nov 25, 8:00 PM ET" }, ms("2026-10-21T08:00:00-04:00"));
+  t.equal(wed.label, "Wed, Nov 25, 8:00 PM ET", "the corrected week-based lock (Week 12), as MFL places it");
+  t.equal(OV.tradeDeadlineFromLock({ state: "unresolved" }, Date.now()).state, "unresolved", "never a guessed time");
+  t.equal(OV.tradeDeadlineFromLock({ state: "none" }, Date.now()).state, "none");
+  t.equal(OV.tradeDeadlineFromLock(null, Date.now()), null, "not read yet");
+  t.equal(OV.tradeDeadlineFromLock({ ...tue, verified_at_utc: "2026-10-21T17:02:00Z" }, ms("2026-10-21T13:05:00-04:00")).verified, "Wed, Oct 21, 1:02 PM ET", "when MFL was last verified");
+  t.ok(/MFL enforcement: trading stops /.test(SRC) && /Verified with MFL /.test(SRC), "the value is labeled MFL enforcement, with the verified time");
 });
 
-test("the card reads MFL's calendar, with the viewer's session; without it, it says so (no league-calendar date dressed up as MFL's)", () => {
-  t.ok(/"mflCalendar"/.test(SRC) && /DATA\.get\("mflCalendar"\)/.test(SRC), "loads and reads the MFL calendar");
-  t.ok(/Sign in to MFL to see when MFL stops trades/.test(SRC), "unreadable calendar is said");
-  t.ok(!/league calendar · /.test(SRC) && !/ups_trade_deadline/.test(SRC), "the league-calendar deadline is gone from the card and from Needs attention");
-  const data = fs.readFileSync(path.join(ROOT, "site/rosters/v2/fo_data.js"), "utf8");
-  t.ok(/mflCalendar: function \(\) \{\s*return getJson\(cfg\.sessionQuery\(mflExport\("calendar"\)\)\)/.test(data), "fo_data reads TYPE=calendar with the viewer's session");
+test("the card reads the worker's trade_lock (one source with the phone, Team Ops, reminders and Rules), not MFL's calendar directly", () => {
+  t.ok(/FO\.tradeLock\(\)/.test(SRC) && !/DATA\.get\("mflCalendar"\)/.test(SRC), "reads FO.tradeLock(), not the raw calendar");
+  t.ok(/MFL’s trade lock couldn’t be read right now/.test(SRC), "an unreadable lock is said, never replaced by a date");
+  t.ok(!/league calendar · /.test(SRC) && !/ups_trade_deadline/.test(SRC), "the typed league-calendar date is not used");
+  const fo = fs.readFileSync(path.join(ROOT, "site/rosters/v2/front_office.js"), "utf8");
+  t.ok(/STATE\.tradeLock = \(data && data\.trade_lock\) \|\| null;/.test(fo) && /tradeLock: function \(\) \{ return STATE\.tradeLock \|\| null; \}/.test(fo), "front_office.js keeps trade_lock from /api/league-events");
 });
 
 test("Cap card: player salaries, adjustments, total allocated, cap space; both ledgers open from the card", () => {

@@ -10,8 +10,8 @@
    By Lineup Slot over one modeled lineup per team, four measures; shown in Trade finder, not on the Overview), on the
    slots MFL's league settings define; site/shared/starter_mix.js (the
    Actual starter mix, from the lineups owners submitted). Cap: the Front Office's own cap
-   engine (UPS_FO.capFor / capLedger). Trade deadline: MFL's league calendar
-   ("No Trades Allowed"), read with the viewer's MFL session.
+   engine (UPS_FO.capFor / capLedger). Trade deadline: MFL's own trade lock as the
+   worker reads it (trade_lock on /api/league-events) — the one source every surface uses.
 */
 (function (root) {
   "use strict";
@@ -40,20 +40,20 @@
       return o.weekday + ", " + o.month + " " + o.day + ", " + o.hour + ":" + o.minute + " " + String(o.dayPeriod || "").toUpperCase() + " ET";
     } catch (e) { return new Date(ms).toISOString(); }
   }
-  // When MFL stops accepting trades: its calendar's "No Trades Allowed" (TRADE) events that haven't ended; the
-  // earliest start wins (an event with no end runs for the rest of the season). → {state, startMs, days} or null.
-  function tradeDeadlineFrom(cal, nowMs) {
-    var root_ = (cal && cal.calendar) || cal || {};
-    var evs = root_.event; evs = !evs ? [] : (Array.isArray(evs) ? evs : [evs]);
-    var trade = evs.map(function (e) {
-      return { type: String((e && (e.type || e.event_type)) || "").toUpperCase(), start: Number(e && e.start_time) * 1000 || null, end: Number(e && e.end_time) * 1000 || null };
-    }).filter(function (e) { return e.type === "TRADE" && e.start && (!e.end || e.end > nowMs); })
-      .sort(function (a, b) { return a.start - b.start; });
-    if (!trade.length) return null;
-    var t = trade[0];
-    var d0 = etParts(nowMs), d1 = etParts(t.start);
-    return { state: t.start <= nowMs ? "closed" : "upcoming", startMs: t.start, endMs: t.end, events: trade.length,
-      days: d0 != null && d1 != null ? Math.round((d1 - d0) / 86400000) : null, label: etLabel(t.start) };
+  // When MFL stops accepting trades: the worker's read of MFL's own lock (trade_lock on /api/league-events — the earliest
+  // "No Trades Allowed" event in force, week-based locks where MFL places them). The same read drives the phone, Team
+  // Operations, the reminders and Rules. Closed from the second after the start, as MFL enforces it. → {state, startMs,
+  // days, label} | {state: "unresolved"|"none"} | null (not read yet).
+  function tradeDeadlineFromLock(lock, nowMs) {
+    if (!lock) return null;
+    if (lock.state !== "upcoming" && lock.state !== "closed") return { state: lock.state === "none" ? "none" : "unresolved" };
+    var t = Number(lock.start_unix) * 1000;
+    if (!(t > 0)) return { state: "unresolved" };
+    var d0 = etParts(nowMs), d1 = etParts(t);
+    var v = Date.parse(lock.verified_at_utc || "");
+    return { state: nowMs >= t + 1000 ? "closed" : "upcoming", startMs: t,
+      days: d0 != null && d1 != null ? Math.round((d1 - d0) / 86400000) : null, label: lock.label || etLabel(t),
+      verified: isFinite(v) ? etLabel(v) : "" };
   }
 
   function focusFid() {
@@ -302,17 +302,19 @@
   }
 
   function mflDeadline() {
-    var e = DATA.get("mflCalendar");
-    return e && e.state === "ok" ? tradeDeadlineFrom(e.data, Date.now()) : null;
+    var td = tradeDeadlineFromLock(FO.tradeLock ? FO.tradeLock() : null, Date.now());
+    return td && td.startMs ? td : null;
   }
   function deadlineCard() {
-    var e = DATA.get("mflCalendar"), td = mflDeadline(), body;
-    if (!e) body = stat("…", "reading MFL’s calendar");
-    else if (e.state !== "ok") body = stat("—", "Sign in to MFL to see when MFL stops trades");
-    else if (!td) body = stat("—", "no “No Trades Allowed” event on MFL’s calendar");
-    else if (td.state === "closed") body = stat("Closed", "MFL stopped trades " + td.label);
-    else body = stat(td.days === 0 ? "Today" : td.days + " day" + (td.days === 1 ? "" : "s"), "MFL stops trades " + td.label);
-    return card("Trade deadline", '<div class="fo-ov-stats">' + body + "</div>",
+    var td = tradeDeadlineFromLock(FO.tradeLock ? FO.tradeLock() : null, Date.now()), body;
+    if (!td) body = stat("…", "reading MFL’s trade lock");
+    else if (td.state === "unresolved") body = stat("—", "MFL’s trade lock couldn’t be read right now");
+    else if (td.state === "none") body = stat("—", "no “No Trades Allowed” event on MFL’s calendar");
+    else if (td.state === "closed") body = stat("Closed", "MFL enforcement: trading stopped " + td.label);
+    else body = stat(td.days === 0 ? "Today" : td.days + " day" + (td.days === 1 ? "" : "s"), "MFL enforcement: trading stops " + td.label);
+    // The worker's read can be a few minutes old (it caches MFL's answer); say when it was verified.
+    var verified = td && td.verified ? '<p class="fo-ov-sub">Verified with MFL ' + H.esc(td.verified) + ".</p>" : "";
+    return card("Trade deadline", '<div class="fo-ov-stats">' + body + "</div>" + verified,
       '<a class="fo-go" href="' + H.esc(FO.warRoomUrl({})) + '" target="_top">Trade War Room ›</a>');
   }
 
@@ -334,7 +336,7 @@
   }
 
   function load() {
-    var keys = ["scores", "players", "league", "byes", "picks", "waiverState", "waiverAvailability", "waiverPending", "mflCalendar"];
+    var keys = ["scores", "players", "league", "byes", "picks", "waiverState", "waiverAvailability", "waiverPending"];
     keys.forEach(function (k) { DATA.load(k).then(render); });
     var f = root.UPS_FO_DATA;
     if (f) f.injury(render);
@@ -346,7 +348,7 @@
     H.setupAbout();
     H.registerAbout("overview",
       "<h3>Overview</h3><p>Only items that need you, each with a link to where you act. Lineup and bye checks use your best legal 18-player lineup by season points per MFL week. Draft picks are MFL’s own list. Lineup strength for every team is in Trade finder.</p>" +
-      "<p><b>Cap:</b> player salaries + salary adjustments = total allocated, the contract ledger’s own math. <b>Trade deadline:</b> MFL’s calendar (“No Trades Allowed”), shown in Eastern time.</p>");
+      "<p><b>Cap:</b> player salaries + salary adjustments = total allocated, the contract ledger’s own math. <b>Trade deadline:</b> when MFL actually stops accepting trades (its “No Trades Allowed” lock, read by the league’s server), in Eastern time; “Closed” from the second MFL refuses.</p>");
     var el = document.getElementById("fo-overview-body");
     if (el && !el.__foLedger) {
       el.__foLedger = true;
@@ -360,7 +362,7 @@
     load();
   }
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("overview");
-  root.UPS_FO_OVERVIEW = { tradeDeadlineFrom: tradeDeadlineFrom };
+  root.UPS_FO_OVERVIEW = { tradeDeadlineFromLock: tradeDeadlineFromLock };
   document.addEventListener("fo:ready", boot);
   document.addEventListener("fo:tab", function (e) { if (e.detail && e.detail.section === "overview") render(); });
   document.addEventListener("fo:events", render);
