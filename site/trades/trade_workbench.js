@@ -2660,7 +2660,7 @@
   function clearRosterDeepLinkParams() {
     try {
       var u = new URL(window.location.href || "");
-      var keys = ["twb_player_id", "twb_team_id", "twb_source_team", "twb_left_team", "twb_right_team", "twb_side"];
+      var keys = ["twb_player_id", "twb_team_id", "twb_source_team", "twb_left_team", "twb_right_team", "twb_side", "twb_give", "twb_get"];
       var changed = false;
       var i;
       for (i = 0; i < keys.length; i += 1) {
@@ -2678,7 +2678,7 @@
 
   function applyRosterDeepLinkSelection() {
     var playerId = safeStr(getUrlParam("twb_player_id")).replace(/\D/g, "");
-    if (!playerId) return false;
+    if (!playerId) return applyFitDeepLink();
 
     var sourceTeamId = pad4(getUrlParam("twb_team_id") || getUrlParam("twb_source_team"));
     var leftTeamId = pad4(getUrlParam("twb_left_team"));
@@ -8721,6 +8721,34 @@
     if (openBtn && !openBtn.__tw3Wired) { openBtn.__tw3Wired = true; openBtn.addEventListener("click", open3WayBuilder); }
     var closeBtn = document.getElementById("twb3wCloseBtn");
     if (closeBtn && !closeBtn.__tw3Wired) { closeBtn.__tw3Wired = true; closeBtn.addEventListener("click", close3WayBuilder); }
+  }
+
+  // Front Office → Trade finder (#1338) opens THIS War Room (same route, data and state as the Home button) with a
+  // whole swap preloaded: the partner (twb_right_team) and what each side gives (twb_give = the viewer's assets,
+  // twb_get = the partner's; comma lists of MFL player ids or pick tokens). A partner alone just sets the partner.
+  // Only trade-eligible assets are selected (a tagged player or a forfeited/6th-round pick is skipped, as the board
+  // greys them). Nothing is sent; the params are removed from the URL after use.
+  function applyFitDeepLink() {
+    var left = pad4(getUrlParam("twb_left_team"));
+    var right = pad4(getUrlParam("twb_right_team"));
+    var split = function (v) { return safeStr(v).split(",").map(function (x) { return safeStr(x); }).filter(Boolean); };
+    var give = split(getUrlParam("twb_give")), get = split(getUrlParam("twb_get"));
+    if (!right && !give.length && !get.length) return false;
+    if (left && getTeamById(left)) setActiveFranchiseId(left, { syncLeft: true });
+    if (right && right !== state.leftTeamId && getTeamById(right)) state.rightTeamId = right;
+    var pick = function (teamId, token) {
+      var asset = teamId ? findTeamAssetByTradeToken(teamId, token) : null;
+      if (!asset || !asset.asset_id || !isTradeEligibleAsset(asset)) return false;
+      ensureSelectionMaps(teamId);
+      state.selections[teamId][asset.asset_id] = true;
+      clampTradeSalaryForTeam(teamId);
+      return true;
+    };
+    give.forEach(function (tok) { pick(state.leftTeamId, tok); });
+    if (state.rightTeamId) get.forEach(function (tok) { pick(state.rightTeamId, tok); });
+    state.mobileTab = (get.length || right) ? "partner" : "your";
+    clearRosterDeepLinkParams();
+    return true;
   }
 
   async function boot() {
