@@ -1,6 +1,6 @@
 // Front Office → Trade finder (#1338, Keith 2026-10-22). The all-team lineup-strength table is the feature: the
-// Overview's card for all 12 teams with the same controls (By Position / By Lineup Slot; PPG / Rank / Above
-// Replacement / Index), the same default (By Position, PPG) and the same numbers for the same view. Starter Mix is a
+// current-roster comparison of all 12 teams (By Position / By Lineup Slot; PPG / Rank / Above Replacement / Index;
+// default By Position, PPG). No Biggest gain and no imaginary-starter scenario (Keith 2026-10-26). Starter Mix is a
 // separate view (recorded starts). Each team has a View button: strong / needs help, cap room, future picks by year and
 // round with a visible league comparison ("well stocked" only on complete data with forfeits checked), and possible
 // roster surplus labeled as analysis. Partner rankings and suggested swaps are gone. Nothing is sent; the current
@@ -59,12 +59,10 @@ function page(opts = {}) {
   Object.assign(ctx, { UPS_FO_HUB: H, UPS_FO: FO, UPS_FO_DATA: DATA });
   vm.runInContext(SRC, ctx);
   (listeners["fo:ready"] || []).forEach((f) => f());
-  // The Overview card is rendered through its own test seam (its boot needs the full page).
-  vm.runInContext(read(path.join(ROOT, "site/rosters/v2/fo_overview.js")), ctx);
   const TR = ctx.UPS_FO_TRADES;
   const show = (state) => { Object.assign(TR._view, state.view || {}); if ("team" in state) TR._sel.team = state.team; (listeners["fo:tab"] || []).forEach((f) => f({ detail: { section: "trades" } })); return el.innerHTML; };
   const team = (f) => TR._teamHtml(f);
-  return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA, OV: ctx.UPS_FO_OVERVIEW };
+  return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA };
 }
 // The strength table → { fid: { row: text } } (team id from the View button).
 function readTable(html) {
@@ -86,26 +84,22 @@ test("partner rankings and suggested swaps are gone; nothing is sent; no current
   t.ok(/doesn’t grade trades, rank partners or suggest swaps/.test(SRC) && !/swaps that would improve|logical partner/i.test(SRC), "About describes the new view, promises no partners or swaps");
 });
 
-test("default = the Overview's default (By Position, PPG); same controls in the same order", () => {
+test("default = By Position, PPG; the controls in a fixed order", () => {
   const p = page();
   const html = p.show({});
   t.equal([...html.matchAll(/data-tf-by="(\w+)"[^>]*>([^<]+)</g)].map((x) => x[2]).join(" | "), "By Position | By Lineup Slot | Starter Mix");
   t.equal([...html.matchAll(/data-tf-measure="(\w+)"[^>]*>([^<]+)</g)].map((x) => x[2]).join(" | "), "PPG | Rank | Above Replacement | Index");
   t.ok(/data-tf-by="position" aria-pressed="true"/.test(html) && /data-tf-measure="ppg" aria-pressed="true"/.test(html), "By Position + PPG selected");
-  t.ok(/var lsView = "ppg"/.test(read(path.join(ROOT, "site/rosters/v2/fo_overview.js"))) && /var lsBy = "position"/.test(read(path.join(ROOT, "site/rosters/v2/fo_overview.js"))), "and that is the Overview's default");
 });
 
-test("every cell equals the Overview card for the same team and view (both breakdowns × all four measures × 12 teams)", () => {
+test("every cell is the lineup-strength table's cell for that team and view (both breakdowns × all four measures × 12 teams)", () => {
   const p = page();
   let n = 0;
   for (const by of ["position", "slot"]) for (const measure of ["ppg", "rank", "above", "index"]) {
     const { cells, order } = readTable(p.show({ view: { by, measure, sort: "ALL" } }));
     t.equal(order.length, 12, by + "/" + measure + ": 12 teams, each with a View button");
-    for (const fid of order) {
-      const card = p.OV._strengthCard(fid, { H: p.H, FO: p.FO, DATA: p.DATA }, by, measure);
-      const bars = Object.fromEntries([...card.matchAll(/data-ls-row="(\w+)"[\s\S]*?fo-ov-bar-val">([^<]*)</g)].map((x) => [x[1], unesc(x[2])]));
-      for (const r of Object.keys(bars)) { t.equal(cells[fid][r], bars[r], by + "/" + measure + " " + fid + " " + r + " = Overview"); n += 1; }
-    }
+    const tb = p.LS.build(p.model, { by });
+    for (const fid of order) for (const r of tb.rows) { t.equal(cells[fid][r], p.LS.cell(tb, fid, r, measure).text, by + "/" + measure + " " + fid + " " + r); n += 1; }
   }
   t.equal(n, 12 * (10 + 13) * 4, "all " + 12 * 23 * 4 + " cells compared");
 });
@@ -168,30 +162,15 @@ test("standing is separate from lineup gain: PPG, league average, gap and rank �
   }
 });
 
-test("one addition, modeled: the typical starter's PPG, where he'd start, who'd leave, lineup before → after", () => {
+test("no hypothetical starter: the team view has no 'One addition' scenario, and the table no Biggest gain (Keith 2026-10-26)", () => {
   const p = page();
-  const tb = p.LS.build(p.model);
-  let checked = 0, flexFromTop = 0;
+  const SRCTF = fs.readFileSync(path.join(ROOT, "site/rosters/v2/fo_trades.js"), "utf8");
+  t.ok(!/additionDetail|biggestGain|gainText|One addition|Biggest gain|typical \(median\)|median starting/.test(SRCTF), "no code path builds an imaginary median starter");
   for (const f of p.model.order) {
     const html = p.team(f);
-    for (const g of ["QB", "RB", "WR", "TE", "DL", "LB", "DB"]) {
-      const gain = tb.teams[f].need[g];
-      if (gain < 1) continue;
-      const d = p.TF.additionDetail(p.model, f, g);
-      t.equal(Math.round(d.gain * 10) / 10, gain, f + " " + g + ": the detail's gain is the table's");
-      t.ok(Math.abs(d.after - d.before - d.gain) < 1e-9 && d.starts, f + " " + g + ": after − before = gain; he starts");
-      t.equal(d.leaves.length, 1, f + " " + g + ": exactly one starter leaves the lineup");
-      const s = "A typical " + g + " (" + (Math.round(d.typical * 10) / 10).toFixed(1) + " PPG, the league’s median starting " + g + ") would start at " + d.slotLabel;
-      if (html.indexOf("<b>" + g + " +" + gain.toFixed(1) + " pts/wk</b>") !== -1) {
-        t.ok(html.includes(esc(s)), f + " " + g + ": where he'd start");
-        t.ok(html.includes("Lineup " + (Math.round(d.before * 10) / 10).toFixed(1) + " → " + (Math.round(d.after * 10) / 10).toFixed(1) + " pts a week (+" + gain.toFixed(1) + ")"), f + " " + g + ": before → after");
-        if (tb.teams[f][g].rank <= 3) { flexFromTop += 1; t.ok(html.includes("ranks " + p.LS.ordinal(tb.teams[f][g].rank) + " — the gain comes from the " + esc(d.slotLabel) + " spot"), f + " " + g + ": a top-ranked position's gain is explained by its slot"); }
-        checked += 1;
-      }
-    }
+    t.ok(!/One addition|typical starter|median starter|pts\/wk<\/b>|would start at|would leave the lineup/.test(html), f + ": no imaginary-starter text in the team view");
+    t.ok(html.includes("Standing by position") && html.includes("Future picks") && html.includes("Possible roster surplus"), f + ": standing, picks and surplus (real players) stay");
   }
-  t.ok(checked >= 12, checked + " gains described");
-  t.ok(flexFromTop >= 1, "at least one top-3 position with a gain (the Flex case) is explained, not called weak");
 });
 
 test("positions expand to their modeled starters (RB1, RB2, Flex…), labeled as modeled — not MFL-recorded slots", () => {
@@ -267,18 +246,18 @@ test("roster surplus: labeled analysis, each gain is trade_fit's for that other 
   t.ok(!/they could offer|you could offer|available for trade/i.test(part), "no offer claims");
 });
 
-test("Biggest gain column: a gain, not a weakness, with the addition's sentence in its tooltip; the League average row is the reference", () => {
+test("no Biggest gain column; the League average row is the reference", () => {
   const p = page();
   const html = p.show({ view: { by: "position", measure: "ppg", sort: "ALL" } });
-  t.ok(/>Biggest gain<\/th>/.test(html) && !/Biggest need/.test(html), "column named Biggest gain");
-  t.ok(/A potential gain, not a weakness/.test(html), "header says so");
+  t.ok(!/Biggest (gain|need)/.test(html) && !/potential gain/.test(html), "no Biggest gain column or note");
   const tb = p.LS.build(p.model);
+  const head = html.slice(html.indexOf("<thead>"), html.indexOf("</thead>"));
+  t.equal((head.match(/<th /g) || []).length, 1 + tb.rows.length, "Team + one column per row of the table, nothing else");
   const row = html.slice(html.indexOf('data-tf-team="0008"'), html.indexOf("</tr>", html.indexOf('data-tf-team="0008"')));
-  const g = tb.teams["0008"].biggestGain;
-  t.ok(row.includes("<b>" + g + '</b> <span class="fo-muted">+' + tb.teams["0008"].need[g].toFixed(1)), "0008: " + g + " +" + tb.teams["0008"].need[g]);
-  t.ok(/title="A typical \w+ \([\d.]+ PPG, the league’s median starting \w+\) would start at [^"]+Lineup [\d.]+ → [\d.]+ pts a week/.test(row), "tooltip: where he'd start and the lineup before → after");
+  t.equal((row.match(/<td /g) || []).length, tb.rows.length, "each team row has exactly the table's cells");
   const foot = html.slice(html.indexOf("<tfoot>"), html.indexOf("</tfoot>"));
   t.ok(/League average<\/th>/.test(foot) && foot.includes('<td class="num">' + (Math.round(tb.league.ALL.meanPpg * 10) / 10).toFixed(1) + "</td>"), "PPG: the league-average row (outside the sorted body)");
+  t.equal((foot.match(/<td/g) || []).length, tb.rows.length, "the footer has no empty extra cell");
   const idx = p.show({ view: { measure: "index" } });
   const ifoot = idx.slice(idx.indexOf("<tfoot>"), idx.indexOf("</tfoot>"));
   t.ok(/League average = 100<\/th>/.test(ifoot) && (ifoot.match(/<td class="num">100<\/td>/g) || []).length === tb.rows.length, "Index: the reference row reads 100 in every column");

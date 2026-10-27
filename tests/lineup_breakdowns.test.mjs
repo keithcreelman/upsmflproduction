@@ -22,8 +22,7 @@ vm.runInContext(read(path.join(ROOT, "site/m/front_office_lineup.js")), ctx);
 vm.runInContext(read(process.env.TRADE_FIT_JS || path.join(ROOT, "site/shared/trade_fit.js")), ctx);
 vm.runInContext(read(process.env.LINEUP_STRENGTH_JS || path.join(ROOT, "site/shared/lineup_strength.js")), ctx);
 vm.runInContext(read(process.env.STARTER_MIX_JS || path.join(ROOT, "site/shared/starter_mix.js")), ctx);
-vm.runInContext(read(path.join(ROOT, "site/rosters/v2/fo_overview.js")), ctx);
-const TF = ctx.UPS_TRADE_FIT, LS = ctx.UPS_LINEUP_STRENGTH, SM = ctx.UPS_STARTER_MIX, L = ctx.UPS_FRONT_OFFICE_LINEUP, OV = ctx.UPS_FO_OVERVIEW;
+const TF = ctx.UPS_TRADE_FIT, LS = ctx.UPS_LINEUP_STRENGTH, SM = ctx.UPS_STARTER_MIX, L = ctx.UPS_FRONT_OFFICE_LINEUP;
 const FX = JSON.parse(read(path.join(ROOT, "tests/fixtures/trade_fit_2026_wk6.json")));
 const STARTERS = JSON.parse(read(path.join(ROOT, "tests/fixtures/mfl_league_starters_74598_2026.json"))).starters;
 const WEEKLY = JSON.parse(read(path.join(ROOT, "tests/fixtures/weekly_starters_2026_wk1_7.json")));
@@ -196,7 +195,7 @@ test("shown values reconcile: every breakdown's displayed rows add up to its dis
   t.equal(checked, 48, "12 teams × 2 breakdowns × 2 measures");
 });
 
-test("Overview By Position and the Trade finder return identical positional values (one calculation, MFL's slots)", () => {
+test("the lineup-strength table and the trade_fit model return identical positional values (one calculation, MFL's slots)", () => {
   const m = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents, slots: SLOTS });
   const tb = LS.build(m);
   for (const fid of m.order) for (const g of TF.GROUPS) {
@@ -322,48 +321,6 @@ test("real league, Weeks 1–6 (Week 7 in progress is not read): every lineup is
     t.equal(x.FLEXIBLE.total + (x.SFLEX.by.QB || 0), x.FLEX.total + x.SFLEX.total, fid + ": Flexible + Superflex QBs = 18 Flex/Superflex starts");
   }
   t.ok(close(SM.mixList(ham.mix.SFLEX).find((x) => x.g === "QB").pct, 400 / 6), "HammerTime: Superflex 67% QB");
-});
-
-test("the Overview card: PPG first and selected, Above Replacement spelled out, three breakdowns, Starter Mix labeled Actual", () => {
-  const m = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents, slots: SLOTS });
-  const esc = (x) => String(x == null ? "" : x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  const ss = { finalKnown: true, finalThrough: 6, fetchedAt: 1 };
-  const entries = { weeklyResults: { state: "ok", at: 1, data: WEEKLY }, players: { state: "ok", at: 1 } };
-  const deps = {
-    H: { esc, fmt1: (v) => (Math.round(v * 10) / 10).toFixed(1), banner: (x) => x, displayName: (n) => n, rosterIndex: () => Object.fromEntries(FX.teams.flatMap((x) => x.players.map((p) => [p.pid, { fid: x.fid, p: { name: p.name } }]))), goLink: () => "", leagueModel: () => m, lineupSlots: () => SLOTS, lineupSlotsState: () => "ok",
-      scoring: () => ss, playerGroup: (pid) => { const g = L.posGroup(WEEKLY.positions[pid] || ""); return g === "OTH" ? "" : g; },
-      starterMix: () => SM.build({ weeklyResults: WEEKLY, completedWeek: 6, slots: SLOTS, groupOf: (pid) => { const g = L.posGroup(WEEKLY.positions[pid] || ""); return g === "OTH" ? "" : g; },
-        fids: FX.teams.map((x) => x.fid) }) },
-    FO: { teams: () => FX.teams },
-    DATA: { get: (k) => entries[k] || null, load: () => ({ then() {} }) }
-  };
-  const html = OV._strengthCard("0008", deps, "position", "ppg");
-  const chips = [...html.matchAll(/data-ls-view="(\w+)"[^>]*>([^<]+)</g)].map((x) => x[2]);
-  t.equal(chips.join(" | "), "PPG | Rank | Above Replacement | Index", "measure order");
-  t.ok(/data-ls-view="ppg" aria-pressed="true"/.test(html), "PPG selected");
-  t.equal([...html.matchAll(/data-ls-by="(\w+)"[^>]*>([^<]+)</g)].map((x) => x[2]).join(" | "), "By Position | By Lineup Slot | Starter Mix");
-  t.equal([...html.matchAll(/data-ls-row="(\w+)"/g)].map((x) => x[1]).join(","), "ALL,QB,RB,WR,TE,DL,LB,DB,PK,PN", "By Position rows");
-  const bySlot = OV._strengthCard("0008", deps, "slot", "above");
-  t.equal([...bySlot.matchAll(/data-ls-row="(\w+)"/g)].map((x) => x[1]).join(","), "ALL,QB,RB,WR,TE,FLEX,SFLEX,DL,LB,DB,DFLEX,PK,PN", "By Lineup Slot rows");
-  t.ok(/>Superflex</.test(bySlot) && />IDP Flex</.test(bySlot), "slot labels");
-  t.ok(/Biggest lineup gain: <b>\w+ \+[\d.]+<\/b> pts a week\. A typical \w+ \([\d.]+ PPG, the league’s median starting \w+\) would start at /.test(bySlot), "Biggest lineup gain: where a typical starter would start (by position, in either breakdown)");
-  t.ok(/\(\d+\.\d → \d+\.\d\)\. A gain, not a weakness: \w+ ranks \d+(st|nd|rd|th) by position\./.test(bySlot), "lineup before → after, and the position's standing");
-  t.ok(!/Biggest need|needs help/i.test(bySlot), "never called a need");
-  const mixHtml = OV._strengthCard("0008", deps, "mix");
-  t.ok(/<b>Actual starter mix<\/b> · Weeks 1–6 · 6 of 6 weeks counted/.test(mixHtml), "labeled Actual starter mix, with the weeks counted");
-  t.ok(!/data-ls-view/.test(mixHtml), "no strength measures on the actual mix");
-  t.ok(/data-ls-flex="SFLEX"><b>Superflex:<\/b> 100% QB/.test(mixHtml), "Real Deal Creel Superflex: 100% QB");
-  t.ok(/data-ls-flex="FLEXIBLE"><b>Flexible slots<\/b> <span class="fo-muted">\(Flex \+ Superflex, not a QB\)<\/span>: 84% WR · 8% RB · 8% TE/.test(mixHtml), "Flexible slots: 10, 1 and 1 of 12 extra starts, in whole percents that add to 100");
-  t.ok(!/data-ls-flex="FLEX"/.test(mixHtml), "no Flex-only line: MFL's record can't separate Flex from Superflex for RB/WR/TE");
-  t.ok(!/lowest-scoring/.test(mixHtml), "no score-based slot assignment");
-  const posHtml = OV._strengthCard("0008", deps, "position", "ppg");
-  t.ok(/Modeled lineup/.test(posHtml) && /Modeled lineup/.test(OV._strengthCard("0008", deps, "slot", "ppg")), "By Position and By Lineup Slot are labeled Modeled");
-  t.equal(/class="fo-ov-bar-val">\+[\d.]+</.test(OV._strengthCard("0008", deps, "position", "above")), true, "Above Replacement shows a raw amount");
-  t.ok(/fo-ls-above-note">Overall here can differ from By Lineup Slot: each starter is measured against his own position’s baseline/.test(OV._strengthCard("0008", deps, "position", "above")), "By Position explains why its Overall can differ");
-  t.ok(/fo-ls-above-note">Overall here can differ from By Position: a Flex or Superflex starter is measured against the slot’s baseline/.test(OV._strengthCard("0008", deps, "slot", "above")), "By Lineup Slot explains why its Overall can differ");
-  t.ok(!/fo-ls-above-note/.test(OV._strengthCard("0008", deps, "slot", "ppg")), "only with Above Replacement (PPG, Rank and Index Overalls are identical)");
-  deps.H.lineupSlotsState = () => "error";
-  t.ok(/lineup settings couldn’t be read/.test(OV._strengthCard("0008", deps, "position", "ppg")), "MFL's settings unreadable → says so, no assumed slots");
 });
 
 await run("lineup_breakdowns");

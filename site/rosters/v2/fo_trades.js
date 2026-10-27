@@ -18,10 +18,6 @@
      Standing by position: PPG, league average, the gap and rank (Top 3 /
        Bottom 3); each position expands to its modeled starters (RB1, RB2,
        Flex…), an order by season PPG — not slots MFL recorded.
-     One addition, modeled: trade_fit additionDetail — a typical starter's
-       PPG, where he'd start, who'd leave the lineup, lineup before → after.
-       A potential gain, never called a weakness (a 1st-ranked WR room can
-       still gain when the addition takes a Flex spot).
      Cap room: the Front Office cap engine (UPS_FO.capFor), as on Overview.
      Picks: MFL's futureDraftPicks, grouped by year and round. "Well stocked"
        is said only when MFL's list for the year is complete (teams × rounds)
@@ -53,7 +49,7 @@
     position: "Modeled lineup, each starter at his own position (a TE in Flex counts as TE).",
     slot: "Modeled lineup by the slot each starter fills in MFL’s lineup settings (a second TE is Flex, a second QB is Superflex)."
   };
-  var STRONG_RANK = 3, NEED_MIN = 1;   // Top 3 / Bottom 3 by PPG; a lineup gain shown from 1 pt a week
+  var STRONG_RANK = 3;   // Top 3 / Bottom 3 by PPG
 
   function gl(g) { return GLABEL[g] || g; }
   function myFid() {
@@ -105,13 +101,6 @@
     var x = Math.round(v * 10) / 10;
     return view.measure === "above" ? (x > 0 ? "+" : x < 0 ? "−" : "") + Math.abs(x).toFixed(1) : x.toFixed(1);
   }
-  // "RB +9.6" and a plain sentence for one team's biggest lineup gain (a gain, not a weakness).
-  function gainText(m, f, g) {
-    var d = TF.additionDetail(m, f, g);
-    var who = d.leaves.map(function (x) { return x.rep ? "the replacement-filled " + x.slotLabel + " slot" : H.displayName(playerName(x.pid)) + " (" + gl(x.group) + ", " + H.fmt1(x.v) + ")"; }).join(" and ");
-    return { d: d, sentence: "A typical " + gl(g) + " (" + H.fmt1(d.typical) + " PPG, the league’s median starting " + gl(g) + ") would start at " + d.slotLabel +
-      (who ? "; " + who + " would leave the lineup" : "") + ". Lineup " + H.fmt1(d.before) + " → " + H.fmt1(d.after) + " pts a week (+" + H.fmt1(m.teams[f].need[g]) + ")." };
-  }
   function playerName(pid) { var r = H.rosterIndex()[String(pid)]; return r ? r.p.name : String(pid); }
   function strengthHtml(m, me) {
     var tb = strengthTable(m, view.by);
@@ -123,10 +112,9 @@
     var head = '<tr><th scope="col" class="fo-tf-teamcol">Team</th>' + cols.map(function (r) {
       return '<th scope="col" class="num' + (r === "PK" || r === "PN" ? " fo-tf-kp" : "") + (view.sort === r ? " fo-tf-sorted" : "") + '" aria-sort="' + (view.sort === r ? "descending" : "none") + '"><button type="button" class="fo-tf-sort" data-tf-sort="' + r + '" title="Sort by ' + H.esc(tb.labels[r]) + '">' +
         H.esc(tb.labels[r]) + (view.sort === r ? ' <span aria-hidden="true">▾</span>' : "") + "</button></th>";
-    }).join("") + '<th scope="col" title="What one typical (median) starter at that position would add to the modeled lineup, in points a week. A potential gain, not a weakness: a top-ranked position can still gain through a Flex spot.">Biggest gain</th></tr>';
+    }).join("") + '</tr>';
     var body = order.map(function (f) {
-      var tr = tb.teams[f], name = m.teams[f].name, g = tr.biggestGain;
-      var gt = g ? gainText(m, f, g) : null;
+      var tr = tb.teams[f], name = m.teams[f].name;
       return '<tr class="' + (f === me ? "fo-tf-me" : "") + (f === sel.team ? " fo-tf-sel" : "") + '" data-tf-team="' + H.esc(f) + '">' +
         '<th scope="row" class="fo-tf-teamcol"><span class="fo-tf-name">' + H.esc(name) + (f === me ? ' <span class="fo-muted">(you)</span>' : "") + "</span>" + viewButton(f, name) + "</th>" +
         cols.map(function (r) {
@@ -134,16 +122,16 @@
           return '<td class="num fo-tf-cell' + (r === "ALL" ? " fo-tf-overall" : "") + (r === "PK" || r === "PN" ? " fo-tf-kp" : "") + (view.sort === r ? " fo-tf-sorted" : "") + '" data-tf-row="' + r + '" title="' + H.esc(tb.labels[r] + ": " + c.title +
             (n ? ". Includes " + n + " replacement-filled slot" + (n === 1 ? "" : "s") : "")) + '">' + H.esc(c.text) + (n ? '<span class="fo-ov-rep" aria-label="includes a replacement-filled slot">*</span>' : "") + "</td>";
         }).join("") +
-        '<td title="' + H.esc(gt ? gt.sentence : "No typical starter adds 1+ pts a week") + '">' + (g ? "<b>" + gl(g) + '</b> <span class="fo-muted">+' + H.fmt1(tr.need[g]) + "</span>" : '<span class="fo-muted">—</span>') + "</td></tr>";
+        "</tr>";
     }).join("");
     var foot = '<tr class="fo-tf-ref"><th scope="row" class="fo-tf-teamcol">League average' + (view.measure === "index" ? " = 100" : "") + "</th>" +
-      cols.map(function (r) { return '<td class="num">' + H.esc(leagueRef(tb, r)) + "</td>"; }).join("") + "<td></td></tr>";
+      cols.map(function (r) { return '<td class="num">' + H.esc(leagueRef(tb, r)) + "</td>"; }).join("") + "</tr>";
     var refNote = view.measure === "index" ? " Index: 100 = the league average for that column (the bottom row); 110 = 10% above it." :
       view.measure === "rank" ? "" : " The bottom row is the league average for each column.";
     var aboveNote = view.measure === "above" ? " Overall Above Replacement can differ between By Position (each starter against his own position’s replacement level) and By Lineup Slot (each Flex or Superflex slot’s eligible-player baseline)." : "";
     return '<p class="fo-ov-sub">' + H.esc(BY_TEXT[view.by] + " " + MEASURE_TEXT[view.measure] + refNote + aboveNote) + "</p>" +
       '<div class="fo-table-scroll fo-tf-scroll"><table class="fo-table fo-tf-strength"><thead>' + head + "</thead><tbody>" + body + "</tbody><tfoot>" + foot + "</tfoot></table></div>" +
-      '<p class="fo-basis">The same numbers as the Overview’s Lineup strength for the same view, for all 12 teams. Each lineup is the team’s own roster; <span class="fo-ov-rep">*</span> = a slot no available rostered player can fill, counted at a replacement free agent’s points. <b>Biggest gain</b> = what one typical starter would add (hover or open the team for where he’d start and who’d leave). Tap a column to sort; <b>View</b> opens a team. On a narrow screen, swipe the table sideways for each position.</p>';
+      '<p class="fo-basis">Every team’s modeled lineup, side by side. Each lineup is the team’s own current roster; <span class="fo-ov-rep">*</span> = a slot no available rostered player can fill, counted at a replacement free agent’s points. Tap a column to sort; <b>View</b> opens a team. On a narrow screen, swipe the table sideways for each position.</p>';
   }
 
   // ── Starter Mix: recorded starts, a separate view ──────────────────
@@ -324,13 +312,6 @@
         '<td class="num">' + H.fmt1(c.ppg) + '</td><td class="num">' + H.fmt1(avg) + '</td><td class="num">' + (gap > 0.05 ? "+" : gap < -0.05 ? "−" : "") + Math.abs(Math.round(gap * 10) / 10).toFixed(1) + '</td><td class="num">' + LS.ordinal(c.rank) + "</td></tr>" +
         (multi ? '<tr class="fo-tf-posdetail" id="fo-tf-pos-' + g + '" hidden><td colspan="5"><ul class="fo-tf-depthlist">' + detail + "</ul></td></tr>" : "");
     }).join("");
-    // What one typical starter would add, per position (a modeled gain, never called a weakness).
-    var gains = groups.filter(function (g) { return !TF.FIT_EXCLUDED_GROUPS[g] && (tr.need[g] || 0) >= NEED_MIN; }).sort(function (a, b) { return tr.need[b] - tr.need[a]; });
-    var gainRows = gains.slice(0, 4).map(function (g) {
-      var gt = gainText(m, f, g);
-      var standing = tr[g].rank <= STRONG_RANK ? ' <span class="fo-muted">(ranks ' + LS.ordinal(tr[g].rank) + " — the gain comes from the " + H.esc(gt.d.slotLabel) + " spot)</span>" : ' <span class="fo-muted">(ranks ' + LS.ordinal(tr[g].rank) + ")</span>";
-      return "<li><b>" + gl(g) + " +" + H.fmt1(tr.need[g]) + " pts/wk</b>" + standing + '<div class="fo-perf-sub">' + H.esc(gt.sentence) + "</div></li>";
-    }).join("");
     var cap = FO.capFor(f);
     var capLine = cap ? '<div class="fo-ov-cap"><div class="fo-ov-capline space ' + (cap.capSpace < 0 ? "neg" : "pos") + '"><span>Cap room</span><span class="fo-ov-capnum">' + H.esc(H.money(cap.capSpace)) + "</span></div>" +
       '<div class="fo-ov-capline"><span>Total allocated</span><span class="fo-ov-capnum">' + H.esc(H.money(cap.capAlloc)) + ' <span class="fo-ov-of">of ' + H.esc(H.money(FO.capCeiling)) + "</span></span></div></div>"
@@ -353,9 +334,6 @@
         "<div><h4>Standing by position</h4>" +
           '<div class="fo-table-scroll"><table class="fo-table fo-tf-pos"><thead><tr><th scope="col">Pos</th><th scope="col" class="num">PPG</th><th scope="col" class="num" title="League average starters’ PPG at the position">Lg avg</th><th scope="col" class="num" title="This team’s PPG minus the league average, points a week">vs avg</th><th scope="col" class="num">Rank</th></tr></thead><tbody>' + posRows + "</tbody></table></div>" +
           '<p class="fo-basis">Modeled lineup, by each starter’s own position, in points a week. Tap a position for its modeled starters (RB1, RB2, Flex…): an order by season PPG, not slots MFL recorded — Starter Mix shows the lineups actually submitted.</p>' +
-          "<h4>One addition, modeled</h4>" +
-          (gainRows ? '<ul class="fo-tf-list fo-tf-gains">' + gainRows + "</ul>" : '<p class="fo-ov-empty">No single typical starter adds ' + NEED_MIN + "+ pts a week.</p>") +
-          '<p class="fo-basis">What one typical starter (the league’s median starter at that position) would add if this roster had him: where he’d start, who’d leave the lineup, and the lineup before → after. A potential gain, not a weakness — a position can rank near the top and still gain when the addition takes a Flex or Superflex spot.</p></div>' +
         "<div><h4>Cap</h4>" + capLine +
           "<h4>Future picks</h4>" + picksHtml(f) + "</div>" +
       "</div>" +
@@ -488,10 +466,10 @@
     wire();
     H.registerAbout("trades", "<h3>Trade finder</h3>" +
       "<p><b>Every team’s lineup strength side by side, and a closer look at any team.</b> It doesn’t grade trades, rank partners or suggest swaps, and it never sends anything.</p><ul>" +
-      "<li><b>The table</b> is the Overview’s Lineup strength card for all 12 teams, with the same controls and the same numbers for the same view: <b>By Position</b> or <b>By Lineup Slot</b>, measured as <b>PPG</b> (the default), <b>Rank</b>, <b>Above Replacement</b> or <b>Index</b>. Each lineup is the team’s best legal lineup from its <b>own available rostered players</b> in the slots MFL’s lineup settings define; a free agent fills a slot only when no rostered player can play it, at replacement level, and is marked <b>*</b>. Values are season points per MFL-scored week.</li>" +
+      "<li><b>The table</b> compares all 12 teams’ current rosters: <b>By Position</b> or <b>By Lineup Slot</b>, measured as <b>PPG</b> (the default), <b>Rank</b>, <b>Above Replacement</b> or <b>Index</b>. Each lineup is the team’s best legal lineup from its <b>own available rostered players</b> in the slots MFL’s lineup settings define; a free agent fills a slot only when no rostered player can play it, at replacement level, and is marked <b>*</b>. Values are season points per MFL-scored week.</li>" +
+      "<li><b>Measures:</b> <b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = the raw points a week above replacement: Σ(starter PPG − replacement-level PPG), 0 = replacement level. Replacement level is the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; By Lineup Slot, a Flex or Superflex slot uses the best of those the slot accepts, so Overall Above Replacement can differ between the two breakdowns: one measures each starter against his own position’s baseline, the other against the slot’s eligible-player baseline. Rank and Index are the league-relative measures. Shown values are rounded so each breakdown’s rows add up to its Overall.<b>Index</b> = PPG ÷ the league <b>mean</b> × 100: 100 = average.<b>Starter Mix</b> is different: the <b>actual</b> starters per week from the lineups submitted to MFL in completed weeks, by each player’s own position. MFL records who started, not which slot: a second QB can only be Superflex and an extra DL/LB/DB only IDP Flex, while extra RB/WR/TE starters are shown together as Flexible slots. A week whose lineup doesn’t fill every slot is listed and left out, never averaged in.</li>" +
       "<li><b>Starter Mix</b> is separate: the starts recorded in the lineups owners submitted to MFL, not the modeled lineup.</li>" +
-      "<li><b>Biggest gain</b> = what one typical (median) starter at a position would add to the modeled lineup, in points a week. It is a potential gain, not a weakness: a top-ranked position can still gain when the addition takes a Flex or Superflex spot. Standing (PPG, league average, rank) is shown separately.</li>" +
-      "<li><b>View</b> opens a team in a popup (a bottom sheet on phones): standing by position, with each position expanding to its modeled starters; what one typical addition would do (where he’d start, who’d leave, lineup before → after); cap room; future picks by year and round with a league comparison; and bench players who would start for other teams. “Well stocked” is said only when MFL’s pick list is complete and the team’s lineup-penalty forfeits were checked. The surplus list is analysis, not a sign the owner would move anyone.</li>" +
+      "<li><b>View</b> opens a team in a popup (a bottom sheet on phones): standing by position, with each position expanding to its modeled starters; cap room; future picks by year and round with a league comparison; and bench players who would start for other teams. “Well stocked” is said only when MFL’s pick list is complete and the team’s lineup-penalty forfeits were checked. The surplus list is analysis, not a sign the owner would move anyone.</li>" +
       "<li>Not scored: contract length, salary value, age, dynasty value. Kickers and punters are shown, never called strong or short.</li></ul>");
   });
   document.addEventListener("fo:tab", function (e) { if (H && e.detail && e.detail.section === "trades") { render(); load(); } });

@@ -1,7 +1,7 @@
 // Overview cards (#1338): the Trade deadline card states when MFL actually stops trades (MFL's calendar, earliest
 // "No Trades Allowed" event, Eastern time) — never the league calendar's date as if it were MFL's; the Cap card
-// shows player salaries, adjustments, total allocated and cap space with two ledgers; Lineup strength offers four
-// measures (PPG first) and three breakdowns with Overall, K and P; "Contracts ending this season" is gone.
+// shows player salaries, adjustments, total allocated and cap space with two ledgers; the Overview has no Lineup strength card
+// (Keith 2026-10-26: Draft picks takes its place; strength is in Trade finder); "Contracts ending this season" is gone.
 //   node tests/front_office_overview_cards.test.mjs
 //   FO_OVERVIEW_JS=<path> node tests/front_office_overview_cards.test.mjs   (defect check against another copy)
 import fs from "node:fs";
@@ -50,18 +50,17 @@ test("Cap card: player salaries, adjustments, total allocated, cap space; both l
   t.ok(/led\.capSnapshot\.salaryCap/.test(SRC) && /led\.capSnapshot\.adjTotal/.test(SRC), "each ledger is checked against the cap card");
 });
 
-test("Lineup strength: PPG first and the default (Keith 2026-10-21), three breakdowns, Overall + K + P; 'Contracts ending this season' removed", () => {
-  t.ok(/var lsView = "ppg"/.test(SRC), "PPG is the default measure (supersedes Above Replacement)");
-  t.ok(/var lsBy = "position"/.test(SRC), "By Position is the default breakdown");
-  t.ok(/table\.rows\.map/.test(SRC) && /data-ls-view/.test(SRC) && /data-ls-by/.test(SRC), "rows from lineup_strength's table, a measure control and a breakdown control");
-  t.ok(/"Above Replacement"/.test(SRC) && !/"Above repl\."/.test(SRC), "the control spells out Above Replacement");
+test("Overview: no Lineup strength card (Keith 2026-10-26); Draft picks takes its place; 'Contracts ending this season' stays removed", () => {
+  t.ok(!/strengthCard|Lineup strength vs the league|lsView|lsBy|data-ls-|Biggest lineup gain|additionDetail/.test(SRC), "the Lineup strength card, its controls and its Biggest-gain line are gone from the Overview");
+  t.ok(/var side = picksCard\(fid\);/.test(SRC), "the side column starts with Draft picks, where the strength card was");
   t.ok(!/Contracts ending this season/.test(SRC) && !/expiringCard/.test(SRC), "card removed");
-  t.ok(/mine\.replacementSlots/.test(SRC) && /fo-ov-rep/.test(SRC), "replacement-filled slots are marked and named");
-  t.ok(/mine\.biggestGain/.test(SRC) && /TF\.additionDetail\(model, fid, g\)/.test(SRC) && !/TF\.teamSummary\(model, fid\)/.test(SRC), "Biggest lineup gain from the same owned-roster table, with where the addition would start");
   t.ok(!/Biggest need/.test(SRC), "never labeled a need (Keith 2026-10-22)");
-  t.ok(/the raw points a week above replacement: Σ\(starter PPG − replacement-level PPG\)/.test(SRC) && /league <b>mean<\/b>/.test(SRC), "About: Above Replacement is raw (Keith 2026-10-21); Index is against the mean");
-  t.ok(!/Above Replacement[^"]*median/.test(SRC), "no median-centered value is labeled Above Replacement");
-  for (const c of ["capCard(", "weekCard(", "deadlineCard()", "Needs attention", "strengthCard(", "picksCard("]) t.ok(SRC.indexOf(c) !== -1, "kept: " + c);
+  t.ok(/"Check injury status before setting your lineup: " \+ hurt\.join\(", "\)/.test(SRC) && !/Likely starters/.test(SRC), "the injury alert leads with 'Check injury status before setting your lineup:' and never says starters (Keith 2026-10-26)");
+  t.ok(/Object\.keys\(plan\.fullStarters\)\.forEach/.test(SRC) && /var chip = H\.injuryChip\(p\);\s*if \(chip\) hurt\.push\(/.test(SRC), "the same players are selected: the best lineup's players that carry an injury chip");
+  t.ok(!/likely starters on a bye|startersOut/.test(SRC), "no 'N likely starters on a bye' alert on the Overview (Keith 2026-10-26)");
+  t.ok(/no eligible player for " \+ H\.esc\(labels\.join\(", "\)\) \+ " \(an empty lineup slot\)\./.test(SRC) && (SRC.match(/an empty lineup slot/g) || []).length === 1, "the empty-lineup-slot alert stays, once (no second shortage message)");
+  t.ok(/Lineup strength for every team is in Trade finder/.test(SRC), "About points to Trade finder");
+  for (const c of ["capCard(", "weekCard(", "deadlineCard()", "Needs attention", "picksCard("]) t.ok(SRC.indexOf(c) !== -1, "kept: " + c);
 });
 
 test("an injury or league-events read that lands before fo:ready doesn't throw (render waits for boot)", () => {

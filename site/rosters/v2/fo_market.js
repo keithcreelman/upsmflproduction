@@ -13,7 +13,7 @@
      game_locked          Game locked until the NFL week rolls over
      not_before_kickoff   No run before the player's game; first eligible run named
      closed / unknown     No add/drops now / couldn't confirm
-   Rostered players show their team; MFL's trade-bait list marks "On the block".
+   Rostered players show their team; MFL's trade-bait list marks "On the block" (not repeated inside the On the block view).
    Points, PPG and rank are the shared (phone) season line.
 */
 (function (root) {
@@ -186,11 +186,13 @@
   function availCell(r) {
     if (r.fid) {
       return '<span class="fo-av fo-av-rostered">' + (r.mine ? "Your team" : H.esc(r.owner)) + "</span>" +
-        (r.bait && r.bait === r.fid ? ' <span class="fo-av fo-av-bait" title="Listed on MFL’s trade block by the owning team">On the block</span>' : "");
+        (r.bait && r.bait === r.fid && view.scope !== "bait" ? ' <span class="fo-av fo-av-bait" title="Listed on MFL’s trade block by the owning team">On the block</span>' : "");   // the On the block view already says it
     }
     var a = availabilityFor(r.pid, r.team);
     if (a.pending) return '<span class="fo-muted">checking…</span>';
     var st = statusFor(a);
+    // "Claim now" is not shown as a chip: the row's "Claim in app" action says it. The named run stays.
+    if (st.cls === "claim") return '<span class="fo-muted" title="' + H.esc(st.title) + '">' + H.esc(st.sub) + "</span>";
     return '<span class="fo-av fo-av-' + st.cls + '" title="' + H.esc(st.title) + '">' + H.esc(st.label) + "</span>" +
       (st.sub ? '<div class="fo-muted fo-perf-sub">' + H.esc(st.sub) + "</div>" : "");
   }
@@ -245,13 +247,15 @@
       '<button type="button" class="fo-subview-chip' + (view.hideOut ? " active" : "") + '" data-mk-hideout aria-pressed="' + view.hideOut + '">Hide Out / IR</button>' +
       '<label class="fo-field fo-inline fo-mk-search">Find <input type="search" data-mk-q value="' + H.esc(view.q) + '" placeholder="Player, NFL team or owner" autocomplete="off"></label>' +
       "</div>";
+    // A free agent has no contract: the Contract column only shows where rostered players can be listed.
+    var showContract = view.scope !== "fa" && view.scope !== "later";
     var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Status", "Free agents: when the player can be added or claimed (the league's waiver check, same as the phone). Rostered: the owning team, and whether it lists the player on the trade block.", "") +
       th("pts", "Pts", "MFL points, league scoring, every week MFL posted", "num") + th("ppg", "PPG", "Points per MFL-scored week", "num") +
       th("rank", "Rank", "PPG rank at the player's position among every player MFL scored with at least half the final weeks", "num") +
       th("l4", "L4", "PPG over the last 4 final weeks (context)", "num col-lo") +
       th("proj", week ? "Wk " + week + " proj" : "Proj", "MFL's projection for this lineup week — a forecast", "num") +
       th("", "Bye", "NFL bye week", "num col-md") + th("age", "Age", "From MFL's birthdate", "num col-md") +
-      th("salary", "Contract", "Salary · years left (rostered players)", "num") + th("", "", "", "") + "</tr></thead>";
+      (showContract ? th("salary", "Contract", "Salary · years left (rostered players)", "num") : "") + th("", "", "", "") + "</tr></thead>";
     var body = shown.map(function (r) {
       var l = r.line;
       return "<tr>" +
@@ -265,7 +269,7 @@
         '<td class="num">' + (week && r.bye === week ? '<span class="fo-bye">BYE</span>' : r.proj === undefined ? '<span class="fo-muted">…</span>' : r.proj == null ? "—" : H.fmt1(r.proj)) + "</td>" +
         '<td class="num col-md">' + (r.bye || "—") + "</td>" +
         '<td class="num col-md">' + (r.age === undefined ? '<span class="fo-muted">…</span>' : r.age == null ? "—" : r.age) + "</td>" +
-        '<td class="num">' + (r.p ? H.esc(H.money(r.p.salary)) + '<div class="fo-muted fo-perf-sub">' + (r.p.years > 0 ? r.p.years + " yr" + (r.p.years === 1 ? "" : "s") : "expired") + "</div>" : "—") + "</td>" +
+        (showContract ? '<td class="num">' + (r.p ? H.esc(H.money(r.p.salary)) + '<div class="fo-muted fo-perf-sub">' + (r.p.years > 0 ? r.p.years + " yr" + (r.p.years === 1 ? "" : "s") : "expired") + "</div>" : "—") + "</td>" : "") +
         "<td>" + actionCell(r) + "</td></tr>";
     }).join("");
     el.innerHTML = '<div class="fo-card">' + controls +
@@ -273,7 +277,7 @@
         " · " + H.esc(basis.text) + (projFor(week) ? " · Wk " + week + " proj = MFL projection" : "") + "</p>" +
       (avNote ? H.banner(avNote, av && av.state === "error" ? "warn" : "info") : "") +
       '<div class="fo-table-scroll"><table class="fo-table fo-perf-table fo-mk-table">' + head + "<tbody>" +
-        (body || '<tr><td colspan="11" class="fo-table-empty">' + H.esc(EMPTY[view.scope] || "No players match.") + "</td></tr>") + "</tbody></table></div>" +
+        (body || '<tr><td colspan="' + (showContract ? 11 : 10) + '" class="fo-table-empty">' + H.esc(EMPTY[view.scope] || "No players match.") + "</td></tr>") + "</tbody></table></div>" +
       '<p class="fo-muted fo-perf-sub">Bids and adds are made in the phone app’s Market; trades in the Trade War Room. Nothing on this page sends a claim, add or offer.</p></div>';
     var q = el.querySelector("[data-mk-q]");
     if (q && view.__focusQ) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); view.__focusQ = false; }
@@ -329,7 +333,7 @@
     if (!H || !FO || !DATA) return;
     wire();
     H.registerAbout("market", "<h3>Market</h3><ul>" +
-      "<li><b>Status</b> for a free agent is the league’s one waiver check (the phone’s badges): <b>Add now</b> (first come, first served), <b>Claim now</b> (goes to the named run), <b>Can’t claim yet</b> (dropped-player lock: the first run that can award the player is named, and when a claim can be entered), <b>Game locked</b> (the player’s game has started; until the NFL week rolls over), <b>Locked</b> (no add/drops right now).</li>" +
+      "<li><b>Status</b> for a free agent is the league’s one waiver check (the phone’s badges): <b>Add now</b> (first come, first served), the named run (a claim goes to it; the row’s link claims in the app), <b>Can’t claim yet</b> (dropped-player lock: the first run that can award the player is named, and when a claim can be entered), <b>Game locked</b> (the player’s game has started; until the NFL week rolls over), <b>Locked</b> (no add/drops right now).</li>" +
       "<li><b>On the block:</b> the owning team lists the player on MFL’s trade block.</li>" +
       "<li>Points, PPG and rank: MFL’s own scoring, same as the phone. The top 200 rows show; filters narrow the list.</li>" +
       "<li>Nothing here sends a claim, add or offer: bids and adds are made in the phone app, trades in the Trade War Room.</li></ul>");
