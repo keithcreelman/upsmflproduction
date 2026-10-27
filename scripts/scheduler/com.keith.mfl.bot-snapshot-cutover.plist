@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Trade bot snapshot cutover (#1343 decision 3, companion to #1357): every 30 minutes,
+       deliver a newer valuation snapshot from origin/main to the bot's checkout, or alert.
+       See pipelines/etl/scripts/bot_snapshot_cutover.py. Most runs only fetch and find
+       nothing new (no pull, no restart). One run at a time (file lock). -->
+  <key>Label</key>
+  <string>com.keith.mfl.bot-snapshot-cutover</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/keithcreelman/.venvs/ups-roast-bot/bin/python3</string>
+    <string>/Users/keithcreelman/Code/MFL/upsmflproduction/pipelines/etl/scripts/bot_snapshot_cutover.py</string>
+    <string>run</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/keithcreelman/Code/MFL/upsmflproduction/pipelines/etl/scripts</string>
+
+  <!-- Every 30 minutes, all week (launchd time is the Mac's local time; the interval is not). -->
+  <key>StartInterval</key>
+  <integer>1800</integer>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <!-- git, gh and node (the safe suite) for a launchd job's minimal PATH. No secrets here:
+       gh uses its own keychain login. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/Users/keithcreelman/.local/share/mise/installs/node/22.22.2/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/bot_snapshot_cutover.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/bot_snapshot_cutover.err.log</string>
+</dict>
+</plist>
