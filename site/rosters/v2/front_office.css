@@ -1333,7 +1333,7 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tb .fo-table-scroll .fo-table { min-width: 0; }  /* FO's wide-table min-width must not stretch these small tables */
 .fo-tb-cmp td, .fo-tb-cmp th { padding: 6px 8px; }
 /* No inner scroll boxes: a team panel grows with its roster and the page scrolls (same approach as the Divisions standings). */
-.fo-tb .fo-table-scroll, .fo-tb .fo-tb-scroll, .fo-tb .fo-tb-pick { overflow: visible; max-height: none; }
+.fo-tb .fo-card, .fo-tb .fo-table-scroll, .fo-tb .fo-tb-scroll, .fo-tb .fo-tb-pick { overflow: visible; max-height: none; }
 .fo-tb .fo-table td, .fo-tb .fo-table th { overflow-wrap: anywhere; }
 .fo-tb-cap { margin-top: 10px; }
 .fo-tb-roster { margin-top: 12px; }
