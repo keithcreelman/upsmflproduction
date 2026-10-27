@@ -250,7 +250,8 @@
     weekKickoffs: { 1: null, 3: null, 5: null },
     capAmount: 0,
     teams: [],          // worker payload normalized
-    activeTab: "roster",
+    activeTab: "overview",
+    navLast: {},
     // Active subview under the Contracts parent tab (Auction/Extensions/
     // Restructures/MYM/Tagging). Defaults to Auction.
     contractsSubtab: "myac",
@@ -2587,17 +2588,6 @@
     setupTagTabDelegation();
     setupActivityTabDelegation();
 
-    // Activity & Audit tab is local-dev only for now (Keith 2026-05-19:
-    // "save that whole tab for local only ... not ready for prod until
-    // after this week's deadlines"). Show only when the page is served
-    // from localhost/127.0.0.1 or the user explicitly opts in with
-    // ?activity=1 in the URL. Production MFL HPM frame stays hidden.
-    const host = (window.location.hostname || "").toLowerCase();
-    const isLocal = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
-    const optIn = QS.get("activity") === "1";
-    const tabBtn = $("#fo-tab-activity");
-    if (tabBtn && (isLocal || optIn)) tabBtn.hidden = false;
-
     fetchJSON("VERSION.json?_=" + Date.now())
       .then(function (v) { STATE.version = v; renderVersionBadge(); })
       .catch(function () { renderVersionBadge(); });
@@ -2614,10 +2604,23 @@
     injuryRead();           // async — the shared injury chip's status read (#1338)
     exposeFrontOfficeApi();
     try { document.dispatchEvent(new CustomEvent("fo:ready")); } catch (e) {}
+    showSection(readNavHash() || "overview", { noHash: true });
     const sumEl = $("#fo-contract-summary");
     if (sumEl) sumEl.addEventListener("click", function (e) {
       if (e.target && e.target.closest && e.target.closest(".fo-adj-info")) showAdjPopup();
     });
+  }
+
+  // The ONE Trade War Room route (MODULE=MESSAGE6=N, the Home button's), with
+  // optional preselect keys its loader forwards (#1338): twb_left_team,
+  // twb_right_team, twb_side, twb_player_id/twb_team_id, twb_give, twb_get.
+  function warRoomUrl(params) {
+    var base = (typeof window.getWarRoomUrl === "function" && window.getWarRoomUrl()) ||
+      ((/myfantasyleague\.com$/i.test(window.location.hostname || "") ? window.location.origin : "https://www48.myfantasyleague.com") +
+       "/" + encodeURIComponent(SEASON) + "/home/" + encodeURIComponent(LEAGUE_ID) + "?MODULE=MESSAGE6=N");
+    var keys = Object.keys(params || {}).filter(function (k) { return params[k] != null && params[k] !== ""; });
+    if (!keys.length) return base;
+    return base.split("#")[0] + "#" + keys.map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(params[k]); }).join("&");
   }
 
   // Read-only view of what the Front Office has loaded, for the views added in
@@ -2637,12 +2640,32 @@
         return team.length ? capSnapshotForTeams(team) : null;
       },
       capCeiling: CAP_CEILING,
+      // The Overview's Player salaries / Salary adjustments ledgers: the same cap hits and adjustment
+      // rounding as capFor (currentCapHit, roundToK), grouped by site/rosters/v2/fo_cap_ledger.js.
+      capLedger: function (fid) {
+        var L = window.UPS_FO_CAP_LEDGER;
+        var team = (STATE.teams || []).filter(function (t) { return t.fid === pad4(fid); })[0];
+        if (!L || !team) return null;
+        var adj = STATE.adjFeedOk ? ((STATE.adjByFid || {})[team.fid] || { cut: 0, trade: 0, other: 0, items: [] }) : null;
+        var out = L.build(team, { capHit: currentCapHit, roundCut: roundToK, adj: adj });
+        var snap = capSnapshotForTeams([team]);
+        out.capSnapshot = { salaryCap: snap.salaryCap, adjTotal: snap.adjTotal, capAlloc: snap.capAlloc, capSpace: snap.capSpace };
+        out.ceiling = CAP_CEILING;
+        out.capSpace = CAP_CEILING - out.allocated;
+        out.nextSeason = STATE.nextSeasonAdj && STATE.nextSeasonAdj.ok ? ((STATE.nextSeasonAdj.byFid || {})[team.fid] || null) : null;
+        out.nextSeasonYear = STATE.nextSeasonAdj ? STATE.nextSeasonAdj.nextSeason : null;
+        return out;
+      },
       contractDeadline: function () { return STATE.contractDeadline || null; },
       weekKickoffs: function () { return STATE.weekKickoffs || null; },
       eligibility: function (p) { try { return rosterContractEligibility(p); } catch (e) { return null; } },
       capPenalty: function (pid) { return STATE.capPenaltyFeed === "ok" && STATE.capPenaltyByPid ? (STATE.capPenaltyByPid[String(pid)] || null) : null; },
       injury: function (p) { return injuryResFor(p); },
       openPlayer: function (pid, fid, subtab) { openSlideover(String(pid), pad4(fid), subtab); },
+      show: function (section) { showSection(section); },
+      warRoomUrl: warRoomUrl,
+      leagueEvents: function () { return STATE.leagueEvents || null; },
+      extensionDeadline: function (p) { try { return extensionDeadlineForPlayer(p); } catch (e) { return null; } },
       escapeHtml: escapeHtml, fmtUSD: fmtUSD
     };
   }
@@ -2743,6 +2766,7 @@
       await applyAuctionWinOverlay(STATE.teams, safeInt(SEASON, 0));
       mergeMflSalaryAdjustments(STATE.teams, mflAdj);
       STATE.adjByFid = mflAdj.byFid || {}; // per-team line items for the Cap Alloc popup
+      STATE.adjFeedOk = !!mflAdj.ok;       // false = MFL's feed failed; the worker's raw sums stand in (no items)
       STATE.nextSeasonAdj = nextSeasonAdj; // ledger-only next-season drop penalties
 
       // Keith 2026-05-19: applies to ALL taxi guys, not just Watson.
@@ -2884,6 +2908,13 @@
       who = (t && t.name) || me.franchise_name || ("Franchise " + fid);
     }
     meta.textContent = "Logged in as: " + who;
+    // Subtitle from data, never a hard-coded year (#1338): the viewer's team and the season FO is reading.
+    const sub = $("#fo-subtitle");
+    if (sub) {
+      const vf = pad4(me.franchise_id || "");
+      const vt = (STATE.teams || []).find(function (x) { return pad4(x.fid) === vf; });
+      sub.textContent = (vt ? vt.name + " · " : "") + SEASON + " season";
+    }
   }
 
   // ── Tabs ────────────────────────────────────────────────────────────
@@ -2901,44 +2932,90 @@
     else if (key === "saladj") renderSalaryAdjustmentsTab();
     else if (key === "activity") renderActivityTab();
   }
-  // Activate one of the Contracts subviews: its section goes active, the
-  // Contracts parent button stays highlighted, and the sub-tab bar shows with
-  // the matching chip active.
-  function activateContractSubtab(sub) {
-    if (CONTRACT_SUBTABS.indexOf(sub) === -1) sub = "myac";
-    STATE.contractsSubtab = sub;
-    STATE.activeTab = sub;
-    $$("#fo-tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === "contracts"); });
-    $$(".fo-section").forEach(function (s) { s.classList.toggle("active", s.dataset.section === sub); });
-    const subnav = $("#fo-contracts-subnav");
-    if (subnav) {
-      subnav.hidden = false;
-      $$("button", subnav).forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === sub); });
+  // ── Navigation: six destinations (#1338) ───────────────────────────
+  // Each sub-view is still its own .fo-section; a destination button opens its
+  // group's last-used (or default) section, and the group's chip bar shows.
+  // "Contract actions" (Auction / Extensions / Restructures / MYM / Tagging)
+  // keeps its own second chip row. Deep link: #fo=<section> (the MFL page uses
+  // no hash), so Home and the header can link to the exact place to act.
+  const NAV_GROUPS = {
+    overview: ["overview"],
+    roster: ["roster", "bye"],
+    market: ["market"],
+    trades: ["trades"],
+    contracts: ["cap", "myac", "extensions", "restructure", "mym", "tag", "picks", "saladj", "contractlog"],
+    moves: ["moves"]
+  };
+  const NAV_DEFAULT = { overview: "overview", roster: "roster", market: "market", trades: "trades", contracts: "cap", moves: "moves" };
+  function navGroupOf(section) {
+    const keys = Object.keys(NAV_GROUPS);
+    for (let i = 0; i < keys.length; i += 1) if (NAV_GROUPS[keys[i]].indexOf(section) !== -1) return keys[i];
+    return "";
+  }
+  function readNavHash() {
+    try {
+      const m = /(?:^#|&)fo=([a-z]+)/.exec(String(window.location.hash || ""));
+      return m && navGroupOf(m[1]) ? m[1] : "";
+    } catch (e) { return ""; }
+  }
+  function writeNavHash(section) {
+    try {
+      if (window.history && window.history.replaceState) {
+        const u = new URL(window.location.href);
+        u.hash = "fo=" + section;
+        window.history.replaceState(window.history.state, "", u.toString());
+      }
+    } catch (e) {}
+  }
+  function showSection(section, opts) {
+    const group = navGroupOf(section);
+    if (!group) return;
+    STATE.activeTab = section;
+    STATE.navLast[group] = section;
+    if (CONTRACT_SUBTABS.indexOf(section) !== -1) STATE.contractsSubtab = section;
+    const inActions = CONTRACT_SUBTABS.indexOf(section) !== -1;
+    $$("#fo-tabs button").forEach(function (b) {
+      const on = b.dataset.tab === group;
+      b.classList.toggle("active", on);
+      if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+    $$(".fo-section").forEach(function (sec) { sec.classList.toggle("active", sec.dataset.section === section); });
+    $$("nav.fo-subtabs[data-group]").forEach(function (nav) {
+      nav.hidden = nav.dataset.group !== group;
+      $$("button", nav).forEach(function (b) {
+        b.classList.toggle("active", b.dataset.subtab === section || (b.dataset.subgroup === "actions" && inActions));
+      });
+    });
+    const actNav = $("#fo-actions-subnav");
+    if (actNav) {
+      actNav.hidden = !inActions;
+      $$("button", actNav).forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === section); });
     }
-    renderTabByKey(sub);
+    renderTabByKey(section);
+    if (!opts || !opts.noHash) writeNavHash(section);
+    try { document.dispatchEvent(new CustomEvent("fo:tab", { detail: { section: section, group: group } })); } catch (e) {}
+  }
+  // Kept for the callers that open a contract window directly (e.g. Untag → Tagging).
+  function activateContractSubtab(sub) {
+    showSection(CONTRACT_SUBTABS.indexOf(sub) === -1 ? "myac" : sub);
   }
   function setupTabs() {
     $$("#fo-tabs button").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        if (btn.disabled) return;
-        const tab = btn.dataset.tab;
-        if (!tab) return;
-        // Contracts is a PARENT — open the last-used (or default) subview.
-        if (tab === "contracts") { activateContractSubtab(STATE.contractsSubtab || "myac"); return; }
-        if (tab === STATE.activeTab) return;
-        STATE.activeTab = tab;
-        $$("#fo-tabs button").forEach(function (b) { b.classList.toggle("active", b === btn); });
-        $$(".fo-section").forEach(function (s) { s.classList.toggle("active", s.dataset.section === tab); });
-        const subnav = $("#fo-contracts-subnav"); if (subnav) subnav.hidden = true;  // left the Contracts group
-        renderTabByKey(tab);
+        if (btn.disabled || !btn.dataset.tab) return;
+        const group = btn.dataset.tab;
+        showSection(STATE.navLast[group] || NAV_DEFAULT[group]);
       });
     });
-    // Sub-tab chips under the Contracts parent.
-    $$("#fo-contracts-subnav button").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        if (btn.dataset.subtab) activateContractSubtab(btn.dataset.subtab);
-      });
+    $$("nav.fo-subtabs button[data-subtab]").forEach(function (btn) {
+      btn.addEventListener("click", function () { showSection(btn.dataset.subtab); });
     });
+    window.addEventListener("hashchange", function () {
+      const sec = readNavHash();
+      if (sec && sec !== STATE.activeTab) showSection(sec, { noHash: true });
+    });
+    const wr = $("#fo-war-room-link");
+    if (wr) wr.setAttribute("href", warRoomUrl({}));
   }
   function setupSubviewChips() {
     $$(".fo-subview-chips").forEach(function (group) {
@@ -3780,6 +3857,8 @@
       // fetchContractCalendar). See STATE.weekKickoffs.
       var data = await fetchJSON(apiUrl("/api/league-events") + "?season=" + encodeURIComponent(SEASON) + "&from=all&limit=50&kickoffs=1,3,5");
       var evs = (data && data.events) || [];
+      STATE.leagueEvents = evs;
+      try { document.dispatchEvent(new CustomEvent("fo:events")); } catch (e) {}
       var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
       if (cd && cd.date) STATE.contractDeadline = String(cd.date).slice(0, 10);
       // The deadline as a real instant, matching isPastContractDeadlineFO's
@@ -5326,15 +5405,16 @@
     });
     $$("[data-action='trade']", body).forEach(function (btn) {
       btn.addEventListener("click", function () {
-        // Open the in-MFL Trade War Room (MESSAGE6) — NOT the GitHub Pages trade
-        // workbench (Keith 2026-06-06). The header exposes the canonical URL
-        // (window.getWarRoomUrl, format ?MODULE=MESSAGE6=N) when FO runs inside
-        // MFL; otherwise build it from the current MFL origin. Player preselect
-        // is parked (the war room loads its own payload).
-        var warRoom = (typeof window.getWarRoomUrl === "function" && window.getWarRoomUrl()) ||
-          (window.location.origin + "/" + encodeURIComponent(SEASON) + "/home/" +
-           encodeURIComponent(LEAGUE_ID) + "?MODULE=MESSAGE6=N");
-        window.open(warRoom, "_blank", "noopener");
+        // Open the in-MFL Trade War Room (MESSAGE6) — the same route as the Home
+        // button, NOT the GitHub Pages trade workbench (Keith 2026-06-06) — with
+        // this player preselected (the War Room loader forwards the keys, #1338):
+        // your player on your side, another team's player on the partner side.
+        var me = pad4((STATE.me && STATE.me.franchise_id) || "");
+        var mine = !!me && pad4(p.fid) === me;
+        var params = mine
+          ? { twb_left_team: me, twb_player_id: p.id, twb_team_id: p.fid, twb_side: "left" }
+          : { twb_left_team: me, twb_right_team: p.fid, twb_player_id: p.id, twb_team_id: p.fid, twb_side: "partner" };
+        window.open(warRoomUrl(params), "_blank", "noopener");
       });
     });
   }
