@@ -79,8 +79,8 @@
     function contractLine(p) { return [p.years != null ? p.years + " yr" : "", p.type || "", p.taxi ? "taxi" : "", p.ir ? "IR" : ""].filter(Boolean).join(" · "); }
     function itemRow(i, withControls) {
       var p = /^P_/.test(i.token) ? playerOf(i.from, i.token) : null;
-      var cells = p ? '<td>' + pname(p, i.from) + ' <span class="fo-muted">' + esc(p.pos) + '</span></td><td class="num">' + k(p.salary) + '</td><td>' + esc(contractLine(p)) + "</td>"
-        : '<td><b>' + esc(i.label) + '</b> <span class="fo-muted">draft pick</span></td><td class="num">—</td><td class="fo-muted">no salary</td>';
+      var cells = p ? '<td>' + pname(p, i.from) + ' <span class="fo-muted">' + esc(p.pos) + '</span><div class="fo-tb-sub">' + esc(contractLine(p)) + '</div></td><td class="num">' + k(p.salary) + "</td>"
+        : '<td><b>' + esc(i.label) + '</b> <span class="fo-muted">draft pick</span></td><td class="num">—</td>';
       var ctl = "";
       if (withControls) {
         ctl = '<td class="fo-tb-ctl">' + (draft.teams.length === 3 ? '<select aria-label="Send ' + esc(i.label) + ' to" data-dest="' + esc(i.token) + '" data-from="' + i.from + '">' + draft.teams.filter(function (f) { return f !== i.from; }).map(function (f) {
@@ -97,7 +97,7 @@
     function extensionRow(i, p) {
       var opts = extOpts(i); if (!opts.length) return "";
       var chosen = (draft.ext || {})[i.from + "|" + i.token] || "", o = opts.filter(function (x) { return x.option_key === chosen; })[0];
-      return '<tr class="fo-tb-extrow"><td colspan="4"><div class="fo-tb-extbar"><span class="fo-tf-tag ok">Extension eligible</span> ' +
+      return '<tr class="fo-tb-extrow"><td colspan="3"><div class="fo-tb-extbar"><span class="fo-tf-tag ok">Extension eligible</span> ' +
         (o ? "<b>" + esc(o.extension_term.replace("YR", "-year")) + ' extension</b> <span class="fo-tf-tag need">Proposed · not yet approved</span>' : '<span class="fo-muted">Not extended</span>') +
         ' <button type="button" class="btn small' + (o ? " secondary" : "") + '" data-tbx-open="' + esc(i.token) + '" data-from="' + i.from + '">' + (o ? "Change extension" : "Choose extension") + "</button></div>" +
         (o ? '<p class="fo-tb-extline">' + extCompare(i, p, o) + "</p>" : "") + "</td></tr>";
@@ -129,7 +129,7 @@
       opt.openDialog("Pre-trade extension", extDialogHtml(item, p));
     }
     function listTable(rows, empty, cols) {
-      return rows ? '<div class="fo-table-scroll fo-tb-scroll"><table class="fo-table fo-tb-table"><thead><tr><th>Asset</th><th class="num">Salary</th><th>Contract</th>' + (cols ? "<th></th>" : "") + "</tr></thead><tbody>" + rows + "</tbody></table></div>" : '<p class="fo-ov-empty">' + empty + "</p>";
+      return rows ? '<div class="fo-table-scroll fo-tb-scroll"><table class="fo-table fo-tb-table"><thead><tr><th>Asset</th><th class="num">Salary</th>' + (cols ? "<th></th>" : "") + "</tr></thead><tbody>" + rows + "</tbody></table></div>" : '<p class="fo-ov-empty">' + empty + "</p>";
     }
     function addBtn(on, tok, f, label) {
       return '<button type="button" class="btn small" aria-pressed="' + on + '" data-tok="' + esc(tok) + '" data-from="' + f + '" aria-label="' + (on ? "Remove " : "Add ") + esc(label) + '">' + (on ? "Added" : "Add") + "</button>";
@@ -139,9 +139,9 @@
       var q = (st.q[f] || "").toLowerCase();
       var rows = a.players.filter(function (p) { return !q || (p.name + " " + p.pos).toLowerCase().indexOf(q) !== -1; }).map(function (p) {
         var eligible = extOpts({ from: f, token: "P_" + p.id, label: p.name }).length > 0;
-        return '<tr><td>' + pname(p, f) + ' <span class="fo-muted">' + esc(p.pos) + '</span>' + (eligible ? ' <span class="fo-tf-tag ok" title="Eligible for a pre-trade extension under the league rule">Extension eligible</span>' : "") + '</td><td class="num">' + k(p.salary) + "</td><td>" + esc(contractLine(p)) + '</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, "P_" + p.id, f), "P_" + p.id, f, p.name) + "</td></tr>";
+        return '<tr><td>' + pname(p, f) + ' <span class="fo-muted">' + esc(p.pos) + '</span><div class="fo-tb-sub">' + esc(contractLine(p)) + (eligible ? ' <span class="fo-tf-tag ok" title="Eligible for a pre-trade extension under the league rule">Extension eligible</span>' : "") + '</div></td><td class="num">' + k(p.salary) + '</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, "P_" + p.id, f), "P_" + p.id, f, p.name) + "</td></tr>";
       }).concat(a.picks.filter(function (p) { return !q || p.label.toLowerCase().indexOf(q) !== -1; }).map(function (p) {
-        return '<tr><td><b>' + esc(p.label) + '</b> <span class="fo-muted">draft pick</span></td><td class="num">—</td><td class="fo-muted">no salary</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, p.token, f), p.token, f, p.label) + "</td></tr>";
+        return '<tr><td><b>' + esc(p.label) + '</b> <span class="fo-muted">draft pick</span></td><td class="num">—</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, p.token, f), p.token, f, p.label) + "</td></tr>";
       })).join("");
       return '<details class="fo-tb-roster"' + (st.open[f] ? " open" : "") + ' data-open="' + f + '"><summary>Add from ' + esc(nm(f)) + '’s roster</summary>' +
         '<input type="search" class="fo-tb-q" data-q="' + f + '" placeholder="Find a player or pick" value="' + esc(st.q[f] || "") + '" aria-label="Find in ' + esc(nm(f)) + ' roster">' +
