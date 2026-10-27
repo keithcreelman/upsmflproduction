@@ -114,7 +114,7 @@
         ] : ["Contract stays: " + esc(p.years) + " yr left · " + k(p.salary)];
         if (r) lines.push(esc(nm(recv)) + " cap after: " + k(r.after.alloc) + " (" + (r.after.space < 0 ? "−" + k(-r.after.space) + " over" : k(r.after.space) + " space") + ")");
         return '<div class="fo-tb-xopt' + (chosen === key ? " on" : "") + '"><h4>' + esc(title) + "</h4><ul>" + lines.map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>" +
-          '<button type="button" class="btn" data-tbx-pick="' + esc(key) + '" aria-pressed="' + (chosen === key) + '">' + (chosen === key ? "Chosen" : key ? "Choose " + esc(o.extension_term.replace("YR", "-year")) : "Continue without extending") + "</button></div>";
+          '<button type="button" class="btn" data-tbx-pick="' + esc(key) + '" aria-pressed="' + (chosen === key) + '">' + (!key ? "Continue without extending" : chosen === key ? "Chosen" : "Choose " + esc(o.extension_term.replace("YR", "-year"))) + "</button></div>";
       };
       return '<div class="fo-tb-xd"><p><b>' + esc(p.name) + '</b> is eligible for a pre-trade extension. <span class="fo-tf-tag need">Proposed · not yet approved</span></p>' +
         '<p class="fo-tb-cur">Current: ' + esc(p.years) + " yr left · " + k(p.salary) + (p.type ? " · " + esc(p.type) : "") + '</p><div class="fo-tb-xopts">' +
