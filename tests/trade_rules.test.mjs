@@ -114,7 +114,8 @@ test("every caller uses the shared rule and keeps no copy of the arithmetic", ()
   const cm = read("worker/src/cap_math.js"), m3 = read("worker/src/trade_3way.js"), ai = read("worker/src/trade_accept_integrity.js"), ca = read("worker/src/trade_cap_authority.js");
   t.match(cm, /import \{ IR_RELIEF_RATE, irCapHit \} from "\.\/trade_rules\.js";/); t.match(cm, /if \(p\.ir\) return irCapHit\(amt\);/);
   t.match(m3, /import \{ capMoneyMaxK \} from "\.\/trade_rules\.js";/); t.match(m3, /return capMoneyMaxK\(sum\);/);
-  t.match(ai, /import \{ capMoneyMaxK \} from "\.\/trade_rules\.js";/); t.match(ai, /const maxDollars = capMoneyMaxK\(nonTaxi\) \* 1000;/);
+  t.match(ai, /import \{ capMoneyMaxK, normalizeTradeToken \} from "\.\/trade_rules\.js";/); t.match(ai, /const maxDollars = capMoneyMaxK\(nonTaxi\) \* 1000;/);
+  t.match(ai, /export \{ normalizeTradeToken as normalizeToken \};/, "the old accept-integrity import path still exports the shared parser");
   t.match(ca, /import \{ isOverCap \} from "\.\/trade_rules\.js";/); t.match(ca, /if \(isOverCap\(st\.after, L\.cap\)\) violations\.push\(/);
   for (const [f, src] of [["trade_3way.js", m3], ["trade_accept_integrity.js", ai], ["cap_math.js", cm]]) t.doesNotMatch(code(src), /\/ 2000\)|\* 0\.5\b|\* IR_RELIEF_RATE/, f);
   const desk = read("site/trades/trade_workbench.js");
