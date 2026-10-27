@@ -377,16 +377,39 @@ def display_percentages(probs, decimals=1):
     return {k: ("%." + str(decimals) + "f") % (floor[k] / unit) for k in floor}
 
 
+def bracket(side, play, reg_end, end):
+    """One six-team side of the playoffs, `side` in seed order: (champion, runner-up).
+    Round 1 (week 15): 3 v 6, 4 v 5. Round 2 (week 16): the top seed meets the lowest
+    seed left, 2 meets the other. Final (week 17). The UPS championship (seeds 1-6) and
+    the Hawk Tuah Bowl (7th-12th, H1-H6) have the same shape: in every season 2016-2025,
+    on MFL's own seeds, seed 1 / H1 met the lowest seed left in week 16 (a 6 seed won
+    round 1 in 2016, 2017 and 2022, an H6 in 2016 and 2021), and seeds 1-2 / H1-H2 had byes.
+    `play(a, b, week)` returns the winner; the calls are made in this fixed order."""
+    w36, w45 = play(side[2], side[5], reg_end + 1), play(side[3], side[4], reg_end + 1)
+    low, high = sorted((w36, w45), key=lambda f: side.index(f), reverse=True)
+    f1, f2 = play(side[0], low, reg_end + 2), play(side[1], high, reg_end + 2)
+    champ = play(f1, f2, min(end, reg_end + 3))
+    return champ, (f2 if champ == f1 else f1)
+
+
 def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True, hook=None,
-             actual=None, posterior=None):
+             actual=None, posterior=None, rng_hawk=None):
     """`actual` ({week: {fid: real score}}) fixes already-played weeks instead of
     drawing them -- what happened is not a random variable. `posterior`
     ({fid: (mean, var)}) replaces the shared N(0, sigma_s) shock draw with each
     team's own updated belief; see posterior_shock() for where it comes from.
-    Both default to None, which reproduces the preseason behaviour exactly."""
+    Both default to None, which reproduces the preseason behaviour exactly.
+
+    `rng_hawk` (Standings Forecast, Keith 2026-10-21) also plays the Hawk Tuah Bowl
+    in every simulated season, from its OWN random stream: the draws behind every
+    number published before it existed stay exactly the same. None skips it.
+    Every collected season also records each team's full-league place, 1-12: seeds
+    1-6, then H1-H6 (the non-playoff teams in seeding order), the order the Standings
+    page shows."""
     fids = sorted(teams)
     agg = {f: {"h2h_w": 0.0, "ap_pct": 0.0, "div": 0, "po": 0, "bye": 0, "title": 0, "runner": 0,
-               "ap_rank": [0] * len(fids), "ap_samples": []} for f in fids}
+               "ap_rank": [0] * len(fids), "ap_samples": [],
+               "place": [0] * len(fids), "hawk_title": 0, "hawk_runner": 0} for f in fids}
     # THE SHAPE OF A SEASON, not just its average. Keith 2026-09-12: "i need to
     # see a more realistic regular season. You can show 'Averages' as a baseline
     # but then also show the more league-shaped result." A team's MEAN all-play
@@ -395,6 +418,9 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
     # own spread, and the all-play that lands at each finishing place.
     shape_by_finish = [0.0] * len(fids)
     champ_ap_rank = [0] * len(fids)
+    # Each simulated final as a (champion, runner-up) pair (#1370 gate 3: the most likely MATCHUP is a pair
+    # count, not the two best single-team odds). Counting draws nothing: the random streams are untouched.
+    finals = {"ups": {}, "hawk": {}}
     ap_var_sum = 0.0
     actual = actual or {}
     for _ in range(runs):
@@ -454,17 +480,22 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         wild = sorted((f for f in fids if f not in dws), key=seed_key)[:2]
         seeds = dws_sorted[:2] + sorted(dws_sorted[2:] + wild, key=seed_key)
 
-        def play(a, b, wk):
-            sa = wp[a][wk] + shock[a] + rng.gauss(0, sigma_w)
-            sb = wp[b][wk] + shock[b] + rng.gauss(0, sigma_w)
-            return a if sa >= sb else b
-        # Round 1 (week 15): 3 v 6, 4 v 5. Round 2 (week 16): the top seed meets
-        # the lowest seed left, 2 meets the other. Final (week 17).
-        w36, w45 = play(seeds[2], seeds[5], reg_end + 1), play(seeds[3], seeds[4], reg_end + 1)
-        low, high = sorted((w36, w45), key=lambda f: seeds.index(f), reverse=True)
-        f1, f2 = play(seeds[0], low, reg_end + 2), play(seeds[1], high, reg_end + 2)
-        champ = play(f1, f2, min(end, reg_end + 3))
-        runner = f2 if champ == f1 else f1
+        def player(r):
+            def play(a, b, wk):
+                sa = wp[a][wk] + shock[a] + r.gauss(0, sigma_w)
+                sb = wp[b][wk] + shock[b] + r.gauss(0, sigma_w)
+                return a if sa >= sb else b
+            return play
+        champ, runner = bracket(seeds, player(rng), reg_end, end)
+        # The Hawk Tuah side: H1-H6 = the six non-playoff teams in the same seeding order.
+        hawk = sorted((f for f in fids if f not in seeds), key=seed_key)
+        for i, f in enumerate(seeds + hawk):
+            agg[f]["place"][i] += 1
+        if rng_hawk is not None:
+            h_champ, h_runner = bracket(hawk, player(rng_hawk), reg_end, end)
+            agg[h_champ]["hawk_title"] += 1
+            agg[h_runner]["hawk_runner"] += 1
+            finals["hawk"][(h_champ, h_runner)] = finals["hawk"].get((h_champ, h_runner), 0) + 1
 
         for i, f in enumerate(sorted(fids, key=lambda f: (-st[f]["ap_pct"], -st[f]["pf"]))):
             agg[f]["ap_rank"][i] += 1
@@ -478,6 +509,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
             agg[f]["bye"] += 1
         agg[champ]["title"] += 1
         agg[runner]["runner"] += 1
+        finals["ups"][(champ, runner)] = finals["ups"].get((champ, runner), 0) + 1
         champ_ap_rank[sorted(fids, key=lambda f2: (-st[f2]["ap_pct"], -st[f2]["pf"])).index(champ)] += 1
         # Diagnostics (inert in production): one call per simulated season, so a
         # caller can ask what the CHAMPION's realized all-play looks like rather
@@ -490,6 +522,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
             hook(st, champ, runner, seeds, drawn, set(dws))
     for f in fids:
         agg[f]["ap_samples"].sort()
+    agg["_finals"] = finals
     agg["_shape"] = {"byFinish": [x / runs for x in shape_by_finish],
                      "champApRank": [x / runs for x in champ_ap_rank]}
     return agg, ap_var_sum / runs
@@ -1069,6 +1102,67 @@ def biggest_decliners(prep, cache_dir=None, min_points=8.0, min_ratio=1.3, min_r
     return best
 
 
+# The Hawk Tuah Bowl's games draw from random.Random(seed + HAWK_SEED_OFFSET), never the main
+# stream, so adding them changed none of the numbers published before (proven on Week 6).
+HAWK_SEED_OFFSET = 1
+
+
+def standings_forecast(agg, fids, runs, seed):
+    """The Standings page's Forecast (Keith 2026-10-21): the SAME simulated seasons as every
+    other number in this file, counted three more ways -- each team's full-league place (1-12:
+    seeds 1-6, then H1-H6), the UPS runner-up, and the Hawk Tuah Bowl champion and runner-up.
+    Counts are checked against each other before anything is written: a place in 1-6 IS a
+    playoff spot and 1-2 IS a bye, every place and every final has exactly one team per
+    season. A mismatch stops the run rather than publishing odds that disagree."""
+    n = len(fids)
+    for f in fids:
+        a = agg[f]
+        if sum(a["place"]) != runs or sum(a["place"][:6]) != a["po"] or sum(a["place"][:2]) != a["bye"]:
+            raise AssertionError("season_sim: %s place counts %r disagree with po %d / bye %d over %d runs"
+                                 % (f, a["place"], a["po"], a["bye"], runs))
+    for i in range(n):
+        if sum(agg[f]["place"][i] for f in fids) != runs:
+            raise AssertionError("season_sim: place %d was not filled exactly once per season" % (i + 1))
+    for key in ("title", "runner", "hawk_title", "hawk_runner"):
+        if sum(agg[f][key] for f in fids) != runs:
+            raise AssertionError("season_sim: %s was not decided exactly once per season" % key)
+    finals = agg.get("_finals") or {}
+    pairs = {}
+    for side, champ_key, run_key in (("ups", "title", "runner"), ("hawk", "hawk_title", "hawk_runner")):
+        got = finals.get(side) or {}
+        # The pairs must BE the single-team counts: one final per season, each team's champion and runner-up
+        # seasons summing to its title and runner-up counts.
+        if sum(got.values()) != runs or any(
+                sum(n for (c, _), n in got.items() if c == f) != agg[f][champ_key]
+                or sum(n for (_, r), n in got.items() if r == f) != agg[f][run_key] for f in fids):
+            raise AssertionError("season_sim: %s final pairs disagree with the champion/runner-up counts" % side)
+        pairs[side] = [[c, r, round(n / runs, 4)]
+                       for (c, r), n in sorted(got.items(), key=lambda kv: (-kv[1], kv[0]))]
+    teams = {}
+    for f in fids:
+        a = agg[f]
+        teams[f] = {
+            "place": [round(c / runs, 4) for c in a["place"]],
+            "expectedPlace": round(sum((i + 1) * c for i, c in enumerate(a["place"])) / runs, 2),
+            "titleOdds": round(a["title"] / runs, 4), "runnerUpOdds": round(a["runner"] / runs, 4),
+            "hawkTitleOdds": round(a["hawk_title"] / runs, 4), "hawkRunnerUpOdds": round(a["hawk_runner"] / runs, 4),
+        }
+    return {
+        "places": "place[i] = share of simulated seasons finishing (i+1)th in the full league: 1-6 are playoff "
+                  "seeds (1-2 byes), 7-12 are H1-H6, the Hawk Tuah Bowl side. Same seeding as the Standings page: "
+                  "division winners by MFL's standingsSort, the top two of them seeds 1-2, then all-play %, "
+                  "overall record, points for (league_context F.1).",
+        "bracket": "both sides: round 1 3v6 and 4v5 (week 15), the top seed meets the lowest seed left (week 16), "
+                   "final week 17. Hawk Tuah games use random.Random(seed + %d)." % HAWK_SEED_OFFSET,
+        "hawkSeed": seed + HAWK_SEED_OFFSET,
+        "finals": "finalPairs[side] = [champion, runner-up, share of simulated seasons] for every final that happened "
+                  "at least once, most common first; side ups = the UPS Championship, hawk = the Hawk Tuah Bowl. A "
+                  "matchup's share is its two orders added together.",
+        "finalPairs": pairs,
+        "teams": teams,
+    }
+
+
 def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT,
              preseason_path=None, ev_offense=True):
     """The in-season update: same roster/projection/injury pipeline as run(),
@@ -1116,7 +1210,8 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
     # number this function (or the Wire) publishes. See
     # docs/wire/dynamic_forecast_model.md.
     agg, ap_var = simulate(teams, prep["sched"], wp, reg_end, end, runs, sigma_w, sigma_s,
-                           random.Random(seed), collect=True, actual=actual, posterior=None)
+                           random.Random(seed), collect=True, actual=actual, posterior=None,
+                           rng_hawk=random.Random(seed + HAWK_SEED_OFFSET))
     agg_shadow, _ = simulate(teams, prep["sched"], wp, reg_end, end, runs, sigma_w, sigma_s,
                              random.Random(seed), collect=True, actual=actual, posterior=posterior)
     injury_by_fid = biggest_absences(prep, cache_dir)
@@ -1217,6 +1312,7 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
                             "-- an internal diagnostic, not backtested, not published. See "
                             "docs/wire/dynamic_forecast_model.md."},
         "teams": rows,
+        "standingsForecast": standings_forecast(agg, fids, runs, seed),
     }
     if out_path:
         os.makedirs(os.path.dirname(out_path), exist_ok=True)

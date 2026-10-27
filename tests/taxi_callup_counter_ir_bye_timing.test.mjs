@@ -61,7 +61,7 @@ db.raw.exec("CREATE TABLE ups_draft_picks (season INTEGER, round INTEGER, player
 for (const id of Object.keys(TEAM)) db.raw.prepare("INSERT INTO ups_draft_picks VALUES (2026, 2, ?)").run(id);
 db.raw.exec("CREATE TABLE ups_taxi_callups (id INTEGER PRIMARY KEY AUTOINCREMENT, league_id TEXT, season TEXT, franchise_id TEXT, player_id TEXT, nfl_week INTEGER, called_up_at TEXT, demoted_at TEXT, became_permanent INTEGER DEFAULT 0, callup_index INTEGER, pending INTEGER DEFAULT 0, source TEXT, raw_payload_json TEXT)");
 db.raw.exec("CREATE TABLE ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
-db.raw.exec(`INSERT INTO ups_settings (key, value) VALUES ('taxi_prior_active_2026', '["99999"]')`);
+db.raw.exec(`INSERT INTO ups_settings (key, value) VALUES ('taxi_legacy_active_2025_v1', '["99999"]')`);
 const env = { UPS_MFL_DB: db, COMMISH_API_KEY: "admin", MFL_COOKIE: "COMMISH", MFL_APIKEY: "k" };
 async function count(atIso) {
   NOW = RealDate.parse(atIso);

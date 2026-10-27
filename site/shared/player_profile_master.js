@@ -1098,9 +1098,9 @@
         + '<td class="num">' + (c.games_played || 0) + '</td>'
         + '<td class="num">' + (c.mfl_starts || 0) + '</td>'
         + '<td class="num">' + (c.season_points != null ? c.season_points.toFixed(0) : "—") + '</td>'
-        + '<td class="num muted">' + fmtRank(c.pos_rank) + '</td>'
+        + '<td class="num muted"' + rankPendingAttr(c, "pos_rank") + '>' + fmtRank(c.pos_rank) + '</td>'
         + '<td class="num">' + (c.avg_ppg != null ? c.avg_ppg.toFixed(1) : "—") + '</td>'
-        + '<td class="num muted">' + fmtRank(c.pos_ppg_rank) + '</td>'
+        + '<td class="num muted"' + rankPendingAttr(c, "pos_ppg_rank") + '>' + fmtRank(c.pos_ppg_rank) + '</td>'
         + '<td class="num" style="color:#10b981">' + (c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—") + '</td>'
         + '<td class="num" style="color:#3b82f6">' + (c.plus_pct != null ? c.plus_pct.toFixed(0) + "%" : "—") + '</td>'
         + '<td class="num" style="color:#ef4444">' + (c.dud_pct != null ? c.dud_pct.toFixed(0) + "%" : "—") + '</td>'
@@ -1156,7 +1156,8 @@
       + '<td class="num muted">—</td>'
       + '<td class="num">' + (tot.g ? (tot.wcn / tot.g).toFixed(2) : "—") + '</td>'
       + '<td class="num muted">—</td>'
-      + '</tr></tbody></table></div>';
+      + '</tr></tbody></table></div>'
+      + rankPendingNoteHtml(rows);
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1598,6 +1599,21 @@
       + '</div>';
   }
 
+  // A season rank the worker holds back until the #1307 recount comes as null
+  // with rank_pending {fields}: the cell shows "—" with this note, never a number.
+  var RANK_PENDING_NOTE = "Rank pending historical reconciliation";
+  var RANK_PENDING_LABEL = { pos_rank: "Pts Rk", pos_ppg_rank: "PPG Rk" };
+  function rankPendingAttr(c, k) {
+    var f = c && c.rank_pending && c.rank_pending.fields;
+    return (f && f.indexOf(k) !== -1) ? ' title="' + RANK_PENDING_NOTE + '"' : "";
+  }
+  function rankPendingNoteHtml(rows) {
+    var lines = rows.filter(function (c) { return c && c.rank_pending && c.rank_pending.fields; }).map(function (c) {
+      return escapeHtml(String(c.season)) + " " + c.rank_pending.fields.map(function (k) { return RANK_PENDING_LABEL[k] || k; }).join(", ");
+    });
+    return lines.length ? '<p class="small muted" style="margin-top:6px;">' + lines.join("; ") + ": " + RANK_PENDING_NOTE + ".</p>" : "";
+  }
+
   function buildCompactScoringTableHtml(career, leverageCoefs) {
     if (!career || !career.length) return "";
     var rows = career.slice(0, 20);
@@ -1623,9 +1639,9 @@
         + '<td>' + escapeHtml(String(c.season)) + '</td>'
         + '<td class="num">' + (c.games_played || 0) + '</td>'
         + '<td class="num">' + (c.season_points != null ? c.season_points.toFixed(0) : "—") + '</td>'
-        + '<td class="num muted">' + fmtRank(c.pos_rank) + '</td>'
+        + '<td class="num muted"' + rankPendingAttr(c, "pos_rank") + '>' + fmtRank(c.pos_rank) + '</td>'
         + '<td class="num">' + (c.avg_ppg != null ? c.avg_ppg.toFixed(1) : "—") + '</td>'
-        + '<td class="num muted">' + fmtRank(c.pos_ppg_rank) + '</td>'
+        + '<td class="num muted"' + rankPendingAttr(c, "pos_ppg_rank") + '>' + fmtRank(c.pos_ppg_rank) + '</td>'
         + '<td class="num" style="color:#10b981">' + (c.elite_pct != null ? c.elite_pct.toFixed(0) + "%" : "—") + '</td>'
         + '<td class="num">' + apwCell + '</td>'
         + '</tr>';
@@ -1655,6 +1671,7 @@
         + '<td class="num">' + (wcAvailable ? tot.wcn.toFixed(1) : '<span class="muted">—</span>') + '</td>'
       + '</tr>'
       + '</tbody></table></div>'
+      + rankPendingNoteHtml(rows)
       + (wcAvailable ? '' : '<p class="small muted" style="margin-top:6px;">APW shows "—" — upstream <code>src_weekly.win_chunks</code> not currently populated. ETL backfill pending.</p>');
   }
 

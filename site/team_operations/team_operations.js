@@ -1091,9 +1091,19 @@
         event: safeStr(ev.event),
         date: safeStr(ev.date),
         label: eventLabel(ev.event),
-        days: daysUntil(ev.date)
+        days: daysUntil(ev.date),
+        time: etTimeLabel(ev.time_et),
+        // MFL's exact instant (the trade deadline): passed the moment MFL starts refusing, not at midnight.
+        passed: Number(ev.start_unix) > 0 && Date.now() / 1000 > Number(ev.start_unix)
       };
     }).filter(function (e) { return !!e.date; });
+  }
+  // The trade deadline row carries MFL's exact time (when MFL stops accepting trades): "12:00" → "12:00 PM ET".
+  function etTimeLabel(t) {
+    var m = safeStr(t).match(/^(\d{1,2}):(\d{2})$/);
+    if (!m) return "";
+    var h = parseInt(m[1], 10);
+    return (h % 12 || 12) + ":" + m[2] + " " + (h < 12 ? "AM" : "PM") + " ET";
   }
   function findEvent(tokens) {
     var list = upcomingEvents();
@@ -1352,9 +1362,9 @@
       rows.push({
         tone: ev.days <= 2 ? "bad" : "ok",
         title: ev.label,
-        sub: fmtEventDate(ev.date),
-        when: whenLabel(ev.days),
-        whenSub: fmtEventDate(ev.date),
+        sub: fmtEventDate(ev.date) + (ev.time ? ", " + ev.time : ""),
+        when: ev.passed ? "passed" : whenLabel(ev.days),
+        whenSub: fmtEventDate(ev.date) + (ev.time ? ", " + ev.time : ""),
         cta: "Front Office",
         href: mflModuleUrl("MESSAGE7")
       });
@@ -2013,8 +2023,8 @@
       listHtml = '<ul class="tops-cal">' + events.slice(0, 7).map(function (ev, i) {
         return '<li' + (i === 0 ? ' class="is-next"' : '') + '>'
           + '<span class="tops-cal-d">' + escapeHtml(fmtEventDate(ev.date)) + '</span>'
-          + '<span class="tops-cal-l"><b>' + escapeHtml(ev.label) + '</b></span>'
-          + '<span class="tops-cal-in num">' + escapeHtml(ev.days == null ? "" : (ev.days <= 0 ? "today" : ev.days + " d")) + '</span>'
+          + '<span class="tops-cal-l"><b>' + escapeHtml(ev.label) + '</b>' + (ev.time ? ' <span class="tops-cal-t">' + escapeHtml(ev.time) + '</span>' : '') + '</span>'
+          + '<span class="tops-cal-in num">' + escapeHtml(ev.passed ? "passed" : ev.days == null ? "" : (ev.days <= 0 ? "today" : ev.days + " d")) + '</span>'
           + '</li>';
       }).join("") + '</ul>';
     }
