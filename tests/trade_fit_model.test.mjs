@@ -182,4 +182,24 @@ test("real league, 2026 after Week 6: every team builds, results are stable and 
   t.equal(JSON.stringify(TF.pairFits(m2, "0008", "0004", { capRoom: FX.capRoom, limit: 20 })), JSON.stringify(fits), "deterministic");
 });
 
-await run("trade_fit_model");
+await test("tradeLineup: a whole trade (n out, m in) uses the same lineup rule; the 1-for-1 case equals swapLineup", () => {
+  const A = base("A"), B = base("B");
+  B.players.find((p) => p.pid === "Brb1")._v = 25;           // a stud RB on B
+  const m = TF.buildLeague(league([A, B]));
+  const inRb = m.teams.B.team.players.find((p) => p.pid === "Brb1");
+  const one = TF.tradeLineup(m, "A", ["Arb1"], [inRb]), swap = TF.swapLineup(m, "A", "Arb1", inRb);
+  t.equal(one.total, swap.total, "1-for-1 equals swapLineup");
+  t.ok(one.total > m.teams.A.total, "a better RB raises the lineup");
+  // two out, none in: lineup can only fall, and the slot is refilled by replacement level
+  const lost = TF.tradeLineup(m, "A", ["Arb1", "Arb2"], []);
+  t.ok(lost.total < m.teams.A.total, "losing two starters lowers the lineup");
+  t.ok(lost.starters.some((s) => s.rep), "the freed slot is filled at replacement level");
+  // no change = the model's own before
+  t.equal(Math.round(TF.tradeLineup(m, "A", [], []).total * 100), Math.round(m.teams.A.total * 100), "empty trade = today's lineup");
+  // an incoming player who is out is not counted
+  const hurt = Object.assign({}, inRb, { chip: "OUT" });
+  const h = TF.tradeLineup(m, "A", [], [hurt]);
+  t.equal(JSON.stringify(h.notCounted), JSON.stringify(["Brb1"]), "an unavailable arrival is named, not counted");
+});
+
+run("trade_fit_model");

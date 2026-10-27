@@ -35,6 +35,10 @@
   // Same defaults as the Overview's card (Keith 2026-10-21): By Position, PPG.
   var view = { by: "position", measure: "ppg", sort: "ALL", mixSort: "" };
   var sel = { team: "" };
+  // Trades has two views: the Trade builder (default; fo_trade_builder.js) and the Trade finder (unchanged).
+  var mode = "builder";
+  var MODES = [["builder", "Trade builder"], ["finder", "Trade finder"]];
+  function modeChips() { return '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-trmode">Trades view</div><div class="fo-subview-chips fo-choice fo-tf-mode" role="group" aria-labelledby="fo-lbl-trmode">' + chips(MODES, "data-tf-mode", mode) + "</div></div></div>"; }
   var tableMemo = { model: null, tables: {} };
   var GLABEL = { PK: "K", PN: "P" };
   var BY = [["position", "By Position"], ["slot", "By Lineup Slot"], ["mix", "Starter Mix"]];
@@ -404,6 +408,7 @@
     var el = document.getElementById("fo-trades-body");
     if (!el) return;
     H.wireClicks(el);
+    if (mode === "builder") { renderBuilder(el); return; }
     var se = DATA.get("scores");
     if (!se || !DATA.get("players")) { H.loading(el, "Reading MFL’s scores and players…"); return; }
     var ss = H.scoring();
@@ -423,7 +428,7 @@
         '<div class="fo-subview-chips fo-choice fo-ls-views" role="group" aria-labelledby="fo-lbl-tfms">' + chips(MEASURES, "data-tf-measure", view.measure) + "</div></div>") + "</div>";
     // Re-rendering keeps the scroll position of the table box (sorting or a data refresh never jumps the table).
     var box = el.querySelector(".fo-tf-scroll"), sx = box ? box.scrollLeft : 0;
-    el.innerHTML = '<div class="fo-card fo-tf-main"><div class="fo-card-head"><h2>Lineup strength, all teams</h2>' +
+    el.innerHTML = modeChips() + '<div class="fo-card fo-tf-main"><div class="fo-card-head"><h2>Lineup strength, all teams</h2>' +
       '<span class="small fo-muted">Trade finder · values = season PPG per MFL week</span></div>' +
       '<p class="fo-basis">' + H.esc(basis.text) + "</p>" + controls +
       (view.by === "mix" ? mixHtml(m, me) : strengthHtml(m, me)) + "</div>";
@@ -432,14 +437,31 @@
     H.setFreshness("MFL read " + H.clock(ss.fetchedAt));
   }
 
+  // The builder keeps its own draft: mount once, then only refresh it when data (picks, rosters) arrives.
+  function renderBuilder(el) {
+    var TB = root.UPS_FO_TRADE_BUILDER;
+    var host = el.querySelector("#fo-tb-host");
+    if (host && host.__tbHandle) { host.__tbHandle.refresh(); return; }
+    el.innerHTML = modeChips() + '<div id="fo-tb-host"></div>';
+    host = el.querySelector("#fo-tb-host");
+    if (!TB) { host.innerHTML = H.banner("The trade builder didn’t load. Reload to retry.", "warn"); return; }
+    if (!FO.teams().length) { H.loading(host, "Reading rosters…"); return; }
+    host.__tbHandle = TB.mount(host);
+  }
+
   function wire() {
     var el = document.getElementById("fo-trades-body");
     if (!el || el.__tfWired) return;
     el.__tfWired = true;
     wireDialog();
     el.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-tf-by],[data-tf-measure],[data-tf-sort],[data-tf-msort],[data-tf-view]") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-tf-mode],[data-tf-by],[data-tf-measure],[data-tf-sort],[data-tf-msort],[data-tf-view]") : null;
       if (!t) return;
+      if (t.hasAttribute("data-tf-mode")) {
+        var nm = t.getAttribute("data-tf-mode");
+        if (nm !== mode) { mode = nm; var h = el.querySelector("#fo-tb-host"); if (h) el.innerHTML = ""; render(); }
+        return;
+      }
       if (t.hasAttribute("data-tf-view")) { var m = H.leagueModel(0); if (m && m.teams[t.getAttribute("data-tf-view")]) openTeam(m, t.getAttribute("data-tf-view")); return; }
       if (t.hasAttribute("data-tf-by")) view.by = t.getAttribute("data-tf-by");
       else if (t.hasAttribute("data-tf-measure")) view.measure = t.getAttribute("data-tf-measure");
@@ -460,7 +482,7 @@
 
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("trades");
   // Test seam: the view state and the team view's pick and stock logic.
-  root.UPS_FO_TRADES = { _view: view, _sel: sel, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); },
+  root.UPS_FO_TRADES = { _setMode: function (m) { mode = m; }, _view: view, _sel: sel, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); },
     _teamHtml: function (f) { return teamHtml(H.leagueModel(0), f); }, _openTeam: function (f) { openTeam(H.leagueModel(0), f); } };
   document.addEventListener("fo:ready", function () {
     H = root.UPS_FO_HUB; FO = root.UPS_FO; DATA = root.UPS_FO_DATA; TF = root.UPS_TRADE_FIT; LS = root.UPS_LINEUP_STRENGTH;

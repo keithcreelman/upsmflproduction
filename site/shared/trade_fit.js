@@ -366,6 +366,22 @@
     var row = { id: inPlayer.pid, pos: inPlayer.pos, v: num(model.values[inPlayer.pid]) || 0 };
     return bestLineup(teamRows(tm.team, model.values, model.lineup, ex, [row]), model.repl, model.lineup, model.lineupRule, model.slots);
   }
+  // Team `fid`'s best legal lineup after it sends every pid in `outPids` and receives every {pid,pos} in `inPlayers`
+  // (a whole trade; swapLineup is the 1-for-1 case). Same lineup rule, slots, values and replacement levels as the
+  // model's own "before" (model.teams[fid].best). An incoming player who is out/unavailable is not counted, exactly
+  // as a rostered one isn't (availableNow); `notCounted` names them.
+  function tradeLineup(model, fid, outPids, inPlayers) {
+    var tm = model.teams[fid];
+    var ex = {}; (outPids || []).forEach(function (pid) { ex[pid] = 1; });
+    var rows = [], notCounted = [];
+    (inPlayers || []).forEach(function (p) {
+      if (p.pid in model.values && availableNow(p)) rows.push({ id: p.pid, pos: p.pos, v: num(model.values[p.pid]) || 0 });
+      else notCounted.push(p.pid);
+    });
+    var out = bestLineup(teamRows(tm.team, model.values, model.lineup, ex, rows), model.repl, model.lineup, model.lineupRule, model.slots);
+    out.notCounted = notCounted;
+    return out;
+  }
   function swapGain(model, fid, outPid, inPlayer) {
     return swapLineup(model, fid, outPid, inPlayer).total - model.teams[fid].total;
   }
@@ -447,7 +463,7 @@
     UNAVAILABLE_CHIPS: UNAVAILABLE_CHIPS, FIT_EXCLUDED_GROUPS: FIT_EXCLUDED_GROUPS,
     availableNow: availableNow, replacementLevels: replacementLevels, bestLineup: bestLineup,
     deriveSlots: deriveSlots, fillSlots: fillSlots, slotBaseline: slotBaseline, SLOT_ROW: SLOT_ROW,
-    buildLeague: buildLeague, pairFits: pairFits, additionDetail: additionDetail, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, addGain: addGain
+    buildLeague: buildLeague, pairFits: pairFits, additionDetail: additionDetail, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, tradeLineup: tradeLineup, addGain: addGain
   };
   if (typeof window !== "undefined") window.UPS_TRADE_FIT = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
