@@ -16,8 +16,14 @@
     return str(v).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
   }
   function pad4(v) { var d = str(v).replace(/\D/g, ""); return d ? ("0000" + d).slice(-4) : ""; }
-  function fmt1(v) { return v == null || !isFinite(Number(v)) ? "—" : (Math.round(Number(v) * 10) / 10).toFixed(1); }
-  function signed1(v) { if (v == null || !isFinite(Number(v))) return "—"; var n = Math.round(Number(v) * 10) / 10; return (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(1); }
+  // Points/PPG: the ONE shared half-up formatter (site/m/season_scoring.js fmt1, 19.35 → 19.4), as on the phone.
+  function shared1(v) { var S = root.UPS_MOBILE_SEASON_SCORING; return S && S.fmt1 ? S.fmt1(v) : String(v); }
+  function fmt1(v) { return v == null || !isFinite(Number(v)) ? "—" : shared1(v); }
+  function signed1(v) {
+    if (v == null || !isFinite(Number(v))) return "—";
+    var t = shared1(Math.abs(Number(v)));
+    return (t === "0.0" ? "" : Number(v) > 0 ? "+" : "−") + t;
+  }
   function money(v) {
     var f = FO();
     if (f && f.fmtUSD) return f.fmtUSD(v);
