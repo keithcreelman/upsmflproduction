@@ -1,0 +1,1537 @@
+{
+ "inj:blake:12626:ppg": {
+  "value": 20.6,
+  "shown": "20.6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:12626:w4": {
+  "value": 16.9,
+  "shown": "16.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:12626:w5": {
+  "value": 22.6,
+  "shown": "22.6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:12626:w6": {
+  "value": 5.4,
+  "shown": "5.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:15282:ppg": {
+  "value": 18.7,
+  "shown": "18.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:15282:w6": {
+  "value": 21.1,
+  "shown": "21.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:13299:ppg": {
+  "value": 17.9,
+  "shown": "17.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:13299:w4": {
+  "value": 20.2,
+  "shown": "20.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:13299:w5": {
+  "value": 10.1,
+  "shown": "10.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:13299:w6": {
+  "value": 20.8,
+  "shown": "20.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:15751:ppg": {
+  "value": 16.9,
+  "shown": "16.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:15751:w4": {
+  "value": 15.6,
+  "shown": "15.6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:15751:w5": {
+  "value": 23.2,
+  "shown": "23.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:15751:w6": {
+  "value": 12.6,
+  "shown": "12.6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17052:ppg": {
+  "value": 15.2,
+  "shown": "15.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17052:w4": {
+  "value": 11.1,
+  "shown": "11.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17052:w5": {
+  "value": 12.4,
+  "shown": "12.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17052:w6": {
+  "value": 24.9,
+  "shown": "24.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17500:ppg": {
+  "value": 12.8,
+  "shown": "12.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17500:w4": {
+  "value": 14.5,
+  "shown": "14.5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17500:w5": {
+  "value": 14.7,
+  "shown": "14.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17500:w6": {
+  "value": 2.7,
+  "shown": "2.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16269:ppg": {
+  "value": 12.6,
+  "shown": "12.6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16269:w4": {
+  "value": 21.0,
+  "shown": "21.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16269:w5": {
+  "value": 17.9,
+  "shown": "17.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16269:w6": {
+  "value": 12.5,
+  "shown": "12.5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16788:ppg": {
+  "value": 12.1,
+  "shown": "12.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16788:w4": {
+  "value": 18.0,
+  "shown": "18.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16788:w5": {
+  "value": 7.0,
+  "shown": "7.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16788:w6": {
+  "value": 7.4,
+  "shown": "7.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17051:ppg": {
+  "value": 11.1,
+  "shown": "11.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17051:w4": {
+  "value": 21.8,
+  "shown": "21.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17051:w5": {
+  "value": 7.8,
+  "shown": "7.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16080:ppg": {
+  "value": 9.7,
+  "shown": "9.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16080:w4": {
+  "value": 15.4,
+  "shown": "15.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16080:w5": {
+  "value": 6.7,
+  "shown": "6.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16080:w6": {
+  "value": 16.1,
+  "shown": "16.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:14109:ppg": {
+  "value": 9.7,
+  "shown": "9.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:14109:w5": {
+  "value": 12.8,
+  "shown": "12.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:14109:w6": {
+  "value": 3.9,
+  "shown": "3.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16723:ppg": {
+  "value": 7.3,
+  "shown": "7.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16723:w4": {
+  "value": 2.9,
+  "shown": "2.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16723:w5": {
+  "value": 6.9,
+  "shown": "6.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16723:w6": {
+  "value": 6.1,
+  "shown": "6.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17527:ppg": {
+  "value": 7.2,
+  "shown": "7.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17527:w4": {
+  "value": 7.7,
+  "shown": "7.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17527:w5": {
+  "value": 9.0,
+  "shown": "9.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:17527:w6": {
+  "value": 1.2,
+  "shown": "1.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:14823:ppg": {
+  "value": 6.1,
+  "shown": "6.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:14823:w6": {
+  "value": 7.9,
+  "shown": "7.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16174:ppg": {
+  "value": 5.4,
+  "shown": "5.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16174:w4": {
+  "value": 9.9,
+  "shown": "9.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16174:w5": {
+  "value": 1.9,
+  "shown": "1.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:16174:w6": {
+  "value": 6.3,
+  "shown": "6.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:14086:ppg": {
+  "value": 4.8,
+  "shown": "4.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:14086:w4": {
+  "value": 4.3,
+  "shown": "4.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:14086:w5": {
+  "value": 9.8,
+  "shown": "9.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:14086:w6": {
+  "value": 3.3,
+  "shown": "3.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:mclaurin:rec": {
+  "value": 1,
+  "shown": "1",
+  "source": "nflverse player_stats 2026 wk6"
+ },
+ "inj:mclaurin:yds": {
+  "value": 27,
+  "shown": "27",
+  "source": "nflverse player_stats 2026 wk6"
+ },
+ "inj:mclaurin:w6": {
+  "value": 3.9,
+  "shown": "3.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:mclaurin:ppg": {
+  "value": 9.7,
+  "shown": "9.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:mclaurin:g": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:mclaurin:rkp": {
+  "value": 58,
+  "shown": "58",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:mclaurin:rkg": {
+  "value": 50,
+  "shown": "50",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:mclaurin:w5": {
+  "value": 12.8,
+  "shown": "12.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:blake:lu": {
+  "value": 277.6,
+  "shown": "277.6",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:blake:rank": {
+  "value": 2,
+  "shown": "2nd",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:blake:wk7": {
+  "value": 247.6,
+  "shown": "247.6",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:blake:wk7gap": {
+  "value": 30.0,
+  "shown": "30.0",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "odds:po:0010": {
+  "value": 88.1,
+  "shown": "88.1%",
+  "source": "season_sim live wk06 (Playoff Picture, 10,000 runs)"
+ },
+ "inj:blake:cfpo": {
+  "value": 89.3,
+  "shown": "89.3%",
+  "source": "same simulation, same inputs and seed, McLaurin removed from the injury feed (cf_sim.json)"
+ },
+ "inj:nine7": {
+  "value": "9-7",
+  "shown": "9&ndash;7",
+  "source": "MFL leagueStandings after Week 6 (h2hw/h2hl)"
+ },
+ "inj:blake:ap": {
+  "value": "44-22",
+  "shown": "44&ndash;22",
+  "source": "MFL leagueStandings after Week 6"
+ },
+ "inj:17102:fa": {
+  "value": 9.7,
+  "shown": "9.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17102:fag": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17102:rk1": {
+  "value": 11,
+  "shown": "11th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17102:rk2": {
+  "value": 12,
+  "shown": "12th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17102:ppg": {
+  "value": 17.5,
+  "shown": "17.5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17102:g": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17102:rkp": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17102:rkg": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17102:w4": {
+  "value": 12.0,
+  "shown": "12.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17102:w5": {
+  "value": 25.9,
+  "shown": "25.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17102:rppg": {
+  "value": 8.3,
+  "shown": "8.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17102:lu1": {
+  "value": 209.5,
+  "shown": "209.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17102:lu2": {
+  "value": 200.3,
+  "shown": "200.3",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17102:drop": {
+  "value": 9.2,
+  "shown": "&minus;9.2",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17121:fa": {
+  "value": 9.2,
+  "shown": "9.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17121:fag": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17121:rk1": {
+  "value": 7,
+  "shown": "7th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17121:ppg": {
+  "value": 13.0,
+  "shown": "13.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17121:g": {
+  "value": 3,
+  "shown": "3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17121:rkp": {
+  "value": 10,
+  "shown": "10",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17121:rkg": {
+  "value": 1,
+  "shown": "1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17121:rppg": {
+  "value": 4.1,
+  "shown": "4.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17121:lu1": {
+  "value": 241.5,
+  "shown": "241.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17121:lu2": {
+  "value": 232.6,
+  "shown": "232.6",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17121:drop": {
+  "value": 8.9,
+  "shown": "&minus;8.9",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:14783:fa": {
+  "value": 22.4,
+  "shown": "22.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14783:fag": {
+  "value": 2,
+  "shown": "2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14783:rk1": {
+  "value": 11,
+  "shown": "11th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:14783:rk2": {
+  "value": 12,
+  "shown": "12th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:14783:ppg": {
+  "value": 19.8,
+  "shown": "19.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14783:g": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14783:rkp": {
+  "value": 19,
+  "shown": "19",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14783:rkg": {
+  "value": 18,
+  "shown": "18",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14783:w4": {
+  "value": 16.2,
+  "shown": "16.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14783:w5": {
+  "value": 17.0,
+  "shown": "17.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14783:rppg": {
+  "value": 13.3,
+  "shown": "13.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14783:lu1": {
+  "value": 209.5,
+  "shown": "209.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:14783:lu2": {
+  "value": 203.0,
+  "shown": "203.0",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:14783:drop": {
+  "value": 6.5,
+  "shown": "&minus;6.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17032:fa": {
+  "value": 22.4,
+  "shown": "22.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17032:fag": {
+  "value": 2,
+  "shown": "2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17032:rk1": {
+  "value": 8,
+  "shown": "8th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17032:rk2": {
+  "value": 10,
+  "shown": "10th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17032:ppg": {
+  "value": 18.7,
+  "shown": "18.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17032:g": {
+  "value": 2,
+  "shown": "2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17032:rkp": {
+  "value": 36,
+  "shown": "36",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17032:rppg": {
+  "value": 12.1,
+  "shown": "12.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17032:lu1": {
+  "value": 224.5,
+  "shown": "224.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17032:lu2": {
+  "value": 218.0,
+  "shown": "218.0",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17032:drop": {
+  "value": 6.5,
+  "shown": "&minus;6.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17066:rk1": {
+  "value": 7,
+  "shown": "7th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17066:ppg": {
+  "value": 16.2,
+  "shown": "16.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17066:g": {
+  "value": 4,
+  "shown": "4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17066:rkp": {
+  "value": 18,
+  "shown": "18",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17066:rkg": {
+  "value": 14,
+  "shown": "14",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17066:w4": {
+  "value": 30.4,
+  "shown": "30.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17066:rppg": {
+  "value": 10.0,
+  "shown": "10.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17066:lu1": {
+  "value": 241.5,
+  "shown": "241.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17066:lu2": {
+  "value": 235.2,
+  "shown": "235.2",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17066:drop": {
+  "value": 6.3,
+  "shown": "&minus;6.3",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:11671:fa": {
+  "value": 13.9,
+  "shown": "13.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:fag": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:rk1": {
+  "value": 9,
+  "shown": "9th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:11671:rk2": {
+  "value": 10,
+  "shown": "10th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:11671:ppg": {
+  "value": 16.0,
+  "shown": "16.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:g": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:rkp": {
+  "value": 15,
+  "shown": "15",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:rkg": {
+  "value": 21,
+  "shown": "21",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:w4": {
+  "value": 13.4,
+  "shown": "13.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:w5": {
+  "value": 29.5,
+  "shown": "29.5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:w6": {
+  "value": 13.0,
+  "shown": "13.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:rppg": {
+  "value": 10.9,
+  "shown": "10.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11671:lu1": {
+  "value": 221.8,
+  "shown": "221.8",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:11671:lu2": {
+  "value": 216.7,
+  "shown": "216.7",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:11671:drop": {
+  "value": 5.1,
+  "shown": "&minus;5.1",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13593:fa": {
+  "value": 22.4,
+  "shown": "22.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13593:fag": {
+  "value": 2,
+  "shown": "2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13593:rk1": {
+  "value": 3,
+  "shown": "3rd",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13593:ppg": {
+  "value": 24.3,
+  "shown": "24.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13593:g": {
+  "value": 4,
+  "shown": "4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13593:rkp": {
+  "value": 20,
+  "shown": "20",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13593:rkg": {
+  "value": 13,
+  "shown": "13",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13593:w4": {
+  "value": 23.6,
+  "shown": "23.6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13593:rppg": {
+  "value": 19.8,
+  "shown": "19.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13593:lu1": {
+  "value": 273.1,
+  "shown": "273.1",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13593:lu2": {
+  "value": 268.7,
+  "shown": "268.7",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13593:drop": {
+  "value": 4.4,
+  "shown": "&minus;4.4",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:16696:fa": {
+  "value": 9.5,
+  "shown": "9.5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16696:fag": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16696:rk1": {
+  "value": 5,
+  "shown": "5th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:16696:rk2": {
+  "value": 7,
+  "shown": "7th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:16696:ppg": {
+  "value": 11.5,
+  "shown": "11.5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16696:g": {
+  "value": 4,
+  "shown": "4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16696:rkp": {
+  "value": 24,
+  "shown": "24",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16696:rkg": {
+  "value": 3,
+  "shown": "3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16696:w4": {
+  "value": 15.5,
+  "shown": "15.5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16696:rppg": {
+  "value": 7.3,
+  "shown": "7.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16696:lu1": {
+  "value": 243.2,
+  "shown": "243.2",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:16696:lu2": {
+  "value": 239.0,
+  "shown": "239.0",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:16696:drop": {
+  "value": 4.2,
+  "shown": "&minus;4.2",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:14136:fa": {
+  "value": 13.9,
+  "shown": "13.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14136:fag": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14136:rk1": {
+  "value": 7,
+  "shown": "7th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:14136:ppg": {
+  "value": 14.1,
+  "shown": "14.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14136:g": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14136:rkp": {
+  "value": 32,
+  "shown": "32",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14136:rkg": {
+  "value": 24,
+  "shown": "24",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14136:w4": {
+  "value": 19.8,
+  "shown": "19.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14136:w5": {
+  "value": 3.8,
+  "shown": "3.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14136:rppg": {
+  "value": 10.0,
+  "shown": "10.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:14136:lu1": {
+  "value": 241.5,
+  "shown": "241.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:14136:lu2": {
+  "value": 237.3,
+  "shown": "237.3",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:14136:drop": {
+  "value": 4.2,
+  "shown": "&minus;4.2",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15253:fa": {
+  "value": 8.0,
+  "shown": "8.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15253:fag": {
+  "value": 2,
+  "shown": "2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15253:rk1": {
+  "value": 6,
+  "shown": "6th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15253:rk2": {
+  "value": 7,
+  "shown": "7th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15253:ppg": {
+  "value": 10.2,
+  "shown": "10.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15253:g": {
+  "value": 3,
+  "shown": "3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15253:rkp": {
+  "value": 47,
+  "shown": "47",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15253:rkg": {
+  "value": 28,
+  "shown": "28",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15253:rppg": {
+  "value": 6.1,
+  "shown": "6.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15253:lu1": {
+  "value": 242.6,
+  "shown": "242.6",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15253:lu2": {
+  "value": 238.4,
+  "shown": "238.4",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15253:drop": {
+  "value": 4.2,
+  "shown": "&minus;4.2",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15972:rk1": {
+  "value": 11,
+  "shown": "11th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15972:ppg": {
+  "value": 12.3,
+  "shown": "12.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15972:g": {
+  "value": 1,
+  "shown": "1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15972:rkp": {
+  "value": 81,
+  "shown": "81",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15972:rppg": {
+  "value": 8.3,
+  "shown": "8.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15972:lu1": {
+  "value": 209.5,
+  "shown": "209.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15972:lu2": {
+  "value": 205.5,
+  "shown": "205.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15972:drop": {
+  "value": 4.0,
+  "shown": "&minus;4.0",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:16194:fa": {
+  "value": 13.9,
+  "shown": "13.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16194:fag": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16194:rk1": {
+  "value": 12,
+  "shown": "12th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:16194:ppg": {
+  "value": 13.1,
+  "shown": "13.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16194:g": {
+  "value": 3,
+  "shown": "3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16194:rkp": {
+  "value": 72,
+  "shown": "72",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16194:rkg": {
+  "value": 27,
+  "shown": "27",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16194:rppg": {
+  "value": 9.3,
+  "shown": "9.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:16194:lu1": {
+  "value": 203.1,
+  "shown": "203.1",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:16194:lu2": {
+  "value": 199.3,
+  "shown": "199.3",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:16194:drop": {
+  "value": 3.8,
+  "shown": "&minus;3.8",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17472:fa": {
+  "value": 8.0,
+  "shown": "8.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17472:fag": {
+  "value": 2,
+  "shown": "2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17472:rk1": {
+  "value": 8,
+  "shown": "8th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17472:rk2": {
+  "value": 9,
+  "shown": "9th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17472:ppg": {
+  "value": 10.2,
+  "shown": "10.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17472:g": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17472:rkp": {
+  "value": 33,
+  "shown": "33",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17472:rkg": {
+  "value": 29,
+  "shown": "29",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17472:w4": {
+  "value": 6.9,
+  "shown": "6.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17472:w5": {
+  "value": 2.2,
+  "shown": "2.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17472:rppg": {
+  "value": 6.6,
+  "shown": "6.6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17472:lu1": {
+  "value": 224.5,
+  "shown": "224.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17472:lu2": {
+  "value": 220.9,
+  "shown": "220.9",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17472:drop": {
+  "value": 3.6,
+  "shown": "&minus;3.6",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15452:fa": {
+  "value": 12.1,
+  "shown": "12.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15452:fag": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15452:rk1": {
+  "value": 2,
+  "shown": "2nd",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15452:ppg": {
+  "value": 10.8,
+  "shown": "10.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15452:g": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15452:rkp": {
+  "value": 15,
+  "shown": "15",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15452:rkg": {
+  "value": 9,
+  "shown": "9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15452:w4": {
+  "value": 4.2,
+  "shown": "4.2",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15452:w5": {
+  "value": 6.1,
+  "shown": "6.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15452:rppg": {
+  "value": 7.8,
+  "shown": "7.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15452:lu1": {
+  "value": 277.6,
+  "shown": "277.6",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15452:lu2": {
+  "value": 274.5,
+  "shown": "274.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15452:drop": {
+  "value": 3.1,
+  "shown": "&minus;3.1",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:11675:rk1": {
+  "value": 3,
+  "shown": "3rd",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:11675:ppg": {
+  "value": 18.7,
+  "shown": "18.7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11675:g": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11675:rkp": {
+  "value": 7,
+  "shown": "7",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11675:rkg": {
+  "value": 13,
+  "shown": "13",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11675:w4": {
+  "value": 7.6,
+  "shown": "7.6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11675:w5": {
+  "value": 22.9,
+  "shown": "22.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11675:w6": {
+  "value": 7.5,
+  "shown": "7.5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11675:rppg": {
+  "value": 16.5,
+  "shown": "16.5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:11675:lu1": {
+  "value": 273.1,
+  "shown": "273.1",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:11675:lu2": {
+  "value": 270.9,
+  "shown": "270.9",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:11675:drop": {
+  "value": 2.2,
+  "shown": "&minus;2.2",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13714:fa": {
+  "value": 12.1,
+  "shown": "12.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13714:fag": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13714:rk1": {
+  "value": 3,
+  "shown": "3rd",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13714:ppg": {
+  "value": 8.1,
+  "shown": "8.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13714:g": {
+  "value": 3,
+  "shown": "3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13714:rkp": {
+  "value": 73,
+  "shown": "73",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13714:rkg": {
+  "value": 29,
+  "shown": "29",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13714:rppg": {
+  "value": 7.6,
+  "shown": "7.6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13714:lu1": {
+  "value": 273.1,
+  "shown": "273.1",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13714:lu2": {
+  "value": 272.6,
+  "shown": "272.6",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13714:drop": {
+  "value": 0.5,
+  "shown": "&minus;0.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13635:fa": {
+  "value": 13.9,
+  "shown": "13.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13635:fag": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13635:rk1": {
+  "value": 7,
+  "shown": "7th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13635:ppg": {
+  "value": 10.3,
+  "shown": "10.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13635:g": {
+  "value": 4,
+  "shown": "4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13635:rkp": {
+  "value": 70,
+  "shown": "70",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13635:rkg": {
+  "value": 44,
+  "shown": "44",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13635:w4": {
+  "value": 2.9,
+  "shown": "2.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13635:rppg": {
+  "value": 10.0,
+  "shown": "10.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:13635:lu1": {
+  "value": 241.5,
+  "shown": "241.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13635:lu2": {
+  "value": 241.1,
+  "shown": "241.1",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:13635:drop": {
+  "value": 0.4,
+  "shown": "&minus;0.4",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17256:rk1": {
+  "value": 12,
+  "shown": "12th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17256:ppg": {
+  "value": 9.4,
+  "shown": "9.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17256:g": {
+  "value": 5,
+  "shown": "5",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17256:rkp": {
+  "value": 35,
+  "shown": "35",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17256:rkg": {
+  "value": 34,
+  "shown": "34",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17256:w4": {
+  "value": 7.0,
+  "shown": "7.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17256:w5": {
+  "value": 15.0,
+  "shown": "15.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17256:rppg": {
+  "value": 9.3,
+  "shown": "9.3",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:17256:lu1": {
+  "value": 203.1,
+  "shown": "203.1",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17256:lu2": {
+  "value": 203.0,
+  "shown": "203.0",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:17256:drop": {
+  "value": 0.1,
+  "shown": "&minus;0.1",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15779:fa": {
+  "value": 13.9,
+  "shown": "13.9",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:fag": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:rk1": {
+  "value": 8,
+  "shown": "8th",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15779:ppg": {
+  "value": 10.1,
+  "shown": "10.1",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:g": {
+  "value": 6,
+  "shown": "6",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:rkp": {
+  "value": 40,
+  "shown": "40",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:rkg": {
+  "value": 46,
+  "shown": "46",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:w4": {
+  "value": 24.8,
+  "shown": "24.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:w5": {
+  "value": 2.8,
+  "shown": "2.8",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:w6": {
+  "value": 11.4,
+  "shown": "11.4",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:rppg": {
+  "value": 10.0,
+  "shown": "10.0",
+  "source": "MFL playerScores W1-6 (league 74598 scoring) + nflverse games played"
+ },
+ "inj:15779:lu1": {
+  "value": 224.5,
+  "shown": "224.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15779:lu2": {
+  "value": 224.5,
+  "shown": "224.5",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:15779:drop": {
+  "value": 0.0,
+  "shown": "&minus;0.0",
+  "source": "best legal lineup by 2026 PPG (injury_wk07.py), MFL rosters fetched 2026-10-21T13:45:03Z"
+ },
+ "inj:rule:3.0": {
+  "value": 3.0,
+  "shown": "3.0",
+  "source": "the segment's own stated depth rule"
+ },
+ "inj:rule:6.0": {
+  "value": 6.0,
+  "shown": "6.0",
+  "source": "the segment's own stated depth rule"
+ }
+}

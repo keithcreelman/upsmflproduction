@@ -41,7 +41,9 @@ const OPTIONAL = ["rosterOwnership", "ownerOfPid"];   // the shared ownership ru
 const APP_SRC = REQUIRED.map((n) => sliceFn(APP, "function " + n + "(")).join("\n") + "\n" +
   OPTIONAL.map((n) => sliceFn(APP, "function " + n + "(", true)).join("\n") + "\n" +
   // mflExportUrlForYear / reloadData's fresh-read-after-a-move state (top-level vars in app.js)
-  (APP.match(/  var FRESH_READ_MS = [\s\S]*?  var freshReadsUntil = 0;\n/) || [""])[0];
+  (APP.match(/  var FRESH_READ_MS = [\s\S]*?  var freshReadsUntil = 0;\n/) || [""])[0] +
+  // reloadData also drops the reads a screen asked for (app.js lazyRead) and counts owner refreshes
+  (APP.match(/  var LAZY_RETRY_MS = [\s\S]*?(?=  function lazyEvent\()/) || [""])[0] + "  var refreshGen = 0;\n";
 // loadAllData's other sources (tag tracking, injuries, waiver state, …) answer null — this test is about rosters.
 const fetchers = [...new Set([...APP_SRC.matchAll(/\b(fetch[A-Z]\w*)\s*\(/g)].map((m) => m[1]))]
   .filter((n) => n !== "fetchJson" && !new RegExp("function " + n + "\\(").test(APP_SRC));
