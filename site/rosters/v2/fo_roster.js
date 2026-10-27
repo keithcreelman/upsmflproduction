@@ -269,7 +269,7 @@
       });
     } else body = order(items).map(function (it) { return schedPlayerHtml(it.p, it.r, multi); }).join("");
     el.innerHTML = head + '<p class="fo-basis">' + note + "</p>" +
-      '<table class="fo-table fo-sched-table"><thead><tr><th class="num" scope="col">Week</th><th scope="col">Opponent</th><th scope="col">Kickoff</th><th scope="col">' + H.esc(allowedHead) + "</th></tr></thead><tbody>" + body + "</tbody></table>";
+      '<table class="fo-table fo-sched-table"><thead><tr><th class="num" scope="col" title="League week">Wk</th><th scope="col" title="Opponent: vs = home, @ = away">Opp</th><th scope="col" title="Kickoff, Eastern time">Kickoff</th><th scope="col">' + H.esc(allowedHead) + "</th></tr></thead><tbody>" + body + "</tbody></table>";
   }
   function wirePerf() {
     var cs = document.getElementById("fo-colset");

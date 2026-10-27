@@ -1385,6 +1385,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-sched-table th:nth-child(1), .fo-sched-table td:nth-child(1) { width: 15%; }
 .fo-sched-table th:nth-child(2), .fo-sched-table td:nth-child(2) { width: 22%; }
 .fo-sched-table th:nth-child(3), .fo-sched-table td:nth-child(3) { width: 25%; }
+.fo-sched-table thead th { overflow-wrap: normal; word-break: normal; hyphens: none; font-size: 11px; letter-spacing: 0; white-space: normal; }
+.fo-sched-table td:first-child { white-space: nowrap; }
 .fo-sched-table tbody tr { cursor: default; }
 .fo-sched-player th { background: var(--panel-alt); color: var(--text); text-align: left; font-weight: 600; border-top: 2px solid var(--border); }
 .fo-sched-allowed div { white-space: nowrap; font-size: 12px; }
