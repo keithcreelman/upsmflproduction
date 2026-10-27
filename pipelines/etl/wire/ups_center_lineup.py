@@ -48,6 +48,8 @@ def judge(rows, pregame, missing=None, margin=MARGIN):
     pregame: {pid: {value, captured, kickoff}} kickoff-strict only (the caller must not pass a capture taken after kickoff);
     missing: {pid: reason}. Returns {actual, best, swaps: [{out, in, gain, verdict, ...}], summary}."""
     missing = missing or {}
+    if any(not r.get("pos_group") for r in rows):          # a player we cannot place makes the best lineup unreproducible
+        return {"actual": None, "best": None, "swaps": [], "summary": "unknown", "unplaced": True}
     pool = {str(r["pid"]): (float(r["score"] or 0.0), r["pos_group"]) for r in rows}
     info = {str(r["pid"]): r for r in rows}
     starters = {p for p, r in info.items() if r["status"] == "starter"}
@@ -57,7 +59,7 @@ def judge(rows, pregame, missing=None, margin=MARGIN):
     displaced = sorted(starters - chosen, key=lambda p: (pool[p][0], p))
     swaps, used = [], set()
     for rp in risers:                                   # pair each riser with the lowest-scoring displaced starter on his side of the card
-        cand = [d for d in displaced if d not in used and SIDE[pool[d][1]] == SIDE[pool[rp][1]]] or \
+        cand = [d for d in displaced if d not in used and SIDE.get(pool[d][1]) == SIDE.get(pool[rp][1])] or \
                [d for d in displaced if d not in used]
         if not cand:
             continue

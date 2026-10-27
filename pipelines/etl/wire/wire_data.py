@@ -1130,25 +1130,11 @@ def frozen_projection_evidence(season, week):
                         for e in (doc.get("pregameExports") or {}).get("exports", [])]}
 
 
-STARTER_ROWS_SQL = (
-    "SELECT w.roster_franchise_id AS fid, w.player_id, w.pos_group, w.status, w.score, p.name AS player_name, "
-    "p.nfl_team FROM src_weekly w LEFT JOIN src_players p ON p.season = w.season "
-    "AND p.player_id = w.player_id WHERE w.season = %d AND w.week = %d AND w.roster_franchise_id IS NOT NULL")
-
-
-def week_roster_rows(season, week):
-    """EVERY rostered player's row for the week (starters and bench): one primary-key-prefix read of src_weekly plus one
-    primary-key lookup of src_players per row. The UPS Center reads it once and derives both the starters (for the
-    bust/bargain lists) and the bench (for the lineup analysis) from it, instead of reading the week twice."""
-    return d1(STARTER_ROWS_SQL % (int(season), int(week)))
-
-
-def starter_projections(season, week, rows=None, pregame=None):
+def starter_projections(season, week, pregame=None):
     """(ranked, unranked) for every starter this week.
 
-    rows:    the week's roster rows from week_roster_rows() (any status; the non-starters are ignored), so a caller that
-             already holds them does not read the week again.
-    pregame: (proj, missing) from pregame_projections() for at least the starters, likewise already in hand.
+    pregame: (proj, missing) from pregame_projections() for at least the starters, when the caller already holds them for a
+             wider set of players (the UPS Center looks up everyone on a roster once), so they are not looked up twice.
 
     ranked:   [{fid, player_id, player, pos_group, nfl_team, score, proj, captured, kickoff}]
               -- starters with a score AND a projection captured before their own
@@ -1165,14 +1151,11 @@ def starter_projections(season, week, rows=None, pregame=None):
     saw. Starters with no score (MFL blank) are unranked rather than counted as zero:
     a blank is not a bust.
     """
-    if rows is None:
-        rows = d1(
-            "SELECT w.roster_franchise_id AS fid, w.player_id, w.pos_group, w.score, p.name AS player_name, "
-            "p.nfl_team FROM src_weekly w LEFT JOIN src_players p ON p.season = w.season "
-            "AND p.player_id = w.player_id WHERE w.season = %d AND w.week = %d AND w.status = 'starter' "
-            "AND w.roster_franchise_id IS NOT NULL" % (int(season), int(week)))
-    else:
-        rows = [r for r in rows if r.get("status") == "starter"]
+    rows = d1(
+        "SELECT w.roster_franchise_id AS fid, w.player_id, w.pos_group, w.score, p.name AS player_name, "
+        "p.nfl_team FROM src_weekly w LEFT JOIN src_players p ON p.season = w.season "
+        "AND p.player_id = w.player_id WHERE w.season = %d AND w.week = %d AND w.status = 'starter' "
+        "AND w.roster_franchise_id IS NOT NULL" % (int(season), int(week)))
     proj, missing = pregame if pregame is not None else pregame_projections(season, week, [r["player_id"] for r in rows])
     ranked, unranked = [], []
     for r in rows:

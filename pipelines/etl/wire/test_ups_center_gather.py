@@ -3,8 +3,9 @@
    python3 pipelines/etl/wire/test_ups_center_gather.py
 
 Proves the scheduled build's new inputs flow through the job's own code (Keith 2026-10-27):
-  - the week's roster rows are read from D1 ONCE in the full build and serve both the bust/bargain evidence and the lineup
-    analysis (no second src_weekly query), and the pregame lookup also runs once for everybody;
+  - the bench comes from MFL's weeklyResults (already fetched for the scores; exactly the players eligible to start), so the
+    lineup analysis adds NO D1 read of the week: the one src_weekly read left is the starters' evidence query; the pregame
+    lookup runs once for everybody on a roster and also serves the starters;
   - the probe gather (the D1-vs-MFL check) neither reads the bench nor fetches the schedule;
   - the standings, divisions and MFL schedule become the clinching engine's input and the flags land in the context and in
     run.json; the whole thing then renders and validates.
@@ -23,6 +24,7 @@ import ups_center_sources as SRC      # noqa: E402
 import ups_center_validate as VAL     # noqa: E402
 
 FX = os.path.join(HERE, "..", "..", "..", "tests", "fixtures", "ups_center_auto")
+POS = {"DL": "DE", "DB": "CB"}
 REC = json.load(open(os.path.join(FX, "2026_wk07", "context.json")))
 PACK = json.load(open(os.path.join(FX, "2026_wk07", "pack.json")))
 SCHED = json.load(open(os.path.join(FX, "mfl_schedule_2026.json")))
@@ -46,8 +48,11 @@ CALLS = {"d1": [], "pregame": 0, "schedule": 0, "starter": 0}
 
 def fake_get(url):
     if "TYPE=weeklyResults" in url:
-        return {"weeklyResults": {"matchup": [{"franchise": [{"id": g["a"], "score": str(g["as"]), "result": g["ar"]},
-                                                              {"id": g["b"], "score": str(g["bs"]), "result": g["br"]}]} for g in REC["mfl"]["games"]]}}
+        pl = lambda f: [{"id": r["pid"], "status": "starter" if r["status"] == "starter" else "nonstarter",
+                         "score": "" if r["score"] is None else str(r["score"])} for r in REC["lineups"][f]]
+        return {"weeklyResults": {"matchup": [{"franchise": [{"id": g["a"], "score": str(g["as"]), "result": g["ar"], "player": pl(g["a"])},
+                                                              {"id": g["b"], "score": str(g["bs"]), "result": g["br"], "player": pl(g["b"])}]}
+                                              for g in REC["mfl"]["games"]]}}
     if "TYPE=leagueStandings" in url:
         return {"leagueStandings": {"franchise": [{"id": f, "h2hw": str(s["h2hw"]), "h2hl": str(s["h2hl"]), "h2ht": str(s["h2ht"]),
                                                    "all_play_wlt": s["allplay"], "pf": str(s["pf"])} for f, s in REC["mfl"]["standings"].items()]}}
@@ -77,16 +82,16 @@ def fake_d1(sql, retries=1):
         return REC["d1"]["adds"]
     if "FROM ups_discord_messages" in sql:
         return copy.deepcopy(REC["d1"]["chat"])
-    if "FROM src_players WHERE season" in sql and "player_id" not in sql.split("WHERE")[1].split("%")[0]:
-        return list(REC["d1"]["players"].values())
+    if "FROM src_players WHERE season" in sql:
+        return [{"player_id": r["pid"], "name": last_first(r["name"]), "position": POS.get(r["pos_group"], r["pos_group"]),
+                 "nfl_team": (REC["pregame"]["proj"].get(r["pid"]) or REC["d1"]["players"].get(r["pid"]) or {}).get("team") or (REC["d1"]["players"].get(r["pid"]) or {}).get("nfl_team") or "XXX"}
+                for lu in REC["lineups"].values() for r in lu]
     if "FROM src_weekly" in sql:
         CALLS["starter"] += 1
-        rows = []
-        for fid, lu in REC["lineups"].items():
-            for r in lu:
-                rows.append({"fid": fid, "player_id": r["pid"], "pos_group": r["pos_group"], "status": "starter" if r["status"] == "starter" else "nonstarter",
-                             "score": r["score"], "player_name": last_first(r["name"]), "nfl_team": "XXX"})
-        return [r for r in rows if r["status"] == "starter"] if "w.status = 'starter'" in sql else rows
+        assert "w.status = 'starter'" in sql, "the full build must not read the bench from D1"
+        return [{"fid": fid, "player_id": r["pid"], "pos_group": r["pos_group"], "score": r["score"], "player_name": last_first(r["name"]),
+                 "nfl_team": (REC["pregame"]["proj"].get(r["pid"]) or {}).get("team") or (REC["d1"]["players"].get(r["pid"]) or {}).get("nfl_team") or "XXX"}
+                for fid, lu in REC["lineups"].items() for r in lu if r["status"] == "starter"]
     raise AssertionError("unexpected D1 query: " + sql[:120])
 
 
@@ -118,13 +123,14 @@ finally:
      SRC.season_history, SRC.verify_highlight) = saved
 
 weekly = [q for q in CALLS["d1"] if "FROM src_weekly" in q]
-check("the week's rows (starters AND bench) come from ONE src_weekly read, the only one in the whole gather",
-      len(weekly) == 1 and "w.status = 'starter'" not in weekly[0] and "w.season = 2026 AND w.week = 7" in weekly[0], weekly)
+check("the only src_weekly read in the whole full build is the starters' evidence query: the bench adds NO D1 read",
+      len(weekly) == 1 and "w.status = 'starter'" in weekly[0] and "w.season = 2026 AND w.week = 7" in weekly[0], weekly)
 check("the pregame projections are looked up ONCE, for every rostered player", CALLS["pregame"] == 1)
-check("the evidence the bust/bargain lists use is built from the same rows (no second read)", ctx["evidence"]["basis"] == "last_pregame"
+check("the evidence the bust/bargain lists use takes its pregame numbers from the same single lookup", ctx["evidence"]["basis"] == "last_pregame"
       and len(ctx["evidence"]["ranked"]) + len(ctx["evidence"]["unranked"]) == sum(1 for lu in REC["lineups"].values() for r in lu if r["status"] == "starter"))
-check("the lineups cover all 12 franchises, starters and bench, as the recorded rows",
+check("the lineups come from MFL's weeklyResults: all 12 franchises, starters and bench, as recorded, every player placed",
       set(ctx["lineups"]) == set(REC["lineups"]) and all(len(ctx["lineups"][f]) == len(REC["lineups"][f]) for f in REC["lineups"])
+      and all(r["pos_group"] for lu in ctx["lineups"].values() for r in lu)
       and {r["pid"] for r in ctx["lineups"]["0010"] if r["status"] == "starter"} == {r["pid"] for r in REC["lineups"]["0010"] if r["status"] == "starter"})
 check("the pregame projections arrive as the lookup returned them", ctx["pregame"]["proj"] == REC["pregame"]["proj"])
 check("the MFL schedule was fetched once, and the standings, divisions and schedule became the engine's input: it ran with the schedule",

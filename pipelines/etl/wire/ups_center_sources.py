@@ -75,22 +75,26 @@ def latest_finished_week(season, now, max_week=17):
     return done
 
 
-def lineup_rows(rows):
-    """{fid: [{pid, name, pos_group, status, score}]} from the week's roster rows (starters and bench)."""
+POS_GROUP = {"QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE", "PK": "PK", "PN": "PN", "DT": "DL", "DE": "DL", "LB": "LB", "CB": "DB", "S": "DB"}
+
+
+def lineup_rows(lineup_ids, players):
+    """{fid: [{pid, name, pos_group, status, score}]}: MFL's roster for the week joined to src_players for names and positions.
+    A player src_players does not know gets no position, and the lineup judge then declines to judge that team."""
     out = {}
-    for r in rows:
-        out.setdefault(str(r["fid"]).zfill(4), []).append(
-            {"pid": str(r["player_id"]), "name": D.display_name(r.get("player_name")) or ("player %s" % r["player_id"]),
-             "pos_group": r.get("pos_group") or "", "status": "starter" if r.get("status") == "starter" else "bench",
-             "score": None if r.get("score") is None else float(r["score"])})
+    for fid, lu in lineup_ids.items():
+        out[str(fid).zfill(4)] = [
+            {"pid": x["pid"], "name": D.display_name((players.get(x["pid"]) or {}).get("name")) or ("player %s" % x["pid"]),
+             "pos_group": POS_GROUP.get((players.get(x["pid"]) or {}).get("position"), ""), "status": x["status"], "score": x["score"]}
+            for x in lu]
     return out
 
 
-def projection_evidence(season, week, rows=None, pregame=None):
+def projection_evidence(season, week, pregame=None):
     """The same evidence the pack's bust & bargain used: kickoff-strict last pregame
     captures, else the never-overwritten FIRST capture (Keith 2026-09-24 basis). Every
     row carries its value, capture time and its own kickoff."""
-    ranked, unranked = D.starter_projections(season, week, rows=rows, pregame=pregame)
+    ranked, unranked = D.starter_projections(season, week, pregame=pregame)
     basis = "last_pregame"
     if not ranked:
         ranked, unranked = D.first_pregame_fallback_projections(season, week)
@@ -223,9 +227,13 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
 
     # ---- MFL: the source of truth for the live season
     wr = _get(MFL % (season, "weeklyResults", "&W=%d" % week))["weeklyResults"]
-    games = []
+    games, lineup_ids = [], {}
     for m in _list(wr.get("matchup")):
         fs = _list(m.get("franchise"))
+        for f_ in fs:                      # MFL's own roster for the week: every player eligible to start, with his status and score
+            lineup_ids.setdefault(f_["id"], [{"pid": str(p_["id"]), "status": "starter" if p_.get("status") == "starter" else "bench",
+                                              "score": None if p_.get("score") in (None, "") else float(p_["score"])}
+                                             for p_ in _list(f_.get("player"))])
         if len(fs) == 2:
             games.append({"a": fs[0]["id"], "b": fs[1]["id"], "as": float(fs[0]["score"]), "bs": float(fs[1]["score"]),
                           "ar": fs[0].get("result"), "br": fs[1].get("result")})
@@ -270,7 +278,8 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
         "AND COALESCE(is_bot,0) = 0 AND owner_name IS NOT NULL ORDER BY posted_at_unix" % (since, now))
     withhold(ctx["d1"]["chat"])
     ctx["chatWindow"] = {"since": since, "until": now}
-    want = set(ctx["d1"]["projections"]) | set(a["player_id"] for a in ctx["d1"]["adds"])
+    want = set(ctx["d1"]["projections"]) | set(a["player_id"] for a in ctx["d1"]["adds"]) \
+        | {x["pid"] for lu in lineup_ids.values() for x in lu}
     ctx["d1"]["players"] = {r["player_id"]: r for r in D.d1(
         "SELECT player_id, name, position, nfl_team FROM src_players WHERE season = %d" % season) if r["player_id"] in want}
     try:
@@ -279,13 +288,15 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
         ctx["d1"]["recordBook"] = {"error": str(exc)}
 
     if history:
-        # The full build also needs the bench. ONE read of the week's rows and ONE pregame lookup for everybody serve both the
-        # bust/bargain evidence (starters) and the lineup analysis (everyone): no second query for the same week. The probe
-        # gather (history=False) only checks D1 against MFL and keeps its original, smaller evidence read.
-        rows = D.week_roster_rows(season, week)
-        pj, pj_missing = D.pregame_projections(season, week, [r["player_id"] for r in rows])
-        ctx["evidence"] = projection_evidence(season, week, rows=rows, pregame=(pj, pj_missing))
-        ctx["lineups"] = lineup_rows(rows)
+        # The lineup analysis needs the bench. MFL's weeklyResults (already fetched above for the scores) lists exactly the
+        # players eligible to start, so the hindsight best lineup reproduces MFL's own; positions and names come from the
+        # src_players table this gather already reads. NO extra D1 read of the week. The pregame lookup runs ONCE for
+        # everybody on a roster and also serves the starters' bust/bargain evidence. (The probe gather, history=False, only
+        # checks D1 against MFL and keeps its original, smaller evidence read.)
+        ctx["lineups"] = lineup_rows(lineup_ids, ctx["d1"]["players"])
+        ids = sorted({x["pid"] for lu in ctx["lineups"].values() for x in lu})
+        pj, pj_missing = D.pregame_projections(season, week, ids)
+        ctx["evidence"] = projection_evidence(season, week, pregame=(pj, pj_missing))
         ctx["pregame"] = {"proj": pj, "missing": pj_missing}
     else:
         ctx["evidence"] = projection_evidence(season, week)
