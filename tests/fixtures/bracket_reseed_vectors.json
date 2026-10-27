@@ -1,0 +1,2365 @@
+{
+ "_about": "Shared bracket test vectors (#1370 gate 2). Round 1: 3 v 6 and 4 v 5; round 2 re-seeds: the top seed meets the lowest seed left, seed 2 the other winner; the final is the round-2 winners. The same rule for the UPS Championship (seeds 1-6) and the Hawk Tuah Bowl (H1-H6 = MFL's toilet-bracket seeds). Recorded vectors are MFL's archived playoffBracket exports (seeds, games, winners; read 2026-10-17); 2014-2015 toilet sides were 4-team brackets and are left out. fixed_path_round2 is the old fixed rule (1 v winner of 4/5, 2 v winner of 3/6); fixed_path_differs marks the seasons it gets wrong. Used by tests/standings_bracket_reseed.test.mjs (site/shared/standings_race.js) and pipelines/etl/wire/test_season_sim_bracket_reseed.py (season_sim.bracket).",
+ "vectors": [
+  {
+   "id": "2014-champ",
+   "season": 2014,
+   "side": "champ",
+   "source": "MFL 2014 playoffBracket 1 (UPS Championship), league 30590",
+   "seeds": [
+    "0002",
+    "0001",
+    "0006",
+    "0009",
+    "0008",
+    "0010"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0010",
+     "b": "0006",
+     "winner": "0010"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0008",
+     "b": "0009",
+     "winner": "0009"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0010",
+     "b": "0002",
+     "winner": "0010"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0009",
+     "b": "0001",
+     "winner": "0001"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0010",
+     "b": "0001",
+     "winner": "0001"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0002",
+      "0010"
+     ],
+     [
+      "0001",
+      "0009"
+     ]
+    ],
+    "final": [
+     "0001",
+     "0010"
+    ],
+    "champion": "0001",
+    "runner_up": "0010"
+   },
+   "fixed_path_round2": [
+    [
+     "0002",
+     "0009"
+    ],
+    [
+     "0001",
+     "0010"
+    ]
+   ],
+   "fixed_path_differs": true
+  },
+  {
+   "id": "2015-champ",
+   "season": 2015,
+   "side": "champ",
+   "source": "MFL 2015 playoffBracket 1 (UPS Championship), league 29015",
+   "seeds": [
+    "0002",
+    "0006",
+    "0001",
+    "0011",
+    "0010",
+    "0008"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0008",
+     "b": "0001",
+     "winner": "0001"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0010",
+     "b": "0011",
+     "winner": "0010"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0010",
+     "b": "0002",
+     "winner": "0010"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0001",
+     "b": "0006",
+     "winner": "0001"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0010",
+     "b": "0001",
+     "winner": "0010"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0002",
+      "0010"
+     ],
+     [
+      "0006",
+      "0001"
+     ]
+    ],
+    "final": [
+     "0001",
+     "0010"
+    ],
+    "champion": "0010",
+    "runner_up": "0001"
+   },
+   "fixed_path_round2": [
+    [
+     "0002",
+     "0010"
+    ],
+    [
+     "0006",
+     "0001"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2016-champ",
+   "season": 2016,
+   "side": "champ",
+   "source": "MFL 2016 playoffBracket 1 (UPS Championship), league 27191",
+   "seeds": [
+    "0009",
+    "0006",
+    "0001",
+    "0008",
+    "0002",
+    "0004"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0004",
+     "b": "0001",
+     "winner": "0004"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0002",
+     "b": "0008",
+     "winner": "0008"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0004",
+     "b": "0009",
+     "winner": "0009"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0008",
+     "b": "0006",
+     "winner": "0006"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0009",
+     "b": "0006",
+     "winner": "0009"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0009",
+      "0004"
+     ],
+     [
+      "0006",
+      "0008"
+     ]
+    ],
+    "final": [
+     "0006",
+     "0009"
+    ],
+    "champion": "0009",
+    "runner_up": "0006"
+   },
+   "fixed_path_round2": [
+    [
+     "0009",
+     "0008"
+    ],
+    [
+     "0006",
+     "0004"
+    ]
+   ],
+   "fixed_path_differs": true
+  },
+  {
+   "id": "2016-hawk",
+   "season": 2016,
+   "side": "hawk",
+   "source": "MFL 2016 playoffBracket 2 (Toilet Bowl Championship), league 27191",
+   "seeds": [
+    "0007",
+    "0012",
+    "0010",
+    "0003",
+    "0011",
+    "0005"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0005",
+     "b": "0010",
+     "winner": "0005"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0011",
+     "b": "0003",
+     "winner": "0011"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0005",
+     "b": "0007",
+     "winner": "0005"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0011",
+     "b": "0012",
+     "winner": "0011"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0005",
+     "b": "0011",
+     "winner": "0011"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0007",
+      "0005"
+     ],
+     [
+      "0012",
+      "0011"
+     ]
+    ],
+    "final": [
+     "0005",
+     "0011"
+    ],
+    "champion": "0011",
+    "runner_up": "0005"
+   },
+   "fixed_path_round2": [
+    [
+     "0007",
+     "0011"
+    ],
+    [
+     "0012",
+     "0005"
+    ]
+   ],
+   "fixed_path_differs": true
+  },
+  {
+   "id": "2017-champ",
+   "season": 2017,
+   "side": "champ",
+   "source": "MFL 2017 playoffBracket 1 (UPS Championship), league 74598",
+   "seeds": [
+    "0006",
+    "0004",
+    "0007",
+    "0012",
+    "0001",
+    "0009"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0009",
+     "b": "0007",
+     "winner": "0009"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0001",
+     "b": "0012",
+     "winner": "0012"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0009",
+     "b": "0006",
+     "winner": "0006"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0012",
+     "b": "0004",
+     "winner": "0012"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0006",
+     "b": "0012",
+     "winner": "0006"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0006",
+      "0009"
+     ],
+     [
+      "0004",
+      "0012"
+     ]
+    ],
+    "final": [
+     "0006",
+     "0012"
+    ],
+    "champion": "0006",
+    "runner_up": "0012"
+   },
+   "fixed_path_round2": [
+    [
+     "0006",
+     "0012"
+    ],
+    [
+     "0004",
+     "0009"
+    ]
+   ],
+   "fixed_path_differs": true
+  },
+  {
+   "id": "2017-hawk",
+   "season": 2017,
+   "side": "hawk",
+   "source": "MFL 2017 playoffBracket 2 (Toilet Bowl Championship), league 74598",
+   "seeds": [
+    "0003",
+    "0010",
+    "0011",
+    "0008",
+    "0005",
+    "0002"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0002",
+     "b": "0011",
+     "winner": "0011"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0005",
+     "b": "0008",
+     "winner": "0008"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0011",
+     "b": "0010",
+     "winner": "0010"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0008",
+     "b": "0003",
+     "winner": "0003"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0010",
+     "b": "0003",
+     "winner": "0003"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0003",
+      "0008"
+     ],
+     [
+      "0010",
+      "0011"
+     ]
+    ],
+    "final": [
+     "0003",
+     "0010"
+    ],
+    "champion": "0003",
+    "runner_up": "0010"
+   },
+   "fixed_path_round2": [
+    [
+     "0003",
+     "0008"
+    ],
+    [
+     "0010",
+     "0011"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2018-champ",
+   "season": 2018,
+   "side": "champ",
+   "source": "MFL 2018 playoffBracket 1 (UPS Championship), league 74598",
+   "seeds": [
+    "0007",
+    "0008",
+    "0006",
+    "0009",
+    "0010",
+    "0001"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0001",
+     "b": "0006",
+     "winner": "0006"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0010",
+     "b": "0009",
+     "winner": "0009"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0009",
+     "b": "0007",
+     "winner": "0007"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0006",
+     "b": "0008",
+     "winner": "0006"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0007",
+     "b": "0006",
+     "winner": "0006"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0007",
+      "0009"
+     ],
+     [
+      "0008",
+      "0006"
+     ]
+    ],
+    "final": [
+     "0006",
+     "0007"
+    ],
+    "champion": "0006",
+    "runner_up": "0007"
+   },
+   "fixed_path_round2": [
+    [
+     "0007",
+     "0009"
+    ],
+    [
+     "0008",
+     "0006"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2018-hawk",
+   "season": 2018,
+   "side": "hawk",
+   "source": "MFL 2018 playoffBracket 2 (Toilet Bowl Championship), league 74598",
+   "seeds": [
+    "0004",
+    "0003",
+    "0011",
+    "0002",
+    "0005",
+    "0012"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0012",
+     "b": "0011",
+     "winner": "0011"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0005",
+     "b": "0002",
+     "winner": "0005"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0011",
+     "b": "0003",
+     "winner": "0003"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0005",
+     "b": "0004",
+     "winner": "0004"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0003",
+     "b": "0004",
+     "winner": "0003"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0004",
+      "0005"
+     ],
+     [
+      "0003",
+      "0011"
+     ]
+    ],
+    "final": [
+     "0003",
+     "0004"
+    ],
+    "champion": "0003",
+    "runner_up": "0004"
+   },
+   "fixed_path_round2": [
+    [
+     "0004",
+     "0005"
+    ],
+    [
+     "0003",
+     "0011"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2019-champ",
+   "season": 2019,
+   "side": "champ",
+   "source": "MFL 2019 playoffBracket 1 (UPS Championship), league 74598",
+   "seeds": [
+    "0009",
+    "0004",
+    "0007",
+    "0008",
+    "0005",
+    "0003"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0003",
+     "b": "0007",
+     "winner": "0007"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0005",
+     "b": "0008",
+     "winner": "0008"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0008",
+     "b": "0009",
+     "winner": "0008"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0007",
+     "b": "0004",
+     "winner": "0007"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0008",
+     "b": "0007",
+     "winner": "0007"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0009",
+      "0008"
+     ],
+     [
+      "0004",
+      "0007"
+     ]
+    ],
+    "final": [
+     "0007",
+     "0008"
+    ],
+    "champion": "0007",
+    "runner_up": "0008"
+   },
+   "fixed_path_round2": [
+    [
+     "0009",
+     "0008"
+    ],
+    [
+     "0004",
+     "0007"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2019-hawk",
+   "season": 2019,
+   "side": "hawk",
+   "source": "MFL 2019 playoffBracket 2 (Toilet Bowl Championship), league 74598",
+   "seeds": [
+    "0010",
+    "0002",
+    "0006",
+    "0001",
+    "0011",
+    "0012"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0012",
+     "b": "0006",
+     "winner": "0006"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0011",
+     "b": "0001",
+     "winner": "0001"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0006",
+     "b": "0002",
+     "winner": "0006"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0001",
+     "b": "0010",
+     "winner": "0010"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0006",
+     "b": "0010",
+     "winner": "0010"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0010",
+      "0001"
+     ],
+     [
+      "0002",
+      "0006"
+     ]
+    ],
+    "final": [
+     "0006",
+     "0010"
+    ],
+    "champion": "0010",
+    "runner_up": "0006"
+   },
+   "fixed_path_round2": [
+    [
+     "0010",
+     "0001"
+    ],
+    [
+     "0002",
+     "0006"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2020-champ",
+   "season": 2020,
+   "side": "champ",
+   "source": "MFL 2020 playoffBracket 1 (UPS Championship), league 74598",
+   "seeds": [
+    "0010",
+    "0007",
+    "0008",
+    "0009",
+    "0006",
+    "0001"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0001",
+     "b": "0008",
+     "winner": "0008"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0006",
+     "b": "0009",
+     "winner": "0006"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0006",
+     "b": "0010",
+     "winner": "0006"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0008",
+     "b": "0007",
+     "winner": "0007"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0006",
+     "b": "0007",
+     "winner": "0007"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0010",
+      "0006"
+     ],
+     [
+      "0007",
+      "0008"
+     ]
+    ],
+    "final": [
+     "0006",
+     "0007"
+    ],
+    "champion": "0007",
+    "runner_up": "0006"
+   },
+   "fixed_path_round2": [
+    [
+     "0010",
+     "0006"
+    ],
+    [
+     "0007",
+     "0008"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2020-hawk",
+   "season": 2020,
+   "side": "hawk",
+   "source": "MFL 2020 playoffBracket 2 (Toilet Bowl Championship), league 74598",
+   "seeds": [
+    "0002",
+    "0004",
+    "0005",
+    "0003",
+    "0011",
+    "0012"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0012",
+     "b": "0005",
+     "winner": "0005"
+    },
+    {
+     "round": 1,
+     "week": 14,
+     "a": "0011",
+     "b": "0003",
+     "winner": "0011"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0005",
+     "b": "0004",
+     "winner": "0005"
+    },
+    {
+     "round": 2,
+     "week": 15,
+     "a": "0011",
+     "b": "0002",
+     "winner": "0002"
+    },
+    {
+     "round": 3,
+     "week": 16,
+     "a": "0005",
+     "b": "0002",
+     "winner": "0002"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0002",
+      "0011"
+     ],
+     [
+      "0004",
+      "0005"
+     ]
+    ],
+    "final": [
+     "0002",
+     "0005"
+    ],
+    "champion": "0002",
+    "runner_up": "0005"
+   },
+   "fixed_path_round2": [
+    [
+     "0002",
+     "0011"
+    ],
+    [
+     "0004",
+     "0005"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2021-champ",
+   "season": 2021,
+   "side": "champ",
+   "source": "MFL 2021 playoffBracket 1 (UPS Championship), league 74598",
+   "seeds": [
+    "0006",
+    "0007",
+    "0001",
+    "0002",
+    "0004",
+    "0012"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0012",
+     "b": "0001",
+     "winner": "0001"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0004",
+     "b": "0002",
+     "winner": "0002"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0002",
+     "b": "0006",
+     "winner": "0006"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0001",
+     "b": "0007",
+     "winner": "0001"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0006",
+     "b": "0001",
+     "winner": "0001"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0006",
+      "0002"
+     ],
+     [
+      "0007",
+      "0001"
+     ]
+    ],
+    "final": [
+     "0001",
+     "0006"
+    ],
+    "champion": "0001",
+    "runner_up": "0006"
+   },
+   "fixed_path_round2": [
+    [
+     "0006",
+     "0002"
+    ],
+    [
+     "0007",
+     "0001"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2021-hawk",
+   "season": 2021,
+   "side": "hawk",
+   "source": "MFL 2021 playoffBracket 2 (Toilet Bowl Championship), league 74598",
+   "seeds": [
+    "0011",
+    "0010",
+    "0003",
+    "0005",
+    "0008",
+    "0009"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0009",
+     "b": "0003",
+     "winner": "0009"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0008",
+     "b": "0005",
+     "winner": "0005"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0005",
+     "b": "0010",
+     "winner": "0005"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0009",
+     "b": "0011",
+     "winner": "0011"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0005",
+     "b": "0011",
+     "winner": "0011"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0011",
+      "0009"
+     ],
+     [
+      "0010",
+      "0005"
+     ]
+    ],
+    "final": [
+     "0005",
+     "0011"
+    ],
+    "champion": "0011",
+    "runner_up": "0005"
+   },
+   "fixed_path_round2": [
+    [
+     "0011",
+     "0005"
+    ],
+    [
+     "0010",
+     "0009"
+    ]
+   ],
+   "fixed_path_differs": true
+  },
+  {
+   "id": "2022-champ",
+   "season": 2022,
+   "side": "champ",
+   "source": "MFL 2022 playoffBracket 1 (UPS Championship), league 74598",
+   "seeds": [
+    "0006",
+    "0004",
+    "0001",
+    "0009",
+    "0008",
+    "0003"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0003",
+     "b": "0001",
+     "winner": "0003"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0008",
+     "b": "0009",
+     "winner": "0009"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0003",
+     "b": "0006",
+     "winner": "0003"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0009",
+     "b": "0004",
+     "winner": "0004"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0003",
+     "b": "0004",
+     "winner": "0003"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0006",
+      "0003"
+     ],
+     [
+      "0004",
+      "0009"
+     ]
+    ],
+    "final": [
+     "0003",
+     "0004"
+    ],
+    "champion": "0003",
+    "runner_up": "0004"
+   },
+   "fixed_path_round2": [
+    [
+     "0006",
+     "0009"
+    ],
+    [
+     "0004",
+     "0003"
+    ]
+   ],
+   "fixed_path_differs": true
+  },
+  {
+   "id": "2022-hawk",
+   "season": 2022,
+   "side": "hawk",
+   "source": "MFL 2022 playoffBracket 2 (Toilet Bowl Championship), league 74598",
+   "seeds": [
+    "0011",
+    "0005",
+    "0007",
+    "0002",
+    "0010",
+    "0012"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0012",
+     "b": "0007",
+     "winner": "0007"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0010",
+     "b": "0002",
+     "winner": "0002"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0007",
+     "b": "0005",
+     "winner": "0007"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0002",
+     "b": "0011",
+     "winner": "0011"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0007",
+     "b": "0011",
+     "winner": "0011"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0011",
+      "0002"
+     ],
+     [
+      "0005",
+      "0007"
+     ]
+    ],
+    "final": [
+     "0007",
+     "0011"
+    ],
+    "champion": "0011",
+    "runner_up": "0007"
+   },
+   "fixed_path_round2": [
+    [
+     "0011",
+     "0002"
+    ],
+    [
+     "0005",
+     "0007"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2023-champ",
+   "season": 2023,
+   "side": "champ",
+   "source": "MFL 2023 playoffBracket 1 (UPS Championship), league 74598",
+   "seeds": [
+    "0002",
+    "0010",
+    "0005",
+    "0007",
+    "0001",
+    "0008"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0008",
+     "b": "0005",
+     "winner": "0005"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0001",
+     "b": "0007",
+     "winner": "0001"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0005",
+     "b": "0010",
+     "winner": "0010"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0001",
+     "b": "0002",
+     "winner": "0001"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0010",
+     "b": "0001",
+     "winner": "0010"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0002",
+      "0001"
+     ],
+     [
+      "0010",
+      "0005"
+     ]
+    ],
+    "final": [
+     "0001",
+     "0010"
+    ],
+    "champion": "0010",
+    "runner_up": "0001"
+   },
+   "fixed_path_round2": [
+    [
+     "0002",
+     "0001"
+    ],
+    [
+     "0010",
+     "0005"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2023-hawk",
+   "season": 2023,
+   "side": "hawk",
+   "source": "MFL 2023 playoffBracket 2 (Toilet Bowl Championship), league 74598",
+   "seeds": [
+    "0003",
+    "0012",
+    "0011",
+    "0004",
+    "0009",
+    "0006"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0006",
+     "b": "0011",
+     "winner": "0011"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0009",
+     "b": "0004",
+     "winner": "0009"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0011",
+     "b": "0012",
+     "winner": "0012"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0009",
+     "b": "0003",
+     "winner": "0003"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0012",
+     "b": "0003",
+     "winner": "0012"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0003",
+      "0009"
+     ],
+     [
+      "0012",
+      "0011"
+     ]
+    ],
+    "final": [
+     "0003",
+     "0012"
+    ],
+    "champion": "0012",
+    "runner_up": "0003"
+   },
+   "fixed_path_round2": [
+    [
+     "0003",
+     "0009"
+    ],
+    [
+     "0012",
+     "0011"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2024-champ",
+   "season": 2024,
+   "side": "champ",
+   "source": "MFL 2024 playoffBracket 1 (UPS Championship), league 74598",
+   "seeds": [
+    "0009",
+    "0002",
+    "0001",
+    "0005",
+    "0010",
+    "0004"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0004",
+     "b": "0001",
+     "winner": "0001"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0010",
+     "b": "0005",
+     "winner": "0005"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0001",
+     "b": "0002",
+     "winner": "0002"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0005",
+     "b": "0009",
+     "winner": "0005"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0002",
+     "b": "0005",
+     "winner": "0005"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0009",
+      "0005"
+     ],
+     [
+      "0002",
+      "0001"
+     ]
+    ],
+    "final": [
+     "0002",
+     "0005"
+    ],
+    "champion": "0005",
+    "runner_up": "0002"
+   },
+   "fixed_path_round2": [
+    [
+     "0009",
+     "0005"
+    ],
+    [
+     "0002",
+     "0001"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2024-hawk",
+   "season": 2024,
+   "side": "hawk",
+   "source": "MFL 2024 playoffBracket 2 (Toilet Bowl Championship), league 74598",
+   "seeds": [
+    "0011",
+    "0008",
+    "0012",
+    "0007",
+    "0003",
+    "0006"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0006",
+     "b": "0012",
+     "winner": "0012"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0003",
+     "b": "0007",
+     "winner": "0007"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0012",
+     "b": "0008",
+     "winner": "0012"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0007",
+     "b": "0011",
+     "winner": "0007"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0012",
+     "b": "0007",
+     "winner": "0012"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0011",
+      "0007"
+     ],
+     [
+      "0008",
+      "0012"
+     ]
+    ],
+    "final": [
+     "0007",
+     "0012"
+    ],
+    "champion": "0012",
+    "runner_up": "0007"
+   },
+   "fixed_path_round2": [
+    [
+     "0011",
+     "0007"
+    ],
+    [
+     "0008",
+     "0012"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2025-champ",
+   "season": 2025,
+   "side": "champ",
+   "source": "MFL 2025 playoffBracket 1 (UPS Championship), league 74598",
+   "seeds": [
+    "0004",
+    "0009",
+    "0007",
+    "0001",
+    "0005",
+    "0010"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0010",
+     "b": "0007",
+     "winner": "0007"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0005",
+     "b": "0001",
+     "winner": "0005"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0007",
+     "b": "0009",
+     "winner": "0007"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0005",
+     "b": "0004",
+     "winner": "0004"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0007",
+     "b": "0004",
+     "winner": "0004"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0004",
+      "0005"
+     ],
+     [
+      "0009",
+      "0007"
+     ]
+    ],
+    "final": [
+     "0004",
+     "0007"
+    ],
+    "champion": "0004",
+    "runner_up": "0007"
+   },
+   "fixed_path_round2": [
+    [
+     "0004",
+     "0005"
+    ],
+    [
+     "0009",
+     "0007"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "2025-hawk",
+   "season": 2025,
+   "side": "hawk",
+   "source": "MFL 2025 playoffBracket 2 (Toilet Bowl Championship), league 74598",
+   "seeds": [
+    "0011",
+    "0008",
+    "0012",
+    "0006",
+    "0002",
+    "0003"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0003",
+     "b": "0012",
+     "winner": "0012"
+    },
+    {
+     "round": 1,
+     "week": 15,
+     "a": "0002",
+     "b": "0006",
+     "winner": "0006"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0012",
+     "b": "0008",
+     "winner": "0012"
+    },
+    {
+     "round": 2,
+     "week": 16,
+     "a": "0006",
+     "b": "0011",
+     "winner": "0011"
+    },
+    {
+     "round": 3,
+     "week": 17,
+     "a": "0012",
+     "b": "0011",
+     "winner": "0011"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "0011",
+      "0006"
+     ],
+     [
+      "0008",
+      "0012"
+     ]
+    ],
+    "final": [
+     "0011",
+     "0012"
+    ],
+    "champion": "0011",
+    "runner_up": "0012"
+   },
+   "fixed_path_round2": [
+    [
+     "0011",
+     "0006"
+    ],
+    [
+     "0008",
+     "0012"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "synthetic-champ-r1-S3-S4",
+   "season": null,
+   "side": "champ",
+   "source": "synthetic: opening-round outcome, top seeds win later",
+   "seeds": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "a": "S3",
+     "b": "S6",
+     "winner": "S3"
+    },
+    {
+     "round": 1,
+     "a": "S4",
+     "b": "S5",
+     "winner": "S4"
+    },
+    {
+     "round": 2,
+     "a": "S1",
+     "b": "S4",
+     "winner": "S1"
+    },
+    {
+     "round": 2,
+     "a": "S2",
+     "b": "S3",
+     "winner": "S2"
+    },
+    {
+     "round": 3,
+     "a": "S1",
+     "b": "S2",
+     "winner": "S1"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "S1",
+      "S4"
+     ],
+     [
+      "S2",
+      "S3"
+     ]
+    ],
+    "final": [
+     "S1",
+     "S2"
+    ],
+    "champion": "S1",
+    "runner_up": "S2"
+   },
+   "fixed_path_round2": [
+    [
+     "S1",
+     "S4"
+    ],
+    [
+     "S2",
+     "S3"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "synthetic-champ-r1-S6-S4",
+   "season": null,
+   "side": "champ",
+   "source": "synthetic: opening-round outcome, top seeds win later",
+   "seeds": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "a": "S3",
+     "b": "S6",
+     "winner": "S6"
+    },
+    {
+     "round": 1,
+     "a": "S4",
+     "b": "S5",
+     "winner": "S4"
+    },
+    {
+     "round": 2,
+     "a": "S1",
+     "b": "S6",
+     "winner": "S1"
+    },
+    {
+     "round": 2,
+     "a": "S2",
+     "b": "S4",
+     "winner": "S2"
+    },
+    {
+     "round": 3,
+     "a": "S1",
+     "b": "S2",
+     "winner": "S1"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "S1",
+      "S6"
+     ],
+     [
+      "S2",
+      "S4"
+     ]
+    ],
+    "final": [
+     "S1",
+     "S2"
+    ],
+    "champion": "S1",
+    "runner_up": "S2"
+   },
+   "fixed_path_round2": [
+    [
+     "S1",
+     "S4"
+    ],
+    [
+     "S2",
+     "S6"
+    ]
+   ],
+   "fixed_path_differs": true
+  },
+  {
+   "id": "synthetic-champ-r1-S3-S5",
+   "season": null,
+   "side": "champ",
+   "source": "synthetic: opening-round outcome, top seeds win later",
+   "seeds": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "a": "S3",
+     "b": "S6",
+     "winner": "S3"
+    },
+    {
+     "round": 1,
+     "a": "S4",
+     "b": "S5",
+     "winner": "S5"
+    },
+    {
+     "round": 2,
+     "a": "S1",
+     "b": "S5",
+     "winner": "S1"
+    },
+    {
+     "round": 2,
+     "a": "S2",
+     "b": "S3",
+     "winner": "S2"
+    },
+    {
+     "round": 3,
+     "a": "S1",
+     "b": "S2",
+     "winner": "S1"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "S1",
+      "S5"
+     ],
+     [
+      "S2",
+      "S3"
+     ]
+    ],
+    "final": [
+     "S1",
+     "S2"
+    ],
+    "champion": "S1",
+    "runner_up": "S2"
+   },
+   "fixed_path_round2": [
+    [
+     "S1",
+     "S5"
+    ],
+    [
+     "S2",
+     "S3"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "synthetic-champ-r1-S6-S5",
+   "season": null,
+   "side": "champ",
+   "source": "synthetic: opening-round outcome, top seeds win later",
+   "seeds": [
+    "S1",
+    "S2",
+    "S3",
+    "S4",
+    "S5",
+    "S6"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "a": "S3",
+     "b": "S6",
+     "winner": "S6"
+    },
+    {
+     "round": 1,
+     "a": "S4",
+     "b": "S5",
+     "winner": "S5"
+    },
+    {
+     "round": 2,
+     "a": "S1",
+     "b": "S6",
+     "winner": "S1"
+    },
+    {
+     "round": 2,
+     "a": "S2",
+     "b": "S5",
+     "winner": "S2"
+    },
+    {
+     "round": 3,
+     "a": "S1",
+     "b": "S2",
+     "winner": "S1"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "S1",
+      "S6"
+     ],
+     [
+      "S2",
+      "S5"
+     ]
+    ],
+    "final": [
+     "S1",
+     "S2"
+    ],
+    "champion": "S1",
+    "runner_up": "S2"
+   },
+   "fixed_path_round2": [
+    [
+     "S1",
+     "S5"
+    ],
+    [
+     "S2",
+     "S6"
+    ]
+   ],
+   "fixed_path_differs": true
+  },
+  {
+   "id": "synthetic-hawk-r1-H3-H4",
+   "season": null,
+   "side": "hawk",
+   "source": "synthetic: opening-round outcome, top seeds win later",
+   "seeds": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "a": "H3",
+     "b": "H6",
+     "winner": "H3"
+    },
+    {
+     "round": 1,
+     "a": "H4",
+     "b": "H5",
+     "winner": "H4"
+    },
+    {
+     "round": 2,
+     "a": "H1",
+     "b": "H4",
+     "winner": "H1"
+    },
+    {
+     "round": 2,
+     "a": "H2",
+     "b": "H3",
+     "winner": "H2"
+    },
+    {
+     "round": 3,
+     "a": "H1",
+     "b": "H2",
+     "winner": "H1"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "H1",
+      "H4"
+     ],
+     [
+      "H2",
+      "H3"
+     ]
+    ],
+    "final": [
+     "H1",
+     "H2"
+    ],
+    "champion": "H1",
+    "runner_up": "H2"
+   },
+   "fixed_path_round2": [
+    [
+     "H1",
+     "H4"
+    ],
+    [
+     "H2",
+     "H3"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "synthetic-hawk-r1-H6-H4",
+   "season": null,
+   "side": "hawk",
+   "source": "synthetic: opening-round outcome, top seeds win later",
+   "seeds": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "a": "H3",
+     "b": "H6",
+     "winner": "H6"
+    },
+    {
+     "round": 1,
+     "a": "H4",
+     "b": "H5",
+     "winner": "H4"
+    },
+    {
+     "round": 2,
+     "a": "H1",
+     "b": "H6",
+     "winner": "H1"
+    },
+    {
+     "round": 2,
+     "a": "H2",
+     "b": "H4",
+     "winner": "H2"
+    },
+    {
+     "round": 3,
+     "a": "H1",
+     "b": "H2",
+     "winner": "H1"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "H1",
+      "H6"
+     ],
+     [
+      "H2",
+      "H4"
+     ]
+    ],
+    "final": [
+     "H1",
+     "H2"
+    ],
+    "champion": "H1",
+    "runner_up": "H2"
+   },
+   "fixed_path_round2": [
+    [
+     "H1",
+     "H4"
+    ],
+    [
+     "H2",
+     "H6"
+    ]
+   ],
+   "fixed_path_differs": true
+  },
+  {
+   "id": "synthetic-hawk-r1-H3-H5",
+   "season": null,
+   "side": "hawk",
+   "source": "synthetic: opening-round outcome, top seeds win later",
+   "seeds": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "a": "H3",
+     "b": "H6",
+     "winner": "H3"
+    },
+    {
+     "round": 1,
+     "a": "H4",
+     "b": "H5",
+     "winner": "H5"
+    },
+    {
+     "round": 2,
+     "a": "H1",
+     "b": "H5",
+     "winner": "H1"
+    },
+    {
+     "round": 2,
+     "a": "H2",
+     "b": "H3",
+     "winner": "H2"
+    },
+    {
+     "round": 3,
+     "a": "H1",
+     "b": "H2",
+     "winner": "H1"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "H1",
+      "H5"
+     ],
+     [
+      "H2",
+      "H3"
+     ]
+    ],
+    "final": [
+     "H1",
+     "H2"
+    ],
+    "champion": "H1",
+    "runner_up": "H2"
+   },
+   "fixed_path_round2": [
+    [
+     "H1",
+     "H5"
+    ],
+    [
+     "H2",
+     "H3"
+    ]
+   ],
+   "fixed_path_differs": false
+  },
+  {
+   "id": "synthetic-hawk-r1-H6-H5",
+   "season": null,
+   "side": "hawk",
+   "source": "synthetic: opening-round outcome, top seeds win later",
+   "seeds": [
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6"
+   ],
+   "games": [
+    {
+     "round": 1,
+     "a": "H3",
+     "b": "H6",
+     "winner": "H6"
+    },
+    {
+     "round": 1,
+     "a": "H4",
+     "b": "H5",
+     "winner": "H5"
+    },
+    {
+     "round": 2,
+     "a": "H1",
+     "b": "H6",
+     "winner": "H1"
+    },
+    {
+     "round": 2,
+     "a": "H2",
+     "b": "H5",
+     "winner": "H2"
+    },
+    {
+     "round": 3,
+     "a": "H1",
+     "b": "H2",
+     "winner": "H1"
+    }
+   ],
+   "expected": {
+    "round2": [
+     [
+      "H1",
+      "H6"
+     ],
+     [
+      "H2",
+      "H5"
+     ]
+    ],
+    "final": [
+     "H1",
+     "H2"
+    ],
+    "champion": "H1",
+    "runner_up": "H2"
+   },
+   "fixed_path_round2": [
+    [
+     "H1",
+     "H5"
+    ],
+    [
+     "H2",
+     "H6"
+    ]
+   ],
+   "fixed_path_differs": true
+  }
+ ]
+}
