@@ -16,8 +16,9 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 await import("./fixtures/register_md_loader.mjs");
-const { capMoneyMaxK, irCapHit, isOverCap, parseAssetToken, IR_RELIEF_RATE } = await import("../worker/src/trade_rules.js");
+const { capMoneyMaxK, irCapHit, isOverCap, parseAssetToken, normalizeTradeToken, IR_RELIEF_RATE } = await import("../worker/src/trade_rules.js");
 const { parseAssetToken: parse3WayAssetToken } = await import("../worker/src/trade_3way_model.js");
+const { normalizeToken: normalizeAcceptToken } = await import("../worker/src/trade_accept_integrity.js");
 const { currentCapHit, IR_RELIEF_RATE: CAP_MATH_IR_RATE } = await import("../worker/src/cap_math.js");
 const { movementCapMaxK } = await import("../worker/src/trade_3way.js");
 const { capMoneyViolations } = await import("../worker/src/trade_accept_integrity.js");
@@ -41,7 +42,7 @@ test("the browser twin is the worker module, byte for byte (same check as tests/
   t.equal(twinBody.trim(), body.trim(), "regenerate site/shared/trade_rules.js: node scripts/generate_shared_trade_rules.mjs");
   t.equal(sharedBody(w), body.trimEnd(), "the generator and this test strip the same way");
   t.equal(s, render(w), "the whole twin file is exactly what the generator writes");
-  t.deepEqual(Object.keys(TWIN).sort(), ["IR_RELIEF_RATE", "capMoneyMaxK", "irCapHit", "isOverCap", "parseAssetToken"], "the twin exposes every export");
+  t.deepEqual(Object.keys(TWIN).sort(), ["IR_RELIEF_RATE", "capMoneyMaxK", "irCapHit", "isOverCap", "normalizeTradeToken", "parseAssetToken"], "the twin exposes every export");
   t.ok(/root\.UPS_TRADE_RULES = api;/.test(s) && /module\.exports = api/.test(s), "window.UPS_TRADE_RULES + module.exports");
   t.doesNotMatch(code(w), /\bfetch\(|\benv\b|document\.|window\./, "the worker module is pure: no fetch, env or DOM");
   t.doesNotMatch(w, /^import /m, "and imports nothing (the twin can't)");
@@ -74,6 +75,21 @@ test("three-team asset tokens keep the existing parser result in worker and brow
     t.deepEqual(parseAssetToken(input), expected);
     t.deepEqual(parse3WayAssetToken(input), expected);
     t.deepEqual(TWIN.parseAssetToken(input), expected);
+  }
+});
+
+test("two-team MFL token normalization stays identical through the old export and browser twin", () => {
+  const cases = [
+    [" P_14056 ", "14056"], ["14056", "14056"],
+    ["fp_0005_2027_1", "FP_0005_2027_1"],
+    ["DP_00_03", "DP_0_3"], ["BB_2,000", "BB_2000"],
+    ["BB_1.5", "BB_1.5"], ["BB_bad", "BB_BAD"],
+    ["", ""], [null, ""],
+  ];
+  for (const [input, expected] of cases) {
+    t.equal(normalizeTradeToken(input), expected);
+    t.equal(normalizeAcceptToken(input), expected);
+    t.equal(TWIN.normalizeTradeToken(input), expected);
   }
 });
 

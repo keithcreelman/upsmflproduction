@@ -47,8 +47,21 @@
     if ((m = /^BB_(\d+)$/.exec(t))) return { token: t, kind: "cap", cap_k: Math.round(Number(m[1]) / 1000) };
     return { token, kind: "unknown" };
   }
+
+  // Existing two-team accept comparison: MFL may represent a player as P_<id> or a bare id, and may pad draft slots.
+  // This normalization compares an owner's claim with MFL's offer; it does not decide eligibility.
+  function normalizeTradeToken(t) {
+    let x = String(t == null ? "" : t).trim().toUpperCase();
+    if (!x) return "";
+    const bb = /^BB_(.+)$/.exec(x);
+    if (bb) { const n = Number(bb[1].replace(/,/g, "")); return Number.isFinite(n) ? `BB_${n}` : x; }
+    if (/^P_\d+$/.test(x)) x = x.slice(2);
+    const dp = /^DP_(\d+)_(\d+)$/.exec(x);
+    if (dp) return `DP_${Number(dp[1])}_${Number(dp[2])}`;
+    return x;
+  }
   // ---- end body ----
-  var api = { IR_RELIEF_RATE: IR_RELIEF_RATE, capMoneyMaxK: capMoneyMaxK, irCapHit: irCapHit, isOverCap: isOverCap, parseAssetToken: parseAssetToken };
+  var api = { IR_RELIEF_RATE: IR_RELIEF_RATE, capMoneyMaxK: capMoneyMaxK, irCapHit: irCapHit, isOverCap: isOverCap, parseAssetToken: parseAssetToken, normalizeTradeToken: normalizeTradeToken };
   root.UPS_TRADE_RULES = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : this);
