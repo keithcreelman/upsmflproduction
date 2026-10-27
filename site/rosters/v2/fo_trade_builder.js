@@ -40,16 +40,62 @@
 
   // ── Pre-trade extension: the shared rule (shared/pretrade_extension.js), fed this player's own contract ──
   var extMemo = {};
-  // Authoritative extension facts for the SENDING franchise's player: { already_extended_by_this_franchise: boolean } from the worker's
-  // extension history. No such source is wired into the Front Office yet (the Trade War Room gets it from the worker), so by default there
-  // are none and every extension badge and choice is suppressed. A build that has the facts supplies them through
-  // window.UPS_FO_TRADE_BUILDER_CONFIG.extensionFacts(fid, pid); eligibility is never guessed from the contract or its `Ext:` text.
-  function extensionFacts(fid, pid) { var c = cfg(); return typeof c.extensionFacts === "function" ? c.extensionFacts(fid, pid) : null; }
+  // ── Authoritative extension facts (read-only). An extension badge and choices need ALL of: the worker's extension history was readable
+  // (`/trade-workbench` meta.counts.extension_history_ok === true), this franchise has not already extended the player, AND the worker's own full
+  // eligibility check (owner, final year, tag, MYAC lock, September deadline, acquisition window, history, restructure, price) accepted a probe
+  // request for him (the compliance preview). The history flag alone is not eligibility. Anything missing keeps them hidden.
+  // A build may supply finished facts through window.UPS_FO_TRADE_BUILDER_CONFIG.extensionFacts(fid, pid) (the preview does, labeled simulated).
+  var fx = { hist: null, histState: "idle", probes: {}, queue: [], timer: null, handle: null };
+  function apiUrl(path, extra) {
+    var c = DATA.config(), u = c.apiBase + path + "?L=" + encodeURIComponent(c.leagueId) + "&YEAR=" + encodeURIComponent(c.season) + (extra || "");
+    return c.sessionQuery ? c.sessionQuery(u) : u;
+  }
+  function loadHistory() {
+    if (fx.histState !== "idle") return;
+    fx.histState = "loading";
+    fetch(apiUrl("/trade-workbench"), { credentials: "omit", cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : null; }, function () { return null; })
+      .then(function (j) { fx.hist = j; fx.histState = j ? "done" : "error"; if (fx.handle) fx.handle.factsChanged(); });
+  }
+  function probeKey(item, pid) { return item.from + "|" + pid + "|" + item.to; }
+  function runProbes() {
+    fx.timer = null;
+    var batch = fx.queue.splice(0, fx.queue.length);
+    batch.reduce(function (chain, job) {
+      return chain.then(function () {
+        var body = { league_id: DATA.config().leagueId, season: DATA.config().season, from_franchise_id: FO.viewerFid(),
+          movements: [{ from: job.item.from, to: job.item.to, tokens: [job.item.token] }], extension_requests: [job.row] };
+        return fetch(apiUrl("/api/trades/compliance-preview"), { method: "POST", headers: { "Content-Type": "application/json" }, credentials: "omit", body: JSON.stringify(body) })
+          .then(function (r) { return r.json(); }, function () { return null; })
+          .then(function (resp) { fx.probes[job.key] = { state: "done", result: root.UPS_TRADE_BUILDER_CORE.probeResult(resp, job.pid) }; if (fx.handle) fx.handle.factsChanged(); });
+      });
+    }, Promise.resolve());
+  }
+  // Ask the worker about ONE player (read-only: the compliance preview never writes). Needs the viewer to be a party to the movement.
+  function scheduleProbe(item, pid, p) {
+    var X = root.UPS_PRETRADE_EXT, C = root.UPS_TRADE_BUILDER_CORE, key = probeKey(item, pid);
+    if (fx.probes[key] || !item.to || (item.from !== FO.viewerFid() && item.to !== FO.viewerFid())) return;
+    var a = C.probeAsset(p), cand = a && X.buildSyntheticExtensionOptions(a)[0];
+    if (!cand) { fx.probes[key] = { state: "done", result: { confirmed: false, reason: "not_eligible_by_contract" } }; return; }
+    fx.probes[key] = { state: "queued" };
+    fx.queue.push({ key: key, pid: pid, item: item, row: C.extensionRow(item, cand) });
+    if (!fx.timer) fx.timer = setTimeout(runProbes, 300);
+  }
+  function serverFacts(item, pid, p) {
+    var C = root.UPS_TRADE_BUILDER_CORE;
+    loadHistory();
+    var hist = fx.histState === "done" ? C.historyFacts(fx.hist, item.from, pid) : null;
+    if (!hist) return null;                                           // history unreadable or not loaded: nothing is shown
+    scheduleProbe(item, pid, p);
+    var pr = fx.probes[probeKey(item, pid)];
+    return C.extensionFacts(hist, pr && pr.state === "done" ? pr.result : null);
+  }
   function extensionOptions(item) {
     var X = root.UPS_PRETRADE_EXT, pid = String(item.token || "").replace(/^P_/, "");
     var p = playerRec(item.from, pid);
     if (!X || !p) return [];
-    var asset = root.UPS_TRADE_BUILDER_CORE.extensionInput(p, extensionFacts(item.from, pid));
+    var c = cfg(), facts = typeof c.extensionFacts === "function" ? c.extensionFacts(item.from, pid) : serverFacts(item, pid, p);
+    var asset = root.UPS_TRADE_BUILDER_CORE.extensionInput(p, facts);
     if (!asset) return [];
     var key = item.from + "|" + pid + "|" + p.years + "|" + p.salary + "|" + p.type + "|" + p.special + "|" + asset.already_extended_by_this_franchise;
     return extMemo[key] || (extMemo[key] = X.buildSyntheticExtensionOptions(asset));
@@ -200,6 +246,7 @@
   function mount(host) {
     var c = cfg();
     wireDialog();
+    fx = { hist: null, histState: "idle", probes: {}, queue: [], timer: null, handle: null };
     current = root.UPS_TRADE_BUILDER_VIEW.mount(host, {
       openDialog: function (title, html) { H.openDialog(title, html, { variant: "team" }); },
       closeDialog: function () { H.closeAbout(); },
@@ -215,9 +262,11 @@
       sendNotice: c.sendNotice || "Sending from the Front Office is not turned on yet. Nothing here sends a trade; use the Trade War Room to send.",
       warRoomUrl: ("warRoomUrl" in c) ? c.warRoomUrl : (FO.warRoomUrl ? FO.warRoomUrl({}) : "")
     });
+    fx.handle = current;
+    if (typeof c.extensionFacts !== "function") loadHistory();
     return current;
   }
 
-  root.UPS_FO_TRADE_BUILDER = { mount: mount, _picksOf: picksOf, _impact: impact, _playersOf: playersOf };
+  root.UPS_FO_TRADE_BUILDER = { _extensionOptions: extensionOptions, mount: mount, _picksOf: picksOf, _impact: impact, _playersOf: playersOf };
   document.addEventListener("fo:ready", function () { FO = root.UPS_FO; DATA = root.UPS_FO_DATA; H = root.UPS_FO_HUB; });
 })(typeof window !== "undefined" ? window : this);
