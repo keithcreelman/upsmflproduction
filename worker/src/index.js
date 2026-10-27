@@ -15,7 +15,7 @@ import {
   openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours, resolveDiscordUserIds, dmAll } from "./trade_dm.js";
-import { summarizeExtensionMaster } from "./extension_history.js";
+import { summarizeExtensionMaster, extensionHistoryReadOk } from "./extension_history.js";
 import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing } from "./trade_3way.js";
 
 // Exact, non-secret release marker returned by the AUTHENTICATED GET /admin/release-info (the deployment discriminator used by the runbook).
@@ -60161,7 +60161,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           for (const x of hist.playerSet) extensionMasterPlayerSet.add(x);
           for (const x of hist.pairSet) extensionMasterFranchisePairSet.add(x);
           extensionMasterRowCount = extensionMasterPlayerSet.size;
-          extensionHistoryOk = true;      // the read worked: an absent already_extended_by_this_franchise now means "not extended"
+          extensionHistoryOk = extensionHistoryReadOk(masterRes);   // true only for a successful result with a results array; a valid empty one counts
         } catch (e) {
           console.warn("[trade-workbench] ups_extension_master read failed:", e?.message || String(e));
         }

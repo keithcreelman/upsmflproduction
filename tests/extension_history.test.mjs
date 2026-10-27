@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { summarizeExtensionMaster } = await import("../worker/src/extension_history.js");
+const { summarizeExtensionMaster, extensionHistoryReadOk } = await import("../worker/src/extension_history.js");
 const pad = (f) => { const d = String(f || "").replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
 const safeInt = (v, d) => { const n = parseInt(v, 10); return Number.isFinite(n) ? n : (d == null ? 0 : d); };
 
@@ -50,15 +50,28 @@ test("junk input never throws and never invents a fact", () => {
   for (const rows of [null, undefined, "x", 5, {}]) { const r = summarizeExtensionMaster(rows, 2026, pad); t.equal(r.pairSet.size + r.playerSet.size, 0); }
   t.equal(summarizeExtensionMaster(ROWS, 2026).pairSet.size >= 0, true, "works without a pad function");
 });
-test("the route reports whether the history read succeeded: true only after a successful read, never in the failure path", () => {
+test("extension_history_ok: true only for a SUCCESSFUL D1 result with a results array (Codex MAT-1)", () => {
+  t.equal(extensionHistoryReadOk({ success: true, results: [] }), true, "a valid empty result is a real read: nobody has extended anyone");
+  t.equal(extensionHistoryReadOk({ success: true, results: ROWS.filter(Boolean) }), true, "a valid result with rows");
+  t.equal(extensionHistoryReadOk({ success: false, results: [] }), false, "unsuccessful, even with a results array");
+  t.equal(extensionHistoryReadOk({ success: false }), false, "unsuccessful");
+  t.equal(extensionHistoryReadOk({ results: [] }), false, "no success flag: not proven");
+  t.equal(extensionHistoryReadOk({ success: true }), false, "missing results");
+  for (const bad of [null, undefined, {}, "x", 5, [], { success: true, results: null }, { success: true, results: {} }, { success: true, results: "rows" }, { success: "true", results: [] }, { success: 1, results: [] }])
+    t.equal(extensionHistoryReadOk(bad), false, "not a read: " + JSON.stringify(bad));
+});
+test("the route sets the flag only from that check, inside the try, never in the failure path; and still behaves as before", () => {
   const src = fs.readFileSync(path.join(ROOT, "worker/src/index.js"), "utf8");
-  t.ok(/import \{ summarizeExtensionMaster \} from "\.\/extension_history\.js";/.test(src), "the route uses the extracted function");
+  t.ok(/import \{ summarizeExtensionMaster, extensionHistoryReadOk \} from "\.\/extension_history\.js";/.test(src), "the route uses the extracted functions");
   const at = src.indexOf("let extensionHistoryOk = false;");
   t.ok(at > 0, "starts false");
-  const tryAt = src.indexOf("try {", at), setAt = src.indexOf("extensionHistoryOk = true;", at), catchAt = src.indexOf("} catch (e) {", tryAt);
-  t.ok(tryAt > at && setAt > tryAt && setAt < catchAt, "set true inside the try, after the read and the summary");
+  const tryAt = src.indexOf("try {", at), setAt = src.indexOf("extensionHistoryOk = extensionHistoryReadOk(masterRes);", at), catchAt = src.indexOf("} catch (e) {", tryAt);
+  t.ok(tryAt > at && setAt > tryAt && setAt < catchAt, "set from the check inside the try, after the read and the summary");
+  t.ok(!/extensionHistoryOk\s*=\s*true/.test(src), "never set to a bare true");
   const catchBody = src.slice(catchAt, src.indexOf("}", catchAt + 20) + 1);
   t.ok(!/extensionHistoryOk\s*=/.test(catchBody), "the failure path leaves it false");
   t.ok(/extension_history_ok: extensionHistoryOk,/.test(src), "and it is reported in meta.counts");
+  // behavior unchanged: the sets are still filled from asArray(results) exactly as before, whatever the flag says
+  t.ok(/summarizeExtensionMaster\(asArray\(masterRes\?\.results\), season, padFranchiseId\)/.test(src), "sets still come from the same rows");
 });
 await run("extension_history");

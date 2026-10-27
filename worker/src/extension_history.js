@@ -19,3 +19,10 @@ export function summarizeExtensionMaster(rows, season, padFid) {
   }
   return { playerSet, pairSet };
 }
+
+// Did the D1 read actually succeed? True ONLY for a successful result that carries a results array (a valid empty array is a real "nobody has
+// extended anyone"). An unsuccessful, missing or malformed result is NOT a read: it must never be reported as one, or a client would treat
+// "history unavailable" as "nobody extended him". (Codex MAT-1 on #1415.) Cloudflare D1's .all() returns { success, results, meta }.
+export function extensionHistoryReadOk(res) {
+  return !!res && typeof res === "object" && res.success === true && Array.isArray(res.results);
+}
