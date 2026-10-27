@@ -72,8 +72,17 @@ def week1_thursday(season):
     return d
 
 
-def resolve(season=None, week=None):
-    """(season, week, basis) for right now. A fantasy week runs Thursday to Thursday.
+def week_opens(season):
+    """When week 1's capture window opens: Wednesday 00:00 UTC before the first Thursday game (Tuesday 8 PM ET). Every later
+    week opens a whole number of weeks after it. Monday night's game is over by then and Wednesday's 12:00 UTC run is the
+    first look at the UPCOMING week; `--current` used to roll over only on Thursday, so the Wednesday run captured the
+    week that had just ended (Codex, #1412 post-merge MAT-1)."""
+    return week1_thursday(season) - timedelta(days=1)
+
+
+def resolve(season=None, week=None, now=None):
+    """(season, week, basis) for right now. A capture week runs Wednesday 00:00 UTC to the next Wednesday 00:00 UTC, so the
+    Wednesday run captures the upcoming week and the Sunday and Monday runs the week being played.
 
     `basis` records WHY this week was chosen and is always logged. The previous
     version fell through to a bare `(now.year, 1)` for any date outside a live
@@ -84,12 +93,12 @@ def resolve(season=None, week=None):
     matters because `first_projected` is the whole point of the table: it is
     supposed to be the earliest MEANINGFUL sighting, not the earliest cron tick.
     """
-    now = datetime.now(timezone.utc)
+    now = now or datetime.now(timezone.utc)
     if season and week:
         return int(season), int(week), "explicit"
 
     for s in ([int(season)] if season else [now.year, now.year - 1]):
-        start = week1_thursday(s)
+        start = week_opens(s)
         if now < start:
             continue
         wk = int((now - start).days // 7) + 1
@@ -100,7 +109,7 @@ def resolve(season=None, week=None):
     # repeatedly from August to kickoff is exactly the movement we want -- but
     # the deep offseason does not.
     s = int(season) if season else now.year
-    if datetime(s, CAPTURE_OPENS_MONTH, 1, tzinfo=timezone.utc) <= now < week1_thursday(s):
+    if datetime(s, CAPTURE_OPENS_MONTH, 1, tzinfo=timezone.utc) <= now < week_opens(s):
         return s, 1, "preseason"
     return s, None, "closed"
 

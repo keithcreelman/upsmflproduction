@@ -6,7 +6,7 @@ import calendar
 import os
 import re
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -89,6 +89,20 @@ buf = io.StringIO()
 with contextlib.redirect_stdout(buf):
     rc = run_main(utc("2026-10-27 06:00"))
 check("a run after the last game writes nothing and exits clean (not a failed capture)", rc == 0 and not sent and "nothing written" in buf.getvalue(), (rc, sent))
+
+print("which week --current selects (the scheduled runs all use it)")
+U = lambda t: datetime.strptime(t, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+wk = lambda t, season=None: ING.resolve(season, None, now=U(t))[:2]
+check("2026 week 8 opens Wednesday Oct 28 00:00 UTC (a whole number of weeks after week 1's Wednesday, Sep 9)", ING.week_opens(2026) == U("2026-09-09 00:00") and ING.week_opens(2026) + timedelta(weeks=7) == U("2026-10-28 00:00"))
+check("Tuesday Oct 27 23:59 UTC (after Monday night's game) is still week 7", wk("2026-10-27 23:59") == (2026, 7), wk("2026-10-27 23:59"))
+check("Wednesday Oct 28 00:00 UTC is week 8", wk("2026-10-28 00:00") == (2026, 8))
+check("the Wednesday 12:00 UTC scheduled run captures week 8 (the upcoming week), not week 7", wk("2026-10-28 12:00") == (2026, 8))
+check("Thursday 20:00 UTC, Friday, Sunday and Monday runs all stay on week 8", all(wk(t) == (2026, 8) for t in ("2026-10-29 20:00", "2026-10-30 12:00", "2026-11-01 11:00", "2026-11-01 15:00", "2026-11-02 23:59")))
+check("the next Wednesday rolls to week 9", wk("2026-11-04 00:00") == (2026, 9) and wk("2026-11-03 23:59") == (2026, 8))
+check("week 1: the Wednesday before the first Thursday game opens it; the day before that is the preseason",
+      wk("2026-09-09 00:00") == (2026, 1) and ING.resolve(None, None, now=U("2026-09-08 23:59"))[1:] == (1, "preseason") and ING.resolve(None, None, now=U("2026-09-09 00:00"))[2] == "in-season")
+check("week 17 is the last: the Wednesday after it closes the season", wk("2026-12-30 12:00") == (2026, 17) and ING.resolve(None, None, now=U("2027-01-06 12:00"))[1] is None)
+check("an explicit season and week are never overridden", ING.resolve(2026, 3, now=U("2026-10-28 12:00")) == (2026, 3, "explicit"))
 
 print("fail closed")
 def boom(*a, **k):
