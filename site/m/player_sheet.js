@@ -128,7 +128,8 @@
     ww_under_5k_exempt: { amt: "zero", why: "A one-year waiver deal under $5K carries no guarantee (canon §D2)." },
     ww_under_5k_earned_na: { amt: "zero", why: "A one-year waiver deal of $4K or less carries no guarantee; earned doesn’t apply (canon §6.C3)." },
     taxi_exempt: { amt: "zero", why: "Taxi-squad players carry no guarantee and don’t count against the cap while on the taxi squad (canon §B2/§D2)." },
-    taxi_callup_exempt: { amt: "zero", why: "A taxi player on a temporary call-up, never permanently promoted, still carries no guarantee (canon §B2/§D2)." }
+    taxi_callup_exempt: { amt: "zero", why: "A taxi-eligible player cut after temporary call-ups, never permanently promoted: cap-free (canon §B2/§D2/T5.2)." },
+    taxi_eligible_exempt: { amt: "zero", why: "A taxi-eligible player cut from the active roster: cap-free, wherever he sits (canon T5.2/§D2). The release ends his taxi eligibility." }
   };
   // MFL's year schedule through the shared parser (site/shared/cap_math.js,
   // the same one Front Office uses: bare "Y1-11" tokens are $K too). Unexercised
@@ -389,6 +390,7 @@
       years = [live.season, live.season - 1, live.season - 2];
       ctx.curYearForLeaderboard = live.season;
     }
+    var pendingYears = [];
     var rows = years.map(function (y) {
       var c = careerByYear[y] || {};
       var s = seasonsByYear[y] || {};
@@ -407,7 +409,14 @@
         games = Number(c.games_played || 0);
         pts = Number(c.season_points || 0);
         ppg = Number(c.avg_ppg != null ? c.avg_ppg : (games > 0 ? pts / games : 0));
-        ppgRank = Number(c.pos_ppg_rank || 0);
+        // A rank the worker holds back until the #1307 recount comes as null
+        // with rank_pending: "—" and the note below, never 0.
+        if (c.rank_pending && c.rank_pending.fields && c.rank_pending.fields.indexOf("pos_ppg_rank") !== -1) {
+          ppgRank = "—";
+          pendingYears.push(y);
+        } else {
+          ppgRank = Number(c.pos_ppg_rank || 0);
+        }
       } else if (stats) {
         // The column is MFL SCORED WEEKS (0.0 included), like career_summary's
         // games_played and MFL's own AVG. The leaderboard's `games` is nflverse
@@ -441,7 +450,10 @@
         ? live.season + ": " + live.basis
         : (!seasonScoring || !seasonScoring.known)
           ? curYear + ": points unavailable — MFL's scoring could not be read"
-          : "No " + curYear + " MFL scores yet. Rows above are earlier seasons, each under its year.") + '</div>';
+          : "No " + curYear + " MFL scores yet. Rows above are earlier seasons, each under its year.") + '</div>' +
+      (pendingYears.length
+        ? '<div class="ups-m-stat-basis">' + pendingYears.join(", ") + " PPG Rk: Rank pending historical reconciliation.</div>"
+        : "");
   }
 
   // ── Game log (Stats tab, Keith 2026-10-10) ──
@@ -564,7 +576,7 @@
       var has = Object.prototype.hasOwnProperty.call(pts, w), b = box[w] || null, sn = snaps[w] || null;
       var snapTot = sn ? (Number(sn.off) || 0) + (Number(sn.def) || 0) + (Number(sn.st) || 0) : null;
       var label, cls = "", ttl = "";
-      if (has) label = (Math.round(pts[w] * 10) / 10).toFixed(1) + (live[w] ? '<span class="ups-m-gl-live" title="Week in progress"></span>' : "");
+      if (has) label = window.UPS_MOBILE_SEASON_SCORING.fmt1(pts[w]) + (live[w] ? '<span class="ups-m-gl-live" title="Week in progress"></span>' : "");
       else if (bye === w) { label = "BYE"; cls = "bye"; }
       else if (live[w] || w > ss.finalThrough) { label = "—"; cls = "dim"; ttl = "Not played yet"; }
       // With snap counts: say what happened. A snap row with 0 snaps, or no
@@ -617,12 +629,14 @@
         '</div>';
   }
 
+  // Points/PPG text below: the ONE shared formatter, season_scoring.js fmt1 (decimal half-up: 19.35 → 19.4),
+  // the same function the desktop Front Office uses (Keith 2026-10-21).
   function statRowHtml(y, games, pts, ppg, ppgRank) {
     return '<tr>' +
       '<td>' + y + '</td>' +
       '<td>' + (games == null ? "—" : games) + '</td>' +
-      '<td>' + (Math.round(pts * 10) / 10).toFixed(1) + '</td>' +
-      '<td>' + (ppg == null ? "—" : (Math.round(ppg * 10) / 10).toFixed(1)) + '</td>' +
+      '<td>' + window.UPS_MOBILE_SEASON_SCORING.fmt1(pts) + '</td>' +
+      '<td>' + (ppg == null ? "—" : window.UPS_MOBILE_SEASON_SCORING.fmt1(ppg)) + '</td>' +
       // A string is a word in place of a number ("unranked", current season).
       '<td>' + (typeof ppgRank === "string" ? U.escapeHtml(ppgRank) : (ppgRank > 0 ? ppgRank : 0)) + '</td>' +
     '</tr>';
@@ -642,8 +656,8 @@
     var tile = function (v, l) { return '<div><b>' + U.escapeHtml(v) + '</b><small>' + U.escapeHtml(l) + '</small></div>'; };
     return '<div class="ups-m-sheet-block ups-m-sheet-pts">' +
       '<div class="ups-m-sheet-pts-row">' +
-        tile((Math.round(sp.pts * 10) / 10).toFixed(1), "Pts · " + sp.weeks) +
-        tile(sp.ppg != null ? (Math.round(sp.ppg * 10) / 10).toFixed(1) : "—", "PPG · " + sp.games + " MFL wk" + (sp.games === 1 ? "" : "s")) +
+        tile(window.UPS_MOBILE_SEASON_SCORING.fmt1(sp.pts), "Pts · " + sp.weeks) +
+        tile(sp.ppg != null ? window.UPS_MOBILE_SEASON_SCORING.fmt1(sp.ppg) : "—", "PPG · " + sp.games + " MFL wk" + (sp.games === 1 ? "" : "s")) +
         tile(sp.rankLabel, "PPG rank") +
       '</div>' +
       '<div class="ups-m-stat-basis">' + U.escapeHtml(basis.text) + '</div>' +
@@ -1389,7 +1403,13 @@
     var max = callup ? (U.safeInt(callup.max, 3) || 3) : 3;
     var totalSpent = used + pending;
     var ctx = "";
-    if (action === "promote_taxi") {
+    if (action === "promote_taxi" && DATA.taxiCallupsKnown && !DATA.taxiCallupsKnown()) {
+      // Counts not read (yet, or at all): say so — "0 of 3" here could talk an
+      // owner into a 4th call-up, which is a permanent promotion.
+      ctx =
+        "\n\nCall-ups used: unknown — the count couldn't be loaded." +
+        "\nA 4th call-up is a PERMANENT PROMOTION. Check the count on My Team → Taxi first.";
+    } else if (action === "promote_taxi") {
       var aboutToBeNth = totalSpent + 1;
       var usedLine =
         "\n\nCall-ups used: " + used + " of " + max +
@@ -2694,6 +2714,10 @@
       });
     }
     if (activeTab === "stats") {
+      // Earlier seasons' PPG rank and the fallback rows come from the stats
+      // leaderboards: read the first time any Stats tab opens (shared, kept for
+      // the app load); ups-advanced-stats-ready repaints this tab.
+      if (DATA.ensureAdvancedStats) DATA.ensureAdvancedStats();
       body.innerHTML = '<div class="ups-m-sheet-block"><h4>Season Stats</h4>' +
         '<div id="ups-m-sheet-stats">' +
           // MFL points don't wait for the bundle (it only adds earlier seasons'
@@ -2886,6 +2910,14 @@
     overlay.classList.add("open");
     document.body.style.overflow = "hidden";
 
+    // The Drop label, the contract-money block and the taxi buttons read the
+    // penalty batch and the call-up counts, which the app no longer reads at
+    // boot: one shared request per app load (app.js lazyRead). They repaint
+    // this sheet when they land (listeners below). The leaderboards wait for
+    // the Stats tab (renderTabBody).
+    if (DATA.ensureCapPenaltyPreview) DATA.ensureCapPenaltyPreview();
+    if (DATA.ensureTaxiCallups) DATA.ensureTaxiCallups();
+
     var player = DATA.playerById(pid);
     var name = fmtPlayerName(player && player.name);
     var pos = U.safeStr(player && player.position);
@@ -2986,11 +3018,29 @@
     });
   }
 
-  // The cap batch can land after the sheet opened (boot still loading): repaint
-  // the contract block so "Loading…" turns into the worker's numbers.
+  // The cap batch lands after the sheet opened (open() asks for it): repaint
+  // the contract block so "Loading…" turns into the worker's numbers, and the
+  // footer so the Drop label stops saying "est." (not while a trade-bait note
+  // is being typed there).
   window.addEventListener("ups-cap-penalty-ready", function () {
     var ov = document.getElementById("ups-m-sheet-overlay");
-    if (ov && ov.classList.contains("open") && activeTab === "actions") renderTabBody();
+    if (!ov || !ov.classList.contains("open")) return;
+    if (activeTab === "actions") renderTabBody();
+    if (!footerState.editingOtb) rerenderFooter();
+  });
+
+  // The taxi call-up counts landed: the Demote / Promote buttons depend on them.
+  window.addEventListener("ups-taxi-callups-ready", function () {
+    var ov = document.getElementById("ups-m-sheet-overlay");
+    if (!ov || !ov.classList.contains("open")) return;
+    if (activeTab === "actions") renderTabBody();
+    if (!footerState.editingOtb) rerenderFooter();
+  });
+
+  // The stats leaderboards landed (the Stats tab asked): earlier seasons' rows.
+  window.addEventListener("ups-advanced-stats-ready", function () {
+    var ov = document.getElementById("ups-m-sheet-overlay");
+    if (ov && ov.classList.contains("open") && activeTab === "stats") renderTabBody();
   });
 
   // The availability answer landed or changed (app.js fetchWaiverAvailability):

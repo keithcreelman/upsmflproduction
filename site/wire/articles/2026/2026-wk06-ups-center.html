@@ -1,0 +1,1254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UPS Center: Week 6</title>
+<!--wire-meta
+  Automated UPS Center draft (ups_center_auto.py). Rebuild the index with: python pipelines/etl/wire/wire.py index
+  familyId: weekly
+  season: 2026
+  week: 6
+  status: live
+  publishedAt: 2026-10-21T17:43:00Z
+  tags: ups-center
+  heroValue:
+  heroLabel:
+  order:
+  featured: yes
+  leadTable:
+-->
+<!--wire-provenance
+  pack: 2026-wk06-recap
+  packGeneratedAtUtc: 2026-10-21T14:08:33Z
+  engine: ups-center-auto (ups_center_issue.py); claims 000c1320a779; gaps 3
+-->
+<style data-wire-style="tokens+article" data-wire-style-sha="sha256-465fc24e">
+/* GENERATED - do not edit here.
+   Source: site/wire/wire_tokens.css + site/wire/wire_article.css
+   data-wire-style-sha above is sha256(tokens + LF + article)[:8]; `verify`
+   recomputes it and fails any article whose stamp has gone stale.
+   Regenerate: python pipelines/etl/wire/wire.py restyle */
+/* UPS Wire — design tokens. SINGLE SOURCE OF TRUTH for the Wire's look.
+ *
+ * THE UPS CENTER SET (Keith 2026-09-17: "I'd rather everything the Wire match
+ * UPS Center"), taken from a photo of Stuart Scott and Rich Eisen at the 1990s
+ * SportsCenter desk: sand-tan walls washed with purple light at the edges, a
+ * charcoal logo panel, a brushed-steel desk, Stuart in a dark suit and Rich in
+ * tan. One committed look -- it replaced the dark green/gold almanac palette
+ * ported from docs/design/ups_nfl_comps_reference.html.
+ *
+ * This file + wire_article.css are INLINED into every article at build time
+ * so an article stays self-contained (it renders inside MFL, at its own Pages
+ * URL, and as a Claude Artifact with no network access). Keep this file small
+ * and stable — every byte here is paid for once per article.
+ *
+ * RULES (see site/wire/README.md):
+ *   - No vh/svh/dvh units. Inside an auto-sized iframe 100vh equals the height
+ *     we just set, so the frame grows on every beacon tick, forever. vw is fine.
+ *   - No webfonts. System stack only -- the display stack reaches for a
+ *     condensed face first (Avenir Next Condensed on Apple devices).
+ *
+ * ONE THEME ON PURPOSE. The loader still stamps data-theme="dark" and some
+ * readers' systems prefer dark; the set is a lit studio, so every block below
+ * resolves to the same palette rather than inverting it.
+ *
+ * CONTRAST (measured, WCAG): --gold text on --surface 7.8:1, on --ground 4.9:1;
+ * --on-gold (white) on --gold 8.5:1; --ink-mute on --ground 5.1:1; --cool on
+ * --ground 4.9:1; --brick on --ground 4.7:1; --up on --ground 5.2:1.
+ */
+
+:root {
+  --ground: #DAC2A6;        /* the set wall */
+  --edge: #B793C9;          /* purple light at the wall's edges */
+  --surface: #FAF4EC;       /* lit panels */
+  --surface-2: #EFE3D3;
+  --line: #DCCAB4;
+  --line-2: #C6AD92;
+  --ink: #211A1D;
+  --ink-dim: #3E3438;
+  --ink-mute: #54474C;
+  --gold: #5F3F7A;          /* the accent: purple, for text AND fills */
+  --gold-dim: #9D7FB5;      /* rules, borders, hover edges */
+  --gold-deep: #56396F;
+  --on-gold: #FFFFFF;       /* text on an accent fill -- never --ground (3.8:1) */
+  --brick: #922B25;         /* down / bad */
+  --up: #1B5432;            /* up / good */
+  --cool: #5E4A3C;          /* bronze: the secondary accent */
+  --charcoal: #332C2E;      /* the logo panel */
+  --charcoal-edge: #5B4F52;
+  --on-charcoal: #F6EFE6;   /* 11.9:1 */
+  --on-charcoal-accent: #D2B3E3;  /* lavender on the panel, 7.3:1 */
+  --on-suit-tan: #1F1A1C;   /* Rich's chip, 5.6:1 */
+  --suit-dark: #26252E;     /* Stuart */
+  --suit-tan: #A88E78;      /* Rich */
+  --steel-hi: #F1F3F5;      /* the desk */
+  --steel: #C3C8CE;
+  --steel-lo: #8E959D;
+
+  --display: "Avenir Next Condensed", "Bahnschrift SemiCondensed", "Roboto Condensed", "Arial Narrow",
+             "Helvetica Neue", Arial, sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --maxw: 68rem;
+  /* Article reading column: about 75 characters of 17px sans per line. */
+  --measure: 40rem;
+  color-scheme: light;
+}
+
+/* The same palette, re-stated at the specificity the loader's data-theme stamp
+   and a dark OS preference would otherwise win at. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #DAC2A6; --surface: #FAF4EC; --surface-2: #EFE3D3; --line: #DCCAB4;
+    --ink: #211A1D; --ink-dim: #3E3438; --ink-mute: #54474C;
+    --gold: #5F3F7A; --gold-dim: #9D7FB5; --brick: #922B25; --cool: #5E4A3C;
+  }
+}
+:root[data-theme="dark"], :root[data-theme="light"] {
+  --ground: #DAC2A6; --surface: #FAF4EC; --surface-2: #EFE3D3; --line: #DCCAB4;
+  --ink: #211A1D; --ink-dim: #3E3438; --ink-mute: #54474C;
+  --gold: #5F3F7A; --gold-dim: #9D7FB5; --brick: #922B25; --cool: #5E4A3C;
+  color-scheme: light;
+}
+
+/* The reference put min-height:100vh on .page. Dropped deliberately (see the
+   vh rule above); this fills the viewport standalone without the feedback loop. */
+html { background: var(--ground); }
+
+* { box-sizing: border-box; }
+
+/* UPS Wire — article components.
+ *
+ * Ported from docs/design/ups_nfl_comps_reference.html (lines 51-195), class
+ * names prefixed .wire- so nothing collides with MFL's own stylesheet or with
+ * another hub. Everything is scoped under .wire-page: this file is loaded by
+ * the shell too, and bare `table`/`ul`/`footer` selectors would leak into it.
+ *
+ * INLINED into every article at build time alongside wire_tokens.css. Same
+ * rules apply: no vh/svh/dvh units (vw is fine), no webfonts.
+ *
+ * READING TYPE (2026-09-10). The first published team reviews set 16px body
+ * copy across a 62rem column -- about 125 characters a line -- with ZERO space
+ * between paragraphs, so every article read as one grey slab. Articles now sit
+ * in a --measure column, paragraphs are spaced by the section's flex gap, the
+ * first paragraph after a section heading is set as a lede, and section
+ * headings are real headings rather than 11px labels.
+ *
+ * Labels never go below 0.72rem.
+ */
+
+/* ---------- page frame ---------- */
+.wire-page {
+  background: var(--ground);
+  /* Purple light at the wall's edges, kept inside the page padding (min 1rem)
+     so no text ever sits on it -- small labels on the purple measured 3.2:1. */
+  box-shadow: inset 0.75rem 0 1.1rem -0.55rem var(--edge), inset -0.75rem 0 1.1rem -0.55rem var(--edge);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 1.06rem;
+  line-height: 1.6;
+  padding: clamp(1rem, 4vw, 3rem) clamp(1rem, 5vw, 2rem) 5rem;
+}
+.wire-wrap { max-width: var(--maxw); margin: 0 auto; display: flex; flex-direction: column; gap: 2.5rem; }
+.wire-wrap.wire-article { max-width: var(--measure); gap: 2rem; }
+.wire-page button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* ---------- hero ---------- */
+.wire-hero { display: flex; flex-direction: column; gap: 0.85rem; padding-bottom: 1.25rem; position: relative; }
+.wire-hero::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 0.6rem; border-radius: 3px;
+  background: linear-gradient(var(--steel-hi), var(--steel) 55%, var(--steel-lo));
+}
+.wire-eyebrow {
+  font-family: var(--display);
+  font-size: 0.74rem; font-weight: 700; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--gold);
+}
+/* Scoped to the hero: a bare `.wire-page h1` also beat the shell's wordmark. */
+.wire-hero h1 {
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: clamp(1.85rem, 5.6vw, 2.9rem);
+  line-height: 1.07;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+  margin: 0;
+}
+.wire-dek {
+  font-size: clamp(1.08rem, 2.4vw, 1.22rem);
+  line-height: 1.5;
+  color: var(--ink-dim);
+  max-width: 60ch;
+  margin: 0;
+}
+
+/* An optional hero photo, its OWN block above the eyebrow/title/dek -- not a
+   background behind them. The source art already carries its own "UPS WIRE"
+   title baked in, so overlaying the article's real headline on top of it
+   doubled up two competing titles in the same space and neither read
+   cleanly. A plain image block sidesteps that: nothing needs to stay legible
+   over anything else. */
+.wire-hero-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 14px;
+  margin: 0 0 0.35rem;
+}
+
+/* ---------- key numbers under the dek ---------- */
+.wire-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(5.6rem, 1fr));
+  gap: 0.9rem 1.1rem; padding: 0.9rem 0; margin-top: 0.35rem;
+  border-block: 1px solid var(--line);
+}
+/* space-between: a label that wraps to two lines must not knock its value out
+   of line with the values beside it. */
+.wire-kpi { display: flex; flex-direction: column; justify-content: space-between; gap: 0.2rem; min-width: 0; }
+.wire-kpi-l {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
+  line-height: 1.25;
+}
+.wire-kpi-v {
+  font-family: var(--mono); font-size: 1.2rem; line-height: 1.1;
+  color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+@media (max-width: 34rem) { .wire-kpi-v { font-size: 1.05rem; } }
+.wire-kpi-v small { font-size: 0.72rem; color: var(--ink-mute); margin-left: 0.2rem; }
+.wire-kpi-lead .wire-kpi-v { color: var(--gold); }
+
+/* ---------- method / "how this was built" panel ---------- */
+/* Sits at the END of the article, above the footer: it is reference material,
+   and at the top it pushed the first sentence below a phone's first screen. */
+.wire-method {
+  border-left: 3px solid var(--gold-dim); border-radius: 0 10px 10px 0;
+  background: var(--surface);
+  padding: 1rem 1.15rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+  font-size: 0.92rem;
+  color: var(--ink-dim);
+}
+.wire-method b { color: var(--ink); font-weight: 700; }
+.wire-method .wire-mh {
+  font-family: var(--display); font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
+.wire-method summary.wire-mh { cursor: pointer; list-style: none; }
+.wire-method summary.wire-mh::-webkit-details-marker { display: none; }
+.wire-method summary.wire-mh::before {
+  content: "\25B8"; display: inline-block; margin-right: 0.45rem;
+  transition: transform 0.12s ease;
+}
+.wire-method details[open] > summary.wire-mh::before { transform: rotate(90deg); }
+.wire-method summary.wire-mh:hover { color: var(--ink); }
+.wire-method-count { color: var(--ink-mute); font-weight: 400; letter-spacing: 0.08em; }
+.wire-method-body {
+  display: flex; flex-direction: column; gap: 0.5rem; padding-top: 0.7rem;
+}
+
+@media print {
+  /* Force the disclosure open on paper -- a caveat nobody can click to is a
+     caveat nobody reads. */
+  .wire-method details > *:not(summary) { display: block !important; }
+  .wire-method-body { display: flex !important; }
+}
+
+/* ---------- tables ---------- */
+/* No min-width: the old 44rem floor made every table about twice the width of
+   a phone. Wide tables carry .wire-stack instead and fold into label/value
+   rows on a narrow screen (see the media query below). */
+.wire-tablewrap { overflow-x: auto; border: 1px solid var(--line-2); background: var(--surface); border-radius: 10px; }
+.wire-page table { border-collapse: collapse; width: 100%; }
+.wire-page th, .wire-page td { padding: 0.55rem 0.75rem; text-align: left; border-bottom: 1px solid var(--line); vertical-align: top; }
+.wire-page td { font-size: 0.93rem; line-height: 1.45; }
+.wire-page th {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-mute); background: var(--surface-2);
+}
+.wire-page tbody tr:last-child td { border-bottom: none; }
+.wire-page td.wire-num, .wire-page th.wire-num {
+  font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; font-size: 0.86rem;
+}
+/* Values only: a long numeric HEADER must still be free to wrap. */
+.wire-page td.wire-num { white-space: nowrap; }
+.wire-page td.wire-owner { font-weight: 700; font-family: var(--display); letter-spacing: -0.01em; }
+.wire-page td.wire-comp {
+  font-family: var(--display); font-weight: 700; font-size: 0.8rem;
+  letter-spacing: 0.02em; text-transform: uppercase; color: var(--cool);
+}
+.wire-page td.wire-rings { font-family: var(--mono); color: var(--gold); letter-spacing: 0.1em; text-align: center; }
+.wire-zero { color: var(--ink-mute); }
+/* A sentence-length column keeps a readable width; the wrap scrolls sideways. */
+.wire-page th.wire-long, .wire-page td.wire-long { min-width: 17rem; }
+.wire-page th.wire-longer, .wire-page td.wire-longer { min-width: 30rem; }
+/* stack:"always" -- the phone card layout at every width (short tables of sentences). */
+.wire-stack-all table, .wire-stack-all tbody, .wire-stack-all tr, .wire-stack-all td { display: block; width: 100%; }
+.wire-stack-all thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.wire-stack-all tr { padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--line); }
+.wire-stack-all tbody tr:last-child { border-bottom: none; }
+.wire-page .wire-stack-all td, .wire-page .wire-stack-all td.wire-num, .wire-page .wire-stack-all td.wire-long, .wire-page .wire-stack-all td.wire-longer {
+  display: grid; grid-template-columns: minmax(7rem, 26%) 1fr; gap: 0.8rem;
+  padding: 0.18rem 0; border: none; text-align: left; white-space: normal; min-width: 0;
+}
+.wire-stack-all td::before {
+  content: attr(data-label);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute);
+  padding-top: 0.12rem;
+}
+
+@media (max-width: 34rem) {
+  .wire-page th, .wire-page td { padding: 0.5rem 0.55rem; }
+  .wire-stack table, .wire-stack tbody, .wire-stack tr, .wire-stack td { display: block; width: 100%; }
+  .wire-stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .wire-stack tr { padding: 0.6rem 0.8rem; border-bottom: 1px solid var(--line); }
+  .wire-stack tbody tr:last-child { border-bottom: none; }
+  .wire-page .wire-stack th.wire-long, .wire-page .wire-stack td.wire-long,
+  .wire-page .wire-stack th.wire-longer, .wire-page .wire-stack td.wire-longer { min-width: 0; }
+  .wire-page .wire-stack td, .wire-page .wire-stack td.wire-num {
+    display: grid; grid-template-columns: minmax(5.5rem, 34%) 1fr; gap: 0.7rem;
+    padding: 0.16rem 0; border: none; text-align: left; white-space: normal;
+  }
+  .wire-stack td::before {
+    content: attr(data-label);
+    font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute);
+    padding-top: 0.12rem;
+  }
+}
+
+/* ---------- section headers ---------- */
+.wire-sechead {
+  font-family: var(--display);
+  font-size: clamp(1.35rem, 3.8vw, 1.65rem); font-weight: 800;
+  line-height: 1.15; letter-spacing: -0.012em;
+  color: var(--ink); text-wrap: balance;
+  padding-bottom: 0.55rem; border-bottom: 2px solid var(--gold-dim);
+  margin: 0 0 0.35rem;
+}
+
+/* ---------- cards ---------- */
+.wire-cards { display: flex; flex-direction: column; gap: 1rem; }
+.wire-card {
+  background: var(--surface);
+  border: 1px solid var(--line-2); border-top: 3px solid var(--gold); border-radius: 10px;
+  padding: 1.15rem clamp(1rem, 3vw, 1.5rem) 1.3rem;
+  display: flex; flex-direction: column; gap: 0.8rem;
+}
+.wire-chead { display: flex; align-items: baseline; gap: 0.75rem; flex-wrap: wrap; }
+.wire-rank {
+  font-family: var(--mono); font-size: 0.95rem; font-weight: 700;
+  color: var(--ink-mute); font-variant-numeric: tabular-nums;
+}
+.wire-cname {
+  font-family: var(--display); font-weight: 800;
+  font-size: clamp(1.15rem, 3.4vw, 1.5rem);
+  letter-spacing: -0.015em; text-transform: uppercase; margin: 0;
+}
+.wire-badge {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--on-gold); background: var(--cool);
+  padding: 0.22rem 0.55rem; white-space: nowrap; border-radius: 3px;
+}
+
+/* ---------- stat strip ---------- */
+.wire-strip { display: flex; flex-wrap: wrap; gap: 1.1rem; padding: 0.55rem 0; border-block: 1px solid var(--line); }
+.wire-stat { display: flex; flex-direction: column; gap: 0.1rem; }
+.wire-slabel {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
+}
+.wire-sval { font-family: var(--mono); font-size: 0.95rem; font-variant-numeric: tabular-nums; }
+.wire-sval.wire-gold { color: var(--gold); }
+.wire-sval.wire-bad { color: var(--brick); }
+
+/* ---------- meter bar (pure CSS, no SVG) ---------- */
+.wire-apbar { flex: 1 1 9rem; min-width: 8rem; display: flex; flex-direction: column; gap: 0.28rem; justify-content: center; }
+.wire-track { height: 5px; background: var(--surface-2); border: 1px solid var(--line); position: relative; }
+.wire-fill { position: absolute; inset: 0 auto 0 0; background: var(--cool); }
+
+/* ---------- prose ---------- */
+.wire-page ul { margin: 0; padding-left: 1.05rem; display: flex; flex-direction: column; gap: 0.42rem; }
+.wire-page li { font-size: 0.98rem; }
+.wire-page li b { color: var(--ink); }
+.wire-page p { margin: 0; }
+.wire-flag { color: var(--brick); font-weight: 700; }
+
+/* The opening paragraph of every section, and an explicit lead, read larger:
+   it is where the eye lands after a page turn. */
+.wire-sechead + p, .wire-page p.wire-lede { font-size: 1.2rem; line-height: 1.55; }
+
+.wire-page blockquote {
+  margin: 0; padding: 0.7rem 0.95rem;
+  background: var(--surface); border: 1px solid var(--line-2); border-left: 4px solid var(--gold); border-radius: 8px;
+  color: var(--ink); font-style: normal; font-size: 1rem;
+}
+.wire-page blockquote span { color: var(--ink-mute); font-style: normal; font-size: 0.88rem; }
+
+/* ---------- superlatives ---------- */
+.wire-supers { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 0.9rem; }
+.wire-super { background: var(--surface); border: 1px solid var(--line-2); border-top: 3px solid var(--gold); border-radius: 10px; padding: 1rem 1.1rem; }
+.wire-super h3 {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.13em; text-transform: uppercase; color: var(--gold);
+  margin: 0 0 0.45rem;
+}
+.wire-super p { margin: 0; font-size: 0.95rem; color: var(--ink-dim); }
+.wire-super p b { color: var(--ink); }
+
+.wire-page footer { color: var(--ink-mute); font-size: 0.85rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+
+/* ---------- figures (tables and inline SVG charts) ---------- */
+.wire-fig { margin: 0.4rem 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.wire-fig-title {
+  font-family: var(--display); font-size: 0.98rem; font-weight: 700;
+  letter-spacing: -0.005em; color: var(--ink); margin: 0;
+}
+.wire-fig svg { width: 100%; height: auto; display: block; }
+.wire-fig figcaption { font-size: 0.86rem; line-height: 1.5; color: var(--ink-mute); }
+.wire-fig details { font-size: 0.86rem; color: var(--ink-dim); }
+.wire-fig summary { cursor: pointer; color: var(--gold); font-family: var(--display); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; }
+
+/* ---------- section paging ("flip through") ---------- */
+/* Default state is every section visible — that IS the graceful degradation.
+   The runtime adds .wire-paged to <html> only once it has booted, so printing,
+   a JS-less Artifact sandbox, or a broken script all read as one long scroll.
+   Sections are flex columns so the GAP spaces the paragraphs. */
+.wire-sec { display: flex; flex-direction: column; gap: 1.15rem; }
+.wire-paged .wire-sec { display: none; }
+.wire-paged .wire-sec.wire-on { display: flex; }
+
+/* .wire-js gates the rail, .wire-paged gates section visibility. Two classes,
+   not one, so "Read all" can drop paging without hiding the control that turns
+   it back on. ONE ROW, always: pills are numbers (full titles ride in the
+   title/aria-label) because five wrapped titles were five rows on a phone. */
+.wire-rail {
+  display: none; flex-wrap: nowrap; align-items: center; gap: 0.35rem;
+  overflow-x: auto; padding-bottom: 0.8rem; border-bottom: 1px solid var(--line);
+}
+.wire-js .wire-rail { display: flex; }
+/* Inset, because the rail's overflow-x clips anything drawn outside a button. */
+.wire-rail button:focus-visible { outline-offset: -3px; }
+.wire-rail-pill,
+.wire-rail-nav,
+.wire-rail-all {
+  font-family: var(--display); font-size: 0.74rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-dim); background: var(--surface);
+  border: 1px solid var(--line); padding: 0.45rem 0.6rem; border-radius: 5px;
+  cursor: pointer; line-height: 1; flex: 0 0 auto;
+}
+.wire-rail-pill { min-width: 2.1rem; font-family: var(--mono); letter-spacing: 0; }
+.wire-rail-pill:hover, .wire-rail-nav:hover, .wire-rail-all:hover { color: var(--ink); border-color: var(--gold-dim); }
+.wire-rail-pill[aria-current="true"] { color: var(--on-gold); background: var(--gold); border-color: var(--gold); }
+.wire-rail-nav[disabled] { opacity: 0.35; cursor: default; }
+.wire-rail-nav[disabled]:hover { color: var(--ink-dim); border-color: var(--line); }
+.wire-rail-all { margin-left: auto; color: var(--gold); }
+.wire-rail-named .wire-rail-pill { font-family: var(--display); letter-spacing: 0.06em; padding: 0.5rem 0.75rem; }
+.wire-rail-named .wire-rail-pill b { color: var(--gold); margin-right: 0.35rem; }
+.wire-rail-named .wire-rail-pill[aria-current="true"] b { color: var(--on-gold); }
+.wire-rail-count { font-family: var(--mono); font-size: 0.78rem; color: var(--ink-mute); font-variant-numeric: tabular-nums; }
+
+/* End-of-section pager. A reader who finishes a long section on a phone should
+   not have to scroll back up to the rail to turn the page. */
+.wire-secnav { display: none; }
+.wire-paged .wire-secnav {
+  display: flex; gap: 0.6rem; margin-top: 0.8rem; padding-top: 1.1rem;
+  border-top: 1px solid var(--line);
+}
+.wire-secnav button {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 0.3rem;
+  text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line-2); padding: 0.75rem 0.9rem; border-radius: 8px;
+}
+.wire-secnav button:hover { border-color: var(--gold-dim); }
+.wire-secnav .wire-secnav-fwd { align-items: flex-end; text-align: right; border-color: var(--gold-dim); }
+.wire-secnav small {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold);
+}
+.wire-secnav span { font-family: var(--display); font-weight: 700; font-size: 1rem; line-height: 1.25; }
+
+/* ---------- Top nav. Hidden unless the runtime says we are embedded. ---------- */
+.wire-topbar { display: none; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap; }
+.wire-embedded .wire-topbar { display: flex; }
+.wire-topnav { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.wire-navlink {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--gold); background: var(--surface); border: 1px solid var(--gold-dim);
+  padding: 0.4rem 0.7rem; cursor: pointer; line-height: 1; border-radius: 5px;
+}
+.wire-navlink:hover { color: var(--on-gold); background: var(--gold); }
+.wire-topbar-title { font-family: var(--display); font-size: 0.8rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--on-charcoal); background: var(--charcoal); padding: 0.3rem 0.6rem; border-radius: 4px; margin-left: auto; }
+
+@media (max-width: 34rem) {
+  .wire-strip { gap: 0.85rem; }
+  .wire-apbar { flex-basis: 100%; }
+  /* The arrows duplicate the numbered pills and the end-of-section pager; on
+     a phone they pushed "Read all" off the edge of the rail. And a phone rail
+     WRAPS rather than scrolls, so a long article's "Read all" is never hidden. */
+  .wire-rail > .wire-rail-nav { display: none; }
+  .wire-rail { flex-wrap: wrap; overflow-x: visible; }
+  .wire-secnav span { font-size: 0.94rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wire-page *, .wire-page *::before { transition: none !important; }
+}
+
+/* ---------- play card ---------- */
+/* A callout for a big performance. Deliberately NOT an embedded clip -- see
+   wire_pack.Pack.playcard: nothing maps a (player, week) to a verified video,
+   and a wrong clip asserts a falsehood more convincingly than a wrong sentence.
+   Self-contained markup so the article still works with no network at all. */
+.wire-play {
+  border: 1px solid var(--line-2); border-left: 4px solid var(--gold); border-radius: 10px;
+  background: var(--surface); padding: 0.9rem 1.1rem;
+  display: flex; flex-direction: column; gap: 0.3rem;
+}
+/* Real, hosted assets (MFL's own player-photo archive + franchise logo) --
+   see render_playcard's own comment for why no fake/placeholder video ships
+   here but a real photo does. Keith 2026-09-16: "The Team's Logo is WAYYYYY
+   to small" -- a corner badge over the headshot read as decorative, not an
+   affiliation. The mark now sits beside the photo at real size, its own
+   clearly legible element, not a dot fighting the photo for space. */
+.wire-play-media { display: flex; align-items: flex-start; gap: 0.5rem; flex: 0 0 auto; }
+.wire-play-photo {
+  width: 4.5rem; height: 4.5rem; border-radius: 6px; object-fit: cover;
+  background: var(--surface-2); border: 1px solid var(--line); display: block;
+}
+.wire-play-photo-placeholder {
+  display: flex; align-items: center; justify-content: center;
+}
+.wire-play-photo-placeholder::before {
+  content: "\1F3C8"; font-size: 1.6rem; opacity: 0.5;
+}
+.wire-play-logo {
+  width: 3.5rem; height: 3.5rem; border-radius: 8px; object-fit: contain;
+  background: var(--surface-2); border: 1px solid var(--line); padding: 0.2rem; display: block;
+}
+@media (max-width: 30rem) {
+  .wire-play-photo, .wire-play-logo { width: 3.25rem; height: 3.25rem; }
+}
+.wire-play:has(> .wire-play-media) { flex-direction: row; align-items: flex-start; gap: 0.9rem; }
+.wire-play-body { display: flex; flex-direction: column; gap: 0.3rem; flex: 1 1 auto; min-width: 0; }
+.wire-play-head { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.wire-play-name {
+  font-family: var(--display); font-weight: 800; font-size: 1.05rem;
+  letter-spacing: -0.01em; text-transform: uppercase; color: var(--ink);
+}
+.wire-play-meta, .wire-play-owner {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
+}
+.wire-play-score {
+  font-family: var(--mono); font-size: 2rem; line-height: 1;
+  color: var(--gold); font-variant-numeric: tabular-nums;
+}
+.wire-play-line { font-size: 0.95rem; color: var(--ink-dim); }
+.wire-play-note {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--cool);
+}
+.wire-play-watch {
+  align-self: flex-start; margin-top: 0.35rem;
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--gold); text-decoration: none;
+  border-bottom: 1px solid var(--gold-dim); padding-bottom: 0.1rem;
+}
+.wire-play-watch:hover { color: var(--ink); border-bottom-color: var(--ink); }
+.wire-play-video { display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; }
+.wire-play-vsrc {
+  font-family: var(--display); font-size: 0.66rem; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute);
+}
+
+/* ---------- per-game drilldown ---------- */
+/* The games section reads as a summary at a glance, with any single game
+   openable for the breakdown. Closed by default so covering every result does
+   not produce a wall. */
+.wire-games { display: flex; flex-direction: column; gap: 0.4rem; }
+.wire-game { border: 1px solid var(--line-2); background: var(--surface); border-radius: 8px; }
+.wire-game[open] { border-left: 3px solid var(--gold); }
+.wire-game-sum {
+  cursor: pointer; list-style: none; padding: 0.7rem 0.9rem;
+  display: flex; align-items: baseline; gap: 0.7rem; flex-wrap: wrap;
+}
+.wire-game-sum::-webkit-details-marker { display: none; }
+.wire-game-sum::before {
+  content: "\25B8"; color: var(--gold); transition: transform 0.12s ease;
+}
+.wire-game[open] > .wire-game-sum::before { transform: rotate(90deg); }
+.wire-game-teams {
+  font-family: var(--display); font-weight: 700; font-size: 0.85rem;
+  letter-spacing: 0.02em; text-transform: uppercase; color: var(--ink);
+}
+.wire-game-teams em { color: var(--ink-mute); font-style: normal; font-weight: 400; }
+.wire-game-score {
+  font-family: var(--mono); font-size: 0.85rem; color: var(--gold);
+  font-variant-numeric: tabular-nums; margin-left: auto;
+}
+.wire-game-tag {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--on-gold); background: var(--cool); padding: 0.15rem 0.4rem; border-radius: 3px;
+}
+.wire-game-body {
+  padding: 0 0.9rem 0.8rem; display: flex; flex-direction: column; gap: 0.3rem;
+  border-top: 1px solid var(--line); padding-top: 0.7rem;
+}
+.wire-game-row { display: flex; justify-content: space-between; gap: 1rem; font-size: 0.9rem; }
+.wire-game-row span:first-child {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
+  padding-top: 0.15rem;
+}
+.wire-game-row span:last-child { color: var(--ink-dim); text-align: right; }
+.wire-game-note { font-size: 0.88rem; color: var(--cool); font-style: italic; padding-top: 0.2rem; }
+
+@media print { .wire-game-body { display: flex !important; } }
+
+/* ---------- game deck (flip through full game pages) ---------- */
+.wire-gamedeck { display: flex; flex-direction: column; gap: 1rem; }
+.wire-gamedeck-rail { display: none; flex-wrap: wrap; align-items: center; gap: 0.35rem;
+  padding-bottom: 0.8rem; border-bottom: 1px solid var(--line); }
+.wire-deck-on .wire-gamedeck-rail { display: flex; }
+/* The bottom copy (same rail, same behavior -- see initGameDeck) sits after
+   the last division and before whatever the article places next, so a
+   border-top instead of border-bottom separates it from the page above. */
+.wire-gamedeck-rail-bottom { border-bottom: none; border-top: 1px solid var(--line);
+  padding-bottom: 0; padding-top: 0.8rem; margin-top: 0.2rem; }
+.wire-gamepill {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--ink-mute); background: var(--surface);
+  border: 1px solid var(--line-2); padding: 0.4rem 0.6rem; cursor: pointer; line-height: 1; border-radius: 5px;
+}
+.wire-gamepill:hover { color: var(--ink); border-color: var(--gold-dim); }
+.wire-gamepill[aria-current="true"] { color: var(--on-gold); background: var(--gold); border-color: var(--gold); }
+
+.wire-gamepage { display: block; }
+.wire-deck-on .wire-gamepage { display: none; }
+.wire-deck-on .wire-gamepage.wire-on { display: block; }
+
+.wire-gamepage-head { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem; }
+.wire-gamepage-kicker {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold);
+}
+.wire-gamepage-score { display: flex; align-items: baseline; gap: 0.6rem; flex-wrap: wrap; }
+.wire-gp-team {
+  font-family: var(--display); font-weight: 800; font-size: clamp(1rem, 2.6vw, 1.35rem);
+  text-transform: uppercase; letter-spacing: -0.01em; color: var(--ink);
+}
+.wire-gp-num {
+  font-family: var(--mono); font-size: clamp(1.1rem, 3vw, 1.6rem);
+  color: var(--gold); font-variant-numeric: tabular-nums;
+}
+.wire-gp-dash { color: var(--ink-mute); }
+.wire-gp-lose { color: var(--ink-mute); }
+
+/* tale of the tape */
+.wire-tott { border: 1px solid var(--line-2); background: var(--surface); margin-bottom: 1rem; border-radius: 8px; overflow: hidden; }
+.wire-tott-head, .wire-tott-row {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center;
+  gap: 0.6rem; padding: 0.45rem 0.8rem;
+}
+.wire-tott-head {
+  background: var(--surface-2); border-bottom: 1px solid var(--line);
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute);
+}
+.wire-tott-head span:first-child { text-align: left; }
+.wire-tott-head span:last-child { text-align: right; }
+.wire-tott-row { border-bottom: 1px solid var(--line); }
+.wire-tott-row:last-child { border-bottom: none; }
+.wire-tott-v {
+  font-family: var(--mono); font-size: 0.9rem; color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.wire-tott-row .wire-tott-v:first-child { text-align: left; }
+.wire-tott-row .wire-tott-v:last-child { text-align: right; }
+.wire-tott-win { color: var(--gold); font-weight: 700; }
+.wire-tott-l {
+  font-family: var(--display); font-size: 0.72rem; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-mute);
+  white-space: nowrap;
+}
+.wire-gamepage-body { display: flex; flex-direction: column; gap: 0.3rem; }
+
+/* Kicker + division tag on one line above the score. The division tag matters:
+   a reader cannot tell a division rival from a stranger by the owners' names,
+   and four automatic playoff bids are decided inside those groups. */
+.wire-gamepage-tags { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.wire-game-tag-div { background: var(--gold); color: var(--on-gold); }
+
+/* The writer's own paragraph about THIS matchup -- set larger than body copy
+   because on a game page it is the article, not a caption. */
+.wire-game-blurb {
+  font-size: 1.05rem; line-height: 1.62; color: var(--ink-dim);
+  border-left: 2px solid var(--gold-dim); padding-left: 0.9rem; margin-bottom: 1.1rem;
+}
+.wire-game-blurb p { margin: 0 0 0.6rem; }
+.wire-game-blurb p:last-child { margin-bottom: 0; }
+
+/* A card inside a game page sits tighter than one breaking up body copy. */
+.wire-gamepage .wire-play { margin: 1rem 0; }
+.wire-gamepage blockquote { margin-top: 1rem; }
+
+@media print { .wire-deck-on .wire-gamepage { display: block !important; } }
+
+/* Sortable table headers (the article runtime wires these up). */
+th.wire-sortable { cursor: pointer; user-select: none; -webkit-user-select: none; }
+th.wire-sortable:hover,
+th.wire-sortable:focus-visible { color: var(--wire-ink, inherit); text-decoration: underline; }
+th.wire-sortable::after { content: " \2195"; opacity: .28; font-size: .85em; }
+th.wire-sortable[aria-sort="ascending"]::after { content: " \2191"; opacity: .9; }
+th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9; }
+@media (max-width: 700px) { th.wire-sortable::after { content: ""; } }
+
+/* ---------- the desk: two anchors trading the week, plus an occasional guest ---------- */
+/* Keith 2026-09-15: "Stuart: line passes it to Rich." Each line carries its
+   speaker as a generated label; with no CSS it still reads "Stuart: ...".
+   "boomer" added 2026-09-29 for a guest-host segment tossed to and from inside
+   the desk -- same markup, same rule, its own badge color so a reader can tell
+   at a glance the desk handed the mic to someone else. */
+.wire-desk-line { padding: 0.6rem 0.9rem; background: var(--surface); border: 1px solid var(--line-2); border-radius: 8px; }
+.wire-desk-who {
+  display: inline-block; font-family: var(--display); font-weight: 800; font-size: 0.76rem;
+  letter-spacing: 0.12em; text-transform: uppercase; margin-right: 0.5rem;
+  padding: 0.2rem 0.55rem; border-radius: 4px; vertical-align: 0.08em;
+}
+.wire-desk-stuart .wire-desk-who { color: var(--on-charcoal); background: var(--suit-dark); }
+.wire-desk-rich .wire-desk-who { color: var(--on-suit-tan); background: var(--suit-tan); }
+.wire-desk-boomer .wire-desk-who { color: var(--on-gold); background: var(--gold); }
+.wire-sechead + p.wire-desk-line { font-size: 1.12rem; }
+.wire-sec > .wire-desk-line + .wire-desk-line { margin-top: -0.55rem; }
+.wire-pot-desk { border-left: 0; padding-left: 0; }
+.wire-pot-desk .wire-desk-line { margin: 0 0 0.65rem; }
+
+/* ---------- pots: every game a division played, on one page ---------- */
+.wire-pot-banner .wire-gp-team { font-size: clamp(1.2rem, 3.2vw, 1.7rem); }
+.wire-potpage .wire-fig { margin: 0.4rem 0 0.2rem; }
+.wire-pot-lines { display: flex; flex-direction: column; gap: 0.3rem; margin: 0.9rem 0; }
+.wire-pot-line {
+  display: grid; grid-template-columns: 1fr auto auto auto 1fr auto;
+  gap: 0.5rem; align-items: baseline; font-size: 0.95rem;
+}
+.wire-pot-line .wire-gp-num { font-size: 1.05rem; }
+.wire-pot-w { color: var(--ink); font-weight: 700; text-align: right; }
+.wire-pot-l { color: var(--ink-mute); }
+.wire-pot-margin { color: var(--ink-mute); font-size: 0.8rem; font-family: var(--mono); }
+@media (max-width: 520px) {
+  .wire-pot-line { grid-template-columns: 1fr auto auto auto 1fr; }
+  .wire-pot-margin { display: none; }
+}
+
+/* ---------- UPS Center (Keith 2026-09-17) ---------- */
+/* The weekly show's own pieces, scoped under .uc so its short class names
+   (.lt, .card, .play, .division ...) can never reach another article. Ported
+   from the UPS Center mockup; colors are the shared tokens. */
+.uc *{box-sizing:border-box}
+.uc [hidden]{display:none!important}
+.uc button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.uc .mast > *{position:relative}
+.uc .anchors{font-family:var(--display);font-weight:600;font-size:clamp(1.05rem,2.4vw,1.3rem);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-dim);margin:.25rem 0 .2rem}
+.uc .anchors b{color:var(--suit-dark);font-weight:800}
+.uc .anchors i{font-style:normal;color:var(--cool);font-weight:800}
+.uc .editions{font-family:var(--display);font-weight:600;font-size:1.2rem;color:var(--cool);margin:0 0 .9rem}
+.uc .label{font-family:var(--display);font-weight:700;font-size:.82rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin:2.2rem 0 .75rem;display:flex;flex-wrap:wrap;column-gap:.6rem;row-gap:.15rem;align-items:baseline}
+.uc .label small{font:inherit;color:var(--ink-mute);letter-spacing:.1em;flex:1 1 auto}
+.uc .label .seg{color:var(--on-gold);background:var(--gold);border-radius:3px;padding:0 .4rem}
+.uc .desk-lines{display:flex;flex-direction:column;gap:.55rem}
+.uc .lt{display:grid;grid-template-columns:6.2rem minmax(0,1fr);align-items:stretch;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.uc .lt .who{font-family:var(--display);font-weight:800;font-size:.95rem;letter-spacing:.14em;text-transform:uppercase;display:flex;align-items:flex-start;justify-content:center;padding:.75rem .4rem}
+.uc .lt.stuart .who{background:var(--suit-dark);color:var(--on-charcoal)}
+.uc .lt.rich .who{background:var(--suit-tan);color:var(--on-suit-tan)}
+.uc .lt.boomer .who{background:var(--gold);color:var(--on-gold)}
+.uc .lt.kenny .who{background:var(--cool);color:var(--on-charcoal)}
+.uc a.rcpt{color:inherit;text-decoration:underline dotted var(--gold-dim);text-underline-offset:.18em}
+.uc a.rcpt:hover{text-decoration:underline solid var(--gold)}
+.uc a.rcpt:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:2px}
+.uc .lt p{margin:0;padding:.65rem .95rem;font-size:1.02rem;line-height:1.5}
+.uc .division{background:var(--surface-2);border:1px solid var(--line-2);border-radius:12px;padding:clamp(1rem,3vw,1.7rem);display:flex;flex-direction:column;gap:1rem}
+.uc .face{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:clamp(.6rem,2.5vw,1.6rem);padding-bottom:1rem;border-bottom:1px solid var(--line)}
+.uc .side{display:flex;flex-direction:column;gap:.45rem;align-items:center;text-align:center;min-width:0}
+.uc .plate{position:relative;width:100%;max-width:15rem;aspect-ratio:2.8/1;background:var(--charcoal);border:2px solid var(--charcoal-edge);border-radius:10px;overflow:hidden}
+.uc .plate img{position:absolute;inset:.4rem;width:calc(100% - .8rem);height:calc(100% - .8rem);object-fit:contain}
+.uc .side .nm{font-family:var(--display);font-weight:700;font-size:clamp(1.05rem,2.6vw,1.45rem);text-transform:uppercase;letter-spacing:.03em;line-height:1.1}
+.uc .side .rec{font-size:.8rem;color:var(--ink-mute)}
+.uc .final{text-align:center}
+.uc .final .k{font-family:var(--display);font-weight:700;font-size:.78rem;letter-spacing:.14em;color:var(--gold);text-transform:uppercase}
+.uc .final .n{font-family:var(--mono);font-weight:600;font-size:clamp(1.5rem,4.6vw,2.5rem);font-variant-numeric:tabular-nums;white-space:nowrap;line-height:1.15}
+.uc .final .n .l{color:var(--ink-mute)}
+.uc .final .m{font-size:.8rem;color:var(--ink-dim)}
+.uc .headline{font-family:var(--display);font-weight:800;font-size:clamp(1.35rem,3.4vw,1.9rem);text-transform:uppercase;letter-spacing:.02em;line-height:1.1;margin:0;text-wrap:balance}
+.uc .recnote{color:var(--cool);font-size:.95rem;margin:0;max-width:72ch}
+.uc .standings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.6rem}
+.uc .st{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:.55rem .7rem;display:flex;gap:.6rem;align-items:center;min-width:0}
+.uc .st img{width:3.6rem;height:1.6rem;object-fit:contain;flex:none}
+.uc .st .t{font-family:var(--display);font-weight:600;font-size:.95rem;line-height:1.1;min-width:0}
+.uc .st .t span{display:block;font-family:var(--mono);font-size:.8rem;color:var(--ink-mute);font-variant-numeric:tabular-nums}
+.uc blockquote.react{margin:0;padding:.8rem 1rem;border-left:3px solid var(--gold);background:var(--surface);border-radius:0 8px 8px 0}
+.uc blockquote.react p{margin:0;font-size:1.05rem;line-height:1.45}
+.uc blockquote.react footer{margin-top:.4rem;font-size:.8rem;color:var(--ink-mute)}
+.uc blockquote.react .ctx{display:block;font-style:italic}
+.uc .reel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.9rem}
+.uc .play{background:var(--surface);border:1px solid var(--line-2);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.uc .play .div{font-family:var(--display);font-weight:700;font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--on-charcoal);background:var(--charcoal);padding:.25rem .8rem}
+.uc .play .top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:end;gap:.5rem;padding:.8rem .9rem 0;background:linear-gradient(180deg,var(--surface-2),var(--surface-2))}
+.uc .play .head{width:100%;aspect-ratio:600/436;object-fit:contain;object-position:bottom}
+.uc .play .crest{display:flex;flex-direction:column;gap:.5rem;padding-bottom:.8rem}
+.uc .play .crest .plate{max-width:none}
+.uc .play .pts{font-family:var(--mono);font-weight:600;font-size:2.4rem;line-height:1;color:var(--gold)}
+.uc .play .pts small{display:block;font-family:var(--display);font-size:.72rem;letter-spacing:.14em;color:var(--ink-mute)}
+.uc .play .body{padding:.8rem .95rem 1rem;display:flex;flex-direction:column;gap:.45rem;border-top:1px solid var(--line)}
+.uc .play .pname{font-family:var(--display);font-weight:800;font-size:1.6rem;text-transform:uppercase;line-height:1}
+.uc .play .pmeta{font-size:.85rem;color:var(--ink-dim)}
+.uc .play .box{margin:0;font-size:.95rem}
+.uc .clip{margin-top:.3rem;display:flex;align-items:center;gap:.75rem;border:1px solid var(--line-2);border-radius:8px;padding:.45rem;background:var(--surface);color:inherit;text-decoration:none;transition:border-color .15s}
+.uc .clip:hover,.uc .clip:focus-visible{border-color:var(--gold)}
+.uc .clip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.uc .clip .thumb{position:relative;flex:none;width:7.5rem;aspect-ratio:16/9;border-radius:5px;overflow:hidden;background:var(--charcoal)}
+.uc .clip .thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.uc .clip .ct{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.uc .clip .ct b{font-size:.82rem;font-weight:600;color:var(--ink);line-height:1.3}
+.uc .clip .ct small{font-size:.72rem;color:var(--ink-mute)}
+.uc .clip .tri{position:absolute;left:50%;top:50%;transform:translate(-35%,-50%);width:0;height:0;border-left:1rem solid var(--on-gold);border-top:.62rem solid transparent;border-bottom:.62rem solid transparent;filter:drop-shadow(0 1px 3px rgba(0,0,0,.7))}
+.uc .tablebox{background:var(--surface);border:1px solid var(--line-2);border-radius:12px;overflow-x:auto}
+.uc table{width:100%;border-collapse:collapse;min-width:40rem}
+.uc th{font-family:var(--display);font-weight:700;font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--cool);text-align:left;padding:.8rem .9rem;border-bottom:1px solid var(--line-2);white-space:nowrap}
+.uc td{padding:.5rem .9rem;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+.uc tr:last-child td{border-bottom:none}
+.uc td.fr{display:flex;align-items:center;gap:.7rem;font-family:var(--display);font-weight:600;font-size:1rem}
+.uc td.fr img{width:4.2rem;height:1.6rem;object-fit:contain}
+.uc td .sub{color:var(--ink-mute);font-size:.82rem;margin-left:.3rem}
+.uc td.num{font-family:var(--mono);font-size:.9rem}
+.uc .up{color:var(--up)}
+.uc .down{color:var(--brick)}
+.uc .caption{color:var(--ink-mute);font-size:.82rem;margin:.6rem .2rem 0;max-width:80ch}
+.uc .prov{font-family:var(--display);font-weight:700;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--on-gold);background:var(--gold);border-radius:3px;padding:.1rem .45rem}
+.uc .cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem}
+.uc .card{background:var(--surface);border:1px solid var(--line-2);border-top:3px solid var(--gold);border-radius:10px;padding:1rem 1.05rem;display:flex;flex-direction:column;gap:.55rem}
+.uc .card h3{margin:0;font-family:var(--display);font-weight:700;font-size:1rem;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.uc .card .lead{font-family:var(--display);font-weight:700;font-size:1.3rem;line-height:1.15}
+.uc .card dl{margin:0;display:grid;grid-template-columns:auto minmax(0,1fr);gap:.3rem .7rem;font-size:.88rem}
+.uc .card dt{color:var(--ink-mute)}
+.uc .card dd{margin:0}
+.uc .card .src{margin-top:auto;padding-top:.5rem;border-top:1px solid var(--line);font-size:.76rem;color:var(--cool)}
+.uc .bb{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.8rem}
+.uc .bbl{min-width:0;background:var(--surface);border:1px solid var(--line-2);border-radius:10px;padding:.85rem .95rem}
+.uc .bbl h3{margin:0 0 .5rem;font-family:var(--display);font-weight:800;font-size:1.05rem;letter-spacing:.1em;text-transform:uppercase}
+.uc .bbl ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.uc .bbl li{display:grid;grid-template-columns:3.2rem minmax(0,1fr) auto 3.6rem;gap:.6rem;align-items:center;padding:.42rem 0;border-top:1px solid var(--line)}
+.uc .bbl li:first-child{border-top:none}
+.uc .bbl li img{width:3.2rem;height:1.3rem;object-fit:contain}
+.uc .bbl .bn{min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.uc .bbl .bn b{font-family:var(--display);font-weight:700;font-size:1.02rem;overflow-wrap:anywhere}
+.uc .bbl .bn small{font-size:.76rem;color:var(--ink-mute)}
+.uc .bbl .bp{font-family:var(--mono);font-size:.86rem;color:var(--ink-dim);white-space:nowrap;font-variant-numeric:tabular-nums}
+.uc .bbl .bp i{font-style:normal;color:var(--ink-mute)}
+.uc .bbl .bg{font-family:var(--mono);font-weight:600;font-size:.95rem;text-align:right;font-variant-numeric:tabular-nums}
+.uc .bbl td{white-space:normal}
+.uc .bbl .bn .xu{color:var(--cool);font-size:.74rem}
+.uc .bbl h3 .hx{font-family:var(--body);font-weight:500;font-size:.72rem;letter-spacing:.02em;text-transform:none;color:var(--ink-mute);margin-left:.35rem}
+.uc .play .xline{margin:0;font-size:.86rem;color:var(--cool)}
+.uc .card dl.also{padding-top:.5rem;border-top:1px dashed var(--line)}
+@media (max-width:760px){.uc .lt{grid-template-columns:1fr}.uc .lt .who{justify-content:flex-start;padding:.3rem .8rem}.uc .face{grid-template-columns:1fr;gap:.8rem}.uc .face .side{flex-direction:row;justify-content:flex-start;text-align:left;gap:.8rem}.uc .face .plate{max-width:8.5rem;flex:none}.uc .final{text-align:left}.uc .standings,.uc .cards,.uc .reel,.uc .bb{grid-template-columns:1fr}}
+.uc .chat{margin:0 0 0 6.2rem;background:var(--surface);border:1px solid var(--line-2);border-left:4px solid var(--gold);border-radius:8px;padding:.7rem .95rem}
+.uc .chat .meta{font-family:var(--display);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--gold);margin-bottom:.25rem}
+.uc .chat .meta b{color:var(--ink);letter-spacing:.04em}
+.uc .chat p{margin:0;font-size:1.08rem;line-height:1.45;font-weight:500}
+.uc .chat a{font-size:.8rem}
+@media (max-width:760px){.uc .chat{margin-left:0}}
+.uc .mast{position:relative;overflow:hidden;background:linear-gradient(90deg,transparent 55%,var(--edge));border-radius:10px 10px 0 0;padding:1.1rem 1rem 1.6rem}
+.uc .mast::before{content:"UPS CENTER\A UPS CENTER\A UPS CENTER\A UPS CENTER\A UPS CENTER";white-space:pre;position:absolute;right:.75rem;top:-.4rem;font-family:var(--display);font-weight:800;font-size:clamp(2.2rem,6vw,3.6rem);line-height:.92;letter-spacing:.02em;color:rgba(255,250,242,.42);text-shadow:1px 1px 0 rgba(94,74,60,.18);transform:skewX(-6deg);pointer-events:none}
+.uc .mast > *{position:relative}
+.uc .mast h1.brand{align-self:flex-start;font-family:var(--display);font-weight:800;font-size:clamp(2.8rem,8.5vw,4.8rem);line-height:.95;letter-spacing:.01em;color:var(--on-charcoal);background:var(--charcoal);padding:.1rem .55rem .2rem;border-radius:4px;box-shadow:inset 0 0 0 2px var(--charcoal-edge),0 2px 0 rgba(0,0,0,.18)}
+.uc .mast h1.brand span{color:var(--on-charcoal-accent)}
+.uc .mast .show{font-family:var(--display);font-weight:700;font-size:clamp(1rem,2.4vw,1.35rem);letter-spacing:.14em;text-transform:uppercase;margin:0;color:var(--cool)}
+.uc .mast .wire-dek{max-width:48ch}
+@media (max-width:760px){.uc .mast::before{opacity:.6}}
+/* the Wire's division tabs page the desk; the set's flex layout must not un-hide a page */
+.uc .wire-deck-on .wire-gamepage:not(.wire-on){display:none}
+.uc .wire-gamedeck-rail{display:none;gap:.5rem;padding:0;border:0}
+.uc .wire-deck-on .wire-gamedeck-rail{display:flex}
+.uc .wire-gamepill{font-size:.9rem;padding:.6rem .8rem;background:var(--surface-2);color:var(--ink);border-color:var(--line-2)}
+.uc .wire-gamepill[aria-current="true"]{background:linear-gradient(var(--gold),var(--gold-deep));color:var(--on-gold);border-color:var(--gold-deep)}
+.uc .wire-rail-count{margin-left:auto}
+.uc .wire-sec{gap:.9rem}
+</style>
+</head>
+<body>
+
+<div class="wire-page">
+<div class="wire-wrap uc">
+<div class="wire-topbar">
+    <nav class="wire-topnav" aria-label="Wire sections">
+      <button class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>
+      <button class="wire-navlink" data-wire-goto="/f/weekly" type="button">The Week</button>
+    </nav>
+    <span class="wire-topbar-title">UPS Center</span>
+  </div>
+
+  <header class="wire-hero mast">
+    <div class="wire-eyebrow">Week 6</div>
+    <h1 class="brand">UPS <span>CENTER</span></h1>
+    <p class="show">At the desk: Stuart, Rich &amp; Boomer &middot; Kenny Mayne with receipts from the league chat</p>
+    <p class="wire-dek">Bear Dunn is lapping the league, four teams are stuck at 9–7, and Terry McLaurin&rsquo;s injury turns out to be the smaller problem on Shawn Blake&rsquo;s roster.</p>
+  </header>
+<nav class="wire-rail" data-wire-rail data-wire-rail-named aria-label="Segments"></nav>
+
+<section class="wire-sec" id="story" data-title="The Big Story"><div class="label" style="break-after:avoid;page-break-after:avoid"><span class="seg">1</span> The Big Story <small>&mdash; Bear Dunn is lapping the league</small></div><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Six weeks in, the question in this league is no longer whether anyone can catch Bear Dunn. It is what anyone is playing for. Start with the whole season, Weeks 1 to 6: Bear is 14–2, 56–10 against the field, and averages 260.8 a week, 24.0 more than the next-best team, Shawn Blake, at 236.8.</p></div></div><div style="border:1px solid var(--line-2);border-radius:10px;background:var(--surface);padding:.45rem .7rem;margin:.2rem 0 .4rem"><div style="display:grid;grid-template-columns:1.25fr 1fr .8fr 1fr .9fr;gap:.2rem .5rem;align-items:baseline;padding:.3rem .1rem;border-top:1px solid var(--line);font-size:.88rem;border-top:0;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);font-family:var(--display)"><span style="font-variant-numeric:tabular-nums;white-space:nowrap">Bear</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">Score</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">Rank</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">All-Play</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">H2H</span></div><div style="display:grid;grid-template-columns:1.25fr 1fr .8fr 1fr .9fr;gap:.2rem .5rem;align-items:baseline;padding:.3rem .1rem;border-top:1px solid var(--line);font-size:.88rem"><span style="font-variant-numeric:tabular-nums;white-space:nowrap">Week 1</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">190.3</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">9th</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">3–8</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">1–1</span></div><div style="display:grid;grid-template-columns:1.25fr 1fr .8fr 1fr .9fr;gap:.2rem .5rem;align-items:baseline;padding:.3rem .1rem;border-top:1px solid var(--line);font-size:.88rem"><span style="font-variant-numeric:tabular-nums;white-space:nowrap">Week 2</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">281.8</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">2nd</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">10–1</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">3–0</span></div><div style="display:grid;grid-template-columns:1.25fr 1fr .8fr 1fr .9fr;gap:.2rem .5rem;align-items:baseline;padding:.3rem .1rem;border-top:1px solid var(--line);font-size:.88rem"><span style="font-variant-numeric:tabular-nums;white-space:nowrap">Week 3</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">254.8</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">1st</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">11–0</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">3–0</span></div><div style="display:grid;grid-template-columns:1.25fr 1fr .8fr 1fr .9fr;gap:.2rem .5rem;align-items:baseline;padding:.3rem .1rem;border-top:1px solid var(--line);font-size:.88rem"><span style="font-variant-numeric:tabular-nums;white-space:nowrap">Week 4</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">289.9</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">2nd</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">10–1</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">1–1</span></div><div style="display:grid;grid-template-columns:1.25fr 1fr .8fr 1fr .9fr;gap:.2rem .5rem;align-items:baseline;padding:.3rem .1rem;border-top:1px solid var(--line);font-size:.88rem"><span style="font-variant-numeric:tabular-nums;white-space:nowrap">Week 5</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">280.5</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">1st</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">11–0</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">3–0</span></div><div style="display:grid;grid-template-columns:1.25fr 1fr .8fr 1fr .9fr;gap:.2rem .5rem;align-items:baseline;padding:.3rem .1rem;border-top:1px solid var(--line);font-size:.88rem"><span style="font-variant-numeric:tabular-nums;white-space:nowrap">Week 6</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">267.3</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">1st</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">11–0</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap">3–0</span></div><div style="display:grid;grid-template-columns:1.25fr 1fr .8fr 1fr .9fr;gap:.2rem .5rem;align-items:baseline;padding:.3rem .1rem;border-top:1px solid var(--line);font-size:.88rem"><span style="font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700">Wks 1&ndash;6</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700">260.8</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700"></span><span style="font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700">56–10</span><span style="font-variant-numeric:tabular-nums;white-space:nowrap;font-weight:700">14–2</span></div></div><p class="caption">Season to date, Weeks 1 to 6; the last row is the six-week average score, All-Play and head-to-head record. Rank is Bear&rsquo;s score among the 12 teams that week.</p><div class="desk-lines" style="margin-bottom:1rem"><div class="lt rich"><div class="who">Rich</div><p>Has Bear been dominant since Week 1? Almost. Week 1 was the one miss: 190.3, 9th in the league and 3–8 against the field. Since then it is 53–2 over Weeks 2 to 6, and never lower than second in scoring. Week 6 itself was 267.3, the best score of the week, a 3&ndash;0 week and 11–0 against the field.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>And the stretch everyone is going to talk about?</p></div><div class="lt rich"><div class="who">Rich</div><p>That is a separate measurement, a streak and not the season. Over the last four weeks, Weeks 3 to 6, Bear is 43–1 against the field, with a clean 11&ndash;0 in Weeks 3, 5 and 6.</p></div><div class="lt rich"><div class="who">Rich</div><p>On the standings page, the next two teams in the Dog Pound, Bear&rsquo;s division, Chris Klingenberg and Eric Mannila, are both 9–7. The forecast gives Bear 97.8% to win the division and 99.8% to make the playoffs, so the division is close to settled.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Then what is left?</p></div><div class="lt rich"><div class="who">Rich</div><p>The bye. The top two seeds skip the first round, and Bear is at 93.6% to take one. The other one is open: Eric Martel 48.5%, Brian Cutting 30.8%, Shawn Blake 20.8%. Nobody else is above 3.4%.</p></div><div class="lt kenny"><div class="who">Kenny</div><p>In Week 6, Bear&rsquo;s biggest margin, 116.4, came against Josh Martel. Josh scored 150.9, the lowest score of the week, and also made 41 of the 163 owner posts in the chat since last Thursday night, more than any other owner. Rich says correlation is not our department.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>So one bye is spoken for, three teams are chasing the other, and the middle of the league is getting squeezed.</p></div></div></section><section class="wire-sec" id="middle" data-title="The Middle Gets Squeezed"><div class="label" style="break-after:avoid;page-break-after:avoid"><span class="seg">2</span> The Middle Gets Squeezed <small>&mdash; four teams at 9–7</small></div><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Below Bear the standings pile up. Eric Martel is 11–5, Derrick Whitman is 10–6, Brian Cutting is 8–8, and there are exactly four teams at 9–7: Shawn Blake, Keith Creelman, Chris Klingenberg and Eric Mannila.</p></div><div class="lt rich"><div class="who">Rich</div><p>Same record, four different teams. The table shows how different.</p></div></div><div style="border:1px solid var(--line-2);border-radius:10px;background:var(--surface);padding:.2rem .8rem;margin:.2rem 0 .4rem"><div style="padding:.5rem 0;border-top:0"><div style="font-weight:700">Shawn Blake <span style="font-weight:400;color:var(--ink-mute)">9–7</span></div><div style="font-size:.86rem;line-height:1.5;font-variant-numeric:tabular-nums">All-Play 44–22 &middot; Points for 1,420.5 &middot; Wins vs expected −2.0<br>Week 6: 178.0, went 0&ndash;3</div></div><div style="padding:.5rem 0;border-top:1px solid var(--line)"><div style="font-weight:700">Keith Creelman <span style="font-weight:400;color:var(--ink-mute)">9–7</span></div><div style="font-size:.86rem;line-height:1.5;font-variant-numeric:tabular-nums">All-Play 33–33 &middot; Points for 1,308.5 &middot; Wins vs expected +0.9<br>Week 6: 162.7, went 0&ndash;3</div></div><div style="padding:.5rem 0;border-top:1px solid var(--line)"><div style="font-weight:700">Chris Klingenberg <span style="font-weight:400;color:var(--ink-mute)">9–7</span></div><div style="font-size:.86rem;line-height:1.5;font-variant-numeric:tabular-nums">All-Play 34–32 &middot; Points for 1,225.4 &middot; Wins vs expected +0.4<br>Week 6: 184.4, went 3&ndash;0</div></div><div style="padding:.5rem 0;border-top:1px solid var(--line)"><div style="font-weight:700">Eric Mannila <span style="font-weight:400;color:var(--ink-mute)">9–7</span></div><div style="font-size:.86rem;line-height:1.5;font-variant-numeric:tabular-nums">All-Play 29–37 &middot; Points for 1,245.8 &middot; Wins vs expected +2.5<br>Week 6: 198.9, went 3&ndash;0</div></div></div><p class="caption">Record, All-Play, points for and wins vs expected are season to date, Weeks 1 to 6. The last column is Week 6 alone.</p><div class="desk-lines" style="margin-bottom:1rem"><div class="lt rich"><div class="who">Rich</div><p>Over Weeks 1 to 6, Blake is the strongest of the four on everything except the record: 44–22 in All-Play and 1,420.5 points, second only to Bear. His record is 2.0 wins short of what his weekly scores predict, the largest gap in the league. Mannila is the mirror image. 29–37 in All-Play is the worst of the four, and the record is 2.5 wins better than the scores predict, the most in the league.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>And Week 6 shows how that happens. Mannila and Klingenberg each went 3&ndash;0.</p></div><div class="lt rich"><div class="who">Rich</div><p>Against the same three teams. In Week 6, Ryan Bousquet, Keith Creelman and Josh Martel each played Bear, Mannila and Klingenberg, and the three of them went 0–9. Mannila scored 198.9, sixth in the league that week, and Klingenberg 184.4, seventh. Their All-Play for Week 6 was 6–5 and 5–6. Neither scored like a team that sweeps. Both swept.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>So who is actually good?</p></div><div class="lt rich"><div class="who">Rich</div><p>Blake, first. Mannila, last. Between them, Chris Klingenberg is one All-Play win ahead of Keith Creelman, and Creelman is ahead on points. Keith also leads Maddie Mondays, which is why 80.8% to make the playoffs is a better number than the All-Play record suggests: a division title is the way in.</p></div></div><div class="wire-fig"><details><summary>Full standings after Week 6, and the Week 6 forecast graded</summary><div class="tablebox"><table><thead><tr><th>Franchise</th><th>Division</th><th>Record</th><th>Week 6 all-play</th><th>All-play</th><th>Points for</th></tr></thead><tbody><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0009.png" alt="C-Town Chivalry">Bear Dunn</td><td class="sub">leader</td><td class="num">14&ndash;2</td><td class="num">11&ndash;0</td><td class="num">56&ndash;10</td><td class="num">1,564.6</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0005.jpg" alt="HammerTime 🔨 ⏰">Eric Martel</td><td class="sub">leader</td><td class="num">11&ndash;5</td><td class="num">9&ndash;2</td><td class="num">46&ndash;20</td><td class="num">1,419.0</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0010.png" alt="Blake Bombers">Shawn Blake</td><td class="sub"></td><td class="num">9&ndash;7</td><td class="num">4&ndash;7</td><td class="num">44&ndash;22</td><td class="num">1,420.5</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0002.png" alt="CBP">Derrick Whitman</td><td class="sub">leader</td><td class="num">10&ndash;6</td><td class="num">10&ndash;1</td><td class="num">42&ndash;24</td><td class="num">1,360.3</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0004.png" alt="Pure Greatness">Brian Cutting</td><td class="sub"></td><td class="num">8&ndash;8</td><td class="num">8&ndash;3</td><td class="num">39&ndash;27</td><td class="num">1,363.8</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0008.png" alt="Real Deal Creel">Keith Creelman</td><td class="sub">leader</td><td class="num">9&ndash;7</td><td class="num">1&ndash;10</td><td class="num">33&ndash;33</td><td class="num">1,308.5</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0012.png" alt="Hawks">Chris Klingenberg</td><td class="sub"></td><td class="num">9&ndash;7</td><td class="num">5&ndash;6</td><td class="num">34&ndash;32</td><td class="num">1,225.4</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0011.png" alt="Cleon Ca$h">Eric Mannila</td><td class="sub"></td><td class="num">9&ndash;7</td><td class="num">6&ndash;5</td><td class="num">29&ndash;37</td><td class="num">1,245.8</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0001.png" alt="L.A. Looks">Ryan Bousquet</td><td class="sub"></td><td class="num">6&ndash;10</td><td class="num">3&ndash;8</td><td class="num">23&ndash;43</td><td class="num">1,164.5</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg" alt="The Long Haulers">Brian Cross</td><td class="sub"></td><td class="num">5&ndash;11</td><td class="num">7&ndash;4</td><td class="num">21&ndash;45</td><td class="num">1,209.8</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0003.png" alt="Gride">Matt Gerardi</td><td class="sub"></td><td class="num">3&ndash;13</td><td class="num">2&ndash;9</td><td class="num">18&ndash;48</td><td class="num">1,127.5</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0007.png" alt="Sex Manther">Josh Martel</td><td class="sub"></td><td class="num">3&ndash;13</td><td class="num">0&ndash;11</td><td class="num">11&ndash;55</td><td class="num">1,082.1</td></tr></tbody></table></div><p class="caption">In the same order as the league standings page: the current playoff field first (division leaders take the top two places), then everyone else; every place goes by all-play percentage, then overall record, then points for, then head-to-head.</p><div class="tablebox"><table><thead><tr><th>Week 6 matchup</th><th>Our favorite</th><th>Final</th><th>Called it?</th></tr></thead><tbody><tr><td>Shawn Blake vs Brian Cross</td><td>Shawn Blake (77%)</td><td class="num">178.0&ndash;201.3</td><td class="down">no</td></tr><tr><td>Brian Cutting vs Matt Gerardi</td><td>Brian Cutting (76%)</td><td class="num">212.8&ndash;165.6</td><td class="up">yes</td></tr><tr><td>Bear Dunn vs Josh Martel</td><td>Bear Dunn (75%)</td><td class="num">267.3&ndash;150.9</td><td class="up">yes</td></tr><tr><td>Bear Dunn vs Ryan Bousquet</td><td>Bear Dunn (75%)</td><td class="num">267.3&ndash;166.8</td><td class="up">yes</td></tr><tr><td>Derrick Whitman vs Brian Cross</td><td>Derrick Whitman (71%)</td><td class="num">254.1&ndash;201.3</td><td class="up">yes</td></tr><tr><td>Eric Mannila vs Josh Martel</td><td>Eric Mannila (66%)</td><td class="num">198.9&ndash;150.9</td><td class="up">yes</td></tr><tr><td>Eric Mannila vs Ryan Bousquet</td><td>Eric Mannila (66%)</td><td class="num">198.9&ndash;166.8</td><td class="up">yes</td></tr><tr><td>Eric Martel vs Matt Gerardi</td><td>Eric Martel (66%)</td><td class="num">231.8&ndash;165.6</td><td class="up">yes</td></tr><tr><td>Chris Klingenberg vs Josh Martel</td><td>Chris Klingenberg (64%)</td><td class="num">184.4&ndash;150.9</td><td class="up">yes</td></tr><tr><td>Chris Klingenberg vs Ryan Bousquet</td><td>Chris Klingenberg (64%)</td><td class="num">184.4&ndash;166.8</td><td class="up">yes</td></tr><tr><td>Shawn Blake vs Eric Martel</td><td>Shawn Blake (61%)</td><td class="num">178.0&ndash;231.8</td><td class="down">no</td></tr><tr><td>Brian Cutting vs Derrick Whitman</td><td>Brian Cutting (60%)</td><td class="num">212.8&ndash;254.1</td><td class="down">no</td></tr><tr><td>Bear Dunn vs Keith Creelman</td><td>Bear Dunn (60%)</td><td class="num">267.3&ndash;162.7</td><td class="up">yes</td></tr><tr><td>Matt Gerardi vs Brian Cross</td><td>Matt Gerardi (53%)</td><td class="num">165.6&ndash;201.3</td><td class="down">no</td></tr><tr><td>Derrick Whitman vs Eric Martel</td><td>Derrick Whitman (52%)</td><td class="num">254.1&ndash;231.8</td><td class="up">yes</td></tr><tr><td>Brian Cutting vs Shawn Blake</td><td>Brian Cutting (52%)</td><td class="num">212.8&ndash;178.0</td><td class="up">yes</td></tr><tr><td>Keith Creelman vs Chris Klingenberg</td><td>Keith Creelman (52%)</td><td class="num">162.7&ndash;184.4</td><td class="down">no</td></tr><tr><td>Eric Mannila vs Keith Creelman</td><td>Eric Mannila (50%)</td><td class="num">198.9&ndash;162.7</td><td class="up">yes</td></tr></tbody></table></div><p class="caption">Last week&rsquo;s published preview, graded against the final scores: favorites won 13 of 18.</p></details></div></section><section class="wire-sec" id="odds" data-title="Playoff Picture"><div class="label" style="break-after:avoid;page-break-after:avoid"><span class="seg">3</span> Playoff Picture <small>&mdash; updated after Week 6</small></div><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>10,000 simulated seasons, run fresh through Week 6. Rich, start with the part nobody is arguing about.</p></div><div class="lt rich"><div class="who">Rich</div><p>Bear: 99.8% to make the playoffs, 93.6% for a bye and 32.5% for the title, the best title odds in the league. With the Dog Pound at 97.8% for Bear, Klingenberg (44.1%) and Mannila (9.6%) are playing for a wild card, and wild cards go by All-Play. That is why Mannila, who is 9–7 with the worst All-Play of the four, is at 9.6% while Klingenberg, same record, is at 44.1%.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Legion of Boom is the strange one. Derrick Whitman is 10–6, a game ahead of Shawn Blake, and the forecast gives Blake the division, 66.6% to 32.7%.</p></div><div class="lt rich"><div class="who">Rich</div><p>The forecast plays each team&rsquo;s best lineup every week. Built from 2026 points per game with everyone healthy, Blake&rsquo;s best lineup is 277.6 a week, second only to Bear&rsquo;s 291.6. Whitman&rsquo;s is 243.2, fifth. Whitman has the record and records count in a division race, so he keeps 32.7%. But the 0&ndash;3 week was more a lineup problem than a talent problem, and the forecast is betting on talent.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>And Outlast PG Time?</p></div><div class="lt rich"><div class="who">Rich</div><p>Eric Martel 62.3%, Brian Cutting 37.6%. Martel is 11–5 and Cutting is 8–8, but Cutting&rsquo;s best healthy lineup, 273.1 a week, is third in the league, and the forecast has Cutting at 97.4% to make the playoffs and 27.5% to win the title, second only to Bear. Last week the forecast said good roster, bad Sundays. It still does.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Keith Creelman?</p></div><div class="lt rich"><div class="who">Rich</div><p>Keith Creelman is at 79.7% to win Maddie Mondays and 80.8% to make the playoffs, almost all of it through the division, which goes by record. Ryan Bousquet is at 19.1% to win it. So Blake (88.1%) and Keith are the favorites for the next spots, Whitman (56.9%) and Klingenberg (44.1%) are close to coin flips, and Bousquet (21.2%) needs a run.</p></div></div><div class="tablebox"><table><thead><tr><th>Franchise</th><th>Playoffs</th><th>First-round bye</th><th>Wins division</th><th>Title</th></tr></thead><tbody><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0009.png" alt="C-Town Chivalry">Bear Dunn</td><td class="num">99.8%</td><td class="num">93.6%</td><td class="num">97.8%</td><td class="num">32.5%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0004.png" alt="Pure Greatness">Brian Cutting</td><td class="num">97.4%</td><td class="num">30.8%</td><td class="num">37.6%</td><td class="num">27.5%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0005.jpg" alt="HammerTime 🔨 ⏰">Eric Martel</td><td class="num">97.0%</td><td class="num">48.5%</td><td class="num">62.3%</td><td class="num">16.4%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0010.png" alt="Blake Bombers">Shawn Blake</td><td class="num">88.1%</td><td class="num">20.8%</td><td class="num">66.6%</td><td class="num">12.0%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0008.png" alt="Real Deal Creel">Keith Creelman</td><td class="num">80.8%</td><td class="num">1.5%</td><td class="num">79.7%</td><td class="num">4.0%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0002.png" alt="CBP">Derrick Whitman</td><td class="num">56.9%</td><td class="num">3.4%</td><td class="num">32.7%</td><td class="num">3.0%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0012.png" alt="Hawks">Chris Klingenberg</td><td class="num">44.1%</td><td class="num">1.1%</td><td class="num">1.6%</td><td class="num">2.9%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0001.png" alt="L.A. Looks">Ryan Bousquet</td><td class="num">21.2%</td><td class="num">0.1%</td><td class="num">19.1%</td><td class="num">0.7%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0011.png" alt="Cleon Ca$h">Eric Mannila</td><td class="num">9.6%</td><td class="num">0.2%</td><td class="num">0.6%</td><td class="num">0.7%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg" alt="The Long Haulers">Brian Cross</td><td class="num">2.1%</td><td class="num">0.0%</td><td class="num">0.1%</td><td class="num">0.1%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0003.png" alt="Gride">Matt Gerardi</td><td class="num">1.9%</td><td class="num">0.0%</td><td class="num">0.7%</td><td class="num">0.2%</td></tr><tr><td class="fr"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0007.png" alt="Sex Manther">Josh Martel</td><td class="num">1.2%</td><td class="num">0.0%</td><td class="num">1.2%</td><td class="num">0.0%</td></tr></tbody></table></div><p class="caption">Probabilities updated after Week 6 (Wed Oct 21, 10:06 AM ET), 10,000 simulated seasons. One team wins each division in every simulated season; division odds and the league&rsquo;s title odds are rounded so each group still adds up to the whole.</p></section><section class="wire-sec" id="heat" data-title="Heat Check"><div class="label" style="break-after:avoid;page-break-after:avoid"><span class="seg">4</span> Heat Check <small>&mdash; season to date, Weeks 1&ndash;6, and Weeks 4&ndash;6</small></div><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Heat Check asks who is rising, who is cooling, and whether the record agrees. It compares every team over the same two windows: the season to date, Weeks 1 to 6, and the recent stretch, Weeks 4 to 6. Start at the top. Bear Dunn is 56–10 on the season and 32–1 over Weeks 4 to 6, the only team the chart calls Dominant, and first in scoring over Weeks 4 to 6 after ranking third in Weeks 1 to 3.</p></div><div class="lt rich"><div class="who">Rich</div><p>Shawn Blake is the opposite case. Holding, 21–12 over Weeks 4 to 6, third in scoring over those weeks, 44–22 on the season, and a best lineup that ranks second in the league. Then 0&ndash;3 in Week 6 with 42.6 points left on the bench. Losses this season that his best lineup would have won: 4 of 7. The scores say contender. The results say otherwise.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Eric Mannila and Chris Klingenberg are the mirror. Mannila is Rising: tenth in scoring over Weeks 1 to 3, sixth over Weeks 4 to 6. Klingenberg is Holding, 16–17 over Weeks 4 to 6, and slid from seventh in scoring over Weeks 1 to 3 to ninth over Weeks 4 to 6. Both are 9–7.</p></div><div class="lt rich"><div class="who">Rich</div><p>Season to date, their records are better than their scores: 2.5 wins better for Mannila, 0.4 for Klingenberg. You still have to win the games you play. But those 9–7 records carry more luck than Blake&rsquo;s.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Then there is Keith Creelman&rsquo;s fall, week to week. 272.5 in Week 5, 162.7 in Week 6, a drop of 109.8, the biggest in the league.</p></div><div class="lt rich"><div class="who">Rich</div><p>Puka Nacua was the Week 5 engine with 41.7. In Week 6 he scored 14.4 against a projection of 31.4.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Eric Martel is Cooling: first in scoring over Weeks 1 to 3, fifth over Weeks 4 to 6, though 11–5 and 46–20 on the season still look sturdy. And at the bottom, Josh Martel is Sinking: 3–30 against the field over Weeks 4 to 6, 11–55 on the season, and 150.9 in Week 6. The Survival Line has the rest.</p></div></div><div class="wire-fig"><details><summary>The Heat Check tables</summary><div class="tablebox"><table><thead><tr><th>Team<br>Reading</th><th>All-Play<br>Wks 4&ndash;6<br>(season)</th><th>Scoring rank<br>Wks 1&ndash;3 &rarr; Wks 4&ndash;6</th></tr></thead><tbody><tr><td>Bear Dunn<br><small><b>Dominant</b></small></td><td class="num">32&ndash;1<br><small>(56&ndash;10)</small></td><td class="num">3rd&nbsp;&rarr;&nbsp;1st</td></tr><tr><td>Shawn Blake<br><small><b>Holding</b></small></td><td class="num">21&ndash;12<br><small>(44&ndash;22)</small></td><td class="num">2nd&nbsp;&rarr;&nbsp;3rd</td></tr><tr><td>Brian Cutting<br><small><b>Holding</b></small></td><td class="num">21&ndash;12<br><small>(39&ndash;27)</small></td><td class="num">5th&nbsp;&rarr;&nbsp;2nd</td></tr><tr><td>Eric Martel<br><small><b>Cooling</b></small></td><td class="num">20&ndash;13<br><small>(46&ndash;20)</small></td><td class="num">1st&nbsp;&rarr;&nbsp;5th</td></tr><tr><td>Derrick Whitman<br><small><b>Holding</b></small></td><td class="num">20&ndash;13<br><small>(42&ndash;24)</small></td><td class="num">4th&nbsp;&rarr;&nbsp;4th</td></tr><tr><td>Eric Mannila<br><small><b>Rising</b></small></td><td class="num">18&ndash;15<br><small>(29&ndash;37)</small></td><td class="num">10th&nbsp;&rarr;&nbsp;6th</td></tr><tr><td>Chris Klingenberg<br><small><b>Holding</b></small></td><td class="num">16&ndash;17<br><small>(34&ndash;32)</small></td><td class="num">7th&nbsp;&rarr;&nbsp;9th</td></tr><tr><td>Ryan Bousquet<br><small><b>Rising</b></small></td><td class="num">16&ndash;17<br><small>(23&ndash;43)</small></td><td class="num">12th&nbsp;&rarr;&nbsp;8th</td></tr><tr><td>Keith Creelman<br><small><b>Holding</b></small></td><td class="num">13&ndash;20<br><small>(33&ndash;33)</small></td><td class="num">6th&nbsp;&rarr;&nbsp;7th</td></tr><tr><td>Brian Cross<br><small><b>Holding</b></small></td><td class="num">13&ndash;20<br><small>(21&ndash;45)</small></td><td class="num">8th&nbsp;&rarr;&nbsp;10th</td></tr><tr><td>Matt Gerardi<br><small><b>Sinking</b></small></td><td class="num">5&ndash;28<br><small>(18&ndash;48)</small></td><td class="num">9th&nbsp;&rarr;&nbsp;11th</td></tr><tr><td>Josh Martel<br><small><b>Sinking</b></small></td><td class="num">3&ndash;30<br><small>(11&ndash;55)</small></td><td class="num">11th&nbsp;&rarr;&nbsp;12th</td></tr></tbody></table></div><p class="caption">Sorted by All-Play over Weeks 4&ndash;6; the full-season All-Play record is in parentheses. Reading, applied in order: <b>Dominant</b> = at least 28 of every 33 all-play games in that stretch; <b>Sinking</b> = 5 of every 33 or fewer; <b>Rising</b> / <b>Cooling</b> = scoring rank moved four or more places; otherwise <b>Holding</b>.</p><div class="tablebox"><table><thead><tr><th>Team</th><th>Left on bench / wk</th><th>Losses the best lineup would have won</th><th>Wins vs expected</th></tr></thead><tbody><tr><td>Brian Cutting</td><td class="num">47.2</td><td class="num">5 of 8</td><td class="num">&minus;1.4</td></tr><tr><td>Eric Martel</td><td class="num">33.0</td><td class="num">3 of 5</td><td class="num">+0.2</td></tr><tr><td>Chris Klingenberg</td><td class="num">32.8</td><td class="num">2 of 7</td><td class="num">+0.4</td></tr><tr><td>Eric Mannila</td><td class="num">28.6</td><td class="num">3 of 7</td><td class="num">+2.5</td></tr><tr><td>Bear Dunn</td><td class="num">28.4</td><td class="num">2 of 2</td><td class="num">&minus;0.1</td></tr><tr><td>Keith Creelman</td><td class="num">27.7</td><td class="num">3 of 7</td><td class="num">+0.9</td></tr><tr><td>Shawn Blake</td><td class="num">26.6</td><td class="num">4 of 7</td><td class="num">&minus;2.0</td></tr><tr><td>Josh Martel</td><td class="num">25.3</td><td class="num">3 of 13</td><td class="num">+0.6</td></tr><tr><td>Matt Gerardi</td><td class="num">24.6</td><td class="num">4 of 13</td><td class="num">&minus;1.0</td></tr><tr><td>Derrick Whitman</td><td class="num">23.3</td><td class="num">3 of 6</td><td class="num">&minus;0.2</td></tr><tr><td>Brian Cross</td><td class="num">20.1</td><td class="num">3 of 11</td><td class="num">&minus;0.4</td></tr><tr><td>Ryan Bousquet</td><td class="num">19.9</td><td class="num">3 of 10</td><td class="num">+0.4</td></tr></tbody></table></div><p class="caption">Bench points = the best possible lineup from the same roster, known only after the games, minus the lineup started. Wins vs expected = head-to-head wins minus the wins each week&rsquo;s all-play rate would give.</p></details></div></section><section class="wire-sec" id="brief" data-title="Week 6 in Brief"><div class="label" style="break-after:avoid;page-break-after:avoid"><span class="seg">5</span> Week 6 in Brief <small>&mdash; Boomer, the plays, every result</small></div><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Boomer, give us the week.</p></div><div class="lt boomer"><div class="who">Boomer</div><p>Thanks, Stu! Trevor Lawrence! 24-of-41 for 306 yards, four touchdowns, one interception and 11 more on the ground: 39.7 UPS points for Brian Cross, the biggest score of the week!</p></div><div class="lt boomer"><div class="who">Boomer</div><p>Tyler Shough! 35.0 points for Derrick Whitman, and Whitman swept all three games!</p></div><div class="lt boomer"><div class="who">Boomer</div><p>Malik Nabers! 12 catches on 15 targets for 165 yards, 33.9 points for Eric Mannila, and look at that, another sweep!</p></div><div class="lt boomer"><div class="who">Boomer</div><p>Now Eric Martel. C.J. Stroud 33.2. Kenneth Walker III 30.1. Michael Penix Jr. 27.8. That is 91.1 points from three players, and Martel LOST to Derrick Whitman!</p></div><div class="lt boomer"><div class="who">Boomer</div><p>Bear Dunn? Christian McCaffrey 30.1, Jaxon Smith-Njigba 29.0, 59.1 from two players, and that is how you get to 267.3!</p></div><div class="lt boomer"><div class="who">Boomer</div><p>And Brian Cutting got 32.4 from Drake Maye, which brings us to the chat.</p></div><div class="lt kenny"><div class="who">Kenny</div><p>Sunday, 3:24 PM, Brian Cutting: <a class="rcpt" href="https://discord.com/channels/1057655884475531324/1087157907419840644/1561459943553630411" target="_blank" rel="noopener" title="Brian Cutting &middot; #the-coffee-shop &middot; Sun Oct 18, 3:24 PM ET">&ldquo;Can we go back when Keith said Maye was bad at football???&rdquo;</a> The answer, Brian, is no. Drake Maye has the receipts.</p></div><div class="lt rich"><div class="who">Rich</div><p>Boomer, you left out the other end of the week. Count the starters who scored 0.2 or less: 6. Cam Skattebo and D.J. Moore for Matt Gerardi, Brian Thomas Jr. for Josh Martel, Darren Waller and Najee Harris for Ryan Bousquet, and Juwan Johnson for Eric Martel. Juwan Johnson started in the same lineup as Stroud, Walker and Penix.</p></div><div class="lt boomer"><div class="who">Boomer</div><p>Zeros do not make the highlight reel, Rich.</p></div><div class="lt kenny"><div class="who">Kenny</div><p>Sunday, 1:37 PM, Ryan Bousquet: <a class="rcpt" href="https://discord.com/channels/1057655884475531324/1087157907419840644/1561432958588686430" target="_blank" rel="noopener" title="Ryan Bousquet &middot; #the-coffee-shop &middot; Sun Oct 18, 1:37 PM ET">&ldquo;Najee, you’re killing me. You don’t even have trois yards&rdquo;</a>. The final count was 0.2 UPS points. He was right.</p></div><div class="lt boomer"><div class="who">Boomer</div><p>Two plays made the board. Both are below, with the NFL highlights.</p></div><div class="lt rich"><div class="who">Rich</div><p>One more thing before the results. In 6 of the 18 games, the losing side&rsquo;s best possible lineup would have beaten the winner&rsquo;s actual score. That is the next segment.</p></div></div><div class="reel"><article class="play"><div class="div">Week 6 play of the week</div><div class="top"><img class="head" src="https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4595348.png&amp;w=350&amp;h=254" alt="Malik Nabers"><div class="crest"><div class="plate"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0011.png" alt="Cleon Ca$h"></div><div class="pts">33.9<small>UPS points &middot; Eric Mannila</small></div></div></div><div class="body"><div class="pname">Malik Nabers</div><div class="pmeta">WR &middot; NYG vs NO</div><p class="box">12 catches on 15 targets for 165; 1 tackles</p><a class="wire-play-watch" href="https://www.nfl.com/videos/malik-nabers-best-plays-in-165-yard-game-vs-saints-week-6" target="_blank" rel="noopener">Watch verified NFL highlights &#8599;</a></div></article><article class="play"><div class="div">Week 6 play of the week</div><div class="top"><img class="head" src="https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/4360310.png&amp;w=350&amp;h=254" alt="Trevor Lawrence"><div class="crest"><div class="plate"><img src="https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg" alt="The Long Haulers"></div><div class="pts">39.7<small>UPS points &middot; Brian Cross</small></div></div></div><div class="body"><div class="pname">Trevor Lawrence</div><div class="pmeta">QB &middot; JAX vs HOU</div><p class="box">24-of-41 for 306, 4 TD, 1 INT; 3 carries for 11</p><a class="wire-play-watch" href="https://www.nfl.com/videos/trevor-lawrence-s-best-throws-from-4-td-game-vs-texans-week-6" target="_blank" rel="noopener">Watch verified NFL highlights &#8599;</a></div></article></div><h3 style="font-family:var(--display);font-size:1.15rem;margin:1.4rem 0 .5rem;break-after:avoid;page-break-after:avoid">Every Week 6 result</h3><div class="wire-gamedeck" data-wire-gamedeck><nav class="wire-gamedeck-rail" data-wire-gamerail aria-label="Divisions"></nav><section class="division wire-gamepage" data-title="LEGION OF BOOM v Outlast PG Time"><div class="face"><div class="side"><div class="plate"><img src="https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0002.png" alt="CBP"></div><div><div class="nm">Derrick Whitman</div><div class="rec">CBP</div></div></div><div class="final"><div class="k">Final</div><div class="n">254.1 <span class="l">: 231.8</span></div><div class="m">margin 22.3</div></div><div class="side"><div class="plate"><img src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0005.jpg" alt="HammerTime 🔨 ⏰"></div><div><div class="nm">Eric Martel</div><div class="rec">HammerTime 🔨 ⏰</div></div></div></div><h2 class="headline">Derrick Whitman swept, and the closest of it was Eric Martel by 22.3.</h2><div class="desk-lines"><div class="lt stuart"><div class="who">Stuart</div><p>Derrick Whitman scored 254.1 and went 3&ndash;0: beat Brian Cross by 52.8, Brian Cutting by 41.3, Eric Martel by 22.3.</p></div><div class="lt rich"><div class="who">Rich</div><p>Eric Martel scored 231.8 and went 2&ndash;1: beat Matt Gerardi by 66.2, Shawn Blake by 53.8; lost to Derrick Whitman by 22.3. His best available lineup, 255.4, would have won a game he lost.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Brian Cutting scored 212.8 and went 2&ndash;1: beat Matt Gerardi by 47.2, Shawn Blake by 34.8; lost to Derrick Whitman by 41.3.</p></div><div class="lt rich"><div class="who">Rich</div><p>Brian Cross scored 201.3 and went 2&ndash;1: beat Matt Gerardi by 35.7, Shawn Blake by 23.3; lost to Derrick Whitman by 52.8.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Shawn Blake scored 178.0 and went 0&ndash;3: lost to Eric Martel by 53.8, Brian Cutting by 34.8, Brian Cross by 23.3. His best available lineup, 220.6, would have won a game he lost.</p></div><div class="lt rich"><div class="who">Rich</div><p>Matt Gerardi scored 165.6 and went 0&ndash;3: lost to Eric Martel by 66.2, Brian Cutting by 47.2, Brian Cross by 35.7.</p></div></div></section><section class="division wire-gamepage" data-title="DOG POUND 4 LIFE v Maddie Mondays"><div class="face"><div class="side"><div class="plate"><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0012.png" alt="Hawks"></div><div><div class="nm">Chris Klingenberg</div><div class="rec">Hawks</div></div></div><div class="final"><div class="k">Final</div><div class="n">184.4 <span class="l">: 166.8</span></div><div class="m">margin 17.6</div></div><div class="side"><div class="plate"><img src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0001.png" alt="L.A. Looks"></div><div><div class="nm">Ryan Bousquet</div><div class="rec">L.A. Looks</div></div></div></div><h2 class="headline">Bear Dunn swept; Chris Klingenberg over Ryan Bousquet by 17.6.</h2><div class="desk-lines"><div class="lt stuart"><div class="who">Stuart</div><p>Bear Dunn scored 267.3 and went 3&ndash;0: beat Josh Martel by 116.4, Keith Creelman by 104.6, Ryan Bousquet by 100.5.</p></div><div class="lt rich"><div class="who">Rich</div><p>Eric Mannila scored 198.9 and went 3&ndash;0: beat Josh Martel by 48.0, Keith Creelman by 36.2, Ryan Bousquet by 32.1.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Chris Klingenberg scored 184.4 and went 3&ndash;0: beat Josh Martel by 33.5, Keith Creelman by 21.7, Ryan Bousquet by 17.6.</p></div><div class="lt rich"><div class="who">Rich</div><p>Ryan Bousquet scored 166.8 and went 0&ndash;3: lost to Bear Dunn by 100.5, Eric Mannila by 32.1, Chris Klingenberg by 17.6. His best available lineup, 188.3, would have won a game he lost.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Keith Creelman scored 162.7 and went 0&ndash;3: lost to Bear Dunn by 104.6, Eric Mannila by 36.2, Chris Klingenberg by 21.7. His best available lineup, 193.0, would have won a game he lost.</p></div><div class="lt rich"><div class="who">Rich</div><p>Josh Martel scored 150.9 and went 0&ndash;3: lost to Bear Dunn by 116.4, Eric Mannila by 48.0, Chris Klingenberg by 33.5. His best available lineup, 198.7, would have won a game he lost.</p></div></div></section></div></section><section class="wire-sec" id="weeks" data-title="Who Actually Won the Week"><div class="label" style="break-after:avoid;page-break-after:avoid"><span class="seg">6</span> Who Actually Won the Week <small>&mdash; the lineups that decided games</small></div><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Points say who scored. Lineups say who decided. Rich, how many games did decisions change?</p></div><div class="lt rich"><div class="who">Rich</div><p>Games where decisions changed the result: 6 of 18, if you build each loser&rsquo;s best lineup from the same roster. That is hindsight. Nobody has that lineup on Sunday morning. But it shows where decisions mattered and where nothing could have helped.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Start with Shawn Blake, who went 0&ndash;3 with 178.0.</p></div><div class="lt rich"><div class="who">Rich</div><p>Blake&rsquo;s best lineup was 220.6, which beats both Brian Cutting (212.8) and Brian Cross (201.3). The big pieces were on the bench: DeVonta Smith with 21.1 and Rashid Shaheed with 16.1. Smith and Shaheed in for Denzel Boston and Terry McLaurin is 30.6 points, which is enough to flip the Cross game, lost by 23.3. Smith alone would not have done it.</p></div><div class="lt kenny"><div class="who">Kenny</div><p>Sunday, 7:34 PM, Shawn Blake explained it himself: <a class="rcpt" href="https://discord.com/channels/1057655884475531324/1087157907419840644/1561522953680851149" target="_blank" rel="noopener" title="Shawn Blake &middot; #the-coffee-shop &middot; Sun Oct 18, 7:34 PM ET">&ldquo;I didn’t trust devonta coming back and listened to some idp expert who had D’Marco Jackson as his lb3 this week. Shouldn’t have listened. Heading for 0-3&rdquo;</a>. D&rsquo;Marco Jackson scored 1.0.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>In fairness, Smith had not played in either of the previous two games.</p></div><div class="lt rich"><div class="who">Rich</div><p>Right. DeVonta Smith missed Weeks 4 and 5, so the caution had a reason. McLaurin, started Monday night with no game designation, is a different story, and it is next.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Keith Creelman had the same problem from the other side. Michael Mayer scored 22.2 on Keith&rsquo;s bench.</p></div><div class="lt rich"><div class="who">Rich</div><p>He was one of three. Chigoziem Okonkwo (18.0) and Stefon Diggs (17.0) sat there too, 57.2 between them. Keith&rsquo;s best lineup, 193.0, would have beaten Chris Klingenberg (184.4) but not Eric Mannila (198.9). Mayer alone would not have flipped anything.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>The closest call was Eric Martel.</p></div><div class="lt rich"><div class="who">Rich</div><p>231.8 against Whitman&rsquo;s 254.1. Martel&rsquo;s best lineup, 255.4, wins by 1.3. Juwan Johnson (0.0) and Ladd McConkey (2.9) started while Keenan Allen (17.0) and Mason Taylor (9.5) sat, a swing of 23.6. Whitman left 19.9 of his own on the bench, Omar Cooper Jr. (24.9) among it, so the margin was never going to be fair.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>And Chris Klingenberg?</p></div><div class="lt rich"><div class="who">Rich</div><p>Klingenberg won three games with 184.4, and every opponent could have beaten that. Keith&rsquo;s best lineup was 193.0, Ryan Bousquet&rsquo;s 188.3, Josh Martel&rsquo;s 198.7. Josh missed Eric Mannila&rsquo;s 198.9 by 0.2.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>And the games lineups could not touch?</p></div><div class="lt rich"><div class="who">Rich</div><p>Anyone who played Bear. No opponent&rsquo;s best lineup came within reach of 267.3.</p></div></div><div class="wire-fig"><details><summary>Projected versus actual: every start, graded</summary><div class="bb"><article class="bbl" style="min-width:0"><h3>Offense <span class="down">busts</span> <small class="hx">Projected &rarr; scored</small></h3><ol><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0008.png" alt="Keith Creelman"><span class="bn"><b>Puka Nacua (WR, Keith Creelman)</b><small class="xu">7 targets, 60 air yards &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:05 PM ET</small></span><span class="bp">31.4 <i>&rarr;</i> 14.4</span><span class="bg down">-17.0</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0010.png" alt="Shawn Blake"><span class="bn"><b>Terry McLaurin (WR, Shawn Blake) &middot; <b>left Monday night&rsquo;s game injured</b></b><small class="xu">1 target, 23 air yards &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Mon 8:15 PM ET</small></span><span class="bp">15.8 <i>&rarr;</i> 3.9</span><span class="bg down">-11.9</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0007.png" alt="Josh Martel"><span class="bn"><b>MarShawn Lloyd (RB, Josh Martel)</b><small class="xu">8 carries, 1 target &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 8:20 PM ET</small></span><span class="bp">12.9 <i>&rarr;</i> 1.0</span><span class="bg down">-11.9</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0004.png" alt="Brian Cutting"><span class="bn"><b>Davante Adams (WR, Brian Cutting)</b><small class="xu">4 targets, 54 air yards &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:05 PM ET</small></span><span class="bp">19.0 <i>&rarr;</i> 7.5</span><span class="bg down">-11.5</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0008.png" alt="Keith Creelman"><span class="bn"><b>Christian Watson (WR, Keith Creelman)</b><small class="xu">8 targets, 145 air yards &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 8:20 PM ET</small></span><span class="bp">20.5 <i>&rarr;</i> 10.0</span><span class="bg down">-10.5</span></li></ol></article><article class="bbl" style="min-width:0"><h3>Offense <span class="up">bargains</span> <small class="hx">Projected &rarr; scored</small></h3><ol><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0003.png" alt="Matt Gerardi"><span class="bn"><b>Matthew Golden (WR, Matt Gerardi)</b><small class="xu">13 targets, 203 air yards &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 8:20 PM ET</small></span><span class="bp">12.7 <i>&rarr;</i> 26.4</span><span class="bg ">+13.7</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0005.jpg" alt="Eric Martel"><span class="bn"><b>Kenneth Walker III (RB, Eric Martel)</b><small class="xu">19 carries, 3 targets &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:25 PM ET</small></span><span class="bp">16.8 <i>&rarr;</i> 30.1</span><span class="bg ">+13.3</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0011.png" alt="Eric Mannila"><span class="bn"><b>Kirk Cousins (QB, Eric Mannila)</b><small class="xu">41 passes, 351 air yards &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:25 PM ET</small></span><span class="bp">15.2 <i>&rarr;</i> 26.7</span><span class="bg ">+11.5</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0009.png" alt="Bear Dunn"><span class="bn"><b>Ryan Flournoy (WR, Bear Dunn)</b><small class="xu">9 targets, 52 air yards &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 8:20 PM ET</small></span><span class="bp">7.1 <i>&rarr;</i> 17.6</span><span class="bg ">+10.5</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0009.png" alt="Bear Dunn"><span class="bn"><b>Christian McCaffrey (RB, Bear Dunn)</b><small class="xu">16 carries, 10 targets &middot; MFL proj. Sun 1:45 PM ET &middot; kickoff Mon 8:15 PM ET</small></span><span class="bp">19.6 <i>&rarr;</i> 30.1</span><span class="bg ">+10.5</span></li></ol></article><article class="bbl" style="min-width:0"><h3>Defense <span class="down">busts</span> <small class="hx">Projected &rarr; scored</small></h3><ol><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0012.png" alt="Chris Klingenberg"><span class="bn"><b>Mansoor Delane (DB, Chris Klingenberg)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:25 PM ET</small></span><span class="bp">9.2 <i>&rarr;</i> 2.1</span><span class="bg down">-7.1</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0007.png" alt="Josh Martel"><span class="bn"><b>Tuli Tuipulotu (DL, Josh Martel)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:25 PM ET</small></span><span class="bp">9.2 <i>&rarr;</i> 3.0</span><span class="bg down">-6.2</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0005.jpg" alt="Eric Martel"><span class="bn"><b>Nick Cross (DB, Eric Martel)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Mon 8:15 PM ET</small></span><span class="bp">7.5 <i>&rarr;</i> 2.6</span><span class="bg down">-4.9</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0011.png" alt="Eric Mannila"><span class="bn"><b>Kamren Kinchens (DB, Eric Mannila)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:05 PM ET</small></span><span class="bp">9.3 <i>&rarr;</i> 5.0</span><span class="bg down">-4.3</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_logo0002.png" alt="Derrick Whitman"><span class="bn"><b>Donovan Ezeiruaku (DL, Derrick Whitman)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 8:20 PM ET</small></span><span class="bp">5.8 <i>&rarr;</i> 1.5</span><span class="bg down">-4.3</span></li></ol></article><article class="bbl" style="min-width:0"><h3>Defense <span class="up">bargains</span> <small class="hx">Projected &rarr; scored</small></h3><ol><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0012.png" alt="Chris Klingenberg"><span class="bn"><b>George Karlaftis (DL, Chris Klingenberg)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:25 PM ET</small></span><span class="bp">5.7 <i>&rarr;</i> 16.5</span><span class="bg ">+10.8</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0009.png" alt="Bear Dunn"><span class="bn"><b>Caleb Downs (DB, Bear Dunn)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 8:20 PM ET</small></span><span class="bp">4.5 <i>&rarr;</i> 13.1</span><span class="bg ">+8.6</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0012.png" alt="Chris Klingenberg"><span class="bn"><b>Javon Bullard (DB, Chris Klingenberg)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 8:20 PM ET</small></span><span class="bp">6.1 <i>&rarr;</i> 11.3</span><span class="bg ">+5.2</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_logo0005.jpg" alt="Eric Martel"><span class="bn"><b>Quentin Lake (DB, Eric Martel)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:05 PM ET</small></span><span class="bp">9.6 <i>&rarr;</i> 14.1</span><span class="bg ">+4.5</span></li><li><img src="https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_logo0009.png" alt="Bear Dunn"><span class="bn"><b>Budda Baker (DB, Bear Dunn)</b><small class="xu">MFL proj. Sun 1:45 PM ET &middot; kickoff Sun 4:05 PM ET</small></span><span class="bp">11.2 <i>&rarr;</i> 15.3</span><span class="bg ">+4.1</span></li></ol></article></div><p class="caption">Started players only. Projection source: each player&rsquo;s last MFL projection saved before his own kickoff, captured Sun Oct 18, 1:45 PM ET; every row shows its capture time and the player&rsquo;s own kickoff, and every capture came first. 67 offensive and defensive starters graded; 124 not graded for want of a pregame capture. Largest gaps among graded starters, not every starter.</p></details></div></section><section class="wire-sec" id="players" data-title="Player and Team Stories"><div class="label" style="break-after:avoid;page-break-after:avoid"><span class="seg">7</span> Player and Team Stories <small>&mdash; what changed and what happens next</small></div><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Four stories, and the first one threw for four touchdowns.</p></div></div><h3 style="font-family:var(--display);font-size:1.15rem;margin:1.4rem 0 .5rem;break-after:avoid;page-break-after:avoid">1. Brian Cross rides Trevor Lawrence</h3><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Brian Cross is 5–11, and had a good week anyway: 39.7 from Trevor Lawrence, 26.7 from Germie Bernard, and a 2&ndash;1 record.</p></div><div class="lt rich"><div class="who">Rich</div><p>Lawrence and Bernard supplied 66.4 of Cross&rsquo;s 201.3. Lawrence alone was 19.7% of the score. Replace him with the best legal option on the bench, George Holani at 8.4, and Cross scores 170.0. That still beats Matt Gerardi, by 4.4, but loses to Shawn Blake by 8.0. Lawrence turned 1&ndash;2 into 2&ndash;1.</p></div><div class="lt kenny"><div class="who">Kenny</div><p>Sunday, 7:34 PM, Brian Cross, on the subject of the couch: <a class="rcpt" href="https://discord.com/channels/1057655884475531324/1087157907419840644/1561522868435816449" target="_blank" rel="noopener" title="Brian Cross &middot; #the-coffee-shop &middot; Sun Oct 18, 7:34 PM ET">&ldquo;I have been on the couch all season long Bear .. I wanted to Promote Bernard from Taxi who had a pretty good day . Tucker has averaged 7 points a game !! All GOOD ..&rdquo;</a> By his account he promoted Germie Bernard from the taxi squad. Bernard scored 26.7, Brian. It was a pretty good day.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Which makes Week 7 the problem.</p></div><div class="lt rich"><div class="who">Rich</div><p>Two things changed this week. Cross moved Jalen Hurts (19.8 a game) to injured reserve on Saturday night, a calf injury with MFL expecting him back Feb 15, 2027, and Hurts sat out Week 6. And Lawrence is on his bye in Week 7, which leaves Cam Ward (13.3 a game) at quarterback. Cross was already without running back Jordan Mason, on injured reserve since Sept 16. Hurts and Mason take the best lineup from 209.5 to 199.0, last in the league, and Week 7&rsquo;s byes take it to 181.6.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>And Tyler Warren?</p></div><div class="lt rich"><div class="who">Rich</div><p>Warren is the new part. He averaged 17.5 a game over Weeks 1 to 5, was listed Questionable with a groin injury for Week 6 and did not play, and MFL still lists him Questionable. His replacement, Cade Otton, averages 8.3 and scored 2.1 in Week 6. Cross already had the Hurts and Mason holes, and Warren is what turns an existing weakness into a Week 7 problem: if he sits, Cross&rsquo;s Week 7 lineup falls from 181.6 to 171.8. A good Lawrence week does not undo 5–11, and Cross is at 2.1% to make the playoffs.</p></div></div><h3 style="font-family:var(--display);font-size:1.15rem;margin:1.4rem 0 .5rem;break-after:avoid;page-break-after:avoid">2. Derrick Whitman gets Tyler Shough</h3><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Derrick Whitman is 10–6, went 3&ndash;0 with 254.1, and the quarterback behind it was Tyler Shough with 35.0.</p></div><div class="lt rich"><div class="who">Rich</div><p>In the Week 5 report, four of Whitman&rsquo;s seven wins rested on Shough. This week he decided none. Put the best legal bench option in his place, Omar Cooper Jr., and Whitman scores 244.0 and still sweeps; the closest game is still a win by 12.2. What Shough bought was margin.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>So Whitman is real?</p></div><div class="lt rich"><div class="who">Rich</div><p>Whitman is the cleanest case in the middle. This season the record is within 0.2 wins of what the scores deserve, and a best lineup of 243.2 is fifth in the league. The forecast has Whitman at 56.9% because Blake is better on paper, not because Whitman is lucky.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Is there a crack in it?</p></div><div class="lt rich"><div class="who">Rich</div><p>Whitman moved linebacker Edgerrin Cooper (11.5 a game) to injured reserve on Sunday morning. He has not played since Week 4, and MFL has the Achilles injury keeping him out until Feb 15, 2027. Akeem Davis-Gaither (7.3) steps in, and Foyesade Oluokun has his bye in Week 7. The best lineup goes from 243.2 to 239.0, fifth in the league to seventh. That is workable, not a crisis, but Whitman leads Blake by one game and Blake&rsquo;s best lineup is 277.6.</p></div></div><h3 style="font-family:var(--display);font-size:1.15rem;margin:1.4rem 0 .5rem;break-after:avoid;page-break-after:avoid">3. Eric Mannila gets Malik Nabers</h3><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Eric Mannila went 3&ndash;0 on 12 catches, 15 targets and 165 yards from Malik Nabers, 33.9 points.</p></div><div class="lt rich"><div class="who">Rich</div><p>Last week&rsquo;s report found that CeeDee Lamb and Bijan Robinson supplied about a third of Mannila&rsquo;s edge, and that when they combined for 18.7 Mannila lost all three games. This week they combined for 23.9. Nabers supplied the cover. Take him out for the best legal bench option, Keon Coleman at 16.7, and Mannila still scores 181.7, at least 14.9 ahead of every opponent. Nabers made the sweep comfortable. He did not make it possible.</p></div></div><h3 style="font-family:var(--display);font-size:1.15rem;margin:1.4rem 0 .5rem;break-after:avoid;page-break-after:avoid">4. Terry McLaurin, and the Blake problem that is not the one you think</h3><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Monday night. Terry McLaurin caught one pass for 27 yards for Shawn Blake, scored 3.9 UPS points and left the game at San Francisco hurt.</p></div><div class="lt rich"><div class="who">Rich</div><p>Let&rsquo;s be clear about what this is not. It is not a lineup mistake. McLaurin carried no game designation when Blake started him, and he was hurt in the game. The question is how much the loss hurts, and whether Blake has the depth.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Start with the status.</p></div><div class="lt rich"><div class="who">Rich</div><p>MFL&rsquo;s injury feed, updated Wed Oct 21, 8:01 AM ET, lists McLaurin Out with a knee injury, expected back Feb 15, 2027. That is MFL&rsquo;s listing, not an NFL designation. Washington&rsquo;s Week 7 report was not in the official data when we checked at 9:47 AM ET, and Washington is on its bye in Week 7 anyway.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>So how much does he matter?</p></div><div class="lt rich"><div class="who">Rich</div><p>He averages 9.7 a game, 50th among receivers in points per game, and he is not in Blake&rsquo;s best healthy lineup. DeVonta Smith (18.7 a game) and Drake London hold the receiver spots, with Denzel Boston and Brenton Strange in the flex spots. Blake&rsquo;s best lineup is 277.6 a week with McLaurin or without him, second in the league either way.</p></div><div class="lt kenny"><div class="who">Kenny</div><p>In the Coffee Shop, the bot attached a footnote to the McLaurin news. UPS Commish: &ldquo;@Shawn Blake — the bot is unsure of your pronouns. You may need to advise us if you go with They/Them or whatever the kids use these days. Sorry buddy, hate to see this on top of the McLaurin news.&rdquo; Shawn Blake: &ldquo;I’m not sure either. Thank you bot for respecting me while I make my decision.&rdquo;</p></div><div class="lt kenny"><div class="who">Kenny</div><p>The model still has no projection for Shawn&rsquo;s final decision. It does have Blake at 88.1% to make the playoffs.</p></div><div class="lt rich"><div class="who">Rich</div><p>And that number barely moves. Run the same simulation, same inputs and same seed with McLaurin healthy and Blake is at 89.3%. The gap is 1.2 points. What moves Blake&rsquo;s season is the calendar. In Week 7, Josh Allen, Bhayshul Tuten and Brenton Strange are on their bye, and so is Washington. Brock Purdy is the only quarterback on the active roster, and the best lineup Blake can field is 247.6, 30.0 below normal.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>So is Blake in trouble?</p></div><div class="lt rich"><div class="who">Rich</div><p>Not from McLaurin. From a bye week. Blake is one of four teams at 9–7, and Blake&rsquo;s 44–22 All-Play this season is the best of the four.</p></div></div></section><section class="wire-sec" id="survival" data-title="The Survival Line"><div class="label" style="break-after:avoid;page-break-after:avoid"><span class="seg">8</span> The Survival Line <small>&mdash; what a Week 6 position has meant</small></div><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Now the bottom. Josh Martel and Matt Gerardi are both 3–13, Brian Cross is 5–11, and the forecast gives them 1.2%, 1.9% and 2.1%.</p></div><div class="lt rich"><div class="who">Rich</div><p>History agrees. For Josh Martel and Matt Gerardi, 2 of 17 teams in the same All-Play spot went on to make the playoffs, and 1 of 7 with the same win total. For Cross, 3 of 19 and 1 of 14.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Josh Martel first.</p></div><div class="lt rich"><div class="who">Rich</div><p>Last in scoring in Week 6, at 150.9, 0–11 in All-Play for the week, 3–30 over Weeks 4 to 6 and 11–55 on the season. The best lineup, 198.7, missed Mannila by 0.2, so 47.8 points were left on the bench.</p></div><div class="lt kenny"><div class="who">Kenny</div><p>Sunday, 1:40 PM, Josh Martel: <a class="rcpt" href="https://discord.com/channels/1057655884475531324/1087157907419840644/1561433803342221474" target="_blank" rel="noopener" title="Josh Martel &middot; #the-coffee-shop &middot; Sun Oct 18, 1:40 PM ET">&ldquo;We’ve gotta have the worst collective rb rooms in the league&rdquo;</a>. MarShawn Lloyd, projected 12.9, scored 1.0. The committee has reviewed the evidence.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>Matt Gerardi?</p></div><div class="lt rich"><div class="who">Rich</div><p>165.6 and 0&ndash;3, with the best bargain of the week: Matthew Golden, projected 12.7, scored 26.4. Cam Skattebo and D.J. Moore both scored 0.0.</p></div><div class="lt stuart"><div class="who">Stuart</div><p>And Brian Cross?</p></div><div class="lt rich"><div class="who">Rich</div><p>His week, and the Week 7 problem behind it, are in the player stories. What the table says is that teams in his spot, 3 of 19 and 1 of 14, rarely get out of it.</p></div></div><div class="wire-fig"><details><summary>The Survival Line table</summary><div class="tablebox"><table><thead><tr><th>Team</th><th>Category, playoffs</th><th>Made it from the same All-Play rank, 2017&ndash;2025</th><th>Made it with the same win total, 2021&ndash;2025</th></tr></thead><tbody><tr><td>Bear Dunn</td><td><b>Contender</b><br>99.8%</td><td class="num">18/19</td><td class="num">7/7</td></tr><tr><td>Brian Cutting</td><td><b>Contender</b><br>97.4%</td><td class="num">9/20</td><td class="num">8/19</td></tr><tr><td>Eric Martel</td><td><b>Contender</b><br>97.0%</td><td class="num">18/19</td><td class="num">13/13</td></tr><tr><td>Shawn Blake</td><td><b>In the field</b><br>88.1%</td><td class="num">18/19</td><td class="num">8/19</td></tr><tr><td>Keith Creelman</td><td><b>In the field</b><br>80.8%</td><td class="num">4/14</td><td class="num">8/19</td></tr><tr><td>Derrick Whitman</td><td><b>In the race</b><br>56.9%</td><td class="num">18/19</td><td class="num">13/13</td></tr><tr><td>Chris Klingenberg</td><td><b>In the race</b><br>44.1%</td><td class="num">9/20</td><td class="num">8/19</td></tr><tr><td>Ryan Bousquet</td><td><b>Needs a run</b><br>21.2%</td><td class="num">3/19</td><td class="num">1/14</td></tr><tr><td>Eric Mannila</td><td><b>Needs a run</b><br>9.6%</td><td class="num">4/14</td><td class="num">8/19</td></tr><tr><td>Brian Cross</td><td><b>Life support</b><br>2.1%</td><td class="num">3/19</td><td class="num">1/14</td></tr><tr><td>Matt Gerardi</td><td><b>Life support</b><br>1.9%</td><td class="num">2/17</td><td class="num">1/7</td></tr><tr><td>Josh Martel</td><td><b>Life support</b><br>1.2%</td><td class="num">2/17</td><td class="num">1/7</td></tr></tbody></table></div><p class="caption">&ldquo;Made it&rdquo;: teams in the same position after Week 6 of a past season who went on to make the playoffs, out of all such teams. All-Play rank is grouped in pairs (tied teams share the higher rank); win totals are grouped in five bands, among seasons with the same number of games so far. Categories come from this week&rsquo;s playoff odds: <b>Contender</b> 90% or better, <b>In the field</b> 60&ndash;90, <b>In the race</b> 25&ndash;60, <b>Needs a run</b> 8&ndash;25, <b>Life support</b> under 8.</p></details></div></section><section class="wire-sec" id="elias" data-title="Elias changes"><div class="label" style="break-after:avoid;page-break-after:avoid"><span class="seg">9</span> Elias changes</div><div class="desk-lines" style="margin-bottom:1rem"><div class="lt stuart"><div class="who">Stuart</div><p>Not yet Elias-final. The official Week 6 stat changes had not posted when this report was written (checked Wed Oct 21, 10:06 AM ET). The scores above are the ones MFL showed Wednesday morning.</p></div><div class="lt rich"><div class="who">Rich</div><p>Same as last week: if Elias moves a UPS score, the report is corrected here, and the league hears about it only if an All-Play record changes. The Elias segment is the one piece still to come.</p></div></div></section>
+
+<div class="wire-method"><details><summary class="wire-mh">How this was built <span class="wire-method-count">&mdash; 3 notes</span></summary><div class="wire-method-body"><div><b>Sources.</b> MFL scores, standings, schedules, transactions, injury feed and Elias posts; the league&rsquo;s D1 copies, checked against MFL; MFL projections as saved before each kickoff; nflverse expected points and official injury reports; the archived league Discord.</div><div><b>Status.</b> Automated draft (ups_center_auto.py), generated Wed Oct 21, 10:05 AM ET, rewritten by the editor.</div><div><b>Still to come.</b> The Elias segment: the official Week 6 stat changes had not posted when this report was written.</div></div></details></div>
+</div>
+</div>
+<script data-wire-runtime>
+/* UPS Wire -- article runtime. CANONICAL SOURCE.
+ *
+ * This file is INLINED verbatim into every article by the builder. It is
+ * byte-identical across every article and contains ZERO article prose -- that
+ * is deliberate and load-bearing:
+ *
+ *   scripts/check_inline_js.mjs syntax-checks every inline <script> under
+ *   site/**\/*.html. It exists because one unescaped apostrophe in a tooltip
+ *   string shipped Commish Settings broken for hours. A hub full of league
+ *   prose is exactly the thing that breaks it. So: prose lives in markup and
+ *   in index.json, never in a JS string. Section titles are read from
+ *   data-title attributes and written with textContent, never concatenated
+ *   into HTML.
+ *
+ * Non-ASCII is written as \u escapes (same convention as header_custom_v2.html)
+ * because jsDelivr serves .html as text/plain and the charset round-trip
+ * through fetch() -> srcdoc is not worth trusting. See docs: MFL mojibake.
+ *
+ * Responsibilities (four, and only these):
+ *   1. Flag embedded vs standalone, and apply the theme the loader chose.
+ *   2. Wire the Back bar (embedded: postMessage; standalone: navigate).
+ *   3. Build the chapter rail and the end-of-section pager, and page between
+ *      sections.
+ *   4. Report section changes upward so the MFL hash tracks what you're reading.
+ *
+ * The height beacon is NOT here -- the loader injects one beacon that serves
+ * both the shell and articles, so there is a single implementation.
+ *
+ * Graceful degradation is the default state, not a fallback: without JS every
+ * section is display:block and the article reads as one continuous scroll.
+ * That covers printing, a locked-down Artifact sandbox, and a failed fetch.
+ */
+(function () {
+  "use strict";
+
+  var docEl = document.documentElement;
+
+  var embedded = false;
+  try { embedded = window.parent !== window; } catch (e) { embedded = true; }
+
+  function post(msg) {
+    if (!embedded) return;
+    try { window.parent.postMessage(msg, "*"); } catch (e) {}
+  }
+
+  // 1. Theme -- FALLBACK ONLY. When embedded, the loader already stamped
+  //    data-theme into the injected head, because it has to cover the index
+  //    shell too and the shell does not run this file. This line matters only
+  //    if some other host sets UPS_WIRE_THEME without stamping the attribute.
+  //    Standalone, UPS_WIRE_THEME is absent and prefers-color-scheme wins.
+  var theme = String(window.UPS_WIRE_THEME || "");
+  if (theme === "dark" || theme === "light") docEl.setAttribute("data-theme", theme);
+  if (embedded) docEl.classList.add("wire-embedded");
+
+  // 2. Top nav. Only visible when embedded (CSS: .wire-embedded .wire-topbar).
+  //    Every button carries data-wire-goto with a shell route ("/", "/f/<id>",
+  //    ...) so a reader deep in one article can jump straight to Front Page,
+  //    Previews, or The Week without detouring back through "All stories"
+  //    first. Embedded, the loader owns navigation and already understands
+  //    every route shape the shell does (mfl_hpm_embed_loader.js parseRoute);
+  //    standalone, this file has no router of its own, so it hands off to the
+  //    shell page's own hash-based one.
+  var navBtns = [].slice.call(document.querySelectorAll("[data-wire-goto]"));
+  navBtns.forEach(function (b) {
+    var goto = b.getAttribute("data-wire-goto") || "/";
+    b.addEventListener("click", function () {
+      if (embedded) { post({ type: "wire-route", route: goto }); return; }
+      // Standalone: UPS_WIRE_PAGES_BASE is the one place the Pages path shape
+      // is written down. The relative fallback covers an Artifact or any host
+      // that never set it.
+      var base = String(window.UPS_WIRE_PAGES_BASE || "../../");
+      window.location.href = goto === "/" ? base : base + "#" + goto;
+    });
+  });
+
+  // 3. Paging.
+  var secs = [].slice.call(document.querySelectorAll(".wire-sec"));
+  var rail = document.querySelector("[data-wire-rail]");
+  if (secs.length < 2 || !rail) return;
+
+  function mk(tag, cls, text) {
+    var el = document.createElement(tag);
+    el.className = cls;
+    if (text != null) el.textContent = text;
+    return el;
+  }
+
+  var pills = [];
+  var idx = 0;
+
+  function titleOf(i) {
+    // Read from data-title and only ever written with textContent -- a section
+    // title is prose and may contain anything. Falls back to a number so a
+    // missing data-title is visible rather than silently blank.
+    return secs[i].getAttribute("data-title") || ("Section " + (i + 1));
+  }
+
+  // The rail is ONE ROW: numbered pills, with the full title in title and
+  // aria-label. Five wrapped titles made a five-row rail on a phone, and the
+  // section heading right below it already names the page you are on.
+  var prevBtn = mk("button", "wire-rail-nav", "\u2039");
+  var nextBtn = mk("button", "wire-rail-nav", "\u203A");
+  var allBtn = mk("button", "wire-rail-all", "Read all");
+  prevBtn.setAttribute("aria-label", "Previous section");
+  nextBtn.setAttribute("aria-label", "Next section");
+
+  rail.appendChild(prevBtn);
+  // A rail marked data-wire-rail-named shows each title beside its number
+  // (UPS Center's segment buttons); every other rail stays one row of numbers.
+  var named = rail.hasAttribute("data-wire-rail-named");
+  if (named) rail.classList.add("wire-rail-named");
+  secs.forEach(function (sec, i) {
+    var pill = mk("button", "wire-rail-pill", named ? null : String(i + 1));
+    if (named) {
+      pill.appendChild(mk("b", "", String(i + 1)));
+      pill.appendChild(document.createTextNode(titleOf(i)));
+    }
+    pill.setAttribute("type", "button");
+    pill.setAttribute("title", titleOf(i));
+    pill.setAttribute("aria-label", (i + 1) + ". " + titleOf(i));
+    pill.addEventListener("click", function () { show(i, true); });
+    pills.push(pill);
+    rail.appendChild(pill);
+  });
+  rail.appendChild(nextBtn);
+  rail.appendChild(allBtn);
+
+  [prevBtn, nextBtn, allBtn].forEach(function (b) { b.setAttribute("type", "button"); });
+
+  prevBtn.addEventListener("click", function () { show(idx - 1, true); });
+  nextBtn.addEventListener("click", function () { show(idx + 1, true); });
+
+  allBtn.addEventListener("click", function () {
+    var nowPaged = docEl.classList.toggle("wire-paged");
+    allBtn.textContent = nowPaged ? "Read all" : "Page it";
+    if (!nowPaged) return;
+    show(idx, false);
+  });
+
+  // 3b. End-of-section pager: previous / next by name, at the BOTTOM of every
+  //     section, so finishing a long section on a phone does not mean
+  //     scrolling back up to the rail. Hidden by CSS unless paged. The last
+  //     section offers the way out instead of a dead end.
+  function leave() {
+    if (embedded) { post({ type: "wire-route", route: "/" }); return; }
+    window.location.href = String(window.UPS_WIRE_PAGES_BASE || "../../");
+  }
+  // Only where there is somewhere to go back TO: the MFL loader (which sets
+  // UPS_WIRE_ROUTE when it injects the article) or a real web page. A Claude
+  // Artifact is framed too, but nothing is listening, so the button would be dead.
+  var canLeave = embedded ? typeof window.UPS_WIRE_ROUTE === "string"
+                          : /^https?:$/.test(String(window.location.protocol || ""));
+  function navBtn(cls, small, big, onClick) {
+    var b = mk("button", cls, null);
+    b.setAttribute("type", "button");
+    b.appendChild(mk("small", "", small));
+    b.appendChild(mk("span", "", big));
+    b.addEventListener("click", onClick);
+    return b;
+  }
+  secs.forEach(function (sec, i) {
+    var nav = mk("nav", "wire-secnav", null);
+    nav.setAttribute("aria-label", "Section navigation");
+    if (i > 0) {
+      nav.appendChild(navBtn("wire-secnav-back", "\u2039 Previous", titleOf(i - 1),
+        function () { show(i - 1, true); }));
+    }
+    if (i < secs.length - 1) {
+      nav.appendChild(navBtn("wire-secnav-fwd", "Next \u203A", titleOf(i + 1),
+        function () { show(i + 1, true); }));
+    } else if (canLeave) {
+      nav.appendChild(navBtn("wire-secnav-fwd", "Finished", "Back to all stories", leave));
+    }
+    sec.appendChild(nav);
+  });
+
+  function show(i, userInitiated) {
+    if (i < 0 || i >= secs.length) return;
+    idx = i;
+    secs.forEach(function (sec, n) { sec.classList.toggle("wire-on", n === i); });
+    pills.forEach(function (p, n) {
+      if (n === i) p.setAttribute("aria-current", "true");
+      else p.removeAttribute("aria-current");
+    });
+    prevBtn.disabled = i === 0;
+    nextBtn.disabled = i === secs.length - 1;
+
+    if (!userInitiated) return;
+
+    var id = secs[i].id || "";
+    // Where the rail sits in this document. A page turn lands there -- not at
+    // the very top, which would put the headline back between the reader and
+    // the section they asked for.
+    var railTop = 0;
+    try { railTop = rail.getBoundingClientRect().top + (window.pageYOffset || 0); } catch (e) {}
+    // 4. Report upward so the MFL address bar tracks the section. The loader
+    //    composes the full route because it is the thing that knows which
+    //    article is loaded -- the article does not need to know its own id.
+    //    Inside MFL the loader also does the scrolling: that frame is sized to
+    //    its content, so it never scrolls itself.
+    if (embedded) { post({ type: "wire-section", sectionId: id, top: Math.round(railTop) }); }
+    else if (id) {
+      try { history.replaceState(null, "", "#" + id); } catch (e) {}
+    }
+    // Only ever scroll UP to the rail: a reader who clicked a pill is already
+    // looking at it. A no-op inside the auto-sized MFL frame; in a Claude
+    // Artifact -- a fixed-height frame that scrolls itself -- it is the only
+    // thing that moves the reader to the new section.
+    try {
+      var y = Math.max(0, railTop - 8);
+      if (y < (window.pageYOffset || 0)) window.scrollTo(0, y);
+    } catch (e) {}
+  }
+
+
+  // ---- game deck: flip through one full game page at a time ----
+  // The games section carries a page per matchup, ordered so the biggest
+  // billing leads. Showing them all at once is a wall; this pages them the same
+  // way the section rail pages the article.
+  //
+  // MULTIPLE RAILS -- Keith 2026-09-16, twice: "having the divisional click
+  // links the bottom of the article as well as the top." The deck can carry
+  // more than one [data-wire-gamerail] (the renderer puts one before the
+  // pages and one after); every rail found gets its own full set of
+  // pills/prev/next/count, and showGame() keeps them ALL in sync so either
+  // end works identically. A rail change also scrolls the newly-shown page
+  // to the top of the viewport -- jumping from the bottom rail should not
+  // leave the reader staring at content that just changed above them.
+  function initGameDeck() {
+    var deck = document.querySelector("[data-wire-gamedeck]");
+    if (!deck) return;
+    var pages = [].slice.call(deck.querySelectorAll(".wire-gamepage"));
+    var rails = [].slice.call(deck.querySelectorAll("[data-wire-gamerail]"));
+    if (pages.length < 2 || !rails.length) return;
+
+    var gi = 0;
+    var railSets = rails.map(function (rail) {
+      var pills = [];
+      var prev = mk("button", "wire-rail-nav", "\u2039");
+      var next = mk("button", "wire-rail-nav", "\u203A");
+      var count = mk("span", "wire-rail-count", "");
+      [prev, next].forEach(function (b) { b.setAttribute("type", "button"); });
+      rail.appendChild(prev);
+      pages.forEach(function (pg, i) {
+        var p = mk("button", "wire-gamepill", pg.getAttribute("data-title") || ("Game " + (i + 1)));
+        p.setAttribute("type", "button");
+        p.addEventListener("click", function () { showGame(i, true); });
+        pills.push(p);
+        rail.appendChild(p);
+      });
+      rail.appendChild(next);
+      rail.appendChild(count);
+      prev.addEventListener("click", function () { showGame(gi - 1, true); });
+      next.addEventListener("click", function () { showGame(gi + 1, true); });
+      return { prev: prev, next: next, pills: pills, count: count };
+    });
+
+    function showGame(i, userInitiated) {
+      if (i < 0 || i >= pages.length) return;
+      gi = i;
+      pages.forEach(function (pg, n) { pg.classList.toggle("wire-on", n === i); });
+      railSets.forEach(function (rs) {
+        rs.pills.forEach(function (p, n) {
+          if (n === i) p.setAttribute("aria-current", "true");
+          else p.removeAttribute("aria-current");
+        });
+        rs.count.textContent = (i + 1) + " / " + pages.length;
+        rs.prev.disabled = i === 0;
+        rs.next.disabled = i === pages.length - 1;
+      });
+      if (userInitiated && pages[i].scrollIntoView) {
+        pages[i].scrollIntoView({ block: "start" });
+      }
+    }
+    deck.classList.add("wire-deck-on");
+    showGame(0, false);
+  }
+
+  // ---- video: the named link IS the player ----
+  // There is deliberately no inline player anywhere. An article renders in
+  // three places -- a Claude Artifact (CSP blocks every external host), the MFL
+  // hub (sandboxed without allow-same-origin, and sandbox flags pass down to a
+  // player frame) and the standalone page -- and the clips we accept (the NFL's
+  // channel or a team's) are NFL footage that YouTube will not play off
+  // YouTube. Tested 2026-09-16 when Keith asked to play clips in the page: on
+  // www48.myfantasyleague.com, keithcreelman.github.io and localhost, every
+  // NFL-channel and team-channel highlight showed "This video contains content
+  // from NFL, who has blocked it from display on this website or application"
+  // (a non-NFL video played fine in the same frames). An embed would only put a
+  // broken box above a link that works, so the link stays and nothing else.
+
+  docEl.classList.add("wire-js");
+  docEl.classList.add("wire-paged");
+  initGameDeck();
+
+  // Initial section: the loader's choice when embedded, the URL hash when
+  // standalone, first section otherwise. One resolution path, no special cases.
+  var wanted = embedded
+    ? String(window.UPS_WIRE_SECTION || "")
+    : String(window.location.hash || "").replace(/^#/, "");
+
+  // STANDALONE DEEP LINK: take the fragment OFF the URL before the browser can
+  // act on it, then resolve the section ourselves.
+  //
+  // Why not just scroll back to the top: the browser native-scrolls to the
+  // fragment while every section is still visible -- i.e. deep into a very long
+  // document. Paging then collapses that document and the reader is parked in
+  // dead space, looking at a blank page. Chasing it with scrollTo does not work;
+  // the scroll is re-applied asynchronously after load and after layout settles,
+  // so we lost that race repeatedly (landing at 1104px, then 10039px).
+  //
+  // Removing the fragment removes the race entirely: no fragment, no native
+  // scroll. The hash is restored on load via replaceState -- which, unlike
+  // assigning location.hash, never scrolls -- so the address bar still holds a
+  // copyable deep link.
+  var restoreHash = "";
+  if (!embedded && wanted) {
+    restoreHash = "#" + wanted;
+    try {
+      if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+      history.replaceState(null, "", window.location.pathname + window.location.search);
+    } catch (e) { restoreHash = ""; }
+  }
+
+  var start = 0;
+  for (var n = 0; n < secs.length; n++) { if (secs[n].id && secs[n].id === wanted) { start = n; break; } }
+  show(start, false);
+
+  if (restoreHash) {
+    window.addEventListener("load", function () {
+      try {
+        window.scrollTo(0, 0);
+        history.replaceState(null, "", window.location.pathname + window.location.search + restoreHash);
+      } catch (e) {}
+    });
+  }
+})();
+</script>
+</body>
+</html>

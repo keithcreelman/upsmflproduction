@@ -1,0 +1,92 @@
+{
+ "_note": "Recorded from Cloudflare's GraphQL analytics on 2026-10-22 with scripts/d1_usage.py --record (no D1 rows read). Query text trimmed to 600 characters; every number is as recorded.",
+ "now": "2026-10-22T00:00:30Z",
+ "window": "1h",
+ "database_id": "8cfe1ddd-749e-476a-9c2c-a359410c6fc1",
+ "databases": [
+  {
+   "uuid": "84ba2435-6a7a-49df-8df6-137b73ad11ff",
+   "name": "ups-stats-store-preview"
+  },
+  {
+   "uuid": "8cfe1ddd-749e-476a-9c2c-a359410c6fc1",
+   "name": "ups-mfl-db"
+  }
+ ],
+ "exact_response": {
+  "data": {
+   "viewer": {
+    "accounts": [
+     {
+      "previous_utc_day": [
+       {
+        "avg": {
+         "sampleInterval": 1
+        },
+        "dimensions": {
+         "databaseId": "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
+        },
+        "sum": {
+         "readQueries": 35485,
+         "rowsRead": 4526410,
+         "rowsWritten": 33452,
+         "writeQueries": 13878
+        }
+       }
+      ],
+      "rolling_24h": [
+       {
+        "avg": {
+         "sampleInterval": 1
+        },
+        "dimensions": {
+         "databaseId": "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
+        },
+        "sum": {
+         "readQueries": 35485,
+         "rowsRead": 4526410,
+         "rowsWritten": 33452,
+         "writeQueries": 13878
+        }
+       }
+      ],
+      "utc_day": []
+     }
+    ]
+   }
+  },
+  "errors": null
+ },
+ "sampled_response": {
+  "data": {
+   "viewer": {
+    "accounts": [
+     {
+      "d1QueriesAdaptiveGroups": [
+       {
+        "avg": {
+         "queryDurationMs": 0.1884,
+         "rowsRead": 1,
+         "rowsReturned": 0,
+         "rowsWritten": 1,
+         "sampleInterval": 1
+        },
+        "count": 1,
+        "dimensions": {
+         "query": "INSERT INTO ups_bot_heartbeat (bot, last_ts, status, env) VALUES (?,?,?,?) ON CONFLICT(bot) DO UPDATE SET last_ts = excluded.last_ts,  status = excluded.status, env = excluded.env"
+        },
+        "sum": {
+         "queryDurationMs": 0.1884,
+         "rowsRead": 1,
+         "rowsReturned": 0,
+         "rowsWritten": 1
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "errors": null
+ }
+}
