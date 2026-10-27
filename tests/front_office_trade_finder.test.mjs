@@ -60,7 +60,7 @@ function page(opts = {}) {
   vm.runInContext(SRC, ctx);
   (listeners["fo:ready"] || []).forEach((f) => f());
   const TR = ctx.UPS_FO_TRADES;
-  const show = (state) => { Object.assign(TR._view, state.view || {}); if ("team" in state) TR._sel.team = state.team; (listeners["fo:tab"] || []).forEach((f) => f({ detail: { section: "trades" } })); return el.innerHTML; };
+  const show = (state) => { TR._setMode("finder"); Object.assign(TR._view, state.view || {}); if ("team" in state) TR._sel.team = state.team; (listeners["fo:tab"] || []).forEach((f) => f({ detail: { section: "trades" } })); return el.innerHTML; };
   const team = (f) => TR._teamHtml(f);
   return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA };
 }
@@ -291,6 +291,12 @@ test("phone: the table scrolls in its card with the team column pinned; the team
   t.ok(/\.fo-tf-strength \.fo-tf-teamcol \{ position: sticky; left: 0;/.test(CSS), "team column pinned");
   t.ok(/fo-table-scroll fo-tf-scroll/.test(SRC), "table inside its own scroll box (the page never scrolls sideways)");
   t.ok(/@media \(max-width: 1100px\) \{ \.fo-tf-grid \{ grid-template-columns: 1fr; \} \.fo-tf-cols \{ grid-template-columns: 1fr; \} \}/.test(CSS), "team view one column on narrow screens");
+});
+
+test("Trades opens on the Trade builder (first chip); the Trade finder is the second chip and unchanged", () => {
+  t.ok(/var mode = "builder";/.test(SRC), "the default mode is the builder");
+  t.ok(/MODES = \[\["builder", "Trade builder"\], \["finder", "Trade finder"\]\]/.test(SRC), "chips: Trade builder first, Trade finder second");
+  t.ok(/if \(mode === "builder"\) \{ renderBuilder\(el\); return; \}/.test(SRC), "finder code only runs in finder mode");
 });
 
 await run("front_office_trade_finder");
