@@ -155,19 +155,65 @@ export function normalizeInjuryStatus(raw) {
 }
 
 // The status in effect for a player at a given instant, from the first-seen
-// ledger. `history` is [{ status, first_seen_unix }, ...] for one player-week.
+// ledger. `history` is [{ status, first_seen_unix, last_seen_unix }, ...] for
+// one player-week, optionally carrying `history.polls` (the week's trusted poll
+// instants, ascending; injuryHistoryForWeek attaches them).
 //
 // "In effect" = the LATEST status whose first sighting is at or before the
 // instant. A status first seen after the instant did not exist for the owner
 // yet, which is the entire point of the 24-hour rule.
-export function statusAsOf(history, atUnix) {
+//
+// CLEARED DESIGNATIONS (fixed 2026-10-25, Brian Branch, Team 0009, Week 7).
+// TYPE=injuries lists only players WITH a designation: a player who comes off
+// the report simply stops appearing, and nothing is ever written for him. So
+// a status's row kept "winning" forever after it was gone. Branch was listed
+// IR early in the week, came off the report, and the pre-kickoff DM still told
+// his owner to bench him, twice. When the week's polls are known, the answer
+// is read from the latest trusted poll at or before the instant: a status is
+// in effect only if that poll still listed it (its last_seen reaches the
+// poll). Listed under nothing at that poll means ACTIVE, dated to the first
+// poll that no longer listed him. Without polls (old callers, tests) the
+// behavior is unchanged.
+export function statusEntryAsOf(history, atUnix) {
+  const at = Number(atUnix) || 0;
+  const list = Array.isArray(history) ? history : [];
   let best = null;
-  for (const h of (history || [])) {
+  for (const h of list) {
     const seen = Number(h && h.first_seen_unix) || 0;
-    if (!seen || seen > atUnix) continue;
-    if (!best || seen > best.first_seen_unix) best = { status: normalizeInjuryStatus(h.status), first_seen_unix: seen };
+    if (!seen || seen > at) continue;
+    if (!best || seen > best.first_seen_unix) best = { status: normalizeInjuryStatus(h.status), first_seen_unix: seen, last_seen_unix: Number(h && h.last_seen_unix) || 0 };
   }
-  return best ? best.status : null;   // null = nothing observed at or before the mark
+  const polls = (history && Array.isArray(history.polls)) ? history.polls : null;
+  if (!best || !polls || !polls.length) return best ? { status: best.status, first_seen_unix: best.first_seen_unix } : null;
+  // The latest trusted poll at or before the instant.
+  let p = 0;
+  for (const t of polls) { if (t <= at) p = t; else break; }
+  if (!p || p < best.first_seen_unix) return { status: best.status, first_seen_unix: best.first_seen_unix };
+  // Which statuses did that poll list? (A poll stamps last_seen with its own instant.)
+  let listed = null;
+  for (const h of list) {
+    const seen = Number(h && h.first_seen_unix) || 0;
+    const last = Number(h && h.last_seen_unix) || 0;
+    if (!seen || seen > p || !last || last < p) continue;
+    if (!listed || seen > listed.first_seen_unix) listed = { status: normalizeInjuryStatus(h.status), first_seen_unix: seen };
+  }
+  if (listed) return listed;
+  // Off the report at that poll: cleared. Date it to the first poll that no longer listed him.
+  let lastListed = 0;
+  for (const h of list) { const last = Number(h && h.last_seen_unix) || 0; if (last <= p && last > lastListed) lastListed = last; }
+  const clearedAt = polls.find((t) => t > lastListed && t <= p) || p;
+  return { status: "ACTIVE", first_seen_unix: clearedAt, cleared: true };
+}
+
+export function statusAsOf(history, atUnix) {
+  const e = statusEntryAsOf(history, atUnix);
+  return e ? e.status : null;   // null = nothing observed at or before the mark
+}
+
+// The latest trusted poll in a history object from injuryHistoryForWeek, or 0.
+export function lastInjuryPollUnix(historyByPlayer) {
+  const polls = historyByPlayer && historyByPlayer.polls;
+  return Array.isArray(polls) && polls.length ? polls[polls.length - 1] : 0;
 }
 
 // One starter's verdict.
@@ -237,6 +283,15 @@ export function evaluateStarter(player, ctx) {
   // one case that is a violation.
   if (!kickoffPassed && (status === "OUT" || status === "IR" || status === "DOUBTFUL")) {
     const deadline = capped ? "notice deadline (Sat 8pm ET)" : "notice deadline (24 hours before his kickoff)";
+    // Since cleared (2026-10-25, Brian Branch): the report no longer lists him
+    // Out/IR/Doubtful right now. If that holds at kickoff he plays, and the
+    // resolved verdict is "upgraded and played" or "doubtful and played",
+    // both clean, so telling the owner to bench him is wrong.
+    const nowStatus = statusAsOf(ctx && ctx.history, nowUnix);
+    if (nowStatus && nowStatus !== "OUT" && nowStatus !== "IR" && nowStatus !== "DOUBTFUL") {
+      return { ...base, verdict: "clean", reason: "cleared_before_kickoff",
+               detail: `${name} was listed ${status} before your ${deadline}, but has since come off the injury report.` };
+    }
     return { ...base, verdict: "violation", reason: status === "DOUBTFUL" ? "doubtful_at_risk" : "out_at_risk",
              detail: `${name} was listed ${status} before your ${deadline} — bench him before kickoff or it counts.` };
   }
@@ -443,9 +498,9 @@ export async function injuryHistoryForWeek(env, { season, week }) {
   if (!db) return {};
   const weekObservedFrom = await injuryObservedFrom(env, { season, week });
   const { results } = await db.prepare(
-    `SELECT player_id, status, first_seen_unix FROM ups_injury_status WHERE season=? AND week=?
+    `SELECT player_id, status, first_seen_unix, last_seen_unix FROM ups_injury_status WHERE season=? AND week=?
      UNION ALL
-     SELECT prev.player_id, prev.status, prev.first_seen_unix
+     SELECT prev.player_id, prev.status, prev.first_seen_unix, prev.last_seen_unix
        FROM ups_injury_status prev
       WHERE prev.season=? AND prev.week=?
         AND NOT EXISTS (
@@ -458,12 +513,37 @@ export async function injuryHistoryForWeek(env, { season, week }) {
     Number(season), Number(week) - 1, Number(week),
     weekObservedFrom, weekObservedFrom
   ).all();
+  const polls = await trustedInjuryPolls(env, { season, week });
   const out = {};
   for (const r of (results || [])) {
     const pid = _s(r.player_id);
-    (out[pid] = out[pid] || []).push({ status: r.status, first_seen_unix: Number(r.first_seen_unix) || 0 });
+    if (!out[pid]) { out[pid] = []; Object.defineProperty(out[pid], "polls", { value: polls, enumerable: false }); }
+    out[pid].push({ status: r.status, first_seen_unix: Number(r.first_seen_unix) || 0, last_seen_unix: Number(r.last_seen_unix) || 0 });
   }
+  Object.defineProperty(out, "polls", { value: polls, enumerable: false });
   return out;
+}
+
+// The poll instants for weeks W-1 and W that can be trusted to say who was NOT
+// on the report: a poll whose row count is under half the typical count was a
+// partial feed, and absence from a partial feed proves nothing. Ascending.
+// Reads at most a few hundred rows (PK season, week, polled_unix).
+export async function trustedInjuryPolls(env, { season, week }) {
+  const db = env && env.UPS_MFL_DB;
+  if (!db) return [];
+  const { results } = await db.prepare(
+    `SELECT polled_unix, rows_seen FROM ups_injury_polls WHERE season=? AND week IN (?, ?) ORDER BY polled_unix ASC`
+  ).bind(Number(season), Number(week) - 1, Number(week)).all();
+  return filterTrustedPolls(results || []);
+}
+
+export function filterTrustedPolls(rows) {
+  const list = (rows || []).map((r) => ({ t: Number(r.polled_unix) || 0, n: Number(r.rows_seen) || 0 })).filter((r) => r.t);
+  if (!list.length) return [];
+  const counts = list.map((r) => r.n).sort((a, b) => a - b);
+  const median = counts[Math.floor(counts.length / 2)];
+  const floor = Math.max(1, Math.floor(median / 2));
+  return list.filter((r) => r.n >= floor).map((r) => r.t).sort((a, b) => a - b);
 }
 
 // Book a franchise-week as a violation and stamp its offense number.
@@ -556,7 +636,7 @@ export async function lineupStandings(env, { season, leagueId }) {
 
 // §H's requirement, and the thing that makes this usable rather than noise:
 // "possible lineup violation" and "courtesy heads-up" must not read the same.
-export function composeLineupDm({ franchiseName, week, result, windowLabel }) {
+export function composeLineupDm({ franchiseName, week, result, windowLabel, injuryAsOfUnix }) {
   const L = [];
   const wk = `Week ${week}`;
   if (result.verdict === "violation") {
@@ -581,6 +661,13 @@ export function composeLineupDm({ franchiseName, week, result, windowLabel }) {
   if (result.unknowns && result.unknowns.length) {
     L.push("");
     L.push(`_${result.unknowns.length} starter${result.unknowns.length === 1 ? "" : "s"} couldn't be checked (no kickoff or injury data). Not judged either way._`);
+  }
+  // When the injury data was last read (2026-10-25): lets an owner, and us,
+  // see at a glance whether a flag is stale.
+  const asOf = Number(injuryAsOfUnix) || 0;
+  if (asOf) {
+    L.push("");
+    L.push(`_Injury report as of ${new Date(asOf * 1000).toLocaleString("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" })} ET._`);
   }
   return L.join("\n");
 }
