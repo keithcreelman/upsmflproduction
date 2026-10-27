@@ -23,10 +23,8 @@
   var view = { scope: "fa", pos: "ALL", team: "", q: "", hideOut: false, sort: { key: "ppg", dir: -1 } };
   var LIMIT = 200;
   var EMPTY = {
-    fa: "No free agent matches. Try another position.",
-    later: "No free agent is waiting on a later run right now (no drop locks or started games).",
+    fa: "No free agent matches. Try another position or search.",
     bait: "No team lists a matching player on MFL’s trade block.",
-    rostered: "No player on another team matches.",
     all: "No player matches."
   };
   var POS_CHIPS = ["ALL", "QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
@@ -134,19 +132,17 @@
     return out;
   }
 
+  // The franchise filter belongs to the views that list rostered players. A team picked there never filters Free agents.
+  function teamFilterApplies() { return view.scope === "bait" || view.scope === "all"; }
   function filter(list) {
     var q = view.q.toLowerCase();
     return list.filter(function (r) {
+      // Free agents = every unrostered player, including those whose first eligible waiver run is later: each row's
+      // Status says what can be done now (the league's waiver check).
       if (view.scope === "fa" && r.fid) return false;
-      if (view.scope === "later") {
-        if (r.fid) return false;
-        var a = availabilityFor(r.pid, r.team);
-        if (!a || !isLater(a.code)) return false;
-      }
       if (view.scope === "bait" && !(r.bait && r.bait === r.fid)) return false;
-      if (view.scope === "rostered" && (!r.fid || r.mine)) return false;
       if (view.pos !== "ALL" && r.group !== view.pos) return false;
-      if (view.team && r.fid !== view.team) return false;
+      if (teamFilterApplies() && view.team && r.fid !== view.team) return false;
       if (view.hideOut && r.p) {
         var res = FO.injury(r.p);
         if (res && res.chips[0] && /^(OUT|IR|PUP|NFI|SUSP|HOLD|RET)$/.test(res.chips[0].t)) return false;
@@ -233,7 +229,7 @@
     var av = DATA.get("waiverAvailability");
     var avNote = !av ? "Checking waiver timing…" : (av.state !== "ok" || !av.data || av.data.known !== true ? "Waiver timing couldn’t be confirmed, so free agents show “Can’t confirm”." : "");
     var teams = FO.teams();
-    var scopes = [["fa", "Free agents"], ["later", "Waivers later"], ["bait", "On the block"], ["rostered", "Other teams"], ["all", "All players"]];
+    var scopes = [["fa", "Free agents"], ["bait", "On the block"], ["all", "All players"]];
     var controls = '<div class="fo-mk-controls">' +
       '<div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-mk">Browse players</div>' +
       '<div class="fo-subview-chips fo-choice fo-choice-wrap" role="group" aria-labelledby="fo-lbl-mk">' + scopes.map(function (s) {
@@ -243,14 +239,14 @@
       '<div class="fo-pos-chips" role="group" aria-label="Position">' + POS_CHIPS.map(function (g) {
         return '<button type="button" class="fo-pos-chip' + (view.pos === g ? " active" : "") + '" data-mk-pos="' + g + '" aria-pressed="' + (view.pos === g) + '">' + (g === "ALL" ? "All" : g === "PK" ? "K" : g === "PN" ? "P" : g) + "</button>";
       }).join("") + "</div>" +
-      '<label class="fo-field fo-inline">Team <select data-mk-team><option value="">Any</option>' + teams.map(function (t) {
+      (teamFilterApplies() ? '<label class="fo-field fo-inline">Team <select data-mk-team><option value="">Any</option>' + teams.map(function (t) {
         return '<option value="' + H.esc(t.fid) + '"' + (view.team === t.fid ? " selected" : "") + ">" + H.esc(t.name) + "</option>";
-      }).join("") + "</select></label>" +
+      }).join("") + "</select></label>" : "") +
       '<button type="button" class="fo-subview-chip' + (view.hideOut ? " active" : "") + '" data-mk-hideout aria-pressed="' + view.hideOut + '">Hide Out / IR</button>' +
-      '<label class="fo-field fo-inline fo-mk-search">Find <input type="search" data-mk-q value="' + H.esc(view.q) + '" placeholder="Player, NFL team or owner" autocomplete="off"></label>' +
+      '<label class="fo-field fo-inline fo-mk-search">Find <input type="search" data-mk-q value="' + H.esc(view.q) + '" placeholder="' + (view.scope === "fa" ? "Player or NFL team" : "Player, NFL team or owner") + '" autocomplete="off"></label>' +
       "</div></div>";
     // A free agent has no contract: the Contract column only shows where rostered players can be listed.
-    var showContract = view.scope !== "fa" && view.scope !== "later";
+    var showContract = view.scope !== "fa";
     var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Status", "Free agents: when the player can be added or claimed (the league's waiver check, same as the phone). Rostered: the owning team, and whether it lists the player on the trade block.", "") +
       th("pts", "Pts", "MFL points, league scoring, every week MFL posted", "num") + th("ppg", "PPG", "Points per MFL-scored week", "num") +
       th("rank", "Rank", "PPG rank at the player's position among every player MFL scored with at least half the final weeks", "num") +
@@ -336,6 +332,8 @@
     wire();
     H.registerAbout("market", "<h3>Market</h3><ul>" +
       "<li><b>Status</b> for a free agent is the league’s one waiver check (the phone’s badges): <b>Add now</b> (first come, first served), the named run (a claim goes to it; the row’s link claims in the app), <b>Can’t claim yet</b> (dropped-player lock: the first run that can award the player is named, and when a claim can be entered), <b>Game locked</b> (the player’s game has started; until the NFL week rolls over), <b>Locked</b> (no add/drops right now).</li>" +
+      "<li><b>Free agents</b> lists every unrostered player, including those who can’t be claimed until a later run; each row’s Status says what can be done now and, where it applies, the first eligible run. Rows that can’t be claimed show no Bid or Add link.</li>" +
+      "<li><b>Team filter:</b> appears in On the block and All players only; it never narrows Free agents.</li>" +
       "<li><b>On the block:</b> the owning team lists the player on MFL’s trade block.</li>" +
       "<li>Points, PPG and rank: MFL’s own scoring, same as the phone. The top 200 rows show; filters narrow the list.</li>" +
       "<li>Nothing here sends a claim, add or offer: bids and adds are made in the phone app, trades in the Trade War Room.</li></ul>");

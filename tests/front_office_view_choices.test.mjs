@@ -27,13 +27,13 @@ test("every named choice group has a visible label and names itself by it (aria-
 
 test("nothing that drives behavior moved: the same buttons, data attributes, ids and handlers", () => {
   for (const a of ['data-colset="perf"', 'data-colset="contract"', 'data-group="flat"', 'data-group="position"', 'data-subview="summary"', 'data-subview="detail"']) t.ok(HTML.includes(a), a);
-  t.ok(/data-mk-scope="' \+ s\[0\]/.test(MK) && /\["fa", "Free agents"\], \["later", "Waivers later"\], \["bait", "On the block"\], \["rostered", "Other teams"\], \["all", "All players"\]/.test(MK), "Market: the same five scopes in the same order");
+  t.ok(/data-mk-scope="' \+ s\[0\]/.test(MK) && /\["fa", "Free agents"\], \["bait", "On the block"\], \["all", "All players"\]/.test(MK), "Market: Free agents, On the block, All players (Keith 2026-10-27)");
   t.ok(/chips\(BY, "data-tf-by", view\.by\)/.test(TF) && /chips\(MEASURES, "data-tf-measure", view\.measure\)/.test(TF), "Trade finder: the same two choice lists");
   t.ok(/data-mv-scope="mine"/.test(ACT) && /data-mv-scope="league"/.test(ACT), "Activity: My team / League");
   t.ok(/view\.by === "mix" \? "" :/.test(TF), "Measure still hides on Starter Mix");
 });
 
-test("Market: filters are separate from browsing (own label, own block); the five choices wrap to rows on a phone", () => {
+test("Market: filters are separate from browsing (own label, own block); the choices wrap to rows on a phone", () => {
   t.ok(/fo-choice-filters"><div class="fo-choice-label">Filter the list/.test(MK) && /data-mk-pos=/.test(MK) && /data-mk-team/.test(MK) && /data-mk-q/.test(MK), "position, team and search sit under 'Filter the list'");
   t.ok(/fo-choice fo-choice-wrap/.test(MK) && /\.fo-root \.fo-choice-wrap \.fo-subview-chip \{ flex: 1 1 calc\(50% - 6px\); \}/.test(CSS), "two columns on a phone, so 'All players' is never cut off");
   t.ok(/\.fo-root \.fo-choice \{[^}]*flex-wrap: wrap/.test(CSS), "the track wraps");
@@ -60,8 +60,9 @@ test("Market search no longer pokes past its card on a phone", () => {
 });
 
 test("version stamps changed with the files that changed", () => {
-  for (const f of ["front_office.css", "fo_market.js", "fo_trades.js", "fo_activity.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.2"), f);
-  t.ok(/var BUILD = "2026\.10\.27\.2";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  for (const f of ["front_office.css", "fo_trades.js", "fo_activity.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.2"), f);
+  t.ok(HTML.includes("fo_market.js?v=2026.10.27.3"), "fo_market.js (changed again by the Market choices revision)");
+  t.ok(/var BUILD = "2026\.10\.27\.3";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");
