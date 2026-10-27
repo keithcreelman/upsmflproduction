@@ -266,13 +266,22 @@
     var repl = mine.replacementSlots.map(function (x) { return LS.LABELS[lsBy === "slot" ? x.slotRow : x.group] || x.group; });
     var replNote = repl.length ? '<p class="fo-ov-sub">* No available rostered player for ' + H.esc(repl.join(", ")) +
       " this week, so a replacement free agent’s points fill " + (repl.length === 1 ? "that slot" : "those slots") + ".</p>" : "";
-    var need = mine.biggestNeed;
+    // Biggest lineup gain (Keith 2026-10-22): what one typical starter would add — a potential gain, not a weakness —
+    // with where he'd start and who'd leave, the same wording as the Trade finder.
+    var gainLine = "";
+    if (mine.biggestGain && TF.additionDetail) {
+      var g = mine.biggestGain, d = TF.additionDetail(model, fid, g), ri = H.rosterIndex ? H.rosterIndex() : {};
+      var who = d.leaves.map(function (x) { return x.rep ? "the replacement-filled " + x.slotLabel + " slot" : H.displayName((ri[x.pid] && ri[x.pid].p.name) || x.pid) + " (" + (LS.LABELS[x.group] || x.group) + ", " + H.fmt1(x.v) + ")"; }).join(" and ");
+      var lbl = LS.LABELS[g] || g;
+      gainLine = '<p class="fo-ov-sub fo-ls-gain">Biggest lineup gain: <b>' + lbl + " +" + H.fmt1(mine.need[g]) + "</b> pts a week. " + H.esc("A typical " + lbl + " (" + H.fmt1(d.typical) + " PPG, the league’s median starting " + lbl + ") would start at " + d.slotLabel +
+        (who ? "; " + who + " would leave the lineup" : "") + " (" + H.fmt1(d.before) + " → " + H.fmt1(d.after) + "). A gain, not a weakness: " + lbl + " ranks " + LS.ordinal(strengthTable(model, "position").teams[fid][g].rank) + " by position.") + "</p>";
+    }
     // Why Overall Above Replacement differs between the breakdowns (Keith 2026-10-21): shown wherever that measure is.
     var aboveNote = lsView === "above" ? '<p class="fo-ov-sub fo-ls-above-note">' + H.esc(lsBy === "slot"
       ? "Overall here can differ from By Position: a Flex or Superflex starter is measured against the slot’s baseline (the best replacement-level player the slot accepts), not his own position’s."
       : "Overall here can differ from By Lineup Slot: each starter is measured against his own position’s baseline, while By Lineup Slot uses each Flex or Superflex slot’s eligible-player baseline.") + "</p>" : "";
     return card("Lineup strength vs the league", byChips + chips + '<p class="fo-ov-sub">' + H.esc(BY_TEXT[lsBy][1] + " " + VIEW_TEXT[lsView][1]) + "</p>" + bars + aboveNote + replNote +
-      (need ? '<p class="fo-ov-sub">Biggest need: <b>' + (LS.LABELS[need] || need) + "</b> (+" + H.fmt1(mine.need[need]) + " pts a week from a typical starter).</p>" : ""),
+      gainLine,
       H.goLink("trades", "Trade finder"), "fo-ls");
   }
   var lsMemo = { model: null, tables: {} };
@@ -282,17 +291,6 @@
   }
 
   // Actual starter mix: the lineups the team submitted in completed weeks (not the strength model).
-  var mixMemo = { key: "", mix: null };
-  function starterMix() {
-    var SM = root.UPS_STARTER_MIX, ss = H.scoring(), e = DATA.get("weeklyResults"), slots = H.lineupSlots(), pe = DATA.get("players");
-    if (!SM || !ss || !slots || !e || e.state !== "ok" || !pe || pe.state !== "ok" || !ss.finalKnown) return null;
-    var key = [e.at, pe.at, ss.finalThrough, FO.teams().length].join("|");
-    if (mixMemo.key !== key) {
-      mixMemo = { key: key, mix: SM.build({ weeklyResults: e.data, completedWeek: ss.finalThrough, slots: slots, groupOf: H.playerGroup,
-        fids: FO.teams().map(function (t) { return t.fid; }) }) };
-    }
-    return mixMemo.mix;
-  }
   function pct(n) { return n + "%"; }
   function starterMixHtml(fid) {
     var SM = root.UPS_STARTER_MIX, e = DATA.get("weeklyResults"), ss = H.scoring();
@@ -301,7 +299,7 @@
     if (ss && !ss.finalKnown) return '<p class="fo-ov-empty">MFL hasn’t confirmed a completed week yet.</p>';
     var pe = DATA.get("players");
     if (pe && pe.state === "error") return H.banner("MFL’s players list couldn’t be read, so starters’ positions are unknown. Reload to retry.", "warn");
-    var mix = starterMix();
+    var mix = H.starterMix();
     if (!mix) return '<p class="fo-ov-empty">Reading MFL’s players…</p>';
     var t = mix.teams[fid];
     if (!t || !mix.weeks.length) return '<p class="fo-ov-empty">No completed weeks yet.</p>';
@@ -481,7 +479,7 @@
       "<h3>Overview</h3><p>Only items that need you, each with a link to where you act. Lineup and bye checks use your best legal 18-player lineup by season points per MFL week. " +
       "<b>Lineup strength</b> is built from each team’s own roster: the best legal lineup, in the slots MFL’s lineup settings define, from its available rostered players. A replacement free agent fills a slot only when no rostered player can play it, and the card marks that row with *.</p>" +
       "<p><b>By Position</b> counts each starter at his own position (a TE in Flex is TE). <b>By Lineup Slot</b> shows the same lineup by slot: QB, RB, WR, TE, Flex, Superflex, DL, LB, DB, IDP Flex, K, P; a second TE who starts is Flex, a second QB is Superflex. Each starter counts once, and each breakdown’s rows add up to Overall. " +
-      "Biggest need is always by position: that is the trade to look for.</p>" +
+      "Biggest lineup gain is by position: what one typical (median) starter would add to the modeled lineup, where he’d start and who’d leave. It is a potential gain, not a weakness — a position can rank near the top and still gain through a Flex spot.</p>" +
       "<p><b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = the raw points a week above replacement: Σ(starter PPG − replacement-level PPG), 0 = replacement level. Replacement level is the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; By Lineup Slot, a Flex or Superflex slot uses the best of those the slot accepts, so Overall Above Replacement can differ between the two breakdowns: one measures each starter against his own position’s baseline, the other against the slot’s eligible-player baseline. Rank and Index are the league-relative measures. Shown values are rounded so each breakdown’s rows add up to its Overall. " +
       "<b>Index</b> = PPG ÷ the league <b>mean</b> × 100: 100 = average. The Trade finder’s matrix reads the same lineups, so its position cells match By Position, Above Replacement.</p>" +
       "<p><b>Starter Mix</b> is different: the <b>actual</b> starters per week from the lineups submitted to MFL in completed weeks, by each player’s own position. MFL records who started, not which slot: a second QB can only be Superflex and an extra DL/LB/DB only IDP Flex, while extra RB/WR/TE starters are shown together as Flexible slots. A week whose lineup doesn’t fill every slot is listed and left out, never averaged in.</p>" +

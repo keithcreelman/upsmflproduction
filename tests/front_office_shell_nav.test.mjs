@@ -88,7 +88,9 @@ test("About is a real dialog: labelled, focus moves in and returns, Esc closes, 
   const about = sliceFn(HUB, "function setupAbout(");
   t.ok(/e\.key === "Escape"/.test(about) && /e\.key === "Tab"/.test(about), "Esc + focus trap");
   t.ok(/openDialog\("About these numbers"/.test(sliceFn(HUB, "function openAbout(")), "About opens through the shared dialog (the cap ledgers use the same frame)");
-  t.ok(/panel\.focus\(\)/.test(sliceFn(HUB, "function openDialog(")) && /__opener\.focus\(\)/.test(sliceFn(HUB, "function closeAbout(")), "focus in, focus back");
+  t.ok(/panel\.focus\(/.test(sliceFn(HUB, "function openDialog(")), "focus moves in");
+  const close = sliceFn(HUB, "function closeAbout(");
+  t.ok(/opts\.returnFocus && opts\.returnFocus\(\)\) \|\| wrap\.__opener/.test(close) && /target\.focus\(\{ preventScroll: true \}\)/.test(close), "focus back to the opener (or a fresh lookup of it), without scrolling the page");
 });
 
 test("a destination whose view isn't built says so; the ledger's own tabs are never overwritten", () => {
