@@ -32301,6 +32301,9 @@ const mflToSleeper = {};
         includePayload,
         statusFilter,
         limit,
+        // The 5-minute stored-offer fallback below is opt-in: only for the proven
+        // owner's OWN franchise (never another team's stored offers).
+        allowStoredFallback = false,
       }) => {
         if (!viewerCookieHeader) {
           return {
@@ -32470,7 +32473,7 @@ const mflToSleeper = {};
         const fallbackOutgoing = [];
         const fallbackIncoming = [];
         // Only fire fallback when owner-cookied MFL response came back empty.
-        if (franchiseId && ownerCookieUsed && !mflReturnedAnyRows) {
+        if (allowStoredFallback && franchiseId && ownerCookieUsed && !mflReturnedAnyRows) {
           for (const so of storedOffers) {
             if (!so || typeof so !== "object") continue;
             const status = offerStatusNormalized(so.status, "PENDING");
@@ -38576,6 +38579,61 @@ const mflToSleeper = {};
         }
       }
 
+      // ── Trade inbox reads: whose offers a caller may see ─────────────────────
+      // The franchise named in the query is a REQUEST, never identity. The caller is
+      // proven with the same owner-session model as every trade write (tradeCaller ->
+      // MFL myleagues); the admin key does not open these reads. An owner who names
+      // another team is answered 200 with THEIR OWN lists (`scoped_to_proven: true`),
+      // not a 403: both inbox clients read any 401/403 as "signed out", and with MFL
+      // lockout off an owner can legitimately have another team selected. A proven
+      // commissioner keeps today's "acting as" view of the named team.
+      //   ownTeam -- the proven owner named their own franchise: only then may the
+      //              reminder cleanup run and the 5-minute stored-offer fallback fire.
+      const tradeReadDeny = (r) => {
+        const signedOut = r.code === "unauthenticated";
+        // A session MFL doesn't place in this league is answered the way MFL's own
+        // pendingTrades answered it before this gate existed: "sign in again" (401).
+        const notMember = r.code === "forbidden";
+        const http = notMember ? 401 : r.http;
+        const code = notMember ? "session_expired" : r.code;
+        const error = signedOut
+          ? "Missing MFL owner session (MFL_USER_ID). Re-open the workbench from MFL or pass MFL_USER_ID."
+          : notMember ? "Your MFL sign-in expired. Re-open this from MFL and try again." : r.message;
+        return jsonOut(http, {
+          ok: false, code, error, message: error,
+          pending_lookup: {
+            ok: false, rows_count: 0, upstream_status: 0,
+            error: signedOut ? "missing_owner_session_mfl_user_id" : code,
+            missing_owner_session: signedOut,
+          },
+        });
+      };
+      const resolveTradeReadScope = async () => {
+        const requested = padFranchiseId(
+          url.searchParams.get("acting_franchise_id") ||
+            url.searchParams.get("ACTING_FRANCHISE_ID") ||
+          url.searchParams.get("FRANCHISE_ID") ||
+            url.searchParams.get("franchise_id") ||
+            url.searchParams.get("F") ||
+            ""
+        );
+        // declaredFid "": an owner naming another team is SCOPED below, not refused.
+        const auth = await tradeCaller(null, "", { allowAdminKey: false });
+        if (!auth.ok) return { deny: tradeReadDeny(auth) };
+        // No franchise named (e.g. the rookie draft hub poll): exactly today's
+        // answer -- the caller's own MFL list unfiltered, no incoming/outgoing
+        // split, no reminder cleanup, no stored-offer fallback.
+        if (!requested) return { franchiseId: "", ownTeam: false, scopedToProven: false };
+        const sessionFid = padFranchiseId(auth.caller.sessionFid);
+        const commishActing = !!(auth.caller.isCommish && requested && requested !== sessionFid);
+        const franchiseId = commishActing ? requested : sessionFid;
+        return {
+          franchiseId,
+          ownTeam: !commishActing,
+          scopedToProven: !!(requested && requested !== franchiseId),
+        };
+      };
+
       if (
         (path === "/trade-offers" || path === "/api/trades/proposals") &&
         request.method === "GET"
@@ -38590,14 +38648,9 @@ const mflToSleeper = {};
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season param" });
 
-        const franchiseId = padFranchiseId(
-          url.searchParams.get("acting_franchise_id") ||
-            url.searchParams.get("ACTING_FRANCHISE_ID") ||
-          url.searchParams.get("FRANCHISE_ID") ||
-            url.searchParams.get("franchise_id") ||
-            url.searchParams.get("F") ||
-            ""
-        );
+        const scope = await resolveTradeReadScope();
+        if (scope.deny) return scope.deny;
+        const franchiseId = scope.franchiseId;
         const includePayload = ["1", "true", "yes"].includes(
           safeStr(url.searchParams.get("include_payload")).toLowerCase()
         );
@@ -38611,6 +38664,7 @@ const mflToSleeper = {};
           includePayload,
           statusFilter,
           limit,
+          allowStoredFallback: scope.ownTeam,
         });
         if (!live.ok) {
           return jsonOut(live.status || 502, {
@@ -38632,7 +38686,9 @@ const mflToSleeper = {};
         // longer a live incoming pending — this stops the nags the instant they
         // act in-app (accept/decline/counter all drop it from this list). Runs
         // only after a SUCCESSFUL live load, so it never false-resolves.
-        if (franchiseId && env.UPS_MFL_DB) {
+        // Only for an owner reading their OWN proven franchise: a commissioner's
+        // "acting as" view is the commissioner's MFL list, not that team's.
+        if (franchiseId && scope.ownTeam && env.UPS_MFL_DB) {
           ctx.waitUntil((async () => {
             try {
               const livePendingIds = new Set(
@@ -38666,6 +38722,7 @@ const mflToSleeper = {};
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
           franchise_id: franchiseId || "",
+          ...(scope.scopedToProven ? { scoped_to_proven: true } : {}),
           source: "worker:live_mfl_pending_trades",
           pending_lookup: live.pendingLookup,
           counts: live.counts,
@@ -38689,16 +38746,12 @@ const mflToSleeper = {};
             YEAR ||
             ""
         );
-        const franchiseId = padFranchiseId(
-          url.searchParams.get("acting_franchise_id") ||
-            url.searchParams.get("ACTING_FRANCHISE_ID") ||
-          url.searchParams.get("FRANCHISE_ID") ||
-            url.searchParams.get("franchise_id") ||
-            url.searchParams.get("F") ||
-            ""
-        );
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season param" });
+
+        const scope = await resolveTradeReadScope();
+        if (scope.deny) return scope.deny;
+        const franchiseId = scope.franchiseId;
 
         const live = await loadLivePendingProposals({
           leagueId,
@@ -38707,6 +38760,7 @@ const mflToSleeper = {};
           includePayload: true,
           statusFilter: "PENDING",
           limit: 300,
+          allowStoredFallback: scope.ownTeam,
         });
         if (!live.ok) {
           return jsonOut(live.status || 502, {
@@ -38753,6 +38807,7 @@ const mflToSleeper = {};
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
           franchise_id: franchiseId || "",
+          ...(scope.scopedToProven ? { scoped_to_proven: true } : {}),
           proposal,
         });
       }
