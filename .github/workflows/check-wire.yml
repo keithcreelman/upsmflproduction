@@ -32,6 +32,7 @@ on:
     paths:
       - "site/wire/**"
       - "pipelines/etl/wire/**"
+      - "scripts/ups_center_auto.sh"
       - ".github/workflows/check-wire.yml"
   push:
     branches: [main]

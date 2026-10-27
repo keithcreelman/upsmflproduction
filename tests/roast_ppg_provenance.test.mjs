@@ -13,7 +13,10 @@ import assert from 'assert';
 
 const BOT = fs.readFileSync('pipelines/etl/scripts/trade_roast_bot.py', 'utf8');
 const PROMPT = fs.readFileSync('pipelines/etl/scripts/trade_grader_prompt.py', 'utf8');
-const GRADER = fs.readFileSync('pipelines/etl/scripts/trade_grader.py', 'utf8');
+// Decision 3 (#1343, 2026-10-20): every PPG and its basis text come from the
+// valuation snapshot, so the basis rules live in its generator and runtime.
+const GEN = fs.readFileSync('pipelines/etl/scripts/build_valuation_snapshot.py', 'utf8');
+const SNAPSHOT = fs.readFileSync('pipelines/etl/scripts/valuation_snapshot.py', 'utf8');
 let fails = 0;
 const check = (n, fn) => { try { fn(); console.log('  ok   '+n); }
   catch(e){ fails++; console.log('  FAIL '+n+'\n         '+e.message); } };
@@ -49,14 +52,19 @@ check('prompt supplies the replacement phrasing', () => {
 
 console.log('\nthe upstream rules it depends on still hold');
 check('grader still refuses a punitive 0 for a player who has not played', () => {
-  assert.ok(/never at a punitive 0/i.test(GRADER),
+  // No games: the PPG his position rank implies, or no PPG at all, and a
+  // traded player with no PPG gets NO GRADE, never 0.
+  assert.ok(/"basis": "adp_implied"/.test(GEN),
     'a rookie must not be valued at 0 PPG just because he has no seasons');
+  assert.ok(/no projected PPG in the snapshot/.test(SNAPSHOT),
+    'a traded player with no PPG must stop the grade, not count as 0');
 });
 check('grader still labels the ADP-implied basis explicitly', () => {
-  assert.ok(/ADP-implied: market ranks him/.test(GRADER));
+  assert.ok(/no NFL games: FantasyCalc ranks him/.test(GEN));
 });
-check('grader still labels real production as seasons played', () => {
-  assert.ok(/weighted over seasons played/.test(GRADER));
+check('grader still labels real production with the seasons and games behind it', () => {
+  assert.ok(/"weighted " if qualifying else "thin data \(under 4 games\): "/.test(GEN));
+  assert.ok(/\(\{g\}g\)/.test(GEN), 'each season shows its games played');
 });
 
 console.log(fails ? `\n${fails} FAILED` : '\nall passed');

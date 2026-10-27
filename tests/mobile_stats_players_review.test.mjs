@@ -1024,7 +1024,7 @@ test("the other rules say what they are: taxi $0, sub-$5K flat $1,000 (DeJean: n
   // a temporary call-up is on the active roster: never "while on the taxi squad"
   const callup = moneyOf(boot({ capRows: Object.assign({}, FX.cap_rows, { "16593": Object.assign({}, FX.cap_rows["16593"], { basis: "taxi_callup_exempt" }) }) }), "16593");
   t.equal(callup.f["Remaining guaranteed"], "$0");
-  t.match(callup.body, /A taxi player on a temporary call-up, never permanently promoted, still carries no guarantee/);
+  t.match(callup.body, /A taxi-eligible player cut after temporary call-ups, never permanently promoted: cap-free/);
   t.doesNotMatch(callup.body, /while on the taxi squad/);
   // earned already past the guarantee: no "$87,000 − $104,529 = $0"
   const tua = moneyOf(v, "14778");

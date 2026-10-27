@@ -1,0 +1,563 @@
+{
+ "_note": "Recorded from Cloudflare's GraphQL analytics on 2026-10-22 with scripts/d1_usage.py --record (no D1 rows read). Query text trimmed to 600 characters; every number is as recorded.",
+ "now": "2026-10-22T10:26:00Z",
+ "window": "1d",
+ "database_id": "8cfe1ddd-749e-476a-9c2c-a359410c6fc1",
+ "databases": [
+  {
+   "uuid": "84ba2435-6a7a-49df-8df6-137b73ad11ff",
+   "name": "ups-stats-store-preview"
+  },
+  {
+   "uuid": "8cfe1ddd-749e-476a-9c2c-a359410c6fc1",
+   "name": "ups-mfl-db"
+  }
+ ],
+ "exact_response": {
+  "data": {
+   "viewer": {
+    "accounts": [
+     {
+      "previous_utc_day": [
+       {
+        "avg": {
+         "sampleInterval": 1
+        },
+        "dimensions": {
+         "databaseId": "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
+        },
+        "sum": {
+         "readQueries": 35485,
+         "rowsRead": 4526410,
+         "rowsWritten": 33452,
+         "writeQueries": 13878
+        }
+       }
+      ],
+      "rolling_24h": [
+       {
+        "avg": {
+         "sampleInterval": 1
+        },
+        "dimensions": {
+         "databaseId": "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
+        },
+        "sum": {
+         "readQueries": 40246,
+         "rowsRead": 4956979,
+         "rowsWritten": 35907,
+         "writeQueries": 14673
+        }
+       }
+      ],
+      "utc_day": [
+       {
+        "avg": {
+         "sampleInterval": 1
+        },
+        "dimensions": {
+         "databaseId": "8cfe1ddd-749e-476a-9c2c-a359410c6fc1"
+        },
+        "sum": {
+         "readQueries": 19666,
+         "rowsRead": 2050461,
+         "rowsWritten": 9729,
+         "writeQueries": 6251
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "errors": null
+ },
+ "sampled_response": {
+  "data": {
+   "viewer": {
+    "accounts": [
+     {
+      "d1QueriesAdaptiveGroups": [
+       {
+        "avg": {
+         "queryDurationMs": 41.481,
+         "rowsRead": 50750,
+         "rowsReturned": 33,
+         "rowsWritten": 0,
+         "sampleInterval": 145
+        },
+        "count": 145,
+        "dimensions": {
+         "query": "\n            WITH current_team AS (\n              -- Each player's CURRENT NFL team = their row in the latest season\n              -- we've mirrored from MFL's TYPE=players export (src_players,\n              -- refreshed nightly). The leaderboard 'team' is the stat-season\n              -- team; this overlays \"the team they're on today\" (Keith 2026-06-20).\n              --\n              -- Also carries MFL's OWN position (Keith 2026-08-06: \"it's not the\n              -- MFL Positions so it's confusing\"). nfl_player_weekly's position\n              -- is nflverse's \u2014 MLB / SAF / OLB / FS \u2014 which "
+        },
+        "sum": {
+         "queryDurationMs": 6014.745,
+         "rowsRead": 7358750,
+         "rowsReturned": 4785,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 9.327804761904762,
+         "rowsRead": 14433,
+         "rowsReturned": 3,
+         "rowsWritten": 0,
+         "sampleInterval": 5.25
+        },
+        "count": 42,
+        "dimensions": {
+         "query": "SELECT s.week, s.team, CAST(ROUND(MAX(s.off_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.off_snaps > 0 THEN s.off_snap_pct END), 0)) AS INTEGER) AS team_off, CAST(ROUND(MAX(s.def_snaps) * 1.0 / NULLIF(MAX(CASE WHEN s.def_snaps > 0 THEN s.def_snap_pct END), 0)) AS INTEGER) AS team_def FROM nfl_player_snaps s JOIN (SELECT week, team FROM nfl_player_snaps WHERE season = ? AND pfr_id = ?) p ON p.week = s.week AND p.team = s.team WHERE s.season = ? GROUP BY s.week, s.team"
+        },
+        "sum": {
+         "queryDurationMs": 391.76779999999997,
+         "rowsRead": 606194,
+         "rowsReturned": 164,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 76.82424285714286,
+         "rowsRead": 52551,
+         "rowsReturned": 1450,
+         "rowsWritten": 0,
+         "sampleInterval": 1.4
+        },
+        "count": 7,
+        "dimensions": {
+         "query": "WITH pw AS (  SELECT f.mfl_id AS m, w.week AS wk, w.team AS t    FROM nfl_player_weekly w JOIN ff_player_ids f ON f.gsis_id = w.gsis_id   WHERE w.season = ?1 AND w.week BETWEEN 1 AND 18 AND w.team IS NOT NULL AND w.team <> ''     AND f.mfl_id IS NOT NULL AND f.gsis_id NOT IN ('', 'NA')), agg AS (SELECT m, MIN(t) AS t, MIN(wk) AS lo, MAX(wk) AS hi, COUNT(DISTINCT t) AS n FROM pw GROUP BY m) SELECT m, t, lo, hi, NULL AS wk FROM agg WHERE n = 1 UNION ALL SELECT pw.m, pw.t, NULL, NULL, pw.wk FROM pw JOIN agg ON agg.m = pw.m WHERE agg.n > 1"
+        },
+        "sum": {
+         "queryDurationMs": 537.7697000000001,
+         "rowsRead": 367862,
+         "rowsReturned": 10150,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 1.723857142857143,
+         "rowsRead": 8671,
+         "rowsReturned": 5,
+         "rowsWritten": 0,
+         "sampleInterval": 5.25
+        },
+        "count": 42,
+        "dimensions": {
+         "query": "SELECT week, team, off_snaps, def_snaps, st_snaps FROM nfl_player_snaps WHERE season = ? AND pfr_id = ? ORDER BY week"
+        },
+        "sum": {
+         "queryDurationMs": 72.402,
+         "rowsRead": 364182,
+         "rowsReturned": 210,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 2.150658064516129,
+         "rowsRead": 6568,
+         "rowsReturned": 4,
+         "rowsWritten": 0,
+         "sampleInterval": 5.166666666666667
+        },
+        "count": 31,
+        "dimensions": {
+         "query": "SELECT * FROM nfl_player_weekly WHERE season = ? AND gsis_id = ? ORDER BY week"
+        },
+        "sum": {
+         "queryDurationMs": 66.6704,
+         "rowsRead": 203611,
+         "rowsReturned": 154,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 8.882773333333335,
+         "rowsRead": 13142,
+         "rowsReturned": 192,
+         "rowsWritten": 0,
+         "sampleInterval": 2.142857142857143
+        },
+        "count": 15,
+        "dimensions": {
+         "query": "SELECT week, team, SUM(COALESCE(rush_att,0)+COALESCE(pass_att,0)+COALESCE(pass_sacks,0)) AS plays FROM nfl_player_weekly WHERE season = ?1 AND week BETWEEN 1 AND 18 GROUP BY week, team"
+        },
+        "sum": {
+         "queryDurationMs": 133.2416,
+         "rowsRead": 197130,
+         "rowsReturned": 2880,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.39997305760214324,
+         "rowsRead": 28,
+         "rowsReturned": 0,
+         "rowsWritten": 0,
+         "sampleInterval": 8.103120759837179
+        },
+        "count": 5972,
+        "dimensions": {
+         "query": "UPDATE ups_drop_events\n                  SET applies_to_season = ?, cap_season_source = ?, cap_season_resolved_at_utc = ?,\n                      cap_season_needs_review = ?, cap_season_review_reason = ?\n                WHERE ledger_key = ?\n                  AND (applies_to_season IS NULL OR applies_to_season <> ?)"
+        },
+        "sum": {
+         "queryDurationMs": 2388.6390999999994,
+         "rowsRead": 167216,
+         "rowsReturned": 0,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.6661540186915889,
+         "rowsRead": 285,
+         "rowsReturned": 13,
+         "rowsWritten": 0,
+         "sampleInterval": 5.815217391304348
+        },
+        "count": 535,
+        "dimensions": {
+         "query": "SELECT player_id,\n                  COUNT(DISTINCT CASE WHEN pending = 0 AND CAST(season AS INTEGER) >= 2026 AND nfl_week IS NOT NULL THEN season || '-' || nfl_week END) AS used,\n                  MAX(CASE WHEN pending = 0 AND CAST(season AS INTEGER) >= 2026 THEN became_permanent ELSE 0 END) AS marked\n             FROM ups_taxi_callups\n            WHERE player_id IN (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)\n            GROUP BY player_id"
+        },
+        "sum": {
+         "queryDurationMs": 356.3924,
+         "rowsRead": 152772,
+         "rowsReturned": 7061,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 1.8709400000000003,
+         "rowsRead": 6940,
+         "rowsReturned": 6,
+         "rowsWritten": 0,
+         "sampleInterval": 10
+        },
+        "count": 20,
+        "dimensions": {
+         "query": "SELECT channel_id, MAX(posted_at_unix) AS newest FROM ups_discord_messages GROUP BY channel_id"
+        },
+        "sum": {
+         "queryDurationMs": 37.418800000000005,
+         "rowsRead": 138816,
+         "rowsReturned": 120,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.2093024193548387,
+         "rowsRead": 24,
+         "rowsReturned": 0,
+         "rowsWritten": 1,
+         "sampleInterval": 9.652694610778443
+        },
+        "count": 4836,
+        "dimensions": {
+         "query": "INSERT OR IGNORE INTO ups_transactions\n                 (mfl_txn_id, league_id, season, type, unix_timestamp, datetime_et,\n                  franchise_id, franchise_id2, added_players, dropped_players, raw_json)\n               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        },
+        "sum": {
+         "queryDurationMs": 1012.1864999999999,
+         "rowsRead": 116064,
+         "rowsReturned": 0,
+         "rowsWritten": 4914
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.41498829516539454,
+         "rowsRead": 250,
+         "rowsReturned": 0,
+         "rowsWritten": 0,
+         "sampleInterval": 10.621621621621621
+        },
+        "count": 393,
+        "dimensions": {
+         "query": "SELECT id, player_id, player_name, position, franchise_id, franchise_name,\n                  dropped_at_iso, penalty_amount, pre_drop_aav, pre_drop_contract_length,\n                  pre_drop_contract_year, earned_to_date, capfree_evidence_json,\n                  capfree_mfl_designation, capfree_thread_message_id, capfree_last_nudge_utc\n             FROM ups_drop_events\n            WHERE season = ? AND league_id = ?\n              AND COALESCE(capfree_review_status,'') = 'pending'\n              AND posted_to_mfl = 0\n            ORDER BY dropped_at_unix ASC"
+        },
+        "sum": {
+         "queryDurationMs": 163.09040000000005,
+         "rowsRead": 98522,
+         "rowsReturned": 0,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.43672905198776774,
+         "rowsRead": 270,
+         "rowsReturned": 21,
+         "rowsWritten": 0,
+         "sampleInterval": 9.617647058823529
+        },
+        "count": 327,
+        "dimensions": {
+         "query": "SELECT player_id, player_name, franchise_id, penalty_amount, ledger_key, penalty_basis,\n                  dropped_at_unix, dropped_at_iso\n             FROM ups_drop_events\n            WHERE season = ? AND league_id = ? AND posted_to_mfl = 0 AND penalty_amount > 0\n              AND COALESCE(penalty_basis, '') <> 'week_authority_unresolved'\n              AND COALESCE(capfree_review_status, '') <> 'pending'\n              \n            ORDER BY dropped_at_unix ASC"
+        },
+        "sum": {
+         "queryDurationMs": 142.81040000000004,
+         "rowsRead": 88426,
+         "rowsReturned": 6867,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.35432206303724934,
+         "rowsRead": 252,
+         "rowsReturned": 0,
+         "rowsWritten": 0,
+         "sampleInterval": 10.90625
+        },
+        "count": 349,
+        "dimensions": {
+         "query": "SELECT season, player_id, player_name, franchise_id, ledger_key, dropped_at_iso FROM ups_drop_events\n              WHERE season IN (?, ?) AND league_id = ? AND posted_to_mfl = 0 AND penalty_basis = 'week_authority_unresolved'\n              ORDER BY dropped_at_unix ASC"
+        },
+        "sum": {
+         "queryDurationMs": 123.65840000000001,
+         "rowsRead": 88083,
+         "rowsReturned": 0,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.6723947204968945,
+         "rowsRead": 261,
+         "rowsReturned": 0,
+         "rowsWritten": 0,
+         "sampleInterval": 9.470588235294118
+        },
+        "count": 322,
+        "dimensions": {
+         "query": "SELECT id, season, player_id, player_name, franchise_id, dropped_at_unix, dropped_at_iso, ledger_key,\n                    pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year, pre_drop_contract_info, pre_drop_taxi\n               FROM ups_drop_events\n              WHERE season IN (?, ?) AND league_id = ? AND penalty_basis = 'week_authority_unresolved' AND COALESCE(posted_to_mfl, 0) = 0\n              ORDER BY dropped_at_unix ASC LIMIT ?"
+        },
+        "sum": {
+         "queryDurationMs": 216.51110000000003,
+         "rowsRead": 84184,
+         "rowsReturned": 0,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.8029277777777778,
+         "rowsRead": 1821,
+         "rowsReturned": 2,
+         "rowsWritten": 0,
+         "sampleInterval": 3.272727272727273
+        },
+        "count": 36,
+        "dimensions": {
+         "query": "SELECT * FROM nfl_player_redzone WHERE season = ? AND gsis_id = ? ORDER BY week"
+        },
+        "sum": {
+         "queryDurationMs": 28.9054,
+         "rowsRead": 65556,
+         "rowsReturned": 76,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.31631926229508195,
+         "rowsRead": 261,
+         "rowsReturned": 0,
+         "rowsWritten": 0,
+         "sampleInterval": 11.090909090909092
+        },
+        "count": 244,
+        "dimensions": {
+         "query": "SELECT id, season, player_id, player_name, franchise_id, dropped_at_iso, discord_channel_id, discord_message_id FROM ups_drop_events\n              WHERE season IN (?, ?) AND league_id = ? AND discord_posted = 2\n              ORDER BY dropped_at_unix ASC LIMIT ?"
+        },
+        "sum": {
+         "queryDurationMs": 77.1819,
+         "rowsRead": 63754,
+         "rowsReturned": 0,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.3707974603174604,
+         "rowsRead": 200,
+         "rowsReturned": 1,
+         "rowsWritten": 0,
+         "sampleInterval": 1.6321243523316062
+        },
+        "count": 315,
+        "dimensions": {
+         "query": "SELECT (SELECT COUNT(*) FROM ups_auction_lots WHERE is_test = 1) AS auction_test_lots, (SELECT COUNT(*) FROM discord_rounds WHERE test_only = 1 AND round_id LIKE 'rp-%') AS test_rule_rounds"
+        },
+        "sum": {
+         "queryDurationMs": 116.80120000000004,
+         "rowsRead": 63000,
+         "rowsReturned": 315,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 8.379574074074073,
+         "rowsRead": 2273,
+         "rowsReturned": 2273,
+         "rowsWritten": 0,
+         "sampleInterval": 1.6875
+        },
+        "count": 27,
+        "dimensions": {
+         "query": "SELECT mfl_id, gsis_id, accepted FROM player_id_map"
+        },
+        "sum": {
+         "queryDurationMs": 226.24849999999998,
+         "rowsRead": 61380,
+         "rowsReturned": 61380,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.6733685344827587,
+         "rowsRead": 259,
+         "rowsReturned": 0,
+         "rowsWritten": 0,
+         "sampleInterval": 8.923076923076923
+        },
+        "count": 232,
+        "dimensions": {
+         "query": "SELECT id, season, league_id, player_id, player_name, position, nfl_team,\n                  franchise_id, franchise_name, dropped_at_unix, dropped_at_iso,\n                  pre_drop_contract_status, pre_drop_salary, pre_drop_contract_year,\n                  pre_drop_contract_length, pre_drop_contract_info, pre_drop_tcv,\n                  pre_drop_years_remaining, pre_drop_taxi,\n                  earned_to_date, guaranteed_amount, penalty_amount, penalty_basis,\n                  penalty_exempt, penalty_exempt_reason, ledger_key,\n                  discord_message_id, discord_channel_id, notes FR"
+        },
+        "sum": {
+         "queryDurationMs": 156.22150000000002,
+         "rowsRead": 60156,
+         "rowsReturned": 0,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 1.1141682926829268,
+         "rowsRead": 1448,
+         "rowsReturned": 109,
+         "rowsWritten": 0,
+         "sampleInterval": 5.857142857142857
+        },
+        "count": 41,
+        "dimensions": {
+         "query": "SELECT player_id,\n                  COUNT(DISTINCT CASE WHEN pending = 0 AND CAST(season AS INTEGER) >= 2026 AND nfl_week IS NOT NULL THEN season || '-' || nfl_week END)                AS used,\n                  SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND CAST(season AS INTEGER) >= 2026 THEN 1 ELSE 0 END) AS pending_count,\n                  MAX(CASE WHEN pending = 0 AND CAST(season AS INTEGER) >= 2026 THEN became_permanent ELSE 0 END)  AS marked\n             FROM ups_taxi_callups\n                GROUP BY player_id"
+        },
+        "sum": {
+         "queryDurationMs": 45.6809,
+         "rowsRead": 59368,
+         "rowsReturned": 4469,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.3955389140271493,
+         "rowsRead": 261,
+         "rowsReturned": 0,
+         "rowsWritten": 0,
+         "sampleInterval": 9.608695652173912
+        },
+        "count": 221,
+        "dimensions": {
+         "query": "SELECT id, season, player_id, player_name, franchise_id, dropped_at_iso, penalty_basis FROM ups_drop_events\n              WHERE season IN (?, ?) AND league_id = ? AND discord_posted = 0\n                AND (penalty_amount IS NULL OR COALESCE(penalty_basis, '') IN ('no_pre_drop_contract', 'contract_unstamped_needs_review', 'week_authority_unresolved'))\n              ORDER BY dropped_at_unix ASC LIMIT ?"
+        },
+        "sum": {
+         "queryDurationMs": 87.41409999999999,
+         "rowsRead": 57790,
+         "rowsReturned": 0,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 0.28980739130434785,
+         "rowsRead": 249,
+         "rowsReturned": 1,
+         "rowsWritten": 0,
+         "sampleInterval": 8.214285714285714
+        },
+        "count": 230,
+        "dimensions": {
+         "query": "SELECT COUNT(*) AS n FROM ups_drop_events\n                WHERE season = ? AND league_id = ? AND posted_to_mfl = 0\n                  AND COALESCE(capfree_review_status, '') = 'pending'"
+        },
+        "sum": {
+         "queryDurationMs": 66.65570000000001,
+         "rowsRead": 57361,
+         "rowsReturned": 230,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 2.0532285714285714,
+         "rowsRead": 1592,
+         "rowsReturned": 754,
+         "rowsWritten": 0,
+         "sampleInterval": 14
+        },
+        "count": 28,
+        "dimensions": {
+         "query": "SELECT player_id, status, first_seen_unix FROM ups_injury_status WHERE season=? AND week=?\n     UNION ALL\n     SELECT prev.player_id, prev.status, prev.first_seen_unix\n       FROM ups_injury_status prev\n      WHERE prev.season=? AND prev.week=?\n        AND NOT EXISTS (\n          SELECT 1 FROM ups_injury_status cur\n           WHERE cur.season=prev.season AND cur.week=? AND cur.player_id=prev.player_id AND cur.status=prev.status\n        )\n        AND (? = 0 OR prev.last_seen_unix >= ?)"
+        },
+        "sum": {
+         "queryDurationMs": 57.490399999999994,
+         "rowsRead": 44584,
+         "rowsReturned": 21120,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 2.760743396226416,
+         "rowsRead": 738,
+         "rowsReturned": 12,
+         "rowsWritten": 0,
+         "sampleInterval": 6.625
+        },
+        "count": 53,
+        "dimensions": {
+         "query": "SELECT s.season,\n                    s.franchise_id,\n                    f.team_name      AS franchise_name,\n                    f.owner_name     AS owner_name,\n                    f.division       AS division,\n                    f.logo           AS logo,\n                    s.div_w, s.div_l, s.div_pct,\n                    s.h2h_w, s.h2h_l, s.h2h_t, s.h2h_pct,\n                    COALESCE(s.allplay_full_w,      s.allplay_w)    AS allplay_w,\n                    COALESCE(s.allplay_full_l,      s.allplay_l)    AS allplay_l,\n                    COALESCE(s.allplay_full_t,      s.allplay_t)    AS a"
+        },
+        "sum": {
+         "queryDurationMs": 146.31940000000003,
+         "rowsRead": 39165,
+         "rowsReturned": 636,
+         "rowsWritten": 0
+        }
+       },
+       {
+        "avg": {
+         "queryDurationMs": 1.0514814814814815,
+         "rowsRead": 1448,
+         "rowsReturned": 109,
+         "rowsWritten": 0,
+         "sampleInterval": 3
+        },
+        "count": 27,
+        "dimensions": {
+         "query": "SELECT player_id,\n                      COUNT(DISTINCT CASE WHEN pending = 0 AND CAST(season AS INTEGER) >= 2026 AND nfl_week IS NOT NULL THEN season || '-' || nfl_week END)                AS used,\n                      SUM(CASE WHEN pending = 1 AND demoted_at IS NULL AND CAST(season AS INTEGER) >= 2026 THEN 1 ELSE 0 END) AS pending_count,\n                      MAX(CASE WHEN pending = 0 AND CAST(season AS INTEGER) >= 2026 THEN became_permanent ELSE 0 END)  AS marked\n                 FROM ups_taxi_callups\n                GROUP BY player_id"
+        },
+        "sum": {
+         "queryDurationMs": 28.39,
+         "rowsRead": 39096,
+         "rowsReturned": 2943,
+         "rowsWritten": 0
+        }
+       }
+      ]
+     }
+    ]
+   }
+  },
+  "errors": null
+ }
+}

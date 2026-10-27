@@ -361,6 +361,11 @@
     // If app.js already owns the batch for this season there's nothing to do.
     var s = window.UPS_MOBILE && window.UPS_MOBILE.state;
     if (s && s.capPenaltyByPid) return;
+    // app.js reads the batch when a screen that shows a penalty opens, once per
+    // app load (ensureCapPenaltyPreview — one shared request). Ask it rather
+    // than starting a second, identical read of our own.
+    var data = window.UPS_MOBILE && window.UPS_MOBILE.data;
+    if (data && data.ensureCapPenaltyPreview) { data.ensureCapPenaltyPreview(); return; }
     __mCapLoading = true;
     // League id comes from the live app context — hardcoding 74598 broke the
     // preview for any other league (test league L=25625 included).
@@ -467,10 +472,25 @@
         accrued: accrued, earned: earned
       };
     }
-    if (player && player.isTaxi) {
+    // Cap-free cut protection follows TAXI ELIGIBILITY (the one taxi rule, site/shared/taxi_rule.js), not the roster
+    // slot (Keith 2026-10-21, canon T5.2 / §D2): eligible immediately before the cut → $0 on taxi, active or mid
+    // call-up; unknown → unpriced (never a guessed $0 or charge). The worker's priced row, once loaded, decides.
+    var taxiData = window.UPS_MOBILE && window.UPS_MOBILE.data;
+    var taxiVerdict = taxiData && taxiData.taxiStatusFor
+      ? taxiData.taxiStatusFor(player && player.id, player && player.type, player && player.isTaxi, false) : null;
+    if (taxiVerdict && taxiVerdict.eligible === null && /^rookie(-draft)?$/i.test(safeStr(player && player.type))) {
+      return {
+        amount: null, unpriced: true,
+        note: "Taxi eligibility couldn't be confirmed, so this cut isn't priced here yet.",
+        tcv: totalContractValue, guaranteed: guaranteed,
+        currentYearSalary: currentYearSalary, priorEarned: priorEarned,
+        accrued: accrued, earned: earned
+      };
+    }
+    if (taxiVerdict ? taxiVerdict.eligible === true : (player && player.isTaxi)) {
       return {
         amount: 0,
-        note: "Taxi players are shown with salary but do not project a current cap penalty.",
+        note: "Taxi-eligible: a cut is cap-free wherever the player sits (§D2 / T5.2), and the release ends taxi eligibility.",
         tcv: totalContractValue, guaranteed: guaranteed,
         currentYearSalary: currentYearSalary, priorEarned: priorEarned,
         accrued: accrued, earned: earned
