@@ -30,7 +30,7 @@
     var delay = opt.debounceMs == null ? 600 : opt.debounceMs;
     var S = opt.sources || {};
     var draft = C.emptyDraft([me]);
-    var st = { phase: "idle", resp: null, seq: 0, timer: null, note: "", confirm: false, sent: null, open: {}, q: {}, memo: { sig: "", imp: null }, capNote: {}, dlg: null };
+    var st = { phase: "idle", resp: null, seq: 0, timer: null, note: "", confirm: false, sent: null, open: {}, q: {}, memo: { sig: "", imp: null }, capNote: {}, dlg: null, prompted: {} };
     var info = {}; teams.forEach(function (t) { info[C.pad4(t.fid)] = t; });
     function nm(f) { return (info[f] && info[f].name) || "Team " + f; }
     function others() { return draft.teams.filter(function (f) { return f !== me; }); }
@@ -97,7 +97,7 @@
     function extensionRow(i, p) {
       var opts = extOpts(i); if (!opts.length) return "";
       var chosen = (draft.ext || {})[i.from + "|" + i.token] || "", o = opts.filter(function (x) { return x.option_key === chosen; })[0];
-      return '<tr class="fo-tb-extrow"><td colspan="3"><div class="fo-tb-extbar"><span class="fo-tf-tag ok">Extension eligible</span> ' +
+      return '<tr class="fo-tb-extrow"><td colspan="3"><div class="fo-tb-extbar"><span class="fo-tf-tag ok">Extension eligible</span> ' + (S.extensions ? src("verdict", S.extensions) + " " : "") +
         (o ? "<b>" + esc(o.extension_term.replace("YR", "-year")) + ' extension</b> <span class="fo-tf-tag need">Proposed · not yet approved</span>' : '<span class="fo-muted">Not extended</span>') +
         ' <button type="button" class="btn small' + (o ? " secondary" : "") + '" data-tbx-open="' + esc(i.token) + '" data-from="' + i.from + '">' + (o ? "Change extension" : "Choose extension") + "</button></div>" +
         (o ? '<p class="fo-tb-extline">' + extCompare(i, p, o) + "</p>" : "") + "</td></tr>";
@@ -122,6 +122,12 @@
     }
     function extY1(o, p) { var X = root.UPS_PRETRADE_EXT, y = X ? X.parseContractInfoSummary(o.preview_contract_info_string).y_by_year_dollars : {}; return y["1"] != null ? y["1"] : Number(p.salary); }
     function extAdded(o) { var X = root.UPS_PRETRADE_EXT, y = X ? X.parseContractInfoSummary(o.preview_contract_info_string).y_by_year_dollars : {}; return Object.keys(y).filter(function (n) { return n !== "1"; }).reduce(function (a, n) { return a + y[n]; }, 0); }
+    // Open the choice popup ONCE for each extension-eligible player in the trade, when he is added or when the server's facts about him arrive
+    // (they can arrive after he is added). Never on a click of his row or from his player panel.
+    function promptExtensions() {
+      var it = draft.items.filter(function (i) { return !st.prompted[i.from + "|" + i.token] && extOpts(i).length; })[0];
+      if (it) { st.prompted[it.from + "|" + it.token] = 1; openExtDialog(it.from, it.token); }
+    }
     function openExtDialog(from, token) {
       var item = draft.items.filter(function (i) { return i.from === from && i.token === token; })[0], p = item && playerOf(from, token);
       if (!item || !p || !opt.openDialog) return;
@@ -353,14 +359,14 @@
       var b = e.target.closest && e.target.closest("[data-tok]"); if (!b) return;
       var tok = b.getAttribute("data-tok"), from = b.getAttribute("data-from");
       var adding = !C.hasItem(draft, tok, from);
-      if (!adding) draft = C.removeItem(draft, tok, from);
+      if (!adding) { draft = C.removeItem(draft, tok, from); delete st.prompted[from + "|" + tok]; }
       else {
         var a = opt.assets(from) || { players: [], picks: [] }, p = a.players.filter(function (x) { return "P_" + x.id === tok; })[0], kk = a.picks.filter(function (x) { return x.token === tok; })[0];
         draft = C.addItem(draft, { from: from, to: dest(from), token: tok, label: p ? p.name : kk ? kk.label : tok, salary: p ? p.salary : 0, taxi: p ? p.taxi : false });
       }
       changed();
       // An extension-eligible player has just been ADDED: open the choice popup (not on every click of his row, nor from his player panel).
-      if (adding && extOpts({ from: from, token: tok }).length) openExtDialog(from, tok);
+      if (adding) promptExtensions();
     });
     el.addEventListener("toggle", function (e) { var d = e.target; if (d && d.getAttribute && d.getAttribute("data-open")) st.open[d.getAttribute("data-open")] = d.open; }, true);
     el.addEventListener("input", function (e) {
@@ -388,7 +394,7 @@
       if (opt.closeDialog) opt.closeDialog();
       changed(); return true;
     }
-    return { dialogAction: dialogAction, refresh: function () { st.memo = { sig: "", imp: null }; render(); }, draft: function () { return draft; }, state: function () { return { phase: st.phase, resp: st.resp, sent: st.sent }; } };
+    return { factsChanged: function () { st.memo = { sig: "", imp: null }; render(); promptExtensions(); }, dialogAction: dialogAction, refresh: function () { st.memo = { sig: "", imp: null }; render(); }, draft: function () { return draft; }, state: function () { return { phase: st.phase, resp: st.resp, sent: st.sent }; } };
   }
 
   var api = { mount: mount };
