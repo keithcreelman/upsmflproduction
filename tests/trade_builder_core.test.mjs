@@ -314,6 +314,11 @@ test("probeResult: confirmed only when the answer is ok, the extension part was 
   assert.equal(C.probeResult(okResp([{ player_id: "16614", reason: "authority_unavailable:history" }]), "16614").confirmed, false);
   assert.equal(C.probeResult(okResp([], { status: "unavailable", reason: "extension_salaries_unavailable" }), "16614").confirmed, false);
   for (const bad of [null, undefined, {}, { ok: false }, { ok: true }, { ok: true, compliance: {} }, { ok: true, compliance: { extension_skipped: "x" } }, "x"]) assert.equal(C.probeResult(bad, "16614").confirmed, false, JSON.stringify(bad));
+  // Codex MAT-1 (#1416): a response with NO ok field is not a confirmation, however clean its compliance part looks.
+  assert.deepEqual(C.probeResult({ compliance: { extension_skipped: [] } }, "16614"), { confirmed: false, reason: "no_answer" });
+  assert.equal(C.probeResult({ compliance: { extension_skipped: [], cap: { status: "ok" } } }, "16614").confirmed, false);
+  for (const okv of [undefined, null, false, "true", 1, 0, "", {}]) assert.equal(C.probeResult({ ok: okv, compliance: { extension_skipped: [] } }, "16614").confirmed, false, "ok = " + JSON.stringify(okv));
+  assert.equal(C.probeResult({ ok: true, compliance: { extension_skipped: [] } }, "16614").confirmed, true, "only ok === true confirms");
 });
 test("extensionFacts combines history and probe, and is null unless both are complete", () => {
   const h = { history_ok: true, already_extended_by_this_franchise: false }, p = { confirmed: true };

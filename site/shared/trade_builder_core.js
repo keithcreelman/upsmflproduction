@@ -93,11 +93,11 @@
     return { history_ok: true, already_extended_by_this_franchise: asset.already_extended_by_this_franchise === true };
   }
   // From the compliance-preview response to a probe carrying ONE extension request for `pid`: did the worker's full eligibility check accept it?
-  // Confirmed only when the response is ok, the extension part could be evaluated, and the player is not in `extension_skipped`.
+  // Confirmed only when the response says ok === true (a missing or non-true ok is NOT a confirmation), the extension part could be evaluated, and the player is not in `extension_skipped`.
   // Anything else (a refusal, an unreadable authority, an error, a missing field) is NOT confirmed; `reason` carries the worker's own reason.
   function probeResult(resp, pid) {
     var id = String(pid).replace(/\D/g, "");
-    if (!resp || typeof resp !== "object" || resp.ok === false || !resp.compliance || !Array.isArray(resp.compliance.extension_skipped)) return { confirmed: false, reason: "no_answer" };
+    if (!resp || typeof resp !== "object" || resp.ok !== true || !resp.compliance || !Array.isArray(resp.compliance.extension_skipped)) return { confirmed: false, reason: "no_answer" };
     if (resp.compliance.cap && resp.compliance.cap.reason === "extension_salaries_unavailable") return { confirmed: false, reason: "extension_salaries_unavailable" };
     var hit = resp.compliance.extension_skipped.filter(function (x) { return String(x && x.player_id || "").replace(/\D/g, "") === id; })[0];
     return hit ? { confirmed: false, reason: String(hit.reason || "refused") } : { confirmed: true, reason: "" };

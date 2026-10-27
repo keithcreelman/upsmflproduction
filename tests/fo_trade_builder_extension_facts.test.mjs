@@ -82,7 +82,7 @@ test("the worker refuses the probe (acquisition window / deadline / tag...): no 
   }
 });
 test("an unreadable or failed probe answer is not a confirmation", async () => {
-  for (const probe of [() => null, () => ({ ok: false }), () => ({ ok: true, compliance: { extension_skipped: [], cap: { reason: "extension_salaries_unavailable" } } })]) {
+  for (const probe of [() => null, () => ({ ok: false }), () => ({ compliance: { extension_skipped: [], cap: { status: "ok" } } }), () => ({ ok: "true", compliance: { extension_skipped: [] } }), () => ({ ok: true, compliance: { extension_skipped: [], cap: { reason: "extension_salaries_unavailable" } } })]) {
     const h = harness({ workbench: wb(true), probe });
     const it = item("0008", "0010", FIRST);
     await settle(h, it);
