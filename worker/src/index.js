@@ -15,7 +15,8 @@ import {
   openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours, resolveDiscordUserIds, dmAll } from "./trade_dm.js";
-import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing } from "./trade_3way.js";
+import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing, toMflAsset } from "./trade_3way.js";
+import { tradePreviewVerdict } from "./trade_preview_verdict.js";
 
 // Exact, non-secret release marker returned by the AUTHENTICATED GET /admin/release-info (the deployment discriminator used by the runbook).
 const TWR_RELEASE = "trade-war-room-2026-09-25.3";
@@ -39325,7 +39326,45 @@ const mflToSleeper = {};
         // an unrelated owner probe another two teams' cap/roster situation.
         if (!partyFids.has(previewAuth.caller.fid) && !previewAuth.caller.isCommish) return tradeForbidden("You can only preview a trade you're a party to.");
         const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: null, conditionalDrops: body?.conditional_drops });
-        return jsonOut(200, { ok: true, compliance: out });
+        // The same accept-time asset helpers check the proposed movements against live MFL
+        // ownership and §A6. This is informational: every write path checks again.
+        const byFranchise = {};
+        for (const m of movements) {
+          if (!byFranchise[m.from]) byFranchise[m.from] = [];
+          byFranchise[m.from].push(...m.tokens.map((tok) => {
+            // A current-draft pick can arrive as a builder token (DP_year_round_slot)
+            // or MFL's already-indexed DP_round0_slot0. Convert only the former.
+            const asset = /^DP_20\d\d_\d{1,2}_\d{1,2}$/.test(tok) || tok.startsWith("FP_") ? toMflAsset(tok) : tok;
+            return normalizeToken(asset);
+          }));
+        }
+        let assets = { status: "unavailable", code: "assets_unavailable", message: "The trade assets could not be checked with MFL." };
+        try {
+          const rr = await mflExportJson(season, leagueId, "rosters", {}, { useCookie: true });
+          if (rr.ok && rr.data?.rosters?.franchise) {
+            const rosters = indexRosters(rr.data);
+            const allTokens = Object.values(byFranchise).flat();
+            const needsFuture = allTokens.some((x) => x.startsWith("FP_"));
+            const needsDraft = allTokens.some((x) => x.startsWith("DP_"));
+            const fr = needsFuture ? await mflExportJson(season, leagueId, "futureDraftPicks", {}, { useCookie: true }) : null;
+            const dr = needsDraft ? await mflExportJson(season, leagueId, "draftResults", {}, { useCookie: true }) : null;
+            if ((!needsFuture || fr?.ok && fr.data?.futureDraftPicks?.franchise) && (!needsDraft || dr?.ok && dr.data?.draftResults?.draftUnit)) {
+              const ownership = ownershipViolations({ byFranchise, rosters, futurePicks: fr ? indexFuturePicks(fr.data) : null, draftPicks: dr ? indexDraftPicks(dr.data) : null });
+              const picks = pickEligibilityViolations({ byFranchise, season });
+              const capMoney = capMoneyViolations({ byFranchise, rosters });
+              const violations = { ownership, picks, cap_money: capMoney };
+              assets = ownership.length || picks.length || capMoney.length
+                ? { status: "blocked", code: ownership.length ? "asset_ownership_mismatch" : picks.length ? "pick_not_tradeable" : "cap_money_rule", message: "One or more trade assets do not pass the current league checks.", violations }
+                : { status: "ok", violations };
+            }
+          }
+        } catch (_) { /* A failed read is unavailable, never a pass. */ }
+        const [forfeits, lock] = await Promise.all([
+          checkForfeitedPicks(env, leagueId, byFranchise).catch(() => ({ ok: false, code: "forfeit_check_unavailable" })),
+          readMflTradeLock(env, season, leagueId, { cacheMs: 5 * 60 * 1000 }).catch(() => ({ state: "unresolved" })),
+        ]);
+        const verdict = tradePreviewVerdict({ compliance: out, assets, forfeits, lock });
+        return jsonOut(200, { ok: true, compliance: out, verdict });
       }
 
       // Commissioner ADMINISTRATIVE cancel of a 3-way (RULING, Keith 2026-09-25). A distinct action: it
