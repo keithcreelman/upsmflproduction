@@ -440,7 +440,7 @@
     var TB = root.UPS_FO_TRADE_BUILDER;
     var host = el.querySelector("#fo-tb-host");
     if (host && host.__tbHandle) { host.__tbHandle.refresh(); return; }
-    el.innerHTML = modeChips() + '<div class="fo-card"><div class="fo-card-head"><h2>Trade builder</h2><span class="small fo-muted">Build, check and review an offer</span></div><div id="fo-tb-host"></div></div>';
+    el.innerHTML = modeChips() + '<div id="fo-tb-host"></div>';
     host = el.querySelector("#fo-tb-host");
     if (!TB) { host.innerHTML = H.banner("The trade builder didn’t load. Reload to retry.", "warn"); return; }
     if (!FO.teams().length) { H.loading(host, "Reading rosters…"); return; }
