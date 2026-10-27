@@ -67,3 +67,8 @@ export function normalizeTradeToken(t) {
   if (dp) return `DP_${Number(dp[1])}_${Number(dp[2])}`;
   return x;
 }
+
+export function tradeTokenSet(list) {
+  const src = Array.isArray(list) ? list : String(list == null ? "" : list).trim().split(/\s*,\s*/);
+  return [...new Set(src.map(normalizeTradeToken).filter(Boolean))].sort();
+}

@@ -60,8 +60,13 @@
     if (dp) return `DP_${Number(dp[1])}_${Number(dp[2])}`;
     return x;
   }
+
+  function tradeTokenSet(list) {
+    const src = Array.isArray(list) ? list : String(list == null ? "" : list).trim().split(/\s*,\s*/);
+    return [...new Set(src.map(normalizeTradeToken).filter(Boolean))].sort();
+  }
   // ---- end body ----
-  var api = { IR_RELIEF_RATE: IR_RELIEF_RATE, capMoneyMaxK: capMoneyMaxK, irCapHit: irCapHit, isOverCap: isOverCap, parseAssetToken: parseAssetToken, normalizeTradeToken: normalizeTradeToken };
+  var api = { IR_RELIEF_RATE: IR_RELIEF_RATE, capMoneyMaxK: capMoneyMaxK, irCapHit: irCapHit, isOverCap: isOverCap, parseAssetToken: parseAssetToken, normalizeTradeToken: normalizeTradeToken, tradeTokenSet: tradeTokenSet };
   root.UPS_TRADE_RULES = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : this);

@@ -10,7 +10,7 @@
 //
 // Pure functions only. index.js supplies the closures that need MFL / D1 (token building, exports).
 
-import { capMoneyMaxK, normalizeTradeToken } from "./trade_rules.js";
+import { capMoneyMaxK, normalizeTradeToken, tradeTokenSet } from "./trade_rules.js";
 
 function s(v) { return String(v == null ? "" : v).trim(); }
 function pad4(v) { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }
@@ -19,10 +19,8 @@ function arr(v) { return Array.isArray(v) ? v : v == null ? [] : [v]; }
 // ── tokens ──────────────────────────────────────────────────────────────────────────
 // Keep the old export for existing callers; the shared module owns the implementation.
 export { normalizeTradeToken as normalizeToken };
-export function tokenSet(list) {
-  const src = Array.isArray(list) ? list : s(list).split(/\s*,\s*/);
-  return [...new Set(src.map(normalizeTradeToken).filter(Boolean))].sort();
-}
+export { tradeTokenSet as tokenSet };
+const tokenSet = tradeTokenSet;
 const sameSet = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 /**
