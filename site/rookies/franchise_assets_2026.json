@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-26T16:18:18.007558+00:00",
+    "generated_at_utc": "2026-10-27T15:32:17.938702+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -4992,18 +4992,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16593",
-          "display": "Blake Corum",
-          "player_id": "16593",
-          "position": "RB",
-          "nfl_team": "LAR",
-          "salary": 5000,
-          "contract_year": 1,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16622",
           "display": "Ricky Pearsall",
           "player_id": "16622",
@@ -5218,6 +5206,18 @@
           "contract_status": "Rookie-MYM",
           "roster_status": "ROSTER",
           "taxi": false
+        },
+        {
+          "asset_id": "P_16593",
+          "display": "Blake Corum",
+          "player_id": "16593",
+          "position": "RB",
+          "nfl_team": "LAR",
+          "salary": 5000,
+          "contract_year": 1,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "TAXI_SQUAD",
+          "taxi": true
         },
         {
           "asset_id": "P_17477",
