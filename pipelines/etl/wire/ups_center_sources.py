@@ -75,11 +75,22 @@ def latest_finished_week(season, now, max_week=17):
     return done
 
 
-def projection_evidence(season, week):
+def lineup_rows(rows):
+    """{fid: [{pid, name, pos_group, status, score}]} from the week's roster rows (starters and bench)."""
+    out = {}
+    for r in rows:
+        out.setdefault(str(r["fid"]).zfill(4), []).append(
+            {"pid": str(r["player_id"]), "name": D.display_name(r.get("player_name")) or ("player %s" % r["player_id"]),
+             "pos_group": r.get("pos_group") or "", "status": "starter" if r.get("status") == "starter" else "bench",
+             "score": None if r.get("score") is None else float(r["score"])})
+    return out
+
+
+def projection_evidence(season, week, rows=None, pregame=None):
     """The same evidence the pack's bust & bargain used: kickoff-strict last pregame
     captures, else the never-overwritten FIRST capture (Keith 2026-09-24 basis). Every
     row carries its value, capture time and its own kickoff."""
-    ranked, unranked = D.starter_projections(season, week)
+    ranked, unranked = D.starter_projections(season, week, rows=rows, pregame=pregame)
     basis = "last_pregame"
     if not ranked:
         ranked, unranked = D.first_pregame_fallback_projections(season, week)
@@ -267,21 +278,17 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     except D.DataError as exc:
         ctx["d1"]["recordBook"] = {"error": str(exc)}
 
-    ctx["evidence"] = projection_evidence(season, week)
-    # every player on a roster this week, starters and bench, with his points and (when it exists) his PREGAME projection:
-    # the lineup analysis judges a swap by what MFL projected before each player's own kickoff, never by the score alone
-    lu = D.d1(
-        "SELECT w.roster_franchise_id AS fid, w.player_id, w.pos_group, w.status, w.score, p.name AS player_name "
-        "FROM src_weekly w LEFT JOIN src_players p ON p.season = w.season AND p.player_id = w.player_id "
-        "WHERE w.season = %d AND w.week = %d AND w.roster_franchise_id IS NOT NULL" % (int(season), int(week)))
-    ctx["lineups"] = {}
-    for r in lu:
-        ctx["lineups"].setdefault(str(r["fid"]).zfill(4), []).append(
-            {"pid": str(r["player_id"]), "name": D.display_name(r["player_name"]) or ("player %s" % r["player_id"]),
-             "pos_group": r.get("pos_group") or "", "status": "starter" if r["status"] == "starter" else "bench",
-             "score": None if r["score"] is None else float(r["score"])})
-    pj, pj_missing = D.pregame_projections(season, week, [r["player_id"] for r in lu])
-    ctx["pregame"] = {"proj": pj, "missing": pj_missing}
+    if history:
+        # The full build also needs the bench. ONE read of the week's rows and ONE pregame lookup for everybody serve both the
+        # bust/bargain evidence (starters) and the lineup analysis (everyone): no second query for the same week. The probe
+        # gather (history=False) only checks D1 against MFL and keeps its original, smaller evidence read.
+        rows = D.week_roster_rows(season, week)
+        pj, pj_missing = D.pregame_projections(season, week, [r["player_id"] for r in rows])
+        ctx["evidence"] = projection_evidence(season, week, rows=rows, pregame=(pj, pj_missing))
+        ctx["lineups"] = lineup_rows(rows)
+        ctx["pregame"] = {"proj": pj, "missing": pj_missing}
+    else:
+        ctx["evidence"] = projection_evidence(season, week)
     ctx["links"] = {}
     for c in (pack or {}).get("playcards", []):
         ctx["links"][c["player"]] = verify_highlight(c["player"], c.get("video"))
@@ -292,16 +299,17 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
                                  "is_division_leader": bool(r.get("is_division_leader")),
                                  "playoff_seed": r.get("playoff_seed")} for r in api.get("rows", [])]
     # clinched / eliminated, from the league's deterministic engine (site/shared/standings_clinch.js). {} flags = it could not
-    # say, and then no probability prints as 100% or 0% (ups_center_prob).
-    rs = api.get("regular_season") or {}
-    try:
-        sched = _get(MFL % (season, "schedule", ""))
-    except Exception:                                        # noqa: BLE001  (no schedule: the engine makes no division claims)
-        sched = None
-    ctx["clinch"] = PROB.compute_clinch(
-        {f: m for f, m in ctx["mfl"]["standings"].items()},
-        {f: r["division"] for f, r in ctx["d1"]["franchises"].items()},
-        int(rs.get("through_week") or week), int(rs.get("last_regular_season_week") or 0), sched)
+    # say, and then no probability prints as 100% or 0% (ups_center_prob). Full build only: the probe gather skips it.
+    if history:
+        rs = api.get("regular_season") or {}
+        try:
+            sched = _get(MFL % (season, "schedule", ""))
+        except Exception:                                    # noqa: BLE001  (no schedule: the engine makes no division claims)
+            sched = None
+        ctx["clinch"] = PROB.compute_clinch(
+            {f: m for f, m in ctx["mfl"]["standings"].items()},
+            {f: r["division"] for f, r in ctx["d1"]["franchises"].items()},
+            int(rs.get("through_week") or week), int(rs.get("last_regular_season_week") or 0), sched)
     return ctx
 
 
