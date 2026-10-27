@@ -50,6 +50,7 @@ from datetime import datetime, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import season_sim                     # noqa: E402  (display_percentages: the Playoff Picture's rounding)
+import ups_center_prob as PROB       # noqa: E402  (100% / 0% only for a clinched / eliminated outcome)
 import ups_center_due as DUE          # noqa: E402  (preflight_findings: the duplicate guard's own logic)
 import ups_center_pr as PR            # noqa: E402  (branch_for, TRAILER)
 import ups_center_validate as VAL     # noqa: E402  (visible_text, NUM_RE, TIME_RE)
@@ -186,14 +187,16 @@ def check_draft(season, week, files, pr, automation_head, live):
                 for d, fs in sorted(divs.items()):
                     raw = sum(n[f]["currentDivisionOdds"] for f in fs)
                     shown = season_sim.display_percentages({f: teams[f]["currentDivisionOdds"] for f in fs})
-                    printed = [(claims or {}).get("odds:div:" + f, {}).get("value") for f in sorted(fs)] if auto else None
+                    printed = [((claims or {}).get("odds:div:" + f) or {}).get("lr", ((claims or {}).get("odds:div:" + f) or {}).get("value"))
+                               for f in sorted(fs)] if auto else None
                     total = sum(printed) if printed and None not in printed else sum(float(x) for x in shown.values())
                     add("divisions", "%s: division titles in every season (%d of %d); printed %s = 100.0" % (
                         ", ".join(teams[f].get("team") or f for f in sorted(fs)), raw, runs,
                         " + ".join(str(x) for x in (printed or [shown[f] for f in sorted(fs)]))),
                         raw == runs and abs(total - 100.0) < 1e-9 and (not auto or None not in printed))
                 if auto:
-                    tp = [(claims or {}).get("odds:title:" + f, {}).get("value") for f in teams]
+                    tp = [((claims or {}).get("odds:title:" + f) or {}).get("lr", ((claims or {}).get("odds:title:" + f) or {}).get("value"))
+                          for f in teams]
                     add("divisions", "league title odds print as exactly 100.0", None not in tp and abs(sum(tp) - 100.0) < 1e-9)
                 if need_prev and prev:
                     ws = prev.get("weekScenarios") or {}
@@ -228,15 +231,20 @@ def check_draft(season, week, files, pr, automation_head, live):
         if sim and week <= REG_SEASON_LAST_WEEK:
             teams = {t["franchiseId"]: t for t in sim.get("teams") or []}
             want = {}
+            flags = (((run or {}).get("clinch") or {}).get("byFid")) or {}
             for f, t in teams.items():
-                want["odds:po:" + f] = round(100 * t["currentPlayoffOdds"], 1)
-                want["odds:bye:" + f] = round(100 * t["currentByeOdds"], 1)
+                want["odds:po:" + f] = PROB.single(t["currentPlayoffOdds"], "po", flags.get(f))[1]
+                want["odds:bye:" + f] = PROB.single(t["currentByeOdds"], "bye", flags.get(f))[1]
             for d in {t["division"] for t in teams.values()}:
                 grp = {f: t["currentDivisionOdds"] for f, t in teams.items() if t["division"] == d}
-                want.update(("odds:div:" + f, float(v)) for f, v in season_sim.display_percentages(grp).items())
-            want.update(("odds:title:" + f, float(v)) for f, v in
-                        season_sim.display_percentages({f: t["currentTitleOdds"] for f, t in teams.items()}).items())
-            off = sorted(k for k, v in want.items() if k in claims and claims[k]["value"] != v)
+                cells = PROB.group_cells(grp, season_sim.display_percentages(grp),
+                                         {f for f in grp if PROB.certain("div", flags.get(f))[0]},
+                                         {f for f in grp if PROB.certain("div", flags.get(f))[1]})
+                want.update(("odds:div:" + f, v[1]) for f, v in cells.items())
+            tp = {f: t["currentTitleOdds"] for f, t in teams.items()}
+            cells = PROB.group_cells(tp, season_sim.display_percentages(tp), set(), {f for f in tp if PROB.certain("title", flags.get(f))[1]})
+            want.update(("odds:title:" + f, v[1]) for f, v in cells.items())
+            off = sorted(k for k, v in want.items() if k in claims and abs(claims[k]["value"] - v) > 1e-9)
             add("sourced", "every printed probability equals the committed forecast", not off,
                 [(k, claims[k]["value"], want[k]) for k in off[:10]])
     else:

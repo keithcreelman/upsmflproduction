@@ -64,6 +64,13 @@ jobs:
           UPS_CENTER_AUTO_QUIET: "1"
         run: python pipelines/etl/wire/test_ups_center_auto.py
 
+      # Offline: the editorial standards (Keith 2026-10-27): no 100% / 0% probability unless
+      # the clinching engine says clinched / eliminated, and a lineup is judged by pregame
+      # projections, never by hindsight alone. Runs the recorded Week 7 issue and edge cases.
+      # Uses node (preinstalled on the runner) for the clinching engine.
+      - name: UPS Center editorial standards
+        run: python pipelines/etl/wire/test_ups_center_standards.py
+
       # Offline: the season simulation crowns exactly one champion per division
       # in every simulated season, breaks division ties in MFL's order (record,
       # division record, head-to-head, points, All-Play), and division odds total

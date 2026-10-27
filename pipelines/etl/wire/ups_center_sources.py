@@ -20,7 +20,8 @@ from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import wire_data as D          # noqa: E402
+import wire_data as D
+import ups_center_prob as PROB          # noqa: E402
 import elias as E              # noqa: E402
 import chat_exclusions         # noqa: E402
 
@@ -267,6 +268,20 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
         ctx["d1"]["recordBook"] = {"error": str(exc)}
 
     ctx["evidence"] = projection_evidence(season, week)
+    # every player on a roster this week, starters and bench, with his points and (when it exists) his PREGAME projection:
+    # the lineup analysis judges a swap by what MFL projected before each player's own kickoff, never by the score alone
+    lu = D.d1(
+        "SELECT w.roster_franchise_id AS fid, w.player_id, w.pos_group, w.status, w.score, p.name AS player_name "
+        "FROM src_weekly w LEFT JOIN src_players p ON p.season = w.season AND p.player_id = w.player_id "
+        "WHERE w.season = %d AND w.week = %d AND w.roster_franchise_id IS NOT NULL" % (int(season), int(week)))
+    ctx["lineups"] = {}
+    for r in lu:
+        ctx["lineups"].setdefault(str(r["fid"]).zfill(4), []).append(
+            {"pid": str(r["player_id"]), "name": D.display_name(r["player_name"]) or ("player %s" % r["player_id"]),
+             "pos_group": r.get("pos_group") or "", "status": "starter" if r["status"] == "starter" else "bench",
+             "score": None if r["score"] is None else float(r["score"])})
+    pj, pj_missing = D.pregame_projections(season, week, [r["player_id"] for r in lu])
+    ctx["pregame"] = {"proj": pj, "missing": pj_missing}
     ctx["links"] = {}
     for c in (pack or {}).get("playcards", []):
         ctx["links"][c["player"]] = verify_highlight(c["player"], c.get("video"))
@@ -276,6 +291,17 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     ctx["site"]["standings"] = [{"franchise_id": r["franchise_id"], "owner_name": r["owner_name"],
                                  "is_division_leader": bool(r.get("is_division_leader")),
                                  "playoff_seed": r.get("playoff_seed")} for r in api.get("rows", [])]
+    # clinched / eliminated, from the league's deterministic engine (site/shared/standings_clinch.js). {} flags = it could not
+    # say, and then no probability prints as 100% or 0% (ups_center_prob).
+    rs = api.get("regular_season") or {}
+    try:
+        sched = _get(MFL % (season, "schedule", ""))
+    except Exception:                                        # noqa: BLE001  (no schedule: the engine makes no division claims)
+        sched = None
+    ctx["clinch"] = PROB.compute_clinch(
+        {f: m for f, m in ctx["mfl"]["standings"].items()},
+        {f: r["division"] for f, r in ctx["d1"]["franchises"].items()},
+        int(rs.get("through_week") or week), int(rs.get("last_regular_season_week") or 0), sched)
     return ctx
 
 

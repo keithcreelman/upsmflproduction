@@ -27,6 +27,8 @@ from datetime import datetime, timezone
 
 import chat_exclusions
 import season_sim  # display_percentages, the rounding the Playoff Picture prints
+import ups_center_prob as PROB  # 100% / 0% only for a clinched / eliminated outcome
+import ups_center_lineup as LINEUP  # a lineup is judged by pregame projections, never by hindsight alone
 
 TIME_RE = re.compile(r"\bW(?:ee)?ks?\.?\s+\d{1,2}(?:\s*[–-]\s*\d{1,2})?\b|\b(?:19|20)\d\d\s*[–-]\s*(?:19|20)\d\d\b|"
                      r"\b\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)\b|\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s+"
@@ -225,6 +227,18 @@ def validate(res, ctx, pack):
         elif kind == "pf":
             if not _close(v, st[rest]["pf"]):
                 bad(key, "draft %s, MFL %s" % (v, st[rest]["pf"]))
+        elif kind == "lineup":
+            fid_, _, idx = rest.partition(":")
+            rows = (ctx.get("lineups") or {}).get(fid_)
+            pg = ctx.get("pregame") or {}
+            if not rows:
+                bad(key, "no lineup rows for %s" % fid_)
+            else:
+                j = LINEUP.judge(rows, pg.get("proj") or {}, pg.get("missing") or {})
+                nums = LINEUP.sentence(j, "x")[1]
+                i = int(idx[1:]) if idx[1:].isdigit() else -1
+                if not (0 <= i < len(nums)) or abs(float(nums[i]) - float(v)) > 0.05:
+                    bad(key, "the pregame projections give %r at position %s, page %s" % (nums, idx, v))
         elif kind == "proj":
             row = projections.get(rest)
             if not row:
@@ -280,21 +294,32 @@ def validate(res, ctx, pack):
             # Builder A: every printed probability equals the job's forecast file under the documented rounding.
             sim = ((ctx.get("forecast") or {}).get("sim") or {})
             teams = sim.get("teams") or {}
+            flags = (ctx.get("clinch") or {}).get("byFid") or {}
             what, _, fid = rest.partition(":")
             if what == "runs":
                 if v != sim.get("runs"):
                     bad(key, "forecast runs %s, page %s" % (sim.get("runs"), v))
+            elif what == "floor":
+                if v != PROB.FLOOR_PCT:
+                    bad(key, "the smallest printed probability is %s, page %s" % (PROB.FLOOR_PCT, v))
             elif fid not in teams:
                 bad(key, "no forecast row for %s" % fid)
             elif what in ("po", "bye"):
-                if round(100 * teams[fid][what], 1) != v:
-                    bad(key, "forecast %s %.4f, page %s" % (what, teams[fid][what], v))
+                want_t, want_v = PROB.single(teams[fid][what], what, flags.get(fid))
+                if abs(want_v - v) > 1e-9 or c.get("shown") != want_t:
+                    bad(key, "forecast %s %.4f prints %s, page %s (%s)" % (what, teams[fid][what], want_t, c.get("shown"), v))
             elif what == "div":
                 grp = {f: t_["div"] for f, t_ in teams.items() if t_["division"] == teams[fid]["division"]}
-                if float(season_sim.display_percentages(grp)[fid]) != v:
+                cells = PROB.group_cells(grp, season_sim.display_percentages(grp),
+                                         {f for f in grp if PROB.certain("div", flags.get(f))[0]},
+                                         {f for f in grp if PROB.certain("div", flags.get(f))[1]})
+                if abs(cells[fid][1] - v) > 1e-9 or c.get("shown") != cells[fid][0]:
                     bad(key, "division odds %s do not match the forecast's rounding" % v)
             elif what == "title":
-                if float(season_sim.display_percentages({f: t_["title"] for f, t_ in teams.items()})[fid]) != v:
+                tp = {f: t_["title"] for f, t_ in teams.items()}
+                cells = PROB.group_cells(tp, season_sim.display_percentages(tp), set(),
+                                         {f for f in tp if PROB.certain("title", flags.get(f))[1]})
+                if abs(cells[fid][1] - v) > 1e-9 or c.get("shown") != cells[fid][0]:
                     bad(key, "title odds %s do not match the forecast's rounding" % v)
             else:
                 bad(key, "unknown odds claim")
@@ -325,6 +350,15 @@ def validate(res, ctx, pack):
     stray = sorted({x for x in NUM_RE.findall(text) if x.replace(",", "").lstrip("+-−") not in shown})
     if stray:
         errors.append("numbers on the page that are not registered claims: %s" % ", ".join(stray[:20]))
+    # Keith 2026-10-27: no probability prints as a decimal certainty (100.0% / 0.0%); "100%" / "0%" can only come from a
+    # clinched / eliminated claim, which the odds checks above already verify against the engine's flags.
+    certain = re.findall(r"(?<![\d.])(?:100\.0|0\.0)%", text)
+    if certain:
+        errors.append("a probability prints as %s: nothing is certain unless the engine says it is clinched or eliminated" % certain[0])
+    # a hindsight claim ("would have won") must be framed as hindsight and carry the pregame-projection finding
+    for sent in re.split(r"(?<=[.!?])\s+", text):
+        if "would have won" in sent and "hindsight" not in sent:
+            errors.append("hindsight blame without the word: %s" % sent[:120])
     # every quote link points at its own message
     for href, inner in re.findall(r'<a class="rcpt" href="([^"]+)"[^>]*>([\s\S]*?)</a>', doc):
         mid = href.rstrip("/").split("/")[-1]

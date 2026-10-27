@@ -47,6 +47,7 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import wire_data as D                                    # noqa: E402
+import ups_center_prob as PROB                           # noqa: E402  (no 100% / 0% unless clinched or eliminated)
 import wire_video                                         # noqa: E402
 import preview_grade as PG                                # noqa: E402
 import elias as ELIAS                                     # noqa: E402
@@ -707,11 +708,11 @@ def build(pack_id):
             F("f.live.%s.current_playoff_odds" % fid, "%s -- current playoff odds (through wk%d)"
               % (who(fid), live["through_week"]), t["currentPlayoffOdds"], "percent",
               "season_sim.py --through-week", "through wk%d" % live["through_week"],
-              fmt="%.1f%%" % (t["currentPlayoffOdds"] * 100))
+              fmt=PROB.guard("%.1f%%" % (t["currentPlayoffOdds"] * 100), t["currentPlayoffOdds"]))
             F("f.live.%s.current_title_odds" % fid, "%s -- current title odds (through wk%d)"
               % (who(fid), live["through_week"]), t["currentTitleOdds"], "percent",
               "season_sim.py --through-week", "through wk%d" % live["through_week"],
-              fmt="%.1f%%" % (t["currentTitleOdds"] * 100))
+              fmt=PROB.guard("%.1f%%" % (t["currentTitleOdds"] * 100), t["currentTitleOdds"]))
             F("f.live.%s.projected_ending_ap" % fid, "%s -- projected ending all-play %% (through wk%d)"
               % (who(fid), live["through_week"]), t["projectedEndingApPct"], "percent",
               "season_sim.py --through-week", "through wk%d" % live["through_week"],
@@ -2200,7 +2201,7 @@ def build(pack_id):
             odds_move[fid] = mv
             F("f.odds.%s.make" % fid, "%s -- odds of making the playoffs" % who(fid),
               odds_now[fid]["make"], "percent", "Monte Carlo", "after wk%d" % week,
-              fmt="%.0f%%" % odds_now[fid]["make"])
+              fmt=PROB.guard("%.0f%%" % odds_now[fid]["make"], odds_now[fid]["make"] / 100.0))
         if odds_move:
             up = max(odds_move, key=lambda f: odds_move[f])
             dn = min(odds_move, key=lambda f: odds_move[f])
@@ -2349,7 +2350,7 @@ def build(pack_id):
         if odds_now:
             o = odds_now.get(f)
             mv = odds_move.get(f, 0.0)
-            row.append(("%.0f%%" % o["make"]) + (" (%+.0f)" % mv if abs(mv) >= 1 else "")
+            row.append(PROB.guard("%.0f%%" % o["make"], o["make"] / 100.0) + (" (%+.0f)" % mv if abs(mv) >= 1 else "")
                        if o else "")
         if is_playoff:
             row.append((bracket[f]["pool"].title() + (" (alive)" if bracket[f]["alive"] else ""))
@@ -2448,8 +2449,8 @@ def build(pack_id):
                     ("%.1f%%" % (t["projectedEndingApPct"] * 100)) if "projectedEndingApPct" in t else "",
                     ("%.0f%%-%.0f%%" % (t["apP10"] * 100, t["apP90"] * 100))
                     if "apP10" in t and "apP90" in t else "",
-                    ("%.1f%%" % (t["currentPlayoffOdds"] * 100)) if "currentPlayoffOdds" in t else "",
-                    ("%.1f%%" % (t["currentTitleOdds"] * 100)) if "currentTitleOdds" in t else "",
+                    PROB.guard("%.1f%%" % (t["currentPlayoffOdds"] * 100), t["currentPlayoffOdds"]) if "currentPlayoffOdds" in t else "",
+                    PROB.guard("%.1f%%" % (t["currentTitleOdds"] * 100), t["currentTitleOdds"]) if "currentTitleOdds" in t else "",
                     ("%+.1f pts" % (chg * 100)) if chg is not None else "",
                     ("%s -- %s" % (sig, note)) if note else sig,
                 ]
