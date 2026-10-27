@@ -4,7 +4,7 @@
  2. balanced section markup; every segment a direct child of the page wrapper; each segment has visible narrative outside any <details>
  3. every number in the narrative text (desk lines and headings) is a registered claim (narrative_claims.json), a date/time/ordinal, or inside a verbatim quote
  4. quotes are verbatim to chat_quotes.json; none is in chat_exclusions.json
- 5. probabilities in the Playoff Picture equal the committed forecast"""
+ 5. no probability is shown as 100% or 0%: only a clinch or an elimination could be (nobody has either)"""
 import html as H, json, os, re, sys
 
 D = os.path.dirname(os.path.abspath(__file__))
@@ -15,6 +15,10 @@ bad = []
 for pat in (r"\{[a-z_0-9]+\}", r"EDITOR REVIEW", r"editor-gap", r"TODO", r"lorem"):
     if re.search(pat, art):
         bad.append("found " + pat)
+body_text = re.sub(r"<style[\s\S]*?</style>|<script[\s\S]*?</script>", "", art)
+shown = " ".join(re.findall(r">([^<>]*%[^<>]*)<", body_text)) + " " + re.sub(r"<[^>]+>", " ", body_text)
+if re.search(r"(?<![\d.])(100(\.0+)?|0(\.0+)?)%", shown):
+    bad.append("a probability is shown as 100% or 0% (nobody has clinched or been eliminated)")
 secs = re.findall(r'<section class="wire-sec" id="(\w+)"', art)
 ids = ["story", "middle", "odds", "heat", "brief", "weeks", "players", "survival", "elias"]
 if secs != ids:

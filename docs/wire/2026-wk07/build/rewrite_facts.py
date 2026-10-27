@@ -188,7 +188,26 @@ def rows(html):
     return out
 
 
+SIM7 = {t["franchiseId"]: t for t in L("../../../../site/wire/data/season_sim_2026_live_wk07.json")["teams"]}
+SIM6 = {t["franchiseId"]: t for t in L("sim6.json")["teams"]}
+RAWKEY = ("currentPlayoffOdds", "currentByeOdds", "currentDivisionOdds", "currentTitleOdds")
+
+
+def safe_pct(shown, raw):
+    """No probability is shown as 100% or 0% unless the team has clinched or is eliminated (nobody has): a table cell that rounds
+    to 100.0% or 0.0% is shown to two decimals, or as <0.01%, from the committed forecast's own value."""
+    if shown not in ("100.0%", "0.0%"):
+        return shown
+    if raw >= 0.9999:
+        return "99.99%"
+    if raw <= 0.0001:
+        return "&lt;0.01%"
+    return "%.2f%%" % (100 * raw)
+
+
 odds = {r[0]: r[1:] for r in rows(sec(SRC_ART, "odds"))[1:]}
+for _f, _n in OWN.items():
+    odds[_n] = [safe_pct(odds[_n][i], SIM7[_f][RAWKEY[i]]) for i in range(4)]
 heat = sec(SRC_ART, "heat")
 tabs = re.findall(r"<table>[\s\S]*?</table>", heat)
 h1 = {" ".join(r[0].split(" ")[:2]) if r[0].split(" ")[0] != "Chris" else "Chris Klingenberg": r for r in rows(tabs[0])[1:]}
@@ -209,7 +228,7 @@ W6SRC = "Playoff Picture table as published in the Week 6 UPS Center"
 for f in team:
     o6 = odds6[OWN[f]]
     for i, k in enumerate(("po", "bye", "div", "title")):
-        F.add("%s6_%s" % (k, TAG[f]), o6[i], W6SRC)
+        F.add("%s6_%s" % (k, TAG[f]), safe_pct(o6[i], SIM6[f][RAWKEY[i]]), W6SRC)
 inj = L("injury_wk08.json")
 ISRC = "injury_wk08.json: MFL playerScores W1-7 (league 74598 scoring), MFL injury feed (updated %s), nflverse" % inj["sources"]["mflInjuryFeedUpdated"]
 for f in team:
@@ -394,3 +413,38 @@ P["lov"] = pts("0011", "Loveland", "loveland")
 P["whk"] = pts("0011", "White, Keion", "kwhite")
 P["fle"] = pts("0004", "Flowers", "flowers2") if False else None
 print("facts ok; flips:", [(OWN[w], OWN[l]) for w, l in flips])
+
+
+# ---- MFL projections (the call Sunday morning is judged against these, not against hindsight) ----
+import datetime as _dt
+_ko = {}
+for _m in L("nflsched7.json")["nflSchedule"]["matchup"]:
+    for _t in _m["team"]:
+        _ko[_t["id"]] = int(_m["kickoff"])
+_caps = {c["player_id"]: c for c in L("../../../../site/wire/data/projection_evidence_2026_wk07.json")["captures"]["players"]}
+PJSRC = "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative"
+
+
+def pj(key, pid):
+    c = _caps[pid]
+    F.add("pj_" + key, f1(c["projected_score"]), PJSRC)
+    return c["projected_score"]
+
+
+PJ = {}
+for key in ("dowdle", "dhenry", "barner", "boston", "byoung_de", "wanderson", "pollard", "ajones", "ocooper", "ncollins", "gwilson",
+            "willis", "byoung", "mahomes", "graham", "genosmith", "penix", "mtaylor"):
+    pass
+_pjmap = {"dowdle": "dow", "dhenry": "hen", "barner": "bar", "boston": "bos", "byoung_de": "byo", "wanderson": "and", "pollard": "pol",
+          "ajones": "ajo", "ocooper": "ocoo", "ncollins": "col", "gwilson": "wil", "willis": "wls", "byoung": "yng", "mahomes": "mah",
+          "graham": "gra", "genosmith": "gsm", "penix": "pen", "mtaylor": "mta", "irving": "iri", "watson": "wat"}
+for _k, _v in _pjmap.items():
+    if _v in P:
+        PJ[_k] = pj(_k, P[_v])
+for _k, _fid, _last in (("hubbard", "0004", "Hubbard"), ("rodgers", "0004", "Rodgers"), ("johnson_te", "0005", "Johnson, Juwan")):
+    PJ[_k] = pj(_k, pid_of(_fid, _last))
+assert PJ["dhenry"] > PJ["dowdle"] and PJ["wanderson"] > PJ["byoung_de"] and PJ["boston"] > PJ["barner"]      # Blake's starters out-projected all three bench players
+assert PJ["ajones"] > PJ["pollard"] and PJ["ncollins"] > PJ["ocooper"] and PJ["gwilson"] > PJ["ocooper"]     # so did Whitman's
+assert PJ["byoung"] > PJ["willis"] and PJ["mahomes"] > PJ["willis"]                                           # and Gerardi's quarterbacks
+assert PJ["hubbard"] > PJ["irving"] if "irving" in PJ else True
+print("projections ok")

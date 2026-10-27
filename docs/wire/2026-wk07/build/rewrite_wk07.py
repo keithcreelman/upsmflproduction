@@ -79,9 +79,9 @@ assert min(wve, key=wve.get) == "0010" and max(wve, key=wve.get) == "0011"
 assert max(team, key=lambda f: float(R.h2[OWN[f]][0])) == "0004"                                          # Cutting leaves the most per week
 hl = {f: inj["healthyLineups"][f]["rank"] for f in team}
 assert (hl["0009"], hl["0004"], hl["0005"], hl["0010"]) == (1, 2, 3, 4)
-tt = {f: float(R.odds[OWN[f]][3].rstrip("%")) for f in team}
+tt = {f: float(R.odds[OWN[f]][3].replace("&lt;", "").rstrip("%")) for f in team}
 assert sorted(tt, key=tt.get)[-2:] == ["0009", "0004"] and tt["0004"] > tt["0009"] and abs(tt["0004"] - tt["0009"]) < 0.5
-by = {f: float(R.odds[OWN[f]][1].rstrip("%")) for f in team}
+by = {f: float(R.odds[OWN[f]][1].replace("&lt;", "").rstrip("%")) for f in team}
 assert sorted(by, key=by.get, reverse=True)[:4] == ["0009", "0005", "0004", "0010"]
 assert R.odds["Eric Martel"][2] == "64.0%" and R.odds["Brian Cutting"][2] == "36.0%"
 assert all(team[x]["opt"] < team["0005"]["opt"] for x in team if x != "0005")                            # Martel's best lineup is the week's highest
@@ -95,7 +95,7 @@ assert sorted(((OWN[f], R.wins[f]) for f in team if R.wins[f] == 3)) == [("Bear 
 F.add("ap_ties", "48–29", "MFL leagueStandings: Blake and Cutting are both 48–29 in All-Play")
 mag = {f: R.f1(team[f]["opt"] - team[f]["score"]) for f in team}
 wk6_po = {f: float(F["po6_" + TAG[f]].rstrip("%")) for f in team}
-F.add("blake_po_drop", f1(wk6_po["0010"] - float(F["po_blak"].rstrip("%"))), "derived: Week 6 forecast minus Week 7 forecast, playoff odds")
+F.add("blake_po_drop", f1(wk6_po["0010"] - float(F["po_blak"].replace("&lt;", "").rstrip("%"))), "derived: Week 6 forecast minus Week 7 forecast, playoff odds")
 F.add("blake_div_drop", f1(float(F["div6_blak"].rstrip("%")) - float(F["div_blak"].rstrip("%"))), "derived: Week 6 forecast minus Week 7 forecast, division odds")
 F.add("blake_bye_drop", f1(float(F["bye6_blak"].rstrip("%")) - float(F["bye_blak"].rstrip("%"))), "derived: Week 6 forecast minus Week 7 forecast, bye odds")
 F.add("cutt_title_up", f1(float(F["title_cutt"].rstrip("%")) - float(F["title6_cutt"].rstrip("%"))), "derived: Week 7 forecast minus Week 6 forecast, title odds")
@@ -240,10 +240,10 @@ S.append(wrap("story", "The Big Story", label(1, "The Big Story", "Cutting catch
     ("Stuart", "So why does the forecast like Cutting so much?"),
     ("Rich", "Because the forecast does not play the record. It plays each team&rsquo;s best lineup every week, built from 2026 points per game with everyone healthy. Bear&rsquo;s is {hl_bear} a week. Cutting&rsquo;s is {hl_cutt}, second in the league, ahead of Eric Martel ({hl_emar}) and Shawn Blake ({hl_blak}). Cutting&rsquo;s roster is better than his {rec_cutt}."),
     ("Stuart", "Is it?"),
-    ("Rich", "Both things are true. This season Cutting has left {bench_cutt} points a week on the bench, the most in the league, and in {blw_cutt} of his losses the best lineup from his own roster would have won. In Week 7 it was Bucky Irving ({irving}) and Deshaun Watson ({watson}), {cutt_bench_two} between them. He swept anyway, with {sc_cutt}."),
+    ("Rich", "Both things are true. This season Cutting has left {bench_cutt} points a week on the bench, the most in the league, and in {blw_cutt} of his losses the best lineup from his own roster would have won. In Week 7 it was Bucky Irving ({irving}) and Deshaun Watson ({watson}), {cutt_bench_two} between them. He swept anyway, with {sc_cutt}. In fairness, the starters were the better bets on paper: Chuba Hubbard was projected {pj_hubbard} to Irving&rsquo;s {pj_irving}, Aaron Rodgers {pj_rodgers} to Watson&rsquo;s {pj_watson}. A best lineup is only known afterward."),
     ("Kenny", "Saturday, 3:52 PM, Brian Cutting: {q_cutt} Lamar Jackson ({lj_ppg} a game) has not played since Week {lj_last}, and MFL lists him Questionable with an ankle injury. Without Jackson, Aaron Rodgers ({lj_rep}) steps in and Cutting&rsquo;s best lineup drops {lj_drop}, to {lj_lu2}, third in the league. He is staying afloat."),
     ("Stuart", "And the bye?"),
-    ("Rich", "The first one is spoken for. Bear is at {bye_bear}. The second is Eric Martel at {bye_emar}, Brian Cutting at {bye_cutt} and Shawn Blake at {bye_blak}. Nobody else is above {bye_whit}."),
+    ("Rich", "Bear is the heavy favorite for the first one, at {bye_bear}. The second is Eric Martel at {bye_emar}, Brian Cutting at {bye_cutt} and Shawn Blake at {bye_blak}. Nobody else is above {bye_whit}."),
     ("Rich", "Martel and Cutting are in the same division, Outlast PG Time, with Brian Cross. Martel is {rec_emar}, Cutting is {rec_cutt}, three games behind, and the forecast gives Martel {div_emar} to win it and Cutting {div_cutt}. The division winner takes a top seed. That race is the bye."),
     ("Kenny", "Monday, 7:41 AM, Josh Martel: {q_josh2} The forecast agrees, mostly: Bear is at {title_bear} to win the title, and Cutting, who is {rec_cutt}, is at {title_cutt}. Josh is {rec_jmar}."))))
 
@@ -253,8 +253,8 @@ S.append(wrap("middle", "The Blake Slide", label(2, "The Blake Slide", "0&ndash;
     ("Rich", "That is six losses in a row, and the second week was close. Blake scored {sc_blak}, {blake_wk7_rk} in the league, and lost to Eric Mannila&rsquo;s {sc_mann} by {blake_loss_mann}. It was the closest game of the week."),
     ("Stuart", "So is Blake bad?"),
     ("Rich", "The scores say no. Over Weeks 1 to 7 Blake is {ap_blak} in All-Play, level with Cutting and one win behind Whitman, and his {pf_blak} points for are third in the league, behind Bear and Eric Martel. His record is {wvea_blak} wins short of what his weekly scores predict, the largest gap in the league. Mannila is the mirror image, {wvea_mann} wins better.")
-    ) + record_block(("0010", "0011", "0004", "0002"), "Season to date, Weeks 1 to 7. The last line of each box is Week 7 alone.").replace("</div></div>", "</div></div>") + desk(
-    ("Rich", "Week 7 gave the 0.8 a size. Three bench players would each have won that game by themselves. Rico Dowdle ({dowdle}) in for Derrick Henry ({dhenry}) is {blake_dow_gain} more and {blake_dow_lu}. Byron Young ({byoung_de}) in for Will Anderson ({wanderson}) is {blake_byo_gain} more and {blake_byo_lu}. AJ Barner ({barner}) in for Denzel Boston ({boston}) is {blake_bar_gain} more and {blake_bar_lu}. Mannila scored {sc_mann}. That is hindsight; nobody has it on Sunday morning."),
+    ) + record_block(("0010", "0011", "0004", "0002"), "Season to date, Weeks 1 to 7. The last line of each box is Week 7 alone.") + '<p class="caption">Projections are MFL&rsquo;s, captured Sunday at 2:04 PM ET. For the 1 PM games that was after kickoff, so those are indicative.</p>' + desk(
+    ("Rich", "Week 7 gave the 0.8 a size, and it was not a lineup mistake. Three bench players would each have won that game by themselves: Rico Dowdle ({dowdle}) for Derrick Henry ({dhenry}), Byron Young ({byoung_de}) for Will Anderson ({wanderson}), AJ Barner ({barner}) for Denzel Boston ({boston}). Nobody starts them on Sunday morning. MFL&rsquo;s projections had Henry at {pj_dhenry} and Dowdle at {pj_dowdle}, Anderson at {pj_wanderson} and Young at {pj_byoung_de}, Boston at {pj_boston} and Barner at {pj_barner}. Each starter was the better bet. The 0.8 was variance, not a decision."),
     ("Kenny", "Monday, 7:43 AM, Shawn Blake: {q_blake2} His seven IDP starters scored {blake_idp}, {blake_idp_rk} of the 12 teams. He was right. The fill-ins were great: Blake Corum scored {corum} and Devaughn Vele {vele}."),
     ("Kenny", "The team that beat him got {mann_idp} from its seven IDP starters, {mann_idp_rk} in the league, and won anyway. That is the same Mannila who is {wvea_mann} wins better than his scores."),
     ("Kenny", "Monday, 7:40 AM, Shawn Blake: {q_blake1} The week finished 0&ndash;3 for Blake, and {ap7_blak} in All-Play."),
@@ -265,7 +265,7 @@ S.append(wrap("middle", "The Blake Slide", label(2, "The Blake Slide", "0&ndash;
 # 3 -- Playoff Picture
 S.append(wrap("odds", "Playoff Picture", label(3, "Playoff Picture", "updated after Week 7") + desk(
     ("Stuart", "{sims} simulated seasons, run fresh through Week 7. Bear first."),
-    ("Rich", "Bear: {po_bear} to make the playoffs, {bye_bear} for a bye, {div_bear} to win the Dog Pound and {title_bear} for the title. With the division spoken for, Chris Klingenberg ({po_klin}) and Eric Mannila ({po_mann}) are playing for a wild card, and wild cards go by All-Play."),
+    ("Rich", "Bear: {po_bear} to make the playoffs, {bye_bear} for a bye, {div_bear} to win the Dog Pound and {title_bear} for the title. With Bear at {div_bear} to take the Dog Pound, Chris Klingenberg ({po_klin}) and Eric Mannila ({po_mann}) are mostly playing for a wild card, and wild cards go by All-Play."),
     ("Stuart", "Klingenberg is {rec_klin}, a game better than Mannila&rsquo;s {rec_mann}. Why is he only at {po_klin}?"),
     ("Rich", "Because his scores are not {rec_klin} scores. Klingenberg is {ap_klin} in All-Play, and his best lineup, {hl_klin} a week, is {hlrk_klin} in the league. Mannila is {ap_mann} and {po_mann}. Both swept in Week 6. In Week 7 Klingenberg did it again, 3&ndash;0 with {sc_klin}, fourth in the league, while Mannila went {wins7_mann}&ndash;{loss7_mann}."),
     ("Stuart", "Maddie Mondays?"),
@@ -304,35 +304,35 @@ S.append(wrap("brief", "Week 7 in Brief", label(5, "Week 7 in Brief", "Boomer, t
 # 6 -- Who Actually Won the Week
 S.append(wrap("weeks", "Who Actually Won the Week", label(6, "Who Actually Won the Week", "the lineups that decided games") + desk(
     ("Stuart", "Points say who scored. Lineups say who decided. Rich, how many games did decisions change?"),
-    ("Rich", "{n_flips} of {n_games}, if you build each loser&rsquo;s best lineup from the same roster. That is hindsight. Nobody has that lineup on Sunday morning. It shows where decisions mattered, and where nothing could have."),
+    ("Rich", "{n_flips} of {n_games}, if you build each loser&rsquo;s best lineup from the same roster. That is hindsight. Nobody has that lineup on Sunday morning. It shows where points sat on the bench. Whether the call was wrong is a different question, so each swap below carries MFL&rsquo;s projection for both players."),
     ("Stuart", "Start with the biggest."),
-    ("Rich", "Derrick Whitman. His best lineup was {opt_whit}, and he started {sc_whit}, so {left_whit} points sat on the bench, the most of any team. He lost to Chris Klingenberg by {whit_loss_klin}. Put Tony Pollard ({pollard}) in for Aaron Jones ({ajones}) and Whitman scores {whit_pol}, which wins that game by {whit_pol_klin} and also beats Eric Mannila. Add Omar Cooper Jr. ({ocooper}) for Nico Collins ({ncollins}) and it is {whit_both}, still {whit_pol_bear} short of Bear."),
+    ("Rich", "Derrick Whitman. His best lineup was {opt_whit}, and he started {sc_whit}, so {left_whit} points sat on the bench, the most of any team. He lost to Chris Klingenberg by {whit_loss_klin}. Put Tony Pollard ({pollard}) in for Aaron Jones ({ajones}) and Whitman scores {whit_pol}, which wins that game by {whit_pol_klin} and also beats Eric Mannila. Add Omar Cooper Jr. ({ocooper}) for Nico Collins ({ncollins}) and it is {whit_both}, still {whit_pol_bear} short of Bear. That is hindsight: MFL projected Jones at {pj_ajones} and Pollard at {pj_pollard}, Collins at {pj_ncollins} and Cooper at {pj_ocooper}."),
     ("Stuart", "Matt Gerardi."),
-    ("Rich", "Gerardi started Patrick Mahomes ({mahomes}) and Bryce Young ({byoung}) at quarterback, {gera_qb_pair} together, with Malik Willis ({willis}) on the bench. Willis in for Young is {gera_willis_lu}, which beats Mannila by {gera_willis_mann}. Gerardi went 0&ndash;3."),
+    ("Rich", "Gerardi started Patrick Mahomes ({mahomes}) and Bryce Young ({byoung}) at quarterback, {gera_qb_pair} together, with Malik Willis ({willis}) on the bench. Willis in for Young is {gera_willis_lu}, which beats Mannila by {gera_willis_mann}. Gerardi went 0&ndash;3. Again, hindsight: MFL projected Mahomes at {pj_mahomes}, Young at {pj_byoung} and Willis at {pj_willis}."),
     ("Stuart", "And Shawn Blake?"),
-    ("Rich", "The 0.8. Blake&rsquo;s best lineup was {opt_blak}, which beats Mannila but not Klingenberg ({sc_klin}) or Bear. That is in the Blake Slide."),
+    ("Rich", "The 0.8. Blake&rsquo;s best lineup was {opt_blak}, which beats Mannila but not Klingenberg ({sc_klin}) or Bear. That is in the Blake Slide, where every one of the swaps was a worse bet on paper."),
     ("Stuart", "The fourth flip is Mannila over Whitman."),
     ("Rich", "Mannila&rsquo;s best lineup was {opt_mann}, against Whitman&rsquo;s {sc_whit}. Whitman won by {m_whit_mann}. Mannila&rsquo;s bench had safety Jessie Bates at {bates}."),
     ("Stuart", "Eric Martel swept, but his best lineup was bigger than anyone&rsquo;s."),
-    ("Rich", "{opt_emar} against the {sc_emar} he started. Geno Smith ({genosmith}) and Mason Taylor ({mtaylor}) sat; together that is {emar_bench_two}. His best lineup is {emar_miss_bear} above Bear&rsquo;s actual {sc_bear}. Martel did not play Bear in Week 7, and he beat Keith Creelman, Josh Martel and Ryan Bousquet by {emar_min_margin} or more, so none of it changed a game."),
+    ("Rich", "{opt_emar} against the {sc_emar} he started. Geno Smith ({genosmith}) and Mason Taylor ({mtaylor}) sat; together that is {emar_bench_two}. His best lineup is {emar_miss_bear} above Bear&rsquo;s actual {sc_bear}. Martel did not play Bear in Week 7, and he beat Keith Creelman, Josh Martel and Ryan Bousquet by {emar_min_margin} or more, so none of it changed a game. MFL projected Penix at {pj_penix} and Geno Smith at {pj_genosmith}, Juwan Johnson at {pj_johnson_te} and Mason Taylor at {pj_mtaylor}."),
     ("Stuart", "And the games lineups could not touch?"),
     ("Rich", "Anyone who played Bear. His opponents&rsquo; best lineups were {opt_gera}, {opt_whit} and {opt_blak}. Whitman&rsquo;s {opt_whit} was the closest, and it still falls {bear_vs_whit_opt} short.")) +
-    det("Projected versus actual: every start, graded", inner("bb"))))
+    '<p class="caption">Projections are MFL&rsquo;s, captured Sunday at 2:04 PM ET. For the 1 PM games that was after kickoff, so those are indicative.</p>' + det("Projected versus actual: every start, graded", inner("bb"))))
 
 # 7 -- Player and Team Stories
 S.append(wrap("players", "Player and Team Stories", label(7, "Player and Team Stories", "what changed and what happens next") + desk(
     ("Stuart", "Four stories, and the first one is a bench.")) +
     h3("1. Derrick Whitman and the {pollard} on his bench") + desk(
     ("Stuart", "Tony Pollard scored {pollard} in Week 7, the second-biggest player score of the week behind Joe Burrow&rsquo;s {burrow}. He was on Derrick Whitman&rsquo;s bench."),
-    ("Rich", "Whitman started him in Weeks 1 to 4 and in Week 6, and benched him in Weeks 5 and 7. Before Sunday his best week for Whitman was {pol_prev}. Pollard beat that by {pol_lead}. Aaron Jones started in his place and scored {ajones}."),
-    ("Rich", "It was not only the one slot. Omar Cooper Jr. scored {ocooper} on the bench while Nico Collins ({ncollins}) and Garrett Wilson ({gwilson}) started at receiver. The two Whitman started instead, Jones and Collins, gave him {whit_started_two}. The two who sat gave {whit_bench_two}."),
+    ("Rich", "Whitman started him in Weeks 1 to 4 and in Week 6, and benched him in Weeks 5 and 7. Before Sunday his best week for Whitman was {pol_prev}. Pollard beat that by {pol_lead}. Aaron Jones started in his place and scored {ajones}. MFL&rsquo;s projections had Jones at {pj_ajones} and Pollard at {pj_pollard}, so it was a reasonable start."),
+    ("Rich", "It was not only the one slot. Omar Cooper Jr. scored {ocooper} on the bench while Nico Collins ({ncollins}) and Garrett Wilson ({gwilson}) started at receiver. Projections: Collins {pj_ncollins}, Wilson {pj_gwilson}, Cooper {pj_ocooper}. The two Whitman started instead, Jones and Collins, gave him {whit_started_two}. The two who sat gave {whit_bench_two}."),
     ("Stuart", "And where does that leave Whitman?"),
     ("Rich", "{rec_whit} and leading Legion of Boom by two games over Shawn Blake, which the forecast does not care about: Whitman {div_whit}, Blake {div_blak}. The reason is on the roster. Blake&rsquo;s best healthy lineup is {hl_blak} a week, {hlrk_blak}. Whitman&rsquo;s is {hl_whit}, {hlrk_whit}. He has the record and the forecast has a coin flip."))
     + h3("2. Matt Gerardi&rsquo;s quarterback room") + desk(
     ("Stuart", "Matt Gerardi is {rec_gera}, went 0&ndash;3 with {sc_gera} and scored the third-lowest total of the week, above only Ryan Bousquet and Brian Cross."),
     ("Rich", "Gerardi started Patrick Mahomes ({mahomes}) and Bryce Young ({byoung}) in the two quarterback spots. Malik Willis scored {willis} on his bench, the {willis_rank}-biggest player score of the week. Gerardi started Willis in Weeks 1 and 5 and benched him in Weeks 2, 3, 4 and 7. Miami was on its bye in Week 6."),
     ("Stuart", "And the zero?"),
-    ("Rich", "Mason Graham. He has not played an NFL game since Week 3. Gerardi started him in Week 4, benched him in Weeks 5 and 6, and started him again in Week 7. He scored 0.0 both times. MFL lists no injury for him. The NFL&rsquo;s Week 7 practice report lists a knee and full participation."),
+    ("Rich", "Mason Graham, projected {pj_graham}. He has not played an NFL game since Week 3. Gerardi started him in Week 4, benched him in Weeks 5 and 6, and started him again in Week 7. He scored 0.0 both times. MFL lists no injury for him. The NFL&rsquo;s Week 7 practice report lists a knee and full participation."),
     ("Stuart", "Is it the roster?"),
     ("Rich", "No. Gerardi&rsquo;s best healthy lineup is {gera_hl} a week, {gera_hlrk} in the league, and his best lineup this week was {opt_gera}, {left_gera} more than he started. {rec_gera} and {po_gera} to make the playoffs. It is the Sinking line in the Heat Check."))
     + h3("3. Brian Cross, and the lowest score of the week") + desk(
@@ -375,6 +375,30 @@ tail = re.sub(r"<b>Sources\.</b>[\s\S]*?</div>", "<b>Sources.</b> MFL scores, st
 tail = re.sub(r"<b>Status\.</b>[\s\S]*?</div>", "<b>Status.</b> Automated draft (ups_center_auto.py), generated Tue Oct 27, 10:00 AM ET, rewritten by the editor. Not published.</div>", tail, count=1)
 tail = re.sub(r"<b>Editor review\.</b>[\s\S]*?</div>", "<b>Still to come.</b> The Elias segment for Week 7: the official stat changes had not posted when this report was written.</div>", tail, count=1)
 body = "".join(S)
+
+
+def fix_prob_cells(h):
+    """Odds table: any cell that reads 100.0% or 0.0% is replaced by the committed forecast's own value (see rewrite_facts.safe_pct)."""
+    out = []
+    for tr in re.split(r"(?=<tr>)", h):
+        name = next((n for n in R.OWN.values() if ">%s<" % n in tr or n + "</" in tr), None)
+        if name:
+            fid = R.FID[TAG_BY_NAME[name]]
+            cells = re.findall(r"<td[^>]*>[\s\S]*?</td>", tr)
+            for i, key in enumerate(R.RAWKEY):
+                c = cells[1 + i] if len(cells) > 1 + i else ""
+                m = re.search(r">\s*(100\.0%|0\.0%)\s*<", c)
+                if m:
+                    tr = tr.replace(c, c.replace(m.group(1), R.safe_pct(m.group(1), R.SIM7[fid][key])), 1)
+        out.append(tr)
+    return "".join(out)
+
+
+TAG_BY_NAME = {OWN[f]: TAG[f] for f in OWN}
+body = fix_prob_cells(body)
+for f in OWN:
+    nm_ = OWN[f]
+    body = re.sub(r"(%s[\s\S]{0,200}?Contender )100\.0%%" % re.escape(nm_), lambda m: m.group(1) + R.safe_pct("100.0%", R.SIM7[f]["currentPlayoffOdds"]), body, count=1)
 
 
 def render(x):

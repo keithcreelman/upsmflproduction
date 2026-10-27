@@ -84,36 +84,6 @@
   "source": "Heat Check table: best possible lineup minus lineup started, per week, season",
   "value": "44.0"
  },
- "nar:blake_bar_gain": {
-  "shown": "4.7",
-  "source": "derived: bench player minus the starter he replaces",
-  "value": "4.7"
- },
- "nar:blake_bar_lu": {
-  "shown": "198.6",
-  "source": "derived: Blake's started lineup with one bench player in (Week 7 points, hindsight)",
-  "value": "198.6"
- },
- "nar:blake_byo_gain": {
-  "shown": "5.5",
-  "source": "derived: bench player minus the starter he replaces",
-  "value": "5.5"
- },
- "nar:blake_byo_lu": {
-  "shown": "199.4",
-  "source": "derived: Blake's started lineup with one bench player in (Week 7 points, hindsight)",
-  "value": "199.4"
- },
- "nar:blake_dow_gain": {
-  "shown": "8.3",
-  "source": "derived: bench player minus the starter he replaces",
-  "value": "8.3"
- },
- "nar:blake_dow_lu": {
-  "shown": "202.2",
-  "source": "derived: Blake's started lineup with one bench player in (Week 7 points, hindsight)",
-  "value": "202.2"
- },
  "nar:blake_idp": {
   "shown": "36.9",
   "source": "MFL weeklyResults W7 (committed: wr7.json): seven IDP starters",
@@ -829,6 +799,121 @@
   "source": "MFL leagueStandings (committed: st.json)",
   "value": "1,563.5"
  },
+ "nar:pj_ajones": {
+  "shown": "10.3",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "10.3"
+ },
+ "nar:pj_barner": {
+  "shown": "6.9",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "6.9"
+ },
+ "nar:pj_boston": {
+  "shown": "9.0",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "9.0"
+ },
+ "nar:pj_byoung": {
+  "shown": "15.5",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "15.5"
+ },
+ "nar:pj_byoung_de": {
+  "shown": "5.9",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "5.9"
+ },
+ "nar:pj_dhenry": {
+  "shown": "16.8",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "16.8"
+ },
+ "nar:pj_dowdle": {
+  "shown": "7.8",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "7.8"
+ },
+ "nar:pj_genosmith": {
+  "shown": "13.5",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "13.5"
+ },
+ "nar:pj_graham": {
+  "shown": "4.4",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "4.4"
+ },
+ "nar:pj_gwilson": {
+  "shown": "18.4",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "18.4"
+ },
+ "nar:pj_hubbard": {
+  "shown": "16.2",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "16.2"
+ },
+ "nar:pj_irving": {
+  "shown": "11.4",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "11.4"
+ },
+ "nar:pj_johnson_te": {
+  "shown": "10.0",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "10.0"
+ },
+ "nar:pj_mahomes": {
+  "shown": "16.0",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "16.0"
+ },
+ "nar:pj_mtaylor": {
+  "shown": "5.8",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "5.8"
+ },
+ "nar:pj_ncollins": {
+  "shown": "12.0",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "12.0"
+ },
+ "nar:pj_ocooper": {
+  "shown": "6.3",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "6.3"
+ },
+ "nar:pj_penix": {
+  "shown": "14.1",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "14.1"
+ },
+ "nar:pj_pollard": {
+  "shown": "7.5",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "7.5"
+ },
+ "nar:pj_rodgers": {
+  "shown": "15.1",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "15.1"
+ },
+ "nar:pj_wanderson": {
+  "shown": "9.6",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "9.6"
+ },
+ "nar:pj_watson": {
+  "shown": "14.4",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "14.4"
+ },
+ "nar:pj_willis": {
+  "shown": "13.3",
+  "source": "MFL projection captured Sun Oct 25, 2:04 PM ET (site/wire/data/projection_evidence_2026_wk07.json); for 1 PM games that is after kickoff, so it is indicative",
+  "value": "13.3"
+ },
  "nar:po6_bear": {
   "shown": "99.8%",
   "source": "Playoff Picture table as published in the Week 6 UPS Center",
@@ -890,9 +975,9 @@
   "value": "56.9%"
  },
  "nar:po_bear": {
-  "shown": "100.0%",
+  "shown": "99.96%",
   "source": "Playoff Picture table = committed forecast (docs/wire/auto/2026-wk07-ups-center, 10,000 seasons through Week 7)",
-  "value": "100.0%"
+  "value": "99.96%"
  },
  "nar:po_blak": {
   "shown": "80.5%",
