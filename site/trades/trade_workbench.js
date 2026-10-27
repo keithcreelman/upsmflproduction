@@ -86,6 +86,65 @@
 
   var els = {};
 
+  // ── Shared trade rules (Trade Builder P1) ───────────────────────────────────────────────────────────────────
+  // The trade arithmetic the worker also runs lives in ../shared/trade_rules.js (window.UPS_TRADE_RULES). The page
+  // loads it before this file; an older cached page doesn't (GitHub Pages serves the new trade_workbench.js whatever
+  // its ?v=), so it is requested here, from beside this script under the same stamp. Always read it through
+  // tradeRules() at call time. While it is missing nothing is guessed: the War Room shows its load error asking the
+  // owner to reload, and every send is refused (fail closed).
+  var TRADE_RULES_UNAVAILABLE = "The trade rules didn't load. Reload the page to continue; no offer can be sent until then.";
+  var tradeRulesLoad = { requested: false, failed: false, waiters: [] };
+  function tradeRulesScriptUrl() {
+    var me = document.currentScript;
+    if (!me || !me.src) me = document.querySelector ? document.querySelector('script[src*="trade_workbench.js"]') : null;
+    var src = me && me.src ? String(me.src) : "";
+    var stamp = (/[?&]v=([\w.-]+)/.exec(src) || [])[1] || "";
+    var dir = src.replace(/[?#].*$/, "").replace(/[^\/]*$/, "");   // …/trades/
+    var root = dir ? dir.replace(/[^\/]+\/$/, "") : "../";           // …/
+    return root + "shared/trade_rules.js" + (stamp ? "?v=" + stamp : "");
+  }
+  function settleTradeRulesWaiters() {
+    var waiting = tradeRulesLoad.waiters.splice(0);
+    for (var i = 0; i < waiting.length; i += 1) waiting[i]();
+  }
+  function requestTradeRulesIfMissing() {
+    if (window.UPS_TRADE_RULES || tradeRulesLoad.requested) return;
+    tradeRulesLoad.requested = true;
+    try {
+      var tag = document.createElement("script");
+      tag.src = tradeRulesScriptUrl();
+      tag.async = false;
+      tag.onload = function () { if (!window.UPS_TRADE_RULES) tradeRulesLoad.failed = true; settleTradeRulesWaiters(); };
+      tag.onerror = function () { tradeRulesLoad.failed = true; settleTradeRulesWaiters(); };
+      (document.head || document.documentElement).appendChild(tag);
+    } catch (e) {
+      tradeRulesLoad.failed = true;
+    }
+  }
+  // boot waits (bounded) for a requested copy before the first render, so a slow fetch is not taken for a failure
+  function waitForTradeRules(ms) {
+    if (window.UPS_TRADE_RULES || !tradeRulesLoad.requested || tradeRulesLoad.failed) return Promise.resolve();
+    return new Promise(function (resolve) { tradeRulesLoad.waiters.push(resolve); setTimeout(resolve, ms); });
+  }
+  function tradeRules() {
+    var rules = window.UPS_TRADE_RULES;
+    if (rules) return rules;
+    requestTradeRulesIfMissing();
+    var err = new Error(TRADE_RULES_UNAVAILABLE);
+    err.code = "trade_rules_unavailable";
+    if (state.uiReady) showError(err);
+    throw err;
+  }
+  function tradeRulesReadyToSend() {
+    if (window.UPS_TRADE_RULES) return true;
+    requestTradeRulesIfMissing();
+    setSubmitStatus(TRADE_RULES_UNAVAILABLE, "bad");
+    if (tw3) tw3SetStatus(TRADE_RULES_UNAVAILABLE, "bad");
+    showError(new Error(TRADE_RULES_UNAVAILABLE));
+    return false;
+  }
+  requestTradeRulesIfMissing();
+
   function getLeagueContext() {
     var ctx = {
       host: "",
@@ -4313,6 +4372,7 @@
 
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
+    if (!tradeRulesReadyToSend()) return;
     setAcceptDebug(null);
     var payload = buildTradePayload();
     var leftTeam = getTeamById(state.leftTeamId);
@@ -4792,7 +4852,7 @@
     if (!assetHasActiveCurrentContract(asset)) return 0;
     var salary = safeInt(asset.salary, 0);
     if (salary <= 0) return 0;
-    if (assetCountsAsCurrentIr(asset)) return Math.round(salary * 0.5);
+    if (assetCountsAsCurrentIr(asset)) return tradeRules().irCapHit(salary);
     return salary;
   }
 
@@ -4854,7 +4914,7 @@
 
   function getTradeSalaryMaxK(teamId) {
     var totals = getTeamTotals(teamId);
-    return Math.floor(safeInt(totals.selectedNonTaxiSalary, 0) / 2000);
+    return tradeRules().capMoneyMaxK(safeInt(totals.selectedNonTaxiSalary, 0));
   }
 
   function getNetTradeSalaryK(teamId) {
@@ -5586,8 +5646,8 @@
 
     var leftNetChange = -leftNetSalaryAdjustment;
     var rightNetChange = -rightNetSalaryAdjustment;
-    var leftOverCap = leftAvailableAfter != null && leftAvailableAfter < 0 ? Math.abs(leftAvailableAfter) : 0;
-    var rightOverCap = rightAvailableAfter != null && rightAvailableAfter < 0 ? Math.abs(rightAvailableAfter) : 0;
+    var leftOverCap = leftAvailableAfter != null && tradeRules().isOverCap(-leftAvailableAfter, 0) ? Math.abs(leftAvailableAfter) : 0;   // −room = $ past the cap
+    var rightOverCap = rightAvailableAfter != null && tradeRules().isOverCap(-rightAvailableAfter, 0) ? Math.abs(rightAvailableAfter) : 0;
 
     return {
       left: {
@@ -7624,7 +7684,7 @@
       var a = byId[aid];
       if (a && a.type === "PLAYER" && !a.taxi) sum += safeInt(a.salary, 0);
     });
-    return Math.floor(sum / 2000);
+    return tradeRules().capMoneyMaxK(sum);
   }
   // The §A6-clamped cap the giver actually sends to dest (stored value capped by
   // the live max — re-clamps automatically when the routed players change).
@@ -8027,6 +8087,7 @@
   }
   async function tw3Submit() {
     if (!tw3 || tw3.submitting) return;
+    if (!tradeRulesReadyToSend()) return;
     var st = tw3State();
     if (!st.canSubmit) { tw3SetStatus("All three teams need to be in the deal (at least two movements).", "warn"); render3WayPanel(); return; }
     var ctx = getLeagueContext();
@@ -8728,6 +8789,7 @@
   // submitOfferToQueue (the existing direct-MFL path) is completely unmodified by this addition.
   async function submitStagedOfferToQueue() {
     if (state.submit.busy) return;
+    if (!tradeRulesReadyToSend()) return;
     var payload = buildTradePayload();
     var leftTeam = getTeamById(state.leftTeamId);
     var rightTeam = getTeamById(state.rightTeamId);
@@ -8799,6 +8861,7 @@
       }
       state.data = await normalizeDataWithFallbacks(raw);
       if (!state.data.teams.length) throw new Error("No teams in data payload.");
+      await waitForTradeRules(8000);
 
       seedInitialTeams();
       if (!getUrlParam("twb_load_offer")) {
