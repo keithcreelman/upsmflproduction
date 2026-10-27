@@ -59,9 +59,14 @@ test("Market search no longer pokes past its card on a phone", () => {
   t.ok(/\.fo-mk-controls \.fo-mk-search input \{ min-width: 0; width: 100%; \}/.test(CSS));
 });
 
+test("Market on a phone: each row's status sits under the player's name (the Status column would be half off-screen)", () => {
+  t.ok(/<div class="fo-mk-statusline">' \+ availCell\(r\) \+ "<\/div><\/td>"/.test(MK) && /<td class="fo-mk-col-status">' \+ availCell\(r\)/.test(MK) && /"fo-mk-col-status"\)/.test(MK), "the same status cell content under the name and in the column");
+  t.ok(/\.fo-root \.fo-mk-statusline \{ display: none; \}/.test(CSS) && /@media \(max-width: 560px\) \{\s*\.fo-root \.fo-mk-col-status \{ display: none; \}\s*\.fo-root \.fo-mk-statusline \{ display: block;/.test(CSS), "desktop keeps the column; phones swap it for the under-name line");
+});
+
 test("version stamps changed with the files that changed", () => {
-  for (const f of ["front_office.css", "fo_trades.js", "fo_activity.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.2"), f);
-  t.ok(HTML.includes("fo_market.js?v=2026.10.27.3"), "fo_market.js (changed again by the Market choices revision)");
+  for (const f of ["fo_trades.js", "fo_activity.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.2"), f);
+  for (const f of ["front_office.css", "fo_market.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.3"), f + " (changed again by the Market choices revision)");
   t.ok(/var BUILD = "2026\.10\.27\.3";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 

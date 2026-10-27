@@ -247,7 +247,7 @@
       "</div></div>";
     // A free agent has no contract: the Contract column only shows where rostered players can be listed.
     var showContract = view.scope !== "fa";
-    var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Status", "Free agents: when the player can be added or claimed (the league's waiver check, same as the phone). Rostered: the owning team, and whether it lists the player on the trade block.", "") +
+    var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Status", "Free agents: when the player can be added or claimed (the league's waiver check, same as the phone). Rostered: the owning team, and whether it lists the player on the trade block.", "fo-mk-col-status") +
       th("pts", "Pts", "MFL points, league scoring, every week MFL posted", "num") + th("ppg", "PPG", "Points per MFL-scored week", "num") +
       th("rank", "Rank", "PPG rank at the player's position among every player MFL scored with at least half the final weeks", "num") +
       th("l4", "L4", "PPG over the last 4 final weeks (context)", "num col-lo") +
@@ -258,8 +258,9 @@
       var l = r.line;
       return "<tr>" +
         '<td class="fo-perf-player">' + H.playerButton(r.pid, r.fid, r.name) + (r.p ? H.injuryChip(r.p) : "") +
-          '<div class="fo-muted fo-perf-sub">' + H.esc(r.pos) + " · " + H.esc(r.team || "FA") + "</div></td>" +
-        "<td>" + availCell(r) + "</td>" +
+          '<div class="fo-muted fo-perf-sub">' + H.esc(r.pos) + " · " + H.esc(r.team || "FA") + "</div>" +
+          '<div class="fo-mk-statusline">' + availCell(r) + "</div></td>" +   // phones: the Status sits under the name (the column scrolls out of view)
+        '<td class="fo-mk-col-status">' + availCell(r) + "</td>" +
         '<td class="num">' + (l ? H.fmt1(l.pts) : "—") + "</td>" +
         '<td class="num">' + (l && l.ppg != null ? H.fmt1(l.ppg) : "—") + (l ? '<div class="fo-muted fo-perf-sub">' + l.games + " wk" + (l.games === 1 ? "" : "s") + "</div>" : "") + "</td>" +
         '<td class="num">' + (l ? H.esc(l.rankLabel) : "—") + "</td>" +

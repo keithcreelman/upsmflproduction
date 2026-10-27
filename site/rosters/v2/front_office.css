@@ -1357,3 +1357,11 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
   .fo-root .fo-choice { width: 100%; }
   .fo-root .fo-choice-wrap .fo-subview-chip { flex: 1 1 calc(50% - 6px); }
 }
+
+/* Market status on a phone: the Status column would sit half off-screen, so each row says it under the player's name instead. */
+.fo-root .fo-mk-statusline { display: none; }
+@media (max-width: 560px) {
+  .fo-root .fo-mk-col-status { display: none; }
+  .fo-root .fo-mk-statusline { display: block; margin-top: 4px; font-size: 12px; line-height: 1.3; }
+  .fo-root .fo-mk-statusline .fo-perf-sub { margin-top: 2px; }
+}
