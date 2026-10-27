@@ -188,7 +188,7 @@
     if (a.pending) return '<span class="fo-muted">checking…</span>';
     var st = statusFor(a);
     // "Claim now" is not shown as a chip: the row's "Claim in app" action says it. The named run stays.
-    if (st.cls === "claim") return '<span class="fo-muted" title="' + H.esc(st.title) + '">' + H.esc(st.sub) + "</span>";
+    if (st.cls === "claim") return '<span class="fo-muted" title="' + H.esc(st.title) + '">' + (st.sub ? "Claim for " : "") + H.esc(st.sub) + "</span>";   // a claim goes to the named run, not "now"
     return '<span class="fo-av fo-av-' + st.cls + '" title="' + H.esc(st.title) + '">' + H.esc(st.label) + "</span>" +
       (st.sub ? '<div class="fo-muted fo-perf-sub">' + H.esc(st.sub) + "</div>" : "");
   }

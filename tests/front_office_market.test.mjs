@@ -77,6 +77,7 @@ test("launch revision (Keith 2026-10-26): no 'Claim now' chip, no Contract colum
   t.ok(/colspan="' \+ \(showContract \? 11 : 10\)/.test(SRC), "the empty-state row spans the visible columns");
   t.ok(/r\.bait && r\.bait === r\.fid && view\.scope !== "bait"/.test(SRC), "the On the block chip is dropped inside the On the block view only");
   t.ok(/\["bait", "On the block"\]/.test(SRC), "the On the block view stays");
+  t.ok(/\(st\.sub \? "Claim for " : ""\) \+ H\.esc\(st\.sub\)/.test(SRC), "the plain-text cell says the claim is FOR the named run, never 'now'");
   t.equal(MK.statusFor({ code: "waivers", eligible_run_label: "Thursday's run, Oct 22 at 9:00 AM ET" }).sub, "Thu Oct 22 run", "the run name is still produced for the plain-text cell");
 });
 
