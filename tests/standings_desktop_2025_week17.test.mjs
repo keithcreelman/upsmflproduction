@@ -21,7 +21,7 @@ function page(query) {
 }
 
 test("One week: Week 14 (the default for a finished season) is ranked; Week 17 says what's wrong and that the other weeks are fine", async () => {
-  const p14 = page("view=weekly&year=2025"); await settle();
+  const p14 = page("view=weekly&year=2025&wv=week"); await settle();
   const h14 = text(p14.html());
   t.match(h14, /Week 14 top score:/);
   t.ok(!/Week 14 can’t be shown|Week 14 couldn’t be verified/.test(h14));
@@ -45,11 +45,11 @@ test("Team by week: Weeks 1-16 listed; P17 says it can't be shown and why", asyn
   t.match(h, new RegExp("P17 Can’t be shown: " + WHY.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   t.match(h, /P16 \d+\.\d/, "Week 16 still shows its score");
 });
-test("Full League Scored / Opponent cover the regular season, so 2025 now shows them", async () => {
+test("Full League Scoring covers the regular season, so 2025 shows it", async () => {
   const p = page("view=league&year=2025&show=scored"); await settle();
   const h = text(p.html());
   t.ok(!/couldn’t be verified/.test(h));
-  t.match(h, /PF RANK|PF rank/i);
+  t.match(h, /POTENTIAL PF|Potential PF/i);
 });
 
 await run();

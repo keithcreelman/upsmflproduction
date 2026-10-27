@@ -37,7 +37,7 @@
 
 import {
   evaluateLineup, composeLineupDm, bookLineupViolation,
-  injuryHistoryForWeek, injuryObservedFrom, statusAsOf,
+  injuryHistoryForWeek, injuryObservedFrom, statusAsOf, lastInjuryPollUnix,
   lineupLadderRung, REQUIRED_STARTERS,
 } from "./lineup_compliance.js";
 // Discord helpers are imported LAZILY, inside the send path only. Statically
@@ -390,7 +390,7 @@ export async function runLineupDmSweep(env, { season, leagueId, week, nowUnix, d
     });
     if (ev.skipped) continue;
 
-    const body = composeLineupDm({ franchiseName: `Team ${fid}`, week, result: ev.result, windowLabel });
+    const body = composeLineupDm({ franchiseName: `Team ${fid}`, week, result: ev.result, windowLabel, injuryAsOfUnix: lastInjuryPollUnix(history) });
     if (!dryRun) {
       try {
         const [{ resolveDiscordUserIds }, { sendDm, openDmChannel }] = await Promise.all([

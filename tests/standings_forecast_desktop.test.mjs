@@ -61,10 +61,10 @@ const prev5 = Object.fromEntries(SIM5.teams.map((x) => [x.franchiseId, x]));
 const D = DET6.standingsForecast.teams;
 
 // ═══ navigation ═══
-test("tabs: Full League, Divisions, Playoff Picture, Forecast, Weekly, Trends, History — and Full League is the default", async () => {
+test("tabs: Full League, Divisions, Playoff Picture, Forecast, Weekly, Trends (no History tab) — and Full League is the default", async () => {
   const { h } = await page("year=2026");
   const tabs = [...h.matchAll(/<button type="button" class="view-btn" role="tab" data-view="(\w+)" aria-selected="(true|false)"[^>]*>([^<]*)<\/button>/g)];
-  t.deepEqual(tabs.map((m) => m[3]), ["Full League", "Divisions", "Playoff Picture", "Forecast", "Weekly", "Trends", "History"]);
+  t.deepEqual(tabs.map((m) => m[3]), ["Full League", "Divisions", "Playoff Picture", "Forecast", "Weekly", "Trends"]);
   t.deepEqual(tabs.filter((m) => m[2] === "true").map((m) => m[1]), ["league"], "Full League selected with no ?view=");
   t.match(h, /<table class="lg-table"><thead>/, "and the Full League table is drawn");
   const pic = await page("view=picture&year=2026");
