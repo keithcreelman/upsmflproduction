@@ -247,7 +247,10 @@ console.log('\n-- B2. live resolver fails -> every row NOT already exempt on an 
       assert.strictEqual(batch.players[pid].penalty, null, `pid ${pid} penalty not null`);
     }
   });
-  t('B2b. the taxi row correctly stays taxi_exempt (pre-existing, documented priority — not affected by the unresolved authority)', batch.players['3'].basis, 'taxi_exempt');
+  // Keith 2026-10-21 (canon T5.2 / §D2): the cap-free cut follows TAXI ELIGIBILITY, not the roster slot. pid 3 sits on
+  // taxi on a 'Veteran' contract — not the original rookie-draft contract, so never taxi-eligible — and is priced like
+  // any veteran: held here because the week authority is unresolved, never a slot-based $0.
+  t('B2b. a veteran contract on the taxi squad gets no slot-based exemption (held like the rest)', batch.players['3'].basis, 'week_authority_unresolved');
   t('B2c. top-level earned_through_week is null too (fails closed at the batch level, not just per-row)', batch.earned_through_week, null);
 }
 

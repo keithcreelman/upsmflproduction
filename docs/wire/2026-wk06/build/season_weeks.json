@@ -1,0 +1,1591 @@
+{
+"source": "D1 history copy used by the draft build (sources.json history.seasonScores / seasonGames, season 2026 weeks 1-6)",
+"scores": [
+{
+"week": 1,
+"franchise_id": "0003",
+"team_score": 230.1,
+"team_opt_pts": 283.6
+},
+{
+"week": 1,
+"franchise_id": "0002",
+"team_score": 251.4,
+"team_opt_pts": 270.7
+},
+{
+"week": 1,
+"franchise_id": "0010",
+"team_score": 180.8,
+"team_opt_pts": 198.3
+},
+{
+"week": 1,
+"franchise_id": "0005",
+"team_score": 312.8,
+"team_opt_pts": 329.1
+},
+{
+"week": 1,
+"franchise_id": "0004",
+"team_score": 258.5,
+"team_opt_pts": 292.7
+},
+{
+"week": 1,
+"franchise_id": "0006",
+"team_score": 220,
+"team_opt_pts": 244.7
+},
+{
+"week": 1,
+"franchise_id": "0008",
+"team_score": 246.9,
+"team_opt_pts": 272.7
+},
+{
+"week": 1,
+"franchise_id": "0007",
+"team_score": 228.3,
+"team_opt_pts": 245.1
+},
+{
+"week": 1,
+"franchise_id": "0001",
+"team_score": 166.6,
+"team_opt_pts": 185.3
+},
+{
+"week": 1,
+"franchise_id": "0009",
+"team_score": 190.3,
+"team_opt_pts": 229.5
+},
+{
+"week": 1,
+"franchise_id": "0012",
+"team_score": 153.7,
+"team_opt_pts": 188.9
+},
+{
+"week": 1,
+"franchise_id": "0011",
+"team_score": 223.9,
+"team_opt_pts": 240.4
+},
+{
+"week": 2,
+"franchise_id": "0003",
+"team_score": 208.6,
+"team_opt_pts": 225.2
+},
+{
+"week": 2,
+"franchise_id": "0005",
+"team_score": 208.7,
+"team_opt_pts": 244.7
+},
+{
+"week": 2,
+"franchise_id": "0004",
+"team_score": 199.6,
+"team_opt_pts": 285.5
+},
+{
+"week": 2,
+"franchise_id": "0006",
+"team_score": 178,
+"team_opt_pts": 221.9
+},
+{
+"week": 2,
+"franchise_id": "0002",
+"team_score": 215.3,
+"team_opt_pts": 223.7
+},
+{
+"week": 2,
+"franchise_id": "0010",
+"team_score": 303.4,
+"team_opt_pts": 327.5
+},
+{
+"week": 2,
+"franchise_id": "0008",
+"team_score": 201.2,
+"team_opt_pts": 224
+},
+{
+"week": 2,
+"franchise_id": "0009",
+"team_score": 281.8,
+"team_opt_pts": 287.6
+},
+{
+"week": 2,
+"franchise_id": "0012",
+"team_score": 236.1,
+"team_opt_pts": 261.1
+},
+{
+"week": 2,
+"franchise_id": "0011",
+"team_score": 144.2,
+"team_opt_pts": 194.1
+},
+{
+"week": 2,
+"franchise_id": "0007",
+"team_score": 172.2,
+"team_opt_pts": 180.5
+},
+{
+"week": 2,
+"franchise_id": "0001",
+"team_score": 179.2,
+"team_opt_pts": 196.2
+},
+{
+"week": 3,
+"franchise_id": "0003",
+"team_score": 153.8,
+"team_opt_pts": 156.8
+},
+{
+"week": 3,
+"franchise_id": "0009",
+"team_score": 254.8,
+"team_opt_pts": 304.8
+},
+{
+"week": 3,
+"franchise_id": "0012",
+"team_score": 227,
+"team_opt_pts": 265
+},
+{
+"week": 3,
+"franchise_id": "0011",
+"team_score": 216.2,
+"team_opt_pts": 240.8
+},
+{
+"week": 3,
+"franchise_id": "0002",
+"team_score": 213.6,
+"team_opt_pts": 251.7
+},
+{
+"week": 3,
+"franchise_id": "0010",
+"team_score": 245.9,
+"team_opt_pts": 271.9
+},
+{
+"week": 3,
+"franchise_id": "0005",
+"team_score": 224.8,
+"team_opt_pts": 270.8
+},
+{
+"week": 3,
+"franchise_id": "0008",
+"team_score": 218.9,
+"team_opt_pts": 252.5
+},
+{
+"week": 3,
+"franchise_id": "0007",
+"team_score": 165.4,
+"team_opt_pts": 180.1
+},
+{
+"week": 3,
+"franchise_id": "0001",
+"team_score": 207.1,
+"team_opt_pts": 232.6
+},
+{
+"week": 3,
+"franchise_id": "0004",
+"team_score": 212.9,
+"team_opt_pts": 268.4
+},
+{
+"week": 3,
+"franchise_id": "0006",
+"team_score": 205.2,
+"team_opt_pts": 215.6
+},
+{
+"week": 4,
+"franchise_id": "0003",
+"team_score": 208.3,
+"team_opt_pts": 227.5
+},
+{
+"week": 4,
+"franchise_id": "0002",
+"team_score": 214.5,
+"team_opt_pts": 247.5
+},
+{
+"week": 4,
+"franchise_id": "0010",
+"team_score": 250.9,
+"team_opt_pts": 281.1
+},
+{
+"week": 4,
+"franchise_id": "0005",
+"team_score": 250.2,
+"team_opt_pts": 291.8
+},
+{
+"week": 4,
+"franchise_id": "0004",
+"team_score": 211.6,
+"team_opt_pts": 258.3
+},
+{
+"week": 4,
+"franchise_id": "0006",
+"team_score": 181.4,
+"team_opt_pts": 198.3
+},
+{
+"week": 4,
+"franchise_id": "0008",
+"team_score": 206.3,
+"team_opt_pts": 246.2
+},
+{
+"week": 4,
+"franchise_id": "0007",
+"team_score": 194.3,
+"team_opt_pts": 214.9
+},
+{
+"week": 4,
+"franchise_id": "0001",
+"team_score": 216,
+"team_opt_pts": 228.4
+},
+{
+"week": 4,
+"franchise_id": "0009",
+"team_score": 289.9,
+"team_opt_pts": 328.7
+},
+{
+"week": 4,
+"franchise_id": "0012",
+"team_score": 223.9,
+"team_opt_pts": 253.3
+},
+{
+"week": 4,
+"franchise_id": "0011",
+"team_score": 294.7,
+"team_opt_pts": 329
+},
+{
+"week": 5,
+"franchise_id": "0003",
+"team_score": 161.1,
+"team_opt_pts": 188.4
+},
+{
+"week": 5,
+"franchise_id": "0008",
+"team_score": 272.5,
+"team_opt_pts": 286.2
+},
+{
+"week": 5,
+"franchise_id": "0007",
+"team_score": 171,
+"team_opt_pts": 214.7
+},
+{
+"week": 5,
+"franchise_id": "0001",
+"team_score": 228.8,
+"team_opt_pts": 253
+},
+{
+"week": 5,
+"franchise_id": "0002",
+"team_score": 211.4,
+"team_opt_pts": 232.8
+},
+{
+"week": 5,
+"franchise_id": "0010",
+"team_score": 261.5,
+"team_opt_pts": 280.6
+},
+{
+"week": 5,
+"franchise_id": "0005",
+"team_score": 190.7,
+"team_opt_pts": 225.3
+},
+{
+"week": 5,
+"franchise_id": "0009",
+"team_score": 280.5,
+"team_opt_pts": 304
+},
+{
+"week": 5,
+"franchise_id": "0012",
+"team_score": 200.3,
+"team_opt_pts": 243.1
+},
+{
+"week": 5,
+"franchise_id": "0011",
+"team_score": 167.9,
+"team_opt_pts": 196.2
+},
+{
+"week": 5,
+"franchise_id": "0004",
+"team_score": 268.4,
+"team_opt_pts": 315.9
+},
+{
+"week": 5,
+"franchise_id": "0006",
+"team_score": 223.9,
+"team_opt_pts": 241.3
+},
+{
+"week": 6,
+"franchise_id": "0003",
+"team_score": 165.6,
+"team_opt_pts": 193.7
+},
+{
+"week": 6,
+"franchise_id": "0005",
+"team_score": 231.8,
+"team_opt_pts": 255.4
+},
+{
+"week": 6,
+"franchise_id": "0004",
+"team_score": 212.8,
+"team_opt_pts": 226.3
+},
+{
+"week": 6,
+"franchise_id": "0006",
+"team_score": 201.3,
+"team_opt_pts": 208.3
+},
+{
+"week": 6,
+"franchise_id": "0002",
+"team_score": 254.1,
+"team_opt_pts": 274
+},
+{
+"week": 6,
+"franchise_id": "0010",
+"team_score": 178,
+"team_opt_pts": 220.6
+},
+{
+"week": 6,
+"franchise_id": "0008",
+"team_score": 162.7,
+"team_opt_pts": 193
+},
+{
+"week": 6,
+"franchise_id": "0009",
+"team_score": 267.3,
+"team_opt_pts": 280.7
+},
+{
+"week": 6,
+"franchise_id": "0012",
+"team_score": 184.4,
+"team_opt_pts": 210.5
+},
+{
+"week": 6,
+"franchise_id": "0011",
+"team_score": 198.9,
+"team_opt_pts": 216.7
+},
+{
+"week": 6,
+"franchise_id": "0007",
+"team_score": 150.9,
+"team_opt_pts": 198.7
+},
+{
+"week": 6,
+"franchise_id": "0001",
+"team_score": 166.8,
+"team_opt_pts": 188.3
+}
+],
+"games": [
+{
+"week": 1,
+"franchise_id": "0003",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0002",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0003",
+"opponent_franchise_id": "0010",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0010",
+"opponent_franchise_id": "0003",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0002",
+"opponent_franchise_id": "0010",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0010",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0005",
+"opponent_franchise_id": "0004",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0004",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0005",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0006",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0004",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0006",
+"opponent_franchise_id": "0004",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0008",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0007",
+"opponent_franchise_id": "0008",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0008",
+"opponent_franchise_id": "0001",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0001",
+"opponent_franchise_id": "0008",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0007",
+"opponent_franchise_id": "0001",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0001",
+"opponent_franchise_id": "0007",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0009",
+"opponent_franchise_id": "0012",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0012",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0009",
+"opponent_franchise_id": "0011",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0011",
+"opponent_franchise_id": "0009",
+"result": "W"
+},
+{
+"week": 1,
+"franchise_id": "0012",
+"opponent_franchise_id": "0011",
+"result": "L"
+},
+{
+"week": 1,
+"franchise_id": "0011",
+"opponent_franchise_id": "0012",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0003",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0005",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0003",
+"opponent_franchise_id": "0004",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0004",
+"opponent_franchise_id": "0003",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0003",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0006",
+"opponent_franchise_id": "0003",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0002",
+"opponent_franchise_id": "0005",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0005",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0002",
+"opponent_franchise_id": "0004",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0004",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0002",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0006",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0010",
+"opponent_franchise_id": "0005",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0005",
+"opponent_franchise_id": "0010",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0010",
+"opponent_franchise_id": "0004",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0004",
+"opponent_franchise_id": "0010",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0010",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0006",
+"opponent_franchise_id": "0010",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0008",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0009",
+"opponent_franchise_id": "0008",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0008",
+"opponent_franchise_id": "0012",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0012",
+"opponent_franchise_id": "0008",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0008",
+"opponent_franchise_id": "0011",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0011",
+"opponent_franchise_id": "0008",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0007",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0009",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0007",
+"opponent_franchise_id": "0012",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0012",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0007",
+"opponent_franchise_id": "0011",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0011",
+"opponent_franchise_id": "0007",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0001",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0009",
+"opponent_franchise_id": "0001",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0001",
+"opponent_franchise_id": "0012",
+"result": "L"
+},
+{
+"week": 2,
+"franchise_id": "0012",
+"opponent_franchise_id": "0001",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0001",
+"opponent_franchise_id": "0011",
+"result": "W"
+},
+{
+"week": 2,
+"franchise_id": "0011",
+"opponent_franchise_id": "0001",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0003",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0009",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0003",
+"opponent_franchise_id": "0012",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0012",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0003",
+"opponent_franchise_id": "0011",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0011",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0002",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0009",
+"opponent_franchise_id": "0002",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0002",
+"opponent_franchise_id": "0012",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0012",
+"opponent_franchise_id": "0002",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0002",
+"opponent_franchise_id": "0011",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0011",
+"opponent_franchise_id": "0002",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0010",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0009",
+"opponent_franchise_id": "0010",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0010",
+"opponent_franchise_id": "0012",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0012",
+"opponent_franchise_id": "0010",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0010",
+"opponent_franchise_id": "0011",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0011",
+"opponent_franchise_id": "0010",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0005",
+"opponent_franchise_id": "0008",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0008",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0005",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0007",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0005",
+"opponent_franchise_id": "0001",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0001",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0004",
+"opponent_franchise_id": "0008",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0008",
+"opponent_franchise_id": "0004",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0004",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0007",
+"opponent_franchise_id": "0004",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0004",
+"opponent_franchise_id": "0001",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0001",
+"opponent_franchise_id": "0004",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0006",
+"opponent_franchise_id": "0008",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0008",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0006",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 3,
+"franchise_id": "0007",
+"opponent_franchise_id": "0006",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0006",
+"opponent_franchise_id": "0001",
+"result": "L"
+},
+{
+"week": 3,
+"franchise_id": "0001",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0003",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0002",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0003",
+"opponent_franchise_id": "0010",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0010",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0002",
+"opponent_franchise_id": "0010",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0010",
+"opponent_franchise_id": "0002",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0005",
+"opponent_franchise_id": "0004",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0004",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0005",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0006",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0004",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0006",
+"opponent_franchise_id": "0004",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0008",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0007",
+"opponent_franchise_id": "0008",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0008",
+"opponent_franchise_id": "0001",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0001",
+"opponent_franchise_id": "0008",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0007",
+"opponent_franchise_id": "0001",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0001",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0009",
+"opponent_franchise_id": "0012",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0012",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0009",
+"opponent_franchise_id": "0011",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0011",
+"opponent_franchise_id": "0009",
+"result": "W"
+},
+{
+"week": 4,
+"franchise_id": "0012",
+"opponent_franchise_id": "0011",
+"result": "L"
+},
+{
+"week": 4,
+"franchise_id": "0011",
+"opponent_franchise_id": "0012",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0003",
+"opponent_franchise_id": "0008",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0008",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0003",
+"opponent_franchise_id": "0007",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0007",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0003",
+"opponent_franchise_id": "0001",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0001",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0002",
+"opponent_franchise_id": "0008",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0008",
+"opponent_franchise_id": "0002",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0002",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0007",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0002",
+"opponent_franchise_id": "0001",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0001",
+"opponent_franchise_id": "0002",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0010",
+"opponent_franchise_id": "0008",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0008",
+"opponent_franchise_id": "0010",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0010",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0007",
+"opponent_franchise_id": "0010",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0010",
+"opponent_franchise_id": "0001",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0001",
+"opponent_franchise_id": "0010",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0005",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0009",
+"opponent_franchise_id": "0005",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0005",
+"opponent_franchise_id": "0012",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0012",
+"opponent_franchise_id": "0005",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0005",
+"opponent_franchise_id": "0011",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0011",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0004",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0009",
+"opponent_franchise_id": "0004",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0004",
+"opponent_franchise_id": "0012",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0012",
+"opponent_franchise_id": "0004",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0004",
+"opponent_franchise_id": "0011",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0011",
+"opponent_franchise_id": "0004",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0006",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0009",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0006",
+"opponent_franchise_id": "0012",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0012",
+"opponent_franchise_id": "0006",
+"result": "L"
+},
+{
+"week": 5,
+"franchise_id": "0006",
+"opponent_franchise_id": "0011",
+"result": "W"
+},
+{
+"week": 5,
+"franchise_id": "0011",
+"opponent_franchise_id": "0006",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0003",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0005",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0003",
+"opponent_franchise_id": "0004",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0004",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0003",
+"opponent_franchise_id": "0006",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0006",
+"opponent_franchise_id": "0003",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0002",
+"opponent_franchise_id": "0005",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0005",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0002",
+"opponent_franchise_id": "0004",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0004",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0002",
+"opponent_franchise_id": "0006",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0006",
+"opponent_franchise_id": "0002",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0010",
+"opponent_franchise_id": "0005",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0005",
+"opponent_franchise_id": "0010",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0010",
+"opponent_franchise_id": "0004",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0004",
+"opponent_franchise_id": "0010",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0010",
+"opponent_franchise_id": "0006",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0006",
+"opponent_franchise_id": "0010",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0008",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0009",
+"opponent_franchise_id": "0008",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0008",
+"opponent_franchise_id": "0012",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0012",
+"opponent_franchise_id": "0008",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0008",
+"opponent_franchise_id": "0011",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0011",
+"opponent_franchise_id": "0008",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0007",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0009",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0007",
+"opponent_franchise_id": "0012",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0012",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0007",
+"opponent_franchise_id": "0011",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0011",
+"opponent_franchise_id": "0007",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0001",
+"opponent_franchise_id": "0009",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0009",
+"opponent_franchise_id": "0001",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0001",
+"opponent_franchise_id": "0012",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0012",
+"opponent_franchise_id": "0001",
+"result": "W"
+},
+{
+"week": 6,
+"franchise_id": "0001",
+"opponent_franchise_id": "0011",
+"result": "L"
+},
+{
+"week": 6,
+"franchise_id": "0011",
+"opponent_franchise_id": "0001",
+"result": "W"
+}
+]
+}

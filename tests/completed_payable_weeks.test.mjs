@@ -73,6 +73,7 @@ const nflWeek1IsoFn = grab(
 // individual tests can swap behavior without re-extracting the file.
 const prelude = `
 import { applyFullYearRule, classifyWwEarnedNa, isSubFiveKMultiYearFlat, WW_EARNED_NA_BASIS } from "${new URL('../worker/src/fcfs_contract.js', import.meta.url).href}";
+import { taxiEligibility, taxiCutVerdict } from "${new URL('../worker/src/taxi_rule.js', import.meta.url).href}";
 const safeStr = (v) => v == null ? "" : String(v);
 const safeInt = (v, d) => { const n = Number(v); return Number.isFinite(n) ? Math.trunc(n) : (d || 0); };
 const _s = (v) => String(v == null ? "" : v).trim();
@@ -789,7 +790,7 @@ console.log('\n-- 15. IR player accrues normally (no IR-specific branch) --');
 
 console.log('\n-- 16. taxi: earned reported normally, penalty stays $0 via taxi_exempt --');
 {
-  const r = _computeDropPenalty({ ...stdContract(13000), isTaxi: true },
+  const r = _computeDropPenalty({ ...stdContract(13000), contractStatus: 'Rookie-Draft', isTaxi: true, taxiCut: { season: 2026, upsRound: 3, upsYear: 2025, draftKnown: true, used: 0, pending: 0, permanent: false, legacy2025: false } },
     { dropDateIso: '2026-09-24T00:00:00Z', season: '2026', completedPayableWeeks: 2 });
   t('16a. taxi penalty is exempt $0', r.penalty, 0);
   t('16b. taxi basis is taxi_exempt', r.basis, 'taxi_exempt');
