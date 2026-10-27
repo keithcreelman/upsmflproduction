@@ -111,6 +111,8 @@
     scheduleFetch: {},
     leagueDetailsByYear: {},
     leagueDetailsFetch: {},
+    tradeLockByYear: {},
+    tradeLockFetch: {},
     theme: loadThemeSetting(),
     manualSelection: false,
     bugBusy: false,
@@ -374,15 +376,6 @@
     const offset = (day - weekday + 7) % 7;
     d.setDate(d.getDate() - offset);
     return d;
-  }
-
-  function getThanksgivingDate(year) {
-    const first = new Date(year, 10, 1, 12, 0, 0, 0);
-    const firstDay = first.getDay();
-    const offset = (4 - firstDay + 7) % 7;
-    first.setDate(first.getDate() + offset);
-    first.setDate(first.getDate() + 21);
-    return first;
   }
 
   function formatCountdown(diffMs) {
@@ -724,18 +717,35 @@
     return computePriorSunday(week1.kickoff);
   }
 
-  function resolveTradeDeadline(year) {
-    const thanksgiving = getThanksgivingDate(year);
-    const weeks = getWeekKickoffs(year);
-    if (weeks && weeks.length) {
-      const target = ymdInTz(thanksgiving);
-      const match = weeks
-        .map((w) => w.kickoff)
-        .filter((d) => d && ymdInTz(d) === target)
-        .sort((a, b) => a.getTime() - b.getTime())[0];
-      if (match) return match;
+  // The trade deadline is when MFL actually stops accepting trades (Keith 2026-10-21): the earliest "No Trades
+  // Allowed" event on MFL's league calendar, which the worker reads and serves on /api/league-events (trade_lock).
+  // Until it answers — or when it can't read MFL — there is no date (the countdown shows TBD), never a computed one.
+  async function fetchTradeLock(year) {
+    const y = String(year);
+    if (state.tradeLockFetch[y]) return;   // one read in flight
+    state.tradeLockFetch[y] = true;
+    try {
+      const url = `${parseWorkerBaseUrl()}/api/league-events?season=${encodeURIComponent(y)}&from=all&limit=50`;
+      const res = await fetch(url, { cache: "no-store", credentials: "omit" });
+      if (!res.ok) throw new Error(`league-events HTTP ${res.status}`);
+      const data = await res.json();
+      const lock = data && data.trade_lock;
+      const unix = lock && (lock.state === "upcoming" || lock.state === "closed") ? Number(lock.start_unix) : 0;
+      state.tradeLockByYear[y] = unix > 0 ? { date: new Date(unix * 1000), at: Date.now() } : { date: null, at: Date.now(), reason: (lock && lock.reason) || "no_trade_lock" };
+    } catch (e) {
+      state.tradeLockByYear[y] = { date: null, at: Date.now(), reason: e && e.message ? e.message : String(e) };
+    } finally {
+      state.tradeLockFetch[y] = false;
+      updateDisplay();
     }
-    return thanksgiving;
+  }
+
+  // A good answer is re-read every 30 minutes (MFL's calendar can change); no answer is retried after a minute.
+  function resolveTradeDeadline(year) {
+    const got = state.tradeLockByYear[String(year)];
+    const age = got ? Date.now() - got.at : Infinity;
+    if (age > (got && got.date ? 30 * 60 * 1000 : 60 * 1000)) fetchTradeLock(year);
+    return got && got.date ? got.date : null;
   }
 
   function resolveActiveSeasonYear(baseYear, now) {
@@ -834,7 +844,7 @@
       id: "tradeDeadline",
       label: "Trade Deadline",
       date: resolveTradeDeadline(seasonYear),
-      hint: "Thanksgiving kickoff"
+      hint: "When MFL stops accepting trades"
     });
 
     events.push({

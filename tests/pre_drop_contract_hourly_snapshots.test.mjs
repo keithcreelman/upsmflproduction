@@ -90,7 +90,7 @@ function makeDb() {
     UNIQUE (season, league_id, player_id, dropped_at_unix))`);
   const subCols = "id INTEGER, league_id TEXT, season TEXT, franchise_id TEXT, player_id TEXT, new_contract_status TEXT, new_salary INTEGER, new_contract_year INTEGER, new_contract_info TEXT, submitted_at_utc TEXT, dry_run INTEGER";
   db.raw.exec(`CREATE TABLE ups_extension_submissions (${subCols}); CREATE TABLE ups_mym_submissions (${subCols}); CREATE TABLE ups_restructure_submissions (${subCols}, voided_at_utc TEXT);`);
-  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0)");
+  db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0, season TEXT, nfl_week INTEGER)");
   applyMigrations(db, ["0112_ups_add_events.sql"]);
   db.raw.prepare(`INSERT INTO ups_add_events (season, league_id, player_id, player_name, franchise_id, franchise_name, acquired_at_unix, acquired_at_iso,
     source, bid_dollars, acquisition_week, detected_at_utc) VALUES ('2026', '74598', '13633', 'Christian Kirk', '0010', 'Blake Bombers', ?, ?, 'bbid', 1000, 7, ?)`)

@@ -1,0 +1,144 @@
+{
+ "note": "Independent check of the Injury Report segment. Shares NO code with injury_wk07.py: it re-reads",
+ "teams": {
+  "0006": {
+   "now": {
+    "healthy": 209.5,
+    "lineup": 199.0,
+    "drop": 10.5,
+    "rankHealthy": 11,
+    "rankWithout": 12,
+    "unavailableInBestLineup": [
+     "Hurts, Jalen",
+     "Mason, Jordan"
+    ]
+   },
+   "withWarrenOut": {
+    "healthy": 209.5,
+    "lineup": 189.6,
+    "drop": 19.9,
+    "rankHealthy": 11,
+    "rankWithout": 12,
+    "unavailableInBestLineup": [
+     "Hurts, Jalen",
+     "Mason, Jordan",
+     "Warren, Tyler"
+    ]
+   },
+   "week7": {
+    "lineup": 181.6,
+    "drop": 27.9,
+    "quarterbacks": [
+     "Mendoza, Fernando",
+     "Jones, Mac",
+     "Ward, Cam"
+    ]
+   },
+   "week7WarrenOut": {
+    "lineup": 171.8,
+    "drop": 37.7,
+    "quarterbacks": [
+     "Mendoza, Fernando",
+     "Jones, Mac",
+     "Ward, Cam"
+    ]
+   }
+  },
+  "0011": {
+   "now": {
+    "healthy": 224.5,
+    "lineup": 217.9,
+    "drop": 6.6,
+    "rankHealthy": 8,
+    "rankWithout": 10,
+    "unavailableInBestLineup": [
+     "Dart, Jaxson",
+     "Doubs, Romeo"
+    ]
+   }
+  },
+  "0002": {
+   "now": {
+    "healthy": 243.2,
+    "lineup": 239.0,
+    "drop": 4.2,
+    "rankHealthy": 5,
+    "rankWithout": 7,
+    "unavailableInBestLineup": [
+     "Cooper, Edgerrin"
+    ]
+   }
+  },
+  "0003": {
+   "now": {
+    "healthy": 241.5,
+    "lineup": 237.3,
+    "drop": 4.2,
+    "rankHealthy": 7,
+    "rankWithout": 7,
+    "unavailableInBestLineup": [
+     "Samuel, Deebo"
+    ]
+   },
+   "withGrahamMonangaiOut": {
+    "healthy": 241.5,
+    "lineup": 221.6,
+    "drop": 19.9,
+    "rankHealthy": 7,
+    "rankWithout": 9,
+    "unavailableInBestLineup": [
+     "Graham, Mason",
+     "Monangai, Kyle",
+     "Samuel, Deebo"
+    ]
+   }
+  },
+  "0004": {
+   "now": {
+    "healthy": 273.1,
+    "lineup": 270.9,
+    "drop": 2.2,
+    "rankHealthy": 3,
+    "rankWithout": 3,
+    "unavailableInBestLineup": [
+     "Adams, Davante"
+    ]
+   },
+   "withJacksonOut": {
+    "healthy": 273.1,
+    "lineup": 266.4,
+    "drop": 6.7,
+    "rankHealthy": 3,
+    "rankWithout": 3,
+    "unavailableInBestLineup": [
+     "Adams, Davante",
+     "Jackson, Lamar"
+    ]
+   }
+  },
+  "0010": {
+   "now": {
+    "healthy": 277.6,
+    "lineup": 274.5,
+    "drop": 3.1,
+    "rankHealthy": 2,
+    "rankWithout": 2,
+    "unavailableInBestLineup": [
+     "Hufanga, Talanoa"
+    ]
+   }
+  },
+  "0008": {
+   "now": {
+    "healthy": 242.6,
+    "lineup": 238.4,
+    "drop": 4.2,
+    "rankHealthy": 6,
+    "rankWithout": 7,
+    "unavailableInBestLineup": [
+     "Etienne, Travis"
+    ]
+   }
+  }
+ }
+}

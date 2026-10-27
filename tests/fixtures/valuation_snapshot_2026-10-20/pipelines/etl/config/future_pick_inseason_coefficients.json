@@ -1,0 +1,22 @@
+{
+ "_about": "Logistic coefficients for the in-season future-pick blend, by completed regular-season week (a later week uses the last one). P(championship bracket) = sigmoid(b0 + b_prior * logit(owner playoff rate, k=4) + b_ap * z(All-Play %) + b_pf * z(points for)), z-scored across the league. Fitted on seasons 2011-2025 (finishes from the bracket games), ridge 1.0, by pipelines/etl/scripts/backtest_pick_slot_model.py --write-config. Valid for seasons after 2025: never fitted on the season it scores.",
+ "fitted_seasons": [2011, 2025],
+ "fitted_on": "2026-10-20",
+ "terms": ["b0", "b_prior", "b_allplay", "b_points_for"],
+ "weeks": {
+  "1": [0.008115, 0.85422, -0.120866, 0.710154],
+  "2": [-0.000571, 0.795103, -0.034195, 1.002499],
+  "3": [-0.013716, 0.742083, 0.588867, 0.893754],
+  "4": [0.036961, 0.642896, 0.83945, 1.003806],
+  "5": [0.004984, 0.590244, 0.555368, 1.25358],
+  "6": [0.005046, 0.53117, 0.741561, 1.336302],
+  "7": [0.004646, 0.533119, 0.752697, 1.357542],
+  "8": [-0.016352, 0.551659, 0.85857, 1.432261],
+  "9": [-0.051942, 0.635918, 0.797154, 1.727761],
+  "10": [-0.103063, 0.583055, 0.974134, 1.699439],
+  "11": [-0.122563, 0.570507, 1.223475, 1.663973],
+  "12": [-0.120949, 0.626711, 1.292321, 1.809696],
+  "13": [-0.074289, 0.603369, 1.438396, 1.828502],
+  "14": [-0.081775, 0.628065, 1.434526, 1.903952]
+ }
+}
