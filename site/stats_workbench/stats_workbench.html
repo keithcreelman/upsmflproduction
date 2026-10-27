@@ -742,6 +742,8 @@ table.asw-table{font-size:13px}
 <!-- Shared UPS player-profile modal. Absolute URL because this page is injected
      as an iframe srcdoc (no base URL for relative paths). Defines window.UPS_openPlayerProfile. -->
 <script src="https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=2026.10.02.1"></script>
+<!-- The ONE shared points/PPG formatter (decimal half-up), the same as the phone and the Front Office. -->
+<script src="https://keithcreelman.github.io/upsmflproduction/m/season_scoring.js?v=2026.10.21.1"></script>
 
 <script>
 (function(){
@@ -2773,7 +2775,8 @@ table.asw-table{font-size:13px}
       for (var sj = 0; sj < N; sj++){ var sx = N > 1 ? (sj / (N - 1)) * (W - 2) + 1 : W / 2; var sy = H - 1 - ((v[sj] - mn) / rng) * (H - 2); pts.push(sx.toFixed(1) + "," + sy.toFixed(1)); }
       return '<svg width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none" style="vertical-align:middle"><polyline points="' + pts.join(" ") + '" fill="none" stroke="var(--accent)" stroke-width="1.3" stroke-linejoin="round"/></svg>';
     }
-    if (fmt === "dec1") return Number(v).toFixed(1);
+    // One decimal = the ONE shared half-up formatter the phone and Front Office use (19.35 → 19.4).
+    if (fmt === "dec1") return window.UPS_MOBILE_SEASON_SCORING ? window.UPS_MOBILE_SEASON_SCORING.fmt1(v) : Number(v).toFixed(1);
     if (fmt === "dec2") return Number(v).toFixed(2);
     if (fmt === "pct")  return (Number(v)*100).toFixed(1)+"%";
     if (fmt === "pct0") {

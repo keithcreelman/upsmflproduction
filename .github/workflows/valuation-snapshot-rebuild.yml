@@ -1,0 +1,170 @@
+name: Valuation snapshot rebuild
+
+# The trade grader grades only on data/valuation/trade_valuation_snapshot.json (#1343 decision 3), which must cover
+# the latest completed week and be at most 8 days old in season (14 in the offseason), or every trade is NO GRADE.
+# Keith 2026-10-21: rebuild after each completed week, validate freshness and source coverage, keep the previous
+# valid snapshot on failure, and alert instead of grading on stale data.
+#
+#   1. After each MFL daily snapshot (09:05 UTC, committed under data/mfl-snapshots/<date>/), rebuild the valuation
+#      snapshot if it is due (a new week is complete, the season changed, or it is 6 days old in season / 7 in the
+#      offseason). The new file must pass the grader's own validation plus source-coverage checks before it replaces
+#      the committed one; a failed rebuild changes nothing.
+#   2. Check what the bot would do right now (the grader's validation, with weeks completed from MFL's live
+#      leagueStandings), every run and every 3 hours.
+#   3. Alert: while a rebuild has failed or the bot would return NO GRADE, one open GitHub issue labeled
+#      valuation-snapshot-alert carries the reasons (comments added on each failing run) and the run fails; it is
+#      closed by the first healthy run.
+#
+# Writes: the rebuilt snapshot file to main, and that one alert issue. Never grades a trade, never posts to Discord,
+# never reads or writes D1.
+
+on:
+  workflow_run:
+    workflows: ["MFL daily snapshot"]
+    types: [completed]
+  schedule:
+    - cron: "35 */3 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: valuation-snapshot
+  cancel-in-progress: false
+
+jobs:
+  rebuild-and-check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0   # the snapshot records its generator's last commit
+
+      - name: Rebuild if due
+        id: rebuild
+        run: |
+          set +e
+          python3 pipelines/etl/scripts/rebuild_valuation_snapshot.py rebuild --status-out "$RUNNER_TEMP/rebuild.json"
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Commit a rebuilt snapshot
+        id: commit
+        if: steps.rebuild.outputs.exit == '0'
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- data/valuation/trade_valuation_snapshot.json; then
+            echo "Snapshot unchanged: nothing to commit."
+            exit 0
+          fi
+          AS_OF=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['as_of'])" "$RUNNER_TEMP/rebuild.json")
+          WEEKS=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['weeks_completed'])" "$RUNNER_TEMP/rebuild.json")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/valuation/trade_valuation_snapshot.json
+          git commit -m "data(valuation): trade valuation snapshot as of $AS_OF (through week $WEEKS)
+
+          Rebuilt by valuation-snapshot-rebuild.yml from data/mfl-snapshots/$AS_OF after it passed the grader's
+          validation and source-coverage checks (#1343 decision 3)."
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            git pull --rebase origin main
+          done
+          echo "Could not push the rebuilt snapshot." >&2
+          exit 1
+
+      # Always runs (even after a failed push) and checks what is actually on origin/main, never the runner's
+      # local, possibly unpushed, snapshot.
+      - name: Check what the bot would do now
+        id: check
+        if: always()
+        # exit 6 = origin/main could not be refreshed: the stale remote-tracking ref is never checked.
+        run: |
+          set +e
+          if ! git fetch --quiet origin main; then
+            python3 -c 'import json, sys; json.dump({"result": "fetch_failed", "exit": 6, "failures": ["origin/main could not be refreshed (git fetch failed), so the snapshot on it was not checked"]}, open(sys.argv[1], "w"))' "$RUNNER_TEMP/check.json"
+            echo "exit=6" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          python3 pipelines/etl/scripts/rebuild_valuation_snapshot.py check --ref origin/main --status-out "$RUNNER_TEMP/check.json"
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Alert (one issue labeled valuation-snapshot-alert)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REBUILD_EXIT: ${{ steps.rebuild.outputs.exit }}
+          COMMIT_OUTCOME: ${{ steps.commit.outcome }}
+          CHECK_EXIT: ${{ steps.check.outputs.exit }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          LABEL=valuation-snapshot-alert
+          gh label create "$LABEL" --color B60205 --description "Trade grader valuation snapshot needs attention" --force >/dev/null
+          OPEN=$(gh issue list --label "$LABEL" --state open --json number --jq '.[0].number // empty')
+          BODY="$RUNNER_TEMP/alert.md"
+          python3 - "$RUNNER_TEMP" "$RUN_URL" > "$BODY" <<'PY'
+          import json, os, sys
+          tmp, url = sys.argv[1], sys.argv[2]
+          if os.environ.get("COMMIT_OUTCOME") == "failure":
+              print("**The rebuilt snapshot was built but NOT pushed: origin/main still has the previous snapshot, "
+                    "so the bot does not have it.**\n")
+          rx, cx = os.environ.get("REBUILD_EXIT", ""), os.environ.get("CHECK_EXIT", "")
+          if rx == "":
+              print("**The rebuild step produced no result (it crashed or never ran).**\n")
+          elif rx != "0":
+              print(f"**The rebuild step exited {rx}.**\n")
+          if cx == "":
+              print("**The check step produced no result (it crashed or never ran), so nothing confirms the bot can grade.**\n")
+          elif cx not in ("0", "3", "4"):
+              print(f"**The check step exited {cx}{' (origin/main could not be refreshed)' if cx == '6' else ''}, so nothing "
+                    f"confirms the bot can grade.**\n")
+          def read(name):
+              try:
+                  return json.load(open(f"{tmp}/{name}.json"))
+              except Exception:
+                  return None
+          r, c = read("rebuild"), read("check")
+          print(f"Run: {url}\n")
+          if c:
+              head = {"ok": "The bot would grade a trade now.", "no_grade": "**The bot would return NO GRADE for a trade now.**",
+                      "unknown": "Could not check: MFL's standings could not be read.",
+                      "fetch_failed": "**Could not check: origin/main could not be refreshed.**"}.get(c.get("result"), c.get("result"))
+              print(f"{head} Snapshot as of {c.get('snapshot_as_of')} (through week {c.get('snapshot_weeks')}); "
+                    f"MFL shows week {c.get('live_weeks_completed')} complete.")
+              for f in c.get("failures") or []:
+                  print(f"- {f}")
+          if r:
+              print(f"\nRebuild: {r.get('result')} ({r.get('why')}).")
+              for f in r.get("failures") or []:
+                  print(f"- {f}")
+              if r.get("result") == "failed":
+                  print("\nThe previous snapshot was kept unchanged.")
+          print("\nManual rebuild: python3 pipelines/etl/scripts/build_valuation_snapshot.py --as-of <YYYY-MM-DD> "
+                "--generated-at <UTC time>, commit data/valuation/trade_valuation_snapshot.json, then fast-forward the bot's checkout.")
+          PY
+          # Fail closed: a missing output is a failure, never 0. Rebuild: only 0 is healthy. Check: only 0 is
+          # healthy, 4 (MFL unreadable) is a warning; anything else (3 NO GRADE, 6 fetch failed, 1, 5, ...) alerts.
+          ALERT=0
+          [ "${REBUILD_EXIT:-missing}" != "0" ] && ALERT=1
+          case "${CHECK_EXIT:-missing}" in 0|4) ;; *) ALERT=1 ;; esac
+          [ "${COMMIT_OUTCOME:-}" = "failure" ] && ALERT=1
+          if [ "$ALERT" = "1" ]; then
+            if [ -n "$OPEN" ]; then
+              gh issue comment "$OPEN" --body-file "$BODY"
+            else
+              gh issue create --label "$LABEL" --title "Trade grader: valuation snapshot needs attention (NO GRADE risk)" --body-file "$BODY"
+            fi
+            exit 1
+          fi
+          # Close only on a fully healthy run (an exit-4 warning never closes an incident).
+          if [ -n "$OPEN" ] && [ "${REBUILD_EXIT:-missing}" = "0" ] && [ "${CHECK_EXIT:-missing}" = "0" ] \
+             && [ "${COMMIT_OUTCOME:-}" != "failure" ]; then
+            gh issue comment "$OPEN" --body "Healthy again: the bot would grade a trade now. $RUN_URL"
+            gh issue close "$OPEN"
+          fi
+          if [ "${CHECK_EXIT:-missing}" = "4" ]; then
+            echo "::warning::MFL's standings could not be read; the NO GRADE check did not run."
+          fi

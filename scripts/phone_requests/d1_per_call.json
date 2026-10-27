@@ -1,0 +1,61 @@
+{
+ "_about": "D1 rows read per call, [low, high]. Low = 0 where the worker's edge cache can answer. Sources: Cloudflare D1 analytics (d1QueriesAdaptiveGroups, metadata only, 2026-10-19 00:00Z to 10-21 02:00Z) per-statement averages matched to each route's SQL; player-starter-rates is an estimate (not seen in that window); historical-finishes' main query is estimated. Route '#500' = the Stats board shape (limit=500).",
+ "routes": {
+  "/api/advanced-stats-leaderboard": [
+   0,
+   130
+  ],
+  "/api/advanced-stats-leaderboard#500": [
+   0,
+   502
+  ],
+  "/api/taxi-callups": [
+   1446,
+   1446
+  ],
+  "/api/cap-penalty/preview": [
+   1500,
+   1600
+  ],
+  "/api/league-events": [
+   14,
+   14
+  ],
+  "/api/waivers/state": [
+   1,
+   1
+  ],
+  "/api/trade-bait-notes": [
+   1,
+   1
+  ],
+  "/api/trades/proposals": [
+   0,
+   24
+  ],
+  "/api/standings": [
+   812,
+   812
+  ],
+  "/api/historical-finishes": [
+   935,
+   1135
+  ],
+  "/api/player-status": [
+   2271,
+   2271
+  ],
+  "/api/player-bundle": [
+   669,
+   669
+  ],
+  "/api/player-weekly-box": [
+   8300,
+   28400
+  ],
+  "/api/player-starter-rates": [
+   25000,
+   40000
+  ]
+ }
+}
