@@ -89,12 +89,12 @@
     // ── Pre-trade extension (a SCENARIO: nothing is saved to the player's contract) ──
     function extCompare(i, p, o) {
       var Xt = root.UPS_PRETRADE_EXT, y = Xt ? Xt.parseContractInfoSummary(o.preview_contract_info_string).y_by_year_dollars : {}, ys = Object.keys(y).sort(function (a, b) { return a - b; }).map(function (n) { return k(y[n]); });
-      return '<span class="fo-tb-cur">Current: ' + esc(p.years) + ' yr left · ' + k(p.salary) + (p.type ? " · " + esc(p.type) : "") + '</span> → <span class="fo-tb-prop">Proposed: ' + esc(o.new_contract_length) + " yr · " + ys.join(" then ") + " · total " + k(o.new_TCV) + " · " + esc(o.new_contract_status || "") + "</span>";
+      return '<span class="fo-tb-cur">Current: ' + esc(p.years) + ' yr left · ' + k(p.salary) + (p.type ? " · " + esc(p.type) : "") + '</span> → <span class="fo-tb-prop">Proposed (not yet approved): ' + esc(o.new_contract_length) + " yr · " + ys.join(" then ") + " · total " + k(o.new_TCV) + " · " + esc(o.new_contract_status || "") + "</span>";
     }
     function extensionRow(i, p) {
       var opts = extOpts(i); if (!opts.length) return "";
       var chosen = (draft.ext || {})[i.from + "|" + i.token] || "", o = opts.filter(function (x) { return x.option_key === chosen; })[0];
-      return '<tr class="fo-tb-extrow"><td colspan="4"><label class="fo-tb-ext"><span>Pre-trade extension for ' + esc(p.name) + ' <span class="fo-tf-tag ok">Eligible</span> <span class="fo-muted">(a scenario in this trade; his contract is not changed)</span></span>' +
+      return '<tr class="fo-tb-extrow"><td colspan="4"><label class="fo-tb-ext"><span>Pre-trade extension for ' + esc(p.name) + ' <span class="fo-tf-tag ok">Eligible</span> <span class="fo-tf-tag need">Proposed · not yet approved</span> <span class="fo-muted">(his contract is not changed)</span></span>' +
         '<select data-ext="' + esc(i.token) + '" data-from="' + i.from + '" aria-label="Pre-trade extension for ' + esc(p.name) + '"><option value="">No extension</option>' + opts.map(function (x) {
           return '<option value="' + esc(x.option_key) + '"' + (chosen === x.option_key ? " selected" : "") + ">" + esc(x.extension_term.replace("YR", "-year")) + " extension: " + esc(x.new_contract_length) + " yr, total " + k(x.new_TCV) + "</option>"; }).join("") + "</select></label>" +
         (o ? '<p class="fo-tb-extline">' + extCompare(i, p, o) + "</p>" : "") + "</td></tr>";
@@ -170,7 +170,7 @@
     }
     function extTable(imp) {
       var list = (imp && imp.ext) || []; if (!list.length) return "";
-      return '<h4>Pre-trade extensions in this trade <span class="fo-muted">(scenario only; nothing is saved)</span></h4><div class="fo-table-scroll"><table class="fo-table fo-tb-table"><thead><tr><th>Player</th><th>Current contract</th><th>Proposed contract</th><th class="num">Added future years</th></tr></thead><tbody>' +
+      return '<h4>Pre-trade extensions in this trade <span class="fo-muted">(proposed, not yet approved; nothing is saved)</span></h4><div class="fo-table-scroll"><table class="fo-table fo-tb-table"><thead><tr><th>Player</th><th>Current contract</th><th>Proposed contract</th><th class="num">Added future years</th></tr></thead><tbody>' +
         list.map(function (e) { return "<tr><td><b>" + esc(e.name) + '</b> <span class="fo-muted">' + esc(nm(e.from)) + " → " + esc(nm(e.to)) + "</span></td><td>" + esc(e.current) + "</td><td>" + esc(e.proposed) + '</td><td class="num">' + (e.added ? "+" + k(e.added) : "—") + "</td></tr>"; }).join("") +
         '</tbody></table></div><p class="fo-basis">This season’s salary is not repriced by the extension; the extra years are added at the new rate and go with him to the receiving team. The server prices the real extension itself and re-checks it when the offer is made and when it is accepted.</p>';
     }

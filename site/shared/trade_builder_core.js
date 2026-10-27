@@ -190,7 +190,7 @@
   function summary(d, nameOf) {
     var nm = nameOf || function (f) { return "Team " + f; };
     return movements(d).map(function (m) {
-      var items = d.items.filter(function (i) { return i.from === m.from && i.to === m.to; }).map(function (i) { var e = (d.ext || {})[i.from + "|" + i.token]; return i.label + (e ? " (with a " + e.split("|")[0].replace("YR", "-year") + " pre-trade extension)" : ""); });
+      var items = d.items.filter(function (i) { return i.from === m.from && i.to === m.to; }).map(function (i) { var e = (d.ext || {})[i.from + "|" + i.token]; return i.label + (e ? " (with a proposed " + e.split("|")[0].replace("YR", "-year") + " pre-trade extension, not yet approved)" : ""); });
       if (m.cap_k) items.push("$" + m.cap_k + "K cap money");
       return { from: m.from, to: m.to, text: nm(m.from) + " sends " + items.join(", ") + " to " + nm(m.to) };
     });

@@ -187,7 +187,7 @@ test("pre-trade extension choices: stored per player, dropped with the player, i
   assert.deepEqual([rows[0].player_id, rows[0].from_franchise_id, rows[0].to_franchise_id, rows[0].option_key, rows[0].applies_to_acquirer], ["1234", "0003", "0007", "1YR|NONE", true]);
   assert.equal(C.sendPlan(d, ctx, "", rows).extension_requests.length, 1);
   assert.equal(C.request(d, ctx, rows).extension_requests[0].new_aav_future, 4000);
-  assert.match(C.summary(d, (f) => f)[0].text, /with a 1-year pre-trade extension/);
+  assert.match(C.summary(d, (f) => f)[0].text, /with a proposed 1-year pre-trade extension, not yet approved/);
   assert.equal(C.extensionRequests(C.setExt(d, "0003", "P_1234", "9YR|NONE"), opts).length, 0);       // no such option: dropped
   assert.equal(Object.keys(C.removeItem(d, "P_1234", "0003").ext).length, 0);                         // player removed: choice removed
   assert.equal(Object.keys(C.setExt(d, "0003", "P_NOT_THERE", "1YR|NONE").ext).length, 1);           // unselected player: ignored
