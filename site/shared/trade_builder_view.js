@@ -145,7 +145,7 @@
         else if (go === "confirm-send") {
           st.confirm = false;
           if (!readiness().canAttempt) { st.sent = { ok: false, message: "The check changed. Review the trade again." }; }
-          else if (typeof opt.send !== "function") { st.sent = { ok: false, message: opt.sendNotice || "Sending is not available here. Nothing was sent." }; }
+          else if (typeof opt.send !== "function") { st.sent = { ok: false, message: "Nothing was sent. Sending is not available here." }; }
           else {
             st.sent = { ok: false, message: "Sending…" };
             var mine = st.seq;
