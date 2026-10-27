@@ -83,6 +83,8 @@
       return getJson(mflExport(type, { W: week })).then(function (j) { if (!mflOk(j)) throw new Error("MFL " + type + " unreadable"); return j; });
     };
   }
+  // One franchise's picks with forfeit flags (lineup penalties, #1229) — read for the VIEWER's team only, once.
+  SOURCES.franchiseAssets = function (fid) { return getJson(cfg.apiBase + "/api/franchise-assets?" + q({ fid: fid, L: cfg.leagueId, YEAR: cfg.season })); };
   SOURCES.projections = weekSource("projectedScores");
   SOURCES.nflSchedule = weekSource("nflSchedule");
 
