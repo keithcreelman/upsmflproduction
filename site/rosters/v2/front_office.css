@@ -1328,7 +1328,9 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tb-team { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-width: 0; }
 .fo-tb-team > header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
 .fo-tb-team > header h3 { margin: 0; font-size: 15px; }
-.fo-tb-table td.fo-tb-ctl { text-align: right; white-space: nowrap; }
+.fo-tb-table td.fo-tb-ctl { text-align: right; white-space: normal; }
+.fo-tb-ctl select { width: auto; max-width: 150px; min-height: 32px; margin: 0 0 4px; font-size: 12px; }
+.fo-tb-ctl .btn { white-space: nowrap; }
 .fo-tb-table tbody tr { cursor: default; }
 .fo-tb .fo-table-scroll .fo-table { min-width: 0; }  /* FO's wide-table min-width must not stretch these small tables */
 .fo-tb-cmp td, .fo-tb-cmp th { padding: 6px 8px; }
