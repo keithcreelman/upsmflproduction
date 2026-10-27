@@ -2643,6 +2643,9 @@
         return team.length ? capSnapshotForTeams(team) : null;
       },
       capCeiling: CAP_CEILING,
+      // The Front Office's own per-player cap hit (taxi $0, IR 50%, expired $0) and loaded-contract test (true / false / null = unknown):
+      // the Trade builder reads these, so it never keeps a second copy of either rule.
+      capHit: currentCapHit, isLoaded: isLoadedRow,
       // The Overview's Player salaries / Salary adjustments ledgers: the same cap hits and adjustment
       // rounding as capFor (currentCapHit, roundToK), grouped by site/rosters/v2/fo_cap_ledger.js.
       capLedger: function (fid) {

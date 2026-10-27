@@ -35,9 +35,9 @@
   // Same defaults as the Overview's card (Keith 2026-10-21): By Position, PPG.
   var view = { by: "position", measure: "ppg", sort: "ALL", mixSort: "" };
   var sel = { team: "" };
-  // Trades has two views: the Trade finder (default, unchanged) and the Trade builder (fo_trade_builder.js).
-  var mode = "finder";
-  var MODES = [["finder", "Trade finder"], ["builder", "Trade builder"]];
+  // Trades has two views: the Trade builder (default; fo_trade_builder.js) and the Trade finder (unchanged).
+  var mode = "builder";
+  var MODES = [["builder", "Trade builder"], ["finder", "Trade finder"]];
   function modeChips() { return '<div class="fo-subview-chips fo-tf-mode" role="group" aria-label="Trades view">' + chips(MODES, "data-tf-mode", mode) + "</div>"; }
   var tableMemo = { model: null, tables: {} };
   var GLABEL = { PK: "K", PN: "P" };
@@ -480,7 +480,7 @@
 
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("trades");
   // Test seam: the view state and the team view's pick and stock logic.
-  root.UPS_FO_TRADES = { _view: view, _sel: sel, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); },
+  root.UPS_FO_TRADES = { _setMode: function (m) { mode = m; }, _view: view, _sel: sel, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); },
     _teamHtml: function (f) { return teamHtml(H.leagueModel(0), f); }, _openTeam: function (f) { openTeam(H.leagueModel(0), f); } };
   document.addEventListener("fo:ready", function () {
     H = root.UPS_FO_HUB; FO = root.UPS_FO; DATA = root.UPS_FO_DATA; TF = root.UPS_TRADE_FIT; LS = root.UPS_LINEUP_STRENGTH;

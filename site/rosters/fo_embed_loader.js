@@ -249,6 +249,7 @@
       "rosters/v2/fo_roster.js",
       "rosters/v2/fo_market.js",
       "shared/trade_rules.js",
+      "shared/trade_impact.js",
       "shared/trade_builder_core.js",
       "shared/trade_builder_view.js",
       "rosters/v2/fo_trade_builder.js",

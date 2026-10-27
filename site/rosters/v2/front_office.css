@@ -1310,3 +1310,56 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-stat-why li.on { color: var(--text); }
 .fo-gl-sum { margin-bottom: 4px; }
 .fo-gl-partial { margin-bottom: 8px; }
+
+/* ── Trades → Trade builder (#1385): side-by-side teams, impact, review. Uses the Front Office's own tokens. ── */
+.fo-tf-mode { margin: 0 0 12px; }
+.fo-tb h3 { margin: 0 0 8px; font-size: 13px; color: var(--text); }
+.fo-tb h4 { margin: 12px 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 600; }
+.fo-tb-pickrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 320px)); gap: 12px; margin-bottom: 14px; }
+.fo-tb label { display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.fo-tb select, .fo-tb input, .fo-tb textarea {
+  font: inherit; font-size: 13px; color: var(--text); background: var(--panel-alt);
+  border: 1px solid var(--border); border-radius: 4px; padding: 6px 8px; min-height: 36px; width: 100%;
+}
+.fo-tb textarea { min-height: 72px; resize: vertical; }
+.fo-tb-teams { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.fo-tb-team { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-width: 0; }
+.fo-tb-team > header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
+.fo-tb-team > header h3 { margin: 0; font-size: 15px; }
+.fo-tb-table td.fo-tb-ctl { text-align: right; white-space: nowrap; }
+.fo-tb-table tbody tr { cursor: default; }
+.fo-tb-scroll .fo-table { min-width: 0; }
+.fo-tb-pick { max-height: 260px; overflow-y: auto; }
+.fo-tb-cap { margin-top: 10px; }
+.fo-tb-roster { margin-top: 12px; }
+.fo-tb-roster summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--accent); min-height: 28px; }
+.fo-tb-q { margin: 8px 0; }
+.fo-tb-impact { display: grid; gap: 18px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+.fo-tb-impact > section { min-width: 0; }
+.fo-tb-cmp th[scope="row"] { font-weight: 500; color: var(--muted); white-space: normal; }
+.fo-tb-cmp td.neg, .fo-tb-line.neg, .fo-tb-flags { color: var(--err); }
+.fo-tb-flags { margin: 8px 0 0; padding-left: 18px; font-size: 12px; }
+.fo-tb-lu { display: grid; gap: 14px; }
+.fo-tb-lu-team { border-top: 1px solid var(--border); padding-top: 10px; }
+.fo-tb-lu-team:first-child { border-top: 0; padding-top: 0; }
+.fo-tb-lu-team h4 { margin-top: 0; }
+.fo-tb-big { margin: 0 0 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.fo-tb-line { margin: 4px 0; font-size: 12px; }
+.fo-tb-chg { list-style: none; margin: 6px 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 12px; font-size: 12px; }
+.fo-tb-verdict { border: 1px solid var(--border); border-left-width: 4px; border-radius: 6px; padding: 8px 12px; background: var(--panel-alt); }
+.fo-tb-verdict ul { margin: 4px 0; padding-left: 18px; font-size: 12px; }
+.fo-tb-pill { margin: 0; font-weight: 700; font-size: 13px; }
+.fo-tb-provisional { border-left-color: var(--ok); } .fo-tb-blocked { border-left-color: var(--err); }
+.fo-tb-needs_ack, .fo-tb-unavailable { border-left-color: var(--warn); }
+.fo-tb-lock { margin: 6px 0 0; font-size: 12px; font-weight: 600; }
+.fo-tb-lock.fo-tb-ok { color: var(--ok); } .fo-tb-lock.fo-tb-warn { color: var(--warn); } .fo-tb-lock.fo-tb-bad { color: var(--err); }
+.fo-tb-stages { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 10px 0 0; font-size: 12px; }
+.fo-tb-stages dt { color: var(--muted); } .fo-tb-stages dd { margin: 0; }
+.fo-tb-sum { margin: 0 0 10px; padding-left: 18px; font-size: 13px; }
+.fo-tb-note { max-width: 640px; }
+.fo-tb-actions { margin: 12px 0 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.fo-tb-confirm p { margin: 0 0 8px; }
+.fo-tb-src { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); }
+.fo-tb-src-data { color: var(--muted); } .fo-tb-src-calc { color: var(--accent); border-color: var(--accent); } .fo-tb-src-verdict { color: var(--warn); border-color: var(--warn); }
+@media (max-width: 1100px) { .fo-tb-impact { grid-template-columns: 1fr; } }
+@media (max-width: 600px) { .fo-tb-teams { grid-template-columns: 1fr; } .fo-tb-stages { grid-template-columns: 1fr; } }
