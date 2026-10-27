@@ -25,7 +25,15 @@ on:
     - cron: "0 12 * * 3"
     # Fri 12:00 UTC  -- after Thursday night and most practice reports
     - cron: "0 12 * * 5"
-    # Sun 15:00 UTC  -- ~11am ET, the closing line before the early window
+    # Thu 20:00 UTC  -- ~4pm ET, before the Thursday night kickoff
+    - cron: "0 20 * * 4"
+    # Sun 11:00, 13:00 and 15:00 UTC -- the closing lines before the 1pm ET (17:00 UTC) window. GitHub starts scheduled
+    # runs LATE: the old single Sunday 15:00 UTC run landed 17:45-19:18 UTC in all six weeks measured (after every early
+    # kickoff). Three staggered runs make a pre-kickoff one near-certain; a run that lands after a player's kickoff
+    # skips him (ingest_projections.py freezes each row at its own kickoff), so a late run can never overwrite a
+    # pregame value.
+    - cron: "0 11 * * 0"
+    - cron: "0 13 * * 0"
     - cron: "0 15 * * 0"
   workflow_dispatch:
     inputs:
