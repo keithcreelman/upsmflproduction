@@ -65,6 +65,8 @@ globalThis.fetch = async (input, init) => {
       if (year === "2027") return new Response("<H1>Not Found</H1>", { status: 404 });   // what MFL serves for an unpublished season
       return MFL.scheduleDown ? json({ error: "MFL down" }, 503) : json(nflSchedule(Number(u.searchParams.get("W"))));
     }
+    // UPS Rookie Draft results (the taxi rule's window): 17052 is a 2026 Round 2 pick.
+    if (type === "draftResults") return json({ draftResults: { draftUnit: { draftPick: year === "2026" ? [{ player: "17052", round: "2" }] : [] } } });
     if (!TXS[year]) return json({ error: "No league " + year }, 500);
     if (type === "liveScoring") return MFL.liveDown ? json({ error: "MFL down" }, 503) : json({ liveScoring: { week: year === "2027" ? "1" : String(liveWeek()) } });
     if (type === "transactions") {
@@ -94,9 +96,9 @@ function makeDb() {
   db.raw.exec(`CREATE TABLE ups_extension_submissions (${subCols}); CREATE TABLE ups_mym_submissions (${subCols}); CREATE TABLE ups_restructure_submissions (${subCols}, voided_at_utc TEXT);`);
   // 17052: a 2026 rookie on his 2nd of 3 call-ups, never on an active roster at a season's end → his cut stays cap-free (§D2)
   db.raw.exec("CREATE TABLE ups_taxi_callups (player_id TEXT, pending INTEGER, became_permanent INTEGER DEFAULT 0, season TEXT, nfl_week INTEGER)");
-  db.raw.exec("INSERT INTO ups_taxi_callups (player_id, pending) VALUES ('17052', 0), ('17052', 0)");
+  db.raw.exec("INSERT INTO ups_taxi_callups (player_id, pending, season, nfl_week) VALUES ('17052', 0, '2026', 1), ('17052', 0, '2026', 2)");
   db.raw.exec("CREATE TABLE ups_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)");
-  db.raw.exec(`INSERT INTO ups_settings (key, value) VALUES ('taxi_prior_active_2026', '["16000"]')`);
+  db.raw.exec(`INSERT INTO ups_settings (key, value) VALUES ('taxi_legacy_active_2025_v1', '["16000"]')`);
   return db;
 }
 const r2 = { async get(key) {
@@ -194,7 +196,7 @@ test("5. every drop path counts weeks with _completedWeeksForDrop — the new-dr
   t.match(SRC, /const rcWeekAuthority = await _completedWeeksForDrop\(rs, leagueId, Number\(r\.dropped_at_unix\) \|\| 0\);/);
   t.match(SRC, /const weekAuthority = await _completedWeeksForDrop\(apSeason, apLeagueId, ts\);/);
   t.equal((SRC.match(/_completedWeeksAtLiveRule\(/g) || []).length, 2, "the definition and its one caller, _completedWeeksForDrop");
-  t.match(SRC, /taxiNeverPromoted: \(await _taxiNeverPromotedMap\(env, \[safeStr\(r\.player_id\)\], \{ season: rs, leagueId, atUnix: Number\(r\.dropped_at_unix\) \|\| 0 \}\)\)/, "the recompute passes the call-up status, as of the drop");
+  t.match(SRC, /taxiCut: \(await _taxiCutContextMap\(env, \[safeStr\(r\.player_id\)\], \{ season: rs, leagueId, atUnix: Number\(r\.dropped_at_unix\) \|\| 0 \}\)\)/, "the recompute passes the taxi verdict's inputs, as of the drop");
 });
 
 await run("drop_scan_prices_at_drop_instant");
