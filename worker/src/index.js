@@ -68,6 +68,7 @@ import { evaluateTradeCompliance, loadedContractBlockPayload } from "./trade_cap
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
+import { readIdempotencyKey, makeIdempotencyStore, twoWayRequestHash, purgeTradeIdempotency, IDEM_SCOPE, IDEM_STATE } from "./trade_idempotency.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
 import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
@@ -8367,6 +8368,17 @@ export default {
         })());
       }
     } catch (e) { if (e && e.seasonUnresolved) console.error(`[scheduled hourly] settlement sweep: ${e.message}`); /* a sweep fault must never break the hourly cron */ }
+
+    // ── TRADE IDEMPOTENCY PURGE (P0 S6) ──────────────────────────────────────
+    // Keys only need to outlive a double tap / a retry; rows older than 14 days go. One range DELETE on the created_at index (rows read ≈
+    // rows deleted, usually 0). No DDL here: a database that never took a key has no table and nothing to purge.
+    try {
+      if (env.UPS_MFL_DB) {
+        ctx.waitUntil(purgeTradeIdempotency(env.UPS_MFL_DB).then((r) => {
+          if (!r.ok || r.deleted) console.log("[trade-idempotency] purge", JSON.stringify(r));
+        }).catch((e) => console.log("[trade-idempotency] purge failed:", String(e?.message || e))));
+      }
+    } catch (_) { /* a purge fault must never break the hourly cron */ }
 
     // ── §G3 INJURY-STATUS POLL ────────────────────────────────────────────
     // MFL's TYPE=injuries reports CURRENT status and keeps no history, so
@@ -39616,6 +39628,11 @@ const mflToSleeper = {};
         if (proposeAuth.caller.fid !== fromFranchiseId) return tradeForbidden("You can only send an offer as your own team.");
         if (proposeAuth.caller.leagueId !== leagueId) return jsonOut(400, { ok: false, code: "league_mismatch", error: "That request named two different leagues." });
         if (!payload) return jsonOut(400, { ok: false, error: "payload is required" });
+        // P0 S6: an OPTIONAL idempotency key (worker/src/trade_idempotency.js). Only validated here; it is TAKEN immediately before the MFL
+        // write below, so every refusal the client resolves and resends with the same key (cap acknowledgment, staging_required,
+        // loaded-contract, ...) is never cached. No key → exactly the old behavior.
+        const proposeIdem = readIdempotencyKey(body);
+        if (proposeIdem.error) return jsonOut(proposeIdem.error.status, proposeIdem.error.body);
         // ---- 🔒 CUTOVER GATE (2026-09-29) ------------------------------------------------
         // Keith's ruling: "the legacy creation endpoint must also refuse direct creation
         // server-side while staging is enabled... hiding a button alone is insufficient."
@@ -39995,6 +40012,22 @@ const mflToSleeper = {};
             }
           }
 
+          // ---- 🔒 IDEMPOTENCY KEY (P0 S6) — taken HERE, immediately before the outbox row and the MFL tradeProposal ----
+          // Same key again: the original response (finished), 409 request_in_progress / request_outcome_unknown (never re-sent),
+          // 409 idempotency_key_reused (different contents), or 503 idempotency_unavailable (the record can't be kept → nothing sent).
+          let proposeIdemKey = null;
+          const proposeIdemStore = proposeIdem.key ? makeIdempotencyStore(env.UPS_MFL_DB) : null;
+          if (proposeIdem.key) {
+            const k = { leagueId, season, scope: IDEM_SCOPE.TWO_WAY_PROPOSE, actorFid: proposeAuth.caller.fid, key: proposeIdem.key };
+            const capKByFranchise = {};
+            for (const team of asArray(payload?.teams)) { const f = padFranchiseId(team?.franchise_id); if (f) capKByFranchise[f] = Number(team?.traded_salary_adjustment_k || 0) || 0; }
+            const requestHash = await twoWayRequestHash({ from: fromFranchiseId, to: toFranchiseId, tokensByFranchise: tokensByFranchise(proposalAssets), capKByFranchise, extensionRequests: payload?.extension_requests });
+            const took = await proposeIdemStore.begin(k, requestHash);
+            if (!took.acquired) return jsonOut(took.reply.status, took.reply.body);
+            proposeIdemKey = k;
+          }
+          const finishProposeIdem = async (state, status, out) => { if (proposeIdemKey) await proposeIdemStore.finish(proposeIdemKey, { state, statusCode: status, body: out }); };
+
           let outboxId = "";
           let outboxBackend = "";
           let outboxWriteError = "";
@@ -40125,7 +40158,7 @@ const mflToSleeper = {};
                 },
               });
             }
-            return jsonOut(502, {
+            const proposeFailOut = {
               ok: false,
               mode: "direct_mfl",
               error_type: "trade_proposal_import_failed",
@@ -40151,7 +40184,9 @@ const mflToSleeper = {};
                 status: outboxId ? "FAILED" : "NOT_PERSISTED",
                 write_error: outboxWriteError || "",
               },
-            });
+            };
+            await finishProposeIdem(IDEM_STATE.FAILED, 502, proposeFailOut);
+            return jsonOut(502, proposeFailOut);
           }
 
           let tradeId = extractTradeIdFromImportText(importRes.text);
@@ -40258,7 +40293,7 @@ const mflToSleeper = {};
               }).catch((e) => console.error(`[trade-dm] enqueue (propose) failed: ${e?.message || e}`))
             );
           }
-          return jsonOut(201, {
+          const proposeOkOut = {
             ok: true,
             mode: "direct_mfl",
             league_id: leagueId,
@@ -40296,7 +40331,9 @@ const mflToSleeper = {};
               status: outboxId ? "POSTED" : "NOT_PERSISTED",
               write_error: outboxWriteError || "",
             },
-          });
+          };
+          await finishProposeIdem(IDEM_STATE.DONE, 201, proposeOkOut);
+          return jsonOut(201, proposeOkOut);
         }
 
         // Legacy non-directMfl path removed 2026-05-28 (Keith report):
