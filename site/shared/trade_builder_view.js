@@ -128,6 +128,25 @@
       st.dlg = { from: from, token: token };
       opt.openDialog("Pre-trade extension", extDialogHtml(item, p));
     }
+    function listTable(rows, empty, cols) {
+      return rows ? '<div class="fo-table-scroll fo-tb-scroll"><table class="fo-table fo-tb-table"><thead><tr><th>Asset</th><th class="num">Salary</th><th>Contract</th>' + (cols ? "<th></th>" : "") + "</tr></thead><tbody>" + rows + "</tbody></table></div>" : '<p class="fo-ov-empty">' + empty + "</p>";
+    }
+    function addBtn(on, tok, f, label) {
+      return '<button type="button" class="btn small" aria-pressed="' + on + '" data-tok="' + esc(tok) + '" data-from="' + f + '" aria-label="' + (on ? "Remove " : "Add ") + esc(label) + '">' + (on ? "Added" : "Add") + "</button>";
+    }
+    function rosterPicker(f) {
+      var a = opt.assets(f) || { players: [], picks: [] };
+      var q = (st.q[f] || "").toLowerCase();
+      var rows = a.players.filter(function (p) { return !q || (p.name + " " + p.pos).toLowerCase().indexOf(q) !== -1; }).map(function (p) {
+        var eligible = extOpts({ from: f, token: "P_" + p.id, label: p.name }).length > 0;
+        return '<tr><td>' + pname(p, f) + ' <span class="fo-muted">' + esc(p.pos) + '</span>' + (eligible ? ' <span class="fo-tf-tag ok" title="Eligible for a pre-trade extension under the league rule">Extension eligible</span>' : "") + '</td><td class="num">' + k(p.salary) + "</td><td>" + esc(contractLine(p)) + '</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, "P_" + p.id, f), "P_" + p.id, f, p.name) + "</td></tr>";
+      }).concat(a.picks.filter(function (p) { return !q || p.label.toLowerCase().indexOf(q) !== -1; }).map(function (p) {
+        return '<tr><td><b>' + esc(p.label) + '</b> <span class="fo-muted">draft pick</span></td><td class="num">—</td><td class="fo-muted">no salary</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, p.token, f), p.token, f, p.label) + "</td></tr>";
+      })).join("");
+      return '<details class="fo-tb-roster"' + (st.open[f] ? " open" : "") + ' data-open="' + f + '"><summary>Add from ' + esc(nm(f)) + '’s roster</summary>' +
+        '<input type="search" class="fo-tb-q" data-q="' + f + '" placeholder="Find a player or pick" value="' + esc(st.q[f] || "") + '" aria-label="Find in ' + esc(nm(f)) + ' roster">' +
+        '<div class="fo-table-scroll fo-tb-scroll fo-tb-pick"><table class="fo-table fo-tb-table"><tbody>' + (rows || '<tr><td class="fo-muted">Nothing matches.</td></tr>') + "</tbody></table></div></details>";
+    }
     function moneyBlock(f, imp) {
       var tos = draft.teams.filter(function (x) { return x !== f; });
       var space = imp && imp.cap && imp.cap[f] ? imp.cap[f].r.before.space : null;
