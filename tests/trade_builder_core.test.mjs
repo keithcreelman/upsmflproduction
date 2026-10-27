@@ -98,3 +98,10 @@ test("lock view: unresolved or missing never shows a time", () => {
   }
   assert.equal(C.lockView({ state: "none" }).tone, "ok");
 });
+
+test("the lock is said once: its reason is not repeated in the list", () => {
+  const r = C.readiness([], "done", { ok: true, verdict: { status: "blocked", reasons: [{ code: "trade_closed" }], trade_lock: { state: "closed", label: "Wed" } } });
+  assert.equal(r.reasons.length, 0);
+  assert.equal(r.state, "blocked");
+  assert.match(r.lock.text, /closed/);
+});

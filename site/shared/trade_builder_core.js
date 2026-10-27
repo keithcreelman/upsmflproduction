@@ -134,7 +134,8 @@
     return Object.assign(base, {
       state: { blocked: "blocked", needs_acknowledgment: "needs_ack", provisional: "provisional" }[v.status] || "unavailable",
       label: label,
-      reasons: (v.reasons || []).map(function (r) { return { code: r.code, text: reasonText(r) }; }),
+      // The lock has its own line; don't say it twice.
+      reasons: (v.reasons || []).filter(function (r) { return r.code !== "trade_closed" && r.code !== "trade_lock_unavailable"; }).map(function (r) { return { code: r.code, text: reasonText(r) }; }),
       lock: lockView(v.trade_lock), checks: v.checks || null
     });
   }
