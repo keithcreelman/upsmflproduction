@@ -194,7 +194,16 @@
         (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> (optional; not needed to finish a trade here)</p>' : "") + "</div>";
     }
 
+    // Replacing the markup blurs a focused field, which can fire its `change` handler and call render() again mid-write.
+    // A nested call is deferred to just after the current one, never run inside it.
+    var rendering = false, again = false;
     function render() {
+      if (rendering) { again = true; return; }
+      rendering = true;
+      try { paint(); } finally { rendering = false; }
+      if (again) { again = false; Promise.resolve().then(render); }
+    }
+    function paint() {
       var keep = el.querySelector && el.querySelector("[data-note]"); if (keep) st.note = keep.value;
       var focus = document.activeElement, fq = focus && focus.getAttribute && focus.getAttribute("data-q"), pos = focus && focus.selectionStart;
       el.innerHTML = '<div class="fo-tb">' + proposalCard() + impactCard() + reviewCard() + "</div>";
