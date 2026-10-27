@@ -1363,7 +1363,10 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-root .fo-choice .fo-subview-chip .fo-choice-sub { flex: 0 0 100%; font-size: 11px; font-weight: 600; line-height: 1.1; opacity: 0.85; }
 .fo-root .fo-choice-weeks .fo-subview-chip { flex: 0 1 calc(20% - 6px); flex-wrap: wrap; row-gap: 0; padding: 6px 4px; }
 .fo-root .fo-choice-weeks { margin-bottom: 10px; }
+.fo-root .fo-choice-weeks .fo-subview-chip { white-space: nowrap; }
+.fo-basis + .fo-choice-group { margin-top: 12px; }
 @media (max-width: 560px) { .fo-root .fo-choice-weeks .fo-subview-chip { flex: 1 1 calc(25% - 6px); } }
+@media (max-width: 360px) { .fo-root .fo-choice-weeks .fo-subview-chip { flex: 1 1 calc(33.3% - 6px); } }
 .fo-bye-grid th.fo-bye-wk { cursor: pointer; }
 
 /* Market status on a phone: the Status column would sit half off-screen, so each row says it under the player's name instead. */

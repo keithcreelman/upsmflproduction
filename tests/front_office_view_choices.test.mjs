@@ -74,7 +74,7 @@ test("Tagging view, Contract log view and Bye planner weeks use the same control
   t.ok(/fo-subview-chips fo-choice fo-choice-weeks/.test(RO) && /data-bye-week="' \+ w\.week \+ '" aria-pressed="' \+ \(w\.week === byeView\.week\)/.test(RO), "week choice: same data-bye-week handler, aria-pressed, selected = active");
   t.ok(/<th scope="col" class="fo-bye-wk' \+ hot \+ \(w\.week === byeView\.week \? " sel" : ""\) \+ '" data-bye-week=/.test(RO), "a click on a grid week head still selects the week");
   t.ok(/\(w\.empty\.length \? "short"/.test(RO), "a short week says so in words, not only color");
-  t.ok(/\.fo-root \.fo-choice-weeks \.fo-subview-chip \{ flex: 0 1 calc\(20% - 6px\)/.test(CSS) && /flex: 1 1 calc\(25% - 6px\)/.test(CSS), "weeks wrap to rows: 5 across on a wide screen, 4 on a phone");
+  t.ok(/\.fo-root \.fo-choice-weeks \.fo-subview-chip \{ flex: 0 1 calc\(20% - 6px\)/.test(CSS) && /flex: 1 1 calc\(25% - 6px\)/.test(CSS) && /max-width: 360px\) \{ \.fo-root \.fo-choice-weeks \.fo-subview-chip \{ flex: 1 1 calc\(33\.3% - 6px\)/.test(CSS) && /\.fo-choice-weeks \.fo-subview-chip \{ white-space: nowrap; \}/.test(CSS), "weeks wrap to rows (5 / 4 / 3 across by width) and a week's label never breaks");
 });
 
 test("version stamps changed with the files that changed", () => {
