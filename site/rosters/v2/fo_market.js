@@ -235,9 +235,11 @@
     var teams = FO.teams();
     var scopes = [["fa", "Free agents"], ["later", "Waivers later"], ["bait", "On the block"], ["rostered", "Other teams"], ["all", "All players"]];
     var controls = '<div class="fo-mk-controls">' +
-      '<div class="fo-subview-chips" role="group" aria-label="Who">' + scopes.map(function (s) {
+      '<div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-mk">Browse players</div>' +
+      '<div class="fo-subview-chips fo-choice fo-choice-wrap" role="group" aria-labelledby="fo-lbl-mk">' + scopes.map(function (s) {
         return '<button type="button" class="fo-subview-chip' + (view.scope === s[0] ? " active" : "") + '" data-mk-scope="' + s[0] + '" aria-pressed="' + (view.scope === s[0]) + '">' + H.esc(s[1]) + "</button>";
-      }).join("") + "</div>" +
+      }).join("") + "</div></div>" +
+      '<div class="fo-choice-filters"><div class="fo-choice-label">Filter the list</div>' +
       '<div class="fo-pos-chips" role="group" aria-label="Position">' + POS_CHIPS.map(function (g) {
         return '<button type="button" class="fo-pos-chip' + (view.pos === g ? " active" : "") + '" data-mk-pos="' + g + '" aria-pressed="' + (view.pos === g) + '">' + (g === "ALL" ? "All" : g === "PK" ? "K" : g === "PN" ? "P" : g) + "</button>";
       }).join("") + "</div>" +
@@ -246,7 +248,7 @@
       }).join("") + "</select></label>" +
       '<button type="button" class="fo-subview-chip' + (view.hideOut ? " active" : "") + '" data-mk-hideout aria-pressed="' + view.hideOut + '">Hide Out / IR</button>' +
       '<label class="fo-field fo-inline fo-mk-search">Find <input type="search" data-mk-q value="' + H.esc(view.q) + '" placeholder="Player, NFL team or owner" autocomplete="off"></label>' +
-      "</div>";
+      "</div></div>";
     // A free agent has no contract: the Contract column only shows where rostered players can be listed.
     var showContract = view.scope !== "fa" && view.scope !== "later";
     var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Status", "Free agents: when the player can be added or claimed (the league's waiver check, same as the phone). Rostered: the owning team, and whether it lists the player on the trade block.", "") +
