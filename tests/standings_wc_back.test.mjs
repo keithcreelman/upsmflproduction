@@ -96,14 +96,13 @@ test("desktop Playoff Picture, Week 6: In the hunt 'WC Back' 5 / 10 / 16 / 18 / 
   t.ok(!/ahead of Real Deal Creel|\(6th\)|behind the 6th seed/.test(h), "no division-winner yardstick anywhere");
   t.match(h, /· WC Back 5<\/div>/, "the Next team out panel");
 });
-test("desktop Full League, Week 6: the 'WC Back' column — — for the six in the field, the last-wild-card gap for the six outside", async () => {
+test("desktop Full League, Week 6: the desktop wide view no longer carries a WC Back column (Keith 2026-10-26: eight columns); the Playoff Picture still does", async () => {
   const h = await desktop("view=league&year=2026");
-  const tbl = /<table class="lg-table"><thead>([\s\S]*?)<\/thead><tbody>([\s\S]*?)<\/tbody><\/table>/.exec(h);
+  const tbl = /<table class="lg-table"><thead>([\s\S]*?)<\/thead>/.exec(h);
   const heads = [...tbl[1].matchAll(/<th[^>]*>([\s\S]*?)<\/th>/g)].map((m) => text(m[1]).trim());
-  t.ok(heads.includes("WC Back") && !heads.includes("Back"), heads.join(", "));
-  const col = heads.indexOf("WC Back");
-  const rows = [...tbl[2].matchAll(/<tr class="(?:you-row )?race-row"[^>]*data-fid="(\d{4})">([\s\S]*?)<\/tr>/g)].map((m) => [m[1], text([...m[2].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)][col][1]).trim()]);
-  t.deepEqual(rows, RESP6.rows.map((r) => [r.franchise_id, r.playoff_seed == null ? String(apWins(lastWC) - apWins(r)) : "—"]));
+  t.ok(!heads.includes("WC Back") && !heads.includes("Back"), heads.join(", "));
+  const pic = await desktop("view=picture&year=2026");
+  t.match(pic, /<th class="num" scope="col" title="[^"]*">WC Back<\/th>/, "the In the hunt table keeps WC Back");
 });
 test("desktop: a negative figure from an older worker is never shown (— instead), and Next out then gives no number", async () => {
   const real = workerFetch(callWorker, ENV6);

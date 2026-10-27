@@ -1281,7 +1281,7 @@ The UPS league year is a 12-month cycle anchored to the NFL season. **Dates belo
 | **2026-09-09** | **Wed** | **NFL Week 1 kickoff** (corrected from the `event_window_matrix.csv` placeholder — real schedule confirmed live, earliest kickoff unix 1788999600 = 2026-09-09 20:20 ET; Keith 2026-08-07) | `TYPE=nflSchedule&W=1` (live) |
 | **2026-09-24** | **Thu** | **UPS preseason MYM deadline** (= Week 3 kickoff Thu) | `event_window_matrix.csv` |
 | **2026-10-07** | **Wed** | **UPS preseason extension deadline** (day before Week 5 kickoff) | `event_window_matrix.csv` |
-| **2026-11-26** | **Thu** | **UPS trade deadline** (Thanksgiving kickoff) | `event_window_matrix.csv` |
+| **2026-11-24** | **Tue** | **MFL stops accepting trades, 12:00 PM ET** — the earliest "No Trades Allowed" event on MFL's league calendar, which MFL enforces to the second (verified on the test league 2026-10-21). The app reads MFL's calendar for this time (`worker/src/trade_deadline.js`). Rule reconciliation pending (Keith 2026-10-21). | MFL League Calendar |
 
 ### NFL Week kickoffs (decoded from `ups_options_widget_schedule_2026.json`)
 
@@ -1451,7 +1451,7 @@ The local SQLite `auction` table (`mfl_database.db`) records every winning bid b
 - **(UPDATED 2026-05-08)** Earning is now per-completed-week (Section 6.B). The old "end of October = 25%" checkpoint is retired. By the start of Week 5, ~4/17 ≈ 24% of an auction salary is earned.
 
 ### November 2026 → Trade Deadline
-- **2026-11-26 (Thu, Thanksgiving, Week 12 kickoff):** **UPS trade deadline.** No trades until next offseason after this kickoff.
+- **2026: MFL stops accepting trades Tue 2026-11-24 at 12:00 PM ET.** That is the earliest "No Trades Allowed" event on MFL's league calendar, and MFL enforces it to the second. No trades until next offseason after it. The app's Home calendar shows the time MFL enforces.
 - **(UPDATED 2026-05-08)** No discrete earning checkpoint — earning accrues per completed week (Section 6.B). By end of Week 12 (Thanksgiving week), ~12/17 ≈ 71% of an auction salary is earned.
 - **Second half of league dues — $125 of the $250** — due by the trade deadline. Venmo treasurer **Josh Martel** at **@JoshMartel8412** (updated 2026-08-16; @Keith-Creelman is no longer the route). *Amount corrected 2026-08-17 — this had read "$100 of the $200 base" from the pre-increase era.*
 
