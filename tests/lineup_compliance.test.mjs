@@ -9,7 +9,7 @@
 // Every scenario below was walked through with Keith and confirmed before it
 // was written, which is why the assertions quote him rather than canon alone.
 import {
-  evaluateStarter, evaluateLineup, statusAsOf, normalizeInjuryStatus,
+  evaluateStarter, evaluateLineup, statusAsOf, statusEntryAsOf, normalizeInjuryStatus, filterTrustedPolls,
   lineupLadderRung, lineupLadderLabel, composeLineupDm,
   saturdayCapUnix, noticeMarkUnix,
   LINEUP_LADDER, REQUIRED_STARTERS, INJURY_NOTICE_SECONDS,
@@ -200,6 +200,52 @@ console.log('\n-- pre-kickoff wording: "before" the deadline, never "inside" it 
   // MNF player: the Saturday 8pm cap is the deadline the owner is held to.
   const m = evaluateStarter(P, ctx({ kickoffUnix: MNF, history: hist(['OUT', SAT8 - H(3)]), nowUnix: SAT8 + H(12) }));
   t('MNF at-risk names the Saturday 8pm deadline', /before your notice deadline \(Sat 8pm ET\)/.test(m.detail), true);
+}
+
+console.log('\n-- cleared designations: off the report means ACTIVE (Brian Branch, Week 7, 2026-10-25) --');
+{
+  // Hourly polls all week. TYPE=injuries lists only designated players, so a
+  // player who comes off the report just stops appearing.
+  const polls = []; for (let t0 = SUN1 - H(120); t0 <= SUN1 + H(30); t0 += H(1)) polls.push(t0);
+  const withPolls = (rows) => { const h = rows.map(([status, first, last]) => ({ status, first_seen_unix: first, last_seen_unix: last })); h.polls = polls; return h; };
+  // Listed IR from Wednesday until Saturday 6pm (after the Sat 1pm mark), then off the report.
+  const IR_FROM = SUN1 - H(96), IR_LAST = MARK + H(5);
+  const branch = withPolls([['IR', IR_FROM, IR_LAST]]);
+  t('IR at the mark (still listed then)', statusAsOf(branch, MARK), 'IR');
+  t('ACTIVE once a poll no longer lists him', statusAsOf(branch, IR_LAST + H(2)), 'ACTIVE');
+  t('cleared is dated to the first poll without him', statusEntryAsOf(branch, IR_LAST + H(5)).first_seen_unix, IR_LAST + H(1));
+  const pre = evaluateStarter(P, ctx({ history: branch, nowUnix: SUN1 - H(3.5) }));
+  t('pre-kickoff DM no longer says bench him', [pre.verdict, pre.reason], ['clean', 'cleared_before_kickoff']);
+  t('and says why', /has since come off the injury report/.test(pre.detail), true);
+  const fin = evaluateStarter(P, ctx({ history: branch, nowUnix: SUN1 + H(30) }));
+  t('booking pass: upgraded and played, clean (was booked as "out" before the fix)', [fin.verdict, fin.reason], ['clean', 'upgraded_and_played']);
+
+  // Still listed IR at every poll: unchanged, still at risk and still a violation.
+  const still = withPolls([['IR', IR_FROM, SUN1 + H(30)]]);
+  t('still listed: at risk before kickoff', evaluateStarter(P, ctx({ history: still, nowUnix: SUN1 - H(3.5) })).reason, 'out_at_risk');
+  t('still listed: violation at booking', evaluateStarter(P, ctx({ history: still, nowUnix: SUN1 + H(30) })).reason, 'out');
+
+  // Off the report BEFORE the mark: he was never on notice at all.
+  const early = withPolls([['OUT', IR_FROM, MARK - H(10)]]);
+  t('cleared before the mark: ACTIVE at the mark', statusAsOf(early, MARK), 'ACTIVE');
+  t('cleared before the mark: clean before kickoff', evaluateStarter(P, ctx({ history: early, nowUnix: SUN1 - H(3) })).verdict, 'clean');
+
+  // Questionable, then Out, then Questionable again (the Q row keeps its first sighting).
+  const qoq = withPolls([['QUESTIONABLE', SUN1 - H(100), SUN1 - H(2)], ['OUT', SUN1 - H(60), SUN1 - H(40)]]);
+  t('Q again after Out reads Q, not the stale Out', statusAsOf(qoq, SUN1 - H(3)), 'QUESTIONABLE');
+  t('during the Out stretch reads Out', statusAsOf(qoq, SUN1 - H(45)), 'OUT');
+
+  // Without polls (old callers and the tests above) nothing changes.
+  t('no polls attached: old behavior', statusAsOf(hist(['IR', IR_FROM]), SUN1), 'IR');
+
+  // A partial feed proves nothing about who is NOT on the report.
+  t('partial polls are not trusted', filterTrustedPolls([{ polled_unix: 1, rows_seen: 440 }, { polled_unix: 2, rows_seen: 12 }, { polled_unix: 3, rows_seen: 445 }]), [1, 3]);
+  t('no polls, none trusted', filterTrustedPolls([]), []);
+
+  // The DM says when the injury data was read.
+  const dm = composeLineupDm({ franchiseName: 'Team 0009', week: 7, injuryAsOfUnix: et('2026-10-25T11:00:00-04:00'),
+    result: evaluateLineup([P], () => ctx({ history: still, nowUnix: SUN1 - H(3.5) }), { final: false, requiredStarters: 1 }) });
+  t('DM carries "Injury report as of"', /Injury report as of Sun 11:00 AM ET/.test(dm), true);
 }
 
 console.log('\n' + (fail ? 'FAILURES: ' + fail : 'ALL ' + pass + ' PASS'));
