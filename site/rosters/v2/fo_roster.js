@@ -164,9 +164,11 @@
   function renderPerf() {
     var wrap = document.getElementById("fo-perf-wrap");
     if (!wrap) return;
-    var contract = document.getElementById("fo-contract-table-wrap");
+    var contract = document.getElementById("fo-contract-table-wrap"), schedWrap = document.getElementById("fo-sched-wrap");
     wrap.hidden = colset !== "perf";
-    if (contract) contract.hidden = colset === "perf";
+    if (contract) contract.hidden = colset !== "contract";
+    if (schedWrap) schedWrap.hidden = colset !== "sched";
+    if (colset === "sched") { renderSched(schedWrap); return; }
     if (colset !== "perf") return;
     H.wireClicks(wrap);
     var ss = H.scoring(), se = DATA.get("scores");
@@ -204,6 +206,71 @@
       '<div class="fo-table-scroll"><table class="fo-table fo-perf-table">' + head + "<tbody>" + body + "</tbody></table></div>";
     if (ss) H.setFreshness("MFL read " + H.clock(ss.fetchedAt));
   }
+  // ── Schedule (Roster → Players → Schedule) ───────────────────────────
+  // Next five UPS league weeks by default (byes count as a week), or Rest of season. One /api/fantasy-sos?season=<season>&v=2 answer for the whole
+  // page (DATA "sos"), never per player or per week, and no D1 query here. Each opponent shows what it has "allowed so far" at the player's
+  // position (MFL points per game, vs usual, rank; 1st = allowed the most) over the weeks already played. Descriptive, not a forecast.
+  var sched = { mode: "next5" };
+  function schedControls() {
+    var b = function (m, label) { return '<button type="button" class="fo-subview-chip' + (sched.mode === m ? " active" : "") + '" data-schedmode="' + m + '" aria-pressed="' + (sched.mode === m) + '">' + label + "</button>"; };
+    return '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-schedwk">Weeks</div>' +
+      '<div class="fo-subview-chips fo-choice" role="group" aria-labelledby="fo-lbl-schedwk">' + b("next5", "Next 5 weeks") + b("rest", "Rest of season") + "</div></div></div>";
+  }
+  function schedCellHtml(c) {
+    var P = root.UPS_PLAYER_SCHEDULE, wk = '<td class="num">Wk ' + c.wk + "</td>";
+    if (c.kind === "bye") return "<tr class=\"fo-sched-bye\">" + wk + '<td colspan="3"><span class="fo-bye">Bye week</span></td></tr>';
+    if (c.kind !== "game") return "<tr>" + wk + '<td colspan="3" class="fo-muted">No game listed</td></tr>';
+    var k = P.kickoffLabel(c.kickoffMs), parts = P.allowedParts(c.allowed);
+    var allowed = c.allowed && (parts.pg || parts.vs || parts.rank)
+      ? [parts.pg, parts.vs, parts.rank].filter(Boolean).map(function (x) { return "<div>" + H.esc(x) + "</div>"; }).join("")
+      : '<span class="fo-muted">No number yet</span>';
+    return "<tr>" + wk + "<td>" + (c.home ? "vs " : "@ ") + H.esc(c.opp) + '<div class="fo-muted fo-perf-sub">' + (c.home ? "Home" : "Away") + "</div></td>" +
+      "<td>" + (k ? H.esc(k) : '<span class="fo-muted">TBD</span>') + "</td>" + '<td class="fo-sched-allowed">' + allowed + "</td></tr>";
+  }
+  function schedPlayerHtml(p, r, multi) {
+    var head = '<tr class="fo-sched-player"><th colspan="4" scope="colgroup">' + H.playerButton(p.id, p.fid, p.name) + H.injuryChip(p) +
+      ' <span class="fo-muted">' + H.esc(p.position) + " · " + H.esc(p.nflTeam || "—") + (multi ? " · " + H.esc(p.franchise) : "") + "</span></th></tr>";
+    if (r.state === "no_team") return head + '<tr><td colspan="4" class="fo-muted">No NFL team is listed for him, so there is no schedule.</td></tr>';
+    if (r.state === "no_pos") return head + '<tr><td colspan="4" class="fo-muted">The schedule numbers cover QB, RB, WR, TE, DL, LB, DB, K and P; not this position.</td></tr>';
+    if (r.state === "no_sched") return head + '<tr><td colspan="4" class="fo-muted">' + H.esc(String(p.nflTeam).toUpperCase()) + " is not in the schedule data.</td></tr>";
+    return head + r.cells.map(schedCellHtml).join("");
+  }
+  function renderSched(el) {
+    var P = root.UPS_PLAYER_SCHEDULE;
+    if (!el) return;
+    H.wireClicks(el);
+    if (!P) { el.innerHTML = H.banner("The schedule view didn’t load. Reload to retry.", "warn"); return; }
+    var e = DATA.get("sos");
+    if (!e) {
+      DATA.load("sos").then(function () { if (colset === "sched") renderPerf(); });
+      H.loading(el, "Reading the schedule…"); return;
+    }
+    if (e.state !== "ok") { el.innerHTML = H.banner("The schedule couldn’t be read right now, so this view is off. Reload to retry.", "warn"); return; }
+    var d = e.data, wl = P.weekList(d, sched.mode), b = P.basis(d);
+    var head = schedControls();
+    if (!wl.weeks.length) { el.innerHTML = head + H.banner(wl.note, "info"); return; }
+    var rows = FO.visibleRows() || [];
+    var multi = FO.selectedTeam() === "__all__";
+    var allowedHead = b.none ? "Allowed so far" : "Allowed so far (" + b.label + ")";
+    var note = b.none
+      ? "No " + H.esc(String(d.year || "")) + " games have been played yet, so opponents have no numbers yet."
+      : "Allowed so far: points per game each opponent has allowed to the player’s position in " + H.esc(b.label) + ", how that compares with usual, and its rank (1st = allowed the most). It describes games already played; it is not a forecast. Kickoffs are Eastern time.";
+    if (!rows.length) { el.innerHTML = head + '<p class="fo-basis">' + note + '</p><p class="fo-table-empty">No players match the current filters.</p>'; return; }
+    var items = rows.map(function (p) { return { p: p, group: H.groupOf(p.id) || "", r: P.playerRows(d, { nflTeam: p.nflTeam, group: H.groupOf(p.id) || "" }, wl.weeks) }; });
+    var body = "";
+    var order = function (list) { return list.slice().sort(function (a, b2) { return String(a.p.name || "").localeCompare(String(b2.p.name || "")); }); };
+    if (FO.groupByPosition()) {
+      var groups = {};
+      items.forEach(function (it) { var k = it.p.isTaxi ? "Taxi" : (it.p.isIr ? "IR" : (it.group || "Other")); (groups[k] = groups[k] || []).push(it); });
+      GROUP_ORDER.concat(["Other", "Taxi", "IR"]).forEach(function (k) {
+        if (!groups[k]) return;
+        body += '<tr class="fo-group-row"><td colspan="4"><span class="fo-pos ' + H.esc(k) + '">' + H.esc(k) + '</span> <span class="small">' + groups[k].length + "</span></td></tr>";
+        body += order(groups[k]).map(function (it) { return schedPlayerHtml(it.p, it.r, multi); }).join("");
+      });
+    } else body = order(items).map(function (it) { return schedPlayerHtml(it.p, it.r, multi); }).join("");
+    el.innerHTML = head + '<p class="fo-basis">' + note + "</p>" +
+      '<table class="fo-table fo-sched-table"><thead><tr><th class="num" scope="col">Week</th><th scope="col">Opponent</th><th scope="col">Kickoff</th><th scope="col">' + H.esc(allowedHead) + "</th></tr></thead><tbody>" + body + "</tbody></table>";
+  }
   function wirePerf() {
     var cs = document.getElementById("fo-colset");
     if (cs && !cs.__foWired) {
@@ -212,9 +279,20 @@
         var b = e.target && e.target.closest ? e.target.closest("[data-colset]") : null;
         if (!b) return;
         colset = b.getAttribute("data-colset");
+        if (colset === "sched") DATA.load("sos").then(function () { if (colset === "sched") renderPerf(); }, function () { if (colset === "sched") renderPerf(); });
         Array.prototype.forEach.call(cs.querySelectorAll("[data-colset]"), function (x) {
           var on = x === b; x.classList.toggle("active", on); x.setAttribute("aria-pressed", on ? "true" : "false");
         });
+        renderPerf();
+      });
+    }
+    var sw = document.getElementById("fo-sched-wrap");
+    if (sw && !sw.__schedWired) {
+      sw.__schedWired = true;
+      sw.addEventListener("click", function (e) {
+        var b = e.target && e.target.closest ? e.target.closest("[data-schedmode]") : null;
+        if (!b) return;
+        sched.mode = b.getAttribute("data-schedmode");
         renderPerf();
       });
     }

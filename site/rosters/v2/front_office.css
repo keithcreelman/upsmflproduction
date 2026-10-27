@@ -1376,3 +1376,24 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
   .fo-root .fo-mk-statusline { display: block; margin-top: 4px; font-size: 12px; line-height: 1.3; }
   .fo-root .fo-mk-statusline .fo-perf-sub { margin-top: 2px; }
 }
+
+/* Roster → Players → Schedule: one block per player, one row per league week. Fits a 320 px phone without sideways scroll: four columns
+   (week, opponent, kickoff, what the opponent has allowed so far) and the allowed figures stacked in their cell. */
+#fo-sched-wrap[hidden] { display: none; }
+.fo-sched-table { table-layout: fixed; width: 100%; }
+.fo-sched-table th, .fo-sched-table td { padding: 6px 6px; vertical-align: top; overflow-wrap: anywhere; }
+.fo-sched-table th:nth-child(1), .fo-sched-table td:nth-child(1) { width: 15%; }
+.fo-sched-table th:nth-child(2), .fo-sched-table td:nth-child(2) { width: 22%; }
+.fo-sched-table th:nth-child(3), .fo-sched-table td:nth-child(3) { width: 25%; }
+.fo-sched-table tbody tr { cursor: default; }
+.fo-sched-player th { background: var(--panel-alt); color: var(--text); text-align: left; font-weight: 600; border-top: 2px solid var(--border); }
+.fo-sched-allowed div { white-space: nowrap; font-size: 12px; }
+.fo-sched-allowed div:first-child { font-weight: 600; }
+.fo-sched-bye td { color: var(--muted); }
+@media (max-width: 560px) {
+  .fo-sched-table th, .fo-sched-table td { padding: 5px 4px; font-size: 11.5px; }
+  .fo-sched-allowed div { font-size: 11px; white-space: normal; }
+  .fo-sched-table th:nth-child(1), .fo-sched-table td:nth-child(1) { width: 13%; }
+  .fo-sched-table th:nth-child(2), .fo-sched-table td:nth-child(2) { width: 22%; }
+  .fo-sched-table th:nth-child(3), .fo-sched-table td:nth-child(3) { width: 24%; }
+}
