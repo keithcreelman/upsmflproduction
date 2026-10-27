@@ -9,7 +9,7 @@ say what the best lineup was, but it may only call a start a miss when the infor
     kickoff-strict source; a capture after kickoff is not what the manager saw and is never presented as pregame evidence);
   - if both players have one: the bench player must out-project the starter by MORE than MARGIN to be a "miss"; otherwise the
     start was "reasonable" and the gap is scoring variance, not a decision. The sentence says "favored his starters" ONLY when
-    the starters were projected at least as high everywhere; a small bench edge reads "no clear reason to change the lineup";
+    the starters were projected STRICTLY higher everywhere; a tie favors neither, and a small bench edge also reads "no clear reason to change the lineup";
   - if either lacks one: "unknown". The report says so and does not call it a mistake. Nothing is inferred or invented.
 
 Pure functions, no network: the data layer hands in rows and projections.
@@ -69,7 +69,7 @@ def judge(rows, pregame, missing=None, margin=MARGIN):
         a, b = pregame.get(rp), pregame.get(d)
         if a and b:
             verdict = "miss" if a["value"] > b["value"] + margin else "reasonable"
-            edge = "starter" if b["value"] >= a["value"] else "coin_flip"      # who the pregame numbers favored
+            edge = "starter" if b["value"] > a["value"] else "coin_flip"       # "starter" ONLY on a strict starter advantage; a tie favors neither
         else:
             verdict, edge = "unknown", None
         swaps.append({"out": {"pid": d, "name": info[d]["name"], "score": pool[d][0], "proj": b["value"] if b else None},
@@ -85,11 +85,12 @@ def judge(rows, pregame, missing=None, margin=MARGIN):
 
 def _no_clear_case(swaps, lead=True):
     """Why the known swaps are not misses, said truthfully: 'favored his starters' ONLY when the pregame numbers did favor the
-    starter in every known swap; when any was a small bench edge (a coin flip, within MARGIN) it says there was no clear case."""
+    starter (STRICTLY higher) in every known swap; a tie favors neither player, and a small bench edge (within MARGIN) is a coin flip, so both
+    get the no-clear-case wording."""
     if all(x.get("edge") == "starter" for x in swaps):
         return ("MFL&rsquo;s pregame projections favored his starters at every spot" if lead else "it favored his starters")
-    return ("MFL&rsquo;s pregame projections showed no clear reason to change the lineup (a small edge for a bench player is a coin flip)"
-            if lead else "it showed no clear reason to change the lineup (a small edge for a bench player is a coin flip)")
+    return ("MFL&rsquo;s pregame projections showed no clear reason to change the lineup (a tie, or a small edge for a bench player, favors neither)"
+            if lead else "it showed no clear reason to change the lineup (a tie, or a small edge for a bench player, favors neither)")
 
 
 def sentence(j, best_text, fmt=lambda x: "%.1f" % x):

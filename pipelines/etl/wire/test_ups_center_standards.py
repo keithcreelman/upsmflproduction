@@ -176,8 +176,12 @@ check("the bench player out-projected the starter by more than a point: a miss, 
 coin = LINEUP.sentence(LINEUP.judge(ROWS, {OUT: pj(OUT, 5.0), IN: pj(IN, 6.0)}), "x")[0]      # Codex MAT-1: bench 6.0 vs starter 5.0
 check("the one-point coin flip does NOT say MFL favored the starters: it says there was no clear reason to change the lineup",
       "favored his starters" not in coin and "showed no clear reason to change the lineup" in coin and "scoring variance, not a lineup decision" in coin, coin)
-check("an equal projection is not a bench edge: the starters were not out-projected, so 'favored his starters' is not claimed falsely either",
-      "favored his starters" in LINEUP.sentence(LINEUP.judge(ROWS, {OUT: pj(OUT, 5.0), IN: pj(IN, 5.0)}), "x")[0])
+tie = LINEUP.sentence(LINEUP.judge(ROWS, {OUT: pj(OUT, 5.0), IN: pj(IN, 5.0)}), "x")[0]            # Codex MAT-1 (round 2): equal projections
+check("an equal projection favors neither player: it is not a bench miss, and it does NOT say MFL favored the starters",
+      LINEUP.judge(ROWS, {OUT: pj(OUT, 5.0), IN: pj(IN, 5.0)})["summary"] == "reasonable" and "favored his starters" not in tie
+      and "showed no clear reason to change the lineup" in tie and "favors neither" in tie and "scoring variance, not a lineup decision" in tie, tie)
+check("'favored his starters' is reserved for a STRICT starter advantage (even a tenth of a point)",
+      "favored his starters at every spot" in LINEUP.sentence(LINEUP.judge(ROWS, {OUT: pj(OUT, 5.1), IN: pj(IN, 5.0)}), "x")[0])
 ROWS2 = ROWS + rows_of([("WR", "bench", 25)])[:0] + [dict(pid="19", name="P19", pos_group="WR", status="bench", score=25.0)]
 sw2 = LINEUP.judge(ROWS2, {})["swaps"]
 part = LINEUP.judge(ROWS2, {sw2[0]["out"]["pid"]: pj("o", 5.0), sw2[0]["in"]["pid"]: pj("i", 6.0)})
