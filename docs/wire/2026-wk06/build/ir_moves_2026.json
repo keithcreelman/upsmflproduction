@@ -1,0 +1,41 @@
+{
+ "source": "MFL export TYPE=transactions L=74598 DAYS=60 (fetched 2026-10-21): roster moves to/from fantasy injured reserve for the evaluated players",
+ "moves": [
+  {
+   "player": "Etienne, Travis",
+   "franchise": "0008",
+   "move": "to_IR",
+   "at_et": "Fri Oct 02 2026 05:04 AM ET"
+  },
+  {
+   "player": "Hurts, Jalen",
+   "franchise": "0006",
+   "move": "to_IR",
+   "at_et": "Sat Oct 17 2026 09:21 PM ET"
+  },
+  {
+   "player": "Cooper, Edgerrin",
+   "franchise": "0002",
+   "move": "to_IR",
+   "at_et": "Sun Oct 18 2026 09:15 AM ET"
+  },
+  {
+   "player": "Dart, Jaxson",
+   "franchise": "0011",
+   "move": "to_IR",
+   "at_et": "Thu Sep 24 2026 06:25 PM ET"
+  },
+  {
+   "player": "Adams, Davante",
+   "franchise": "0004",
+   "move": "to_IR",
+   "at_et": "Wed Oct 21 2026 05:41 AM ET"
+  },
+  {
+   "player": "Mason, Jordan",
+   "franchise": "0006",
+   "move": "to_IR",
+   "at_et": "Wed Sep 16 2026 05:10 PM ET"
+  }
+ ]
+}
