@@ -255,3 +255,28 @@ test("clampCap holds an amount to its maximum and drops it when nothing supports
   assert.equal(gone.draft.capK["0003>0007"], undefined);
   assert.deepEqual(C.clampCap(C.setCapK(twoTeam(), "0003", "0007", 10)).clamped, []);
 });
+
+// ── MAT-1 (Codex review of #1409): a franchise that already used its extension on a player must never be offered another one ──
+const X = require("../site/shared/pretrade_extension.js").UPS_PRETRADE_EXT;
+// Rico Dowdle as recorded 2026-10-20 (data/mfl-snapshots/2026-10-20/rosters.json, Blake Bombers): one year left, contract already carries "Ext: Blake".
+const rico = { id: "14823", position: "RB", salary: 11000, years: 1, type: "Vet-Ext1", special: "CL 2| TCV 12K| AAV 11K| Y1-1K, Y2-11K| GTD: 9K| Ext: Blake", isTaxi: false };
+const optionsFor = (p, facts) => { const a = C.extensionInput(p, facts); return a ? X.buildSyntheticExtensionOptions(a) : []; };
+test("no authoritative facts -> no extension input at all: no badge, no choices (never inferred from the contract or its Ext: text)", () => {
+  for (const facts of [null, undefined, {}, { already_extended_by_this_franchise: "no" }, { already_extended_by_this_franchise: null }]) {
+    assert.equal(C.extensionInput(rico, facts), null);
+    assert.deepEqual(optionsFor(rico, facts), []);
+  }
+});
+test("Rico Dowdle: the sending franchise already extended him (facts say so) -> no 1YR or 2YR option", () => {
+  assert.deepEqual(optionsFor(rico, { already_extended_by_this_franchise: true }), []);
+});
+test("a same-franchise repeat extension is blocked, while a first extension on the same contract shape is offered (the flag is what decides)", () => {
+  const first = optionsFor(rico, { already_extended_by_this_franchise: false });
+  assert.deepEqual(first.map((o) => o.option_key), ["1YR|NONE", "2YR|NONE"]);
+  assert.equal(C.extensionInput(rico, { already_extended_by_this_franchise: true }).already_extended_by_this_franchise, true);
+  assert.deepEqual(optionsFor({ ...rico, special: "CL 2| TCV 12K| AAV 11K| Y1-1K, Y2-11K| GTD: 9K" }, { already_extended_by_this_franchise: true }), []);
+});
+test("the shared rule's own gates still apply when the facts say 'not yet extended' (not final year, tagged)", () => {
+  assert.deepEqual(optionsFor({ ...rico, years: 2 }, { already_extended_by_this_franchise: false }), []);
+  assert.deepEqual(optionsFor({ ...rico, type: "Vet-Tag" }, { already_extended_by_this_franchise: false }), []);
+});

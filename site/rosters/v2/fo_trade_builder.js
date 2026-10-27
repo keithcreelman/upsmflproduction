@@ -40,17 +40,19 @@
 
   // ── Pre-trade extension: the shared rule (shared/pretrade_extension.js), fed this player's own contract ──
   var extMemo = {};
-  function extAsset(p) {
-    var info = String(p.special || ""), cl = /(?:^|\|)\s*CL\s*(\d+)/i.exec(info);
-    return { type: "PLAYER", position: p.position, salary: p.salary, years: p.years, contract_type: p.type, contract_info: info,
-      contract_length: cl ? parseInt(cl[1], 10) : 0, taxi: !!p.isTaxi };
-  }
+  // Authoritative extension facts for the SENDING franchise's player: { already_extended_by_this_franchise: boolean } from the worker's
+  // extension history. No such source is wired into the Front Office yet (the Trade War Room gets it from the worker), so by default there
+  // are none and every extension badge and choice is suppressed. A build that has the facts supplies them through
+  // window.UPS_FO_TRADE_BUILDER_CONFIG.extensionFacts(fid, pid); eligibility is never guessed from the contract or its `Ext:` text.
+  function extensionFacts(fid, pid) { var c = cfg(); return typeof c.extensionFacts === "function" ? c.extensionFacts(fid, pid) : null; }
   function extensionOptions(item) {
     var X = root.UPS_PRETRADE_EXT, pid = String(item.token || "").replace(/^P_/, "");
     var p = playerRec(item.from, pid);
     if (!X || !p) return [];
-    var key = item.from + "|" + pid + "|" + p.years + "|" + p.salary + "|" + p.type + "|" + p.special;
-    return extMemo[key] || (extMemo[key] = X.buildSyntheticExtensionOptions(extAsset(p)));
+    var asset = root.UPS_TRADE_BUILDER_CORE.extensionInput(p, extensionFacts(item.from, pid));
+    if (!asset) return [];
+    var key = item.from + "|" + pid + "|" + p.years + "|" + p.salary + "|" + p.type + "|" + p.special + "|" + asset.already_extended_by_this_franchise;
+    return extMemo[key] || (extMemo[key] = X.buildSyntheticExtensionOptions(asset));
   }
   function y1(o) { var X = root.UPS_PRETRADE_EXT, y = X ? X.parseContractInfoSummary(o.preview_contract_info_string).y_by_year_dollars : {}; return y["1"] != null ? y["1"] : null; }
   function extImpacts(draft) {

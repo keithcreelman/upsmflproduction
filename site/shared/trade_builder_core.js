@@ -72,6 +72,18 @@
     return out;
   }
 
+  // The input to the shared pre-trade extension rule (UPS_PRETRADE_EXT) for ONE player of the SENDING franchise. It exists only when the
+  // authoritative extension facts for that franchise and player are available (the worker's `already_extended_by_this_franchise`, stamped
+  // from the extension history; canon: the sending team must currently hold its own extension right). Without them it is null, and the
+  // builder shows no "Extension eligible" badge and no extension choices: eligibility is never inferred from contract shape or `Ext:` text.
+  // p is a Front Office player ({ position, salary, years, type, special, isTaxi }); facts is { already_extended_by_this_franchise: boolean }.
+  function extensionInput(p, facts) {
+    if (!p || !facts || typeof facts.already_extended_by_this_franchise !== "boolean") return null;
+    var info = str(p.special), cl = /(?:^|\|)\s*CL\s*(\d+)/i.exec(info);
+    return { type: "PLAYER", position: p.position, salary: p.salary, years: p.years, contract_type: p.type, contract_info: info,
+      contract_length: cl ? parseInt(cl[1], 10) : 0, taxi: !!p.isTaxi, already_extended_by_this_franchise: facts.already_extended_by_this_franchise };
+  }
+
   // One movement per (from, to) pair: the shape both the two- and three-team server paths read.
   function movements(d) {
     var by = {}, order = [];
@@ -222,7 +234,7 @@
   }
 
   var api = {
-    sendPlan: sendPlan, summary: summary, setExt: setExt, extensionRequests: extensionRequests,
+    extensionInput: extensionInput, sendPlan: sendPlan, summary: summary, setExt: setExt, extensionRequests: extensionRequests,
     emptyDraft: emptyDraft, withTeams: withTeams, addItem: addItem, removeItem: removeItem, setCapK: setCapK, hasItem: hasItem,
     movements: movements, parties: parties, capMoneyHintK: capMoneyHintK, capMoneyMaxK: capMoneyMaxK, clampCap: clampCap, gaps: gaps, request: request, signature: signature,
     readiness: readiness, lockView: lockView, reasonText: reasonText, pad4: pad4
