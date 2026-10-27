@@ -49,7 +49,7 @@ import { resolveLoadedStatus } from "./contract_classification.js";
 import {
   executeCommishTwoPartyTrade, movementsForCompliance, injectCapTokens,
   fetchRosterSalaryMap, movementCapMaxK, unavailableCompliance, ledgerFor, capAckStoreFor,
-  toMflAsset, classifyLeg,
+  toMflAsset, classifyLeg, assetIntegrityGate, ASSET_INTEGRITY_KINDS,
 } from "./trade_3way.js";
 
 const safeStr = (v) => String(v == null ? "" : v).trim();
@@ -159,6 +159,10 @@ async function capGate2Way(env, row) {
   // and every execution, before any cap math or MFL call.
   const forfeit = await checkForfeitedPicks(env, row.league_id, movementsToTokens(parseMovements(row)));
   if (!forfeit.ok) return { ok: false, kind: forfeit.code === "pick_forfeited" ? "pick_forfeited" : "unavailable", message: forfeit.message, compliance: null, violations: forfeit.violations || [] };
+  // Asset integrity (P0 S4) — the SAME gate trade_3way.js's capGate runs: ownership, §A6 pick eligibility and §A6 cap money
+  // against live MFL data, before any compliance math; a read failure fails closed (kind `unavailable`, recoverable).
+  const integrity = await assetIntegrityGate(env, row, parseMovements(row));
+  if (!integrity.ok) return { ok: false, kind: integrity.kind, message: integrity.message, compliance: null, violations: integrity.violations || [] };
   const compliance = await complianceViaSelf2Way(env, row);
   if (compliance.cap.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the salary cap for this trade right now. Try again in a moment.", compliance };
   if (compliance.loaded_contracts && compliance.loaded_contracts.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the loaded-contract count for this trade right now. Try again in a moment.", compliance };
@@ -189,7 +193,9 @@ async function capGate2Way(env, row) {
 }
 
 async function enterBlockedCap2Way(env, row, gate, dmBoth) {
-  const violations = gate.kind === "loaded_contract_drops_required"
+  const violations = ASSET_INTEGRITY_KINDS.includes(gate.kind)
+    ? (Array.isArray(gate.violations) ? gate.violations : [])
+    : gate.kind === "loaded_contract_drops_required"
     ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max, required_drops: v.required_drops, valid_drops: v.valid_drops }))
     : ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
   const info = { kind: gate.kind, message: safeStr(gate.message), violations, checked_at_utc: nowIso(), signature: signatureOf(gate) };
@@ -201,7 +207,7 @@ async function enterBlockedCap2Way(env, row, gate, dmBoth) {
   await ledgerDbFor(env).prepare(`UPDATE ups_2way_trades SET status='collecting', failure_reason=NULL, updated_at_utc=? WHERE id=? AND status='executing'`).bind(nowIso(), row.id).run();
   const same = prev && prev.state === EXEC.BLOCKED_CAP && prev.block && prev.block.signature === info.signature;
   if (!same && dmBoth) {
-    await dmBoth(String(gate.kind).startsWith("extension")
+    await dmBoth(String(gate.kind).startsWith("extension") || ASSET_INTEGRITY_KINDS.includes(gate.kind)
       ? `⏸️ This 2-way trade is accepted by both sides, but it can't run: ${gate.message} Nothing has moved. **Commish:** this needs to be cancelled and rebuilt.`
       : gate.kind === "cap_ack_required"
       ? `⏸️ This 2-way trade is accepted by both sides, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to acknowledge this on the trade page, then use "Re-check."`
@@ -251,18 +257,19 @@ export async function createStaged2WayTrade(env, ctx, spec) {
       if (!fidSet.has(mf) || !fidSet.has(mt) || mf === mt) return { ok: false, error: "bad_movement" };
     }
     if (!movements.some((m) => Array.isArray(m?.asset_tokens) && m.asset_tokens.length)) return { ok: false, error: "no_assets" };
-    // §A6 cap-money 50% backstop -- identical check to create3WayTrade's.
+    // §A6 cap-money 50% backstop -- identical check to create3WayTrade's, and fail-closed the
+    // same way (P0 S3): an unreadable rosters export refuses a cap-money trade (503).
     for (const m of movements) m.cap_k = Math.max(0, safeInt(m?.cap_k, 0));
     if (movements.some((m) => m.cap_k > 0)) {
       const sm = await fetchRosterSalaryMap(env, leagueId, season);
-      if (sm.ok) {
-        for (const m of movements) {
-          if (m.cap_k <= 0) continue;
-          const maxK = movementCapMaxK(m, sm.salaryByFp, sm.taxiByFp);
-          if (m.cap_k > maxK) return { ok: false, code: "TRADE_CAP_MONEY_50PCT", error: `cap money ${m.cap_k}K from ${padFid(m.from)}→${padFid(m.to)} exceeds the §A6 max (${maxK}K = 50% of the non-taxi salary sent).` };
-        }
-      } else {
-        console.warn(`[2way-staged] §A6 cap check skipped (rosters fetch failed): ${sm.error}`);
+      if (!sm.ok) {
+        console.warn(`[2way-staged] §A6 cap check unavailable (rosters fetch failed) — not created: ${sm.error}`);
+        return { ok: false, http: 503, code: "cap_money_check_unavailable", error: "cap_money_check_unavailable" };
+      }
+      for (const m of movements) {
+        if (m.cap_k <= 0) continue;
+        const maxK = movementCapMaxK(m, sm.salaryByFp, sm.taxiByFp);
+        if (m.cap_k > maxK) return { ok: false, code: "TRADE_CAP_MONEY_50PCT", error: `cap money ${m.cap_k}K from ${padFid(m.from)}→${padFid(m.to)} exceeds the §A6 max (${maxK}K = 50% of the non-taxi salary sent).` };
       }
     }
     const notes = safeStr(spec?.notes).slice(0, 500);
@@ -625,6 +632,13 @@ export async function accept2WayTrade(env, ctx, id, viewer, body) {
   // ACCEPT — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). Refused before the consent is recorded.
   const forfeitA = await checkForfeitedPicks(env, row.league_id, movementsToTokens(parseMovements(row)));
   if (!forfeitA.ok) return { ok: false, http: forfeitA.http, code: forfeitA.code, message: forfeitA.message, violations: forfeitA.violations || [] };
+  // ACCEPT — asset integrity (P0 S4): an asset no longer with its sender, an untradeable pick, or cap money over the §A6 limit is
+  // refused BEFORE the consent is recorded (mirrors the 3-way Discord accept). A read failure is not a verdict: the accept is
+  // recorded and capGate2Way below holds the trade recoverably as `unavailable`.
+  const integrityA = await assetIntegrityGate(env, row, parseMovements(row));
+  if (!integrityA.ok && ASSET_INTEGRITY_KINDS.includes(integrityA.kind)) {
+    return { ok: false, http: 409, code: integrityA.kind, message: `${integrityA.message} Your accept wasn't recorded and nothing was changed.`, violations: integrityA.violations || [] };
+  }
 
   const { success } = await env.UPS_MFL_DB.prepare(`UPDATE ups_2way_trades SET to_state='accepted', updated_at_utc=? WHERE id=? AND status='collecting' AND to_state='pending'`).bind(nowIso(), tid).run();
   if (!success) return { ok: false, http: 409, code: "race", message: "This trade just changed state — refresh and try again." };
