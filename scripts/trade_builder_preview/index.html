@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Builder preview</title>
+<style>
+:root{--bg:#f6f7f9;--fg:#14181f;--mut:#566170;--card:#fff;--line:#d5dae1;--blue:#1d4ed8;--ok:#14653a;--warn:#8a5a00;--bad:#a11d1d}
+@media (prefers-color-scheme:dark){:root{--bg:#10141a;--fg:#e8ecf2;--mut:#9aa6b6;--card:#181e27;--line:#2c3645;--blue:#7ea4ff;--ok:#6fd49a;--warn:#f0c25a;--bad:#ff8b8b}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,sans-serif;padding:12px 16px 40px}
+h1{font-size:19px;margin:4px 0 6px}.stale{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--mut);font-size:13px;margin-bottom:10px}
+.tb-root{display:grid;gap:12px;max-width:640px;margin:auto}.tb-readonly{margin:0;color:var(--mut);font-size:13px}
+.tb-pick{display:grid;gap:8px}label{display:grid;gap:4px;font-size:14px;color:var(--mut)}
+select,input{min-height:44px;font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);width:100%}
+.tb-team{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px}.tb-team h3{margin:0 0 8px;font-size:16px}
+.tb-assets{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:6px}
+.tb-asset{width:100%;min-height:44px;display:flex;justify-content:space-between;gap:8px;align-items:center;text-align:left;font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px}
+.tb-asset.on{border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue);background:color-mix(in srgb,var(--blue) 12%,var(--card))}
+.tb-ameta{color:var(--mut);font-size:13px;white-space:nowrap}.tb-dest{margin-top:4px}
+.tb-verdict{background:var(--card);border:2px solid var(--line);border-radius:10px;padding:10px}.tb-pill{margin:0 0 6px;font-weight:700}
+.tb-provisional{border-color:var(--ok)}.tb-blocked{border-color:var(--bad)}.tb-needs_ack,.tb-unavailable{border-color:var(--warn)}
+.tb-verdict ul{margin:0 0 8px;padding-left:20px}.tb-lock{margin:6px 0;font-weight:600}.tb-ok{color:var(--ok)}.tb-warn{color:var(--warn)}.tb-bad{color:var(--bad)}
+.tb-note{color:var(--mut);font-size:13px;margin:6px 0}.tb-open{display:inline-block;min-height:44px;line-height:44px;padding:0 14px;border:1px solid var(--blue);border-radius:8px;color:var(--blue);text-decoration:none;font-weight:600}
+</style></head><body>
+<h1>Trade Builder (read-only preview)</h1>
+<p class="stale"><b>Safe sample data.</b> Made-up teams and players; the server answers below are canned examples of the real verdict shape, not live checks. The lock time is sample text. Nothing is sent or saved; any write request is blocked.</p>
+<div id="app"></div>
+<script>
+/* Preview guard: no request other than GET can leave this page. */
+(function(){var f=window.fetch;window.fetch=function(u,o){var m=String((o&&o.method)||"GET").toUpperCase();if(m!=="GET")return Promise.reject(new Error("blocked in preview: "+m));return f.apply(this,arguments)};
+var x=XMLHttpRequest.prototype.open;XMLHttpRequest.prototype.open=function(m){if(String(m).toUpperCase()!=="GET")throw new Error("blocked in preview");return x.apply(this,arguments)};
+if(navigator.sendBeacon)navigator.sendBeacon=function(){return false}})();
+</script>
+<script src="trade_rules.js"></script><script src="trade_builder_core.js"></script><script src="trade_builder_view.js"></script>
+<script>
+var TEAMS=[{fid:"0001",name:"Sample Owls"},{fid:"0002",name:"Sample Foxes"},{fid:"0003",name:"Sample Herons"},{fid:"0004",name:"Sample Lynx"}];
+var ROSTER={
+ "0001":{players:[{id:"101",name:"Sam Quarter",pos:"QB",salary:30000,years:2},{id:"102",name:"Rex Runner",pos:"RB",salary:21000,years:3},{id:"103",name:"Tai Taxi",pos:"WR",salary:5000,years:1,taxi:true},{id:"104",name:"Wes Wideout",pos:"WR",salary:14000,years:2}],picks:[{token:"FP_0001_2027_1",label:"2027 1st"},{token:"FP_0001_2027_6",label:"2027 6th"},{token:"FP_0001_2029_1",label:"2029 1st (too far out)"}]},
+ "0002":{players:[{id:"201",name:"Tom Tightend",pos:"TE",salary:9000,years:1},{id:"202",name:"Dee Defender",pos:"DL",salary:6000,years:2},{id:"203",name:"Kip Kicker",pos:"PK",salary:2000,years:1}],picks:[{token:"FP_0002_2027_2",label:"2027 2nd"}]},
+ "0003":{players:[{id:"301",name:"Lou Lineman",pos:"LB",salary:7000,years:2},{id:"302",name:"Cal Corner",pos:"DB",salary:4000,years:1}],picks:[{token:"FP_0003_2027_1",label:"2027 1st"}]},
+ "0004":{players:[{id:"401",name:"Max Mid",pos:"RB",salary:11000,years:2}],picks:[]}};
+var scenario=(new URLSearchParams(location.search)).get("scenario")||"";
+function verdict(body){
+ var toks=[].concat.apply([],body.movements.map(function(m){return m.tokens}));
+ var lock=scenario==="closed"?{state:"closed",label:"Wed, Nov 25, 8:00 PM ET"}:scenario==="nolock"?{state:"unresolved"}:{state:"upcoming",label:"Wed, Nov 25, 8:00 PM ET"};
+ var reasons=[],status="provisional",checks={cap:"ok",loaded_contracts:"ok",assets:"ok",forfeited_picks:"ok",trade_lock:"ok"};
+ if(toks.some(function(t){return /_2029_/.test(t)||/^FP_\d{4}_\d{4}_6$/.test(t)})){status="blocked";checks.assets="blocked";reasons.push({code:"pick_not_tradeable",message:"x"})}
+ if(body.movements.some(function(m){return m.cap_k>20})){status="blocked";checks.assets="blocked";reasons.push({code:"cap_money_rule",message:"x"})}
+ if(toks.indexOf("P_102")>-1&&toks.indexOf("P_101")>-1){status="needs_acknowledgment";checks.cap="blocked";reasons.push({code:"cap_ack_required",message:"x"})}
+ if(lock.state==="closed"){status="blocked";checks.trade_lock="blocked";reasons.push({code:"trade_closed",message:"x"})}
+ if(lock.state==="unresolved"){if(status==="provisional")status="unavailable";checks.trade_lock="unavailable";reasons.push({code:"trade_lock_unavailable",message:"x"})}
+ return {ok:true,compliance:{},verdict:{status:status,send_ready:false,checks:checks,reasons:reasons,trade_lock:lock}};
+}
+UPS_TRADE_BUILDER_VIEW.mount(document.getElementById("app"),{teams:TEAMS,ctx:{leagueId:"00000",season:"2026",viewerFid:"0001"},
+ assets:function(f){return ROSTER[f]},
+ preview:function(body){return new Promise(function(r){setTimeout(function(){r(scenario==="fail"?null:verdict(body))},350)})},
+ warRoomUrl:"#trade-war-room-link-not-active-in-preview",debounceMs:300});
+</script></body></html>
