@@ -137,20 +137,64 @@ test("structure: one-sided is INCOMPLETE; both sides sending is complete; one as
   assert.equal(C.gaps(empty)[0].code, "no_assets");
   const oneSided = C.addItem(empty, { from: "0003", to: "0007", token: "P_1" });
   const g = C.gaps(oneSided, (f) => ({ "0003": "Owls", "0007": "Foxes" })[f]);
-  assert.deepEqual(g.map((x) => x.code), ["side_empty"]);
-  assert.match(g[0].message, /^Foxes has not selected/);
+  assert.deepEqual(g.map((x) => x.code), ["receives_nothing", "sends_nothing"]);
+  assert.match(g[0].message, /^Owls is sending assets but receiving nothing/); assert.match(g[1].message, /^Foxes is receiving assets but sending nothing/);
   assert.deepEqual(C.gaps(C.addItem(oneSided, { from: "0007", to: "0003", token: "P_2" })), []);
   // only me chosen (no partner) with an asset: incomplete, not fine
   const solo = C.addItem(C.emptyDraft(["0003"]), { from: "0003", to: "0007", token: "P_1" });
   assert.equal(C.gaps(solo).some((x) => x.code === "choose_team"), true);
 });
 
-test("three teams: every selected team must take part; a team that neither sends nor receives is idle", () => {
-  let d = C.emptyDraft(["0003", "0007", "0011"]);
-  d = C.addItem(d, { from: "0003", to: "0007", token: "P_1" });
-  assert.deepEqual(C.gaps(d).map((x) => x.code + ":" + x.fid), ["team_idle:0011"]);
-  d = C.addItem(d, { from: "0011", to: "0003", token: "P_2" });
-  assert.deepEqual(C.gaps(d), []);
+const three = (edges) => { let d = C.emptyDraft(["0003", "0007", "0011"]); edges.forEach(([f, to, tok]) => { d = C.addItem(d, { from: f, to, token: tok }); }); return d; };
+const codes = (d) => C.gaps(d).map((x) => x.code + (x.fid ? ":" + x.fid : ""));
+
+test("three teams, each sending AND receiving: complete (a ring, and a non-ring shape)", () => {
+  assert.deepEqual(codes(three([["0003", "0007", "P_1"], ["0007", "0011", "P_2"], ["0011", "0003", "P_3"]])), []);
+  // A<->B swap, plus C sends to A and A sends to C
+  assert.deepEqual(codes(three([["0003", "0007", "P_1"], ["0007", "0003", "P_2"], ["0011", "0003", "P_3"], ["0003", "0011", "P_4"]])), []);
+});
+test("Keith's example: C sends Daniels and receives nothing = incomplete, naming C", () => {
+  const d = three([["0003", "0007", "P_16614"], ["0007", "0003", "P_14760"], ["0011", "0003", "P_15281"]]);
+  assert.deepEqual(codes(d), ["receives_nothing:0011"]);
+  const g = C.gaps(d, (f) => ({ "0003": "Real Deal Creel", "0007": "Blake Bombers", "0011": "C-Town Chivalry" })[f]);
+  assert.equal(g[0].message, "C-Town Chivalry is sending assets but receiving nothing.");
+  const r = C.readiness(g, "done", { ok: true, verdict: { status: "provisional" } });
+  assert.equal(r.label, "Incomplete trade"); assert.equal(r.canAttempt, false); assert.equal(r.lock, null);
+});
+test("one team receiving but sending nothing = incomplete, naming that team", () => {
+  assert.deepEqual(codes(three([["0003", "0007", "P_1"], ["0007", "0003", "P_2"], ["0003", "0011", "P_3"]])), ["sends_nothing:0011"]);
+});
+test("a team that neither sends nor receives is idle; a lone sender and a lone receiver are both named", () => {
+  assert.deepEqual(codes(three([["0003", "0007", "P_1"]])), ["receives_nothing:0003", "sends_nothing:0007", "team_idle:0011"]);
+});
+test("an asset with no valid destination is refused (outside the trade, or back to its sender)", () => {
+  let d = three([["0003", "0007", "P_1"], ["0007", "0003", "P_2"], ["0011", "0003", "P_3"], ["0003", "0011", "P_4"]]);
+  d.items = d.items.concat([{ from: "0003", to: "0099", token: "P_9", label: "Stray" }]);
+  assert.equal(C.gaps(d).some((g) => g.code === "bad_destination"), true);
+  const loop = three([["0003", "0007", "P_1"]]); loop.items.push({ from: "0007", to: "0007", token: "P_8", label: "Loop" });
+  assert.equal(C.gaps(loop).some((g) => g.code === "bad_destination"), true);
+});
+test("removing an asset that made a complete three-team trade incomplete is caught immediately", () => {
+  const d = three([["0003", "0007", "P_1"], ["0007", "0011", "P_2"], ["0011", "0003", "P_3"]]);
+  assert.deepEqual(codes(d), []);
+  assert.deepEqual(codes(C.removeItem(d, "P_3", "0011")), ["receives_nothing:0003", "sends_nothing:0011"]);   // ring broken: A gets nothing, C gives nothing
+  assert.deepEqual(codes(C.removeItem(d, "P_1", "0003")), ["sends_nothing:0003", "receives_nothing:0007"]);
+});
+test("two-team trades: both teams must send; one-sided is incomplete for the same reason", () => {
+  assert.deepEqual(codes(twoTeam()), []);
+  const noTaxiOrWr = C.removeItem(C.removeItem(twoTeam(), "P_1234", "0003"), "P_9", "0003");        // 0003 now sends nothing, still receives a pick
+  assert.deepEqual(codes(noTaxiOrWr), ["sends_nothing:0003", "receives_nothing:0007"]);
+  const oneSided = C.addItem(C.emptyDraft(["0003", "0007"]), { from: "0003", to: "0007", token: "P_1" });
+  assert.deepEqual(codes(oneSided), ["receives_nothing:0003", "sends_nothing:0007"]);
+});
+test("cap money never completes a trade: money-only, and money into a team that sends/receives no asset", () => {
+  assert.equal(C.gaps(C.setCapK(C.emptyDraft(["0003", "0007"]), "0003", "0007", 5))[0].code, "no_assets");
+  // C sends nothing and receives only cap money from A: still incomplete for C, and the money has no salary behind it from a team sending only picks
+  let d = three([["0003", "0007", "P_1"], ["0007", "0003", "P_2"]]);
+  d = C.setCapK(d, "0003", "0011", 3);
+  assert.equal(codes(d).includes("team_idle:0011"), true);
+  const held = C.clampCap(d);
+  assert.equal(held.draft.capK["0003>0011"], undefined);          // no salary sent to C: no cap money allowed
 });
 
 test("readiness: empty = No trade proposed; incomplete = Incomplete trade; neither can ever read a server answer", () => {

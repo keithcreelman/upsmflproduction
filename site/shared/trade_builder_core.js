@@ -113,21 +113,27 @@
     return { draft: n, clamped: clamped };
   }
 
-  // Is the proposal structurally COMPLETE? This is the owner's own unfinished state, not a rule verdict, and it mirrors the
-  // War Room's checks: two teams need both sides to send at least one player or pick (cap money alone is never a trade);
-  // three teams need all three distinct teams to take part (send or receive an asset). Nothing is "complete" because one asset
-  // was picked somewhere. nameOf is optional (fid -> team name) for the wording.
+  // Is the proposal structurally COMPLETE? (Keith 2026-10-27) The same rule for two and three teams: EVERY team in the trade must
+  // SEND at least one player or pick AND RECEIVE at least one, so nobody gives an asset away for nothing and nobody takes one for nothing.
+  // Cap money never counts toward this (it is not an asset, and "money alone is never a trade"), and every asset must go from a team in the
+  // trade to a different team in the trade. This is STRICTER than today's War Room and worker (the War Room's three-team builder only needs all
+  // three teams involved; the worker only needs one asset overall), so it is a rules discrepancy to resolve, documented in the PR.
+  // nameOf is optional (fid -> team name) for the wording; each gap carries the team it is about.
   function gaps(d, nameOf) {
     var nm = nameOf || function (f) { return "Team " + f; }, out = [], n = d.teams.length;
     if (!d.items.length) return [{ code: "no_assets", message: "Nothing is selected yet. Cap money alone is not a trade." }];
     if (n < 2) out.push({ code: "choose_team", message: "Choose a trade partner." });
     if (n > 3) out.push({ code: "too_many_teams", message: "A trade can include at most three teams." });
+    d.items.forEach(function (i) {
+      if (d.teams.indexOf(i.from) === -1 || d.teams.indexOf(i.to) === -1 || i.from === i.to) out.push({ code: "bad_destination", message: i.label + " has no valid destination in this trade." });
+      if (R.parseAssetToken(i.token).kind === "unknown") out.push({ code: "unknown_asset", message: "An asset could not be read: " + i.token });
+    });
     d.teams.forEach(function (f) {
       var sends = d.items.some(function (i) { return i.from === f; }), gets = d.items.some(function (i) { return i.to === f; });
-      if (n === 2 && !sends) out.push({ code: "side_empty", fid: f, message: nm(f) + " has not selected a player or pick to send." });
-      if (n === 3 && !sends && !gets) out.push({ code: "team_idle", fid: f, message: nm(f) + " is not part of the trade yet: it neither sends nor receives an asset." });
+      if (!sends && !gets) out.push({ code: "team_idle", fid: f, message: nm(f) + " is not part of the trade yet: it neither sends nor receives an asset." });
+      else if (sends && !gets) out.push({ code: "receives_nothing", fid: f, message: nm(f) + " is sending assets but receiving nothing." });
+      else if (!sends && gets) out.push({ code: "sends_nothing", fid: f, message: nm(f) + " is receiving assets but sending nothing." });
     });
-    d.items.forEach(function (i) { if (R.parseAssetToken(i.token).kind === "unknown") out.push({ code: "unknown_asset", message: "An asset could not be read: " + i.token }); });
     return out;
   }
 

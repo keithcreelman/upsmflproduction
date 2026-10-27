@@ -1324,6 +1324,7 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 }
 .fo-tb textarea { min-height: 72px; resize: vertical; }
 .fo-tb-teams { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.fo-tb-teams.fo-tb-n3 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
 .fo-tb-team { background: var(--panel-alt); border: 1px solid var(--border); border-radius: 8px; padding: 12px; min-width: 0; }
 .fo-tb-team > header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
 .fo-tb-team > header h3 { margin: 0; font-size: 15px; }
@@ -1331,7 +1332,9 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tb-table tbody tr { cursor: default; }
 .fo-tb .fo-table-scroll .fo-table { min-width: 0; }  /* FO's wide-table min-width must not stretch these small tables */
 .fo-tb-cmp td, .fo-tb-cmp th { padding: 6px 8px; }
-.fo-tb-pick { max-height: 260px; overflow-y: auto; }
+/* No inner scroll boxes: a team panel grows with its roster and the page scrolls (same approach as the Divisions standings). */
+.fo-tb .fo-table-scroll, .fo-tb .fo-tb-scroll, .fo-tb .fo-tb-pick { overflow: visible; max-height: none; }
+.fo-tb .fo-table td, .fo-tb .fo-table th { overflow-wrap: anywhere; }
 .fo-tb-cap { margin-top: 10px; }
 .fo-tb-roster { margin-top: 12px; }
 .fo-tb-roster summary { cursor: pointer; font-size: 12px; font-weight: 600; color: var(--accent); min-height: 28px; }
