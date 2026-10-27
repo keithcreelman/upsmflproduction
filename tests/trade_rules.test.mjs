@@ -16,7 +16,8 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 await import("./fixtures/register_md_loader.mjs");
-const { capMoneyMaxK, irCapHit, isOverCap, IR_RELIEF_RATE } = await import("../worker/src/trade_rules.js");
+const { capMoneyMaxK, irCapHit, isOverCap, parseAssetToken, IR_RELIEF_RATE } = await import("../worker/src/trade_rules.js");
+const { parseAssetToken: parse3WayAssetToken } = await import("../worker/src/trade_3way_model.js");
 const { currentCapHit, IR_RELIEF_RATE: CAP_MATH_IR_RATE } = await import("../worker/src/cap_math.js");
 const { movementCapMaxK } = await import("../worker/src/trade_3way.js");
 const { capMoneyViolations } = await import("../worker/src/trade_accept_integrity.js");
@@ -40,7 +41,7 @@ test("the browser twin is the worker module, byte for byte (same check as tests/
   t.equal(twinBody.trim(), body.trim(), "regenerate site/shared/trade_rules.js: node scripts/generate_shared_trade_rules.mjs");
   t.equal(sharedBody(w), body.trimEnd(), "the generator and this test strip the same way");
   t.equal(s, render(w), "the whole twin file is exactly what the generator writes");
-  t.deepEqual(Object.keys(TWIN).sort(), ["IR_RELIEF_RATE", "capMoneyMaxK", "irCapHit", "isOverCap"], "the twin exposes every export");
+  t.deepEqual(Object.keys(TWIN).sort(), ["IR_RELIEF_RATE", "capMoneyMaxK", "irCapHit", "isOverCap", "parseAssetToken"], "the twin exposes every export");
   t.ok(/root\.UPS_TRADE_RULES = api;/.test(s) && /module\.exports = api/.test(s), "window.UPS_TRADE_RULES + module.exports");
   t.doesNotMatch(code(w), /\bfetch\(|\benv\b|document\.|window\./, "the worker module is pure: no fetch, env or DOM");
   t.doesNotMatch(w, /^import /m, "and imports nothing (the twin can't)");
@@ -54,6 +55,26 @@ test("the twin computes the same as the worker module on a grid", () => {
     for (const c of [0, 1000, 300000]) t.equal(TWIN.isOverCap(x, c), isOverCap(x, c));
   }
   t.equal(TWIN.IR_RELIEF_RATE, IR_RELIEF_RATE);
+});
+
+test("three-team asset tokens keep the existing parser result in worker and browser", () => {
+  const cases = [
+    ["P_16614", { token: "P_16614", kind: "player", player_id: "16614" }],
+    ["FP_0005_2027_1", { token: "FP_0005_2027_1", kind: "pick", pick: { year: 2027, round: 1, slot: null, original_fid: "0005" } }],
+    ["FP_2027_1_0005", { token: "FP_2027_1_0005", kind: "pick", pick: { year: 2027, round: 1, slot: null, original_fid: "0005" } }],
+    ["DP_2026_1_4", { token: "DP_2026_1_4", kind: "pick", pick: { year: 2026, round: 1, slot: 4, original_fid: "" } }],
+    ["BB_16000", { token: "BB_16000", kind: "cap", cap_k: 16 }],
+    [" BB_1500 ", { token: "BB_1500", kind: "cap", cap_k: 2 }],
+    ["P_bad", { token: "P_bad", kind: "unknown" }],
+    ["DP_2026_1", { token: "DP_2026_1", kind: "unknown" }],
+    ["16614", { token: "16614", kind: "unknown" }],
+    [null, { token: null, kind: "unknown" }],
+  ];
+  for (const [input, expected] of cases) {
+    t.deepEqual(parseAssetToken(input), expected);
+    t.deepEqual(parse3WayAssetToken(input), expected);
+    t.deepEqual(TWIN.parseAssetToken(input), expected);
+  }
 });
 
 // ───────────────────────────── 2. the rules ─────────────────────────────
