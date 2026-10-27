@@ -10,6 +10,8 @@
 //
 // Pure functions only. index.js supplies the closures that need MFL / D1 (token building, exports).
 
+import { capMoneyMaxK } from "./trade_rules.js";
+
 function s(v) { return String(v == null ? "" : v).trim(); }
 function pad4(v) { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }
 function arr(v) { return Array.isArray(v) ? v : v == null ? [] : [v]; }
@@ -213,7 +215,7 @@ export function capMoneyViolations({ byFranchise, rosters }) {
       const key = `${fid}|${pid}`;
       if (!rosters.taxi[key]) nonTaxi += rosters.salary[key] || 0;
     }
-    const maxDollars = Math.floor(nonTaxi / 2000) * 1000;
+    const maxDollars = capMoneyMaxK(nonTaxi) * 1000;
     if (bbDollars > maxDollars) bad.push({ franchise_id: fid, reason: "cap_money_over_50pct", traded_dollars: bbDollars, max_dollars: maxDollars });
   }
   return bad;
