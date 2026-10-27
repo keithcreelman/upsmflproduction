@@ -1091,8 +1091,9 @@ nav.fo-subtabs-2 { padding-top: 4px; background: var(--bg); }
 .fo-ls-issues { font-size: 12px; margin: 6px 0; color: var(--warn); }
 /* Cap card: four lines; the first two open their ledgers. */
 .fo-ov-cap { display: grid; gap: 1px; }
-.fo-ov-capline { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; width: 100%; padding: 3px 0; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; text-align: left; }
-.fo-ov-capnum { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.fo-ov-capline { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 10px; width: 100%; padding: 3px 0; background: none; border: 0; color: var(--text); font: inherit; font-size: 13px; text-align: left; }
+/* An amount never clips (#1375): if label + amount don't fit on one line, the amount wraps under it, right-aligned. */
+.fo-ov-capnum { font-variant-numeric: tabular-nums; white-space: nowrap; margin-left: auto; }
 button.fo-ov-capline { cursor: pointer; }
 button.fo-ov-capline .fo-ov-capnum { color: var(--accent); font-weight: 600; }
 button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible span:first-child { text-decoration: underline; }
@@ -1115,6 +1116,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-about-body p.fo-ov-sub { font-size: 12.5px; }
 .fo-about-body details { margin: 4px 0; } .fo-about-body summary { cursor: pointer; font-size: 13px; }
 @media (max-width: 1100px) { .fo-ov-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Phone widths (#1375): one card per row, so the Cap card's amounts have the full width (they clipped at 375 px). */
+@media (max-width: 600px) { .fo-ov-row { grid-template-columns: 1fr; } }
 @media (max-width: 820px) { .fo-ov-grid { grid-template-columns: 1fr; } }
 
 /* ── Roster → Performance (#1338) ── */
