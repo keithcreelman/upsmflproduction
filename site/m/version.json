@@ -1,4 +1,4 @@
 {
-  "build": "2026.10.17.3",
-  "label": "Waiver badges keep themselves current: a game lock lasts until the league moves to the next week, Bid comes back in time to claim for the first run that can award the player, and after a waiver run the app re-reads rosters by itself."
+  "build": "2026.10.23.2",
+  "label": "Trade deadline: owner-facing screens show MFL’s active lock time."
 }

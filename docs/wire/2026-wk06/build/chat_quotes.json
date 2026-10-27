@@ -1,0 +1,15 @@
+{
+ "note": "Only the lines quoted in the Week 6 article, copied verbatim from the archived league Discord (D1 ups_discord_messages, read 2026-10-21). The Commish/Blake pronoun exchange is NOT in the archive yet (the archive ends Tue Oct 20, 1:07 PM ET); it is quoted exactly as Keith supplied it and has no message id.",
+ "channel": {"guild": "1057655884475531324", "channel_id": "1087157907419840644", "name": "the-coffee-shop"},
+ "quotes": {
+  "1561522953680851149": {"owner": "Shawn Blake", "when": "Sun Oct 18, 7:34 PM ET", "text": "I didn’t trust devonta coming back and listened to some idp expert who had D’Marco Jackson as his lb3 this week. Shouldn’t have listened. Heading for 0-3"},
+  "1561459943553630411": {"owner": "Brian Cutting", "when": "Sun Oct 18, 3:24 PM ET", "text": "Can we go back when Keith said Maye was bad at football???"},
+  "1561432958588686430": {"owner": "Ryan Bousquet", "when": "Sun Oct 18, 1:37 PM ET", "text": "Najee, you’re killing me. You don’t even have trois yards"},
+  "1561433803342221474": {"owner": "Josh Martel", "when": "Sun Oct 18, 1:40 PM ET", "text": "We’ve gotta have the worst collective rb rooms in the league"},
+  "1561522868435816449": {"owner": "Brian Cross", "when": "Sun Oct 18, 7:34 PM ET", "text": "I have been on the couch all season long Bear .. I wanted to Promote Bernard from Taxi who had a pretty good day . Tucker has averaged 7 points a game !! All GOOD .."}
+ },
+ "supplied": {
+  "commish": "@Shawn Blake — the bot is unsure of your pronouns. You may need to advise us if you go with They/Them or whatever the kids use these days. Sorry buddy, hate to see this on top of the McLaurin news.",
+  "blake": "I’m not sure either. Thank you bot for respecting me while I make my decision."
+ }
+}
