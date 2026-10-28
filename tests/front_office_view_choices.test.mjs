@@ -83,7 +83,9 @@ test("version stamps changed with the files that changed", () => {
   // Roster → Schedule (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
   t.ok(HTML.includes("fo_roster.js?v=2026.10.28.4"), "fo_roster.js (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
   // Overview checks (2026-10-28): Needs attention 3 columns + Draft picks 1, per-check loaded/unavailable state and "checked" time.
-  for (const f of ["front_office.css", "fo_data.js", "fo_overview.js", "front_office.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.11"), f + " (Overview checks)");
+  for (const f of ["front_office.css", "fo_data.js", "fo_overview.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.11"), f + " (Overview checks)");
+  // front_office.js keeps its YYYY.MM.DD.v1.N.M form (fcfs_contract_display / salary_adjustments_tab pin it): stamp 11 is the last part.
+  t.ok(HTML.includes("front_office.js?v=2026.10.28.v1.41.11"), "front_office.js (Overview read states; fo:events after the league-events fields are set)");
   t.ok(/var BUILD = "2026\.10\.28\.11";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
