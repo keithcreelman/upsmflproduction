@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-27T15:32:17.938702+00:00",
+    "generated_at_utc": "2026-10-28T16:16:23.015958+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -883,35 +883,11 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16224",
-          "display": "Myles Murphy",
-          "player_id": "16224",
-          "position": "DE",
-          "nfl_team": "CIN",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15332",
           "display": "Tommy Tremble",
           "player_id": "15332",
           "position": "TE",
           "nfl_team": "CAR",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_14778",
-          "display": "Tua Tagovailoa",
-          "player_id": "14778",
-          "position": "QB",
-          "nfl_team": "ATL",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -2893,7 +2869,7 @@
           "salary": 5000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
-          "roster_status": "INJURED_RESERVE",
+          "roster_status": "ROSTER",
           "taxi": false
         },
         {
@@ -2953,18 +2929,6 @@
           "salary": 4000,
           "contract_year": 2,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_13284",
-          "display": "Trey Hendrickson",
-          "player_id": "13284",
-          "position": "DE",
-          "nfl_team": "BAL",
-          "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5116,7 +5080,7 @@
           "display": "DeForest Buckner",
           "player_id": "12688",
           "position": "DT",
-          "nfl_team": "IND",
+          "nfl_team": "SFO",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
