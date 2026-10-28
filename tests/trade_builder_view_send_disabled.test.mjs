@@ -164,4 +164,10 @@ test("source: no code path from a click to a confirmation or a send, and no swit
   t.ok(!/\bsend\s*:|sendNotice/.test(AD), "the Front Office adapter passes no send function or notice");
 });
 
+test("phones: a three-team trade is one team per row (the 340px three-team minimum is overridden at 600px and below)", () => {
+  const CSS = read("site/rosters/v2/front_office.css");
+  t.ok(/@media \(max-width: 600px\) \{ \.fo-tb-teams, \.fo-tb-teams\.fo-tb-n3 \{ grid-template-columns: 1fr; \}/.test(CSS), "the phone rule names .fo-tb-n3 so it outranks minmax(340px, 1fr)");
+  t.ok(CSS.indexOf(".fo-tb-teams.fo-tb-n3 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }") < CSS.indexOf(".fo-tb-teams, .fo-tb-teams.fo-tb-n3 { grid-template-columns: 1fr; }"), "and comes after it");
+});
+
 await run("trade_builder_view_send_disabled");

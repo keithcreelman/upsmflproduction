@@ -1368,7 +1368,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tb-src { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); }
 .fo-tb-src-data { color: var(--muted); } .fo-tb-src-calc { color: var(--accent); border-color: var(--accent); } .fo-tb-src-verdict { color: var(--warn); border-color: var(--warn); }
 @media (max-width: 1100px) { .fo-tb-impact { grid-template-columns: 1fr; } }
-@media (max-width: 600px) { .fo-tb-teams { grid-template-columns: 1fr; } .fo-tb-stages { grid-template-columns: 1fr; } }
+/* Phones: one team per row, three-team trades too (.fo-tb-n3 above is more specific, so it is named here; its 340px minimum overflowed a 320px screen). */
+@media (max-width: 600px) { .fo-tb-teams, .fo-tb-teams.fo-tb-n3 { grid-template-columns: 1fr; } .fo-tb-stages { grid-template-columns: 1fr; } }
 /* ── View choices (Keith 2026-10-27): Direction A, the wider screen-first font, Market wraps to rows ───────────────
    Applies to the groups that choose WHAT the screen shows: Roster columns / Group players, Market Browse players,
    Trade finder Compare by / Measure, Cap plan view, Recent moves. Filters (position chips, team, search) keep their
