@@ -247,20 +247,40 @@
     var byWk = {}; r.cells.forEach(function (c) { byWk[c.wk] = c; });
     return "<tr>" + who + weeks.map(function (w) { return schedCell(byWk[w] || { wk: w, kind: "none" }, r.pos); }).join("") + "</tr>";
   }
-  function schedBlock(weeks, items, multi, grouped, label) {
-    var span = weeks.length + 1, body = "";
+  // One grid of players (rows) by league weeks (columns). Next 5 = five fixed columns. Rest of season = ALL remaining weeks in ONE grid that swipes
+  // sideways inside its own box while the player column stays pinned; the page itself never scrolls sideways.
+  function schedGrid(weeks, items, multi, grouped, scroll) {
+    var body = "";
     var order = function (list) { return list.slice().sort(function (a, b2) { return String(a.p.name || "").localeCompare(String(b2.p.name || "")); }); };
     if (grouped) {
       var groups = {};
       items.forEach(function (it) { var k = it.p.isTaxi ? "Taxi" : (it.p.isIr ? "IR" : (it.group || "Other")); (groups[k] = groups[k] || []).push(it); });
       GROUP_ORDER.concat(["Other", "Taxi", "IR"]).forEach(function (k) {
         if (!groups[k]) return;
-        body += '<tr class="fo-group-row"><td colspan="' + span + '"><span class="fo-pos ' + H.esc(k) + '">' + H.esc(k) + '</span> <span class="small">' + groups[k].length + "</span></td></tr>";
+        // the position label lives in the pinned first column, so it stays in view while the weeks swipe
+        body += '<tr class="fo-group-row"><th scope="rowgroup" class="fo-sched-who fo-sched-grouphead"><span class="fo-pos ' + H.esc(k) + '">' + H.esc(k) + '</span> <span class="small">' + groups[k].length + '</span></th><td colspan="' + weeks.length + '"></td></tr>';
         body += order(groups[k]).map(function (it) { return schedRowHtml(it, weeks, multi); }).join("");
       });
     } else body = order(items).map(function (it) { return schedRowHtml(it, weeks, multi); }).join("");
     var head = '<tr><th scope="col" class="fo-sched-whohead">Player</th>' + weeks.map(function (w) { return '<th scope="col" class="num" title="League week ' + w + '">W' + w + "</th>"; }).join("") + "</tr>";
-    return (label ? '<h4 class="fo-sched-block">' + H.esc(label) + "</h4>" : "") + '<table class="fo-table fo-sched-grid"><thead>' + head + "</thead><tbody>" + body + "</tbody></table>";
+    var table = '<table class="fo-table fo-sched-grid' + (scroll ? " fo-sched-wide" : "") + '"' + (scroll ? ' style="--n:' + weeks.length + '"' : "") + "><thead>" + head + "</thead><tbody>" + body + "</tbody></table>";
+    if (!scroll) return table;
+    return '<div class="fo-sched-scrollwrap" data-left="0" data-right="1"><div class="fo-sched-scroll" tabindex="0" role="region" aria-label="Schedule for the rest of the season: swipe sideways for later weeks. The player column stays in place.">' + table +
+      '</div><span class="fo-sched-fade fo-sched-fade-l" aria-hidden="true"></span><span class="fo-sched-fade fo-sched-fade-r" aria-hidden="true"></span></div>';
+  }
+  // Keeps the edge shadows honest: a shadow shows on a side only while more weeks are hidden on that side.
+  function wireSchedScroll(el) {
+    Array.prototype.forEach.call(el.querySelectorAll(".fo-sched-scrollwrap"), function (w) {
+      var sc = w.querySelector(".fo-sched-scroll");
+      var upd = function () {
+        var max = sc.scrollWidth - sc.clientWidth;
+        w.setAttribute("data-left", sc.scrollLeft > 2 ? "1" : "0");
+        w.setAttribute("data-right", max > 2 && sc.scrollLeft < max - 2 ? "1" : "0");
+      };
+      sc.addEventListener("scroll", upd, { passive: true });
+      upd();
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(upd);
+    });
   }
   function renderSched(el) {
     var P = root.UPS_PLAYER_SCHEDULE;
@@ -283,9 +303,11 @@
       : "Each number is how far above or below usual that opponent has allowed at the player’s position in " + H.esc(b.label) + " (allowed so far, the weeks already played). It describes past points allowed; it is not a forecast.";
     if (!rows.length) { el.innerHTML = head + '<p class="fo-basis">' + note + '</p><p class="fo-table-empty">No players match the current filters.</p>'; return; }
     var items = rows.map(function (p) { var g = H.groupOf(p.id) || ""; return { p: p, group: g, r: P.playerRows(d, { nflTeam: p.nflTeam, group: g }, wl.weeks) }; });
-    var blocks = sched.mode === "rest" ? P.chunk(wl.weeks, 5) : [wl.weeks], grouped = FO.groupByPosition();
+    var scroll = sched.mode === "rest";
     el.innerHTML = head + '<p class="fo-basis">' + note + "</p>" + (b.none ? "" : schedLegend()) +
-      blocks.map(function (wk) { return schedBlock(wk, items, multi, grouped, sched.mode === "rest" ? P.weeksLabel(wk[0], wk[wk.length - 1]) : ""); }).join("");
+      (scroll ? '<p class="fo-sched-hint">' + H.esc(P.weeksLabel(wl.weeks[0], wl.weeks[wl.weeks.length - 1])) + ": swipe sideways for later weeks. The player column stays in place. <span aria-hidden=\"true\">→</span></p>" : "") +
+      schedGrid(wl.weeks, items, multi, FO.groupByPosition(), scroll);
+    wireSchedScroll(el);
   }
   function wirePerf() {
     var cs = document.getElementById("fo-colset");

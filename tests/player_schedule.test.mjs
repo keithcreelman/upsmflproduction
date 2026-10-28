@@ -110,11 +110,10 @@ test("the Pts Agst rule (kept as an alternative) is the SAME table and rule as S
   const a = (ratio, games) => ({ ratio, games });
   t.equal(S.toneShrunk(a(1.5, 17), "DL"), "more"); t.equal(S.toneShrunk(a(1.5, 1), "DL"), "none"); t.equal(S.toneShrunk(a(1.3, 5), "LB"), "none");
 });
-test("rest of season comes in blocks of five weeks (the last block is shorter)", () => {
-  const w = S.weekList(D26, "rest").weeks;
-  const blocks = S.chunk(w, 5);
-  t.equal(JSON.stringify(blocks.map((b) => b.length)), JSON.stringify([5, 5, 2]));
-  t.equal(JSON.stringify(blocks.map((b) => [b[0], b[b.length - 1]])), JSON.stringify([[6, 10], [11, 15], [16, 17]]));
-  t.equal(JSON.stringify(S.chunk([], 5)), JSON.stringify([]));
+test("rest of season is EVERY remaining league week in order (one grid), the next-five window is the first five of them", () => {
+  const rest = S.weekList(D26, "rest").weeks, five = S.weekList(D26, "next5").weeks;
+  t.equal(JSON.stringify(rest), JSON.stringify([6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]));
+  t.equal(JSON.stringify(five), JSON.stringify(rest.slice(0, 5)));
+  t.ok(typeof S.chunk === "undefined", "no repeated five-week blocks any more");
 });
 await run("player_schedule");

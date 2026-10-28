@@ -36,12 +36,18 @@ test("no D1, no write, no forecast wording in the new code", () => {
   t.ok(!/\b(easy|easier|tough|tougher|smash|forecast|projected|will score)\b/i.test(mine.replace(/it is not a forecast/g, "")), "no easy/tough or forecast claims (apart from saying it is not one)");
   t.ok(/allowed so far/i.test(RO) && /not a forecast/.test(RO), "labelled 'allowed so far' with the not-a-forecast line");
 });
-test("players are rows and league weeks are columns; five weeks fit a phone; Rest of season is shown in blocks of five", () => {
-  const body = code(RO);
+test("players are rows and league weeks are columns; Next 5 is a fixed five-week grid; Rest of season is ONE sideways-scrolling grid with the player column pinned", () => {
+  const body = code(RO), css = read("site/rosters/v2/front_office.css");
   t.ok(/'<th scope="col" class="num" title="League week ' \+ w \+ '">W' \+ w/.test(body), "week columns are headed W8, W9, …");
   t.ok(/'<th scope="row" class="fo-sched-who">'/.test(body), "a player's name heads his row");
-  t.ok(/P\.chunk\(wl\.weeks, 5\)/.test(body), "rest of season = blocks of five");
-  t.ok(/table-layout: fixed/.test(read("site/rosters/v2/front_office.css")), "fixed layout, no sideways scroll");
+  t.ok(!/P\.chunk|schedBlock/.test(body), "no repeated five-week blocks");
+  t.ok(/var scroll = sched\.mode === "rest";/.test(body) && /schedGrid\(wl\.weeks, items, multi, FO\.groupByPosition\(\), scroll\)/.test(body), "one grid over all remaining weeks, scrolling only in rest mode");
+  t.ok(/fo-sched-scroll" tabindex="0" role="region" aria-label="[^"]*swipe sideways/.test(body), "a focusable, labelled scroll region that says it swipes");
+  t.ok(/swipe sideways for later weeks\. The player column stays in place/.test(body), "a visible hint line");
+  t.ok(/data-left="0" data-right="1"/.test(body) && /fo-sched-fade-r/.test(body) && /fo-sched-fade-l/.test(body), "edge shadows that show when more weeks are hidden");
+  t.ok(/\.fo-sched-scroll \{[^}]*overflow-x: auto/.test(css), "the box scrolls its own overflow");
+  t.ok(/\.fo-sched-wide \.fo-sched-whohead, \.fo-sched-wide \.fo-sched-who \{ position: sticky; left: 0/.test(css), "the player column is sticky");
+  t.ok(/table-layout: fixed/.test(css), "fixed layout");
 });
 test("each week cell is the opponent plus the existing vs-usual percentage; color follows the printed number and never stands alone; there is a text legend", () => {
   const body = code(RO);

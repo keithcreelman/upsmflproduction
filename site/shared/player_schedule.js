@@ -89,13 +89,6 @@
     var gap = (a.games * a.ratio + k) / (a.games + k) - 1;
     return Math.abs(gap) < COLOR_MIN_GAP ? "none" : (gap > 0 ? "more" : "less");
   }
-  // Weeks in blocks of five (Rest of season is shown block by block).
-  function chunk(weeks, size) {
-    var n = size || 5, out = [];
-    for (var i = 0; i < weeks.length; i += n) out.push(weeks.slice(i, i + n));
-    return out;
-  }
-
   // ── Text ──
   function ordinal(n) { var v = n % 100, s = ["th", "st", "nd", "rd"]; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   function fix1(n) { return (Math.round(n * 10) / 10).toFixed(1); }
@@ -117,7 +110,7 @@
   }
 
   var api = { POSITIONS: POSITIONS, endWeek: endWeek, nowWeek: nowWeek, weekList: weekList, weeksLabel: weeksLabel, basis: basis, allowed: allowed,
-    COLOR_K: COLOR_K, COLOR_MIN_GAP: COLOR_MIN_GAP, COLOR_MIN_PCT: COLOR_MIN_PCT, COLOR_MIN_GAMES: COLOR_MIN_GAMES, tone: tone, toneShrunk: toneShrunk, chunk: chunk, cell: cell, playerRows: playerRows, ordinal: ordinal, pct: pct, kickoffLabel: kickoffLabel, allowedParts: allowedParts };
+    COLOR_K: COLOR_K, COLOR_MIN_GAP: COLOR_MIN_GAP, COLOR_MIN_PCT: COLOR_MIN_PCT, COLOR_MIN_GAMES: COLOR_MIN_GAMES, tone: tone, toneShrunk: toneShrunk, cell: cell, playerRows: playerRows, ordinal: ordinal, pct: pct, kickoffLabel: kickoffLabel, allowedParts: allowedParts };
   root.UPS_PLAYER_SCHEDULE = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : this);
