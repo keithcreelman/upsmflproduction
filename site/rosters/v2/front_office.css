@@ -1365,7 +1365,6 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tb-sum { margin: 0 0 10px; padding-left: 18px; font-size: 13px; }
 .fo-tb-note { max-width: 640px; }
 .fo-tb-actions { margin: 12px 0 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.fo-tb-confirm p { margin: 0 0 8px; }
 .fo-tb-src { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); }
 .fo-tb-src-data { color: var(--muted); } .fo-tb-src-calc { color: var(--accent); border-color: var(--accent); } .fo-tb-src-verdict { color: var(--warn); border-color: var(--warn); }
 @media (max-width: 1100px) { .fo-tb-impact { grid-template-columns: 1fr; } }
@@ -1459,35 +1458,15 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tb-none, .fo-tb-incomplete, .fo-tb-checking { border-left-color: var(--border); }
 .fo-tb-none .fo-tb-pill, .fo-tb-incomplete .fo-tb-pill, .fo-tb-checking .fo-tb-pill { color: var(--muted); }
 
-/* Trade builder, three stages (Trade proposal · Trade impact · Review and send): a numbered stepper, a stronger heading on each stage,
-   an accent edge on the active one, and room between them. Same tokens as the rest of the Front Office; no new colors. */
+/* Trade builder, three cards (Trade proposal · Trade impact · Review): no numbered step headings; each card is a named region
+   with a small source line at the top, and room between them. Same tokens as the rest of the Front Office; no new colors. */
 .fo-tb { display: grid; gap: 22px; }
 .fo-tb .fo-card { margin-bottom: 0; }
-.fo-tb-steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
-.fo-tb-steps li { flex: 1 1 180px; }
-.fo-tb-steps button {
-  width: 100%; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; cursor: pointer;
-  font-family: var(--fo-choice-font, inherit); font-size: 14px; font-weight: 600; color: var(--muted);
-  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px; text-align: left;
-}
-.fo-tb-steps li.active button { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
-.fo-tb-steps li.done button { color: var(--text); }
-.fo-tb-num {
-  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%;
-  font: 700 13px/1 var(--fo-choice-font, inherit); color: var(--muted); border: 2px solid var(--border); background: var(--panel);
-}
-.fo-tb-steps li.active .fo-tb-num, .fo-tb-stagehead[data-state="active"] .fo-tb-num { color: #07101f; background: var(--accent); border-color: #a9c2ff; }
-.fo-tb-steps li.done .fo-tb-num, .fo-tb-stagehead[data-state="done"] .fo-tb-num { color: #07101f; background: var(--ok); border-color: var(--ok); }
 .fo-tb-stage { border-left: 4px solid var(--border); padding: 18px 20px; scroll-margin-top: 12px; }
-.fo-tb-stage:has(.fo-tb-stagehead[data-state="active"]) { border-left-color: var(--accent); }
-.fo-tb-stage:has(.fo-tb-stagehead[data-state="done"]) { border-left-color: var(--ok); }
-.fo-tb-stagehead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-.fo-tb-stagehead .fo-tb-num { width: 32px; height: 32px; font-size: 15px; }
-.fo-card.fo-tb-stage .fo-tb-stagehead h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--text); }
-.fo-tb-stagestate { font: 600 12px/1 var(--fo-choice-font, inherit); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; }
-.fo-tb-stagehead[data-state="active"] .fo-tb-stagestate { color: var(--text); border-color: var(--accent); }
-.fo-tb-stagehead[data-state="done"] .fo-tb-stagestate { color: var(--ok); border-color: var(--ok); }
-.fo-tb-stageextra { margin-left: auto; }
+.fo-tb-cardmeta { margin: 0 0 12px; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+/* Send offer: always disabled (no send connection from the Front Office). Visibly off, with its reason beside it. */
+.fo-tb-send:disabled { opacity: 1; color: var(--muted); background: var(--panel-alt); border: 1px dashed var(--border); cursor: not-allowed; filter: none; }
+.fo-tb-send-off { font-size: 12px; color: var(--muted); }
 
 /* Impact: cap and validation side by side, the lineup (a wider table per team) across the full width underneath. */
 .fo-tb-impact { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }

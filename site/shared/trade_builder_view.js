@@ -1,18 +1,20 @@
-/* Trade Builder view (Front Office → Trades → Trade builder; plan #1385). One page, three cards, in the Front Office's own
-   look (fo-card / fo-table / btn / fo-subview-chip; the layout rules are .fo-tb-* in front_office.css):
+/* Trade Builder view (Front Office → Trades → Trade builder; plan #1385). One page, three cards (no numbered step headings;
+   each card is a region with an accessible name), in the Front Office's own look (fo-card / fo-table / btn / fo-subview-chip;
+   the layout rules are .fo-tb-* in front_office.css):
      Trade proposal   each team side by side: what it sends, what it receives, cap money, and its roster to add from
      Trade impact     cap and contract table · lineup impact · validation (calculated vs the server's check)
-     Review and send  summary, note, Send (a confirmation step)
-   The server's verdict (POST /api/trades/compliance-preview) is the only authority on whether a trade is allowed. The Send
-   step is WIRED but takes an injected `send(plan)`; with none (every build today) a confirmed send says plainly that nothing
-   was sent. No write route is named or called from this file.
+     Review           summary, note, and a Send offer button that is ALWAYS disabled
+   The server's verdict (POST /api/trades/compliance-preview) is the only authority on whether a trade is allowed.
+   SEND IS NOT AVAILABLE FROM THE FRONT OFFICE. Whatever the verdict, Send offer renders disabled with a plain reason, and
+   no click opens a confirmation or sends anything: there is no send handler, no confirmation markup and no option or flag
+   that turns one on. A live Send is a separate, separately approved change. No write route is named or called from this file.
      mount(el, { teams:[{fid,name,abbrev?}], ctx:{leagueId,season,viewerFid},
                  assets(fid) -> {players:[{id,name,pos,salary,years,type,taxi,ir}], picks:[{token,label}]},
                  impact(draft) -> { cap:{fid:{r}}|null, lineup:{state,message,teams:{fid:{...}}} },
                  extensionOptions(item) -> [option] (the shared pre-trade extension rule; [] = not eligible),
                  playerLink(pid, fid, label) -> html (opens the Front Office player panel),
                  openDialog(title, html) / closeDialog() (the Front Office dialog; the choice popup for an eligible player),
-                 preview(body) -> Promise<json>, send(plan)? , sendNotice, sources:{data,verdict}, warRoomUrl?, debounceMs }) */
+                 preview(body) -> Promise<json>, sources:{data,verdict}, warRoomUrl?, debounceMs }) */
 (function (root) {
   "use strict";
   var C = root.UPS_TRADE_BUILDER_CORE || (typeof require === "function" ? require("./trade_builder_core.js") : null);
@@ -30,7 +32,7 @@
     var delay = opt.debounceMs == null ? 600 : opt.debounceMs;
     var S = opt.sources || {};
     var draft = C.emptyDraft([me]);
-    var st = { phase: "idle", resp: null, seq: 0, timer: null, note: "", confirm: false, sent: null, open: {}, q: {}, memo: { sig: "", imp: null }, capNote: {}, dlg: null, prompted: {} };
+    var st = { phase: "idle", resp: null, seq: 0, timer: null, note: "", open: {}, q: {}, memo: { sig: "", imp: null }, capNote: {}, dlg: null, prompted: {} };
     var info = {}; teams.forEach(function (t) { info[C.pad4(t.fid)] = t; });
     function nm(f) { return (info[f] && info[f].name) || "Team " + f; }
     function others() { return draft.teams.filter(function (f) { return f !== me; }); }
@@ -62,7 +64,6 @@
       st.memo = { sig: "", imp: null };
       clearTimeout(st.timer);
       st.seq++;                          // any answer still in flight is now stale
-      st.confirm = false; st.sent = null;
       if (!sig) { st.phase = "idle"; st.resp = null; render(); return; }
       st.phase = "checking"; st.resp = null; render();
       var mine = st.seq;
@@ -173,35 +174,16 @@
         '<h4>Receives</h4>' + listTable(recv.map(function (i) { return itemRow(i, false); }).join(""), "Nothing yet.", false) +
         rosterPicker(f) + "</section>";
     }
-    function stageState() {
-      var gaps = gapsNow(), r = readiness();
-      var s1 = !gaps.length, s2 = s1 && st.phase === "done", s3 = r.canAttempt;
-      var active = !s1 ? 1 : !s2 ? 2 : 3;
-      return { s: [s1, s2, s3], active: active, r: r,
-        label: [s1 ? "Complete" : gaps[0] && gaps[0].code === "no_assets" ? "Not started" : "Incomplete",
-                !s1 ? "Waiting" : !s2 ? "Checking" : r.state === "provisional" ? "Checked" : r.state === "needs_ack" ? "Needs acknowledgment" : r.state === "blocked" ? "Blocked" : "Can’t be fully checked",
-                s3 ? "Ready" : "Not ready"] };
-    }
-    function stageHead(n, title, ss, extra) {
-      var done = ss.s[n - 1] && (n !== 2 || ss.r.state === "provisional" || ss.r.state === "needs_ack") && (n !== 3 || false);
-      var st2 = done ? "done" : ss.active === n ? "active" : "todo";
-      return '<div class="fo-tb-stagehead" data-state="' + st2 + '"><span class="fo-tb-num" aria-hidden="true">' + (done ? "✓" : n) + "</span><h2>" + esc(title) + '</h2><span class="fo-tb-stagestate">' + esc(ss.label[n - 1]) + "</span>" + (extra ? '<span class="fo-tb-stageextra">' + extra + "</span>" : "") + "</div>";
-    }
-    function stepper(ss) {
-      var names = ["Trade proposal", "Trade impact", "Review and send"];
-      return '<ol class="fo-tb-steps" aria-label="Trade builder steps">' + names.map(function (n, i) {
-        var done = ss.s[i] && (i !== 1 || ss.r.state === "provisional" || ss.r.state === "needs_ack") && i !== 2;
-        return '<li class="' + (done ? "done" : ss.active === i + 1 ? "active" : "") + '"><button type="button" data-jump="fo-tb-s' + (i + 1) + '"' + (ss.active === i + 1 ? ' aria-current="step"' : "") + '><span class="fo-tb-num" aria-hidden="true">' + (done ? "✓" : i + 1) + "</span>" + esc(n) + "</button></li>";
-      }).join("") + "</ol>";
-    }
-    function proposalCard(ss) {
+    // A small line of where the card's figures come from (no heading: the card is named by its aria-label).
+    function cardMeta(extra) { return '<p class="fo-tb-cardmeta">' + extra + "</p>"; }
+    function proposalCard() {
       var imp = impactNow();
       var pick = '<div class="fo-tb-pickrow"><label>Trade with <select data-partner="0"><option value="">Choose a team</option>' +
         teams.filter(function (t) { return C.pad4(t.fid) !== me; }).map(function (t) { var f = C.pad4(t.fid); return '<option value="' + f + '"' + (others()[0] === f ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("") + "</select></label>";
       if (others().length) pick += '<label>Third team (optional) <select data-partner="1"><option value="">None</option>' +
         teams.filter(function (t) { var f = C.pad4(t.fid); return f !== me && f !== others()[0]; }).map(function (t) { var f = C.pad4(t.fid); return '<option value="' + f + '"' + (others()[1] === f ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("") + "</select></label>";
       pick += "</div>";
-      return '<section class="fo-card fo-tb-stage" id="fo-tb-s1" aria-labelledby="fo-tb-h1">' + stageHead(1, "Trade proposal", ss, src("data", S.data || "Recorded rosters")) + pick +
+      return '<section class="fo-card fo-tb-stage" id="fo-tb-s1" aria-label="Trade proposal">' + cardMeta(src("data", S.data || "Recorded rosters")) + pick +
         (others().length ? '<div class="fo-tb-teams fo-tb-n' + draft.teams.length + '">' + draft.teams.map(function (f) { return teamColumn(f, imp); }).join("") + "</div>" : '<p class="fo-ov-empty">Choose a team to start.</p>') + "</section>";
     }
 
@@ -288,30 +270,27 @@
         block("1 Structure", "", structure) + block("2 Financial compliance", src("calc", "Calculated here"), fin) +
         block("3 Server validation", gaps.length ? "" : src("verdict", S.verdict || "Server check"), srv) + "</div>";
     }
-    function impactCard(ss) {
+    function impactCard() {
       var imp = impactNow();
-      return '<section class="fo-card fo-tb-stage" id="fo-tb-s2" aria-labelledby="fo-tb-h2">' + stageHead(2, "Trade impact", ss, src("calc", "Calculated from the rosters above")) +
+      return '<section class="fo-card fo-tb-stage" id="fo-tb-s2" aria-label="Trade impact">' + cardMeta(src("calc", "Calculated from the rosters above")) +
         '<div class="fo-tb-impact"><section class="fo-tb-im-cap"><h3>Salary cap and contracts</h3>' + capSection(imp) + "</section>" +
         '<section class="fo-tb-im-val"><h3>Validation</h3>' + validationSection(imp) + "</section>" +
         '<section class="fo-tb-im-lu"><h3>Lineup impact</h3>' + lineupSection(imp) + "</section></div></section>";
     }
 
-    // ── Review and send ───────────────────────────────────────────────
+    // ── Review ────────────────────────────────────────────────────────
+    // Send offer is disabled for EVERY verdict (provisional, needs an acknowledgment, blocked, can't be checked, none): the Front
+    // Office has no send connection. Its data-go attribute is inert (no click handler reads it); it stays so checks can find it.
+    var SEND_OFF = "Sending from the Front Office is not available yet.";
     function reviewCard() {
-      var r = readiness(), gaps = gapsNow();
+      var gaps = gapsNow();
       var lines = C.summary(draft, nm).map(function (l) { return "<li>" + esc(l.text) + "</li>"; }).join("");
-      var off = opt.send ? "" : '<p class="fo-banner warn" role="status">' + esc(opt.sendNotice || "Sending is not available here.") + "</p>";
-      var confirm = "";
-      if (st.confirm) confirm = '<div class="fo-banner info fo-tb-confirm" role="alertdialog" aria-label="Confirm sending"><p><b>Send this offer to ' + esc(others().map(nm).join(" and ")) + '?</b> An offer that has been sent can’t be pulled back from here.</p>' +
-        '<button type="button" class="btn secondary" data-go="cancel-send">Cancel</button> <button type="button" class="btn" data-go="confirm-send">Yes, send</button></div>';
-      var result = st.sent ? '<p class="fo-banner ' + (st.sent.ok ? "info" : "warn") + '" role="status">' + esc(st.sent.message) + "</p>" : "";
-      var wait = gaps.length ? "Review opens once the trade is complete (see Validation above)." : !r.canAttempt ? "Available once the server’s check comes back looking fine or only needing an acknowledgment, and nothing calculated here blocks it." : "";
-      return '<section class="fo-card fo-tb-stage" id="fo-tb-s3" aria-labelledby="fo-tb-h3">' + stageHead(3, "Review and send", stageState()) +
+      return '<section class="fo-card fo-tb-stage" id="fo-tb-s3" aria-label="Review">' +
         (gaps.length ? '<p class="fo-ov-empty">' + (draft.items.length ? "Finish the trade above to review it." : "Build a trade above to review it.") + "</p>" : '<ul class="fo-tb-sum">' + lines + "</ul>") +
         '<label class="fo-tb-note">Note to the other owner' + (others().length > 1 ? "s" : "") + ' (optional)<textarea data-note maxlength="500"' + (gaps.length ? " disabled" : "") + ' placeholder="' + esc((opt.note && opt.note.placeholder) || "Say why this works for both teams") + '">' + esc(st.note) + "</textarea></label>" +
-        (gaps.length ? "" : off + confirm + result) +
-        '<p class="fo-tb-actions"><button type="button" class="btn" data-go="send"' + (r.canAttempt && !st.confirm ? "" : " disabled") + ">Send offer</button> " + (wait ? '<span class="fo-muted">' + esc(wait) + "</span>" : "") + "</p>" +
-        (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> (optional)</p>' : "") + "</section>";
+        '<p class="fo-tb-actions"><button type="button" class="btn fo-tb-send" data-go="send" disabled aria-disabled="true" aria-describedby="fo-tb-send-off">Send offer</button> ' +
+        '<span class="fo-tb-send-off" id="fo-tb-send-off">' + esc(SEND_OFF) + "</span></p>" +
+        (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> to send a trade.</p>' : "") + "</section>";
     }
 
     // Replacing the markup blurs a focused field, which can fire its `change` handler and call render() again mid-write.
@@ -328,32 +307,11 @@
       // Read which roster lists are open from the page itself (a `toggle` event can arrive after a data refresh re-renders).
       Array.prototype.forEach.call(el.querySelectorAll("details[data-open]"), function (d) { st.open[d.getAttribute("data-open")] = d.open; });
       var focus = document.activeElement, fq = focus && focus.getAttribute && focus.getAttribute("data-q"), pos = focus && focus.selectionStart;
-      var ss = stageState();
-      el.innerHTML = '<div class="fo-tb">' + stepper(ss) + proposalCard(ss) + impactCard(ss) + reviewCard() + "</div>";
+      el.innerHTML = '<div class="fo-tb">' + proposalCard() + impactCard() + reviewCard() + "</div>";
       if (fq) { var n = el.querySelector('[data-q="' + fq + '"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }
     }
 
     el.addEventListener("click", function (e) {
-      var g = e.target.closest && e.target.closest("[data-go]");
-      if (g) {
-        var go = g.getAttribute("data-go"), keepN = el.querySelector("[data-note]"); if (keepN) st.note = keepN.value;
-        if (go === "send") { if (readiness().canAttempt) st.confirm = true; }
-        else if (go === "cancel-send") st.confirm = false;
-        else if (go === "confirm-send") {
-          st.confirm = false;
-          if (!readiness().canAttempt) st.sent = { ok: false, message: "The check changed. Review the trade again." };
-          else if (typeof opt.send !== "function") st.sent = { ok: false, message: "Nothing was sent. Sending is not available here." };
-          else {
-            st.sent = { ok: false, message: "Sending…" };
-            var mine = st.seq;
-            Promise.resolve().then(function () { return opt.send(C.sendPlan(draft, ctx, st.note, extReqs())); }).then(function (r) { return r || { ok: false, message: "No answer. Nothing is confirmed." }; }, function () { return { ok: false, message: "The send did not go through. Nothing is confirmed." }; })
-              .then(function (r) { if (mine !== st.seq) return; st.sent = r; render(); });
-          }
-        }
-        render(); return;
-      }
-      var jump = e.target.closest && e.target.closest("[data-jump]");
-      if (jump) { var sec = document.getElementById(jump.getAttribute("data-jump")); if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
       var xo = e.target.closest && e.target.closest("[data-tbx-open]");
       if (xo) { openExtDialog(xo.getAttribute("data-from"), xo.getAttribute("data-tbx-open")); return; }
       var b = e.target.closest && e.target.closest("[data-tok]"); if (!b) return;
@@ -394,7 +352,7 @@
       if (opt.closeDialog) opt.closeDialog();
       changed(); return true;
     }
-    return { factsChanged: function () { st.memo = { sig: "", imp: null }; render(); promptExtensions(); }, dialogAction: dialogAction, refresh: function () { st.memo = { sig: "", imp: null }; render(); }, draft: function () { return draft; }, state: function () { return { phase: st.phase, resp: st.resp, sent: st.sent }; } };
+    return { factsChanged: function () { st.memo = { sig: "", imp: null }; render(); promptExtensions(); }, dialogAction: dialogAction, refresh: function () { st.memo = { sig: "", imp: null }; render(); }, draft: function () { return draft; }, state: function () { return { phase: st.phase, resp: st.resp }; } };
   }
 
   var api = { mount: mount };

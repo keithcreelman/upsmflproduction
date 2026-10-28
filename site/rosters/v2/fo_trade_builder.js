@@ -2,12 +2,12 @@
    builder (site/shared/trade_builder_view.js): who the teams are, what each can send (players and MFL's future
    picks), and how the server's verdict is asked for.
 
-   READ-ONLY TODAY. The Send step is wired in the view but this adapter gives it NO send function, so a confirmed
-   send says plainly that sending is not available and nothing leaves the page. No write route is named here.
-   Making Send live is a separate decision (needs Keith's go, an authz and behavior review, and parity with every
-   two- and three-team War Room rule; see the PR).
+   READ-ONLY. Send offer is always disabled in the view (whatever the verdict) and no click reaches a confirmation or a
+   send; nothing here, in the view or in the config below can turn it on. No write route is named here. A live Send is a
+   separate, separately approved change (Keith's go, an authz and behavior review, and parity with every two- and three-team
+   War Room rule). The Trade War Room link stays for sending.
 
-   Optional test/preview seam: window.UPS_FO_TRADE_BUILDER_CONFIG = { preview(body) -> json, sendNotice, warRoomUrl }.
+   Optional test/preview seam: window.UPS_FO_TRADE_BUILDER_CONFIG = { preview(body) -> json, warRoomUrl, sources, extensionFacts }.
    A build that blocks every POST (the preview) answers the verdict from recorded examples through it. */
 (function (root) {
   "use strict";
@@ -258,8 +258,7 @@
       playerLink: function (pid, fid, label) { return H.playerButton ? H.playerButton(pid, fid, label) : "<b>" + label + "</b>"; },
       preview: preview,
       sources: c.sources,
-      // No send(): see the header. The notice is what the owner reads on the Review step.
-      sendNotice: c.sendNotice || "Sending from the Front Office is not turned on yet. Nothing here sends a trade; use the Trade War Room to send.",
+      // No send option exists: see the header.
       warRoomUrl: ("warRoomUrl" in c) ? c.warRoomUrl : (FO.warRoomUrl ? FO.warRoomUrl({}) : "")
     });
     fx.handle = current;
