@@ -72,6 +72,11 @@ export function warRoomSnapshot({ workbenchSrc = read("site/trades/trade_workben
   if (rulesSrc) vm.runInContext(rulesSrc, ctx, { filename: "site/shared/trade_rules.js" });
   vm.runInContext([
     "function hasTradeTagDeadlinePassed(){ return false; }",
+    // Eligibility is not what this golden measures (cap arithmetic). Since rulings 2/3 (2026-10-28) the War Room's isTradeEligibleAsset asks
+    // the shared rule (tradeEligibilityOf), which would now refuse fixture player 3002 (0 years left, no rookie contract = an expired veteran)
+    // and so change which selections count. Every fixture asset stays eligible here, as it was when the golden was recorded; the shared rule
+    // has its own tests (tests/trade_asset_eligibility.test.mjs). Absent from the pre-change source, so the stub is inert there.
+    "function tradeEligibilityOf(){ return { tradeable: true, code: '', reason: '' }; }",
     "function resolvePickMeta(a){ return { round: a.pick_round, year: a.pick_season, token: '' }; }",
     "var state = { data: null, selections: {}, extensions: {}, collapsed: {}, tradeSalaryK: {}, leftTeamId: '', rightTeamId: '' };",
     "var tw3 = { give: {}, cap: {} };",

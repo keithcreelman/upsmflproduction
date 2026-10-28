@@ -140,11 +140,15 @@
   // rule UPS_TRADE_RULES.capMoneyMaxK). Two-team: counted per side (everything this team sends). Three-team: per movement
   // (only what goes to that destination). Picks carry no salary. The server applies its own basis and is the authority (R2 is undecided),
   // so this is the page's guard against an amount the rule would refuse, never a ruling.
-  function capMoneyMaxK(d, from, to) {
+  // basisOf(item) (optional) -> the salary this player counts for, in dollars, or null when it can't be read (counts $0: the limit can
+  // only shrink). The adapter uses it for ruling 3 (2026-10-28): an EXPIRED ROOKIE counts his chosen pre-trade extension's new
+  // current-season salary, else last season's salary (UPS_TRADE_RULES.capMoneyBasisDollars). Without it: the item's own salary.
+  function capMoneyMaxK(d, from, to, basisOf) {
     var f = pad4(from), t = pad4(to), three = d.teams.length === 3, total = 0;
     d.items.forEach(function (i) {
       if (i.from !== f || (three && i.to !== t) || i.taxi || !/^P_/.test(i.token)) return;
-      total += Number(i.salary) || 0;
+      var b = basisOf ? basisOf(i, d) : undefined;
+      total += b === undefined ? (Number(i.salary) || 0) : (Number(b) || 0);
     });
     return R.capMoneyMaxK(total);
   }
@@ -154,10 +158,10 @@
     return R.capMoneyMaxK(total);
   }
   // A draft with every cap-money amount held to its maximum; clamped lists the keys that were reduced.
-  function clampCap(d) {
+  function clampCap(d, basisOf) {
     var n = clone(d), clamped = [];
     Object.keys(n.capK).forEach(function (k) {
-      var p = k.split(">"), max = capMoneyMaxK(n, p[0], p[1]);
+      var p = k.split(">"), max = capMoneyMaxK(n, p[0], p[1], basisOf);
       if (n.capK[k] > max) { clamped.push(k); if (max > 0) n.capK[k] = max; else delete n.capK[k]; }
     });
     return { draft: n, clamped: clamped };
@@ -169,7 +173,9 @@
   // trade to a different team in the trade. This is STRICTER than today's War Room and worker (the War Room's three-team builder only needs all
   // three teams involved; the worker only needs one asset overall), so it is a rules discrepancy to resolve, documented in the PR.
   // nameOf is optional (fid -> team name) for the wording; each gap carries the team it is about.
-  function gaps(d, nameOf) {
+  // ineligibleOf(item) (optional) -> the reason an item in the draft can't be traded (the shared rule, UPS_TRADE_RULES.tradeAssetEligibility),
+  // or "" — an asset that became untradeable after it was added (or arrived in a draft from another page) keeps the trade incomplete.
+  function gaps(d, nameOf, ineligibleOf) {
     var nm = nameOf || function (f) { return "Team " + f; }, out = [], n = d.teams.length;
     if (!d.items.length) return [{ code: "no_assets", message: "Nothing is selected yet. Cap money alone is not a trade." }];
     if (n < 2) out.push({ code: "choose_team", message: "Choose a trade partner." });
@@ -177,6 +183,8 @@
     d.items.forEach(function (i) {
       if (d.teams.indexOf(i.from) === -1 || d.teams.indexOf(i.to) === -1 || i.from === i.to) out.push({ code: "bad_destination", message: i.label + " has no valid destination in this trade." });
       if (R.parseAssetToken(i.token).kind === "unknown") out.push({ code: "unknown_asset", message: "An asset could not be read: " + i.token });
+      var why = ineligibleOf ? ineligibleOf(i) : "";
+      if (why) out.push({ code: "asset_not_tradeable", message: i.label + ": " + why });
     });
     d.teams.forEach(function (f) {
       var sends = d.items.some(function (i) { return i.from === f; }), gets = d.items.some(function (i) { return i.to === f; });
@@ -212,6 +220,8 @@
     loaded_contracts_unavailable: "Loaded contracts could not be checked right now.",
     asset_ownership_mismatch: "A player or pick is not on the team listed.",
     pick_not_tradeable: "A draft pick in this trade cannot be traded.",
+    player_not_tradeable: "A player in this trade cannot be traded (a tag that isn't locked yet, or an expired contract).",
+    trade_eligibility_unavailable: "Whether the players can be traded could not be checked right now.",
     cap_money_rule: "Cap money is more than the rule allows.",
     assets_unavailable: "The assets could not be checked with MFL right now.",
     pick_forfeited: "A draft pick in this trade has been forfeited.",
