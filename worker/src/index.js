@@ -71,7 +71,7 @@ import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_exec
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
 import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
-import { loadStarterRates, fetchMflByeWeeks, parseThrough, starterRatesCacheKey, starterRatesTtl } from "./starter_rates.js";
+import { loadStarterRates, fetchMflByeWeeks, parseThrough, starterRatesCacheKey, starterRatesTtl, starterRatesVariants, starterRatesPlayer, GROUPS as STARTER_GROUPS, FIRST_SEASON as STARTER_FIRST_SEASON } from "./starter_rates.js";
 import { loadPlayerStatus } from "./player_status.js";
 import { seasonTeamSnaps, coversPlayer } from "./team_snaps_season.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
@@ -20119,11 +20119,12 @@ export default {
       // whose starters or snap counts haven't synced is listed as pending.
       // through=W grades final weeks up to W only (the Front Office asks for
       // the weeks its points cover). Edge-cached (Keith 2026-10-28, #1421
-      // ruling A): the key carries the completed week, so a new final week
-      // misses at once; 6 h for a settled answer, 10 min while a week is
-      // pending (starter_rates.js CACHE_*). A hit reads 0 D1 rows; NO_CACHE=1
-      // reads live. /api/player-consistency (the old all-players pool) stays
-      // for the desktop workbench until it moves over.
+      // ruling A; starter_rates.js CACHE_*): one computation per season,
+      // completed week and graded-through week, every variant stored on a
+      // miss; a hit reads 0 D1 rows. NO_CACHE=1 reads live only for the
+      // commissioner key (commishKeyProven, fail closed); anyone else is
+      // served the cached answer as usual. /api/player-consistency (the old
+      // all-players pool) stays for the desktop workbench until it moves over.
       if (path === "/api/player-starter-rates" && request.method === "GET") {
         try {
           const db = env.UPS_MFL_DB;
@@ -20132,6 +20133,10 @@ export default {
           const onlyPid = safeStr(url.searchParams.get("mfl_id")).replace(/\D/g, "");
           const onlyGroup = safeStr(url.searchParams.get("group")).toUpperCase();
           const through = parseThrough(url.searchParams.get("through"));
+          // Values outside what the model can answer are refused before any read, so no query value buys a fresh D1 read.
+          const lastSeason = Math.max(new Date().getUTCFullYear(), parseInt(String(YEAR || ""), 10) || 0);
+          if (season < STARTER_FIRST_SEASON || season > lastSeason) return jsonOut(400, { ok: false, error: "season out of range", first: STARTER_FIRST_SEASON, last: lastSeason });
+          if (onlyGroup && !STARTER_GROUPS.includes(onlyGroup)) return jsonOut(400, { ok: false, error: "unknown group", groups: STARTER_GROUPS });
           let completed = null, authority = "mfl_live_scoring";
           try { completed = await resolveAuthoritativeCompletedWeek(season, String(env.LEAGUE_ID || L || "74598")); } catch (_) { completed = null; }
           if (completed == null) {
@@ -20140,31 +20145,37 @@ export default {
             completed = r && r.w ? Number(r.w) : 0;
             authority = "synced_data_only";
           }
-          const gradeThrough = Math.min(18, Number(completed) || 0, through == null ? 18 : through);
-          const edge = safeStr(url.searchParams.get("NO_CACHE")) !== "1" && typeof caches !== "undefined" && caches.default ? caches.default : null;
-          const cacheKey = new Request(starterRatesCacheKey({ season, completed, authority, through, group: onlyPid ? "" : onlyGroup, mflId: onlyPid }), { method: "GET" });
-          if (edge) {
-            try { const hit = await edge.match(cacheKey); if (hit) return hit; } catch (_) { /* cache down: read live */ }
-          }
-          const byeWeek = await fetchMflByeWeeks(season);
-          const out = await loadStarterRates(db, { season, completedWeek: gradeThrough, byeWeek });
-          if (onlyPid) {
-            const p = out.players[String(parseInt(onlyPid, 10))];
-            out.players = p ? { [String(parseInt(onlyPid, 10))]: p } : {};
-          } else {
-            // One lineup group per request (a phone tab): ~70 KB, not ~500 KB.
-            if (onlyGroup) for (const [k, p] of Object.entries(out.players)) if (p.group !== onlyGroup) delete out.players[k];
-            for (const p of Object.values(out.players)) delete p.wk;      // the list doesn't need the weekly detail
-          }
-          const res = jsonOut(200, { ok: true, season, completed_week: completed, week_authority: authority, through_week: through,
-            method: "linear R-7 on tenths; Boom >= P75, Startable >= P50, Bust <= P25 unless Startable; 3+ qualifying weeks", ...out });
+          const bound = Math.min(18, Number(completed) || 0, through == null ? 18 : through);
+          const variant = onlyPid ? "full" : (onlyGroup || "all");
+          const live = safeStr(url.searchParams.get("NO_CACHE")) === "1" && commishKeyProven();
+          const edge = !live && typeof caches !== "undefined" && caches.default ? caches.default : null;
+          const keyFor = (v) => new Request(starterRatesCacheKey({ season, completed, authority, bound, variant: v }), { method: "GET" });
+          const answer = (obj, ttl) => {
+            const res = jsonOut(200, onlyPid ? starterRatesPlayer(obj, onlyPid) : obj);
+            if (ttl) res.headers.set("Cache-Control", "public, max-age=" + ttl);
+            return res;
+          };
           if (edge) {
             try {
-              res.headers.set("Cache-Control", "public, max-age=" + starterRatesTtl(out, authority));
-              ctx.waitUntil(edge.put(cacheKey, res.clone()).catch(() => {}));
+              const hit = await edge.match(keyFor(variant));
+              if (hit) return onlyPid ? answer(await hit.json(), 0) : hit;
+            } catch (_) { /* cache down or unreadable: read live */ }
+          }
+          const byeWeek = await fetchMflByeWeeks(season);
+          const out = await loadStarterRates(db, { season, completedWeek: bound, byeWeek });
+          const base = { ok: true, season, completed_week: completed, week_authority: authority, through_week: bound,
+            method: "linear R-7 on tenths; Boom >= P75, Startable >= P50, Bust <= P25 unless Startable; 3+ qualifying weeks" };
+          const variants = starterRatesVariants(base, out), ttl = starterRatesTtl(out, authority);
+          if (edge) {
+            try {
+              const puts = Object.entries(variants).map(([v, obj]) => {
+                const r = jsonOut(200, obj); r.headers.set("Cache-Control", "public, max-age=" + ttl);
+                return edge.put(keyFor(v), r);
+              });
+              ctx.waitUntil(Promise.all(puts).catch(() => {}));
             } catch (_) { /* never fail the answer over the cache */ }
           }
-          return res;
+          return answer(variants[variant], edge ? ttl : 0);
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
