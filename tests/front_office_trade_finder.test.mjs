@@ -329,7 +329,7 @@ test("lineup gains: both lists for the viewer's team, each row = trade_fit.lineu
   a.forEach((r, i) => {
     const x = G.forMe[i];
     t.ok(r.startsWith(x.pid + '"'), "row " + i + " = " + x.pid);
-    t.ok(r.includes("<td>" + esc(p.H.teamName(x.fid)) + "</td>"), x.pid + ": his team");
+    t.ok(r.includes('<span class="fo-tf-gfrom">' + esc(p.H.teamName(x.fid)) + "</span>"), x.pid + ": his team, under his name");
     t.ok(r.includes('<td class="num">' + p.H.fmt1(x.v)), x.pid + ": season PPG basis");
     const g = Number(r.match(/fo-tf-gain"[^>]*>\+([\d.]+)</)[1]);
     t.equal(g, x.gain, x.pid + ": gain shown = lineupGains"); t.ok(g >= 1.0, x.pid + ": gain ≥ 1.0");
@@ -340,7 +340,7 @@ test("lineup gains: both lists for the viewer's team, each row = trade_fit.lineu
   t.equal(b.length, Math.min(10, G.fromMe.length));
   b.forEach((r, i) => {
     const x = G.fromMe[i];
-    t.ok(r.startsWith(x.pid + '"') && r.includes('<td class="num">' + p.H.fmt1(x.v)), x.pid + ": my player with season PPG");
+    t.ok(r.startsWith(x.pid + '"') && r.includes('<span class="fo-tf-gppg">' + p.H.fmt1(x.v) + "</span> PPG"), x.pid + ": my player with season PPG");
     for (const g of x.gains.slice(0, 3)) t.ok(r.includes(esc(p.H.teamName(g.fid)) + " <b>+" + p.H.fmt1(g.gain) + "</b>") && g.gain >= 1.0, x.pid + " → " + g.fid);
     if (x.gains.length > 3) t.ok(r.includes('data-tf-gmore="' + x.pid + '" aria-expanded="false">+' + (x.gains.length - 3) + " more</button>"), x.pid + ": +N more");
     t.equal(r.includes("in your lineup"), x.starter, x.pid + ": in-your-lineup mark");

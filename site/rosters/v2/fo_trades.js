@@ -168,14 +168,12 @@
     if (gainsMemo.model !== m || gainsMemo.fid !== me) gainsMemo = { model: m, fid: me, out: TF.lineupGains(m, me) };
     return gainsMemo.out;
   }
-  function gainPlayer(pid, fid, group, extra) {
+  // The player cell: name (opens the player panel), then a second line — so the gain column fits a 320 px phone.
+  function gainPlayer(pid, fid, sub, extra) {
     var r = H.rosterIndex()[String(pid)];
-    return H.playerButton(pid, fid, H.displayName(playerName(pid))) + (r ? H.injuryChip(r.p) : "") + ' <span class="fo-muted">' + H.esc(gl(group)) + "</span>" + (extra || "");
+    return H.playerButton(pid, fid, H.displayName(playerName(pid))) + (r ? H.injuryChip(r.p) : "") + (extra || "") + '<div class="fo-tf-gsub">' + sub + "</div>";
   }
-  function gainBasis(pid, v) {
-    var line = H.seasonLine(pid, 0), g = line && line.games;
-    return H.fmt1(v) + (g ? ' <span class="fo-muted">· ' + g + " g</span>" : "");
-  }
+  function gainGames(pid) { var line = H.seasonLine(pid, 0), g = line && line.games; return g ? " · " + g + " g" : ""; }
   function moreButton(key, attr, open, n) {
     return '<button type="button" class="fo-tf-more" ' + attr + '="' + H.esc(key) + '" aria-expanded="' + open + '">' + (open ? "Show fewer" : n) + "</button>";
   }
@@ -187,25 +185,26 @@
     var min = H.fmt1(G.minGain);
     var mine = gainsView.all.mine ? G.forMe : G.forMe.slice(0, GAIN_ROWS);
     var rowsA = mine.map(function (x) {
-      return '<tr data-tf-gain="' + H.esc(x.pid) + '"><th scope="row">' + gainPlayer(x.pid, x.fid, x.group) + "</th><td>" + H.esc(H.teamName(x.fid)) + '</td><td class="num">' + gainBasis(x.pid, x.v) +
-        '</td><td class="num fo-tf-gain" title="' + H.esc("Would add about +" + H.fmt1(x.gain) + " pts/week to your modeled lineup") + '">+' + H.fmt1(x.gain) + "</td></tr>";
+      var g = gainGames(x.pid);
+      return '<tr data-tf-gain="' + H.esc(x.pid) + '"><th scope="row">' + gainPlayer(x.pid, x.fid, H.esc(gl(x.group)) + ' · <span class="fo-tf-gfrom">' + H.esc(H.teamName(x.fid)) + "</span>") + '</th><td class="num">' + H.fmt1(x.v) +
+        (g ? '<div class="fo-tf-gsub">' + g.slice(3) + "</div>" : "") + '</td><td class="num fo-tf-gain" title="' + H.esc("Would add about +" + H.fmt1(x.gain) + " pts/week to your modeled lineup") + '">+' + H.fmt1(x.gain) + "</td></tr>";
     }).join("");
     var theirs = gainsView.all.theirs ? G.fromMe : G.fromMe.slice(0, GAIN_ROWS);
     var rowsB = theirs.map(function (x) {
       var open = !!gainsView.more[x.pid];
       var list = (open ? x.gains : x.gains.slice(0, 3)).map(function (g) { return '<span class="fo-tf-gteam">' + H.esc(H.teamName(g.fid)) + " <b>+" + H.fmt1(g.gain) + "</b></span>"; }).join(" ");
       var more = x.gains.length > 3 ? " " + moreButton(x.pid, "data-tf-gmore", open, "+" + (x.gains.length - 3) + " more") : "";
-      return '<tr data-tf-gain="' + H.esc(x.pid) + '"><th scope="row">' + gainPlayer(x.pid, me, x.group, x.starter ? ' <span class="fo-tf-tag">in your lineup</span>' : "") + '</th><td class="num">' + gainBasis(x.pid, x.v) +
-        '</td><td class="fo-tf-gteams">' + list + more + "</td></tr>";
+      return '<tr data-tf-gain="' + H.esc(x.pid) + '"><th scope="row">' + gainPlayer(x.pid, me, H.esc(gl(x.group)) + ' · <span class="fo-tf-gppg">' + H.fmt1(x.v) + "</span> PPG" + gainGames(x.pid), x.starter ? ' <span class="fo-tf-tag">in your lineup</span>' : "") +
+        '</th><td class="fo-tf-gteams">' + list + more + "</td></tr>";
     }).join("");
     var allBtn = function (key, n, open) { return n > GAIN_ROWS ? '<p class="fo-tf-showall">' + moreButton(key, "data-tf-gall", open, "Show all " + n) + "</p>" : ""; };
     return head +
       '<p class="fo-ov-sub">Each gain = your modeled lineup with one player added minus without him, on season PPG (the table’s lineup). Points a week; only +' + min + " or more.</p>" +
       '<h3 class="fo-tf-gh">Players who would improve your lineup</h3>' +
-      (rowsA ? '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt" data-tf-gains="mine"><thead><tr><th scope="col">Player</th><th scope="col">Team</th><th scope="col" class="num">Season PPG</th><th scope="col" class="num" title="Points a week your modeled lineup would gain">Your gain</th></tr></thead><tbody>' + rowsA + "</tbody></table></div>" + allBtn("mine", G.forMe.length, gainsView.all.mine)
+      (rowsA ? '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt" data-tf-gains="mine"><thead><tr><th scope="col">Player · team</th><th scope="col" class="num">Season PPG</th><th scope="col" class="num" title="Points a week your modeled lineup would gain">Your gain</th></tr></thead><tbody>' + rowsA + "</tbody></table></div>" + allBtn("mine", G.forMe.length, gainsView.all.mine)
         : '<p class="fo-ov-empty">No available player on another team would add +' + min + " pt/week or more to your modeled lineup.</p>") +
       '<h3 class="fo-tf-gh">Your players who would improve theirs</h3>' +
-      (rowsB ? '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt" data-tf-gains="theirs"><thead><tr><th scope="col">Your player</th><th scope="col" class="num">Season PPG</th><th scope="col" title="Points a week each team’s modeled lineup would gain">Their gain</th></tr></thead><tbody>' + rowsB + "</tbody></table></div>" + allBtn("theirs", G.fromMe.length, gainsView.all.theirs)
+      (rowsB ? '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt" data-tf-gains="theirs"><thead><tr><th scope="col">Your player · season PPG</th><th scope="col" title="Points a week each team’s modeled lineup would gain">Their gain</th></tr></thead><tbody>' + rowsB + "</tbody></table></div>" + allBtn("theirs", G.fromMe.length, gainsView.all.theirs)
         : '<p class="fo-ov-empty">None of your available players would add +' + min + " pt/week or more to another team’s modeled lineup.</p>") +
       '<p class="fo-basis">Lineup math only: one player added, nothing sent back. It isn’t a trade suggestion and doesn’t say any owner would deal. IR, taxi, Out, K and P aren’t listed; gains under +' + min + " are left out as too small to matter.</p></div>";
   }
