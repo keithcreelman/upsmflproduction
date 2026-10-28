@@ -87,23 +87,16 @@
     return "";
   }
 
-  function resolveApiKey(u) {
-    if (u) {
-      var fromQuery = safeStr(u.searchParams.get("APIKEY") || u.searchParams.get("apikey"));
-      if (fromQuery) return fromQuery;
-    }
-    return safeStr(window.APIKEY || window.apiKey || "");
-  }
-
   function resolveViewerSession(u) {
     var mflUserId = "";
     if (u) {
       mflUserId = safeStr(u.searchParams.get("MFL_USER_ID") || u.searchParams.get("MFLUSERID"));
     }
     if (!mflUserId) mflUserId = safeStr(readCookie("MFL_USER_ID"));
+    // MFL_USER_ID only: the page's APIKEY is never copied into the War Room iframe URL (it is not
+    // the worker's admin key, and a key in a URL ends up in logs and history).
     return {
       MFL_USER_ID: mflUserId,
-      APIKEY: resolveApiKey(u),
     };
   }
 
@@ -316,9 +309,6 @@
     if (context.F && context.F !== "0000" && !url.searchParams.get("F")) url.searchParams.set("F", context.F);
     if (viewerSession.MFL_USER_ID && !url.searchParams.get("MFL_USER_ID")) {
       url.searchParams.set("MFL_USER_ID", viewerSession.MFL_USER_ID);
-    }
-    if (viewerSession.APIKEY && !url.searchParams.get("APIKEY")) {
-      url.searchParams.set("APIKEY", viewerSession.APIKEY);
     }
 
     if (pageUrl) {
