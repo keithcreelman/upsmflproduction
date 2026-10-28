@@ -1,0 +1,2132 @@
+{
+ "ap:0001": {
+  "shown": "24&ndash;53",
+  "source": "MFL leagueStandings",
+  "value": "24-53"
+ },
+ "ap:0002": {
+  "shown": "49&ndash;28",
+  "source": "MFL leagueStandings",
+  "value": "49-28"
+ },
+ "ap:0003": {
+  "shown": "20&ndash;57",
+  "source": "MFL leagueStandings",
+  "value": "20-57"
+ },
+ "ap:0004": {
+  "shown": "48&ndash;29",
+  "source": "MFL leagueStandings",
+  "value": "48-29"
+ },
+ "ap:0005": {
+  "shown": "56&ndash;21",
+  "source": "MFL leagueStandings",
+  "value": "56-21"
+ },
+ "ap:0006": {
+  "shown": "21&ndash;56",
+  "source": "MFL leagueStandings",
+  "value": "21-56"
+ },
+ "ap:0007": {
+  "shown": "14&ndash;63",
+  "source": "MFL leagueStandings",
+  "value": "14-63"
+ },
+ "ap:0008": {
+  "shown": "39&ndash;38",
+  "source": "MFL leagueStandings",
+  "value": "39-38"
+ },
+ "ap:0009": {
+  "shown": "67&ndash;10",
+  "source": "MFL leagueStandings",
+  "value": "67-10"
+ },
+ "ap:0010": {
+  "shown": "48&ndash;29",
+  "source": "MFL leagueStandings",
+  "value": "48-29"
+ },
+ "ap:0011": {
+  "shown": "34&ndash;43",
+  "source": "MFL leagueStandings",
+  "value": "34-43"
+ },
+ "ap:0012": {
+  "shown": "42&ndash;35",
+  "source": "MFL leagueStandings",
+  "value": "42-35"
+ },
+ "box:Joe Burrow": {
+  "shown": "22-of-30 for 292, 4 TD; 2 carries for 12",
+  "source": "pack playcard (nflverse box score)",
+  "value": "22-of-30 for 292, 4 TD; 2 carries for 12"
+ },
+ "box:Trey McBride": {
+  "shown": "10 catches on 13 targets for 111 and 1 TD",
+  "source": "pack playcard (nflverse box score)",
+  "value": "10 catches on 13 targets for 111 and 1 TD"
+ },
+ "count:candidates": {
+  "shown": "29",
+  "source": "D1 ups_discord_messages window (usable lines)",
+  "value": 29
+ },
+ "count:graded": {
+  "shown": "74",
+  "source": "D1 evidence (starters graded)",
+  "value": 74
+ },
+ "count:ungraded": {
+  "shown": "118",
+  "source": "D1 evidence (starters not graded)",
+  "value": 118
+ },
+ "diff:11757": {
+  "shown": "-4.6",
+  "source": "pack t.bb.idp.bust",
+  "value": "-4.6"
+ },
+ "diff:12620": {
+  "shown": "+15.2",
+  "source": "pack t.bb.off.bargain",
+  "value": "+15.2"
+ },
+ "diff:13116": {
+  "shown": "-8.4",
+  "source": "pack t.bb.off.bust",
+  "value": "-8.4"
+ },
+ "diff:14179": {
+  "shown": "-8.2",
+  "source": "pack t.bb.idp.bust",
+  "value": "-8.2"
+ },
+ "diff:14412": {
+  "shown": "+12.1",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+12.1"
+ },
+ "diff:15484": {
+  "shown": "-5.1",
+  "source": "pack t.bb.idp.bust",
+  "value": "-5.1"
+ },
+ "diff:15711": {
+  "shown": "-8.5",
+  "source": "pack t.bb.off.bust",
+  "value": "-8.5"
+ },
+ "diff:15756": {
+  "shown": "+16.8",
+  "source": "pack t.bb.off.bargain",
+  "value": "+16.8"
+ },
+ "diff:15794": {
+  "shown": "+17.3",
+  "source": "pack t.bb.off.bargain",
+  "value": "+17.3"
+ },
+ "diff:15799": {
+  "shown": "-7.1",
+  "source": "pack t.bb.off.bust",
+  "value": "-7.1"
+ },
+ "diff:15805": {
+  "shown": "+3.8",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+3.8"
+ },
+ "diff:15821": {
+  "shown": "+6.3",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+6.3"
+ },
+ "diff:15861": {
+  "shown": "-5.1",
+  "source": "pack t.bb.idp.bust",
+  "value": "-5.1"
+ },
+ "diff:16214": {
+  "shown": "-7.3",
+  "source": "pack t.bb.off.bust",
+  "value": "-7.3"
+ },
+ "diff:16230": {
+  "shown": "-4.3",
+  "source": "pack t.bb.idp.bust",
+  "value": "-4.3"
+ },
+ "diff:16239": {
+  "shown": "+2.8",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+2.8"
+ },
+ "diff:16244": {
+  "shown": "+2.7",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+2.7"
+ },
+ "diff:16287": {
+  "shown": "+15.2",
+  "source": "pack t.bb.off.bargain",
+  "value": "+15.2"
+ },
+ "diff:16582": {
+  "shown": "+17.4",
+  "source": "pack t.bb.off.bargain",
+  "value": "+17.4"
+ },
+ "diff:16620": {
+  "shown": "-11.0",
+  "source": "pack t.bb.off.bust",
+  "value": "-11.0"
+ },
+ "fact:f.grade.favorites": {
+  "shown": "17",
+  "source": "pack f.grade.favorites",
+  "value": 17
+ },
+ "fact:f.team.0002.best_available": {
+  "shown": "269.7",
+  "source": "pack f.team.0002.best_available",
+  "value": 269.7
+ },
+ "fact:f.team.0003.best_available": {
+  "shown": "201.5",
+  "source": "pack f.team.0003.best_available",
+  "value": 201.5
+ },
+ "fact:f.team.0010.best_available": {
+  "shown": "212.4",
+  "source": "pack f.team.0010.best_available",
+  "value": 212.4
+ },
+ "fact:f.team.0011.best_available": {
+  "shown": "217.5",
+  "source": "pack f.team.0011.best_available",
+  "value": 217.5
+ },
+ "grade:0": {
+  "shown": "Brian Cutting (85%) 236.1-171.7 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Brian Cutting (85%)",
+   "final": "236.1-171.7",
+   "game": "Brian Cutting vs Josh Martel"
+  }
+ },
+ "grade:1": {
+  "shown": "Bear Dunn (79%) 277.0-170.1 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Bear Dunn (79%)",
+   "final": "277.0-170.1",
+   "game": "Bear Dunn vs Matt Gerardi"
+  }
+ },
+ "grade:10": {
+  "shown": "Keith Creelman (66%) 202.9-128.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Keith Creelman (66%)",
+   "final": "202.9-128.9",
+   "game": "Keith Creelman vs Brian Cross"
+  }
+ },
+ "grade:11": {
+  "shown": "Eric Martel (65%) 263.6-166.8 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Eric Martel (65%)",
+   "final": "263.6-166.8",
+   "game": "Eric Martel vs Ryan Bousquet"
+  }
+ },
+ "grade:12": {
+  "shown": "Shawn Blake (58%) 193.9-194.7 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Shawn Blake (58%)",
+   "final": "193.9-194.7",
+   "game": "Shawn Blake vs Eric Mannila"
+  }
+ },
+ "grade:13": {
+  "shown": "Derrick Whitman (58%) 203.2-194.7 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Derrick Whitman (58%)",
+   "final": "203.2-194.7",
+   "game": "Derrick Whitman vs Eric Mannila"
+  }
+ },
+ "grade:14": {
+  "shown": "Eric Mannila (56%) 194.7-170.1 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Eric Mannila (56%)",
+   "final": "194.7-170.1",
+   "game": "Eric Mannila vs Matt Gerardi"
+  }
+ },
+ "grade:15": {
+  "shown": "Josh Martel (54%) 171.7-128.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Josh Martel (54%)",
+   "final": "171.7-128.9",
+   "game": "Josh Martel vs Brian Cross"
+  }
+ },
+ "grade:16": {
+  "shown": "Chris Klingenberg (53%) 217.3-193.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Chris Klingenberg (53%)",
+   "final": "217.3-193.9",
+   "game": "Chris Klingenberg vs Shawn Blake"
+  }
+ },
+ "grade:17": {
+  "shown": "Chris Klingenberg (52%) 217.3-203.2 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Chris Klingenberg (52%)",
+   "final": "217.3-203.2",
+   "game": "Chris Klingenberg vs Derrick Whitman"
+  }
+ },
+ "grade:2": {
+  "shown": "Brian Cutting (77%) 236.1-202.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Brian Cutting (77%)",
+   "final": "236.1-202.9",
+   "game": "Brian Cutting vs Keith Creelman"
+  }
+ },
+ "grade:3": {
+  "shown": "Eric Martel (77%) 263.6-171.7 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Eric Martel (77%)",
+   "final": "263.6-171.7",
+   "game": "Eric Martel vs Josh Martel"
+  }
+ },
+ "grade:4": {
+  "shown": "Brian Cutting (76%) 236.1-166.8 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Brian Cutting (76%)",
+   "final": "236.1-166.8",
+   "game": "Brian Cutting vs Ryan Bousquet"
+  }
+ },
+ "grade:5": {
+  "shown": "Chris Klingenberg (67%) 217.3-170.1 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Chris Klingenberg (67%)",
+   "final": "217.3-170.1",
+   "game": "Chris Klingenberg vs Matt Gerardi"
+  }
+ },
+ "grade:6": {
+  "shown": "Bear Dunn (67%) 277.0-193.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Bear Dunn (67%)",
+   "final": "277.0-193.9",
+   "game": "Bear Dunn vs Shawn Blake"
+  }
+ },
+ "grade:7": {
+  "shown": "Bear Dunn (66%) 277.0-203.2 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Bear Dunn (66%)",
+   "final": "277.0-203.2",
+   "game": "Bear Dunn vs Derrick Whitman"
+  }
+ },
+ "grade:8": {
+  "shown": "Ryan Bousquet (66%) 166.8-128.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Ryan Bousquet (66%)",
+   "final": "166.8-128.9",
+   "game": "Ryan Bousquet vs Brian Cross"
+  }
+ },
+ "grade:9": {
+  "shown": "Eric Martel (66%) 263.6-202.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Eric Martel (66%)",
+   "final": "263.6-202.9",
+   "game": "Eric Martel vs Keith Creelman"
+  }
+ },
+ "heat:ap3:0001": {
+  "shown": "11&ndash;22",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "11-22"
+ },
+ "heat:ap3:0002": {
+  "shown": "22&ndash;11",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "22-11"
+ },
+ "heat:ap3:0003": {
+  "shown": "4&ndash;29",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "4-29"
+ },
+ "heat:ap3:0004": {
+  "shown": "26&ndash;7",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "26-7"
+ },
+ "heat:ap3:0005": {
+  "shown": "22&ndash;11",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "22-11"
+ },
+ "heat:ap3:0006": {
+  "shown": "13&ndash;20",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "13-20"
+ },
+ "heat:ap3:0007": {
+  "shown": "5&ndash;28",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "5-28"
+ },
+ "heat:ap3:0008": {
+  "shown": "17&ndash;16",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "17-16"
+ },
+ "heat:ap3:0009": {
+  "shown": "33&ndash;0",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "33-0"
+ },
+ "heat:ap3:0010": {
+  "shown": "16&ndash;17",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "16-17"
+ },
+ "heat:ap3:0011": {
+  "shown": "12&ndash;21",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "12-21"
+ },
+ "heat:ap3:0012": {
+  "shown": "17&ndash;16",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "17-16"
+ },
+ "heat:ap:0001": {
+  "shown": "24&ndash;53",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "24-53"
+ },
+ "heat:ap:0002": {
+  "shown": "49&ndash;28",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "49-28"
+ },
+ "heat:ap:0003": {
+  "shown": "20&ndash;57",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "20-57"
+ },
+ "heat:ap:0004": {
+  "shown": "48&ndash;29",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "48-29"
+ },
+ "heat:ap:0005": {
+  "shown": "56&ndash;21",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "56-21"
+ },
+ "heat:ap:0006": {
+  "shown": "21&ndash;56",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "21-56"
+ },
+ "heat:ap:0007": {
+  "shown": "14&ndash;63",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "14-63"
+ },
+ "heat:ap:0008": {
+  "shown": "39&ndash;38",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "39-38"
+ },
+ "heat:ap:0009": {
+  "shown": "67&ndash;10",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "67-10"
+ },
+ "heat:ap:0010": {
+  "shown": "48&ndash;29",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "48-29"
+ },
+ "heat:ap:0011": {
+  "shown": "34&ndash;43",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "34-43"
+ },
+ "heat:ap:0012": {
+  "shown": "42&ndash;35",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": "42-35"
+ },
+ "heat:bench:0001": {
+  "shown": "23.2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 23.2
+ },
+ "heat:bench:0002": {
+  "shown": "29.5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 29.5
+ },
+ "heat:bench:0003": {
+  "shown": "25.6",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 25.6
+ },
+ "heat:bench:0004": {
+  "shown": "44.0",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 44.0
+ },
+ "heat:bench:0005": {
+  "shown": "35.3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 35.3
+ },
+ "heat:bench:0006": {
+  "shown": "18.2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 18.2
+ },
+ "heat:bench:0007": {
+  "shown": "23.8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 23.8
+ },
+ "heat:bench:0008": {
+  "shown": "26.9",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 26.9
+ },
+ "heat:bench:0009": {
+  "shown": "25.9",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 25.9
+ },
+ "heat:bench:0010": {
+  "shown": "25.4",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 25.4
+ },
+ "heat:bench:0011": {
+  "shown": "27.7",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 27.7
+ },
+ "heat:bench:0012": {
+  "shown": "33.5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 33.5
+ },
+ "heat:losses:0001": {
+  "shown": "12",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 12
+ },
+ "heat:losses:0002": {
+  "shown": "8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 8
+ },
+ "heat:losses:0003": {
+  "shown": "16",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 16
+ },
+ "heat:losses:0004": {
+  "shown": "8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 8
+ },
+ "heat:losses:0005": {
+  "shown": "5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 5
+ },
+ "heat:losses:0006": {
+  "shown": "14",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 14
+ },
+ "heat:losses:0007": {
+  "shown": "15",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 15
+ },
+ "heat:losses:0008": {
+  "shown": "9",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 9
+ },
+ "heat:losses:0009": {
+  "shown": "2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 2
+ },
+ "heat:losses:0010": {
+  "shown": "10",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 10
+ },
+ "heat:losses:0011": {
+  "shown": "8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 8
+ },
+ "heat:losses:0012": {
+  "shown": "7",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 7
+ },
+ "heat:lostBest:0001": {
+  "shown": "3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 3
+ },
+ "heat:lostBest:0002": {
+  "shown": "4",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 4
+ },
+ "heat:lostBest:0003": {
+  "shown": "5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 5
+ },
+ "heat:lostBest:0004": {
+  "shown": "5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 5
+ },
+ "heat:lostBest:0005": {
+  "shown": "3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 3
+ },
+ "heat:lostBest:0006": {
+  "shown": "3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 3
+ },
+ "heat:lostBest:0007": {
+  "shown": "4",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 4
+ },
+ "heat:lostBest:0008": {
+  "shown": "3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 3
+ },
+ "heat:lostBest:0009": {
+  "shown": "2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 2
+ },
+ "heat:lostBest:0010": {
+  "shown": "5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 5
+ },
+ "heat:lostBest:0011": {
+  "shown": "4",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 4
+ },
+ "heat:lostBest:0012": {
+  "shown": "2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 2
+ },
+ "heat:luck:0001": {
+  "shown": "+1.1",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 1.1
+ },
+ "heat:luck:0002": {
+  "shown": "&minus;1.1",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": -1.1
+ },
+ "heat:luck:0003": {
+  "shown": "&minus;1.5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": -1.5
+ },
+ "heat:luck:0004": {
+  "shown": "&minus;0.8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": -0.8
+ },
+ "heat:luck:0005": {
+  "shown": "+0.5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 0.5
+ },
+ "heat:luck:0006": {
+  "shown": "&minus;0.4",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": -0.4
+ },
+ "heat:luck:0007": {
+  "shown": "+0.8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 0.8
+ },
+ "heat:luck:0008": {
+  "shown": "+0.3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 0.3
+ },
+ "heat:luck:0009": {
+  "shown": "&minus;0.1",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": -0.1
+ },
+ "heat:luck:0010": {
+  "shown": "&minus;3.1",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": -3.1
+ },
+ "heat:luck:0011": {
+  "shown": "+3.2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 3.2
+ },
+ "heat:luck:0012": {
+  "shown": "+1.2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 1.2
+ },
+ "heat:rkFirst:0001": {
+  "shown": "11th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 11
+ },
+ "heat:rkFirst:0002": {
+  "shown": "4th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 4
+ },
+ "heat:rkFirst:0003": {
+  "shown": "9th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 9
+ },
+ "heat:rkFirst:0004": {
+  "shown": "5th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 5
+ },
+ "heat:rkFirst:0005": {
+  "shown": "2nd",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 2
+ },
+ "heat:rkFirst:0006": {
+  "shown": "10th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 10
+ },
+ "heat:rkFirst:0007": {
+  "shown": "12th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 12
+ },
+ "heat:rkFirst:0008": {
+  "shown": "7th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 7
+ },
+ "heat:rkFirst:0009": {
+  "shown": "1st",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 1
+ },
+ "heat:rkFirst:0010": {
+  "shown": "3rd",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 3
+ },
+ "heat:rkFirst:0011": {
+  "shown": "6th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 6
+ },
+ "heat:rkFirst:0012": {
+  "shown": "8th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 8
+ },
+ "heat:rkLast:0001": {
+  "shown": "8th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 8
+ },
+ "heat:rkLast:0002": {
+  "shown": "4th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 4
+ },
+ "heat:rkLast:0003": {
+  "shown": "11th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 11
+ },
+ "heat:rkLast:0004": {
+  "shown": "2nd",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 2
+ },
+ "heat:rkLast:0005": {
+  "shown": "3rd",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 3
+ },
+ "heat:rkLast:0006": {
+  "shown": "10th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 10
+ },
+ "heat:rkLast:0007": {
+  "shown": "12th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 12
+ },
+ "heat:rkLast:0008": {
+  "shown": "5th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 5
+ },
+ "heat:rkLast:0009": {
+  "shown": "1st",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 1
+ },
+ "heat:rkLast:0010": {
+  "shown": "6th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 6
+ },
+ "heat:rkLast:0011": {
+  "shown": "9th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 9
+ },
+ "heat:rkLast:0012": {
+  "shown": "7th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-7",
+  "value": 7
+ },
+ "hist:apMade:0001": {
+  "shown": "3",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 3
+ },
+ "hist:apMade:0002": {
+  "shown": "20",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 20
+ },
+ "hist:apMade:0003": {
+  "shown": "2",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 2
+ },
+ "hist:apMade:0004": {
+  "shown": "20",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 20
+ },
+ "hist:apMade:0005": {
+  "shown": "18",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:apMade:0006": {
+  "shown": "3",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 3
+ },
+ "hist:apMade:0007": {
+  "shown": "2",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 2
+ },
+ "hist:apMade:0008": {
+  "shown": "4",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 4
+ },
+ "hist:apMade:0009": {
+  "shown": "18",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:apMade:0010": {
+  "shown": "20",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 20
+ },
+ "hist:apMade:0011": {
+  "shown": "4",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 4
+ },
+ "hist:apMade:0012": {
+  "shown": "7",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 7
+ },
+ "hist:apN:0001": {
+  "shown": "16",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:apN:0002": {
+  "shown": "22",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 22
+ },
+ "hist:apN:0003": {
+  "shown": "16",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:apN:0004": {
+  "shown": "22",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 22
+ },
+ "hist:apN:0005": {
+  "shown": "19",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 19
+ },
+ "hist:apN:0006": {
+  "shown": "16",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:apN:0007": {
+  "shown": "16",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:apN:0008": {
+  "shown": "20",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 20
+ },
+ "hist:apN:0009": {
+  "shown": "19",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 19
+ },
+ "hist:apN:0010": {
+  "shown": "22",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 22
+ },
+ "hist:apN:0011": {
+  "shown": "20",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 20
+ },
+ "hist:apN:0012": {
+  "shown": "15",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 15
+ },
+ "hist:winMade:0001": {
+  "shown": "5",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 5
+ },
+ "hist:winMade:0002": {
+  "shown": "5",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 5
+ },
+ "hist:winMade:0003": {
+  "shown": "0",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 0
+ },
+ "hist:winMade:0004": {
+  "shown": "5",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 5
+ },
+ "hist:winMade:0005": {
+  "shown": "16",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:winMade:0006": {
+  "shown": "0",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 0
+ },
+ "hist:winMade:0007": {
+  "shown": "0",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 0
+ },
+ "hist:winMade:0008": {
+  "shown": "5",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 5
+ },
+ "hist:winMade:0009": {
+  "shown": "4",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 4
+ },
+ "hist:winMade:0010": {
+  "shown": "5",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 5
+ },
+ "hist:winMade:0011": {
+  "shown": "5",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 5
+ },
+ "hist:winMade:0012": {
+  "shown": "16",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:winN:0001": {
+  "shown": "19",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 19
+ },
+ "hist:winN:0002": {
+  "shown": "12",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 12
+ },
+ "hist:winN:0003": {
+  "shown": "8",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 8
+ },
+ "hist:winN:0004": {
+  "shown": "12",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 12
+ },
+ "hist:winN:0005": {
+  "shown": "17",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 17
+ },
+ "hist:winN:0006": {
+  "shown": "8",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 8
+ },
+ "hist:winN:0007": {
+  "shown": "8",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 8
+ },
+ "hist:winN:0008": {
+  "shown": "12",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 12
+ },
+ "hist:winN:0009": {
+  "shown": "4",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 4
+ },
+ "hist:winN:0010": {
+  "shown": "12",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 12
+ },
+ "hist:winN:0011": {
+  "shown": "12",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 12
+ },
+ "hist:winN:0012": {
+  "shown": "17",
+  "source": "D1 weeks 1-7 of 2017-2025 + /api/playoff-bracket",
+  "value": 17
+ },
+ "margin:0001:0006": {
+  "shown": "37.9",
+  "source": "MFL weeklyResults W7",
+  "value": 37.9
+ },
+ "margin:0002:0011": {
+  "shown": "8.5",
+  "source": "MFL weeklyResults W7",
+  "value": 8.5
+ },
+ "margin:0004:0001": {
+  "shown": "69.3",
+  "source": "MFL weeklyResults W7",
+  "value": 69.3
+ },
+ "margin:0004:0007": {
+  "shown": "64.4",
+  "source": "MFL weeklyResults W7",
+  "value": 64.4
+ },
+ "margin:0004:0008": {
+  "shown": "33.2",
+  "source": "MFL weeklyResults W7",
+  "value": 33.2
+ },
+ "margin:0005:0001": {
+  "shown": "96.8",
+  "source": "MFL weeklyResults W7",
+  "value": 96.8
+ },
+ "margin:0005:0007": {
+  "shown": "91.9",
+  "source": "MFL weeklyResults W7",
+  "value": 91.9
+ },
+ "margin:0005:0008": {
+  "shown": "60.7",
+  "source": "MFL weeklyResults W7",
+  "value": 60.7
+ },
+ "margin:0007:0006": {
+  "shown": "42.8",
+  "source": "MFL weeklyResults W7",
+  "value": 42.8
+ },
+ "margin:0008:0006": {
+  "shown": "74.0",
+  "source": "MFL weeklyResults W7",
+  "value": 74.0
+ },
+ "margin:0009:0002": {
+  "shown": "73.8",
+  "source": "MFL weeklyResults W7",
+  "value": 73.8
+ },
+ "margin:0009:0003": {
+  "shown": "106.9",
+  "source": "MFL weeklyResults W7",
+  "value": 106.9
+ },
+ "margin:0009:0010": {
+  "shown": "83.1",
+  "source": "MFL weeklyResults W7",
+  "value": 83.1
+ },
+ "margin:0011:0003": {
+  "shown": "24.6",
+  "source": "MFL weeklyResults W7",
+  "value": 24.6
+ },
+ "margin:0011:0010": {
+  "shown": "0.8",
+  "source": "MFL weeklyResults W7",
+  "value": 0.8
+ },
+ "margin:0012:0002": {
+  "shown": "14.1",
+  "source": "MFL weeklyResults W7",
+  "value": 14.1
+ },
+ "margin:0012:0003": {
+  "shown": "47.2",
+  "source": "MFL weeklyResults W7",
+  "value": 47.2
+ },
+ "margin:0012:0010": {
+  "shown": "23.4",
+  "source": "MFL weeklyResults W7",
+  "value": 23.4
+ },
+ "odds:bye:0001": {
+  "shown": "0.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.0
+ },
+ "odds:bye:0002": {
+  "shown": "2.9%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 2.9
+ },
+ "odds:bye:0003": {
+  "shown": "0.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.0
+ },
+ "odds:bye:0004": {
+  "shown": "33.3%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 33.3
+ },
+ "odds:bye:0005": {
+  "shown": "57.1%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 57.1
+ },
+ "odds:bye:0006": {
+  "shown": "0.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.0
+ },
+ "odds:bye:0007": {
+  "shown": "0.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.0
+ },
+ "odds:bye:0008": {
+  "shown": "0.9%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.9
+ },
+ "odds:bye:0009": {
+  "shown": "97.7%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 97.7
+ },
+ "odds:bye:0010": {
+  "shown": "7.3%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 7.3
+ },
+ "odds:bye:0011": {
+  "shown": "0.1%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.1
+ },
+ "odds:bye:0012": {
+  "shown": "0.7%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.7
+ },
+ "odds:div:0001": {
+  "shown": "16.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 16.0
+ },
+ "odds:div:0002": {
+  "shown": "50.1%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 50.1
+ },
+ "odds:div:0003": {
+  "shown": "0.3%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 0.3
+ },
+ "odds:div:0004": {
+  "shown": "36.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 36.0
+ },
+ "odds:div:0005": {
+  "shown": "64.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 64.0
+ },
+ "odds:div:0006": {
+  "shown": "0.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 0.0
+ },
+ "odds:div:0007": {
+  "shown": "0.5%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 0.5
+ },
+ "odds:div:0008": {
+  "shown": "83.5%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 83.5
+ },
+ "odds:div:0009": {
+  "shown": "98.8%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 98.8
+ },
+ "odds:div:0010": {
+  "shown": "49.6%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 49.6
+ },
+ "odds:div:0011": {
+  "shown": "0.3%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 0.3
+ },
+ "odds:div:0012": {
+  "shown": "0.9%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder by division",
+  "value": 0.9
+ },
+ "odds:po:0001": {
+  "shown": "16.5%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 16.5
+ },
+ "odds:po:0002": {
+  "shown": "69.9%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 69.9
+ },
+ "odds:po:0003": {
+  "shown": "0.5%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.5
+ },
+ "odds:po:0004": {
+  "shown": "98.3%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 98.3
+ },
+ "odds:po:0005": {
+  "shown": "98.8%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 98.8
+ },
+ "odds:po:0006": {
+  "shown": "0.2%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.2
+ },
+ "odds:po:0007": {
+  "shown": "0.5%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 0.5
+ },
+ "odds:po:0008": {
+  "shown": "84.2%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 84.2
+ },
+ "odds:po:0009": {
+  "shown": "100.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 100.0
+ },
+ "odds:po:0010": {
+  "shown": "80.5%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 80.5
+ },
+ "odds:po:0011": {
+  "shown": "8.5%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 8.5
+ },
+ "odds:po:0012": {
+  "shown": "42.3%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 42.3
+ },
+ "odds:runs": {
+  "shown": "10,000",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z)",
+  "value": 10000
+ },
+ "odds:title:0001": {
+  "shown": "0.6%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 0.6
+ },
+ "odds:title:0002": {
+  "shown": "3.9%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 3.9
+ },
+ "odds:title:0003": {
+  "shown": "0.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 0.0
+ },
+ "odds:title:0004": {
+  "shown": "31.9%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 31.9
+ },
+ "odds:title:0005": {
+  "shown": "17.4%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 17.4
+ },
+ "odds:title:0006": {
+  "shown": "0.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 0.0
+ },
+ "odds:title:0007": {
+  "shown": "0.0%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 0.0
+ },
+ "odds:title:0008": {
+  "shown": "4.1%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 4.1
+ },
+ "odds:title:0009": {
+  "shown": "31.7%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 31.7
+ },
+ "odds:title:0010": {
+  "shown": "7.6%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 7.6
+ },
+ "odds:title:0011": {
+  "shown": "0.5%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 0.5
+ },
+ "odds:title:0012": {
+  "shown": "2.3%",
+  "source": "season_sim live wk07 (10000 runs, 2026-10-27T14:02:48Z), largest-remainder",
+  "value": 2.3
+ },
+ "pf:0001": {
+  "shown": "1,331.3",
+  "source": "MFL leagueStandings",
+  "value": 1331.3
+ },
+ "pf:0002": {
+  "shown": "1,563.5",
+  "source": "MFL leagueStandings",
+  "value": 1563.5
+ },
+ "pf:0003": {
+  "shown": "1,297.6",
+  "source": "MFL leagueStandings",
+  "value": 1297.6
+ },
+ "pf:0004": {
+  "shown": "1,599.9",
+  "source": "MFL leagueStandings",
+  "value": 1599.9
+ },
+ "pf:0005": {
+  "shown": "1,682.6",
+  "source": "MFL leagueStandings",
+  "value": 1682.6
+ },
+ "pf:0006": {
+  "shown": "1,337.4",
+  "source": "MFL leagueStandings",
+  "value": 1337.4
+ },
+ "pf:0007": {
+  "shown": "1,254.3",
+  "source": "MFL leagueStandings",
+  "value": 1254.3
+ },
+ "pf:0008": {
+  "shown": "1,511.4",
+  "source": "MFL leagueStandings",
+  "value": 1511.4
+ },
+ "pf:0009": {
+  "shown": "1,841.6",
+  "source": "MFL leagueStandings",
+  "value": 1841.6
+ },
+ "pf:0010": {
+  "shown": "1,613.1",
+  "source": "MFL leagueStandings",
+  "value": 1613.1
+ },
+ "pf:0011": {
+  "shown": "1,440.5",
+  "source": "MFL leagueStandings",
+  "value": 1440.5
+ },
+ "pf:0012": {
+  "shown": "1,442.7",
+  "source": "MFL leagueStandings",
+  "value": 1442.7
+ },
+ "posts:Bear Dunn": {
+  "shown": "1",
+  "source": "D1 ups_discord_messages window",
+  "value": 1
+ },
+ "posts:Brian Cross": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Brian Cutting": {
+  "shown": "5",
+  "source": "D1 ups_discord_messages window",
+  "value": 5
+ },
+ "posts:Chris Klingenberg": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Derrick Whitman": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Eric Mannila": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Eric Martel": {
+  "shown": "6",
+  "source": "D1 ups_discord_messages window",
+  "value": 6
+ },
+ "posts:Josh Martel": {
+  "shown": "13",
+  "source": "D1 ups_discord_messages window",
+  "value": 13
+ },
+ "posts:Keith Creelman": {
+  "shown": "3",
+  "source": "D1 ups_discord_messages window",
+  "value": 3
+ },
+ "posts:Matt Gerardi": {
+  "shown": "0",
+  "source": "D1 ups_discord_messages window",
+  "value": 0
+ },
+ "posts:Ryan Bousquet": {
+  "shown": "2",
+  "source": "D1 ups_discord_messages window",
+  "value": 2
+ },
+ "posts:Shawn Blake": {
+  "shown": "7",
+  "source": "D1 ups_discord_messages window",
+  "value": 7
+ },
+ "posts:total": {
+  "shown": "37",
+  "source": "D1 ups_discord_messages window",
+  "value": 37
+ },
+ "proj:11757": {
+  "shown": "6.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792959900,
+   "value": 6.1
+  }
+ },
+ "proj:12620": {
+  "shown": "16.7",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1793060100,
+   "value": 16.7
+  }
+ },
+ "proj:13116": {
+  "shown": "16.0",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792974000,
+   "value": 16.0
+  }
+ },
+ "proj:14179": {
+  "shown": "9.5",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792974000,
+   "value": 9.5
+  }
+ },
+ "proj:14412": {
+  "shown": "8.4",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792958700,
+   "value": 8.4
+  }
+ },
+ "proj:15484": {
+  "shown": "5.6",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792958700,
+   "value": 5.6
+  }
+ },
+ "proj:15711": {
+  "shown": "17.8",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792974000,
+   "value": 17.8
+  }
+ },
+ "proj:15756": {
+  "shown": "10.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792959900,
+   "value": 10.1
+  }
+ },
+ "proj:15794": {
+  "shown": "17.6",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792958700,
+   "value": 17.6
+  }
+ },
+ "proj:15799": {
+  "shown": "7.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1793060100,
+   "value": 7.1
+  }
+ },
+ "proj:15805": {
+  "shown": "6.7",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792959900,
+   "value": 6.7
+  }
+ },
+ "proj:15821": {
+  "shown": "6.7",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792959900,
+   "value": 6.7
+  }
+ },
+ "proj:15861": {
+  "shown": "7.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792958700,
+   "value": 7.1
+  }
+ },
+ "proj:16214": {
+  "shown": "10.8",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792959900,
+   "value": 10.8
+  }
+ },
+ "proj:16230": {
+  "shown": "4.8",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792959900,
+   "value": 4.8
+  }
+ },
+ "proj:16239": {
+  "shown": "6.7",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792959900,
+   "value": 6.7
+  }
+ },
+ "proj:16244": {
+  "shown": "6.5",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792959900,
+   "value": 6.5
+  }
+ },
+ "proj:16287": {
+  "shown": "8.9",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792959900,
+   "value": 8.9
+  }
+ },
+ "proj:16582": {
+  "shown": "14.6",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792958700,
+   "value": 14.6
+  }
+ },
+ "proj:16620": {
+  "shown": "15.3",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1792951446,
+   "kickoff": 1792974000,
+   "value": 15.3
+  }
+ },
+ "pts:Aaron Donald": {
+  "shown": "1.5",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 1.5
+ },
+ "pts:Aidan Hutchinson": {
+  "shown": "10.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 10.5
+ },
+ "pts:Alex Singleton": {
+  "shown": "20.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 20.5
+ },
+ "pts:Bo Nix": {
+  "shown": "32.0",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 32.0
+ },
+ "pts:Brian Branch": {
+  "shown": "9.2",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 9.2
+ },
+ "pts:Dak Prescott": {
+  "shown": "31.9",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 31.9
+ },
+ "pts:Drake Maye": {
+  "shown": "34.7",
+  "source": "pack t.performers (src_weekly)",
+  "value": 34.7
+ },
+ "pts:Jack Campbell": {
+  "shown": "9.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 9.5
+ },
+ "pts:Jake Ferguson": {
+  "shown": "0.0",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 0.0
+ },
+ "pts:Jameson Williams": {
+  "shown": "26.9",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 26.9
+ },
+ "pts:Jaxon Smith-Njigba": {
+  "shown": "35.9",
+  "source": "pack t.performers (src_weekly)",
+  "value": 35.9
+ },
+ "pts:Joe Burrow": {
+  "shown": "38.7",
+  "source": "pack playcard (src_weekly)",
+  "value": 38.7
+ },
+ "pts:Jonathon Cooper": {
+  "shown": "0.5",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 0.5
+ },
+ "pts:Julian Love": {
+  "shown": "1.3",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 1.3
+ },
+ "pts:Kenneth Walker III": {
+  "shown": "9.3",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 9.3
+ },
+ "pts:Lukas Van Ness": {
+  "shown": "0.5",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 0.5
+ },
+ "pts:Nakobe Dean": {
+  "shown": "13.0",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 13.0
+ },
+ "pts:Nik Bonitto": {
+  "shown": "2.0",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 2.0
+ },
+ "pts:Patrick Mahomes": {
+  "shown": "7.6",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 7.6
+ },
+ "pts:Sam LaPorta": {
+  "shown": "3.5",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 3.5
+ },
+ "pts:Tre Tucker": {
+  "shown": "24.1",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 24.1
+ },
+ "pts:Trey McBride": {
+  "shown": "34.9",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 34.9
+ },
+ "pts:Xavier Worthy": {
+  "shown": "4.3",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 4.3
+ },
+ "rec:0001": {
+  "shown": "7&ndash;12",
+  "source": "MFL leagueStandings",
+  "value": "7-12"
+ },
+ "rec:0002": {
+  "shown": "11&ndash;8",
+  "source": "MFL leagueStandings",
+  "value": "11-8"
+ },
+ "rec:0003": {
+  "shown": "3&ndash;16",
+  "source": "MFL leagueStandings",
+  "value": "3-16"
+ },
+ "rec:0004": {
+  "shown": "11&ndash;8",
+  "source": "MFL leagueStandings",
+  "value": "11-8"
+ },
+ "rec:0005": {
+  "shown": "14&ndash;5",
+  "source": "MFL leagueStandings",
+  "value": "14-5"
+ },
+ "rec:0006": {
+  "shown": "5&ndash;14",
+  "source": "MFL leagueStandings",
+  "value": "5-14"
+ },
+ "rec:0007": {
+  "shown": "4&ndash;15",
+  "source": "MFL leagueStandings",
+  "value": "4-15"
+ },
+ "rec:0008": {
+  "shown": "10&ndash;9",
+  "source": "MFL leagueStandings",
+  "value": "10-9"
+ },
+ "rec:0009": {
+  "shown": "17&ndash;2",
+  "source": "MFL leagueStandings",
+  "value": "17-2"
+ },
+ "rec:0010": {
+  "shown": "9&ndash;10",
+  "source": "MFL leagueStandings",
+  "value": "9-10"
+ },
+ "rec:0011": {
+  "shown": "11&ndash;8",
+  "source": "MFL leagueStandings",
+  "value": "11-8"
+ },
+ "rec:0012": {
+  "shown": "12&ndash;7",
+  "source": "MFL leagueStandings",
+  "value": "12-7"
+ },
+ "rule:c25": {
+  "shown": "25",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 25
+ },
+ "rule:c60": {
+  "shown": "60",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 60
+ },
+ "rule:c8": {
+  "shown": "8",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 8
+ },
+ "rule:c90": {
+  "shown": "90",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 90
+ },
+ "rule:dom": {
+  "shown": "28",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 28
+ },
+ "rule:of": {
+  "shown": "33",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 33
+ },
+ "rule:sink": {
+  "shown": "5",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 5
+ },
+ "score:0001": {
+  "shown": "166.8",
+  "source": "MFL weeklyResults W7",
+  "value": 166.8
+ },
+ "score:0002": {
+  "shown": "203.2",
+  "source": "MFL weeklyResults W7",
+  "value": 203.2
+ },
+ "score:0003": {
+  "shown": "170.1",
+  "source": "MFL weeklyResults W7",
+  "value": 170.1
+ },
+ "score:0004": {
+  "shown": "236.1",
+  "source": "MFL weeklyResults W7",
+  "value": 236.1
+ },
+ "score:0005": {
+  "shown": "263.6",
+  "source": "MFL weeklyResults W7",
+  "value": 263.6
+ },
+ "score:0006": {
+  "shown": "128.9",
+  "source": "MFL weeklyResults W7",
+  "value": 128.9
+ },
+ "score:0007": {
+  "shown": "171.7",
+  "source": "MFL weeklyResults W7",
+  "value": 171.7
+ },
+ "score:0008": {
+  "shown": "202.9",
+  "source": "MFL weeklyResults W7",
+  "value": 202.9
+ },
+ "score:0009": {
+  "shown": "277.0",
+  "source": "MFL weeklyResults W7",
+  "value": 277.0
+ },
+ "score:0010": {
+  "shown": "193.9",
+  "source": "MFL weeklyResults W7",
+  "value": 193.9
+ },
+ "score:0011": {
+  "shown": "194.7",
+  "source": "MFL weeklyResults W7",
+  "value": 194.7
+ },
+ "score:0012": {
+  "shown": "217.3",
+  "source": "MFL weeklyResults W7",
+  "value": 217.3
+ },
+ "usage:Bo Nix": {
+  "shown": "29 passes, 322 air yards, 7 carries",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "29 passes, 322 air yards, 7 carries"
+ },
+ "usage:Dak Prescott": {
+  "shown": "27 passes, 350 air yards, 2 carries",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "27 passes, 350 air yards, 2 carries"
+ },
+ "usage:Jake Ferguson": {
+  "shown": "1 target, 9 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "1 target, 9 air yards"
+ },
+ "usage:Jameson Williams": {
+  "shown": "9 targets, 89 air yards",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "9 targets, 89 air yards"
+ },
+ "usage:Kenneth Walker III": {
+  "shown": "14 carries, 5 targets",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "14 carries, 5 targets"
+ },
+ "usage:Patrick Mahomes": {
+  "shown": "33 passes, 156 air yards, 2 carries",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "33 passes, 156 air yards, 2 carries"
+ },
+ "usage:Sam LaPorta": {
+  "shown": "2 targets, 11 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "2 targets, 11 air yards"
+ },
+ "usage:Tre Tucker": {
+  "shown": "12 targets, 99 air yards",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "12 targets, 99 air yards"
+ },
+ "usage:Trey McBride": {
+  "shown": "13 targets, 106 air yards",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "13 targets, 106 air yards"
+ },
+ "usage:Xavier Worthy": {
+  "shown": "6 targets, 65 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "6 targets, 65 air yards"
+ },
+ "wkap:0001": {
+  "shown": "1&ndash;10",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "1-10"
+ },
+ "wkap:0002": {
+  "shown": "7&ndash;4",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "7-4"
+ },
+ "wkap:0003": {
+  "shown": "2&ndash;9",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "2-9"
+ },
+ "wkap:0004": {
+  "shown": "9&ndash;2",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "9-2"
+ },
+ "wkap:0005": {
+  "shown": "10&ndash;1",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "10-1"
+ },
+ "wkap:0006": {
+  "shown": "0&ndash;11",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "0-11"
+ },
+ "wkap:0007": {
+  "shown": "3&ndash;8",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "3-8"
+ },
+ "wkap:0008": {
+  "shown": "6&ndash;5",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "6-5"
+ },
+ "wkap:0009": {
+  "shown": "11&ndash;0",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "11-0"
+ },
+ "wkap:0010": {
+  "shown": "4&ndash;7",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "4-7"
+ },
+ "wkap:0011": {
+  "shown": "5&ndash;6",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "5-6"
+ },
+ "wkap:0012": {
+  "shown": "8&ndash;3",
+  "source": "MFL weeklyResults W7 (all-play)",
+  "value": "8-3"
+ }
+}
