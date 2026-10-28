@@ -1174,7 +1174,7 @@
       },
       {
         "details": "Undisclosed",
-        "exp_return": "Oct 11, 2026",
+        "exp_return": "Nov 1, 2026",
         "id": "15930",
         "status": "Questionable"
       },
@@ -2235,12 +2235,6 @@
         "status": "Questionable"
       },
       {
-        "details": "Undisclosed",
-        "exp_return": "Nov 1, 2026",
-        "id": "17434",
-        "status": "Questionable"
-      },
-      {
         "details": "Back",
         "exp_return": "Nov 1, 2026",
         "id": "17466",
@@ -2559,7 +2553,7 @@
         "status": "Questionable"
       }
     ],
-    "timestamp": "1793138465",
+    "timestamp": "1793196064",
     "week": "8"
   },
   "version": "1.0"
