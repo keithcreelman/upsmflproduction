@@ -642,7 +642,12 @@
   function renderBuilder(el) {
     var TB = root.UPS_FO_TRADE_BUILDER;
     var host = el.querySelector("#fo-tb-host");
-    if (host && host.__tbHandle) { host.__tbHandle.refresh(); return; }
+    if (host && host.__tbHandle) {
+      // The Offers chip can appear after the first paint (the write flag's code loads late): refresh the chip row only, never the builder.
+      var row = el.querySelector(".fo-choice-row");
+      if (row && !!row.querySelector('[data-tf-mode="offers"]') !== offersOn()) row.outerHTML = modeChips();
+      host.__tbHandle.refresh(); return;
+    }
     el.innerHTML = modeChips() + '<div id="fo-tb-host"></div>';
     host = el.querySelector("#fo-tb-host");
     if (!TB) { host.innerHTML = H.banner("The trade builder didn’t load. Reload to retry.", "warn"); return; }
