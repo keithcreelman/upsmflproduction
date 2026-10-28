@@ -82,8 +82,8 @@ test("version stamps changed with the files that changed", () => {
   t.ok(HTML.includes("fo_market.js?v=2026.10.27.3"), "fo_market.js (changed again by the Market choices revision)");
   // Roster → Schedule (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
   t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
-  for (const f of ["front_office.css", "fo_roster.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.2"), f + " (Schedule grid: players in rows, weeks in columns)");
-  t.ok(/var BUILD = "2026\.10\.28\.2";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  for (const f of ["front_office.css", "fo_roster.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.3"), f + " (Schedule grid: players in rows, weeks in columns; Rest of season scrolls)");
+  t.ok(/var BUILD = "2026\.10\.28\.3";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");
