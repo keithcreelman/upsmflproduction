@@ -7,7 +7,8 @@
    separately approved change (Keith's go, an authz and behavior review, and parity with every two- and three-team War Room
    rule). The Trade War Room link stays for sending. The ONE exception is behind the Front Office write flag
    (FO_TRADE_BUILDER_SEND, off everywhere; no production config defines it): when the Offers lifecycle
-   (fo_trade_offers.js) reports enabled(), the view gets a `sender` that hands the draft to it (the War Room's requests).
+   (fo_trade_offers.js) reports flagOn(), the view gets a `sender` that hands the draft to it (the War Room's requests); Send stays
+   disabled ("Loading…") until the lifecycle code has arrived (ready()).
 
    The draft is kept HERE (onDraft), so it survives the builder being re-mounted (Trade builder ↔ Trade finder) and opening/closing sections.
 
@@ -349,7 +350,8 @@
       sources: c.sources,
       debounceMs: c.debounceMs,                     // undefined = the view's default (tests set 0)
       // No send option unless the write flag is on (see the header): the lifecycle then owns the send.
-      sender: O && O.enabled() ? { enabled: true, noteLimit: function (n) { return n === 3 ? 500 : 2000; },
+      // Attached from the FIRST paint when the flag is on, so nothing remounts later; ready() is false (Send shows "Loading…") until the lifecycle code arrives.
+      sender: O && O.flagOn() ? { enabled: true, ready: function () { return O.enabled(); }, noteLimit: function (n) { return n === 3 ? 500 : 2000; },
         label: function () { return O._state && O._state.counterOf ? "Send counter" : "Send offer"; },
         send: function (d, note) { return O.sendDraft(d, note).then(function (r) { return { state: r.state, message: O._outcomeText(r), done: ["sent", "staged", "sent_three_team", "countered", "already_sent", "already_staged", "already_sent_three_team"].indexOf(r.state) !== -1 }; }); } } : null,
       warRoomUrl: ("warRoomUrl" in c) ? c.warRoomUrl : (FO.warRoomUrl ? FO.warRoomUrl({}) : "")

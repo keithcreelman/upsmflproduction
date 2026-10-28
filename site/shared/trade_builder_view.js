@@ -25,7 +25,8 @@
                  preview(body) -> Promise<json>, sources:{data,verdict}, warRoomUrl?, debounceMs,
                  initial?: { draft, label, dropped }   a draft to start from (kept by the adapter; ignored unless the viewer is its first team),
                  onDraft?(draft, { label, dropped })  called after every change, so the adapter can keep the draft across re-mounts,
-                 sender?: { enabled: true, send(draft, note) -> Promise<{ state, message, done }>, noteLimit(teamCount) -> n, label?() -> text }
+                 sender?: { enabled: true, send(draft, note) -> Promise<{ state, message, done }>, noteLimit(teamCount) -> n, label?() -> text,
+                           ready?() -> bool (false: Send disabled, "Loading…") }
                           (behind the Front Office write flag only; any other value is ignored) })
      handle: { loadDraft({ draft, label, dropped }), isEmpty(), draft(), state(), refresh(), factsChanged(), dialogAction(target) } */
 (function (root) {
@@ -394,15 +395,16 @@
     function noteMax() { return SENDER && typeof SENDER.noteLimit === "function" ? SENDER.noteLimit(draft.teams.length) : 500; }
     // Behind the write flag only: Send offer is enabled when the trade is complete and the server's check allows an attempt.
     function sendRow(gaps) {
-      var r = readiness(), can = !gaps.length && r.canAttempt && !st.sending;
-      var why = st.sending ? "Sending…" : gaps.length ? "Finish the trade to send it." : !r.canAttempt ? "Send opens once the server's check allows it." : "";
+      var loading = typeof SENDER.ready === "function" && !SENDER.ready();
+      var r = readiness(), can = !loading && !gaps.length && r.canAttempt && !st.sending;
+      var why = loading ? "Loading…" : st.sending ? "Sending…" : gaps.length ? "Finish the trade to send it." : !r.canAttempt ? "Send opens once the server's check allows it." : "";
       var label = typeof SENDER.label === "function" ? SENDER.label() : "Send offer";
       return '<p class="fo-tb-actions"><button type="button" class="btn fo-tb-send" data-go="send"' + (can ? "" : ' disabled aria-disabled="true"') + ' aria-describedby="fo-tb-send-off">' + esc(label) + "</button> " +
         '<span class="fo-tb-send-off" id="fo-tb-send-off">' + esc(why) + "</span></p>" +
         (st.outcome ? '<div class="fo-banner ' + (st.outcome.done ? "good" : "warn") + ' fo-tb-outcome" role="status" data-state="' + esc(st.outcome.state) + '">' + esc(st.outcome.message) + "</div>" : "");
     }
     function doSend() {
-      if (!SENDER || st.sending) return;
+      if (!SENDER || st.sending || (typeof SENDER.ready === "function" && !SENDER.ready())) return;
       var noteEl = el.querySelector && el.querySelector("[data-note]"); if (noteEl) st.note = noteEl.value;
       st.sending = true; st.outcome = null; render();
       Promise.resolve(SENDER.send(draft, st.note)).then(function (r) { return r || { state: "refused", message: "Nothing was sent." }; }, function () { return { state: "unconfirmed", message: "The connection dropped before the server answered. Check your sent offers." }; })

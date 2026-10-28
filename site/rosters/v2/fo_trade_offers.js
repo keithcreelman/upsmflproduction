@@ -326,7 +326,8 @@
     return true;
   }
 
-  root.UPS_FO_TRADE_OFFERS = { enabled: enabled, render: render, sendDraft: sendDraft, openLink: openLink, _state: st, _act: act, _dialogAction: dialogAction, _outcomeText: outcomeText,
+  // flagOn(): the config's write flag alone (known at first paint); enabled(): the flag AND its code has arrived.
+  root.UPS_FO_TRADE_OFFERS = { enabled: enabled, flagOn: function () { return flagOn(); }, render: render, sendDraft: sendDraft, openLink: openLink, _state: st, _act: act, _dialogAction: dialogAction, _outcomeText: outcomeText,
     _reset: function () { st.wr = null; st.wrState = "idle"; st.inbox = st.staged = st.three = st.result = st.last = st.counterOf = st.focus = null; st.acting = ""; st.busy = ""; } };
   // The lifecycle code (the War Room's generated request code, the state machines, the shared 3-way renderer; ~230 KB) is
   // fetched ONLY when the flag is on. Flag off: none of it is downloaded, and this file does nothing else.
