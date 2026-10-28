@@ -646,13 +646,15 @@
       // The Offers chip can appear after the first paint (the write flag's code loads late): refresh the chip row only, never the builder.
       var row = el.querySelector(".fo-choice-row");
       if (row && !!row.querySelector('[data-tf-mode="offers"]') !== offersOn()) row.outerHTML = modeChips();
+      // A builder mounted before that code loaded has no sender: mount it again (its draft is kept by the adapter).
+      if (host.__tbSender !== offersOn()) { host.__tbSender = offersOn(); host.__tbHandle = TB.mount(host); return; }
       host.__tbHandle.refresh(); return;
     }
     el.innerHTML = modeChips() + '<div id="fo-tb-host"></div>';
     host = el.querySelector("#fo-tb-host");
     if (!TB) { host.innerHTML = H.banner("The trade builder didn’t load. Reload to retry.", "warn"); return; }
     if (!FO.teams().length) { H.loading(host, "Reading rosters…"); return; }
-    host.__tbHandle = TB.mount(host);
+    host.__tbHandle = TB.mount(host); host.__tbSender = offersOn();
   }
 
   function wire() {

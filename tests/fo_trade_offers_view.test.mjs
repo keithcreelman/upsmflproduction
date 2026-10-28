@@ -86,6 +86,7 @@ test("FLAG OFF: nothing downloaded, nothing requested, no Offers view, sendDraft
   t.match(trades, /function modes\(\) \{ return offersOn\(\) \? MODES\.concat\(\[\["offers", "Offers"\]\]\) : MODES; \}/, "the Offers chip exists only when the flag is on");
   t.match(trades, /if \(mode === "offers" && !offersOn\(\)\) mode = "builder";/);
   t.match(trades, /if \(row && !!row\.querySelector\('\[data-tf-mode="offers"\]'\) !== offersOn\(\)\) row\.outerHTML = modeChips\(\);/, "a builder painted before the flag's code loaded gets the Offers chip without a re-mount");
+  t.match(trades, /if \(host\.__tbSender !== offersOn\(\)\) \{ host\.__tbSender = offersOn\(\); host\.__tbHandle = TB\.mount\(host\); return; \}/, "…and is mounted again so it gets the sender");
   const html = read("site/rosters/v2/front_office.html");
   t.ok(!/war_room_requests\.js|trade_offer_lifecycle\.js/.test(html), "the lifecycle code is not in the page; it is fetched only with the flag on");
   t.ok(!/FO_TRADE_BUILDER_SEND/.test(html + read("site/rosters/fo_embed_loader.js") + read("site/rosters/v2/front_office.js")), "no production page or loader defines the flag");
