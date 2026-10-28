@@ -49,7 +49,7 @@ import { resolveLoadedStatus } from "./contract_classification.js";
 import {
   executeCommishTwoPartyTrade, movementsForCompliance, injectCapTokens,
   fetchRosterSalaryMap, movementCapMaxK, unavailableCompliance, ledgerFor, capAckStoreFor,
-  toMflAsset, classifyLeg, assetIntegrityGate, ASSET_INTEGRITY_KINDS,
+  toMflAsset, classifyLeg, assetIntegrityGate, ASSET_INTEGRITY_KINDS, createCapBasis,
 } from "./trade_3way.js";
 
 const safeStr = (v) => String(v == null ? "" : v).trim();
@@ -266,9 +266,10 @@ export async function createStaged2WayTrade(env, ctx, spec) {
         console.warn(`[2way-staged] §A6 cap check unavailable (rosters fetch failed) — not created: ${sm.error}`);
         return { ok: false, http: 503, code: "cap_money_check_unavailable", error: "cap_money_check_unavailable" };
       }
+      const cb = await createCapBasis(env, leagueId, sm, movements, spec?.extension_requests);   // ruling 3: an expired rookie's basis
       for (const m of movements) {
         if (m.cap_k <= 0) continue;
-        const maxK = movementCapMaxK(m, sm.salaryByFp, sm.taxiByFp);
+        const maxK = movementCapMaxK(m, cb.salary, sm.taxiByFp);
         if (m.cap_k > maxK) return { ok: false, code: "TRADE_CAP_MONEY_50PCT", error: `cap money ${m.cap_k}K from ${padFid(m.from)}→${padFid(m.to)} exceeds the §A6 max (${maxK}K = 50% of the non-taxi salary sent).` };
       }
     }

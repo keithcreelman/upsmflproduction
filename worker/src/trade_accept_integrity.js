@@ -11,6 +11,7 @@
 // Pure functions only. index.js supplies the closures that need MFL / D1 (token building, exports).
 
 import { capMoneyMaxK, normalizeTradeToken, tradeTokenSet } from "./trade_rules.js";
+import { tradeAssetEligibility, capMoneyBasisDollars, contractYearsLeft, isRookieContractStatus } from "./trade_rules.js";
 
 function s(v) { return String(v == null ? "" : v).trim(); }
 function pad4(v) { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; }
@@ -101,10 +102,11 @@ export function compareClaims({ claims, authLists, authExtRows, from, to, mflGiv
 }
 
 // ── live-state revalidation (all fail-closed at the call site) ───────────────────────────
-/** rosters export → {playerOwner: {pid→fid}, salary: {"fid|pid"→dollars}, taxi: {"fid|pid"→bool}, active: {fid→n}} */
+/** rosters export → {playerOwner: {pid→fid}, salary: {"fid|pid"→dollars}, taxi: {"fid|pid"→bool}, active: {fid→n},
+ *  contract: {pid→{years, status}}} (MFL contractYear as served — "" when blank — and contractStatus; the eligibility rule reads them) */
 export function indexRosters(rostersData) {
   const franchises = arr(rostersData && rostersData.rosters && (rostersData.rosters.franchise || rostersData.rosters.franchises)).filter(Boolean);
-  const playerOwner = {}, salary = {}, taxi = {}, active = {};
+  const playerOwner = {}, salary = {}, taxi = {}, active = {}, contract = {};
   for (const fr of franchises) {
     const fid = pad4(fr.id || fr.franchise_id);
     if (!fid) continue;
@@ -116,10 +118,11 @@ export function indexRosters(rostersData) {
       playerOwner[pid] = fid;
       salary[`${fid}|${pid}`] = Number(pl.salary) || 0;
       taxi[`${fid}|${pid}`] = status.includes("TAXI");
+      contract[pid] = { years: s(pl.contractYear), status: s(pl.contractStatus) };
       if (!status.includes("TAXI") && !status.includes("INJURED") && status !== "IR") active[fid] += 1;
     }
   }
-  return { playerOwner, salary, taxi, active };
+  return { playerOwner, salary, taxi, active, contract };
 }
 
 /** futureDraftPicks export → {"FP_<orig>_<year>_<round>" → currentOwnerFid} */
@@ -174,38 +177,59 @@ export function ownershipViolations({ byFranchise, rosters, futurePicks, draftPi
   return bad;
 }
 
-/** Canon A6: round-6 picks are not tradeable; future picks reach at most current year + 1. */
+/** Canon A6: round-6 picks are not tradeable; future picks reach at most current year + 1. Judged by the ONE shared rule
+ *  (trade_rules.js tradeAssetEligibility, also the Front Office builder and the War Room); the reason strings stay as before. */
+const LEGACY_PICK_REASON = { pick_round_6: "round_6_pick_not_tradeable", pick_beyond_next_year: "future_pick_beyond_horizon" };
 export function pickEligibilityViolations({ byFranchise, season }) {
   const bad = [];
   const yr = Number(season);
   for (const [fid, tokens] of Object.entries(byFranchise)) {
     for (const tok of tokens) {
       const fp = /^FP_\d{4}_(\d{4})_(\d+)$/.exec(tok);
-      if (fp) {
-        if (Number(fp[2]) === 6) bad.push({ token: tok, sender: fid, reason: "round_6_pick_not_tradeable" });
-        if (Number.isFinite(yr) && Number(fp[1]) > yr + 1) bad.push({ token: tok, sender: fid, reason: "future_pick_beyond_horizon" });
-      }
       const dp = /^DP_(\d+)_\d+$/.exec(tok);
-      if (dp && Number(dp[1]) === 5) bad.push({ token: tok, sender: fid, reason: "round_6_pick_not_tradeable" });
+      if (!fp && !dp) continue;
+      // forfeit: false — the lineup-penalty forfeit list is its own guard (lineup_forfeits.js checkForfeitedPicks)
+      const pick = fp ? { kind: "pick", year: Number(fp[1]), round: Number(fp[2]), forfeit: false } : { kind: "pick", year: yr, round: Number(dp[1]) + 1, forfeit: false };
+      const e = tradeAssetEligibility(pick, { season: yr });
+      if (!e.tradeable && LEGACY_PICK_REASON[e.code]) bad.push({ token: tok, sender: fid, reason: LEGACY_PICK_REASON[e.code] });
     }
   }
   return bad;
 }
 
-/** Canon A6/E1: cap money ≤ 50% of the traded-away NON-TAXI salary; each side needs a non-salary asset. */
-export function capMoneyViolations({ byFranchise, rosters }) {
+/** Canon A6/E1: cap money ≤ 50% of the traded-away NON-TAXI salary; each side needs a non-salary asset.
+ *  Ruling 3 (Keith 2026-10-28): an EXPIRED ROOKIE counts the NEW current-season salary of his pre-trade extension when the trade
+ *  includes one (`basis.extensionYear1[pid]`), else his PRIOR-season salary (`basis.priorSalary[pid]`). A figure that can't be read
+ *  counts $0 for him (fail closed: the limit can only shrink) and the violation says `basis_unavailable`. Without `rosters.contract`
+ *  (or with no expired rookie) the result is exactly the old one. */
+export function expiredRookiePids(tokens, rosters) {
+  const c = (rosters && rosters.contract) || {};
+  return arr(tokens).filter((t) => /^\d+$/.test(t) && c[t] && contractYearsLeft(c[t].years) != null && contractYearsLeft(c[t].years) < 1 && isRookieContractStatus(c[t].status));
+}
+export function capMoneyViolations({ byFranchise, rosters, basis }) {
   const bad = [];
   for (const [fid, tokens] of Object.entries(byFranchise)) {
     const nonSalary = tokens.filter((t) => !t.startsWith("BB_"));
     const bbDollars = tokens.filter((t) => t.startsWith("BB_")).reduce((a, t) => a + (Number(t.slice(3)) || 0), 0);
     if (bbDollars > 0 && !nonSalary.length) bad.push({ franchise_id: fid, reason: "cap_money_without_non_salary_asset" });
-    let nonTaxi = 0;
+    let nonTaxi = 0, basisUnavailable = false;
+    const expired = new Set(expiredRookiePids(tokens, rosters));
     for (const pid of tokens.filter((t) => /^\d+$/.test(t))) {
       const key = `${fid}|${pid}`;
-      if (!rosters.taxi[key]) nonTaxi += rosters.salary[key] || 0;
+      if (rosters.taxi[key]) continue;
+      if (expired.has(pid)) {
+        const b = basis || {}, ext = b.extensionYear1 || {}, prior = b.priorSalary || {}, who = { years: rosters.contract[pid].years, contract_status: rosters.contract[pid].status, taxi: false };
+        // An extension in the trade decides it (an unreadable one is unavailable, never the prior salary); otherwise last season's salary.
+        const v = Object.prototype.hasOwnProperty.call(ext, pid)
+          ? (ext[pid] == null ? null : capMoneyBasisDollars(who, { extensionYear1: ext[pid] }))
+          : capMoneyBasisDollars(who, { priorSeasonSalary: b.priorSalary ? prior[pid] : null });
+        if (v == null) basisUnavailable = true; else nonTaxi += v;
+        continue;
+      }
+      nonTaxi += rosters.salary[key] || 0;
     }
     const maxDollars = capMoneyMaxK(nonTaxi) * 1000;
-    if (bbDollars > maxDollars) bad.push({ franchise_id: fid, reason: "cap_money_over_50pct", traded_dollars: bbDollars, max_dollars: maxDollars });
+    if (bbDollars > maxDollars) bad.push({ franchise_id: fid, reason: "cap_money_over_50pct", traded_dollars: bbDollars, max_dollars: maxDollars, ...(basisUnavailable ? { basis_unavailable: true } : {}) });
   }
   return bad;
 }

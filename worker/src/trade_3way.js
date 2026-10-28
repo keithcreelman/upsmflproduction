@@ -35,7 +35,9 @@ import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./t
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
-import { normalizeToken, indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations } from "./trade_accept_integrity.js";
+import { normalizeToken, indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, expiredRookiePids } from "./trade_accept_integrity.js";
+import { playerEligibilityGate, extensionYear1ByPlayer, priorSalariesFromExport } from "./trade_asset_eligibility.js";
+import { capMoneyBasisDollars } from "./trade_rules.js";
 import { capMoneyMaxK } from "./trade_rules.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
@@ -265,7 +267,7 @@ export async function fetchRosterSalaryMap(env, leagueId, year) {
     if (!j || typeof j !== "object" || j.error || !j.rosters) return { ok: false, error: `rosters export unreadable (HTTP ${r ? r.status : "?"})` };
     let franchises = j.rosters.franchise || [];
     if (!Array.isArray(franchises)) franchises = franchises ? [franchises] : [];
-    const salaryByFp = {}, taxiByFp = {};
+    const salaryByFp = {}, taxiByFp = {}, contract = {};
     for (const f of franchises) {
       const fid = padFid(f?.id);
       if (!fid) continue;
@@ -276,9 +278,10 @@ export async function fetchRosterSalaryMap(env, leagueId, year) {
         if (!pid) continue;
         salaryByFp[`${fid}|${pid}`] = Number(p?.salary) || 0;
         taxiByFp[`${fid}|${pid}`] = String(p?.status || "").toUpperCase().includes("TAXI");
+        contract[pid] = { years: safeStr(p?.contractYear), status: safeStr(p?.contractStatus) };   // ruling 3: an expired rookie's basis
       }
     }
-    return { ok: true, salaryByFp, taxiByFp };
+    return { ok: true, salaryByFp, taxiByFp, contract, year };
   } catch (e) { return { ok: false, error: e?.message || String(e) }; }
 }
 
@@ -310,7 +313,41 @@ const OWNERSHIP_MSG = "Something in this trade is no longer on the team that was
 const CAP_MONEY_MSG = "The cap money in this trade breaks the league rule (at most 50% of the traded-away non-taxi salary).";
 const INTEGRITY_UNAVAILABLE_MSG = "We couldn't verify the players and picks in this trade with MFL right now. Try again in a moment.";
 // The asset-integrity verdicts (as opposed to `unavailable`, a read failure).
-export const ASSET_INTEGRITY_KINDS = ["asset_ownership_mismatch", "pick_not_tradeable", "cap_money_rule"];
+export const ASSET_INTEGRITY_KINDS = ["asset_ownership_mismatch", "pick_not_tradeable", "cap_money_rule", "player_not_tradeable"];
+// The clock eligibility is judged on (TWR_TEST_NOW_MS is the deploy-config-only test clock the extension checks also read).
+export const eligibilityNowMs = (env) => Number(env && env.TWR_TEST_NOW_MS) || Date.now();
+
+/**
+ * Ruling 3 (Keith 2026-10-28): the salary map the §A6 50% limit reads, with each EXPIRED ROOKIE in these movements set to his
+ * pre-trade extension's NEW current-season salary (when the trade carries one) or else his PRIOR-season salary. `loadPrior()` →
+ * { ok, data } (MFL salaries export of season − 1), read only when such a player sends cap money. A figure that can't be read
+ * counts $0 (the limit can only shrink) and `unavailable` lists him. Without an expired rookie the map is the roster's own.
+ */
+/** Create time: fetchRosterSalaryMap's answer → the basis map (ruling 3), with the prior season read through the commissioner key. */
+export async function createCapBasis(env, leagueId, sm, moves, extensionRequests) {
+  return capBasisSalaries({ moves, rosters: { salary: sm.salaryByFp, contract: sm.contract || {} }, extensionRequests,
+    loadPrior: () => mflExportViaKey(env, safeStr(leagueId), String(Number(sm.year) - 1), "salaries") });
+}
+export async function capBasisSalaries({ moves, rosters, extensionRequests, loadPrior }) {
+  const salary = { ...rosters.salary }, unavailable = [];
+  const ext = extensionYear1ByPlayer(extensionRequests);
+  let prior;
+  for (const m of moves || []) {
+    if (!(Math.max(0, safeInt(m && m.cap_k, 0)) > 0)) continue;
+    const from = padFid(m.from);
+    const pids = (m.asset_tokens || m.tokens || []).map((t) => safeStr(t)).filter((t) => t.startsWith("P_")).map((t) => digits(t.slice(2)));
+    for (const pid of expiredRookiePids(pids, rosters)) {
+      let v;
+      if (Object.prototype.hasOwnProperty.call(ext, pid)) v = ext[pid] == null ? null : capMoneyBasisDollars({ years: rosters.contract[pid].years, contract_status: rosters.contract[pid].status }, { extensionYear1: ext[pid] });
+      else {
+        if (prior === undefined) { const r = loadPrior ? await loadPrior().catch(() => null) : null; prior = r && r.ok ? priorSalariesFromExport(r.data) : null; }
+        v = capMoneyBasisDollars({ years: rosters.contract[pid].years, contract_status: rosters.contract[pid].status }, { priorSeasonSalary: prior ? prior[pid] : null });
+      }
+      if (v == null) { unavailable.push(pid); salary[`${from}|${pid}`] = 0; } else salary[`${from}|${pid}`] = v;
+    }
+  }
+  return { salary, unavailable };
+}
 
 /** Movements [{from, to, asset_tokens}] → {sender: [MFL token]} (players bare, FP_<orig>_<yr>_<rd>, DP_<r0>_<s0>); cap money (BB_) excluded. */
 export function mflTokensBySender(movements) {
@@ -341,6 +378,19 @@ async function mflExportViaKey(env, leagueId, year, type) {
 }
 
 /**
+ * CREATE gate for players (rulings 2/3, 2026-10-28): staged two-team and three-team create refuse a provisional tag, an expired
+ * veteran and an expired rookie after the extension deadline, exactly as the accept does. Reads MFL rosters only when a player is
+ * in the movements; an unreadable roster or tag source refuses (503). { ok:true } | { ok:false, http, code, message, violations }.
+ */
+export async function createEligibilityGate(env, { leagueId, season, movements }) {
+  const byFranchise = mflTokensBySender(movements || []);
+  if (!Object.values(byFranchise).flat().some((t) => /^\d+$/.test(t))) return { ok: true };
+  const rosterRes = await mflExportViaKey(env, safeStr(leagueId), safeStr(season), "rosters");
+  if (!rosterRes.ok) return { ok: false, http: 503, code: "trade_eligibility_unavailable", message: INTEGRITY_UNAVAILABLE_MSG, violations: [] };
+  return playerEligibilityGate({ db: env && env.UPS_MFL_DB, leagueId: safeStr(leagueId), season: safeStr(season), nowMs: eligibilityNowMs(env), byFranchise, rosters: indexRosters(rosterRes.data) });
+}
+
+/**
  * ACCEPT / RECHECK / EXECUTE gate (P0 S4). { ok:true } |
  * { ok:false, kind: "pick_not_tradeable"|"asset_ownership_mismatch"|"cap_money_rule"|"unavailable", message, violations }
  * `movements` defaults to the 3-way row's own; trade_2way.js passes its row's movements.
@@ -368,12 +418,16 @@ export async function assetIntegrityGate(env, row, movements) {
   const rosters = indexRosters(rosterRes.data);
   const owns = ownershipViolations({ byFranchise, rosters, futurePicks, draftPicks });
   if (owns.length) return { ok: false, kind: "asset_ownership_mismatch", message: OWNERSHIP_MSG, violations: owns };
+  // Rulings 2/3 (2026-10-28): a provisional tag, an expired veteran, an expired rookie after the extension deadline (shared rule).
+  const elig = await playerEligibilityGate({ db: env && env.UPS_MFL_DB, leagueId, season: year, nowMs: eligibilityNowMs(env), byFranchise, rosters });
+  if (!elig.ok) return { ok: false, kind: elig.http === 503 ? "unavailable" : "player_not_tradeable", code: elig.code, message: elig.message, violations: elig.violations };
+  const basis = await capBasisSalaries({ moves, rosters, extensionRequests: parseExtReqs(row || {}), loadPrior: () => mflExportViaKey(env, leagueId, String(Number(year) - 1), "salaries") });
   const capBad = [];
   for (const m of moves) {
     const capK = Math.max(0, safeInt(m && m.cap_k, 0));
     if (capK <= 0) continue;
-    const maxK = movementCapMaxK(m, rosters.salary, rosters.taxi);
-    if (capK > maxK) capBad.push({ franchise_id: padFid(m.from), to_franchise_id: padFid(m.to), cap_k: capK, max_k: maxK, reason: "cap_money_over_50pct" });
+    const maxK = movementCapMaxK(m, basis.salary, rosters.taxi);
+    if (capK > maxK) capBad.push({ franchise_id: padFid(m.from), to_franchise_id: padFid(m.to), cap_k: capK, max_k: maxK, reason: "cap_money_over_50pct", ...(basis.unavailable.length ? { basis_unavailable: true } : {}) });
   }
   if (capBad.length) return { ok: false, kind: "cap_money_rule", message: CAP_MONEY_MSG, violations: capBad };
   return { ok: true };
@@ -721,9 +775,10 @@ export async function create3WayTrade(env, ctx, spec) {
         console.warn(`[3way] §A6 cap check unavailable (rosters fetch failed) — not created: ${sm.error}`);
         return { ok: false, http: 503, code: "cap_money_check_unavailable", error: "cap_money_check_unavailable" };
       }
+      const cb = await createCapBasis(env, leagueId, sm, movements, spec?.extension_requests);
       for (const m of movements) {
         if (m.cap_k <= 0) continue;
-        const maxK = movementCapMaxK(m, sm.salaryByFp, sm.taxiByFp);
+        const maxK = movementCapMaxK(m, cb.salary, sm.taxiByFp);
         if (m.cap_k > maxK) {
           return { ok: false, code: "TRADE_CAP_MONEY_50PCT",
             error: `cap money ${m.cap_k}K from ${padFid(m.from)}→${padFid(m.to)} exceeds the §A6 max (${maxK}K = 50% of the non-taxi salary sent).` };

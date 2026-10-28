@@ -19,6 +19,7 @@ import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline
 import { summarizeExtensionMaster, extensionHistoryReadOk } from "./extension_history.js";
 import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing, ledgerFor, toMflAsset } from "./trade_3way.js";
 import { tradePreviewVerdict } from "./trade_preview_verdict.js";
+import { playerEligibilityGate, extensionYear1ByPlayer, priorSalariesFromExport, loadTagFacts, playerTagState } from "./trade_asset_eligibility.js";
 
 // Exact, non-secret release marker returned by the AUTHENTICATED GET /admin/release-info (the deployment discriminator used by the runbook).
 const TWR_RELEASE = "trade-war-room-2026-09-25.3";
@@ -65,7 +66,7 @@ import { computeWeekComplete, computeFinalizedThroughWeek, shouldSkipRebuild, co
 import { checkQbCaps, MAX_ACTIVE_QBS, MAX_STARTING_QBS } from "./qb_cap_check.js";
 import {
   tokensByFranchise, bindPayloadToMfl, collectClientClaims, compareClaims,
-  indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, capMoneyViolations, normalizeToken,
+  indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, capMoneyViolations, normalizeToken, expiredRookiePids,
 } from "./trade_accept_integrity.js";
 import { evaluateTradeCompliance, loadedContractBlockPayload } from "./trade_cap_authority.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
@@ -31060,14 +31061,6 @@ const mflToSleeper = {};
         safeStr(asset?.type).toUpperCase() === "PICK" &&
         safeInt(pickMetaFromAsset(asset).round, 0) === 6;
 
-      const isTaggedTradeIneligibleAsset = (asset) => {
-        if (safeStr(asset?.type).toUpperCase() !== "PLAYER") return false;
-        if (hasTagDeadlinePassed(YEAR)) return false;
-        const contractType = safeStr(asset?.contract_type).toLowerCase();
-        const contractInfo = safeStr(asset?.contract_info).toLowerCase();
-        return contractType.includes("tag") || contractInfo.includes("tag");
-      };
-
       const playerTokenFromAsset = (asset) => {
         const direct = String(asset?.player_id || "").replace(/\D/g, "");
         if (direct) return direct;
@@ -31089,15 +31082,8 @@ const mflToSleeper = {};
         const invalid = [];
         const seen = new Set();
         for (const asset of selected) {
-          if (isTaggedTradeIneligibleAsset(asset)) {
-            invalid.push({
-              asset_id: safeStr(asset?.asset_id),
-              type: safeStr(asset?.type),
-              description: safeStr(asset?.description || asset?.player_name || asset?.asset_id),
-              reason: "tagged players cannot be traded",
-            });
-            continue;
-          }
+          // (No tag test here any more. It read the CLIENT's contract text and refused every tag before the deadline, early-locked ones
+          // too — the War Room's early-lock bug. Tags are judged by playerEligibilityGate from D1 + live MFL, at create and accept.)
           if (isUntradeableSixthRoundPickAsset(asset)) {
             invalid.push({
               asset_id: safeStr(asset?.asset_id),
@@ -39297,6 +39283,7 @@ const mflToSleeper = {};
           const ext = await planExtensionSalaries(season, leagueId, extensionRequests, { offerCreatedAtUtc });
           const out = await computeTradeComplianceLive({ season, leagueId, movements, extensionSalary: ext.salary, extensionRequests, conditionalDrops });
           out.extension_skipped = (ext.skipped || []).map((x) => ({ player_id: safeStr(x && x.player_id), reason: safeStr(x && x.reason) }));
+          out.extension_salary = { ...(ext.salary || {}) };   // the new current-season salary of each approved extension (ruling 3's cap basis)
           if (!ext.ok && out.cap.status !== "unavailable") { out.cap = { ...out.cap, status: "unavailable", reason: "extension_salaries_unavailable", message: "We couldn't verify the salary cap for this trade right now." }; }
           return out;
         },
@@ -39408,7 +39395,10 @@ const mflToSleeper = {};
         // The caller must be one of the trade's own parties (or the commissioner) -- never lets
         // an unrelated owner probe another two teams' cap/roster situation.
         if (!partyFids.has(previewAuth.caller.fid) && !previewAuth.caller.isCommish) return tradeForbidden("You can only preview a trade you're a party to.");
-        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: null, conditionalDrops: body?.conditional_drops });
+        // An UNSENT draft has no offer time, so "restructured since the offer" is judged AS OF NOW (the restructure history must still be
+        // readable: an unreadable one stays authority_unavailable:restructure_history). It used to pass null, which refused every probe.
+        const previewNowMs = Number(env && env.TWR_TEST_NOW_MS) || Date.now();
+        const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: new Date(previewNowMs).toISOString(), conditionalDrops: body?.conditional_drops });
         // The same accept-time asset helpers check the proposed movements against live MFL
         // ownership and §A6. This is informational: every write path checks again.
         const byFranchise = {};
@@ -39434,11 +39424,23 @@ const mflToSleeper = {};
             if ((!needsFuture || fr?.ok && fr.data?.futureDraftPicks?.franchise) && (!needsDraft || dr?.ok && dr.data?.draftResults?.draftUnit)) {
               const ownership = ownershipViolations({ byFranchise, rosters, futurePicks: fr ? indexFuturePicks(fr.data) : null, draftPicks: dr ? indexDraftPicks(dr.data) : null });
               const picks = pickEligibilityViolations({ byFranchise, season });
-              const capMoney = capMoneyViolations({ byFranchise, rosters });
-              const violations = { ownership, picks, cap_money: capMoney };
-              assets = ownership.length || picks.length || capMoney.length
-                ? { status: "blocked", code: ownership.length ? "asset_ownership_mismatch" : picks.length ? "pick_not_tradeable" : "cap_money_rule", message: "One or more trade assets do not pass the current league checks.", violations }
-                : { status: "ok", violations };
+              // Rulings 2/3: players (provisional tag, expired contracts), and an expired rookie's cap-money basis — the same as every write path.
+              const players = await playerEligibilityGate({ db: env.UPS_MFL_DB, leagueId, season, nowMs: previewNowMs, byFranchise, rosters });
+              let prior = null;
+              if (Object.entries(byFranchise).some(([f, toks]) => toks.some((x) => x.startsWith("BB_")) && expiredRookiePids(toks, rosters).length)) {
+                const pr = await mflExportJson(String(safeInt(season, 0) - 1), leagueId, "salaries").catch(() => null);
+                prior = pr && pr.ok ? priorSalariesFromExport(pr.data) : null;
+              }
+              const capMoney = capMoneyViolations({ byFranchise, rosters, basis: { extensionYear1: { ...extensionYear1ByPlayer(body?.extension_requests), ...(out.extension_salary || {}) }, priorSalary: prior } });
+              const playerBad = players.ok ? [] : players.violations || [];
+              const violations = { ownership, picks, players: playerBad, cap_money: capMoney };
+              if (!players.ok && players.http === 503) {
+                assets = { status: "unavailable", code: players.code, message: players.message, violations };
+              } else {
+                assets = ownership.length || picks.length || playerBad.length || capMoney.length
+                  ? { status: "blocked", code: ownership.length ? "asset_ownership_mismatch" : picks.length ? "pick_not_tradeable" : playerBad.length ? "player_not_tradeable" : "cap_money_rule", message: playerBad.length && !ownership.length && !picks.length ? players.message : "One or more trade assets do not pass the current league checks.", violations }
+                  : { status: "ok", violations };
+              }
             }
           }
         } catch (_) { /* A failed read is unavailable, never a pass. */ }
@@ -39836,6 +39838,17 @@ const mflToSleeper = {};
             {
               const liveSalaryByFp = {};
               const liveTaxiByFp = {};
+              // Ruling 3 (2026-10-28): an EXPIRED ROOKIE counts his pre-trade extension's new current-season salary, else last season's.
+              const capRosters = indexRosters(tradesRostersRes.data);
+              const capExtY1 = extensionYear1ByPlayer(payload?.extension_requests);
+              let capPrior;
+              const expiredBasis = async (pid) => {
+                const c = capRosters.contract[pid];
+                if (!c || !(String(c.years).trim() !== "" && Number(c.years) < 1 && /^(rookie|taxi)/i.test(c.status))) return undefined;
+                if (Object.prototype.hasOwnProperty.call(capExtY1, pid)) return capExtY1[pid] == null ? 0 : capExtY1[pid];
+                if (capPrior === undefined) { const r = await mflExportJson(String(safeInt(season, 0) - 1), leagueId, "salaries").catch(() => null); capPrior = r && r.ok ? priorSalariesFromExport(r.data) : null; }
+                return capPrior && capPrior[pid] != null ? capPrior[pid] : 0;
+              };
               const franchises = asArray(
                 tradesRostersRes.data?.rosters?.franchise ||
                 tradesRostersRes.data?.rosters?.franchises
@@ -39864,8 +39877,9 @@ const mflToSleeper = {};
                   if (liveTaxiByFp[key]) continue;
                   // Live salary only. A player missing from the live roster counts $0
                   // (the client's own salary figure is never used); the ownership check
-                  // below refuses such a player anyway.
-                  sumNonTaxiDollars += Number(liveSalaryByFp[key]) || 0;
+                  // below refuses such a player anyway. An expired rookie: ruling 3 (an unreadable figure counts $0).
+                  const expired = await expiredBasis(pid);
+                  sumNonTaxiDollars += expired !== undefined ? expired : (Number(liveSalaryByFp[key]) || 0);
                 }
                 const maxK = Math.floor(sumNonTaxiDollars / 2000);
                 if (tradedK > maxK) {
@@ -39957,6 +39971,13 @@ const mflToSleeper = {};
                     });
                   }
                 }
+              }
+              // Rulings 2/3 (Keith 2026-10-28): no provisional tag, expired veteran, or expired rookie after the extension deadline —
+              // the ONE shared rule (trade_rules.js), judged on these live rosters and D1's tag rows (trade_asset_eligibility.js).
+              if (!ownershipMismatches.length) {
+                const eg = await playerEligibilityGate({ db: env.UPS_MFL_DB, leagueId, season, nowMs: Number(env && env.TWR_TEST_NOW_MS) || Date.now(),
+                  byFranchise: tokensByFranchise(proposalAssets), rosters: indexRosters(ownershipRostersRes.data) });
+                if (!eg.ok) return jsonOut(eg.http, { ok: false, code: eg.code, error_type: eg.code, error: eg.message, message: eg.message, violations: eg.violations || [] });
               }
               if (ownershipMismatches.length) {
                 return jsonOut(409, {
@@ -41297,13 +41318,13 @@ const mflToSleeper = {};
               if (picksBad.length) {
                 return integrityFail(409, "pick_not_tradeable", "A draft pick in this trade can't be traded (6th-round picks, and picks more than a year out, aren't tradeable).", { violations: picksBad });
               }
+              // ACCEPT — rulings 2/3 (Keith 2026-10-28): every player re-judged NOW by the shared rule (a provisional tag, an expired veteran,
+              // an expired rookie after the extension deadline), from these live rosters and D1's tag rows. Refused, never adjusted.
+              const playerGate = await playerEligibilityGate({ db: env.UPS_MFL_DB, leagueId, season, nowMs: Number(env && env.TWR_TEST_NOW_MS) || Date.now(), byFranchise, rosters: liveRosters });
+              if (!playerGate.ok) return integrityFail(playerGate.http, playerGate.code, playerGate.message, { violations: playerGate.violations || [] });
               // ACCEPT — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11).
               const forfeitGate = await checkForfeitedPicks(env, leagueId, byFranchise);
               if (!forfeitGate.ok) return integrityFail(forfeitGate.http, forfeitGate.code, forfeitGate.message, { violations: forfeitGate.violations || [] });
-              const capBad = capMoneyViolations({ byFranchise, rosters: liveRosters });
-              if (capBad.length) {
-                return integrityFail(409, "cap_money_rule", "The cap money in this trade breaks the league rule (at most 50% of the traded-away salary, and never money without a player or pick).", { violations: capBad });
-              }
               let acceptExtSalary = {};
               if (authExtRows.length) {
                 // The SAME planner + live-contract eligibility check the 3-way gate uses (planExtensionSalaries).
@@ -41313,6 +41334,17 @@ const mflToSleeper = {};
                   return integrityFail(refusal.http, refusal.code, refusal.message, { skipped: refusal.skipped });
                 }
                 acceptExtSalary = extPlan.salary;
+              }
+              // Cap money re-verified AT THE ACCEPT (ruling 3): an expired rookie counts his extension's new current-season salary (the
+              // canonical one just planned), else his prior-season salary (MFL salaries export, season − 1; read only when needed).
+              let acceptPrior = null;
+              if (Object.values(byFranchise).some((toks) => toks.some((x) => x.startsWith("BB_")) && expiredRookiePids(toks, liveRosters).length)) {
+                const pr = await mflExportJson(String(safeInt(season, 0) - 1), leagueId, "salaries").catch(() => null);
+                acceptPrior = pr && pr.ok ? priorSalariesFromExport(pr.data) : null;
+              }
+              const capBad = capMoneyViolations({ byFranchise, rosters: liveRosters, basis: { extensionYear1: acceptExtSalary, priorSalary: acceptPrior } });
+              if (capBad.length) {
+                return integrityFail(409, "cap_money_rule", "The cap money in this trade breaks the league rule (at most 50% of the traded-away salary, and never money without a player or pick).", { violations: capBad });
               }
               // 6. Post-trade salary cap (HARD block, ruling 2026-09-25) and roster counts (advisory).
               //    Recomputed NOW from live MFL data; nothing the client or the stored offer says about cap
@@ -60095,6 +60127,21 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           cachedTradeWorkbench = null;
         }
 
+        // Rulings 2/3 (2026-10-28): stamp each PLAYER asset with its tag state (none | provisional | early_locked | deadline_locked |
+        // unavailable) so the War Room and the Front Office judge it with the ONE shared rule (trade_rules.js tradeAssetEligibility).
+        // D1 is read only before the tag deadline (2 small reads: ups_tag_master, ups_tag_submissions.locked_in_at); after it every
+        // tag is locked. Unreadable → "unavailable" on every tagged player and meta.tag_status.ok = false (the clients fail closed).
+        const markTagStates = async (teamList) => {
+          const nowMs = Number(env && env.TWR_TEST_NOW_MS) || Date.now();
+          const facts = await loadTagFacts(env.UPS_MFL_DB, { leagueId, season, nowMs }).catch(() => ({ ok: false, tagged: null, lockedInAt: new Map(), deadlineMs: NaN }));
+          for (const tm of Array.isArray(teamList) ? teamList : []) {
+            for (const a of Array.isArray(tm && tm.assets) ? tm.assets : []) {
+              if (!a || a.type !== "PLAYER") continue;
+              a.tag_state = playerTagState(facts, a.player_id, a.contract_type || a.contract_info, nowMs);
+            }
+          }
+          return { ok: !!facts.ok, after_deadline: !!facts.afterDeadline, deadline_utc: Number.isFinite(facts.deadlineMs) ? new Date(facts.deadlineMs).toISOString() : null, as_of: new Date(nowMs).toISOString() };
+        };
         const staleFallbackResponse = async (reasonCode, upstreamMeta) => {
           if (!cachedTradeWorkbench) return null;
           try {
@@ -60108,6 +60155,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
                 (Array.isArray(next.teams) ? next.teams : []).flatMap((tm) => (Array.isArray(tm && tm.assets) ? tm.assets : []).filter((a) => a && a.type === "PICK")),
                 (p) => String(p.pick_key || p.asset_id || "").replace(/^pick:/i, ""));
               next.meta.forfeit_marks = { ok: fbMarks.ok, marked: fbMarks.marked };
+              next.meta.tag_status = await markTagStates(next.teams);   // and its tag states: re-read now, never the cached ones
               next.meta.stale_fallback = {
                 used: true,
                 reason: safeStr(reasonCode || "upstream_failed"),
@@ -60404,6 +60452,20 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           };
         });
 
+        const tagStatus = await markTagStates(teams);
+        // Ruling 3: an expired rookie's cap-money basis without an extension is his PRIOR-season salary (MFL salaries export, season − 1),
+        // read only when the rosters hold an expired rookie (none in season: the deadline auto-drop clears them).
+        let priorSalaryStatus = { needed: false, ok: true };
+        {
+          const expired = teams.flatMap((tm) => tm.assets.filter((a) => a && a.type === "PLAYER" && String(a.years).trim() !== "" && Number(a.years) < 1 && /^(rookie|taxi)/i.test(safeStr(a.contract_type))));
+          if (expired.length) {
+            const pr = await mflExportJson(String(safeInt(season, 0) - 1), leagueId, "salaries").catch(() => null);
+            const prior = pr && pr.ok ? priorSalariesFromExport(pr.data) : null;
+            for (const a of expired) a.prior_season_salary = prior && prior[safeStr(a.player_id)] != null ? prior[safeStr(a.player_id)] : null;
+            priorSalaryStatus = { needed: true, ok: !!prior };
+          }
+        }
+
         teams.sort((a, b) => {
           if (!!a.is_default !== !!b.is_default) return a.is_default ? -1 : 1;
           return safeStr(a.franchise_name).localeCompare(safeStr(b.franchise_name));
@@ -60512,6 +60574,8 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             commissioner_lockout: commissionerLockout,
             salary_cap_dollars: leagueSalaryCapDollars,
             forfeit_marks: { ok: forfeitMarks.ok, marked: forfeitMarks.marked },
+            tag_status: tagStatus,
+            prior_season_salaries: priorSalaryStatus,
             counts: {
               teams: teams.length,
               roster_players: allPlayerIds.length,
