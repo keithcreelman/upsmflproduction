@@ -3877,11 +3877,9 @@
       var data = await fetchJSON(apiUrl("/api/league-events") + "?season=" + encodeURIComponent(SEASON) + "&from=all&limit=50&kickoffs=1,3,5");
       var evs = (data && data.events) || [];
       STATE.leagueEvents = evs;
-      STATE.reads.leagueEvents = { state: data ? "ok" : "error", at: Date.now() };
       // When MFL stops accepting trades: the worker's read of MFL's own lock (worker/src/trade_deadline.js), the one
       // source every app surface uses — the Overview's Trade deadline card reads it.
       STATE.tradeLock = (data && data.trade_lock) || null;
-      try { document.dispatchEvent(new CustomEvent("fo:events")); } catch (e) {}
       var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
       if (cd && cd.date) STATE.contractDeadline = String(cd.date).slice(0, 10);
       // The deadline as a real instant, matching isPastContractDeadlineFO's
@@ -3918,13 +3916,14 @@
       // feed display — but the open/closed DECISION now comes from here.
       // null = the server did not answer, which is never "open".
       STATE.contractLadderServer = (data && data.contract_ladder) || null;
+      // Announced only once EVERY field above is set: the Overview renders on fo:events, and its contract-window
+      // check read the deadline / kickoffs before they were assigned when this fired right after the trade lock.
+      STATE.reads.leagueEvents = { state: data ? "ok" : "error", at: Date.now() };
     } catch (e) {
       // A failed read is said on the Overview (its trade-deadline and contract-window checks show "check unavailable").
-      if (!STATE.reads.leagueEvents || STATE.reads.leagueEvents.state !== "ok") {
-        STATE.reads.leagueEvents = { state: "error", at: Date.now() };
-        try { document.dispatchEvent(new CustomEvent("fo:events")); } catch (e2) {}
-      }
+      STATE.reads.leagueEvents = { state: "error", at: Date.now() };
     }
+    try { document.dispatchEvent(new CustomEvent("fo:events")); } catch (e) {}
   }
   // One team's (or the league's) roster counts and cap, the Cap Allocation card's
   // exact math (taxi $0, IR ×0.5, expired $0; adjustments rounded per canon §6).

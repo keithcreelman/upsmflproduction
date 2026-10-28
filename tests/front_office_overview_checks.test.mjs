@@ -141,6 +141,10 @@ test("sources record their real read time: fo_data entry.at, the injury loader's
   t.ok(/function injuryState\(\) \{ return injuryLoader \? injuryLoader\.read\(\) : null; \}/.test(DATA_SRC) && /injuryState: injuryState/.test(DATA_SRC), "injury state read without starting a read");
   t.ok(/STATE\.reads\.rosters = \{ state: "ok", at: Date\.now\(\) \};/.test(FO_SRC) && /STATE\.reads\.rosters = \{ state: "error", at: Date\.now\(\) \};/.test(FO_SRC), "rosters: ok and error recorded");
   t.ok(/STATE\.reads\.leagueEvents = \{ state: data \? "ok" : "error", at: Date\.now\(\) \};/.test(FO_SRC) && /STATE\.reads\.leagueEvents = \{ state: "error", at: Date\.now\(\) \};/.test(FO_SRC), "league events: ok and error recorded");
+  const ev = FO_SRC.slice(FO_SRC.indexOf("async function loadContractDeadline()"), FO_SRC.indexOf("async function loadContractDeadline()") + 6000);
+  t.ok(ev.indexOf('new CustomEvent("fo:events")') > ev.indexOf("STATE.contractLadderServer =") && ev.indexOf("STATE.reads.leagueEvents = { state: data") > ev.indexOf("STATE.contractLadderServer ="),
+    "fo:events fires (and the read counts as done) only after the deadline, kickoffs and ladder are set, not right after the trade lock");
+  t.equal((ev.match(/new CustomEvent\("fo:events"\)/g) || []).length, 1, "one announcement, success or failure");
   t.ok(/readState: function \(key\) \{ return \(STATE\.reads && STATE\.reads\[key\]\) \|\| null; \}/.test(FO_SRC), "exposed read-only");
   t.ok(!/kickoff reminder|lineup lock/i.test(SRC), "no kickoff reminder (needs a verified lock source; left out on purpose)");
 });
