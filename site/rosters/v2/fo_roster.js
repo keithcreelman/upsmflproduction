@@ -215,10 +215,13 @@
   // /api/fantasy-sos?season=<season>&v=2 answer feeds the whole page (DATA "sos"), never per player or per week; no D1 query here.
   var sched = { mode: "next5" };
   var schedCells = {};      // pid|wk -> { p, cell } for the detail panel (rebuilt on every render)
-  function schedControls() {
-    var b = function (m, label) { return '<button type="button" class="fo-subview-chip' + (sched.mode === m ? " active" : "") + '" data-schedmode="' + m + '" aria-pressed="' + (sched.mode === m) + '">' + label + "</button>"; };
-    return '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-schedwk">Weeks</div>' +
-      '<div class="fo-subview-chips fo-choice" role="group" aria-labelledby="fo-lbl-schedwk">' + b("next5", "Next 5 weeks") + b("rest", "Rest of season") + "</div></div></div>";
+  // The weeks choice. `mode` = the current one; `idSuffix` / `attrs` let Market give each expanded player his own labelled group.
+  function schedControls(mode, idSuffix, attrs) {
+    mode = mode || sched.mode;
+    var id = "fo-lbl-schedwk" + (idSuffix || "");
+    var b = function (m, label) { return '<button type="button" class="fo-subview-chip' + (mode === m ? " active" : "") + '" data-schedmode="' + m + '" aria-pressed="' + (mode === m) + '"' + (attrs || "") + ">" + label + "</button>"; };
+    return '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="' + id + '">Weeks</div>' +
+      '<div class="fo-subview-chips fo-choice" role="group" aria-labelledby="' + id + '">' + b("next5", "Next 5 weeks") + b("rest", "Rest of season") + "</div></div></div>";
   }
   function schedLegend() {
     return '<ul class="fo-sched-legend" aria-label="How to read the weeks">' +
@@ -228,12 +231,13 @@
       '<li><span class="fo-sched-key" aria-hidden="true">@DEN</span> @ = away game; no @ = home; BYE = bye week; — = no game or no number</li>' +
       '<li>Each week: opponent, <b>vs usual %</b>, then <b>/g</b> = points it has allowed per game to the position, then <b>rank</b> out of 32 (1st = allowed the most). Tap a week for kickoff and the full explanation.</li></ul>';
   }
-  function schedCell(c, pos, p) {
+  // `reg` = where the detail panel finds the cell again (Roster's own map unless a caller passes its own).
+  function schedCell(c, pos, p, reg) {
     var P = root.UPS_PLAYER_SCHEDULE;
     if (c.kind === "bye") return '<td class="fo-sched-c fo-sched-bye"><span class="fo-sched-opp">BYE</span></td>';
     if (c.kind !== "game") return '<td class="fo-sched-c"><span class="fo-muted" title="No game listed">—</span></td>';
     var a = c.allowed, tone = P.tone(a), cp = P.allowedCompact(a), parts = P.allowedParts(a);
-    var key = p.id + "|" + c.wk; schedCells[key] = { p: p, cell: c, pos: pos };
+    var key = p.id + "|" + c.wk; (reg || schedCells)[key] = { p: p, cell: c, pos: pos };
     var label = "Week " + c.wk + ", " + (c.home ? "home vs " : "away at ") + c.opp + ". " +
       (cp.pct || cp.pg || cp.rank ? [parts.vs, parts.pg, parts.rank].filter(Boolean).join(", ") + ". " : "No number yet. ") + "Opens the details.";
     return '<td class="fo-sched-c' + (tone === "more" ? " fo-sched-more" : tone === "less" ? " fo-sched-less" : "") + '">' +
@@ -242,21 +246,32 @@
       '<span class="fo-sched-sub">' + H.esc(cp.pg || "—") + '</span><span class="fo-sched-sub">' + H.esc(cp.rank || "—") + "</span></button></td>";
   }
   // The tap / keyboard detail panel (the Front Office's own dialog), not a hover tooltip.
-  function openSchedDetail(btn) {
-    var P = root.UPS_PLAYER_SCHEDULE, e = DATA.get("sos"), rec = schedCells[btn.getAttribute("data-sched-cell")];
+  function openSchedDetail(btn, reg) {
+    var P = root.UPS_PLAYER_SCHEDULE, e = DATA.get("sos"), rec = (reg || schedCells)[btn.getAttribute("data-sched-cell")];
     if (!P || !rec || !e || e.state !== "ok") return;
     var d = P.detail(e.data, rec.cell, rec.pos, rec.p.name);
     var html = '<dl class="fo-sched-detail">' + d.rows.map(function (r) { return "<dt>" + H.esc(r[0]) + "</dt><dd>" + H.esc(r[1]) + "</dd>"; }).join("") + "</dl>" +
       d.notes.map(function (n) { return '<p class="fo-basis">' + H.esc(n) + "</p>"; }).join("");
     H.openDialog(d.title, html, { returnFocus: function () { return btn; } });
   }
+  // Why a player has no week cells, in words (shared with Market).
+  function schedStateNote(state, team) {
+    if (state === "no_team") return "No NFL team is listed for him, so there is no schedule.";
+    if (state === "no_pos") return "The schedule numbers cover QB, RB, WR, TE, DL, LB, DB, K and P; not this position.";
+    if (state === "no_sched") return String(team || "").toUpperCase() + " is not in the schedule data.";
+    return "";
+  }
+  // The line under the controls: what the numbers cover ("allowed so far"), and that they are not a forecast. Returns HTML.
+  function schedNote(d, b) {
+    return b.none
+      ? "No " + H.esc(String(d.year || "")) + " games have been played yet, so opponents have no numbers yet."
+      : "Each number is how far above or below usual that opponent has allowed at the player’s position in " + H.esc(b.label) + " (allowed so far, the weeks already played). It describes past points allowed; it is not a forecast.";
+  }
   function schedRowHtml(it, weeks, multi) {
     var p = it.p, r = it.r, span = weeks.length + 1;
     var who = '<th scope="row" class="fo-sched-who">' + H.playerButton(p.id, p.fid, p.name) + H.injuryChip(p) +
       '<div class="fo-muted fo-perf-sub">' + H.esc(p.position) + " · " + H.esc(p.nflTeam || "—") + (multi ? " · " + H.esc(p.franchise) : "") + "</div></th>";
-    if (r.state === "no_team") return "<tr>" + who + '<td colspan="' + weeks.length + '" class="fo-muted fo-sched-note">No NFL team is listed for him, so there is no schedule.</td></tr>';
-    if (r.state === "no_pos") return "<tr>" + who + '<td colspan="' + weeks.length + '" class="fo-muted fo-sched-note">The schedule numbers cover QB, RB, WR, TE, DL, LB, DB, K and P; not this position.</td></tr>';
-    if (r.state === "no_sched") return "<tr>" + who + '<td colspan="' + weeks.length + '" class="fo-muted fo-sched-note">' + H.esc(String(p.nflTeam).toUpperCase()) + " is not in the schedule data.</td></tr>";
+    if (r.state !== "ok") return "<tr>" + who + '<td colspan="' + weeks.length + '" class="fo-muted fo-sched-note">' + H.esc(schedStateNote(r.state, p.nflTeam)) + "</td></tr>";
     var byWk = {}; r.cells.forEach(function (c) { byWk[c.wk] = c; });
     return "<tr>" + who + weeks.map(function (w) { return schedCell(byWk[w] || { wk: w, kind: "none" }, r.pos, p); }).join("") + "</tr>";
   }
@@ -281,9 +296,22 @@
     return '<div class="fo-sched-scrollwrap" data-left="0" data-right="1"><div class="fo-sched-scroll" tabindex="0" role="region" aria-label="Schedule for the rest of the season: swipe sideways for later weeks. The player column stays in place.">' + table +
       '</div><span class="fo-sched-fade fo-sched-fade-l" aria-hidden="true"></span><span class="fo-sched-fade fo-sched-fade-r" aria-hidden="true"></span></div>';
   }
+  // ONE player's weeks as a strip (Market's expanded row): the same week heads and cells, no player column (the player is the row above).
+  // `scroll` = Rest of season: the same sideways box as Roster's, inside the expanded row.
+  function schedStrip(weeks, r, p, reg, scroll, label) {
+    var byWk = {}; r.cells.forEach(function (c) { byWk[c.wk] = c; });
+    var table = '<table class="fo-table fo-sched-grid fo-sched-strip' + (scroll ? " fo-sched-wide" : "") + '"' + (scroll ? ' style="--n:' + weeks.length + '"' : "") + "><thead><tr>" +
+      weeks.map(function (w) { return '<th scope="col" class="num" title="League week ' + w + '">W' + w + "</th>"; }).join("") + "</tr></thead><tbody><tr>" +
+      weeks.map(function (w) { return schedCell(byWk[w] || { wk: w, kind: "none" }, r.pos, p, reg); }).join("") + "</tr></tbody></table>";
+    if (!scroll) return table;
+    return '<div class="fo-sched-scrollwrap" data-left="0" data-right="1"><div class="fo-sched-scroll" tabindex="0" role="region" aria-label="' + H.esc((label ? label + ": " : "") + "schedule for the rest of the season. Swipe sideways for later weeks.") + '">' + table +
+      '</div><span class="fo-sched-fade fo-sched-fade-l" aria-hidden="true"></span><span class="fo-sched-fade fo-sched-fade-r" aria-hidden="true"></span></div>';
+  }
   // Keeps the edge shadows honest: a shadow shows on a side only while more weeks are hidden on that side.
   function wireSchedScroll(el) {
     Array.prototype.forEach.call(el.querySelectorAll(".fo-sched-scrollwrap"), function (w) {
+      if (w.__schedScroll) return;
+      w.__schedScroll = true;
       var sc = w.querySelector(".fo-sched-scroll");
       var upd = function () {
         var max = sc.scrollWidth - sc.clientWidth;
@@ -312,9 +340,7 @@
     if (!wl.weeks.length) { el.innerHTML = head + H.banner(wl.note, "info"); return; }
     var rows = FO.visibleRows() || [];
     var multi = FO.selectedTeam() === "__all__";
-    var note = b.none
-      ? "No " + H.esc(String(d.year || "")) + " games have been played yet, so opponents have no numbers yet."
-      : "Each number is how far above or below usual that opponent has allowed at the player’s position in " + H.esc(b.label) + " (allowed so far, the weeks already played). It describes past points allowed; it is not a forecast.";
+    var note = schedNote(d, b);
     if (!rows.length) { el.innerHTML = head + '<p class="fo-basis">' + note + '</p><p class="fo-table-empty">No players match the current filters.</p>'; return; }
     var items = rows.map(function (p) { var g = H.groupOf(p.id) || ""; return { p: p, group: g, r: P.playerRows(d, { nflTeam: p.nflTeam, group: g }, wl.weeks) }; });
     var scroll = sched.mode === "rest";
@@ -501,7 +527,11 @@
   }
   if (root.UPS_FO_HUB) { root.UPS_FO_HUB.registerView("bye"); }
   // Pure pieces, for tests.
-  root.UPS_FO_ROSTER = { parseSchedule: parseSchedule, parseProjections: parseProjections, ROWS: ROWS, SLOT_LABEL: SLOT_LABEL };
+  // `schedule`: the ONE schedule presentation (week cell, legend, note, missing-data words, detail panel, Rest-of-season box), also
+  // called by Market's expanded rows, so the two views can't drift apart.
+  root.UPS_FO_ROSTER = { parseSchedule: parseSchedule, parseProjections: parseProjections, ROWS: ROWS, SLOT_LABEL: SLOT_LABEL,
+    schedule: { controls: schedControls, legend: schedLegend, note: schedNote, stateNote: schedStateNote, cell: schedCell, strip: schedStrip,
+      openDetail: openSchedDetail, wireScroll: wireSchedScroll } };
   document.addEventListener("fo:ready", boot);
   document.addEventListener("fo:roster", function () { if (H) renderPerf(); });
   document.addEventListener("fo:injury", function () { if (H) { rerender("roster"); rerender("bye"); } });

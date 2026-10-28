@@ -15,12 +15,19 @@
      closed / unknown     No add/drops now / couldn't confirm
    Rostered players show their team; MFL's trade-bait list marks "On the block" (not repeated inside the On the block view).
    Points, PPG and rank are the shared (phone) season line.
+
+   Schedule (a row's "Schedule" control, Free agents / On the block / All players): the row opens a panel under it with that
+   player's upcoming league weeks, drawn by Roster → Schedule's own renderer (UPS_FO_ROSTER.schedule: same cells, colors, legend,
+   detail panel and wording). ONE /api/fantasy-sos?season=<season>&v=2 answer (DATA "sos") serves every row, read the first time
+   a row opens; never one request per player. Next 5 weeks by default; Rest of season scrolls sideways inside the panel.
 */
 (function (root) {
   "use strict";
 
   var H, FO, DATA;
-  var view = { scope: "fa", pos: "ALL", team: "", q: "", hideOut: false, sort: { key: "ppg", dir: -1 } };
+  var view = { scope: "fa", pos: "ALL", team: "", q: "", hideOut: false, sort: { key: "ppg", dir: -1 }, open: {} };   // open: pid -> "next5" | "rest"
+  var schedCells = {};      // pid|wk -> the cell behind a week button (the detail panel reads it)
+  var shownByPid = {};      // the rows on screen, for refreshing open panels when the schedule answer arrives
   var LIMIT = 200;
   var EMPTY = {
     fa: "No free agent matches. Try another position or search.",
@@ -216,6 +223,61 @@
       (key ? '<button type="button" class="fo-th-sort" data-mk-sort="' + key + '">' + H.esc(label) + (on ? (view.sort.dir > 0 ? " ▲" : " ▼") : "") + "</button>" : H.esc(label)) + "</th>";
   }
 
+  // ── Schedule panel under a row ──
+  function schedApi() { return root.UPS_FO_ROSTER && root.UPS_FO_ROSTER.schedule; }
+  function schedToggle(r) {
+    var on = !!view.open[r.pid];
+    return '<button type="button" class="fo-mk-sched-toggle" data-mk-sched="' + H.esc(r.pid) + '" aria-expanded="' + on + '" aria-controls="fo-mk-sched-' + H.esc(r.pid) + '"' +
+      ' aria-label="Schedule: ' + H.esc(r.name) + '’s upcoming weeks">Schedule <span class="fo-mk-sched-chev" aria-hidden="true">' + (on ? "▴" : "▾") + "</span></button>";
+  }
+  // The panel's contents for one row (HTML). Reads the one sos answer; says plainly when it is loading, unreadable or has no weeks.
+  function schedPanelBody(r) {
+    var S = schedApi(), P = root.UPS_PLAYER_SCHEDULE, e = DATA.get("sos");
+    if (!S || !P) return H.banner("The schedule view didn’t load. Reload to retry.", "warn");
+    if (!e) return '<div class="fo-table-loading">Reading the schedule…</div>';
+    if (e.state !== "ok") return H.banner("The schedule couldn’t be read right now. Reload to retry.", "warn");
+    var d = e.data, mode = view.open[r.pid] || "next5", wl = P.weekList(d, mode), b = P.basis(d);
+    var head = S.controls(mode, "-" + r.pid, ' data-mk-schedpid="' + H.esc(r.pid) + '"');
+    if (!wl.weeks.length) return head + H.banner(wl.note, "info");
+    var pr = P.playerRows(d, { nflTeam: /^FA\*?$/.test(r.team) ? "" : r.team, group: r.group }, wl.weeks);   // MFL's "FA" is no NFL team
+    var scroll = mode === "rest";
+    var grid = pr.state !== "ok" ? '<p class="fo-muted fo-sched-note">' + H.esc(S.stateNote(pr.state, r.team)) + "</p>"
+      : (scroll ? '<p class="fo-sched-hint">' + H.esc(P.weeksLabel(wl.weeks[0], wl.weeks[wl.weeks.length - 1])) + ': swipe sideways for later weeks. <span aria-hidden="true">→</span></p>' : "") +
+        S.strip(wl.weeks, pr, { id: r.pid, name: r.name }, schedCells, scroll, r.name);
+    return head + grid + '<p class="fo-basis">' + S.note(d, b) + "</p>" + (b.none ? "" : S.legend());
+  }
+  function schedPanelRow(r, span) {
+    return '<tr class="fo-mk-sched-row" id="fo-mk-sched-' + H.esc(r.pid) + '" data-mk-panel="' + H.esc(r.pid) + '"><td colspan="' + span + '">' +
+      '<div class="fo-mk-sched-panel" role="region" aria-label="' + H.esc(r.name + ": upcoming schedule") + '">' + schedPanelBody(r) + "</div></td></tr>";
+  }
+  // Re-draws every open panel in place (the schedule answer arrived, or a player's weeks choice changed); the table is left alone.
+  function refreshPanels(el, onlyPid) {
+    var S = schedApi();
+    Array.prototype.forEach.call(el.querySelectorAll("[data-mk-panel]"), function (tr) {
+      var pid = tr.getAttribute("data-mk-panel"), r = shownByPid[pid], box = tr.querySelector(".fo-mk-sched-panel");
+      if (!r || !box || (onlyPid && pid !== onlyPid)) return;
+      box.innerHTML = schedPanelBody(r);
+    });
+    if (S) S.wireScroll(el);
+  }
+  function toggleSched(el, btn) {
+    var pid = btn.getAttribute("data-mk-sched"), r = shownByPid[pid], tr = btn.closest("tr");
+    if (!r || !tr) return;
+    var span = tr.children.length;
+    if (view.open[pid]) {
+      delete view.open[pid];
+      var panel = el.querySelector('[data-mk-panel="' + pid + '"]');
+      if (panel) panel.parentNode.removeChild(panel);
+    } else {
+      view.open[pid] = "next5";
+      tr.insertAdjacentHTML("afterend", schedPanelRow(r, span));
+      var S = schedApi(); if (S) S.wireScroll(el);
+      if (!DATA.get("sos")) DATA.load("sos").then(function () { refreshPanels(el); }, function () { refreshPanels(el); });
+    }
+    btn.setAttribute("aria-expanded", view.open[pid] ? "true" : "false");
+    var chev = btn.querySelector(".fo-mk-sched-chev"); if (chev) chev.textContent = view.open[pid] ? "▴" : "▾";
+  }
+
   function render() {
     var el = document.getElementById("fo-market-body");
     if (!el) return;
@@ -254,12 +316,16 @@
       th("proj", week ? "Wk " + week + " proj" : "Proj", "MFL's projection for this lineup week — a forecast", "num") +
       th("", "Bye", "NFL bye week", "num col-md") + th("age", "Age", "From MFL's birthdate", "num col-md") +
       (showContract ? th("salary", "Contract", "Salary · years left (rostered players)", "num") : "") + th("", "", "", "") + "</tr></thead>";
+    var span = showContract ? 11 : 10;
+    schedCells = {}; shownByPid = {};
     var body = shown.map(function (r) {
       var l = r.line;
+      shownByPid[r.pid] = r;
       return "<tr>" +
         '<td class="fo-perf-player">' + H.playerButton(r.pid, r.fid, r.name) + (r.p ? H.injuryChip(r.p) : "") +
           '<div class="fo-muted fo-perf-sub">' + H.esc(r.pos) + " · " + H.esc(r.team || "FA") + "</div>" +
-          '<div class="fo-mk-statusline">' + availCell(r) + "</div></td>" +   // phones: the Status sits under the name (the column scrolls out of view)
+          '<div class="fo-mk-statusline">' + availCell(r) + "</div>" +   // phones: the Status sits under the name (the column scrolls out of view)
+          '<div class="fo-mk-sched-ctl">' + schedToggle(r) + "</div></td>" +
         '<td class="fo-mk-col-status">' + availCell(r) + "</td>" +
         '<td class="num">' + (l ? H.fmt1(l.pts) : "—") + "</td>" +
         '<td class="num">' + (l && l.ppg != null ? H.fmt1(l.ppg) : "—") + (l ? '<div class="fo-muted fo-perf-sub">' + l.games + " wk" + (l.games === 1 ? "" : "s") + "</div>" : "") + "</td>" +
@@ -269,15 +335,17 @@
         '<td class="num col-md">' + (r.bye || "—") + "</td>" +
         '<td class="num col-md">' + (r.age === undefined ? '<span class="fo-muted">…</span>' : r.age == null ? "—" : r.age) + "</td>" +
         (showContract ? '<td class="num">' + (r.p ? H.esc(H.money(r.p.salary)) + '<div class="fo-muted fo-perf-sub">' + (r.p.years > 0 ? r.p.years + " yr" + (r.p.years === 1 ? "" : "s") : "expired") + "</div>" : "—") + "</td>" : "") +
-        "<td>" + actionCell(r) + "</td></tr>";
+        "<td>" + actionCell(r) + "</td></tr>" +
+        (view.open[r.pid] ? schedPanelRow(r, span) : "");
     }).join("");
     el.innerHTML = '<div class="fo-card">' + controls +
       '<p class="fo-basis">' + list.length + " player" + (list.length === 1 ? "" : "s") + (list.length > LIMIT ? " · showing the top " + LIMIT + " — refine the filters" : "") +
         " · " + H.esc(basis.text) + (projFor(week) ? " · Wk " + week + " proj = MFL projection" : "") + "</p>" +
       (avNote ? H.banner(avNote, av && av.state === "error" ? "warn" : "info") : "") +
-      '<div class="fo-table-scroll"><table class="fo-table fo-perf-table fo-mk-table">' + head + "<tbody>" +
+      '<div class="fo-table-scroll fo-mk-scroll"><table class="fo-table fo-perf-table fo-mk-table">' + head + "<tbody>" +
         (body || '<tr><td colspan="' + (showContract ? 11 : 10) + '" class="fo-table-empty">' + H.esc(EMPTY[view.scope] || "No players match.") + "</td></tr>") + "</tbody></table></div>" +
       '<p class="fo-muted fo-perf-sub">Bids and adds are made in the phone app’s Market; trades in the Trade War Room. Nothing on this page sends a claim, add or offer.</p></div>';
+    var S = schedApi(); if (S) S.wireScroll(el);
     var q = el.querySelector("[data-mk-q]");
     if (q && view.__focusQ) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); view.__focusQ = false; }
   }
@@ -286,6 +354,18 @@
     var el = document.getElementById("fo-market-body");
     if (!el || el.__mkWired) return;
     el.__mkWired = true;
+    el.addEventListener("click", function (e) {
+      var c = e.target && e.target.closest ? e.target.closest("[data-mk-sched],[data-mk-schedpid],[data-sched-cell]") : null;
+      if (!c) return;
+      if (c.hasAttribute("data-mk-sched")) { toggleSched(el, c); return; }
+      if (c.hasAttribute("data-sched-cell")) { var S = schedApi(); if (S) S.openDetail(c, schedCells); return; }
+      // a player's weeks choice: re-draw his panel and keep focus on the choice
+      var pid = c.getAttribute("data-mk-schedpid"), mode = c.getAttribute("data-schedmode");
+      view.open[pid] = mode;
+      refreshPanels(el, pid);
+      var again = el.querySelector('[data-mk-schedpid="' + pid + '"][data-schedmode="' + mode + '"]');
+      if (again) again.focus();
+    });
     el.addEventListener("click", function (e) {
       var t = e.target && e.target.closest ? e.target.closest("[data-mk-scope],[data-mk-pos],[data-mk-sort],[data-mk-hideout]") : null;
       if (!t) return;
@@ -326,7 +406,8 @@
   }
 
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("market");
-  root.UPS_FO_MARKET = { AVAIL: AVAIL, statusFor: statusFor, isLater: isLater, compactRun: compactRun, _view: view };
+  root.UPS_FO_MARKET = { AVAIL: AVAIL, statusFor: statusFor, isLater: isLater, compactRun: compactRun, _view: view,
+    _sched: { toggle: schedToggle, panelBody: schedPanelBody, panelRow: schedPanelRow, cells: function () { return schedCells; } } };
   document.addEventListener("fo:ready", function () {
     H = root.UPS_FO_HUB; FO = root.UPS_FO; DATA = root.UPS_FO_DATA;
     if (!H || !FO || !DATA) return;
@@ -337,6 +418,7 @@
       "<li><b>Team filter:</b> appears in On the block and All players only; it never narrows Free agents.</li>" +
       "<li><b>On the block:</b> the owning team lists the player on MFL’s trade block.</li>" +
       "<li>Points, PPG and rank: MFL’s own scoring, same as the phone. The top 200 rows show; filters narrow the list.</li>" +
+      "<li><b>Schedule</b> (under a player’s name): opens his upcoming league weeks under the row, the same cells, colors and detail as Roster → Schedule. Each week shows what that opponent has allowed so far at his position; it is not a forecast.</li>" +
       "<li>Nothing here sends a claim, add or offer: bids and adds are made in the phone app, trades in the Trade War Room.</li></ul>");
   });
   document.addEventListener("fo:tab", function (e) { if (H && e.detail && e.detail.section === "market") { render(); load(); } });

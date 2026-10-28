@@ -64,7 +64,7 @@ test("Market search no longer pokes past its card on a phone", () => {
 });
 
 test("Market on a phone: each row's status sits under the player's name (the Status column would be half off-screen)", () => {
-  t.ok(/<div class="fo-mk-statusline">' \+ availCell\(r\) \+ "<\/div><\/td>"/.test(MK) && /<td class="fo-mk-col-status">' \+ availCell\(r\)/.test(MK) && /"fo-mk-col-status"\)/.test(MK), "the same status cell content under the name and in the column");
+  t.ok(/<div class="fo-mk-statusline">' \+ availCell\(r\) \+ "<\/div>"/.test(MK) && /<td class="fo-mk-col-status">' \+ availCell\(r\)/.test(MK) && /"fo-mk-col-status"\)/.test(MK), "the same status cell content under the name and in the column");
   t.ok(/\.fo-root \.fo-mk-statusline \{ display: none; \}/.test(CSS) && /@media \(max-width: 560px\) \{\s*\.fo-root \.fo-mk-col-status \{ display: none; \}\s*\.fo-root \.fo-mk-statusline \{ display: block;/.test(CSS), "desktop keeps the column; phones swap it for the under-name line");
 });
 
@@ -79,11 +79,12 @@ test("Tagging view, Contract log view and Bye planner weeks use the same control
 
 test("version stamps changed with the files that changed", () => {
   for (const f of ["fo_trades.js", "fo_activity.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.2"), f);
-  t.ok(HTML.includes("fo_market.js?v=2026.10.27.3"), "fo_market.js (changed again by the Market choices revision)");
+  t.ok(HTML.includes("fo_market.js?v=2026.10.28.13"), "fo_market.js (Market rows open the player's schedule, 2026-10-28)");
   // Roster → Schedule (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
   t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
-  for (const f of ["front_office.css", "fo_roster.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.4"), f + " (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
-  t.ok(/var BUILD = "2026\.10\.28\.4";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  // Market → Schedule (2026-10-28) shares Roster's schedule renderer and adds the panel styles.
+  for (const f of ["front_office.css", "fo_roster.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.13"), f + " (shared schedule renderer; Market's schedule panel)");
+  t.ok(/var BUILD = "2026\.10\.28\.13";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");
