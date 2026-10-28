@@ -214,6 +214,7 @@
   // The number is always printed, so color is never the only signal. It describes past points allowed; it is not a forecast. One
   // /api/fantasy-sos?season=<season>&v=2 answer feeds the whole page (DATA "sos"), never per player or per week; no D1 query here.
   var sched = { mode: "next5" };
+  var schedCells = {};      // pid|wk -> { p, cell } for the detail panel (rebuilt on every render)
   function schedControls() {
     var b = function (m, label) { return '<button type="button" class="fo-subview-chip' + (sched.mode === m ? " active" : "") + '" data-schedmode="' + m + '" aria-pressed="' + (sched.mode === m) + '">' + label + "</button>"; };
     return '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-schedwk">Weeks</div>' +
@@ -224,18 +225,30 @@
       '<li><span class="fo-sched-key fo-sched-more" aria-hidden="true">+12%</span> Green: that opponent has allowed 10% or more above usual at the position</li>' +
       '<li><span class="fo-sched-key fo-sched-less" aria-hidden="true">−12%</span> Red: it has allowed 10% or more below usual</li>' +
       '<li><span class="fo-sched-key" aria-hidden="true">+3%</span> No color: within 9% of usual, fewer than 3 games counted, or no number yet</li>' +
-      '<li><span class="fo-sched-key" aria-hidden="true">@DEN</span> @ = away game; no @ = home; BYE = bye week; — = no game or no number</li></ul>';
+      '<li><span class="fo-sched-key" aria-hidden="true">@DEN</span> @ = away game; no @ = home; BYE = bye week; — = no game or no number</li>' +
+      '<li>Each week: opponent, <b>vs usual %</b>, then <b>/g</b> = points it has allowed per game to the position, then <b>rank</b> out of 32 (1st = allowed the most). Tap a week for kickoff and the full explanation.</li></ul>';
   }
-  function schedCell(c, pos) {
+  function schedCell(c, pos, p) {
     var P = root.UPS_PLAYER_SCHEDULE;
-    if (c.kind === "bye") return '<td class="fo-sched-c fo-sched-bye" title="Wk ' + c.wk + ': bye week"><span class="fo-sched-opp">BYE</span></td>';
-    if (c.kind !== "game") return '<td class="fo-sched-c" title="Wk ' + c.wk + ': No game listed"><span class="fo-muted">—</span></td>';
-    var a = c.allowed, parts = P.allowedParts(a), tone = P.tone(a), k = P.kickoffLabel(c.kickoffMs);
-    var pctTxt = a && a.ratio != null ? P.pct(a.ratio) : "—";
-    var tip = "Wk " + c.wk + ": " + (c.home ? "home vs " : "away at ") + c.opp + (k ? ", " + k + " ET" : "") + ". " +
-      (a && (parts.pg || parts.vs || parts.rank) ? "Allowed so far: " + [parts.pg, parts.vs, parts.rank].filter(Boolean).join(", ") + "." : "No number yet.");
-    return '<td class="fo-sched-c' + (tone === "more" ? " fo-sched-more" : tone === "less" ? " fo-sched-less" : "") + '" title="' + H.esc(tip) + '" aria-label="' + H.esc(tip) + '">' +
-      '<span class="fo-sched-opp">' + (c.home ? "" : "@") + H.esc(c.opp) + '</span><span class="fo-sched-pct">' + H.esc(pctTxt) + "</span></td>";
+    if (c.kind === "bye") return '<td class="fo-sched-c fo-sched-bye"><span class="fo-sched-opp">BYE</span></td>';
+    if (c.kind !== "game") return '<td class="fo-sched-c"><span class="fo-muted" title="No game listed">—</span></td>';
+    var a = c.allowed, tone = P.tone(a), cp = P.allowedCompact(a), parts = P.allowedParts(a);
+    var key = p.id + "|" + c.wk; schedCells[key] = { p: p, cell: c, pos: pos };
+    var label = "Week " + c.wk + ", " + (c.home ? "home vs " : "away at ") + c.opp + ". " +
+      (cp.pct || cp.pg || cp.rank ? [parts.vs, parts.pg, parts.rank].filter(Boolean).join(", ") + ". " : "No number yet. ") + "Opens the details.";
+    return '<td class="fo-sched-c' + (tone === "more" ? " fo-sched-more" : tone === "less" ? " fo-sched-less" : "") + '">' +
+      '<button type="button" class="fo-sched-btn" data-sched-cell="' + H.esc(key) + '" aria-label="' + H.esc(label) + '">' +
+      '<span class="fo-sched-opp">' + (c.home ? "" : "@") + H.esc(c.opp) + '</span><span class="fo-sched-pct">' + H.esc(cp.pct || "—") + "</span>" +
+      '<span class="fo-sched-sub">' + H.esc(cp.pg || "—") + '</span><span class="fo-sched-sub">' + H.esc(cp.rank || "—") + "</span></button></td>";
+  }
+  // The tap / keyboard detail panel (the Front Office's own dialog), not a hover tooltip.
+  function openSchedDetail(btn) {
+    var P = root.UPS_PLAYER_SCHEDULE, e = DATA.get("sos"), rec = schedCells[btn.getAttribute("data-sched-cell")];
+    if (!P || !rec || !e || e.state !== "ok") return;
+    var d = P.detail(e.data, rec.cell, rec.pos, rec.p.name);
+    var html = '<dl class="fo-sched-detail">' + d.rows.map(function (r) { return "<dt>" + H.esc(r[0]) + "</dt><dd>" + H.esc(r[1]) + "</dd>"; }).join("") + "</dl>" +
+      d.notes.map(function (n) { return '<p class="fo-basis">' + H.esc(n) + "</p>"; }).join("");
+    H.openDialog(d.title, html, { returnFocus: function () { return btn; } });
   }
   function schedRowHtml(it, weeks, multi) {
     var p = it.p, r = it.r, span = weeks.length + 1;
@@ -245,7 +258,7 @@
     if (r.state === "no_pos") return "<tr>" + who + '<td colspan="' + weeks.length + '" class="fo-muted fo-sched-note">The schedule numbers cover QB, RB, WR, TE, DL, LB, DB, K and P; not this position.</td></tr>';
     if (r.state === "no_sched") return "<tr>" + who + '<td colspan="' + weeks.length + '" class="fo-muted fo-sched-note">' + H.esc(String(p.nflTeam).toUpperCase()) + " is not in the schedule data.</td></tr>";
     var byWk = {}; r.cells.forEach(function (c) { byWk[c.wk] = c; });
-    return "<tr>" + who + weeks.map(function (w) { return schedCell(byWk[w] || { wk: w, kind: "none" }, r.pos); }).join("") + "</tr>";
+    return "<tr>" + who + weeks.map(function (w) { return schedCell(byWk[w] || { wk: w, kind: "none" }, r.pos, p); }).join("") + "</tr>";
   }
   // One grid of players (rows) by league weeks (columns). Next 5 = five fixed columns. Rest of season = ALL remaining weeks in ONE grid that swipes
   // sideways inside its own box while the player column stays pinned; the page itself never scrolls sideways.
@@ -294,6 +307,7 @@
     }
     if (e.state !== "ok") { el.innerHTML = H.banner("The schedule couldn’t be read right now, so this view is off. Reload to retry.", "warn"); return; }
     var d = e.data, wl = P.weekList(d, sched.mode), b = P.basis(d);
+    schedCells = {};
     var head = schedControls();
     if (!wl.weeks.length) { el.innerHTML = head + H.banner(wl.note, "info"); return; }
     var rows = FO.visibleRows() || [];
@@ -332,6 +346,10 @@
         if (!b) return;
         sched.mode = b.getAttribute("data-schedmode");
         renderPerf();
+      });
+      sw.addEventListener("click", function (e) {
+        var c = e.target && e.target.closest ? e.target.closest("[data-sched-cell]") : null;
+        if (c) openSchedDetail(c);
       });
     }
     var wrap = document.getElementById("fo-perf-wrap");

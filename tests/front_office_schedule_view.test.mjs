@@ -33,7 +33,7 @@ test("ONE read for the whole view: /api/fantasy-sos?season=<active season>&v=2, 
 test("no D1, no write, no forecast wording in the new code", () => {
   const mine = code(read("site/shared/player_schedule.js")) + code(RO.slice(RO.indexOf("// ── Schedule (Roster"), RO.indexOf("function wirePerf")));
   t.ok(!/D1|prepare\(|POST|PUT|PATCH|DELETE|method:/.test(mine), "read-only, no database");
-  t.ok(!/\b(easy|easier|tough|tougher|smash|forecast|projected|will score)\b/i.test(mine.replace(/it is not a forecast/g, "")), "no easy/tough or forecast claims (apart from saying it is not one)");
+  t.ok(!/\b(easy|easier|tough|tougher|smash|forecast|projected|will score)\b/i.test(mine.replace(/it is not a forecast/gi, "")), "no easy/tough or forecast claims (apart from saying it is not one)");
   t.ok(/allowed so far/i.test(RO) && /not a forecast/.test(RO), "labelled 'allowed so far' with the not-a-forecast line");
 });
 test("players are rows and league weeks are columns; Next 5 is a fixed five-week grid; Rest of season is ONE sideways-scrolling grid with the player column pinned", () => {
@@ -49,12 +49,16 @@ test("players are rows and league weeks are columns; Next 5 is a fixed five-week
   t.ok(/\.fo-sched-wide \.fo-sched-whohead, \.fo-sched-wide \.fo-sched-who \{ position: sticky; left: 0/.test(css), "the player column is sticky");
   t.ok(/table-layout: fixed/.test(css), "fixed layout");
 });
-test("each week cell is the opponent plus the existing vs-usual percentage; color follows the printed number and never stands alone; there is a text legend", () => {
-  const body = code(RO);
-  t.ok(/fo-sched-opp[\s\S]{0,160}fo-sched-pct/.test(body), "opponent over percentage");
+test("each week cell shows the opponent, the prominent vs-usual %, points allowed per game and rank IN the cell; the full explanation is a tap and keyboard detail panel, not a hover title", () => {
+  const body = code(RO), css = read("site/rosters/v2/front_office.css");
+  t.ok(/fo-sched-opp[\s\S]{0,200}fo-sched-pct[\s\S]{0,200}fo-sched-sub[\s\S]{0,120}fo-sched-sub/.test(body), "opponent, percentage, per game, rank");
+  t.ok(/P\.allowedCompact\(a\)/.test(body) && /cp\.pct/.test(body) && /cp\.pg/.test(body) && /cp\.rank/.test(body), "the compact labels come from the shared module");
+  t.ok(/'<button type="button" class="fo-sched-btn" data-sched-cell="'/.test(body), "each week with a game is a real button (tap, Enter, Space)");
+  t.ok(!/title="' \+ H\.esc\(tip\)/.test(body) && !/\btip\b/.test(body), "no hover-only tooltip carries the information");
+  t.ok(/H\.openDialog\(d\.title, html, \{ returnFocus: function \(\) \{ return btn; \} \}\)/.test(body) && /P\.detail\(e\.data, rec\.cell, rec\.pos, rec\.p\.name\)/.test(body), "the detail panel is the Front Office dialog, focus returns to the cell");
   t.ok(/P\.tone\(a\)/.test(body) && /fo-sched-more/.test(body) && /fo-sched-less/.test(body), "tone from the shared rule");
-  t.ok(/P\.pct\(a\.ratio\)/.test(body), "the printed number is the vs-usual percentage");
-  for (const s of ["Green: that opponent has allowed 10% or more above usual", "Red: it has allowed 10% or more below usual", "No color: within 9% of usual, fewer than 3 games counted, or no number yet", "@ = away game", "BYE = bye week"]) t.ok(RO.includes(s), s);
+  t.ok(/\.fo-sched-btn:focus-visible/.test(css) && /\.fo-sched-wide \{ --sw-name: 96px; --sw-col: 70px;/.test(css), "visible focus; wider columns inside the scrolling box");
+  for (const s of ["Green: that opponent has allowed 10% or more above usual", "Red: it has allowed 10% or more below usual", "No color: within 9% of usual, fewer than 3 games counted, or no number yet", "@ = away game", "BYE = bye week", "/g</b> = points it has allowed per game", "Tap a week for kickoff and the full explanation"]) t.ok(RO.includes(s), s);
   t.ok(/allowed so far/i.test(RO) && /not a forecast/.test(RO) && !/\b(easy|tough)\b/i.test(code(RO).replace(/never "easy"/g, "")), "past points allowed, not a forecast, no easy/tough");
 });
 test("missing data is handled in words", () => {

@@ -116,4 +116,30 @@ test("rest of season is EVERY remaining league week in order (one grid), the nex
   t.equal(JSON.stringify(five), JSON.stringify(rest.slice(0, 5)));
   t.ok(typeof S.chunk === "undefined", "no repeated five-week blocks any more");
 });
+
+test("compact cell labels: +22%, 28.2/g, 7th/32; each blank when missing, zero shown as 0", () => {
+  t.equal(JSON.stringify(S.allowedCompact({ perGame: 28.2, ratio: 1.22, rank: 7, of: 32 })), JSON.stringify({ pct: "+22%", pg: "28.2/g", rank: "7th/32" }));
+  t.equal(JSON.stringify(S.allowedCompact({ perGame: 0, ratio: 1, rank: 16, of: 32 })), JSON.stringify({ pct: "0%", pg: "0.0/g", rank: "16th/32" }));
+  t.equal(JSON.stringify(S.allowedCompact({ perGame: null, ratio: null, rank: null, of: 32 })), JSON.stringify({ pct: "", pg: "", rank: "" }));
+  t.equal(JSON.stringify(S.allowedCompact(null)), JSON.stringify({ pct: "", pg: "", rank: "" }));
+});
+test("the detail panel text carries everything a cell abbreviates: opponent, home/away, kickoff, per game, vs usual, rank, games, why the color, and 'not a forecast'", () => {
+  const cell = S.cell(D26, "DEN", 8, "QB"); const d = S.detail(D26, cell, "QB", "Pat Example");
+  const text = d.rows.map((r) => r.join(": ")).concat(d.notes).join(" | ");
+  t.ok(d.title.startsWith("Wk 8:") && /Pat Example/.test(d.title), d.title);
+  t.ok(/Opponent: (Home vs|Away at) [A-Z]{2,3}/.test(text), text);
+  t.ok(/Kickoff: .* ET/.test(text) || /Kickoff: Not scheduled yet/.test(text), text);
+  t.ok(/Points allowed per game \(Wks 1–5\): \d+\.\d to QBs/.test(text), text);
+  t.ok(/Versus usual: .*(above|below|About usual)/.test(text) && /Rank among 32 teams: \d+(st|nd|rd|th) \(1st = has allowed the most to QBs\)/.test(text) && /Games counted: \d/.test(text), text);
+  t.ok(/not a forecast/.test(text) && !/\b(easy|tough)\b/i.test(text), text);
+  // a colored cell explains its color; a neutral one says why
+  const colored = ["ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE", "DAL", "DEN", "DET"].map((tm) => S.cell(D26, tm, 6, "QB")).find((c) => c.kind === "game" && S.tone(c.allowed) !== "none");
+  t.ok(colored, "a colored cell exists"); const dc = S.detail(D26, colored, "QB", ""); t.ok(dc.notes.join(" ").match(/(Green|Red): this opponent has allowed 10% or more (above|below) usual to QBs/), dc.notes.join(" "));
+  const neutral = S.cell(D26, "ARI", 6, "QB"); const nn = clone(D26); nn.teams[neutral.opp].QB.adj.ratio = 1.02;
+  t.ok(S.detail(nn, S.cell(nn, "ARI", 6, "QB"), "QB", "").notes.join(" ").includes("No color: within 9% of usual"));
+  // missing number: said plainly, never a zero
+  const e = clone(D26); const o = S.cell(e, "DEN", 8, "QB").opp; delete e.teams[o].QB;
+  const dm = S.detail(e, S.cell(e, "DEN", 8, "QB"), "QB", ""); t.ok(dm.rows.some((r) => /No number yet/.test(r[1])) && !dm.rows.some((r) => /per game/.test(r[0])));
+  t.equal(S.detail(D26, { kind: "bye", wk: 8 }, "QB", "").rows.length, 0);
+});
 await run("player_schedule");

@@ -109,7 +109,37 @@
       rank: a.rank != null && a.of != null ? ordinal(a.rank) + " of " + a.of : "" };
   }
 
-  var api = { POSITIONS: POSITIONS, endWeek: endWeek, nowWeek: nowWeek, weekList: weekList, weeksLabel: weeksLabel, basis: basis, allowed: allowed,
+  // The compact labels printed IN a week cell: "+22%" (vs usual, the prominent number), "28.2/g" (points allowed per game), "7th/32" (rank of 32,
+  // 1st = allowed the most). Each is "" when the engine has no value (never a 0).
+  function allowedCompact(a) {
+    if (!a) return { pct: "", pg: "", rank: "" };
+    return { pct: a.ratio != null ? pct(a.ratio) : "", pg: a.perGame != null ? fix1(a.perGame) + "/g" : "", rank: a.rank != null && a.of != null ? ordinal(a.rank) + "/" + a.of : "" };
+  }
+  // The full explanation behind a week cell, for the detail panel (tap or keyboard, not hover): rows of [label, value] plus the plain notes.
+  // `d` is the one fantasy-sos answer; `cell` a game cell from playerRows(); `pos` the player's position group.
+  function detail(d, cell, pos, playerName) {
+    var b = basis(d), a = cell && cell.allowed, rows = [], notes = [];
+    if (!cell || cell.kind !== "game") return { title: "", rows: [], notes: ["No game to describe."] };
+    rows.push(["Opponent", (cell.home ? "Home vs " : "Away at ") + cell.opp]);
+    var k = kickoffLabel(cell.kickoffMs);
+    rows.push(["Kickoff", k ? k + " ET (Eastern time)" : "Not scheduled yet"]);
+    var basisTxt = b.none ? "" : " (" + b.label + ")";
+    if (!a || (a.perGame == null && a.ratio == null && a.rank == null)) {
+      rows.push(["Allowed so far" + basisTxt, "No number yet for " + pos + "."]);
+    } else {
+      if (a.perGame != null) rows.push(["Points allowed per game" + basisTxt, fix1(a.perGame) + " to " + pos + "s"]);
+      if (a.ratio != null) { var p = Math.round((a.ratio - 1) * 100); rows.push(["Versus usual", (p === 0 ? "About usual (0%)" : Math.abs(p) + "% " + (p > 0 ? "above" : "below") + " usual") + " (" + pct(a.ratio) + ")"]); }
+      if (a.rank != null && a.of != null) rows.push(["Rank among " + a.of + " teams", ordinal(a.rank) + " (1st = has allowed the most to " + pos + "s)"]);
+      if (a.games != null) rows.push(["Games counted", String(a.games)]);
+      var t = tone(a);
+      notes.push(t === "more" ? "Green: this opponent has allowed 10% or more above usual to " + pos + "s." : t === "less" ? "Red: this opponent has allowed 10% or more below usual to " + pos + "s."
+        : "No color: within 9% of usual, fewer than " + COLOR_MIN_GAMES + " games counted, or no number.");
+    }
+    notes.push("This describes past points allowed in games already played. It is not a forecast.");
+    return { title: "Wk " + cell.wk + ": " + (cell.home ? "" : "@ ") + cell.opp + (playerName ? " · " + playerName : ""), rows: rows, notes: notes };
+  }
+
+  var api = { allowedCompact: allowedCompact, detail: detail, POSITIONS: POSITIONS, endWeek: endWeek, nowWeek: nowWeek, weekList: weekList, weeksLabel: weeksLabel, basis: basis, allowed: allowed,
     COLOR_K: COLOR_K, COLOR_MIN_GAP: COLOR_MIN_GAP, COLOR_MIN_PCT: COLOR_MIN_PCT, COLOR_MIN_GAMES: COLOR_MIN_GAMES, tone: tone, toneShrunk: toneShrunk, cell: cell, playerRows: playerRows, ordinal: ordinal, pct: pct, kickoffLabel: kickoffLabel, allowedParts: allowedParts };
   root.UPS_PLAYER_SCHEDULE = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
