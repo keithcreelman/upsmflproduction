@@ -18,7 +18,10 @@ function fn(name) {
   return SRC.slice(start, i + 1);
 }
 const ctx = { Object, Math, String };
+ctx.window = ctx;
 vm.createContext(ctx);
+// the page loads site/shared/trade_rules.js (window.UPS_TRADE_RULES) before trade_workbench.js — so does this harness
+vm.runInContext(fs.readFileSync(new URL("../site/shared/trade_rules.js", import.meta.url), "utf8"), ctx);
 vm.runInContext([
   "function safeStr(v){ return String(v == null ? '' : v).trim(); }",
   "function safeInt(v, d){ var n = parseInt(v, 10); return isFinite(n) ? n : (d || 0); }",
@@ -49,7 +52,7 @@ test("the reconciliation and the multi-year table use the ARRIVAL cost for incom
 
 test("the desktop page loads the changed script under a new stamp", () => {
   const html = fs.readFileSync(new URL("../site/trades/trade_workbench.html", import.meta.url), "utf8");
-  t.match(html, /\.\/trade_workbench\.js\?v=20261012b/);
+  t.match(html, /\.\/trade_workbench\.js\?v=20261023b/);
 });
 
 await run("trade_taxi_arrival_preview_client");

@@ -329,7 +329,7 @@ test("desktop wiring: flag kept by normalizeAsset; checkbox can't add it; 3-way 
     t.match(src, /\.twb-row-forfeited td \{ opacity: 0\.55; \}/);
     t.match(src, /\.twb-3w-asset\.is-forfeited,\n\.twb-discovery-item\.is-forfeited \{ opacity: 0\.55; cursor: not-allowed;/);
   }
-  t.match(html, /\.\/trade_workbench\.js\?v=20261012b/);
+  t.match(html, /\.\/trade_workbench\.js\?v=20261023b/);
 });
 
 // ═════════════════ Rookie Draft Hub trade window ═════════════════
