@@ -1426,8 +1426,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-sched-wide .fo-group-row th.fo-sched-who { background: #1d2740; }
 .fo-sched-wide thead .fo-sched-whohead { background: var(--panel-alt); }
 .fo-sched-fade { position: absolute; top: 0; bottom: 0; width: 22px; pointer-events: none; opacity: 0; transition: opacity 120ms; z-index: 3; }
-.fo-sched-fade-r { right: 0; background: linear-gradient(to left, rgba(91,141,255,0.45), rgba(91,141,255,0)); }
-.fo-sched-fade-l { left: var(--sw-name, 96px); background: linear-gradient(to right, rgba(91,141,255,0.45), rgba(91,141,255,0)); }
+.fo-sched-fade-r { right: 0; background: linear-gradient(to left, rgba(91,141,255,0.30), rgba(91,141,255,0)); }
+.fo-sched-fade-l { left: var(--sw-name, 96px); background: linear-gradient(to right, rgba(91,141,255,0.30), rgba(91,141,255,0)); }
 .fo-sched-scrollwrap[data-right="1"] .fo-sched-fade-r, .fo-sched-scrollwrap[data-left="1"] .fo-sched-fade-l { opacity: 1; }
 .fo-sched-scrollwrap { --sw-name: 96px; }
 @media (max-width: 560px) {
