@@ -619,15 +619,6 @@
             "contractStatus": "Vet-WW",
             "contractYear": "1",
             "drafted": "BB $1,000",
-            "id": "16224",
-            "salary": "1000",
-            "status": "ROSTER"
-          },
-          {
-            "contractInfo": "CL 1| TCV 1K| AAV 1K",
-            "contractStatus": "Vet-WW",
-            "contractYear": "1",
-            "drafted": "BB $1,000",
             "id": "17339",
             "salary": "1000",
             "status": "ROSTER"
@@ -638,15 +629,6 @@
             "contractYear": "1",
             "drafted": "BB $1,000",
             "id": "15332",
-            "salary": "1000",
-            "status": "ROSTER"
-          },
-          {
-            "contractInfo": "CL 1| TCV 1K| AAV 1K",
-            "contractStatus": "Vet-WW",
-            "contractYear": "1",
-            "drafted": "BB $1,000",
-            "id": "14778",
             "salary": "1000",
             "status": "ROSTER"
           },
