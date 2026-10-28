@@ -163,6 +163,38 @@ export function computeStarterRates(rows, ctx) {
   return { thresholds, players, weeks_label, started_no_shows: noShows, started_played_zero: playedZero };
 }
 
+// ── Edge cache for /api/player-starter-rates (Keith 2026-10-28, #1421 ruling A) ──
+// One answer reads 37,473 D1 rows (season 2026, completed week 7; measured 2026-10-28 by running the route's seven
+// SELECTs once each). The answer changes only when a week becomes final or when an already-final week's synced data
+// changes (a stat correction, a late snap-count sync), so:
+//   * the KEY names everything the answer depends on: season, the MFL-authoritative completed week (and where it came
+//     from), the requested through-week, group and player. A newly completed week is a new key, so it misses at once.
+//     The key is built explicitly on a private host: workers.dev's caches.default is shared and ignores the request host.
+//   * TTL 6 h for a settled answer (every completed week graded), so a correction to a final week shows within 6 h;
+//     10 min while any week is still pending (lineups or snap counts not synced yet) or when MFL couldn't be read, so a
+//     week that finishes syncing is graded within 10 minutes.
+export const CACHE_TTL_S = 21600;
+export const CACHE_PENDING_TTL_S = 600;
+export const CACHE_VERSION = "1";
+
+/** through=N: grade final weeks up to N only (1-18); anything else = no bound. */
+export function parseThrough(v) {
+  const n = parseInt(String(v == null ? "" : v).replace(/\D/g, ""), 10);
+  return n >= 1 && n <= 18 ? n : null;
+}
+
+export function starterRatesCacheKey({ season, completed, authority, through, group, mflId }) {
+  const q = new URLSearchParams();
+  q.set("v", CACHE_VERSION); q.set("season", String(season)); q.set("completed", String(completed)); q.set("authority", String(authority || ""));
+  q.set("through", through == null ? "" : String(through)); q.set("group", String(group || "")); q.set("mfl_id", String(mflId || ""));
+  return "https://upsmfl-starter-rates.local/api/player-starter-rates?" + q.toString();
+}
+
+export function starterRatesTtl(out, authority) {
+  const pending = (out && out.pending_weeks) || [];
+  return authority === "mfl_live_scoring" && !pending.length ? CACHE_TTL_S : CACHE_PENDING_TTL_S;
+}
+
 /** MFL team codes → nflverse codes (bye list vs snap rows). */
 export const TEAM_NORM = { GBP: "GB", KCC: "KC", JAC: "JAX", LAR: "LA", LVR: "LV", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB" };
 export const normTeam = (t) => {
