@@ -128,6 +128,12 @@ test("one event in both logs shows once, with both source labels; different even
   ] };
   const rows = AC.mergeRows(mfl, AC.contractRows(act, { test_franchises: [] }, nm, tn));
   t.equal(rows.length, 4, "the matching pair is one row; the 3-hour-later extension and the other team's tag stay separate");
+  // Tyquan Thornton, 2026-10-15: placed on IR, then an MYM 2 minutes later. Two real events: never merged.
+  const ir = AC.mflRows({ transactions: { transaction: [{ type: "IR", franchise: "0009", timestamp: String(ts), deactivated: "16601,", activated: "" }] } }, nm, tn);
+  const mym = AC.contractRows({ activities: [{ franchise_id: "0009", player_id: "16601", activity_type: "MYM", submitted_at_utc: new Date(ts * 1000 + 110000).toISOString(), test_flag: 0 }] }, { test_franchises: [] }, nm, tn);
+  t.equal(AC.mergeRows(ir, mym).length, 2, "an IR move and an MYM minutes apart are two rows");
+  const real = AC.mergeRows(AC.mflRows(FX.transactions, nm, tn), AC.contractRows(ACT_FX, TEST_FX, nm, tn));
+  t.equal(real.filter((r) => r.src.length === 2).length, 0, "the fixture moves + the 2026 contract log: no event in both logs");
   const both = rows.find((r) => r.src.length === 2);
   t.ok(both && both.src.join() === "mfl,ups" && /added Will Shipley/.test(both.html) && /Contract log: .*FA contract: Will Shipley/.test(both.html), both && both.html);
   t.ok(both.kinds.includes("add") && both.kinds.includes("c:FA Contract"), "the merged row answers both type choices");

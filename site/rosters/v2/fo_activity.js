@@ -120,7 +120,10 @@
   var UPS_KINDS = [["Multi-Year Contract", "Multi-year contracts (MYAC)", "Multi-year contract (MYAC)"], ["Extension", "Extensions", "Extension"], ["Restructure", "Restructures", "Restructure"],
     ["Tag", "Tags", "Tag"], ["MYM", "Mid-year multis (MYM)", "Mid-year multi (MYM)"], ["FA Contract", "FA contracts", "FA contract"]];
   var SRC_LABEL = { mfl: "MFL transaction", ups: "Contract log (UPS)" };
-  var SAME_EVENT_MS = 120000;   // an MFL row and a contract-log row for the same team + player this close are one event
+  // The one pair that can be a single event in both logs: MFL's add (free agent, waiver award, auction win) and the contract
+  // log's "FA Contract" for that same team and player within 2 minutes. Anything else is two events, even when close in time
+  // (an IR move and an MYM on the same player minutes apart are both real).
+  var SAME_EVENT_MS = 120000, SAME_EVENT_MFL = ["add", "waiver", "auction"], SAME_EVENT_UPS = "c:FA Contract";
 
   function upsKey(type) { return "c:" + String(type || "Other"); }
   function upsLabel(type, one) { var k = UPS_KINDS.filter(function (x) { return x[0] === type; })[0]; return k ? k[one ? 2 : 1] : String(type || "Other"); }
@@ -201,14 +204,14 @@
     });
     return out;
   }
-  // Both logs, newest first. A contract-log row that matches an MFL row (same team, same player, within 2 minutes) is the
-  // same event: it joins that row (both source labels) instead of showing twice. Rows without a readable time sort last.
+  // Both logs, newest first. A contract-log row that is the same event as an MFL row (see SAME_EVENT_*) joins that row
+  // (both source labels) instead of showing twice. Rows without a readable time sort last.
   function mergeRows(mfl, ups) {
     var rows = (mfl || []).map(function (r) { return Object.assign({}, r, { src: r.src.slice(), kinds: r.kinds.slice() }); });
     (ups || []).forEach(function (c) {
       var hit = null, best = SAME_EVENT_MS + 1;
-      rows.forEach(function (r) {
-        if (r.src.indexOf("ups") >= 0 || !(r.ts > 0) || !(c.ts > 0)) return;
+      if (c.kinds.indexOf(SAME_EVENT_UPS) >= 0) rows.forEach(function (r) {
+        if (r.src.indexOf("ups") >= 0 || !(r.ts > 0) || !(c.ts > 0) || !r.kinds.some(function (k) { return SAME_EVENT_MFL.indexOf(k) >= 0; })) return;
         var d = Math.abs(r.ts - c.ts);
         if (d <= SAME_EVENT_MS && d < best && r.fids.indexOf(c.fids[0]) >= 0 && c.pids.some(function (p) { return r.pids.indexOf(p) >= 0; })) { hit = r; best = d; }
       });
