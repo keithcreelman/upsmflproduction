@@ -101,6 +101,18 @@
   SOURCES.franchiseAssets = function (fid) { return getJson(cfg.apiBase + "/api/franchise-assets?" + q({ fid: fid, L: cfg.leagueId, YEAR: cfg.season })); };
   SOURCES.projections = weekSource("projectedScores");
   SOURCES.nflSchedule = weekSource("nflSchedule");
+  // ONE answer for the whole Schedule view: every NFL team's league-week schedule plus what each opponent has allowed at each position so far
+  // (the Pts Agst engine, same answer Stats → Sched reads). Never one request per player or per week; no position parameter (all nine are in it).
+  // The season is the active MFL season this page was configured with. The browser's HTTP cache may serve it (no no-store).
+  SOURCES.sos = function () {
+    return fetch(cfg.apiBase + "/api/fantasy-sos?season=" + encodeURIComponent(cfg.season) + "&v=2", { credentials: "omit" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (j) {
+      if (!j || j.ok !== true || !j.schedule || !j.season) throw new Error("schedule unreadable");
+      return j;
+    });
+  };
 
   function emit(key) {
     (listeners[key] || []).concat(listeners["*"] || []).forEach(function (fn) { try { fn(entries[key], key); } catch (e) {} });
