@@ -440,7 +440,7 @@ test("copy to Trade builder: disabled with a reason without the builder's openDr
   t.ok(r1.ok === false && p.dialog.open, "the builder declined (owner kept the current draft) → the popup stays open, nothing switched");
   answer = { ok: true, dropped: [], clamped: [] };
   const host = { innerHTML: "", __tbHandle: null };
-  p.el.querySelector = (q) => (q === "#fo-tb-host" ? host : null);
+  p.el.querySelector = (q) => (q === "#fo-tb-host" && p.el.innerHTML.includes('id="fo-tb-host"') ? host : null);
   const r2 = p.TR._copy();
   t.ok(r2.ok && p.dialog.open === null, "accepted → the popup closes");
   t.ok(/data-tf-mode="builder" aria-pressed="true"/.test(p.el.innerHTML), "and Trades shows the builder");

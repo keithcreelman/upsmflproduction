@@ -1365,11 +1365,11 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tb-sum { margin: 0 0 10px; padding-left: 18px; font-size: 13px; }
 .fo-tb-note { max-width: 640px; }
 .fo-tb-actions { margin: 12px 0 0; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-.fo-tb-confirm p { margin: 0 0 8px; }
 .fo-tb-src { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); }
 .fo-tb-src-data { color: var(--muted); } .fo-tb-src-calc { color: var(--accent); border-color: var(--accent); } .fo-tb-src-verdict { color: var(--warn); border-color: var(--warn); }
 @media (max-width: 1100px) { .fo-tb-impact { grid-template-columns: 1fr; } }
-@media (max-width: 600px) { .fo-tb-teams { grid-template-columns: 1fr; } .fo-tb-stages { grid-template-columns: 1fr; } }
+/* Phones: one team per row, three-team trades too (.fo-tb-n3 above is more specific, so it is named here; its 340px minimum overflowed a 320px screen). */
+@media (max-width: 600px) { .fo-tb-teams, .fo-tb-teams.fo-tb-n3 { grid-template-columns: 1fr; } .fo-tb-stages { grid-template-columns: 1fr; } }
 /* ── View choices (Keith 2026-10-27): Direction A, the wider screen-first font, Market wraps to rows ───────────────
    Applies to the groups that choose WHAT the screen shows: Roster columns / Group players, Market Browse players,
    Trade finder Compare by / Measure, Cap plan view, Recent moves. Filters (position chips, team, search) keep their
@@ -1459,35 +1459,42 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tb-none, .fo-tb-incomplete, .fo-tb-checking { border-left-color: var(--border); }
 .fo-tb-none .fo-tb-pill, .fo-tb-incomplete .fo-tb-pill, .fo-tb-checking .fo-tb-pill { color: var(--muted); }
 
-/* Trade builder, three stages (Trade proposal · Trade impact · Review and send): a numbered stepper, a stronger heading on each stage,
-   an accent edge on the active one, and room between them. Same tokens as the rest of the Front Office; no new colors. */
+/* Trade builder: three disclosures (1 Build trade · 2 Cap & contracts · 3 Lineup impact), all closed at first, each a full-width button
+   with a one-line summary; then the always-visible Review (validation, note, disabled Send). Same tokens as the rest of the Front Office. */
 .fo-tb { display: grid; gap: 22px; }
 .fo-tb .fo-card { margin-bottom: 0; }
-.fo-tb-steps { list-style: none; margin: 0; padding: 0; display: flex; gap: 8px; flex-wrap: wrap; }
-.fo-tb-steps li { flex: 1 1 180px; }
-.fo-tb-steps button {
-  width: 100%; display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 14px; cursor: pointer;
-  font-family: var(--fo-choice-font, inherit); font-size: 14px; font-weight: 600; color: var(--muted);
-  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 10px; text-align: left;
-}
-.fo-tb-steps li.active button { color: var(--text); border-color: var(--accent); background: var(--accent-soft); }
-.fo-tb-steps li.done button { color: var(--text); }
-.fo-tb-num {
-  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%;
-  font: 700 13px/1 var(--fo-choice-font, inherit); color: var(--muted); border: 2px solid var(--border); background: var(--panel);
-}
-.fo-tb-steps li.active .fo-tb-num, .fo-tb-stagehead[data-state="active"] .fo-tb-num { color: #07101f; background: var(--accent); border-color: #a9c2ff; }
-.fo-tb-steps li.done .fo-tb-num, .fo-tb-stagehead[data-state="done"] .fo-tb-num { color: #07101f; background: var(--ok); border-color: var(--ok); }
 .fo-tb-stage { border-left: 4px solid var(--border); padding: 18px 20px; scroll-margin-top: 12px; }
-.fo-tb-stage:has(.fo-tb-stagehead[data-state="active"]) { border-left-color: var(--accent); }
-.fo-tb-stage:has(.fo-tb-stagehead[data-state="done"]) { border-left-color: var(--ok); }
-.fo-tb-stagehead { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
-.fo-tb-stagehead .fo-tb-num { width: 32px; height: 32px; font-size: 15px; }
-.fo-card.fo-tb-stage .fo-tb-stagehead h2 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--text); }
-.fo-tb-stagestate { font: 600 12px/1 var(--fo-choice-font, inherit); color: var(--muted); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; }
-.fo-tb-stagehead[data-state="active"] .fo-tb-stagestate { color: var(--text); border-color: var(--accent); }
-.fo-tb-stagehead[data-state="done"] .fo-tb-stagestate { color: var(--ok); border-color: var(--ok); }
-.fo-tb-stageextra { margin-left: auto; }
+.fo-tb-cardmeta { margin: 0 0 12px; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.fo-tb-stage.fo-tb-disc { padding: 0; }
+.fo-tb-disc.open { border-left-color: var(--accent); }
+.fo-card.fo-tb-stage h2.fo-tb-dh { margin: 0; font: inherit; letter-spacing: 0; text-transform: none; }
+.fo-tb-dbtn {
+  width: 100%; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 12px 16px; cursor: pointer; text-align: left;
+  font: inherit; color: var(--text); background: none; border: 0; border-radius: 8px;
+}
+.fo-tb-dbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.fo-tb-dnum {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%;
+  font: 700 13px/1 var(--fo-choice-font, inherit); color: var(--muted); border: 2px solid var(--border);
+}
+.fo-tb-disc.open .fo-tb-dnum { color: var(--text); border-color: var(--accent); }
+.fo-tb-dtext { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.fo-tb-dtitle { font-size: 16px; font-weight: 700; }
+.fo-tb-dsum { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.fo-tb-chev::before { content: "▸"; color: var(--muted); } .fo-tb-disc.open .fo-tb-chev::before { content: "▾"; }
+.fo-tb-dpanel { padding: 0 20px 18px; }
+.fo-tb-val h3 { margin: 0 0 8px; font-size: 15px; }
+.fo-tb-val { margin-bottom: 14px; }
+.fo-tb-draftlabel { margin: 0; } .fo-tb-dropped { display: block; margin-top: 4px; font-size: 12px; }
+/* Cap money: who sends to whom, − / amount / + (44px targets), held to the rule's maximum. */
+.fo-tb-moneyline { margin: 0 0 6px; font-size: 13px; overflow-wrap: anywhere; }
+.fo-tb-stepper { display: flex; align-items: center; gap: 6px; max-width: 240px; }
+.fo-tb .fo-tb-step { flex: 0 0 44px; min-width: 44px; min-height: 44px; padding: 0; font-size: 20px; line-height: 1; }
+.fo-tb .fo-tb-stepper input { flex: 1 1 64px; min-width: 0; width: auto; min-height: 44px; text-align: center; font-variant-numeric: tabular-nums; }
+.fo-tb-unit { font-size: 12px; }
+/* Send offer: always disabled (no send connection from the Front Office). Visibly off, with its reason beside it. */
+.fo-tb-send:disabled { opacity: 1; color: var(--muted); background: var(--panel-alt); border: 1px dashed var(--border); cursor: not-allowed; filter: none; }
+.fo-tb-send-off { font-size: 12px; color: var(--muted); }
 
 /* Impact: cap and validation side by side, the lineup (a wider table per team) across the full width underneath. */
 .fo-tb-impact { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
@@ -1501,7 +1508,7 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 /* Cap money: its own block in each team's panel, first thing under the team name. */
 .fo-tb-money { border: 1px solid var(--accent); border-radius: 8px; padding: 10px 12px; margin: 10px 0 4px; background: var(--panel); }
 .fo-tb-money h4 { margin-top: 0; }
-.fo-tb-moneyrow { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(130px, 170px) auto; gap: 10px 14px; align-items: end; margin-bottom: 6px; }
+.fo-tb-moneyrow { margin-bottom: 10px; }
 .fo-tb-moneyfig { display: grid; gap: 2px; font-size: 12px; }
 .fo-tb-figure { font-size: 22px; line-height: 1.1; color: var(--text); font-variant-numeric: tabular-nums; }
 .fo-tb-moneynow { font-size: 12px; color: var(--muted); } .fo-tb-moneynow b { color: var(--text); }
@@ -1520,7 +1527,6 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-about .fo-tb .btn, .fo-tb-xd .btn { font-family: var(--fo-choice-font, inherit); min-height: 40px; }
 .fo-tb-xd .btn[aria-pressed="true"] { background: var(--accent); color: #07101f; border-color: #a9c2ff; }
 @media (max-width: 1100px) { .fo-tb-impact { grid-template-columns: 1fr; } .fo-tb-lu { grid-template-columns: 1fr; } }
-@media (max-width: 600px) { .fo-tb-moneyrow { grid-template-columns: 1fr; } }
 
 .fo-tb-sub { margin-top: 2px; font-size: 11px; color: var(--muted); }
 

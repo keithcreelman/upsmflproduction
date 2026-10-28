@@ -317,11 +317,10 @@
       return r;
     }
     H.closeAbout();
-    if (mode !== "builder") {
-      mode = "builder";
-      var el = document.getElementById("fo-trades-body");
-      if (el) { el.innerHTML = ""; render(); }
-    }
+    // openDraft sets the builder mode and shows Trades; make sure the builder is actually mounted here.
+    mode = "builder";
+    var el = document.getElementById("fo-trades-body");
+    if (el && !el.querySelector("#fo-tb-host")) { el.innerHTML = ""; render(); }
     return r;
   }
 

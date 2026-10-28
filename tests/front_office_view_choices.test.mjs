@@ -83,8 +83,10 @@ test("version stamps changed with the files that changed", () => {
   // Roster → Schedule (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
   t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
   t.ok(HTML.includes("fo_roster.js?v=2026.10.28.4"), "fo_roster.js (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
-  // Trade finder: How to use this page + Lineup gains (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
-  for (const f of ["fo_trades.js", "shared/trade_fit.js", "shared/trade_finder_core.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.28.15"), f + " (Trade finder guide and lineup gains)");
+  // Trade builder: no numbered step headings, Send offer always disabled (2026-10-28, #1419) changed these files.
+  for (const f of ["trade_builder_view.js", "fo_trade_builder.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.14"), f + " (Trade builder: headings, Send disabled, openDraft)");
+  // Trade finder: your team first, drilldown, copy to the builder (2026-10-28, #1423, merged with #1419); the shared CSS and the embed BUILD carry the later stamp.
+  for (const f of ["fo_trades.js", "shared/trade_fit.js", "shared/trade_finder_core.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.28.15"), f + " (Trade finder)");
   t.ok(/var BUILD = "2026\.10\.28\.15";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
