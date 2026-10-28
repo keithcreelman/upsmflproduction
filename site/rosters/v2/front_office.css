@@ -1614,5 +1614,10 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-mk-sched-panel .fo-sched-wide th:first-child, .fo-mk-sched-panel .fo-sched-wide td:first-child { width: var(--sw-col); }
 .fo-mk-sched-panel .fo-sched-note { padding-left: 0; }
 .fo-mk-sched-panel .fo-sched-legend { margin-bottom: 0; }
-.fo-root .fo-mk-sched-panel .fo-choice .fo-subview-chip { flex: 1 1 0; min-width: 0; padding: 8px; }   /* the two week choices side by side, even at 320 px */
-@media (max-width: 560px) { .fo-mk-sched-panel { padding: 4px 6px 8px; } .fo-mk-sched-toggle { min-height: 44px; padding: 6px 12px; } }
+.fo-mk-sched-panel .fo-sched-strip thead th.num { text-align: center; }
+.fo-mk-sched-panel .fo-table.fo-sched-strip:not(.fo-sched-wide) { max-width: 560px; }   /* five weeks read as a strip on a wide screen, not 1,200 px of cells */
+@media (max-width: 560px) {
+  .fo-mk-sched-panel { padding: 4px 6px 8px; }
+  .fo-mk-sched-toggle { min-height: 44px; padding: 6px 12px; }
+  .fo-root .fo-mk-sched-panel .fo-choice .fo-subview-chip { flex: 1 1 0; min-width: 0; padding: 8px; }   /* the two week choices side by side, even at 320 px */
+}
