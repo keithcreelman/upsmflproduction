@@ -443,6 +443,50 @@
     return out.slice(0, opts.limit || 10);
   }
 
+  // Lineup gains for one team (Keith 2026-10-28, Trade finder). forMe: players on other teams whose addition alone
+  // (nothing sent back) would raise `fid`'s modeled lineup. fromMe: `fid`'s own players whose addition alone would
+  // raise another team's. Each gain is addGain: the best legal lineup with the player minus the lineup without him, on
+  // the model's own values, slots and replacement levels (the strength table's numbers). Only players who can start
+  // now (availableNow: not IR, taxi or ruled out) and never K/P (FIT_EXCLUDED_GROUPS). A gain under minGain (default
+  // GAIN_MIN = 1.0 pt a week, the same floor teamSummary uses for a position need) is dropped. Lineup math only: it
+  // never pairs players into a trade and says nothing about what an owner would do.
+  //   → { fid, minGain, forMe: [{pid, fid, group, v, gain}], fromMe: [{pid, group, v, starter, best, gains:[{fid, gain}]}] }
+  var GAIN_MIN = 1.0;
+  function lineupGains(model, fid, opts) {
+    opts = opts || {};
+    var min = opts.minGain != null ? opts.minGain : GAIN_MIN;
+    var me = model.teams[fid];
+    if (!me) return null;
+    var L = model.lineup;
+    var counts = function (p) { var g = L.posGroup(p.pos); return availableNow(p) && GROUPS.indexOf(g) !== -1 && !FIT_EXCLUDED_GROUPS[g]; };
+    var enough = function (gain) { return gain >= min - 1e-9; };
+    var forMe = [];
+    model.order.forEach(function (ofid) {
+      if (ofid === fid) return;
+      (model.teams[ofid].team.players || []).forEach(function (p) {
+        if (!counts(p)) return;
+        var gain = addGain(model, fid, p);
+        if (enough(gain)) forMe.push({ pid: p.pid, fid: ofid, group: L.posGroup(p.pos), v: num(model.values[p.pid]) || 0, gain: round1(gain) });
+      });
+    });
+    forMe.sort(function (a, b) { return (b.gain - a.gain) || (b.v - a.v); });
+    var fromMe = [];
+    (me.team.players || []).forEach(function (p) {
+      if (!counts(p)) return;
+      var gains = [];
+      model.order.forEach(function (ofid) {
+        if (ofid === fid) return;
+        var gain = addGain(model, ofid, p);
+        if (enough(gain)) gains.push({ fid: ofid, gain: round1(gain) });
+      });
+      if (!gains.length) return;
+      gains.sort(function (a, b) { return b.gain - a.gain; });
+      fromMe.push({ pid: p.pid, group: L.posGroup(p.pos), v: num(model.values[p.pid]) || 0, starter: !!me.starterIds[p.pid], best: gains[0], gains: gains });
+    });
+    fromMe.sort(function (a, b) { return (b.best.gain - a.best.gain) || (b.gains.length - a.gains.length); });
+    return { fid: fid, minGain: min, forMe: forMe, fromMe: fromMe };
+  }
+
   // Where each team is strong / short, as plain lists (largest first).
   function teamSummary(model, fid, opts) {
     opts = opts || {};
@@ -463,7 +507,8 @@
     UNAVAILABLE_CHIPS: UNAVAILABLE_CHIPS, FIT_EXCLUDED_GROUPS: FIT_EXCLUDED_GROUPS,
     availableNow: availableNow, replacementLevels: replacementLevels, bestLineup: bestLineup,
     deriveSlots: deriveSlots, fillSlots: fillSlots, slotBaseline: slotBaseline, SLOT_ROW: SLOT_ROW,
-    buildLeague: buildLeague, pairFits: pairFits, additionDetail: additionDetail, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, tradeLineup: tradeLineup, addGain: addGain
+    buildLeague: buildLeague, pairFits: pairFits, additionDetail: additionDetail, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, tradeLineup: tradeLineup, addGain: addGain,
+    GAIN_MIN: GAIN_MIN, lineupGains: lineupGains
   };
   if (typeof window !== "undefined") window.UPS_TRADE_FIT = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;

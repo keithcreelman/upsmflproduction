@@ -299,4 +299,62 @@ test("Trades opens on the Trade builder (first chip); the Trade finder is the se
   t.ok(/if \(mode === "builder"\) \{ renderBuilder\(el\); return; \}/.test(SRC), "finder code only runs in finder mode");
 });
 
+test("How to use this page: collapsed by default; explains the table, the team view and what possible roster surplus is based on", () => {
+  const p = page();
+  const html = p.show({ view: { by: "position", measure: "ppg" } });
+  t.ok(/data-tf-guide aria-expanded="false" aria-controls="fo-tf-guide">/.test(html), "a disclosure button, collapsed");
+  t.ok(/<div class="fo-tf-guide" id="fo-tf-guide" hidden>/.test(html), "the guide is hidden until tapped");
+  const guide = unesc(html.slice(html.indexOf('id="fo-tf-guide"'), html.indexOf("</ul></div></div>")));
+  t.ok(/<b>The table<\/b> shows each team’s modeled lineup/.test(guide) && /<b>View<\/b> opens a team/.test(guide), "the table and the team details");
+  t.ok(/<b>Possible roster surplus<\/b> = healthy bench players outside that team’s modeled lineup who would start for another team, on season PPG/.test(guide), "what surplus means and its basis");
+  t.ok(/doesn’t mean the owner would move them/.test(guide), "no willingness implied");
+  t.equal((guide.match(/<li>/g) || []).length, 4, "a few short lines");
+  t.ok(/if \(t\.hasAttribute\("data-tf-guide"\)\) \{\s*guideOpen = !guideOpen;/.test(SRC) && /if \(gd\) gd\.hidden = !guideOpen;/.test(SRC), "the button toggles it in place");
+  t.ok(p.show({ view: { by: "mix" } }).includes('id="fo-tf-guide"'), "also on Starter Mix");
+  p.show({ view: { by: "position" } });
+});
+
+test("lineup gains: both lists for the viewer's team, each row = trade_fit.lineupGains (team, season PPG, gain ≥ 1.0); no exchange wording", () => {
+  const p = page();
+  p.TR._gainsView.all.mine = false; p.TR._gainsView.all.theirs = false;
+  const html = p.show({ view: { by: "position" } });
+  const G = p.TF.lineupGains(p.model, "0008");
+  t.ok(G.forMe.length > 10 && G.fromMe.length > 0, "the fixture has improvers on both sides");
+  const card = html.slice(html.indexOf("fo-tf-gainscard"));
+  const part = (k) => card.slice(card.indexOf('data-tf-gains="' + k + '"'), card.indexOf("</table>", card.indexOf('data-tf-gains="' + k + '"')));
+  const rows = (k) => part(k).split('<tr data-tf-gain="').slice(1);
+  t.ok(/<h3 class="fo-tf-gh">Players who would improve your lineup<\/h3>/.test(card) && /<h3 class="fo-tf-gh">Your players who would improve theirs<\/h3>/.test(card), "both headings");
+  const a = rows("mine");
+  t.equal(a.length, 10, "top 10 shown first");
+  a.forEach((r, i) => {
+    const x = G.forMe[i];
+    t.ok(r.startsWith(x.pid + '"'), "row " + i + " = " + x.pid);
+    t.ok(r.includes("<td>" + esc(p.H.teamName(x.fid)) + "</td>"), x.pid + ": his team");
+    t.ok(r.includes('<td class="num">' + p.H.fmt1(x.v)), x.pid + ": season PPG basis");
+    const g = Number(r.match(/fo-tf-gain"[^>]*>\+([\d.]+)</)[1]);
+    t.equal(g, x.gain, x.pid + ": gain shown = lineupGains"); t.ok(g >= 1.0, x.pid + ": gain ≥ 1.0");
+    t.ok(r.includes('title="Would add about +' + p.H.fmt1(x.gain) + ' pts/week to your modeled lineup"'), x.pid + ": the gain says what it is");
+  });
+  t.ok(card.includes('data-tf-gall="mine" aria-expanded="false">Show all ' + G.forMe.length + "</button>"), "Show all " + G.forMe.length);
+  const b = rows("theirs");
+  t.equal(b.length, Math.min(10, G.fromMe.length));
+  b.forEach((r, i) => {
+    const x = G.fromMe[i];
+    t.ok(r.startsWith(x.pid + '"') && r.includes('<td class="num">' + p.H.fmt1(x.v)), x.pid + ": my player with season PPG");
+    for (const g of x.gains.slice(0, 3)) t.ok(r.includes(esc(p.H.teamName(g.fid)) + " <b>+" + p.H.fmt1(g.gain) + "</b>") && g.gain >= 1.0, x.pid + " → " + g.fid);
+    if (x.gains.length > 3) t.ok(r.includes('data-tf-gmore="' + x.pid + '" aria-expanded="false">+' + (x.gains.length - 3) + " more</button>"), x.pid + ": +N more");
+    t.equal(r.includes("in your lineup"), x.starter, x.pid + ": in-your-lineup mark");
+  });
+  t.ok(/Lineup math only: one player added, nothing sent back\. It isn’t a trade suggestion and doesn’t say any owner would deal\./.test(unesc(card)), "the one short note");
+  t.ok(/only \+1\.0 or more/.test(card) && /gains under \+1\.0 are left out/.test(card), "the minimum is stated");
+  t.ok(!/trade for|in exchange|you could offer|they could offer|would trade|willing|available for trade/i.test(unesc(card)), "no exchange or willingness wording");
+  p.TR._gainsView.all.mine = true;
+  const all = p.show({ view: { by: "position" } });
+  t.equal(all.slice(all.indexOf('data-tf-gains="mine"'), all.indexOf("</table>", all.indexOf('data-tf-gains="mine"'))).split('<tr data-tf-gain="').length - 1, G.forMe.length, "Show all lists every improver");
+  p.TR._gainsView.all.mine = false;
+  t.equal(p.TR._gains("0008"), p.TR._gains("0008"), "computed once per model (memoized)");
+  const nobody = page({ viewer: "9999" }).show({});
+  t.ok(/Lineup gains are for your own team, and Front Office couldn’t tell which team is yours\./.test(unesc(nobody)) && !/data-tf-gains=/.test(nobody), "no viewer team → says so, lists nothing");
+});
+
 await run("front_office_trade_finder");
