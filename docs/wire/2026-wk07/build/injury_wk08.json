@@ -1,0 +1,1352 @@
+{
+ "generatedAtUtc": "2026-10-27T16:25:36Z",
+ "sources": {
+  "mflInjuryFeedUpdated": "2026-10-27T14:01:04Z",
+  "fetchedAt": {
+   "fetched": "2026-10-27T16:25:36Z"
+  },
+  "nflverseFetchedAt": "2026-10-27T16:24:11Z"
+ },
+ "rule": "starter-caliber = in the franchise's best legal lineup by 2026 PPG with everyone healthy; verdict: lineup drop < 3.0 PPG enough depth, 3.0-6.0 weaker but workable, >= 6.0 needs a waiver/trade look",
+ "healthyLineups": {
+  "0001": {
+   "owner": "Ryan Bousquet",
+   "ppg": 218.7,
+   "rank": 10
+  },
+  "0002": {
+   "owner": "Derrick Whitman",
+   "ppg": 237.5,
+   "rank": 6
+  },
+  "0003": {
+   "owner": "Matt Gerardi",
+   "ppg": 236.3,
+   "rank": 7
+  },
+  "0004": {
+   "owner": "Brian Cutting",
+   "ppg": 276.4,
+   "rank": 2
+  },
+  "0005": {
+   "owner": "Eric Martel",
+   "ppg": 273.4,
+   "rank": 3
+  },
+  "0006": {
+   "owner": "Brian Cross",
+   "ppg": 204.2,
+   "rank": 11
+  },
+  "0007": {
+   "owner": "Josh Martel",
+   "ppg": 200.7,
+   "rank": 12
+  },
+  "0008": {
+   "owner": "Keith Creelman",
+   "ppg": 244.3,
+   "rank": 5
+  },
+  "0009": {
+   "owner": "Bear Dunn",
+   "ppg": 290.9,
+   "rank": 1
+  },
+  "0010": {
+   "owner": "Shawn Blake",
+   "ppg": 265.9,
+   "rank": 4
+  },
+  "0011": {
+   "owner": "Eric Mannila",
+   "ppg": 232.2,
+   "rank": 8
+  },
+  "0012": {
+   "owner": "Chris Klingenberg",
+   "ppg": 228.0,
+   "rank": 9
+  }
+ },
+ "cases": [
+  {
+   "fid": "0006",
+   "owner": "Brian Cross",
+   "pid": "17102",
+   "player": "Tyler Warren",
+   "pos": "TE",
+   "nfl": "IND",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Groin",
+    "expReturn": "Nov 1, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 8,
+   "rankPPG": 5,
+   "ppg": 17.5,
+   "games": 5,
+   "recent": [
+    "25.9",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "TE1",
+   "replacement": {
+    "player": "Cade Otton",
+    "pos": "TE",
+    "nfl": "TBB",
+    "ppg": 7.1,
+    "games": 7,
+    "recent": [
+     "7.6",
+     "2.1",
+     "0.0"
+    ],
+    "slot": "TE1",
+    "wk7": "available"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 204.2,
+   "lineupWithout": 193.8,
+   "lineupDrop": 10.4,
+   "rankHealthy": 11,
+   "rankWithout": 12,
+   "bestFreeAgent": {
+    "player": "Greg Dulcich",
+    "pos": "TE",
+    "nfl": "MIA",
+    "ppg": 10.5,
+    "games": 5,
+    "beatsReplacementBy": 3.4
+   },
+   "byePressure": [],
+   "otherInjuriesAtPosition": [],
+   "verdict": "needs a waiver/trade look"
+  },
+  {
+   "fid": "0006",
+   "owner": "Brian Cross",
+   "pid": "14783",
+   "player": "Jalen Hurts",
+   "pos": "QB",
+   "nfl": "PHI",
+   "injury": {
+    "mfl": "IR",
+    "details": "Calf",
+    "expReturn": "Feb 15, 2027",
+    "corroboration": "MFL injured-reserve designation"
+   },
+   "rankPoints": 23,
+   "rankPPG": 19,
+   "ppg": 19.8,
+   "games": 5,
+   "recent": [
+    "17.0",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "Superflex QB",
+   "replacement": {
+    "player": "Cam Ward",
+    "pos": "QB",
+    "nfl": "TEN",
+    "ppg": 12.5,
+    "games": 7,
+    "recent": [
+     "2.6",
+     "10.0",
+     "7.7"
+    ],
+    "slot": "Superflex QB",
+    "wk7": "available"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 204.2,
+   "lineupWithout": 196.9,
+   "lineupDrop": 7.3,
+   "rankHealthy": 11,
+   "rankWithout": 12,
+   "bestFreeAgent": {
+    "player": "Case Keenum",
+    "pos": "QB",
+    "nfl": "CHI",
+    "ppg": 16.1,
+    "games": 2,
+    "beatsReplacementBy": 3.5
+   },
+   "byePressure": [
+    [
+     "Jalen Hurts",
+     10
+    ]
+   ],
+   "otherInjuriesAtPosition": [],
+   "verdict": "needs a waiver/trade look"
+  },
+  {
+   "fid": "0011",
+   "owner": "Eric Mannila",
+   "pid": "17032",
+   "player": "Jaxson Dart",
+   "pos": "QB",
+   "nfl": "NYG",
+   "injury": {
+    "mfl": "IR",
+    "details": "Knee - Meniscus",
+    "expReturn": "Jan 17, 2027",
+    "corroboration": "MFL injured-reserve designation"
+   },
+   "rankPoints": 37,
+   "rankPPG": null,
+   "ppg": 18.7,
+   "games": 2,
+   "recent": [
+    "DNP",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "Superflex QB",
+   "replacement": {
+    "player": "Justin Herbert",
+    "pos": "QB",
+    "nfl": "LAC",
+    "ppg": 12.1,
+    "games": 6,
+    "recent": [
+     "10.1",
+     "9.0",
+     "bye"
+    ],
+    "slot": "Superflex QB",
+    "wk7": "available"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 232.2,
+   "lineupWithout": 225.7,
+   "lineupDrop": 6.5,
+   "rankHealthy": 8,
+   "rankWithout": 9,
+   "bestFreeAgent": {
+    "player": "Case Keenum",
+    "pos": "QB",
+    "nfl": "CHI",
+    "ppg": 16.1,
+    "games": 2,
+    "beatsReplacementBy": 3.9
+   },
+   "byePressure": [
+    [
+     "Jaxson Dart",
+     8
+    ]
+   ],
+   "otherInjuriesAtPosition": [],
+   "verdict": "needs a waiver/trade look"
+  },
+  {
+   "fid": "0003",
+   "owner": "Matt Gerardi",
+   "pid": "17066",
+   "player": "Kyle Monangai",
+   "pos": "RB",
+   "nfl": "CHI",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Toe",
+    "expReturn": "Nov 2, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 28,
+   "rankPPG": 15,
+   "ppg": 16.2,
+   "games": 4,
+   "recent": [
+    "DNP",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "RB1",
+   "replacement": {
+    "player": "Omarion Hampton",
+    "pos": "RB",
+    "nfl": "LAC",
+    "ppg": 10.0,
+    "games": 6,
+    "recent": [
+     "4.9",
+     "7.3",
+     "bye"
+    ],
+    "slot": "RB2",
+    "wk7": "available"
+   },
+   "slotChanges": {
+    "Cam Skattebo": [
+     "RB2",
+     "RB1"
+    ]
+   },
+   "lineupHealthy": 236.3,
+   "lineupWithout": 230.1,
+   "lineupDrop": 6.2,
+   "rankHealthy": 7,
+   "rankWithout": 8,
+   "bestFreeAgent": {
+    "player": "Pierre Strong Jr.",
+    "pos": "RB",
+    "nfl": "GBP",
+    "ppg": 8.0,
+    "games": 2,
+    "beatsReplacementBy": -2.0
+   },
+   "byePressure": [
+    [
+     "Cam Skattebo",
+     8
+    ],
+    [
+     "Kyle Monangai",
+     10
+    ]
+   ],
+   "otherInjuriesAtPosition": [
+    "Jadarian Price"
+   ],
+   "verdict": "needs a waiver/trade look"
+  },
+  {
+   "fid": "0010",
+   "owner": "Shawn Blake",
+   "pid": "15282",
+   "player": "DeVonta Smith",
+   "pos": "WR",
+   "nfl": "PHI",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Hamstring",
+    "expReturn": "Nov 1, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 31,
+   "rankPPG": 11,
+   "ppg": 18.7,
+   "games": 4,
+   "recent": [
+    "DNP",
+    "21.1",
+    "DNP"
+   ],
+   "slot": "WR1",
+   "replacement": {
+    "player": "Brenton Strange",
+    "pos": "TE",
+    "nfl": "JAC",
+    "ppg": 12.6,
+    "games": 6,
+    "recent": [
+     "17.9",
+     "12.5",
+     "bye"
+    ],
+    "slot": "Flex",
+    "wk7": "available"
+   },
+   "slotChanges": {
+    "Drake London": [
+     "WR2",
+     "WR1"
+    ],
+    "Devaughn Vele": [
+     "Flex",
+     "WR2"
+    ]
+   },
+   "lineupHealthy": 265.9,
+   "lineupWithout": 259.8,
+   "lineupDrop": 6.1,
+   "rankHealthy": 4,
+   "rankWithout": 4,
+   "bestFreeAgent": {
+    "player": "Darius Cooper",
+    "pos": "WR",
+    "nfl": "PHI",
+    "ppg": 8.3,
+    "games": 7,
+    "beatsReplacementBy": -4.4
+   },
+   "byePressure": [
+    [
+     "Devaughn Vele",
+     8
+    ],
+    [
+     "DeVonta Smith",
+     10
+    ]
+   ],
+   "otherInjuriesAtPosition": [
+    "Terry McLaurin",
+    "Ricky Pearsall"
+   ],
+   "verdict": "needs a waiver/trade look"
+  },
+  {
+   "fid": "0004",
+   "owner": "Brian Cutting",
+   "pid": "13593",
+   "player": "Lamar Jackson",
+   "pos": "QB",
+   "nfl": "BAL",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Ankle",
+    "expReturn": "Nov 1, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 25,
+   "rankPPG": 12,
+   "ppg": 24.3,
+   "games": 4,
+   "recent": [
+    "DNP",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "Superflex QB",
+   "replacement": {
+    "player": "Aaron Rodgers",
+    "pos": "QB",
+    "nfl": "PIT",
+    "ppg": 19.2,
+    "games": 7,
+    "recent": [
+     "29.8",
+     "18.6",
+     "15.4"
+    ],
+    "slot": "Superflex QB",
+    "wk7": "available"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 276.4,
+   "lineupWithout": 271.3,
+   "lineupDrop": 5.1,
+   "rankHealthy": 2,
+   "rankWithout": 3,
+   "bestFreeAgent": {
+    "player": "Case Keenum",
+    "pos": "QB",
+    "nfl": "CHI",
+    "ppg": 16.1,
+    "games": 2,
+    "beatsReplacementBy": -3.1
+   },
+   "byePressure": [],
+   "otherInjuriesAtPosition": [],
+   "verdict": "weaker but workable"
+  },
+  {
+   "fid": "0006",
+   "owner": "Brian Cross",
+   "pid": "16696",
+   "player": "Edgerrin Cooper",
+   "pos": "LB",
+   "nfl": "GBP",
+   "injury": {
+    "mfl": "IR",
+    "details": "Achilles",
+    "expReturn": "Feb 15, 2027",
+    "corroboration": "MFL injured-reserve designation"
+   },
+   "rankPoints": 38,
+   "rankPPG": 3,
+   "ppg": 11.5,
+   "games": 4,
+   "recent": [
+    "DNP",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "LB1",
+   "replacement": {
+    "player": "Devin Bush",
+    "pos": "LB",
+    "nfl": "CHI",
+    "ppg": 6.9,
+    "games": 7,
+    "recent": [
+     "7.5",
+     "9.5",
+     "4.0"
+    ],
+    "slot": "LB2",
+    "wk7": "available"
+   },
+   "slotChanges": {
+    "Jordyn Brooks": [
+     "LB2",
+     "LB1"
+    ]
+   },
+   "lineupHealthy": 204.2,
+   "lineupWithout": 199.6,
+   "lineupDrop": 4.6,
+   "rankHealthy": 11,
+   "rankWithout": 12,
+   "bestFreeAgent": {
+    "player": "Demetrius Knight",
+    "pos": "LB",
+    "nfl": "CIN",
+    "ppg": 9.1,
+    "games": 6,
+    "beatsReplacementBy": 2.2
+   },
+   "byePressure": [],
+   "otherInjuriesAtPosition": [],
+   "verdict": "weaker but workable"
+  },
+  {
+   "fid": "0012",
+   "owner": "Chris Klingenberg",
+   "pid": "11671",
+   "player": "Mike Evans",
+   "pos": "WR",
+   "nfl": "SFO",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Achilles",
+    "expReturn": "Nov 8, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 20,
+   "rankPPG": 19,
+   "ppg": 16.0,
+   "games": 6,
+   "recent": [
+    "29.5",
+    "13.0",
+    "DNP"
+   ],
+   "slot": "WR1",
+   "replacement": {
+    "player": "RJ Harvey",
+    "pos": "RB",
+    "nfl": "DEN",
+    "ppg": 11.7,
+    "games": 6,
+    "recent": [
+     "0.9",
+     "15.0",
+     "14.8"
+    ],
+    "slot": "Flex",
+    "wk7": "available"
+   },
+   "slotChanges": {
+    "Michael Wilson": [
+     "WR2",
+     "WR1"
+    ],
+    "Carnell Tate": [
+     "Flex",
+     "WR2"
+    ]
+   },
+   "lineupHealthy": 228.0,
+   "lineupWithout": 223.7,
+   "lineupDrop": 4.3,
+   "rankHealthy": 9,
+   "rankWithout": 9,
+   "bestFreeAgent": {
+    "player": "Darius Cooper",
+    "pos": "WR",
+    "nfl": "PHI",
+    "ppg": 8.3,
+    "games": 7,
+    "beatsReplacementBy": -3.4
+   },
+   "byePressure": [
+    [
+     "Mike Evans",
+     8
+    ],
+    [
+     "Carnell Tate",
+     9
+    ]
+   ],
+   "otherInjuriesAtPosition": [],
+   "verdict": "weaker but workable"
+  },
+  {
+   "fid": "0003",
+   "owner": "Matt Gerardi",
+   "pid": "14136",
+   "player": "Deebo Samuel",
+   "pos": "WR",
+   "nfl": "SFO",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Hamstring",
+    "expReturn": "Nov 8, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 34,
+   "rankPPG": 29,
+   "ppg": 14.1,
+   "games": 5,
+   "recent": [
+    "3.8",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "Flex",
+   "replacement": {
+    "player": "Omarion Hampton",
+    "pos": "RB",
+    "nfl": "LAC",
+    "ppg": 10.0,
+    "games": 6,
+    "recent": [
+     "4.9",
+     "7.3",
+     "bye"
+    ],
+    "slot": "Flex",
+    "wk7": "available"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 236.3,
+   "lineupWithout": 232.2,
+   "lineupDrop": 4.1,
+   "rankHealthy": 7,
+   "rankWithout": 7,
+   "bestFreeAgent": {
+    "player": "Darius Cooper",
+    "pos": "WR",
+    "nfl": "PHI",
+    "ppg": 8.3,
+    "games": 7,
+    "beatsReplacementBy": -1.7
+   },
+   "byePressure": [
+    [
+     "Deebo Samuel",
+     8
+    ]
+   ],
+   "otherInjuriesAtPosition": [
+    "Jordyn Tyson"
+   ],
+   "verdict": "weaker but workable"
+  },
+  {
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "pid": "16194",
+   "player": "Rashee Rice",
+   "pos": "WR",
+   "nfl": "KCC",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Hamstring",
+    "expReturn": "Nov 1, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 77,
+   "rankPPG": 30,
+   "ppg": 13.1,
+   "games": 3,
+   "recent": [
+    "bye",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "WR2",
+   "replacement": {
+    "player": "Jacory Croskey-Merritt",
+    "pos": "RB",
+    "nfl": "WAS",
+    "ppg": 9.4,
+    "games": 5,
+    "recent": [
+     "15.0",
+     "DNP",
+     "bye"
+    ],
+    "slot": "Flex",
+    "wk7": "IR"
+   },
+   "slotChanges": {
+    "Jaylen Waddle": [
+     "Flex",
+     "WR2"
+    ]
+   },
+   "lineupHealthy": 200.7,
+   "lineupWithout": 197.1,
+   "lineupDrop": 3.6,
+   "rankHealthy": 12,
+   "rankWithout": 12,
+   "bestFreeAgent": {
+    "player": "Darius Cooper",
+    "pos": "WR",
+    "nfl": "PHI",
+    "ppg": 8.3,
+    "games": 7,
+    "beatsReplacementBy": -1.2
+   },
+   "byePressure": [
+    [
+     "Jaylen Waddle",
+     10
+    ]
+   ],
+   "otherInjuriesAtPosition": [],
+   "verdict": "weaker but workable"
+  },
+  {
+   "fid": "0011",
+   "owner": "Eric Mannila",
+   "pid": "17472",
+   "player": "Jeremiyah Love",
+   "pos": "RB",
+   "nfl": "ARI",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Ankle",
+    "expReturn": "Nov 1, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 34,
+   "rankPPG": 33,
+   "ppg": 10.2,
+   "games": 5,
+   "recent": [
+    "2.2",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "RB2",
+   "replacement": {
+    "player": "Tyler Allgeier",
+    "pos": "RB",
+    "nfl": "ARI",
+    "ppg": 6.7,
+    "games": 7,
+    "recent": [
+     "3.2",
+     "6.2",
+     "7.7"
+    ],
+    "slot": "RB2",
+    "wk7": "available"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 232.2,
+   "lineupWithout": 228.7,
+   "lineupDrop": 3.5,
+   "rankHealthy": 8,
+   "rankWithout": 8,
+   "bestFreeAgent": {
+    "player": "Pierre Strong Jr.",
+    "pos": "RB",
+    "nfl": "GBP",
+    "ppg": 8.0,
+    "games": 2,
+    "beatsReplacementBy": 1.2
+   },
+   "byePressure": [],
+   "otherInjuriesAtPosition": [],
+   "verdict": "weaker but workable"
+  },
+  {
+   "fid": "0003",
+   "owner": "Matt Gerardi",
+   "pid": "16298",
+   "player": "Tavius Robinson",
+   "pos": "DE",
+   "nfl": "BAL",
+   "injury": {
+    "mfl": "IR",
+    "details": "Pectoral",
+    "expReturn": "Feb 15, 2027",
+    "corroboration": "MFL injured-reserve designation"
+   },
+   "rankPoints": 22,
+   "rankPPG": 19,
+   "ppg": 7.0,
+   "games": 6,
+   "recent": [
+    "14.5",
+    "4.5",
+    "DNP"
+   ],
+   "slot": "DL2",
+   "replacement": {
+    "player": "Aaron Donald",
+    "pos": "DT",
+    "nfl": "LAR",
+    "ppg": 3.6,
+    "games": 5,
+    "recent": [
+     "6.0",
+     "5.5",
+     "1.5"
+    ],
+    "slot": "DL2",
+    "wk7": "available"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 236.3,
+   "lineupWithout": 232.9,
+   "lineupDrop": 3.4,
+   "rankHealthy": 7,
+   "rankWithout": 7,
+   "bestFreeAgent": {
+    "player": "Boye Mafe",
+    "pos": "DE",
+    "nfl": "CIN",
+    "ppg": 8.2,
+    "games": 6,
+    "beatsReplacementBy": 4.7
+   },
+   "byePressure": [],
+   "otherInjuriesAtPosition": [
+    "Alex Wright"
+   ],
+   "verdict": "weaker but workable"
+  },
+  {
+   "fid": "0008",
+   "owner": "Keith Creelman",
+   "pid": "15452",
+   "player": "Talanoa Hufanga",
+   "pos": "S",
+   "nfl": "DEN",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Ankle",
+    "expReturn": "Nov 1, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 24,
+   "rankPPG": 8,
+   "ppg": 10.8,
+   "games": 5,
+   "recent": [
+    "6.1",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "DB2",
+   "replacement": {
+    "player": "Demario Davis",
+    "pos": "LB",
+    "nfl": "NYJ",
+    "ppg": 7.6,
+    "games": 7,
+    "recent": [
+     "3.0",
+     "8.0",
+     "5.5"
+    ],
+    "slot": "IDP flex",
+    "wk7": "available"
+   },
+   "slotChanges": {
+    "Dane Belton": [
+     "IDP flex",
+     "DB2"
+    ]
+   },
+   "lineupHealthy": 244.3,
+   "lineupWithout": 241.2,
+   "lineupDrop": 3.1,
+   "rankHealthy": 5,
+   "rankWithout": 5,
+   "bestFreeAgent": {
+    "player": "Kyler Gordon",
+    "pos": "CB",
+    "nfl": "CHI",
+    "ppg": 17.9,
+    "games": 2,
+    "beatsReplacementBy": 10.2
+   },
+   "byePressure": [
+    [
+     "Brandon Jones",
+     10
+    ],
+    [
+     "Talanoa Hufanga",
+     10
+    ]
+   ],
+   "otherInjuriesAtPosition": [],
+   "verdict": "weaker but workable"
+  },
+  {
+   "fid": "0008",
+   "owner": "Keith Creelman",
+   "pid": "15253",
+   "player": "Travis Etienne",
+   "pos": "RB",
+   "nfl": "NOS",
+   "injury": {
+    "mfl": "IR",
+    "details": "Hamstring",
+    "expReturn": "Nov 8, 2026",
+    "corroboration": "MFL injured-reserve designation"
+   },
+   "rankPoints": 58,
+   "rankPPG": 32,
+   "ppg": 10.2,
+   "games": 3,
+   "recent": [
+    "DNP",
+    "DNP",
+    "DNP"
+   ],
+   "slot": "RB1",
+   "replacement": {
+    "player": "Saquon Barkley",
+    "pos": "RB",
+    "nfl": "PHI",
+    "ppg": 7.8,
+    "games": 5,
+    "recent": [
+     "DNP",
+     "DNP",
+     "15.5"
+    ],
+    "slot": "RB2",
+    "wk7": "Questionable"
+   },
+   "slotChanges": {
+    "Brian Robinson": [
+     "RB2",
+     "RB1"
+    ]
+   },
+   "lineupHealthy": 244.3,
+   "lineupWithout": 241.9,
+   "lineupDrop": 2.4,
+   "rankHealthy": 5,
+   "rankWithout": 5,
+   "bestFreeAgent": {
+    "player": "Pierre Strong Jr.",
+    "pos": "RB",
+    "nfl": "GBP",
+    "ppg": 8.0,
+    "games": 2,
+    "beatsReplacementBy": 0.1
+   },
+   "byePressure": [
+    [
+     "Travis Etienne",
+     8
+    ]
+   ],
+   "otherInjuriesAtPosition": [
+    "Saquon Barkley",
+    "Brian Robinson",
+    "Trey Benson",
+    "Will Shipley"
+   ],
+   "verdict": "enough depth"
+  },
+  {
+   "fid": "0004",
+   "owner": "Brian Cutting",
+   "pid": "15366",
+   "player": "Jevon Holland",
+   "pos": "S",
+   "nfl": "NYG",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Concussion",
+    "expReturn": "Nov 8, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 12,
+   "rankPPG": 9,
+   "ppg": 10.4,
+   "games": 6,
+   "recent": [
+    "2.6",
+    "13.2",
+    "DNP"
+   ],
+   "slot": "DB2",
+   "replacement": {
+    "player": "Derwin James",
+    "pos": "S",
+    "nfl": "LAC",
+    "ppg": 8.1,
+    "games": 3,
+    "recent": [
+     "DNP",
+     "DNP",
+     "bye"
+    ],
+    "slot": "IDP flex",
+    "wk7": "Questionable"
+   },
+   "slotChanges": {
+    "Ronnie Hickman": [
+     "IDP flex",
+     "DB2"
+    ]
+   },
+   "lineupHealthy": 276.4,
+   "lineupWithout": 274.1,
+   "lineupDrop": 2.3,
+   "rankHealthy": 2,
+   "rankWithout": 2,
+   "bestFreeAgent": {
+    "player": "Kyler Gordon",
+    "pos": "CB",
+    "nfl": "CHI",
+    "ppg": 17.9,
+    "games": 2,
+    "beatsReplacementBy": 9.8
+   },
+   "byePressure": [
+    [
+     "Jevon Holland",
+     8
+    ]
+   ],
+   "otherInjuriesAtPosition": [],
+   "verdict": "enough depth"
+  },
+  {
+   "fid": "0006",
+   "owner": "Brian Cross",
+   "pid": "16195",
+   "player": "Dontayvion Wicks",
+   "pos": "WR",
+   "nfl": "PHI",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Ankle",
+    "expReturn": "Nov 1, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 53,
+   "rankPPG": 54,
+   "ppg": 9.4,
+   "games": 6,
+   "recent": [
+    "12.1",
+    "4.8",
+    "DNP"
+   ],
+   "slot": "WR2",
+   "replacement": {
+    "player": "Cade Otton",
+    "pos": "TE",
+    "nfl": "TBB",
+    "ppg": 7.1,
+    "games": 7,
+    "recent": [
+     "7.6",
+     "2.1",
+     "0.0"
+    ],
+    "slot": "Flex",
+    "wk7": "available"
+   },
+   "slotChanges": {
+    "Josh Downs": [
+     "Flex",
+     "WR2"
+    ]
+   },
+   "lineupHealthy": 204.2,
+   "lineupWithout": 201.9,
+   "lineupDrop": 2.3,
+   "rankHealthy": 11,
+   "rankWithout": 11,
+   "bestFreeAgent": {
+    "player": "Darius Cooper",
+    "pos": "WR",
+    "nfl": "PHI",
+    "ppg": 8.3,
+    "games": 7,
+    "beatsReplacementBy": 1.2
+   },
+   "byePressure": [
+    [
+     "Germie Bernard",
+     9
+    ],
+    [
+     "Dontayvion Wicks",
+     10
+    ],
+    [
+     "Chris Godwin",
+     10
+    ]
+   ],
+   "otherInjuriesAtPosition": [
+    "Jayden Reed"
+   ],
+   "verdict": "enough depth"
+  },
+  {
+   "fid": "0004",
+   "owner": "Brian Cutting",
+   "pid": "11675",
+   "player": "Davante Adams",
+   "pos": "WR",
+   "nfl": "LAR",
+   "injury": {
+    "mfl": "IR",
+    "details": "Hamstring",
+    "expReturn": "Nov 25, 2026",
+    "corroboration": "MFL injured-reserve designation"
+   },
+   "rankPoints": 12,
+   "rankPPG": 10,
+   "ppg": 18.7,
+   "games": 6,
+   "recent": [
+    "22.9",
+    "7.5",
+    "DNP"
+   ],
+   "slot": "Flex",
+   "replacement": {
+    "player": "Bucky Irving",
+    "pos": "RB",
+    "nfl": "TBB",
+    "ppg": 16.5,
+    "games": 7,
+    "recent": [
+     "34.5",
+     "6.9",
+     "26.8"
+    ],
+    "slot": "Flex",
+    "wk7": "available"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 276.4,
+   "lineupWithout": 274.2,
+   "lineupDrop": 2.2,
+   "rankHealthy": 2,
+   "rankWithout": 2,
+   "bestFreeAgent": {
+    "player": "Darius Cooper",
+    "pos": "WR",
+    "nfl": "PHI",
+    "ppg": 8.3,
+    "games": 7,
+    "beatsReplacementBy": -8.2
+   },
+   "byePressure": [
+    [
+     "Chris Olave",
+     8
+    ]
+   ],
+   "otherInjuriesAtPosition": [
+    "Tyreek Hill"
+   ],
+   "verdict": "enough depth"
+  },
+  {
+   "fid": "0008",
+   "owner": "Keith Creelman",
+   "pid": "15716",
+   "player": "Brian Robinson",
+   "pos": "RB",
+   "nfl": "ATL",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Hamstring",
+    "expReturn": "Nov 1, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 30,
+   "rankPPG": 34,
+   "ppg": 10.0,
+   "games": 6,
+   "recent": [
+    "3.1",
+    "3.0",
+    "DNP"
+   ],
+   "slot": "RB2",
+   "replacement": {
+    "player": "Saquon Barkley",
+    "pos": "RB",
+    "nfl": "PHI",
+    "ppg": 7.8,
+    "games": 5,
+    "recent": [
+     "DNP",
+     "DNP",
+     "15.5"
+    ],
+    "slot": "RB2",
+    "wk7": "Questionable"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 244.3,
+   "lineupWithout": 242.1,
+   "lineupDrop": 2.2,
+   "rankHealthy": 5,
+   "rankWithout": 5,
+   "bestFreeAgent": {
+    "player": "Pierre Strong Jr.",
+    "pos": "RB",
+    "nfl": "GBP",
+    "ppg": 8.0,
+    "games": 2,
+    "beatsReplacementBy": 0.1
+   },
+   "byePressure": [
+    [
+     "Travis Etienne",
+     8
+    ]
+   ],
+   "otherInjuriesAtPosition": [
+    "Saquon Barkley",
+    "Trey Benson",
+    "Travis Etienne",
+    "Will Shipley"
+   ],
+   "verdict": "enough depth"
+  },
+  {
+   "fid": "0001",
+   "owner": "Ryan Bousquet",
+   "pid": "16773",
+   "player": "Jawhar Jordan",
+   "pos": "RB",
+   "nfl": "HOU",
+   "injury": {
+    "mfl": "Out",
+    "details": "Quadriceps",
+    "expReturn": "Nov 29, 2026",
+    "corroboration": "did not play in Week 7"
+   },
+   "rankPoints": 93,
+   "rankPPG": null,
+   "ppg": 12.0,
+   "games": 1,
+   "recent": [
+    "DNP",
+    "12.0",
+    "DNP"
+   ],
+   "slot": "Flex",
+   "replacement": {
+    "player": "Darren Waller",
+    "pos": "TE",
+    "nfl": "CAR",
+    "ppg": 10.4,
+    "games": 6,
+    "recent": [
+     "bye",
+     "0.0",
+     "13.7"
+    ],
+    "slot": "Flex",
+    "wk7": "available"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 218.7,
+   "lineupWithout": 217.0,
+   "lineupDrop": 1.7,
+   "rankHealthy": 10,
+   "rankWithout": 10,
+   "bestFreeAgent": {
+    "player": "Pierre Strong Jr.",
+    "pos": "RB",
+    "nfl": "GBP",
+    "ppg": 8.0,
+    "games": 2,
+    "beatsReplacementBy": -2.4
+   },
+   "byePressure": [
+    [
+     "Jawhar Jordan",
+     8
+    ],
+    [
+     "Jaylen Warren",
+     9
+    ]
+   ],
+   "otherInjuriesAtPosition": [
+    "Zach Charbonnet",
+    "Tank Bigsby"
+   ],
+   "verdict": "enough depth"
+  },
+  {
+   "fid": "0010",
+   "owner": "Shawn Blake",
+   "pid": "16013",
+   "player": "Nate Landman",
+   "pos": "LB",
+   "nfl": "LAR",
+   "injury": {
+    "mfl": "Questionable",
+    "details": "Concussion",
+    "expReturn": "Nov 1, 2026",
+    "corroboration": "did not play in Week 7 (official Week 7 status: Out)"
+   },
+   "rankPoints": 37,
+   "rankPPG": 31,
+   "ppg": 7.8,
+   "games": 6,
+   "recent": [
+    "15.5",
+    "8.0",
+    "DNP"
+   ],
+   "slot": "LB2",
+   "replacement": {
+    "player": "Kaden Elliss",
+    "pos": "LB",
+    "nfl": "NOS",
+    "ppg": 7.1,
+    "games": 4,
+    "recent": [
+     "DNP",
+     "DNP",
+     "5.0"
+    ],
+    "slot": "LB2",
+    "wk7": "bye"
+   },
+   "slotChanges": {},
+   "lineupHealthy": 265.9,
+   "lineupWithout": 265.2,
+   "lineupDrop": 0.7,
+   "rankHealthy": 4,
+   "rankWithout": 4,
+   "bestFreeAgent": {
+    "player": "Demetrius Knight",
+    "pos": "LB",
+    "nfl": "CIN",
+    "ppg": 9.1,
+    "games": 6,
+    "beatsReplacementBy": 2.0
+   },
+   "byePressure": [],
+   "otherInjuriesAtPosition": [],
+   "verdict": "enough depth"
+  }
+ ]
+}
