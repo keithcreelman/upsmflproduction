@@ -207,33 +207,60 @@
     if (ss) H.setFreshness("MFL read " + H.clock(ss.fetchedAt));
   }
   // ── Schedule (Roster → Players → Schedule) ───────────────────────────
-  // Next five UPS league weeks by default (byes count as a week), or Rest of season. One /api/fantasy-sos?season=<season>&v=2 answer for the whole
-  // page (DATA "sos"), never per player or per week, and no D1 query here. Each opponent shows what it has "allowed so far" at the player's
-  // position (MFL points per game, vs usual, rank; 1st = allowed the most) over the weeks already played. Descriptive, not a forecast.
+  // Players are ROWS and league weeks are COLUMNS (W8, W9, …): five weeks fit a 320 px phone without sideways scroll. Default = the next five
+  // UPS league weeks (byes count as a week); Rest of season = the same grid in blocks of five weeks. Each week cell shows the opponent
+  // (@ = away) and that opponent's "vs usual" % at the player's position: what it has ALLOWED SO FAR over the weeks already played.
+  // Green = it allowed more than usual, red = less (10% or more, 3+ games counted; see player_schedule.js); no color = about usual, too few games, or no number.
+  // The number is always printed, so color is never the only signal. It describes past points allowed; it is not a forecast. One
+  // /api/fantasy-sos?season=<season>&v=2 answer feeds the whole page (DATA "sos"), never per player or per week; no D1 query here.
   var sched = { mode: "next5" };
   function schedControls() {
     var b = function (m, label) { return '<button type="button" class="fo-subview-chip' + (sched.mode === m ? " active" : "") + '" data-schedmode="' + m + '" aria-pressed="' + (sched.mode === m) + '">' + label + "</button>"; };
     return '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-schedwk">Weeks</div>' +
       '<div class="fo-subview-chips fo-choice" role="group" aria-labelledby="fo-lbl-schedwk">' + b("next5", "Next 5 weeks") + b("rest", "Rest of season") + "</div></div></div>";
   }
-  function schedCellHtml(c) {
-    var P = root.UPS_PLAYER_SCHEDULE, wk = '<td class="num">Wk ' + c.wk + "</td>";
-    if (c.kind === "bye") return "<tr class=\"fo-sched-bye\">" + wk + '<td colspan="3"><span class="fo-bye">Bye week</span></td></tr>';
-    if (c.kind !== "game") return "<tr>" + wk + '<td colspan="3" class="fo-muted">No game listed</td></tr>';
-    var k = P.kickoffLabel(c.kickoffMs), parts = P.allowedParts(c.allowed);
-    var allowed = c.allowed && (parts.pg || parts.vs || parts.rank)
-      ? [parts.pg, parts.vs, parts.rank].filter(Boolean).map(function (x) { return "<div>" + H.esc(x) + "</div>"; }).join("")
-      : '<span class="fo-muted">No number yet</span>';
-    return "<tr>" + wk + "<td>" + (c.home ? "vs " : "@ ") + H.esc(c.opp) + '<div class="fo-muted fo-perf-sub">' + (c.home ? "Home" : "Away") + "</div></td>" +
-      "<td>" + (k ? H.esc(k) : '<span class="fo-muted">TBD</span>') + "</td>" + '<td class="fo-sched-allowed">' + allowed + "</td></tr>";
+  function schedLegend() {
+    return '<ul class="fo-sched-legend" aria-label="How to read the weeks">' +
+      '<li><span class="fo-sched-key fo-sched-more" aria-hidden="true">+12%</span> Green: that opponent has allowed 10% or more above usual at the position</li>' +
+      '<li><span class="fo-sched-key fo-sched-less" aria-hidden="true">−12%</span> Red: it has allowed 10% or more below usual</li>' +
+      '<li><span class="fo-sched-key" aria-hidden="true">+3%</span> No color: within 9% of usual, fewer than 3 games counted, or no number yet</li>' +
+      '<li><span class="fo-sched-key" aria-hidden="true">@DEN</span> @ = away game; no @ = home; BYE = bye week; — = no game or no number</li></ul>';
   }
-  function schedPlayerHtml(p, r, multi) {
-    var head = '<tr class="fo-sched-player"><th colspan="4" scope="colgroup">' + H.playerButton(p.id, p.fid, p.name) + H.injuryChip(p) +
-      ' <span class="fo-muted">' + H.esc(p.position) + " · " + H.esc(p.nflTeam || "—") + (multi ? " · " + H.esc(p.franchise) : "") + "</span></th></tr>";
-    if (r.state === "no_team") return head + '<tr><td colspan="4" class="fo-muted">No NFL team is listed for him, so there is no schedule.</td></tr>';
-    if (r.state === "no_pos") return head + '<tr><td colspan="4" class="fo-muted">The schedule numbers cover QB, RB, WR, TE, DL, LB, DB, K and P; not this position.</td></tr>';
-    if (r.state === "no_sched") return head + '<tr><td colspan="4" class="fo-muted">' + H.esc(String(p.nflTeam).toUpperCase()) + " is not in the schedule data.</td></tr>";
-    return head + r.cells.map(schedCellHtml).join("");
+  function schedCell(c, pos) {
+    var P = root.UPS_PLAYER_SCHEDULE;
+    if (c.kind === "bye") return '<td class="fo-sched-c fo-sched-bye" title="Wk ' + c.wk + ': bye week"><span class="fo-sched-opp">BYE</span></td>';
+    if (c.kind !== "game") return '<td class="fo-sched-c" title="Wk ' + c.wk + ': No game listed"><span class="fo-muted">—</span></td>';
+    var a = c.allowed, parts = P.allowedParts(a), tone = P.tone(a), k = P.kickoffLabel(c.kickoffMs);
+    var pctTxt = a && a.ratio != null ? P.pct(a.ratio) : "—";
+    var tip = "Wk " + c.wk + ": " + (c.home ? "home vs " : "away at ") + c.opp + (k ? ", " + k + " ET" : "") + ". " +
+      (a && (parts.pg || parts.vs || parts.rank) ? "Allowed so far: " + [parts.pg, parts.vs, parts.rank].filter(Boolean).join(", ") + "." : "No number yet.");
+    return '<td class="fo-sched-c' + (tone === "more" ? " fo-sched-more" : tone === "less" ? " fo-sched-less" : "") + '" title="' + H.esc(tip) + '" aria-label="' + H.esc(tip) + '">' +
+      '<span class="fo-sched-opp">' + (c.home ? "" : "@") + H.esc(c.opp) + '</span><span class="fo-sched-pct">' + H.esc(pctTxt) + "</span></td>";
+  }
+  function schedRowHtml(it, weeks, multi) {
+    var p = it.p, r = it.r, span = weeks.length + 1;
+    var who = '<th scope="row" class="fo-sched-who">' + H.playerButton(p.id, p.fid, p.name) + H.injuryChip(p) +
+      '<div class="fo-muted fo-perf-sub">' + H.esc(p.position) + " · " + H.esc(p.nflTeam || "—") + (multi ? " · " + H.esc(p.franchise) : "") + "</div></th>";
+    if (r.state === "no_team") return "<tr>" + who + '<td colspan="' + weeks.length + '" class="fo-muted fo-sched-note">No NFL team is listed for him, so there is no schedule.</td></tr>';
+    if (r.state === "no_pos") return "<tr>" + who + '<td colspan="' + weeks.length + '" class="fo-muted fo-sched-note">The schedule numbers cover QB, RB, WR, TE, DL, LB, DB, K and P; not this position.</td></tr>';
+    if (r.state === "no_sched") return "<tr>" + who + '<td colspan="' + weeks.length + '" class="fo-muted fo-sched-note">' + H.esc(String(p.nflTeam).toUpperCase()) + " is not in the schedule data.</td></tr>";
+    var byWk = {}; r.cells.forEach(function (c) { byWk[c.wk] = c; });
+    return "<tr>" + who + weeks.map(function (w) { return schedCell(byWk[w] || { wk: w, kind: "none" }, r.pos); }).join("") + "</tr>";
+  }
+  function schedBlock(weeks, items, multi, grouped, label) {
+    var span = weeks.length + 1, body = "";
+    var order = function (list) { return list.slice().sort(function (a, b2) { return String(a.p.name || "").localeCompare(String(b2.p.name || "")); }); };
+    if (grouped) {
+      var groups = {};
+      items.forEach(function (it) { var k = it.p.isTaxi ? "Taxi" : (it.p.isIr ? "IR" : (it.group || "Other")); (groups[k] = groups[k] || []).push(it); });
+      GROUP_ORDER.concat(["Other", "Taxi", "IR"]).forEach(function (k) {
+        if (!groups[k]) return;
+        body += '<tr class="fo-group-row"><td colspan="' + span + '"><span class="fo-pos ' + H.esc(k) + '">' + H.esc(k) + '</span> <span class="small">' + groups[k].length + "</span></td></tr>";
+        body += order(groups[k]).map(function (it) { return schedRowHtml(it, weeks, multi); }).join("");
+      });
+    } else body = order(items).map(function (it) { return schedRowHtml(it, weeks, multi); }).join("");
+    var head = '<tr><th scope="col" class="fo-sched-whohead">Player</th>' + weeks.map(function (w) { return '<th scope="col" class="num" title="League week ' + w + '">W' + w + "</th>"; }).join("") + "</tr>";
+    return (label ? '<h4 class="fo-sched-block">' + H.esc(label) + "</h4>" : "") + '<table class="fo-table fo-sched-grid"><thead>' + head + "</thead><tbody>" + body + "</tbody></table>";
   }
   function renderSched(el) {
     var P = root.UPS_PLAYER_SCHEDULE;
@@ -251,25 +278,14 @@
     if (!wl.weeks.length) { el.innerHTML = head + H.banner(wl.note, "info"); return; }
     var rows = FO.visibleRows() || [];
     var multi = FO.selectedTeam() === "__all__";
-    var allowedHead = b.none ? "Allowed so far" : "Allowed so far (" + b.label + ")";
     var note = b.none
       ? "No " + H.esc(String(d.year || "")) + " games have been played yet, so opponents have no numbers yet."
-      : "Allowed so far: points per game each opponent has allowed to the player’s position in " + H.esc(b.label) + ", how that compares with usual, and its rank (1st = allowed the most). It describes games already played; it is not a forecast. Kickoffs are Eastern time.";
+      : "Each number is how far above or below usual that opponent has allowed at the player’s position in " + H.esc(b.label) + " (allowed so far, the weeks already played). It describes past points allowed; it is not a forecast.";
     if (!rows.length) { el.innerHTML = head + '<p class="fo-basis">' + note + '</p><p class="fo-table-empty">No players match the current filters.</p>'; return; }
-    var items = rows.map(function (p) { return { p: p, group: H.groupOf(p.id) || "", r: P.playerRows(d, { nflTeam: p.nflTeam, group: H.groupOf(p.id) || "" }, wl.weeks) }; });
-    var body = "";
-    var order = function (list) { return list.slice().sort(function (a, b2) { return String(a.p.name || "").localeCompare(String(b2.p.name || "")); }); };
-    if (FO.groupByPosition()) {
-      var groups = {};
-      items.forEach(function (it) { var k = it.p.isTaxi ? "Taxi" : (it.p.isIr ? "IR" : (it.group || "Other")); (groups[k] = groups[k] || []).push(it); });
-      GROUP_ORDER.concat(["Other", "Taxi", "IR"]).forEach(function (k) {
-        if (!groups[k]) return;
-        body += '<tr class="fo-group-row"><td colspan="4"><span class="fo-pos ' + H.esc(k) + '">' + H.esc(k) + '</span> <span class="small">' + groups[k].length + "</span></td></tr>";
-        body += order(groups[k]).map(function (it) { return schedPlayerHtml(it.p, it.r, multi); }).join("");
-      });
-    } else body = order(items).map(function (it) { return schedPlayerHtml(it.p, it.r, multi); }).join("");
-    el.innerHTML = head + '<p class="fo-basis">' + note + "</p>" +
-      '<table class="fo-table fo-sched-table"><thead><tr><th class="num" scope="col" title="League week">Wk</th><th scope="col" title="Opponent: vs = home, @ = away">Opp</th><th scope="col" title="Kickoff, Eastern time">Kickoff</th><th scope="col">' + H.esc(allowedHead) + "</th></tr></thead><tbody>" + body + "</tbody></table>";
+    var items = rows.map(function (p) { var g = H.groupOf(p.id) || ""; return { p: p, group: g, r: P.playerRows(d, { nflTeam: p.nflTeam, group: g }, wl.weeks) }; });
+    var blocks = sched.mode === "rest" ? P.chunk(wl.weeks, 5) : [wl.weeks], grouped = FO.groupByPosition();
+    el.innerHTML = head + '<p class="fo-basis">' + note + "</p>" + (b.none ? "" : schedLegend()) +
+      blocks.map(function (wk) { return schedBlock(wk, items, multi, grouped, sched.mode === "rest" ? P.weeksLabel(wk[0], wk[wk.length - 1]) : ""); }).join("");
   }
   function wirePerf() {
     var cs = document.getElementById("fo-colset");

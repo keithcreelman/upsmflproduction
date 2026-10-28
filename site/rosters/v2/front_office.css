@@ -1377,25 +1377,33 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
   .fo-root .fo-mk-statusline .fo-perf-sub { margin-top: 2px; }
 }
 
-/* Roster → Players → Schedule: one block per player, one row per league week. Fits a 320 px phone without sideways scroll: four columns
-   (week, opponent, kickoff, what the opponent has allowed so far) and the allowed figures stacked in their cell. */
+/* Roster → Players → Schedule: players are rows, league weeks are columns (W8, W9, …). Five weeks plus the player column fit a 320 px phone with no
+   sideways scroll (fixed layout, 10-11 px cells). A week cell is the opponent (@ = away) over its "vs usual" %; restrained green = it has allowed
+   MORE than usual, restrained red = LESS; the number is always printed, so color is never the only signal. */
 #fo-sched-wrap[hidden] { display: none; }
-.fo-sched-table { table-layout: fixed; width: 100%; }
-.fo-sched-table th, .fo-sched-table td { padding: 6px 6px; vertical-align: top; overflow-wrap: anywhere; }
-.fo-sched-table th:nth-child(1), .fo-sched-table td:nth-child(1) { width: 15%; }
-.fo-sched-table th:nth-child(2), .fo-sched-table td:nth-child(2) { width: 22%; }
-.fo-sched-table th:nth-child(3), .fo-sched-table td:nth-child(3) { width: 25%; }
-.fo-sched-table thead th { overflow-wrap: normal; word-break: normal; hyphens: none; font-size: 11px; letter-spacing: 0; white-space: normal; }
-.fo-sched-table td:first-child { white-space: nowrap; }
-.fo-sched-table tbody tr { cursor: default; }
-.fo-sched-player th { background: var(--panel-alt); color: var(--text); text-align: left; font-weight: 600; border-top: 2px solid var(--border); }
-.fo-sched-allowed div { white-space: nowrap; font-size: 12px; }
-.fo-sched-allowed div:first-child { font-weight: 600; }
-.fo-sched-bye td { color: var(--muted); }
+.fo-sched-grid { table-layout: fixed; width: 100%; margin-bottom: 14px; }
+.fo-sched-grid th, .fo-sched-grid td { padding: 5px 3px; vertical-align: middle; overflow-wrap: anywhere; }
+.fo-sched-grid thead th { font-size: 11px; letter-spacing: 0; overflow-wrap: normal; text-align: center; }
+.fo-sched-grid .fo-sched-whohead, .fo-sched-grid .fo-sched-who { width: 31%; text-align: left; padding-left: 6px; }
+.fo-sched-grid tbody tr { cursor: default; }
+.fo-sched-who { font-weight: 500; font-size: 12px; line-height: 1.25; }
+.fo-sched-who .fo-plink { font-weight: 600; text-align: left; }
+.fo-sched-c { text-align: center; border-left: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+.fo-sched-opp { display: block; font-size: 11px; font-weight: 600; color: var(--text); }
+.fo-sched-pct { display: block; font-size: 11px; color: var(--muted); }
+.fo-sched-bye .fo-sched-opp { color: var(--muted); font-weight: 500; letter-spacing: 0.3px; }
+.fo-sched-note { font-size: 12px; padding-left: 8px; }
+.fo-sched-more { background: rgba(74, 222, 128, 0.16); }
+.fo-sched-less { background: rgba(248, 113, 113, 0.16); }
+.fo-sched-more .fo-sched-pct { color: var(--ok); font-weight: 700; }
+.fo-sched-less .fo-sched-pct { color: var(--err); font-weight: 700; }
+.fo-sched-legend { list-style: none; margin: 8px 0 12px; padding: 0; display: grid; gap: 4px; font-size: 12px; color: var(--muted); }
+.fo-sched-key { display: inline-block; min-width: 46px; text-align: center; padding: 1px 6px; margin-right: 6px; border: 1px solid var(--border); border-radius: 4px; font-size: 11px; font-weight: 600; color: var(--text); }
+.fo-sched-key.fo-sched-more { color: var(--ok); } .fo-sched-key.fo-sched-less { color: var(--err); }
+.fo-sched-block { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
 @media (max-width: 560px) {
-  .fo-sched-table th, .fo-sched-table td { padding: 5px 4px; font-size: 11.5px; }
-  .fo-sched-allowed div { font-size: 11px; white-space: normal; }
-  .fo-sched-table th:nth-child(1), .fo-sched-table td:nth-child(1) { width: 13%; }
-  .fo-sched-table th:nth-child(2), .fo-sched-table td:nth-child(2) { width: 22%; }
-  .fo-sched-table th:nth-child(3), .fo-sched-table td:nth-child(3) { width: 24%; }
+  .fo-sched-grid th, .fo-sched-grid td { padding: 4px 1px; }
+  .fo-sched-grid .fo-sched-whohead, .fo-sched-grid .fo-sched-who { width: 33%; padding-left: 4px; }
+  .fo-sched-who { font-size: 11px; }
+  .fo-sched-opp, .fo-sched-pct { font-size: 10.5px; }
 }

@@ -34,9 +34,24 @@ test("no D1, no write, no forecast wording in the new code", () => {
   const mine = code(read("site/shared/player_schedule.js")) + code(RO.slice(RO.indexOf("// ── Schedule (Roster"), RO.indexOf("function wirePerf")));
   t.ok(!/D1|prepare\(|POST|PUT|PATCH|DELETE|method:/.test(mine), "read-only, no database");
   t.ok(!/\b(easy|easier|tough|tougher|smash|forecast|projected|will score)\b/i.test(mine.replace(/it is not a forecast/g, "")), "no easy/tough or forecast claims (apart from saying it is not one)");
-  t.ok(/Allowed so far/.test(RO) && /not a forecast/.test(RO), "labelled 'Allowed so far' with the not-a-forecast line");
+  t.ok(/allowed so far/i.test(RO) && /not a forecast/.test(RO), "labelled 'allowed so far' with the not-a-forecast line");
+});
+test("players are rows and league weeks are columns; five weeks fit a phone; Rest of season is shown in blocks of five", () => {
+  const body = code(RO);
+  t.ok(/'<th scope="col" class="num" title="League week ' \+ w \+ '">W' \+ w/.test(body), "week columns are headed W8, W9, …");
+  t.ok(/'<th scope="row" class="fo-sched-who">'/.test(body), "a player's name heads his row");
+  t.ok(/P\.chunk\(wl\.weeks, 5\)/.test(body), "rest of season = blocks of five");
+  t.ok(/table-layout: fixed/.test(read("site/rosters/v2/front_office.css")), "fixed layout, no sideways scroll");
+});
+test("each week cell is the opponent plus the existing vs-usual percentage; color follows the printed number and never stands alone; there is a text legend", () => {
+  const body = code(RO);
+  t.ok(/fo-sched-opp[\s\S]{0,160}fo-sched-pct/.test(body), "opponent over percentage");
+  t.ok(/P\.tone\(a\)/.test(body) && /fo-sched-more/.test(body) && /fo-sched-less/.test(body), "tone from the shared rule");
+  t.ok(/P\.pct\(a\.ratio\)/.test(body), "the printed number is the vs-usual percentage");
+  for (const s of ["Green: that opponent has allowed 10% or more above usual", "Red: it has allowed 10% or more below usual", "No color: within 9% of usual, fewer than 3 games counted, or no number yet", "@ = away game", "BYE = bye week"]) t.ok(RO.includes(s), s);
+  t.ok(/allowed so far/i.test(RO) && /not a forecast/.test(RO) && !/\b(easy|tough)\b/i.test(code(RO).replace(/never "easy"/g, "")), "past points allowed, not a forecast, no easy/tough");
 });
 test("missing data is handled in words", () => {
-  for (const s of ["No NFL team is listed", "is not in the schedule data", "No game listed", "No number yet", "couldn’t be read", "have no numbers yet", "Bye week"]) t.ok(RO.includes(s), s);
+  for (const s of ["No NFL team is listed", "is not in the schedule data", "No game listed", "No number yet", "couldn’t be read", "have no numbers yet", "BYE"]) t.ok(RO.includes(s), s);
 });
 await run("front_office_schedule_view");

@@ -68,6 +68,34 @@
     return { state: "ok", pos: pos, team: team, cells: weeks.map(function (w) { return cell(d, team, w, pos); }) };
   }
 
+  // ── Color. A week cell is colored by the NUMBER PRINTED IN IT: the opponent's "vs usual" % (rounded, as shown) at the player's position.
+  // "more" = it has allowed MORE than usual (green), "less" = LESS (red); within ±9%, fewer than 3 games counted, or no number = neutral.
+  // Restrained on purpose: a 10% gap and a minimum of games, never a ranking, never a forecast (Stats → Sched found the schedule ranking no
+  // better than chance). The number is always shown, so color is never the only signal.
+  // The Pts Agst rule (toneShrunk below: shrink the gap toward average by k games per position, color only if 8%+) is stricter: it colors
+  // about 1 cell in 288 with a Week 1–5 answer and about 1 in 16 even after a full season. It is kept, identical to Stats → Sched, so the
+  // choice is a one-line switch in tone() if Keith prefers it (a test keeps its table identical to site/m/views/stats.js FPA_COLOR_K).
+  var COLOR_MIN_PCT = 10, COLOR_MIN_GAMES = 3;
+  function tone(a) {
+    if (!a || a.ratio == null || !(a.games >= COLOR_MIN_GAMES)) return "none";
+    var p = Math.round((a.ratio - 1) * 100);
+    return Math.abs(p) < COLOR_MIN_PCT ? "none" : (p > 0 ? "more" : "less");
+  }
+  var COLOR_K = { QB: 50, RB: 30, WR: 50, TE: 30, DL: 20, LB: 120, DB: 50, PK: 50, PN: 120 };
+  var COLOR_MIN_GAP = 0.08;
+  function toneShrunk(a, pos) {
+    var k = COLOR_K[up(pos)];
+    if (!a || !k || a.ratio == null || !(a.games > 0)) return "none";
+    var gap = (a.games * a.ratio + k) / (a.games + k) - 1;
+    return Math.abs(gap) < COLOR_MIN_GAP ? "none" : (gap > 0 ? "more" : "less");
+  }
+  // Weeks in blocks of five (Rest of season is shown block by block).
+  function chunk(weeks, size) {
+    var n = size || 5, out = [];
+    for (var i = 0; i < weeks.length; i += n) out.push(weeks.slice(i, i + n));
+    return out;
+  }
+
   // ── Text ──
   function ordinal(n) { var v = n % 100, s = ["th", "st", "nd", "rd"]; return n + (s[(v - 20) % 10] || s[v] || s[0]); }
   function fix1(n) { return (Math.round(n * 10) / 10).toFixed(1); }
@@ -89,7 +117,7 @@
   }
 
   var api = { POSITIONS: POSITIONS, endWeek: endWeek, nowWeek: nowWeek, weekList: weekList, weeksLabel: weeksLabel, basis: basis, allowed: allowed,
-    cell: cell, playerRows: playerRows, ordinal: ordinal, pct: pct, kickoffLabel: kickoffLabel, allowedParts: allowedParts };
+    COLOR_K: COLOR_K, COLOR_MIN_GAP: COLOR_MIN_GAP, COLOR_MIN_PCT: COLOR_MIN_PCT, COLOR_MIN_GAMES: COLOR_MIN_GAMES, tone: tone, toneShrunk: toneShrunk, chunk: chunk, cell: cell, playerRows: playerRows, ordinal: ordinal, pct: pct, kickoffLabel: kickoffLabel, allowedParts: allowedParts };
   root.UPS_PLAYER_SCHEDULE = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : this);

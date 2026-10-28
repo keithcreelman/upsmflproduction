@@ -76,4 +76,45 @@ test("no forecast or easy/tough words anywhere in the module", () => {
   const src = fs.readFileSync(path.join(ROOT, "site/shared/player_schedule.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");   // code and strings only, not the comments that disclaim the words
   t.ok(!/\b(easy|easier|tough|tougher|smash|avoid)\b/i.test(src), "no easy/tough wording in strings");
 });
+
+test("color is decided by the number PRINTED in the cell: +10% or more is green, -10% or more is red, within 9% is neutral", () => {
+  const a = (ratio, games) => ({ ratio, games });
+  t.equal(S.tone(a(1.10, 5)), "more"); t.equal(S.tone(a(0.90, 5)), "less");
+  t.equal(S.tone(a(1.09, 5)), "none"); t.equal(S.tone(a(0.91, 5)), "none"); t.equal(S.tone(a(1, 5)), "none");
+  t.equal(S.tone(a(1.096, 5)), "more", "1.096 prints as +10%, so it is colored (what you read is what is colored)");
+  t.equal(S.tone(a(1.094, 5)), "none", "1.094 prints as +9%");
+  t.equal(S.pct(1.096), "+10%"); t.equal(S.pct(1.094), "+9%");
+});
+test("color needs at least 3 games counted, and a real number; missing is neutral, never colored", () => {
+  const a = (ratio, games) => ({ ratio, games });
+  t.equal(S.tone(a(1.5, 2)), "none"); t.equal(S.tone(a(1.5, 3)), "more"); t.equal(S.tone(a(0.5, 1)), "none");
+  for (const x of [null, undefined, {}, { ratio: null, games: 5 }, { ratio: 1.4 }, { ratio: 1.4, games: 0 }]) t.equal(S.tone(x), "none");
+});
+test("color on the REAL recorded answers: some green, some red, many neutral, and the side always matches the printed sign; the stricter Pts Agst rule would color almost nothing", () => {
+  for (const [name, d] of [["2026 thru Wk 5", D26], ["2025 full season", D25]]) {
+    const seen = { more: 0, less: 0, none: 0 }, strict = { more: 0, less: 0, none: 0 };
+    for (const team of Object.keys(d.teams)) for (const pos of Object.keys(S.POSITIONS)) {
+      const x = S.allowed(d, team, pos); if (!x) continue;
+      const k = S.tone(x); seen[k]++; strict[S.toneShrunk(x, pos)]++;
+      if (k === "more") t.ok(S.pct(x.ratio).startsWith("+"), name + " " + team + " " + pos); if (k === "less") t.ok(S.pct(x.ratio).startsWith("−"), name + " " + team + " " + pos);
+    }
+    t.ok(seen.more > 20 && seen.less > 20 && seen.none > 20, name + " " + JSON.stringify(seen));
+    t.ok(strict.more + strict.less < (seen.more + seen.less) / 4, name + " strict rule colors far fewer: " + JSON.stringify(strict));
+  }
+});
+test("the Pts Agst rule (kept as an alternative) is the SAME table and rule as Stats → Sched; a test keeps the copies identical", () => {
+  const src = fs.readFileSync(path.join(ROOT, "site/m/views/stats.js"), "utf8");
+  const m = /var FPA_COLOR_K = (\{[^}]*\});/.exec(src); t.ok(m, "the Pts Agst table is there");
+  t.equal(JSON.stringify(S.COLOR_K), JSON.stringify(Function("return " + m[1])()), "identical k per position");
+  t.ok(/Math\.abs\(\(games \* ratio \+ k\) \/ \(games \+ k\) - 1\) >= 0\.08/.test(src) && S.COLOR_MIN_GAP === 0.08);
+  const a = (ratio, games) => ({ ratio, games });
+  t.equal(S.toneShrunk(a(1.5, 17), "DL"), "more"); t.equal(S.toneShrunk(a(1.5, 1), "DL"), "none"); t.equal(S.toneShrunk(a(1.3, 5), "LB"), "none");
+});
+test("rest of season comes in blocks of five weeks (the last block is shorter)", () => {
+  const w = S.weekList(D26, "rest").weeks;
+  const blocks = S.chunk(w, 5);
+  t.equal(JSON.stringify(blocks.map((b) => b.length)), JSON.stringify([5, 5, 2]));
+  t.equal(JSON.stringify(blocks.map((b) => [b[0], b[b.length - 1]])), JSON.stringify([[6, 10], [11, 15], [16, 17]]));
+  t.equal(JSON.stringify(S.chunk([], 5)), JSON.stringify([]));
+});
 await run("player_schedule");
