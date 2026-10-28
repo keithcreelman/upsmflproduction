@@ -241,6 +241,7 @@
       "rosters/v2/fo_cap_ledger.js",
       "shared/trade_fit.js",
       "shared/lineup_strength.js",
+      "shared/trade_finder_core.js",
       "shared/starter_mix.js",
       "shared/bye_planner.js",
       "shared/player_profile_master.js",

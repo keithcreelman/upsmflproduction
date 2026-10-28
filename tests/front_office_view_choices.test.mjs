@@ -84,7 +84,7 @@ test("version stamps changed with the files that changed", () => {
   t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
   t.ok(HTML.includes("fo_roster.js?v=2026.10.28.4"), "fo_roster.js (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
   // Trade finder: How to use this page + Lineup gains (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
-  for (const f of ["fo_trades.js", "shared/trade_fit.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.28.15"), f + " (Trade finder guide and lineup gains)");
+  for (const f of ["fo_trades.js", "shared/trade_fit.js", "shared/trade_finder_core.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.28.15"), f + " (Trade finder guide and lineup gains)");
   t.ok(/var BUILD = "2026\.10\.28\.15";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
