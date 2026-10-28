@@ -1608,6 +1608,7 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-table-scroll .fo-tf-gt { min-width: 0; }
 .fo-tf-gt tbody th[scope="row"] { text-align: left; font-weight: 400; font-size: 12px; color: var(--text); text-transform: none; letter-spacing: 0; background: none; position: static; cursor: default; user-select: auto; }
 .fo-tf-gsub { color: var(--muted); font-size: 11px; font-weight: 400; }
+.fo-tf-gt .fo-plink { text-align: left; }
 .fo-tf-gt td.num, .fo-tf-gt th.num { white-space: nowrap; }
 .fo-tf-gain { font-weight: 700; font-variant-numeric: tabular-nums; }
 .fo-tf-gteam { display: block; }
