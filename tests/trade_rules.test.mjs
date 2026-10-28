@@ -42,7 +42,7 @@ test("the browser twin is the worker module, byte for byte (same check as tests/
   t.equal(twinBody.trim(), body.trim(), "regenerate site/shared/trade_rules.js: node scripts/generate_shared_trade_rules.mjs");
   t.equal(sharedBody(w), body.trimEnd(), "the generator and this test strip the same way");
   t.equal(s, render(w), "the whole twin file is exactly what the generator writes");
-  t.deepEqual(Object.keys(TWIN).sort(), ["IR_RELIEF_RATE", "capMoneyMaxK", "irCapHit", "isOverCap", "normalizeTradeToken", "parseAssetToken", "tradeTokenSet"], "the twin exposes every export");
+  t.deepEqual(Object.keys(TWIN).sort(), ["IR_RELIEF_RATE", "TRADE_REASONS", "capMoneyBasisDollars", "capMoneyMaxK", "contractYearsLeft", "irCapHit", "isOverCap", "isRookieContractStatus", "normalizeTradeToken", "parseAssetToken", "tagDeadlineUtcMs", "tagTradeState", "tradeAssetEligibility", "tradeTokenSet"], "the twin exposes every export");
   t.ok(/root\.UPS_TRADE_RULES = api;/.test(s) && /module\.exports = api/.test(s), "window.UPS_TRADE_RULES + module.exports");
   t.doesNotMatch(code(w), /\bfetch\(|\benv\b|document\.|window\./, "the worker module is pure: no fetch, env or DOM");
   t.doesNotMatch(w, /^import /m, "and imports nothing (the twin can't)");

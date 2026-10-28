@@ -84,10 +84,12 @@ test("version stamps changed with the files that changed", () => {
   t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
   t.ok(HTML.includes("fo_roster.js?v=2026.10.28.4"), "fo_roster.js (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
   // Trade builder: no numbered step headings, Send offer always disabled (2026-10-28, #1419) changed these files.
-  for (const f of ["trade_builder_view.js", "fo_trade_builder.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.14"), f + " (Trade builder: headings, Send disabled, openDraft)");
-  // Trade finder: your team first, drilldown, copy to the builder (2026-10-28, #1423, merged with #1419); the shared CSS and the embed BUILD carry the later stamp.
+  // Trade asset eligibility (rulings 2/3, 2026-10-28): the builder files and the shared rules carry its stamp.
+  for (const f of ["trade_builder_view.js", "fo_trade_builder.js", "shared/trade_builder_core.js", "shared/trade_rules.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.21"), f + " (Trade builder: eligibility reasons, current-year picks)");
+  // Trade finder: your team first, drilldown, copy to the builder (2026-10-28, #1423, merged with #1419).
   for (const f of ["shared/trade_fit.js", "shared/trade_finder_core.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.15"), f + " (Trade finder)");
-  // Offer lifecycle behind the off-by-default write flag (2026-10-28, lifecycle draft): the Offers view, its mode chip, the after-trade reload hook, its CSS.
+  // Offer lifecycle behind the off-by-default write flag (2026-10-28, lifecycle draft): the Offers view, its mode chip, the after-trade reload hook,
+  // the CSS (eligibility's and the lifecycle's rules) and the embed BUILD.
   for (const f of ["fo_trade_offers.js", "fo_trades.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.28.22"), f + " (offer lifecycle, flag off)");
   t.ok(HTML.includes("front_office.js?v=2026.10.28.v1.41.22"), "front_office.js (its own stamp format; the after-trade reload hook)");
   t.ok(/var BUILD = "2026\.10\.28\.22";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");

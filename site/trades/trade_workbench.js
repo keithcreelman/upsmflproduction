@@ -588,31 +588,8 @@
     return safeInt(getLeagueContext().season, 0);
   }
 
-  function getMemorialDayUtc(season) {
-    var year = safeInt(season, 0);
-    if (year <= 0) return null;
-    var d = new Date(Date.UTC(year, 4, 31));
-    var weekday = d.getUTCDay();
-    var offset = (weekday + 6) % 7;
-    d.setUTCDate(d.getUTCDate() - offset);
-    return d;
-  }
-
-  function getTagDeadlineUtc(season) {
-    var memorial = getMemorialDayUtc(season);
-    if (!memorial) return null;
-    var tagDeadline = new Date(memorial.getTime());
-    tagDeadline.setUTCDate(tagDeadline.getUTCDate() - 4);
-    tagDeadline.setUTCHours(23, 59, 59, 999);
-    return tagDeadline;
-  }
-
-  function hasTradeTagDeadlinePassed(seasonHintOverride) {
-    var season = getCurrentTradeSeason(seasonHintOverride);
-    var deadline = getTagDeadlineUtc(season);
-    if (!deadline) return false;
-    return Date.now() > deadline.getTime();
-  }
+  // (The tag / rookie-extension deadline is the shared UPS_TRADE_RULES.tagDeadlineUtcMs: midnight ET Thursday → Friday = 04:00 UTC Friday.
+  //  This file used to compute its own, at Thursday 23:59:59 UTC.)
 
   function parsePickSlotMeta(value) {
     var raw = safeStr(value).toUpperCase();
@@ -977,31 +954,48 @@
     return s.indexOf("rookie") !== -1 || s === "r" || s.indexOf("mym - rookie") !== -1;
   }
 
+  // ── Trade eligibility: the ONE shared rule (../shared/trade_rules.js tradeAssetEligibility; Keith's rulings 2 and 3, 2026-10-28),
+  // the same function the Front Office builder runs and the worker enforces at the preview, every create and every accept.
+  // EARLY-LOCK FIX: this used to refuse EVERY tagged player until the tag deadline (contract text containing "tag", and the deadline
+  // computed as Thursday 23:59:59 UTC, four hours before canon's midnight ET), so a tag the owner had locked in early — final and
+  // tradeable under canon §C8 — could not be traded from here. Now the worker's tag state (/trade-workbench assets[].tag_state, from
+  // D1's tag rows) decides: PROVISIONAL can't be traded; EARLY-LOCKED and DEADLINE-LOCKED can (and can't be extended). With no tag
+  // state from the worker, a Tag contract is "unavailable" (not tradeable) until the deadline (shared tagDeadlineUtcMs) has passed.
+  // Lineup-penalty forfeits keep the 2026-10-12 rule: an unreadable forfeit list leaves picks selectable under the banner below.
+  function tradeEligibilityOf(asset) {
+    if (!asset) return { tradeable: false, code: "", reason: "" };
+    var rules;
+    try { rules = tradeRules(); } catch (e) { return { tradeable: false, code: "trade_rules_unavailable", reason: TRADE_RULES_UNAVAILABLE }; }
+    var season = getCurrentTradeSeason();
+    if (safeStr(asset.type).toUpperCase() === "PICK") {
+      var meta = resolvePickMeta(asset);
+      return rules.tradeAssetEligibility({ kind: "pick", year: safeInt(meta.year || asset.pick_season, 0), round: safeInt(meta.round, 0), forfeit: !!asset.forfeited, forfeit_label: safeStr(asset.forfeit_label) }, { season: season });
+    }
+    var now = Date.now(), deadline = rules.tagDeadlineUtcMs(season), tagState = safeStr(asset.tag_state);
+    if (!tagState) {
+      var text = (safeStr(asset.contract_type) + " " + safeStr(asset.contract_info)).toLowerCase();
+      tagState = /(^|[^a-z])tag(ged)?([^a-z]|$)/.test(text) ? (now > deadline ? "deadline_locked" : "unavailable") : "none";
+    }
+    return rules.tradeAssetEligibility({ kind: "player", years: asset.years, contract_status: asset.contract_type, tag_state: tagState }, { season: season, nowMs: now, rookieDeadlineMs: deadline });
+  }
+
   function isTradeEligibleAsset(asset) {
     if (!asset) return false;
-    if (isTaggedTradeIneligibleAsset(asset)) return false;
-    if (safeStr(asset.type).toUpperCase() === "PICK") return !isUntradeableSixthRoundPick(asset) && !isForfeitedPick(asset);
-    return true;
+    return !!tradeEligibilityOf(asset).tradeable;
   }
 
   function isTaggedTradeIneligibleAsset(asset) {
     if (!asset || safeStr(asset.type).toUpperCase() !== "PLAYER") return false;
-    if (hasTradeTagDeadlinePassed()) return false;
-    var contractType = safeStr(asset.contract_type).toLowerCase();
-    var contractInfo = safeStr(asset.contract_info).toLowerCase();
-    return contractType.indexOf("tag") !== -1 || contractInfo.indexOf("tag") !== -1;
+    var code = tradeEligibilityOf(asset).code;
+    return code === "tag_provisional" || code === "tag_status_unavailable";
   }
 
   function getTradeIneligibleReason(asset) {
     if (!asset) return "";
-    if (isTaggedTradeIneligibleAsset(asset)) {
-      return "Ineligible: tagged players cannot be traded";
-    }
-    if (safeStr(asset.type).toUpperCase() === "PICK" && isUntradeableSixthRoundPick(asset)) {
-      return "Ineligible: 6th-round picks cannot be traded";
-    }
+    var e = tradeEligibilityOf(asset);
+    if (e.tradeable) return "";
     if (isForfeitedPick(asset)) return safeStr(asset.forfeit_label) || "Forfeited — lineup penalty";
-    return "";
+    return "Ineligible: " + e.reason;
   }
 
   function collectInvalidTradeAssets(payload) {
