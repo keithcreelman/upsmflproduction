@@ -46,10 +46,16 @@
     if (typeof require === "function") { try { return require("./war_room_requests.js"); } catch (e) { /* not in node */ } }
     return null;
   }
+  function T3() {
+    if (root.UPS_TRADE_3WAY) return root.UPS_TRADE_3WAY;
+    if (typeof require === "function") { try { return require("./trade_3way_view.js"); } catch (e) { /* not in node */ } }
+    return null;
+  }
 
   // ── Idempotency key (#1396: 8–128 of [A-Za-z0-9_-], first alnum). A v4 UUID from the page's crypto. ──
   function newKey(randomBytes) {
-    var b = randomBytes ? randomBytes(16) : (root.crypto && root.crypto.getRandomValues ? root.crypto.getRandomValues(new Uint8Array(16)) : null);
+    var c = root.crypto || (typeof crypto !== "undefined" ? crypto : null);
+    var b = randomBytes ? randomBytes(16) : (c && c.getRandomValues ? c.getRandomValues(new Uint8Array(16)) : null);
     if (!b || b.length < 16) return "";                 // no randomness → no key → the caller refuses to send
     b[6] = (b[6] & 15) | 64; b[8] = (b[8] & 63) | 128;
     var h = Array.prototype.map.call(b, function (x) { return ("0" + x.toString(16)).slice(-2); }).join("");
@@ -343,7 +349,7 @@
       if (kind === "staged") return { state: "staged", id: str(b.id), replay: !!b.idempotent_replay };
       return { state: "sent", tradeId: str((b.mfl || {}).trade_id), replay: !!b.idempotent_replay };
     }
-    if (p.status === 409 && c === "loaded_contract_limit_exceeded") return { state: "blocked_loaded", code: c, teams: b.teams || [], message: str(b.message || b.error) };
+    if (p.status === 409 && c === "loaded_contract_limit_exceeded") return { state: "blocked_loaded", code: c, teams: b.teams || [], serverMessage: str(b.message || b.error) };
     if (p.status === 409 && c === "cap_overage_ack_required" && b.cap_ack_needed) return { state: "needs_cap_ack", code: c, need: b.cap_ack_needed, message: str(b.error || b.message) };
     if (p.status === 409 && c === "staging_required") return { state: "staging_required", code: c };
     if (p.status === 409 && c === "request_in_progress") return { state: "in_progress", code: c };
@@ -385,7 +391,8 @@
   function inbox(wr, res) {
     var p = parsed(res);
     if (!p.network && p.ok && p.body && Array.isArray(p.body.outgoing) && Array.isArray(p.body.incoming)) {
-      var sent = wr.normalizeOffersForBanner(p.body.outgoing), got = wr.normalizeOffersForBanner(p.body.incoming);
+      // (a copy: the War Room's offer reload caches a rebuilt payload on each offer object)
+      var sent = wr.normalizeOffersForBanner(JSON.parse(JSON.stringify(p.body.outgoing))), got = wr.normalizeOffersForBanner(JSON.parse(JSON.stringify(p.body.incoming)));
       return { kind: sent.length || got.length ? "ok" : "empty", sent: sent, received: got, scopedToProven: !!p.body.scoped_to_proven, franchiseId: str(p.body.franchise_id) };
     }
     var err = new Error(p.network ? "Failed to fetch" : ((p.body && (p.body.error || p.body.reason)) || "Couldn't load your trades"));
@@ -566,13 +573,13 @@
       if (pad4(offer && offer.to_franchise_id) !== pad4(actingFid)) return refuse("forbidden");
       var body = offerActionBody(env.warRoom, "PREVIEW", offer, actingFid);
       if (!body) return refuse("not_ready");
-      return post(env.routes.action(), body).then(function (res) { var T = root.UPS_TRADE_3WAY; return { state: "preview", review: T ? T.interpretPreview(res) : null, raw: res, actingFid: pad4(actingFid) }; });
+      return post(env.routes.action(), body).then(function (res) { var T = T3(); return { state: "preview", review: T ? T.interpretPreview(res) : null, raw: res, actingFid: pad4(actingFid) }; });
     }
     function ackCap(offer, actingFid) {
       var g = gate(actingFid, env.routes.action()); if (g) return refuse(g);
       var body = offerActionBody(env.warRoom, "ACK_CAP", offer, actingFid);
       if (!body) return refuse("not_ready");
-      return post(env.routes.action(), body).then(function (res) { var T = root.UPS_TRADE_3WAY; return { state: "ack", result: T ? T.interpretAckCap(res) : null, actingFid: pad4(actingFid) }; });
+      return post(env.routes.action(), body).then(function (res) { var T = T3(); return { state: "ack", result: T ? T.interpretAckCap(res) : null, actingFid: pad4(actingFid) }; });
     }
     function accept(offer, actingFid, review) {
       var g = gate(actingFid, env.routes.action()); if (g) return refuse(g);
@@ -612,7 +619,7 @@
       var g = gate(actingFid, env.routes.threeWayAct(actingFid, verb)); if (g) return refuse(g);
       var body = threeWayActionBody(verb, id, actingFid); if (!body) return refuse("loaded_contract_drops_removed");
       return post(env.routes.threeWayAct(actingFid, verb), body).then(function (res) {
-        var T = root.UPS_TRADE_3WAY, out = T ? (verb === "cancel" ? T.interpretCancel(res) : verb === "recheck" ? T.interpretRecheck(res) : T.interpretAckCap(res)) : null;
+        var T = T3(), out = T ? (verb === "cancel" ? T.interpretCancel(res) : verb === "recheck" ? T.interpretRecheck(res) : T.interpretAckCap(res)) : null;
         var ok = verb === "cancel" ? !!(out && out.applied) : !!(out && out.ok);
         return done({ state: ok ? (verb === "cancel" ? "cancelled" : verb === "recheck" ? "rechecked" : "acknowledged") : "refused", code: ok ? "" : str(out && (out.code || out.kind)), result: out, message: str(out && out.message) }, actingFid);
       });
