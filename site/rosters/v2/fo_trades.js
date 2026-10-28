@@ -231,14 +231,16 @@
     var rows = st.rows.map(function (r) {
       var tag = r.tag === "strong" ? ' <span class="fo-tf-tag ok">Top 3</span>' : r.tag === "short" ? ' <span class="fo-tf-tag need">Bottom 3</span>' : "";
       var gap = (r.gap > 0.05 ? "+" : r.gap < -0.05 ? "−" : "") + Math.abs(Math.round(r.gap * 10) / 10).toFixed(1);
-      var best = r.best ? '<span class="fo-tf-gnum">+' + H.fmt1(r.best.gain) + '</span> <span class="fo-tf-unit">pts/wk</span><div class="fo-tf-gsub">' +
-        H.playerButton(r.best.pid, r.best.fid, H.displayName(playerName(r.best.pid))) + " · " + H.esc(H.teamName(r.best.fid)) + " · season PPG</div>" :
-        '<span class="fo-muted">' + (r.excluded ? "not scored" : "none at +" + H.fmt1(G.minGain)) + "</span>";
-      return '<tr data-tf-stand="' + r.g + '" class="' + (r.excluded ? "fo-tf-kp" : "") + '"><th scope="row">' + gl(r.g) + tag + '</th><td class="num">' + H.fmt1(r.ppg) + '<div class="fo-tf-gsub">lg ' + H.fmt1(r.avg) + " · " + gap + "</div></td>" +
-        '<td class="num">' + LS.ordinal(r.rank) + "</td><td>" + best + "</td></tr>";
+      // The best available player sits on a full-width line under his position, so the table fits a 320 px phone.
+      var best = r.excluded ? "" : '<tr class="fo-tf-standbest" data-tf-stand-best="' + r.g + '"><td colspan="3">' + (r.best ? "Best available: " +
+        H.playerButton(r.best.pid, r.best.fid, H.displayName(playerName(r.best.pid))) + ' <span class="fo-muted">(' + H.esc(H.teamName(r.best.fid)) + ")</span> " +
+        '<span class="fo-tf-gnum">+' + H.fmt1(r.best.gain) + '</span> <span class="fo-tf-unit">pts/wk, season PPG</span>' :
+        '<span class="fo-muted">No player on another team would add +' + H.fmt1(G.minGain) + " pts/wk here.</span>") + "</td></tr>";
+      return '<tr data-tf-stand="' + r.g + '" class="' + (r.excluded ? "fo-tf-kp" : "fo-tf-standrow") + '"><th scope="row">' + gl(r.g) + tag + '</th><td class="num">' + H.fmt1(r.ppg) + ' <span class="fo-tf-unit">PPG</span><div class="fo-tf-gsub">lg ' + H.fmt1(r.avg) + " · " + gap + "</div></td>" +
+        '<td class="num">' + LS.ordinal(r.rank) + "</td></tr>" + best;
     }).join("");
     return '<p class="fo-tf-sum"><b>Strong</b> (Top 3 by PPG): ' + H.esc(names(st.strong)) + " · <b>Short</b> (Bottom 3): " + H.esc(names(st.short)) + "</p>" +
-      '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt fo-tf-stand"><thead><tr><th scope="col">Pos</th><th scope="col" class="num" title="Your modeled starters’ season PPG, the league average and the gap">PPG</th><th scope="col" class="num">Rank</th><th scope="col" title="The largest gain one player on another team would give your modeled lineup at this position">Best available</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
+      '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt fo-tf-stand"><thead><tr><th scope="col">Pos</th><th scope="col" class="num" title="Your modeled starters’ season PPG, the league average and the gap">PPG · lg avg</th><th scope="col" class="num">Rank</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
       '<p class="fo-basis">PPG = your modeled starters at the position, a week; lg = league average. Best available = the real player on another team who would add the most to your modeled lineup.</p>';
   }
   function exploreHtml(m, me) {

@@ -374,10 +374,12 @@ test("your team first: basis stated up top, strengths and needs = trade_finder_c
   t.ok(card.includes("<b>Short</b> (Bottom 3): " + (st.short.join(", ") || "none")), "short list");
   for (const r of st.rows) {
     const row = card.slice(card.indexOf('data-tf-stand="' + r.g + '"'), card.indexOf("</tr>", card.indexOf('data-tf-stand="' + r.g + '"')));
-    t.ok(row.includes('<td class="num">' + p.H.fmt1(r.ppg) + '<div class="fo-tf-gsub">lg ' + p.H.fmt1(r.avg)), r.g + ": PPG and league average");
+    t.ok(row.includes('<td class="num">' + p.H.fmt1(r.ppg) + ' <span class="fo-tf-unit">PPG</span><div class="fo-tf-gsub">lg ' + p.H.fmt1(r.avg)), r.g + ": PPG and league average");
     t.ok(row.includes(">" + p.LS.ordinal(r.rank) + "</td>"), r.g + ": rank");
     t.equal(/Top 3/.test(row), r.tag === "strong", r.g + ": Top 3 tag"); t.equal(/Bottom 3/.test(row), r.tag === "short", r.g + ": Bottom 3 tag");
-    if (r.best) t.ok(row.includes('<span class="fo-tf-gnum">+' + p.H.fmt1(r.best.gain) + '</span> <span class="fo-tf-unit">pts/wk</span>') && row.includes(" · season PPG</div>"), r.g + ": best available with its unit and basis");
+    const bi = card.indexOf('data-tf-stand-best="' + r.g + '"'), brow = bi < 0 ? "" : card.slice(bi, card.indexOf("</tr>", bi));
+    t.equal(bi > 0, !r.excluded, r.g + ": a best-available line unless K/P");
+    if (r.best) t.ok(brow.includes("Best available: ") && brow.includes("(" + p.H.teamName(r.best.fid) + ")") && brow.includes('<span class="fo-tf-gnum">+' + p.H.fmt1(r.best.gain) + '</span> <span class="fo-tf-unit">pts/wk, season PPG</span>'), r.g + ": best available with team, unit and basis");
   }
   const opts = [...card.matchAll(/<option value="(\d{4})">/g)].map((x) => x[1]);
   t.equal(opts.length, 11, "Explore a team: the 11 other teams"); t.ok(!opts.includes("0008"), "not my own");

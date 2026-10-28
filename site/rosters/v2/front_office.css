@@ -1621,6 +1621,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-basisline b { color: var(--text); }
 .fo-tf-sum { margin: 4px 0 6px; font-size: 13px; }
 .fo-tf-stand td, .fo-tf-stand th { vertical-align: top; }
+.fo-tf-stand tr.fo-tf-standrow td, .fo-tf-stand tr.fo-tf-standrow th { border-bottom: 0; padding-bottom: 2px; }
+.fo-tf-standbest td { padding-top: 0; font-size: 12px; }
 .fo-tf-unit { color: var(--muted); font-size: 11px; font-weight: 400; }
 .fo-tf-gnum { font-weight: 700; }
 .fo-tf-explore { margin: 12px 0 4px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
