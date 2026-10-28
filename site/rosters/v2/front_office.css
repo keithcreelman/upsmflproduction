@@ -1389,8 +1389,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-sched-who { font-weight: 500; font-size: 12px; line-height: 1.25; }
 .fo-sched-who .fo-plink { font-weight: 600; text-align: left; }
 .fo-sched-c { text-align: center; border-left: 1px solid var(--border); font-variant-numeric: tabular-nums; }
-.fo-sched-opp { display: block; font-size: 11px; font-weight: 600; color: var(--text); }
-.fo-sched-pct { display: block; font-size: 11px; color: var(--muted); }
+.fo-sched-opp { display: block; font-size: 11px; font-weight: 600; color: var(--text); white-space: nowrap; overflow-wrap: normal; }
+.fo-sched-pct { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow-wrap: normal; }
 .fo-sched-bye .fo-sched-opp { color: var(--muted); font-weight: 500; letter-spacing: 0.3px; }
 .fo-sched-note { font-size: 12px; padding-left: 8px; }
 .fo-sched-more { background: rgba(74, 222, 128, 0.16); }
@@ -1403,7 +1403,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-sched-block { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
 @media (max-width: 560px) {
   .fo-sched-grid th, .fo-sched-grid td { padding: 4px 1px; }
-  .fo-sched-grid .fo-sched-whohead, .fo-sched-grid .fo-sched-who { width: 33%; padding-left: 4px; }
-  .fo-sched-who { font-size: 11px; }
-  .fo-sched-opp, .fo-sched-pct { font-size: 10.5px; }
+  .fo-sched-grid .fo-sched-whohead, .fo-sched-grid .fo-sched-who { width: 27%; padding-left: 3px; }
+  .fo-sched-who { font-size: 10.5px; }
+  .fo-sched-opp, .fo-sched-pct { font-size: 10px; letter-spacing: -0.2px; }
+  .fo-sched-grid .fo-sched-c { padding: 4px 0; }
 }
