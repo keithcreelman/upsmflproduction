@@ -59,7 +59,10 @@
   // Trades has two views: the Trade builder (default; fo_trade_builder.js) and the Trade finder (unchanged).
   var mode = "builder";
   var MODES = [["builder", "Trade builder"], ["finder", "Trade finder"]];
-  function modeChips() { return '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-trmode">Trades view</div><div class="fo-subview-chips fo-choice fo-tf-mode" role="group" aria-labelledby="fo-lbl-trmode">' + chips(MODES, "data-tf-mode", mode) + "</div></div></div>"; }
+  // A third view, Offers (fo_trade_offers.js), exists ONLY when the Front Office write flag is on (it is off everywhere today).
+  function offersOn() { var O = root.UPS_FO_TRADE_OFFERS; return !!(O && O.enabled()); }
+  function modes() { return offersOn() ? MODES.concat([["offers", "Offers"]]) : MODES; }
+  function modeChips() { return '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-trmode">Trades view</div><div class="fo-subview-chips fo-choice fo-tf-mode" role="group" aria-labelledby="fo-lbl-trmode">' + chips(modes(), "data-tf-mode", mode) + "</div></div></div>"; }
   var tableMemo = { model: null, tables: {} };
   var GLABEL = { PK: "K", PN: "P" };
   var BY = [["position", "By Position"], ["slot", "By Lineup Slot"], ["mix", "Starter Mix"]];
@@ -604,7 +607,9 @@
     var el = document.getElementById("fo-trades-body");
     if (!el) return;
     H.wireClicks(el);
+    if (mode === "offers" && !offersOn()) mode = "builder";
     if (mode === "builder") { renderBuilder(el); return; }
+    if (mode === "offers") { root.UPS_FO_TRADE_OFFERS.render(el, modeChips()); return; }
     var se = DATA.get("scores");
     if (!se || !DATA.get("players")) { H.loading(el, "Reading MFL’s scores and players…"); return; }
     var ss = H.scoring();
@@ -696,7 +701,7 @@
 
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("trades");
   // Test seam: the view state and the team view's pick and stock logic.
-  root.UPS_FO_TRADES = { _setMode: function (m) { mode = m; }, _view: view, _sel: sel, _gainsView: gainsView, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); },
+  root.UPS_FO_TRADES = { _setMode: function (m) { mode = m; }, _rerender: function () { rerender(); }, _view: view, _sel: sel, _gainsView: gainsView, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); },
     _gains: function (f) { return gainsFor(H.leagueModel(0), f); }, _picks: function () { return picks; }, _copyState: function () { return copyState(); }, _copy: function () { return copyToBuilder(); },
     _teamHtml: function (f) { return teamHtml(H.leagueModel(0), f); }, _openTeam: function (f) { openTeam(H.leagueModel(0), f); } };
   document.addEventListener("fo:ready", function () {
