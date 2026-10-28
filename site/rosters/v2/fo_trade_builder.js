@@ -7,7 +7,25 @@
    separate, separately approved change (Keith's go, an authz and behavior review, and parity with every two- and three-team
    War Room rule). The Trade War Room link stays for sending.
 
-   Optional test/preview seam: window.UPS_FO_TRADE_BUILDER_CONFIG = { preview(body) -> json, warRoomUrl, sources, extensionFacts }.
+   The draft is kept HERE (onDraft), so it survives the builder being re-mounted (Trade builder ↔ Trade finder) and opening/closing sections.
+
+   PUBLIC ENTRY POINT for other pages (the Trade finder): UPS_FO_TRADE_BUILDER.openDraft(draft, options) -> result. Exact contract:
+     draft   = { source: "Trade finder",                                 // shown as "Draft from Trade finder (not sent)"; blank -> "another page"
+                 movements: [ { from: "0008", to: "0010",                // franchise ids (padded to 4 digits)
+                                tokens: ["P_16614", "FP_0008_2027_1"],   // "P_<MFL player id>" | "FP_<ORIGINAL owner fid>_<year>_<round>"
+                                cap_k: 0 } ] }                           // optional cap money from -> to, whole $K, held to the rule's maximum
+               (the core's movement shape: UPS_TRADE_BUILDER_CORE.movements() / the compliance-preview request). The viewer must be a party;
+               2 or 3 teams; a token is kept only if it is on the `from` team's LOADED roster or pick list. No extension choices are carried.
+     options = { confirm(message) -> boolean }   optional; replaces window.confirm for "replace the current draft?" (must answer synchronously)
+     result  = { ok: true, dropped: [{ from, to, token, reason }], clamped: [{ from, to, asked_k, max_k }] }
+             | { ok: false, reason, dropped, clamped: [] }      nothing changed
+       dropped reason: "not_on_roster" | "bad_token" | "duplicate" | "bad_team"
+       ok:false reason: "not_ready" | "bad_shape" | "viewer_not_in_trade" | "too_many_teams" | "no_valid_assets" | "kept_current"
+   It asks before replacing a non-empty draft, loads an editable UNSENT draft labeled "Draft from <source> (not sent)", and switches to
+   Trades → Trade builder. It never sends, saves or writes, and makes no network call itself. Send offer stays disabled.
+   (Also written up in the hand-off notes: builder_opendraft_api.md.)
+
+   Optional test/preview seam: window.UPS_FO_TRADE_BUILDER_CONFIG = { preview(body) -> json, warRoomUrl, sources, extensionFacts, debounceMs }.
    A build that blocks every POST (the preview) answers the verdict from recorded examples through it. */
 (function (root) {
   "use strict";
@@ -120,7 +138,7 @@
   function teamOf(fid) { return FO.teams().filter(function (t) { return t.fid === fid; })[0]; }
   function playerRec(fid, pid) { var t = teamOf(fid); return t ? (t.players || []).filter(function (p) { return String(p.id) === String(pid); })[0] : null; }
   function pidOf(tok) { var m = /^P_(\d+)$/.exec(tok); return m ? m[1] : ""; }
-  function capImpacts(draft) {
+  function capImpacts(draft, tally) {
     var I = root.UPS_TRADE_IMPACT, out = {}, ok = false;
     var ms = root.UPS_TRADE_BUILDER_CORE.movements(draft);
     draft.teams.forEach(function (f) {
@@ -130,7 +148,7 @@
       var send = [], recv = [], sentK = 0, gotK = 0;
       draft.items.forEach(function (i) {
         var pid = pidOf(i.token); if (!pid) return;
-        if (i.from === f) { var p = playerRec(f, pid); if (p) send.push({ salary: p.salary, hit: FO.capHit(p), isTaxi: !!p.isTaxi, isIr: !!p.isIr, loaded: FO.isLoaded(p) }); }
+        if (i.from === f) { var p = playerRec(f, pid); if (p) { send.push({ salary: p.salary, hit: FO.capHit(p), isTaxi: !!p.isTaxi, isIr: !!p.isIr, loaded: FO.isLoaded(p) }); if (tally && FO.isLoaded(p)) tally.loaded++; } }
         if (i.to === f) {
           var q = playerRec(i.from, pid);
           if (q) {
@@ -224,7 +242,8 @@
     var F = root.UPS_PLAYER_FACTS;
     return { state: "ok", teams: teamsOut, basis: "Year-to-date points per week, not a projection. " + (F && F.basis ? F.basis(ss).text : "") };
   }
-  function impact(draft) { return { cap: capImpacts(draft), lineup: lineupImpacts(draft), ext: extImpacts(draft) }; }
+  // loadedMoving: how many loaded contracts change teams in this trade (the "Cap & contracts" summary line).
+  function impact(draft) { var tally = { loaded: 0 }, cap = capImpacts(draft, tally); return { cap: cap, lineup: lineupImpacts(draft), ext: extImpacts(draft), loadedMoving: cap ? tally.loaded : null }; }
 
   function preview(body) {
     var c = cfg();
@@ -236,7 +255,7 @@
   }
 
   // The extension choice popup is the Front Office's own dialog; its buttons are handled here and handed to the builder.
-  var current = null;
+  var current = null, mountedHost = null, keep = null;     // keep = { draft, label, dropped }: the builder's draft, outside its markup
   function wireDialog() {
     var body = document.getElementById("fo-about-body");
     if (!body || body.__tbWired) return;
@@ -247,7 +266,10 @@
     var c = cfg();
     wireDialog();
     fx = { hist: null, histState: "idle", probes: {}, queue: [], timer: null, handle: null };
+    mountedHost = host;
     current = root.UPS_TRADE_BUILDER_VIEW.mount(host, {
+      initial: keep,
+      onDraft: function (d, meta) { keep = { draft: d, label: meta.label, dropped: meta.dropped }; },
       openDialog: function (title, html) { H.openDialog(title, html, { variant: "team" }); },
       closeDialog: function () { H.closeAbout(); },
       teams: teams(),
@@ -258,6 +280,7 @@
       playerLink: function (pid, fid, label) { return H.playerButton ? H.playerButton(pid, fid, label) : "<b>" + label + "</b>"; },
       preview: preview,
       sources: c.sources,
+      debounceMs: c.debounceMs,                     // undefined = the view's default (tests set 0)
       // No send option exists: see the header.
       warRoomUrl: ("warRoomUrl" in c) ? c.warRoomUrl : (FO.warRoomUrl ? FO.warRoomUrl({}) : "")
     });
@@ -266,6 +289,66 @@
     return current;
   }
 
-  root.UPS_FO_TRADE_BUILDER = { _extensionOptions: extensionOptions, mount: mount, _picksOf: picksOf, _impact: impact, _playersOf: playersOf };
+  // ── openDraft: a draft from another page (contract in the header) ──
+  function assetOf(fid, token) {
+    if (/^P_/.test(token)) { var p = playersOf(fid).filter(function (x) { return "P_" + x.id === token; })[0]; return p ? { label: p.name, salary: p.salary, taxi: p.taxi } : null; }
+    var k = picksOf(fid).filter(function (x) { return x.token === token; })[0];
+    return k ? { label: k.label, salary: 0, taxi: false } : null;
+  }
+  function live() { return !!(current && mountedHost && mountedHost.isConnected && mountedHost.__tbHandle === current); }
+  function showBuilder() {
+    var T = root.UPS_FO_TRADES;
+    if (T && typeof T._setMode === "function") T._setMode("builder");
+    if (FO && typeof FO.show === "function") FO.show("trades");
+    var body = document.getElementById("fo-trades-body"), chip = body && !body.querySelector("#fo-tb-host") ? body.querySelector('[data-tf-mode="builder"]') : null;
+    if (chip) chip.click();
+  }
+  function openDraft(input, options) {
+    var C = root.UPS_TRADE_BUILDER_CORE;
+    var fail = function (reason, dropped) { return { ok: false, reason: reason, dropped: dropped || [], clamped: [] }; };
+    if (!FO || !DATA || !H || !C || !root.UPS_TRADE_BUILDER_VIEW || !FO.teams().length) return fail("not_ready");
+    if (!input || typeof input !== "object" || !Array.isArray(input.movements) || !input.movements.length) return fail("bad_shape");
+    var me = FO.viewerFid(), league = {}, source = String(input.source == null ? "" : input.source).trim() || "another page";
+    FO.teams().forEach(function (t) { league[t.fid] = 1; });
+    var dropped = [], items = [], cap = [], seen = {}, order = [];
+    input.movements.forEach(function (m) {
+      var from = C.pad4(m && m.from), to = C.pad4(m && m.to), toks = m && Array.isArray(m.tokens) ? m.tokens : [];
+      var drop = function (token, reason) { dropped.push({ from: from, to: to, token: String(token == null ? "" : token), reason: reason }); };
+      if (!league[from] || !league[to] || from === to) { toks.forEach(function (t) { drop(t, "bad_team"); }); return; }
+      toks.forEach(function (t) {
+        var token = String(t == null ? "" : t).trim();
+        if (!/^(P_\d+|FP_\d{4}_\d{4}_\d+)$/.test(token)) return drop(token, "bad_token");
+        if (seen[from + "|" + token]) return drop(token, "duplicate");
+        var a = assetOf(from, token); if (!a) return drop(token, "not_on_roster");
+        seen[from + "|" + token] = 1;
+        items.push({ from: from, to: to, token: token, label: a.label, salary: a.salary, taxi: a.taxi });
+        [from, to].forEach(function (f) { if (order.indexOf(f) === -1) order.push(f); });
+      });
+      var ck = Math.floor(Number(m && m.cap_k) || 0); if (ck > 0) cap.push({ from: from, to: to, k: ck });
+    });
+    if (!items.length) return fail("no_valid_assets", dropped);
+    if (order.indexOf(me) === -1) return fail("viewer_not_in_trade", dropped);
+    if (order.length > 3) return fail("too_many_teams", dropped);
+    var d = C.emptyDraft([me].concat(order.filter(function (f) { return f !== me; })));
+    items.forEach(function (i) { d = C.addItem(d, i); });
+    var clamped = [];
+    cap.forEach(function (c) {
+      if (d.teams.indexOf(c.from) === -1 || d.teams.indexOf(c.to) === -1) { clamped.push({ from: c.from, to: c.to, asked_k: c.k, max_k: 0 }); return; }   // money between teams with no asset in the trade
+      d = C.setCapK(d, c.from, c.to, c.k);
+    });
+    var held = C.clampCap(d); d = held.draft;
+    held.clamped.forEach(function (key) { var p = key.split(">"), asked = cap.filter(function (c) { return c.from === p[0] && c.to === p[1]; })[0]; clamped.push({ from: p[0], to: p[1], asked_k: asked ? asked.k : 0, max_k: C.capMoneyMaxK(d, p[0], p[1]) }); });
+    var cur = live() ? current.draft() : keep && keep.draft;
+    if (cur && (cur.items.length || Object.keys(cur.capK || {}).length)) {
+      var ask = options && typeof options.confirm === "function" ? options.confirm : typeof root.confirm === "function" ? function (q) { return root.confirm(q); } : null;
+      if (!ask || !ask("Replace the trade you are building with the draft from " + source + "?")) return fail("kept_current", dropped);
+    }
+    keep = { draft: d, label: "Draft from " + source + " (not sent)", dropped: dropped.slice() };
+    if (live()) current.loadDraft(keep);
+    showBuilder();
+    return { ok: true, dropped: dropped, clamped: clamped };
+  }
+
+  root.UPS_FO_TRADE_BUILDER = { _extensionOptions: extensionOptions, mount: mount, openDraft: openDraft, _picksOf: picksOf, _impact: impact, _playersOf: playersOf };
   document.addEventListener("fo:ready", function () { FO = root.UPS_FO; DATA = root.UPS_FO_DATA; H = root.UPS_FO_HUB; });
 })(typeof window !== "undefined" ? window : this);
