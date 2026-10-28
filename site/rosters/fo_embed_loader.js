@@ -256,6 +256,7 @@
       "shared/trade_builder_core.js",
       "shared/trade_builder_view.js",
       "rosters/v2/fo_trade_builder.js",
+      "rosters/v2/fo_trade_offers.js",   // inert unless the off-by-default write flag is on (it then fetches its own shared code)
       "rosters/v2/fo_trades.js",
       "rosters/v2/fo_activity.js",
       "shared/taxi_rule.js",
