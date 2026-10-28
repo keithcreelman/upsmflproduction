@@ -1,0 +1,62 @@
+{
+ "ok": true,
+ "publishable": false,
+ "errors": [],
+ "warnings": [
+  "unchecked claim kind box:Joe Burrow",
+  "unchecked claim kind box:Trey McBride",
+  "unchecked claim kind usage:Xavier Worthy",
+  "unchecked claim kind usage:Kenneth Walker III",
+  "unchecked claim kind usage:Patrick Mahomes",
+  "unchecked claim kind usage:Sam LaPorta",
+  "unchecked claim kind usage:Jake Ferguson",
+  "unchecked claim kind usage:Bo Nix",
+  "unchecked claim kind usage:Trey McBride",
+  "unchecked claim kind usage:Jameson Williams",
+  "unchecked claim kind usage:Tre Tucker",
+  "unchecked claim kind usage:Dak Prescott"
+ ],
+ "checkedClaims": {
+  "score": 12,
+  "margin": 18,
+  "pts": 23,
+  "box": 2,
+  "fact": 5,
+  "proj": 20,
+  "diff": 20,
+  "usage": 10,
+  "count": 3,
+  "rec": 12,
+  "ap": 12,
+  "pf": 12,
+  "wkap": 12,
+  "grade": 18,
+  "odds": 49,
+  "heat": 96,
+  "rule": 7,
+  "hist": 48,
+  "posts": 13
+ },
+ "gaps": [
+  {
+   "id": "plays:Joe Burrow",
+   "section": "plays",
+   "why": "No verified highlight link for Joe Burrow (no NFL.com page or NFL-channel upload could be confirmed); add one or leave it out."
+  },
+  {
+   "id": "stories:leads",
+   "section": "heat",
+   "why": "Story leads for the editor. They only point at rows above: they are not findings, not for publication, and the job does not write the stories. Check each one, decide whether there is a story, then remove this box.<ul style=\"margin:.4rem 0 0 1.1rem\"><li>Look at Bear Dunn: All-Play over the last three weeks (Heat Check, first table).</li><li>Look at Brian Cutting: bench points and losses the best lineup would have won (Heat Check, second table).</li><li>Look at Shawn Blake: wins vs expected (Heat Check, second table).</li><li>Look at Matt Gerardi, Brian Cross, Josh Martel: the lowest win band (Survival Line).</li></ul>"
+  },
+  {
+   "id": "coffee:kenny",
+   "section": "coffee",
+   "why": "Kenny Mayne&rsquo;s lines are an editor&rsquo;s job: choose from the verbatim candidates and follow the owner dossier. 0 message(s) ruled out by an editor or touching family, health or similar were withheld and must not be used. 29 candidate line(s) are listed, verbatim and linked, in the local review copy only (raw chat stays off the public repo)."
+  },
+  {
+   "id": "elias:not-posted",
+   "section": "elias",
+   "why": "Elias has not posted official Week 7 changes yet. The Thursday and Friday runs re-check and will update this draft."
+  }
+ ]
+}
