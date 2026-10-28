@@ -21,7 +21,6 @@ test("every named choice group has a visible label and names itself by it (aria-
     [MK, 'id="fo-lbl-mk">Browse players', 'aria-labelledby="fo-lbl-mk"'],
     [TF, 'id="fo-lbl-tfby">Compare by', 'aria-labelledby="fo-lbl-tfby"'],
     [TF, 'id="fo-lbl-tfms">Measure', 'aria-labelledby="fo-lbl-tfms"'],
-    [ACT, 'id="fo-lbl-mv">Show moves for', 'aria-labelledby="fo-lbl-mv"'],
     [HTML, 'id="fo-lbl-tag">Tagging view', 'aria-labelledby="fo-lbl-tag"'],
     [HTML, 'id="fo-lbl-clog">Contract log view', 'aria-labelledby="fo-lbl-clog"'],
     [RO, 'id="fo-lbl-bye">Week to inspect', 'aria-labelledby="fo-lbl-bye"'],
@@ -33,7 +32,8 @@ test("nothing that drives behavior moved: the same buttons, data attributes, ids
   for (const a of ['data-colset="perf"', 'data-colset="contract"', 'data-group="flat"', 'data-group="position"', 'data-subview="summary"', 'data-subview="detail"']) t.ok(HTML.includes(a), a);
   t.ok(/data-mk-scope="' \+ s\[0\]/.test(MK) && /\["fa", "Free agents"\], \["bait", "On the block"\], \["all", "All players"\]/.test(MK), "Market: Free agents, On the block, All players (Keith 2026-10-27)");
   t.ok(/chips\(BY, "data-tf-by", view\.by\)/.test(TF) && /chips\(MEASURES, "data-tf-measure", view\.measure\)/.test(TF), "Trade finder: the same two choice lists");
-  t.ok(/data-mv-scope="mine"/.test(ACT) && /data-mv-scope="league"/.test(ACT), "Activity: My team / League");
+  // Activity's My team / League choice became Team / Type / Season filters (Keith 2026-10-28; tests/front_office_picks_activity.test.mjs).
+  t.ok(/<select data-mv-team>/.test(ACT) && /<select data-mv-type>/.test(ACT) && /<select data-mv-year>/.test(ACT), "Activity: Team, Type and Season selects");
   t.ok(/view\.by === "mix" \? "" :/.test(TF), "Measure still hides on Starter Mix");
 });
 
@@ -78,12 +78,13 @@ test("Tagging view, Contract log view and Bye planner weeks use the same control
 });
 
 test("version stamps changed with the files that changed", () => {
-  for (const f of ["fo_trades.js", "fo_activity.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.2"), f);
+  t.ok(HTML.includes("fo_trades.js?v=2026.10.27.2"), "fo_trades.js");
   t.ok(HTML.includes("fo_market.js?v=2026.10.27.3"), "fo_market.js (changed again by the Market choices revision)");
   // Roster → Schedule (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
-  t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
-  for (const f of ["front_office.css", "fo_roster.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.4"), f + " (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
-  t.ok(/var BUILD = "2026\.10\.28\.4";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  t.ok(HTML.includes("fo_roster.js?v=2026.10.28.4"), "fo_roster.js (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
+  // Activity → Moves and contracts (2026-10-28): team / type filters, Eastern times, the contract log merged in.
+  for (const f of ["fo_activity.js", "fo_data.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.28.16"), f + " (Activity filters + contract log)");
+  t.ok(/var BUILD = "2026\.10\.28\.16";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");
