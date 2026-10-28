@@ -9,8 +9,11 @@
    or a data refresh, only re-renders it.
    The server's verdict (POST /api/trades/compliance-preview) is the only authority on whether a trade is allowed.
    SEND IS NOT AVAILABLE FROM THE FRONT OFFICE. Whatever the verdict, Send offer renders disabled with a plain reason, and
-   no click opens a confirmation or sends anything: there is no send handler, no confirmation markup and no option or flag
-   that turns one on. A live Send is a separate, separately approved change. No write route is named or called from this file.
+   no click opens a confirmation or sends anything. A live Send is a separate, separately approved change. No write route is
+   named or called from this file. The ONE exception is `sender` below, which the Front Office passes only behind its
+   off-by-default write flag (FO_TRADE_BUILDER_SEND, defined by no production config): only `sender.enabled === true`
+   enables the button, and the send itself is the sender's (site/rosters/v2/fo_trade_offers.js, the War Room's requests).
+   Without it the Review card is exactly #1419's.
      mount(el, { teams:[{fid,name,abbrev?}], ctx:{leagueId,season,viewerFid},
                  assets(fid) -> {players:[{id,name,pos,salary,years,type,taxi,ir,elig?}], picks:[{token,label,elig?}]},
                    (elig = UPS_TRADE_RULES.tradeAssetEligibility's answer: an untradeable asset can't be added and its reason is shown beside it)
@@ -21,7 +24,9 @@
                  openDialog(title, html) / closeDialog() (the Front Office dialog; the choice popup for an eligible player),
                  preview(body) -> Promise<json>, sources:{data,verdict}, warRoomUrl?, debounceMs,
                  initial?: { draft, label, dropped }   a draft to start from (kept by the adapter; ignored unless the viewer is its first team),
-                 onDraft?(draft, { label, dropped })  called after every change, so the adapter can keep the draft across re-mounts })
+                 onDraft?(draft, { label, dropped })  called after every change, so the adapter can keep the draft across re-mounts,
+                 sender?: { enabled: true, send(draft, note) -> Promise<{ state, message, done }>, noteLimit(teamCount) -> n, label?() -> text }
+                          (behind the Front Office write flag only; any other value is ignored) })
      handle: { loadDraft({ draft, label, dropped }), isEmpty(), draft(), state(), refresh(), factsChanged(), dialogAction(target) } */
 (function (root) {
   "use strict";
@@ -41,7 +46,8 @@
     var S = opt.sources || {};
     var draft = C.emptyDraft([me]);
     var st = { phase: "idle", resp: null, seq: 0, timer: null, note: "", open: {}, q: {}, memo: { sig: "", imp: null }, capNote: {}, dlg: null, prompted: {},
-      disc: { 1: false, 2: false, 3: false }, label: "", dropped: [] };
+      disc: { 1: false, 2: false, 3: false }, label: "", dropped: [], sending: false, outcome: null };
+    var SENDER = opt.sender && opt.sender.enabled === true && typeof opt.sender.send === "function" ? opt.sender : null;
     // A draft handed in (kept by the adapter, or loaded from another page): only one that starts with the viewer's own team.
     function adopt(init) {
       if (!init || !init.draft || !Array.isArray(init.draft.teams) || init.draft.teams[0] !== me) return false;
@@ -378,10 +384,32 @@
       return '<section class="fo-card fo-tb-stage fo-tb-review" id="fo-tb-review" aria-label="Review">' +
         '<div class="fo-tb-val"><h3>Validation</h3>' + validationSection(impactNow()) + "</div>" +
         (gaps.length ? '<p class="fo-ov-empty">' + (draft.items.length ? "Finish the trade above to review it." : "Build a trade above to review it.") + "</p>" : '<ul class="fo-tb-sum">' + lines + "</ul>") +
-        '<label class="fo-tb-note">Note to the other owner' + (others().length > 1 ? "s" : "") + ' (optional)<textarea data-note maxlength="500"' + (gaps.length ? " disabled" : "") + ' placeholder="' + esc((opt.note && opt.note.placeholder) || "Say why this works for both teams") + '">' + esc(st.note) + "</textarea></label>" +
+        '<label class="fo-tb-note">Note to the other owner' + (others().length > 1 ? "s" : "") + ' (optional' + (SENDER ? ", up to " + noteMax() + " characters" : "") + ')<textarea data-note maxlength="' + noteMax() + '"' + (gaps.length ? " disabled" : "") + ' placeholder="' + esc((opt.note && opt.note.placeholder) || "Say why this works for both teams") + '">' + esc(st.note) + "</textarea></label>" +
+        (SENDER ? sendRow(gaps) :
         '<p class="fo-tb-actions"><button type="button" class="btn fo-tb-send" data-go="send" disabled aria-disabled="true" aria-describedby="fo-tb-send-off">Send offer</button> ' +
-        '<span class="fo-tb-send-off" id="fo-tb-send-off">' + esc(SEND_OFF) + "</span></p>" +
-        (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> to send a trade.</p>' : "") + "</section>";
+        '<span class="fo-tb-send-off" id="fo-tb-send-off">' + esc(SEND_OFF) + "</span></p>") +
+        (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> ' + (SENDER ? "stays available for every step." : "to send a trade.") + "</p>" : "") + "</section>";
+    }
+    // Ruling 6: 2,000 characters for a direct two-team offer, 500 for three-team (and for staged, which the server decides at send).
+    function noteMax() { return SENDER && typeof SENDER.noteLimit === "function" ? SENDER.noteLimit(draft.teams.length) : 500; }
+    // Behind the write flag only: Send offer is enabled when the trade is complete and the server's check allows an attempt.
+    function sendRow(gaps) {
+      var r = readiness(), can = !gaps.length && r.canAttempt && !st.sending;
+      var why = st.sending ? "Sending…" : gaps.length ? "Finish the trade to send it." : !r.canAttempt ? "Send opens once the server's check allows it." : "";
+      var label = typeof SENDER.label === "function" ? SENDER.label() : "Send offer";
+      return '<p class="fo-tb-actions"><button type="button" class="btn fo-tb-send" data-go="send"' + (can ? "" : ' disabled aria-disabled="true"') + ' aria-describedby="fo-tb-send-off">' + esc(label) + "</button> " +
+        '<span class="fo-tb-send-off" id="fo-tb-send-off">' + esc(why) + "</span></p>" +
+        (st.outcome ? '<div class="fo-banner ' + (st.outcome.done ? "good" : "warn") + ' fo-tb-outcome" role="status" data-state="' + esc(st.outcome.state) + '">' + esc(st.outcome.message) + "</div>" : "");
+    }
+    function doSend() {
+      if (!SENDER || st.sending) return;
+      var noteEl = el.querySelector && el.querySelector("[data-note]"); if (noteEl) st.note = noteEl.value;
+      st.sending = true; st.outcome = null; render();
+      Promise.resolve(SENDER.send(draft, st.note)).then(function (r) { return r || { state: "refused", message: "Nothing was sent." }; }, function () { return { state: "unconfirmed", message: "The connection dropped before the server answered. Check your sent offers." }; })
+        .then(function (r) {
+          st.sending = false; st.outcome = { state: r.state, message: r.message, done: !!r.done };
+          if (r.done) { draft = C.emptyDraft([me]); st.note = ""; st.label = ""; st.dropped = []; changed(); } else render();
+        });
     }
 
     // Replacing the markup blurs a focused field, which can fire its `change` handler and call render() again mid-write.
@@ -418,6 +446,8 @@
     }
 
     el.addEventListener("click", function (e) {
+      var go = SENDER && e.target.closest && e.target.closest("[data-go]");
+      if (go && go.getAttribute("data-go") === "send") { if (!go.disabled) doSend(); return; }
       var dz = e.target.closest && e.target.closest("[data-disc]");
       if (dz) { var dn = dz.getAttribute("data-disc"); st.disc[dn] = !st.disc[dn]; render(); return; }   // the draft is untouched
       var sb = e.target.closest && e.target.closest("[data-cap-step]");

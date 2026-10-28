@@ -121,14 +121,49 @@ test("three-team favorable trade: still disabled, still no confirmation", async 
   t.equal(h.calls.send + h.calls.fetch, 0, "no send, no network");
 });
 
-test("source: no code path from a click to a confirmation or a send, and no switch to add one", () => {
+// The offer lifecycle (2026-10-28, Keith's ruling 4) adds ONE switch: `sender` with enabled === true, which the Front Office passes only
+// behind its off-by-default write flag (FO_TRADE_BUILDER_SEND, defined by no production config). Without it the Review card is #1419's.
+test("source: no confirmation, no send plan, no network; the only switch is sender.enabled === true, passed only behind the write flag", () => {
   t.ok(!/confirm-send|cancel-send|alertdialog|st\.confirm|st\.sent/.test(VIEW), "no confirmation markup or state");
   t.ok(!/opt\.send\b|sendPlan|sendNotice/.test(VIEW), "the view never reads a send option or builds a send plan");
-  t.ok(!/getAttribute\("data-go"\)|closest\("\[data-go\]"\)/.test(VIEW), "no click handler reads data-go");
-  t.ok(/data-go="send" disabled aria-disabled="true"/.test(VIEW), "the button is written disabled, with no condition");
+  t.equal((VIEW.match(/closest\("\[data-go\]"\)/g) || []).length, 1, "one data-go reader…");
+  t.ok(/data-go="send" disabled aria-disabled="true"/.test(VIEW), "without the sender the button is written disabled, with no condition");
+  t.ok(/var SENDER = opt\.sender && opt\.sender\.enabled === true && typeof opt\.sender\.send === "function" \? opt\.sender : null;/.test(VIEW), "the one switch");
+  t.ok(/var go = SENDER && e\.target\.closest/.test(VIEW), "the send click is read only when that switch is on");
   t.ok(!/\bfetch\(/.test(VIEW), "the view makes no network call");
   const AD = read("site/rosters/v2/fo_trade_builder.js");
-  t.ok(!/\bsend\s*:|sendNotice/.test(AD), "the Front Office adapter passes no send function or notice");
+  t.ok(!/sendNotice/.test(AD), "no send notice");
+  t.ok(/sender: O && O\.enabled\(\) \?/.test(AD), "the adapter passes a sender only when the Offers lifecycle is enabled (the write flag)");
+  t.ok(!/FO_TRADE_BUILDER_SEND/.test(read("site/rosters/v2/front_office.js") + read("site/rosters/fo_embed_loader.js") + read("site/rosters/v2/front_office.html")), "no production file defines the flag");
+});
+
+test("sender present but not exactly enabled: still #1419's disabled Send, no send", async () => {
+  for (const sender of [{ enabled: false, send: () => {} }, { enabled: "true", send: () => {} }, { enabled: 1, send: () => {} }, { send: () => {} }]) {
+    const { ctx } = makeContext(); const el = makeEl(); let n = 0; sender.send = () => { n++; };
+    ctx.UPS_TRADE_BUILDER_VIEW.mount(el, { teams: TEAMS, ctx: { leagueId: "74598", season: "2026", viewerFid: "0008" }, assets: (fid) => ASSETS[fid] || { players: [], picks: [] },
+      impact: () => ({ cap: null, lineup: { state: "off", message: "off" }, ext: [] }), preview: () => verdict("provisional"), openDialog() {}, closeDialog() {}, warRoomUrl: "https://example.test/war-room", debounceMs: 0, sender });
+    const h = { el, calls: { send: 0, fetch: 0 } };
+    toggle(el, 1); await build(h, "two");
+    assertSendOff(h, "sender " + JSON.stringify(sender.enabled)); h.el.fire("click", sendButton(h.el)); await tick();
+    t.equal(n, 0, "no send");
+  }
+});
+
+test("behind the write flag (sender.enabled === true): Send enables on a favorable check, sends once, shows the outcome; 2,000-character note", async () => {
+  const { ctx } = makeContext(); const el = makeEl(); const sent = [];
+  ctx.UPS_TRADE_BUILDER_VIEW.mount(el, { teams: TEAMS, ctx: { leagueId: "74598", season: "2026", viewerFid: "0008" }, assets: (fid) => ASSETS[fid] || { players: [], picks: [] },
+    impact: () => ({ cap: null, lineup: { state: "off", message: "off" }, ext: [] }), preview: () => verdict("provisional"), openDialog() {}, closeDialog() {}, warRoomUrl: "https://example.test/war-room", debounceMs: 0,
+    sender: { enabled: true, noteLimit: (n) => (n === 3 ? 500 : 2000), send: (d, note) => { sent.push({ d, note }); return Promise.resolve({ state: "sent", message: "Offer sent to MFL (Trade ID 9001).", done: true }); } } });
+  const h = { el, calls: {} };
+  toggle(el, 1);
+  t.ok(sendButton(el).disabled, "disabled while nothing is built");
+  await build(h, "two");
+  t.ok(el.innerHTML.includes('maxlength="2000"'), "2,000 for a direct two-team offer");
+  const b = sendButton(el); t.ok(!b.disabled, "enabled on a favorable check");
+  h.el.fire("click", b); await tick(); await tick();
+  t.equal(sent.length, 1, "one send"); t.equal(sent[0].d.items.length, 2);
+  t.ok(el.innerHTML.includes("Offer sent to MFL (Trade ID 9001)."), "the outcome is shown");
+  t.ok(el.innerHTML.includes("Trade War Room"), "the War Room link stays");
 });
 
 test("phones: a three-team trade is one team per row (the 340px three-team minimum is overridden at 600px and below)", () => {
