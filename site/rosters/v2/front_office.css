@@ -1598,6 +1598,7 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 
 /* Roster → Players ranks and Start / Boom / Bust (2026-10-28): 16 columns scroll inside their own box; the page never scrolls sideways. */
 .fo-root .fo-table-scroll .fo-perf-table { min-width: 1360px; }
+.fo-root .fo-table-scroll .fo-perf-table.fo-perf-norates { min-width: 1100px; }
 .fo-perf-legend { margin-top: 4px; }
 .fo-perf-table td.fo-rate-few { text-align: center; white-space: nowrap; }
 .fo-perf-table td { white-space: nowrap; }   /* 17 columns: no cell wraps; the table scrolls inside its own box */

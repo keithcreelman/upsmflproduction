@@ -9,6 +9,9 @@
                            Boom weeks are INSIDE Start (P75 >= P50) and Bust excludes Start, so the model's own counts give an
                            exclusive split that adds up to the graded weeks: Boom, Start-only (start - boom), Middle
                            (q - start - bust: below the median, not a Bust) and Bust. Derived only; the model is unchanged.
+     gradeThrough /        the SAME weeks for points and grades (Keith 2026-10-28, #1421): grades are asked for through the
+     periodMatch           last final week the points cover, and shown only when the answer's graded weeks ARE the points'
+                           weeks (no week in progress, none pending, the bound honored); otherwise the reason, never both.
      newsFlagKind          whether a player's /api/player-news items earn the news flag: a headline from the last 7 days.
                            Sleeper status / depth cards never do (the injury chip is the one injury signal), and the flag
                            never says "injury".
@@ -92,6 +95,27 @@
     return w.length ? Math.max.apply(null, w) : 0;
   }
 
+  // The last final week the points cover (0 = none yet): the through-week the grades are asked for.
+  function gradeThrough(ss) { return ss && ss.known && ss.finalKnown && ss.finalThrough > 0 ? ss.finalThrough : 0; }
+  function weeksText(w) { return !w || !w.length ? "" : (w.length === 1 ? "Wk " + w[0] : "Wks " + w[0] + "–" + w[w.length - 1]); }
+  /* periodMatch(ss, answer, through) → { ok, reason, points, graded, live, missing }
+       ok        the graded weeks equal the points' weeks (every posted week final, all of them graded, none beyond)
+       "nofinal" no week is final yet;  "live" a week in progress is in the points but can't be graded yet;
+       "pending" a final week isn't graded yet (lineups or snap counts still syncing);  "beyond" the grades cover a week the
+       points don't (an answer that ignored the bound). */
+  function periodMatch(ss, answer, through) {
+    var pts = (ss && ss.seasonWeeks) || [], fin = (ss && ss.finalWeeks) || [], gw = ((answer && answer.final_weeks) || []).slice().sort(function (a, b) { return a - b; });
+    var out = { ok: false, reason: "", points: weeksText(pts), graded: weeksText(gw), live: (ss && ss.liveWeeks) || [], missing: [] };
+    if (!gradeThrough(ss)) { out.reason = "nofinal"; return out; }
+    if (out.live.length) { out.reason = "live"; return out; }
+    if (gw.some(function (w) { return w > through || fin.indexOf(w) === -1; })) { out.reason = "beyond"; return out; }
+    out.missing = fin.filter(function (w) { return gw.indexOf(w) === -1; });
+    if (out.missing.length) { out.reason = "pending"; return out; }
+    out.ok = pts.join() === gw.join();
+    if (!out.ok) out.reason = "beyond";
+    return out;
+  }
+
   // News flag (2026-10-28, Keith's review): Joe Milton and Jack Strand carried a hospital icon from a Sleeper "Injury Status:
   // Out (Coach's Decision)" card (a healthy inactive, Strand's dated 2026-09-24) with no MFL or NFL injury listed. A player is
   // never labeled injured from news: only headline / injury-news items count, only from the last NEWS_DAYS days before refMs
@@ -115,7 +139,7 @@
 
   var api = { POS_ORDER: POS_ORDER, STATUS_LABEL: STATUS_LABEL, statusOf: statusOf, sections: sections,
     pointsRankMap: pointsRankMap, pointsRankFor: pointsRankFor, rankLabel: rankLabel, rateView: rateView, rateRecord: rateRecord,
-    ratesThrough: ratesThrough, NEWS_DAYS: NEWS_DAYS, newsFlagKind: newsFlagKind };
+    ratesThrough: ratesThrough, gradeThrough: gradeThrough, periodMatch: periodMatch, weeksText: weeksText, NEWS_DAYS: NEWS_DAYS, newsFlagKind: newsFlagKind };
   root.UPS_FO_ROSTER_CORE = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : this);

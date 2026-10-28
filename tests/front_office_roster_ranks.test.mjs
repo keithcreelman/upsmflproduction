@@ -120,12 +120,12 @@ test("Start / Boom / Bust: the model's own sufficiency rule decides; below it th
   t.ok(!/MIN_WEEKS|>= 3|q >= /.test(code(read("site/shared/fo_roster_core.js"))) && !/q >= /.test(code(RO)), "no threshold of our own: the model's null % is the rule");
 });
 
-test("ONE league-wide read of the existing route: no group, no player, no new D1 query, loaded once per visit", () => {
-  const src = DA.match(/SOURCES\.starterRates = function \(\) \{[\s\S]*?\n  \};/)[0];
-  t.ok(/worker\("\/api\/player-starter-rates", \{ season: cfg\.season \}\)/.test(src), "the phone's route, this season");
+test("ONE league-wide read of the existing route per visit: no group, no player, bounded to the points' last final week; no new D1 query", () => {
+  const src = DA.match(/SOURCES\.starterRates = function \(through\) \{[\s\S]*?\n  \};/)[0];
+  t.ok(/worker\("\/api\/player-starter-rates", \{ season: cfg\.season, through: through \}\)/.test(src), "the phone's route, this season, through the points' last final week");
   t.ok(!/group|mfl_id|pid/.test(src.replace(/^\s*\/\/.*$/gm, "")), "no group or player parameter");
-  t.ok((code(RO).match(/DATA\.load\("starterRates"\)/g) || []).length === 1 && !/DATA\.load\("starterRates",/.test(RO), "one load, no argument");
-  t.ok(/if \(!srAsked\) \{ srAsked = true;/.test(RO), "asked for once per visit");
+  t.ok((code(RO).match(/DATA\.load\("starterRates", rs\.want\)/g) || []).length === 1 && (code(RO).match(/DATA\.load\("starterRates"/g) || []).length === 1, "one load, keyed by the through-week");
+  t.ok(/if \(rs\.want && srAsked !== rs\.want\) \{ srAsked = rs\.want;/.test(RO), "asked for once per visit (per through-week)");
   t.ok(!/fetch\(/.test(code(RO)) && !/prepare\(|D1/.test(code(RO + read("site/shared/fo_roster_core.js"))), "the view fetches nothing itself; no database code");
 });
 
@@ -160,11 +160,23 @@ test("Week split: each graded week once (Boom · Start only · Middle · Bust), 
   t.ok(/Week split counts each graded week once: Boom · Start only · Middle \(below the median, not a Bust\) · Bust, adding up to his graded weeks/.test(RO));
 });
 
-test("denominators carry their basis: 'N MFL wks' under PPG, 'N graded wks thru Wk W' under the grades; differing weeks are said", () => {
-  t.ok(/l\.games \+ " MFL wk"/.test(RO), "PPG count is MFL weeks");
-  t.ok(/var thru = C\.ratesThrough\(e\.data\), basis = v\.q \+ " graded wk" \+ \(v\.q === 1 \? "" : "s"\) \+ \(thru \? " thru Wk " \+ thru : ""\)/.test(RO), "graded count names its last week");
-  t.ok(/data-legend="bases">Week counts: “MFL wks” \(under PPG\) = weeks MFL posted a score for him/.test(RO) && /“graded wks” = final weeks he played/.test(RO), "both bases defined");
-  t.ok(/pw && thru && pw !== thru \? " They run through different weeks right now, so they can differ\." : ""/.test(RO), "a week mismatch is never silent");
+test("same weeks or not shown: grades are asked through the points' last final week and shown only when periodMatch agrees", () => {
+  const ss = (o) => Object.assign({ known: true, finalKnown: true, finalThrough: 6, seasonWeeks: [1, 2, 3, 4, 5, 6], finalWeeks: [1, 2, 3, 4, 5, 6], liveWeeks: [] }, o || {});
+  const ans = (w) => ({ final_weeks: w });
+  t.equal(C.gradeThrough(ss()), 6, "ask for Wks 1–6");
+  t.equal(C.gradeThrough(ss({ finalKnown: false, finalThrough: 0 })), 0, "no final week: don't ask");
+  t.deepEqual([C.periodMatch(ss(), ans([1, 2, 3, 4, 5, 6]), 6).ok, C.periodMatch(ss(), ans([1, 2, 3, 4, 5, 6]), 6).points], [true, "Wks 1–6"], "same weeks: shown");
+  const beyond = C.periodMatch(ss(), ans([1, 2, 3, 4, 5, 6, 7]), 6);
+  t.deepEqual([beyond.ok, beyond.reason, beyond.graded, beyond.points], [false, "beyond", "Wks 1–7", "Wks 1–6"], "the first preview: grades through Wk 7 beside points through Wk 6 → hidden (an answer that ignored the bound)");
+  const live = C.periodMatch(ss({ seasonWeeks: [1, 2, 3, 4, 5, 6, 7], liveWeeks: [7] }), ans([1, 2, 3, 4, 5, 6]), 6);
+  t.deepEqual([live.ok, live.reason, live.live], [false, "live", [7]], "a week in progress is in the points, not in the grades → hidden");
+  const pend = C.periodMatch(ss(), ans([1, 2, 3, 4, 5]), 6);
+  t.deepEqual([pend.ok, pend.reason, pend.missing], [false, "pending", [6]], "a final week not graded yet → hidden");
+  t.equal(C.periodMatch(ss({ finalKnown: false, finalThrough: 0, finalWeeks: [] }), ans([]), 0).reason, "nofinal");
+  t.ok(/rates: rs\.show \? C\.rateView/.test(RO) && /if \(!rs\.show\) return "";/.test(RO) && /\(rs\.show \? th\("start"/.test(RO), "rows, cells and headers only when shown");
+  t.ok(/Start \/ Boom \/ Bust are hidden: /.test(RO) && /data-rates-hidden=/.test(RO), "the reason is said in words");
+  t.ok(/data-legend="bases">Same weeks: Pts, PPG, ranks and Start \/ Boom \/ Bust all cover/.test(RO), "when shown, the page says they cover the same weeks");
+  t.ok(/l\.games \+ " MFL wk"/.test(RO) && /basis = v\.q \+ " graded wk" \+ \(v\.q === 1 \? "" : "s"\) \+ \(thru \? " thru Wk " \+ thru : ""\)/.test(RO), "each count still names its basis");
 });
 
 test("news flag: a headline from the last 7 days only; a Sleeper status card (Milton, Strand: 'Out (Coach's Decision)') never flags; never 'injury'", () => {
