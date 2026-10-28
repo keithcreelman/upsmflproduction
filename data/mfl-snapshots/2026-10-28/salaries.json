@@ -2741,11 +2741,11 @@
           "salary": "1000"
         },
         {
-          "contractInfo": "CL 1| TCV 1K| AAV 1K",
-          "contractStatus": "Vet-WW",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "16224",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 1| TCV 32K| AAV 32K",
@@ -3630,11 +3630,11 @@
           "salary": "1000"
         },
         {
-          "contractInfo": "CL 1| TCV 1K| AAV 1K",
-          "contractStatus": "Vet-WW",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "14778",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 3|TCV 42K|AAV 14K|Y1-14K, Y2-14K, Y3-14K, Y4-19K Option|GTD: 31.5K",
