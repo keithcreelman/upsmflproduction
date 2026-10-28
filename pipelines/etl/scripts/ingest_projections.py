@@ -15,6 +15,15 @@ WHY THIS EXISTS
     `projected_score` is always the newest value; `first_projected` keeps the
     earliest sighting, because the movement is itself a story worth telling.
 
+A PROJECTION IS FROZEN AT HIS KICKOFF (Keith 2026-10-27)
+    The row's `projected_score` / `updated_at` is "the last number before his game started" -- the number a manager
+    could have used, and the only one the UPS Center will judge a lineup call by. A capture taken AFTER a player's own
+    NFL kickoff used to overwrite it, and GitHub's scheduled runs land hours late (the Sunday 15:00 UTC run landed at
+    17:45-19:18 UTC in six of six measured weeks: after every 1 PM ET kickoff), so every early-game player's pregame
+    value was lost. Now a player whose game has kicked off is skipped: his row keeps its last pregame value and time.
+    A player with no game this week (bye) is writable until the week's first kickoff. If MFL's schedule or player
+    list cannot be read the run REFUSES (exit 1) rather than guess.
+
 HONESTY
     A row captured after the games were played is whatever MFL happens to be
     serving now, NOT what was on screen during the week. first_captured_at makes
@@ -63,8 +72,17 @@ def week1_thursday(season):
     return d
 
 
-def resolve(season=None, week=None):
-    """(season, week, basis) for right now. A fantasy week runs Thursday to Thursday.
+def week_opens(season):
+    """When week 1's capture window opens: Wednesday 00:00 UTC before the first Thursday game (Tuesday 8 PM ET). Every later
+    week opens a whole number of weeks after it. Monday night's game is over by then and Wednesday's 12:00 UTC run is the
+    first look at the UPCOMING week; `--current` used to roll over only on Thursday, so the Wednesday run captured the
+    week that had just ended (Codex, #1412 post-merge MAT-1)."""
+    return week1_thursday(season) - timedelta(days=1)
+
+
+def resolve(season=None, week=None, now=None):
+    """(season, week, basis) for right now. A capture week runs Wednesday 00:00 UTC to the next Wednesday 00:00 UTC, so the
+    Wednesday run captures the upcoming week and the Sunday and Monday runs the week being played.
 
     `basis` records WHY this week was chosen and is always logged. The previous
     version fell through to a bare `(now.year, 1)` for any date outside a live
@@ -75,12 +93,12 @@ def resolve(season=None, week=None):
     matters because `first_projected` is the whole point of the table: it is
     supposed to be the earliest MEANINGFUL sighting, not the earliest cron tick.
     """
-    now = datetime.now(timezone.utc)
+    now = now or datetime.now(timezone.utc)
     if season and week:
         return int(season), int(week), "explicit"
 
     for s in ([int(season)] if season else [now.year, now.year - 1]):
-        start = week1_thursday(s)
+        start = week_opens(s)
         if now < start:
             continue
         wk = int((now - start).days // 7) + 1
@@ -91,7 +109,7 @@ def resolve(season=None, week=None):
     # repeatedly from August to kickoff is exactly the movement we want -- but
     # the deep offseason does not.
     s = int(season) if season else now.year
-    if datetime(s, CAPTURE_OPENS_MONTH, 1, tzinfo=timezone.utc) <= now < week1_thursday(s):
+    if datetime(s, CAPTURE_OPENS_MONTH, 1, tzinfo=timezone.utc) <= now < week_opens(s):
         return s, 1, "preseason"
     return s, None, "closed"
 
@@ -124,6 +142,59 @@ def fetch(season, week):
         if pid:
             out[pid] = val
     return out
+
+
+MFL_API = "https://api.myfantasyleague.com/%d/export?TYPE=%s&JSON=1%s"
+
+
+def _mfl_json(season, kind, extra=""):
+    req = urllib.request.Request(MFL_API % (int(season), kind, extra), headers={"User-Agent": "ups-wire-projections"})
+    with urllib.request.urlopen(req, timeout=60) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def fetch_kickoffs(season, week):
+    """{nfl_team: kickoff_unix} from MFL's nflSchedule. Raises on anything unreadable (never a partial guess)."""
+    try:
+        data = _mfl_json(season, "nflSchedule", "&W=%d" % int(week))
+        out = {}
+        for m in data["nflSchedule"]["matchup"]:
+            for t in m["team"]:
+                out[t["id"]] = int(m["kickoff"])
+    except Exception as exc:                                    # noqa: BLE001
+        raise SystemExit("REFUSING: MFL nflSchedule %s wk%s unreadable (%s). Without kickoffs a late run could overwrite a "
+                         "pregame projection; not writing." % (season, week, exc))
+    if len(out) < 20:
+        raise SystemExit("REFUSING: MFL nflSchedule %s wk%s lists only %d teams; not writing." % (season, week, len(out)))
+    return out
+
+
+def fetch_player_teams(season):
+    """{player_id: nfl_team} from MFL's players export."""
+    try:
+        data = _mfl_json(season, "players")
+        rows = data["players"]["player"]
+        out = {str(p["id"]): p.get("team") or "" for p in rows}
+    except Exception as exc:                                    # noqa: BLE001
+        raise SystemExit("REFUSING: MFL players %s unreadable (%s); not writing." % (season, exc))
+    if len(out) < 500:
+        raise SystemExit("REFUSING: MFL players %s lists only %d players; not writing." % (season, len(out)))
+    return out
+
+
+def split_by_kickoff(proj, teams, kickoffs, now):
+    """(keep, frozen): `keep` = {pid: value} still writable, `frozen` = pids whose own game has kicked off.
+    A player is writable if now <= his team's kickoff; a player whose team has no game this week (bye) or is unknown is
+    writable only until the week's FIRST kickoff, so a bye never becomes a back door for a post-kickoff overwrite."""
+    first = min(kickoffs.values())
+    keep, frozen = {}, []
+    for pid, v in proj.items():
+        k = kickoffs.get(teams.get(pid, ""))
+        if (k is not None and now <= k) or (k is None and now < first):
+            keep[pid] = v
+        else:
+            frozen.append(pid)
+    return keep, sorted(frozen)
 
 
 def _rows_from(stdout):
@@ -197,6 +268,16 @@ def main():
             "window. MFL answered but no row carried a numeric score. Not writing, "
             "and not exiting clean -- a silent no-op here would stall the record "
             "without anyone noticing." % (season, week))
+
+    # FREEZE AT KICKOFF: skip every player whose own game has started (see the docstring)
+    kickoffs = fetch_kickoffs(season, week)
+    keep, frozen = split_by_kickoff(proj, fetch_player_teams(season), kickoffs, now)
+    print("  %d writable, %d frozen (his game has kicked off; his last pregame projection is kept)" % (len(keep), len(frozen)))
+    if not keep:
+        print("every projection returned belongs to a game that has already kicked off: nothing written (expected after "
+              "the games start). Exit 0.")
+        return 0
+    proj = keep
 
     for pid, v in sorted(proj.items(), key=lambda kv: -kv[1])[:5]:
         print("   %-8s %.1f" % (pid, v))
