@@ -215,6 +215,7 @@
   // ── State ───────────────────────────────────────────────────────────
   const STATE = {
     version: null,
+    reads: {},          // { rosters, leagueEvents } → { state: "ok"|"error", at } (window.UPS_FO.readState)
     me: null,           // { configured, franchise_id, franchise_name, isAdmin }
     nflStatus: {},      // pid -> MFL injury status string ("Questionable", "Out", ...)
     // Did we actually READ MFL's injuries export? NO FAIL-OPEN: an empty
@@ -2676,6 +2677,9 @@
       warRoomUrl: warRoomUrl,
       leagueEvents: function () { return STATE.leagueEvents || null; },
       tradeLock: function () { return STATE.tradeLock || null; },
+      // How a read this page makes itself went: "rosters" (the roster workbench) or "leagueEvents" (/api/league-events)
+      // → { state: "ok"|"error", at: ms the answer arrived } | null while it is still being read.
+      readState: function (key) { return (STATE.reads && STATE.reads[key]) || null; },
       extensionDeadline: function (p) { try { return extensionDeadlineForPlayer(p); } catch (e) { return null; } },
       escapeHtml: escapeHtml, fmtUSD: fmtUSD
     };
@@ -2756,6 +2760,9 @@
       }
       STATE.capAmount = safeInt(payload.salary_cap_dollars, 0);
       STATE.teams = normalizeTeamsPayload(payload);
+      // When this page read the rosters (the worker's answer arrived): the Overview's "checked" time for its cap,
+      // roster-size and contract-window checks.
+      STATE.reads.rosters = { state: "ok", at: Date.now() };
 
       // Acquisition lookup + rookie-draft history must both run BEFORE
       // taxi repair — both feed §A1.4 salary derivation. History wins
@@ -2793,6 +2800,7 @@
     } catch (e) {
       console.error("[fo] roster load failed:", e);
       STATE.teams = [];
+      STATE.reads.rosters = { state: "error", at: Date.now() };
       if (tbody) {
         tbody.innerHTML = '<tr><td colspan="13" class="fo-table-error">Failed to load roster: ' +
           escapeHtml(e.message || String(e)) + '</td></tr>';
@@ -3869,6 +3877,7 @@
       var data = await fetchJSON(apiUrl("/api/league-events") + "?season=" + encodeURIComponent(SEASON) + "&from=all&limit=50&kickoffs=1,3,5");
       var evs = (data && data.events) || [];
       STATE.leagueEvents = evs;
+      STATE.reads.leagueEvents = { state: data ? "ok" : "error", at: Date.now() };
       // When MFL stops accepting trades: the worker's read of MFL's own lock (worker/src/trade_deadline.js), the one
       // source every app surface uses — the Overview's Trade deadline card reads it.
       STATE.tradeLock = (data && data.trade_lock) || null;
@@ -3909,7 +3918,13 @@
       // feed display — but the open/closed DECISION now comes from here.
       // null = the server did not answer, which is never "open".
       STATE.contractLadderServer = (data && data.contract_ladder) || null;
-    } catch (e) {}
+    } catch (e) {
+      // A failed read is said on the Overview (its trade-deadline and contract-window checks show "check unavailable").
+      if (!STATE.reads.leagueEvents || STATE.reads.leagueEvents.state !== "ok") {
+        STATE.reads.leagueEvents = { state: "error", at: Date.now() };
+        try { document.dispatchEvent(new CustomEvent("fo:events")); } catch (e2) {}
+      }
+    }
   }
   // One team's (or the league's) roster counts and cap, the Cap Allocation card's
   // exact math (taxi $0, IR ×0.5, expired $0; adjustments rounded per canon §6).

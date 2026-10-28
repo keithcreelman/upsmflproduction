@@ -1050,7 +1050,10 @@ nav.fo-subtabs-2 { padding-top: 4px; background: var(--bg); }
 
 /* ── Overview ── */
 .fo-ov-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 12px; }
-.fo-ov-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+/* Needs attention spans three of the top row's four columns and Draft picks one, so the two rows line up (Keith 2026-10-28). */
+.fo-ov-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.fo-ov-grid > .fo-ov-main { grid-column: span 3; min-width: 0; }
+.fo-ov-grid > .fo-ov-side { grid-column: span 1; min-width: 0; }
 .fo-ov-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
 .fo-ov-card h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); font-weight: 700; }
 .fo-ov-stats { display: flex; gap: 18px; flex-wrap: wrap; }
@@ -1068,6 +1071,10 @@ nav.fo-subtabs-2 { padding-top: 4px; background: var(--bg); }
 .sev-bad .fo-ov-dot { background: var(--err); } .sev-warn .fo-ov-dot { background: var(--warn); } .sev-info .fo-ov-dot { background: var(--accent); }
 .fo-ov-info .fo-ov-item { color: var(--muted); font-size: 12px; }
 .fo-ov-empty { color: var(--muted); font-size: 13px; margin: 4px 0; }
+/* Every attention check with its state: "checked 9:42 AM", "checking…" or "check unavailable" (never silently skipped). */
+.fo-ov-checks { list-style: none; margin: 10px 0 0; padding: 8px 0 0; border-top: 1px solid var(--border); display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 3px 14px; font-size: 11.5px; color: var(--muted); }
+.fo-ov-ck-lbl { color: var(--text); font-weight: 600; }
+.fo-ov-ck.is-unavailable .fo-ov-ck-st { color: var(--warn); font-weight: 600; }
 .fo-ov-sub { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
 .fo-ov-via { color: var(--muted); font-size: 11px; }
 .fo-ov-bar { display: grid; grid-template-columns: 68px 1fr 44px; align-items: center; gap: 8px; font-size: 12px; margin: 3px 0; }
@@ -1118,7 +1125,8 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 @media (max-width: 1100px) { .fo-ov-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* Phone widths (#1375): one card per row, so the Cap card's amounts have the full width (they clipped at 375 px). */
 @media (max-width: 600px) { .fo-ov-row { grid-template-columns: 1fr; } }
-@media (max-width: 820px) { .fo-ov-grid { grid-template-columns: 1fr; } }
+/* Phones and narrow tablets: Needs attention first, full width, then Draft picks. */
+@media (max-width: 820px) { .fo-ov-grid { grid-template-columns: 1fr; } .fo-ov-grid > .fo-ov-main, .fo-ov-grid > .fo-ov-side { grid-column: auto; } }
 
 /* ── Roster → Performance (#1338) ── */
 .fo-perf-wrap[hidden], #fo-contract-table-wrap[hidden] { display: none; }
