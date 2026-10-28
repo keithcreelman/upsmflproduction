@@ -1597,9 +1597,9 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 @media (max-width: 480px) { .fo-sched-detail { grid-template-columns: 1fr; gap: 0; } .fo-sched-detail dd { margin-bottom: 8px; } }
 
 /* Roster → Players ranks and Start / Boom / Bust (2026-10-28): 16 columns scroll inside their own box; the page never scrolls sideways. */
-.fo-root .fo-table-scroll .fo-perf-table { min-width: 1180px; }
+.fo-root .fo-table-scroll .fo-perf-table { min-width: 1360px; }
 .fo-perf-legend { margin-top: 4px; }
 .fo-perf-table td.fo-rate-few { text-align: center; white-space: nowrap; }
-.fo-perf-table td.num { white-space: nowrap; }   /* "6 wks" / "4 of 7" stay on one line under the number */
+.fo-perf-table td { white-space: nowrap; }   /* 17 columns: no cell wraps; the table scrolls inside its own box */
 /* The player cell is one markup in every Roster → Players view (fo_hub.js playerCell): the name never breaks mid-button. */
 .fo-perf-player .fo-plink { text-align: left; }
