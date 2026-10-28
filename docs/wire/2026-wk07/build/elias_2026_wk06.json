@@ -1,0 +1,390 @@
+{
+ "allplayChanged": false,
+ "allplayChanges": [],
+ "checkedAtUtc": "2026-10-27T16:21:16Z",
+ "games": [
+  {
+   "a": "0003",
+   "after": [
+    165.6,
+    200.0
+   ],
+   "b": "0006",
+   "before": [
+    165.6,
+    201.3
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0002",
+   "after": [
+    254.1,
+    200.0
+   ],
+   "b": "0006",
+   "before": [
+    254.1,
+    201.3
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0005",
+   "after": [
+    231.8,
+    176.7
+   ],
+   "b": "0010",
+   "before": [
+    231.8,
+    178.0
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0004",
+   "after": [
+    212.8,
+    176.7
+   ],
+   "b": "0010",
+   "before": [
+    212.8,
+    178.0
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0006",
+   "after": [
+    200.0,
+    176.7
+   ],
+   "b": "0010",
+   "before": [
+    201.3,
+    178.0
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0007",
+   "after": [
+    151.4,
+    267.3
+   ],
+   "b": "0009",
+   "before": [
+    150.9,
+    267.3
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0007",
+   "after": [
+    151.4,
+    184.4
+   ],
+   "b": "0012",
+   "before": [
+    150.9,
+    184.4
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  },
+  {
+   "a": "0007",
+   "after": [
+    151.4,
+    198.9
+   ],
+   "b": "0011",
+   "before": [
+    150.9,
+    198.9
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  }
+ ],
+ "officialChanges": [
+  {
+   "from": 4.0,
+   "game": "Chicago Bears at Atlanta Falcons",
+   "player": "Avieon Terrell",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 5.0
+  },
+  {
+   "from": 2.0,
+   "game": "Chicago Bears at Atlanta Falcons",
+   "player": "Xavier Watts",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 1.0
+  },
+  {
+   "from": 2.0,
+   "game": "Tennessee Titans at Indianapolis Colts",
+   "player": "John Franklin-Myers",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 1.0
+  },
+  {
+   "from": 3.0,
+   "game": "New York Jets at New England Patriots",
+   "player": "Jowon Briggs",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 2.0
+  },
+  {
+   "from": 3.0,
+   "game": "New York Jets at New England Patriots",
+   "player": "Jowon Briggs",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 4.0
+  },
+  {
+   "from": 4.0,
+   "game": "New York Jets at New England Patriots",
+   "player": "David Bailey",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 5.0
+  },
+  {
+   "from": 2.0,
+   "game": "New York Jets at New England Patriots",
+   "player": "Kingsley Enagbare",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  },
+  {
+   "from": 1.0,
+   "game": "New York Jets at New England Patriots",
+   "player": "Harrison Phillips",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 2.0
+  },
+  {
+   "from": 2.0,
+   "game": "New Orleans Saints at New York Giants",
+   "player": "D.J. Reader",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  },
+  {
+   "from": 1.0,
+   "game": "New Orleans Saints at New York Giants",
+   "player": "Greg Newsome",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 2.0
+  },
+  {
+   "from": 2.0,
+   "game": "New Orleans Saints at New York Giants",
+   "player": "Greg Newsome",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  },
+  {
+   "from": 6.0,
+   "game": "Carolina Panthers at Philadelphia Eagles",
+   "player": "Cooper DeJean",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 5.0
+  },
+  {
+   "from": 3.0,
+   "game": "Pittsburgh Steelers at Tampa Bay Buccaneers",
+   "player": "David Walker",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 2.0
+  },
+  {
+   "from": 2.0,
+   "game": "Pittsburgh Steelers at Tampa Bay Buccaneers",
+   "player": "David Walker",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 3.0
+  },
+  {
+   "from": 2.0,
+   "game": "Pittsburgh Steelers at Tampa Bay Buccaneers",
+   "player": "Rueben Bain Jr.",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 3.0
+  },
+  {
+   "from": 0.0,
+   "game": "Los Angeles Chargers at Kansas City Chiefs",
+   "player": "Tuli Tuipulotu",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 1.0
+  },
+  {
+   "from": 1.0,
+   "game": "Buffalo Bills at Las Vegas Raiders",
+   "player": "Jalon Kilgore",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 0.0
+  },
+  {
+   "from": 0.0,
+   "game": "Buffalo Bills at Las Vegas Raiders",
+   "player": "Jalon Kilgore",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Passes Defended",
+   "to": 1.0
+  },
+  {
+   "from": 0.0,
+   "game": "Buffalo Bills at Las Vegas Raiders",
+   "player": "Eric Stokes",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Passes Defended",
+   "to": 1.0
+  },
+  {
+   "from": 2.0,
+   "game": "Dallas Cowboys at Green Bay Packers",
+   "player": "Otito Ogbonnia",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 1.0
+  },
+  {
+   "from": 2.0,
+   "game": "Dallas Cowboys at Green Bay Packers",
+   "player": "Otito Ogbonnia",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 3.0
+  },
+  {
+   "from": 1.0,
+   "game": "Dallas Cowboys at Green Bay Packers",
+   "player": "Quinnen Williams",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 2.0
+  },
+  {
+   "from": 0.0,
+   "game": "Dallas Cowboys at Green Bay Packers",
+   "player": "Rashan Gary",
+   "publishedText": "Wed Oct 21 11:12:24 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  }
+ ],
+ "players": [
+  {
+   "after": 9.5,
+   "before": 10.8,
+   "delta": -1.3,
+   "elias": [
+    {
+     "from": 6.0,
+     "stat": "Tackles",
+     "to": 5.0
+    }
+   ],
+   "fid": "0006",
+   "pid": "16675",
+   "player": "Cooper DeJean",
+   "status": "starter"
+  },
+  {
+   "after": 3.5,
+   "before": 3.0,
+   "delta": 0.5,
+   "elias": [
+    {
+     "from": 0.0,
+     "stat": "Quarterback Hits",
+     "to": 1.0
+    }
+   ],
+   "fid": "0007",
+   "pid": "16266",
+   "player": "Tuli Tuipulotu",
+   "status": "starter"
+  },
+  {
+   "after": 4.4,
+   "before": 5.7,
+   "delta": -1.3,
+   "elias": [
+    {
+     "from": 2.0,
+     "stat": "Tackles",
+     "to": 1.0
+    }
+   ],
+   "fid": "0010",
+   "pid": "17131",
+   "player": "Xavier Watts",
+   "status": "starter"
+  }
+ ],
+ "published": [
+  "Wed Oct 21, 11:12 PM ET"
+ ],
+ "rankChanges": [],
+ "resultsFlipped": 0,
+ "season": 2026,
+ "teams": [
+  {
+   "after": 200.0,
+   "before": 201.3,
+   "delta": -1.3,
+   "fid": "0006"
+  },
+  {
+   "after": 151.4,
+   "before": 150.9,
+   "delta": 0.5,
+   "fid": "0007"
+  },
+  {
+   "after": 176.7,
+   "before": 178.0,
+   "delta": -1.3,
+   "fid": "0010"
+  }
+ ],
+ "week": 6
+}
