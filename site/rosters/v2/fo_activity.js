@@ -13,7 +13,8 @@
    contracts: MFL's transaction log (adds, drops, waivers, auction wins,
    trades, IR/taxi) merged with the UPS contract log (the static
    contract_activity_<season>.json snapshot; 0 D1 rows; test and declared
-   phantom rows hidden, exact repeats shown once), each row labeled
+   phantom rows hidden, exact repeats shown once, reviewed label corrections
+   applied), each row labeled
    with its source, filtered by team (default: the viewer's) and type. Only
    the current season: earlier years appear once their records are checked.
    Claims are edited in the phone app; nothing here changes them.
@@ -119,7 +120,7 @@
   // The contract log's own activity types, in plain words. A type the log adds later shows under its own name.
   // [log type, filter label, row label]
   var UPS_KINDS = [["Multi-Year Contract", "Multi-year contracts (MYAC)", "Multi-year contract (MYAC)"], ["Extension", "Extensions", "Extension"], ["Restructure", "Restructures", "Restructure"],
-    ["Tag", "Tags", "Tag"], ["MYM", "Mid-year multis (MYM)", "Mid-year multi (MYM)"], ["FA Contract", "FA contracts", "FA contract"]];
+    ["Tag", "Tags", "Tag"], ["MYM", "Mid-year multis (MYM)", "Mid-year multi (MYM)"], ["Contract Change", "Contract changes", "Contract change"], ["FA Contract", "FA contracts", "FA contract"]];
   var SRC_LABEL = { mfl: "MFL transaction", ups: "Contract log (UPS)" };
   // The one pair that can be a single event in both logs: MFL's add (free agent, waiver award, auction win) and the contract
   // log's "FA Contract" for that same team and player within 2 minutes. Anything else is two events, even when close in time
@@ -204,10 +205,19 @@
     if (!split.length && cl && cl[1] === "1" && a.salary != null) split = ["Y1=" + Math.round(Number(a.salary))];
     return [String(a.activity_type || ""), String(a.contract_status || "").toUpperCase(), n(a.salary), n(a.contract_year), n(a.tcv), n(a.aav), n(a.guaranteed), split.join(",")].join("|");
   }
-  function contractRows(activity, testCfg, nm, team, phantomCfg) {
+  // Reviewed display corrections (contract_activity_corrections_<season>.json): a listed row (activity_id + team + player
+  // all match) shows under its corrected label and type; the log itself is unchanged.
+  function correctionFor(a, fid, fixes) {
+    return fixes.filter(function (x) {
+      return x && String(x.activity_id || "") === String(a.activity_id || "") && String(a.activity_id || "") !== "" &&
+        H.pad4(x.franchise_id) === fid && String(x.player_id || "") === String(a.player_id || "");
+    })[0] || null;
+  }
+  function contractRows(activity, testCfg, nm, team, phantomCfg, fixCfg) {
     H = H || root.UPS_FO_HUB;
     var tests = H.asArray(testCfg && testCfg.test_franchises);
     var phantoms = H.asArray(phantomCfg && phantomCfg.rows);
+    var fixes = H.asArray(fixCfg && fixCfg.rows);
     var isTest = function (a, fid) {
       if (Number(a.test_flag) === 1) return true;
       return tests.some(function (x) { return H.pad4(x.franchise_id) === fid && (x.before ? String(a.submitted_at_utc || "") < String(x.before) : true); });
@@ -227,13 +237,15 @@
     kept.sort(function (x, y) { return (x.ts || 0) - (y.ts || 0); });
     var last = {}, out = [];
     kept.forEach(function (k) {
-      var a = k.a, pid = String(a.player_id || ""), group = k.fid + "|" + pid + "|" + String(a.activity_type || ""), key = termsKey(a);
+      var fix = correctionFor(k.a, k.fid, fixes);
+      var a = fix ? Object.assign({}, k.a, { activity_type: String(fix.activity_type || k.a.activity_type) }) : k.a;
+      var pid = String(a.player_id || ""), group = k.fid + "|" + pid + "|" + String(a.activity_type || ""), key = termsKey(a);
       var prev = last[group];
       if (prev && prev.key === key && k.ts > 0 && prev.row.ts > 0 && k.ts - prev.row.ts <= DUP_MS) { prev.row.repeats += 1; return; }
       var who = a.player_name ? H.displayName(String(a.player_name)) : (pid ? nm(pid) : "");
       var terms = String(a.contract_info || "").trim() || [a.contract_status, a.contract_year != null ? a.contract_year + " yr" : "", a.salary != null ? "$" + Number(a.salary).toLocaleString("en-US") : ""].filter(Boolean).join(" · ");
       var row = { ts: k.ts, src: ["ups"], kinds: [upsKey(a.activity_type)], fids: [k.fid], pids: pid ? [pid] : [], repeats: 1,
-        head: "<b>" + H.esc(team(k.fid)) + "</b> " + H.esc(upsLabel(a.activity_type, true)) + (who ? ": " + H.esc(who) : "") + (terms ? ' <span class="fo-act-terms">' + H.esc(terms) + "</span>" : "") };
+        head: "<b>" + H.esc(team(k.fid)) + "</b> " + H.esc(fix && fix.label ? String(fix.label) : upsLabel(a.activity_type, true)) + (who ? ": " + H.esc(who) : "") + (terms ? ' <span class="fo-act-terms">' + H.esc(terms) + "</span>" : "") };
       last[group] = { key: key, row: row };
       out.push(row);
     });
@@ -327,7 +339,7 @@
     var season = String(FO.season || "");
     var tx = DATA.get("transactions"), cl = DATA.get("contractLog");
     var nm = nameFn(), tn = function (f) { return H.teamName(f); };
-    var all = mergeRows(tx && tx.state === "ok" ? mflRows(tx.data, nm, tn) : [], cl && cl.state === "ok" ? contractRows(cl.data.activity, cl.data.test, nm, tn, cl.data.phantom) : []);
+    var all = mergeRows(tx && tx.state === "ok" ? mflRows(tx.data, nm, tn) : [], cl && cl.state === "ok" ? contractRows(cl.data.activity, cl.data.test, nm, tn, cl.data.phantom, cl.data.fixes) : []);
     var mine = filterRows(all, moves.team, "");
     var groups = typeOptions(all, mine);
     if (moves.type && !groups.some(function (g) { return g.options.some(function (o) { return o.key === moves.type; }); })) moves.type = "";
@@ -344,7 +356,7 @@
       '<p class="fo-basis">Earlier seasons appear here after their transaction and contract records are checked.</p>';
     var loadingAny = !tx || !cl;
     var warn = (tx && tx.state !== "ok" ? H.banner("MFL’s transaction log couldn’t be read; only the contract log is listed.", "warn") : "") +
-      (cl && cl.state !== "ok" ? H.banner("The UPS contract log or its test and phantom lists couldn’t be read, so no contract-log rows are listed; MFL transactions are.", "warn") : "");
+      (cl && cl.state !== "ok" ? H.banner("The UPS contract log or its test, phantom or correction lists couldn’t be read, so no contract-log rows are listed; MFL transactions are.", "warn") : "");
     var shown = list.slice(0, moves.limit);
     var who = moves.team ? " for " + H.esc(H.teamName(moves.team)) : "";
     var listHtml = !list.length ? (loadingAny ? '<p class="fo-muted">Reading MFL’s transaction log and the contract log…</p>' : '<p class="fo-ov-empty">Nothing matches' + who + " in " + H.esc(season) + ".</p>") :

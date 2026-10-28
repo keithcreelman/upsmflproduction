@@ -48,6 +48,7 @@ const tn = (f) => "T" + f;
 const ACT_FX = JSON.parse(fs.readFileSync(path.join(ROOT, "site/rosters/contract_submissions/contract_activity_2026.json"), "utf8"));
 const TEST_FX = JSON.parse(fs.readFileSync(path.join(ROOT, "site/rosters/contract_submissions/contract_log_test_2026.json"), "utf8"));
 const PHANTOM_FX = JSON.parse(fs.readFileSync(path.join(ROOT, "site/rosters/contract_submissions/contract_log_phantom_2026.json"), "utf8"));
+const FIX_FX = JSON.parse(fs.readFileSync(path.join(ROOT, "site/rosters/contract_submissions/contract_activity_corrections_2026.json"), "utf8"));
 
 test("transactions read the right way round", () => {
   const lines = AC.mflRows(FX.transactions, nm, tn).map((l) => l.html);
@@ -152,6 +153,28 @@ test("exact repeats show once (same team, player, type, terms, within 30 minutes
     AC.termsKey({ activity_type: "Tag", contract_status: "TAG", salary: 62000, contract_year: 1, tcv: 62000, aav: 62000, guaranteed: 62000, contract_info: "CL 1|TCV 62K|Y1-62K|GTD: 62K|TAG (Off) T1" }), "a one-year contract's unwritten split is its one year");
 });
 
+test("reviewed label corrections: Jaxon Smith-Njigba's real 07-27 change reads 'Contract change (logged as FA Contract)'", () => {
+  // The log row has no player_name: the page names him from MFL's players export (stubbed here).
+  const nmJ = (id) => (id === "16185" ? "Jaxon Smith-Njigba" : nm(id));
+  const plain = AC.contractRows(ACT_FX, TEST_FX, nmJ, tn, PHANTOM_FX), fixed = AC.contractRows(ACT_FX, TEST_FX, nmJ, tn, PHANTOM_FX, FIX_FX);
+  const isJsn = (r) => r.fids[0] === "0009" && r.pids[0] === "16185";
+  t.ok(plain.filter(isJsn).length === 1 && /FA contract: Jaxon Smith-Njigba/.test(plain.find(isJsn).html), "without the list: the log's own label");
+  const r = fixed.filter(isJsn);
+  t.ok(r.length === 1 && /<b>T0009<\/b> Contract change \(logged as FA Contract\): Jaxon Smith-Njigba/.test(r[0].html), r[0] && r[0].html);
+  t.equal(r[0].kinds.join(), "c:Contract Change", "filed under Contract changes in the type filter");
+  t.ok(/Y1-14K, Y2-1K, Y3-55K/.test(r[0].html) && r[0].ts === Date.parse("2026-07-28T02:51:06.321Z"), "terms and time unchanged");
+  t.equal(fixed.length, plain.length, "a correction relabels; it never hides or adds a row");
+  t.equal(fixed.filter((x) => x.kinds[0] === "c:FA Contract").length, 0, "no FA contract row is left in 2026, so the filter stops offering FA contracts");
+  const labels = AC.typeOptions(fixed, fixed).flatMap((g) => g.options.map((o) => o.label));
+  t.ok(labels.includes("Contract changes") && !labels.includes("FA contracts"), labels.join(" | "));
+  // Only an exact id + team + player match is corrected.
+  const one = (over) => AC.contractRows({ activities: [Object.assign({ activity_id: "abc", franchise_id: "0002", player_id: "9", player_name: "Doe, Jane", activity_type: "FA Contract", submitted_at_utc: "2026-09-01T12:00:00Z", test_flag: 0 }, over || {})] },
+    { test_franchises: [] }, nm, tn, { rows: [] }, { rows: [{ activity_id: "abc", franchise_id: "0002", player_id: "9", activity_type: "Contract Change", label: "Contract change (logged as FA Contract)" }] })[0];
+  t.ok(/Contract change \(logged as FA Contract\)/.test(one().html), "exact match: corrected");
+  t.ok(/FA contract: Jane Doe/.test(one({ franchise_id: "0003" }).html) && /FA contract: Jane Doe/.test(one({ player_id: "10" }).html) && /FA contract: Jane Doe/.test(one({ activity_id: "abd" }).html), "any mismatch: left as logged");
+  t.ok(FIX_FX.rows.every((x) => x.evidence && x.ruling && x.logged_as && x.activity_type && x.label), "every correction carries its evidence and ruling");
+});
+
 test("no 'not confirmed in MFL' label: MFL's transaction log does not record contract changes, so absence there proves nothing", () => {
   t.ok(!/not confirmed in MFL/i.test(SRC), "the label is never claimed");
   t.ok(/SRC_LABEL = \{ mfl: "MFL transaction", ups: "Contract log \(UPS\)" \}/.test(SRC), "the plain source labels");
@@ -197,7 +220,8 @@ test("Activity: the season only, team default = the viewer, the contract log is 
   t.ok(/contractLog: function \(\)/.test(DATA_SRC) && /staticUrl\("contract_activity_"\)/.test(DATA_SRC) && /staticUrl\("contract_log_test_"\)/.test(DATA_SRC), "the static snapshot + the test list");
   t.ok(/test list unreadable/.test(DATA_SRC), "no test list = a failed read, never 'no test events'");
   t.ok(/staticUrl\("contract_log_phantom_"\)/.test(DATA_SRC) && /phantom list unreadable/.test(DATA_SRC), "the phantom list is in the same read; no phantom list = a failed read");
-  t.ok(/contractRows\(cl\.data\.activity, cl\.data\.test, nm, tn, cl\.data\.phantom\)/.test(SRC) && /test and phantom lists couldn’t be read, so no contract-log rows are listed/.test(SRC), "the view applies it and says so when it can't");
+  t.ok(/contractRows\(cl\.data\.activity, cl\.data\.test, nm, tn, cl\.data\.phantom, cl\.data\.fixes\)/.test(SRC) && /test, phantom or correction lists couldn’t be read, so no contract-log rows are listed/.test(SRC), "the view applies them and says so when it can't");
+  t.ok(/staticUrl\("contract_activity_corrections_"\)/.test(DATA_SRC) && /correction list unreadable/.test(DATA_SRC), "the correction list is in the same read; unreadable = a failed read");
 });
 
 test("Activity only reads; claims are checked against the waiver resolver and edited in the app", () => {
