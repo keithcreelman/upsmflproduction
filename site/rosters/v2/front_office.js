@@ -3659,10 +3659,8 @@
   function newsFlagBadge(pid) {
     var f = STATE.newsFlags[String(pid)];
     if (!f) return "";
-    // Injury/status → medical cross; news headline → newspaper. Clicking opens News.
-    var icon = f === "injury" ? "🏥" : "📰";
-    var title = f === "injury" ? "Injury / status news — click to open News" : "News headline — click to open News";
-    return ' <span class="fo-news-flag fo-news-flag-' + f + '" data-news-pid="' + escapeHtml(String(pid)) + '" title="' + title + '">' + icon + "</span>";
+    // A headline from the last 7 days (newsFlagKind). Always the newspaper: news alone never marks a player injured.
+    return ' <span class="fo-news-flag fo-news-flag-news" data-news-pid="' + escapeHtml(String(pid)) + '" title="News from the last 7 days — click to open News" aria-label="News from the last 7 days">📰</span>';
   }
   // ── Cap-penalty SSOT fetch ──────────────────────────────────────────
   // ONE batched request per page load — /api/cap-penalty/preview with no
@@ -3794,12 +3792,15 @@
       var results = await Promise.all(chunks.map(function (c) {
         return fetchJSON(newsBase + encodeURIComponent(c.join(","))).catch(function () { return null; });
       }));
-      var flags = {};
+      // The flag rule is site/shared/fo_roster_core.js newsFlagKind: a headline from the last 7 days of the read; a Sleeper
+      // status card never flags (the injury chip is the one injury signal) and the flag never says "injury" (Keith 2026-10-28).
+      var C = window.UPS_FO_ROSTER_CORE, flags = {};
       results.forEach(function (news) {
         var ibp = (news && news.items_by_pid) || {};
+        var at = Date.parse((news && news.meta && news.meta.generated_at) || "") || Date.now();
         Object.keys(ibp).forEach(function (pid) {
-          var items = (ibp[pid] || []).filter(function (it) { return it && (it.type === "injury" || it.type === "status" || it.type === "headline"); });
-          if (items.length) flags[pid] = items.some(function (it) { return it.type === "injury" || it.type === "status"; }) ? "injury" : "news";
+          var k = C ? C.newsFlagKind(ibp[pid], at) : "";
+          if (k) flags[pid] = k;
         });
       });
       STATE.newsFlags = flags;

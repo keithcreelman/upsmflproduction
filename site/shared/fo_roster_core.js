@@ -6,6 +6,12 @@
      rankLabel             "#4 RB" / "unranked" (below the minimum) / "—" (no MFL week), the PPG rank's wording.
      rateView              one player's Start / Boom / Bust from /api/player-starter-rates (worker/src/starter_rates.js). The
                            model decides sufficiency: it sends a % only with 3+ graded weeks (MIN_WEEKS); a null % = "few".
+                           Boom weeks are INSIDE Start (P75 >= P50) and Bust excludes Start, so the model's own counts give an
+                           exclusive split that adds up to the graded weeks: Boom, Start-only (start - boom), Middle
+                           (q - start - bust: below the median, not a Bust) and Bust. Derived only; the model is unchanged.
+     newsFlagKind          whether a player's /api/player-news items earn the news flag: a headline from the last 7 days.
+                           Sleeper status / depth cards never do (the injury chip is the one injury signal), and the flag
+                           never says "injury".
    Attaches window.UPS_FO_ROSTER_CORE and module.exports. No fetch, no DOM. */
 (function (root) {
   "use strict";
@@ -77,7 +83,27 @@
     var q = rec && rec.q > 0 ? rec.q : 0;
     if (!rec || rec.startable_pct == null || rec.boom_pct == null || rec.bust_pct == null) return { state: "few", q: q };
     return { state: "ok", q: q,
-      start: { n: rec.startable_n, pct: rec.startable_pct }, boom: { n: rec.boom_n, pct: rec.boom_pct }, bust: { n: rec.bust_n, pct: rec.bust_pct } };
+      start: { n: rec.startable_n, pct: rec.startable_pct }, boom: { n: rec.boom_n, pct: rec.boom_pct }, bust: { n: rec.bust_n, pct: rec.bust_pct },
+      split: { boom: rec.boom_n, startOnly: rec.startable_n - rec.boom_n, middle: q - rec.startable_n - rec.bust_n, bust: rec.bust_n } };
+  }
+  // The last final week the starter-rates answer graded (0 when none).
+  function ratesThrough(answer) {
+    var w = (answer && answer.final_weeks) || [];
+    return w.length ? Math.max.apply(null, w) : 0;
+  }
+
+  // News flag (2026-10-28, Keith's review): Joe Milton and Jack Strand carried a hospital icon from a Sleeper "Injury Status:
+  // Out (Coach's Decision)" card (a healthy inactive, Strand's dated 2026-09-24) with no MFL or NFL injury listed. A player is
+  // never labeled injured from news: only headline / injury-news items count, only from the last NEWS_DAYS days before refMs
+  // (the news read's own time), and the flag is always plain "news". Returns "news" or "".
+  var NEWS_DAYS = 7;
+  function newsFlagKind(items, refMs) {
+    var ref = refMs > 0 ? refMs : Date.now(), cut = ref - NEWS_DAYS * 86400000;
+    return (items || []).some(function (it) {
+      if (!it || (it.type !== "headline" && it.type !== "injury")) return false;
+      var ts = Number(it.timestamp) * 1000;
+      return ts > 0 && ts >= cut && ts <= ref + 86400000;
+    }) ? "news" : "";
   }
   // The record for an MFL id in the answer (the worker keys players by the id's integer text).
   function rateRecord(answer, pid) {
@@ -88,7 +114,8 @@
   }
 
   var api = { POS_ORDER: POS_ORDER, STATUS_LABEL: STATUS_LABEL, statusOf: statusOf, sections: sections,
-    pointsRankMap: pointsRankMap, pointsRankFor: pointsRankFor, rankLabel: rankLabel, rateView: rateView, rateRecord: rateRecord };
+    pointsRankMap: pointsRankMap, pointsRankFor: pointsRankFor, rankLabel: rankLabel, rateView: rateView, rateRecord: rateRecord,
+    ratesThrough: ratesThrough, NEWS_DAYS: NEWS_DAYS, newsFlagKind: newsFlagKind };
   root.UPS_FO_ROSTER_CORE = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : this);

@@ -133,12 +133,55 @@ test("Performance shows the new columns with on-screen labels and a visible lege
   for (const [k, l] of [["ptsrank", "Pts rank"], ["rank", "PPG rank"], ["l4rank", "L4 rank"], ["start", "Start"], ["boom", "Boom"], ["bust", "Bust"]]) t.ok(RO.includes('th("' + k + '", "' + l + '"'), l);
   t.ok(/Ranks are among every MFL-scored player at the same lineup position, free agents too/.test(RO) && /"Pts and PPG ranks need " \+ ms \+ "\+ MFL wk"/.test(RO) && /"; L4 rank needs " \+ ml \+ "\+ of the last 4 final wks/.test(RO), "comparison group and minimums in the legend");
   t.ok(/Start = usable \(their median or better\), Boom = elite \(top quarter\), Bust = dud \(bottom quarter\)/.test(RO), "usable / elite / dud in words");
-  t.ok(/var NCOL = 16;/.test(RO) && (RO.match(/\bth\("/g) || []).length === 16, "16 columns, every colspan uses NCOL");
+  t.ok(/var NCOL = 17;/.test(RO) && (RO.match(/\bth\("/g) || []).length === 17, "17 columns, every colspan uses NCOL");
 });
 
 test("the shared module loads before the hub in the page and in the MFL embed", () => {
   t.ok(HTML.indexOf("shared/fo_roster_core.js") > 0 && HTML.indexOf("shared/fo_roster_core.js") < HTML.indexOf("fo_hub.js"));
   t.ok(LD.indexOf('"shared/fo_roster_core.js"') > 0 && LD.indexOf('"shared/fo_roster_core.js"') < LD.indexOf('"rosters/v2/fo_hub.js"'));
+});
+
+
+test("Week split: each graded week once (Boom · Start only · Middle · Bust), adding up to the graded weeks; Boom is inside Start", () => {
+  const E = JSON.parse(read("tests/fixtures/starter_rates_cases.json")).end_to_end;
+  const out = computeStarterRates(E.rows, { final_weeks: E.final_weeks, teams_with_game: E.teams_with_game, bye_week: E.bye_week });
+  for (const [pid, rec] of Object.entries(out.players)) {
+    const v = C.rateView(rec); if (v.state !== "ok") continue;
+    const sp = v.split, labs = rec.wk.map((w) => w[2]).filter((l) => ["boom", "bust", "startable", "below_median"].includes(l));
+    t.equal(sp.boom + sp.startOnly + sp.middle + sp.bust, rec.q, pid + ": the four add up to the graded weeks");
+    t.deepEqual([sp.boom, sp.startOnly, sp.middle, sp.bust], ["boom", "startable", "below_median", "bust"].map((l) => labs.filter((x) => x === l).length), pid + ": the model's own weekly labels, counted once each");
+    t.ok(rec.boom_n <= rec.startable_n, pid + ": Boom is inside Start");
+  }
+  // Dak Prescott's recorded 2026 answer (Wks 1–7): Start 3, Boom 2, Bust 0 of 7 → 2 · 1 · 4 · 0.
+  const dak = C.rateView({ q: 7, startable_n: 3, boom_n: 2, bust_n: 0, startable_pct: 43, boom_pct: 29, bust_pct: 0 });
+  t.deepEqual([dak.split.boom, dak.split.startOnly, dak.split.middle, dak.split.bust], [2, 1, 4, 0]);
+  t.equal(C.ratesThrough({ final_weeks: [1, 2, 3, 4, 5, 6, 7] }), 7); t.equal(C.ratesThrough({ final_weeks: [] }), 0);
+  t.ok(/Every Boom week is also a Start week \(the top quarter is above the median\), so Start includes Boom/.test(RO), "the nesting is said on the page");
+  t.ok(/Week split counts each graded week once: Boom · Start only · Middle \(below the median, not a Bust\) · Bust, adding up to his graded weeks/.test(RO));
+});
+
+test("denominators carry their basis: 'N MFL wks' under PPG, 'N graded wks thru Wk W' under the grades; differing weeks are said", () => {
+  t.ok(/l\.games \+ " MFL wk"/.test(RO), "PPG count is MFL weeks");
+  t.ok(/var thru = C\.ratesThrough\(e\.data\), basis = v\.q \+ " graded wk" \+ \(v\.q === 1 \? "" : "s"\) \+ \(thru \? " thru Wk " \+ thru : ""\)/.test(RO), "graded count names its last week");
+  t.ok(/data-legend="bases">Week counts: “MFL wks” \(under PPG\) = weeks MFL posted a score for him/.test(RO) && /“graded wks” = final weeks he played/.test(RO), "both bases defined");
+  t.ok(/pw && thru && pw !== thru \? " They run through different weeks right now, so they can differ\." : ""/.test(RO), "a week mismatch is never silent");
+});
+
+test("news flag: a headline from the last 7 days only; a Sleeper status card (Milton, Strand: 'Out (Coach's Decision)') never flags; never 'injury'", () => {
+  const at = Date.parse("2026-10-20T17:48:44.517Z");   // the recorded news read
+  const milton = [{ type: "status", source: "Sleeper", timestamp: 1792338356, headline: "Injury Status: Out (Coach's Decision)" }, { type: "depth", source: "Sleeper", timestamp: 1792338356, headline: "Depth Chart: QB #3 on PHI" }];
+  const strand = [{ type: "status", source: "Sleeper", timestamp: 1790292046, headline: "Injury Status: Out (Coach's Decision)" }, { type: "depth", source: "Sleeper", timestamp: 1790292046, headline: "Depth Chart: QB #4 on ATL" }];
+  t.equal(C.newsFlagKind(milton, at), "", "Joe Milton: no flag");
+  t.equal(C.newsFlagKind(strand, at), "", "Jack Strand: no flag");
+  t.equal(C.newsFlagKind([{ type: "status", timestamp: at / 1000, headline: "Injury Status: Out (Hamstring)" }], at), "", "even a real injury status card is the chip's job, not the news flag's");
+  t.equal(C.newsFlagKind([{ type: "headline", timestamp: at / 1000 - 3 * 86400 }], at), "news", "a 3-day-old headline flags, as news");
+  t.equal(C.newsFlagKind([{ type: "headline", timestamp: at / 1000 - 8 * 86400 }], at), "", "an 8-day-old headline is stale");
+  t.equal(C.newsFlagKind([{ type: "headline" }], at), "", "no date: no flag");
+  t.equal(C.newsFlagKind([], at), ""); t.equal(C.newsFlagKind(null, at), "", "no items: no flag");
+  t.equal(C.NEWS_DAYS, 7);
+  const nf = sliceFn(FO, "function newsFlagBadge(");
+  t.ok(!/🏥/.test(FO) && !/fo-news-flag-injury/.test(FO) && /📰/.test(nf), "the Front Office has no injury icon from news");
+  t.ok(/C\.newsFlagKind\(ibp\[pid\], at\)/.test(FO) && /news\.meta\.generated_at/.test(FO), "flags come from the shared rule, dated by the news read");
 });
 
 await run("front_office_roster_ranks");

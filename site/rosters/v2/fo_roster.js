@@ -16,6 +16,8 @@
               the worker's starter-pool model (worker/src/starter_rates.js) from ONE
               league-wide /api/player-starter-rates answer; a % only with the model's
               own 3+ graded weeks, else "Not enough games"
+     Week split the same graded weeks split so each counts once (Boom · Start-only · Middle ·
+              Bust, adding up to the graded weeks; derived from the model's counts)
      Next     this lineup week's opponent and kickoff, or BYE (MFL schedule)
      Proj     MFL's projection for this lineup week (a forecast, labelled)
      Bye      the NFL bye week (MFL)
@@ -29,7 +31,7 @@
   var sort = { key: "", dir: -1 };
   var byeView = { pos: "ALL", week: null };   // whole roster only (Keith 2026-10-26): no starters-only scope
   var GROUP_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
-  var NCOL = 16;          // Performance columns
+  var NCOL = 17;          // Performance columns
   var srAsked = false;    // the starter-rates read is asked for once per visit
   var SLOT_LABEL = { QB1: "QB", RB1: "RB", RB2: "RB", WR1: "WR", WR2: "WR", TE1: "TE", OF1: "Flex", OF2: "Flex", SF1: "SuperFlex",
     PK1: "K", PN1: "P", DL1: "DL", DL2: "DL", LB1: "LB", LB2: "LB", DB1: "DB", DB2: "DB", DF1: "D-Flex" };
@@ -154,19 +156,24 @@
       (key ? '<button type="button" class="fo-th-sort" data-perf-sort="' + key + '">' + H.esc(label) + arrow + "</button>" : H.esc(label)) + "</th>";
   }
   // Start / Boom / Bust cells: "…" while reading, "—" if the read failed, "Not enough games" below the model's minimum.
+  // Then the Week split: each graded week once (Boom · Start-only · Middle · Bust), adding up to the graded weeks, and the
+  // basis of that count ("of 7 graded, thru Wk 7") so it is never read as the PPG column's MFL weeks.
   function rateCells(r) {
-    var e = DATA.get("starterRates"), v = r.rates;
+    var e = DATA.get("starterRates"), v = r.rates, C = root.UPS_FO_ROSTER_CORE;
     if (!e || e.state !== "ok" || !v) {
       var c = '<td class="num">' + (e && e.state !== "ok" ? "—" : '<span class="fo-muted">…</span>') + "</td>";
-      return c + c + c;
+      return c + c + c + c;
     }
+    var thru = C.ratesThrough(e.data), basis = v.q + " graded wk" + (v.q === 1 ? "" : "s") + (thru ? " thru Wk " + thru : "");
     if (v.state !== "ok") {
-      return '<td colspan="3" class="fo-rate-few"><span class="fo-muted">Not enough games</span><div class="fo-muted fo-perf-sub">' +
-        v.q + " graded wk" + (v.q === 1 ? "" : "s") + "</div></td>";
+      return '<td colspan="4" class="fo-rate-few"><span class="fo-muted">Not enough games</span><div class="fo-muted fo-perf-sub">' + basis + "</div></td>";
     }
+    var sp = v.split;
     return ["start", "boom", "bust"].map(function (k) {
       return '<td class="num">' + v[k].pct + '%<div class="fo-muted fo-perf-sub">' + v[k].n + " of " + v.q + "</div></td>";
-    }).join("");
+    }).join("") +
+      '<td class="num fo-rate-split" aria-label="' + H.esc(sp.boom + " Boom, " + sp.startOnly + " Start only, " + sp.middle + " Middle, " + sp.bust + " Bust: " + basis) + '">' +
+      [sp.boom, sp.startOnly, sp.middle, sp.bust].join(" · ") + '<div class="fo-muted fo-perf-sub">' + H.esc(basis) + "</div></td>";
   }
   function rowHtml(r, multiTeam) {
     var p = r.p, l = r.line;
@@ -179,7 +186,7 @@
       '<td><span class="fo-slot fo-slot-' + slotCls + '">' + H.esc(r.slot) + "</span></td>" +
       '<td class="num">' + (l ? H.fmt1(l.pts) : "—") + "</td>" +
       '<td class="num">' + (l ? H.esc(l.ptsRankLabel || "—") : "—") + "</td>" +
-      '<td class="num">' + (l && l.ppg != null ? H.fmt1(l.ppg) : "—") + (l ? '<div class="fo-muted fo-perf-sub">' + l.games + " wk" + (l.games === 1 ? "" : "s") + "</div>" : "") + "</td>" +
+      '<td class="num">' + (l && l.ppg != null ? H.fmt1(l.ppg) : "—") + (l ? '<div class="fo-muted fo-perf-sub">' + l.games + " MFL wk" + (l.games === 1 ? "" : "s") + "</div>" : "") + "</td>" +
       '<td class="num">' + (l ? H.esc(l.rankLabel) : "—") + "</td>" +
       '<td class="num">' + (l && l.last && l.last.ppg != null ? H.fmt1(l.last.ppg) : "—") + "</td>" +
       '<td class="num">' + (l && l.last ? H.esc(l.last.rankLabel || "—") : "—") + "</td>" +
@@ -211,6 +218,14 @@
       out += '<p class="fo-basis fo-perf-legend" data-legend="rates">Start / Boom / Bust: each final week he played (' + H.esc(d.weeks_label || "no final weeks yet") +
         (pend.length ? "; Wk " + H.esc(pend.join(", ")) + " not graded yet" : "") + ") vs that week’s UPS starters at his position. " +
         "Start = usable (their median or better), Boom = elite (top quarter), Bust = dud (bottom quarter). Needs 3+ graded weeks, else “Not enough games”.</p>";
+      out += '<p class="fo-basis fo-perf-legend" data-legend="split">Every Boom week is also a Start week (the top quarter is above the median), so Start includes Boom. ' +
+        "Week split counts each graded week once: Boom · Start only · Middle (below the median, not a Bust) · Bust, adding up to his graded weeks.</p>";
+      // Two bases, said on the page: points count every MFL-posted week (a week in progress too); grades count final weeks
+      // he played. When their last weeks differ, a player's week counts can too (Dak Prescott: 6 MFL wks vs 7 graded).
+      var thru = root.UPS_FO_ROSTER_CORE.ratesThrough(d), pw = ss && ss.seasonWeeks && ss.seasonWeeks.length ? ss.seasonWeeks[ss.seasonWeeks.length - 1] : 0;
+      out += '<p class="fo-basis fo-perf-legend' + (pw && thru && pw !== thru ? " warn" : "") + '" data-legend="bases">Week counts: “MFL wks” (under PPG) = weeks MFL posted a score for him' +
+        (pw ? " (through Wk " + pw + ")" : "") + "; “graded wks” = final weeks he played" + (thru ? " (through Wk " + thru + ")" : "") + ". Byes and games he missed are in neither." +
+        (pw && thru && pw !== thru ? " They run through different weeks right now, so they can differ." : "") + "</p>";
     }
     return out;
   }
@@ -244,6 +259,7 @@
       th("start", "Start", "Usable weeks: at or above that week's UPS-starter median at his position (count of graded weeks under it)", "num") +
       th("boom", "Boom", "Elite weeks: at or above that week's UPS-starter 75th percentile", "num") +
       th("bust", "Bust", "Dud weeks: at or below that week's UPS-starter 25th percentile", "num") +
+      th("", "Week split", "Each graded week once: Boom · Start only · Middle · Bust; they add up to the graded weeks", "num") +
       th("", week ? "Wk " + week : "Next", "Opponent and kickoff for this lineup week (MFL schedule)", "") +
       th("proj", week ? "Wk " + week + " proj" : "Proj", "MFL's projection for this lineup week — a forecast, not a result", "num") +
       th("bye", "Bye", "NFL bye week (MFL)", "num col-md") + th("salary", "Salary", "This season's salary", "num") + th("years", "Yrs", "Years left on the contract", "num col-lo") + "</tr></thead>";
@@ -543,7 +559,8 @@
       "<li><b>Pts / PPG / PPG rank:</b> MFL’s own league scoring; PPG per MFL-scored week; rank at the lineup position among every player MFL scored (free agents too) with at least half the final weeks. Same as the phone.</li>" +
       "<li><b>Pts rank:</b> season points, ranked the same way with the same minimum.</li>" +
       "<li><b>L4 / L4 rank:</b> PPG over the last 4 final weeks and its rank (2+ of those weeks). Context only: in a 2022–2025 backtest, season PPG predicted the rest of the season better than the last 3–4 weeks at every position but punter.</li>" +
-      "<li><b>Start / Boom / Bust:</b> the phone’s starter-pool numbers (Stats → Boom/Bust). Each final week he played is compared with that week’s UPS starters at his position: Start = usable (their median or better), Boom = elite (top quarter), Bust = dud (bottom quarter). A 0.0 in a game he played counts; games he didn’t play aren’t graded. Shown with 3+ graded weeks.</li>" +
+      "<li><b>Start / Boom / Bust:</b> the phone’s starter-pool numbers (Stats → Boom/Bust). Each final week he played is compared with that week’s UPS starters at his position: Start = usable (their median or better), Boom = elite (top quarter), Bust = dud (bottom quarter). A 0.0 in a game he played counts; games he didn’t play aren’t graded. Shown with 3+ graded weeks. Every Boom week is also a Start week; <b>Week split</b> counts each graded week once (Boom · Start only · Middle · Bust) and adds up to his graded weeks, which can differ from his MFL weeks (final weeks he played only).</li>" +
+      "<li><b>📰</b> beside a name: a news headline from the last 7 days (tap for News). News never marks a player injured; the colored chip is the injury status (MFL, checked against the official NFL report).</li>" +
       "<li><b>Groups:</b> Active players first (by position when grouped), then IR, then Taxi, in Performance, Contract and Schedule.</li>" +
       "<li><b>Wk N / Wk N proj / Bye:</b> MFL’s NFL schedule, MFL’s projection for that week (a forecast) and MFL’s bye weeks.</li>" +
       "<li><b>Contract</b> columns (Contract chip): the contract ledger, unchanged.</li></ul>");
