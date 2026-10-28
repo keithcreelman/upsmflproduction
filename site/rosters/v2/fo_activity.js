@@ -12,7 +12,8 @@
    the player can't be awarded at that run) and the season's moves and
    contracts: MFL's transaction log (adds, drops, waivers, auction wins,
    trades, IR/taxi) merged with the UPS contract log (the static
-   contract_activity_<season>.json snapshot; 0 D1 rows), each row labeled
+   contract_activity_<season>.json snapshot; 0 D1 rows; test and declared
+   phantom rows hidden, exact repeats shown once), each row labeled
    with its source, filtered by team (default: the viewer's) and type. Only
    the current season: earlier years appear once their records are checked.
    Claims are edited in the phone app; nothing here changes them.
@@ -182,25 +183,63 @@
     });
     return out;
   }
-  // The UPS contract log (contract_activity_<season>.json) → rows. Test rows never show: the log's own test flag, and the
-  // Contract log's test-franchise cutoffs (contract_log_test_<season>.json, `before` = events strictly before it are test).
-  function contractRows(activity, testCfg, nm, team) {
+  // The UPS contract log (contract_activity_<season>.json) → rows. Never shown:
+  //   - test rows: the log's own test flag, and the Contract log's test-franchise cutoffs (contract_log_test_<season>.json,
+  //     `before` = events strictly before it are test);
+  //   - phantom rows: contract_log_phantom_<season>.json, rows MFL's own record contradicts (verified one by one; matched
+  //     on team + player + the UTC day it was submitted, so a later real contract for the same player still shows).
+  // Exact repeats (same team, player, type and terms, each within DUP_MS of the first) show once, with how many times
+  // the log holds them. Different terms are never collapsed.
+  var DUP_MS = 30 * 60000;
+  // The terms two submissions must share to be the same submission: status, salary, years, TCV, AAV, guaranteed and the
+  // year-by-year split. A one-year contract with no written split is that one year at its salary.
+  function termsKey(a) {
+    var n = function (v) { return v == null || v === "" ? "" : String(Number(v)); };
+    var info = String(a.contract_info || "");
+    var split = (info.match(/Y\d+-\s*[\d.]+\s*K?/gi) || []).map(function (t) {
+      var m = /Y(\d+)-\s*([\d.]+)\s*(K?)/i.exec(t), v = parseFloat(m[2]);
+      return "Y" + m[1] + "=" + Math.round(m[3] || v < 1000 ? v * 1000 : v);
+    });
+    var cl = /CL\s*(\d+)/i.exec(info);
+    if (!split.length && cl && cl[1] === "1" && a.salary != null) split = ["Y1=" + Math.round(Number(a.salary))];
+    return [String(a.activity_type || ""), String(a.contract_status || "").toUpperCase(), n(a.salary), n(a.contract_year), n(a.tcv), n(a.aav), n(a.guaranteed), split.join(",")].join("|");
+  }
+  function contractRows(activity, testCfg, nm, team, phantomCfg) {
     H = H || root.UPS_FO_HUB;
     var tests = H.asArray(testCfg && testCfg.test_franchises);
+    var phantoms = H.asArray(phantomCfg && phantomCfg.rows);
     var isTest = function (a, fid) {
       if (Number(a.test_flag) === 1) return true;
       return tests.some(function (x) { return H.pad4(x.franchise_id) === fid && (x.before ? String(a.submitted_at_utc || "") < String(x.before) : true); });
     };
-    var out = [];
+    var isPhantom = function (a, fid) {
+      var day = String(a.submitted_at_utc || "").slice(0, 10);
+      return phantoms.some(function (x) { return H.pad4(x.franchise_id) === fid && String(x.player_id || "") === String(a.player_id || "") && String(x.submitted_on || "") === day; });
+    };
+    var kept = [];
     H.asArray(activity && activity.activities).forEach(function (a) {
       if (!a) return;
       var fid = H.pad4(a.franchise_id);
-      if (!fid || isTest(a, fid)) return;
-      var pid = String(a.player_id || "");
+      if (!fid || isTest(a, fid) || isPhantom(a, fid)) return;
+      kept.push({ a: a, fid: fid, ts: Date.parse(String(a.submitted_at_utc || "")) });
+    });
+    // Oldest first, so a repeat joins the first submission of its run; a different-terms submission in between ends the run.
+    kept.sort(function (x, y) { return (x.ts || 0) - (y.ts || 0); });
+    var last = {}, out = [];
+    kept.forEach(function (k) {
+      var a = k.a, pid = String(a.player_id || ""), group = k.fid + "|" + pid + "|" + String(a.activity_type || ""), key = termsKey(a);
+      var prev = last[group];
+      if (prev && prev.key === key && k.ts > 0 && prev.row.ts > 0 && k.ts - prev.row.ts <= DUP_MS) { prev.row.repeats += 1; return; }
       var who = a.player_name ? H.displayName(String(a.player_name)) : (pid ? nm(pid) : "");
       var terms = String(a.contract_info || "").trim() || [a.contract_status, a.contract_year != null ? a.contract_year + " yr" : "", a.salary != null ? "$" + Number(a.salary).toLocaleString("en-US") : ""].filter(Boolean).join(" · ");
-      out.push({ ts: Date.parse(String(a.submitted_at_utc || "")), src: ["ups"], kinds: [upsKey(a.activity_type)], fids: [fid], pids: pid ? [pid] : [],
-        html: "<b>" + H.esc(team(fid)) + "</b> " + H.esc(upsLabel(a.activity_type, true)) + (who ? ": " + H.esc(who) : "") + (terms ? ' <span class="fo-act-terms">' + H.esc(terms) + "</span>" : "") });
+      var row = { ts: k.ts, src: ["ups"], kinds: [upsKey(a.activity_type)], fids: [k.fid], pids: pid ? [pid] : [], repeats: 1,
+        head: "<b>" + H.esc(team(k.fid)) + "</b> " + H.esc(upsLabel(a.activity_type, true)) + (who ? ": " + H.esc(who) : "") + (terms ? ' <span class="fo-act-terms">' + H.esc(terms) + "</span>" : "") };
+      last[group] = { key: key, row: row };
+      out.push(row);
+    });
+    out.forEach(function (r) {
+      r.html = r.head + (r.repeats > 1 ? ' <span class="fo-act-terms">Logged ' + r.repeats + " times with the same terms; shown once.</span>" : "");
+      delete r.head;
     });
     return out;
   }
@@ -288,7 +327,7 @@
     var season = String(FO.season || "");
     var tx = DATA.get("transactions"), cl = DATA.get("contractLog");
     var nm = nameFn(), tn = function (f) { return H.teamName(f); };
-    var all = mergeRows(tx && tx.state === "ok" ? mflRows(tx.data, nm, tn) : [], cl && cl.state === "ok" ? contractRows(cl.data.activity, cl.data.test, nm, tn) : []);
+    var all = mergeRows(tx && tx.state === "ok" ? mflRows(tx.data, nm, tn) : [], cl && cl.state === "ok" ? contractRows(cl.data.activity, cl.data.test, nm, tn, cl.data.phantom) : []);
     var mine = filterRows(all, moves.team, "");
     var groups = typeOptions(all, mine);
     if (moves.type && !groups.some(function (g) { return g.options.some(function (o) { return o.key === moves.type; }); })) moves.type = "";
@@ -305,7 +344,7 @@
       '<p class="fo-basis">Earlier seasons appear here after their transaction and contract records are checked.</p>';
     var loadingAny = !tx || !cl;
     var warn = (tx && tx.state !== "ok" ? H.banner("MFL’s transaction log couldn’t be read; only the contract log is listed.", "warn") : "") +
-      (cl && cl.state !== "ok" ? H.banner("The UPS contract log couldn’t be read; only MFL transactions are listed.", "warn") : "");
+      (cl && cl.state !== "ok" ? H.banner("The UPS contract log or its test and phantom lists couldn’t be read, so no contract-log rows are listed; MFL transactions are.", "warn") : "");
     var shown = list.slice(0, moves.limit);
     var who = moves.team ? " for " + H.esc(H.teamName(moves.team)) : "";
     var listHtml = !list.length ? (loadingAny ? '<p class="fo-muted">Reading MFL’s transaction log and the contract log…</p>' : '<p class="fo-ov-empty">Nothing matches' + who + " in " + H.esc(season) + ".</p>") :
@@ -316,7 +355,7 @@
     el.innerHTML = '<div class="fo-tf-grid fo-act-grid">' +
       '<div class="fo-card"><h3 class="fo-tf-h">Claims MFL holds' + (me ? " for " + H.esc(H.teamName(me)) : "") + "</h3>" + claimsHtml(me) + "</div>" +
       '<div class="fo-card"><div class="fo-card-head"><h2>Moves and contracts</h2></div>' + controls + warn +
-        '<p class="fo-basis">MFL transaction = MFL’s log (adds, drops, waivers, auction wins, trades, IR, taxi). Contract log (UPS) = contract terms submitted through UPS' + (asOf ? ", as of " + H.esc(asOf) : "") + ". Times are Eastern.</p>" +
+        '<p class="fo-basis">MFL transaction = MFL’s log (adds, drops, waivers, auction wins, trades, IR, taxi). Contract log (UPS) = contract terms submitted through UPS' + (asOf ? ", as of " + H.esc(asOf) : "") + "; test and known-bad rows hidden. Times are Eastern.</p>" +
         listHtml + "</div></div>";
   }
   function wire() {
@@ -342,7 +381,7 @@
   function active() { var a = document.querySelector(".fo-section.active"); return a ? a.getAttribute("data-section") : ""; }
 
   if (root.UPS_FO_HUB) { root.UPS_FO_HUB.registerView("picks"); root.UPS_FO_HUB.registerView("moves"); }
-  root.UPS_FO_ACTIVITY = { holders: holders, roundsOf: roundsOf, fmtEt: fmtEt, mflRows: mflRows, contractRows: contractRows, mergeRows: mergeRows, typeOptions: typeOptions, filterRows: filterRows };
+  root.UPS_FO_ACTIVITY = { holders: holders, roundsOf: roundsOf, fmtEt: fmtEt, termsKey: termsKey, mflRows: mflRows, contractRows: contractRows, mergeRows: mergeRows, typeOptions: typeOptions, filterRows: filterRows };
   document.addEventListener("fo:ready", function () {
     H = root.UPS_FO_HUB; FO = root.UPS_FO; DATA = root.UPS_FO_DATA;
     if (!H || !FO || !DATA) return;

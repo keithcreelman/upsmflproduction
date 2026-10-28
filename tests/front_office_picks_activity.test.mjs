@@ -47,6 +47,7 @@ const nm = (id) => (pidx[id] ? ctx.UPS_FO_HUB.displayName(pidx[id].name) : /^FP_
 const tn = (f) => "T" + f;
 const ACT_FX = JSON.parse(fs.readFileSync(path.join(ROOT, "site/rosters/contract_submissions/contract_activity_2026.json"), "utf8"));
 const TEST_FX = JSON.parse(fs.readFileSync(path.join(ROOT, "site/rosters/contract_submissions/contract_log_test_2026.json"), "utf8"));
+const PHANTOM_FX = JSON.parse(fs.readFileSync(path.join(ROOT, "site/rosters/contract_submissions/contract_log_phantom_2026.json"), "utf8"));
 
 test("transactions read the right way round", () => {
   const lines = AC.mflRows(FX.transactions, nm, tn).map((l) => l.html);
@@ -67,7 +68,7 @@ test("Eastern day and time on every row: 'Tue Oct 27, 9:14 PM ET' from the row's
   t.equal(AC.fmtEt(Date.parse("2026-01-06T14:05:00Z")), "Tue Jan 6, 9:05 AM ET", "EST in winter (UTC-5)");
   t.equal(AC.fmtEt(Date.parse("2026-10-27T16:00:00Z")), "Tue Oct 27, 12:00 PM ET", "noon");
   t.equal(AC.fmtEt(0), "", "no time, no invented time");
-  const rows = AC.mergeRows(AC.mflRows(FX.transactions, nm, tn), AC.contractRows(ACT_FX, TEST_FX, nm, tn));
+  const rows = AC.mergeRows(AC.mflRows(FX.transactions, nm, tn), AC.contractRows(ACT_FX, TEST_FX, nm, tn, PHANTOM_FX));
   t.ok(rows.length > 50 && rows.every((r) => / \d{1,2}, \d{1,2}:\d\d (AM|PM) ET$/.test(AC.fmtEt(r.ts))), rows.length + " rows, every one dated");
   for (let i = 1; i < rows.length; i += 1) if (rows[i].ts > rows[i - 1].ts) { t.ok(false, "newest first at row " + i); break; }
 });
@@ -104,7 +105,7 @@ test("type filter: choices come from the data, grouped by source, plain labels; 
 test("contract log: source label, no test events (log flag and the Contract log's test-franchise cutoff)", () => {
   const ups = AC.contractRows(ACT_FX, TEST_FX, nm, tn);
   const real = ACT_FX.activities.filter((a) => Number(a.test_flag) !== 1 && !(a.franchise_id === "0008" && a.submitted_at_utc < "2026-06-06T00:00:00Z"));
-  t.equal(ups.length, real.length, ups.length + " real contract-log rows");
+  t.equal(ups.reduce((n, r) => n + r.repeats, 0), real.length, real.length + " non-test contract-log submissions, every one counted (" + ups.length + " rows after repeats)");
   t.ok(ups.every((r) => r.src.length === 1 && r.src[0] === "ups"), "every contract-log row says where it came from");
   t.ok(!ups.some((r) => r.fids[0] === "0008" && r.ts < Date.parse("2026-06-06T00:00:00Z")), "Real Deal Creel's pre-June test events stay hidden");
   const coker = ups.find((r) => /Jalen Coker/.test(r.html));
@@ -113,6 +114,47 @@ test("contract log: source label, no test events (log flag and the Contract log'
   const fresh = { activities: [{ franchise_id: "0002", player_id: "1", player_name: "Doe, Jane", activity_type: "Brand New", submitted_at_utc: "2026-09-01T12:00:00Z", test_flag: 0 }] };
   const r = AC.contractRows(fresh, { test_franchises: [] }, nm, tn)[0];
   t.ok(r.kinds[0] === "c:Brand New" && /Brand New: Jane Doe/.test(r.html), "a type the log adds later shows under its own name");
+});
+
+test("phantom rows (contract_log_phantom_2026.json) never show; a later real contract for the same player still does", () => {
+  const without = AC.contractRows(ACT_FX, TEST_FX, nm, tn), withP = AC.contractRows(ACT_FX, TEST_FX, nm, tn, PHANTOM_FX);
+  t.equal(PHANTOM_FX.rows.length, 5, "the declared list: Burrow, Allen, Moehrig, Landry, Mahomes");
+  const hits = (rows, fid, pid, day) => rows.filter((r) => r.fids[0] === fid && r.pids[0] === pid && new Date(r.ts).toISOString().slice(0, 10) === day).length;
+  for (const p of PHANTOM_FX.rows) {
+    t.ok(hits(without, p.franchise_id, p.player_id, p.submitted_on) >= 1, p.player_name + " is in the log");
+    t.equal(hits(withP, p.franchise_id, p.player_id, p.submitted_on), 0, p.player_name + " (" + p.claimed + ") is hidden");
+  }
+  t.ok(!withP.some((r) => r.fids[0] === "0012" && /Mahomes/.test(r.html)), "the Hawks' Mahomes tag (both submissions) is gone");
+  t.ok(withP.some((r) => r.fids[0] === "0001" && r.pids[0] === "15365" && /Multi-year contract \(MYAC\)/.test(r.html)), "Moehrig's real September MYAC still shows");
+  t.equal(without.length - withP.length, 5, "exactly the phantom rows are removed (Mahomes' two submissions were already one row)");
+});
+
+test("exact repeats show once (same team, player, type, terms, within 30 minutes); different terms never collapse", () => {
+  const ups = AC.contractRows(ACT_FX, TEST_FX, nm, tn, PHANTOM_FX);
+  const cmc = ups.filter((r) => r.fids[0] === "0007" && r.pids[0] === "13130" && r.kinds[0] === "c:Tag");
+  t.ok(cmc.length === 1 && cmc[0].repeats === 4 && /Logged 4 times with the same terms; shown once\./.test(cmc[0].html), "McCaffrey's tag: 4 submissions in 15 minutes = one row (" + cmc.length + ")");
+  t.equal(cmc[0].ts, Date.parse("2026-05-19T18:33:53.563Z"), "the row keeps the first submission's time");
+  // Chris Rodriguez (Real Deal Creel's June test window, read here without the cutoff): MYAC 1 yr 13:49, 2 yr 13:54, 2 yr 20:54, 1 yr 20:54.
+  const cr = AC.contractRows(ACT_FX, { test_franchises: [] }, nm, tn, PHANTOM_FX).filter((r) => r.fids[0] === "0008" && r.pids[0] === "16174" && r.kinds[0] === "c:Multi-Year Contract");
+  t.equal(cr.length, 4, "1 yr / 2 yr / 2 yr (7 hours later) / 1 yr: terms change in between or the window has passed, so all four stay");
+  const nac = ups.filter((r) => r.pids[0] === "16211" && r.kinds[0] === "c:Restructure");
+  t.equal(nac.length, 2, "Puka Nacua: two restructures with different year splits stay two rows");
+  const base = { franchise_id: "0002", player_id: "9", player_name: "Doe, Jane", activity_type: "Extension", contract_status: "Vet-Ext2", salary: 10000, contract_year: 3, tcv: 60000, aav: 20000, guaranteed: 45000, contract_info: "CL 3| TCV 60K| AAV 20K| Y1-10K, Y2-20K, Y3-30K", test_flag: 0 };
+  const at = (min, extra) => Object.assign({}, base, { submitted_at_utc: new Date(Date.parse("2026-09-01T12:00:00Z") + min * 60000).toISOString() }, extra || {});
+  const run = (list) => AC.contractRows({ activities: list }, { test_franchises: [] }, nm, tn, { rows: [] });
+  t.equal(run([at(0), at(10), at(29)]).length, 1, "three identical within 30 minutes of the first = 1 row");
+  t.equal(run([at(0), at(31)]).length, 2, "31 minutes later = a new submission");
+  t.equal(run([at(0), at(5, { contract_info: "CL 3| TCV 60K| AAV 20K| Y1-10K, Y2-30K, Y3-20K" })]).length, 2, "same totals, different year split = different terms");
+  t.equal(run([at(0), at(5, { salary: 11000 })]).length, 2, "different salary = different terms");
+  t.equal(run([at(0), at(5, { franchise_id: "0003" })]).length, 2, "another team = another row");
+  t.equal(run([at(0), at(5, { activity_type: "Restructure" })]).length, 2, "another action = another row");
+  t.equal(AC.termsKey({ activity_type: "Tag", contract_status: "TAG", salary: 62000, contract_year: 1, tcv: 62000, aav: 62000, guaranteed: 62000, contract_info: "CL 1| TCV 62K| GTD 62K| Tag" }),
+    AC.termsKey({ activity_type: "Tag", contract_status: "TAG", salary: 62000, contract_year: 1, tcv: 62000, aav: 62000, guaranteed: 62000, contract_info: "CL 1|TCV 62K|Y1-62K|GTD: 62K|TAG (Off) T1" }), "a one-year contract's unwritten split is its one year");
+});
+
+test("no 'not confirmed in MFL' label: MFL's transaction log does not record contract changes, so absence there proves nothing", () => {
+  t.ok(!/not confirmed in MFL/i.test(SRC), "the label is never claimed");
+  t.ok(/SRC_LABEL = \{ mfl: "MFL transaction", ups: "Contract log \(UPS\)" \}/.test(SRC), "the plain source labels");
 });
 
 test("one event in both logs shows once, with both source labels; different events never merge", () => {
@@ -132,7 +174,7 @@ test("one event in both logs shows once, with both source labels; different even
   const ir = AC.mflRows({ transactions: { transaction: [{ type: "IR", franchise: "0009", timestamp: String(ts), deactivated: "16601,", activated: "" }] } }, nm, tn);
   const mym = AC.contractRows({ activities: [{ franchise_id: "0009", player_id: "16601", activity_type: "MYM", submitted_at_utc: new Date(ts * 1000 + 110000).toISOString(), test_flag: 0 }] }, { test_franchises: [] }, nm, tn);
   t.equal(AC.mergeRows(ir, mym).length, 2, "an IR move and an MYM minutes apart are two rows");
-  const real = AC.mergeRows(AC.mflRows(FX.transactions, nm, tn), AC.contractRows(ACT_FX, TEST_FX, nm, tn));
+  const real = AC.mergeRows(AC.mflRows(FX.transactions, nm, tn), AC.contractRows(ACT_FX, TEST_FX, nm, tn, PHANTOM_FX));
   t.equal(real.filter((r) => r.src.length === 2).length, 0, "the fixture moves + the 2026 contract log: no event in both logs");
   const both = rows.find((r) => r.src.length === 2);
   t.ok(both && both.src.join() === "mfl,ups" && /added Will Shipley/.test(both.html) && /Contract log: .*FA contract: Will Shipley/.test(both.html), both && both.html);
@@ -154,6 +196,8 @@ test("Activity: the season only, team default = the viewer, the contract log is 
   const DATA_SRC = fs.readFileSync(path.join(ROOT, "site/rosters/v2/fo_data.js"), "utf8");
   t.ok(/contractLog: function \(\)/.test(DATA_SRC) && /staticUrl\("contract_activity_"\)/.test(DATA_SRC) && /staticUrl\("contract_log_test_"\)/.test(DATA_SRC), "the static snapshot + the test list");
   t.ok(/test list unreadable/.test(DATA_SRC), "no test list = a failed read, never 'no test events'");
+  t.ok(/staticUrl\("contract_log_phantom_"\)/.test(DATA_SRC) && /phantom list unreadable/.test(DATA_SRC), "the phantom list is in the same read; no phantom list = a failed read");
+  t.ok(/contractRows\(cl\.data\.activity, cl\.data\.test, nm, tn, cl\.data\.phantom\)/.test(SRC) && /test and phantom lists couldn’t be read, so no contract-log rows are listed/.test(SRC), "the view applies it and says so when it can't");
 });
 
 test("Activity only reads; claims are checked against the waiver resolver and edited in the app", () => {

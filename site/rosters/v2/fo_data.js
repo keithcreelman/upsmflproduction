@@ -93,13 +93,15 @@
     },
     transactions: function () { return getJson(mflExport("transactions")).then(function (j) { if (!mflOk(j)) throw new Error("MFL transactions unreadable"); return j; }); },
     // The UPS contract log for the season: the static snapshot the worker's contract-activity job commits
-    // (rosters/contract_submissions/contract_activity_<season>.json; 0 D1 rows) plus the Contract log's test-franchise
-    // cutoffs. Both or neither: without the test list a test event could be shown as real, so that is a failed read.
+    // (rosters/contract_submissions/contract_activity_<season>.json; 0 D1 rows), the Contract log's test-franchise
+    // cutoffs and the declared phantom rows (contract_log_phantom_<season>.json: rows MFL's record contradicts).
+    // All three or none: without either list a test or phantom event could be shown as real, so that is a failed read.
     contractLog: function () {
-      return Promise.all([getJson(staticUrl("contract_activity_")), getJson(staticUrl("contract_log_test_"))]).then(function (r) {
+      return Promise.all([getJson(staticUrl("contract_activity_")), getJson(staticUrl("contract_log_test_")), getJson(staticUrl("contract_log_phantom_"))]).then(function (r) {
         if (!r[0] || !Array.isArray(r[0].activities)) throw new Error("contract log unreadable");
         if (!r[1] || !Array.isArray(r[1].test_franchises)) throw new Error("contract log test list unreadable");
-        return { activity: r[0], test: r[1] };
+        if (!r[2] || !Array.isArray(r[2].rows)) throw new Error("contract log phantom list unreadable");
+        return { activity: r[0], test: r[1], phantom: r[2] };
       });
     },
     waiverAvailability: function () { return getJson(worker("/api/waivers/availability")); },
