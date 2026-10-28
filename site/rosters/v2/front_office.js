@@ -2667,6 +2667,7 @@
       eligibility: function (p) { try { return rosterContractEligibility(p); } catch (e) { return null; } },
       capPenalty: function (pid) { return STATE.capPenaltyFeed === "ok" && STATE.capPenaltyByPid ? (STATE.capPenaltyByPid[String(pid)] || null) : null; },
       injury: function (p) { return injuryResFor(p); },
+      newsFlag: function (pid) { return newsFlagBadge(pid); },
       openPlayer: function (pid, fid, subtab) { openSlideover(String(pid), pad4(fid), subtab); },
       show: function (section) { showSection(section); },
       // The rows the Roster table shows under the current team / position / type / status filters.
@@ -3486,31 +3487,45 @@
     });
   }
 
+  // Active → IR → Taxi, the same sections (order and labels) as Roster → Performance and Schedule (site/shared/fo_roster_core.js,
+  // Keith 2026-10-28). By position: one section per position for its ACTIVE players, then IR, then Taxi. A position's cap line is
+  // unchanged: its non-taxi players (IR included, at the IR cap hit), so the totals and league ranks mean what they meant; its count
+  // says how many of them are on IR (listed under IR below). Rows keep the within-group order (orderGroupRows).
+  function sectionHeadHtml(key, label, n, extra) {
+    return '<tr class="fo-group-row"><td colspan="13"><span class="fo-pos ' + escapeHtml(key) + '">' + escapeHtml(label) +
+      '</span> <span class="small">' + n + "</span>" + (extra || "") + "</td></tr>";
+  }
+  function renderStatusRows(players) {
+    const C = window.UPS_FO_ROSTER_CORE;
+    if (!C) return players.map(renderRosterRow).join("");
+    return C.sections(players, { byPosition: false }).map(function (sec) {
+      return sectionHeadHtml(sec.key, sec.label, sec.rows.length) + sec.rows.map(renderRosterRow).join("");
+    }).join("");
+  }
   function renderGroupedRows(players) {
-    const order = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB", "IDP"];
-    const groups = {};
-    players.forEach(function (p) { const b = posGroupFine(p.position) || "OTHER"; (groups[b] = groups[b] || []).push(p); });
-    const keys = Object.keys(groups).sort(function (a, b) {
-      const ia = order.indexOf(a), ib = order.indexOf(b);
-      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
-    });
+    const C = window.UPS_FO_ROSTER_CORE;
+    const order = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
+    const keyOf = function (p) { const b = posGroupFine(p.position); return order.indexOf(b) >= 0 ? b : "Other"; };
     const single = STATE.selectedTeamId !== "__all__";
     const rankPill = function (r) { return (r && r.rank) ? ' <span class="fo-group-rank">#' + r.rank + "/" + r.of + "</span>" : ""; };
+    if (!C) return players.map(renderRosterRow).join("");
     let html = "";
-    keys.forEach(function (k) {
-      const rows = orderGroupRows(groups[k]);
-      // Count + allocation + avg ALL exclude taxi (taxi = $0 cap; shown separately).
-      let posSal = 0, nNonTaxi = 0, taxiN = 0;
-      rows.forEach(function (p) { if (p.isTaxi) { taxiN += 1; } else { posSal += currentCapHit(p); nNonTaxi += 1; } });
+    C.sections(players, { byPosition: true, posOf: keyOf }).forEach(function (sec) {
+      const rows = orderGroupRows(sec.rows);
+      if (sec.status !== "active") { html += sectionHeadHtml(sec.key, sec.label, rows.length) + rows.map(renderRosterRow).join(""); return; }
+      // Cap line over the position's non-taxi players in this view (IR included), as before the IR / Taxi split.
+      let posSal = 0, nNonTaxi = 0, irN = 0;
+      players.forEach(function (p) {
+        if (keyOf(p) !== sec.key || p.isTaxi) return;
+        posSal += currentCapHit(p); nNonTaxi += 1; if (p.isIr) irN += 1;
+      });
       const avg = nNonTaxi ? Math.round(posSal / nNonTaxi / 100) * 100 : 0;
-      const rankable = single && order.indexOf(k) >= 0;
-      const count = nNonTaxi + " player" + (nNonTaxi === 1 ? "" : "s") + (taxiN ? " · " + taxiN + " taxi" : "");
+      const rankable = single && sec.key !== "Other";
+      const count = nNonTaxi + " player" + (nNonTaxi === 1 ? "" : "s") + (irN ? " (" + irN + " on IR)" : "");
       const extra =
-        ' <span class="fo-group-sal">' + escapeHtml(fmtUSD(posSal)) + "</span>" + rankPill(rankable ? positionAllocRank(k, STATE.selectedTeamId) : null) +
-        ' <span class="fo-group-avg">' + escapeHtml(fmtUSD(avg) + "/player") + "</span>" + rankPill(rankable ? positionAvgRank(k, STATE.selectedTeamId) : null);
-      html += '<tr class="fo-group-row"><td colspan="13"><span class="fo-pos ' + escapeHtml(k) + '">' + escapeHtml(k) +
-              '</span> <span class="small">' + count + "</span>" + extra + "</td></tr>";
-      html += rows.map(renderRosterRow).join("");
+        ' <span class="fo-group-sal">' + escapeHtml(fmtUSD(posSal)) + "</span>" + rankPill(rankable ? positionAllocRank(sec.key, STATE.selectedTeamId) : null) +
+        ' <span class="fo-group-avg">' + escapeHtml(fmtUSD(avg) + "/player") + "</span>" + rankPill(rankable ? positionAvgRank(sec.key, STATE.selectedTeamId) : null);
+      html += sectionHeadHtml(sec.key, sec.label, count, extra) + rows.map(renderRosterRow).join("");
     });
     return html;
   }
@@ -4139,7 +4154,7 @@
       tbody.innerHTML = '<tr><td colspan="13" class="fo-table-empty">No players match the current filters.</td></tr>';
       return;
     }
-    tbody.innerHTML = STATE.groupByPosition ? renderGroupedRows(sorted) : sorted.map(renderRosterRow).join("");
+    tbody.innerHTML = STATE.groupByPosition ? renderGroupedRows(sorted) : renderStatusRows(sorted);
     // The Performance column set (fo_roster.js, #1338) shows the same filtered rows.
     try { document.dispatchEvent(new CustomEvent("fo:roster")); } catch (e) {}
 
@@ -4159,8 +4174,18 @@
     });
   }
 
+  // The player cell: the SAME markup as Roster → Performance and Schedule (fo_hub.js playerCell; Keith 2026-10-28: the chips
+  // must match): name button, the shared injury chip, the news flag, then "POS · NFL team" (· franchise when every team is shown).
+  // A click on the name still reaches this row's own handler (the slide-over), as before.
+  function rosterPlayerCell(p) {
+    const H = window.UPS_FO_HUB;
+    const chip = injuryChipHtml(p).replace(/^ /, "");
+    if (H && H.playerCell) return H.playerCell(p, { multi: STATE.selectedTeamId === "__all__", chip: chip, news: newsFlagBadge(p.id) });
+    return '<button type="button" class="fo-plink">' + escapeHtml(p.name) + "</button>" + chip + newsFlagBadge(p.id) +
+      '<div class="fo-muted fo-perf-sub">' + escapeHtml(p.position) + " · " + escapeHtml(p.nflTeam || "—") + "</div>";
+  }
+
   function renderRosterRow(p) {
-    const pos = posBucket(p.position);
     // ── "MFL has not said" ────────────────────────────────────────────
     // A brand-new waiver/FCFS award arrives with a SALARY and nothing else —
     // MFL leaves contractStatus / contractYear / contractInfo empty until the
@@ -4236,10 +4261,7 @@
 
     return `
       <tr data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">
-        <td>
-          <div>${escapeHtml(p.name)}${injuryChipHtml(p)}${newsFlagBadge(p.id)}</div>
-          <div class="small"><span class="fo-pos ${escapeHtml(pos)}">${escapeHtml(p.position)}</span> · ${escapeHtml(p.nflTeam || "FA")}</div>
-        </td>
+        <td class="fo-perf-player">${rosterPlayerCell(p)}</td>
         <td class="col-md">${escapeHtml(p.franchise)}</td>
         <td><span class="fo-ctype ${ctype}">${escapeHtml(ctypeLabel)}</span></td>
         <td class="num col-md">${unknownContract ? pendingCell : (tcv > 0 ? fmtUSD(tcv) : "—")}</td>

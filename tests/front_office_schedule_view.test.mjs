@@ -39,7 +39,7 @@ test("no D1, no write, no forecast wording in the new code", () => {
 test("players are rows and league weeks are columns; Next 5 is a fixed five-week grid; Rest of season is ONE sideways-scrolling grid with the player column pinned", () => {
   const body = code(RO), css = read("site/rosters/v2/front_office.css");
   t.ok(/'<th scope="col" class="num" title="League week ' \+ w \+ '">W' \+ w/.test(body), "week columns are headed W8, W9, …");
-  t.ok(/'<th scope="row" class="fo-sched-who">'/.test(body), "a player's name heads his row");
+  t.ok(/'<th scope="row" class="fo-sched-who fo-perf-player">' \+ H\.playerCell\(p, \{ multi: multi \}\)/.test(body), "a player's name heads his row (the shared Roster → Players player cell)");
   t.ok(!/P\.chunk|schedBlock/.test(body), "no repeated five-week blocks");
   t.ok(/var scroll = sched\.mode === "rest";/.test(body) && /schedGrid\(wl\.weeks, items, multi, FO\.groupByPosition\(\), scroll\)/.test(body), "one grid over all remaining weeks, scrolling only in rest mode");
   t.ok(/fo-sched-scroll" tabindex="0" role="region" aria-label="[^"]*swipe sideways/.test(body), "a focusable, labelled scroll region that says it swipes");

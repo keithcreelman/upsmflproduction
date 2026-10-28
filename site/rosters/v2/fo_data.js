@@ -114,6 +114,16 @@
     });
   };
 
+  // ONE league-wide answer for Roster → Performance's Start / Boom / Bust: the worker's existing starter-pool model
+  // (worker/src/starter_rates.js, the route the phone's Stats → Boom/Bust reads). No group and no player parameter, so it is
+  // one request per visit, never one per player or per position.
+  SOURCES.starterRates = function () {
+    return getJson(worker("/api/player-starter-rates", { season: cfg.season })).then(function (j) {
+      if (!j || j.ok !== true || !j.players || typeof j.players !== "object") throw new Error("starter rates unreadable");
+      return j;
+    });
+  };
+
   function emit(key) {
     (listeners[key] || []).concat(listeners["*"] || []).forEach(function (fn) { try { fn(entries[key], key); } catch (e) {} });
   }
