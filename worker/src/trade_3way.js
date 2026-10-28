@@ -379,15 +379,20 @@ async function mflExportViaKey(env, leagueId, year, type) {
 
 /**
  * CREATE gate for players (rulings 2/3, 2026-10-28): staged two-team and three-team create refuse a provisional tag, an expired
- * veteran and an expired rookie after the extension deadline, exactly as the accept does. Reads MFL rosters only when a player is
- * in the movements; an unreadable roster or tag source refuses (503). { ok:true } | { ok:false, http, code, message, violations }.
+ * veteran and an expired rookie after the extension deadline (409 player_not_tradeable), exactly as the accept does. Reads MFL rosters
+ * only when a player is in the movements. An UNREADABLE source does not block creating (the same create-time convention as the
+ * loaded-contract and cap checks here: a data outage never stops proposing). Nothing executes without the accept / execute gate,
+ * assetIntegrityGate, which re-judges every player and HOLDS the trade when a source can't be read (fail closed there).
+ * { ok:true, unverified? } | { ok:false, http:409, code, message, violations }.
  */
 export async function createEligibilityGate(env, { leagueId, season, movements }) {
   const byFranchise = mflTokensBySender(movements || []);
   if (!Object.values(byFranchise).flat().some((t) => /^\d+$/.test(t))) return { ok: true };
   const rosterRes = await mflExportViaKey(env, safeStr(leagueId), safeStr(season), "rosters");
-  if (!rosterRes.ok) return { ok: false, http: 503, code: "trade_eligibility_unavailable", message: INTEGRITY_UNAVAILABLE_MSG, violations: [] };
-  return playerEligibilityGate({ db: env && env.UPS_MFL_DB, leagueId: safeStr(leagueId), season: safeStr(season), nowMs: eligibilityNowMs(env), byFranchise, rosters: indexRosters(rosterRes.data) });
+  if (!rosterRes.ok) return { ok: true, unverified: "rosters_unreadable" };
+  const g = await playerEligibilityGate({ db: env && env.UPS_MFL_DB, leagueId: safeStr(leagueId), season: safeStr(season), nowMs: eligibilityNowMs(env), byFranchise, rosters: indexRosters(rosterRes.data) });
+  if (!g.ok && g.http === 503) return { ok: true, unverified: g.code, violations: g.violations };
+  return g;
 }
 
 /**

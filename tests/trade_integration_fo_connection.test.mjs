@@ -106,20 +106,33 @@ test("history read OK: the builder reads the worker's real /trade-workbench and 
   t.equal(mfl.st.imports.length, 0, "no MFL write");
 });
 
-// KNOWN GAP found by this integration (2026-10-28, reported on the integration drafts, not fixed here): the compliance-preview route calls
-// compliance with offerCreatedAtUtc: null (worker/src/index.js), so the extension check's "restructured since the offer" fact is null and every
-// probe comes back refused as authority_unavailable:restructure_history. Against the REAL worker the #1416 badge/choices therefore never appear
-// (they fail closed, never open). #1416's own test used canned "accepted" answers. When the server side is fixed, this test must change with it.
-test("KNOWN GAP: the real preview refuses every extension probe (restructure_history unavailable), so the builder shows no options", async () => {
+// The gap this integration found (2026-10-28) is FIXED: the compliance-preview route used to pass offerCreatedAtUtc: null, so the
+// "restructured since the offer" fact was null and every probe came back authority_unavailable:restructure_history. An unsent draft
+// is now judged AS OF NOW (worker/src/index.js compliance-preview), so a valid first extension is confirmed by the real handler.
+test("FIXED GAP: the real preview confirms a valid first extension (restructure history read as of now), and the builder shows its options", async () => {
   const { env, mfl } = worker({ history: "ok" });
   const fo = frontOffice(env);
   const it = item("0001", "0002", FIRST);
   const shown = await settle(fo, it);
   const probe = fo.exchanges.find((x) => x.method === "POST");
+  t.equal(JSON.stringify(probe.json.compliance.extension_skipped), "[]", "no refusal: the restructure history was read");
+  t.ok(!probe.json.verdict.reasons.some((r) => r.code === "extension_unverified"), "the verdict no longer flags the extension as unverified");
+  t.equal(JSON.stringify(fo.C.probeResult(probe.json, "14056")), JSON.stringify({ confirmed: true, reason: "" }));
+  t.ok(shown.length > 0, "the 1- and 2-year choices appear");
+  t.ok(shown.every((o) => /^(1YR|2YR)\|/.test(o.option_key)), JSON.stringify(shown.map((o) => o.option_key)));
+  t.equal(probe.json.verdict.send_ready, false, "a preview never promises a send");
+  t.equal(mfl.st.imports.length, 0, "no MFL write");
+});
+
+test("still fail closed: an UNREADABLE restructure history refuses the probe (authority_unavailable:restructure_history), and nothing is shown", async () => {
+  const { env, mfl } = worker({ history: "ok" });
+  env.UPS_MFL_DB.raw.exec("DROP TABLE ups_restructure_submissions");
+  const fo = frontOffice(env);
+  const it = item("0001", "0002", FIRST);
+  const shown = await settle(fo, it);
+  const probe = fo.exchanges.find((x) => x.method === "POST");
   t.equal(JSON.stringify(probe.json.compliance.extension_skipped), JSON.stringify([{ player_id: "14056", reason: "authority_unavailable:restructure_history" }]));
-  t.equal(probe.json.verdict.status, "unavailable", "the verdict says the extension is unverified, never a pass");
-  t.ok(probe.json.verdict.reasons.some((r) => r.code === "extension_unverified"));
-  t.equal(JSON.stringify(fo.C.probeResult(probe.json, "14056")), JSON.stringify({ confirmed: false, reason: "authority_unavailable:restructure_history" }));
+  t.equal(probe.json.verdict.status, "unavailable");
   t.equal(shown.length, 0, "fails closed: no options");
   t.equal(mfl.st.imports.length, 0);
 });
