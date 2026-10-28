@@ -36,7 +36,7 @@ import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
 import { normalizeToken, indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations, expiredRookiePids } from "./trade_accept_integrity.js";
-import { playerEligibilityGate, extensionYear1ByPlayer, priorSalariesFromExport } from "./trade_asset_eligibility.js";
+import { playerEligibilityGate, extensionYear1ByPlayer, priorSalariesFromExport, ELIGIBILITY_UNAVAILABLE_MSG } from "./trade_asset_eligibility.js";
 import { capMoneyBasisDollars } from "./trade_rules.js";
 import { capMoneyMaxK } from "./trade_rules.js";
 
@@ -380,19 +380,17 @@ async function mflExportViaKey(env, leagueId, year, type) {
 /**
  * CREATE gate for players (rulings 2/3, 2026-10-28): staged two-team and three-team create refuse a provisional tag, an expired
  * veteran and an expired rookie after the extension deadline (409 player_not_tradeable), exactly as the accept does. Reads MFL rosters
- * only when a player is in the movements. An UNREADABLE source does not block creating (the same create-time convention as the
- * loaded-contract and cap checks here: a data outage never stops proposing). Nothing executes without the accept / execute gate,
- * assetIntegrityGate, which re-judges every player and HOLDS the trade when a source can't be read (fail closed there).
- * { ok:true, unverified? } | { ok:false, http:409, code, message, violations }.
+ * only when a player is in the movements. NO FAIL-OPEN (integrator ruling on #1429): an UNREADABLE roster or tag source refuses too
+ * (503 trade_eligibility_unavailable), the same as two-team direct create; nothing is stored. The accept / execute gate
+ * (assetIntegrityGate) still re-judges every player and holds the trade when a source can't be read then.
+ * { ok:true } | { ok:false, http, code, message, violations }.
  */
 export async function createEligibilityGate(env, { leagueId, season, movements }) {
   const byFranchise = mflTokensBySender(movements || []);
   if (!Object.values(byFranchise).flat().some((t) => /^\d+$/.test(t))) return { ok: true };
   const rosterRes = await mflExportViaKey(env, safeStr(leagueId), safeStr(season), "rosters");
-  if (!rosterRes.ok) return { ok: true, unverified: "rosters_unreadable" };
-  const g = await playerEligibilityGate({ db: env && env.UPS_MFL_DB, leagueId: safeStr(leagueId), season: safeStr(season), nowMs: eligibilityNowMs(env), byFranchise, rosters: indexRosters(rosterRes.data) });
-  if (!g.ok && g.http === 503) return { ok: true, unverified: g.code, violations: g.violations };
-  return g;
+  if (!rosterRes.ok) return { ok: false, http: 503, code: "trade_eligibility_unavailable", message: ELIGIBILITY_UNAVAILABLE_MSG, violations: [] };
+  return playerEligibilityGate({ db: env && env.UPS_MFL_DB, leagueId: safeStr(leagueId), season: safeStr(season), nowMs: eligibilityNowMs(env), byFranchise, rosters: indexRosters(rosterRes.data) });
 }
 
 /**

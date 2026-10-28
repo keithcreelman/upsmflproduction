@@ -233,6 +233,31 @@ test("CREATE (three-team, /api/trades/3way): an expired veteran is refused 409 p
   t.equal(mfl.writes().length, 0);
 });
 
+// NO FAIL-OPEN (integrator ruling on #1429): an unreadable source refuses staged and three-team create too, like two-team direct create.
+const STAGED_BODY = { league_id: "74598", season: "2026", from: { fid: "0001" }, to: { fid: "0002" },
+  movements: [{ from: "0001", to: "0002", asset_tokens: ["P_14056"], cap_k: 0 }, { from: "0002", to: "0001", asset_tokens: ["P_13100"], cap_k: 0 }] };
+const THREE_BODY = { league_id: "74598", season: "2026", initiator: { fid: "0001", name: "x" }, team_b: { fid: "0002", name: "y" }, team_c: { fid: "0012", name: "z" },
+  movements: [{ from: "0001", to: "0002", asset_tokens: ["P_14056"], cap_k: 0 }, { from: "0002", to: "0012", asset_tokens: ["P_13100"], cap_k: 0 }, { from: "0012", to: "0001", asset_tokens: ["P_16181"], cap_k: 0 }] };
+for (const [what, breakIt] of [["the tag source (before the deadline)", (env) => env.UPS_MFL_DB.raw.exec("DROP TABLE ups_tag_master")], ["MFL's rosters export", (env, mfl) => { mfl.st.exportFail = { rosters: 502 }; }]]) {
+  test(`CREATE (staged two-team): ${what} unreadable → 503 trade_eligibility_unavailable, nothing staged, no MFL write`, async () => {
+    const { env, mfl } = fresh({ now: MAY, migrations: STAGED, env: { TRADE_2WAY_STAGING_ENABLED: "1" } });
+    breakIt(env, mfl);
+    const r = await callWorker(env, "POST", `/api/trades/2way?MFL_USER_ID=tok-B`, { body: STAGED_BODY });
+    t.equal(r.status, 503, r.text.slice(0, 300)); t.equal(r.json.code, "trade_eligibility_unavailable");
+    t.equal(env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_2way_trades").get().n, 0);
+    t.equal(mfl.writes().length, 0); t.equal(mfl.st.discord.filter((d) => /\/messages$/.test(d.url)).length, 0, "nobody was messaged");
+  });
+  test(`CREATE (three-team): ${what} unreadable → 503 trade_eligibility_unavailable, nothing stored, no MFL write`, async () => {
+    const { env, mfl } = fresh({ now: MAY });
+    mfl.st.rosters["0012"] = [flat("16181")];
+    breakIt(env, mfl);
+    const r = await callWorker(env, "POST", `/api/trades/3way?MFL_USER_ID=tok-B`, { body: THREE_BODY });
+    t.equal(r.status, 503, r.text.slice(0, 300)); t.equal(r.json.code, "trade_eligibility_unavailable");
+    t.equal(env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_3way_trades").get().n, 0);
+    t.equal(mfl.writes().length, 0); t.equal(mfl.st.discord.filter((d) => /\/messages$/.test(d.url)).length, 0, "nobody was messaged");
+  });
+}
+
 // ── /trade-workbench carries the tag states the War Room and the Front Office read ──
 test("/trade-workbench: each player carries tag_state (provisional / early_locked), and meta.tag_status says the source was read", async () => {
   const { env } = fresh({ now: MAY, p14056: TAG });
