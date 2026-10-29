@@ -8258,6 +8258,33 @@ export default {
         console.error(`[scheduled */5] lineup booking dispatch failed: ${e?.message || String(e)}`);
       }
 
+      // ── TRADED-SALARY SETTLEMENT SWEEP (Keith 2026-10-06; every 5 min since 2026-10-29) ──
+      // Settles the cap money on trades accepted on MFL's own site (the War Room
+      // only settles its own accepts). MFL has no trade webhook, so polling is the
+      // trigger; it ran hourly, which left a native trade unsettled for up to ~90
+      // min (cTown <-> Gride, 2026-10-29). Every 5 min is cheap: the route makes two
+      // MFL reads and no D1 write when nothing is owed. It is idempotent (a D1 claim
+      // per trade) and fails closed; the flag off answers flag_off. The 5-minute
+      // grace (TRADE_SETTLEMENT_SWEEP_GRACE_SEC) still lets a War Room accept
+      // settle its own trade first.
+      try {
+        const tsSeason = await _tickSeason("trade settlement sweep");
+        const tsLeague = String(env.LEAGUE_ID || "74598");
+        const tsKey = String(env.COMMISH_API_KEY || "").trim();
+        if (tsKey && env.SELF && env.UPS_MFL_DB) {
+          ctx.waitUntil((async () => {
+            try {
+              if (!(await getFeatureFlag(env, "TRADE_SETTLEMENT_SWEEP_ENABLED"))) return;
+              const r = await env.SELF.fetch(`https://self.invalid/admin/trades/settlement-sweep?L=${tsLeague}&YEAR=${tsSeason}&APIKEY=${encodeURIComponent(tsKey)}`, {
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season: tsSeason, league_id: tsLeague }),
+              });
+              const d = await r.json().catch(() => ({}));
+              if (d && (d.posted || (d.results && d.results.length) || d.ok === false)) console.log("[settlement-sweep]", JSON.stringify(d).slice(0, 600));
+            } catch (e) { console.log("[settlement-sweep] failed:", String(e?.message || e)); }
+          })());
+        }
+      } catch (e) { if (e && e.seasonUnresolved) console.error(`[scheduled */5] settlement sweep: ${e.message}`); /* a sweep fault must never break the 5-minute tick */ }
+
       return; // jobs dispatched on the */5 tick
     }
 
@@ -8348,30 +8375,6 @@ export default {
       console.log(`[scheduled] unknown cron trigger: "${cronTrigger}"`);
       return;
     }
-
-    // ── TRADED-SALARY SETTLEMENT SWEEP (Keith 2026-10-06) ──────────────────
-    // Settles the cap money on trades accepted on MFL's own site (the War Room
-    // only settles its own accepts). The route is idempotent (a D1 claim per
-    // trade) and fails closed; with the flag off it answers flag_off and does
-    // nothing. Hourly is enough: the route waits out a 30-minute grace so a
-    // War Room accept always settles its own trade first.
-    try {
-      const tsSeason = await _tickSeason("trade settlement sweep");
-      const tsLeague = String(env.LEAGUE_ID || "74598");
-      const tsKey = String(env.COMMISH_API_KEY || "").trim();
-      if (tsKey && env.SELF && env.UPS_MFL_DB) {
-        ctx.waitUntil((async () => {
-          try {
-            if (!(await getFeatureFlag(env, "TRADE_SETTLEMENT_SWEEP_ENABLED"))) return;
-            const r = await env.SELF.fetch(`https://self.invalid/admin/trades/settlement-sweep?L=${tsLeague}&YEAR=${tsSeason}&APIKEY=${encodeURIComponent(tsKey)}`, {
-              method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ season: tsSeason, league_id: tsLeague }),
-            });
-            const d = await r.json().catch(() => ({}));
-            if (d && (d.posted || (d.results && d.results.length) || d.ok === false)) console.log("[settlement-sweep]", JSON.stringify(d).slice(0, 600));
-          } catch (e) { console.log("[settlement-sweep] failed:", String(e?.message || e)); }
-        })());
-      }
-    } catch (e) { if (e && e.seasonUnresolved) console.error(`[scheduled hourly] settlement sweep: ${e.message}`); /* a sweep fault must never break the hourly cron */ }
 
     // ── TRADE IDEMPOTENCY PURGE (P0 S6) ──────────────────────────────────────
     // Keys only need to outlive a double tap / a retry; rows older than 14 days go. One range DELETE on the created_at index (rows read ≈
@@ -53646,7 +53649,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       // moved cap money (BB_) but has no settlement on MFL — the case where a
       // War Room offer was ACCEPTED ON MFL'S OWN SITE, or a trade was made
       // natively on MFL (Keith 2026-10-06: "make the worker auto-post
-      // settlements for trades accepted on MFL"). Run hourly by the cron when
+      // settlements for trades accepted on MFL"). Run every 5 min by the */5 cron when
       // TRADE_SETTLEMENT_SWEEP_ENABLED is on; dry_run works with the flag off.
       //   - What is owed comes from MFL's TRADE ledger (the executed BB_ net);
       //     what is settled from MFL's own salaryAdjustments
@@ -53680,21 +53683,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const tsGrace = Math.max(300, safeInt(env.TRADE_SETTLEMENT_SWEEP_GRACE_SEC, 1800));
         const tsNow = Math.floor(Date.now() / 1000);
 
-        const [tsTxRes, tsAdjRes, tsLeagueRes] = await Promise.all([
+        const [tsTxRes, tsAdjRes] = await Promise.all([
           mflExportJson(tsSeason, tsLeague, "transactions", { TRANS_TYPE: "TRADE" }, { useCookie: true }),
           mflExportJson(tsSeason, tsLeague, "salaryAdjustments", {}, { useCookie: true }),
-          mflExportJson(tsSeason, tsLeague, "league", {}, { useCookie: true }),
         ]);
         // An unreadable feed is not an empty one: "no settlement found" read off
         // a failed export would post money twice.
         if (!tsTxRes.ok || !tsAdjRes.ok) {
           return jsonOut(200, { ok: false, error: "mfl_unreadable", transactions_ok: !!tsTxRes.ok, salary_adjustments_ok: !!tsAdjRes.ok, posted: 0 });
         }
-        const tsNames = {};
-        let tsFl = tsLeagueRes.ok && tsLeagueRes.data?.league?.franchises?.franchise;
-        tsFl = Array.isArray(tsFl) ? tsFl : (tsFl ? [tsFl] : []);
-        for (const f of tsFl) { const fid = padFranchiseId(f && f.id); if (fid) tsNames[fid] = safeStr(f && f.name) || `Team ${fid}`; }
-        const tsName = (fid) => tsNames[fid] || `Team ${fid}`;
         const tsReadAdj = (res) => {
           const root = res.data?.salaryAdjustments || res.data?.salaryadjustments || {};
           let rows = root.salaryAdjustment || root.salary_adjustment;
@@ -53710,6 +53707,16 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           trades: tsTrades, posted: tsPosted, sinceUnix: tsSince, nowUnix: tsNow, graceSec: tsGrace,
         });
 
+        const tsNames = {};
+        // Team names are only needed to describe a post, a problem or a dry run, so the
+        // league export (the third MFL read) is skipped on the common nothing-to-do tick.
+        const tsRoutine = ["already_settled", "in_grace", "before_cutoff", "three_way_engine", "partially_settled_commish_hold"];
+        const tsNeedsNames = tsDry || tsPlans.length > 0 || tsSkipped.some((x) => !tsRoutine.includes(x.reason) && Number(x.unix) >= tsSince);
+        const tsLeagueRes = tsNeedsNames ? await mflExportJson(tsSeason, tsLeague, "league", {}, { useCookie: true }) : { ok: false };
+        let tsFl = tsLeagueRes.ok && tsLeagueRes.data?.league?.franchises?.franchise;
+        tsFl = Array.isArray(tsFl) ? tsFl : (tsFl ? [tsFl] : []);
+        for (const f of tsFl) { const fid = padFranchiseId(f && f.id); if (fid) tsNames[fid] = safeStr(f && f.name) || `Team ${fid}`; }
+        const tsName = (fid) => tsNames[fid] || `Team ${fid}`;
         // War Room refs for the plans (best-effort; a native trade has none).
         let tsOutbox = [];
         if (tsPlans.length) {
@@ -53740,7 +53747,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           };
         });
         // Skips a human must look at (vs. routine: settled / grace / cutoff / 3-way).
-        const tsAttention = tsSkipped.filter((x) => !["already_settled", "in_grace", "before_cutoff", "three_way_engine", "partially_settled_commish_hold"].includes(x.reason))
+        const tsAttention = tsSkipped.filter((x) => !tsRoutine.includes(x.reason))
           .filter((x) => Number(x.unix) >= tsSince)
           .map((x) => ({ trade_key: `${x.unix}:${[x.trade.a, x.trade.b].sort().join("-")}`, traded_at_iso: tsIso(x.unix), teams: x.teams.map((f) => ({ franchise_id: f, franchise_name: tsName(f) })), reason: x.reason, net: x.net == null ? null : x.net }));
         const tsSkipCounts = {};
@@ -53748,6 +53755,11 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         if (tsDry) {
           return jsonOut(200, { ok: true, dry_run: true, flag_enabled: tsEnabled, since_unix: tsSince, grace_sec: tsGrace,
             would_post: tsPlanOut, needs_attention: tsAttention, skipped_counts: tsSkipCounts });
+        }
+
+        // Nothing owed and nothing for a human: no D1 statement at all (this runs every 5 min).
+        if (!tsPlanOut.length && !tsAttention.length) {
+          return jsonOut(200, { ok: true, dry_run: false, posted: 0, results: [], skipped_counts: tsSkipCounts });
         }
 
         await env.UPS_MFL_DB.prepare(
