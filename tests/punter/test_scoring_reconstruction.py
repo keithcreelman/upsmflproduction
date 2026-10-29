@@ -33,3 +33,12 @@ class Reconstruction(unittest.TestCase):
             x = d.filter(pl.col("season") == s)
             self.assertGreaterEqual((x["diff"].abs() < 0.01).mean(), 0.80, "season %d reconstruction materially wrong" % s)
 if __name__ == "__main__": unittest.main()
+
+class UnpostedWeeks(unittest.TestCase):
+    @need("punter_games.parquet")
+    def test_mfl_unposted_week_is_missing_not_zero(self):
+        import pandas as pd
+        d = pd.read_parquet(os.path.join(P, "punter_games.parquet"))
+        wk = d.groupby(["season", "week"]).mfl_points.agg(lambda s: s.notna().sum())
+        sums = d.groupby(["season", "week"]).mfl_points.sum(min_count=1)
+        self.assertFalse(((sums == 0) & (wk > 0)).any(), "a week of all-zero MFL scores was treated as real shutouts")

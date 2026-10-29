@@ -1,0 +1,489 @@
+{
+ "components_2024": {
+  "punt_attempts": {
+   "model": {
+    "n": 503,
+    "rmse": 1.6612406264055821,
+    "mae": 1.3423127899271041,
+    "r2": 0.0729026430074976,
+    "bias": 0.17746056991385023,
+    "pearson": 0.2908122438427486
+   },
+   "last-4-games average": {
+    "n": 503,
+    "rmse": 1.755478791031197,
+    "mae": 1.4278831690869456,
+    "r2": -0.03526475708293453,
+    "bias": 0.22279767541726608,
+    "pearson": 0.15631451519869977
+   },
+   "league mean": {
+    "n": 503,
+    "rmse": 1.806300971400783,
+    "mae": 1.4842404900739106,
+    "r2": -0.09607554229956827,
+    "bias": 0.5347814004557752,
+    "pearson": NaN
+   }
+  },
+  "inside20_count": {
+   "model": {
+    "n": 503,
+    "rmse": 1.2011501845520185,
+    "mae": 0.9667859509609013,
+    "r2": -0.0011456269253997675,
+    "bias": -0.10516898608349899,
+    "pearson": 0.11624119702072076
+   },
+   "league rate x actual punts (skill-free, oracle volume)": {
+    "n": 503,
+    "rmse": 1.0021403853199686,
+    "mae": 0.7948306558035972,
+    "r2": 0.3031171798226382,
+    "bias": -0.20216532188783723,
+    "pearson": 0.5782877559533102
+   },
+   "league mean count": {
+    "n": 503,
+    "rmse": 1.2004840845858444,
+    "mae": 0.9959518351273087,
+    "r2": -3.556063767740092e-05,
+    "bias": -0.007158688334789685,
+    "pearson": NaN
+   }
+  },
+  "gross_average": {
+   "model": {
+    "n": 503,
+    "rmse": 5.666770283935281,
+    "mae": 4.298584145560395,
+    "r2": 0.08149835329153077,
+    "bias": 0.2977993300356785,
+    "pearson": 0.2916209783822336
+   },
+   "punter career-shrunk average (pk_gross)": {
+    "n": 503,
+    "rmse": 5.879637673646793,
+    "mae": 4.5039729346328485,
+    "r2": 0.011196826640182844,
+    "bias": -1.0322153448065863,
+    "pearson": 0.21013038887105173
+   },
+   "league mean": {
+    "n": 503,
+    "rmse": 6.1350394839054605,
+    "mae": 4.762801398641704,
+    "r2": -0.07657291101871566,
+    "bias": -1.6361880522801817,
+    "pearson": NaN
+   }
+  },
+  "i20_calibration": [
+   {
+    "mean_pred": 0.3434,
+    "observed": 0.3989,
+    "punts": 371.0
+   },
+   {
+    "mean_pred": 0.3609,
+    "observed": 0.4188,
+    "punts": 394.0
+   },
+   {
+    "mean_pred": 0.3726,
+    "observed": 0.3656,
+    "punts": 372.0
+   },
+   {
+    "mean_pred": 0.3833,
+    "observed": 0.5051,
+    "punts": 392.0
+   },
+   {
+    "mean_pred": 0.4017,
+    "observed": 0.3955,
+    "punts": 397.0
+   }
+  ],
+  "points_calibration_deciles": [
+   {
+    "dec": 0,
+    "projected": 5.797,
+    "actual": 6.402,
+    "n": 51
+   },
+   {
+    "dec": 1,
+    "projected": 6.297,
+    "actual": 7.01,
+    "n": 50
+   },
+   {
+    "dec": 2,
+    "projected": 6.594,
+    "actual": 6.6,
+    "n": 50
+   },
+   {
+    "dec": 3,
+    "projected": 6.842,
+    "actual": 7.672,
+    "n": 50
+   },
+   {
+    "dec": 4,
+    "projected": 7.088,
+    "actual": 7.79,
+    "n": 51
+   },
+   {
+    "dec": 5,
+    "projected": 7.342,
+    "actual": 8.732,
+    "n": 50
+   },
+   {
+    "dec": 6,
+    "projected": 7.612,
+    "actual": 7.66,
+    "n": 50
+   },
+   {
+    "dec": 7,
+    "projected": 7.982,
+    "actual": 7.3,
+    "n": 50
+   },
+   {
+    "dec": 8,
+    "projected": 8.581,
+    "actual": 9.404,
+    "n": 50
+   },
+   {
+    "dec": 9,
+    "projected": 9.54,
+    "actual": 8.737,
+    "n": 51
+   }
+  ],
+  "coverage": {
+   "below_p10": 0.0636182902584493,
+   "below_p50": 0.4135188866799205,
+   "below_p90": 0.8667992047713717,
+   "nominal": [
+    0.1,
+    0.5,
+    0.9
+   ]
+  }
+ },
+ "components_2025": {
+  "punt_attempts": {
+   "model": {
+    "n": 500,
+    "rmse": 1.5908167443172074,
+    "mae": 1.2902926666666668,
+    "r2": 0.1058666130099043,
+    "bias": 0.09263133333333334,
+    "pearson": 0.330954131634325
+   },
+   "last-4-games average": {
+    "n": 500,
+    "rmse": 1.7312693276806732,
+    "mae": 1.4288701146492608,
+    "r2": -0.05898857413674219,
+    "bias": 0.3051263767372295,
+    "pearson": 0.09523965377938165
+   },
+   "league mean": {
+    "n": 500,
+    "rmse": 1.827399381054308,
+    "mae": 1.5374508261211641,
+    "r2": -0.17985585382006541,
+    "bias": 0.7134791502753736,
+    "pearson": NaN
+   }
+  },
+  "inside20_count": {
+   "model": {
+    "n": 500,
+    "rmse": 1.1457279501599749,
+    "mae": 0.9277673333333334,
+    "r2": -0.004659817188511273,
+    "bias": 7.533333333334013e-05,
+    "pearson": 0.07053633948072269
+   },
+   "league rate x actual punts (skill-free, oracle volume)": {
+    "n": 500,
+    "rmse": 0.9922272276708124,
+    "mae": 0.7944309798638169,
+    "r2": 0.24650860449584877,
+    "bias": -0.0849926810617923,
+    "pearson": 0.5035163302133494
+   },
+   "league mean count": {
+    "n": 500,
+    "rmse": 1.1568159107716505,
+    "mae": 0.9728544453186467,
+    "r2": -0.024199414217653592,
+    "bias": 0.1778174665617624,
+    "pearson": NaN
+   }
+  },
+  "gross_average": {
+   "model": {
+    "n": 499,
+    "rmse": 5.704735609357084,
+    "mae": 4.371445024402066,
+    "r2": 0.054356997129452744,
+    "bias": 0.1297565228372422,
+    "pearson": 0.23432130872211737
+   },
+   "punter career-shrunk average (pk_gross)": {
+    "n": 499,
+    "rmse": 5.8394105301867665,
+    "mae": 4.536789955781976,
+    "r2": 0.009181315375983434,
+    "bias": -0.8838615519952017,
+    "pearson": 0.1895068982047027
+   },
+   "league mean": {
+    "n": 499,
+    "rmse": 6.015609506163345,
+    "mae": 4.677861854815899,
+    "r2": -0.05151493224472281,
+    "bias": -1.331491754252864,
+    "pearson": NaN
+   }
+  },
+  "i20_calibration": [
+   {
+    "mean_pred": 0.3515,
+    "observed": 0.3804,
+    "punts": 368.0
+   },
+   {
+    "mean_pred": 0.3734,
+    "observed": 0.3859,
+    "punts": 368.0
+   },
+   {
+    "mean_pred": 0.3836,
+    "observed": 0.396,
+    "punts": 351.0
+   },
+   {
+    "mean_pred": 0.3936,
+    "observed": 0.3923,
+    "punts": 362.0
+   },
+   {
+    "mean_pred": 0.4105,
+    "observed": 0.4056,
+    "punts": 355.0
+   }
+  ],
+  "points_calibration_deciles": [
+   {
+    "dec": 0,
+    "projected": 5.768,
+    "actual": 6.56,
+    "n": 50
+   },
+   {
+    "dec": 1,
+    "projected": 6.173,
+    "actual": 5.994,
+    "n": 50
+   },
+   {
+    "dec": 2,
+    "projected": 6.471,
+    "actual": 7.14,
+    "n": 50
+   },
+   {
+    "dec": 3,
+    "projected": 6.669,
+    "actual": 6.88,
+    "n": 50
+   },
+   {
+    "dec": 4,
+    "projected": 6.88,
+    "actual": 7.48,
+    "n": 50
+   },
+   {
+    "dec": 5,
+    "projected": 7.072,
+    "actual": 7.82,
+    "n": 50
+   },
+   {
+    "dec": 6,
+    "projected": 7.272,
+    "actual": 6.752,
+    "n": 50
+   },
+   {
+    "dec": 7,
+    "projected": 7.484,
+    "actual": 6.246,
+    "n": 50
+   },
+   {
+    "dec": 8,
+    "projected": 7.825,
+    "actual": 6.54,
+    "n": 50
+   },
+   {
+    "dec": 9,
+    "projected": 8.532,
+    "actual": 8.38,
+    "n": 50
+   }
+  ],
+  "coverage": {
+   "below_p10": 0.058,
+   "below_p50": 0.448,
+   "below_p90": 0.872,
+   "nominal": [
+    0.1,
+    0.5,
+    0.9
+   ]
+  }
+ },
+ "decision_cis_2024": {
+  "pairwise_win_rate_model": [
+   0.5495740093533189,
+   0.5250190117740784,
+   0.5749304687972134
+  ],
+  "pairwise_win_rate_EW_UPS_baseline": [
+   0.5363173582130936,
+   0.4999679972172844,
+   0.5708513310730966
+  ],
+  "pairwise_win_rate_model_minus_EW": [
+   0.01325665114022538,
+   -0.020709740403169485,
+   0.050816085567965616
+  ],
+  "rmse_improvement_vs_league_mean_pct": [
+   0.9455192938391542,
+   -0.02437611145204465,
+   1.986234398807104
+  ],
+  "rmse_improvement_vs_best_simple_pct": [
+   0.8394121105442216,
+   -0.33148339703854834,
+   1.9248966890202543
+  ],
+  "weekly_spearman_model": [
+   0.1410984476099082,
+   0.10282272499794175,
+   0.17472646572628767
+  ],
+  "win_rate_by_projected_difference": [
+   {
+    "proj_diff": "0-0.5",
+    "win_rate": 0.5204,
+    "pairs": 1837
+   },
+   {
+    "proj_diff": "0.5-1",
+    "win_rate": 0.5137,
+    "pairs": 1610
+   },
+   {
+    "proj_diff": "1-1.5",
+    "win_rate": 0.5631,
+    "pairs": 1220
+   },
+   {
+    "proj_diff": "1.5-2",
+    "win_rate": 0.5652,
+    "pairs": 805
+   },
+   {
+    "proj_diff": "2-3",
+    "win_rate": 0.6119,
+    "pairs": 938
+   },
+   {
+    "proj_diff": "3-99",
+    "win_rate": 0.6317,
+    "pairs": 315
+   }
+  ]
+ },
+ "decision_cis_2025": {
+  "pairwise_win_rate_model": [
+   0.5182503424484309,
+   0.486275954193488,
+   0.5553138184864775
+  ],
+  "pairwise_win_rate_EW_UPS_baseline": [
+   0.4875086279289415,
+   0.4235134153480928,
+   0.5367242791517779
+  ],
+  "pairwise_win_rate_model_minus_EW": [
+   0.03074171451948951,
+   -0.020185468035133554,
+   0.09853877773457498
+  ],
+  "rmse_improvement_vs_league_mean_pct": [
+   0.17050498056541266,
+   -1.0643974426017722,
+   1.5671801162408876
+  ],
+  "rmse_improvement_vs_best_simple_pct": [
+   0.16856749364971624,
+   -1.0643974426017722,
+   1.5671801162408876
+  ],
+  "weekly_spearman_model": [
+   0.05269417258040627,
+   -0.0038961793307496564,
+   0.09723135675394673
+  ],
+  "win_rate_by_projected_difference": [
+   {
+    "proj_diff": "0-0.5",
+    "win_rate": 0.4987,
+    "pairs": 2344
+   },
+   {
+    "proj_diff": "0.5-1",
+    "win_rate": 0.5085,
+    "pairs": 1892
+   },
+   {
+    "proj_diff": "1-1.5",
+    "win_rate": 0.5384,
+    "pairs": 1250
+   },
+   {
+    "proj_diff": "1.5-2",
+    "win_rate": 0.5533,
+    "pairs": 638
+   },
+   {
+    "proj_diff": "2-3",
+    "win_rate": 0.5882,
+    "pairs": 408
+   },
+   {
+    "proj_diff": "3-99",
+    "win_rate": 0.5745,
+    "pairs": 47
+   }
+  ]
+ },
+ "note_touchback": "nflverse punt_in_endzone flags only punts caught in the end zone (0.06% of punts); the model does not forecast touchbacks because UPS has no touchback scoring event"
+}

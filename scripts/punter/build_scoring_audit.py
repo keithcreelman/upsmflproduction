@@ -58,7 +58,24 @@ def load_mfl():
         for p in ps:
             rows.append((int(y), int(w), p["id"], float(p["score"] or 0)))
     b = pl.DataFrame(rows, schema=["season", "week", "mfl_id", "mfl_points"], orient="row") if rows else a.clear()
-    return pl.concat([a, b]).join(xw, on="mfl_id", how="left")
+    m = pl.concat([a, b])
+    # A week whose MFL punter scores sum to exactly 0 is a week MFL has not posted yet (e.g. 2026 Week 7 at pull time), not 32 shutouts.
+    tot = m.group_by(["season", "week"]).agg(t=pl.col("mfl_points").sum())
+    unposted = tot.filter(pl.col("t") == 0).select(["season", "week"]).with_columns(pl.lit(True).alias("unposted"))
+    m = m.join(unposted, on=["season", "week"], how="left").with_columns(
+        pl.when(pl.col("unposted").fill_null(False)).then(None).otherwise(pl.col("mfl_points")).alias("mfl_points")).drop("unposted")
+    return m.join(xw, on="mfl_id", how="left")
+
+def reason(r):
+    """Label why reconstructed points differ from MFL's official points."""
+    if r["in_mfl"] and not r["in_pbp"]:
+        return "benign: MFL has a 0.0 score for a punter with no punt in play-by-play" if (r["mfl_points"] or 0) == 0 else "MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)"
+    d = r["diff"]
+    if d is None or abs(d) < 0.01: return ""
+    if abs(d - round(d)) > 0.011: return "fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry"
+    d = int(round(d))
+    if d % 4 == 0: return "inside-20 count differs by %d between nflverse and MFL's stat feed" % (d // 4)
+    return "average-yards tier boundary or blocked-punt handling differs between feeds (diff %+d)" % d
 
 def main():
     os.makedirs(R, exist_ok=True)
@@ -80,7 +97,12 @@ def main():
     both = df.filter(pl.col("in_mfl") & pl.col("in_pbp"))
     summ = both.group_by("season").agg(n=pl.len(), exact=(pl.col("diff").abs() < 0.01).sum(),
                                       within1=(pl.col("diff").abs() <= 1.01).sum(), mean_abs=pl.col("diff").abs().mean()).sort("season")
+    df = df.with_columns(pl.struct(df.columns).map_elements(reason, return_dtype=pl.Utf8).alias("reason"))
+    diffrows = df.filter(pl.col("season") >= 2012).filter((pl.col("diff").abs() >= 0.01) | (pl.col("in_mfl") & ~pl.col("in_pbp")) & (pl.col("mfl_points") != 0)).sort(["season", "week", "player"])
+    diffrows.select(["season", "week", "player", "mfl_points", "recon_points", "diff", "reason"]).rename({"mfl_points": "MFL UPS points", "recon_points": "Reconstructed points", "diff": "Difference", "player": "Player", "season": "Season", "week": "Week", "reason": "Reason"}).write_csv(os.path.join(R, "scoring_audit_rows.csv"))
+    both.group_by("season").agg(n=pl.len(), exact=(pl.col("diff").abs() < 0.01).sum(), within1=(pl.col("diff").abs() <= 1.01).sum(), mean_abs=pl.col("diff").abs().mean()).sort("season").write_csv(os.path.join(R, "scoring_audit_by_season.csv"))
     print(summ)
+    print(df.filter(pl.col("season") >= 2012).group_by("reason").len().sort("len", descending=True))
     print("MFL rows with no pbp match:", df.filter(pl.col("in_mfl") & ~pl.col("in_pbp")).height,
           "| pbp rows with no MFL score:", df.filter(~pl.col("in_mfl") & pl.col("in_pbp")).height)
     return df, summ

@@ -1,0 +1,24 @@
+{
+ "created_utc": "2026-10-29T22:49:17+00:00",
+ "data_through_game_date": "2026-10-26",
+ "season": 2026,
+ "weeks": [
+  8,
+  9
+ ],
+ "sims_per_punter": 10000,
+ "git_head": "c798309a8a964f6e8c7dff24dc5a846d69662e0c",
+ "inputs_sha256_16": {
+  "team_features.parquet": "a44c5f033696a552",
+  "punter_games.parquet": "df408ab3fb0befdc",
+  "punter_state_current.parquet": "67a9f94984cdd5b3",
+  "punts.parquet": "fb39361103b3874d"
+ },
+ "notes": [
+  "Vegas lines: nflverse stored lines; weeks with no posted line use the no-Vegas model",
+  "forecast weather not stored: neutral outdoor weather",
+  "punter = last game's punter per team"
+ ],
+ "output": "projections_2026_wk08-09_20261029T224918Z.csv",
+ "output_sha256_16": "e43177292b60b917"
+}
