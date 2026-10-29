@@ -1,0 +1,5304 @@
+{
+ "2011": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": ".2/1",
+   "range": "1-50"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "3",
+   "range": "0-44"
+  },
+  {
+   "event": "FG",
+   "points": "6",
+   "range": "45-59"
+  },
+  {
+   "event": "FG",
+   "points": "8",
+   "range": "60-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "MG",
+   "points": "-3",
+   "range": "0-29"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "30-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*2",
+   "range": "0-20"
+  },
+  {
+   "event": "PNY",
+   "points": ".1/2",
+   "range": "0-999"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TSY",
+   "points": "-.1/1",
+   "range": "0-100"
+  }
+ ],
+ "2012": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": ".2/1",
+   "range": "1-50"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "3",
+   "range": "0-44"
+  },
+  {
+   "event": "FG",
+   "points": "6",
+   "range": "45-59"
+  },
+  {
+   "event": "FG",
+   "points": "8",
+   "range": "60-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": ".025/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": "-3",
+   "range": "0-29"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "30-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "-.1/1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": ".05/1",
+   "range": "-50-999"
+  }
+ ],
+ "2013": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": ".2/1",
+   "range": "1-50"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "3",
+   "range": "0-44"
+  },
+  {
+   "event": "FG",
+   "points": "6",
+   "range": "45-59"
+  },
+  {
+   "event": "FG",
+   "points": "8",
+   "range": "60-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": ".025/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": "-3",
+   "range": "0-29"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "30-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "-.1/1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": ".05/1",
+   "range": "-50-999"
+  }
+ ],
+ "2014": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": ".2/1",
+   "range": "1-50"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "3",
+   "range": "0-44"
+  },
+  {
+   "event": "FG",
+   "points": "6",
+   "range": "45-59"
+  },
+  {
+   "event": "FG",
+   "points": "8",
+   "range": "60-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": ".025/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": "-3",
+   "range": "0-29"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "30-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "-.1/1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": ".05/1",
+   "range": "-50-999"
+  }
+ ],
+ "2015": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": ".2/1",
+   "range": "1-50"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "3",
+   "range": "0-44"
+  },
+  {
+   "event": "FG",
+   "points": "6",
+   "range": "45-59"
+  },
+  {
+   "event": "FG",
+   "points": "8",
+   "range": "60-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": ".025/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": "-3",
+   "range": "0-29"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "30-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "-.1/1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": ".05/1",
+   "range": "-50-999"
+  }
+ ],
+ "2016": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": ".2/1",
+   "range": "1-50"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": ".1/1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": ".025/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "-.1/1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": ".05/1",
+   "range": "-50-999"
+  }
+ ],
+ "2017": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": ".2/1",
+   "range": "1-50"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": ".1/1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*3",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": ".025/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "-.1/1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": ".05/1",
+   "range": "-50-999"
+  }
+ ],
+ "2018": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": ".2/1",
+   "range": "1-50"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": ".1/1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": ".025/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*1.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "-.1/1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": ".05/1",
+   "range": "-50-999"
+  }
+ ],
+ "2019": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": ".2/1",
+   "range": "1-50"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": ".1/1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": ".025/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*1.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": ".1/1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "-.1/1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": ".05/1",
+   "range": "-50-999"
+  }
+ ],
+ "2020": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "1C",
+   "points": "*.2",
+   "range": "1-50"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "*.1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": "*.025",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*1.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "*-.1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": "*.05",
+   "range": "-50-999"
+  }
+ ],
+ "2021": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "FD",
+   "points": "0.2/1",
+   "range": "1-999"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "*.1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": "*.025",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*1.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "*-.1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": "*.05",
+   "range": "-50-999"
+  }
+ ],
+ "2022": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "FD",
+   "points": "*0.2",
+   "range": "1-999"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "*.1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": "*.025",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*1.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "*-.1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": "*.05",
+   "range": "-50-999"
+  }
+ ],
+ "2023": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "FD",
+   "points": "*0.2",
+   "range": "1-999"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "*.1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": "*.025",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*1.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "*-.1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": "*.05",
+   "range": "-50-999"
+  }
+ ],
+ "2024": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-100"
+  },
+  {
+   "event": "CY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "FD",
+   "points": "*0.2",
+   "range": "1-999"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "*.1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-84"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "85-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-90"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "91-110"
+  },
+  {
+   "event": "KY",
+   "points": "*.025",
+   "range": "-50-999"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*1.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-59"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "60-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "*-.1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": "*.05",
+   "range": "-50-999"
+  }
+ ],
+ "2025": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "CY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "D2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "FD",
+   "points": "*0.2",
+   "range": "1-999"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "*.1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "FR",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "FR",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "KY",
+   "points": "*.025",
+   "range": "-50-999"
+  },
+  {
+   "event": "MF",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "MF",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*1.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "*-.1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": "*.05",
+   "range": "-50-999"
+  }
+ ],
+ "2026": [
+  {
+   "event": "#BF",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#BP",
+   "points": "*6",
+   "range": "0-10"
+  },
+  {
+   "event": "#FT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "#IT",
+   "points": "*-4",
+   "range": "0-10"
+  },
+  {
+   "event": "ANY",
+   "points": "0",
+   "range": "0.00-44.99"
+  },
+  {
+   "event": "ANY",
+   "points": "1",
+   "range": "45.00-49.99"
+  },
+  {
+   "event": "ANY",
+   "points": "3",
+   "range": "50.00-59.99"
+  },
+  {
+   "event": "ANY",
+   "points": "5",
+   "range": "60.00-100.00"
+  },
+  {
+   "event": "AS",
+   "points": "*0.5",
+   "range": "0-99"
+  },
+  {
+   "event": "BLE",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "BLF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "BLP",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "C2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "CC",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "CY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "CY",
+   "points": "2",
+   "range": "100-149"
+  },
+  {
+   "event": "CY",
+   "points": "3",
+   "range": "150-199"
+  },
+  {
+   "event": "CY",
+   "points": "5",
+   "range": "200-999"
+  },
+  {
+   "event": "D2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "DR",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "DR",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "EM",
+   "points": "*-1",
+   "range": "0-10"
+  },
+  {
+   "event": "EP",
+   "points": "*1",
+   "range": "0-10"
+  },
+  {
+   "event": "FC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "FD",
+   "points": "*0.2",
+   "range": "1-999"
+  },
+  {
+   "event": "FF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "FG",
+   "points": "*.1",
+   "range": "0-99"
+  },
+  {
+   "event": "FL",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "FR",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "FR",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "HBP",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IC",
+   "points": "*4",
+   "range": "0-10"
+  },
+  {
+   "event": "IN",
+   "points": "*-2",
+   "range": "0-10"
+  },
+  {
+   "event": "IR",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "IR",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "KO",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "KO",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "KY",
+   "points": "*.025",
+   "range": "-50-999"
+  },
+  {
+   "event": "MF",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "MF",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "MG",
+   "points": ".1/1",
+   "range": "0-44"
+  },
+  {
+   "event": "MG",
+   "points": "0",
+   "range": "45-99"
+  },
+  {
+   "event": "P2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "PD",
+   "points": "*1.5",
+   "range": "0-99"
+  },
+  {
+   "event": "PI",
+   "points": "*4",
+   "range": "0-20"
+  },
+  {
+   "event": "PR",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PR",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "PS",
+   "points": "7",
+   "range": "50-110"
+  },
+  {
+   "event": "PY",
+   "points": ".1/2.5",
+   "range": "-50-999"
+  },
+  {
+   "event": "PY",
+   "points": "1",
+   "range": "300-374"
+  },
+  {
+   "event": "PY",
+   "points": "2",
+   "range": "375-424"
+  },
+  {
+   "event": "PY",
+   "points": "3",
+   "range": "425-999"
+  },
+  {
+   "event": "QH",
+   "points": "*0.5",
+   "range": "0-10"
+  },
+  {
+   "event": "R2",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "RC",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RC",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RS",
+   "points": "6",
+   "range": "0-49"
+  },
+  {
+   "event": "RS",
+   "points": "7",
+   "range": "50-100"
+  },
+  {
+   "event": "RY",
+   "points": "*.1",
+   "range": "-50-999"
+  },
+  {
+   "event": "RY",
+   "points": "1",
+   "range": "100-149"
+  },
+  {
+   "event": "RY",
+   "points": "2",
+   "range": "150-199"
+  },
+  {
+   "event": "RY",
+   "points": "3",
+   "range": "200-249"
+  },
+  {
+   "event": "RY",
+   "points": "5",
+   "range": "250-999"
+  },
+  {
+   "event": "SF",
+   "points": "*2",
+   "range": "0-10"
+  },
+  {
+   "event": "SK",
+   "points": "*3",
+   "range": "0-25"
+  },
+  {
+   "event": "TK",
+   "points": "*1",
+   "range": "0-99"
+  },
+  {
+   "event": "TKL",
+   "points": "*1",
+   "range": "0-25"
+  },
+  {
+   "event": "TSY",
+   "points": "*-.1",
+   "range": "0-100"
+  },
+  {
+   "event": "UY",
+   "points": "*.05",
+   "range": "-50-999"
+  }
+ ]
+}

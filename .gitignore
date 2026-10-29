@@ -55,3 +55,7 @@ pipelines/reports/*.csv
 .dev.vars*
 !.dev.vars.example
 !.env.example
+data/punter/raw/mfl_ps/
+data/punter/raw/*.log
+data/punter/processed/*.parquet
+data/punter/processed/*.csv.gz
