@@ -202,11 +202,15 @@ test("a trade needing a human is reported once, never posted", async () => {
   t.equal(MFL.dms.length, 1, "told once, not every hour");
 });
 
-test("wiring: hourly cron gated by the kill switch; route in the admin table; flag defaults", () => {
+test("wiring: the */5 tick (not the hourly one) runs the sweep, gated by the kill switch; route in the admin table; flag defaults", () => {
+  const calls = SRC.split("self.invalid/admin/trades/settlement-sweep?L=").length - 1;
+  t.equal(calls, 1, "one dispatch, not a copy in each cron");
+  const at = SRC.indexOf("self.invalid/admin/trades/settlement-sweep?L=");
+  t.ok(at > SRC.indexOf("const isAuctionPoll") && at < SRC.indexOf("jobs dispatched on the */5 tick"), "dispatched inside the */5 branch");
   t.match(SRC, /if \(!\(await getFeatureFlag\(env, "TRADE_SETTLEMENT_SWEEP_ENABLED"\)\)\) return;\s+const r = await env\.SELF\.fetch\(`https:\/\/self\.invalid\/admin\/trades\/settlement-sweep\?L=/);
   t.match(fs.readFileSync(path.join(ROOT, "worker/src/admin_routes.js"), "utf8"), /"\/admin\/trades\/settlement-sweep": \["POST"\]/);
   const toml = fs.readFileSync(path.join(ROOT, "worker/wrangler.toml"), "utf8");
-  t.match(toml, /TRADE_SETTLEMENT_SWEEP_ENABLED = "1"\nTRADE_SETTLEMENT_SWEEP_SINCE = "2026-10-06T00:00:00Z"/);
+  t.match(toml, /TRADE_SETTLEMENT_SWEEP_ENABLED = "1"\nTRADE_SETTLEMENT_SWEEP_SINCE = "2026-10-06T00:00:00Z"\nTRADE_SETTLEMENT_SWEEP_GRACE_SEC = "300"/);
   t.match(fs.readFileSync(path.join(ROOT, "worker/src/feature_flags.js"), "utf8"), /key: "TRADE_SETTLEMENT_SWEEP_ENABLED".*danger: true/);
 });
 
@@ -218,6 +222,28 @@ test("migration 0167 builds the same table the route creates lazily", async () =
   t.equal(cols(viaMigration), cols(env.UPS_MFL_DB));
   applyMigrations(viaMigration, ["0167_trade_settlement_sweep.sql"]);
   t.ok(true, "re-applying is harmless");
+});
+
+test("every-5-min economics: a tick with nothing owed makes no sweep-table or outbox statement, and skips the league export", async () => {
+  resetMfl({ trades: FX.trades.transactions.transaction }); const env = makeEnv("1");
+  const types = []; const f = globalThis.fetch;
+  globalThis.fetch = async (i, o) => { try { const ty = new URL(typeof i === "string" ? i : i.url).searchParams.get("TYPE"); if (ty) types.push(ty); } catch (_) {} return f(i, o); };
+  try {
+    const before = env.UPS_MFL_DB.log.length;
+    const d = await sweep(env);
+    t.equal(d.ok, true); t.equal(d.posted, 0); t.equal(MFL.imports.length, 0); t.equal(MFL.dms.length, 0);
+    const sqls = env.UPS_MFL_DB.log.slice(before).map((q) => q.sql);
+    t.ok(!sqls.some((q) => /ups_trade_settlement_sweep|twb_trade_outbox/.test(q)), "no sweep-table or outbox statement: " + JSON.stringify(sqls));
+    t.ok(!types.includes("league"), "league export skipped: " + types.join(","));
+  } finally { globalThis.fetch = f; }
+});
+
+test("grace is 5 minutes: a native trade 4 minutes old waits, one 6 minutes old settles", async () => {
+  resetMfl(); const env = makeEnv("1"); env.TRADE_SETTLEMENT_SWEEP_GRACE_SEC = "300";
+  const d4 = await sweep(env, {}, "2026-10-08T15:04:00Z");
+  t.equal(d4.posted, 0); t.equal(MFL.imports.length, 0, "inside the grace → untouched");
+  const d6 = await sweep(env, {}, "2026-10-08T15:06:00Z");
+  t.equal(d6.posted, 1, JSON.stringify(d6)); t.equal(MFL.imports.length, 1);
 });
 
 await run("trade_settlement_sweep");
