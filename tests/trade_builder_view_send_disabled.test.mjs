@@ -194,4 +194,20 @@ test("before the lifecycle code arrives: Send disabled with 'Loading…', a clic
   t.equal(sent.length, 1); t.equal(JSON.stringify(sent[0].items), JSON.stringify(["P_101", "P_201"]), "the players added in the window are sent"); t.equal(sent[0].note, "typed while loading", "the note typed in the window is sent");
 });
 
+// Keith (2026-10-29): building a counter shows a clearly visible Cancel counter, which sends nothing and declines nothing.
+test("counter in progress: 'Send counter' plus a visible Cancel counter (banner and beside Send); Cancel counter sends nothing", async () => {
+  const { ctx } = makeContext(); const el = makeEl(); const sent = []; let on = true, cancels = 0;
+  ctx.UPS_TRADE_BUILDER_VIEW.mount(el, { teams: TEAMS, ctx: { leagueId: "74598", season: "2026", viewerFid: "0008" }, assets: (fid) => ASSETS[fid] || { players: [], picks: [] },
+    impact: () => ({ cap: null, lineup: { state: "off", message: "off" }, ext: [] }), preview: () => verdict("provisional"), openDialog() {}, closeDialog() {}, warRoomUrl: "https://example.test/war-room", debounceMs: 0,
+    sender: { enabled: true, noteLimit: () => 2000, label: () => (on ? "Send counter" : "Send offer"), counter: () => (on ? { tradeId: "8101", from: "Blake" } : null), cancelCounter: () => { cancels++; on = false; },
+      send: (d, note) => { sent.push(note); return Promise.resolve({ state: "countered", message: "", done: true }); } } });
+  const h = { el, calls: {} };
+  toggle(el, 1); await build(h, "two");
+  t.ok(el.innerHTML.includes("<b>Countering Trade 8101</b> from Blake"), "the counter banner names the offer");
+  t.equal((el.innerHTML.match(/data-go="cancel-counter"/g) || []).length, 2, "Cancel counter in the banner and beside Send");
+  t.ok(/data-go="send"[^>]*>Send counter</.test(el.innerHTML), "Send counter");
+  el.fire("click", el.node(/<button[^>]*data-go="cancel-counter"[^>]*>/)); await tick();
+  t.equal(cancels, 1, "cancelCounter called once"); t.equal(sent.length, 0, "nothing sent");
+});
+
 await run("trade_builder_view_send_disabled");

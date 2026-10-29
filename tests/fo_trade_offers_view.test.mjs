@@ -4,6 +4,9 @@
 //   FLAG ON (mocked transport only): the inbox reads, the acting team is shown, Revoke / Decline / Accept (preview first) /
 //   Counter (create → see → decline) run through the lifecycle with the War Room's bodies, outcomes are shown, and a trade that
 //   moved players triggers the after-trade refresh and one batch of re-reads.
+//   Redesign (Keith, 2026-10-29): four boxed sections (Received, Sent, Staged, Three-team) with a heading, a count and a status on
+//   every offer; ONE set of action words (received: Accept, Decline, Review, Counter where they apply; sent: Revoke, Review);
+//   Accept always opens the server's review and needs Confirm accept; Decline and Revoke ask first; Cancel counter sends nothing.
 //   node tests/fo_trade_offers_view.test.mjs
 import fs from "node:fs";
 import path from "node:path";
@@ -42,7 +45,8 @@ function page({ cfg, viewer = "0001", admin = false, lockout = "Y", answer } = {
   const esc = (v) => String(v == null ? "" : v).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   ctx.UPS_FO_HUB = { esc, banner: (x, k) => '<div class="fo-banner ' + (k || "") + '">' + esc(x) + "</div>", clock: () => "12:00", teamName: (f) => ({ "0001": "Alpha", "0002": "Bravo" })[f] || f,
     openDialog: (title, html) => { calls.dialogs.push({ title, html }); }, closeAbout: () => {} };
-  ctx.UPS_FO_TRADE_BUILDER = { openDraft: (d) => { calls.opened.push(d); return { ok: true, dropped: [], clamped: [] }; } };
+  calls.cleared = [];
+  ctx.UPS_FO_TRADE_BUILDER = { openDraft: (d) => { calls.opened.push(d); return { ok: true, dropped: [], clamped: [] }; }, clearDraft: (label) => { calls.cleared.push(label); return true; } };
   if (cfg && cfg.FO_TRADE_BUILDER_SEND === true) {   // in the browser fo_trade_offers.js downloads these itself; here they are preloaded
     for (const f of ["site/shared/trade_rules.js", "site/shared/trade_3way_view.js", "site/shared/war_room_requests.js", "site/shared/trade_offer_lifecycle.js"]) vm.runInContext(read(f), ctx, { filename: f });
   }
@@ -65,8 +69,8 @@ const world = (lockout = "Y", extra = {}) => (req) => {
   const p = new URL(req.url).pathname;
   if (req.method === "GET" && p === "/trade-workbench") return R(200, RAW(lockout));
   if (req.method === "GET" && p === "/trade-offers") return extra.inbox ? extra.inbox(req) : R(200, { ok: true, outgoing: [OUT], incoming: [IN] });
-  if (req.method === "GET" && p === "/api/trades/2way") return R(200, { ok: true, trades: [] });
-  if (req.method === "GET" && p === "/api/trades/3way") return R(200, { ok: true, trades: [] });
+  if (req.method === "GET" && p === "/api/trades/2way") return extra.staged ? extra.staged(req) : R(200, { ok: true, trades: [] });
+  if (req.method === "GET" && p === "/api/trades/3way") return extra.three ? extra.three(req) : R(200, { ok: true, trades: [] });
   if (extra[req.method + " " + p]) return extra[req.method + " " + p](req);
   return R(500, { ok: false, error: "unscripted " + req.method + " " + p });
 };
@@ -97,8 +101,8 @@ test("FLAG ON (mocked): inbox renders received and sent offers with the acting t
   P.O.render(P.el, "<chips/>"); await settle();
   const h = P.el.innerHTML;
   t.match(h, /SIMULATED/); t.match(h, /Acting as <b>Alpha<\/b>/);
-  t.match(h, /data-to-act="review" data-id="2001"/); t.match(h, /data-to-act="revoke" data-id="2002"/);
-  t.match(h, /<b>Bravo<\/b> gives Two, Player/);
+  t.match(h, /data-to-act="accept" data-kind="mfl" data-id="2001"/); t.match(h, /data-to-act="revoke" data-kind="mfl" data-id="2002"/);
+  t.match(h, /<span class="fo-to-k">You get<\/span> Two, Player/); t.match(h, /<span class="fo-to-k">You give<\/span> One, Player/);
   t.match(h, /Trade War Room ↗/, "the War Room link stays");
   t.ok(!/Act for <select/.test(h), "no acting picker for an owner");
   t.deepEqual(P.calls.reqs.map((r) => r.method), ["GET", "GET", "GET", "GET"], "reads only");
@@ -117,10 +121,13 @@ test("commissioner: the acting picker appears only with lockout N; acting is sho
   t.match(P.el.innerHTML, /Acting as <b>Alpha<\/b> \(commissioner acting for this team\)/);
 });
 
-test("Revoke (sender): confirm, then the War Room's REVOKE body; the outcome is shown and the lists re-read", async () => {
+test("Revoke (sender): Confirm revoke first, then the War Room's REVOKE body; the outcome is shown and the lists re-read", async () => {
   const P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: world("Y", { "POST /trade-offers/action": () => R(200, { ok: true }) }) });
   P.O.render(P.el, ""); await settle();
   await P.press("revoke", "2002");
+  t.equal(P.calls.reqs.filter((r) => r.method === "POST").length, 0, "nothing sent before Confirm revoke");
+  t.match(P.calls.dialogs[0].html, /data-to-dlg="confirm-revoke"[^>]*>Confirm revoke</); t.match(P.calls.dialogs[0].html, />Keep offer</);
+  await P.dialog("confirm-revoke");
   const post = P.calls.reqs.find((r) => r.method === "POST");
   t.equal(post.body.action, "REVOKE"); t.equal(post.body.trade_id, "2002"); t.equal(post.body.acting_franchise_id, "0001");
   t.match(P.el.innerHTML, /Offer revoked in MFL\./);
@@ -131,9 +138,10 @@ test("Accept: the server preview first, Accept only when it allows; an executed 
     "POST /trade-offers/action": (req) => { const b = JSON.parse(req.body); return b.action === "PREVIEW" ? R(200, { ok: true, compliance: { cap: { status: "ok" }, loaded_contracts: { status: "ok", executable: true } } }) : R(200, { ok: true, trade_id: "2001", salary_adjustments: { ok: true, rows: [] }, extensions: { ok: true, applied: [] } }); },
     "POST /refresh/after-trade": () => R(200, { ok: true }) }) });
   P.O.render(P.el, ""); await settle();
-  await P.press("review", "2001");
-  t.equal(P.calls.dialogs.length, 1); t.match(P.calls.dialogs[0].html, /data-to-dlg="accept"/);
-  await P.dialog("accept"); await settle(20);
+  await P.press("accept", "2001");
+  t.equal(P.calls.dialogs.length, 1); t.match(P.calls.dialogs[0].html, /data-to-dlg="confirm-accept">Confirm accept</);
+  t.deepEqual(P.calls.reqs.filter((r) => r.method === "POST").map((r) => r.body.action), ["PREVIEW"], "Accept opened the review only: no ACCEPT before Confirm accept");
+  await P.dialog("confirm-accept"); await settle(20);
   const posts = P.calls.reqs.filter((r) => r.method === "POST").map((r) => r.body.action || r.path);
   t.deepEqual(posts, ["PREVIEW", "ACCEPT", "/refresh/after-trade"]);
   t.match(P.el.innerHTML, /Trade executed in MFL \(Trade ID 2001\)\./);
@@ -145,8 +153,9 @@ test("Decline: the note goes in the War Room's REJECT body (≤ 2,000)", async (
   P.O.render(P.el, ""); await settle();
   await P.press("decline", "2001");
   t.match(P.calls.dialogs[0].html, /maxlength="2000"/);
+  t.equal(P.calls.reqs.filter((r) => r.method === "POST").length, 0, "nothing sent before Confirm decline");
   P.ctx.document.querySelector = (s) => (s === "[data-to-decline-note]" ? { value: "pass" } : null);
-  await P.dialog("decline");
+  await P.dialog("confirm-decline");
   const post = P.calls.reqs.find((r) => r.method === "POST");
   t.equal(post.body.action, "REJECT"); t.equal(post.body.message, "pass");
   t.match(P.el.innerHTML, /Offer declined in MFL\./);
@@ -195,6 +204,124 @@ test("signed out: one plain message, nothing sent, the War Room link", async () 
   P.O.render(P.el, ""); await settle();
   t.match(P.el.innerHTML, /Sign in to MFL/); t.match(P.el.innerHTML, /Trade War Room ↗/);
   t.equal(P.calls.reqs.filter((r) => r.method === "POST").length, 0);
+});
+
+// ── Redesign (Keith, 2026-10-29) ──
+const MV = (fromFid, toFid, tok) => ({ from: fromFid, to: toFid, asset_tokens: [tok] });
+const STAGED = (id, from, to, perms, label = "Awaiting response", code = "pending_response") => ({ id, from_fid: from, to_fid: to, from_name: from === "0001" ? "Alpha" : "Bravo", to_name: to === "0001" ? "Alpha" : "Bravo",
+  status: "collecting", movements: [MV(from, to, from === "0001" ? "P_14056" : "P_13100"), MV(to, from, to === "0001" ? "P_14056" : "P_13100")], permissions: perms, state_view: { code, label }, compliance: { cap: { status: "ok" }, roster: { status: "ok" } } });
+const S_IN = STAGED("st-in", "0002", "0001", { can_view: true, can_accept: true, can_cancel: true, can_recheck: false });
+const S_OUT = STAGED("st-out", "0001", "0002", { can_view: true, can_accept: false, can_cancel: true, can_recheck: false });
+const PART = (fid, name, state) => ({ fid, name, state });
+const THREE = (id, role, canCancel) => ({ id, status: "collecting", terminal: false, viewer: { fid: "0001", role }, participants: role === "initiator" ? [PART("0001", "Alpha", "initiator"), PART("0002", "Bravo", "pending"), PART("0003", "Charlie", "pending")] : [PART("0002", "Bravo", "initiator"), PART("0001", "Alpha", "pending"), PART("0003", "Charlie", "pending")],
+  movements: [{ from: { fid: "0002", name: "Bravo" }, to: { fid: "0001", name: "Alpha" }, assets: [{ label: "Two, Player" }], cap_k: 0 }, { from: { fid: "0001", name: "Alpha" }, to: { fid: "0003", name: "Charlie" }, assets: [{ label: "One, Player" }], cap_k: 0 }],
+  sides: [], permissions: { can_view: true, can_cancel: canCancel }, state_view: { code: "collecting", label: "Collecting accepts" }, timestamps: {} });
+const T_MINE = THREE("3w-mine", "initiator", true), T_PART = THREE("3w-part", "partner", false);
+const full = (extra = {}) => world("Y", Object.assign({
+  staged: (req) => { const id = new URL(req.url).searchParams.get("id"); if (id) { const tr = [S_IN, S_OUT].find((x) => x.id === id); return tr ? R(200, { ok: true, trade: tr }) : R(404, { ok: false }); } return R(200, { ok: true, trades: [S_IN, S_OUT] }); },
+  three: (req) => { const id = new URL(req.url).searchParams.get("id"); if (id) { const tr = [T_MINE, T_PART].find((x) => x.id === id); return tr ? R(200, { ok: true, trade: tr }) : R(404, { ok: false }); } return R(200, { ok: true, trades: [T_MINE, T_PART] }); },
+}, extra));
+const rowOf = (html, kind, id) => { const m = new RegExp('<li class="fo-to-row[^"]*" data-kind="' + kind + '" data-id="' + id + '"[\\s\\S]*?</li>').exec(html); return m ? m[0] : ""; };
+const labels = (rowHtml) => [...rowHtml.matchAll(/<button[^>]*data-to-act="[^"]+"[^>]*>([^<]+)<\/button>/g)].map((m) => m[1]);
+
+test("one vocabulary: received = Accept, Decline, Review, Counter (where they apply); sent = Revoke, Review; across direct, staged and three-team", async () => {
+  const P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: full() });
+  P.O.render(P.el, ""); await settle();
+  const h = P.el.innerHTML;
+  t.deepEqual(labels(rowOf(h, "mfl", "2001")), ["Accept", "Decline", "Review", "Counter"], "direct, received");
+  t.deepEqual(labels(rowOf(h, "mfl", "2002")), ["Revoke", "Review"], "direct, sent");
+  t.deepEqual(labels(rowOf(h, "staged", "st-in")), ["Accept", "Decline", "Review"], "staged, received (no counter for staged, as in the War Room)");
+  t.deepEqual(labels(rowOf(h, "staged", "st-out")), ["Revoke", "Review"], "staged, sent");
+  t.deepEqual(labels(rowOf(h, "three", "3w-mine")), ["Revoke", "Review"], "three-team, started by me");
+  t.deepEqual(labels(rowOf(h, "three", "3w-part")), ["Review"], "three-team, partner: answers from the Discord DM");
+  t.match(rowOf(h, "three", "3w-part"), /Accept or decline it from the Discord DM/);
+  t.ok(!/Review &amp; accept|>Details<|>Cancel<|Stop countering|>Re-check<|Acknowledge my cap overage/.test(h), "none of the old, mixed words remain on the list");
+  const A = (...a) => JSON.parse(JSON.stringify(P.O._actionsFor(...a))), W = P.O._words;
+  t.deepEqual(Object.keys(W).map((k) => W[k]), ["Accept", "Decline", "Review", "Counter", "Revoke"]);
+  t.deepEqual(A("staged", "received", { can_accept: false, can_cancel: true }), ["decline", "review"], "staged, already answered: Accept goes away, Decline stays");
+  t.deepEqual(A("staged", "other", { can_cancel: true }), ["review"], "commissioner view: Review");
+  t.deepEqual(A("three", "sent", { can_cancel: false }), ["review"], "no Revoke unless the server allows it");
+});
+
+test("four boxed sections, each with a heading, a count and a status on every offer; a failed list says 'not loaded', never 0", async () => {
+  let P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: full() });
+  P.O.render(P.el, ""); await settle();
+  const h = P.el.innerHTML;
+  const secs = [...h.matchAll(/<section class="fo-to-sec fo-to-sec-(\w+)" data-section="\w+" aria-labelledby="fo-to-h-\w+"><header class="fo-to-sechead"><h3 id="fo-to-h-\w+">([^<]+) <span class="fo-to-count" data-count="(\d*)">([^<]+)<\/span>/g)].map((m) => [m[1], m[2], m[4]]);
+  t.deepEqual(secs, [["received", "Received", "1 offer"], ["sent", "Sent", "1 offer"], ["staged", "Staged", "2 offers"], ["three", "Three-team", "2 offers"]]);
+  t.match(rowOf(h, "mfl", "2001"), /data-status>Waiting for you</); t.match(rowOf(h, "mfl", "2002"), /data-status>Waiting for Bravo</);
+  t.match(rowOf(h, "staged", "st-in"), /data-status>Awaiting response</); t.match(rowOf(h, "three", "3w-part"), /data-status>Collecting accepts</);
+  t.match(rowOf(h, "three", "3w-mine"), /You started this · with Bravo and Charlie/);
+  P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: full({ staged: () => R(503, { ok: false }) }) });
+  P.O.render(P.el, ""); await settle();
+  t.match(P.el.innerHTML, /data-section="staged"[\s\S]*?data-count="">not loaded<\/span>/); t.match(P.el.innerHTML, /Couldn’t load this list/);
+  const css = read("site/rosters/v2/front_office.css");
+  t.match(css, /\.fo-to-sec \{[^}]*border-left: 4px solid/, "each section has a visible boundary");
+});
+
+test("staged Accept re-reads the trade, shows the server's check, and needs Confirm accept; a failed read offers nothing to confirm", async () => {
+  let P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: full({ "POST /api/trades/2way/accept": () => R(200, { ok: true }) }) });
+  P.O.render(P.el, ""); await settle();
+  await P.press("accept", "st-in");
+  t.ok(P.calls.reqs.some((r) => r.method === "GET" && r.path === "/api/trades/2way" && /[?&]id=st-in/.test(r.url)), "the one trade is re-read from the server");
+  t.equal(P.calls.reqs.filter((r) => r.method === "POST").length, 0, "nothing accepted yet");
+  t.match(P.calls.dialogs[0].title, /Accept staged trade\?/); t.match(P.calls.dialogs[0].html, /data-to-dlg="confirm-accept">Confirm accept</);
+  await P.dialog("confirm-accept");
+  const post = P.calls.reqs.find((r) => r.method === "POST");
+  t.equal(post.path, "/api/trades/2way/accept"); t.deepEqual(post.body, { id: "st-in" });
+  t.match(P.el.innerHTML, /data-state="accepted_staged"/);
+  P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: full({ staged: (req) => (new URL(req.url).searchParams.get("id") ? { networkError: true } : R(200, { ok: true, trades: [S_IN] })) }) });
+  P.O.render(P.el, ""); await settle();
+  await P.press("accept", "st-in");
+  t.ok(!/confirm-accept/.test(P.calls.dialogs[0].html), "no Confirm accept without the server's copy"); t.match(P.calls.dialogs[0].html, /nothing can be accepted from here/);
+  await P.dialog("confirm-accept");
+  t.equal(P.calls.reqs.filter((r) => r.method === "POST").length, 0, "fails closed");
+});
+
+test("staged Decline and Revoke ask first; three-team Revoke asks first and calls it off with the War Room's body", async () => {
+  const P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: full({ "POST /api/trades/2way/cancel": () => R(200, { ok: true }), "POST /api/trades/3way/cancel": () => R(200, { ok: true, trade: { id: "3w-mine", status: "cancelled" } }) }) });
+  P.O.render(P.el, ""); await settle();
+  await P.press("decline", "st-in");
+  t.match(P.calls.dialogs[0].html, />Confirm decline</); t.equal(P.calls.reqs.filter((r) => r.method === "POST").length, 0);
+  await P.dialog("confirm-decline");
+  t.deepEqual(P.calls.reqs.filter((r) => r.method === "POST").map((r) => r.path), ["/api/trades/2way/cancel"]);
+  await P.press("revoke", "3w-mine");
+  t.match(P.calls.dialogs[1].title, /Revoke this three-team trade\?/); t.equal(P.calls.reqs.filter((r) => r.method === "POST").length, 1, "nothing more sent yet");
+  await P.dialog("confirm-revoke");
+  const last = P.calls.reqs.filter((r) => r.method === "POST").pop();
+  t.equal(last.path, "/api/trades/3way/cancel"); t.deepEqual(last.body, { id: "3w-mine", acting_franchise_id: "0001" });
+  t.match(P.el.innerHTML, /Revoked\. Everyone in the trade is told it’s off\./);
+});
+
+test("Review shows the offer with the row's own words and sends nothing; a three-team Review hides the renderer's own Cancel", async () => {
+  const P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: full() });
+  P.O.render(P.el, ""); await settle();
+  await P.press("review", "2001");
+  const d = P.calls.dialogs[0];
+  t.equal(d.title, "Trade 2001"); t.deepEqual([...d.html.matchAll(/data-to-dlg="[^"]+"[^>]*>([^<]+)</g)].map((m) => m[1]), ["Accept", "Decline", "Counter", "Close"]);
+  await P.press("review", "3w-mine");
+  const d3 = P.calls.dialogs[1];
+  t.ok(!/data-t3w-act="cancel"|>Cancel 3-way</.test(d3.html), "the shared renderer's Cancel is not shown"); t.match(d3.html, /data-to-dlg="revoke">Revoke</);
+  t.equal(P.calls.reqs.filter((r) => r.method === "POST").length, 0, "Review sends nothing");
+});
+
+test("Cancel counter: nothing sent, nothing declined; the counter draft is cleared and the original offer is shown, still open", async () => {
+  const P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: full() });
+  P.O.render(P.el, ""); await settle();
+  await P.press("counter", "2001");
+  t.deepEqual(JSON.parse(JSON.stringify(P.O.counter())), { tradeId: "2001", from: "Bravo" });
+  t.match(P.el.innerHTML, /data-to-act="cancel-counter"[^>]*>Cancel counter</); t.match(rowOf(P.el.innerHTML, "mfl", "2001"), /data-status>Countering</);
+  const before = P.calls.reqs.length;
+  await P.press("cancel-counter");
+  t.equal(P.calls.reqs.slice(before).filter((r) => r.method === "POST").length, 0, "no request was sent");
+  t.equal(P.O.counter(), null);
+  t.deepEqual(P.calls.cleared, ["Draft from Counter to Trade 2001 (not sent)"], "only the counter's own draft is cleared");
+  t.match(P.el.innerHTML, /Counter cancelled\. Nothing was sent or declined; Trade 2001 is still open\./);
+  t.match(P.el.innerHTML, /class="fo-to-row fo-to-focus" data-kind="mfl" data-id="2001"/, "returned to the original offer");
+  t.match(rowOf(P.el.innerHTML, "mfl", "2001"), /data-status>Waiting for you</);
+  t.ok(P.O.cancelCounter() === false, "a second Cancel counter does nothing");
+  const B = read("site/rosters/v2/fo_trade_builder.js");
+  t.match(B, /function clearDraft\(label\) \{[\s\S]*?if \(!C \|\| !FO \|\| !label \|\| cur !== label\) return false;/, "the builder clears only the counter's own draft");
 });
 
 await run("fo_trade_offers_view");

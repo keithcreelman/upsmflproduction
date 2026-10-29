@@ -26,7 +26,8 @@
                  initial?: { draft, label, dropped }   a draft to start from (kept by the adapter; ignored unless the viewer is its first team),
                  onDraft?(draft, { label, dropped })  called after every change, so the adapter can keep the draft across re-mounts,
                  sender?: { enabled: true, send(draft, note) -> Promise<{ state, message, done }>, noteLimit(teamCount) -> n, label?() -> text,
-                           ready?() -> bool (false: Send disabled, "Loading…") }
+                           ready?() -> bool (false: Send disabled, "Loading…"),
+                           counter?() -> { tradeId, from } | null (a counter is being built), cancelCounter?() (Cancel counter: nothing sent or declined) }
                           (behind the Front Office write flag only; any other value is ignored) })
      handle: { loadDraft({ draft, label, dropped }), isEmpty(), draft(), state(), refresh(), factsChanged(), dialogAction(target) } */
 (function (root) {
@@ -370,10 +371,15 @@
     }
     // The label of a draft loaded from another page (the Trade finder), and anything that could not be loaded.
     function draftBanner() {
+      var ct = counterNow();
+      if (ct) return '<div class="fo-banner info fo-tb-draftlabel fo-tb-counter" role="status"><b>Countering Trade ' + esc(ct.tradeId) + "</b> from " + esc(ct.from) +
+        ". Change it as you like, then Send counter. Nothing is sent or declined until you do." +
+        ' <button type="button" class="btn small secondary" data-go="cancel-counter"' + (st.sending ? " disabled" : "") + ">Cancel counter</button>" + droppedLine() + "</div>";
       if (!st.label) return "";
       return '<div class="fo-banner info fo-tb-draftlabel" role="status"><b>' + esc(st.label) + "</b>" +
-        (st.dropped.length ? ' <span class="fo-tb-dropped">Left out (not on the current rosters): ' + esc(st.dropped.map(function (x) { return x.token + " from " + nm(x.from); }).join(", ")) + ".</span>" : "") + "</div>";
+        droppedLine() + "</div>";
     }
+    function droppedLine() { return st.dropped.length ? ' <span class="fo-tb-dropped">Left out (not on the current rosters): ' + esc(st.dropped.map(function (x) { return x.token + " from " + nm(x.from); }).join(", ")) + ".</span>" : ""; }
 
     // ── Review ────────────────────────────────────────────────────────
     // Send offer is disabled for EVERY verdict (provisional, needs an acknowledgment, blocked, can't be checked, none): the Front
@@ -392,6 +398,8 @@
         (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> ' + (SENDER ? "stays available for every step." : "to send a trade.") + "</p>" : "") + "</section>";
     }
     // Ruling 6: 2,000 characters for a direct two-team offer, 500 for three-team (and for staged, which the server decides at send).
+    // Behind the write flag only: the Offers view says whether this draft is a counter to one of its offers.
+    function counterNow() { return SENDER && typeof SENDER.counter === "function" ? SENDER.counter() : null; }
     function noteMax() { return SENDER && typeof SENDER.noteLimit === "function" ? SENDER.noteLimit(draft.teams.length) : 500; }
     // Behind the write flag only: Send offer is enabled when the trade is complete and the server's check allows an attempt.
     function sendRow(gaps) {
@@ -400,6 +408,7 @@
       var why = loading ? "Loading…" : st.sending ? "Sending…" : gaps.length ? "Finish the trade to send it." : !r.canAttempt ? "Send opens once the server's check allows it." : "";
       var label = typeof SENDER.label === "function" ? SENDER.label() : "Send offer";
       return '<p class="fo-tb-actions"><button type="button" class="btn fo-tb-send" data-go="send"' + (can ? "" : ' disabled aria-disabled="true"') + ' aria-describedby="fo-tb-send-off">' + esc(label) + "</button> " +
+        (counterNow() ? '<button type="button" class="btn secondary" data-go="cancel-counter"' + (st.sending ? " disabled" : "") + ">Cancel counter</button> " : "") +
         '<span class="fo-tb-send-off" id="fo-tb-send-off">' + esc(why) + "</span></p>" +
         (st.outcome ? '<div class="fo-banner ' + (st.outcome.done ? "good" : "warn") + ' fo-tb-outcome" role="status" data-state="' + esc(st.outcome.state) + '">' + esc(st.outcome.message) + "</div>" : "");
     }
@@ -450,6 +459,7 @@
     el.addEventListener("click", function (e) {
       var go = SENDER && e.target.closest && e.target.closest("[data-go]");
       if (go && go.getAttribute("data-go") === "send") { if (!go.disabled) doSend(); return; }
+      if (go && go.getAttribute("data-go") === "cancel-counter") { if (!go.disabled && !st.sending && typeof SENDER.cancelCounter === "function") { st.outcome = null; SENDER.cancelCounter(); } return; }
       var dz = e.target.closest && e.target.closest("[data-disc]");
       if (dz) { var dn = dz.getAttribute("data-disc"); st.disc[dn] = !st.disc[dn]; render(); return; }   // the draft is untouched
       var sb = e.target.closest && e.target.closest("[data-cap-step]");

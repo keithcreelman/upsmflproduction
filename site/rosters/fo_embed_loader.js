@@ -15,7 +15,7 @@
   // front_office.html shell and injects it) and reads MFL's login cookie for the
   // viewer franchise, so no ?franchise_id= is needed inside the embed.
 
-  var BUILD = "2026.10.28.22";
+  var BUILD = "2026.10.29.1";
   if (window.__ups_fo_embed_loader === BUILD) {
     if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
     return;

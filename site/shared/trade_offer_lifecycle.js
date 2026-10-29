@@ -450,6 +450,11 @@
         r.lastBody = body; return r;
       });
     }
+    // The compliance preview names the over-limit teams in loaded_contracts.violations (worker/src/trade_cap_authority.js); the
+    // create route's 409 calls the same list `teams` (loadedContractBlockPayload). Read the preview's own field, as the War Room does.
+    function loadedTeams(lc) {
+      return (Array.isArray(lc && lc.violations) ? lc.violations : []).map(function (v) { return { franchise_id: pad4(v.franchise_id), franchise_name: str(v.franchise_name), projected: v.projected, max: v.max }; });
+    }
     // ---- the War Room's staging fallback: its pre-send compliance preview, then POST /api/trades/2way ----
     function staged(directBody, ctx) {
       var sb = stagedFromDirect(env.warRoom, directBody);
@@ -458,7 +463,7 @@
       var pv = { league_id: directBody.league_id, season: directBody.season, from_franchise_id: pad4(directBody.from_franchise_id), movements: sb.movements, extension_requests: directBody.payload.extension_requests || [] };
       return post(env.routes.preview(), pv).then(function (res) {
         var p = parsed(res), lc = p.ok && p.body && p.body.compliance && p.body.compliance.loaded_contracts;
-        if (lc && lc.status === "blocked") return { state: "blocked_loaded", code: "loaded_contract_limit_exceeded", teams: lc.teams || [] };
+        if (lc && lc.status === "blocked") return { state: "blocked_loaded", code: "loaded_contract_limit_exceeded", teams: loadedTeams(lc) };
         var keyed = withKey(sb, directBody.idempotency_key);
         return post(env.routes.staged(directBody.from_franchise_id), keyed).then(function (res2) { var r = classifyCreate(res2, "staged"); r.lastBody = keyed; r.stagedFrom = directBody; return r; });
       });
@@ -489,9 +494,10 @@
       var pv = { league_id: body.league_id, season: body.season, from_franchise_id: pad4(actingFid), movements: built.previewMovements, extension_requests: body.extension_requests };
       return post(env.routes.preview(), pv).then(function (res) {
         var p = parsed(res), lc = p.ok && p.body && p.body.compliance && p.body.compliance.loaded_contracts;
-        var teams = lc && lc.status === "blocked" ? (lc.teams || []) : [];
+        var blocked = !!(lc && lc.status === "blocked"), teams = blocked ? loadedTeams(lc) : [];
         var mine = teams.some(function (t) { return pad4(t.franchise_id) === pad4(actingFid); });
-        if (mine) return { state: "blocked_loaded", code: "loaded_contract_limit_exceeded", teams: teams };
+        // Blocked without saying which team: no way to tell the owner whose limit it is, so nothing is sent (fail closed).
+        if (mine || (blocked && !teams.length)) return { state: "blocked_loaded", code: "loaded_contract_limit_exceeded", teams: teams };
         var go = teams.length ? Promise.resolve((ctx.confirmPartnerOverLoaded || function () { return false; })(teams)) : Promise.resolve(true);
         return go.then(function (yes) {
           if (!yes) return { state: "not_sent", code: "partner_over_loaded_declined", message: "Not sent." };

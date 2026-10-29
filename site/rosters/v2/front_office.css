@@ -1646,16 +1646,44 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-copy { padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 700; color: #fff; background: var(--accent); border: 1px solid var(--accent); border-radius: 6px; cursor: pointer; }
 .fo-tf-copy:disabled { color: var(--muted); background: var(--panel-alt); border: 1px dashed var(--border); cursor: not-allowed; }
 
-/* Trades → Offers (fo_trade_offers.js): exists only behind the off-by-default Front Office write flag. */
-.fo-to-list { list-style: none; margin: 4px 0 8px; padding: 0; }
-.fo-to-row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; justify-content: space-between; padding: 8px 0; border-top: 1px solid var(--border); }
-.fo-to-row.fo-to-focus { outline: 2px solid var(--accent, #4a75c0); outline-offset: 2px; border-radius: 4px; }
-.fo-to-what { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+/* Trades → Offers (fo_trade_offers.js): exists only behind the off-by-default Front Office write flag.
+   Each list is a boxed section with its own accent, heading band and count, so one never runs into the next (phone included). */
+.fo-to-sec { margin: 14px 0; border: 1px solid var(--border); border-left: 4px solid var(--to-accent, var(--accent)); border-radius: 8px; background: var(--panel-alt); overflow: hidden; }
+.fo-to-sec-received { --to-accent: var(--accent); }
+.fo-to-sec-sent { --to-accent: #a78bfa; }
+.fo-to-sec-staged { --to-accent: var(--dryrun); }
+.fo-to-sec-three { --to-accent: var(--warn); }
+.fo-to-sechead { padding: 8px 12px; background: rgba(255, 255, 255, .04); border-bottom: 1px solid var(--border); }
+.fo-to-sechead h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 0; font-size: 15px; }
+.fo-to-sechead p { margin: 2px 0 0; }
+.fo-to-count { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; color: var(--text); background: var(--panel); border: 1px solid var(--to-accent, var(--border)); }
+.fo-to-list { list-style: none; margin: 0; padding: 0; }
+.fo-to-row { display: grid; gap: 6px; padding: 10px 12px; border-top: 1px solid var(--border); min-width: 0; }
+.fo-to-row:first-child { border-top: 0; }
+.fo-to-row.fo-to-focus { outline: 2px solid var(--accent); outline-offset: -2px; background: rgba(91, 141, 255, .08); }
+.fo-to-rowhead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+.fo-to-role { font-weight: 600; }
+.fo-to-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; white-space: nowrap; }
+.fo-to-pill.tone-wait { color: var(--accent); }
+.fo-to-pill.tone-busy { color: #a78bfa; }
+.fo-to-pill.tone-ok { color: var(--ok); }
+.fo-to-pill.tone-warn { color: var(--warn); }
+.fo-to-pill.tone-bad { color: var(--err); }
+.fo-to-pill.tone-off { color: var(--muted); }
+.fo-to-what { min-width: 0; overflow-wrap: anywhere; font-size: 13px; }
+.fo-to-line + .fo-to-line { margin-top: 2px; }
+.fo-to-k { display: inline-block; min-width: 64px; color: var(--muted); font-size: 12px; }
+.fo-to-hint { margin: 0; }
+.fo-to-empty { margin: 0; padding: 10px 12px; }
+.fo-to-sec > .fo-banner { margin: 10px 12px; }
 .fo-to-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.fo-to-sec h3 { margin: 12px 0 4px; font-size: 14px; }
-.fo-to-count { font-weight: 400; opacity: .75; }
+.fo-to-actions .btn.small { min-height: 32px; padding: 4px 12px; font-size: 12px; }
+.fo-to-countering .fo-to-actions { margin-top: 6px; }
 .fo-to-acting { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 4px 0 8px; font-size: 13px; }
 .fo-to-acting select { max-width: 100%; }
 .fo-to-note { display: block; font-size: 13px; }
 .fo-to-note textarea { display: block; width: 100%; box-sizing: border-box; margin-top: 4px; }
+.fo-to-dlg { overflow-wrap: anywhere; }
+.fo-to-dlgnote { white-space: pre-wrap; }
 .fo-to-dlg-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.fo-tb-counter .btn { margin-left: 4px; }

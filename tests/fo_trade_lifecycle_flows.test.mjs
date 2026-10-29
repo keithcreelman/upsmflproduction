@@ -143,7 +143,7 @@ test("staging_required: the War Room's pre-send check, then the staged create wi
   t.equal(tr.posts()[2].body.idempotency_key, tr.posts()[0].body.idempotency_key);
   t.ok(!("loaded_contract_drops" in tr.posts()[2].body), "no drops field");
   t.equal(new URL(tr.log[2].url).searchParams.get("acting_franchise_id"), "0001");
-  tr = transport([{ when: POST("/trade-offers"), answer: staging }, { when: POST("/api/trades/compliance-preview"), answer: R(200, { ok: true, compliance: { loaded_contracts: { status: "blocked", teams: [{ franchise_id: "0001" }] } } }) }]);
+  tr = transport([{ when: POST("/trade-offers"), answer: staging }, { when: POST("/api/trades/compliance-preview"), answer: R(200, { ok: true, compliance: { loaded_contracts: { status: "blocked", violations: [{ franchise_id: "0001", projected: 6, max: 5 }] } } }) }]);
   r = await cl(tr).sendTwoTeam(DRAFT, "0001", "", ctx());
   t.equal(r.state, "blocked_loaded"); t.equal(tr.log.length, 2, "nothing staged");
   tr = transport([{ when: POST("/trade-offers"), answer: staging }]);
@@ -304,7 +304,7 @@ test("decline (note ≤ 2,000, recipient only) and revoke (sender only)", async 
 
 // ── Three-team ──
 test("three-team: initiator over the loaded limit = hard stop; a partner over it asks first (War Room's 'Send anyway'); sent with a key", async () => {
-  const blocked = (fid) => R(200, { ok: true, compliance: { loaded_contracts: { status: "blocked", teams: [{ franchise_id: fid, projected: 6, max: 5 }] } } });
+  const blocked = (fid) => R(200, { ok: true, compliance: { loaded_contracts: { status: "blocked", violations: [{ franchise_id: fid, projected: 6, max: 5 }] } } });
   let tr = transport([{ when: POST("/api/trades/compliance-preview"), answer: blocked("0001") }]);
   let r = await cl(tr).sendThreeTeam(DRAFT3, "0001", "", ctx());
   t.equal(r.state, "blocked_loaded"); t.equal(tr.posts().length, 1, "only the read-only preview");
@@ -317,6 +317,18 @@ test("three-team: initiator over the loaded limit = hard stop; a partner over it
   const body = tr.posts()[1].body;
   t.ok(body.idempotency_key); t.equal(body.notes, "all three"); t.equal(body.initiator.fid, "0001"); t.equal(body.movements.length, 3);
   t.equal((await cl(transport([])).sendThreeTeam(DRAFT3, "0001", "x".repeat(501), ctx())).code, "note_too_long", "500 for three-team");
+});
+
+test("loaded limit: the preview's own `violations` list reaches the 'Send anyway' question; blocked with no team named sends nothing", async () => {
+  // The worker's compliance preview names over-limit teams in loaded_contracts.violations (trade_cap_authority.js), never `teams`.
+  const asked = [];
+  let tr = transport([{ when: POST("/api/trades/compliance-preview"), answer: R(200, { ok: true, compliance: { loaded_contracts: { status: "blocked", max: 5, violations: [{ franchise_id: "2", franchise_name: "Bravo", projected: 6, max: 5, message: "Bravo would have 6" }] } } }) }]);
+  let r = await cl(tr).sendThreeTeam(DRAFT3, "0001", "", ctx({ confirmPartnerOverLoaded: (teams) => { asked.push(teams); return false; } }));
+  t.equal(r.state, "not_sent"); t.equal(asked.length, 1, "the owner was asked");
+  t.deepEqual(JSON.parse(JSON.stringify(asked[0])), [{ franchise_id: "0002", franchise_name: "Bravo", projected: 6, max: 5 }]);
+  tr = transport([{ when: POST("/api/trades/compliance-preview"), answer: R(200, { ok: true, compliance: { loaded_contracts: { status: "blocked", violations: [] } } }) }]);
+  r = await cl(tr).sendThreeTeam(DRAFT3, "0001", "", ctx({ confirmPartnerOverLoaded: () => true }));
+  t.equal(r.state, "blocked_loaded", "blocked without a team list is a stop, not a send"); t.equal(tr.posts().length, 1, "only the read-only preview");
 });
 
 test("three-team cap acknowledgment at create resends once; staged/3-way management bodies; no drop selection", async () => {

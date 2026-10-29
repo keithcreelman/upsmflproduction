@@ -353,6 +353,7 @@
       // Attached from the FIRST paint when the flag is on, so nothing remounts later; ready() is false (Send shows "Loading…") until the lifecycle code arrives.
       sender: O && O.flagOn() ? { enabled: true, ready: function () { return O.enabled(); }, noteLimit: function (n) { return n === 3 ? 500 : 2000; },
         label: function () { return O._state && O._state.counterOf ? "Send counter" : "Send offer"; },
+        counter: function () { return O.counter ? O.counter() : null; }, cancelCounter: function () { if (O.cancelCounter) O.cancelCounter(); },
         send: function (d, note) { return O.sendDraft(d, note).then(function (r) { return { state: r.state, message: O._outcomeText(r), done: ["sent", "staged", "sent_three_team", "countered", "already_sent", "already_staged", "already_sent_three_team"].indexOf(r.state) !== -1 }; }); } } : null,
       warRoomUrl: ("warRoomUrl" in c) ? c.warRoomUrl : (FO.warRoomUrl ? FO.warRoomUrl({}) : "")
     });
@@ -422,6 +423,15 @@
     return { ok: true, dropped: dropped, clamped: clamped };
   }
 
-  root.UPS_FO_TRADE_BUILDER = { _extensionOptions: extensionOptions, mount: mount, openDraft: openDraft, _picksOf: picksOf, _impact: impact, _playersOf: playersOf, _ineligibleOf: ineligibleOf, _capBasis: capBasis };
+  // Cancel counter (Offers, behind the write flag): empty the builder ONLY while it still holds that counter's draft (its label),
+  // so a trade the owner started over with is never thrown away. Nothing is sent.
+  function clearDraft(label) {
+    var C = root.UPS_TRADE_BUILDER_CORE, cur = live() ? current.state().label : keep && keep.label;
+    if (!C || !FO || !label || cur !== label) return false;
+    keep = { draft: C.emptyDraft([FO.viewerFid()]), label: "", dropped: [] };
+    if (live()) current.loadDraft(keep);
+    return true;
+  }
+  root.UPS_FO_TRADE_BUILDER = { _extensionOptions: extensionOptions, mount: mount, openDraft: openDraft, clearDraft: clearDraft, _picksOf: picksOf, _impact: impact, _playersOf: playersOf, _ineligibleOf: ineligibleOf, _capBasis: capBasis };
   document.addEventListener("fo:ready", function () { FO = root.UPS_FO; DATA = root.UPS_FO_DATA; H = root.UPS_FO_HUB; });
 })(typeof window !== "undefined" ? window : this);
