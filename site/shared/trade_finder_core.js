@@ -17,6 +17,9 @@
      each with `loss` = that team's lineup minus its lineup without him (fit.tradeLineup, the same engine). `teams`
      = the other teams with surplus help at g, most help first, with their own rank at g. Lineup math only: nothing
      says an owner would move anyone or that a trade is fair.
+   groupOptions(O, sort): positionOptions' players as one list by team, the shape the screen shows. sort "cost" (what
+     their lineup would lose, least first; ties by my gain) or "gain" (my gain, most first; ties by their loss). Players
+     sort within a team and teams by their first player. Each cost is one player at a time, so they never add up.
    selectionToDraft(sel): the players an owner ticked on either side → the Trade builder's openDraft draft (#1419: my
      players move to them, theirs to me). The builder opens it as an editable, UNSENT draft; nothing is sent.
 */
@@ -88,11 +91,23 @@
       } else starters.push(row);
     });
     surplus.sort(function (a, b) { return (b.gain - a.gain) || (b.v - a.v); });
-    starters.sort(function (a, b) { return ((b.gain - b.loss) - (a.gain - a.loss)) || (b.gain - a.gain); });
+    starters.sort(function (a, b) { return (b.gain - a.gain) || (a.loss - b.loss); });
     var teams = Object.keys(byTeam).map(function (k) { return byTeam[k]; }).sort(function (a, b) { return (b.best - a.best) || (b.n - a.n); });
     var mine = table && table.teams[me] && table.teams[me][g];
     return { g: g, me: me, minGain: gains.minGain, rank: mine ? mine.rank : null, ppg: mine ? mine.ppg : null, n: table ? table.order.length : null,
       surplus: surplus, starters: starters, teams: teams };
+  }
+
+  function groupOptions(O, sort) {
+    if (!O) return [];
+    var cmp = sort === "gain" ? function (a, b) { return (b.gain - a.gain) || (a.loss - b.loss) || (b.v - a.v); }
+      : function (a, b) { return (a.loss - b.loss) || (b.gain - a.gain) || (b.v - a.v); };
+    var by = {};
+    O.surplus.concat(O.starters).forEach(function (x) {
+      (by[x.fid] = by[x.fid] || { fid: x.fid, rank: x.rank, players: [] }).players.push(x);
+    });
+    var teams = Object.keys(by).map(function (k) { by[k].players.sort(cmp); return by[k]; });
+    return teams.sort(function (a, b) { return cmp(a.players[0], b.players[0]); });
   }
 
   // sel: {me, other, mine:[pid], theirs:[pid]} → the Trade builder's openDraft shape (#1419 contract,
@@ -112,7 +127,7 @@
     return { source: "Trade finder", movements: movements };
   }
 
-  var api = { POSITIONS: POSITIONS, TOP: TOP, standing: standing, weakSpots: weakSpots, positionOptions: positionOptions, pairGains: pairGains, selectionToDraft: selectionToDraft };
+  var api = { POSITIONS: POSITIONS, TOP: TOP, standing: standing, weakSpots: weakSpots, positionOptions: positionOptions, groupOptions: groupOptions, pairGains: pairGains, selectionToDraft: selectionToDraft };
   if (typeof window !== "undefined") window.UPS_TRADE_FINDER = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })();

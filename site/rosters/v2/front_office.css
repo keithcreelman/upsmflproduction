@@ -1645,12 +1645,23 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-posxhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .fo-tf-posxhead .fo-tf-more { flex: none; min-height: 32px; }
 .fo-tf-posxhead .fo-tf-gh { margin: 4px 0; }
-.fo-tf-xteams { margin: 2px 0 6px; font-size: 12px; color: var(--muted); }
-.fo-tf-xteams b { color: var(--text); }
-.fo-tf-opts td, .fo-tf-opts th { vertical-align: top; }
+.fo-tf-optsum { margin: 2px 0 2px; font-size: 13px; }
+.fo-tf-optsort { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; font-size: 12.5px; }
+.fo-tf-sortbtn { min-height: 32px; padding: 4px 10px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+.fo-tf-sortbtn.active { color: #fff; background: var(--accent); border-color: var(--accent); }
+.fo-tf-optcards { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.fo-tf-optcard { border: 1px solid var(--border); border-radius: 8px; background: var(--panel-alt); overflow: hidden; }
+.fo-tf-opthead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; padding: 6px 10px; font-size: 13px; background: rgba(255, 255, 255, .04); border-bottom: 1px solid var(--border); }
+.fo-tf-opthead .fo-muted { font-size: 12px; }
+.fo-tf-optp { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 12px; padding: 6px 10px; font-size: 13px; border-bottom: 1px solid var(--border); }
+.fo-tf-optname { min-width: 0; }
+.fo-tf-optnums { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12.5px; }
+.fo-tf-you b { font-size: 14px; }
+.fo-tf-them { margin-left: 8px; color: var(--muted); }
 .fo-tf-loss { color: #fdba74; }
-.fo-tf-xteam { display: block; margin: 4px 0 0 auto; min-height: 32px; padding: 4px 8px; font: inherit; font-size: 12px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
-@media (max-width: 400px) { .fo-tf-xteam { padding: 4px 6px; } .fo-tf-weakrow { padding: 8px; } .fo-tf-posx { padding: 8px 6px; } }
+.fo-tf-optfoot { display: flex; justify-content: flex-end; padding: 6px 10px; }
+.fo-tf-xteam { min-height: 32px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+@media (max-width: 400px) { .fo-tf-weakrow { padding: 8px; } .fo-tf-posx { padding: 8px 6px; } }
 .fo-tf-unit { color: var(--muted); font-size: 11px; font-weight: 400; }
 .fo-tf-gnum { font-weight: 700; }
 .fo-tf-explore { margin: 12px 0 4px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
