@@ -17,9 +17,10 @@
      each with `loss` = that team's lineup minus its lineup without him (fit.tradeLineup, the same engine). `teams`
      = the other teams with surplus help at g, most help first, with their own rank at g. Lineup math only: nothing
      says an owner would move anyone or that a trade is fair.
-   groupOptions(O, sort): positionOptions' players as one list by team, the shape the screen shows. sort "cost" (what
-     their lineup would lose, least first; ties by my gain) or "gain" (my gain, most first; ties by their loss). Players
-     sort within a team and teams by their first player. Each cost is one player at a time, so they never add up.
+   groupOptions(O): positionOptions' players as one list by team, the shape the screen shows: what their lineup would
+     lose, least first (ties by my gain). Players sort within a team and teams by their first player. One fixed order
+     (Keith 2026-10-30): sorting by my gain only lists the position's top players. Each cost is one player at a time,
+     so they never add up.
    selectionToDraft(sel): the players an owner ticked on either side → the Trade builder's openDraft draft (#1419: my
      players move to them, theirs to me). The builder opens it as an editable, UNSENT draft; nothing is sent.
 */
@@ -98,10 +99,9 @@
       surplus: surplus, starters: starters, teams: teams };
   }
 
-  function groupOptions(O, sort) {
+  function groupOptions(O) {
     if (!O) return [];
-    var cmp = sort === "gain" ? function (a, b) { return (b.gain - a.gain) || (a.loss - b.loss) || (b.v - a.v); }
-      : function (a, b) { return (a.loss - b.loss) || (b.gain - a.gain) || (b.v - a.v); };
+    var cmp = function (a, b) { return (a.loss - b.loss) || (b.gain - a.gain) || (b.v - a.v); };
     var by = {};
     O.surplus.concat(O.starters).forEach(function (x) {
       (by[x.fid] = by[x.fid] || { fid: x.fid, rank: x.rank, players: [] }).players.push(x);

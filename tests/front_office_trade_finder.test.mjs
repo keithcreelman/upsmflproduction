@@ -361,22 +361,22 @@ test("your team first (Keith 2026-10-30): Explore a position by default — weak
   t.ok(!/id="fo-tf-posx"/.test(card), "no position open until asked");
 });
 
-test("Explore a position: the weakest starter is named, one list by team with You and Them, two visible sorts, Explore team per team", () => {
+test("Explore a position: the weakest starter is named, one list by team with You and Them, lowest cost first, Explore team per team", () => {
   const p = page({ defaultExplore: true });
   const TB = p.LS.build(p.model, { by: "position" }), G = p.TF.lineupGains(p.model, "0008");
-  p.TR._xview.pos = "QB"; p.TR._xview.sort = "cost"; p.TR._xview.allTeams = false;
+  p.TR._xview.pos = "QB"; p.TR._xview.allTeams = false;
   const card = unesc(p.show({ view: { by: "position" } }));
   const i = card.indexOf('id="fo-tf-posx"'), panel = card.slice(i, card.indexOf("</li>", card.indexOf('class="fo-basis">Only', i)));
   t.ok(i > card.indexOf('data-tf-weak="QB"'), "the panel opens under the QB row");
   const low = [...p.LS.modeledStarters(p.model, "0008", "QB")].sort((a, b) => a.v - b.v)[0];
-  t.ok(panel.includes("Your weakest QB starter: " + p.H.displayName(p.model.teams["0008"].team.players.find((x) => x.pid === low.pid).name) + ", " + p.H.fmt1(low.v) + " PPG. Each row adds one player: what you’d gain and what his team would lose."), "the top line says what the gain is measured against");
+  t.ok(panel.includes("Your weakest QB starter: " + p.H.displayName(p.model.teams["0008"].team.players.find((x) => x.pid === low.pid).name) + ", " + p.H.fmt1(low.v) + " PPG. Each row adds one player: what you’d gain and what his team would lose, lowest cost first."), "the top line says what the gain is measured against");
   t.ok(panel.includes("Your QB starters combined: 42.9 pts/wk, 8th of 12."), "the position total is labeled as combined");
   t.ok(panel.includes("No bench QB would add +1.0 pts/wk.") && !/On another team’s bench/.test(panel), "an empty bench is one muted line, no heading");
-  t.ok(/data-tf-xsort="cost" aria-pressed="true">Costs them least<\/button>/.test(panel) && /data-tf-xsort="gain" aria-pressed="false">Helps me most<\/button>/.test(panel), "two visible sorts; costs them least by default");
+  t.ok(!/data-tf-xsort|Helps me most/.test(panel) && !/data-tf-xsort|Helps me most/.test(SRC), "one fixed order, no Helps me most (Keith 2026-10-30)");
   t.ok(!/gain minus|their lineup −|their QB /.test(panel), "no hidden score and none of the old row wording");
   t.ok(/Costs are one player at a time; they don’t add up\./.test(panel), "costs are said not to add up");
   t.ok(!/trade for|in exchange|you could offer|would trade|willing|available for trade|\bfair deal\b/i.test(panel), "no exchange or willingness wording");
-  const O = p.TFC.positionOptions(p.model, TB, G, "QB", p.TF), T = p.TFC.groupOptions(O, "cost");
+  const O = p.TFC.positionOptions(p.model, TB, G, "QB", p.TF), T = p.TFC.groupOptions(O);
   const cards = [...panel.matchAll(/data-tf-card="(\d{4})"/g)].map((x) => x[1]);
   t.equal(cards.join(","), T.slice(0, 5).map((x) => x.fid).join(","), "five teams in order, then Show all");
   t.ok(panel.includes("data-tf-xall") && panel.includes("Show all " + T.length + " teams</button>"), "Show all N teams");
@@ -387,19 +387,18 @@ test("Explore a position: the weakest starter is named, one list by team with Yo
     t.equal(/data-tf-xpid=/.test(c), x.players.length === 1, x.fid + ": ticks a player only when one is listed");
     for (const q of x.players) t.ok(c.includes('data-tf-opt="' + q.pid + '"') && c.includes("You <b>+" + p.H.fmt1(q.gain) + "</b>") && c.includes(q.bench ? "Them 0 (bench)" : "Them −" + p.H.fmt1(q.loss)), q.pid + ": You and Them");
   }
-  p.TR._xview.sort = "gain"; p.TR._xview.allTeams = true;
+  p.TR._xview.allTeams = true;
   const all = unesc(p.show({}));
-  t.equal([...all.matchAll(/data-tf-card="(\d{4})"/g)].map((x) => x[1]).join(","), p.TFC.groupOptions(O, "gain").map((x) => x.fid).join(","), "Helps me most reorders; Show all lists every team");
-  t.ok(/data-tf-xsort="gain" aria-pressed="true"/.test(all), "the chosen sort is marked");
+  t.equal([...all.matchAll(/data-tf-card="(\d{4})"/g)].map((x) => x[1]).join(","), T.map((x) => x.fid).join(","), "Show all lists every team");
   // Bench players read "Them 0 (bench)"; a team with one listed player opens with him ticked.
-  p.TR._xview.pos = "RB"; p.TR._xview.sort = "cost"; p.TR._xview.allTeams = false;
+  p.TR._xview.pos = "RB"; p.TR._xview.allTeams = false;
   const rb = unesc(p.show({}));
   t.ok(rb.includes("Them 0 (bench)") && rb.includes('data-tf-optkind="bench"'), "bench players are in the one list");
-  const R = p.TFC.groupOptions(p.TFC.positionOptions(p.model, TB, G, "RB", p.TF), "cost").find((x) => x.players.length === 1) || { players: [p.TFC.positionOptions(p.model, TB, G, "RB", p.TF).surplus[0]], fid: p.TFC.positionOptions(p.model, TB, G, "RB", p.TF).surplus[0].fid };
+  const R = p.TFC.groupOptions(p.TFC.positionOptions(p.model, TB, G, "RB", p.TF)).find((x) => x.players.length === 1) || { players: [p.TFC.positionOptions(p.model, TB, G, "RB", p.TF).surplus[0]], fid: p.TFC.positionOptions(p.model, TB, G, "RB", p.TF).surplus[0].fid };
   p.TR._openTeam(R.fid, { tick: R.players[0].pid });
   t.ok(new RegExp('data-tf-pick="theirs" value="' + R.players[0].pid + '" checked').test(p.dialog.open.html), "the player is ticked in the popup");
   t.equal(p.TR._picks().theirs[R.players[0].pid], true);
-  p.TR._xview.pos = ""; p.TR._xview.sort = "cost";
+  p.TR._xview.pos = "";
 });
 
 test("Explore a team: the team picker (the 11 other teams) replaces the weak list; choosing one opens its popup", () => {

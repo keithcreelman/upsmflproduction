@@ -91,12 +91,12 @@ test("version stamps changed with the files that changed", () => {
   // Trade finder: your team first, drilldown, copy to the builder (2026-10-28, #1423, merged with #1419).
   t.ok(HTML.includes("shared/trade_fit.js?v=2026.10.28.15"), "shared/trade_fit.js (Trade finder)");
   // Explore a position (Keith 2026-10-30): the finder core, the view, the CSS and the embed BUILD.
-  for (const f of ["shared/trade_finder_core.js", "fo_trades.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.30.4"), f + " (Explore a position: options by team)");
+  for (const f of ["shared/trade_finder_core.js", "fo_trades.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.30.5"), f + " (Explore a position: options by team, one order)");
   // Offer lifecycle behind the off-by-default write flag (2026-10-28, lifecycle draft): the Offers view, its mode chip, the after-trade reload hook,
   // the CSS (eligibility's and the lifecycle's rules) and the embed BUILD.
   t.ok(HTML.includes("fo_trade_offers.js?v=2026.10.29.1"), "fo_trade_offers.js (offer lifecycle, flag off; Offers redesign)");
   t.ok(HTML.includes("front_office.js?v=2026.10.28.v1.41.22"), "front_office.js (its own stamp format; the after-trade reload hook)");
-  t.ok(/var BUILD = "2026\.10\.30\.4";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  t.ok(/var BUILD = "2026\.10\.30\.5";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");

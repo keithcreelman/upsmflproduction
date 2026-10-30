@@ -1646,9 +1646,6 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-posxhead .fo-tf-more { flex: none; min-height: 32px; }
 .fo-tf-posxhead .fo-tf-gh { margin: 4px 0; }
 .fo-tf-optsum { margin: 2px 0 2px; font-size: 13px; }
-.fo-tf-optsort { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; font-size: 12.5px; }
-.fo-tf-sortbtn { min-height: 32px; padding: 4px 10px; font: inherit; font-size: 12.5px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
-.fo-tf-sortbtn.active { color: #fff; background: var(--accent); border-color: var(--accent); }
 .fo-tf-optcards { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
 .fo-tf-optcard { border: 1px solid var(--border); border-radius: 8px; background: var(--panel-alt); overflow: hidden; }
 .fo-tf-opthead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; padding: 6px 10px; font-size: 13px; background: rgba(255, 255, 255, .04); border-bottom: 1px solid var(--border); }

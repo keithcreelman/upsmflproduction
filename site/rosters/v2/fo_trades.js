@@ -34,7 +34,7 @@
    weak (trade_finder_core.weakSpots: Bottom 3 or below the league average), each
    with a button that opens that position's options (positionOptions + groupOptions):
    one list by team, each player with You (my gain) and Them (what his team's lineup
-   would lose, 0 for a bench player), sorted by the owner's choice. Each team card's
+   would lose, 0 for a bench player), lowest cost first. Each team card's
    Explore team opens its popup, ticking the player if only one is listed. EXPLORE A TEAM:
    the team picker and, only here, the league table (Keith 2026-10-30: hidden until
    Explore a team is tapped; shown anyway when the viewer's team isn't known). Basis is
@@ -173,7 +173,7 @@
     return '<div class="fo-tf-guidewrap"><button type="button" class="fo-tf-guidebtn" data-tf-guide aria-expanded="' + guideOpen + '" aria-controls="fo-tf-guide">' +
       '<span class="fo-tf-caret" aria-hidden="true">' + (guideOpen ? "▾" : "▸") + "</span> How to use this page</button>" +
       '<div class="fo-tf-guide" id="fo-tf-guide"' + (guideOpen ? "" : " hidden") + "><ul>" +
-      "<li><b>Explore a position</b> (the default) lists where you’re weak: Bottom 3 or below the league average. <b>Explore … options</b> shows, team by team, the players who would improve your lineup: <b>You</b> = points a week you’d gain, <b>Them</b> = points a week his team would lose (0 for a bench player). Sort by <b>Costs them least</b> or <b>Helps me most</b>. <b>Explore team</b> opens that team.</li>" +
+      "<li><b>Explore a position</b> (the default) lists where you’re weak: Bottom 3 or below the league average. <b>Explore … options</b> shows, team by team, the players who would improve your lineup: <b>You</b> = points a week you’d gain, <b>Them</b> = points a week his team would lose (0 for a bench player). The lowest cost to their team comes first. <b>Explore team</b> opens that team.</li>" +
       "<li><b>Explore a team</b> (or <b>View</b> in the table) opens it: its players with the gain each would give your lineup, your players who would help theirs, its standing, cap, picks and possible roster surplus. Tick players to copy them to the Trade builder as an unsent draft.</li>" +
       "<li><b>Possible roster surplus</b> = healthy bench players outside that team’s modeled lineup who would start for another team, on season PPG. It doesn’t mean the owner would move them.</li>" +
       "<li><b>The league table</b> (under Explore a team) shows every team’s modeled lineup: its best legal lineup from its own available players. Pick a breakdown and a measure; tap a column to sort. <b>Starter Mix</b> shows the lineups owners actually submitted.</li>" +
@@ -199,9 +199,8 @@
   }
   // ── Your team first (Keith 2026-10-30): Explore a position (where you're weak → other teams' bench help) or Explore a team ──
   var XBY = [["position", "Explore a position"], ["team", "Explore a team"]];
-  var OPT_SORTS = [["cost", "Costs them least"], ["gain", "Helps me most"]];
   var TEAM_ROWS = 5;
-  var xview = { by: "position", pos: "", sort: "cost", allTeams: false };
+  var xview = { by: "position", pos: "", allTeams: false };
   var posMemo = { model: null, fid: "", out: {} };
   function optionsFor(m, me, G, g) {
     if (posMemo.model !== m || posMemo.fid !== me) posMemo = { model: m, fid: me, out: {} };
@@ -237,12 +236,6 @@
       (T.rank ? ' <span class="fo-muted">' + H.esc(gl(g)) + " rank " + LS.ordinal(T.rank) + " of " + n + "</span>" : "") + "</div>" +
       T.players.map(function (x) { return optionPlayer(x, T.fid); }).join("") + '<div class="fo-tf-optfoot">' + exploreTeamButton(T) + "</div></li>";
   }
-  function sortButtons() {
-    return '<div class="fo-tf-optsort" role="group" aria-label="Sort options"><span class="fo-muted">Sort:</span> ' + OPT_SORTS.map(function (x) {
-      var on = xview.sort === x[0];
-      return '<button type="button" class="fo-tf-sortbtn' + (on ? " active" : "") + '" data-tf-xsort="' + x[0] + '" aria-pressed="' + on + '">' + H.esc(x[1]) + "</button>";
-    }).join(" ") + "</div>";
-  }
   // "Your weakest QB starter: Jacoby Brissett, 19.4 PPG." A slot no rostered player can fill says so instead of naming anyone.
   function weakestLine(m, me, g) {
     var list = LS.modeledStarters(m, me, g), low = null;
@@ -253,15 +246,15 @@
   function positionPanel(m, me, G, g) {
     var O = optionsFor(m, me, G, g);
     if (!O) return "";
-    var lbl = gl(g), min = H.fmt1(O.minGain), teams = TFC.groupOptions(O, xview.sort);
+    var lbl = gl(g), min = H.fmt1(O.minGain), teams = TFC.groupOptions(O);
     var shown = xview.allTeams ? teams : teams.slice(0, TEAM_ROWS);
     var benchNote = !O.surplus.length && teams.length ? '<p class="fo-tf-gsub">No bench ' + H.esc(lbl) + " would add +" + min + " pts/wk.</p>" : "";
     return '<div class="fo-tf-posx" id="fo-tf-posx" data-tf-posx="' + g + '" tabindex="-1">' +
       '<div class="fo-tf-posxhead"><h3 class="fo-tf-gh">' + H.esc(lbl) + " options</h3>" +
       '<button type="button" class="fo-tf-more" data-tf-xpos="' + g + '" aria-expanded="true" aria-controls="fo-tf-posx">Close</button></div>' +
-      '<p class="fo-tf-optsum">' + H.esc(weakestLine(m, me, g)) + " Each row adds one player: what you’d gain and what his team would lose.</p>" +
+      '<p class="fo-tf-optsum">' + H.esc(weakestLine(m, me, g)) + " Each row adds one player: what you’d gain and what his team would lose, lowest cost first.</p>" +
       '<p class="fo-tf-gsub">Your ' + H.esc(lbl) + " starters combined: " + H.fmt1(O.ppg) + " pts/wk, " + LS.ordinal(O.rank) + " of " + O.n + ".</p>" +
-      (teams.length ? sortButtons() + benchNote + '<ul class="fo-tf-optcards">' + shown.map(function (T) { return optionCard(T, g, O.n); }).join("") + "</ul>" +
+      (teams.length ? benchNote + '<ul class="fo-tf-optcards">' + shown.map(function (T) { return optionCard(T, g, O.n); }).join("") + "</ul>" +
         (teams.length > TEAM_ROWS ? '<p class="fo-tf-showall"><button type="button" class="fo-tf-more" data-tf-xall aria-expanded="' + xview.allTeams + '">' + (xview.allTeams ? "Show fewer" : "Show all " + teams.length + " teams") + "</button></p>" : "")
         : '<p class="fo-ov-empty">No ' + H.esc(lbl) + " on another team would add +" + min + " pts/wk.</p>") +
       '<p class="fo-basis">Only +' + min + " pts/wk or more. Costs are one player at a time; they don’t add up. Season PPG: it doesn’t say a trade is fair or that an owner would move anyone. <b>Explore team</b> opens that team; nothing is sent.</p></div>";
@@ -718,18 +711,11 @@
       if (m && m.teams[f]) openTeam(m, f);
     });
     el.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-tf-mode],[data-tf-by],[data-tf-measure],[data-tf-sort],[data-tf-msort],[data-tf-view],[data-tf-guide],[data-tf-xby],[data-tf-xpos],[data-tf-xall],[data-tf-xsort],[data-tf-xteam]") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-tf-mode],[data-tf-by],[data-tf-measure],[data-tf-sort],[data-tf-msort],[data-tf-view],[data-tf-guide],[data-tf-xby],[data-tf-xpos],[data-tf-xall],[data-tf-xteam]") : null;
       if (!t) return;
       // Explore a position / a team (Keith 2026-10-30).
       if (t.hasAttribute("data-tf-xby")) { xview.by = t.getAttribute("data-tf-xby"); render(); return; }
       if (t.hasAttribute("data-tf-xall")) { xview.allTeams = !xview.allTeams; render(); return; }
-      if (t.hasAttribute("data-tf-xsort")) {
-        var xs = t.getAttribute("data-tf-xsort");
-        xview.sort = xs; render();
-        var sb = el.querySelector('[data-tf-xsort="' + xs + '"]');
-        if (sb) { try { sb.focus({ preventScroll: true }); } catch (x) { sb.focus(); } }
-        return;
-      }
       if (t.hasAttribute("data-tf-xpos")) {
         var xg = t.getAttribute("data-tf-xpos"), opening = xview.pos !== xg;
         xview.pos = opening ? xg : ""; xview.allTeams = false;
@@ -786,7 +772,7 @@
     wire();
     H.registerAbout("trades", "<h3>Trade finder</h3>" +
       "<p><b>Your team first (explore a weak position or a team), then every team’s lineup strength side by side, and a closer look at any team.</b> Based on season points per game, not projections. It doesn’t grade trades, rank partners or suggest swaps, and it never sends anything.</p><ul>" +
-      "<li><b>Explore a position</b>: your weak positions (Bottom 3 by PPG, or below the league average; K and P aren’t listed), each with your PPG, the league average and your rank. Its button lists the players at that position on other teams who alone would add +1.0 pt a week or more to your modeled lineup: grouped by team, with <b>You</b> (the gain) and <b>Them</b> (what his team’s lineup would lose; 0 for a bench player, who is outside it). Sort by <b>Costs them least</b> or <b>Helps me most</b>. Each cost is one player at a time, so they don’t add up. <b>Explore team</b> opens that team, with the player ticked when only one is listed. The other positions are buttons too.</li>" +
+      "<li><b>Explore a position</b>: your weak positions (Bottom 3 by PPG, or below the league average; K and P aren’t listed), each with your PPG, the league average and your rank. Its button lists the players at that position on other teams who alone would add +1.0 pt a week or more to your modeled lineup: grouped by team, with <b>You</b> (the gain) and <b>Them</b> (what his team’s lineup would lose; 0 for a bench player, who is outside it). The lowest cost to their team comes first. Each cost is one player at a time, so they don’t add up. <b>Explore team</b> opens that team, with the player ticked when only one is listed. The other positions are buttons too.</li>" +
       "<li><b>Explore a team</b> (or <b>View</b>): their players with the gain each would give your lineup, and your available players with the gain each would give theirs. Tick players on either side and <b>Copy to Trade builder (not sent)</b> opens them as an editable draft there; nothing is sent. It is exploration, not a claim that a trade is fair or that an owner would accept.</li>" +
       "<li><b>The table</b> (under Explore a team) compares all 12 teams’ current rosters: <b>By Position</b> or <b>By Lineup Slot</b>, measured as <b>PPG</b> (the default), <b>Rank</b>, <b>Above Replacement</b> or <b>Index</b>. Each lineup is the team’s best legal lineup from its <b>own available rostered players</b> in the slots MFL’s lineup settings define; a free agent fills a slot only when no rostered player can play it, at replacement level, and is marked <b>*</b>. Values are season points per MFL-scored week.</li>" +
       "<li><b>Measures:</b> <b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = the raw points a week above replacement: Σ(starter PPG − replacement-level PPG), 0 = replacement level. Replacement level is the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; By Lineup Slot, a Flex or Superflex slot uses the best of those the slot accepts, so Overall Above Replacement can differ between the two breakdowns: one measures each starter against his own position’s baseline, the other against the slot’s eligible-player baseline. Rank and Index are the league-relative measures. Shown values are rounded so each breakdown’s rows add up to its Overall.<b>Index</b> = PPG ÷ the league <b>mean</b> × 100: 100 = average.<b>Starter Mix</b> is different: the <b>actual</b> starters per week from the lineups submitted to MFL in completed weeks, by each player’s own position. MFL records who started, not which slot: a second QB can only be Superflex and an extra DL/LB/DB only IDP Flex, while extra RB/WR/TE starters are shown together as Flexible slots. A week whose lineup doesn’t fill every slot is listed and left out, never averaged in.</li>" +
