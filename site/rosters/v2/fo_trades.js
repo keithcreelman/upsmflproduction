@@ -176,7 +176,7 @@
   function basisNow() { return xview.basis === "ros" && H.rosFile() ? "ros" : "ppg"; }
   function activeModel() { return basisNow() === "ros" ? H.rosModel() : H.leagueModel(0); }
   function ppgWord() { return basisNow() === "ros" ? "ROS PPG" : "PPG"; }
-  function onBasis(html) { return basisNow() === "ros" ? html.replace(/season PPG/g, "projected ROS PPG").replace(/Season PPG/g, "Projected ROS PPG") : html; }
+  function onBasis(html) { return basisNow() === "ros" ? html.replace(/season PPG/g, "projected ROS PPG").replace(/Season PPG(?!<\/button>)/g, "Projected ROS PPG") : html; }
   function basisChips() {
     var cur = basisNow(), e = DATA.get("ros");
     var note = xview.basis === "ros" && cur !== "ros" ? '<p class="fo-tf-basisnote" role="status">' + (e && e.state === "ok" || e && e.state === "error" ? "Rest-of-season projection unavailable. These numbers stay on season PPG." : "Reading the rest-of-season projection…") + "</p>" : "";

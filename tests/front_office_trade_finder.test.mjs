@@ -422,6 +422,7 @@ test("Based on: Season PPG by default; Projected ROS PPG recalculates every numb
   p.TR._setBasis("ros");
   const ros = unesc(p.el.innerHTML);
   t.ok(/data-tf-basis="ros" aria-pressed="true">Projected ROS PPG<\/button>/.test(ros), "the chosen basis is marked");
+  t.ok(/data-tf-basis="ppg" aria-pressed="false">Season PPG<\/button>/.test(ros), "the other choice keeps its own name");
   t.ok(ros.includes("Based on projected points per remaining week, Weeks 8–17.") && ros.includes("UPS Center projection, updated 10/28. Byes and listed absences count as 0."), "it says what the numbers are");
   t.ok(!/season PPG|Season PPG<\/b>|not projections/.test(ros.replace('>Season PPG</button>', "")), "no leftover season-PPG label");
   const Mr = p.TF.buildLeague({ teams: FX.teams, values: rosFile().players, freeAgents: FX.freeAgents, slots: p.slots });
