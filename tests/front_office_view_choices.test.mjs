@@ -88,14 +88,16 @@ test("version stamps changed with the files that changed", () => {
   // The builder view and adapter changed again for the lifecycle (a sender only behind the write flag), so they carry its stamp.
   for (const f of ["trade_builder_view.js", "fo_trade_builder.js"]) t.ok(HTML.includes(f + "?v=2026.10.29.1"), f + " (eligibility + lifecycle sender behind the flag; Cancel counter)");
   // Trade finder: your team first, drilldown, copy to the builder (2026-10-28, #1423, merged with #1419).
-  t.ok(HTML.includes("shared/trade_fit.js?v=2026.10.28.15"), "shared/trade_fit.js (Trade finder)");
+  t.ok(HTML.includes("shared/trade_fit.js?v=2026.10.30.7"), "shared/trade_fit.js (Trade finder; week-by-week Projected ROS PPG)");
+  t.ok(HTML.includes("shared/lineup_strength.js?v=2026.10.30.7"), "shared/lineup_strength.js (week-by-week Projected ROS PPG)");
   // Explore a position (Keith 2026-10-30): the finder core, the view, the CSS and the embed BUILD.
-  for (const f of ["shared/trade_finder_core.js", "fo_trades.js", "front_office.css", "fo_data.js", "fo_hub.js"]) t.ok(HTML.includes(f + "?v=2026.10.30.6"), f + " (Explore a position; Projected ROS PPG)");
+  for (const f of ["front_office.css", "fo_data.js"]) t.ok(HTML.includes(f + "?v=2026.10.30.6"), f + " (Explore a position; Projected ROS PPG)");
+  for (const f of ["shared/trade_finder_core.js", "fo_trades.js", "fo_hub.js"]) t.ok(HTML.includes(f + "?v=2026.10.30.7"), f + " (Projected ROS PPG, week by week)");
   // Offer lifecycle behind the off-by-default write flag (2026-10-28, lifecycle draft): the Offers view, its mode chip, the after-trade reload hook,
   // the CSS (eligibility's and the lifecycle's rules) and the embed BUILD.
   t.ok(HTML.includes("fo_trade_offers.js?v=2026.10.29.1"), "fo_trade_offers.js (offer lifecycle, flag off; Offers redesign)");
   t.ok(HTML.includes("front_office.js?v=2026.10.28.v1.41.22"), "front_office.js (its own stamp format; the after-trade reload hook)");
-  t.ok(/var BUILD = "2026\.10\.30\.6";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  t.ok(/var BUILD = "2026\.10\.30\.7";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");

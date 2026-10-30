@@ -57,7 +57,8 @@ function page(opts = {}) {
     capFor: (f) => ({ capSpace: FX.capRoom[f], capAlloc: 300000 - FX.capRoom[f] }), warRoomUrl: (o) => "#war-room?" + Object.entries(o).map(([k, v]) => k + "=" + v).join("&") };
   if (opts.ros !== undefined) {
     H.rosFile = () => (opts.ros && opts.ros.loaded !== false ? opts.ros.file : null);
-    H.rosModel = () => (H.rosFile() ? (ctx.__rosM = ctx.__rosM || TF.buildLeague({ teams: FX.teams, values: opts.ros.file.players, freeAgents: FX.freeAgents, slots })) : null);
+    H.rosRuledOut = () => ({});
+    H.rosModel = () => (H.rosFile() ? (ctx.__rosM = ctx.__rosM || TF.buildWeekly({ teams: FX.teams, weeks: ctx.UPS_TRADE_FINDER.rosWeeks(opts.ros.file), values: opts.ros.file.players, freeAgents: FX.freeAgents, slots })) : null);
     if (opts.ros) entries.ros = { state: opts.ros.state || "ok", data: opts.ros.file };
   }
   const loads = [];
@@ -410,7 +411,15 @@ test("Explore a position: the weakest starter is named, one list by team with Yo
 const rosFile = () => {
   const players = {}; let i = 0;
   for (const pid of Object.keys(FX.values)) players[pid] = Math.max(0, FX.values[pid] - 3 + (i++ % 7));
-  return { ok: true, season: 2026, throughWeek: 7, weeks: [8, 17], nWeeks: 10, asOf: "2026-10-28T14:00:00Z", label: "UPS Center projection", players };
+  // A bye for everyone in a week of his own; Week 8 has a game played, so lineups use Weeks 9-17.
+  const weekly = {}; i = 0;
+  for (const pid of Object.keys(players)) { const bye = 1 + (i++ % 9); weekly[pid] = Array.from({ length: 10 }, (_, w) => (w === bye ? null : players[pid])); }
+  // Two real RBs on another team: one back in Week 12 with a number from there, one with no return on file.
+  const tm = FX.teams.find((x) => x.fid !== "0008"), rbs = tm.players.filter((p) => p.pos === "RB" && weekly[p.pid]);
+  const back = rbs[0].pid, gone = rbs[1].pid, avail = { [back]: { k: "back", wk: 12 }, [gone]: { k: "none" } };
+  weekly[back] = weekly[back].map((v, w) => (w < 4 ? null : players[back] + 25));
+  delete weekly[gone]; delete players[gone];
+  return { ok: true, season: 2026, throughWeek: 7, weeks: [8, 17], nWeeks: 10, asOf: "2026-10-28T14:00:00Z", label: "UPS Center projection", playedExcluded: { 8: ["CAR"] }, players, weekly, avail };
 };
 
 test("Based on: Season PPG by default; Projected ROS PPG recalculates every number on the file's values and says what it is", () => {
@@ -423,9 +432,10 @@ test("Based on: Season PPG by default; Projected ROS PPG recalculates every numb
   const ros = unesc(p.el.innerHTML);
   t.ok(/data-tf-basis="ros" aria-pressed="true">Projected ROS PPG<\/button>/.test(ros), "the chosen basis is marked");
   t.ok(/data-tf-basis="ppg" aria-pressed="false">Season PPG<\/button>/.test(ros), "the other choice keeps its own name");
-  t.ok(ros.includes("Based on projected points per remaining week, Weeks 8–17.") && ros.includes("UPS Center projection, updated 10/28. Byes and listed absences count as 0."), "it says what the numbers are");
+  t.ok(ros.includes("Based on projected points per remaining week, Weeks 8–17.") && ros.includes("UPS Center projection, updated 10/28. Each week gets its own best lineup, then they’re averaged (Weeks 9–17: Week 8 has started). A hurt player counts from his MFL return date; with no date, he doesn’t count. A taxi player counts for a team receiving him."), "it says what the numbers are");
+  t.ok(!/aren’t counted\./.test(ros), "the old exclusion is gone");
   t.ok(!/season PPG|Season PPG<\/b>|not projections/.test(ros.replace('>Season PPG</button>', "")), "no leftover season-PPG label");
-  const Mr = p.TF.buildLeague({ teams: FX.teams, values: rosFile().players, freeAgents: FX.freeAgents, slots: p.slots });
+  const Mr = p.TF.buildWeekly({ teams: FX.teams, weeks: p.TFC.rosWeeks(rosFile()), values: rosFile().players, freeAgents: FX.freeAgents, slots: p.slots });
   const O = p.TFC.positionOptions(Mr, p.LS.build(Mr, { by: "position" }), p.TF.lineupGains(Mr, "0008"), "RB", p.TF);
   const first = p.TFC.groupOptions(O)[0];
   const at = ros.indexOf('data-tf-card="' + first.fid + '"'), c = ros.slice(at, ros.indexOf("</li>", at));
@@ -437,6 +447,20 @@ test("Based on: Season PPG by default; Projected ROS PPG recalculates every numb
   p.TR._setBasis("ppg");
   t.ok(/Based on season points per game/.test(unesc(p.el.innerHTML)), "switching back returns to season PPG");
   p.TR._xview.pos = "";
+});
+
+test("Projected ROS PPG tags: a hurt player's return beside his name, and who at the position adds nothing", () => {
+  const f = rosFile(), p = page({ defaultExplore: true, ros: { file: f } });
+  p.TR._xview.pos = "RB"; p.TR._xview.allTeams = true; p.show({ view: { by: "position" } }); p.TR._setBasis("ros");
+  const ros = unesc(p.el.innerHTML), name = (pid) => { for (const tm of FX.teams) { const x = tm.players.find((q) => q.pid === pid); if (x) return p.H.displayName(x.name); } };
+  const [back, gone] = Object.keys(f.avail);
+  t.ok(ros.includes('<span class="fo-tf-tag">Back Wk 12 (MFL)</span>'), "his return is on his row");
+  t.ok(/data-tf-notcounted>Not counted: /.test(ros) && ros.includes(name(gone) + " (No return on file)"), "the player with no return is named, not silently missing");
+  t.ok(!ros.includes(name(back) + " (Back Wk"), "a player who counts isn't in that line");
+  p.TR._setBasis("ppg");
+  const s = unesc(p.el.innerHTML);
+  t.ok(!s.includes("Back Wk 12") && !s.includes("data-tf-notcounted"), "season PPG shows neither");
+  p.TR._xview.pos = ""; p.TR._xview.allTeams = false;
 });
 
 test("Projected ROS PPG fails closed: loading, a failed read or an old file leaves season PPG on screen and says so; a retry tap reads again", () => {
