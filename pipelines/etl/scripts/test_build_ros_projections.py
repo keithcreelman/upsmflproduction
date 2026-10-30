@@ -114,6 +114,13 @@ class Availability(unittest.TestCase):
         self.assertEqual(out["players"]["1"]["ppg"], 5.0)
         self.assertEqual(out["avail"]["1"], {"k": "back", "wk": 10})
 
+    def test_a_feed_ahead_of_the_window_still_counts_him_only_from_his_return(self):
+        # MFL's feed starts at its own week 9; the window starts at 8. Week 8 still has a projection for him.
+        out = B.build_payload(2026, 7, 11, self.PROJ, {"1": "WR"}, {"1"}, {"rotowirePoints": 9}, "t",
+                              absent={"1": {"weeks": [9], "returns": "Nov 8, 2026", "source": "MFL injuries export (week 9)"}})
+        self.assertEqual(out["players"]["1"]["w"], [None, None, 10.0, 10.0])
+        self.assertEqual(out["avail"]["1"], {"k": "back", "wk": 10})
+
     def test_a_return_after_the_window_has_no_week_left(self):
         out = self.build({"weeks": self.WEEKS, "returns": "Feb 15, 2027", "source": "MFL injuries export (week 8)"})
         self.assertEqual(out["players"]["1"]["ppg"], None)

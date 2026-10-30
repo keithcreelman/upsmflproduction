@@ -102,15 +102,24 @@ def availability(absent, weeks):
         if not a.get("returns") and str(a.get("source") or "").startswith("MFL"):
             out[pid] = {"k": "none"}
             continue
-        rest = [w for w in weeks if w not in a["weeks"]]
-        if len(rest) < len(weeks):
-            out[pid] = {"k": "back", "wk": rest[0] if rest else None}
+        # From the week after his last listed absence: the feed lists nothing before its own current week, which can be
+        # ahead of this window when MFL's completed week lags.
+        last = max(a["weeks"])
+        if last >= weeks[0]:
+            out[pid] = {"k": "back", "wk": last + 1 if last < weeks[-1] else None}
     return out
 
 
-def player_row(pid, proj, weeks, played_weeks=(), counted=True):
+def counted_from(a):
+    """The first week an `avail` entry lets a player count. Nothing listed: every week."""
+    if not a:
+        return 0
+    return a["wk"] if a.get("wk") else float("inf")
+
+
+def player_row(pid, proj, weeks, played_weeks=(), first_week=0):
     remaining = [w for w in weeks if w not in played_weeks]
-    raw = [proj.get(w, {}).get(pid) if counted and w in remaining else None for w in weeks]
+    raw = [proj.get(w, {}).get(pid) if w >= first_week and w in remaining else None for w in weeks]
     have = sum(1 for v in raw if v is not None)
     # The average comes from the unrounded numbers: the rounded weeks are for reading only.
     ppg = round(sum(float(v) for v in raw if v) / len(remaining), 2) if have and remaining else None
@@ -128,7 +137,7 @@ def build_payload(season, through_week, end_week, proj, pos, rostered, ev_covera
     for pid in sorted(set().union(*[set(proj.get(w) or {}) for w in weeks]) | set(rostered)):
         if LE.pos_group(pos.get(pid) or "") not in GROUPS:
             continue
-        row = player_row(pid, proj, weeks, [w for w, teams in played.items() if team_of.get(pid) in teams], (avail.get(pid) or {}).get("k") != "none")
+        row = player_row(pid, proj, weeks, [w for w, teams in played.items() if team_of.get(pid) in teams], counted_from(avail.get(pid)))
         if row["projWeeks"] == 0 and pid not in rostered:
             continue
         players[pid] = row
