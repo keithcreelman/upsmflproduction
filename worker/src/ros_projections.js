@@ -23,7 +23,7 @@ export function rosAnswer(file, season, nowMs) {
     if (row && typeof row.ppg === "number" && Number.isFinite(row.ppg)) players[pid] = row.ppg;
   }
   return { status: 200, payload: { ok: true, season, throughWeek: file.throughWeek, weeks: file.weeks, nWeeks: file.nWeeks,
-    asOf: file.asOf, label: file.label, sources: file.sources, rule: file.rule, players } };
+    asOf: file.asOf, label: file.label, sources: file.sources, playedExcluded: file.playedExcluded, rule: file.rule, players } };
 }
 
 export async function rosProjections(bucket, seasonParam, nowMs) {

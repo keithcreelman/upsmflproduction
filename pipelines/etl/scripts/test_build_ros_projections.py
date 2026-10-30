@@ -54,6 +54,59 @@ class Payload(unittest.TestCase):
             B.build_payload(2026, 17, 17, proj(), POS, ROSTERED, EV, "t")
 
 
+class PlayedGames(unittest.TestCase):
+    KICKS = {t: 1000 for t in ("CAR", "GBP")}
+
+    def kicks(self):
+        k = dict((("T%02d" % i), 5000) for i in range(26))
+        k.update(self.KICKS)
+        return k
+
+    def test_a_kicked_off_game_is_dropped_for_his_team_only(self):
+        played = B.played_teams({8: self.kicks()}, 2000)
+        self.assertEqual(played, {8: ["CAR", "GBP"]})
+        team = {"1": "CAR", "2": "T00"}
+        p = B.build_payload(2026, 7, 10, proj(), POS, ROSTERED, EV, "t", played, team)
+        self.assertEqual(p["players"]["1"]["w"][0], None)              # the Thursday game is gone
+        self.assertEqual(p["players"]["1"]["ppg"], 10.0)               # 2 of his 2 remaining weeks: not divided by 3
+        self.assertEqual(p["players"]["1"]["remainingWeeks"], 2)
+        self.assertEqual(p["players"]["2"]["ppg"], 13.33)              # (20+10+10)/3: his game hasn't been played
+        self.assertEqual(p["players"]["2"]["remainingWeeks"], 3)
+        self.assertEqual(p["playedExcluded"], {"8": ["CAR", "GBP"]})
+
+    def test_the_kickoff_second_itself_counts_as_played(self):
+        self.assertEqual(B.played_teams({8: {"A": 2000}}, 1999), {})
+        self.assertEqual(B.played_teams({8: {"A": 2000}}, 2000), {8: ["A"]})
+
+    def test_nothing_played_changes_nothing(self):
+        a = B.build_payload(2026, 7, 11, proj(), POS, ROSTERED, EV, "t")
+        b = B.build_payload(2026, 7, 11, proj(), POS, ROSTERED, EV, "t", {}, {"1": "CAR"})
+        self.assertEqual(a, b)
+
+    def test_a_lagging_completed_week_drops_the_whole_week(self):
+        team = {"1": "CAR", "2": "GBP"}
+        played = {8: sorted(team.values())}
+        p = B.build_payload(2026, 7, 10, proj(), POS, ROSTERED, EV, "t", played, team)
+        self.assertEqual(p["players"]["1"]["ppg"], 10.0)
+        self.assertEqual(p["players"]["2"]["ppg"], 10.0)
+
+    def test_an_unreadable_or_short_schedule_fails_closed(self):
+        good = {"nflSchedule": {"matchup": [{"kickoff": "100", "team": [{"id": "T%02d" % i}, {"id": "U%02d" % i}]} for i in range(14)]}}
+        self.assertEqual(len(B.kickoffs_from(good, 2026, 8)), 28)
+        short = {"nflSchedule": {"matchup": {"kickoff": "100", "team": [{"id": "A"}, {"id": "B"}]}}}
+        for bad in (None, {}, {"nflSchedule": {}}, {"nflSchedule": {"matchup": [{"kickoff": "soon", "team": [{"id": "A"}]}]}}, short):
+            with self.assertRaises(B.BuildError):
+                B.kickoffs_from(bad, 2026, 8)
+
+
+class Season(unittest.TestCase):
+    def test_the_offseason_is_outside_and_january_is_last_season(self):
+        self.assertEqual([m for m in range(1, 13) if B.in_season(m)], [1, 9, 10, 11, 12])
+        from datetime import datetime
+        self.assertEqual(B.default_season(datetime(2027, 1, 3)), 2026)
+        self.assertEqual(B.default_season(datetime(2026, 11, 3)), 2026)
+
+
 class Coverage(unittest.TestCase):
     def payload(self):
         return B.build_payload(2026, 7, 11, proj(), POS, ROSTERED, EV, "t")
