@@ -200,6 +200,22 @@
     return model;
   }
 
+  // The same model on Projected ROS PPG (Trade finder only): the same teams, slots and free agents, valued by the
+  // rest-of-season file. null until a usable file is loaded; never built on stale or partial numbers.
+  var rosMemo = { base: null, file: null, model: null };
+  function rosFile() {
+    var TFC = root.UPS_TRADE_FINDER, d = D(), e = d && d.get("ros"), f = FO();
+    return TFC && e && e.state === "ok" && TFC.rosUsable(e.data, f && f.season, Date.now()) ? e.data : null;
+  }
+  function rosModel() {
+    var TF = root.UPS_TRADE_FIT, base = leagueModel(0), file = rosFile(), slots = lineupSlots();
+    if (!TF || !base || !file || !slots) return null;
+    if (rosMemo.base !== base || rosMemo.file !== file) {
+      rosMemo = { base: base, file: file, model: TF.buildLeague({ teams: modelTeams(), values: file.players, freeAgents: freeAgents(), slots: slots }) };
+    }
+    return rosMemo.model;
+  }
+
   // ── UI bits ────────────────────────────────────────────────────────
   function playerButton(pid, fid, label, extraClass) {
     return '<button type="button" class="fo-plink' + (extraClass ? " " + extraClass : "") + '" data-fo-player="' + esc(pid) + '" data-fo-fid="' + esc(fid || "") + '">' + esc(label) + "</button>";
@@ -320,7 +336,7 @@
     registerView: registerView,
     esc: esc, pad4: pad4, fmt1: fmt1, signed1: signed1, money: money, clock: clock, dayLabel: dayLabel, asArray: asArray,
     playerIndex: playerIndex, rosterIndex: rosterIndex, teamName: teamName, groupOf: groupOf, displayName: displayName,
-    scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel, lineupSlots: lineupSlots, lineupSlotsState: lineupSlotsState, playerGroup: groupOf, starterMix: starterMix,
+    scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel, rosFile: rosFile, rosModel: rosModel, lineupSlots: lineupSlots, lineupSlotsState: lineupSlotsState, playerGroup: groupOf, starterMix: starterMix,
     playerButton: playerButton, goLink: goLink, wireClicks: wireClicks, injuryChip: injuryChip,
     setFreshness: setFreshness, loading: loading, banner: banner,
     registerAbout: registerAbout, openAbout: openAbout, openDialog: openDialog, closeAbout: closeAbout, setupAbout: setupAbout

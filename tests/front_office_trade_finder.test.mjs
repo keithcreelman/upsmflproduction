@@ -55,7 +55,13 @@ function page(opts = {}) {
     openDialog: (title, html, opts) => { dialog.open = { title, html, opts }; }, closeAbout: () => { dialog.open = null; } };
   const FO = { viewerFid: () => viewer, teams: () => FX.teams, capCeiling: 300000,
     capFor: (f) => ({ capSpace: FX.capRoom[f], capAlloc: 300000 - FX.capRoom[f] }), warRoomUrl: (o) => "#war-room?" + Object.entries(o).map(([k, v]) => k + "=" + v).join("&") };
-  const DATA = { get: (k, a) => entries[a != null ? k + ":" + a : k] || null, load: () => ({ then() {} }) };
+  if (opts.ros !== undefined) {
+    H.rosFile = () => (opts.ros && opts.ros.loaded !== false ? opts.ros.file : null);
+    H.rosModel = () => (H.rosFile() ? (ctx.__rosM = ctx.__rosM || TF.buildLeague({ teams: FX.teams, values: opts.ros.file.players, freeAgents: FX.freeAgents, slots })) : null);
+    if (opts.ros) entries.ros = { state: opts.ros.state || "ok", data: opts.ros.file };
+  }
+  const loads = [];
+  const DATA = { get: (k, a) => entries[a != null ? k + ":" + a : k] || null, load: (k) => { loads.push(k); return { then() {} }; }, refresh: (k) => { loads.push("refresh:" + k); return { then() {} }; } };
   Object.assign(ctx, { UPS_FO_HUB: H, UPS_FO: FO, UPS_FO_DATA: DATA });
   vm.runInContext(SRC, ctx);
   (listeners["fo:ready"] || []).forEach((f) => f());
@@ -63,7 +69,7 @@ function page(opts = {}) {
   if (!opts.defaultExplore) TR._xview.by = "team"; // the league-table tests; Explore a position sets it back
   const show = (state) => { TR._setMode("finder"); Object.assign(TR._view, state.view || {}); if ("team" in state) TR._sel.team = state.team; (listeners["fo:tab"] || []).forEach((f) => f({ detail: { section: "trades" } })); return el.innerHTML; };
   const team = (f) => TR._teamHtml(f);
-  return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA, el, TFC: ctx.UPS_TRADE_FINDER };
+  return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA, el, TFC: ctx.UPS_TRADE_FINDER, loads, entries };
 }
 // The strength table → { fid: { row: text } } (team id from the View button).
 function readTable(html) {
@@ -308,7 +314,7 @@ test("How to use this page: collapsed by default; explains the table, the team v
   t.ok(/<div class="fo-tf-guide" id="fo-tf-guide" hidden>/.test(html), "the guide is hidden until tapped");
   const guide = unesc(html.slice(html.indexOf('id="fo-tf-guide"'), html.indexOf("</ul></div></div>")));
   t.ok(/<b>The league table<\/b> \(under Explore a team\) shows every team’s modeled lineup/.test(guide) && /<b>Explore a team<\/b> \(or <b>View<\/b> in the table\) opens it/.test(guide), "the table and the team details");
-  t.ok(/<b>Explore a position<\/b> \(the default\) lists where you’re weak/.test(guide) && /<b>Them<\/b> = points a week his team would lose/.test(guide) && /Every number is season PPG, not a projection/.test(guide), "explore a position (weak spots → bench help); the basis");
+  t.ok(/<b>Explore a position<\/b> \(the default\) lists where you’re weak/.test(guide) && /<b>Them<\/b> = points a week his team would lose/.test(guide) && /Every number follows the <b>Based on<\/b> choice above/.test(guide), "explore a position (weak spots → bench help); the basis");
   t.ok(/<b>Possible roster surplus<\/b> = healthy bench players outside that team’s modeled lineup who would start for another team, on season PPG/.test(guide), "what surplus means and its basis");
   t.ok(/doesn’t mean the owner would move them/.test(guide), "no willingness implied");
   t.equal((guide.match(/<li>/g) || []).length, 5, "a few short lines");
@@ -399,6 +405,54 @@ test("Explore a position: the weakest starter is named, one list by team with Yo
   t.ok(new RegExp('data-tf-pick="theirs" value="' + R.players[0].pid + '" checked').test(p.dialog.open.html), "the player is ticked in the popup");
   t.equal(p.TR._picks().theirs[R.players[0].pid], true);
   p.TR._xview.pos = "";
+});
+
+const rosFile = () => {
+  const players = {}; let i = 0;
+  for (const pid of Object.keys(FX.values)) players[pid] = Math.max(0, FX.values[pid] - 3 + (i++ % 7));
+  return { ok: true, season: 2026, throughWeek: 7, weeks: [8, 17], nWeeks: 10, asOf: "2026-10-28T14:00:00Z", label: "UPS Center projection", players };
+};
+
+test("Based on: Season PPG by default; Projected ROS PPG recalculates every number on the file's values and says what it is", () => {
+  const p = page({ defaultExplore: true, ros: { file: rosFile() } });
+  p.TR._xview.pos = "RB";
+  const ppg = unesc(p.show({ view: { by: "position" } }));
+  t.ok(/data-tf-basis="ppg" aria-pressed="true">Season PPG<\/button>/.test(ppg) && /data-tf-basis="ros" aria-pressed="false">Projected ROS PPG<\/button>/.test(ppg), "Season PPG is the default");
+  t.ok(/Based on season points per game, not projections\./.test(ppg) && p.loads.indexOf("ros") === -1, "the file is not read until asked");
+  p.TR._setBasis("ros");
+  const ros = unesc(p.el.innerHTML);
+  t.ok(/data-tf-basis="ros" aria-pressed="true">Projected ROS PPG<\/button>/.test(ros), "the chosen basis is marked");
+  t.ok(ros.includes("Based on projected points per remaining week, Weeks 8–17.") && ros.includes("UPS Center projection, updated 10/28. Byes and listed absences count as 0."), "it says what the numbers are");
+  t.ok(!/season PPG|Season PPG<\/b>|not projections/.test(ros.replace('>Season PPG</button>', "")), "no leftover season-PPG label");
+  const Mr = p.TF.buildLeague({ teams: FX.teams, values: rosFile().players, freeAgents: FX.freeAgents, slots: p.slots });
+  const O = p.TFC.positionOptions(Mr, p.LS.build(Mr, { by: "position" }), p.TF.lineupGains(Mr, "0008"), "RB", p.TF);
+  const first = p.TFC.groupOptions(O)[0];
+  const at = ros.indexOf('data-tf-card="' + first.fid + '"'), c = ros.slice(at, ros.indexOf("</li>", at));
+  t.ok(c.includes("You <b>+" + p.H.fmt1(first.players[0].gain) + "</b>") && c.includes(p.H.fmt1(first.players[0].v) + " ROS PPG"), "You, Them and PPG come from the ROS model");
+  t.ok(!/ · \d+ g/.test(c), "no games-played count on a projection");
+  p.TR._openTeam(first.fid);
+  const dlg = p.dialog.open.html;
+  t.ok(/Based on projected ROS PPG\./.test(dlg) && !/season PPG/.test(dlg.replace(/Standing by position[\s\S]*?<\/h4>/, "")), "the popup follows the basis");
+  p.TR._setBasis("ppg");
+  t.ok(/Based on season points per game/.test(unesc(p.el.innerHTML)), "switching back returns to season PPG");
+  p.TR._xview.pos = "";
+});
+
+test("Projected ROS PPG fails closed: loading, a failed read or an old file leaves season PPG on screen and says so; a retry tap reads again", () => {
+  const notes = (html) => (unesc(html).match(/fo-tf-basisnote[^>]*>([^<]*)/) || [])[1];
+  const p = page({ defaultExplore: true, ros: null });
+  p.show({}); p.TR._setBasis("ros");
+  t.equal(p.loads.filter((k) => k === "ros").length, 1, "the file is read once");
+  t.equal(notes(p.el.innerHTML), "Reading the rest-of-season projection…");
+  t.ok(/data-tf-basis="ppg" aria-pressed="true"/.test(p.el.innerHTML) && /Based on season points per game/.test(unesc(p.el.innerHTML)), "numbers and labels stay on season PPG");
+  p.entries.ros = { state: "error", data: null };
+  p.TR._setBasis("ros");
+  t.equal(notes(p.el.innerHTML), "Rest-of-season projection unavailable. These numbers stay on season PPG.");
+  t.ok(p.loads.includes("refresh:ros"), "a failed read is retried on the next tap");
+  const old = page({ defaultExplore: true, ros: { file: rosFile(), loaded: false } });
+  old.show({}); old.TR._setBasis("ros");
+  t.equal(notes(old.el.innerHTML), "Rest-of-season projection unavailable. These numbers stay on season PPG.", "a loaded but unusable file");
+  t.ok(/data-tf-basis="ppg" aria-pressed="true"/.test(old.el.innerHTML));
 });
 
 test("Explore a team: the team picker (the 11 other teams) replaces the weak list; choosing one opens its popup", () => {

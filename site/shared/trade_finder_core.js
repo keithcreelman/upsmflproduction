@@ -21,6 +21,9 @@
      lose, least first (ties by my gain). Players sort within a team and teams by their first player. One fixed order
      (Keith 2026-10-30): sorting by my gain only lists the position's top players. Each cost is one player at a time,
      so they never add up.
+   rosUsable(file, season, nowMs): whether the rest-of-season answer may be shown. The worker already refuses a stale
+     file; this re-checks what a page held open would otherwise keep showing. Anything missing, another season, or older
+     than ROS_MAX_AGE_DAYS is false, so the screen stays on season PPG and says so.
    selectionToDraft(sel): the players an owner ticked on either side → the Trade builder's openDraft draft (#1419: my
      players move to them, theirs to me). The builder opens it as an editable, UNSENT draft; nothing is sent.
 */
@@ -110,6 +113,15 @@
     return teams.sort(function (a, b) { return cmp(a.players[0], b.players[0]); });
   }
 
+  var ROS_MAX_AGE_DAYS = 8;
+  function rosUsable(file, season, nowMs) {
+    if (!file || file.ok !== true || !file.players || !file.label || !file.nWeeks || !file.weeks) return false;
+    if (Object.keys(file.players).length === 0) return false;
+    if (String(file.season) !== String(season)) return false;
+    var at = Date.parse(file.asOf);
+    return isFinite(at) && nowMs - at <= ROS_MAX_AGE_DAYS * 86400000;
+  }
+
   // sel: {me, other, mine:[pid], theirs:[pid]} → the Trade builder's openDraft shape (#1419 contract,
   // builder_opendraft_api.md): { source: "Trade finder", movements: [{from, to, tokens:["P_<pid>"]}] }, one movement per
   // direction that has players; or null (no players, one team, or a player listed twice). No cap money, no picks.
@@ -127,7 +139,7 @@
     return { source: "Trade finder", movements: movements };
   }
 
-  var api = { POSITIONS: POSITIONS, TOP: TOP, standing: standing, weakSpots: weakSpots, positionOptions: positionOptions, groupOptions: groupOptions, pairGains: pairGains, selectionToDraft: selectionToDraft };
+  var api = { POSITIONS: POSITIONS, TOP: TOP, standing: standing, weakSpots: weakSpots, positionOptions: positionOptions, groupOptions: groupOptions, rosUsable: rosUsable, pairGains: pairGains, selectionToDraft: selectionToDraft };
   if (typeof window !== "undefined") window.UPS_TRADE_FINDER = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })();
