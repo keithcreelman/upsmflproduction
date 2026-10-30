@@ -60,6 +60,7 @@ function page(opts = {}) {
   vm.runInContext(SRC, ctx);
   (listeners["fo:ready"] || []).forEach((f) => f());
   const TR = ctx.UPS_FO_TRADES;
+  if (!opts.defaultExplore) TR._xview.by = "team"; // the league-table tests; Explore a position sets it back
   const show = (state) => { TR._setMode("finder"); Object.assign(TR._view, state.view || {}); if ("team" in state) TR._sel.team = state.team; (listeners["fo:tab"] || []).forEach((f) => f({ detail: { section: "trades" } })); return el.innerHTML; };
   const team = (f) => TR._teamHtml(f);
   return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA, el, TFC: ctx.UPS_TRADE_FINDER };
@@ -306,7 +307,7 @@ test("How to use this page: collapsed by default; explains the table, the team v
   t.ok(/data-tf-guide aria-expanded="false" aria-controls="fo-tf-guide">/.test(html), "a disclosure button, collapsed");
   t.ok(/<div class="fo-tf-guide" id="fo-tf-guide" hidden>/.test(html), "the guide is hidden until tapped");
   const guide = unesc(html.slice(html.indexOf('id="fo-tf-guide"'), html.indexOf("</ul></div></div>")));
-  t.ok(/<b>The league table<\/b> \(below\) shows every team’s modeled lineup/.test(guide) && /<b>Explore a team<\/b> \(or <b>View<\/b> in the table\) opens it/.test(guide), "the table and the team details");
+  t.ok(/<b>The league table<\/b> \(under Explore a team\) shows every team’s modeled lineup/.test(guide) && /<b>Explore a team<\/b> \(or <b>View<\/b> in the table\) opens it/.test(guide), "the table and the team details");
   t.ok(/<b>Explore a position<\/b> \(the default\) lists where you’re weak/.test(guide) && /their lineup loses nothing/.test(guide) && /Every number is season PPG, not a projection/.test(guide), "explore a position (weak spots → bench help); the basis");
   t.ok(/<b>Possible roster surplus<\/b> = healthy bench players outside that team’s modeled lineup who would start for another team, on season PPG/.test(guide), "what surplus means and its basis");
   t.ok(/doesn’t mean the owner would move them/.test(guide), "no willingness implied");
@@ -320,24 +321,23 @@ test("the two full gain lists are gone from Your team (Keith 2026-10-30); the ga
   const p = page();
   p.TR._xview.by = "position"; p.TR._xview.pos = "";
   const html = p.show({ view: { by: "position", measure: "ppg" } });
-  const card = unesc(html.slice(html.indexOf("fo-tf-mine"), html.indexOf("fo-tf-main")));
+  const card = unesc(html.slice(html.indexOf("fo-tf-mine")));
   t.ok(!/Players who would improve your lineup|Your players who would improve theirs|data-tf-gains=|data-tf-gall|data-tf-gmore|fo-tf-gainscard/.test(card), "no gain lists, in either Explore mode");
   p.TR._xview.by = "team";
   t.ok(!/Players who would improve your lineup|data-tf-gains=/.test(unesc(p.show({}))), "nor under Explore a team");
   p.TR._xview.by = "position";
   t.ok(!/gainsHtml|data-tf-gall|data-tf-gmore|Lineup gains<\/b>/.test(SRC), "the code, handlers and About text went with them");
   t.equal(p.TR._gains("0008"), p.TR._gains("0008"), "computed once per model (memoized)");
-  const nobody = page({ viewer: "9999" }).show({});
+  const nobody = page({ viewer: "9999", defaultExplore: true }).show({}); // no Explore choice to tap, so the table shows
   t.ok(/Your team’s view needs to know which team is yours, and Front Office couldn’t tell\. The league table is below\./.test(unesc(nobody)) && !/data-tf-weak=/.test(nobody) && /fo-tf-strength/.test(nobody), "no viewer team → says so, lists nothing, the league table still shows");
 });
 
 test("your team first (Keith 2026-10-30): Explore a position by default — weak spots = trade_finder_core.weakSpots, no best-available table; then the league table", () => {
-  const p = page();
-  p.TR._xview.by = "position"; p.TR._xview.pos = "";
+  const p = page({ defaultExplore: true });
+  t.equal(p.TR._xview.by, "position", "Explore a position is the default");
   const html = p.show({ view: { by: "position", measure: "ppg" } });
-  const mine = html.indexOf("fo-tf-mine"), table = html.indexOf("fo-tf-main");
-  t.ok(mine > 0 && mine < table, "Your team card before the league table");
-  const card = unesc(html.slice(mine, table));
+  t.ok(html.indexOf("fo-tf-mine") > 0 && !/fo-tf-main|fo-tf-strength/.test(html), "no league table until Explore a team is tapped");
+  const card = unesc(html.slice(html.indexOf("fo-tf-mine")));
   t.ok(/<h2>Your team: find help<\/h2>/.test(card), "titled");
   t.ok(/<p class="fo-tf-basisline"><b>Based on season points per game, not projections\.<\/b>/.test(card), "basis stated prominently, near the top");
   t.ok(card.indexOf("Based on season points per game") < card.indexOf("fo-tf-weak"), "before any number");
@@ -403,7 +403,9 @@ test("Explore a team: the team picker (the 11 other teams) replaces the weak lis
   const p = page();
   p.TR._xview.by = "team";
   const html = p.show({ view: { by: "position" } });
-  const card = unesc(html.slice(html.indexOf("fo-tf-mine"), html.indexOf("fo-tf-main")));
+  const mineAt = html.indexOf("fo-tf-mine"), tableAt = html.indexOf("fo-tf-main");
+  t.ok(mineAt > 0 && mineAt < tableAt && /fo-tf-strength/.test(html), "the league table shows here, under Your team");
+  const card = unesc(html.slice(mineAt, tableAt));
   t.ok(/data-tf-xby="team" aria-pressed="true">Explore a team<\/button>/.test(card), "Explore a team chosen");
   const opts = [...card.matchAll(/<option value="(\d{4})">/g)].map((x) => x[1]);
   t.equal(opts.length, 11, "the 11 other teams"); t.ok(!opts.includes("0008"), "not my own");

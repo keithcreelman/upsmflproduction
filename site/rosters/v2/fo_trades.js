@@ -36,7 +36,8 @@
    other teams' benches who would raise your lineup (their lineup loses nothing),
    then starters elsewhere with what their lineup would lose. Each option's
    Explore team opens that team's popup with the player ticked. EXPLORE A TEAM:
-   the team picker. The league table is below. Basis is
+   the team picker and, only here, the league table (Keith 2026-10-30: hidden until
+   Explore a team is tapped; shown anyway when the viewer's team isn't known). Basis is
    stated up top: season PPG, not projections.
    BETWEEN YOU AND A TEAM: the team popup for another team lists its players
    with the gain each would give MY lineup and my players with the gain each
@@ -175,7 +176,7 @@
       "<li><b>Explore a position</b> (the default) lists where you’re weak: Bottom 3 by PPG or below the league average. <b>Explore … options</b> shows players on other teams’ benches who would improve your lineup (their lineup loses nothing), then starters elsewhere with what their lineup would lose. <b>Explore team</b> on a player opens that team with him ticked.</li>" +
       "<li><b>Explore a team</b> (or <b>View</b> in the table) opens it: its players with the gain each would give your lineup, your players who would help theirs, its standing, cap, picks and possible roster surplus. Tick players to copy them to the Trade builder as an unsent draft.</li>" +
       "<li><b>Possible roster surplus</b> = healthy bench players outside that team’s modeled lineup who would start for another team, on season PPG. It doesn’t mean the owner would move them.</li>" +
-      "<li><b>The league table</b> (below) shows every team’s modeled lineup: its best legal lineup from its own available players. Pick a breakdown and a measure; tap a column to sort. <b>Starter Mix</b> shows the lineups owners actually submitted.</li>" +
+      "<li><b>The league table</b> (under Explore a team) shows every team’s modeled lineup: its best legal lineup from its own available players. Pick a breakdown and a measure; tap a column to sort. <b>Starter Mix</b> shows the lineups owners actually submitted.</li>" +
       "<li>Every number is season PPG, not a projection. Gains are listed at +" + H.fmt1(TF.GAIN_MIN) + " pts/wk or more.</li>" +
       "</ul></div></div>";
   }
@@ -662,10 +663,12 @@
         '<div class="fo-subview-chips fo-choice fo-ls-views" role="group" aria-labelledby="fo-lbl-tfms">' + chips(MEASURES, "data-tf-measure", view.measure) + "</div></div>") + "</div>";
     // Re-rendering keeps the scroll position of the table box (sorting or a data refresh never jumps the table).
     var box = el.querySelector(".fo-tf-scroll"), sx = box ? box.scrollLeft : 0;
-    // Your team first (Explore a position or a team); the league table below it.
-    el.innerHTML = modeChips() + mineHtml(m, me, basis.text) + '<div class="fo-card fo-tf-main"><div class="fo-card-head"><h2>Lineup strength, all teams</h2>' +
+    // Your team first (Explore a position or a team); the league table only under Explore a team (or when there's no
+    // viewer team, so no Explore choice to tap).
+    var showTable = xview.by === "team" || !me;
+    el.innerHTML = modeChips() + mineHtml(m, me, basis.text) + (showTable ? '<div class="fo-card fo-tf-main"><div class="fo-card-head"><h2>Lineup strength, all teams</h2>' +
       '<span class="small fo-muted">values = season PPG per MFL week, not projections</span></div>' + controls +
-      (view.by === "mix" ? mixHtml(m, me) : strengthHtml(m, me)) + "</div>";
+      (view.by === "mix" ? mixHtml(m, me) : strengthHtml(m, me)) + "</div>" : "");
     var nb = el.querySelector(".fo-tf-scroll");
     if (nb && sx) nb.scrollLeft = sx;
     H.setFreshness("MFL read " + H.clock(ss.fetchedAt));
@@ -764,7 +767,7 @@
       "<p><b>Your team first (explore a weak position or a team), then every team’s lineup strength side by side, and a closer look at any team.</b> Based on season points per game, not projections. It doesn’t grade trades, rank partners or suggest swaps, and it never sends anything.</p><ul>" +
       "<li><b>Explore a position</b>: your weak positions (Bottom 3 by PPG, or below the league average; K and P aren’t listed), each with your PPG, the league average and your rank. Its button lists the players at that position on other teams who alone would add +1.0 pt a week or more to your modeled lineup: first those on a bench (outside their team’s modeled lineup, so their lineup loses nothing), then starters, with the points a week their lineup would lose. <b>Explore team</b> opens that team with the player ticked. The other positions are buttons too.</li>" +
       "<li><b>Explore a team</b> (or <b>View</b>): their players with the gain each would give your lineup, and your available players with the gain each would give theirs. Tick players on either side and <b>Copy to Trade builder (not sent)</b> opens them as an editable draft there; nothing is sent. It is exploration, not a claim that a trade is fair or that an owner would accept.</li>" +
-      "<li><b>The table</b> compares all 12 teams’ current rosters: <b>By Position</b> or <b>By Lineup Slot</b>, measured as <b>PPG</b> (the default), <b>Rank</b>, <b>Above Replacement</b> or <b>Index</b>. Each lineup is the team’s best legal lineup from its <b>own available rostered players</b> in the slots MFL’s lineup settings define; a free agent fills a slot only when no rostered player can play it, at replacement level, and is marked <b>*</b>. Values are season points per MFL-scored week.</li>" +
+      "<li><b>The table</b> (under Explore a team) compares all 12 teams’ current rosters: <b>By Position</b> or <b>By Lineup Slot</b>, measured as <b>PPG</b> (the default), <b>Rank</b>, <b>Above Replacement</b> or <b>Index</b>. Each lineup is the team’s best legal lineup from its <b>own available rostered players</b> in the slots MFL’s lineup settings define; a free agent fills a slot only when no rostered player can play it, at replacement level, and is marked <b>*</b>. Values are season points per MFL-scored week.</li>" +
       "<li><b>Measures:</b> <b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = the raw points a week above replacement: Σ(starter PPG − replacement-level PPG), 0 = replacement level. Replacement level is the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; By Lineup Slot, a Flex or Superflex slot uses the best of those the slot accepts, so Overall Above Replacement can differ between the two breakdowns: one measures each starter against his own position’s baseline, the other against the slot’s eligible-player baseline. Rank and Index are the league-relative measures. Shown values are rounded so each breakdown’s rows add up to its Overall.<b>Index</b> = PPG ÷ the league <b>mean</b> × 100: 100 = average.<b>Starter Mix</b> is different: the <b>actual</b> starters per week from the lineups submitted to MFL in completed weeks, by each player’s own position. MFL records who started, not which slot: a second QB can only be Superflex and an extra DL/LB/DB only IDP Flex, while extra RB/WR/TE starters are shown together as Flexible slots. A week whose lineup doesn’t fill every slot is listed and left out, never averaged in.</li>" +
       "<li><b>Starter Mix</b> is separate: the starts recorded in the lineups owners submitted to MFL, not the modeled lineup.</li>" +
       "<li><b>View</b> opens a team in a popup (a bottom sheet on phones): standing by position, with each position expanding to its modeled starters; cap room; future picks by year and round with a league comparison; and bench players who would start for other teams. “Well stocked” is said only when MFL’s pick list is complete and the team’s lineup-penalty forfeits were checked. The surplus list is analysis, not a sign the owner would move anyone.</li>" +
