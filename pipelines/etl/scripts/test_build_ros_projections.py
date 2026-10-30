@@ -107,6 +107,14 @@ class Season(unittest.TestCase):
         self.assertEqual(B.default_season(datetime(2026, 11, 3)), 2026)
 
 
+class Rounding(unittest.TestCase):
+    def test_the_average_uses_unrounded_numbers(self):
+        pr = {8: {"1": 10.04}, 9: {"1": 10.04}, 10: {"1": 10.04}}
+        row = B.player_row("1", pr, [8, 9, 10])
+        self.assertEqual(row["ppg"], 10.04)                   # rounded weeks would have said 10.0
+        self.assertEqual(row["w"], [10.0, 10.0, 10.0])
+
+
 class Coverage(unittest.TestCase):
     def payload(self):
         return B.build_payload(2026, 7, 11, proj(), POS, ROSTERED, EV, "t")

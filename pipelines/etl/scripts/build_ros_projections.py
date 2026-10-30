@@ -88,11 +88,11 @@ def played_teams(kickoffs_by_week, now):
 
 def player_row(pid, proj, weeks, played_weeks=()):
     remaining = [w for w in weeks if w not in played_weeks]
-    per = [proj.get(w, {}).get(pid) if w in remaining else None for w in weeks]
-    per = [None if v is None else round(float(v), 1) for v in per]
-    have = sum(1 for v in per if v is not None)
-    ppg = round(sum(v for v in per if v) / len(remaining), 2) if have and remaining else None
-    return {"ppg": ppg, "projWeeks": have, "remainingWeeks": len(remaining), "w": per}
+    raw = [proj.get(w, {}).get(pid) if w in remaining else None for w in weeks]
+    have = sum(1 for v in raw if v is not None)
+    # The average comes from the unrounded numbers: the rounded weeks are for reading only.
+    ppg = round(sum(float(v) for v in raw if v) / len(remaining), 2) if have and remaining else None
+    return {"ppg": ppg, "projWeeks": have, "remainingWeeks": len(remaining), "w": [None if v is None else round(float(v), 1) for v in raw]}
 
 
 def build_payload(season, through_week, end_week, proj, pos, rostered, ev_coverage, as_of, played=None, team_of=None):
