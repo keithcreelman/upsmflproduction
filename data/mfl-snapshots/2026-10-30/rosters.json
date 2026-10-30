@@ -69,15 +69,6 @@
             "status": "ROSTER"
           },
           {
-            "contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
-            "contractStatus": "Rookie-Draft",
-            "contractYear": "1",
-            "drafted": "5.12 (2024)",
-            "id": "16651",
-            "salary": "2000",
-            "status": "ROSTER"
-          },
-          {
             "contractInfo": "CL 3| TCV 24K| AAV 8K| Y1-5, Y2-5, Y3-14| GTD: 18K",
             "contractStatus": "Vet-WW-BL",
             "contractYear": "2",
@@ -272,6 +263,15 @@
             "contractYear": "1",
             "drafted": "BB $4,000",
             "id": "15263",
+            "salary": "4000",
+            "status": "ROSTER"
+          },
+          {
+            "contractInfo": "CL 1| TCV 4K| AAV 4K",
+            "contractStatus": "Vet-WW",
+            "contractYear": "1",
+            "drafted": "BB $4,000",
+            "id": "15797",
             "salary": "4000",
             "status": "ROSTER"
           },
@@ -2142,6 +2142,15 @@
             "status": "ROSTER"
           },
           {
+            "contractInfo": "CL 1| TCV 1K| AAV 1K",
+            "contractStatus": "Vet-WW",
+            "contractYear": "1",
+            "drafted": "BB $1,000",
+            "id": "17125",
+            "salary": "1000",
+            "status": "ROSTER"
+          },
+          {
             "contractInfo": "CL 2|TCV 14K|AAV 7K|Y1-7K, Y2-7K|GTD: 10.5K",
             "contractStatus": "Vet-FAA",
             "contractYear": "2",
@@ -2865,48 +2874,12 @@
             "status": "ROSTER"
           },
           {
-            "contractInfo": "CL 1| TCV 1K| AAV 1K",
-            "contractStatus": "Vet-WW",
-            "contractYear": "1",
-            "drafted": "BB $1,000",
-            "id": "16585",
-            "salary": "1000",
-            "status": "ROSTER"
-          },
-          {
-            "contractInfo": "CL 1| TCV 1K| AAV 1K",
-            "contractStatus": "Vet-WW",
-            "contractYear": "1",
-            "drafted": "BB $1,000",
-            "id": "10816",
-            "salary": "1000",
-            "status": "ROSTER"
-          },
-          {
             "contractInfo": "CL 1| TCV 2K| AAV 2K",
             "contractStatus": "Vet-WW",
             "contractYear": "1",
             "drafted": "BB $2,000",
             "id": "14153",
             "salary": "2000",
-            "status": "ROSTER"
-          },
-          {
-            "contractInfo": "CL 1| TCV 1K| AAV 1K",
-            "contractStatus": "Vet-WW",
-            "contractYear": "1",
-            "drafted": "BB $1,000",
-            "id": "11936",
-            "salary": "1000",
-            "status": "ROSTER"
-          },
-          {
-            "contractInfo": "CL 1| TCV 1K| AAV 1K",
-            "contractStatus": "Vet-WW",
-            "contractYear": "1",
-            "drafted": "FCFS",
-            "id": "15452",
-            "salary": "1000",
             "status": "ROSTER"
           },
           {
@@ -2924,6 +2897,42 @@
             "contractYear": "1",
             "drafted": "BB $1,000",
             "id": "15853",
+            "salary": "1000",
+            "status": "ROSTER"
+          },
+          {
+            "contractInfo": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K",
+            "contractStatus": "Rookie-Draft",
+            "contractYear": "3",
+            "drafted": "3.06",
+            "id": "17557",
+            "salary": "2000",
+            "status": "ROSTER"
+          },
+          {
+            "contractInfo": "CL 1| TCV 2K| AAV 2K",
+            "contractStatus": "Vet-WW",
+            "contractYear": "1",
+            "drafted": "BB $2,000",
+            "id": "15730",
+            "salary": "2000",
+            "status": "ROSTER"
+          },
+          {
+            "contractInfo": "CL 1| TCV 1K| AAV 1K",
+            "contractStatus": "Vet-WW",
+            "contractYear": "1",
+            "drafted": "BB $1,000",
+            "id": "13404",
+            "salary": "1000",
+            "status": "ROSTER"
+          },
+          {
+            "contractInfo": "CL 1| TCV 1K| AAV 1K",
+            "contractStatus": "Vet-WW",
+            "contractYear": "1",
+            "drafted": "BB $1,000",
+            "id": "15890",
             "salary": "1000",
             "status": "ROSTER"
           },
@@ -2979,15 +2988,6 @@
             "drafted": "6.08",
             "id": "17588",
             "salary": "1000",
-            "status": "TAXI_SQUAD"
-          },
-          {
-            "contractInfo": "CL 3|TCV 6K|AAV 2K|Y1-2K, Y2-2K, Y3-2K|GTD: 4.5K",
-            "contractStatus": "Rookie-Draft",
-            "contractYear": "3",
-            "drafted": "3.06",
-            "id": "17557",
-            "salary": "2000",
             "status": "TAXI_SQUAD"
           }
         ],
