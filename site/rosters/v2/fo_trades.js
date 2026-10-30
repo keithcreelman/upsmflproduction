@@ -36,7 +36,7 @@
    other teams' benches who would raise your lineup (their lineup loses nothing),
    then starters elsewhere with what their lineup would lose. Each option's
    Explore team opens that team's popup with the player ticked. EXPLORE A TEAM:
-   the team picker. The lineup gains follow; the league table is below. Basis is
+   the team picker. The league table is below. Basis is
    stated up top: season PPG, not projections.
    BETWEEN YOU AND A TEAM: the team popup for another team lists its players
    with the gain each would give MY lineup and my players with the gain each
@@ -45,13 +45,11 @@
    builder's own UPS_FO_TRADE_BUILDER.openDraft (#1419); without it the button
    is disabled and says why. Exploration only: nothing says a trade is fair.
 
-   LINEUP GAINS (Keith 2026-10-28): for the viewer's team,
-   trade_fit.lineupGains on the same model: players on other teams whose
-   addition alone would raise MY modeled lineup, and my available players
-   whose addition alone would raise another team's, each with the team, season
-   PPG and the gain in points a week (lineup with − lineup without). Only gains
-   of GAIN_MIN (1.0 pt a week) or more. Lineup math only: no exchange is
-   suggested and nothing says an owner would deal. Computed once per model.
+   LINEUP GAINS (Keith 2026-10-28; the two full lists were removed from Your team
+   2026-10-30): trade_fit.lineupGains on the same model feeds the position options
+   and the team popup: the gain in points a week from one player added (lineup with
+   − lineup without), only GAIN_MIN (1.0 pt a week) or more. Lineup math only: no
+   exchange is suggested and nothing says an owner would deal. Computed once per model.
    "How to use this page" is a collapsed guide at the top of the finder.
 */
 (function (root) {
@@ -182,9 +180,7 @@
       "</ul></div></div>";
   }
 
-  // ── Lineup gains for the viewer's team (trade_fit.lineupGains, once per model) ──
-  var GAIN_ROWS = 10;
-  var gainsView = { all: { mine: false, theirs: false }, more: {} };
+  // ── Gains for the viewer's team (trade_fit.lineupGains, once per model): the position options and the team popup ──
   var gainsMemo = { model: null, fid: "", out: null };
   function gainsFor(m, me) {
     if (gainsMemo.model !== m || gainsMemo.fid !== me) gainsMemo = { model: m, fid: me, out: TF.lineupGains(m, me) };
@@ -200,37 +196,6 @@
   function gainCell(gain, title) {
     return '<td class="num fo-tf-gain" title="' + H.esc(title) + '"><span class="fo-tf-gnum">+' + H.fmt1(gain) + '</span> <span class="fo-tf-unit">pts/wk</span><div class="fo-tf-gsub">season PPG</div></td>';
   }
-  function moreButton(key, attr, open, n) {
-    return '<button type="button" class="fo-tf-more" ' + attr + '="' + H.esc(key) + '" aria-expanded="' + open + '">' + (open ? "Show fewer" : n) + "</button>";
-  }
-  function gainsHtml(m, me, G) {
-    var min = H.fmt1(G.minGain);
-    var mine = gainsView.all.mine ? G.forMe : G.forMe.slice(0, GAIN_ROWS);
-    var rowsA = mine.map(function (x) {
-      var g = gainGames(x.pid);
-      return '<tr data-tf-gain="' + H.esc(x.pid) + '"><th scope="row">' + gainPlayer(x.pid, x.fid, H.esc(gl(x.group)) + ' · <span class="fo-tf-gfrom">' + H.esc(H.teamName(x.fid)) + "</span>") + '</th><td class="num">' + H.fmt1(x.v) +
-        (g ? '<div class="fo-tf-gsub">' + g.slice(3) + "</div>" : "") + "</td>" + gainCell(x.gain, "Would add about +" + H.fmt1(x.gain) + " pts/week to your modeled lineup (season PPG)") + "</tr>";
-    }).join("");
-    var theirs = gainsView.all.theirs ? G.fromMe : G.fromMe.slice(0, GAIN_ROWS);
-    var rowsB = theirs.map(function (x) {
-      var open = !!gainsView.more[x.pid];
-      var list = (open ? x.gains : x.gains.slice(0, 3)).map(function (g) { return '<span class="fo-tf-gteam">' + H.esc(H.teamName(g.fid)) + " <b>+" + H.fmt1(g.gain) + '</b> <span class="fo-tf-unit">pts/wk</span></span>'; }).join(" ");
-      var more = x.gains.length > 3 ? " " + moreButton(x.pid, "data-tf-gmore", open, "+" + (x.gains.length - 3) + " more") : "";
-      return '<tr data-tf-gain="' + H.esc(x.pid) + '"><th scope="row">' + gainPlayer(x.pid, me, H.esc(gl(x.group)) + ' · <span class="fo-tf-gppg">' + H.fmt1(x.v) + "</span> PPG" + gainGames(x.pid), x.starter ? ' <span class="fo-tf-tag">in your lineup</span>' : "") +
-        '</th><td class="fo-tf-gteams">' + list + more + '<div class="fo-tf-gsub">season PPG</div></td></tr>';
-    }).join("");
-    var allBtn = function (key, n, open) { return n > GAIN_ROWS ? '<p class="fo-tf-showall">' + moreButton(key, "data-tf-gall", open, "Show all " + n) + "</p>" : ""; };
-    return '<div class="fo-tf-gainscard">' +
-      '<h3 class="fo-tf-gh">Players who would improve your lineup</h3>' +
-      '<p class="fo-ov-sub">Each gain = your modeled lineup with one player added minus without him. Only +' + min + " pts/wk or more.</p>" +
-      (rowsA ? '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt" data-tf-gains="mine"><thead><tr><th scope="col">Player · team</th><th scope="col" class="num">Season PPG</th><th scope="col" class="num" title="Points a week your modeled lineup would gain, on season PPG">Your gain</th></tr></thead><tbody>' + rowsA + "</tbody></table></div>" + allBtn("mine", G.forMe.length, gainsView.all.mine)
-        : '<p class="fo-ov-empty">No available player on another team would add +' + min + " pts/wk or more to your modeled lineup.</p>") +
-      '<h3 class="fo-tf-gh">Your players who would improve theirs</h3>' +
-      (rowsB ? '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt" data-tf-gains="theirs"><thead><tr><th scope="col">Your player · season PPG</th><th scope="col" title="Points a week each team’s modeled lineup would gain, on season PPG">Their gain</th></tr></thead><tbody>' + rowsB + "</tbody></table></div>" + allBtn("theirs", G.fromMe.length, gainsView.all.theirs)
-        : '<p class="fo-ov-empty">None of your available players would add +' + min + " pts/wk or more to another team’s modeled lineup.</p>") +
-      '<p class="fo-basis">Lineup math only: one player added, nothing sent back. It isn’t a trade suggestion and doesn’t say any owner would deal. IR, taxi, Out, K and P aren’t listed; gains under +' + min + " are left out as too small to matter.</p></div>";
-  }
-
   // ── Your team first (Keith 2026-10-30): Explore a position (where you're weak → other teams' bench help) or Explore a team ──
   var XBY = [["position", "Explore a position"], ["team", "Explore a team"]];
   var xview = { by: "position", pos: "", allStarters: false };
@@ -318,7 +283,7 @@
     var G = gainsFor(m, me);
     if (!G) return head + "</div>";
     var xby = '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-tfx">Explore</div><div class="fo-subview-chips fo-choice fo-tf-xby" role="group" aria-labelledby="fo-lbl-tfx">' + chips(XBY, "data-tf-xby", xview.by) + "</div></div></div>";
-    return head + xby + (xview.by === "team" ? exploreHtml(m, me) : positionHtml(m, me, G)) + gainsHtml(m, me, G) + "</div>";
+    return head + xby + (xview.by === "team" ? exploreHtml(m, me) : positionHtml(m, me, G)) + "</div>";
   }
 
   // ── Between you and another team (the team popup): pair gains, tick players, copy to the builder unsent ──
@@ -697,7 +662,7 @@
         '<div class="fo-subview-chips fo-choice fo-ls-views" role="group" aria-labelledby="fo-lbl-tfms">' + chips(MEASURES, "data-tf-measure", view.measure) + "</div></div>") + "</div>";
     // Re-rendering keeps the scroll position of the table box (sorting or a data refresh never jumps the table).
     var box = el.querySelector(".fo-tf-scroll"), sx = box ? box.scrollLeft : 0;
-    // Your team first (strengths and needs, Explore a team, lineup gains); the league table below it.
+    // Your team first (Explore a position or a team); the league table below it.
     el.innerHTML = modeChips() + mineHtml(m, me, basis.text) + '<div class="fo-card fo-tf-main"><div class="fo-card-head"><h2>Lineup strength, all teams</h2>' +
       '<span class="small fo-muted">values = season PPG per MFL week, not projections</span></div>' + controls +
       (view.by === "mix" ? mixHtml(m, me) : strengthHtml(m, me)) + "</div>";
@@ -736,7 +701,7 @@
       if (m && m.teams[f]) openTeam(m, f);
     });
     el.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-tf-mode],[data-tf-by],[data-tf-measure],[data-tf-sort],[data-tf-msort],[data-tf-view],[data-tf-guide],[data-tf-gall],[data-tf-gmore],[data-tf-xby],[data-tf-xpos],[data-tf-xall],[data-tf-xteam]") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-tf-mode],[data-tf-by],[data-tf-measure],[data-tf-sort],[data-tf-msort],[data-tf-view],[data-tf-guide],[data-tf-xby],[data-tf-xpos],[data-tf-xall],[data-tf-xteam]") : null;
       if (!t) return;
       // Explore a position / a team (Keith 2026-10-30).
       if (t.hasAttribute("data-tf-xby")) { xview.by = t.getAttribute("data-tf-xby"); render(); return; }
@@ -763,8 +728,6 @@
         if (gc) gc.textContent = guideOpen ? "▾" : "▸";
         return;
       }
-      if (t.hasAttribute("data-tf-gall")) { var k = t.getAttribute("data-tf-gall"); gainsView.all[k] = !gainsView.all[k]; render(); return; }
-      if (t.hasAttribute("data-tf-gmore")) { var gp = t.getAttribute("data-tf-gmore"); gainsView.more[gp] = !gainsView.more[gp]; render(); return; }
       if (t.hasAttribute("data-tf-mode")) {
         var nm = t.getAttribute("data-tf-mode");
         if (nm !== mode) { mode = nm; var h = el.querySelector("#fo-tb-host"); if (h) el.innerHTML = ""; render(); }
@@ -790,7 +753,7 @@
 
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("trades");
   // Test seam: the view state and the team view's pick and stock logic.
-  root.UPS_FO_TRADES = { _setMode: function (m) { mode = m; }, _rerender: function () { rerender(); }, _view: view, _sel: sel, _gainsView: gainsView, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); },
+  root.UPS_FO_TRADES = { _setMode: function (m) { mode = m; }, _rerender: function () { rerender(); }, _view: view, _sel: sel, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); },
     _gains: function (f) { return gainsFor(H.leagueModel(0), f); }, _picks: function () { return picks; }, _copyState: function () { return copyState(); }, _copy: function () { return copyToBuilder(); },
     _teamHtml: function (f) { return teamHtml(H.leagueModel(0), f); }, _openTeam: function (f, o) { openTeam(H.leagueModel(0), f, o); }, _xview: xview };
   document.addEventListener("fo:ready", function () {
@@ -805,7 +768,6 @@
       "<li><b>Measures:</b> <b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = the raw points a week above replacement: Σ(starter PPG − replacement-level PPG), 0 = replacement level. Replacement level is the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; By Lineup Slot, a Flex or Superflex slot uses the best of those the slot accepts, so Overall Above Replacement can differ between the two breakdowns: one measures each starter against his own position’s baseline, the other against the slot’s eligible-player baseline. Rank and Index are the league-relative measures. Shown values are rounded so each breakdown’s rows add up to its Overall.<b>Index</b> = PPG ÷ the league <b>mean</b> × 100: 100 = average.<b>Starter Mix</b> is different: the <b>actual</b> starters per week from the lineups submitted to MFL in completed weeks, by each player’s own position. MFL records who started, not which slot: a second QB can only be Superflex and an extra DL/LB/DB only IDP Flex, while extra RB/WR/TE starters are shown together as Flexible slots. A week whose lineup doesn’t fill every slot is listed and left out, never averaged in.</li>" +
       "<li><b>Starter Mix</b> is separate: the starts recorded in the lineups owners submitted to MFL, not the modeled lineup.</li>" +
       "<li><b>View</b> opens a team in a popup (a bottom sheet on phones): standing by position, with each position expanding to its modeled starters; cap room; future picks by year and round with a league comparison; and bench players who would start for other teams. “Well stocked” is said only when MFL’s pick list is complete and the team’s lineup-penalty forfeits were checked. The surplus list is analysis, not a sign the owner would move anyone.</li>" +
-      "<li><b>Lineup gains</b> (your team, under its strengths): players on other teams whose addition alone would raise your modeled lineup, and your available players who would raise another team’s, each with season PPG and the gain in points a week (lineup with the player − without). Only +1.0 pt a week or more; IR, taxi, Out, K and P aren’t listed. Lineup math only: nothing is sent back, no trade is suggested, and it doesn’t say any owner would deal.</li>" +
       "<li>Not scored: contract length, salary value, age, dynasty value. Kickers and punters are shown, never called strong or short.</li></ul>");
   });
   document.addEventListener("fo:tab", function (e) { if (H && e.detail && e.detail.section === "trades") { render(); load(); } });

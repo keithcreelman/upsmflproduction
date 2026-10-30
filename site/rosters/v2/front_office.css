@@ -1607,14 +1607,13 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-sched-detail dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .fo-sched-detail { grid-template-columns: 1fr; gap: 0; } .fo-sched-detail dd { margin-bottom: 8px; } }
 
-/* Trade finder: "How to use this page" (collapsed) and Lineup gains for the viewer's team (Keith 2026-10-28). The gains
+/* Trade finder: "How to use this page" (collapsed) and the gain tables (Keith 2026-10-28). The gains
    tables size to the phone (no 820 px floor); if a row is still wider, it scrolls inside its own box, never the page. */
 .fo-tf-guidewrap { margin: 2px 0 8px; }
 .fo-tf-guidebtn { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; }
 .fo-tf-guide { margin: 4px 0 6px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-alt); font-size: 12.5px; }
 .fo-tf-guide ul { margin: 0; padding-left: 18px; }
 .fo-tf-guide li { padding: 2px 0; }
-.fo-tf-gainscard { margin-top: 12px; }
 .fo-tf-gh { margin: 12px 0 6px; font-size: 14px; }
 .fo-table-scroll .fo-tf-gt { min-width: 0; }
 .fo-tf-gt tbody th[scope="row"] { text-align: left; font-weight: 400; font-size: 12px; color: var(--text); text-transform: none; letter-spacing: 0; background: none; position: static; cursor: default; user-select: auto; }
@@ -1622,7 +1621,6 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-gt .fo-plink { text-align: left; }
 .fo-tf-gt td.num, .fo-tf-gt th.num { white-space: nowrap; }
 .fo-tf-gain { font-weight: 700; font-variant-numeric: tabular-nums; }
-.fo-tf-gteam { display: block; }
 .fo-tf-more { background: none; border: 0; padding: 2px 0; font: inherit; font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; }
 .fo-tf-showall { margin: 4px 0 0; }
 
