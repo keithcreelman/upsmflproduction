@@ -99,6 +99,44 @@ class PlayedGames(unittest.TestCase):
                 B.kickoffs_from(bad, 2026, 8)
 
 
+class Availability(unittest.TestCase):
+    WEEKS = [8, 9, 10, 11]
+    PROJ = {w: {"1": 10.0} for w in WEEKS}
+
+    def build(self, a):
+        # prepare() has already removed the weeks he is listed out.
+        proj = dict((w, {} if w in a["weeks"] else {"1": 10.0}) for w in self.WEEKS)
+        return B.build_payload(2026, 7, 11, proj, {"1": "WR"}, {"1"}, {"rotowirePoints": 9}, "t", absent={"1": a})
+
+    def test_a_listed_return_counts_from_that_week(self):
+        out = self.build({"weeks": [8, 9], "returns": "Nov 8, 2026", "source": "MFL injuries export (week 8)"})
+        self.assertEqual(out["players"]["1"]["w"], [None, None, 10.0, 10.0])
+        self.assertEqual(out["players"]["1"]["ppg"], 5.0)
+        self.assertEqual(out["avail"]["1"], {"k": "back", "wk": 10})
+
+    def test_a_return_after_the_window_has_no_week_left(self):
+        out = self.build({"weeks": self.WEEKS, "returns": "Feb 15, 2027", "source": "MFL injuries export (week 8)"})
+        self.assertEqual(out["players"]["1"]["ppg"], None)
+        self.assertEqual(out["avail"]["1"], {"k": "back", "wk": None})
+
+    def test_no_return_on_file_counts_no_week_whatever_the_forecast_assumed(self):
+        # season_sim holds this player out four games and would count the rest; the ruling counts none.
+        for source in ("MFL injuries export (week 8)", "MFL rosters export: INJURED_RESERVE"):
+            out = self.build({"weeks": [8, 9, 10], "returns": "", "source": source})
+            self.assertEqual(out["players"]["1"]["w"], [None, None, None, None])
+            self.assertEqual(out["players"]["1"]["ppg"], None)
+            self.assertEqual(out["avail"]["1"], {"k": "none"})
+
+    def test_a_reported_absence_keeps_its_own_weeks(self):
+        out = self.build({"weeks": [2], "returns": "", "source": "A reported story"})
+        self.assertEqual(out["players"]["1"]["w"], [10.0, 10.0, 10.0, 10.0])
+        self.assertEqual(out["avail"], {})
+
+    def test_healthy_or_questionable_is_not_listed(self):
+        out = B.build_payload(2026, 7, 11, self.PROJ, {"1": "WR"}, {"1"}, {"rotowirePoints": 9}, "t")
+        self.assertEqual(out["avail"], {})
+
+
 class Season(unittest.TestCase):
     def test_the_offseason_is_outside_and_january_is_last_season(self):
         self.assertEqual([m for m in range(1, 13) if B.in_season(m)], [1, 9, 10, 11, 12])
@@ -161,7 +199,7 @@ class Main(unittest.TestCase):
         self.assertEqual(self.run_main([], boom), (0, None, []))
 
     def test_opted_in_run_writes_the_file_with_no_temp_left(self):
-        pay = {"players": {}, "weeks": [8, 11], "nWeeks": 4, "throughWeek": 7}
+        pay = {"players": {}, "avail": {}, "weeks": [8, 11], "nWeeks": 4, "throughWeek": 7}
         code, data, names = self.run_main(["--allow-prod-d1"], lambda s, c: (pay, {}))
         self.assertEqual((code, data, names), (0, pay, ["ros.json"]))
 

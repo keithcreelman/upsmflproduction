@@ -15,6 +15,14 @@ WHAT A PLAYER'S NUMBER IS
     and it matches season PPG's per-scored-week basis closely enough to compare. A player with no projection in ANY
     remaining week gets null, never 0.
 
+WHO COUNTS, WEEK BY WEEK ("ROS availability A", Keith 2026-10-30, recorded on #1435)
+    prepare() has already removed every week a player is listed out. One thing differs from the forecast: a player MFL
+    lists out with no return date counts for NO week here, where the forecast assumes a four-game IR stay or one missed
+    week. That assumption is fine for a league forecast and not for a number an owner trades on, so a source has to
+    support the return. `avail` tells the screen why a number is missing or starts late: {"k": "back", "wk": first week he
+    may play, or null if none is left} or {"k": "none"} (no return on file). Questionable and Doubtful are not listed
+    out; they are assumed to play, as in the UPS Center.
+
 GAMES ALREADY PLAYED ARE NEVER COUNTED
     The window starts at the first week MFL hasn't completed, but that week can be under way: a Thursday game is over by
     the Sunday run, and GitHub starts the Sunday run hours late (ingest_projections.py measured 17:45-19:18 UTC, after
@@ -86,26 +94,41 @@ def played_teams(kickoffs_by_week, now):
     return out
 
 
-def player_row(pid, proj, weeks, played_weeks=()):
+def availability(absent, weeks):
+    """{pid: why his weeks start late or never}: only players listed out inside the window."""
+    out = {}
+    for pid, a in (absent or {}).items():
+        # A reported absence (season_sim.REPORTED_ABSENCES) names its own weeks; only MFL's listing can lack a return.
+        if not a.get("returns") and str(a.get("source") or "").startswith("MFL"):
+            out[pid] = {"k": "none"}
+            continue
+        rest = [w for w in weeks if w not in a["weeks"]]
+        if len(rest) < len(weeks):
+            out[pid] = {"k": "back", "wk": rest[0] if rest else None}
+    return out
+
+
+def player_row(pid, proj, weeks, played_weeks=(), counted=True):
     remaining = [w for w in weeks if w not in played_weeks]
-    raw = [proj.get(w, {}).get(pid) if w in remaining else None for w in weeks]
+    raw = [proj.get(w, {}).get(pid) if counted and w in remaining else None for w in weeks]
     have = sum(1 for v in raw if v is not None)
     # The average comes from the unrounded numbers: the rounded weeks are for reading only.
     ppg = round(sum(float(v) for v in raw if v) / len(remaining), 2) if have and remaining else None
     return {"ppg": ppg, "projWeeks": have, "remainingWeeks": len(remaining), "w": [None if v is None else round(float(v), 1) for v in raw]}
 
 
-def build_payload(season, through_week, end_week, proj, pos, rostered, ev_coverage, as_of, played=None, team_of=None):
+def build_payload(season, through_week, end_week, proj, pos, rostered, ev_coverage, as_of, played=None, team_of=None, absent=None):
     weeks = window(through_week, end_week)
     if not weeks:
         raise BuildError("no weeks left")
     played = played or {}
     team_of = team_of or {}
+    avail = availability(absent, weeks)
     players = {}
     for pid in sorted(set().union(*[set(proj.get(w) or {}) for w in weeks]) | set(rostered)):
         if LE.pos_group(pos.get(pid) or "") not in GROUPS:
             continue
-        row = player_row(pid, proj, weeks, [w for w, teams in played.items() if team_of.get(pid) in teams])
+        row = player_row(pid, proj, weeks, [w for w, teams in played.items() if team_of.get(pid) in teams], (avail.get(pid) or {}).get("k") != "none")
         if row["projWeeks"] == 0 and pid not in rostered:
             continue
         players[pid] = row
@@ -113,7 +136,8 @@ def build_payload(season, through_week, end_week, proj, pos, rostered, ev_covera
             "nWeeks": len(weeks), "asOf": as_of, "label": LABEL, "sources": SOURCES,
             "playedExcluded": dict((str(w), teams) for w, teams in sorted(played.items())),
             "rule": "points per remaining week; a week with no projection (bye, listed absence) counts as 0",
-            "sleeperUpdatedAt": (ev_coverage or {}).get("sleeperUpdatedAt"), "players": players}
+            "sleeperUpdatedAt": (ev_coverage or {}).get("sleeperUpdatedAt"),
+            "avail": dict((p, a) for p, a in avail.items() if p in players), "players": players}
 
 
 def check_coverage(payload, pos, rostered, ev_coverage):
@@ -168,7 +192,7 @@ def build(season, cache_dir):
     team_of = dict((p["id"], p.get("team") or "") for p in sim.fetch(sim.MFL_PLAYERS % season, cache_dir)["players"]["player"])
     as_of = datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     payload = build_payload(season, through, prep["end"], prep["proj"], prep["pos"], prep["rostered"], prep["evCoverage"], as_of,
-                            played_teams(kicks, now), team_of)
+                            played_teams(kicks, now), team_of, prep["absent"])
     return payload, check_coverage(payload, prep["pos"], prep["rostered"], prep["evCoverage"])
 
 
@@ -212,9 +236,9 @@ def main(argv=None, builder=build):
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(payload, f, separators=(",", ":"))
     os.replace(tmp, args.out)
-    print("wrote %s: %d players, Weeks %d-%d (%d weeks), through Week %d; played and left out %s; coverage %s" % (
+    print("wrote %s: %d players, Weeks %d-%d (%d weeks), through Week %d; played and left out %s; no return on file %d; coverage %s" % (
         args.out, len(payload["players"]), payload["weeks"][0], payload["weeks"][1], payload["nWeeks"], payload["throughWeek"],
-        payload.get("playedExcluded"), coverage))
+        payload.get("playedExcluded"), sum(1 for a in payload["avail"].values() if a["k"] == "none"), coverage))
     return 0
 
 

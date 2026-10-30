@@ -1,5 +1,5 @@
 // /api/ros-projections (worker/src/ros_projections.js): one R2 read that fails closed. No file, an unreadable file,
-// another season or a file older than 8 days never reaches an owner as numbers. Weekly lines stay in R2.
+// another season or a file older than 8 days never reaches an owner as numbers.
 //   node tests/ros_projections_route.test.mjs
 import fs from "node:fs";
 import os from "node:os";
@@ -12,16 +12,19 @@ import { rosAnswer, rosProjections, ROS_KEY, ROS_MAX_AGE_DAYS } from "../worker/
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const NOW = Date.parse("2026-10-30T12:00:00Z"), DAY = 86400000;
 const iso = (ms) => new Date(ms).toISOString();
-const file = (o = {}) => ({ version: 1, season: 2026, throughWeek: 7, weeks: [8, 17], nWeeks: 10, asOf: iso(NOW - DAY), playedExcluded: { 8: ["CAR", "GBP"] }, label: "UPS Center projection", sources: { offense: "x" }, rule: "r",
-  players: { 1: { ppg: 12.34, projWeeks: 9, w: [1, 2] }, 2: { ppg: null, projWeeks: 0, w: [null] }, 3: { ppg: 0, projWeeks: 1, w: [0] } }, ...o });
+const W = (x) => [x, 2, null];
+const file = (o = {}) => ({ version: 1, season: 2026, throughWeek: 7, weeks: [8, 10], nWeeks: 3, asOf: iso(NOW - DAY), playedExcluded: { 8: ["CAR", "GBP"] }, label: "UPS Center projection", sources: { offense: "x" }, rule: "r", avail: { 2: { k: "none" } },
+  players: { 1: { ppg: 12.34, projWeeks: 2, w: W(1) }, 2: { ppg: null, projWeeks: 0, w: [null, null, null] }, 3: { ppg: 0, projWeeks: 1, w: W(0) } }, ...o });
 const bucket = (obj) => ({ keys: [], get(k) { this.keys.push(k); return Promise.resolve(obj); } });
 
-test("a fresh file: each player's number only, nulls left out, a real 0 kept, no weekly lines", () => {
+test("a fresh file: each player's number, weekly line and availability; nulls left out, a real 0 kept", () => {
   const r = rosAnswer(file(), 2026, NOW);
   t.equal(r.status, 200); t.equal(r.payload.ok, true);
   t.deepEqual(r.payload.players, { 1: 12.34, 3: 0 });
-  t.deepEqual(r.payload.weeks, [8, 17]); t.equal(r.payload.nWeeks, 10); t.equal(r.payload.throughWeek, 7); t.deepEqual(r.payload.playedExcluded, { 8: ["CAR", "GBP"] }); t.equal(r.payload.label, "UPS Center projection");
-  t.ok(!JSON.stringify(r.payload).includes('"w"'), "weekly lines stay in R2");
+  t.deepEqual(r.payload.weekly, { 1: W(1), 3: W(0) }, "a player with no number has no weekly line");
+  t.deepEqual(r.payload.avail, { 2: { k: "none" } }, "why a player's weeks are missing");
+  t.deepEqual(r.payload.weeks, [8, 10]); t.equal(r.payload.nWeeks, 3); t.equal(r.payload.throughWeek, 7); t.deepEqual(r.payload.playedExcluded, { 8: ["CAR", "GBP"] }); t.equal(r.payload.label, "UPS Center projection");
+  t.equal(r.payload.players[1], 12.34);
 });
 
 test("the stale limit: 8 days serves, 8 days and a second refuses", () => {
@@ -31,7 +34,7 @@ test("the stale limit: 8 days serves, 8 days and a second refuses", () => {
 });
 
 test("every bad file fails closed with no numbers", () => {
-  for (const [f, e] of [[null, "unreadable"], [{}, "unreadable"], [file({ version: 2 }), "unreadable"], [file({ players: null }), "unreadable"], [file({ asOf: "soon" }), "unreadable"], [file({ season: 2025 }), "wrong_season"]]) {
+  for (const [f, e] of [[null, "unreadable"], [{}, "unreadable"], [file({ version: 2 }), "unreadable"], [file({ players: null }), "unreadable"], [file({ avail: null }), "unreadable"], [file({ nWeeks: 0 }), "unreadable"], [file({ weeks: null }), "unreadable"], [file({ players: { 1: { ppg: 1, w: [1] } } }), "unreadable"], [file({ players: { 1: { ppg: 1 } } }), "unreadable"], [file({ asOf: "soon" }), "unreadable"], [file({ season: 2025 }), "wrong_season"]]) {
     const r = rosAnswer(f, 2026, NOW);
     t.equal(r.payload.ok, false); t.equal(r.payload.error, e); t.equal(r.payload.players, undefined);
   }
