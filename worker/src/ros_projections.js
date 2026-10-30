@@ -1,0 +1,42 @@
+// ros_projections.js — GET /api/ros-projections (Keith 2026-10-30, recorded on #1433). Serves the rest-of-season file
+// pipelines/etl/scripts/build_ros_projections.py stores at ros/latest.json in R2 for the Front Office's Projected ROS PPG.
+// One R2 read, no D1. Only each player's number leaves: the weekly lines stay in R2.
+//
+// FAILS CLOSED: no file, an unreadable file, another season or a file older than ROS_MAX_AGE_DAYS gets ok:false, never
+// numbers. The screen then says the projection is unavailable and stays on season PPG.
+export const ROS_KEY = "ros/latest.json";
+export const ROS_MAX_AGE_DAYS = 8;
+const DAY_MS = 86400000;
+
+function fail(status, error, extra) {
+  return { status, payload: { ok: false, error, ...(extra || {}) } };
+}
+
+export function rosAnswer(file, season, nowMs) {
+  if (!file || typeof file !== "object" || file.version !== 1 || !file.players || typeof file.players !== "object") return fail(503, "unreadable");
+  if (file.season !== season) return fail(404, "wrong_season", { fileSeason: file.season });
+  const asOf = Date.parse(file.asOf);
+  if (!Number.isFinite(asOf)) return fail(503, "unreadable");
+  if (nowMs - asOf > ROS_MAX_AGE_DAYS * DAY_MS) return fail(503, "stale", { asOf: file.asOf });
+  const players = {};
+  for (const [pid, row] of Object.entries(file.players)) {
+    if (row && typeof row.ppg === "number" && Number.isFinite(row.ppg)) players[pid] = row.ppg;
+  }
+  return { status: 200, payload: { ok: true, season, throughWeek: file.throughWeek, weeks: file.weeks, nWeeks: file.nWeeks,
+    asOf: file.asOf, label: file.label, sources: file.sources, rule: file.rule, players } };
+}
+
+export async function rosProjections(bucket, seasonParam, nowMs) {
+  const season = Number(seasonParam);
+  if (!Number.isInteger(season) || season < 2000 || season > 2100) return fail(400, "bad_season");
+  if (!bucket) return fail(503, "storage_missing");
+  let file;
+  try {
+    const obj = await bucket.get(ROS_KEY);
+    if (!obj) return fail(404, "not_built");
+    file = await obj.json();
+  } catch (e) {
+    return fail(503, "unreadable");
+  }
+  return rosAnswer(file, season, nowMs);
+}

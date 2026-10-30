@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""Offline tests for build_ros_projections.py: no network, no D1, no writes outside a temp folder."""
+import json
+import os
+import sys
+import tempfile
+import unittest
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import build_ros_projections as B  # noqa: E402
+
+POS = {"1": "QB", "2": "WR", "3": "Coach", "4": "RB", "5": "TE", "6": "DE", "7": "LB", "8": "CB", "9": "PK", "10": "PN", "11": "WR"}
+ROSTERED = {"1", "2", "4", "5", "6", "7", "8", "9", "10"}
+EV = {"rotowirePoints": 100, "sleeperUpdatedAt": "2026-10-28T00:00:00Z"}
+
+
+def proj():
+    all_pids = {p: 10.0 for p in ROSTERED}
+    return {8: dict(all_pids, **{"2": 20.0}), 9: dict(all_pids), 10: dict(all_pids), 11: {"1": 4.0}}
+
+
+class Window(unittest.TestCase):
+    def test_next_week_through_end_week(self):
+        self.assertEqual(B.window(7, 17), list(range(8, 18)))
+        self.assertEqual(B.window(17, 17), [])
+        self.assertEqual(B.window(0, 3), [1, 2, 3])
+
+
+class Payload(unittest.TestCase):
+    def test_a_missing_week_counts_as_zero_and_never_projected_is_null(self):
+        p = B.build_payload(2026, 7, 11, proj(), POS, ROSTERED | {"99"}, EV, "t")
+        self.assertEqual(p["weeks"], [8, 11])
+        self.assertEqual(p["nWeeks"], 4)
+        self.assertEqual(p["players"]["2"]["ppg"], 10.0)     # (20+10+10+absent)/4: an absent week counts 0
+        self.assertEqual(p["players"]["2"]["w"], [20.0, 10.0, 10.0, None])
+        self.assertEqual(p["players"]["2"]["projWeeks"], 3)
+        self.assertEqual(p["players"]["1"]["ppg"], 8.5)      # (10+10+10+4)/4
+
+    def test_a_rostered_player_with_no_projection_is_null_not_zero(self):
+        P = dict(POS, **{"12": "WR"})
+        p = B.build_payload(2026, 7, 11, proj(), P, ROSTERED | {"12"}, EV, "t")
+        self.assertIsNone(p["players"]["12"]["ppg"])
+        self.assertEqual(p["players"]["12"]["projWeeks"], 0)
+
+    def test_unrostered_and_never_projected_is_left_out_and_non_players_are_dropped(self):
+        pr = proj()
+        pr[8]["3"] = 5.0
+        p = B.build_payload(2026, 7, 11, pr, POS, ROSTERED, EV, "t")
+        self.assertNotIn("3", p["players"])
+        self.assertNotIn("11", p["players"])
+
+    def test_no_weeks_left_refuses(self):
+        with self.assertRaises(B.BuildError):
+            B.build_payload(2026, 17, 17, proj(), POS, ROSTERED, EV, "t")
+
+
+class Coverage(unittest.TestCase):
+    def payload(self):
+        return B.build_payload(2026, 7, 11, proj(), POS, ROSTERED, EV, "t")
+
+    def test_passes_and_reports_each_position(self):
+        self.assertEqual(B.check_coverage(self.payload(), POS, ROSTERED, EV)["QB"], "1/1")
+
+    def test_mfl_only_file_is_refused(self):
+        for ev in (None, {"rotowirePoints": 0}):
+            with self.assertRaisesRegex(B.BuildError, "MFL-only"):
+                B.check_coverage(self.payload(), POS, ROSTERED, ev)
+
+    def test_thin_position_is_refused(self):
+        p = self.payload()
+        p["players"]["6"]["ppg"] = None
+        with self.assertRaisesRegex(B.BuildError, "DL 0/1"):
+            B.check_coverage(p, POS, ROSTERED, EV)
+
+    def test_position_with_no_rostered_player_is_refused(self):
+        with self.assertRaisesRegex(B.BuildError, "no rostered players at PN"):
+            B.check_coverage(self.payload(), POS, ROSTERED - {"10"}, EV)
+
+
+class CompletedWeek(unittest.TestCase):
+    def test_reads_mfl_week_and_fails_closed(self):
+        self.assertEqual(B.completed_week({"weeklyResults": {"week": "7"}}), 7)
+        for bad in ({}, {"weeklyResults": {}}, {"weeklyResults": {"week": "x"}}, {"weeklyResults": {"week": "-1"}}, None):
+            with self.assertRaises(B.BuildError):
+                B.completed_week(bad)
+
+
+class Main(unittest.TestCase):
+    def run_main(self, argv, builder):
+        with tempfile.TemporaryDirectory() as d:
+            out = os.path.join(d, "ros.json")
+            code = B.main(["--out", out] + argv, builder=builder)
+            data = json.load(open(out)) if os.path.exists(out) else None
+            return code, data, sorted(os.listdir(d))
+
+    def test_default_run_touches_nothing(self):
+        os.environ.pop("UPS_ALLOW_PROD_D1_READS", None)
+        def boom(*a):
+            raise AssertionError("the builder (and its D1 read) must not run without the opt-in")
+        self.assertEqual(self.run_main([], boom), (0, None, []))
+
+    def test_opted_in_run_writes_the_file_with_no_temp_left(self):
+        pay = {"players": {}, "weeks": [8, 11], "nWeeks": 4, "throughWeek": 7}
+        code, data, names = self.run_main(["--allow-prod-d1"], lambda s, c: (pay, {}))
+        self.assertEqual((code, data, names), (0, pay, ["ros.json"]))
+
+    def test_a_failed_build_exits_1_and_writes_nothing(self):
+        def bad(s, c):
+            raise B.BuildError("coverage")
+        self.assertEqual(self.run_main(["--allow-prod-d1"], bad), (1, None, []))
+
+    def test_outside_the_window_exits_0_and_writes_nothing(self):
+        self.assertEqual(self.run_main(["--allow-prod-d1"], lambda s, c: (None, None)), (0, None, []))
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=1)
