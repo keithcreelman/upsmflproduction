@@ -28,11 +28,16 @@
        another team, with that team's lineup gain). Analysis only — it says
        nothing about whether the owner would move the player.
 
-   YOUR TEAM FIRST (Keith 2026-10-28 review): the finder opens on the viewer's
-   team: strengths and needs by position (trade_finder_core.standing on the
-   same table: Top 3 / Bottom 3 by PPG, plus the best real player available at
-   each position), an Explore-a-team picker, then the lineup gains; the league
-   table is below. Basis is stated up top: season PPG, not projections.
+   YOUR TEAM FIRST (Keith 2026-10-28 review; reworked 2026-10-30: the per-position
+   "best available" table was dropped as not useful): the finder opens on the
+   viewer's team with two ways in. EXPLORE A POSITION (the default): where you're
+   weak (trade_finder_core.weakSpots: Bottom 3 or below the league average), each
+   with a button that opens that position's options (positionOptions): players on
+   other teams' benches who would raise your lineup (their lineup loses nothing),
+   then starters elsewhere with what their lineup would lose. Each option's
+   Explore team opens that team's popup with the player ticked. EXPLORE A TEAM:
+   the team picker. The lineup gains follow; the league table is below. Basis is
+   stated up top: season PPG, not projections.
    BETWEEN YOU AND A TEAM: the team popup for another team lists its players
    with the gain each would give MY lineup and my players with the gain each
    would give THEIRS (trade_finder_core.pairGains, the same numbers). Ticked
@@ -169,7 +174,7 @@
     return '<div class="fo-tf-guidewrap"><button type="button" class="fo-tf-guidebtn" data-tf-guide aria-expanded="' + guideOpen + '" aria-controls="fo-tf-guide">' +
       '<span class="fo-tf-caret" aria-hidden="true">' + (guideOpen ? "▾" : "▸") + "</span> How to use this page</button>" +
       '<div class="fo-tf-guide" id="fo-tf-guide"' + (guideOpen ? "" : " hidden") + "><ul>" +
-      "<li><b>Your team</b> comes first: where your modeled lineup is strong (Top 3 by PPG) and short (Bottom 3), and the best real player available at each position.</li>" +
+      "<li><b>Explore a position</b> (the default) lists where you’re weak: Bottom 3 by PPG or below the league average. <b>Explore … options</b> shows players on other teams’ benches who would improve your lineup (their lineup loses nothing), then starters elsewhere with what their lineup would lose. <b>Explore team</b> on a player opens that team with him ticked.</li>" +
       "<li><b>Explore a team</b> (or <b>View</b> in the table) opens it: its players with the gain each would give your lineup, your players who would help theirs, its standing, cap, picks and possible roster surplus. Tick players to copy them to the Trade builder as an unsent draft.</li>" +
       "<li><b>Possible roster surplus</b> = healthy bench players outside that team’s modeled lineup who would start for another team, on season PPG. It doesn’t mean the owner would move them.</li>" +
       "<li><b>The league table</b> (below) shows every team’s modeled lineup: its best legal lineup from its own available players. Pick a breakdown and a measure; tap a column to sort. <b>Starter Mix</b> shows the lineups owners actually submitted.</li>" +
@@ -226,25 +231,80 @@
       '<p class="fo-basis">Lineup math only: one player added, nothing sent back. It isn’t a trade suggestion and doesn’t say any owner would deal. IR, taxi, Out, K and P aren’t listed; gains under +' + min + " are left out as too small to matter.</p></div>";
   }
 
-  // ── Your team first: strengths and needs (trade_finder_core.standing), then Explore a team, then the gains ──
-  function standingHtml(m, me, G) {
-    var st = TFC.standing(strengthTable(m, "position"), me, { forMe: G.forMe });
-    if (!st) return "";
-    var names = function (list) { return list.length ? list.map(gl).join(", ") : "none"; };
-    var rows = st.rows.map(function (r) {
-      var tag = r.tag === "strong" ? ' <span class="fo-tf-tag ok">Top 3</span>' : r.tag === "short" ? ' <span class="fo-tf-tag need">Bottom 3</span>' : "";
-      var gap = (r.gap > 0.05 ? "+" : r.gap < -0.05 ? "−" : "") + Math.abs(Math.round(r.gap * 10) / 10).toFixed(1);
-      // The best available player sits on a full-width line under his position, so the table fits a 320 px phone.
-      var best = r.excluded ? "" : '<tr class="fo-tf-standbest" data-tf-stand-best="' + r.g + '"><td colspan="3">' + (r.best ? "Best available: " +
-        H.playerButton(r.best.pid, r.best.fid, H.displayName(playerName(r.best.pid))) + ' <span class="fo-muted">(' + H.esc(H.teamName(r.best.fid)) + ")</span> " +
-        '<span class="fo-tf-gnum">+' + H.fmt1(r.best.gain) + '</span> <span class="fo-tf-unit">pts/wk, season PPG</span>' :
-        '<span class="fo-muted">No player on another team would add +' + H.fmt1(G.minGain) + " pts/wk here.</span>") + "</td></tr>";
-      return '<tr data-tf-stand="' + r.g + '" class="' + (r.excluded ? "fo-tf-kp" : "fo-tf-standrow") + '"><th scope="row">' + gl(r.g) + tag + '</th><td class="num">' + H.fmt1(r.ppg) + ' <span class="fo-tf-unit">PPG</span><div class="fo-tf-gsub">lg ' + H.fmt1(r.avg) + " · " + gap + "</div></td>" +
-        '<td class="num">' + LS.ordinal(r.rank) + "</td></tr>" + best;
+  // ── Your team first (Keith 2026-10-30): Explore a position (where you're weak → other teams' bench help) or Explore a team ──
+  var XBY = [["position", "Explore a position"], ["team", "Explore a team"]];
+  var xview = { by: "position", pos: "", allStarters: false };
+  var posMemo = { model: null, fid: "", out: {} };
+  function optionsFor(m, me, G, g) {
+    if (posMemo.model !== m || posMemo.fid !== me) posMemo = { model: m, fid: me, out: {} };
+    return posMemo.out[g] || (posMemo.out[g] = TFC.positionOptions(m, strengthTable(m, "position"), G, g, TF));
+  }
+  function gapText(gap) { return (gap > 0.05 ? "+" : gap < -0.05 ? "−" : "") + Math.abs(Math.round(gap * 10) / 10).toFixed(1); }
+  function tagHtml(r) { return r.tag === "strong" ? ' <span class="fo-tf-tag ok">Top 3</span>' : r.tag === "short" ? ' <span class="fo-tf-tag need">Bottom 3</span>' : ""; }
+  // One-line summary of the help at a position: bench players first (they cost their team nothing), else starters.
+  function helpLine(O) {
+    var lbl = gl(O.g);
+    if (O.surplus.length) return O.surplus.length + " bench " + lbl + (O.surplus.length === 1 ? "" : "s") + " on " + O.teams.length + " other team" + (O.teams.length === 1 ? "" : "s") + " would help · best +" + H.fmt1(O.surplus[0].gain) + " pts/wk";
+    if (O.starters.length) return "No bench " + lbl + " elsewhere would help; " + O.starters.length + " starter" + (O.starters.length === 1 ? "" : "s") + " would";
+    return "No " + lbl + " on another team would add +" + H.fmt1(O.minGain) + " pts/wk";
+  }
+  function exploreButton(g, label) {
+    var open = xview.pos === g;
+    return '<button type="button" class="fo-tf-posbtn' + (open ? " active" : "") + '" data-tf-xpos="' + g + '" aria-expanded="' + open + '" aria-controls="fo-tf-posx">' + H.esc(label) + "</button>";
+  }
+  // The row's Explore button opens that team's popup with this player already ticked on their side.
+  function exploreTeamButton(fid, pid) {
+    var name = H.teamName(fid);
+    return '<button type="button" class="fo-tf-xteam" data-tf-xteam="' + H.esc(fid) + '" data-tf-xpid="' + H.esc(pid) + '" aria-label="' + H.esc("Explore " + name + " with " + H.displayName(playerName(pid)) + " ticked") + '">Explore team</button>';
+  }
+  function optionRow(x, starter) {
+    var sub = '<span class="fo-tf-gfrom">' + H.esc(H.teamName(x.fid)) + "</span> · " + H.fmt1(x.v) + " PPG" + gainGames(x.pid) + (x.rank ? " · their " + gl(xview.pos) + " " + LS.ordinal(x.rank) : "");
+    var cost = starter ? '<div class="fo-tf-gsub fo-tf-loss">their lineup −' + H.fmt1(x.loss) + "</div>" : '<div class="fo-tf-gsub">their lineup −0.0</div>';
+    return '<tr data-tf-opt="' + H.esc(x.pid) + '" data-tf-optkind="' + (starter ? "starter" : "bench") + '"><th scope="row">' + gainPlayer(x.pid, x.fid, sub) + "</th>" +
+      '<td class="num fo-tf-gain" title="' + H.esc("Would add about +" + H.fmt1(x.gain) + " pts/week to your modeled lineup (season PPG)") + '"><span class="fo-tf-gnum">+' + H.fmt1(x.gain) + '</span> <span class="fo-tf-unit">pts/wk</span>' + cost + "</td>" +
+      '<td class="fo-tf-xcell">' + exploreTeamButton(x.fid, x.pid) + "</td></tr>";
+  }
+  function optionTable(kind, list) {
+    return '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt fo-tf-opts" data-tf-opts="' + kind + '"><thead><tr><th scope="col">Player · team</th><th scope="col" class="num" title="Points a week your modeled lineup would gain, and what their lineup would lose, on season PPG">Your gain</th><th scope="col"><span class="fo-sr">Explore</span></th></tr></thead><tbody>' +
+      list.map(function (x) { return optionRow(x, kind === "starter"); }).join("") + "</tbody></table></div>";
+  }
+  var STARTER_ROWS = 5;
+  function positionPanel(m, me, G, g) {
+    var O = optionsFor(m, me, G, g);
+    if (!O) return "";
+    var lbl = gl(g), min = H.fmt1(O.minGain);
+    var teams = O.teams.map(function (T) { return H.esc(H.teamName(T.fid)) + " <b>" + T.n + "</b>"; }).join(" · ");
+    var st = xview.allStarters ? O.starters : O.starters.slice(0, STARTER_ROWS);
+    return '<div class="fo-tf-posx" id="fo-tf-posx" data-tf-posx="' + g + '" tabindex="-1">' +
+      '<div class="fo-tf-posxhead"><h3 class="fo-tf-gh">' + H.esc(lbl) + " options</h3>" +
+      '<button type="button" class="fo-tf-more" data-tf-xpos="' + g + '" aria-expanded="true" aria-controls="fo-tf-posx">Close</button></div>' +
+      '<p class="fo-ov-sub">Your ' + H.esc(lbl) + ": " + H.fmt1(O.ppg) + " PPG, " + LS.ordinal(O.rank) + " of " + O.n + ". Your gain = your modeled lineup with one player added minus without him; only +" + min + " pts/wk or more.</p>" +
+      '<h4 class="fo-tf-h">On another team’s bench <span class="fo-muted">(their lineup loses nothing)</span></h4>' +
+      (O.surplus.length ? (teams ? '<p class="fo-tf-xteams">Bench help by team: ' + teams + "</p>" : "") + optionTable("bench", O.surplus)
+        : '<p class="fo-ov-empty">No bench ' + H.esc(lbl) + " on another team would add +" + min + " pts/wk to your modeled lineup.</p>") +
+      '<h4 class="fo-tf-h">Starting for another team <span class="fo-muted">(their lineup would lose points)</span></h4>' +
+      (O.starters.length ? optionTable("starter", st) + (O.starters.length > STARTER_ROWS ? '<p class="fo-tf-showall"><button type="button" class="fo-tf-more" data-tf-xall aria-expanded="' + xview.allStarters + '">' + (xview.allStarters ? "Show fewer" : "Show all " + O.starters.length) + "</button></p>" : "")
+        : '<p class="fo-ov-empty">No ' + H.esc(lbl) + " starter on another team would add +" + min + " pts/wk to your modeled lineup.</p>") +
+      '<p class="fo-basis">Starters are ordered by your gain minus their loss. Lineup math on season PPG, one player at a time: it doesn’t say a trade is fair or that an owner would move anyone. <b>Explore team</b> opens that team with the player ticked; nothing is sent.</p></div>';
+  }
+  function positionHtml(m, me, G) {
+    var W = TFC.weakSpots(TFC.standing(strengthTable(m, "position"), me, { forMe: G.forMe }));
+    if (!W) return "";
+    var panelFor = function (g) { return xview.pos === g ? positionPanel(m, me, G, g) : ""; };
+    var weak = W.weak.map(function (r) {
+      var O = optionsFor(m, me, G, r.g);
+      return '<li class="fo-tf-weakrow" data-tf-weak="' + r.g + '"><div class="fo-tf-weakhead"><b class="fo-tf-weakpos">' + gl(r.g) + "</b>" + tagHtml(r) +
+        ' <span class="fo-tf-weakrank">' + LS.ordinal(r.rank) + " of " + W.n + "</span></div>" +
+        '<div class="fo-tf-gsub">' + H.fmt1(r.ppg) + " PPG · league " + H.fmt1(r.avg) + " · " + gapText(r.gap) + " a week</div>" +
+        '<div class="fo-tf-weakhelp">' + H.esc(helpLine(O)) + "</div>" +
+        exploreButton(r.g, "Explore " + gl(r.g) + " options") + panelFor(r.g) + "</li>";
     }).join("");
-    return '<p class="fo-tf-sum"><b>Strong</b> (Top 3 by PPG): ' + H.esc(names(st.strong)) + " · <b>Short</b> (Bottom 3): " + H.esc(names(st.short)) + "</p>" +
-      '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt fo-tf-stand"><thead><tr><th scope="col">Pos</th><th scope="col" class="num" title="Your modeled starters’ season PPG, the league average and the gap">PPG · lg avg</th><th scope="col" class="num">Rank</th></tr></thead><tbody>' + rows + "</tbody></table></div>" +
-      '<p class="fo-basis">PPG = your modeled starters at the position, a week; lg = league average. Best available = the real player on another team who would add the most to your modeled lineup.</p>';
+    var others = W.others.map(function (r) { return exploreButton(r.g, gl(r.g) + " " + LS.ordinal(r.rank)); }).join(" ");
+    var otherOpen = W.others.some(function (r) { return r.g === xview.pos; });
+    return '<h3 class="fo-tf-gh">Where you’re weak</h3>' +
+      (weak ? '<ul class="fo-tf-weak">' + weak + "</ul>" : '<p class="fo-ov-empty">No position is below the league average or in the Bottom 3.</p>') +
+      (others ? '<div class="fo-tf-others"><span class="fo-muted">Other positions:</span> ' + others + "</div>" + (otherOpen ? positionPanel(m, me, G, xview.pos) : "") : "") +
+      '<p class="fo-basis">Weak = Bottom 3 by PPG or below the league average. PPG = your modeled starters at the position, a week. K and P aren’t listed.</p>';
   }
   function exploreHtml(m, me) {
     var opts = m.order.filter(function (f) { return f !== me; }).slice().sort(function (a, b) { return m.teams[a].name.localeCompare(m.teams[b].name); })
@@ -253,12 +313,13 @@
       '<span class="fo-muted"> its players’ gains to your lineup, and yours to theirs</span></div>';
   }
   function mineHtml(m, me, basis) {
-    var head = '<div class="fo-card fo-tf-mine"><div class="fo-card-head"><h2>Your team: strengths and needs</h2><span class="small fo-muted">Trade finder</span></div>' + guideHtml() +
+    var head = '<div class="fo-card fo-tf-mine"><div class="fo-card-head"><h2>Your team: find help</h2><span class="small fo-muted">Trade finder</span></div>' + guideHtml() +
       '<p class="fo-tf-basisline"><b>' + BASIS_LINE + "</b> " + H.esc(basis) + "</p>";
     if (!me) return head + '<p class="fo-ov-empty">Your team’s view needs to know which team is yours, and Front Office couldn’t tell. The league table is below.</p></div>';
     var G = gainsFor(m, me);
     if (!G) return head + "</div>";
-    return head + standingHtml(m, me, G) + exploreHtml(m, me) + gainsHtml(m, me, G) + "</div>";
+    var xby = '<div class="fo-choice-row"><div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-tfx">Explore</div><div class="fo-subview-chips fo-choice fo-tf-xby" role="group" aria-labelledby="fo-lbl-tfx">' + chips(XBY, "data-tf-xby", xview.by) + "</div></div></div>";
+    return head + xby + (xview.by === "team" ? exploreHtml(m, me) : positionHtml(m, me, G)) + gainsHtml(m, me, G) + "</div>";
   }
 
   // ── Between you and another team (the team popup): pair gains, tick players, copy to the builder unsent ──
@@ -538,14 +599,22 @@
   }
 
   // Open a team in the popup / bottom sheet. Nothing on the page moves; closing returns focus to the same View button.
-  function openTeam(m, f) {
+  // opts.tick: a player on that team to tick on their side (Explore a position's Explore team); opts.returnTo: the button
+  // that opened it (focus goes back there on close).
+  function openTeam(m, f, opts) {
+    opts = opts || {};
     sel.team = f;
     if (picks.other !== f) picks = { other: f, theirs: {}, mine: {} };
+    if (opts.tick) picks.theirs[opts.tick] = true;
     markSelected();
     var me = myFid();
     H.openDialog(m.teams[f].name + (f === me ? " (you)" : ""), teamHtml(m, f), {
       variant: "team",
-      returnFocus: function () { var el = document.getElementById("fo-trades-body"); return el ? el.querySelector('[data-tf-view="' + f + '"]') : null; },
+      returnFocus: function () {
+        var el = document.getElementById("fo-trades-body");
+        if (!el) return null;
+        return (opts.returnTo && el.contains(opts.returnTo) ? opts.returnTo : null) || el.querySelector('[data-tf-view="' + f + '"]');
+      },
       onClose: function () { sel.team = ""; markSelected(); }
     });
   }
@@ -668,8 +737,24 @@
       if (m && m.teams[f]) openTeam(m, f);
     });
     el.addEventListener("click", function (e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-tf-mode],[data-tf-by],[data-tf-measure],[data-tf-sort],[data-tf-msort],[data-tf-view],[data-tf-guide],[data-tf-gall],[data-tf-gmore]") : null;
+      var t = e.target && e.target.closest ? e.target.closest("[data-tf-mode],[data-tf-by],[data-tf-measure],[data-tf-sort],[data-tf-msort],[data-tf-view],[data-tf-guide],[data-tf-gall],[data-tf-gmore],[data-tf-xby],[data-tf-xpos],[data-tf-xall],[data-tf-xteam]") : null;
       if (!t) return;
+      // Explore a position / a team (Keith 2026-10-30).
+      if (t.hasAttribute("data-tf-xby")) { xview.by = t.getAttribute("data-tf-xby"); render(); return; }
+      if (t.hasAttribute("data-tf-xall")) { xview.allStarters = !xview.allStarters; render(); return; }
+      if (t.hasAttribute("data-tf-xpos")) {
+        var xg = t.getAttribute("data-tf-xpos"), opening = xview.pos !== xg;
+        xview.pos = opening ? xg : ""; xview.allStarters = false;
+        render();
+        var after = opening ? el.querySelector("#fo-tf-posx") : el.querySelector('[data-tf-xpos="' + xg + '"]');
+        if (after) { try { after.focus({ preventScroll: !opening }); } catch (x) { after.focus(); } }
+        return;
+      }
+      if (t.hasAttribute("data-tf-xteam")) {
+        var xm = H.leagueModel(0), xf = t.getAttribute("data-tf-xteam");
+        if (xm && xm.teams[xf]) openTeam(xm, xf, { tick: t.getAttribute("data-tf-xpid"), returnTo: t });
+        return;
+      }
       // The guide opens and closes in place (no re-render, the table keeps its scroll).
       if (t.hasAttribute("data-tf-guide")) {
         guideOpen = !guideOpen;
@@ -708,14 +793,14 @@
   // Test seam: the view state and the team view's pick and stock logic.
   root.UPS_FO_TRADES = { _setMode: function (m) { mode = m; }, _rerender: function () { rerender(); }, _view: view, _sel: sel, _gainsView: gainsView, _pickBook: function () { return pickBook(); }, _pickStock: function (book, f) { return pickStock(book, f); },
     _gains: function (f) { return gainsFor(H.leagueModel(0), f); }, _picks: function () { return picks; }, _copyState: function () { return copyState(); }, _copy: function () { return copyToBuilder(); },
-    _teamHtml: function (f) { return teamHtml(H.leagueModel(0), f); }, _openTeam: function (f) { openTeam(H.leagueModel(0), f); } };
+    _teamHtml: function (f) { return teamHtml(H.leagueModel(0), f); }, _openTeam: function (f, o) { openTeam(H.leagueModel(0), f, o); }, _xview: xview };
   document.addEventListener("fo:ready", function () {
     H = root.UPS_FO_HUB; FO = root.UPS_FO; DATA = root.UPS_FO_DATA; TF = root.UPS_TRADE_FIT; LS = root.UPS_LINEUP_STRENGTH; TFC = root.UPS_TRADE_FINDER;
     if (!H || !FO || !DATA || !TF || !LS || !TFC) return;
     wire();
     H.registerAbout("trades", "<h3>Trade finder</h3>" +
-      "<p><b>Your team’s strengths and needs first, then every team’s lineup strength side by side, and a closer look at any team.</b> Based on season points per game, not projections. It doesn’t grade trades, rank partners or suggest swaps, and it never sends anything.</p><ul>" +
-      "<li><b>Your team</b>: each position’s modeled PPG, the league average and rank; <b>Strong</b> = Top 3, <b>Short</b> = Bottom 3; and the best real player on another team at that position, with the gain he alone would give your lineup.</li>" +
+      "<p><b>Your team first (explore a weak position or a team), then every team’s lineup strength side by side, and a closer look at any team.</b> Based on season points per game, not projections. It doesn’t grade trades, rank partners or suggest swaps, and it never sends anything.</p><ul>" +
+      "<li><b>Explore a position</b>: your weak positions (Bottom 3 by PPG, or below the league average; K and P aren’t listed), each with your PPG, the league average and your rank. Its button lists the players at that position on other teams who alone would add +1.0 pt a week or more to your modeled lineup: first those on a bench (outside their team’s modeled lineup, so their lineup loses nothing), then starters, with the points a week their lineup would lose. <b>Explore team</b> opens that team with the player ticked. The other positions are buttons too.</li>" +
       "<li><b>Explore a team</b> (or <b>View</b>): their players with the gain each would give your lineup, and your available players with the gain each would give theirs. Tick players on either side and <b>Copy to Trade builder (not sent)</b> opens them as an editable draft there; nothing is sent. It is exploration, not a claim that a trade is fair or that an owner would accept.</li>" +
       "<li><b>The table</b> compares all 12 teams’ current rosters: <b>By Position</b> or <b>By Lineup Slot</b>, measured as <b>PPG</b> (the default), <b>Rank</b>, <b>Above Replacement</b> or <b>Index</b>. Each lineup is the team’s best legal lineup from its <b>own available rostered players</b> in the slots MFL’s lineup settings define; a free agent fills a slot only when no rostered player can play it, at replacement level, and is marked <b>*</b>. Values are season points per MFL-scored week.</li>" +
       "<li><b>Measures:</b> <b>PPG</b> (the default) = modeled starters’ points a week. <b>Rank</b> = 1st–12th by that PPG. <b>Above Replacement</b> = the raw points a week above replacement: Σ(starter PPG − replacement-level PPG), 0 = replacement level. Replacement level is the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at IDP; By Lineup Slot, a Flex or Superflex slot uses the best of those the slot accepts, so Overall Above Replacement can differ between the two breakdowns: one measures each starter against his own position’s baseline, the other against the slot’s eligible-player baseline. Rank and Index are the league-relative measures. Shown values are rounded so each breakdown’s rows add up to its Overall.<b>Index</b> = PPG ÷ the league <b>mean</b> × 100: 100 = average.<b>Starter Mix</b> is different: the <b>actual</b> starters per week from the lineups submitted to MFL in completed weeks, by each player’s own position. MFL records who started, not which slot: a second QB can only be Superflex and an extra DL/LB/DB only IDP Flex, while extra RB/WR/TE starters are shown together as Flexible slots. A week whose lineup doesn’t fill every slot is listed and left out, never averaged in.</li>" +

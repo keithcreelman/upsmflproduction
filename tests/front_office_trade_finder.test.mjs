@@ -307,7 +307,7 @@ test("How to use this page: collapsed by default; explains the table, the team v
   t.ok(/<div class="fo-tf-guide" id="fo-tf-guide" hidden>/.test(html), "the guide is hidden until tapped");
   const guide = unesc(html.slice(html.indexOf('id="fo-tf-guide"'), html.indexOf("</ul></div></div>")));
   t.ok(/<b>The league table<\/b> \(below\) shows every team’s modeled lineup/.test(guide) && /<b>Explore a team<\/b> \(or <b>View<\/b> in the table\) opens it/.test(guide), "the table and the team details");
-  t.ok(/<b>Your team<\/b> comes first/.test(guide) && /Every number is season PPG, not a projection/.test(guide), "my team first; the basis");
+  t.ok(/<b>Explore a position<\/b> \(the default\) lists where you’re weak/.test(guide) && /their lineup loses nothing/.test(guide) && /Every number is season PPG, not a projection/.test(guide), "explore a position (weak spots → bench help); the basis");
   t.ok(/<b>Possible roster surplus<\/b> = healthy bench players outside that team’s modeled lineup who would start for another team, on season PPG/.test(guide), "what surplus means and its basis");
   t.ok(/doesn’t mean the owner would move them/.test(guide), "no willingness implied");
   t.equal((guide.match(/<li>/g) || []).length, 5, "a few short lines");
@@ -360,31 +360,88 @@ test("lineup gains: both lists for the viewer's team, each row = trade_fit.lineu
   t.ok(/Your team’s view needs to know which team is yours, and Front Office couldn’t tell\. The league table is below\./.test(unesc(nobody)) && !/data-tf-gains=/.test(nobody) && /fo-tf-strength/.test(nobody), "no viewer team → says so, lists nothing, the league table still shows");
 });
 
-test("your team first: basis stated up top, strengths and needs = trade_finder_core.standing, Explore a team, then the league table", () => {
+test("your team first (Keith 2026-10-30): Explore a position by default — weak spots = trade_finder_core.weakSpots, no best-available table; then the league table", () => {
   const p = page();
+  p.TR._xview.by = "position"; p.TR._xview.pos = "";
   const html = p.show({ view: { by: "position", measure: "ppg" } });
   const mine = html.indexOf("fo-tf-mine"), table = html.indexOf("fo-tf-main");
   t.ok(mine > 0 && mine < table, "Your team card before the league table");
   const card = unesc(html.slice(mine, table));
-  t.ok(/<h2>Your team: strengths and needs<\/h2>/.test(card), "titled");
+  t.ok(/<h2>Your team: find help<\/h2>/.test(card), "titled");
   t.ok(/<p class="fo-tf-basisline"><b>Based on season points per game, not projections\.<\/b>/.test(card), "basis stated prominently, near the top");
-  t.ok(card.indexOf("Based on season points per game") < card.indexOf("fo-tf-stand"), "before any number");
-  const st = p.TFC.standing(p.LS.build(p.model, { by: "position" }), "0008", { forMe: p.TF.lineupGains(p.model, "0008").forMe });
-  t.ok(card.includes("<b>Strong</b> (Top 3 by PPG): " + (st.strong.join(", ").replace(/PK/g, "K").replace(/PN/g, "P") || "none")), "strong list");
-  t.ok(card.includes("<b>Short</b> (Bottom 3): " + (st.short.join(", ") || "none")), "short list");
-  for (const r of st.rows) {
-    const row = card.slice(card.indexOf('data-tf-stand="' + r.g + '"'), card.indexOf("</tr>", card.indexOf('data-tf-stand="' + r.g + '"')));
-    t.ok(row.includes('<td class="num">' + p.H.fmt1(r.ppg) + ' <span class="fo-tf-unit">PPG</span><div class="fo-tf-gsub">lg ' + p.H.fmt1(r.avg)), r.g + ": PPG and league average");
-    t.ok(row.includes(">" + p.LS.ordinal(r.rank) + "</td>"), r.g + ": rank");
-    t.equal(/Top 3/.test(row), r.tag === "strong", r.g + ": Top 3 tag"); t.equal(/Bottom 3/.test(row), r.tag === "short", r.g + ": Bottom 3 tag");
-    const bi = card.indexOf('data-tf-stand-best="' + r.g + '"'), brow = bi < 0 ? "" : card.slice(bi, card.indexOf("</tr>", bi));
-    t.equal(bi > 0, !r.excluded, r.g + ": a best-available line unless K/P");
-    if (r.best) t.ok(brow.includes("Best available: ") && brow.includes("(" + p.H.teamName(r.best.fid) + ")") && brow.includes('<span class="fo-tf-gnum">+' + p.H.fmt1(r.best.gain) + '</span> <span class="fo-tf-unit">pts/wk, season PPG</span>'), r.g + ": best available with team, unit and basis");
+  t.ok(card.indexOf("Based on season points per game") < card.indexOf("fo-tf-weak"), "before any number");
+  t.ok(/data-tf-xby="position" aria-pressed="true">Explore a position<\/button>/.test(card) && /data-tf-xby="team" aria-pressed="false">Explore a team<\/button>/.test(card), "two ways in: a position (default) or a team");
+  t.ok(!/Best available|fo-tf-stand|<b>Strong<\/b>/.test(card), "the per-position best-available table is gone");
+  const TB = p.LS.build(p.model, { by: "position" }), G = p.TF.lineupGains(p.model, "0008");
+  const W = p.TFC.weakSpots(p.TFC.standing(TB, "0008", { forMe: G.forMe }));
+  const weak = [...card.matchAll(/data-tf-weak="(\w+)"/g)].map((x) => x[1]);
+  t.equal(weak.join(","), W.weak.map((r) => r.g).join(","), "weak positions, worst rank first: " + weak.join(","));
+  for (const r of W.weak) {
+    const i = card.indexOf('data-tf-weak="' + r.g + '"'), row = card.slice(i, card.indexOf("</li>", i));
+    t.ok(row.includes(p.LS.ordinal(r.rank) + " of 12") && row.includes(p.H.fmt1(r.ppg) + " PPG · league " + p.H.fmt1(r.avg)), r.g + ": rank, PPG and league average");
+    t.equal(/Bottom 3/.test(row), r.tag === "short", r.g + ": Bottom 3 tag");
+    t.ok(row.includes('data-tf-xpos="' + r.g + '" aria-expanded="false" aria-controls="fo-tf-posx">Explore ' + r.g + " options</button>"), r.g + ": its Explore button");
+    const O = p.TFC.positionOptions(p.model, TB, G, r.g, p.TF);
+    t.ok(row.includes(O.surplus.length ? O.surplus.length + " bench " + r.g : O.starters.length ? "No bench " + r.g + " elsewhere would help; " + O.starters.length : "No " + r.g + " on another team"), r.g + ": the help line");
   }
+  const others = [...card.slice(card.indexOf("fo-tf-others")).matchAll(/data-tf-xpos="(\w+)"/g)].map((x) => x[1]);
+  t.equal(others.join(","), W.others.map((r) => r.g).join(","), "other positions are buttons too, best rank first");
+  t.ok(!/data-tf-xpos="(PK|PN)"/.test(card), "K and P aren't listed");
+  t.ok(!/id="fo-tf-posx"/.test(card), "no position open until asked");
+  t.ok(card.indexOf("fo-tf-weak") < card.indexOf('data-tf-gains="mine"'), "weak spots before the gain lists");
+});
+
+test("Explore a position: bench help first (their lineup loses nothing), then starters with their loss; Explore team opens that team with the player ticked", () => {
+  const p = page();
+  const TB = p.LS.build(p.model, { by: "position" }), G = p.TF.lineupGains(p.model, "0008");
+  p.TR._xview.by = "position"; p.TR._xview.pos = "RB"; p.TR._xview.allStarters = false;
+  const card = unesc(p.show({ view: { by: "position" } }));
+  const O = p.TFC.positionOptions(p.model, TB, G, "RB", p.TF);
+  t.ok(O.surplus.length > 0 && O.starters.length > 5, "the fixture has bench and starter RB help");
+  const i = card.indexOf('id="fo-tf-posx"'), panel = card.slice(i, card.indexOf('class="fo-basis">Starters are ordered', i));
+  t.ok(i > card.indexOf('data-tf-weak="RB"') && i < card.indexOf("</li>", card.indexOf('data-tf-weak="RB"')), "the panel opens under the RB row");
+  t.ok(/<h3 class="fo-tf-gh">RB options<\/h3>/.test(panel) && /data-tf-xpos="RB" aria-expanded="true"[^>]*>Close<\/button>/.test(panel), "titled, with Close");
+  t.ok(panel.indexOf("On another team’s bench") < panel.indexOf("Starting for another team"), "bench first");
+  const ids = (kind) => [...panel.matchAll(new RegExp('data-tf-opt="(\\d+)" data-tf-optkind="' + kind + '"', "g"))].map((x) => x[1]);
+  t.equal(ids("bench").join(","), O.surplus.map((x) => x.pid).join(","), "every bench option, largest gain first");
+  t.equal(ids("starter").join(","), O.starters.slice(0, 5).map((x) => x.pid).join(","), "five starters, then Show all");
+  t.ok(panel.includes('data-tf-xall aria-expanded="false">Show all ' + O.starters.length + "</button>"), "Show all N");
+  for (const x of O.surplus) {
+    const r = panel.slice(panel.indexOf('data-tf-opt="' + x.pid + '"'), panel.indexOf("</tr>", panel.indexOf('data-tf-opt="' + x.pid + '"')));
+    t.ok(r.includes('<span class="fo-tf-gnum">+' + p.H.fmt1(x.gain) + "</span>") && r.includes("their lineup −0.0") && r.includes(p.H.teamName(x.fid)), x.pid + ": gain, team, no loss");
+    t.ok(r.includes('data-tf-xteam="' + x.fid + '" data-tf-xpid="' + x.pid + '"') && />Explore team<\/button>/.test(r), x.pid + ": Explore team");
+  }
+  for (const x of O.starters.slice(0, 5)) {
+    const r = panel.slice(panel.indexOf('data-tf-opt="' + x.pid + '"'), panel.indexOf("</tr>", panel.indexOf('data-tf-opt="' + x.pid + '"')));
+    t.ok(r.includes("their lineup −" + p.H.fmt1(x.loss)) && x.loss > 0, x.pid + ": their loss");
+  }
+  t.ok(!/trade for|in exchange|you could offer|would trade|willing|available for trade/i.test(panel), "no exchange or willingness wording");
+  p.TR._xview.allStarters = true;
+  const all = unesc(p.show({}));
+  t.equal([...all.matchAll(/data-tf-optkind="starter"/g)].length, O.starters.length, "Show all lists every starter");
+  // Explore team → that team's popup with the player ticked on their side.
+  const x = O.surplus[0];
+  p.TR._openTeam(x.fid, { tick: x.pid });
+  const dlg = p.dialog.open.html;
+  t.ok(new RegExp('data-tf-pick="theirs" value="' + x.pid + '" checked').test(dlg), "the player is ticked in the popup");
+  t.equal(p.TR._picks().other, x.fid); t.equal(p.TR._picks().theirs[x.pid], true);
+  t.ok(/Selected: 1 of theirs, 0 of yours/.test(dlg), "the selection bar counts him");
+  p.TR._xview.pos = ""; p.TR._xview.allStarters = false;
+});
+
+test("Explore a team: the team picker (the 11 other teams) replaces the weak list; choosing one opens its popup", () => {
+  const p = page();
+  p.TR._xview.by = "team";
+  const html = p.show({ view: { by: "position" } });
+  const card = unesc(html.slice(html.indexOf("fo-tf-mine"), html.indexOf("fo-tf-main")));
+  t.ok(/data-tf-xby="team" aria-pressed="true">Explore a team<\/button>/.test(card), "Explore a team chosen");
   const opts = [...card.matchAll(/<option value="(\d{4})">/g)].map((x) => x[1]);
-  t.equal(opts.length, 11, "Explore a team: the 11 other teams"); t.ok(!opts.includes("0008"), "not my own");
+  t.equal(opts.length, 11, "the 11 other teams"); t.ok(!opts.includes("0008"), "not my own");
+  t.ok(!/data-tf-weak=/.test(card), "no weak list in this mode");
   t.ok(card.indexOf("data-tf-explore") < card.indexOf('data-tf-gains="mine"'), "Explore a team before the gain lists");
   t.ok(/el\.addEventListener\("change", function \(e\) \{[\s\S]*?data-tf-explore[\s\S]*?openTeam\(m, f\)/.test(SRC), "choosing a team opens its popup");
+  t.ok(/data-tf-xteam[\s\S]*?openTeam\(xm, xf, \{ tick: t\.getAttribute\("data-tf-xpid"\), returnTo: t \}\)/.test(SRC), "Explore team ticks the player and returns focus to its button");
+  p.TR._xview.by = "position";
 });
 
 test("another team's popup: their players with the gain to MY lineup, my players with the gain to THEIRS (The Long Haulers), checkboxes, basis beside every gain", () => {
