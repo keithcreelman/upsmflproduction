@@ -258,14 +258,13 @@
     return '<button type="button" class="fo-tf-xteam" data-tf-xteam="' + H.esc(fid) + '" data-tf-xpid="' + H.esc(pid) + '" aria-label="' + H.esc("Explore " + name + " with " + H.displayName(playerName(pid)) + " ticked") + '">Explore team</button>';
   }
   function optionRow(x, starter) {
-    var sub = '<span class="fo-tf-gfrom">' + H.esc(H.teamName(x.fid)) + "</span> · " + H.fmt1(x.v) + " PPG" + gainGames(x.pid) + (x.rank ? " · their " + gl(xview.pos) + " " + LS.ordinal(x.rank) : "");
+    var sub = '<span class="fo-tf-gfrom">' + H.esc(H.teamName(x.fid)) + "</span> · " + H.fmt1(x.v) + " PPG" + gainGames(x.pid) + (starter && x.rank ? " · their " + gl(xview.pos) + " " + LS.ordinal(x.rank) : "");
     var cost = starter ? '<div class="fo-tf-gsub fo-tf-loss">their lineup −' + H.fmt1(x.loss) + "</div>" : '<div class="fo-tf-gsub">their lineup −0.0</div>';
     return '<tr data-tf-opt="' + H.esc(x.pid) + '" data-tf-optkind="' + (starter ? "starter" : "bench") + '"><th scope="row">' + gainPlayer(x.pid, x.fid, sub) + "</th>" +
-      '<td class="num fo-tf-gain" title="' + H.esc("Would add about +" + H.fmt1(x.gain) + " pts/week to your modeled lineup (season PPG)") + '"><span class="fo-tf-gnum">+' + H.fmt1(x.gain) + '</span> <span class="fo-tf-unit">pts/wk</span>' + cost + "</td>" +
-      '<td class="fo-tf-xcell">' + exploreTeamButton(x.fid, x.pid) + "</td></tr>";
+      '<td class="num fo-tf-gain" title="' + H.esc("Would add about +" + H.fmt1(x.gain) + " pts/week to your modeled lineup (season PPG)") + '"><span class="fo-tf-gnum">+' + H.fmt1(x.gain) + '</span> <span class="fo-tf-unit">pts/wk</span>' + cost + exploreTeamButton(x.fid, x.pid) + "</td></tr>";
   }
   function optionTable(kind, list) {
-    return '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt fo-tf-opts" data-tf-opts="' + kind + '"><thead><tr><th scope="col">Player · team</th><th scope="col" class="num" title="Points a week your modeled lineup would gain, and what their lineup would lose, on season PPG">Your gain</th><th scope="col"><span class="fo-sr">Explore</span></th></tr></thead><tbody>' +
+    return '<div class="fo-table-scroll fo-tf-gscroll"><table class="fo-table fo-tf-gt fo-tf-opts" data-tf-opts="' + kind + '"><thead><tr><th scope="col">Player · team</th><th scope="col" class="num" title="Points a week your modeled lineup would gain, and what their lineup would lose, on season PPG">Your gain</th></tr></thead><tbody>' +
       list.map(function (x) { return optionRow(x, kind === "starter"); }).join("") + "</tbody></table></div>";
   }
   var STARTER_ROWS = 5;
