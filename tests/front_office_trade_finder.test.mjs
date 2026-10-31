@@ -31,6 +31,9 @@ function page(opts = {}) {
   const dialog = { open: null };
   const ctx = vm.createContext({ document: { addEventListener(n, f) { (listeners[n] = listeners[n] || []).push(f); },
     getElementById: (id) => (id === "fo-trades-body" ? el : null), querySelector: () => null }, Intl, Date });
+  const timers = [];
+  ctx.setTimeout = (fn, ms) => { const x = { fn, ms }; timers.push(x); return x; };
+  ctx.clearTimeout = (x) => { const i = timers.indexOf(x); if (i >= 0) timers.splice(i, 1); };
   ctx.window = ctx;
   for (const f of ["site/m/front_office_lineup.js", "site/shared/trade_fit.js", "site/shared/lineup_strength.js", "site/shared/trade_finder_core.js", "site/shared/starter_mix.js"]) vm.runInContext(read(path.join(ROOT, f)), ctx);
   const TF = ctx.UPS_TRADE_FIT, LS = ctx.UPS_LINEUP_STRENGTH, SM = ctx.UPS_STARTER_MIX, L = ctx.UPS_FRONT_OFFICE_LINEUP;
@@ -70,7 +73,7 @@ function page(opts = {}) {
   if (!opts.defaultExplore) TR._xview.by = "team"; // the league-table tests; Explore a position sets it back
   const show = (state) => { TR._setMode("finder"); Object.assign(TR._view, state.view || {}); if ("team" in state) TR._sel.team = state.team; (listeners["fo:tab"] || []).forEach((f) => f({ detail: { section: "trades" } })); return el.innerHTML; };
   const team = (f) => TR._teamHtml(f);
-  return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA, el, TFC: ctx.UPS_TRADE_FINDER, loads, entries };
+  return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA, el, TFC: ctx.UPS_TRADE_FINDER, loads, entries, timers };
 }
 // The strength table → { fid: { row: text } } (team id from the View button).
 function readTable(html) {
@@ -419,7 +422,7 @@ const rosFile = () => {
   const back = rbs[0].pid, gone = rbs[1].pid, avail = { [back]: { k: "back", wk: 12 }, [gone]: { k: "none" } };
   weekly[back] = weekly[back].map((v, w) => (w < 4 ? null : players[back] + 25));
   delete weekly[gone]; delete players[gone];
-  return { ok: true, season: 2026, throughWeek: 7, weeks: [8, 17], nWeeks: 10, asOf: "2026-10-28T14:00:00Z", label: "UPS Center projection", playedExcluded: { 8: ["CAR"] }, players, weekly, avail };
+  return { ok: true, season: 2026, throughWeek: 7, weeks: [8, 17], nWeeks: 10, asOf: "2026-10-28T14:00:00Z", nextKick: null, label: "UPS Center projection", playedExcluded: { 8: ["CAR"] }, players, weekly, avail };
 };
 
 test("Based on: Season PPG by default; Projected ROS PPG recalculates every number on the file's values and says what it is", () => {
@@ -478,6 +481,24 @@ test("Projected ROS PPG fails closed: loading, a failed read or an old file leav
   old.show({}); old.TR._setBasis("ros");
   t.equal(notes(old.el.innerHTML), "Rest-of-season projection unavailable. These numbers stay on season PPG.", "a loaded but unusable file");
   t.ok(/data-tf-basis="ppg" aria-pressed="true"/.test(old.el.innerHTML));
+});
+
+test("a page left open across a kickoff reads again, a season-PPG screen doesn't, and a phone's fast clock can't loop", () => {
+  const file = { ...rosFile(), nextKick: Date.now() / 1000 + 3600 };
+  const p = page({ defaultExplore: true, ros: { file } });
+  p.show({}); p.TR._setBasis("ros");
+  t.equal(p.timers.length, 1, "one timer"); t.ok(Math.abs(p.timers[0].ms - 3600000) < 5000, "set for the next kickoff");
+  t.equal(p.loads.includes("refresh:ros"), false, "nothing read before it");
+  file.nextKick = Date.now() / 1000 - 1;
+  p.TR._xview.basis = "ppg"; p.timers[0].fn();
+  t.equal(p.loads.includes("refresh:ros"), false, "season PPG on screen: no read");
+  p.DATA.refresh = (k) => { p.loads.push("refresh:" + k); return { then(fn) { fn(); } }; };
+  p.TR._setBasis("ros");
+  t.ok(p.loads.includes("refresh:ros"), "choosing it past the kickoff reads again");
+  t.equal(p.timers.length, 1, "the old timer was replaced"); t.equal(p.timers[0].ms, 30000, "the server still says that kickoff is ahead: try again in 30 s, no tighter");
+  const n = p.loads.length;
+  p.timers[0].fn();
+  t.equal(p.loads.length, n + 1, "the timer itself reads again while Projected ROS PPG is chosen");
 });
 
 test("Explore a team: the team picker (the 11 other teams) replaces the weak list; choosing one opens its popup", () => {

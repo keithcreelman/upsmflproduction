@@ -798,14 +798,23 @@
       render();
     });
   }
-  // Choosing Projected ROS PPG reads the file once; a failed read is read again on the next tap.
+  // Choosing Projected ROS PPG reads the file once; a failed read is read again on the next tap. The worker's answer is
+  // right only until the next kickoff (file.nextKick), so a page left open past it reads again; until the new answer
+  // arrives the numbers stay on season PPG. The floor keeps a phone whose clock runs ahead from reading in a tight loop.
+  var ROS_REREAD_FLOOR_MS = 30000, rosTimer = null;
+  function readRos() {
+    var e = DATA.get("ros"), read = !e ? DATA.load("ros") : e.state === "error" || (e.state === "ok" && TFC.rosExpired(e.data, Date.now())) ? DATA.refresh("ros") : null;
+    if (read) read.then(function () { armRosRead(); rerender(); });
+    else armRosRead();
+  }
+  function armRosRead() {
+    var e = DATA.get("ros"), kick = e && e.state === "ok" && e.data.nextKick;
+    clearTimeout(rosTimer);
+    if (kick) rosTimer = setTimeout(function () { if (xview.basis === "ros") readRos(); }, Math.max(kick * 1000 - Date.now(), ROS_REREAD_FLOOR_MS));
+  }
   function setBasis(b) {
     xview.basis = b === "ros" ? "ros" : "ppg";
-    if (xview.basis === "ros") {
-      var e = DATA.get("ros");
-      if (!e) DATA.load("ros").then(rerender);
-      else if (e.state === "error" && DATA.refresh) DATA.refresh("ros").then(rerender);
-    }
+    if (xview.basis === "ros") readRos();
     render();
   }
   function load() {

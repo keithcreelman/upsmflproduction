@@ -23,9 +23,13 @@
      so they never add up.
    rosUsable(file, season, nowMs): whether the rest-of-season answer may be shown. The worker already refuses a stale
      file; this re-checks what a page held open would otherwise keep showing. Anything missing, another season, older
-     than ROS_MAX_AGE_DAYS, or no week left to build a lineup for is false, so the screen stays on season PPG and says so.
+     than ROS_MAX_AGE_DAYS, past its next kickoff, or no week left to build a lineup for is false, so the screen stays on
+     season PPG and says so.
+   rosExpired(file, nowMs): a kickoff has passed since the worker answered. The worker takes a started game out of every
+     answer, so the file a page holds is only right until file.nextKick (null = no game left); then the page reads again.
    rosWeeks(file, ruledOut): the weeks a lineup is built for, each {week, values: {pid: that week's number}}. A week with
-     a game already played is left out: its players have no number left, so most of a lineup would be holes (late Sunday,
+     a game already played is left out, whichever day the file was built (the worker adds a kicked-off game to
+     playedExcluded at read time): its players have no number left, so most of a lineup would be holes (late Sunday,
      nearly all of it). The players' own numbers still cover the rest of that week.
    rosRuledOut(file, teams, availableNow): players the file treats as healthy but MFL now lists out, on IR or suspended.
      The file is up to four days old and the status isn't: they count for no week until a build sees a return date.
@@ -126,10 +130,13 @@
   function rosUsable(file, season, nowMs) {
     if (!file || file.ok !== true || !file.players || !file.weekly || !file.avail || !file.label || !file.nWeeks || !file.weeks) return false;
     if (Object.keys(file.players).length === 0) return false;
+    if (file.nextKick !== null && typeof file.nextKick !== "number") return false;
+    if (rosExpired(file, nowMs)) return false;
     if (String(file.season) !== String(season)) return false;
     var at = Date.parse(file.asOf);
     return isFinite(at) && nowMs - at <= ROS_MAX_AGE_DAYS * 86400000 && rosWeeks(file).length > 0;
   }
+  function rosExpired(file, nowMs) { return typeof file.nextKick === "number" && nowMs >= file.nextKick * 1000; }
   function rosWeeks(file, ruledOut) {
     var played = file.playedExcluded || {}, pids = Object.keys(file.weekly), out = [];
     for (var i = 0; i < file.nWeeks; i++) {
@@ -180,7 +187,7 @@
     return { source: "Trade finder", movements: movements };
   }
 
-  var api = { POSITIONS: POSITIONS, TOP: TOP, standing: standing, weakSpots: weakSpots, positionOptions: positionOptions, groupOptions: groupOptions, rosUsable: rosUsable, rosWeeks: rosWeeks, rosRuledOut: rosRuledOut, rosTags: rosTags, pairGains: pairGains, selectionToDraft: selectionToDraft };
+  var api = { POSITIONS: POSITIONS, TOP: TOP, standing: standing, weakSpots: weakSpots, positionOptions: positionOptions, groupOptions: groupOptions, rosUsable: rosUsable, rosExpired: rosExpired, rosWeeks: rosWeeks, rosRuledOut: rosRuledOut, rosTags: rosTags, pairGains: pairGains, selectionToDraft: selectionToDraft };
   if (typeof window !== "undefined") window.UPS_TRADE_FINDER = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })();
