@@ -5,9 +5,11 @@ name: Sleeper cache — rebuild player facts
 # and EVERY player reported sleeper_matched: 0 — no injury status, no depth chart,
 # for anyone, silently. This does the work where there is no CPU ceiling.
 #
-# Also fixes both broken match paths: MFL's DETAILS export carries gsis_id for 0
-# of 2,609 players, and MFL's team codes (KCC/GBP/SFO/TBB/NEP) never equalled
-# Sleeper's (KC/GB/SF/TB/NE).
+# Matching (#1356): RotoWire / ESPN id candidates plus full name + team, accepted
+# only with 2+ agreeing facts (ids, birthdate, name, team) — no single fact is
+# trusted. Writes (#1356): changed rows only, never delete-and-reinsert (was
+# 7,082 D1 rows written a day; measured ~650–840 after; the first run after the
+# change rewrites ~5,000 once). See scripts/build_sleeper_cache.py.
 #
 # Injury and depth data changes daily in season, so this runs daily.
 
