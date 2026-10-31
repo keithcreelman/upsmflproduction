@@ -72,7 +72,7 @@ import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eli
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
 import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
 import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
-import { loadPlayerStatus } from "./player_status.js";
+import { loadPlayerStatus, cachedIdMapLoader } from "./player_status.js";
 import { seasonTeamSnaps, coversPlayer } from "./team_snaps_season.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
@@ -20166,7 +20166,7 @@ export default {
           const db = env.UPS_MFL_DB;
           if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
           const season = parseInt(safeStr(url.searchParams.get("season")) || String(YEAR || ""), 10) || new Date().getUTCFullYear();
-          const out = await loadPlayerStatus(db, { season });
+          const out = await loadPlayerStatus(db, { season, idMap: cachedIdMapLoader(db, { waitUntil: (pr) => ctx.waitUntil(pr) }) });
           const r = jsonOut(200, { ok: true, season, generated_utc: new Date().toISOString(), ...out });
           try { r.headers.set("Cache-Control", "public, max-age=120"); } catch (_) {}
           return r;
