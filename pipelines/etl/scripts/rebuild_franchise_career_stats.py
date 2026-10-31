@@ -1,19 +1,37 @@
 #!/usr/bin/env python3
 """
-rebuild_franchise_career_stats.py — Regenerate pipelines/etl/data/franchise_career_stats.json from D1.
+rebuild_franchise_career_stats.py — Regenerate pipelines/etl/data/franchise_career_stats.json
+and D1 ups_owner_career_stats from D1.
 
 The roast context builder loads franchise_career_stats.json for owner W-L,
 championships, playoff appearances, season-by-season finish trend, and h2h
-between owners. This script rebuilds that file from D1's src_final_standings
-+ src_standings (the W-L record source) + src_weekly_franchise_summary
-(transition-season heuristic only) + discord_owners tables.
+between owners. This script rebuilds that file, and the D1 mirror the worker
+and the Wire read, from D1's src_franchises (who owned each franchise each
+season) + src_final_standings + src_standings (the W-L record source) +
+src_weekly_franchise_summary (transition-season heuristic only) +
+discord_owners (the current owner of each franchise).
 
-Run periodically (manually, or via a future launchd timer) to keep career
-stats fresh as new seasons complete.
+Run weekly by .github/workflows/owner-career-stats.yml, or by hand.
+
+FAILS CLOSED (2026-10-17). The 2026-10-13 run read an ownership feed that
+returned 0 (season, franchise) cells, built every owner a career of zero, then
+upserted all twelve rows and exited 0. Now the run stops with a non-zero exit
+and NO write (neither the JSON file nor D1) when:
+  * the ownership source is incomplete: a completed season is missing, a season
+    does not have 12 franchises, an owner name is blank, or there are fewer than
+    (completed seasons x 12) named cells;
+  * a current owner in discord_owners is not the src_franchises owner of that
+    franchise in the latest season (exact name, no substring);
+  * the new rows would LOWER any stored row's seasons, titles or all-play games,
+    unless --allow-decrease is passed (an owner change or a deliberate
+    correction, run by hand; the scheduled workflow never passes it);
+  * every new row is zero (no flag overrides this).
 
 Usage:
-  python rebuild_franchise_career_stats.py            # writes JSON
-  python rebuild_franchise_career_stats.py --dry-run  # prints, no write
+  python rebuild_franchise_career_stats.py                   # writes JSON + D1
+  python rebuild_franchise_career_stats.py --dry-run         # every check, no write
+  python rebuild_franchise_career_stats.py --allow-decrease  # permit a lower stored value (by hand only)
+  python rebuild_franchise_career_stats.py --skip-mfl-cross-check
 """
 
 import argparse
@@ -26,12 +44,12 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 OUT_PATH = SCRIPT_DIR.parent / "data" / "franchise_career_stats.json"
-TENURE_OVERRIDES_PATH = SCRIPT_DIR.parent / "config" / "owner_tenure_overrides.json"
 
-# MFL truth source for per-(season, franchise_id) owner_name attribution.
-# Worker endpoint authenticates via MFL_COOKIE and returns 17-year history.
-# Replaces D1's src_weekly_franchise_summary.owner_name (which ETL stamped
-# with current owners and lost historical attribution).
+# Cross-check ONLY, never the source. The worker reads each season's MFL league
+# export with the commissioner cookie. MFL reports the END-OF-SEASON owner, so it
+# legitimately differs from the season-start owner on mid-season takeovers
+# (league_context §D.2), and when the cookie does not unlock owner names it
+# returns a blank owner for every franchise -- the 2026-10-13 "0 cells" run.
 WORKER_OWNERSHIP_URL = (
     "https://upsmflproduction.keith-creelman.workers.dev"
     "/api/franchise-ownership-history"
@@ -44,140 +62,45 @@ WORKER_OWNERSHIP_URL = (
 #   2011 — first season of CURRENT (dynasty) format. Counts.
 #   2012 — first season with rookie draft + roster contract rollover. Counts.
 # So UPS_FOUNDING_SEASON = 2010 (the league's actual first season).
-# Owner-tenure attribution is handled separately — owners who weren't on a
-# franchise in 2010 don't get credit for that season (per the season-start-
-# owner rule + manual overrides in owner_tenure_overrides.json).
+# Owner attribution per season comes from src_franchises, which credits the
+# season-start (auction-of-record) owner: owners who weren't on a franchise in
+# 2010 don't get credit for that season.
 UPS_FOUNDING_SEASON = 2010
+FRANCHISE_COUNT = 12
 
 
-def load_tenure_overrides() -> dict:
-    """Load manual owner-tenure overrides. Returns {fid: [{owner_name, tenure_start_season, tenure_end_season}]}."""
-    if not TENURE_OVERRIDES_PATH.exists():
-        return {}
-    with open(TENURE_OVERRIDES_PATH) as f:
-        raw = json.load(f)
-    # Strip _README and _* metadata keys
-    return {k: v for k, v in raw.items() if not k.startswith("_")}
+class RefuseToWrite(SystemExit):
+    """Exit code 2: an input or the result failed a check. Nothing was written."""
 
 
-def fetch_mfl_ownership() -> dict:
-    """Pull per-year MFL ownership truth via worker endpoint.
+def refuse(problems: list) -> None:
+    for p in problems:
+        sys.stderr.write(f"::error::{p}\n")
+    sys.stderr.write(
+        f"Refusing to write franchise_career_stats.json or ups_owner_career_stats "
+        f"({len(problems)} problem(s)). Nothing was written.\n")
+    raise RefuseToWrite(2)
 
-    Returns {season(int): {fid(str): owner_name(str)}}. Authoritative replacement
-    for D1's src_weekly_franchise_summary.owner_name. NOTE: MFL reports the
-    END-OF-SEASON owner, not the season-start owner. Overrides handle the
-    "season-start owner gets the season" Keith ruling on mid-season takeovers
-    (e.g. 0006/2024 Brian Cross is MFL-attributed but Keith-overridden to Josh
-    Lima as the season-start owner).
-    """
-    req = urllib.request.Request(
-        WORKER_OWNERSHIP_URL,
-        headers={"User-Agent": "Mozilla/5.0 (UPS-Rebuilder)"},
-    )
-    with urllib.request.urlopen(req, timeout=120) as resp:
-        data = json.loads(resp.read())
-    if not data.get("ok"):
-        raise SystemExit(f"MFL ownership endpoint error: {data}")
-    out = {}
-    for season_str, fid_map in (data.get("history") or {}).items():
-        try:
-            season = int(season_str)
-        except (ValueError, TypeError):
-            continue
-        if not isinstance(fid_map, dict):
-            continue
-        for fid, info in fid_map.items():
-            if not isinstance(info, dict):
-                continue
-            owner = (info.get("owner_name") or "").strip()
-            if owner:
-                out.setdefault(season, {})[str(fid).zfill(4)] = owner
-    return out
+
+def warn(msg: str) -> None:
+    print(f"::warning::{msg}")
+
+
+def _norm_owner(name) -> str:
+    """Owner name with case and repeated or edge whitespace ignored. For EXACT comparison only."""
+    return " ".join(str(name or "").split()).casefold()
 
 
 def _owners_match(a: str, b: str) -> bool:
-    """Case-insensitive owner-name match. Substring tolerated for nickname variations."""
-    if not a or not b:
-        return False
-    al, bl = a.strip().lower(), b.strip().lower()
-    if al == bl:
-        return True
-    # Substring tolerance for nicknames (e.g. "Steve Bousquet" vs "Steve B.")
-    return al in bl or bl in al
+    """Exact owner-name match, ignoring case and repeated or edge whitespace.
 
-
-def build_effective_ownership(mfl_ownership: dict, overrides: dict) -> tuple[dict, dict]:
-    """Resolve (fid, season) → effective season-start owner.
-
-    Starts from MFL truth, then applies overrides: when an override declares
-    "owner X's tenure on franchise Y starts season N", any season < N where MFL
-    attributed X to Y is reassigned to the PRIOR MFL owner on that franchise
-    (the season-start owner per Keith's commish ruling). If no prior owner
-    exists in MFL data, the (fid, season) cell is dropped — the franchise totals
-    still include it but no owner career picks it up.
-
-    Returns:
-      effective_owner_by_fs: {(fid, season): owner_name}
-      override_meta_by_fid: {fid: [{"owner_name", "tenure_start_season",
-                                    "tenure_end_season", "notes"}]}
+    Not a substring match. The old substring rule merged different people:
+    "Rico Balderelli" is inside "AJ & Rico Balderelli" (MFL's owner field for
+    2018 0002), and surnames are shared by Ryan/Steve Bousquet, Keith/Kyle
+    Creelman, Josh/Eric Martel and AJ/Rico Balderelli.
     """
-    effective: dict = {}
-    for season, fid_map in mfl_ownership.items():
-        for fid, owner in fid_map.items():
-            effective[(fid, season)] = owner
-
-    override_meta_by_fid: dict = defaultdict(list)
-
-    # A TENURE CAN HAVE GAPS, AND IT CAN RECLAIM A SEASON. The first version
-    # could only TRIM: it walked the seasons MFL gave an owner and handed the
-    # out-of-tenure ones back. That cannot express either half of Derrick
-    # Whitman's record on CBP -- two stints (2012-2017 and 2023 on) with AJ
-    # Balderelli in between -- because two entries for one owner each trimmed
-    # the other's seasons, and because 2017 has to be TAKEN BACK from the owner
-    # MFL credits with it (AJ finished that season; Keith's rule gives it to the
-    # man who started it). So entries for the same (franchise, owner) are read
-    # as one tenure with gaps: a season inside any range is his, whoever MFL
-    # names, and a season outside every range is not, even if MFL names him.
-    tenures: dict = {}
-    for fid, entries in overrides.items():
-        for entry in entries:
-            owner_nm = (entry.get("owner_name") or "").strip()
-            if not owner_nm:
-                continue
-            start = entry.get("tenure_start_season")
-            end = entry.get("tenure_end_season")
-            override_meta_by_fid[fid].append({
-                "owner_name": owner_nm,
-                "tenure_start_season": start,
-                "tenure_end_season": end,
-                "notes": entry.get("notes", ""),
-            })
-            tenures.setdefault((fid, owner_nm), []).append((start, end))
-
-    all_seasons = sorted(mfl_ownership)
-    for (fid, owner_nm), ranges in tenures.items():
-        for season in all_seasons:
-            if fid not in mfl_ownership.get(season, {}):
-                continue                      # the franchise did not play that season
-            in_tenure = any((start is None or season >= start) and (end is None or season <= end)
-                            for start, end in ranges)
-            if in_tenure:
-                effective[(fid, season)] = owner_nm            # claim it, whoever MFL names
-                continue
-            if not _owners_match(effective.get((fid, season)) or "", owner_nm):
-                continue                      # not his anyway; nothing to trim
-            prior_owner = None
-            for psn in range(season - 1, season - 16, -1):
-                cand = mfl_ownership.get(psn, {}).get(fid)
-                if cand and not _owners_match(cand, owner_nm):
-                    prior_owner = cand
-                    break
-            if prior_owner:
-                effective[(fid, season)] = prior_owner
-            else:
-                effective.pop((fid, season), None)
-
-    return effective, dict(override_meta_by_fid)
+    na, nb = _norm_owner(a), _norm_owner(b)
+    return bool(na) and na == nb
 
 
 def d1_query(sql: str) -> list[dict]:
@@ -239,84 +162,220 @@ def _sql_quote(v) -> str:
     return f"'{s}'"
 
 
-def sync_to_d1(stats: dict) -> None:
-    """UPSERT each franchise's owner-career row into ups_owner_career_stats."""
-    rows = []
-    for fid, e in stats.items():
-        o = e.get("owner", {}) or {}
-        franchises_owned_json = json.dumps(o.get("franchises_owned", []))
-        seasons_by_fr_json = json.dumps(o.get("seasons_by_franchise", {}))
-        allplay = o.get("allplay", {}) or {}
-        overall = o.get("overall", {}) or {}
-        rows.append({
-            "franchise_id": fid,
-            "owner_display": o.get("display", "") or "",
-            "franchise_name": e.get("franchise_name", "") or "",
-            "current_year": e.get("current_year"),
-            "owner_first_season": o.get("first_season"),
-            "owner_seasons_count": o.get("seasons_count", 0) or 0,
-            "owner_franchises_owned": franchises_owned_json,
-            "owner_seasons_by_franchise": seasons_by_fr_json,
-            "owner_championships": o.get("championships", 0) or 0,
-            "owner_playoff_appearances": o.get("playoff_appearances", 0) or 0,
-            "owner_best_finish": o.get("best_finish"),
-            "owner_worst_finish": o.get("worst_finish"),
-            "owner_allplay_w": allplay.get("w", 0) or 0,
-            "owner_allplay_l": allplay.get("l", 0) or 0,
-            "owner_allplay_pct": o.get("allplay_pct"),
-            "owner_overall_w": overall.get("w", 0) or 0,
-            "owner_overall_l": overall.get("l", 0) or 0,
-            "owner_last_championship": o.get("last_championship"),
-            "owner_title_years": json.dumps(o.get("title_years", [])),
-            "owner_runner_ups": o.get("runner_ups", 0) or 0,
-            "owner_runner_up_years": json.dumps(o.get("runner_up_years", [])),
-            "owner_allplay_titles": o.get("allplay_titles", 0) or 0,
-            "owner_allplay_title_years": json.dumps(o.get("allplay_title_years", [])),
-            "owner_division_titles": o.get("division_titles", 0) or 0,
-            "owner_division_title_years": json.dumps(o.get("division_title_years", [])),
-            "franchise_seasons_played": e.get("seasons_played", 0) or 0,
-            "franchise_championships": e.get("championships", 0) or 0,
-            "franchise_last_championship": e.get("last_championship"),
-            "franchise_championship_drought": e.get("championship_drought"),
-        })
+# ── Ownership: D1 src_franchises is the source ────────────────────────────────
+#
+# league_context §D.2: src_franchises / src_standings carry the auction-of-record
+# (season-start) owner for every season, including the four mid-season takeovers
+# (2017 0002 Whitman, 2022 0002 AJ Balderelli, 2022 0005 Rico Balderelli, 2024
+# 0006 Josh Lima), so no override list is needed. On the 2026-10-17 snapshot this
+# reproduces the last good run (2026-10-06, Actions run 37514293542) exactly.
+# pipelines/etl/config/owner_tenure_overrides.json re-applied those rulings on
+# top of MFL's end-of-season feed; applied on top of src_franchises it changes no
+# cell, and its open-ended tenures would have claimed future seasons for an owner
+# who later left, so it was removed together with the feed.
 
-    cols = [
-        "franchise_id", "owner_display", "franchise_name", "current_year",
-        "owner_first_season", "owner_seasons_count", "owner_franchises_owned",
-        "owner_seasons_by_franchise", "owner_championships",
-        "owner_playoff_appearances", "owner_best_finish", "owner_worst_finish",
-        "owner_allplay_w", "owner_allplay_l", "owner_allplay_pct",
-        "owner_overall_w", "owner_overall_l", "owner_last_championship",
-        "owner_title_years", "owner_runner_ups", "owner_runner_up_years",
-        "owner_allplay_titles", "owner_allplay_title_years",
-        "owner_division_titles", "owner_division_title_years",
-        "franchise_seasons_played", "franchise_championships",
-        "franchise_last_championship", "franchise_championship_drought",
-    ]
-    sql_parts = []
+def load_src_franchise_owners() -> list[dict]:
+    return d1_query(
+        f"SELECT season, franchise_id, owner_name FROM src_franchises "
+        f"WHERE season >= {UPS_FOUNDING_SEASON} ORDER BY season, franchise_id;"
+    )
+
+
+def ownership_from_rows(rows: list) -> dict:
+    """{season: {fid: owner_name}}. Blank names are kept as "" so validation sees them."""
+    out: dict = {}
     for r in rows:
-        values = ", ".join(_sql_quote(r.get(c)) for c in cols)
-        update_clause = ", ".join(
-            f"{c} = excluded.{c}" for c in cols if c != "franchise_id"
-        )
-        sql_parts.append(
-            f"INSERT INTO ups_owner_career_stats ({', '.join(cols)}) "
-            f"VALUES ({values}) "
-            f"ON CONFLICT(franchise_id) DO UPDATE SET "
-            f"{update_clause}, updated_at = datetime('now');"
-        )
-    sql_text = "\n".join(sql_parts) + "\n"
-    d1_execute_file(sql_text)
-    print(f"  D1 sync: {len(rows)} rows UPSERTed into ups_owner_career_stats")
-
-
-def load_owners() -> dict:
-    """Map franchise_id → current owner_name + team_name from D1."""
-    out = {}
-    for r in d1_query("SELECT franchise_id, team_name, owner_name FROM discord_owners WHERE active_owner='Y';"):
-        fid = str(r["franchise_id"]).zfill(4)
-        out[fid] = {"owner_name": r.get("owner_name") or "", "team_name": r.get("team_name") or ""}
+        try:
+            season = int(r["season"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        fid = str(r.get("franchise_id") or "").strip().zfill(4)
+        out.setdefault(season, {})[fid] = " ".join(str(r.get("owner_name") or "").split())
     return out
+
+
+def completed_seasons_and_problems(standings: list, season_standings: list) -> tuple:
+    """Completed seasons (any final_finish) and coverage problems in the record tables."""
+    finishes = defaultdict(set)
+    for r in standings:
+        if r.get("final_finish"):
+            finishes[int(r["season"])].add(str(r["franchise_id"]).zfill(4))
+    completed = sorted(finishes)
+    problems = []
+    if not completed:
+        problems.append("src_final_standings has no completed season")
+        return completed, problems
+    gaps = [s for s in range(UPS_FOUNDING_SEASON, max(completed) + 1) if s not in finishes]
+    if gaps:
+        problems.append(f"src_final_standings: no final standings for season(s) {gaps}")
+    rec = defaultdict(set)
+    for r in season_standings:
+        rec[int(r["season"])].add(str(r["franchise_id"]).zfill(4))
+    for s in completed:
+        if len(finishes[s]) != FRANCHISE_COUNT:
+            problems.append(f"src_final_standings: {s} has {len(finishes[s])} franchise(s) "
+                            f"with a final finish, expected {FRANCHISE_COUNT}")
+        if len(rec.get(s, ())) != FRANCHISE_COUNT:
+            problems.append(f"src_standings: {s} has {len(rec.get(s, ()))} franchise row(s), "
+                            f"expected {FRANCHISE_COUNT}")
+    return completed, problems
+
+
+def validate_ownership(ownership: dict, completed_seasons: list) -> list:
+    """Problems that make the ownership map unusable. An empty list means complete."""
+    problems = []
+    if not completed_seasons:
+        return ["ownership: no completed season to attribute"]
+    expected = len(completed_seasons) * FRANCHISE_COUNT
+    cells = 0
+    for season in completed_seasons:
+        fids = ownership.get(season)
+        if not fids:
+            problems.append(f"ownership: completed season {season} is missing from src_franchises")
+            continue
+        cells += sum(1 for o in fids.values() if o)
+        blank = sorted(f for f, o in fids.items() if not o)
+        if blank:
+            problems.append(f"ownership: {season} has a blank owner for franchise(s) {', '.join(blank)}")
+        if len(fids) != FRANCHISE_COUNT:
+            problems.append(f"ownership: {season} has {len(fids)} franchise(s), expected {FRANCHISE_COUNT}")
+    if cells < expected:
+        problems.append(f"ownership: {cells} named (season, franchise) cell(s) for "
+                        f"{len(completed_seasons)} completed season(s), expected {expected}")
+    return problems
+
+
+def cross_check_standings_owners(ownership: dict, season_standings: list, completed: list) -> int:
+    """WARN where src_standings.owner_name disagrees with src_franchises. Returns the count."""
+    diffs = []
+    done = set(completed)
+    for r in season_standings:
+        s = int(r["season"])
+        if s not in done:
+            continue
+        fid = str(r["franchise_id"]).zfill(4)
+        a, b = ownership.get(s, {}).get(fid, ""), r.get("owner_name") or ""
+        if not _owners_match(a, b):
+            diffs.append(f"{s} {fid}: src_franchises '{a}' vs src_standings '{b}'")
+    if diffs:
+        warn(f"src_standings owner differs from src_franchises on {len(diffs)} cell(s); "
+             f"src_franchises is used: " + "; ".join(diffs[:10]))
+    return len(diffs)
+
+
+def fetch_mfl_ownership() -> dict:
+    """MFL's END-OF-SEASON owner per (season, fid), via the worker. Cross-check only.
+
+    Returns {season(int): {fid(str): owner_name(str)}} with blank names dropped.
+    Raises on a transport or endpoint error; the caller only warns.
+    """
+    req = urllib.request.Request(
+        WORKER_OWNERSHIP_URL,
+        headers={"User-Agent": "Mozilla/5.0 (UPS-Rebuilder)"},
+    )
+    with urllib.request.urlopen(req, timeout=120) as resp:
+        data = json.loads(resp.read())
+    if not data.get("ok"):
+        raise RuntimeError(f"MFL ownership endpoint error: {str(data)[:200]}")
+    out = {}
+    for season_str, fid_map in (data.get("history") or {}).items():
+        try:
+            season = int(season_str)
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(fid_map, dict):
+            continue
+        for fid, info in fid_map.items():
+            if not isinstance(info, dict):
+                continue
+            owner = (info.get("owner_name") or "").strip()
+            if owner:
+                out.setdefault(season, {})[str(fid).zfill(4)] = owner
+    return out
+
+
+def cross_check_mfl_ownership(ownership: dict, completed: list) -> dict:
+    """Compare src_franchises with MFL's feed. It only ever WARNS; it never changes the result.
+
+    Returns {"cells", "missing", "differ"}; cells = -1 when the feed could not
+    be read. MFL reports the END-OF-SEASON owner, so the mid-season takeovers
+    in league_context §D.2 are expected to differ.
+    """
+    try:
+        mfl = fetch_mfl_ownership()
+    except Exception as e:  # a cross-check must never stop or change the run
+        warn(f"MFL ownership cross-check skipped: {type(e).__name__}: {str(e)[:200]}")
+        return {"cells": -1, "missing": None, "differ": None}
+    cells = sum(len(mfl.get(s, {})) for s in completed)
+    print(f"  MFL ownership cross-check: {len(mfl)} season(s), {cells} named cell(s) in completed seasons")
+    missing, differ = 0, []
+    for s in completed:
+        for fid, owner in sorted(ownership.get(s, {}).items()):
+            m = mfl.get(s, {}).get(fid)
+            if not m:
+                missing += 1
+            elif not _owners_match(m, owner):
+                differ.append(f"{s} {fid}: src_franchises '{owner}' vs MFL end-of-season '{m}'")
+    if missing:
+        warn(f"MFL ownership cross-check: {missing} of {len(completed) * FRANCHISE_COUNT} cell(s) have no "
+             f"MFL owner name (the feed returns none when the MFL cookie does not unlock owners); "
+             f"src_franchises is used")
+    if differ:
+        warn(f"MFL ownership cross-check: {len(differ)} cell(s) differ (MFL reports the end-of-season "
+             f"owner; mid-season takeovers, league_context D.2, are expected to): " + "; ".join(differ[:10]))
+    return {"cells": cells, "missing": missing, "differ": len(differ)}
+
+
+# ── Current owners: discord_owners, checked against src_franchises ────────────
+
+def load_discord_owner_rows() -> list[dict]:
+    # ORDER BY so a franchise with two active rows resolves the same way every run.
+    return d1_query(
+        "SELECT franchise_id, team_name, owner_name FROM discord_owners "
+        "WHERE active_owner='Y' ORDER BY franchise_id, owner_name, team_name;"
+    )
+
+
+def resolve_current_owners(rows: list, ownership: dict) -> tuple:
+    """Map franchise_id → {owner_name, team_name} for the current owners.
+
+    The current owner of each franchise must be EXACTLY the src_franchises owner
+    of that franchise in the latest season it has; otherwise the exact-match
+    attribution would quietly give that owner zero seasons. A franchise with
+    more than one active discord_owners row takes the row that matches
+    src_franchises (the others are reported as a warning, never used).
+    Returns (owners, problems).
+    """
+    problems = []
+    if not ownership:
+        return {}, ["src_franchises returned no rows"]
+    latest = max(ownership)
+    by_fid = defaultdict(list)
+    for r in rows:
+        fid = str(r.get("franchise_id") or "").strip().zfill(4)
+        by_fid[fid].append({"owner_name": " ".join(str(r.get("owner_name") or "").split()),
+                            "team_name": r.get("team_name") or ""})
+    owners = {}
+    for fid in sorted(set(by_fid) | set(ownership[latest])):
+        src_owner = ownership[latest].get(fid, "")
+        cands = by_fid.get(fid, [])
+        if not src_owner:
+            problems.append(f"src_franchises {latest} has a blank owner for franchise {fid}"
+                            if fid in ownership[latest] else
+                            f"discord_owners has active franchise {fid}, which src_franchises {latest} does not have")
+            continue
+        match = [c for c in cands if _owners_match(c["owner_name"], src_owner)]
+        if not match:
+            names = ", ".join(repr(c["owner_name"]) for c in cands) or "no active row"
+            problems.append(f"current owner of {fid}: src_franchises {latest} says '{src_owner}', "
+                            f"discord_owners has {names}")
+            continue
+        others = [c["owner_name"] for c in cands if c not in match[:1]]
+        if others:
+            warn(f"discord_owners has {len(cands)} active rows for {fid}; using '{match[0]['owner_name']}' "
+                 f"(src_franchises {latest}), ignoring {others}")
+        owners[fid] = match[0]
+    return owners, problems
 
 
 def load_final_standings() -> list[dict]:
@@ -399,6 +458,15 @@ PLAYOFF_STATUSES = ("bye", "division_winner", "wild_card")
 DIVISION_TITLES_FIRST_SEASON = 2011
 
 
+def fetch_standings_rows(season: int) -> list:
+    """The worker's /api/standings rows for one season."""
+    req = urllib.request.Request(WORKER_STANDINGS_URL % season,
+                                 headers={"User-Agent": "ups-owner-career-stats"})
+    with urllib.request.urlopen(req, timeout=60) as resp:
+        payload = json.loads(resp.read().decode("utf-8"))
+    return payload.get("rows") or []
+
+
 def load_playoff_statuses(seasons) -> dict:
     """{season: {fid: playoff_status}} for every completed season.
 
@@ -408,11 +476,7 @@ def load_playoff_statuses(seasons) -> dict:
     """
     out = {}
     for season in sorted(seasons):
-        req = urllib.request.Request(WORKER_STANDINGS_URL % season,
-                                     headers={"User-Agent": "ups-owner-career-stats"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-        rows = payload.get("rows") or []
+        rows = fetch_standings_rows(season)
         status = {str(r.get("franchise_id")).zfill(4): r.get("playoff_status") for r in rows}
         if len(status) != 12 or any(not v for v in status.values()):
             sys.stderr.write(f"/api/standings {season}: expected 12 seeded rows, got {len(status)}\n")
@@ -428,34 +492,31 @@ def load_playoff_statuses(seasons) -> dict:
 
 
 def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
-                season_standings: list[dict], mfl_ownership: dict,
-                overrides: dict = None, statuses: dict = None) -> dict:
+                season_standings: list[dict], ownership: dict,
+                statuses: dict = None) -> dict:
     """Build the career stats dict keyed by current franchise_id.
 
-    Owner-tenure attribution rule (Keith 2026-05-22/05-23):
+    Owner-tenure attribution rule (Keith 2026-05-22/05-23, league_context §D.2):
       "Once you start you're locked in." Whoever owns the franchise at
-      SEASON START gets credited with the FULL season's stats — regardless
-      of any mid-season takeover. A mid-season takeover does NOT begin the
-      incoming owner's career tenure; their tenure starts at the NEXT
-      season they own at week 1.
+      SEASON START (ran the auction) gets credited with the FULL season's
+      stats — regardless of any mid-season takeover. A takeover does NOT begin
+      the incoming owner's career tenure; it starts at the NEXT season they
+      own from the auction.
 
-      Example: The Long Haulers 2024 = 3 weeks Lima → 14 weeks Cross.
+      Example: The Long Haulers 2024 — Lima ran the auction, Cross took over.
         Season-start owner = Lima → Lima gets all 2024 stats.
-        Cross's career starts 2025 (his first full season from week 1).
+        Cross's career starts 2025 (his first auction as owner of record).
 
     Cross-franchise rule (Keith 2026-05-23):
       "Keith started in 2010 as 0007." Owners can span multiple franchises
       across their career (Keith on 0007/2010 → 0008/2011-2026). The owner
-      block aggregates stats across EVERY (fid, season) where MFL truth +
-      overrides attribute that owner.
+      block aggregates stats across EVERY (fid, season) whose src_franchises
+      owner is exactly that owner.
 
     Data source:
-      MFL public export per year (worker /api/franchise-ownership-history)
-      provides END-OF-SEASON owner_name. Overrides reassign mid-season-
-      takeover seasons to the prior MFL owner (the season-start owner).
+      `ownership` = {season: {fid: owner_name}} from D1 src_franchises, which
+      already credits the season-start owner (league_context §D.2).
     """
-    overrides = overrides or {}
-
     # Per-(fid, season) raw stats — always franchise-scoped
     season_totals = defaultdict(lambda: defaultdict(lambda: {
         "h2h_w": 0, "h2h_l": 0, "h2h_t": 0, "h2h_g": 0,
@@ -494,10 +555,10 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
         if owner_nm:
             season_owners_seen[fid][season].add(owner_nm)
 
-    # Resolve effective owner per (fid, season) — MFL truth + override reassignment
-    effective_owner, override_meta_by_fid = build_effective_ownership(
-        mfl_ownership, overrides
-    )
+    # (fid, season) → season-start owner, straight from src_franchises
+    effective_owner = {(fid, season): owner
+                       for season, fid_map in ownership.items()
+                       for fid, owner in fid_map.items() if owner}
 
     # Index final standings
     finish_by_fs = {}  # (fid, season) → final_finish
@@ -546,9 +607,9 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
 
         # ── OWNER CAREER (cross-franchise, completed seasons only) ────────
         # Walk every (fid', season) in effective_owner where the season-start
-        # owner matches current_owner AND the season has actually been played
-        # (Keith 2026-05-23: don't credit 17 seasons when season 17 hasn't
-        # started). played_seasons = seasons with final_finish data.
+        # owner IS current_owner (exact name) AND the season has actually been
+        # played (Keith 2026-05-23: don't credit 17 seasons when season 17
+        # hasn't started). played_seasons = seasons with final_finish data.
         owner_seasons_pairs = []  # list of (fid', season)
         if current_owner:
             for (fid2, season), nm in effective_owner.items():
@@ -567,21 +628,6 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
             season for season in seasons_with_data
             if len(season_owners_seen[fid].get(season, set())) >= 2
         ]
-
-        # Override meta — surface the entries that apply to this fid
-        # (may include overrides for owners who held the franchise but
-        # aren't the current owner — useful audit trail).
-        override_info = {}
-        meta_list = override_meta_by_fid.get(fid, [])
-        for m in meta_list:
-            if _owners_match(m["owner_name"], current_owner):
-                override_info = {
-                    "applied": True,
-                    "tenure_start_season": m["tenure_start_season"],
-                    "tenure_end_season": m["tenure_end_season"],
-                    "notes": m["notes"],
-                }
-                break
 
         # Owner-tenure aggregates — pulled from each (fid', season) tile
         owner_h2h_w = sum(season_totals[f][s]["h2h_w"] for (f, s) in owner_seasons_pairs)
@@ -672,7 +718,6 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
             # can build trade_exclusions windows from these, and so the
             # roast prompt can avoid attributing inherited rosters.
             "transition_seasons": transition_seasons,
-            "tenure_override": override_info,
             "owner": {
                 "display": current_owner,
                 "first_season": owner_first,
@@ -744,36 +789,184 @@ def build_stats(owners: dict, standings: list[dict], weekly: list[dict],
     return out
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true")
-    args = parser.parse_args()
+# ── D1 rows, the regression guard, and the write ──────────────────────────────
+
+D1_COLS = [
+    "franchise_id", "owner_display", "franchise_name", "current_year",
+    "owner_first_season", "owner_seasons_count", "owner_franchises_owned",
+    "owner_seasons_by_franchise", "owner_championships",
+    "owner_playoff_appearances", "owner_best_finish", "owner_worst_finish",
+    "owner_allplay_w", "owner_allplay_l", "owner_allplay_pct",
+    "owner_overall_w", "owner_overall_l", "owner_last_championship",
+    "owner_title_years", "owner_runner_ups", "owner_runner_up_years",
+    "owner_allplay_titles", "owner_allplay_title_years",
+    "owner_division_titles", "owner_division_title_years",
+    "franchise_seasons_played", "franchise_championships",
+    "franchise_last_championship", "franchise_championship_drought",
+]
+
+
+def build_d1_rows(stats: dict, fids=None) -> list[dict]:
+    """One ups_owner_career_stats row per franchise (only `fids`, when given)."""
+    rows = []
+    for fid, e in stats.items():
+        if fids is not None and fid not in fids:
+            continue
+        o = e.get("owner", {}) or {}
+        allplay = o.get("allplay", {}) or {}
+        overall = o.get("overall", {}) or {}
+        rows.append({
+            "franchise_id": fid,
+            "owner_display": o.get("display", "") or "",
+            "franchise_name": e.get("franchise_name", "") or "",
+            "current_year": e.get("current_year"),
+            "owner_first_season": o.get("first_season"),
+            "owner_seasons_count": o.get("seasons_count", 0) or 0,
+            "owner_franchises_owned": json.dumps(o.get("franchises_owned", [])),
+            "owner_seasons_by_franchise": json.dumps(o.get("seasons_by_franchise", {})),
+            "owner_championships": o.get("championships", 0) or 0,
+            "owner_playoff_appearances": o.get("playoff_appearances", 0) or 0,
+            "owner_best_finish": o.get("best_finish"),
+            "owner_worst_finish": o.get("worst_finish"),
+            "owner_allplay_w": allplay.get("w", 0) or 0,
+            "owner_allplay_l": allplay.get("l", 0) or 0,
+            "owner_allplay_pct": o.get("allplay_pct"),
+            "owner_overall_w": overall.get("w", 0) or 0,
+            "owner_overall_l": overall.get("l", 0) or 0,
+            "owner_last_championship": o.get("last_championship"),
+            "owner_title_years": json.dumps(o.get("title_years", [])),
+            "owner_runner_ups": o.get("runner_ups", 0) or 0,
+            "owner_runner_up_years": json.dumps(o.get("runner_up_years", [])),
+            "owner_allplay_titles": o.get("allplay_titles", 0) or 0,
+            "owner_allplay_title_years": json.dumps(o.get("allplay_title_years", [])),
+            "owner_division_titles": o.get("division_titles", 0) or 0,
+            "owner_division_title_years": json.dumps(o.get("division_title_years", [])),
+            "franchise_seasons_played": e.get("seasons_played", 0) or 0,
+            "franchise_championships": e.get("championships", 0) or 0,
+            "franchise_last_championship": e.get("last_championship"),
+            "franchise_championship_drought": e.get("championship_drought"),
+        })
+    return rows
+
+
+def load_stored_rows() -> list[dict]:
+    """The rows this run would overwrite (12 rows; the regression guard compares against them)."""
+    return d1_query(
+        "SELECT franchise_id, owner_display, owner_seasons_count, owner_championships, "
+        "owner_allplay_w, owner_allplay_l FROM ups_owner_career_stats ORDER BY franchise_id;"
+    )
+
+
+def _ap_games(r) -> int:
+    return int(r.get("owner_allplay_w") or 0) + int(r.get("owner_allplay_l") or 0)
+
+
+def regression_problems(new_rows: list, stored_rows: list) -> tuple:
+    """(decreases, all_zero).
+
+    decreases: a stored row whose seasons, titles or all-play games would go DOWN
+    (overridable with --allow-decrease, e.g. after an owner change).
+    all_zero: every new row has no seasons, titles or all-play games (never overridable).
+    """
+    stored = {str(r.get("franchise_id")).zfill(4): r for r in stored_rows}
+    decreases = []
+    for r in new_rows:
+        old = stored.get(r["franchise_id"])
+        if not old:
+            continue
+        who = f"{r['franchise_id']} {r['owner_display']}"
+        if not _owners_match(old.get("owner_display"), r["owner_display"]):
+            who += f" (stored row is {old.get('owner_display')!r})"
+        for label, before, after in (
+            ("seasons", int(old.get("owner_seasons_count") or 0), int(r["owner_seasons_count"])),
+            ("titles", int(old.get("owner_championships") or 0), int(r["owner_championships"])),
+            ("all-play games", _ap_games(old), _ap_games(r)),
+        ):
+            if after < before:
+                decreases.append(f"{who}: {label} would drop {before} -> {after}")
+    all_zero = []
+    if new_rows and all(int(r["owner_seasons_count"]) == 0 and int(r["owner_championships"]) == 0
+                        and _ap_games(r) == 0 for r in new_rows):
+        all_zero.append(f"every one of the {len(new_rows)} new rows has 0 seasons, 0 titles and "
+                        f"0 all-play games")
+    return decreases, all_zero
+
+
+def build_upsert_sql(rows: list) -> str:
+    update_clause = ", ".join(f"{c} = excluded.{c}" for c in D1_COLS if c != "franchise_id")
+    sql_parts = []
+    for r in rows:
+        values = ", ".join(_sql_quote(r.get(c)) for c in D1_COLS)
+        sql_parts.append(
+            f"INSERT INTO ups_owner_career_stats ({', '.join(D1_COLS)}) "
+            f"VALUES ({values}) "
+            f"ON CONFLICT(franchise_id) DO UPDATE SET "
+            f"{update_clause}, updated_at = datetime('now');"
+        )
+    return "\n".join(sql_parts) + "\n"
+
+
+def sync_to_d1(rows: list) -> None:
+    """UPSERT each franchise's owner-career row into ups_owner_career_stats."""
+    d1_execute_file(build_upsert_sql(rows))
+    print(f"  D1 sync: {len(rows)} rows UPSERTed into ups_owner_career_stats")
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    parser.add_argument("--dry-run", action="store_true",
+                        help="run every check and print the result; write nothing")
+    parser.add_argument("--allow-decrease", action="store_true",
+                        help="allow a stored owner's seasons, titles or all-play games to go down "
+                             "(an owner change or a deliberate correction). By hand only; the "
+                             "scheduled workflow never passes it. Does not allow an all-zero result.")
+    parser.add_argument("--skip-mfl-cross-check", action="store_true",
+                        help="do not compare src_franchises with MFL's ownership feed")
+    args = parser.parse_args(argv)
 
     print("Querying D1...")
-    owners = load_owners()
-    print(f"  owners: {len(owners)}")
+    owner_rows = load_discord_owner_rows()
+    print(f"  discord_owners active rows: {len(owner_rows)}")
     standings = load_final_standings()
     print(f"  final standings rows: {len(standings)}")
     weekly = load_weekly_summary()
     season_standings = load_season_standings()
     print(f"  weekly summary rows: {len(weekly)}")
-    overrides = load_tenure_overrides()
-    print(f"  tenure overrides: {len(overrides)} franchise(s)")
-    print("Fetching MFL ownership history from worker...")
-    mfl_ownership = fetch_mfl_ownership()
-    print(f"  MFL ownership: {len(mfl_ownership)} season(s), "
-          f"{sum(len(v) for v in mfl_ownership.values())} (season, fid) cells")
+    franchise_rows = load_src_franchise_owners()
+    ownership = ownership_from_rows(franchise_rows)
+    print(f"  src_franchises ownership: {len(ownership)} season(s), "
+          f"{sum(1 for m in ownership.values() for o in m.values() if o)} named (season, fid) cells")
 
-    played = sorted({int(r["season"]) for r in standings if r.get("final_finish")})
+    played, problems = completed_seasons_and_problems(standings, season_standings)
+    problems += validate_ownership(ownership, played)
+    owners, owner_problems = resolve_current_owners(owner_rows, ownership)
+    problems += owner_problems
+    if problems:
+        refuse(problems)
+    print(f"  completed seasons: {played[0]}-{played[-1]} ({len(played)}); current owners: {len(owners)}")
+
+    cross_check_standings_owners(ownership, season_standings, played)
+    if not args.skip_mfl_cross_check:
+        print("Cross-checking with MFL's ownership feed (warnings only)...")
+        cross_check_mfl_ownership(ownership, played)
+
     print(f"Fetching seeding for {len(played)} completed season(s) from /api/standings...")
     statuses = load_playoff_statuses(played)
 
     print("Building career stats...")
-    stats = build_stats(owners, standings, weekly, season_standings, mfl_ownership,
-                        overrides=overrides, statuses=statuses)
+    stats = build_stats(owners, standings, weekly, season_standings, ownership, statuses=statuses)
+    rows = build_d1_rows(stats, fids=set(owners))
+
+    stored = load_stored_rows()
+    decreases, all_zero = regression_problems(rows, stored)
+    if all_zero or (decreases and not args.allow_decrease):
+        refuse(all_zero + decreases + ([] if all_zero else
+               ["(pass --allow-decrease, by hand, only if every drop above is intended)"]))
+    for d in decreases:
+        warn(f"--allow-decrease: {d}")
 
     # Quick sanity sample — Keith's cross-franchise career (0007/2010 → 0008+),
-    # Brian Cross's 2025-start override on 0006, Hammer's 2024 chip drought.
+    # Brian Cross's first season on 0006, Hammer's 2024 chip.
     sample_fids = ["0006", "0007", "0008", "0005"]
     print("\nSample:")
     for fid in sample_fids:
@@ -790,7 +983,7 @@ def main():
 
     if args.dry_run:
         print("\nDRY RUN — not writing")
-        return
+        return 0
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     # atomic write
@@ -805,8 +998,9 @@ def main():
     # this, worker falls back to franchise-keyed src_final_standings and
     # mis-credits cross-franchise owners (Keith on 0007/2010 + 0008/2011-2025).
     print("Syncing to D1 (ups_owner_career_stats)...")
-    sync_to_d1(stats)
+    sync_to_d1(rows)
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
