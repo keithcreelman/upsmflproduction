@@ -1,4 +1,5 @@
 import { handleHallRequest } from "./hall.js";
+import { auctionResultsIndex, resolveEventContracts, cleanDrops } from "./player_transaction_contracts.js";
 import { taxiEligibility, taxiPermanent, taxiCutVerdict, TAXI_LEGACY_SEASON, TAXI_TRACKED_FROM_SEASON } from "./taxi_rule.js";
 import { applyRankPending } from "./rank_pending.js";
 import { handleFpaRequest } from "./fpa_engine.js";
@@ -72,7 +73,7 @@ import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eli
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
 import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
 import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
-import { loadPlayerStatus } from "./player_status.js";
+import { loadPlayerStatus, cachedIdMapLoader } from "./player_status.js";
 import { seasonTeamSnaps, coversPlayer } from "./team_snaps_season.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
@@ -14800,6 +14801,15 @@ export default {
         const seasons = [];
         for (let s = floor; s <= curYear; s++) seasons.push(s);
         const mflFetch = (u) => fetch(u, { headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: 300, cacheEverything: true } });
+        // MFL's completed auctions per season: an AUCTION_WON is only an acquisition if MFL lists it here
+        // (test and reversed lots stay in the append-only transaction log). A failed read = can't verify.
+        const auctionsBySeason = {};
+        await Promise.all(seasons.map(async (s) => {
+          try {
+            const r = await mflFetch(`https://api.myfantasyleague.com/${s}/export?TYPE=auctionResults&L=${encodeURIComponent(leagueId)}&JSON=1`);
+            auctionsBySeason[String(s)] = r.ok ? auctionResultsIndex(await r.json()) : { ok: false, rows: [] };
+          } catch (_) { auctionsBySeason[String(s)] = { ok: false, rows: [] }; }
+        }));
         await Promise.all(seasons.map(async (s) => {
           try {
             const u = `https://api.myfantasyleague.com/${s}/export?TYPE=transactions&L=${encodeURIComponent(leagueId)}&JSON=1`;
@@ -14827,7 +14837,7 @@ export default {
                     const method = (isVet && s >= 2019 && mon < 7 && hadExpiredRookie(s)) ? "ERA" : "FAA";
                     ic.canonical_type = ic.canonical_type.replace(/^(Rookie|Vet)/, "$1-" + method);
                   }
-                  events.push({ season: s, ts, date: isoDate(ts), kind: "auction", label: "Auction Won", detail: parts[1] ? usd(parts[1]) : "", franchise_id: fid, contract: ic });
+                  events.push({ season: s, ts, date: isoDate(ts), kind: "auction", label: "Auction Won", detail: parts[1] ? usd(parts[1]) : "", franchise_id: fid, contract: ic, mfl_type: "AUCTION_WON" });
                 }
               } else if (type === "FREE_AGENT") {
                 const fp = t.split("|");
@@ -14989,12 +14999,12 @@ export default {
           }
         }
 
-        // Suppress expired-contract drops — a drop the same player RE-ACQUIRES
-        // (auction/add/draft) later that same season is just expired-contract
-        // churn (years remaining = 0), not a real roster move.
-        const acqAfter = (season, ts) => events.some((e) =>
-          ["auction", "add", "draft"].includes(e.kind) && e.season === season && e.ts > ts);
-        const cleaned = events.filter((e) => !(e.kind === "drop" && acqAfter(e.season, e.ts)));
+        // Each event keeps its own contract (#1338): verify auction wins against MFL's completed auctions, attach
+        // the season's src_contracts row only to its ownership chain, and mark the rest unresolved.
+        resolveEventContracts(events, { pid, srcBySeason: contractBySeason, auctionsBySeason });
+        // Hide a drop only when the SAME team re-acquires the player later that season (expired-contract churn);
+        // a drop followed by another team's acquisition is a real move (Brissett 2026-07-11, 0010).
+        const cleaned = cleanDrops(events);
 
         // Oldest-first, numbered #1.. (Keith: "Rookie Draft = transaction 1").
         cleaned.sort((a, b) => (a.ts - b.ts) || (a.season - b.season));
@@ -15384,6 +15394,11 @@ export default {
                         ROUND(100.0 * SUM(CASE WHEN b.delta_win_pos > 0 AND (w.score - b.score_p50_pos) / b.delta_win_pos < -0.5 THEN 1 ELSE 0 END) / COUNT(*), 1) AS dud_pct,
                         ps.pos_rank AS pos_rank,
                         ps.pos_ppg_rank AS pos_ppg_rank,
+                        -- The total and week count the ranks above were computed on (#1338): the
+                        -- player card shows a rank only when these match the row's own total
+                        -- (src_pointssummary counts weeks src_weekly is missing). Same joined row.
+                        ps.points_total AS rank_basis_points,
+                        ps.games_played AS rank_basis_games,
                         ps.overall_rank AS overall_rank,
                         ps.overall_ppg_rank AS overall_ppg_rank,
                         wcr.wc_pos_rank AS wc_pos_rank,
@@ -20166,7 +20181,7 @@ export default {
           const db = env.UPS_MFL_DB;
           if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
           const season = parseInt(safeStr(url.searchParams.get("season")) || String(YEAR || ""), 10) || new Date().getUTCFullYear();
-          const out = await loadPlayerStatus(db, { season });
+          const out = await loadPlayerStatus(db, { season, idMap: cachedIdMapLoader(db, { waitUntil: (pr) => ctx.waitUntil(pr) }) });
           const r = jsonOut(200, { ok: true, season, generated_utc: new Date().toISOString(), ...out });
           try { r.headers.set("Cache-Control", "public, max-age=120"); } catch (_) {}
           return r;

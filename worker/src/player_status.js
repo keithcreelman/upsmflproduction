@@ -237,7 +237,10 @@ export function assemble({ reportRows, reportModified, reportError, mflPayload, 
   };
 }
 
-export async function loadPlayerStatus(db, { season, fetchImpl = fetch, now = Date.now() }) {
+// idMap (optional): an async loader that returns { rows } of player_id_map (mfl_id, gsis_id, accepted). The route
+// passes one backed by the worker cache so the 2,272-row table isn't read from D1 on every call (#1338); without it
+// the table is read here, as before.
+export async function loadPlayerStatus(db, { season, fetchImpl = fetch, now = Date.now(), idMap = null }) {
   const opts = (ttl) => ({ headers: { "User-Agent": "upsmflproduction-worker" }, cf: { cacheTtl: ttl, cacheEverything: true } });
   const [rep, mfl, map] = await Promise.all([
     fetchImpl(REPORT_URL(season), opts(300)).then(async (r) => r.ok
@@ -245,8 +248,9 @@ export async function loadPlayerStatus(db, { season, fetchImpl = fetch, now = Da
       : { error: "HTTP " + r.status }).catch((e) => ({ error: String(e && e.message || e) })),
     fetchImpl(MFL_INJURIES_URL(season), opts(120)).then(async (r) => r.ok ? { payload: await r.json() } : { error: "HTTP " + r.status })
       .catch((e) => ({ error: String(e && e.message || e) })),
-    db.prepare("SELECT mfl_id, gsis_id, accepted FROM player_id_map").all()
-      .then((x) => ({ rows: (x && x.results) || [] })).catch((e) => ({ rows: [], error: String(e && e.message || e) })),
+    (idMap ? Promise.resolve().then(idMap).then((x) => ({ rows: (x && x.rows) || [] }))
+           : db.prepare("SELECT mfl_id, gsis_id, accepted FROM player_id_map").all().then((x) => ({ rows: (x && x.results) || [] })))
+      .catch((e) => ({ rows: [], error: String(e && e.message || e) })),
   ]);
   const gsisToMfl = {}, mapped = [];
   for (const r of map.rows) {
@@ -261,4 +265,28 @@ export async function loadPlayerStatus(db, { season, fetchImpl = fetch, now = Da
   // verified NFL id", never "not on the report".
   out.mapped_mfl_ids = mapped.sort();
   return out;
+}
+
+// The id map changes when the nightly id ETL runs, not between two screens; one D1 read per cache entry is enough.
+// The key is namespaced (caches.default is shared by every worker on workers.dev and our keys ignore the host).
+export const ID_MAP_CACHE_KEY = "https://upsmfl-player-status.local/id-map-v1";
+export const ID_MAP_TTL_SECONDS = 600;
+export function cachedIdMapLoader(db, { cache = (typeof caches !== "undefined" ? caches.default : null), waitUntil = null } = {}) {
+  return async () => {
+    if (cache) {
+      try {
+        const hit = await cache.match(new Request(ID_MAP_CACHE_KEY));
+        if (hit) return { rows: await hit.json(), cached: true };
+      } catch (_) { /* a cache fault is a miss */ }
+    }
+    const x = await db.prepare("SELECT mfl_id, gsis_id, accepted FROM player_id_map").all();
+    const rows = (x && x.results) || [];
+    if (cache && rows.length) {
+      const put = cache.put(new Request(ID_MAP_CACHE_KEY), new Response(JSON.stringify(rows), {
+        headers: { "content-type": "application/json", "Cache-Control": "public, max-age=" + ID_MAP_TTL_SECONDS } }))
+        .catch(() => {});
+      if (waitUntil) waitUntil(put); else await put;
+    }
+    return { rows, cached: false };
+  };
 }

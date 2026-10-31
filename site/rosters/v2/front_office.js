@@ -24,8 +24,15 @@
     try { return new URL(window.location.href).searchParams; } catch (e) { return new URLSearchParams(); }
   })();
 
+  // ?worker_base= is an off-MFL testing hook. It is honored only when the page
+  // itself is served from this machine: on the MFL page every write URL carries
+  // the viewer's MFL session (appendViewerSessionQuery), so a link that pointed
+  // the worker elsewhere would hand that session to another host.
+  const IS_LOCAL_PAGE = (function () {
+    try { return /^(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])$/.test(window.location.hostname || ""); } catch (e) { return false; }
+  })();
   const WORKER_BASE = (function () {
-    const override = QS.get("worker_base");
+    const override = IS_LOCAL_PAGE ? QS.get("worker_base") : "";
     if (override) return String(override).replace(/\/$/, "");
     if (typeof window.UPS_FO_API_BASE === "string" && window.UPS_FO_API_BASE) {
       return String(window.UPS_FO_API_BASE).replace(/\/$/, "");
@@ -243,7 +250,8 @@
     weekKickoffs: { 1: null, 3: null, 5: null },
     capAmount: 0,
     teams: [],          // worker payload normalized
-    activeTab: "roster",
+    activeTab: "overview",
+    navLast: {},
     // Active subview under the Contracts parent tab (Auction/Extensions/
     // Restructures/MYM/Tagging). Defaults to Auction.
     contractsSubtab: "myac",
@@ -1562,10 +1570,13 @@
   // contract from canon §A1.4 — and so we can populate TCV/special on
   // expired-rookie taxi guys (Mayer Michael, Bennett, Wilson Tyree, …).
   const ROOKIE_HISTORY_INDEX = Object.create(null);
+  // Whether the history file loaded: without it the UPS Draft record is "Unknown", never "not a UPS pick".
+  let ROOKIE_HISTORY_OK = false;
   async function loadRookieDraftHistory() {
     try {
       const payload = await fetchJSON(URL_ROOKIE_HISTORY);
       const picks = Array.isArray(payload) ? payload : (payload && payload.picks) || [];
+      ROOKIE_HISTORY_OK = picks.length > 0;
       for (let i = 0; i < picks.length; i += 1) {
         const row = picks[i] || {};
         const pid = safeStr(row.player_id).replace(/\D/g, "");
@@ -2561,6 +2572,12 @@
 
   // ── Bootstrap ───────────────────────────────────────────────────────
   async function init() {
+    // #1338: the Front Office's one-read-per-source data layer (fo_data.js) uses
+    // the same worker, league and season as everything below, and the viewer's
+    // session only for the viewer's own reads (claims held by MFL).
+    if (window.UPS_FO_DATA) {
+      window.UPS_FO_DATA.configure({ apiBase: WORKER_BASE, leagueId: LEAGUE_ID, season: SEASON, sessionQuery: appendViewerSessionQuery });
+    }
     if (IS_DRY_RUN) {
       const banner = $("#fo-dryrun-banner");
       if (banner) banner.hidden = false;
@@ -2573,17 +2590,6 @@
     setupCapTabDelegation();
     setupTagTabDelegation();
     setupActivityTabDelegation();
-
-    // Activity & Audit tab is local-dev only for now (Keith 2026-05-19:
-    // "save that whole tab for local only ... not ready for prod until
-    // after this week's deadlines"). Show only when the page is served
-    // from localhost/127.0.0.1 or the user explicitly opts in with
-    // ?activity=1 in the URL. Production MFL HPM frame stays hidden.
-    const host = (window.location.hostname || "").toLowerCase();
-    const isLocal = host === "localhost" || host === "127.0.0.1" || host === "0.0.0.0";
-    const optIn = QS.get("activity") === "1";
-    const tabBtn = $("#fo-tab-activity");
-    if (tabBtn && (isLocal || optIn)) tabBtn.hidden = false;
 
     fetchJSON("VERSION.json?_=" + Date.now())
       .then(function (v) { STATE.version = v; renderVersionBadge(); })
@@ -2598,10 +2604,81 @@
     renderRosterTable();
     loadRosterIndicators(); // async — decorate rows with NFL status + news flags
     loadContractDeadline(); // async — Sept contract deadline gates the MYAC window
+    injuryRead();           // async — the shared injury chip's status read (#1338)
+    exposeFrontOfficeApi();
+    try { document.dispatchEvent(new CustomEvent("fo:ready")); } catch (e) {}
+    showSection(readNavHash() || "overview", { noHash: true });
     const sumEl = $("#fo-contract-summary");
     if (sumEl) sumEl.addEventListener("click", function (e) {
       if (e.target && e.target.closest && e.target.closest(".fo-adj-info")) showAdjPopup();
     });
+  }
+
+  // The ONE Trade War Room route (MODULE=MESSAGE6=N, the Home button's), with
+  // optional preselect keys its loader forwards (#1338): twb_left_team,
+  // twb_right_team, twb_side, twb_player_id/twb_team_id, twb_give, twb_get.
+  function warRoomUrl(params) {
+    var base = (typeof window.getWarRoomUrl === "function" && window.getWarRoomUrl()) ||
+      ((/myfantasyleague\.com$/i.test(window.location.hostname || "") ? window.location.origin : "https://www48.myfantasyleague.com") +
+       "/" + encodeURIComponent(SEASON) + "/home/" + encodeURIComponent(LEAGUE_ID) + "?MODULE=MESSAGE6=N");
+    var keys = Object.keys(params || {}).filter(function (k) { return params[k] != null && params[k] !== ""; });
+    if (!keys.length) return base;
+    return base.split("#")[0] + "#" + keys.map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(params[k]); }).join("&");
+  }
+
+  // Read-only view of what the Front Office has loaded, for the views added in
+  // #1338 (Overview, Roster performance, Bye planner, Market, Trades, Activity).
+  // They read the SAME rosters, contracts and cap the ledger shows, never a
+  // second copy, and open players in the same slide-over. No write helper is
+  // exposed here.
+  function exposeFrontOfficeApi() {
+    window.UPS_FO = {
+      season: SEASON, leagueId: LEAGUE_ID, workerBase: WORKER_BASE,
+      teams: function () { return STATE.teams || []; },
+      me: function () { return STATE.me || {}; },
+      viewerFid: function () { return pad4((STATE.me && STATE.me.franchise_id) || ""); },
+      isAdmin: function () { return !!(STATE.me && STATE.me.isAdmin); },
+      capFor: function (fid) {
+        var team = (STATE.teams || []).filter(function (t) { return t.fid === pad4(fid); });
+        return team.length ? capSnapshotForTeams(team) : null;
+      },
+      capCeiling: CAP_CEILING,
+      // The Front Office's own per-player cap hit (taxi $0, IR 50%, expired $0) and loaded-contract test (true / false / null = unknown):
+      // the Trade builder reads these, so it never keeps a second copy of either rule.
+      capHit: currentCapHit, isLoaded: isLoadedRow,
+      // The Overview's Player salaries / Salary adjustments ledgers: the same cap hits and adjustment
+      // rounding as capFor (currentCapHit, roundToK), grouped by site/rosters/v2/fo_cap_ledger.js.
+      capLedger: function (fid) {
+        var L = window.UPS_FO_CAP_LEDGER;
+        var team = (STATE.teams || []).filter(function (t) { return t.fid === pad4(fid); })[0];
+        if (!L || !team) return null;
+        var adj = STATE.adjFeedOk ? ((STATE.adjByFid || {})[team.fid] || { cut: 0, trade: 0, other: 0, items: [] }) : null;
+        var out = L.build(team, { capHit: currentCapHit, roundCut: roundToK, adj: adj });
+        var snap = capSnapshotForTeams([team]);
+        out.capSnapshot = { salaryCap: snap.salaryCap, adjTotal: snap.adjTotal, capAlloc: snap.capAlloc, capSpace: snap.capSpace };
+        out.ceiling = CAP_CEILING;
+        out.capSpace = CAP_CEILING - out.allocated;
+        out.nextSeason = STATE.nextSeasonAdj && STATE.nextSeasonAdj.ok ? ((STATE.nextSeasonAdj.byFid || {})[team.fid] || null) : null;
+        out.nextSeasonYear = STATE.nextSeasonAdj ? STATE.nextSeasonAdj.nextSeason : null;
+        return out;
+      },
+      contractDeadline: function () { return STATE.contractDeadline || null; },
+      weekKickoffs: function () { return STATE.weekKickoffs || null; },
+      eligibility: function (p) { try { return rosterContractEligibility(p); } catch (e) { return null; } },
+      capPenalty: function (pid) { return STATE.capPenaltyFeed === "ok" && STATE.capPenaltyByPid ? (STATE.capPenaltyByPid[String(pid)] || null) : null; },
+      injury: function (p) { return injuryResFor(p); },
+      openPlayer: function (pid, fid, subtab) { openSlideover(String(pid), pad4(fid), subtab); },
+      show: function (section) { showSection(section); },
+      // The rows the Roster table shows under the current team / position / type / status filters.
+      visibleRows: function () { try { return applyFilters(allVisiblePlayers()); } catch (e) { return []; } },
+      groupByPosition: function () { return !!STATE.groupByPosition; },
+      selectedTeam: function () { return STATE.selectedTeamId || "__all__"; },
+      warRoomUrl: warRoomUrl,
+      leagueEvents: function () { return STATE.leagueEvents || null; },
+      tradeLock: function () { return STATE.tradeLock || null; },
+      extensionDeadline: function (p) { try { return extensionDeadlineForPlayer(p); } catch (e) { return null; } },
+      escapeHtml: escapeHtml, fmtUSD: fmtUSD
+    };
   }
 
   async function loadMe() {
@@ -2700,6 +2777,7 @@
       await applyAuctionWinOverlay(STATE.teams, safeInt(SEASON, 0));
       mergeMflSalaryAdjustments(STATE.teams, mflAdj);
       STATE.adjByFid = mflAdj.byFid || {}; // per-team line items for the Cap Alloc popup
+      STATE.adjFeedOk = !!mflAdj.ok;       // false = MFL's feed failed; the worker's raw sums stand in (no items)
       STATE.nextSeasonAdj = nextSeasonAdj; // ledger-only next-season drop penalties
 
       // Keith 2026-05-19: applies to ALL taxi guys, not just Watson.
@@ -2780,7 +2858,7 @@
           taxiCallupsPending:      safeInt(p.taxi_callups_pending, 0),
           taxiPermanentPromotion: !!p.taxi_permanent_promotion,
           taxiEligible:           !!p.taxi_eligible,
-          // The worker's one taxi verdict (worker/src/taxi_rule.js): eligible / why not, in owner-facing words.
+          // The worker's ONE taxi verdict (worker/src/taxi_rule.js), when this worker sends it.
           taxiStatus:             p.taxi_status || null
         };
       });
@@ -2841,6 +2919,13 @@
       who = (t && t.name) || me.franchise_name || ("Franchise " + fid);
     }
     meta.textContent = "Logged in as: " + who;
+    // Subtitle from data, never a hard-coded year (#1338): the viewer's team and the season FO is reading.
+    const sub = $("#fo-subtitle");
+    if (sub) {
+      const vf = pad4(me.franchise_id || "");
+      const vt = (STATE.teams || []).find(function (x) { return pad4(x.fid) === vf; });
+      sub.textContent = (vt ? vt.name + " · " : "") + SEASON + " season";
+    }
   }
 
   // ── Tabs ────────────────────────────────────────────────────────────
@@ -2858,44 +2943,90 @@
     else if (key === "saladj") renderSalaryAdjustmentsTab();
     else if (key === "activity") renderActivityTab();
   }
-  // Activate one of the Contracts subviews: its section goes active, the
-  // Contracts parent button stays highlighted, and the sub-tab bar shows with
-  // the matching chip active.
-  function activateContractSubtab(sub) {
-    if (CONTRACT_SUBTABS.indexOf(sub) === -1) sub = "myac";
-    STATE.contractsSubtab = sub;
-    STATE.activeTab = sub;
-    $$("#fo-tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === "contracts"); });
-    $$(".fo-section").forEach(function (s) { s.classList.toggle("active", s.dataset.section === sub); });
-    const subnav = $("#fo-contracts-subnav");
-    if (subnav) {
-      subnav.hidden = false;
-      $$("button", subnav).forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === sub); });
+  // ── Navigation: six destinations (#1338) ───────────────────────────
+  // Each sub-view is still its own .fo-section; a destination button opens its
+  // group's last-used (or default) section, and the group's chip bar shows.
+  // "Contract actions" (Auction / Extensions / Restructures / MYM / Tagging)
+  // keeps its own second chip row. Deep link: #fo=<section> (the MFL page uses
+  // no hash), so Home and the header can link to the exact place to act.
+  const NAV_GROUPS = {
+    overview: ["overview"],
+    roster: ["roster", "bye"],
+    market: ["market"],
+    trades: ["trades"],
+    contracts: ["cap", "myac", "extensions", "restructure", "mym", "tag", "picks", "saladj", "contractlog"],
+    moves: ["moves"]
+  };
+  const NAV_DEFAULT = { overview: "overview", roster: "roster", market: "market", trades: "trades", contracts: "cap", moves: "moves" };
+  function navGroupOf(section) {
+    const keys = Object.keys(NAV_GROUPS);
+    for (let i = 0; i < keys.length; i += 1) if (NAV_GROUPS[keys[i]].indexOf(section) !== -1) return keys[i];
+    return "";
+  }
+  function readNavHash() {
+    try {
+      const m = /(?:^#|&)fo=([a-z]+)/.exec(String(window.location.hash || ""));
+      return m && navGroupOf(m[1]) ? m[1] : "";
+    } catch (e) { return ""; }
+  }
+  function writeNavHash(section) {
+    try {
+      if (window.history && window.history.replaceState) {
+        const u = new URL(window.location.href);
+        u.hash = "fo=" + section;
+        window.history.replaceState(window.history.state, "", u.toString());
+      }
+    } catch (e) {}
+  }
+  function showSection(section, opts) {
+    const group = navGroupOf(section);
+    if (!group) return;
+    STATE.activeTab = section;
+    STATE.navLast[group] = section;
+    if (CONTRACT_SUBTABS.indexOf(section) !== -1) STATE.contractsSubtab = section;
+    const inActions = CONTRACT_SUBTABS.indexOf(section) !== -1;
+    $$("#fo-tabs button").forEach(function (b) {
+      const on = b.dataset.tab === group;
+      b.classList.toggle("active", on);
+      if (on) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+    });
+    $$(".fo-section").forEach(function (sec) { sec.classList.toggle("active", sec.dataset.section === section); });
+    $$("nav.fo-subtabs[data-group]").forEach(function (nav) {
+      nav.hidden = nav.dataset.group !== group;
+      $$("button", nav).forEach(function (b) {
+        b.classList.toggle("active", b.dataset.subtab === section || (b.dataset.subgroup === "actions" && inActions));
+      });
+    });
+    const actNav = $("#fo-actions-subnav");
+    if (actNav) {
+      actNav.hidden = !inActions;
+      $$("button", actNav).forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === section); });
     }
-    renderTabByKey(sub);
+    renderTabByKey(section);
+    if (!opts || !opts.noHash) writeNavHash(section);
+    try { document.dispatchEvent(new CustomEvent("fo:tab", { detail: { section: section, group: group } })); } catch (e) {}
+  }
+  // Kept for the callers that open a contract window directly (e.g. Untag → Tagging).
+  function activateContractSubtab(sub) {
+    showSection(CONTRACT_SUBTABS.indexOf(sub) === -1 ? "myac" : sub);
   }
   function setupTabs() {
     $$("#fo-tabs button").forEach(function (btn) {
       btn.addEventListener("click", function () {
-        if (btn.disabled) return;
-        const tab = btn.dataset.tab;
-        if (!tab) return;
-        // Contracts is a PARENT — open the last-used (or default) subview.
-        if (tab === "contracts") { activateContractSubtab(STATE.contractsSubtab || "myac"); return; }
-        if (tab === STATE.activeTab) return;
-        STATE.activeTab = tab;
-        $$("#fo-tabs button").forEach(function (b) { b.classList.toggle("active", b === btn); });
-        $$(".fo-section").forEach(function (s) { s.classList.toggle("active", s.dataset.section === tab); });
-        const subnav = $("#fo-contracts-subnav"); if (subnav) subnav.hidden = true;  // left the Contracts group
-        renderTabByKey(tab);
+        if (btn.disabled || !btn.dataset.tab) return;
+        const group = btn.dataset.tab;
+        showSection(STATE.navLast[group] || NAV_DEFAULT[group]);
       });
     });
-    // Sub-tab chips under the Contracts parent.
-    $$("#fo-contracts-subnav button").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        if (btn.dataset.subtab) activateContractSubtab(btn.dataset.subtab);
-      });
+    $$("nav.fo-subtabs button[data-subtab]").forEach(function (btn) {
+      btn.addEventListener("click", function () { showSection(btn.dataset.subtab); });
     });
+    window.addEventListener("hashchange", function () {
+      const sec = readNavHash();
+      if (sec && sec !== STATE.activeTab) showSection(sec, { noHash: true });
+    });
+    const wr = $("#fo-war-room-link");
+    if (wr) wr.setAttribute("href", warRoomUrl({}));
   }
   function setupSubviewChips() {
     $$(".fo-subview-chips").forEach(function (group) {
@@ -3384,21 +3515,11 @@
     return html;
   }
 
-  // ── NFL game status + news flags (decorate roster rows) ─────────────
-  // NFL game status (O/Q/D) comes straight from MFL's injuries export; the
-  // news flag from /api/player-news (same feed the News tab uses). Both load
-  // after the table first renders, then trigger one re-render.
-  // Keys are the LOWERCASED status string exactly as MFL sends it. The second
-  // group is the set observed live 2026-08-15 across 339 rows — "ir-pup",
-  // "ir-nfi", "holdout" and "retired" were missing, so they fell through to the
-  // `charAt(0)` fallback below and painted a bare "I"/"I"/"H"/"R" chip. A
-  // suspended player (James Pearce Jr., pid 17115) showed nothing at all,
-  // because the feed itself was never being read (see loadRosterIndicators).
-  var NFL_STATUS_ABBR = {
-    out: "O", questionable: "Q", doubtful: "D", probable: "P", ir: "IR", pup: "PUP", nfi: "NFI",
-    suspended: "S", suspension: "S", "injured reserve": "IR", "covid-19": "C",
-    "ir-pup": "PUP", "ir-nfi": "NFI", holdout: "HO", retired: "RET",
-  };
+  // ── NFL designation (MFL export) + news flags (decorate roster rows) ─────
+  // MFL's injuries export, read at boot, feeds the §B3 IR gate below and is the
+  // injury chip's stand-in until /api/player-status lands (injuryResFor). The
+  // news flag comes from /api/player-news. Both load after the table first
+  // renders, then trigger one re-render.
   // Raw MFL designation for a player, or "" when the export has no row for
   // them. Uppercased to match the mobile predicate + the worker's §B3 gate,
   // which both compare against uppercase tokens. Callers that need to know
@@ -3407,53 +3528,37 @@
   function nflDesignation(pid) {
     return safeStr(STATE.nflStatus[String(pid)]).trim().toUpperCase();
   }
-  function nflStatusBadge(pid) {
-    var s = STATE.nflStatus[String(pid)];
-    if (!s) return "";
-    var key = String(s).toLowerCase();
-    var abbr = NFL_STATUS_ABBR[key] || String(s).charAt(0).toUpperCase();
-    // Everything that keeps a player OFF the field reads in the "out" colour.
-    // That now explicitly includes IR-PUP / IR-NFI / suspended / holdout /
-    // retired / COVID, all of which previously fell through to the amber
-    // "questionable" bucket and read like a game-time decision. A suspension is
-    // not a game-time decision, and neither is a retirement.
-    var kls = (key.indexOf("out") >= 0 || key.indexOf("ir") === 0 || key.indexOf("reserve") >= 0 ||
-               key.indexOf("pup") >= 0 || key.indexOf("suspend") >= 0 || key.indexOf("nfi") >= 0 ||
-               key.indexOf("covid") >= 0 || key.indexOf("retired") >= 0) ? "out"
-      : (key.indexOf("doubt") >= 0 ? "doubtful" : "questionable");
-    // Tooltip carries the FULL status plus MFL's own free-text colour, so the
-    // two-or-three-character chip is never the whole story: "S" alone doesn't
-    // tell you it's an eight-game ban ending Nov 8. Both extra fields are
-    // optional — append only what the feed actually sent, never a placeholder.
-    var meta = STATE.nflStatusMeta[String(pid)] || {};
-    var tip = "NFL game status: " + String(s);
-    if (meta.details) tip += " · " + meta.details;
-    if (meta.exp_return) tip += " · expected back " + meta.exp_return;
-    return ' <span class="fo-nfl-status fo-nfl-' + kls + '" title="' + escapeHtml(tip) + '">' + escapeHtml(abbr) + "</span>";
+  // ── Injury chip: the shared resolver (site/shared/injury_status.js) ──
+  // #1338 parity with the released phone sheet (#1311): ONE chip per player
+  // (MFL's roster designation, else MFL's Q/D/OUT, else the current official
+  // report), the released vocabulary (Q, D, OUT, IR, PUP, NFI, SUSP, HOLD, RET),
+  // no expected-return dates, and the red "Injury sources disagree" box on the
+  // player panel. The read is /api/player-status (5-minute freshness); until it
+  // lands, MFL's injuries export read at boot stands in, labelled as this
+  // page's read. STATE.nflStatus still drives the §B3 IR gate (nflDesignation).
+  function injuryRead() {
+    var D = window.UPS_FO_DATA;
+    return D && typeof D.injury === "function" ? D.injury(onInjuryRead) : null;
   }
-  // Modal-header variant. The roster row stays silent when there is no
-  // designation (35 rows of "unknown" chips is noise), but the player modal has
-  // room to be HONEST about the difference between:
-  //   • MFL says this player carries nothing  → render nothing
-  //   • we could not read MFL at all          → say so
-  //   • MFL's report is empty league-wide     → say so
-  // Never let case 2 or 3 look like case 1 — that is the whole reason the badge
-  // exists next to a "Place on IR" button.
-  function nflStatusBadgeDetailed(pid) {
-    var badge = nflStatusBadge(pid);
-    if (badge) return badge;
-    if (STATE.nflStatusFeed === "error") {
-      return ' <span class="fo-nfl-status fo-nfl-unknown" title="MFL&#39;s injury report could not be read, so this player&#39;s NFL designation is unknown.">NFL ?</span>';
-    }
-    if (STATE.nflStatusFeed === "pending") {
-      return ' <span class="fo-nfl-status fo-nfl-unknown" title="Still loading MFL&#39;s injury report…">NFL …</span>';
-    }
-    if (STATE.nflStatusFeed === "ok" && STATE.nflStatusRows === 0) {
-      return ' <span class="fo-nfl-status fo-nfl-unknown" title="MFL&#39;s injury report came back empty for the entire NFL, which is not a credible reading — so no NFL designation is known for any player.">NFL —</span>';
-    }
-    return "";
+  function onInjuryRead() {
+    try { renderRosterTable(); } catch (e) {}
+    try { refreshSlideoverHead(); } catch (e) {}
+    try { document.dispatchEvent(new CustomEvent("fo:injury")); } catch (e) {}
   }
-
+  function injuryResFor(p) {
+    var F = window.UPS_PLAYER_FACTS;
+    if (!F || !p) return null;
+    var meta = STATE.nflStatusMeta[String(p.id)] || {};
+    return F.injury(injuryRead(), p.id, p.nflTeam, F.fallbackFromMfl(STATE.nflStatus[String(p.id)], meta.details));
+  }
+  function injuryChipHtml(p) {
+    var F = window.UPS_PLAYER_FACTS, r = injuryResFor(p);
+    return r && F && r.chips.length ? " " + F.chipHtml(r, escapeHtml, "fo-inj") : "";
+  }
+  function slideoverInjuryHtml(p) {
+    var F = window.UPS_PLAYER_FACTS, r = injuryResFor(p);
+    return r && F ? F.warningHtml(r, escapeHtml) : "";
+  }
   // ── §B3 IR eligibility — CLIENT-SIDE PREVIEW ONLY ───────────────────
   // The real gate is server-side (worker roster-action returns IR_NOT_ELIGIBLE
   // / IR_ELIGIBILITY_UNKNOWN). This exists so the button does not lie about
@@ -3763,6 +3868,11 @@
       // fetchContractCalendar). See STATE.weekKickoffs.
       var data = await fetchJSON(apiUrl("/api/league-events") + "?season=" + encodeURIComponent(SEASON) + "&from=all&limit=50&kickoffs=1,3,5");
       var evs = (data && data.events) || [];
+      STATE.leagueEvents = evs;
+      // When MFL stops accepting trades: the worker's read of MFL's own lock (worker/src/trade_deadline.js), the one
+      // source every app surface uses — the Overview's Trade deadline card reads it.
+      STATE.tradeLock = (data && data.trade_lock) || null;
+      try { document.dispatchEvent(new CustomEvent("fo:events")); } catch (e) {}
       var cd = evs.find(function (e) { return String(e.event || "").toLowerCase().indexOf("contract_deadline") >= 0; });
       if (cd && cd.date) STATE.contractDeadline = String(cd.date).slice(0, 10);
       // The deadline as a real instant, matching isPastContractDeadlineFO's
@@ -3801,13 +3911,11 @@
       STATE.contractLadderServer = (data && data.contract_ladder) || null;
     } catch (e) {}
   }
-  function renderContractSummary() {
-    const el = $("#fo-contract-summary");
-    if (!el) return;
-    const single = STATE.selectedTeamId !== "__all__";
-    const teams = single ? STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; }) : STATE.teams;
-    if (!teams.length) { el.innerHTML = ""; return; }
-    const nTeams = teams.length;
+  // One team's (or the league's) roster counts and cap, the Cap Allocation card's
+  // exact math (taxi $0, IR ×0.5, expired $0; adjustments rounded per canon §6).
+  // Shared by the summary strip and, through window.UPS_FO.capFor, the new views
+  // (#1338) so every Front Office cap number is this one.
+  function capSnapshotForTeams(teams) {
     let activeN = 0, taxiN = 0, irN = 0, salaryCap = 0, irAlloc = 0, loadedN = 0, loadedUnavailableN = 0, threeYrN = 0, adjTotal = 0;
     const irEligible = [];
     teams.forEach(function (team) {
@@ -3833,7 +3941,22 @@
       adjTotal += capAdjTotal(s);
     });
     const capAlloc = salaryCap + adjTotal;
-    const capSpace = (CAP_CEILING * nTeams) - capAlloc;
+    return { activeN: activeN, taxiN: taxiN, irN: irN, salaryCap: salaryCap, irAlloc: irAlloc, loadedN: loadedN,
+      loadedUnavailableN: loadedUnavailableN, threeYrN: threeYrN, adjTotal: adjTotal, irEligible: irEligible,
+      capAlloc: capAlloc, capSpace: (CAP_CEILING * teams.length) - capAlloc, activeMax: activeMaxFO() * teams.length,
+      activeMin: ACTIVE_MIN * teams.length, taxiMax: TAXI_MAX * teams.length };
+  }
+  function renderContractSummary() {
+    const el = $("#fo-contract-summary");
+    if (!el) return;
+    const single = STATE.selectedTeamId !== "__all__";
+    const teams = single ? STATE.teams.filter(function (t) { return t.fid === STATE.selectedTeamId; }) : STATE.teams;
+    if (!teams.length) { el.innerHTML = ""; return; }
+    const nTeams = teams.length;
+    const t = capSnapshotForTeams(teams);
+    const activeN = t.activeN, taxiN = t.taxiN, irN = t.irN, salaryCap = t.salaryCap, irAlloc = t.irAlloc,
+      loadedN = t.loadedN, loadedUnavailableN = t.loadedUnavailableN, threeYrN = t.threeYrN, adjTotal = t.adjTotal,
+      irEligible = t.irEligible, capAlloc = t.capAlloc, capSpace = t.capSpace;
     const card = function (val, lbl, subHtml, cls) {
       return '<div class="fo-sum-card"><div class="fo-sum-val ' + (cls || "") + '">' + val + "</div>" +
         '<div class="fo-sum-lbl">' + escapeHtml(lbl) + "</div>" +
@@ -4017,6 +4140,8 @@
       return;
     }
     tbody.innerHTML = STATE.groupByPosition ? renderGroupedRows(sorted) : sorted.map(renderRosterRow).join("");
+    // The Performance column set (fo_roster.js, #1338) shows the same filtered rows.
+    try { document.dispatchEvent(new CustomEvent("fo:roster")); } catch (e) {}
 
     // Wire row clicks — entire row opens the slide-over. Manage button
     // was removed (Keith 2026-05-19: "redundancy, just need a note to
@@ -4112,7 +4237,7 @@
     return `
       <tr data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">
         <td>
-          <div>${escapeHtml(p.name)}${nflStatusBadge(p.id)}${newsFlagBadge(p.id)}</div>
+          <div>${escapeHtml(p.name)}${injuryChipHtml(p)}${newsFlagBadge(p.id)}</div>
           <div class="small"><span class="fo-pos ${escapeHtml(pos)}">${escapeHtml(p.position)}</span> · ${escapeHtml(p.nflTeam || "FA")}</div>
         </td>
         <td class="col-md">${escapeHtml(p.franchise)}</td>
@@ -4146,7 +4271,7 @@
       });
     });
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && !$("#fo-slideover").hidden) closeSlideover();
+      if (e.key === "Escape" && !e.defaultPrevented && !$("#fo-slideover").hidden) closeSlideover();
     });
   }
 
@@ -4166,11 +4291,10 @@
     // worker (auditable in D1).
     const me = STATE.me || {};
     const commishOverride = !!me.isAdmin && pad4(me.franchise_id) !== pad4(p.fid);
-    // NFL designation sits right on the name (same badge as the roster row),
-    // with the honest unknown/empty variants — a "Place on IR" button in the
-    // Actions tab below is only readable if the designation driving it is
-    // visible. See nflStatusBadgeDetailed.
-    return escapeHtml(p.name) + nflStatusBadgeDetailed(p.id) +
+    // The injury chip sits right on the name: the shared resolver's one chip
+    // (#1311, same as the phone sheet). Its "sources disagree" box and source
+    // lines render under the header (slideoverInjuryHtml).
+    return escapeHtml(p.name) + injuryChipHtml(p) +
       (commishOverride
         ? ` <span class="fo-commish-badge" title="Acting on behalf of ${escapeHtml(p.franchise)} — all submits will set commish_override_flag=1.">👑 commish override</span>`
         : "");
@@ -4198,8 +4322,20 @@
         ? `<span class="fo-ctype pending">PENDING</span> · ${fmtUSD(p.salary)} (contract not yet recorded by MFL)`
         : `<span class="fo-ctype ${ctypeClass(p.type)}">${escapeHtml(String(p.type || "—").toUpperCase())}</span> · ` +
           `${fmtUSD(p.salary)} (${p.years || 0}yr rem)`);
+    var injEl = $("#fo-slideover-inj");
+    if (injEl) injEl.innerHTML = slideoverInjuryHtml(p);
     $$("#fo-slideover-tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === STATE.slideoverSubtab); });
     renderSlideoverBody();
+  }
+  // Repaint the open panel's name chip + injury box after a status read lands.
+  function refreshSlideoverHead() {
+    if (!STATE.slideoverPid) return;
+    var p = findPlayer(STATE.slideoverPid, STATE.slideoverFid);
+    if (!p) return;
+    var titleEl = $("#fo-slideover-title");
+    if (titleEl) titleEl.innerHTML = slideoverTitleHtml(p);
+    var injEl = $("#fo-slideover-inj");
+    if (injEl) injEl.innerHTML = slideoverInjuryHtml(p);
   }
 
   function closeSlideover() {
@@ -4234,76 +4370,38 @@
 
   // Player physicals (height/weight/DOB/draft) come from MFL players?DETAILS=1
   // via the worker proxy (CORS-safe off the MFL host). Cached per player id.
+  // A failed or empty read is NOT cached and comes back as { __error: true }, so the Bio says "Unknown"
+  // (and retries next open) instead of turning missing data into a fact.
   var __playerDetailsCache = {};
   async function loadPlayerDetails(pid) {
     pid = safeStr(pid).replace(/\D/g, "");
-    if (!pid) return {};
+    if (!pid) return { __error: true };
     if (__playerDetailsCache[pid]) return __playerDetailsCache[pid];
     try {
       var url = apiUrl("/api/mfl-export") + "?TYPE=players&L=" + encodeURIComponent(LEAGUE_ID) +
                 "&YEAR=" + encodeURIComponent(SEASON) + "&PLAYERS=" + encodeURIComponent(pid) + "&DETAILS=1&JSON=1";
       var res = await fetch(url, { credentials: "omit" });
+      if (!res.ok) return { __error: true };
       var data = await res.json();
       var pl = data && data.players && data.players.player;
       pl = Array.isArray(pl) ? pl[0] : pl;
-      __playerDetailsCache[pid] = pl || {};
-    } catch (e) { __playerDetailsCache[pid] = {}; }
+      if (!pl || !pl.id) return { __error: true };
+      __playerDetailsCache[pid] = pl;
+    } catch (e) { return { __error: true }; }
     return __playerDetailsCache[pid];
   }
-  function bioHeight(inches) { var n = safeInt(inches, 0); return n > 0 ? (Math.floor(n / 12) + "'" + (n % 12) + '"') : "—"; }
-  function bioDob(birthdate) {
-    var ts = safeInt(birthdate, 0); if (ts <= 0) return "—";
-    var d = new Date(ts * 1000);
-    var mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    var age = Math.floor((Date.now() - d.getTime()) / (365.25 * 86400000));
-    return mo[d.getUTCMonth()] + " " + d.getUTCDate() + ", " + d.getUTCFullYear() + " (age " + age + ")";
+  // Bio facts (#1338 Phase 1): site/rosters/v2/fo_player_modal.js. ONE UPS Draft record (the 2012–2026
+  // rookie-draft history, checked against the worker's in-window fields) feeds both the UPS Draft line and
+  // the taxi reason, so they can't contradict; missing NFL data reads "Unknown", never "Undrafted".
+  function foUpsDraftRecord(p) {
+    var M = window.UPS_FO_MODAL;
+    return M ? M.upsDraftRecord(ROOKIE_HISTORY_INDEX[safeStr(p.id).replace(/\D/g, "")], { round: p.upsDraftRound, year: p.upsDraftYear }, ROOKIE_HISTORY_OK)
+      : { state: "unknown", why: "The player-facts module didn’t load." };
   }
-  function bioDraft(d) {
-    var rd = safeInt(d.draft_round, 0);
-    if (rd <= 0) return "Undrafted";
-    var parts = [];
-    if (d.draft_year) parts.push(safeStr(d.draft_year));
-    parts.push("Rd " + rd + (d.draft_pick ? ", Pick " + safeStr(d.draft_pick) : ""));
-    if (d.draft_team) parts.push(safeStr(d.draft_team));
-    return parts.join(" · ");
-  }
-  function bioUpsDraft(p) {
-    var rh = ROOKIE_HISTORY_INDEX[safeStr(p.id).replace(/\D/g, "")];
-    if (!rh || !safeInt(rh.round, 0)) return "—";   // not selected in a UPS rookie draft
-    var slot = "Rd " + rh.round + (rh.pick ? ", Pick " + rh.pick : "");
-    return (rh.season ? rh.season + " · " : "") + slot;
-  }
-  // Taxi eligibility (canon §B2): 3 call-ups, one per completed NFL week on the
-  // active roster; the 4th makes the promotion permanent. Counts come from the
-  // worker's weekly count off MFL's weekly results (syncTaxiCallupWeeks), so a
-  // week shows here once it is over. Keith 2026-09-17: "We need to add Taxi
-  // Eligibility" (Kyle Monangai, promoted 9/13, was showing nothing).
+  function bioUpsDraft(p) { var M = window.UPS_FO_MODAL; return M ? M.upsDraftText(foUpsDraftRecord(p)) : "Unknown"; }
   function bioTaxiEligibility(p) {
-    // The worker's verdict names the reason (Keith 2026-10-21): legacy 2025 promotion, permanent after three
-    // temporary call-ups, released, window ended, Round 1, or "Eligibility could not be confirmed".
-    var ts = p.taxiStatus;
-    if (ts && ts.eligible !== true && ts.text) return { text: ts.text, note: safeStr(ts.detail) };
-    if (p.taxiPermanentPromotion) {
-      return { text: "Not eligible · permanently promoted", note: "Used 4 call-ups, or was on an active roster at the end of a past season." };
-    }
-    if (!p.taxiEligible) {
-      var round = safeInt(p.upsDraftRound, 0), year = safeInt(p.upsDraftYear, 0);
-      var why = !round ? "not a UPS Rookie Draft pick"
-        : round === 1 ? "Round 1 picks stay on the active roster"
-        : year && safeInt(SEASON, 0) - year >= 3 ? "3-year taxi window has ended"
-        : !/^rookie-draft$/i.test(safeStr(p.type)) ? "no longer on his rookie-draft contract"
-        : "";
-      return { text: "Not eligible" + (why ? " · " + why : ""), note: "" };
-    }
-    var max = safeInt(p.taxiCallupsMax, 3) || 3;
-    var used = safeInt(p.taxiCallupsUsed, 0);
-    var left = Math.max(0, max - used);
-    var where = p.isTaxi ? "on taxi" : (p.isIr ? "on IR" : "on the active roster");
-    return {
-      text: left + " of " + max + " call-ups left · " + where,
-      note: "Each completed week on the active roster uses one; the 4th makes the promotion permanent." +
-        (!p.isTaxi && !p.isIr ? " This week counts once it is over." : "")
-    };
+    var M = window.UPS_FO_MODAL;
+    return M ? M.taxiStatus(p, foUpsDraftRecord(p), SEASON) : { text: "Unknown", note: "", reasons: [] };
   }
   function bioLastAcquired(p) {
     var head = [safeStr(p.acquisitionTypeLabel), safeStr(p.acquisitionDetail)].filter(Boolean).join(" · ") || safeStr(p.acquisitionText) || "—";
@@ -4338,6 +4436,9 @@
       ? '<div class="fo-bio-avatar" style="background-image:url(https://a.espncdn.com/i/headshots/nfl/players/full/' + espn + '.png)"></div>'
       : '<div class="fo-bio-avatar">' + escapeHtml(bioInitials(p.name)) + '</div>';
     var loading = d.__loading ? ' <span class="small" style="color:var(--muted);">· loading…</span>' : "";
+    var M = window.UPS_FO_MODAL || {};
+    var st = d.__loading ? "loading" : (d.__error ? "error" : "ok");
+    var tx = function (fn, v) { return M[fn] ? M[fn](v, st) : (st === "loading" ? "Loading…" : "Unknown"); };
     // Contract section — Years Remaining + per-year salary breakdown.
     var yrsRem = Math.max(0, safeInt(p.years, 0));
     var bd = contractYearlyBreakdown(p);
@@ -4367,11 +4468,11 @@
         <div class="fo-form">
           <div class="fo-form-row"><span class="lbl">NFL Team</span><span class="val">${escapeHtml(p.nflTeam || d.team || "—")}</span></div>
           <div class="fo-form-row"><span class="lbl">Position</span><span class="val">${escapeHtml(p.position || "—")}</span></div>
-          <div class="fo-form-row"><span class="lbl">Height</span><span class="val">${escapeHtml(bioHeight(d.height))}</span></div>
-          <div class="fo-form-row"><span class="lbl">Weight</span><span class="val">${d.weight ? escapeHtml(d.weight) + " lbs" : "—"}</span></div>
-          <div class="fo-form-row"><span class="lbl">Born</span><span class="val">${escapeHtml(bioDob(d.birthdate))}</span></div>
-          <div class="fo-form-row"><span class="lbl">College</span><span class="val">${escapeHtml(d.college || "—")}</span></div>
-          <div class="fo-form-row"><span class="lbl">NFL Draft</span><span class="val">${escapeHtml(bioDraft(d))}</span></div>
+          <div class="fo-form-row"><span class="lbl">Height</span><span class="val">${escapeHtml(tx("heightText", d.height))}</span></div>
+          <div class="fo-form-row"><span class="lbl">Weight</span><span class="val">${escapeHtml(tx("weightText", d.weight))}</span></div>
+          <div class="fo-form-row"><span class="lbl">Born</span><span class="val">${escapeHtml(M.bornText ? M.bornText(d.birthdate, st) : "Unknown")}</span></div>
+          <div class="fo-form-row"><span class="lbl">College</span><span class="val">${escapeHtml(tx("plainText", d.college))}</span></div>
+          <div class="fo-form-row"><span class="lbl">NFL Draft</span><span class="val">${escapeHtml(M.nflDraftText ? M.nflDraftText(d, st) : "Unknown")}</span></div>
           <div class="fo-form-row"><span class="lbl">UPS Draft</span><span class="val">${escapeHtml(bioUpsDraft(p))}</span></div>
           <div class="fo-form-row"><span class="lbl">Taxi Eligibility</span><span class="val">${escapeHtml(taxiBio.text)}${taxiBio.note ? '<div class="small" style="color:var(--muted);">' + escapeHtml(taxiBio.note) + '</div>' : ""}</span></div>
           <div class="fo-form-row"><span class="lbl">Last Acquired</span><span class="val" id="fo-bio-lastacq">${escapeHtml(bioLastAcquired(p))}</span></div>
@@ -4489,210 +4590,218 @@
       </table>`;
   }
 
-  // ── Stats sub-tab inside slide-over ─────────────────────────────────
-  // Mirrors the master player-modal Stats tab: a headline strip (Career
-  // Pts / PPG / Best Season / APW) over a compact "scoring" season table.
-  // Source: /api/player-bundle → career_summary (D1 src_weekly rollups) +
-  // leverage_coefs for APW. Computation matches player_profile_master.js
-  // buildHeadlineStripHtml / buildCompactScoringTableHtml verbatim so the
-  // numbers are identical across modules (no drift — see cap_math lesson).
-  function foNumComma(n) { return String(Math.round(Number(n) || 0)).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
-  function foStatRank(r) { return (r == null || r <= 0) ? "—" : "#" + r; }
-  // A season rank held back until the #1307 recount: null + rank_pending {fields}
-  // from the bundle. The cell shows "—" with this note, never a number.
-  var FO_RANK_PENDING_NOTE = "Rank pending historical reconciliation";
-  var FO_RANK_PENDING_LABEL = { pos_rank: "Pts Rk", pos_ppg_rank: "PPG Rk" };
-  function foRankPendingAttr(c, k) {
-    var f = c && c.rank_pending && c.rank_pending.fields;
-    return (f && f.indexOf(k) !== -1) ? ' title="' + FO_RANK_PENDING_NOTE + '"' : "";
+  // ── Stats sub-tab inside slide-over (#1338 Phase 1) ─────────────────
+  // Headline: This season (points + total-points rank; PPG + PPG rank) · Last 4
+  // (PPG + its rank) · Career (points + PPG, and the highest-scoring completed
+  // season). The current season is MFL's own scoring — the phone's numbers,
+  // word for word — and the season table's current row reads the SAME line, so
+  // headline, table and phone can't disagree. Earlier seasons come from the
+  // league database; their ranks show only when the rank's own total matches
+  // the row (UPS_FO_MODAL.seasonRows). No APW, no Elite% (z-tier) here.
+  // ── This season, from MFL's own scoring (#1338) ─────────────────────
+  // The phone sheet's numbers, word for word: MFL playerScores W=ALL (league
+  // scoring, a week in progress included), PPG per MFL-scored week, rank by PPG
+  // within the lineup group among every player MFL scored with at least half the
+  // final weeks. The league database copy (player bundle) serves EARLIER seasons
+  // only, each under its own year: it lags MFL by a sync and, in season, has
+  // missed free agents' and taxi weeks before (season_scoring.js header).
+  var __foGroupOf = { src: null, fn: null };
+  function foGroupOf(playersPayload) {
+    if (__foGroupOf.src === playersPayload && __foGroupOf.fn) return __foGroupOf.fn;
+    var LN = window.UPS_FRONT_OFFICE_LINEUP, pos = {};
+    var list = (playersPayload && playersPayload.players && playersPayload.players.player) || [];
+    (Array.isArray(list) ? list : [list]).forEach(function (pl) { if (pl && pl.id) pos[String(pl.id)] = pl.position; });
+    __foGroupOf = { src: playersPayload, fn: function (pid) {
+      var g = LN ? LN.posGroup(safeStr(pos[pid]).toUpperCase()) : "";
+      return g && g !== "OTH" ? g : "";
+    } };
+    return __foGroupOf.fn;
   }
-  function foRankPendingNoteHtml(career) {
-    var lines = career.filter(function (c) { return c && c.rank_pending && c.rank_pending.fields; }).map(function (c) {
-      return escapeHtml(String(c.season)) + " " + c.rank_pending.fields.map(function (k) { return FO_RANK_PENDING_LABEL[k] || k; }).join(", ");
-    });
-    return lines.length ? '<p class="fo-form-note" style="margin-top:6px;">' + lines.join("; ") + ": " + FO_RANK_PENDING_NOTE + ".</p>" : "";
+  async function foSeasonFacts(p) {
+    var D = window.UPS_FO_DATA, F = window.UPS_PLAYER_FACTS;
+    if (!D || !F) return { basis: { ok: false, warn: true, text: "Points unavailable: the scoring module didn't load." }, line: null, ss: null, groupOf: null };
+    var r = await Promise.all([D.load("scores"), D.load("players")]);
+    var ss = r[0].state === "ok" ? r[0].data : null;
+    var groupOf = r[1].state === "ok" ? foGroupOf(r[1].data) : null;
+    return { ss: ss, groupOf: groupOf, basis: F.basis(ss),
+      line: ss && groupOf ? F.season(ss, p.id, groupOf, { last: 4 }) : null };
   }
-
-  function foStatHeadlineHtml(career, lev) {
-    var tot = { g: 0, pts: 0, apw: 0 };
-    var wcOk = false, bestYr = null, bestPts = -1, bestPPG = 0;
-    for (var i = 0; i < career.length; i++) {
-      var c = career[i];
-      var g = safeInt(c.games_played, 0);
-      var pts = Number(c.season_points) || 0;
-      var beta = (lev && lev[c.pos_group]) || 0;
-      tot.g += g; tot.pts += pts;
-      if (c.win_chunks != null && c.win_chunks > 0) { wcOk = true; tot.apw += c.win_chunks * beta; }
-      if (pts > bestPts) { bestPts = pts; bestYr = c.season; bestPPG = (c.avg_ppg != null ? c.avg_ppg : (g ? pts / g : 0)); }
+  // One card system for the whole tab: the metric large, a small rank under it ONLY when that rank is fully
+  // supported, and the label in a higher-contrast footer. title = the hover/long-press explanation.
+  function foMetricCard(label, value, rank, title) {
+    return '<div class="fo-mcard"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
+      '<div class="fo-mcard-val">' + escapeHtml(value) + "</div>" +
+      (rank ? '<div class="fo-mcard-rank">' + escapeHtml(rank) + "</div>" : "") +
+      '<div class="fo-mcard-lbl">' + escapeHtml(label) + "</div></div>";
+  }
+  // A short tappable control that opens the tab's notes at one line (no paragraph on the page).
+  function foNoteBtn(text, key, cls) {
+    return '<button type="button" class="fo-note-btn' + (cls ? " " + cls : "") + '" data-fo-note="' + escapeHtml(key) + '">' + escapeHtml(text) + "</button>";
+  }
+  function foStatsHtml(p, bundle, facts) {
+    var M = window.UPS_FO_MODAL;
+    if (!M) return '<div class="fo-form-note err">Stats unavailable: the player-facts module didn’t load.</div>';
+    var line = facts.line, yr = safeInt(SEASON, 0);
+    var cur = line ? Object.assign({}, line, { ptsRank: M.pointsRank(facts.ss, p.id, facts.groupOf) }) : null;
+    var career = (bundle && Array.isArray(bundle.career_summary)) ? bundle.career_summary : [];
+    var rows = M.seasonRows(career, cur, yr, (bundle && bundle.weekly_by_season) || {});
+    var sum = M.careerSummary(rows);
+    var g = line ? line.group : "";
+    var html = "";
+    // This season: Points · PPG · Last 4 (three matching cards). A rank shows only when MFL's scoring supports it.
+    if (line) {
+      html += '<div class="fo-stat-group"><h3>This season · ' + yr + '</h3><div class="fo-mcards">' +
+        foMetricCard("Points", M.fmt1(line.pts), cur.ptsRank ? "#" + cur.ptsRank.rank + " " + g : "",
+          "Points " + line.weeks + "; rank by total points among every player MFL scored at the position") +
+        foMetricCard("PPG", line.ppg != null ? M.fmt1(line.ppg) : "—", line.rank ? "#" + line.rank + " " + g : "",
+          "Points per MFL scored week (" + line.games + " MFL wk" + (line.games === 1 ? "" : "s") + "); a PPG rank needs half the final weeks") +
+        foMetricCard("Last 4 PPG", line.last && line.last.ppg != null ? M.fmt1(line.last.ppg) : "—", line.last && line.last.rank ? "#" + line.last.rank + " " + g : "",
+          "Final weeks only (" + ((line.last && line.last.weeks) || "none yet") + "), ranked among players with at least 2 of the 4") +
+        "</div></div>";
     }
-    var ppg = tot.g ? tot.pts / tot.g : 0;
-    var apwPerG = tot.g ? tot.apw / tot.g : 0;
-    function card(lbl, val, sub, title) {
-      return '<div class="fo-stat-card"' + (title ? ' title="' + escapeHtml(title) + '"' : "") + ">" +
-        '<span class="fo-stat-lbl">' + lbl + "</span>" +
-        '<span class="fo-stat-val">' + val + "</span>" +
-        '<span class="fo-stat-sub">' + sub + "</span></div>";
+    html += '<p class="fo-basis' + (facts.basis.warn ? " warn" : "") + '">' + escapeHtml(facts.basis.text) + "</p>";
+    if (!rows.length) {
+      return html + '<div class="fo-form-note">No UPS seasons for this player yet (or the history couldn’t load).</div>';
     }
-    return '<div class="fo-stat-cards">' +
-      card("Career Pts", foNumComma(tot.pts), tot.g + " MFL scored wks · " + career.length + " season" + (career.length === 1 ? "" : "s")) +
-      card("Career PPG", ppg.toFixed(1), "Per MFL scored week") +
-      card("Best Season", (bestYr || "—"), (bestPts >= 0 ? foNumComma(bestPts) + " pts · " + bestPPG.toFixed(1) + " PPG" : "")) +
-      card("Career APW", (wcOk ? tot.apw.toFixed(1) : "—"), (wcOk ? apwPerG.toFixed(2) + " / MFL wk" : "data pending"),
-           "Adjusted All-Play Wins — the all-play wins this player produced, weighted by how hard it is to win at the position.") +
+    // Career: Career points · Career PPG · Highest-scoring season (completed, non-partial seasons only).
+    html += '<div class="fo-stat-group"><h3>Career · ' + sum.first + (sum.last !== sum.first ? "–" + sum.last : "") + "</h3><div class=\"fo-mcards\">" +
+      foMetricCard("Career points", M.comma1(sum.pts), "", sum.games + " MFL wks" + (line ? "" : "; " + yr + " not included")) +
+      foMetricCard("Career PPG", sum.ppg != null ? M.fmt1(sum.ppg) : "—", "", "Career points ÷ " + sum.games + " MFL wks") +
+      foMetricCard("Highest-scoring season", sum.best ? M.comma1(sum.best.pts) : "—", sum.best ? String(sum.best.season) : "",
+        "Most total points in a completed season; partial seasons and " + yr + " aren’t compared") +
+      "</div>" + (sum.partialSeasons ? '<div class="fo-stat-foot">' + foNoteBtn("Includes " + sum.partialSeasons + " partial season" + (sum.partialSeasons === 1 ? "" : "s") + " †", "partial") + "</div>" : "") +
       "</div>";
-  }
-
-  function foStatSeasonTableHtml(career, lev) {
-    var tot = { g: 0, pts: 0, apw: 0, el_num: 0, el_den: 0 };
-    var wcOk = false;
-    var rows = career.map(function (c) {
-      var beta = (lev && lev[c.pos_group]) || 0;
-      var apw = (c.win_chunks || 0) * beta;
-      var g = safeInt(c.games_played, 0);
-      tot.g += g; tot.pts += (Number(c.season_points) || 0); tot.apw += apw;
-      if (c.elite_pct != null) { tot.el_num += c.elite_pct * g; tot.el_den += g; }
-      if (c.win_chunks != null && c.win_chunks > 0) wcOk = true;
-      var apwCell = (c.win_chunks != null && c.win_chunks > 0)
-        ? "<strong>" + apw.toFixed(1) + "</strong>"
-        : '<span style="color:var(--muted);">—</span>';
-      return "<tr>" +
-        "<td>" + escapeHtml(String(c.season)) + "</td>" +
-        '<td class="num">' + g + "</td>" +
-        '<td class="num">' + (c.season_points != null ? Number(c.season_points).toFixed(0) : "—") + "</td>" +
-        '<td class="num" style="color:var(--muted);"' + foRankPendingAttr(c, "pos_rank") + ">" + foStatRank(c.pos_rank) + "</td>" +
-        '<td class="num">' + (c.avg_ppg != null ? Number(c.avg_ppg).toFixed(1) : "—") + "</td>" +
-        '<td class="num" style="color:var(--muted);"' + foRankPendingAttr(c, "pos_ppg_rank") + ">" + foStatRank(c.pos_ppg_rank) + "</td>" +
-        '<td class="num" style="color:var(--ok);">' + (c.elite_pct != null ? Number(c.elite_pct).toFixed(0) + "%" : "—") + "</td>" +
-        '<td class="num">' + apwCell + "</td>" +
-        "</tr>";
+    // Season table: 2026 first, every known total visible; Partial and —† open the notes.
+    var noted = rows.filter(function (r) { return r.notes && r.notes.length; });
+    var body = rows.map(function (r) {
+      var key = String(r.season), dag = r.notes && r.notes.length ? foNoteBtn("†", key, "fo-dag") : "";
+      return "<tr" + (r.current ? ' class="fo-ch-current"' : "") + ">" +
+        "<td>" + r.season + (r.current ? ' <span class="fo-ch-now" title="This season, from MFL">now</span>' : "") +
+          (r.partial ? " " + foNoteBtn("Partial", key, "fo-partial") : "") + "</td>" +
+        '<td class="num">' + r.games + "</td>" +
+        '<td class="num">' + M.fmt1(r.pts) + "</td>" +
+        '<td class="num" style="color:var(--muted);">' + (r.ptsRank ? "#" + r.ptsRank : "—" + dag) + "</td>" +
+        '<td class="num">' + (r.ppg != null ? M.fmt1(r.ppg) : "—") + "</td>" +
+        '<td class="num" style="color:var(--muted);">' + (r.ppgRank ? "#" + r.ppgRank : "—" + dag) + "</td></tr>";
     }).join("");
-    var ppg = tot.g ? tot.pts / tot.g : 0;
-    var el = tot.el_den ? tot.el_num / tot.el_den : 0;
-    return '<div style="overflow-x:auto;">' +
-      '<table class="fo-table"><thead><tr>' +
-      "<th>Yr</th><th class=\"num\" title=\"MFL scored weeks: weeks MFL posted a score for this player, 0.0 included. Not NFL games played.\">MFL Wks</th><th class=\"num\">Pts</th>" +
+    var gaps = rows.some(function (r) { return r.partial; });
+    return html +
+      '<div style="overflow-x:auto;"><table class="fo-table fo-stat-table"><thead><tr>' +
+      '<th>Yr</th><th class="num" title="MFL scored weeks: weeks MFL posted a score for this player, 0.0 included. Not NFL games played.">MFL Wks</th><th class="num">Pts</th>' +
       '<th class="num" title="Positional rank by total points">Pts Rk</th>' +
-      '<th class="num" title="Points per MFL scored week, the same average MFL reports">PPG</th><th class="num" title="Positional rank by PPG">PPG Rk</th>' +
-      '<th class="num" title="Elite weeks (z ≥ 1.0) %">Elite%</th>' +
-      '<th class="num" title="Adjusted All-Play Wins — all-play wins produced, weighted by positional difficulty">APW</th>' +
-      "</tr></thead><tbody>" + rows +
-      '<tr class="fo-stat-career"><td><strong>Career</strong></td>' +
-      '<td class="num">' + tot.g + "</td>" +
-      '<td class="num">' + tot.pts.toFixed(0) + "</td>" +
-      '<td class="num" style="color:var(--muted);">—</td>' +
-      '<td class="num">' + ppg.toFixed(1) + "</td>" +
-      '<td class="num" style="color:var(--muted);">—</td>' +
-      '<td class="num" style="color:var(--ok);">' + el.toFixed(0) + "%</td>" +
-      '<td class="num">' + (wcOk ? tot.apw.toFixed(1) : '<span style="color:var(--muted);">—</span>') + "</td>" +
-      "</tr></tbody></table></div>" +
-      foRankPendingNoteHtml(career) +
-      (wcOk ? "" : '<p class="fo-form-note" style="margin-top:6px;">APW shows "—" when it isn\'t available for that season.</p>');
+      '<th class="num" title="Points per MFL scored week">PPG</th><th class="num" title="Positional rank by PPG; needs half the season’s weeks">PPG Rk</th>' +
+      "</tr></thead><tbody>" + body +
+      '<tr class="fo-stat-career"><td><strong>Career</strong></td><td class="num">' + sum.games + '</td><td class="num">' + M.comma1(sum.pts) +
+      '</td><td class="num">—</td><td class="num">' + (sum.ppg != null ? M.fmt1(sum.ppg) : "—") + '</td><td class="num">—</td></tr>' +
+      "</tbody></table></div>" +
+      (noted.length ? '<details class="fo-stat-why" id="fo-stat-notes"><summary>† Notes (' + noted.length + ")</summary><ul>" +
+        noted.map(function (r) { return '<li data-fo-note-row="' + r.season + '"><strong>' + r.season + "</strong>: " + r.notes.map(escapeHtml).join(" ") + "</li>"; }).join("") +
+        (gaps ? '<li data-fo-note-row="partial">Partial seasons count toward career totals but aren’t used for the highest-scoring season or any rank.</li>' : "") +
+        "</ul></details>" : "") +
+      '<details class="fo-stat-why"><summary>How these numbers are built</summary><p>' + (line ? yr + ": MFL’s own scoring, the same numbers as the phone. " : "") +
+        "Earlier seasons: the league database. Points are MFL’s scores under each season’s own scoring rules, not today’s; the rules changed in several seasons (2012, 2016, 2018 and 2025 among them), so eras aren’t directly comparable. Points and PPG round half-up to one decimal." +
+        "</p></details>";
+  }
+  // Tapping "Partial", "†" or the partial-seasons line opens the notes at that season.
+  function foWireStatNotes(root) {
+    $$("[data-fo-note]", root).forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var d = root.querySelector("#fo-stat-notes");
+        if (!d) return;
+        d.open = true;
+        var key = btn.getAttribute("data-fo-note");
+        $$("[data-fo-note-row]", d).forEach(function (li) { li.classList.toggle("on", li.getAttribute("data-fo-note-row") === key); });
+        var li = d.querySelector('[data-fo-note-row="' + key + '"]') || d;
+        if (li.scrollIntoView) li.scrollIntoView({ block: "nearest" });
+      });
+    });
   }
 
   async function renderStatsTab(p) {
     var body = $("#fo-slideover-body");
     if (!body) return;
     body.innerHTML = '<div class="fo-form-note">Loading stats…</div>';
-    var bundle = await loadPlayerBundle(p.id);
+    var got = await Promise.all([loadPlayerBundle(p.id), foSeasonFacts(p)]);
+    var bundle = got[0], facts = got[1];
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "stats") return; // user moved on
-    var career = (bundle && Array.isArray(bundle.career_summary)) ? bundle.career_summary.slice() : [];
-    if (!career.length) {
-      body.innerHTML = '<div class="fo-form-note">No scoring history in the bundle for this player (rookie / pre-NFL, or load failed).</div>';
-      return;
-    }
-    career.sort(function (a, b) { return safeInt(b.season, 0) - safeInt(a.season, 0); });
-    var lev = (bundle && bundle.leverage_coefs) || {};
-    body.innerHTML =
-      '<div class="fo-card-head"><h2 style="margin:0;">Scoring — Career &amp; Season Splits</h2></div>' +
-      foStatHeadlineHtml(career, lev) +
-      foStatSeasonTableHtml(career, lev);
+    body.innerHTML = foStatsHtml(p, bundle, facts);
+    foWireStatNotes(body);
   }
 
-  // ── Game Log sub-tab inside slide-over ──────────────────────────────
-  // Mirrors the master modal's Scoring (MFL) game log: a season dropdown
-  // over a full-season week-by-week table (1..maxWeek) with playoff weeks
-  // tagged "P" + tinted, per-week tier badges, z-score, MFL start status,
-  // rostered team + positional rank. Source: bundle.weekly_by_season
-  // (D1 src_weekly + baselines). Playoff weeks (W15-17 for 2021+, W14-16
-  // earlier) render blank until the src_weekly playoff backfill lands.
-  function foGlTierClass(t) {
-    return t === "Elite" ? "elite" : t === "Plus" ? "plus" : t === "Neutral" ? "neutral" : t === "Dud" ? "dud" : "";
-  }
-  function foGameLogScoringHtml(seasonVal, bundle) {
-    var weeks = ((bundle && bundle.weekly_by_season) || {})[seasonVal] || [];
-    if (!weeks.length) return '<p class="fo-form-note">No MFL weekly data for ' + escapeHtml(String(seasonVal)) + ".</p>";
-    var yr = parseInt(seasonVal, 10);
-    var defaultMax = (yr >= 2021) ? 17 : 16;       // 2021+: W1-14 reg, W15-17 PO; earlier: W1-13 reg, W14-16 PO
-    var regSeasonWeeks = (yr >= 2021) ? 14 : 13;
-    var sorted = weeks.slice().sort(function (a, b) { return a.week - b.week; });
-    var dataMax = sorted.reduce(function (m, w) { return w.week > m ? w.week : m; }, 0);
-    var maxWeek = Math.max(defaultMax, dataMax);
-    var byWeek = {}; sorted.forEach(function (w) { byWeek[w.week] = w; });
-    var starts = 0, elite = 0, plus = 0, dud = 0, pts = 0;
-    sorted.forEach(function (w) {
-      if (w.status === "starter") starts++;
-      if (w.week_tier === "Elite") elite++;
-      if (w.week_tier === "Plus") plus++;
-      if (w.week_tier === "Dud") dud++;
-      pts += (Number(w.score) || 0);
-    });
-    var tot = sorted.length || 1;
-    var rows = [];
-    for (var wkN = 1; wkN <= maxWeek; wkN++) {
-      var w = byWeek[wkN];
-      var isPo = w ? (w.is_reg === 0) : (wkN > regSeasonWeeks);
-      var ptag = isPo ? ' <span class="fo-gl-ptag" title="Playoffs">P</span>' : "";
-      var cls = isPo ? ' class="fo-gl-po"' : "";
-      if (w) {
-        var tier = w.week_tier ? '<span class="fo-tier ' + foGlTierClass(w.week_tier) + '">' + escapeHtml(w.week_tier) + "</span>" : "—";
-        rows.push("<tr" + cls + ">" +
-          '<td class="num">' + w.week + ptag + "</td>" +
-          '<td class="num">' + (w.score != null ? Number(w.score).toFixed(1) : "—") + "</td>" +
-          '<td class="num">' + (w.z_score != null ? (w.z_score > 0 ? "+" : "") + Number(w.z_score).toFixed(2) : "—") + "</td>" +
-          "<td>" + tier + "</td>" +
-          "<td>" + escapeHtml(w.status || "") + "</td>" +
-          '<td class="small">' + escapeHtml(w.roster_franchise_name || "") + "</td>" +
-          '<td class="num">' + (w.pos_rank || "—") + "</td></tr>");
-      } else {
-        rows.push("<tr" + cls + ' style="color:var(--muted);">' +
-          '<td class="num">' + wkN + ptag + "</td>" +
-          '<td class="num">—</td><td class="num">—</td><td>—</td><td>—</td><td class="small">—</td><td class="num">—</td></tr>');
-      }
+  // ── Game Log sub-tab inside slide-over (#1338 Phase 1) ──────────────
+  // ONE structure for every season, the phone sheet's reading of a week:
+  // Wk (P = UPS playoff week) · Pts, or why there is none (BYE / DNP / not
+  // played yet / no MFL score / not loaded / unknown) · Pos Rk · UPS status ·
+  // Team, newest week first. The current season's points and ranks are MFL's
+  // own (W=ALL); earlier seasons are the league database's copy of MFL's
+  // scores. Gaps in the database are said out loud per season, never shown as
+  // blank weeks or "Free agent" (UPS_FO_MODAL.gameLog).
+  function foGameLogHtml(p, season, bundle, facts, byes) {
+    var M = window.UPS_FO_MODAL;
+    if (!M) return '<div class="fo-form-note err">Game log unavailable: the player-facts module didn’t load.</div>';
+    var cur = String(safeInt(SEASON, 0)), isCur = String(season) === cur;
+    var wbs = (bundle && bundle.weekly_by_season) || {};
+    var team = safeStr(p.nflTeam).toUpperCase();
+    // An earlier season MFL's own season summary confirms (same total, same weeks) is complete: its missing
+    // playoff weeks had no MFL score. The Stats tab's rows decide this the same way.
+    var srow = isCur ? null : M.seasonRows((bundle && bundle.career_summary) || [], null, SEASON, wbs).filter(function (r) { return String(r.season) === String(season); })[0];
+    var log = M.gameLog({ season: season, current: isCur, ss: facts && facts.ss, pid: p.id, groupOf: facts && facts.groupOf,
+      dbWeeks: wbs[String(season)] || [], byeWeek: isCur && byes ? safeInt(byes[team], 0) : 0, complete: !!(srow && srow.complete) });
+    var head = isCur ? '<p class="fo-basis' + (facts && facts.basis.warn ? " warn" : "") + '">' + escapeHtml(facts ? facts.basis.text : "") + "</p>" : "";
+    if (log.failed || !log.rows.length) {
+      return head + '<p class="fo-form-note' + (log.failed ? " err" : "") + '">' + escapeHtml(log.coverage[0] || ("No MFL weeks for " + season + ".")) + "</p>";
     }
-    return '<div class="fo-form-note" style="margin-bottom:8px;">' +
-      tot + " games · " + starts + " starts · " + pts.toFixed(1) + " pts (" + (pts / tot).toFixed(1) + " ppg) · " +
-      "Elite " + elite + " · Plus " + plus + " · Dud " + dud + "</div>" +
-      '<div style="overflow-x:auto;"><table class="fo-table"><thead><tr>' +
-      '<th class="num">Wk</th><th class="num">Pts</th><th class="num">z</th><th>Tier</th><th>Status</th><th>Team</th><th class="num">Pos Rk</th>' +
-      "</tr></thead><tbody>" + rows.join("") + "</tbody></table></div>";
+    var rows = log.rows.map(function (r) {
+      var pts = r.pts != null ? M.fmt1(r.pts) + (r.label ? ' <span class="small" style="color:var(--warn);">' + escapeHtml(r.label) + "</span>" : "")
+        : '<span class="small" style="color:var(--muted);">' + escapeHtml(r.label || "—") + "</span>";
+      return "<tr" + (r.playoff ? ' class="fo-gl-po"' : "") + ">" +
+        '<td class="num">' + r.week + (r.playoff ? ' <span class="fo-gl-ptag" title="UPS playoff week">P</span>' : "") + "</td>" +
+        '<td class="num">' + pts + "</td>" +
+        '<td class="num">' + (r.posRank ? r.posRank : "—") + "</td>" +
+        "<td>" + escapeHtml(r.status) + "</td>" +
+        '<td class="small">' + escapeHtml(r.team) + "</td></tr>";
+    }).join("");
+    var partialNote = log.coverage.length
+      ? '<details class="fo-gl-partial"><summary>Partial data</summary><ul>' + log.coverage.map(function (c) { return "<li>" + escapeHtml(c) + "</li>"; }).join("") + "</ul></details>"
+      : "";
+    return head +
+      '<div class="fo-form-note fo-gl-sum">' + season + ": " + log.games + " MFL wk" + (log.games === 1 ? "" : "s") + " · " +
+        M.fmt1(log.pts) + " pts · " + (log.ppg != null ? M.fmt1(log.ppg) : "—") + " PPG" + (srow && srow.partial ? ' <span class="fo-partial-tag">Partial</span>' : "") + "</div>" + partialNote +
+      '<div style="overflow-x:auto;"><table class="fo-table fo-gl-table"><thead><tr>' +
+      '<th class="num">Wk</th><th class="num">Pts</th><th class="num" title="Rank that week among every player MFL scored at the position">Pos Rk</th><th>UPS status</th><th>Team</th>' +
+      "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
+      '<p class="fo-basis"><span class="fo-gl-ptag">P</span> = UPS playoff week (Wks ' + (M.upsWeeks(season).reg + 1) + "–" + M.upsWeeks(season).last + ").</p>";
+  }
+  async function foByeWeeks() {
+    var D = window.UPS_FO_DATA;
+    if (!D) return null;
+    var r = await D.load("byes");
+    if (r.state !== "ok") return null;
+    var m = {}, list = (r.data && r.data.nflByeWeeks && r.data.nflByeWeeks.team) || [];
+    (Array.isArray(list) ? list : [list]).forEach(function (t) { if (t && t.id) m[String(t.id).toUpperCase()] = safeInt(t.bye_week, 0); });
+    return m;
   }
   async function renderGameLogTab(p) {
     var body = $("#fo-slideover-body");
     if (!body) return;
     body.innerHTML = '<div class="fo-form-note">Loading game log…</div>';
-    var bundle = await loadPlayerBundle(p.id);
+    var got = await Promise.all([loadPlayerBundle(p.id), foSeasonFacts(p), foByeWeeks()]);
+    var bundle = got[0], facts = got[1], byes = got[2];
     if (!body || STATE.slideoverPid !== p.id || STATE.slideoverSubtab !== "gamelog") return; // user moved on
     var wbs = (bundle && bundle.weekly_by_season) || {};
-    var seasons = Object.keys(wbs).sort(function (a, b) { return Number(b) - Number(a); });
-    if (!seasons.length) {
-      body.innerHTML = '<div class="fo-form-note">No weekly scoring data in the bundle for this player.</div>';
-      return;
-    }
+    var cur = String(safeInt(SEASON, 0));
+    var seasons = [cur].concat(Object.keys(wbs).filter(function (s) { return s !== cur; }).sort(function (a, b) { return Number(b) - Number(a); }));
     var opts = seasons.map(function (s) { return '<option value="' + s + '">' + s + "</option>"; }).join("");
     body.innerHTML =
       '<div class="fo-card-head" style="align-items:center;"><h2 style="margin:0;">Game Log</h2>' +
       '<label class="small" style="color:var(--muted); margin-left:auto;">Season ' +
       '<select id="fo-gl-season" style="margin-left:4px; background:var(--panel-alt); color:var(--text); border:1px solid var(--border); border-radius:4px; padding:3px 6px;">' +
       opts + "</select></label></div>" +
-      '<div id="fo-gl-body">' + foGameLogScoringHtml(seasons[0], bundle) + "</div>" +
-      '<div class="fo-form-note" style="margin-top:8px;">' +
-      '<strong>Z</strong> = standard deviations above (+) or below (−) the average starter at the position that week (0 = average). ' +
-      'Tiers: <strong>Elite</strong> Z ≥ 1.0 · <strong>Plus</strong> 0.25–1.0 · <strong>Neutral</strong> −0.5–0.25 · <strong>Dud</strong> below −0.5. ' +
-      '<span class="fo-gl-ptag">P</span> = playoff week.</div>';
+      '<div id="fo-gl-body">' + foGameLogHtml(p, seasons[0], bundle, facts, byes) + "</div>";
     var sel = body.querySelector("#fo-gl-season");
     if (sel) sel.addEventListener("change", function () {
       var b2 = document.querySelector("#fo-gl-body");
-      if (b2) b2.innerHTML = foGameLogScoringHtml(sel.value, bundle);
+      if (b2) b2.innerHTML = foGameLogHtml(p, sel.value, bundle, facts, byes);
     });
   }
 
@@ -4728,7 +4837,8 @@
   // acq[0] (which was the oldest, e.g. showing a 2023 rookie draft instead of a
   // 2026 ERA auction win).
   function foMostRecentAcq(events) {
-    var acq = (events || []).filter(function (e) { return ["auction", "add", "trade", "draft"].indexOf(e.kind) >= 0; });
+    // An unverified acquisition (an MFL auction lot MFL's completed results don't list) is never "Last Acquired".
+    var acq = (events || []).filter(function (e) { return ["auction", "add", "trade", "draft"].indexOf(e.kind) >= 0 && !e.unresolved; });
     if (!acq.length) return "";
     acq.sort(function (a, b) {
       var ta = Number(a.ts) || 0, tb = Number(b.ts) || 0;
@@ -4813,7 +4923,14 @@
     if (c.confidence === "derived") s += ' <span class="fo-lowconf" title="Low-confidence — derived/inferred (verify)">~</span>';
     return s;
   }
+  // An event whose contract the worker couldn't tie to it (#1338): say so, never borrow another event's terms.
+  function foUnresolvedHtml(text, why) {
+    return '<span class="fo-unres" title="' + escapeHtml(why || "") + '">' + escapeHtml(text) + "</span>";
+  }
   function foTxnDetail(e) {
+    if (e.kind === "contract" && !e.contract && e.contract_unresolved) {
+      return foUnresolvedHtml("Unresolved — no contract record for this event", e.contract_unresolved);
+    }
     if (e.kind === "trade") {
       // Prefer the curated HISTORICAL from-name; franchiseNameByFid resolves the
       // CURRENT (2026) owner, which is wrong for old trades (F0005 is "HammerTime"
@@ -4823,6 +4940,7 @@
     }
     if (e.kind === "draft") return escapeHtml(e.detail || "");
     var cs = foContractSummary(e.contract);
+    if (!cs && e.contract_unresolved && e.kind === "tag") cs = foUnresolvedHtml("contract unresolved", e.contract_unresolved);
     // Auction/waiver carry a $ price in detail — show it alongside the contract.
     if (e.detail && cs) return escapeHtml(e.detail) + " · " + cs;
     return cs || escapeHtml(e.detail || "");
@@ -4847,10 +4965,10 @@
     // distinct handout date, so the Contract shares the acquisition date.
     var expanded = [];
     events.forEach(function (e) {
-      if ((e.kind === "auction" || e.kind === "add") && e.contract) {
+      if ((e.kind === "auction" || e.kind === "add") && (e.contract || e.contract_unresolved)) {
         var acq = {}, con = {}, k;
         for (k in e) { acq[k] = e[k]; con[k] = e[k]; }
-        acq.contract = null; acq._sub = 0;
+        acq.contract = null; acq.contract_unresolved = null; acq._sub = 0; con.unresolved = null;
         con.kind = "contract"; con.label = "Contract"; con.detail = ""; con.from_franchise_id = null; con._sub = 1;
         expanded.push(acq, con);
       } else { e._sub = 0; expanded.push(e); }
@@ -4875,7 +4993,8 @@
       return "<tr>" +
         '<td class="small" style="color:var(--muted);">' + (e.seq || "") + "</td>" +
         '<td class="small" style="white-space:nowrap;">' + dateStr + "</td>" +
-        "<td>" + '<span class="fo-txn ' + foTxnKindClass(e.kind) + '">' + escapeHtml(e.label || e.kind) + "</span></td>" +
+        "<td>" + '<span class="fo-txn ' + foTxnKindClass(e.kind) + '">' + escapeHtml(e.label || e.kind) + "</span>" +
+          (e.unresolved ? " " + foUnresolvedHtml("Unverified", e.unresolved) : "") + "</td>" +
         "<td>" + foTxnDetail(e) + info + "</td>" +
         '<td class="small">' + team + "</td>" +
         "</tr>";
@@ -4983,6 +5102,15 @@
   // the rest entirely. Tag is owned by the Tagging tab — only Untag
   // belongs in this modal (and only when currently tagged).
   function renderActionsTab(p) {
+    // Another team's player: no contract or roster actions (the phone sheet's
+    // rule, #1338). The worker re-checks every write anyway; the panel should
+    // not offer a button the viewer can't use. The commissioner keeps them.
+    const viewerFid = pad4((STATE.me && STATE.me.franchise_id) || "");
+    if (viewerFid && !(STATE.me && STATE.me.isAdmin) && pad4(p.fid) !== viewerFid) {
+      return '<div class="fo-form-note">' + escapeHtml(p.franchise || "Another team") + "’s player: contract and roster actions are for that team’s owner.</div>" +
+        actionRow("Trade", "Open the Trade War Room with this player.",
+          `<button class="btn small" data-action="trade" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">Open in Trade War Room</button>`);
+    }
     const elig = rosterContractEligibility(p);
     // Worker fields first; client-side §C4.6 synthesis as fallback.
     // Keith 2026-05-19 checkpoint 2: MHJ-class players where worker
@@ -5019,8 +5147,9 @@
       ];
       const dlNote = STATE.contractDeadline ? " Window closes " + escapeHtml(STATE.contractDeadline) + "." : "";
       rows.push(actionRow("Multi-Year Contract (MYAC)",
-        "Set this 1-yr deal to a 2- or 3-year contract (§C2) at the SAME salary (TCV = salary × years — no raise). <strong>Loaded</strong> free-keys Y1 in whole $1,000s (FL/BL; Y1 ≥ 20% TCV). Records as " + recAs + acqNote + ". Max " + LOADED_MAX + " loaded contracts per roster." + dlNote,
-        mbtns.join(" ") || '<span class="small" style="color:var(--muted);">No multi-year option computed.</span>'));
+        "Make this 1-year deal 2 or 3 years at the same salary." + dlNote,
+        mbtns.join(" ") || '<span class="small" style="color:var(--muted);">No multi-year option computed.</span>',
+        "§C2. Total = salary × years (no raise). <strong>Loaded</strong> sets each year in whole $1,000s (FL/BL; Year 1 at least 20% of the total). Records as " + escapeHtml(recAs) + escapeHtml(acqNote) + ". At most " + LOADED_MAX + " loaded contracts per roster."));
     }
 
     // §C3 MYM — an in-season WW/FCFS pickup converts to a FLAT 2- or 3-year deal
@@ -5040,44 +5169,48 @@
         `<button class="btn small" data-action="mym" data-total="3">3-Year</button>`
       ];
       rows.push(actionRow("Mid-Year Multi (MYM)" + testNote,
-        "Convert this in-season pickup to a <strong>flat</strong> 2- or 3-year contract at the SAME salary (TCV = salary × years — no raise, cannot be loaded; §C3). Max 4 MYMs per team per season."
-          + dayNote + (isTestRow ? " <em>Test mode: submits a dry run.</em>" : ""),
-        mbtns.join(" ")));
+        "Make this pickup a flat 2- or 3-year deal." + dayNote + (isTestRow ? " <em>Test mode: dry run.</em>" : ""),
+        mbtns.join(" "),
+        "§C3. Same salary every year (no raise, can’t be loaded), within 14 days of the pickup. At most 4 per team per season."));
     }
 
     const extBlocked = extensionBlockedByCurrentOwner(p);
     if (elig.extensionEligible && extBlocked) {
       // Blocked path — show ONLY the blocked row, not the buttons
       // (Keith 2026-05-19: don't render Ext row if blocked).
-      rows.push(actionRow("Extension — blocked",
-        "RULE-EXT-003: this franchise has already extended this player. Only a different franchise can extend again.",
-        `<button class="btn small secondary" disabled>Blocked</button>`));
+      rows.push(actionRow("Extension",
+        "This team already extended this player.",
+        `<button class="btn small secondary" disabled title="RULE-EXT-003: only a different team can extend again.">Extend</button>`,
+        "RULE-EXT-003: a team extends a player once; only a different team can extend again."));
     } else if (elig.extensionEligible) {
       const btns = [];
       if (has1) btns.push(`<button class="btn small" data-action="extend" data-years="1">+1Y</button>`);
       if (has2) btns.push(`<button class="btn small" data-action="extend" data-years="2">+2Y Flat</button>`);
       if (has2) btns.push(`<button class="btn small" data-action="extend-loaded" data-years="2">+2Y Loaded…</button>`);
-      const help = "Extend the contract by 1 or 2 years (§C4). <strong>Loaded</strong> lets you split Y2/Y3 yourself (FL/BL); Y1 stays at current salary."
-        + (synthesized ? " <em>Preview synthesized client-side per §C4.6 escalator.</em>" : "");
-      rows.push(actionRow("Extension", help, btns.join(" ")));
+      rows.push(actionRow("Extension", "Add 1 or 2 years.", btns.join(" "),
+        "§C4. <strong>Loaded</strong> lets you split Y2/Y3 (FL/BL); this season stays at the current salary." +
+        (synthesized ? " <em>Terms computed here from the §C4.6 escalator.</em>" : "")));
     }
 
     if (elig.rookieOptionEligible) {
-      rows.push(actionRow("Rookie Option (4th-yr)",
-        "Exercise Y3 + $5K option on Round 1 rookie (§C6).",
-        `<button class="btn small" data-action="rookie-option">Exercise</button>`));
+      rows.push(actionRow("Rookie Option",
+        "Add the option year at the current salary + $5K.",
+        `<button class="btn small" data-action="rookie-option">Exercise</button>`,
+        "§C6. Round 1 rookie contracts."));
     }
 
     if (elig.restructureEligible) {
       rows.push(actionRow("Restructure",
-        "Veteran multi-year only — spread Y1 over Y2-3 (offseason, max 3/season, Y1 ≥ 20% TCV; §C5).",
-        `<button class="btn small" data-action="restructure">Open form</button>`));
+        "Re-spread the salary across the contract years.",
+        `<button class="btn small" data-action="restructure">Open form</button>`,
+        "§C5. Veteran multi-year contracts, offseason only, at most 3 per season; Year 1 at least 20% of the total."));
     }
 
     if (elig.untagEligible) {
       rows.push(actionRow("Untag",
-        "Revert tag and restore prior contract (§C8.2).",
-        `<button class="btn small warn" data-action="untag">Untag</button>`));
+        "Undo the tag and restore the prior contract.",
+        `<button class="btn small warn" data-action="untag">Untag</button>`,
+        "§C8.2. The player then leaves the roster."));
     }
 
     // Roster moves — only show the ones that apply to current state.
@@ -5086,7 +5219,8 @@
     if (p.isTaxi) moveBtns.push(`<button class="btn small" data-action="promote-taxi">Promote Taxi</button>`);
     // Move to Taxi: a taxi-eligible active rookie (§B2 — UPS R2-5, within the
     // 3-league-year window, not yet permanently promoted) can be demoted to taxi.
-    if (p.taxiEligible && !p.isTaxi && !p.isIr && !p.taxiPermanentPromotion) {
+    // Demote follows the ONE taxi verdict (canon §B2 / T2.4: allowed after each of the 3 temporary call-ups).
+    if (p.taxiStatus ? p.taxiStatus.can_demote === true : (p.taxiEligible && !p.isTaxi && !p.isIr && !p.taxiPermanentPromotion)) {
       moveBtns.push(`<button class="btn small" data-action="demote-taxi">Move to Taxi</button>`);
     }
     // Place on IR (§B3) — the inverse of Activate IR. Offered only to a player
@@ -5103,7 +5237,7 @@
     // never gave — enabled-and-confident invents a "yes", disabled invents a
     // "no", and the disabled one is worse because it silently removes a legal
     // move with no way for the owner to tell why.
-    let irHelpNote = "";
+    let irWhy = "";
     if (!p.isIr && !p.isTaxi) {
       const irElig = foIrEligibility(p.id);
       if (irElig.state === "ineligible") {
@@ -5111,13 +5245,10 @@
         // The server would refuse this exact submit, so don't offer it as live.
         const irTip = escapeHtml(irElig.why + " " + IR_ELIGIBLE_DESIGNATIONS_NOTE);
         moveBtns.push(`<button class="btn small" data-action="deactivate-ir" disabled title="${irTip}">Place on IR</button>`);
-        irHelpNote = ' <strong>Place on IR</strong> is disabled — no IR-eligible NFL designation. ' +
-          escapeHtml(irElig.why + " " + IR_ELIGIBLE_DESIGNATIONS_NOTE);
+        irWhy = foWhyHtml("Why is Place on IR off?", irElig.why + " " + IR_ELIGIBLE_DESIGNATIONS_NOTE);
       } else if (irElig.state === "eligible") {
         const irTip = escapeHtml('MFL lists "' + irElig.designation + '" — IR-eligible.');
         moveBtns.push(`<button class="btn small" data-action="deactivate-ir" title="${irTip}">Place on IR</button>`);
-        irHelpNote = ' <strong>Place on IR</strong> — MFL lists "' + escapeHtml(irElig.designation) +
-          '", an IR-eligible designation (§B3). 50% cap relief; off the active roster max; reversible via IR Activate.';
       } else {
         // UNKNOWN. Enabled, and labelled as unverified — the server is the
         // real gate and refuses without writing anything if the player does
@@ -5125,24 +5256,28 @@
         // said; silently enabling with a confident label would invent a "yes".
         const irTip = escapeHtml(irElig.why + " Eligibility will be verified by the server on submit.");
         moveBtns.push(`<button class="btn small" data-action="deactivate-ir" title="${irTip}">Place on IR *</button>`);
-        irHelpNote = ' <strong>Place on IR *</strong> — eligibility <em>not verified here</em>: ' +
-          escapeHtml(irElig.why) + " The server checks §B3 on submit and refuses without writing anything if the player doesn't qualify.";
+        irWhy = foWhyHtml("* IR eligibility not verified", irElig.why + " The server checks §B3 on submit and writes nothing if the player doesn’t qualify.");
       }
     }
     // Drop is available on ANY rostered player incl taxi (Keith 2026-06-02) —
     // a taxi/§D2-exempt drop just carries a $0 penalty, which the label shows.
+    let dropLine = "";
     if (!p.isIr) {
-      moveBtns.push(`<button class="btn small warn" data-action="drop">Drop (pen ${fmtUSD(dropPenaltyEstimate(p).amount)})</button>`);
+      const pen = dropPenaltyEstimate(p);
+      moveBtns.push(`<button class="btn small warn" data-action="drop">Drop</button>`);
+      dropLine = "Drop penalty " + (Number.isFinite(Number(pen.amount)) ? fmtUSD(pen.amount) : "not priced") +
+        (dropPenaltyLandsNextSeason() ? " (next season’s cap)." : ".");
     }
     if (moveBtns.length) {
       rows.push(actionRow("Roster Move",
-        "Drop fires §D1 cap penalty. IR Activate / Taxi Promote are owner-confirmed." + irHelpNote,
-        moveBtns.join(" ")));
+        (dropLine || "Each move asks you to confirm first.") + irWhy,
+        moveBtns.join(" "),
+        "Each move shows its roster and cap effect and asks you to confirm. IR: 50% cap relief, off the active limits (§B3). Taxi: off the cap; each completed active week uses one of 3 call-ups, and a 4th makes the promotion permanent (§B2). Drop: §D1 penalty."));
     }
 
     rows.push(actionRow("Trade",
-      "Hand off to Trade Hub (no direct submit from FO).",
-      `<button class="btn small" data-action="trade" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">Open in Trade Hub</button>`));
+      "Open the Trade War Room with this player.",
+      `<button class="btn small" data-action="trade" data-pid="${escapeHtml(p.id)}" data-fid="${escapeHtml(p.fid)}">Open in Trade War Room</button>`));
 
     if (!rows.length) {
       return '<div class="fo-form-note">No contract actions are currently available for this player.</div>';
@@ -5150,56 +5285,114 @@
     return rows.join("");
   }
 
-  function actionRow(label, help, ctrlHtml) {
-    // help may include trusted inline markup (e.g. <em>) and is NOT escaped
-    // here. Most callers pass a static string, but the §B3 "Place on IR" note
-    // interpolates MFL-derived text (the player's NFL designation, and the
-    // reason text built from it) — those are escapeHtml'd AT THE CALL SITE.
-    // Any new caller that interpolates non-static data must do the same.
+  // One action: label, ONE short line, the buttons; the rules sit behind a
+  // "Rules" disclosure instead of a paragraph (#1338 Phase 1).
+  function actionRow(label, help, ctrlHtml, rulesHtml) {
+    // help / rulesHtml may include trusted inline markup (e.g. <em>) and are NOT
+    // escaped here. MFL-derived text (the §B3 "Place on IR" reason) is
+    // escapeHtml'd AT THE CALL SITE (foWhyHtml). Any new caller that
+    // interpolates non-static data must do the same.
     return `
       <div class="fo-action-row">
         <div>
           <div class="fo-action-row-label">${escapeHtml(label)}</div>
           <div class="fo-action-row-help">${help}</div>
+          ${rulesHtml ? `<details class="fo-act-more"><summary>Rules</summary><div>${rulesHtml}</div></details>` : ""}
         </div>
         <div class="fo-action-row-ctrl">${ctrlHtml}</div>
       </div>`;
   }
-
-  // ERA forced retention (§A3): mirror of the mobile player-sheet gate. A
-  // player won in the CURRENT Expired Rookie Auction can't be cut until the FA
-  // Auction closes; the worker blocks the real drop, so we hide the Drop button
-  // here so the owner never taps into the error. A dry-run drop is the
-  // authoritative check — the worker's ERA gate runs before the dry-run
-  // short-circuit, answering precisely (current-cycle winners only, auto-lifts
-  // when the auction closes, no MFL write). Only for "-era" contracts; fail-open.
-  function gateEraRetentionDropFO(body, p) {
-    var status = String((p && p.type) || "").toLowerCase();
-    if (status.indexOf("-era") === -1) return;
-    if (!body.querySelector("[data-action='drop']")) return;
-    // Viewer session required — without it the worker answers under the
-    // commish cookie and the dry-run gate is evaluated for the wrong identity.
-    var url = appendViewerSessionQuery(
-      EP_ROSTER_ACTION() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON)
-    );
-    fetch(url, {
-      method: "POST", credentials: "omit", cache: "no-store",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "drop_player", dry_run: 1, league_id: LEAGUE_ID, season: SEASON, franchise_id: p.fid, player_id: p.id })
-    }).then(function (r) { return r.json().catch(function () { return {}; }); })
-      .then(function (d) {
-        var blocked = d && (d.code === "ERA_FORCED_RETENTION" || (d.gate && d.gate.blocked === true));
-        if (!blocked) return;
-        var live = body.querySelector("[data-action='drop']");
-        if (!live || !live.parentNode) return;
-        var note = document.createElement("span");
-        note.className = "fo-era-lock";
-        note.setAttribute("style", "display:inline-block;padding:5px 9px;border-radius:6px;background:rgba(255,184,107,0.14);border:1px solid rgba(255,184,107,0.34);color:#e6a85e;font-size:12px;line-height:1.4;");
-        note.textContent = "🔒 Won in the " + SEASON + " Expired Rookie Auction — can’t be cut until the FA Auction closes (§A3).";
-        live.parentNode.replaceChild(note, live);
-      })
-      .catch(function () { /* fail-open — worker still enforces the block */ });
+  // A disabled or unverified button's reason, as a short disclosure.
+  function foWhyHtml(summary, why) {
+    return ` <details class="fo-act-why"><summary>${escapeHtml(summary)}</summary><div>${escapeHtml(why)}</div></details>`;
   }
+
+  // ── Write confirmation (#1338 Phase 1) ─────────────────────────────
+  // EVERY write from the Front Office goes through foConfirmWrite: one dialog
+  // naming the player, the exact action, the roster and salary/cap consequences
+  // and whether it can be undone (UPS_FO_MODAL.writeSpec). No complete spec →
+  // nothing is sent. Cancel has focus first; Escape cancels the dialog, not the
+  // panel. While a confirmed write is in flight a second one is refused (no
+  // double submit); every caller releases it with foWriteDone() in a finally.
+  function foWriteFacts(p) {
+    const team = STATE.teams.find(function (t) { return t.fid === p.fid; });
+    const snap = team ? capSnapshotForTeams([team]) : null;
+    return {
+      name: p.name, team: p.franchise, salary: safeInt(p.salary, 0), capHit: currentCapHit(p),
+      isTaxi: !!p.isTaxi, isIr: !!p.isIr, season: SEASON, dry: IS_DRY_RUN,
+      activeN: snap ? snap.activeN : 0, activeMax: activeMaxFO(), activeMin: ACTIVE_MIN,
+      taxiN: snap ? snap.taxiN : 0, taxiMax: TAXI_MAX
+    };
+  }
+  function foWriteSpec(kind, p, extra) {
+    const M = window.UPS_FO_MODAL;
+    if (!M || typeof M.writeSpec !== "function" || !p) return null;
+    return M.writeSpec(kind, Object.assign(foWriteFacts(p), extra || {}));
+  }
+  function foConfirmWrite(spec) {
+    if (!spec || !spec.action || !spec.roster || !spec.cap || !spec.reversible) {
+      flashToast("This change can’t be confirmed (its details didn’t load), so nothing was sent.", "err");
+      return Promise.resolve(false);
+    }
+    if (STATE.writeBusy) {
+      flashToast("Another change is still being sent. Wait for it to finish.", "warn");
+      return Promise.resolve(false);
+    }
+    return new Promise(function (resolve) {
+      const prevFocus = document.activeElement;
+      const wrap = document.createElement("div");
+      wrap.className = "fo-confirm-backdrop";
+      wrap.innerHTML =
+        '<div class="fo-confirm' + (spec.danger ? " danger" : "") + '" role="alertdialog" aria-modal="true" aria-labelledby="fo-confirm-title" aria-describedby="fo-confirm-facts">' +
+          '<h3 id="fo-confirm-title">' + escapeHtml(spec.title) + "</h3>" +
+          '<dl id="fo-confirm-facts">' +
+            [["Player", spec.player], ["Action", spec.action], ["Roster", spec.roster], ["Salary / cap", spec.cap], ["Undo", spec.reversible]]
+              .map(function (r) { return "<dt>" + r[0] + "</dt><dd>" + escapeHtml(r[1]) + "</dd>"; }).join("") +
+          "</dl>" +
+          (spec.details && spec.details.length
+            ? '<ul class="fo-confirm-notes">' + spec.details.map(function (d) { return "<li>" + escapeHtml(d) + "</li>"; }).join("") + "</ul>"
+            : "") +
+          '<div class="fo-confirm-btns"><button type="button" class="btn secondary" data-confirm="no">Cancel</button>' +
+          '<button type="button" class="btn' + (spec.danger ? " warn" : "") + '" data-confirm="yes">' + escapeHtml(spec.confirmLabel || "Confirm") + "</button></div>" +
+        "</div>";
+      // Inside the FO root so its styles apply in the MFL embed too.
+      (document.querySelector(".fo-root") || document.body).appendChild(wrap);
+      const btns = $$("button", wrap);
+      let settled = false;
+      function done(ok) {
+        if (settled) return;
+        settled = true;
+        document.removeEventListener("keydown", onKey, true);
+        wrap.remove();
+        if (ok) STATE.writeBusy = true;
+        try { if (prevFocus && prevFocus.focus) prevFocus.focus(); } catch (e) { /* gone */ }
+        resolve(!!ok);
+      }
+      function onKey(e) {
+        if (e.key === "Escape") { e.preventDefault(); e.stopImmediatePropagation(); done(false); return; }
+        if (e.key === "Tab") {
+          e.preventDefault();
+          const i = btns.indexOf(document.activeElement);
+          btns[(i + (e.shiftKey ? btns.length - 1 : 1)) % btns.length].focus();
+        }
+      }
+      document.addEventListener("keydown", onKey, true);
+      wrap.addEventListener("click", function (e) {
+        const b = e.target.closest && e.target.closest("[data-confirm]");
+        if (b) done(b.dataset.confirm === "yes");
+        else if (e.target === wrap) done(false);
+      });
+      btns[0].focus();
+    });
+  }
+  function foWriteDone() { STATE.writeBusy = false; }
+
+  // ERA forced retention (§A3) is enforced by the WORKER on the real drop:
+  // /roster-workbench/action runs _eraRetentionBlocked for drop_player before
+  // it touches MFL, and submitRosterMove shows its refusal. This panel used to
+  // POST a dry-run drop_player the moment an ERA player's Actions tab rendered,
+  // to hide the Drop button early. Opening a player must never call a write
+  // route (the phone sheet removed the same probe on 2026-10-09).
 
   function wireActionsTab(body, p) {
     $$("[data-action='extend']", body).forEach(function (btn) {
@@ -5229,7 +5422,6 @@
     $$("[data-action='drop']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRosterMove("drop_player", p); });
     });
-    gateEraRetentionDropFO(body, p);
     $$("[data-action='activate-ir']", body).forEach(function (btn) {
       btn.addEventListener("click", function () { submitRosterMove("activate_ir", p); });
     });
@@ -5247,15 +5439,16 @@
     });
     $$("[data-action='trade']", body).forEach(function (btn) {
       btn.addEventListener("click", function () {
-        // Open the in-MFL Trade War Room (MESSAGE6) — NOT the GitHub Pages trade
-        // workbench (Keith 2026-06-06). The header exposes the canonical URL
-        // (window.getWarRoomUrl, format ?MODULE=MESSAGE6=N) when FO runs inside
-        // MFL; otherwise build it from the current MFL origin. Player preselect
-        // is parked (the war room loads its own payload).
-        var warRoom = (typeof window.getWarRoomUrl === "function" && window.getWarRoomUrl()) ||
-          (window.location.origin + "/" + encodeURIComponent(SEASON) + "/home/" +
-           encodeURIComponent(LEAGUE_ID) + "?MODULE=MESSAGE6=N");
-        window.open(warRoom, "_blank", "noopener");
+        // Open the in-MFL Trade War Room (MESSAGE6) — the same route as the Home
+        // button, NOT the GitHub Pages trade workbench (Keith 2026-06-06) — with
+        // this player preselected (the War Room loader forwards the keys, #1338):
+        // your player on your side, another team's player on the partner side.
+        var me = pad4((STATE.me && STATE.me.franchise_id) || "");
+        var mine = !!me && pad4(p.fid) === me;
+        var params = mine
+          ? { twb_left_team: me, twb_player_id: p.id, twb_team_id: p.fid, twb_side: "left" }
+          : { twb_left_team: me, twb_right_team: p.fid, twb_player_id: p.id, twb_team_id: p.fid, twb_side: "partner" };
+        window.open(warRoomUrl(params), "_blank", "noopener");
       });
     });
   }
@@ -5314,10 +5507,7 @@
       "|TCV " + fmtK(tcv).replace(/\$/, "") + "|AAV " + fmtK(aav).replace(/\$/, "") +
       "|" + yrs.map(function (v, i) { return "Y" + (i + 1) + "-" + fmtK(v).replace(/\$/, ""); }).join(", ") +
       "|GTD: " + fmtK(gtd).replace(/\$/, "");
-    const confirmLines = ["Confirm " + totalYears + "-year MYAC for " + p.name + "?", "", "Status: " + status]
-      .concat(yrs.map(function (v, i) { return "Y" + (i + 1) + ": " + fmtUSD(v); }))
-      .concat(["TCV: " + fmtUSD(tcv) + " · GTD: " + fmtUSD(gtd)]);
-    if (!window.confirm(confirmLines.join("\n"))) return;
+    if (!(await foConfirmWrite(foWriteSpec("myac", p, { contract: { status: status, years: yrs, tcv: tcv, gtd: gtd } })))) return;
     const url = EP_CONTRACT_UPDATE() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
     const payload = {
       L: LEAGUE_ID, YEAR: SEASON, type: "MANUAL_CONTRACT_UPDATE", submission_kind: "myac",
@@ -5336,7 +5526,7 @@
     } catch (e) {
       console.error("[fo] MYAC failed:", e);
       flashToast("MYAC submit failed: " + (e && e.message ? e.message : e), "err");
-    }
+    } finally { foWriteDone(); }
   }
   // Flat MYAC — keep the auction salary flat across 2 or 3 years (TCV = bid × N).
   function openMyacForm(p, addedYears) {
@@ -5377,10 +5567,7 @@
     const elig = rosterContractEligibility(p);
     const forceDry = !!(STATE.mymTest && !elig.mymEligible);
     const dry = (IS_DRY_RUN || forceDry) ? 1 : 0;
-    const confirmLines = [(dry ? "[DRY-RUN] " : "") + "Confirm " + totalYears + "-year MYM for " + p.name + "?", "",
-      "Sub-type: " + subType, "Per year: " + fmtUSD(perYear) + " (flat — cannot be loaded)",
-      "TCV: " + fmtUSD(tcv) + " · GTD: " + fmtUSD(gtd)];
-    if (!window.confirm(confirmLines.join("\n"))) return;
+    if (!(await foConfirmWrite(foWriteSpec("mym", p, { dry: !!dry, contract: { status: "Veteran (" + subType + ")", years: yrs, tcv: tcv, gtd: gtd } })))) return;
     const url = apiUrl("/offer-mym") + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
     const payload = {
       L: LEAGUE_ID, YEAR: SEASON, type: "MYM", submission_kind: "mym",
@@ -5402,7 +5589,7 @@
     } catch (e) {
       console.error("[fo] MYM failed:", e);
       flashToast("MYM submit failed: " + (e && e.message ? e.message : e), "err");
-    }
+    } finally { foWriteDone(); }
   }
   function openMymForm(p, totalYears) {
     submitMymContract(p, totalYears || 2);
@@ -5652,16 +5839,8 @@
       "|Y1-" + fmtK(currentSalary).replace(/\$/, "") + ", Y2-" + fmtK(y2).replace(/\$/, "") + ", Y3-" + fmtK(y3).replace(/\$/, "") +
       "|GTD: " + fmtK(gtd).replace(/\$/, "");
 
-    const confirmLines = [
-      "Confirm +2Y loaded extension for " + p.name + "?",
-      "",
-      "Status: " + status,
-      "Y1: " + fmtUSD(currentSalary) + " (locked)",
-      "Y2: " + fmtUSD(y2),
-      "Y3: " + fmtUSD(y3),
-      "TCV: " + fmtUSD(tcv) + " · GTD: " + fmtUSD(gtd)
-    ];
-    if (!window.confirm(confirmLines.join("\n"))) return;
+    if (!(await foConfirmWrite(foWriteSpec((statusBase && statusBase.indexOf("ERA") >= 0) ? "myac" : "extension_loaded", p,
+      { contract: { status: status, years: [currentSalary, y2, y3], tcv: tcv, gtd: gtd } })))) return;
 
     const url = EP_CONTRACT_UPDATE() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
     const payload = {
@@ -5694,7 +5873,7 @@
     } catch (e) {
       console.error("[fo] loaded extension failed:", e);
       flashToast("Loaded extension failed: " + (e.message || String(e)), "err");
-    }
+    } finally { foWriteDone(); }
   }
 
   function pickExtensionOption(p, years) {
@@ -5756,8 +5935,6 @@
   // the FULL extension length, NOT length-1).
   async function submitExtension(p, opt) {
     const btn = $("#fo-ext-submit");
-    btn.disabled = true; btn.textContent = "Submitting…";
-
     const yrs = safeInt(opt.years_added, 0) || safeInt(opt.years, 0) || safeInt(opt.length, 0);   // years ADDED (1 or 2)
     // contract_year (MFL cy = years remaining) is the FULL new contract length,
     // NOT the years added. `yrs` above is the ADDED count (used for the status
@@ -5771,6 +5948,12 @@
     const info   = safeStr(opt.contract_info || opt.info || "");
     const me = STATE.me || {};
     const commishOverride = !!me.isAdmin && me.franchise_id !== p.fid;
+    // This path used to write with NO confirmation (the form's Submit posted directly).
+    const yv = parseContractYearValues(info);
+    const schedule = Object.keys(yv).map(Number).sort(function (a, b) { return a - b; }).map(function (n) { return yv[n]; });
+    if (!(await foConfirmWrite(foWriteSpec("extension", p, { contract: { status: status,
+      years: schedule.length ? schedule : [salary], tcv: safeInt(opt.tcv, 0) || schedule.reduce(function (a, b) { return a + b; }, 0) } })))) return;
+    if (btn) { btn.disabled = true; btn.textContent = "Submitting…"; }
 
     const payload = {
       type: "MANUAL_CONTRACT_UPDATE",
@@ -5808,9 +5991,9 @@
       await loadRosterData(); renderRosterTable(); closeSlideover();
     } catch (e) {
       console.error("[fo] extension submit failed:", e);
-      btn.disabled = false; btn.textContent = IS_DRY_RUN ? "Submit (dry-run)" : "Submit Extension";
+      if (btn) { btn.disabled = false; btn.textContent = IS_DRY_RUN ? "Submit (dry-run)" : "Submit Extension"; }
       flashToast("Extension submit failed: " + (e.message || String(e)), "err");
-    }
+    } finally { foWriteDone(); }
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -8835,44 +9018,21 @@
                : action === "drop_player" ? "drop"
                : action === "demote_taxi" ? "move to taxi"
                : "promote from taxi";
-    let extra = "";
+    // The confirmation spells out the roster and cap effect and whether the move
+    // can be undone (§B3 IR is reversible via IR Activate; a 4th taxi call-up is
+    // permanent; a drop is not reversible), including the honest state of the
+    // IR eligibility check — the worker re-checks §B3 and writes nothing if MFL
+    // refuses.
+    const extra = {};
     if (action === "drop_player") {
       const pen = dropPenaltyEstimate(p);
-      extra = "\n\nEstimated cap penalty: " + fmtUSD(pen.amount) + "\n" + safeStr(pen.note);
+      extra.penalty = { amount: pen.amount, note: safeStr(pen.note), nextSeason: dropPenaltyLandsNextSeason() };
     }
-    // §B3 IR — spell out what the owner is buying and what it costs, including
-    // the honest state of the eligibility check. IR is REVERSIBLE (IR Activate
-    // brings the player back), which is why this confirm is informative rather
-    // than a warning.
-    if (action === "deactivate_ir") {
-      const irElig = foIrEligibility(p.id);
-      const irHalf = Math.round(safeInt(p.salary, 0) / 2);
-      extra = "\n\nWhile on IR:" +
-        "\n  • 50% cap relief" +
-        (safeInt(p.salary, 0) > 0
-          ? " — cap hit goes " + fmtUSD(p.salary) + " → " + fmtUSD(irHalf)
-          : "") +
-        "\n  • does NOT count against the active roster max (" + activeMaxFO() + ")" +
-        "\n  • REVERSIBLE — use IR Activate to bring the player back" +
-        "\n\n" + IR_ELIGIBLE_DESIGNATIONS_NOTE +
-        "\n" + (irElig.state === "eligible"
-          ? 'MFL currently lists this player as "' + irElig.designation + '".'
-          : irElig.state === "ineligible"
-            ? "⚠ " + irElig.why + " The server will refuse this."
-            : "⚠ Eligibility NOT verified here: " + irElig.why +
-              " The server re-checks §B3 on submit and writes nothing if it refuses.");
-    }
+    if (action === "deactivate_ir") extra.ir = foIrEligibility(p.id);
     if (action === "promote_taxi") {
-      const used = safeInt(p.taxiCallupsUsed, 0);
-      const max = safeInt(p.taxiCallupsMax, 3) || 3;
-      const pending = safeInt(p.taxiCallupsPending, 0);
-      const nth = used + pending + 1;
-      extra = nth >= max + 1
-        ? "\n\n⚠ Call-up #" + nth + " of a 3-call-up budget. 4th call-up = PERMANENT PROMOTION."
-        : "\n\nCall-ups used: " + used + " of " + max + (pending ? " (+" + pending + " pending)" : "") +
-          "\nEach NFL week active on roster burns 1 call-up.";
+      extra.callups = { used: safeInt(p.taxiCallupsUsed, 0), max: safeInt(p.taxiCallupsMax, 3) || 3, pending: safeInt(p.taxiCallupsPending, 0) };
     }
-    if (!window.confirm("Confirm " + verb + " for " + p.name + "?" + extra)) return;
+    if (!(await foConfirmWrite(foWriteSpec(action, p, extra)))) return;
 
     flashToast((IS_DRY_RUN ? "[DRY-RUN] " : "") + "Submitting " + verb + " for " + p.name + "…", "ok");
     try {
@@ -8891,7 +9051,7 @@
                    : code === "IR_ELIGIBILITY_UNKNOWN" ? "IR eligibility could not be verified — nothing was written: "
                    : "Roster move failed: ";
       flashToast(prefix + (e.message || String(e)), "err");
-    }
+    } finally { foWriteDone(); }
   }
 
   // ── Rookie Option ──────────────────────────────────────────────────
@@ -8904,14 +9064,8 @@
     }
     // Option year salary = current + $5K floor (canon §C6).
     const optionYearSalary = safeInt(opt.optionYearSalary, 0) || (safeInt(p.salary, 0) + 5000);
-    const confirmLines = [
-      "Confirm rookie option exercise for " + p.name + "?",
-      "",
-      "Current Year Salary: " + fmtUSD(p.salary),
-      "Option Year Salary: " + fmtUSD(optionYearSalary),
-      "New Contract Length: 2 years"
-    ];
-    if (!window.confirm(confirmLines.join("\n"))) return;
+    if (!(await foConfirmWrite(foWriteSpec("rookie_option", p, { contract: { status: "ROPT",
+      years: [safeInt(p.salary, 0), optionYearSalary], tcv: safeInt(p.salary, 0) + optionYearSalary } })))) return;
 
     const url = EP_CONTRACT_UPDATE() +
       "?L=" + encodeURIComponent(LEAGUE_ID) +
@@ -8943,7 +9097,7 @@
     } catch (e) {
       console.error("[fo] rookie-option submit failed:", e);
       flashToast("Rookie option failed: " + (e.message || String(e)), "err");
-    }
+    } finally { foWriteDone(); }
   }
 
   // ── Restructure ────────────────────────────────────────────────────
@@ -9099,12 +9253,9 @@
                  .concat(carriedSegments)
                  .concat(["Restructured " + new Date().getFullYear()])
                  .join("|");
-    const confirmLines = ["Confirm restructure for " + p.name + "?", "",
-      "Y1: " + fmtUSD(y1), "Y2: " + fmtUSD(y2)];
-    if (years >= 3) confirmLines.push("Y3: " + fmtUSD(y3));
-    confirmLines.push("TCV: " + fmtUSD(tcv), "AAV: " + (priorAavToken || fmtUSD(aav)), "GTD: " + fmtUSD(gtd),
-      "New type: " + newStatus + (loadSuffix ? (loadSuffix === "-FL" ? " (front-loaded)" : " (back-loaded)") : " (flat)"));
-    if (!window.confirm(confirmLines.join("\n"))) return;
+    if (!(await foConfirmWrite(foWriteSpec("restructure", p, { contract: { status: newStatus +
+      (loadSuffix ? (loadSuffix === "-FL" ? " (front-loaded)" : " (back-loaded)") : " (flat)"),
+      years: [y1, y2, y3].slice(0, years), tcv: tcv, gtd: gtd } })))) return;
 
     const url = EP_RESTRUCTURE() +
       "?L=" + encodeURIComponent(LEAGUE_ID) +
@@ -9137,7 +9288,7 @@
     } catch (e) {
       console.error("[fo] restructure submit failed:", e);
       flashToast("Restructure failed: " + (e.message || String(e)), "err");
-    }
+    } finally { foWriteDone(); }
   }
 
   // ── Untag ──────────────────────────────────────────────────────────
@@ -9170,11 +9321,8 @@
       commish_override_flag: commishOverrideFor(p) ? 1 : 0
     };
     if (IS_DRY_RUN) restorePayload.dry_run = 1;
-    if (!window.confirm(
-      "Untag " + p.name + "?\n\n" +
-      "Restore: " + restorePayload.contract_status + " at " + fmtUSD(restorePayload.salary) + "\n" +
-      "Then remove from roster."
-    )) return;
+    if (!(await foConfirmWrite(foWriteSpec("untag", p, { contract: { priorStatus: restorePayload.contract_status,
+      years: [restorePayload.salary] } })))) return;
 
     const updateUrl = EP_CONTRACT_UPDATE() + "?L=" + encodeURIComponent(LEAGUE_ID) + "&YEAR=" + encodeURIComponent(SEASON);
     let contractRestored = false;
@@ -9197,7 +9345,7 @@
       console.error("[fo] untag failed:", e);
       flashToast("Untag failed: " + (e.message || String(e)) +
         (contractRestored ? " Contract was restored before the unload failed." : ""), "err");
-    }
+    } finally { foWriteDone(); }
   }
 
   // ── Tag (called from the Tagging tab's Tag button) ─────────────────
@@ -9207,12 +9355,11 @@
   async function submitTag(row) {
     const eff = effectiveTagSalaryForRow(row);
     const formula = effectiveTagFormulaForRow(row);
-    const confirmText =
-      "Tag " + row.player_name + " for " + fmtUSD(eff) + "?\n\n" +
-      "Side: " + (row.side === "OFFENSE" ? "Offense" : "Defense/ST") + "\n" +
-      "Tier: T" + row.tag_tier + "\n" +
-      "Formula: " + formula;
-    if (!window.confirm(confirmText)) return;
+    const tagSpec = foWriteSpec("tag", findPlayer(row.player_id, pad4(row.franchise_id)) ||
+      { name: row.player_name, franchise: row.franchise_name, fid: pad4(row.franchise_id), salary: 0 },
+      { contract: { tcv: eff, years: [eff] } });
+    if (tagSpec) tagSpec.details.unshift("Side: " + (row.side === "OFFENSE" ? "Offense" : "Defense/ST") + " · Tier T" + row.tag_tier + " · " + formula);
+    if (!(await foConfirmWrite(tagSpec))) return;
 
     const tagContractInfo = "CL 1|TCV " + fmtK(eff).replace(/\$/, "") +
                            "|AAV " + fmtK(eff).replace(/\$/, "") +
@@ -9265,7 +9412,7 @@
         catch (_e) { /* best effort */ }
       }
       flashToast("Tag failed: " + (e.message || String(e)) + (loaded ? " Player was unloaded." : ""), "err");
-    }
+    } finally { foWriteDone(); }
   }
 
   // ══════════════════════════════════════════════════════════════════

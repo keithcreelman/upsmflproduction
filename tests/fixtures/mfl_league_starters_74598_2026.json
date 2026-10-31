@@ -1,0 +1,46 @@
+{
+ "source": "MFL export TYPE=league&L=74598&YEAR=2026 (read 2026-10-21), starters node only",
+ "starters": {
+  "position": [
+   {
+    "limit": "1-2",
+    "name": "QB"
+   },
+   {
+    "name": "RB",
+    "limit": "2-5"
+   },
+   {
+    "name": "WR",
+    "limit": "2-5"
+   },
+   {
+    "name": "TE",
+    "limit": "1-4"
+   },
+   {
+    "limit": "1",
+    "name": "PK"
+   },
+   {
+    "name": "PN",
+    "limit": "1"
+   },
+   {
+    "name": "DT+DE",
+    "limit": "2-3"
+   },
+   {
+    "name": "LB",
+    "limit": "2-3"
+   },
+   {
+    "limit": "2-3",
+    "name": "CB+S"
+   }
+  ],
+  "iop_starters": "9",
+  "idp_starters": "7",
+  "count": "18"
+ }
+}
