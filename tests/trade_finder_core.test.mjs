@@ -59,6 +59,63 @@ test("best available at each position = the largest real lineup gain one player 
   t.ok(C.standing(TB, ME).rows.every((r) => r.best === null), "no gains passed → no best-available claims");
 });
 
+test("weak spots (Keith 2026-10-30): Bottom 3 or below the league average, worst rank first; K/P never; the rest as others", () => {
+  for (const fid of M.order) {
+    const s = C.standing(TB, fid), W = C.weakSpots(s);
+    const want = s.rows.filter((r) => !r.excluded && (r.tag === "short" || r.gap < -0.05));
+    t.equal(W.weak.map((r) => r.g).sort().join(","), want.map((r) => r.g).sort().join(","), fid + ": weak set");
+    for (let i = 1; i < W.weak.length; i++) t.ok(W.weak[i - 1].rank >= W.weak[i].rank, fid + ": worst rank first");
+    t.equal(W.weak.length + W.others.length, 7, fid + ": every non-K/P position once");
+    t.ok(![...W.weak, ...W.others].some((r) => /^(PK|PN)$/.test(r.g)), fid + ": no K/P");
+    t.equal(W.n, 12);
+  }
+  const W = C.weakSpots(C.standing(TB, ME));
+  t.equal(W.weak.map((r) => r.g).join(","), "RB,LB,TE,QB", "Real Deal Creel, Week 6: RB 12th, LB 9th, TE 8th, QB 8th");
+  t.equal(W.others.map((r) => r.g).join(","), "WR,DB,DL");
+  t.equal(C.weakSpots(null), null);
+});
+
+test("position options: every forMe player at the position once; bench = outside his team's modeled lineup (loss 0), starters with the real loss", () => {
+  for (const g of ["QB", "RB", "WR", "TE", "DL", "LB", "DB"]) {
+    const O = C.positionOptions(M, TB, G, g, TF);
+    const want = G.forMe.filter((x) => x.group === g);
+    t.equal(O.surplus.length + O.starters.length, want.length, g + ": every option once");
+    for (const x of O.surplus) {
+      t.ok(!M.teams[x.fid].starterIds[x.pid], g + " " + x.pid + ": outside his team's lineup");
+      t.equal(x.loss, 0); t.ok(Math.abs(M.teams[x.fid].total - TF.tradeLineup(M, x.fid, [x.pid], []).total) < 1e-9, g + " " + x.pid + ": removing him really costs nothing");
+    }
+    for (const x of O.starters) {
+      t.ok(!!M.teams[x.fid].starterIds[x.pid], g + " " + x.pid + ": in his team's lineup");
+      t.equal(x.loss, Math.round(Math.max(0, M.teams[x.fid].total - TF.tradeLineup(M, x.fid, [x.pid], []).total) * 10) / 10, g + " " + x.pid + ": the loss recomputes");
+      t.equal(x.rank, TB.teams[x.fid][g].rank, g + " " + x.pid + ": their rank at " + g);
+    }
+    for (let i = 1; i < O.surplus.length; i++) t.ok(O.surplus[i - 1].gain >= O.surplus[i].gain, g + ": bench by gain");
+    t.equal(O.teams.reduce((a, T) => a + T.n, 0), O.surplus.length, g + ": team counts add up");
+    t.ok(!O.surplus.concat(O.starters).some((x) => x.fid === ME), g + ": never my own players");
+  }
+  const RB = C.positionOptions(M, TB, G, "RB", TF);
+  t.equal(RB.surplus.length, 11, "Week 6: 11 bench RBs would help Real Deal Creel"); t.equal(RB.rank, 12);
+  t.equal(C.positionOptions(M, TB, G, "PK", TF), null, "K never");
+  t.equal(C.positionOptions(M, TB, null, "RB", TF), null, "no gains → null");
+});
+
+test("options by team: every player once under his team; lowest cost first, one fixed order; no combined score", () => {
+  const cmp = (a, b) => (a.loss - b.loss) || (b.gain - a.gain);
+  for (const g of ["QB", "RB", "WR", "TE", "DL", "LB", "DB"]) {
+    const O = C.positionOptions(M, TB, G, g, TF), T = C.groupOptions(O);
+    t.equal(T.flatMap((x) => x.players).length, O.surplus.length + O.starters.length, g + ": every player once");
+    t.equal(new Set(T.map((x) => x.fid)).size, T.length, g + ": one card per team");
+    for (const x of T) {
+      t.ok(x.players.every((p) => p.fid === x.fid), g + ": all his team's");
+      t.equal(x.rank, TB.teams[x.fid][g].rank, g + ": the team's rank");
+      for (let i = 1; i < x.players.length; i++) t.ok(cmp(x.players[i - 1], x.players[i]) <= 0, g + ": within a team");
+    }
+    for (let i = 1; i < T.length; i++) t.ok(cmp(T[i - 1].players[0], T[i].players[0]) <= 0, g + ": teams by their first player");
+  }
+  t.equal(C.groupOptions(C.positionOptions(M, TB, G, "RB", TF))[0].players[0].loss, 0, "bench players (cost 0) come first");
+  t.equal(C.groupOptions(null).length, 0);
+});
+
 test("pair drilldown (Real Deal Creel × The Long Haulers): their players → my gain, my players → their gain, the same numbers as the lists", () => {
   const P = C.pairGains(G, LH);
   t.equal(P.me, ME); t.equal(P.other, LH); t.equal(P.minGain, 1.0);
