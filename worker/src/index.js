@@ -75,7 +75,7 @@ import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
 import { loadPlayerStatus } from "./player_status.js";
 import { seasonTeamSnaps, coversPlayer } from "./team_snaps_season.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
-import { rosProjections } from "./ros_projections.js";
+import { rosProjections, rosCacheControl } from "./ros_projections.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 import { planFcfsStamp, verifyFcfsWrite, canonicalFcfsContract, applyFullYearRule, classifyFcfsContract, planUnstampedFcfsDropRepair, REPRICE_COLUMNS, FCFS_OUTCOME, FCFS_RULE_VERSION, FCFS_SALARY,
   classifyWwEarnedNa, isSubFiveKMultiYearFlat, WW_EARNED_NA_BASIS, EARNED_REPAIR_COLUMNS, planFullYearClearRepair, planWwEarnedNaRepair, planLegacyGuaranteeRepair, planFcfsAddEventClosure } from "./fcfs_contract.js";
@@ -19857,10 +19857,11 @@ export default {
 
       // ── GET /api/ros-projections?season=&L= — Front Office Projected ROS PPG (ros_projections.js) ──
       if (path === "/api/ros-projections" && request.method === "GET") {
-        const ros = await rosProjections(env.UPS_MFL_BACKUPS, url.searchParams.get("season"), Date.now());
+        const rosNow = Date.now();
+        const ros = await rosProjections(env.UPS_MFL_BACKUPS, url.searchParams.get("season"), rosNow);
         return new Response(JSON.stringify(ros.payload), {
           status: ros.status,
-          headers: { "content-type": "application/json", "cache-control": ros.payload.ok ? "public, max-age=1800" : "no-store", ...corsHeaders },
+          headers: { "content-type": "application/json", "cache-control": rosCacheControl(ros.payload, rosNow), ...corsHeaders },
         });
       }
 

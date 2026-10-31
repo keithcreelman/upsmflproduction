@@ -30,6 +30,10 @@ GAMES ALREADY PLAYED ARE NEVER COUNTED
     game has kicked off is dropped for that team's players, the same line ingest_projections.py draws. An unreadable
     schedule fails the build; it is never assumed that nothing has been played.
 
+    A file outlives its build: Wednesday's is read after Thursday's game, and a failed Sunday run leaves it in place for
+    days. So the file keeps every remaining week's kickoffs and each player's team, and the worker draws the same line
+    again at read time (worker/src/ros_projections.js). The rule doesn't depend on which day the file was built.
+
 NO PRODUCTION D1 BY DEFAULT (docs/D1_QUERY_RULES.md)
     The Sleeper-to-MFL id crosswalk is one production D1 read (about 2.9k rows, no writes). Without --allow-prod-d1 or
     UPS_ALLOW_PROD_D1_READS=1 this prints SKIPPED, makes no call and exits 0.
@@ -126,12 +130,13 @@ def player_row(pid, proj, weeks, played_weeks=(), first_week=0):
     return {"ppg": ppg, "projWeeks": have, "remainingWeeks": len(remaining), "w": [None if v is None else round(float(v), 1) for v in raw]}
 
 
-def build_payload(season, through_week, end_week, proj, pos, rostered, ev_coverage, as_of, played=None, team_of=None, absent=None):
+def build_payload(season, through_week, end_week, proj, pos, rostered, ev_coverage, as_of, played=None, team_of=None, absent=None, kickoffs=None):
     weeks = window(through_week, end_week)
     if not weeks:
         raise BuildError("no weeks left")
     played = played or {}
     team_of = team_of or {}
+    kickoffs = kickoffs or {}
     avail = availability(absent, weeks)
     players = {}
     for pid in sorted(set().union(*[set(proj.get(w) or {}) for w in weeks]) | set(rostered)):
@@ -140,10 +145,12 @@ def build_payload(season, through_week, end_week, proj, pos, rostered, ev_covera
         row = player_row(pid, proj, weeks, [w for w, teams in played.items() if team_of.get(pid) in teams], counted_from(avail.get(pid)))
         if row["projWeeks"] == 0 and pid not in rostered:
             continue
+        row["team"] = team_of.get(pid) or ""
         players[pid] = row
     return {"version": VERSION, "season": season, "throughWeek": through_week, "weeks": [weeks[0], weeks[-1]],
             "nWeeks": len(weeks), "asOf": as_of, "label": LABEL, "sources": SOURCES,
             "playedExcluded": dict((str(w), teams) for w, teams in sorted(played.items())),
+            "kickoffs": dict((str(w), kicks) for w, kicks in sorted(kickoffs.items())),
             "rule": "points per remaining week; a week with no projection (bye, listed absence) counts as 0",
             "sleeperUpdatedAt": (ev_coverage or {}).get("sleeperUpdatedAt"),
             "avail": dict((p, a) for p, a in avail.items() if p in players), "players": players}
@@ -190,18 +197,15 @@ def build(season, cache_dir):
     weeks = window(through, prep["end"])
     if not weeks:
         return None, None
-    # Kickoffs are read last, so a game that started during the build is still left out. Weeks are read until one
-    # hasn't started: that also covers MFL's completed week lagging a finished week.
+    # Kickoffs are read last, so a game that started during the build is still left out. Every week is read, not just
+    # the first: that covers MFL's completed week lagging a finished week, and the worker needs the later weeks' kickoffs
+    # for as long as this file stays in place.
+    kicks = dict((wk, kickoffs_from(sim.fetch(MFL_NFL_SCHEDULE % (season, wk), cache_dir), season, wk)) for wk in weeks)
     now = time.time()
-    kicks = {}
-    for wk in weeks:
-        kicks[wk] = kickoffs_from(sim.fetch(MFL_NFL_SCHEDULE % (season, wk), cache_dir), season, wk)
-        if min(kicks[wk].values()) > now:
-            break
     team_of = dict((p["id"], p.get("team") or "") for p in sim.fetch(sim.MFL_PLAYERS % season, cache_dir)["players"]["player"])
     as_of = datetime.fromtimestamp(now, timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     payload = build_payload(season, through, prep["end"], prep["proj"], prep["pos"], prep["rostered"], prep["evCoverage"], as_of,
-                            played_teams(kicks, now), team_of, prep["absent"])
+                            played_teams(kicks, now), team_of, prep["absent"], kicks)
     return payload, check_coverage(payload, prep["pos"], prep["rostered"], prep["evCoverage"])
 
 

@@ -4,7 +4,10 @@ import json
 import os
 import sys
 import tempfile
+import time
+import types
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import build_ros_projections as B  # noqa: E402
@@ -79,9 +82,17 @@ class PlayedGames(unittest.TestCase):
         self.assertEqual(B.played_teams({8: {"A": 2000}}, 2000), {8: ["A"]})
 
     def test_nothing_played_changes_nothing(self):
-        a = B.build_payload(2026, 7, 11, proj(), POS, ROSTERED, EV, "t")
+        a = B.build_payload(2026, 7, 11, proj(), POS, ROSTERED, EV, "t", None, {"1": "CAR"})
         b = B.build_payload(2026, 7, 11, proj(), POS, ROSTERED, EV, "t", {}, {"1": "CAR"})
         self.assertEqual(a, b)
+
+    def test_the_file_keeps_every_kickoff_and_each_players_team_for_the_worker(self):
+        kicks = {8: self.kicks(), 9: self.kicks(), 10: self.kicks()}
+        p = B.build_payload(2026, 7, 10, proj(), POS, ROSTERED, EV, "t", {}, {"1": "CAR"}, None, kicks)
+        self.assertEqual(sorted(p["kickoffs"]), ["10", "8", "9"])
+        self.assertEqual(p["kickoffs"]["9"]["CAR"], 1000)
+        self.assertEqual(p["players"]["1"]["team"], "CAR")
+        self.assertEqual(p["players"]["2"]["team"], "")                # no team on file: no game to leave out
 
     def test_a_lagging_completed_week_drops_the_whole_week(self):
         team = {"1": "CAR", "2": "GBP"}
@@ -97,6 +108,36 @@ class PlayedGames(unittest.TestCase):
         for bad in (None, {}, {"nflSchedule": {}}, {"nflSchedule": {"matchup": [{"kickoff": "soon", "team": [{"id": "A"}]}]}}, short):
             with self.assertRaises(B.BuildError):
                 B.kickoffs_from(bad, 2026, 8)
+
+
+class EveryWeeksKickoffs(unittest.TestCase):
+    """build() reads every window week, so the worker can draw the line for as long as the file stays in place."""
+    def run_build(self, schedule_for):
+        now = time.time()
+        fake = types.SimpleNamespace(LIVE_SEASON=0, MFL="%d %s %s", MFL_PLAYERS="players %d",
+                                     fetch=None, prepare=lambda *a, **k: {"end": 10, "proj": proj(), "pos": POS, "rostered": ROSTERED, "evCoverage": EV, "absent": {}})
+        def fetch(url, cache):
+            if "weeklyResults" in url:
+                return {"weeklyResults": {"week": "7"}}
+            if url.startswith("players"):
+                return {"players": {"player": [{"id": "1", "team": "T00"}]}}
+            return schedule_for(int(url.rsplit("W=", 1)[1]), now)
+        fake.fetch = fetch
+        with mock.patch.dict(sys.modules, {"season_sim": fake}), mock.patch.object(B, "check_coverage", return_value={}):
+            return B.build(2026, "unused")[0]
+
+    @staticmethod
+    def good(kick):
+        return {"nflSchedule": {"matchup": [{"kickoff": str(int(kick)), "team": [{"id": "T%02d" % i}, {"id": "U%02d" % i}]} for i in range(14)]}}
+
+    def test_a_week_nobody_has_started_still_has_its_kickoffs_in_the_file(self):
+        p = self.run_build(lambda wk, now: self.good(now + 86400 * wk))
+        self.assertEqual(sorted(p["kickoffs"]), ["10", "8", "9"])
+        self.assertEqual(p["playedExcluded"], {})
+
+    def test_an_unreadable_later_week_fails_the_build(self):
+        with self.assertRaises(B.BuildError):
+            self.run_build(lambda wk, now: {} if wk == 10 else self.good(now + 86400))
 
 
 class Availability(unittest.TestCase):
