@@ -1,7 +1,8 @@
 /* Front Office data — one read per source per visit, loaded the first time a
    view needs it (#1338). Every source here is MFL's own export through the
-   worker's /api/mfl-export proxy (60 s edge cache, 0 D1 rows) or a worker
-   route that already serves the phone. No per-player or per-team loops.
+   worker's /api/mfl-export proxy (60 s edge cache, 0 D1 rows), a worker
+   route that already serves the phone, or a static league file (the
+   contract log). No per-player or per-team loops.
 
    Each key resolves to an entry { key, state: "ok"|"error", data, at (ms of
    the read), url } and is kept for the visit; refresh(key) re-reads it.
@@ -35,6 +36,19 @@
       if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     });
+  }
+  // rosters/contract_submissions/<prefix><season>.json beside this script (Pages in the MFL embed, the same folder
+  // standalone): resolved from this file's own <script> src, as front_office.js resolves its JSON.
+  var scriptBase = (function () {
+    try {
+      var tags = document.querySelectorAll("script[src]");
+      for (var i = tags.length - 1; i >= 0; i -= 1) if (/fo_data\.js(\?|$)/.test(tags[i].src || "")) return new URL(".", tags[i].src).toString();
+    } catch (e) {}
+    return "";
+  })();
+  function staticUrl(prefix) {
+    var rel = "../contract_submissions/" + prefix + encodeURIComponent(cfg.season) + ".json";
+    try { return scriptBase ? new URL(rel, scriptBase).toString() : rel; } catch (e) { return rel; }
   }
   // An MFL error envelope is a failed read, never "no rows".
   function mflOk(j) { return !!j && typeof j === "object" && !j.error; }
@@ -78,6 +92,21 @@
       });
     },
     transactions: function () { return getJson(mflExport("transactions")).then(function (j) { if (!mflOk(j)) throw new Error("MFL transactions unreadable"); return j; }); },
+    // The UPS contract log for the season: the static snapshot the worker's contract-activity job commits
+    // (rosters/contract_submissions/contract_activity_<season>.json; 0 D1 rows), the Contract log's test-franchise
+    // cutoffs, the declared phantom rows (contract_log_phantom_<season>.json: rows MFL's record contradicts) and the
+    // reviewed label corrections (contract_activity_corrections_<season>.json). All four or none: without a list a test
+    // or phantom event could be shown as real, or a known-wrong label shown, so that is a failed read.
+    contractLog: function () {
+      return Promise.all([getJson(staticUrl("contract_activity_")), getJson(staticUrl("contract_log_test_")), getJson(staticUrl("contract_log_phantom_")),
+        getJson(staticUrl("contract_activity_corrections_"))]).then(function (r) {
+        if (!r[0] || !Array.isArray(r[0].activities)) throw new Error("contract log unreadable");
+        if (!r[1] || !Array.isArray(r[1].test_franchises)) throw new Error("contract log test list unreadable");
+        if (!r[2] || !Array.isArray(r[2].rows)) throw new Error("contract log phantom list unreadable");
+        if (!r[3] || !Array.isArray(r[3].rows)) throw new Error("contract log correction list unreadable");
+        return { activity: r[0], test: r[1], phantom: r[2], fixes: r[3] };
+      });
+    },
     waiverAvailability: function () { return getJson(worker("/api/waivers/availability")); },
     waiverState: function () { return getJson(worker("/api/waivers/state", null, true)); },
     // MFL's held claims are the viewer's own: needs the viewer's MFL session (known:false otherwise, never "no claims").

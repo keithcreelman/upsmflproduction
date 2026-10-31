@@ -1,0 +1,22 @@
+{
+  "_comment": [
+    "Reviewed display corrections for contract_activity_2026.json. The log itself is never edited here (a data repair needs Keith's go).",
+    "Front Office -> Activity shows each listed row under `label` and files it under `activity_type` in the type filter.",
+    "A row is corrected only when activity_id, franchise_id and player_id all match. Add a row only with its evidence and the ruling that approved it."
+  ],
+  "season": "2026",
+  "rows": [
+    {
+      "activity_id": "fee112edda27bf95a699d91e",
+      "franchise_id": "0009",
+      "player_id": "16185",
+      "player_name": "Jaxon Smith-Njigba",
+      "submitted_at_utc": "2026-07-28T02:51:06.321Z",
+      "logged_as": "FA Contract",
+      "activity_type": "Contract Change",
+      "label": "Contract change (logged as FA Contract)",
+      "evidence": "Commissioner-key /commish-contract-update with no submission_kind (salary_change_log 1701, status 200), which the worker labels FA Contract by default. MFL daily snapshots: C-Town Chivalry Smith-Njigba Vet-Ext2-FL $14,000 / 3 years left on 2026-07-26 and 07-27, $1,000 / 2 years left on 07-28 and 07-29 (same contract text). A real change to an existing contract (acquired by trade in 2024), not a free-agent contract.",
+      "ruling": "Keith 2026-10-28, ruling 7: keep the real change visible; fix the misleading FA Contract label separately."
+    }
+  ]
+}

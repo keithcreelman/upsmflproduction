@@ -1256,6 +1256,23 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-act-grid { grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); }
 @media (max-width: 1100px) { .fo-act-grid { grid-template-columns: 1fr; } }
 .fo-pk-table td { white-space: nowrap; max-width: 140px; overflow: hidden; text-overflow: ellipsis; }
+/* Activity → Moves and contracts (Keith 2026-10-28): team / type / season selects, then one row per event with its
+   Eastern day and time and its source label (MFL transaction vs Contract log (UPS)). Long contract strings wrap. */
+.fo-act-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; margin: 4px 0 6px; }
+.fo-act-controls .fo-inline { min-width: 0; max-width: 100%; font-size: 13px; }
+.fo-act-controls .fo-inline select { min-width: 0; max-width: 240px; min-height: 36px; font-size: 14px; }
+.fo-act-list li.fo-act-row { padding: 7px 0; border-top: 1px solid var(--border); overflow-wrap: anywhere; }
+.fo-act-when { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 2px; }
+.fo-act-when time { color: var(--text); font-weight: 600; }
+.fo-act-src.mfl { color: #bfdbfe; border-color: rgba(91, 141, 255, 0.5); }
+.fo-act-src.ups { color: #bbf7d0; border-color: rgba(74, 222, 128, 0.5); }
+.fo-act-terms { display: block; font-size: 12px; color: var(--muted); }
+.fo-act-also { font-size: 12px; color: var(--muted); }
+.fo-act-count { margin: 6px 0 2px; font-size: 12px; }
+@media (max-width: 560px) {
+  .fo-act-controls .fo-inline { flex: 1 1 100%; }
+  .fo-act-controls .fo-inline select { flex: 1 1 auto; max-width: none; width: 100%; }
+}
 
 /* ── Player modal Phase 1 (#1338): short action rows, write confirmation, unresolved rows ── */
 .fo-action-row-ctrl { flex-wrap: wrap; justify-content: flex-end; }
