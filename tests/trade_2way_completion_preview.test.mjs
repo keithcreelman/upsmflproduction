@@ -17,7 +17,8 @@ await import("./fixtures/register_md_loader.mjs");
 const { createStaged2WayTrade, accept2WayTrade, listCommish2WayQueue, execute2Way, select2WayLoadedContractDrops } = await import("../worker/src/trade_2way.js");
 
 const restoreConsole = quietConsole();
-const discord = installDiscordRecorder();
+// (the READY case sends P_16181 from 0008 — the asset-integrity gate reads ownership, so MFL's read-only rosters say so)
+const discord = installDiscordRecorder({ mfl: { rosters: { "0008": [{ id: "16614", salary: 5000 }, { id: "16181", salary: 5000 }], "0001": [{ id: "16650", salary: 5000 }] } } });
 const FR = { A: "0008", B: "0001" };
 const MIGRATIONS = [...THREE_WAY_MIGRATIONS, "0162_ups_trade_cap_acknowledgments.sql", "0163_ups_trade_conditional_drops.sql", "0164_ups_2way_trades.sql"];
 
