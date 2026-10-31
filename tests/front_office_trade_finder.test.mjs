@@ -32,7 +32,7 @@ function page(opts = {}) {
   const ctx = vm.createContext({ document: { addEventListener(n, f) { (listeners[n] = listeners[n] || []).push(f); },
     getElementById: (id) => (id === "fo-trades-body" ? el : null), querySelector: () => null }, Intl, Date });
   ctx.window = ctx;
-  for (const f of ["site/m/front_office_lineup.js", "site/shared/trade_fit.js", "site/shared/lineup_strength.js", "site/shared/starter_mix.js"]) vm.runInContext(read(path.join(ROOT, f)), ctx);
+  for (const f of ["site/m/front_office_lineup.js", "site/shared/trade_fit.js", "site/shared/lineup_strength.js", "site/shared/trade_finder_core.js", "site/shared/starter_mix.js"]) vm.runInContext(read(path.join(ROOT, f)), ctx);
   const TF = ctx.UPS_TRADE_FIT, LS = ctx.UPS_LINEUP_STRENGTH, SM = ctx.UPS_STARTER_MIX, L = ctx.UPS_FRONT_OFFICE_LINEUP;
   const slots = TF.deriveSlots(STARTERS);
   const model = TF.buildLeague({ teams: FX.teams, values: FX.values, freeAgents: FX.freeAgents, slots });
@@ -52,7 +52,7 @@ function page(opts = {}) {
     fmt1: (v) => (Math.round(Number(v) * 10) / 10).toFixed(1), money: (v) => "$" + Number(v).toLocaleString("en-US"), displayName: (n) => n,
     teamName: (f) => (FX.teams.find((x) => x.fid === f) || {}).name || f, rosterIndex: () => rost, seasonLine: (pid) => ({ ppg: FX.values[pid] }),
     playerButton: (pid, fid, label) => '<button data-fo-player="' + esc(pid) + '">' + esc(label) + "</button>", injuryChip: () => "", goLink: () => "",
-    openDialog: (title, html, opts) => { dialog.open = { title, html, opts }; } };
+    openDialog: (title, html, opts) => { dialog.open = { title, html, opts }; }, closeAbout: () => { dialog.open = null; } };
   const FO = { viewerFid: () => viewer, teams: () => FX.teams, capCeiling: 300000,
     capFor: (f) => ({ capSpace: FX.capRoom[f], capAlloc: 300000 - FX.capRoom[f] }), warRoomUrl: (o) => "#war-room?" + Object.entries(o).map(([k, v]) => k + "=" + v).join("&") };
   const DATA = { get: (k, a) => entries[a != null ? k + ":" + a : k] || null, load: () => ({ then() {} }) };
@@ -62,7 +62,7 @@ function page(opts = {}) {
   const TR = ctx.UPS_FO_TRADES;
   const show = (state) => { TR._setMode("finder"); Object.assign(TR._view, state.view || {}); if ("team" in state) TR._sel.team = state.team; (listeners["fo:tab"] || []).forEach((f) => f({ detail: { section: "trades" } })); return el.innerHTML; };
   const team = (f) => TR._teamHtml(f);
-  return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA };
+  return { ctx, TF, LS, SM, model, slots, mix, show, team, dialog, TR, H, FO, DATA, el, TFC: ctx.UPS_TRADE_FINDER };
 }
 // The strength table → { fid: { row: text } } (team id from the View button).
 function readTable(html) {
@@ -251,11 +251,12 @@ test("no Biggest gain column; the League average row is the reference", () => {
   const html = p.show({ view: { by: "position", measure: "ppg", sort: "ALL" } });
   t.ok(!/Biggest (gain|need)/.test(html) && !/potential gain/.test(html), "no Biggest gain column or note");
   const tb = p.LS.build(p.model);
-  const head = html.slice(html.indexOf("<thead>"), html.indexOf("</thead>"));
+  const st = html.indexOf("fo-tf-strength"); // the league table (Your team's tables come first on the page)
+  const head = html.slice(html.indexOf("<thead>", st), html.indexOf("</thead>", st));
   t.equal((head.match(/<th /g) || []).length, 1 + tb.rows.length, "Team + one column per row of the table, nothing else");
   const row = html.slice(html.indexOf('data-tf-team="0008"'), html.indexOf("</tr>", html.indexOf('data-tf-team="0008"')));
   t.equal((row.match(/<td /g) || []).length, tb.rows.length, "each team row has exactly the table's cells");
-  const foot = html.slice(html.indexOf("<tfoot>"), html.indexOf("</tfoot>"));
+  const foot = html.slice(html.indexOf("<tfoot>", st), html.indexOf("</tfoot>", st));
   t.ok(/League average<\/th>/.test(foot) && foot.includes('<td class="num">' + (Math.round(tb.league.ALL.meanPpg * 10) / 10).toFixed(1) + "</td>"), "PPG: the league-average row (outside the sorted body)");
   t.equal((foot.match(/<td/g) || []).length, tb.rows.length, "the footer has no empty extra cell");
   const idx = p.show({ view: { measure: "index" } });
@@ -269,7 +270,7 @@ test("no Biggest gain column; the League average row is the reference", () => {
 test("Starter Mix: columns sort, the league average row stays apart, and the Flexible-slots share has a stated denominator", () => {
   const p = page();
   const html = p.show({ view: { by: "mix", mixSort: "TE" } });
-  const order = [...html.matchAll(/<tbody>[\s\S]*?<\/tbody>/g)][0][0].match(/data-tf-team="(\d{4})"/g).map((x) => x.slice(14, 18));
+  const order = [...html.slice(html.indexOf("fo-tf-mix")).matchAll(/<tbody>[\s\S]*?<\/tbody>/g)][0][0].match(/data-tf-team="(\d{4})"/g).map((x) => x.slice(14, 18));
   const te = order.map((f) => p.mix.teams[f].avg.TE);
   t.equal(te.join(","), te.slice().sort((a, b) => b - a).join(","), "sorted by TE per week, most first");
   t.ok(/<tfoot><tr class="fo-tf-ref"><th scope="row" class="fo-tf-teamcol">League average<\/th>/.test(html), "league average in the footer, never sorted into the teams");
@@ -297,6 +298,153 @@ test("Trades opens on the Trade builder (first chip); the Trade finder is the se
   t.ok(/var mode = "builder";/.test(SRC), "the default mode is the builder");
   t.ok(/MODES = \[\["builder", "Trade builder"\], \["finder", "Trade finder"\]\]/.test(SRC), "chips: Trade builder first, Trade finder second");
   t.ok(/if \(mode === "builder"\) \{ renderBuilder\(el\); return; \}/.test(SRC), "finder code only runs in finder mode");
+});
+
+test("How to use this page: collapsed by default; explains the table, the team view and what possible roster surplus is based on", () => {
+  const p = page();
+  const html = p.show({ view: { by: "position", measure: "ppg" } });
+  t.ok(/data-tf-guide aria-expanded="false" aria-controls="fo-tf-guide">/.test(html), "a disclosure button, collapsed");
+  t.ok(/<div class="fo-tf-guide" id="fo-tf-guide" hidden>/.test(html), "the guide is hidden until tapped");
+  const guide = unesc(html.slice(html.indexOf('id="fo-tf-guide"'), html.indexOf("</ul></div></div>")));
+  t.ok(/<b>The league table<\/b> \(below\) shows every team’s modeled lineup/.test(guide) && /<b>Explore a team<\/b> \(or <b>View<\/b> in the table\) opens it/.test(guide), "the table and the team details");
+  t.ok(/<b>Your team<\/b> comes first/.test(guide) && /Every number is season PPG, not a projection/.test(guide), "my team first; the basis");
+  t.ok(/<b>Possible roster surplus<\/b> = healthy bench players outside that team’s modeled lineup who would start for another team, on season PPG/.test(guide), "what surplus means and its basis");
+  t.ok(/doesn’t mean the owner would move them/.test(guide), "no willingness implied");
+  t.equal((guide.match(/<li>/g) || []).length, 5, "a few short lines");
+  t.ok(/if \(t\.hasAttribute\("data-tf-guide"\)\) \{\s*guideOpen = !guideOpen;/.test(SRC) && /if \(gd\) gd\.hidden = !guideOpen;/.test(SRC), "the button toggles it in place");
+  t.ok(p.show({ view: { by: "mix" } }).includes('id="fo-tf-guide"'), "also on Starter Mix");
+  p.show({ view: { by: "position" } });
+});
+
+test("lineup gains: both lists for the viewer's team, each row = trade_fit.lineupGains (team, season PPG, gain ≥ 1.0); no exchange wording", () => {
+  const p = page();
+  p.TR._gainsView.all.mine = false; p.TR._gainsView.all.theirs = false;
+  const html = p.show({ view: { by: "position" } });
+  const G = p.TF.lineupGains(p.model, "0008");
+  t.ok(G.forMe.length > 10 && G.fromMe.length > 0, "the fixture has improvers on both sides");
+  const card = html.slice(html.indexOf("fo-tf-gainscard"));
+  const part = (k) => card.slice(card.indexOf('data-tf-gains="' + k + '"'), card.indexOf("</table>", card.indexOf('data-tf-gains="' + k + '"')));
+  const rows = (k) => part(k).split('<tr data-tf-gain="').slice(1);
+  t.ok(/<h3 class="fo-tf-gh">Players who would improve your lineup<\/h3>/.test(card) && /<h3 class="fo-tf-gh">Your players who would improve theirs<\/h3>/.test(card), "both headings");
+  const a = rows("mine");
+  t.equal(a.length, 10, "top 10 shown first");
+  a.forEach((r, i) => {
+    const x = G.forMe[i];
+    t.ok(r.startsWith(x.pid + '"'), "row " + i + " = " + x.pid);
+    t.ok(r.includes('<span class="fo-tf-gfrom">' + esc(p.H.teamName(x.fid)) + "</span>"), x.pid + ": his team, under his name");
+    t.ok(r.includes('<td class="num">' + p.H.fmt1(x.v)), x.pid + ": season PPG basis");
+    const g = Number(r.match(/fo-tf-gain"[^>]*><span class="fo-tf-gnum">\+([\d.]+)<\/span> <span class="fo-tf-unit">pts\/wk<\/span><div class="fo-tf-gsub">season PPG<\/div>/)[1]);
+    t.equal(g, x.gain, x.pid + ": gain shown = lineupGains"); t.ok(g >= 1.0, x.pid + ": gain ≥ 1.0");
+    t.ok(r.includes('title="Would add about +' + p.H.fmt1(x.gain) + ' pts/week to your modeled lineup (season PPG)"'), x.pid + ": the gain says what it is");
+  });
+  t.ok(card.includes('data-tf-gall="mine" aria-expanded="false">Show all ' + G.forMe.length + "</button>"), "Show all " + G.forMe.length);
+  const b = rows("theirs");
+  t.equal(b.length, Math.min(10, G.fromMe.length));
+  b.forEach((r, i) => {
+    const x = G.fromMe[i];
+    t.ok(r.startsWith(x.pid + '"') && r.includes('<span class="fo-tf-gppg">' + p.H.fmt1(x.v) + "</span> PPG"), x.pid + ": my player with season PPG");
+    for (const g of x.gains.slice(0, 3)) t.ok(r.includes(esc(p.H.teamName(g.fid)) + " <b>+" + p.H.fmt1(g.gain) + '</b> <span class="fo-tf-unit">pts/wk</span>') && g.gain >= 1.0, x.pid + " → " + g.fid);
+    t.ok(r.includes('<div class="fo-tf-gsub">season PPG</div>'), x.pid + ": basis beside the gains");
+    if (x.gains.length > 3) t.ok(r.includes('data-tf-gmore="' + x.pid + '" aria-expanded="false">+' + (x.gains.length - 3) + " more</button>"), x.pid + ": +N more");
+    t.equal(r.includes("in your lineup"), x.starter, x.pid + ": in-your-lineup mark");
+  });
+  t.ok(/Lineup math only: one player added, nothing sent back\. It isn’t a trade suggestion and doesn’t say any owner would deal\./.test(unesc(card)), "the one short note");
+  t.ok(/Only \+1\.0 pts\/wk or more/.test(card) && /gains under \+1\.0 are left out/.test(card), "the minimum is stated");
+  t.ok(!/trade for|in exchange|you could offer|they could offer|would trade|willing|available for trade/i.test(unesc(card)), "no exchange or willingness wording");
+  p.TR._gainsView.all.mine = true;
+  const all = p.show({ view: { by: "position" } });
+  t.equal(all.slice(all.indexOf('data-tf-gains="mine"'), all.indexOf("</table>", all.indexOf('data-tf-gains="mine"'))).split('<tr data-tf-gain="').length - 1, G.forMe.length, "Show all lists every improver");
+  p.TR._gainsView.all.mine = false;
+  t.equal(p.TR._gains("0008"), p.TR._gains("0008"), "computed once per model (memoized)");
+  const nobody = page({ viewer: "9999" }).show({});
+  t.ok(/Your team’s view needs to know which team is yours, and Front Office couldn’t tell\. The league table is below\./.test(unesc(nobody)) && !/data-tf-gains=/.test(nobody) && /fo-tf-strength/.test(nobody), "no viewer team → says so, lists nothing, the league table still shows");
+});
+
+test("your team first: basis stated up top, strengths and needs = trade_finder_core.standing, Explore a team, then the league table", () => {
+  const p = page();
+  const html = p.show({ view: { by: "position", measure: "ppg" } });
+  const mine = html.indexOf("fo-tf-mine"), table = html.indexOf("fo-tf-main");
+  t.ok(mine > 0 && mine < table, "Your team card before the league table");
+  const card = unesc(html.slice(mine, table));
+  t.ok(/<h2>Your team: strengths and needs<\/h2>/.test(card), "titled");
+  t.ok(/<p class="fo-tf-basisline"><b>Based on season points per game, not projections\.<\/b>/.test(card), "basis stated prominently, near the top");
+  t.ok(card.indexOf("Based on season points per game") < card.indexOf("fo-tf-stand"), "before any number");
+  const st = p.TFC.standing(p.LS.build(p.model, { by: "position" }), "0008", { forMe: p.TF.lineupGains(p.model, "0008").forMe });
+  t.ok(card.includes("<b>Strong</b> (Top 3 by PPG): " + (st.strong.join(", ").replace(/PK/g, "K").replace(/PN/g, "P") || "none")), "strong list");
+  t.ok(card.includes("<b>Short</b> (Bottom 3): " + (st.short.join(", ") || "none")), "short list");
+  for (const r of st.rows) {
+    const row = card.slice(card.indexOf('data-tf-stand="' + r.g + '"'), card.indexOf("</tr>", card.indexOf('data-tf-stand="' + r.g + '"')));
+    t.ok(row.includes('<td class="num">' + p.H.fmt1(r.ppg) + ' <span class="fo-tf-unit">PPG</span><div class="fo-tf-gsub">lg ' + p.H.fmt1(r.avg)), r.g + ": PPG and league average");
+    t.ok(row.includes(">" + p.LS.ordinal(r.rank) + "</td>"), r.g + ": rank");
+    t.equal(/Top 3/.test(row), r.tag === "strong", r.g + ": Top 3 tag"); t.equal(/Bottom 3/.test(row), r.tag === "short", r.g + ": Bottom 3 tag");
+    const bi = card.indexOf('data-tf-stand-best="' + r.g + '"'), brow = bi < 0 ? "" : card.slice(bi, card.indexOf("</tr>", bi));
+    t.equal(bi > 0, !r.excluded, r.g + ": a best-available line unless K/P");
+    if (r.best) t.ok(brow.includes("Best available: ") && brow.includes("(" + p.H.teamName(r.best.fid) + ")") && brow.includes('<span class="fo-tf-gnum">+' + p.H.fmt1(r.best.gain) + '</span> <span class="fo-tf-unit">pts/wk, season PPG</span>'), r.g + ": best available with team, unit and basis");
+  }
+  const opts = [...card.matchAll(/<option value="(\d{4})">/g)].map((x) => x[1]);
+  t.equal(opts.length, 11, "Explore a team: the 11 other teams"); t.ok(!opts.includes("0008"), "not my own");
+  t.ok(card.indexOf("data-tf-explore") < card.indexOf('data-tf-gains="mine"'), "Explore a team before the gain lists");
+  t.ok(/el\.addEventListener\("change", function \(e\) \{[\s\S]*?data-tf-explore[\s\S]*?openTeam\(m, f\)/.test(SRC), "choosing a team opens its popup");
+});
+
+test("another team's popup: their players with the gain to MY lineup, my players with the gain to THEIRS (The Long Haulers), checkboxes, basis beside every gain", () => {
+  const p = page();
+  p.show({});
+  p.TR._openTeam("0006");
+  const html = p.dialog.open.html;
+  const P = p.TFC.pairGains(p.TF.lineupGains(p.model, "0008"), "0006");
+  t.ok(/<h4 class="fo-tf-h">Between you and The Long Haulers<\/h4>/.test(html), "the pair section");
+  t.ok(html.indexOf("fo-tf-between") < html.indexOf("Standing by position"), "first in the popup");
+  t.ok(/<b>Based on season points per game, not projections\.<\/b>/.test(html) && /doesn’t say a trade is fair or that an owner would accept/.test(unesc(html)), "basis and exploration-only note");
+  for (const [side, list, title] of [["theirs", P.theirs, "your modeled lineup"], ["mine", P.mine, "The Long Haulers’s modeled lineup"]]) {
+    const part = html.slice(html.indexOf('data-tf-pairs="' + side + '"'), html.indexOf("</table>", html.indexOf('data-tf-pairs="' + side + '"')));
+    const rows = part.split('<tr data-tf-pair="').slice(1);
+    t.equal(rows.length, list.length, side + ": every player of the drilldown");
+    rows.forEach((r, i) => {
+      const x = list[i];
+      t.ok(r.includes('data-tf-pick="' + side + '" value="' + x.pid + '"'), x.pid + ": a checkbox");
+      t.ok(r.includes('<span class="fo-tf-gppg">' + p.H.fmt1(x.v) + "</span> PPG"), x.pid + ": season PPG");
+      t.ok(r.includes('<span class="fo-tf-gnum">+' + p.H.fmt1(x.gain) + '</span> <span class="fo-tf-unit">pts/wk</span><div class="fo-tf-gsub">season PPG</div>'), x.pid + ": +gain pts/wk, season PPG");
+      t.ok(unesc(r).includes("pts/week to " + title + " (season PPG)"), x.pid + ": whose lineup gains");
+      t.ok(x.gain >= 1.0, x.pid + " ≥ 1.0");
+    });
+  }
+  const nacua = P.mine.find((x) => x.pid === "16211");
+  t.ok(nacua && html.includes('value="16211"'), "Puka Nacua (mine) shows his gain to The Long Haulers: +" + (nacua && nacua.gain));
+  t.ok(!/trade for|in exchange|you could offer|they could offer|willing/i.test(unesc(html)), "no exchange or willingness wording");
+  p.TR._openTeam("0008");
+  t.ok(!/fo-tf-between|data-tf-pick/.test(p.dialog.open.html), "my own team's popup has no pair section");
+});
+
+test("copy to Trade builder: disabled with a reason without the builder's openDraft; with it, ticked players go in as an UNSENT draft", () => {
+  const p = page();
+  p.show({});
+  p.TR._openTeam("0006");
+  let c = p.TR._copyState();
+  t.ok(!c.ok && /can’t take a copied draft yet/.test(c.why), "no openDraft → disabled, says why");
+  t.ok(/data-tf-copy disabled>Copy to Trade builder \(not sent\)<\/button>/.test(p.dialog.open.html), "the button is rendered disabled");
+  t.equal(p.TR._copy(), null, "and a forced copy does nothing");
+  const calls = [];
+  let answer = { ok: false, reason: "kept_current", dropped: [], clamped: [] };
+  p.ctx.UPS_FO_TRADE_BUILDER = { mount: () => ({ refresh() {} }), openDraft: (d) => { calls.push(JSON.parse(JSON.stringify(d))); return answer; } };
+  c = p.TR._copyState();
+  t.ok(!c.ok && /Tick at least one player/.test(c.why), "openDraft present, nothing ticked → still disabled");
+  const P = p.TFC.pairGains(p.TF.lineupGains(p.model, "0008"), "0006");
+  p.TR._picks().theirs[P.theirs[0].pid] = true; p.TR._picks().mine["16211"] = true;
+  c = p.TR._copyState();
+  t.ok(c.ok && /Nothing is sent/.test(c.why), "ticked → enabled");
+  const r1 = p.TR._copy();
+  t.equal(calls.length, 1, "openDraft called once");
+  t.equal(JSON.stringify(calls[0]), JSON.stringify({ source: "Trade finder", movements: [
+    { from: "0008", to: "0006", tokens: ["P_16211"] }, { from: "0006", to: "0008", tokens: ["P_" + P.theirs[0].pid] }] }), "the #1419 draft: my player to them, theirs to me");
+  t.ok(r1.ok === false && p.dialog.open, "the builder declined (owner kept the current draft) → the popup stays open, nothing switched");
+  answer = { ok: true, dropped: [], clamped: [] };
+  const host = { innerHTML: "", __tbHandle: null };
+  p.el.querySelector = (q) => (q === "#fo-tb-host" && p.el.innerHTML.includes('id="fo-tb-host"') ? host : null);
+  const r2 = p.TR._copy();
+  t.ok(r2.ok && p.dialog.open === null, "accepted → the popup closes");
+  t.ok(/data-tf-mode="builder" aria-pressed="true"/.test(p.el.innerHTML), "and Trades shows the builder");
+  t.ok(!/fetch\(|method:\s*"POST"/.test(SRC), "the finder itself never sends");
 });
 
 await run("front_office_trade_finder");

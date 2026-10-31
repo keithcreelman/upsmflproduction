@@ -1601,3 +1601,42 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-sched-detail dt { color: var(--muted); }
 .fo-sched-detail dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .fo-sched-detail { grid-template-columns: 1fr; gap: 0; } .fo-sched-detail dd { margin-bottom: 8px; } }
+
+/* Trade finder: "How to use this page" (collapsed) and Lineup gains for the viewer's team (Keith 2026-10-28). The gains
+   tables size to the phone (no 820 px floor); if a row is still wider, it scrolls inside its own box, never the page. */
+.fo-tf-guidewrap { margin: 2px 0 8px; }
+.fo-tf-guidebtn { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; }
+.fo-tf-guide { margin: 4px 0 6px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-alt); font-size: 12.5px; }
+.fo-tf-guide ul { margin: 0; padding-left: 18px; }
+.fo-tf-guide li { padding: 2px 0; }
+.fo-tf-gainscard { margin-top: 12px; }
+.fo-tf-gh { margin: 12px 0 6px; font-size: 14px; }
+.fo-table-scroll .fo-tf-gt { min-width: 0; }
+.fo-tf-gt tbody th[scope="row"] { text-align: left; font-weight: 400; font-size: 12px; color: var(--text); text-transform: none; letter-spacing: 0; background: none; position: static; cursor: default; user-select: auto; }
+.fo-tf-gsub { color: var(--muted); font-size: 11px; font-weight: 400; }
+.fo-tf-gt .fo-plink { text-align: left; }
+.fo-tf-gt td.num, .fo-tf-gt th.num { white-space: nowrap; }
+.fo-tf-gain { font-weight: 700; font-variant-numeric: tabular-nums; }
+.fo-tf-gteam { display: block; }
+.fo-tf-more { background: none; border: 0; padding: 2px 0; font: inherit; font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; }
+.fo-tf-showall { margin: 4px 0 0; }
+
+/* Trade finder, your team first (Keith 2026-10-28 review): basis line, strengths/needs, Explore a team, the team-popup
+   pair lists with checkboxes and the copy bar. */
+.fo-tf-basisline { margin: 4px 0 8px; font-size: 12.5px; color: var(--muted); }
+.fo-tf-basisline b { color: var(--text); }
+.fo-tf-sum { margin: 4px 0 6px; font-size: 13px; }
+.fo-tf-stand td, .fo-tf-stand th { vertical-align: top; }
+.fo-tf-stand tr.fo-tf-standrow td, .fo-tf-stand tr.fo-tf-standrow th { border-bottom: 0; padding-bottom: 2px; }
+.fo-tf-standbest td { padding-top: 0; font-size: 12px; }
+.fo-tf-unit { color: var(--muted); font-size: 11px; font-weight: 400; }
+.fo-tf-gnum { font-weight: 700; }
+.fo-tf-explore { margin: 12px 0 4px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
+.fo-tf-explore select { font: inherit; max-width: 100%; padding: 4px 6px; background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+.fo-tf-between { margin: 4px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.fo-tf-pickcell { width: 28px; text-align: center; }
+.fo-tf-pickcell input { width: 20px; height: 20px; margin: 0; }
+.fo-tf-pickbar { position: sticky; bottom: 0; margin-top: 8px; padding: 8px 0; background: var(--panel); display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+.fo-tf-pickbar .fo-basis { flex-basis: 100%; margin: 0; }
+.fo-tf-copy { padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 700; color: #fff; background: var(--accent); border: 1px solid var(--accent); border-radius: 6px; cursor: pointer; }
+.fo-tf-copy:disabled { color: var(--muted); background: var(--panel-alt); border: 1px dashed var(--border); cursor: not-allowed; }
