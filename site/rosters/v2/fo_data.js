@@ -148,6 +148,9 @@
     injuryLoader.load(cfg.season, onChange);
     return injuryLoader.read();
   }
+  // The injury read as it stands, without starting a read: { state: "idle"|"loading"|"ok"|"error", at (ms the read
+  // finished) } | null before the first injury() call. The Overview's Injuries check reads its state and time from here.
+  function injuryState() { return injuryLoader ? injuryLoader.read() : null; }
 
   function configure(c) {
     cfg.apiBase = str(c.apiBase).replace(/\/$/, "");
@@ -159,6 +162,6 @@
   // Test seam: swap the sources (offline tests feed recorded payloads).
   function _setSources(map) { Object.keys(map).forEach(function (k) { SOURCES[k] = map[k]; }); entries = {}; pending = {}; }
 
-  root.UPS_FO_DATA = { configure: configure, load: load, get: get, refresh: refresh, on: on, injury: injury,
+  root.UPS_FO_DATA = { configure: configure, load: load, get: get, refresh: refresh, on: on, injury: injury, injuryState: injuryState,
     config: function () { return Object.assign({}, cfg); }, _setSources: _setSources, mflExportUrl: mflExport };
 })(typeof window !== "undefined" ? window : this);

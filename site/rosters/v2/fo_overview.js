@@ -56,6 +56,52 @@
       verified: isFinite(v) ? etLabel(v) : "" };
   }
 
+  // ── Attention checks: loaded / unavailable / found items → one summary (pure; tested) ──
+  // Each check runs on named sources. A source is { name, state: "ok"|"unavailable"|"loading", at, note }: at = the ms
+  // that source's answer arrived (fo_data entry.at / the Front Office's own read time / the worker's MFL-verified time).
+  // A DATA entry (fo_data.js: { state: "ok"|"error", at }) → a source; no entry yet = still loading.
+  function sourceFromEntry(name, entry) {
+    if (!entry) return { name: name, state: "loading", at: 0 };
+    return { name: name, state: entry.state === "ok" ? "ok" : "unavailable", at: Number(entry.at) || 0 };
+  }
+  // Sources → one check state: any unavailable → unavailable; else any not yet read → loading; else ok. "Checked" is the
+  // OLDEST source read, so the time never claims fresher data than the check used.
+  function combineSources(parts) {
+    var bad = [], wait = 0, at = 0, notes = [];
+    (parts || []).forEach(function (p) {
+      if (!p) return;
+      if (p.state === "unavailable") { bad.push(p); if (p.note) notes.push(p.note); }
+      else if (p.state !== "ok") wait++;
+      if (p.at > 0 && (!at || p.at < at)) at = p.at;
+    });
+    var plain = bad.filter(function (p) { return !p.note; }).map(function (p) { return p.name; });
+    if (plain.length) notes.unshift(plain.join(" and ") + " didn’t load");
+    return { state: bad.length ? "unavailable" : wait ? "loading" : "ok", at: bad.length || wait ? 0 : at, note: notes.join("; ") };
+  }
+  // "checked 9:42 AM" (viewer's clock); a read from another day adds the date.
+  function checkedLabel(at, nowMs) {
+    if (!(at > 0)) return "checked";
+    var d = new Date(at), n = new Date(nowMs || Date.now()), h = d.getHours(), m = d.getMinutes();
+    var t = ((h % 12) || 12) + ":" + (m < 10 ? "0" : "") + m + " " + (h < 12 ? "AM" : "PM");
+    var sameDay = d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+    return "checked " + (sameDay ? "" : ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()] + " " + d.getDate() + ", ") + t;
+  }
+  // checks: [{ id, label, state, at, note, items: [html] }] in display order → { items, allClear, unavailable, loading, rows }.
+  // All clear ONLY when every check loaded and found nothing; an unavailable or still-loading check is never all clear.
+  function summarizeChecks(checks, nowMs) {
+    var items = [], unavailable = [], loading = [], rows = [];
+    (checks || []).forEach(function (c) {
+      var st = c.state === "ok" ? "ok" : c.state === "unavailable" ? "unavailable" : "loading";
+      (c.items || []).forEach(function (x) { items.push(x); });
+      if (st === "unavailable") unavailable.push(c.label);
+      if (st === "loading") loading.push(c.label);
+      rows.push({ id: c.id, label: c.label, state: st, note: st === "unavailable" ? (c.note || "") : "",
+        status: st === "ok" ? checkedLabel(c.at, nowMs) : st === "unavailable" ? "check unavailable" : "checking…" });
+    });
+    return { items: items, unavailable: unavailable, loading: loading, rows: rows,
+      allClear: rows.length > 0 && !items.length && !unavailable.length && !loading.length };
+  }
+
   function focusFid() {
     var me = FO.viewerFid();
     var teams = FO.teams();
@@ -81,27 +127,52 @@
     return null;
   }
 
-  function claimsItems(fid, out) {
-    var pend = DATA.get("waiverPending"), av = DATA.get("waiverAvailability");
-    if (!pend) return;
-    if (pend.state !== "ok" || !pend.data || pend.data.known !== true) {
-      out.info.push(item("info", "Claims MFL holds for you show here when you’re signed in to MFL.", H.goLink("moves", "Activity")));
-      return;
+  // Waiver claims check: MFL's held claims are the viewer's own (a 401 = not signed in to MFL: the check can't run,
+  // never "no claims"); the league's availability says which of them MFL will refuse.
+  function claimsCheck() {
+    var pend = DATA.get("waiverPending"), av = DATA.get("waiverAvailability"), items = [];
+    var ps = sourceFromEntry("MFL’s claims", pend);
+    if (pend && (pend.state !== "ok" ? /HTTP 40[13]/.test(String(pend.error || "")) : !pend.data || pend.data.known !== true)) {
+      ps = { name: ps.name, state: "unavailable", at: 0, note: "sign in to MFL" };
     }
-    var picks = [];
-    H.asArray(pend.data.rounds).forEach(function (r) { H.asArray(r && r.picks).forEach(function (pk) { picks.push(pk); }); });
-    if (!picks.length) return;
-    var pidx = H.playerIndex(), refuse = [];
-    var a = av && av.state === "ok" ? av.data : null;
-    picks.forEach(function (pk) {
-      var pid = String(pk.add_pid || pk.add || pk.player_id || "");
-      var pl = pidx[pid] || {};
-      var st = a && a.known ? ((a.players && a.players[pid]) || (a.by_team && a.by_team[pl.team]) || a.no_game) : null;
-      if (st && BLOCKING[st.code]) refuse.push(H.displayName(pl.name || pid) + " (" + (st.badge || st.headline || st.code) + ")");
-    });
-    out.list.push(item(refuse.length ? "warn" : "info",
-      H.esc(picks.length + " claim" + (picks.length === 1 ? "" : "s") + " held at MFL") +
-      (refuse.length ? ' · <b>MFL will refuse ' + refuse.length + "</b>: " + H.esc(refuse.join(", ")) : ""), H.goLink("moves", "Claims")));
+    var parts = [ps];
+    if (ps.state === "ok") {
+      var picks = [];
+      H.asArray(pend.data.rounds).forEach(function (r) { H.asArray(r && r.picks).forEach(function (pk) { picks.push(pk); }); });
+      if (picks.length) {
+        var as = sourceFromEntry("waiver availability", av);
+        if (as.state === "unavailable") as.note = "couldn’t check whether MFL will refuse them";
+        parts.push(as);
+        var pidx = H.playerIndex(), refuse = [];
+        var a = av && av.state === "ok" ? av.data : null;
+        picks.forEach(function (pk) {
+          var pid = String(pk.add_pid || pk.add || pk.player_id || "");
+          var pl = pidx[pid] || {};
+          var st = a && a.known ? ((a.players && a.players[pid]) || (a.by_team && a.by_team[pl.team]) || a.no_game) : null;
+          if (st && BLOCKING[st.code]) refuse.push(H.displayName(pl.name || pid) + " (" + (st.badge || st.headline || st.code) + ")");
+        });
+        items.push(item(refuse.length ? "warn" : "info",
+          H.esc(picks.length + " claim" + (picks.length === 1 ? "" : "s") + " held at MFL") +
+          (refuse.length ? ' · <b>MFL will refuse ' + refuse.length + "</b>: " + H.esc(refuse.join(", ")) : ""), H.goLink("moves", "Claims")));
+      }
+    }
+    return makeCheck("claims", "Waiver claims", parts, items);
+  }
+  function makeCheck(id, label, parts, items) {
+    var c = combineSources(parts);
+    return { id: id, label: label, state: c.state, at: c.at, note: c.note, items: items || [] };
+  }
+  // A read the Front Office makes itself (rosters, league events) as a source.
+  function foSource(name, key) {
+    var r = FO.readState ? FO.readState(key) : null;
+    return r ? { name: name, state: r.state === "ok" ? "ok" : "unavailable", at: Number(r.at) || 0 } : { name: name, state: "loading", at: 0 };
+  }
+  // MFL's trade lock as the cards read it: the worker's trade_lock, or "unresolved" once the league-events read
+  // finished without one (never "reading…" forever).
+  function tradeLockNow() {
+    var lock = FO.tradeLock ? FO.tradeLock() : null;
+    var r = FO.readState ? FO.readState("leagueEvents") : null;
+    return lock || (r ? { state: "unresolved" } : null);
   }
 
   function render() {
@@ -125,10 +196,9 @@
     var team = FO.teams().filter(function (t) { return t.fid === fid; })[0];
     var cap = FO.capFor(fid);
     var ss = H.scoring();
-    var scoresEntry = DATA.get("scores");
     var wk = currentWeek(ss);
     var vals = H.values(0);
-    var out = { list: [], info: [] };
+    var checks = [];
 
     // ── status row ──
     var row = '<div class="fo-ov-row">' +
@@ -141,23 +211,35 @@
       deadlineCard() +
       "</div>";
 
-    // ── needs attention ──
+    // ── needs attention: one check per kind of item, each knowing whether its data loaded and when ──
+    // Sources' "checked" times: rosters / league events = when this page's read of them arrived (front_office.js
+    // STATE.reads); MFL scores, bye weeks, claims, availability = fo_data.js entry.at (when the read finished);
+    // the injury report = the shared loader's at; the trade lock = the worker's verified_at_utc when it sends one.
+    var rosters = foSource("rosters", "rosters"), events = foSource("the league calendar", "leagueEvents");
+    var capItems = [];
     if (cap) {
-      if (cap.capSpace < 0) out.list.push(item("bad", "Over the cap by <b>" + H.money(-cap.capSpace) + "</b>.", H.goLink("cap", "Cap plan")));
-      if (cap.activeN > cap.activeMax) out.list.push(item("bad", "<b>" + (cap.activeN - cap.activeMax) + "</b> over the active-roster max (" + cap.activeMax + ").", H.goLink("roster", "Players")));
-      if (cap.activeN < cap.activeMin) out.list.push(item("bad", "<b>" + (cap.activeMin - cap.activeN) + "</b> under the active-roster minimum (" + cap.activeMin + "). Adds happen in the phone app’s Market.", H.goLink("market", "Market")));
+      if (cap.capSpace < 0) capItems.push(item("bad", "Over the cap by <b>" + H.money(-cap.capSpace) + "</b>.", H.goLink("cap", "Cap plan")));
+      if (cap.activeN > cap.activeMax) capItems.push(item("bad", "<b>" + (cap.activeN - cap.activeMax) + "</b> over the active-roster max (" + cap.activeMax + ").", H.goLink("roster", "Players")));
+      if (cap.activeN < cap.activeMin) capItems.push(item("bad", "<b>" + (cap.activeMin - cap.activeN) + "</b> under the active-roster minimum (" + cap.activeMin + "). Adds happen in the phone app’s Market.", H.goLink("market", "Market")));
     }
+    checks.push(makeCheck("cap", "Cap and roster size", [cap ? rosters : { name: "the cap", state: rosters.state === "loading" ? "loading" : "unavailable", at: 0 }], capItems));
 
-    var BP = root.UPS_BYE_PLANNER, TF = root.UPS_TRADE_FIT;
+    var BP = root.UPS_BYE_PLANNER;
     var teams = H.modelTeams();
     var mine = teams.filter(function (t) { return t.fid === fid; })[0];
-    var byesEntry = DATA.get("byes");
+    var scoresEntry = DATA.get("scores"), byesEntry = DATA.get("byes");
+    // The lineup model needs MFL's scores (known, with a lineup week) and MFL's bye weeks.
+    var scoresSrc = sourceFromEntry("MFL scores", scoresEntry);
+    if (scoresSrc.state === "ok" && (!ss || !wk)) scoresSrc = { name: "MFL scores", state: "unavailable", at: 0 };
+    var lineupParts = [scoresSrc, sourceFromEntry("bye weeks", byesEntry)];
+    if (!BP || !mine) lineupParts.push({ name: "the lineup model", state: rosters.state === "loading" ? "loading" : "unavailable", at: 0 });
     var plan = null;
-    if (BP && mine && ss && wk && byesEntry && byesEntry.state === "ok") {
+    if (combineSources(lineupParts).state === "ok") {
       plan = BP.plan({ players: mine.players, values: vals, byeWeekByTeam: BP.byesFromMfl(byesEntry.data),
         fromWeek: wk, toWeek: Math.min(17, wk + 2), currentWeek: wk });
     }
     // Players in the best lineup by season PPG who carry an injury designation (the selection is unchanged; the alert no longer calls them starters).
+    var injItems = [];
     if (plan && team) {
       var hurt = [];
       Object.keys(plan.fullStarters).forEach(function (pid) {
@@ -166,20 +248,31 @@
         var chip = H.injuryChip(p);
         if (chip) hurt.push(H.playerButton(p.id, fid, H.displayName(p.name)) + chip);
       });
-      if (hurt.length) out.list.push(item("warn", "Check injury status before setting your lineup: " + hurt.join(", "), H.goLink("roster", "Players")));
-      var disagree = team.players.filter(function (p) { var r = FO.injury(p); return r && r.warning; });
-      if (disagree.length) out.list.push(item("warn", "Injury sources disagree for " + disagree.map(function (p) { return H.playerButton(p.id, fid, H.displayName(p.name)); }).join(", ") + ".", ""));
+      if (hurt.length) injItems.push(item("warn", "Check injury status before setting your lineup: " + hurt.join(", "), H.goLink("roster", "Players")));
     }
+    if (team) {
+      var disagree = team.players.filter(function (p) { var r = FO.injury(p); return r && r.warning; });
+      if (disagree.length) injItems.push(item("warn", "Injury sources disagree for " + disagree.map(function (p) { return H.playerButton(p.id, fid, H.displayName(p.name)); }).join(", ") + ".", ""));
+    }
+    var inj = DATA.injuryState ? DATA.injuryState() : null;
+    var injSrc = !inj || inj.state === "idle" || inj.state === "loading" ? { name: "the injury report", state: "loading", at: 0 }
+      : { name: "the injury report", state: inj.state === "ok" ? "ok" : "unavailable", at: Number(inj.at) || 0 };
+    checks.push(makeCheck("injury", "Injuries", lineupParts.concat([injSrc]), injItems));
+
+    var lineupItems = [];
     if (plan) {
       plan.weeks.forEach(function (w) {
         if (w.empty.length) {
           var labels = Object.keys(w.emptyGroups).map(function (g) { return w.emptyGroups[g] + " " + g; });
-          out.list.push(item("bad", "<b>Week " + w.week + "</b>: no eligible player for " + H.esc(labels.join(", ")) + " (an empty lineup slot).", H.goLink("bye", "Bye planner")));
+          lineupItems.push(item("bad", "<b>Week " + w.week + "</b>: no eligible player for " + H.esc(labels.join(", ")) + " (an empty lineup slot).", H.goLink("bye", "Bye planner")));
         }
       });
     }
-    // Contract windows that close soon (the same eligibility the Contracts lists use).
-    var mym = [];
+    checks.push(makeCheck("lineup", "Lineup and byes", lineupParts, lineupItems));
+
+    // Contract windows that close soon (the same eligibility the Contracts lists use; the windows come from the
+    // league calendar the Front Office reads with /api/league-events).
+    var mym = [], ctItems = [];
     if (team) {
       team.players.forEach(function (p) {
         var e = FO.eligibility(p);
@@ -187,32 +280,53 @@
         if (e.extensionEligible) {
           var dl = FO.extensionDeadline(p);
           if (dl && dl.days_until != null && dl.days_until <= 14) {
-            out.list.push(item(dl.days_until <= 3 ? "bad" : "warn", "Extension window for " + H.playerButton(p.id, fid, H.displayName(p.name), "") +
+            ctItems.push(item(dl.days_until <= 3 ? "bad" : "warn", "Extension window for " + H.playerButton(p.id, fid, H.displayName(p.name), "") +
               " closes in <b>" + dl.days_until + " day" + (dl.days_until === 1 ? "" : "s") + "</b>" + (dl.date ? " (" + H.esc(H.dayLabel(dl.date.getTime ? dl.date.getTime() : dl.date)) + ")" : "") + ".", H.goLink("extensions", "Extensions")));
           }
         }
         if (e.mymEligible) mym.push(H.playerButton(p.id, fid, H.displayName(p.name)) + (e.mymDaysSinceAcq != null ? ' <span class="fo-ov-via">day ' + e.mymDaysSinceAcq + " of 14</span>" : ""));
       });
     }
-    if (mym.length) out.list.push(item("warn", "Mid-Year Multi window open for " + mym.length + " player" + (mym.length === 1 ? "" : "s") + ": " + mym.join(", ") + ".", H.goLink("mym", "MYM")));
-    claimsItems(fid, out);
-    var tdl = mflDeadline();
-    if (tdl && tdl.state === "upcoming" && tdl.days != null && tdl.days <= 14) {
-      out.list.push(item("warn", "MFL stops accepting trades in <b>" + tdl.days + " day" + (tdl.days === 1 ? "" : "s") + "</b> (" + H.esc(tdl.label) + ").", H.goLink("trades", "Trade finder")));
-    }
+    if (mym.length) ctItems.push(item("warn", "Mid-Year Multi window open for " + mym.length + " player" + (mym.length === 1 ? "" : "s") + ": " + mym.join(", ") + ".", H.goLink("mym", "MYM")));
+    checks.push(makeCheck("contracts", "Contract windows", [team ? rosters : { name: "rosters", state: rosters.state === "loading" ? "loading" : "unavailable", at: 0 }, events], ctItems));
 
+    checks.push(claimsCheck());
+
+    var lock = tradeLockNow(), tdl = mflDeadline(), dlItems = [];
+    if (tdl && tdl.state === "upcoming" && tdl.days != null && tdl.days <= 14) {
+      dlItems.push(item("warn", "MFL stops accepting trades in <b>" + tdl.days + " day" + (tdl.days === 1 ? "" : "s") + "</b> (" + H.esc(tdl.label) + ").", H.goLink("trades", "Trade finder")));
+    }
+    var lockSrc = events;
+    if (events.state === "ok") {
+      var vAt = Date.parse((lock && lock.verified_at_utc) || "");
+      lockSrc = !lock || lock.state === "unresolved" || !(lock.state === "none" || tdl)
+        ? { name: "MFL’s trade lock", state: "unavailable", at: 0, note: "MFL’s trade lock couldn’t be read" }
+        : { name: "MFL’s trade lock", state: "ok", at: isFinite(vAt) ? vAt : events.at };
+    }
+    checks.push(makeCheck("deadline", "Trade deadline", [lockSrc], dlItems));
+
+    var sum = summarizeChecks(checks, Date.now());
     var needs = '<section class="fo-ov-card fo-ov-needs"><h3>Needs attention</h3>' +
-      (out.list.length ? '<ul class="fo-ov-list">' + out.list.join("") + "</ul>" : '<p class="fo-ov-empty">Nothing needs you right now.</p>') +
-      (out.info.length ? '<ul class="fo-ov-list fo-ov-info">' + out.info.join("") + "</ul>" : "") +
-      (!ss ? H.banner(scoresEntry && scoresEntry.state === "error" ? "MFL’s scores couldn’t be read, so lineup and bye checks are off." : "Reading MFL’s scores…", scoresEntry && scoresEntry.state === "error" ? "warn" : "info") : "") +
+      (sum.items.length ? '<ul class="fo-ov-list">' + sum.items.join("") + "</ul>" : "") +
+      (sum.allClear ? '<p class="fo-ov-empty">Nothing needs you right now.</p>'
+        : !sum.items.length && !sum.unavailable.length ? '<p class="fo-ov-empty">Checking…</p>' : "") +
+      (sum.unavailable.length ? H.banner("Couldn’t check " + sum.unavailable.join(", ") + ", so this list may be incomplete.", "warn") : "") +
+      checksHtml(sum.rows) +
       "</section>";
 
-    // Draft picks is first in the side column (Keith 2026-10-26: the strength card is off the Overview for launch;
-    // every team's lineup strength lives in Trade finder).
+    // Draft picks sits beside Needs attention, one card wide (Keith 2026-10-26: the strength card is off the Overview
+    // for launch; every team's lineup strength lives in Trade finder).
     var side = picksCard(fid);
 
-    el.innerHTML = row + '<div class="fo-ov-grid"><div>' + needs + "</div><div>" + side + "</div></div>";
+    el.innerHTML = row + '<div class="fo-ov-grid"><div class="fo-ov-main">' + needs + '</div><div class="fo-ov-side">' + side + "</div></div>";
     if (ss) H.setFreshness("MFL read " + H.clock(ss.fetchedAt));
+  }
+  // Every check, compact: "Lineup and byes · checked 9:42 AM" or "· check unavailable (bye weeks didn't load)".
+  function checksHtml(rows) {
+    return '<ul class="fo-ov-checks" aria-label="Checks">' + rows.map(function (r) {
+      return '<li class="fo-ov-ck is-' + r.state + '" data-ov-check="' + H.esc(r.id) + '"><span class="fo-ov-ck-lbl">' + H.esc(r.label) +
+        '</span> <span class="fo-ov-ck-st">' + H.esc(r.status) + (r.note ? " (" + H.esc(r.note) + ")" : "") + "</span></li>";
+    }).join("") + "</ul>";
   }
 
   // ── Cap card + its two ledgers ─────────────────────────────────────
@@ -302,11 +416,11 @@
   }
 
   function mflDeadline() {
-    var td = tradeDeadlineFromLock(FO.tradeLock ? FO.tradeLock() : null, Date.now());
+    var td = tradeDeadlineFromLock(tradeLockNow(), Date.now());
     return td && td.startMs ? td : null;
   }
   function deadlineCard() {
-    var td = tradeDeadlineFromLock(FO.tradeLock ? FO.tradeLock() : null, Date.now()), body;
+    var td = tradeDeadlineFromLock(tradeLockNow(), Date.now()), body;
     if (!td) body = stat("…", "reading MFL’s trade lock");
     else if (td.state === "unresolved") body = stat("—", "MFL’s trade lock couldn’t be read right now");
     else if (td.state === "none") body = stat("—", "no “No Trades Allowed” event on MFL’s calendar");
@@ -362,7 +476,8 @@
     load();
   }
   if (root.UPS_FO_HUB) root.UPS_FO_HUB.registerView("overview");
-  root.UPS_FO_OVERVIEW = { tradeDeadlineFromLock: tradeDeadlineFromLock };
+  root.UPS_FO_OVERVIEW = { tradeDeadlineFromLock: tradeDeadlineFromLock, sourceFromEntry: sourceFromEntry, combineSources: combineSources,
+    checkedLabel: checkedLabel, summarizeChecks: summarizeChecks };
   document.addEventListener("fo:ready", boot);
   document.addEventListener("fo:tab", function (e) { if (e.detail && e.detail.section === "overview") render(); });
   document.addEventListener("fo:events", render);

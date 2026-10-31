@@ -81,9 +81,12 @@ test("version stamps changed with the files that changed", () => {
   for (const f of ["fo_trades.js", "fo_activity.js"]) t.ok(HTML.includes(f + "?v=2026.10.27.2"), f);
   t.ok(HTML.includes("fo_market.js?v=2026.10.27.3"), "fo_market.js (changed again by the Market choices revision)");
   // Roster → Schedule (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
-  t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
-  for (const f of ["front_office.css", "fo_roster.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.4"), f + " (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
-  t.ok(/var BUILD = "2026\.10\.28\.4";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  t.ok(HTML.includes("fo_roster.js?v=2026.10.28.4"), "fo_roster.js (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
+  // Overview checks (2026-10-28): Needs attention 3 columns + Draft picks 1, per-check loaded/unavailable state and "checked" time.
+  for (const f of ["front_office.css", "fo_data.js", "fo_overview.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.11"), f + " (Overview checks)");
+  // front_office.js keeps its YYYY.MM.DD.v1.N.M form (fcfs_contract_display / salary_adjustments_tab pin it): stamp 11 is the last part.
+  t.ok(HTML.includes("front_office.js?v=2026.10.28.v1.41.11"), "front_office.js (Overview read states; fo:events after the league-events fields are set)");
+  t.ok(/var BUILD = "2026\.10\.28\.11";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");
