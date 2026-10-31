@@ -20,7 +20,8 @@ from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-import wire_data as D          # noqa: E402
+import wire_data as D
+import ups_center_prob as PROB          # noqa: E402
 import elias as E              # noqa: E402
 import chat_exclusions         # noqa: E402
 
@@ -74,11 +75,26 @@ def latest_finished_week(season, now, max_week=17):
     return done
 
 
-def projection_evidence(season, week):
+POS_GROUP = {"QB": "QB", "RB": "RB", "WR": "WR", "TE": "TE", "PK": "PK", "PN": "PN", "DT": "DL", "DE": "DL", "LB": "LB", "CB": "DB", "S": "DB"}
+
+
+def lineup_rows(lineup_ids, players):
+    """{fid: [{pid, name, pos_group, status, score}]}: MFL's roster for the week joined to src_players for names and positions.
+    A player src_players does not know gets no position, and the lineup judge then declines to judge that team."""
+    out = {}
+    for fid, lu in lineup_ids.items():
+        out[str(fid).zfill(4)] = [
+            {"pid": x["pid"], "name": D.display_name((players.get(x["pid"]) or {}).get("name")) or ("player %s" % x["pid"]),
+             "pos_group": POS_GROUP.get((players.get(x["pid"]) or {}).get("position"), ""), "status": x["status"], "score": x["score"]}
+            for x in lu]
+    return out
+
+
+def projection_evidence(season, week, pregame=None):
     """The same evidence the pack's bust & bargain used: kickoff-strict last pregame
     captures, else the never-overwritten FIRST capture (Keith 2026-09-24 basis). Every
     row carries its value, capture time and its own kickoff."""
-    ranked, unranked = D.starter_projections(season, week)
+    ranked, unranked = D.starter_projections(season, week, pregame=pregame)
     basis = "last_pregame"
     if not ranked:
         ranked, unranked = D.first_pregame_fallback_projections(season, week)
@@ -211,9 +227,13 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
 
     # ---- MFL: the source of truth for the live season
     wr = _get(MFL % (season, "weeklyResults", "&W=%d" % week))["weeklyResults"]
-    games = []
+    games, lineup_ids = [], {}
     for m in _list(wr.get("matchup")):
         fs = _list(m.get("franchise"))
+        for f_ in fs:                      # MFL's own roster for the week: every player eligible to start, with his status and score
+            lineup_ids.setdefault(f_["id"], [{"pid": str(p_["id"]), "status": "starter" if p_.get("status") == "starter" else "bench",
+                                              "score": None if p_.get("score") in (None, "") else float(p_["score"])}
+                                             for p_ in _list(f_.get("player"))])
         if len(fs) == 2:
             games.append({"a": fs[0]["id"], "b": fs[1]["id"], "as": float(fs[0]["score"]), "bs": float(fs[1]["score"]),
                           "ar": fs[0].get("result"), "br": fs[1].get("result")})
@@ -258,7 +278,8 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
         "AND COALESCE(is_bot,0) = 0 AND owner_name IS NOT NULL ORDER BY posted_at_unix" % (since, now))
     withhold(ctx["d1"]["chat"])
     ctx["chatWindow"] = {"since": since, "until": now}
-    want = set(ctx["d1"]["projections"]) | set(a["player_id"] for a in ctx["d1"]["adds"])
+    want = set(ctx["d1"]["projections"]) | set(a["player_id"] for a in ctx["d1"]["adds"]) \
+        | {x["pid"] for lu in lineup_ids.values() for x in lu}
     ctx["d1"]["players"] = {r["player_id"]: r for r in D.d1(
         "SELECT player_id, name, position, nfl_team FROM src_players WHERE season = %d" % season) if r["player_id"] in want}
     try:
@@ -266,7 +287,19 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     except D.DataError as exc:
         ctx["d1"]["recordBook"] = {"error": str(exc)}
 
-    ctx["evidence"] = projection_evidence(season, week)
+    if history:
+        # The lineup analysis needs the bench. MFL's weeklyResults (already fetched above for the scores) lists exactly the
+        # players eligible to start, so the hindsight best lineup reproduces MFL's own; positions and names come from the
+        # src_players table this gather already reads. NO extra D1 read of the week. The pregame lookup runs ONCE for
+        # everybody on a roster and also serves the starters' bust/bargain evidence. (The probe gather, history=False, only
+        # checks D1 against MFL and keeps its original, smaller evidence read.)
+        ctx["lineups"] = lineup_rows(lineup_ids, ctx["d1"]["players"])
+        ids = sorted({x["pid"] for lu in ctx["lineups"].values() for x in lu})
+        pj, pj_missing = D.pregame_projections(season, week, ids)
+        ctx["evidence"] = projection_evidence(season, week, pregame=(pj, pj_missing))
+        ctx["pregame"] = {"proj": pj, "missing": pj_missing}
+    else:
+        ctx["evidence"] = projection_evidence(season, week)
     ctx["links"] = {}
     for c in (pack or {}).get("playcards", []):
         ctx["links"][c["player"]] = verify_highlight(c["player"], c.get("video"))
@@ -276,6 +309,18 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     ctx["site"]["standings"] = [{"franchise_id": r["franchise_id"], "owner_name": r["owner_name"],
                                  "is_division_leader": bool(r.get("is_division_leader")),
                                  "playoff_seed": r.get("playoff_seed")} for r in api.get("rows", [])]
+    # clinched / eliminated, from the league's deterministic engine (site/shared/standings_clinch.js). {} flags = it could not
+    # say, and then no probability prints as 100% or 0% (ups_center_prob). Full build only: the probe gather skips it.
+    if history:
+        rs = api.get("regular_season") or {}
+        try:
+            sched = _get(MFL % (season, "schedule", ""))
+        except Exception:                                    # noqa: BLE001  (no schedule: the engine makes no division claims)
+            sched = None
+        ctx["clinch"] = PROB.compute_clinch(
+            {f: m for f, m in ctx["mfl"]["standings"].items()},
+            {f: r["division"] for f, r in ctx["d1"]["franchises"].items()},
+            int(rs.get("through_week") or week), int(rs.get("last_regular_season_week") or 0), sched)
     return ctx
 
 

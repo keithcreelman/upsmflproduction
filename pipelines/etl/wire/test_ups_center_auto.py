@@ -399,7 +399,7 @@ check("no forecast at all -> a Playoff Picture blocker (odds:missing) and the dr
 r1, v1, c1 = build(with_fc(forecast()))
 odds_claims = {k: x for k, x in r1["claims"].items() if k.startswith("odds:")}
 check("a fresh forecast renders the Playoff Picture: 12 teams x playoffs, bye, division, title, all validated",
-      v1["ok"] and not any(g["id"].startswith("odds:") for g in r1["gaps"]) and len(odds_claims) == 49, (v1["errors"], len(odds_claims)))
+      v1["ok"] and not any(g["id"].startswith("odds:") for g in r1["gaps"]) and len(odds_claims) == 50, (v1["errors"], len(odds_claims)))   # 48 team cells + runs + the printed floor
 by_div = {}
 for f_, row in c1["forecast"]["sim"]["teams"].items():
     by_div.setdefault(row["division"], []).append(r1["claims"]["odds:div:" + f_]["value"])
@@ -693,8 +693,8 @@ def failed(res, group=None):
 ok_run = run_check()
 check("a clean automated draft passes every check, all eight groups present",
       not failed(ok_run) and {r["group"] for r in ok_run} == {g for g, _ in CHK.GROUPS}, failed(ok_run))
-check("the run record carries the build's recorded inputs and no chat (timing + forecast only)",
-      set(draft_branch()["run"]) == {"id", "season", "week", "builtAtUtc", "code", "timing", "forecast", "why"}
+check("the run record carries the build's recorded inputs and no chat (timing, forecast, clinch flags only)",
+      set(draft_branch()["run"]) == {"id", "season", "week", "builtAtUtc", "code", "timing", "forecast", "clinch", "why"}
       and "chat" not in json.dumps(draft_branch()["run"]))
 rep = CHK.report(2026, 4, ok_run, DPR)
 check("the report is one PR comment with its own marker (edited in place on later runs)",
