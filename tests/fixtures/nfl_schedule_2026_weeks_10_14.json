@@ -1,0 +1,968 @@
+{
+"_source": "MFL export TYPE=nflSchedule&W=ALL, season 2026, read 2026-10-21; weeks 10-14 only (kickoff + teams)",
+"fullNflSchedule": {
+"nflSchedule": [
+{
+"week": "10",
+"matchup": [
+{
+"kickoff": "1794532500",
+"team": [
+{
+"id": "WAS",
+"isHome": "0"
+},
+{
+"id": "NYG",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794753000",
+"team": [
+{
+"id": "NEP",
+"isHome": "0"
+},
+{
+"id": "DET",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794765600",
+"team": [
+{
+"id": "MIA",
+"isHome": "0"
+},
+{
+"id": "IND",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794765600",
+"team": [
+{
+"id": "BUF",
+"isHome": "0"
+},
+{
+"id": "NYJ",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794765600",
+"team": [
+{
+"id": "HOU",
+"isHome": "0"
+},
+{
+"id": "CLE",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794765600",
+"team": [
+{
+"id": "JAC",
+"isHome": "0"
+},
+{
+"id": "TEN",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794765600",
+"team": [
+{
+"id": "MIN",
+"isHome": "0"
+},
+{
+"id": "GBP",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794765600",
+"team": [
+{
+"id": "KCC",
+"isHome": "0"
+},
+{
+"id": "ATL",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794765600",
+"team": [
+{
+"id": "CAR",
+"isHome": "0"
+},
+{
+"id": "NOS",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794776700",
+"team": [
+{
+"id": "SEA",
+"isHome": "0"
+},
+{
+"id": "LVR",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794776700",
+"team": [
+{
+"id": "LAR",
+"isHome": "0"
+},
+{
+"id": "ARI",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794777900",
+"team": [
+{
+"id": "SFO",
+"isHome": "0"
+},
+{
+"id": "DAL",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794792000",
+"team": [
+{
+"id": "PIT",
+"isHome": "0"
+},
+{
+"id": "CIN",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1794878100",
+"team": [
+{
+"id": "LAC",
+"isHome": "0"
+},
+{
+"id": "BAL",
+"isHome": "1"
+}
+]
+}
+]
+},
+{
+"week": "11",
+"matchup": [
+{
+"kickoff": "1795137300",
+"team": [
+{
+"id": "IND",
+"isHome": "0"
+},
+{
+"id": "HOU",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795370400",
+"team": [
+{
+"id": "MIA",
+"isHome": "0"
+},
+{
+"id": "BUF",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795370400",
+"team": [
+{
+"id": "ARI",
+"isHome": "0"
+},
+{
+"id": "KCC",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795370400",
+"team": [
+{
+"id": "TEN",
+"isHome": "0"
+},
+{
+"id": "DAL",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795370400",
+"team": [
+{
+"id": "JAC",
+"isHome": "0"
+},
+{
+"id": "NYG",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795370400",
+"team": [
+{
+"id": "NOS",
+"isHome": "0"
+},
+{
+"id": "CHI",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795370400",
+"team": [
+{
+"id": "TBB",
+"isHome": "0"
+},
+{
+"id": "DET",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795370400",
+"team": [
+{
+"id": "BAL",
+"isHome": "0"
+},
+{
+"id": "CAR",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795381500",
+"team": [
+{
+"id": "NYJ",
+"isHome": "0"
+},
+{
+"id": "LAC",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795382700",
+"team": [
+{
+"id": "LVR",
+"isHome": "0"
+},
+{
+"id": "DEN",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795382700",
+"team": [
+{
+"id": "PIT",
+"isHome": "0"
+},
+{
+"id": "PHI",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795396800",
+"team": [
+{
+"id": "MIN",
+"isHome": "0"
+},
+{
+"id": "SFO",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795482900",
+"team": [
+{
+"id": "CIN",
+"isHome": "0"
+},
+{
+"id": "WAS",
+"isHome": "1"
+}
+]
+}
+]
+},
+{
+"week": "12",
+"matchup": [
+{
+"kickoff": "1795654800",
+"team": [
+{
+"id": "GBP",
+"isHome": "0"
+},
+{
+"id": "LAR",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795716000",
+"team": [
+{
+"id": "CHI",
+"isHome": "0"
+},
+{
+"id": "DET",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795728600",
+"team": [
+{
+"id": "PHI",
+"isHome": "0"
+},
+{
+"id": "DAL",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795742400",
+"team": [
+{
+"id": "KCC",
+"isHome": "0"
+},
+{
+"id": "BUF",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795809600",
+"team": [
+{
+"id": "DEN",
+"isHome": "0"
+},
+{
+"id": "PIT",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795975200",
+"team": [
+{
+"id": "NYG",
+"isHome": "0"
+},
+{
+"id": "IND",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795975200",
+"team": [
+{
+"id": "NYJ",
+"isHome": "0"
+},
+{
+"id": "MIA",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795975200",
+"team": [
+{
+"id": "NOS",
+"isHome": "0"
+},
+{
+"id": "CIN",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795975200",
+"team": [
+{
+"id": "LVR",
+"isHome": "0"
+},
+{
+"id": "CLE",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795975200",
+"team": [
+{
+"id": "ATL",
+"isHome": "0"
+},
+{
+"id": "MIN",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795975200",
+"team": [
+{
+"id": "BAL",
+"isHome": "0"
+},
+{
+"id": "HOU",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795986300",
+"team": [
+{
+"id": "TEN",
+"isHome": "0"
+},
+{
+"id": "JAC",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795987500",
+"team": [
+{
+"id": "WAS",
+"isHome": "0"
+},
+{
+"id": "ARI",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1795987500",
+"team": [
+{
+"id": "SEA",
+"isHome": "0"
+},
+{
+"id": "SFO",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796001600",
+"team": [
+{
+"id": "NEP",
+"isHome": "0"
+},
+{
+"id": "LAC",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796087700",
+"team": [
+{
+"id": "CAR",
+"isHome": "0"
+},
+{
+"id": "TBB",
+"isHome": "1"
+}
+]
+}
+]
+},
+{
+"week": "13",
+"matchup": [
+{
+"kickoff": "1796346900",
+"team": [
+{
+"id": "KCC",
+"isHome": "0"
+},
+{
+"id": "LAR",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796580000",
+"team": [
+{
+"id": "CIN",
+"isHome": "0"
+},
+{
+"id": "CLE",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796580000",
+"team": [
+{
+"id": "WAS",
+"isHome": "0"
+},
+{
+"id": "TEN",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796580000",
+"team": [
+{
+"id": "SFO",
+"isHome": "0"
+},
+{
+"id": "NYG",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796580000",
+"team": [
+{
+"id": "JAC",
+"isHome": "0"
+},
+{
+"id": "CHI",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796580000",
+"team": [
+{
+"id": "LAC",
+"isHome": "0"
+},
+{
+"id": "TBB",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796580000",
+"team": [
+{
+"id": "DET",
+"isHome": "0"
+},
+{
+"id": "ATL",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796580000",
+"team": [
+{
+"id": "GBP",
+"isHome": "0"
+},
+{
+"id": "NOS",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796591100",
+"team": [
+{
+"id": "MIA",
+"isHome": "0"
+},
+{
+"id": "DEN",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796591100",
+"team": [
+{
+"id": "PHI",
+"isHome": "0"
+},
+{
+"id": "ARI",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796592300",
+"team": [
+{
+"id": "BUF",
+"isHome": "0"
+},
+{
+"id": "NEP",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796592300",
+"team": [
+{
+"id": "CAR",
+"isHome": "0"
+},
+{
+"id": "MIN",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796606400",
+"team": [
+{
+"id": "HOU",
+"isHome": "0"
+},
+{
+"id": "PIT",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1796692500",
+"team": [
+{
+"id": "DAL",
+"isHome": "0"
+},
+{
+"id": "SEA",
+"isHome": "1"
+}
+]
+}
+]
+},
+{
+"week": "14",
+"matchup": [
+{
+"kickoff": "1796951700",
+"team": [
+{
+"id": "MIN",
+"isHome": "0"
+},
+{
+"id": "NEP",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797184800",
+"team": [
+{
+"id": "CHI",
+"isHome": "0"
+},
+{
+"id": "MIA",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797184800",
+"team": [
+{
+"id": "DEN",
+"isHome": "0"
+},
+{
+"id": "NYJ",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797184800",
+"team": [
+{
+"id": "ATL",
+"isHome": "0"
+},
+{
+"id": "CLE",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797184800",
+"team": [
+{
+"id": "IND",
+"isHome": "0"
+},
+{
+"id": "PHI",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797184800",
+"team": [
+{
+"id": "HOU",
+"isHome": "0"
+},
+{
+"id": "WAS",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797184800",
+"team": [
+{
+"id": "TEN",
+"isHome": "0"
+},
+{
+"id": "DET",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797184800",
+"team": [
+{
+"id": "NOS",
+"isHome": "0"
+},
+{
+"id": "CAR",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797184800",
+"team": [
+{
+"id": "TBB",
+"isHome": "0"
+},
+{
+"id": "BAL",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797195900",
+"team": [
+{
+"id": "LAC",
+"isHome": "0"
+},
+{
+"id": "LVR",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797197100",
+"team": [
+{
+"id": "KCC",
+"isHome": "0"
+},
+{
+"id": "CIN",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797197100",
+"team": [
+{
+"id": "NYG",
+"isHome": "0"
+},
+{
+"id": "SEA",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797197100",
+"team": [
+{
+"id": "LAR",
+"isHome": "0"
+},
+{
+"id": "SFO",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797211200",
+"team": [
+{
+"id": "BUF",
+"isHome": "0"
+},
+{
+"id": "GBP",
+"isHome": "1"
+}
+]
+},
+{
+"kickoff": "1797297300",
+"team": [
+{
+"id": "PIT",
+"isHome": "0"
+},
+{
+"id": "JAC",
+"isHome": "1"
+}
+]
+}
+]
+}
+]
+}
+}

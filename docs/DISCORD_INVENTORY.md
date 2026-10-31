@@ -38,7 +38,7 @@ This doc reflects DECISIONS made in the 2026-05-29 walkthrough. Items marked **B
 | 4 | **Auction Cut / FA Drop Deadline** | 72 hours before FA Auction opens | 7d / 1d @ 9am | **BUILD** (one event; supersedes old 21:00 value) |
 | 5 | Free Agent Auction Opens | 2026-07-25 12:00 | 7d / 1d @ 9am | LIVE |
 | 6 | Contract Deadline (= Roster Deadline Day; restructure window close) | 2026-09-06 21:00 | 7d / 1d @ 9am | LIVE |
-| 7 | Trade Deadline | 2026-11-26 13:00 | 7d / 1d @ 9am + 1hr before | LIVE |
+| 7 | Trade Deadline | MFL's earliest "No Trades Allowed" event (2026 after reconciliation: 2026-11-25 20:00, Week 12's first kickoff; sends Wed 11-18 9am, Tue 11-24 9am, Wed 11-25 7pm) | 7d / 1d @ 9am + 1hr before | LIVE |
 
 Dropped/merged: old #5 "Expiring Non-Rookie Extensions" = same as Contract Deadline (#6); old separate FA Drop = #4.
 **Not reminders** (per Keith): MYM (used all season), OTB/On-the-Block (no deadline), weekly lineup (everyone knows), waivers (everyone knows).

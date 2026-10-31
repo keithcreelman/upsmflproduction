@@ -53,7 +53,7 @@ The workspace header must always show:
 ## Core governed rules
 - Trade availability begins at the start of the new league year.
 - Trade availability stays open during the offseason, during the free-agent auction, and through the regular season until the trade deadline.
-- The trade deadline is the kickoff of the NFL Thanksgiving Day game for that season.
+- The trade deadline is kickoff of the first NFL game in the NFL schedule week that includes Thanksgiving Day (Keith 2026-10-21; 2026: Wed Nov 25, 8:00 PM ET).
 - A trade involving a player whose NFL game has already started may not be processed for the current scoring week.
 - UPS_V2 should prefer a deferred-processing model for those trades: record owner intent, keep the website acceptance flow, and process at the next eligible week boundary when the source system allows it.
 - Trade responses should be Discord-DM first, but acceptance and final trade approval should remain website actions.
