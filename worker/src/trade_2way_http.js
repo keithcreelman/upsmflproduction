@@ -24,7 +24,7 @@ import {
   executeDropFirstDeal,
 } from "./trade_2way.js";
 import { padFid } from "./trade_3way_model.js";
-import { movementPickViolations, PICK_NOT_TRADEABLE_MSG } from "./trade_3way.js";
+import { movementPickViolations, PICK_NOT_TRADEABLE_MSG, createEligibilityGate } from "./trade_3way.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveTradeCaller, callerFailureBody, isAdminCaller } from "./trade_authz.js";
 
@@ -192,6 +192,9 @@ export async function handle2WayStagedHttp(a) {
   {
     const fg = await checkForfeitedPicks(env, leagueId, movementsToTokens(body.movements));
     if (!fg.ok) return fail(fg.http, fg.code, fg.message, { violations: fg.violations || [] });
+    // SEND — rulings 2/3 (Keith 2026-10-28): no provisional tag, expired veteran, or expired rookie after the extension deadline.
+    const eg = await createEligibilityGate(env, { leagueId, season, movements: body.movements });
+    if (!eg.ok) return fail(eg.http, eg.code, eg.message, { violations: eg.violations || [] });
   }
   const created = await createStaged2WayTrade(env, ctx, {
     leagueId, season,

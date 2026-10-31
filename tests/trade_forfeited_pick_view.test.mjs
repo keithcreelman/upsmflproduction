@@ -268,7 +268,10 @@ vm.runInContext([
   "function safeInt(v, d){ var n = parseInt(v, 10); return isFinite(n) ? n : (d || 0); }",
   "function pad4(v){ var d = String(v || '').replace(/\\D/g, ''); return d ? ('0000' + d).slice(-4) : ''; }",
   "function resolvePickMeta(a){ return { round: a.pick_round, year: a.pick_season, token: '' }; }",
-  "function hasTradeTagDeadlinePassed(){ return false; }",
+  // the shared eligibility rule (rulings 2/3, 2026-10-28) the War Room now reads through tradeRules()
+  fs.readFileSync(new URL("../site/shared/trade_rules.js", import.meta.url), "utf8"),
+  "function tradeRules(){ return this.UPS_TRADE_RULES || UPS_TRADE_RULES; } var TRADE_RULES_UNAVAILABLE = 'x';",
+  "function getCurrentTradeSeason(){ return 2026; }",
   "function getFranchiseNameById(f){ return ({ '0004': 'Pure Greatness', '0007': 'Sex Manther' })[f] || ''; }",
   "function ordinalSuffix(n){ return n + (['th','st','nd','rd'][n] || 'th'); }",
   "function livePickLabel(a){ return a.description || ''; }",
@@ -276,7 +279,7 @@ vm.runInContext([
   "var tw3 = { give: {}, aFid: '0004' }; function tw3DestChooserHtml(){ return '<chooser>'; } function tw3ExtControlHtml(){ return ''; } function tw3NameOf(f){ return 'Team ' + f; }",
   "var state = { data: { meta: { pick_restrictions_verified: true } } };",
   "var PICK_RESTRICTIONS_UNVERIFIED = " + JSON.stringify(UNVERIFIED) + ";",
-  ...["isForfeitedPick", "isUntradeableSixthRoundPick", "isTradeEligibleAsset", "isTaggedTradeIneligibleAsset", "getTradeIneligibleReason",
+  ...["tradeEligibilityOf", "isForfeitedPick", "isUntradeableSixthRoundPick", "isTradeEligibleAsset", "isTaggedTradeIneligibleAsset", "getTradeIneligibleReason",
       "escapeHtml", "getVisibleAssetsForTeam", "tw3PickToken", "tw3IsTradeable", "tw3TeamAssets", "tw3AssetName", "tw3AssetMeta", "tw3AssetRowHtml",
       "pickRestrictionsVerified", "hasFuturePick", "tw3ColumnHtml"].map(fn),
 ].join("\n"), dctx);

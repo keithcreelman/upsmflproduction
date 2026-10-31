@@ -95,7 +95,8 @@ test("PARITY: TAXI, IR, expired, loaded, overlay, adjustments and rounding are e
   const cases = {
     "taxi is free": (w) => { w.rosters["0007"][0].status = "TAXI_SQUAD"; },
     "IR is half (odd salary rounds)": (w) => { w.rosters["0007"][1].status = "INJURED_RESERVE"; w.rosters["0007"][1].salary = 3001; },
-    "known-expired contract is free": (w) => { w.rosters["0007"][0].contractYear = 0; w.rosters["0007"][0].contractStatus = "Vet-FAA"; },
+    // (on the player who STAYS: since rulings 2/3, 2026-10-28, an expired veteran can't be in the trade itself — 409 player_not_tradeable)
+    "known-expired contract is free": (w) => { w.rosters["0007"][1].contractYear = 0; w.rosters["0007"][1].contractStatus = "Vet-FAA"; },
     "loaded contract = this year's amount": (w) => { Object.assign(w.rosters["0007"][0], { salary: 20000, contractYear: 3, contractStatus: "Vet-Ext2-BL", contractInfo: "CL 3|TCV 30K|AAV 10K|Y1-20K, Y2-5K, Y3-5K" }); },
     "salaries overlay wins": (w) => { w.salaries.push({ id: "90701", salary: "12345", contractYear: "2", contractStatus: "Vet-FAA", contractInfo: "CL 2|TCV 24K|AAV 12K|Y1-12K, Y2-12K" }); },
     "an overlay row with contractYear 0 is IGNORED": (w) => { w.salaries.push({ id: "90701", salary: "99999", contractYear: "0", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 1K|AAV 1K|Y1-1K" }); },
