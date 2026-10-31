@@ -81,7 +81,6 @@ test("version stamps changed with the files that changed", () => {
   t.ok(HTML.includes("fo_activity.js?v=2026.10.27.2"), "fo_activity.js");
   t.ok(HTML.includes("fo_market.js?v=2026.10.27.3"), "fo_market.js (changed again by the Market choices revision)");
   // Roster → Schedule (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
-  t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
   t.ok(HTML.includes("fo_roster.js?v=2026.10.28.4"), "fo_roster.js (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
   // Trade builder: no numbered step headings, Send offer always disabled (2026-10-28, #1419) changed these files.
   // Trade asset eligibility (rulings 2/3, 2026-10-28): the builder files and the shared rules carry its stamp.
@@ -89,9 +88,12 @@ test("version stamps changed with the files that changed", () => {
   // The builder view and adapter changed again for the lifecycle (a sender only behind the write flag), so they carry its stamp.
   for (const f of ["trade_builder_view.js", "fo_trade_builder.js"]) t.ok(HTML.includes(f + "?v=2026.10.29.1"), f + " (eligibility + lifecycle sender behind the flag; Cancel counter)");
   // Trade finder: your team first, drilldown, copy to the builder (2026-10-28, #1423, merged with #1419).
-  t.ok(HTML.includes("shared/trade_fit.js?v=2026.10.28.15"), "shared/trade_fit.js (Trade finder)");
+  t.ok(HTML.includes("shared/trade_fit.js?v=2026.10.30.7"), "shared/trade_fit.js (Trade finder; week-by-week Projected ROS PPG)");
+  t.ok(HTML.includes("shared/lineup_strength.js?v=2026.10.30.7"), "shared/lineup_strength.js (week-by-week Projected ROS PPG)");
   // Explore a position (Keith 2026-10-30): the finder core, the view, the CSS and the embed BUILD.
-  for (const f of ["shared/trade_finder_core.js", "fo_trades.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.30.5"), f + " (Explore a position: options by team, one order)");
+  for (const f of ["front_office.css", "fo_data.js"]) t.ok(HTML.includes(f + "?v=2026.10.30.6"), f + " (Explore a position; Projected ROS PPG)");
+  t.ok(HTML.includes("fo_hub.js?v=2026.10.30.7"), "fo_hub.js (Projected ROS PPG, week by week)");
+  for (const f of ["shared/trade_finder_core.js", "fo_trades.js"]) t.ok(HTML.includes(f + "?v=2026.10.31.1"), f + " (a kickoff ends the file's answer)");
   // Offer lifecycle behind the off-by-default write flag (2026-10-28, lifecycle draft): the Offers view, its mode chip, the after-trade reload hook,
   // the CSS (eligibility's and the lifecycle's rules) and the embed BUILD.
   t.ok(HTML.includes("fo_trade_offers.js?v=2026.10.31.1"), "fo_trade_offers.js (stamps the lifecycle files it loads; Retry proves absence)");

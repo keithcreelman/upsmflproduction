@@ -58,6 +58,21 @@
    team's best lineup who would start for at least one other team. The
    Overview's Lineup strength (site/shared/lineup_strength.js) reads these
    lineups, so both screens show the same numbers.
+
+   PROJECTED ROS PPG IS BUILT WEEK BY WEEK ("ROS availability A", Keith
+   2026-10-30, #1435). buildWeekly takes each remaining week's numbers, builds
+   every team's best legal lineup for that week, and averages. A season-PPG
+   model never reaches this path, and its numbers don't change. A week counts
+   only for a player with a number that week, so a hurt player starts counting
+   at his listed return and a bye is a real hole for that week (filled from the
+   bench, or by a replacement if nobody can play the slot). Taxi players never
+   start for their own team, so his team loses nothing, but they count for a
+   team receiving them (7 of 7 traded taxi players landed active, 2026-10-07).
+   The result has the shape the Trade finder reads (teams[].total, starterIds,
+   best.starters, values), and addGain, tradeLineup and lineupGains average the
+   weeks. best.starters holds one row per player who starts in any week: v =
+   his points per week counted, weeks = how many he starts. The 1-for-1 fit and
+   typical-starter math is season-PPG only and refuses a weekly model.
 */
 (function () {
   "use strict";
@@ -245,11 +260,14 @@
     return { total: total, slots: slots, starters: starters };
   }
 
-  function teamRows(team, values, L, exclude, extra) {
+  // Can this player start for his own team in one week of a weekly model? He has a number that week and isn't on taxi.
+  function startsThisWeek(p, values) { return String(p.status || "ROSTER").toUpperCase() !== "TAXI_SQUAD" && p.pid in values; }
+
+  function teamRows(team, values, L, exclude, extra, oneWeek) {
     var rows = [];
     (team.players || []).forEach(function (p) {
       if (exclude && exclude[p.pid]) return;
-      if (!availableNow(p)) return;
+      if (oneWeek ? !startsThisWeek(p, values) : !availableNow(p)) return;
       if (L.posGroup(p.pos) === "OTH") return;
       rows.push({ id: p.pid, pos: p.pos, v: num(values[p.pid]) || 0 });
     });
@@ -261,6 +279,7 @@
     var L = lineupApi(input);
     var values = input.values || {};
     var teams = input.teams || [];
+    var oneWeek = !!input.oneWeek;
     var repl = replacementLevels(input.freeAgents, values, L);
     var rule = input.lineupRule === "replacement" ? "replacement" : "owned";
     // The slots: MFL's league settings (deriveSlots) when the caller passes them; the engine's own 18 otherwise
@@ -269,13 +288,13 @@
       var row = !s.flex ? s.accepts[0] : (s.accepts.indexOf("QB") !== -1 ? "SFLEX" : s.side === "D" ? "DFLEX" : "FLEX");
       return { id: s.id, label: s.flex ? SLOT_ROW[row] : s.label, row: row, accepts: s.accepts.slice(), flex: !!s.flex };
     });
-    var model = { repl: repl, values: values, lineup: L, lineupRule: rule, slots: slotList, slotSource: input.slots ? "mfl" : "engine",
+    var model = { repl: repl, values: values, lineup: L, lineupRule: rule, slots: slotList, slotSource: input.slots ? "mfl" : "engine", oneWeek: oneWeek,
       teams: {}, order: [], medians: {}, typical: {}, generatedFrom: input.basis || null };
     model.slotBase = {};
     slotList.forEach(function (s) { model.slotBase[s.id] = slotBaseline(s, repl); });
     var startersByGroup = {};
     teams.forEach(function (t) {
-      var best = bestLineup(teamRows(t, values, L), repl, L, rule, slotList);
+      var best = bestLineup(teamRows(t, values, L, null, null, oneWeek), repl, L, rule, slotList);
       var strength = {}, count = {};
       GROUPS.forEach(function (g) { strength[g] = 0; count[g] = 0; });
       best.starters.forEach(function (s) {
@@ -292,6 +311,7 @@
         replacementSlots: best.starters.filter(function (s) { return s.rep; }).map(function (s) { return { slot: s.slot, group: s.group, v: s.v }; }) };
       model.order.push(t.fid);
     });
+    if (oneWeek) return model;
     GROUPS.forEach(function (g) {
       model.medians[g] = median(model.order.map(function (fid) { return model.teams[fid].strength[g]; }));
       var typ = median(startersByGroup[g] || []);
@@ -313,30 +333,83 @@
     // Surplus: available non-starters who would start somewhere else.
     model.order.forEach(function (fid) {
       var tm = model.teams[fid];
-      tm.surplus = [];
-      (tm.team.players || []).forEach(function (p) {
-        if (!availableNow(p) || tm.starterIds[p.pid]) return;
-        var g = L.posGroup(p.pos);
-        if (GROUPS.indexOf(g) === -1 || FIT_EXCLUDED_GROUPS[g]) return;
-        var gains = [];
-        model.order.forEach(function (ofid) {
-          if (ofid === fid) return;
-          var gain = addGain(model, ofid, p);
-          if (gain > EPS) gains.push({ fid: ofid, gain: round1(gain) });
-        });
-        if (!gains.length) return;
-        gains.sort(function (a, b) { return b.gain - a.gain; });
-        tm.surplus.push({ pid: p.pid, group: g, v: num(values[p.pid]) || 0, teamsHelped: gains.length, best: gains[0], gains: gains });
-      });
-      tm.surplus.sort(function (a, b) { return b.best.gain - a.best.gain; });
+      tm.surplus = surplusList(model, fid, function (p) { return !tm.starterIds[p.pid]; });
     });
     return model;
   }
+
+  // Healthy players on `fid` that onBench(p) calls bench players, who would start for another team.
+  function surplusList(model, fid, onBench) {
+    var L = model.lineup, out = [];
+    (model.teams[fid].team.players || []).forEach(function (p) {
+      if (!availableNow(p) || !onBench(p)) return;
+      var g = L.posGroup(p.pos);
+      if (GROUPS.indexOf(g) === -1 || FIT_EXCLUDED_GROUPS[g]) return;
+      var gains = [];
+      model.order.forEach(function (ofid) {
+        if (ofid === fid) return;
+        var gain = addGain(model, ofid, p);
+        if (gain > EPS) gains.push({ fid: ofid, gain: round1(gain) });
+      });
+      if (!gains.length) return;
+      gains.sort(function (a, b) { return b.gain - a.gain; });
+      out.push({ pid: p.pid, group: g, v: num(model.values[p.pid]) || 0, teamsHelped: gains.length, best: gains[0], gains: gains });
+    });
+    out.sort(function (a, b) { return b.best.gain - a.best.gain; });
+    return out;
+  }
+
+  // The league on Projected ROS PPG: input = {teams, weeks: [{week, values}], values (each player's own number, for
+  // display), freeAgents, slots}. One week's model per entry, averaged. null with no weeks. Only the shape above: see
+  // the header. A surplus list is read through surplusFor, once per team, because it needs every bench player in every week.
+  function buildWeekly(input) {
+    var weeks = input.weeks || [];
+    if (!weeks.length) return null;
+    var models = weeks.map(function (w) {
+      return buildLeague({ teams: input.teams, values: w.values, freeAgents: input.freeAgents, slots: input.slots, lineup: input.lineup, oneWeek: true });
+    });
+    var first = models[0], n = models.length;
+    var model = { weekly: models, weeks: weeks.map(function (w) { return w.week; }), values: input.values || {}, lineup: first.lineup, lineupRule: first.lineupRule,
+      slots: first.slots, slotSource: first.slotSource, order: first.order.slice(), teams: {} };
+    model.order.forEach(function (fid) {
+      var byKey = {}, total = 0;
+      models.forEach(function (M) {
+        total += M.teams[fid].total;
+        M.teams[fid].best.starters.forEach(function (s) {
+          if (!s.group) return;
+          var key = s.rep ? "REP:" + s.group : s.pid;
+          var c = byKey[key] || (byKey[key] = { pid: s.pid, rep: !!s.rep, group: s.group, sum: 0, weeks: 0 });
+          c.sum += s.v; c.weeks += 1;
+        });
+      });
+      var starters = [], starterIds = {};
+      Object.keys(byKey).forEach(function (k) {
+        var c = byKey[k];
+        starters.push({ pid: c.pid, rep: c.rep, group: c.group, v: c.sum / n, weeks: c.weeks, ppg: c.rep ? null : num(model.values[c.pid]) });
+        if (c.pid) starterIds[c.pid] = c.weeks;
+      });
+      var tm = first.teams[fid];
+      model.teams[fid] = { fid: fid, name: tm.name, team: tm.team, total: total / n, best: { total: total / n, starters: starters }, starterIds: starterIds, surplus: null };
+    });
+    return model;
+  }
+  function surplusFor(model, fid) {
+    var tm = model.teams[fid];
+    if (!model.weekly || tm.surplus) return tm.surplus;
+    var half = model.weekly.length / 2;
+    tm.surplus = surplusList(model, fid, function (p) { return (tm.starterIds[p.pid] || 0) < half; });
+    return tm.surplus;
+  }
+  function meanWeeks(model, fn) {
+    return model.weekly.reduce(function (s, M) { return s + fn(M); }, 0) / model.weekly.length;
+  }
+  function seasonOnly(model) { if (model.weekly) throw new Error("trade_fit: a weekly model has no 1-for-1 or typical-starter math"); }
 
   // What one typical starter at `g` would do to `fid`'s modeled lineup: where he'd start, who'd leave the lineup, the
   // lineup before and after. { group, typical, before, after, gain, slot, slotLabel, leaves:[{pid, group, v, slot,
   // rep}], starts: bool }. gain = model.teams[fid].need[g] (same computation, unrounded here).
   function additionDetail(model, fid, g) {
+    seasonOnly(model);
     var tm = model.teams[fid];
     var hyp = { id: "HYP:" + g, pos: g, v: model.typical[g] };
     var after = bestLineup(teamRows(tm.team, model.values, model.lineup, null, [hyp]), model.repl, model.lineup, model.lineupRule, model.slots);
@@ -354,13 +427,15 @@
   }
 
   function addGain(model, fid, player) {
+    if (model.weekly) return meanWeeks(model, function (M) { return player.pid in M.values ? addGain(M, fid, player) : 0; });
     var tm = model.teams[fid];
     var row = { id: player.pid, pos: player.pos, v: num(model.values[player.pid]) || 0 };
-    return bestLineup(teamRows(tm.team, model.values, model.lineup, null, [row]), model.repl, model.lineup, model.lineupRule, model.slots).total - tm.total;
+    return bestLineup(teamRows(tm.team, model.values, model.lineup, null, [row], model.oneWeek), model.repl, model.lineup, model.lineupRule, model.slots).total - tm.total;
   }
 
   // Team `fid`'s lineup after it sends `out` (pid) and receives `inPlayer` ({pid,pos}).
   function swapLineup(model, fid, outPid, inPlayer) {
+    seasonOnly(model);
     var tm = model.teams[fid];
     var ex = {}; ex[outPid] = 1;
     var row = { id: inPlayer.pid, pos: inPlayer.pos, v: num(model.values[inPlayer.pid]) || 0 };
@@ -369,16 +444,26 @@
   // Team `fid`'s best legal lineup after it sends every pid in `outPids` and receives every {pid,pos} in `inPlayers`
   // (a whole trade; swapLineup is the 1-for-1 case). Same lineup rule, slots, values and replacement levels as the
   // model's own "before" (model.teams[fid].best). An incoming player who is out/unavailable is not counted, exactly
-  // as a rostered one isn't (availableNow); `notCounted` names them.
+  // as a rostered one isn't (availableNow); `notCounted` names them. A weekly model answers {total, notCounted}: the
+  // average over its weeks, and the players with a number in none of them.
   function tradeLineup(model, fid, outPids, inPlayers) {
+    if (model.weekly) {
+      var counted = {};
+      var total = meanWeeks(model, function (M) {
+        var lu = tradeLineup(M, fid, outPids, inPlayers);
+        (inPlayers || []).forEach(function (p) { if (lu.notCounted.indexOf(p.pid) === -1) counted[p.pid] = 1; });
+        return lu.total;
+      });
+      return { total: total, notCounted: (inPlayers || []).map(function (p) { return p.pid; }).filter(function (pid) { return !counted[pid]; }) };
+    }
     var tm = model.teams[fid];
     var ex = {}; (outPids || []).forEach(function (pid) { ex[pid] = 1; });
     var rows = [], notCounted = [];
     (inPlayers || []).forEach(function (p) {
-      if (p.pid in model.values && availableNow(p)) rows.push({ id: p.pid, pos: p.pos, v: num(model.values[p.pid]) || 0 });
+      if (p.pid in model.values && (model.oneWeek || availableNow(p))) rows.push({ id: p.pid, pos: p.pos, v: num(model.values[p.pid]) || 0 });
       else notCounted.push(p.pid);
     });
-    var out = bestLineup(teamRows(tm.team, model.values, model.lineup, ex, rows), model.repl, model.lineup, model.lineupRule, model.slots);
+    var out = bestLineup(teamRows(tm.team, model.values, model.lineup, ex, rows, model.oneWeek), model.repl, model.lineup, model.lineupRule, model.slots);
     out.notCounted = notCounted;
     return out;
   }
@@ -409,6 +494,7 @@
   // 1-for-1 swaps where BOTH best lineups gain. opts: {limit, minGain, alt (a second model on other values),
   // capRoom {fid: dollars|null}}.
   function pairFits(model, fidA, fidB, opts) {
+    seasonOnly(model);
     opts = opts || {};
     var minGain = opts.minGain != null ? opts.minGain : 0.1;
     var A = fitCandidates(model, fidA), B = fitCandidates(model, fidB);
@@ -447,7 +533,8 @@
   // (nothing sent back) would raise `fid`'s modeled lineup. fromMe: `fid`'s own players whose addition alone would
   // raise another team's. Each gain is addGain: the best legal lineup with the player minus the lineup without him, on
   // the model's own values, slots and replacement levels (the strength table's numbers). Only players who can start
-  // now (availableNow: not IR, taxi or ruled out) and never K/P (FIT_EXCLUDED_GROUPS). A gain under minGain (default
+  // now (availableNow: not IR, taxi or ruled out; on a weekly model, anyone with a number in a counted week: a hurt
+  // player from his return, a taxi player for a team receiving him) and never K/P (FIT_EXCLUDED_GROUPS). A gain under minGain (default
   // GAIN_MIN = 1.0 pt a week, the same floor teamSummary uses for a position need) is dropped. Lineup math only: it
   // never pairs players into a trade and says nothing about what an owner would do.
   //   → { fid, minGain, forMe: [{pid, fid, group, v, gain}], fromMe: [{pid, group, v, starter, best, gains:[{fid, gain}]}] }
@@ -458,7 +545,8 @@
     var me = model.teams[fid];
     if (!me) return null;
     var L = model.lineup;
-    var counts = function (p) { var g = L.posGroup(p.pos); return availableNow(p) && GROUPS.indexOf(g) !== -1 && !FIT_EXCLUDED_GROUPS[g]; };
+    var can = model.weekly ? function (p) { return model.weekly.some(function (M) { return p.pid in M.values; }); } : availableNow;
+    var counts = function (p) { var g = L.posGroup(p.pos); return can(p) && GROUPS.indexOf(g) !== -1 && !FIT_EXCLUDED_GROUPS[g]; };
     var enough = function (gain) { return gain >= min - 1e-9; };
     var forMe = [];
     model.order.forEach(function (ofid) {
@@ -489,6 +577,7 @@
 
   // Where each team is strong / short, as plain lists (largest first).
   function teamSummary(model, fid, opts) {
+    seasonOnly(model);
     opts = opts || {};
     var tm = model.teams[fid];
     var strongMin = opts.strongMin != null ? opts.strongMin : 1.0;
@@ -507,7 +596,7 @@
     UNAVAILABLE_CHIPS: UNAVAILABLE_CHIPS, FIT_EXCLUDED_GROUPS: FIT_EXCLUDED_GROUPS,
     availableNow: availableNow, replacementLevels: replacementLevels, bestLineup: bestLineup,
     deriveSlots: deriveSlots, fillSlots: fillSlots, slotBaseline: slotBaseline, SLOT_ROW: SLOT_ROW,
-    buildLeague: buildLeague, pairFits: pairFits, additionDetail: additionDetail, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, tradeLineup: tradeLineup, addGain: addGain,
+    buildLeague: buildLeague, buildWeekly: buildWeekly, surplusFor: surplusFor, pairFits: pairFits, additionDetail: additionDetail, teamSummary: teamSummary, swapGain: swapGain, swapLineup: swapLineup, tradeLineup: tradeLineup, addGain: addGain,
     GAIN_MIN: GAIN_MIN, lineupGains: lineupGains
   };
   if (typeof window !== "undefined") window.UPS_TRADE_FIT = api;
