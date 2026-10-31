@@ -190,7 +190,7 @@ test("Counter: loads the turned-around offer into the builder; sending runs crea
 test("an unconfirmed send shows Retry; Retry reads the sent list first and does not resend an offer that arrived", async () => {
   let creates = 0;
   const landed = { status: "PENDING", mfl_present: true, id: "3009", trade_id: "3009", from_franchise_id: "0001", to_franchise_id: "0002", will_give_up: "14056,", will_receive: "13100," };
-  const P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: world("Y", { inbox: () => R(200, { ok: true, outgoing: creates ? [landed] : [], incoming: [] }), "POST /trade-offers": () => { creates++; return { networkError: true }; } }) });
+  const P = page({ cfg: { FO_TRADE_BUILDER_SEND: true }, answer: world("Y", { inbox: () => R(200, { ok: true, outgoing_complete: true, outgoing: creates ? [landed] : [], incoming: [] }), "POST /trade-offers": () => { creates++; return { networkError: true }; } }) });
   P.O.render(P.el, ""); await settle();
   const r = await P.O.sendDraft({ teams: ["0001", "0002"], items: [{ from: "0001", to: "0002", token: "P_14056" }, { from: "0002", to: "0001", token: "P_13100" }], capK: {}, ext: {} }, "");
   await settle();

@@ -26,7 +26,7 @@ export const ROOTS = [
   "normalizeData", "applyAcquisitionLookupToTradeData", "buildTradePayload", "getTeamById", "getActiveFranchiseId",
   "isCommissionerLockoutOff", "getLockedLeftTeamId", "ensureSelectionMaps", "getTradeSalaryMaxK",
   "buildExtensionSummaryLines", "composeTradeMessage", "tw2sMovementsFromPayload",
-  "retryOfferFingerprintFromBody", "retryOfferMatches",
+  "retryOfferFingerprintFromBody", "retryOfferVerdict",
   "getOfferPayloadForWorkbench", "parseTradeMetaFromComment", "getOfferTradeId", "normalizeOffersForBanner",
   "flattenOfferCollections", "findOfferByLoadKey", "isOfferLivePending", "normalizeOfferStatus",
   "summarizePostAcceptResult", "friendlyOfferError", "summarizeOfferFeedError", "offerFeedErrorIsSignedOut",
