@@ -114,15 +114,26 @@
   }
   function playersState() { var d = D(), e = d && d.get("players"); return e ? e.state : ""; }
   // Until the players list is read (or if it fails) no rank is shown, never a rank among rostered players only.
+  // ptsRank / ptsRankLabel: the season-points rank in the PPG rank's universe and minimum (site/shared/fo_roster_core.js);
+  // last.rankLabel: the last-n PPG rank in player_facts' wording.
   function seasonLine(pid, last) {
-    var F = root.UPS_PLAYER_FACTS, ss = scoring();
+    var F = root.UPS_PLAYER_FACTS, C = root.UPS_FO_ROSTER_CORE, ss = scoring();
     if (!F || !ss) return null;
-    var line = F.season(ss, pid, groupFn(), { last: last || 0 });
+    var gf = groupFn();
+    var line = F.season(ss, pid, gf, { last: last || 0 });
+    if (line && C) {
+      var pr = C.pointsRankFor(ss, gf)[String(pid)];
+      line.ptsRank = pr ? pr.rank : null;
+      line.ptsRankLabel = C.rankLabel(line.ptsRank, line.group, line.games);
+      if (line.last) line.last.rankLabel = C.rankLabel(line.last.rank, line.group, line.last.games);
+    }
     var ps = playersState();
     if (line && ps !== "ok") {
+      var wait = line.games > 0 && ps !== "error" ? "…" : "—";
       line.rank = null;
-      line.rankLabel = line.games > 0 && ps !== "error" ? "…" : "—";
-      if (line.last) line.last.rank = null;
+      line.rankLabel = wait;
+      line.ptsRank = null; line.ptsRankLabel = wait;
+      if (line.last) { line.last.rank = null; line.last.rankLabel = line.last.games > 0 && ps !== "error" ? "…" : "—"; }
     }
     return line;
   }
@@ -213,9 +224,13 @@
     if (!el || el.__foWired) return;
     el.__foWired = true;
     el.addEventListener("click", function (e) {
+      var f = FO();
+      // A news flag beside a player's name opens that player's News tab (the Contract table's row handler does the same).
+      var nf = e.target && e.target.closest ? e.target.closest(".fo-news-flag") : null;
+      var nb = nf && nf.parentNode ? nf.parentNode.querySelector("[data-fo-player]") : null;
+      if (nb && nb.getAttribute("data-fo-fid") && f && f.openPlayer) { f.openPlayer(nb.getAttribute("data-fo-player"), nb.getAttribute("data-fo-fid"), "news"); return; }
       var t = e.target && e.target.closest ? e.target.closest("[data-fo-player],[data-fo-go]") : null;
       if (!t) return;
-      var f = FO();
       if (t.hasAttribute("data-fo-go")) { if (f && f.show) f.show(t.getAttribute("data-fo-go")); return; }
       var pid = t.getAttribute("data-fo-player"), fid = t.getAttribute("data-fo-fid");
       if (fid && f && f.openPlayer) { f.openPlayer(pid, fid, t.getAttribute("data-fo-tab") || "stats"); return; }
@@ -230,6 +245,16 @@
     var f = FO(), F = root.UPS_PLAYER_FACTS;
     var res = f && f.injury ? f.injury(p) : null;
     return res && F ? F.chipHtml(res, esc, "fo-inj") : "";
+  }
+  // The ONE player cell of Roster → Players (Performance, Contract and Schedule; Keith 2026-10-28: the chips must match):
+  // name button, injury chip, news flag, then "POS · NFL team" (· franchise when every team is shown). The caller's cell
+  // carries class "fo-perf-player". opts: { multi, chip (an already-resolved chip, default injuryChip(p)), news (flag HTML) }.
+  function playerCell(p, opts) {
+    opts = opts || {};
+    var f = FO();
+    var news = opts.news != null ? opts.news : (f && f.newsFlag ? f.newsFlag(p.id) : "");
+    return playerButton(p.id, p.fid, p.name) + (opts.chip != null ? opts.chip : injuryChip(p)) + news +
+      '<div class="fo-muted fo-perf-sub">' + esc(p.position) + " · " + esc(p.nflTeam || "—") + (opts.multi ? " · " + esc(p.franchise) : "") + "</div>";
   }
   function setFreshness(text) {
     var el = document.getElementById("fo-freshness");
@@ -321,7 +346,7 @@
     esc: esc, pad4: pad4, fmt1: fmt1, signed1: signed1, money: money, clock: clock, dayLabel: dayLabel, asArray: asArray,
     playerIndex: playerIndex, rosterIndex: rosterIndex, teamName: teamName, groupOf: groupOf, displayName: displayName,
     scoring: scoring, values: values, seasonLine: seasonLine, modelTeams: modelTeams, freeAgents: freeAgents, leagueModel: leagueModel, lineupSlots: lineupSlots, lineupSlotsState: lineupSlotsState, playerGroup: groupOf, starterMix: starterMix,
-    playerButton: playerButton, goLink: goLink, wireClicks: wireClicks, injuryChip: injuryChip,
+    playerButton: playerButton, playerCell: playerCell, goLink: goLink, wireClicks: wireClicks, injuryChip: injuryChip,
     setFreshness: setFreshness, loading: loading, banner: banner,
     registerAbout: registerAbout, openAbout: openAbout, openDialog: openDialog, closeAbout: closeAbout, setupAbout: setupAbout
   };

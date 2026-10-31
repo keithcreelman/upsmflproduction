@@ -120,7 +120,8 @@ test("small facts: Expired, ownership unknown, http(s) links only, MFL fallback 
 test("Front Office uses the shared facts: no private chip letters, no return dates, MFL season line, owner-only actions", () => {
   t.ok(!/NFL_STATUS_ABBR/.test(FO), "the FO-only O/S/HO/P/C chip map is gone");
   t.ok(!/expected back/.test(FO), "no expected-return dates");
-  t.ok(/\$\{injuryChipHtml\(p\)\}/.test(sliceFn(FO, "function renderRosterRow(")), "roster rows use the shared chip");
+  // Roster rows: the shared player cell (fo_hub.js playerCell, 2026-10-28) carrying the shared chip.
+  t.ok(/\$\{rosterPlayerCell\(p\)\}/.test(sliceFn(FO, "function renderRosterRow(")) && /const chip = injuryChipHtml\(p\)/.test(sliceFn(FO, "function rosterPlayerCell(")), "roster rows use the shared chip");
   t.ok(/injuryChipHtml\(p\)/.test(sliceFn(FO, "function slideoverTitleHtml(")), "panel title uses the shared chip");
   t.ok(/slideoverInjuryHtml\(p\)/.test(sliceFn(FO, "function openSlideover(")), "panel shows the disagreement box");
   const stats = sliceFn(FO, "async function renderStatsTab(");

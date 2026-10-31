@@ -114,6 +114,18 @@
     });
   };
 
+  // ONE league-wide answer for Roster → Performance's Start / Boom / Bust: the worker's existing starter-pool model
+  // (worker/src/starter_rates.js, the route the phone's Stats → Boom/Bust reads). No group and no player parameter, so it is
+  // one request per visit, never one per player or per position.
+  // through = the last final week the points cover (fo_roster_core gradeThrough), so both columns cover the same weeks; the
+  // worker grades final weeks up to it (an older worker ignores it — the page then checks the answer's weeks itself).
+  SOURCES.starterRates = function (through) {
+    return getJson(worker("/api/player-starter-rates", { season: cfg.season, through: through })).then(function (j) {
+      if (!j || j.ok !== true || !j.players || typeof j.players !== "object") throw new Error("starter rates unreadable");
+      return j;
+    });
+  };
+
   function emit(key) {
     (listeners[key] || []).concat(listeners["*"] || []).forEach(function (fn) { try { fn(entries[key], key); } catch (e) {} });
   }
