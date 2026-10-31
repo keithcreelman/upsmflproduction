@@ -49,7 +49,7 @@ function cl(tr, o = {}) {
     me: o.me || { sessionFid: "0001", isCommish: false }, lockout: "lockout" in o ? o.lockout : "Y" });
 }
 const sentOk = R(200, { ok: true, mfl: { trade_id: "3001" } });
-const inboxWith = (outgoing, incoming = []) => R(200, { ok: true, outgoing, incoming });
+const inboxWith = (outgoing, incoming = []) => R(200, { ok: true, outgoing, incoming, outgoing_complete: true });
 
 // ── the flag ──
 test("flag OFF (absent, false, the string 'true', 1): every flow refuses and NOTHING is sent", async () => {
@@ -195,6 +195,26 @@ test("Retry: an offer that already arrived is NOT sent again; a missing one is r
     t.equal(r.code, "retry_check_unavailable", JSON.stringify(bad)); t.equal(tr.posts().length, 0, "refused: nothing sent");
   }
   t.equal((await cl(transport([])).retry(null, "0001")).code, "retry_check_unavailable", "nothing to retry");
+});
+
+test("Retry refuses unless it can prove the first send isn't there (MAT-2): a row it can't read, or a list the worker doesn't call complete", async () => {
+  const first = await (async () => { const tr = transport([{ when: POST("/trade-offers"), answer: "network" }]); return cl(tr).sendTwoTeam(DRAFT, "0001", "", ctx()); })();
+  const row = { status: "PENDING", mfl_present: true, id: "3001", trade_id: "3001", from_franchise_id: "0001", to_franchise_id: "0002", will_give_up: "14056,BB_2000", will_receive: "13100," };
+  const cases = [
+    ["blank give side", inboxWith([{ ...row, will_give_up: "" }])],
+    ["blank receive side", inboxWith([{ ...row, will_receive: "" }])],
+    ["unreadable token", inboxWith([{ ...row, will_give_up: "14056,BB_abc" }])],
+    ["no partner on the row", inboxWith([{ ...row, to_franchise_id: "" }])],
+    ["same contents, not in MFL", inboxWith([{ ...row, mfl_present: false }])],
+    ["list not called complete", R(200, { ok: true, outgoing: [], incoming: [] })],
+  ];
+  for (const [why, answer] of cases) {
+    const tr = transport([{ when: GET("/trade-offers"), answer }]);
+    const r = await cl(tr).retry(first, "0001");
+    t.equal(r.code, "retry_check_unavailable", why); t.equal(tr.posts().length, 0, why + ": nothing sent");
+  }
+  const tr = transport([{ when: GET("/trade-offers"), answer: inboxWith([{ ...row, to_franchise_id: "0003" }]) }, { when: POST("/trade-offers"), answer: sentOk }]);
+  t.equal((await cl(tr).retry(first, "0001")).state, "sent", "a readable offer to another team proves nothing about this one");
 });
 
 test("Retry for a three-team create: matched by movements in the caller's 3-way list; unreadable list refuses", async () => {

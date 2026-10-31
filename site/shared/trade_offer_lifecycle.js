@@ -506,7 +506,10 @@
       }).then(function (r) { return done(r, actingFid); });
     }
 
-    // Retry (ruling 5): look for the first attempt in the caller's sent offers BEFORE resending (same key, same body).
+    // Retry (ruling 5): look for the first attempt in the caller's sent offers BEFORE resending (same key, same body). A direct
+    // offer resends only when the list proves it isn't there: the worker says the list is complete and every row can be read
+    // (the War Room's rule). The same idempotency key is what covers MFL not having listed a new offer yet: the worker replays
+    // or refuses it, so unlike the War Room this waits for nothing.
     function retry(last, actingFid, ctx) {
       ctx = ctx || {};
       var body = last && last.lastBody;
@@ -520,8 +523,10 @@
         if (kind === "direct") {
           var ib = inbox(env.warRoom, res), fp = env.warRoom.retryOfferFingerprintFromBody(body);
           if ((ib.kind !== "ok" && ib.kind !== "empty") || !fp || fp.from !== pad4(actingFid)) return { state: "refused", code: "retry_check_unavailable" };
-          found = ib.sent.filter(function (o) { return env.warRoom.retryOfferMatches(o, fp); })[0] || null;
+          var rows = p.body.outgoing, verdicts = rows.map(function (o) { return env.warRoom.retryOfferVerdict(o, fp); });
+          found = rows[verdicts.indexOf("match")] || null;
           if (found) return { state: "already_sent", tradeId: env.warRoom.getOfferTradeId(found) };
+          if (verdicts.indexOf("unknown") !== -1 || p.body.outgoing_complete !== true) return { state: "refused", code: "retry_check_unavailable" };
           return createWithGates("direct", env.routes.create(), body, ctx);
         }
         var list = p.ok && p.body && (p.body.trades || p.body.three_way || p.body.list);
@@ -556,7 +561,7 @@
       var origId = env.warRoom.getOfferTradeId(original);
       return get(env.routes.offers(actingFid)).then(function (res) {
         var ib = inbox(env.warRoom, res), fp = env.warRoom.retryOfferFingerprintFromBody(sentResult.lastBody);
-        var seen = (ib.kind === "ok") && ib.sent.some(function (o) { return (sentResult.tradeId && env.warRoom.getOfferTradeId(o) === sentResult.tradeId) || (fp && env.warRoom.retryOfferMatches(o, fp)); });
+        var seen = (ib.kind === "ok") && ib.sent.some(function (o) { return (sentResult.tradeId && env.warRoom.getOfferTradeId(o) === sentResult.tradeId) || (fp && env.warRoom.retryOfferVerdict(o, fp) === "match"); });
         if (!seen) return done({ state: "counter_unverified", code: "counter_unverified", counterTradeId: sentResult.tradeId, originalTradeId: origId, originalOpen: true, recovery: "check_again", lastBody: sentResult.lastBody }, actingFid);
         return declineOriginal(original, sentResult, actingFid);
       }, function () { return done({ state: "counter_unverified", code: "counter_unverified", counterTradeId: sentResult.tradeId, originalTradeId: origId, originalOpen: true, recovery: "check_again", lastBody: sentResult.lastBody }, actingFid); });
