@@ -11,7 +11,9 @@
 //
 // Pure functions only.
 
-export const IR_RELIEF_RATE = 0.5;
+// IR_RELIEF_RATE (canon B3, 0.5) and the IR cap-hit arithmetic live in ./trade_rules.js, shared with the Trade War Room.
+import { IR_RELIEF_RATE, irCapHit } from "./trade_rules.js";
+export { IR_RELIEF_RATE };
 
 const s = (v) => String(v == null ? "" : v).trim();
 
@@ -102,7 +104,7 @@ export function currentCapHit(p) {
   if (p.taxi) return 0;
   const amt = Number.isFinite(p.salary) ? p.salary : 0;
   if ((p.years | 0) <= 0 && !p.unknown) return 0;
-  if (p.ir) return Math.round(amt * IR_RELIEF_RATE);
+  if (p.ir) return irCapHit(amt);
   return amt;
 }
 

@@ -572,6 +572,77 @@ test("3-WAY CAP 12/13: cap authority unavailable or malformed at accept OR execu
   const dead = threeWayWorld({ fillA: 100000, fillB: 100000, fillC: 100000 }); dead.env.SELF = { fetch: async () => { throw new Error("boom"); } };
   t.match(await say(await handle3WayButton(press("accept", DISCORD.B), dead.env, ctxWait())), /couldn't verify the salary cap/);
 });
+// ── P0 S4: asset integrity (ownership · §A6 pick eligibility · §A6 cap money) at create, accept, re-check and execution ──
+const create3 = (env, movements) => callWorker(env, "POST", `/api/trades/3way?${Q}&MFL_USER_ID=tok-A`, { body: {
+  league_id: "74598", season: "2026", initiator: { fid: "0008", name: "Real Deal Creel" }, team_b: { fid: "0001", name: "L.A. Looks" }, team_c: { fid: "0012", name: "Hawks" }, movements } });
+const count3 = (env) => env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_3way_trades").get().n;
+test("3-WAY CREATE: a round-6 pick (future FP_ or current-year DP_) or a pick beyond the current year + 1 → 409 pick_not_tradeable, nothing stored", async () => {
+  const { env, mfl } = threeWayWorld({ fillA: 100000, fillB: 100000, fillC: 100000 });
+  env.UPS_MFL_DB.raw.exec("DELETE FROM ups_3way_trades");
+  for (const [label, tok] of [["round-6 future pick", "FP_2027_6_0008"], ["round-6 draft pick", "DP_2026_6_3"], ["2028 pick (year + 2)", "FP_0008_2028_1"]]) {
+    const r = await create3(env, [{ from: "0008", to: "0001", asset_tokens: ["P_16614", tok], cap_k: 0 }, { from: "0001", to: "0012", asset_tokens: ["P_16181"], cap_k: 0 }, { from: "0012", to: "0008", asset_tokens: ["P_16650"], cap_k: 0 }]);
+    t.equal(r.status, 409, `${label}: ${r.text.slice(0, 200)}`); t.equal(r.json.code, "pick_not_tradeable", label);
+    t.equal(r.json.violations[0].token.startsWith(tok.startsWith("DP_") ? "DP_" : "FP_"), true);
+  }
+  const fine = await create3(env, [{ from: "0008", to: "0001", asset_tokens: ["P_16614"], cap_k: 0 }, { from: "0001", to: "0012", asset_tokens: ["P_16181"], cap_k: 0 }, { from: "0012", to: "0008", asset_tokens: ["P_16650"], cap_k: 0 }]);
+  t.equal(fine.status, 201, fine.text.slice(0, 200));
+  t.equal(count3(env), 1, "only the eligible trade was stored"); t.equal(mfl.writes().length, 0);
+});
+test("3-WAY ACCEPT: a player who moved before the last accept → that accept is refused (consent NOT recorded), zero MFL writes", async () => {
+  const { env, mfl } = threeWayWorld({ live: true, fillA: 100000, fillB: 100000, fillC: 100000 });
+  const ctx = ctxWait();
+  t.match(await say(await handle3WayButton(press("accept", DISCORD.B), env, ctx)), /You're in/);
+  // C's 16650 is traded elsewhere before C's own (last) accept
+  mfl.st.rosters["0012"] = mfl.st.rosters["0012"].filter((p) => p.id !== "16650"); mfl.st.rosters["0003"] = [{ id: "16650", salary: 5000 }];
+  const msg = await say(await handle3WayButton(press("accept", DISCORD.C), env, ctx));
+  await ctx.flush();
+  t.match(msg, /no longer on the team that was sending it/); t.match(msg, /Your accept wasn't recorded/);
+  const row = F.readRow(env);
+  t.equal(row.team_c_state, "pending", "consent not recorded"); t.equal(row.status, "collecting");
+  t.equal(mfl.writes().length, 0, "zero MFL writes"); t.equal(mfl.st.done.length, 0);
+});
+test("3-WAY EXECUTE: a player who moved after both accepts → HELD recoverably (blocked_cap, asset_ownership_mismatch), zero MFL writes; re-check reports the same code", async () => {
+  const { env, mfl } = threeWayWorld({ live: true, fillA: 100000, fillB: 100000, fillC: 100000, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  mfl.st.rosters["0001"] = mfl.st.rosters["0001"].filter((p) => p.id !== "16181"); mfl.st.rosters["0003"] = [{ id: "16181", salary: 5000 }];
+  const out = await execute3Way(env, F.TRADE_ID);
+  t.equal(out.ok, false); t.equal(out.blocked, true); t.equal(out.kind, "asset_ownership_mismatch");
+  const row = F.readRow(env);
+  t.equal(row.status, "collecting", "recoverable — never `failed`"); t.equal(row.team_b_state, "accepted"); t.equal(row.team_c_state, "accepted");
+  const blk = JSON.parse(ledgerRow(env).block_json);
+  t.equal(ledgerRow(env).state, "blocked_cap"); t.equal(blk.kind, "asset_ownership_mismatch");
+  t.deepEqual(blk.violations.map((v) => [v.token, v.sender, v.actual_owner]), [["16181", "0001", "0003"]]);
+  t.equal(mfl.writes().length, 0, "zero MFL writes"); t.equal(mfl.st.done.length, 0);
+  t.equal(dms(mfl).filter((d) => /cancelled and rebuilt/.test(JSON.stringify(d.body || ""))).length, 3, "all three owners told once");
+  const r = await recheck(env);
+  t.equal(r.status, 409); t.equal(r.json.code, "asset_ownership_mismatch"); t.equal(mfl.writes().length, 0);
+});
+test("3-WAY EXECUTE: cap money above §A6 at execution (the sender's salary dropped) → HELD as cap_money_rule, zero MFL writes", async () => {
+  const { env, mfl } = threeWayWorld({ live: true, capK: 2, fillA: 100000, fillB: 100000, fillC: 100000, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted" } });
+  mfl.st.rosters["0001"].find((p) => p.id === "16181").salary = 3000;            // 2K now exceeds floor(3000 / 2000) = 1K
+  const out = await execute3Way(env, F.TRADE_ID);
+  t.equal(out.kind, "cap_money_rule"); t.equal(F.readRow(env).status, "collecting"); t.equal(ledgerRow(env).state, "blocked_cap");
+  t.equal(mfl.writes().length, 0);
+});
+test("3-WAY EXECUTE: rosters export down → HELD as unavailable (zero MFL writes); after recovery a re-check executes it exactly once", async () => {
+  // pairwise (not a clean ring): A↔B and C→A, two MFL legs
+  const legs = [{ from: "0008", to: "0001", asset_tokens: ["P_16614"], cap_k: 0, summary: "P16614" }, { from: "0001", to: "0008", asset_tokens: ["P_16181"], cap_k: 0, summary: "P16181" }, { from: "0012", to: "0008", asset_tokens: ["P_16650"], cap_k: 0, summary: "P16650" }];
+  const { env, mfl } = threeWayWorld({ live: true, fillA: 100000, fillB: 100000, fillC: 100000, row: { status: "executing", team_b_state: "accepted", team_c_state: "accepted", legs_json: JSON.stringify(legs) } });
+  mfl.st.exportFail = { rosters: 502 };
+  const out = await execute3Way(env, F.TRADE_ID);
+  t.equal(out.ok, false); t.equal(out.kind, "unavailable");
+  t.equal(F.readRow(env).status, "collecting"); t.equal(ledgerRow(env).state, "blocked_cap"); t.equal(JSON.parse(ledgerRow(env).block_json).kind, "unavailable");
+  t.equal(mfl.writes().length, 0, "zero MFL writes while MFL can't be read");
+  const stillDown = await recheck(env);
+  t.equal(stillDown.status, 409); t.equal(stillDown.json.code, "cap_check_unavailable"); t.equal(mfl.writes().length, 0);
+  mfl.st.exportFail = {};
+  const healed = await recheck(env);
+  t.equal(healed.status, 200, healed.text.slice(0, 200)); t.equal(healed.json.code, "rechecking");
+  const accepts = () => mfl.st.done.filter((d) => d.response === "accept").length;
+  t.equal(accepts(), 2, "both legs executed"); t.equal(mfl.writes("tradeProposal").length, 2);
+  t.equal(F.readRow(env).status, "completed"); t.equal(ledgerRow(env).state, "completed");
+  const again = await recheck(env);
+  t.equal(again.status, 409); t.equal(accepts(), 2, "exactly once — nothing is sent again");
+});
 test("3-WAY: a healthy trade goes through (dry-run) and cap money is charged to the sender / credited to the receiver in the projection", async () => {
   const { env, mfl } = threeWayWorld({ capK: 2, fillA: 100000, fillB: 100000, fillC: 100000 });
   const ctx = ctxWait();

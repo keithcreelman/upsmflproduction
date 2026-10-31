@@ -59,9 +59,9 @@ function sliceByAnchors(lines, startText, startLine, endText, endLine) {
 // ══════════════════════ harness: the REAL desktop cutover-fallback functions ══════════════════════
 function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
   const lines = DESK_SRC.split("\n");
-  const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3893, "async function replayOutbox(criteria)", 3927);
-  const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4184, "async function submitOfferToQueue()", 4257);
-  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8272, "var tw2s = { listStatus:", 8300);
+  const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3912, "async function replayOutbox(criteria)", 3946);
+  const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4203, "async function submitOfferToQueue()", 4277);
+  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8428, "var tw2s = { listStatus:", 8456);
   const code = fjr + "\n" + gates + "\n" + movs;
   const bridge = bridgeFetch(env);
   const resolveStaged2WayApiUrl = () => `https://worker.test/api/trades/2way?MFL_USER_ID=${token}&L=74598&YEAR=2026`;
@@ -77,9 +77,9 @@ function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
   const tw2sRunPreSendPreview = async (fromFid, movements, extReqs) => { previewCalls.push({ fromFid, movements, extReqs }); return previewResult || { proceed: true }; };
   const tw2sUrl = (suffix) => resolveStaged2WayApiUrl() + suffix;
   const tw2sFetch = (url, init) => bridge(url, init).then((r) => r.text().then((txt) => { let body = null; try { body = txt ? JSON.parse(txt) : null; } catch (e) {} return { status: r.status, ok: r.ok, body }; })).catch(() => ({ networkError: true }));
-  const factory = new Function("fetch", "pad4", "safeStr", "safeInt", "showLoadedContractBlock", "confirmOfferCapOverage", "tw2sRunPreSendPreview", "tw2sUrl", "tw2sFetch",
+  const factory = new Function("fetch", "pad4", "safeStr", "safeInt", "showLoadedContractBlock", "confirmOfferCapOverage", "tw2sRunPreSendPreview", "tw2sUrl", "tw2sFetch", "state",
     code + "\nreturn { submitTradeCreateWithGates, submitViaStagingFallback };");
-  const api = factory(bridge, pad4, safeStr, safeInt, showLoadedContractBlock, confirmOfferCapOverage, tw2sRunPreSendPreview, tw2sUrl, tw2sFetch);
+  const api = factory(bridge, pad4, safeStr, safeInt, showLoadedContractBlock, confirmOfferCapOverage, tw2sRunPreSendPreview, tw2sUrl, tw2sFetch, { submit: {} });
   return { api, calls: bridge.calls, previewCalls };
 }
 

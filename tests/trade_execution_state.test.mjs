@@ -16,6 +16,7 @@ import { makeWorkerEnv, makeMfl, callWorker, bindSelf, quiet, ADMIN_KEY } from "
 import * as F from "./fixtures/trade_3way_fixture.mjs";
 await import("./fixtures/register_md_loader.mjs");
 const { handle3WayButton, execute3Way } = await import("../worker/src/trade_3way.js");
+const { findOwnPendingTrade } = await import("../worker/src/trade_execution.js");
 
 const restore = quiet();
 const Q = "L=74598&YEAR=2026";
@@ -299,6 +300,103 @@ test("3-WAY D1 FAILURE after the legs landed: the trade still reports executed a
   const legs = tradesDone(mfl); const again = await execute3Way(env, F.TRADE_ID);
   t.equal(tradesDone(mfl), legs, "not sent again"); t.ok(again.skipped || again.ok === false);
   t.equal((await callWorker(env, "POST", `/api/trades/3way/recheck?${Q}&MFL_USER_ID=tok-A`, { body: { id: F.TRADE_ID } })).status, 409, "an executed trade cannot be 're-checked' into running");
+});
+
+// ═══════════════════════════════ three-team: unclear accepts and our own pending offer ═══════════════════════════════
+// The commissioner's view of the offers MFL still holds, plus every MFL call made after a point (to prove a refusal reached MFL zero times).
+const mflCalls = (mfl) => mfl.st.imports.length + mfl.st.exports.length;
+// Wrap the stubbed network at a leg's accept: `fn(offer)` runs with the offer being accepted, BEFORE the (possibly throwing) answer returns.
+function onLegAccept(mfl, fn) {
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (u, i) => {
+    const k = String(u) + " " + String((i && i.body) || "");
+    if (/TYPE=tradeResponse/.test(k) && /RESPONSE=accept/i.test(k)) {
+      const id = (/TRADE_ID=(\d+)/.exec(k) || [])[1]; const offer = mfl.st.pending.find((p) => p.trade_id === id) || null;
+      try { return await inner(u, i); } finally { if (offer) await fn(offer); }
+    }
+    return inner(u, i);
+  };
+}
+const ledgerTx = (offer) => ({ type: "TRADE", franchise: offer.offeringteam, franchise1_gave_up: offer.will_give_up, franchise2: offer.offeredto, franchise2_gave_up: offer.will_receive, timestamp: String(Math.floor(Date.now() / 1000)) });
+
+test("3-WAY OWN OFFER: MFL's propose answer carries no trade id and an UNRELATED offer between the same two teams is pending → it is never accepted (extract_trade_id, nothing moved)", async () => {
+  const { env, mfl } = threeWay();
+  mfl.addPending({ offeringteam: "0008", offeredto: "0001", will_give_up: "16193,", will_receive: "16181,", comments: "someone else's offer" });
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (u, i) => (/TYPE=tradeProposal/.test(String(u) + String((i && i.body) || "")) ? { ok: true, status: 200, text: async () => JSON.stringify({ tradeProposal: { status: "OK" } }), json: async () => ({ tradeProposal: { status: "OK" } }), headers: new Headers() } : inner(u, i));
+  const out = await execute3Way(env, F.TRADE_ID);
+  t.equal(out.ok, false); t.equal(out.partial, false);
+  t.equal(mfl.writes("tradeResponse").length, 0, "no accept was sent for anyone's offer");
+  t.match(F.readRow(env).failure_reason, /^hub-1_extract_trade_id/); t.equal(F.readRow(env).status, "failed");
+  t.equal(led(env, F.TRADE_ID).state, "not_executed", "provably nothing moved");
+  t.equal(mfl.st.pending.length, 1, "the unrelated offer is still pending, untouched");
+});
+test("3-WAY UNCONFIRMED: leg 1's accept throws and MFL can't be read (transactions 502, pendingTrades 502) → UNCONFIRMED, the lock STAYS `executing`, one DM; /admin/3way/retry is refused 409 with zero MFL calls", async () => {
+  const { env, mfl } = threeWay();
+  onLegAccept(mfl, async () => { mfl.st.exportFail = { transactions: 502, pendingTrades: 502 }; });
+  mfl.st.loseResponseNext = "timeout";
+  const out = await execute3Way(env, F.TRADE_ID);
+  t.equal(out.ok, false); t.equal(out.unconfirmed, true); t.equal(out.partial, false);
+  t.equal(tradesDone(mfl), 1, "MFL did run the accept once"); t.equal(mfl.writes("tradeResponse").length, 1, "…and it was never sent again");
+  t.equal(led(env, F.TRADE_ID).state, "executing", "the ledger stays `executing` — nothing can re-send it");
+  t.equal(F.readRow(env).status, "failed"); t.match(F.readRow(env).failure_reason, /^UNCONFIRMED_hub-1/); t.ok(!F.readRow(env).mfl_trade_ids);
+  t.equal(dmsWith(mfl, /couldn't confirm whether it went through/), 3, "one DM to each of the three teams");
+  t.equal(dmsWith(mfl, /failed before anything moved/), 0, "never told nothing moved");
+  const before = mflCalls(mfl);
+  const retry = await admin(env, "POST", "/admin/3way/retry", { id: F.TRADE_ID });
+  t.equal(retry.status, 409, retry.text.slice(0, 200)); t.equal(retry.json.execution_state, "executing");
+  t.equal(mflCalls(mfl), before, "the refused retry made zero MFL calls"); t.equal(F.readRow(env).status, "failed", "…and left the row as it was");
+});
+test("3-WAY UNCLEAR BUT EXECUTED: leg 1's accept throws but MFL's transactions export lists it → the leg counts as landed and the trade completes (leg 1 never re-sent)", async () => {
+  const { env, mfl } = threeWay();
+  onLegAccept(mfl, async (offer) => {
+    if (mfl.st.transactions && mfl.st.transactions.length) return;
+    mfl.st.transactions = [ledgerTx(offer)];
+    // MFL executed it: the players moved (the throwing answer skipped the stub's own roster move)
+    const mv = (csv, from, to) => { for (const pid of String(csv).split(",").filter(Boolean)) { const src = mfl.st.rosters[from]; const ix = src.findIndex((p) => String(p.id) === pid); if (ix >= 0) mfl.st.rosters[to].push(...src.splice(ix, 1)); } };
+    mv(offer.will_give_up, offer.offeringteam, offer.offeredto); mv(offer.will_receive, offer.offeredto, offer.offeringteam);
+  });
+  mfl.st.loseResponseNext = "timeout";
+  const out = await execute3Way(env, F.TRADE_ID);
+  t.equal(out.ok, true, JSON.stringify(out).slice(0, 200)); t.equal(out.trades.length, 2);
+  t.equal(tradesDone(mfl), 2); t.equal(mfl.writes("tradeResponse").length, 2, "each leg accepted exactly once");
+  t.equal(led(env, F.TRADE_ID).state, "completed"); t.equal(F.readRow(env).status, "completed");
+});
+test("3-WAY PROVABLY NOT EXECUTED: leg 1's accept returns an error, MFL's transactions export doesn't list it and the offer is still pending → not_executed; /admin/3way/retry is allowed and runs it once", async () => {
+  const { env, mfl } = threeWay();
+  mfl.st.failNext = { type: "tradeResponse", status: 500 };
+  const out = await execute3Way(env, F.TRADE_ID);
+  t.equal(out.ok, false); t.ok(!out.unconfirmed); t.equal(out.partial, false);
+  t.equal(led(env, F.TRADE_ID).state, "not_executed"); t.match(F.readRow(env).failure_reason, /^hub-1_accept/);
+  t.equal(dmsWith(mfl, /failed before anything moved/), 3);
+  const retry = await admin(env, "POST", "/admin/3way/retry", { id: F.TRADE_ID });
+  t.equal(retry.status, 200, retry.text.slice(0, 200)); t.equal(retry.json.ok, true);
+  t.equal(led(env, F.TRADE_ID).state, "completed"); t.equal(tradesDone(mfl), 2, "both legs executed exactly once");
+});
+
+// ═══════════════════════════════ pure: finding our own pending offer ═══════════════════════════════
+const PT = (...rows) => ({ pendingTrades: { pendingTrade: rows } });
+const OWN = { from: "0008", to: "0001", give: "16614", receive: "16181", commentTag: "[Commish-processed: 3-way]" };
+const row = (o) => ({ trade_id: "5001", offeringteam: "0008", offeredto: "0001", will_give_up: "16614,", will_receive: "16181,", comments: "[Commish-processed: 3-way] 3-way x hub-1", ...o });
+test("OWN OFFER (pure): a row with a blank team is never a match", () => {
+  t.deepEqual(findOwnPendingTrade(PT(row({ offeringteam: "" })), OWN), { match: "none" });
+  t.deepEqual(findOwnPendingTrade(PT(row({ offeredto: undefined })), OWN), { match: "none" });
+});
+test("OWN OFFER (pure): the same two teams with different assets → none", () => {
+  t.deepEqual(findOwnPendingTrade(PT(row({ will_give_up: "16614,16193," })), OWN), { match: "none" });
+  t.deepEqual(findOwnPendingTrade(PT(row({ will_receive: "" })), OWN), { match: "none" });
+  t.deepEqual(findOwnPendingTrade(PT(row({ offeringteam: "0001", offeredto: "0008" })), OWN), { match: "none" }, "the reversed direction is a different offer");
+  t.deepEqual(findOwnPendingTrade(PT(row({ comments: "someone else's offer" })), OWN), { match: "none" }, "echoed comments without our tag → not ours");
+});
+test("OWN OFFER (pure): two identical matching rows → ambiguous (accept neither)", () => {
+  t.deepEqual(findOwnPendingTrade(PT(row(), row({ trade_id: "5002" })), OWN), { match: "ambiguous", count: 2 });
+});
+test("OWN OFFER (pure): exactly one exact row → its id (also without echoed comments, and with MFL-token spellings)", () => {
+  t.deepEqual(findOwnPendingTrade(PT(row(), row({ trade_id: "5003", will_receive: "99999," })), OWN), { match: "one", tradeId: "5001" });
+  const noComments = row(); delete noComments.comments;
+  t.deepEqual(findOwnPendingTrade({ pendingTrades: { pendingTrade: noComments } }, OWN), { match: "one", tradeId: "5001" }, "a single (non-array) row, no comments field → exact assets suffice");
+  t.deepEqual(findOwnPendingTrade(PT(row({ will_give_up: "FP_0004_2027_4,111,DP_00_03,", will_receive: "222," })), { ...OWN, give: ["111", "FP_0004_2027_4", "DP_0_3"], receive: ["222"] }), { match: "one", tradeId: "5001" }, "mflTokens spellings normalize the same way");
+  t.deepEqual(findOwnPendingTrade(null, OWN), { match: "none" });
 });
 
 await run("trade_execution_state");
