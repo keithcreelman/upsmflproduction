@@ -471,6 +471,20 @@ def render_preview(article_path, out_pdf):
     return out_pdf if os.path.exists(out_pdf) else None
 
 
+def review_email(st, workdir):
+    """Email Keith the rendered issue when the week is final and sources are checked. Sending is idempotent
+    per article version; an error here is reported and never fails the build. This is not approval."""
+    pr = (st.get("pr") or {}).get("pr")
+    if not pr or not st.get("status", "").startswith("ready"):
+        return
+    try:
+        import ups_center_review as REV
+        REV.process("send", pr, workdir, do_send=True)
+    except Exception as exc:
+        notify("UPS Center %s review email not sent" % st.get("id"), str(exc)[:200])
+        print("review email not sent: %s" % exc)
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -484,6 +498,9 @@ def main():
     r.add_argument("--chat-since", type=int, help="unix start of the Coffee Shop window")
     r.add_argument("--sandbox", action="store_true", help="demo id under site/wire/articles/_sandbox (never published)")
     r.add_argument("--code-ref", help="sandbox only: overlay this branch's pipeline code (unstaged) for a pre-merge demo")
+    r.add_argument("--review-email", action="store_true",
+                   help="after a ready draft, email Keith the rendered issue once the week is final (also UPS_CENTER_REVIEW_EMAIL=1); "
+                        "never approval, never publishes")
     rp = sub.add_parser("replay", help="re-run a finished week's build: no PR, no alert, no notification, no publish")
     rp.add_argument("--season", type=int, required=True)
     rp.add_argument("--week", type=int, required=True)
@@ -514,6 +531,8 @@ def main():
             st = crashed(a.season, wk, now, exc, a.workdir, a.pr_mode != "live", a.sandbox, missed)
         if st["status"] not in ("ready", "ready-with-gaps", "already-published", "not-final"):
             rc = 1
+        if (a.review_email or os.environ.get("UPS_CENTER_REVIEW_EMAIL")) and not a.sandbox and a.pr_mode == "live":
+            review_email(st, a.workdir)
     json.dump({"at": now, "weeks": weeks, "missedSlots": missed}, open(last_path, "w"))
     return rc
 
