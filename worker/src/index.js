@@ -32426,9 +32426,9 @@ const mflToSleeper = {};
         }
         const storedIndexes = buildStoredOfferIndexes(storedOffers);
 
-        const pendingRowsAll = pendingTradesRows(pendingRes.data)
-          .map(normalizePendingTradeRow)
-          .filter((r) => !!safeStr(r.trade_id || r.from_franchise_id || r.to_franchise_id));
+        const rawPendingRows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
+        const pendingRowsAll = rawPendingRows.filter((r) => !!safeStr(r.trade_id || r.from_franchise_id || r.to_franchise_id));
+        const pendingRoot = pendingRes.data?.pendingTrades || pendingRes.data?.pendingtrades;
         const dedupe = new Set();
         const normalized = [];
         for (const row of pendingRowsAll) {
@@ -32557,10 +32557,17 @@ const mflToSleeper = {};
           return rows;
         };
         const maxRows = Math.max(1, Math.min(300, safeInt(limit, 50)));
+        const outgoingRows = filterByStatus(outgoingMerged);
+        // A Retry may resend only when this list proves the offer isn't there (trade_workbench.js findLandedOutgoingOffer). A row
+        // with no readable sender never reaches `outgoing`, and an answer with no pendingTrades block reads as an empty list.
+        const outgoingComplete = !!pendingRoot && typeof pendingRoot === "object" &&
+          rawPendingRows.every((r) => r.from_franchise_id && r.to_franchise_id) &&
+          outgoingRows.length === outgoingMerged.length && outgoingRows.length <= maxRows;
 
         return {
           ok: true,
           status: 200,
+          outgoingComplete,
           pendingLookup: {
             ok: true,
             rows_count: normalized.length,
@@ -32571,7 +32578,7 @@ const mflToSleeper = {};
           },
           proposals: filterByStatus(relatedMerged).slice(0, maxRows),
           incoming: filterByStatus(incomingMerged).slice(0, maxRows),
-          outgoing: filterByStatus(outgoingMerged).slice(0, maxRows),
+          outgoing: outgoingRows.slice(0, maxRows),
           related: filterByStatus(relatedMerged).slice(0, maxRows),
           counts: {
             total: normalized.length + fallbackOutgoing.length + fallbackIncoming.length,
@@ -38744,6 +38751,8 @@ const mflToSleeper = {};
           source: "worker:live_mfl_pending_trades",
           pending_lookup: live.pendingLookup,
           counts: live.counts,
+          // A commissioner's "acting as" read is the commissioner's MFL list, so it proves nothing about that team's offers.
+          ...(live.outgoingComplete === true && scope.ownTeam === true ? { outgoing_complete: true } : {}),
           proposals: live.proposals,
           incoming: live.incoming,
           outgoing: live.outgoing,

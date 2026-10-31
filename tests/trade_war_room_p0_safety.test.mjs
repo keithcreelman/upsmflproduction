@@ -214,6 +214,7 @@ test("S8: a failed send and its Retry never print the message, the response body
   t.equal(readyOffer(d, COMMENT), "ready", "the builder's offer is ready to send");
   await d.api.submitOfferToQueue(); await settle(30);
   t.equal(d.api.state.submit.canRetry, true, "the owner is offered Retry");
+  d.api.state.submit.lastAttemptMs = Date.now() - 5 * 60 * 1000;   // past the wait for MFL to list a new offer
   d.els.twbSubmitRetryBtn.__l.click(); await settle(30);
   t.ok(d.consoleLines.some((l) => /Submit failed: status 500/.test(l)), "a status-only failure line is logged");
   t.ok(d.consoleLines.some((l) => /Retry failed: status 500/.test(l)), "and one for the retry");
