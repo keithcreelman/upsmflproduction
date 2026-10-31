@@ -44,6 +44,7 @@
       tone: "",
       lastRequestBody: null,
       lastRequestUrl: "",
+      lastAttemptMs: 0,
       canRetry: false,
       acceptDebug: null
     },
@@ -54,6 +55,8 @@
       error: "",
       offered: [],
       received: [],
+      outgoingRows: [],
+      outgoingComplete: false,
       key: ""
     },
     reviewContext: {
@@ -3884,6 +3887,8 @@
       // We can't say whose trades to show — that is "unavailable", not "none".
       state.offers.offered = [];
       state.offers.received = [];
+      state.offers.outgoingRows = [];
+      state.offers.outgoingComplete = false;
       var hasSession = !!safeStr(getBrowserSessionParams().MFL_USER_ID);
       state.offers.errorKind = hasSession ? "error" : "signed_out";
       state.offers.error = hasSession ? "Couldn't tell which team is yours yet" : "Sign in to view trades";
@@ -3922,10 +3927,14 @@
       }
       state.offers.offered = normalizeOffersForBanner(res.outgoing);
       state.offers.received = normalizeOffersForBanner(res.incoming);
+      state.offers.outgoingRows = res.outgoing;
+      state.offers.outgoingComplete = res.outgoing_complete === true;
       state.offers.key = key;
     } catch (err) {
       state.offers.offered = [];
       state.offers.received = [];
+      state.offers.outgoingRows = [];
+      state.offers.outgoingComplete = false;
       state.offers.errorKind = offerFeedErrorIsSignedOut(err) ? "signed_out" : "error";
       state.offers.error = summarizeOfferFeedError(err);
       state.offers.key = "";
@@ -4255,6 +4264,7 @@
       attempts += 1;
       if (attempts > 5) throw new Error("Too many confirmation steps — try again.");
       try {
+        state.submit.lastAttemptMs = Date.now();
         return await fetchJsonRequest(apiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -4457,17 +4467,26 @@
   // A send whose answer was lost (timeout, dropped connection, 5xx after MFL already took it) may
   // have reached MFL. Before resending, Retry reloads this team's outgoing offers and looks for
   // one with the same partner, the same assets each way, and the same cap money in dollars. A
-  // match means the first send landed: nothing is sent again. If the list can't be loaded (or the
-  // offer can't be compared), Retry REFUSES rather than risk a duplicate offer (fail closed).
+  // match means the first send landed: nothing is sent again. Retry resends ONLY when it can prove
+  // the first send isn't there: the worker says the list is complete, every row can be read, and
+  // MFL has had RETRY_LIST_SETTLE_MS to list a new offer. Anything else REFUSES rather than risk a
+  // duplicate offer (fail closed).
   // Token rules mirror the worker's /trade-offers create (worker/src/index.js
   // playerTokenFromAsset / pickTokenFromAsset / blindBidTokenFromDollars).
+  var RETRY_LIST_SETTLE_MS = 5 * 60 * 1000;   // the worker's stored-offer window for a freshly posted trade MFL hasn't listed yet
+  // The one comparable form of a token (the same normalization as the two-team accept), or "" when it can't be read.
+  function retryToken(raw) {
+    var rules = window.UPS_TRADE_RULES;
+    var tok = rules && rules.normalizeTradeToken ? safeStr(rules.normalizeTradeToken(raw)) : "";
+    return /^(\d+|DP_(20\d\d_)?\d+_\d+|FP_\d{4}_\d{4}_\d+|BB_\d+(\.\d+)?)$/.test(tok) ? tok : "";
+  }
   function retryTokenFromAsset(asset) {
     if (!asset) return "";
     if (safeStr(asset.type).toUpperCase() === "PICK") {
       var candidates = [asset.pick_key, asset.token, asset.pick, safeStr(asset.asset_id).replace(/^pick:/i, ""), asset.description];
       for (var i = 0; i < candidates.length; i += 1) {
         var up = safeStr(candidates[i]).toUpperCase();
-        var m = up.match(/\b(DP_[0-9]{2}_[0-9]{2}|FP_[0-9]{4}_[0-9]{4}_[0-9]+)\b/);
+        var m = up.match(/\b(DP_[0-9]{1,2}_[0-9]{1,2}|FP_[0-9]{4}_[0-9]{4}_[0-9]+)\b/);
         if (m && m[1]) return m[1];
       }
       return "";
@@ -4496,7 +4515,7 @@
       var out = [];
       var assets = side.selected_assets || [];
       for (var j = 0; j < assets.length; j += 1) {
-        var tok = retryTokenFromAsset(assets[j]);
+        var tok = retryToken(retryTokenFromAsset(assets[j]));
         if (!tok) return null;
         if (out.indexOf(tok) === -1) out.push(tok);
       }
@@ -4508,28 +4527,39 @@
     return { from: fromFid, to: toFid, give: give, receive: receive, giveCapDollars: Math.max(0, netK) * 1000, receiveCapDollars: Math.max(0, -netK) * 1000 };
   }
 
-  function retryOfferSide(csv) {
+  // { tokens, capDollars } for one side of a listed offer (a CSV, or an array on a stored row), or
+  // null when any entry can't be read. A blank side comes back with no tokens and no cap money.
+  function retryOfferSide(side) {
+    var raw = Array.isArray(side) ? side : safeStr(side).split(",");
     var tokens = [], capDollars = 0;
-    safeStr(csv).split(",").forEach(function (raw) {
-      var up = safeStr(raw).toUpperCase();
-      if (!up) return;
-      if (up.indexOf("BB_") === 0) { var n = Number(up.slice(3)); if (isFinite(n)) capDollars += n; return; }
-      var tok = /^P_\d+$/.test(up) ? up.slice(2) : up;
-      if (tokens.indexOf(tok) === -1) tokens.push(tok);
-    });
+    for (var i = 0; i < raw.length; i += 1) {
+      if (!safeStr(raw[i])) continue;
+      var tok = retryToken(raw[i]);
+      if (!tok) return null;
+      if (tok.indexOf("BB_") === 0) capDollars += Number(tok.slice(3));
+      else if (tokens.indexOf(tok) === -1) tokens.push(tok);
+    }
     return { tokens: tokens.sort(), capDollars: Math.round(capDollars) };
   }
 
-  function retryOfferMatches(offer, fp) {
-    if (!offer || !fp) return false;
-    if (pad4(offer.to_franchise_id) !== fp.to) return false;
-    if (offer.from_franchise_id && pad4(offer.from_franchise_id) !== fp.from) return false;
+  // "match", "different", or "unknown" when this row can't be told apart from the first send.
+  function retryOfferVerdict(offer, fp) {
+    var from = pad4(offer && offer.from_franchise_id), to = pad4(offer && offer.to_franchise_id);
+    if (!from || !to) return "unknown";
+    if (from !== fp.from || to !== fp.to) return "different";
     var give = retryOfferSide(offer.will_give_up), receive = retryOfferSide(offer.will_receive);
-    return give.tokens.join(",") === fp.give.join(",") && receive.tokens.join(",") === fp.receive.join(",") &&
+    if (!give || !receive) return "unknown";
+    // MFL's list leaving out a side the offer has isn't an offer with nothing on that side.
+    function lost(side, tokens, capDollars) { return !side.tokens.length && !side.capDollars && (tokens.length || capDollars); }
+    if (lost(give, fp.give, fp.giveCapDollars) || lost(receive, fp.receive, fp.receiveCapDollars)) return "unknown";
+    var same = give.tokens.join(",") === fp.give.join(",") && receive.tokens.join(",") === fp.receive.join(",") &&
       give.capDollars === Math.round(fp.giveCapDollars) && receive.capDollars === Math.round(fp.receiveCapDollars);
+    if (!same) return "different";
+    return offer.mfl_present === true ? "match" : "unknown";   // a stored row with no MFL trade: it may or may not have landed
   }
 
   // { offer } when the first send already reached MFL, { offer:null } when it provably did not,
+  // { settling:true, waitMs } when nothing is listed but MFL may not have listed it yet,
   // { unavailable:true } when that can't be told.
   async function findLandedOutgoingOffer(body) {
     var fp = retryOfferFingerprintFromBody(body);
@@ -4537,10 +4567,15 @@
     if (pad4(getActiveFranchiseId()) !== fp.from) return { unavailable: true };
     await refreshBannerOffers(true);
     if (state.offers.errorKind || !state.offers.key) return { unavailable: true };
-    var list = state.offers.offered || [];
+    var list = state.offers.outgoingRows || [], unknown = false;
     for (var i = 0; i < list.length; i += 1) {
-      if (retryOfferMatches(list[i], fp)) return { offer: list[i] };
+      var verdict = retryOfferVerdict(list[i], fp);
+      if (verdict === "match") return { offer: list[i] };
+      if (verdict === "unknown") unknown = true;
     }
+    if (unknown || state.offers.outgoingComplete !== true) return { unavailable: true };
+    var waitMs = RETRY_LIST_SETTLE_MS - (Date.now() - state.submit.lastAttemptMs);
+    if (!state.submit.lastAttemptMs || waitMs > 0) return { settling: true, waitMs: waitMs };
     return { offer: null };
   }
 
@@ -4560,6 +4595,12 @@
       var landed = await findLandedOutgoingOffer(body);
       if (landed.unavailable) {
         setSubmitStatus("Couldn't check whether your offer already reached MFL, so it was NOT sent again. Check your Offered trades, then try Retry again.", "warn");
+        state.submit.canRetry = true;
+        return;
+      }
+      if (landed.settling) {
+        var waitMin = Math.max(1, Math.ceil((landed.waitMs || RETRY_LIST_SETTLE_MS) / 60000));
+        setSubmitStatus("MFL can take a few minutes to list a new offer, so it was NOT sent again yet. Check your Offered trades, then try Retry in " + waitMin + (waitMin === 1 ? " minute." : " minutes."), "warn");
         state.submit.canRetry = true;
         return;
       }
