@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-10-30T16:13:55.413064+00:00",
+    "generated_at_utc": "2026-10-31T15:29:43.913356+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -3071,18 +3071,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17125",
-          "display": "Demetrius Knight",
-          "player_id": "17125",
-          "position": "LB",
-          "nfl_team": "CIN",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_14170",
           "display": "Devin Bush",
           "player_id": "14170",
@@ -3131,6 +3119,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17527",
+          "display": "Josh Cameron",
+          "player_id": "17527",
+          "position": "WR",
+          "nfl_team": "JAC",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Rookie-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15241",
           "display": "Mac Jones",
           "player_id": "15241",
@@ -3139,6 +3139,18 @@
           "salary": 1000,
           "contract_year": 3,
           "contract_status": "Vet-MYM",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16678",
+          "display": "Sione Vaki",
+          "player_id": "16678",
+          "position": "RB",
+          "nfl_team": "DET",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4123,18 +4135,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15051",
-          "display": "Tommy Townsend",
-          "player_id": "15051",
-          "position": "PN",
-          "nfl_team": "TEN",
-          "salary": 2000,
-          "contract_year": 1,
-          "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15730",
           "display": "Tyler Goodson",
           "player_id": "15730",
@@ -4296,6 +4296,18 @@
           "player_id": "15890",
           "position": "LB",
           "nfl_team": "NYG",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16887",
+          "display": "Ryan Rehkow",
+          "player_id": "16887",
+          "position": "PN",
+          "nfl_team": "CIN",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -5028,18 +5040,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17628",
-          "display": "Kendal Daniels",
-          "player_id": "17628",
-          "position": "LB",
-          "nfl_team": "ATL",
-          "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Rookie-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16269",
           "display": "Brenton Strange",
           "player_id": "16269",
@@ -5156,6 +5156,18 @@
           "salary": 1000,
           "contract_year": 3,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16664",
+          "display": "Jeremiah Trotter Jr.",
+          "player_id": "16664",
+          "position": "LB",
+          "nfl_team": "PHI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
