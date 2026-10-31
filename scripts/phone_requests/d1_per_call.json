@@ -1,5 +1,5 @@
 {
- "_about": "D1 rows read per call, [low, high]. Low = 0 where the worker's edge cache can answer. Sources: Cloudflare D1 analytics (d1QueriesAdaptiveGroups, metadata only, 2026-10-19 00:00Z to 10-21 02:00Z) per-statement averages matched to each route's SQL; player-starter-rates is an estimate (not seen in that window); historical-finishes' main query is estimated. Route '#500' = the Stats board shape (limit=500).",
+ "_about": "D1 rows read per call, [low, high]. Low = 0 where the worker's edge cache can answer. Sources: Cloudflare D1 analytics (d1QueriesAdaptiveGroups, metadata only, 2026-10-19 00:00Z to 10-21 02:00Z) per-statement averages matched to each route's SQL; player-starter-rates was measured 2026-10-28 (its seven SELECTs run once each, season 2026 through Wk 7: 37,473 rows; 0 on an edge-cache hit); historical-finishes' main query is estimated. Route '#500' = the Stats board shape (limit=500).",
  "routes": {
   "/api/advanced-stats-leaderboard": [
    0,
@@ -54,8 +54,8 @@
    28400
   ],
   "/api/player-starter-rates": [
-   25000,
-   40000
+   0,
+   37473
   ]
  }
 }
