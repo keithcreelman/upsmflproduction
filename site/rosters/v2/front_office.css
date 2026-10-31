@@ -1595,3 +1595,29 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-sched-detail dt { color: var(--muted); }
 .fo-sched-detail dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .fo-sched-detail { grid-template-columns: 1fr; gap: 0; } .fo-sched-detail dd { margin-bottom: 8px; } }
+
+/* Market → a row's Schedule (#1338): the panel opens under the row at the width you can SEE (the market table scrolls sideways on a
+   phone, so the panel sticks to the left edge of that box at its visible width); the page itself never scrolls sideways. */
+.fo-mk-sched-ctl { margin-top: 6px; }
+.fo-mk-sched-toggle { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 4px 10px; background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); border-radius: 4px; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.fo-mk-sched-toggle[aria-expanded="true"] { border-color: var(--accent, #5b8dff); background: rgba(91,141,255,0.14); }
+.fo-mk-sched-toggle:focus-visible { outline: 3px solid var(--fo-focus, #fbbf24); outline-offset: 2px; }
+.fo-mk-scroll { container-type: inline-size; }
+.fo-table tbody tr.fo-mk-sched-row { cursor: default; }
+.fo-table tbody tr.fo-mk-sched-row:hover { background: transparent; }
+.fo-table tbody tr.fo-mk-sched-row > td { padding: 0; background: var(--panel); border-bottom: 2px solid var(--border); }
+.fo-mk-sched-panel { position: sticky; left: 0; box-sizing: border-box; width: min(100%, calc(100vw - 40px)); width: 100cqw; padding: 4px 10px 10px; white-space: normal; }
+.fo-mk-sched-panel .fo-choice-row { margin: 4px 0 8px; }
+.fo-mk-sched-panel .fo-table.fo-sched-grid { min-width: 0; margin-bottom: 8px; }
+.fo-mk-sched-panel .fo-table.fo-sched-wide { min-width: 100%; }
+.fo-mk-sched-panel .fo-sched-scrollwrap { --sw-name: 0px; margin-bottom: 8px; }
+.fo-mk-sched-panel .fo-sched-wide th:first-child, .fo-mk-sched-panel .fo-sched-wide td:first-child { width: var(--sw-col); }
+.fo-mk-sched-panel .fo-sched-note { padding-left: 0; }
+.fo-mk-sched-panel .fo-sched-legend { margin-bottom: 0; }
+.fo-mk-sched-panel .fo-sched-strip thead th.num { text-align: center; }
+.fo-mk-sched-panel .fo-table.fo-sched-strip:not(.fo-sched-wide) { max-width: 560px; }   /* five weeks read as a strip on a wide screen, not 1,200 px of cells */
+@media (max-width: 560px) {
+  .fo-mk-sched-panel { padding: 4px 6px 8px; }
+  .fo-mk-sched-toggle { min-height: 44px; padding: 6px 12px; }
+  .fo-root .fo-mk-sched-panel .fo-choice .fo-subview-chip { flex: 1 1 0; min-width: 0; padding: 8px; }   /* the two week choices side by side, even at 320 px */
+}
