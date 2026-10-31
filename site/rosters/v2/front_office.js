@@ -2674,6 +2674,9 @@
       groupByPosition: function () { return !!STATE.groupByPosition; },
       selectedTeam: function () { return STATE.selectedTeamId || "__all__"; },
       warRoomUrl: warRoomUrl,
+      // Re-reads MFL's rosters, contracts and cap (one batch, the same reads as a page load) after an Offers outcome that
+      // moved players (fo_trade_offers.js; that view exists only behind the off-by-default write flag).
+      reloadAfterTrade: async function () { await loadRosterData(); renderRosterTable(); },
       leagueEvents: function () { return STATE.leagueEvents || null; },
       tradeLock: function () { return STATE.tradeLock || null; },
       extensionDeadline: function (p) { try { return extensionDeadlineForPlayer(p); } catch (e) { return null; } },
