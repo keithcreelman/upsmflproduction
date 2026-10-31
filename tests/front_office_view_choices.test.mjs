@@ -82,8 +82,10 @@ test("version stamps changed with the files that changed", () => {
   t.ok(HTML.includes("fo_market.js?v=2026.10.27.3"), "fo_market.js (changed again by the Market choices revision)");
   // Roster → Schedule (2026-10-28) changed these files, so their stamps and the embed BUILD moved together.
   t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
-  for (const f of ["front_office.css", "fo_roster.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.4"), f + " (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
-  t.ok(/var BUILD = "2026\.10\.28\.4";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  t.ok(HTML.includes("fo_roster.js?v=2026.10.28.4"), "fo_roster.js (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
+  // Trade builder: no numbered step headings, Send offer always disabled (2026-10-28) changed these files; the embed BUILD moved with them.
+  for (const f of ["front_office.css", "trade_builder_view.js", "fo_trade_builder.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.14"), f + " (Trade builder: headings, Send disabled)");
+  t.ok(/var BUILD = "2026\.10\.28\.14";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");

@@ -1,18 +1,26 @@
-/* Trade Builder view (Front Office → Trades → Trade builder; plan #1385). One page, three cards, in the Front Office's own
-   look (fo-card / fo-table / btn / fo-subview-chip; the layout rules are .fo-tb-* in front_office.css):
-     Trade proposal   each team side by side: what it sends, what it receives, cap money, and its roster to add from
-     Trade impact     cap and contract table · lineup impact · validation (calculated vs the server's check)
-     Review and send  summary, note, Send (a confirmation step)
-   The server's verdict (POST /api/trades/compliance-preview) is the only authority on whether a trade is allowed. The Send
-   step is WIRED but takes an injected `send(plan)`; with none (every build today) a confirmed send says plainly that nothing
-   was sent. No write route is named or called from this file.
+/* Trade Builder view (Front Office → Trades → Trade builder; plan #1385), in the Front Office's own look (fo-card / fo-table / btn;
+   the layout rules are .fo-tb-* in front_office.css). Three disclosures, ALL CLOSED at first, each a real button (aria-expanded,
+   keyboard operable) with a one-line summary, then the review that is always visible:
+     1 Build trade       the teams side by side: what each sends and receives, cap money (− / + / typed, held to the rule's maximum)
+     2 Cap & contracts   cap and contract table, loaded contracts, proposed pre-trade extensions
+     3 Lineup impact     what each lineup gains or loses
+     Review              validation (calculated here vs the server's check), summary, note, and a Send offer button that is ALWAYS disabled
+   The draft lives in this closure (and the adapter keeps a copy through onDraft), never in the markup: opening or closing a section,
+   or a data refresh, only re-renders it.
+   The server's verdict (POST /api/trades/compliance-preview) is the only authority on whether a trade is allowed.
+   SEND IS NOT AVAILABLE FROM THE FRONT OFFICE. Whatever the verdict, Send offer renders disabled with a plain reason, and
+   no click opens a confirmation or sends anything: there is no send handler, no confirmation markup and no option or flag
+   that turns one on. A live Send is a separate, separately approved change. No write route is named or called from this file.
      mount(el, { teams:[{fid,name,abbrev?}], ctx:{leagueId,season,viewerFid},
                  assets(fid) -> {players:[{id,name,pos,salary,years,type,taxi,ir}], picks:[{token,label}]},
-                 impact(draft) -> { cap:{fid:{r}}|null, lineup:{state,message,teams:{fid:{...}}} },
+                 impact(draft) -> { cap:{fid:{r}}|null, lineup:{state,message,teams:{fid:{...}}}, ext:[...], loadedMoving? },
                  extensionOptions(item) -> [option] (the shared pre-trade extension rule; [] = not eligible),
                  playerLink(pid, fid, label) -> html (opens the Front Office player panel),
                  openDialog(title, html) / closeDialog() (the Front Office dialog; the choice popup for an eligible player),
-                 preview(body) -> Promise<json>, send(plan)? , sendNotice, sources:{data,verdict}, warRoomUrl?, debounceMs }) */
+                 preview(body) -> Promise<json>, sources:{data,verdict}, warRoomUrl?, debounceMs,
+                 initial?: { draft, label, dropped }   a draft to start from (kept by the adapter; ignored unless the viewer is its first team),
+                 onDraft?(draft, { label, dropped })  called after every change, so the adapter can keep the draft across re-mounts })
+     handle: { loadDraft({ draft, label, dropped }), isEmpty(), draft(), state(), refresh(), factsChanged(), dialogAction(target) } */
 (function (root) {
   "use strict";
   var C = root.UPS_TRADE_BUILDER_CORE || (typeof require === "function" ? require("./trade_builder_core.js") : null);
@@ -30,7 +38,18 @@
     var delay = opt.debounceMs == null ? 600 : opt.debounceMs;
     var S = opt.sources || {};
     var draft = C.emptyDraft([me]);
-    var st = { phase: "idle", resp: null, seq: 0, timer: null, note: "", confirm: false, sent: null, open: {}, q: {}, memo: { sig: "", imp: null }, capNote: {}, dlg: null, prompted: {} };
+    var st = { phase: "idle", resp: null, seq: 0, timer: null, note: "", open: {}, q: {}, memo: { sig: "", imp: null }, capNote: {}, dlg: null, prompted: {},
+      disc: { 1: false, 2: false, 3: false }, label: "", dropped: [] };
+    // A draft handed in (kept by the adapter, or loaded from another page): only one that starts with the viewer's own team.
+    function adopt(init) {
+      if (!init || !init.draft || !Array.isArray(init.draft.teams) || init.draft.teams[0] !== me) return false;
+      draft = C.clampCap(C.withTeams(init.draft, init.draft.teams)).draft;
+      st.label = init.label || ""; st.dropped = (init.dropped || []).slice();
+      // Players already in the draft are not "just added": no extension popup jumps open for them ("Choose extension" stays on the row).
+      st.prompted = {}; draft.items.forEach(function (i) { st.prompted[i.from + "|" + i.token] = 1; });
+      return true;
+    }
+    function isEmpty() { return !draft.items.length && !Object.keys(draft.capK).length; }
     var info = {}; teams.forEach(function (t) { info[C.pad4(t.fid)] = t; });
     function nm(f) { return (info[f] && info[f].name) || "Team " + f; }
     function others() { return draft.teams.filter(function (f) { return f !== me; }); }
@@ -58,11 +77,12 @@
 
     function changed() {
       var held = C.clampCap(draft); if (held.clamped.length) { draft = held.draft; held.clamped.forEach(function (key) { st.capNote[key] = true; }); }
+      if (isEmpty()) { st.label = ""; st.dropped = []; }       // an emptied draft is no longer "from" anywhere
+      if (opt.onDraft) opt.onDraft(draft, { label: st.label, dropped: st.dropped.slice() });
       var gaps = C.gaps(draft), sig = gaps.length ? "" : C.signature(draft, ctx);
       st.memo = { sig: "", imp: null };
       clearTimeout(st.timer);
       st.seq++;                          // any answer still in flight is now stale
-      st.confirm = false; st.sent = null;
       if (!sig) { st.phase = "idle"; st.resp = null; render(); return; }
       st.phase = "checking"; st.resp = null; render();
       var mine = st.seq;
@@ -153,15 +173,22 @@
         '<input type="search" class="fo-tb-q" data-q="' + f + '" placeholder="Find a player or pick" value="' + esc(st.q[f] || "") + '" aria-label="Find in ' + esc(nm(f)) + ' roster">' +
         '<div class="fo-table-scroll fo-tb-scroll fo-tb-pick"><table class="fo-table fo-tb-table"><tbody>' + (rows || '<tr><td class="fo-muted">Nothing matches.</td></tr>') + "</tbody></table></div></details>";
     }
+    // Cap money this team sends, one row per destination (two-team: one row in each team's panel, so both directions; three-team: one row
+    // per destination). − / + step $1K (the core's whole-$K unit) and are disabled at $0 and at the rule's maximum (C.capMoneyMaxK); a typed
+    // amount is held to the same maximum by C.clampCap in changed(). The rule itself lives in the core and the shared rules.
     function moneyBlock(f, imp) {
       var tos = draft.teams.filter(function (x) { return x !== f; });
       var space = imp && imp.cap && imp.cap[f] ? imp.cap[f].r.before.space : null;
-      return '<div class="fo-tb-money"><h4>Cap money</h4>' + tos.map(function (to) {
-        var key = f + ">" + to, max = C.capMoneyMaxK(draft, f, to), cur = draft.capK[key] || 0;
-        return '<div class="fo-tb-moneyrow"><div class="fo-tb-moneyfig"><span class="fo-muted">Cap money available' + (tos.length > 1 ? " to " + esc(nm(to)) : "") + '</span><b class="fo-tb-figure">' + dol(max * 1000) + "</b></div>" +
-          '<label class="fo-tb-moneyin">Amount to include ($K)<input type="number" min="0" max="' + max + '" step="1" inputmode="numeric" data-cap-from="' + f + '" data-cap-to="' + to + '" value="' + (cur || "") + '"' + (max === 0 ? " disabled" : "") + ' aria-label="Cap money from ' + esc(nm(f)) + ' to ' + esc(nm(to)) + ' in thousands, at most ' + max + '"></label>' +
-          '<div class="fo-tb-moneynow">Included now <b>' + dol(cur * 1000) + "</b></div></div>" +
-          (max === 0 ? '<p class="fo-muted fo-tb-moneyhint">Send a player with a salary to make cap money available.</p>' : st.capNote[key] ? '<p class="fo-tb-moneyhint neg">Held to the most this team can include.</p>' : "");
+      return '<div class="fo-tb-money"><h4>Cap money ' + esc(nm(f)) + " sends</h4>" + tos.map(function (to) {
+        var key = f + ">" + to, max = C.capMoneyMaxK(draft, f, to), cur = draft.capK[key] || 0, who = nm(f) + " sends to " + nm(to);
+        var step = function (d, sign, label, off) {
+          return '<button type="button" class="btn secondary fo-tb-step" data-cap-step="' + d + '" data-step-from="' + f + '" data-step-to="' + to + '"' + (off ? " disabled" : "") + ' aria-label="' + label + " cap money " + esc(who) + '">' + sign + "</button>";
+        };
+        return '<div class="fo-tb-moneyrow"><p class="fo-tb-moneyline"><b>' + esc(nm(f)) + " → " + esc(nm(to)) + ": " + k(cur * 1000) + '</b> <span class="fo-muted">up to ' + k(max * 1000) + "</span></p>" +
+          '<div class="fo-tb-stepper">' + step(-1, "−", "Decrease", cur <= 0) +
+          '<input type="number" min="0" max="' + max + '" step="1" inputmode="numeric" data-cap-from="' + f + '" data-cap-to="' + to + '" value="' + cur + '"' + (max === 0 ? " disabled" : "") + ' aria-label="Cap money ' + esc(who) + ", in thousands, 0 to " + max + '">' +
+          step(1, "+", "Increase", cur >= max) + '<span class="fo-muted fo-tb-unit">$K</span></div>' +
+          (max === 0 ? '<p class="fo-muted fo-tb-moneyhint">Send a player with a salary to make cap money available.</p>' : st.capNote[key] ? '<p class="fo-tb-moneyhint neg">Held to the most this team can include.</p>' : "") + "</div>";
       }).join("") + '<p class="fo-tb-space"><span class="fo-muted">Cap space (room under the cap), separate from cap money</span> <b>' + (space == null ? "—" : space < 0 ? "−" + dol(-space) : dol(space)) + "</b></p></div>";
     }
     function teamColumn(f, imp) {
@@ -173,36 +200,56 @@
         '<h4>Receives</h4>' + listTable(recv.map(function (i) { return itemRow(i, false); }).join(""), "Nothing yet.", false) +
         rosterPicker(f) + "</section>";
     }
-    function stageState() {
-      var gaps = gapsNow(), r = readiness();
-      var s1 = !gaps.length, s2 = s1 && st.phase === "done", s3 = r.canAttempt;
-      var active = !s1 ? 1 : !s2 ? 2 : 3;
-      return { s: [s1, s2, s3], active: active, r: r,
-        label: [s1 ? "Complete" : gaps[0] && gaps[0].code === "no_assets" ? "Not started" : "Incomplete",
-                !s1 ? "Waiting" : !s2 ? "Checking" : r.state === "provisional" ? "Checked" : r.state === "needs_ack" ? "Needs acknowledgment" : r.state === "blocked" ? "Blocked" : "Can’t be fully checked",
-                s3 ? "Ready" : "Not ready"] };
+    // A small line of where the section's figures come from.
+    function cardMeta(extra) { return '<p class="fo-tb-cardmeta">' + extra + "</p>"; }
+    // One disclosure: a heading holding a real button (aria-expanded / aria-controls), a summary line that is always shown, and a panel
+    // that is rendered only while open. Toggling changes st.disc and nothing else.
+    function disc(n, title, summary, body) {
+      var open = !!st.disc[n];
+      return '<section class="fo-card fo-tb-stage fo-tb-disc' + (open ? " open" : "") + '" id="fo-tb-s' + n + '" aria-label="' + esc(title) + '">' +
+        '<h2 class="fo-tb-dh"><button type="button" class="fo-tb-dbtn" data-disc="' + n + '" aria-expanded="' + open + '" aria-controls="fo-tb-p' + n + '">' +
+        '<span class="fo-tb-dnum" aria-hidden="true">' + n + '</span><span class="fo-tb-dtext"><span class="fo-tb-dtitle">' + esc(title) + '</span><span class="fo-tb-dsum">' + esc(summary) + "</span></span>" +
+        '<span class="fo-tb-chev" aria-hidden="true"></span></button></h2>' +
+        '<div class="fo-tb-dpanel" id="fo-tb-p' + n + '"' + (open ? "" : " hidden") + ">" + (open ? body() : "") + "</div></section>";
     }
-    function stageHead(n, title, ss, extra) {
-      var done = ss.s[n - 1] && (n !== 2 || ss.r.state === "provisional" || ss.r.state === "needs_ack") && (n !== 3 || false);
-      var st2 = done ? "done" : ss.active === n ? "active" : "todo";
-      return '<div class="fo-tb-stagehead" data-state="' + st2 + '"><span class="fo-tb-num" aria-hidden="true">' + (done ? "✓" : n) + "</span><h2>" + esc(title) + '</h2><span class="fo-tb-stagestate">' + esc(ss.label[n - 1]) + "</span>" + (extra ? '<span class="fo-tb-stageextra">' + extra + "</span>" : "") + "</div>";
+    var plural = function (n, w) { return n + " " + w + (n === 1 ? "" : "s"); };
+    function moneyK() { return Object.keys(draft.capK).reduce(function (a, key) { return a + (draft.capK[key] || 0); }, 0); }
+    function buildSummary() {
+      if (!others().length) return "Choose a team to start";
+      var pl = draft.items.filter(function (i) { return /^P_/.test(i.token); }).length, pk = draft.items.length - pl, parts = [plural(draft.teams.length, "team")];
+      if (!draft.items.length) parts.push("nothing added yet");
+      if (pl) parts.push(plural(pl, "player")); if (pk) parts.push(plural(pk, "pick"));
+      if (moneyK()) parts.push("$" + moneyK() + "K cap money");
+      return parts.join(" · ");
     }
-    function stepper(ss) {
-      var names = ["Trade proposal", "Trade impact", "Review and send"];
-      return '<ol class="fo-tb-steps" aria-label="Trade builder steps">' + names.map(function (n, i) {
-        var done = ss.s[i] && (i !== 1 || ss.r.state === "provisional" || ss.r.state === "needs_ack") && i !== 2;
-        return '<li class="' + (done ? "done" : ss.active === i + 1 ? "active" : "") + '"><button type="button" data-jump="fo-tb-s' + (i + 1) + '"' + (ss.active === i + 1 ? ' aria-current="step"' : "") + '><span class="fo-tb-num" aria-hidden="true">' + (done ? "✓" : i + 1) + "</span>" + esc(n) + "</button></li>";
-      }).join("") + "</ol>";
+    function capSummary(imp) {
+      if (!draft.items.length || !others().length) return "Add players or picks to see the cap effect";
+      if (!imp || !imp.cap) return "Salary cap data isn’t loaded yet";
+      var over = draft.teams.filter(function (f) { return imp.cap[f] && imp.cap[f].r.overCap; }), lo = draft.teams.filter(function (f) { return imp.cap[f] && imp.cap[f].r.loadedOver; });
+      var parts = [over.length ? "Over the cap: " + over.map(nm).join(", ") : "Cap OK"];
+      if (lo.length) parts.push("Loaded-contract limit: " + lo.map(nm).join(", "));
+      if (moneyK()) parts.push("$" + moneyK() + "K money");
+      if (imp.loadedMoving) parts.push(plural(imp.loadedMoving, "loaded contract"));
+      if (imp.ext && imp.ext.length) parts.push(plural(imp.ext.length, "proposed extension"));
+      return parts.join(" · ");
     }
-    function proposalCard(ss) {
+    function lineupSummary(imp) {
+      if (!draft.items.length || !others().length) return "Add players to see the lineup change";
+      var L = imp && imp.lineup;
+      if (!L || L.state !== "ok") return (L && L.message) || "Lineup impact isn’t available yet.";
+      return draft.teams.filter(function (f) { return L.teams[f]; }).map(function (f) { return sf1(L.teams[f].delta) + " pts/wk " + (f === me ? "for you" : "for " + nm(f)); }).join(" · ");
+    }
+    function proposalCard() {
       var imp = impactNow();
       var pick = '<div class="fo-tb-pickrow"><label>Trade with <select data-partner="0"><option value="">Choose a team</option>' +
         teams.filter(function (t) { return C.pad4(t.fid) !== me; }).map(function (t) { var f = C.pad4(t.fid); return '<option value="' + f + '"' + (others()[0] === f ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("") + "</select></label>";
       if (others().length) pick += '<label>Third team (optional) <select data-partner="1"><option value="">None</option>' +
         teams.filter(function (t) { var f = C.pad4(t.fid); return f !== me && f !== others()[0]; }).map(function (t) { var f = C.pad4(t.fid); return '<option value="' + f + '"' + (others()[1] === f ? " selected" : "") + ">" + esc(t.name) + "</option>"; }).join("") + "</select></label>";
       pick += "</div>";
-      return '<section class="fo-card fo-tb-stage" id="fo-tb-s1" aria-labelledby="fo-tb-h1">' + stageHead(1, "Trade proposal", ss, src("data", S.data || "Recorded rosters")) + pick +
-        (others().length ? '<div class="fo-tb-teams fo-tb-n' + draft.teams.length + '">' + draft.teams.map(function (f) { return teamColumn(f, imp); }).join("") + "</div>" : '<p class="fo-ov-empty">Choose a team to start.</p>') + "</section>";
+      return disc(1, "Build trade", buildSummary(), function () {
+        return cardMeta(src("data", S.data || "Recorded rosters")) + pick +
+          (others().length ? '<div class="fo-tb-teams fo-tb-n' + draft.teams.length + '">' + draft.teams.map(function (f) { return teamColumn(f, imp); }).join("") + "</div>" : '<p class="fo-ov-empty">Choose a team to start.</p>');
+      });
     }
 
     function capSection(imp) {
@@ -285,33 +332,38 @@
       else srv = '<p class="fo-tb-state ' + ({ provisional: "ok", needs_ack: "warn", blocked: "bad" }[r.state] || "warn") + '">' + esc(r.label) + "</p>" + li(r.reasons.filter(function (x) { return x.code !== "calculated_block" && x.code !== "calculated_ack"; }).map(function (x) { return x.text; })) +
         (r.lock ? '<p class="fo-tb-lock fo-tb-' + r.lock.tone + '">' + esc(r.lock.text) + "</p>" : "");
       return head + '<div class="fo-tb-vsteps">' +
-        block("1 Structure", "", structure) + block("2 Financial compliance", src("calc", "Calculated here"), fin) +
-        block("3 Server validation", gaps.length ? "" : src("verdict", S.verdict || "Server check"), srv) + "</div>";
+        block("Structure", "", structure) + block("Financial compliance", src("calc", "Calculated here"), fin) +
+        block("Server validation", gaps.length ? "" : src("verdict", S.verdict || "Server check"), srv) + "</div>";
     }
-    function impactCard(ss) {
+    function capCard() {
       var imp = impactNow();
-      return '<section class="fo-card fo-tb-stage" id="fo-tb-s2" aria-labelledby="fo-tb-h2">' + stageHead(2, "Trade impact", ss, src("calc", "Calculated from the rosters above")) +
-        '<div class="fo-tb-impact"><section class="fo-tb-im-cap"><h3>Salary cap and contracts</h3>' + capSection(imp) + "</section>" +
-        '<section class="fo-tb-im-val"><h3>Validation</h3>' + validationSection(imp) + "</section>" +
-        '<section class="fo-tb-im-lu"><h3>Lineup impact</h3>' + lineupSection(imp) + "</section></div></section>";
+      return disc(2, "Cap & contracts", capSummary(imp), function () { return cardMeta(src("calc", "Calculated from the rosters")) + capSection(imp); });
+    }
+    function lineupCard() {
+      var imp = impactNow();
+      return disc(3, "Lineup impact", lineupSummary(imp), function () { return cardMeta(src("calc", "Calculated from the rosters")) + lineupSection(imp); });
+    }
+    // The label of a draft loaded from another page (the Trade finder), and anything that could not be loaded.
+    function draftBanner() {
+      if (!st.label) return "";
+      return '<div class="fo-banner info fo-tb-draftlabel" role="status"><b>' + esc(st.label) + "</b>" +
+        (st.dropped.length ? ' <span class="fo-tb-dropped">Left out (not on the current rosters): ' + esc(st.dropped.map(function (x) { return x.token + " from " + nm(x.from); }).join(", ")) + ".</span>" : "") + "</div>";
     }
 
-    // ── Review and send ───────────────────────────────────────────────
+    // ── Review ────────────────────────────────────────────────────────
+    // Send offer is disabled for EVERY verdict (provisional, needs an acknowledgment, blocked, can't be checked, none): the Front
+    // Office has no send connection. Its data-go attribute is inert (no click handler reads it); it stays so checks can find it.
+    var SEND_OFF = "Sending from the Front Office is not available yet.";
     function reviewCard() {
-      var r = readiness(), gaps = gapsNow();
+      var gaps = gapsNow();
       var lines = C.summary(draft, nm).map(function (l) { return "<li>" + esc(l.text) + "</li>"; }).join("");
-      var off = opt.send ? "" : '<p class="fo-banner warn" role="status">' + esc(opt.sendNotice || "Sending is not available here.") + "</p>";
-      var confirm = "";
-      if (st.confirm) confirm = '<div class="fo-banner info fo-tb-confirm" role="alertdialog" aria-label="Confirm sending"><p><b>Send this offer to ' + esc(others().map(nm).join(" and ")) + '?</b> An offer that has been sent can’t be pulled back from here.</p>' +
-        '<button type="button" class="btn secondary" data-go="cancel-send">Cancel</button> <button type="button" class="btn" data-go="confirm-send">Yes, send</button></div>';
-      var result = st.sent ? '<p class="fo-banner ' + (st.sent.ok ? "info" : "warn") + '" role="status">' + esc(st.sent.message) + "</p>" : "";
-      var wait = gaps.length ? "Review opens once the trade is complete (see Validation above)." : !r.canAttempt ? "Available once the server’s check comes back looking fine or only needing an acknowledgment, and nothing calculated here blocks it." : "";
-      return '<section class="fo-card fo-tb-stage" id="fo-tb-s3" aria-labelledby="fo-tb-h3">' + stageHead(3, "Review and send", stageState()) +
+      return '<section class="fo-card fo-tb-stage fo-tb-review" id="fo-tb-review" aria-label="Review">' +
+        '<div class="fo-tb-val"><h3>Validation</h3>' + validationSection(impactNow()) + "</div>" +
         (gaps.length ? '<p class="fo-ov-empty">' + (draft.items.length ? "Finish the trade above to review it." : "Build a trade above to review it.") + "</p>" : '<ul class="fo-tb-sum">' + lines + "</ul>") +
         '<label class="fo-tb-note">Note to the other owner' + (others().length > 1 ? "s" : "") + ' (optional)<textarea data-note maxlength="500"' + (gaps.length ? " disabled" : "") + ' placeholder="' + esc((opt.note && opt.note.placeholder) || "Say why this works for both teams") + '">' + esc(st.note) + "</textarea></label>" +
-        (gaps.length ? "" : off + confirm + result) +
-        '<p class="fo-tb-actions"><button type="button" class="btn" data-go="send"' + (r.canAttempt && !st.confirm ? "" : " disabled") + ">Send offer</button> " + (wait ? '<span class="fo-muted">' + esc(wait) + "</span>" : "") + "</p>" +
-        (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> (optional)</p>' : "") + "</section>";
+        '<p class="fo-tb-actions"><button type="button" class="btn fo-tb-send" data-go="send" disabled aria-disabled="true" aria-describedby="fo-tb-send-off">Send offer</button> ' +
+        '<span class="fo-tb-send-off" id="fo-tb-send-off">' + esc(SEND_OFF) + "</span></p>" +
+        (opt.warRoomUrl ? '<p class="fo-basis"><a class="fo-go" href="' + esc(opt.warRoomUrl) + '">Trade War Room ↗</a> to send a trade.</p>' : "") + "</section>";
     }
 
     // Replacing the markup blurs a focused field, which can fire its `change` handler and call render() again mid-write.
@@ -327,33 +379,37 @@
       var keep = el.querySelector && el.querySelector("[data-note]"); if (keep) st.note = keep.value;
       // Read which roster lists are open from the page itself (a `toggle` event can arrive after a data refresh re-renders).
       Array.prototype.forEach.call(el.querySelectorAll("details[data-open]"), function (d) { st.open[d.getAttribute("data-open")] = d.open; });
-      var focus = document.activeElement, fq = focus && focus.getAttribute && focus.getAttribute("data-q"), pos = focus && focus.selectionStart;
-      var ss = stageState();
-      el.innerHTML = '<div class="fo-tb">' + stepper(ss) + proposalCard(ss) + impactCard(ss) + reviewCard() + "</div>";
-      if (fq) { var n = el.querySelector('[data-q="' + fq + '"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) {} } }
+      var focus = document.activeElement, fk = focusKey(focus), pos = focus && focus.selectionStart;
+      el.innerHTML = '<div class="fo-tb">' + draftBanner() + proposalCard() + capCard() + lineupCard() + reviewCard() + "</div>";
+      if (fk) {
+        var n = el.querySelector(fk[0]);
+        if (n && n.disabled && fk[1]) n = el.querySelector(fk[1]);     // a − / + that just hit its limit: keep focus on the amount box
+        if (n) { n.focus(); if (/data-q/.test(fk[0])) { try { n.setSelectionRange(pos, pos); } catch (e) {} } }
+      }
+    }
+
+    // Re-rendering replaces the markup, so the focused control is found again by what it is (keyboard users keep their place).
+    function focusKey(n) {
+      if (!n || !n.getAttribute || !(el.contains && el.contains(n))) return null;
+      var a = function (x) { return n.getAttribute(x); };
+      if (a("data-q")) return ['[data-q="' + a("data-q") + '"]'];
+      if (a("data-disc")) return ['[data-disc="' + a("data-disc") + '"]'];
+      if (a("data-cap-step")) return ['[data-cap-step="' + a("data-cap-step") + '"][data-step-from="' + a("data-step-from") + '"][data-step-to="' + a("data-step-to") + '"]', '[data-cap-from="' + a("data-step-from") + '"][data-cap-to="' + a("data-step-to") + '"]'];
+      if (a("data-cap-from")) return ['[data-cap-from="' + a("data-cap-from") + '"][data-cap-to="' + a("data-cap-to") + '"]'];
+      return null;
     }
 
     el.addEventListener("click", function (e) {
-      var g = e.target.closest && e.target.closest("[data-go]");
-      if (g) {
-        var go = g.getAttribute("data-go"), keepN = el.querySelector("[data-note]"); if (keepN) st.note = keepN.value;
-        if (go === "send") { if (readiness().canAttempt) st.confirm = true; }
-        else if (go === "cancel-send") st.confirm = false;
-        else if (go === "confirm-send") {
-          st.confirm = false;
-          if (!readiness().canAttempt) st.sent = { ok: false, message: "The check changed. Review the trade again." };
-          else if (typeof opt.send !== "function") st.sent = { ok: false, message: "Nothing was sent. Sending is not available here." };
-          else {
-            st.sent = { ok: false, message: "Sending…" };
-            var mine = st.seq;
-            Promise.resolve().then(function () { return opt.send(C.sendPlan(draft, ctx, st.note, extReqs())); }).then(function (r) { return r || { ok: false, message: "No answer. Nothing is confirmed." }; }, function () { return { ok: false, message: "The send did not go through. Nothing is confirmed." }; })
-              .then(function (r) { if (mine !== st.seq) return; st.sent = r; render(); });
-          }
-        }
-        render(); return;
+      var dz = e.target.closest && e.target.closest("[data-disc]");
+      if (dz) { var dn = dz.getAttribute("data-disc"); st.disc[dn] = !st.disc[dn]; render(); return; }   // the draft is untouched
+      var sb = e.target.closest && e.target.closest("[data-cap-step]");
+      if (sb) {
+        if (sb.disabled) return;
+        var sf = sb.getAttribute("data-step-from"), stt = sb.getAttribute("data-step-to"), mx = C.capMoneyMaxK(draft, sf, stt), was = draft.capK[sf + ">" + stt] || 0;
+        var nv = Math.min(mx, Math.max(0, was + Number(sb.getAttribute("data-cap-step"))));
+        if (nv !== was) { delete st.capNote[sf + ">" + stt]; draft = C.setCapK(draft, sf, stt, nv); changed(); }
+        return;
       }
-      var jump = e.target.closest && e.target.closest("[data-jump]");
-      if (jump) { var sec = document.getElementById(jump.getAttribute("data-jump")); if (sec && sec.scrollIntoView) sec.scrollIntoView({ block: "start", behavior: "smooth" }); return; }
       var xo = e.target.closest && e.target.closest("[data-tbx-open]");
       if (xo) { openExtDialog(xo.getAttribute("data-from"), xo.getAttribute("data-tbx-open")); return; }
       var b = e.target.closest && e.target.closest("[data-tok]"); if (!b) return;
@@ -386,7 +442,7 @@
         draft = C.setCapK(draft, t.getAttribute("data-cap-from"), t.getAttribute("data-cap-to"), t.value); changed();
       }
     });
-    render();
+    if (adopt(opt.initial) && draft.items.length) changed(); else render();
     function dialogAction(target) {
       var b = target && target.closest ? target.closest("[data-tbx-pick]") : null;
       if (!b || !st.dlg) return false;
@@ -394,7 +450,10 @@
       if (opt.closeDialog) opt.closeDialog();
       changed(); return true;
     }
-    return { factsChanged: function () { st.memo = { sig: "", imp: null }; render(); promptExtensions(); }, dialogAction: dialogAction, refresh: function () { st.memo = { sig: "", imp: null }; render(); }, draft: function () { return draft; }, state: function () { return { phase: st.phase, resp: st.resp, sent: st.sent }; } };
+    return { factsChanged: function () { st.memo = { sig: "", imp: null }; render(); promptExtensions(); }, dialogAction: dialogAction, refresh: function () { st.memo = { sig: "", imp: null }; render(); },
+      draft: function () { return draft; }, isEmpty: isEmpty, state: function () { return { phase: st.phase, resp: st.resp, label: st.label, dropped: st.dropped.slice(), disc: Object.assign({}, st.disc) }; },
+      // Replace the draft with one built elsewhere (the adapter's openDraft has already validated it and asked the owner). Sections stay as they are.
+      loadDraft: function (init) { if (!adopt(init)) return false; st.capNote = {}; changed(); return true; } };
   }
 
   var api = { mount: mount };
