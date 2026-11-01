@@ -3,6 +3,49 @@
   "transactions": {
     "transaction": [
       {
+        "franchise": "0004",
+        "timestamp": "1793542350",
+        "transaction": "16171,|",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1793541958",
+        "transaction": "14905,|14221,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1793541600",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1793541600",
+        "transaction": "17125,|1000|16234,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1793541600",
+        "transaction": "17628,|2000|15396,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1793541600",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "activated": "",
+        "deactivated": "13714,",
+        "franchise": "0004",
+        "timestamp": "1793526703",
+        "type": "IR"
+      },
+      {
         "demoted": "",
         "franchise": "0010",
         "promoted": "17477,",

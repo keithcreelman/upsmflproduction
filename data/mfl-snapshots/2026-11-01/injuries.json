@@ -670,13 +670,13 @@
       },
       {
         "details": "Knee - ACL",
-        "exp_return": "Nov 1, 2026",
+        "exp_return": "Nov 8, 2026",
         "id": "14845",
         "status": "Questionable"
       },
       {
         "details": "Knee - ACL",
-        "exp_return": "Nov 1, 2026",
+        "exp_return": "Nov 15, 2026",
         "id": "14852",
         "status": "Questionable"
       },
@@ -778,7 +778,7 @@
       },
       {
         "details": "Undisclosed",
-        "exp_return": "Nov 1, 2026",
+        "exp_return": "Nov 8, 2026",
         "id": "15117",
         "status": "Questionable"
       },
@@ -1222,7 +1222,7 @@
       },
       {
         "details": "Undisclosed",
-        "exp_return": "Nov 1, 2026",
+        "exp_return": "Nov 8, 2026",
         "id": "15930",
         "status": "Questionable"
       },
@@ -1272,12 +1272,6 @@
         "details": "Undisclosed",
         "exp_return": "Nov 8, 2026",
         "id": "15973",
-        "status": "Questionable"
-      },
-      {
-        "details": "Concussion",
-        "exp_return": "Nov 2, 2026",
-        "id": "15975",
         "status": "Questionable"
       },
       {
@@ -1534,7 +1528,7 @@
       },
       {
         "details": "Achilles",
-        "exp_return": "Nov 1, 2026",
+        "exp_return": "Nov 8, 2026",
         "id": "16379",
         "status": "Questionable"
       },
@@ -2391,12 +2385,6 @@
         "status": "Questionable"
       },
       {
-        "details": "Personal",
-        "exp_return": "Nov 1, 2026",
-        "id": "17583",
-        "status": "Questionable"
-      },
-      {
         "details": "Ankle",
         "exp_return": "Feb 15, 2027",
         "id": "17594",
@@ -2583,7 +2571,7 @@
         "status": "Questionable"
       }
     ],
-    "timestamp": "1793484063",
+    "timestamp": "1793545263",
     "week": "8"
   },
   "version": "1.0"
