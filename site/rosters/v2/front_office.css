@@ -1607,14 +1607,13 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-sched-detail dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .fo-sched-detail { grid-template-columns: 1fr; gap: 0; } .fo-sched-detail dd { margin-bottom: 8px; } }
 
-/* Trade finder: "How to use this page" (collapsed) and Lineup gains for the viewer's team (Keith 2026-10-28). The gains
+/* Trade finder: "How to use this page" (collapsed) and the gain tables (Keith 2026-10-28). The gains
    tables size to the phone (no 820 px floor); if a row is still wider, it scrolls inside its own box, never the page. */
 .fo-tf-guidewrap { margin: 2px 0 8px; }
 .fo-tf-guidebtn { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; }
 .fo-tf-guide { margin: 4px 0 6px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel-alt); font-size: 12.5px; }
 .fo-tf-guide ul { margin: 0; padding-left: 18px; }
 .fo-tf-guide li { padding: 2px 0; }
-.fo-tf-gainscard { margin-top: 12px; }
 .fo-tf-gh { margin: 12px 0 6px; font-size: 14px; }
 .fo-table-scroll .fo-tf-gt { min-width: 0; }
 .fo-tf-gt tbody th[scope="row"] { text-align: left; font-weight: 400; font-size: 12px; color: var(--text); text-transform: none; letter-spacing: 0; background: none; position: static; cursor: default; user-select: auto; }
@@ -1622,7 +1621,6 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
 .fo-tf-gt .fo-plink { text-align: left; }
 .fo-tf-gt td.num, .fo-tf-gt th.num { white-space: nowrap; }
 .fo-tf-gain { font-weight: 700; font-variant-numeric: tabular-nums; }
-.fo-tf-gteam { display: block; }
 .fo-tf-more { background: none; border: 0; padding: 2px 0; font: inherit; font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; }
 .fo-tf-showall { margin: 4px 0 0; }
 
@@ -1630,10 +1628,37 @@ button.fo-ov-capline:hover span:first-child, button.fo-ov-capline:focus-visible 
    pair lists with checkboxes and the copy bar. */
 .fo-tf-basisline { margin: 4px 0 8px; font-size: 12.5px; color: var(--muted); }
 .fo-tf-basisline b { color: var(--text); }
-.fo-tf-sum { margin: 4px 0 6px; font-size: 13px; }
-.fo-tf-stand td, .fo-tf-stand th { vertical-align: top; }
-.fo-tf-stand tr.fo-tf-standrow td, .fo-tf-stand tr.fo-tf-standrow th { border-bottom: 0; padding-bottom: 2px; }
-.fo-tf-standbest td { padding-top: 0; font-size: 12px; }
+/* Explore a position (Keith 2026-10-30): weak positions as boxed rows, each with its Explore button; the open position's
+   options panel sits right under the button that opened it. */
+.fo-tf-weak { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.fo-tf-weakrow { padding: 8px 10px; border: 1px solid var(--border); border-left: 4px solid #fb923c; border-radius: 8px; background: var(--panel-alt); }
+.fo-tf-weakhead { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; font-size: 14px; }
+.fo-tf-weakpos { font-size: 15px; }
+.fo-tf-weakrank { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fo-tf-weakhelp { margin: 4px 0 6px; font-size: 12.5px; }
+.fo-tf-posbtn { min-height: 36px; padding: 6px 12px; font: inherit; font-size: 13px; font-weight: 700; color: var(--accent); background: var(--panel); border: 1px solid var(--accent); border-radius: 6px; cursor: pointer; }
+.fo-tf-posbtn.active { color: #fff; background: var(--accent); }
+.fo-tf-others { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 4px; font-size: 12.5px; }
+.fo-tf-others .fo-tf-posbtn { min-height: 32px; padding: 4px 10px; font-weight: 600; }
+.fo-tf-posx { margin: 10px 0 2px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); }
+.fo-tf-posx:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fo-tf-posxhead { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.fo-tf-posxhead .fo-tf-more { flex: none; min-height: 32px; }
+.fo-tf-posxhead .fo-tf-gh { margin: 4px 0; }
+.fo-tf-optsum { margin: 2px 0 2px; font-size: 13px; }
+.fo-tf-optcards { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.fo-tf-optcard { border: 1px solid var(--border); border-radius: 8px; background: var(--panel-alt); overflow: hidden; }
+.fo-tf-opthead { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 2px 8px; padding: 6px 10px; font-size: 13px; background: rgba(255, 255, 255, .04); border-bottom: 1px solid var(--border); }
+.fo-tf-opthead .fo-muted { font-size: 12px; }
+.fo-tf-optp { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 12px; padding: 6px 10px; font-size: 13px; border-bottom: 1px solid var(--border); }
+.fo-tf-optname { min-width: 0; }
+.fo-tf-optnums { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 12.5px; }
+.fo-tf-you b { font-size: 14px; }
+.fo-tf-them { margin-left: 8px; color: var(--muted); }
+.fo-tf-loss { color: #fdba74; }
+.fo-tf-optfoot { display: flex; justify-content: flex-end; padding: 6px 10px; }
+.fo-tf-xteam { min-height: 32px; padding: 4px 10px; font: inherit; font-size: 12px; font-weight: 600; color: var(--accent); background: none; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+@media (max-width: 400px) { .fo-tf-weakrow { padding: 8px; } .fo-tf-posx { padding: 8px 6px; } }
 .fo-tf-unit { color: var(--muted); font-size: 11px; font-weight: 400; }
 .fo-tf-gnum { font-weight: 700; }
 .fo-tf-explore { margin: 12px 0 4px; font-size: 13px; display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; }
