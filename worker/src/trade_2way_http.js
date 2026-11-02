@@ -27,6 +27,7 @@ import { padFid } from "./trade_3way_model.js";
 import { movementPickViolations, PICK_NOT_TRADEABLE_MSG } from "./trade_3way.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveTradeCaller, callerFailureBody, isAdminCaller } from "./trade_authz.js";
+import { readIdempotencyKey } from "./trade_idempotency.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 const CAP_MONEY_UNAVAILABLE_MSG = "Couldn't verify this trade with MFL right now, so it wasn't sent. Try again in a moment.";
@@ -179,6 +180,8 @@ export async function handle2WayStagedHttp(a) {
   // fetch() to myfantasyleague.com happens anywhere in its call graph.
   const fromFid = padFid(body.from && body.from.fid);
   if (fromFid !== viewer.fid) return fail(403, "forbidden", "You can only start a trade as your own team.");
+  const idem = readIdempotencyKey(body);
+  if (idem.error) return out(idem.error.status, idem.error.body);
   if (Array.isArray(body.extension_requests) && body.extension_requests.length && typeof deps.validateExtensions === "function") {
     const v = await deps.validateExtensions({ leagueId, season, extensionRequests: body.extension_requests });
     if (!v.ok) return out(v.http || 409, { ok: false, code: v.code, error: v.message, message: v.message, skipped: v.skipped });
@@ -198,7 +201,11 @@ export async function handle2WayStagedHttp(a) {
     from: body.from, to: body.to,
     movements: body.movements, notes: body.notes, extension_requests: body.extension_requests,
     loaded_contract_drops: body.loaded_contract_drops,
+    idempotencyKey: idem.key,
   });
+  // The same offer again, or its key again: the original offer's answer, and nothing was stored or sent. See createStaged2WayTrade.
+  if (created.idemReply) return out(created.idemReply.status, created.idemReply.body);
+  if (created.already) return out(200, { ok: true, id: created.id, staged: true, already_staged: true });
   if (created.ok) return out(201, { ok: true, id: created.id, staged: true });
   // The §A6 cap-money check couldn't read MFL (P0 S3): 503, nothing staged. Every other create error stays 400.
   if (created.code === "cap_money_check_unavailable") return fail(503, created.code, CAP_MONEY_UNAVAILABLE_MSG);

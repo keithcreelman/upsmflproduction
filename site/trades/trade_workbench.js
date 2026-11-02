@@ -45,6 +45,7 @@
       lastRequestBody: null,
       lastRequestUrl: "",
       lastAttemptMs: 0,
+      stageKey: "",
       canRetry: false,
       acceptDebug: null
     },
@@ -4265,14 +4266,17 @@
       from: { fid: fromFranchiseId, name: directBody.from_franchise_name },
       to: { fid: toFid, name: directBody.to_franchise_name },
       movements: movements, extension_requests: payload.extension_requests || [],
-      loaded_contract_drops: pre.drops, notes: directBody.message || directBody.comment || ""
+      loaded_contract_drops: pre.drops, notes: directBody.message || directBody.comment || "",
+      idempotency_key: state.submit.stageKey
     };
     var res = await tw2sFetch(tw2sUrl("", {}), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res && !res.networkError && res.ok && res.body && res.body.ok) return { ok: true, staged: true, id: res.body.id };
+    if (res && !res.networkError && res.ok && res.body && res.body.ok) return { ok: true, staged: true, id: res.body.id, already: !!(res.body.already_staged || res.body.idempotent_replay) };
     var eFail = new Error((res && res.body && (res.body.message || res.body.error)) || (res && res.networkError ? "Couldn't reach the server." : "Couldn't stage this offer."));
     eFail.status = res ? res.status : 0; eFail.data = res ? res.body : null;
     throw eFail;
   }
+
+  var ALREADY_STAGED_MESSAGE = "Already staged — awaiting review. It was not staged again.";
 
   async function submitOfferToQueue() {
     if (state.submit.busy) return;
@@ -4327,6 +4331,8 @@
       state.submit.lastRequestBody = body;
       state.submit.lastRequestUrl = apiUrl.toString();
       state.submit.canRetry = false;
+      // One key per Send, kept for its Retry: the worker stages this attempt once, however many times its answer is lost.
+      state.submit.stageKey = "wr-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 14);
       console.log("[TWB] Submit payload summary:", {
         from_franchise_id: body.from_franchise_id,
         to_franchise_id: body.to_franchise_id,
@@ -4344,9 +4350,9 @@
         state.submit.lastRequestBody = null;
         state.submit.lastRequestUrl = "";
         state.submit.canRetry = false;
-        var stagedOkMessage = "Staged — awaiting review. Held server-side; not sent to MFL. ✓";
+        var stagedOkMessage = res.already ? ALREADY_STAGED_MESSAGE : "Staged — awaiting review. Held server-side; not sent to MFL. ✓";
         setSubmitStatus(stagedOkMessage, "good");
-        showFeedbackModal("Offer Staged", stagedOkMessage, "good");
+        showFeedbackModal(res.already ? "Offer Already Staged" : "Offer Staged", stagedOkMessage, "good");
         initTeamSelectors();
         refresh2WayStagedList();
         rerender();
@@ -4413,7 +4419,8 @@
   // match means the first send landed: nothing is sent again. Retry resends ONLY when it can prove
   // the first send isn't there: the worker says the list is complete, every row can be read, and
   // MFL has had RETRY_LIST_SETTLE_MS to list a new offer. Anything else REFUSES rather than risk a
-  // duplicate offer (fail closed).
+  // duplicate offer (fail closed). A staged offer (TRADE_2WAY_CUTOVER_ENABLED) never reaches this list:
+  // the resend goes to the staging fallback, and the worker refuses to store the same offer twice.
   // Token rules mirror the worker's /trade-offers create (worker/src/index.js
   // playerTokenFromAsset / pickTokenFromAsset / blindBidTokenFromDollars).
   var RETRY_LIST_SETTLE_MS = 5 * 60 * 1000;   // the worker's stored-offer window for a freshly posted trade MFL hasn't listed yet
@@ -4570,9 +4577,9 @@
         state.submit.lastRequestBody = null;
         state.submit.lastRequestUrl = "";
         state.submit.canRetry = false;
-        var retryStagedMessage = "Staged — awaiting review. Held server-side; not sent to MFL. ✓";
+        var retryStagedMessage = res.already ? ALREADY_STAGED_MESSAGE : "Staged — awaiting review. Held server-side; not sent to MFL. ✓";
         setSubmitStatus(retryStagedMessage, "good");
-        showFeedbackModal("Offer Staged", retryStagedMessage, "good");
+        showFeedbackModal(res.already ? "Offer Already Staged" : "Offer Staged", retryStagedMessage, "good");
         initTeamSelectors();
         refresh2WayStagedList();
         rerender();
@@ -8856,9 +8863,9 @@
       renderSummary();
       var res = await tw2sFetch(tw2sUrl("", {}), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       if (res && !res.networkError && res.ok && res.body && res.body.ok) {
-        var okMsg = "Staged — awaiting review. Held server-side; not sent to MFL. ✓";
+        var okMsg = res.body.already_staged ? ALREADY_STAGED_MESSAGE : "Staged — awaiting review. Held server-side; not sent to MFL. ✓";
         setSubmitStatus(okMsg, "good");
-        showFeedbackModal("Offer Staged", okMsg, "good");
+        showFeedbackModal(res.body.already_staged ? "Offer Already Staged" : "Offer Staged", okMsg, "good");
         refresh2WayStagedList();
       } else {
         setSubmitStatus("Couldn't stage this offer: " + ((res && res.body && (res.body.message || res.body.error)) || (res && res.networkError ? "network error" : ("HTTP " + (res && res.status)))), "bad");
