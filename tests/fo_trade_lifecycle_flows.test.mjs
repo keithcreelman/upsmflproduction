@@ -351,6 +351,15 @@ test("loaded limit: the preview's own `violations` list reaches the 'Send anyway
   t.equal(r.state, "blocked_loaded", "blocked without a team list is a stop, not a send"); t.equal(tr.posts().length, 1, "only the read-only preview");
 });
 
+test("the worker answers already_staged, or replays the key: the owner is told it wasn't staged again, never 'staged'", async () => {
+  for (const answer of [{ ok: true, id: "st-9", staged: true, already_staged: true }, { ok: true, id: "st-9", staged: true, idempotent_replay: true }]) {
+    const tr = transport([{ when: POST("/trade-offers"), answer: R(409, { ok: false, code: "staging_required" }) }, { when: POST("/api/trades/compliance-preview"), answer: R(200, { ok: true, compliance: { loaded_contracts: { status: "ok" } } }) },
+      { when: POST("/api/trades/2way"), answer: R(200, answer) }]);
+    const r = await cl(tr).sendTwoTeam(DRAFT, "0001", "hi", ctx());
+    t.equal(r.state, "already_staged"); t.equal(r.id, "st-9");
+  }
+});
+
 test("three-team cap acknowledgment at create resends once; staged/3-way management bodies; no drop selection", async () => {
   const pre = R(200, { ok: true, compliance: { loaded_contracts: { status: "ok" } } });
   const ack = R(409, { ok: false, code: "cap_overage_ack_required", cap_ack_needed: { signature: "s3", amount_over: 10 } });

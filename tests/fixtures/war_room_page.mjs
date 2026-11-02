@@ -25,8 +25,8 @@ export function simpleEl() {
 }
 
 // Two owners with one flat, non-loaded contract each: 0001 (tok-B) holds 14056, 0002 (tok-C) holds 13100.
-export function pageWorld() {
-  const env = makeWorkerEnv(); const mfl = makeMfl(); mfl.install();
+export function pageWorld(envOver) {
+  const env = makeWorkerEnv(envOver); const mfl = makeMfl(); mfl.install();
   mfl.st.rosters["0001"] = [{ id: "14056", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
   mfl.st.rosters["0002"] = [{ id: "13100", salary: "5000", contractYear: "1", contractStatus: "Vet-FAA", contractInfo: "CL 1|TCV 5K|AAV 5K|Y1-5K" }];
   return { env, mfl, log: [] };

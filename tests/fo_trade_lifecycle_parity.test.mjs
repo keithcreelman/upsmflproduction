@@ -76,7 +76,10 @@ test("staging_required → the War Room's staged body; the Front Office builds t
   const wr = foWarRoom(cap);
   const built = LC.twoTeam(wr, DRAFT(2), "0001", "staged please", { generatedAt: JSON.parse(cap.creates[0]).payload.generated_at });
   const staged = LC.stagedFromDirect(wr, built.body);
-  t.equal(JSON.stringify(staged), cap.stages[0], "identical staged bytes");
+  const wrStaged = JSON.parse(cap.stages[0]);
+  t.equal(Object.keys(wrStaged).pop(), "idempotency_key", "the War Room's key is its last field, where the Front Office adds its own");
+  delete wrStaged.idempotency_key;
+  t.equal(JSON.stringify(staged), JSON.stringify(wrStaged), "identical staged bytes");
   t.ok(!/loaded_contract_drops/.test(JSON.stringify(staged)), "no loaded_contract_drops field is ever sent (R8 open)");
 });
 

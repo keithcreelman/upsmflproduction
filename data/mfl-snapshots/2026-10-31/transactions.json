@@ -4,6 +4,54 @@
     "transaction": [
       {
         "franchise": "",
+        "timestamp": "1793451600",
+        "transaction": "",
+        "type": "LOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1793451600",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1793451600",
+        "transaction": "16664,|1000|17628,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1793451600",
+        "transaction": "16887,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1793451600",
+        "transaction": "16678,|1000|17125,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0006",
+        "timestamp": "1793451600",
+        "transaction": "17527,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1793451600",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1793449461",
+        "transaction": "|15051,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
         "timestamp": "1793365200",
         "transaction": "",
         "type": "LOCK_ALL_PLAYERS"
