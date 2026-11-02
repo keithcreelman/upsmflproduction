@@ -79,10 +79,28 @@
     return ["ALL"].concat(SLOT_ORDER.filter(function (r) { return have[r]; }));
   }
 
-  // model = UPS_TRADE_FIT.buildLeague(...); opts.by = "position" (default) | "slot". Returns the table every measure
-  // reads; population = the model's lineup rule.
+  // A weekly model (trade_fit.buildWeekly): each week's table, averaged per row, so a Flex starter counts under his own
+  // position in the weeks he starts there. A row is marked replacement-filled only if that holds in most weeks: a kicker's
+  // bye fills a slot from waivers for a week, which says nothing about the roster.
+  function weeklyTeams(model, by) {
+    var tables = model.weekly.map(function (M) { return build(M, { by: by }); }), rows = tables[0].rows, teams = {};
+    model.order.forEach(function (fid) {
+      var row = { replacementSlots: [], need: {}, biggestGain: "" };
+      POSITIONS.forEach(function (g) { row.need[g] = 0; });
+      rows.forEach(function (r) {
+        var avg = function (k) { return mean(tables.map(function (T) { return T.teams[fid][r][k]; })); };
+        row[r] = { ppg: avg("ppg"), above: avg("above"), starters: avg("starters"), replacementStarters: Math.round(avg("replacementStarters")) };
+      });
+      teams[fid] = row;
+    });
+    return { rows: rows, teams: teams };
+  }
+
+  // model = UPS_TRADE_FIT.buildLeague(...) or buildWeekly(...); opts.by = "position" (default) | "slot". Returns the table
+  // every measure reads; population = the model's lineup rule.
   function build(model, opts) {
     var by = opts && opts.by === "slot" ? "slot" : "position";
+    if (model && model.weekly) { var W = weeklyTeams(model, by); return finish(model, by, W.rows, W.teams); }
     var order = (model && model.order) || [];
     var rows = by === "slot" ? slotRows(model) : ROWS.slice();
     var slotById = {};
@@ -116,6 +134,11 @@
         .sort(function (a, b) { return row.need[b] - row.need[a]; })[0] || "";
       teams[fid] = row;
     });
+    return finish(model, by, rows, teams);
+  }
+  // League averages, ranks, index and the shown tenths from the per-team rows.
+  function finish(model, by, rows, teams) {
+    var order = (model && model.order) || [];
     var league = {};
     rows.forEach(function (r) {
       var ppgs = order.map(function (fid) { return teams[fid][r].ppg; });
@@ -157,6 +180,11 @@
   // The modeled starters at one natural position, best first: [{pid, v, slot, slotLabel, depth ("RB1", "RB2", or the
   // flex slot's name), rep}]. Modeled depth from season PPG; MFL records who started, never an RB1/RB2 order.
   function modeledStarters(model, fid, group) {
+    if (model.weekly) {
+      var n = model.weekly.length;
+      return model.teams[fid].best.starters.filter(function (s) { return s.group === group; }).sort(function (a, b) { return b.v - a.v; })
+        .map(function (s) { return { pid: s.pid, v: s.v, ppg: s.ppg, weeks: s.weeks, depth: Math.min(s.weeks, n) + " of " + n + " wks", rep: s.rep }; });
+    }
     var slotById = {};
     ((model && model.slots) || []).forEach(function (s) { slotById[s.id] = s; });
     var list = ((model.teams[fid] && model.teams[fid].best.starters) || []).filter(function (s) { return s.group === group; })

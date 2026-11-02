@@ -116,6 +116,23 @@ test("options by team: every player once under his team; lowest cost first, one 
   t.equal(C.groupOptions(null).length, 0);
 });
 
+test("the rest-of-season file: usable only when complete, this season and at most 8 days old", () => {
+  const NOW = Date.parse("2026-10-30T12:00:00Z"), DAY = 86400000;
+  const f = (o = {}) => ({ ok: true, season: 2026, nWeeks: 10, weeks: [8, 17], label: "UPS Center projection", asOf: new Date(NOW - DAY).toISOString(), nextKick: NOW / 1000 + 3600, players: { 1: 5 }, weekly: { 1: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5] }, avail: {}, ...o });
+  t.equal(C.rosUsable(f(), 2026, NOW), true); t.equal(C.rosUsable(f(), "2026", NOW), true, "the page's season may be a string");
+  t.equal(C.rosUsable(f({ asOf: new Date(NOW - 8 * DAY).toISOString() }), 2026, NOW), true, "8 days old");
+  t.equal(C.rosUsable(f({ asOf: new Date(NOW - 8 * DAY - 1000).toISOString() }), 2026, NOW), false, "8 days and a second old");
+  for (const bad of [null, {}, f({ ok: false }), f({ players: null }), f({ players: {} }), f({ weekly: null }), f({ avail: null }), f({ nWeeks: 1, weeks: [17, 17], playedExcluded: { 17: ["BUF"] } }), f({ label: "" }), f({ nWeeks: 0 }), f({ weeks: null }), f({ season: 2025 }), f({ asOf: "soon" })]) t.equal(C.rosUsable(bad, 2026, NOW), false);
+  t.equal(C.rosUsable(f(), undefined, NOW), false, "an unknown page season fails closed");
+  const kick = NOW / 1000 + 3600;
+  t.equal(C.rosUsable(f(), 2026, kick * 1000 - 1000), true, "one second before the next kickoff");
+  t.equal(C.rosUsable(f(), 2026, kick * 1000), false, "at the kickoff second the answer is out of date");
+  t.equal(C.rosExpired(f(), kick * 1000 - 1000), false); t.equal(C.rosExpired(f(), kick * 1000), true); t.equal(C.rosExpired(f({ nextKick: null }), kick * 1000), false, "no game left");
+  t.equal(C.rosUsable(f({ nextKick: null }), 2026, NOW), true, "no game left to end it");
+  t.equal(C.rosUsable(f({ nextKick: undefined }), 2026, NOW), false, "an answer that doesn't say when it ends fails closed");
+  t.equal(C.rosUsable(f({ nextKick: "soon" }), 2026, NOW), false);
+});
+
 test("pair drilldown (Real Deal Creel × The Long Haulers): their players → my gain, my players → their gain, the same numbers as the lists", () => {
   const P = C.pairGains(G, LH);
   t.equal(P.me, ME); t.equal(P.other, LH); t.equal(P.minGain, 1.0);

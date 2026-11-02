@@ -114,6 +114,17 @@
     });
   };
 
+  // The rest-of-season projection file (worker /api/ros-projections, R2). Read only when an owner chooses Projected ROS PPG.
+  SOURCES.ros = function () {
+    return fetch(cfg.apiBase + "/api/ros-projections?" + q({ season: cfg.season, L: cfg.leagueId }), { credentials: "omit" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (j) {
+      if (!j || j.ok !== true) throw new Error("projection unreadable");
+      return j;
+    });
+  };
+
   function emit(key) {
     (listeners[key] || []).concat(listeners["*"] || []).forEach(function (fn) { try { fn(entries[key], key); } catch (e) {} });
   }
