@@ -4,6 +4,7 @@
 // id (no row, no DM). A client key adds one thing: that same attempt replays even after the offer closed.
 // The first half is the real route on real SQLite; the second is the REAL whole War Room against the REAL worker.
 //   node tests/trade_2way_stage_no_duplicate.test.mjs
+import { createRequire } from "node:module";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeD1, applyMigrations, THREE_WAY_MIGRATIONS } from "./fixtures/d1_sqlite.mjs";
 import { installDiscordRecorder, quietConsole, viewer } from "./fixtures/trade_3way_fixture.mjs";
@@ -393,6 +394,61 @@ test("a staged create never touches MFL: the guard adds no network call", async 
   const env = makeEnv(); discord.reset();
   await post(env, OFFER()); await post(env, OFFER());
   t.equal(discord.messages().length, 1);   // installDiscordRecorder throws on any other fetch
+});
+
+// ════════════════════════ the REAL Front Office lifecycle, on the REAL route ════════════════════════
+const LC = createRequire(import.meta.url)("../site/shared/trade_offer_lifecycle.js");
+const realRoute = async (env, method, u, body) => {
+  const url = new URL(u), p = [];
+  const request = new Request(url, { method, headers: { "Content-Type": "application/json" }, ...(body ? { body } : {}) });
+  const res = await handle2WayStagedHttp({ request, url, path: url.pathname, env, ctx: { waitUntil: (x) => p.push(x) }, corsHeaders: {}, defaultLeagueId: "74598", defaultSeason: "2026", browserMflUserId: "tok-A", cookieMflUserId: "",
+    deps: { detectFranchise: async () => ({ franchise_id: FR.A, franchise_name: "Real Deal Creel" }), commishFids: () => [] } });
+  await Promise.all(p);
+  const text = await res.text();
+  return { status: res.status, ok: res.ok, body: JSON.parse(text), text };
+};
+function foClient(env, listAnswer) {
+  const log = [];
+  const send = async (req) => {
+    log.push(req.method);
+    if (req.method === "GET" && listAnswer) return listAnswer;
+    return realRoute(env, req.method, req.url, req.body);
+  };
+  const routes = LC.routes({ apiBase: "https://worker.test", leagueId: "74598", season: "2026", sessionUrl: (u) => u + "&MFL_USER_ID=tok-A" });
+  return { log, client: LC.client({ cfg: { FO_TRADE_BUILDER_SEND: true }, send, warRoom: {}, routes, me: { sessionFid: FR.A, isCommish: false }, lockout: "Y" }) };
+}
+const lastSend = () => ({ lastBody: OFFER({ idempotency_key: KEY }), stagedFrom: { from_franchise_id: FR.A } });
+
+test("FRONT OFFICE: a lost staged answer. Retry finds the row and sends nothing", async () => {
+  const env = makeEnv();
+  await post(env, OFFER({ idempotency_key: KEY }));
+  const fo = foClient(env);
+  const r = await fo.client.retry(lastSend(), FR.A);
+  t.equal(r.state, "already_staged"); t.equal(rows(env).length, 1);
+  t.deepEqual(fo.log, ["GET"], "no resend");
+});
+
+test("FRONT OFFICE: the list doesn't show the row (slow, cut off, spelled differently). The resend reaches the worker, and the worker stores nothing", async () => {
+  const env = makeEnv();
+  const first = await post(env, OFFER({ idempotency_key: KEY }));
+  const fo = foClient(env, { status: 200, ok: true, body: { ok: true, trades: [] } });
+  const r = await fo.client.retry(lastSend(), FR.A);
+  t.equal(r.state, "already_staged"); t.equal(r.id, first.json.id); t.equal(rows(env).length, 1);
+  t.deepEqual(fo.log, ["GET", "POST"]);
+});
+
+test("FRONT OFFICE: the offer closed before Retry, and the list no longer shows it. The same key replays; it doesn't come back", async () => {
+  const env = makeEnv();
+  const first = await post(env, OFFER({ idempotency_key: KEY }));
+  t.equal((await seen(env, first)).ok, true);
+  const r = await foClient(env).client.retry(lastSend(), FR.A);
+  t.equal(r.state, "already_staged"); t.equal(r.id, first.json.id); t.equal(rows(env).length, 1);
+});
+
+test("FRONT OFFICE: the first attempt never landed. Retry stages it, once", async () => {
+  const env = makeEnv();
+  const r = await foClient(env).client.retry(lastSend(), FR.A);
+  t.equal(r.state, "staged"); t.equal(rows(env).length, 1);
 });
 
 // ════════════════════════ the REAL War Room, with staging on ════════════════════════

@@ -3,9 +3,12 @@
    picks), and how the server's verdict is asked for.
 
    READ-ONLY. Send offer is always disabled in the view (whatever the verdict) and no click reaches a confirmation or a
-   send; nothing here, in the view or in the config below can turn it on. No write route is named here. A live Send is a
-   separate, separately approved change (Keith's go, an authz and behavior review, and parity with every two- and three-team
-   War Room rule). The Trade War Room link stays for sending.
+   send; nothing in UPS_FO_TRADE_BUILDER_CONFIG can turn it on. No write route is named here. A live Send is a separate,
+   separately approved change (Keith's go, an authz and behavior review, and parity with every two- and three-team War Room
+   rule). The Trade War Room link stays for sending. The ONE exception is behind the Front Office write flag
+   (FO_TRADE_BUILDER_SEND, off everywhere; no production config defines it): when the Offers lifecycle
+   (fo_trade_offers.js) reports flagOn(), the view gets a `sender` that hands the draft to it (the War Room's requests); Send stays
+   disabled ("Loading…") until the lifecycle code has arrived (ready()).
 
    The draft is kept HERE (onDraft), so it survives the builder being re-mounted (Trade builder ↔ Trade finder) and opening/closing sections.
 
@@ -326,7 +329,7 @@
     body.addEventListener("click", function (e) { if (current) current.dialogAction(e.target); });
   }
   function mount(host) {
-    var c = cfg();
+    var c = cfg(), O = root.UPS_FO_TRADE_OFFERS;
     wireDialog();
     fx = { hist: null, histState: "idle", probes: {}, queue: [], timer: null, handle: null };
     mountedHost = host;
@@ -346,7 +349,12 @@
       preview: preview,
       sources: c.sources,
       debounceMs: c.debounceMs,                     // undefined = the view's default (tests set 0)
-      // No send option exists: see the header.
+      // No send option unless the write flag is on (see the header): the lifecycle then owns the send.
+      // Attached from the FIRST paint when the flag is on, so nothing remounts later; ready() is false (Send shows "Loading…") until the lifecycle code arrives.
+      sender: O && O.flagOn() ? { enabled: true, ready: function () { return O.enabled(); }, noteLimit: function (n) { return n === 3 ? 500 : 2000; },
+        label: function () { return O._state && O._state.counterOf ? "Send counter" : "Send offer"; },
+        counter: function () { return O.counter ? O.counter() : null; }, cancelCounter: function () { if (O.cancelCounter) O.cancelCounter(); },
+        send: function (d, note) { return O.sendDraft(d, note).then(function (r) { return { state: r.state, message: O._outcomeText(r), done: ["sent", "staged", "sent_three_team", "countered", "already_sent", "already_staged", "already_sent_three_team"].indexOf(r.state) !== -1 }; }); } } : null,
       warRoomUrl: ("warRoomUrl" in c) ? c.warRoomUrl : (FO.warRoomUrl ? FO.warRoomUrl({}) : "")
     });
     fx.handle = current;
@@ -415,6 +423,15 @@
     return { ok: true, dropped: dropped, clamped: clamped };
   }
 
-  root.UPS_FO_TRADE_BUILDER = { _extensionOptions: extensionOptions, mount: mount, openDraft: openDraft, _picksOf: picksOf, _impact: impact, _playersOf: playersOf, _ineligibleOf: ineligibleOf, _capBasis: capBasis };
+  // Cancel counter (Offers, behind the write flag): empty the builder ONLY while it still holds that counter's draft (its label),
+  // so a trade the owner started over with is never thrown away. Nothing is sent.
+  function clearDraft(label) {
+    var C = root.UPS_TRADE_BUILDER_CORE, cur = live() ? current.state().label : keep && keep.label;
+    if (!C || !FO || !label || cur !== label) return false;
+    keep = { draft: C.emptyDraft([FO.viewerFid()]), label: "", dropped: [] };
+    if (live()) current.loadDraft(keep);
+    return true;
+  }
+  root.UPS_FO_TRADE_BUILDER = { _extensionOptions: extensionOptions, mount: mount, openDraft: openDraft, clearDraft: clearDraft, _picksOf: picksOf, _impact: impact, _playersOf: playersOf, _ineligibleOf: ineligibleOf, _capBasis: capBasis };
   document.addEventListener("fo:ready", function () { FO = root.UPS_FO; DATA = root.UPS_FO_DATA; H = root.UPS_FO_HUB; });
 })(typeof window !== "undefined" ? window : this);
