@@ -334,7 +334,9 @@
         "twb_source_team",
         "twb_left_team",
         "twb_right_team",
-        "twb_side"
+        "twb_side",
+        "twb_give",
+        "twb_get"
       ];
       var i;
       for (i = 0; i < passthroughKeys.length; i += 1) {

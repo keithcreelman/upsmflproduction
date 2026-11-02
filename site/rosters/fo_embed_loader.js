@@ -15,7 +15,7 @@
   // front_office.html shell and injects it) and reads MFL's login cookie for the
   // viewer franchise, so no ?franchise_id= is needed inside the embed.
 
-  var BUILD = "2026.09.30.1";
+  var BUILD = "2026.10.27.1";
   if (window.__ups_fo_embed_loader === BUILD) {
     if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
     return;
@@ -216,63 +216,64 @@
     var PAGES_V2 = "https://keithcreelman.github.io/upsmflproduction/rosters/v2/";
     window.UPS_FO_ASSET_BASE = base ? base + "v2/" : PAGES_V2;
 
-    var cssCandidates = [];
-    var jsCandidates = [];
-    // Master player-profile modal + cap_math, same shared deps the Roster
-    // Workbench loader pulls (front_office.js uses window.UPS_openPlayerProfile /
-    // window.UPS_CAP_MATH where present). Load order: cap_math → master → FO.
-    var masterCandidates = [];
-    var capMathCandidates = [];
-    var contractWindowsCandidates = [];
-    // Loaded-contract classifier (window.UPS_LOADED_CONTRACT_CLASSIFICATION), added
-    // 2026-09-30: front_office.js's isLoadedRow has required this global since #1152
-    // (fail-closed to an honest "unavailable" count when it's missing, never a silent
-    // suffix-only guess) -- this loader's own fixed script list predates that and was
-    // never updated, so the embedded (MFL "My Team" page) surface showed EVERY
-    // contract as unavailable even though front_office.html's own standalone
-    // <script> tags (and buildShell's fetch of that same file) were correct. Missing
-    // here is exactly why: buildShell() explicitly skips every <script> tag when
-    // importing front_office.html's body into the embed mount, so this loader's own
-    // hardcoded list is the ONLY source of truth for what loads in the embed.
-    var classifierCandidates = [];
-
-    if (base) {
-      cssCandidates.push(base + "v2/front_office.css?v=" + cacheKey);
-      jsCandidates.push(base + "v2/front_office.js?v=" + cacheKey);
-      masterCandidates.push(base + "../shared/player_profile_master.js?v=" + cacheKey);
-      capMathCandidates.push(base + "../shared/cap_math.js?v=" + cacheKey);
-      contractWindowsCandidates.push(base + "../shared/contract_windows.js?v=" + cacheKey);
-      classifierCandidates.push(base + "../shared/loaded_contract_classification.js?v=" + cacheKey);
+    var PAGES_ROOT = "https://keithcreelman.github.io/upsmflproduction/";
+    // Scripts in load order, as paths from site/ (each tried from the loader's
+    // own origin first, then GitHub Pages, the canonical CDN, #88). Order:
+    //   cap_math (UPS_CAP_MATH) → contract_windows (UPS_CONTRACT_WINDOWS, §B3/§C4/§C5)
+    //   → loaded-contract classifier (front_office.js's isLoadedRow requires it,
+    //   fail-closed when missing) → the phone's shared player-fact modules
+    //   (#1338: injury_status = the one injury chip, front_office_lineup = the
+    //   18-slot model, season_scoring = MFL's own season points, player_facts,
+    //   fo_data = the Front Office's one-read-per-source data layer,
+    //   fo_player_modal = the player panel's bio / stats / game log / write-confirmation facts)
+    //   → master modal → front_office.js last, which needs every global above the
+    //   moment it runs. buildShell() skips every <script> in front_office.html, so
+    //   THIS list is the only source of truth for what loads in the embed.
+    var scripts = [
+      "shared/cap_math.js",
+      "shared/contract_windows.js",
+      "shared/loaded_contract_classification.js",
+      "shared/injury_status.js",
+      "m/front_office_lineup.js",
+      "m/season_scoring.js",
+      "shared/player_facts.js",
+      "rosters/v2/fo_data.js",
+      "rosters/v2/fo_cap_ledger.js",
+      "shared/trade_fit.js",
+      "shared/lineup_strength.js",
+      "shared/starter_mix.js",
+      "shared/bye_planner.js",
+      "shared/player_profile_master.js",
+      "rosters/v2/fo_hub.js",
+      "rosters/v2/fo_overview.js",
+      "rosters/v2/fo_roster.js",
+      "rosters/v2/fo_market.js",
+      "rosters/v2/fo_trades.js",
+      "rosters/v2/fo_activity.js",
+      "shared/taxi_rule.js",
+      "rosters/v2/fo_player_modal.js",
+      "rosters/v2/front_office.js"
+    ];
+    function candidatesFor(path) {
+      var out = [];
+      // base sits at site/rosters/, so site/<path> is base + "../" + path.
+      if (base) out.push(base + "../" + path + "?v=" + cacheKey);
+      out.push(PAGES_ROOT + path + "?v=" + cacheKey);
+      return out;
     }
 
-    // GitHub Pages is the canonical CDN (see #88).
-    cssCandidates.push(PAGES_V2 + "front_office.css?v=" + cacheKey);
-    jsCandidates.push(PAGES_V2 + "front_office.js?v=" + cacheKey);
-    masterCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/player_profile_master.js?v=" + cacheKey);
-    capMathCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/cap_math.js?v=" + cacheKey);
-    contractWindowsCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/contract_windows.js?v=" + cacheKey);
-    classifierCandidates.push("https://keithcreelman.github.io/upsmflproduction/shared/loaded_contract_classification.js?v=" + cacheKey);
+    injectCssCandidates([
+      base ? base + "v2/front_office.css?v=" + cacheKey : "",
+      PAGES_V2 + "front_office.css?v=" + cacheKey
+    ].filter(Boolean));
 
-    injectCssCandidates(cssCandidates);
-
-    // cap_math (window.UPS_CAP_MATH) → contract_windows (window.UPS_CONTRACT_WINDOWS,
-    // §B3/§C4/§C5 eligibility) → loaded-contract classifier
-    // (window.UPS_LOADED_CONTRACT_CLASSIFICATION) → master modal
-    // (window.UPS_openPlayerProfile) → front_office.js, which needs the classifier
-    // global to already exist the moment it runs. FO self-boots on load (it detects
-    // the #ups-front-office mount); we also call UPS_FO_INIT() in onload to cover
-    // the cached-build path.
-    injectScript(capMathCandidates, function () {
-      injectScript(contractWindowsCandidates, function () {
-        injectScript(classifierCandidates, function () {
-          injectScript(masterCandidates, function () {
-            injectScript(jsCandidates, function () {
-              if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
-            });
-          });
-        });
-      });
-    });
+    (function next(i) {
+      if (i >= scripts.length) {
+        if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
+        return;
+      }
+      injectScript(candidatesFor(scripts[i]), function () { next(i + 1); });
+    })(0);
   }
 
   if (document.readyState === "loading") {
