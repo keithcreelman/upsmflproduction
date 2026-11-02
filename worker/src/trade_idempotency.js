@@ -3,6 +3,10 @@
 // PROBLEM: a double tap, or a retry after a timeout, re-ran POST /api/trades/proposals (= /trade-offers) or POST /api/trades/3way and
 // could create a second MFL offer / a second 3-way row, with a second set of DMs.
 //
+// STAGED TWO-TEAM OFFERS (POST /api/trades/2way) are guarded on the server for every client, key or no key: see createStaged2WayTrade.
+// lockOffer() holds one offer at a time, and an identical offer still open answers already_staged. A key adds one thing: the same attempt
+// replays its first answer even after that first offer has closed, so a Retry can't bring back an offer someone has since declined.
+//
 // CONTRACT (only for a client that sends `idempotency_key` in the body; a request without one behaves exactly as before):
 //   • The key is taken with a conditional INSERT immediately before the irreversible write (the MFL tradeProposal on a two-team offer,
 //     the ups_3way_trades INSERT on a three-team create) — NOT at the top of the handler. Every refusal the client is expected to resolve
@@ -27,7 +31,7 @@
 import { capAckExtensionKey } from "./trade_cap_ack.js";
 import { tokenSet } from "./trade_accept_integrity.js";
 
-export const IDEM_SCOPE = Object.freeze({ TWO_WAY_PROPOSE: "two_way_propose", THREE_WAY_CREATE: "three_way_create" });
+export const IDEM_SCOPE = Object.freeze({ TWO_WAY_PROPOSE: "two_way_propose", THREE_WAY_CREATE: "three_way_create", TWO_WAY_STAGE: "two_way_stage", TWO_WAY_STAGE_LOCK: "two_way_stage_lock" });
 export const IDEM_STATE = Object.freeze({ IN_PROGRESS: "in_progress", DONE: "done", FAILED: "failed" });
 /** A first attempt still `in_progress` after this long is treated as unknown (crashed / response lost), never as still running. */
 export const IDEM_STALE_MS = 2 * 60 * 1000;
@@ -105,6 +109,20 @@ export function threeWayRequestHash({ initiator, teamB, teamC, movements, extens
   return sha256Hex(JSON.stringify({ v: 1, scope: IDEM_SCOPE.THREE_WAY_CREATE, a: pad4(initiator), b: pad4(teamB), c: pad4(teamC), mv, ext: capAckExtensionKey(extensionRequests) }));
 }
 
+/**
+ * One staged two-team offer as comparable text: both franchises, every movement's sorted tokens and cap money, the extension terms. Never
+ * the note or the loaded-contract drop selection, which the original row keeps. The same offer reads the same however its movements or
+ * tokens were ordered or spelled.
+ */
+export function stagedOfferShape({ from, to, movements, extensionRequests }) {
+  const mv = (Array.isArray(movements) ? movements : []).filter(Boolean)
+    .map((m) => [pad4(m.from), pad4(m.to), tokenSet(Array.isArray(m.asset_tokens) ? m.asset_tokens : []), Math.max(0, Math.trunc(Number(m.cap_k) || 0))])
+    .filter((x) => x[2].length || x[3])
+    .map((x) => JSON.stringify(x)).sort();
+  return JSON.stringify({ v: 1, scope: IDEM_SCOPE.TWO_WAY_STAGE, from: pad4(from), to: pad4(to), mv, ext: capAckExtensionKey(extensionRequests) });
+}
+export const stagedOfferHash = (shape) => sha256Hex(shape);
+
 // The DDL runs once per isolate per database (not once per request).
 const ensured = new WeakMap();
 async function ensure(db) {
@@ -174,8 +192,34 @@ export function makeIdempotencyStore(db) {
     }
   };
 
-  return { read, begin, finish };
+  /**
+   * Hold one offer while it is checked and stored: atomic, so two requests for it can't both pass the check. Released with finish(). A
+   * holder that died goes stale after IDEM_STALE_MS and the next request takes over; unlike a key, a lock leaves no outcome to protect.
+   * @returns { acquired: true } | { acquired: false, reply: { status, body } }
+   */
+  const lockOffer = async (k, requestHash) => {
+    try {
+      if (!db) throw new Error("no D1 binding");
+      await ensure(db);
+      const at = nowIso();
+      const r = await db.prepare(
+        `INSERT INTO ups_trade_idempotency (league_id, season, scope, actor_fid, idem_key, request_hash, state, created_at_utc, updated_at_utc)
+         VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(league_id, season, scope, actor_fid, idem_key)
+         DO UPDATE SET state=excluded.state, status_code=NULL, response_json=NULL, updated_at_utc=excluded.updated_at_utc
+         WHERE ups_trade_idempotency.state<>excluded.state OR ups_trade_idempotency.updated_at_utc<=?`
+      ).bind(...keyOf(k), s(requestHash), IDEM_STATE.IN_PROGRESS, at, at, new Date(Date.now() - IDEM_STALE_MS).toISOString()).run();
+      return changes(r) === 1 ? { acquired: true } : { acquired: false, reply: reply(409, "request_in_progress", MSG.in_progress) };
+    } catch (e) {
+      console.error(`[trade-idempotency] lockOffer failed (${s(k && k.scope)}) — nothing stored: ${e?.message || e}`);
+      return { acquired: false, reply: reply(503, "idempotency_unavailable", MSG.unavailable) };
+    }
+  };
+
+  return { read, begin, finish, lockOffer };
 }
+
+/** The answer when the check for the same offer can't be read: nothing was stored. */
+export function stageUnavailableReply() { return reply(503, "idempotency_unavailable", MSG.unavailable); }
 
 /** What a second request with an existing key gets. Exported for tests. */
 export function replyForExisting(row, requestHash, nowMs) {
