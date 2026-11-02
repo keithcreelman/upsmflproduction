@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-01T16:23:00.935885+00:00",
+    "generated_at_utc": "2026-11-02T19:46:22.944519+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -201,18 +201,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15263",
-          "display": "Elijah Mitchell",
-          "player_id": "15263",
-          "position": "RB",
-          "nfl_team": "PHI",
-          "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15797",
           "display": "Greg Dulcich",
           "player_id": "15797",
@@ -326,6 +314,18 @@
           "player_id": "17125",
           "position": "LB",
           "nfl_team": "CIN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16450",
+          "display": "Drake Thomas",
+          "player_id": "16450",
+          "position": "LB",
+          "nfl_team": "SEA",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -1153,7 +1153,7 @@
           "salary": 12000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
-          "roster_status": "INJURED_RESERVE",
+          "roster_status": "ROSTER",
           "taxi": false
         },
         {
@@ -1418,18 +1418,6 @@
           "contract_year": 1,
           "contract_status": "Vet-FAA",
           "roster_status": "INJURED_RESERVE",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17167",
-          "display": "Jonas Sanker",
-          "player_id": "17167",
-          "position": "S",
-          "nfl_team": "NOS",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
           "taxi": false
         },
         {
@@ -4171,18 +4159,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_13404",
-          "display": "Austin Ekeler",
-          "player_id": "13404",
-          "position": "RB",
-          "nfl_team": "WAS",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_17124",
           "display": "Barrett Carter",
           "player_id": "17124",
@@ -4300,6 +4276,18 @@
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
           "roster_status": "INJURED_RESERVE",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16585",
+          "display": "Joe Milton",
+          "player_id": "16585",
+          "position": "QB",
+          "nfl_team": "PHI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
           "taxi": false
         },
         {
