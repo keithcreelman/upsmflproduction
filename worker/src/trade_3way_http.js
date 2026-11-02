@@ -14,12 +14,14 @@
 // worker's configured league) and MUST agree with any league_id in the body; every trade is
 // scoped to that (league, season).
 
-import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance } from "./trade_3way.js";
+import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance, movementPickViolations, PICK_NOT_TRADEABLE_MSG } from "./trade_3way.js";
 import { padFid } from "./trade_3way_model.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveTradeCaller, callerFailureBody } from "./trade_authz.js";
+import { readIdempotencyKey, makeIdempotencyStore, threeWayRequestHash, IDEM_SCOPE, IDEM_STATE } from "./trade_idempotency.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
+const CAP_MONEY_UNAVAILABLE_MSG = "Couldn't verify this trade with MFL right now, so it wasn't sent. Try again in a moment.";
 
 const CREATE_MESSAGES = {
   "3way_disabled": "3-way trades aren't turned on right now.",
@@ -152,6 +154,28 @@ export async function handle3WayHttp(a) {
   // ── POST create ────────────────────────────────────────────────────────────
   const initiatorFid = padFid(body.initiator && body.initiator.fid);
   if (initiatorFid !== viewer.fid) return fail(403, "forbidden", "You can only start a 3-way as your own team.");
+  // P0 S6: an OPTIONAL idempotency key. Validated here; TAKEN by create3WayTrade immediately before its INSERT (beforeInsert below), so
+  // every refusal before that point is never cached. No key → exactly the old behavior.
+  const idem = readIdempotencyKey(body);
+  if (idem.error) return out(idem.error.status, idem.error.body);
+  const idemStore = idem.key ? makeIdempotencyStore(env.UPS_MFL_DB) : null;
+  const idemK = idem.key ? { leagueId, season, scope: IDEM_SCOPE.THREE_WAY_CREATE, actorFid: viewer.fid, key: idem.key } : null;
+  let idemTaken = false;
+  const beforeInsert = idem.key ? async () => {
+    const requestHash = await threeWayRequestHash({
+      initiator: body.initiator && body.initiator.fid, teamB: body.team_b && body.team_b.fid, teamC: body.team_c && body.team_c.fid,
+      movements: Array.isArray(body.movements) ? body.movements : body.legs, extensionRequests: body.extension_requests,
+    });
+    const took = await idemStore.begin(idemK, requestHash);
+    if (!took.acquired) return took.reply;
+    idemTaken = true;
+    return null;
+  } : undefined;
+  // The response, recorded against the key when this request took it (a replay returns exactly this).
+  const finishOut = async (status, payload) => {
+    if (idemTaken) await idemStore.finish(idemK, { state: status >= 200 && status < 300 ? IDEM_STATE.DONE : IDEM_STATE.FAILED, statusCode: status, body: payload });
+    return out(status, payload);
+  };
   // STORED-OFFER CREATION uses the canonical extension price: a 3-way that promises an extension the worker cannot price, or prices differently
   // from what the request carries, is refused before anything is stored (the answer carries the canonical terms so it can be rebuilt).
   if (Array.isArray(body.extension_requests) && body.extension_requests.length && typeof deps.validateExtensions === "function") {
@@ -184,6 +208,12 @@ export async function handle3WayHttp(a) {
       }
     }
   }
+  // SEND — canon §A6 (P0 S4): no round-6 pick and no pick beyond the current year + 1 — the same rule and code as the two-team accept.
+  {
+    const pickMoves = Array.isArray(body.movements) && body.movements.length ? body.movements : (Array.isArray(body.legs) ? body.legs : []);
+    const picksBad = movementPickViolations(pickMoves, season);
+    if (picksBad.length) return fail(409, "pick_not_tradeable", PICK_NOT_TRADEABLE_MSG, { violations: picksBad });
+  }
   // SEND — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). (Legs carry the same tokens.)
   {
     const sendMoves = Array.isArray(body.movements) && body.movements.length ? body.movements : (Array.isArray(body.legs) ? body.legs : []);
@@ -194,13 +224,17 @@ export async function handle3WayHttp(a) {
     leagueId, season,
     initiator: body.initiator, teamB: body.team_b, teamC: body.team_c,
     movements: body.movements, legs: body.legs, notes: body.notes, extension_requests: body.extension_requests,
+    beforeInsert,
   });
-  if (created.ok) return out(201, { ok: true, id: created.id });
+  if (created.idemReply) return out(created.idemReply.status, created.idemReply.body);
+  if (created.ok) return finishOut(201, { ok: true, id: created.id });
+  // The §A6 cap-money check couldn't read MFL (P0 S3): 503, nothing stored, nothing sent. Every other create error stays 400.
+  if (created.code === "cap_money_check_unavailable") return fail(503, created.code, CAP_MONEY_UNAVAILABLE_MSG);
   const known = CREATE_MESSAGES[created.error];
   // create3WayTrade's catch-all returns the raw exception text — never show that to an owner.
   const message = created.code === "TRADE_CAP_MONEY_50PCT" ? safeStr(created.error) : (known || "Couldn't create the 3-way trade.");
   // Only KNOWN machine codes are surfaced; an unexpected failure's raw text stays in the logs.
   const errKey = safeStr(created.error);
   const code = safeStr(created.code) || (CREATE_MESSAGES[errKey] ? errKey : "create_failed");
-  return fail(400, code, message);
+  return finishOut(400, { ok: false, code, error: message, message });
 }

@@ -171,7 +171,10 @@ test("PARITY (unresolved data): a BLANK roster salary is unresolved in BOTH — 
 });
 test("ONE MODULE: both callers import worker/src/cap_math.js; neither carries its own copy of the rule or of the IR constant", () => {
   const cm = src("../worker/src/cap_math.js"), ta = src("../worker/src/trade_cap_authority.js"), ix = src("../worker/src/index.js");
-  t.match(cm, /export function currentCapHit/); t.match(cm, /IR_RELIEF_RATE = 0\.5/);
+  t.match(cm, /export function currentCapHit/);
+  // Trade Builder P1: the IR constant and its rounding moved to worker/src/trade_rules.js (shared with the War Room); cap_math imports them.
+  t.match(cm, /import \{ IR_RELIEF_RATE, irCapHit \} from "\.\/trade_rules\.js"/); t.match(src("../worker/src/trade_rules.js"), /IR_RELIEF_RATE = 0\.5/);
+  t.doesNotMatch(cm, /\* 0\.5|IR_RELIEF_RATE = /, "cap_math carries no second copy of the IR rate");
   t.match(ta, /from "\.\/cap_math\.js"/); t.doesNotMatch(ta, /IR_RELIEF|\* 0\.5|function capHit|const capHit\s*=\s*\(/);
   t.match(ix, /from "\.\/cap_math\.js"/); t.match(ix, /sharedCurrentCapHit\(\{ salary: safeInt\(salary, 0\)/);
   const foBody = ix.slice(ix.indexOf("THE cap rule lives in worker/src/cap_math.js"), ix.indexOf("const formatContractK = (amount) => {"));
