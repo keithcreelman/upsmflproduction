@@ -65,8 +65,116 @@
     const src = Array.isArray(list) ? list : String(list == null ? "" : list).trim().split(/\s*,\s*/);
     return [...new Set(src.map(normalizeTradeToken).filter(Boolean))].sort();
   }
+
+  // ── Trade ELIGIBILITY of one asset (Keith's rulings 2 and 3, 2026-10-28, on #1385) ─────────────────────────────────────
+  // ONE rule for the Front Office builder, the Trade War Room and every worker gate (preview, create, accept). Each caller reads
+  // its own authoritative inputs (MFL rosters / picks, D1 tag rows, the lineup-penalty forfeit list) and hands them here; this
+  // decides. A `code` is a stable machine code; `reason` is the short owner text shown BESIDE a disabled item.
+  //   canon §A6 (and Section 2 T1.7): 1+ years left; an expired ROOKIE only up to the rookie-extension deadline; expired veterans no;
+  //   round-6 picks no; future picks this year + 1 only. §C8: a tag locked early, or locked at the deadline, is final and tradeable;
+  //   a tag not yet locked (PROVISIONAL) is not (ruling 2). Once tagged, no team may extend him (§C8, §A6) → `extendable: false`.
+  //   §G3 (lineup_forfeits.js): a pick a lineup penalty has taken is not tradeable.
+  const TRADE_REASONS = {
+    pick_round_6: "6th-round picks can't be traded.",
+    pick_beyond_next_year: "Only this year's and next year's picks can be traded.",
+    pick_forfeited: "Forfeited — lineup penalty.",
+    pick_unreadable: "This pick couldn't be identified.",
+    pick_forfeit_unverified: "Forfeit check unavailable. The server rechecks before anything is sent.",
+    tag_provisional: "Provisional tag: not locked yet, so it can't be traded.",
+    tag_status_unavailable: "Tag status unavailable, so it can't be traded right now.",
+    expired_veteran: "Expired veteran contract: can't be traded.",
+    expired_rookie_deadline_passed: "Expired rookie: the extension deadline has passed.",
+    rookie_deadline_unavailable: "Expired rookie: the extension deadline couldn't be read.",
+    expired_rookie_window: "Expired rookie: tradeable until the extension deadline.",
+    tag_locked_no_extension: "Locked tag: tradeable, but it can't be extended.",
+  };
+
+  // The tag / rookie-extension deadline (canon Section 3 "Tag Deadline + Rookie Draft"): midnight ET on the Thursday → Friday
+  // boundary before Memorial Day = 04:00 UTC on that Friday (late May is always EDT). Same instant as the worker's
+  // getTagDeadlineUtc(); "passed" means strictly after it. NaN for an unreadable season.
+  function tagDeadlineUtcMs(season) {
+    const year = Number(season);
+    if (!Number.isFinite(year) || year < 2000) return NaN;
+    const d = new Date(Date.UTC(year, 4, 31));
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));   // last Monday in May
+    return Date.UTC(year, 4, d.getUTCDate() - 3, 4, 0, 0, 0);
+  }
+
+  // Where a tag stands right now. `tagged` true / false, or null when the tag source could not be read. `lockedInAtMs` = when
+  // the owner locked it in early (ups_tag_submissions.locked_in_at), NaN/null if never. Returns
+  //   "none" | "provisional" (tagged, not locked) | "early_locked" | "deadline_locked" (the deadline has passed) | "unavailable".
+  function tagTradeState({ tagged, lockedInAtMs, deadlineMs, nowMs } = {}) {
+    if (tagged === false) return "none";
+    if (tagged !== true) return "unavailable";
+    const now = Number(nowMs), deadline = Number(deadlineMs);
+    if (!Number.isFinite(now) || !Number.isFinite(deadline)) return "unavailable";
+    if (now > deadline) return "deadline_locked";
+    const lock = lockedInAtMs == null || lockedInAtMs === "" ? NaN : Number(lockedInAtMs);
+    if (Number.isFinite(lock) && lock <= now) return "early_locked";
+    return "provisional";
+  }
+
+  // A rookie contract for the expiry rule (MFL contractStatus "Rookie-…"; the War Room shows a taxi rookie as "Taxi").
+  function isRookieContractStatus(status) {
+    return /^(rookie|taxi)/i.test(String(status == null ? "" : status).trim());
+  }
+  // Years remaining from MFL's contractYear: a number, or null when MFL has none stamped (a blank contract is unresolved,
+  // never 0, so it is NOT read as expired; canon §A3 auto-drops an expired blank rookie at the deadline).
+  function contractYearsLeft(years) {
+    if (years == null || String(years).trim() === "") return null;
+    const n = Number(years);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  //   asset = { kind: "pick", year, round, forfeit: true | false | null (null = the forfeit list could not be read), forfeit_label? }
+  //         | { kind: "player", years, contract_status, tag_state }   (tag_state from tagTradeState; absent on a tag contract = unavailable)
+  //   ctx   = { season, nowMs, rookieDeadlineMs }
+  // → { tradeable, code, reason, extendable (false = refused here, null = not decided here), extension_code, extension_reason,
+  //     warning_code, warning, expired_rookie }
+  function tradeAssetEligibility(asset, ctx) {
+    const a = asset || {}, c = ctx || {};
+    const out = (tradeable, code, extra) => Object.assign({ tradeable, code: code || "", reason: code ? TRADE_REASONS[code] || "" : "", extendable: null, extension_code: "", extension_reason: "", warning_code: "", warning: "", expired_rookie: false }, extra || {});
+    if (a.kind === "pick") {
+      const year = Number(a.year), round = Number(a.round), season = Number(c.season);
+      if (!Number.isFinite(year) || !Number.isFinite(round) || round < 1) return out(false, "pick_unreadable");
+      if (round >= 6) return out(false, "pick_round_6");
+      if (Number.isFinite(season) && year > season + 1) return out(false, "pick_beyond_next_year");
+      if (a.forfeit === true) return out(false, "pick_forfeited", a.forfeit_label ? { reason: String(a.forfeit_label) } : null);
+      if (a.forfeit !== false) return out(true, "", { warning_code: "pick_forfeit_unverified", warning: TRADE_REASONS.pick_forfeit_unverified });
+      return out(true, "");
+    }
+    const status = String(a.contract_status == null ? "" : a.contract_status);
+    const tag = a.tag_state || (/(^|[^a-z])tag(ged)?([^a-z]|$)/i.test(status) ? "unavailable" : "none");
+    if (tag === "provisional") return out(false, "tag_provisional");
+    if (tag !== "none" && tag !== "early_locked" && tag !== "deadline_locked") return out(false, "tag_status_unavailable");
+    const locked = tag === "early_locked" || tag === "deadline_locked";
+    const noExt = locked ? { extendable: false, extension_code: "tag_locked_no_extension", extension_reason: TRADE_REASONS.tag_locked_no_extension } : null;
+    const years = contractYearsLeft(a.years);
+    if (years == null || years >= 1) return out(true, "", noExt);
+    if (!isRookieContractStatus(status)) return out(false, "expired_veteran");
+    const deadline = Number(c.rookieDeadlineMs), now = Number(c.nowMs);
+    if (!Number.isFinite(deadline) || !Number.isFinite(now)) return out(false, "rookie_deadline_unavailable");
+    if (now > deadline) return out(false, "expired_rookie_deadline_passed");
+    return out(true, "", Object.assign({ expired_rookie: true, warning_code: "expired_rookie_window", warning: TRADE_REASONS.expired_rookie_window }, noExt || {}));
+  }
+
+  // Ruling 3 (2026-10-28): the salary a traded player contributes to the §A6 50% cap-money limit. Normally his current salary
+  // (taxi = 0, unchanged). For an EXPIRED ROOKIE (no current-season salary yet): the NEW current-season salary when a
+  // pre-trade extension is included (`extensionYear1`), otherwise his PRIOR-season salary. null = that figure is unavailable
+  // (the caller fails closed: it counts nothing for him and the server re-verifies).
+  function capMoneyBasisDollars(player, opts) {
+    const p = player || {}, o = opts || {};
+    if (p.taxi) return 0;
+    const years = contractYearsLeft(p.years);
+    if (years != null && years < 1 && isRookieContractStatus(p.contract_status)) {
+      const pick = o.extensionYear1 != null ? o.extensionYear1 : o.priorSeasonSalary;
+      const n = pick == null || pick === "" ? NaN : Number(pick);
+      return Number.isFinite(n) && n >= 0 ? n : null;
+    }
+    return Number(p.salary) || 0;
+  }
   // ---- end body ----
-  var api = { IR_RELIEF_RATE: IR_RELIEF_RATE, capMoneyMaxK: capMoneyMaxK, irCapHit: irCapHit, isOverCap: isOverCap, parseAssetToken: parseAssetToken, normalizeTradeToken: normalizeTradeToken, tradeTokenSet: tradeTokenSet };
+  var api = { IR_RELIEF_RATE: IR_RELIEF_RATE, capMoneyMaxK: capMoneyMaxK, irCapHit: irCapHit, isOverCap: isOverCap, parseAssetToken: parseAssetToken, normalizeTradeToken: normalizeTradeToken, tradeTokenSet: tradeTokenSet, TRADE_REASONS: TRADE_REASONS, tagDeadlineUtcMs: tagDeadlineUtcMs, tagTradeState: tagTradeState, isRookieContractStatus: isRookieContractStatus, contractYearsLeft: contractYearsLeft, tradeAssetEligibility: tradeAssetEligibility, capMoneyBasisDollars: capMoneyBasisDollars };
   root.UPS_TRADE_RULES = api;
   if (typeof module !== "undefined" && module.exports) module.exports = api;
 })(typeof window !== "undefined" ? window : this);

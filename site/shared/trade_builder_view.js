@@ -12,7 +12,9 @@
    no click opens a confirmation or sends anything: there is no send handler, no confirmation markup and no option or flag
    that turns one on. A live Send is a separate, separately approved change. No write route is named or called from this file.
      mount(el, { teams:[{fid,name,abbrev?}], ctx:{leagueId,season,viewerFid},
-                 assets(fid) -> {players:[{id,name,pos,salary,years,type,taxi,ir}], picks:[{token,label}]},
+                 assets(fid) -> {players:[{id,name,pos,salary,years,type,taxi,ir,elig?}], picks:[{token,label,elig?}]},
+                   (elig = UPS_TRADE_RULES.tradeAssetEligibility's answer: an untradeable asset can't be added and its reason is shown beside it)
+                 ineligibleOf(item) -> reason|"" , capBasis(item, draft) -> dollars|null|undefined (ruling 3, the 50% cap-money basis),
                  impact(draft) -> { cap:{fid:{r}}|null, lineup:{state,message,teams:{fid:{...}}}, ext:[...], loadedMoving? },
                  extensionOptions(item) -> [option] (the shared pre-trade extension rule; [] = not eligible),
                  playerLink(pid, fid, label) -> html (opens the Front Office player panel),
@@ -43,7 +45,7 @@
     // A draft handed in (kept by the adapter, or loaded from another page): only one that starts with the viewer's own team.
     function adopt(init) {
       if (!init || !init.draft || !Array.isArray(init.draft.teams) || init.draft.teams[0] !== me) return false;
-      draft = C.clampCap(C.withTeams(init.draft, init.draft.teams)).draft;
+      draft = C.clampCap(C.withTeams(init.draft, init.draft.teams), basis).draft;
       st.label = init.label || ""; st.dropped = (init.dropped || []).slice();
       // Players already in the draft are not "just added": no extension popup jumps open for them ("Choose extension" stays on the row).
       st.prompted = {}; draft.items.forEach(function (i) { st.prompted[i.from + "|" + i.token] = 1; });
@@ -53,7 +55,10 @@
     var info = {}; teams.forEach(function (t) { info[C.pad4(t.fid)] = t; });
     function nm(f) { return (info[f] && info[f].name) || "Team " + f; }
     function others() { return draft.teams.filter(function (f) { return f !== me; }); }
-    function gapsNow() { return C.gaps(draft, nm); }
+    // Eligibility (rulings 2/3) and the cap-money basis come from the adapter, which runs the shared rule (UPS_TRADE_RULES).
+    function basis(item, d) { return opt.capBasis ? opt.capBasis(item, d || draft) : undefined; }
+    function whyNot(item) { return opt.ineligibleOf ? opt.ineligibleOf(item) || "" : ""; }
+    function gapsNow() { return C.gaps(draft, nm, whyNot); }
     function extOpts(item) { return opt.extensionOptions ? (opt.extensionOptions(item) || []) : []; }
     // The page's own cap / loaded-contract / lineup math, computed once per draft state (and again when data refreshes).
     function impactNow() {
@@ -76,10 +81,10 @@
     function extReqs() { return C.extensionRequests(draft, extOpts); }
 
     function changed() {
-      var held = C.clampCap(draft); if (held.clamped.length) { draft = held.draft; held.clamped.forEach(function (key) { st.capNote[key] = true; }); }
+      var held = C.clampCap(draft, basis); if (held.clamped.length) { draft = held.draft; held.clamped.forEach(function (key) { st.capNote[key] = true; }); }
       if (isEmpty()) { st.label = ""; st.dropped = []; }       // an emptied draft is no longer "from" anywhere
       if (opt.onDraft) opt.onDraft(draft, { label: st.label, dropped: st.dropped.slice() });
-      var gaps = C.gaps(draft), sig = gaps.length ? "" : C.signature(draft, ctx);
+      var gaps = C.gaps(draft, null, whyNot), sig = gaps.length ? "" : C.signature(draft, ctx);
       st.memo = { sig: "", imp: null };
       clearTimeout(st.timer);
       st.seq++;                          // any answer still in flight is now stale
@@ -97,10 +102,20 @@
     // ── Trade proposal ────────────────────────────────────────────────
     function pname(p, fid) { return opt.playerLink ? opt.playerLink(p.id, fid, p.name) : "<b>" + esc(p.name) + "</b>"; }
     function contractLine(p) { return [p.years != null ? p.years + " yr" : "", p.type || "", p.taxi ? "taxi" : "", p.ir ? "IR" : ""].filter(Boolean).join(" · "); }
+    // The eligibility line shown BESIDE an asset (never only on hover): why it can't be traded, or a notice (a locked tag can't be extended,
+    // an expired rookie's window, a forfeit list that couldn't be read).
+    function eligLine(e) {
+      if (!e) return "";
+      if (!e.tradeable) return '<div class="fo-tb-why bad" data-why>' + esc(e.reason) + "</div>";
+      var notes = [e.extension_reason, e.warning].filter(Boolean);
+      return notes.length ? '<div class="fo-tb-why" data-note-elig>' + esc(notes.join(" ")) + "</div>" : "";
+    }
+    function pickOf(fid, tok) { var a = opt.assets(fid) || { picks: [] }; return (a.picks || []).filter(function (x) { return x.token === tok; })[0]; }
     function itemRow(i, withControls) {
       var p = /^P_/.test(i.token) ? playerOf(i.from, i.token) : null;
-      var cells = p ? '<td>' + pname(p, i.from) + ' <span class="fo-muted">' + esc(p.pos) + '</span><div class="fo-tb-sub">' + esc(contractLine(p)) + '</div></td><td class="num">' + k(p.salary) + "</td>"
-        : '<td><b>' + esc(i.label) + '</b> <span class="fo-muted">draft pick</span></td><td class="num">—</td>';
+      var kk = p ? null : pickOf(i.from, i.token);
+      var cells = p ? '<td>' + pname(p, i.from) + ' <span class="fo-muted">' + esc(p.pos) + '</span><div class="fo-tb-sub">' + esc(contractLine(p)) + '</div>' + eligLine(p.elig) + '</td><td class="num">' + k(p.salary) + "</td>"
+        : '<td><b>' + esc(i.label) + '</b> <span class="fo-muted">draft pick</span>' + eligLine(kk && kk.elig) + '</td><td class="num">—</td>';
       var ctl = "";
       if (withControls) {
         ctl = '<td class="fo-tb-ctl">' + (draft.teams.length === 3 ? '<select aria-label="Send ' + esc(i.label) + ' to" data-dest="' + esc(i.token) + '" data-from="' + i.from + '">' + draft.teams.filter(function (f) { return f !== i.from; }).map(function (f) {
@@ -157,17 +172,20 @@
     function listTable(rows, empty, cols) {
       return rows ? '<div class="fo-table-scroll fo-tb-scroll"><table class="fo-table fo-tb-table"><thead><tr><th>Asset</th><th class="num">Salary</th>' + (cols ? "<th></th>" : "") + "</tr></thead><tbody>" + rows + "</tbody></table></div>" : '<p class="fo-ov-empty">' + empty + "</p>";
     }
-    function addBtn(on, tok, f, label) {
-      return '<button type="button" class="btn small" aria-pressed="' + on + '" data-tok="' + esc(tok) + '" data-from="' + f + '" aria-label="' + (on ? "Remove " : "Add ") + esc(label) + '">' + (on ? "Added" : "Add") + "</button>";
+    // An asset the shared rule refuses can't be added (it can still be removed if a draft from another page brought it in).
+    function addBtn(on, tok, f, label, e) {
+      var off = !on && e && !e.tradeable;
+      return '<button type="button" class="btn small" aria-pressed="' + on + '" data-tok="' + esc(tok) + '" data-from="' + f + '"' + (off ? ' disabled aria-disabled="true"' : "") +
+        ' aria-label="' + (on ? "Remove " : off ? "Can’t add " : "Add ") + esc(label) + (off ? ": " + esc(e.reason) : "") + '">' + (on ? "Added" : off ? "Can’t add" : "Add") + "</button>";
     }
     function rosterPicker(f) {
       var a = opt.assets(f) || { players: [], picks: [] };
       var q = (st.q[f] || "").toLowerCase();
       var rows = a.players.filter(function (p) { return !q || (p.name + " " + p.pos).toLowerCase().indexOf(q) !== -1; }).map(function (p) {
         var eligible = extOpts({ from: f, token: "P_" + p.id, label: p.name }).length > 0;
-        return '<tr><td>' + pname(p, f) + ' <span class="fo-muted">' + esc(p.pos) + '</span><div class="fo-tb-sub">' + esc(contractLine(p)) + (eligible ? ' <span class="fo-tf-tag ok" title="Eligible for a pre-trade extension under the league rule">Extension eligible</span>' : "") + '</div></td><td class="num">' + k(p.salary) + '</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, "P_" + p.id, f), "P_" + p.id, f, p.name) + "</td></tr>";
+        return '<tr' + (p.elig && !p.elig.tradeable ? ' class="fo-tb-off"' : "") + '><td>' + pname(p, f) + ' <span class="fo-muted">' + esc(p.pos) + '</span><div class="fo-tb-sub">' + esc(contractLine(p)) + (eligible ? ' <span class="fo-tf-tag ok" title="Eligible for a pre-trade extension under the league rule">Extension eligible</span>' : "") + "</div>" + eligLine(p.elig) + '</td><td class="num">' + k(p.salary) + '</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, "P_" + p.id, f), "P_" + p.id, f, p.name, p.elig) + "</td></tr>";
       }).concat(a.picks.filter(function (p) { return !q || p.label.toLowerCase().indexOf(q) !== -1; }).map(function (p) {
-        return '<tr><td><b>' + esc(p.label) + '</b> <span class="fo-muted">draft pick</span></td><td class="num">—</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, p.token, f), p.token, f, p.label) + "</td></tr>";
+        return '<tr' + (p.elig && !p.elig.tradeable ? ' class="fo-tb-off"' : "") + '><td><b>' + esc(p.label) + '</b> <span class="fo-muted">draft pick</span>' + eligLine(p.elig) + '</td><td class="num">—</td><td class="fo-tb-ctl">' + addBtn(C.hasItem(draft, p.token, f), p.token, f, p.label, p.elig) + "</td></tr>";
       })).join("");
       return '<details class="fo-tb-roster"' + (st.open[f] ? " open" : "") + ' data-open="' + f + '"><summary>Add from ' + esc(nm(f)) + '’s roster</summary>' +
         '<input type="search" class="fo-tb-q" data-q="' + f + '" placeholder="Find a player or pick" value="' + esc(st.q[f] || "") + '" aria-label="Find in ' + esc(nm(f)) + ' roster">' +
@@ -180,7 +198,7 @@
       var tos = draft.teams.filter(function (x) { return x !== f; });
       var space = imp && imp.cap && imp.cap[f] ? imp.cap[f].r.before.space : null;
       return '<div class="fo-tb-money"><h4>Cap money ' + esc(nm(f)) + " sends</h4>" + tos.map(function (to) {
-        var key = f + ">" + to, max = C.capMoneyMaxK(draft, f, to), cur = draft.capK[key] || 0, who = nm(f) + " sends to " + nm(to);
+        var key = f + ">" + to, max = C.capMoneyMaxK(draft, f, to, basis), cur = draft.capK[key] || 0, who = nm(f) + " sends to " + nm(to);
         var step = function (d, sign, label, off) {
           return '<button type="button" class="btn secondary fo-tb-step" data-cap-step="' + d + '" data-step-from="' + f + '" data-step-to="' + to + '"' + (off ? " disabled" : "") + ' aria-label="' + label + " cap money " + esc(who) + '">' + sign + "</button>";
         };
@@ -405,7 +423,7 @@
       var sb = e.target.closest && e.target.closest("[data-cap-step]");
       if (sb) {
         if (sb.disabled) return;
-        var sf = sb.getAttribute("data-step-from"), stt = sb.getAttribute("data-step-to"), mx = C.capMoneyMaxK(draft, sf, stt), was = draft.capK[sf + ">" + stt] || 0;
+        var sf = sb.getAttribute("data-step-from"), stt = sb.getAttribute("data-step-to"), mx = C.capMoneyMaxK(draft, sf, stt, basis), was = draft.capK[sf + ">" + stt] || 0;
         var nv = Math.min(mx, Math.max(0, was + Number(sb.getAttribute("data-cap-step"))));
         if (nv !== was) { delete st.capNote[sf + ">" + stt]; draft = C.setCapK(draft, sf, stt, nv); changed(); }
         return;
@@ -418,6 +436,8 @@
       if (!adding) { draft = C.removeItem(draft, tok, from); delete st.prompted[from + "|" + tok]; }
       else {
         var a = opt.assets(from) || { players: [], picks: [] }, p = a.players.filter(function (x) { return "P_" + x.id === tok; })[0], kk = a.picks.filter(function (x) { return x.token === tok; })[0];
+        var el = (p || kk || {}).elig;
+        if (b.disabled || (el && !el.tradeable)) return;          // the shared rule refuses it: never added
         draft = C.addItem(draft, { from: from, to: dest(from), token: tok, label: p ? p.name : kk ? kk.label : tok, salary: p ? p.salary : 0, taxi: p ? p.taxi : false });
       }
       changed();

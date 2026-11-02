@@ -84,10 +84,11 @@ test("version stamps changed with the files that changed", () => {
   t.ok(HTML.includes("fo_data.js?v=2026.10.28.1"), "fo_data.js (the sos source)");
   t.ok(HTML.includes("fo_roster.js?v=2026.10.28.4"), "fo_roster.js (Schedule grid: stats in the cell, detail panel; Rest of season scrolls)");
   // Trade builder: no numbered step headings, Send offer always disabled (2026-10-28, #1419) changed these files.
-  for (const f of ["trade_builder_view.js", "fo_trade_builder.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.14"), f + " (Trade builder: headings, Send disabled, openDraft)");
-  // Trade finder: your team first, drilldown, copy to the builder (2026-10-28, #1423, merged with #1419); the shared CSS and the embed BUILD carry the later stamp.
-  for (const f of ["fo_trades.js", "shared/trade_fit.js", "shared/trade_finder_core.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.28.15"), f + " (Trade finder)");
-  t.ok(/var BUILD = "2026\.10\.28\.15";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
+  // Trade asset eligibility (rulings 2/3, 2026-10-28): the builder files, the shared rules, the CSS and the embed BUILD carry its stamp.
+  for (const f of ["trade_builder_view.js", "fo_trade_builder.js", "shared/trade_builder_core.js", "shared/trade_rules.js", "front_office.css"]) t.ok(HTML.includes(f + "?v=2026.10.28.21"), f + " (Trade builder: eligibility reasons, current-year picks)");
+  // Trade finder: your team first, drilldown, copy to the builder (2026-10-28, #1423, merged with #1419).
+  for (const f of ["fo_trades.js", "shared/trade_fit.js", "shared/trade_finder_core.js"]) t.ok(HTML.includes(f + "?v=2026.10.28.15"), f + " (Trade finder)");
+  t.ok(/var BUILD = "2026\.10\.28\.21";/.test(read("site/rosters/fo_embed_loader.js")), "embed loader BUILD");
 });
 
 await run("front_office_view_choices");

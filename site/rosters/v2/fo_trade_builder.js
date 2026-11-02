@@ -12,7 +12,7 @@
    PUBLIC ENTRY POINT for other pages (the Trade finder): UPS_FO_TRADE_BUILDER.openDraft(draft, options) -> result. Exact contract:
      draft   = { source: "Trade finder",                                 // shown as "Draft from Trade finder (not sent)"; blank -> "another page"
                  movements: [ { from: "0008", to: "0010",                // franchise ids (padded to 4 digits)
-                                tokens: ["P_16614", "FP_0008_2027_1"],   // "P_<MFL player id>" | "FP_<ORIGINAL owner fid>_<year>_<round>"
+                                tokens: ["P_16614", "FP_0008_2027_1"],   // "P_<MFL player id>" | "FP_<ORIGINAL owner fid>_<year>_<round>" | "DP_<year>_<round>_<slot>"
                                 cap_k: 0 } ] }                           // optional cap money from -> to, whole $K, held to the rule's maximum
                (the core's movement shape: UPS_TRADE_BUILDER_CORE.movements() / the compliance-preview request). The viewer must be a party;
                2 or 3 teams; a token is kept only if it is on the `from` team's LOADED roster or pick list. No extension choices are carried.
@@ -25,7 +25,8 @@
    Trades → Trade builder. It never sends, saves or writes, and makes no network call itself. Send offer stays disabled.
    (Also written up in the hand-off notes: builder_opendraft_api.md.)
 
-   Optional test/preview seam: window.UPS_FO_TRADE_BUILDER_CONFIG = { preview(body) -> json, warRoomUrl, sources, extensionFacts, debounceMs }.
+   Optional test/preview seam: window.UPS_FO_TRADE_BUILDER_CONFIG = { preview(body) -> json, warRoomUrl, sources, extensionFacts, debounceMs,
+     workbench (a /trade-workbench answer, or a function returning one, used instead of fetching it), nowMs (the eligibility clock) }.
    A build that blocks every POST (the preview) answers the verdict from recorded examples through it. */
 (function (root) {
   "use strict";
@@ -34,26 +35,86 @@
   function ord(n) { return n + (["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) ? 0 : Math.min(n % 10, 4) % 4] || "th"); }
 
   function teams() { return FO.teams().map(function (t) { return { fid: t.fid, name: t.name, abbrev: t.abbrev }; }); }
+
+  // ── Trade ELIGIBILITY of each asset (Keith's rulings 2 and 3, 2026-10-28): the ONE shared rule, UPS_TRADE_RULES.tradeAssetEligibility,
+  // which the worker also enforces at the preview, every create and every accept. The page only gathers its inputs:
+  //   players  years + contract status (the Front Office's MFL rosters) and the TAG STATE the worker stamps on /trade-workbench
+  //            (none | provisional | early_locked | deadline_locked | unavailable, from D1's tag rows). Before that answer arrives, a
+  //            Tag contract is "unavailable" (disabled) unless the tag deadline has passed (then every tag is locked);
+  //   picks    MFL's future picks (round, year) plus /trade-workbench's lineup-penalty forfeit marks; this year's picks (DP_) come from
+  //            /trade-workbench (MFL's assets export). A forfeit list that couldn't be read leaves FP_ picks addable with a visible notice
+  //            (the War Room's rule, Keith 2026-10-12); the server refuses a forfeited pick at every send and accept.
+  // The reason is always shown BESIDE a disabled item (not only on hover).
+  function nowMs() { var c = cfg(); return typeof c.nowMs === "number" ? c.nowMs : Date.now(); }
+  function workbench() { var c = cfg(); if (c.workbench) return typeof c.workbench === "function" ? c.workbench() : c.workbench; return fx.histState === "done" ? fx.hist : null; }
+  function wbAssets(fid) {
+    var wb = workbench(), team = wb && (wb.teams || []).filter(function (t) { return H.pad4(t && t.franchise_id) === fid; })[0];
+    return team ? (team.assets || []) : null;
+  }
+  function wbPlayer(fid, pid) { return (wbAssets(fid) || []).filter(function (a) { return a && a.type === "PLAYER" && String(a.player_id) === String(pid); })[0] || null; }
+  function rules() { return root.UPS_TRADE_RULES; }
+  function playerElig(fid, p) {
+    var R = rules(), season = DATA.config().season, now = nowMs(), deadline = R.tagDeadlineUtcMs(season), wb = workbench();
+    var w = wbPlayer(fid, p.id), tagState;
+    if (w && wb.meta && wb.meta.tag_status && typeof w.tag_state === "string") tagState = w.tag_state;
+    else if (/(^|[^a-z])tag(ged)?([^a-z]|$)/i.test(String(p.type || ""))) tagState = now > deadline ? "deadline_locked" : "unavailable";
+    else tagState = "none";
+    var e = R.tradeAssetEligibility({ kind: "player", years: p.years, contract_status: p.type, tag_state: tagState }, { season: season, nowMs: now, rookieDeadlineMs: deadline });
+    e.tag_state = tagState; e.prior_salary = w && w.prior_season_salary != null ? Number(w.prior_season_salary) : null;
+    return e;
+  }
   function playersOf(fid) {
     var t = FO.teams().filter(function (x) { return x.fid === fid; })[0];
     return t ? (t.players || []).map(function (p) {
-      return { id: p.id, name: p.name, pos: p.position, salary: p.salary, years: p.years, type: p.type && p.type !== "-" ? p.type : "", taxi: !!p.isTaxi, ir: !!p.isIr };
+      return { id: p.id, name: p.name, pos: p.position, salary: p.salary, years: p.years, type: p.type && p.type !== "-" ? p.type : "", taxi: !!p.isTaxi, ir: !!p.isIr, elig: playerElig(fid, p) };
     }) : [];
   }
-  // MFL's future picks held by this team: FP_<original owner>_<year>_<round>, the token the server reads.
+  function pickElig(year, round, forfeit, label) {
+    return rules().tradeAssetEligibility({ kind: "pick", year: year, round: round, forfeit: forfeit, forfeit_label: label || "" }, { season: DATA.config().season });
+  }
+  // MFL's future picks held by this team: FP_<original owner>_<year>_<round>, the token the server reads; then this year's picks
+  // (DP_<year>_<round>_<slot>, before the rookie draft) from /trade-workbench. Each carries its eligibility.
   function picksOf(fid) {
-    var e = DATA.get("picks");
-    if (!e || e.state !== "ok") return [];
-    var out = [];
-    H.asArray(e.data.futureDraftPicks && e.data.futureDraftPicks.franchise).forEach(function (row) {
-      if (H.pad4(row.id) !== fid) return;
-      H.asArray(row.futureDraftPick).forEach(function (p) {
-        var y = String(p.year), r = parseInt(p.round, 10), orig = H.pad4(p.originalPickFor || fid);
-        if (!y || !(r >= 1)) return;
-        out.push({ year: y, round: r, token: "FP_" + orig + "_" + y + "_" + r, label: y + " " + ord(r) + (orig !== fid ? " (" + H.teamName(orig) + ")" : "") });
+    var e = DATA.get("picks"), wb = workbench(), wa = wbAssets(fid), out = [];
+    var marksOk = !!(wb && wb.meta && wb.meta.forfeit_marks && wb.meta.forfeit_marks.ok === true);
+    var wbPick = function (tok) { return (wa || []).filter(function (a) { return a && a.type === "PICK" && String(a.pick_key || "").toUpperCase() === tok; })[0]; };
+    if (e && e.state === "ok") {
+      H.asArray(e.data.futureDraftPicks && e.data.futureDraftPicks.franchise).forEach(function (row) {
+        if (H.pad4(row.id) !== fid) return;
+        H.asArray(row.futureDraftPick).forEach(function (p) {
+          var y = String(p.year), r = parseInt(p.round, 10), orig = H.pad4(p.originalPickFor || fid);
+          if (!y || !(r >= 1)) return;
+          var tok = "FP_" + orig + "_" + y + "_" + r, w = wbPick(tok);
+          out.push({ year: y, round: r, token: tok, label: y + " " + ord(r) + (orig !== fid ? " (" + H.teamName(orig) + ")" : ""),
+            elig: pickElig(y, r, marksOk ? !!(w && w.forfeited) : null, w && w.forfeit_label) });
+        });
       });
+    }
+    (wa || []).forEach(function (a) {
+      var m = a && a.type === "PICK" ? /^DP_(\d+)_(\d+)$/.exec(String(a.pick_key || "").toUpperCase()) : null;
+      if (!m) return;
+      var y = String(a.pick_season || DATA.config().season), r = Number(m[1]) + 1, slot = Number(m[2]) + 1;
+      // A current-year pick is never on the lineup-penalty forfeit list (that list holds future picks), so forfeit = false.
+      out.push({ year: y, round: r, slot: slot, token: "DP_" + y + "_" + r + "_" + slot, label: y + " " + r + "." + (slot < 10 ? "0" : "") + slot + " (this year)",
+        elig: pickElig(y, r, false, "") });
     });
-    return out.sort(function (a, b) { return a.year === b.year ? a.round - b.round : a.year < b.year ? -1 : 1; });
+    return out.sort(function (a, b) { return a.year === b.year ? (a.round - b.round) || ((a.slot || 0) - (b.slot || 0)) : a.year < b.year ? -1 : 1; });
+  }
+  // Why an asset in the draft can't be traded ("" = it can), for the builder's structure check.
+  function ineligibleOf(item) {
+    var list = /^P_/.test(item.token) ? playersOf(item.from).filter(function (x) { return "P_" + x.id === item.token; }) : picksOf(item.from).filter(function (x) { return x.token === item.token; });
+    var a = list[0];
+    return a && a.elig && !a.elig.tradeable ? a.elig.reason : "";
+  }
+  // Ruling 3: what a sent player counts toward the 50% cap-money limit. An expired rookie: his chosen extension's new salary,
+  // else last season's salary (null ⇒ unavailable ⇒ $0 here; the server re-verifies). Everyone else: undefined (his own salary).
+  function capBasis(item, draft) {
+    var pid = pidOf(item.token); if (!pid) return undefined;
+    var p = playerRec(item.from, pid); if (!p) return undefined;
+    var R = rules(), yrs = R.contractYearsLeft(p.years);
+    if (yrs == null || yrs >= 1 || !R.isRookieContractStatus(p.type)) return undefined;
+    var key = ((draft && draft.ext) || {})[item.from + "|" + item.token], o = key ? extensionOptions(item).filter(function (x) { return x.option_key === key; })[0] : null;
+    return R.capMoneyBasisDollars({ years: p.years, contract_status: p.type, taxi: !!p.isTaxi }, o ? { extensionYear1: y1(o) } : { priorSeasonSalary: playerElig(item.from, p).prior_salary });
   }
 
   // ── Pre-trade extension: the shared rule (shared/pretrade_extension.js), fed this player's own contract ──
@@ -112,6 +173,8 @@
     var X = root.UPS_PRETRADE_EXT, pid = String(item.token || "").replace(/^P_/, "");
     var p = playerRec(item.from, pid);
     if (!X || !p) return [];
+    var el = playerElig(item.from, p);
+    if (!el.tradeable || el.extendable === false) return [];          // a locked tag (or an untradeable player) is never offered an extension
     var c = cfg(), facts = typeof c.extensionFacts === "function" ? c.extensionFacts(item.from, pid) : serverFacts(item, pid, p);
     var asset = root.UPS_TRADE_BUILDER_CORE.extensionInput(p, facts);
     if (!asset) return [];
@@ -274,6 +337,8 @@
       closeDialog: function () { H.closeAbout(); },
       teams: teams(),
       assets: function (fid) { return { players: playersOf(fid), picks: picksOf(fid) }; },
+      ineligibleOf: ineligibleOf,
+      capBasis: capBasis,
       ctx: { leagueId: DATA.config().leagueId, season: DATA.config().season, viewerFid: FO.viewerFid() },
       impact: impact,
       extensionOptions: extensionOptions,
@@ -285,7 +350,8 @@
       warRoomUrl: ("warRoomUrl" in c) ? c.warRoomUrl : (FO.warRoomUrl ? FO.warRoomUrl({}) : "")
     });
     fx.handle = current;
-    if (typeof c.extensionFacts !== "function") loadHistory();
+    // /trade-workbench carries the tag states, this year's picks and the forfeit marks the asset list needs (one read per mount).
+    if (!c.workbench) loadHistory();
     return current;
   }
 
@@ -317,7 +383,7 @@
       if (!league[from] || !league[to] || from === to) { toks.forEach(function (t) { drop(t, "bad_team"); }); return; }
       toks.forEach(function (t) {
         var token = String(t == null ? "" : t).trim();
-        if (!/^(P_\d+|FP_\d{4}_\d{4}_\d+)$/.test(token)) return drop(token, "bad_token");
+        if (!/^(P_\d+|FP_\d{4}_\d{4}_\d+|DP_\d{4}_\d+_\d+)$/.test(token)) return drop(token, "bad_token");
         if (seen[from + "|" + token]) return drop(token, "duplicate");
         var a = assetOf(from, token); if (!a) return drop(token, "not_on_roster");
         seen[from + "|" + token] = 1;
@@ -336,8 +402,8 @@
       if (d.teams.indexOf(c.from) === -1 || d.teams.indexOf(c.to) === -1) { clamped.push({ from: c.from, to: c.to, asked_k: c.k, max_k: 0 }); return; }   // money between teams with no asset in the trade
       d = C.setCapK(d, c.from, c.to, c.k);
     });
-    var held = C.clampCap(d); d = held.draft;
-    held.clamped.forEach(function (key) { var p = key.split(">"), asked = cap.filter(function (c) { return c.from === p[0] && c.to === p[1]; })[0]; clamped.push({ from: p[0], to: p[1], asked_k: asked ? asked.k : 0, max_k: C.capMoneyMaxK(d, p[0], p[1]) }); });
+    var held = C.clampCap(d, capBasis); d = held.draft;
+    held.clamped.forEach(function (key) { var p = key.split(">"), asked = cap.filter(function (c) { return c.from === p[0] && c.to === p[1]; })[0]; clamped.push({ from: p[0], to: p[1], asked_k: asked ? asked.k : 0, max_k: C.capMoneyMaxK(d, p[0], p[1], capBasis) }); });
     var cur = live() ? current.draft() : keep && keep.draft;
     if (cur && (cur.items.length || Object.keys(cur.capK || {}).length)) {
       var ask = options && typeof options.confirm === "function" ? options.confirm : typeof root.confirm === "function" ? function (q) { return root.confirm(q); } : null;
@@ -349,6 +415,6 @@
     return { ok: true, dropped: dropped, clamped: clamped };
   }
 
-  root.UPS_FO_TRADE_BUILDER = { _extensionOptions: extensionOptions, mount: mount, openDraft: openDraft, _picksOf: picksOf, _impact: impact, _playersOf: playersOf };
+  root.UPS_FO_TRADE_BUILDER = { _extensionOptions: extensionOptions, mount: mount, openDraft: openDraft, _picksOf: picksOf, _impact: impact, _playersOf: playersOf, _ineligibleOf: ineligibleOf, _capBasis: capBasis };
   document.addEventListener("fo:ready", function () { FO = root.UPS_FO; DATA = root.UPS_FO_DATA; H = root.UPS_FO_HUB; });
 })(typeof window !== "undefined" ? window : this);

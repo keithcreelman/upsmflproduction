@@ -325,15 +325,17 @@ const postCreate = async (env, body) => {
 };
 const stagedCount = (env) => env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_2way_trades").get().n;
 
-test("CREATE (fail closed): cap money + rosters export down → 503 cap_money_check_unavailable, nothing staged, no DM; without cap money the same outage still stages (201)", async () => {
+// Since #1429 (NO FAIL-OPEN, integrator ruling 2026-10-28) the player-eligibility gate runs first: while MFL's rosters can't be read, a create
+// with a player is refused with or without cap money (503 trade_eligibility_unavailable), nothing staged, no DM.
+test("CREATE (fail closed): rosters export down → 503 trade_eligibility_unavailable, nothing staged, no DM — with cap money and without it", async () => {
   const env = makeEnv();
   discord.resetMfl({ fail: { rosters: 502 } }); discord.reset();
   try {
-    const withCap = await postCreate(env, { from: { fid: FR.A }, to: { fid: FR.B }, movements: [{ from: FR.A, to: FR.B, asset_tokens: ["P_16614"], cap_k: 1 }] });
-    t.equal(withCap.status, 503, JSON.stringify(withCap.json)); t.equal(withCap.json.code, "cap_money_check_unavailable");
+    for (const cap_k of [1, 0]) {
+      const r = await postCreate(env, { from: { fid: FR.A }, to: { fid: FR.B }, movements: [{ from: FR.A, to: FR.B, asset_tokens: ["P_16614"], cap_k }] });
+      t.equal(r.status, 503, JSON.stringify(r.json)); t.equal(r.json.code, "trade_eligibility_unavailable");
+    }
     t.equal(stagedCount(env), 0); t.equal(discord.messages().length, 0);
-    const noCap = await postCreate(env, { from: { fid: FR.A }, to: { fid: FR.B }, movements: [{ from: FR.A, to: FR.B, asset_tokens: ["P_16614"], cap_k: 0 }] });
-    t.equal(noCap.status, 201, JSON.stringify(noCap.json)); t.equal(stagedCount(env), 1);
   } finally { discord.resetMfl(); }
 });
 

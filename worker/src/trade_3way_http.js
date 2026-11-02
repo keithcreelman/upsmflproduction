@@ -14,7 +14,7 @@
 // worker's configured league) and MUST agree with any league_id in the body; every trade is
 // scoped to that (league, season).
 
-import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance, movementPickViolations, PICK_NOT_TRADEABLE_MSG } from "./trade_3way.js";
+import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance, movementPickViolations, PICK_NOT_TRADEABLE_MSG, createEligibilityGate } from "./trade_3way.js";
 import { padFid } from "./trade_3way_model.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveTradeCaller, callerFailureBody } from "./trade_authz.js";
@@ -219,6 +219,9 @@ export async function handle3WayHttp(a) {
     const sendMoves = Array.isArray(body.movements) && body.movements.length ? body.movements : (Array.isArray(body.legs) ? body.legs : []);
     const fg = await checkForfeitedPicks(env, leagueId, movementsToTokens(sendMoves));
     if (!fg.ok) return fail(fg.http, fg.code, fg.message, { violations: fg.violations || [] });
+    // SEND — rulings 2/3 (Keith 2026-10-28): no provisional tag, expired veteran, or expired rookie after the extension deadline.
+    const eg = await createEligibilityGate(env, { leagueId, season, movements: sendMoves });
+    if (!eg.ok) return fail(eg.http, eg.code, eg.message, { violations: eg.violations || [] });
   }
   const created = await create3WayTrade(env, ctx, {
     leagueId, season,

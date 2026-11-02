@@ -26,8 +26,10 @@ function page() {
   ctx.UPS_FO_DATA = { config: () => ({ apiBase: "https://w.test", leagueId: "74598", season: "2026", sessionQuery: (u) => u }), get: (k) => (k === "picks" ? PICKS : null) };
   ctx.UPS_FO_HUB = { asArray: (x) => (Array.isArray(x) ? x : x ? [x] : []), pad4: (x) => String(x).padStart(4, "0"), teamName: (x) => x, playerButton: (a, b, c) => c, openDialog() {}, closeAbout() {} };
   ctx.UPS_FO_TRADES = { _setMode: (m) => modes.push(m) };
-  // The preview seam: canned verdicts, and extension facts answered here (so the adapter never reads /trade-workbench).
-  ctx.UPS_FO_TRADE_BUILDER_CONFIG = { preview: () => verdict("provisional"), extensionFacts: () => null, debounceMs: 0 };
+  // The preview seam: canned verdicts, extension facts and the /trade-workbench answer (tag states, this year's picks, forfeit marks) answered
+  // here, so the adapter never reads /trade-workbench.
+  ctx.UPS_FO_TRADE_BUILDER_CONFIG = { preview: () => verdict("provisional"), extensionFacts: () => null, debounceMs: 0,
+    workbench: { teams: [], meta: { forfeit_marks: { ok: true, marked: 0 }, tag_status: { ok: true } } } };
   fireDoc("fo:ready");
   return { ctx, calls, shown, modes, get host() { return host; }, remount() { host = makeEl(); mountNow(); }, open: (d, o) => JSON.parse(JSON.stringify(ctx.UPS_FO_TRADE_BUILDER.openDraft(d, o))), handle: () => host.__tbHandle };
 }
