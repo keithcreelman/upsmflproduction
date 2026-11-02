@@ -42,6 +42,7 @@ import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
 import { EXEC, makeLedger, LEDGER_DDL, franchiseHasUnresolvedDropSequence, findExecutedTrade } from "./trade_execution.js";
 import { evaluateCapAcknowledgment } from "./trade_cap_ack.js";
+import { IDEM_SCOPE, IDEM_STATE, makeIdempotencyStore, stagedOfferHash, stagedOfferShape, stageUnavailableReply } from "./trade_idempotency.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
@@ -241,6 +242,19 @@ const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 // Writes ONLY to D1. There is no fetch() to myfantasyleague.com anywhere in this
 // function's call graph -- no native MFL tradeProposal is ever created here, by design
 // (that is the entire point of staging, §8 of the design doc).
+// The open staged offer identical to `shape` from this sender to this partner, or null. Every open row is read: a LIMIT could hide the match.
+async function findOpenStagedOffer(env, leagueId, season, from, to, shape) {
+  const { results } = await env.UPS_MFL_DB.prepare(
+    `SELECT id, movements_json, extension_requests_json FROM ups_2way_trades
+     WHERE league_id=? AND season=? AND status IN ('collecting','executing') AND from_fid=? AND to_fid=?`
+  ).bind(leagueId, season, from, to).all();
+  for (const row of results || []) {
+    const rowShape = stagedOfferShape({ from, to, movements: JSON.parse(row.movements_json), extensionRequests: JSON.parse(row.extension_requests_json || "[]") });
+    if (rowShape === shape) return safeStr(row.id);
+  }
+  return null;
+}
+
 export async function createStaged2WayTrade(env, ctx, spec) {
   try {
     if (!(await enabled(env))) return { ok: false, error: "2way_staging_disabled" };
@@ -310,16 +324,51 @@ export async function createStaged2WayTrade(env, ctx, spec) {
     const senderDrops = Array.isArray(spec?.loaded_contract_drops) ? spec.loaded_contract_drops.map(safeStr).filter(Boolean) : [];
 
     const [fromIds, toIds] = await Promise.all([resolveDiscordUserIds(env, from), resolveDiscordUserIds(env, to)]);
-    const id = newId();
-    await env.UPS_MFL_DB.prepare(
-      `INSERT INTO ups_2way_trades
-        (id, league_id, season, status, from_fid, to_fid, from_name, to_name,
-         movements_json, notes, extension_requests_json, to_state,
-         from_discord_ids, to_discord_ids, created_at_utc, updated_at_utc)
-       VALUES (?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`
-    ).bind(id, leagueId, season, from, to,
-      safeStr(spec?.from?.name), safeStr(spec?.to?.name), JSON.stringify(movements), notes, JSON.stringify(extReqs),
-      fromIds.join(","), toIds.join(","), nowIso(), nowIso()).run();
+
+    // THE SAME OFFER IS NEVER STAGED TWICE (Keith 2026-10-31, #1425). A send whose answer was lost may have stored its row, and the owner
+    // resends: by Retry, by Send, after a reload, from the phone. So this is decided here, for every client, not by what a client remembers.
+    // The lock makes check-then-insert atomic. An identical open offer answers with its id: no second row and no second DM. A closed one
+    // doesn't count, so an owner can offer a deal again after it was declined, unless this is that same attempt's key: its first answer
+    // replays. The key is taken after the check, immediately before the INSERT, so a failed check is never cached against it. If the INSERT
+    // fails the key stays in_progress (it may have landed): that attempt never stores again, and a new Send is covered by the check.
+    const shape = stagedOfferShape({ from, to, movements, extensionRequests: extReqs });
+    const offerHash = await stagedOfferHash(shape);
+    const idem = makeIdempotencyStore(env.UPS_MFL_DB);
+    const lockK = { leagueId, season, scope: IDEM_SCOPE.TWO_WAY_STAGE_LOCK, actorFid: from, key: offerHash };
+    const keyK = spec?.idempotencyKey ? { leagueId, season, scope: IDEM_SCOPE.TWO_WAY_STAGE, actorFid: from, key: spec.idempotencyKey } : null;
+    const lock = await idem.lockOffer(lockK, offerHash);
+    if (!lock.acquired) return { ok: false, idemReply: lock.reply };
+    let id;
+    try {
+      let already = null;
+      try { already = await findOpenStagedOffer(env, leagueId, season, from, to, shape); }
+      catch (e) {
+        console.error(`[2way-staged] couldn't check for the same open offer — not stored: ${e?.message || e}`);
+        return { ok: false, idemReply: stageUnavailableReply() };
+      }
+      if (already) {
+        console.log(`[2way-staged] ${from} -> ${to}: the same offer is already staged as ${already}; nothing stored`);
+        if (keyK && (await idem.begin(keyK, offerHash)).acquired) await idem.finish(keyK, { state: IDEM_STATE.DONE, statusCode: 200, body: { ok: true, id: already, staged: true, already_staged: true } });
+        return { ok: true, id: already, already: true };
+      }
+      if (keyK) {
+        const took = await idem.begin(keyK, offerHash);
+        if (!took.acquired) return { ok: false, idemReply: took.reply };
+      }
+      id = newId();
+      await env.UPS_MFL_DB.prepare(
+        `INSERT INTO ups_2way_trades
+          (id, league_id, season, status, from_fid, to_fid, from_name, to_name,
+           movements_json, notes, extension_requests_json, to_state,
+           from_discord_ids, to_discord_ids, created_at_utc, updated_at_utc)
+         VALUES (?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`
+      ).bind(id, leagueId, season, from, to,
+        safeStr(spec?.from?.name), safeStr(spec?.to?.name), JSON.stringify(movements), notes, JSON.stringify(extReqs),
+        fromIds.join(","), toIds.join(","), nowIso(), nowIso()).run();
+      if (keyK) await idem.finish(keyK, { state: IDEM_STATE.DONE, statusCode: 201, body: { ok: true, id, staged: true } });
+    } finally {
+      await idem.finish(lockK, { state: IDEM_STATE.DONE, statusCode: 200, body: null });
+    }
 
     if (senderDrops.length) {
       try { await makeConditionalDropStore(ledgerDbFor(env)).setForFranchise({ leagueId, season, tradeKey: id }, { franchiseId: from, playerIds: senderDrops, selectedByFid: from }); }

@@ -11,7 +11,8 @@
    (site/shared/war_room_requests.js, GENERATED from site/trades/trade_workbench.js), loaded with the same
    /trade-workbench answer; the few lines that assemble a body inside a War Room click handler are copied here and
    checked against the real War Room in tests/fo_trade_lifecycle_parity.test.mjs. The only difference: every CREATE
-   (two-team, staged two-team, three-team, counter) carries an `idempotency_key` (#1396), added as the LAST field.
+   (two-team, staged two-team, three-team, counter) carries an `idempotency_key` (#1396), added as the LAST field; a
+   War Room staged send carries one too, in the same place.
    Labels inside the War Room's bodies ("source": "trade-workbench-ui", "cancelled from the Trade War Room") are kept
    as they are, because byte parity is the rule; changing them is a separate, deliberate follow-up.
 
@@ -346,7 +347,7 @@
     if (p.network) return { state: "unconfirmed", code: "network", canRetry: true };
     if (p.ok) {
       if (kind === "three_team") return { state: "sent_three_team", id: str(b.id || (b.trade && b.trade.id)), replay: !!b.idempotent_replay };
-      if (kind === "staged") return { state: "staged", id: str(b.id), replay: !!b.idempotent_replay };
+      if (kind === "staged") return { state: b.already_staged || b.idempotent_replay ? "already_staged" : "staged", id: str(b.id), replay: !!b.idempotent_replay };
       return { state: "sent", tradeId: str((b.mfl || {}).trade_id), replay: !!b.idempotent_replay };
     }
     if (p.status === 409 && c === "loaded_contract_limit_exceeded") return { state: "blocked_loaded", code: c, teams: b.teams || [], serverMessage: str(b.message || b.error) };
@@ -509,7 +510,8 @@
     // Retry (ruling 5): look for the first attempt in the caller's sent offers BEFORE resending (same key, same body). A direct
     // offer resends only when the list proves it isn't there: the worker says the list is complete and every row can be read
     // (the War Room's rule). The same idempotency key is what covers MFL not having listed a new offer yet: the worker replays
-    // or refuses it, so unlike the War Room this waits for nothing.
+    // or refuses it, so unlike the War Room this waits for nothing. A staged offer's list only saves a request: nothing a client
+    // reads can prove it absent, and the worker refuses to store the same offer twice (createStaged2WayTrade).
     function retry(last, actingFid, ctx) {
       ctx = ctx || {};
       var body = last && last.lastBody;
