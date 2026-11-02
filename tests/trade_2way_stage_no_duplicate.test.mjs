@@ -12,7 +12,7 @@ import { bootDesktop, pageWorld, readyOffer, resp } from "./fixtures/war_room_pa
 await import("./fixtures/register_md_loader.mjs");
 const { cancel2WayTrade } = await import("../worker/src/trade_2way.js");
 const { handle2WayStagedHttp } = await import("../worker/src/trade_2way_http.js");
-const { IDEM_SCOPE, IDEM_STALE_MS, makeIdempotencyStore, stagedOfferShape } = await import("../worker/src/trade_idempotency.js");
+const { IDEM_SCOPE, IDEM_STALE_MS, makeIdempotencyStore, offerLockHeld, stagedOfferShape } = await import("../worker/src/trade_idempotency.js");
 
 const restoreConsole = quietConsole();
 const discord = installDiscordRecorder();
@@ -39,6 +39,23 @@ const post = async (env, body) => {
 const rows = (env) => env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_2way_trades ORDER BY created_at_utc").all();
 const age = (env, ms) => env.UPS_MFL_DB.raw.prepare("UPDATE ups_trade_idempotency SET updated_at_utc=?").run(new Date(Date.now() - ms).toISOString());
 const seen = (env, r) => cancel2WayTrade(env, { waitUntil() {} }, r.json.id, viewer(FR.A, { leagueId: "74598", season: "2026" }), "no");
+const CHECK = /SELECT id, movements_json/, STORE = /INSERT INTO ups_2way_trades/, KEY_TAKE = /DO NOTHING/, LOCK_TAKE = /DO UPDATE SET request_hash/;
+// D1 with one statement changed: the real SQL runs (or not), and the matching statement's answer comes from `answer`.
+const answering = (db, match, method, answer) => ({ prepare: (sql) => {
+  const st = db.prepare(sql);
+  if (!match.test(sql)) return st;
+  return { bind: (...a) => { const b = st.bind(...a); return { ...b, [method]: () => answer(b) }; } };
+} });
+// A request held at the moment it runs `match`: `reached` fires, then it waits for `open()`. Set `before` to hold it before the statement runs.
+function holdAt(db, match, { before } = {}) {
+  let open, reached;
+  const gate = new Promise((r) => { open = r; }), arrived = new Promise((r) => { reached = r; });
+  const method = match === STORE ? "run" : "all";
+  return { open, arrived, db: answering(db, match, method, async (b) => {
+    if (before) { reached(); await gate; return b[method](); }
+    const r = await b[method](); reached(); await gate; return r;
+  }) };
+}
 
 test("the same offer again, with no key at all (a stale client, the phone, a reload): the first offer's id, no second row, no second DM", async () => {
   const env = makeEnv(); discord.reset();
@@ -133,18 +150,109 @@ test("two requests at once, the second arriving while the first is between its c
   }
 });
 
-test("the lock: held refuses, released or dead takes over, ±1 second at the stale line", async () => {
+test("the lock: held refuses, released or dead takes over, ±1 second at the stale line, and a new holder gets a new fence", async () => {
   const env = makeEnv(), store = makeIdempotencyStore(env.UPS_MFL_DB);
   const k = { leagueId: "74598", season: "2026", scope: IDEM_SCOPE.TWO_WAY_STAGE_LOCK, actorFid: FR.A, key: "a".repeat(64) };
-  t.equal((await store.lockOffer(k, "h")).acquired, true);
-  const held = await store.lockOffer(k, "h");
+  const a = await store.lockOffer(k);
+  t.equal(a.acquired, true); t.match(a.fence, /^[0-9a-f-]{36}$/);
+  const held = await store.lockOffer(k);
   t.equal(held.acquired, false); t.equal(held.reply.status, 409); t.equal(held.reply.body.code, "request_in_progress");
   age(env, IDEM_STALE_MS - 1000);
-  t.equal((await store.lockOffer(k, "h")).acquired, false, "1 second before the line: still held");
+  t.equal((await store.lockOffer(k)).acquired, false, "1 second before the line: still held");
   age(env, IDEM_STALE_MS + 1000);
-  t.equal((await store.lockOffer(k, "h")).acquired, true, "1 second after: the dead holder is taken over");
-  t.equal(await store.finish(k, { state: "done", statusCode: 200, body: null }), true);
-  t.equal((await store.lockOffer(k, "h")).acquired, true, "released");
+  const b = await store.lockOffer(k);
+  t.equal(b.acquired, true, "1 second after: the dead holder is taken over");
+  t.ok(b.fence !== a.fence, "the taker holds a different fence");
+  await store.unlockOffer(k, a.fence);
+  t.equal((await store.lockOffer(k)).acquired, false, "the old holder's release doesn't free the taker's lock");
+  await store.unlockOffer(k, b.fence);
+  t.equal((await store.lockOffer(k)).acquired, true, "the holder's own release does");
+});
+
+test("the fence is true only for the holder, and only while it holds", async () => {
+  const env = makeEnv(), store = makeIdempotencyStore(env.UPS_MFL_DB);
+  const k = { leagueId: "74598", season: "2026", scope: IDEM_SCOPE.TWO_WAY_STAGE_LOCK, actorFid: FR.A, key: "b".repeat(64) };
+  const held = (fence) => { const h = offerLockHeld(k, fence); return env.UPS_MFL_DB.raw.prepare(`SELECT ${h.sql} AS yes`).get(...h.binds).yes; };
+  const a = await store.lockOffer(k);
+  t.equal(held(a.fence), 1); t.equal(held("not-the-fence"), 0); t.equal(held(""), 0);
+  await store.unlockOffer(k, a.fence);
+  t.equal(held(a.fence), 0, "released: its own fence no longer passes");
+  await store.lockOffer(k);
+  t.equal(held(a.fence), 0, "a new holder: the old fence never passes again");
+});
+
+test("TAKEOVER: a request stalled past the stale line after its check, before its INSERT. Whatever the stall, one row and one DM; the stalled request stores nothing", async () => {
+  for (const keys of [[undefined, undefined], ["attempt-key-0001", "attempt-key-0002"]]) {
+    const env = makeEnv(); discord.reset();
+    const h = holdAt(env.UPS_MFL_DB, CHECK);
+    const first = post({ ...env, UPS_MFL_DB: h.db }, OFFER(keys[0] ? { idempotency_key: keys[0] } : {}));
+    await h.arrived;                                              // the first has looked and found nothing, and hasn't stored
+    age(env, IDEM_STALE_MS + 1000);                               // ...and stalls past the line
+    const second = await post(env, OFFER(keys[1] ? { idempotency_key: keys[1] } : {}));
+    t.equal(second.status, 201, JSON.stringify(second.json));
+    h.open();
+    const one = await first;
+    t.equal(one.status, 409, JSON.stringify(one.json)); t.equal(one.json.code, "request_in_progress");
+    t.equal(rows(env).length, 1, "one offer");
+    t.equal(rows(env)[0].id, second.json.id);
+    t.equal(discord.messages().length, 1, "the partner was told once");
+  }
+});
+
+test("TAKEOVER: a stall that lasts a week changes nothing: the fence has no clock in it", async () => {
+  const env = makeEnv(); discord.reset();
+  const h = holdAt(env.UPS_MFL_DB, CHECK);
+  const first = post({ ...env, UPS_MFL_DB: h.db }, OFFER());
+  await h.arrived;
+  age(env, 7 * 24 * 3600 * 1000);
+  const second = await post(env, OFFER());
+  await seen(env, second);                                        // the taker's offer has even closed by the time the first wakes
+  h.open();
+  t.equal((await first).status, 409);
+  t.equal(rows(env).length, 1); t.equal(rows(env)[0].status, "cancelled");
+});
+
+test("TAKEOVER: the stalled request's INSERT reaches D1 only after the takeover: that one statement stores nothing", async () => {
+  const env = makeEnv(); discord.reset();
+  const h = holdAt(env.UPS_MFL_DB, STORE, { before: true });
+  const first = post({ ...env, UPS_MFL_DB: h.db }, OFFER());
+  await h.arrived;                                                // past every check, about to run the INSERT
+  age(env, IDEM_STALE_MS + 1000);
+  const second = await post(env, OFFER());
+  t.equal(second.status, 201);
+  h.open();
+  t.equal((await first).json.code, "request_in_progress");
+  t.equal(rows(env).length, 1); t.equal(discord.messages().length, 1);
+});
+
+test("TAKEOVER: a stalled request waking up doesn't free the lock of the request that took over", async () => {
+  const env = makeEnv(); discord.reset();
+  const h = holdAt(env.UPS_MFL_DB, CHECK), h2 = holdAt(env.UPS_MFL_DB, CHECK);
+  const first = post({ ...env, UPS_MFL_DB: h.db }, OFFER());
+  await h.arrived;
+  age(env, IDEM_STALE_MS + 1000);
+  const second = post({ ...env, UPS_MFL_DB: h2.db }, OFFER());
+  await h2.arrived;                                               // the taker is between its check and its INSERT
+  h.open();
+  t.equal((await first).status, 409);                             // the first wakes, fails its fence and releases
+  const third = await post(env, OFFER());
+  t.equal(third.status, 409, "the taker still holds the offer"); t.equal(third.json.code, "request_in_progress");
+  h2.open();
+  t.equal((await second).status, 201);
+  t.equal(rows(env).length, 1); t.equal(discord.messages().length, 1);
+});
+
+test("TAKEOVER: the stalled attempt's Retry finds the offer that took over and doesn't store a third", async () => {
+  const env = makeEnv(); discord.reset();
+  const h = holdAt(env.UPS_MFL_DB, CHECK);
+  const first = post({ ...env, UPS_MFL_DB: h.db }, OFFER({ idempotency_key: KEY }));
+  await h.arrived;
+  age(env, IDEM_STALE_MS + 1000);
+  const second = await post(env, OFFER({ idempotency_key: "attempt-key-0002" }));
+  h.open(); await first;
+  const retry = await post(env, OFFER({ idempotency_key: KEY }));
+  t.equal(retry.status, 200, JSON.stringify(retry.json)); t.equal(retry.json.id, second.json.id); t.equal(retry.json.already_staged, true);
+  t.equal(rows(env).length, 1); t.equal(discord.messages().length, 1);
 });
 
 test("a holder that died leaves the offer stageable after the stale line: the lock is released, never a permanent block", async () => {
@@ -183,6 +291,83 @@ test("FAILS CLOSED: an open row that can't be read → 503, not a second offer",
   env.UPS_MFL_DB.raw.prepare("UPDATE ups_2way_trades SET movements_json='{not json'").run();
   t.equal((await post(env, OFFER())).status, 503);
   t.equal(rows(env).length, 1);
+});
+
+const BAD_READS = [["success false, empty rows", { success: false, results: [] }], ["success false, the real rows held back", { success: false }],
+  ["no success field", { results: [] }], ["success missing, rows null", { results: null }], ["success a string", { success: "true", results: [] }],
+  ["success true, no results", { success: true }], ["success true, results null", { success: true, results: null }],
+  ["success true, results an object", { success: true, results: {} }], ["success true, results a string", { success: true, results: "[]" }],
+  ["an empty object", {}], ["null", null], ["undefined", undefined]];
+
+test("MAT-3 FAILS CLOSED: the same offer is open and the check answers without throwing but without a successful rows array → 503, no second row, no DM", async () => {
+  for (const [why, answer] of BAD_READS) {
+    const env = makeEnv(); discord.reset();
+    await post(env, OFFER());
+    const r = await post({ ...env, UPS_MFL_DB: answering(env.UPS_MFL_DB, CHECK, "all", async () => answer) }, OFFER());
+    t.equal(r.status, 503, `${why}: ${JSON.stringify(r.json)}`); t.equal(r.json.code, "idempotency_unavailable", why);
+    t.equal(rows(env).length, 1, why);
+    t.equal(discord.messages().length, 1, `${why}: only the first offer's DM`);
+  }
+});
+
+test("MAT-3 FAILS CLOSED: after an unusable check the key isn't spent and the lock is released, so the same attempt goes through when D1 recovers", async () => {
+  const env = makeEnv();
+  t.equal((await post({ ...env, UPS_MFL_DB: answering(env.UPS_MFL_DB, CHECK, "all", async () => ({ success: false, results: [] })) }, OFFER({ idempotency_key: KEY }))).status, 503);
+  t.equal((await post(env, OFFER({ idempotency_key: KEY }))).status, 201);
+  t.equal(rows(env).length, 1);
+});
+
+test("MAT-3: a successful check with no rows still stages: the guard requires an answer, not a match", async () => {
+  const env = makeEnv();
+  t.equal((await post({ ...env, UPS_MFL_DB: answering(env.UPS_MFL_DB, CHECK, "all", async () => ({ success: true, results: [], meta: {} })) }, OFFER())).status, 201);
+});
+
+test("FAILS CLOSED: open rows that parse but can't be this offer's record are unreadable, not 'no match'", async () => {
+  for (const [why, sql] of [["movements not a list", "movements_json='{}'"], ["movements null", "movements_json='null'"], ["movements empty", "movements_json='[]'"],
+    ["extensions not a list", "extension_requests_json='{}'"]]) {
+    const env = makeEnv();
+    await post(env, OFFER());
+    env.UPS_MFL_DB.raw.prepare(`UPDATE ups_2way_trades SET ${sql}`).run();
+    t.equal((await post(env, OFFER())).status, 503, why);
+    t.equal(rows(env).length, 1, why);
+  }
+  const env = makeEnv();
+  await post(env, OFFER());
+  const blank = async (b) => { const r = await b.all(); return { ...r, results: r.results.map((x) => ({ ...x, id: "" })) }; };
+  t.equal((await post({ ...env, UPS_MFL_DB: answering(env.UPS_MFL_DB, CHECK, "all", blank) }, OFFER())).status, 503, "a match with no id");
+  t.equal(rows(env).length, 1);
+});
+
+test("FAILS CLOSED: the lock statement answers unsuccessfully without throwing → 503, nothing stored", async () => {
+  for (const answer of [{ success: false, meta: { changes: 1 } }, { meta: { changes: 1 } }, null]) {
+    const env = makeEnv(); discord.reset();
+    await makeIdempotencyStore(env.UPS_MFL_DB).read({ leagueId: "x", season: "x", scope: "x", actorFid: "x", key: "x" });
+    const r = await post({ ...env, UPS_MFL_DB: answering(env.UPS_MFL_DB, LOCK_TAKE, "run", async () => answer) }, OFFER());
+    t.equal(r.status, 503, JSON.stringify(r.json)); t.equal(rows(env).length, 0); t.equal(discord.messages().length, 0);
+  }
+});
+
+test("FAILS CLOSED: the key can't be taken and answers without throwing → no row, no DM", async () => {
+  const env = makeEnv(); discord.reset();
+  await makeIdempotencyStore(env.UPS_MFL_DB).read({ leagueId: "x", season: "x", scope: "x", actorFid: "x", key: "x" });
+  const r = await post({ ...env, UPS_MFL_DB: answering(env.UPS_MFL_DB, KEY_TAKE, "run", async () => ({ success: false })) }, OFFER({ idempotency_key: KEY }));
+  t.equal(r.status, 503, JSON.stringify(r.json)); t.equal(rows(env).length, 0); t.equal(discord.messages().length, 0);
+});
+
+test("FAILS CLOSED: the INSERT answers unsuccessfully without throwing → never reported as staged, no DM, that attempt never stores again", async () => {
+  for (const answer of [{ success: false }, { success: false, meta: { changes: 1 } }, null, undefined]) {
+    const env = makeEnv(); discord.reset();
+    const r = await post({ ...env, UPS_MFL_DB: answering(env.UPS_MFL_DB, STORE, "run", async () => answer) }, OFFER({ idempotency_key: KEY }));
+    t.ok(r.status >= 400, JSON.stringify(r.json)); t.equal(r.json.ok, false);
+    t.equal(discord.messages().length, 0); t.equal(rows(env).length, 0);
+    t.equal((await post(env, OFFER({ idempotency_key: KEY }))).json.code, "request_in_progress");
+  }
+});
+
+test("the INSERT stores no row but reports success (a stale fence, or an answer with no count): nothing is reported as staged and nobody is told", async () => {
+  const env = makeEnv(); discord.reset();
+  const r = await post({ ...env, UPS_MFL_DB: answering(env.UPS_MFL_DB, STORE, "run", async () => ({ success: true, meta: {} })) }, OFFER());
+  t.equal(r.status, 409); t.equal(r.json.code, "request_in_progress"); t.equal(discord.messages().length, 0);
 });
 
 test("the INSERT fails with no way to know whether it landed: that attempt never stores again; a new Send goes through the check", async () => {

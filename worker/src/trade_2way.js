@@ -42,7 +42,7 @@ import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
 import { EXEC, makeLedger, LEDGER_DDL, franchiseHasUnresolvedDropSequence, findExecutedTrade } from "./trade_execution.js";
 import { evaluateCapAcknowledgment } from "./trade_cap_ack.js";
-import { IDEM_SCOPE, IDEM_STATE, makeIdempotencyStore, stagedOfferHash, stagedOfferShape, stageUnavailableReply } from "./trade_idempotency.js";
+import { IDEM_SCOPE, IDEM_STATE, d1Changes, makeIdempotencyStore, offerLockHeld, requireD1Rows, requireD1Success, stageBusyReply, stagedOfferHash, stagedOfferShape, stageUnavailableReply } from "./trade_idempotency.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
@@ -243,14 +243,16 @@ const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 // function's call graph -- no native MFL tradeProposal is ever created here, by design
 // (that is the entire point of staging, §8 of the design doc).
 // The open staged offer identical to `shape` from this sender to this partner, or null. Every open row is read: a LIMIT could hide the match.
+// Null means D1 answered and no open row matches. Anything less throws: an unsuccessful read or an unreadable row is not "no match".
 async function findOpenStagedOffer(env, leagueId, season, from, to, shape) {
-  const { results } = await env.UPS_MFL_DB.prepare(
+  const rows = requireD1Rows(await env.UPS_MFL_DB.prepare(
     `SELECT id, movements_json, extension_requests_json FROM ups_2way_trades
      WHERE league_id=? AND season=? AND status IN ('collecting','executing') AND from_fid=? AND to_fid=?`
-  ).bind(leagueId, season, from, to).all();
-  for (const row of results || []) {
-    const rowShape = stagedOfferShape({ from, to, movements: JSON.parse(row.movements_json), extensionRequests: JSON.parse(row.extension_requests_json || "[]") });
-    if (rowShape === shape) return safeStr(row.id);
+  ).bind(leagueId, season, from, to).all());
+  for (const row of rows) {
+    const mv = JSON.parse(row.movements_json), ext = JSON.parse(row.extension_requests_json || "[]"), id = safeStr(row.id);
+    if (!id || !Array.isArray(mv) || !mv.length || !Array.isArray(ext)) throw new Error(`an open offer can't be read (${id || "no id"})`);
+    if (stagedOfferShape({ from, to, movements: mv, extensionRequests: ext }) === shape) return id;
   }
   return null;
 }
@@ -330,13 +332,15 @@ export async function createStaged2WayTrade(env, ctx, spec) {
     // The lock makes check-then-insert atomic. An identical open offer answers with its id: no second row and no second DM. A closed one
     // doesn't count, so an owner can offer a deal again after it was declined, unless this is that same attempt's key: its first answer
     // replays. The key is taken after the check, immediately before the INSERT, so a failed check is never cached against it. If the INSERT
-    // fails the key stays in_progress (it may have landed): that attempt never stores again, and a new Send is covered by the check.
+    // fails the key stays in_progress (it may have landed): that attempt never stores again, and a new Send is covered by the check. The
+    // INSERT requires this request's own fence, inside the statement: a request that stalled past the lock's stale line and was taken over
+    // stores nothing and sends no DM, however long it stalled. The row and the release both hold only while this request still has the lock.
     const shape = stagedOfferShape({ from, to, movements, extensionRequests: extReqs });
     const offerHash = await stagedOfferHash(shape);
     const idem = makeIdempotencyStore(env.UPS_MFL_DB);
     const lockK = { leagueId, season, scope: IDEM_SCOPE.TWO_WAY_STAGE_LOCK, actorFid: from, key: offerHash };
     const keyK = spec?.idempotencyKey ? { leagueId, season, scope: IDEM_SCOPE.TWO_WAY_STAGE, actorFid: from, key: spec.idempotencyKey } : null;
-    const lock = await idem.lockOffer(lockK, offerHash);
+    const lock = await idem.lockOffer(lockK);
     if (!lock.acquired) return { ok: false, idemReply: lock.reply };
     let id;
     try {
@@ -356,18 +360,23 @@ export async function createStaged2WayTrade(env, ctx, spec) {
         if (!took.acquired) return { ok: false, idemReply: took.reply };
       }
       id = newId();
-      await env.UPS_MFL_DB.prepare(
+      const held = offerLockHeld(lockK, lock.fence);
+      const stored = requireD1Success(await env.UPS_MFL_DB.prepare(
         `INSERT INTO ups_2way_trades
           (id, league_id, season, status, from_fid, to_fid, from_name, to_name,
            movements_json, notes, extension_requests_json, to_state,
            from_discord_ids, to_discord_ids, created_at_utc, updated_at_utc)
-         VALUES (?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`
+         SELECT ?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ? WHERE ${held.sql}`
       ).bind(id, leagueId, season, from, to,
         safeStr(spec?.from?.name), safeStr(spec?.to?.name), JSON.stringify(movements), notes, JSON.stringify(extReqs),
-        fromIds.join(","), toIds.join(","), nowIso(), nowIso()).run();
+        fromIds.join(","), toIds.join(","), nowIso(), nowIso(), ...held.binds).run());
+      if (d1Changes(stored) !== 1) {
+        console.warn(`[2way-staged] ${from} -> ${to}: this request lost the lock before it could store; nothing stored`);
+        return { ok: false, idemReply: stageBusyReply() };
+      }
       if (keyK) await idem.finish(keyK, { state: IDEM_STATE.DONE, statusCode: 201, body: { ok: true, id, staged: true } });
     } finally {
-      await idem.finish(lockK, { state: IDEM_STATE.DONE, statusCode: 200, body: null });
+      await idem.unlockOffer(lockK, lock.fence);
     }
 
     if (senderDrops.length) {
