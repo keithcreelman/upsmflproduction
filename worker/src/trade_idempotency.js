@@ -6,6 +6,8 @@
 // STAGED TWO-TEAM OFFERS (POST /api/trades/2way) are guarded on the server for every client, key or no key: see createStaged2WayTrade.
 // lockOffer() holds one offer at a time, and an identical offer still open answers already_staged. A key adds one thing: the same attempt
 // replays its first answer even after that first offer has closed, so a Retry can't bring back an offer someone has since declined.
+// The lock's age is only for liveness: every lock carries a fence, and the row is stored by one INSERT that checks that fence inside the
+// statement (offerLockHeld). A holder stalled for any length of time, once taken over, stores nothing. No clock decides that.
 //
 // CONTRACT (only for a client that sends `idempotency_key` in the body; a request without one behaves exactly as before):
 //   • The key is taken with a conditional INSERT immediately before the irreversible write (the MFL tradeProposal on a two-team offer,
@@ -59,6 +61,11 @@ export const IDEM_INDEX_DDL = "CREATE INDEX IF NOT EXISTS idx_ups_trade_idempote
 const s = (v) => String(v == null ? "" : v).trim();
 const nowIso = () => new Date().toISOString();
 const changes = (r) => Number(r && r.meta && r.meta.changes != null ? r.meta.changes : r && r.changes != null ? r.changes : 0);
+export const d1Changes = changes;
+/** A guard may only act on a statement that says it succeeded. Throws otherwise, so the caller's fail-closed path runs. */
+export function requireD1Success(r) { if (!r || r.success !== true) throw new Error("D1 statement did not report success"); return r; }
+/** The rows of a read, only when the read says it succeeded and carries a rows array: no answer must never read as "no rows". */
+export function requireD1Rows(r) { requireD1Success(r); if (!Array.isArray(r.results)) throw new Error("D1 read has no results array"); return r.results; }
 const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
 
 const MSG = Object.freeze({
@@ -193,33 +200,51 @@ export function makeIdempotencyStore(db) {
   };
 
   /**
-   * Hold one offer while it is checked and stored: atomic, so two requests for it can't both pass the check. Released with finish(). A
-   * holder that died goes stale after IDEM_STALE_MS and the next request takes over; unlike a key, a lock leaves no outcome to protect.
-   * @returns { acquired: true } | { acquired: false, reply: { status, body } }
+   * Hold one offer while it is checked and stored: atomic, so two requests for it can't both pass the check. A holder that died goes stale
+   * after IDEM_STALE_MS and the next request takes over, replacing the fence. The stale line can't cause a double store, however long a
+   * live holder stalls: its INSERT requires its own fence (offerLockHeld). On a lock row, request_hash holds the fence.
+   * @returns { acquired: true, fence } | { acquired: false, reply: { status, body } }
    */
-  const lockOffer = async (k, requestHash) => {
+  const lockOffer = async (k) => {
     try {
       if (!db) throw new Error("no D1 binding");
       await ensure(db);
-      const at = nowIso();
-      const r = await db.prepare(
+      const at = nowIso(), fence = crypto.randomUUID();
+      const r = requireD1Success(await db.prepare(
         `INSERT INTO ups_trade_idempotency (league_id, season, scope, actor_fid, idem_key, request_hash, state, created_at_utc, updated_at_utc)
          VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(league_id, season, scope, actor_fid, idem_key)
-         DO UPDATE SET state=excluded.state, status_code=NULL, response_json=NULL, updated_at_utc=excluded.updated_at_utc
+         DO UPDATE SET request_hash=excluded.request_hash, state=excluded.state, status_code=NULL, response_json=NULL, updated_at_utc=excluded.updated_at_utc
          WHERE ups_trade_idempotency.state<>excluded.state OR ups_trade_idempotency.updated_at_utc<=?`
-      ).bind(...keyOf(k), s(requestHash), IDEM_STATE.IN_PROGRESS, at, at, new Date(Date.now() - IDEM_STALE_MS).toISOString()).run();
-      return changes(r) === 1 ? { acquired: true } : { acquired: false, reply: reply(409, "request_in_progress", MSG.in_progress) };
+      ).bind(...keyOf(k), fence, IDEM_STATE.IN_PROGRESS, at, at, new Date(Date.now() - IDEM_STALE_MS).toISOString()).run());
+      return changes(r) === 1 ? { acquired: true, fence } : { acquired: false, reply: stageBusyReply() };
     } catch (e) {
       console.error(`[trade-idempotency] lockOffer failed (${s(k && k.scope)}) — nothing stored: ${e?.message || e}`);
       return { acquired: false, reply: reply(503, "idempotency_unavailable", MSG.unavailable) };
     }
   };
 
-  return { read, begin, finish, lockOffer };
+  /** Release a lock this holder still has. A holder that was taken over changes nothing, so it can't free its successor's lock. Never throws. */
+  const unlockOffer = async (k, fence) => {
+    try {
+      await db.prepare(`UPDATE ups_trade_idempotency SET state=?, updated_at_utc=? WHERE ${PK_WHERE} AND state=? AND request_hash=?`)
+        .bind(IDEM_STATE.DONE, nowIso(), ...keyOf(k), IDEM_STATE.IN_PROGRESS, s(fence)).run();
+    } catch (e) {
+      console.error(`[trade-idempotency] unlockOffer failed (${s(k && k.scope)}); the lock goes stale: ${e?.message || e}`);
+    }
+  };
+
+  return { read, begin, finish, lockOffer, unlockOffer };
+}
+
+/** A condition for one write: true only while this holder's lock is still in place. Evaluated inside the statement, so it can't go stale. */
+export function offerLockHeld(k, fence) {
+  return { sql: `EXISTS (SELECT 1 FROM ups_trade_idempotency WHERE ${PK_WHERE} AND state=? AND request_hash=?)`, binds: [...keyOf(k), IDEM_STATE.IN_PROGRESS, s(fence)] };
 }
 
 /** The answer when the check for the same offer can't be read: nothing was stored. */
 export function stageUnavailableReply() { return reply(503, "idempotency_unavailable", MSG.unavailable); }
+/** The answer when another request holds this offer, or has taken it over: this request stored nothing. */
+export function stageBusyReply() { return reply(409, "request_in_progress", MSG.in_progress); }
 
 /** What a second request with an existing key gets. Exported for tests. */
 export function replyForExisting(row, requestHash, nowMs) {
