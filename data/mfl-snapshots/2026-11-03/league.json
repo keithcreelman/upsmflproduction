@@ -64,7 +64,7 @@
           "name": "CBP",
           "salaryCapAmount": "",
           "stadium": "Dos Hermanos",
-          "waiverSortOrder": "10"
+          "waiverSortOrder": "7"
         },
         {
           "abbrev": "GRID",
@@ -76,7 +76,7 @@
           "name": "Gride",
           "salaryCapAmount": "",
           "stadium": "Ride or Die Stadium",
-          "waiverSortOrder": "2"
+          "waiverSortOrder": "3"
         },
         {
           "abbrev": "PG",
@@ -112,7 +112,7 @@
           "name": "The Long Haulers",
           "salaryCapAmount": "",
           "stadium": "Spy Gate Stadium",
-          "waiverSortOrder": "3"
+          "waiverSortOrder": "2"
         },
         {
           "abbrev": "SEX",
@@ -136,7 +136,7 @@
           "name": "Real Deal Creel",
           "salaryCapAmount": "",
           "stadium": "Gordon's Way",
-          "waiverSortOrder": "6"
+          "waiverSortOrder": "5"
         },
         {
           "abbrev": "CTwn",
@@ -160,7 +160,7 @@
           "name": "Blake Bombers",
           "salaryCapAmount": "",
           "stadium": "Bomber Stadium",
-          "waiverSortOrder": "8"
+          "waiverSortOrder": "10"
         },
         {
           "abbrev": "Cash",
@@ -172,7 +172,7 @@
           "name": "Cleon Ca$h",
           "salaryCapAmount": "",
           "stadium": "Ca$h Money",
-          "waiverSortOrder": "5"
+          "waiverSortOrder": "6"
         },
         {
           "abbrev": "Hawk",
@@ -184,7 +184,7 @@
           "name": "Hawks",
           "salaryCapAmount": "",
           "stadium": "Dome of Hawks",
-          "waiverSortOrder": "7"
+          "waiverSortOrder": "8"
         }
       ]
     },

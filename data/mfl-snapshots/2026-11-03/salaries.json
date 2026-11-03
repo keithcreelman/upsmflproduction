@@ -634,11 +634,11 @@
           "salary": ""
         },
         {
-          "contractInfo": "CL 1| TCV 1K| AAV 1K",
-          "contractStatus": "Rookie-WW",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "17527",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 3| TCV 9K| AAV 3K| Y1-3, Y2-3, Y3-3| GTD: 6.8K",
