@@ -147,6 +147,12 @@
         "status": "Questionable"
       },
       {
+        "details": "Concussion",
+        "exp_return": "Nov 8, 2026",
+        "id": "13113",
+        "status": "Questionable"
+      },
+      {
         "details": "Hamstring",
         "exp_return": "Nov 8, 2026",
         "id": "13130",
@@ -166,7 +172,7 @@
       },
       {
         "details": "Foot",
-        "exp_return": "Nov 8, 2026",
+        "exp_return": "Nov 15, 2026",
         "id": "13146",
         "status": "IR-R"
       },
@@ -211,12 +217,6 @@
         "exp_return": "Feb 15, 2027",
         "id": "13266",
         "status": "RETIRED"
-      },
-      {
-        "details": "Finger",
-        "exp_return": "Nov 5, 2026",
-        "id": "13284",
-        "status": "Questionable"
       },
       {
         "details": "Calf",
@@ -307,12 +307,6 @@
         "exp_return": "Feb 15, 2027",
         "id": "13683",
         "status": "IR"
-      },
-      {
-        "details": "Foot",
-        "exp_return": "Nov 5, 2026",
-        "id": "13696",
-        "status": "Questionable"
       },
       {
         "details": "Chest",
@@ -489,12 +483,6 @@
         "status": "Questionable"
       },
       {
-        "details": "Groin",
-        "exp_return": "Nov 5, 2026",
-        "id": "14086",
-        "status": "Questionable"
-      },
-      {
         "details": "Ankle",
         "exp_return": "Nov 8, 2026",
         "id": "14104",
@@ -652,9 +640,9 @@
       },
       {
         "details": "Toe",
-        "exp_return": "Nov 5, 2026",
+        "exp_return": "Feb 15, 2027",
         "id": "14789",
-        "status": "Doubtful"
+        "status": "Out"
       },
       {
         "details": "Neck",
@@ -1792,7 +1780,7 @@
       },
       {
         "details": "Knee",
-        "exp_return": "Nov 15, 2026",
+        "exp_return": "Nov 8, 2026",
         "id": "16751",
         "status": "Questionable"
       },
@@ -2613,12 +2601,6 @@
         "status": "Questionable"
       },
       {
-        "details": "Ankle",
-        "exp_return": "Nov 5, 2026",
-        "id": "17760",
-        "status": "Questionable"
-      },
-      {
         "details": "Hamstring",
         "exp_return": "Nov 8, 2026",
         "id": "17785",
@@ -2643,7 +2625,7 @@
         "status": "Questionable"
       }
     ],
-    "timestamp": "1793746863",
+    "timestamp": "1793804463",
     "week": "9"
   },
   "version": "1.0"
