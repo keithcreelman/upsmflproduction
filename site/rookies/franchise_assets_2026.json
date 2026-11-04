@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-03T17:19:38.826795+00:00",
+    "generated_at_utc": "2026-11-04T17:31:08.429994+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -221,18 +221,6 @@
           "salary": 4000,
           "contract_year": 1,
           "contract_status": "Tag",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17254",
-          "display": "Konata Mumpfield",
-          "player_id": "17254",
-          "position": "WR",
-          "nfl_team": "LAR",
-          "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -481,7 +469,7 @@
           "display": "Robert Henry",
           "player_id": "17709",
           "position": "RB",
-          "nfl_team": "SEA",
+          "nfl_team": "FA",
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
