@@ -269,6 +269,7 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
     ctx["eliasReport"] = json.load(open(rep_path)) if os.path.exists(rep_path) else None
     ctx["scoresPublished"] = load_scores_published(data, season, week)
     ctx["kennyPicks"] = load_kenny_picks(data, season, week)
+    ctx["priorLeads"] = load_prior_leads(workdir, season, week)
     res = ISSUE.render(pack, ctx, generated_at=now)                            # committed: no raw chat
     if res.get("formatFallback"):
         st["reasons"].append("story format fell back to the legacy template: " + res["formatFallback"])
@@ -283,6 +284,7 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
     open(article_path, "w").write(res["html"])
     json.dump(res["claims"], open(os.path.join(out_dir, "claims.json"), "w"), indent=1, sort_keys=True, default=str)
     json.dump(report, open(os.path.join(out_dir, "validation.json"), "w"), indent=1, default=str)
+    json.dump(res.get("bigStory"), open(os.path.join(out_dir, "bigstory.json"), "w"), indent=1, default=str)
     rc_sha, code_sha = sh(["git", "rev-parse", "HEAD"], workdir)
     json.dump(run_record(season, week, aid, ctx, now, code_sha.strip()), open(os.path.join(out_dir, "run.json"), "w"),
               indent=1, default=str)
@@ -335,6 +337,17 @@ def load_scores_published(data_dir, season, week):
     """The scores frozen when the recap was first built (elias.py freeze): the "before" of an Elias correction."""
     path = os.path.join(data_dir, "scores_published_%d_wk%02d.json" % (season, week))
     return json.load(open(path)) if os.path.exists(path) else None
+
+
+def load_prior_leads(workdir, season, week):
+    """Last week's Big Story pick (docs/wire/auto/<id>/bigstory.json, written by this job) for the repeat ledger; [] when
+    last week was not built by the job (the hand-built Week 8, say)."""
+    path = os.path.join(workdir, "docs/wire/auto", "%d-wk%02d-ups-center" % (season, week - 1), "bigstory.json")
+    try:
+        d = json.load(open(path))
+    except (OSError, ValueError):
+        return []
+    return [{"week": week - 1, "fid": d["fid"], "trigger": d["trigger"], "s": d["s"]}] if d and d.get("fid") else []
 
 
 def load_kenny_picks(data_dir, season, week):
@@ -401,6 +414,7 @@ def replay_week(season, week, workdir, out_dir, inputs=None, now=None, log=print
     ctx["eliasReport"] = json.load(open(rep_path)) if os.path.exists(rep_path) else None
     ctx["scoresPublished"] = load_scores_published(os.path.join(workdir, "site/wire/data"), season, week)
     ctx["kennyPicks"] = load_kenny_picks(os.path.join(workdir, "site/wire/data"), season, week)
+    ctx["priorLeads"] = load_prior_leads(workdir, season, week)
     res = ISSUE.render(pack, ctx, generated_at=now)
     if res.get("formatFallback"):
         res_out["reasons"].append("story format fell back to the legacy template: " + res["formatFallback"])
@@ -408,6 +422,7 @@ def replay_week(season, week, workdir, out_dir, inputs=None, now=None, log=print
     open(os.path.join(out_dir, aid + ".html"), "w").write(res["html"])
     json.dump(res["claims"], open(os.path.join(out_dir, "claims.json"), "w"), indent=1, sort_keys=True, default=str)
     json.dump(report, open(os.path.join(out_dir, "validation.json"), "w"), indent=1, default=str)
+    json.dump(res.get("bigStory"), open(os.path.join(out_dir, "bigstory.json"), "w"), indent=1, default=str)
     json.dump(run_record(season, week, aid, ctx, now, res_out["code"]), open(os.path.join(out_dir, "run.json"), "w"),
               indent=1, default=str)
     json.dump(ctx, open(os.path.join(out_dir, "sources.json"), "w"), default=str)

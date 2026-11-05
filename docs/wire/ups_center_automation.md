@@ -94,14 +94,27 @@ Ids and private names cannot be cleared.
 
 | # | Segment | Built from |
 |---|---|---|
-| 1 | **The Big Story** | The week's strongest data-backed story (rule below), a top-5 table; with no qualifier or no archive, the old opening desk |
+| 1 | **The Big Story** | The week's strongest data-backed story, chosen by the phase-aware picker below (every week; a fallback story when nothing fires) |
 | 2 | **Division Week** | One chapter per division or crossover from the pack's pots (every score, margin and best-lineup loss; the division-title odds when the forecast is current), then a swept / split / shut-out table |
 | 3 | **Elias** | News-style, only when Elias moved a score or an All-Play game: the changed starters, before and after scores, All-Play before and after, season records. Posted but nothing moved: no segment. Not posted yet: the `elias:not-posted` box (holds publication until Thursday/Friday re-check) |
 | 4 | **Playoff Picture** | A story (division favorites, wild-card road, the bottom) over the unchanged odds table and its consistency gates |
 | 5 | **The Plays That Made the Week** | Biggest bargains and busts by pregame-proven projection with each owner's week result, the play cards (a card without a verified link has no Watch button and no box), and the full ledger collapsed in `details.wire-more` |
 | 6 | **The Season So Far** | The Dominant teams, the movers, where the All-Play and win-total histories disagree, the long shots, luck and bench, as one story; the standings, Heat Check and Survival Line tables collapsed |
 
-**Big Story rule** (`ups_center_story_data.big_story`). From Week 4 on, every earlier team-season in the league archive (`~/Downloads/mfl_database.db` or `UPS_ARCHIVE_DB`, 2011-2025, read-only, copied into the snapshot as `ctx["archive"]`) is compared on All-Play percentage through the same week. A season is used only if every week has all twelve teams with one score each; 2010 is left out by that rule (its archived scores conflict with themselves). A team qualifies when at most four earlier teams beat it (or are worse than it): a top or bottom five start. The story goes to the qualifier with the fewest teams ahead (ties: higher week score, then franchise id). Week 8's Bear Dunn (78-10, one earlier team better) is what the rule picks. Josh Martel's climb out of the all-time basement, which Keith picked by hand, does not qualify (13 earlier teams were at or below that mark) and is the editor's to add.
+**The Big Story picker** (`ups_center_story_triggers.py`; spec: the storyline catalog S1-S21, PR #1438). Story format runs **every week**; the season phase only changes which story leads. Each trigger is a registered function (`@trigger(id, kind, min_week, phases)`) that returns candidates with a **surprise score** `s = 1 - (1 - p)^12`, where `p` is the share of comparable past observations (league archive 2011-2025, this season left out) at least that extreme: lower is bigger. A trigger fires at `s <= 0.15`. Adding a storyline is one function plus a `story_<id>` builder in `StoryIssue`.
+
+| Trigger | Kind | From | What it measures |
+|---|---|---|---|
+| `allplay_start` | rarity | Wk 4, not early | All-Play start through Week N vs every earlier team-season (top or bottom five); Week 8's Bear Dunn |
+| `week_score` | rarity | any | the week's best score as a share of the league average vs all past team-weeks |
+| `streak` | rarity | Wk 4, not early | consecutive weeks beating 9+ (or losing to 9+) of 11 teams vs all past streaks |
+| `luck_gap` | rarity | Wk 6, not early | head-to-head wins vs what the weekly scores deserved, z >= 2.5 |
+| `division_decider` | stakes | Wk 5, not early | top two in a division close in the forecast (uncalibrated: no archived odds) |
+| `bubble` | stakes | Wk 9 | the 6th and 7th All-Play lines vs past season-weeks |
+| `odds_swing` | stakes | any | playoff odds moved 25+ points since last week (20+ vs the preseason forecast in weeks 1-4) |
+| `elias_flip` | single | any | an Elias correction flipped a result (or moved an All-Play game) |
+
+Ranking: **early** weeks (1-4) let only single-week facts and odds-vs-preseason lead; from **Week 11** stakes triggers count double and rarity triggers 1.5 times worse; the **repeat ledger** multiplies `s` by 3 when the same team and trigger led last week (unless 30% better; last week's pick is read from `docs/wire/auto/<id>/bigstory.json`); triggers about one team **merge** into one story (lowest `s` heads it, the rest are evidence sentences; when `allplay_start` is in the group it supplies the body and the top-5 table). If nothing fires, a **phase fallback story** is built (early: the first look with explicit small-sample wording; middle and late: the All-Play race and the last playoff spot). The old opening desk is no longer a normal outcome. The legacy template remains only as the emergency path for a build exception or unbalanced markup, logged in the run's reasons.
 
 **Editor review.** The story text is written from the data, so it carries no box. The job never writes Kenny's jokes (owner dossier) and never puts unchosen chat in the public repo, so the **editor picks the lines by message id**: `site/wire/data/kenny_picks_<season>_wkNN.json`, `{"picks": [{"id": "<message id>", "frame": true, "note": "joke, no digits"}]}` (ids only, like `chat_exclusions.json`). The job weaves each pick into the chapter of the owner's division as an `lt kenny` block (day, time, owner, the verbatim linked quote, then a generated frame "X scored S this week and posted N times" if `frame` is set, then the note), re-verifies every quote, refuses an id that is excluded or not in the chat window (the build then falls back to legacy and says why) and omits the box. **Without a picks file there is one box**, `coffee:kenny`, whose local review copy lists the verbatim, linked candidates **with their ids, grouped by division**. Check item 7 still refuses publication while any box remains; the PR, the preview and Keith's merge stay the human gate. The old `stories:leads` box is gone.
 
@@ -115,7 +128,7 @@ Ids and private names cannot be cleared.
 
 **Validation additions.** New claim kinds, each recomputed by separate code in `ups_center_validate.py`: `arch:*` (archive All-Play, ranks, finishes, full seasons, previous-week and at-or-below counts), `wkrec`, `wkrank`, `divrec`, `divweek`, `miss` (summed projection shortfall) and `quoteid` and real checks for `elias:*` (frozen published scores and the Elias report; before this they passed unchecked). Markup balance is an error in the validator and in check item 7 (Week 8's plays ledger had a stray `</div>` that closed the page wrapper and un-styled the last segment).
 
-**Known limits.** The story prose is template-built, so it is plainer than a hand edit: the editor adds the angle the data cannot pick (Week 8's Josh Martel climb, full-season context such as 2018's 25-1) and the Kenny lines. The Big Story needs the archive file on Keith's Mac; without it the opening desk runs, and the run says so. Parity for Week 8 (generated vs published): see the PR; the published sentences that stay hand-only are listed there with the reason.
+**Known limits.** The story prose is template-built, so it is plainer than a hand edit: the editor adds the angle the data cannot pick (Week 8's Josh Martel climb, full-season context such as 2018's 25-1) and the Kenny lines. The history triggers need the archive file on Keith's Mac; without it the other triggers (or a fallback story) lead, and the run's data note says so. Parity for Week 8 (generated vs published): see the PR; the published sentences that stay hand-only are listed there with the reason.
 
 ## What the draft contains (legacy format)
 

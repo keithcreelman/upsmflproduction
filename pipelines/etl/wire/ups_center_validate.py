@@ -255,6 +255,54 @@ def _archive_truth(ctx):
     return out
 
 
+def _trig_truth(ctx):
+    """Big Story trigger numbers (ups_center_story_triggers), recomputed here from the archive rows and this season's scores."""
+    wk = int(ctx["week"])
+    cur = {}
+    for r in (ctx.get("history") or {}).get("seasonScores") or []:
+        if int(r["week"]) <= wk:
+            cur.setdefault(int(r["week"]), {})[r["franchise_id"]] = float(r["team_score"])
+    cur[wk] = {f: float(x) for f, x in ctx["mfl"]["scores"].items()}
+    arc = ctx.get("archive") or {}
+    past = {}
+    for season, w, f, x in arc.get("rows") or []:
+        past.setdefault(int(season), {}).setdefault(int(w), {})[f] = float(x)
+    out = {}
+    pr = [x / (sum(ws.values()) / len(ws)) for weeks in past.values() for ws in weeks.values() for x in ws.values()]
+    avg = sum(cur[wk].values()) / len(cur[wk])
+    for f, x in cur[wk].items():
+        out["ratio:" + f] = int(round(100 * x / avg))
+        out["wkk:" + f] = sum(1 for q in pr if q >= x / avg - 1e-12)
+        out["wkn:" + f] = len(pr)
+
+    def streak(weeks, f, upto, kind):
+        n = 0
+        for w in range(upto, 0, -1):
+            if w not in weeks or f not in weeks[w]:
+                break
+            beat = sum(1 for g, y in weeks[w].items() if g != f and weeks[w][f] > y)
+            if (beat >= 9) if kind == "dom" else (beat <= 2):
+                n += 1
+            else:
+                break
+        return n
+    for kind in ("dom", "fut"):
+        pst = [streak(weeks, f, w, kind) for weeks in past.values() for w in weeks for f in weeks[w]]
+        for f in cur[wk]:
+            L = streak(cur, f, wk, kind)
+            out["streak:%s:%s" % (kind, f)] = L
+            out["streakk:%s:%s" % (kind, f)] = sum(1 for q in pst if q >= L)
+            out["streakn:%s:%s" % (kind, f)] = len(pst)
+    fc = ctx.get("forecast") or {}
+    teams = (fc.get("sim") or {}).get("teams") or {}
+    prev = (fc.get("prevSim") or {}).get("teams") or {}
+    for f, t in teams.items():
+        base = prev[f]["po"] if f in prev else t.get("prePo")
+        if base is not None:
+            out["move:" + f] = round(abs(100 * (t["po"] - base)), 1)
+    return out
+
+
 def _table_counts(ctx, truth):
     """champs / runnerup / tablek for both directions of the Big Story table: {"champs": {(k, c)...}}."""
     arc, wk = ctx.get("archive"), int(ctx["week"])
@@ -447,6 +495,11 @@ def validate(res, ctx, pack):
                     bad(key, "forecast runs %s, page %s" % (sim.get("runs"), v))
             elif fid not in teams:
                 bad(key, "no forecast row for %s" % fid)
+            elif what in ("prevpo", "prepo"):
+                fc_ = ctx.get("forecast") or {}
+                base = ((fc_.get("prevSim") or {}).get("teams") or {}).get(fid, {}).get("po") if what == "prevpo" else teams[fid].get("prePo")
+                if base is None or round(100 * base, 1) != v:
+                    bad(key, "forecast base %s, page %s" % (base, v))
             elif what in ("po", "bye"):
                 if round(100 * teams[fid][what], 1) != v:
                     bad(key, "forecast %s %.4f, page %s" % (what, teams[fid][what], v))
@@ -471,6 +524,12 @@ def validate(res, ctx, pack):
                 bad(key, "definition %s is %s, page %s" % (rest, RULES.get(rest), v))
         elif kind == "elias":
             _elias_check(rest, v, ctx, bad, key)
+        elif kind == "trig":
+            truth = n.setdefault("_trig_truth", _trig_truth(ctx))
+            if rest not in truth:
+                bad(key, "no recomputed value for %s" % rest)
+            elif abs(float(truth[rest]) - float(v)) > 0.05:
+                bad(key, "page %r, recomputed %r" % (v, truth[rest]))
         elif kind == "quoteid":
             if rest not in chat or chat[rest]["message_id"] != v:
                 bad(key, "message id is not in the chat window")
@@ -568,7 +627,7 @@ def validate(res, ctx, pack):
         errors.append("claims with no source: %s" % ", ".join(unsourced[:20]))
     if "status: draft" not in doc:
         errors.append("article is not status: draft")
-    for k in ("_season_truth", "_arch_truth", "_arch_tables"):
+    for k in ("_season_truth", "_arch_truth", "_arch_tables", "_trig_truth"):
         n.pop(k, None)
     # markup must balance: Week 8's plays ledger closed the page wrapper and un-styled the last segment
     body = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", "", doc[doc.index("<body"):])

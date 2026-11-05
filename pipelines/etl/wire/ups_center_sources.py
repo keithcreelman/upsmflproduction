@@ -146,7 +146,14 @@ def load_forecast(season, week, data_dir):
                       "generatedAtUtc": s.get("generatedAtUtc"),
                       "teams": {t["franchiseId"]: {"po": t["currentPlayoffOdds"], "bye": t["currentByeOdds"],
                                                    "div": t["currentDivisionOdds"], "title": t["currentTitleOdds"],
-                                                   "division": t["division"]} for t in s["teams"]}}
+                                                   "division": t["division"], "prePo": t.get("preseasonPlayoffOdds"),
+                                                   "preTitle": t.get("preseasonTitleOdds")} for t in s["teams"]}}
+    prev_sim = os.path.join(data_dir, "season_sim_%d_live_wk%02d.json" % (season, week - 1))
+    out["prevSim"] = None
+    if week > 1 and os.path.exists(prev_sim):
+        q0 = json.load(open(prev_sim, encoding="utf-8"))
+        out["prevSim"] = {"throughWeek": q0.get("throughWeek"), "teams": {t["franchiseId"]: {"po": t["currentPlayoffOdds"], "title": t["currentTitleOdds"]}
+                                                                      for t in q0["teams"]}}
     if os.path.exists(prev_p):
         q = json.load(open(prev_p, encoding="utf-8"))
         # Each team's Week N+1 scenario cells, summed: the same simulated seasons as the sim, so these
@@ -217,18 +224,18 @@ def archive_history(season, week, teams=12, path=None):
         c = sqlite3.connect("file:%s?mode=ro" % path, uri=True)
         got = {}
         for s_, w, f, sc in c.execute("SELECT DISTINCT season, week, franchise_id, team_score FROM weeklyresults WHERE "
-                                      "COALESCE(is_playoff,0) = 0 AND team_score IS NOT NULL AND season < ? AND week <= ?",
-                                      (int(season), int(week))):
+                                      "COALESCE(is_playoff,0) = 0 AND team_score IS NOT NULL AND season < ?", (int(season),)):
             got.setdefault(int(s_), {}).setdefault(int(w), {}).setdefault(f, []).append(float(sc))
         rows, excluded = [], {}
+        ok_week = lambda wk: len(wk) == teams and all(len(v) == 1 for v in wk.values())
         for s_ in sorted(got):
             weeks = got[s_]
-            if any(len(v) > 1 for wk in weeks.values() for v in wk.values()):
+            if any(len(v) > 1 for w, wk in weeks.items() if w <= int(week) for v in wk.values()):
                 excluded[str(s_)] = "archived weekly scores conflict with themselves"
-            elif sorted(weeks) != list(range(1, int(week) + 1)) or any(len(wk) != teams for wk in weeks.values()):
+            elif any(w not in weeks or not ok_week(weeks[w]) for w in range(1, int(week) + 1)):
                 excluded[str(s_)] = "not every week 1-%d has all %d teams" % (int(week), teams)
-            else:
-                rows += [[s_, w, f, v[0]] for w, wk in sorted(weeks.items()) for f, v in sorted(wk.items())]
+            else:                                   # weeks 1..N, plus any later week that is itself complete (rarity pools)
+                rows += [[s_, w, f, v[0]] for w, wk in sorted(weeks.items()) if (w <= int(week) or ok_week(wk)) for f, v in sorted(wk.items())]
         owners = {"%d:%s" % (s_, f): o for s_, f, o in c.execute("SELECT season, franchise_id, owner_name FROM standings")}
         final = {"%d:%s" % (y, f): int(ff) for y, f, ff in c.execute(
             "SELECT year, franchise_id, final_finish FROM metadata_finalstandings WHERE final_finish IS NOT NULL")}
@@ -237,7 +244,7 @@ def archive_history(season, week, teams=12, path=None):
         used = {r[0] for r in rows}
         with open(path, "rb") as fh:
             sha = hashlib.sha256(fh.read(1 << 20)).hexdigest()[:12]
-        return {"source": "league archive mfl_database.db (sha256 of first MiB %s), regular season weeks 1-%d" % (sha, int(week)),
+        return {"source": "league archive mfl_database.db (sha256 of first MiB %s), regular season, weeks 1-%d complete" % (sha, int(week)),
                 "rows": rows, "excluded": excluded, "owners": {k: v for k, v in owners.items() if int(k.split(":")[0]) in used},
                 "final": {k: v for k, v in final.items() if int(k.split(":")[0]) in used},
                 "full": {k: v for k, v in full.items() if int(k.split(":")[0]) in used}}

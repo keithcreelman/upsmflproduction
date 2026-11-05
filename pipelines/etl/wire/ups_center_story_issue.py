@@ -33,6 +33,7 @@ sys.path.insert(0, HERE)
 import ups_center_issue as I  # noqa: E402
 import ups_center_story_data as SD  # noqa: E402
 import ups_center_stories as STORIES  # noqa: E402
+import ups_center_story_triggers as TRG  # noqa: E402
 import chat_exclusions  # noqa: E402
 
 e = html.escape
@@ -237,13 +238,9 @@ class StoryIssue(I.Issue):
         return re.sub(r"\s*\(.*$", "", r[0])
 
     # ------------------------------------------------------------ 1. the Big Story
-    def seg_big(self):
-        story = SD.big_story(self.ctx)
-        if not story:
-            s = self.ctx["mfl"]["scores"]
-            top = max(s, key=s.get)
-            return self.section("bigstory", "The Big Story", 1, "The Big Story <small>&mdash; %s led the week</small>" % e(self.owner[top]),
-                                self.desk(self.open_lines()))
+    def story_allplay_start(self, story, evidence=(), headline=None):
+        """The all-time-start story (Week 8's Bear Dunn). When this trigger is in a merged group it supplies the body and the
+        table (it carries the history); the group's other triggers become evidence sentences. Returns (subtitle, html)."""
         f, best = story["fid"], story["direction"] == "best"
         self._big = f
         me, n, ahead = self.owner[f], story["pool"], story["ahead"]
@@ -353,6 +350,11 @@ class StoryIssue(I.Issue):
                     e(me), self.bye(f), self.ti(f), e(self.owner[others[0]]), self.ti(others[0]))
         if tail:
             lines.append(("Stuart", " ".join(tail)))
+        for ev in evidence:
+            if ev["trigger"] != "allplay_start":
+                ln = self.evidence_line(ev)
+                if ln:
+                    lines.insert(1, ln)
         rows = []
         for x in story["table"]:
             if x.get("current"):
@@ -374,8 +376,193 @@ class StoryIssue(I.Issue):
                                                      else "its archived weekly results are incomplete")) if excl else ""))
         head = "%s All-Play starts through Week %d, %d&ndash;%d" % ("Best" if best else "Worst", self.week, first, self.season)
         sub = "%s is on a historic pace" % me if best else "%s is off to a historically bad start" % me
-        return self.section("bigstory", "The Big Story", 1, "The Big Story <small>&mdash; %s</small>" % e(sub),
-                            self.desk(lines) + self.table([head, "Through Week %d" % self.week, "Pct", "How the season ended"], rows) + cap)
+        return sub, self.desk(lines) + self.table([head, "Through Week %d" % self.week, "Pct", "How the season ended"], rows) + cap
+
+    # ------------------------------------------------------------ 1. the Big Story: the phase-aware picker and its story builders
+    def seg_big(self):
+        pk = TRG.pick(self.ctx, self.ctx.get("priorLeads"))
+        self._pick = pk
+        lead = pk["lead"]
+        if lead:
+            self._big = lead["fid"]
+            group = [lead["headline"]] + lead["evidence"]
+            ap = next((x for x in group if x["trigger"] == "allplay_start"), None)
+            if ap:                                         # the history story carries the body and the table
+                sub, body = self.story_allplay_start(ap["data"]["story"], evidence=[x for x in group if x is not ap])
+            else:
+                sub, body = getattr(self, "story_" + lead["headline"]["trigger"])(lead["headline"], lead["evidence"])
+        else:
+            sub, body = getattr(self, "story_fallback_" + pk["fallback"])()
+        sup = self.support_lines(pk["support"])
+        h = lead["headline"] if lead else None
+        self.big_pick = {"phase": pk["phase"], "fid": lead["fid"] if lead else None, "trigger": h["trigger"] if h else "fallback_" + pk["fallback"],
+                         "s": round(h["s"], 4) if h else None, "evidence": [x["trigger"] for x in (lead["evidence"] if lead else [])],
+                         "support": [{"fid": x["fid"], "trigger": x["trigger"], "s": round(x["adj"], 3)} for x in pk["support"]]}
+        return self.section("bigstory", "The Big Story", 1, "The Big Story <small>&mdash; %s</small>" % sub, body + sup)
+
+    def support_lines(self, support):
+        lines = [self.evidence_line(x) for x in support if x["trigger"] != "elias_flip"]
+        lines = [x for x in lines if x]
+        return self.desk([(("Rich" if i % 2 == 0 else "Stuart"), t) for i, (_, t) in enumerate(lines)]) if lines else ""
+
+    def evidence_line(self, ev):
+        """One sentence about a fired trigger that is not the headline: ('Stuart', text) or None."""
+        f, d, t = ev["fid"], ev["data"], ev["trigger"]
+        me = e(self.owner[f])
+        src = "D1 archive + season scores (ups_center_story_triggers)"
+        if t == "week_score":
+            return ("Stuart", "%s scored %s in Week %d, %s%% of the league average that week; %s of %s team-weeks since 2011 reached that share." % (
+                me, self.score(f), self.week, self.L.put("trig:ratio:" + f, int(round(100 * d["ratio"])), src),
+                self.L.put("trig:wkk:" + f, d["k"], src), self.L.put("trig:wkn:" + f, d["n"], src)))
+        if t == "streak":
+            k = d["kind"]
+            return ("Rich", "%s has %s at least %s of the eleven other teams in each of the last %s weeks; %s of %s team-weeks since 2011 reached a streak that long." % (
+                me, "beaten" if k == "dom" else "lost to", "nine" if k == "dom" else "nine", self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src),
+                self.L.put("trig:streakk:%s:%s" % (k, f), d["k"], src), self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src))
+                    ) if k == "dom" else ("Rich", "%s has been outscored by at least nine of the eleven other teams in each of the last %s weeks; %s of %s team-weeks since 2011 had a streak that long." % (
+                me, self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src), self.L.put("trig:streakk:%s:%s" % (k, f), d["k"], src),
+                self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src)))
+        if t == "allplay_start":
+            st = d["story"]
+            return ("Stuart", "%s is %s in All-Play, a %s start than all but %s earlier teams in the league archive." % (
+                me, self.ap_c(f), "better" if st["direction"] == "best" else "worse", self.L.put("arch:ahead:" + f, st["ahead"], self.ctx["archive"]["source"])))
+        if t == "luck_gap":
+            H = self.heat()
+            if not H:
+                return None
+            return ("Rich", "%s is %s wins %s what the All-Play rate predicts." % (me, self.L.put("heat:luck:" + f, H[f]["luck"], self.heat_src(), ("%+.1f" % H[f]["luck"]).replace("-", "&minus;")).lstrip("+&minus;"),
+                                                                                    "above" if H[f]["luck"] > 0 else "below"))
+        if t == "odds_swing" and self.odds_fresh():
+            return ("Stuart", "%s&rsquo;s playoff odds moved from %s to %s since %s." % (me, self.odds_base(f, d), self.po(f), d["basis"]))
+        if t == "division_decider" and self.odds_fresh():
+            r = d["runner"]
+            return ("Rich", "In %s, %s is %s to win the division and %s is %s." % (e(self.div_of(f)), me, self.dv(f), e(self.owner[r]), self.dv(r)))
+        if t == "bubble" and self.odds_fresh():
+            return ("Rich", "The last playoff spot is a coin flip: %s is %s and %s is %s to make the playoffs." % (
+                e(self.owner[d["sixth"]]), self.po(d["sixth"]), e(self.owner[d["seventh"]]), self.po(d["seventh"])))
+        if t == "elias_flip":
+            return ("Stuart", "An Elias correction %s, covered below." % ("flipped a result" if d.get("flipped") else "moved an All-Play game"))
+        return None
+
+    def odds_base(self, f, d):
+        sim, src, _, _ = self.odds_text()
+        prev = (self.ctx.get("forecast") or {}).get("prevSim") or {}
+        if d["basis"] == "last week" and prev.get("teams", {}).get(f):
+            return self.L.put("odds:prevpo:" + f, round(100 * prev["teams"][f]["po"], 1), "season_sim live wk%02d" % (self.week - 1), "%.1f%%" % (100 * prev["teams"][f]["po"]))
+        v = sim["teams"][f].get("prePo")
+        return self.L.put("odds:prepo:" + f, round(100 * v, 1), "season_sim preseason forecast (%s)" % src, "%.1f%%" % (100 * v))
+
+    def small_sample(self):
+        return "Through %s weeks that is a small sample, so read it as a first look, not a verdict." % self.word(self.week) if self.week <= 4 else ""
+
+    def story_week_score(self, head, evidence):
+        f, d = head["fid"], head["data"]
+        me = e(self.owner[f])
+        s = self.ctx["mfl"]["scores"]
+        games = [g for g in self.ctx["mfl"]["games"] if f in (g["a"], g["b"])]
+        won = sorted([(g["b"] if g["a"] == f else g["a"]) for g in games if (g["as"] > g["bs"]) == (g["a"] == f)], key=lambda o: -(s[f] - s[o]))
+        src = "D1 archive + season scores (ups_center_story_triggers)"
+        lines = [("Stuart", "%s scored %s in Week %d, the best score of the week and %s%% of the league average. %s of %s team-weeks since 2011 reached that share." % (
+            me, self.score(f), self.week, self.L.put("trig:ratio:" + f, int(round(100 * d["ratio"])), src), self.L.put("trig:wkk:" + f, d["k"], src),
+            self.L.put("trig:wkn:" + f, d["n"], src)))]
+        if won:
+            lines.append(("Rich", "%s %s: %s." % (me, "won both games" if len(games) == 2 and len(won) == 2 else "won", join("%s by %s" % (e(self.owner[o]), self.margin(f, o)) for o in won))))
+        for ev in evidence:
+            ln = self.evidence_line(ev)
+            if ln:
+                lines.append(ln)
+        ss = self.small_sample()
+        if ss:
+            lines.append(("Stuart", ss))
+        top = sorted(s, key=lambda g: (-s[g], g))[:5]
+        rows = [self.row([e(self.owner[g]), self.score(g), "%d%%" % int(round(100 * s[g] / d["avg"]))]) for g in top]
+        for g in top:
+            self.L.put("trig:ratio:" + g, int(round(100 * s[g] / d["avg"])), src)
+        return "%s had the week" % self.owner[f], self.desk(lines) + self.table(["Best scores of Week %d" % self.week, "Score", "Share of league average"], rows)
+
+    def story_streak(self, head, evidence):
+        f, d = head["fid"], head["data"]
+        me = e(self.owner[f])
+        ln = self.evidence_line(head)
+        lines = [("Stuart", "%s: %s" % (me, ln[1][len(me) + 1:].strip())), ]
+        lines[0] = ("Stuart", ln[1])
+        for ev in evidence:
+            x = self.evidence_line(ev)
+            if x:
+                lines.append(x)
+        ss = self.small_sample()
+        if ss:
+            lines.append(("Rich", ss))
+        return "%s is on a %s" % (self.owner[f], "dominant run" if d["kind"] == "dom" else "cold run"), self.desk(lines)
+
+    def story_luck_gap(self, head, evidence):
+        f = head["fid"]
+        lines = [self.evidence_line(head), ("Stuart", "%s is %s overall and %s in All-Play." % (e(self.owner[f]), self.rec_c(f), self.ap_c(f)))]
+        lines += [x for x in (self.evidence_line(ev) for ev in evidence) if x]
+        return "%s&rsquo;s record is %s the scores" % (self.owner[f], "ahead of" if head["data"]["gap"] > 0 else "behind"), self.desk([x for x in lines if x])
+
+    def story_division_decider(self, head, evidence):
+        f, d = head["fid"], head["data"]
+        lead, run = d["lead"], d["runner"]
+        lines = [("Stuart", "%s leads %s at %s overall, with %s at %s. The forecast gives %s a %s chance to win the division and %s %s." % (
+            e(self.owner[lead]), e(self.div_of(lead)), self.rec_c(lead), e(self.owner[run]), self.rec_c(run), e(self.owner[lead]), self.dv(lead),
+            e(self.owner[run]), self.dv(run)))]
+        lines += [x for x in (self.evidence_line(ev) for ev in evidence) if x]
+        return "%s is the race to watch" % self.div_of(lead), self.desk(lines)
+
+    def story_bubble(self, head, evidence):
+        d = head["data"]
+        lines = [("Stuart", "The last playoff spot comes down to %s and %s: %s and %s in All-Play, %s and %s to make the playoffs." % (
+            e(self.owner[d["sixth"]]), e(self.owner[d["seventh"]]), self.ap_c(d["sixth"]), self.ap_c(d["seventh"]),
+            self.po(d["sixth"]) if self.odds_fresh() else "&mdash;", self.po(d["seventh"]) if self.odds_fresh() else "&mdash;"))]
+        lines += [x for x in (self.evidence_line(ev) for ev in evidence) if x]
+        return "the last playoff spot is a coin flip", self.desk(lines)
+
+    def story_odds_swing(self, head, evidence):
+        f, d = head["fid"], head["data"]
+        lines = [("Stuart", "%s&rsquo;s playoff odds moved from %s to %s since %s, %s points." % (
+            e(self.owner[f]), self.odds_base(f, d), self.po(f), d["basis"], self.L.put("trig:move:" + f, round(abs(d["move"]), 1), "season_sim files", "%.1f" % abs(d["move"]))))]
+        lines += [x for x in (self.evidence_line(ev) for ev in evidence) if x]
+        ss = self.small_sample()
+        if ss:
+            lines.append(("Rich", ss))
+        return "%s&rsquo;s odds %s" % (self.owner[f], "jumped" if d["move"] > 0 else "fell"), self.desk(lines)
+
+    def story_elias_flip(self, head, evidence):
+        f = head["fid"]
+        lines = [("Stuart", "An Elias correction changed the board this week; the details are below."),
+                 ("Rich", "%s is %s overall and %s in All-Play after the correction." % (e(self.owner[f]), self.rec_c(f), self.ap_c(f)))]
+        return "Elias changed the week", self.desk(lines)
+
+    def story_fallback_early(self):
+        """Nothing rare yet (small sample): the first look: who leads and who trails in All-Play, with the sample size said."""
+        st = self.ctx["mfl"]["standings"]
+        ap = lambda f: (lambda a, b: a / float(a + b) if a + b else 0.0)(*(int(x) for x in st[f]["allplay"].split("-")[:2]))
+        order = sorted(st, key=lambda f: (-ap(f), f))
+        s = self.ctx["mfl"]["scores"]
+        top = max(s, key=s.get)
+        lines = [("Stuart", "%s leads the league in All-Play at %s after Week %d, and %s had the best score of the week, %s." % (
+            e(self.owner[order[0]]), self.ap_c(order[0]), self.week, e(self.owner[top]), self.score(top)))]
+        lines.append(("Rich", "At the other end, %s is %s in All-Play. %s" % (e(self.owner[order[-1]]), self.ap_c(order[-1]), self.small_sample())))
+        if self.odds_fresh():
+            sim = self.odds_text()[0]
+            lines.append(("Stuart", "The forecast has %s at %s to make the playoffs and %s at %s." % (
+                e(self.owner[max(sim["teams"], key=lambda f: (sim["teams"][f]["po"], f))]), self.po(max(sim["teams"], key=lambda f: (sim["teams"][f]["po"], f))),
+                e(self.owner[min(sim["teams"], key=lambda f: (sim["teams"][f]["po"], f))]), self.po(min(sim["teams"], key=lambda f: (sim["teams"][f]["po"], f))))))
+        return "the first look", self.desk(lines)
+
+    def story_fallback_middle(self):
+        st = self.ctx["mfl"]["standings"]
+        ap = lambda f: (lambda a, b: a / float(a + b) if a + b else 0.0)(*(int(x) for x in st[f]["allplay"].split("-")[:2]))
+        order = sorted(st, key=lambda f: (-ap(f), f))
+        lines = [("Stuart", "%s leads the league in All-Play at %s after Week %d, with %s next at %s." % (
+            e(self.owner[order[0]]), self.ap_c(order[0]), self.week, e(self.owner[order[1]]), self.ap_c(order[1]))),
+                 ("Rich", "The last playoff spot sits between %s (%s) and %s (%s) in All-Play." % (
+                     e(self.owner[order[5]]), self.ap_c(order[5]), e(self.owner[order[6]]), self.ap_c(order[6])))]
+        return "the race so far", self.desk(lines)
+
+    def story_fallback_late(self):
+        return self.story_fallback_middle()
 
     # ------------------------------------------------------------ 2. Division Week
     def worst_lines(self, wa):
