@@ -207,6 +207,13 @@ def _archive_truth(ctx):
                     t[0] += x > y
                     t[1] += x < y
     out = {"n": len(tally)}
+    full = arc.get("full") or {}
+    fpct = {k: v["ap"][0] / float(sum(v["ap"])) for k, v in full.items() if sum(v["ap"])}
+    bestfull = max(fpct, key=lambda k: (fpct[k], k)) if fpct else None
+    for k, v in full.items():
+        out["fullrec:" + k] = "%d-%d" % tuple(v["rec"])
+        out["fullap:" + k] = "%d-%d" % tuple(v["ap"])
+        out["fullbest:" + k] = (k == bestfull)
     pcts = {k: v[0] / float(v[0] + v[1]) for k, v in tally.items()}
     for (season, f), (a, b) in tally.items():
         k = "%d:%s" % (season, f)
@@ -219,6 +226,24 @@ def _archive_truth(ctx):
         p = a / float(a + b) if a + b else 0.0
         out["pct:cur:" + f] = round(p, 3)
         out["ahead:" + f] = {"either": (sum(1 for q in pcts.values() if q > p + 1e-12), sum(1 for q in pcts.values() if q < p - 1e-12))}
+        s_ = ctx["mfl"]["scores"]
+        wkw, wkl = sum(1 for g in s_ if g != f and s_[f] > s_[g]), sum(1 for g in s_ if g != f and s_[f] < s_[g])
+        pw, pl = a - wkw, b - wkl
+        out["prev:" + f] = "%d-%d" % (pw, pl)
+        if pw + pl and wk > 1:
+            pp = pw / float(pw + pl)
+            prior = {}
+            for (season, w), d in sc.items():
+                if w <= wk - 1:
+                    for g, x in d.items():
+                        t = prior.setdefault((season, g), [0, 0])
+                        for h, y in d.items():
+                            if h != g:
+                                t[0] += x > y
+                                t[1] += x < y
+            ppct = [t[0] / float(t[0] + t[1]) for t in prior.values() if t[0] + t[1]]
+            out["prevbelow:" + f] = sum(1 for q in ppct if q < pp - 1e-12)
+        out["atbelow:" + f] = sum(1 for q in pcts.values() if q <= p + 1e-12)
         owner = ctx["d1"]["franchises"][f]["owner_name"]
         mine = sorted(((pcts[k], k[0]) for k in pcts if arc["owners"].get("%d:%s" % k) == owner), key=lambda x: (x[0], x[1]))
         if len(mine) >= 3:
@@ -265,11 +290,30 @@ def _elias_check(rest, v, ctx, bad, key):
             bad(key, "page %s, report %s" % (v, rep.get("resultsFlipped")))
         return
     if what == "stat":
-        pid, _, side = tail.partition(":")
+        pid, _, rest2 = tail.partition(":")
+        stat, _, side = rest2.rpartition(":")
         pl = [p for p in rep.get("players") or [] if p.get("pid") == pid]
-        ch = (pl[0].get("elias") or [{}])[0] if pl else {}
-        if not pl or ch.get({"from": "from", "to": "to"}.get(side)) != v:
+        ch = next((c for c in (pl[0].get("elias") or []) if c.get("stat") == stat), {}) if pl else {}
+        if not pl or ch.get(side) != v:
             bad(key, "Elias report has %r" % ch)
+        return
+    if what == "rank":
+        r = [c for c in rep.get("rankChanges") or [] if c["fid"] == tail]
+        if not r or r[0]["after"] != v:
+            bad(key, "Elias report has %r" % r)
+        return
+    if what == "gap":
+        side, _, mover = tail.partition(":")
+        teams0 = (pub or {}).get("teams") or {}
+        ch = {c["fid"]: c for c in rep.get("allplayChanges") or []}
+        other = [f for f in ch if f != mover]
+        if mover not in teams0 or not other:
+            bad(key, "cannot recompute the gap")
+            return
+        o = other[0]
+        want = abs(s[o] - (teams0[mover] if side == "before" else s[mover]))
+        if abs(round(want, 1) - v) > 0.05:
+            bad(key, "page %s, recomputed %.1f" % (v, want))
         return
     if what == "delta" and tail not in s:                         # a player's fantasy change
         pl = [p for p in rep.get("players") or [] if p.get("pid") == tail]
@@ -427,6 +471,36 @@ def validate(res, ctx, pack):
                 bad(key, "definition %s is %s, page %s" % (rest, RULES.get(rest), v))
         elif kind == "elias":
             _elias_check(rest, v, ctx, bad, key)
+        elif kind == "quoteid":
+            if rest not in chat or chat[rest]["message_id"] != v:
+                bad(key, "message id is not in the chat window")
+        elif kind == "divweek":
+            want = len(pack["pots"]) if rest == "pots" else sum(len(p["games"]) for p in pack["pots"])
+            if v != want:
+                bad(key, "page %s, pack %s" % (v, want))
+        elif kind == "divrec":
+            div = ctx["d1"]["franchises"]
+            w_ = sum(1 for g in ctx["d1"]["regGames"] if g["franchise_id"] == rest and div[g["opponent_franchise_id"]]["division"] == div[rest]["division"]
+                     and float(g["team_score"]) > float(g["opponent_score"]))
+            l_ = sum(1 for g in ctx["d1"]["regGames"] if g["franchise_id"] == rest and div[g["opponent_franchise_id"]]["division"] == div[rest]["division"]
+                     and float(g["team_score"]) < float(g["opponent_score"]))
+            if v != "%d-%d" % (w_, l_):
+                bad(key, "page %s, D1 games %d-%d" % (v, w_, l_))
+        elif kind == "wkrank":
+            if v != 1 + sum(1 for o in s if s[o] > s[rest]):
+                bad(key, "page %s, MFL rank %d" % (v, 1 + sum(1 for o in s if s[o] > s[rest])))
+        elif kind == "miss":
+            tot = 0.0
+            for name, proj, pts in v["rows"]:
+                pc = res["claims"].get("pts:" + name)
+                if not pc or abs(float(pc["value"]) - float(pts)) > 0.05:
+                    bad(key, "%s scored %s on the page, claim %s" % (name, pts, pc and pc["value"]))
+                if not any(c["value"].get("value") is not None and abs(c["value"]["value"] - float(proj)) < 0.05 for k2, c in res["claims"].items()
+                           if k2.startswith("proj:") and isinstance(c["value"], dict)):
+                    bad(key, "%s projection %s is not a registered pregame projection" % (name, proj))
+                tot += float(proj) - float(pts)
+            if abs(round(tot, 1) - v["short"]) > 0.05:
+                bad(key, "page %s, summed %.1f" % (v["short"], tot))
         elif kind == "wkrec":
             g = ctx["mfl"]["games"]
             w_ = sum(1 for x in g if (x["a"] if x["as"] > x["bs"] else x["b"]) == rest)

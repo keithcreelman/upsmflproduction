@@ -268,6 +268,7 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
     rep_path = os.path.join(data, "elias_%d_wk%02d.json" % (season, week))
     ctx["eliasReport"] = json.load(open(rep_path)) if os.path.exists(rep_path) else None
     ctx["scoresPublished"] = load_scores_published(data, season, week)
+    ctx["kennyPicks"] = load_kenny_picks(data, season, week)
     res = ISSUE.render(pack, ctx, generated_at=now)                            # committed: no raw chat
     if res.get("formatFallback"):
         st["reasons"].append("story format fell back to the legacy template: " + res["formatFallback"])
@@ -336,6 +337,13 @@ def load_scores_published(data_dir, season, week):
     return json.load(open(path)) if os.path.exists(path) else None
 
 
+def load_kenny_picks(data_dir, season, week):
+    """The editor's Kenny picks for the week: message ids only (site/wire/data/kenny_picks_<season>_wkNN.json). With none, the
+    story draft carries the one coffee:kenny box and the candidates in the local review copy."""
+    path = os.path.join(data_dir, "kenny_picks_%d_wk%02d.json" % (season, week))
+    return json.load(open(path)) if os.path.exists(path) else None
+
+
 def replay_week(season, week, workdir, out_dir, inputs=None, now=None, log=print):
     """Re-run a finished week's build, publishing NOTHING (Keith 2026-10-14: "replaying the Week 5
     build in no-publish mode"). Same steps as run_week from the D1 == MFL check through validation,
@@ -392,6 +400,7 @@ def replay_week(season, week, workdir, out_dir, inputs=None, now=None, log=print
     rep_path = os.path.join(workdir, "site/wire/data/elias_%d_wk%02d.json" % (season, week))
     ctx["eliasReport"] = json.load(open(rep_path)) if os.path.exists(rep_path) else None
     ctx["scoresPublished"] = load_scores_published(os.path.join(workdir, "site/wire/data"), season, week)
+    ctx["kennyPicks"] = load_kenny_picks(os.path.join(workdir, "site/wire/data"), season, week)
     res = ISSUE.render(pack, ctx, generated_at=now)
     if res.get("formatFallback"):
         res_out["reasons"].append("story format fell back to the legacy template: " + res["formatFallback"])

@@ -232,12 +232,15 @@ def archive_history(season, week, teams=12, path=None):
         owners = {"%d:%s" % (s_, f): o for s_, f, o in c.execute("SELECT season, franchise_id, owner_name FROM standings")}
         final = {"%d:%s" % (y, f): int(ff) for y, f, ff in c.execute(
             "SELECT year, franchise_id, final_finish FROM metadata_finalstandings WHERE final_finish IS NOT NULL")}
+        full = {"%d:%s" % (s_, f): {"rec": [hw, hl], "ap": [aw, al]} for s_, f, hw, hl, aw, al in c.execute(
+            "SELECT season, franchise_id, h2h_w, h2h_l, allplay_w, allplay_l FROM standings WHERE allplay_w IS NOT NULL AND h2h_w IS NOT NULL")}
         used = {r[0] for r in rows}
         with open(path, "rb") as fh:
             sha = hashlib.sha256(fh.read(1 << 20)).hexdigest()[:12]
         return {"source": "league archive mfl_database.db (sha256 of first MiB %s), regular season weeks 1-%d" % (sha, int(week)),
                 "rows": rows, "excluded": excluded, "owners": {k: v for k, v in owners.items() if int(k.split(":")[0]) in used},
-                "final": {k: v for k, v in final.items() if int(k.split(":")[0]) in used}}
+                "final": {k: v for k, v in final.items() if int(k.split(":")[0]) in used},
+                "full": {k: v for k, v in full.items() if int(k.split(":")[0]) in used}}
     except sqlite3.Error:
         return None
 

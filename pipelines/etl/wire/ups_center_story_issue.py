@@ -24,6 +24,7 @@ stories are written, not pointed at.
 """
 import html
 import os
+from datetime import datetime
 import re
 import sys
 
@@ -136,6 +137,105 @@ class StoryIssue(I.Issue):
         return "<tr>" + "".join("<td%s>%s</td>" % (' class="num"' if i else "", ("<b>%s</b>" % c) if bold else c)
                                 for i, c in enumerate(cells)) + "</tr>"
 
+    # ------------------------------------------------------------ shared pieces
+    ORDW = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth",
+            10: "tenth", 11: "eleventh", 12: "twelfth"}
+
+    def heat(self):
+        if not hasattr(self, "_heat"):
+            self._heat = STORIES.heat(self.ctx)
+        return self._heat
+
+    def heat_src(self):
+        return "D1 src_franchise_weekly_score + src_schedule, weeks 1-%d" % self.week
+
+    def ordw(self, f, k):
+        """Print the scoring rank as a word ('eighth'); register the claim as the tables print it ('8th')."""
+        H = self.heat()
+        self.L.put("heat:%s:%s" % (k, f), H[f][k], self.heat_src(), self._ord(H[f][k]))
+        return self.ORDW.get(H[f][k], self._ord(H[f][k]))
+
+    def word(self, n):
+        return {0: "none", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine",
+                10: "ten", 11: "eleven", 12: "twelve"}.get(n, str(n))
+
+    def sn(self, f):
+        """Surname when it is unique in the league (the hand edit's second mention), else the full name."""
+        last = self.owner[f].split(" ")[-1]
+        return e(last) if sum(1 for o in self.owner.values() if o.split(" ")[-1] == last) == 1 else e(self.owner[f])
+
+    POS = {"QB": "quarterback", "RB": "running back", "WR": "receiver", "TE": "tight end", "DL": "lineman", "LB": "linebacker", "DB": "defensive back"}
+
+    def posword(self, r, plural=False):
+        m = re.search(r"\((\w+),", r[0])
+        w = self.POS.get(m.group(1)) if m else None
+        return (w + ("s" if plural else "")) if w else None
+
+    def box_prose(self, b):
+        """'38-of-48 for 462, 5 TD, 3 INT; 3 carries for 10 and 1 TD' -> '38-of-48 for 462 yards, five touchdowns, three interceptions and a
+        rushing score'. Falls back to the raw line. Every digit printed is in the registered box line."""
+        b = I.tidy_box(b)
+        out = []
+        for part in [x.strip() for x in b.split(";")]:
+            m = re.match(r"^(\d+-of-\d+) for (\d+)((?:, \d+ (?:TD|INT))*)$", part)
+            if m:
+                out.append("%s for %s yards" % (m.group(1), m.group(2)))
+                for n_, k in re.findall(r"(\d+) (TD|INT)", m.group(3)):
+                    out.append("%s %s" % (self.word(int(n_)), ("touchdown" if k == "TD" else "interception") + ("" if int(n_) == 1 else "s")))
+                continue
+            m = re.match(r"^\d+ carr(?:y|ies) for \d+(?: and (\d+) TD)?$", part)
+            if m:
+                out.append("a rushing score" if m.group(1) == "1" else ("%s rushing scores" % self.word(int(m.group(1)))) if m.group(1) else "")
+                continue
+            return b
+        out = [x for x in out if x]
+        return (", ".join(out[:-1]) + " and " + out[-1]) if len(out) > 1 else (out[0] if out else b)
+
+    def week_rank(self, f):
+        s = self.ctx["mfl"]["scores"]
+        return 1 + sum(1 for g in s if s[g] > s[f])
+
+    def week_rank_c(self, f):
+        k = self.week_rank(f)
+        self.L.put("wkrank:" + f, k, "MFL weeklyResults W%d" % self.week, self._ord(k))
+        return self.ORDW.get(k, self._ord(k))
+
+    def div_rec(self, f):
+        """Head-to-head record against the team's own division this season (D1 src_schedule), as 'w-l'."""
+        div = self.ctx["d1"]["franchises"]
+        w = l = 0
+        for g in self.ctx["d1"]["regGames"]:
+            if g["franchise_id"] == f and div[g["opponent_franchise_id"]]["division"] == div[f]["division"]:
+                w += float(g["team_score"]) > float(g["opponent_score"])
+                l += float(g["team_score"]) < float(g["opponent_score"])
+        return w, l
+
+    def divrec_c(self, f):
+        w, l = self.div_rec(f)
+        return self.L.put("divrec:" + f, "%d-%d" % (w, l), "D1 src_schedule, same-division games", I.wl(w, l))
+
+    def posts(self, owner):
+        return sum(1 for m in self.ctx["d1"]["chat"] if m["owner_name"] == owner)
+
+    def posts_c(self, owner):
+        return self.L.put("posts:" + owner, self.posts(owner), "D1 ups_discord_messages window")
+
+    def proven_rows(self):
+        if not hasattr(self, "_proven"):
+            self._bbgaps, self._bblists, self._bbcap, self._proven = self.bb_parts()
+        return self._proven
+
+    def rows_for(self, f, kind):
+        """Proven bargain / bust rows of one team, biggest first (kind: 'bargain' | 'bust')."""
+        out = []
+        for tid in ("t.bb.off.%s" % kind, "t.bb.idp.%s" % kind):
+            out += [r for r in self.proven_rows().get(tid, []) if self.fid[r[1]] == f]
+        return sorted(out, key=lambda r: -abs(float(r[4].replace("+", "").replace("-", "").replace("−", ""))))
+
+    @staticmethod
+    def pname(r):
+        return re.sub(r"\s*\(.*$", "", r[0])
+
     # ------------------------------------------------------------ 1. the Big Story
     def seg_big(self):
         story = SD.big_story(self.ctx)
@@ -145,32 +245,38 @@ class StoryIssue(I.Issue):
             return self.section("bigstory", "The Big Story", 1, "The Big Story <small>&mdash; %s led the week</small>" % e(self.owner[top]),
                                 self.desk(self.open_lines()))
         f, best = story["fid"], story["direction"] == "best"
+        self._big = f
         me, n, ahead = self.owner[f], story["pool"], story["ahead"]
         src = self.ctx["archive"]["source"]
         s = self.ctx["mfl"]["scores"]
+        arc = self.ctx["archive"]
         first, last = story["seasons"][0], story["seasons"][-1]
         better, worse = ("better", "best") if best else ("worse", "worst")
         n_c = self.L.put("arch:n", n, src)
         ahead_c = self.L.put("arch:ahead:" + f, ahead, src)
-        pct_c = self.L.put("arch:pct:cur:" + f, round(int(self.ctx["mfl"]["standings"][f]["allplay"].split("-")[0]) / float(
-            sum(int(x) for x in self.ctx["mfl"]["standings"][f]["allplay"].split("-")[:2])), 3), src,
-            ("%.3f" % (int(self.ctx["mfl"]["standings"][f]["allplay"].split("-")[0]) / float(
-                sum(int(x) for x in self.ctx["mfl"]["standings"][f]["allplay"].split("-")[:2])))).lstrip("0"))
+        aw, al = (int(x) for x in self.ctx["mfl"]["standings"][f]["allplay"].split("-")[:2])
+        mypct = aw / float(aw + al)
+        pct_c = self.L.put("arch:pct:cur:" + f, round(mypct, 3), src, ("%.3f" % mypct).lstrip("0"))
 
-        def ref(x):                                           # an archived team-season: name, record, pct, finish
+        def ref(x):                                           # an archived team-season: name, record, pct
             k = "%d:%s" % (x["season"], x["fid"])
             ap = self.L.put("arch:ap:" + k, "%d-%d" % (x["w"], x["l"]), src, I.wl(x["w"], x["l"]))
             pc = self.L.put("arch:pct:" + k, round(x["pct"], 3), src, ("%.3f" % x["pct"]).lstrip("0"))
-            return "%s&rsquo;s %d team" % (e(x["owner"] or "an unnamed owner"), x["season"]), ap, pc
+            return ap, pc
 
         top = s[f] == max(s.values())
         note = (", the best score of the week" if top else "") + (", and beat all eleven teams in All-Play"
                                                                  if top and self.week_allplay()[f][1] == 0 else "")
-        lines = [("Stuart", "%s scored %s in Week %d%s. %s is %s overall and %s in All-Play through Week %d, a %s start than all but %s earlier team%s in the league archive." % (
-            e(me), self.score(f), self.week, note, e(me), self.rec_c(f), self.ap_c(f), self.week, better, ahead_c, "" if ahead == 1 else "s"))]
-        P = SD.pool(self.ctx["archive"], self.week)
-        mypct = int(self.ctx["mfl"]["standings"][f]["allplay"].split("-")[0]) / float(
-            sum(int(x) for x in self.ctx["mfl"]["standings"][f]["allplay"].split("-")[:2]))
+        games = [g for g in self.ctx["mfl"]["games"] if f in (g["a"], g["b"])]
+        won = [(g["b"] if g["a"] == f else g["a"]) for g in games if (g["as"] > g["bs"]) == (g["a"] == f)]
+        sweep = ""
+        if len(games) >= 2 and len(won) == len(games):
+            won = sorted(won, key=lambda o: -(s[f] - s[o]))
+            sweep = " %s swept %s games: %s." % (e(me), "both" if len(games) == 2 else "all %d" % len(games),
+                                                 join("%s by %s" % (e(self.owner[o]), self.margin(f, o)) for o in won))
+        lines = [("Stuart", "%s scored %s in Week %d%s.%s %s is %s overall and %s in All-Play." % (
+            e(me), self.score(f), self.week, note, sweep, e(me), self.rec_c(f), self.ap_c(f)))]
+        P = SD.pool(arc, self.week)
         ahead_rows = sorted([x for x in P if (x["pct"] > mypct + 1e-12 if best else x["pct"] < mypct - 1e-12)],
                             key=lambda x: (-x["pct"] if best else x["pct"], x["season"]))
         if ahead == 0:
@@ -178,41 +284,73 @@ class StoryIssue(I.Issue):
         else:
             parts = []
             for x in ahead_rows[:4]:
-                nm, ap, _ = ref(x)
-                parts.append("%s, which was %s" % (nm, ap))
-            lead = "%s had a %s All-Play record at this point: %s." % (WORDS.get(ahead, str(ahead)).capitalize() if ahead < 5 else ahead,
-                                                                        better, join(parts))
+                parts.append("%s&rsquo;s %d team, which was %s" % (e(x["owner"] or "an unnamed owner"), x["season"], ref(x)[0]))
+            lead = "%s had a %s All-Play record at this point: %s." % (
+                ("Exactly one" if ahead == 1 else self.word(ahead).capitalize()), better, join(parts))
         lines.append(("Rich", "Here is what %s means. Since %d, %s teams have reached Week %d with a full record in the league archive. %s" % (
             self.ap_c(f), first, n_c, self.week, lead)))
         behind = [x for x in story["table"] if not x.get("current")]
-        nxt = [ref(x) for x in behind[ahead:ahead + 3]] if ahead < len(behind) else []
         txt = "That is %s for %s." % (pct_c, e(me))
         if ahead_rows:
-            nm, ap, pc = ref(ahead_rows[0])
-            txt += " The %s start in the archive, %s, was %s." % (worse, nm, pc)
+            txt += " %s&rsquo;s %d start was %s." % (e(ahead_rows[0]["owner"] or "An unnamed owner"), ahead_rows[0]["season"], ref(ahead_rows[0])[1])
+        nxt = behind[ahead:ahead + 3]
         if nxt:
-            txt += " After %s, the next %s starts are %s." % (e(me), "best" if best else "worst",
-                                                              join("%s at %s" % (nm, ap) for nm, ap, _ in nxt))
+            seen, items = [], []
+            for x in nxt:
+                ap = ref(x)[0]
+                if seen and seen[-1] == x["owner"]:
+                    items.append("the %d team at %s" % (x["season"], ap))
+                elif x["owner"] in seen:
+                    items.append("%s again in %d at %s" % (e(x["owner"]), x["season"], ap))
+                else:
+                    items.append("%s&rsquo;s %d team at %s" % (e(x["owner"] or "an unnamed owner"), x["season"], ap))
+                seen.append(x["owner"])
+            body = (items[0] + (" and " + items[1] if len(items) > 1 else "")) + (", then " + items[2] if len(items) > 2 else "")
+            txt += " After %s, the next %s starts are %s." % (e(me), "best" if best else "worst", body)
         lines.append(("Stuart", txt))
-        champs = sum(1 for x in behind if x["final"] == 1)
-        ru = sum(1 for x in behind if x["final"] == 2)
-        kk = self.L.put("arch:tablek", len(behind), src)
-        if behind and best:
-            c1 = "%s won the title" % (self.L.put("arch:champs", champs, src) if champs else "none")
-            c2 = "%s lost the final" % (self.L.put("arch:runnerup", ru, src) if ru else "none")
-            lines.append(("Rich", "A great start is not a title. Of the %s earlier teams in the table, %s and %s." % (kk, c1, c2)))
-        own = SD.own_history(self.ctx, me, self.week)
+        # the previous best start: how it ended (Week 8: 2018's 84-4 start, 25-1, 155-21, lost the final)
+        x = ahead_rows[0] if ahead_rows else None
+        if x and x["final"]:
+            k = "%d:%s" % (x["season"], x["fid"])
+            full = arc.get("full", {}).get(k)
+            rec = ap_full = ""
+            if full:
+                rec = self.L.put("arch:fullrec:" + k, "%d-%d" % tuple(full["rec"]), src, I.wl(*full["rec"]))
+                ap_full = self.L.put("arch:fullap:" + k, "%d-%d" % tuple(full["ap"]), src, I.wl(*full["ap"]))
+                bestfull = SD.full_season_best(self.ctx) == k
+                self.L.put("arch:fullbest:" + k, bestfull, src, "")
+            end = {1: "went on to win the title", 2: "still lost the final", 3: "still finished third"}.get(
+                x["final"]) or "still finished " + self.ORDW.get(x["final"], self._ord(x["final"]))
+            self.L.put("arch:final:" + k, x["final"], src, finish_label(x["final"]))
+            t = "And %d is the part worth sitting with. That team " % x["season"]
+            t += ("finished %s with a %s All-Play record%s, " % (rec, ap_full, ", the best full season in the archive" if bestfull else "")) if full else ""
+            t += "%s%s. %s" % ("and " if full and not end.startswith("and") else "", end,
+                               "A great start is not a title." if x["final"] != 1 else "A great start can end in a title.")
+            if not full:
+                t = "And %d is the part worth sitting with. That team %s. %s" % (x["season"], end, "A great start is not a title." if x["final"] != 1 else "")
+            lines.append(("Rich", t))
+        # the owner's own history, then the forecast
+        mine = SD.own_starts(self.ctx, me, self.week)
+        low = [y for y in mine if y["pct"] <= 0.30][:2]
         tail = []
-        if own:
-            hb, hw = own
-            b = self.L.put("arch:ownbest:" + f, "%d:%d-%d" % (hb["season"], hb["w"], hb["l"]), src, I.wl(hb["w"], hb["l"]))
-            w_ = self.L.put("arch:ownworst:" + f, "%d:%d-%d" % (hw["season"], hw["w"], hw["l"]), src, I.wl(hw["w"], hw["l"]))
-            tail.append("In the archive, %s&rsquo;s best start was %s in %d and the worst was %s in %d." % (e(me), b, hb["season"], w_, hw["season"]))
+        if best and low:
+            low = sorted(low, key=lambda y: y["season"])
+            tail.append("%s knows both ends of this. In %d the start was %s in All-Play at this point%s." % (
+                e(me), low[0]["season"], ref(low[0])[0], (", and in %d %s" % (low[1]["season"], ref(low[1])[0])) if len(low) > 1 else ""))
+        elif mine and len(mine) >= 3:
+            hb = max(mine, key=lambda y: (y["pct"], -y["season"]))
+            hw = min(mine, key=lambda y: (y["pct"], y["season"]))
+            tail.append("In the archive, %s&rsquo;s best start was %s in %d and the worst was %s in %d." % (
+                e(me), ref(hb)[0], hb["season"], ref(hw)[0], hw["season"]))
         if self.odds_fresh() and best:
             sim = self.odds_text()[0]
             others = sorted((g for g in sim["teams"] if g != f), key=lambda g: (-sim["teams"][g]["title"], g))
-            tail.append("The forecast gives %s a %s chance at the first-round bye and a %s chance at the title; the next best title odds belong to %s at %s." % (
-                e(me), self.bye(f), self.ti(f), e(self.owner[others[0]]), self.ti(others[0])))
+            tail.append("%s with a %s chance at the first-round bye and a %s chance at the title in the forecast. The next best title odds belong to %s at %s." % (
+                ("Now it is %s" % self.ap_c(f)) if (best and low) else "The forecast gives %s" % e(me), self.bye(f), self.ti(f),
+                e(self.owner[others[0]]), self.ti(others[0])))
+            if not (best and low):
+                tail[-1] = "The forecast gives %s a %s chance at the first-round bye and a %s chance at the title; the next best title odds belong to %s at %s." % (
+                    e(me), self.bye(f), self.ti(f), e(self.owner[others[0]]), self.ti(others[0]))
         if tail:
             lines.append(("Stuart", " ".join(tail)))
         rows = []
@@ -220,7 +358,7 @@ class StoryIssue(I.Issue):
             if x.get("current"):
                 rows.append(self.row(["2026 &middot; %s" % e(me), self.ap_c(f), pct_c, "In progress"], bold=True))
             else:
-                nm, ap, pc = ref(x)
+                ap, pc = ref(x)
                 k = "%d:%s" % (x["season"], x["fid"])
                 end = "Not recorded"
                 if x["final"]:
@@ -240,55 +378,223 @@ class StoryIssue(I.Issue):
                             self.desk(lines) + self.table([head, "Through Week %d" % self.week, "Pct", "How the season ended"], rows) + cap)
 
     # ------------------------------------------------------------ 2. Division Week
-    def team_lines(self, gs, teams, voice0=0):
+    def worst_lines(self, wa):
+        """The bottom-of-the-history angle for one team (Week 8: Josh Martel). Rich voice."""
+        f = wa["fid"]
+        me = self.owner[f]
+        arc = self.ctx["archive"]
+        src = arc["source"] + " (previous week's All-Play = standings minus this week's games)"
+        first = min(r[0] for r in arc["rows"])
+        pw, pl = wa["prev"]
+        prev = self.L.put("arch:prev:" + f, "%d-%d" % (pw, pl), src, I.wl(pw, pl))
+        below = self.L.put("arch:prevbelow:" + f, wa["below"], src)
+        tied = wa["tied"]
+        rank = self.ORDW.get(wa["below"] + 1, self._ord(wa["below"] + 1))
+        t = "Which makes %s the story. Through Week %d, %s was %s in All-Play, %s%s-worst start since %d." % (
+            e(me), self.week - 1, self.sn(f), prev, "tied for the " if tied else "the ", rank, first)
+        mine = SD.own_starts(self.ctx, me, self.week)
+        good = max(mine, key=lambda y: (y["pct"], -y["season"])) if mine else None
+        if good and good["pct"] >= 0.70:
+            k = "%d:%s" % (good["season"], good["fid"])
+            ap = self.L.put("arch:ap:" + k, "%d-%d" % (good["w"], good["l"]), arc["source"], I.wl(good["w"], good["l"]))
+            t += " This is the same owner who started %d at %s." % (good["season"], ap)
+        nw, nl = wa["now"]
+        now = self.ap_c(f)
+        k_ = self.L.put("arch:atbelow:" + f, wa["at_or_below"], src)
+        t += " Week %d took %s to %s, and %s earlier teams were at that mark or worse by now%s." % (
+            self.week, self.sn(f), now, k_, ", so the climb has left the all-time basement" if wa["improved"] else "")
+        worst = min(mine, key=lambda y: (y["pct"], y["season"])) if mine else None
+        if worst and nw / float(nw + nl) < worst["pct"] - 1e-12:
+            k = "%d:%s" % (worst["season"], worst["fid"])
+            ap = self.L.put("arch:ap:" + k, "%d-%d" % (worst["w"], worst["l"]), arc["source"], I.wl(worst["w"], worst["l"]))
+            d = worst["w"] - nw
+            t += " It is still the worst start of that owner&rsquo;s career in the archive, %s %s under the %s in %d." % (
+                self.word(d) if d <= 4 else d, "game" if d == 1 else "games", ap, worst["season"])
+        if self.posts(me) > 0 and all(self.posts(me) > self.posts(o) for o in self.fid if o != me):
+            t += " %s also led the chat this week with %s posts." % (self.sn(f), self.posts_c(me))
+        return [("Rich", t)]
+
+    def team_line(self, f, gs, closest, big_team, bargains):
+        """One team's paragraph in its division chapter."""
         s = self.ctx["mfl"]["scores"]
-        out = []
-        for i, f in enumerate(teams):
-            wins = [l for (w, l) in gs if w == f]
-            losses = [w for (w, l) in gs if l == f]
-            parts = []
-            if wins:
-                parts.append("beat " + ", ".join("%s by %s" % (e(self.owner[l]), self.margin(f, l)) for l in wins))
-            if losses:
-                parts.append("lost to " + ", ".join("%s by %s" % (e(self.owner[w]), self.margin(w, f)) for w in losses))
-            txt = "%s scored %s and went %s: %s." % (e(self.owner[f]), self.score(f), I.wl(len(wins), len(losses)), "; ".join(parts))
-            if losses and self.F.get("f.team.%s.best_available" % f) is not None and self.F.get("f.team.%s.could_have_won" % f) == "yes":
-                txt += " The best available lineup, %s, would have won a game %s lost." % (
-                    self.fact("f.team.%s.best_available" % f), e(self.owner[f]))
-            out.append(("Stuart" if (i + voice0) % 2 == 0 else "Rich", txt))
-        return out
+        wins = [l for (w, l) in gs if w == f]
+        losses = [w for (w, l) in gs if l == f]
+        if f == big_team and not losses:
+            return "%s is the sweep, and you know that part. The pain is on the other side." % e(self.owner[f])
+        parts = []
+        if wins:
+            parts.append("beat " + ", ".join("%s by %s%s" % (e(self.owner[l]), self.margin(f, l), ", the closest game of the week"
+                                                             if self.mkey(f, l) == closest else "") for l in wins))
+        if losses:
+            parts.append("lost to " + ", ".join("%s by %s" % (e(self.owner[w]), self.margin(w, f)) for w in losses))
+        shut = not wins and bool(losses)
+        if shut and len(bargains) >= 2:
+            a, b = bargains[0], bargains[1]
+            head = "%s got %s from %s and %s from %s and went %s anyway." % (
+                e(self.owner[f]), I.n1(a[3]), e(self.pname(a)), I.n1(b[3]), e(self.pname(b)), self.wkrec_c(f))
+            tail = "%s %s." % (e(self.owner[f]), "; ".join(parts))
+            txt = head + " " + tail
+        else:
+            card = next((c for c in self.pack.get("playcards", []) if c["owner"] == self.owner[f]), None)
+            withp = ""
+            if card and f != big_team:
+                m = re.search(r"(\d+) catches", card["boxLine"])
+                self.L.put("pts:" + card["player"], round(float(card["score"]), 1), "pack playcard (src_weekly)")
+                withp = ", with %s from %s%s" % (I.n1(card["score"]), e(card["player"]), (" on %s catches" % m.group(1)) if m else "")
+                if m:
+                    self.L.put("box:" + card["player"], I.tidy_box(card["boxLine"]), "pack playcard (nflverse box score)")
+            if wins and not losses or not withp:
+                txt = "%s scored %s%s and went %s: %s." % (e(self.owner[f]), self.score(f), withp, self.wkrec_c(f), "; ".join(parts))
+            else:
+                txt = "%s scored %s%s, and went %s: %s." % (e(self.owner[f]), self.score(f), withp, self.wkrec_c(f), "; ".join(parts))
+        if self.week_rank(f) == len(s):
+            txt += " That was the lowest score of the week."
+        dw, dl = self.div_rec(f)
+        if shut and dw == 0 and dl >= 4:
+            txt += " %s is %s inside the division%s." % (e(self.owner[f]), self.divrec_c(f), (
+                " and %s to make the playoffs" % self.po(f)) if self.odds_fresh() else "")
+        if shut and self.F.get("f.team.%s.best_available" % f) is not None and self.F.get("f.team.%s.could_have_won" % f) == "yes":
+            txt += " The best possible lineup, %s, would have won %s." % (
+                self.fact("f.team.%s.best_available" % f), "that game" if len(losses) == 1 else "a game")
+        return txt
+
+    def mkey(self, a, b):
+        s = self.ctx["mfl"]["scores"]
+        return round(abs(s[a] - s[b]), 1)
 
     def seg_div(self):
         s = self.ctx["mfl"]["scores"]
-        chapters, trows = [], []
         fresh = self.odds_fresh()
-        for k, pot in enumerate(self.pack["pots"]):
+        H = self.heat()
+        games = self.games_sorted()
+        closest = games[0][0] if games else None
+        big = getattr(self, "_big", None)
+        wa = SD.worst_angle(self.ctx, skip=big)
+        picks = self.kenny_weave()                      # {chapter name: [lt kenny html]}
+        chapters, trows = [], []
+        pots = self.pack["pots"]
+        intra = pots and all(len(p.get("divisions") or []) == 1 and len(p["games"]) == 3 for p in pots)
+        intro = ""
+        if intra:
+            kp = self.L.put("divweek:pots", len(pots), "pack pots")
+            kg = self.L.put("divweek:games", sum(len(p["games"]) for p in pots), "pack pots")
+            intro = self.desk([("Stuart", "Every game in Week %d was played inside a division: %s triangles of three teams, %s games in all, and "
+                                          "the same script in each one. One team swept. One split. One went home with nothing." % (
+                                              self.week, self.word(len(pots)), self.word(sum(len(p["games"]) for p in pots))))])
+        used = set()
+        for k, pot in enumerate(pots):
             gs = [(self.fid[g["winner"]], self.fid[g["loser"]]) for g in pot["games"]]
             teams = sorted({f for g in gs for f in g}, key=lambda f: -s[f])
             name = self.pretty(pot["tag"])
-            lines = self.team_lines(gs, teams, voice0=k)
+            lines = []
+            for i, f in enumerate(teams):
+                txt = self.team_line(f, gs, closest, big, self.rows_for(f, "bargain"))
+                st = self.ctx["mfl"]["standings"][f]
+                dw, dl = self.div_rec(f)
+                if dw + dl and dl == 0 and dw >= 3 and any(w_ == f for w_, _ in gs):
+                    txt += " That makes %s %s against the division." % (e(self.owner[f]), self.divrec_c(f))
+                if (st["h2hw"] + st["h2hl"]) and st["h2hw"] / float(st["h2hw"] + st["h2hl"]) >= 0.55 and dw + dl >= 4 and dw / float(dw + dl) <= 0.25:
+                    txt += " %s is %s overall but %s against the division. Everything won has been won somewhere else." % (
+                        e(self.owner[f]), self.rec_c(f), self.divrec_c(f))
+                lines.append(("Stuart" if (i + k) % 2 == 0 else "Rich", txt))
+            # equal division records, shared overall record, forecast contrasts, slides
+            recs = {f: self.div_rec(f) for f in teams}
+            if len(set(recs.values())) == 1 and sum(recs[teams[0]]) >= 4:
+                ov = sorted(teams, key=lambda f: (-self.ctx["mfl"]["standings"][f]["h2hw"], f))
+                lines.append(("Stuart" if len(lines) % 2 == 0 else "Rich", "Everyone in the division is %s against it, so the overall record decides: %s." % (
+                    self.divrec_c(teams[0]), join("%s %s %s" % (e(self.owner[f]), "leads at" if j == 0 else "is", self.rec_c(f)) for j, f in enumerate(ov)))))
+            same = [(a, b) for a in teams for b in teams if a < b and self.ctx["mfl"]["standings"][a]["h2hw"] == self.ctx["mfl"]["standings"][b]["h2hw"]
+                    and self.ctx["mfl"]["standings"][a]["h2hl"] == self.ctx["mfl"]["standings"][b]["h2hl"]]
+            sweeper = [f for f in teams if all(w == f for (w, l) in gs if f in (w, l))]
             if fresh:
-                divs = {self.ctx["d1"]["franchises"][f]["division"] for f in teams}
-                if len(divs) == 1:
-                    sim = self.odds_text()[0]
-                    lead = max(teams, key=lambda f: (sim["teams"][f]["div"], f))
-                    lines.append(("Stuart" if len(lines) % 2 == 0 else "Rich", "%s is %s to win the division, the best chance of the three." % (
-                        e(self.owner[lead]), self.dv(lead))))
+                sim = self.odds_text()[0]
+                if same:
+                    a, b = sorted(same[0], key=lambda f: -sim["teams"][f]["div"])
+                    lines.append(("Rich", "%s and %s are both %s, and the division is %s&rsquo;s at %s to %s&rsquo;s %s." % (
+                        e(self.owner[a]), e(self.owner[b]), self.rec_c(a), self.sn(a), self.dv(a), self.sn(b), self.dv(b))))
+                    if H and H[a]["rkFirst"] is not None and H[a]["rkFirst"] - H[a]["rkLast"] <= -4:
+                        lines[-1] = ("Rich", lines[-1][1] + " %s&rsquo;s scoring rank has slid from %s to %s over the last three weeks, and %s is still the one leading." % (
+                            self.sn(a), self.ordw(a, "rkFirst"), self.ordw(a, "rkLast"), self.sn(a)))
+                elif sweeper:
+                    sw = sweeper[0]
+                    better = [f for f in teams if f != sw and sim["teams"][f]["title"] > sim["teams"][sw]["title"] + 1e-9 and sim["teams"][f]["title"] >= 0.05]
+                    if better:
+                        o = max(better, key=lambda f: sim["teams"][f]["title"])
+                        lines.append(("Stuart", "%s is %s, and the forecast gives %s a better title chance, %s, than %s, %s." % (
+                            e(self.owner[o]), self.rec_c(o), self.sn(o), self.ti(o), self.sn(sw), self.ti(sw))))
+                    else:
+                        divs = {self.ctx["d1"]["franchises"][f]["division"] for f in teams}
+                        if len(divs) == 1:
+                            lead = max(teams, key=lambda f: (sim["teams"][f]["div"], f))
+                            lines.append(("Stuart", "%s is %s to win the division." % (e(self.owner[lead]), self.dv(lead))))
+            if wa and wa["fid"] in teams and self.ctx.get("archive"):
+                lines += self.worst_lines(wa)
+                used.add(wa["fid"])
             who, txt = lines[0]
             lines[0] = (who, "<b>%s.</b> %s" % (e(name), txt))
-            chapters.append(self.desk(lines))
+            chapters.append(self.desk(lines) + "".join(picks.pop(name, [])))
             cells = {"Swept": [], "Split": [], "Shut out": []}
             for f in teams:
                 w_ = sum(1 for g in gs if g[0] == f)
                 l_ = sum(1 for g in gs if g[1] == f)
                 cells["Swept" if l_ == 0 else "Shut out" if w_ == 0 else "Split"].append("%s %s" % (e(self.owner[f]), self.score(f)))
             trows.append(self.row([e(name)] + [", ".join(cells[c]) or "&mdash;" for c in ("Swept", "Split", "Shut out")]))
-        gap = self.kenny_gap()
+        extra = "".join(h for hs in picks.values() for h in hs)
+        self._worst_unplaced = wa if wa and wa["fid"] not in used else None
+        gap = self.kenny_gap() if not self.ctx.get("kennyPicks") else ""
         cap = ('<p class="caption">Week %d scores%s. A team is Swept when it won every game it played in the group, Shut out when it won none and '
-               'Split otherwise. Chat lines, once an editor chooses them, are owner posts in the league Discord, linked to the message.</p>' % (
-                   self.week, " after Elias corrections" if (self.ctx.get("eliasReport") or {}).get("teams") else ""))
+               'Split otherwise. Josh-style history lines use the league archive of weekly results (%s). Chat lines are owner posts in the league Discord, linked to the message.</p>' % (
+                   self.week, " after Elias corrections" if (self.ctx.get("eliasReport") or {}).get("teams") else "",
+                   "2010 is left out because its archived scores conflict with themselves" if "2010" in ((self.ctx.get("archive") or {}).get("excluded") or {}) else "all archived seasons used"))
+        cap = cap.replace("Josh-style history lines use", "History lines use")
         return self.section("divweek", "Division Week", 2, "Division Week <small>&mdash; every game, one chapter per division</small>",
-                            "".join(chapters) + gap + self.table(["Division", "Swept", "Split", "Shut out"], trows) + cap)
+                            intro + "".join(chapters) + extra + gap + self.table(["Division", "Swept", "Split", "Shut out"], trows) + cap)
+
+    # ------------------------------------------------------------ Kenny: committed picks (message ids), woven into chapters
+    def kenny_weave(self):
+        """{chapter name: [html]} from ctx["kennyPicks"]: [{"id": message id, "frame": bool, "note": text}, ...]. The editor chooses
+        ids (and writes the joke, which may not contain digits); the job writes the factual frame and links the quote."""
+        picks = (self.ctx.get("kennyPicks") or {}).get("picks") or []
+        if not picks:
+            return {}
+        chat = {m["message_id"]: m for m in self.ctx["d1"]["chat"]}
+        out, by_owner = {}, {}
+        for p in picks:
+            m = chat.get(str(p["id"]))
+            if not m:
+                raise ValueError("Kenny pick %s is not in the chat window" % p["id"])
+            by_owner.setdefault(m["owner_name"], []).append((p, m))
+        for owner, items in by_owner.items():
+            parts = []
+            for j, (p, m) in enumerate(items):
+                txt = " ".join((m["content"] or "").split())
+                if chat_exclusions.reason(m["message_id"], txt, chat_exclusions.excluded_ids()):
+                    raise ValueError("Kenny pick %s may not be used: %s" % (p["id"], chat_exclusions.reason(m["message_id"], txt)))
+                self.L.put("quote:" + m["message_id"], txt, "D1 ups_discord_messages", txt)
+                d = datetime.fromtimestamp(int(m["posted_at_unix"]), I.ET)
+                clock = "%d:%02d %s" % ((d.hour % 12) or 12, d.minute, "AM" if d.hour < 12 else "PM")
+                url = "https://discord.com/channels/%s/%s/%s" % (I.GUILD, m["channel_id"], m["message_id"])
+                q = '<a class="rcpt" href="%s" target="_blank" rel="noopener" title="%s &middot; #%s &middot; %s">&ldquo;%s&rdquo;</a>' % (
+                    url, e(owner), e(m["channel_name"]), I.et_clock(m["posted_at_unix"]), e(txt))
+                parts.append(("%s, %s, %s: %s" % (d.strftime("%A"), clock, e(owner), q)) if j == 0 else ("Then, at %s: %s" % (clock, q)))
+            tailp = []
+            fid = self.fid.get(owner)
+            if any(p.get("frame") for p, _ in items) and fid:
+                n = self.posts(owner)
+                tailp.append("%s scored %s this week and posted %s." % (e(owner), self.score(fid), (
+                    "once" if n == 1 else "%s times" % (self.word(n) if n <= 4 else self.posts_c(owner))) if n <= 4 else "%s times" % self.posts_c(owner)))
+                self.posts_c(owner)
+            for p, _ in items:
+                if p.get("note"):
+                    tailp.append(e(p["note"]))
+            out.setdefault(self.chapter_of(owner), []).append(self.lt("Kenny", " ".join(parts + tailp)))
+        return {k: ['<div class="desk-lines">%s</div>' % "".join(v)] for k, v in out.items()}
+
+    def chapter_of(self, owner):
+        for pot in self.pack["pots"]:
+            if any(owner in (g["winner"], g["loser"]) for g in pot["games"]):
+                return self.pretty(pot["tag"])
+        return "Other"
 
     def kenny_gap(self):
         chat = self.ctx["d1"]["chat"]
@@ -304,9 +610,10 @@ class StoryIssue(I.Issue):
             fid = self.fid.get(m["owner_name"])
             url = "https://discord.com/channels/%s/%s/%s" % (I.GUILD, m["channel_id"], m["message_id"])
             self.L.put("quote:" + m["message_id"], txt, "D1 ups_discord_messages", txt)
+            self.L.put("quoteid:" + m["message_id"], m["message_id"], "D1 ups_discord_messages (message id shown to the editor)")
             cands.setdefault(self.div_of(fid) if fid else "Other", []).append(
-                '<li><b>%s</b>, %s: <a class="rcpt" href="%s" target="_blank" rel="noopener">&ldquo;%s&rdquo;</a></li>' % (
-                    e(m["owner_name"]), I.et_clock(m["posted_at_unix"]), url, e(txt)))
+                '<li><b>%s</b>, %s (id %s): <a class="rcpt" href="%s" target="_blank" rel="noopener">&ldquo;%s&rdquo;</a></li>' % (
+                    e(m["owner_name"]), I.et_clock(m["posted_at_unix"]), m["message_id"], url, e(txt)))
         total = sum(len(v) for v in cands.values())
         if self.local:
             listing = "".join("<p style=\"font-weight:700;margin:.5rem 0 0\">%s</p><ol style=\"font-weight:400;margin:.2rem 0 0 1rem\">%s</ol>" % (
@@ -314,12 +621,13 @@ class StoryIssue(I.Issue):
         else:
             listing = " %s candidate line(s) are listed, verbatim, linked and grouped by division, in the local review copy only (raw chat " \
                       "stays off the public repo)." % self.L.put("count:candidates", total, "D1 ups_discord_messages window (usable lines)")
-            for k in [k for k in self.L.claims if k.startswith("quote:")]:
+            for k in [k for k in self.L.claims if k.startswith("quote:") or k.startswith("quoteid:")]:
                 del self.L.claims[k]
-        return self.gap("coffee:kenny", "coffee", "Kenny Mayne&rsquo;s lines are an editor&rsquo;s job (owner dossier). Choose from the verbatim "
-                        "candidates, weave each into the chapter it belongs to as a <code>lt kenny</code> line with its link, then remove this "
-                        "box. %d message(s) ruled out by an editor or touching family, health or similar were withheld and must not be "
-                        "used.%s" % (flagged, listing))
+        return self.gap("coffee:kenny", "coffee", "Kenny Mayne&rsquo;s lines are an editor&rsquo;s job (owner dossier). Pick the lines by adding "
+                        "their message ids to <code>site/wire/data/kenny_picks_%d_wk%02d.json</code> "
+                        "(<code>{\"picks\": [{\"id\": \"...\", \"frame\": true, \"note\": \"joke, no digits\"}]}</code>); the job then weaves each into its "
+                        "division&rsquo;s chapter with the link and removes this box. %d message(s) ruled out by an editor or touching family, health "
+                        "or similar were withheld and must not be used.%s" % (self.season, self.week, flagged, listing))
 
     # ------------------------------------------------------------ 3. Elias
     def seg_elias_story(self):
@@ -335,46 +643,85 @@ class StoryIssue(I.Issue):
         apch = {c["fid"]: c for c in rep.get("allplayChanges") or []}
         if not moved and not apch:
             return ""                                   # corrections only: nothing moved, nothing to tell
-        pub = (self.ctx.get("scoresPublished") or {})
         src_e = "elias.py check (MFL site news, Official Statistics Changes) vs scores_published_%d_wk%02d" % (self.season, self.week)
-        fids = sorted(set(moved) | set(apch), key=lambda f: (-abs((moved.get(f) or {}).get("delta", 0)), f))
-        lines = []
-        pl = [p for p in rep.get("players") or [] if p.get("status") == "starter"]
-        bits = []
-        for p in pl:
-            ch = (p.get("elias") or [{}])[0]
-            d = self.L.put("elias:delta:" + p["pid"], round(p["delta"], 1), src_e, "%+.1f" % p["delta"])
-            fr = self.L.put("elias:stat:%s:from" % p["pid"], ch.get("from"), src_e, "%d" % ch["from"]) if ch.get("from") is not None else ""
-            to = self.L.put("elias:stat:%s:to" % p["pid"], ch.get("to"), src_e, "%d" % ch["to"]) if ch.get("to") is not None else ""
-            what = "%s went from %s to %s" % (e(ch.get("stat", "a stat").lower()), fr, to) if fr and to else "a stat changed"
-            bits.append("%s&rsquo;s %s, a change of %s for %s" % (e(p["player"]), what, d.replace("-", "&minus;"), e(self.owner[p["fid"]])))
+        s = self.ctx["mfl"]["scores"]
+        pub = (self.ctx.get("scoresPublished") or {}).get("teams") or {}
+        half = lambda d: "half a point" if abs(abs(d) - 0.5) < 1e-9 else None
         n_c = self.L.put("elias:count", n_official, src_e)
-        lines.append(("Stuart", "The league office posted %s official stat changes for Week %d, and %s: %s." % (
-            n_c, self.week, "one touched a UPS starter" if len(bits) == 1 else "%d touched UPS starters" % len(bits), "; ".join(bits)) if bits else
-            "The league office posted %s official stat changes for Week %d." % (n_c, self.week)))
-        mv = []
-        for f in sorted(moved, key=lambda f: -moved[f]["delta"]):
-            b = self.L.put("elias:before:" + f, round(moved[f]["before"], 1), src_e)
-            mv.append("%s went from %s to %s" % (e(self.owner[f]), b, self.score(f)))
-        if mv:
-            lines.append(("Rich", join(mv) + ". Every number in this issue already counts the corrected scores."))
+        bits = []
+        for p in [p for p in rep.get("players") or [] if p.get("status") == "starter"]:
+            d = self.L.put("elias:delta:" + p["pid"], round(p["delta"], 1), src_e, "%+.1f" % p["delta"])
+            acts = []
+            for ch in p.get("elias") or []:
+                diff = int(round(ch["to"] - ch["from"]))
+                fr = self.L.put("elias:stat:%s:%s:from" % (p["pid"], ch["stat"]), ch["from"], src_e, "%d" % ch["from"])
+                to = self.L.put("elias:stat:%s:%s:to" % (p["pid"], ch["stat"]), ch["to"], src_e, "%d" % ch["to"])
+                nm = ch["stat"].lower()
+                nm1 = nm[:-1] if nm.endswith("s") and abs(diff) == 1 else nm
+                one = lambda d_: ("%s %s" % ("an" if nm1[0] in "aeiou" else "a", nm1)) if abs(d_) == 1 else "%s %s" % (self.word(abs(d_)), nm1)
+                acts.append("picked up a second %s" % nm1 if diff == 1 and ch["from"] == 1 else
+                            "gained %s" % one(diff) if diff > 0 else "lost %s" % one(diff))
+            amt = half(p["delta"]) or ("%s points" % d.replace("-", "&minus;").lstrip("+"))
+            acts_s = " and ".join(acts) if acts else "had a stat changed"
+            owner = e(self.owner[p["fid"]])
+            bits.append("%s %s, which is %s for %s" % (e(p["player"]), acts_s, amt, owner)
+                        if p["delta"] > 0 else "%s %s, and that cost %s %s" % (e(p["player"]), acts_s, owner, amt))
+        lines = [("Stuart", "Breaking, and it is small. The league office posted %s official stat changes for Week %d, and %s touched a UPS starter. %s." % (
+            n_c, self.week, self.word(len(bits)) if bits else "none", ". ".join(b[0].upper() + b[1:] for b in bits)) if bits else
+            "The league office posted %s official stat changes for Week %d." % (n_c, self.week))]
+        mv = sorted(moved, key=lambda f: -moved[f]["delta"])
+        swapped = [f for f in apch]
+        if swapped and len(swapped) == 2:
+            m_ = next((f for f in swapped if f in moved), swapped[0])
+            o_ = next(f for f in swapped if f != m_)
+            gb = self.L.put("elias:gap:before:" + m_, round(abs(s[o_] - pub.get(m_, s[m_])), 1), src_e)
+            ga = self.L.put("elias:gap:after:" + m_, round(abs(s[o_] - s[m_]), 1), src_e)
+            hb = self.L.put("elias:before:" + m_, round(moved[m_]["before"], 1), src_e) if m_ in moved else self.score(m_)
+            up = moved[m_]["delta"] > 0 if m_ in moved else True
+            tenths = lambda v: ("%s tenth%s" % ("a" if round(v * 10) == 1 else self.word(int(round(v * 10))), "" if round(v * 10) == 1 else "s")) if v < 0.95 else None
+            lines.append(("Rich", "%s, and it changed the table. %s went from %s to %s. %s scored %s. Before the correction %s was %s %s by %s. Now %s is %s by %s." % (
+                (half(moved[m_]["delta"]) or "A correction").capitalize() if m_ in moved else "A correction", e(self.owner[m_]), hb, self.score(m_),
+                e(self.owner[o_]), self.score(o_), e(self.owner[o_] if up else self.owner[m_]), "ahead of", e(self.owner[m_] if up else self.owner[o_]), tenths(float(gb)) or gb,
+                e(self.owner[m_] if up else self.owner[o_]), "ahead", tenths(float(ga)) or ga)))
+        elif mv:
+            lines.append(("Rich", "%s." % join("%s went from %s to %s" % (e(self.owner[f]), self.L.put("elias:before:" + f, round(moved[f]["before"], 1), src_e), self.score(f)) for f in mv)))
         if apch:
             ch = []
-            for f in sorted(apch):
-                b, a = apch[f]["before"], apch[f]["after"]
+            order = sorted(apch, key=lambda f: (f not in moved, f))
+            for f in order:
+                b = apch[f]["before"]
                 wb = self.L.put("elias:wkapBefore:" + f, "%d-%d" % (b["w"], b["l"]), src_e, I.wl(b["w"], b["l"]))
                 ch.append("%s&rsquo;s Week %d All-Play went from %s to %s" % (e(self.owner[f]), self.week, wb, self.wkap_c(f)))
-            lines.append(("Stuart", "That moved an All-Play game: %s. Their season records moved with it: %s." % (join(ch), join(
-                "%s is %s, not %s" % (e(self.owner[f]), self.ap_c(f), self.L.put(
-                    "elias:apBefore:" + f, self.season_before(f, apch[f]), src_e, I.wl(*self.season_before(f, apch[f]).split("-"))))
-                for f in sorted(apch)))))
+            sea = "; ".join("%s is %s, not %s" % (e(self.owner[f]), self.ap_c(f), self.L.put(
+                "elias:apBefore:" + f, self.season_before(f, apch[f]), src_e, I.wl(*self.season_before(f, apch[f]).split("-")))) for f in order)
+            t = "That swapped one All-Play game between them. %s. Their season All-Play records moved with it: %s." % (
+                (ch[0] + ", and " + ch[1].replace("&rsquo;s Week %d All-Play went" % self.week, "&rsquo;s went")) if len(ch) == 2 else "; ".join(ch), sea) if len(order) == 2 \
+                else "That moved All-Play games: %s. Season records moved with it: %s." % ("; ".join(ch), sea)
+            rk = {c["fid"]: c for c in rep.get("rankChanges") or []}
+            if rk and set(rk) == set(order):
+                t += " Their Week %d scoring ranks %s too, %s." % (self.week, "swapped" if len(rk) == 2 else "moved", join(
+                    "%s %s" % (e(self.owner[f]).split(" ")[-1] if False else e(self.owner[f]), self.L.put("elias:rank:" + f, rk[f]["after"], src_e, self._ord(rk[f]["after"]).replace("th", "th")) and self.ORDW.get(rk[f]["after"], str(rk[f]["after"])))
+                    for f in order))
+            lines.append(("Stuart", t))
         flips = rep.get("resultsFlipped")
+        tailr = []
         if flips == 0:
-            lines.append(("Rich", "No head-to-head result flipped."))
+            tailr.append("Nobody&rsquo;s result flipped.")
         elif flips:
-            lines.append(("Rich", "%s head-to-head result(s) flipped." % self.L.put("elias:flipped", flips, src_e)))
+            tailr.append("%s head-to-head result(s) flipped." % self.L.put("elias:flipped", flips, src_e))
+        for f in [f for f in mv if f not in apch]:
+            d = moved[f]["delta"]
+            order_ = sorted(s, key=lambda g: -s[g])
+            i = order_.index(f)
+            nb = order_[i + 1] if d < 0 and i + 1 < len(order_) else (order_[i - 1] if d > 0 and i > 0 else None)
+            if nb:
+                tailr.append("%s&rsquo;s %s is still %s %s&rsquo;s %s, so the All-Play did not move." % (
+                    e(self.owner[f]), self.score(f), "above" if d < 0 else "below", e(self.owner[nb]), self.score(nb)))
+        tailr.append("Every number in this issue already counts the corrected scores.")
+        lines.append(("Rich", " ".join(tailr)))
         rows = []
-        for f in fids:
+        order = [f for f in sorted(apch, key=lambda f: (f not in moved, f))] + [f for f in mv if f not in apch]
+        for f in order:
             mvd = moved.get(f)
             before = self.L.put("elias:before:" + f, round(mvd["before"], 1), src_e) if mvd else self.score(f)
             ch = ("%+.1f" % mvd["delta"]).replace("-", "&minus;") if mvd else "0.0"
@@ -385,7 +732,9 @@ class StoryIssue(I.Issue):
             rows.append(self.row([e(self.owner[f]), before, self.score(f), ch, ap]))
         cap = ('<p class="caption">Source: MFL site news, Official Statistics Changes (%s items for Week %d), compared with the scores frozen when the recap was '
                'built.%s</p>' % (n_c, self.week, " The league message goes out because an All-Play record changed." if apch else ""))
-        return self.section("elias", "Elias", 3, "Elias <small>&mdash; %s</small>" % ("a correction moved the board" if apch else "a score moved"),
+        small = all(abs(t["delta"]) <= 0.5 + 1e-9 for t in moved.values())
+        return self.section("elias", "Elias", 3, "Elias <small>&mdash; %s</small>" % (
+            "half a point moved the board" if apch and small else "a correction moved the board" if apch else "a score moved"),
                             self.desk(lines) + self.table(["Team", "Published", "After Elias", "Change", "Week %d All-Play" % self.week], rows) + cap)
 
     def season_before(self, f, ch):
@@ -401,64 +750,145 @@ class StoryIssue(I.Issue):
             by_div.setdefault(teams[f]["division"], []).append(f)
         fav = {d: max(fs, key=lambda f: (teams[f]["div"], f)) for d, fs in by_div.items()}
         favs = sorted(fav.values(), key=lambda f: (-teams[f]["div"], f))
-        lines = [("Stuart", "Here is the shape of it. %s division favorites: %s." % (
-            WORDS.get(len(favs), str(len(favs))).capitalize(),
-            join("%s at %s to win %s" % (e(self.owner[f]), self.dv(f), e(self.div_of(f))) for f in favs)))]
+        t = "Here is the shape of it. %s division leaders: %s." % (self.word(len(favs)).capitalize(), join(
+            "%s at %s to win %s" % (e(self.owner[f]), self.dv(f), e(self.div_of(f))) if j == 0 else "%s at %s" % (e(self.owner[f]), self.dv(f))
+            for j, f in enumerate(favs)))
+        soft = min(favs, key=lambda f: (teams[f]["div"], f))
+        mates = sorted([g for g in by_div[teams[soft]["division"]] if g != soft], key=lambda g: -teams[g]["div"])
+        if teams[soft]["div"] < 0.8 and teams[mates[0]]["div"] >= 0.2:
+            t += " %s&rsquo;s is the soft one, with %s sharing the rest." % (e(self.owner[soft]), join(
+                "%s at %s" % (e(self.owner[g]), self.dv(g)) for g in mates if teams[g]["div"] > 0))
+        lines = [("Stuart", t)]
         rest = [f for f in order if f not in favs]
         wild = [f for f in rest if teams[f]["po"] >= 0.08]
         low = [f for f in rest if teams[f]["po"] < 0.08]
         if wild:
-            lines.append(("Rich", "Then the wild-card road: %s." % join(
-                "%s is %s to make the playoffs with a %s chance of winning the division" % (e(self.owner[f]), self.po(f), self.dv(f)) for f in wild)))
+            lead = wild[:2]
+            parts = []
+            for f in lead:
+                if teams[f]["po"] >= 0.5 and teams[f]["div"] < 0.5:
+                    parts.append("%s is %s to make the playoffs with only a %s chance of winning the division, so %s gets in the other way" % (
+                        e(self.owner[f]), self.po(f), self.dv(f), self.sn(f)) if teams[f]["div"] >= 0.01 else
+                                 "%s is %s with a %s division chance, and %s is counting entirely on a wild card" % (e(self.owner[f]), self.po(f), self.dv(f), self.sn(f)))
+                else:
+                    parts.append("%s is %s" % (e(self.owner[f]), self.po(f)))
+            rem = wild[2:]
+            t2 = "Then the wild-card road. %s." % ". ".join(parts)
+            if rem:
+                t2 += " %s." % join(("%s is %s" if j == 0 else "%s %s") % (e(self.owner[f]) if j == 0 else self.sn(f), self.po(f)) for j, f in enumerate(rem))
+            lines.append(("Rich", t2.replace(". .", ".")))
         if low:
-            lines.append(("Stuart", "And the bottom: %s." % join("%s at %s" % (e(self.owner[f]), self.po(f)) for f in low)))
+            lines.append(("Stuart", "And the bottom: %s." % join("%s is at %s" % (e(self.owner[f]), self.po(f)) if j == 0 else "%s at %s" % (e(self.owner[f]), self.po(f))
+                                                                for j, f in enumerate(low))))
         return lines
 
     # ------------------------------------------------------------ 5. Plays
     def seg_story_plays(self):
-        gaps, lists, caption, proven = self.bb_parts()
+        proven = self.proven_rows()
+        gaps, lists, caption = self._bbgaps, self._bblists, self._bbcap
         cards = self.play_cards(linked_only=True)
-        rows = []
-        for tid in ("t.bb.off.bargain", "t.bb.idp.bargain"):
-            rows += [("bargain", tid, r) for r in proven.get(tid, [])]
-        for tid in ("t.bb.off.bust", "t.bb.idp.bust"):
-            rows += [("bust", tid, r) for r in proven.get(tid, [])]
+        boxes = {c["player"]: c["boxLine"] for c in self.pack.get("playcards", [])}
 
-        def d(r):
+        def dd(r):
             return abs(float(r[4].replace("+", "").replace("-", "").replace("−", "")))
+        off_b = sorted(proven.get("t.bb.off.bargain", []), key=lambda r: (-dd(r), r[0]))
+        idp_b = sorted(proven.get("t.bb.idp.bargain", []), key=lambda r: (-dd(r), r[0]))
+        allb = sorted(off_b + idp_b, key=lambda r: (-dd(r), r[0]))
+        ordn = {0: "biggest", 1: "second-biggest", 2: "third-biggest"}
 
-        def nm(r):
-            return re.sub(r"\s*\(.*$", "", r[0])
+        def use(r):
+            nm = self.pname(r)
+            bl = boxes.get(nm)
+            if bl:
+                self.L.put("box:" + nm, I.tidy_box(bl), "pack playcard (nflverse box score)")
+                return I.tidy_box(bl)
+            u = r[5] if len(r) > 5 and r[5] else ""
+            return re.sub(r"\s*\([\d.]+\)$", "", u)
 
-        def one(r, tail=""):
-            fid = self.fid[r[1]]
-            return "%s was projected for %s and scored %s for %s%s" % (e(nm(r)), I.n1(r[2]), I.n1(r[3]), e(r[1]), tail)
-        bargains = sorted([x for x in rows if x[0] == "bargain"], key=lambda x: (-d(x[2]), nm(x[2])))
-        busts = sorted([x for x in rows if x[0] == "bust"], key=lambda x: (-d(x[2]), nm(x[2])))
+        def box_phrase(r):
+            b = use(r)
+            if not b:
+                return ""
+            m = re.match(r"(\d+) catches on (\d+) targets for (\d+)(.*)$", b)
+            return " on %s catches for %s yards" % (m.group(1), m.group(3)) if m else (": " + b)
         lines = []
-        if bargains:
-            r = bargains[0][2]
-            use = (" (%s)" % e(re.sub(r"\s*\([\d.]+\)$", "", r[5]))) if len(r) > 5 and r[5] else ""
-            lines.append(("Stuart", "Start with the number nobody had. %s%s. That is %s, the biggest bargain of the week." % (one(r), use, e(r[4]))))
-        if len(bargains) > 1:
-            r = bargains[1][2]
+        if allb:
+            r = allb[0]
             f = self.fid[r[1]]
-            rec = self.week_records()[f]
-            lines.append(("Rich", "%s. %s went %s%s." % (one(r), e(r[1]), self.wkrec_c(f),
-                                                         ", so a bargain is not a guarantee" if rec[0] == 0 else "")))
-        if busts:
-            r = busts[0][2]
+            seg = "Start with the number nobody had. %s was projected for %s and scored %s for %s%s. That is %s, the biggest bargain of the week." % (
+                e(self.pname(r)), I.n1(r[2]), I.n1(r[3]), e(r[1]), (": " + e(self.box_prose(use(r)))) if use(r) else "", e(r[4]))
+            mates = [x for x in allb[1:] if x[1] == r[1]]
+            if mates:
+                seg += " %s added %s against a %s projection." % (e(self.pname(mates[0])), I.n1(mates[0][3]), I.n1(mates[0][2]))
+            lines.append(("Stuart", seg))
+        rest = [x for x in allb[1:] if not (allb and x[1] == allb[0][1])][:3]
+        if rest:
+            r = rest[0]
             f = self.fid[r[1]]
-            lines.append(("Stuart", "Now the other side. %s, a gap of %s; %s scored %s and went %s." % (
-                one(r), e(r[4]).replace("-", "&minus;"), e(r[1]), self.score(f), self.wkrec_c(f))))
-        if len(busts) > 1:
-            r = busts[1][2]
-            f = self.fid[r[1]]
-            lines.append(("Rich", "%s, a gap of %s; %s scored %s." % (one(r), e(r[4]).replace("-", "&minus;"), e(r[1]), self.score(f))))
-        idp = [x for x in bargains if x[1] == "t.bb.idp.bargain"]
-        if idp:
-            r = idp[0][2]
-            lines.append(("Stuart", "On defense, %s." % one(r)))
+            t = "Bargains do not guarantee wins. %s was projected for %s and scored %s for %s, the second-biggest bargain of the week, and %s went %s." % (
+                e(self.pname(r)), I.n1(r[2]), I.n1(r[3]), e(r[1]), e(r[1]), self.wkrec_c(f)) if self.week_records()[f][0] == 0 else \
+                "%s was projected for %s and scored %s for %s, another big bargain." % (e(self.pname(r)), I.n1(r[2]), I.n1(r[3]), e(r[1]))
+            for r2 in rest[1:3]:
+                pw = self.posword(r2)
+                who = ("%s, %s&rsquo;s %s," % (e(self.pname(r2)), e(r2[1]), pw)) if pw else e(self.pname(r2))
+                if pw:
+                    t += " %s was projected for %s and put up %s%s." % (who, I.n1(r2[2]), I.n1(r2[3]), e(box_phrase(r2)) if box_phrase(r2).startswith(" on") else "")
+                else:
+                    t += " %s got %s from %s against a %s projection." % (e(r2[1]), I.n1(r2[3]), e(self.pname(r2)), I.n1(r2[2]))
+            lines.append(("Rich", t))
+        # busts: the combined-miss framing per team
+        by_owner = {}
+        for tid in ("t.bb.off.bust", "t.bb.idp.bust"):
+            for r in proven.get(tid, []):
+                by_owner.setdefault(self.fid[r[1]], []).append(r)
+        short = lambda rows: round(sum(float(r[2]) - float(r[3]) for r in rows), 1)
+        groups = sorted([(f, rows) for f, rows in by_owner.items() if len(rows) >= 2], key=lambda x: (-short(x[1]), x[0]))
+
+        def miss_line(f, rows):
+            rows = sorted(rows, key=lambda r: float(r[2]) - float(r[3]), reverse=True)[:2]
+            tot = self.L.put("miss:" + f, {"rows": [[self.pname(r), float(r[2]), float(r[3])] for r in rows], "short": short(rows)},
+                             "pack t.bb busts (projection captured before kickoff)", I.n1(short(rows)))
+            return rows, tot
+        s = self.ctx["mfl"]["scores"]
+        used_owner = set()
+        if groups:
+            f, rows = groups[0]
+            rows, tot = miss_line(f, rows)
+            lines.append(("Stuart", "Now the other side. %s started %s and %s, projected for %s and %s, and got %s and %s from them. That is %s projected points that never showed up, and %s still scored %s and went %s." % (
+                e(self.owner[f]), e(self.pname(rows[0])), e(self.pname(rows[1])), I.n1(rows[0][2]), I.n1(rows[1][2]), I.n1(rows[0][3]), I.n1(rows[1][3]),
+                tot, e(self.owner[f]), self.score(f), self.wkrec_c(f))))
+            used_owner.add(f)
+        winners = sorted([(r, f) for f, rows in by_owner.items() for r in rows if f not in used_owner and self.week_records()[f][0] > 0
+                          and self.week_records()[f][1] == 0], key=lambda x: -(float(x[0][2]) - float(x[0][3])))
+        if winners:
+            r, f = winners[0]
+            lines.append(("Rich", "%s&rsquo;s %s went from %s projected to %s, and %s still scored %s." % (
+                e(self.owner[f]), e(self.pname(r)), I.n1(r[2]), I.n1(r[3]).replace("-", "&minus;"), e(self.owner[f]), self.score(f))))
+            used_owner.add(f)
+        losers = [(f, rows) for f, rows in groups[1:] if self.week_records()[f][0] == 0 and f not in used_owner]
+        if losers:
+            f, rows = losers[0]
+            rows, tot = miss_line(f, rows)
+            lines.append(("Rich", "%s was not so lucky. %s was projected for %s and scored %s, and %s was projected for %s and scored %s. Together that is %s points under projection, in a week %s scored %s and lost %s." % (
+                e(self.owner[f]), e(self.pname(rows[0])), I.n1(rows[0][2]), I.n1(rows[0][3]), e(self.pname(rows[1])), I.n1(rows[1][2]), I.n1(rows[1][3]),
+                tot, e(self.owner[f]), self.score(f), "both games" if len(self.ctx["mfl"]["games"]) and self.week_records()[f][1] == 2 else "every game")))
+        elif groups[1:] and False:
+            pass
+        # defense
+        if idp_b:
+            r = idp_b[0]
+            t = "On defense, %s gave %s %s on a %s projection" % (e(self.pname(r)), e(r[1]), I.n1(r[3]), I.n1(r[2]))
+            owners = {}
+            for x in idp_b[1:]:
+                owners.setdefault(x[1], []).append(x)
+            pair = next(((o, xs) for o, xs in owners.items() if len(xs) >= 2), None)
+            if pair:
+                o, xs = pair
+                f = self.fid[o]
+                pl = self.posword(xs[0], True) if self.posword(xs[0]) == self.posword(xs[1]) else None
+                t += ", and %s&rsquo;s %s %s and %s beat their projections by %s and %s. %s scored %s, %s best of the week" % (
+                    e(o), pl or "defenders", e(self.pname(xs[0])), e(self.pname(xs[1])), e(xs[0][4]).lstrip("+"), e(xs[1][4]).lstrip("+"), self.sn(f), self.score(f), self.week_rank_c(f))
+            lines.append(("Stuart", t + "."))
         return self.section("plays", "The Plays That Made the Week", 5,
                             "The Plays That Made the Week <small>&mdash; the bargains, the busts, and who they carried</small>",
                             self.desk(lines) + gaps + '<div class="reel">%s</div>' % "".join(cards)
@@ -466,14 +896,14 @@ class StoryIssue(I.Issue):
 
     # ------------------------------------------------------------ 6. The Season So Far
     def seg_story_season(self):
-        H = STORIES.heat(self.ctx)
+        H = self.heat()
         S = STORIES.survival(self.ctx)
         g_land, land = self.seg_landscape(bare=True)
         g_heat, heat = self.seg_heat(bare=True)
         g_surv, surv = self.seg_survival(bare=True)
         lines = []
+        src = self.heat_src()
         if H:
-            src = "D1 src_franchise_weekly_score + src_schedule, weeks 1-%d" % self.week
             first, last = STORIES.windows(self.week)
             w_last = "Weeks %d&ndash;%d" % (last[0], last[-1]) if len(last) > 1 else "Week %d" % last[0]
             w_first = ("Weeks %d&ndash;%d" % (first[0], first[-1]) if len(first) > 1 else "Week %d" % first[0]) if first else ""
@@ -481,50 +911,71 @@ class StoryIssue(I.Issue):
             dom = sorted([f for f in H if H[f]["label"] == "Dominant"], key=lambda f: (-H[f]["ap3"][0], f))
             rest = sorted([f for f in H if f not in dom], key=lambda f: (-H[f]["ap3"][0], f))
             if dom:
-                t1 = "Treat the last three weeks as their own season. In %s, the Dominant teams in All-Play are %s." % (
-                    w_last, join("%s at %s" % (e(self.owner[f]), a3(f)) for f in dom[:3]))
+                t1 = "Treat the last three weeks as their own season. In %s, %s." % (w_last, join(
+                    "%s is %s in All-Play" % (e(self.owner[f]), a3(f)) if j == 0 else "%s is %s" % (e(self.owner[f]), a3(f)) for j, f in enumerate(dom[:3])))
+                t1 += " Those are the only %s Dominant teams in the league." % self.word(len(dom)) if len(dom) <= 4 else ""
             else:
                 t1 = "Treat the last three weeks as their own season. In %s, no team was Dominant." % w_last
             t1 += " The next best are %s." % join("%s at %s" % (e(self.owner[f]), a3(f)) for f in rest[:2])
             lines.append(("Stuart", t1))
-            rk = lambda f, k: self.L.put("heat:%s:%s" % (k, f), H[f][k], src, self._ord(H[f][k]))
             moves = [(f, H[f]["rkFirst"] - H[f]["rkLast"]) for f in H if H[f]["rkFirst"] is not None]
-            up = [f for f, m in sorted(moves, key=lambda x: (-x[1], x[0])) if m >= 4][:2]
-            down = [f for f, m in sorted(moves, key=lambda x: (x[1], x[0])) if m <= -4][:2]
-            mv = ["%s %s from %s in scoring in %s to %s in %s" % (e(self.owner[f]), "climbed", rk(f, "rkFirst"), w_first, rk(f, "rkLast"), w_last) for f in up]
-            mv += ["%s %s from %s to %s" % (e(self.owner[f]), "fell", rk(f, "rkFirst"), rk(f, "rkLast")) for f in down]
+            up = [f for f, m in sorted(moves, key=lambda x: (-x[1], x[0])) if m >= 3][:2]
+            down = [f for f, m in sorted(moves, key=lambda x: (x[1], H[x[0]]["rkFirst"], x[0])) if m <= -3][:3]
+            mv = []
+            for f in up:
+                mv.append("%s climbed from %s in scoring in %s to %s in %s" % (e(self.owner[f]), self.ordw(f, "rkFirst"), w_first, self.ordw(f, "rkLast"), w_last))
+            tail_dn = []
+            for j, f in enumerate(down):
+                if j == 0:
+                    mv.append("%s fell from %s to %s and is %s over the stretch" % (e(self.owner[f]), self.ordw(f, "rkFirst"), self.ordw(f, "rkLast"), a3(f)))
+                else:
+                    tail_dn.append((f, "%s from %s to %s" % ("went" if not tail_dn else "", self.ordw(f, "rkFirst"), self.ordw(f, "rkLast"))))
+            if tail_dn:
+                mv.append(", and ".join(("%s %s" % (e(self.owner[f]) if i == 0 else self.sn(f), t_.strip())) for i, (f, t_) in enumerate(tail_dn)))
             if mv:
-                lines.append(("Rich", "The movers. %s." % join(mv)))
+                lines.append(("Rich", "The movers. %s." % ". ".join(mv)))
         if S:
             rows, meta = S
             sim_ok = self.odds_fresh()
-            comp = lambda m, n_: m / float(n_) if n_ else None
-            gap_ = sorted([f for f in rows if comp(*rows[f]["apHist"]) is not None and comp(*rows[f]["winHist"]) is not None
-                           and rows[f]["apHist"][1] >= 5 and rows[f]["winHist"][1] >= 5],
-                          key=lambda f: (-abs(comp(*rows[f]["apHist"]) - comp(*rows[f]["winHist"])), f))
             hs = "D1 weeks 1-%d of %d-%d + /api/playoff-bracket" % (self.week, meta["firstAp"], meta["lastAp"])
-            hv = lambda f, k: self.L.put("hist:%s:%s" % (k, f), rows[f][("apHist" if k.startswith("ap") else "winHist")][0 if k.endswith("Made") else 1], hs)
-            if gap_:
-                f = gap_[0]
-                tail = (" The forecast lands at %s." % self.po(f)) if sim_ok else ""
-                lines.append(("Stuart", "Then ask what history says. %s is where the two histories disagree most: %s of %s teams with the same All-Play rank made the playoffs, "
-                                        "but %s of %s with the same win total did.%s" % (e(self.owner[f]), hv(f, "apMade"), hv(f, "apN"), hv(f, "winMade"), hv(f, "winN"), tail)))
+            hv = lambda f, k: self.L.put("hist:%s:%s" % (k, f), rows[f]["apHist"][0 if k == "apMade" else 1] if k.startswith("ap") else rows[f]["winHist"][0 if k == "winMade" else 1], hs)
+            rate = lambda m_n: (m_n[0] / float(m_n[1])) if m_n[1] else None
             if sim_ok:
                 sim = self.odds_text()[0]
-                low = sorted(rows, key=lambda f: (sim["teams"][f]["po"], f))[:2]
-                lines.append(("Rich", "At the bottom, %s." % "; ".join("%s is %s of %s by All-Play rank and %s of %s by wins, with a %s forecast" % (
-                    e(self.owner[f]), hv(f, "apMade"), hv(f, "apN"), hv(f, "winMade"), hv(f, "winN"), self.po(f)) for f in low)))
+                top = sorted(rows, key=lambda f: (-sim["teams"][f]["po"], f))[:4]
+                lines.append(("Stuart", "Then ask what history says about where everyone sits after Week %d. The Survival Line looks at past seasons: of teams with %s All-Play rank at this point, %s of %s made the playoffs; %s" % (
+                    self.week, "%s&rsquo;s" % e(self.owner[top[0]]), hv(top[0], "apMade"), hv(top[0], "apN"),
+                    "; ".join("%s&rsquo;s group, %s of %s" % (e(self.owner[f]), hv(f, "apMade"), hv(f, "apN")) for f in top[1:]) + ".")))
+            cand = [f for f in rows if rate(rows[f]["apHist"]) is not None and rate(rows[f]["winHist"]) is not None and rows[f]["apHist"][1] >= 5
+                    and rows[f]["winHist"][1] >= 5 and rate(rows[f]["winHist"]) - rate(rows[f]["apHist"]) >= 0.25 and rate(rows[f]["winHist"]) >= 0.6]
+            if cand:
+                f = min(cand, key=lambda f: (rate(rows[f]["apHist"]), f))
+                lo, hi = rate(rows[f]["apHist"]), rate(rows[f]["winHist"])
+                mid = sim_ok and lo <= sim["teams"][f]["po"] <= hi
+                tail = (" The forecast %s at %s." % ("lands in between" if mid else "lands", self.po(f))) if sim_ok else ""
+                lines.append(("Rich", "%s is where the two histories disagree. Only %s of %s teams with that All-Play rank made it. But %s of %s teams with that win total did. "
+                                      "The record says %s is fine. The scoring says history is not so sure.%s" % (
+                                          e(self.owner[f]), hv(f, "apMade"), hv(f, "apN"), hv(f, "winMade"), hv(f, "winN"), e(self.owner[f]), tail)))
+            if sim_ok:
+                low = sorted(sorted(rows, key=lambda f: (sim["teams"][f]["po"], f))[:3], key=lambda f: ((rows[f]["apHist"][0] / float(rows[f]["apHist"][1])) if rows[f]["apHist"][1] else 0, f))
+                f1, f2, f3 = low
+                hh = lambda f: "%s of %s by All-Play rank and %s of %s by wins" % (hv(f, "apMade"), hv(f, "apN"), hv(f, "winMade"), hv(f, "winN"))
+                hs_ = lambda f: "%s of %s and %s of %s" % (hv(f, "apMade"), hv(f, "apN"), hv(f, "winMade"), hv(f, "winN"))
+                lines.append(("Stuart", "At the bottom, %s is %s, and %s is %s. Their odds are %s and %s. %s is %s, and %s." % (
+                    e(self.owner[f1]), hh(f1), e(self.owner[f2]), hs_(f2), self.po(f1), self.po(f2), e(self.owner[f3]), hs_(f3), self.po(f3))))
         if H:
-            src = "D1 src_franchise_weekly_score + src_schedule, weeks 1-%d" % self.week
             lk = sorted(H, key=lambda f: (-H[f]["luck"], f))
             lu, un = lk[0], lk[-1]
             bn = max(H, key=lambda f: (H[f]["bench"], f))
             sg = lambda v: ("%+.1f" % v).replace("-", "&minus;")
-            lines.append(("Stuart", "And luck. %s is %s wins over what the All-Play rate predicts, the most in the league, and %s is %s, the fewest. %s leaves %s points on the bench every week, the most, and %s of %s losses would have been wins with the best lineup." % (
+            lines.append(("Rich", "And luck. %s is %s wins over what the All-Play rate predicts, the most in the league, and %s is %s, the fewest. %s leaves %s points on the bench every week, %s the most, and %s of %s losses would have been wins with the best lineup." % (
                 e(self.owner[lu]), self.L.put("heat:luck:" + lu, H[lu]["luck"], src, sg(H[lu]["luck"])), e(self.owner[un]),
                 self.L.put("heat:luck:" + un, H[un]["luck"], src, sg(H[un]["luck"])), e(self.owner[bn]),
-                self.L.put("heat:bench:" + bn, H[bn]["bench"], src, "%.1f" % H[bn]["bench"]),
+                self.L.put("heat:bench:" + bn, H[bn]["bench"], src, "%.1f" % H[bn]["bench"]), "also" if bn in (lu, un) or True else "",
                 self.L.put("heat:lostBest:" + bn, H[bn]["lostBest"], src), self.L.put("heat:losses:" + bn, H[bn]["losses"], src))))
+        wu = getattr(self, "_worst_unplaced", None)
+        if wu and self.ctx.get("archive"):
+            lines = self.worst_lines(wu) + lines
         return self.section("season", "The Season So Far", 6, "The Season So Far <small>&mdash; who is real, who is rising, and what history says</small>",
                             self.desk(lines) + g_land + g_heat + g_surv +
                             '<details class="wire-more"><summary>The standings, Heat Check and Survival Line tables</summary>%s%s%s</details>' % (land, heat, surv))

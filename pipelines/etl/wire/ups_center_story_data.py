@@ -93,3 +93,54 @@ def own_history(ctx, owner, week):
     if len(mine) < 3:
         return None
     return (max(mine, key=lambda x: (x["pct"], -x["season"])), min(mine, key=lambda x: (x["pct"], x["season"])))
+
+
+def own_starts(ctx, owner, week):
+    """All archived All-Play starts of one owner through `week`, oldest first."""
+    arc = ctx.get("archive")
+    return sorted([x for x in pool(arc, week) if x["owner"] == owner], key=lambda x: x["season"]) if arc else []
+
+
+def full_season_best(ctx):
+    """(season:fid key) of the best full-season All-Play percentage in the archive."""
+    full = (ctx.get("archive") or {}).get("full") or {}
+    def pct(v):
+        a, b = v["ap"]
+        return a / float(a + b) if a + b else 0.0
+    return max(full, key=lambda k: (pct(full[k]), k)) if full else None
+
+
+WORST_RANK_MAX = 9      # a team qualifies for the worst-start angle when at most 9 earlier teams had a start no better
+                        # than its start through the PREVIOUS week (a bottom-ten start)
+
+
+def worst_angle(ctx, skip=None):
+    """The bottom-of-the-history angle (Week 8: Josh Martel, 14-63 through Week 7, tied for the fourth-worst start
+    since 2011): None or {fid, prev:(w,l), below, tied, now:(w,l), at_or_below, improved}. Needs the previous week's
+    All-Play (this week's standings minus this week's games) ranked against the archive through the previous week."""
+    arc = ctx.get("archive")
+    week = int(ctx["week"])
+    if not arc or week < BIG_STORY_MIN_WEEK + 1:
+        return None
+    P_prev, P_now = pool(arc, week - 1), pool(arc, week)
+    scores = ctx["mfl"]["scores"]
+    best = None
+    for f, (w, l) in sorted(current_ap(ctx).items()):
+        if f == skip:
+            continue
+        wk_w = sum(1 for g, x in scores.items() if g != f and scores[f] > x)
+        wk_l = sum(1 for g, x in scores.items() if g != f and scores[f] < x)
+        pw, pl = w - wk_w, l - wk_l
+        if pw + pl == 0:
+            continue
+        pp = pw / float(pw + pl)
+        below = sum(1 for x in P_prev if x["pct"] < pp - 1e-12)
+        tied = sum(1 for x in P_prev if abs(x["pct"] - pp) <= 1e-12)
+        if below + tied > WORST_RANK_MAX:
+            continue
+        key = (below, f)
+        if best is None or key < best[0]:
+            now = w / float(w + l)
+            best = (key, {"fid": f, "prev": (pw, pl), "below": below, "tied": tied, "now": (w, l),
+                          "at_or_below": sum(1 for x in P_now if x["pct"] <= now + 1e-12), "improved": now > pp + 0.02})
+    return best[1] if best else None

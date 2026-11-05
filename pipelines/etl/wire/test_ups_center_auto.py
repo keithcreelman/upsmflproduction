@@ -941,5 +941,50 @@ check("a story-format crash falls back to legacy, says why, and the draft still 
 check("story builder has no publish, merge or Discord path", not re.search(r"gh pr (merge|ready|close)|discord\.com/api|webhook", open(os.path.join(HERE, "ups_center_story_issue.py")).read().replace("https://discord.com/channels", "")))
 check("deterministic: the same snapshot gives the same claims", build8()[0]["claimsDigest"] == r8["claimsDigest"])
 
+print("S5. the hand edit's angles, as general rules (Week 8 published article is the spec)")
+body8 = re.sub(r"<[^>]+>", " ", r8["html"])
+check("worst-start angle: Josh Martel, tied for the fourth-worst start, 13 earlier teams at or below, worst of that owner's career, led the chat",
+      all(x in body8 for x in ("tied for the fourth-worst start since 2011", "14&ndash;63" if False else "14", "13 earlier teams were at that mark or worse by now",
+                               "the climb has left the all-time basement", "still the worst start of that owner", "one game under the 23")), body8[:50])
+wa = SD.worst_angle(CTX8)
+check("worst-angle rule data (3 below, 1 tied, 13 at or below; prev 14-63)", wa and (wa["fid"], wa["prev"], wa["below"], wa["tied"], wa["at_or_below"]) == ("0007", (14, 63), 3, 1, 13), wa)
+check("no worst angle when the Big Story team is the only candidate", SD.worst_angle(CTX8, skip="0007") is None)
+check("Big Story context: previous best start's season (25-1, 155-21, best full season, lost the final), own bad starts, bye and title odds",
+      all(x in body8 for x in ("25", "155", "the best full season in the archive", "still lost the final", "A great start is not a title", "knows both ends of this", "99.8%", "39.3%", "23.2%")))
+check("Division Week: swept/split/shut-out table, 6-0 and 1-5 division records, equal division records, title-chance contrast, slide",
+      all(x in body8 for x in ("That makes Eric Martel", "against the division. Everything won has been won somewhere else", "Everyone in the division is",
+                               "a better title chance", "scoring rank has slid", "the closest game of the week", "That was the lowest score of the week")))
+check("Elias news: whose half point, who it swapped, tenths, rank swap, 'Nobody's result flipped', still above",
+      all(x in body8 for x in ("picked up a second quarterback hit", "that cost Keith Creelman half a point", "by a tenth" if False else "tenth", "scoring ranks swapped too",
+                               "result flipped", "is still above")))
+check("Plays: combined-miss framing per team and the second-biggest bargain",
+      all(x in body8 for x in ("projected points that never showed up", "points under projection", "the second-biggest bargain", "three interceptions", "a rushing score")))
+check("Season So Far: Dominant, movers, history disagreement, bottom, luck and bench as one story",
+      all(x in body8 for x in ("the only two Dominant teams", "The movers.", "is where the two histories disagree", "At the bottom,", "And luck.")))
+claims = copy.deepcopy(r8["claims"])
+mk = next(k for k in claims if k.startswith("miss:"))
+claims[mk]["value"] = dict(claims[mk]["value"], short=99.9)
+check("a combined-miss total that is not the sum of its rows fails", any(mk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+claims["arch:prev:0007"]["value"] = "15-62"
+check("a wrong previous-week All-Play fails", any("arch:prev:0007" in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+dk = next(k for k in claims if k.startswith("divrec:"))
+claims[dk]["value"] = "9-9"
+check("a wrong same-division record fails", any(dk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+
+print("S6. Kenny picks (message ids chosen by the editor) are woven into the division chapters")
+picks = {"picks": [{"id": "90000", "frame": True}, {"id": "90001", "note": "Prediction: the sale sign is back up by Wednesday."}, {"id": "90002"}]}
+rp, vp, _ = build8(lambda c: c.update(kennyPicks=picks), local=False)
+chap = re.findall(r'<section class="division|<div class="lt kenny">', rp["html"])
+check("with picks there is no Kenny box, the lines are `lt kenny` blocks with the verbatim linked quote, and it validates",
+      "coffee:kenny" not in [g["id"] for g in rp["gaps"]] and rp["html"].count('class="lt kenny"') >= 2 and rp["html"].count('class="rcpt"') == 3 and vp["ok"], (vp["errors"], [g["id"] for g in rp["gaps"]]))
+check("each pick is woven into the chapter of the owner's division (Dog Pound for Bear Dunn)",
+      re.search(r"Dog Pound 4 Life\..*?Kenny.*?Synthetic test line one.*?Outlast", rp["html"], re.S) is not None)
+check("the frame is generated from registered claims (score, post count) and the note may not carry a digit",
+      "scored" in rp["html"].split("Synthetic test line one")[1][:400] and not VAL.validate(dict(rp, html=rp["html"].replace("Wednesday.", "Wednesday at 412.", 1)), build8(lambda c: c.update(kennyPicks=picks))[2], PACK8)["ok"])
+rbad, vbad, _ = build8(lambda c: c.update(kennyPicks={"picks": [{"id": "not-a-message"}]}))
+check("a pick that is not in the chat window falls back to legacy instead of printing anything", rbad["format"] == "legacy" and "not in the chat window" in rbad.get("formatFallback", ""), rbad.get("formatFallback"))
+
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)
