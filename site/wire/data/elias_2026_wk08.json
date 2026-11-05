@@ -1,0 +1,201 @@
+{
+ "allplayChanged": false,
+ "allplayChanges": [],
+ "checkedAtUtc": "2026-11-05T13:21:39Z",
+ "games": [],
+ "officialChanges": [
+  {
+   "from": 5.0,
+   "game": "Arizona Cardinals at Dallas Cowboys",
+   "player": "Mack Wilson",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 6.0
+  },
+  {
+   "from": 3.0,
+   "game": "Arizona Cardinals at Dallas Cowboys",
+   "player": "Jared Harrison-Hunte",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 2.0
+  },
+  {
+   "from": 0.0,
+   "game": "Arizona Cardinals at Dallas Cowboys",
+   "player": "Jared Harrison-Hunte",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  },
+  {
+   "from": 6.0,
+   "game": "Minnesota Vikings at Detroit Lions",
+   "player": "Josh Metellus",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 5.0
+  },
+  {
+   "from": 7.0,
+   "game": "Minnesota Vikings at Detroit Lions",
+   "player": "Josh Metellus",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 8.0
+  },
+  {
+   "from": 2.0,
+   "game": "Minnesota Vikings at Detroit Lions",
+   "player": "Tyrion Ingram-Dawkins",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 3.0
+  },
+  {
+   "from": 1.0,
+   "game": "Indianapolis Colts at Jacksonville Jaguars",
+   "player": "Matt Dickerson",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 2.0
+  },
+  {
+   "from": 1.0,
+   "game": "Indianapolis Colts at Jacksonville Jaguars",
+   "player": "Ruke Orhorhoro",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 0.0
+  },
+  {
+   "from": 9.0,
+   "game": "Las Vegas Raiders at New York Jets",
+   "player": "Dane Belton",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 8.0
+  },
+  {
+   "from": 3.0,
+   "game": "Las Vegas Raiders at New York Jets",
+   "player": "Dane Belton",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 4.0
+  },
+  {
+   "from": 0.0,
+   "game": "Las Vegas Raiders at New York Jets",
+   "player": "Kingsley Enagbare",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 1.0
+  },
+  {
+   "from": 3.0,
+   "game": "Las Vegas Raiders at New York Jets",
+   "player": "Kingsley Enagbare",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 2.0
+  },
+  {
+   "from": 1.0,
+   "game": "Las Vegas Raiders at New York Jets",
+   "player": "Harrison Phillips",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 2.0
+  },
+  {
+   "from": 2.0,
+   "game": "Las Vegas Raiders at New York Jets",
+   "player": "Jowon Briggs",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  },
+  {
+   "from": 8.0,
+   "game": "Cleveland Browns at Pittsburgh Steelers",
+   "player": "Dylan Sampson",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Pass Targets",
+   "to": 7.0
+  },
+  {
+   "from": 11.0,
+   "game": "Cleveland Browns at Pittsburgh Steelers",
+   "player": "Denzel Boston",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Pass Targets",
+   "to": 12.0
+  },
+  {
+   "from": 0.0,
+   "game": "Cleveland Browns at Pittsburgh Steelers",
+   "player": "Robert Spears-Jennings",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Special Teams Assists",
+   "to": 1.0
+  },
+  {
+   "from": 1.0,
+   "game": "Cleveland Browns at Pittsburgh Steelers",
+   "player": "Christian Kuntz",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Special Teams Tackles",
+   "to": 0.0
+  },
+  {
+   "from": 0.0,
+   "game": "Cleveland Browns at Pittsburgh Steelers",
+   "player": "Christian Kuntz",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Special Teams Assists",
+   "to": 1.0
+  },
+  {
+   "from": 27.0,
+   "game": "Los Angeles Chargers at Los Angeles Rams",
+   "player": "Derius Davis",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Kickoff Return Yards",
+   "to": 32.0
+  },
+  {
+   "from": 1.0,
+   "game": "Los Angeles Chargers at Los Angeles Rams",
+   "player": "Tuli Tuipulotu",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 2.0
+  },
+  {
+   "from": 5.0,
+   "game": "New England Patriots at Miami Dolphins",
+   "player": "Chris Bell",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Pass Targets",
+   "to": 6.0
+  },
+  {
+   "from": 3.0,
+   "game": "Philadelphia Eagles at Washington Commanders",
+   "player": "K'Lavon Chaisson",
+   "publishedText": "Wed Nov 4 11:58:30 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 4.0
+  }
+ ],
+ "players": [],
+ "published": [
+  "Wed Nov 4, 11:58 PM ET"
+ ],
+ "rankChanges": [],
+ "resultsFlipped": 0,
+ "season": 2026,
+ "teams": [],
+ "week": 8
+}
