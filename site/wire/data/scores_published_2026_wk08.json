@@ -31,9 +31,9 @@
    "w": 1
   },
   "0007": {
-   "l": 3,
+   "l": 4,
    "t": 0,
-   "w": 8
+   "w": 7
   },
   "0008": {
    "l": 9,
@@ -51,9 +51,9 @@
    "w": 5
   },
   "0011": {
-   "l": 4,
+   "l": 3,
    "t": 0,
-   "w": 7
+   "w": 8
   },
   "0012": {
    "l": 2,
@@ -61,7 +61,7 @@
    "w": 9
   }
  },
- "frozenAtUtc": "2026-11-05T13:21:36Z",
+ "frozenAtUtc": "2026-11-04T15:00:38Z",
  "games": [
   {
    "a": "0002",
@@ -107,23 +107,23 @@
   },
   {
    "a": "0007",
-   "aScore": 218.5,
+   "aScore": 218.0,
    "b": "0008",
-   "bScore": 183.5,
+   "bScore": 184.0,
    "result": "W"
   },
   {
    "a": "0001",
    "aScore": 214.3,
    "b": "0008",
-   "bScore": 183.5,
+   "bScore": 184.0,
    "result": "W"
   },
   {
    "a": "0001",
    "aScore": 214.3,
    "b": "0007",
-   "bScore": 218.5,
+   "bScore": 218.0,
    "result": "L"
   },
   {
@@ -578,7 +578,7 @@
   {
    "fid": "0008",
    "pid": "15875",
-   "score": 16.6,
+   "score": 17.1,
    "status": "starter"
   },
   {
@@ -1028,7 +1028,7 @@
   {
    "fid": "0007",
    "pid": "16266",
-   "score": 10.5,
+   "score": 10.0,
    "status": "starter"
   },
   {
@@ -2185,7 +2185,7 @@
   }
  ],
  "season": 2026,
- "source": "D1 src_franchise_weekly_score / src_weekly / src_schedule as last synced from MFL (2026-11-05 13:00:10 UTC) -- the numbers the recap was built on",
+ "source": "D1 src_franchise_weekly_score / src_weekly / src_schedule as last synced from MFL (2026-11-03 06:00:09 UTC) -- the numbers the recap was built on",
  "teams": {
   "0001": 214.3,
   "0002": 166.2,
@@ -2193,8 +2193,8 @@
   "0004": 203.9,
   "0005": 243.5,
   "0006": 181.8,
-  "0007": 218.5,
-  "0008": 183.5,
+  "0007": 218.0,
+  "0008": 184.0,
   "0009": 307.6,
   "0010": 210.7,
   "0011": 218.1,

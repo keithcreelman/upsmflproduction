@@ -1,8 +1,81 @@
 {
- "allplayChanged": false,
- "allplayChanges": [],
- "checkedAtUtc": "2026-11-05T13:21:39Z",
- "games": [],
+ "allplayChanged": true,
+ "allplayChanges": [
+  {
+   "after": {
+    "l": 3,
+    "t": 0,
+    "w": 8
+   },
+   "before": {
+    "l": 4,
+    "t": 0,
+    "w": 7
+   },
+   "fid": "0007"
+  },
+  {
+   "after": {
+    "l": 4,
+    "t": 0,
+    "w": 7
+   },
+   "before": {
+    "l": 3,
+    "t": 0,
+    "w": 8
+   },
+   "fid": "0011"
+  }
+ ],
+ "checkedAtUtc": "2026-11-05T13:17:51Z",
+ "games": [
+  {
+   "a": "0007",
+   "after": [
+    218.5,
+    183.5
+   ],
+   "b": "0008",
+   "before": [
+    218.0,
+    184.0
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0001",
+   "after": [
+    214.3,
+    183.5
+   ],
+   "b": "0008",
+   "before": [
+    214.3,
+    184.0
+   ],
+   "flipped": false,
+   "resultAfter": "W",
+   "resultBefore": "W"
+  },
+  {
+   "a": "0001",
+   "after": [
+    214.3,
+    218.5
+   ],
+   "b": "0007",
+   "before": [
+    214.3,
+    218.0
+   ],
+   "flipped": false,
+   "resultAfter": "L",
+   "resultBefore": "L"
+  }
+ ],
  "officialChanges": [
   {
    "from": 5.0,
@@ -189,13 +262,75 @@
    "to": 4.0
   }
  ],
- "players": [],
+ "players": [
+  {
+   "after": 10.5,
+   "before": 10.0,
+   "delta": 0.5,
+   "elias": [
+    {
+     "from": 1.0,
+     "stat": "Quarterback Hits",
+     "to": 2.0
+    }
+   ],
+   "fid": "0007",
+   "pid": "16266",
+   "player": "Tuli Tuipulotu",
+   "status": "starter"
+  },
+  {
+   "after": 16.6,
+   "before": 17.1,
+   "delta": -0.5,
+   "elias": [
+    {
+     "from": 9.0,
+     "stat": "Tackles",
+     "to": 8.0
+    },
+    {
+     "from": 3.0,
+     "stat": "Assists",
+     "to": 4.0
+    }
+   ],
+   "fid": "0008",
+   "pid": "15875",
+   "player": "Dane Belton",
+   "status": "starter"
+  }
+ ],
  "published": [
   "Wed Nov 4, 11:58 PM ET"
  ],
- "rankChanges": [],
+ "rankChanges": [
+  {
+   "after": 4,
+   "before": 5,
+   "fid": "0007"
+  },
+  {
+   "after": 5,
+   "before": 4,
+   "fid": "0011"
+  }
+ ],
  "resultsFlipped": 0,
  "season": 2026,
- "teams": [],
+ "teams": [
+  {
+   "after": 218.5,
+   "before": 218.0,
+   "delta": 0.5,
+   "fid": "0007"
+  },
+  {
+   "after": 183.5,
+   "before": 184.0,
+   "delta": -0.5,
+   "fid": "0008"
+  }
+ ],
  "week": 8
 }
