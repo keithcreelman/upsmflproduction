@@ -1,0 +1,365 @@
+{
+ "team_seasons": 180,
+ "top8": [
+  {
+   "season": 2018,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 84,
+   "l": 4,
+   "pct": 0.9545454545454546,
+   "final": 2
+  },
+  {
+   "season": 2013,
+   "fid": "0002",
+   "owner": "Derrick Whitman",
+   "w": 73,
+   "l": 15,
+   "pct": 0.8295454545454546,
+   "final": 1
+  },
+  {
+   "season": 2015,
+   "fid": "0002",
+   "owner": "Derrick Whitman",
+   "w": 72,
+   "l": 16,
+   "pct": 0.8181818181818182,
+   "final": 3
+  },
+  {
+   "season": 2021,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 70,
+   "l": 18,
+   "pct": 0.7954545454545454,
+   "final": 3
+  },
+  {
+   "season": 2017,
+   "fid": "0006",
+   "owner": "Steve Bousquet",
+   "w": 69,
+   "l": 19,
+   "pct": 0.7840909090909091,
+   "final": 1
+  }
+ ],
+ "bottom8": [
+  {
+   "season": 2022,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 23,
+   "l": 65,
+   "pct": 0.26136363636363635,
+   "final": 8
+  },
+  {
+   "season": 2023,
+   "fid": "0006",
+   "owner": "Josh Lima",
+   "w": 23,
+   "l": 65,
+   "pct": 0.26136363636363635,
+   "final": 12
+  },
+  {
+   "season": 2025,
+   "fid": "0003",
+   "owner": "Matt Gerardi",
+   "w": 23,
+   "l": 65,
+   "pct": 0.26136363636363635,
+   "final": 11
+  },
+  {
+   "season": 2021,
+   "fid": "0009",
+   "owner": "Bear Dunn",
+   "w": 22,
+   "l": 66,
+   "pct": 0.25,
+   "final": 10
+  },
+  {
+   "season": 2012,
+   "fid": "0005",
+   "owner": "Kyle Creelman",
+   "w": 21,
+   "l": 67,
+   "pct": 0.23863636363636365,
+   "final": 12
+  },
+  {
+   "season": 2017,
+   "fid": "0009",
+   "owner": "Bear Dunn",
+   "w": 21,
+   "l": 67,
+   "pct": 0.23863636363636365,
+   "final": 3
+  },
+  {
+   "season": 2013,
+   "fid": "0001",
+   "owner": "Ryan Bousquet",
+   "w": 20,
+   "l": 68,
+   "pct": 0.22727272727272727,
+   "final": 7
+  },
+  {
+   "season": 2016,
+   "fid": "0005",
+   "owner": "Kyle Creelman",
+   "w": 20,
+   "l": 68,
+   "pct": 0.22727272727272727,
+   "final": 8
+  },
+  {
+   "season": 2022,
+   "fid": "0002",
+   "owner": "AJ Balderelli",
+   "w": 20,
+   "l": 68,
+   "pct": 0.22727272727272727,
+   "final": 9
+  },
+  {
+   "season": 2011,
+   "fid": "0007",
+   "owner": "Tom Roussin",
+   "w": 19,
+   "l": 69,
+   "pct": 0.2159090909090909,
+   "final": 11
+  },
+  {
+   "season": 2017,
+   "fid": "0002",
+   "owner": "Derrick Whitman",
+   "w": 19,
+   "l": 69,
+   "pct": 0.2159090909090909,
+   "final": 12
+  },
+  {
+   "season": 2014,
+   "fid": "0012",
+   "owner": "Chris Klingenberg",
+   "w": 18,
+   "l": 70,
+   "pct": 0.20454545454545456,
+   "final": 12
+  },
+  {
+   "season": 2015,
+   "fid": "0005",
+   "owner": "Kyle Creelman",
+   "w": 18,
+   "l": 70,
+   "pct": 0.20454545454545456,
+   "final": 12
+  },
+  {
+   "season": 2014,
+   "fid": "0011",
+   "owner": "Eric Mannila",
+   "w": 17,
+   "l": 71,
+   "pct": 0.19318181818181818,
+   "final": 11
+  },
+  {
+   "season": 2011,
+   "fid": "0011",
+   "owner": "Eric Mannila",
+   "w": 14,
+   "l": 74,
+   "pct": 0.1590909090909091,
+   "final": 10
+  },
+  {
+   "season": 2024,
+   "fid": "0006",
+   "owner": "Josh Lima",
+   "w": 11,
+   "l": 77,
+   "pct": 0.125,
+   "final": 12
+  }
+ ],
+ "josh_wk8": [
+  {
+   "season": 2018,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 84,
+   "l": 4,
+   "pct": 0.9545454545454546,
+   "final": 2
+  },
+  {
+   "season": 2021,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 70,
+   "l": 18,
+   "pct": 0.7954545454545454,
+   "final": 3
+  },
+  {
+   "season": 2012,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 59,
+   "l": 29,
+   "pct": 0.6704545454545454,
+   "final": 3
+  },
+  {
+   "season": 2019,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 57,
+   "l": 31,
+   "pct": 0.6477272727272727,
+   "final": 1
+  },
+  {
+   "season": 2020,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 51,
+   "l": 37,
+   "pct": 0.5795454545454546,
+   "final": 1
+  },
+  {
+   "season": 2023,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 51,
+   "l": 37,
+   "pct": 0.5795454545454546,
+   "final": 6
+  },
+  {
+   "season": 2017,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 49,
+   "l": 39,
+   "pct": 0.5568181818181818,
+   "final": 5
+  },
+  {
+   "season": 2016,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 46,
+   "l": 42,
+   "pct": 0.5227272727272727,
+   "final": 9
+  },
+  {
+   "season": 2013,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 45,
+   "l": 43,
+   "pct": 0.5113636363636364,
+   "final": 9
+  },
+  {
+   "season": 2024,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 43,
+   "l": 45,
+   "pct": 0.48863636363636365,
+   "final": 8
+  },
+  {
+   "season": 2014,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 37,
+   "l": 51,
+   "pct": 0.42045454545454547,
+   "final": 8
+  },
+  {
+   "season": 2025,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 36,
+   "l": 52,
+   "pct": 0.4090909090909091,
+   "final": 2
+  },
+  {
+   "season": 2015,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 35,
+   "l": 53,
+   "pct": 0.3977272727272727,
+   "final": 11
+  },
+  {
+   "season": 2022,
+   "fid": "0007",
+   "owner": "Josh Martel",
+   "w": 23,
+   "l": 65,
+   "pct": 0.26136363636363635,
+   "final": 8
+  }
+ ],
+ "bear_2026": {
+  "w": 78,
+  "l": 10,
+  "pct": 0.8863636363636364
+ },
+ "josh_2026": {
+  "w": 22,
+  "l": 66,
+  "pct": 0.25
+ },
+ "josh_thru7": {
+  "w": 14,
+  "l": 63,
+  "pct": 0.18181818181818182
+ },
+ "n_at_or_below_250": 13,
+ "n_wk7_below_182": 3,
+ "n_wk7_tied_182": 1,
+ "full_best": [
+  [
+   0.8806818181818182,
+   2018,
+   "Josh Martel",
+   155,
+   21
+  ],
+  [
+   0.7931034482758621,
+   2017,
+   "Steve Bousquet",
+   138,
+   36
+  ],
+  [
+   0.7758620689655172,
+   2016,
+   "Bear Dunn",
+   135,
+   39
+  ]
+ ]
+}
