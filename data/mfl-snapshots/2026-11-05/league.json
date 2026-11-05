@@ -44,7 +44,7 @@
       "franchise": [
         {
           "abbrev": "L.A.",
-          "bbidAvailableBalance": "9999934999.00",
+          "bbidAvailableBalance": "9999924999.00",
           "division": "02",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0001.png",
           "id": "0001",
@@ -92,7 +92,7 @@
         },
         {
           "abbrev": "\ud83d\udd28 \u23f0",
-          "bbidAvailableBalance": "9999948999.00",
+          "bbidAvailableBalance": "9999945999.00",
           "division": "00",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0005.jpg",
           "id": "0005",
@@ -104,7 +104,7 @@
         },
         {
           "abbrev": "LH",
-          "bbidAvailableBalance": "9999964999.00",
+          "bbidAvailableBalance": "9999946999.00",
           "division": "00",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2024/74598_franchise_icon0006.jpg",
           "id": "0006",
@@ -112,11 +112,11 @@
           "name": "The Long Haulers",
           "salaryCapAmount": "",
           "stadium": "Spy Gate Stadium",
-          "waiverSortOrder": "2"
+          "waiverSortOrder": "1"
         },
         {
           "abbrev": "SEX",
-          "bbidAvailableBalance": "9999928999.00",
+          "bbidAvailableBalance": "9999927999.00",
           "division": "02",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png",
           "id": "0007",
@@ -124,11 +124,11 @@
           "name": "Sex Manther",
           "salaryCapAmount": "",
           "stadium": "NFL Combine - Lucas Oil Stadium",
-          "waiverSortOrder": "1"
+          "waiverSortOrder": "2"
         },
         {
           "abbrev": "RealDeal",
-          "bbidAvailableBalance": "9999932999.00",
+          "bbidAvailableBalance": "9999931999.00",
           "division": "02",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0008.png",
           "id": "0008",
@@ -140,7 +140,7 @@
         },
         {
           "abbrev": "CTwn",
-          "bbidAvailableBalance": "9999982999.00",
+          "bbidAvailableBalance": "9999980999.00",
           "division": "03",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0009.png",
           "id": "0009",
@@ -152,7 +152,7 @@
         },
         {
           "abbrev": "Bomb",
-          "bbidAvailableBalance": "9999975999.00",
+          "bbidAvailableBalance": "9999971999.00",
           "division": "01",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0010.png",
           "id": "0010",
