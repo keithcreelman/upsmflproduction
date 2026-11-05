@@ -30,7 +30,8 @@ Checks (any failure exits 1; a check it cannot complete fails, it never passes b
                              printed probability equals the committed forecast under its rounding
   7 review boxes block       every editor item has its EDITOR REVIEW box and every box is an editor
                              item; not publishable while one remains; `wire.py verify` refuses the
-                             page as live while any box is on it
+                             page as live while any box is on it; the page's div/details/section/table
+                             tags balance, and a story-format draft has its segments in order
   8 still a draft            article is status: draft; PR not merged; not in main's or the Pages index,
                              not served, no ups_wire_threads row, no #league-announcements post
 An editor-owned draft (head commit without the automation trailer) is checked the same way except
@@ -61,7 +62,7 @@ PLAYOFF_FIELD, PLAYOFF_BYES = 6, 2    # league_context F.1
 COMMENT_MARK = "<!-- ups-center-post-build-check id=%s -->"
 GROUPS = (("draft", "1. Draft created"), ("fresh", "2. Forecast freshness"), ("six", "3. Six playoff teams"),
           ("divisions", "4. Every division totals 100%"), ("cells", "5. Scenario cells reconcile"),
-          ("sourced", "6. Every displayed number has a source"), ("boxes", "7. Editor-review boxes block publication"),
+          ("sourced", "6. Every displayed number has a source"), ("boxes", "7. Editor-review boxes block publication; the page markup is sound"),
           ("unpublished", "8. Still a draft, no announcement"))
 
 
@@ -253,6 +254,20 @@ def check_draft(season, week, files, pr, automation_head, live):
     refused = wire.live_editor_items(live_art)
     add("boxes", "`wire.py verify` refuses this page as live while its %d box(es) remain" % len(boxes),
         sorted(refused) == sorted(boxes) and (bool(refused) or not boxes), refused[:10])
+
+    # 7b. page structure: balanced markup (Week 8's plays ledger had a stray </div> that closed the page wrapper and
+    #     un-styled the last segment) and, for a story-format draft, its six segments in order
+    if art:
+        body = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", "", art[art.index("<body"):] if "<body" in art else art)
+        unbalanced = {t: (len(re.findall(r"<%s\b" % t, body)), len(re.findall(r"</%s>" % t, body))) for t in ("div", "details", "section", "table")}
+        add("boxes", "the page's <div>, <details>, <section> and <table> tags balance",
+            all(o == c for o, c in unbalanced.values()), {t: v for t, v in unbalanced.items() if v[0] != v[1]})
+        if "story format" in art:
+            ids = re.findall(r'<section class="wire-sec" id="([^"]+)"', art)
+            core = ["bigstory", "divweek", "odds", "plays", "season"]
+            add("boxes", "the story format has its segments in order (Big Story, Division Week, [Elias], Playoff Picture, Plays, Season So Far)",
+                [i for i in ids if i in core + ["elias"]] == [i for i in ["bigstory", "divweek", "elias", "odds", "plays", "season"] if i in ids]
+                and all(i in ids for i in core), ids)
 
     # 8. still a draft, no announcement
     add("unpublished", "the article is status: draft", _status_of(art) == "draft", _status_of(art))

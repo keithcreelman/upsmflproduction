@@ -188,6 +188,123 @@ def _season_truth(ctx):
     return out
 
 
+def _archive_truth(ctx):
+    """Story format (2026-11-05): every `arch:*` number recomputed from ctx["archive"]["rows"] (weekly scores) with code
+    that shares nothing with ups_center_story_data. {key-suffix: value}; direction-dependent counts are {"either": (best, worst)}."""
+    arc, wk = ctx.get("archive"), int(ctx["week"])
+    if not arc:
+        return {}
+    sc = {}
+    for season, w, f, x in arc["rows"]:
+        if w <= wk:
+            sc.setdefault((int(season), int(w)), {})[f] = float(x)
+    tally = {}
+    for (season, w), d in sc.items():
+        for f, x in d.items():
+            t = tally.setdefault((season, f), [0, 0])
+            for g, y in d.items():
+                if g != f:
+                    t[0] += x > y
+                    t[1] += x < y
+    out = {"n": len(tally)}
+    pcts = {k: v[0] / float(v[0] + v[1]) for k, v in tally.items()}
+    for (season, f), (a, b) in tally.items():
+        k = "%d:%s" % (season, f)
+        out["ap:" + k] = "%d-%d" % (a, b)
+        out["pct:" + k] = round(pcts[(season, f)], 3)
+        if k in arc["final"]:
+            out["final:" + k] = arc["final"][k]
+    for f, st in ctx["mfl"]["standings"].items():
+        a, b = (int(x) for x in st["allplay"].split("-")[:2])
+        p = a / float(a + b) if a + b else 0.0
+        out["pct:cur:" + f] = round(p, 3)
+        out["ahead:" + f] = {"either": (sum(1 for q in pcts.values() if q > p + 1e-12), sum(1 for q in pcts.values() if q < p - 1e-12))}
+        owner = ctx["d1"]["franchises"][f]["owner_name"]
+        mine = sorted(((pcts[k], k[0]) for k in pcts if arc["owners"].get("%d:%s" % k) == owner), key=lambda x: (x[0], x[1]))
+        if len(mine) >= 3:
+            hi = max(mine, key=lambda x: (x[0], -x[1]))
+            lo = mine[0]
+            for tag, (pc, season) in (("ownbest", hi), ("ownworst", lo)):
+                key = [k for k in tally if k[0] == season and pcts[k] == pc and arc["owners"].get("%d:%s" % k) == owner][0]
+                out["%s:%s" % (tag, f)] = "%d:%d-%d" % (season, tally[key][0], tally[key][1])
+    return out
+
+
+def _table_counts(ctx, truth):
+    """champs / runnerup / tablek for both directions of the Big Story table: {"champs": {(k, c)...}}."""
+    arc, wk = ctx.get("archive"), int(ctx["week"])
+    if not arc:
+        return {}
+    res = {}
+    keys = sorted(((float(truth["pct:" + k]), k) for k in (kk[len("pct:"):] for kk in truth if kk.startswith("pct:") and ":cur:" not in kk
+                                                          and not kk.startswith("pct:cur"))), key=lambda x: x[0])
+    for f in ctx["mfl"]["standings"]:
+        me = truth.get("pct:cur:" + f)
+        if me is None:
+            continue
+        for tag, order in (("best", sorted([x for x in keys], key=lambda x: -x[0])), ("worst", keys)):
+            merged = sorted(order + [(me, None)], key=lambda x: (-x[0] if tag == "best" else x[0], x[1] is not None))[:5]
+            others = [k for _, k in merged if k]
+            fin = [truth.get("final:" + k) for k in others]
+            res.setdefault(f, []).append((len(others), sum(1 for x in fin if x == 1), sum(1 for x in fin if x == 2)))
+    return res
+
+
+def _elias_check(rest, v, ctx, bad, key):
+    rep, pub = ctx.get("eliasReport") or {}, ctx.get("scoresPublished") or {}
+    s, st = ctx["mfl"]["scores"], ctx["mfl"]["standings"]
+    what, _, tail = rest.partition(":")
+    if what == "count":
+        off = rep.get("officialChanges")
+        want = len(off) if isinstance(off, list) else off
+        if v != want and v != len(ctx["mfl"].get("elias") or []):
+            bad(key, "page %s, Elias report %s" % (v, want))
+        return
+    if what == "flipped":
+        if v != rep.get("resultsFlipped"):
+            bad(key, "page %s, report %s" % (v, rep.get("resultsFlipped")))
+        return
+    if what == "stat":
+        pid, _, side = tail.partition(":")
+        pl = [p for p in rep.get("players") or [] if p.get("pid") == pid]
+        ch = (pl[0].get("elias") or [{}])[0] if pl else {}
+        if not pl or ch.get({"from": "from", "to": "to"}.get(side)) != v:
+            bad(key, "Elias report has %r" % ch)
+        return
+    if what == "delta" and tail not in s:                         # a player's fantasy change
+        pl = [p for p in rep.get("players") or [] if p.get("pid") == tail]
+        if not pl or abs(round(pl[0]["delta"], 1) - v) > 0.05:
+            bad(key, "Elias report has %r" % pl[:1])
+        return
+    teams = pub.get("teams")
+    if not teams or tail not in teams:
+        bad(key, "no frozen published scores to check against")
+        return
+    f = tail
+    if what == "before":
+        if abs(teams[f] - v) > 0.05:
+            bad(key, "page %s, frozen published score %s" % (v, teams[f]))
+    elif what == "delta":
+        if abs(round(s[f] - teams[f], 1) - v) > 0.05:
+            bad(key, "page %s, MFL minus published %s" % (v, round(s[f] - teams[f], 1)))
+    elif what in ("wkapBefore", "apBefore"):
+        old = dict(s)
+        old.update(teams)
+        w0 = sum(1 for o in old if o != f and old[o] < old[f])
+        l0 = sum(1 for o in old if o != f and old[o] > old[f])
+        if what == "wkapBefore":
+            want = "%d-%d" % (w0, l0)
+        else:
+            w1 = sum(1 for o in s if o != f and s[o] < s[f])
+            l1 = sum(1 for o in s if o != f and s[o] > s[f])
+            a, b = (int(x) for x in st[f]["allplay"].split("-")[:2])
+            want = "%d-%d" % (a - w1 + w0, b - l1 + l0)
+        if v != want:
+            bad(key, "page %s, recomputed %s" % (v, want))
+    else:
+        bad(key, "unknown elias claim")
+
+
 def validate(res, ctx, pack):
     errors, warnings, n = [], [], {}
     s, st = ctx["mfl"]["scores"], ctx["mfl"]["standings"]
@@ -309,7 +426,29 @@ def validate(res, ctx, pack):
             if RULES.get(rest) != v:
                 bad(key, "definition %s is %s, page %s" % (rest, RULES.get(rest), v))
         elif kind == "elias":
-            pass                                                 # cross-checked against scores_published below
+            _elias_check(rest, v, ctx, bad, key)
+        elif kind == "wkrec":
+            g = ctx["mfl"]["games"]
+            w_ = sum(1 for x in g if (x["a"] if x["as"] > x["bs"] else x["b"]) == rest)
+            l_ = sum(1 for x in g if (x["b"] if x["as"] > x["bs"] else x["a"]) == rest)
+            if v != "%d-%d" % (w_, l_):
+                bad(key, "page %s, MFL games %d-%d" % (v, w_, l_))
+        elif kind == "arch":
+            truth = n.setdefault("_arch_truth", _archive_truth(ctx))
+            if not truth:
+                bad(key, "no archive in the snapshot")
+            elif rest in ("champs", "runnerup", "tablek"):
+                idx = {"tablek": 0, "champs": 1, "runnerup": 2}[rest]
+                counts = n.setdefault("_arch_tables", _table_counts(ctx, truth))
+                if not any(v in [c[idx] for c in cs] for cs in counts.values()):
+                    bad(key, "page %s, recomputed table counts %s" % (v, sorted({c[idx] for cs in counts.values() for c in cs})))
+            elif rest not in truth:
+                bad(key, "no archive value for %s" % rest)
+            elif isinstance(truth[rest], dict):
+                if v not in truth[rest]["either"]:
+                    bad(key, "page %s, recomputed %s" % (v, truth[rest]["either"]))
+            elif truth[rest] != v:
+                bad(key, "page %r, recomputed %r" % (v, truth[rest]))
         elif kind in ("pts", "diff", "count"):
             pass                                                 # pack-internal; covered by the pack build's own checks
         else:
@@ -355,7 +494,22 @@ def validate(res, ctx, pack):
         errors.append("claims with no source: %s" % ", ".join(unsourced[:20]))
     if "status: draft" not in doc:
         errors.append("article is not status: draft")
-    n.pop("_season_truth", None)
+    for k in ("_season_truth", "_arch_truth", "_arch_tables"):
+        n.pop(k, None)
+    # markup must balance: Week 8's plays ledger closed the page wrapper and un-styled the last segment
+    body = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", "", doc[doc.index("<body"):])
+    for tag in ("div", "details", "section", "table"):
+        o, c = len(re.findall(r"<%s\b" % tag, body)), len(re.findall(r"</%s>" % tag, body))
+        if o != c:
+            errors.append("unbalanced markup: <%s> opens %d, closes %d" % (tag, o, c))
+    if res.get("format") == "story":
+        ids = re.findall(r'<section class="wire-sec" id="([^"]+)"', doc)
+        want = ["bigstory", "divweek", "elias", "odds", "plays", "season"]
+        if [i for i in ids if i in want] != [i for i in want if i in ids] or "bigstory" not in ids or "divweek" not in ids \
+                or "odds" not in ids or "plays" not in ids or "season" not in ids:
+            errors.append("story format segments are %s" % ids)
+        if "stories:leads" in [g["id"] for g in res["gaps"]]:
+            errors.append("the story format never carries the old story-leads box")
     return {"ok": not errors, "publishable": not errors and not res["gaps"], "errors": errors, "warnings": warnings,
             "checkedClaims": n, "gaps": res["gaps"]}
 

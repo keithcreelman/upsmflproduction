@@ -86,9 +86,32 @@ Ids and private names cannot be cleared.
 
 `ups_center_auto.py run --sandbox --week N` builds under a demo id at `site/wire/articles/_sandbox/` (`wire.py` never indexes, verifies or publishes a `_` folder). It opens a `[SANDBOX demo -- will be closed]` draft PR that commits only its own article and claims, and never opens a GitHub alert. This shows draft-PR creation and update on GitHub without a second copy of a live issue. Before a change merges, `--code-ref <branch>` (sandbox only) overlays that branch's pipeline code on the work tree, without staging it, so the demo runs the code under review.
 
-## What the draft contains
+## The story format is the default (Keith 2026-11-05)
 
-It is the real show markup (`.uc`), the same as Weeks 1–4:
+> "this needs to be my new template." (Week 8 was hand-built as a story edition, merged in PR #1436; the generator now builds that shape.)
+
+`ups_center_issue.render()` builds the **story format** unless `UPS_CENTER_FORMAT=legacy` is set (kill switch, no code change). If the story build raises or its markup is unbalanced, the same call builds the **legacy** template instead and records why (`formatFallback`, shown in the run's reasons), so a story-format bug can never cost the week's draft. Both formats go through the same validator and the same post-build check.
+
+| # | Segment | Built from |
+|---|---|---|
+| 1 | **The Big Story** | The week's strongest data-backed story (rule below), a top-5 table; with no qualifier or no archive, the old opening desk |
+| 2 | **Division Week** | One chapter per division or crossover from the pack's pots (every score, margin and best-lineup loss; the division-title odds when the forecast is current), then a swept / split / shut-out table |
+| 3 | **Elias** | News-style, only when Elias moved a score or an All-Play game: the changed starters, before and after scores, All-Play before and after, season records. Posted but nothing moved: no segment. Not posted yet: the `elias:not-posted` box (holds publication until Thursday/Friday re-check) |
+| 4 | **Playoff Picture** | A story (division favorites, wild-card road, the bottom) over the unchanged odds table and its consistency gates |
+| 5 | **The Plays That Made the Week** | Biggest bargains and busts by pregame-proven projection with each owner's week result, the play cards (a card without a verified link has no Watch button and no box), and the full ledger collapsed in `details.wire-more` |
+| 6 | **The Season So Far** | The Dominant teams, the movers, where the All-Play and win-total histories disagree, the long shots, luck and bench, as one story; the standings, Heat Check and Survival Line tables collapsed |
+
+**Big Story rule** (`ups_center_story_data.big_story`). From Week 4 on, every earlier team-season in the league archive (`~/Downloads/mfl_database.db` or `UPS_ARCHIVE_DB`, 2011-2025, read-only, copied into the snapshot as `ctx["archive"]`) is compared on All-Play percentage through the same week. A season is used only if every week has all twelve teams with one score each; 2010 is left out by that rule (its archived scores conflict with themselves). A team qualifies when at most four earlier teams beat it (or are worse than it): a top or bottom five start. The story goes to the qualifier with the fewest teams ahead (ties: higher week score, then franchise id). Week 8's Bear Dunn (78-10, one earlier team better) is what the rule picks. Josh Martel's climb out of the all-time basement, which Keith picked by hand, does not qualify (13 earlier teams were at or below that mark) and is the editor's to add.
+
+**Editor review.** The story text is written from the data, so it carries no box. **One** box remains, `coffee:kenny`: the job never writes Kenny's jokes (owner dossier) and never puts chat in the public repo. The box lists verbatim, linked candidate lines **grouped by division** in the local review copy; the editor weaves chosen lines into the right chapter as `lt kenny` blocks and removes the box. Check item 7 still refuses publication while any box remains. The old `stories:leads` box is gone. A draft is therefore never publishable straight from the job, and the job still never publishes or posts.
+
+**Validation additions.** New claim kinds, each recomputed by separate code in `ups_center_validate.py`: `arch:*` (archive All-Play, ranks, finishes, counts), `wkrec` (a team's week record) and real checks for `elias:*` (frozen published scores and the Elias report; before this they passed unchecked). Markup balance is an error in the validator and in check item 7 (Week 8's plays ledger had a stray `</div>` that closed the page wrapper and un-styled the last segment).
+
+**Known limits.** The story prose is template-built, so it is plainer than a hand edit: the editor adds the angle the data cannot pick (Week 8's Josh Martel climb, full-season context such as 2018's 25-1) and the Kenny lines. The Big Story needs the archive file on Keith's Mac; without it the opening desk runs, and the run says so. Parity evidence for Week 8 is in the PR.
+
+## What the draft contains (legacy format)
+
+The legacy template below is the real show markup (`.uc`), the same as Weeks 1–4 (kept as the fallback and kill-switch format):
 
 | Segment | Built from | Marked for editor review when |
 |---|---|---|

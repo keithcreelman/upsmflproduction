@@ -176,7 +176,7 @@ class Issue:
         return sorted(out)
 
     # ------------------------------------------------------------ 1. opening desk
-    def seg_open(self):
+    def open_lines(self):
         s = self.ctx["mfl"]["scores"]
         top = max(s, key=s.get)
         ap = self.week_allplay()
@@ -211,7 +211,10 @@ class Issue:
         lines.append(("Rich", " ".join(rich)))
         lines.append(("Stuart", "The biggest margin of the week was %s over %s, by %s. Boomer, take it away." % (
             self.owner[big_w], self.owner[big_l], self.margin(big_w, big_l))))
-        return self.section("open", "Opening desk", 1, "Opening desk", self.desk(lines))
+        return lines
+
+    def seg_open(self):
+        return self.section("open", "Opening desk", 1, "Opening desk", self.desk(self.open_lines()))
 
     # ------------------------------------------------------------ 2. Boomer
     def seg_boomer(self):
@@ -277,13 +280,15 @@ class Issue:
                                                                          self.margin(w, l), side(l))
 
     # ------------------------------------------------------------ 4. plays
-    def seg_plays(self):
+    def play_cards(self, linked_only=False):
+        """linked_only (story format): every card shows; one without a verified highlight link simply has no Watch
+        button and no editor box (Week 8 ran this way: the link is a bonus, not a publication blocker)."""
         cards, out = self.pack.get("playcards", []), []
         for c in cards:
             fid = self.fid[c["owner"]]
             link = self.ctx.get("links", {}).get(c["player"]) or {"verified": False}
             watch = ('<a class="wire-play-watch" href="%s" target="_blank" rel="noopener">Watch verified NFL highlights '
-                     '&#8599;</a>' % e(link["url"])) if link.get("verified") else self.gap(
+                     '&#8599;</a>' % e(link["url"])) if link.get("verified") else "" if linked_only else self.gap(
                 "plays:" + c["player"], "plays", "No verified highlight link for %s (%s); add one or leave it out."
                 % (e(c["player"]), e(link.get("why", "not checked"))))
             shown = self.L.put("pts:" + c["player"], round(float(c["score"]), 1), "pack playcard (src_weekly)")
@@ -296,11 +301,16 @@ class Issue:
                                                                    "pack playcard (nflverse box score)")), watch))
         if not out:
             out.append(self.gap("plays:none", "plays", "The pack has no play cards this week."))
+        return out
+
+    def seg_plays(self):
+        out = self.play_cards()
         return self.section("plays", "Plays of the Week", 4, "Plays of the Week <small>&mdash; with player headshots</small>",
                             '<div class="reel">%s</div>' % "".join(out))
 
     # ------------------------------------------------------------ 5. above / below
-    def seg_bb(self):
+    def bb_parts(self):
+        """(gap boxes html, the four lists html, caption html, proven rows by table id)."""
         ev = self.ctx["evidence"]
         prov = {(r["player"], r["fid"]): r for r in ev["ranked"]}
         lists, missing, proven = [], [], {}
@@ -355,6 +365,10 @@ class Issue:
                    'capture time and the player&rsquo;s own kickoff, and every capture came first. %s offensive and '
                    'defensive starters graded; %s not graded for want of a pregame capture. Largest gaps among graded '
                    'starters, not every starter.</p>' % (basis, cap_txt, n_grad, n_un))
+        return body, "".join(lists), caption, proven
+
+    def seg_bb(self):
+        body, lists, caption, proven = self.bb_parts()
         lead = []
         ob, og = proven.get("t.bb.off.bust"), proven.get("t.bb.off.bargain")      # only rows with pregame proof
         if og:
@@ -365,7 +379,7 @@ class Issue:
                 e(re.sub(r"\s*\(.*$", "", ob[0][0])), e(ob[0][1]), n1(ob[0][2]), n1(ob[0][3]))))
         return self.section("bb", "Above and below expectations", 5,
                             "Above and below expectations <small>&mdash; projection, opportunity and actual points</small>",
-                            self.desk(lead, mb=True) + body + '<div class="bb">%s</div>' % "".join(lists) + caption)
+                            self.desk(lead, mb=True) + body + '<div class="bb">%s</div>' % lists + caption)
 
     # ------------------------------------------------------------ 6. landscape
     def canon_order(self):
@@ -388,7 +402,7 @@ class Issue:
         pool = sorted([f for f in st if f not in leaders], key=key)
         return L[:2] + sorted(L[2:] + pool[:2], key=key) + pool[2:], set(leaders), h2h_needed
 
-    def seg_landscape(self):
+    def seg_landscape(self, bare=False):
         st = self.ctx["mfl"]["standings"]
         order, leaders, h2h_needed = self.canon_order()
         site = [r["franchise_id"] for r in self.ctx["site"]["standings"]]
@@ -420,6 +434,8 @@ class Issue:
                  '<p class="caption">In the same order as the league standings page: the current playoff field first '
                  '(division leaders take the top two places), then everyone else; every place goes by all-play percentage, '
                  'then overall record, then points for, then head-to-head.</p>' % (self.week, "".join(rows)))
+        if bare:                                  # story format: (gap boxes, tables); no audit box when no preview was published
+            return body, table + (self.prior_preview_audit() if self.T.get("t.grade.games") else "")
         audit = self.prior_preview_audit()
         return self.section("landscape", "League landscape", 6, "League landscape <small>&mdash; standings after week %d"
                             "</small>" % self.week, self.desk(lead, mb=True) + body + table + audit)
@@ -522,6 +538,11 @@ class Issue:
                                                           et_clock(_utc(prev.get("inputsAtUtc") or prev.get("generatedAtUtc"))))))
         return out
 
+    def odds_lead(self, teams, src, order, div_shown, title_shown):
+        top = order[0]
+        return [("Stuart", "%s leads the forecast at %s to make the playoffs." % (
+            e(self.owner[top]), self.L.put("odds:po:" + top, round(100 * teams[top]["po"], 1), src, "%.1f%%" % (100 * teams[top]["po"]))))]
+
     def seg_odds(self):
         problems = self.forecast_problems()
         if any(g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in problems):
@@ -546,8 +567,7 @@ class Issue:
                         % (self.fr_cell(f), po, bye, dv, ti))
         top = order[0]
         runs = self.L.put("odds:runs", int(sim["runs"]), src, "{:,}".format(int(sim["runs"])))
-        lead = [("Stuart", "%s leads the forecast at %s to make the playoffs." % (
-            e(self.owner[top]), self.L.put("odds:po:" + top, round(100 * teams[top]["po"], 1), src, "%.1f%%" % (100 * teams[top]["po"]))))]
+        lead = self.odds_lead(teams, src, order, div_shown, title_shown)
         table = ('<div class="tablebox"><table><thead><tr><th>Franchise</th><th>Playoffs</th><th>First-round bye</th>'
                  '<th>Wins division</th><th>Title</th></tr></thead><tbody>%s</tbody></table></div>'
                  '<p class="caption">Probabilities updated after Week %d (%s), %s simulated seasons. One team wins each division '
@@ -571,8 +591,10 @@ class Issue:
     def _wins(self, x):
         return str(int(x)) if float(x).is_integer() else "%.1f" % x
 
-    def seg_heat(self):
+    def seg_heat(self, bare=False):
         H = STORIES.heat(self.ctx)
+        if not H and bare:
+            return self.gap("heat:no-history", "heat", "The season and history snapshot is missing, so the Heat Check could not be built."), ""
         if not H:
             return self.section("heat", "Heat Check", 8, "Heat Check", self.gap(
                 "heat:no-history", "heat", "The season and history snapshot is missing, so the Heat Check could not be built."))
@@ -608,6 +630,8 @@ class Issue:
                   '</th><th>Wins vs expected</th></tr></thead><tbody>%s</tbody></table></div><p class="caption">Bench points = the best '
                   'possible lineup from the same roster, known only after the games, minus the lineup started. Wins vs expected = '
                   'head-to-head wins minus the wins each week&rsquo;s all-play rate would give.</p>' % "".join(lrows))
+        if bare:
+            return "", body
         return self.section("heat", "Heat Check", 8, "Heat Check <small>&mdash; the season and the last three weeks</small>",
                             body + self.story_leads(H))
 
@@ -634,8 +658,10 @@ class Issue:
                         "whether there is a story, then remove this box."
                         "<ul style=\"margin:.4rem 0 0 1.1rem\">%s</ul>" % "".join("<li>%s</li>" % x for x in items))
 
-    def seg_survival(self):
+    def seg_survival(self, bare=False):
         res = STORIES.survival(self.ctx)
+        if not res and bare:
+            return self.gap("survival:no-history", "survival", "The history snapshot is missing, so the Survival Line could not be built."), ""
         if not res:
             return self.section("survival", "The Survival Line", 9, "The Survival Line", self.gap(
                 "survival:no-history", "survival", "The history snapshot is missing, so the Survival Line could not be built."))
@@ -672,6 +698,8 @@ class Issue:
                 'win totals are grouped in five bands, among seasons with the same number of games so far.%s</p>' % (
                     cat_head, meta["firstAp"], meta["lastAp"], meta["firstWins"], meta["lastWins"], "".join(rows),
                     self.week, cat_note.replace("%%", "%")))
+        if bare:
+            return "", body
         return self.section("survival", "The Survival Line", 9, "The Survival Line <small>&mdash; what a Week %d position has meant"
                             "</small>" % self.week, body)
 
@@ -758,9 +786,14 @@ class Issue:
                               '</thead><tbody>%s</tbody></table></div>' % rows)
 
     # ------------------------------------------------------------ assembly
-    def render(self, generated_at):
-        segs = [self.seg_open(), self.seg_boomer(), self.seg_desk(), self.seg_plays(), self.seg_bb(), self.seg_landscape(),
+    format_name = "legacy"
+
+    def segments(self):
+        return [self.seg_open(), self.seg_boomer(), self.seg_desk(), self.seg_plays(), self.seg_bb(), self.seg_landscape(),
                 self.seg_odds(), self.seg_heat(), self.seg_survival(), self.seg_coffee(), self.seg_elias()]
+
+    def render(self, generated_at):
+        segs = self.segments()
         sha, combined = wire.style_sha()
         runtime = wire.read(wire.RUNTIME_JS)
         aid = "%d-wk%02d-ups-center" % (self.season, self.week)
@@ -780,8 +813,8 @@ class Issue:
                 "pipelines/etl/wire/wire.py index\n  familyId: weekly\n  season: %d\n  week: %d\n  status: draft\n  "
                 "publishedAt:\n  tags: ups-center\n  heroValue:\n  heroLabel:\n  order:\n  featured: no\n  leadTable:\n-->\n"
                 "<!--wire-provenance\n  pack: %d-wk%02d-recap\n  packGeneratedAtUtc: %s\n  engine: ups-center-auto "
-                "(ups_center_issue.py); claims %s; gaps %d\n-->\n" % (self.season, self.week, self.season, self.week,
-                                                                      self.pack["generatedAtUtc"], self.L.digest(),
+                "(ups_center_issue.py, %s format); claims %s; gaps %d\n-->\n" % (self.season, self.week, self.season, self.week,
+                                                                      self.pack["generatedAtUtc"], self.format_name, self.L.digest(),
                                                                       len(self.gaps)))
         doc = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-'
                'width, initial-scale=1">\n<title>UPS Center: Week %d</title>\n%s<style data-wire-style="tokens+article" '
@@ -795,8 +828,26 @@ class Issue:
                'data-wire-rail data-wire-rail-named aria-label="Segments"></nav>\n\n%s\n\n%s\n</div>\n</div>\n<script '
                'data-wire-runtime>\n%s</script>\n</body>\n</html>\n' % (
                    self.week, meta, sha, wire.STYLE_BANNER, combined, self.week, dek, "\n".join(segs), method, runtime))
-        return {"id": aid, "html": doc, "claims": self.L.claims, "claimsDigest": self.L.digest(), "gaps": self.gaps}
+        return {"id": aid, "html": doc, "claims": self.L.claims, "claimsDigest": self.L.digest(), "gaps": self.gaps,
+                "format": self.format_name}
 
 
-def render(pack, ctx, generated_at=None, local_candidates=False):
-    return Issue(pack, ctx, local_candidates).render(int(generated_at or datetime.now(timezone.utc).timestamp()))
+def render(pack, ctx, generated_at=None, local_candidates=False, fmt=None):
+    """fmt: "story" (the default: Keith's six-segment story edition, 2026-11-05) or "legacy" (the eleven-segment
+    template). UPS_CENTER_FORMAT=legacy is the kill switch. A story build that raises, or whose markup is
+    unbalanced, falls back to legacy and says why in result["formatFallback"]; the run records it."""
+    at = int(generated_at or datetime.now(timezone.utc).timestamp())
+    fmt = fmt or os.environ.get("UPS_CENTER_FORMAT") or "story"
+    if fmt == "legacy":
+        return Issue(pack, ctx, local_candidates).render(at)
+    import ups_center_story_issue as SI
+    try:
+        res = SI.StoryIssue(pack, ctx, local_candidates).render(at)
+        bad = SI.check_structure(res["html"])
+        if bad:
+            raise ValueError("story markup is unbalanced: " + "; ".join(bad))
+        return res
+    except Exception as exc:                                  # never lose the week's draft to a story-format bug
+        res = Issue(pack, ctx, local_candidates).render(at)
+        res["formatFallback"] = "%s: %s" % (type(exc).__name__, str(exc)[:300])
+        return res

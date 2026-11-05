@@ -33,9 +33,9 @@ def check(name, cond, detail=""):
         fails += 1
 
 
-def build(ctx=None, pack=None, local=True):
+def build(ctx=None, pack=None, local=True, fmt="legacy"):
     p, c = copy.deepcopy(pack or PACK), copy.deepcopy(ctx or CTX)
-    res = ISSUE.render(p, c, generated_at=T0, local_candidates=local)
+    res = ISSUE.render(p, c, generated_at=T0, local_candidates=local, fmt=fmt)
     return res, VAL.validate(res, c, p), c
 
 
@@ -60,7 +60,7 @@ check("the site's order differs from the F.1 order in the recorded snapshot -> f
 rows = re.findall(r"MFL proj\. ([^<]+?) ET &middot; kickoff ([^<]+?) ET", res["html"])
 check("every bust/bargain row prints its projection capture time and kickoff", len(rows) == 20, len(rows))
 check("deterministic: a second render has the same claims", ISSUE.render(copy.deepcopy(PACK), copy.deepcopy(CTX), generated_at=T0,
-                                                                        local_candidates=True)["claimsDigest"] == res["claimsDigest"])
+                                                                        local_candidates=True, fmt="legacy")["claimsDigest"] == res["claimsDigest"])
 
 pub, pubrep, _ = build(local=False)
 chat_lines = [" ".join((m["content"] or "").split()) for m in CTX["d1"]["chat"]]
@@ -136,6 +136,7 @@ c8 = copy.deepcopy(CTX)
 c8["mfl"]["scores"]["0005"] = 250.7
 c8["d1"]["teamScores"]["0005"] = 250.7
 c8["eliasReport"] = {"teams": [{"fid": "0005", "before": 250.2, "after": 250.7, "delta": 0.5}]}
+c8["scoresPublished"] = {"teams": {"0005": 250.2}}
 _, stale, _ = build(c8)
 check("a pack built before the correction is BLOCKED (its graded finals no longer match MFL)",
       not stale["ok"] and any(e.startswith("grade:") for e in stale["errors"]), stale["errors"][:3])
@@ -829,6 +830,116 @@ if not SAFE_SUITE:
     wsrc = open(WRAP).read()
     check("the wrapper has no bare `|| exit` left: every pre-build failure goes through fail()",
           "|| exit" not in wsrc and wsrc.count("|| fail ") >= 5)
+
+# ---------------------------------------------------------------------------------------------------------------------
+print("S. the story format (Keith 2026-11-05): the default template")
+import ups_center_story_data as SD            # noqa: E402
+import ups_center_story_issue as SI           # noqa: E402
+FX8 = os.path.join(HERE, "..", "..", "..", "tests", "fixtures", "ups_center_auto", "2026_wk08")
+CTX8 = json.load(open(os.path.join(FX8, "context.json")))
+PACK8 = json.load(open(os.path.join(HERE, "..", "..", "..", "site", "wire", "packs", "2026", "2026-wk08-recap.pack.json")))
+
+
+def build8(mut=None, local=True, fmt=None):
+    c = copy.deepcopy(CTX8)
+    if mut:
+        mut(c)
+    p = copy.deepcopy(PACK8)
+    res = ISSUE.render(p, c, generated_at=T0, local_candidates=local, fmt=fmt)
+    return res, VAL.validate(res, c, p), c
+
+
+r8, v8, _ = build8()
+ids8 = re.findall(r'<section class="wire-sec" id="([^"]+)"', r8["html"])
+check("the default output is the story format: six segments in order", r8["format"] == "story" and ids8 == SI.SEGMENTS, (r8.get("format"), ids8, r8.get("formatFallback")))
+check("Week 8 story draft validates against its sources", v8["ok"], v8["errors"])
+check("one editor item only: Kenny's lines (the old story-leads box is gone)", [g["id"] for g in r8["gaps"]] == ["coffee:kenny"] and not v8["publishable"], [g["id"] for g in r8["gaps"]])
+check("always status: draft; markup balanced", "status: draft" in r8["html"] and not SI.check_structure(r8["html"]), SI.check_structure(r8["html"]))
+check("story markup: dialogue blocks, tablebox, collapsed ledger and tables",
+      all(x in r8["html"] for x in ('class="lt stuart"', 'class="lt rich"', 'class="tablebox"', '<details class="wire-more">', 'class="reel"')))
+check("Elias is news-style with a before/after table", 'id="elias"' in r8["html"] and "After Elias" in r8["html"] and "7&ndash;4 &rarr; 8&ndash;3" in r8["html"])
+check("every class of new claim was checked (archive, Elias, week record)", all(r8 and v8["checkedClaims"].get(k) for k in ("arch", "elias", "wkrec", "score", "odds", "heat", "hist")), v8["checkedClaims"])
+
+st8 = SD.big_story(CTX8)
+check("Big Story rule: the largest historical outlier is Bear Dunn's best-ever-but-one All-Play start",
+      st8["fid"] == "0009" and st8["direction"] == "best" and st8["ahead"] == 1 and st8["pool"] == 180
+      and [(x.get("season"), x["w"], x["l"]) for x in st8["table"]] == [(2018, 84, 4), (None, 78, 10), (2013, 73, 15), (2015, 72, 16), (2021, 70, 18)],
+      st8 and (st8["fid"], st8["ahead"], st8["pool"]))
+check("the 2010 season is excluded by rule (conflicting archived scores), not by hand", "2010" in CTX8["archive"]["excluded"] and "2010" not in
+      [str(x) for x in st8["seasons"]])
+check("the Big Story prose and table carry the archive numbers", all(x in r8["html"] for x in ("84&ndash;4", ".886", ".955", "Lost the final", "Champion")))
+
+def no_archive(c):
+    c["archive"] = None
+rf, vf, _ = build8(no_archive)
+check("no archive -> the Big Story falls back to the old opening desk, and still validates",
+      'id="bigstory"' in rf["html"] and "The closest game was" in rf["html"] and vf["ok"] and not any(k.startswith("arch:") for k in rf["claims"]), vf["errors"])
+c_flat = copy.deepcopy(CTX8)
+for f_ in c_flat["mfl"]["standings"]:
+    c_flat["mfl"]["standings"][f_]["allplay"] = "44-44-0"
+check("no team an outlier -> no Big Story (the fallback applies)", SD.big_story(c_flat) is None)
+c_early = copy.deepcopy(CTX8)
+c_early["week"] = 3
+check("before Week %d there is no all-time story" % SD.BIG_STORY_MIN_WEEK, SD.big_story(c_early) is None)
+
+print("S2. the story format fails closed")
+claims = copy.deepcopy(r8["claims"])
+k = "arch:ap:2018:0007"
+claims[k]["value"] = "83-5"
+check("an archive claim that disagrees with the archive fails", any(k in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+claims["arch:ahead:0009"]["value"] = 3
+check("a wrong 'teams ahead' count fails", any("arch:ahead:0009" in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+claims["elias:before:0007"]["value"] = 217.0
+check("an Elias 'before' score that is not the frozen published score fails", any("elias:before:0007" in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+wk_key = next(k for k in claims if k.startswith("wkrec:"))
+claims[wk_key]["value"] = "5-5"
+check("a wrong week record fails", any(wk_key in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+bad = dict(r8, html=r8["html"].replace("A great start is not a title.", "A great start is not a title. Exactly 412.5 points.", 1))
+check("an invented number in the story text fails", not VAL.validate(bad, CTX8, PACK8)["ok"])
+stray = dict(r8, html=r8["html"].replace('</details></section>', '</details></div></section>', 1))
+check("a stray </div> (Week 8's plays ledger bug) fails validation", any("unbalanced markup" in e for e in VAL.validate(stray, CTX8, PACK8)["errors"]) and SI.check_structure(stray["html"]))
+c_nf = copy.deepcopy(CTX8)
+c_nf["scoresPublished"] = None
+check("Elias claims without frozen published scores fail (never trusted)", any("elias:before" in e for e in build8(lambda c: c.update(scoresPublished=None))[1]["errors"]))
+
+print("S3. Kenny, Elias and the rest of the human gate")
+pubr, pubv, _ = build8(local=False)
+check("the committed story draft (public repo) carries no chat: no quote links, no message text, a count instead of a listing",
+      'class="rcpt"' not in pubr["html"] and "Synthetic test line" not in pubr["html"] and pubv["ok"] and "count:candidates" in pubr["claims"], pubv["errors"])
+check("the local review copy lists the candidate lines by division, verbatim and linked",
+      r8["html"].count('class="rcpt"') == 3 and "Synthetic test line one for the fixture" in r8["html"] and "Dog Pound" in r8["html"])
+def quiet(c):
+    c["eliasReport"] = dict(c["eliasReport"], teams=[], allplayChanges=[], players=[], rankChanges=[], resultsFlipped=0)
+rq, vq, _ = build8(quiet)
+check("Elias posted but nothing moved -> no Elias segment and no box (corrections only)", 'id="elias"' not in rq["html"] and vq["ok"] and
+      [g["id"] for g in rq["gaps"]] == ["coffee:kenny"], (vq["errors"], [g["id"] for g in rq["gaps"]]))
+def not_posted(c):
+    c["mfl"]["elias"] = []
+    c["eliasReport"] = {"officialChanges": 0, "teams": [], "allplayChanges": []}
+rn, vn, _ = build8(not_posted)
+check("Elias not posted yet -> a box that holds publication until the Thursday/Friday runs re-check", any(g["id"] == "elias:not-posted" for g in rn["gaps"]) and vn["ok"])
+check("Elias numbers: a moved score is always shown as a correction (published -> after, and the change)",
+      all(x in r8["html"] for x in ("218.0", "218.5", "+0.5", "&minus;0.5")))
+check("no pronouns guessed in the new story text", not re.search(r"\b(He|his|him|she|her)\b", re.sub(r"<[^>]+>", " ", r8["html"].split('id="bigstory"')[1].split('id="divweek"')[0])))
+
+print("S4. format switch and safety net")
+rl, vl, _ = build8(fmt="legacy")
+check("fmt=legacy (or UPS_CENTER_FORMAT=legacy) gives the eleven-segment template", rl["format"] == "legacy" and len(re.findall(r'<section class="wire-sec" id=', rl["html"])) >= 11 and vl["ok"], vl["errors"])
+os.environ["UPS_CENTER_FORMAT"] = "legacy"
+check("the environment kill switch selects legacy", build8()[0]["format"] == "legacy")
+del os.environ["UPS_CENTER_FORMAT"]
+orig = SI.StoryIssue.segments
+def boom(self):
+    raise RuntimeError("synthetic story bug")
+SI.StoryIssue.segments = boom
+rb, vb, _ = build8()
+SI.StoryIssue.segments = orig
+check("a story-format crash falls back to legacy, says why, and the draft still validates", rb["format"] == "legacy" and "synthetic story bug" in rb["formatFallback"] and vb["ok"], (rb.get("formatFallback"), vb["errors"]))
+check("story builder has no publish, merge or Discord path", not re.search(r"gh pr (merge|ready|close)|discord\.com/api|webhook", open(os.path.join(HERE, "ups_center_story_issue.py")).read().replace("https://discord.com/channels", "")))
+check("deterministic: the same snapshot gives the same claims", build8()[0]["claimsDigest"] == r8["claimsDigest"])
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)
