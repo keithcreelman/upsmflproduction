@@ -1,0 +1,380 @@
+{
+ "H1_contemporaneous_R2": {
+  "punts": 0.24874048974656637,
+  "inside-20 count": 0.931114152966263,
+  "gross avg": 0.019455925127651374,
+  "punts + I20": 0.9311352190099964,
+  "punts + I20 + gross": 0.9734326636672986,
+  "I20 rate (per punt)": 0.4821370937255041
+ },
+ "H1_predictive": [
+  {
+   "predictor": "expected punts (team model feature: o_punt_rate*o_drives)",
+   "rmse_2024": 4.9483040957814275,
+   "r2_2024": 0.0002521890914718439,
+   "pearson": 0.14774296010957813
+  },
+  {
+   "predictor": "EW prior punts per game",
+   "rmse_2024": 4.99774079531424,
+   "r2_2024": -0.01982382923882886,
+   "pearson": 0.029347958334984447
+  },
+  {
+   "predictor": "punter gross avg skill",
+   "rmse_2024": 4.948723813606516,
+   "r2_2024": 8.25836005536873e-05,
+   "pearson": 0.05352496829884282
+  },
+  {
+   "predictor": "punter I20 skill (opportunity-adjusted)",
+   "rmse_2024": 4.951850254678217,
+   "r2_2024": -0.0011812454214437107,
+   "pearson": 0.03833243718174782
+  },
+  {
+   "predictor": "prior UPS points (EW)",
+   "rmse_2024": 4.947281386251475,
+   "r2_2024": 0.0006653997327109584,
+   "pearson": 0.09637550558844342
+  },
+  {
+   "predictor": "prior4 UPS points",
+   "rmse_2024": 4.907681878074245,
+   "r2_2024": 0.016599314926012187,
+   "pearson": 0.1493224104919404
+  },
+  {
+   "predictor": "prior-season UPS points",
+   "rmse_2024": 4.968708130009469,
+   "r2_2024": -0.008009609275143159,
+   "pearson": 0.039239235927673255
+  }
+ ],
+ "H2": [
+  {
+   "n": 512,
+   "rmse": 1.7508553270282328,
+   "mae": 1.3993153514178336,
+   "r2": 0.03966921716863725,
+   "bias": 0.23200355408198767,
+   "pearson": 0.23979896534802292,
+   "variant": "volume only (no Vegas, no matchup)"
+  },
+  {
+   "n": 512,
+   "rmse": 1.7502977460412397,
+   "mae": 1.3966095155017737,
+   "r2": 0.04028077760458182,
+   "bias": 0.2446178754819305,
+   "pearson": 0.24516532995440232,
+   "variant": "spread alone (+volume)"
+  },
+  {
+   "n": 512,
+   "rmse": 1.7442560967771832,
+   "mae": 1.3982049149573064,
+   "r2": 0.04689482910588616,
+   "bias": 0.3275037515510031,
+   "pearson": 0.28529906531451427,
+   "variant": "implied total alone (+volume)"
+  },
+  {
+   "n": 512,
+   "rmse": 1.7433633398870174,
+   "mae": 1.404258187115409,
+   "r2": 0.047870228825582006,
+   "bias": 0.34620068308034035,
+   "pearson": 0.29383133641347137,
+   "variant": "game total alone (+volume)"
+  },
+  {
+   "n": 512,
+   "rmse": 1.741657381344676,
+   "mae": 1.4039790930799918,
+   "r2": 0.04973271974471405,
+   "bias": 0.37613849715497266,
+   "pearson": 0.3079524622816765,
+   "variant": "spread + total (+volume)"
+  },
+  {
+   "n": 512,
+   "rmse": 1.7458606558169818,
+   "mae": 1.3976490673463298,
+   "r2": 0.04514048014733074,
+   "bias": 0.2553777720667809,
+   "pearson": 0.25934086026645087,
+   "variant": "offense EPA + opponent defense (no Vegas)"
+  },
+  {
+   "n": 512,
+   "rmse": 1.742363379120745,
+   "mae": 1.3951169968671433,
+   "r2": 0.04896216341265536,
+   "bias": 0.24301074429963407,
+   "pearson": 0.26184074395411505,
+   "variant": "base + spread"
+  },
+  {
+   "n": 512,
+   "rmse": 1.7178347447128277,
+   "mae": 1.3774288396610324,
+   "r2": 0.07555071397136459,
+   "bias": 0.2176023641107952,
+   "pearson": 0.3006399521820826,
+   "variant": "base + implied"
+  },
+  {
+   "n": 512,
+   "rmse": 1.7260553430258088,
+   "mae": 1.3881253563980778,
+   "r2": 0.06668174702312646,
+   "bias": 0.2659974978850821,
+   "pearson": 0.2990636718674775,
+   "variant": "base + total"
+  },
+  {
+   "n": 512,
+   "rmse": 1.7096896981511494,
+   "mae": 1.3749418883829008,
+   "r2": 0.08429641160447354,
+   "bias": 0.2337902204101162,
+   "pearson": 0.3184665347581196,
+   "variant": "base + all Vegas"
+  }
+ ],
+ "H2_vegas_coefs_given_base": {
+  "coef": {
+   "spread": -0.0188,
+   "total_line": -0.0622,
+   "implied": -0.0507
+  },
+  "z": {
+   "spread": -0.0,
+   "total_line": -0.0,
+   "implied": -0.0
+  }
+ },
+ "H3_buckets": [
+  {
+   "bucket": "1 fav 7+",
+   "n": 936,
+   "drives": 11.6282,
+   "punts": 3.8397,
+   "punt_per_drive": 0.3302,
+   "fourth_go": 0.8825,
+   "turnovers": 1.0053,
+   "tod": 0.3387,
+   "i20": 1.4957,
+   "q4_punts": 0.9776,
+   "ups_points": 6.9962,
+   "o_epa": 0.0528
+  },
+  {
+   "bucket": "2 fav 3-6.5",
+   "n": 1584,
+   "drives": 11.7734,
+   "punts": 4.1679,
+   "punt_per_drive": 0.354,
+   "fourth_go": 1.0297,
+   "turnovers": 1.1528,
+   "tod": 0.4337,
+   "i20": 1.5764,
+   "q4_punts": 1.0189,
+   "ups_points": 7.3507,
+   "o_epa": 0.0194
+  },
+  {
+   "bucket": "3 within 2.5",
+   "n": 1479,
+   "drives": 11.5693,
+   "punts": 4.3651,
+   "punt_per_drive": 0.3773,
+   "fourth_go": 1.1657,
+   "turnovers": 1.1799,
+   "tod": 0.4828,
+   "i20": 1.6247,
+   "q4_punts": 1.0054,
+   "ups_points": 7.5392,
+   "o_epa": -0.0024
+  },
+  {
+   "bucket": "4 dog 3-6.5",
+   "n": 1534,
+   "drives": 11.6649,
+   "punts": 4.5678,
+   "punt_per_drive": 0.3916,
+   "fourth_go": 1.3729,
+   "turnovers": 1.2907,
+   "tod": 0.5958,
+   "i20": 1.6421,
+   "q4_punts": 0.9681,
+   "ups_points": 7.6624,
+   "o_epa": -0.0208
+  },
+  {
+   "bucket": "5 dog 7-10",
+   "n": 604,
+   "drives": 11.4487,
+   "punts": 4.5745,
+   "punt_per_drive": 0.3996,
+   "fourth_go": 1.4536,
+   "turnovers": 1.3642,
+   "tod": 0.6606,
+   "i20": 1.5066,
+   "q4_punts": 0.947,
+   "ups_points": 7.0158,
+   "o_epa": -0.0416
+  },
+  {
+   "bucket": "6 dog >10",
+   "n": 282,
+   "drives": 11.4362,
+   "punts": 4.9184,
+   "punt_per_drive": 0.4301,
+   "fourth_go": 1.6028,
+   "turnovers": 1.4184,
+   "tod": 0.7837,
+   "i20": 1.5957,
+   "q4_punts": 1.0106,
+   "ups_points": 7.5253,
+   "o_epa": -0.0698
+  }
+ ],
+ "H3_bucket_effects_controlled": {
+  "coef": {
+   "1 fav 7+": -0.0425,
+   "2 fav 3-6.5": -0.0036,
+   "4 dog 3-6.5": 0.0172,
+   "5 dog 7-10": -0.0189,
+   "6 dog >10": 0.0237
+  },
+  "se": {
+   "1 fav 7+": 0.0204,
+   "2 fav 3-6.5": 0.0159,
+   "4 dog 3-6.5": 0.0153,
+   "5 dog 7-10": 0.0202,
+   "6 dog >10": 0.0268
+  },
+  "z": {
+   "1 fav 7+": -2.0873,
+   "2 fav 3-6.5": -0.2267,
+   "4 dog 3-6.5": 1.12,
+   "5 dog 7-10": -0.933,
+   "6 dog >10": 0.8868
+  }
+ },
+ "H4_epa_quintiles": [
+  {
+   "epa_q": "1 worst",
+   "punts": 5496,
+   "mean_los": 66.8344,
+   "i20_rate": 0.3492,
+   "exp_i20": 0.3399,
+   "tb": 0.0005,
+   "gross": 46.3128
+  },
+  {
+   "epa_q": "2",
+   "punts": 5489,
+   "mean_los": 66.2904,
+   "i20_rate": 0.3607,
+   "exp_i20": 0.3516,
+   "tb": 0.0007,
+   "gross": 45.9173
+  },
+  {
+   "epa_q": "3",
+   "punts": 5494,
+   "mean_los": 65.6141,
+   "i20_rate": 0.372,
+   "exp_i20": 0.3656,
+   "tb": 0.0005,
+   "gross": 45.9499
+  },
+  {
+   "epa_q": "4",
+   "punts": 5493,
+   "mean_los": 65.578,
+   "i20_rate": 0.3752,
+   "exp_i20": 0.3676,
+   "tb": 0.0009,
+   "gross": 45.7624
+  },
+  {
+   "epa_q": "5 best",
+   "punts": 5491,
+   "mean_los": 65.3531,
+   "i20_rate": 0.3846,
+   "exp_i20": 0.371,
+   "tb": 0.0004,
+   "gross": 45.5048
+  }
+ ],
+ "H4_types": [
+  {
+   "type": "bad (low yds, low pts)",
+   "punts": 11291,
+   "mean_los": 66.4716,
+   "i20_rate": 0.3571,
+   "exp_i20": 0.3468,
+   "i20_minus_expected": 0.0103
+  },
+  {
+   "type": "functional-but-stalled (yds/drive high, pts/drive low)",
+   "punts": 2437,
+   "mean_los": 65.9471,
+   "i20_rate": 0.3611,
+   "exp_i20": 0.3611,
+   "i20_minus_expected": -0.0
+  },
+  {
+   "type": "other",
+   "punts": 1826,
+   "mean_los": 66.5246,
+   "i20_rate": 0.3505,
+   "exp_i20": 0.3464,
+   "i20_minus_expected": 0.0041
+  },
+  {
+   "type": "scoring offense",
+   "punts": 13735,
+   "mean_los": 65.4899,
+   "i20_rate": 0.3789,
+   "exp_i20": 0.3689,
+   "i20_minus_expected": 0.01
+  }
+ ],
+ "H5_deviance_per_punt": {
+  "league constant": 1.37072,
+  "opportunity only (LOS curve)": 1.36897,
+  "raw punter I20% only": 1.36854,
+  "raw punter I20% + opportunity": 1.36775,
+  "opportunity + adjusted punter skill (pk_i20_resid)": 1.36813
+ },
+ "H6_year_to_year_r": {
+  "gross": 0.4728,
+  "net": 0.4743,
+  "i20": 0.2599,
+  "i20_adj": 0.222,
+  "tb": 0.0296,
+  "fc": 0.3121,
+  "ups_pg": NaN,
+  "punts_pg": NaN
+ },
+ "H6_pairs": 305,
+ "H6_split_half_r": {
+  "gross": 0.5766,
+  "net": 0.4407,
+  "i20": 0.1852,
+  "tb": -0.0187,
+  "fc": 0.3564
+ },
+ "H6_spearman_brown": {
+  "gross": 0.731,
+  "net": 0.612,
+  "i20": 0.312,
+  "tb": -0.038,
+  "fc": 0.525
+ }
+}

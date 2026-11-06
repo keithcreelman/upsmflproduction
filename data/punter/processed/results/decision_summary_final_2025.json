@@ -1,0 +1,12 @@
+{
+ "rmse_improvement_vs_EW_UPS_baseline_pct": 3.118,
+ "rmse_improvement_ci95_pct": [
+  0.599,
+  5.583
+ ],
+ "p10_p90_coverage": 0.862,
+ "rmse_improvement_vs_league_mean_pct": 0.146,
+ "best_simple_baseline_rmse": 4.764545003074988,
+ "model_rmse": 4.61821654381194,
+ "rmse_improvement_vs_best_simple_baseline_pct": 3.071
+}
