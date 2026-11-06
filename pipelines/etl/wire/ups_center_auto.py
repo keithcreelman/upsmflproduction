@@ -170,6 +170,7 @@ def run_record(season, week, aid, ctx, now, code):
     return {"id": aid, "season": season, "week": week, "builtAtUtc": SRC.iso(now), "code": code,
             "timing": {"finalAt": t.get("finalAt"), "deadline": t.get("deadline")},
             "forecast": ctx.get("forecast"),
+            "clinch": ctx.get("clinch"),
             "why": "Recorded inputs for ups_center_check.py (the post-build check reads these, never live feeds)."}
 
 

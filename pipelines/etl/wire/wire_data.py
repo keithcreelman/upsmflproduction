@@ -1130,8 +1130,11 @@ def frozen_projection_evidence(season, week):
                         for e in (doc.get("pregameExports") or {}).get("exports", [])]}
 
 
-def starter_projections(season, week):
+def starter_projections(season, week, pregame=None):
     """(ranked, unranked) for every starter this week.
+
+    pregame: (proj, missing) from pregame_projections() for at least the starters, when the caller already holds them for a
+             wider set of players (the UPS Center looks up everyone on a roster once), so they are not looked up twice.
 
     ranked:   [{fid, player_id, player, pos_group, nfl_team, score, proj, captured, kickoff}]
               -- starters with a score AND a projection captured before their own
@@ -1153,7 +1156,7 @@ def starter_projections(season, week):
         "p.nfl_team FROM src_weekly w LEFT JOIN src_players p ON p.season = w.season "
         "AND p.player_id = w.player_id WHERE w.season = %d AND w.week = %d AND w.status = 'starter' "
         "AND w.roster_franchise_id IS NOT NULL" % (int(season), int(week)))
-    proj, missing = pregame_projections(season, week, [r["player_id"] for r in rows])
+    proj, missing = pregame if pregame is not None else pregame_projections(season, week, [r["player_id"] for r in rows])
     ranked, unranked = [], []
     for r in rows:
         pid = str(r["player_id"])

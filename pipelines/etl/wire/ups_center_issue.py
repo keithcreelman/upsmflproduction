@@ -34,6 +34,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import wire  # noqa: E402  (style_sha, runtime, STYLE_BANNER)
 import season_sim  # noqa: E402  (display_percentages: largest-remainder rounding, each group totals 100.0)
+import ups_center_lineup as LINEUP  # noqa: E402  (judge a lineup by pregame projections, never by hindsight alone)
+import ups_center_prob as PROB  # noqa: E402  (a probability prints as 100% / 0% only when clinched / eliminated)
 import ups_center_stories as STORIES  # noqa: E402  (Builder B: Heat Check, Survival Line, story leads)
 
 ET = ZoneInfo("America/New_York")
@@ -86,7 +88,7 @@ class Ledger:
     def __init__(self):
         self.claims = {}
 
-    def put(self, key, value, source, shown=None):
+    def put(self, key, value, source, shown=None, raw=None, lr=None):
         shown = shown if shown is not None else (n1(value) if isinstance(value, float) else str(value))
         prev = self.claims.get(key)
         if prev and prev["value"] != value:
@@ -94,6 +96,10 @@ class Ledger:
         if prev and not source:
             source = prev["source"]          # a re-use (e.g. a story lead) keeps the number's original source
         self.claims[key] = {"value": value, "shown": shown, "source": source}
+        if raw is not None:
+            self.claims[key]["raw"] = raw               # the simulation's own precision, whatever is printed
+        if lr is not None:
+            self.claims[key]["lr"] = lr                 # the largest-remainder figure whose group totals exactly 100.0
         return shown
 
     def digest(self):
@@ -115,6 +121,8 @@ class Issue:
         self.fid = {r["owner_name"]: fid for fid, r in fr.items()}
         self.team = {fid: r["team_name"] for fid, r in fr.items()}
         self.logo = {fid: r["logo"] for fid, r in fr.items()}
+        # the clinching engine's flags per franchise ({} when it could not run: then nothing prints as 100% or 0%)
+        self.flags = (ctx.get("clinch") or {}).get("byFid") or {}
 
     # ------------------------------------------------------------ claims
     def score(self, fid):
@@ -251,8 +259,7 @@ class Issue:
                                                          "; ".join(parts))
                 ba = self.F.get("f.team.%s.best_available" % f)
                 if losses and ba is not None and self.F.get("f.team.%s.could_have_won" % f) == "yes":
-                    txt += " His best available lineup, %s, would have won a game he lost." % self.fact(
-                        "f.team.%s.best_available" % f)
+                    txt += " " + self.lineup_sentence(f)
                 lines.append(("Stuart" if i % 2 == 0 else "Rich", txt))
             sweeper = [f for f in teams if all(w == f for (w, l) in gs if f in (w, l))]
             if sweeper and sweeper[0] == feat[0]:
@@ -522,6 +529,33 @@ class Issue:
                                                           et_clock(_utc(prev.get("inputsAtUtc") or prev.get("generatedAtUtc"))))))
         return out
 
+    def lineup_sentence(self, f):
+        """One sentence about a team whose hindsight lineup would have won a game it lost: judged by MFL's PREGAME projections
+        (kickoff-strict), never by the score alone (Keith 2026-10-27). With no lineup rows or no reproducible best lineup it says
+        so and blames nothing."""
+        best_txt = self.fact("f.team.%s.best_available" % f)
+        rows = (self.ctx.get("lineups") or {}).get(f)
+        pg = self.ctx.get("pregame") or {}
+        if not rows:
+            return ("His best lineup in hindsight, %s, would have won a game he lost. This issue has no lineup detail to judge "
+                    "it by, so it does not call it a mistake." % best_txt)
+        j = LINEUP.judge(rows, pg.get("proj") or {}, pg.get("missing") or {})
+        want = self.F.get("f.team.%s.best_available" % f)
+        if want is None or abs(j["best"] - float(want)) > 0.06:
+            return ("His best lineup in hindsight, %s, would have won a game he lost. The roster detail here does not reproduce "
+                    "MFL&rsquo;s best lineup, so this issue does not judge the lineup." % best_txt)
+        txt, nums = LINEUP.sentence(j, best_txt, fmt=n1)
+        src = "MFL pregame projection captured before the player's own kickoff (wire_data.pregame_projections), via ups_center_lineup"
+        for i, v in enumerate(nums):                     # projections (floats) and change counts (ints) the sentence prints
+            self.L.put("lineup:%s:n%d" % (f, i), v if isinstance(v, int) else round(float(v), 1), src,
+                       str(v) if isinstance(v, int) else n1(float(v)))
+        return txt
+
+    def prob_claim(self, key, p, kind, fid, src):
+        """Register one probability: the ledger keeps the exact percent, the page prints PROB.single's text."""
+        txt, val = PROB.single(p, kind, self.flags.get(fid))
+        return self.L.put(key, val, src, txt, raw=round(100 * float(p), 4))
+
     def seg_odds(self):
         problems = self.forecast_problems()
         if any(g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in problems):
@@ -530,30 +564,42 @@ class Issue:
         sim = self.ctx["forecast"]["sim"]
         teams = sim["teams"]
         src = "season_sim live wk%02d (%s runs, %s)" % (self.week, sim["runs"], sim["generatedAtUtc"])
-        div_shown = {}
+        fl = self.flags
+        div_cells, div_lr = {}, {}
         for d in sorted({t["division"] for t in teams.values()}):
-            div_shown.update(season_sim.display_percentages({f: t["div"] for f, t in teams.items() if t["division"] == d}))
-        title_shown = season_sim.display_percentages({f: t["title"] for f, t in teams.items()})
+            grp = {f: t["div"] for f, t in teams.items() if t["division"] == d}
+            div_lr.update({f: float(x) for f, x in season_sim.display_percentages(grp).items()})
+            div_cells.update(PROB.group_cells(grp, season_sim.display_percentages(grp),
+                                              {f for f in grp if PROB.certain("div", fl.get(f))[0]},
+                                              {f for f in grp if PROB.certain("div", fl.get(f))[1]}))
+        tprobs = {f: t["title"] for f, t in teams.items()}
+        title_lr = {f: float(x) for f, x in season_sim.display_percentages(tprobs).items()}
+        title_cells = PROB.group_cells(tprobs, season_sim.display_percentages(tprobs), set(),
+                                       {f for f in tprobs if PROB.certain("title", fl.get(f))[1]})
         order = sorted(teams, key=lambda f: (-teams[f]["po"], -teams[f]["title"], f))
         rows = []
         for f in order:
             t_ = teams[f]
-            po = self.L.put("odds:po:" + f, round(100 * t_["po"], 1), src, "%.1f%%" % (100 * t_["po"]))
-            bye = self.L.put("odds:bye:" + f, round(100 * t_["bye"], 1), src, "%.1f%%" % (100 * t_["bye"]))
-            dv = self.L.put("odds:div:" + f, float(div_shown[f]), src + ", largest-remainder by division", div_shown[f] + "%")
-            ti = self.L.put("odds:title:" + f, float(title_shown[f]), src + ", largest-remainder", title_shown[f] + "%")
+            po = self.prob_claim("odds:po:" + f, t_["po"], "po", f, src)
+            bye = self.prob_claim("odds:bye:" + f, t_["bye"], "bye", f, src)
+            dv = self.L.put("odds:div:" + f, div_cells[f][1], src + ", largest-remainder by division", div_cells[f][0],
+                            raw=round(100 * t_["div"], 4), lr=div_lr[f])
+            ti = self.L.put("odds:title:" + f, title_cells[f][1], src + ", largest-remainder", title_cells[f][0],
+                            raw=round(100 * t_["title"], 4), lr=title_lr[f])
             rows.append('<tr>%s<td class="num">%s</td><td class="num">%s</td><td class="num">%s</td><td class="num">%s</td></tr>'
-                        % (self.fr_cell(f), po, bye, dv, ti))
+                        % (self.fr_cell(f), e(po), e(bye), e(dv), e(ti)))
         top = order[0]
         runs = self.L.put("odds:runs", int(sim["runs"]), src, "{:,}".format(int(sim["runs"])))
         lead = [("Stuart", "%s leads the forecast at %s to make the playoffs." % (
-            e(self.owner[top]), self.L.put("odds:po:" + top, round(100 * teams[top]["po"], 1), src, "%.1f%%" % (100 * teams[top]["po"]))))]
+            e(self.owner[top]), e(self.prob_claim("odds:po:" + top, teams[top]["po"], "po", top, src))))]
         table = ('<div class="tablebox"><table><thead><tr><th>Franchise</th><th>Playoffs</th><th>First-round bye</th>'
                  '<th>Wins division</th><th>Title</th></tr></thead><tbody>%s</tbody></table></div>'
                  '<p class="caption">Probabilities updated after Week %d (%s), %s simulated seasons. One team wins each division '
                  'in every simulated season; division odds and the league&rsquo;s title odds are rounded so each group '
-                 'still adds up to the whole.</p>'
-                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs))
+                 'still adds up to the whole. A probability prints as certain only when the outcome is clinched or eliminated; a '
+                 'figure that would round to certain prints to two decimals, or as &lt;%s%%.</p>'
+                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs,
+                    self.L.put("odds:floor", PROB.FLOOR_PCT, "ups_center_prob.text: the smallest probability printed", "0.01")))
         extra = "".join(self.gap(g, "odds", why) for g, why in problems)      # preview problems only, at this point
         return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; updated after Week %d</small>"
                             % self.week, self.desk(lead, mb=True) + extra + table)
@@ -604,9 +650,10 @@ class Issue:
                 'in that stretch; <b>Sinking</b> = %s of every %s or fewer; <b>Rising</b> / <b>Cooling</b> = scoring rank moved four or more '
                 'places; otherwise <b>Holding</b>.</p>' % (w_last, rank_head, "".join(rows), w_last.replace("Wks", "Weeks").replace("Wk", "Week"),
                                                           self.rule("dom"), self.rule("of"), self.rule("sink"), self.rule("of"))
-                + '<div class="tablebox"><table><thead><tr><th>Team</th><th>Left on bench / wk</th><th>Losses the best lineup would have won'
+                + '<div class="tablebox"><table><thead><tr><th>Team</th><th>Left on bench / wk</th><th>Losses a hindsight lineup would have won'
                   '</th><th>Wins vs expected</th></tr></thead><tbody>%s</tbody></table></div><p class="caption">Bench points = the best '
-                  'possible lineup from the same roster, known only after the games, minus the lineup started. Wins vs expected = '
+                  'possible lineup from the same roster, known only after the games, minus the lineup started. It is hindsight, not a '
+                  'measure of lineup decisions: a starter can be the better bet before kickoff and still score less. Wins vs expected = '
                   'head-to-head wins minus the wins each week&rsquo;s all-play rate would give.</p>' % "".join(lrows))
         return self.section("heat", "Heat Check", 8, "Heat Check <small>&mdash; the season and the last three weeks</small>",
                             body + self.story_leads(H))
@@ -620,7 +667,7 @@ class Issue:
         where = {"hot": "All-Play over the last three weeks (Heat Check, first table)",
                  "riser": "scoring-rank change between the two windows (Heat Check, first table)",
                  "faller": "scoring-rank change between the two windows (Heat Check, first table)",
-                 "bench": "bench points and losses the best lineup would have won (Heat Check, second table)",
+                 "bench": "bench points and losses a hindsight lineup would have won (Heat Check, second table; hindsight only, check the pregame projections before calling anything a decision)",
                  "unlucky": "wins vs expected (Heat Check, second table)",
                  "survival": "the lowest win band (Survival Line)"}
         items = []
@@ -654,8 +701,7 @@ class Issue:
             col = ""
             if fresh:
                 p = fc["teams"][f]["po"]
-                col = '<td><b>%s</b><br>%s</td>' % (cat(p), self.L.put("odds:po:" + f, round(100 * p, 1), odds_src,
-                                                                       "%.1f%%" % (100 * p)))
+                col = '<td><b>%s</b><br>%s</td>' % (cat(p), e(self.prob_claim("odds:po:" + f, p, "po", f, odds_src)))
             rows.append('<tr><td>%s</td>%s<td class="num">%s/%s</td><td class="num">%s/%s</td></tr>' % (
                 e(self.owner[f]), col, self.L.put("hist:apMade:" + f, r["apHist"][0], src), self.L.put("hist:apN:" + f, r["apHist"][1], src),
                 self.L.put("hist:winMade:" + f, r["winHist"][0], src), self.L.put("hist:winN:" + f, r["winHist"][1], src)))
