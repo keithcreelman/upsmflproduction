@@ -666,6 +666,7 @@ class Issue:
             return self.section("survival", "The Survival Line", 9, "The Survival Line", self.gap(
                 "survival:no-history", "survival", "The history snapshot is missing, so the Survival Line could not be built."))
         S, meta = res
+        meta = dict(meta, lastWins=meta["lastWins"] or meta["firstWins"])      # no win-total history (a reconstructed week): shown as the first season
         src = "D1 weeks 1-%d of %d-%d + /api/playoff-bracket" % (self.week, meta["firstAp"], meta["lastAp"])
         fc = (self.ctx.get("forecast") or {}).get("sim")
         fresh = fc and not any(g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in self.forecast_problems())

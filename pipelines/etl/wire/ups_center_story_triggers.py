@@ -118,7 +118,9 @@ def t_allplay_start(env):
     if not st:
         return []
     p = (st["ahead"] + 1) / float(st["pool"] + 1)
-    return [{"fid": st["fid"], "s": surprise(p), "data": {"story": st}}]
+    return [{"fid": st["fid"], "s": surprise(p), "p": p, "n": st["pool"], "data": {"story": st},
+             "raw": "%s All-Play start, %d earlier team-seasons %s" % ("best" if st["direction"] == "best" else "worst", st["ahead"],
+                                                                       "better" if st["direction"] == "best" else "worse")}]
 
 
 @trigger("week_score", "rarity", min_week=1)
@@ -131,7 +133,9 @@ def t_week_score(env):
     f = max(ws, key=lambda g: (ws[g], g))
     r = ws[f] / avg
     k = sum(1 for x in ratios if x >= r - 1e-12)
-    return [{"fid": f, "s": surprise(k / float(len(ratios))), "data": {"ratio": r, "k": k, "n": len(ratios), "avg": avg}}]
+    return [{"fid": f, "s": surprise(k / float(len(ratios))), "p": k / float(len(ratios)), "n": len(ratios),
+             "raw": "best score %.1f = %d%% of the week's average (%.1f)" % (ws[f], round(100 * r), avg),
+             "data": {"ratio": r, "k": k, "n": len(ratios), "avg": avg}}]
 
 
 @trigger("streak", "rarity", min_week=4, phases=("middle", "late", "playoffs"))
@@ -146,7 +150,9 @@ def t_streak(env):
         if not past:
             continue
         k = sum(1 for x in past if x >= L)
-        out.append({"fid": best, "s": surprise(k / float(len(past))), "data": {"kind": kind, "L": L, "k": k, "n": len(past)}})
+        out.append({"fid": best, "s": surprise(k / float(len(past))), "p": k / float(len(past)), "n": len(past),
+                    "raw": "%d straight weeks %s" % (L, "beating 9+ of 11 teams" if kind == "dom" else "losing to 9+ of 11 teams"),
+                    "data": {"kind": kind, "L": L, "k": k, "n": len(past)}})
     return out
 
 
@@ -177,7 +183,8 @@ def t_luck(env):
                 best = (f, z, won - exp)
     if best and abs(best[1]) >= 2.5:
         p = 0.5 * math.erfc(abs(best[1]) / math.sqrt(2))
-        out.append({"fid": best[0], "s": surprise(p), "data": {"z": best[1], "gap": best[2]}})
+        out.append({"fid": best[0], "s": surprise(p), "p": p, "n": None, "raw": "z = %.1f (%+.1f wins vs the weekly scores' expectation)" % (best[1], best[2]),
+                    "data": {"z": best[1], "gap": best[2]}})
     return out
 
 
@@ -197,7 +204,8 @@ def t_division(env):
             gap = env.sim[lead]["div"] - env.sim[run]["div"]
             s = 0.10 + 0.05 * min(1.0, max(0.0, gap) / 0.7)      # close pairs are common: never stronger than a rare event
             if best is None or s < best["s"]:
-                best = {"fid": lead, "s": s, "data": {"lead": lead, "runner": run, "division": d}}
+                best = {"fid": lead, "s": s, "p": None, "n": None, "raw": "division odds %.1f%% vs %.1f%% (s from the gap; uncalibrated)" % (
+                    100 * env.sim[lead]["div"], 100 * env.sim[run]["div"]), "data": {"lead": lead, "runner": run, "division": d}}
     return [best] if best else []
 
 
@@ -233,7 +241,8 @@ def t_bubble(env):
     if not gaps:
         return []
     k = sum(1 for x in gaps if x <= gap + 1e-12)
-    return [{"fid": order[5], "s": surprise(k / float(len(gaps))), "data": {"sixth": order[5], "seventh": order[6], "gap": gap, "k": k, "n": len(gaps)}}]
+    return [{"fid": order[5], "s": surprise(k / float(len(gaps))), "p": k / float(len(gaps)), "n": len(gaps),
+             "raw": "6th vs 7th All-Play gap %.3f" % gap, "data": {"sixth": order[5], "seventh": order[6], "gap": gap, "k": k, "n": len(gaps)}}]
 
 
 @trigger("odds_swing", "stakes", min_week=1)
@@ -258,7 +267,8 @@ def t_odds_swing(env):
         return []
     f, move, basis, base, floor = best
     s = max(0.05, 0.15 * (1 - (abs(move) - floor) / 35.0))
-    return [{"fid": f, "s": s, "data": {"move": move, "basis": basis, "base": base}}]
+    return [{"fid": f, "s": s, "p": None, "n": None, "raw": "playoff odds %+.1f pts vs %s (fixed thresholds; uncalibrated)" % (move, basis),
+             "data": {"move": move, "basis": basis, "base": base}}]
 
 
 @trigger("elias_flip", "single", min_week=1)
@@ -266,10 +276,11 @@ def t_elias(env):
     rep = env.ctx.get("eliasReport") or {}
     if rep.get("resultsFlipped"):
         fids = [g["a"] for g in rep.get("games") or [] if g.get("flipped")]
-        return [{"fid": (fids or [None])[0], "s": 0.12, "data": {"flipped": rep["resultsFlipped"]}}] if fids else []
+        return [{"fid": (fids or [None])[0], "s": 0.12, "p": None, "n": None, "raw": "%d result(s) flipped by Elias" % rep["resultsFlipped"],
+                 "data": {"flipped": rep["resultsFlipped"]}}] if fids else []
     if rep.get("allplayChanged"):
         ch = rep.get("allplayChanges") or []
-        return [{"fid": ch[0]["fid"], "s": 0.14, "data": {"allplay": True}}] if ch else []
+        return [{"fid": ch[0]["fid"], "s": 0.14, "p": None, "n": None, "raw": "an All-Play game moved by Elias (no result flipped)", "data": {"allplay": True}}] if ch else []
     return []
 
 
@@ -315,3 +326,66 @@ def pick(ctx, prior=None):
     rest = [x for x in fired if x["fid"] != top["fid"]]
     return {"phase": ph, "lead": {"fid": top["fid"], "headline": group[0], "evidence": group[1:]}, "support": rest[:3], "fired": fired,
             "fallback": None, "considered": ranked[:5]}
+
+
+def trace(ctx, prior=None):
+    """EVERY trigger evaluated this week, fired or not, with the reasoning: [{trigger, kind, fid, raw, p, n, s, gate, weight, ledger, adj,
+    fired, group, rank}] plus {"why_winner", "why_runner_up"}. Used by the preview's picker page; pick() is the production path."""
+    env = Env(ctx)
+    ph = phase_of(env.week)
+    names = {f: r["owner_name"] for f, r in ctx["d1"]["franchises"].items()}
+    rows = []
+    for t in REGISTRY:
+        gate = None
+        if env.week < t["min_week"]:
+            gate = "blocked: needs week %d or later" % t["min_week"]
+        elif ph not in t["phases"] and not (ph == "early" and t["id"] in ("week_score", "odds_swing", "elias_flip")):
+            gate = "blocked: not allowed to lead in the %s phase" % ph
+        try:
+            cands = t["fn"](env) or []
+        except Exception as exc:                              # a trigger the inputs cannot support
+            cands = []
+            gate = gate or "no input: %s" % type(exc).__name__
+        if not cands:
+            rows.append({"trigger": t["id"], "kind": t["kind"], "fid": None, "raw": "no candidate", "p": None, "n": None, "s": None, "gate": gate or
+                         ("needs a forecast file for this week" if t["kind"] == "stakes" else "nothing passed this trigger's own threshold"),
+                         "weight": 1.0, "ledger": 1.0, "adj": None, "fired": False})
+            continue
+        for c in cands:
+            w = 1.0
+            if env.week >= 11:
+                w = 0.5 if t["kind"] == "stakes" else 1.5 if t["kind"] == "rarity" else 1.0
+            adj = adjusted(t, c, env, prior)
+            led = adj / (c["s"] * w) if c["s"] and w else 1.0
+            rows.append({"trigger": t["id"], "kind": t["kind"], "fid": c["fid"], "owner": names.get(c["fid"]), "raw": c.get("raw"), "p": c.get("p"), "n": c.get("n"),
+                         "s": c["s"], "gate": gate, "weight": w, "ledger": round(led, 2), "adj": adj, "fired": gate is None and adj <= FIRE})
+    fired = sorted([r for r in rows if r["fired"]], key=lambda r: (r["adj"], r["trigger"]))
+    for i, r in enumerate(fired):
+        r["rank"] = i + 1
+    for r in rows:
+        r.setdefault("rank", None)
+        r["group"] = (names.get(r["fid"]) if r.get("fid") and r["fired"] else None)
+    win = fired[0] if fired else None
+    why_w = why_r = None
+    if win:
+        ev = [r["trigger"] for r in fired[1:] if r["fid"] == win["fid"]]
+        why_w = "%s's %s had the lowest adjusted surprise score of the %d trigger(s) that fired (s = %.3f)%s." % (
+            win["owner"], win["trigger"], len(fired), win["adj"], (", and %s merged into the same story as evidence" % ", ".join(ev)) if ev else "")
+        other = [r for r in fired[1:] if r["fid"] != win["fid"]]
+        if other:
+            o = other[0]
+            why_r = "%s's %s fired (s = %.3f) but its score was higher than %.3f, so it is a supporting beat, not the lead." % (o["owner"], o["trigger"], o["adj"], win["adj"])
+        else:
+            cand = sorted([r for r in rows if r["s"] is not None and not r["fired"]], key=lambda r: r["adj"] if r["adj"] is not None else 9)
+            if cand:
+                o = cand[0]
+                why_r = "The nearest other trigger, %s%s, did not fire: %s." % (o["trigger"], (" for " + o["owner"]) if o.get("owner") else "",
+                                                                             o["gate"] or "its adjusted score %.3f is above the %.2f line" % (o["adj"], FIRE))
+    else:
+        cand = sorted([r for r in rows if r["s"] is not None], key=lambda r: r["adj"] if r["adj"] is not None else 9)
+        why_w = "Nothing fired, so the %s-phase fallback story runs." % ph
+        if cand:
+            o = cand[0]
+            why_r = "Closest: %s%s at s = %.3f%s." % (o["trigger"], (" for " + o["owner"]) if o.get("owner") else "", o["adj"] if o["adj"] is not None else o["s"],
+                                                      (" (" + o["gate"] + ")") if o["gate"] else ", above the %.2f line" % FIRE)
+    return {"phase": ph, "week": env.week, "rows": rows, "why_winner": why_w, "why_runner_up": why_r}

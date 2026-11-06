@@ -23,6 +23,7 @@ publication gate, so nothing can publish without a human pass. The old `stories:
 stories are written, not pointed at.
 """
 import html
+import json
 import os
 from datetime import datetime
 import re
@@ -116,6 +117,21 @@ class StoryIssue(I.Issue):
                     ids = {self.ctx["d1"]["franchises"][self.fid[g[k]]]["division"] for g in pot["games"] for k in ("winner", "loser")}
                     if len(ids) == 1:
                         names[ids.pop()] = self.pretty(pot["divisions"][0])
+            if len(names) < len({r["division"] for r in self.ctx["d1"]["franchises"].values()}):
+                # a crossover week names no single division: read the names from the season's other recap packs (triangle weeks 1, 4, 8, ...)
+                import glob
+                root = os.path.join(HERE, "..", "..", "..", "site", "wire", "packs", str(self.season))
+                for path in sorted(glob.glob(os.path.join(root, "%d-wk*-recap.pack.json" % self.season))):
+                    try:
+                        pk = json.load(open(path))
+                    except (OSError, ValueError):
+                        continue
+                    for pot in pk.get("pots", []):
+                        if len(pot.get("divisions") or []) == 1:
+                            ids = {self.ctx["d1"]["franchises"][self.fid[g[k]]]["division"] for g in pot["games"] for k in ("winner", "loser")
+                                   if g[k] in self.fid}
+                            if len(ids) == 1:
+                                names.setdefault(ids.pop(), self.pretty(pot["divisions"][0]))
             self._divn = names
         return self._divn
 
@@ -453,7 +469,7 @@ class StoryIssue(I.Issue):
         return self.L.put("odds:prepo:" + f, round(100 * v, 1), "season_sim preseason forecast (%s)" % src, "%.1f%%" % (100 * v))
 
     def small_sample(self):
-        return "Through %s weeks that is a small sample, so read it as a first look, not a verdict." % self.word(self.week) if self.week <= 4 else ""
+        return "Through %s week%s that is a small sample, so read it as a first look, not a verdict." % (self.word(self.week), "" if self.week == 1 else "s") if self.week <= 4 else ""
 
     def story_week_score(self, head, evidence):
         f, d = head["fid"], head["data"]
