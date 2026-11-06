@@ -1,0 +1,83 @@
+name: Build ROS projections
+
+# The Front Office's Projected ROS PPG (Keith 2026-10-30, recorded on #1433): the UPS Center forecast projection for every
+# position, the first week MFL hasn't completed through endWeek. pipelines/etl/scripts/build_ros_projections.py builds it.
+#
+# Reads: MFL and Sleeper's public exports, and the id crosswalk from production D1 (about 2.9k rows). Writes 0 D1 rows.
+# Stores two objects in the existing ups-mfl-backups R2 bucket: a dated copy (the honest-cutoff backtest needs every
+# build kept) and ros/latest.json, which the worker's /api/ros-projections serves. The dated copy goes first, so
+# latest.json never names a build that wasn't kept.
+#
+# EXIT CODES ARE MEANINGFUL: a failed build writes nothing, so the last good file stays and the Front Office says
+# "unavailable" once it passes 8 days. Do not make a red run exit 0.
+#
+# RELEASE CONTROL (Keith 2026-10-31, #1434): the first production schedule is not the token and storage test.
+#   - The schedule runs only while the repository variable ROS_SCHEDULE_ENABLED is 1. Unset, it does nothing, so merging
+#     this file starts no writes. It is also the kill switch.
+#   - A manual run stores the dated copy only. ros/latest.json, the one object the public route reads, changes only with
+#     promote ticked, or on the schedule.
+
+on:
+  schedule:
+    # Wed 14:00 UTC, after MFL's midweek projection update
+    - cron: "0 14 * * 3"
+    # Sun 15:00 UTC, before the early games (GitHub can start this late)
+    - cron: "0 15 * * 0"
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season (blank = this year)"
+        required: false
+        type: string
+      promote:
+        description: "Also replace ros/latest.json (the public route starts serving this file)"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: build-ros-projections
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.event_name != 'schedule' || vars.ROS_SCHEDULE_ENABLED == '1'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install wrangler (the locked version)
+        working-directory: worker
+        run: npm ci
+
+      - name: Build
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SEASON: ${{ inputs.season }}
+        run: |
+          set -e
+          python pipelines/etl/scripts/build_ros_projections.py --allow-prod-d1 --out ros.json ${SEASON:+--season "$SEASON"}
+
+      - name: Store
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          EVENT: ${{ github.event_name }}
+          PROMOTE: ${{ inputs.promote }}
+        run: |
+          set -e
+          if [ ! -f ros.json ]; then echo "Nothing built; nothing stored."; exit 0; fi
+          key=$(python -c "import json; d=json.load(open('ros.json')); print('ros/%d/through-wk%02d-%s.json' % (d['season'], d['throughWeek'], d['asOf'][:10]))")
+          cd worker
+          npx wrangler r2 object put "ups-mfl-backups/$key" --file ../ros.json --content-type application/json --remote
+          if [ "$EVENT" != "schedule" ] && [ "$PROMOTE" != "true" ]; then echo "Dated copy only: ros/latest.json is unchanged."; exit 0; fi
+          npx wrangler r2 object put "ups-mfl-backups/ros/latest.json" --file ../ros.json --content-type application/json --remote
