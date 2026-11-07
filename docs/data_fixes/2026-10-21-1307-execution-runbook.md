@@ -1,0 +1,310 @@
+# #1307 production execution runbook, v5: Batch 1A only (2026-10-22)
+
+**Status: NOT AUTHORIZED.**
+- Nothing in this runbook has run against production, and nothing is scheduled.
+- A write needs Keith's approval comment URL passed to `--approval`.
+
+**Plan v5** ([`2026-10-21-1307-execution-plan.json`](2026-10-21-1307-execution-plan.json), sha256 `ad5bfc0b96e43076b7110cbbccc20c1c7c488eeee25ba2a24f7909394540a202`) follows Keith's 2026-10-21/22 revisions:
+- **authoritative scores are separated from disputed ranks**;
+- each approval starts **one attempt only** (§4a);
+- the post-run panel check expects the PR #1372 safeguard to be live (§8);
+- an **account-wide read-capacity guard** reserves every read the batch can make, decided on the exact counter for the UTC billing day (§3a). The 1A statements are unchanged from v2 (`B_2025.json` sha256 `f499e9d2…`).
+
+**Before 1A can return for approval (Keith 2026-10-22, corrected):**
+- ~~PR #1372 merged and deployed~~: done 2026-10-22 02:55 UTC.
+- ~~Consumer gates re-run against the deployed worker~~: passed 2026-10-22 10:32 UTC (§8a).
+- **`d1_usage.py` measurement correction:** in progress in the separate D1-usage session (uncommitted on `claude/d1-leaderboard-usage-d5ff33`). Not changed here.
+- **The guard uses the exact account counter and the UTC billing day** (§3a). Done in plan v5.
+- **10-15's 752.7M is exact, not sample-inflated:** 1,267 minute groups, all at `sampleInterval` 1, sum identical. It stays in the forecast until it ages out at 10-23 00:00 UTC.
+- **The guard has to pass under 4.5M** with today's exact use, the forecast and the 121,193 reserve. As of 2026-10-22 12:41 UTC it does not (§3a).
+- **#1354 is no longer a prerequisite:** its saving is about 0.05–0.2M a day, too small to create the headroom. The corrected measurements don't prove otherwise.
+
+No request is posted, nothing is scheduled, and nothing runs without Keith's explicit approval. If the guard keeps failing, 1A waits for genuinely lower usage or the separate player-sheet / drop-cron cost fixes. The 90% ceiling is not weakened.
+
+| Batch | Status | What |
+|---|---|---|
+| **1A** | **ready** (needs approval) | Phase B 2025 only: insert the 2,664 playoff-week score rows MFL proves (free agent / taxi / IR). Weekly `pos_rank` / `overall_rank` are **NULL**. |
+| 1C | **held** | The 630 updates to 2025 weekly ranks. They wait for the rank-definition review (§2). |
+| Everything else | **pending** | B 2021–2024 (10,728 rows), A 2011–2020 (34,900), C 2021–2024 (2,433). The plan holds no executable SQL for them; they will be regenerated after the rank review. |
+
+**Still separate later work:** phase E, the `src_pointssummary` rank / tie rebuild, the 23 unresolved player-seasons, and `win_chunks`.
+
+**Executor and artifacts:**
+- Executor: `pipelines/etl/scripts/run_1307_src_weekly_batches.py`.
+- Artifacts: `~/.ups_jobs/1307_src_weekly/`, private and outside the public repo.
+- 1A's statement file is `out_ranks_null/statements/B_2025.json`, sha256 `f499e9d2b3caf50cc5fb595c393053b39eac20e3c53cae5414bb18ce9fb8253c`. The executor refuses to run if the file differs.
+
+## 1. Why the rank updates (1C) are held, and why 1A writes no weekly ranks
+Phase C does **not** touch the season rank table (`src_pointssummary`), where the float-tie defect lives. It changes the **weekly** game ranks in `src_weekly`. Of the 630 2025 changes:
+
+| Count | Cause | Example (before → after) |
+|---|---|---|
+| 625 | **Tie re-ordering only.** The existing row holds the tie-shared rank (1 + players who scored more); C moves it to a position chosen by numeric player id among the tied scores. | Wk 15, 10814 (PN), 0.0 pts, tied with 241 players: overall 962 → 963, pos 29 → 30. Wk 15, 11769 (DL), 7.5 pts, 14 tied: overall 305 → 307, pos 34 → 35. |
+| 14 | Tie re-ordering plus a different position-group mapping. The old route mapped positions by majority vote. | Wk 15, 16586 (QB), 0.0 pts: overall 962 → 1132, pos 34 → 35. |
+| 5 | A missing `pos_group` filled; no rank changes. | Wk 15, 7394 (QB): `pos_group` NULL → QB, ranks unchanged. |
+
+- **The choice behind C:** C would replace a tie-sharing convention with an arbitrary id-ordered one, just to match the regular-season rows. That is a rank definition, not a recovered fact, so it is held.
+- **The same choice is in 1A's rows:** **2,590 of the 2,664** new rows have a tied score, mostly 0.0. So 1A writes their weekly ranks as **NULL**.
+- **Readers:** only the player-bundle Game Log reads weekly ranks, and only to display them. A NULL shows as no Pos Rk on rows that are missing entirely today.
+- **Cost of the later fill:** filling those ranks after the review is 1 write per row (2,664 for 2025). That is not counted in 1A.
+
+## 2. Batch 1A: what it changes
+- **Source and timing:** MFL `playerScores` for 2025 Wks 15–17, every player MFL scored. Status / team come from the MFL lineup record or a consistent weekly rosters export; 2025's export matches the lineups 100%. NULL status: **0** rows.
+- **Season ranks on the player card** (the #1353 rule shows a rank only when `src_pointssummary`'s own basis equals the weekly total):
+
+  | Measure | Today | After 1A | Of the newly showable: equal to a clean recount / differ |
+  |---|---|---|---|
+  | **Pts Rk** showable (2025, of 1,742) | 671 | **1,730** (+1,059) | 806 / **253** |
+  | **PPG Rk** showable (needs ≥ 9 of 17 wks) | 384 | **1,203** (+819) | 473 / **346** |
+
+  - 1A writes **no** rank value. The values that become showable are the ones `src_pointssummary` already stores.
+  - The "differ" column is the known rank-table defect: dense ranks on unrounded floats, plus 12 corrected totals shifting the players near them. It is visible once the totals agree. Clean recount: dense rank within the positional group over every player in `src_pointssummary`, on MFL Wks 1–17 points and PPG, each rounded to 4 dp. (An earlier count of 336 divided a rounded total without rounding the PPG, so float noise split ties; corrected 2026-10-21.)
+  - **PR #1372 holds those values on every live screen:** 253 Pts Rk and 448 PPG Rk (PPG counted without the half-season rule, as live screens show it) come back from `/api/player-bundle` as `null` with `rank_pending`, and show as “—” with “Rank pending historical reconciliation”. It must be live before 1A runs.
+- **Phase C would add nothing to these counts:** ranks don't change totals.
+- **Still hidden after 1A: every unresolved 2025 player-season (12).** In each, MFL's total differs from the rank table's basis because of stat corrections after the table was built.
+
+  | Player | Rank basis (pts / wks) | After 1A = MFL | Stored rank (Pts, PPG) | Clean recount |
+  |---|---|---|---|---|
+  | 12772 Eric Murray | 78.3 / 11 | 77.0 / 11 | 108, 72 | 110, 78 |
+  | 13688 Marcus Davenport | 18.0 / 7 | 19.0 / 7 | 150, 169 | 148, 166 |
+  | 13714 Derwin James | 144.2 / 16 | 143.7 / 16 | 10, 20 | 10, 22 |
+  | 13813 Foyesade Oluokun | 135.5 / 16 | 136.5 / 16 | 12, 19 | 11, 18 |
+  | 14896 Patrick Queen | 112.0 / 16 | 112.5 / 16 | 24, 34 | 24, 34 |
+  | 15914 Malcolm Rodriguez | 7.0 / 6 | 6.5 / 6 | 112, 120 | 113, 122 |
+  | 16280 Daiyan Henley | 112.0 / 16 | 112.5 / 16 | 24, 34 | 24, 34 |
+  | 16288 Mekhi Blackmon | 98.3 / 16 | 96.8 / 16 | 75, 108 | 78, 110 |
+  | 17059 Ollie Gordon | 56.9 / 16 | 57.4 / 16 | 66, 88 | 66, 87 |
+  | 17137 Derrick Harmon | 37.0 / 11 | 36.5 / 11 | 117, 139 | 118, 141 |
+  | 17200 Jason Marshall | 37.4 / 11 | 36.6 / 11 | 184, 201 | 183, 203 |
+  | 17430 Jordan Clark | 8.0 / 3 | 8.9 / 3 | 196, 162 | 190, 155 |
+
+- **Dak Prescott and Jacoby Brissett 2025:** unchanged by 1A. Both were rostered, so their playoff rows already exist.
+  - Dak: 409.3 / 16 before and after; rank shown before and after; stored and clean ranks both QB 4 / PPG 5.
+  - Brissett: 259.9 / 13 before and after; rank shown; stored and clean ranks both QB 17 / 17.
+  - Their earlier seasons (Dak 2016–2019, Brissett 2017–2022 and 2024) are fixed only by later batches, which are pending.
+
+## 3. The guard (fails closed)
+`apply` refuses to start unless **all** of these hold:
+1. **Projected usage, including the full rollback, stays at or under 90,000.**
+   `used_today + forecast_rest_of_day + forward_writes + rollback_reserve ≤ 90,000`
+   - **Facts it rests on:** Cloudflare's Free limits reset at **00:00 UTC** and are **account-wide** (4 D1 databases), so `used_today` is every database's `rowsWritten` since 00:00 UTC, from GraphQL `d1AnalyticsAdaptiveGroups` (control plane, 0 D1 rows read).
+   - `forecast_rest_of_day`: for each remaining UTC hour (the current one in full), that hour's maximum over the last 7 complete UTC days.
+   - 1A: `forward_writes` = 2,664 × 4 = **10,656** (table + PK + 2 indexes, measured on Miniflare D1). `rollback_reserve` = **10,656**: a DELETE is assumed to bill its index entries too. Miniflare billed 2,664 for the rollback, and production's figure is unmeasured, so the reserve takes the worst case.
+   - That leaves at least 10,000 unused even if the batch has to be rolled back the same day.
+2. **No unscheduled heavy writer today:** no hour today is 5,000+ writes above its 7-day maximum.
+3. **Inside the start window, 22:05–23:30 UTC.** That is 6:05–7:30 PM EDT, or 5:05–6:30 PM EST from Nov 1. No scheduled write-heavy job runs then, and the 7-day hourly maximum there is about 1.1k. These jobs are avoided (all times UTC; the LaunchAgents run on local time and shift +1 h from Nov 1, never reaching 22:00–23:59):
+   - Daily snapshot / config-sync / builders / roster-anomaly / contract-reconcile: 09:05–09:55.
+   - sleeper-cache-build: 10:20. deadline-drop: 10:00.
+   - nflverse refresh: Mon 05:00 and 13:00; Tue 05:00, 12:00 and 20:00; Wed 11:00.
+   - wc-rank-rebuild: Tue 10:40. owner-career-stats: Tue 13:00. discord-chat-ingest: Tue 11:00.
+   - ingest-projections: Wed and Fri 12:00, Sun 15:00.
+   - live-season-sync: Tue 05:00, Thu and Fri 12:00. ups-center-auto: Tue and Wed 14:00, Thu and Fri 13:00.
+   - auction-reports: 01:00 and 13:00.
+   - Light recurring ticks (worker crons, refresh workflows, discord-reconcile) are already inside the forecast.
+4. **No write-heavy workflow or local job running.** If the GitHub run list can't be read, it stops.
+5. **The 2025 playoff weeks equal the dry-run preimage:** 1,071 rows, sha256 `42e1ed4dcd50…`. The preimage is saved before any write.
+6. **Season reconciliation before the write equals the approved before-state.** The exact set of 2025 player-seasons whose Pts Rk / PPG Rk is showable today must be 671 / 384 (set hashes in the plan). This also proves D1's 2025 regular-season rows still match the dry run.
+7. **MFL's 2025 Wk 15–17 scores and lineups are unchanged** from the cached dry-run replies.
+
+## 3a. Read capacity (Keith, 2026-10-22; fails closed, checked before the first D1 read)
+- **Source:** the account's **exact** D1 counter, GraphQL `d1AnalyticsAdaptiveGroups`, summed over every D1 database in UTC-hour buckets.
+  - Every group must carry `sampleInterval` = 1. A sampled group, a failed request or an empty response stops the batch.
+  - It is the dataset behind `wrangler d1 info` and the D1 dashboard. Verified exact at minute grain by #1354 (2026-10-22) and, for 10-15, by this session (1,267 minute groups, all `sampleInterval` 1, summing to 752,702,826).
+  - Never used: `wrangler d1 insights` / `d1QueriesAdaptiveGroups` (and so the current `d1_usage.py`). They are **sampled**: their "145 runs" were 1 sample × 145, so their totals are extrapolations.
+- **Rule, on the UTC billing day** (the 5M allowance resets at 00:00 UTC): `reads_used_today + reads_forecast_rest_of_day + read_reserve ≤ 4,500,000` (90% of 5,000,000).
+  - `reads_forecast_rest_of_day`: for each remaining UTC hour (the current one in full), that hour's maximum over the last 7 complete UTC days, from the exact counter.
+- **`read_reserve`**, for 1A: **121,193**, made up of:
+  - preflight 19,604;
+  - writes, worst case 2,664 (a full re-run's reads; a first run measured 0);
+  - `apply`'s verification 24,932;
+  - the runbook `verify` 24,932;
+  - worst-case rollback 9,061 (7,990 deletes + the 1,071-row re-read);
+  - panel check 40,000 (8 bundles × 5,000 reserved; measured ≈ 400 each).
+- **Rolling 24 h: diagnostic only.** The GraphQL window and `wrangler d1 info` (summed over `wrangler d1 list`) are reported together with whether they agree within 5%. Neither number decides anything, and a `d1 info` failure is recorded, not a stop.
+- **Exact daily reads:**
+
+  | UTC day | Rows read | Share of 5M |
+  |---|---:|---:|
+  | 10-14 | 45,815,157 | |
+  | 10-15 | 752,702,826 | browser sweeps (exact) |
+  | 10-16 | 7,239,661 | 145% |
+  | 10-17 | 4,135,833 | 83% |
+  | 10-18 | 2,608,316 | 52% |
+  | 10-19 | 2,866,382 | 57% |
+  | 10-20 | 3,762,845 | 75% |
+  | 10-21 | 4,526,410 | 90.5% |
+  | 10-22, to 12:41 | 2,700,323 | |
+
+- **Recalculated 2026-10-22 12:41 UTC** (`usage --batch-writes 10656 --rollback-reserve 10656 --read-reserve 121193`):
+  - used today 2,700,323 + forecast 752,095,387 (10-15 is in the window) + reserve 121,193 = **754.9M. Refused.**
+  - Rolling 24 h, diagnostic: GraphQL 5,232,761–5,355,967; `d1 info` 5,232,761; they agree.
+- **The 22:05 start window, from the exact data:**
+  - **Tonight (10-22):** hours 22–23 forecast 51,755,951 (10-15's own 22–23 h). Refused.
+  - **10-23 at 22:05** (window 10-16 to 10-22): hours 22–23 forecast 623,163, so 1A passes only if 10-23's reads by 22:00 stay at or under **3,755,644**.
+  - Recent days by 22:00: 10-16 6.95M; 10-17 3.75M; 10-18 2.30M; 10-19 2.61M; 10-20 3.38M; 10-21 4.28M. 10-18 to 10-20 would have passed; 10-21 would not.
+
+## 4. Automatic rollback, authorized by the batch approval
+- **When it runs:** `apply` restores the preimage at once, with no further approval, when any of these happen:
+  - **The billed count differs from plan.** Every statement is checked: an insert of n rows must report `rows_written = 4n` and `changes = n`. So is the batch total, 10,656.
+  - **A row- or season-level invariant fails.** That covers any write error, a row-count mismatch, or a playoff-week after-state hash that isn't the plan's `489b6dbe…` (3,735 rows).
+  - **The post-batch reconciliation differs from the approved result.** It must give Pts Rk showable = 1,730 and PPG Rk = 1,203 (exact set hashes), and the hidden set must be exactly the 12 above.
+- **What it does:** it deletes exactly 1A's inserted keys. That is idempotent, so a key never inserted deletes nothing. It then re-reads the weeks and requires the preimage hash. If the hash doesn't match, it stops and reports the failure to escalate to Keith.
+- **Calibration:** 1A's first statement is 80 rows (expected 320 billed). If production bills differently, the batch stops after that one statement. The automatic rollback then removes those 80 rows within the reserved 10,656, which needs about 320 at most. Local replay path 3 below demonstrates it.
+- **A batch that verifies successfully is never rolled back automatically.** A discretionary `rollback` needs its own approval URL. It also re-checks that the rollback fits under 90,000.
+
+## 4a. One attempt per approval (Keith, 2026-10-21)
+- `apply` **consumes its approval before its first production read.** It creates an attempt record atomically (`O_EXCL`) in `~/.ups_jobs/1307_src_weekly/attempts/`, a fixed path that `--artifacts` can't redirect. The record is never deleted or reused.
+- **Every outcome consumes it:** a preflight STOP (even "outside the window"), a failed run, an automatic rollback, a crash. Each outcome is appended beside the record.
+- **Another attempt needs a new explicit approval:** a comment id greater than every approval already recorded for the batch. The same approval, or an older one held in reserve, is refused that night and every night after, before any D1 or MFL call.
+- **Rollback approvals** are single-use the same way and can never be an apply approval.
+- **Still allowed without an approval** (read-only, idempotent): `verify`, `preflight`, `panel-check`, `usage`, and `attempts` (prints the ledger).
+
+## 5. Writes, reads and timing for 1A
+| Item | Value |
+|---|---|
+| Rows inserted / updated | 2,664 / 0 |
+| Billed writes | **10,656** (+ 10,656 reserved for a full rollback) |
+| D1 reads, preflight | 19,604 (1,071 preimage + 16,791 season totals + 1,742 rank basis), by index SEARCH (`EXPLAIN`ed 2026-10-21) |
+| D1 reads during writes | 0 (measured) |
+| D1 reads, post-verify | 24,932 (3,735 after-state + 19,455 season totals + 1,742) |
+| D1 reads if auto-rollback runs | 9,061 more (Miniflare: 7,990 + a 1,071 re-read) |
+| **D1 read reserve (all of the above, worst case)** | **121,193**, held under the 4.5M read ceiling with today's use and forecast (§3a) |
+| MFL GETs | 6 (6 s apart) |
+| Panel check | 8 worker `/api/player-bundle` GETs (≈ 400 D1 rows each, from `wrangler d1 insights` per-query averages; 5,000 each reserved) |
+| Latest permissible start | **23:30 UTC.** Preflight takes about 1.5 min, 34 inserts about 2 min, verify about 0.5 min, and a worst-case auto-rollback about 1 min, so every write lands by about 23:35 UTC, before the 00:00 reset. The 12-minute settle check only reads, and its account delta is measured across midnight. |
+| Earliest start | 22:05 UTC on the first night after approval, and only if the guard passes. Tonight that is Wed 10-21 22:05 UTC. Wednesdays used about 35k by 22:00 last week, so the projection would be about 35k + 2.2k + 21.3k ≈ 58.5k. |
+
+**Later batches** are not scheduled and not approved. Each will come with its own approval request after the rank review. With the rollback reserve, a typical night (30–55k used by 22:05) fits 1–2 batches.
+
+## 6. Local replay, from plan v5 (no network)
+**1. SQL replay.** Miniflare D1, the production schema and the 1,071-row 2025 snapshot. Re-run 2026-10-21 17:51 UTC from the reviewed statement file: identical to the stored measurement.
+- Forward writes **10,656** (0 read).
+- A re-run writes **0**.
+- Rollback restores the identical hash.
+
+**2. Executor end-to-end** (`apply` / `rollback`). This ran on a local SQLite stand-in for D1 holding all 2025 rows (archive regular weeks + snapshot playoff weeks + `src_pointssummary`), with cached MFL replies, real account-wide hourly metrics (GraphQL, 2026-10-12 to 10-22, later hours of 10-22 filled from 10-21), and the clock set to 2026-10-22 22:10 UTC. Paths 1–11 use a synthetic low-read day (10-15 replaced by the median day, every hour halved, ≈ 2.3M reads a day):
+
+| Path | Result |
+|---|---|
+| Clean apply | 34 statements, 10,656 billed; after-hash `489b6dbe…`; reconciliation 1,730 / 1,203 |
+| Discretionary rollback | Back to the preimage `42e1ed4d…` (1,071 rows) |
+| Calibration billed 5 per row | Stopped after statement 1 (400 ≠ 320); automatic rollback to the preimage |
+| One row silently missing | After-state 3,734 ≠ 3,735; automatic rollback to the preimage |
+| Regular-season drift (one Dak 2025 score) | Preflight refused (670 / 383 ≠ 671 / 384); nothing written; that approval is used |
+| Retry with the approval of the auto-rolled-back attempt, cause fixed | Refused before any D1 call: "needs a NEW approval" |
+| An older approval | Refused before any D1 call |
+| `rollback` with an apply approval | Refused before any D1 call |
+| A new approval | Clean apply, same results as the first path |
+| `verify` after all of the above, twice | Read-only, no approval needed; both pass |
+
+| R1: real reads (10-15 in the 7-day window) | Read guard refused (projected 56.7M); 0 D1 calls |
+| R2: `wrangler d1 info` returns 0 | Rolling-24 h diagnostic flags it; decision unchanged (rolling 24 h never decides) |
+| R3: `wrangler d1 info` 8% above GraphQL | Same: flagged, decision unchanged |
+| R5: the usage counter itself is sampled (`sampleInterval` 145) | Refused ("only the exact counter may decide"); 0 D1 calls |
+| R4: a typical day like 10-21, no incident in the window | Read guard refused (≈ 4.78M + 0.62M + 0.12M = 5.52M); 0 D1 calls |
+
+The ledger after the replay held one record per approval, each with its outcomes (`verified`, `rolled_back`, `automatic_rollback`, `stopped`).
+
+## 7. Commands
+Run from a clean checkout of the PR #1363 head, for example its worktree. Never use the main checkout, which the Tuesday sync uses.
+```bash
+cd ~/Code/MFL/upsmflproduction/.claude/worktrees/1307-dry-run-d0f362
+```
+```bash
+shasum -a 256 docs/data_fixes/2026-10-21-1307-execution-plan.json
+```
+The output must be `ad5bfc0b96e43076b7110cbbccc20c1c7c488eeee25ba2a24f7909394540a202`.
+```bash
+export PLAN=docs/data_fixes/2026-10-21-1307-execution-plan.json ART=$HOME/.ups_jobs/1307_src_weekly
+```
+```bash
+npx wrangler whoami
+```
+1. **Usage** (control plane only):
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py usage --batch-writes 10656 --rollback-reserve 10656 --read-reserve 121193
+   ```
+   Read-only consumer gate against the deployed worker (14 bundle GETs, about 6k reads; refuses if today's exact reads plus 70k would pass 4.5M):
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py safeguard-check --allow-prod-read
+   ```
+2. **Preflight** (read-only, any time; saves the preimage):
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py preflight --plan $PLAN --artifacts $ART --batch 1A --allow-prod-d1-read
+   ```
+3. **Write** (only between 22:05 and 23:30 UTC, and only with the approval URL). It repeats the preflight, writes, verifies, rolls back automatically on any invariant failure, then rechecks usage:
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py apply --plan $PLAN --artifacts $ART --batch 1A --execute --approval <URL>
+   ```
+4. **Post-write:**
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py verify --plan $PLAN --artifacts $ART --batch 1A --allow-prod-d1-read
+   ```
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py panel-check --plan $PLAN --batch 1A --allow-prod-read
+   ```
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py usage
+   ```
+5. **Discretionary rollback**, only on a separate approval:
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py rollback --plan $PLAN --artifacts $ART --batch 1A --execute --approval <URL>
+   ```
+
+6. **The attempt ledger** (offline):
+   ```bash
+   python3 pipelines/etl/scripts/run_1307_src_weekly_batches.py attempts --batch 1A
+   ```
+
+Run logs go to `~/.ups_jobs/1307_src_weekly/runs/`: approval URL, preflight facts, and each statement's SHA-256 plus D1 meta. The attempt ledger is `~/.ups_jobs/1307_src_weekly/attempts/`. A failed or stopped run is not retried that night: the next attempt needs a new approval comment from Keith.
+
+**Stop conditions:** any failed check in §3 stops the batch before writing. Any trigger in §4 stops it and rolls back. Two more stop the night, without a rollback, because the batch itself verified:
+- usage metrics unavailable (GraphQL rate-limits quick repeat calls);
+- an account delta, 12 minutes later, of more than this batch plus 3,000.
+
+## 8a. Consumer gate against the deployed #1372 worker (2026-10-22 10:32 UTC: PASSED)
+- **Sample:** `safeguard-check`'s deterministic 14 players:
+  - the named cases (Royals, McLaughlin, Carter, Jackson, Milano);
+  - the first, middle and last held ID of each field;
+  - the controls Dak, Brissett and Shough;
+  - the first already-visible, not-held ID.
+- **Result:** every 2025 row matched the manifest. Held fields are `null` with exactly the manifest's `rank_pending` fields and reason. Unheld fields equal the stored rank, and no other season carries `rank_pending`.
+- **Players with no weekly rows yet:** 21 of the 487 held players (e.g. 17432) have no 2025 src_weekly rows before 1A. Their bundle carries no stored rank yet (both null), so there is nothing to hold until 1A inserts their rows. `safeguard-check --after-batch` expects the post-1A state.
+- **Static consumers on main:** the same 6 screens plus the API, all covered by `tests/rank_pending_1307.test.mjs`. No new consumer of the bundle ranks.
+
+## 8. Post-run player-panel verification
+1. **`verify`:** the after-state hash, then the full-season reconciliation. Exactly 1,730 Pts Rk / 1,203 PPG Rk showable, with the 12 hidden player-seasons listed above.
+2. **`panel-check`:** reads the live worker's `/api/player-bundle` for 8 players. Each player's 2025 `career_summary` row must equal the table. A rank PR #1372 holds must come back `null` with `rank_pending` naming exactly that field, which also proves the safeguard is live:
+
+   | Player | 2025 pts / wks after | Rank basis | Stored Pts Rk, PPG Rk | Rank shows under #1353 |
+   |---|---|---|---|---|
+   | 12620 Dak Prescott | 409.3 / 16 (unchanged) | 409.3 / 16 | 4, 5 | yes (already) |
+   | 12616 Jacoby Brissett | 259.9 / 13 (unchanged) | 259.9 / 13 | 17, 17 | yes (already) |
+   | 17039 Tyler Shough | 91.6 / 7 → 162.6 / 10 | 162.6 / 10 | 28, 29 | yes (new) |
+   | 17424 Charlie Smyth | 11.6 / 2 → 60.5 / 5 | 60.5 / 5 | 31, 3 | Pts Rk yes; PPG Rk no (5 < 9 wks) |
+   | 14252 Michael Jackson | 91.6 / 13 → 132.3 / 16 | 132.3 / 16 | 21, **null** (PPG Rk held by #1372) | Pts Rk yes; PPG Rk “—” |
+   | 13307 Matt Milano | 36.5 / 9 → 74.0 / 12 | 74.0 / 12 | 46, **null** (PPG Rk held by #1372) | Pts Rk yes; PPG Rk “—”; the clean PPG recount is 46 |
+   | 16224 Myles Murphy | 50.0 / 13 → 87.0 / 16 | 87.0 / 16 | 41, 64 | yes (new) |
+   | 12772 Eric Murray | 52.8 / 8 → 77.0 / 11 | 78.3 / 11 | 108, 72 | no (MFL stat correction) |
+
+3. **Not verifiable yet:**
+   - The hide / show rule exists only in draft #1353 (not deployed), so the phone panel can't show this change until #1353 ships.
+   - #1353's preview is a recorded replay and won't reflect it.
+   - Authenticated FO behavior and real Safari are unverified.
+   - 1A's new rows show no weekly Pos Rk in the Game Log until the rank review (§1).
+
+## 9. Approval request: Batch 1A only (DRAFT, not posted; waits for #1354 and every gate)
+> **Approve #1307 Batch 1A:** phase B for 2025 Wks 15–17 only, from plan sha256 `ad5bfc0b96e43076b7110cbbccc20c1c7c488eeee25ba2a24f7909394540a202` (PR #1363).
+> - **Rows:** insert 2,664 playoff-week score rows that MFL proves (free agent / taxi / IR; 0 NULL statuses). Weekly ranks are NULL; no rank value of any kind is written, and 1C is not included.
+> - **Writes:** **10,656**, plus 10,656 reserved for a same-day rollback. The guard requires usage + forecast + 21,312 ≤ 90,000.
+> - **Reads:** **121,193** reserved (worst case, verification and rollback included; a clean run reads about 72k). The guard requires the exact account-wide reads for the UTC day + forecast + 121,193 ≤ 4,500,000. Also 6 MFL GETs.
+> - **Window:** start 22:05–23:30 UTC on the first night after approval, only if every check passes.
+> - **Effect:**
+>   - 2025 Pts Rk showable goes from 671 to 1,730, and PPG Rk from 384 to 1,203.
+>   - Of the newly showable stored values, 253 Pts Rk and 448 PPG Rk (346 with at least half the season's weeks) differ from a clean recount (the known rank-table defect). PR #1372 shows each of them as “—” with “Rank pending historical reconciliation”, never as a number.
+>   - 12 player-seasons stay hidden.
+> - **Automatic rollback:** on any billing, invariant or reconciliation mismatch. It restores the 1,071-row preimage `42e1ed4d…`.
+> - **One attempt:** this approval starts one attempt. If it stops, fails or rolls back, it is used, and a retry needs a new approval.
+> - **What this does not approve:** a discretionary rollback after a verified run, 1C, and any other batch.
+
+Reply "approve batch 1A" on #1307. That reply's URL goes into `--approval`.
