@@ -15,7 +15,7 @@ export function makeD1(opts) {
   const log = [];
   const wrap = (sql, args) => ({
     first: async () => { log.push({ sql, args }); if (opts.beforeRun) opts.beforeRun(sql, args, db); return db.prepare(sql).get(...args) || null; },
-    all: async () => { log.push({ sql, args }); if (opts.beforeRun) opts.beforeRun(sql, args, db); return { results: db.prepare(sql).all(...args) }; },
+    all: async () => { log.push({ sql, args }); if (opts.beforeRun) opts.beforeRun(sql, args, db); return { success: true, results: db.prepare(sql).all(...args) }; },
     run: async () => {
       log.push({ sql, args });
       if (opts.failWrites && /^\s*(UPDATE|INSERT|DELETE)/i.test(sql)) throw new Error("D1_ERROR: simulated write failure");

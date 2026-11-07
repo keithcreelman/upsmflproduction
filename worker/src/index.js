@@ -15,7 +15,9 @@ import {
   openDmChannel as openDiscordDmChannelForUser,
 } from "./discord_round.js";
 import { enqueueTradeOfferDm, processTradeOfferReminders, notifyOffererOfDecline, inQuietHoursEt as sentinelQuietHours, resolveDiscordUserIds, dmAll } from "./trade_dm.js";
-import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing } from "./trade_3way.js";
+import { summarizeExtensionMaster, extensionHistoryReadOk } from "./extension_history.js";
+import { execute3Way, adminCancel3WayTrade, retry3WayPostProcessing, ledgerFor, toMflAsset } from "./trade_3way.js";
+import { tradePreviewVerdict } from "./trade_preview_verdict.js";
 
 // Exact, non-secret release marker returned by the AUTHENTICATED GET /admin/release-info (the deployment discriminator used by the runbook).
 const TWR_RELEASE = "trade-war-room-2026-09-25.3";
@@ -68,6 +70,7 @@ import { evaluateTradeCompliance, loadedContractBlockPayload } from "./trade_cap
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment, capAckTermsKey } from "./trade_cap_ack.js";
 import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
+import { readIdempotencyKey, makeIdempotencyStore, twoWayRequestHash, purgeTradeIdempotency, IDEM_SCOPE, IDEM_STATE } from "./trade_idempotency.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
 import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
@@ -8370,6 +8373,17 @@ export default {
       console.log(`[scheduled] unknown cron trigger: "${cronTrigger}"`);
       return;
     }
+
+    // ── TRADE IDEMPOTENCY PURGE (P0 S6) ──────────────────────────────────────
+    // Keys only need to outlive a double tap / a retry; rows older than 14 days go. One range DELETE on the created_at index (rows read ≈
+    // rows deleted, usually 0). No DDL here: a database that never took a key has no table and nothing to purge.
+    try {
+      if (env.UPS_MFL_DB) {
+        ctx.waitUntil(purgeTradeIdempotency(env.UPS_MFL_DB).then((r) => {
+          if (!r.ok || r.deleted) console.log("[trade-idempotency] purge", JSON.stringify(r));
+        }).catch((e) => console.log("[trade-idempotency] purge failed:", String(e?.message || e))));
+      }
+    } catch (_) { /* a purge fault must never break the hourly cron */ }
 
     // ── §G3 INJURY-STATUS POLL ────────────────────────────────────────────
     // MFL's TYPE=injuries reports CURRENT status and keeps no history, so
@@ -32304,6 +32318,9 @@ const mflToSleeper = {};
         includePayload,
         statusFilter,
         limit,
+        // The 5-minute stored-offer fallback below is opt-in: only for the proven
+        // owner's OWN franchise (never another team's stored offers).
+        allowStoredFallback = false,
       }) => {
         if (!viewerCookieHeader) {
           return {
@@ -32408,9 +32425,9 @@ const mflToSleeper = {};
         }
         const storedIndexes = buildStoredOfferIndexes(storedOffers);
 
-        const pendingRowsAll = pendingTradesRows(pendingRes.data)
-          .map(normalizePendingTradeRow)
-          .filter((r) => !!safeStr(r.trade_id || r.from_franchise_id || r.to_franchise_id));
+        const rawPendingRows = pendingTradesRows(pendingRes.data).map(normalizePendingTradeRow);
+        const pendingRowsAll = rawPendingRows.filter((r) => !!safeStr(r.trade_id || r.from_franchise_id || r.to_franchise_id));
+        const pendingRoot = pendingRes.data?.pendingTrades || pendingRes.data?.pendingtrades;
         const dedupe = new Set();
         const normalized = [];
         for (const row of pendingRowsAll) {
@@ -32473,7 +32490,7 @@ const mflToSleeper = {};
         const fallbackOutgoing = [];
         const fallbackIncoming = [];
         // Only fire fallback when owner-cookied MFL response came back empty.
-        if (franchiseId && ownerCookieUsed && !mflReturnedAnyRows) {
+        if (allowStoredFallback && franchiseId && ownerCookieUsed && !mflReturnedAnyRows) {
           for (const so of storedOffers) {
             if (!so || typeof so !== "object") continue;
             const status = offerStatusNormalized(so.status, "PENDING");
@@ -32539,10 +32556,17 @@ const mflToSleeper = {};
           return rows;
         };
         const maxRows = Math.max(1, Math.min(300, safeInt(limit, 50)));
+        const outgoingRows = filterByStatus(outgoingMerged);
+        // A Retry may resend only when this list proves the offer isn't there (trade_workbench.js findLandedOutgoingOffer). A row
+        // with no readable sender never reaches `outgoing`, and an answer with no pendingTrades block reads as an empty list.
+        const outgoingComplete = !!pendingRoot && typeof pendingRoot === "object" &&
+          rawPendingRows.every((r) => r.from_franchise_id && r.to_franchise_id) &&
+          outgoingRows.length === outgoingMerged.length && outgoingRows.length <= maxRows;
 
         return {
           ok: true,
           status: 200,
+          outgoingComplete,
           pendingLookup: {
             ok: true,
             rows_count: normalized.length,
@@ -32553,7 +32577,7 @@ const mflToSleeper = {};
           },
           proposals: filterByStatus(relatedMerged).slice(0, maxRows),
           incoming: filterByStatus(incomingMerged).slice(0, maxRows),
-          outgoing: filterByStatus(outgoingMerged).slice(0, maxRows),
+          outgoing: outgoingRows.slice(0, maxRows),
           related: filterByStatus(relatedMerged).slice(0, maxRows),
           counts: {
             total: normalized.length + fallbackOutgoing.length + fallbackIncoming.length,
@@ -38579,6 +38603,61 @@ const mflToSleeper = {};
         }
       }
 
+      // ── Trade inbox reads: whose offers a caller may see ─────────────────────
+      // The franchise named in the query is a REQUEST, never identity. The caller is
+      // proven with the same owner-session model as every trade write (tradeCaller ->
+      // MFL myleagues); the admin key does not open these reads. An owner who names
+      // another team is answered 200 with THEIR OWN lists (`scoped_to_proven: true`),
+      // not a 403: both inbox clients read any 401/403 as "signed out", and with MFL
+      // lockout off an owner can legitimately have another team selected. A proven
+      // commissioner keeps today's "acting as" view of the named team.
+      //   ownTeam -- the proven owner named their own franchise: only then may the
+      //              reminder cleanup run and the 5-minute stored-offer fallback fire.
+      const tradeReadDeny = (r) => {
+        const signedOut = r.code === "unauthenticated";
+        // A session MFL doesn't place in this league is answered the way MFL's own
+        // pendingTrades answered it before this gate existed: "sign in again" (401).
+        const notMember = r.code === "forbidden";
+        const http = notMember ? 401 : r.http;
+        const code = notMember ? "session_expired" : r.code;
+        const error = signedOut
+          ? "Missing MFL owner session (MFL_USER_ID). Re-open the workbench from MFL or pass MFL_USER_ID."
+          : notMember ? "Your MFL sign-in expired. Re-open this from MFL and try again." : r.message;
+        return jsonOut(http, {
+          ok: false, code, error, message: error,
+          pending_lookup: {
+            ok: false, rows_count: 0, upstream_status: 0,
+            error: signedOut ? "missing_owner_session_mfl_user_id" : code,
+            missing_owner_session: signedOut,
+          },
+        });
+      };
+      const resolveTradeReadScope = async () => {
+        const requested = padFranchiseId(
+          url.searchParams.get("acting_franchise_id") ||
+            url.searchParams.get("ACTING_FRANCHISE_ID") ||
+          url.searchParams.get("FRANCHISE_ID") ||
+            url.searchParams.get("franchise_id") ||
+            url.searchParams.get("F") ||
+            ""
+        );
+        // declaredFid "": an owner naming another team is SCOPED below, not refused.
+        const auth = await tradeCaller(null, "", { allowAdminKey: false });
+        if (!auth.ok) return { deny: tradeReadDeny(auth) };
+        // No franchise named (e.g. the rookie draft hub poll): exactly today's
+        // answer -- the caller's own MFL list unfiltered, no incoming/outgoing
+        // split, no reminder cleanup, no stored-offer fallback.
+        if (!requested) return { franchiseId: "", ownTeam: false, scopedToProven: false };
+        const sessionFid = padFranchiseId(auth.caller.sessionFid);
+        const commishActing = !!(auth.caller.isCommish && requested && requested !== sessionFid);
+        const franchiseId = commishActing ? requested : sessionFid;
+        return {
+          franchiseId,
+          ownTeam: !commishActing,
+          scopedToProven: !!(requested && requested !== franchiseId),
+        };
+      };
+
       if (
         (path === "/trade-offers" || path === "/api/trades/proposals") &&
         request.method === "GET"
@@ -38593,14 +38672,9 @@ const mflToSleeper = {};
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season param" });
 
-        const franchiseId = padFranchiseId(
-          url.searchParams.get("acting_franchise_id") ||
-            url.searchParams.get("ACTING_FRANCHISE_ID") ||
-          url.searchParams.get("FRANCHISE_ID") ||
-            url.searchParams.get("franchise_id") ||
-            url.searchParams.get("F") ||
-            ""
-        );
+        const scope = await resolveTradeReadScope();
+        if (scope.deny) return scope.deny;
+        const franchiseId = scope.franchiseId;
         const includePayload = ["1", "true", "yes"].includes(
           safeStr(url.searchParams.get("include_payload")).toLowerCase()
         );
@@ -38614,6 +38688,7 @@ const mflToSleeper = {};
           includePayload,
           statusFilter,
           limit,
+          allowStoredFallback: scope.ownTeam,
         });
         if (!live.ok) {
           return jsonOut(live.status || 502, {
@@ -38635,7 +38710,9 @@ const mflToSleeper = {};
         // longer a live incoming pending — this stops the nags the instant they
         // act in-app (accept/decline/counter all drop it from this list). Runs
         // only after a SUCCESSFUL live load, so it never false-resolves.
-        if (franchiseId && env.UPS_MFL_DB) {
+        // Only for an owner reading their OWN proven franchise: a commissioner's
+        // "acting as" view is the commissioner's MFL list, not that team's.
+        if (franchiseId && scope.ownTeam && env.UPS_MFL_DB) {
           ctx.waitUntil((async () => {
             try {
               const livePendingIds = new Set(
@@ -38669,9 +38746,12 @@ const mflToSleeper = {};
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
           franchise_id: franchiseId || "",
+          ...(scope.scopedToProven ? { scoped_to_proven: true } : {}),
           source: "worker:live_mfl_pending_trades",
           pending_lookup: live.pendingLookup,
           counts: live.counts,
+          // A commissioner's "acting as" read is the commissioner's MFL list, so it proves nothing about that team's offers.
+          ...(live.outgoingComplete === true && scope.ownTeam === true ? { outgoing_complete: true } : {}),
           proposals: live.proposals,
           incoming: live.incoming,
           outgoing: live.outgoing,
@@ -38692,16 +38772,12 @@ const mflToSleeper = {};
             YEAR ||
             ""
         );
-        const franchiseId = padFranchiseId(
-          url.searchParams.get("acting_franchise_id") ||
-            url.searchParams.get("ACTING_FRANCHISE_ID") ||
-          url.searchParams.get("FRANCHISE_ID") ||
-            url.searchParams.get("franchise_id") ||
-            url.searchParams.get("F") ||
-            ""
-        );
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR/season param" });
+
+        const scope = await resolveTradeReadScope();
+        if (scope.deny) return scope.deny;
+        const franchiseId = scope.franchiseId;
 
         const live = await loadLivePendingProposals({
           leagueId,
@@ -38710,6 +38786,7 @@ const mflToSleeper = {};
           includePayload: true,
           statusFilter: "PENDING",
           limit: 300,
+          allowStoredFallback: scope.ownTeam,
         });
         if (!live.ok) {
           return jsonOut(live.status || 502, {
@@ -38756,6 +38833,7 @@ const mflToSleeper = {};
           league_id: leagueId,
           season: safeInt(season, Number(season) || 0),
           franchise_id: franchiseId || "",
+          ...(scope.scopedToProven ? { scoped_to_proven: true } : {}),
           proposal,
         });
       }
@@ -39328,7 +39406,45 @@ const mflToSleeper = {};
         // an unrelated owner probe another two teams' cap/roster situation.
         if (!partyFids.has(previewAuth.caller.fid) && !previewAuth.caller.isCommish) return tradeForbidden("You can only preview a trade you're a party to.");
         const out = await threeWayDeps.compliance({ leagueId, season, movements, extensionRequests: body?.extension_requests, offerCreatedAtUtc: null, conditionalDrops: body?.conditional_drops });
-        return jsonOut(200, { ok: true, compliance: out });
+        // The same accept-time asset helpers check the proposed movements against live MFL
+        // ownership and §A6. This is informational: every write path checks again.
+        const byFranchise = {};
+        for (const m of movements) {
+          if (!byFranchise[m.from]) byFranchise[m.from] = [];
+          byFranchise[m.from].push(...m.tokens.map((tok) => {
+            // A current-draft pick can arrive as a builder token (DP_year_round_slot)
+            // or MFL's already-indexed DP_round0_slot0. Convert only the former.
+            const asset = /^DP_20\d\d_\d{1,2}_\d{1,2}$/.test(tok) || tok.startsWith("FP_") ? toMflAsset(tok) : tok;
+            return normalizeToken(asset);
+          }));
+        }
+        let assets = { status: "unavailable", code: "assets_unavailable", message: "The trade assets could not be checked with MFL." };
+        try {
+          const rr = await mflExportJson(season, leagueId, "rosters", {}, { useCookie: true });
+          if (rr.ok && rr.data?.rosters?.franchise) {
+            const rosters = indexRosters(rr.data);
+            const allTokens = Object.values(byFranchise).flat();
+            const needsFuture = allTokens.some((x) => x.startsWith("FP_"));
+            const needsDraft = allTokens.some((x) => x.startsWith("DP_"));
+            const fr = needsFuture ? await mflExportJson(season, leagueId, "futureDraftPicks", {}, { useCookie: true }) : null;
+            const dr = needsDraft ? await mflExportJson(season, leagueId, "draftResults", {}, { useCookie: true }) : null;
+            if ((!needsFuture || fr?.ok && fr.data?.futureDraftPicks?.franchise) && (!needsDraft || dr?.ok && dr.data?.draftResults?.draftUnit)) {
+              const ownership = ownershipViolations({ byFranchise, rosters, futurePicks: fr ? indexFuturePicks(fr.data) : null, draftPicks: dr ? indexDraftPicks(dr.data) : null });
+              const picks = pickEligibilityViolations({ byFranchise, season });
+              const capMoney = capMoneyViolations({ byFranchise, rosters });
+              const violations = { ownership, picks, cap_money: capMoney };
+              assets = ownership.length || picks.length || capMoney.length
+                ? { status: "blocked", code: ownership.length ? "asset_ownership_mismatch" : picks.length ? "pick_not_tradeable" : "cap_money_rule", message: "One or more trade assets do not pass the current league checks.", violations }
+                : { status: "ok", violations };
+            }
+          }
+        } catch (_) { /* A failed read is unavailable, never a pass. */ }
+        const [forfeits, lock] = await Promise.all([
+          checkForfeitedPicks(env, leagueId, byFranchise).catch(() => ({ ok: false, code: "forfeit_check_unavailable" })),
+          readMflTradeLock(env, season, leagueId, { cacheMs: 5 * 60 * 1000 }).catch(() => ({ state: "unresolved" })),
+        ]);
+        const verdict = tradePreviewVerdict({ compliance: out, assets, forfeits, lock });
+        return jsonOut(200, { ok: true, compliance: out, verdict });
       }
 
       // Commissioner ADMINISTRATIVE cancel of a 3-way (RULING, Keith 2026-09-25). A distinct action: it
@@ -39523,10 +39639,18 @@ const mflToSleeper = {};
         try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
         const id = safeStr(body?.id);
         if (!id) return jsonOut(400, { ok: false, error: "Missing id." });
-        const rowNow = await env.UPS_MFL_DB.prepare("SELECT status, failure_reason, mfl_trade_ids FROM ups_3way_trades WHERE id=?").bind(id).first();
+        const rowNow = await env.UPS_MFL_DB.prepare("SELECT league_id, season, status, failure_reason, mfl_trade_ids FROM ups_3way_trades WHERE id=?").bind(id).first();
         if (!rowNow) return jsonOut(404, { ok: false, error: "3-way not found." });
         if (safeStr(rowNow.status) !== "failed") return jsonOut(400, { ok: false, error: `Not retryable — status is '${safeStr(rowNow.status)}', expected 'failed'.` });
         if (safeStr(rowNow.mfl_trade_ids)) return jsonOut(409, { ok: false, error: `PARTIAL — some legs already landed (${safeStr(rowNow.mfl_trade_ids)}). Manual reconciliation needed; not auto-retrying to avoid double execution.` });
+        // The execution ledger decides: only a trade PROVABLY never executed (not_executed / blocked_cap / no row) may run again. An
+        // `executing` row is an unconfirmed leg (it may have landed) — re-running it could execute it twice. Unreadable ⇒ refuse.
+        let retryLed = null;
+        try { retryLed = await ledgerFor(env).read({ leagueId: safeStr(rowNow.league_id), season: safeStr(rowNow.season), execKey: id }); }
+        catch (e) { return jsonOut(503, { ok: false, error: `Execution ledger unreadable — not retrying: ${safeStr(e?.message || e)}` }); }
+        if (retryLed && ![EXEC.NOT_EXECUTED, EXEC.BLOCKED_CAP].includes(retryLed.state)) {
+          return jsonOut(409, { ok: false, code: "not_retryable_execution_state", execution_state: retryLed.state, error: `Not retryable — the execution ledger says '${retryLed.state}'. A leg may already have executed; check MFL and reconcile by hand.` });
+        }
         // Flip back to 'executing' so execute3Way (which no-ops unless executing) runs.
         await env.UPS_MFL_DB.prepare("UPDATE ups_3way_trades SET status='executing', failure_reason=NULL, updated_at_utc=? WHERE id=?").bind(new Date().toISOString(), id).run();
         const out = await execute3Way(env, id);
@@ -39611,6 +39735,11 @@ const mflToSleeper = {};
         if (proposeAuth.caller.fid !== fromFranchiseId) return tradeForbidden("You can only send an offer as your own team.");
         if (proposeAuth.caller.leagueId !== leagueId) return jsonOut(400, { ok: false, code: "league_mismatch", error: "That request named two different leagues." });
         if (!payload) return jsonOut(400, { ok: false, error: "payload is required" });
+        // P0 S6: an OPTIONAL idempotency key (worker/src/trade_idempotency.js). Only validated here; it is TAKEN immediately before the MFL
+        // write below, so every refusal the client resolves and resends with the same key (cap acknowledgment, staging_required,
+        // loaded-contract, ...) is never cached. No key → exactly the old behavior.
+        const proposeIdem = readIdempotencyKey(body);
+        if (proposeIdem.error) return jsonOut(proposeIdem.error.status, proposeIdem.error.body);
         // ---- 🔒 CUTOVER GATE (2026-09-29) ------------------------------------------------
         // Keith's ruling: "the legacy creation endpoint must also refuse direct creation
         // server-side while staging is enabled... hiding a button alone is insufficient."
@@ -39683,11 +39812,25 @@ const mflToSleeper = {};
           // could bypass. We resolve live non-taxi salary per side from
           // the rosters export and reject any side whose traded_salary_
           // adjustment_k exceeds half the summed selected non-taxi salary.
-          try {
-            const tradesRostersRes = await mflExportJsonWithRetryAsViewer(
-              season, leagueId, "rosters", {}, { useCookie: true }
-            );
-            if (tradesRostersRes.ok) {
+          // FAIL CLOSED (P0 S3): when any side carries cap money and the rosters export can't be
+          // read, the offer is not sent (503 cap_money_check_unavailable) -- the rule is never
+          // skipped because MFL was slow. A side with no cap money is unaffected by this check.
+          const proposeUnverifiableMsg = "Couldn't verify this trade with MFL right now, so it wasn't sent. Try again in a moment.";
+          const proposeCapSides = asArray(payload?.teams).filter((team) => padFranchiseId(team?.franchise_id) && Number(team?.traded_salary_adjustment_k || 0) > 0);
+          if (proposeCapSides.length) {
+            let tradesRostersRes = null;
+            try {
+              tradesRostersRes = await mflExportJsonWithRetryAsViewer(
+                season, leagueId, "rosters", {}, { useCookie: true }
+              );
+            } catch (e) {
+              console.warn("[trade-cap-50pct] rosters read failed:", e?.message || String(e));
+              tradesRostersRes = null;
+            }
+            if (!tradesRostersRes || !tradesRostersRes.ok) {
+              return jsonOut(503, { ok: false, code: "cap_money_check_unavailable", error_type: "cap_money_check_unavailable", error: proposeUnverifiableMsg, message: proposeUnverifiableMsg });
+            }
+            {
               const liveSalaryByFp = {};
               const liveTaxiByFp = {};
               const franchises = asArray(
@@ -39716,12 +39859,10 @@ const mflToSleeper = {};
                   if (!pid) continue;
                   const key = `${fidSide}|${pid}`;
                   if (liveTaxiByFp[key]) continue;
-                  // Prefer live salary lookup; fall back to client-
-                  // supplied salary if the player isn't in the live
-                  // roster snapshot (e.g., post-trade race).
-                  const livePay = liveSalaryByFp[key];
-                  const fallback = Number(a?.salary) || 0;
-                  sumNonTaxiDollars += (livePay > 0 ? livePay : fallback);
+                  // Live salary only. A player missing from the live roster counts $0
+                  // (the client's own salary figure is never used); the ownership check
+                  // below refuses such a player anyway.
+                  sumNonTaxiDollars += Number(liveSalaryByFp[key]) || 0;
                 }
                 const maxK = Math.floor(sumNonTaxiDollars / 2000);
                 if (tradedK > maxK) {
@@ -39741,11 +39882,6 @@ const mflToSleeper = {};
                 }
               }
             }
-          } catch (e) {
-            console.warn("[trade-cap-50pct] backstop check failed:", e?.message || String(e));
-            // Fail-open: don't block legitimate submits if the lookup
-            // crashes. The client-side check + commish manual review
-            // remain in place.
           }
 
           const proposalAssets = buildTradeProposalAssetLists(payload);
@@ -39763,11 +39899,22 @@ const mflToSleeper = {};
           // asset.franchise_id) matches a live rosters entry. If any asset
           // is on the WRONG franchise per live MFL, return a clear 400
           // listing the mismatched assets.
-          try {
-            const ownershipRostersRes = await mflExportJsonWithRetryAsViewer(
-              season, leagueId, "rosters", {}, { useCookie: true }
-            );
-            if (ownershipRostersRes.ok) {
+          // FAIL CLOSED (P0 S3): if the rosters export can't be read, ownership can't be
+          // verified, so the offer is not sent (503 ownership_check_unavailable).
+          {
+            let ownershipRostersRes = null;
+            try {
+              ownershipRostersRes = await mflExportJsonWithRetryAsViewer(
+                season, leagueId, "rosters", {}, { useCookie: true }
+              );
+            } catch (e) {
+              console.warn("[trade-ownership] rosters read failed:", e?.message || String(e));
+              ownershipRostersRes = null;
+            }
+            if (!ownershipRostersRes || !ownershipRostersRes.ok) {
+              return jsonOut(503, { ok: false, code: "ownership_check_unavailable", error_type: "ownership_check_unavailable", error: proposeUnverifiableMsg, message: proposeUnverifiableMsg });
+            }
+            {
               const liveOwnerByPid = {};
               const ownFranchises = asArray(
                 ownershipRostersRes.data?.rosters?.franchise ||
@@ -39821,11 +39968,6 @@ const mflToSleeper = {};
                 });
               }
             }
-          } catch (e) {
-            console.warn("[trade-ownership] check failed (fail-open):", e?.message || String(e));
-            // Fail-open: don't block on lookup errors. MFL submit will
-            // still catch genuine ownership issues; this is belt-and-
-            // suspenders for the stale-cache case.
           }
 
           if (!proposalAssets.isValid) {
@@ -39977,6 +40119,22 @@ const mflToSleeper = {};
             }
           }
 
+          // ---- 🔒 IDEMPOTENCY KEY (P0 S6) — taken HERE, immediately before the outbox row and the MFL tradeProposal ----
+          // Same key again: the original response (finished), 409 request_in_progress / request_outcome_unknown (never re-sent),
+          // 409 idempotency_key_reused (different contents), or 503 idempotency_unavailable (the record can't be kept → nothing sent).
+          let proposeIdemKey = null;
+          const proposeIdemStore = proposeIdem.key ? makeIdempotencyStore(env.UPS_MFL_DB) : null;
+          if (proposeIdem.key) {
+            const k = { leagueId, season, scope: IDEM_SCOPE.TWO_WAY_PROPOSE, actorFid: proposeAuth.caller.fid, key: proposeIdem.key };
+            const capKByFranchise = {};
+            for (const team of asArray(payload?.teams)) { const f = padFranchiseId(team?.franchise_id); if (f) capKByFranchise[f] = Number(team?.traded_salary_adjustment_k || 0) || 0; }
+            const requestHash = await twoWayRequestHash({ from: fromFranchiseId, to: toFranchiseId, tokensByFranchise: tokensByFranchise(proposalAssets), capKByFranchise, extensionRequests: payload?.extension_requests });
+            const took = await proposeIdemStore.begin(k, requestHash);
+            if (!took.acquired) return jsonOut(took.reply.status, took.reply.body);
+            proposeIdemKey = k;
+          }
+          const finishProposeIdem = async (state, status, out) => { if (proposeIdemKey) await proposeIdemStore.finish(proposeIdemKey, { state, statusCode: status, body: out }); };
+
           let outboxId = "";
           let outboxBackend = "";
           let outboxWriteError = "";
@@ -40107,7 +40265,7 @@ const mflToSleeper = {};
                 },
               });
             }
-            return jsonOut(502, {
+            const proposeFailOut = {
               ok: false,
               mode: "direct_mfl",
               error_type: "trade_proposal_import_failed",
@@ -40133,7 +40291,9 @@ const mflToSleeper = {};
                 status: outboxId ? "FAILED" : "NOT_PERSISTED",
                 write_error: outboxWriteError || "",
               },
-            });
+            };
+            await finishProposeIdem(IDEM_STATE.FAILED, 502, proposeFailOut);
+            return jsonOut(502, proposeFailOut);
           }
 
           let tradeId = extractTradeIdFromImportText(importRes.text);
@@ -40240,7 +40400,7 @@ const mflToSleeper = {};
               }).catch((e) => console.error(`[trade-dm] enqueue (propose) failed: ${e?.message || e}`))
             );
           }
-          return jsonOut(201, {
+          const proposeOkOut = {
             ok: true,
             mode: "direct_mfl",
             league_id: leagueId,
@@ -40278,7 +40438,9 @@ const mflToSleeper = {};
               status: outboxId ? "POSTED" : "NOT_PERSISTED",
               write_error: outboxWriteError || "",
             },
-          });
+          };
+          await finishProposeIdem(IDEM_STATE.DONE, 201, proposeOkOut);
+          return jsonOut(201, proposeOkOut);
         }
 
         // Legacy non-directMfl path removed 2026-05-28 (Keith report):
@@ -60154,6 +60316,9 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         let extensionMasterPlayerSet = new Set();      // per #1, current season only
         let extensionMasterFranchisePairSet = new Set(); // per #2, only contracts STILL ACTIVE in current season
         let extensionMasterRowCount = 0;
+        // Did the extension-history read succeed? On a failed read the route still behaves as before (empty sets, nothing blocked), but now SAYS so,
+        // so a client that must not guess (the Front Office trade builder) can tell "nobody extended him" from "history unavailable".
+        let extensionHistoryOk = false;
         try {
           // The contract_end_year filter (added in migration 0073) is
           // critical: once an extension contract expires AND the player
@@ -60161,30 +60326,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // RESETS. Without this filter we'd block PG from extending
           // Bosa in 2026 just because PG extended him in 2023 (long
           // since expired). Per Keith 2026-05-24.
-          const currentSeasonInt = safeInt(season, 0);
           const masterRes = await env.UPS_MFL_DB.prepare(
             `SELECT season, franchise_id, player_id, contract_end_year
              FROM ups_extension_master WHERE league_id = ?`
           ).bind(leagueId).all();
-          for (const row of asArray(masterRes?.results)) {
-            const pid = String(row?.player_id || "").replace(/\D/g, "");
-            const fid = padFranchiseId(row?.franchise_id || "");
-            if (!pid) continue;
-            // Per-season player set (for preview-row pruning, Bijan class)
-            if (String(row?.season) === String(season)) {
-              extensionMasterPlayerSet.add(pid);
-            }
-            // Per-franchise pair set — only include if contract is STILL
-            // ACTIVE in the current season (contract_end_year >= current
-            // season). Players whose extension contract has already
-            // expired and gone through FA are eligible for re-extension
-            // by their original extender if re-acquired.
-            const endYear = safeInt(row?.contract_end_year, 0);
-            if (fid && currentSeasonInt > 0 && endYear >= currentSeasonInt) {
-              extensionMasterFranchisePairSet.add(fid + "|" + pid);
-            }
-          }
+          const hist = summarizeExtensionMaster(asArray(masterRes?.results), season, padFranchiseId);
+          for (const x of hist.playerSet) extensionMasterPlayerSet.add(x);
+          for (const x of hist.pairSet) extensionMasterFranchisePairSet.add(x);
           extensionMasterRowCount = extensionMasterPlayerSet.size;
+          extensionHistoryOk = extensionHistoryReadOk(masterRes);   // true only for a successful result with a results array; a valid empty one counts
         } catch (e) {
           console.warn("[trade-workbench] ups_extension_master read failed:", e?.message || String(e));
         }
@@ -60378,6 +60528,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               extension_preview_rows: Array.isArray(extRowsNormalized.rows) ? extRowsNormalized.rows.length : 0,
               extension_preview_rows_owner_remapped: safeInt(extRowsNormalized.remapped_count, 0),
               extension_master_players: extensionMasterRowCount,
+              extension_history_ok: extensionHistoryOk,
               extension_master_franchise_pairs: extensionMasterFranchisePairSet.size,
               extension_preview_rows_pruned_already_extended: prunedRowCount,
               extension_preview_rows_dropped_unpriceable: extPricingDropped,
