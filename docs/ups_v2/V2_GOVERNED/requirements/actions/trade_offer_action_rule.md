@@ -20,7 +20,7 @@ Show `Trade` only when all of the following are true:
 - this means the governed UPS_V2 trade market is open once the new season has been rolled forward operationally
 
 ### End
-- the trade window closes at the kickoff of the NFL Thanksgiving Day game for that season
+- the trade window closes at kickoff of the first NFL game in the NFL schedule week that includes Thanksgiving Day (Keith 2026-10-21; 2026: Wed Nov 25, 8:00 PM ET, NFL Week 12), taken from the official NFL schedule; no deadline time is stated until that schedule is published
 - after that kickoff, no new trades may be launched or submitted for the current governed season window
 
 ### Scope notes
@@ -117,7 +117,7 @@ Show `Trade` only when all of the following are true:
 ## Site settings cross-check
 UPS_V2 must record a site-settings alignment result for the following trade items:
 - live league export `defaultTradeExpirationDays`
-- any live or derived source used for Thanksgiving kickoff deadline resolution
+- any live or derived source used for the Thanksgiving-week first-kickoff deadline (worker/src/trade_deadline.js)
 - any live MFL behavior that blocks or permits accepting trades involving already-started players
 - any notification or offer-expiration setting that materially affects trade workflow timing
 - any governed test-only Discord rollout override or franchise-to-Discord mapping assumption
