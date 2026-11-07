@@ -44,7 +44,7 @@
       "franchise": [
         {
           "abbrev": "L.A.",
-          "bbidAvailableBalance": "9999924999.00",
+          "bbidAvailableBalance": "9999923999.00",
           "division": "02",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2025/74598_franchise_icon0001.png",
           "id": "0001",
@@ -80,7 +80,7 @@
         },
         {
           "abbrev": "PG",
-          "bbidAvailableBalance": "9999975999.00",
+          "bbidAvailableBalance": "9999974999.00",
           "division": "00",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0004.png",
           "id": "0004",
@@ -116,7 +116,7 @@
         },
         {
           "abbrev": "SEX",
-          "bbidAvailableBalance": "9999927999.00",
+          "bbidAvailableBalance": "9999926999.00",
           "division": "02",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2019/74598_franchise_icon0007.png",
           "id": "0007",
@@ -128,7 +128,7 @@
         },
         {
           "abbrev": "RealDeal",
-          "bbidAvailableBalance": "9999930999.00",
+          "bbidAvailableBalance": "9999929999.00",
           "division": "02",
           "icon": "https://www48.myfantasyleague.com/fflnetdynamic2023/74598_franchise_icon0008.png",
           "id": "0008",
