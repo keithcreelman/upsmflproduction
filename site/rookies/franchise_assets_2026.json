@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-06T16:55:53.406413+00:00",
+    "generated_at_utc": "2026-11-07T15:55:03.166833+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -381,11 +381,11 @@
           "taxi": false
         },
         {
-          "asset_id": "P_11383",
-          "display": "Sam Martin",
-          "player_id": "11383",
+          "asset_id": "P_16010",
+          "display": "Ryan Wright",
+          "player_id": "16010",
           "position": "PN",
-          "nfl_team": "CAR",
+          "nfl_team": "NOS",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -1937,6 +1937,18 @@
           "salary": 1000,
           "contract_year": 3,
           "contract_status": "Vet-MYM",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_14159",
+          "display": "Dexter Lawrence",
+          "player_id": "14159",
+          "position": "DT",
+          "nfl_team": "CIN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3525,18 +3537,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15717",
-          "display": "Dameon Pierce",
-          "player_id": "15717",
-          "position": "RB",
-          "nfl_team": "PHI",
-          "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "INJURED_RESERVE",
-          "taxi": false
-        },
-        {
           "asset_id": "P_14080",
           "display": "Devin Singletary",
           "player_id": "14080",
@@ -3689,6 +3689,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-MYM",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_14244",
+          "display": "Matt Gay",
+          "player_id": "14244",
+          "position": "PK",
+          "nfl_team": "LVR",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4019,7 +4031,7 @@
           "display": "Jacoby Brissett",
           "player_id": "12616",
           "position": "QB",
-          "nfl_team": "ARI",
+          "nfl_team": "BAL",
           "salary": 13000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
@@ -4143,6 +4155,18 @@
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_13404",
+          "display": "Austin Ekeler",
+          "player_id": "13404",
+          "position": "RB",
+          "nfl_team": "WAS",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4296,18 +4320,6 @@
           "player_id": "14995",
           "position": "S",
           "nfl_team": "MIN",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15890",
-          "display": "Micah McFadden",
-          "player_id": "15890",
-          "position": "LB",
-          "nfl_team": "NYG",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -5016,6 +5028,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17477",
+          "display": "Jonah Coleman",
+          "player_id": "17477",
+          "position": "RB",
+          "nfl_team": "DEN",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16622",
           "display": "Ricky Pearsall",
           "player_id": "16622",
@@ -5275,18 +5299,6 @@
           "nfl_team": "LAR",
           "salary": 5000,
           "contract_year": 1,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
-        },
-        {
-          "asset_id": "P_17477",
-          "display": "Jonah Coleman",
-          "player_id": "17477",
-          "position": "RB",
-          "nfl_team": "DEN",
-          "salary": 5000,
-          "contract_year": 3,
           "contract_status": "Rookie-Draft",
           "roster_status": "TAXI_SQUAD",
           "taxi": true
