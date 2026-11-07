@@ -33,9 +33,9 @@ def check(name, cond, detail=""):
         fails += 1
 
 
-def build(ctx=None, pack=None, local=True):
+def build(ctx=None, pack=None, local=True, fmt="legacy"):
     p, c = copy.deepcopy(pack or PACK), copy.deepcopy(ctx or CTX)
-    res = ISSUE.render(p, c, generated_at=T0, local_candidates=local)
+    res = ISSUE.render(p, c, generated_at=T0, local_candidates=local, fmt=fmt)
     return res, VAL.validate(res, c, p), c
 
 
@@ -60,7 +60,7 @@ check("the site's order differs from the F.1 order in the recorded snapshot -> f
 rows = re.findall(r"MFL proj\. ([^<]+?) ET &middot; kickoff ([^<]+?) ET", res["html"])
 check("every bust/bargain row prints its projection capture time and kickoff", len(rows) == 20, len(rows))
 check("deterministic: a second render has the same claims", ISSUE.render(copy.deepcopy(PACK), copy.deepcopy(CTX), generated_at=T0,
-                                                                        local_candidates=True)["claimsDigest"] == res["claimsDigest"])
+                                                                        local_candidates=True, fmt="legacy")["claimsDigest"] == res["claimsDigest"])
 
 pub, pubrep, _ = build(local=False)
 chat_lines = [" ".join((m["content"] or "").split()) for m in CTX["d1"]["chat"]]
@@ -136,6 +136,7 @@ c8 = copy.deepcopy(CTX)
 c8["mfl"]["scores"]["0005"] = 250.7
 c8["d1"]["teamScores"]["0005"] = 250.7
 c8["eliasReport"] = {"teams": [{"fid": "0005", "before": 250.2, "after": 250.7, "delta": 0.5}]}
+c8["scoresPublished"] = {"teams": {"0005": 250.2}}
 _, stale, _ = build(c8)
 check("a pack built before the correction is BLOCKED (its graded finals no longer match MFL)",
       not stale["ok"] and any(e.startswith("grade:") for e in stale["errors"]), stale["errors"][:3])
@@ -829,6 +830,248 @@ if not SAFE_SUITE:
     wsrc = open(WRAP).read()
     check("the wrapper has no bare `|| exit` left: every pre-build failure goes through fail()",
           "|| exit" not in wsrc and wsrc.count("|| fail ") >= 5)
+
+# ---------------------------------------------------------------------------------------------------------------------
+print("S. the story format (Keith 2026-11-05): the default template")
+import ups_center_story_data as SD            # noqa: E402
+import ups_center_story_issue as SI           # noqa: E402
+FX8 = os.path.join(HERE, "..", "..", "..", "tests", "fixtures", "ups_center_auto", "2026_wk08")
+CTX8 = json.load(open(os.path.join(FX8, "context.json")))
+PACK8 = json.load(open(os.path.join(HERE, "..", "..", "..", "site", "wire", "packs", "2026", "2026-wk08-recap.pack.json")))
+
+
+def build8(mut=None, local=True, fmt=None):
+    c = copy.deepcopy(CTX8)
+    if mut:
+        mut(c)
+    p = copy.deepcopy(PACK8)
+    res = ISSUE.render(p, c, generated_at=T0, local_candidates=local, fmt=fmt)
+    return res, VAL.validate(res, c, p), c
+
+
+r8, v8, _ = build8()
+ids8 = re.findall(r'<section class="wire-sec" id="([^"]+)"', r8["html"])
+check("the default output is the story format: six segments in order", r8["format"] == "story" and ids8 == SI.SEGMENTS, (r8.get("format"), ids8, r8.get("formatFallback")))
+check("Week 8 story draft validates against its sources", v8["ok"], v8["errors"])
+check("one editor item only: Kenny's lines (the old story-leads box is gone)", [g["id"] for g in r8["gaps"]] == ["coffee:kenny"] and not v8["publishable"], [g["id"] for g in r8["gaps"]])
+check("always status: draft; markup balanced", "status: draft" in r8["html"] and not SI.check_structure(r8["html"]), SI.check_structure(r8["html"]))
+check("story markup: dialogue blocks, tablebox, collapsed ledger and tables",
+      all(x in r8["html"] for x in ('class="lt stuart"', 'class="lt rich"', 'class="tablebox"', '<details class="wire-more">', 'class="reel"')))
+check("Elias is news-style with a before/after table", 'id="elias"' in r8["html"] and "After Elias" in r8["html"] and "7&ndash;4 &rarr; 8&ndash;3" in r8["html"])
+check("every class of new claim was checked (archive, Elias, week record)", all(r8 and v8["checkedClaims"].get(k) for k in ("arch", "elias", "wkrec", "score", "odds", "heat", "hist")), v8["checkedClaims"])
+
+st8 = SD.big_story(CTX8)
+check("Big Story rule: the largest historical outlier is Bear Dunn's best-ever-but-one All-Play start",
+      st8["fid"] == "0009" and st8["direction"] == "best" and st8["ahead"] == 1 and st8["pool"] == 180
+      and [(x.get("season"), x["w"], x["l"]) for x in st8["table"]] == [(2018, 84, 4), (None, 78, 10), (2013, 73, 15), (2015, 72, 16), (2021, 70, 18)],
+      st8 and (st8["fid"], st8["ahead"], st8["pool"]))
+check("the 2010 season is excluded by rule (conflicting archived scores), not by hand", "2010" in CTX8["archive"]["excluded"] and "2010" not in
+      [str(x) for x in st8["seasons"]])
+check("the Big Story prose and table carry the archive numbers", all(x in r8["html"] for x in ("84&ndash;4", ".886", ".955", "Lost the final", "Champion")))
+
+def no_archive(c):
+    c["archive"] = None
+rf, vf, _ = build8(no_archive)
+check("no archive -> the Big Story still picks a story from the other triggers (never the legacy opening) and validates",
+      'id="bigstory"' in rf["html"] and "The closest game was" not in rf["html"] and vf["ok"] and not any(k.startswith("arch:") for k in rf["claims"])
+      and rf["bigStory"]["trigger"] != "allplay_start", (vf["errors"], rf["bigStory"]))
+c_flat = copy.deepcopy(CTX8)
+for f_ in c_flat["mfl"]["standings"]:
+    c_flat["mfl"]["standings"][f_]["allplay"] = "44-44-0"
+check("no team an outlier -> no Big Story (the fallback applies)", SD.big_story(c_flat) is None)
+c_early = copy.deepcopy(CTX8)
+c_early["week"] = 3
+check("before Week %d there is no all-time story" % SD.BIG_STORY_MIN_WEEK, SD.big_story(c_early) is None)
+
+print("S2. the story format fails closed")
+claims = copy.deepcopy(r8["claims"])
+k = "arch:ap:2018:0007"
+claims[k]["value"] = "83-5"
+check("an archive claim that disagrees with the archive fails", any(k in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+claims["arch:ahead:0009"]["value"] = 3
+check("a wrong 'teams ahead' count fails", any("arch:ahead:0009" in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+claims["elias:before:0007"]["value"] = 217.0
+check("an Elias 'before' score that is not the frozen published score fails", any("elias:before:0007" in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+wk_key = next(k for k in claims if k.startswith("wkrec:"))
+claims[wk_key]["value"] = "5-5"
+check("a wrong week record fails", any(wk_key in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+bad = dict(r8, html=r8["html"].replace("A great start is not a title.", "A great start is not a title. Exactly 412.5 points.", 1))
+check("an invented number in the story text fails", not VAL.validate(bad, CTX8, PACK8)["ok"])
+stray = dict(r8, html=r8["html"].replace('</details></section>', '</details></div></section>', 1))
+check("a stray </div> (Week 8's plays ledger bug) fails validation", any("unbalanced markup" in e for e in VAL.validate(stray, CTX8, PACK8)["errors"]) and SI.check_structure(stray["html"]))
+c_nf = copy.deepcopy(CTX8)
+c_nf["scoresPublished"] = None
+check("Elias claims without frozen published scores fail (never trusted)", any("elias:before" in e for e in build8(lambda c: c.update(scoresPublished=None))[1]["errors"]))
+
+print("S3. Kenny, Elias and the rest of the human gate")
+pubr, pubv, _ = build8(local=False)
+check("the committed story draft (public repo) carries no chat: no quote links, no message text, a count instead of a listing",
+      'class="rcpt"' not in pubr["html"] and "Synthetic test line" not in pubr["html"] and pubv["ok"] and "count:candidates" in pubr["claims"], pubv["errors"])
+check("the local review copy lists the candidate lines by division, verbatim and linked",
+      r8["html"].count('class="rcpt"') == 3 and "Synthetic test line one for the fixture" in r8["html"] and "Dog Pound" in r8["html"])
+def quiet(c):
+    c["eliasReport"] = dict(c["eliasReport"], teams=[], allplayChanges=[], players=[], rankChanges=[], resultsFlipped=0)
+rq, vq, _ = build8(quiet)
+check("Elias posted but nothing moved -> no Elias segment and no box (corrections only)", 'id="elias"' not in rq["html"] and vq["ok"] and
+      [g["id"] for g in rq["gaps"]] == ["coffee:kenny"], (vq["errors"], [g["id"] for g in rq["gaps"]]))
+def not_posted(c):
+    c["mfl"]["elias"] = []
+    c["eliasReport"] = {"officialChanges": 0, "teams": [], "allplayChanges": []}
+rn, vn, _ = build8(not_posted)
+check("Elias not posted yet -> a box that holds publication until the Thursday/Friday runs re-check", any(g["id"] == "elias:not-posted" for g in rn["gaps"]) and vn["ok"])
+check("Elias numbers: a moved score is always shown as a correction (published -> after, and the change)",
+      all(x in r8["html"] for x in ("218.0", "218.5", "+0.5", "&minus;0.5")))
+check("no pronouns guessed in the new story text", not re.search(r"\b(He|his|him|she|her)\b", re.sub(r"<[^>]+>", " ", r8["html"].split('id="bigstory"')[1].split('id="divweek"')[0])))
+
+print("S4. format switch and safety net")
+rl, vl, _ = build8(fmt="legacy")
+check("fmt=legacy (or UPS_CENTER_FORMAT=legacy) gives the eleven-segment template", rl["format"] == "legacy" and len(re.findall(r'<section class="wire-sec" id=', rl["html"])) >= 11 and vl["ok"], vl["errors"])
+os.environ["UPS_CENTER_FORMAT"] = "legacy"
+check("the environment kill switch selects legacy", build8()[0]["format"] == "legacy")
+del os.environ["UPS_CENTER_FORMAT"]
+orig = SI.StoryIssue.segments
+def boom(self):
+    raise RuntimeError("synthetic story bug")
+SI.StoryIssue.segments = boom
+rb, vb, _ = build8()
+SI.StoryIssue.segments = orig
+check("a story-format crash falls back to legacy, says why, and the draft still validates", rb["format"] == "legacy" and "synthetic story bug" in rb["formatFallback"] and vb["ok"], (rb.get("formatFallback"), vb["errors"]))
+check("story builder has no publish, merge or Discord path", not re.search(r"gh pr (merge|ready|close)|discord\.com/api|webhook", open(os.path.join(HERE, "ups_center_story_issue.py")).read().replace("https://discord.com/channels", "")))
+check("deterministic: the same snapshot gives the same claims", build8()[0]["claimsDigest"] == r8["claimsDigest"])
+
+print("S5. the hand edit's angles, as general rules (Week 8 published article is the spec)")
+body8 = re.sub(r"<[^>]+>", " ", r8["html"])
+check("worst-start angle: Josh Martel, tied for the fourth-worst start, 13 earlier teams at or below, worst of that owner's career, led the chat",
+      all(x in body8 for x in ("tied for the fourth-worst start since 2011", "14&ndash;63" if False else "14", "13 earlier teams were at that mark or worse by now",
+                               "the climb has left the all-time basement", "still the worst start of that owner", "one game under the 23")), body8[:50])
+wa = SD.worst_angle(CTX8)
+check("worst-angle rule data (3 below, 1 tied, 13 at or below; prev 14-63)", wa and (wa["fid"], wa["prev"], wa["below"], wa["tied"], wa["at_or_below"]) == ("0007", (14, 63), 3, 1, 13), wa)
+check("no worst angle when the Big Story team is the only candidate", SD.worst_angle(CTX8, skip="0007") is None)
+check("Big Story context: previous best start's season (25-1, 155-21, best full season, lost the final), own bad starts, bye and title odds",
+      all(x in body8 for x in ("25", "155", "the best full season in the archive", "still lost the final", "A great start is not a title", "knows both ends of this", "99.8%", "39.3%", "23.2%")))
+check("Division Week: swept/split/shut-out table, 6-0 and 1-5 division records, equal division records, title-chance contrast, slide",
+      all(x in body8 for x in ("That makes Eric Martel", "against the division. Everything won has been won somewhere else", "Everyone in the division is",
+                               "a better title chance", "scoring rank has slid", "the closest game of the week", "That was the lowest score of the week")))
+check("Elias news: whose half point, who it swapped, tenths, rank swap, 'Nobody's result flipped', still above",
+      all(x in body8 for x in ("picked up a second quarterback hit", "that cost Keith Creelman half a point", "by a tenth" if False else "tenth", "scoring ranks swapped too",
+                               "result flipped", "is still above")))
+check("Plays: combined-miss framing per team and the second-biggest bargain",
+      all(x in body8 for x in ("projected points that never showed up", "points under projection", "the second-biggest bargain", "three interceptions", "a rushing score")))
+check("Season So Far: Dominant, movers, history disagreement, bottom, luck and bench as one story",
+      all(x in body8 for x in ("the only two Dominant teams", "The movers.", "is where the two histories disagree", "At the bottom,", "And luck.")))
+claims = copy.deepcopy(r8["claims"])
+mk = next(k for k in claims if k.startswith("miss:"))
+claims[mk]["value"] = dict(claims[mk]["value"], short=99.9)
+check("a combined-miss total that is not the sum of its rows fails", any(mk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+claims["arch:prev:0007"]["value"] = "15-62"
+check("a wrong previous-week All-Play fails", any("arch:prev:0007" in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+dk = next(k for k in claims if k.startswith("divrec:"))
+claims[dk]["value"] = "9-9"
+check("a wrong same-division record fails", any(dk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+
+print("S6. Kenny picks (message ids chosen by the editor) are woven into the division chapters")
+picks = {"picks": [{"id": "90000", "frame": True}, {"id": "90001", "note": "Prediction: the sale sign is back up by Wednesday."}, {"id": "90002"}]}
+rp, vp, _ = build8(lambda c: c.update(kennyPicks=picks), local=False)
+chap = re.findall(r'<section class="division|<div class="lt kenny">', rp["html"])
+check("with picks there is no Kenny box, the lines are `lt kenny` blocks with the verbatim linked quote, and it validates",
+      "coffee:kenny" not in [g["id"] for g in rp["gaps"]] and rp["html"].count('class="lt kenny"') >= 2 and rp["html"].count('class="rcpt"') == 3 and vp["ok"], (vp["errors"], [g["id"] for g in rp["gaps"]]))
+check("each pick is woven into the chapter of the owner's division (Dog Pound for Bear Dunn)",
+      re.search(r"Dog Pound 4 Life\..*?Kenny.*?Synthetic test line one.*?Outlast", rp["html"], re.S) is not None)
+check("the frame is generated from registered claims (score, post count) and the note may not carry a digit",
+      "scored" in rp["html"].split("Synthetic test line one")[1][:400] and not VAL.validate(dict(rp, html=rp["html"].replace("Wednesday.", "Wednesday at 412.", 1)), build8(lambda c: c.update(kennyPicks=picks))[2], PACK8)["ok"])
+rbad, vbad, _ = build8(lambda c: c.update(kennyPicks={"picks": [{"id": "not-a-message"}]}))
+check("a pick that is not in the chat window falls back to legacy instead of printing anything", rbad["format"] == "legacy" and "not in the chat window" in rbad.get("formatFallback", ""), rbad.get("formatFallback"))
+
+print("S7. the Big Story picker: a phase-aware, ranked, pluggable trigger table")
+import ups_center_story_triggers as TRG       # noqa: E402
+pk8 = TRG.pick(CTX8)
+check("Week 8 picks Bear Dunn: the streak heads it, the week score and the all-time start merge in as evidence",
+      pk8["lead"]["fid"] == "0009" and pk8["lead"]["headline"]["trigger"] == "streak"
+      and {x["trigger"] for x in pk8["lead"]["evidence"]} == {"week_score", "allplay_start"}, (pk8["lead"]["headline"]["trigger"], pk8["lead"]["evidence"]))
+check("the all-time-start story supplies the body and table of a merged group (Week 8 keeps its top-5 table)", r8["bigStory"]["trigger"] == "streak"
+      and "Lost the final" in r8["html"] and r8["bigStory"]["evidence"], r8["bigStory"])
+check("the table is pluggable: every trigger is a registered function with a kind, a minimum week and phases, and has a story builder",
+      len(TRG.REGISTRY) >= 8 and all(callable(t["fn"]) and t["kind"] in ("rarity", "stakes", "single") and hasattr(SI.StoryIssue, "story_" + t["id"]) for t in TRG.REGISTRY),
+      [t["id"] for t in TRG.REGISTRY if not hasattr(SI.StoryIssue, "story_" + t["id"])])
+check("phases: weeks 1-4 early, 5-10 middle, 11-14 late, 15+ playoffs", [TRG.phase_of(w) for w in (1, 4, 5, 10, 11, 14, 15)] == ["early", "early", "middle", "middle", "late", "late", "playoffs"])
+check("surprise score: 1 - (1 - p)^12; Bear's start (1 of 180 better, p = 2/181) is about .125", abs(TRG.surprise(2 / 181.0) - 0.125) < 0.005, TRG.surprise(2 / 181.0))
+c_early = copy.deepcopy(CTX8)
+c_early["week"] = 3
+ev_early, _ = TRG.evaluate(c_early)
+check("early weeks: only single-week facts and odds-vs-preseason may lead (no streak, all-time start, luck or division trigger)",
+      not {x["trigger"] for x in ev_early} & {"streak", "allplay_start", "luck_gap", "division_decider", "bubble"}, [x["trigger"] for x in ev_early])
+prior = [{"week": 7, "fid": "0009", "trigger": "streak", "s": 0.0004}]
+ev1, _ = TRG.evaluate(CTX8)
+ev2, _ = TRG.evaluate(CTX8, prior)
+a1 = next(x for x in ev1 if x["trigger"] == "streak")["adj"]
+a2 = next(x for x in ev2 if x["trigger"] == "streak")["adj"]
+check("repeat ledger: the same team and trigger as last week's lead is penalized x3 unless 30% better", abs(a2 - 3 * a1) < 1e-9 and a2 > a1, (a1, a2))
+c_late = copy.deepcopy(CTX8)
+c_late["week"] = 12
+evl, _ = TRG.evaluate(c_late)
+evm, _ = TRG.evaluate(CTX8)
+rar = lambda ev: next(x["adj"] / x["s"] for x in ev if x["kind"] == "rarity")
+check("late phase: rarity triggers count 1.5 times worse, stakes triggers count double", abs(rar(evl) - 1.5) < 1e-9 and abs(rar(evm) - 1.0) < 1e-9)
+nothing = copy.deepcopy(CTX8)
+nothing["history"] = None
+nothing["archive"] = None
+nothing["forecast"] = {"sim": None, "preview": None}
+nothing["eliasReport"] = None
+pkn = TRG.pick(nothing)
+check("nothing fires -> a phase fallback, never the legacy opening", pkn["lead"] is None and pkn["fallback"] == "middle", pkn)
+for tid, ph in (("early", 3), ("middle", 8), ("late", 12)):
+    cx = copy.deepcopy(nothing)
+    cx["week"] = ph
+    rr, vv, _ = build8(lambda c, cx=cx: c.update(week=ph, history=None, archive=None, forecast={"sim": None, "preview": None}, eliasReport=None))
+    check("fallback story for the %s phase renders in story format with the sample-size wording early" % tid,
+          rr["format"] == "story" and rr["bigStory"]["trigger"] == "fallback_" + tid, (rr.get("formatFallback"), rr["bigStory"]))
+p3 = copy.deepcopy(PACK8)
+p3["week"] = 3
+c3 = copy.deepcopy(CTX8)
+c3["week"] = 3
+check("early weeks carry the sample-size wording ('through three weeks ... a small sample'); later weeks do not",
+      "small sample" in SI.StoryIssue(p3, c3).small_sample() and SI.StoryIssue(PACK8, CTX8).small_sample() == "")
+
+print("S8. every trigger's story builds and validates (forced as the lead on the Week 8 snapshot)")
+def forced(tid):
+    env = TRG.Env(CTX8)
+    t = next(x for x in TRG.REGISTRY if x["id"] == tid)
+    cands = t["fn"](env)
+    if cands:
+        c = cands[0]
+    elif tid == "luck_gap":
+        c = {"fid": "0011", "s": 0.05, "data": {"z": 2.6, "gap": 1.9}}
+    elif tid == "bubble":
+        c = {"fid": "0004", "s": 0.05, "data": {"sixth": "0004", "seventh": "0001", "gap": 0.01, "k": 3, "n": 90}}
+    elif tid == "elias_flip":
+        c = {"fid": "0007", "s": 0.1, "data": {"flipped": 1}}
+    else:
+        c = {"fid": "0010", "s": 0.1, "data": {"lead": "0010", "runner": "0002", "division": "x"}}
+    return {"phase": "middle", "fallback": None, "fired": [], "support": [], "considered": [],
+            "lead": {"fid": c["fid"], "headline": {"trigger": tid, "kind": t["kind"], "fid": c["fid"], "s": c["s"], "adj": c["s"], "data": c["data"]}, "evidence": []}}
+for t in TRG.REGISTRY:
+    if t["id"] == "allplay_start":
+        continue
+    orig_pick = TRG.pick
+    TRG.pick = lambda ctx, prior=None, tid=t["id"]: forced(tid)
+    try:
+        rt, vt, _ = build8()
+    finally:
+        TRG.pick = orig_pick
+    check("trigger %s: story builds, validates, and its number claims are checked" % t["id"], rt["format"] == "story" and vt["ok"] and rt["bigStory"]["trigger"] == t["id"], (rt.get("formatFallback"), vt["errors"]))
+claims = copy.deepcopy(r8["claims"])
+tk = next(k for k in claims if k.startswith("trig:streak:"))
+claims[tk]["value"] = 3
+check("a wrong streak length fails", any(tk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+claims = copy.deepcopy(r8["claims"])
+tk = next(k for k in claims if k.startswith("trig:wkk:"))
+claims[tk]["value"] = claims[tk]["value"] + 40
+check("a wrong 'how many past team-weeks' count fails", any(tk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)
