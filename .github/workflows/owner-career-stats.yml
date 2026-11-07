@@ -11,6 +11,12 @@ name: Owner career stats — rebuild
 # The table only changes when a season completes, so most runs rewrite the same
 # twelve rows. That is cheap: a handful of small D1 reads, sixteen worker
 # /api/standings calls, and one twelve-row upsert.
+#
+# Fails closed (2026-10-17, after the 10-13 run zeroed every owner): the script
+# exits non-zero and writes nothing when src_franchises is incomplete, when a
+# current owner does not match it exactly, or when a stored owner's seasons,
+# titles or all-play games would go down. Do not add --allow-decrease here; it
+# is for a deliberate by-hand run only.
 
 on:
   schedule:
