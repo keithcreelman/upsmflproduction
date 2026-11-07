@@ -33908,7 +33908,12 @@ const mflToSleeper = {};
         if (isRestructure) return "Restructure";
         if (isMyac) return "Multi-Year Contract";
         if (isMym) return "MYM";   // §C3 Mid-Year Multi — its own embed/GIF/routing
-        return "FA Contract";
+        // Anything else is a contract change the caller didn't name: a commissioner correction (e.g. the
+        // 2026-07-28 year-roll of Jaxon Smith-Njigba's contract, $14,000 / 3 yrs → $1,000 / 2 yrs, MFL-confirmed
+        // by the daily snapshots), a rookie option, a stale-tag cleanup. No caller sends an FA contract through
+        // here, so this was never an "FA Contract" (Keith 2026-10-28, ruling 7). Same kind ("other"), GIF pool
+        // and Discord routing as before; only the label changes.
+        return "Contract Change";
       };
 
       const normalizeContractActivityKind = (activityType, contractStatus) => {
@@ -62132,7 +62137,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         const discordRouting = await getDiscordRoutingConfig(env);
         const routingKey = {
           Tag: "tag", Extension: "extension", Restructure: "restructure",
-          "Multi-Year Contract": "myac", "FA Contract": "myac",  // FA folds into auction
+          "Multi-Year Contract": "myac", "Contract Change": "myac", "FA Contract": "myac",  // unnamed changes keep the routing "FA Contract" had
           MYM: "mym",
         }[activityType] || "mym";
         const routeToTest = String(discordRouting[routingKey] || "prod").toLowerCase() === "test";
