@@ -1,6 +1,28 @@
 #!/usr/bin/env python3
 """
 Append a contract activity record into a canonical season log JSON file.
+
+IDEMPOTENT BY DESIGN (2026-09-12). The log-contract-activity workflow no longer
+rebases a JSON conflict: when its push is rejected it resets to fresh
+origin/main and RE-RUNS this script. So running it N times with the same
+payload against any version of the file must land exactly one row:
+
+  * the row is keyed by activity_id (the worker sends submission_id), and an
+    existing row with that id is replaced IN PLACE, never duplicated;
+  * a fallback id (no activity_id / submission_id) is a hash of payload fields
+    only -- never of the wall clock -- so it is identical on every attempt;
+  * submitted_at_utc is REQUIRED; it is no longer defaulted to now() (a
+    now()-default made the fallback id different on every retry);
+  * if the identical row is already present the file is NOT rewritten
+    (meta.generated_at stays put), status "unchanged", exit 0;
+  * rows in the file that have no activity_id are preserved (the old dict
+    keyed on activity_id collapsed them all into one and silently dropped the
+    rest);
+  * any error (bad JSON payload, missing field, unparseable log, season
+    mismatch) exits non-zero. Nothing is swallowed.
+
+--result-json PATH writes {"status": appended|replaced|unchanged,
+"activity_id": ..., "json_path": ..., "count": N} for the workflow.
 """
 
 from __future__ import annotations
@@ -61,10 +83,10 @@ def parse_contract_info_values(contract_info: str) -> Dict[str, int]:
 
 
 def normalize_timestamp(raw_ts: str) -> str:
-    ts = safe_str(raw_ts)
-    if not ts:
-        return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    return ts
+    # No now() default: the timestamp feeds the fallback activity_id, and a
+    # retry must produce the same id. A missing timestamp is a required-field
+    # error below, not something to invent.
+    return safe_str(raw_ts)
 
 
 def parse_payload_defaults(raw_payload: str) -> Dict[str, Any]:
@@ -73,18 +95,25 @@ def parse_payload_defaults(raw_payload: str) -> Dict[str, Any]:
         return {}
     try:
         parsed = json.loads(raw)
-    except json.JSONDecodeError:
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"PAYLOAD_JSON is not valid JSON: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError(f"PAYLOAD_JSON must be a JSON object, got {type(parsed).__name__}")
+    return parsed
 
 
 def parse_args() -> argparse.Namespace:
+    # EVERY default is "" so the payload is read. A non-empty CLI default is a
+    # value under safe_str() and shadows the payload: that is how #113 lost
+    # contract_year, and until 2026-09-12 it stamped every row
+    # source="worker-contract-activity", test_flag=0, commish_override_flag=0
+    # whatever the worker sent.
     parser = argparse.ArgumentParser()
     parser.add_argument("--json-path", default="contract_activity_2026.json")
     parser.add_argument("--payload-json", default=os.environ.get("PAYLOAD_JSON", ""))
     parser.add_argument("--activity-id", default=os.environ.get("ACTIVITY_ID", ""))
     parser.add_argument("--submission-id", default=os.environ.get("SUBMISSION_ID", ""))
-    parser.add_argument("--activity-scope", default=os.environ.get("ACTIVITY_SCOPE", "contract_mutation"))
+    parser.add_argument("--activity-scope", default=os.environ.get("ACTIVITY_SCOPE", ""))
     parser.add_argument("--activity-type", default=os.environ.get("ACTIVITY_TYPE", ""))
     parser.add_argument("--season", default=os.environ.get("SEASON", ""))
     parser.add_argument("--year", default=os.environ.get("YEAR", ""))
@@ -94,35 +123,41 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--player-id", default=os.environ.get("PLAYER_ID", ""))
     parser.add_argument("--player-name", default=os.environ.get("PLAYER_NAME", ""))
     parser.add_argument("--position", default=os.environ.get("POSITION", ""))
-    parser.add_argument("--salary", default=os.environ.get("SALARY", "0"))
-    parser.add_argument("--contract-year", default=os.environ.get("CONTRACT_YEAR", "0"))
+    parser.add_argument("--salary", default=os.environ.get("SALARY", ""))
+    parser.add_argument("--contract-year", default=os.environ.get("CONTRACT_YEAR", ""))
     parser.add_argument("--contract-status", default=os.environ.get("CONTRACT_STATUS", ""))
     parser.add_argument("--contract-info", default=os.environ.get("CONTRACT_INFO", ""))
     parser.add_argument("--submitted-at", default=os.environ.get("SUBMITTED_AT_UTC", ""))
-    parser.add_argument("--source", default=os.environ.get("SOURCE", "worker-contract-activity"))
-    parser.add_argument("--test-flag", default=os.environ.get("TEST_FLAG", "0"))
-    parser.add_argument("--commish-override-flag", default=os.environ.get("COMMISH_OVERRIDE_FLAG", "0"))
+    parser.add_argument("--source", default=os.environ.get("SOURCE", ""))
+    parser.add_argument("--test-flag", default=os.environ.get("TEST_FLAG", ""))
+    parser.add_argument("--commish-override-flag", default=os.environ.get("COMMISH_OVERRIDE_FLAG", ""))
     parser.add_argument("--override-as-of-date", default=os.environ.get("OVERRIDE_AS_OF_DATE", ""))
     parser.add_argument("--delivery-target", default=os.environ.get("DELIVERY_TARGET", ""))
     parser.add_argument("--discord-channel-id", default=os.environ.get("DISCORD_CHANNEL_ID", ""))
     parser.add_argument("--discord-message-id", default=os.environ.get("DISCORD_MESSAGE_ID", ""))
-    parser.add_argument("--discord-pinned-flag", default=os.environ.get("DISCORD_PINNED_FLAG", "0"))
+    parser.add_argument("--discord-pinned-flag", default=os.environ.get("DISCORD_PINNED_FLAG", ""))
     parser.add_argument("--notes", default=os.environ.get("NOTES", ""))
+    parser.add_argument("--result-json", default="", help="write {status, activity_id, json_path, count} here")
     return parser.parse_args()
 
 
 def load_doc(path: Path) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     if not path.exists():
         return {"meta": {}, "activities": []}, []
-    raw = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        # e.g. conflict markers committed by hand. Refuse -- never rebuild the
+        # log from just this one entry.
+        raise RuntimeError(f"{path} is not valid JSON ({exc}); refusing to rewrite it") from exc
     if isinstance(raw, list):
         return {"meta": {}, "activities": raw}, raw
     if isinstance(raw, dict):
         rows = raw.get("activities") or raw.get("submissions") or raw.get("rows") or []
         if not isinstance(rows, list):
-            rows = []
+            raise RuntimeError(f"{path}: activities is not a list; refusing to rewrite it")
         return raw, rows
-    return {"meta": {}, "activities": []}, []
+    raise RuntimeError(f"{path}: top level is {type(raw).__name__}, expected object or list")
 
 
 def build_activity_id(entry: Dict[str, Any]) -> str:
@@ -214,6 +249,7 @@ def main() -> int:
         "player_id": entry["player_id"],
         "contract_year": entry["contract_year"],
         "contract_status": entry["contract_status"],
+        "submitted_at_utc": entry["submitted_at_utc"],
     }
     missing = [k for k, v in required.items() if v in ("", 0)]
     if missing:
@@ -224,25 +260,56 @@ def main() -> int:
 
     json_path = Path(args.json_path)
     doc, activities = load_doc(json_path)
-    by_id = {safe_str(row.get("activity_id")): row for row in activities if isinstance(row, dict)}
-    by_id[entry["activity_id"]] = entry
-    rows = list(by_id.values())
-    rows.sort(key=sort_key)
 
-    doc["activities"] = rows
-    doc["meta"] = {
-        "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
-        "source": "contract-activity-log",
-        "count": len(rows),
-        "season": safe_int(entry["season"], 0),
-    }
+    file_season = safe_int((doc.get("meta") or {}).get("season"), 0) if isinstance(doc, dict) else 0
+    if file_season and file_season != safe_int(entry["season"], 0):
+        raise RuntimeError(
+            f"{json_path} is the {file_season} log but this activity is season {entry['season']}; refusing to mix seasons"
+        )
 
-    json_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = json_path.with_suffix(json_path.suffix + ".tmp")
-    tmp_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
-    tmp_path.replace(json_path)
-    print(f"Logged contract activity {entry['activity_id']} for player {entry['player_id']} ({entry['player_name']}).")
-    print(f"Wrote {json_path}.")
+    aid = entry["activity_id"]
+    matches = [i for i, row in enumerate(activities) if isinstance(row, dict) and safe_str(row.get("activity_id")) == aid]
+    if len(matches) > 1:
+        raise RuntimeError(f"{json_path} already holds {len(matches)} rows with activity_id {aid}; fix the file by hand")
+
+    if matches and activities[matches[0]] == entry:
+        status = "unchanged"
+        rows = activities
+        print(f"Activity {aid} is already in {json_path} byte-for-byte; not rewriting.")
+    else:
+        rows = list(activities)            # every existing row survives, id or not
+        if matches:
+            status = "replaced"
+            old = rows[matches[0]]
+            changed = sorted(k for k in set(old) | set(entry) if old.get(k) != entry.get(k))
+            print(f"::warning::activity_id {aid} already logged with different values; replacing fields: {', '.join(changed)}")
+            rows[matches[0]] = entry
+        else:
+            status = "appended"
+            rows.append(entry)
+        rows.sort(key=sort_key)
+
+        doc["activities"] = rows
+        doc["meta"] = {
+            **(doc.get("meta") or {}),     # keep hand-written notes such as last_edit
+            "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+            "source": "contract-activity-log",
+            "count": len(rows),
+            "season": safe_int(entry["season"], 0),
+        }
+
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = json_path.with_suffix(json_path.suffix + ".tmp")
+        tmp_path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        tmp_path.replace(json_path)
+        print(f"Logged contract activity {aid} ({status}) for player {entry['player_id']} ({entry['player_name']}).")
+        print(f"Wrote {json_path}.")
+
+    if args.result_json:
+        Path(args.result_json).write_text(
+            json.dumps({"status": status, "activity_id": aid, "json_path": str(json_path), "count": len(rows)}),
+            encoding="utf-8",
+        )
     return 0
 
 
