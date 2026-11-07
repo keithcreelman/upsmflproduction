@@ -49,7 +49,7 @@ import { resolveLoadedStatus } from "./contract_classification.js";
 import {
   executeCommishTwoPartyTrade, movementsForCompliance, injectCapTokens,
   fetchRosterSalaryMap, movementCapMaxK, unavailableCompliance, ledgerFor, capAckStoreFor,
-  toMflAsset,
+  toMflAsset, classifyLeg,
 } from "./trade_3way.js";
 
 const safeStr = (v) => String(v == null ? "" : v).trim();
@@ -845,7 +845,24 @@ export async function execute2Way(env, id) {
   }
   const token = lock.token;
 
-  const r = await executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments: `staged 2-way ${id}` });
+  let r = await executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments: `staged 2-way ${id}` });
+  // An unclear accept (an error, a lost response) is settled by ASKING MFL, exactly as execute3Way does per leg: in MFL's trade ledger ⇒
+  // executed (continue below); still pending ⇒ provably not executed (the failure path below); neither ⇒ UNCONFIRMED — the ledger stays
+  // `executing`, so nothing can send it again until a human checks MFL.
+  if (!r.ok && (r.step === "accept" || r.tradeId)) {
+    let cls = await classifyLeg(env, leagueId, year, { fromFid, toFid, give, receive }, row, r.tradeId);
+    // MFL's lockout answer is itself an explicit refusal of the accept (nothing ran) — only a ledger hit overrides it.
+    if (r.step === "lockout" && cls.outcome !== "executed") cls = { outcome: "pending" };
+    if (cls.outcome === "executed") {
+      console.warn(`[2way-staged] ${id}: the accept came back ${r.step}/${r.error}, but MFL's trade ledger shows it executed — continuing as executed`);
+      r = { ok: true, tradeId: r.tradeId };
+    } else if (cls.outcome === "unconfirmed") {
+      console.error(`[2way-staged] ${id} UNCONFIRMED (${cls.reason}) — not re-sent: ${r.step}/${r.error}`);
+      await finish("failed", { failure_reason: `UNCONFIRMED_trade: trade ${r.tradeId || "?"} ${cls.reason}; ${r.step}: ${safeStr(r.error).slice(0, 150)}`.slice(0, 250) });
+      await dmBoth(`⚠️ This trade was sent to MFL, but we couldn't confirm whether it went through. It will **not** be re-sent. **Commish: check MFL** before anything else happens on this trade.`);
+      return { ok: false, error: r.error, unconfirmed: true, reason: cls.reason };
+    }
+  }
   if (!r.ok) {
     console.error(`[2way-staged] ${id} FAILED (safe — nothing moved): ${r.step}/${r.error}`);
     if (r.step === "lockout") {

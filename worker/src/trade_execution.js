@@ -333,3 +333,44 @@ export function findExecutedTrade(txData, spec) {
   }
   return null;
 }
+
+// ── MFL's pendingTrades export: the offers MFL still holds (nothing in it has executed) ─────────────────────────────────
+/** The offer rows of a pendingTrades export, whatever wrapper key MFL used. */
+export function pendingTradeRows(pendingJson) {
+  const root = (pendingJson && (pendingJson.pendingTrades || pendingJson.pendingtrades)) || {};
+  let arr = root.pendingTrade || root.pendingtrade || root.trade || root.trades || [];
+  if (!Array.isArray(arr)) arr = arr ? [arr] : [];
+  return arr.filter((t) => t && typeof t === "object");
+}
+const pendingId = (t) => s(t.trade_id || t.id).replace(/\D/g, "");
+
+/** Does MFL still hold offer `tradeId` as pending? (Proof the accept did NOT run.) */
+export function pendingHasTrade(pendingJson, tradeId) {
+  const want = s(tradeId).replace(/\D/g, "");
+  return !!want && pendingTradeRows(pendingJson).some((t) => pendingId(t) === want);
+}
+
+/**
+ * Find the offer WE just proposed in MFL's pendingTrades, when the propose response carried no trade id. Only an exact match qualifies:
+ * both franchises present and equal to ours (offeringteam = from, offeredto = to), both asset sets identical after the same token
+ * normalization findExecutedTrade uses, and — when MFL echoes the offer's comments in the row — the comment carries our `commentTag`.
+ * Returns { match: "one", tradeId } | { match: "none" } | { match: "ambiguous", count }. A caller accepts ONLY on "one".
+ * @param spec { from, to, give, receive, commentTag }  give/receive = MFL asset tokens (CSV or arrays), what `from` / `to` gives up
+ */
+export function findOwnPendingTrade(pendingJson, spec) {
+  const from = pad4(spec.from), to = pad4(spec.to);
+  const give = tokenSet(Array.isArray(spec.give) ? spec.give.join(",") : spec.give);
+  const recv = tokenSet(Array.isArray(spec.receive) ? spec.receive.join(",") : spec.receive);
+  const tag = s(spec.commentTag);
+  const ids = [];
+  for (const t of pendingTradeRows(pendingJson)) {
+    const tf = pad4(t.offeringteam || t.franchise_id || t.offering_franchise), tt = pad4(t.offeredto || t.to_franchise);
+    if (!tf || !tt || tf !== from || tt !== to) continue;                 // a blank team is never a match
+    if (tokenSet(t.will_give_up) !== give || tokenSet(t.will_receive) !== recv) continue;
+    if (Object.prototype.hasOwnProperty.call(t, "comments") && tag && !s(t.comments).includes(tag)) continue;
+    const id = pendingId(t);
+    if (id) ids.push(id);
+  }
+  if (ids.length === 1) return { match: "one", tradeId: ids[0] };
+  return ids.length ? { match: "ambiguous", count: ids.length } : { match: "none" };
+}
