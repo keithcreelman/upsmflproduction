@@ -222,8 +222,11 @@ test("every application path reads the one verdict", () => {
   t.ok(/legacy2025: !countsKnown \? null : !!\(callup && callup\.legacy_2025\)/.test(APP), "phone: the 2025 legacy flag, unknown when the read failed or hasn't happened");
   t.ok(/error: "legacy_2025_unreadable"/.test(W), "/api/taxi-callups fails closed (ok:false) when the 2025 record can't be read");
   // Front Office bio line: the worker's reason.
-  const FO = read("site/rosters/v2/front_office.js");
-  t.ok(/taxiStatus:\s+p\.taxi_status \|\| null/.test(FO) && /if \(ts && ts\.eligible !== true && ts\.text\) return \{ text: ts\.text/.test(FO), "Front Office shows the verdict's reason");
+  // The player panel (fo_player_modal.js, #1353) runs the SAME shared rule in the browser (UPS_TAXI_RULE), takes the worker's
+  // verdict for the 2025 legacy flag, and answers "Unknown" when the two disagree (never one side's claim).
+  const FO = read("site/rosters/v2/front_office.js"), MODAL = read("site/rosters/v2/fo_player_modal.js");
+  t.ok(/taxiStatus:\s+p\.taxi_status \|\| null/.test(FO) && /M\.taxiStatus\(p, foUpsDraftRecord\(p\), SEASON\)/.test(FO), "Front Office passes the worker's verdict to the panel's taxi status");
+  t.ok(/var w = p\.taxiStatus \|\| null;/.test(MODAL) && /R\.taxiEligibility\(/.test(MODAL) && /League records disagree/.test(MODAL) && /text: v\.text/.test(MODAL), "the panel shows the shared rule's reason, cross-checked against the worker's verdict");
   const TAXI_READ = APP.slice(APP.indexOf("function ensureTaxiCallups()"), APP.indexOf("function ensureTaxiCallups()") + 1600);
   t.ok(/if \(!r\.ok\) throw new Error/.test(TAXI_READ) && /j\.ok === false\) throw/.test(TAXI_READ) && /if \(isCurrent\(\)\) state\.taxiCallupsOk = false;/.test(TAXI_READ),
     "a failed /api/taxi-callups read is recorded (taxiCallupsOk = false), not read as 'nobody promoted'");

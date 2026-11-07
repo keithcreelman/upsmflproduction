@@ -103,24 +103,27 @@ const tds = (html) => [...html.matchAll(/<td([^>]*)>([\s\S]*?)<\/td>/g)].map((x)
   }
 }
 
-// ── Front Office v2 player panel (Stats sub-tab) ──
+// ── Front Office v2 player panel (Stats sub-tab): the panel's season rows (fo_player_modal.js, #1353) ──
 {
-  const src = read("site/rosters/v2/front_office.js");
   const c = vm.createContext({});
-  vm.runInContext([sliceLine(src, "function safeInt("), "const escapeHtml = " + src.slice(src.indexOf("const escapeHtml = (s) =>") + 19, src.indexOf("\n\n", src.indexOf("const escapeHtml = (s) =>"))),
-    sliceLine(src, "function foStatRank("), sliceLine(src, "var FO_RANK_PENDING_NOTE"), sliceLine(src, "var FO_RANK_PENDING_LABEL"),
-    sliceFn(src, "function foRankPendingAttr("), sliceFn(src, "function foRankPendingNoteHtml("),
-    sliceFn(src, "function foStatSeasonTableHtml(")].join("\n") + "\nthis.table = foStatSeasonTableHtml;", c);
-  const r = tds(c.table(ROYALS, {}));
-  assert.equal(r[3].text, "—");
-  assert.equal(r[5].text, "—");
-  assert.match(r[5].attr, new RegExp('title="' + NOTE + '"'));
-  assert.equal(r[2].text, "2");
-  assert.equal(r[4].text, "0.3", "PPG still shown");
-  assert.match(c.table(ROYALS, {}), new RegExp("2025 Pts Rk, PPG Rk: " + NOTE));
-  const d = tds(c.table(DAK, {})).map((x) => x.text);
-  assert.deepEqual([d[3], d[5]], ["#4", "#5"]);
-  assert.doesNotMatch(c.table(DAK, {}), new RegExp(NOTE));
+  c.window = c;
+  for (const f of ["site/m/season_scoring.js", "site/shared/player_facts.js", "site/shared/taxi_rule.js", "site/rosters/v2/fo_player_modal.js"]) vm.runInContext(read(f), c);
+  const M = c.UPS_FO_MODAL;
+  const withBasis = (rows) => rows.map((r) => ({ ...r, rank_basis_points: r.season_points, rank_basis_games: r.games_played }));
+  const plain = (x) => JSON.parse(JSON.stringify(x));
+  const roy = plain(M.seasonRows(withBasis(ROYALS), null, 2026))[0];
+  assert.deepEqual([roy.ptsRank, roy.ppgRank], [null, null], "held ranks are never a number");
+  assert.match(roy.notes.join(" "), new RegExp("2025 Pts Rk, PPG Rk: " + NOTE), "the note names the held ranks");
+  assert.equal(roy.pts, 1.8, "points still shown");
+  assert.equal(roy.games, 6);
+  const mcl = plain(M.seasonRows(withBasis(MCL), null, 2026)).find((r) => r.season === 2025);
+  assert.equal(mcl.ptsRank, null, "McLaughlin 2025 Pts Rk held");
+  // 7 MFL weeks is under the panel's own half-season rule for a PPG rank, so that cell is "—" for that reason; the hold names Pts Rk only.
+  assert.doesNotMatch(mcl.notes.join(" "), /PPG Rk: Rank pending/, "his PPG Rk is not named as held");
+  assert.match(mcl.notes.join(" "), new RegExp("2025 Pts Rk: " + NOTE));
+  const dak = plain(M.seasonRows(withBasis(DAK), null, 2026)).find((r) => r.season === 2025);
+  assert.deepEqual([dak.ptsRank, dak.ppgRank], [4, 5], "Dak 2025 ranks unchanged");
+  assert.doesNotMatch(dak.notes.join(" "), new RegExp(NOTE), "no note when nothing is held");
 }
 
 // ── Mobile player sheet: "—", never 0 ──
