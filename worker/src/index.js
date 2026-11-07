@@ -1,4 +1,5 @@
 import { handleHallRequest } from "./hall.js";
+import { NEWS_SOURCES, RSS_SOURCES, MFL_SOURCE, MFL_CHUNK, mflProfileUrl, NEWS_CATEGORIES, normalizeSource, assembleFeed, buildPlayerIndex, serializeIndex, indexFromSerialized, playerView, legacyHeadlineItems, mflNewsUrl, publicFeed } from "./news_feed.js";
 import { taxiEligibility, taxiPermanent, taxiCutVerdict, TAXI_LEGACY_SEASON, TAXI_TRACKED_FROM_SEASON } from "./taxi_rule.js";
 import { applyRankPending } from "./rank_pending.js";
 import { handleFpaRequest } from "./fpa_engine.js";
@@ -8827,8 +8828,8 @@ export default {
       console.error(`[scheduled hourly] taxi-callups confirm dispatch failed: ${e && e.message}`);
     }
 
-    // News warmer (Keith 2026-05-15) — pre-fetch the 6 upstream RSS /
-    // JSON sources that /api/player-news fans out to so the Cloudflare
+    // News warmer (Keith 2026-05-15) — pre-fetch the upstream RSS sources
+    // that the shared news feed (/api/news-feed, /api/player-news) reads so the Cloudflare
     // edge cache stays hot for the next hour. Without this, the FIRST
     // user to hit a player profile each hour pays the 6-feed latency
     // (~800ms–2s). After this warmer, the same call returns in <100ms
@@ -8842,14 +8843,10 @@ export default {
           "Accept": "*/*",
         },
       };
-      const newsUrls = [
-        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100",
-        "https://sports.yahoo.com/nfl/rss.xml",
-        "https://profootballtalk.nbcsports.com/feed/",
-        "https://www.profootballrumors.com/feed",
-        "https://www.cbssports.com/rss/headlines/nfl/",
-        "https://www.reddit.com/r/nfl/new.json?limit=100",
-      ];
+      // The approved sources of the shared feed (worker/src/news_feed.js).
+      // ESPN's site.api and Reddit's JSON were dropped 2026-10-21 (#1356):
+      // undocumented / 403, and both returned nothing to the Worker.
+      const newsUrls = RSS_SOURCES.map((s) => s.url);
       ctx.waitUntil(
         Promise.allSettled(newsUrls.map((u) => fetch(u, newsWarmOpts)))
           .then((results) => {
@@ -22183,25 +22180,295 @@ export default {
         }
       }
 
-      // ── GET /api/player-news — multi-source aggregator ──
-      // Twitter direct = $100+/mo + ToS risk. ESPN per-athlete news API
-      // returns 0 articles. Sleeper /players/nfl/news is deprecated
-      // (returns null). What DOES work in 2026:
-      //   - Sleeper player index (cached 24h, 14MB): rich injury_status,
-      //     injury_body_part, injury_notes, practice_participation,
-      //     practice_description, depth_chart_position/order, status,
-      //     news_updated timestamp. Per-player. Updated continuously.
-      //   - ESPN team RSS: syndicates Schefter/Rapoport tweets within
-      //     ~10 min. Per-team, recent ~20 articles.
-      //   - Reddit r/nfl JSON: often 5-15 min ahead of ESPN on breaking
-      //     news. Per-team via search ?q=flair_name:<team>.
+      // ── Shared external news feed (contract ups.news.v1, #1356) ──────────
+      // ONE builder (worker/src/news_feed.js) behind both routes below. Reads:
+      //   - 4 approved publisher RSS feeds (edge-cached 1 h; the hourly warmer
+      //     keeps the same cache entries hot, so no new outbound pattern),
+      //   - MFL Player News: TYPE=playerProfile for every rostered player (and
+      //     any other requested player), 100 ids per call, edge-cached 30 min;
+      //     the roster list is MFL TYPE=rosters, edge-cached 5 min. Licensed
+      //     text never leaves news_feed.js (metadata + an MFL link only),
+      //   - MFL TYPE=players (24 h edge cache) to resolve names to MFL ids,
+      //   - MFL DETAILS for just the players found (ESPN / RotoWire ids),
+      //   - Sleeper nicknames from D1, cached 6 h (~2.3k rows per refresh).
+      // The built feed is cached 10 min (60 s when unavailable, so an outage is
+      // never pinned). A cache hit costs 0 D1 rows and 0 outbound fetches.
+      const _newsFetchOpts = {
+        cf: { cacheTtl: 3600, cacheEverything: true },
+        headers: { "User-Agent": "upsmflproduction-worker (news-feed; +https://upsmflproduction.keith-creelman.workers.dev)", "Accept": "*/*" },
+      };
+      const _newsAliases = async () => {
+        const CK = new Request("https://ups.internal/cache/news-feed/aliases.v1");
+        try {
+          const hit = await caches.default.match(CK);
+          if (hit) return { state: "ok", rows: await hit.json(), cached: true };
+        } catch (_) {}
+        try {
+          // Only id-joined rows (scripts/build_sleeper_cache.py): a nickname is
+          // an alias of a player only when RotoWire/ESPN ids say so.
+          const res = await env.UPS_MFL_DB.prepare(
+            "SELECT mfl_player_id AS mfl_id, full_name AS name FROM sleeper_player_cache WHERE matched_by IN ('rotowire_id','espn_id')"
+          ).all();
+          const rows = (res && res.results) || [];
+          if (rows.length) {
+            try {
+              ctx.waitUntil(caches.default.put(CK, new Response(JSON.stringify(rows), {
+                headers: { "content-type": "application/json", "cache-control": "max-age=21600" },
+              })));
+            } catch (_) {}
+          }
+          return { state: rows.length ? "ok" : "empty", rows, cached: false };
+        } catch (e) {
+          console.error("[news-feed] alias read failed:", e && e.message);
+          return { state: "error", rows: [], cached: false };
+        }
+      };
+      // MFL's player list (24 h edge cache): names for items and the index.
+      const _newsPlayers = async (yr) => {
+        try {
+          const r = await fetch(`https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=players&JSON=1`, {
+            cf: { cacheTtl: 86400, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+          });
+          if (!r.ok) return { state: "error", rows: [], error: `HTTP ${r.status}` };
+          const d = await r.json();
+          let arr = (d && d.players && d.players.player) || [];
+          if (!Array.isArray(arr)) arr = [arr];
+          return { state: arr.length ? "ok" : "empty", rows: arr, error: "" };
+        } catch (e) {
+          return { state: "error", rows: [], error: String((e && e.message) || e).slice(0, 160) };
+        }
+      };
+      // The player name index (MFL list + id-joined nicknames) is the same for
+      // every part: built once in its own invocation, cached 6 h, only parsed
+      // by the parts and the merge.
+      const _buildNewsIndex = async (yr) => {
+        const [players, aliases] = await Promise.all([_newsPlayers(yr), _newsAliases()]);
+        const index = buildPlayerIndex(players.rows, aliases.rows);
+        return { state: players.state, error: players.error, aliases: aliases.state, ...serializeIndex(index) };
+      };
+      const _getNewsIndex = async (yr, noCache) => {
+        let o = null;
+        if (env.SELF && typeof env.SELF.fetch === "function") {
+          try {
+            const r = await env.SELF.fetch(new Request(new URL(`/api/news-feed/index?YEAR=${encodeURIComponent(yr)}` + (noCache ? "&NO_CACHE=1" : ""), url.origin).toString()));
+            if (r.ok) o = await r.json();
+          } catch (e) { console.error("[news-feed] index fetch failed:", e && e.message); }
+        }
+        if (!o) o = await _buildNewsIndex(yr);
+        return { state: o.state, error: o.error || "", aliases: o.aliases, index: indexFromSerialized(o) };
+      };
+      // ONE part of the feed: one RSS source, or one chunk of ≤100 MFL players.
+      // Each part is its own Worker invocation (via env.SELF → the part route
+      // below), so the Free plan's 10 ms CPU budget applies per part, not to
+      // the whole feed. A part holds no licensed text (news_feed.js).
+      const _newsPart = async (yr, lid, kind, key) => {
+        const nowS = Math.floor(Date.now() / 1000);
+        const fetchedAtOf = (r) => {
+          const age = Number(r.headers.get("age") || 0);
+          return new Date((nowS - (Number.isFinite(age) ? age : 0)) * 1000).toISOString();
+        };
+        const grab = async (u, opts, extra) => {
+          try {
+            const r = await fetch(u, opts);
+            const fetchedAt = fetchedAtOf(r);
+            if (!r.ok) return { ok: false, http_status: r.status, body: "", fetched_at: fetchedAt, error: `HTTP ${r.status}`, ...extra };
+            return { ok: true, http_status: r.status, body: await r.text(), fetched_at: fetchedAt, error: "", ...extra };
+          } catch (e) {
+            return { ok: false, http_status: 0, body: "", fetched_at: new Date(nowS * 1000).toISOString(), error: String((e && e.message) || e).slice(0, 160), ...extra };
+          }
+        };
+        if (kind === "mfl") {
+          const pids = key;
+          const [entry, idx] = await Promise.all([grab(mflProfileUrl(yr, pids), {
+            cf: { cacheTtl: 1800, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker (news-feed)", "Accept": "application/json" },
+          }, { source: MFL_SOURCE, pids }), _getNewsIndex(yr)]);
+          return normalizeSource(entry, { nameOf: (pid) => (idx.index.players.get(pid) || {}).name || "", now: nowS, year: yr, leagueId: lid });
+        }
+        const src = RSS_SOURCES.find((s) => s.id === key);
+        if (!src) return null;
+        const [entry, idx] = await Promise.all([grab(src.url, { ..._newsFetchOpts, redirect: "follow" }, { source: src }), _getNewsIndex(yr)]);
+        const part = normalizeSource(entry, { index: idx.index, nameOf: (pid) => (idx.index.players.get(pid) || {}).name || "", now: nowS, year: yr, leagueId: lid });
+        part.player_index = { state: idx.state, aliases: idx.aliases };
+        return part;
+      };
+      const _newsPartUrl = (yr, lid, kind, key) => `/api/news-feed/part?YEAR=${encodeURIComponent(yr)}&L=${encodeURIComponent(lid)}&kind=${kind}&` +
+        (kind === "mfl" ? `pids=${encodeURIComponent(key.join(","))}` : `id=${encodeURIComponent(key)}`);
+      const _getNewsPart = async (yr, lid, kind, key, noCache) => {
+        if (env.SELF && typeof env.SELF.fetch === "function") {
+          try {
+            const r = await env.SELF.fetch(new Request(new URL(_newsPartUrl(yr, lid, kind, key) + (noCache ? "&NO_CACHE=1" : ""), url.origin).toString()));
+            if (r.ok) return await r.json();
+          } catch (e) {
+            console.error("[news-feed] part fetch failed:", kind, e && e.message);
+          }
+        }
+        return _newsPart(yr, lid, kind, key);   // tests / no SELF binding / part route down
+      };
+      const _loadNewsFeed = async (yr, lid, opts = {}) => {
+        const extra = [...new Set((opts.extraPids || []).map((p) => safeStr(p).replace(/\D/g, "")).filter(Boolean))].sort();
+        const CK = new Request(`https://ups.internal/cache/news-feed/v3?YEAR=${encodeURIComponent(yr)}&L=${encodeURIComponent(lid)}&extra=${encodeURIComponent(extra.join(","))}`);
+        if (!opts.noCache) {
+          try {
+            const hit = await caches.default.match(CK);
+            if (hit) { const f = await hit.json(); f.cache = { hit: true }; return f; }
+          } catch (_) {}
+        }
+        const nowS = Math.floor(Date.now() / 1000);
+        // Every rostered player (+ extra) is checked with MFL. A roster read
+        // that fails still asks MFL about `extra`; players MFL wasn't asked
+        // about read "partial", never "no recent items".
+        let pids = [...extra];
+        try {
+          const r = await fetch(`https://www48.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=rosters&L=${encodeURIComponent(lid)}&JSON=1`, {
+            cf: { cacheTtl: 300, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+          });
+          if (r.ok) {
+            const d = await r.json();
+            let frs = (d && d.rosters && d.rosters.franchise) || [];
+            if (!Array.isArray(frs)) frs = [frs];
+            for (const fr of frs) {
+              let pl = (fr && fr.player) || [];
+              if (!Array.isArray(pl)) pl = [pl];
+              for (const p of pl) { const id = safeStr(p && p.id); if (id) pids.push(id); }
+            }
+          }
+        } catch (_) {}
+        pids = [...new Set(pids)].sort();
+        const chunks = [];
+        for (let i = 0; i < pids.length; i += MFL_CHUNK) chunks.push(pids.slice(i, i + MFL_CHUNK));
+        const idx = await _getNewsIndex(yr, opts.noCache);   // warm the shared index before the parts read it
+        const parts = await Promise.all([...RSS_SOURCES.map((s) => _getNewsPart(yr, lid, "rss", s.id, opts.noCache)), ...chunks.map((c) => _getNewsPart(yr, lid, "mfl", c, opts.noCache))]);
+        const meta = idx.index.players;
+        const feed = assembleFeed(parts.filter(Boolean), { players: meta, now: nowS });
+        // ESPN / RotoWire ids for the players actually in the feed (one MFL read).
+        const inFeed = [...new Set(feed.items.flatMap((it) => it.players.map((p) => p.mfl_id)))];
+        let idsState = inFeed.length ? "error" : "ok";
+        if (inFeed.length) {
+          try {
+            const r = await fetch(`https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(inFeed.join(","))}&JSON=1`, {
+              cf: { cacheTtl: 86400, cacheEverything: true }, headers: { "User-Agent": "upsmflproduction-worker", "Accept": "application/json" },
+            });
+            if (r.ok) {
+              const d = await r.json();
+              let arr = (d && d.players && d.players.player) || [];
+              if (!Array.isArray(arr)) arr = [arr];
+              const ids = new Map(arr.map((p) => [safeStr(p.id), { espn_id: safeStr(p.espn_id) || null, rotowire_id: safeStr(p.rotowire_id) || null }]));
+              for (const it of feed.items) for (const p of it.players) {
+                const x = ids.get(p.mfl_id);
+                if (x) { p.espn_id = x.espn_id; p.rotowire_id = x.rotowire_id; }
+              }
+              idsState = "ok";
+            }
+          } catch (_) {}
+        }
+        // Without MFL's player list no story can be tied to a player: a player
+        // view must then say "unavailable", never "no recent items".
+        const idxState = idx.state === "ok" && meta.size ? "ok" : (idx.state || "error");
+        feed.player_index = { state: idxState, players: meta.size, error: idx.error, aliases: idx.aliases, external_ids: idsState };
+        feed.cache = { hit: false };
+        try {
+          const ttl = feed.feed_state === "unavailable" || idxState !== "ok" ? 60 : 600;
+          ctx.waitUntil(caches.default.put(CK, new Response(JSON.stringify(feed), {
+            headers: { "content-type": "application/json", "cache-control": `max-age=${ttl}` },
+          })));
+        } catch (_) {}
+        return feed;
+      };
+      // The cached league feed covers rostered players; a panel for anyone else
+      // loads a variant that also asks MFL about them (cached separately).
+      const _loadNewsFeedFor = async (yr, lid, pids, opts = {}) => {
+        const base = await _loadNewsFeed(yr, lid, opts);
+        const checked = new Set(base._mfl_checked || []);
+        const missing = pids.filter((p) => !checked.has(p));
+        return missing.length ? _loadNewsFeed(yr, lid, { ...opts, extraPids: missing }) : base;
+      };
+      const _newsPlayerView = (feed, pid, yr, lid, limit) => {
+        const known = feed.player_index && feed.player_index.state === "ok";
+        const v = playerView(feed, pid, { year: yr, leagueId: lid, limit, known: true });
+        if (!known && v.state !== "items") v.state = "unavailable";
+        return v;
+      };
+
+      // ── GET /api/news-feed/index — the shared player name index (internal) ──
+      if (path === "/api/news-feed/index" && request.method === "GET") {
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const IK = new Request(`https://ups.internal/cache/news-index/v1?YEAR=${encodeURIComponent(yr)}`);
+        if (safeStr(url.searchParams.get("NO_CACHE")) !== "1") {
+          try { const hit = await caches.default.match(IK); if (hit) return hit; } catch (_) {}
+        }
+        const o = await _buildNewsIndex(yr);
+        const res = new Response(JSON.stringify(o), { status: 200, headers: { "content-type": "application/json", "cache-control": `max-age=${o.state === "ok" ? 21600 : 60}`, ...corsHeaders } });
+        try { ctx.waitUntil(caches.default.put(IK, res.clone())); } catch (_) {}
+        return res;
+      }
+
+      // ── GET /api/news-feed/part — one normalized source (internal) ──
+      // Called by _loadNewsFeed through env.SELF so each source is its own
+      // invocation (CPU budget per part). Read-only; holds no licensed text.
+      // Cached 10 min (MFL chunks 30 min; 60 s when the source failed).
+      if (path === "/api/news-feed/part" && request.method === "GET") {
+        const lid = safeStr(url.searchParams.get("L") || "74598").replace(/\D/g, "") || "74598";
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const kind = safeStr(url.searchParams.get("kind")) === "mfl" ? "mfl" : "rss";
+        const key = kind === "mfl"
+          ? safeStr(url.searchParams.get("pids")).split(",").map((s) => s.replace(/\D/g, "")).filter(Boolean).slice(0, MFL_CHUNK)
+          : safeStr(url.searchParams.get("id"));
+        if (kind === "mfl" ? !key.length : !RSS_SOURCES.some((s) => s.id === key)) return jsonOut(400, { error: "kind=rss&id=<source> or kind=mfl&pids=<ids>" });
+        const PK = new Request(`https://ups.internal/cache/news-part/v1?${_newsPartUrl(yr, lid, kind, key).split("?")[1]}`);
+        if (safeStr(url.searchParams.get("NO_CACHE")) !== "1") {
+          try { const hit = await caches.default.match(PK); if (hit) return hit; } catch (_) {}
+        }
+        const part = await _newsPart(yr, lid, kind, key);
+        const ttl = part.status.state === "ok" ? (kind === "mfl" ? 1800 : 600) : 60;
+        const res = new Response(JSON.stringify(part), { status: 200, headers: { "content-type": "application/json", "cache-control": `max-age=${ttl}`, ...corsHeaders } });
+        try { ctx.waitUntil(caches.default.put(PK, res.clone())); } catch (_) {}
+        return res;
+      }
+
+      // ── GET /api/news-feed — League News + player filter (ups.news.v1) ──
+      //   /api/news-feed?L=74598&YEAR=2026[&limit=100][&category=injury]
+      //   /api/news-feed?L=74598&YEAR=2026&pids=14783,13635[&limit=10]
+      // Read-only. Nothing calls it yet: League News and the player panel are
+      // separate, later integrations (Keith 2026-10-21). 503 = no source answered.
+      if (path === "/api/news-feed" && request.method === "GET") {
+        const lid = safeStr(url.searchParams.get("L") || "74598").replace(/\D/g, "") || "74598";
+        const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
+        const pids = safeStr(url.searchParams.get("pids") || "").split(/[,\s]+/).map((s) => s.replace(/\D/g, "")).filter(Boolean).slice(0, 50);
+        const category = safeStr(url.searchParams.get("category") || "").toLowerCase();
+        const noCache = safeStr(url.searchParams.get("NO_CACHE")) === "1";
+        const feed = pids.length ? await _loadNewsFeedFor(yr, lid, pids, { noCache }) : await _loadNewsFeed(yr, lid, { noCache });
+        const head = { contract: feed.contract, generated_at: feed.generated_at, feed_state: feed.feed_state, coverage: feed.coverage, sources: feed.sources, player_index: feed.player_index, cache: feed.cache };
+        const status = feed.feed_state === "unavailable" ? 503 : 200;
+        if (pids.length) {
+          // (safeInt is a LATE const in this handler — TDZ here; parse locally.)
+          const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit"), 10) || 10, 1), 50);
+          const players = {};
+          for (const pid of pids) players[pid] = _newsPlayerView(feed, pid, yr, lid, limit);
+          return jsonOut(status, { ...head, players });
+        }
+        const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit"), 10) || 100, 1), 300);
+        const pub = publicFeed(feed);
+        const items = (category ? pub.items.filter((it) => it.category === category) : pub.items).slice(0, limit);
+        return jsonOut(status, { ...head, categories: NEWS_CATEGORIES, total_items: pub.items.length, items, diagnostics: pub.diagnostics });
+      }
+
+      // ── GET /api/player-news — LEGACY shape over the shared feed ──
+      // Kept for its existing callers (Front Office flags + News tab, the
+      // shared player popup, the phone's player sheet, Roster Workbench flags,
+      // Team Operations, and the cap-free retirement evidence leg). Headlines
+      // now come from the ONE shared feed above (stable MFL ids, deduped,
+      // headline + link only: `body` is always ""). Sleeper status / depth
+      // cards are unchanged and legacy-only: the shared feed does not repeat
+      // injury designations (the injury resolver owns those).
       //
-      // This endpoint joins those for the requested player(s) and returns
-      // a normalized news[] array. Beats showing "loading..." that never
-      // resolves (the v1.7.36 mistake).
+      // Additive meta: contract, feed_state, source_status, coverage,
+      // player_state (per pid), mfl_news_url_by_pid, sleeper {state, rows}.
+      // HTTP 503 when no headline source answered, so callers that check
+      // r.ok show "unavailable" instead of "no news"; the body still carries
+      // items_by_pid (Sleeper cards) for callers that read it anyway.
       //
       // Usage: /api/player-news?pids=12345,67890&L=74598&YEAR=2026
-      // Response: { items_by_pid: { "<mfl_pid>": [news...] }, ... }
+      // Response: { items_by_pid: { "<mfl_pid>": [news...] }, meta: {...} }
       if (path === "/api/player-news" && request.method === "GET") {
         const pidsRaw = safeStr(url.searchParams.get("pids") || url.searchParams.get("pid") || "");
         const mflPids = pidsRaw.split(/[,\s]+/).map(s => s.trim()).filter(Boolean).slice(0, 50);
@@ -22209,8 +22476,7 @@ export default {
         const lid = safeStr(url.searchParams.get("L") || "74598").replace(/\D/g, "") || "74598";
         const yr = safeStr(url.searchParams.get("YEAR") || YEAR || String(new Date().getUTCFullYear())).replace(/\D/g, "");
 
-        // Step 1 — fetch MFL DETAILS for these players to get name, team,
-        //          and gsis_id (the ID that bridges to Sleeper's player_id).
+        // Step 1 — MFL DETAILS for these players (name + team for the depth card).
         const mflDetailsUrl = `https://api.myfantasyleague.com/${encodeURIComponent(yr)}/export?TYPE=players&DETAILS=1&PLAYERS=${encodeURIComponent(mflPids.join(","))}&JSON=1`;
         let mflPlayers = {};
         try {
@@ -22224,35 +22490,17 @@ export default {
           for (const p of arr) {
             const pid = safeStr(p.id);
             if (!pid) continue;
-            mflPlayers[pid] = {
-              id: pid,
-              name: safeStr(p.name),                       // "Burrow, Joe"
-              team: safeStr(p.team).toUpperCase(),         // "CIN"
-              position: safeStr(p.position),
-              gsis_id: safeStr(p.gsis_id || p.gsisid || p.gsisId),
-            };
+            mflPlayers[pid] = { id: pid, name: safeStr(p.name), team: safeStr(p.team).toUpperCase() };
           }
         } catch (e) {
           return jsonOut(502, { error: `MFL DETAILS fetch failed: ${e?.message || String(e)}` });
         }
 
-        // Step 2 — Sleeper player index (cached 24h on edge — ~14MB but
-        //          only the first request pays). Build a gsis_id → sleeper
-        //          info map. Fall back to name+team match for players MFL
-        //          doesn't have a gsis_id for (rookies, IDP edge cases).
-        // Read the RESOLVED facts from D1 (migration 0141) instead of pulling
-        // Sleeper's 14.6 MB player file and JSON.parse-ing 12,225 objects on
-        // every request. That parse exceeds the Worker's CPU budget; the catch
-        // below is fail-soft, so `sleeperIndex` silently stayed {} and EVERY
-        // player reported sleeper_matched: 0 — no injury status, no depth chart,
-        // for anyone. Measured 2026-08-27 on Benson and Mahomes.
-        //
-        // scripts/build_sleeper_cache.py does the fetch + match in CI where
-        // there is no CPU ceiling, and fixes both broken match paths: MFL's
-        // DETAILS export carries gsis_id for 0 of 2,609 players, and MFL's team
-        // codes (KCC/GBP/SFO/TBB/NEP) never equalled Sleeper's (KC/GB/SF/TB/NE).
-        // 1,813 players resolve where the Worker resolved none.
+        // Step 2 — Sleeper facts from D1 (migration 0141, built daily in CI by
+        // scripts/build_sleeper_cache.py). One indexed lookup, ~2 rows per pid.
+        // A failed read is REPORTED (meta.sleeper.state), not just logged.
         const sleeperByPid = {};
+        let sleeperState = "ok";
         try {
           const wanted = Object.keys(mflPlayers);
           const CH = 90;                       // keep each IN(...) well under D1's bind cap
@@ -22261,231 +22509,31 @@ export default {
             if (!chunk.length) continue;
             const marks = chunk.map(() => "?").join(",");
             const res = await env.UPS_MFL_DB.prepare(
-              `SELECT mfl_player_id, injury_status, injury_body_part, injury_notes,
+              `SELECT mfl_player_id, team, injury_status, injury_body_part, injury_notes,
                       practice_participation, practice_description,
                       depth_chart_position, depth_chart_order, news_updated
                  FROM sleeper_player_cache WHERE mfl_player_id IN (${marks})`
             ).bind(...chunk).all();
-            for (const row of (res.results || [])) {
-              sleeperByPid[String(row.mfl_player_id)] = {
-                injury_status: row.injury_status || "",
-                injury_body_part: row.injury_body_part || "",
-                injury_notes: row.injury_notes || "",
-                practice_participation: row.practice_participation || "",
-                practice_description: row.practice_description || "",
-                depth_chart_position: row.depth_chart_position || "",
-                depth_chart_order: row.depth_chart_order || 0,
-                news_updated: row.news_updated || 0,
-              };
-            }
+            for (const row of (res.results || [])) sleeperByPid[String(row.mfl_player_id)] = row;
           }
         } catch (e) {
-          // Still fail-soft — headlines come from the article pool and do not
-          // depend on this — but the failure is now LOGGED. It used to be
-          // swallowed entirely, which is why a total outage looked like
-          // "this player has no news".
+          sleeperState = "error";
           console.error("[player-news] sleeper cache read failed:", e && e.message);
         }
-        // Build lookup tables.
-        // The old byGsis / byNameTeam lookup tables lived here. Both are gone:
-        // gsis_id is absent from MFL's export for every player, and the name+team
-        // key never survived MFL's team codes. Resolution now happens offline —
-        // see scripts/build_sleeper_cache.py.
-const mflToSleeper = {};
-        for (const pid in mflPlayers) {
-          const m = mflPlayers[pid];
-          let sp = null;
-          // Resolved offline by mfl_player_id — no gsis lookup, no name+team
-          // guess. Both of those paths were broken (see the cache read above).
-          sp = sleeperByPid[pid] || null;
-          mflToSleeper[pid] = sp;
-        }
 
-        // Step 3 — Headline aggregators. The plan from commit 9225c5e was
-        // Sleeper + ESPN + Reddit; Reddit never got wired so Keith reported
-        // 2026-05-13 the news feed was thin. Now we fan out across multiple
-        // public feeds in parallel, dedupe by URL, and merge into one pool.
-        // Each source is fail-soft — if any feed 403/429/timeouts, the
-        // others still populate. All cached 5 min on the edge.
-        //
-        // Pool sources:
-        //   a. ESPN nfl/news (limit bumped 50 → 100)
-        //   b. NFL.com news.xml RSS — official, free, no auth
-        //   c. r/nfl /new.json (limit=100) — often 5-15 min ahead of ESPN
-        //   d. ProFootballTalk RSS — Florio's network, fast on breaking news
-        //
-        // Per-article shape after normalize:
-        //   { source, headline, description, url, published_ts }
-        const headlinePool = [];
-        const seenUrls = new Set();
-        // Cross-source title-prefix + old-year filter. r/nfl wasn't the
-        // only offender — ESPN occasionally syndicates \"[Watch]\" video
-        // packages, CBS does \"[Throwback]\" retrospectives. One filter
-        // applied at pool-build time keeps the surface area small.
-        const globalBlockedPrefix = /^\s*\[(highlight|image|look|watch|throwback|gif|photo|meme|oc|video|stat|stats|chart|infographic|listen)\]/i;
-        const globalCurrentYear = new Date().getUTCFullYear();
-        const globalOldYearRe = /\b(19|20)\d{2}\b/g;
-        const isStaleHeadline = (it) => {
-          const title = String((it && it.headline) || "");
-          if (!title) return true;
-          if (globalBlockedPrefix.test(title)) return true;
-          const years = title.match(globalOldYearRe);
-          if (years) {
-            for (const y of years) {
-              if ((globalCurrentYear - Number(y)) >= 2) return true;
-            }
-          }
-          return false;
-        };
-        const addHeadline = (it) => {
-          if (isStaleHeadline(it)) return;
-          const url = String(it.url || "").trim();
-          if (url && seenUrls.has(url)) return;
-          if (url) seenUrls.add(url);
-          headlinePool.push(it);
-        };
+        // Step 3 — the shared feed (publisher headlines + MFL Player News).
+        const feed = await _loadNewsFeedFor(yr, lid, mflPids);
 
-        // Edge cache 1 hour — bumped from 5 min (2026-05-15) so the
-        // hourly scheduled news-warmer keeps the cache hot continuously
-        // and user requests don't pay the 6-RSS-fetch latency on every
-        // page load. The warmer fires the same fetches with the same
-        // cf.cacheTtl so each hour's slot rolls cleanly into the next.
-        const fetchOpts = {
-          cf: { cacheTtl: 3600, cacheEverything: true },
-          headers: { "User-Agent": "upsmflproduction-worker (player-news; +https://upsmflproduction.keith-creelman.workers.dev)", "Accept": "*/*" },
-        };
-
-        const sources = await Promise.allSettled([
-          // ── ESPN league-wide ──────────────────────────────────────────
-          (async () => {
-            const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100", fetchOpts);
-            if (!r.ok) return [];
-            const d = await r.json();
-            return (d.articles || []).map(a => ({
-              source: "ESPN",
-              headline: safeStr(a.headline),
-              description: safeStr(a.description),
-              url: (a.links && a.links.web && a.links.web.href) || "",
-              published_ts: a.published ? Math.floor(new Date(a.published).getTime() / 1000) : 0,
-            }));
-          })(),
-          // ── Yahoo NFL RSS ─────────────────────────────────────────────
-          // Broad NFL coverage from across Yahoo Sports. Free, no auth.
-          // Probed 2026-05-13 — returns 200 with valid RSS 2.0.
-          (async () => {
-            const r = await fetch("https://sports.yahoo.com/nfl/rss.xml", { ...fetchOpts, redirect: "follow" });
-            if (!r.ok) return [];
-            const xml = await r.text();
-            return parseRssItems(xml, "Yahoo");
-          })(),
-          // ── ProFootballTalk RSS ───────────────────────────────────────
-          (async () => {
-            const r = await fetch("https://profootballtalk.nbcsports.com/feed/", fetchOpts);
-            if (!r.ok) return [];
-            const xml = await r.text();
-            return parseRssItems(xml, "PFT");
-          })(),
-          // ── ProFootballRumors RSS ─────────────────────────────────────
-          // Rumor-heavy syndication of Schefter/Rapoport tweets — often
-          // first to surface breaking-news posts. Probed 2026-05-13.
-          (async () => {
-            const r = await fetch("https://www.profootballrumors.com/feed", fetchOpts);
-            if (!r.ok) return [];
-            const xml = await r.text();
-            return parseRssItems(xml, "PFR");
-          })(),
-          // ── CBS Sports NFL RSS ────────────────────────────────────────
-          (async () => {
-            const r = await fetch("https://www.cbssports.com/rss/headlines/nfl/", fetchOpts);
-            if (!r.ok) return [];
-            const xml = await r.text();
-            return parseRssItems(xml, "CBS");
-          })(),
-          // ── Reddit r/nfl /new ─────────────────────────────────────────
-          // Public JSON; no auth needed at our cache cadence. Reddit can
-          // still 403 us if they shadow-block worker IPs — fail-soft.
-          //
-          // Filtering (Keith 2026-05-13: \"[Highlight] Tee Higgins ... 2023
-          // Week 15 ... This should not be a news article — it's from 2023\"):
-          //
-          //   1. FLAIR allowlist — r/nfl uses link_flair_text. Keep only
-          //      news-style flairs. Reject Highlight / Image / Look / Free
-          //      Talk / Meme / Discussion / Throwback / Stats / Serious.
-          //      Many breaking stories use flair \"News\" or no flair, so
-          //      we also accept null flair when the title doesn't shout
-          //      \"Highlight\".
-          //   2. TITLE prefix blacklist — \"[Highlight]\", \"[Image]\",
-          //      \"[Look]\", \"[Watch]\", \"[Throwback]\", \"[GIF]\",
-          //      \"[Photo]\", \"[Meme]\", \"[OC]\" are content shares, not
-          //      news.
-          //   3. YEAR in title — strip posts mentioning a past season
-          //      (e.g. \"[Vikings vs. Bengals, 2023 Week 15]\"). Anything
-          //      with a 4-digit year ≥ 4 years older than the current
-          //      year is treated as throwback content.
-          (async () => {
-            const r = await fetch("https://www.reddit.com/r/nfl/new.json?limit=100", fetchOpts);
-            if (!r.ok) return [];
-            const d = await r.json();
-            const posts = (d?.data?.children || []).map(c => c.data || {});
-            const allowedFlairs = new Set(["news", "media", "rumor", "report"]);
-            const blockedPrefixes = /^\s*\[(highlight|image|look|watch|throwback|gif|photo|meme|oc|video|stat|stats|chart|infographic)\]/i;
-            const currentYear = new Date().getUTCFullYear();
-            const oldYearRe = /\b(19|20)\d{2}\b/g;
-            return posts
-              .filter(p => {
-                const title = String(p.title || "");
-                if (!title) return false;
-                if (blockedPrefixes.test(title)) return false;
-                const flair = String(p.link_flair_text || "").toLowerCase().trim();
-                // If flair is set, require it be in the allowlist — drops
-                // \"Highlight\" / \"Free Talk\" / etc. without false positives
-                // on unflaired breaking-news posts.
-                if (flair && !allowedFlairs.has(flair)) return false;
-                // Drop posts that reference a year ≥ 2 seasons older than
-                // current. Catches \"... 2023 Week 15\" + \"[2020 Throwback]\"
-                // even when posted today.
-                const years = title.match(oldYearRe);
-                if (years) {
-                  for (const y of years) {
-                    if ((currentYear - Number(y)) >= 2) return false;
-                  }
-                }
-                return true;
-              })
-              .map(p => ({
-                source: "r/nfl",
-                headline: safeStr(p.title),
-                description: safeStr(p.selftext || "").slice(0, 280),
-                url: p.permalink ? "https://www.reddit.com" + p.permalink : safeStr(p.url),
-                published_ts: p.created_utc ? Math.floor(Number(p.created_utc)) : 0,
-              }));
-          })(),
-        ]);
-        for (const r of sources) {
-          if (r.status !== "fulfilled") continue;
-          for (const it of (r.value || [])) addHeadline(it);
-        }
-        // Legacy alias retained for downstream code that still reads
-        // espnArticles — see the per-pid filter loop below.
-        const espnArticles = headlinePool;
-
-        // Step 4 — Build per-pid news[]. Sources merged:
-        //   a. Sleeper structured info → Status / Injury / Depth / Practice
-        //      cards. These are FACTS, not headlines. Surface them as
-        //      "news items" with type='status'.
-        //   b. ESPN team articles where the player's last name appears in
-        //      headline or description. Type='headline'.
         const itemsByPid = {};
-        for (const pid in mflPlayers) {
+        const playerState = {};
+        const mflNewsUrlByPid = {};
+        for (const pid of mflPids) {
           const m = mflPlayers[pid];
-          const sp = mflToSleeper[pid];
+          const sp = sleeperByPid[pid];
           const items = [];
-
-          // 4a. Sleeper status / injury / depth (always show)
-          if (sp) {
+          if (m && sp) {
             const now = Math.floor(Date.now() / 1000);
             const newsUpdated = sp.news_updated ? Math.floor(Number(sp.news_updated) / 1000) : 0;
-            // Injury report card if anything is set
             const injParts = [];
             if (sp.injury_status) injParts.push(sp.injury_status);
             if (sp.injury_body_part) injParts.push("(" + sp.injury_body_part + ")");
@@ -22499,7 +22547,6 @@ const mflToSleeper = {};
                 body: safeStr(sp.injury_notes) || safeStr(sp.practice_description) || "",
               });
             }
-            // Depth chart card
             if (sp.depth_chart_position && sp.depth_chart_order) {
               items.push({
                 type: "depth",
@@ -22510,84 +22557,38 @@ const mflToSleeper = {};
               });
             }
           }
-
-          // 4b. Headline pool (ESPN + NFL.com + PFT + r/nfl) — match by
-          // full-name proximity. MFL name is "Last, First".
-          //
-          // Previous heuristic (lastName + (firstName OR team)) cross-
-          // attributed: an article mentioning "Russell Wilson" and the
-          // Packers would surface under Emmanuel Wilson because the team
-          // fallback fires whenever first name is absent. Fix: require
-          // BOTH first name AND last name as word-boundary matches in
-          // the same blob. Same-surname players (Wilson, Williams,
-          // Brown) now stay correctly partitioned because Russell ≠
-          // Emmanuel even when both Wilsons exist in the league.
-          const lastName = (m.name.split(",")[0] || "").trim().toLowerCase();
-          const firstName = (m.name.split(",")[1] || "").trim().toLowerCase().split(/\s+/)[0];
-          // Escape regex specials and wrap in \b...\b for whole-word matching.
-          const reEscape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-          const lastRe = lastName && lastName.length >= 3
-            ? new RegExp("\\b" + reEscape(lastName) + "\\b", "i")
-            : null;
-          const firstRe = firstName && firstName.length >= 3
-            ? new RegExp("\\b" + reEscape(firstName) + "\\b", "i")
-            : null;
-          if (lastRe && firstRe) {
-            const seenHeadlines = new Set();
-            for (const a of espnArticles) {
-              const headline = safeStr(a.headline);
-              const desc = safeStr(a.description);
-              const blob = headline + " " + desc;
-              if (!lastRe.test(blob) || !firstRe.test(blob)) continue;
-              // Per-player dedupe — if Schefter's "Player X traded to Y"
-              // appears in ESPN + PFT + r/nfl, pick the first source we
-              // see and skip the rest (already URL-deduped at pool build,
-              // this dedupes by headline text for fuzzy duplicates).
-              const headlineKey = headline.toLowerCase().slice(0, 80);
-              if (seenHeadlines.has(headlineKey)) continue;
-              seenHeadlines.add(headlineKey);
-              items.push({
-                type: "headline",
-                source: a.source || "News",
-                timestamp: Number(a.published_ts || 0),
-                headline: safeStr(a.headline),
-                body: safeStr(a.description),
-                url: safeStr(a.url),
-              });
-            }
-          }
-
-          // Sort newest first.
+          for (const h of legacyHeadlineItems(feed, pid)) items.push(h);
           items.sort((x, y) => Number(y.timestamp || 0) - Number(x.timestamp || 0));
           itemsByPid[pid] = items.slice(0, 20);
-        }
-        // Backfill empty arrays for any requested pid that MFL DETAILS
-        // didn't return — frontend can then render "no news" cleanly
-        // instead of silently dropping the player.
-        for (const pid of mflPids) {
-          if (!(pid in itemsByPid)) itemsByPid[pid] = [];
+          playerState[pid] = _newsPlayerView(feed, pid, yr, lid, 20).state;
+          mflNewsUrlByPid[pid] = mflNewsUrl(yr, lid, pid);
         }
 
-        // Per-source counts for diagnostic visibility — when Keith says
-        // "not enough news", inspect /api/player-news?pids=… meta block
-        // to confirm whether the pool's thin or the name-match filter
-        // is too tight.
-        const sourceCounts = headlinePool.reduce((acc, it) => {
-          const s = it.source || "?";
-          acc[s] = (acc[s] || 0) + 1;
-          return acc;
-        }, {});
-
-        return jsonOut(200, {
+        const sourceCounts = {};
+        for (const s of feed.sources) {
+          if (s.state !== "ok") continue;
+          const src = NEWS_SOURCES.find((x) => x.id === s.id);   // includes "MFL"
+          sourceCounts[(src && src.label) || s.id] = s.items;
+        }
+        const pool = feed.diagnostics ? feed.diagnostics.unique_articles : 0;
+        return jsonOut(feed.feed_state === "unavailable" ? 503 : 200, {
           items_by_pid: itemsByPid,
           meta: {
             mfl_players_resolved: Object.keys(mflPlayers).length,
-            sleeper_matched: Object.values(mflToSleeper).filter(Boolean).length,
-            headline_pool: headlinePool.length,
+            sleeper_matched: Object.keys(sleeperByPid).length,
+            headline_pool: pool,
             sources: sourceCounts,
             // Back-compat alias — legacy frontend code reads espn_articles_pool.
-            espn_articles_pool: headlinePool.length,
+            espn_articles_pool: pool,
             generated_at: new Date().toISOString(),
+            // ── additive (ups.news.v1) ──
+            contract: feed.contract,
+            feed_state: feed.feed_state,
+            source_status: feed.sources,
+            coverage: feed.coverage,
+            player_state: playerState,
+            mfl_news_url_by_pid: mflNewsUrlByPid,
+            sleeper: { state: sleeperState, rows: Object.keys(sleeperByPid).length },
           },
         });
       }
@@ -51660,7 +51661,9 @@ const mflToSleeper = {};
             const head = safeStr(it && it.headline);
             const body = safeStr(it && it.body);
             const hay = `${head} ${body}`;
-            if (!RETIRE_RE.test(hay)) continue;
+            // Headlines carry no article text since #1356 (body is ""), so the
+            // feed's own category — read from the RSS summary in memory — counts too.
+            if (!RETIRE_RE.test(hay) && safeStr(it && it.category) !== "retirement") continue;
             out.sources.push({
               source: safeStr(it && it.source),
               headline: head,
