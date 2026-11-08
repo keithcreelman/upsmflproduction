@@ -3,6 +3,97 @@
   "transactions": {
     "transaction": [
       {
+        "franchise": "0001",
+        "timestamp": "1794153186",
+        "transaction": "15263,|12221,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0001",
+        "timestamp": "1794148747",
+        "transaction": "16216,|15752,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1794147220",
+        "transaction": "14153,|14218,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1794147039",
+        "transaction": "16450,|15835,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0002",
+        "timestamp": "1794147012",
+        "transaction": "10783,|15332,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1794146400",
+        "transaction": "",
+        "type": "UNLOCK_ALL_PLAYERS"
+      },
+      {
+        "franchise": "0010",
+        "timestamp": "1794146400",
+        "transaction": "17192,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0008",
+        "timestamp": "1794146400",
+        "transaction": "15730,|1000|17743,",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1794146400",
+        "transaction": "16710,|1000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1794146400",
+        "transaction": "14221,|2000|",
+        "type": "BBID_WAIVER"
+      },
+      {
+        "franchise": "",
+        "timestamp": "1794146400",
+        "transaction": "",
+        "type": "BBID_AUTO_PROCESS_WAIVERS"
+      },
+      {
+        "franchise": "0007",
+        "timestamp": "1794144457",
+        "transaction": "|14905,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1794140020",
+        "transaction": "|17529,",
+        "type": "FREE_AGENT"
+      },
+      {
+        "activated": "17498,",
+        "deactivated": "",
+        "franchise": "0003",
+        "timestamp": "1794139793",
+        "type": "IR"
+      },
+      {
+        "franchise": "0003",
+        "timestamp": "1794139766",
+        "transaction": "|13418,",
+        "type": "FREE_AGENT"
+      },
+      {
         "activated": "13198,",
         "deactivated": "",
         "franchise": "0004",

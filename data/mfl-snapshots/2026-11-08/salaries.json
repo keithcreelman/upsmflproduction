@@ -116,11 +116,11 @@
           "salary": "2000"
         },
         {
-          "contractInfo": "",
-          "contractStatus": "",
-          "contractYear": "",
+          "contractInfo": "CL 1| TCV 1K| AAV 1K",
+          "contractStatus": "Vet-WW",
+          "contractYear": "1",
           "id": "14153",
-          "salary": ""
+          "salary": "1000"
         },
         {
           "contractInfo": "CL 1| TCV 3K| AAV 3K",
@@ -459,11 +459,11 @@
           "salary": ""
         },
         {
-          "contractInfo": "CL 1| TCV 1K| AAV 1K",
-          "contractStatus": "Vet-WW",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "13418",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "",
@@ -501,11 +501,11 @@
           "salary": "2000"
         },
         {
-          "contractInfo": "CL 1| TCV 1K| AAV 1K",
-          "contractStatus": "Vet-FAA",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "15835",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 1| TCV 13K| AAV 13K",
@@ -599,11 +599,11 @@
           "salary": "2000"
         },
         {
-          "contractInfo": "CL 1| TCV 4K| AAV 4K",
-          "contractStatus": "Vet-WW",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "15752",
-          "salary": "4000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 2|TCV 14K|AAV 7K|Y1-7K, Y2-7K|GTD: 10.5K",
@@ -1467,11 +1467,11 @@
           "salary": "5000"
         },
         {
-          "contractInfo": "",
-          "contractStatus": "",
-          "contractYear": "",
+          "contractInfo": "CL 1| TCV 1K| AAV 1K",
+          "contractStatus": "Vet-WW",
+          "contractYear": "1",
           "id": "15730",
-          "salary": ""
+          "salary": "1000"
         },
         {
           "contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
@@ -1600,11 +1600,11 @@
           "salary": "2000"
         },
         {
-          "contractInfo": "CL 1| TCV 1K| AAV 1K",
-          "contractStatus": "Vet-WW",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "14905",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 3| TCV 36K| AAV 12K| Y1-12K, Y2-12K, Y3-12K, Y4-17K Option| GTD: 27K",
@@ -1782,6 +1782,13 @@
           "salary": "1000"
         },
         {
+          "contractInfo": "CL 1| TCV 1K| AAV 1K",
+          "contractStatus": "Vet-WW",
+          "contractYear": "1",
+          "id": "16710",
+          "salary": "1000"
+        },
+        {
           "contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
           "contractStatus": "Rookie-Draft",
           "contractYear": "2",
@@ -1817,11 +1824,11 @@
           "salary": ""
         },
         {
-          "contractInfo": "CL 1| TCV 4K| AAV 4K",
-          "contractStatus": "Vet-FAA",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "12221",
-          "salary": "4000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
@@ -2923,11 +2930,11 @@
           "salary": "10000"
         },
         {
-          "contractInfo": "CL 1| TCV 1K| AAV 1K",
-          "contractStatus": "Vet-WW",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "14218",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 2|TCV 14K|AAV 7K|Y1-11K, Y2-3K|GTD: 10.5K",
@@ -3553,6 +3560,13 @@
           "salary": "1000"
         },
         {
+          "contractInfo": "CL 1| TCV 1K| AAV 1K",
+          "contractStatus": "Vet-WW",
+          "contractYear": "1",
+          "id": "10783",
+          "salary": "1000"
+        },
+        {
           "contractInfo": "",
           "contractStatus": "",
           "contractYear": "",
@@ -3665,11 +3679,11 @@
           "salary": "5000"
         },
         {
-          "contractInfo": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 1K",
-          "contractStatus": "Rookie-WW",
-          "contractYear": "3",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "17743",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
@@ -3784,11 +3798,11 @@
           "salary": "5000"
         },
         {
-          "contractInfo": "",
-          "contractStatus": "",
-          "contractYear": "",
+          "contractInfo": "CL 1| TCV 1K| AAV 1K",
+          "contractStatus": "Vet-WW",
+          "contractYear": "1",
           "id": "16450",
-          "salary": ""
+          "salary": "1000"
         },
         {
           "contractInfo": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 1K",
@@ -3798,11 +3812,11 @@
           "salary": "1000"
         },
         {
-          "contractInfo": "CL 3|TCV 3K|AAV 1K|Y1-1K, Y2-1K, Y3-1K|GTD: 1K",
-          "contractStatus": "Rookie-FAA",
-          "contractYear": "3",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "17529",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
@@ -3847,11 +3861,11 @@
           "salary": "2000"
         },
         {
-          "contractInfo": "CL 1| TCV 1K| AAV 1K",
-          "contractStatus": "Vet-WW",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "15332",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "",
@@ -4050,6 +4064,13 @@
           "salary": "2000"
         },
         {
+          "contractInfo": "CL 1| TCV 1K| AAV 1K",
+          "contractStatus": "Vet-WW",
+          "contractYear": "1",
+          "id": "16216",
+          "salary": "1000"
+        },
+        {
           "contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
           "contractStatus": "Rookie-Draft",
           "contractYear": "1",
@@ -4064,11 +4085,11 @@
           "salary": "12000"
         },
         {
-          "contractInfo": "",
-          "contractStatus": "",
-          "contractYear": "",
+          "contractInfo": "CL 1| TCV 1K| AAV 1K",
+          "contractStatus": "Vet-WW",
+          "contractYear": "1",
           "id": "17192",
-          "salary": ""
+          "salary": "1000"
         },
         {
           "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
@@ -4232,11 +4253,11 @@
           "salary": "2000"
         },
         {
-          "contractInfo": "",
-          "contractStatus": "",
-          "contractYear": "",
+          "contractInfo": "CL 1| TCV 2K| AAV 2K",
+          "contractStatus": "Vet-WW",
+          "contractYear": "1",
           "id": "14221",
-          "salary": ""
+          "salary": "2000"
         },
         {
           "contractInfo": "CL 1| TCV 1K| AAV 1K",
