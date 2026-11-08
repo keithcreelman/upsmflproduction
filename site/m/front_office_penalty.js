@@ -238,23 +238,10 @@
     if (yr <= 0) return null;
     return new Date(yr, 11, 31, 23, 59, 59, 999);
   }
-  // !!! TABLED CROSS-CODEBASE MIGRATION — DO NOT FIX IN MOBILE-ONLY PATCH !!!
-  // Canonical rule (league_context_v1.md §6B, effective 2026-05-08) is
-  // PER-WEEK pro-rated earning: earned = (completed_eligible_weeks /
-  // total_eligible_weeks) × year's salary, with the denominator anchored
-  // to the acquisition week (17 for auction, 18-W for week-W pickups).
-  // This function uses LEGACY 2019-era calendar-quarter milestones,
-  // matching the same legacy code in roster_workbench.js:1777 verbatim.
-  //
-  // The worker DOES use per-week math (worker/src/lib/cap_penalty.js
-  // earnedPerWeek) for actual cap charges. So this function's output is
-  // a CLIENT-SIDE PREVIEW that drifts from what the worker will charge
-  // by roughly $1-3K depending on drop week.
-  //
-  // Audit (2026-05-16) confirmed: drift is in BOTH desktop + mobile,
-  // tabled by Keith via memory project_ww_penalty_prorate_migration.md.
-  // Mobile must NOT diverge from desktop on this — fix cross-codebase or
-  // not at all. See worker/src/lib/cap_penalty.js for the canonical model.
+  // LEGACY — no longer used for any number an owner sees (2026-11-08, Keith: every screen shows what the worker and canon say).
+  // Canonical rule (league_context_v1.md §D1, effective 2026-05-08) is PER-WEEK pro-rated earning from MFL's completed-week count, which
+  // only the worker has. dropPenaltyEstimateRaw now quotes this file's own figure only BEFORE Sep 1 of the season (nothing of the season
+  // is earned yet, so this function returns 0) and says "not priced yet" from Sep 1 on. Kept so the mirror still diffs against desktop.
   function proratedEarnedForDrop(season, amount, dropDate) {
     var yr = safeInt(season, 0);
     var salary = Math.max(0, safeInt(amount, 0));
@@ -515,6 +502,34 @@
         accrued: accrued, earned: earned
       };
     }
+    // Canon §D2 (worker rule 2): a WW pickup at $4,000 or less in its FINAL year is cap-free, whatever its total. (A multi-year WW with more than
+    // one year left is priced by the sub-$5K rule below when its total is $4,000 or less, otherwise by guarantee minus earned.)
+    if (/(^|-)WW($|-)/.test(type) && safeInt(player && player.salary, 0) <= 4000 && years <= 1) {
+      return {
+        amount: 0,
+        note: "WW pickup of $4,000 or less in its final year: cap-free (canon §D2).",
+        tcv: totalContractValue, guaranteed: guaranteed,
+        currentYearSalary: currentYearSalary, priorEarned: priorEarned,
+        accrued: accrued, earned: earned
+      };
+    }
+    // Canon §D1 "Sub-$5K TCV rule" (Keith 2026-05-22): a contract with TCV of $4,000 or less is NOT priced by guarantee minus earned.
+    // It is a FLAT $1,000 while more than one year remains, and cap-free in its final year (a 1-year deal is cap-free above). The worker
+    // (_computeDropPenaltyRaw, isSubFiveKMultiYearFlat) charges exactly this, every week of the season. Without it this fallback ran the
+    // per-week earned arithmetic and drifted: a CL 3, $1K-a-year deal read $1,000 in September, $750 in late October, $500 in November,
+    // while the worker said $1,000 (the conditional-drop picker showed $500 until the worker's batch landed).
+    if (totalContractValue > 0 && totalContractValue <= 4000 && contractLength > 1) {
+      var subFiveKFlat = years > 1 ? 1000 : 0;
+      return {
+        amount: subFiveKFlat,
+        note: subFiveKFlat > 0
+          ? "Flat $1,000 (canon §D1): a multi-year contract with a total of $4,000 or less costs a fixed $1,000 while more than one year remains."
+          : "Sub-$5K contract in its final year: cap-free (canon §D1).",
+        tcv: totalContractValue, guaranteed: guaranteed,
+        currentYearSalary: currentYearSalary, priorEarned: priorEarned,
+        accrued: accrued, earned: earned
+      };
+    }
     // The flat 35%-of-salary WW short-circuit that used to live here has been
     // REMOVED (2026-07-30, in-app waivers). league_context_v1.md §D1.4
     // (effective 2026-05-08) retired that rule: a WW pickup at $5K+ earns the
@@ -528,18 +543,32 @@
     // isLikelyWaiverPickup() is deliberately left in place: this file is a
     // verbatim mirror of roster_workbench.js and dropping the helper would
     // make the next diff against desktop harder to read. It is now unused.
-    var penalty = Math.max(0, guaranteed - earned);
-    var guaranteeLabel = explicitGuarantee > 0
-      ? "contract guarantee"
-      : (totalContractValue <= 4000 ? "TCV minus year 1 salary" : "75% of TCV");
+    // Guarantee minus earned depends on this season's COMPLETED-WEEK count (canon §D1, true per-week pro-rating), which only the worker has
+    // (MFL's live scoring). From Sep 1 of the season on, this file therefore quotes NO number of its own: it says "not priced yet" until the
+    // worker's number lands. It used to apply the legacy 2019-era calendar-quarter curve here, which differed from what the worker charges by
+    // $1-3K (a $10K final-year contract read $0 on Nov 8 against the worker's $294). Before Sep 1 nothing of this season is earned yet, so the
+    // figure below is exact: 75% of the total (rounded down, as the worker does) minus the years already played.
+    if (now >= new Date(seasonNum, 8, 1)) {
+      return {
+        amount: null, unpriced: true,
+        note: "Not priced yet: the drop penalty needs MFL's completed-week count, which comes from the league's calculation. It is not estimated here.",
+        tcv: totalContractValue, guaranteed: null,
+        currentYearSalary: currentYearSalary, priorEarned: null,
+        accrued: 0, earned: null
+      };
+    }
+    var guaranteedExact = Math.floor(totalContractValue * 0.75);
+    var penalty = Math.max(0, guaranteedExact - priorEarned);
+    var guaranteeLabel = "75% of TCV";
+
     return {
       amount: penalty,
-      tcv: totalContractValue, guaranteed: guaranteed,
+      tcv: totalContractValue, guaranteed: guaranteedExact,
       currentYearSalary: currentYearSalary, priorEarned: priorEarned,
-      accrued: accrued, earned: earned,
+      accrued: 0, earned: priorEarned,
       note: penalty === 0
         ? "Current-rule guarantee has already been fully earned."
-        : "Projected current-rule penalty: " + guaranteeLabel + " is " + money(guaranteed) + "; earned to date is " + money(earned) + "."
+        : "Projected current-rule penalty: " + guaranteeLabel + " is " + money(guaranteedExact) + "; earned to date is " + money(priorEarned) + "."
     };
   }
 
