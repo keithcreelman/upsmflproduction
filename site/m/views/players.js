@@ -1468,6 +1468,18 @@
     return advisory;
   }
 
+  // The worker's drop-penalty batch landed while the claim sheet was already open (the batch is read when the market opens, and the
+  // sheet can beat it, or open from the Claims screen first). The sheet was built from the local fallback estimate; swap in the worker's
+  // number where it shows it, in place: the cap-room line and the conditional-drop label. Nothing is rebuilt, so the bid amount being
+  // typed, its focus and the keyboard are untouched.
+  function refreshBidSheetPenalty() {
+    if (!bidView || !document.getElementById("ups-m-bid-overlay")) return;
+    var adv = document.getElementById("ups-m-bid-advisory-wrap");
+    if (adv) adv.innerHTML = bidAdvisoryHtml();
+    var pick = document.querySelector("#ups-m-bid-overlay .ups-m-bid-droppick");
+    if (pick && bidView.dropPid) pick.textContent = nameForPid(bidView.dropPid) + " \u00b7 " + dropPenaltyShortText(bidView.dropPid);
+  }
+
   function bidSheetHtml() {
     var lim = waiverLimits();
     if (!lim || !bidView) return "";
@@ -3089,6 +3101,7 @@
     // worker's numbers (a list of buttons — nothing typed is lost).
     window.addEventListener("ups-cap-penalty-ready", function () {
       if (dropPicker && document.getElementById("ups-m-drop-overlay")) { var o = dropPicker; openDropPicker(o); }
+      refreshBidSheetPenalty();
     });
     // Last season's board landed while the market said "loading" (preseason
     // only — pointsBasis). Repaint only then, so a Stats tab opened over the
