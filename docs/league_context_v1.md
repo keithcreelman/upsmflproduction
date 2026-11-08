@@ -23,6 +23,7 @@ This document is the **canonical source of truth** for UPS league rules. The Hal
 - 2026-05-04: 🆕 Divisional Co-tenancy History appendix (computed from MFL DB)
 - 2026-05-05: 🆕 Bot Grounding Clarifications appendix (cap-free <$4K, multi-yr <$5K, rounding, taxi "active", NFL calendar reference, vote-change grace, pot-splitting)
 - 2026-05-05: 🆕 League Rules Migration appendix (catalog of legacy docs + sunset plan)
+- 2026-11-08: ✅ Clarified (Keith, chat): the WW cap-free carve-out is a WW with **1 year remaining and TCV ≤ $4K**; a multi-year contract of $4K or less follows the flat-$1K Sub-$5K rule (§D1, Bot Grounding "Multi-year low-TCV penalty")
 - 2026-05-08: ✅ Three rules passed (May 2026 round, 7-0-0 each) and integrated:
   - **Taxi squad flexibility — temporary call-ups** (B2, T2.4, D2): owners can call up a taxi player for up to 3 weeks before the call-up becomes permanent
   - **Salary depreciation — true pro-rated** (D1, B section calendar checkpoints, Section 6 earning curve): per-week pro-rated earning replaces the calendar-month buckets and the 35% flat WW model
@@ -658,7 +659,7 @@ Front Office v2 Contracts sub-tab and Cap Planning view, mobile PWA, Lite Mode).
   - Apply % to **the year's actual salary** (not AAV). See Section 6.B for the canonical formula and worked examples.
 - **What does NOT change** *(carried forward unchanged from prior rule)*:
   - Total cap hit over a contract's life is unchanged — only the *timing* of when salary is earned is now pro-rated.
-  - **WW pickups with salary ≤ $4K** remain cap-penalty-free if dropped (see D2 + Bot Grounding appendix). Equivalent to the worker's `< $5K` integer boundary in `worker/src/lib/cap_penalty.js`.
+  - **A WW pickup with 1 year remaining and TCV ≤ $4K** remains cap-penalty-free if dropped (see D2 + Bot Grounding appendix; Keith 2026-11-08). A WW contract is one year unless a MYM converts it, so a multi-year contract of $4K or less is NOT this carve-out: the Sub-$5K TCV rule below applies (a flat $1K while more than one year remains). Equivalent to the worker's `< $5K` integer boundary in `worker/src/lib/cap_penalty.js`.
   - **Sub-$5K TCV rule (Keith 2026-05-22 — clarified canon):** for any contract with TCV ≤ $4K (multi-year or otherwise), the penalty rule is:
     - **`years_remaining ≥ 2` → fixed $1K** cap penalty.
     - **`years_remaining ≤ 1` (final year drop) → $0** — cap-free, regardless of what the standard `(TCV × 75%) − earned` formula would have produced.
@@ -2191,7 +2192,7 @@ Penalty = (Salary × 75%) − Salary Earned
 where Salary Earned = (completed_weeks_active / total_eligible_weeks) × salary
 ```
 
-**WW $4K-and-under stays cap-free** (preserved by the 2026-05-08 rule — see Bot Grounding appendix).
+**A WW with 1 year remaining and TCV $4K-and-under stays cap-free** (preserved by the 2026-05-08 rule; clarified 2026-11-08 — a WW is one year unless a MYM converts it, and a multi-year contract of $4K or less follows the flat-$1K Sub-$5K rule; see Bot Grounding appendix).
 
 **Worked WW examples under the new rule** (assumes player picked up Week W and dropped after Week W+N completes; eligible_weeks = 18 − W):
 
@@ -2201,7 +2202,7 @@ where Salary Earned = (completed_weeks_active / total_eligible_weeks) × salary
 | WW $25K, Week 9 pickup | Week 12 (3 weeks active) | 3 | 9 | (3/9) × $25K = $8.33K | ($25K × 75%) − $8.33K = **$10.42K** |
 | WW $50K, Week 1 pickup | Week 8 (7 weeks active) | 7 | 17 | (7/17) × $50K = $20.59K | ($50K × 75%) − $20.59K = **$16.91K** |
 | WW any $, post-season cut | end of Week 17 | full | full | 100% × salary | $0 (full earning achieved) |
-| WW under $4K, any time | any | n/a | n/a | n/a | **$0 (cap-free, preserved)** |
+| WW, 1 year remaining, TCV $4K or under, any time | any | n/a | n/a | n/a | **$0 (cap-free, preserved)** |
 
 **The class behind that last row (Keith 2026-09-26):** a ONE-YEAR ORIGINAL pure-WW contract (`WW` / `Vet-WW` / `Rookie-WW` — not a WW-MYM), salary ≤ $4,000, TCV = salary, in its final year, not on taxi, and not itself the $1,000-a-year contract of §A5. The drop calculator prices it cap-free ($0) on the basis **`ww_under_5k_earned_na`**; **earned is "not applicable"** (stored NULL; shown as "Not applicable"; the per-week column reads "nK Per Yr"). A multi-year WW, a WW-MYM and any non-WW deal are not in this class and keep their own earned figure. The $1,000-a-year contract is the separate full-year class of §A5 and keeps its `ww_under_5k_exempt` basis when it is a one-year WW.
 
@@ -2956,7 +2957,7 @@ These are corrections + clarifications fed back from solo-test of the AI explain
 
 ### Cap-penalty-free pickups (preserved by 2026-05-08 salary-depreciation rule)
 
-- **Players picked up via Waiver Wire (WW) with salary ≤ $4K are cap-penalty-free if dropped.** No cap penalty applies regardless of when in the season they're dropped.
+- **Players picked up via Waiver Wire (WW) with 1 year remaining and TCV ≤ $4K are cap-penalty-free if dropped.** No cap penalty applies regardless of when in the season they're dropped. *(Clarified 2026-11-08, Keith: a WW is only a 1-year contract unless a MYM converts it. A multi-year contract of $4K or less — Jack Strand, Rookie-WW, CL 3, TCV $3K — is not this carve-out: it costs a flat $1K while more than one year remains and is cap-free in its final year, per the Multi-year low-TCV rule below.)*
 - This carve-out is preserved under the new true-pro-rated earning model (effective 2026-05-08).
 - **Boundary phrasing (Keith, 2026-05-16 review session):** the rule is **"WW salary ≤ $4K is cap-free"**. The worker implementation in `worker/src/lib/cap_penalty.js:49-54` uses `< $5K` — these are equivalent for the integer-dollar amounts UPS uses ($1K bid increments). Either phrasing is correct; prefer "≤ $4K" in owner-facing narration and `< $5K` in code reviews.
 
