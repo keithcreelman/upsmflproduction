@@ -3384,9 +3384,11 @@
     var m = tops_capMath();
     return m ? m.earnedToDate(sal) : 0;
   }
+  // null = "not priced" (the worker's batch hasn't landed, or the contract can't be priced here): callers render "—". It is never a $0.
   function tops_dropPenalty(sal) {
     var m = tops_capMath();
-    return m ? (m.dropPenalty(sal) || 0) : 0;
+    var p = m ? m.dropPenalty(sal) : null;
+    return p == null ? null : p;
   }
   function tops_findAcquisition(pid) {
     // Walk transactions for the most recent acquisition of this player by
@@ -3552,7 +3554,7 @@
       '  <div class="tops-profile-metric"><span>Salary</span><strong>' + (salary > 0 ? fmtUsd(salary) : '—') + '</strong></div>',
       '  <div class="tops-profile-metric"><span>Yrs Remain</span><strong>' + (yrsRemain > 0 ? String(yrsRemain) : '—') + '</strong></div>',
       '  <div class="tops-profile-metric"><span>Earned to Date</span><strong>' + (topsFullYear ? 'Full-year rule' : (topsWwNa ? 'Not applicable' : (earned > 0 ? fmtUsd(earned) : '$0'))) + '</strong></div>',
-      '  <div class="tops-profile-metric"><span>Cap Penalty</span><strong>' + (penalty > 0 ? fmtUsd(penalty) : '$0') + '</strong></div>',
+      '  <div class="tops-profile-metric"><span>Cap Penalty</span><strong>' + (penalty == null ? '—' : (penalty > 0 ? fmtUsd(penalty) : '$0')) + '</strong></div>',
       '  <div class="tops-profile-metric"><span>Acquire Date</span><strong>' + escapeHtml(acqDate) + '</strong></div>',
       '  <div class="tops-profile-metric"><span>How Acquired</span><strong>' + escapeHtml(acqMethod) + '</strong></div>',
       '</div>'

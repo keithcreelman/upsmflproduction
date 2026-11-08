@@ -48,10 +48,11 @@ test("mobile fallback: the rule's other cases (canon §D1) — 2 years left is $
   t.match(est({ ...two, contractYear: "1" }).note, /final year/);
 });
 
-test("mobile fallback: a contract OVER $4K is untouched (guarantee minus earned still applies)", () => {
+test("mobile fallback: a contract OVER $4K — exact before Sep 1 (75% rounded down, minus years played), 'not priced' from Sep 1 (needs the worker's completed weeks)", () => {
   const big = { id: "11", contractYear: "2", salary: "5000", contractInfo: "CL 2|TCV 10K|AAV 5K|Y1-5K, Y2-5K|GTD: 7.5K", contractStatus: "Vet-FAA", status: "ROSTER" };
-  const r = mobile("2026-09-20T12:00:00Z")(big);
-  t.ok(r.amount > 1000, `not the flat rule: ${r.amount}`); t.doesNotMatch(r.note, /Flat \$1,000/);
+  t.equal(mobile("2026-08-15T12:00:00Z")(big).amount, 7500, "$10K total, nothing earned yet: 75% = $7,500");
+  const inSeason = mobile("2026-09-20T12:00:00Z")(big);
+  t.equal(inSeason.amount, null, "in season: no number of its own"); t.equal(inSeason.unpriced, true);
 });
 
 test("mobile: once the worker's batch is loaded, ITS number is shown (the fallback is only for before it lands)", () => {

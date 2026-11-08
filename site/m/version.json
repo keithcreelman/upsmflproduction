@@ -1,4 +1,4 @@
 {
-  "build": "2026.11.08.1",
-  "label": "Cap penalties: a claim's conditional drop shows the worker's penalty, and the offline estimate follows the $1,000 sub-$5K rule."
+  "build": "2026.11.08.2",
+  "label": "Cap penalties: every screen shows the worker's drop penalty (or 'not priced yet'), never a different local estimate."
 }

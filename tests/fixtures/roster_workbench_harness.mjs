@@ -49,7 +49,14 @@ export function loadRosterWorkbench(windowExtra, extra) {
     createElement: () => ({ style: {}, addEventListener: () => {}, appendChild: () => {}, setAttribute: () => {}, classList: { add: () => {}, remove: () => {} } }),
     body: { appendChild: () => {}, addEventListener: () => {} },
   };
+  // extra.nowIso: pin the sandbox's clock ("now" for `new Date()` / Date.now()) so a date-dependent calculation can be checked on a fixed day.
+  let SandboxDate = Date;
+  if (extra && extra.nowIso) {
+    const at = Date.parse(extra.nowIso);
+    SandboxDate = class extends Date { constructor(...a) { if (a.length) super(...a); else super(at); } static now() { return at; } };
+  }
   const ctx = {
+    Date: SandboxDate,
     window: win,
     document: doc,
     navigator: { userAgent: "node-test" },

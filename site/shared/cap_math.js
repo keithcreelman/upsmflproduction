@@ -177,7 +177,7 @@
     if (wp != null) return wp;
     var info = parseContractInfo(sal && sal.contractInfo);
     var tcv = info.tcv;
-    if (!tcv) return opts.suppressPreEra2019 ? null : 0;
+    if (!tcv) return null;   // a blank / unreadable contract is not priced, never $0 (MFL serves blank contracts; the worker holds them as needs-review)
     if (opts.suppressPreEra2019) {
       var seasonNum = Number(opts.season) || (new Date().getFullYear());
       if (seasonNum < 2019) return null;
@@ -191,8 +191,15 @@
     if (/(^|-)WW($|-)/i.test(status) && salary <= 4000 && cy <= 1) return 0;      // §D2 WW ≤ $4K in its final year (a multi-year WW falls through to the flat sub-$5K rule, exactly like the worker)
     if (cl === 1 && tcv <= 4000) return 0;                            // §D2 1-yr orig < $5K
     if (tcv <= 4000) return (cy >= 2 ? 1000 : 0);                     // §D2 sub-$5K override
+    // A tagged player cut before the FA Auction drop deadline (Aug 1 of the season) is cap-free (canon §C8; worker rule 1.5).
+    var seasonNow = Number(opts.season) || (new Date().getFullYear());
+    if (/tag/i.test(status) && new Date() < new Date(seasonNow, 7, 1)) return 0;
+    // Guarantee minus earned needs this season's COMPLETED-WEEK count (canon §D1, per-week pro-rating), which only the worker has. From Sep 1
+    // of the CURRENT season on, no number is quoted here: null renders "—" ("not priced") until the worker's batch lands, instead of a figure
+    // that ignores the weeks played (this fallback counts only finished contract years). A past season's row (history) keeps the finished-years math.
+    if (seasonNow >= new Date().getFullYear() && new Date() >= new Date(seasonNow, 8, 1)) return null;
     var earned = earnedToDate(sal, info);
-    return Math.max(0, Math.round(tcv * 0.75) - earned);
+    return Math.max(0, Math.floor(tcv * 0.75) - earned);   // floor, exactly as the worker's guarantee (_computeDropPenaltyRaw)
   }
 
   global.UPS_CAP_MATH = {
