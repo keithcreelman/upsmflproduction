@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-08T16:19:30.825905+00:00",
+    "generated_at_utc": "2026-11-09T20:05:39.096513+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1905,6 +1905,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_13164",
+          "display": "Cooper Kupp",
+          "player_id": "13164",
+          "position": "WR",
+          "nfl_team": "SEA",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16342",
           "display": "Demario Douglas",
           "player_id": "16342",
@@ -1965,23 +1977,11 @@
           "taxi": false
         },
         {
-          "asset_id": "P_16171",
-          "display": "Kendre Miller",
-          "player_id": "16171",
-          "position": "RB",
-          "nfl_team": "FA",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15387",
-          "display": "Pete Werner",
-          "player_id": "15387",
-          "position": "LB",
-          "nfl_team": "NOS",
+          "asset_id": "P_15337",
+          "display": "Noah Gray",
+          "player_id": "15337",
+          "position": "TE",
+          "nfl_team": "KCC",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
