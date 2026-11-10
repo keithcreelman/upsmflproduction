@@ -76,7 +76,7 @@
           "name": "Gride",
           "salaryCapAmount": "",
           "stadium": "Ride or Die Stadium",
-          "waiverSortOrder": "3"
+          "waiverSortOrder": "2"
         },
         {
           "abbrev": "PG",
@@ -88,7 +88,7 @@
           "name": "Pure Greatness",
           "salaryCapAmount": "",
           "stadium": "Greatness Park",
-          "waiverSortOrder": "9"
+          "waiverSortOrder": "10"
         },
         {
           "abbrev": "\ud83d\udd28 \u23f0",
@@ -124,7 +124,7 @@
           "name": "Sex Manther",
           "salaryCapAmount": "",
           "stadium": "NFL Combine - Lucas Oil Stadium",
-          "waiverSortOrder": "2"
+          "waiverSortOrder": "3"
         },
         {
           "abbrev": "RealDeal",
@@ -136,7 +136,7 @@
           "name": "Real Deal Creel",
           "salaryCapAmount": "",
           "stadium": "Gordon's Way",
-          "waiverSortOrder": "5"
+          "waiverSortOrder": "6"
         },
         {
           "abbrev": "CTwn",
@@ -160,7 +160,7 @@
           "name": "Blake Bombers",
           "salaryCapAmount": "",
           "stadium": "Bomber Stadium",
-          "waiverSortOrder": "10"
+          "waiverSortOrder": "9"
         },
         {
           "abbrev": "Cash",
@@ -172,7 +172,7 @@
           "name": "Cleon Ca$h",
           "salaryCapAmount": "",
           "stadium": "Ca$h Money",
-          "waiverSortOrder": "6"
+          "waiverSortOrder": "5"
         },
         {
           "abbrev": "Hawk",
