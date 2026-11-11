@@ -133,26 +133,31 @@ def git(args, cwd, env=None):
 
 
 def real_run(cmd, cwd=None):
+    # Everything runs for real except the push (the safe-test runner blocks remote git): `git push -f origin <sha>:refs/heads/<b>`
+    # becomes the local ref update it would cause, so what the branch would hold is still checked.
+    if cmd[:2] == ["git", "push"]:
+        sha, ref = cmd[-1].split(":", 1)
+        return git(["update-ref", ref, sha], cwd)
     p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
     return p.returncode, (p.stdout or "") + (p.stderr or "")
 
 
 root = tempfile.mkdtemp(prefix="fpr_git_")
-bare, clone = os.path.join(root, "origin.git"), os.path.join(root, "clone")
-git(["init", "-q", "--bare", "-b", "main", bare], root)
-git(["clone", "-q", bare, clone], root)
+clone = os.path.join(root, "repo")
+git(["init", "-q", "-b", "main", clone], root)
 git(["config", "user.email", "t@example.com"], clone); git(["config", "user.name", "t"], clone)
 os.makedirs(os.path.join(clone, "site/wire/data"))
 open(os.path.join(clone, "site/wire/data/other.json"), "w").write("{}")
 open(os.path.join(clone, "README.md"), "w").write("hi")
-git(["add", "-A"], clone); git(["commit", "-q", "-m", "main"], clone); git(["push", "-q", "origin", "main"], clone)
+git(["add", "-A"], clone); git(["commit", "-q", "-m", "main"], clone)
+git(["update-ref", "refs/remotes/origin/main", "main"], clone)                 # what `origin/main` is after a fetch
 git(["checkout", "-q", "-b", "wire/auto/2026-wk08-ups-center"], clone)
 open(os.path.join(clone, "site/wire/data/package_in_progress.json"), "w").write("{\"wip\": 1}")   # the package build's own uncommitted work
-git(["fetch", "-q", "origin"], clone)
 open(os.path.join(clone, F.sim_rel(2026, 8)), "w").write(SIM)
 status_before = git(["status", "--porcelain"], clone)[1]
 head_before = git(["rev-parse", "HEAD"], clone)[1]
 F._write_branch(real_run, 2026, 8, SIM, clone)
+bare = clone                                                                    # the branch now lives in this repo
 rc, tree = git(["ls-tree", "-r", "--name-only", "wire/auto/2026-wk08-forecast"], bare)
 rc2, base = git(["diff", "--name-status", "main", "wire/auto/2026-wk08-forecast"], bare)
 check("the pushed branch differs from main by exactly one added file: the forecast", base.split() == ["A", F.sim_rel(2026, 8)], base)
