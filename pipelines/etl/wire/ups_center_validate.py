@@ -539,8 +539,13 @@ def validate(res, ctx, pack):
             elif what == "runs":
                 if v != sim.get("runs"):
                     bad(key, "forecast runs %s, page %s" % (sim.get("runs"), v))
-            elif fid not in teams:
+            elif what not in ("pre", "prevpo", "prepo") and fid not in teams:
                 bad(key, "no forecast row for %s" % fid)
+            elif what == "pre":
+                k_, _, f_ = fid.partition(":")
+                pre = ((ctx.get("forecastPre") or {}).get("teams") or {}).get(f_)
+                if not pre or k_ not in pre or abs(PROB.value(pre[k_]) - v) > 1e-9 or c.get("shown") != PROB.text(pre[k_]):
+                    bad(key, "pre-trade forecast %r, page %s" % (pre and pre.get(k_), c.get("shown")))
             elif what in ("prevpo", "prepo"):
                 fc_ = ctx.get("forecast") or {}
                 base = ((fc_.get("prevSim") or {}).get("teams") or {}).get(fid, {}).get("po") if what == "prevpo" else teams[fid].get("prePo")
@@ -584,6 +589,27 @@ def validate(res, ctx, pack):
                     bad(key, "page %r, recomputed %r" % (v, truth[rest]))
             elif abs(float(truth[rest]) - float(v)) > 0.05:
                 bad(key, "page %r, recomputed %r" % (v, truth[rest]))
+        elif kind == "trade":
+            info = (ctx.get("tradeInfo") or [None])[0]
+            if not info:
+                bad(key, "no trade in the snapshot")
+            else:
+                what, _, pid = rest.partition(":")
+                pl = [x for x in info["a_gave"] + info["b_gave"] if x["kind"] == "player"]
+                sizes = (ctx.get("archive") or {}).get("tradeSizes") or []
+                n_all = len([x for x in info["a_gave"] + info["b_gave"] if x["kind"] in ("player", "pick", "bb")])
+                want = {"na": len([x for x in info["a_gave"] if x["kind"] in ("player", "pick", "bb")]),
+                        "nb": len([x for x in info["b_gave"] if x["kind"] in ("player", "pick", "bb")]), "n": n_all,
+                        "rk": sum(1 for z in sizes if z >= n_all), "rn": len(sizes),
+                        "sal": round(sum(x["salary"] for x in (info["a_gave"] if pid == "a" else info["b_gave"]) if x["kind"] == "player"), 1)}
+                if what == "asset":
+                    w_ = next((x["salary"] for x in pl if x["id"] == pid), None)
+                elif what == "yrs":
+                    w_ = next((int(x["years"]) for x in pl if x["id"] == pid), None)
+                else:
+                    w_ = want.get(what)
+                if w_ is None or abs(float(w_) - float(v)) > 0.05:
+                    bad(key, "page %r, trade data %r" % (v, w_))
         elif kind == "quoteid":
             if rest not in chat or chat[rest]["message_id"] != v:
                 bad(key, "message id is not in the chat window")

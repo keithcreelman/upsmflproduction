@@ -1055,7 +1055,7 @@ def forced(tid):
     return {"phase": "middle", "fallback": None, "fired": [], "support": [], "considered": [],
             "lead": {"fid": c["fid"], "headline": {"trigger": tid, "kind": t["kind"], "fid": c["fid"], "s": c["s"], "adj": c["s"], "data": c["data"]}, "evidence": []}}
 for t in TRG.REGISTRY:
-    if t["id"] == "allplay_start":
+    if t["id"] in ("allplay_start", "big_trade"):
         continue
     orig_pick = TRG.pick
     TRG.pick = lambda ctx, prior=None, tid=t["id"]: forced(tid)
@@ -1132,6 +1132,34 @@ check("every printed number of 1,000 or more has a thousands comma (2,388 not 23
 bad_comma = dict(r8, html=r8["html"].replace("<p>", "<p>We simulated 10000 seasons. ", 1))
 check("the validator fails an unformatted 4+ digit number", any("thousands comma" in e for e in VAL.validate(bad_comma, CTX8, PACK8)["errors"]))
 check("years, ids and week numbers are left alone (Week 8 draft validates; the local copy's message ids do not trip it)", v8["ok"] and VAL.validate(*(lambda r_: (r_[0], r_[2], PACK8))(build8(local=True)))["ok"])
+
+print("S11. a big executed trade is a registered trigger and always appears (facts only)")
+SYN = {"timestamp": 1794338860, "a": "0008", "b": "0011", "a_salary": 77000.0, "b_salary": 60000.0,
+       "a_gave": [{"kind": "player", "id": "15789", "name": "Test Receiver", "pos": "WR", "team": "GBP", "salary": 45000.0, "years": "1", "status": "Vet"},
+                  {"kind": "player", "id": "17501", "name": "Test Runner", "pos": "RB", "team": "CLE", "salary": 32000.0, "years": "3", "status": "Vet"},
+                  {"kind": "pick", "origin": "0005", "year": 2027, "round": 1}],
+       "b_gave": [{"kind": "player", "id": "16161", "name": "Test Quarterback", "pos": "QB", "team": "ATL", "salary": 60000.0, "years": "2", "status": "Vet"}]}
+def with_trade(c):
+    c["tradeInfo"] = [copy.deepcopy(SYN)]
+    pre = copy.deepcopy(c["forecast"]["sim"])
+    pre["teams"]["0008"]["po"] = max(0.0, pre["teams"]["0008"]["po"] - 0.12)
+    pre["teams"]["0011"]["title"] = max(0.0, pre["teams"]["0011"]["title"] - 0.03)
+    c["forecastPre"] = pre
+rtd, vtd, ctd = build8(with_trade, local=False)
+tx_ = VAL.visible_text(rtd["html"])
+check("a trade is a registered trigger (the table is pluggable)", "big_trade" in [t["id"] for t in TRG.REGISTRY] and hasattr(SI.StoryIssue, "story_big_trade"))
+check("the trade appears in the story (lead or its own support story), facts only, and the draft validates",
+      "a big trade" in tx_ or "made a big trade" in tx_, (vtd["errors"], rtd["bigStory"]))
+check("the trade story states what moved each way, the salary on each side, how rare the size is, and the odds it moved (pre vs post-trade forecast)",
+      all(x in tx_ for x in ("Test Receiver", "Test Quarterback", "2027 first-round pick", "$77,000", "$60,000", "of the 1,036 trades", "odds went from")) and vtd["ok"], (vtd["errors"], tx_[:100]))
+check("no message or comment text is carried (tradeInfo has no comment field; the page has none)", "comment" not in json.dumps(SYN).lower() and "comment" not in tx_.lower())
+claims = copy.deepcopy(rtd["claims"])
+claims["trade:sal:a"]["value"] = 99999.0
+check("a wrong trade salary fails", any("trade:sal:a" in e for e in VAL.validate(dict(rtd, claims=claims), ctd, PACK8)["errors"]))
+claims = copy.deepcopy(rtd["claims"])
+pk_ = next(k for k in claims if k.startswith("odds:pre:"))
+claims[pk_]["value"] = 1.0
+check("a wrong pre-trade odds figure fails", any(pk_ in e for e in VAL.validate(dict(rtd, claims=claims), ctd, PACK8)["errors"]))
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

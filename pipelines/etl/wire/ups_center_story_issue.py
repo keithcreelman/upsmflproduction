@@ -43,6 +43,10 @@ WORDS = {0: "none", 1: "one", 2: "two", 3: "three", 4: "four"}
 SEGMENTS = ["bigstory", "divweek", "elias", "odds", "plays", "season"]
 
 
+def trade_list(assets):
+    return [x for x in assets if x["kind"] in ("player", "pick", "bb")]
+
+
 def join(names):
     names = list(names)
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + (", and " if len(names) > 2 else " and ") + names[-1]
@@ -416,7 +420,19 @@ class StoryIssue(I.Issue):
             sub2, body2 = self.story_allplay_start(other["data"]["story"], evidence=same)
             self._big = lead["fid"] if lead else other["fid"]
             block = self.desk([("Rich", "<b>The other story this week:</b> %s.</b>" % sub2)]).replace("</b>.</b>", "</b>") + body2
-        sup = block + self.support_lines([x for x in pk["support"] if x is not other and not (other and x["fid"] == other["fid"] and x["trigger"] == "streak")])
+        # a big executed trade always appears: as the lead, as evidence, or as its own support story (Keith 2026-11-11)
+        trade = None
+        pool = ([lead["headline"]] + lead["evidence"] if lead else []) + pk["support"]
+        trade = next((x for x in pool if x["trigger"] == "big_trade"), None)
+        if not trade and (self.ctx.get("tradeInfo") or []):
+            cand = TRG.REGISTRY[[t["id"] for t in TRG.REGISTRY].index("big_trade")]["fn"](TRG.Env(self.ctx))
+            trade = ({"trigger": "big_trade", "kind": "stakes", "fid": cand[0]["fid"], "s": cand[0]["s"], "adj": cand[0]["s"], "data": cand[0]["data"]} if cand else None)
+        tblock = ""
+        if trade and not (lead and lead["headline"] is trade):
+            sub3, body3 = self.story_big_trade(trade)
+            tblock = self.desk([("Rich", "<b>Also this week, a big trade:</b> %s.</b>" % sub3)]).replace("</b>.</b>", "</b>") + body3
+        sup = block + tblock + self.support_lines([x for x in pk["support"] if x is not other and x is not trade and x["trigger"] != "big_trade"
+                                                   and not (other and x["fid"] == other["fid"] and x["trigger"] == "streak")])
         h = lead["headline"] if lead else None
         self.big_pick = {"phase": pk["phase"], "fid": lead["fid"] if lead else None, "trigger": h["trigger"] if h else "fallback_" + pk["fallback"],
                          "s": round(h["s"], 4) if h else None, "evidence": [x["trigger"] for x in (lead["evidence"] if lead else [])],
@@ -589,6 +605,71 @@ class StoryIssue(I.Issue):
             lines.append(("Rich", ss))
         r = d["ranks"]
         return ("%s set the league&rsquo;s single-week scoring record" % e(self.owner[f]) if r["raw_rank"] == 1 else "%s had the week" % e(self.owner[f])), self.desk(lines) + tables
+
+    def story_big_trade(self, head, evidence=()):
+        """A big executed trade, facts only (MFL's public transaction export): what moved each way, the salary on each side, the contract years
+        left, how rare the size is among the league's trades since 2010, and how the playoff / division / title odds moved when the forecast was
+        rerun on the post-trade rosters. Never the offer's comment (owners' trade messages are private)."""
+        d = head["data"]
+        tr = d["trade"]
+        a, b = tr["a"], tr["b"]
+        src = "MFL public transactions + rosters exports (trade of %s)" % datetime.fromtimestamp(tr["timestamp"], I.ET).strftime("%b %d, %Y")
+        when = I.et_clock(tr["timestamp"])
+        yr = lambda n: "%s year%s" % (n, "" if str(n) == "1" else "s")
+
+        def desc(x):
+            if x["kind"] == "player":
+                return "%s (%s)" % (e(x["name"]), e(x.get("pos") or ""))
+            if x["kind"] == "pick":
+                own = ("%s&rsquo;s " % e(self.owner[x["origin"]])) if x.get("origin") in self.owner else ""
+                return "%s%d %s-round pick" % (own, x["year"], self.ORDW.get(x["round"], str(x["round"])))
+            return "$%s of blind-bid money" % "{:,.0f}".format(x.get("amount", 0))
+        na, nb = len(trade_list(tr["a_gave"])), len(trade_list(tr["b_gave"]))
+        n_a = self.L.put("trade:na", na, src)
+        n_b = self.L.put("trade:nb", nb, src)
+        sal_a = self.L.put("trade:sal:a", tr["a_salary"], src, "${:,.0f}".format(tr["a_salary"]))
+        sal_b = self.L.put("trade:sal:b", tr["b_salary"], src, "${:,.0f}".format(tr["b_salary"]))
+        lines = [("Stuart", "%s executed a trade between %s and %s. %s sent %s to %s, and %s sent %s to %s." % (
+            when, e(self.owner[a]), e(self.owner[b]), e(self.owner[a]), join(desc(x) for x in tr["a_gave"]), e(self.owner[b]),
+            e(self.owner[b]), join(desc(x) for x in tr["b_gave"]), e(self.owner[a])))]
+        lines.append(("Rich", "That is %s assets going one way and %s the other. The players %s sent carry %s in salary, and the players %s sent carry %s." % (
+            n_a, n_b, e(self.owner[a]), sal_a, e(self.owner[b]), sal_b)))
+        n = d["assets"]
+        rk = self.L.put("trade:rk", d["rank"], "league archive transactions_trades (2010&ndash;2025 trade groups)")
+        pool = self.L.put("trade:rn", d["pool"], "league archive transactions_trades (2010&ndash;2025 trade groups)", "{:,}".format(d["pool"]))
+        self.L.put("trade:n", n, src)
+        lines.append(("Stuart", "Only %s of the %s trades in league history since 2010 moved %s assets or more." % (rk, pool, self.word(n) if n <= 12 else n)))
+        if self.odds_fresh() and d["deltas"]:
+            sim = self.odds_text()[0]
+            pre = (self.ctx.get("forecastPre") or {}).get("teams") or {}
+            moves = []
+            for f in (a, b):
+                parts = []
+                for k, lab in (("po", "playoff"), ("div", "division"), ("title", "title")):
+                    dv_ = d["deltas"].get(f, {}).get(k, 0.0)
+                    if abs(dv_) >= 1.0:
+                        before = e(self.L.put("odds:pre:%s:%s" % (k, f), PROB.value(pre[f][k]), "season_sim before the trade (%s)" % (self.ctx.get("forecastPre") or {}).get("generatedAtUtc"),
+                                              PROB.text(pre[f][k]), raw=round(100 * pre[f][k], 4)))
+                        after = {"po": self.po, "div": self.dv, "title": self.ti}[k](f)
+                        moves.append("%s&rsquo;s %s odds went from %s to %s" % (e(self.owner[f]), lab, before, after))
+            if moves:
+                lines.append(("Rich", "The trade moved the forecast, which was rerun on the post-trade rosters: %s." % join(moves)))
+            else:
+                lines.append(("Rich", "The forecast, rerun on the post-trade rosters, moved neither team&rsquo;s playoff, division or title odds by a full point."))
+        lines += [x for x in (self.evidence_line(ev) for ev in evidence) if x]
+        rows = []
+        for side, gave, recv in ((a, tr["a_gave"], b), (b, tr["b_gave"], a)):
+            for x in gave:
+                if x["kind"] == "player":
+                    s_ = self.L.put("trade:asset:" + x["id"], x["salary"], src, "${:,.0f}".format(x["salary"]))
+                    y_ = self.L.put("trade:yrs:" + x["id"], int(x["years"]), src, str(x["years"])) if x.get("years") else "&mdash;"
+                    rows.append(self.row([e(self.owner[recv]), "%s (%s, %s)" % (e(x["name"]), e(x.get("pos") or ""), e(x.get("team") or "")), s_, y_]))
+                else:
+                    rows.append(self.row([e(self.owner[recv]), desc(x), "&mdash;", "&mdash;"]))
+        table = self.table(["Receives", "Player or pick", "Salary", "Years left"], rows)
+        cap = ('<p class="caption">Source: MFL&rsquo;s public transaction and roster exports; salary and years left are the players&rsquo; current MFL contracts. '
+               'The trade was executed after this issue&rsquo;s build began, so the Playoff Picture below is the forecast rerun on the post-trade rosters.</p>')
+        return "%s and %s made a big trade" % (e(self.owner[a]), e(self.owner[b])), self.desk(lines) + table + cap
 
     def story_streak(self, head, evidence):
         f, d = head["fid"], head["data"]

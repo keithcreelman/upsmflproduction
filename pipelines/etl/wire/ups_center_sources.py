@@ -243,6 +243,8 @@ def archive_history(season, week, teams=12, path=None):
         full = {"%d:%s" % (s_, f): {"rec": [hw, hl], "ap": [aw, al]} for s_, f, hw, hl, aw, al in c.execute(
             "SELECT season, franchise_id, h2h_w, h2h_l, allplay_w, allplay_l FROM standings WHERE allplay_w IS NOT NULL AND h2h_w IS NOT NULL")}
         used = {r[0] for r in rows}
+        trade_sizes = [int(n) for (n,) in c.execute("SELECT COUNT(*) FROM transactions_trades WHERE asset_role = 'RELINQUISH' AND asset_type != 'CAP' "
+                                                    "GROUP BY trade_group_id")]
         pgot = {}
         for s_, w, f, sc in c.execute("SELECT DISTINCT season, week, franchise_id, team_score FROM weeklyresults WHERE COALESCE(is_playoff,0) = 1 "
                                       "AND team_score IS NOT NULL AND season < ?", (int(season),)):
@@ -255,7 +257,7 @@ def archive_history(season, week, teams=12, path=None):
         return {"source": "league archive mfl_database.db (sha256 of first MiB %s), regular season, weeks 1-%d complete" % (sha, int(week)),
                 "rows": rows, "excluded": excluded, "owners": {k: v for k, v in owners.items() if int(k.split(":")[0]) in used},
                 "final": {k: v for k, v in final.items() if int(k.split(":")[0]) in used},
-                "full": {k: v for k, v in full.items() if int(k.split(":")[0]) in used}, "playoff": playoff}
+                "full": {k: v for k, v in full.items() if int(k.split(":")[0]) in used}, "playoff": playoff, "tradeSizes": trade_sizes}
     except sqlite3.Error:
         return None
 
@@ -295,6 +297,10 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     since = int(chat_since or 0) or (min(ctx["timing"]["kickoffs"].values()))
     tx = _list(_get(MFL % (season, "transactions", "&TRANS_TYPE=TRADE&DAYS=14")).get("transactions", {}).get("transaction"))
     ctx["mfl"]["trades"] = [t for t in tx if int(t["timestamp"]) >= since]
+    try:
+        ctx["tradeInfo"] = trade_details(season, ctx["mfl"]["trades"])      # facts only: never the offer's comment
+    except Exception:                                    # noqa: BLE001  (a trade we cannot describe is left out, never guessed)
+        ctx["tradeInfo"] = []
 
     # ---- D1: the league's own copies (must agree with MFL) and the evidence tables
     ctx["d1"]["teamScores"] = {r["franchise_id"]: float(r["score"]) for r in D.d1(
@@ -353,6 +359,51 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     if history:
         ctx["archive"] = archive_history(int(season), int(week), teams=len(ctx["mfl"]["scores"]) or 12)
     return ctx
+
+
+def trade_details(season, trades):
+    """Facts about executed trades from MFL's public exports ONLY (players, rosters/salaries): what moved, who gave it up, the salary on each
+    side. The offer's comment text is never read into the result (owners' trade messages are private and this repo is public).
+    Returns [{timestamp, a, b, a_gave: [asset], b_gave: [asset], a_salary, b_salary}] where an asset is
+    {kind: player|pick|bb, ...}. Salary is the player's current MFL salary on the receiving roster."""
+    import re as _re
+    tokens = set()
+    for t in trades:
+        for k in ("franchise1_gave_up", "franchise2_gave_up"):
+            tokens |= {x for x in str(t.get(k) or "").split(",") if x}
+    pids = sorted(x for x in tokens if x.isdigit())
+    names, sal = {}, {}
+    if pids:
+        pl = _get(MFL % (season, "players", "&DETAILS=1&PLAYERS=" + ",".join(pids))).get("players", {}).get("player")
+        for p in _list(pl):
+            names[str(p["id"])] = {"name": D.display_name(p.get("name")) or p.get("name"), "pos": p.get("position"), "team": p.get("team")}
+        ro = _get(MFL % (season, "rosters", "")).get("rosters", {}).get("franchise")
+        for f in _list(ro):
+            for p in _list(f.get("player")):
+                if str(p["id"]) in pids:
+                    sal[str(p["id"])] = {"salary": float(p.get("salary") or 0), "years": p.get("contractYear"), "status": p.get("contractStatus"), "fid": f["id"]}
+
+    def asset(tok):
+        if tok.isdigit():
+            return dict(kind="player", id=tok, **(names.get(tok) or {"name": "player " + tok}), **{k: v for k, v in (sal.get(tok) or {}).items() if k != "fid"})
+        m = _re.match(r"^FP_(\d{4})_(\d{4})_(\d+)$", tok)
+        if m:
+            return {"kind": "pick", "origin": m.group(1), "year": int(m.group(2)), "round": int(m.group(3))}
+        m = _re.match(r"^DP_(\d+)_(\d+)$", tok)
+        if m:
+            return {"kind": "pick", "origin": None, "year": int(season), "round": int(m.group(1)) + 1}
+        m = _re.match(r"^BB_(\d+(?:\.\d+)?)$", tok)
+        if m:
+            return {"kind": "bb", "amount": float(m.group(1))}
+        return {"kind": "other", "token": tok}
+    out = []
+    for t in trades:
+        ag = [asset(x) for x in str(t.get("franchise1_gave_up") or "").split(",") if x]
+        bg = [asset(x) for x in str(t.get("franchise2_gave_up") or "").split(",") if x]
+        out.append({"timestamp": int(t["timestamp"]), "a": t["franchise"], "b": t["franchise2"], "a_gave": ag, "b_gave": bg,
+                    "a_salary": round(sum(x.get("salary", 0) for x in ag if x["kind"] == "player"), 1),
+                    "b_salary": round(sum(x.get("salary", 0) for x in bg if x["kind"] == "player"), 1)})
+    return out
 
 
 def d1_matches_mfl(ctx):

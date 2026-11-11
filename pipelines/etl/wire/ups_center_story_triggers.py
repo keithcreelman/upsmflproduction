@@ -336,6 +336,48 @@ def t_odds_swing(env):
              "data": {"move": move, "basis": basis, "base": base}}]
 
 
+def trade_assets(tr):
+    return [x for x in tr["a_gave"] + tr["b_gave"] if x["kind"] in ("player", "pick", "bb")]
+
+
+def trade_deltas(env, tr):
+    """{fid: {kind: points moved}} between the forecast built before the trade and the one rerun on the post-trade rosters."""
+    pre = ((env.ctx.get("forecastPre") or {}).get("teams")) or {}
+    out = {}
+    for f in env.sim:
+        if f in pre:
+            out[f] = {k: 100 * (env.sim[f][k] - pre[f][k]) for k in ("po", "bye", "div", "title")}
+    return out
+
+
+@trigger("big_trade", "stakes", min_week=1)
+def t_big_trade(env):
+    """A big executed trade (assets moved, salary moved, the playoff / division / title odds it changed). Rarity: the share of the league's
+    trades since 2010 (archive) that moved this many assets. Stakes: the largest odds move on the post-trade forecast rerun. s = the smaller."""
+    info = env.ctx.get("tradeInfo") or []
+    if not info:
+        return []
+    sizes = (env.ctx.get("archive") or {}).get("tradeSizes") or []
+    best = None
+    for tr in info:
+        n = len(trade_assets(tr))
+        rk = sum(1 for x in sizes if x >= n)
+        s_r = surprise(rk / float(len(sizes))) if sizes else 1.0
+        d = trade_deltas(env, tr)
+        m, who = 0.0, tr["a"]
+        for f in (tr["a"], tr["b"]):
+            for k, v in (d.get(f) or {}).items():
+                if abs(v) > m:
+                    m, who = abs(v), f
+        s_s = max(0.03, 0.15 * (1 - (m - 5.0) / 30.0)) if m >= 5.0 else 1.0
+        s = min(s_r, s_s)
+        if best is None or s < best["s"]:
+            best = {"fid": who, "s": s, "p": rk / float(len(sizes)) if sizes else None, "n": len(sizes),
+                    "raw": "%d assets moved, $%s and $%s of salary, largest odds move %.1f points" % (n, "{:,.0f}".format(tr["a_salary"]), "{:,.0f}".format(tr["b_salary"]), m),
+                    "data": {"trade": tr, "assets": n, "rank": rk, "pool": len(sizes), "deltas": d, "move": m, "s_rarity": s_r, "s_stakes": s_s}}
+    return [best]
+
+
 @trigger("elias_flip", "single", min_week=1)
 def t_elias(env):
     rep = env.ctx.get("eliasReport") or {}
