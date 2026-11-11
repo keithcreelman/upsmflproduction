@@ -1124,7 +1124,7 @@ check("the ranked-score claims exist and are checked against the archive (Week 8
 
 print("S10. ranked statements instead of 'N of M team-weeks'; thousands commas (Keith 2026-11-11)")
 check("no 'N of M team-weeks' wording anywhere in the story draft", not re.search(r"\d of [\d,]+ (?:past )?team-weeks", VAL.visible_text(r8["html"])), re.findall(r".{30}team-weeks.{20}", VAL.visible_text(r8["html"]))[:3])
-txt_s = VAL.visible_text(r8["html"])
+txt_s = VAL.visible_text(pubr["html"])
 check("the streak line is a ranked statement naming who has had one that long, with the pool stated (regular season, since 2011)",
       re.search(r"(Only \w+ regular-season teams? since 2011 (?:has|have) had a streak that long|No regular-season team since 2011 has had a streak that long|regular-season teams since 2011 have had a streak that long)", txt_s) is not None, txt_s[:200])
 txt_ny = re.sub(r"\b(?:19|20)\d\d\b", "", txt_s)
