@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 
 import chat_exclusions
 import season_sim  # display_percentages, the rounding the Playoff Picture prints
+import ups_center_prob as PROB  # 100% / 0% only for a clinched / eliminated outcome
 
 TIME_RE = re.compile(r"\bW(?:ee)?ks?\.?\s+\d{1,2}(?:\s*[–-]\s*\d{1,2})?\b|\b(?:19|20)\d\d\s*[–-]\s*(?:19|20)\d\d\b|"
                      r"\b\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)\b|\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s+"
@@ -268,12 +269,34 @@ def _trig_truth(ctx):
     for season, w, f, x in arc.get("rows") or []:
         past.setdefault(int(season), {}).setdefault(int(w), {})[f] = float(x)
     out = {}
-    pr = [x / (sum(ws.values()) / len(ws)) for weeks in past.values() for ws in weeks.values() for x in ws.values()]
+    # every regular-season team-week: past seasons (archive) + this season's weeks so far, ranked by points and by share of that week's average
+    tw = []
+    for season, weeks in past.items():
+        for w, ws in weeks.items():
+            a_ = sum(ws.values()) / len(ws)
+            tw += [(x, x / a_, season, w, "past:" + season_f) for season_f, x in ws.items()]
+    for w, ws in cur.items():
+        a_ = sum(ws.values()) / len(ws)
+        tw += [(x, x / a_, int(ctx["season"]), w, "cur:" + f_) for f_, x in ws.items()]
     avg = sum(cur[wk].values()) / len(cur[wk])
+    owners = {f_: r["owner_name"] for f_, r in ctx["d1"]["franchises"].items()}
+    aown = (arc.get("owners") or {})
+    out["recn"] = len(tw)
     for f, x in cur[wk].items():
-        out["ratio:" + f] = int(round(100 * x / avg))
-        out["wkk:" + f] = sum(1 for q in pr if q >= x / avg - 1e-12)
-        out["wkn:" + f] = len(pr)
+        out["ratio:" + f] = round(100 * x / avg, 1)
+        out["avg:" + f] = round(avg, 1)
+        out["recraw:" + f] = 1 + sum(1 for t in tw if t[0] > x + 1e-9)
+        out["recshare:" + f] = 1 + sum(1 for t in tw if t[1] > x / avg + 1e-9)
+
+    def who(t):
+        kind, _, fid = t[4].partition(":")
+        return owners.get(fid) if kind == "cur" else aown.get("%d:%s" % (t[2], fid))
+    byraw = sorted(tw, key=lambda t: (-t[0], t[2], t[3], t[4].partition(":")[2]))
+    bysh = sorted(tw, key=lambda t: (-round(t[1], 9), t[2], t[3], t[4].partition(":")[2]))
+    for i, t in enumerate(byraw[:5]):
+        out["rawtop:%d" % i] = {"owner": who(t), "season": t[2], "week": t[3], "score": round(t[0], 1), "pct": round(100 * t[1], 1)}
+    for i, t in enumerate(bysh[:5]):
+        out["sharetop:%d" % i] = {"owner": who(t), "season": t[2], "week": t[3], "score": round(t[0], 1), "pct": round(100 * t[1], 1)}
 
     def streak(weeks, f, upto, kind):
         n = 0
@@ -490,7 +513,11 @@ def validate(res, ctx, pack):
             sim = ((ctx.get("forecast") or {}).get("sim") or {})
             teams = sim.get("teams") or {}
             what, _, fid = rest.partition(":")
-            if what == "runs":
+            flags = (ctx.get("clinch") or {}).get("byFid") or {}
+            if what == "floor":
+                if v != PROB.FLOOR_PCT:
+                    bad(key, "the smallest printed probability is %s, page %s" % (PROB.FLOOR_PCT, v))
+            elif what == "runs":
                 if v != sim.get("runs"):
                     bad(key, "forecast runs %s, page %s" % (sim.get("runs"), v))
             elif fid not in teams:
@@ -498,18 +525,23 @@ def validate(res, ctx, pack):
             elif what in ("prevpo", "prepo"):
                 fc_ = ctx.get("forecast") or {}
                 base = ((fc_.get("prevSim") or {}).get("teams") or {}).get(fid, {}).get("po") if what == "prevpo" else teams[fid].get("prePo")
-                if base is None or round(100 * base, 1) != v:
-                    bad(key, "forecast base %s, page %s" % (base, v))
+                if base is None or abs(PROB.value(base) - v) > 1e-9 or c.get("shown") != PROB.text(base):
+                    bad(key, "forecast base %s prints %s, page %s" % (base, PROB.text(base) if base is not None else None, c.get("shown")))
             elif what in ("po", "bye"):
-                if round(100 * teams[fid][what], 1) != v:
-                    bad(key, "forecast %s %.4f, page %s" % (what, teams[fid][what], v))
+                want_t, want_v = PROB.single(teams[fid][what], what, flags.get(fid))
+                if abs(want_v - v) > 1e-9 or c.get("shown") != want_t:
+                    bad(key, "forecast %s %.4f prints %s, page %s (%s)" % (what, teams[fid][what], want_t, c.get("shown"), v))
             elif what == "div":
                 grp = {f: t_["div"] for f, t_ in teams.items() if t_["division"] == teams[fid]["division"]}
-                if float(season_sim.display_percentages(grp)[fid]) != v:
-                    bad(key, "division odds %s do not match the forecast's rounding" % v)
+                cells = PROB.group_cells(grp, season_sim.display_percentages(grp), {f for f in grp if PROB.certain("div", flags.get(f))[0]},
+                                         {f for f in grp if PROB.certain("div", flags.get(f))[1]})
+                if abs(cells[fid][1] - v) > 1e-9 or c.get("shown") != cells[fid][0]:
+                    bad(key, "division odds %s (%s) do not match the forecast's rounding and certainty rule (%s)" % (v, c.get("shown"), cells[fid][0]))
             elif what == "title":
-                if float(season_sim.display_percentages({f: t_["title"] for f, t_ in teams.items()})[fid]) != v:
-                    bad(key, "title odds %s do not match the forecast's rounding" % v)
+                tp = {f: t_["title"] for f, t_ in teams.items()}
+                cells = PROB.group_cells(tp, season_sim.display_percentages(tp), set(), {f for f in tp if PROB.certain("title", flags.get(f))[1]})
+                if abs(cells[fid][1] - v) > 1e-9 or c.get("shown") != cells[fid][0]:
+                    bad(key, "title odds %s (%s) do not match the forecast's rounding and certainty rule (%s)" % (v, c.get("shown"), cells[fid][0]))
             else:
                 bad(key, "unknown odds claim")
         elif kind in ("heat", "hist"):
@@ -528,13 +560,20 @@ def validate(res, ctx, pack):
             truth = n.setdefault("_trig_truth", _trig_truth(ctx))
             if rest not in truth:
                 bad(key, "no recomputed value for %s" % rest)
+            elif isinstance(truth[rest], dict):
+                if not (isinstance(v, dict) and all(v.get(k) == truth[rest][k] or (isinstance(v.get(k), float) and abs(v[k] - truth[rest][k]) < 0.05) for k in truth[rest])):
+                    bad(key, "page %r, recomputed %r" % (v, truth[rest]))
             elif abs(float(truth[rest]) - float(v)) > 0.05:
                 bad(key, "page %r, recomputed %r" % (v, truth[rest]))
         elif kind == "quoteid":
             if rest not in chat or chat[rest]["message_id"] != v:
                 bad(key, "message id is not in the chat window")
         elif kind == "divweek":
-            want = len(pack["pots"]) if rest == "pots" else sum(len(p["games"]) for p in pack["pots"])
+            if rest == "sweeps":
+                want = sum(1 for p_ in pack["pots"] for o_ in {x for g in p_["games"] for x in (g["winner"], g["loser"])}
+                           if all(g["winner"] == o_ for g in p_["games"] if o_ in (g["winner"], g["loser"])))
+            else:
+                want = len(pack["pots"]) if rest == "pots" else sum(len(p["games"]) for p in pack["pots"])
             if v != want:
                 bad(key, "page %s, pack %s" % (v, want))
         elif kind == "divrec":
@@ -597,6 +636,11 @@ def validate(res, ctx, pack):
     stray = sorted({x for x in NUM_RE.findall(text) if x.replace(",", "").lstrip("+-−") not in shown})
     if stray:
         errors.append("numbers on the page that are not registered claims: %s" % ", ".join(stray[:20]))
+    # Keith 2026-10-27 and 2026-11-10: no probability prints as a decimal certainty (100.0% / 0.0%); "100%" / "0%" can only come from a
+    # clinched / eliminated claim, which the odds checks above verify against the engine's flags.
+    certain_txt = re.findall(r"(?<![\d.])(?:100\.0|0\.0)%", text)
+    if certain_txt:
+        errors.append("a probability prints as %s: nothing is certain unless the engine says it is clinched or eliminated" % certain_txt[0])
     # every quote link points at its own message
     for href, inner in re.findall(r'<a class="rcpt" href="([^"]+)"[^>]*>([\s\S]*?)</a>', doc):
         mid = href.rstrip("/").split("/")[-1]

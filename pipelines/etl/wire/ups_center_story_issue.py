@@ -35,6 +35,7 @@ import ups_center_issue as I  # noqa: E402
 import ups_center_story_data as SD  # noqa: E402
 import ups_center_stories as STORIES  # noqa: E402
 import ups_center_story_triggers as TRG  # noqa: E402
+import ups_center_prob as PROB  # noqa: E402
 import chat_exclusions  # noqa: E402
 
 e = html.escape
@@ -81,10 +82,8 @@ class StoryIssue(I.Issue):
             sim = self.ctx["forecast"]["sim"]
             teams = sim["teams"]
             src = "season_sim live wk%02d (%s runs, %s)" % (self.week, sim["runs"], sim["generatedAtUtc"])
-            div = {}
-            for d in sorted({t["division"] for t in teams.values()}):
-                div.update(self.display({f: t["div"] for f, t in teams.items() if t["division"] == d}))
-            self._odds = (sim, src, div, self.display({f: t["title"] for f, t in teams.items()}))
+            div_cells, div_lr, title_cells, title_lr = self.odds_cells(teams, src)
+            self._odds = (sim, src, (div_cells, div_lr), (title_cells, title_lr))
         return self._odds
 
     @staticmethod
@@ -94,19 +93,19 @@ class StoryIssue(I.Issue):
 
     def po(self, f):
         sim, src, _, _ = self.odds_text()
-        return self.L.put("odds:po:" + f, round(100 * sim["teams"][f]["po"], 1), src, "%.1f%%" % (100 * sim["teams"][f]["po"]))
+        return e(self.prob_claim("odds:po:" + f, sim["teams"][f]["po"], "po", f, src))
 
     def bye(self, f):
         sim, src, _, _ = self.odds_text()
-        return self.L.put("odds:bye:" + f, round(100 * sim["teams"][f]["bye"], 1), src, "%.1f%%" % (100 * sim["teams"][f]["bye"]))
+        return e(self.prob_claim("odds:bye:" + f, sim["teams"][f]["bye"], "bye", f, src))
 
     def dv(self, f):
-        sim, src, div, _ = self.odds_text()
-        return self.L.put("odds:div:" + f, float(div[f]), src + ", largest-remainder by division", div[f] + "%")
+        sim, src, (cells, lr), _ = self.odds_text()
+        return e(self.L.put("odds:div:" + f, cells[f][1], src + ", largest-remainder by division", cells[f][0], raw=round(100 * sim["teams"][f]["div"], 4), lr=lr[f]))
 
     def ti(self, f):
-        sim, src, _, title = self.odds_text()
-        return self.L.put("odds:title:" + f, float(title[f]), src + ", largest-remainder", title[f] + "%")
+        sim, src, _, (cells, lr) = self.odds_text()
+        return e(self.L.put("odds:title:" + f, cells[f][1], src + ", largest-remainder", cells[f][0], raw=round(100 * sim["teams"][f]["title"], 4), lr=lr[f]))
 
     def div_names(self):
         """{division id: name}: the name the week's games use for an all-division game; else 'Division <id>'."""
@@ -409,11 +408,24 @@ class StoryIssue(I.Issue):
                 sub, body = getattr(self, "story_" + lead["headline"]["trigger"])(lead["headline"], lead["evidence"])
         else:
             sub, body = getattr(self, "story_fallback_" + pk["fallback"])()
-        sup = self.support_lines(pk["support"])
+        # the other all-time story (Week 9: Eric Martel's score leads, Bear Dunn's start still gets Week 8's treatment and top-5 table)
+        other = next((x for x in pk["support"] if x["trigger"] == "allplay_start" and (not lead or x["fid"] != lead["fid"])), None)
+        block = ""
+        if other:
+            same = [x for x in pk["support"] if x["fid"] == other["fid"] and x is not other]
+            sub2, body2 = self.story_allplay_start(other["data"]["story"], evidence=same)
+            self._big = lead["fid"] if lead else other["fid"]
+            block = self.desk([("Rich", "<b>The other story this week:</b> %s.</b>" % sub2)]).replace("</b>.</b>", "</b>") + body2
+        sup = block + self.support_lines([x for x in pk["support"] if x is not other and not (other and x["fid"] == other["fid"] and x["trigger"] == "streak")])
         h = lead["headline"] if lead else None
         self.big_pick = {"phase": pk["phase"], "fid": lead["fid"] if lead else None, "trigger": h["trigger"] if h else "fallback_" + pk["fallback"],
                          "s": round(h["s"], 4) if h else None, "evidence": [x["trigger"] for x in (lead["evidence"] if lead else [])],
                          "support": [{"fid": x["fid"], "trigger": x["trigger"], "s": round(x["adj"], 3)} for x in pk["support"]]}
+        import re as _re
+        first = _re.sub(r"<[^>]+>", "", (_re.search(r'<div class="lt \w+"><div class="who">\w+</div><p>(.*?)</p>', body, _re.S) or [None, ""])[1])
+        first = html.unescape(first)
+        sent = _re.split(r"(?<=[.!?])\s", first)[0] if first else ""
+        self.dek = ("%s Week %d recap, built from the league&rsquo;s own data; an editor has not reviewed it." % (e(sent), self.week)) if sent else None
         return self.section("bigstory", "The Big Story", 1, "The Big Story <small>&mdash; %s</small>" % sub, body + sup)
 
     def support_lines(self, support):
@@ -427,21 +439,26 @@ class StoryIssue(I.Issue):
         me = e(self.owner[f])
         src = "D1 archive + season scores (ups_center_story_triggers)"
         if t == "week_score":
-            return ("Stuart", "%s scored %s in Week %d, %s%% of the league average that week; %s of %s team-weeks since 2011 reached that share." % (
-                me, self.score(f), self.week, self.L.put("trig:ratio:" + f, int(round(100 * d["ratio"])), src),
-                self.L.put("trig:wkk:" + f, d["k"], src), self.L.put("trig:wkn:" + f, d["n"], src)))
+            r = d["ranks"]
+            sr = "trig:recn"
+            return ("Stuart", "%s scored %s in Week %d: the %s highest single-week score and the %s best share of the league average in the archive (%s team-weeks)." % (
+                me, self.score(f), self.week, self.L.put("trig:recraw:" + f, r["raw_rank"], src, self._ord(r["raw_rank"])),
+                self.L.put("trig:recshare:" + f, r["share_rank"], src, self._ord(r["share_rank"])), self.L.put(sr, r["n"], src, "{:,}".format(r["n"]))))
         if t == "streak":
             k = d["kind"]
-            return ("Rich", "%s has %s at least %s of the eleven other teams in each of the last %s weeks; %s of %s team-weeks since 2011 reached a streak that long." % (
-                me, "beaten" if k == "dom" else "lost to", "nine" if k == "dom" else "nine", self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src),
-                self.L.put("trig:streakk:%s:%s" % (k, f), d["k"], src), self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src))
-                    ) if k == "dom" else ("Rich", "%s has been outscored by at least nine of the eleven other teams in each of the last %s weeks; %s of %s team-weeks since 2011 had a streak that long." % (
+            return ("Rich", "%s has %s at least %s of the eleven other teams in each of the last %s weeks; %s of %s past team-weeks (2011&ndash;%d) reached a streak that long." % (
+                me, "beaten" if k == "dom" else "lost to", "nine", self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src),
+                self.L.put("trig:streakk:%s:%s" % (k, f), d["k"], src), self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src), self.season - 1)
+                    ) if k == "dom" else ("Rich", "%s has been outscored by at least nine of the eleven other teams in each of the last %s weeks; %s of %s past team-weeks (2011&ndash;%d) had a streak that long." % (
                 me, self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src), self.L.put("trig:streakk:%s:%s" % (k, f), d["k"], src),
-                self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src)))
+                self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src), self.season - 1))
         if t == "allplay_start":
             st = d["story"]
-            return ("Stuart", "%s is %s in All-Play, a %s start than all but %s earlier teams in the league archive." % (
-                me, self.ap_c(f), "better" if st["direction"] == "best" else "worse", self.L.put("arch:ahead:" + f, st["ahead"], self.ctx["archive"]["source"])))
+            ah = self.L.put("arch:ahead:" + f, st["ahead"], self.ctx["archive"]["source"], str(st["ahead"]))
+            return ("Stuart", "%s is %s in All-Play, a %s start than all but %s earlier %s in the league archive." % (
+                me, self.ap_c(f), "better" if st["direction"] == "best" else "worse", self.word(st["ahead"]) if st["ahead"] <= 12 else ah,
+                "team" if st["ahead"] == 1 else "teams")) if st["ahead"] > 0 else ("Stuart", "%s is %s in All-Play, the %s start in the league archive." % (
+                    me, self.ap_c(f), "best" if st["direction"] == "best" else "worst"))
         if t == "luck_gap":
             H = self.heat()
             if not H:
@@ -464,12 +481,70 @@ class StoryIssue(I.Issue):
         sim, src, _, _ = self.odds_text()
         prev = (self.ctx.get("forecast") or {}).get("prevSim") or {}
         if d["basis"] == "last week" and prev.get("teams", {}).get(f):
-            return self.L.put("odds:prevpo:" + f, round(100 * prev["teams"][f]["po"], 1), "season_sim live wk%02d" % (self.week - 1), "%.1f%%" % (100 * prev["teams"][f]["po"]))
+            v = prev["teams"][f]["po"]
+            return e(self.L.put("odds:prevpo:" + f, PROB.value(v), "season_sim live wk%02d" % (self.week - 1), PROB.text(v), raw=round(100 * v, 4)))
         v = sim["teams"][f].get("prePo")
-        return self.L.put("odds:prepo:" + f, round(100 * v, 1), "season_sim preseason forecast (%s)" % src, "%.1f%%" % (100 * v))
+        return e(self.L.put("odds:prepo:" + f, PROB.value(v), "season_sim preseason forecast (%s)" % src, PROB.text(v), raw=round(100 * v, 4)))
 
     def small_sample(self):
         return "Through %s week%s that is a small sample, so read it as a first look, not a verdict." % (self.word(self.week), "" if self.week == 1 else "s") if self.week <= 4 else ""
+
+    def rec_entry(self, x, i, measure):
+        """Register one ranked team-week (a row of the record tables): its owner, season, week, score and share. Returns (score text, pct text)."""
+        src = "league archive weekly scores (regular season) + this season's weeks (ups_center_story_triggers.week_pool)"
+        v = {"owner": x["owner"], "season": x["season"], "week": x["week"], "score": round(x["score"], 1), "pct": round(100 * x["ratio"], 1)}
+        self.L.put("trig:%stop:%d" % (measure, i), v, src, "%.1f %.1f" % (x["score"], 100 * x["ratio"]))
+        return "%.1f" % x["score"], "%.1f%%" % (100 * x["ratio"])
+
+    def rec_ranks(self, d):
+        """The week-score ranking sentences and tables (raw record and share of the league average, both). Returns (lines, tables html)."""
+        r = d["ranks"]
+        me = r["me"]
+        f = me["fid"]
+        src = "league archive weekly scores (regular season) + this season's weeks (ups_center_story_triggers.week_pool)"
+        n_c = self.L.put("trig:recn", r["n"], src, "{:,}".format(r["n"]))
+        raw_c = self.L.put("trig:recraw:" + f, r["raw_rank"], src, self._ord(r["raw_rank"]))
+        sh_c = self.L.put("trig:recshare:" + f, r["share_rank"], src, self._ord(r["share_rank"]))
+        pct = self.L.put("trig:ratio:" + f, round(100 * me["ratio"], 1), src, "%.1f" % (100 * me["ratio"]))
+        avg = self.L.put("trig:avg:" + f, round(me["score"] / me["ratio"], 1), src, "%.1f" % (me["score"] / me["ratio"]))
+        ordw = lambda k: "highest" if k == 1 else ("%s-highest" % self.ORDW.get(k, self._ord(k)))
+        ordb = lambda k: "best" if k == 1 else ("%s-best" % self.ORDW.get(k, self._ord(k)))
+        owner = e(me["owner"])
+        t1 = "%s scored %s in Week %d, the %s single-week score in league history (regular season, %d&ndash;%d, %s team-weeks)." % (
+            owner, self.score(f), self.week, ordw(r["raw_rank"]), r["first_season"], self.season, n_c)
+        prev = [x for x in r["raw_top"] if not (x["cur"] and x["week"] == self.week and x["fid"] == f)]
+        if r["raw_rank"] == 1 and prev:
+            pv = r["raw_top"][1]
+            sc_, _ = self.rec_entry(pv, 1, "raw")
+            t1 += " The previous record was %s by %s in Week %d of %d." % (sc_, e(pv["owner"]), pv["week"], pv["season"])
+        elif r["raw_rank"] > 1:
+            ab = r["raw_top"][:r["raw_rank"] - 1]
+            t1 += " Ahead of it: %s." % join("%s by %s in Week %d of %d" % (self.rec_entry(x, i, "raw")[0], e(x["owner"]), x["week"], x["season"]) for i, x in enumerate(ab))
+        lines = [("Stuart", t1)]
+        ahead = r["share_top"][:max(0, r["share_rank"] - 1)]
+        t2 = "Scoring has risen across the eras, so here is the other measure. %s was %s%% of that week&rsquo;s league average of %s, the %s share on record." % (
+            self.score(f), pct, avg, ordb(r["share_rank"]))
+        if ahead:
+            parts = []
+            for i, x in enumerate(ahead):
+                sc_, p_ = self.rec_entry(x, i, "share")
+                parts.append("%s&rsquo;s %s in Week %d of %d (%s%s)" % (e(x["owner"]), sc_, x["week"], x["season"], p_, ", the best ever" if i == 0 else ""))
+            t2 += " Ahead of it: %s." % join(parts)
+        lines.append(("Rich", t2))
+        cap = ('<p class="caption">Regular season only, %d&ndash;%d so far (%s team-weeks; playoff weeks are not counted). Share = a team&rsquo;s score divided by that '
+               'week&rsquo;s league average, so eras can be compared.%s</p>' % (
+                   r["first_season"], self.season, n_c, (" %s is left out because its archived weekly scores conflict with themselves." % join(sorted(
+                       (self.ctx.get("archive") or {}).get("excluded") or {}))) if (self.ctx.get("archive") or {}).get("excluded") else ""))
+
+        def tbl(measure, rows_, head):
+            body = []
+            for i, x in enumerate(rows_):
+                sc_, p_ = self.rec_entry(x, i, measure)
+                cur = x["cur"] and x["week"] == self.week and x["fid"] == f
+                body.append(self.row(["%s &middot; %s, Week %d" % (x["season"], e(x["owner"] or "unnamed"), x["week"]), sc_, p_], bold=cur))
+            return self.table([head, "Score", "Share of average"], body)
+        tables = tbl("raw", r["raw_top"], "Highest single-week scores") + tbl("share", r["share_top"], "Highest share of the league average")
+        return lines, tables + cap
 
     def story_week_score(self, head, evidence):
         f, d = head["fid"], head["data"]
@@ -477,24 +552,20 @@ class StoryIssue(I.Issue):
         s = self.ctx["mfl"]["scores"]
         games = [g for g in self.ctx["mfl"]["games"] if f in (g["a"], g["b"])]
         won = sorted([(g["b"] if g["a"] == f else g["a"]) for g in games if (g["as"] > g["bs"]) == (g["a"] == f)], key=lambda o: -(s[f] - s[o]))
-        src = "D1 archive + season scores (ups_center_story_triggers)"
-        lines = [("Stuart", "%s scored %s in Week %d, the best score of the week and %s%% of the league average. %s of %s team-weeks since 2011 reached that share." % (
-            me, self.score(f), self.week, self.L.put("trig:ratio:" + f, int(round(100 * d["ratio"])), src), self.L.put("trig:wkk:" + f, d["k"], src),
-            self.L.put("trig:wkn:" + f, d["n"], src)))]
+        lines, tables = self.rec_ranks(d)
         if won:
-            lines.append(("Rich", "%s %s: %s." % (me, "won both games" if len(games) == 2 and len(won) == 2 else "won", join("%s by %s" % (e(self.owner[o]), self.margin(f, o)) for o in won))))
+            allw = len(won) == len(games)
+            lines.append(("Stuart", "%s %s: %s." % (me, ("won both games" if len(games) == 2 else "won all %s games" % self.word(len(games))) if allw and len(games) >= 2 else "won",
+                                                    join("%s by %s" % (e(self.owner[o]), self.margin(f, o)) for o in won))))
         for ev in evidence:
             ln = self.evidence_line(ev)
             if ln:
                 lines.append(ln)
         ss = self.small_sample()
         if ss:
-            lines.append(("Stuart", ss))
-        top = sorted(s, key=lambda g: (-s[g], g))[:5]
-        rows = [self.row([e(self.owner[g]), self.score(g), "%d%%" % int(round(100 * s[g] / d["avg"]))]) for g in top]
-        for g in top:
-            self.L.put("trig:ratio:" + g, int(round(100 * s[g] / d["avg"])), src)
-        return "%s had the week" % self.owner[f], self.desk(lines) + self.table(["Best scores of Week %d" % self.week, "Score", "Share of league average"], rows)
+            lines.append(("Rich", ss))
+        r = d["ranks"]
+        return ("%s set the league&rsquo;s single-week scoring record" % e(self.owner[f]) if r["raw_rank"] == 1 else "%s had the week" % e(self.owner[f])), self.desk(lines) + tables
 
     def story_streak(self, head, evidence):
         f, d = head["fid"], head["data"]
@@ -750,7 +821,14 @@ class StoryIssue(I.Issue):
                    self.week, " after Elias corrections" if (self.ctx.get("eliasReport") or {}).get("teams") else "",
                    "2010 is left out because its archived scores conflict with themselves" if "2010" in ((self.ctx.get("archive") or {}).get("excluded") or {}) else "all archived seasons used"))
         cap = cap.replace("Josh-style history lines use", "History lines use")
-        return self.section("divweek", "Division Week", 2, "Division Week <small>&mdash; every game, one chapter per division</small>",
+        wide, narrow = (games[-1], games[0]) if games else (None, None)
+        sweeps = sum(1 for k_, pot_ in enumerate(pots) for f_ in {f for g in pot_["games"] for f in (self.fid[g["winner"]], self.fid[g["loser"]])}
+                     if all(self.fid[g["winner"]] == f_ for g in pot_["games"] if f_ in (self.fid[g["winner"]], self.fid[g["loser"]])))
+        title = ("%s games, %s sweeps, the widest margin %s and the closest %s" % (self.word(sum(len(p_["games"]) for p_ in pots)), self.word(sweeps),
+                                                                              self.margin(wide[1], wide[2]), self.margin(narrow[1], narrow[2]))) if wide else "every game, one chapter per division"
+        self.L.put("divweek:sweeps", sweeps, "pack pots (teams that won every game they played in the group)")
+        self.L.put("divweek:gamesn", sum(len(p_["games"]) for p_ in pots), "pack pots")
+        return self.section("divweek", "Division Week", 2, "Division Week <small>&mdash; %s</small>" % title,
                             intro + "".join(chapters) + extra + gap + self.table(["Division", "Swept", "Split", "Shut out"], trows) + cap)
 
     # ------------------------------------------------------------ Kenny: committed picks (message ids), woven into chapters

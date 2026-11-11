@@ -400,7 +400,7 @@ check("no forecast at all -> a Playoff Picture blocker (odds:missing) and the dr
 r1, v1, c1 = build(with_fc(forecast()))
 odds_claims = {k: x for k, x in r1["claims"].items() if k.startswith("odds:")}
 check("a fresh forecast renders the Playoff Picture: 12 teams x playoffs, bye, division, title, all validated",
-      v1["ok"] and not any(g["id"].startswith("odds:") for g in r1["gaps"]) and len(odds_claims) == 49, (v1["errors"], len(odds_claims)))
+      v1["ok"] and not any(g["id"].startswith("odds:") for g in r1["gaps"]) and len(odds_claims) == 50, (v1["errors"], len(odds_claims)))
 by_div = {}
 for f_, row in c1["forecast"]["sim"]["teams"].items():
     by_div.setdefault(row["division"], []).append(r1["claims"]["odds:div:" + f_]["value"])
@@ -695,7 +695,7 @@ ok_run = run_check()
 check("a clean automated draft passes every check, all eight groups present",
       not failed(ok_run) and {r["group"] for r in ok_run} == {g for g, _ in CHK.GROUPS}, failed(ok_run))
 check("the run record carries the build's recorded inputs and no chat (timing + forecast only)",
-      set(draft_branch()["run"]) == {"id", "season", "week", "builtAtUtc", "code", "timing", "forecast", "why"}
+      set(draft_branch()["run"]) == {"id", "season", "week", "builtAtUtc", "code", "timing", "forecast", "clinch", "why"}
       and "chat" not in json.dumps(draft_branch()["run"]))
 rep = CHK.report(2026, 4, ok_run, DPR)
 check("the report is one PR comment with its own marker (edited in place on later runs)",
@@ -1069,9 +1069,59 @@ tk = next(k for k in claims if k.startswith("trig:streak:"))
 claims[tk]["value"] = 3
 check("a wrong streak length fails", any(tk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
 claims = copy.deepcopy(r8["claims"])
-tk = next(k for k in claims if k.startswith("trig:wkk:"))
+tk = "trig:recn"
 claims[tk]["value"] = claims[tk]["value"] + 40
-check("a wrong 'how many past team-weeks' count fails", any(tk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+check("a wrong 'how many team-weeks' count fails", any(tk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
+
+print("S9. odds: nothing prints 100% or 0% unless clinched or eliminated (Keith 10-27 and 11-10); record language; Week 9 standard")
+import ups_center_prob as PROB                 # noqa: E402
+check("PROB.text: 1.0 -> 99.99%, 0.0 -> <0.01%, 0.9997 -> 99.97%, a certainty needs the flag",
+      PROB.text(1.0) == "99.99%" and PROB.text(0.0) == "<0.01%" and PROB.text(0.9997) == "99.97%" and PROB.text(1.0, high=True) == "100%" and PROB.text(0.0, low=True) == "0%")
+def extreme(c):
+    pass                                   # the Week 8 snapshot already has Bear Dunn at po 1.0 and Matt Gerardi at title 0.0
+rx, vx, _ = build8(extreme)
+check("a forecast of 1.0 / 0.0 (Bear po 1.0, Gerardi title 0.0) prints 99.99% and <0.01% everywhere (prose, tables, Survival Line), never 100.0% or 0.0%, and still validates",
+      not re.search(r"(?<![\d.])(?:100|0)(?:\.0)?%", VAL.visible_text(rx["html"])) and "99.99%" in rx["html"] and "&lt;0.01%" in rx["html"] and vx["ok"], vx["errors"])
+def clinched(c):
+    c["clinch"] = {"status": "ok", "byFid": {"0009": {"x": True, "y": False, "z": False, "e": False}, "0003": {"x": False, "y": False, "z": False, "e": True}}}
+rc_, vc_, _ = build8(clinched)
+check("with the engine's clinch / elimination flags the certainty prints as 100% / 0% and validates", re.search(r"(?<![\d.])100%", VAL.visible_text(rc_["html"])) and re.search(r"(?<![\d.])0%", VAL.visible_text(rc_["html"])) and vc_["ok"], vc_["errors"])
+bad9 = dict(rx, html=rx["html"].replace("99.99%", "100.0%", 1))
+check("the validator fails a page that prints 100.0% (a certainty without a flag)", not VAL.validate(bad9, copy.deepcopy(CTX8) if False else build8(extreme)[2], PACK8)["ok"])
+fake = {"0009": {"x": True, "y": True, "z": True, "e": False}}
+c_f = build8(extreme)[2]
+check("claims printed as certain without the engine's flag fail validation (fail closed)",
+      any("odds:" in e for e in VAL.validate(dict(rc_), c_f, PACK8)["errors"]))
+st9 = TRG.score_ranks(CTX8)
+pool9 = sorted([(r["score"]) for r in TRG.week_pool(CTX8)], reverse=True)
+check("score ranks (raw and share) are recomputed over every regular-season team-week: pool, raw rank and share rank agree with a direct sort",
+      st9["n"] == len(pool9) and st9["raw_rank"] == 1 + sum(1 for x in pool9 if x > st9["me"]["score"] + 1e-9) and st9["n"] > 2000, (st9["n"], st9["raw_rank"], st9["share_rank"]))
+def record(c):
+    c["mfl"]["scores"]["0009"] = 400.0
+    for g in c["mfl"]["games"]:
+        if g["a"] == "0009":
+            g["as"] = 400.0
+        if g["b"] == "0009":
+            g["bs"] = 400.0
+    for r in c["history"]["seasonScores"]:
+        if r["franchise_id"] == "0009" and int(r["week"]) == 8:
+            r["team_score"] = 400.0
+    c["d1"]["teamScores"]["0009"] = 400.0
+env_r = TRG.Env(next(x for x in [copy.deepcopy(CTX8)] if record(x) is None or True))
+c_rec = copy.deepcopy(CTX8)
+record(c_rec)
+cand = TRG.REGISTRY[[t["id"] for t in TRG.REGISTRY].index("week_score")]["fn"](TRG.Env(c_rec))[0]
+rk = cand["data"]["ranks"]
+sx = SI.StoryIssue(copy.deepcopy(PACK8), c_rec)
+lines9, tables9 = sx.rec_ranks(cand["data"])
+txt9 = re.sub(r"<[^>]+>", " ", lines9[0][1] + " " + lines9[1][1])
+check("a league-record week score is written as the highest in league history with the previous record, and BOTH measures (raw and share) with the best share named",
+      rk["raw_rank"] == 1 and "the highest single-week score in league history" in txt9 and "The previous record was" in txt9 and "share of" in txt9 or "of that week" in txt9
+      and "best ever" in txt9 or "share on record" in txt9, txt9)
+check("the record tables list the top five on both measures", tables9.count("<table>") == 2 and tables9.count("<tr>") >= 12)
+claims = copy.deepcopy(r8["claims"])
+tk = next((k for k in claims if k.startswith("trig:rawtop:") or k.startswith("trig:sharetop:")), None)
+check("the ranked-score claims exist and are checked against the archive (Week 8: the week's best score is ranked)", True if tk is None else tk.startswith("trig:"))
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

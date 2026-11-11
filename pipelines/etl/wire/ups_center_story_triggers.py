@@ -105,6 +105,47 @@ class Env:
         return out
 
 
+def week_pool(ctx):
+    """Every regular-season team-week in the league archive (past seasons, 2010 and incomplete weeks left out) plus this season's weeks so far:
+    [{season, week, fid, owner, score, ratio}], ratio = score / that week's league average. Playoff weeks are not in it."""
+    arc = ctx.get("archive") or {}
+    by = {}
+    for season, w, f, x in arc.get("rows") or []:
+        by.setdefault((int(season), int(w)), {})[f] = float(x)
+    names = {}
+    out = []
+    for (season, w), ws in sorted(by.items()):
+        avg = sum(ws.values()) / len(ws)
+        for f, x in sorted(ws.items()):
+            out.append({"season": season, "week": w, "fid": f, "owner": (arc.get("owners") or {}).get("%d:%s" % (season, f)), "score": x, "ratio": x / avg, "cur": False})
+    week = int(ctx["week"])
+    cur = {}
+    for r in (ctx.get("history") or {}).get("seasonScores") or []:
+        if int(r["week"]) <= week:
+            cur.setdefault(int(r["week"]), {})[r["franchise_id"]] = float(r["team_score"])
+    cur[week] = {f: float(x) for f, x in ctx["mfl"]["scores"].items()}
+    season = int(ctx["season"])
+    for w, ws in sorted(cur.items()):
+        avg = sum(ws.values()) / len(ws)
+        for f, x in sorted(ws.items()):
+            out.append({"season": season, "week": w, "fid": f, "owner": ctx["d1"]["franchises"][f]["owner_name"], "score": x, "ratio": x / avg, "cur": True})
+    return out
+
+
+def score_ranks(ctx):
+    """For the week's best score: raw rank, share-of-average rank, pool size, and the top-5 lists on both measures."""
+    pool = week_pool(ctx)
+    week = int(ctx["week"])
+    me = max((r for r in pool if r["cur"] and r["week"] == week), key=lambda r: (r["score"], r["fid"]))
+    key_raw = lambda r: (-r["score"], r["season"], r["week"], r["fid"])
+    key_sh = lambda r: (-round(r["ratio"], 9), r["season"], r["week"], r["fid"])
+    raw = sorted(pool, key=key_raw)
+    share = sorted(pool, key=key_sh)
+    return {"me": me, "n": len(pool), "raw_rank": 1 + sum(1 for r in pool if r["score"] > me["score"] + 1e-9),
+            "share_rank": 1 + sum(1 for r in pool if r["ratio"] > me["ratio"] + 1e-9), "raw_top": raw[:5], "share_top": share[:5],
+            "first_season": min(r["season"] for r in pool)}
+
+
 def week_avg(env):
     ws = env.scores[env.week]
     return sum(ws.values()) / len(ws)
@@ -125,17 +166,17 @@ def t_allplay_start(env):
 
 @trigger("week_score", "rarity", min_week=1)
 def t_week_score(env):
-    ratios = env.past_ratios()
-    if not ratios:
+    """The week's best score, ranked two ways over every regular-season team-week since the archive begins: the raw score (a league record) and
+    its share of that week's league average (scoring has risen over the years, so both are shown). p = the better of the two ranks / pool size."""
+    if not (env.ctx.get("archive") or {}).get("rows"):
         return []
-    ws = env.scores[env.week]
-    avg = week_avg(env)
-    f = max(ws, key=lambda g: (ws[g], g))
-    r = ws[f] / avg
-    k = sum(1 for x in ratios if x >= r - 1e-12)
-    return [{"fid": f, "s": surprise(k / float(len(ratios))), "p": k / float(len(ratios)), "n": len(ratios),
-             "raw": "best score %.1f = %d%% of the week's average (%.1f)" % (ws[f], round(100 * r), avg),
-             "data": {"ratio": r, "k": k, "n": len(ratios), "avg": avg}}]
+    r = score_ranks(env.ctx)
+    me = r["me"]
+    p = min(r["raw_rank"], r["share_rank"]) / float(r["n"])
+    return [{"fid": me["fid"], "s": surprise(p), "p": p, "n": r["n"],
+             "raw": "best score %.1f: #%d by points and #%d by share of the week's average (%d%%) among %s team-weeks" % (
+                 me["score"], r["raw_rank"], r["share_rank"], round(100 * me["ratio"]), "{:,}".format(r["n"])),
+             "data": {"ratio": me["ratio"], "avg": me["score"] / me["ratio"], "ranks": r}}]
 
 
 @trigger("streak", "rarity", min_week=4, phases=("middle", "late", "playoffs"))

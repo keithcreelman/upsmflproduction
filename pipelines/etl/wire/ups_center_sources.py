@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import wire_data as D          # noqa: E402
+import ups_center_prob as PROB          # noqa: E402
 import elias as E              # noqa: E402
 import chat_exclusions         # noqa: E402
 
@@ -331,6 +332,17 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     ctx["site"]["standings"] = [{"franchise_id": r["franchise_id"], "owner_name": r["owner_name"],
                                  "is_division_leader": bool(r.get("is_division_leader")),
                                  "playoff_seed": r.get("playoff_seed")} for r in api.get("rows", [])]
+    # clinched / eliminated, from the league's deterministic engine (site/shared/standings_clinch.js). {} flags = it could not say, and
+    # then no probability prints as 100% or 0% (ups_center_prob). Full build only: the probe gather skips it.
+    if history:
+        rs = api.get("regular_season") or {}
+        try:
+            sched = _get(MFL % (season, "schedule", ""))
+        except Exception:                                    # noqa: BLE001  (no schedule: the engine makes no division claims)
+            sched = None
+        ctx["clinch"] = PROB.compute_clinch({f: m for f, m in ctx["mfl"]["standings"].items()},
+                                            {f: r["division"] for f, r in ctx["d1"]["franchises"].items()},
+                                            int(rs.get("through_week") or week), int(rs.get("last_regular_season_week") or 0), sched)
     if history:
         ctx["archive"] = archive_history(int(season), int(week), teams=len(ctx["mfl"]["scores"]) or 12)
     return ctx
