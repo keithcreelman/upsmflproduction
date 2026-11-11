@@ -707,9 +707,33 @@ class StoryIssue(I.Issue):
             giver = tr["a"] if cz in tr["a_gave"] else tr["b"]
             recv = tr["b"] if giver == tr["a"] else tr["a"]
             parts = [self.kq(mid) for mid in ids]
-            lines.append(("Kenny", "%s had been asking about %s since Sunday, %s: %s. On Tuesday %s moved from %s to %s, and %s: %s." % (
-                e(parts[0][2]["owner_name"]), e(cz["name"]), parts[0][0], parts[0][1], e(cz["name"]), e(self.owner[giver]), e(self.owner[recv]),
-                parts[-1][0] if len(parts) > 1 else "the question stood", parts[-1][1] if len(parts) > 1 else "")))
+            st = (tc.get("players") or {}).get(cz["id"]) or {}
+            lows = (self.ctx.get("archive") or {}).get("lowPlayerWeek") or []
+            ans1 = ""
+            if st.get("weekScore") is not None and lows:
+                sc = self.L.put("trade:pwk:" + cz["id"], st["weekScore"], src, "%.1f" % st["weekScore"])
+                l0 = self.L.put("trade:low:0", lows[0], "league archive weekly player scores (regular season)", "%.1f" % lows[0]["score"]).replace("-", "&minus;")
+                tail = ""
+                if len(lows) > 1:
+                    l1 = self.L.put("trade:low:1", lows[1], "league archive weekly player scores (regular season)", "%.1f" % lows[1]["score"]).replace("-", "&minus;")
+                    same = lows[0]["owner"] == lows[1]["owner"]
+                    tail = ", and the second lowest, %s in Week %d of %d%s" % (l1, lows[1]["week"], lows[1]["season"], " (both on %s&rsquo;s teams)" % e(lows[0]["owner"]) if same else "")
+                ans1 = (" The archive keeps weekly player scores, not plays, so here is the closest ruling it can give: %s finished Week %d with %s points%s. The lowest weekly score any player has posted in "
+                        "UPS history is %s, in Week %d of %d%s. Cousins did not take the record%s." % (
+                            e(cz["name"]), self.week, sc, (" on %s&rsquo;s bench" % self.sn(giver)) if st.get("weekStatus") == "nonstarter" else "", l0, lows[0]["week"], lows[0]["season"], tail,
+                            ("; %s already holds the two lowest on file" % e(lows[0]["owner"])) if len(lows) > 1 and lows[0]["owner"] == lows[1]["owner"] else ""))
+            first = "%s wanted a ruling on %s (%s): %s.%s" % (e(parts[0][2]["owner_name"]), parts[0][0].split(" at ")[0], parts[0][0].split(" at ")[1] if " at " in parts[0][0] else "", parts[0][1], ans1)
+            lines.append(("Kenny", first))
+            opps = [g for g in self.ctx["mfl"]["games"] if giver in (g["a"], g["b"])]
+            top_opp = None
+            for g in opps:
+                o = g["b"] if g["a"] == giver else g["a"]
+                if self.ctx["mfl"]["scores"][o] > self.ctx["mfl"]["scores"][giver] and (top_opp is None or self.ctx["mfl"]["scores"][o] > self.ctx["mfl"]["scores"][top_opp]):
+                    top_opp = o
+            if len(parts) > 1:
+                ans2 = (" The answer, for the record: on the other side of Cousins that week was %s, whose %s beat %s by %s." % (
+                    e(self.owner[top_opp]), self.score(top_opp), self.sn(giver), self.margin(top_opp, giver))) if top_opp else ""
+                lines.append(("Kenny", "Then, %s, as Cousins changed rosters, he asked again: %s.%s" % (parts[-1][0], parts[-1][1], ans2)))
         if self.odds_fresh() and d["deltas"]:
             pre = (self.ctx.get("forecastPre") or {}).get("teams") or {}
             moves = []

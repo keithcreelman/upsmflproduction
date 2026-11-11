@@ -243,6 +243,9 @@ def archive_history(season, week, teams=12, path=None):
         full = {"%d:%s" % (s_, f): {"rec": [hw, hl], "ap": [aw, al]} for s_, f, hw, hl, aw, al in c.execute(
             "SELECT season, franchise_id, h2h_w, h2h_l, allplay_w, allplay_l FROM standings WHERE allplay_w IS NOT NULL AND h2h_w IS NOT NULL")}
         used = {r[0] for r in rows}
+        low_player_week = [{"season": int(a_), "week": int(b_), "fid": c_, "score": float(d_), "owner": owners.get("%d:%s" % (int(a_), c_))} for a_, b_, c_, d_ in c.execute(
+            "SELECT season, week, franchise_id, player_score FROM weeklyresults WHERE player_score IS NOT NULL AND COALESCE(is_playoff,0) = 0 "
+            "AND season < ? ORDER BY player_score ASC, season, week LIMIT 2", (int(season),))]
         trade_sizes = [int(n) for (n,) in c.execute("SELECT COUNT(*) FROM transactions_trades WHERE asset_role = 'RELINQUISH' AND asset_type != 'CAP' "
                                                     "GROUP BY trade_group_id")]
         # weeks outside the regular-season rows (playoff and consolation weeks): counted in the score records whenever ALL `teams` teams have a score
@@ -264,7 +267,7 @@ def archive_history(season, week, teams=12, path=None):
         return {"source": "league archive mfl_database.db (sha256 of first MiB %s), regular season, weeks 1-%d complete" % (sha, int(week)),
                 "rows": rows, "excluded": excluded, "owners": {k: v for k, v in owners.items() if int(k.split(":")[0]) in used},
                 "final": {k: v for k, v in final.items() if int(k.split(":")[0]) in used},
-                "full": {k: v for k, v in full.items() if int(k.split(":")[0]) in used}, "extra": extra, "partial": partial, "tradeSizes": trade_sizes}
+                "full": {k: v for k, v in full.items() if int(k.split(":")[0]) in used}, "extra": extra, "partial": partial, "tradeSizes": trade_sizes, "lowPlayerWeek": low_player_week}
     except sqlite3.Error:
         return None
 
@@ -444,7 +447,9 @@ def trade_context(season, week, trade_info):
             for x in gave:
                 if x["kind"] == "player":
                     rows = [(w, st) for w, fid, pid, st, _ in scores if pid == x["id"] and fid == giver]
-                    players[x["id"]] = {"fid": giver, "onRoster": len(rows), "started": sum(1 for _, st in rows if st == "starter")}
+                    cur = [(st, sc) for w, fid, pid, st, sc in scores if pid == x["id"] and fid == giver and w == int(week)]
+                    players[x["id"]] = {"fid": giver, "onRoster": len(rows), "started": sum(1 for _, st in rows if st == "starter"),
+                                        "weekScore": cur[0][1] if cur else None, "weekStatus": cur[0][0] if cur else None}
     return {"through": int(week), "rbPts": {f: round(v, 1) for f, v in rb.items()}, "players": players}
 
 

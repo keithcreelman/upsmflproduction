@@ -605,6 +605,14 @@ def validate(res, ctx, pack):
                 elif what in ("started", "onroster"):
                     st_ = (tc_.get("players") or {}).get(pid)
                     w_ = (st_ or {}).get("started" if what == "started" else "onRoster")
+                elif what == "pwk":
+                    w_ = ((tc_.get("players") or {}).get(pid) or {}).get("weekScore")
+                elif what == "low":
+                    lows_ = (ctx.get("archive") or {}).get("lowPlayerWeek") or []
+                    i_ = int(pid) if pid.isdigit() else -1
+                    if not (0 <= i_ < len(lows_)) or not isinstance(v, dict) or any(v.get(k) != lows_[i_][k] for k in ("score", "season", "week", "owner")):
+                        bad(key, "page %r, archive %r" % (v, lows_[i_] if 0 <= i_ < len(lows_) else None))
+                    continue
                 elif what == "asset":
                     w_ = next((x["salary"] for x in pl if x["id"] == pid), None)
                 elif what == "yrs":
