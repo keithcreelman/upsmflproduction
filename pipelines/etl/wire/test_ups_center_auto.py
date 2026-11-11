@@ -1116,12 +1116,22 @@ sx = SI.StoryIssue(copy.deepcopy(PACK8), c_rec)
 lines9, tables9 = sx.rec_ranks(cand["data"])
 txt9 = re.sub(r"<[^>]+>", " ", lines9[0][1] + " " + lines9[1][1])
 check("a league-record week score is written as the highest in league history with the previous record, and BOTH measures (raw and share) with the best share named",
-      rk["raw_rank"] == 1 and "the highest single-week score in league history" in txt9 and "The previous record was" in txt9 and "share of" in txt9 or "of that week" in txt9
-      and "best ever" in txt9 or "share on record" in txt9, txt9)
+      rk["raw_rank"] == 1 and "the highest single-week score in league history" in txt9 and "The previous record was" in txt9 and "No regular-season team-week since 2011 has posted a bigger share" in txt9, txt9)
 check("the record tables list the top five on both measures", tables9.count("<table>") == 2 and tables9.count("<tr>") >= 12)
 claims = copy.deepcopy(r8["claims"])
 tk = next((k for k in claims if k.startswith("trig:rawtop:") or k.startswith("trig:sharetop:")), None)
 check("the ranked-score claims exist and are checked against the archive (Week 8: the week's best score is ranked)", True if tk is None else tk.startswith("trig:"))
+
+print("S10. ranked statements instead of 'N of M team-weeks'; thousands commas (Keith 2026-11-11)")
+check("no 'N of M team-weeks' wording anywhere in the story draft", not re.search(r"\d of [\d,]+ (?:past )?team-weeks", VAL.visible_text(r8["html"])), re.findall(r".{30}team-weeks.{20}", VAL.visible_text(r8["html"]))[:3])
+txt_s = VAL.visible_text(r8["html"])
+check("the streak line is a ranked statement naming who has had one that long, with the pool stated (regular season, since 2011)",
+      re.search(r"(Only \w+ regular-season teams? since 2011 (?:has|have) had a streak that long|No regular-season team since 2011 has had a streak that long|regular-season teams since 2011 have had a streak that long)", txt_s) is not None, txt_s[:200])
+txt_ny = re.sub(r"\b(?:19|20)\d\d\b", "", txt_s)
+check("every printed number of 1,000 or more has a thousands comma (2,388 not 2388; the validator checks)", not re.search(r"(?<![\w.,])\d{4,9}(?![\d,])", txt_ny), re.findall(r"(?<![\w.,])\d{4,9}(?![\d,])", txt_ny)[:5])
+bad_comma = dict(r8, html=r8["html"].replace("<p>", "<p>We simulated 10000 seasons. ", 1))
+check("the validator fails an unformatted 4+ digit number", any("thousands comma" in e for e in VAL.validate(bad_comma, CTX8, PACK8)["errors"]))
+check("years, ids and week numbers are left alone (Week 8 draft validates; the local copy's message ids do not trip it)", v8["ok"] and VAL.validate(*(lambda r_: (r_[0], r_[2], PACK8))(build8(local=True)))["ok"])
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

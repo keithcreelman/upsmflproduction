@@ -245,6 +245,9 @@ def check_draft(season, week, files, pr, automation_head, live):
             off = sorted(k for k, v in want.items() if k in claims and abs(claims[k]["value"] - v) > 1e-9)
             add("sourced", "every printed probability equals the committed forecast", not off,
                 [(k, claims[k]["value"], want[k]) for k in off[:10]])
+            msg_ids = {str(c["value"]) for k, c in claims.items() if k.startswith("quoteid:")}
+            bare = sorted({m for m in re.findall(r"(?<![\w.,/#:-])(\d{4,9}(?:\.\d+)?)(?![\d,])", text) if not re.fullmatch(r"(?:19|20)\d\d", m) and m not in msg_ids})
+            add("sourced", "every number of 1,000 or more has its thousands comma", not bare, bare[:10])
             certain_bad = sorted(k for k, c in claims.items() if k.startswith("odds:") and re.fullmatch(r"(100\.0|0\.0)%", str(c.get("shown")).strip()))
             add("sourced", "no printed probability is 100.0% or 0.0% (a certainty prints as 100% / 0% only with a clinch or elimination flag)",
                 not certain_bad, certain_bad[:10])

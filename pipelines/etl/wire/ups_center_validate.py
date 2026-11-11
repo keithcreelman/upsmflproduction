@@ -291,6 +291,18 @@ def _trig_truth(ctx):
     def who(t):
         kind, _, fid = t[4].partition(":")
         return owners.get(fid) if kind == "cur" else aown.get("%d:%s" % (t[2], fid))
+    # playoff weeks are not in the pool, but a bigger share in one is mentioned
+    pby = {}
+    for season, w, f_, x_ in arc.get("playoff") or []:
+        pby.setdefault((int(season), int(w)), {})[f_] = float(x_)
+    me_f = max(cur[wk], key=lambda f_: (cur[wk][f_], f_))
+    me_ratio = cur[wk][me_f] / avg
+    pa = []
+    for (season, w), ws in pby.items():
+        a_ = sum(ws.values()) / len(ws)
+        pa += [(-(x_ / a_), season, w, f_, x_) for f_, x_ in ws.items() if x_ / a_ > me_ratio + 1e-9]
+    for i, (nr, season, w, f_, x_) in enumerate(sorted(pa)[:2]):
+        out["playoffahead:%d" % i] = {"owner": aown.get("%d:%s" % (season, f_)), "season": season, "week": w, "score": round(x_, 1), "pct": round(-100 * nr, 1)}
     byraw = sorted(tw, key=lambda t: (-t[0], t[2], t[3], t[4].partition(":")[2]))
     bysh = sorted(tw, key=lambda t: (-round(t[1], 9), t[2], t[3], t[4].partition(":")[2]))
     for i, t in enumerate(byraw[:5]):
@@ -314,8 +326,15 @@ def _trig_truth(ctx):
         for f in cur[wk]:
             L = streak(cur, f, wk, kind)
             out["streak:%s:%s" % (kind, f)] = L
-            out["streakk:%s:%s" % (kind, f)] = sum(1 for q in pst if q >= L)
             out["streakn:%s:%s" % (kind, f)] = len(pst)
+            ts = {}
+            for season, weeks in past.items():
+                for g in {g for ws in weeks.values() for g in ws}:
+                    ts[(season, g)] = max(streak(weeks, g, w, kind) for w in sorted(weeks))
+            hit = sorted([(-v, season, g) for (season, g), v in ts.items() if v >= L])
+            out["streakk:%s:%s" % (kind, f)] = len(hit)
+            for i, (nv, season, g) in enumerate(hit[:3]):
+                out["streaktop:%s:%s:%d" % (kind, f, i)] = {"owner": (arc.get("owners") or {}).get("%d:%s" % (season, g)) or "an unnamed owner", "season": season, "L": -nv}
     fc = ctx.get("forecast") or {}
     teams = (fc.get("sim") or {}).get("teams") or {}
     prev = (fc.get("prevSim") or {}).get("teams") or {}
@@ -636,6 +655,11 @@ def validate(res, ctx, pack):
     stray = sorted({x for x in NUM_RE.findall(text) if x.replace(",", "").lstrip("+-−") not in shown})
     if stray:
         errors.append("numbers on the page that are not registered claims: %s" % ", ".join(stray[:20]))
+    # Keith 2026-11-11: every number of 1,000 or more prints with a thousands comma (years, ids and week numbers are left alone)
+    msg_ids = {str(c["value"]) for k, c in res["claims"].items() if k.startswith("quoteid:")}
+    bare = sorted({m for m in re.findall(r"(?<![\w.,/#:-])(\d{4,9}(?:\.\d+)?)(?![\d,])", text) if not re.fullmatch(r"(?:19|20)\d\d", m) and m not in msg_ids})
+    if bare:
+        errors.append("numbers of 1,000 or more without a thousands comma: %s" % ", ".join(bare[:10]))
     # Keith 2026-10-27 and 2026-11-10: no probability prints as a decimal certainty (100.0% / 0.0%); "100%" / "0%" can only come from a
     # clinched / eliminated claim, which the odds checks above verify against the engine's flags.
     certain_txt = re.findall(r"(?<![\d.])(?:100\.0|0\.0)%", text)

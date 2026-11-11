@@ -441,17 +441,29 @@ class StoryIssue(I.Issue):
         if t == "week_score":
             r = d["ranks"]
             sr = "trig:recn"
-            return ("Stuart", "%s scored %s in Week %d: the %s highest single-week score and the %s best share of the league average in the archive (%s team-weeks)." % (
+            return ("Stuart", "%s scored %s in Week %d: the %s-highest single-week score and the %s-best share of the league average among the %s regular-season team-weeks since 2011 (this season included)." % (
                 me, self.score(f), self.week, self.L.put("trig:recraw:" + f, r["raw_rank"], src, self._ord(r["raw_rank"])),
                 self.L.put("trig:recshare:" + f, r["share_rank"], src, self._ord(r["share_rank"])), self.L.put(sr, r["n"], src, "{:,}".format(r["n"]))))
         if t == "streak":
             k = d["kind"]
-            return ("Rich", "%s has %s at least %s of the eleven other teams in each of the last %s weeks; %s of %s past team-weeks (2011&ndash;%d) reached a streak that long." % (
-                me, "beaten" if k == "dom" else "lost to", "nine", self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src),
-                self.L.put("trig:streakk:%s:%s" % (k, f), d["k"], src), self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src), self.season - 1)
-                    ) if k == "dom" else ("Rich", "%s has been outscored by at least nine of the eleven other teams in each of the last %s weeks; %s of %s past team-weeks (2011&ndash;%d) had a streak that long." % (
-                me, self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src), self.L.put("trig:streakk:%s:%s" % (k, f), d["k"], src),
-                self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src), self.season - 1))
+            L = self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src)
+            reached = d["reached"]
+            kk = self.L.put("trig:streakk:%s:%s" % (k, f), len(reached), src)
+            names = []
+            for i, (season, fid, longest) in enumerate(reached[:3]):
+                owner = (self.ctx["archive"].get("owners") or {}).get("%d:%s" % (season, fid)) or "an unnamed owner"
+                self.L.put("trig:streaktop:%s:%s:%d" % (k, f, i), {"owner": owner, "season": season, "L": longest}, src, str(longest))
+                names.append("%s in %d (%s weeks)" % (e(owner), season, longest))
+            what = ("beaten at least nine of the eleven other teams in each of the last %s weeks" if k == "dom" else
+                    "been outscored by at least nine of the eleven other teams in each of the last %s weeks") % L
+            if not reached:
+                tail = "No regular-season team since 2011 has had a streak that long."
+            elif len(reached) <= 3:
+                tail = "Only %s regular-season %s since 2011 %s had a streak that long: %s." % (
+                    self.word(len(reached)), "team" if len(reached) == 1 else "teams", "has" if len(reached) == 1 else "have", join(names))
+            else:
+                tail = "%s regular-season teams since 2011 have had a streak that long, the longest %s." % (kk, names[0])
+            return ("Rich", "%s has %s. %s" % (me, what, tail))
         if t == "allplay_start":
             st = d["story"]
             ah = self.L.put("arch:ahead:" + f, st["ahead"], self.ctx["archive"]["source"], str(st["ahead"]))
@@ -522,14 +534,25 @@ class StoryIssue(I.Issue):
             t1 += " Ahead of it: %s." % join("%s by %s in Week %d of %d" % (self.rec_entry(x, i, "raw")[0], e(x["owner"]), x["week"], x["season"]) for i, x in enumerate(ab))
         lines = [("Stuart", t1)]
         ahead = r["share_top"][:max(0, r["share_rank"] - 1)]
-        t2 = "Scoring has risen across the eras, so here is the other measure. %s was %s%% of that week&rsquo;s league average of %s, the %s share on record." % (
-            self.score(f), pct, avg, ordb(r["share_rank"]))
+        t2 = "Scoring has risen across the eras, so here is the other measure. %s was %s%% of that week&rsquo;s league average of %s." % (self.score(f), pct, avg)
         if ahead:
             parts = []
             for i, x in enumerate(ahead):
                 sc_, p_ = self.rec_entry(x, i, "share")
-                parts.append("%s&rsquo;s %s in Week %d of %d (%s%s)" % (e(x["owner"]), sc_, x["week"], x["season"], p_, ", the best ever" if i == 0 else ""))
-            t2 += " Ahead of it: %s." % join(parts)
+                parts.append("%s in %d (%s%s)" % (e(x["owner"]), x["season"], p_, ", the best share ever" if i == 0 else ""))
+            t2 += " Only %s regular-season team-week%s since %d %s posted a bigger share: %s." % (
+                self.word(len(ahead)), "" if len(ahead) == 1 else "s", r["first_season"], "has" if len(ahead) == 1 else "have", join(parts))
+        else:
+            t2 += " No regular-season team-week since %d has posted a bigger share: it is the best on record." % r["first_season"]
+        pl = [x for x in r.get("playoff_ahead", [])]
+        if pl:
+            pps = []
+            for i, x in enumerate(pl[:2]):
+                v = {"owner": x["owner"], "season": x["season"], "week": x["week"], "score": round(x["score"], 1), "pct": round(100 * x["ratio"], 1)}
+                self.L.put("trig:playoffahead:%d" % i, v, src, "%.1f %.1f" % (x["score"], 100 * x["ratio"]))
+                pps.append("%s&rsquo;s %.1f in %d (%.1f%%)" % (e(x["owner"]), x["score"], x["season"], 100 * x["ratio"]))
+            t2 += " Playoff weeks are not in this pool; %s also topped that share: %s." % (
+                ("%s playoff week%s" % (self.word(len(pl)), "" if len(pl) == 1 else "s")), join(pps))
         lines.append(("Rich", t2))
         cap = ('<p class="caption">Regular season only, %d&ndash;%d so far (%s team-weeks; playoff weeks are not counted). Share = a team&rsquo;s score divided by that '
                'week&rsquo;s league average, so eras can be compared.%s</p>' % (

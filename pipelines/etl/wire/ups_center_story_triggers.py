@@ -92,6 +92,17 @@ class Env:
             out += [x / avg for x in ws.values()]
         return out
 
+    def past_team_seasons_streaks(self, kind):
+        """[(season, fid, longest streak)] for every past team-season."""
+        by_season = {}
+        for (season, w), ws in self.past.items():
+            by_season.setdefault(season, {})[w] = ws
+        out = []
+        for season, weeks in by_season.items():
+            for f in {f for ws in weeks.values() for f in ws}:
+                out.append((season, f, max(self.dominance_streak(f, weeks, w, kind) for w in sorted(weeks))))
+        return out
+
     def past_streaks(self, kind):
         """[length of the streak ending at each past team-week]."""
         out = []
@@ -141,7 +152,18 @@ def score_ranks(ctx):
     key_sh = lambda r: (-round(r["ratio"], 9), r["season"], r["week"], r["fid"])
     raw = sorted(pool, key=key_raw)
     share = sorted(pool, key=key_sh)
-    return {"me": me, "n": len(pool), "raw_rank": 1 + sum(1 for r in pool if r["score"] > me["score"] + 1e-9),
+    arc = ctx.get("archive") or {}
+    pby = {}
+    for season, w, f, x in arc.get("playoff") or []:
+        pby.setdefault((int(season), int(w)), {})[f] = float(x)
+    playoff_ahead = []
+    for (season, w), ws in sorted(pby.items()):
+        avg = sum(ws.values()) / len(ws)
+        for f, x in sorted(ws.items()):
+            if x / avg > me["ratio"] + 1e-9:
+                playoff_ahead.append({"season": season, "week": w, "fid": f, "owner": (arc.get("owners") or {}).get("%d:%s" % (season, f)), "score": x, "ratio": x / avg})
+    playoff_ahead.sort(key=lambda r: (-r["ratio"], r["season"], r["week"], r["fid"]))
+    return {"playoff_ahead": playoff_ahead, "me": me, "n": len(pool), "raw_rank": 1 + sum(1 for r in pool if r["score"] > me["score"] + 1e-9),
             "share_rank": 1 + sum(1 for r in pool if r["ratio"] > me["ratio"] + 1e-9), "raw_top": raw[:5], "share_top": share[:5],
             "first_season": min(r["season"] for r in pool)}
 
@@ -191,9 +213,11 @@ def t_streak(env):
         if not past:
             continue
         k = sum(1 for x in past if x >= L)
+        longest = env.past_team_seasons_streaks(kind)             # [(season, fid, longest streak)] for every past team-season
+        reached = sorted([x for x in longest if x[2] >= L], key=lambda x: (-x[2], x[0], x[1]))
         out.append({"fid": best, "s": surprise(k / float(len(past))), "p": k / float(len(past)), "n": len(past),
                     "raw": "%d straight weeks %s" % (L, "beating 9+ of 11 teams" if kind == "dom" else "losing to 9+ of 11 teams"),
-                    "data": {"kind": kind, "L": L, "k": k, "n": len(past)}})
+                    "data": {"kind": kind, "L": L, "k": k, "n": len(past), "reached": reached}})
     return out
 
 
