@@ -1,0 +1,56 @@
+{
+ "ok": true,
+ "publishable": false,
+ "errors": [],
+ "warnings": [
+  "unchecked claim kind usage:Jaxon Smith-Njigba",
+  "unchecked claim kind usage:Josh Jacobs",
+  "unchecked claim kind usage:Malik Willis",
+  "unchecked claim kind usage:Jared Goff",
+  "unchecked claim kind usage:Jonathan Taylor",
+  "unchecked claim kind usage:C.J. Stroud",
+  "unchecked claim kind usage:Jordan Love",
+  "unchecked claim kind usage:Matthew Golden",
+  "unchecked claim kind usage:CeeDee Lamb",
+  "unchecked claim kind usage:Joe Burrow",
+  "unchecked claim kind box:C.J. Stroud",
+  "unchecked claim kind box:Jordan Love"
+ ],
+ "checkedClaims": {
+  "score": 12,
+  "trig": 10,
+  "margin": 18,
+  "ap": 12,
+  "arch": 1,
+  "odds": 49,
+  "proj": 20,
+  "pts": 20,
+  "diff": 20,
+  "usage": 10,
+  "count": 3,
+  "divrec": 3,
+  "wkrec": 11,
+  "rec": 12,
+  "fact": 2,
+  "box": 2,
+  "miss": 1,
+  "pf": 12,
+  "wkap": 12,
+  "grade": 18,
+  "heat": 96,
+  "rule": 7,
+  "hist": 48
+ },
+ "gaps": [
+  {
+   "id": "coffee:kenny",
+   "section": "coffee",
+   "why": "Kenny Mayne&rsquo;s lines are an editor&rsquo;s job (owner dossier). Pick the lines by adding their message ids to <code>site/wire/data/kenny_picks_2026_wk09.json</code> (<code>{\"picks\": [{\"id\": \"...\", \"frame\": true, \"note\": \"joke, no digits\"}]}</code>); the job then weaves each into its division&rsquo;s chapter with the link and removes this box. 1 message(s) ruled out by an editor or touching family, health or similar were withheld and must not be used. 72 candidate line(s) are listed, verbatim, linked and grouped by division, in the local review copy only (raw chat stays off the public repo)."
+  },
+  {
+   "id": "elias:not-posted",
+   "section": "elias",
+   "why": "Elias has not posted official Week 9 changes yet. The Thursday and Friday runs re-check and will update this draft."
+  }
+ ]
+}
