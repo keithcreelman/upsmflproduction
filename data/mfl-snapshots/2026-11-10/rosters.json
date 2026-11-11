@@ -375,7 +375,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0002",
@@ -732,7 +732,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0003",
@@ -1116,7 +1116,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0004",
@@ -1509,7 +1509,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0005",
@@ -1884,7 +1884,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0006",
@@ -2277,7 +2277,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0007",
@@ -2670,7 +2670,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0008",
@@ -2829,15 +2829,6 @@
             "status": "ROSTER"
           },
           {
-            "contractInfo": "CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K|GTD: 1K",
-            "contractStatus": "Vet-FAA",
-            "contractYear": "2",
-            "drafted": "Auction $1,000",
-            "id": "15716",
-            "salary": "1000",
-            "status": "ROSTER"
-          },
-          {
             "contractInfo": "CL 1| TCV 1K| AAV 1K",
             "contractStatus": "Vet-WW",
             "contractYear": "1",
@@ -2973,6 +2964,15 @@
             "status": "INJURED_RESERVE"
           },
           {
+            "contractInfo": "CL 2|TCV 2K|AAV 1K|Y1-1K, Y2-1K|GTD: 1K",
+            "contractStatus": "Vet-FAA",
+            "contractYear": "2",
+            "drafted": "Auction $1,000",
+            "id": "15716",
+            "salary": "1000",
+            "status": "INJURED_RESERVE"
+          },
+          {
             "contractInfo": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K|GTD: 11.3K",
             "contractStatus": "Rookie-Draft",
             "contractYear": "3",
@@ -2991,7 +2991,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0009",
@@ -3321,7 +3321,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0010",
@@ -3493,15 +3493,6 @@
             "contractStatus": "Vet-WW",
             "contractYear": "1",
             "drafted": "BB $1,000",
-            "id": "12688",
-            "salary": "1000",
-            "status": "ROSTER"
-          },
-          {
-            "contractInfo": "CL 1| TCV 1K| AAV 1K",
-            "contractStatus": "Vet-WW",
-            "contractYear": "1",
-            "drafted": "BB $1,000",
             "id": "16452",
             "salary": "1000",
             "status": "ROSTER"
@@ -3579,12 +3570,12 @@
             "status": "ROSTER"
           },
           {
-            "contractInfo": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K|GTD: 11.3K",
-            "contractStatus": "Rookie-Draft",
-            "contractYear": "3",
-            "drafted": "Trade",
-            "id": "17477",
-            "salary": "5000",
+            "contractInfo": "CL 1| TCV 1K| AAV 1K",
+            "contractStatus": "Vet-WW",
+            "contractYear": "1",
+            "drafted": "BB $1,000",
+            "id": "17192",
+            "salary": "1000",
             "status": "ROSTER"
           },
           {
@@ -3592,7 +3583,7 @@
             "contractStatus": "Vet-WW",
             "contractYear": "1",
             "drafted": "BB $1,000",
-            "id": "17192",
+            "id": "13289",
             "salary": "1000",
             "status": "ROSTER"
           },
@@ -3612,15 +3603,6 @@
             "drafted": "Auction $19,000 (2025)",
             "id": "14109",
             "salary": "8000",
-            "status": "INJURED_RESERVE"
-          },
-          {
-            "contractInfo": "CL 1| TCV 1K| AAV 1K",
-            "contractStatus": "Vet-WW",
-            "contractYear": "1",
-            "drafted": "BB $1,000",
-            "id": "13289",
-            "salary": "1000",
             "status": "INJURED_RESERVE"
           },
           {
@@ -3685,9 +3667,18 @@
             "id": "16593",
             "salary": "5000",
             "status": "TAXI_SQUAD"
+          },
+          {
+            "contractInfo": "CL 3|TCV 15K|AAV 5K|Y1-5K, Y2-5K, Y3-5K|GTD: 11.3K",
+            "contractStatus": "Rookie-Draft",
+            "contractYear": "3",
+            "drafted": "Trade",
+            "id": "17477",
+            "salary": "5000",
+            "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0011",
@@ -4071,7 +4062,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       },
       {
         "id": "0012",
@@ -4128,15 +4119,6 @@
             "drafted": "3.09 (2025)",
             "id": "17112",
             "salary": "2000",
-            "status": "ROSTER"
-          },
-          {
-            "contractInfo": "CL 3| TCV 33K| AAV 11K| Y1-11K, Y2-11K, Y3-11K, Y4-16K Option| GTD: 24.8K",
-            "contractStatus": "Rookie-Draft",
-            "contractYear": "2",
-            "drafted": "1.05 (2025)",
-            "id": "17068",
-            "salary": "11000",
             "status": "ROSTER"
           },
           {
@@ -4356,6 +4338,15 @@
             "status": "INJURED_RESERVE"
           },
           {
+            "contractInfo": "CL 3| TCV 33K| AAV 11K| Y1-11K, Y2-11K, Y3-11K, Y4-16K Option| GTD: 24.8K",
+            "contractStatus": "Rookie-Draft",
+            "contractYear": "2",
+            "drafted": "1.05 (2025)",
+            "id": "17068",
+            "salary": "11000",
+            "status": "INJURED_RESERVE"
+          },
+          {
             "contractInfo": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
             "contractStatus": "Rookie-Draft",
             "contractYear": "1",
@@ -4419,7 +4410,7 @@
             "status": "TAXI_SQUAD"
           }
         ],
-        "week": "9"
+        "week": "10"
       }
     ]
   },

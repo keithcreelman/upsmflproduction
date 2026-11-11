@@ -571,11 +571,11 @@
           "salary": ""
         },
         {
-          "contractInfo": "CL 1| TCV 1K| AAV 1K",
-          "contractStatus": "Vet-WW",
-          "contractYear": "1",
+          "contractInfo": "",
+          "contractStatus": "",
+          "contractYear": "",
           "id": "12688",
-          "salary": "1000"
+          "salary": ""
         },
         {
           "contractInfo": "CL 3| TCV 3K| AAV 1K| Y1-1K, Y2-1K, Y3-1K| GTD: 2K",
