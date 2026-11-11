@@ -44,6 +44,7 @@ from datetime import datetime, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import ups_center_due as DUE          # noqa: E402
+import ups_center_forecast_pr as FPR  # noqa: E402
 import ups_center_issue as ISSUE      # noqa: E402
 import ups_center_pr as PR            # noqa: E402
 import ups_center_sources as SRC      # noqa: E402
@@ -249,6 +250,14 @@ def run_week(season, week, workdir, now, pr_mode="live", ingest=True, chat_since
     # 3b. the forecast (Builder A): run it here; a missing or stale one becomes a blocker box in the issue
     if not sandbox:
         st["reasons"] += run_forecast(season, week, workdir, log=log)
+        # Keith 2026-11-10: the forecast alone, as its own DRAFT PR, so Standings is not stuck behind the package.
+        # Never merges, readies or dispatches anything; a failure here is logged and never blocks the draft.
+        try:
+            st["forecastPr"] = FPR.sync_forecast(runner, season, week, workdir, final_at=SRC.iso(timing["finalAt"]), dry=dry)
+            log("forecast-only PR: %s" % json.dumps(st["forecastPr"]))
+        except Exception as e:                                            # noqa: BLE001
+            st["forecastPr"] = {"action": "failed", "error": str(e)[:300]}
+            log("forecast-only PR failed: %s" % str(e)[:300])
 
     # 4. chat + xFP
     if ingest:
