@@ -1172,5 +1172,15 @@ cap_txt = re.sub(r"<[^>]+>", " ", tables9)
 check("the method note says every week with all twelve teams scored, playoffs included, 2010 left out, and flags the partial weeks (with a comma-formatted pool size)",
       "Every week with all twelve teams scored" in cap_txt and "playoffs included" in cap_txt and "2,7" in cap_txt and "fewer than twelve teams scored" in cap_txt and "2010" in cap_txt, cap_txt[-420:])
 
+print("S13. Kenny weave says the day when an owner's lines are on different days")
+c_two = copy.deepcopy(CTX8)
+c_two["d1"]["chat"][1]["posted_at_unix"] = c_two["d1"]["chat"][0]["posted_at_unix"] + 2 * 86400
+c_two["d1"]["chat"][1]["owner_name"] = c_two["d1"]["chat"][0]["owner_name"]
+c_two["d1"]["chat"][1]["franchise_id"] = c_two["d1"]["chat"][0]["franchise_id"]
+c_two["kennyPicks"] = {"picks": [{"id": c_two["d1"]["chat"][0]["message_id"]}, {"id": c_two["d1"]["chat"][1]["message_id"]}]}
+r_two = ISSUE.render(copy.deepcopy(PACK8), c_two, generated_at=T0, local_candidates=False, fmt="story")
+tw_ = VAL.visible_text(r_two["html"])
+check("same day: 'Then, at <time>'; another day: 'Then, <Day>, <time>'", re.search(r"Then, (?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday), \d+:\d\d [AP]M:", tw_) is not None and "Then, at" not in tw_, tw_[tw_.find("Then"):tw_.find("Then") + 60])
+
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

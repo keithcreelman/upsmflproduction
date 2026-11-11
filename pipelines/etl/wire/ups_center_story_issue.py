@@ -945,6 +945,7 @@ class StoryIssue(I.Issue):
             by_owner.setdefault(m["owner_name"], []).append((p, m))
         for owner, items in by_owner.items():
             parts = []
+            prev_day = None
             for j, (p, m) in enumerate(items):
                 txt = " ".join((m["content"] or "").split())
                 if chat_exclusions.reason(m["message_id"], txt, chat_exclusions.excluded_ids()):
@@ -955,7 +956,13 @@ class StoryIssue(I.Issue):
                 url = "https://discord.com/channels/%s/%s/%s" % (I.GUILD, m["channel_id"], m["message_id"])
                 q = '<a class="rcpt" href="%s" target="_blank" rel="noopener" title="%s &middot; #%s &middot; %s">&ldquo;%s&rdquo;</a>' % (
                     url, e(owner), e(m["channel_name"]), I.et_clock(m["posted_at_unix"]), e(txt))
-                parts.append(("%s, %s, %s: %s" % (d.strftime("%A"), clock, e(owner), q)) if j == 0 else ("Then, at %s: %s" % (clock, q)))
+                if j == 0:
+                    parts.append("%s, %s, %s: %s" % (d.strftime("%A"), clock, e(owner), q))
+                elif d.date() == prev_day:
+                    parts.append("Then, at %s: %s" % (clock, q))
+                else:                                     # the next line is on another day: say the day
+                    parts.append("Then, %s, %s: %s" % (d.strftime("%A"), clock, q))
+                prev_day = d.date()
             tailp = []
             fid = self.fid.get(owner)
             if any(p.get("frame") for p, _ in items) and fid:
