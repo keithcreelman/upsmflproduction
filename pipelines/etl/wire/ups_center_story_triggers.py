@@ -129,6 +129,14 @@ def week_pool(ctx):
         avg = sum(ws.values()) / len(ws)
         for f, x in sorted(ws.items()):
             out.append({"season": season, "week": w, "fid": f, "owner": (arc.get("owners") or {}).get("%d:%s" % (season, f)), "score": x, "ratio": x / avg, "cur": False})
+    xby = {}
+    for season, w, f, x in arc.get("extra") or []:             # playoff / consolation weeks in which all 12 teams scored
+        xby.setdefault((int(season), int(w)), {})[f] = float(x)
+    for (season, w), ws in sorted(xby.items()):
+        avg = sum(ws.values()) / len(ws)
+        for f, x in sorted(ws.items()):
+            out.append({"season": season, "week": w, "fid": f, "owner": (arc.get("owners") or {}).get("%d:%s" % (season, f)), "score": x, "ratio": x / avg,
+                        "cur": False, "extra": True})
     week = int(ctx["week"])
     cur = {}
     for r in (ctx.get("history") or {}).get("seasonScores") or []:
@@ -152,18 +160,7 @@ def score_ranks(ctx):
     key_sh = lambda r: (-round(r["ratio"], 9), r["season"], r["week"], r["fid"])
     raw = sorted(pool, key=key_raw)
     share = sorted(pool, key=key_sh)
-    arc = ctx.get("archive") or {}
-    pby = {}
-    for season, w, f, x in arc.get("playoff") or []:
-        pby.setdefault((int(season), int(w)), {})[f] = float(x)
-    playoff_ahead = []
-    for (season, w), ws in sorted(pby.items()):
-        avg = sum(ws.values()) / len(ws)
-        for f, x in sorted(ws.items()):
-            if x / avg > me["ratio"] + 1e-9:
-                playoff_ahead.append({"season": season, "week": w, "fid": f, "owner": (arc.get("owners") or {}).get("%d:%s" % (season, f)), "score": x, "ratio": x / avg})
-    playoff_ahead.sort(key=lambda r: (-r["ratio"], r["season"], r["week"], r["fid"]))
-    return {"playoff_ahead": playoff_ahead, "me": me, "n": len(pool), "raw_rank": 1 + sum(1 for r in pool if r["score"] > me["score"] + 1e-9),
+    return {"me": me, "n": len(pool), "raw_rank": 1 + sum(1 for r in pool if r["score"] > me["score"] + 1e-9),
             "share_rank": 1 + sum(1 for r in pool if r["ratio"] > me["ratio"] + 1e-9), "raw_top": raw[:5], "share_top": share[:5],
             "first_season": min(r["season"] for r in pool)}
 

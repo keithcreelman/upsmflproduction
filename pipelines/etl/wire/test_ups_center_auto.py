@@ -1094,7 +1094,7 @@ check("claims printed as certain without the engine's flag fail validation (fail
       any("odds:" in e for e in VAL.validate(dict(rc_), c_f, PACK8)["errors"]))
 st9 = TRG.score_ranks(CTX8)
 pool9 = sorted([(r["score"]) for r in TRG.week_pool(CTX8)], reverse=True)
-check("score ranks (raw and share) are recomputed over every regular-season team-week: pool, raw rank and share rank agree with a direct sort",
+check("score ranks (raw and share) are recomputed over every week with all twelve teams scored (playoffs included): pool, raw rank and share rank agree with a direct sort",
       st9["n"] == len(pool9) and st9["raw_rank"] == 1 + sum(1 for x in pool9 if x > st9["me"]["score"] + 1e-9) and st9["n"] > 2000, (st9["n"], st9["raw_rank"], st9["share_rank"]))
 def record(c):
     c["mfl"]["scores"]["0009"] = 400.0
@@ -1116,7 +1116,7 @@ sx = SI.StoryIssue(copy.deepcopy(PACK8), c_rec)
 lines9, tables9 = sx.rec_ranks(cand["data"])
 txt9 = re.sub(r"<[^>]+>", " ", lines9[0][1] + " " + lines9[1][1])
 check("a league-record week score is written as the highest in league history with the previous record, and BOTH measures (raw and share) with the best share named",
-      rk["raw_rank"] == 1 and "the highest single-week score in league history" in txt9 and "The previous record was" in txt9 and "No regular-season team-week since 2011 has posted a bigger share" in txt9, txt9)
+      rk["raw_rank"] == 1 and "the highest single-week score in league history" in txt9 and "The previous record was" in txt9 and "No team-week since 2011 has posted a bigger share" in txt9, txt9)
 check("the record tables list the top five on both measures", tables9.count("<table>") == 2 and tables9.count("<tr>") >= 12)
 claims = copy.deepcopy(r8["claims"])
 tk = next((k for k in claims if k.startswith("trig:rawtop:") or k.startswith("trig:sharetop:")), None)
@@ -1160,6 +1160,17 @@ claims = copy.deepcopy(rtd["claims"])
 pk_ = next(k for k in claims if k.startswith("odds:pre:"))
 claims[pk_]["value"] = 1.0
 check("a wrong pre-trade odds figure fails", any(pk_ in e for e in VAL.validate(dict(rtd, claims=claims), ctd, PACK8)["errors"]))
+
+print("S12. playoff weeks count in the score records when all twelve teams scored (Keith 2026-11-11)")
+a_ = CTX8["archive"]
+check("the archive carries complete playoff/consolation weeks as `extra` and FLAGS weeks with fewer than twelve teams as `partial`",
+      len(a_["extra"]) % 12 == 0 and len(a_["extra"]) > 0 and a_["partial"] and all(x[2] < 12 for x in a_["partial"]), (len(a_["extra"]), a_["partial"][:3]))
+pool12 = TRG.week_pool(CTX8)
+check("the pool includes playoff weeks (extra rows flagged) and every week in it has twelve teams",
+      any(x.get("extra") for x in pool12) and all(n_ == 12 for n_ in __import__("collections").Counter((x["season"], x["week"]) for x in pool12).values()), len(pool12))
+cap_txt = re.sub(r"<[^>]+>", " ", tables9)
+check("the method note says every week with all twelve teams scored, playoffs included, 2010 left out, and flags the partial weeks (with a comma-formatted pool size)",
+      "Every week with all twelve teams scored" in cap_txt and "playoffs included" in cap_txt and "2,7" in cap_txt and "fewer than twelve teams scored" in cap_txt and "2010" in cap_txt, cap_txt[-420:])
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

@@ -457,7 +457,7 @@ class StoryIssue(I.Issue):
         if t == "week_score":
             r = d["ranks"]
             sr = "trig:recn"
-            return ("Stuart", "%s scored %s in Week %d: the %s-highest single-week score and the %s-best share of the league average among the %s regular-season team-weeks since 2011 (this season included)." % (
+            return ("Stuart", "%s scored %s in Week %d: the %s-highest single-week score and the %s-best share of the league average among the %s team-weeks since 2011 (playoffs and this season included)." % (
                 me, self.score(f), self.week, self.L.put("trig:recraw:" + f, r["raw_rank"], src, self._ord(r["raw_rank"])),
                 self.L.put("trig:recshare:" + f, r["share_rank"], src, self._ord(r["share_rank"])), self.L.put(sr, r["n"], src, "{:,}".format(r["n"]))))
         if t == "streak":
@@ -538,16 +538,16 @@ class StoryIssue(I.Issue):
         ordw = lambda k: "highest" if k == 1 else ("%s-highest" % self.ORDW.get(k, self._ord(k)))
         ordb = lambda k: "best" if k == 1 else ("%s-best" % self.ORDW.get(k, self._ord(k)))
         owner = e(me["owner"])
-        t1 = "%s scored %s in Week %d, the %s single-week score in league history (regular season, %d&ndash;%d, %s team-weeks)." % (
+        t1 = "%s scored %s in Week %d, the %s single-week score in league history (every week with all twelve teams scored, %d&ndash;%d so far, playoffs included: %s team-weeks)." % (
             owner, self.score(f), self.week, ordw(r["raw_rank"]), r["first_season"], self.season, n_c)
         prev = [x for x in r["raw_top"] if not (x["cur"] and x["week"] == self.week and x["fid"] == f)]
         if r["raw_rank"] == 1 and prev:
             pv = r["raw_top"][1]
             sc_, _ = self.rec_entry(pv, 1, "raw")
-            t1 += " The previous record was %s by %s in Week %d of %d." % (sc_, e(pv["owner"]), pv["week"], pv["season"])
+            t1 += " The previous record was %s by %s in Week %d of %d%s." % (sc_, e(pv["owner"]), pv["week"], pv["season"], ", a playoff week" if pv.get("extra") else "")
         elif r["raw_rank"] > 1:
             ab = r["raw_top"][:r["raw_rank"] - 1]
-            t1 += " Ahead of it: %s." % join("%s by %s in Week %d of %d" % (self.rec_entry(x, i, "raw")[0], e(x["owner"]), x["week"], x["season"]) for i, x in enumerate(ab))
+            t1 += " Ahead of it: %s." % join("%s by %s in Week %d of %d%s" % (self.rec_entry(x, i, "raw")[0], e(x["owner"]), x["week"], x["season"], ", a playoff week" if x.get("extra") else "") for i, x in enumerate(ab))
         lines = [("Stuart", t1)]
         ahead = r["share_top"][:max(0, r["share_rank"] - 1)]
         t2 = "Scoring has risen across the eras, so here is the other measure. %s was %s%% of that week&rsquo;s league average of %s." % (self.score(f), pct, avg)
@@ -555,24 +555,18 @@ class StoryIssue(I.Issue):
             parts = []
             for i, x in enumerate(ahead):
                 sc_, p_ = self.rec_entry(x, i, "share")
-                parts.append("%s in %d (%s%s)" % (e(x["owner"]), x["season"], p_, ", the best share ever" if i == 0 else ""))
-            t2 += " Only %s regular-season team-week%s since %d %s posted a bigger share: %s." % (
+                parts.append("%s in %d (%s%s%s)" % (e(x["owner"]), x["season"], ("Week %d, a playoff week, " % x["week"]) if x.get("extra") else "", p_,
+                                                   ", the best share ever" if i == 0 else ""))
+            t2 += " Only %s team-week%s since %d %s posted a bigger share: %s." % (
                 self.word(len(ahead)), "" if len(ahead) == 1 else "s", r["first_season"], "has" if len(ahead) == 1 else "have", join(parts))
         else:
-            t2 += " No regular-season team-week since %d has posted a bigger share: it is the best on record." % r["first_season"]
-        pl = [x for x in r.get("playoff_ahead", [])]
-        if pl:
-            pps = []
-            for i, x in enumerate(pl[:2]):
-                v = {"owner": x["owner"], "season": x["season"], "week": x["week"], "score": round(x["score"], 1), "pct": round(100 * x["ratio"], 1)}
-                self.L.put("trig:playoffahead:%d" % i, v, src, "%.1f %.1f" % (x["score"], 100 * x["ratio"]))
-                pps.append("%s&rsquo;s %.1f in %d (%.1f%%)" % (e(x["owner"]), x["score"], x["season"], 100 * x["ratio"]))
-            t2 += " Playoff weeks are not in this pool; %s also topped that share: %s." % (
-                ("%s playoff week%s" % (self.word(len(pl)), "" if len(pl) == 1 else "s")), join(pps))
+            t2 += " No team-week since %d has posted a bigger share: it is the best on record." % r["first_season"]
         lines.append(("Rich", t2))
-        cap = ('<p class="caption">Regular season only, %d&ndash;%d so far (%s team-weeks; playoff weeks are not counted). Share = a team&rsquo;s score divided by that '
+        npart = len((self.ctx.get("archive") or {}).get("partial") or [])
+        part = (" %s week%s with fewer than twelve teams scored %s left out." % (self.L.put("trig:recpartial", npart, src), "" if npart == 1 else "s", "is" if npart == 1 else "are")) if npart else ""
+        cap = ('<p class="caption">Every week with all twelve teams scored, %d&ndash;%d so far, playoffs included (%s team-weeks).%s Share = a team&rsquo;s score divided by that '
                'week&rsquo;s league average, so eras can be compared.%s</p>' % (
-                   r["first_season"], self.season, n_c, (" %s is left out because its archived weekly scores conflict with themselves." % join(sorted(
+                   r["first_season"], self.season, n_c, part, (" %s is left out because its archived weekly scores conflict with themselves." % join(sorted(
                        (self.ctx.get("archive") or {}).get("excluded") or {}))) if (self.ctx.get("archive") or {}).get("excluded") else ""))
 
         def tbl(measure, rows_, head):
@@ -580,7 +574,7 @@ class StoryIssue(I.Issue):
             for i, x in enumerate(rows_):
                 sc_, p_ = self.rec_entry(x, i, measure)
                 cur = x["cur"] and x["week"] == self.week and x["fid"] == f
-                body.append(self.row(["%s &middot; %s, Week %d" % (x["season"], e(x["owner"] or "unnamed"), x["week"]), sc_, p_], bold=cur))
+                body.append(self.row(["%s &middot; %s, Week %d%s" % (x["season"], e(x["owner"] or "unnamed"), x["week"], " (playoffs)" if x.get("extra") else ""), sc_, p_], bold=cur))
             return self.table([head, "Score", "Share of average"], body)
         tables = tbl("raw", r["raw_top"], "Highest single-week scores") + tbl("share", r["share_top"], "Highest share of the league average")
         return lines, tables + cap

@@ -275,6 +275,13 @@ def _trig_truth(ctx):
         for w, ws in weeks.items():
             a_ = sum(ws.values()) / len(ws)
             tw += [(x, x / a_, season, w, "past:" + season_f) for season_f, x in ws.items()]
+    xb = {}
+    for season, w, f_, x_ in arc.get("extra") or []:
+        xb.setdefault((int(season), int(w)), {})[f_] = float(x_)
+    for (season, w), ws in xb.items():
+        a_ = sum(ws.values()) / len(ws)
+        tw += [(x, x / a_, season, w, "past:" + f_) for f_, x in ws.items()]
+    out_partial = len(arc.get("partial") or [])
     for w, ws in cur.items():
         a_ = sum(ws.values()) / len(ws)
         tw += [(x, x / a_, int(ctx["season"]), w, "cur:" + f_) for f_, x in ws.items()]
@@ -291,18 +298,7 @@ def _trig_truth(ctx):
     def who(t):
         kind, _, fid = t[4].partition(":")
         return owners.get(fid) if kind == "cur" else aown.get("%d:%s" % (t[2], fid))
-    # playoff weeks are not in the pool, but a bigger share in one is mentioned
-    pby = {}
-    for season, w, f_, x_ in arc.get("playoff") or []:
-        pby.setdefault((int(season), int(w)), {})[f_] = float(x_)
-    me_f = max(cur[wk], key=lambda f_: (cur[wk][f_], f_))
-    me_ratio = cur[wk][me_f] / avg
-    pa = []
-    for (season, w), ws in pby.items():
-        a_ = sum(ws.values()) / len(ws)
-        pa += [(-(x_ / a_), season, w, f_, x_) for f_, x_ in ws.items() if x_ / a_ > me_ratio + 1e-9]
-    for i, (nr, season, w, f_, x_) in enumerate(sorted(pa)[:2]):
-        out["playoffahead:%d" % i] = {"owner": aown.get("%d:%s" % (season, f_)), "season": season, "week": w, "score": round(x_, 1), "pct": round(-100 * nr, 1)}
+    out["recpartial"] = out_partial
     byraw = sorted(tw, key=lambda t: (-t[0], t[2], t[3], t[4].partition(":")[2]))
     bysh = sorted(tw, key=lambda t: (-round(t[1], 9), t[2], t[3], t[4].partition(":")[2]))
     for i, t in enumerate(byraw[:5]):
