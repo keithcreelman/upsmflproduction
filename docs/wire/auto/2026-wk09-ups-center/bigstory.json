@@ -1,0 +1,24 @@
+{
+ "phase": "middle",
+ "fid": "0005",
+ "trigger": "week_score",
+ "s": 0.0044,
+ "evidence": [],
+ "support": [
+  {
+   "fid": "0009",
+   "trigger": "streak",
+   "s": 0.015
+  },
+  {
+   "fid": "0009",
+   "trigger": "allplay_start",
+   "s": 0.125
+  },
+  {
+   "fid": "0011",
+   "trigger": "big_trade",
+   "s": 0.14
+  }
+ ]
+}
