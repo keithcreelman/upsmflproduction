@@ -92,6 +92,17 @@ class Env:
             out += [x / avg for x in ws.values()]
         return out
 
+    def past_team_seasons_streaks(self, kind):
+        """[(season, fid, longest streak)] for every past team-season."""
+        by_season = {}
+        for (season, w), ws in self.past.items():
+            by_season.setdefault(season, {})[w] = ws
+        out = []
+        for season, weeks in by_season.items():
+            for f in {f for ws in weeks.values() for f in ws}:
+                out.append((season, f, max(self.dominance_streak(f, weeks, w, kind) for w in sorted(weeks))))
+        return out
+
     def past_streaks(self, kind):
         """[length of the streak ending at each past team-week]."""
         out = []
@@ -103,6 +114,55 @@ class Env:
                 for f in weeks[w]:
                     out.append(self.dominance_streak(f, weeks, w, kind))
         return out
+
+
+def week_pool(ctx):
+    """Every regular-season team-week in the league archive (past seasons, 2010 and incomplete weeks left out) plus this season's weeks so far:
+    [{season, week, fid, owner, score, ratio}], ratio = score / that week's league average. Playoff weeks are not in it."""
+    arc = ctx.get("archive") or {}
+    by = {}
+    for season, w, f, x in arc.get("rows") or []:
+        by.setdefault((int(season), int(w)), {})[f] = float(x)
+    names = {}
+    out = []
+    for (season, w), ws in sorted(by.items()):
+        avg = sum(ws.values()) / len(ws)
+        for f, x in sorted(ws.items()):
+            out.append({"season": season, "week": w, "fid": f, "owner": (arc.get("owners") or {}).get("%d:%s" % (season, f)), "score": x, "ratio": x / avg, "cur": False})
+    xby = {}
+    for season, w, f, x in arc.get("extra") or []:             # playoff / consolation weeks in which all 12 teams scored
+        xby.setdefault((int(season), int(w)), {})[f] = float(x)
+    for (season, w), ws in sorted(xby.items()):
+        avg = sum(ws.values()) / len(ws)
+        for f, x in sorted(ws.items()):
+            out.append({"season": season, "week": w, "fid": f, "owner": (arc.get("owners") or {}).get("%d:%s" % (season, f)), "score": x, "ratio": x / avg,
+                        "cur": False, "extra": True})
+    week = int(ctx["week"])
+    cur = {}
+    for r in (ctx.get("history") or {}).get("seasonScores") or []:
+        if int(r["week"]) <= week:
+            cur.setdefault(int(r["week"]), {})[r["franchise_id"]] = float(r["team_score"])
+    cur[week] = {f: float(x) for f, x in ctx["mfl"]["scores"].items()}
+    season = int(ctx["season"])
+    for w, ws in sorted(cur.items()):
+        avg = sum(ws.values()) / len(ws)
+        for f, x in sorted(ws.items()):
+            out.append({"season": season, "week": w, "fid": f, "owner": ctx["d1"]["franchises"][f]["owner_name"], "score": x, "ratio": x / avg, "cur": True})
+    return out
+
+
+def score_ranks(ctx):
+    """For the week's best score: raw rank, share-of-average rank, pool size, and the top-5 lists on both measures."""
+    pool = week_pool(ctx)
+    week = int(ctx["week"])
+    me = max((r for r in pool if r["cur"] and r["week"] == week), key=lambda r: (r["score"], r["fid"]))
+    key_raw = lambda r: (-r["score"], r["season"], r["week"], r["fid"])
+    key_sh = lambda r: (-round(r["ratio"], 9), r["season"], r["week"], r["fid"])
+    raw = sorted(pool, key=key_raw)
+    share = sorted(pool, key=key_sh)
+    return {"me": me, "n": len(pool), "raw_rank": 1 + sum(1 for r in pool if r["score"] > me["score"] + 1e-9),
+            "share_rank": 1 + sum(1 for r in pool if r["ratio"] > me["ratio"] + 1e-9), "raw_top": raw[:5], "share_top": share[:5],
+            "first_season": min(r["season"] for r in pool)}
 
 
 def week_avg(env):
@@ -125,17 +185,17 @@ def t_allplay_start(env):
 
 @trigger("week_score", "rarity", min_week=1)
 def t_week_score(env):
-    ratios = env.past_ratios()
-    if not ratios:
+    """The week's best score, ranked two ways over every regular-season team-week since the archive begins: the raw score (a league record) and
+    its share of that week's league average (scoring has risen over the years, so both are shown). p = the better of the two ranks / pool size."""
+    if not (env.ctx.get("archive") or {}).get("rows"):
         return []
-    ws = env.scores[env.week]
-    avg = week_avg(env)
-    f = max(ws, key=lambda g: (ws[g], g))
-    r = ws[f] / avg
-    k = sum(1 for x in ratios if x >= r - 1e-12)
-    return [{"fid": f, "s": surprise(k / float(len(ratios))), "p": k / float(len(ratios)), "n": len(ratios),
-             "raw": "best score %.1f = %d%% of the week's average (%.1f)" % (ws[f], round(100 * r), avg),
-             "data": {"ratio": r, "k": k, "n": len(ratios), "avg": avg}}]
+    r = score_ranks(env.ctx)
+    me = r["me"]
+    p = min(r["raw_rank"], r["share_rank"]) / float(r["n"])
+    return [{"fid": me["fid"], "s": surprise(p), "p": p, "n": r["n"],
+             "raw": "best score %.1f: #%d by points and #%d by share of the week's average (%d%%) among %s team-weeks" % (
+                 me["score"], r["raw_rank"], r["share_rank"], round(100 * me["ratio"]), "{:,}".format(r["n"])),
+             "data": {"ratio": me["ratio"], "avg": me["score"] / me["ratio"], "ranks": r}}]
 
 
 @trigger("streak", "rarity", min_week=4, phases=("middle", "late", "playoffs"))
@@ -150,9 +210,11 @@ def t_streak(env):
         if not past:
             continue
         k = sum(1 for x in past if x >= L)
+        longest = env.past_team_seasons_streaks(kind)             # [(season, fid, longest streak)] for every past team-season
+        reached = sorted([x for x in longest if x[2] >= L], key=lambda x: (-x[2], x[0], x[1]))
         out.append({"fid": best, "s": surprise(k / float(len(past))), "p": k / float(len(past)), "n": len(past),
                     "raw": "%d straight weeks %s" % (L, "beating 9+ of 11 teams" if kind == "dom" else "losing to 9+ of 11 teams"),
-                    "data": {"kind": kind, "L": L, "k": k, "n": len(past)}})
+                    "data": {"kind": kind, "L": L, "k": k, "n": len(past), "reached": reached}})
     return out
 
 
@@ -269,6 +331,48 @@ def t_odds_swing(env):
     s = max(0.05, 0.15 * (1 - (abs(move) - floor) / 35.0))
     return [{"fid": f, "s": s, "p": None, "n": None, "raw": "playoff odds %+.1f pts vs %s (fixed thresholds; uncalibrated)" % (move, basis),
              "data": {"move": move, "basis": basis, "base": base}}]
+
+
+def trade_assets(tr):
+    return [x for x in tr["a_gave"] + tr["b_gave"] if x["kind"] in ("player", "pick", "bb")]
+
+
+def trade_deltas(env, tr):
+    """{fid: {kind: points moved}} between the forecast built before the trade and the one rerun on the post-trade rosters."""
+    pre = ((env.ctx.get("forecastPre") or {}).get("teams")) or {}
+    out = {}
+    for f in env.sim:
+        if f in pre:
+            out[f] = {k: 100 * (env.sim[f][k] - pre[f][k]) for k in ("po", "bye", "div", "title")}
+    return out
+
+
+@trigger("big_trade", "stakes", min_week=1)
+def t_big_trade(env):
+    """A big executed trade (assets moved, salary moved, the playoff / division / title odds it changed). Rarity: the share of the league's
+    trades since 2010 (archive) that moved this many assets. Stakes: the largest odds move on the post-trade forecast rerun. s = the smaller."""
+    info = env.ctx.get("tradeInfo") or []
+    if not info:
+        return []
+    sizes = (env.ctx.get("archive") or {}).get("tradeSizes") or []
+    best = None
+    for tr in info:
+        n = len(trade_assets(tr))
+        rk = sum(1 for x in sizes if x >= n)
+        s_r = surprise(rk / float(len(sizes))) if sizes else 1.0
+        d = trade_deltas(env, tr)
+        m, who = 0.0, tr["a"]
+        for f in (tr["a"], tr["b"]):
+            for k, v in (d.get(f) or {}).items():
+                if abs(v) > m:
+                    m, who = abs(v), f
+        s_s = max(0.03, 0.15 * (1 - (m - 5.0) / 30.0)) if m >= 5.0 else 1.0
+        s = min(s_r, s_s)
+        if best is None or s < best["s"]:
+            best = {"fid": who, "s": s, "p": rk / float(len(sizes)) if sizes else None, "n": len(sizes),
+                    "raw": "%d assets moved, $%s and $%s of salary, largest odds move %.1f points" % (n, "{:,.0f}".format(tr["a_salary"]), "{:,.0f}".format(tr["b_salary"]), m),
+                    "data": {"trade": tr, "assets": n, "rank": rk, "pool": len(sizes), "deltas": d, "move": m, "s_rarity": s_r, "s_stakes": s_s}}
+    return [best]
 
 
 @trigger("elias_flip", "single", min_week=1)

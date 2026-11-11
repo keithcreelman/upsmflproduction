@@ -35,6 +35,7 @@ sys.path.insert(0, HERE)
 import wire  # noqa: E402  (style_sha, runtime, STYLE_BANNER)
 import season_sim  # noqa: E402  (display_percentages: largest-remainder rounding, each group totals 100.0)
 import ups_center_stories as STORIES  # noqa: E402  (Builder B: Heat Check, Survival Line, story leads)
+import ups_center_prob as PROB  # noqa: E402  (a probability prints as 100% / 0% only when clinched / eliminated)
 
 ET = ZoneInfo("America/New_York")
 PLAYOFF_FIELD, PLAYOFF_BYES = 6, 2    # league_context F.1 (and season_sim): six teams, byes for seeds 1 and 2
@@ -86,7 +87,7 @@ class Ledger:
     def __init__(self):
         self.claims = {}
 
-    def put(self, key, value, source, shown=None):
+    def put(self, key, value, source, shown=None, raw=None, lr=None):
         shown = shown if shown is not None else (n1(value) if isinstance(value, float) else str(value))
         prev = self.claims.get(key)
         if prev and prev["value"] != value:
@@ -94,6 +95,10 @@ class Ledger:
         if prev and not source:
             source = prev["source"]          # a re-use (e.g. a story lead) keeps the number's original source
         self.claims[key] = {"value": value, "shown": shown, "source": source}
+        if raw is not None:
+            self.claims[key]["raw"] = raw               # the simulation's own precision, whatever is printed
+        if lr is not None:
+            self.claims[key]["lr"] = lr                 # the largest-remainder figure whose group totals exactly 100.0
         return shown
 
     def digest(self):
@@ -115,6 +120,8 @@ class Issue:
         self.fid = {r["owner_name"]: fid for fid, r in fr.items()}
         self.team = {fid: r["team_name"] for fid, r in fr.items()}
         self.logo = {fid: r["logo"] for fid, r in fr.items()}
+        # the clinching engine's flags per franchise ({} when it could not run: then nothing prints as 100% or 0%)
+        self.flags = (ctx.get("clinch") or {}).get("byFid") or {}
 
     # ------------------------------------------------------------ claims
     def score(self, fid):
@@ -538,10 +545,28 @@ class Issue:
                                                           et_clock(_utc(prev.get("inputsAtUtc") or prev.get("generatedAtUtc"))))))
         return out
 
+    def prob_claim(self, key, p, kind, fid, src):
+        """Register one probability: the ledger keeps the exact percent, the page prints PROB.single's text."""
+        txt, val = PROB.single(p, kind, self.flags.get(fid))
+        return self.L.put(key, val, src, txt, raw=round(100 * float(p), 4))
+
+    def odds_cells(self, teams, src):
+        """(division cells {fid: (text, value)}, division lr, title cells, title lr): largest-remainder groups with the certainty rule."""
+        fl = self.flags
+        div_cells, div_lr = {}, {}
+        for d in sorted({t["division"] for t in teams.values()}):
+            grp = {f: t["div"] for f, t in teams.items() if t["division"] == d}
+            div_lr.update({f: float(x) for f, x in season_sim.display_percentages(grp).items()})
+            div_cells.update(PROB.group_cells(grp, season_sim.display_percentages(grp), {f for f in grp if PROB.certain("div", fl.get(f))[0]},
+                                              {f for f in grp if PROB.certain("div", fl.get(f))[1]}))
+        tprobs = {f: t["title"] for f, t in teams.items()}
+        title_lr = {f: float(x) for f, x in season_sim.display_percentages(tprobs).items()}
+        title_cells = PROB.group_cells(tprobs, season_sim.display_percentages(tprobs), set(), {f for f in tprobs if PROB.certain("title", fl.get(f))[1]})
+        return div_cells, div_lr, title_cells, title_lr
+
     def odds_lead(self, teams, src, order, div_shown, title_shown):
         top = order[0]
-        return [("Stuart", "%s leads the forecast at %s to make the playoffs." % (
-            e(self.owner[top]), self.L.put("odds:po:" + top, round(100 * teams[top]["po"], 1), src, "%.1f%%" % (100 * teams[top]["po"]))))]
+        return [("Stuart", "%s leads the forecast at %s to make the playoffs." % (e(self.owner[top]), e(self.prob_claim("odds:po:" + top, teams[top]["po"], "po", top, src))))]
 
     def seg_odds(self):
         problems = self.forecast_problems()
@@ -551,29 +576,29 @@ class Issue:
         sim = self.ctx["forecast"]["sim"]
         teams = sim["teams"]
         src = "season_sim live wk%02d (%s runs, %s)" % (self.week, sim["runs"], sim["generatedAtUtc"])
-        div_shown = {}
-        for d in sorted({t["division"] for t in teams.values()}):
-            div_shown.update(season_sim.display_percentages({f: t["div"] for f, t in teams.items() if t["division"] == d}))
-        title_shown = season_sim.display_percentages({f: t["title"] for f, t in teams.items()})
+        div_shown = title_shown = None
+        div_cells, div_lr, title_cells, title_lr = self.odds_cells(teams, src)
         order = sorted(teams, key=lambda f: (-teams[f]["po"], -teams[f]["title"], f))
         rows = []
         for f in order:
             t_ = teams[f]
-            po = self.L.put("odds:po:" + f, round(100 * t_["po"], 1), src, "%.1f%%" % (100 * t_["po"]))
-            bye = self.L.put("odds:bye:" + f, round(100 * t_["bye"], 1), src, "%.1f%%" % (100 * t_["bye"]))
-            dv = self.L.put("odds:div:" + f, float(div_shown[f]), src + ", largest-remainder by division", div_shown[f] + "%")
-            ti = self.L.put("odds:title:" + f, float(title_shown[f]), src + ", largest-remainder", title_shown[f] + "%")
+            po = self.prob_claim("odds:po:" + f, t_["po"], "po", f, src)
+            bye = self.prob_claim("odds:bye:" + f, t_["bye"], "bye", f, src)
+            dv = self.L.put("odds:div:" + f, div_cells[f][1], src + ", largest-remainder by division", div_cells[f][0], raw=round(100 * t_["div"], 4), lr=div_lr[f])
+            ti = self.L.put("odds:title:" + f, title_cells[f][1], src + ", largest-remainder", title_cells[f][0], raw=round(100 * t_["title"], 4), lr=title_lr[f])
             rows.append('<tr>%s<td class="num">%s</td><td class="num">%s</td><td class="num">%s</td><td class="num">%s</td></tr>'
-                        % (self.fr_cell(f), po, bye, dv, ti))
+                        % (self.fr_cell(f), e(po), e(bye), e(dv), e(ti)))
         top = order[0]
         runs = self.L.put("odds:runs", int(sim["runs"]), src, "{:,}".format(int(sim["runs"])))
         lead = self.odds_lead(teams, src, order, div_shown, title_shown)
+        floor = self.L.put("odds:floor", PROB.FLOOR_PCT, "ups_center_prob.text: the smallest probability printed", "0.01")
         table = ('<div class="tablebox"><table><thead><tr><th>Franchise</th><th>Playoffs</th><th>First-round bye</th>'
                  '<th>Wins division</th><th>Title</th></tr></thead><tbody>%s</tbody></table></div>'
                  '<p class="caption">Probabilities updated after Week %d (%s), %s simulated seasons. One team wins each division '
                  'in every simulated season; division odds and the league&rsquo;s title odds are rounded so each group '
-                 'still adds up to the whole.</p>'
-                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs))
+                 'still adds up to the whole. A probability prints as certain only when the outcome is clinched or eliminated; a '
+                 'figure that would round to certain prints to two decimals, or as &lt;%s%%.</p>'
+                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs, floor))
         extra = "".join(self.gap(g, "odds", why) for g, why in problems)      # preview problems only, at this point
         return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; updated after Week %d</small>"
                             % self.week, self.desk(lead, mb=True) + extra + table)
@@ -681,8 +706,7 @@ class Issue:
             col = ""
             if fresh:
                 p = fc["teams"][f]["po"]
-                col = '<td><b>%s</b><br>%s</td>' % (cat(p), self.L.put("odds:po:" + f, round(100 * p, 1), odds_src,
-                                                                       "%.1f%%" % (100 * p)))
+                col = '<td><b>%s</b><br>%s</td>' % (cat(p), e(self.prob_claim("odds:po:" + f, p, "po", f, odds_src)))
             rows.append('<tr><td>%s</td>%s<td class="num">%s/%s</td><td class="num">%s/%s</td></tr>' % (
                 e(self.owner[f]), col, self.L.put("hist:apMade:" + f, r["apHist"][0], src), self.L.put("hist:apN:" + f, r["apHist"][1], src),
                 self.L.put("hist:winMade:" + f, r["winHist"][0], src), self.L.put("hist:winN:" + f, r["winHist"][1], src)))
@@ -800,7 +824,7 @@ class Issue:
         aid = "%d-wk%02d-ups-center" % (self.season, self.week)
         s = self.ctx["mfl"]["scores"]
         top = max(s, key=s.get)
-        dek = ("%s led Week %d with %s. Automated draft from the league&rsquo;s own data, awaiting the editor." % (
+        dek = getattr(self, "dek", None) or ("%s led Week %d with %s. Automated draft from the league&rsquo;s own data, awaiting the editor." % (
             e(self.owner[top]), self.week, self.score(top)))
         gaps_note = ('<div><b>Editor review.</b> %d item(s) are marked EDITOR REVIEW in this draft and must be resolved '
                      'before publication.</div>' % len(self.gaps)) if self.gaps else ""
@@ -830,7 +854,7 @@ class Issue:
                'data-wire-runtime>\n%s</script>\n</body>\n</html>\n' % (
                    self.week, meta, sha, wire.STYLE_BANNER, combined, self.week, dek, "\n".join(segs), method, runtime))
         return {"id": aid, "html": doc, "claims": self.L.claims, "claimsDigest": self.L.digest(), "gaps": self.gaps,
-                "format": self.format_name, "bigStory": getattr(self, "big_pick", None)}
+                "format": self.format_name, "bigStory": getattr(self, "big_pick", None), "kennyDropped": getattr(self, "dropped_picks", [])}
 
 
 def render(pack, ctx, generated_at=None, local_candidates=False, fmt=None):

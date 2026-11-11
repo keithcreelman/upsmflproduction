@@ -27,6 +27,7 @@ from datetime import datetime, timezone
 
 import chat_exclusions
 import season_sim  # display_percentages, the rounding the Playoff Picture prints
+import ups_center_prob as PROB  # 100% / 0% only for a clinched / eliminated outcome
 
 TIME_RE = re.compile(r"\bW(?:ee)?ks?\.?\s+\d{1,2}(?:\s*[–-]\s*\d{1,2})?\b|\b(?:19|20)\d\d\s*[–-]\s*(?:19|20)\d\d\b|"
                      r"\b\d{1,2}:\d{2}(:\d{2})?\s*(AM|PM)\b|\b(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\w*,?\s+"
@@ -268,12 +269,42 @@ def _trig_truth(ctx):
     for season, w, f, x in arc.get("rows") or []:
         past.setdefault(int(season), {}).setdefault(int(w), {})[f] = float(x)
     out = {}
-    pr = [x / (sum(ws.values()) / len(ws)) for weeks in past.values() for ws in weeks.values() for x in ws.values()]
+    # every regular-season team-week: past seasons (archive) + this season's weeks so far, ranked by points and by share of that week's average
+    tw = []
+    for season, weeks in past.items():
+        for w, ws in weeks.items():
+            a_ = sum(ws.values()) / len(ws)
+            tw += [(x, x / a_, season, w, "past:" + season_f) for season_f, x in ws.items()]
+    xb = {}
+    for season, w, f_, x_ in arc.get("extra") or []:
+        xb.setdefault((int(season), int(w)), {})[f_] = float(x_)
+    for (season, w), ws in xb.items():
+        a_ = sum(ws.values()) / len(ws)
+        tw += [(x, x / a_, season, w, "past:" + f_) for f_, x in ws.items()]
+    out_partial = len(arc.get("partial") or [])
+    for w, ws in cur.items():
+        a_ = sum(ws.values()) / len(ws)
+        tw += [(x, x / a_, int(ctx["season"]), w, "cur:" + f_) for f_, x in ws.items()]
     avg = sum(cur[wk].values()) / len(cur[wk])
+    owners = {f_: r["owner_name"] for f_, r in ctx["d1"]["franchises"].items()}
+    aown = (arc.get("owners") or {})
+    out["recn"] = len(tw)
     for f, x in cur[wk].items():
-        out["ratio:" + f] = int(round(100 * x / avg))
-        out["wkk:" + f] = sum(1 for q in pr if q >= x / avg - 1e-12)
-        out["wkn:" + f] = len(pr)
+        out["ratio:" + f] = round(100 * x / avg, 1)
+        out["avg:" + f] = round(avg, 1)
+        out["recraw:" + f] = 1 + sum(1 for t in tw if t[0] > x + 1e-9)
+        out["recshare:" + f] = 1 + sum(1 for t in tw if t[1] > x / avg + 1e-9)
+
+    def who(t):
+        kind, _, fid = t[4].partition(":")
+        return owners.get(fid) if kind == "cur" else aown.get("%d:%s" % (t[2], fid))
+    out["recpartial"] = out_partial
+    byraw = sorted(tw, key=lambda t: (-t[0], t[2], t[3], t[4].partition(":")[2]))
+    bysh = sorted(tw, key=lambda t: (-round(t[1], 9), t[2], t[3], t[4].partition(":")[2]))
+    for i, t in enumerate(byraw[:5]):
+        out["rawtop:%d" % i] = {"owner": who(t), "season": t[2], "week": t[3], "score": round(t[0], 1), "pct": round(100 * t[1], 1)}
+    for i, t in enumerate(bysh[:5]):
+        out["sharetop:%d" % i] = {"owner": who(t), "season": t[2], "week": t[3], "score": round(t[0], 1), "pct": round(100 * t[1], 1)}
 
     def streak(weeks, f, upto, kind):
         n = 0
@@ -291,8 +322,15 @@ def _trig_truth(ctx):
         for f in cur[wk]:
             L = streak(cur, f, wk, kind)
             out["streak:%s:%s" % (kind, f)] = L
-            out["streakk:%s:%s" % (kind, f)] = sum(1 for q in pst if q >= L)
             out["streakn:%s:%s" % (kind, f)] = len(pst)
+            ts = {}
+            for season, weeks in past.items():
+                for g in {g for ws in weeks.values() for g in ws}:
+                    ts[(season, g)] = max(streak(weeks, g, w, kind) for w in sorted(weeks))
+            hit = sorted([(-v, season, g) for (season, g), v in ts.items() if v >= L])
+            out["streakk:%s:%s" % (kind, f)] = len(hit)
+            for i, (nv, season, g) in enumerate(hit[:3]):
+                out["streaktop:%s:%s:%d" % (kind, f, i)] = {"owner": (arc.get("owners") or {}).get("%d:%s" % (season, g)) or "an unnamed owner", "season": season, "L": -nv}
     fc = ctx.get("forecast") or {}
     teams = (fc.get("sim") or {}).get("teams") or {}
     prev = (fc.get("prevSim") or {}).get("teams") or {}
@@ -490,26 +528,40 @@ def validate(res, ctx, pack):
             sim = ((ctx.get("forecast") or {}).get("sim") or {})
             teams = sim.get("teams") or {}
             what, _, fid = rest.partition(":")
-            if what == "runs":
+            flags = (ctx.get("clinch") or {}).get("byFid") or {}
+            if what == "floor":
+                if v != PROB.FLOOR_PCT:
+                    bad(key, "the smallest printed probability is %s, page %s" % (PROB.FLOOR_PCT, v))
+            elif what == "runs":
                 if v != sim.get("runs"):
                     bad(key, "forecast runs %s, page %s" % (sim.get("runs"), v))
-            elif fid not in teams:
+            elif what not in ("pre", "prevpo", "prepo") and fid not in teams:
                 bad(key, "no forecast row for %s" % fid)
+            elif what == "pre":
+                k_, _, f_ = fid.partition(":")
+                pre = ((ctx.get("forecastPre") or {}).get("teams") or {}).get(f_)
+                if not pre or k_ not in pre or abs(PROB.value(pre[k_]) - v) > 1e-9 or c.get("shown") != PROB.text(pre[k_]):
+                    bad(key, "pre-trade forecast %r, page %s" % (pre and pre.get(k_), c.get("shown")))
             elif what in ("prevpo", "prepo"):
                 fc_ = ctx.get("forecast") or {}
                 base = ((fc_.get("prevSim") or {}).get("teams") or {}).get(fid, {}).get("po") if what == "prevpo" else teams[fid].get("prePo")
-                if base is None or round(100 * base, 1) != v:
-                    bad(key, "forecast base %s, page %s" % (base, v))
+                if base is None or abs(PROB.value(base) - v) > 1e-9 or c.get("shown") != PROB.text(base):
+                    bad(key, "forecast base %s prints %s, page %s" % (base, PROB.text(base) if base is not None else None, c.get("shown")))
             elif what in ("po", "bye"):
-                if round(100 * teams[fid][what], 1) != v:
-                    bad(key, "forecast %s %.4f, page %s" % (what, teams[fid][what], v))
+                want_t, want_v = PROB.single(teams[fid][what], what, flags.get(fid))
+                if abs(want_v - v) > 1e-9 or c.get("shown") != want_t:
+                    bad(key, "forecast %s %.4f prints %s, page %s (%s)" % (what, teams[fid][what], want_t, c.get("shown"), v))
             elif what == "div":
                 grp = {f: t_["div"] for f, t_ in teams.items() if t_["division"] == teams[fid]["division"]}
-                if float(season_sim.display_percentages(grp)[fid]) != v:
-                    bad(key, "division odds %s do not match the forecast's rounding" % v)
+                cells = PROB.group_cells(grp, season_sim.display_percentages(grp), {f for f in grp if PROB.certain("div", flags.get(f))[0]},
+                                         {f for f in grp if PROB.certain("div", flags.get(f))[1]})
+                if abs(cells[fid][1] - v) > 1e-9 or c.get("shown") != cells[fid][0]:
+                    bad(key, "division odds %s (%s) do not match the forecast's rounding and certainty rule (%s)" % (v, c.get("shown"), cells[fid][0]))
             elif what == "title":
-                if float(season_sim.display_percentages({f: t_["title"] for f, t_ in teams.items()})[fid]) != v:
-                    bad(key, "title odds %s do not match the forecast's rounding" % v)
+                tp = {f: t_["title"] for f, t_ in teams.items()}
+                cells = PROB.group_cells(tp, season_sim.display_percentages(tp), set(), {f for f in tp if PROB.certain("title", flags.get(f))[1]})
+                if abs(cells[fid][1] - v) > 1e-9 or c.get("shown") != cells[fid][0]:
+                    bad(key, "title odds %s (%s) do not match the forecast's rounding and certainty rule (%s)" % (v, c.get("shown"), cells[fid][0]))
             else:
                 bad(key, "unknown odds claim")
         elif kind in ("heat", "hist"):
@@ -528,13 +580,70 @@ def validate(res, ctx, pack):
             truth = n.setdefault("_trig_truth", _trig_truth(ctx))
             if rest not in truth:
                 bad(key, "no recomputed value for %s" % rest)
+            elif isinstance(truth[rest], dict):
+                if not (isinstance(v, dict) and all(v.get(k) == truth[rest][k] or (isinstance(v.get(k), float) and abs(v[k] - truth[rest][k]) < 0.05) for k in truth[rest])):
+                    bad(key, "page %r, recomputed %r" % (v, truth[rest]))
             elif abs(float(truth[rest]) - float(v)) > 0.05:
                 bad(key, "page %r, recomputed %r" % (v, truth[rest]))
+        elif kind == "trade":
+            info = (ctx.get("tradeInfo") or [None])[0]
+            if not info:
+                bad(key, "no trade in the snapshot")
+            else:
+                what, _, pid = rest.partition(":")
+                pl = [x for x in info["a_gave"] + info["b_gave"] if x["kind"] == "player"]
+                sizes = (ctx.get("archive") or {}).get("tradeSizes") or []
+                n_all = len([x for x in info["a_gave"] + info["b_gave"] if x["kind"] in ("player", "pick", "bb")])
+                want = {"na": len([x for x in info["a_gave"] if x["kind"] in ("player", "pick", "bb")]),
+                        "nb": len([x for x in info["b_gave"] if x["kind"] in ("player", "pick", "bb")]), "n": n_all,
+                        "rk": sum(1 for z in sizes if z >= n_all), "rn": len(sizes),
+                        "sal": round(sum(x["salary"] for x in (info["a_gave"] if pid == "a" else info["b_gave"]) if x["kind"] == "player"), 1)}
+                tc_ = ctx.get("tradeContext") or {}
+                if what in ("rbpts", "rbrank"):
+                    rb_ = tc_.get("rbPts") or {}
+                    w_ = rb_.get(pid) if what == "rbpts" else (1 + sum(1 for x in rb_.values() if x > rb_.get(pid, 0) + 1e-9) if pid in rb_ else None)
+                elif what in ("started", "onroster"):
+                    st_ = (tc_.get("players") or {}).get(pid)
+                    w_ = (st_ or {}).get("started" if what == "started" else "onRoster")
+                elif what == "pwk":
+                    w_ = ((tc_.get("players") or {}).get(pid) or {}).get("weekScore")
+                elif what in ("lowline", "lowteam", "lowgap"):
+                    lows_ = (ctx.get("archive") or {}).get("lowPlayerWeek") or []
+                    i_s, _, stat = pid.partition(":")
+                    i_ = int(i_s) if i_s.isdigit() else -1
+                    L_ = lows_[i_] if 0 <= i_ < len(lows_) else None
+                    if not L_:
+                        w_ = None
+                    elif what == "lowline":
+                        ln_ = L_.get("line") or {}
+                        w_ = (ln_.get("sack_fumbles_lost", 0) + ln_.get("rushing_fumbles_lost", 0) + ln_.get("receiving_fumbles_lost", 0)) if stat == "fumbles" else ln_.get(stat)
+                    elif what == "lowteam":
+                        w_ = L_.get("teamScore")
+                    else:
+                        w_ = round((L_.get("nextLowest") or 0) - (L_.get("teamScore") or 0), 1)
+                elif what == "low":
+                    lows_ = (ctx.get("archive") or {}).get("lowPlayerWeek") or []
+                    i_ = int(pid) if pid.isdigit() else -1
+                    if not (0 <= i_ < len(lows_)) or not isinstance(v, dict) or any(v.get(k) != lows_[i_][k] for k in ("score", "season", "week", "owner", "name")):
+                        bad(key, "page %r, archive %r" % (v, lows_[i_] if 0 <= i_ < len(lows_) else None))
+                    continue
+                elif what == "asset":
+                    w_ = next((x["salary"] for x in pl if x["id"] == pid), None)
+                elif what == "yrs":
+                    w_ = next((int(x["years"]) for x in pl if x["id"] == pid), None)
+                else:
+                    w_ = want.get(what)
+                if w_ is None or abs(float(w_) - float(v)) > 0.05:
+                    bad(key, "page %r, trade data %r" % (v, w_))
         elif kind == "quoteid":
             if rest not in chat or chat[rest]["message_id"] != v:
                 bad(key, "message id is not in the chat window")
         elif kind == "divweek":
-            want = len(pack["pots"]) if rest == "pots" else sum(len(p["games"]) for p in pack["pots"])
+            if rest == "sweeps":
+                want = sum(1 for p_ in pack["pots"] for o_ in {x for g in p_["games"] for x in (g["winner"], g["loser"])}
+                           if all(g["winner"] == o_ for g in p_["games"] if o_ in (g["winner"], g["loser"])))
+            else:
+                want = len(pack["pots"]) if rest == "pots" else sum(len(p["games"]) for p in pack["pots"])
             if v != want:
                 bad(key, "page %s, pack %s" % (v, want))
         elif kind == "divrec":
@@ -597,6 +706,16 @@ def validate(res, ctx, pack):
     stray = sorted({x for x in NUM_RE.findall(text) if x.replace(",", "").lstrip("+-−") not in shown})
     if stray:
         errors.append("numbers on the page that are not registered claims: %s" % ", ".join(stray[:20]))
+    # Keith 2026-11-11: every number of 1,000 or more prints with a thousands comma (years, ids and week numbers are left alone)
+    msg_ids = {str(c["value"]) for k, c in res["claims"].items() if k.startswith("quoteid:")}
+    bare = sorted({m for m in re.findall(r"(?<![\w.,/#:-])(\d{4,9}(?:\.\d+)?)(?![\d,])", text) if not re.fullmatch(r"(?:19|20)\d\d", m) and m not in msg_ids})
+    if bare:
+        errors.append("numbers of 1,000 or more without a thousands comma: %s" % ", ".join(bare[:10]))
+    # Keith 2026-10-27 and 2026-11-10: no probability prints as a decimal certainty (100.0% / 0.0%); "100%" / "0%" can only come from a
+    # clinched / eliminated claim, which the odds checks above verify against the engine's flags.
+    certain_txt = re.findall(r"(?<![\d.])(?:100\.0|0\.0)%", text)
+    if certain_txt:
+        errors.append("a probability prints as %s: nothing is certain unless the engine says it is clinched or eliminated" % certain_txt[0])
     # every quote link points at its own message
     for href, inner in re.findall(r'<a class="rcpt" href="([^"]+)"[^>]*>([\s\S]*?)</a>', doc):
         mid = href.rstrip("/").split("/")[-1]

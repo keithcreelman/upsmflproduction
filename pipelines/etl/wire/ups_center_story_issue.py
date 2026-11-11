@@ -35,11 +35,16 @@ import ups_center_issue as I  # noqa: E402
 import ups_center_story_data as SD  # noqa: E402
 import ups_center_stories as STORIES  # noqa: E402
 import ups_center_story_triggers as TRG  # noqa: E402
+import ups_center_prob as PROB  # noqa: E402
 import chat_exclusions  # noqa: E402
 
 e = html.escape
 WORDS = {0: "none", 1: "one", 2: "two", 3: "three", 4: "four"}
 SEGMENTS = ["bigstory", "divweek", "elias", "odds", "plays", "season"]
+
+
+def trade_list(assets):
+    return [x for x in assets if x["kind"] in ("player", "pick", "bb")]
 
 
 def join(names):
@@ -81,10 +86,8 @@ class StoryIssue(I.Issue):
             sim = self.ctx["forecast"]["sim"]
             teams = sim["teams"]
             src = "season_sim live wk%02d (%s runs, %s)" % (self.week, sim["runs"], sim["generatedAtUtc"])
-            div = {}
-            for d in sorted({t["division"] for t in teams.values()}):
-                div.update(self.display({f: t["div"] for f, t in teams.items() if t["division"] == d}))
-            self._odds = (sim, src, div, self.display({f: t["title"] for f, t in teams.items()}))
+            div_cells, div_lr, title_cells, title_lr = self.odds_cells(teams, src)
+            self._odds = (sim, src, (div_cells, div_lr), (title_cells, title_lr))
         return self._odds
 
     @staticmethod
@@ -94,19 +97,19 @@ class StoryIssue(I.Issue):
 
     def po(self, f):
         sim, src, _, _ = self.odds_text()
-        return self.L.put("odds:po:" + f, round(100 * sim["teams"][f]["po"], 1), src, "%.1f%%" % (100 * sim["teams"][f]["po"]))
+        return e(self.prob_claim("odds:po:" + f, sim["teams"][f]["po"], "po", f, src))
 
     def bye(self, f):
         sim, src, _, _ = self.odds_text()
-        return self.L.put("odds:bye:" + f, round(100 * sim["teams"][f]["bye"], 1), src, "%.1f%%" % (100 * sim["teams"][f]["bye"]))
+        return e(self.prob_claim("odds:bye:" + f, sim["teams"][f]["bye"], "bye", f, src))
 
     def dv(self, f):
-        sim, src, div, _ = self.odds_text()
-        return self.L.put("odds:div:" + f, float(div[f]), src + ", largest-remainder by division", div[f] + "%")
+        sim, src, (cells, lr), _ = self.odds_text()
+        return e(self.L.put("odds:div:" + f, cells[f][1], src + ", largest-remainder by division", cells[f][0], raw=round(100 * sim["teams"][f]["div"], 4), lr=lr[f]))
 
     def ti(self, f):
-        sim, src, _, title = self.odds_text()
-        return self.L.put("odds:title:" + f, float(title[f]), src + ", largest-remainder", title[f] + "%")
+        sim, src, _, (cells, lr) = self.odds_text()
+        return e(self.L.put("odds:title:" + f, cells[f][1], src + ", largest-remainder", cells[f][0], raw=round(100 * sim["teams"][f]["title"], 4), lr=lr[f]))
 
     def div_names(self):
         """{division id: name}: the name the week's games use for an all-division game; else 'Division <id>'."""
@@ -409,11 +412,36 @@ class StoryIssue(I.Issue):
                 sub, body = getattr(self, "story_" + lead["headline"]["trigger"])(lead["headline"], lead["evidence"])
         else:
             sub, body = getattr(self, "story_fallback_" + pk["fallback"])()
-        sup = self.support_lines(pk["support"])
+        # the other all-time story (Week 9: Eric Martel's score leads, Bear Dunn's start still gets Week 8's treatment and top-5 table)
+        other = next((x for x in pk["support"] if x["trigger"] == "allplay_start" and (not lead or x["fid"] != lead["fid"])), None)
+        block = ""
+        if other:
+            same = [x for x in pk["support"] if x["fid"] == other["fid"] and x is not other]
+            sub2, body2 = self.story_allplay_start(other["data"]["story"], evidence=same)
+            self._big = lead["fid"] if lead else other["fid"]
+            block = self.desk([("Rich", "<b>The other story this week:</b> %s.</b>" % sub2)]).replace("</b>.</b>", "</b>") + body2
+        # a big executed trade always appears: as the lead, as evidence, or as its own support story (Keith 2026-11-11)
+        trade = None
+        pool = ([lead["headline"]] + lead["evidence"] if lead else []) + pk["support"]
+        trade = next((x for x in pool if x["trigger"] == "big_trade"), None)
+        if not trade and (self.ctx.get("tradeInfo") or []):
+            cand = TRG.REGISTRY[[t["id"] for t in TRG.REGISTRY].index("big_trade")]["fn"](TRG.Env(self.ctx))
+            trade = ({"trigger": "big_trade", "kind": "stakes", "fid": cand[0]["fid"], "s": cand[0]["s"], "adj": cand[0]["s"], "data": cand[0]["data"]} if cand else None)
+        tblock = ""
+        if trade and not (lead and lead["headline"] is trade):
+            sub3, body3 = self.story_big_trade(trade)
+            tblock = body3
+        sup = tblock + block + self.support_lines([x for x in pk["support"] if x is not other and x is not trade and x["trigger"] != "big_trade"
+                                                   and not (other and x["fid"] == other["fid"] and x["trigger"] == "streak")])
         h = lead["headline"] if lead else None
         self.big_pick = {"phase": pk["phase"], "fid": lead["fid"] if lead else None, "trigger": h["trigger"] if h else "fallback_" + pk["fallback"],
                          "s": round(h["s"], 4) if h else None, "evidence": [x["trigger"] for x in (lead["evidence"] if lead else [])],
                          "support": [{"fid": x["fid"], "trigger": x["trigger"], "s": round(x["adj"], 3)} for x in pk["support"]]}
+        import re as _re
+        first = _re.sub(r"<[^>]+>", "", (_re.search(r'<div class="lt \w+"><div class="who">\w+</div><p>(.*?)</p>', body, _re.S) or [None, ""])[1])
+        first = html.unescape(first)
+        sent = _re.split(r"(?<=[.!?])\s", first)[0] if first else ""
+        self.dek = ("%s Week %d recap, built from the league&rsquo;s own data; an editor has not reviewed it." % (e(sent), self.week)) if sent else None
         return self.section("bigstory", "The Big Story", 1, "The Big Story <small>&mdash; %s</small>" % sub, body + sup)
 
     def support_lines(self, support):
@@ -427,21 +455,38 @@ class StoryIssue(I.Issue):
         me = e(self.owner[f])
         src = "D1 archive + season scores (ups_center_story_triggers)"
         if t == "week_score":
-            return ("Stuart", "%s scored %s in Week %d, %s%% of the league average that week; %s of %s team-weeks since 2011 reached that share." % (
-                me, self.score(f), self.week, self.L.put("trig:ratio:" + f, int(round(100 * d["ratio"])), src),
-                self.L.put("trig:wkk:" + f, d["k"], src), self.L.put("trig:wkn:" + f, d["n"], src)))
+            r = d["ranks"]
+            sr = "trig:recn"
+            return ("Stuart", "%s scored %s in Week %d: the %s-highest single-week score and the %s-best share of the league average among the %s team-weeks since 2011 (playoffs and this season included)." % (
+                me, self.score(f), self.week, self.L.put("trig:recraw:" + f, r["raw_rank"], src, self._ord(r["raw_rank"])),
+                self.L.put("trig:recshare:" + f, r["share_rank"], src, self._ord(r["share_rank"])), self.L.put(sr, r["n"], src, "{:,}".format(r["n"]))))
         if t == "streak":
             k = d["kind"]
-            return ("Rich", "%s has %s at least %s of the eleven other teams in each of the last %s weeks; %s of %s team-weeks since 2011 reached a streak that long." % (
-                me, "beaten" if k == "dom" else "lost to", "nine" if k == "dom" else "nine", self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src),
-                self.L.put("trig:streakk:%s:%s" % (k, f), d["k"], src), self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src))
-                    ) if k == "dom" else ("Rich", "%s has been outscored by at least nine of the eleven other teams in each of the last %s weeks; %s of %s team-weeks since 2011 had a streak that long." % (
-                me, self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src), self.L.put("trig:streakk:%s:%s" % (k, f), d["k"], src),
-                self.L.put("trig:streakn:%s:%s" % (k, f), d["n"], src)))
+            L = self.L.put("trig:streak:%s:%s" % (k, f), d["L"], src)
+            reached = d["reached"]
+            kk = self.L.put("trig:streakk:%s:%s" % (k, f), len(reached), src)
+            names = []
+            for i, (season, fid, longest) in enumerate(reached[:3]):
+                owner = (self.ctx["archive"].get("owners") or {}).get("%d:%s" % (season, fid)) or "an unnamed owner"
+                self.L.put("trig:streaktop:%s:%s:%d" % (k, f, i), {"owner": owner, "season": season, "L": longest}, src, str(longest))
+                names.append("%s in %d (%s weeks)" % (e(owner), season, longest))
+            what = ("beaten at least nine of the eleven other teams in each of the last %s weeks" if k == "dom" else
+                    "been outscored by at least nine of the eleven other teams in each of the last %s weeks") % L
+            if not reached:
+                tail = "No regular-season team since 2011 has had a streak that long."
+            elif len(reached) <= 3:
+                tail = "Only %s regular-season %s since 2011 %s had a streak that long: %s." % (
+                    self.word(len(reached)), "team" if len(reached) == 1 else "teams", "has" if len(reached) == 1 else "have", join(names))
+            else:
+                tail = "%s regular-season teams since 2011 have had a streak that long, the longest %s." % (kk, names[0])
+            return ("Rich", "%s has %s. %s" % (me, what, tail))
         if t == "allplay_start":
             st = d["story"]
-            return ("Stuart", "%s is %s in All-Play, a %s start than all but %s earlier teams in the league archive." % (
-                me, self.ap_c(f), "better" if st["direction"] == "best" else "worse", self.L.put("arch:ahead:" + f, st["ahead"], self.ctx["archive"]["source"])))
+            ah = self.L.put("arch:ahead:" + f, st["ahead"], self.ctx["archive"]["source"], str(st["ahead"]))
+            return ("Stuart", "%s is %s in All-Play, a %s start than all but %s earlier %s in the league archive." % (
+                me, self.ap_c(f), "better" if st["direction"] == "best" else "worse", self.word(st["ahead"]) if st["ahead"] <= 12 else ah,
+                "team" if st["ahead"] == 1 else "teams")) if st["ahead"] > 0 else ("Stuart", "%s is %s in All-Play, the %s start in the league archive." % (
+                    me, self.ap_c(f), "best" if st["direction"] == "best" else "worst"))
         if t == "luck_gap":
             H = self.heat()
             if not H:
@@ -464,12 +509,75 @@ class StoryIssue(I.Issue):
         sim, src, _, _ = self.odds_text()
         prev = (self.ctx.get("forecast") or {}).get("prevSim") or {}
         if d["basis"] == "last week" and prev.get("teams", {}).get(f):
-            return self.L.put("odds:prevpo:" + f, round(100 * prev["teams"][f]["po"], 1), "season_sim live wk%02d" % (self.week - 1), "%.1f%%" % (100 * prev["teams"][f]["po"]))
+            v = prev["teams"][f]["po"]
+            return e(self.L.put("odds:prevpo:" + f, PROB.value(v), "season_sim live wk%02d" % (self.week - 1), PROB.text(v), raw=round(100 * v, 4)))
         v = sim["teams"][f].get("prePo")
-        return self.L.put("odds:prepo:" + f, round(100 * v, 1), "season_sim preseason forecast (%s)" % src, "%.1f%%" % (100 * v))
+        return e(self.L.put("odds:prepo:" + f, PROB.value(v), "season_sim preseason forecast (%s)" % src, PROB.text(v), raw=round(100 * v, 4)))
 
     def small_sample(self):
         return "Through %s week%s that is a small sample, so read it as a first look, not a verdict." % (self.word(self.week), "" if self.week == 1 else "s") if self.week <= 4 else ""
+
+    def rec_entry(self, x, i, measure):
+        """Register one ranked team-week (a row of the record tables): its owner, season, week, score and share. Returns (score text, pct text)."""
+        src = "league archive weekly scores (regular season) + this season's weeks (ups_center_story_triggers.week_pool)"
+        v = {"owner": x["owner"], "season": x["season"], "week": x["week"], "score": round(x["score"], 1), "pct": round(100 * x["ratio"], 1)}
+        self.L.put("trig:%stop:%d" % (measure, i), v, src, "%.1f %.1f" % (x["score"], 100 * x["ratio"]))
+        return "%.1f" % x["score"], "%.1f%%" % (100 * x["ratio"])
+
+    def rec_ranks(self, d):
+        """The week-score ranking sentences and tables (raw record and share of the league average, both). Returns (lines, tables html)."""
+        r = d["ranks"]
+        me = r["me"]
+        f = me["fid"]
+        src = "league archive weekly scores (regular season) + this season's weeks (ups_center_story_triggers.week_pool)"
+        n_c = self.L.put("trig:recn", r["n"], src, "{:,}".format(r["n"]))
+        raw_c = self.L.put("trig:recraw:" + f, r["raw_rank"], src, self._ord(r["raw_rank"]))
+        sh_c = self.L.put("trig:recshare:" + f, r["share_rank"], src, self._ord(r["share_rank"]))
+        pct = self.L.put("trig:ratio:" + f, round(100 * me["ratio"], 1), src, "%.1f" % (100 * me["ratio"]))
+        avg = self.L.put("trig:avg:" + f, round(me["score"] / me["ratio"], 1), src, "%.1f" % (me["score"] / me["ratio"]))
+        ordw = lambda k: "highest" if k == 1 else ("%s-highest" % self.ORDW.get(k, self._ord(k)))
+        ordb = lambda k: "best" if k == 1 else ("%s-best" % self.ORDW.get(k, self._ord(k)))
+        owner = e(me["owner"])
+        t1 = "%s scored %s in Week %d, the %s single-week score in league history (every week with all twelve teams scored, %d&ndash;%d so far, playoffs included: %s team-weeks)." % (
+            owner, self.score(f), self.week, ordw(r["raw_rank"]), r["first_season"], self.season, n_c)
+        prev = [x for x in r["raw_top"] if not (x["cur"] and x["week"] == self.week and x["fid"] == f)]
+        if r["raw_rank"] == 1 and prev:
+            pv = r["raw_top"][1]
+            sc_, _ = self.rec_entry(pv, 1, "raw")
+            t1 += " The previous record was %s by %s in Week %d of %d%s." % (sc_, e(pv["owner"]), pv["week"], pv["season"], ", a playoff week" if pv.get("extra") else "")
+        elif r["raw_rank"] > 1:
+            ab = r["raw_top"][:r["raw_rank"] - 1]
+            t1 += " Ahead of it: %s." % join("%s by %s in Week %d of %d%s" % (self.rec_entry(x, i, "raw")[0], e(x["owner"]), x["week"], x["season"], ", a playoff week" if x.get("extra") else "") for i, x in enumerate(ab))
+        lines = [("Stuart", t1)]
+        ahead = r["share_top"][:max(0, r["share_rank"] - 1)]
+        t2 = "Scoring has risen across the eras, so here is the other measure. %s was %s%% of that week&rsquo;s league average of %s." % (self.score(f), pct, avg)
+        if ahead:
+            parts = []
+            for i, x in enumerate(ahead):
+                sc_, p_ = self.rec_entry(x, i, "share")
+                parts.append("%s in %d (%s%s%s)" % (e(x["owner"]), x["season"], ("Week %d, a playoff week, " % x["week"]) if x.get("extra") else "", p_,
+                                                   ", the best share ever" if i == 0 else ""))
+            t2 += " Only %s team-week%s since %d %s posted a bigger share: %s." % (
+                self.word(len(ahead)), "" if len(ahead) == 1 else "s", r["first_season"], "has" if len(ahead) == 1 else "have", join(parts))
+        else:
+            t2 += " No team-week since %d has posted a bigger share: it is the best on record." % r["first_season"]
+        lines.append(("Rich", t2))
+        npart = len((self.ctx.get("archive") or {}).get("partial") or [])
+        part = (" %s week%s with fewer than twelve teams scored %s left out." % (self.L.put("trig:recpartial", npart, src), "" if npart == 1 else "s", "is" if npart == 1 else "are")) if npart else ""
+        cap = ('<p class="caption">Every week with all twelve teams scored, %d&ndash;%d so far, playoffs included (%s team-weeks).%s Share = a team&rsquo;s score divided by that '
+               'week&rsquo;s league average, so eras can be compared.%s</p>' % (
+                   r["first_season"], self.season, n_c, part, (" %s is left out because its archived weekly scores conflict with themselves." % join(sorted(
+                       (self.ctx.get("archive") or {}).get("excluded") or {}))) if (self.ctx.get("archive") or {}).get("excluded") else ""))
+
+        def tbl(measure, rows_, head):
+            body = []
+            for i, x in enumerate(rows_):
+                sc_, p_ = self.rec_entry(x, i, measure)
+                cur = x["cur"] and x["week"] == self.week and x["fid"] == f
+                body.append(self.row(["%s &middot; %s, Week %d%s" % (x["season"], e(x["owner"] or "unnamed"), x["week"], " (playoffs)" if x.get("extra") else ""), sc_, p_], bold=cur))
+            return self.table([head, "Score", "Share of average"], body)
+        tables = tbl("raw", r["raw_top"], "Highest single-week scores") + tbl("share", r["share_top"], "Highest share of the league average")
+        return lines, tables + cap
 
     def story_week_score(self, head, evidence):
         f, d = head["fid"], head["data"]
@@ -477,24 +585,231 @@ class StoryIssue(I.Issue):
         s = self.ctx["mfl"]["scores"]
         games = [g for g in self.ctx["mfl"]["games"] if f in (g["a"], g["b"])]
         won = sorted([(g["b"] if g["a"] == f else g["a"]) for g in games if (g["as"] > g["bs"]) == (g["a"] == f)], key=lambda o: -(s[f] - s[o]))
-        src = "D1 archive + season scores (ups_center_story_triggers)"
-        lines = [("Stuart", "%s scored %s in Week %d, the best score of the week and %s%% of the league average. %s of %s team-weeks since 2011 reached that share." % (
-            me, self.score(f), self.week, self.L.put("trig:ratio:" + f, int(round(100 * d["ratio"])), src), self.L.put("trig:wkk:" + f, d["k"], src),
-            self.L.put("trig:wkn:" + f, d["n"], src)))]
+        lines, tables = self.rec_ranks(d)
+        lines[2:2] = self.kenny_lines("record", d["ranks"])           # the chat's reaction sits right after the record sentences
         if won:
-            lines.append(("Rich", "%s %s: %s." % (me, "won both games" if len(games) == 2 and len(won) == 2 else "won", join("%s by %s" % (e(self.owner[o]), self.margin(f, o)) for o in won))))
+            allw = len(won) == len(games)
+            lines.append(("Stuart", "%s %s: %s." % (me, ("won both games" if len(games) == 2 else "won all %s games" % self.word(len(games))) if allw and len(games) >= 2 else "won",
+                                                    join("%s by %s" % (e(self.owner[o]), self.margin(f, o)) for o in won))))
         for ev in evidence:
             ln = self.evidence_line(ev)
             if ln:
                 lines.append(ln)
         ss = self.small_sample()
         if ss:
-            lines.append(("Stuart", ss))
-        top = sorted(s, key=lambda g: (-s[g], g))[:5]
-        rows = [self.row([e(self.owner[g]), self.score(g), "%d%%" % int(round(100 * s[g] / d["avg"]))]) for g in top]
-        for g in top:
-            self.L.put("trig:ratio:" + g, int(round(100 * s[g] / d["avg"])), src)
-        return "%s had the week" % self.owner[f], self.desk(lines) + self.table(["Best scores of Week %d" % self.week, "Score", "Share of league average"], rows)
+            lines.append(("Rich", ss))
+        r = d["ranks"]
+        return ("%s set the league&rsquo;s single-week scoring record" % e(self.owner[f]) if r["raw_rank"] == 1 else "%s had the week" % e(self.owner[f])), self.desk(lines) + tables
+
+    def kq(self, mid):
+        """(when, anchor) for one picked message, e.g. ('Monday at 5:16 PM', link): the quote is verbatim and registered; marks the pick used."""
+        m = next(x for x in self.ctx["d1"]["chat"] if x["message_id"] == mid)
+        txt = " ".join((m["content"] or "").split())
+        self.L.put("quote:" + mid, txt, "D1 ups_discord_messages", txt)
+        d = datetime.fromtimestamp(int(m["posted_at_unix"]), I.ET)
+        clock = "%d:%02d %s" % ((d.hour % 12) or 12, d.minute, "AM" if d.hour < 12 else "PM")
+        url = "https://discord.com/channels/%s/%s/%s" % (I.GUILD, m["channel_id"], mid)
+        a = '<a class="rcpt" href="%s" target="_blank" rel="noopener" title="%s &middot; #%s &middot; %s">&ldquo;%s&rdquo;</a>' % (
+            url, e(m["owner_name"]), e(m["channel_name"]), I.et_clock(m["posted_at_unix"]), e(txt))
+        self.kenny_used.add(mid)
+        return "%s at %s" % (d.strftime("%A"), clock), a, m
+
+    def slot_ids(self, story, slot):
+        return [str(p["id"]) for owners in [self.kenny_picks().get(story, {})] for items in owners.values() for p, _ in items if p.get("slot") == slot]
+
+    def story_big_trade(self, head, evidence=()):
+        """The trade, told as a story after it happened (Keith 2026-11-11): what moved, what the trade says about each roster (the data: running-back
+        points rank, who started every week), and the league's chat reaction used as quotes INSIDE those sentences where a line fits. Facts only;
+        never the offer's comment (owners' trade messages are private)."""
+        d = head["data"]
+        tr = d["trade"]
+        a, b = tr["a"], tr["b"]
+        tc = self.ctx.get("tradeContext") or {}
+        src = "MFL public transactions + rosters + weeklyResults exports (trade of %s)" % datetime.fromtimestamp(tr["timestamp"], I.ET).strftime("%b %d, %Y")
+        when = I.et_clock(tr["timestamp"])
+        A, B = e(self.owner[a]), e(self.owner[b])
+        sa, sb = self.sn(a), self.sn(b)                              # surnames after the first mention, as the hand edit does
+
+        def desc(x):
+            if x["kind"] == "player":
+                return "%s (%s)" % (e(x["name"]), e(x.get("pos") or ""))
+            if x["kind"] == "pick":
+                own = ("%s&rsquo;s " % e(self.owner[x["origin"]])) if x.get("origin") in self.owner else ""
+                return "%s%d %s-round pick" % (own, x["year"], self.ORDW.get(x["round"], str(x["round"])))
+            return "$%s of blind-bid money" % "{:,.0f}".format(x.get("amount", 0))
+        na, nb = len(trade_list(tr["a_gave"])), len(trade_list(tr["b_gave"]))
+        n = d["assets"]
+        self.L.put("trade:na", na, src)
+        self.L.put("trade:nb", nb, src)
+        n_c = self.L.put("trade:n", n, src)
+        sal_a = self.L.put("trade:sal:a", tr["a_salary"], src, "${:,.0f}".format(tr["a_salary"]))
+        sal_b = self.L.put("trade:sal:b", tr["b_salary"], src, "${:,.0f}".format(tr["b_salary"]))
+        lines = []
+        # 1. the trade, as news
+        lines.append(("Stuart", "Sunday was the record. The other story of the week arrived Tuesday, and it was big: %s and %s made a %s-asset trade at %s. %s sent %s. %s sent %s." % (
+            A, B, self.word(n) if n <= 12 else n_c, I.et_clock(tr["timestamp"], with_day=False) + " ET", sa, join(desc(x) for x in tr["a_gave"]), sb, join(desc(x) for x in tr["b_gave"]))))
+        # 2. what it says about the rosters: running back points, then the Keith-side chat line if a pick fits
+        rb = tc.get("rbPts") or {}
+        if rb:
+            order = sorted(rb, key=lambda f: (-rb[f], f))
+            for side, gave, recv_gave in ((a, tr["a_gave"], tr["b_gave"]), (b, tr["b_gave"], tr["a_gave"])):
+                rk = order.index(side) + 1
+                incoming = [x for x in recv_gave if x["kind"] == "player" and x.get("pos") == "RB"]
+                if rk >= 10 and incoming:
+                    pts = self.L.put("trade:rbpts:" + side, rb[side], src, "%.1f" % rb[side])
+                    rkc = self.L.put("trade:rbrank:" + side, rk, src, self._ord(rk))
+                    lines.append(("Rich", "Look at where %s started. %s&rsquo;s running backs scored %s points through Week %d, %s among the twelve teams, so the headline coming back is %s, a running back." % (
+                        self.sn(side), self.sn(side), pts, tc["through"], ("dead last" if rk == 12 else rkc), join(e(x["name"]) for x in incoming[:1]))))
+                    ids = self.slot_ids("trade", "rb")
+                    if ids:
+                        w_, q, m = self.kq(ids[0])
+                        lines.append(("Kenny", "%s had put the need in the chat %s: %s. The next afternoon %s was on %s&rsquo;s roster." % (
+                            e(m["owner_name"]), w_, q, e(incoming[0]["name"]), self.sn(side))))
+        # 3. the cheapest everyday starter and what he fetched
+        cheap = None
+        pl = tc.get("players") or {}
+        for side, gave in ((a, tr["a_gave"]), (b, tr["b_gave"])):
+            for x in gave:
+                st = pl.get(x["id"]) if x["kind"] == "player" else None
+                if st and st["onRoster"] >= 5 and st["started"] == st["onRoster"] and (cheap is None or x["salary"] < cheap[0]["salary"]):
+                    cheap = (x, side, st)
+        if cheap:
+            x, side, st = cheap
+            other = b if side == a else a
+            sal = self.L.put("trade:asset:" + x["id"], x["salary"], src, "${:,.0f}".format(x["salary"]))
+            on = self.L.put("trade:onroster:" + x["id"], st["onRoster"], src, str(st["onRoster"]))
+            allsal = [y["salary"] for y in tr["a_gave"] + tr["b_gave"] if y["kind"] == "player"]
+            cheapest = x["salary"] <= min(allsal)
+            lines.append(("Stuart", "%s is the piece that tells the other half of the story. %s at %s, and started all %s weeks for %s. %s went to %s as part of the package for %s." % (
+                e(x["name"]), "The cheapest player in the deal," if cheapest else "A starter", sal, self.word(st["onRoster"]) if st["onRoster"] <= 12 else on, self.sn(side), e(x["name"]).split(" ")[-1], self.sn(other),
+                join(e(y["name"]) for y in (tr["b_gave"] if side == a else tr["a_gave"]) if y["kind"] == "player"))))
+            ids = self.slot_ids("trade", "return")
+            if ids:
+                w_, q, m = self.kq(ids[0])
+                lines.append(("Kenny", "%s weighed in %s on what %s took in: %s." % (e(m["owner_name"]), w_, self.sn(other), q)))
+        lines.append(("Rich", "The players %s sent carry %s in salary, and the players %s sent carry %s. Only %s of the %s trades in league history since 2010 moved %s assets or more." % (
+            sa, sal_a, sb, sal_b, self.L.put("trade:rk", d["rank"], "league archive transactions_trades (2010&ndash;2025 trade groups)"),
+            self.L.put("trade:rn", d["pool"], "league archive transactions_trades (2010&ndash;2025 trade groups)", "{:,}".format(d["pool"])), self.word(n) if n <= 12 else n)))
+        # 4. the league's reaction: the bot, and the Cousins question
+        ids = self.slot_ids("trade", "bot")
+        if ids:
+            parts = []
+            for j, mid in enumerate(ids):
+                w_, q, m = self.kq(mid)
+                parts.append((w_, q, m))
+            first = parts[0]
+            rest = " and ".join(q for _, q, _ in parts[1:])
+            lines.append(("Kenny", "%s had the league bot on his mind that afternoon. %s: %s%s." % (
+                e(first[2]["owner_name"]), first[0], first[1], (", and then, still waiting on it: " + rest) if rest else "")))
+        ids = self.slot_ids("trade", "cousins")
+        if ids and any(x["kind"] == "player" and x["name"].endswith("Cousins") for x in tr["a_gave"] + tr["b_gave"]):
+            cz = next(x for x in tr["a_gave"] + tr["b_gave"] if x["kind"] == "player" and x["name"].endswith("Cousins"))
+            giver = tr["a"] if cz in tr["a_gave"] else tr["b"]
+            recv = tr["b"] if giver == tr["a"] else tr["a"]
+            parts = [self.kq(mid) for mid in ids]
+            st = (tc.get("players") or {}).get(cz["id"]) or {}
+            lows = (self.ctx.get("archive") or {}).get("lowPlayerWeek") or []
+            ans1 = ""
+            second = ""
+            if st.get("weekScore") is not None and lows:
+                nfl = {"BAL": "the Ravens", "LAC": "the Chargers", "NYJ": "the Jets", "BUF": "the Bills", "ATL": "the Falcons", "DAL": "the Cowboys", "MIN": "the Vikings",
+                       "NE": "the Patriots", "NEP": "the Patriots", "KC": "the Chiefs", "KCC": "the Chiefs", "PIT": "the Steelers", "CLE": "the Browns", "CIN": "the Bengals",
+                       "DEN": "the Broncos", "MIA": "the Dolphins", "OAK": "the Raiders", "LVR": "the Raiders", "SEA": "the Seahawks", "SF": "the 49ers", "SFO": "the 49ers",
+                       "GB": "the Packers", "GBP": "the Packers", "DET": "the Lions", "CHI": "the Bears", "NO": "the Saints", "NOS": "the Saints", "TB": "the Buccaneers",
+                       "TBB": "the Buccaneers", "CAR": "the Panthers", "WAS": "Washington", "PHI": "the Eagles", "NYG": "the Giants", "ARI": "the Cardinals", "LAR": "the Rams",
+                       "HOU": "the Texans", "IND": "the Colts", "JAC": "the Jaguars", "JAX": "the Jaguars", "TEN": "the Titans"}
+                sc = self.L.put("trade:pwk:" + cz["id"], st["weekScore"], src, "%.1f" % st["weekScore"])
+                src_low = "league archive weekly player scores (regular season) + nflverse player_stats"
+
+                def lowline(i, low):
+                    ln = low.get("line") or {}
+                    sc_ = self.L.put("trade:low:%d" % i, low, src_low, "%.1f" % low["score"]).replace("-", "&minus;")
+                    bits = []
+                    if low.get("pos") == "QB" and ln.get("attempts"):
+                        comp = self.L.put("trade:lowline:%d:completions" % i, ln["completions"], src_low, "%d" % ln["completions"])
+                        att = self.L.put("trade:lowline:%d:attempts" % i, ln["attempts"], src_low, "%d" % ln["attempts"])
+                        yds = self.L.put("trade:lowline:%d:passing_yards" % i, ln["passing_yards"], src_low, "%d" % ln["passing_yards"])
+                        bits.append("%s-of-%s for %s yards" % (comp, att, yds))
+                        wd = lambda c_, n_: self.word(n_) if n_ <= 12 else c_
+                        tds, ints = int(ln["passing_tds"]), int(ln["interceptions"])
+                        if tds:
+                            bits.append("%s touchdown%s" % (wd(self.L.put("trade:lowline:%d:passing_tds" % i, ln["passing_tds"], src_low, "%d" % tds), tds), "" if tds == 1 else "s"))
+                        else:
+                            bits.append("no touchdowns")
+                        if ints:
+                            bits.append("%s interception%s" % (wd(self.L.put("trade:lowline:%d:interceptions" % i, ln["interceptions"], src_low, "%d" % ints), ints), "" if ints == 1 else "s"))
+                        sk = int(ln.get("sacks") or 0)
+                        fl = int((ln.get("sack_fumbles_lost") or 0) + (ln.get("rushing_fumbles_lost") or 0) + (ln.get("receiving_fumbles_lost") or 0))
+                        if sk:
+                            bits.append("%s sack%s" % (wd(self.L.put("trade:lowline:%d:sacks" % i, ln["sacks"], src_low, "%d" % sk), sk), "" if sk == 1 else "s"))
+                        if fl:
+                            bits.append("%s fumble%s lost" % (wd(self.L.put("trade:lowline:%d:fumbles" % i, float(fl), src_low, "%d" % fl), fl), "" if fl == 1 else "s"))
+                    opp = nfl.get(ln.get("opponent"), ln.get("opponent") or "an opponent")
+                    team = nfl.get(low.get("team"), low.get("team") or "")
+                    return sc_, e(low["name"]), ("%s against %s" % (team, opp)).strip(), join(bits) if bits else "", ln
+                l0 = lows[0]
+                s0, n0, g0, st0, ln0 = lowline(0, l0)
+                ans1 = ("Cousins had a quiet one: %s points on %s&rsquo;s bench. But Ryan asked the right question about the wrong player. The lowest weekly score any player has ever posted in UPS history is %s, "
+                        "and it belongs to %s, Week %d of %d, %s%s. %s was on %s&rsquo;s %s for it%s." % (
+                            sc, self.sn(giver), s0, n0, l0["week"], l0["season"], g0, (": " + st0) if st0 else "", n0.split(" ")[-1], e(l0["owner"].split(" ")[-1]),
+                            "bench" if l0.get("status") == "nonstarter" else "lineup",
+                            (", so it never counted: that team scored %s" % self.L.put("trade:lowteam:0", l0["teamScore"], src_low, "%.1f" % l0["teamScore"])) if l0.get("status") == "nonstarter" and l0.get("teamScore") is not None else ""))
+                if len(lows) > 1:
+                    l1 = lows[1]
+                    s1, n1, g1, st1, ln1 = lowline(1, l1)
+                    gap = ""
+                    if l1.get("teamScore") is not None and l1.get("nextLowest") is not None and l1.get("teamRank") == 1:
+                        gap = " That week %s&rsquo;s team scored %s, the lowest in the league by %s points." % (
+                            e(l1["owner"].split(" ")[-1]), self.L.put("trade:lowteam:1", l1["teamScore"], src_low, "%.1f" % l1["teamScore"]),
+                            self.L.put("trade:lowgap:1", round(l1["nextLowest"] - l1["teamScore"], 1), src_low, "%.1f" % (l1["nextLowest"] - l1["teamScore"])))
+                    second = ("The second lowest is %s, and %s %s: %s, Week %d of %d, %s%s.%s %s" % (
+                        s1, "this one" if l1.get("owner") == l0.get("owner") else "that one", ("was started by " + e(l1["owner"].split(" ")[-1])) if l1.get("status") == "starter" else ("was on a bench"),
+                        n1, l1["week"], l1["season"], g1, (": " + st1) if st1 else "", gap,
+                        ("Two lowest weeks in league history, one benched and one started, both %s&rsquo;s." % e(l0["owner"].split(" ")[-1])) if l0.get("owner") == l1.get("owner") and l0.get("status") != l1.get("status") else ""))
+            first = "%s wanted a ruling on %s (%s): %s. %s" % (e(parts[0][2]["owner_name"]), parts[0][0].split(" at ")[0], parts[0][0].split(" at ")[1] if " at " in parts[0][0] else "", parts[0][1], ans1)
+            lines.append(("Kenny", first))
+            if second:
+                lines.append(("Kenny", second))
+            opps = [g for g in self.ctx["mfl"]["games"] if giver in (g["a"], g["b"])]
+            top_opp = None
+            for g in opps:
+                o = g["b"] if g["a"] == giver else g["a"]
+                if self.ctx["mfl"]["scores"][o] > self.ctx["mfl"]["scores"][giver] and (top_opp is None or self.ctx["mfl"]["scores"][o] > self.ctx["mfl"]["scores"][top_opp]):
+                    top_opp = o
+            if len(parts) > 1:
+                ans2 = (" The answer, for the record: on the other side of Cousins that week was %s, whose %s beat %s by %s." % (
+                    e(self.owner[top_opp]), self.score(top_opp), self.sn(giver), self.margin(top_opp, giver))) if top_opp else ""
+                lines.append(("Kenny", "Then, %s, as Cousins changed rosters, %s asked again: %s.%s" % (parts[-1][0], e(parts[-1][2]["owner_name"]), parts[-1][1], ans2)))
+        if self.odds_fresh() and d["deltas"]:
+            pre = (self.ctx.get("forecastPre") or {}).get("teams") or {}
+            moves = []
+            for f in (a, b):
+                for k, lab in (("po", "playoff"), ("div", "division"), ("title", "title")):
+                    dv_ = d["deltas"].get(f, {}).get(k, 0.0)
+                    if abs(dv_) >= 1.0:
+                        before = e(self.L.put("odds:pre:%s:%s" % (k, f), PROB.value(pre[f][k]), "season_sim before the trade (%s)" % (self.ctx.get("forecastPre") or {}).get("generatedAtUtc"),
+                                              PROB.text(pre[f][k]), raw=round(100 * pre[f][k], 4)))
+                        after = {"po": self.po, "div": self.dv, "title": self.ti}[k](f)
+                        moves.append("%s&rsquo;s %s odds went from %s to %s" % (e(self.owner[f]), lab, before, after))
+            lines.append(("Rich", ("The forecast, rerun on the post-trade rosters, moved: %s." % join(moves)) if moves else
+                          "The forecast, rerun on the post-trade rosters, moved neither team&rsquo;s playoff, division or title odds by a full point."))
+        lines += [x for x in (self.evidence_line(ev) for ev in evidence) if x]
+        rows = []
+        for side, gave, recv in ((a, tr["a_gave"], b), (b, tr["b_gave"], a)):
+            for x in gave:
+                if x["kind"] == "player":
+                    s_ = self.L.put("trade:asset:" + x["id"], x["salary"], src, "${:,.0f}".format(x["salary"]))
+                    y_ = self.L.put("trade:yrs:" + x["id"], int(x["years"]), src, str(x["years"])) if x.get("years") else "&mdash;"
+                    st = pl.get(x["id"])
+                    sr = ("%s of %s" % (self.L.put("trade:started:" + x["id"], st["started"], src, str(st["started"])), self.L.put("trade:onroster:" + x["id"], st["onRoster"], src, str(st["onRoster"])))) if st else "&mdash;"
+                    rows.append(self.row([e(self.owner[recv]), "%s (%s, %s)" % (e(x["name"]), e(x.get("pos") or ""), e(x.get("team") or "")), s_, y_, sr]))
+                else:
+                    rows.append(self.row([e(self.owner[recv]), desc(x), "&mdash;", "&mdash;", "&mdash;"]))
+        table = self.table(["Receives", "Player or pick", "Salary", "Years left", "Starts for the sender"], rows)
+        cap = ('<p class="caption">Source: MFL&rsquo;s public transaction, roster and weekly-results exports; salary and years left are the players&rsquo; current MFL contracts; '
+               'starts are weekly lineups through Week %d. The trade was executed after this issue&rsquo;s build began, so the Playoff Picture below is the forecast rerun on '
+               'the post-trade rosters.</p>' % tc.get("through", self.week))
+        return "%s and %s made a big trade" % (A, B), self.desk(lines) + table + cap
 
     def story_streak(self, head, evidence):
         f, d = head["fid"], head["data"]
@@ -673,7 +988,6 @@ class StoryIssue(I.Issue):
         closest = games[0][0] if games else None
         big = getattr(self, "_big", None)
         wa = SD.worst_angle(self.ctx, skip=big)
-        picks = self.kenny_weave()                      # {chapter name: [lt kenny html]}
         chapters, trows = [], []
         pots = self.pack["pots"]
         intra = pots and all(len(p.get("divisions") or []) == 1 and len(p["games"]) == 3 for p in pots)
@@ -735,14 +1049,14 @@ class StoryIssue(I.Issue):
                 used.add(wa["fid"])
             who, txt = lines[0]
             lines[0] = (who, "<b>%s.</b> %s" % (e(name), txt))
-            chapters.append(self.desk(lines) + "".join(picks.pop(name, [])))
+            chapters.append(self.desk(lines))
             cells = {"Swept": [], "Split": [], "Shut out": []}
             for f in teams:
                 w_ = sum(1 for g in gs if g[0] == f)
                 l_ = sum(1 for g in gs if g[1] == f)
                 cells["Swept" if l_ == 0 else "Shut out" if w_ == 0 else "Split"].append("%s %s" % (e(self.owner[f]), self.score(f)))
             trows.append(self.row([e(name)] + [", ".join(cells[c]) or "&mdash;" for c in ("Swept", "Split", "Shut out")]))
-        extra = "".join(h for hs in picks.values() for h in hs)
+        extra = ""
         self._worst_unplaced = wa if wa and wa["fid"] not in used else None
         gap = self.kenny_gap() if not self.ctx.get("kennyPicks") else ""
         cap = ('<p class="caption">Week %d scores%s. A team is Swept when it won every game it played in the group, Shut out when it won none and '
@@ -750,48 +1064,79 @@ class StoryIssue(I.Issue):
                    self.week, " after Elias corrections" if (self.ctx.get("eliasReport") or {}).get("teams") else "",
                    "2010 is left out because its archived scores conflict with themselves" if "2010" in ((self.ctx.get("archive") or {}).get("excluded") or {}) else "all archived seasons used"))
         cap = cap.replace("Josh-style history lines use", "History lines use")
-        return self.section("divweek", "Division Week", 2, "Division Week <small>&mdash; every game, one chapter per division</small>",
+        wide, narrow = (games[-1], games[0]) if games else (None, None)
+        sweeps = sum(1 for k_, pot_ in enumerate(pots) for f_ in {f for g in pot_["games"] for f in (self.fid[g["winner"]], self.fid[g["loser"]])}
+                     if all(self.fid[g["winner"]] == f_ for g in pot_["games"] if f_ in (self.fid[g["winner"]], self.fid[g["loser"]])))
+        title = ("%s games, %s sweeps, the widest margin %s and the closest %s" % (self.word(sum(len(p_["games"]) for p_ in pots)), self.word(sweeps),
+                                                                              self.margin(wide[1], wide[2]), self.margin(narrow[1], narrow[2]))) if wide else "every game, one chapter per division"
+        self.L.put("divweek:sweeps", sweeps, "pack pots (teams that won every game they played in the group)")
+        self.L.put("divweek:gamesn", sum(len(p_["games"]) for p_ in pots), "pack pots")
+        return self.section("divweek", "Division Week", 2, "Division Week <small>&mdash; %s</small>" % title,
                             intro + "".join(chapters) + extra + gap + self.table(["Division", "Swept", "Split", "Shut out"], trows) + cap)
 
     # ------------------------------------------------------------ Kenny: committed picks (message ids), woven into chapters
-    def kenny_weave(self):
-        """{chapter name: [html]} from ctx["kennyPicks"]: [{"id": message id, "frame": bool, "note": text}, ...]. The editor chooses
-        ids (and writes the joke, which may not contain digits); the job writes the factual frame and links the quote."""
-        picks = (self.ctx.get("kennyPicks") or {}).get("picks") or []
-        if not picks:
-            return {}
-        chat = {m["message_id"]: m for m in self.ctx["d1"]["chat"]}
-        out, by_owner = {}, {}
-        for p in picks:
-            m = chat.get(str(p["id"]))
-            if not m:
-                raise ValueError("Kenny pick %s is not in the chat window" % p["id"])
-            by_owner.setdefault(m["owner_name"], []).append((p, m))
-        for owner, items in by_owner.items():
-            parts = []
-            for j, (p, m) in enumerate(items):
+    def kenny_picks(self):
+        """The editor's picks grouped by the story they belong to: {target: {owner: [(pick, message)]}}. A pick says which story it reacts to
+        (`story`: "record" = the scoring-record Big Story, "trade" = the trade story) and may name the players it is about (`about`: MFL player
+        ids that are in the trade). A pick with no story, or whose story is not in this issue, is DROPPED (never parked in a chapter) and reported
+        in self.kenny_dropped."""
+        if not hasattr(self, "_kp"):
+            picks = (self.ctx.get("kennyPicks") or {}).get("picks") or []
+            chat = {m["message_id"]: m for m in self.ctx["d1"]["chat"]}
+            groups, self.kenny_dropped = {}, []
+            self.kenny_used = set()
+            for p in picks:
+                m = chat.get(str(p["id"]))
+                if not m:
+                    raise ValueError("Kenny pick %s is not in the chat window" % p["id"])
                 txt = " ".join((m["content"] or "").split())
                 if chat_exclusions.reason(m["message_id"], txt, chat_exclusions.excluded_ids()):
                     raise ValueError("Kenny pick %s may not be used: %s" % (p["id"], chat_exclusions.reason(m["message_id"], txt)))
-                self.L.put("quote:" + m["message_id"], txt, "D1 ups_discord_messages", txt)
-                d = datetime.fromtimestamp(int(m["posted_at_unix"]), I.ET)
-                clock = "%d:%02d %s" % ((d.hour % 12) or 12, d.minute, "AM" if d.hour < 12 else "PM")
-                url = "https://discord.com/channels/%s/%s/%s" % (I.GUILD, m["channel_id"], m["message_id"])
-                q = '<a class="rcpt" href="%s" target="_blank" rel="noopener" title="%s &middot; #%s &middot; %s">&ldquo;%s&rdquo;</a>' % (
-                    url, e(owner), e(m["channel_name"]), I.et_clock(m["posted_at_unix"]), e(txt))
-                parts.append(("%s, %s, %s: %s" % (d.strftime("%A"), clock, e(owner), q)) if j == 0 else ("Then, at %s: %s" % (clock, q)))
-            tailp = []
-            fid = self.fid.get(owner)
-            if any(p.get("frame") for p, _ in items) and fid:
-                n = self.posts(owner)
-                tailp.append("%s scored %s this week and posted %s." % (e(owner), self.score(fid), (
-                    "once" if n == 1 else "%s times" % (self.word(n) if n <= 4 else self.posts_c(owner))) if n <= 4 else "%s times" % self.posts_c(owner)))
-                self.posts_c(owner)
-            for p, _ in items:
-                if p.get("note"):
-                    tailp.append(e(p["note"]))
-            out.setdefault(self.chapter_of(owner), []).append(self.lt("Kenny", " ".join(parts + tailp)))
-        return {k: ['<div class="desk-lines">%s</div>' % "".join(v)] for k, v in out.items()}
+                if p.get("story") in ("record", "trade"):
+                    groups.setdefault(p["story"], {}).setdefault(m["owner_name"], []).append((p, m))
+                else:
+                    self.kenny_dropped.append((str(p["id"]), "no story given: it is not attached to a fact"))
+            self._kp = groups
+        return self._kp
+
+    def kenny_quote(self, p, m, first, prev):
+        """(html of one linked quote with its day/time lead-in, this message's day). The quote is verbatim and registered as a claim."""
+        txt = " ".join((m["content"] or "").split())
+        self.L.put("quote:" + m["message_id"], txt, "D1 ups_discord_messages", txt)
+        d = datetime.fromtimestamp(int(m["posted_at_unix"]), I.ET)
+        clock = "%d:%02d %s" % ((d.hour % 12) or 12, d.minute, "AM" if d.hour < 12 else "PM")
+        url = "https://discord.com/channels/%s/%s/%s" % (I.GUILD, m["channel_id"], m["message_id"])
+        q = '<a class="rcpt" href="%s" target="_blank" rel="noopener" title="%s &middot; #%s &middot; %s">&ldquo;%s&rdquo;</a>' % (
+            url, e(m["owner_name"]), e(m["channel_name"]), I.et_clock(m["posted_at_unix"]), e(txt))
+        if first:
+            return "%s, %s: %s" % (d.strftime("%A"), clock, q), d.date()
+        return ("Then, at %s: %s" % (clock, q) if d.date() == prev else "Then, %s, %s: %s" % (d.strftime("%A"), clock, q)), d.date()
+
+    def kenny_lines(self, target, ranks=None):
+        """Kenny's lines for the scoring-record story: the quotes sit INSIDE sentences that carry the fact they react to. [("Kenny", html)]."""
+        groups = self.kenny_picks().get(target) or {}
+        out = []
+        for owner, items in groups.items():
+            if target != "record" or not ranks:
+                continue
+            me = ranks["me"]
+            qs = [self.kq(str(p["id"])) for p, _ in items]
+            prev_rec = ranks["raw_top"][1] if ranks["raw_rank"] == 1 and len(ranks["raw_top"]) > 1 else None
+            txt_all = " ".join(" ".join((m["content"] or "").split()) for _, m in items)
+            if owner == me["owner"]:
+                sc = self.score(me["fid"])
+                pct = self.L.put("trig:ratio:" + me["fid"], round(100 * me["ratio"], 1), "league archive weekly scores + this season's weeks", "%.1f" % (100 * me["ratio"]))
+                tail = (" The week was %s, %s%% of that week&rsquo;s league average, and %s posted %s times." % (sc, pct, e(owner), self.posts_c(owner))) if any(p.get("frame") for p, _ in items) else ""
+                out.append(("Kenny", "%s had his own read %s: %s.%s" % (e(owner), qs[0][0], " and ".join(q for _, q, _ in qs), tail)))
+            else:
+                if prev_rec and ("%.1f" % prev_rec["score"]) in txt_all:
+                    lead = "%s already had the old record in hand, %s by %s in Week %d of %d" % (
+                        e(owner), self.rec_entry(prev_rec, 1, "raw")[0], e(prev_rec["owner"]), prev_rec["week"], prev_rec["season"])
+                else:
+                    lead = "%s watched it happen" % e(owner)
+                rest = qs[1:]
+                out.append(("Kenny", "%s. %s: %s%s." % (lead, qs[0][0], qs[0][1], (", and then, " + ", ".join("%s: %s" % (w, q) for w, q, _ in rest)) if rest else "")))
+        return out
 
     def chapter_of(self, owner):
         for pot in self.pack["pots"]:
@@ -1192,7 +1537,17 @@ class StoryIssue(I.Issue):
         def bump(m):
             n[0] += 1
             return '<span class="seg">%d</span>' % n[0]
-        return [re.sub(r'<span class="seg">\d+</span>', bump, x, count=1) for x in segs]
+        out = [re.sub(r'<span class="seg">\d+</span>', bump, x, count=1) for x in segs]
+        kp = self.kenny_picks()
+        for target, owners in kp.items():
+            for owner, items in owners.items():
+                for p, _ in items:
+                    if str(p["id"]) not in self.kenny_used:
+                        self.kenny_dropped.append((str(p["id"]), "its story (%s) is not in this issue" % target))
+        for k in [k for k in self.L.claims if k.startswith("quote:") and k.split(":", 1)[1] in {i for i, _ in self.kenny_dropped}]:
+            del self.L.claims[k]
+        self.dropped_picks = list(self.kenny_dropped)
+        return out
 
 
 def check_structure(doc):

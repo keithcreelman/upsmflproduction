@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import wire_data as D          # noqa: E402
+import ups_center_prob as PROB          # noqa: E402
 import elias as E              # noqa: E402
 import chat_exclusions         # noqa: E402
 
@@ -242,12 +243,41 @@ def archive_history(season, week, teams=12, path=None):
         full = {"%d:%s" % (s_, f): {"rec": [hw, hl], "ap": [aw, al]} for s_, f, hw, hl, aw, al in c.execute(
             "SELECT season, franchise_id, h2h_w, h2h_l, allplay_w, allplay_l FROM standings WHERE allplay_w IS NOT NULL AND h2h_w IS NOT NULL")}
         used = {r[0] for r in rows}
+        low_player_week = []
+        for a_, b_, c_, d_, pid_, st_ in c.execute(
+                "SELECT season, week, franchise_id, player_score, player_id, status FROM weeklyresults WHERE player_score IS NOT NULL AND COALESCE(is_playoff,0) = 0 "
+                "AND season < ? ORDER BY player_score ASC, season, week LIMIT 2", (int(season),)).fetchall():
+            pl_ = c.execute("SELECT name, position, nfl_team FROM players WHERE season = ? AND player_id = ?", (int(a_), pid_)).fetchone() or (None, None, None)
+            nm_ = (pl_[0] or "").split(", ")
+            tw_ = sorted({float(x[0]) for x in c.execute("SELECT DISTINCT team_score FROM weeklyresults WHERE season = ? AND week = ? AND team_score IS NOT NULL", (int(a_), int(b_)))})
+            mine_ = c.execute("SELECT DISTINCT team_score FROM weeklyresults WHERE season = ? AND week = ? AND franchise_id = ? AND team_score IS NOT NULL", (int(a_), int(b_), c_)).fetchone()
+            mine_ = float(mine_[0]) if mine_ else None
+            low_player_week.append({"season": int(a_), "week": int(b_), "fid": c_, "score": float(d_), "owner": owners.get("%d:%s" % (int(a_), c_)), "pid": str(pid_),
+                                    "name": " ".join(reversed(nm_)) if len(nm_) == 2 else (pl_[0] or "player " + str(pid_)), "pos": pl_[1], "team": pl_[2], "status": st_,
+                                    "teamScore": mine_, "teamRank": (1 + sum(1 for x in tw_ if x < mine_)) if mine_ is not None else None,
+                                    "nextLowest": next((x for x in tw_ if mine_ is not None and x > mine_), None)})
+        trade_sizes = [int(n) for (n,) in c.execute("SELECT COUNT(*) FROM transactions_trades WHERE asset_role = 'RELINQUISH' AND asset_type != 'CAP' "
+                                                    "GROUP BY trade_group_id")]
+        # weeks outside the regular-season rows (playoff and consolation weeks): counted in the score records whenever ALL `teams` teams have a score
+        # that week (Keith 2026-11-11); anything else is FLAGGED in `partial` and left out
+        regular = {(r[0], r[1]) for r in rows}
+        xgot = {}
+        for s_, w, f, sc in c.execute("SELECT DISTINCT season, week, franchise_id, team_score FROM weeklyresults WHERE team_score IS NOT NULL AND season < ?",
+                                      (int(season),)):
+            if int(s_) in used and (int(s_), int(w)) not in regular:
+                xgot.setdefault((int(s_), int(w)), {}).setdefault(f, []).append(float(sc))
+        extra, partial = [], []
+        for (s_, w), wk in sorted(xgot.items()):
+            if len(wk) == teams and all(len(v) == 1 for v in wk.values()):
+                extra += [[s_, w, f, v[0]] for f, v in sorted(wk.items())]
+            else:
+                partial.append([s_, w, len(wk)])
         with open(path, "rb") as fh:
             sha = hashlib.sha256(fh.read(1 << 20)).hexdigest()[:12]
         return {"source": "league archive mfl_database.db (sha256 of first MiB %s), regular season, weeks 1-%d complete" % (sha, int(week)),
                 "rows": rows, "excluded": excluded, "owners": {k: v for k, v in owners.items() if int(k.split(":")[0]) in used},
                 "final": {k: v for k, v in final.items() if int(k.split(":")[0]) in used},
-                "full": {k: v for k, v in full.items() if int(k.split(":")[0]) in used}}
+                "full": {k: v for k, v in full.items() if int(k.split(":")[0]) in used}, "extra": extra, "partial": partial, "tradeSizes": trade_sizes, "lowPlayerWeek": low_player_week}
     except sqlite3.Error:
         return None
 
@@ -287,6 +317,11 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     since = int(chat_since or 0) or (min(ctx["timing"]["kickoffs"].values()))
     tx = _list(_get(MFL % (season, "transactions", "&TRANS_TYPE=TRADE&DAYS=14")).get("transactions", {}).get("transaction"))
     ctx["mfl"]["trades"] = [t for t in tx if int(t["timestamp"]) >= since]
+    try:
+        ctx["tradeInfo"] = trade_details(season, ctx["mfl"]["trades"])      # facts only: never the offer's comment
+        ctx["tradeContext"] = trade_context(season, week, ctx["tradeInfo"]) if ctx["tradeInfo"] else None
+    except Exception:                                    # noqa: BLE001  (a trade we cannot describe is left out, never guessed)
+        ctx["tradeInfo"] = []
 
     # ---- D1: the league's own copies (must agree with MFL) and the evidence tables
     ctx["d1"]["teamScores"] = {r["franchise_id"]: float(r["score"]) for r in D.d1(
@@ -331,9 +366,123 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     ctx["site"]["standings"] = [{"franchise_id": r["franchise_id"], "owner_name": r["owner_name"],
                                  "is_division_leader": bool(r.get("is_division_leader")),
                                  "playoff_seed": r.get("playoff_seed")} for r in api.get("rows", [])]
+    # clinched / eliminated, from the league's deterministic engine (site/shared/standings_clinch.js). {} flags = it could not say, and
+    # then no probability prints as 100% or 0% (ups_center_prob). Full build only: the probe gather skips it.
     if history:
-        ctx["archive"] = archive_history(int(season), int(week), teams=len(ctx["mfl"]["scores"]) or 12)
+        rs = api.get("regular_season") or {}
+        try:
+            sched = _get(MFL % (season, "schedule", ""))
+        except Exception:                                    # noqa: BLE001  (no schedule: the engine makes no division claims)
+            sched = None
+        ctx["clinch"] = PROB.compute_clinch({f: m for f, m in ctx["mfl"]["standings"].items()},
+                                            {f: r["division"] for f, r in ctx["d1"]["franchises"].items()},
+                                            int(rs.get("through_week") or week), int(rs.get("last_regular_season_week") or 0), sched)
+    if history:
+        ctx["archive"] = low_week_stat_lines(archive_history(int(season), int(week), teams=len(ctx["mfl"]["scores"]) or 12))
     return ctx
+
+
+def trade_details(season, trades):
+    """Facts about executed trades from MFL's public exports ONLY (players, rosters/salaries): what moved, who gave it up, the salary on each
+    side. The offer's comment text is never read into the result (owners' trade messages are private and this repo is public).
+    Returns [{timestamp, a, b, a_gave: [asset], b_gave: [asset], a_salary, b_salary}] where an asset is
+    {kind: player|pick|bb, ...}. Salary is the player's current MFL salary on the receiving roster."""
+    import re as _re
+    tokens = set()
+    for t in trades:
+        for k in ("franchise1_gave_up", "franchise2_gave_up"):
+            tokens |= {x for x in str(t.get(k) or "").split(",") if x}
+    pids = sorted(x for x in tokens if x.isdigit())
+    names, sal = {}, {}
+    if pids:
+        pl = _get(MFL % (season, "players", "&DETAILS=1&PLAYERS=" + ",".join(pids))).get("players", {}).get("player")
+        for p in _list(pl):
+            names[str(p["id"])] = {"name": D.display_name(p.get("name")) or p.get("name"), "pos": p.get("position"), "team": p.get("team")}
+        ro = _get(MFL % (season, "rosters", "")).get("rosters", {}).get("franchise")
+        for f in _list(ro):
+            for p in _list(f.get("player")):
+                if str(p["id"]) in pids:
+                    sal[str(p["id"])] = {"salary": float(p.get("salary") or 0), "years": p.get("contractYear"), "status": p.get("contractStatus"), "fid": f["id"]}
+
+    def asset(tok):
+        if tok.isdigit():
+            return dict(kind="player", id=tok, **(names.get(tok) or {"name": "player " + tok}), **{k: v for k, v in (sal.get(tok) or {}).items() if k != "fid"})
+        m = _re.match(r"^FP_(\d{4})_(\d{4})_(\d+)$", tok)
+        if m:
+            return {"kind": "pick", "origin": m.group(1), "year": int(m.group(2)), "round": int(m.group(3))}
+        m = _re.match(r"^DP_(\d+)_(\d+)$", tok)
+        if m:
+            return {"kind": "pick", "origin": None, "year": int(season), "round": int(m.group(1)) + 1}
+        m = _re.match(r"^BB_(\d+(?:\.\d+)?)$", tok)
+        if m:
+            return {"kind": "bb", "amount": float(m.group(1))}
+        return {"kind": "other", "token": tok}
+    out = []
+    for t in trades:
+        ag = [asset(x) for x in str(t.get("franchise1_gave_up") or "").split(",") if x]
+        bg = [asset(x) for x in str(t.get("franchise2_gave_up") or "").split(",") if x]
+        out.append({"timestamp": int(t["timestamp"]), "a": t["franchise"], "b": t["franchise2"], "a_gave": ag, "b_gave": bg,
+                    "a_salary": round(sum(x.get("salary", 0) for x in ag if x["kind"] == "player"), 1),
+                    "b_salary": round(sum(x.get("salary", 0) for x in bg if x["kind"] == "player"), 1)})
+    return out
+
+
+def low_week_stat_lines(archive):
+    """Attach the real NFL stat line (nflverse public player_stats release) to each of the archive's lowest weekly player scores: archive["lowPlayerWeek"][i]["line"].
+    A line that cannot be fetched or matched is left off, and the story then tells the score without it."""
+    import csv
+    import io
+    keys = ("recent_team", "opponent_team", "completions", "attempts", "passing_yards", "passing_tds", "interceptions", "sacks", "sack_yards", "sack_fumbles_lost",
+            "rushing_yards", "rushing_tds", "rushing_fumbles_lost", "carries", "receptions", "targets", "receiving_yards", "receiving_tds", "receiving_fumbles_lost")
+    for low in (archive or {}).get("lowPlayerWeek") or []:
+        try:
+            req = urllib.request.Request("https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats_%d.csv" % low["season"],
+                                         headers={"User-Agent": "ups-center-auto"})
+            raw = urllib.request.urlopen(req, timeout=60).read().decode("utf-8", "replace")
+            for r in csv.DictReader(io.StringIO(raw)):
+                if r["player_display_name"] == low["name"] and r["season_type"] == "REG" and int(r["week"]) == low["week"]:
+                    low["line"] = {k: (float(r[k]) if r.get(k) not in (None, "", "NA") else 0.0) for k in keys if k in r and k not in ("recent_team", "opponent_team")}
+                    low["line"]["team"], low["line"]["opponent"] = r["recent_team"], r["opponent_team"]
+                    break
+        except Exception:                                    # noqa: BLE001  (no line: the story says the score only)
+            pass
+    return archive
+
+
+def trade_context(season, week, trade_info):
+    """Facts the trade story is told with, from MFL's public weeklyResults and players exports (weeks 1..week): each team's points from RB
+    starters, and for every player in the trade how many weeks he was on his sending team's weekly roster and how many he started there.
+    No comments, no chat. {"through": week, "rbPts": {fid: points}, "players": {pid: {"fid", "onRoster", "started"}}}."""
+    seen, rb_ids, scores = {}, set(), []
+    pos = {}
+    for w in range(1, int(week) + 1):
+        r = _get(MFL % (season, "weeklyResults", "&W=%d" % w)).get("weeklyResults", {})
+        for m in _list(r.get("matchup")):
+            for f in _list(m.get("franchise")):
+                for p in _list(f.get("player")):
+                    key = (w, f["id"], str(p["id"]))
+                    if key in seen:                       # a team that plays several games in a week appears once per game, with the same lineup
+                        continue
+                    seen[key] = True
+                    scores.append((w, f["id"], str(p["id"]), p.get("status"), float(p["score"]) if p.get("score") not in (None, "") else 0.0))
+    ids = sorted({x[2] for x in scores})
+    for i in range(0, len(ids), 150):
+        for p in _list(_get(MFL % (season, "players", "&DETAILS=1&PLAYERS=" + ",".join(ids[i:i + 150]))).get("players", {}).get("player")):
+            pos[str(p["id"])] = p.get("position")
+    rb = {}
+    for w, fid, pid, status, sc in scores:
+        if status == "starter" and pos.get(pid) == "RB":
+            rb[fid] = rb.get(fid, 0.0) + sc
+    players = {}
+    for t in trade_info:
+        for giver, gave in ((t["a"], t["a_gave"]), (t["b"], t["b_gave"])):
+            for x in gave:
+                if x["kind"] == "player":
+                    rows = [(w, st) for w, fid, pid, st, _ in scores if pid == x["id"] and fid == giver]
+                    cur = [(st, sc) for w, fid, pid, st, sc in scores if pid == x["id"] and fid == giver and w == int(week)]
+                    players[x["id"]] = {"fid": giver, "onRoster": len(rows), "started": sum(1 for _, st in rows if st == "starter"),
+                                        "weekScore": cur[0][1] if cur else None, "weekStatus": cur[0][0] if cur else None}
+    return {"through": int(week), "rbPts": {f: round(v, 1) for f, v in rb.items()}, "players": players}
 
 
 def d1_matches_mfl(ctx):

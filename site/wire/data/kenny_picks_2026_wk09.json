@@ -1,0 +1,12 @@
+{"picks": [
+ {"id": "1569167642529636415", "story": "record"},
+ {"id": "1569167732543590601", "story": "record"},
+ {"id": "1569167911757680752", "story": "record", "frame": true},
+ {"id": "1569475840528351283", "story": "trade", "slot": "rb"},
+ {"id": "1569796583527026769", "story": "trade", "slot": "return"},
+ {"id": "1569796336625127515", "story": "trade", "slot": "bot"},
+ {"id": "1569801327087718504", "story": "trade", "slot": "bot"},
+ {"id": "1569801353537130579", "story": "trade", "slot": "bot"},
+ {"id": "1569139780015493181", "story": "trade", "slot": "cousins"},
+ {"id": "1569811085324845157", "story": "trade", "slot": "cousins"}
+]}
