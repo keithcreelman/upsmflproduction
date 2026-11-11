@@ -243,9 +243,19 @@ def archive_history(season, week, teams=12, path=None):
         full = {"%d:%s" % (s_, f): {"rec": [hw, hl], "ap": [aw, al]} for s_, f, hw, hl, aw, al in c.execute(
             "SELECT season, franchise_id, h2h_w, h2h_l, allplay_w, allplay_l FROM standings WHERE allplay_w IS NOT NULL AND h2h_w IS NOT NULL")}
         used = {r[0] for r in rows}
-        low_player_week = [{"season": int(a_), "week": int(b_), "fid": c_, "score": float(d_), "owner": owners.get("%d:%s" % (int(a_), c_))} for a_, b_, c_, d_ in c.execute(
-            "SELECT season, week, franchise_id, player_score FROM weeklyresults WHERE player_score IS NOT NULL AND COALESCE(is_playoff,0) = 0 "
-            "AND season < ? ORDER BY player_score ASC, season, week LIMIT 2", (int(season),))]
+        low_player_week = []
+        for a_, b_, c_, d_, pid_, st_ in c.execute(
+                "SELECT season, week, franchise_id, player_score, player_id, status FROM weeklyresults WHERE player_score IS NOT NULL AND COALESCE(is_playoff,0) = 0 "
+                "AND season < ? ORDER BY player_score ASC, season, week LIMIT 2", (int(season),)).fetchall():
+            pl_ = c.execute("SELECT name, position, nfl_team FROM players WHERE season = ? AND player_id = ?", (int(a_), pid_)).fetchone() or (None, None, None)
+            nm_ = (pl_[0] or "").split(", ")
+            tw_ = sorted({float(x[0]) for x in c.execute("SELECT DISTINCT team_score FROM weeklyresults WHERE season = ? AND week = ? AND team_score IS NOT NULL", (int(a_), int(b_)))})
+            mine_ = c.execute("SELECT DISTINCT team_score FROM weeklyresults WHERE season = ? AND week = ? AND franchise_id = ? AND team_score IS NOT NULL", (int(a_), int(b_), c_)).fetchone()
+            mine_ = float(mine_[0]) if mine_ else None
+            low_player_week.append({"season": int(a_), "week": int(b_), "fid": c_, "score": float(d_), "owner": owners.get("%d:%s" % (int(a_), c_)), "pid": str(pid_),
+                                    "name": " ".join(reversed(nm_)) if len(nm_) == 2 else (pl_[0] or "player " + str(pid_)), "pos": pl_[1], "team": pl_[2], "status": st_,
+                                    "teamScore": mine_, "teamRank": (1 + sum(1 for x in tw_ if x < mine_)) if mine_ is not None else None,
+                                    "nextLowest": next((x for x in tw_ if mine_ is not None and x > mine_), None)})
         trade_sizes = [int(n) for (n,) in c.execute("SELECT COUNT(*) FROM transactions_trades WHERE asset_role = 'RELINQUISH' AND asset_type != 'CAP' "
                                                     "GROUP BY trade_group_id")]
         # weeks outside the regular-season rows (playoff and consolation weeks): counted in the score records whenever ALL `teams` teams have a score
@@ -368,7 +378,7 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
                                             {f: r["division"] for f, r in ctx["d1"]["franchises"].items()},
                                             int(rs.get("through_week") or week), int(rs.get("last_regular_season_week") or 0), sched)
     if history:
-        ctx["archive"] = archive_history(int(season), int(week), teams=len(ctx["mfl"]["scores"]) or 12)
+        ctx["archive"] = low_week_stat_lines(archive_history(int(season), int(week), teams=len(ctx["mfl"]["scores"]) or 12))
     return ctx
 
 
@@ -415,6 +425,28 @@ def trade_details(season, trades):
                     "a_salary": round(sum(x.get("salary", 0) for x in ag if x["kind"] == "player"), 1),
                     "b_salary": round(sum(x.get("salary", 0) for x in bg if x["kind"] == "player"), 1)})
     return out
+
+
+def low_week_stat_lines(archive):
+    """Attach the real NFL stat line (nflverse public player_stats release) to each of the archive's lowest weekly player scores: archive["lowPlayerWeek"][i]["line"].
+    A line that cannot be fetched or matched is left off, and the story then tells the score without it."""
+    import csv
+    import io
+    keys = ("recent_team", "opponent_team", "completions", "attempts", "passing_yards", "passing_tds", "interceptions", "sacks", "sack_yards", "sack_fumbles_lost",
+            "rushing_yards", "rushing_tds", "rushing_fumbles_lost", "carries", "receptions", "targets", "receiving_yards", "receiving_tds", "receiving_fumbles_lost")
+    for low in (archive or {}).get("lowPlayerWeek") or []:
+        try:
+            req = urllib.request.Request("https://github.com/nflverse/nflverse-data/releases/download/player_stats/player_stats_%d.csv" % low["season"],
+                                         headers={"User-Agent": "ups-center-auto"})
+            raw = urllib.request.urlopen(req, timeout=60).read().decode("utf-8", "replace")
+            for r in csv.DictReader(io.StringIO(raw)):
+                if r["player_display_name"] == low["name"] and r["season_type"] == "REG" and int(r["week"]) == low["week"]:
+                    low["line"] = {k: (float(r[k]) if r.get(k) not in (None, "", "NA") else 0.0) for k in keys if k in r and k not in ("recent_team", "opponent_team")}
+                    low["line"]["team"], low["line"]["opponent"] = r["recent_team"], r["opponent_team"]
+                    break
+        except Exception:                                    # noqa: BLE001  (no line: the story says the score only)
+            pass
+    return archive
 
 
 def trade_context(season, week, trade_info):

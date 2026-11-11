@@ -607,10 +607,24 @@ def validate(res, ctx, pack):
                     w_ = (st_ or {}).get("started" if what == "started" else "onRoster")
                 elif what == "pwk":
                     w_ = ((tc_.get("players") or {}).get(pid) or {}).get("weekScore")
+                elif what in ("lowline", "lowteam", "lowgap"):
+                    lows_ = (ctx.get("archive") or {}).get("lowPlayerWeek") or []
+                    i_s, _, stat = pid.partition(":")
+                    i_ = int(i_s) if i_s.isdigit() else -1
+                    L_ = lows_[i_] if 0 <= i_ < len(lows_) else None
+                    if not L_:
+                        w_ = None
+                    elif what == "lowline":
+                        ln_ = L_.get("line") or {}
+                        w_ = (ln_.get("sack_fumbles_lost", 0) + ln_.get("rushing_fumbles_lost", 0) + ln_.get("receiving_fumbles_lost", 0)) if stat == "fumbles" else ln_.get(stat)
+                    elif what == "lowteam":
+                        w_ = L_.get("teamScore")
+                    else:
+                        w_ = round((L_.get("nextLowest") or 0) - (L_.get("teamScore") or 0), 1)
                 elif what == "low":
                     lows_ = (ctx.get("archive") or {}).get("lowPlayerWeek") or []
                     i_ = int(pid) if pid.isdigit() else -1
-                    if not (0 <= i_ < len(lows_)) or not isinstance(v, dict) or any(v.get(k) != lows_[i_][k] for k in ("score", "season", "week", "owner")):
+                    if not (0 <= i_ < len(lows_)) or not isinstance(v, dict) or any(v.get(k) != lows_[i_][k] for k in ("score", "season", "week", "owner", "name")):
                         bad(key, "page %r, archive %r" % (v, lows_[i_] if 0 <= i_ < len(lows_) else None))
                     continue
                 elif what == "asset":
