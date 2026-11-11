@@ -1,0 +1,358 @@
+{
+ "id": "2026-wk09-ups-center",
+ "season": 2026,
+ "week": 9,
+ "builtAtUtc": "2026-11-11T18:09:59Z",
+ "code": "4fe9adba296f573ed0b79e50b0ec958abfbb3609",
+ "timing": {
+  "finalAt": 1794291300,
+  "deadline": 1794503700
+ },
+ "forecast": {
+  "simFile": "season_sim_2026_live_wk09.json",
+  "previewFile": "week_preview_2026_wk10.json",
+  "sim": {
+   "throughWeek": 9,
+   "runs": 10000,
+   "seed": 20260911,
+   "generatedAtUtc": "2026-11-11T13:32:27Z",
+   "teams": {
+    "0009": {
+     "po": 1.0,
+     "bye": 0.9998,
+     "div": 0.9998,
+     "title": 0.4943,
+     "division": "03",
+     "prePo": 0.7433,
+     "preTitle": 0.1806
+    },
+    "0005": {
+     "po": 1.0,
+     "bye": 0.9506,
+     "div": 0.9656,
+     "title": 0.1903,
+     "division": "00",
+     "prePo": 0.5929,
+     "preTitle": 0.1163
+    },
+    "0004": {
+     "po": 0.9826,
+     "bye": 0.0315,
+     "div": 0.0344,
+     "title": 0.1685,
+     "division": "00",
+     "prePo": 0.696,
+     "preTitle": 0.1501
+    },
+    "0010": {
+     "po": 0.9332,
+     "bye": 0.0171,
+     "div": 0.7967,
+     "title": 0.0735,
+     "division": "01",
+     "prePo": 0.6649,
+     "preTitle": 0.1023
+    },
+    "0008": {
+     "po": 0.9731,
+     "bye": 0.0006,
+     "div": 0.9721,
+     "title": 0.0506,
+     "division": "02",
+     "prePo": 0.5444,
+     "preTitle": 0.1011
+    },
+    "0012": {
+     "po": 0.5512,
+     "bye": 0.0001,
+     "div": 0.0002,
+     "title": 0.0106,
+     "division": "03",
+     "prePo": 0.3638,
+     "preTitle": 0.0435
+    },
+    "0002": {
+     "po": 0.4488,
+     "bye": 0.0003,
+     "div": 0.2033,
+     "title": 0.0109,
+     "division": "01",
+     "prePo": 0.5149,
+     "preTitle": 0.0736
+    },
+    "0011": {
+     "po": 0.0827,
+     "bye": 0.0,
+     "div": 0.0,
+     "title": 0.0011,
+     "division": "03",
+     "prePo": 0.4339,
+     "preTitle": 0.0552
+    },
+    "0001": {
+     "po": 0.0274,
+     "bye": 0.0,
+     "div": 0.0269,
+     "title": 0.0002,
+     "division": "02",
+     "prePo": 0.3401,
+     "preTitle": 0.0284
+    },
+    "0003": {
+     "po": 0.0,
+     "bye": 0.0,
+     "div": 0.0,
+     "title": 0.0,
+     "division": "01",
+     "prePo": 0.2039,
+     "preTitle": 0.0171
+    },
+    "0007": {
+     "po": 0.001,
+     "bye": 0.0,
+     "div": 0.001,
+     "title": 0.0,
+     "division": "02",
+     "prePo": 0.5221,
+     "preTitle": 0.0775
+    },
+    "0006": {
+     "po": 0.0,
+     "bye": 0.0,
+     "div": 0.0,
+     "title": 0.0,
+     "division": "00",
+     "prePo": 0.3797,
+     "preTitle": 0.0544
+    }
+   }
+  },
+  "preview": {
+   "week": 10,
+   "throughWeek": 9,
+   "generatedAtUtc": "2026-11-11T13:32:25Z",
+   "runs": 10000,
+   "seed": 20260911,
+   "inputsAtUtc": "2026-11-11T13:32:25Z",
+   "scenarioTotals": {
+    "0001": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 274,
+     "division": 269,
+     "bye": 0
+    },
+    "0002": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 4488,
+     "division": 2033,
+     "bye": 3
+    },
+    "0003": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    "0004": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 9826,
+     "division": 344,
+     "bye": 315
+    },
+    "0005": {
+     "cells": 36,
+     "runs": 10000,
+     "playoff": 10000,
+     "division": 9656,
+     "bye": 9506
+    },
+    "0006": {
+     "cells": 34,
+     "runs": 10000,
+     "playoff": 0,
+     "division": 0,
+     "bye": 0
+    },
+    "0007": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 10,
+     "division": 10,
+     "bye": 0
+    },
+    "0008": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 9731,
+     "division": 9721,
+     "bye": 6
+    },
+    "0009": {
+     "cells": 34,
+     "runs": 10000,
+     "playoff": 10000,
+     "division": 9998,
+     "bye": 9998
+    },
+    "0010": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 9332,
+     "division": 7967,
+     "bye": 171
+    },
+    "0011": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 827,
+     "division": 0,
+     "bye": 0
+    },
+    "0012": {
+     "cells": 35,
+     "runs": 10000,
+     "playoff": 5512,
+     "division": 2,
+     "bye": 1
+    }
+   }
+  },
+  "prevSim": {
+   "throughWeek": 8,
+   "teams": {
+    "0009": {
+     "po": 1.0,
+     "title": 0.3927
+    },
+    "0005": {
+     "po": 0.9968,
+     "title": 0.1857
+    },
+    "0004": {
+     "po": 0.9565,
+     "title": 0.2323
+    },
+    "0010": {
+     "po": 0.8852,
+     "title": 0.0907
+    },
+    "0012": {
+     "po": 0.6989,
+     "title": 0.0379
+    },
+    "0002": {
+     "po": 0.3515,
+     "title": 0.0131
+    },
+    "0008": {
+     "po": 0.7609,
+     "title": 0.0349
+    },
+    "0011": {
+     "po": 0.1024,
+     "title": 0.0072
+    },
+    "0001": {
+     "po": 0.2245,
+     "title": 0.0053
+    },
+    "0003": {
+     "po": 0.0012,
+     "title": 0.0
+    },
+    "0006": {
+     "po": 0.0001,
+     "title": 0.0
+    },
+    "0007": {
+     "po": 0.022,
+     "title": 0.0002
+    }
+   }
+  }
+ },
+ "clinch": {
+  "status": "ok",
+  "reason": null,
+  "schedule": true,
+  "byFid": {
+   "0001": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0002": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0003": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0004": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0005": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0006": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0007": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0008": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0009": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0010": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0011": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   },
+   "0012": {
+    "x": false,
+    "y": false,
+    "z": false,
+    "e": false
+   }
+  }
+ },
+ "why": "Recorded inputs for ups_center_check.py (the post-build check reads these, never live feeds)."
+}
