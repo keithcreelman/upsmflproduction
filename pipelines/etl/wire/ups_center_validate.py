@@ -598,7 +598,14 @@ def validate(res, ctx, pack):
                         "nb": len([x for x in info["b_gave"] if x["kind"] in ("player", "pick", "bb")]), "n": n_all,
                         "rk": sum(1 for z in sizes if z >= n_all), "rn": len(sizes),
                         "sal": round(sum(x["salary"] for x in (info["a_gave"] if pid == "a" else info["b_gave"]) if x["kind"] == "player"), 1)}
-                if what == "asset":
+                tc_ = ctx.get("tradeContext") or {}
+                if what in ("rbpts", "rbrank"):
+                    rb_ = tc_.get("rbPts") or {}
+                    w_ = rb_.get(pid) if what == "rbpts" else (1 + sum(1 for x in rb_.values() if x > rb_.get(pid, 0) + 1e-9) if pid in rb_ else None)
+                elif what in ("started", "onroster"):
+                    st_ = (tc_.get("players") or {}).get(pid)
+                    w_ = (st_ or {}).get("started" if what == "started" else "onRoster")
+                elif what == "asset":
                     w_ = next((x["salary"] for x in pl if x["id"] == pid), None)
                 elif what == "yrs":
                     w_ = next((int(x["years"]) for x in pl if x["id"] == pid), None)

@@ -854,7 +854,7 @@ class Issue:
                'data-wire-runtime>\n%s</script>\n</body>\n</html>\n' % (
                    self.week, meta, sha, wire.STYLE_BANNER, combined, self.week, dek, "\n".join(segs), method, runtime))
         return {"id": aid, "html": doc, "claims": self.L.claims, "claimsDigest": self.L.digest(), "gaps": self.gaps,
-                "format": self.format_name, "bigStory": getattr(self, "big_pick", None)}
+                "format": self.format_name, "bigStory": getattr(self, "big_pick", None), "kennyDropped": getattr(self, "dropped_picks", [])}
 
 
 def render(pack, ctx, generated_at=None, local_candidates=False, fmt=None):

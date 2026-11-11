@@ -430,8 +430,8 @@ class StoryIssue(I.Issue):
         tblock = ""
         if trade and not (lead and lead["headline"] is trade):
             sub3, body3 = self.story_big_trade(trade)
-            tblock = self.desk([("Rich", "<b>Also this week, a big trade:</b> %s.</b>" % sub3)]).replace("</b>.</b>", "</b>") + body3
-        sup = block + tblock + self.support_lines([x for x in pk["support"] if x is not other and x is not trade and x["trigger"] != "big_trade"
+            tblock = body3
+        sup = tblock + block + self.support_lines([x for x in pk["support"] if x is not other and x is not trade and x["trigger"] != "big_trade"
                                                    and not (other and x["fid"] == other["fid"] and x["trigger"] == "streak")])
         h = lead["headline"] if lead else None
         self.big_pick = {"phase": pk["phase"], "fid": lead["fid"] if lead else None, "trigger": h["trigger"] if h else "fallback_" + pk["fallback"],
@@ -586,6 +586,7 @@ class StoryIssue(I.Issue):
         games = [g for g in self.ctx["mfl"]["games"] if f in (g["a"], g["b"])]
         won = sorted([(g["b"] if g["a"] == f else g["a"]) for g in games if (g["as"] > g["bs"]) == (g["a"] == f)], key=lambda o: -(s[f] - s[o]))
         lines, tables = self.rec_ranks(d)
+        lines[2:2] = self.kenny_lines("record", d["ranks"])           # the chat's reaction sits right after the record sentences
         if won:
             allw = len(won) == len(games)
             lines.append(("Stuart", "%s %s: %s." % (me, ("won both games" if len(games) == 2 else "won all %s games" % self.word(len(games))) if allw and len(games) >= 2 else "won",
@@ -600,16 +601,34 @@ class StoryIssue(I.Issue):
         r = d["ranks"]
         return ("%s set the league&rsquo;s single-week scoring record" % e(self.owner[f]) if r["raw_rank"] == 1 else "%s had the week" % e(self.owner[f])), self.desk(lines) + tables
 
+    def kq(self, mid):
+        """(when, anchor) for one picked message, e.g. ('Monday at 5:16 PM', link): the quote is verbatim and registered; marks the pick used."""
+        m = next(x for x in self.ctx["d1"]["chat"] if x["message_id"] == mid)
+        txt = " ".join((m["content"] or "").split())
+        self.L.put("quote:" + mid, txt, "D1 ups_discord_messages", txt)
+        d = datetime.fromtimestamp(int(m["posted_at_unix"]), I.ET)
+        clock = "%d:%02d %s" % ((d.hour % 12) or 12, d.minute, "AM" if d.hour < 12 else "PM")
+        url = "https://discord.com/channels/%s/%s/%s" % (I.GUILD, m["channel_id"], mid)
+        a = '<a class="rcpt" href="%s" target="_blank" rel="noopener" title="%s &middot; #%s &middot; %s">&ldquo;%s&rdquo;</a>' % (
+            url, e(m["owner_name"]), e(m["channel_name"]), I.et_clock(m["posted_at_unix"]), e(txt))
+        self.kenny_used.add(mid)
+        return "%s at %s" % (d.strftime("%A"), clock), a, m
+
+    def slot_ids(self, story, slot):
+        return [str(p["id"]) for owners in [self.kenny_picks().get(story, {})] for items in owners.values() for p, _ in items if p.get("slot") == slot]
+
     def story_big_trade(self, head, evidence=()):
-        """A big executed trade, facts only (MFL's public transaction export): what moved each way, the salary on each side, the contract years
-        left, how rare the size is among the league's trades since 2010, and how the playoff / division / title odds moved when the forecast was
-        rerun on the post-trade rosters. Never the offer's comment (owners' trade messages are private)."""
+        """The trade, told as a story after it happened (Keith 2026-11-11): what moved, what the trade says about each roster (the data: running-back
+        points rank, who started every week), and the league's chat reaction used as quotes INSIDE those sentences where a line fits. Facts only;
+        never the offer's comment (owners' trade messages are private)."""
         d = head["data"]
         tr = d["trade"]
         a, b = tr["a"], tr["b"]
-        src = "MFL public transactions + rosters exports (trade of %s)" % datetime.fromtimestamp(tr["timestamp"], I.ET).strftime("%b %d, %Y")
+        tc = self.ctx.get("tradeContext") or {}
+        src = "MFL public transactions + rosters + weeklyResults exports (trade of %s)" % datetime.fromtimestamp(tr["timestamp"], I.ET).strftime("%b %d, %Y")
         when = I.et_clock(tr["timestamp"])
-        yr = lambda n: "%s year%s" % (n, "" if str(n) == "1" else "s")
+        A, B = e(self.owner[a]), e(self.owner[b])
+        sa, sb = self.sn(a), self.sn(b)                              # surnames after the first mention, as the hand edit does
 
         def desc(x):
             if x["kind"] == "player":
@@ -619,26 +638,82 @@ class StoryIssue(I.Issue):
                 return "%s%d %s-round pick" % (own, x["year"], self.ORDW.get(x["round"], str(x["round"])))
             return "$%s of blind-bid money" % "{:,.0f}".format(x.get("amount", 0))
         na, nb = len(trade_list(tr["a_gave"])), len(trade_list(tr["b_gave"]))
-        n_a = self.L.put("trade:na", na, src)
-        n_b = self.L.put("trade:nb", nb, src)
+        n = d["assets"]
+        self.L.put("trade:na", na, src)
+        self.L.put("trade:nb", nb, src)
+        n_c = self.L.put("trade:n", n, src)
         sal_a = self.L.put("trade:sal:a", tr["a_salary"], src, "${:,.0f}".format(tr["a_salary"]))
         sal_b = self.L.put("trade:sal:b", tr["b_salary"], src, "${:,.0f}".format(tr["b_salary"]))
-        lines = [("Stuart", "%s executed a trade between %s and %s. %s sent %s to %s, and %s sent %s to %s." % (
-            when, e(self.owner[a]), e(self.owner[b]), e(self.owner[a]), join(desc(x) for x in tr["a_gave"]), e(self.owner[b]),
-            e(self.owner[b]), join(desc(x) for x in tr["b_gave"]), e(self.owner[a])))]
-        lines.append(("Rich", "That is %s assets going one way and %s the other. The players %s sent carry %s in salary, and the players %s sent carry %s." % (
-            n_a, n_b, e(self.owner[a]), sal_a, e(self.owner[b]), sal_b)))
-        n = d["assets"]
-        rk = self.L.put("trade:rk", d["rank"], "league archive transactions_trades (2010&ndash;2025 trade groups)")
-        pool = self.L.put("trade:rn", d["pool"], "league archive transactions_trades (2010&ndash;2025 trade groups)", "{:,}".format(d["pool"]))
-        self.L.put("trade:n", n, src)
-        lines.append(("Stuart", "Only %s of the %s trades in league history since 2010 moved %s assets or more." % (rk, pool, self.word(n) if n <= 12 else n)))
+        lines = []
+        # 1. the trade, as news
+        lines.append(("Stuart", "Sunday was the record. The other story of the week arrived Tuesday, and it was big: %s and %s made a %s-asset trade at %s. %s sent %s. %s sent %s." % (
+            A, B, self.word(n) if n <= 12 else n_c, I.et_clock(tr["timestamp"], with_day=False) + " ET", sa, join(desc(x) for x in tr["a_gave"]), sb, join(desc(x) for x in tr["b_gave"]))))
+        # 2. what it says about the rosters: running back points, then the Keith-side chat line if a pick fits
+        rb = tc.get("rbPts") or {}
+        if rb:
+            order = sorted(rb, key=lambda f: (-rb[f], f))
+            for side, gave, recv_gave in ((a, tr["a_gave"], tr["b_gave"]), (b, tr["b_gave"], tr["a_gave"])):
+                rk = order.index(side) + 1
+                incoming = [x for x in recv_gave if x["kind"] == "player" and x.get("pos") == "RB"]
+                if rk >= 10 and incoming:
+                    pts = self.L.put("trade:rbpts:" + side, rb[side], src, "%.1f" % rb[side])
+                    rkc = self.L.put("trade:rbrank:" + side, rk, src, self._ord(rk))
+                    lines.append(("Rich", "Look at where %s started. %s&rsquo;s running backs scored %s points through Week %d, %s among the twelve teams, so the headline coming back is %s, a running back." % (
+                        self.sn(side), self.sn(side), pts, tc["through"], ("dead last" if rk == 12 else rkc), join(e(x["name"]) for x in incoming[:1]))))
+                    ids = self.slot_ids("trade", "rb")
+                    if ids:
+                        w_, q, m = self.kq(ids[0])
+                        lines.append(("Kenny", "%s had put the need in the chat %s: %s. The next afternoon %s was on %s&rsquo;s roster." % (
+                            e(m["owner_name"]), w_, q, e(incoming[0]["name"]), self.sn(side))))
+        # 3. the cheapest everyday starter and what he fetched
+        cheap = None
+        pl = tc.get("players") or {}
+        for side, gave in ((a, tr["a_gave"]), (b, tr["b_gave"])):
+            for x in gave:
+                st = pl.get(x["id"]) if x["kind"] == "player" else None
+                if st and st["onRoster"] >= 5 and st["started"] == st["onRoster"] and (cheap is None or x["salary"] < cheap[0]["salary"]):
+                    cheap = (x, side, st)
+        if cheap:
+            x, side, st = cheap
+            other = b if side == a else a
+            sal = self.L.put("trade:asset:" + x["id"], x["salary"], src, "${:,.0f}".format(x["salary"]))
+            on = self.L.put("trade:onroster:" + x["id"], st["onRoster"], src, str(st["onRoster"]))
+            allsal = [y["salary"] for y in tr["a_gave"] + tr["b_gave"] if y["kind"] == "player"]
+            cheapest = x["salary"] <= min(allsal)
+            lines.append(("Stuart", "%s is the piece that tells the other half of the story. %s at %s, and started all %s weeks for %s. %s went to %s as part of the package for %s." % (
+                e(x["name"]), "The cheapest player in the deal," if cheapest else "A starter", sal, self.word(st["onRoster"]) if st["onRoster"] <= 12 else on, self.sn(side), e(x["name"]).split(" ")[-1], self.sn(other),
+                join(e(y["name"]) for y in (tr["b_gave"] if side == a else tr["a_gave"]) if y["kind"] == "player"))))
+            ids = self.slot_ids("trade", "return")
+            if ids:
+                w_, q, m = self.kq(ids[0])
+                lines.append(("Kenny", "%s weighed in %s on what %s took in: %s." % (e(m["owner_name"]), w_, self.sn(other), q)))
+        lines.append(("Rich", "The players %s sent carry %s in salary, and the players %s sent carry %s. Only %s of the %s trades in league history since 2010 moved %s assets or more." % (
+            sa, sal_a, sb, sal_b, self.L.put("trade:rk", d["rank"], "league archive transactions_trades (2010&ndash;2025 trade groups)"),
+            self.L.put("trade:rn", d["pool"], "league archive transactions_trades (2010&ndash;2025 trade groups)", "{:,}".format(d["pool"])), self.word(n) if n <= 12 else n)))
+        # 4. the league's reaction: the bot, and the Cousins question
+        ids = self.slot_ids("trade", "bot")
+        if ids:
+            parts = []
+            for j, mid in enumerate(ids):
+                w_, q, m = self.kq(mid)
+                parts.append((w_, q, m))
+            first = parts[0]
+            rest = " and ".join(q for _, q, _ in parts[1:])
+            lines.append(("Kenny", "%s had the league bot on his mind that afternoon. %s: %s%s." % (
+                e(first[2]["owner_name"]), first[0], first[1], (", and then, still waiting on it: " + rest) if rest else "")))
+        ids = self.slot_ids("trade", "cousins")
+        if ids and any(x["kind"] == "player" and x["name"].endswith("Cousins") for x in tr["a_gave"] + tr["b_gave"]):
+            cz = next(x for x in tr["a_gave"] + tr["b_gave"] if x["kind"] == "player" and x["name"].endswith("Cousins"))
+            giver = tr["a"] if cz in tr["a_gave"] else tr["b"]
+            recv = tr["b"] if giver == tr["a"] else tr["a"]
+            parts = [self.kq(mid) for mid in ids]
+            lines.append(("Kenny", "%s had been asking about %s since Sunday, %s: %s. On Tuesday %s moved from %s to %s, and %s: %s." % (
+                e(parts[0][2]["owner_name"]), e(cz["name"]), parts[0][0], parts[0][1], e(cz["name"]), e(self.owner[giver]), e(self.owner[recv]),
+                parts[-1][0] if len(parts) > 1 else "the question stood", parts[-1][1] if len(parts) > 1 else "")))
         if self.odds_fresh() and d["deltas"]:
-            sim = self.odds_text()[0]
             pre = (self.ctx.get("forecastPre") or {}).get("teams") or {}
             moves = []
             for f in (a, b):
-                parts = []
                 for k, lab in (("po", "playoff"), ("div", "division"), ("title", "title")):
                     dv_ = d["deltas"].get(f, {}).get(k, 0.0)
                     if abs(dv_) >= 1.0:
@@ -646,10 +721,8 @@ class StoryIssue(I.Issue):
                                               PROB.text(pre[f][k]), raw=round(100 * pre[f][k], 4)))
                         after = {"po": self.po, "div": self.dv, "title": self.ti}[k](f)
                         moves.append("%s&rsquo;s %s odds went from %s to %s" % (e(self.owner[f]), lab, before, after))
-            if moves:
-                lines.append(("Rich", "The trade moved the forecast, which was rerun on the post-trade rosters: %s." % join(moves)))
-            else:
-                lines.append(("Rich", "The forecast, rerun on the post-trade rosters, moved neither team&rsquo;s playoff, division or title odds by a full point."))
+            lines.append(("Rich", ("The forecast, rerun on the post-trade rosters, moved: %s." % join(moves)) if moves else
+                          "The forecast, rerun on the post-trade rosters, moved neither team&rsquo;s playoff, division or title odds by a full point."))
         lines += [x for x in (self.evidence_line(ev) for ev in evidence) if x]
         rows = []
         for side, gave, recv in ((a, tr["a_gave"], b), (b, tr["b_gave"], a)):
@@ -657,13 +730,16 @@ class StoryIssue(I.Issue):
                 if x["kind"] == "player":
                     s_ = self.L.put("trade:asset:" + x["id"], x["salary"], src, "${:,.0f}".format(x["salary"]))
                     y_ = self.L.put("trade:yrs:" + x["id"], int(x["years"]), src, str(x["years"])) if x.get("years") else "&mdash;"
-                    rows.append(self.row([e(self.owner[recv]), "%s (%s, %s)" % (e(x["name"]), e(x.get("pos") or ""), e(x.get("team") or "")), s_, y_]))
+                    st = pl.get(x["id"])
+                    sr = ("%s of %s" % (self.L.put("trade:started:" + x["id"], st["started"], src, str(st["started"])), self.L.put("trade:onroster:" + x["id"], st["onRoster"], src, str(st["onRoster"])))) if st else "&mdash;"
+                    rows.append(self.row([e(self.owner[recv]), "%s (%s, %s)" % (e(x["name"]), e(x.get("pos") or ""), e(x.get("team") or "")), s_, y_, sr]))
                 else:
-                    rows.append(self.row([e(self.owner[recv]), desc(x), "&mdash;", "&mdash;"]))
-        table = self.table(["Receives", "Player or pick", "Salary", "Years left"], rows)
-        cap = ('<p class="caption">Source: MFL&rsquo;s public transaction and roster exports; salary and years left are the players&rsquo; current MFL contracts. '
-               'The trade was executed after this issue&rsquo;s build began, so the Playoff Picture below is the forecast rerun on the post-trade rosters.</p>')
-        return "%s and %s made a big trade" % (e(self.owner[a]), e(self.owner[b])), self.desk(lines) + table + cap
+                    rows.append(self.row([e(self.owner[recv]), desc(x), "&mdash;", "&mdash;", "&mdash;"]))
+        table = self.table(["Receives", "Player or pick", "Salary", "Years left", "Starts for the sender"], rows)
+        cap = ('<p class="caption">Source: MFL&rsquo;s public transaction, roster and weekly-results exports; salary and years left are the players&rsquo; current MFL contracts; '
+               'starts are weekly lineups through Week %d. The trade was executed after this issue&rsquo;s build began, so the Playoff Picture below is the forecast rerun on '
+               'the post-trade rosters.</p>' % tc.get("through", self.week))
+        return "%s and %s made a big trade" % (A, B), self.desk(lines) + table + cap
 
     def story_streak(self, head, evidence):
         f, d = head["fid"], head["data"]
@@ -842,7 +918,6 @@ class StoryIssue(I.Issue):
         closest = games[0][0] if games else None
         big = getattr(self, "_big", None)
         wa = SD.worst_angle(self.ctx, skip=big)
-        picks = self.kenny_weave()                      # {chapter name: [lt kenny html]}
         chapters, trows = [], []
         pots = self.pack["pots"]
         intra = pots and all(len(p.get("divisions") or []) == 1 and len(p["games"]) == 3 for p in pots)
@@ -904,14 +979,14 @@ class StoryIssue(I.Issue):
                 used.add(wa["fid"])
             who, txt = lines[0]
             lines[0] = (who, "<b>%s.</b> %s" % (e(name), txt))
-            chapters.append(self.desk(lines) + "".join(picks.pop(name, [])))
+            chapters.append(self.desk(lines))
             cells = {"Swept": [], "Split": [], "Shut out": []}
             for f in teams:
                 w_ = sum(1 for g in gs if g[0] == f)
                 l_ = sum(1 for g in gs if g[1] == f)
                 cells["Swept" if l_ == 0 else "Shut out" if w_ == 0 else "Split"].append("%s %s" % (e(self.owner[f]), self.score(f)))
             trows.append(self.row([e(name)] + [", ".join(cells[c]) or "&mdash;" for c in ("Swept", "Split", "Shut out")]))
-        extra = "".join(h for hs in picks.values() for h in hs)
+        extra = ""
         self._worst_unplaced = wa if wa and wa["fid"] not in used else None
         gap = self.kenny_gap() if not self.ctx.get("kennyPicks") else ""
         cap = ('<p class="caption">Week %d scores%s. A team is Swept when it won every game it played in the group, Shut out when it won none and '
@@ -930,51 +1005,68 @@ class StoryIssue(I.Issue):
                             intro + "".join(chapters) + extra + gap + self.table(["Division", "Swept", "Split", "Shut out"], trows) + cap)
 
     # ------------------------------------------------------------ Kenny: committed picks (message ids), woven into chapters
-    def kenny_weave(self):
-        """{chapter name: [html]} from ctx["kennyPicks"]: [{"id": message id, "frame": bool, "note": text}, ...]. The editor chooses
-        ids (and writes the joke, which may not contain digits); the job writes the factual frame and links the quote."""
-        picks = (self.ctx.get("kennyPicks") or {}).get("picks") or []
-        if not picks:
-            return {}
-        chat = {m["message_id"]: m for m in self.ctx["d1"]["chat"]}
-        out, by_owner = {}, {}
-        for p in picks:
-            m = chat.get(str(p["id"]))
-            if not m:
-                raise ValueError("Kenny pick %s is not in the chat window" % p["id"])
-            by_owner.setdefault(m["owner_name"], []).append((p, m))
-        for owner, items in by_owner.items():
-            parts = []
-            prev_day = None
-            for j, (p, m) in enumerate(items):
+    def kenny_picks(self):
+        """The editor's picks grouped by the story they belong to: {target: {owner: [(pick, message)]}}. A pick says which story it reacts to
+        (`story`: "record" = the scoring-record Big Story, "trade" = the trade story) and may name the players it is about (`about`: MFL player
+        ids that are in the trade). A pick with no story, or whose story is not in this issue, is DROPPED (never parked in a chapter) and reported
+        in self.kenny_dropped."""
+        if not hasattr(self, "_kp"):
+            picks = (self.ctx.get("kennyPicks") or {}).get("picks") or []
+            chat = {m["message_id"]: m for m in self.ctx["d1"]["chat"]}
+            groups, self.kenny_dropped = {}, []
+            self.kenny_used = set()
+            for p in picks:
+                m = chat.get(str(p["id"]))
+                if not m:
+                    raise ValueError("Kenny pick %s is not in the chat window" % p["id"])
                 txt = " ".join((m["content"] or "").split())
                 if chat_exclusions.reason(m["message_id"], txt, chat_exclusions.excluded_ids()):
                     raise ValueError("Kenny pick %s may not be used: %s" % (p["id"], chat_exclusions.reason(m["message_id"], txt)))
-                self.L.put("quote:" + m["message_id"], txt, "D1 ups_discord_messages", txt)
-                d = datetime.fromtimestamp(int(m["posted_at_unix"]), I.ET)
-                clock = "%d:%02d %s" % ((d.hour % 12) or 12, d.minute, "AM" if d.hour < 12 else "PM")
-                url = "https://discord.com/channels/%s/%s/%s" % (I.GUILD, m["channel_id"], m["message_id"])
-                q = '<a class="rcpt" href="%s" target="_blank" rel="noopener" title="%s &middot; #%s &middot; %s">&ldquo;%s&rdquo;</a>' % (
-                    url, e(owner), e(m["channel_name"]), I.et_clock(m["posted_at_unix"]), e(txt))
-                if j == 0:
-                    parts.append("%s, %s, %s: %s" % (d.strftime("%A"), clock, e(owner), q))
-                elif d.date() == prev_day:
-                    parts.append("Then, at %s: %s" % (clock, q))
-                else:                                     # the next line is on another day: say the day
-                    parts.append("Then, %s, %s: %s" % (d.strftime("%A"), clock, q))
-                prev_day = d.date()
-            tailp = []
-            fid = self.fid.get(owner)
-            if any(p.get("frame") for p, _ in items) and fid:
-                n = self.posts(owner)
-                tailp.append("%s scored %s this week and posted %s." % (e(owner), self.score(fid), (
-                    "once" if n == 1 else "%s times" % (self.word(n) if n <= 4 else self.posts_c(owner))) if n <= 4 else "%s times" % self.posts_c(owner)))
-                self.posts_c(owner)
-            for p, _ in items:
-                if p.get("note"):
-                    tailp.append(e(p["note"]))
-            out.setdefault(self.chapter_of(owner), []).append(self.lt("Kenny", " ".join(parts + tailp)))
-        return {k: ['<div class="desk-lines">%s</div>' % "".join(v)] for k, v in out.items()}
+                if p.get("story") in ("record", "trade"):
+                    groups.setdefault(p["story"], {}).setdefault(m["owner_name"], []).append((p, m))
+                else:
+                    self.kenny_dropped.append((str(p["id"]), "no story given: it is not attached to a fact"))
+            self._kp = groups
+        return self._kp
+
+    def kenny_quote(self, p, m, first, prev):
+        """(html of one linked quote with its day/time lead-in, this message's day). The quote is verbatim and registered as a claim."""
+        txt = " ".join((m["content"] or "").split())
+        self.L.put("quote:" + m["message_id"], txt, "D1 ups_discord_messages", txt)
+        d = datetime.fromtimestamp(int(m["posted_at_unix"]), I.ET)
+        clock = "%d:%02d %s" % ((d.hour % 12) or 12, d.minute, "AM" if d.hour < 12 else "PM")
+        url = "https://discord.com/channels/%s/%s/%s" % (I.GUILD, m["channel_id"], m["message_id"])
+        q = '<a class="rcpt" href="%s" target="_blank" rel="noopener" title="%s &middot; #%s &middot; %s">&ldquo;%s&rdquo;</a>' % (
+            url, e(m["owner_name"]), e(m["channel_name"]), I.et_clock(m["posted_at_unix"]), e(txt))
+        if first:
+            return "%s, %s: %s" % (d.strftime("%A"), clock, q), d.date()
+        return ("Then, at %s: %s" % (clock, q) if d.date() == prev else "Then, %s, %s: %s" % (d.strftime("%A"), clock, q)), d.date()
+
+    def kenny_lines(self, target, ranks=None):
+        """Kenny's lines for the scoring-record story: the quotes sit INSIDE sentences that carry the fact they react to. [("Kenny", html)]."""
+        groups = self.kenny_picks().get(target) or {}
+        out = []
+        for owner, items in groups.items():
+            if target != "record" or not ranks:
+                continue
+            me = ranks["me"]
+            qs = [self.kq(str(p["id"])) for p, _ in items]
+            prev_rec = ranks["raw_top"][1] if ranks["raw_rank"] == 1 and len(ranks["raw_top"]) > 1 else None
+            txt_all = " ".join(" ".join((m["content"] or "").split()) for _, m in items)
+            if owner == me["owner"]:
+                sc = self.score(me["fid"])
+                pct = self.L.put("trig:ratio:" + me["fid"], round(100 * me["ratio"], 1), "league archive weekly scores + this season's weeks", "%.1f" % (100 * me["ratio"]))
+                tail = (" The week was %s, %s%% of that week&rsquo;s league average, and %s posted %s times." % (sc, pct, e(owner), self.posts_c(owner))) if any(p.get("frame") for p, _ in items) else ""
+                out.append(("Kenny", "%s had his own read %s: %s.%s" % (e(owner), qs[0][0], " and ".join(q for _, q, _ in qs), tail)))
+            else:
+                if prev_rec and ("%.1f" % prev_rec["score"]) in txt_all:
+                    lead = "%s already had the old record in hand, %s by %s in Week %d of %d" % (
+                        e(owner), self.rec_entry(prev_rec, 1, "raw")[0], e(prev_rec["owner"]), prev_rec["week"], prev_rec["season"])
+                else:
+                    lead = "%s watched it happen" % e(owner)
+                rest = qs[1:]
+                out.append(("Kenny", "%s. %s: %s%s." % (lead, qs[0][0], qs[0][1], (", and then, " + ", ".join("%s: %s" % (w, q) for w, q, _ in rest)) if rest else "")))
+        return out
 
     def chapter_of(self, owner):
         for pot in self.pack["pots"]:
@@ -1375,7 +1467,17 @@ class StoryIssue(I.Issue):
         def bump(m):
             n[0] += 1
             return '<span class="seg">%d</span>' % n[0]
-        return [re.sub(r'<span class="seg">\d+</span>', bump, x, count=1) for x in segs]
+        out = [re.sub(r'<span class="seg">\d+</span>', bump, x, count=1) for x in segs]
+        kp = self.kenny_picks()
+        for target, owners in kp.items():
+            for owner, items in owners.items():
+                for p, _ in items:
+                    if str(p["id"]) not in self.kenny_used:
+                        self.kenny_dropped.append((str(p["id"]), "its story (%s) is not in this issue" % target))
+        for k in [k for k in self.L.claims if k.startswith("quote:") and k.split(":", 1)[1] in {i for i, _ in self.kenny_dropped}]:
+            del self.L.claims[k]
+        self.dropped_picks = list(self.kenny_dropped)
+        return out
 
 
 def check_structure(doc):

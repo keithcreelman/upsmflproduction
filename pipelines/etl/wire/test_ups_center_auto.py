@@ -974,19 +974,6 @@ dk = next(k for k in claims if k.startswith("divrec:"))
 claims[dk]["value"] = "9-9"
 check("a wrong same-division record fails", any(dk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
 
-print("S6. Kenny picks (message ids chosen by the editor) are woven into the division chapters")
-picks = {"picks": [{"id": "90000", "frame": True}, {"id": "90001", "note": "Prediction: the sale sign is back up by Wednesday."}, {"id": "90002"}]}
-rp, vp, _ = build8(lambda c: c.update(kennyPicks=picks), local=False)
-chap = re.findall(r'<section class="division|<div class="lt kenny">', rp["html"])
-check("with picks there is no Kenny box, the lines are `lt kenny` blocks with the verbatim linked quote, and it validates",
-      "coffee:kenny" not in [g["id"] for g in rp["gaps"]] and rp["html"].count('class="lt kenny"') >= 2 and rp["html"].count('class="rcpt"') == 3 and vp["ok"], (vp["errors"], [g["id"] for g in rp["gaps"]]))
-check("each pick is woven into the chapter of the owner's division (Dog Pound for Bear Dunn)",
-      re.search(r"Dog Pound 4 Life\..*?Kenny.*?Synthetic test line one.*?Outlast", rp["html"], re.S) is not None)
-check("the frame is generated from registered claims (score, post count) and the note may not carry a digit",
-      "scored" in rp["html"].split("Synthetic test line one")[1][:400] and not VAL.validate(dict(rp, html=rp["html"].replace("Wednesday.", "Wednesday at 412.", 1)), build8(lambda c: c.update(kennyPicks=picks))[2], PACK8)["ok"])
-rbad, vbad, _ = build8(lambda c: c.update(kennyPicks={"picks": [{"id": "not-a-message"}]}))
-check("a pick that is not in the chat window falls back to legacy instead of printing anything", rbad["format"] == "legacy" and "not in the chat window" in rbad.get("formatFallback", ""), rbad.get("formatFallback"))
-
 print("S7. the Big Story picker: a phase-aware, ranked, pluggable trigger table")
 import ups_center_story_triggers as TRG       # noqa: E402
 pk8 = TRG.pick(CTX8)
@@ -1073,6 +1060,47 @@ tk = "trig:recn"
 claims[tk]["value"] = claims[tk]["value"] + 40
 check("a wrong 'how many team-weeks' count fails", any(tk in e for e in VAL.validate(dict(r8, claims=claims), CTX8, PACK8)["errors"]))
 
+print("S6. Kenny picks sit INSIDE the story they react to (Keith 2026-11-11): never a standalone chat line in a chapter")
+SYN6 = {"timestamp": 1794338860, "a": "0008", "b": "0011", "a_salary": 45000.0, "b_salary": 60000.0,
+        "a_gave": [{"kind": "player", "id": "15789", "name": "Test Receiver", "pos": "WR", "team": "GBP", "salary": 45000.0, "years": "1"},
+                   {"kind": "pick", "origin": "0005", "year": 2027, "round": 1}],
+        "b_gave": [{"kind": "player", "id": "16161", "name": "Test Runner", "pos": "RB", "team": "ATL", "salary": 60000.0, "years": "2"}]}
+def kenny_ctx(picks):
+    def mut(c):
+        c["tradeInfo"] = [copy.deepcopy(SYN6)]
+        pre = copy.deepcopy(c["forecast"]["sim"])
+        pre["teams"]["0008"]["po"] = max(0.0, pre["teams"]["0008"]["po"] - 0.12)
+        c["forecastPre"] = pre
+        c["kennyPicks"] = {"picks": picks}
+        c["tradeContext"] = {"through": 8, "rbPts": {"0008": 100.0, "0011": 300.0, "0009": 500.0, "0004": 450.0, "0005": 420.0, "0001": 410.0, "0002": 400.0, "0003": 390.0,
+                                                     "0006": 380.0, "0007": 370.0, "0010": 360.0, "0012": 350.0},
+                             "players": {"15789": {"fid": "0008", "onRoster": 8, "started": 8}, "16161": {"fid": "0011", "onRoster": 8, "started": 8}}}
+    return mut
+def forced_lead(tid):
+    orig = TRG.pick
+    TRG.pick = lambda ctx, prior=None: forced(tid)
+    return orig
+picks6 = [{"id": "90000", "story": "record"}, {"id": "90001", "story": "trade", "slot": "bot"}, {"id": "90002"}]
+orig_pick = forced_lead("week_score")
+try:
+    rp, vp, _ = build8(kenny_ctx(picks6), local=False)
+finally:
+    TRG.pick = orig_pick
+hp = rp["html"]
+check("with picks there is no Kenny box, the validated page has 2 linked verbatim quotes, and a pick with no story is DROPPED (reported, never parked in a chapter)",
+      "coffee:kenny" not in [g["id"] for g in rp["gaps"]] and hp.count('class="rcpt"') == 2 and vp["ok"] and [i for i, _ in rp["kennyDropped"]] == ["90002"], (vp["errors"], rp.get("kennyDropped"), hp.count('class="rcpt"'), rp.get("formatFallback")))
+big = hp.split('id="bigstory"')[1].split('id="divweek"')[0]
+check("a record pick sits in the Big Story right after the record sentences; a trade pick sits in the trade story after the facts of who moved where; none in Division Week",
+      'class="lt kenny"' in big and big.index("Synthetic test line one") > big.index("single-week score in league history") and big.index("Synthetic test line two") > big.index("Test Receiver")
+      and "Synthetic" not in hp.split('id="divweek"')[1].split('id="elias"')[0], big[:80])
+check("the story is told with data: running-back points rank, who started every week, and the record pick is introduced by the record (not a bare chat line)",
+      "running backs scored" in re.sub(r"<[^>]+>", " ", hp) and "dead last" in re.sub(r"<[^>]+>", " ", hp) and "started all eight weeks" in re.sub(r"<[^>]+>", " ", hp), re.sub(r"<[^>]+>", " ", hp)[-200:])
+r_nostory, v_ns, _ = build8(lambda c: c.update(kennyPicks={"picks": [{"id": "90000"}]}), local=False)
+check("a pick whose story is not in the issue is dropped and reported (no Kenny block, no box, still validates)",
+      'class="lt kenny"' not in r_nostory["html"] and r_nostory["kennyDropped"] and v_ns["ok"], (v_ns["errors"], r_nostory.get("kennyDropped")))
+rbad, vbad, _ = build8(lambda c: c.update(kennyPicks={"picks": [{"id": "not-a-message", "story": "trade"}]}))
+check("a pick that is not in the chat window falls back to legacy instead of printing anything", rbad["format"] == "legacy" and "not in the chat window" in rbad.get("formatFallback", ""), rbad.get("formatFallback"))
+
 print("S9. odds: nothing prints 100% or 0% unless clinched or eliminated (Keith 10-27 and 11-10); record language; Week 9 standard")
 import ups_center_prob as PROB                 # noqa: E402
 check("PROB.text: 1.0 -> 99.99%, 0.0 -> <0.01%, 0.9997 -> 99.97%, a certainty needs the flag",
@@ -1149,7 +1177,7 @@ rtd, vtd, ctd = build8(with_trade, local=False)
 tx_ = VAL.visible_text(rtd["html"])
 check("a trade is a registered trigger (the table is pluggable)", "big_trade" in [t["id"] for t in TRG.REGISTRY] and hasattr(SI.StoryIssue, "story_big_trade"))
 check("the trade appears in the story (lead or its own support story), facts only, and the draft validates",
-      "a big trade" in tx_ or "made a big trade" in tx_, (vtd["errors"], rtd["bigStory"]))
+      "-asset trade" in tx_, (vtd["errors"], rtd["bigStory"]))
 check("the trade story states what moved each way, the salary on each side, how rare the size is, and the odds it moved (pre vs post-trade forecast)",
       all(x in tx_ for x in ("Test Receiver", "Test Quarterback", "2027 first-round pick", "$77,000", "$60,000", "of the 1,036 trades", "odds went from")) and vtd["ok"], (vtd["errors"], tx_[:100]))
 check("no message or comment text is carried (tradeInfo has no comment field; the page has none)", "comment" not in json.dumps(SYN).lower() and "comment" not in tx_.lower())
@@ -1172,15 +1200,18 @@ cap_txt = re.sub(r"<[^>]+>", " ", tables9)
 check("the method note says every week with all twelve teams scored, playoffs included, 2010 left out, and flags the partial weeks (with a comma-formatted pool size)",
       "Every week with all twelve teams scored" in cap_txt and "playoffs included" in cap_txt and "2,7" in cap_txt and "fewer than twelve teams scored" in cap_txt and "2010" in cap_txt, cap_txt[-420:])
 
-print("S13. Kenny weave says the day when an owner's lines are on different days")
+print("S13. Kenny says the day when an owner's lines are on different days")
 c_two = copy.deepcopy(CTX8)
 c_two["d1"]["chat"][1]["posted_at_unix"] = c_two["d1"]["chat"][0]["posted_at_unix"] + 2 * 86400
 c_two["d1"]["chat"][1]["owner_name"] = c_two["d1"]["chat"][0]["owner_name"]
-c_two["d1"]["chat"][1]["franchise_id"] = c_two["d1"]["chat"][0]["franchise_id"]
-c_two["kennyPicks"] = {"picks": [{"id": c_two["d1"]["chat"][0]["message_id"]}, {"id": c_two["d1"]["chat"][1]["message_id"]}]}
-r_two = ISSUE.render(copy.deepcopy(PACK8), c_two, generated_at=T0, local_candidates=False, fmt="story")
+kenny_ctx([{"id": c_two["d1"]["chat"][0]["message_id"], "story": "trade", "slot": "bot"}, {"id": c_two["d1"]["chat"][1]["message_id"], "story": "trade", "slot": "bot"}])(c_two)
+orig_pick = forced_lead("week_score")
+try:
+    r_two = ISSUE.render(copy.deepcopy(PACK8), c_two, generated_at=T0, local_candidates=False, fmt="story")
+finally:
+    TRG.pick = orig_pick
 tw_ = VAL.visible_text(r_two["html"])
-check("same day: 'Then, at <time>'; another day: 'Then, <Day>, <time>'", re.search(r"Then, (?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday), \d+:\d\d [AP]M:", tw_) is not None and "Then, at" not in tw_, tw_[tw_.find("Then"):tw_.find("Then") + 60])
+check("each Kenny quote carries its day and time inside the sentence (e.g. 'Tuesday at 2:30 PM')", re.search(r"(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) at \d+:\d\d [AP]M", tw_) is not None, tw_[-200:])
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

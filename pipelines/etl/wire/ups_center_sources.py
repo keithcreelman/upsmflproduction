@@ -306,6 +306,7 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     ctx["mfl"]["trades"] = [t for t in tx if int(t["timestamp"]) >= since]
     try:
         ctx["tradeInfo"] = trade_details(season, ctx["mfl"]["trades"])      # facts only: never the offer's comment
+        ctx["tradeContext"] = trade_context(season, week, ctx["tradeInfo"]) if ctx["tradeInfo"] else None
     except Exception:                                    # noqa: BLE001  (a trade we cannot describe is left out, never guessed)
         ctx["tradeInfo"] = []
 
@@ -411,6 +412,40 @@ def trade_details(season, trades):
                     "a_salary": round(sum(x.get("salary", 0) for x in ag if x["kind"] == "player"), 1),
                     "b_salary": round(sum(x.get("salary", 0) for x in bg if x["kind"] == "player"), 1)})
     return out
+
+
+def trade_context(season, week, trade_info):
+    """Facts the trade story is told with, from MFL's public weeklyResults and players exports (weeks 1..week): each team's points from RB
+    starters, and for every player in the trade how many weeks he was on his sending team's weekly roster and how many he started there.
+    No comments, no chat. {"through": week, "rbPts": {fid: points}, "players": {pid: {"fid", "onRoster", "started"}}}."""
+    seen, rb_ids, scores = {}, set(), []
+    pos = {}
+    for w in range(1, int(week) + 1):
+        r = _get(MFL % (season, "weeklyResults", "&W=%d" % w)).get("weeklyResults", {})
+        for m in _list(r.get("matchup")):
+            for f in _list(m.get("franchise")):
+                for p in _list(f.get("player")):
+                    key = (w, f["id"], str(p["id"]))
+                    if key in seen:                       # a team that plays several games in a week appears once per game, with the same lineup
+                        continue
+                    seen[key] = True
+                    scores.append((w, f["id"], str(p["id"]), p.get("status"), float(p["score"]) if p.get("score") not in (None, "") else 0.0))
+    ids = sorted({x[2] for x in scores})
+    for i in range(0, len(ids), 150):
+        for p in _list(_get(MFL % (season, "players", "&DETAILS=1&PLAYERS=" + ",".join(ids[i:i + 150]))).get("players", {}).get("player")):
+            pos[str(p["id"])] = p.get("position")
+    rb = {}
+    for w, fid, pid, status, sc in scores:
+        if status == "starter" and pos.get(pid) == "RB":
+            rb[fid] = rb.get(fid, 0.0) + sc
+    players = {}
+    for t in trade_info:
+        for giver, gave in ((t["a"], t["a_gave"]), (t["b"], t["b_gave"])):
+            for x in gave:
+                if x["kind"] == "player":
+                    rows = [(w, st) for w, fid, pid, st, _ in scores if pid == x["id"] and fid == giver]
+                    players[x["id"]] = {"fid": giver, "onRoster": len(rows), "started": sum(1 for _, st in rows if st == "starter")}
+    return {"through": int(week), "rbPts": {f: round(v, 1) for f, v in rb.items()}, "players": players}
 
 
 def d1_matches_mfl(ctx):
