@@ -178,8 +178,15 @@ def load_overlay(season):
             # GROUPs BY pos_group, one row per exact pos_group. Keying on the
             # coarse bucket would apply the same delta to every one of those
             # rows instead of just the one the corrected player is actually in.
-            pgd = entry.setdefault("posGroupDelta", {})
-            pgd[pos_group] = round(pgd.get(pos_group, 0.0) + delta, 4)
+            # D1's src_weekly is re-synced by the Thursday/Friday live sync, so by the time this runs the
+            # row may ALREADY hold the corrected score. The SQL-side SUM then includes the correction, and
+            # adding the delta again would double-count it (Week 9, 2026: every bucket sum was off by the
+            # delta, so the offense/IDP split was refused). Add the delta only while the row still holds
+            # the pre-correction value.
+            already = abs(float(row.get("score") or 0.0) - float(p["after"])) < 0.005 and abs(delta) >= 0.005
+            if not already:
+                pgd = entry.setdefault("posGroupDelta", {})
+                pgd[pos_group] = round(pgd.get(pos_group, 0.0) + delta, 4)
 
     _overlay_cache[season] = overlay
     return overlay
