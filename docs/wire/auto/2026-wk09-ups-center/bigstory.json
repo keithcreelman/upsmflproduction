@@ -16,9 +16,9 @@
    "s": 0.125
   },
   {
-   "fid": "0011",
-   "trigger": "big_trade",
-   "s": 0.14
+   "fid": "0010",
+   "trigger": "division_decider",
+   "s": 0.142
   }
  ]
 }

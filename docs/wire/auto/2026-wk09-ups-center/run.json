@@ -2,8 +2,8 @@
  "id": "2026-wk09-ups-center",
  "season": 2026,
  "week": 9,
- "builtAtUtc": "2026-11-11T18:09:59Z",
- "code": "4fe9adba296f573ed0b79e50b0ec958abfbb3609",
+ "builtAtUtc": "2026-11-12T13:45:09Z",
+ "code": "ca3604aba3b79a2bd9d7f35335bcb304e252c6a9",
  "timing": {
   "finalAt": 1794291300,
   "deadline": 1794503700
@@ -15,85 +15,85 @@
    "throughWeek": 9,
    "runs": 10000,
    "seed": 20260911,
-   "generatedAtUtc": "2026-11-11T13:32:27Z",
+   "generatedAtUtc": "2026-11-12T13:43:58Z",
    "teams": {
     "0009": {
      "po": 1.0,
-     "bye": 0.9998,
-     "div": 0.9998,
-     "title": 0.4943,
+     "bye": 0.9997,
+     "div": 0.9997,
+     "title": 0.4875,
      "division": "03",
      "prePo": 0.7433,
      "preTitle": 0.1806
     },
     "0005": {
-     "po": 1.0,
-     "bye": 0.9506,
-     "div": 0.9656,
-     "title": 0.1903,
+     "po": 0.9998,
+     "bye": 0.9488,
+     "div": 0.9648,
+     "title": 0.1875,
      "division": "00",
      "prePo": 0.5929,
      "preTitle": 0.1163
     },
     "0004": {
-     "po": 0.9826,
-     "bye": 0.0315,
-     "div": 0.0344,
-     "title": 0.1685,
+     "po": 0.9805,
+     "bye": 0.0332,
+     "div": 0.0352,
+     "title": 0.1709,
      "division": "00",
      "prePo": 0.696,
      "preTitle": 0.1501
     },
     "0010": {
-     "po": 0.9332,
-     "bye": 0.0171,
-     "div": 0.7967,
-     "title": 0.0735,
+     "po": 0.9316,
+     "bye": 0.0177,
+     "div": 0.7918,
+     "title": 0.075,
      "division": "01",
      "prePo": 0.6649,
      "preTitle": 0.1023
     },
-    "0008": {
-     "po": 0.9731,
-     "bye": 0.0006,
-     "div": 0.9721,
-     "title": 0.0506,
-     "division": "02",
-     "prePo": 0.5444,
-     "preTitle": 0.1011
-    },
     "0012": {
-     "po": 0.5512,
+     "po": 0.5438,
      "bye": 0.0001,
-     "div": 0.0002,
-     "title": 0.0106,
+     "div": 0.0003,
+     "title": 0.0115,
      "division": "03",
      "prePo": 0.3638,
      "preTitle": 0.0435
     },
     "0002": {
-     "po": 0.4488,
+     "po": 0.4517,
      "bye": 0.0003,
-     "div": 0.2033,
-     "title": 0.0109,
+     "div": 0.2082,
+     "title": 0.0135,
      "division": "01",
      "prePo": 0.5149,
      "preTitle": 0.0736
     },
+    "0008": {
+     "po": 0.9499,
+     "bye": 0.0002,
+     "div": 0.9488,
+     "title": 0.0521,
+     "division": "02",
+     "prePo": 0.5444,
+     "preTitle": 0.1011
+    },
     "0011": {
-     "po": 0.0827,
+     "po": 0.0911,
      "bye": 0.0,
      "div": 0.0,
-     "title": 0.0011,
+     "title": 0.0016,
      "division": "03",
      "prePo": 0.4339,
      "preTitle": 0.0552
     },
     "0001": {
-     "po": 0.0274,
+     "po": 0.0491,
      "bye": 0.0,
-     "div": 0.0269,
-     "title": 0.0002,
+     "div": 0.0487,
+     "title": 0.0004,
      "division": "02",
      "prePo": 0.3401,
      "preTitle": 0.0284
@@ -108,9 +108,9 @@
      "preTitle": 0.0171
     },
     "0007": {
-     "po": 0.001,
+     "po": 0.0025,
      "bye": 0.0,
-     "div": 0.001,
+     "div": 0.0025,
      "title": 0.0,
      "division": "02",
      "prePo": 0.5221,
@@ -130,23 +130,23 @@
   "preview": {
    "week": 10,
    "throughWeek": 9,
-   "generatedAtUtc": "2026-11-11T13:32:25Z",
+   "generatedAtUtc": "2026-11-12T13:42:23Z",
    "runs": 10000,
    "seed": 20260911,
-   "inputsAtUtc": "2026-11-11T13:32:25Z",
+   "inputsAtUtc": "2026-11-12T13:42:23Z",
    "scenarioTotals": {
     "0001": {
-     "cells": 35,
+     "cells": 36,
      "runs": 10000,
-     "playoff": 274,
-     "division": 269,
+     "playoff": 491,
+     "division": 487,
      "bye": 0
     },
     "0002": {
      "cells": 35,
      "runs": 10000,
-     "playoff": 4488,
-     "division": 2033,
+     "playoff": 4517,
+     "division": 2082,
      "bye": 3
     },
     "0003": {
@@ -159,19 +159,19 @@
     "0004": {
      "cells": 35,
      "runs": 10000,
-     "playoff": 9826,
-     "division": 344,
-     "bye": 315
+     "playoff": 9805,
+     "division": 352,
+     "bye": 332
     },
     "0005": {
      "cells": 36,
      "runs": 10000,
-     "playoff": 10000,
-     "division": 9656,
-     "bye": 9506
+     "playoff": 9998,
+     "division": 9648,
+     "bye": 9488
     },
     "0006": {
-     "cells": 34,
+     "cells": 36,
      "runs": 10000,
      "playoff": 0,
      "division": 0,
@@ -180,43 +180,43 @@
     "0007": {
      "cells": 35,
      "runs": 10000,
-     "playoff": 10,
-     "division": 10,
+     "playoff": 25,
+     "division": 25,
      "bye": 0
     },
     "0008": {
      "cells": 35,
      "runs": 10000,
-     "playoff": 9731,
-     "division": 9721,
-     "bye": 6
+     "playoff": 9499,
+     "division": 9488,
+     "bye": 2
     },
     "0009": {
      "cells": 34,
      "runs": 10000,
      "playoff": 10000,
-     "division": 9998,
-     "bye": 9998
+     "division": 9997,
+     "bye": 9997
     },
     "0010": {
      "cells": 35,
      "runs": 10000,
-     "playoff": 9332,
-     "division": 7967,
-     "bye": 171
+     "playoff": 9316,
+     "division": 7918,
+     "bye": 177
     },
     "0011": {
      "cells": 35,
      "runs": 10000,
-     "playoff": 827,
+     "playoff": 911,
      "division": 0,
      "bye": 0
     },
     "0012": {
      "cells": 35,
      "runs": 10000,
-     "playoff": 5512,
-     "division": 2,
+     "playoff": 5438,
+     "division": 3,
      "bye": 1
     }
    }
