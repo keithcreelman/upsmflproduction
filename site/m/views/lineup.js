@@ -829,7 +829,7 @@
     });
 
     var labelCls = slot.flex ? "pos flex" : "pos";
-    var note = slot.flex ? '<span class="elig">latest game</span>' : (slot.note ? '<span class="elig">' + U.escapeHtml(slot.note) + '</span>' : "");
+    var note = slot.note ? '<span class="elig">' + U.escapeHtml(slot.note) + '</span>' : "";
     var injRow = "";
     if (currentRow) { var ic = injChipsHtml(currentRow.id, currentRow.team); if (ic) injRow = '<div class="ups-m-slot-lock-row ups-m-slot-inj">' + ic + '</div>'; }
     var selCls = "ups-m-slot-sel" + (filled ? "" : " empty");
@@ -953,7 +953,8 @@
     if (M.state.lineupSubmitting) return;
     var fid = M.state.viewerFranchiseId;
     if (!fid) return;
-    var draft = M.state.lineupSlots || {};
+    // Flex / SuperFlex are assigned behind the scenes at submit; the screen is left as the owner set it.
+    var draft = arrangeDraft(M.state.lineupSlots || {}, buildRows()) || {};
     // Flat list of chosen player IDs, in slot order, de-duped defensively.
     var seen = {}, starters = [];
     SLOTS.forEach(function (s) {
@@ -1137,7 +1138,6 @@
       M.state.lineupSeed = "user";
       M.state.lineupMessage = { kind: "info", text: "Your changes are now for Week " + M.state.lineupWeek + ". Not submitted yet." };
     }
-    M.state.lineupSlots = arrangeDraft(M.state.lineupSlots, rows);
     var draft = M.state.lineupSlots;
     var byId = rowsById(rows);
     var v = FO.validateSlots(draft, byId);

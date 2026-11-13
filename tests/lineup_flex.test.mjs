@@ -165,7 +165,9 @@ test("the shared validators report MFL's ranges the same way on both surfaces", 
   t.match(gd, /FLEX\.rangeProblems\(draft,/); t.match(gd, /pickAccepts\(sl, posGroup\(r\.pos\)\)/);
   const mobile = read("site/m/views/lineup.js");
   t.match(mobile, /FLEX\.arrange\(draft, function \(pid\)/); t.match(mobile, /FLEX \? FLEX\.pickAccepts\(slot, r\.group\)/);
-  t.match(gd, /arrangeDraft\(STATE\.slots, byId\)/); t.match(mobile, /arrangeDraft\(M\.state\.lineupSlots, rows\)/);
+  // the arrangement happens at submit only; the screen is never re-sorted
+  t.match(gd, /arrangeDraft\(STATE\.slots \|\| \{\}, byIdS\)/); t.match(mobile, /arrangeDraft\(M\.state\.lineupSlots \|\| \{\}, buildRows\(\)\)/);
+  t.ok(!/STATE\.slots = arrangeDraft/.test(gd) && !/lineupSlots = arrangeDraft/.test(mobile), "no on-screen re-sorting");
 });
 test("the unsaved-changes check compares the set of starters, so a Flex relabel never reads as an edit", () => {
   const mobile = read("site/m/views/lineup.js");

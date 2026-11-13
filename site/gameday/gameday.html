@@ -854,7 +854,7 @@
     });
     var opts = '<option value="">— Empty —</option>';
     cands.forEach(function (r) { opts += '<option value="' + esc(r.id) + '"' + (r.id === current ? " selected" : "") + '>' + esc(optText(r)) + '</option>'; });
-    var note = slot.flex ? '<span class="elig">latest game</span>' : (slot.note ? '<span class="elig">' + esc(slot.note) + '</span>' : "");
+    var note = slot.note ? '<span class="elig">' + esc(slot.note) + '</span>' : "";
     var cur = current ? projFor(current) : null;
     return '<div class="gd-slot' + (current ? " filled" : "") + (isLocked ? " locked" : "") + (isBye ? " bye" : "") + '">' +
       '<div class="gd-slot-tag"><span class="pos' + (slot.flex ? " flex" : "") + '">' + esc(slot.label) + '</span>' + note + '</div>' +
@@ -1239,7 +1239,6 @@
       STATE.slots = {};
     }
     var byId = {}; rows.forEach(function (r) { byId[r.id] = r; });
-    STATE.slots = arrangeDraft(STATE.slots, byId);
     var draft = STATE.slots;
     var v = validate(draft, byId);
     var used = {}; SLOTS.forEach(function (sl) { if (draft[sl.id]) used[draft[sl.id]] = 1; });
@@ -1445,7 +1444,8 @@
   function submitLineup() {
     if (STATE.submitting) return;
     var fid = STATE.viewerFranchiseId; if (!fid) return;
-    var draft = STATE.slots || {}, seen = {}, starters = [];
+    var byIdS = {}; buildRows().forEach(function (r) { byIdS[r.id] = r; });
+    var draft = arrangeDraft(STATE.slots || {}, byIdS) || {}, seen = {}, starters = [];
     SLOTS.forEach(function (sl) { var pid = draft[sl.id]; if (pid && !seen[pid]) { seen[pid] = 1; starters.push(pid); } });
     if (!starters.length) return;
     STATE.submitting = true; STATE.message = { kind: "info", text: "Submitting lineup to MFL…" }; rerender();
