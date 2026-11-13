@@ -9,16 +9,22 @@
 <link rel="icon" type="image/png" sizes="32x32" href="../../m/icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="../../m/icons/favicon-16.png">
 <link rel="apple-touch-icon" href="../../m/icons/apple-touch-icon-180.png">
-<link rel="stylesheet" href="front_office.css?v=2026.08.08.v0.3.6">
+<link rel="stylesheet" href="front_office.css?v=2026.10.28.4">
 </head>
 <!-- .fo-root carries FO's page-level styling (dark surface, fonts, box-sizing).
      Scoped via this class so the same CSS is safe when injected into MFL's page
      (HPM embed): the embed loader applies .fo-root to its mount instead of <body>. -->
 <body class="fo-root" style="margin:0">
 <header class="fo-header">
-  <h1>Front Office <span class="subtitle">UPS League · 2026</span>
-    <button id="fo-version-badge" class="fo-version-badge" title="Click for module changelog">Loading…</button>
-  </h1>
+  <div class="fo-header-row">
+    <h1>Front Office <span class="subtitle" id="fo-subtitle">UPS League</span>
+      <span id="fo-version-badge" class="fo-version-badge" title="Front Office version">Loading…</span>
+    </h1>
+    <div class="fo-header-tools">
+      <span class="fo-freshness" id="fo-freshness" aria-live="polite"></span>
+      <button type="button" class="btn secondary small" id="fo-about-btn" aria-haspopup="dialog">About these numbers</button>
+    </div>
+  </div>
   <div class="meta" id="fo-meta">Loading…</div>
   <div id="fo-dryrun-banner" class="fo-dryrun-banner" hidden>
     🧪 <strong>DRY-RUN MODE</strong> — submissions hit the worker with <code>dry_run: 1</code>; no MFL writes, Discord routes to test channel, D1 audit rows flagged.
@@ -28,17 +34,34 @@
   </div>
 </header>
 
-<nav class="fo-tabs" id="fo-tabs">
-  <button data-tab="roster" class="active">Rosters</button>
-  <button data-tab="cap">Cap Planning</button>
-  <button data-tab="contracts">Contracts</button>
-  <button data-tab="saladj">Salary Adjustments</button>
-  <button data-tab="contractlog">Misc</button>
-  <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
+<!-- Six destinations (#1338). Each sub-view is a .fo-section; a top button
+     opens its group's last-used (or default) section. Deep link: #fo=<section>. -->
+<nav class="fo-tabs" id="fo-tabs" aria-label="Front Office">
+  <button data-tab="overview" class="active">Overview</button>
+  <button data-tab="roster">Roster</button>
+  <button data-tab="market">Market</button>
+  <button data-tab="trades">Trades</button>
+  <button data-tab="contracts">Contracts &amp; Cap</button>
+  <button data-tab="moves">Activity</button>
 </nav>
 
-<!-- Sub-tabs under the Contracts parent (shown only when Contracts is active) -->
-<nav class="fo-subtabs" id="fo-contracts-subnav" hidden>
+<nav class="fo-subtabs" id="fo-roster-subnav" data-group="roster" aria-label="Roster views" hidden>
+  <button data-subtab="roster" class="active">Players</button>
+  <button data-subtab="bye">Bye planner</button>
+</nav>
+<nav class="fo-subtabs" id="fo-trades-subnav" data-group="trades" aria-label="Trade views" hidden>
+  <button data-subtab="trades" class="active">Trades</button>
+  <a class="fo-subtab-link" id="fo-war-room-link" href="#" target="_top">Trade War Room ↗</a>
+</nav>
+<nav class="fo-subtabs" id="fo-contracts-subnav" data-group="contracts" aria-label="Contracts and cap views" hidden>
+  <button data-subtab="cap" class="active">Cap plan</button>
+  <button data-subtab="myac" data-subgroup="actions">Contract actions</button>
+  <button data-subtab="picks">Draft picks</button>
+  <button data-subtab="saladj">Salary adjustments</button>
+  <button data-subtab="contractlog">Contract log</button>
+</nav>
+<!-- Contract actions: one window per kind (shown under "Contract actions") -->
+<nav class="fo-subtabs fo-subtabs-2" id="fo-actions-subnav" aria-label="Contract action windows" hidden>
   <button data-subtab="myac" class="active">Auction</button>
   <button data-subtab="extensions">Extensions</button>
   <button data-subtab="restructure">Restructures</button>
@@ -48,8 +71,38 @@
 
 <main class="fo-main">
 
+  <!-- ── OVERVIEW (#1338) — only what needs attention, each with a link to act ── -->
+  <section class="fo-section active" data-section="overview">
+    <div id="fo-overview-body"><div class="fo-table-loading">Loading your team…</div></div>
+  </section>
+
+  <!-- ── BYE PLANNER (#1338) ─────────────────────────────────────── -->
+  <section class="fo-section" data-section="bye">
+    <div id="fo-bye-body"><div class="fo-table-loading">Loading bye weeks…</div></div>
+  </section>
+
+  <!-- ── MARKET / PLAYER EXPLORER (#1338) ─────────────────────────── -->
+  <section class="fo-section" data-section="market">
+    <div id="fo-market-body"><div class="fo-table-loading">Loading players…</div></div>
+  </section>
+
+  <!-- ── TRADE FINDER (#1338) ─────────────────────────────────────── -->
+  <section class="fo-section" data-section="trades">
+    <div id="fo-trades-body"><div class="fo-table-loading">Loading teams…</div></div>
+  </section>
+
+  <!-- ── DRAFT PICKS (#1338) ──────────────────────────────────────── -->
+  <section class="fo-section" data-section="picks">
+    <div id="fo-picks-body"><div class="fo-table-loading">Loading draft picks…</div></div>
+  </section>
+
+  <!-- ── ACTIVITY: claims + recent moves (#1338) ───────────────────── -->
+  <section class="fo-section" data-section="moves">
+    <div id="fo-moves-body"><div class="fo-table-loading">Loading activity…</div></div>
+  </section>
+
   <!-- ── ROSTER TAB ───────────────────────────────────────────────── -->
-  <section class="fo-section active" data-section="roster">
+  <section class="fo-section" data-section="roster">
     <div class="fo-toolbar fo-card">
       <div class="fo-toolbar-row">
         <label class="fo-field" id="fo-team-field" hidden>
@@ -126,17 +179,24 @@
     <div class="fo-card">
       <div class="fo-card-head">
         <h2>Roster</h2>
-        <div class="fo-subview-chips" id="fo-group-toggle" role="tablist" aria-label="Roster grouping">
+        <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-colset">Roster columns</div>
+        <div class="fo-subview-chips fo-choice" id="fo-colset" role="group" aria-labelledby="fo-lbl-colset">
+          <button type="button" class="fo-subview-chip active" data-colset="perf" aria-pressed="true" title="MFL points, PPG, rank, next game, projection, bye">Performance</button>
+          <button type="button" class="fo-subview-chip" data-colset="contract" aria-pressed="false" title="Contract terms, guarantee, earned salary and drop penalty">Contract</button>
+          <button type="button" class="fo-subview-chip" data-colset="sched" aria-pressed="false" title="Upcoming opponents, home or away, kickoff, and what each opponent has allowed at the player's position so far">Schedule</button>
+        </div></div>
+        <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-group">Group players</div>
+        <div class="fo-subview-chips fo-choice" id="fo-group-toggle" role="tablist" aria-labelledby="fo-lbl-group">
           <button type="button" class="fo-subview-chip" data-group="flat">Flat</button>
           <button type="button" class="fo-subview-chip active" data-group="position">By Position</button>
-        </div>
+        </div></div>
         <span class="small" id="fo-roster-summary">Loading…</span>
       </div>
-      <p class="fo-row-hint">
-        💡 Click any row to open the player's slide-over (Actions · Bio · Stats · Game Log · Contract History · News).
-      </p>
+      <p class="fo-row-hint">Click a player for actions, stats, game log, contract history and news.</p>
       <div id="fo-contract-summary" class="fo-contract-summary"></div>
-      <div class="fo-table-scroll">
+      <div id="fo-perf-wrap" class="fo-perf-wrap"></div>
+      <div id="fo-sched-wrap" class="fo-perf-wrap" hidden></div>
+      <div class="fo-table-scroll" id="fo-contract-table-wrap">
       <table class="fo-table" id="fo-roster-table">
         <thead>
           <tr>
@@ -166,10 +226,11 @@
   <!-- ── CAP PLAN TAB ──────────────────────────────────────────────── -->
   <section class="fo-section" data-section="cap">
     <div class="fo-card">
-      <div class="fo-subview-chips" role="tablist" aria-label="Cap Plan view">
+      <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-capview">Cap plan view</div>
+      <div class="fo-subview-chips fo-choice" role="tablist" aria-labelledby="fo-lbl-capview">
         <button type="button" class="fo-subview-chip active" data-subview="summary">Summary</button>
         <button type="button" class="fo-subview-chip" data-subview="detail">Detail (by team)</button>
-      </div>
+      </div></div>
       <p class="small" id="fo-cap-horizon" style="color:var(--muted); margin: 8px 0 0;">
         Projections cover the current season + 2 future years. Extension previews are layered on for any player in their final year (canon §C4 eligibility).
       </p>
@@ -180,10 +241,11 @@
   <!-- ── TAGGING TAB (stub for this checkpoint) ───────────────────── -->
   <section class="fo-section" data-section="tag">
     <div class="fo-card">
-      <div class="fo-subview-chips" role="tablist" aria-label="Tagging view">
+      <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-tag">Tagging view</div>
+      <div class="fo-subview-chips fo-choice" role="tablist" aria-labelledby="fo-lbl-tag">
         <button type="button" class="fo-subview-chip active" data-subview="players">Eligible Players</button>
         <button type="button" class="fo-subview-chip" data-subview="breakdown">Calc Breakdown</button>
-      </div>
+      </div></div>
       <p class="small" id="fo-tag-meta" style="color:var(--muted); margin: 8px 0 0;">Loading tag plan…</p>
     </div>
     <div id="fo-tag-body"></div>
@@ -246,23 +308,32 @@
 
   <!-- ── CONTRACT LOG TAB (read-only, D1-sourced) ──────────────────── -->
   <section class="fo-section" data-section="contractlog">
-    <div class="fo-subview-chips" role="tablist" aria-label="Misc view" style="margin-bottom:14px;">
+    <div class="fo-choice-group" style="margin-bottom:14px;"><div class="fo-choice-label" id="fo-lbl-clog">Contract log view</div>
+    <div class="fo-subview-chips fo-choice" role="tablist" aria-labelledby="fo-lbl-clog">
       <button type="button" class="fo-subview-chip active" data-subview="log">Contract Log</button>
       <button type="button" class="fo-subview-chip" data-subview="glossary">Glossary</button>
-    </div>
+    </div></div>
     <div class="fo-card">
       <div id="fo-contractlog-body"></div>
     </div>
   </section>
 
-  <!-- ── ACTIVITY & AUDIT TAB ──────────────────────────────────────── -->
-  <section class="fo-section" data-section="activity">
-    <div id="fo-activity-body"></div>
-  </section>
 
   <!-- Commish Settings moved to its own hub page: MESSAGE19&hub=commish-settings -->
 
 </main>
+
+<!-- ── About these numbers (#1338): definitions, sources, freshness ── -->
+<div class="fo-about" id="fo-about" hidden>
+  <div class="fo-about-backdrop" data-action="close-about"></div>
+  <div class="fo-about-panel" role="dialog" aria-modal="true" aria-labelledby="fo-about-title" tabindex="-1">
+    <header class="fo-about-head">
+      <h2 id="fo-about-title">About these numbers</h2>
+      <button type="button" class="fo-slideover-close" data-action="close-about" aria-label="Close">×</button>
+    </header>
+    <div class="fo-about-body" id="fo-about-body"></div>
+  </div>
+</div>
 
 <!-- ── Slide-over action panel (right-side, universal pattern) ───── -->
 <aside id="fo-slideover" class="fo-slideover" hidden aria-hidden="true" aria-labelledby="fo-slideover-title">
@@ -272,6 +343,7 @@
       <div>
         <h2 id="fo-slideover-title">Player</h2>
         <div class="fo-slideover-sub" id="fo-slideover-sub"></div>
+        <div id="fo-slideover-inj"></div>
       </div>
       <button type="button" class="fo-slideover-close" data-action="close-slideover" aria-label="Close">×</button>
     </header>
@@ -292,6 +364,32 @@
 
 <script src="../../shared/contract_windows.js?v=2026.09.28.1"></script>
 <script src="../../shared/loaded_contract_classification.js?v=2026.09.30.1"></script>
-<script src="front_office.js?v=2026.10.09.v1.40.2"></script>
+<script src="../../shared/injury_status.js?v=2026.10.20.1"></script>
+<script src="../../m/front_office_lineup.js?v=2026.10.20.1"></script>
+<script src="../../m/season_scoring.js?v=2026.10.20.1"></script>
+<script src="../../shared/player_facts.js?v=2026.10.27.1"></script>
+<script src="fo_data.js?v=2026.10.28.1"></script>
+<script src="fo_cap_ledger.js?v=2026.10.27.1"></script>
+<script src="../../shared/trade_fit.js?v=2026.10.27.1"></script>
+<script src="../../shared/lineup_strength.js?v=2026.10.27.1"></script>
+<script src="../../shared/starter_mix.js?v=2026.10.27.1"></script>
+<script src="../../shared/bye_planner.js?v=2026.10.27.1"></script>
+<script src="../../shared/player_profile_master.js?v=2026.10.27.1"></script>
+<script src="fo_hub.js?v=2026.10.27.1"></script>
+<script src="fo_overview.js?v=2026.10.27.1"></script>
+<script src="../../shared/player_schedule.js?v=2026.10.28.4"></script>
+<script src="fo_roster.js?v=2026.10.28.4"></script>
+<script src="fo_market.js?v=2026.10.27.3"></script>
+<script src="../../shared/trade_rules.js?v=2026.10.27.1"></script>
+<script src="../../shared/pretrade_extension.js?v=2026.10.27.1"></script>
+<script src="../../shared/trade_impact.js?v=2026.10.27.1"></script>
+<script src="../../shared/trade_builder_core.js?v=2026.10.27.1"></script>
+<script src="../../shared/trade_builder_view.js?v=2026.10.27.1"></script>
+<script src="fo_trade_builder.js?v=2026.10.27.1"></script>
+<script src="fo_trades.js?v=2026.10.27.2"></script>
+<script src="fo_activity.js?v=2026.10.27.2"></script>
+<script src="../../shared/taxi_rule.js?v=2026.10.21.5"></script>
+<script src="fo_player_modal.js?v=2026.10.27.1"></script>
+<script src="front_office.js?v=2026.10.27.v1.41.3"></script>
 </body>
 </html>

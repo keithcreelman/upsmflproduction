@@ -74,7 +74,8 @@ await fo.c.render();
 const H26 = fo.body();
 
 test("wired: a 'Salary Adjustments' tab, its section, the dispatcher, and a new FO stamp", () => {
-  t.match(FO_HTML, /<button data-tab="saladj">Salary Adjustments<\/button>/);
+  // #1338: Salary adjustments moved under Contracts & Cap (a chip in its sub-nav), same section and dispatcher.
+  t.match(FO_HTML, /id="fo-contracts-subnav"[\s\S]*?<button data-subtab="saladj">Salary adjustments<\/button>/);
   t.match(FO_HTML, /<section class="fo-section" data-section="saladj">[\s\S]*?<div id="fo-saladj-body"><\/div>/);
   t.match(FO_SRC, /else if \(key === "saladj"\) renderSalaryAdjustmentsTab\(\);/);
   // the tab shipped in v1.40.0; any later FO stamp still carries it
