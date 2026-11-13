@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="32x32" href="../../m/icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="../../m/icons/favicon-16.png">
 <link rel="apple-touch-icon" href="../../m/icons/apple-touch-icon-180.png">
-<link rel="stylesheet" href="front_office.css?v=2026.08.08.v0.3.6">
+<link rel="stylesheet" href="front_office.css?v=2026.11.13.1">
 </head>
 <!-- .fo-root carries FO's page-level styling (dark surface, fonts, box-sizing).
      Scoped via this class so the same CSS is safe when injected into MFL's page
@@ -35,6 +35,16 @@
   <button data-tab="saladj">Salary Adjustments</button>
   <button data-tab="contractlog">Misc</button>
   <button data-tab="activity" id="fo-tab-activity" hidden>Activity &amp; Audit</button>
+</nav>
+
+<!-- Rosters = the Front Office redesign's Roster view (#1338): Players (Performance / Contract columns) and the Bye planner. -->
+<nav class="fo-subtabs" id="fo-roster-subnav" data-group="roster" aria-label="Roster views">
+  <button data-subtab="roster" class="active">Players</button>
+  <button data-subtab="bye">Bye planner</button>
+  <span class="fo-roster-subnav-tools">
+    <span class="fo-freshness" id="fo-freshness" aria-live="polite"></span>
+    <button type="button" class="btn secondary small" id="fo-about-btn" aria-haspopup="dialog">About these numbers</button>
+  </span>
 </nav>
 
 <!-- Sub-tabs under the Contracts parent (shown only when Contracts is active) -->
@@ -126,17 +136,22 @@
     <div class="fo-card">
       <div class="fo-card-head">
         <h2>Roster</h2>
-        <div class="fo-subview-chips" id="fo-group-toggle" role="tablist" aria-label="Roster grouping">
+        <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-colset">Roster columns</div>
+        <div class="fo-subview-chips fo-choice" id="fo-colset" role="group" aria-labelledby="fo-lbl-colset">
+          <button type="button" class="fo-subview-chip active" data-colset="perf" aria-pressed="true" title="MFL points, PPG, rank, next game, projection, bye">Performance</button>
+          <button type="button" class="fo-subview-chip" data-colset="contract" aria-pressed="false" title="Contract terms, guarantee, earned salary and drop penalty">Contract</button>
+        </div></div>
+        <div class="fo-choice-group"><div class="fo-choice-label" id="fo-lbl-group">Group players</div>
+        <div class="fo-subview-chips fo-choice" id="fo-group-toggle" role="tablist" aria-labelledby="fo-lbl-group">
           <button type="button" class="fo-subview-chip" data-group="flat">Flat</button>
           <button type="button" class="fo-subview-chip active" data-group="position">By Position</button>
-        </div>
+        </div></div>
         <span class="small" id="fo-roster-summary">Loading…</span>
       </div>
-      <p class="fo-row-hint">
-        💡 Click any row to open the player's slide-over (Actions · Bio · Stats · Game Log · Contract History · News).
-      </p>
+      <p class="fo-row-hint">Click a player for actions, stats, game log, contract history and news.</p>
       <div id="fo-contract-summary" class="fo-contract-summary"></div>
-      <div class="fo-table-scroll">
+      <div id="fo-perf-wrap" class="fo-perf-wrap"></div>
+      <div class="fo-table-scroll" id="fo-contract-table-wrap">
       <table class="fo-table" id="fo-roster-table">
         <thead>
           <tr>
@@ -164,6 +179,11 @@
   </section>
 
   <!-- ── CAP PLAN TAB ──────────────────────────────────────────────── -->
+  <!-- ── BYE PLANNER (#1338) ─────────────────────────────────────── -->
+  <section class="fo-section" data-section="bye">
+    <div id="fo-bye-body"><div class="fo-table-loading">Loading bye weeks…</div></div>
+  </section>
+
   <section class="fo-section" data-section="cap">
     <div class="fo-card">
       <div class="fo-subview-chips" role="tablist" aria-label="Cap Plan view">
@@ -265,6 +285,18 @@
 </main>
 
 <!-- ── Slide-over action panel (right-side, universal pattern) ───── -->
+<!-- ── About these numbers (#1338): the Roster view's definitions and sources ── -->
+<div class="fo-about" id="fo-about" hidden>
+  <div class="fo-about-backdrop" data-action="close-about"></div>
+  <div class="fo-about-panel" role="dialog" aria-modal="true" aria-labelledby="fo-about-title" tabindex="-1">
+    <header class="fo-about-head">
+      <h2 id="fo-about-title">About these numbers</h2>
+      <button type="button" class="fo-slideover-close" data-action="close-about" aria-label="Close">×</button>
+    </header>
+    <div class="fo-about-body" id="fo-about-body"></div>
+  </div>
+</div>
+
 <aside id="fo-slideover" class="fo-slideover" hidden aria-hidden="true" aria-labelledby="fo-slideover-title">
   <div class="fo-slideover-backdrop" data-action="close-slideover"></div>
   <div class="fo-slideover-panel" role="dialog" aria-modal="true">
@@ -292,6 +324,14 @@
 
 <script src="../../shared/contract_windows.js?v=2026.09.28.1"></script>
 <script src="../../shared/loaded_contract_classification.js?v=2026.09.30.1"></script>
-<script src="front_office.js?v=2026.10.09.v1.40.2"></script>
+<script src="../../shared/injury_status.js?v=2026.11.13.1"></script>
+<script src="../../m/front_office_lineup.js?v=2026.11.13.1"></script>
+<script src="../../m/season_scoring.js?v=2026.11.13.1"></script>
+<script src="../../shared/player_facts.js?v=2026.11.13.1"></script>
+<script src="fo_data.js?v=2026.11.13.1"></script>
+<script src="../../shared/bye_planner.js?v=2026.11.13.1"></script>
+<script src="fo_hub.js?v=2026.11.13.1"></script>
+<script src="fo_roster.js?v=2026.11.13.1"></script>
+<script src="front_office.js?v=2026.11.13.v1.41.0"></script>
 </body>
 </html>

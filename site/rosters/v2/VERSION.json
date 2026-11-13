@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.1.1",
-  "released": "2026-10-07",
-  "checkpoint": 15,
-  "scope": "Security: contract submits (extend, MYM, MYAC, restructure, tag/untag) forward the viewer's MFL session so the worker can prove the caller controls the team before it writes a contract.",
+  "version": "2.2.0",
+  "released": "2026-11-13",
+  "checkpoint": 16,
+  "scope": "Rosters tab = the Front Office redesign's Roster view (#1338): Players with Performance and Contract column sets, and the Bye planner. Every other tab is unchanged.",
   "next": "Extend the next-season ledger route to cover 2+ years out if a future need requires it; Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

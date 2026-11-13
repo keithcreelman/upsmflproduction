@@ -994,3 +994,125 @@ main.fo-main { padding: 20px 24px 80px; max-width: 1400px; margin: 0 auto; }
 }
 .fo-root .fo-cap-planonly strong { color: var(--text); font-weight: 600; }
 
+
+/* ── Rosters tab = the Front Office redesign's Roster view (#1338) ──────────────────────────────
+   Performance / Contract column sets, the Bye planner and the About dialog. Copied from the redesign's
+   front_office.css (tb/fo 1d56983b): only selectors this file did not already define, so no other tab's
+   styling changes. */
+:root { --fo-choice-font: Verdana, "DejaVu Sans", Geneva, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; --fo-focus: #fbbf24; }
+#fo-roster-subnav { align-items: center; }
+.fo-roster-subnav-tools { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fo-inj {display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px;
+  font-size: 10px; font-weight: 700; line-height: 16px; letter-spacing: 0.3px; vertical-align: 1px;
+  border: 1px solid transparent;}
+.fo-inj.upf-inj-q {color: #fbbf24; background: rgba(251, 191, 36, 0.12); border-color: rgba(251, 191, 36, 0.4);}
+.fo-inj.upf-inj-d {color: #fb923c; background: rgba(251, 146, 60, 0.12); border-color: rgba(251, 146, 60, 0.45);}
+.fo-inj.upf-inj-out {color: #f87171; background: rgba(248, 113, 113, 0.12); border-color: rgba(248, 113, 113, 0.45);}
+.fo-inj.upf-inj-res {color: #fca5a5; background: rgba(248, 113, 113, 0.2); border-color: rgba(248, 113, 113, 0.55);}
+.fo-inj.upf-inj-ho {color: #c4b5fd; background: rgba(196, 181, 253, 0.12); border-color: rgba(196, 181, 253, 0.4);}
+.fo-basis {margin: 6px 0 0; font-size: 11px; color: var(--muted);}
+.fo-basis.warn {color: var(--warn);}
+.fo-freshness {font-size: 11px; color: var(--muted);}
+.fo-about[hidden] {display: none;}
+.fo-about {position: fixed; inset: 0; z-index: 1000; display: flex; align-items: flex-start; justify-content: center; padding: 6vh 16px;}
+.fo-about-backdrop {position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55);}
+.fo-about-panel {position: relative; max-width: 720px; width: 100%; max-height: 84vh; overflow: auto; outline: none;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 0 20px 18px; color: var(--text);}
+.fo-about[data-variant="team"] .fo-about-panel {max-width: 880px;}
+@media (max-width: 600px) {
+  .fo-about[data-variant="team"] {align-items: flex-end; padding: 0;}
+  .fo-about[data-variant="team"] .fo-about-panel {max-width: none; max-height: 88vh; border-radius: 14px 14px 0 0; border-bottom: 0; padding: 0 14px 20px;}
+  .fo-about[data-variant="team"] .fo-about-head::before {content: ""; position: absolute; top: 6px; left: 50%; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: var(--border);}
+}
+.fo-about-head {display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; background: var(--panel); padding: 14px 0 8px;}
+.fo-about-head h2 {margin: 0; font-size: 17px;}
+.fo-about-body h3 {font-size: 14px; margin: 12px 0 4px;}
+.fo-about-body p, .fo-about-body li {font-size: 13px; color: var(--text);}
+.fo-about-body ul {padding-left: 18px; margin: 4px 0;}
+.fo-about-hr {border: 0; border-top: 1px solid var(--border); margin: 14px 0 4px;}
+.fo-banner {margin: 8px 0; padding: 7px 11px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border); background: var(--panel-alt);}
+.fo-banner.warn {border-color: rgba(251, 191, 36, 0.5); color: var(--warn);}
+.fo-banner.info {color: var(--muted);}
+.fo-plink {background: none; border: 0; padding: 0; color: var(--text); font: inherit; cursor: pointer; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 2px;}
+.fo-plink:hover {color: var(--accent); text-decoration-color: var(--accent);}
+.fo-go {background: none; border: 0; padding: 0; color: var(--accent); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; text-decoration: none; white-space: nowrap;}
+.fo-go:hover {text-decoration: underline;}
+.fo-about-body p.fo-basis, .fo-about-body .fo-perf-sub {font-size: 11.5px; color: var(--muted);}
+.fo-about-body details {margin: 4px 0;}
+.fo-about-body summary {cursor: pointer; font-size: 13px;}
+.fo-perf-wrap[hidden], #fo-contract-table-wrap[hidden] {display: none;}
+.fo-perf-table {min-width: 860px;}
+.fo-perf-table th {white-space: nowrap;}
+.fo-th-sort {background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-transform: inherit; letter-spacing: inherit;}
+.fo-th-sort:hover {color: var(--text);}
+.fo-perf-player .fo-plink {font-weight: 600; text-decoration: none;}
+.fo-perf-sub {font-size: 11px;}
+.fo-muted {color: var(--muted);}
+.fo-bye {color: var(--warn); font-weight: 700; font-size: 11px; letter-spacing: 0.4px;}
+.fo-slot {display: inline-block; padding: 0 7px; border-radius: 10px; font-size: 11px; line-height: 18px; border: 1px solid var(--border); white-space: nowrap;}
+.fo-slot-start {color: #bfdbfe; border-color: rgba(91, 141, 255, 0.5); background: rgba(91, 141, 255, 0.12);}
+.fo-slot-bench {color: var(--muted);}
+.fo-slot-off {color: var(--muted); border-style: dashed;}
+.fo-bye-grid {min-width: 720px;}
+.fo-bye-grid th[scope="row"] {text-align: left; color: var(--muted); font-weight: 600; white-space: nowrap;}
+.fo-bye-wk {color: var(--muted); font-weight: 700; text-align: center;}
+.fo-bye-wk .fo-bye-cost {display: block;}
+.fo-bye-wk.sel {color: var(--text); background: var(--accent-soft);}
+.fo-bye-wk.short {color: var(--err);}
+.fo-bye-wk.heavy {color: var(--warn);}
+.fo-bye-cost {font-size: 10px; font-weight: 500; color: var(--muted);}
+.fo-bye-cell {text-align: center; font-variant-numeric: tabular-nums; font-size: 12px;}
+.fo-bye-cell.ok {color: var(--muted);}
+.fo-bye-cell.sub {color: #fcd34d; background: rgba(251, 191, 36, 0.08);}
+.fo-bye-cell.empty {color: #fecaca; background: rgba(239, 68, 68, 0.22); font-weight: 700;}
+.fo-bye-cell.sel {outline: 1px solid var(--accent-soft); outline-offset: -1px;}
+.fo-bye-out {list-style: none; padding: 0; margin: 6px 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 4px 16px; font-size: 13px;}
+.fo-bye-h {margin: 10px 0 4px; font-size: 13px;}
+.fo-bye-key {padding: 0 4px; border-radius: 3px;}
+.fo-bye-key.empty {color: #fecaca; background: rgba(239, 68, 68, 0.22);}
+.fo-bye-key.sub {color: #fcd34d; background: rgba(251, 191, 36, 0.12);}
+.fo-tf-partners li.sel .fo-plink {color: var(--accent); font-weight: 700;}
+.fo-choice-group {min-width: 0;}
+.fo-choice-label {font-family: var(--fo-choice-font); font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+  text-transform: uppercase; color: var(--muted); margin: 0 0 6px;}
+.fo-root .fo-choice {display: flex; flex-wrap: wrap; gap: 6px; padding: 4px; width: fit-content; max-width: 100%;
+  background: var(--panel-alt); border: 1px solid var(--border); border-radius: 12px;}
+.fo-root .fo-choice .fo-subview-chip {flex: 1 1 auto; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; min-width: 44px; padding: 8px 14px; border-radius: 9px;
+  font-family: var(--fo-choice-font); font-size: 14px; font-weight: 600; line-height: 1.2; white-space: normal; text-align: center;
+  color: var(--text); background: #1f293a; border: 1px solid #3a475e; cursor: pointer;}
+.fo-root .fo-choice .fo-subview-chip:hover {background: #27334a; color: var(--text);}
+.fo-root .fo-choice .fo-subview-chip.active,
+.fo-root .fo-choice .fo-subview-chip[aria-pressed="true"] {background: var(--accent); color: #07101f; border-color: #a9c2ff; font-weight: 800;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);}
+.fo-root .fo-choice .fo-subview-chip.active::before,
+.fo-root .fo-choice .fo-subview-chip[aria-pressed="true"]::before {content: "✓"; font-weight: 800;}
+.fo-root .fo-choice .fo-subview-chip:focus-visible {outline: 3px solid var(--fo-focus); outline-offset: 2px;}
+.fo-choice-row {display: flex; flex-wrap: wrap; gap: 12px 20px; margin: 8px 0 12px;}
+.fo-card-head .fo-choice-group {align-self: flex-end;}
+.fo-mk-controls .fo-choice-group {flex: 1 1 100%;}
+.fo-choice-filters {flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center;
+  border-top: 1px dashed var(--border); padding-top: 12px; margin-top: 4px;}
+.fo-choice-filters .fo-choice-label {flex: 0 0 100%; margin: 0 0 -4px;}
+.fo-choice-filters .fo-pos-chip {font-size: 13px;}
+.fo-choice-group + p {margin-top: 10px;}
+@media (max-width: 560px) {
+  .fo-root .fo-choice {width: 100%;}
+  .fo-root .fo-choice-wrap .fo-subview-chip {flex: 1 1 calc(50% - 6px);}
+}
+.fo-root .fo-choice .fo-subview-chip .fo-choice-sub {flex: 0 0 100%; font-size: 11px; font-weight: 600; line-height: 1.1; opacity: 0.85;}
+.fo-root .fo-choice-weeks .fo-subview-chip {flex: 0 1 calc(20% - 6px); flex-wrap: wrap; row-gap: 0; padding: 6px 4px;}
+.fo-root .fo-choice-weeks {margin-bottom: 10px;}
+.fo-root .fo-choice-weeks .fo-subview-chip {white-space: nowrap;}
+.fo-basis + .fo-choice-group {margin-top: 12px;}
+@media (max-width: 560px) {
+  .fo-root .fo-choice-weeks .fo-subview-chip {flex: 1 1 calc(25% - 6px);}
+}
+@media (max-width: 360px) {
+  .fo-root .fo-choice-weeks .fo-subview-chip {flex: 1 1 calc(33.3% - 6px);}
+}
+.fo-bye-grid th.fo-bye-wk {cursor: pointer;}
+@media (max-width: 560px) {
+  .fo-root .fo-mk-statusline .fo-perf-sub {margin-top: 2px;}
+}
+.fo-about .fo-tb .btn, .fo-tb-xd .btn {font-family: var(--fo-choice-font, inherit); min-height: 40px;}
