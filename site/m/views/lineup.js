@@ -1140,6 +1140,9 @@
       M.state.lineupSeed = "user";
       M.state.lineupMessage = { kind: "info", text: "Your changes are now for Week " + M.state.lineupWeek + ". Not submitted yet." };
     }
+    // What MFL holds / Optimal gives is shown with Flex and SuperFlex on the latest games, on refresh as well as at submit.
+    // Once the owner edits a slot his placement is left exactly as he set it (it is arranged again at submit).
+    if (M.state.lineupSeed !== "user") M.state.lineupSlots = arrangeDraft(M.state.lineupSlots, rows);
     var draft = M.state.lineupSlots;
     var byId = rowsById(rows);
     var v = FO.validateSlots(draft, byId);
