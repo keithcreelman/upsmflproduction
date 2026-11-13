@@ -796,6 +796,8 @@
 
   // One slot = a label tag + a <select> of eligible, not-yet-used players.
   function renderSlot(slot, rows, draft, used) {
+    // A starter sitting in a Flex / SuperFlex slot can still be picked for his own position's slot (he moves).
+    function inFlexSlot(pid) { return SLOTS.some(function (s) { return s.flex && s.id !== slot.id && draft[s.id] === pid; }); }
     var current = draft[slot.id] || "";
     var currentRow = current ? rows.filter(function (r) { return r.id === current; })[0] : null;
     // Locked (his game has started): stays visible and selected, but the slot
@@ -810,7 +812,7 @@
       if (!(r.eligible || (r.bye && r.id === current))) return false;
       if (!(FLEX ? FLEX.pickAccepts(slot, r.group) : FO.slotAccepts(slot, r.group))) return false;
       if (r.locked && r.id !== current) return false;
-      return !used[r.id] || r.id === current;
+      return !used[r.id] || r.id === current || inFlexSlot(r.id);
     });
     // Highest projected first (players with no projection sort last), tie → salary.
     cands.sort(function (a, b) {
@@ -887,7 +889,7 @@
       selects[i].addEventListener("change", function (e) {
         var slotId = e.target.getAttribute("data-slot");
         var pid = e.target.value;
-        if (pid) draft[slotId] = pid; else delete draft[slotId];
+        if (pid) { SLOTS.forEach(function (s) { if (s.id !== slotId && s.flex && draft[s.id] === pid) delete draft[s.id]; }); draft[slotId] = pid; } else delete draft[slotId];
         M.state.lineupSeed = "user";
         renderRoute();
       });

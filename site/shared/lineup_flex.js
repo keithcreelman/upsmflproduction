@@ -14,7 +14,7 @@
 
    API (window.UPS_LINEUP_FLEX):
      RANGES                         { QB:[1,2], RB:[2,5], WR:[2,5], TE:[1,4], PK:[1,1], PN:[1,1], DL:[2,3], LB:[2,3], DB:[2,3] }
-     pickAccepts(slot, group)       may this player GROUP be chosen for this slot? (K / P slots stay strict)
+     pickAccepts(slot, group)       may this player GROUP be chosen for this slot? (the slot's own positions, as before)
      arrange(draft, rowOf, kickoffOf, slots)  -> a new draft { slotId: pid }, flex slots holding the latest games
      rangeProblems(draft, rowOf, slots)       -> { errors: [text], count }   MFL's ranges, not slot labels
    rowOf(pid) -> a row with .group, or null; kickoffOf(row) -> unix seconds (0 / null = unknown or no game). */
@@ -29,7 +29,8 @@
     if (kickerSlot(slot)) return slot.accepts;
     return slot.side === "O" ? OFF_SKILL : DEF;
   }
-  function pickAccepts(slot, group) { return !!slot && groupsFor(slot).indexOf(group) !== -1; }
+  // Picker eligibility is the ORIGINAL one: a slot takes only the positions it always did (a TE is never offered for QB). MFL's ranges are checked separately.
+  function pickAccepts(slot, group) { return !!slot && slot.accepts.indexOf(group) !== -1; }
 
   function ko(kickoffOf, row) { var v = kickoffOf ? Number(kickoffOf(row)) : 0; return isFinite(v) && v > 0 ? v : 0; }
 

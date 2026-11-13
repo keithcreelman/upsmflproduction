@@ -139,12 +139,13 @@ test("random legal lineups: same starters, every slot legal, and no swap would p
 });
 
 // ── MFL's ranges instead of slot labels ──
-test("any QB/RB/WR/TE may be picked for any offensive slot; K and P stay strict; ranges are MFL's", () => {
+test("pickers are the original ones (no TE for QB); the ranges are MFL's", () => {
   const slot = (id) => SLOTS.find((s) => s.id === id);
-  for (const g of ["QB", "RB", "WR", "TE"]) { t.ok(FLEX.pickAccepts(slot("RB1"), g) && FLEX.pickAccepts(slot("SF1"), g)); t.ok(!FLEX.pickAccepts(slot("PK1"), g)); }
-  for (const g of ["DL", "LB", "DB"]) t.ok(FLEX.pickAccepts(slot("LB1"), g) && FLEX.pickAccepts(slot("DF1"), g));
-  t.ok(!FLEX.pickAccepts(slot("RB1"), "DL") && !FLEX.pickAccepts(slot("DL1"), "WR"), "offense and defense stay apart");
+  t.ok(FLEX.pickAccepts(slot("QB1"), "QB") && !FLEX.pickAccepts(slot("QB1"), "TE") && !FLEX.pickAccepts(slot("QB1"), "RB"), "QB1 takes only a QB");
+  t.ok(FLEX.pickAccepts(slot("SF1"), "QB") && FLEX.pickAccepts(slot("SF1"), "TE") && FLEX.pickAccepts(slot("OF1"), "WR") && !FLEX.pickAccepts(slot("OF1"), "QB"), "SF takes QB/RB/WR/TE; Flex takes RB/WR/TE");
+  t.ok(!FLEX.pickAccepts(slot("RB1"), "WR") && !FLEX.pickAccepts(slot("DL1"), "LB"), "fixed slots stay fixed");
   t.ok(FLEX.pickAccepts(slot("PK1"), "PK") && !FLEX.pickAccepts(slot("PK1"), "PN"));
+  t.match(read("site/m/views/lineup.js"), /function inFlexSlot\(pid\)/); t.match(read("site/gameday/gameday.html"), /function inFlexSlot\(pid\)/);
   // 5 WR is legal on MFL ("2-5"), and expressible
   const rows = [P("QB", "QB", 1), ...[1, 2, 3, 4, 5].map((i) => P("WR" + i, "WR", i)), P("RB1", "RB", 1), P("RB2", "RB", 1), P("TE", "TE", 1), P("K", "PK", 1), P("P", "PN", 1)];
   const arranged = FLEX.arrange(draftOf({ QB1: rows[0], WR1: rows[1], WR2: rows[2], OF1: rows[3], OF2: rows[4], SF1: rows[5], RB1: rows[6], RB2: rows[7], TE1: rows[8], PK1: rows[9], PN1: rows[10] }), rowOfFor(rows), koOf, SLOTS);

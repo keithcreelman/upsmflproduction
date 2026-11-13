@@ -830,6 +830,8 @@
     return line;
   }
   function slotHtml(slot, rows, draft, used) {
+    // A starter sitting in a Flex / SuperFlex slot can still be picked for his own position's slot (he moves).
+    function inFlexSlot(pid) { return SLOTS.some(function (sl) { return sl.flex && sl.id !== slot.id && draft[sl.id] === pid; }); }
     var current = draft[slot.id] || "";
     var currentRow = current ? rows.filter(function (r) { return r.id === current; })[0] : null;
     // Locked (his game has started): stays exactly where he is, visible and
@@ -844,7 +846,7 @@
       // slot (so the screen shows what MFL is holding) but nowhere else.
       if (!(r.eligible || (r.bye && r.id === current)) || !pickAccepts(slot, r.group)) return false;
       if (r.locked && r.id !== current) return false;
-      return !used[r.id] || r.id === current;
+      return !used[r.id] || r.id === current || inFlexSlot(r.id);
     }).sort(function (a, b) {
       // Highest projected first (no-projection sorts last), tie → salary.
       var va = projFor(a.id), vb = projFor(b.id);
@@ -1364,7 +1366,7 @@
     el.querySelectorAll(".gd-slot-sel").forEach(function (sel) {
       sel.addEventListener("change", function (e) {
         var id = e.target.getAttribute("data-slot"), pid = e.target.value;
-        if (pid) STATE.slots[id] = pid; else delete STATE.slots[id];
+        if (pid) { SLOTS.forEach(function (sl) { if (sl.id !== id && sl.flex && STATE.slots[sl.id] === pid) delete STATE.slots[sl.id]; }); STATE.slots[id] = pid; } else delete STATE.slots[id];
         rerender();
       });
     });
