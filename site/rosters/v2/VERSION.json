@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "released": "2026-11-13",
-  "checkpoint": 16,
-  "scope": "Rosters tab = the Front Office redesign's Roster view (#1338): Players with Performance and Contract column sets, and the Bye planner. Every other tab is unchanged.",
+  "checkpoint": 17,
+  "scope": "Rosters \u2192 Players: Lineup shows each team's submitted MFL lineup for the week (not a model); sortable Pos column; one flat list (Flat / By Position button removed).",
   "next": "Extend the next-season ledger route to cover 2+ years out if a future need requires it; Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }
