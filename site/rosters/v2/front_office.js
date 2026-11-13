@@ -2561,6 +2561,11 @@
 
   // ── Bootstrap ───────────────────────────────────────────────────────
   async function init() {
+    // Roster view from the Front Office redesign (#1338): fo_data.js (one read per MFL source) uses the same
+    // worker, league and season as everything below, and the viewer's session only for the viewer's own reads.
+    if (window.UPS_FO_DATA) {
+      window.UPS_FO_DATA.configure({ apiBase: WORKER_BASE, leagueId: LEAGUE_ID, season: SEASON, sessionQuery: appendViewerSessionQuery });
+    }
     if (IS_DRY_RUN) {
       const banner = $("#fo-dryrun-banner");
       if (banner) banner.hidden = false;
@@ -2598,6 +2603,12 @@
     renderRosterTable();
     loadRosterIndicators(); // async — decorate rows with NFL status + news flags
     loadContractDeadline(); // async — Sept contract deadline gates the MYAC window
+    injuryRead();           // async — the Roster view's injury chip read (#1338)
+    exposeFrontOfficeApi();
+    setupRosterViews();
+    if (window.UPS_FO_HUB && typeof window.UPS_FO_HUB.setupAbout === "function") window.UPS_FO_HUB.setupAbout();
+    try { document.dispatchEvent(new CustomEvent("fo:ready")); } catch (e) {}
+    if (STATE.activeTab === "roster" || STATE.activeTab === "bye") fireTab(STATE.activeTab);
     const sumEl = $("#fo-contract-summary");
     if (sumEl) sumEl.addEventListener("click", function (e) {
       if (e.target && e.target.closest && e.target.closest(".fo-adj-info")) showAdjPopup();
@@ -2881,12 +2892,14 @@
         const tab = btn.dataset.tab;
         if (!tab) return;
         // Contracts is a PARENT — open the last-used (or default) subview.
-        if (tab === "contracts") { activateContractSubtab(STATE.contractsSubtab || "myac"); return; }
+        if (tab === "contracts") { setRosterSubnav(false); activateContractSubtab(STATE.contractsSubtab || "myac"); return; }
+        if (tab === "roster") { showRosterView(STATE.rosterSubview || "roster"); return; }
         if (tab === STATE.activeTab) return;
         STATE.activeTab = tab;
         $$("#fo-tabs button").forEach(function (b) { b.classList.toggle("active", b === btn); });
         $$(".fo-section").forEach(function (s) { s.classList.toggle("active", s.dataset.section === tab); });
         const subnav = $("#fo-contracts-subnav"); if (subnav) subnav.hidden = true;  // left the Contracts group
+        setRosterSubnav(false);                                                    // and the Rosters group
         renderTabByKey(tab);
       });
     });
@@ -2896,6 +2909,70 @@
         if (btn.dataset.subtab) activateContractSubtab(btn.dataset.subtab);
       });
     });
+  }
+  // ── Rosters tab = the Front Office redesign's Roster view (#1338) ─────────
+  // Players (the Performance / Contract column sets, fo_roster.js) and the Bye planner (shared/bye_planner.js).
+  // The Contract column set is this page's own roster table, unchanged. Read-only: nothing here writes.
+  function fireTab(section) {
+    try { document.dispatchEvent(new CustomEvent("fo:tab", { detail: { section: section, group: "roster" } })); } catch (e) {}
+  }
+  function setRosterSubnav(show, sub) {
+    const nav = $("#fo-roster-subnav");
+    if (!nav) return;
+    nav.hidden = !show;
+    if (show) $$("button[data-subtab]", nav).forEach(function (b) { b.classList.toggle("active", b.dataset.subtab === sub); });
+  }
+  function showRosterView(sub) {
+    if (sub !== "bye") sub = "roster";
+    STATE.rosterSubview = sub;
+    STATE.activeTab = sub;
+    $$("#fo-tabs button").forEach(function (b) { b.classList.toggle("active", b.dataset.tab === "roster"); });
+    $$(".fo-section").forEach(function (sec) { sec.classList.toggle("active", sec.dataset.section === sub); });
+    const cnav = $("#fo-contracts-subnav"); if (cnav) cnav.hidden = true;
+    setRosterSubnav(true, sub);
+    if (sub === "roster") renderRosterTable();
+    fireTab(sub);
+  }
+  function setupRosterViews() {
+    const nav = $("#fo-roster-subnav");
+    if (!nav || nav.__foWired) return;
+    nav.__foWired = true;
+    $$("button[data-subtab]", nav).forEach(function (btn) {
+      btn.addEventListener("click", function () { showRosterView(btn.dataset.subtab); });
+    });
+    if (STATE.activeTab === "roster" || STATE.activeTab === "bye") setRosterSubnav(true, STATE.activeTab);
+  }
+  // The one injury chip (site/shared/injury_status.js via fo_data.js): MFL's roster designation, else MFL's
+  // Q/D/OUT, else the official report. Used by the Roster view's Performance table and the Bye planner only.
+  function injuryRead() {
+    var D = window.UPS_FO_DATA;
+    return D && typeof D.injury === "function" ? D.injury(onInjuryRead) : null;
+  }
+  function onInjuryRead() {
+    try { document.dispatchEvent(new CustomEvent("fo:injury")); } catch (e) {}
+  }
+  function injuryResFor(p) {
+    var F = window.UPS_PLAYER_FACTS;
+    if (!F || !p) return null;
+    var meta = (STATE.nflStatusMeta || {})[String(p.id)] || {};
+    return F.injury(injuryRead(), p.id, p.nflTeam, F.fallbackFromMfl((STATE.nflStatus || {})[String(p.id)], meta.details));
+  }
+  // What the Roster view reads from this page (read-only).
+  function exposeFrontOfficeApi() {
+    window.UPS_FO = {
+      season: SEASON, leagueId: LEAGUE_ID, workerBase: WORKER_BASE,
+      teams: function () { return STATE.teams || []; },
+      me: function () { return STATE.me || {}; },
+      viewerFid: function () { return pad4((STATE.me && STATE.me.franchise_id) || ""); },
+      isAdmin: function () { return !!(STATE.me && STATE.me.isAdmin); },
+      injury: function (p) { return injuryResFor(p); },
+      openPlayer: function (pid, fid, subtab) { openSlideover(String(pid), pad4(fid), subtab); },
+      show: function (section) { if (section === "roster" || section === "bye") showRosterView(section); },
+      // The rows the Rosters table shows under the current team / position / type / status filters.
+      visibleRows: function () { try { return applyFilters(allVisiblePlayers()); } catch (e) { return []; } },
+      groupByPosition: function () { return !!STATE.groupByPosition; },
+      selectedTeam: function () { return STATE.selectedTeamId || "__all__"; }
+    };
   }
   function setupSubviewChips() {
     $$(".fo-subview-chips").forEach(function (group) {
@@ -4014,9 +4091,12 @@
 
     if (sorted.length === 0) {
       tbody.innerHTML = '<tr><td colspan="13" class="fo-table-empty">No players match the current filters.</td></tr>';
+      try { document.dispatchEvent(new CustomEvent("fo:roster")); } catch (e) {}
       return;
     }
     tbody.innerHTML = STATE.groupByPosition ? renderGroupedRows(sorted) : sorted.map(renderRosterRow).join("");
+    // The Performance column set (fo_roster.js, #1338) shows the same filtered rows.
+    try { document.dispatchEvent(new CustomEvent("fo:roster")); } catch (e) {}
 
     // Wire row clicks — entire row opens the slide-over. Manage button
     // was removed (Keith 2026-05-19: "redundancy, just need a note to

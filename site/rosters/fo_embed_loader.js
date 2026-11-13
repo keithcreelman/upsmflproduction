@@ -15,7 +15,7 @@
   // front_office.html shell and injects it) and reads MFL's login cookie for the
   // viewer franchise, so no ?franchise_id= is needed inside the embed.
 
-  var BUILD = "2026.09.30.1";
+  var BUILD = "2026.11.13.1";
   if (window.__ups_fo_embed_loader === BUILD) {
     if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
     return;
@@ -255,6 +255,33 @@
 
     injectCssCandidates(cssCandidates);
 
+    // The Rosters tab's Roster view (#1338), in load order, as paths from site/ (each tried from the
+    // loader's own origin first, then GitHub Pages): injury_status (the one injury chip) →
+    // front_office_lineup (the 18-slot model) → season_scoring (MFL's own season points) → player_facts →
+    // fo_data (one read per MFL source) → bye_planner → fo_hub → fo_roster. buildShell() skips every <script>
+    // in front_office.html, so this list is what loads in the embed. All load before front_office.js.
+    var rosterViewScripts = [
+      "shared/injury_status.js",
+      "m/front_office_lineup.js",
+      "m/season_scoring.js",
+      "shared/player_facts.js",
+      "rosters/v2/fo_data.js",
+      "shared/bye_planner.js",
+      "rosters/v2/fo_hub.js",
+      "rosters/v2/fo_roster.js"
+    ];
+    function rosterViewCandidates(path) {
+      var out = [];
+      // base sits at site/rosters/, so site/<path> is base + "../" + path.
+      if (base) out.push(base + "../" + path + "?v=" + cacheKey);
+      out.push("https://keithcreelman.github.io/upsmflproduction/" + path + "?v=" + cacheKey);
+      return out;
+    }
+    function loadRosterView(i, done) {
+      if (i >= rosterViewScripts.length) { done(); return; }
+      injectScript(rosterViewCandidates(rosterViewScripts[i]), function () { loadRosterView(i + 1, done); });
+    }
+
     // cap_math (window.UPS_CAP_MATH) → contract_windows (window.UPS_CONTRACT_WINDOWS,
     // §B3/§C4/§C5 eligibility) → loaded-contract classifier
     // (window.UPS_LOADED_CONTRACT_CLASSIFICATION) → master modal
@@ -266,8 +293,10 @@
       injectScript(contractWindowsCandidates, function () {
         injectScript(classifierCandidates, function () {
           injectScript(masterCandidates, function () {
-            injectScript(jsCandidates, function () {
-              if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
+            loadRosterView(0, function () {
+              injectScript(jsCandidates, function () {
+                if (typeof window.UPS_FO_INIT === "function") window.UPS_FO_INIT();
+              });
             });
           });
         });
