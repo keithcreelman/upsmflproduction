@@ -322,6 +322,8 @@
 <script src="../shared/live_scoring.js"></script>
 <script src="../shared/injury_overrides.js"></script>
 <script src="../shared/injury_status.js?v=2026.10.17.2"></script>
+<script src="../shared/lineup_flex.js?v=2026.11.13.1"></script>
+<script src="../shared/lineup_result_modal.js?v=2026.11.13.1"></script>
 <script>
 (function () {
   "use strict";
@@ -618,6 +620,17 @@
   ];
   var TOTAL = 18, OFF = 11, DEF = 7;
   function slotAccepts(slot, g) { return slot.accepts.indexOf(g) !== -1; }
+  // Flex / SuperFlex are the LATEST games of the chosen starters, derived, never declared (Keith 2026-11-13; site/shared/lineup_flex.js).
+  // Any QB/RB/WR/TE may be picked for any offensive slot (any DL/LB/DB for a defensive one): MFL's ranges apply, slot labels don't.
+  var FLEX = window.UPS_LINEUP_FLEX, RM = window.UPS_LINEUP_RESULT_MODAL;
+  function pickAccepts(slot, g) { return FLEX ? FLEX.pickAccepts(slot, g) : slotAccepts(slot, g); }
+  function arrangeDraft(draft, byId) {
+    if (!FLEX || !draft) return draft;
+    return FLEX.arrange(draft, function (pid) { return byId[pid] || null; }, function (r) {
+      var ko = STATE.kickoffs && STATE.kickoffs[String(r.team || "").toUpperCase()];
+      return ko || 0;
+    }, SLOTS);
+  }
   // A bye-week player can't be STARTED — MFL rejects the whole lineup — so he
   // is no slot's candidate (Optimal never picks him either). He still shows on
   // the bench, tagged BYE, and a saved lineup that already starts him keeps
@@ -753,16 +766,18 @@
       var r = byId[pid];
       if (r && r.bye) { byes.push(r.name + " (" + r.team + ")"); return; }
       if (!r || r.isTaxi || r.isIr || r.isExpired) { ineligible++; return; }
-      if (!slotAccepts(sl, posGroup(r.pos))) mismatch++;
+      if (!pickAccepts(sl, posGroup(r.pos))) mismatch++;
     });
     var errors = [];
+    var ranges = FLEX ? FLEX.rangeProblems(draft, function (pid) { var r = byId[pid]; return r ? { group: r.group || posGroup(r.pos) } : null; }, SLOTS) : { errors: [], count: 0 };
+    ranges.errors.forEach(function (e) { errors.push(e); });
     if (byes.length) errors.push(byes.join(", ") + (byes.length === 1 ? " is" : " are") + " on a bye in Week " + (STATE.byesWeek || STATE.lineupWeek) +
       " — bench " + (byes.length === 1 ? "him" : "them") + "; MFL won't accept a bye-week starter");
     if (filled < TOTAL) { var n = TOTAL - filled; errors.push("Fill " + n + " more slot" + (n === 1 ? "" : "s")); }
     if (dupes) errors.push(dupes + " player" + (dupes === 1 ? "" : "s") + " used in two slots");
     if (ineligible) errors.push(ineligible + " ineligible (taxi/IR/expired) selected");
     if (mismatch) errors.push(mismatch + " player" + (mismatch === 1 ? "" : "s") + " in the wrong slot");
-    var problems = dupes + ineligible + mismatch + byes.length;
+    var problems = dupes + ineligible + mismatch + byes.length + ranges.count;
     return { ok: problems === 0 && filled === TOTAL, complete: filled === TOTAL, problems: problems, filled: filled, bySide: bySide, errors: errors, byes: byes };
   }
 
@@ -827,7 +842,7 @@
     var cands = rows.filter(function (r) {
       // A saved starter who turns out to be on a bye stays selectable in HIS
       // slot (so the screen shows what MFL is holding) but nowhere else.
-      if (!(r.eligible || (r.bye && r.id === current)) || !slotAccepts(slot, r.group)) return false;
+      if (!(r.eligible || (r.bye && r.id === current)) || !pickAccepts(slot, r.group)) return false;
       if (r.locked && r.id !== current) return false;
       return !used[r.id] || r.id === current;
     }).sort(function (a, b) {
@@ -839,7 +854,7 @@
     });
     var opts = '<option value="">— Empty —</option>';
     cands.forEach(function (r) { opts += '<option value="' + esc(r.id) + '"' + (r.id === current ? " selected" : "") + '>' + esc(optText(r)) + '</option>'; });
-    var note = slot.note ? '<span class="elig">' + esc(slot.note) + '</span>' : "";
+    var note = slot.flex ? '<span class="elig">latest game</span>' : (slot.note ? '<span class="elig">' + esc(slot.note) + '</span>' : "");
     var cur = current ? projFor(current) : null;
     return '<div class="gd-slot' + (current ? " filled" : "") + (isLocked ? " locked" : "") + (isBye ? " bye" : "") + '">' +
       '<div class="gd-slot-tag"><span class="pos' + (slot.flex ? " flex" : "") + '">' + esc(slot.label) + '</span>' + note + '</div>' +
@@ -1223,8 +1238,9 @@
       // if that's genuinely what they want.
       STATE.slots = {};
     }
-    var draft = STATE.slots;
     var byId = {}; rows.forEach(function (r) { byId[r.id] = r; });
+    STATE.slots = arrangeDraft(STATE.slots, byId);
+    var draft = STATE.slots;
     var v = validate(draft, byId);
     var used = {}; SLOTS.forEach(function (sl) { if (draft[sl.id]) used[draft[sl.id]] = 1; });
     var projTotal = null;
@@ -1379,6 +1395,12 @@
   }
   function showLineupModal(kind, title, body, detail) {
     closeLineupModal();
+    if (RM) {
+      // The shared big dialog (site/shared/lineup_result_modal.js): success or failure, the reason, one OK that must be pressed.
+      var ok = kind === "ok", why = ok ? { reason: detail || "", hint: "" } : RM.explain(detail);
+      RM.show({ ok: ok, title: title, body: body, reason: why.reason, hint: why.hint, anchor: document.getElementById("gd-submit") || document.getElementById("gd-content") });
+      return;
+    }
     var back = document.createElement("div");
     back.className = "gd-modal-back";
     back.id = "gd-modal-back";

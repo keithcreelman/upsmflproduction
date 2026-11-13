@@ -17,6 +17,8 @@
   var FO = window.UPS_FRONT_OFFICE_LINEUP;
   var LS = window.UPSLive;
   var SLOTS = FO.LINEUP_SLOTS;
+  var FLEX = window.UPS_LINEUP_FLEX;            // Flex / SuperFlex = the latest games, derived (site/shared/lineup_flex.js)
+  var RM = window.UPS_LINEUP_RESULT_MODAL;      // the big success / failure pop-up with an OK
   var TOTAL = FO.TOTAL_STARTERS;
 
   // Projected points for the current scoring week. Source: MFL projectedScores
@@ -174,7 +176,17 @@
   }
   // Unsaved = the slots differ from what MFL held when read (or from what MFL accepted
   // on the last successful submit, see noteSubmitBaseline).
-  function draftSig(d) { return SLOTS.map(function (s) { return (d && d[s.id]) || ""; }).join(","); }
+  // The set of starters (what MFL receives), not the slot labels: Flex / SuperFlex are relabelled by kickoff and must never read as an edit.
+  function draftSig(d) { return SLOTS.map(function (s) { return (d && d[s.id]) || ""; }).filter(Boolean).sort().join(","); }
+  // Flex / SuperFlex hold the LATEST games of the chosen starters, however the lineup got here (Keith 2026-11-13). Idempotent.
+  function arrangeDraft(draft, rows) {
+    if (!FLEX || !draft) return draft;
+    var byId = rowsById(rows);
+    return FLEX.arrange(draft, function (pid) { return byId[pid] || null; }, function (r) {
+      var ko = M.state.lineupKickoffs && M.state.lineupKickoffs[U.safeStr(r.team).toUpperCase()];
+      return ko || 0;
+    }, SLOTS);
+  }
   function lineupDirty() {
     if (!M.state.lineupSlots) return false;
     return M.state.lineupBaseSig == null || draftSig(M.state.lineupSlots) !== M.state.lineupBaseSig;
@@ -796,7 +808,7 @@
     // starter on a bye stays visible in HIS slot, flagged, and nowhere else.
     var cands = rows.filter(function (r) {
       if (!(r.eligible || (r.bye && r.id === current))) return false;
-      if (!FO.slotAccepts(slot, r.group)) return false;
+      if (!(FLEX ? FLEX.pickAccepts(slot, r.group) : FO.slotAccepts(slot, r.group))) return false;
       if (r.locked && r.id !== current) return false;
       return !used[r.id] || r.id === current;
     });
@@ -817,7 +829,7 @@
     });
 
     var labelCls = slot.flex ? "pos flex" : "pos";
-    var note = slot.note ? '<span class="elig">' + U.escapeHtml(slot.note) + '</span>' : "";
+    var note = slot.flex ? '<span class="elig">latest game</span>' : (slot.note ? '<span class="elig">' + U.escapeHtml(slot.note) + '</span>' : "");
     var injRow = "";
     if (currentRow) { var ic = injChipsHtml(currentRow.id, currentRow.team); if (ic) injRow = '<div class="ups-m-slot-lock-row ups-m-slot-inj">' + ic + '</div>'; }
     var selCls = "ups-m-slot-sel" + (filled ? "" : " empty");
@@ -984,6 +996,7 @@
     // for GET /api/lineup anyway — MFL's playerRosterStatus export is the
     // primary source — but a mis-stamped row is still a row nobody can read.)
     var luWeek = String(M.state.lineupWeek || "").replace(/\D/g, "");
+    var outcome = null;   // the big pop-up, shown after the repaint below
     fetch(luUrl, {
       method: "POST",
       mode: "cors",
@@ -998,18 +1011,26 @@
         var usedWk = resp.body && (resp.body.week_used || resp.body.week);
         M.state.lineupMessage = { kind: "ok",
           text: "Lineup saved to MFL ✓" + (usedWk ? " (Week " + String(usedWk) + ")" : "") };
+        outcome = { ok: true, title: "Lineup submitted",
+          body: "MFL has your " + starters.length + " starter" + (starters.length === 1 ? "" : "s") + (usedWk ? " for Week " + String(usedWk) : "") + "." };
       } else {
         var err = (resp.body && resp.body.error)
                  || (resp.body && resp.body.mfl_response && resp.body.mfl_response.error && resp.body.mfl_response.error.$t)
                  || (resp.body && resp.body.mfl_response && resp.body.mfl_response.error)
                  || ("HTTP " + resp.status);
         M.state.lineupMessage = { kind: "err", text: String(err) };
+        var why = RM ? RM.explain(err) : { reason: String(err), hint: "" };
+        outcome = { ok: false, title: "Lineup NOT submitted", body: "MFL did not accept this lineup.", reason: why.reason, hint: why.hint };
       }
     }).catch(function (e) {
       M.state.lineupMessage = { kind: "err", text: "Submit failed: " + (e && e.message || e) };
+      // No answer at all: we cannot say it did or did not save, so we say exactly that.
+      outcome = { ok: false, title: "Couldn't reach MFL", body: "The lineup may or may not have saved.",
+        reason: String(e && e.message || e || "No response"), hint: "Open this screen again and check your starters before kickoff." };
     }).then(function () {
       M.state.lineupSubmitting = false;
       renderRoute();
+      if (outcome && RM) RM.show(outcome);
     });
   }
 
@@ -1116,6 +1137,7 @@
       M.state.lineupSeed = "user";
       M.state.lineupMessage = { kind: "info", text: "Your changes are now for Week " + M.state.lineupWeek + ". Not submitted yet." };
     }
+    M.state.lineupSlots = arrangeDraft(M.state.lineupSlots, rows);
     var draft = M.state.lineupSlots;
     var byId = rowsById(rows);
     var v = FO.validateSlots(draft, byId);
