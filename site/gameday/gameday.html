@@ -1164,7 +1164,7 @@
       .then(function (r) { return r.json(); })
       .then(function (j) {
         if (j && j.known === true && Object.prototype.toString.call(j.starters) === "[object Array]" && j.starters.length) {
-          STATE.slots = slotsFromStarters(rows, j.starters);
+          STATE.slots = slotsFromStarters(rows, j.starters); STATE.slotsEdited = false;
           STATE.lineupRead = "ok";
           // Which source answered — "mfl_player_status" (the lineup MFL is
           // holding, however it was set) or "ledger" (our echo of what THIS app
@@ -1241,6 +1241,8 @@
       STATE.slots = {};
     }
     var byId = {}; rows.forEach(function (r) { byId[r.id] = r; });
+    // Shown with Flex / SuperFlex on the latest games on refresh too; once the owner edits a slot it stays as he set it (arranged again at submit).
+    if (!STATE.slotsEdited) STATE.slots = arrangeDraft(STATE.slots, byId);
     var draft = STATE.slots;
     var v = validate(draft, byId);
     var used = {}; SLOTS.forEach(function (sl) { if (draft[sl.id]) used[draft[sl.id]] = 1; });
@@ -1366,17 +1368,18 @@
     el.querySelectorAll(".gd-slot-sel").forEach(function (sel) {
       sel.addEventListener("change", function (e) {
         var id = e.target.getAttribute("data-slot"), pid = e.target.value;
+        STATE.slotsEdited = true;
         if (pid) { SLOTS.forEach(function (sl) { if (sl.id !== id && sl.flex && STATE.slots[sl.id] === pid) delete STATE.slots[sl.id]; }); STATE.slots[id] = pid; } else delete STATE.slots[id];
         rerender();
       });
     });
     var af = document.getElementById("gd-autofill");
-    if (af) af.addEventListener("click", function () { STATE.slots = autoFill(rows, draft, byId); STATE.message = null; rerender(); });
+    if (af) af.addEventListener("click", function () { STATE.slots = autoFill(rows, draft, byId); STATE.slotsEdited = false; STATE.message = null; rerender(); });
     var clr = document.getElementById("gd-clear");
     // Clear keeps only the LOCKED slots -- wiping one out from under an
     // already-kicked-off player would leave his slot empty with no legal way
     // to refill it (canon §B4: he can't come back OR be replaced).
-    if (clr) clr.addEventListener("click", function () { STATE.slots = lockedDraftEntries(draft, byId); STATE.message = null; rerender(); });
+    if (clr) clr.addEventListener("click", function () { STATE.slots = lockedDraftEntries(draft, byId); STATE.slotsEdited = false; STATE.message = null; rerender(); });
     var sub = document.getElementById("gd-submit");
     if (sub) sub.addEventListener("click", submitLineup);
   }

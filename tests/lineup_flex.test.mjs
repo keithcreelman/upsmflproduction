@@ -139,6 +139,21 @@ test("random legal lineups: same starters, every slot legal, and no swap would p
 });
 
 // ── MFL's ranges instead of slot labels ──
+test("a lineup MFL already holds is shown the way Keith expects on refresh (11-13 screenshots)", () => {
+  // Dak Sun 4:25 at QB, Cousins Sun 1pm in SuperFlex -> the earlier game is the QB, the later one the SuperFlex
+  const rows = [P("Dak", "QB", KO.SUN4), P("Cousins", "QB", KO.SUN1), P("Ekeler", "RB", KO.THU), P("Bijan", "RB", KO.SUN1), P("Parker", "WR", KO.SUN1), P("Diggs", "WR", KO.THU),
+    P("Chiggy", "TE", KO.THU), P("Higbee", "TE", KO.SUN4), P("Lamb", "WR", KO.SUN4), P("K", "PK", KO.SUN1), P("P", "PN", KO.SUN1),
+    P("Styles", "LB", KO.THU), P("Bolton", "LB", KO.SUN1), P("Carter", "LB", KO.SNF), P("DL1", "DE", KO.SUN1), P("DL2", "DT", KO.SNF), P("DB1", "CB", KO.SUN1), P("DB2", "S", KO.SUN1)];
+  const R = byName(rows);
+  const held = draftOf({ QB1: R.Dak, SF1: R.Cousins, RB1: R.Ekeler, RB2: R.Bijan, WR1: R.Parker, WR2: R.Diggs, TE1: R.Higbee, OF1: R.Chiggy, OF2: R.Lamb, PK1: R.K, PN1: R.P,
+    LB1: R.Bolton, LB2: R.Carter, DF1: R.Styles, DL1: R.DL1, DL2: R.DL2, DB1: R.DB1, DB2: R.DB2 });
+  const w = who(FLEX.arrange(held, rowOfFor(rows), koOf, SLOTS), rows);
+  t.equal(w.QB1, "Cousins"); t.equal(w.SF1, "Dak");
+  t.equal(w.TE1, "Chiggy", "the Thursday TE holds the TE slot, not a Flex");
+  t.ok(w.OF1 === "Higbee" || w.OF2 === "Higbee", "the later TE is a Flex");
+  t.deepEqual([w.LB1, w.LB2].sort(), ["Bolton", "Styles"], "the two earliest LB games hold the LB slots");
+  t.equal(w.DF1, "Carter", "the latest LB game is the D-Flex, not the one who already played");
+});
 test("pickers are the original ones (no TE for QB); the ranges are MFL's", () => {
   const slot = (id) => SLOTS.find((s) => s.id === id);
   t.ok(FLEX.pickAccepts(slot("QB1"), "QB") && !FLEX.pickAccepts(slot("QB1"), "TE") && !FLEX.pickAccepts(slot("QB1"), "RB"), "QB1 takes only a QB");
@@ -166,9 +181,10 @@ test("the shared validators report MFL's ranges the same way on both surfaces", 
   t.match(gd, /FLEX\.rangeProblems\(draft,/); t.match(gd, /pickAccepts\(sl, posGroup\(r\.pos\)\)/);
   const mobile = read("site/m/views/lineup.js");
   t.match(mobile, /FLEX\.arrange\(draft, function \(pid\)/); t.match(mobile, /FLEX \? FLEX\.pickAccepts\(slot, r\.group\)/);
-  // the arrangement happens at submit only; the screen is never re-sorted
+  // shown arranged on refresh (what MFL holds), left alone once the owner edits a slot, and arranged again at submit
   t.match(gd, /arrangeDraft\(STATE\.slots \|\| \{\}, byIdS\)/); t.match(mobile, /arrangeDraft\(M\.state\.lineupSlots \|\| \{\}, buildRows\(\)\)/);
-  t.ok(!/STATE\.slots = arrangeDraft/.test(gd) && !/lineupSlots = arrangeDraft/.test(mobile), "no on-screen re-sorting");
+  t.match(gd, /if \(!STATE\.slotsEdited\) STATE\.slots = arrangeDraft\(STATE\.slots, byId\)/);
+  t.match(mobile, /if \(M\.state\.lineupSeed !== "user"\) M\.state\.lineupSlots = arrangeDraft\(M\.state\.lineupSlots, rows\)/);
 });
 test("the unsaved-changes check compares the set of starters, so a Flex relabel never reads as an edit", () => {
   const mobile = read("site/m/views/lineup.js");
