@@ -23,6 +23,8 @@ const FO_LINEUP = read(process.env.FO_LINEUP_JS || "site/m/front_office_lineup.j
 const LIVE = read(process.env.LIVE_SCORING_JS || "site/shared/live_scoring.js");
 const LINEUP = read(process.env.LINEUP_JS || "site/m/views/lineup.js");
 const WORKER = read(process.env.WORKER_JS || "worker/src/index.js");
+const FLEX_JS = read("site/shared/lineup_flex.js");   // Flex / SuperFlex = latest games; MFL ranges instead of slot labels (Keith 2026-11-13)
+const FLEX = (() => { const c = vm.createContext({}); c.window = c; vm.runInContext(FLEX_JS, c); return c.UPS_LINEUP_FLEX; })();
 
 function sliceFn(src, sig) {
   const at = src.indexOf(sig);
@@ -47,7 +49,7 @@ test("shared parser: MFL's real Week 5 bye export → { CAR: 5, KCC: 5 }", () =>
 });
 
 // ── Mobile (site/m/front_office_lineup.js, shared by the mobile lineup view) ──
-const FO = (() => { const c = vm.createContext({}); c.window = c; vm.runInContext(FO_LINEUP, c); return c.UPS_FRONT_OFFICE_LINEUP; })();
+const FO = (() => { const c = vm.createContext({}); c.window = c; vm.runInContext(FLEX_JS, c); vm.runInContext(FO_LINEUP, c); return c.UPS_FRONT_OFFICE_LINEUP; })();
 function roster(byeWeekForKcc) {
   // A full, legal 18 with Bolton (KCC LB) in LB1 — plus a bench LB to replace him.
   const mk = (id, name, pos, team) => ({ id, name, pos, team, group: FO.posGroup(pos), bye: team === "KCC" ? byeWeekForKcc : 0 });
@@ -89,7 +91,8 @@ test("mobile view: BYE on the bench, and the saved starter stays visible in his 
 function gameday(byes) {
   const c = vm.createContext({});
   c.STATE = { byes, byesWeek: 5, lineupWeek: 5 };
-  const fns = ["function s(", "function posGroup(", "function slotAccepts(", "function eligibleRow(", "function isOnBye(", "function validate("];
+  c.FLEX = FLEX;
+  const fns = ["function s(", "function posGroup(", "function slotAccepts(", "function pickAccepts(", "function eligibleRow(", "function isOnBye(", "function validate("];
   vm.runInContext("var SLOTS, TOTAL = 18;\n" + GAMEDAY.slice(GAMEDAY.indexOf("  var SLOTS = ["), GAMEDAY.indexOf("  var TOTAL = 18")).replace("var SLOTS", "SLOTS") +
     "\n" + fns.map((f) => sliceFn(GAMEDAY, f)).join("\n") + "\nthis.api = { eligibleRow, isOnBye, validate, posGroup };", c);
   return c.api;

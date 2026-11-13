@@ -183,9 +183,15 @@
       var r = rowsByPid[pid];
       if (r && r.bye) { byes.push(r.name + (r.team ? " (" + r.team + ")" : "")); byeWeek = r.bye; return; }
       if (!r || r.isTaxi || r.isIr || r.isExpired) { ineligible += 1; return; }
-      if (!slotAccepts(s, posGroup(r.pos))) mismatch += 1;
+      // Offense / defense slots take any player of the side; K and P stay strict. MFL's ranges are checked below.
+      var FLEX = window.UPS_LINEUP_FLEX;
+      if (!(FLEX ? FLEX.pickAccepts(s, posGroup(r.pos)) : slotAccepts(s, posGroup(r.pos)))) mismatch += 1;
     });
     var errors = [];
+    var ranges = window.UPS_LINEUP_FLEX
+      ? window.UPS_LINEUP_FLEX.rangeProblems(draft, function (pid) { var r = rowsByPid[pid]; return r ? { group: posGroup(r.pos) } : null; }, LINEUP_SLOTS)
+      : { errors: [], count: 0 };
+    ranges.errors.forEach(function (e) { errors.push(e); });
     // A bye-week starter BLOCKS the save: MFL rejects the whole lineup for it.
     if (byes.length) {
       errors.push(byes.join(", ") + (byes.length === 1 ? " is" : " are") + " on a bye" +
@@ -202,7 +208,7 @@
     // `problems` = blocking issues (must fix before any save). An incomplete
     // lineup is NOT a problem — MFL accepts a valid partial save (bye/injury
     // weeks may leave a slot unfillable), so we allow it.
-    var problems = dupes + ineligible + mismatch + byes.length;
+    var problems = dupes + ineligible + mismatch + byes.length + ranges.count;
     return {
       ok: problems === 0 && filled === TOTAL_STARTERS,
       complete: filled === TOTAL_STARTERS,
