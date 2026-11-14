@@ -316,18 +316,6 @@
       var p = nameOf[o.pid];
       return "<li>" + H.playerButton(o.pid, fid, p ? p.name : o.pid) + ' <span class="fo-muted">' + H.esc((p ? p.pos + " · " + p.nflTeam : "")) + "</span> — " + H.esc(REASON[o.reason] || o.reason) + "</li>";
     }).join("") + "</ul>" : '<p class="fo-ov-empty">' + "Nobody is out." + "</p>";
-    var opts = "";
-    if (wsel.empty.length) {
-      var lines = Object.keys(wsel.options).filter(function (g) { return wsel.options[g] && wsel.options[g].length; }).map(function (g) {
-        return "<li><b>" + H.esc(g) + "</b>: " + wsel.options[g].map(function (fa) {
-          return H.playerButton(fa.pid, "", fa.name || fa.pid) + ' <span class="fo-muted">' + H.esc(fa.nflTeam) + " · " + H.fmt1(fa.v) + " PPG</span>";
-        }).join(", ") + "</li>";
-      }).join("");
-      opts = '<h4 class="fo-bye-h">Free agents with a game in Week ' + wsel.week + ' <span class="fo-muted">(options, not recommendations; by season PPG)</span></h4>' +
-        (lines ? '<ul class="fo-bye-out">' + lines + "</ul>" : '<p class="fo-ov-empty">No free agent with a game fits these slots.</p>') +
-        '<p class="fo-muted fo-perf-sub">Waiver timing for each is on the phone app’s Market (bids) and in Market here.</p>';
-    }
-
     el.innerHTML =
       '<div class="fo-card"><div class="fo-card-head"><h2>Bye planner · ' + H.esc(H.teamName(fid)) + "</h2>" +
       '<label class="fo-field fo-inline">Position <select data-bye-pos>' + ["ALL"].concat(GROUP_ORDER).map(function (g) { return '<option value="' + g + '"' + (g === byeView.pos ? " selected" : "") + ">" + (g === "ALL" ? "All" : g === "PK" ? "K" : g === "PN" ? "P" : g) + "</option>"; }).join("") + "</select></label></div>" +
@@ -335,7 +323,7 @@
       weekChoice +
       (plan.shortWeeks.length ? H.banner("Lineup shortage in Week " + plan.shortWeeks.join(", ") + ".", "warn") : "") +
       '<div class="fo-table-scroll"><table class="fo-table fo-bye-grid"><thead><tr><th scope="col">Slots</th>' + weeksHead + "</tr></thead><tbody>" + rows + "</tbody></table></div></div>" +
-      '<div class="fo-card"><h3 class="fo-bye-h">Week ' + wsel.week + ": who’s out</h3>" + outHtml + opts + "</div>";
+      '<div class="fo-card"><h3 class="fo-bye-h">Week ' + wsel.week + ": who’s out</h3>" + outHtml + "</div>";
   }
   function wireBye() {
     var el = document.getElementById("fo-bye-body");
@@ -387,7 +375,7 @@
       "<li><b>Wk N / Wk N proj / Bye:</b> MFL’s NFL schedule, MFL’s projection for that week (a forecast) and MFL’s bye weeks.</li>" +
       "<li><b>Contract</b> columns (Contract chip): the contract ledger, unchanged.</li></ul>");
     H.registerAbout("bye", "<h3>Bye planner</h3><p>For every remaining week, your best legal 18-player lineup from the players who can play (by season PPG) against your full-strength lineup. " +
-      "An empty slot means no eligible player at all. Taxi and IR players never start; IR, PUP, NFI, suspensions and holdouts count every week; an Out designation only this week (next week’s report doesn’t exist yet). Free agents listed for a short week have a game that week; they are options, not recommendations.</p>");
+      "An empty slot means no eligible player at all. Taxi and IR players never start; IR, PUP, NFI, suspensions and holdouts count every week; an Out designation only this week (next week’s report doesn’t exist yet).</p>");
     renderPerf();
   }
   if (root.UPS_FO_HUB) { root.UPS_FO_HUB.registerView("bye"); }
