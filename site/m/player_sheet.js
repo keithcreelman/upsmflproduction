@@ -2958,8 +2958,8 @@
         '<div class="ups-m-sheet-head-text">' +
           '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + stNow.chips + '</div>' +
           '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>' +
-          stNow.warning +
           (stNow.back ? '<div class="ups-m-sheet-back">Expected back <b>' + U.escapeHtml(stNow.back) + '</b></div>' : '') +
+          stNow.warning +
           '<div class="ups-m-sheet-inj" id="ups-m-sheet-inj">' + stNow.lines.map(function (l) { return '<div>' + U.escapeHtml(l) + '</div>'; }).join("") + '</div>' +
           ownerChipHtml(pid) +
         '</div>' +
