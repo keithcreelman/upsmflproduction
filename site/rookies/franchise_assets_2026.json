@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-13T17:22:49.112951+00:00",
+    "generated_at_utc": "2026-11-14T16:06:33.008593+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1265,18 +1265,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15852",
-          "display": "Kyler Gordon",
-          "player_id": "15852",
-          "position": "CB",
-          "nfl_team": "CHI",
-          "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_13672",
           "display": "Mike Gesicki",
           "player_id": "13672",
@@ -1309,6 +1297,18 @@
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_14180",
+          "display": "Byron Murphy",
+          "player_id": "14180",
+          "position": "CB",
+          "nfl_team": "MIN",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -1749,6 +1749,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16614",
+          "display": "Marvin Harrison Jr.",
+          "player_id": "16614",
+          "position": "WR",
+          "nfl_team": "HOU",
+          "salary": 9000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16580",
           "display": "Drake Maye",
           "player_id": "16580",
@@ -2005,18 +2017,6 @@
           "display": "Terrel Bernard",
           "player_id": "15869",
           "position": "LB",
-          "nfl_team": "BUF",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_14095",
-          "display": "Ty Johnson",
-          "player_id": "14095",
-          "position": "RB",
           "nfl_team": "BUF",
           "salary": 1000,
           "contract_year": 1,
@@ -2481,6 +2481,18 @@
           "salary": 2000,
           "contract_year": 1,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15733",
+          "display": "Pierre Strong Jr.",
+          "player_id": "15733",
+          "position": "RB",
+          "nfl_team": "GBP",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -3151,6 +3163,18 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Rookie-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_15303",
+          "display": "Simi Fehoko",
+          "player_id": "15303",
+          "position": "WR",
+          "nfl_team": "ARI",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5142,6 +5166,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16667",
+          "display": "Cedric Gray",
+          "player_id": "16667",
+          "position": "LB",
+          "nfl_team": "TEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16295",
           "display": "Chamarri Conner",
           "player_id": "16295",
@@ -5174,18 +5210,6 @@
           "salary": 1000,
           "contract_year": 3,
           "contract_status": "Vet-FAA",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16383",
-          "display": "Ivan Pace",
-          "player_id": "16383",
-          "position": "LB",
-          "nfl_team": "MIN",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
