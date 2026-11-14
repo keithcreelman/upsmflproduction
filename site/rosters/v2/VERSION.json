@@ -1,8 +1,8 @@
 {
   "module": "front_office_v2",
-  "version": "2.2.1",
-  "released": "2026-11-13",
-  "checkpoint": 17,
-  "scope": "Rosters \u2192 Players: Lineup shows each team's submitted MFL lineup for the week (not a model); sortable Pos column; one flat list (Flat / By Position button removed).",
+  "version": "2.2.2",
+  "released": "2026-11-14",
+  "checkpoint": 18,
+  "scope": "Rosters: default order is by position (QB, RB, WR, TE, K, P, DL, LB, DB) with IR then Taxi at the bottom, on both Performance and Contract; a column tap still sorts by that column.",
   "next": "Extend the next-season ledger route to cover 2+ years out if a future need requires it; Full contract-history performance, Trade Hub player preselect, 2027 tag-VALUE projection (parked until season start)"
 }

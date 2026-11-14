@@ -133,7 +133,7 @@
   function sortVal(r, key) {
     switch (key) {
       case "name": return String(r.p.name || "");
-      case "pos": { var gi = GROUP_ORDER.indexOf(r.group); return gi === -1 ? GROUP_ORDER.length : gi; }
+      case "pos": return posRank(r);
       case "pts": return r.line ? r.line.pts : null;
       case "ppg": return r.line ? r.line.ppg : null;
       case "rank": return r.line && r.line.rank ? -r.line.rank : null;
@@ -145,12 +145,16 @@
       default: return null;
     }
   }
+  // Default order (no column tapped; Keith 2026-11-14): active players by position QB, RB, WR, TE, K, P, DL, LB, DB,
+  // then IR, then Taxi at the bottom (each by position too); season PPG high first within a position.
+  function statusRank(p) { return p.isTaxi ? 2 : (p.isIr ? 1 : 0); }
+  function posRank(r) { var gi = GROUP_ORDER.indexOf(r.group); return gi === -1 ? GROUP_ORDER.length : gi; }
+  function defaultOrder(a, b) {
+    return (statusRank(a.p) - statusRank(b.p)) || (posRank(a) - posRank(b)) ||
+      (((b.line && b.line.ppg) || -1) - ((a.line && a.line.ppg) || -1)) || String(a.p.name || "").localeCompare(String(b.p.name || ""));
+  }
   function applySort(list) {
-    if (!sort.key) {
-      return list.slice().sort(function (a, b) {
-        return ((b.line && b.line.ppg) || -1) - ((a.line && a.line.ppg) || -1);
-      });
-    }
+    if (!sort.key) return list.slice().sort(defaultOrder);
     return list.slice().sort(function (a, b) {
       var x = sortVal(a, sort.key), y = sortVal(b, sort.key);
       if (x == null && y == null) return 0;
@@ -388,7 +392,7 @@
   }
   if (root.UPS_FO_HUB) { root.UPS_FO_HUB.registerView("bye"); }
   // Pure pieces, for tests.
-  root.UPS_FO_ROSTER = { parseSchedule: parseSchedule, parseProjections: parseProjections, parseStarters: parseStarters, submittedSlots: submittedSlots, ROWS: ROWS, SLOT_LABEL: SLOT_LABEL };
+  root.UPS_FO_ROSTER = { parseSchedule: parseSchedule, parseProjections: parseProjections, parseStarters: parseStarters, submittedSlots: submittedSlots, defaultOrder: defaultOrder, ROWS: ROWS, SLOT_LABEL: SLOT_LABEL };
   document.addEventListener("fo:ready", boot);
   document.addEventListener("fo:roster", function () { if (H) renderPerf(); });
   document.addEventListener("fo:injury", function () { if (H) { rerender("roster"); rerender("bye"); } });
