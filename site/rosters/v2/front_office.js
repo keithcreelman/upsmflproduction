@@ -4261,7 +4261,11 @@
     // with the honest unknown/empty variants — a "Place on IR" button in the
     // Actions tab below is only readable if the designation driving it is
     // visible. See nflStatusBadgeDetailed.
+    const IS = window.UPSInjuryStatus;
+    let back = "";
+    try { const r = injuryResFor(p), c = r && r.chips && r.chips[0]; back = (c && c.back) || (IS && IS.backText ? IS.backText((STATE.nflStatusMeta[String(p.id)] || {}).exp_return) : ""); } catch (e) {}
     return escapeHtml(p.name) + nflStatusBadgeDetailed(p.id) +
+      (back ? ` <span class="fo-so-back" title="MFL's expected return date">Expected back ${escapeHtml(back)}</span>` : "") +
       (commishOverride
         ? ` <span class="fo-commish-badge" title="Acting on behalf of ${escapeHtml(p.franchise)} — all submits will set commish_override_flag=1.">👑 commish override</span>`
         : "");

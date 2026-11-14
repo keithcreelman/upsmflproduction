@@ -852,11 +852,11 @@
     // The one chip (a plain designation: Q, D, OUT, IR, PUP, SUSP), colored by severity.
     function resolvedChipsHtml(res, extra) {
       return (res && res.chips || []).map(function (c) {
-        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '" role="img" aria-label="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>" + backHtml(c);
+        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '" role="img" aria-label="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
       }).join("");
     }
-    // MFL's expected return beside the IR chip: "back Nov 29" (nothing when MFL has none).
-    function backHtml(c) { return c && c.back ? '<span class="ups-m-inj-back">back ' + U.escapeHtml(c.back) + "</span>" : ""; }
+    // MFL's expected return, "Nov 29" ("" when MFL has none): shown in the player popup and on the IR page, never beside a chip.
+    function backOf(res) { var c = res && res.chips && res.chips[0]; return c && c.back ? c.back : ""; }
     // The red "Injury sources disagree" block (Keith 2026-10-15): each source stated plainly,
     // information only. cls: the surface's own class for the block.
     function warningHtml(res, cls) {
@@ -885,7 +885,7 @@
     function chipsHtml(pid, team, extra) { return resolvedChipsHtml(resolve(pid, team, null), extra); }
     function listLine() { return noteText(screenWeek()); }
     return { load: load, currentReport: currentReport, prior: prior, priorWeeks: priorWeeks,
-      resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, backHtml: backHtml, warningHtml: warningHtml, noteText: noteText, aboutText: aboutText, screenWeek: screenWeek,
+      resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, backOf: backOf, warningHtml: warningHtml, noteText: noteText, aboutText: aboutText, screenWeek: screenWeek,
       chipsHtml: chipsHtml, listLine: listLine,
       state: function () { return st.state; }, _st: st, TTL: TTL };
   })();
@@ -2950,7 +2950,7 @@
     var ctxYear = (DATA.getSeasonScoring && DATA.getSeasonScoring() && DATA.getSeasonScoring().season) || (window.UPS_MOBILE.state.ctx || {}).year;
     function statusHtml() {
       var res = PSTAT.resolve(pid, team, window.UPS_MOBILE.state.lineupWeek || null);
-      return { chips: PSTAT.resolvedChipsHtml(res), lines: res.lines, warning: PSTAT.warningHtml(res) };
+      return { chips: PSTAT.resolvedChipsHtml(res), lines: res.lines, warning: PSTAT.warningHtml(res), back: PSTAT.backOf(res) };
     }
     function headHtml(stNow) {
       return '<div class="ups-m-sheet-head-row">' +
@@ -2958,6 +2958,7 @@
         '<div class="ups-m-sheet-head-text">' +
           '<div class="name">' + (U.escapeHtml(name) || ('Player ' + U.escapeHtml(pid))) + stNow.chips + '</div>' +
           '<div class="sub">' + U.escapeHtml(pos) + (team ? ' · ' + U.escapeHtml(team) : '') + '</div>' +
+          (stNow.back ? '<div class="ups-m-sheet-back">Expected back <b>' + U.escapeHtml(stNow.back) + '</b></div>' : '') +
           stNow.warning +
           '<div class="ups-m-sheet-inj" id="ups-m-sheet-inj">' + stNow.lines.map(function (l) { return '<div>' + U.escapeHtml(l) + '</div>'; }).join("") + '</div>' +
           ownerChipHtml(pid) +
@@ -3005,7 +3006,7 @@
     PSTAT.load(ctxYear).then(function () {
       if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on
       var now = statusHtml();
-      if (now.chips !== stFirst.chips || now.warning !== stFirst.warning || now.lines.join(" ") !== stFirst.lines.join(" ")) head.innerHTML = headHtml(now);
+      if (now.chips !== stFirst.chips || now.warning !== stFirst.warning || now.back !== stFirst.back || now.lines.join(" ") !== stFirst.lines.join(" ")) head.innerHTML = headHtml(now);
     });
     loadWeeklyBox(pid).then(function (res) {
       if (U.safeStr(footerState.pid) !== U.safeStr(pidAtFire)) return;   // sheet moved on

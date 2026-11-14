@@ -29,16 +29,13 @@ test("an IR player's chip carries the return; no date, no extra text", () => {
   const none = IS.resolve(read1({ status: "IR", label: "Injured reserve", chip: "IR", detail: null, exp_return: null }), "1", "DAL");
   t.equal(none.chips[0].back, undefined); t.ok(!/expected back/.test(none.chips[0].title));
 });
-test("desktop chip shows 'back Nov 29' and escapes MFL's text", () => {
+test("chips stay clean; the date is in the popups and on the IR page", () => {
   const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-  const res = IS.resolve(read1({ status: "IR", label: "Injured reserve", chip: "IR", exp_return: "<b>x</b>" }), "1", "DAL");
-  const html = F.chipHtml(res, esc, "fo-inj");
-  t.match(html, /upf-inj-back/); t.ok(!/<b>x/.test(html), "no raw markup");
-  const ok = F.chipHtml(IS.resolve(read1({ status: "IR", label: "Injured reserve", chip: "IR", exp_return: "Nov 29, 2026" }), "1", "DAL"), esc, "fo-inj");
-  t.match(ok, /back Nov 29/);
-});
-test("wired on the phone and Game Day", () => {
-  t.match(read("site/m/player_sheet.js"), /function backHtml\(c\)/); t.match(read("site/m/views/lineup.js"), /PS\.backHtml\(res\.chips\[0\]\)/);
-  t.match(read("site/gameday/gameday.html"), /gd-inj-back/);
+  const res = IS.resolve(read1({ status: "IR", label: "Injured reserve", chip: "IR", exp_return: "Nov 29, 2026" }), "1", "DAL");
+  t.ok(!/back/.test(F.chipHtml(res, esc, "fo-inj").replace(/title="[^"]*"/, "")), "no date beside the desktop chip");
+  t.match(read("site/rosters/v2/front_office.js"), /fo-so-back/);
+  t.match(read("site/m/player_sheet.js"), /ups-m-sheet-back/);
+  t.match(read("site/m/views/contracts.js"), /ups-m-irrow-back/);
+  t.ok(!/gd-inj-back|ups-m-inj-back|upf-inj-back/.test(read("site/gameday/gameday.html") + read("site/m/player_sheet.js") + read("site/shared/player_facts.js")));
 });
 await run("ir_expected_return");
