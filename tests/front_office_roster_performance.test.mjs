@@ -54,7 +54,7 @@ test("the bye grid covers the 18 starting slots exactly once", () => {
 test("no write and no other season: the screen only reads", () => {
   t.ok(!/fetch\(/.test(SRC), "the view itself fetches nothing (fo_data.js does, GET only)");
   t.ok(!/method:\s*"POST"/.test(SRC));
-  t.ok(/options, not recommendations/.test(SRC), "free agents for a short week are called options");
+  t.ok(!/Free agents with a game in Week/.test(SRC), "the Bye planner no longer lists free agents (Keith 2026-11-14)");
 });
 
 test("Bye planner shows the whole roster only: no Likely starters view or scope control (Keith 2026-10-26)", () => {
