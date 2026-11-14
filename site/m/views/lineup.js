@@ -459,7 +459,7 @@
   function injChipsHtml(pid, team, slotTag) {
     var PS = PSx(); if (!PS || !PS.resolvedChipsHtml) return "";
     var res = injInfo(pid, team);
-    if (slotTag === "IR" && res.chips.length && res.chips[0].t === "IR") return "";
+    if (slotTag === "IR" && res.chips.length && res.chips[0].t === "IR") return PS.backHtml ? PS.backHtml(res.chips[0]) : "";
     return PS.resolvedChipsHtml(res, "lu");
   }
   // "  ·  Q" for a dropdown choice (plain text).

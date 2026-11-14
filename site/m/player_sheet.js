@@ -852,9 +852,11 @@
     // The one chip (a plain designation: Q, D, OUT, IR, PUP, SUSP), colored by severity.
     function resolvedChipsHtml(res, extra) {
       return (res && res.chips || []).map(function (c) {
-        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '" role="img" aria-label="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>";
+        return '<span class="ups-m-inj-chip ' + c.cls + (extra ? " " + extra : "") + '" title="' + U.escapeHtml(c.title) + '" role="img" aria-label="' + U.escapeHtml(c.title) + '">' + U.escapeHtml(c.t) + "</span>" + backHtml(c);
       }).join("");
     }
+    // MFL's expected return beside the IR chip: "back Nov 29" (nothing when MFL has none).
+    function backHtml(c) { return c && c.back ? '<span class="ups-m-inj-back">back ' + U.escapeHtml(c.back) + "</span>" : ""; }
     // The red "Injury sources disagree" block (Keith 2026-10-15): each source stated plainly,
     // information only. cls: the surface's own class for the block.
     function warningHtml(res, cls) {
@@ -883,7 +885,7 @@
     function chipsHtml(pid, team, extra) { return resolvedChipsHtml(resolve(pid, team, null), extra); }
     function listLine() { return noteText(screenWeek()); }
     return { load: load, currentReport: currentReport, prior: prior, priorWeeks: priorWeeks,
-      resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, warningHtml: warningHtml, noteText: noteText, aboutText: aboutText, screenWeek: screenWeek,
+      resolve: resolve, resolvedChipsHtml: resolvedChipsHtml, backHtml: backHtml, warningHtml: warningHtml, noteText: noteText, aboutText: aboutText, screenWeek: screenWeek,
       chipsHtml: chipsHtml, listLine: listLine,
       state: function () { return st.state; }, _st: st, TTL: TTL };
   })();

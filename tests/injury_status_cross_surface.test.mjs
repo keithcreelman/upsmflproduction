@@ -340,7 +340,7 @@ const READS = [
       chips: ["OUT"], warning: WARN("MFL: No designation", "Official NFL report: Out for Week " + W + " (Knee)"), lines: ["Practice (official report): did not practice"] },
     { key: "5. IR (MFL's IR-R) and the report's Q: never compared", team: "DEN", roster: { chip: "IR-R", label: "Injured reserve – designated to return", detail: "Knee", exp_return: "Nov 15, 2026" },
       report: { status: "Questionable", injury: "Knee", team: "DEN" },
-      chips: ["IR"], warning: null, lines: ["MFL roster: Injured reserve – designated to return (Knee)", "Official NFL report: Questionable for Week " + W + " (Knee)"] },
+      chips: ["IR"], warning: null, lines: ["MFL roster: Injured reserve – designated to return (Knee) · expected back Nov 15", "Official NFL report: Questionable for Week " + W + " (Knee)"] },
     { key: "5. PUP", team: "SEA", roster: { chip: "PUP", label: "Physically unable to perform", detail: null },
       chips: ["PUP"], warning: null, lines: ["MFL roster: Physically unable to perform", "Official NFL report: Not listed for Week " + W] },
     { key: "MFL D whose expected return has passed: plain, no date", team: NOREPORT, mfl: { status: "Doubtful", details: "Ankle", exp_return: "Oct 11, 2026", return_date: dayFrom(-3) },

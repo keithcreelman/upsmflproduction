@@ -36,7 +36,7 @@ const ALLOWED = /^(Q|D|OUT|IR|PUP|NFI|SUSP|HOLD|RET)$/;
 function clean(r, label) {
   t.ok(r.chips.length <= 1, label + ": at most one chip");
   for (const c of r.chips) t.ok(ALLOWED.test(c.t), label + ": the chip is just a designation: " + c.t);
-  const all = r.chips.map((c) => c.t + " " + c.title).concat(r.lines, r.warning ? [r.warning.title].concat(r.warning.lines) : []).join(" | ");
+  const all = r.chips.map((c) => c.t + " " + c.title).concat(r.lines, r.warning ? [r.warning.title].concat(r.warning.lines) : []).join(" | ").replace(/ · expected back Nov 15/g, "");   // IR's expected return is wanted (Keith 2026-11-14); a stale date is hidden
   t.ok(!/est\. return|expected return|Sep 13|Oct 18|Nov 15|return date|stale|dashed/i.test(all), label + ": no expected-return dates or stale wording: " + all);
   t.ok(!/read at|updated (at|Mon|Tue|Wed|Thu|Fri|Sat|Sun)|\d{1,2}:\d\d|\bET\b/.test(all), label + ": no read times: " + all);
   t.ok(!/healthy|wrong|incorrect|out of date|error in/i.test(all), label + ": never calls a source wrong or the player healthy: " + all);
@@ -94,7 +94,7 @@ test("5. IR / PUP: MFL's roster designation is the chip (IR-R shows IR), never c
   const ir = R(read({ 1: { roster: { chip: "IR-R", label: "Injured reserve – designated to return", detail: "Knee", exp_return: "Nov 15, 2026" }, report: { status: "Questionable", injury: "Knee" } } }), "1", "DEN");
   t.deepEqual(tags(ir), ["IR"]);
   t.deepEqual([ir.chips[0].cls, ir.chips[0].src, ir.warning], ["res", "roster", null]);
-  t.deepEqual(ir.lines, ["MFL roster: Injured reserve – designated to return (Knee)", "Official NFL report: Questionable for Week 6 (Knee)"], "never followed by 'MFL: No designation'");
+  t.deepEqual(ir.lines, ["MFL roster: Injured reserve – designated to return (Knee) · expected back Nov 15", "Official NFL report: Questionable for Week 6 (Knee)"], "never followed by 'MFL: No designation'");
   const pup = R(read({ 1: { roster: { chip: "PUP", label: "Physically unable to perform", detail: null } } }), "1", "SEA");
   t.deepEqual([tags(pup), pup.warning], [["PUP"], null]);
   t.deepEqual(pup.lines, ["MFL roster: Physically unable to perform", "Official NFL report: Not listed for Week 6"]);
