@@ -3333,7 +3333,7 @@
       String(a.name || "").localeCompare(String(b.name || ""));
   }
   function applySort(rows) {
-    if (!(STATE.sort && STATE.sort.userChosen)) return rows.slice().sort(defaultRosterOrder);
+    if (STATE.sort && STATE.sort.userChosen === false) return rows.slice().sort(defaultRosterOrder);   // no column chosen yet
     const key = STATE.sort.key;
     const dir = STATE.sort.dir;
     const numeric = ["salary", "years", "aav", "drop_pen", "tcv", "cl", "gtd", "earned", "per_week"];
