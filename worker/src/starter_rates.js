@@ -163,6 +163,64 @@ export function computeStarterRates(rows, ctx) {
   return { thresholds, players, weeks_label, started_no_shows: noShows, started_played_zero: playedZero };
 }
 
+// ── Edge cache for /api/player-starter-rates (Keith 2026-10-28, #1421 ruling A) ──
+// One answer reads 37,473 D1 rows (season 2026, completed week 7; measured 2026-10-28 by running the route's seven
+// SELECTs once each). The answer changes only when a week becomes final or when an already-final week's synced data
+// changes (a stat correction, a late lineup or snap-count sync), so:
+//   * ONE computation per (season, MFL-authoritative completed week + its source, graded-through week). The graded-through
+//     week is min(completed, through), so no-through and through=<completed> share it, and through can only take as many
+//     values as there are final weeks. A newly completed week is a new key, so it misses at once.
+//   * A miss stores EVERY variant of that computation at once: the whole list, each lineup group, and the full answer
+//     (weekly detail kept) that per-player requests are cut from. Group and player requests therefore never compute
+//     again, and no query value can make a new D1 read: an unknown group or season is refused before any read.
+//   * The key is built explicitly on a private host: workers.dev's caches.default is shared and ignores the request host.
+//   * TTL 6 h for a settled answer (every completed week graded), so a correction to a final week shows within 6 h;
+//     1 h while any week is still pending (lineups or snap counts not synced yet) or when MFL couldn't be read. The snap
+//     refresh runs at fixed times (Mon 05/13, Tue 05/12/20, Wed 11 UTC) and the lineup sync once on Tuesday, so a week
+//     that finishes syncing is graded within the hour; 10 minutes would cost up to 6x as many misses while pending.
+export const CACHE_TTL_S = 21600;
+export const CACHE_PENDING_TTL_S = 3600;
+export const CACHE_VERSION = "2";
+export const GROUPS = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
+export const FIRST_SEASON = 2012;
+
+/** through=N: grade final weeks up to N only (1-18); anything else = no bound. */
+export function parseThrough(v) {
+  const n = parseInt(String(v == null ? "" : v).replace(/\D/g, ""), 10);
+  return n >= 1 && n <= 18 ? n : null;
+}
+
+/** variant: "all" (the whole list), a lineup group, or "full" (every player with weekly detail). */
+export function starterRatesCacheKey({ season, completed, authority, bound, variant }) {
+  const q = new URLSearchParams();
+  q.set("v", CACHE_VERSION); q.set("season", String(season)); q.set("completed", String(completed)); q.set("authority", String(authority || ""));
+  q.set("bound", String(bound)); q.set("variant", String(variant || "all"));
+  return "https://upsmfl-starter-rates.local/api/player-starter-rates?" + q.toString();
+}
+
+export function starterRatesTtl(out, authority) {
+  const pending = (out && out.pending_weeks) || [];
+  return authority === "mfl_live_scoring" && !pending.length ? CACHE_TTL_S : CACHE_PENDING_TTL_S;
+}
+
+/** Every stored variant of one computation: { full, all, QB, …, DB } — list variants drop the weekly detail. */
+export function starterRatesVariants(base, out) {
+  const strip = (players) => { const o = {}; for (const [k, p] of Object.entries(players)) { const { wk, ...rest } = p; o[k] = rest; } return o; };
+  const listed = strip(out.players);
+  const v = { full: { ...base, ...out }, all: { ...base, ...out, players: listed } };
+  for (const g of GROUPS) {
+    const ps = {};
+    for (const [k, p] of Object.entries(listed)) if (p.group === g) ps[k] = p;
+    v[g] = { ...base, ...out, players: ps };
+  }
+  return v;
+}
+/** One player's answer cut from the full one (weekly detail kept). */
+export function starterRatesPlayer(full, mflId) {
+  const k = String(parseInt(mflId, 10)), p = full.players && full.players[k];
+  return { ...full, players: p ? { [k]: p } : {} };
+}
+
 /** MFL team codes → nflverse codes (bye list vs snap rows). */
 export const TEAM_NORM = { GBP: "GB", KCC: "KC", JAC: "JAX", LAR: "LA", LVR: "LV", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB" };
 export const normTeam = (t) => {
