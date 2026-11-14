@@ -143,7 +143,8 @@
   function chipHtml(res, esc, cls) {
     if (!res || !res.chips || !res.chips.length) return "";
     var c = res.chips[0];
-    return '<span class="' + (cls || "upf-inj") + " upf-inj-" + esc(c.cls) + '" title="' + esc(c.title) + '">' + esc(c.t) + "</span>";
+    return '<span class="' + (cls || "upf-inj") + " upf-inj-" + esc(c.cls) + '" title="' + esc(c.title) + '">' + esc(c.t) + "</span>" +
+      (c.back ? '<span class="upf-inj-back">back ' + esc(c.back) + "</span>" : "");
   }
   function warningHtml(res, esc) {
     if (!res || !res.warning) return "";

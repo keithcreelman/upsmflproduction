@@ -70,6 +70,7 @@
      "IR-" + "*" + "/Suspended", which ENDED the comment early and silently dropped
      the .gd-slot-inj-row rule below: badge rows had no padding. Fixed 2026-10-14.) */
   .gd-slot-inj-row { padding: 0 14px 8px 14px; margin-top: -2px; }
+  .gd-inj-back { margin-left: 6px; font-size: 12px; font-weight: 600; color: var(--muted, #8b95a8); white-space: nowrap; }
   .gd-inj-badge { display: inline-block; font-size: 13px; font-weight: 900; letter-spacing: 0.02em; padding: 2px 9px; border-radius: 5px; }
   .gd-inj-badge.tier-out { color: #fff; background: var(--danger); }
   .gd-inj-badge.tier-q { color: #1a1206; background: var(--warn); }
@@ -667,7 +668,7 @@
     if (row && !row.inj) { var b = injBadgeInfo(row.injStatus); if (b) cs = [{ t: b.label, cls: b.tier, title: row.injLabel || b.label }]; }
     if (!cs.length) return "";
     var h = cs.map(function (c) {
-      return '<span class="gd-inj-badge tier-' + c.cls + '" title="' + esc(c.title) + '" role="img" aria-label="' + esc(c.title) + '">' + esc(c.t) + '</span>';
+      return '<span class="gd-inj-badge tier-' + c.cls + '" title="' + esc(c.title) + '" role="img" aria-label="' + esc(c.title) + '">' + esc(c.t) + '</span>' + (c.back ? '<span class="gd-inj-back">back ' + esc(c.back) + '</span>' : '');
     }).join("");
     return inline ? " " + h : '<div class="gd-slot-inj-row">' + h + '</div>';
   }

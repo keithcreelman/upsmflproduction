@@ -81,14 +81,29 @@
   }
 
   function chip(t, cls, title, src) { return { t: t, cls: cls, title: title, src: src }; }
-  function rosterChip(ro) {
-    var t = ROSTER_CHIP[ro.chip] || ro.chip;
-    return chip(t, t === "HOLD" ? "ho" : "res", ro.label + (ro.detail ? " (" + ro.detail + ")" : ""), "roster");
+  // MFL's expected return, as MFL wrote it: "Nov 29, 2026" reads "Nov 29"; anything else is shown as written (cut at 24
+  // characters); nothing when MFL has none, or when a date it gave has already passed (a stale date helps nobody).
+  function backText(exp, now) {
+    var s = str(exp); if (!s) return "";
+    var m = /^([A-Za-z]{3})[a-z]*\.?\s+(\d{1,2}),\s*(\d{4})$/.exec(s);
+    if (m) {
+      var mo = "janfebmaraprmayjunjulaugsepoctnovdec".indexOf(m[1].toLowerCase()) / 3;
+      var at = Date.UTC(parseInt(m[3], 10), mo, parseInt(m[2], 10)) + 24 * 3600 * 1000;   // the whole day counts
+      if (mo === (mo | 0) && at < (now != null ? now : Date.now())) return "";
+      return m[1].charAt(0).toUpperCase() + m[1].slice(1).toLowerCase() + " " + parseInt(m[2], 10);
+    }
+    return s.length > 24 ? s.slice(0, 23) + "…" : s;
+  }
+  function rosterChip(ro, now) {
+    var t = ROSTER_CHIP[ro.chip] || ro.chip, back = backText(ro.exp_return, now);
+    var c = chip(t, t === "HOLD" ? "ho" : "res", ro.label + (ro.detail ? " (" + ro.detail + ")" : "") + (back ? " · expected back " + back : ""), "roster");
+    if (back) c.back = back;
+    return c;
   }
   function gameChip(status, src, detail) {
     return chip(SHORT[status], SEV[status], status + (detail ? " (" + detail + ")" : ""), src);
   }
-  function rosterLine(ro) { return "MFL roster: " + ro.label + (ro.detail ? " (" + ro.detail + ")" : ""); }
+  function rosterLine(ro, now) { var b = backText(ro.exp_return, now); return "MFL roster: " + ro.label + (ro.detail ? " (" + ro.detail + ")" : "") + (b ? " · expected back " + b : ""); }
   function mflLine(m) { return "MFL: " + m.status + (m.details ? " (" + m.details + ")" : ""); }
 
   /* resolve(read, pid, team, opts) → { chips, warning, lines, disagree, label }
@@ -107,7 +122,7 @@
     if (!fresh(read, now)) {
       var fb = opts.fallback;
       out.lines.push(read && read.state === "error" ? "Injury status couldn’t be loaded." : "Checking injury status…");
-      if (fb && fb.roster) { out.chips.push(rosterChip(fb.roster)); out.lines.push(rosterLine(fb.roster).replace(/^MFL roster:/, "MFL roster (this page’s read):")); }
+      if (fb && fb.roster) { out.chips.push(rosterChip(fb.roster, now)); out.lines.push(rosterLine(fb.roster, now).replace(/^MFL roster:/, "MFL roster (this page’s read):")); }
       else if (fb && fb.mfl) { out.chips.push(gameChip(fb.mfl.status, "mfl", fb.mfl.details)); out.lines.push(mflLine(fb.mfl).replace(/^MFL:/, "MFL (this page’s read):")); }
       else if (fb && fb.none) out.lines.push("MFL (this page’s read): No designation");
       out.label = out.chips.map(function (c) { return c.t; }).join(" ");
@@ -123,7 +138,7 @@
     var notListed = rf.current && teamReported && canMatch && !p.report;
 
     // ── the chip: MFL's roster designation, else MFL's game status, else the current report's ──
-    if (ro) out.chips.push(rosterChip(ro));
+    if (ro) out.chips.push(rosterChip(ro, now));
     else if (m) out.chips.push(gameChip(m.status, "mfl", m.details));
     else if (r && r.status) out.chips.push(gameChip(r.status, "nfl", r.injury));
 
@@ -143,7 +158,7 @@
     }
 
     // ── the player page's lines: what each source has (the warning already says both when they disagree) ──
-    if (ro) out.lines.push(rosterLine(ro));
+    if (ro) out.lines.push(rosterLine(ro, now));
     else if (rof && rof.ok === false && mf && mf.ok) out.lines.push("MFL roster designations (IR, PUP …) couldn’t be read.");
     if (!out.disagree) {
       // (A roster designation is MFL's word on him: never followed by "MFL: No designation".)
@@ -218,6 +233,6 @@
     return { load: load, read: function () { return st; } };
   }
 
-  root.UPSInjuryStatus = { TTL: TTL, resolve: resolve, optText: optText, noteText: noteText, aboutText: aboutText, fromMflStore: fromMflStore,
+  root.UPSInjuryStatus = { backText: backText, TTL: TTL, resolve: resolve, optText: optText, noteText: noteText, aboutText: aboutText, fromMflStore: fromMflStore,
     createLoader: createLoader, fresh: fresh };
 })(typeof window !== "undefined" ? window : this);
