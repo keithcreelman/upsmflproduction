@@ -63,7 +63,7 @@ test("default order: active players by position QB→DB, then IR, then Taxi; PPG
     r("Rb1", "RB", 15), r("Db", "DB", 7), r("Wr", "WR", 12), r("K", "PK", 9), r("Te", "TE", 6), r("P", "PN", 7), r("Dl", "DL", 8)];
   t.deepEqual(rows.slice().sort(R.defaultOrder).map((x) => x.p.name), ["Qb", "Rb1", "Rb2", "Wr", "Te", "K", "P", "Dl", "Lb", "Db", "Ir", "Tx"]);
   const FO = read("site/rosters/v2/front_office.js");
-  t.ok(/if \(!\(STATE\.sort && STATE\.sort\.userChosen\)\) return rows\.slice\(\)\.sort\(defaultRosterOrder\)/.test(FO), "the Contract table defaults to the same order");
+  t.ok(/if \(STATE\.sort && STATE\.sort\.userChosen === false\) return rows\.slice\(\)\.sort\(defaultRosterOrder\)/.test(FO), "the Contract table defaults to the same order");
   t.ok(/p\.isTaxi \? 2 : \(p\.isIr \? 1 : 0\)/.test(FO), "Contract: IR then Taxi at the bottom");
 });
 
