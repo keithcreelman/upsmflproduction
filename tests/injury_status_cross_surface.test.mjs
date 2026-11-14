@@ -182,7 +182,7 @@ async function sheet() {
 
 console.log("1. the sheet renders exactly the resolver's chip, warning and lines (source check)");
 await check("player_sheet.js statusHtml(): PSTAT.resolve(pid, team, lineupWeek) → resolvedChipsHtml(res) beside the name, warningHtml(res), res.lines one per line", () => {
-  assert.match(SHEET, /function statusHtml\(\) \{\s*var res = PSTAT\.resolve\(pid, team, window\.UPS_MOBILE\.state\.lineupWeek \|\| null\);\s*return \{ chips: PSTAT\.resolvedChipsHtml\(res\), lines: res\.lines, warning: PSTAT\.warningHtml\(res\) \};\s*\}/);
+  assert.match(SHEET, /function statusHtml\(\) \{\s*var res = PSTAT\.resolve\(pid, team, window\.UPS_MOBILE\.state\.lineupWeek \|\| null\);\s*return \{ chips: PSTAT\.resolvedChipsHtml\(res\), lines: res\.lines, warning: PSTAT\.warningHtml\(res\), back: PSTAT\.backOf\(res\) \};\s*\}/);
   assert.match(SHEET, /\(U\.escapeHtml\(name\) \|\| \('Player ' \+ U\.escapeHtml\(pid\)\)\) \+ stNow\.chips \+/);
   assert.match(SHEET, /stNow\.warning \+\s*'<div class="ups-m-sheet-inj" id="ups-m-sheet-inj">' \+ stNow\.lines\.map\(function \(l\) \{ return '<div>' \+ U\.escapeHtml\(l\) \+ '<\/div>'; \}\)/);
   assert.match(GAMEDAY, /<script src="\.\.\/shared\/injury_status\.js\?v=[0-9.]+"><\/script>/, "Game Day loads the resolver cache-busted, so a cached old one can't bring back prefixed tags");
