@@ -101,6 +101,8 @@
   SOURCES.franchiseAssets = function (fid) { return getJson(cfg.apiBase + "/api/franchise-assets?" + q({ fid: fid, L: cfg.leagueId, YEAR: cfg.season })); };
   SOURCES.projections = weekSource("projectedScores");
   SOURCES.nflSchedule = weekSource("nflSchedule");
+  // Every franchise's SUBMITTED lineup for one week (weeklyResults&W=N: franchise.starters). Roster → Lineup.
+  SOURCES.lineups = weekSource("weeklyResults");
 
   function emit(key) {
     (listeners[key] || []).concat(listeners["*"] || []).forEach(function (fn) { try { fn(entries[key], key); } catch (e) {} });

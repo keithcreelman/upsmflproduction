@@ -259,7 +259,7 @@
     // (status then name — see orderGroupRows); after it, the clicked column
     // wins as the secondary key inside each position group.
     sort: { key: "salary", dir: -1, userChosen: false },
-    groupByPosition: true,   // Roster defaults to By Position (Keith 2026-06-06)
+    groupByPosition: false,  // one flat list; the Flat / By Position button is gone (Keith 2026-11-13)
     // ── Cap-penalty SSOT (single fetch, joined by player id) ────────────
     // pid -> { penalty, guaranteed, earned, prior_earned, current_year_earned,
     //          tcv, cl, years_remaining, years_played, basis, exempt,

@@ -3,8 +3,9 @@
 
    Performance shows the rows the Contract table shows (same team / position /
    type / status filters), with:
-     Lineup   where the player sits in this week's best legal lineup by season
-              PPG (18 slots; taxi, IR and players ruled Out are not available)
+     Pos      the player's position (sortable)
+     Lineup   the slot the player holds in the lineup the team SUBMITTED on MFL
+              for this lineup week (MFL weeklyResults&W=, every team), or Bench
      Pts      MFL points, league scoring, every week MFL posted (the phone's)
      PPG      per MFL-scored week (a 0.0 week counts, a bye doesn't)
      Rank     PPG rank at the lineup position, among every player MFL scored
@@ -71,16 +72,39 @@
     try { return new Date(ms).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
   }
 
-  // Likely lineup slot per player for each visible team (best legal lineup this week, season PPG).
-  function likelySlots(teamFids, week, byes) {
-    var BP = root.UPS_BYE_PLANNER, out = {};
-    if (!BP || !week) return out;
-    var vals = H.values(0);
-    H.modelTeams().forEach(function (t) {
-      if (teamFids.indexOf(t.fid) === -1) return;
-      var plan = BP.plan({ players: t.players, values: vals, byeWeekByTeam: byes || {}, fromWeek: week, toWeek: week, currentWeek: week });
-      var slots = plan.weeks[0] ? plan.weeks[0].slots : {};
-      Object.keys(slots).forEach(function (sid) { if (slots[sid]) out[slots[sid]] = SLOT_LABEL[sid] || sid; });
+  function pad4(fid) { var s = String(fid == null ? "" : fid).replace(/\D/g, ""); return s ? ("0000" + s).slice(-4) : ""; }
+  // { fid: [pid, …] }: each franchise's SUBMITTED starters for one week, from MFL's weeklyResults&W= (pure).
+  // A franchise with several games that week appears in several matchups with the same lineup; the first wins.
+  function parseStarters(json) {
+    var out = {}, wr = json && json.weeklyResults;
+    var frs = [];
+    arr(wr && wr.matchup).forEach(function (m) { frs = frs.concat(arr(m && m.franchise)); });
+    frs = frs.concat(arr(wr && wr.franchise));
+    frs.forEach(function (f) {
+      var fid = pad4(f && f.id);
+      if (!fid || out[fid]) return;
+      out[fid] = String(f.starters || "").split(",").map(function (x) { return x.trim(); }).filter(Boolean);
+    });
+    return out;
+  }
+  // null = not read yet; { error } = the read failed; else { fid: [pid…] }.
+  function startersFor(week) {
+    var e = week ? DATA.get("lineups", week) : null;
+    if (!e) return null;
+    if (e.state !== "ok") return { error: true };
+    return parseStarters(e.data);
+  }
+  // { pid: slot label } from submitted starters ({ fid: [pid…] }), placed the way the phone's Lineup screen
+  // places a saved lineup (fixed slots first, then flex). groupOf(pid) gives the lineup position.
+  function submittedSlots(byFid, groupOf) {
+    var L = root.UPS_FRONT_OFFICE_LINEUP, out = {};
+    Object.keys(byFid || {}).forEach(function (fid) {
+      var pids = byFid[fid] || [];
+      if (L) {
+        var draft = L.slotsFromStarters(pids.map(function (pid) { return { id: pid, pos: groupOf(pid) || "" }; }), pids);
+        Object.keys(draft).forEach(function (sid) { if (draft[sid]) out[String(draft[sid])] = SLOT_LABEL[sid] || sid; });
+      }
+      pids.forEach(function (pid) { if (!out[pid]) out[pid] = "Starter"; });   // on MFL's list, no slot placed: still started
     });
     return out;
   }
@@ -89,8 +113,8 @@
   function perfRows() {
     var rows = FO.visibleRows() || [];
     var week = lineupWeek(), sched = scheduleMap(week), proj = projMap(week), byes = byeMap();
-    var fids = []; rows.forEach(function (p) { if (fids.indexOf(p.fid) === -1) fids.push(p.fid); });
-    var slots = likelySlots(fids, week, byes);
+    var starters = startersFor(week);
+    var slots = starters && !starters.error ? submittedSlots(starters, H.groupOf) : {};
     return rows.map(function (p) {
       var line = H.seasonLine(p.id, 4);
       var g = H.groupOf(p.id) || "";
@@ -99,7 +123,8 @@
       var onBye = byes && week && byes[team] === week;
       return {
         p: p, group: g, line: line,
-        slot: p.isTaxi ? "Taxi" : (p.isIr ? "IR" : (slots[String(p.id)] || "Bench")),
+        slot: p.isTaxi ? "Taxi" : (p.isIr ? "IR" : (!starters ? "…" : (starters.error ? "—" :
+          (slots[String(p.id)] || ((starters[pad4(p.fid)] || []).length ? "Bench" : "—"))))),
         next: onBye ? { bye: true } : next, proj: proj ? (proj[String(p.id)] != null ? proj[String(p.id)] : null) : undefined,
         bye: byes ? (byes[team] || null) : undefined
       };
@@ -108,6 +133,7 @@
   function sortVal(r, key) {
     switch (key) {
       case "name": return String(r.p.name || "");
+      case "pos": { var gi = GROUP_ORDER.indexOf(r.group); return gi === -1 ? GROUP_ORDER.length : gi; }
       case "pts": return r.line ? r.line.pts : null;
       case "ppg": return r.line ? r.line.ppg : null;
       case "rank": return r.line && r.line.rank ? -r.line.rank : null;
@@ -131,6 +157,7 @@
       if (x == null) return 1;
       if (y == null) return -1;
       var c = typeof x === "string" ? x.localeCompare(y) : (x - y);
+      if (c === 0) return ((b.line && b.line.ppg) || -1) - ((a.line && a.line.ppg) || -1);   // ties: season PPG, high first
       return sort.dir > 0 ? c : -c;
     });
   }
@@ -145,10 +172,11 @@
     var nextTxt = r.next === undefined || r.next === null
       ? (scheduleMap(lineupWeek()) ? '<span class="fo-muted">—</span>' : '<span class="fo-muted">…</span>')
       : (r.next.bye ? '<span class="fo-bye">BYE</span>' : (r.next.home ? "vs " : "@ ") + H.esc(r.next.opp) + ' <span class="fo-muted">' + H.esc(kickLabel(r.next.kickoff)) + "</span>");
-    var slotCls = r.slot === "Bench" ? "bench" : (r.slot === "Taxi" || r.slot === "IR" ? "off" : "start");
+    var slotCls = r.slot === "Bench" ? "bench" : (r.slot === "Taxi" || r.slot === "IR" || r.slot === "—" || r.slot === "…" ? "off" : "start");
     return "<tr>" +
       '<td class="fo-perf-player">' + H.playerButton(p.id, p.fid, p.name) + H.injuryChip(p) +
-        '<div class="fo-muted fo-perf-sub">' + H.esc(p.position) + " · " + H.esc(p.nflTeam || "—") + (multiTeam ? " · " + H.esc(p.franchise) : "") + "</div></td>" +
+        '<div class="fo-muted fo-perf-sub">' + H.esc(p.nflTeam || "—") + (multiTeam ? " · " + H.esc(p.franchise) : "") + "</div></td>" +
+      "<td>" + H.esc(p.position || "—") + "</td>" +
       '<td><span class="fo-slot fo-slot-' + slotCls + '">' + H.esc(r.slot) + "</span></td>" +
       '<td class="num">' + (l ? H.fmt1(l.pts) : "—") + "</td>" +
       '<td class="num">' + (l && l.ppg != null ? H.fmt1(l.ppg) : "—") + (l ? '<div class="fo-muted fo-perf-sub">' + l.games + " wk" + (l.games === 1 ? "" : "s") + "</div>" : "") + "</td>" +
@@ -176,7 +204,8 @@
     if (!se) { H.loading(wrap, "Reading MFL’s scores…"); return; }
     var rows = perfRows();
     var multi = FO.selectedTeam() === "__all__";
-    var head = "<thead><tr>" + th("name", "Player", "", "") + th("", "Lineup", "Slot in this week's best legal lineup by season PPG (taxi, IR and players ruled Out excluded)", "") +
+    var head = "<thead><tr>" + th("name", "Player", "", "") + th("pos", "Pos", "Position: sort QB, RB, WR, TE, K, P, DL, LB, DB", "") +
+      th("", "Lineup", "The slot this player holds in the lineup the team submitted on MFL for this week; Bench = not started; — = no lineup submitted", "") +
       th("pts", "Pts", "MFL points, league scoring, every week MFL posted", "num") + th("ppg", "PPG", "Points per MFL-scored week (0.0 counts; a bye doesn't)", "num") +
       th("rank", "Rank", "PPG rank at the player's lineup position among every player MFL scored, with at least half the final weeks", "num") +
       th("l4", "L4", "PPG over the last 4 final weeks — context only; season PPG is the better guide", "num col-lo") +
@@ -184,21 +213,9 @@
       th("proj", week ? "Wk " + week + " proj" : "Proj", "MFL's projection for this lineup week — a forecast, not a result", "num") +
       th("bye", "Bye", "NFL bye week (MFL)", "num col-md") + th("salary", "Salary", "This season's salary", "num") + th("years", "Yrs", "Years left on the contract", "num col-lo") + "</tr></thead>";
     var body = "";
-    if (!rows.length) body = '<tr><td colspan="11" class="fo-table-empty">No players match the current filters.</td></tr>';
-    else if (FO.groupByPosition() && !sort.key) {
-      var groups = {};
-      rows.forEach(function (r) {
-        var k = r.p.isTaxi ? "Taxi" : (r.p.isIr ? "IR" : (r.group || "Other"));
-        (groups[k] = groups[k] || []).push(r);
-      });
-      GROUP_ORDER.concat(["Other", "Taxi", "IR"]).forEach(function (k) {
-        if (!groups[k]) return;
-        body += '<tr class="fo-group-row"><td colspan="11"><span class="fo-pos ' + H.esc(k) + '">' + H.esc(k) + '</span> <span class="small">' + groups[k].length + "</span></td></tr>";
-        body += applySort(groups[k]).map(function (r) { return rowHtml(r, multi); }).join("");
-      });
-    } else {
-      body = applySort(rows).map(function (r) { return rowHtml(r, multi); }).join("");
-    }
+    // One flat list (Keith 2026-11-13: no By Position grouping; sort the Pos column instead).
+    if (!rows.length) body = '<tr><td colspan="12" class="fo-table-empty">No players match the current filters.</td></tr>';
+    else body = applySort(rows).map(function (r) { return rowHtml(r, multi); }).join("");
     wrap.innerHTML = '<p class="fo-basis' + (basis.warn ? " warn" : "") + '">' + H.esc(basis.text) +
       (projMap(week) ? " · Wk " + week + " proj = MFL projection" : "") + "</p>" +
       '<div class="fo-table-scroll"><table class="fo-table fo-perf-table">' + head + "<tbody>" + body + "</tbody></table></div>";
@@ -225,7 +242,7 @@
         var b = e.target && e.target.closest ? e.target.closest("[data-perf-sort]") : null;
         if (!b) return;
         var k = b.getAttribute("data-perf-sort");
-        sort = sort.key === k ? { key: k, dir: -sort.dir } : { key: k, dir: k === "name" ? 1 : -1 };
+        sort = sort.key === k ? { key: k, dir: -sort.dir } : { key: k, dir: k === "name" || k === "pos" ? 1 : -1 };
         renderPerf();
       });
     }
@@ -335,13 +352,16 @@
     var week = lineupWeek();
     var keys = section === "bye" ? ["scores", "players", "byes"] : ["scores", "players", "byes"];
     keys.forEach(function (k) { DATA.load(k).then(function () { rerender(section); afterScores(section); }); });
-    if (week && section === "roster") { DATA.load("projections", week).then(function () { rerender(section); }); DATA.load("nflSchedule", week).then(function () { rerender(section); }); }
+    if (week && section === "roster") {
+      ["projections", "nflSchedule", "lineups"].forEach(function (k) { DATA.load(k, week).then(function () { rerender(section); }); });
+    }
   }
   function afterScores(section) {
     var week = lineupWeek();
     if (week && section === "roster") {
       if (!DATA.get("projections", week)) DATA.load("projections", week).then(function () { rerender(section); });
       if (!DATA.get("nflSchedule", week)) DATA.load("nflSchedule", week).then(function () { rerender(section); });
+      if (!DATA.get("lineups", week)) DATA.load("lineups", week).then(function () { rerender(section); });
     }
   }
   function rerender(section) {
@@ -356,7 +376,8 @@
     if (!H || !FO || !DATA) return;
     wirePerf(); wireBye();
     H.registerAbout("roster", "<h3>Roster → Performance</h3><ul>" +
-      "<li><b>Lineup:</b> the player’s slot in this week’s best legal 18-player lineup by season PPG (taxi, IR and players ruled Out don’t start).</li>" +
+      "<li><b>Pos:</b> the player’s position; tap the column to sort QB, RB, WR, TE, K, P, DL, LB, DB.</li>" +
+      "<li><b>Lineup:</b> the slot the player holds in the lineup his team submitted on MFL for this week (MFL’s weekly results). Bench = not started; — = no lineup submitted yet. It changes when the owner changes the lineup on MFL; reopen the page to re-read it.</li>" +
       "<li><b>Pts / PPG / Rank:</b> MFL’s own league scoring; PPG per MFL-scored week; rank at the lineup position among every player MFL scored with at least half the final weeks. Same as the phone.</li>" +
       "<li><b>L4:</b> PPG over the last 4 final weeks. Context only: in a 2022–2025 backtest, season PPG predicted the rest of the season better than the last 3–4 weeks at every position but punter.</li>" +
       "<li><b>Wk N / Wk N proj / Bye:</b> MFL’s NFL schedule, MFL’s projection for that week (a forecast) and MFL’s bye weeks.</li>" +
@@ -367,7 +388,7 @@
   }
   if (root.UPS_FO_HUB) { root.UPS_FO_HUB.registerView("bye"); }
   // Pure pieces, for tests.
-  root.UPS_FO_ROSTER = { parseSchedule: parseSchedule, parseProjections: parseProjections, ROWS: ROWS, SLOT_LABEL: SLOT_LABEL };
+  root.UPS_FO_ROSTER = { parseSchedule: parseSchedule, parseProjections: parseProjections, parseStarters: parseStarters, submittedSlots: submittedSlots, ROWS: ROWS, SLOT_LABEL: SLOT_LABEL };
   document.addEventListener("fo:ready", boot);
   document.addEventListener("fo:roster", function () { if (H) renderPerf(); });
   document.addEventListener("fo:injury", function () { if (H) { rerender("roster"); rerender("bye"); } });
