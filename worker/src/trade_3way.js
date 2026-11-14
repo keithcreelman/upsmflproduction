@@ -30,11 +30,13 @@
 import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
 import { buildCanonical3Way, decideCancel, decideAdminCancel, ADMIN_CANCEL_BASIS, canView } from "./trade_3way_model.js";
-import { makeLedger, EXEC, findExecutedTrade, isMflExecuted, franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
+import { makeLedger, EXEC, findExecutedTrade, findOwnPendingTrade, pendingHasTrade, isMflExecuted, franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
+import { normalizeToken, indexRosters, indexFuturePicks, indexDraftPicks, ownershipViolations, pickEligibilityViolations } from "./trade_accept_integrity.js";
+import { capMoneyMaxK } from "./trade_rules.js";
 
 // ───────────────────────────── helpers ─────────────────────────────────────
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
@@ -165,22 +167,17 @@ export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid
     const m = proposeResp.match(re); if (m && m[1]) { tradeId = m[1]; break; }
   }
   if (!tradeId) {
+    // Only OUR offer may be accepted: exactly one pending row with both teams, both exact asset sets and (when MFL echoes it) our comment
+    // tag. Anything looser could accept an unrelated offer between the same two teams.
+    let own = { match: "none" };
     try {
       const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${padFid(fromFid)}${keyQs}&JSON=1`;
       const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json", ...authHeaders } });
       const j = await r.json().catch(() => null);
-      const root = (j && (j.pendingTrades || j.pendingtrades)) || {};
-      let arr = root.pendingTrade || root.pendingtrade || root.trade || root.trades || [];
-      if (!Array.isArray(arr)) arr = arr ? [arr] : [];
-      // newest matching offer from->to
-      for (const t of arr) {
-        const tf = padFid(t?.offeringteam || t?.franchise_id || t?.offering_franchise);
-        const tt = padFid(t?.offeredto || t?.to_franchise);
-        if ((!tf || tf === padFid(fromFid)) && (!tt || tt === padFid(toFid))) {
-          const id = digits(t?.trade_id || t?.id); if (id) { tradeId = id; break; }
-        }
-      }
+      own = findOwnPendingTrade(j, { from: fromFid, to: toFid, give: giveMfl, receive: receiveMfl, commentTag });
     } catch (_) {}
+    if (own.match === "ambiguous") return { ok: false, step: "ambiguous_pending_match", error: `${own.count} pending offers match this leg exactly; not accepting any of them` };
+    if (own.match === "one") tradeId = own.tradeId;
   }
   if (!tradeId) return { ok: false, step: "extract_trade_id", error: "no trade_id from propose or pendingTrades" };
 
@@ -263,8 +260,10 @@ export async function fetchRosterSalaryMap(env, leagueId, year) {
     const apiKey = safeStr(env.MFL_APIKEY);
     const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=rosters&L=${leagueId}&APIKEY=${encodeURIComponent(apiKey)}&JSON=1`;
     const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
-    const j = await r.json().catch(() => null);
-    let franchises = j?.rosters?.franchise || [];
+    const j = r && r.ok ? await r.json().catch(() => null) : null;
+    // An error answer (HTTP failure, MFL's {error}, or no rosters object) is "couldn't read", never an empty league.
+    if (!j || typeof j !== "object" || j.error || !j.rosters) return { ok: false, error: `rosters export unreadable (HTTP ${r ? r.status : "?"})` };
+    let franchises = j.rosters.franchise || [];
     if (!Array.isArray(franchises)) franchises = franchises ? [franchises] : [];
     const salaryByFp = {}, taxiByFp = {};
     for (const f of franchises) {
@@ -297,7 +296,87 @@ export function movementCapMaxK(movement, salaryByFp, taxiByFp) {
     if (taxiByFp[key]) continue;             // taxi salary doesn't count
     sum += Number(salaryByFp[key]) || 0;
   }
-  return Math.floor(sum / 2000);
+  return capMoneyMaxK(sum);
+}
+
+// ─────────────── asset integrity: ownership · pick eligibility (§A6) · cap money (§A6) ───────────────
+// The SAME pure rules the two-team accept enforces (worker/src/trade_accept_integrity.js), applied to a
+// staged 2-way or a 3-way: every asset still belongs to the team the trade says is sending it, no
+// round-6 pick and no pick beyond the current year + 1, and no movement's cap money above 50% of the
+// non-taxi salary it sends. Nothing here is a new rule — this only re-checks existing canon against
+// live MFL data at accept, re-check and execution, before any MFL write.
+export const PICK_NOT_TRADEABLE_MSG = "A draft pick in this trade can't be traded (6th-round picks, and picks more than a year out, aren't tradeable).";
+const OWNERSHIP_MSG = "Something in this trade is no longer on the team that was sending it, so it can't go through as built.";
+const CAP_MONEY_MSG = "The cap money in this trade breaks the league rule (at most 50% of the traded-away non-taxi salary).";
+const INTEGRITY_UNAVAILABLE_MSG = "We couldn't verify the players and picks in this trade with MFL right now. Try again in a moment.";
+// The asset-integrity verdicts (as opposed to `unavailable`, a read failure).
+export const ASSET_INTEGRITY_KINDS = ["asset_ownership_mismatch", "pick_not_tradeable", "cap_money_rule"];
+
+/** Movements [{from, to, asset_tokens}] → {sender: [MFL token]} (players bare, FP_<orig>_<yr>_<rd>, DP_<r0>_<s0>); cap money (BB_) excluded. */
+export function mflTokensBySender(movements) {
+  const out = {};
+  for (const [fid, toks] of Object.entries(movementsToTokens(movements))) {
+    const f = padFid(fid);
+    if (!f) continue;
+    const list = (toks || []).map((t) => normalizeToken(toMflAsset(t))).filter((t) => t && !t.startsWith("BB_"));
+    if (list.length) out[f] = [...new Set([...(out[f] || []), ...list])];
+  }
+  return out;
+}
+
+/** Pure: canon §A6 pick eligibility for not-yet-stored movements (create time). [] when every pick is tradeable. */
+export function movementPickViolations(movements, season) {
+  return pickEligibilityViolations({ byFranchise: mflTokensBySender(movements), season });
+}
+
+// One league-wide export, read with the commissioner API key. { ok, data } — anything but a readable answer is ok:false.
+async function mflExportViaKey(env, leagueId, year, type) {
+  try {
+    const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=${type}&L=${leagueId}&APIKEY=${encodeURIComponent(safeStr(env.MFL_APIKEY))}&JSON=1`;
+    const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+    const j = r && r.ok ? await r.json().catch(() => null) : null;
+    if (!j || typeof j !== "object" || j.error || !j[type]) return { ok: false };
+    return { ok: true, data: j };
+  } catch (_) { return { ok: false }; }
+}
+
+/**
+ * ACCEPT / RECHECK / EXECUTE gate (P0 S4). { ok:true } |
+ * { ok:false, kind: "pick_not_tradeable"|"asset_ownership_mismatch"|"cap_money_rule"|"unavailable", message, violations }
+ * `movements` defaults to the 3-way row's own; trade_2way.js passes its row's movements.
+ */
+export async function assetIntegrityGate(env, row, movements) {
+  const moves = Array.isArray(movements) ? movements : parseMovements(row);
+  const leagueId = safeStr(row && row.league_id), year = safeStr(row && row.season);
+  const byFranchise = mflTokensBySender(moves);
+  const picksBad = pickEligibilityViolations({ byFranchise, season: year });
+  if (picksBad.length) return { ok: false, kind: "pick_not_tradeable", message: PICK_NOT_TRADEABLE_MSG, violations: picksBad };
+  const all = Object.values(byFranchise).flat();
+  const rosterRes = await mflExportViaKey(env, leagueId, year, "rosters");
+  if (!rosterRes.ok) return { ok: false, kind: "unavailable", message: INTEGRITY_UNAVAILABLE_MSG, violations: [] };
+  let futurePicks = null, draftPicks = null;
+  if (all.some((t) => t.startsWith("FP_"))) {
+    const fp = await mflExportViaKey(env, leagueId, year, "futureDraftPicks");
+    if (!fp.ok) return { ok: false, kind: "unavailable", message: INTEGRITY_UNAVAILABLE_MSG, violations: [] };
+    futurePicks = indexFuturePicks(fp.data);
+  }
+  if (all.some((t) => t.startsWith("DP_"))) {
+    const dr = await mflExportViaKey(env, leagueId, year, "draftResults");
+    if (!dr.ok) return { ok: false, kind: "unavailable", message: INTEGRITY_UNAVAILABLE_MSG, violations: [] };
+    draftPicks = indexDraftPicks(dr.data);
+  }
+  const rosters = indexRosters(rosterRes.data);
+  const owns = ownershipViolations({ byFranchise, rosters, futurePicks, draftPicks });
+  if (owns.length) return { ok: false, kind: "asset_ownership_mismatch", message: OWNERSHIP_MSG, violations: owns };
+  const capBad = [];
+  for (const m of moves) {
+    const capK = Math.max(0, safeInt(m && m.cap_k, 0));
+    if (capK <= 0) continue;
+    const maxK = movementCapMaxK(m, rosters.salary, rosters.taxi);
+    if (capK > maxK) capBad.push({ franchise_id: padFid(m.from), to_franchise_id: padFid(m.to), cap_k: capK, max_k: maxK, reason: "cap_money_over_50pct" });
+  }
+  if (capBad.length) return { ok: false, kind: "cap_money_rule", message: CAP_MONEY_MSG, violations: capBad };
+  return { ok: true };
 }
 
 // ─────────────── post-trade salary cap (HARD) + roster counts (advisory) ───────────────
@@ -389,7 +468,9 @@ const signatureOf = (gate) => `${gate.kind}|${safeStr(gate.message)}`;
  * are still good and a fix + re-check (or, for cap, an acknowledgment + re-check) can heal
  * it" in exactly the same way. */
 async function enterBlockedCap(env, row, gate, dmAllThree) {
-  const violations = gate.kind === "loaded_contract_limit_exceeded"
+  const violations = ASSET_INTEGRITY_KINDS.includes(gate.kind)
+    ? (Array.isArray(gate.violations) ? gate.violations : [])
+    : gate.kind === "loaded_contract_limit_exceeded"
     ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max }))
     : ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
   const info = { kind: gate.kind, message: safeStr(gate.message), violations, checked_at_utc: nowIso(), signature: signatureOf(gate) };
@@ -405,7 +486,7 @@ async function enterBlockedCap(env, row, gate, dmAllThree) {
     // RULING (Keith, 2026-10-01): a loaded-contract block is a hard stop, not a "go pick
     // something" prompt -- there is no in-trade fix. The affected owner revises the deal or
     // makes a separate roster move, then the commissioner or any participant uses "Re-check."
-    await dmAllThree(String(gate.kind).startsWith("extension")
+    await dmAllThree(String(gate.kind).startsWith("extension") || ASSET_INTEGRITY_KINDS.includes(gate.kind)
       ? `⏸️ The 3-way is approved by all three, but it can't run: ${gate.message} Nothing has moved. **Commish:** this needs to be cancelled and rebuilt.`
       : gate.kind === "cap_ack_required"
       ? `⏸️ The 3-way is approved by all three, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to acknowledge this on the trade page, then use “Re-check.”`
@@ -416,12 +497,16 @@ async function enterBlockedCap(env, row, gate, dmAllThree) {
   return info;
 }
 
-/** { ok:true, compliance } | { ok:false, kind:"loaded_contracts"|"cap_ack_required"|"unavailable"|"extension"|"extension_stale", message, compliance, cap_ack? } */
+/** { ok:true, compliance } | { ok:false, kind:"asset_ownership_mismatch"|"pick_not_tradeable"|"cap_money_rule"|"pick_forfeited"|"loaded_contracts"|"cap_ack_required"|"unavailable"|"extension"|"extension_stale", message, compliance, cap_ack? } */
 async function capGate(env, row) {
   // ACCEPT / RECHECK / EXECUTE gate — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). The WHOLE trade is checked
-  // here, before any leg runs, so a refusal can never leave it half-done.
+  // here, before any leg runs, so a refusal can never leave it half-done. (D1 only — it stays ahead of every MFL read.)
   const forfeit = await checkForfeitedPicks(env, row.league_id, movementsToTokens(parseMovements(row)));
   if (!forfeit.ok) return { ok: false, kind: forfeit.code === "pick_forfeited" ? "pick_forfeited" : "unavailable", message: forfeit.message, compliance: null, violations: forfeit.violations || [] };
+  // Asset integrity (P0 S4), before any compliance math: ownership, §A6 pick eligibility and §A6 cap money, re-checked against
+  // live MFL data; a read failure fails closed (kind `unavailable`, recoverable).
+  const integrity = await assetIntegrityGate(env, row);
+  if (!integrity.ok) return { ok: false, kind: integrity.kind, message: integrity.message, compliance: null, violations: integrity.violations || [] };
   const compliance = await complianceViaSelf(env, row);
   if (compliance.cap.status === "unavailable") return { ok: false, kind: "unavailable", message: `${UNAVAILABLE_MSG} Try again in a moment.`, compliance };
   if (compliance.loaded_contracts && compliance.loaded_contracts.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the loaded-contract count for this trade right now. Try again in a moment.", compliance };
@@ -626,22 +711,23 @@ export async function create3WayTrade(env, ctx, spec) {
     if (!movements.some((m) => Array.isArray(m?.asset_tokens) && m.asset_tokens.length)) return { ok: false, error: "no_assets" };
     // Normalize cap money (cap_k ≥ 0) on each movement, then §A6-validate: the cap
     // a giver attaches to a destination ≤ floor(its non-taxi salary sent there /
-    // 2000). The builders clamp client-side; this is the bypass backstop. Best-
-    // effort — if the rosters fetch fails we trust the client clamp.
+    // 2000). The builders clamp client-side; this is the bypass backstop. FAIL
+    // CLOSED (P0 S3): if the rosters fetch fails, a trade carrying cap money is
+    // not created (503 cap_money_check_unavailable). cap_k = 0 trades never read it.
     for (const m of movements) m.cap_k = Math.max(0, safeInt(m?.cap_k, 0));
     if (movements.some((m) => m.cap_k > 0)) {
       const sm = await fetchRosterSalaryMap(env, leagueId, season);
-      if (sm.ok) {
-        for (const m of movements) {
-          if (m.cap_k <= 0) continue;
-          const maxK = movementCapMaxK(m, sm.salaryByFp, sm.taxiByFp);
-          if (m.cap_k > maxK) {
-            return { ok: false, code: "TRADE_CAP_MONEY_50PCT",
-              error: `cap money ${m.cap_k}K from ${padFid(m.from)}→${padFid(m.to)} exceeds the §A6 max (${maxK}K = 50% of the non-taxi salary sent).` };
-          }
+      if (!sm.ok) {
+        console.warn(`[3way] §A6 cap check unavailable (rosters fetch failed) — not created: ${sm.error}`);
+        return { ok: false, http: 503, code: "cap_money_check_unavailable", error: "cap_money_check_unavailable" };
+      }
+      for (const m of movements) {
+        if (m.cap_k <= 0) continue;
+        const maxK = movementCapMaxK(m, sm.salaryByFp, sm.taxiByFp);
+        if (m.cap_k > maxK) {
+          return { ok: false, code: "TRADE_CAP_MONEY_50PCT",
+            error: `cap money ${m.cap_k}K from ${padFid(m.from)}→${padFid(m.to)} exceeds the §A6 max (${maxK}K = 50% of the non-taxi salary sent).` };
         }
-      } else {
-        console.warn(`[3way] §A6 cap check skipped (rosters fetch failed): ${sm.error}`);
       }
     }
     const notes = safeStr(spec?.notes).slice(0, 500);
@@ -668,6 +754,13 @@ export async function create3WayTrade(env, ctx, spec) {
     if (![A, B, C].every((f) => franchiseAllowed(env, f))) return { ok: false, error: "not_in_allowlist" };
 
     const [aIds, bIds, cIds] = await Promise.all([resolveDiscordUserIds(env, A), resolveDiscordUserIds(env, B), resolveDiscordUserIds(env, C)]);
+    // P0 S6: the HTTP layer's idempotency key is taken HERE — after every validation above (whose refusals are never cached) and
+    // immediately before the INSERT + DMs. A non-null answer means "don't create": a replay of the original response, an in-progress /
+    // unknown first attempt, a reused key, or an unreachable key table. Nothing is inserted and no DM is sent.
+    if (typeof spec?.beforeInsert === "function") {
+      const stop = await spec.beforeInsert();
+      if (stop) return { ok: false, idemReply: stop };
+    }
     const id = newId();
     await env.UPS_MFL_DB.prepare(
       `INSERT INTO ups_3way_trades
@@ -967,7 +1060,8 @@ export async function handle3WayButton(interaction, env, ctx) {
   const gate = await capGate(env, row);
   // A stale pre-trade EXTENSION is not a wait-it-out problem (the contract moved on / the window closed): a partner is never asked to consent to
   // a trade that can no longer run as built. (If it goes stale AFTER both accepted, execution blocks recoverably — see enterBlockedCap.)
-  if (!gate.ok && (String(gate.kind).startsWith("extension") || gate.kind === "pick_forfeited")) return ephemeral(`${gate.message} Your accept wasn't recorded and nothing was changed.`);
+  // The same for an asset-integrity verdict (an asset no longer with its sender, an untradeable pick, cap money over the §A6 limit).
+  if (!gate.ok && (String(gate.kind).startsWith("extension") || gate.kind === "pick_forfeited" || ASSET_INTEGRITY_KINDS.includes(gate.kind))) return ephemeral(`${gate.message} Your accept wasn't recorded and nothing was changed.`);
   const heads = gate.ok ? rosterNote(gate.compliance) : `\n⚠️ ${gate.message} This can't run until that's resolved — your accept is saved and nothing has moved.`;
 
   const ares =await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET ${myCol}='accepted', updated_at_utc=? WHERE id=? AND status='collecting'`).bind(nowIso(), id).run();
@@ -1012,15 +1106,44 @@ export async function handle3WayButton(interaction, env, ctx) {
 }
 
 // Did this leg (a commissioner-run 2-party trade) actually execute in MFL? Read from MFL's trade ledger — never assumed from a response.
+// { read_ok, hit }: read_ok=false means the ledger could not be read (so "no hit" proves nothing).
 async function legExecuted(env, leagueId, year, leg, row) {
   try {
     const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=transactions&L=${leagueId}&TRANS_TYPE=TRADE&APIKEY=${encodeURIComponent(safeStr(env.MFL_APIKEY))}&JSON=1`;
     const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
-    const j = await r.json().catch(() => null);
-    if (!j) return null;
+    const j = r && r.ok ? await r.json().catch(() => null) : null;
+    if (!j || typeof j !== "object" || j.error || !("transactions" in j)) return { read_ok: false, hit: null };
     const since = Math.floor(Date.parse(safeStr(row.updated_at_utc) || safeStr(row.created_at_utc)) / 1000) - 3600;
-    return findExecutedTrade(j, { from: leg.fromFid, to: leg.toFid, give: (leg.give || []).map((x) => toMflAsset(x)), receive: (leg.receive || []).map((x) => toMflAsset(x)), sinceUnix: since });
-  } catch (_) { return null; }
+    return { read_ok: true, hit: findExecutedTrade(j, { from: leg.fromFid, to: leg.toFid, give: (leg.give || []).map((x) => toMflAsset(x)), receive: (leg.receive || []).map((x) => toMflAsset(x)), sinceUnix: since }) };
+  } catch (_) { return { read_ok: false, hit: null }; }
+}
+
+// Is offer `tradeId` still pending at MFL (as the commissioner, for the offering franchise)? { read_ok, pending }
+async function legStillPending(env, leagueId, year, leg, tradeId) {
+  try {
+    const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${padFid(leg.fromFid)}&APIKEY=${encodeURIComponent(safeStr(env.MFL_APIKEY))}&JSON=1`;
+    const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+    const j = r && r.ok ? await r.json().catch(() => null) : null;
+    if (!j || typeof j !== "object" || j.error || !(j.pendingTrades || j.pendingtrades)) return { read_ok: false, pending: false };
+    return { read_ok: true, pending: pendingHasTrade(j, tradeId) };
+  } catch (_) { return { read_ok: false, pending: false }; }
+}
+
+/**
+ * After a leg's accept came back unclear (an error, a lost response), ask MFL what happened — never assume, never re-send:
+ *   executed    — MFL's transactions export lists this exact trade
+ *   pending     — the export was read, it is not there, and MFL still holds the offer as pending ⇒ provably NOT executed
+ *   unconfirmed — anything else (an export unreadable, or neither listed nor pending) ⇒ it may have executed; a human must check MFL
+ * Exported for trade_2way.js's execute2Way (the same single-leg question).
+ */
+export async function classifyLeg(env, leagueId, year, leg, row, tradeId) {
+  const tx = await legExecuted(env, leagueId, year, leg, row);
+  if (tx.hit) return { outcome: "executed", evidence: tx.hit };
+  if (!tx.read_ok) return { outcome: "unconfirmed", reason: "transactions_unreadable" };
+  if (!safeStr(tradeId)) return { outcome: "unconfirmed", reason: "no_trade_id" };
+  const p = await legStillPending(env, leagueId, year, leg, tradeId);
+  if (!p.read_ok) return { outcome: "unconfirmed", reason: "pending_unreadable" };
+  return p.pending ? { outcome: "pending" } : { outcome: "unconfirmed", reason: "not_pending_and_not_in_transactions" };
 }
 
 /**
@@ -1076,7 +1199,7 @@ export async function recheck3WayExecution(env, ctx, id, viewer) {
     await enterBlockedCap(env, { ...row, status: "collecting" }, gate, null);   // refresh the recorded block (no repeat DM from a re-check)
     return {
       ok: false, http: 409,
-      code: gate.kind === "pick_forfeited" ? "pick_forfeited" : gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contract_limit_exceeded" ? "loaded_contract_limit_exceeded" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
+      code: gate.kind === "pick_forfeited" ? "pick_forfeited" : ASSET_INTEGRITY_KINDS.includes(gate.kind) ? gate.kind : gate.kind === "unavailable" ? "cap_check_unavailable" : gate.kind === "extension_stale" ? "extension_terms_stale" : gate.kind === "extension" ? "extension_no_longer_eligible" : gate.kind === "loaded_contract_limit_exceeded" ? "loaded_contract_limit_exceeded" : gate.kind === "cap_ack_required" ? "cap_overage_ack_required" : "cap_exceeded",
       message: gate.message, compliance: gate.compliance, cap_ack: gate.cap_ack || null,
     };
   }
@@ -1271,19 +1394,30 @@ export async function execute3Way(env, id) {
       }
     }
     const r = await executeCommishTwoPartyTrade(env, { leagueId, year, fromFid: leg.fromFid, toFid: leg.toFid, give: leg.give, receive: leg.receive, comments: `3-way ${id} ${leg.label} (${mode})` });
-    // A leg's accept can succeed at MFL and still come back as an error (timeout, lost response). Ask MFL before calling it a failure; a leg found
-    // in MFL's trade ledger HAS executed and is never sent again.
-    if (!r.ok && r.tradeId) {
-      const hit = await legExecuted(env, leagueId, year, leg, row);
-      if (hit) { done.push(r.tradeId); await finish("executing", progressFields(done)); continue; }
+    // A leg's accept can succeed at MFL and still come back as an error (timeout, lost response). Ask MFL before calling it a failure: found in
+    // MFL's trade ledger ⇒ it HAS executed and is never sent again; still pending ⇒ provably not executed; neither ⇒ UNCONFIRMED (never re-sent).
+    let unconfirmed = null;
+    if (!r.ok && (r.step === "accept" || r.tradeId)) {
+      let cls = await classifyLeg(env, leagueId, year, leg, row, r.tradeId);
+      // MFL's lockout answer is itself an explicit refusal of the accept (nothing ran) — only a ledger hit overrides it, exactly as before.
+      if (r.step === "lockout" && cls.outcome !== "executed") cls = { outcome: "pending" };
+      if (cls.outcome === "executed") { done.push(r.tradeId); await finish("executing", progressFields(done)); continue; }
+      if (cls.outcome === "unconfirmed") unconfirmed = cls;
     }
     if (!r.ok) {
       const partial = done.length > 0;
       if (partial) {
-        console.error(`[3way] ${id} ${leg.label} FAILED — PARTIAL (already landed: ${done.join(",")}): ${r.step}/${r.error}`);
-        await finish("failed", { ...progressFields(done), failure_reason: `PARTIAL_${leg.label}_${r.step}: ${safeStr(r.error).slice(0, 150)} (done=${done.join(",")})` });
-        await ledger.move(key, { from: EXEC.EXECUTING, to: EXEC.NEEDS_REVIEW, token, set: { failed_step: leg.label, failure_detail: `${r.step}: ${safeStr(r.error).slice(0, 200)}`, mfl_evidence_json: { trade_ids: done }, mfl_executed_at_utc: nowIso() } }).catch(() => {});
+        const why = unconfirmed ? "unconfirmed" : r.step;
+        console.error(`[3way] ${id} ${leg.label} FAILED — PARTIAL (already landed: ${done.join(",")}): ${why}/${r.step}/${r.error}`);
+        await finish("failed", { ...progressFields(done), failure_reason: `PARTIAL_${leg.label}_${why}: ${safeStr(r.error).slice(0, 150)} (done=${done.join(",")})` });
+        await ledger.move(key, { from: EXEC.EXECUTING, to: EXEC.NEEDS_REVIEW, token, set: { failed_step: leg.label, failure_detail: `${unconfirmed ? `unconfirmed (${unconfirmed.reason}, trade ${r.tradeId || "?"}) ` : ""}${r.step}: ${safeStr(r.error).slice(0, 200)}`, mfl_evidence_json: { trade_ids: done }, mfl_executed_at_utc: nowIso() } }).catch(() => {});
         await dmAllThree(`🚨 The 3-way is **partially done** — ${done.length} leg(s) processed, the next failed. **Commish: manual intervention needed** (done: ${done.join(", ")}).`);
+      } else if (unconfirmed) {
+        // Nothing PROVABLY landed, but this leg may have: the ledger stays `executing` (so nothing can send it again) until a human checks MFL.
+        console.error(`[3way] ${id} ${leg.label} UNCONFIRMED (${unconfirmed.reason}) — not re-sent: ${r.step}/${r.error}`);
+        await finish("failed", { failure_reason: `UNCONFIRMED_${leg.label}: trade ${r.tradeId || "?"} ${unconfirmed.reason}; ${r.step}: ${safeStr(r.error).slice(0, 150)}`.slice(0, 250) });
+        await dmAllThree(`⚠️ The 3-way trade was sent to MFL, but we couldn't confirm whether it went through. It will **not** be re-sent. **Commish: check MFL** before anything else happens on this trade.`);
+        return { ok: false, leg: i + 1, error: r.error, partial: false, unconfirmed: true, reason: unconfirmed.reason };
       } else if (r.step === "lockout") {
         console.error(`[3way] ${id} ${leg.label} BLOCKED by MFL commissioner lockout — nothing moved.`);
         await finish("failed", { failure_reason: `lockout_${leg.label}: MFL commissioner lockout on` });

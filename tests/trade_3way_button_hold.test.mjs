@@ -33,11 +33,14 @@ function world() {
     env.UPS_MFL_DB.raw.prepare("INSERT INTO discord_owners VALUES (?,?,?)").run(fid, "Y", d);
   }
   F.seedTrade(env);
+  // Every asset in the seeded deal is with its sender (the accept re-checks ownership and §A6 against live MFL — P0 S4):
+  // Chase Brown's $40,000 covers the 16K of cap money sent with him, and the two 2027 firsts sit where the deal says.
   mfl.st.rosters = {
     "0008": [{ id: "16614", salary: 5000 }, { id: "16193", salary: 5000 }],
-    "0001": [{ id: "16181", salary: 5000 }, { id: "16650", salary: 5000 }],
-    "0012": [{ id: "16650", salary: 5000 }],
+    "0001": [{ id: "16181", salary: 40000 }, { id: "16650", salary: 5000 }],
+    "0012": [{ id: "90012", salary: 5000 }],
   };
+  mfl.st.futurePicks = { "0008": [{ year: 2027, round: 1, orig: "0005" }], "0012": [{ year: 2027, round: 1 }] };
   return { env, mfl };
 }
 const press = (u) => ({ data: { custom_id: `tr3:accept:${F.TRADE_ID}` }, member: { user: { id: u } } });
@@ -122,6 +125,31 @@ test("RESOLVED: once the responding team's sequence reaches a terminal state (co
   const msg = await say(await handle3WayButton(press(F.DISCORD.B), env, { waitUntil() {} }));
   t.match(msg, /You're in/);
   t.equal(F.readRow(env).team_b_state, "accepted");
+});
+
+// P0 S4: the Discord accept refuses — and does NOT record consent on — a trade whose assets no longer match live MFL.
+test("ASSET INTEGRITY: a pick that has since moved to another team refuses the accept -- not recorded, zero MFL writes", async () => {
+  const { env, mfl } = world();
+  mfl.st.futurePicks = { "0003": [{ year: 2027, round: 1, orig: "0005" }], "0012": [{ year: 2027, round: 1 }] };   // HammerTime's 2027 first is no longer with 0008
+  const msg = await say(await handle3WayButton(press(F.DISCORD.B), env, { waitUntil() {} }));
+  t.match(msg, /no longer on the team that was sending it/); t.match(msg, /Your accept wasn't recorded/);
+  t.equal(F.readRow(env).team_b_state, "pending", "consent must NOT have been recorded");
+  t.equal(mfl.writes().length, 0);
+});
+
+test("ASSET INTEGRITY: a stored round-6 pick, and cap money above §A6, each refuse the accept -- not recorded", async () => {
+  for (const [label, mutate, re] of [
+    ["round-6 pick", (env) => env.UPS_MFL_DB.raw.prepare("UPDATE ups_3way_trades SET legs_json=?").run(JSON.stringify([...F.REAL_LEGS.slice(0, 3), { from: "0012", to: "0001", asset_tokens: ["FP_0012_2027_6"], cap_k: 0, summary: "2027 R6" }])), /can't be traded/],
+    ["cap money over 50%", (env, mfl) => { mfl.st.rosters["0001"][0].salary = 20000; }, /cap money in this trade breaks the league rule/],   // 16K > floor(20000 / 2000) = 10K
+  ]) {
+    const { env, mfl } = world();
+    if (label === "round-6 pick") mfl.st.futurePicks["0012"].push({ year: 2027, round: 6 });
+    mutate(env, mfl);
+    const msg = await say(await handle3WayButton(press(F.DISCORD.B), env, { waitUntil() {} }));
+    t.match(msg, re, label); t.match(msg, /Your accept wasn't recorded/, label);
+    t.equal(F.readRow(env).team_b_state, "pending", `${label}: not recorded`);
+    t.equal(mfl.writes().length, 0);
+  }
 });
 
 await run("trade_3way_button_hold");

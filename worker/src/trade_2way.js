@@ -42,6 +42,7 @@ import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
 import { EXEC, makeLedger, LEDGER_DDL, franchiseHasUnresolvedDropSequence, findExecutedTrade } from "./trade_execution.js";
 import { evaluateCapAcknowledgment } from "./trade_cap_ack.js";
+import { IDEM_SCOPE, IDEM_STATE, d1Changes, makeIdempotencyStore, offerLockHeld, requireD1Rows, requireD1Success, stageBusyReply, stagedOfferHash, stagedOfferShape, stageUnavailableReply } from "./trade_idempotency.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { loadedContractsPermitsWrite } from "./trade_cap_authority.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
@@ -49,7 +50,7 @@ import { resolveLoadedStatus } from "./contract_classification.js";
 import {
   executeCommishTwoPartyTrade, movementsForCompliance, injectCapTokens,
   fetchRosterSalaryMap, movementCapMaxK, unavailableCompliance, ledgerFor, capAckStoreFor,
-  toMflAsset,
+  toMflAsset, classifyLeg, assetIntegrityGate, ASSET_INTEGRITY_KINDS,
 } from "./trade_3way.js";
 
 const safeStr = (v) => String(v == null ? "" : v).trim();
@@ -159,6 +160,10 @@ async function capGate2Way(env, row) {
   // and every execution, before any cap math or MFL call.
   const forfeit = await checkForfeitedPicks(env, row.league_id, movementsToTokens(parseMovements(row)));
   if (!forfeit.ok) return { ok: false, kind: forfeit.code === "pick_forfeited" ? "pick_forfeited" : "unavailable", message: forfeit.message, compliance: null, violations: forfeit.violations || [] };
+  // Asset integrity (P0 S4) — the SAME gate trade_3way.js's capGate runs: ownership, §A6 pick eligibility and §A6 cap money
+  // against live MFL data, before any compliance math; a read failure fails closed (kind `unavailable`, recoverable).
+  const integrity = await assetIntegrityGate(env, row, parseMovements(row));
+  if (!integrity.ok) return { ok: false, kind: integrity.kind, message: integrity.message, compliance: null, violations: integrity.violations || [] };
   const compliance = await complianceViaSelf2Way(env, row);
   if (compliance.cap.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the salary cap for this trade right now. Try again in a moment.", compliance };
   if (compliance.loaded_contracts && compliance.loaded_contracts.status === "unavailable") return { ok: false, kind: "unavailable", message: "We couldn't verify the loaded-contract count for this trade right now. Try again in a moment.", compliance };
@@ -189,7 +194,9 @@ async function capGate2Way(env, row) {
 }
 
 async function enterBlockedCap2Way(env, row, gate, dmBoth) {
-  const violations = gate.kind === "loaded_contract_drops_required"
+  const violations = ASSET_INTEGRITY_KINDS.includes(gate.kind)
+    ? (Array.isArray(gate.violations) ? gate.violations : [])
+    : gate.kind === "loaded_contract_drops_required"
     ? ((gate.compliance && gate.compliance.loaded_contracts && gate.compliance.loaded_contracts.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, projected: v.projected, max: v.max, required_drops: v.required_drops, valid_drops: v.valid_drops }))
     : ((gate.compliance && gate.compliance.cap && gate.compliance.cap.violations) || []).map((v) => ({ franchise_id: v.franchise_id, franchise_name: v.franchise_name, amount_over: v.amount_over }));
   const info = { kind: gate.kind, message: safeStr(gate.message), violations, checked_at_utc: nowIso(), signature: signatureOf(gate) };
@@ -201,7 +208,7 @@ async function enterBlockedCap2Way(env, row, gate, dmBoth) {
   await ledgerDbFor(env).prepare(`UPDATE ups_2way_trades SET status='collecting', failure_reason=NULL, updated_at_utc=? WHERE id=? AND status='executing'`).bind(nowIso(), row.id).run();
   const same = prev && prev.state === EXEC.BLOCKED_CAP && prev.block && prev.block.signature === info.signature;
   if (!same && dmBoth) {
-    await dmBoth(String(gate.kind).startsWith("extension")
+    await dmBoth(String(gate.kind).startsWith("extension") || ASSET_INTEGRITY_KINDS.includes(gate.kind)
       ? `⏸️ This 2-way trade is accepted by both sides, but it can't run: ${gate.message} Nothing has moved. **Commish:** this needs to be cancelled and rebuilt.`
       : gate.kind === "cap_ack_required"
       ? `⏸️ This 2-way trade is accepted by both sides, but it can't run yet: ${gate.message} Nothing has moved. The affected owner needs to acknowledge this on the trade page, then use "Re-check."`
@@ -235,6 +242,21 @@ const ID_RE = /^[A-Za-z0-9_-]{8,64}$/;
 // Writes ONLY to D1. There is no fetch() to myfantasyleague.com anywhere in this
 // function's call graph -- no native MFL tradeProposal is ever created here, by design
 // (that is the entire point of staging, §8 of the design doc).
+// The open staged offer identical to `shape` from this sender to this partner, or null. Every open row is read: a LIMIT could hide the match.
+// Null means D1 answered and no open row matches. Anything less throws: an unsuccessful read or an unreadable row is not "no match".
+async function findOpenStagedOffer(env, leagueId, season, from, to, shape) {
+  const rows = requireD1Rows(await env.UPS_MFL_DB.prepare(
+    `SELECT id, movements_json, extension_requests_json FROM ups_2way_trades
+     WHERE league_id=? AND season=? AND status IN ('collecting','executing') AND from_fid=? AND to_fid=?`
+  ).bind(leagueId, season, from, to).all());
+  for (const row of rows) {
+    const mv = JSON.parse(row.movements_json), ext = JSON.parse(row.extension_requests_json || "[]"), id = safeStr(row.id);
+    if (!id || !Array.isArray(mv) || !mv.length || !Array.isArray(ext)) throw new Error(`an open offer can't be read (${id || "no id"})`);
+    if (stagedOfferShape({ from, to, movements: mv, extensionRequests: ext }) === shape) return id;
+  }
+  return null;
+}
+
 export async function createStaged2WayTrade(env, ctx, spec) {
   try {
     if (!(await enabled(env))) return { ok: false, error: "2way_staging_disabled" };
@@ -251,18 +273,19 @@ export async function createStaged2WayTrade(env, ctx, spec) {
       if (!fidSet.has(mf) || !fidSet.has(mt) || mf === mt) return { ok: false, error: "bad_movement" };
     }
     if (!movements.some((m) => Array.isArray(m?.asset_tokens) && m.asset_tokens.length)) return { ok: false, error: "no_assets" };
-    // §A6 cap-money 50% backstop -- identical check to create3WayTrade's.
+    // §A6 cap-money 50% backstop -- identical check to create3WayTrade's, and fail-closed the
+    // same way (P0 S3): an unreadable rosters export refuses a cap-money trade (503).
     for (const m of movements) m.cap_k = Math.max(0, safeInt(m?.cap_k, 0));
     if (movements.some((m) => m.cap_k > 0)) {
       const sm = await fetchRosterSalaryMap(env, leagueId, season);
-      if (sm.ok) {
-        for (const m of movements) {
-          if (m.cap_k <= 0) continue;
-          const maxK = movementCapMaxK(m, sm.salaryByFp, sm.taxiByFp);
-          if (m.cap_k > maxK) return { ok: false, code: "TRADE_CAP_MONEY_50PCT", error: `cap money ${m.cap_k}K from ${padFid(m.from)}→${padFid(m.to)} exceeds the §A6 max (${maxK}K = 50% of the non-taxi salary sent).` };
-        }
-      } else {
-        console.warn(`[2way-staged] §A6 cap check skipped (rosters fetch failed): ${sm.error}`);
+      if (!sm.ok) {
+        console.warn(`[2way-staged] §A6 cap check unavailable (rosters fetch failed) — not created: ${sm.error}`);
+        return { ok: false, http: 503, code: "cap_money_check_unavailable", error: "cap_money_check_unavailable" };
+      }
+      for (const m of movements) {
+        if (m.cap_k <= 0) continue;
+        const maxK = movementCapMaxK(m, sm.salaryByFp, sm.taxiByFp);
+        if (m.cap_k > maxK) return { ok: false, code: "TRADE_CAP_MONEY_50PCT", error: `cap money ${m.cap_k}K from ${padFid(m.from)}→${padFid(m.to)} exceeds the §A6 max (${maxK}K = 50% of the non-taxi salary sent).` };
       }
     }
     const notes = safeStr(spec?.notes).slice(0, 500);
@@ -302,16 +325,58 @@ export async function createStaged2WayTrade(env, ctx, spec) {
     const senderDrops = Array.isArray(spec?.loaded_contract_drops) ? spec.loaded_contract_drops.map(safeStr).filter(Boolean) : [];
 
     const [fromIds, toIds] = await Promise.all([resolveDiscordUserIds(env, from), resolveDiscordUserIds(env, to)]);
-    const id = newId();
-    await env.UPS_MFL_DB.prepare(
-      `INSERT INTO ups_2way_trades
-        (id, league_id, season, status, from_fid, to_fid, from_name, to_name,
-         movements_json, notes, extension_requests_json, to_state,
-         from_discord_ids, to_discord_ids, created_at_utc, updated_at_utc)
-       VALUES (?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)`
-    ).bind(id, leagueId, season, from, to,
-      safeStr(spec?.from?.name), safeStr(spec?.to?.name), JSON.stringify(movements), notes, JSON.stringify(extReqs),
-      fromIds.join(","), toIds.join(","), nowIso(), nowIso()).run();
+
+    // THE SAME OFFER IS NEVER STAGED TWICE (Keith 2026-10-31, #1425). A send whose answer was lost may have stored its row, and the owner
+    // resends: by Retry, by Send, after a reload, from the phone. So this is decided here, for every client, not by what a client remembers.
+    // The lock makes check-then-insert atomic. An identical open offer answers with its id: no second row and no second DM. A closed one
+    // doesn't count, so an owner can offer a deal again after it was declined, unless this is that same attempt's key: its first answer
+    // replays. The key is taken after the check, immediately before the INSERT, so a failed check is never cached against it. If the INSERT
+    // fails the key stays in_progress (it may have landed): that attempt never stores again, and a new Send is covered by the check. The
+    // INSERT requires this request's own fence, inside the statement: a request that stalled past the lock's stale line and was taken over
+    // stores nothing and sends no DM, however long it stalled. The row and the release both hold only while this request still has the lock.
+    const shape = stagedOfferShape({ from, to, movements, extensionRequests: extReqs });
+    const offerHash = await stagedOfferHash(shape);
+    const idem = makeIdempotencyStore(env.UPS_MFL_DB);
+    const lockK = { leagueId, season, scope: IDEM_SCOPE.TWO_WAY_STAGE_LOCK, actorFid: from, key: offerHash };
+    const keyK = spec?.idempotencyKey ? { leagueId, season, scope: IDEM_SCOPE.TWO_WAY_STAGE, actorFid: from, key: spec.idempotencyKey } : null;
+    const lock = await idem.lockOffer(lockK);
+    if (!lock.acquired) return { ok: false, idemReply: lock.reply };
+    let id;
+    try {
+      let already = null;
+      try { already = await findOpenStagedOffer(env, leagueId, season, from, to, shape); }
+      catch (e) {
+        console.error(`[2way-staged] couldn't check for the same open offer — not stored: ${e?.message || e}`);
+        return { ok: false, idemReply: stageUnavailableReply() };
+      }
+      if (already) {
+        console.log(`[2way-staged] ${from} -> ${to}: the same offer is already staged as ${already}; nothing stored`);
+        if (keyK && (await idem.begin(keyK, offerHash)).acquired) await idem.finish(keyK, { state: IDEM_STATE.DONE, statusCode: 200, body: { ok: true, id: already, staged: true, already_staged: true } });
+        return { ok: true, id: already, already: true };
+      }
+      if (keyK) {
+        const took = await idem.begin(keyK, offerHash);
+        if (!took.acquired) return { ok: false, idemReply: took.reply };
+      }
+      id = newId();
+      const held = offerLockHeld(lockK, lock.fence);
+      const stored = requireD1Success(await env.UPS_MFL_DB.prepare(
+        `INSERT INTO ups_2way_trades
+          (id, league_id, season, status, from_fid, to_fid, from_name, to_name,
+           movements_json, notes, extension_requests_json, to_state,
+           from_discord_ids, to_discord_ids, created_at_utc, updated_at_utc)
+         SELECT ?, ?, ?, 'collecting', ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ? WHERE ${held.sql}`
+      ).bind(id, leagueId, season, from, to,
+        safeStr(spec?.from?.name), safeStr(spec?.to?.name), JSON.stringify(movements), notes, JSON.stringify(extReqs),
+        fromIds.join(","), toIds.join(","), nowIso(), nowIso(), ...held.binds).run());
+      if (d1Changes(stored) !== 1) {
+        console.warn(`[2way-staged] ${from} -> ${to}: this request lost the lock before it could store; nothing stored`);
+        return { ok: false, idemReply: stageBusyReply() };
+      }
+      if (keyK) await idem.finish(keyK, { state: IDEM_STATE.DONE, statusCode: 201, body: { ok: true, id, staged: true } });
+    } finally {
+      await idem.unlockOffer(lockK, lock.fence);
+    }
 
     if (senderDrops.length) {
       try { await makeConditionalDropStore(ledgerDbFor(env)).setForFranchise({ leagueId, season, tradeKey: id }, { franchiseId: from, playerIds: senderDrops, selectedByFid: from }); }
@@ -625,6 +690,13 @@ export async function accept2WayTrade(env, ctx, id, viewer, body) {
   // ACCEPT — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11). Refused before the consent is recorded.
   const forfeitA = await checkForfeitedPicks(env, row.league_id, movementsToTokens(parseMovements(row)));
   if (!forfeitA.ok) return { ok: false, http: forfeitA.http, code: forfeitA.code, message: forfeitA.message, violations: forfeitA.violations || [] };
+  // ACCEPT — asset integrity (P0 S4): an asset no longer with its sender, an untradeable pick, or cap money over the §A6 limit is
+  // refused BEFORE the consent is recorded (mirrors the 3-way Discord accept). A read failure is not a verdict: the accept is
+  // recorded and capGate2Way below holds the trade recoverably as `unavailable`.
+  const integrityA = await assetIntegrityGate(env, row, parseMovements(row));
+  if (!integrityA.ok && ASSET_INTEGRITY_KINDS.includes(integrityA.kind)) {
+    return { ok: false, http: 409, code: integrityA.kind, message: `${integrityA.message} Your accept wasn't recorded and nothing was changed.`, violations: integrityA.violations || [] };
+  }
 
   const { success } = await env.UPS_MFL_DB.prepare(`UPDATE ups_2way_trades SET to_state='accepted', updated_at_utc=? WHERE id=? AND status='collecting' AND to_state='pending'`).bind(nowIso(), tid).run();
   if (!success) return { ok: false, http: 409, code: "race", message: "This trade just changed state — refresh and try again." };
@@ -845,7 +917,24 @@ export async function execute2Way(env, id) {
   }
   const token = lock.token;
 
-  const r = await executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments: `staged 2-way ${id}` });
+  let r = await executeCommishTwoPartyTrade(env, { leagueId, year, fromFid, toFid, give, receive, comments: `staged 2-way ${id}` });
+  // An unclear accept (an error, a lost response) is settled by ASKING MFL, exactly as execute3Way does per leg: in MFL's trade ledger ⇒
+  // executed (continue below); still pending ⇒ provably not executed (the failure path below); neither ⇒ UNCONFIRMED — the ledger stays
+  // `executing`, so nothing can send it again until a human checks MFL.
+  if (!r.ok && (r.step === "accept" || r.tradeId)) {
+    let cls = await classifyLeg(env, leagueId, year, { fromFid, toFid, give, receive }, row, r.tradeId);
+    // MFL's lockout answer is itself an explicit refusal of the accept (nothing ran) — only a ledger hit overrides it.
+    if (r.step === "lockout" && cls.outcome !== "executed") cls = { outcome: "pending" };
+    if (cls.outcome === "executed") {
+      console.warn(`[2way-staged] ${id}: the accept came back ${r.step}/${r.error}, but MFL's trade ledger shows it executed — continuing as executed`);
+      r = { ok: true, tradeId: r.tradeId };
+    } else if (cls.outcome === "unconfirmed") {
+      console.error(`[2way-staged] ${id} UNCONFIRMED (${cls.reason}) — not re-sent: ${r.step}/${r.error}`);
+      await finish("failed", { failure_reason: `UNCONFIRMED_trade: trade ${r.tradeId || "?"} ${cls.reason}; ${r.step}: ${safeStr(r.error).slice(0, 150)}`.slice(0, 250) });
+      await dmBoth(`⚠️ This trade was sent to MFL, but we couldn't confirm whether it went through. It will **not** be re-sent. **Commish: check MFL** before anything else happens on this trade.`);
+      return { ok: false, error: r.error, unconfirmed: true, reason: cls.reason };
+    }
+  }
   if (!r.ok) {
     console.error(`[2way-staged] ${id} FAILED (safe — nothing moved): ${r.step}/${r.error}`);
     if (r.step === "lockout") {

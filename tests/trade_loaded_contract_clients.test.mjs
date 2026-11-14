@@ -88,7 +88,7 @@ function loadDesktop(env) {
   // stand-in with exactly one franchise's assets is enough for buildPlayerNamesFor's own
   // real, unmodified lookup logic to resolve candidate names.
   const stateCode = `function safeStr(v) { return v == null ? "" : String(v).trim(); }\n` +
-    `var state = { data: { teams: [ { franchise_id: "0001", assets: [` +
+    `var state = { submit: {}, data: { teams: [ { franchise_id: "0001", assets: [` +
     loadedFillers(90000, 5).map((p, i) => `{ player_id: "${p.id}", player_name: "Filler ${i}", position: "WR" }`).join(",") +
     `] } ] } };\n  function getTeamById(teamId) { var teams = (state.data && state.data.teams) || []; for (var i = 0; i < teams.length; i++) { if (teams[i].franchise_id === teamId) return teams[i]; } return null; }\n`;
   const factory = new Function("window", "document", "fetch",

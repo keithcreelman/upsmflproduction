@@ -24,10 +24,13 @@ import {
   executeDropFirstDeal,
 } from "./trade_2way.js";
 import { padFid } from "./trade_3way_model.js";
+import { movementPickViolations, PICK_NOT_TRADEABLE_MSG } from "./trade_3way.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveTradeCaller, callerFailureBody, isAdminCaller } from "./trade_authz.js";
+import { readIdempotencyKey } from "./trade_idempotency.js";
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
+const CAP_MONEY_UNAVAILABLE_MSG = "Couldn't verify this trade with MFL right now, so it wasn't sent. Try again in a moment.";
 
 const CREATE_MESSAGES = {
   "2way_staging_disabled": "Staged 2-way trades aren't turned on right now.",
@@ -148,7 +151,7 @@ export async function handle2WayStagedHttp(a) {
   if (isAccept) {
     const x = await accept2WayTrade(env, ctx, body.id, viewer, body);
     if (x.ok) return out(200, { ok: true, accepted: !!x.accepted, executing: !!x.executing, held: !!x.held, kind: x.kind, message: x.message, compliance: x.compliance || null, id: safeStr(body.id) });
-    return fail(x.http || 409, x.code || "accept_failed", x.message || "Couldn't accept this trade.", x.compliance ? { compliance: x.compliance } : undefined);
+    return fail(x.http || 409, x.code || "accept_failed", x.message || "Couldn't accept this trade.", x.compliance ? { compliance: x.compliance } : (Array.isArray(x.violations) && x.violations.length ? { violations: x.violations } : undefined));
   }
 
   // ── POST recheck ───────────────────────────────────────────────────────────
@@ -177,9 +180,16 @@ export async function handle2WayStagedHttp(a) {
   // fetch() to myfantasyleague.com happens anywhere in its call graph.
   const fromFid = padFid(body.from && body.from.fid);
   if (fromFid !== viewer.fid) return fail(403, "forbidden", "You can only start a trade as your own team.");
+  const idem = readIdempotencyKey(body);
+  if (idem.error) return out(idem.error.status, idem.error.body);
   if (Array.isArray(body.extension_requests) && body.extension_requests.length && typeof deps.validateExtensions === "function") {
     const v = await deps.validateExtensions({ leagueId, season, extensionRequests: body.extension_requests });
     if (!v.ok) return out(v.http || 409, { ok: false, code: v.code, error: v.message, message: v.message, skipped: v.skipped });
+  }
+  // SEND — canon §A6 (P0 S4): no round-6 pick and no pick beyond the current year + 1 — the same rule and code as the two-team accept.
+  {
+    const picksBad = movementPickViolations(body.movements, season);
+    if (picksBad.length) return fail(409, "pick_not_tradeable", PICK_NOT_TRADEABLE_MSG, { violations: picksBad });
   }
   // SEND — §G3: a pick forfeited as a lineup-violation penalty can't be traded (Keith 2026-10-11).
   {
@@ -191,8 +201,14 @@ export async function handle2WayStagedHttp(a) {
     from: body.from, to: body.to,
     movements: body.movements, notes: body.notes, extension_requests: body.extension_requests,
     loaded_contract_drops: body.loaded_contract_drops,
+    idempotencyKey: idem.key,
   });
+  // The same offer again, or its key again: the original offer's answer, and nothing was stored or sent. See createStaged2WayTrade.
+  if (created.idemReply) return out(created.idemReply.status, created.idemReply.body);
+  if (created.already) return out(200, { ok: true, id: created.id, staged: true, already_staged: true });
   if (created.ok) return out(201, { ok: true, id: created.id, staged: true });
+  // The §A6 cap-money check couldn't read MFL (P0 S3): 503, nothing staged. Every other create error stays 400.
+  if (created.code === "cap_money_check_unavailable") return fail(503, created.code, CAP_MONEY_UNAVAILABLE_MSG);
   const known = CREATE_MESSAGES[created.error];
   const message = created.code === "TRADE_CAP_MONEY_50PCT" ? safeStr(created.error) : (known || "Couldn't create this trade.");
   const errKey = safeStr(created.error);

@@ -108,6 +108,47 @@ test("PREVIEW: the commissioner can preview any pair without being a party to it
   t.equal(r.status, 200);
 });
 
+test("PREVIEW VERDICT: a sound-looking draft is provisional, shows the live MFL lock, and never writes", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.rosters["0001"] = [flat("14056")];
+  mfl.st.rosters["0002"] = [flat("13100")];
+  mfl.st.exportBody = { calendar: { calendar: { event: [{ id: "901", type: "TRADE", start_time: "1795654800" }] } } };
+  const body = { league_id: "74598", season: "2026", from_franchise_id: "0001", movements: [{ from: "0001", to: "0002", asset_tokens: ["P_14056"] }] };
+  const r = await callWorker(env, "POST", `/api/trades/compliance-preview?${Q}&MFL_USER_ID=tok-B`, { body });
+  t.equal(r.status, 200);
+  t.equal(r.json.verdict.status, "provisional", "only the later write checks can authorize a send");
+  t.equal(r.json.verdict.send_ready, false);
+  t.equal(r.json.verdict.checks.assets, "ok");
+  t.equal(r.json.verdict.checks.trade_lock, "ok");
+  t.equal(r.json.verdict.trade_lock.label, "Wed, Nov 25, 8:00 PM ET");
+  t.equal(mfl.st.imports.length, 0);
+});
+
+test("PREVIEW VERDICT: live ownership, round-6 and cap-money limits are checked before any send", async () => {
+  const { env, mfl } = fresh();
+  const body = { league_id: "74598", season: "2026", from_franchise_id: "0001", movements: [{ from: "0001", to: "0002", asset_tokens: ["P_14056", "FP_0001_2027_6"], cap_k: 5 }] };
+  const r = await callWorker(env, "POST", `/api/trades/compliance-preview?${Q}&MFL_USER_ID=tok-B`, { body });
+  t.equal(r.status, 200);
+  t.equal(r.json.verdict.status, "blocked");
+  t.equal(r.json.verdict.send_ready, false);
+  t.equal(r.json.verdict.checks.assets, "blocked");
+  t.ok(r.json.verdict.reasons.some((x) => x.code === "pick_not_tradeable"));
+  t.equal(r.json.verdict.reasons.find((x) => x.code === "pick_not_tradeable")?.message.includes("assets"), true);
+  t.equal(mfl.st.imports.length, 0);
+});
+
+test("PREVIEW VERDICT: an unreadable live roster never becomes a passing asset check", async () => {
+  const { env, mfl } = fresh();
+  mfl.st.exportFail = { rosters: 503 };
+  const body = { league_id: "74598", season: "2026", from_franchise_id: "0001", movements: [{ from: "0001", to: "0002", asset_tokens: ["P_14056"] }] };
+  const r = await callWorker(env, "POST", `/api/trades/compliance-preview?${Q}&MFL_USER_ID=tok-B`, { body });
+  t.equal(r.status, 200);
+  t.equal(r.json.verdict.status, "unavailable");
+  t.equal(r.json.verdict.checks.assets, "unavailable");
+  t.equal(r.json.verdict.send_ready, false);
+  t.equal(mfl.st.imports.length, 0);
+});
+
 // ═══════════════════════════════════ 2way/queue (commissioner, read-only) ═══════════════════════════════════
 
 function createStaged(env, over) {
