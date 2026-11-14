@@ -1127,6 +1127,9 @@
       var sal = Number(r.salary) || 0;
       var inj = injuries[String(r.id)] || "";
       var chips = inj ? '<span class="chip">' + U.escapeHtml(inj) + '</span>' : "";
+      var PSx = window.UPS_MOBILE_PLAYER_STATUS, pl = DATA.playerById(r.id);
+      var back = PSx && PSx.resolve && PSx.backOf ? PSx.backOf(PSx.resolve(String(r.id), U.safeStr(pl && pl.team), null)) : "";
+      if (back) chips += '<span class="ups-m-irrow-back">Expected back ' + U.escapeHtml(back) + '</span>';
       var right = sal ? '<div class="salary">' + U.fmtUsd(sal) + '</div><div class="cy">50% cap</div>' : "";
       return rosterMiniRow(r, chips, right);
     }
