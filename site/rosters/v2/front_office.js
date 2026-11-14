@@ -3065,8 +3065,9 @@
     $$("#fo-roster-table thead th[data-sort]").forEach(function (th) {
       th.addEventListener("click", function () {
         const col = th.dataset.sort;
+        const wasChosen = !!STATE.sort.userChosen;   // the first click starts that column fresh (the default is positional)
         STATE.sort.userChosen = true;
-        if (STATE.sort.key === col) STATE.sort.dir *= -1;
+        if (wasChosen && STATE.sort.key === col) STATE.sort.dir *= -1;
         else {
           STATE.sort.key = col;
           STATE.sort.dir = ["salary", "cap_hit", "aav", "years"].includes(col) ? -1 : 1;
@@ -3322,7 +3323,17 @@
     });
   }
 
+  // Default order until a column header is clicked (Keith 2026-11-14): active players by position QB, RB, WR, TE,
+  // K, P, DL, LB, DB, then IR, then Taxi at the bottom (each by position too); salary high first within a position.
+  const DEFAULT_POS_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
+  function defaultRosterOrder(a, b) {
+    const st = function (p) { return p.isTaxi ? 2 : (p.isIr ? 1 : 0); };
+    const pr = function (p) { const i = DEFAULT_POS_ORDER.indexOf(posGroupFine(p.position)); return i < 0 ? 99 : i; };
+    return (st(a) - st(b)) || (pr(a) - pr(b)) || ((Number(b.salary) || 0) - (Number(a.salary) || 0)) ||
+      String(a.name || "").localeCompare(String(b.name || ""));
+  }
   function applySort(rows) {
+    if (!(STATE.sort && STATE.sort.userChosen)) return rows.slice().sort(defaultRosterOrder);
     const key = STATE.sort.key;
     const dir = STATE.sort.dir;
     const numeric = ["salary", "years", "aav", "drop_pen", "tcv", "cl", "gtd", "earned", "per_week"];
@@ -4084,7 +4095,7 @@
 
     // Sort arrows
     $$("#fo-roster-table thead th[data-sort]").forEach(function (th) {
-      const arrow = th.dataset.sort === STATE.sort.key ? (STATE.sort.dir > 0 ? " ▲" : " ▼") : "";
+      const arrow = STATE.sort.userChosen && th.dataset.sort === STATE.sort.key ? (STATE.sort.dir > 0 ? " ▲" : " ▼") : "";
       const base  = th.textContent.replace(/[ ▲▼]+$/, "");
       th.textContent = base + arrow;
     });

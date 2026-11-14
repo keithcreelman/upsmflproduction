@@ -57,4 +57,14 @@ test("one flat list: no By Position grouping or button; Pos is its own sortable 
   t.ok(!/H\.esc\(p\.position\) \+ " · "/.test(SRC), "position is no longer under the player's name");
 });
 
+test("default order: active players by position QB→DB, then IR, then Taxi; PPG high first within a position", () => {
+  const r = (name, group, ppg, st) => ({ p: { name, isIr: st === "IR", isTaxi: st === "Taxi" }, group, line: { ppg } });
+  const rows = [r("Tx", "RB", 30, "Taxi"), r("Ir", "QB", 25, "IR"), r("Lb", "LB", 9), r("Rb2", "RB", 8), r("Qb", "QB", 20),
+    r("Rb1", "RB", 15), r("Db", "DB", 7), r("Wr", "WR", 12), r("K", "PK", 9), r("Te", "TE", 6), r("P", "PN", 7), r("Dl", "DL", 8)];
+  t.deepEqual(rows.slice().sort(R.defaultOrder).map((x) => x.p.name), ["Qb", "Rb1", "Rb2", "Wr", "Te", "K", "P", "Dl", "Lb", "Db", "Ir", "Tx"]);
+  const FO = read("site/rosters/v2/front_office.js");
+  t.ok(/if \(!\(STATE\.sort && STATE\.sort\.userChosen\)\) return rows\.slice\(\)\.sort\(defaultRosterOrder\)/.test(FO), "the Contract table defaults to the same order");
+  t.ok(/p\.isTaxi \? 2 : \(p\.isIr \? 1 : 0\)/.test(FO), "Contract: IR then Taxi at the bottom");
+});
+
 await run("front_office_roster_starters");
