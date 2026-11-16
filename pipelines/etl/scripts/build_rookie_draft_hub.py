@@ -1325,7 +1325,7 @@ def build_draft_day_trades(db: sqlite3.Connection) -> dict:
                     "trade_group_id": gid,
                     "unix_timestamp": d["unix_timestamp"],
                     "datetime_et": d["datetime_et"],
-                    "comments": d["comments"],
+                    "comments": "",   # a trade's free-text note is not published; the Draft-Day Trades tab shows a note only when present
                     "hours_from_first_pick": round((d["unix_timestamp"] - anchors["first"]) / 3600, 1),
                     "sides": {},
                 }
