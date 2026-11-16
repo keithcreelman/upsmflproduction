@@ -127,16 +127,50 @@ export const OUTBOX_FILE_FIELDS = [
   "id", "created_ts", "updated_ts", "league_id", "season", "trade_id", "action_type", "from_franchise_id", "to_franchise_id",
   "payload_xml_extensions", "payload_xml_salary_adj", "payload_xml_salary_trade", "payload_hash", "status", "comment_trailer",
 ];
-const OUTBOX_TEXT = new Set([...OFFER_TEXT_KEYS, "notes"]);
 
-/** A copy of an outbox row that is safe to commit to the public repository: allowlisted fields only, owner notes emptied
- *  inside `payload_json`, and the MFL response excerpts (which can echo the note) emptied. Never mutates its input. */
+// `payload_json` is rebuilt from an ALLOWLIST, not scrubbed: only the keys the outbox readers use survive, only as plain
+// values (never nested objects under a key that should be a scalar), and strings are capped. Any other key, at any level
+// (a UI search box, a note under a name nobody listed, a new field added later), is absent from the public file.
+const PAYLOAD_TOP = ["schema_version", "league_id", "season"];
+const TEAM_KEYS = ["franchise_id", "role", "traded_salary_adjustment_k"];
+const ASSET_KEYS = ["asset_id", "type", "player_id", "player_name", "taxi", "salary", "contract_type", "contract_info", "contract_length", "years",
+  "position", "nfl_team", "pick_key", "pick_season", "pick_round", "pick_slot", "pick_origin_franchise_id", "description", "token", "pick",
+  "label", "already_extended_by_this_franchise"];
+const EXT_KEYS = ["player_id", "player_name", "from_franchise_id", "fromFranchiseId", "to_franchise_id", "extension_term", "option_key", "optionKey",
+  "loaded_indicator", "new_contract_status", "new_TCV", "new_tcv", "newTcv", "new_aav_future", "newAavFuture", "new_contract_length", "newContractLength",
+  "preview_contract_info_string", "preview_id", "applies_to_acquirer"];
+const MAX_TEXT = 240;
+const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+function pickScalars(src, keys) {
+  const out = {};
+  if (!isObj(src)) return out;
+  for (const k of keys) {
+    const v = src[k];
+    if (typeof v === "string") out[k] = v.slice(0, MAX_TEXT);
+    else if (typeof v === "number" || typeof v === "boolean") out[k] = v;
+  }
+  return out;
+}
+/** The part of an outbox payload the readers need: teams (+ their selected assets), extension requests, the two team ids,
+ *  the validation status. Returns null for a non-object. */
+export function outboxPayloadForFile(pj) {
+  if (!isObj(pj)) return null;
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  return {
+    ...pickScalars(pj, PAYLOAD_TOP),
+    teams: arr(pj.teams).filter(isObj).map((tm) => ({ ...pickScalars(tm, TEAM_KEYS), selected_assets: arr(tm.selected_assets).filter(isObj).map((a) => pickScalars(a, ASSET_KEYS)) })),
+    extension_requests: arr(pj.extension_requests).filter(isObj).map((r) => pickScalars(r, EXT_KEYS)),
+    ui: pickScalars(pj.ui, ["left_team_id", "right_team_id"]),
+    validation: pickScalars(pj.validation, ["status"]),
+  };
+}
+
+/** A copy of an outbox row that is safe to commit to the public repository: allowlisted fields only, `payload_json` rebuilt from an allowlist, and the MFL response excerpts (which can echo the note) emptied. Never mutates its input. */
 export function outboxFileRow(row) {
   const src = row && typeof row === "object" ? row : {};
   const out = {};
   for (const k of OUTBOX_FILE_FIELDS) if (k in src) out[k] = src[k];
-  const pj = src.payload_json;
-  out.payload_json = pj && typeof pj === "object" ? blankDeep(pj, OUTBOX_TEXT) : null;
+  out.payload_json = outboxPayloadForFile(src.payload_json);
   out.mfl_post_response_snip = "";
   out.mfl_verify_response_snip = "";
   return out;
