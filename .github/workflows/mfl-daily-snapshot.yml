@@ -74,6 +74,10 @@ jobs:
             rm "$DIR/$t.json.tmp"
           done
 
+          # Nothing that reads the snapshots uses a trade's free-text note, so the transactions file is committed without
+          # it. Fails the job (nothing is committed) if the strip cannot be verified.
+          python3 pipelines/etl/scripts/strip_snapshot_comments.py "$DIR/transactions.json"
+
           # Summary file with ingest metadata
           cat > "$DIR/_snapshot_meta.json" <<EOF
           {
