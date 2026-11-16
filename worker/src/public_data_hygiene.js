@@ -14,11 +14,11 @@ const s = (v) => String(v == null ? "" : v);
 export const OFFER_TEXT_KEYS = ["message", "comment", "comments", "raw_comment", "action_message"];
 const OFFER_TEXT = new Set(OFFER_TEXT_KEYS);
 
-function blankDeep(v) {
-  if (Array.isArray(v)) return v.map(blankDeep);
+function blankDeep(v, keys = OFFER_TEXT) {
+  if (Array.isArray(v)) return v.map((x) => blankDeep(x, keys));
   if (v && typeof v === "object") {
     const out = {};
-    for (const [k, x] of Object.entries(v)) out[k] = OFFER_TEXT.has(k) && typeof x === "string" ? "" : blankDeep(x);
+    for (const [k, x] of Object.entries(v)) out[k] = keys.has(k) && typeof x === "string" ? "" : blankDeep(x, keys);
     return out;
   }
   return v;
@@ -117,4 +117,27 @@ export function storableBugRow(row) {
       image_stored: false,
     })),
   };
+}
+
+// ── trade outbox rows (the dormant file fallback) ───────────────────────────────────────────────────────────────────
+
+// The only top-level fields a file-stored outbox row keeps. Everything the fallback's readers use is here: lookup keys, status,
+// the machine-built XML and trailer (ids, hash, base64 XML: no owner text), and `payload_json` with its notes emptied.
+export const OUTBOX_FILE_FIELDS = [
+  "id", "created_ts", "updated_ts", "league_id", "season", "trade_id", "action_type", "from_franchise_id", "to_franchise_id",
+  "payload_xml_extensions", "payload_xml_salary_adj", "payload_xml_salary_trade", "payload_hash", "status", "comment_trailer",
+];
+const OUTBOX_TEXT = new Set([...OFFER_TEXT_KEYS, "notes"]);
+
+/** A copy of an outbox row that is safe to commit to the public repository: allowlisted fields only, owner notes emptied
+ *  inside `payload_json`, and the MFL response excerpts (which can echo the note) emptied. Never mutates its input. */
+export function outboxFileRow(row) {
+  const src = row && typeof row === "object" ? row : {};
+  const out = {};
+  for (const k of OUTBOX_FILE_FIELDS) if (k in src) out[k] = src[k];
+  const pj = src.payload_json;
+  out.payload_json = pj && typeof pj === "object" ? blankDeep(pj, OUTBOX_TEXT) : null;
+  out.mfl_post_response_snip = "";
+  out.mfl_verify_response_snip = "";
+  return out;
 }
