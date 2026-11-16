@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-15T16:35:38.453105+00:00",
+    "generated_at_utc": "2026-11-16T19:51:15.470823+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -141,6 +141,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17474",
+          "display": "Emmett Johnson",
+          "player_id": "17474",
+          "position": "RB",
+          "nfl_team": "KCC",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_17076",
           "display": "Isaiah Bond",
           "player_id": "17076",
@@ -194,18 +206,6 @@
           "player_id": "14057",
           "position": "QB",
           "nfl_team": "SEA",
-          "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15797",
-          "display": "Greg Dulcich",
-          "player_id": "15797",
-          "position": "TE",
-          "nfl_team": "MIA",
           "salary": 4000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -285,6 +285,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17551",
+          "display": "David Bailey",
+          "player_id": "17551",
+          "position": "DE",
+          "nfl_team": "NYJ",
+          "salary": 2000,
+          "contract_year": 3,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_13952",
           "display": "Frankie Luvu",
           "player_id": "13952",
@@ -321,26 +333,14 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17125",
-          "display": "Demetrius Knight",
-          "player_id": "17125",
+          "asset_id": "P_17636",
+          "display": "Jaden Dugger",
+          "player_id": "17636",
           "position": "LB",
-          "nfl_team": "CIN",
+          "nfl_team": "SFO",
           "salary": 1000,
           "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15263",
-          "display": "Elijah Mitchell",
-          "player_id": "15263",
-          "position": "RB",
-          "nfl_team": "PHI",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
+          "contract_status": "Rookie-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -393,18 +393,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17474",
-          "display": "Emmett Johnson",
-          "player_id": "17474",
-          "position": "RB",
-          "nfl_team": "KCC",
-          "salary": 5000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
-        },
-        {
           "asset_id": "P_17722",
           "display": "Brendan Sorsby",
           "player_id": "17722",
@@ -422,18 +410,6 @@
           "player_id": "17519",
           "position": "WR",
           "nfl_team": "NOS",
-          "salary": 2000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
-        },
-        {
-          "asset_id": "P_17551",
-          "display": "David Bailey",
-          "player_id": "17551",
-          "position": "DE",
-          "nfl_team": "NYJ",
           "salary": 2000,
           "contract_year": 3,
           "contract_status": "Rookie-Draft",
