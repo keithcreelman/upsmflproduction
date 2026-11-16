@@ -169,6 +169,32 @@
     return String(raw || "").trim();
   }
 
+  // A report does not carry the MFL account identifier. The worker's report route is open intake and uses none; only the
+  // commissioner's Discord test (an /admin route) is authenticated by it, in the request URL.
+  function bugAuthToken() {
+    return parseMflUserId() || readCookie("MFL_USER_ID");
+  }
+
+  function withoutIdParams(text) {
+    const raw = String(text == null ? "" : text);
+    if (raw.indexOf("=") < 0) return raw;
+    // address parameters that carry an identifier or a key are not copied into a report
+    const drop = (v) => /^(mfl_?user_?id|mflusrid|apikey|api_?key|key|token|access_?token|auth|authorization|password|secret|session|sid)$/i.test(v);
+    try {
+      const u = new URL(raw);
+      Array.from(u.searchParams.keys()).forEach((k) => { if (drop(k)) u.searchParams.delete(k); });
+      if (u.hash && /MFL_?USER_?ID/i.test(u.hash)) {
+        const h = new URLSearchParams(u.hash.replace(/^#/, ""));
+        Array.from(h.keys()).forEach((k) => { if (drop(k)) h.delete(k); });
+        const rest = h.toString();
+        u.hash = rest ? `#${rest}` : "";
+      }
+      return u.toString();
+    } catch (e) {
+      return raw.replace(/(mfl_?user_?id|apikey|api_?key|access_?token|token|password|secret)\s*=\s*[^&#\s;"']*/gi, "");
+    }
+  }
+
   function readCookie(name) {
     const target = `${String(name || "").trim()}=`;
     const parts = String(document.cookie || "").split(";");
@@ -1229,11 +1255,9 @@
     const season = String(parseSeasonYear() || "");
     const franchiseId = parseFranchiseId();
     const franchiseName = getFranchiseNameById(season, franchiseId);
-    const mflUserId = parseMflUserId() || readCookie("MFL_USER_ID");
     const commishEnhancement = !!($("#uowBugCommishEnhancement") && $("#uowBugCommishEnhancement").checked);
     const submitterParts = [];
     if (franchiseName) submitterParts.push(franchiseName);
-    if (mflUserId) submitterParts.push(`MFL ${mflUserId}`);
     if (commishEnhancement) submitterParts.push("Commish Enhancement");
     return {
       captured_at_utc: new Date().toISOString(),
@@ -1241,14 +1265,12 @@
       season,
       franchise_id: franchiseId,
       franchise_name: franchiseName,
-      mfl_user_id: mflUserId,
       submitted_by_label: submitterParts.join(" | ") || "Unknown submitter",
       submitted_by_franchise_id: franchiseId,
       submitted_by_franchise_name: franchiseName,
-      submitted_by_mfl_user_id: mflUserId,
       submitted_by_commish_enhancement: commishEnhancement ? 1 : 0,
       host: safeStr(window.location.host || ""),
-      page_url: href,
+      page_url: withoutIdParams(href),
       query_module: safeStr(params.get("MODULE") || params.get("module")),
       query_action: safeStr(params.get("ACTION") || params.get("action")),
       query_source_app: safeStr(
@@ -1266,7 +1288,7 @@
       viewport: `${width}x${height}`,
       screen: `${safeInt(window.screen && window.screen.width)}x${safeInt(window.screen && window.screen.height)}`,
       theme: safeStr(document.body.getAttribute("data-theme") || state.theme || ""),
-      referrer: safeStr(document.referrer || ""),
+      referrer: withoutIdParams(safeStr(document.referrer || "")),
       screenshot_count: safeInt(state.bugAttachments && state.bugAttachments.length),
     };
   }
@@ -1388,7 +1410,6 @@
         commish_enhancement: commishEnhancement ? 1 : 0,
         request_kind: commishEnhancement ? "commish-enhancement" : "bug-report",
         submitted_by_label: safeStr(ctx.submitted_by_label || ""),
-        mfl_user_id: safeStr(ctx.submitted_by_mfl_user_id || ctx.mfl_user_id || ""),
         attachments: state.bugAttachments.map((item) => ({
           name: safeStr(item && item.name),
           type: safeStr(item && item.type),
@@ -1409,7 +1430,8 @@
     const payload = built.payload;
     const workerBase = parseWorkerBaseUrl();
     const isTest = mode === "test";
-    const mflUserId = safeStr(ctx && (ctx.submitted_by_mfl_user_id || ctx.mfl_user_id) || "");
+    // Only the commissioner's Discord test needs the MFL login token: it is an /admin route, which the worker authenticates with it.
+    const mflUserId = isTest ? safeStr(bugAuthToken()) : "";
     const endpoint =
       `${workerBase}${isTest ? "/admin/bug-report/test-discord" : "/bug-report"}?L=${encodeURIComponent(ctx.league_id || "")}` +
       `&YEAR=${encodeURIComponent(ctx.season || "")}` +

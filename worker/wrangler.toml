@@ -44,6 +44,13 @@ OTB_LIVE_MODE = "1"
 # DISCORD_DRAFT_CHANNEL_ID also resolves the split-brain (code had two fallbacks,
 # 1059… vs 1498…, so draft posts landed in different channels by code path).
 LEAGUE_ID = "74598"
+# TEMPORARY, FAIL-CLOSED pause on writes to the bug-reports data file (new reports, thread metadata, status, triage). Reports
+# still reach Discord, with screenshots. Writes happen only when this is exactly "1" (no trimming); anything else = paused.
+BUG_REPORT_PUBLIC_WRITES_ENABLED = "0"
+# TEMPORARY, FAIL-CLOSED pause on writes to the trade-offers data file. MFL proposals, the outbox in D1, accept/decline,
+# extensions and the Discord messages are unaffected. Publishing happens only when this is exactly "1" (no trimming);
+# anything else = paused.
+TRADE_OFFERS_PUBLIC_WRITES_ENABLED = "0"
 COMMISH_DISCORD_USER_ID = "621530026831118346,1057654821638897715"
 DISCORD_DRAFT_CHANNEL_ID = "1059111651846131833"
 DISCORD_DRAFT_TEST_CHANNEL_ID = "1089538054236160010"

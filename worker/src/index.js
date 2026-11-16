@@ -6,6 +6,7 @@ import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
 import { seedLadderSteps, modernField, legacyStandingsTiebreak } from "./seeding.js";
 import { seedCurrentSeason } from "./standings_truth.js";
+import { blankOfferText, scrubBugLabel, withoutAccountIds, storableBugRow } from "./public_data_hygiene.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
   processPendingSummaries as processHallPendingSummaries,
@@ -28315,12 +28316,26 @@ const mflToSleeper = {};
         }
       };
 
-      const writeTradeOffersDoc = async (leagueId, season, doc, prevSha, message) => {
+      // TEMPORARY, FAIL-CLOSED pause on writes to the trade-offers data file. They happen only when
+      // TRADE_OFFERS_PUBLIC_WRITES_ENABLED is exactly "1" (no trimming); unset, "0", " 1 " or anything else is paused. The check is
+      // in writeTradeOffersDoc itself, so every caller is covered. MFL, the outbox in D1 and the Discord messages do not depend
+      // on the file.
+      const tradeOffersPublicWritesEnabled = () => env.TRADE_OFFERS_PUBLIC_WRITES_ENABLED === "1";
+      // opts.blankOfferIds: the rows this write adds or changes. Their free-text fields are emptied in what is committed; every
+      // other row is written exactly as it was, and the caller's own objects are not touched.
+      const writeTradeOffersDoc = async (leagueId, season, doc, prevSha, message, opts = {}) => {
         const filePath = tradeOffersFilePath(leagueId, season);
+        if (!tradeOffersPublicWritesEnabled()) {
+          return { ok: false, paused: true, error: "trade_offers_public_writes_paused", filePath };
+        }
         if (!githubPat) {
           return { ok: false, error: "Missing GITHUB_PAT worker secret", filePath };
         }
         const normalized = normalizeTradeOffersDoc(doc, leagueId, season);
+        const blankIds = new Set((Array.isArray(opts.blankOfferIds) ? opts.blankOfferIds : []).map((x) => safeStr(x)).filter(Boolean));
+        if (blankIds.size && Array.isArray(normalized.offers)) {
+          normalized.offers = normalized.offers.map((o) => (blankIds.has(safeStr(o && o.id)) ? blankOfferText(o) : o));
+        }
         normalized.meta.updated_at = new Date().toISOString();
         normalized.meta.row_count = Array.isArray(normalized.offers) ? normalized.offers.length : 0;
         const body = {
@@ -28653,8 +28668,16 @@ const mflToSleeper = {};
         }
       };
 
+      // TEMPORARY, FAIL-CLOSED pause on writes to the bug-reports data file. They happen only when
+      // BUG_REPORT_PUBLIC_WRITES_ENABLED is exactly "1" (no trimming); unset, "0", " 1 " or anything else means paused. The check
+      // sits in writeBugReportsDoc itself, so the first write, the thread-metadata follow-up and the status/triage rewrites are all
+      // covered. Discord intake does not depend on it.
+      const bugReportPublicWritesEnabled = () => env.BUG_REPORT_PUBLIC_WRITES_ENABLED === "1";
       const writeBugReportsDoc = async (leagueId, season, doc, prevSha, message) => {
         const filePath = bugReportsFilePath(leagueId, season);
+        if (!bugReportPublicWritesEnabled()) {
+          return { ok: false, paused: true, error: "bug_report_public_writes_paused", filePath };
+        }
         if (!githubPat) {
           return { ok: false, error: "Missing GITHUB_PAT worker secret", filePath };
         }
@@ -32638,6 +32661,63 @@ const mflToSleeper = {};
         payload,
         source,
       }) => {
+        // The row as the worker holds it in memory. The DM builders read the owner's note from it; only a blanked copy is ever
+        // committed (writeTradeOffersDoc, blankOfferIds). Built from the stored row when one exists, else from the request alone.
+        const buildNextOffer = (existing) => {
+          const nowIso = new Date().toISOString();
+          const normalizedId =
+            safeStr(existing?.id) ||
+            (resolvedTradeId
+              ? `MFL-${resolvedTradeId}`
+              : `TWB-${(crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).toString()}`);
+          const rawComment = safeStr(commentsOut);
+          const cleanComment = stripTradeMetaTagFromComments(rawComment);
+          const twbMeta = parseTradeMetaTagFromComments(rawComment);
+          const giveUpCsv = Array.isArray(willGiveUp)
+            ? willGiveUp.filter(Boolean).join(",")
+            : safeStr(willGiveUp);
+          const receiveCsv = Array.isArray(willReceive)
+            ? willReceive.filter(Boolean).join(",")
+            : safeStr(willReceive);
+          const nextOffer = {
+            ...(existing || {}),
+            id: normalizedId,
+            league_id: leagueId,
+            season: safeInt(season, Number(season) || 0),
+            status: "PENDING",
+            created_at: safeStr(existing?.created_at) || nowIso,
+            updated_at: nowIso,
+            from_franchise_id: fromFranchiseId,
+            to_franchise_id: toFranchiseId,
+            from_franchise_name: fromFranchiseName || fromFranchiseId,
+            to_franchise_name: toFranchiseName || toFranchiseId,
+            message: message || cleanComment || rawComment,
+            comment: cleanComment || rawComment,
+            comments: cleanComment || rawComment,
+            raw_comment: rawComment,
+            will_give_up: giveUpCsv,
+            will_receive: receiveCsv,
+            source: safeStr(source || "trade-workbench-ui"),
+            summary: summarizeOfferPayload(payload),
+            payload,
+            twb_meta: twbMeta,
+            mfl_trade_id: resolvedTradeId || null,
+            trade_id: resolvedTradeId || null,
+            mfl_present: true,
+            mfl_status: "PENDING",
+          };
+          return { normalizedId, nextOffer };
+        };
+
+        // Publishing paused: touch no data file (not even a read). Hand back the in-memory row so the day-one / counter DM still
+        // goes out with the owner's note; the MFL proposal and the outbox row already exist by the time we get here.
+        if (!tradeOffersPublicWritesEnabled()) {
+          return {
+            storedOffer: buildNextOffer(null).nextOffer,
+            storageSync: { ok: false, skipped: true, paused: true, reason: "trade_offers_public_writes_paused" },
+          };
+        }
+
         if (!githubPat) {
           return {
             storedOffer: null,
@@ -32677,49 +32757,7 @@ const mflToSleeper = {};
           });
           const idx = existing ? offers.indexOf(existing) : -1;
 
-          const nowIso = new Date().toISOString();
-          const normalizedId =
-            safeStr(existing?.id) ||
-            (resolvedTradeId
-              ? `MFL-${resolvedTradeId}`
-              : `TWB-${(crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`).toString()}`);
-          const rawComment = safeStr(commentsOut);
-          const cleanComment = stripTradeMetaTagFromComments(rawComment);
-          const twbMeta = parseTradeMetaTagFromComments(rawComment);
-          const giveUpCsv = Array.isArray(willGiveUp)
-            ? willGiveUp.filter(Boolean).join(",")
-            : safeStr(willGiveUp);
-          const receiveCsv = Array.isArray(willReceive)
-            ? willReceive.filter(Boolean).join(",")
-            : safeStr(willReceive);
-
-          const nextOffer = {
-            ...(existing || {}),
-            id: normalizedId,
-            league_id: leagueId,
-            season: safeInt(season, Number(season) || 0),
-            status: "PENDING",
-            created_at: safeStr(existing?.created_at) || nowIso,
-            updated_at: nowIso,
-            from_franchise_id: fromFranchiseId,
-            to_franchise_id: toFranchiseId,
-            from_franchise_name: fromFranchiseName || fromFranchiseId,
-            to_franchise_name: toFranchiseName || toFranchiseId,
-            message: message || cleanComment || rawComment,
-            comment: cleanComment || rawComment,
-            comments: cleanComment || rawComment,
-            raw_comment: rawComment,
-            will_give_up: giveUpCsv,
-            will_receive: receiveCsv,
-            source: safeStr(source || "trade-workbench-ui"),
-            summary: summarizeOfferPayload(payload),
-            payload,
-            twb_meta: twbMeta,
-            mfl_trade_id: resolvedTradeId || null,
-            trade_id: resolvedTradeId || null,
-            mfl_present: true,
-            mfl_status: "PENDING",
-          };
+          const { normalizedId, nextOffer } = buildNextOffer(existing);
 
           if (idx >= 0) offers[idx] = nextOffer;
           else offers.push(nextOffer);
@@ -32729,7 +32767,8 @@ const mflToSleeper = {};
             season,
             doc,
             loaded.sha,
-            `feat(trades): sync direct mfl offer ${normalizedId}`
+            `feat(trades): sync direct mfl offer ${normalizedId}`,
+            { blankOfferIds: [normalizedId] }
           );
           if (saveOut.ok) {
             storedOffer = nextOffer;
@@ -37470,30 +37509,32 @@ const mflToSleeper = {};
           browserMflUserId ||
           ""
         );
-        const submittedByLabel = safeStr(
+        // Account identifiers are not stored in report rows or labels. `bugIdValues` are the identifiers this request carried,
+        // used only to remove them from the row.
+        const bugIdValues = [mflUserId, browserMflUserId, body.submitted_by_mfl_user_id, context.submitted_by_mfl_user_id];
+        const submittedByLabel = scrubBugLabel(safeStr(
           body.submitted_by_label ||
           body.submittedByLabel ||
           context.submitted_by_label ||
           [
             franchiseName || franchiseId || "",
-            mflUserId ? `MFL ${mflUserId}` : "",
             commishEnhancement ? "Commish Enhancement" : "",
           ].filter(Boolean).join(" | ")
-        ).slice(0, 200);
-        const reportRow = {
+        ), bugIdValues).slice(0, 200);
+        const reportRow = withoutAccountIds({
           bug_id: `TEST-BUG-${safeStr(season)}-${Date.now().toString(36).toUpperCase()}`,
           created_at_utc: createdAt,
           league_id: leagueId,
           season: season,
           franchise_id: franchiseId,
           franchise_name: franchiseName,
-          mfl_user_id: mflUserId,
+          mfl_user_id: "",
           module: moduleName,
           issue_type: issueType,
           request_kind: commishEnhancement ? "commish-enhancement" : requestKind || "bug-report",
           commish_enhancement: commishEnhancement,
           submitted_by_label: submittedByLabel,
-          submitted_by_mfl_user_id: mflUserId,
+          submitted_by_mfl_user_id: "",
           details: details.slice(0, 5000),
           steps_to_reproduce: steps.slice(0, 4000),
           expected_vs_actual: expectedActual.slice(0, 4000),
@@ -37517,7 +37558,7 @@ const mflToSleeper = {};
           last_discord_sync_error: "",
           last_discord_sync_at_utc: "",
           context: context && typeof context === "object" ? context : {},
-        };
+        }, bugIdValues);
         reportRow.thread_name = buildBugThreadName(reportRow, reportRow.status);
         const notify = await sendDiscordNotificationForBug(reportRow, "");
         return jsonOut(notify && notify.ok ? 201 : 502, {
@@ -37606,30 +37647,32 @@ const mflToSleeper = {};
           browserMflUserId ||
           ""
         );
-        const submittedByLabel = safeStr(
+        // Account identifiers are not stored in report rows or labels. `bugIdValues` are the identifiers this request carried,
+        // used only to remove them from the row.
+        const bugIdValues = [mflUserId, browserMflUserId, body.submitted_by_mfl_user_id, context.submitted_by_mfl_user_id];
+        const submittedByLabel = scrubBugLabel(safeStr(
           body.submitted_by_label ||
           body.submittedByLabel ||
           context.submitted_by_label ||
           [
             franchiseName || franchiseId || "",
-            mflUserId ? `MFL ${mflUserId}` : "",
             commishEnhancement ? "Commish Enhancement" : "",
           ].filter(Boolean).join(" | ")
-        ).slice(0, 200);
-        const reportRow = {
+        ), bugIdValues).slice(0, 200);
+        const reportRow = withoutAccountIds({
           bug_id: bugId,
           created_at_utc: createdAt,
           league_id: leagueId,
           season: season,
           franchise_id: franchiseId,
           franchise_name: franchiseName,
-          mfl_user_id: mflUserId,
+          mfl_user_id: "",
           module: moduleName,
           issue_type: issueType,
           request_kind: commishEnhancement ? "commish-enhancement" : requestKind || "bug-report",
           commish_enhancement: commishEnhancement,
           submitted_by_label: submittedByLabel,
-          submitted_by_mfl_user_id: mflUserId,
+          submitted_by_mfl_user_id: "",
           details: details.slice(0, 5000),
           steps_to_reproduce: steps.slice(0, 4000),
           expected_vs_actual: expectedActual.slice(0, 4000),
@@ -37657,7 +37700,32 @@ const mflToSleeper = {};
           last_discord_sync_error: "",
           last_discord_sync_at_utc: "",
           context: context && typeof context === "object" ? context : {},
-        };
+        }, bugIdValues);
+        // What is committed holds the screenshots' metadata only; reportRow keeps the images for the Discord thread.
+        const storedRow = storableBugRow(reportRow);
+
+        // Paused: the report goes to Discord only. Nothing is read from or written to the data file, so nothing here depends on
+        // it: the id is time-based, the Discord thread name carries no sequence number (issue_sequence stays 0, "unknown"). With
+        // no stored copy, a Discord failure means the report is NOT saved anywhere, so it is answered as a failure and the
+        // widget keeps the form for another try.
+        if (!bugReportPublicWritesEnabled()) {
+          reportRow.issue_sequence = 0;
+          const pausedNotify = await sendDiscordNotificationForBug(reportRow, "");
+          const pausedBody = {
+            bug_id: bugId,
+            league_id: leagueId,
+            season: safeInt(season, Number(season) || 0),
+            stored: { paused: true, reason: "bug_report_public_writes_paused" },
+            thread_id: safeStr(pausedNotify.thread_id),
+            thread_name: safeStr(pausedNotify.thread_name || reportRow.thread_name),
+            thread_root_message_id: safeStr(pausedNotify.thread_root_message_id || pausedNotify.message_id),
+            notify: pausedNotify,
+          };
+          if (!pausedNotify || !pausedNotify.ok) {
+            return jsonOut(502, { ok: false, error: "report_not_delivered_public_storage_paused", ...pausedBody });
+          }
+          return jsonOut(201, { ok: true, ...pausedBody });
+        }
 
         const loaded = await readBugReportsDoc(leagueId, season);
         if (!loaded.ok) {
@@ -37673,7 +37741,7 @@ const mflToSleeper = {};
         }
         const doc = normalizeBugReportsDoc(loaded.doc, leagueId, season);
         const reports = Array.isArray(doc.reports) ? doc.reports : [];
-        reports.unshift(reportRow);
+        reports.unshift(storedRow);
         reportRow.issue_sequence = reports.filter((row) => {
           if (!row || typeof row !== "object") return false;
           return (
@@ -37683,6 +37751,8 @@ const mflToSleeper = {};
           );
         }).length;
         reportRow.thread_name = buildBugThreadName(reportRow, reportRow.status);
+        storedRow.issue_sequence = reportRow.issue_sequence;
+        storedRow.thread_name = reportRow.thread_name;
         doc.reports = reports.slice(0, 3000);
 
         const save = await writeBugReportsDoc(
@@ -37769,6 +37839,14 @@ const mflToSleeper = {};
         const season = safeStr(url.searchParams.get("YEAR") || YEAR || "");
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing L param" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing YEAR param" });
+        // Commissioner only (a worker key, or an MFL session that MFL itself proves belongs to a commissioner franchise). No
+        // site page reads this list.
+        const bugListAuth = await adminAuthority({
+          request, url, env, leagueId, year: season, fetchImpl: (u, i) => fetch(u, i),
+        });
+        if (!bugListAuth.ok) {
+          return jsonOut(bugListAuth.http, adminDenial(bugListAuth));
+        }
 
         const includeContext = ["1", "true", "yes"].includes(
           safeStr(url.searchParams.get("include_context")).toLowerCase()
@@ -37831,6 +37909,9 @@ const mflToSleeper = {};
         if (!leagueId) return jsonOut(400, { ok: false, error: "Missing league_id or L" });
         if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
         if (!bugId) return jsonOut(400, { ok: false, error: "Missing bug_id" });
+        if (!bugReportPublicWritesEnabled()) {
+          return jsonOut(503, { ok: false, error: "bug_report_public_writes_paused", note: "Status changes are stored in the public reports file, which is paused. Nothing was changed." });
+        }
 
         const loaded = await readBugReportsDoc(leagueId, season);
         if (!loaded.ok) {
@@ -37939,6 +38020,9 @@ const mflToSleeper = {};
         if (!season) return jsonOut(400, { ok: false, error: "Missing season or YEAR" });
         if (!bugId) return jsonOut(400, { ok: false, error: "Missing bug_id" });
         if (!triageSummary) return jsonOut(400, { ok: false, error: "Missing triage_summary" });
+        if (!bugReportPublicWritesEnabled()) {
+          return jsonOut(503, { ok: false, error: "bug_report_public_writes_paused", note: "Triage notes are stored in the public reports file, which is paused. Nothing was changed." });
+        }
 
         const loaded = await readBugReportsDoc(leagueId, season);
         if (!loaded.ok) {
@@ -42100,7 +42184,8 @@ const mflToSleeper = {};
             season,
             doc,
             loaded.sha,
-            `feat(trades): ${action.toLowerCase()} trade offer ${offerId}`
+            `feat(trades): ${action.toLowerCase()} trade offer ${offerId}`,
+            { blankOfferIds: [offerId, counterOffer && counterOffer.id] }
           );
           if (saveOut.ok) break;
           if (attempts >= 2) break;
