@@ -1,0 +1,951 @@
+{
+ "_source": "D1 src_standings/src_schedule replicas (read 2026-10-22; 2010 'after' = decision 5 C6+C9 applied offline) + MFL TYPE=league divisions/standingsSort",
+ "seasons": {
+  "2010_before": {
+   "standingsSort": "PCT,PTS,",
+   "rows": [
+    {
+     "franchise_id": "0001",
+     "franchise_name": "D-Town Diddlers",
+     "division": "00",
+     "h2h_pct": 0.5555555555555556,
+     "div_pct": 0.6,
+     "pf_total": 2138.5,
+     "allplay_pct": 0.528,
+     "pwr": 38.81,
+     "pf_avg_game_rows": 95.0
+    },
+    {
+     "franchise_id": "0002",
+     "franchise_name": "BTNH",
+     "division": "01",
+     "h2h_pct": 0.5882352941176471,
+     "div_pct": 0.5,
+     "pf_total": 2014.8,
+     "allplay_pct": 0.5,
+     "pwr": 35.83,
+     "pf_avg_game_rows": 137.0
+    },
+    {
+     "franchise_id": "0003",
+     "franchise_name": "Tom's Baby Mamma",
+     "division": "00",
+     "h2h_pct": 0.47368421052631576,
+     "div_pct": 0.5,
+     "pf_total": 1793.9,
+     "allplay_pct": 0.307,
+     "pwr": 32.82,
+     "pf_avg_game_rows": 94.53
+    },
+    {
+     "franchise_id": "0004",
+     "franchise_name": "YouJustGotBeatByAGirl",
+     "division": "00",
+     "h2h_pct": 0.3333333333333333,
+     "div_pct": 0.4,
+     "pf_total": 1770.7,
+     "allplay_pct": 0.335,
+     "pwr": 25.81,
+     "pf_avg_game_rows": 83.8
+    },
+    {
+     "franchise_id": "0005",
+     "franchise_name": "Pure Greatness",
+     "division": "01",
+     "h2h_pct": 0.5294117647058824,
+     "div_pct": 0.6,
+     "pf_total": 2121.4,
+     "allplay_pct": 0.58,
+     "pwr": 37.37,
+     "pf_avg_game_rows": 94.9
+    },
+    {
+     "franchise_id": "0006",
+     "franchise_name": "Achilles' Wrath",
+     "division": "00",
+     "h2h_pct": 0.47058823529411764,
+     "div_pct": 0.4,
+     "pf_total": 1963.4,
+     "allplay_pct": 0.438,
+     "pwr": 33.89,
+     "pf_avg_game_rows": 142.3
+    },
+    {
+     "franchise_id": "0007",
+     "franchise_name": "Bad Newz Kennels",
+     "division": "01",
+     "h2h_pct": 0.29411764705882354,
+     "div_pct": 0.4,
+     "pf_total": 2135.7,
+     "allplay_pct": 0.557,
+     "pwr": 32.84,
+     "pf_avg_game_rows": 170.2
+    },
+    {
+     "franchise_id": "0008",
+     "franchise_name": "R-11",
+     "division": "01",
+     "h2h_pct": 0.6666666666666666,
+     "div_pct": 0.6,
+     "pf_total": 2285.0,
+     "allplay_pct": 0.676,
+     "pwr": 42.74,
+     "pf_avg_game_rows": 142.1
+    },
+    {
+     "franchise_id": "0009",
+     "franchise_name": "Sir Choke-a-lot",
+     "division": "01",
+     "h2h_pct": 0.5882352941176471,
+     "div_pct": 0.5,
+     "pf_total": 2223.0,
+     "allplay_pct": 0.631,
+     "pwr": 35.01,
+     "pf_avg_game_rows": 113.8
+    },
+    {
+     "franchise_id": "0010",
+     "franchise_name": "The blue-gums",
+     "division": "00",
+     "h2h_pct": 0.47368421052631576,
+     "div_pct": 0.6,
+     "pf_total": 2114.8,
+     "allplay_pct": 0.591,
+     "pwr": 38.33,
+     "pf_avg_game_rows": 120.65
+    },
+    {
+     "franchise_id": "0011",
+     "franchise_name": "The Baster",
+     "division": "01",
+     "h2h_pct": 0.4444444444444444,
+     "div_pct": 0.4,
+     "pf_total": 1686.1,
+     "allplay_pct": 0.295,
+     "pwr": 27.64,
+     "pf_avg_game_rows": 99.3
+    },
+    {
+     "franchise_id": "0012",
+     "franchise_name": "Nickel City",
+     "division": "00",
+     "h2h_pct": 0.5625,
+     "div_pct": 0.5,
+     "pf_total": 2089.5,
+     "allplay_pct": 0.562,
+     "pwr": 39.86,
+     "pf_avg_game_rows": 141.83
+    }
+   ],
+   "games": [
+    {
+     "week": 14,
+     "franchise_id": "0002",
+     "opponent_franchise_id": "0012",
+     "team_score": 137.0,
+     "opponent_score": 157.7,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0006",
+     "team_score": 97.3,
+     "opponent_score": 142.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0005",
+     "opponent_franchise_id": "0011",
+     "team_score": 94.9,
+     "opponent_score": 51.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0006",
+     "opponent_franchise_id": "0003",
+     "team_score": 142.3,
+     "opponent_score": 97.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0009",
+     "opponent_franchise_id": "0010",
+     "team_score": 113.8,
+     "opponent_score": 136.9,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0009",
+     "team_score": 136.9,
+     "opponent_score": 113.8,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0005",
+     "team_score": 51.3,
+     "opponent_score": 94.9,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0002",
+     "team_score": 157.7,
+     "opponent_score": 137.0,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0001",
+     "opponent_franchise_id": "0012",
+     "team_score": 95.0,
+     "opponent_score": 156.4,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0007",
+     "team_score": 79.0,
+     "opponent_score": 170.2,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0004",
+     "opponent_franchise_id": "0011",
+     "team_score": 81.1,
+     "opponent_score": 147.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0007",
+     "opponent_franchise_id": "0003",
+     "team_score": 170.2,
+     "opponent_score": 79.0,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0010",
+     "team_score": 136.2,
+     "opponent_score": 104.4,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0008",
+     "team_score": 104.4,
+     "opponent_score": 136.2,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0004",
+     "team_score": 147.3,
+     "opponent_score": 81.1,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0001",
+     "team_score": 156.4,
+     "opponent_score": 95.0,
+     "is_playoff": 1
+    },
+    {
+     "week": 16,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0004",
+     "team_score": 107.3,
+     "opponent_score": 86.5,
+     "is_playoff": 1
+    },
+    {
+     "week": 16,
+     "franchise_id": "0004",
+     "opponent_franchise_id": "0003",
+     "team_score": 86.5,
+     "opponent_score": 107.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 16,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0012",
+     "team_score": 148.0,
+     "opponent_score": 111.4,
+     "is_playoff": 1
+    },
+    {
+     "week": 16,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0008",
+     "team_score": 111.4,
+     "opponent_score": 148.0,
+     "is_playoff": 1
+    }
+   ]
+  },
+  "2010_after": {
+   "standingsSort": "PCT,PTS,",
+   "rows": [
+    {
+     "franchise_id": "0001",
+     "franchise_name": "D-Town Diddlers",
+     "division": "00",
+     "h2h_pct": 0.5625,
+     "div_pct": 0.6,
+     "pf_total": 2138.5,
+     "allplay_pct": 0.528,
+     "pwr": 38.81,
+     "pf_avg_game_rows": 95.0
+    },
+    {
+     "franchise_id": "0002",
+     "franchise_name": "BTNH",
+     "division": "01",
+     "h2h_pct": 0.625,
+     "div_pct": 0.5,
+     "pf_total": 2014.8,
+     "allplay_pct": 0.5,
+     "pwr": 35.83,
+     "pf_avg_game_rows": 137.0
+    },
+    {
+     "franchise_id": "0003",
+     "franchise_name": "Tom's Baby Mamma",
+     "division": "00",
+     "h2h_pct": 0.5,
+     "div_pct": 0.5,
+     "pf_total": 1793.9,
+     "allplay_pct": 0.307,
+     "pwr": 32.82,
+     "pf_avg_game_rows": 94.53
+    },
+    {
+     "franchise_id": "0004",
+     "franchise_name": "YouJustGotBeatByAGirl",
+     "division": "00",
+     "h2h_pct": 0.375,
+     "div_pct": 0.4,
+     "pf_total": 1770.7,
+     "allplay_pct": 0.335,
+     "pwr": 25.81,
+     "pf_avg_game_rows": 83.8
+    },
+    {
+     "franchise_id": "0005",
+     "franchise_name": "Pure Greatness",
+     "division": "01",
+     "h2h_pct": 0.5,
+     "div_pct": 0.6,
+     "pf_total": 2121.4,
+     "allplay_pct": 0.58,
+     "pwr": 37.37,
+     "pf_avg_game_rows": 94.9
+    },
+    {
+     "franchise_id": "0006",
+     "franchise_name": "Achilles' Wrath",
+     "division": "00",
+     "h2h_pct": 0.4375,
+     "div_pct": 0.4,
+     "pf_total": 1963.4,
+     "allplay_pct": 0.438,
+     "pwr": 33.89,
+     "pf_avg_game_rows": 142.3
+    },
+    {
+     "franchise_id": "0007",
+     "franchise_name": "Bad Newz Kennels",
+     "division": "01",
+     "h2h_pct": 0.25,
+     "div_pct": 0.4,
+     "pf_total": 2135.7,
+     "allplay_pct": 0.557,
+     "pwr": 32.84,
+     "pf_avg_game_rows": 170.2
+    },
+    {
+     "franchise_id": "0008",
+     "franchise_name": "R-11",
+     "division": "01",
+     "h2h_pct": 0.625,
+     "div_pct": 0.6,
+     "pf_total": 2285.0,
+     "allplay_pct": 0.676,
+     "pwr": 42.74,
+     "pf_avg_game_rows": 142.1
+    },
+    {
+     "franchise_id": "0009",
+     "franchise_name": "Sir Choke-a-lot",
+     "division": "01",
+     "h2h_pct": 0.625,
+     "div_pct": 0.5,
+     "pf_total": 2223.0,
+     "allplay_pct": 0.631,
+     "pwr": 35.01,
+     "pf_avg_game_rows": 113.8
+    },
+    {
+     "franchise_id": "0010",
+     "franchise_name": "The blue-gums",
+     "division": "00",
+     "h2h_pct": 0.5,
+     "div_pct": 0.6,
+     "pf_total": 2114.8,
+     "allplay_pct": 0.591,
+     "pwr": 38.33,
+     "pf_avg_game_rows": 120.65
+    },
+    {
+     "franchise_id": "0011",
+     "franchise_name": "The Baster",
+     "division": "01",
+     "h2h_pct": 0.4375,
+     "div_pct": 0.4,
+     "pf_total": 1686.1,
+     "allplay_pct": 0.295,
+     "pwr": 27.64,
+     "pf_avg_game_rows": 99.3
+    },
+    {
+     "franchise_id": "0012",
+     "franchise_name": "Nickel City",
+     "division": "00",
+     "h2h_pct": 0.5625,
+     "div_pct": 0.5,
+     "pf_total": 2089.5,
+     "allplay_pct": 0.562,
+     "pwr": 39.86,
+     "pf_avg_game_rows": 141.83
+    }
+   ],
+   "games": [
+    {
+     "week": 14,
+     "franchise_id": "0002",
+     "opponent_franchise_id": "0012",
+     "team_score": 137.0,
+     "opponent_score": 157.7,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0006",
+     "team_score": 97.3,
+     "opponent_score": 142.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0005",
+     "opponent_franchise_id": "0011",
+     "team_score": 94.9,
+     "opponent_score": 51.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0006",
+     "opponent_franchise_id": "0003",
+     "team_score": 142.3,
+     "opponent_score": 97.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0009",
+     "opponent_franchise_id": "0010",
+     "team_score": 113.8,
+     "opponent_score": 136.9,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0009",
+     "team_score": 136.9,
+     "opponent_score": 113.8,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0005",
+     "team_score": 51.3,
+     "opponent_score": 94.9,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0002",
+     "team_score": 157.7,
+     "opponent_score": 137.0,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0001",
+     "opponent_franchise_id": "0012",
+     "team_score": 95.0,
+     "opponent_score": 156.4,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0007",
+     "team_score": 79.0,
+     "opponent_score": 170.2,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0004",
+     "opponent_franchise_id": "0011",
+     "team_score": 81.1,
+     "opponent_score": 147.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0007",
+     "opponent_franchise_id": "0003",
+     "team_score": 170.2,
+     "opponent_score": 79.0,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0010",
+     "team_score": 136.2,
+     "opponent_score": 104.4,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0008",
+     "team_score": 104.4,
+     "opponent_score": 136.2,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0004",
+     "team_score": 147.3,
+     "opponent_score": 81.1,
+     "is_playoff": 1
+    },
+    {
+     "week": 15,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0001",
+     "team_score": 156.4,
+     "opponent_score": 95.0,
+     "is_playoff": 1
+    },
+    {
+     "week": 16,
+     "franchise_id": "0003",
+     "opponent_franchise_id": "0004",
+     "team_score": 107.3,
+     "opponent_score": 86.5,
+     "is_playoff": 1
+    },
+    {
+     "week": 16,
+     "franchise_id": "0004",
+     "opponent_franchise_id": "0003",
+     "team_score": 86.5,
+     "opponent_score": 107.3,
+     "is_playoff": 1
+    },
+    {
+     "week": 16,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0012",
+     "team_score": 148.0,
+     "opponent_score": 111.4,
+     "is_playoff": 1
+    },
+    {
+     "week": 16,
+     "franchise_id": "0012",
+     "opponent_franchise_id": "0008",
+     "team_score": 111.4,
+     "opponent_score": 148.0,
+     "is_playoff": 1
+    }
+   ]
+  },
+  "2012": {
+   "standingsSort": "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR,",
+   "rows": [
+    {
+     "franchise_id": "0001",
+     "franchise_name": "Wetter than Dutch Dikes",
+     "division": "01",
+     "h2h_pct": 0.538,
+     "div_pct": 0.375,
+     "pf_total": 2027.7,
+     "allplay_pct": 0.443,
+     "pwr": 33.31,
+     "pf_avg_game_rows": 156.77
+    },
+    {
+     "franchise_id": "0002",
+     "franchise_name": "Cranium Krusherz",
+     "division": "03",
+     "h2h_pct": 0.577,
+     "div_pct": 0.75,
+     "pf_total": 2172.4,
+     "allplay_pct": 0.657,
+     "pwr": 38.97,
+     "pf_avg_game_rows": 168.17
+    },
+    {
+     "franchise_id": "0003",
+     "franchise_name": "Lake's Team",
+     "division": "02",
+     "h2h_pct": 0.769,
+     "div_pct": 0.75,
+     "pf_total": 2248.4,
+     "allplay_pct": 0.709,
+     "pwr": 44.67,
+     "pf_avg_game_rows": 176.63
+    },
+    {
+     "franchise_id": "0004",
+     "franchise_name": "Pure Greatness",
+     "division": "01",
+     "h2h_pct": 0.462,
+     "div_pct": 0.25,
+     "pf_total": 2140.0,
+     "allplay_pct": 0.497,
+     "pwr": 30.38,
+     "pf_avg_game_rows": 163.44
+    },
+    {
+     "franchise_id": "0005",
+     "franchise_name": "BTNH",
+     "division": "03",
+     "h2h_pct": 0.231,
+     "div_pct": 0.125,
+     "pf_total": 1864.9,
+     "allplay_pct": 0.28,
+     "pwr": 20.57,
+     "pf_avg_game_rows": 144.62
+    },
+    {
+     "franchise_id": "0006",
+     "franchise_name": "Good in Da Hood",
+     "division": "03",
+     "h2h_pct": 0.385,
+     "div_pct": 0.625,
+     "pf_total": 2111.6,
+     "allplay_pct": 0.586,
+     "pwr": 32.36,
+     "pf_avg_game_rows": 162.54
+    },
+    {
+     "franchise_id": "0007",
+     "franchise_name": "Ebners' Flow",
+     "division": "01",
+     "h2h_pct": 0.692,
+     "div_pct": 0.875,
+     "pf_total": 2275.9,
+     "allplay_pct": 0.623,
+     "pwr": 42.52,
+     "pf_avg_game_rows": 173.36
+    },
+    {
+     "franchise_id": "0008",
+     "franchise_name": "Bad Newz Kennels",
+     "division": "00",
+     "h2h_pct": 0.346,
+     "div_pct": 0.5,
+     "pf_total": 1904.7,
+     "allplay_pct": 0.309,
+     "pwr": 27.07,
+     "pf_avg_game_rows": 146.48
+    },
+    {
+     "franchise_id": "0009",
+     "franchise_name": "C-Town Chivalry",
+     "division": "02",
+     "h2h_pct": 0.385,
+     "div_pct": 0.375,
+     "pf_total": 1990.1,
+     "allplay_pct": 0.455,
+     "pwr": 27.49,
+     "pf_avg_game_rows": 152.5
+    },
+    {
+     "franchise_id": "0010",
+     "franchise_name": "Blake Bombers",
+     "division": "00",
+     "h2h_pct": 0.5,
+     "div_pct": 0.5,
+     "pf_total": 1993.8,
+     "allplay_pct": 0.486,
+     "pwr": 32.42,
+     "pf_avg_game_rows": 156.22
+    },
+    {
+     "franchise_id": "0011",
+     "franchise_name": "The Baster",
+     "division": "00",
+     "h2h_pct": 0.5,
+     "div_pct": 0.5,
+     "pf_total": 2004.6,
+     "allplay_pct": 0.429,
+     "pwr": 31.73,
+     "pf_avg_game_rows": 153.13
+    },
+    {
+     "franchise_id": "0012",
+     "franchise_name": "White Power",
+     "division": "02",
+     "h2h_pct": 0.615,
+     "div_pct": 0.375,
+     "pf_total": 2021.5,
+     "allplay_pct": 0.526,
+     "pwr": 34.44,
+     "pf_avg_game_rows": 158.12
+    }
+   ],
+   "games": [
+    {
+     "week": 1,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0010",
+     "team_score": 200.4,
+     "opponent_score": 143.8,
+     "is_playoff": 0
+    },
+    {
+     "week": 1,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0008",
+     "team_score": 143.8,
+     "opponent_score": 200.4,
+     "is_playoff": 0
+    },
+    {
+     "week": 2,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0011",
+     "team_score": 194.9,
+     "opponent_score": 178.7,
+     "is_playoff": 0
+    },
+    {
+     "week": 2,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0010",
+     "team_score": 178.7,
+     "opponent_score": 194.9,
+     "is_playoff": 0
+    },
+    {
+     "week": 3,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0011",
+     "team_score": 130.1,
+     "opponent_score": 125.6,
+     "is_playoff": 0
+    },
+    {
+     "week": 3,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0008",
+     "team_score": 125.6,
+     "opponent_score": 130.1,
+     "is_playoff": 0
+    },
+    {
+     "week": 4,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0010",
+     "team_score": 143.0,
+     "opponent_score": 152.1,
+     "is_playoff": 0
+    },
+    {
+     "week": 4,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0008",
+     "team_score": 152.1,
+     "opponent_score": 143.0,
+     "is_playoff": 0
+    },
+    {
+     "week": 5,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0011",
+     "team_score": 165.9,
+     "opponent_score": 90.0,
+     "is_playoff": 0
+    },
+    {
+     "week": 5,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0010",
+     "team_score": 90.0,
+     "opponent_score": 165.9,
+     "is_playoff": 0
+    },
+    {
+     "week": 6,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0011",
+     "team_score": 179.9,
+     "opponent_score": 184.8,
+     "is_playoff": 0
+    },
+    {
+     "week": 6,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0008",
+     "team_score": 184.8,
+     "opponent_score": 179.9,
+     "is_playoff": 0
+    },
+    {
+     "week": 8,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0010",
+     "team_score": 164.7,
+     "opponent_score": 138.5,
+     "is_playoff": 0
+    },
+    {
+     "week": 8,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0008",
+     "team_score": 138.5,
+     "opponent_score": 164.7,
+     "is_playoff": 0
+    },
+    {
+     "week": 9,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0011",
+     "team_score": 129.5,
+     "opponent_score": 100.8,
+     "is_playoff": 0
+    },
+    {
+     "week": 9,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0010",
+     "team_score": 100.8,
+     "opponent_score": 129.5,
+     "is_playoff": 0
+    },
+    {
+     "week": 10,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0011",
+     "team_score": 121.9,
+     "opponent_score": 150.6,
+     "is_playoff": 0
+    },
+    {
+     "week": 10,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0008",
+     "team_score": 150.6,
+     "opponent_score": 121.9,
+     "is_playoff": 0
+    },
+    {
+     "week": 11,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0010",
+     "team_score": 131.2,
+     "opponent_score": 115.0,
+     "is_playoff": 0
+    },
+    {
+     "week": 11,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0008",
+     "team_score": 115.0,
+     "opponent_score": 131.2,
+     "is_playoff": 0
+    },
+    {
+     "week": 12,
+     "franchise_id": "0010",
+     "opponent_franchise_id": "0011",
+     "team_score": 153.3,
+     "opponent_score": 205.4,
+     "is_playoff": 0
+    },
+    {
+     "week": 12,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0010",
+     "team_score": 205.4,
+     "opponent_score": 153.3,
+     "is_playoff": 0
+    },
+    {
+     "week": 13,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0011",
+     "team_score": 156.3,
+     "opponent_score": 166.2,
+     "is_playoff": 0
+    },
+    {
+     "week": 13,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0008",
+     "team_score": 166.2,
+     "opponent_score": 156.3,
+     "is_playoff": 0
+    },
+    {
+     "week": 14,
+     "franchise_id": "0008",
+     "opponent_franchise_id": "0011",
+     "team_score": 134.2,
+     "opponent_score": 141.2,
+     "is_playoff": 1
+    },
+    {
+     "week": 14,
+     "franchise_id": "0011",
+     "opponent_franchise_id": "0008",
+     "team_score": 141.2,
+     "opponent_score": 134.2,
+     "is_playoff": 1
+    }
+   ],
+   "_note": "games trimmed to Division 00 pairings (the only ones the tie needs)"
+  }
+ }
+}
