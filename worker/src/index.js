@@ -6,7 +6,7 @@ import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
 import { seedLadderSteps, modernField, legacyStandingsTiebreak } from "./seeding.js";
 import { seedCurrentSeason } from "./standings_truth.js";
-import { blankOfferText, scrubBugLabel, withoutAccountIds, storableBugRow } from "./public_data_hygiene.js";
+import { blankOfferText, scrubBugLabel, withoutAccountIds, storableBugRow, outboxFileRow } from "./public_data_hygiene.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
 import {
   processPendingSummaries as processHallPendingSummaries,
@@ -28459,12 +28459,19 @@ const mflToSleeper = {};
         }
       };
 
+      // The outbox rows live in D1 (TWB_OUTBOX_DB). This file copy is only the fallback used when that binding is missing, and it
+      // sits behind the same pause as the offers file: nothing is published unless TRADE_OFFERS_PUBLIC_WRITES_ENABLED is "1".
       const writeTradeOutboxDoc = async (leagueId, season, doc, prevSha, message) => {
         const filePath = tradeOutboxFilePath(leagueId, season);
+        if (!tradeOffersPublicWritesEnabled()) {
+          return { ok: false, paused: true, error: "trade_offers_public_writes_paused", filePath };
+        }
         if (!githubPat) {
           return { ok: false, error: "Missing GITHUB_PAT worker secret", filePath };
         }
         const normalized = normalizeTradeOutboxDoc(doc, leagueId, season);
+        // Public file: allowlisted fields only, owner notes and MFL response excerpts emptied (rows already in the file included).
+        normalized.rows = (Array.isArray(normalized.rows) ? normalized.rows : []).map(outboxFileRow);
         normalized.meta.updated_at = new Date().toISOString();
         normalized.meta.row_count = Array.isArray(normalized.rows) ? normalized.rows.length : 0;
         const body = {
