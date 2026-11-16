@@ -3,7 +3,7 @@
     "schema_version": 1,
     "league_id": "74598",
     "season": 2026,
-    "updated_at": "2026-11-16T15:47:46.888Z",
+    "updated_at": "2026-11-16T15:49:19.551Z",
     "row_count": 69,
     "source": "worker-trade-offers"
   },
@@ -978,28 +978,28 @@
       "season": 2026,
       "status": "PENDING",
       "created_at": "2026-03-10T21:20:54.103Z",
-      "updated_at": "2026-11-16T15:47:46.888Z",
+      "updated_at": "2026-11-16T15:49:19.551Z",
       "from_franchise_id": "0005",
       "to_franchise_id": "0004",
       "from_franchise_name": "HammerTime 🔨 ⏰",
       "to_franchise_name": "Pure Greatness",
-      "message": "Pre-trade extension: Extend Irving, Bucky 1-year | New length 2 | New AAV 12K | New TCV 14K",
-      "comment": "Pre-trade extension: Extend Irving, Bucky 1-year | New length 2 | New AAV 12K | New TCV 14K",
-      "comments": "Pre-trade extension: Extend Irving, Bucky 1-year | New length 2 | New AAV 12K | New TCV 14K",
-      "raw_comment": "Pre-trade extension: Extend Irving, Bucky 1-year | New length 2 | New AAV 12K | New TCV 14K",
+      "message": "",
+      "comment": "",
+      "comments": "",
+      "raw_comment": "",
       "will_give_up": "15846,16387,FP_0006_2027_2,FP_0005_2027_5",
-      "will_receive": "16598,15821",
+      "will_receive": "15261,15821",
       "source": "trade-workbench-ui",
       "summary": {
         "from_asset_count": 4,
         "to_asset_count": 2,
         "from_trade_salary_k": 0,
         "to_trade_salary_k": 0,
-        "extension_request_count": 1
+        "extension_request_count": 0
       },
       "payload": {
         "schema_version": 1,
-        "generated_at": "2026-11-16T15:47:06.124Z",
+        "generated_at": "2026-11-16T15:48:58.540Z",
         "source": "ups-trade-workbench",
         "league_id": "74598",
         "season": 2026,
@@ -1093,17 +1093,17 @@
             "franchise_name": "Pure Greatness",
             "selected_assets": [
               {
-                "asset_id": "player:16598",
+                "asset_id": "player:15261",
                 "type": "PLAYER",
-                "player_id": "16598",
-                "player_name": "Irving, Bucky",
+                "player_id": "15261",
+                "player_name": "Hubbard, Chuba",
                 "description": null,
                 "position": "RB",
-                "nfl_team": "TBB",
-                "salary": 2000,
-                "years": 1,
-                "contract_type": "Rookie-Draft",
-                "contract_info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+                "nfl_team": "CAR",
+                "salary": 5000,
+                "years": 2,
+                "contract_type": "Vet-FAA",
+                "contract_info": "CL 2|TCV 10K|AAV 5K|Y1-5K, Y2-5K|GTD: 7.5K",
                 "taxi": false,
                 "pick_key": null,
                 "pick_season": null,
@@ -1131,28 +1131,11 @@
             ],
             "traded_salary_adjustment_dollars": 0,
             "traded_salary_adjustment_k": 0,
-            "traded_salary_adjustment_max_k": 2,
-            "selected_non_taxi_salary_dollars": 4000
+            "traded_salary_adjustment_max_k": 3,
+            "selected_non_taxi_salary_dollars": 7000
           }
         ],
-        "extension_requests": [
-          {
-            "player_id": "16598",
-            "player_name": "Irving, Bucky",
-            "from_franchise_id": "0004",
-            "to_franchise_id": "0005",
-            "applies_to_acquirer": true,
-            "option_key": "1YR|NONE",
-            "extension_term": "1YR",
-            "loaded_indicator": "NONE",
-            "preview_id": 115,
-            "preview_contract_info_string": "CL 2|TCV 14K|AAV 2K, 12K|Y1-2K, Y2-12K|Ext: PG|GTD: 10.5K",
-            "new_contract_status": "Vet-Ext1",
-            "new_contract_length": 2,
-            "new_TCV": 14000,
-            "new_aav_future": 12000
-          }
-        ],
+        "extension_requests": [],
         "filters": {
           "search": ""
         },
@@ -1168,16 +1151,16 @@
             "starting_salary_dollars": 253500,
             "salary_adjustment_total_dollars": 9050,
             "outgoing_dollars": 2000,
-            "incoming_dollars": 4000,
+            "incoming_dollars": 7000,
             "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": 2000,
-            "new_salary_dollars": 255500,
+            "net_salary_adjustment_dollars": 5000,
+            "new_salary_dollars": 258500,
             "trade_salary_adjustment_k": 0,
             "trade_salary_adjustment_max_k": 1,
             "net_trade_salary_k": 0,
-            "net_cap_change_dollars": -2000,
+            "net_cap_change_dollars": -5000,
             "available_salary_before_dollars": 37450,
-            "available_salary_after_dollars": 35450,
+            "available_salary_after_dollars": 32450,
             "over_cap_dollars": 0
           },
           "right": {
@@ -1186,17 +1169,17 @@
             "salary_cap_dollars": 300000,
             "starting_salary_dollars": 276500,
             "salary_adjustment_total_dollars": 500,
-            "outgoing_dollars": 4000,
+            "outgoing_dollars": 7000,
             "incoming_dollars": 2000,
             "salary_trade_adjustment_dollars": 0,
-            "net_salary_adjustment_dollars": -2000,
-            "new_salary_dollars": 274500,
+            "net_salary_adjustment_dollars": -5000,
+            "new_salary_dollars": 271500,
             "trade_salary_adjustment_k": 0,
-            "trade_salary_adjustment_max_k": 2,
+            "trade_salary_adjustment_max_k": 3,
             "net_trade_salary_k": 0,
-            "net_cap_change_dollars": 2000,
+            "net_cap_change_dollars": 5000,
             "available_salary_before_dollars": 23000,
-            "available_salary_after_dollars": 25000,
+            "available_salary_after_dollars": 28000,
             "over_cap_dollars": 0
           },
           "has_over_cap": false
@@ -1209,20 +1192,20 @@
             {
               "season": 2026,
               "left_before_dollars": 253500,
-              "left_after_dollars": 255500,
-              "left_change_dollars": 2000,
+              "left_after_dollars": 258500,
+              "left_change_dollars": 5000,
               "right_before_dollars": 276500,
-              "right_after_dollars": 274500,
-              "right_change_dollars": -2000
+              "right_after_dollars": 271500,
+              "right_change_dollars": -5000
             },
             {
               "season": 2027,
               "left_before_dollars": 343000,
-              "left_after_dollars": 355000,
-              "left_change_dollars": 12000,
+              "left_after_dollars": 348000,
+              "left_change_dollars": 5000,
               "right_before_dollars": 271000,
-              "right_after_dollars": 269000,
-              "right_change_dollars": -2000
+              "right_after_dollars": 266000,
+              "right_change_dollars": -5000
             },
             {
               "season": 2028,
@@ -1239,11 +1222,11 @@
           "status": "ready",
           "issues": []
         },
-        "comment": "Pre-trade extension: Extend Irving, Bucky 1-year | New length 2 | New AAV 12K | New TCV 14K"
+        "comment": ""
       },
       "twb_meta": null,
-      "mfl_trade_id": "1294",
-      "trade_id": "1294",
+      "mfl_trade_id": "1295",
+      "trade_id": "1295",
       "mfl_present": true,
       "mfl_status": "PENDING"
     },
