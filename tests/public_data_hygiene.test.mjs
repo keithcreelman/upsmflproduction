@@ -109,11 +109,11 @@ test("SCREENSHOTS: the stored row keeps names and sizes only; the input still ha
 
 test("OFFER TEXT: the five typed fields are blanked at the top and inside payload; extension requests and ids stay; the input is not changed", () => {
   const row = { id: "TWB-1", message: "SYNTHETIC-NOTE", comment: "SYNTHETIC-NOTE", comments: "SYNTHETIC-NOTE", raw_comment: "SYNTHETIC-NOTE", action_message: "SYNTHETIC-NOTE", will_give_up: "14056,",
-    payload: { comment: "SYNTHETIC-NOTE", message: "SYNTHETIC-NOTE", extension_requests: [{ player_id: "14056", years: 2 }], teams: [{ franchise_id: "0001", comments: "SYNTHETIC-NOTE" }] } };
+    payload: { comment: "SYNTHETIC-NOTE", message: "SYNTHETIC-NOTE", extension_requests: [{ player_id: "14056", new_contract_length: 2 }], teams: [{ franchise_id: "0001", comments: "SYNTHETIC-NOTE" }] } };
   const out = blankOfferText(row);
   t.ok(!JSON.stringify(out).includes("SYNTHETIC-NOTE"), "no typed text survives");
   t.equal(out.id, "TWB-1"); t.equal(out.will_give_up, "14056,");
-  t.deepEqual(out.payload.extension_requests, [{ player_id: "14056", years: 2 }]);
+  t.deepEqual(out.payload.extension_requests, [{ player_id: "14056", new_contract_length: 2 }]);
   t.equal(row.message, "SYNTHETIC-NOTE", "the original row still has its text (the day-one DM uses it)");
 });
 
@@ -205,7 +205,7 @@ test("WORKER offer: the committed row has no typed note; rows it did not touch a
     const doc = JSON.parse(p.text);
     const fresh = doc.offers.find((o) => o.id !== "TWB-old");
     t.ok(fresh, "the new offer row is present"); t.equal(fresh.from_franchise_id, "0001"); t.equal(fresh.to_franchise_id, "0002");
-    t.equal(fresh.message, ""); t.equal(fresh.comment, ""); t.equal(fresh.payload.comment, "");
+    t.equal(fresh.message, ""); t.equal(fresh.comment, ""); t.ok(!("comment" in fresh.payload), "the payload is rebuilt from an allowlist: the note key is absent");
     t.ok(Array.isArray(fresh.payload.teams) && fresh.payload.teams.length === 2, "the rest of the payload is kept");
   } finally { gh.done(); mfl.restore(); }
 });
