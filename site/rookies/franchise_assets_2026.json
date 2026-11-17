@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-16T19:51:15.470823+00:00",
+    "generated_at_utc": "2026-11-17T18:44:55.937773+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2221,6 +2221,18 @@
     "0005": {
       "players": [
         {
+          "asset_id": "P_15237",
+          "display": "Trevor Lawrence",
+          "player_id": "15237",
+          "position": "QB",
+          "nfl_team": "JAC",
+          "salary": 37000,
+          "contract_year": 1,
+          "contract_status": "Tag",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_15794",
           "display": "Trey McBride",
           "player_id": "15794",
@@ -2277,18 +2289,6 @@
           "salary": 18000,
           "contract_year": 3,
           "contract_status": "Vet-FAA-BL",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16186",
-          "display": "Jordan Addison",
-          "player_id": "16186",
-          "position": "WR",
-          "nfl_team": "MIN",
-          "salary": 17000,
-          "contract_year": 1,
-          "contract_status": "Vet-Ext1",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -2715,31 +2715,22 @@
       ],
       "future_picks": [
         {
-          "asset_id": "FP_2027_1_0006",
-          "display": "2027 R1  (via The Long Haulers \u00b7 Brian Cross)",
+          "asset_id": "FP_2027_1_0008",
+          "display": "2027 R1  (via Real Deal Creel \u00b7 Keith Creelman)",
           "year": "2027",
           "round": "1",
-          "original_fid": "0006",
-          "original_team_name": "The Long Haulers",
-          "original_owner_name": "Brian Cross"
+          "original_fid": "0008",
+          "original_team_name": "Real Deal Creel",
+          "original_owner_name": "Keith Creelman"
         },
         {
-          "asset_id": "FP_2027_2_0006",
-          "display": "2027 R2  (via The Long Haulers \u00b7 Brian Cross)",
+          "asset_id": "FP_2027_3_0002",
+          "display": "2027 R3  (via CBP \u00b7 Derrick Whitman)",
           "year": "2027",
-          "round": "2",
-          "original_fid": "0006",
-          "original_team_name": "The Long Haulers",
-          "original_owner_name": "Brian Cross"
-        },
-        {
-          "asset_id": "FP_2027_5_0005",
-          "display": "2027 R5",
-          "year": "2027",
-          "round": "5",
-          "original_fid": "0005",
-          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
-          "original_owner_name": "Eric Martel"
+          "round": "3",
+          "original_fid": "0002",
+          "original_team_name": "CBP",
+          "original_owner_name": "Derrick Whitman"
         }
       ],
       "current_picks": []
@@ -2771,18 +2762,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15237",
-          "display": "Trevor Lawrence",
-          "player_id": "15237",
-          "position": "QB",
-          "nfl_team": "JAC",
-          "salary": 37000,
-          "contract_year": 1,
-          "contract_status": "Tag",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_14067",
           "display": "Gardner Minshew",
           "player_id": "14067",
@@ -2801,6 +2780,18 @@
           "position": "WR",
           "nfl_team": "LAC",
           "salary": 18000,
+          "contract_year": 1,
+          "contract_status": "Vet-Ext1",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_16186",
+          "display": "Jordan Addison",
+          "player_id": "16186",
+          "position": "WR",
+          "nfl_team": "MIN",
+          "salary": 17000,
           "contract_year": 1,
           "contract_status": "Vet-Ext1",
           "roster_status": "ROSTER",
@@ -3131,30 +3122,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_17526",
-          "display": "Reggie Virgil",
-          "player_id": "17526",
-          "position": "WR",
-          "nfl_team": "ARI",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Rookie-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15303",
-          "display": "Simi Fehoko",
-          "player_id": "15303",
-          "position": "WR",
-          "nfl_team": "ARI",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_16165",
           "display": "Tyjae Spears",
           "player_id": "16165",
@@ -3289,22 +3256,22 @@
       ],
       "future_picks": [
         {
-          "asset_id": "FP_2027_1_0008",
-          "display": "2027 R1  (via Real Deal Creel \u00b7 Keith Creelman)",
+          "asset_id": "FP_2027_1_0006",
+          "display": "2027 R1",
           "year": "2027",
           "round": "1",
-          "original_fid": "0008",
-          "original_team_name": "Real Deal Creel",
-          "original_owner_name": "Keith Creelman"
+          "original_fid": "0006",
+          "original_team_name": "The Long Haulers",
+          "original_owner_name": "Brian Cross"
         },
         {
-          "asset_id": "FP_2027_3_0002",
-          "display": "2027 R3  (via CBP \u00b7 Derrick Whitman)",
+          "asset_id": "FP_2027_2_0006",
+          "display": "2027 R2",
           "year": "2027",
-          "round": "3",
-          "original_fid": "0002",
-          "original_team_name": "CBP",
-          "original_owner_name": "Derrick Whitman"
+          "round": "2",
+          "original_fid": "0006",
+          "original_team_name": "The Long Haulers",
+          "original_owner_name": "Brian Cross"
         },
         {
           "asset_id": "FP_2027_5_0001",
@@ -3314,6 +3281,15 @@
           "original_fid": "0001",
           "original_team_name": "L.A. Looks",
           "original_owner_name": "Ryan Bousquet"
+        },
+        {
+          "asset_id": "FP_2027_5_0005",
+          "display": "2027 R5  (via HammerTime \ud83d\udd28 \u23f0 \u00b7 Eric Martel)",
+          "year": "2027",
+          "round": "5",
+          "original_fid": "0005",
+          "original_team_name": "HammerTime \ud83d\udd28 \u23f0",
+          "original_owner_name": "Eric Martel"
         }
       ],
       "current_picks": []
@@ -3653,18 +3629,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-MYM",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_15238",
-          "display": "Justin Fields",
-          "player_id": "15238",
-          "position": "QB",
-          "nfl_team": "KCC",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5052,18 +5016,6 @@
           "position": "WR",
           "nfl_team": "NOS",
           "salary": 4000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16647",
-          "display": "Brevyn Spann-Ford",
-          "player_id": "16647",
-          "position": "TE",
-          "nfl_team": "DAL",
-          "salary": 3000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
