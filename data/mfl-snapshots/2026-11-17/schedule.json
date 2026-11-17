@@ -2668,13 +2668,13 @@
                 "id": "0003",
                 "isHome": "0",
                 "result": "T",
-                "spread": "43"
+                "spread": "-7"
               },
               {
                 "id": "0010",
                 "isHome": "1",
                 "result": "T",
-                "spread": "-43"
+                "spread": "7"
               }
             ]
           },
@@ -2684,13 +2684,13 @@
                 "id": "0002",
                 "isHome": "0",
                 "result": "T",
-                "spread": "19.2"
+                "spread": "-30.7"
               },
               {
                 "id": "0010",
                 "isHome": "1",
                 "result": "T",
-                "spread": "-19.2"
+                "spread": "30.7"
               }
             ]
           },
@@ -2700,13 +2700,13 @@
                 "id": "0005",
                 "isHome": "0",
                 "result": "T",
-                "spread": "-19.4"
+                "spread": "-59.9"
               },
               {
                 "id": "0004",
                 "isHome": "1",
                 "result": "T",
-                "spread": "19.4"
+                "spread": "59.9"
               }
             ]
           },
@@ -2732,13 +2732,13 @@
                 "id": "0004",
                 "isHome": "0",
                 "result": "T",
-                "spread": "-39.8"
+                "spread": "0.8"
               },
               {
                 "id": "0006",
                 "isHome": "1",
                 "result": "T",
-                "spread": "39.8"
+                "spread": "-0.8"
               }
             ]
           },
@@ -2748,13 +2748,13 @@
                 "id": "0008",
                 "isHome": "0",
                 "result": "T",
-                "spread": "-71.2"
+                "spread": "-50.9"
               },
               {
                 "id": "0007",
                 "isHome": "1",
                 "result": "T",
-                "spread": "71.2"
+                "spread": "50.9"
               }
             ]
           },
@@ -2764,13 +2764,13 @@
                 "id": "0008",
                 "isHome": "0",
                 "result": "T",
-                "spread": "-25.4"
+                "spread": "-15.9"
               },
               {
                 "id": "0001",
                 "isHome": "1",
                 "result": "T",
-                "spread": "25.4"
+                "spread": "15.9"
               }
             ]
           },
@@ -2780,13 +2780,13 @@
                 "id": "0007",
                 "isHome": "0",
                 "result": "T",
-                "spread": "45.8"
+                "spread": "35"
               },
               {
                 "id": "0001",
                 "isHome": "1",
                 "result": "T",
-                "spread": "-45.8"
+                "spread": "-35"
               }
             ]
           },
@@ -2796,13 +2796,13 @@
                 "id": "0009",
                 "isHome": "0",
                 "result": "T",
-                "spread": "-70.6"
+                "spread": "-15.7"
               },
               {
                 "id": "0012",
                 "isHome": "1",
                 "result": "T",
-                "spread": "70.6"
+                "spread": "15.7"
               }
             ]
           },
@@ -2812,13 +2812,13 @@
                 "id": "0009",
                 "isHome": "0",
                 "result": "T",
-                "spread": "-70.6"
+                "spread": "-69.9"
               },
               {
                 "id": "0011",
                 "isHome": "1",
                 "result": "T",
-                "spread": "70.6"
+                "spread": "69.9"
               }
             ]
           },
@@ -2828,13 +2828,13 @@
                 "id": "0012",
                 "isHome": "0",
                 "result": "T",
-                "spread": "0"
+                "spread": "-54.2"
               },
               {
                 "id": "0011",
                 "isHome": "1",
                 "result": "T",
-                "spread": "0"
+                "spread": "54.2"
               }
             ]
           }
