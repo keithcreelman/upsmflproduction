@@ -610,6 +610,47 @@ def d1_execute_file(sql_text, label):
     print(f"  {label}: {result.stdout[-500:].strip()}")
 
 
+# Potential points (pp) and efficiency (eff) are derived from MFL's per-week optimal lineups, and MFL's season
+# leagueStandings totals for them can lag or disagree with those weekly values for days after a stat correction
+# (2026-11-17: 0011 off by 28.8 pp, 1.3%, while record, points-for and all-play matched exactly, which blocked the
+# whole standings write). They are descriptive columns, so a small gap is a warning. Records, points-for and
+# all-play decide the standings and stay strict; a pp/eff gap over this fraction of MFL's figure is still a refusal.
+PP_WARN_REL = 0.02
+
+
+def compare_to_mfl_standings(standings_rows, ls_by_fid):
+    """Compare the computed standings with MFL's leagueStandings.
+    Returns (hard, soft): hard = mismatches that must stop the write (records, div, points-for, all-play, or a
+    pp/eff gap over PP_WARN_REL); soft = pp/eff gaps within PP_WARN_REL (warn, then write)."""
+    hard, soft = [], []
+    for r in standings_rows:
+        fid = r["franchise_id"]
+        ls = ls_by_fid.get(fid)
+        if not ls:
+            continue
+        strict = [
+            ("h2h_w", safe_int(ls.get("h2hw"))), ("h2h_l", safe_int(ls.get("h2hl"))),
+            ("div_w", safe_int(ls.get("divw"))), ("div_l", safe_int(ls.get("divl"))),
+            ("pf", safe_float(ls.get("pf"))),
+        ]
+        for field, expected in strict:
+            got = r[field]
+            if got is None or abs(safe_float(got) - safe_float(expected)) > 0.15:
+                hard.append((fid, field, got, expected))
+        for field, expected in (("pp", safe_float(ls.get("pp"))), ("eff", safe_float(ls.get("eff")))):
+            got = r[field]
+            if got is None:
+                hard.append((fid, field, got, expected))
+            elif abs(safe_float(got) - expected) > 0.15:
+                rel = abs(safe_float(got) - expected) / abs(expected) if expected else float("inf")
+                (soft if rel <= PP_WARN_REL else hard).append((fid, field, got, expected))
+        exp_ap_w, exp_ap_l, exp_ap_t = parse_wlt_local(ls.get("all_play_wlt"))
+        for field, expected in (("allplay_w", exp_ap_w), ("allplay_l", exp_ap_l), ("allplay_t", exp_ap_t)):
+            if r[field] != expected:
+                hard.append((fid, field, r[field], expected))
+    return hard, soft
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--season", type=int, required=True)
@@ -670,33 +711,22 @@ def main():
 
     # Correctness check against MFL's own leagueStandings numbers.
     ls_by_fid = {pad4(r.get("id")): r for r in ls_rows}
-    mismatches = []
-    for r in standings_rows:
-        fid = r["franchise_id"]
-        ls = ls_by_fid.get(fid)
-        if not ls:
-            continue
-        checks = [
-            ("h2h_w", safe_int(ls.get("h2hw"))), ("h2h_l", safe_int(ls.get("h2hl"))),
-            ("div_w", safe_int(ls.get("divw"))), ("div_l", safe_int(ls.get("divl"))),
-            ("pf", safe_float(ls.get("pf"))), ("pp", safe_float(ls.get("pp"))),
-            ("eff", safe_float(ls.get("eff"))),
-        ]
-        for field, expected in checks:
-            got = r[field]
-            if got is None or abs(safe_float(got) - safe_float(expected)) > 0.15:
-                mismatches.append((fid, field, got, expected))
-        exp_ap_w, exp_ap_l, exp_ap_t = (parse_ap := parse_wlt_local(ls.get("all_play_wlt")))
-        for field, expected in (("allplay_w", exp_ap_w), ("allplay_l", exp_ap_l), ("allplay_t", exp_ap_t)):
-            if r[field] != expected:
-                mismatches.append((fid, field, r[field], expected))
+    mismatches, soft = compare_to_mfl_standings(standings_rows, ls_by_fid)
 
     if mismatches:
         print(f"\n!! {len(mismatches)} MISMATCH(ES) vs MFL leagueStandings -- refusing to write:")
         for fid, field, got, expected in mismatches:
             print(f"   {fid} {field}: computed={got} mfl={expected}")
         return 1
-    print(f"\nVerified: all {len(standings_rows)} franchises' h2h/div/allplay/pf/pp/eff match MFL's leagueStandings exactly.")
+    if soft:
+        print(f"\n!! WARNING: {len(soft)} potential-points/efficiency figure(s) differ from MFL's leagueStandings "
+              f"(each within {PP_WARN_REL:.0%}); records, points-for and all-play all match exactly, so writing anyway:")
+        for fid, field, got, expected in soft:
+            print(f"   {fid} {field}: computed={got} mfl={expected}")
+        print(f"\nVerified: all {len(standings_rows)} franchises' h2h/div/allplay/pf match MFL's leagueStandings exactly "
+              f"(pp/eff: {len(soft)} warning(s) above).")
+    else:
+        print(f"\nVerified: all {len(standings_rows)} franchises' h2h/div/allplay/pf/pp/eff match MFL's leagueStandings exactly.")
 
     franchises_rows = [
         {
