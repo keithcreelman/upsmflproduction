@@ -442,7 +442,7 @@ AUTO.sh = fake_sh
 try:
     why = AUTO.run_forecast(2026, 6, wd, log=lambda *a: None)
     first = [c[1].split("/")[-1] for c in calls]
-    sim_cmd, prev_cmd = calls[0], calls[1]
+    sim_cmd, prev_cmd = calls[1], calls[2]       # calls[0] is the live pass that fills the cache and is discarded
     calls.clear()
     why2 = AUTO.run_forecast(2026, 6, wd, log=lambda *a: None)
     calls.clear()
@@ -450,7 +450,7 @@ try:
 finally:
     AUTO.sh, AUTO.STATE_DIR = real_sh, real_state
 check("the job runs season_sim --through-week 6, then week_preview --week 7 from the SAME cached inputs",
-      first == ["season_sim.py", "week_preview.py"] and not why
+      first == ["season_sim.py", "season_sim.py", "week_preview.py"] and "--reuse-cache" in sim_cmd and "--reuse-cache" not in calls[0] and not why
       and sim_cmd[sim_cmd.index("--through-week") + 1] == "6" and prev_cmd[prev_cmd.index("--week") + 1] == "7"
       and "--reuse-cache" in prev_cmd and sim_cmd[sim_cmd.index("--cache-dir") + 1] == prev_cmd[prev_cmd.index("--live-cache") + 1]
       and sim_cmd[sim_cmd.index("--runs") + 1] == prev_cmd[prev_cmd.index("--runs") + 1] == "10000", calls)
