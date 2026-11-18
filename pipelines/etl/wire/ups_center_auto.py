@@ -146,11 +146,23 @@ def run_forecast(season, week, workdir, log=print, data_dir=None, cache_dir=None
     py = sys.executable
     reasons = []
     if not os.path.exists(sim):
-        rc, out = sh([py, "pipelines/etl/wire/season_sim.py", "--season", str(season), "--through-week", str(week),
-                      "--runs", str(FORECAST_RUNS), "--cache-dir", cache, "--out", os.path.relpath(sim, workdir)]
-                     + (["--reuse-cache"] if pinned else []), workdir)
-        if rc != 0 or not os.path.exists(sim):
-            reasons.append("forecast (season_sim --through-week %d) failed: %s" % (week, out.strip()[-300:]))
+        base = [py, "pipelines/etl/wire/season_sim.py", "--season", str(season), "--through-week", str(week),
+                "--runs", str(FORECAST_RUNS), "--cache-dir", cache]
+        if not pinned:
+            # Pass 1 fetches the live inputs into the cache and is discarded. Pass 2 reads that cache exactly as recorded, like the
+            # preview below does, so the odds and the Week N+1 scenarios are the same simulated seasons. A single live pass was not
+            # enough: its calibration (sigma) differed from the preview's in the second decimal, the scenario cells then failed the
+            # consistency check ("odds:inconsistent") and Week 10 shipped with no Playoff Picture (2026-11-18).
+            tmp = sim + ".live"
+            rc, out = sh(base + ["--out", os.path.relpath(tmp, workdir)], workdir)
+            if os.path.exists(tmp):
+                os.remove(tmp)
+            if rc != 0:
+                reasons.append("forecast (season_sim --through-week %d) failed: %s" % (week, out.strip()[-300:]))
+        if not reasons:
+            rc, out = sh(base + ["--out", os.path.relpath(sim, workdir), "--reuse-cache"], workdir)
+            if rc != 0 or not os.path.exists(sim):
+                reasons.append("forecast (season_sim --through-week %d) failed: %s" % (week, out.strip()[-300:]))
     if week >= REG_SEASON_LAST_WEEK:
         log("no regular-season week after %d to preview" % week)
     elif not os.path.exists(prev):
