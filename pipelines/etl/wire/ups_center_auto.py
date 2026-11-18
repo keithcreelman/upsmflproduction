@@ -145,6 +145,11 @@ def run_forecast(season, week, workdir, log=print, data_dir=None, cache_dir=None
     os.makedirs(cache, exist_ok=True)
     py = sys.executable
     reasons = []
+    # season_sim and week_preview must break exact ties the same way. Their tie-break follows set/dict iteration order, which changes
+    # with Python's per-process string-hash seed, so two processes disagreed by ONE simulated season for two teams (Week 10,
+    # 2026-11-18: odds:inconsistent, no Playoff Picture). Pin the seed for both. (Same seed => same answer was verified on the
+    # recorded Week 10 inputs; different seeds differ by one run.)
+    fenv = dict(os.environ, PYTHONHASHSEED="0")
     if not os.path.exists(sim):
         base = [py, "pipelines/etl/wire/season_sim.py", "--season", str(season), "--through-week", str(week),
                 "--runs", str(FORECAST_RUNS), "--cache-dir", cache]
@@ -154,13 +159,13 @@ def run_forecast(season, week, workdir, log=print, data_dir=None, cache_dir=None
             # enough: its calibration (sigma) differed from the preview's in the second decimal, the scenario cells then failed the
             # consistency check ("odds:inconsistent") and Week 10 shipped with no Playoff Picture (2026-11-18).
             tmp = sim + ".live"
-            rc, out = sh(base + ["--out", os.path.relpath(tmp, workdir)], workdir)
+            rc, out = sh(base + ["--out", os.path.relpath(tmp, workdir)], workdir, env=fenv)
             if os.path.exists(tmp):
                 os.remove(tmp)
             if rc != 0:
                 reasons.append("forecast (season_sim --through-week %d) failed: %s" % (week, out.strip()[-300:]))
         if not reasons:
-            rc, out = sh(base + ["--out", os.path.relpath(sim, workdir), "--reuse-cache"], workdir)
+            rc, out = sh(base + ["--out", os.path.relpath(sim, workdir), "--reuse-cache"], workdir, env=fenv)
             if rc != 0 or not os.path.exists(sim):
                 reasons.append("forecast (season_sim --through-week %d) failed: %s" % (week, out.strip()[-300:]))
     if week >= REG_SEASON_LAST_WEEK:
@@ -168,7 +173,7 @@ def run_forecast(season, week, workdir, log=print, data_dir=None, cache_dir=None
     elif not os.path.exists(prev):
         rc, out = sh([py, "pipelines/etl/wire/week_preview.py", "--season", str(season), "--week", str(week + 1),
                       "--runs", str(FORECAST_RUNS), "--live-cache", cache, "--reuse-cache",
-                      "--out", os.path.relpath(prev, workdir)], workdir)
+                      "--out", os.path.relpath(prev, workdir)], workdir, env=fenv)
         if rc != 0 or not os.path.exists(prev):
             reasons.append("Week %d preview (week_preview --week %d) failed: %s" % (week + 1, week + 1, out.strip()[-300:]))
     return reasons

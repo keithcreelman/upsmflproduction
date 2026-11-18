@@ -431,8 +431,12 @@ os.makedirs(os.path.join(wd, "site", "wire", "data"))
 AUTO.STATE_DIR = tempfile.mkdtemp()
 
 
+envs = []
+
+
 def fake_sh(cmd, cwd=None, check=False, env=None):
     calls.append(cmd)
+    envs.append((env or {}).get("PYTHONHASHSEED"))
     if "--out" in cmd:
         open(os.path.join(cwd, cmd[cmd.index("--out") + 1]), "w").write("{}")
     return 0, ""
@@ -454,6 +458,7 @@ check("the job runs season_sim --through-week 6, then week_preview --week 7 from
       and sim_cmd[sim_cmd.index("--through-week") + 1] == "6" and prev_cmd[prev_cmd.index("--week") + 1] == "7"
       and "--reuse-cache" in prev_cmd and sim_cmd[sim_cmd.index("--cache-dir") + 1] == prev_cmd[prev_cmd.index("--live-cache") + 1]
       and sim_cmd[sim_cmd.index("--runs") + 1] == prev_cmd[prev_cmd.index("--runs") + 1] == "10000", calls)
+check("every forecast subprocess runs with PYTHONHASHSEED=0 (sim and preview break ties identically)", envs[:3] == ["0", "0", "0"], envs)
 check("a rerun keeps the existing forecast files (both scripts refuse to overwrite; nothing re-run)", not why2)
 check("after the last regular-season week there is no next week to preview", not why3)
 
