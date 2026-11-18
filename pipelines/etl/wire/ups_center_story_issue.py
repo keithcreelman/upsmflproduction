@@ -653,8 +653,8 @@ class StoryIssue(I.Issue):
         sal_b = self.L.put("trade:sal:b", tr["b_salary"], src, "${:,.0f}".format(tr["b_salary"]))
         lines = []
         # 1. the trade, as news
-        lines.append(("Stuart", "Sunday was the record. The other story of the week arrived Tuesday, and it was big: %s and %s made a %s-asset trade at %s. %s sent %s. %s sent %s." % (
-            A, B, self.word(n) if n <= 12 else n_c, I.et_clock(tr["timestamp"], with_day=False) + " ET", sa, join(desc(x) for x in tr["a_gave"]), sb, join(desc(x) for x in tr["b_gave"]))))
+        lines.append(("Stuart", "The other story of the week arrived %s, and it was big: %s and %s made %s %s-asset trade at %s. %s sent %s. %s sent %s." % (
+            datetime.fromtimestamp(tr["timestamp"], I.ET).strftime("%A"), A, B, "an" if n in (8, 11, 18) else "a", self.word(n) if n <= 12 else n_c, I.et_clock(tr["timestamp"], with_day=False) + " ET", sa, join(desc(x) for x in tr["a_gave"]), sb, join(desc(x) for x in tr["b_gave"]))))
         # 2. what it says about the rosters: running back points, then the Keith-side chat line if a pick fits
         rb = tc.get("rbPts") or {}
         if rb:
