@@ -636,6 +636,13 @@ class StoryIssue(I.Issue):
             if x["kind"] == "pick":
                 own = ("%s&rsquo;s " % e(self.owner[x["origin"]])) if x.get("origin") in self.owner else ""
                 return "%s%d %s-round pick" % (own, x["year"], self.ORDW.get(x["round"], str(x["round"])))
+            # blind-bid money is a registered claim, one per BB token, validated against the MFL transaction's own token
+            for side_, gave_ in (("a", tr["a_gave"]), ("b", tr["b_gave"])):
+                bbs = [y for y in gave_ if y["kind"] == "bb"]
+                for i_, y in enumerate(bbs):
+                    if y is x:
+                        amt = x.get("amount", 0)
+                        return "%s of blind-bid money" % self.L.put("trade:bb:%s:%d" % (side_, i_), amt, src, "${:,.0f}".format(amt))
             return "$%s of blind-bid money" % "{:,.0f}".format(x.get("amount", 0))
         na, nb = len(trade_list(tr["a_gave"])), len(trade_list(tr["b_gave"]))
         n = d["assets"]

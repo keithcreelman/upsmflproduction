@@ -1189,6 +1189,21 @@ pk_ = next(k for k in claims if k.startswith("odds:pre:"))
 claims[pk_]["value"] = 1.0
 check("a wrong pre-trade odds figure fails", any(pk_ in e for e in VAL.validate(dict(rtd, claims=claims), ctd, PACK8)["errors"]))
 
+print("S11b. blind-bid money in a trade is a registered, validated claim (Week 10: BB_18000 failed as an unregistered number)")
+def with_bb(c):
+    with_trade(c)
+    c["tradeInfo"][0]["b_gave"].append({"kind": "bb", "amount": 18000.0})
+    c["mfl"]["trades"] = [{"timestamp": str(SYN["timestamp"]), "franchise": "0008", "franchise2": "0011",
+                           "franchise1_gave_up": "15789,17501,FP_0005_2027_1", "franchise2_gave_up": "16161,BB_18000"}]
+rbb, vbb, cbb = build8(with_bb, local=False)
+tbb = VAL.visible_text(rbb["html"])
+check("the blind-bid figure prints as dollars, is a registered claim, and the draft validates (no stray number)",
+      "$18,000 of blind-bid money" in tbb and rbb["claims"].get("trade:bb:b:0", {}).get("value") == 18000.0 and vbb["ok"], (vbb["errors"], rbb["claims"].get("trade:bb:b:0")))
+claims = copy.deepcopy(rbb["claims"])
+claims["trade:bb:b:0"]["value"] = 17000.0
+check("a wrong blind-bid amount fails against the MFL transaction token",
+      any("trade:bb:b:0" in e for e in VAL.validate(dict(rbb, claims=claims), cbb, PACK8)["errors"]))
+
 print("S12. playoff weeks count in the score records when all twelve teams scored (Keith 2026-11-11)")
 a_ = CTX8["archive"]
 check("the archive carries complete playoff/consolation weeks as `extra` and FLAGS weeks with fewer than twelve teams as `partial`",

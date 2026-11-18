@@ -631,6 +631,11 @@ def validate(res, ctx, pack):
                     w_ = next((x["salary"] for x in pl if x["id"] == pid), None)
                 elif what == "yrs":
                     w_ = next((int(x["years"]) for x in pl if x["id"] == pid), None)
+                elif what == "bb":
+                    side_, _, i_ = pid.partition(":")
+                    raw_ = ((ctx.get("mfl") or {}).get("trades") or [{}])[0]          # the MFL transaction's own tokens, not the parsed copy
+                    toks_ = [t_ for t_ in str(raw_.get("franchise1_gave_up" if side_ == "a" else "franchise2_gave_up") or "").split(",") if t_.startswith("BB_")]
+                    w_ = float(toks_[int(i_)][3:]) if i_.isdigit() and int(i_) < len(toks_) else None
                 else:
                     w_ = want.get(what)
                 if w_ is None or abs(float(w_) - float(v)) > 0.05:
