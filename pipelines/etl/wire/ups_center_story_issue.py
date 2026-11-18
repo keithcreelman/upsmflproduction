@@ -627,6 +627,7 @@ class StoryIssue(I.Issue):
         tc = self.ctx.get("tradeContext") or {}
         src = "MFL public transactions + rosters + weeklyResults exports (trade of %s)" % datetime.fromtimestamp(tr["timestamp"], I.ET).strftime("%b %d, %Y")
         when = I.et_clock(tr["timestamp"])
+        self.L.put("trade:sel", tr["timestamp"], src)                  # which trade is printed: the validator binds every trade claim to this MFL timestamp
         A, B = e(self.owner[a]), e(self.owner[b])
         sa, sb = self.sn(a), self.sn(b)                              # surnames after the first mention, as the hand edit does
 
@@ -1145,6 +1146,13 @@ class StoryIssue(I.Issue):
                 out.append(("Kenny", "%s. %s: %s%s." % (lead, qs[0][0], qs[0][1], (", and then, " + ", ".join("%s: %s" % (w, q) for w, q, _ in rest)) if rest else "")))
         return out
 
+    def dominant_tail(self, n):
+        """'Those are the only three Dominant teams' reads right for 2-4 teams; one team is 'That is the only Dominant team' (Keith review of #1462:
+        'Those are the only one Dominant teams'). More than four teams: no sentence."""
+        if n == 1:
+            return " That is the only Dominant team in the league."
+        return (" Those are the only %s Dominant teams in the league." % self.word(n)) if 2 <= n <= 4 else ""
+
     def chapter_of(self, owner):
         for pot in self.pack["pots"]:
             if any(owner in (g["winner"], g["loser"]) for g in pot["games"]):
@@ -1468,7 +1476,7 @@ class StoryIssue(I.Issue):
             if dom:
                 t1 = "Treat the last three weeks as their own season. In %s, %s." % (w_last, join(
                     "%s is %s in All-Play" % (e(self.owner[f]), a3(f)) if j == 0 else "%s is %s" % (e(self.owner[f]), a3(f)) for j, f in enumerate(dom[:3])))
-                t1 += " Those are the only %s Dominant teams in the league." % self.word(len(dom)) if len(dom) <= 4 else ""
+                t1 += self.dominant_tail(len(dom))
             else:
                 t1 = "Treat the last three weeks as their own season. In %s, no team was Dominant." % w_last
             t1 += " The next best are %s." % join("%s at %s" % (e(self.owner[f]), a3(f)) for f in rest[:2])

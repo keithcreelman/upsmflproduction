@@ -1073,6 +1073,8 @@ SYN6 = {"timestamp": 1794338860, "a": "0008", "b": "0011", "a_salary": 45000.0, 
 def kenny_ctx(picks):
     def mut(c):
         c["tradeInfo"] = [copy.deepcopy(SYN6)]
+        c["mfl"]["trades"] = [{"timestamp": str(SYN6["timestamp"]), "franchise": "0008", "franchise2": "0011",
+                               "franchise1_gave_up": "15789,FP_0005_2027_1", "franchise2_gave_up": "16161"}]
         pre = copy.deepcopy(c["forecast"]["sim"])
         pre["teams"]["0008"]["po"] = max(0.0, pre["teams"]["0008"]["po"] - 0.12)
         c["forecastPre"] = pre
@@ -1172,8 +1174,11 @@ SYN = {"timestamp": 1794338860, "a": "0008", "b": "0011", "a_salary": 77000.0, "
                   {"kind": "player", "id": "17501", "name": "Test Runner", "pos": "RB", "team": "CLE", "salary": 32000.0, "years": "3", "status": "Vet"},
                   {"kind": "pick", "origin": "0005", "year": 2027, "round": 1}],
        "b_gave": [{"kind": "player", "id": "16161", "name": "Test Quarterback", "pos": "QB", "team": "ATL", "salary": 60000.0, "years": "2", "status": "Vet"}]}
+RAW_SYN = {"timestamp": str(SYN["timestamp"]), "franchise": "0008", "franchise2": "0011",
+           "franchise1_gave_up": "15789,17501,FP_0005_2027_1", "franchise2_gave_up": "16161"}
 def with_trade(c):
     c["tradeInfo"] = [copy.deepcopy(SYN)]
+    c["mfl"]["trades"] = [dict(RAW_SYN)]
     pre = copy.deepcopy(c["forecast"]["sim"])
     pre["teams"]["0008"]["po"] = max(0.0, pre["teams"]["0008"]["po"] - 0.12)
     pre["teams"]["0011"]["title"] = max(0.0, pre["teams"]["0011"]["title"] - 0.03)
@@ -1198,8 +1203,7 @@ print("S11b. blind-bid money in a trade is a registered, validated claim (Week 1
 def with_bb(c):
     with_trade(c)
     c["tradeInfo"][0]["b_gave"].append({"kind": "bb", "amount": 18000.0})
-    c["mfl"]["trades"] = [{"timestamp": str(SYN["timestamp"]), "franchise": "0008", "franchise2": "0011",
-                           "franchise1_gave_up": "15789,17501,FP_0005_2027_1", "franchise2_gave_up": "16161,BB_18000"}]
+    c["mfl"]["trades"] = [dict(RAW_SYN, franchise2_gave_up="16161,BB_18000")]
 rbb, vbb, cbb = build8(with_bb, local=False)
 tbb = VAL.visible_text(rbb["html"])
 check("the blind-bid figure prints as dollars, is a registered claim, and the draft validates (no stray number)",
@@ -1208,6 +1212,44 @@ claims = copy.deepcopy(rbb["claims"])
 claims["trade:bb:b:0"]["value"] = 17000.0
 check("a wrong blind-bid amount fails against the MFL transaction token",
       any("trade:bb:b:0" in e for e in VAL.validate(dict(rbb, claims=claims), cbb, PACK8)["errors"]))
+
+print("S11c. every trade claim is bound to the trade actually PRINTED, not to list position (Keith review of #1462)")
+DECOY = {"timestamp": 1794300000, "a": "0001", "b": "0002", "a_salary": 1000.0, "b_salary": 1000.0,
+         "a_gave": [{"kind": "player", "id": "10001", "name": "Decoy One", "pos": "WR", "team": "GBP", "salary": 1000.0, "years": "1", "status": "Vet"}],
+         "b_gave": [{"kind": "bb", "amount": 18000.0}]}
+RAW_DECOY = {"timestamp": "1794300000", "franchise": "0001", "franchise2": "0002", "franchise1_gave_up": "10001", "franchise2_gave_up": "BB_18000"}
+def two_trades(c):                       # the decoy is FIRST in both lists and carries the same BB amount; the printed trade is SECOND
+    with_bb(c)
+    c["tradeInfo"].insert(0, copy.deepcopy(DECOY))
+    c["mfl"]["trades"].insert(0, dict(RAW_DECOY))
+r2t, v2t, c2t = build8(two_trades, local=False)
+t2t = VAL.visible_text(r2t["html"])
+check("a two-trade window: the printed trade is the second one (the big one, not the decoy) and the draft validates",
+      r2t["claims"].get("trade:sel", {}).get("value") == SYN["timestamp"] and "Test Quarterback" in t2t and "Decoy One" not in t2t and v2t["ok"], (v2t["errors"], r2t["claims"].get("trade:sel")))
+c_alt = copy.deepcopy(c2t)
+for t_ in c_alt["mfl"]["trades"]:
+    if int(t_["timestamp"]) == SYN["timestamp"]:
+        t_["franchise2_gave_up"] = "16161,BB_17000"                 # alter ONLY the printed trade's blind-bid token; the decoy (index 0) still says 18000
+check("the printed trade's blind-bid amount altered in the raw MFL transaction is refused (the first trade still says $18,000, which position-0 logic would have accepted)",
+      any("trade:bb:b:0" in e_ or "raw MFL tokens" in e_ for e_ in VAL.validate(r2t, c_alt, PACK8)["errors"]), VAL.validate(r2t, c_alt, PACK8)["errors"][:3])
+c_dup = copy.deepcopy(c2t)
+c_dup["mfl"]["trades"].append(dict(c_dup["mfl"]["trades"][-1]))     # two raw transactions with the printed timestamp
+check("two raw MFL transactions carrying the printed trade's timestamp is refused (exactly one is required)",
+      any("exactly one is required" in e_ for e_ in VAL.validate(r2t, c_dup, PACK8)["errors"]))
+c_none = copy.deepcopy(c2t)
+c_none["mfl"]["trades"] = [t_ for t_ in c_none["mfl"]["trades"] if int(t_["timestamp"]) != SYN["timestamp"]]
+check("no raw MFL transaction for the printed trade is refused",
+      any("0 raw MFL transactions" in e_ for e_ in VAL.validate(r2t, c_none, PACK8)["errors"]))
+claims_ns = copy.deepcopy(r2t["claims"])
+del claims_ns["trade:sel"]
+check("trade claims with no selected-trade claim are refused (fail closed)",
+      any("no selected trade" in e_ for e_ in VAL.validate(dict(r2t, claims=claims_ns), c2t, PACK8)["errors"]))
+for what_, mut_ in (("an extra asset on the raw side", lambda t_: t_.update(franchise1_gave_up=t_["franchise1_gave_up"] + ",10009")),
+                    ("a different pick round in the raw token", lambda t_: t_.update(franchise1_gave_up=t_["franchise1_gave_up"].replace("FP_0005_2027_1", "FP_0005_2027_2"))),
+                    ("a different player in the raw token", lambda t_: t_.update(franchise2_gave_up=t_["franchise2_gave_up"].replace("16161", "16162")))):
+    c_x = copy.deepcopy(c2t)
+    mut_(next(t_ for t_ in c_x["mfl"]["trades"] if int(t_["timestamp"]) == SYN["timestamp"]))
+    check("a parsed trade that is not the raw transaction is refused: %s" % what_, any("raw MFL tokens" in e_ for e_ in VAL.validate(r2t, c_x, PACK8)["errors"]))
 
 print("S12. playoff weeks count in the score records when all twelve teams scored (Keith 2026-11-11)")
 a_ = CTX8["archive"]
@@ -1232,6 +1274,22 @@ finally:
     TRG.pick = orig_pick
 tw_ = VAL.visible_text(r_two["html"])
 check("each Kenny quote carries its day and time inside the sentence (e.g. 'Tuesday at 2:30 PM')", re.search(r"(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday) at \d+:\d\d [AP]M", tw_) is not None, tw_[-200:])
+
+print("S14. copy: the Dominant-teams sentence agrees in number; the masthead names only the voices that speak (Keith review of #1462)")
+dom_ = SI.StoryIssue.__new__(SI.StoryIssue)
+dom_.word = lambda n: {1: "one", 2: "two", 3: "three", 4: "four"}.get(n, str(n))
+check("one Dominant team: 'That is the only Dominant team', never 'the only one Dominant teams'; 2-4 plural; none for more than four",
+      dom_.dominant_tail(1) == " That is the only Dominant team in the league." and dom_.dominant_tail(3) == " Those are the only three Dominant teams in the league."
+      and dom_.dominant_tail(2).startswith(" Those are the only two") and dom_.dominant_tail(5) == "" and dom_.dominant_tail(0) == "",
+      [dom_.dominant_tail(i_) for i_ in range(6)])
+mast = re.search(r'<p class="show">(.*?)</p>', r8["html"]).group(1)
+spoken_ = set(re.findall(r'class="lt (stuart|rich|boomer|kenny)"', r8["html"]))
+check("the masthead lists exactly the desk voices that speak (no Boomer when Boomer has no dialogue), and Kenny only when a Kenny line is printed",
+      ("Boomer" in mast) == ("boomer" in spoken_) and ("Stuart" in mast) == ("stuart" in spoken_) and ("Rich" in mast) == ("rich" in spoken_) and ("Kenny" in mast) == ("kenny" in spoken_), (mast, spoken_))
+check("with Kenny picks printed the masthead names Kenny", "Kenny Mayne in the Coffee Shop" in re.search(r'<p class="show">(.*?)</p>', rp["html"]).group(1) and 'class="lt kenny"' in rp["html"],
+      re.search(r'<p class="show">(.*?)</p>', rp["html"]).group(1))
+check("the masthead helper: three voices, two voices, one voice", ISSUE.Issue.masthead('class="lt stuart" class="lt rich" class="lt boomer"') == "At the desk: Stuart, Rich &amp; Boomer"
+      and ISSUE.Issue.masthead('class="lt stuart" class="lt rich"') == "At the desk: Stuart &amp; Rich" and ISSUE.Issue.masthead('class="lt rich" class="lt kenny"') == "At the desk: Rich &middot; Kenny Mayne in the Coffee Shop")
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)
