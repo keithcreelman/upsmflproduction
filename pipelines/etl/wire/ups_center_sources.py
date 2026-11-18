@@ -16,6 +16,7 @@ import hashlib
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 
@@ -33,10 +34,19 @@ FINAL_AFTER_LAST_KICKOFF_S = 5 * 3600
 DEADLINE_LEAD_S = 8 * 3600
 
 
-def _get(url, timeout=45):
-    req = urllib.request.Request(url, headers={"User-Agent": "ups-center-auto"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.loads(r.read().decode("utf-8", "replace"))
+def _get(url, timeout=45, tries=4, pause=4.0):
+    """One JSON GET. MFL answers 429 (too many requests) while a build is busy: wait and retry before giving up (a Week 10 replay lost the
+    trade and the league settings to 429s, 2026-11-18)."""
+    import time
+    for i in range(tries):
+        req = urllib.request.Request(url, headers={"User-Agent": "ups-center-auto"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return json.loads(r.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as exc:
+            if exc.code not in (429, 500, 502, 503, 504) or i == tries - 1:
+                raise
+            time.sleep(pause * (i + 1))
 
 
 def _list(x):
@@ -148,7 +158,9 @@ def load_forecast(season, week, data_dir):
                       "teams": {t["franchiseId"]: {"po": t["currentPlayoffOdds"], "bye": t["currentByeOdds"],
                                                    "div": t["currentDivisionOdds"], "title": t["currentTitleOdds"],
                                                    "division": t["division"], "prePo": t.get("preseasonPlayoffOdds"),
-                                                   "preTitle": t.get("preseasonTitleOdds")} for t in s["teams"]}}
+                                                   "preTitle": t.get("preseasonTitleOdds"),
+                                                   "slot": (((s.get("standingsForecast") or {}).get("teams") or {}).get(t["franchiseId"]) or {}).get("slot")}
+                                           for t in s["teams"]}}
     prev_sim = os.path.join(data_dir, "season_sim_%d_live_wk%02d.json" % (season, week - 1))
     out["prevSim"] = None
     if week > 1 and os.path.exists(prev_sim):
@@ -322,6 +334,16 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
         ctx["tradeContext"] = trade_context(season, week, ctx["tradeInfo"]) if ctx["tradeInfo"] else None
     except Exception:                                    # noqa: BLE001  (a trade we cannot describe is left out, never guessed)
         ctx["tradeInfo"] = []
+
+    if history:
+        # the continuing trackers and the trade's context (Keith 2026-11-18): MFL public exports only, never an offer's comment
+        import ups_center_trackers as TK
+        try:
+            all_trades = _list(TK.retrying(_get)(MFL % (season, "transactions", "&TRANS_TYPE=TRADE")).get("transactions", {}).get("transaction"))
+            ctx["trackers"] = TK.gather(season, week, _get, MFL, trade_details, ctx.get("tradeInfo"), all_trades,
+                                        photo=D.player_photo, notes=TK.load_notes(data_dir, int(season)))
+        except Exception as exc:                          # noqa: BLE001  (no tracker is printed that cannot be proven)
+            ctx["trackers"] = {"errors": ["trackers unreadable: %s" % exc]}
 
     # ---- D1: the league's own copies (must agree with MFL) and the evidence tables
     ctx["d1"]["teamScores"] = {r["franchise_id"]: float(r["score"]) for r in D.d1(

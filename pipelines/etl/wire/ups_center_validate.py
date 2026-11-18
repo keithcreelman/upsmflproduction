@@ -437,7 +437,7 @@ def _elias_check(rest, v, ctx, bad, key):
 
 def _trade_matches_raw(info, raw):
     """The parsed trade must be the raw MFL transaction: same two franchises and the same multiset of assets on each side (players by id,
-    picks by origin/year/round, blind-bid money by amount). Returns None when it matches, else a plain reason."""
+    picks by origin/year/round, cap-space tokens by amount). Returns None when it matches, else a plain reason."""
     import re as _re
     if info.get("a") != raw.get("franchise") or info.get("b") != raw.get("franchise2"):
         return "the parsed trade's franchises (%s, %s) are not the raw transaction's (%s, %s)" % (info.get("a"), info.get("b"), raw.get("franchise"), raw.get("franchise2"))
@@ -477,6 +477,124 @@ def _trade_binding(ctx, claims):
         return None, None, "%d parsed trades match the selected trade (timestamp %d); exactly one is required" % (len(infos), ts)
     why = _trade_matches_raw(infos[0], raws[0])
     return (None, None, why) if why else (infos[0], raws[0], None)
+
+
+def _tk_check(rest, v, shown, ctx, claims):
+    """Re-derive one tracker / trade-chapter claim (`tk:*`) from the snapshot's raw data. None when it checks, else a plain reason."""
+    import ups_center_trackers as TK
+    T = ctx.get("trackers") or {}
+    parts = rest.split(":")
+    k = parts[0]
+    sim = (ctx.get("forecast") or {}).get("sim") or {}
+    if k == "runs":
+        return None if sim.get("runs") == v and shown == "{:,}".format(v) else "page %r runs, forecast %r" % (v, sim.get("runs"))
+    if k == "slotlabel":
+        return None if v == int(parts[1]) * 100 + int(parts[2]) and 1 <= int(parts[1]) <= 5 and 1 <= int(parts[2]) <= 12 and shown == "%d.%02d" % (int(parts[1]), int(parts[2])) else "slot label %r" % (shown,)
+    if k == "slotno":
+        return None if parts[1].isdigit() and int(parts[1]) == v and 1 <= v <= 12 else "slot number %r" % (v,)
+    if k in ("slot", "side"):
+        t = (sim.get("teams") or {}).get(parts[1]) or {}
+        slot = t.get("slot")
+        if not slot or len(slot) != 12:
+            return "no draft-slot shares for %s in the forecast" % parts[1]
+        if abs(sum(slot) - 1.0) > 0.002:
+            return "%s's slot shares add to %.4f, not 1" % (parts[1], sum(slot))
+        if k == "slot":
+            n_ = int(parts[2])
+            disp = season_sim.display_percentages({str(i + 1): slot[i] for i in range(12)}, 1)[str(n_)]
+        else:
+            hawk = sum(slot[:6])
+            disp = season_sim.display_percentages({"h": hawk, "c": 1 - hawk}, 1)[parts[2]]
+        return None if shown == disp and abs(float(disp) - float(v)) < 1e-9 else "page %r, recomputed %s" % (shown, disp)
+    if k == "bet":
+        return None if (((T.get("notes") or {}).get("bet") or {}).get("stake")) == v else "stake %r is not in the bet notes" % (v,)
+    if k == "hos":
+        st = ctx["mfl"]["standings"]
+        reg = T.get("regWeeks")
+        if not reg:
+            return "no regular-season length in the snapshot"
+        rows = TK.hall_rows({f: m["allplay"] for f, m in st.items()}, len(st), reg, int(T.get("through") or ctx["week"]))
+        any_ = next(iter(rows.values()))
+        sub = parts[1]
+        if sub in ("games", "safe", "left", "safepct", "line"):
+            want = {"games": any_["games"], "safe": any_["safe"], "left": any_["left"], "safepct": round(any_["safe"] / any_["games"], 3), "line": TK.HALL_LINE}[sub]
+            return None if abs(float(v) - float(want)) < 1e-9 else "page %r, recomputed %r" % (v, want)
+        r = rows.get(sub)
+        if not r:
+            return "no standings row for %s" % sub
+        want = {"w": r["w"], "need": r["need"], "rec": "%d-%d-%d" % (r["w"], r["l"], r["t"])}.get(parts[2])
+        return None if want is not None and (str(v) == str(want) or (isinstance(want, (int, float)) and abs(float(v) - float(want)) < 1e-9)) else "page %r, recomputed %r" % (v, want)
+    if k == "capspace":                                              # tk:capspace:prior:<a|b>:<n> -> the earlier trade's own BB tokens
+        raw = (T.get("trade") or {}).get("priorRaw") or {}
+        toks = [t_ for t_ in str(raw.get("franchise1_gave_up" if parts[2] == "a" else "franchise2_gave_up") or "").split(",") if t_.startswith("BB_")]
+        want = float(toks[int(parts[3])][3:]) if parts[3].isdigit() and int(parts[3]) < len(toks) else None
+        return None if want is not None and abs(want - float(v)) < 0.05 else "page %r, the earlier trade's token %r" % (v, want)
+    if k == "cap":
+        T2 = T.get("trade") or {}
+        ros = T2.get("roster") or {}
+        sel = claims.get("trade:sel")
+        raws = [t_ for t_ in (ctx.get("mfl") or {}).get("trades") or [] if sel and str(t_.get("timestamp")) == str(sel["value"])]
+        if len(raws) != 1:
+            return "the printed trade is not exactly one raw MFL transaction"
+        raw = raws[0]
+        side_tokens = lambda key: [x for x in str(raw.get(key) or "").split(",") if x]
+        sub = parts[1]
+        if sub == "ledger":
+            rows_ = [c_ for c_ in T2.get("cap") or [] if abs(c_["timestamp"] - int(raw["timestamp"] if parts[2] == "now" else (T2.get("priorRaw") or {}).get("timestamp") or 0)) <= 900]
+            return None if len(rows_) == 2 and abs(rows_[0]["amount"] + rows_[1]["amount"]) < 0.5 and any(abs(abs(c_["amount"]) - float(v)) < 0.5 for c_ in rows_) \
+                else "page %r, ledger rows %r" % (v, rows_)
+        if sub in ("salary", "space", "free", "free_ir"):
+            k_out, k_in = ("franchise2_gave_up", "franchise1_gave_up") if any(x.startswith("BB_") for x in side_tokens("franchise2_gave_up")) else ("franchise1_gave_up", "franchise2_gave_up")
+            out_ids = [x for x in side_tokens(k_out) if x.isdigit()]                    # the side that sent the cap space
+            in_ids = [x for x in side_tokens(k_in) if x.isdigit()]
+            bb = [float(x[3:]) for x in side_tokens(k_out) if x.startswith("BB_")]
+            if not bb or not out_ids or not in_ids:
+                return "the printed trade has no cap-space token or no players on a side"
+            sal_out = max(ros[x]["salary"] for x in out_ids if x in ros)
+            sal_in = max(ros[x]["salary"] for x in in_ids if x in ros)
+            if sub == "salary":
+                want = sal_out if parts[2] == "out" else sal_in
+            elif sub == "space":
+                want = bb[0]
+            else:
+                inc = [x for x in in_ids if x in ros]
+                ir = sub == "free_ir" or any(ros[x]["status"] == "INJURED_RESERVE" for x in inc)
+                want = -TK.cap_effect(sal_out, bb[0], sal_in, ir_got=ir)
+            return None if abs(float(v) - want) < 0.5 else "page %r, recomputed %r" % (v, want)
+        return "unknown cap claim %s" % rest
+    if k == "qb":
+        q = T.get("qb") or {}
+        notes = T.get("notes") or {}
+        sides = q.get("sides") or {}
+        rows = {p: {int(w): s for w, s in r.items()} for p, r in (q.get("scores") or {}).items()}
+        through = int(T.get("through") or ctx["week"])
+        sub = parts[1]
+        pair = lambda s, w: round(sum(rows[p].get(w, 0.0) for p in sides[s]), 1)
+        cum = lambda s, w: round(sum(sum(rows[p].get(x, 0.0) for x in range(1, w + 1)) for p in sides[s]), 1)
+        if sub == "wk":
+            return None if int(parts[2]) == v else "week label %r" % (v,)
+        if sub == "cum":
+            return None if abs(cum(parts[2], through) - float(v)) < 0.05 else "page %r, recomputed %r" % (v, cum(parts[2], through))
+        if sub == "lead":
+            want = abs(cum("cross", through) - cum("josh", through))
+            return None if abs(want - float(v)) < 0.05 else "page %r, recomputed %r" % (v, want)
+        if sub == "pair":
+            return None if abs(pair(parts[2], int(parts[3])) - float(v)) < 0.05 else "page %r, recomputed %r" % (v, pair(parts[2], int(parts[3])))
+        if sub == "cumw":
+            return None if abs(cum(parts[2], int(parts[3])) - float(v)) < 0.05 else "page %r, recomputed %r" % (v, cum(parts[2], int(parts[3])))
+        if sub == "leadw":
+            w = int(parts[2])
+            want = round(cum("cross", w) - cum("josh", w), 1)
+            return None if abs(want - float(v)) < 0.05 else "page %r, recomputed %r" % (v, want)
+        if sub == "swing":
+            w = int(parts[2])
+            want = round(abs((cum("cross", w) - cum("josh", w)) - (cum("cross", w - 1) - cum("josh", w - 1))), 1)
+            return None if abs(want - float(v)) < 0.05 else "page %r, recomputed %r" % (v, want)
+        if sub in rows:                                              # tk:qb:<pid>:<week>
+            w = int(parts[2])
+            return None if abs(rows[sub].get(w, -999) - float(v)) < 0.05 else "page %r, MFL player score %r" % (v, rows[sub].get(w))
+        return "unknown quarterback claim %s" % rest
+    return "unknown tracker claim kind tk:%s" % rest
 
 
 def validate(res, ctx, pack):
@@ -679,7 +797,7 @@ def validate(res, ctx, pack):
                     w_ = next((x["salary"] for x in pl if x["id"] == pid), None)
                 elif what == "yrs":
                     w_ = next((int(x["years"]) for x in pl if x["id"] == pid), None)
-                elif what == "bb":
+                elif what == "capspace":
                     side_, _, i_ = pid.partition(":")
                     raw_ = raw_trade                                                  # the MFL transaction's own tokens (the one bound to the printed trade), not the parsed copy
                     toks_ = [t_ for t_ in str(raw_.get("franchise1_gave_up" if side_ == "a" else "franchise2_gave_up") or "").split(",") if t_.startswith("BB_")]
@@ -688,6 +806,10 @@ def validate(res, ctx, pack):
                     w_ = want.get(what)
                 if w_ is None or abs(float(w_) - float(v)) > 0.05:
                     bad(key, "page %r, trade data %r" % (v, w_))
+        elif kind == "tk":
+            why = _tk_check(rest, v, c["shown"], ctx, res["claims"])
+            if why:
+                bad(key, why)
         elif kind == "quoteid":
             if rest not in chat or chat[rest]["message_id"] != v:
                 bad(key, "message id is not in the chat window")

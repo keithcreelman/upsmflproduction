@@ -1,0 +1,85 @@
+{
+  "_about": "Hand-sourced facts for the UPS Center trackers that no feed carries. Each caption cites a public team or wire page and its date. Injury return dates are never invented: a page that gives none is captioned as giving none. Re-check every caption each week (status changes). Public repo: no private chat, no offer comments.",
+  "checkedOn": "2026-11-18",
+  "bet": {
+    "cross": {
+      "fid": "0006",
+      "qbs": [
+        "14783",
+        "15237"
+      ]
+    },
+    "josh": {
+      "fid": "0007",
+      "qbs": [
+        "16579",
+        "13593"
+      ]
+    },
+    "terms": {
+      "label": "Cross set out the terms in the chat",
+      "date": "September 3",
+      "mid": "1545226120503361567",
+      "ts": 1788481016
+    },
+    "unchanged": {
+      "label": "Cross confirmed they were riding it out with no changes",
+      "date": "September 21",
+      "mid": "1551584158994927659",
+      "ts": 1789996890
+    },
+    "stake": 50,
+    "channel_id": "1087157907419840644"
+  },
+  "events": [
+    {
+      "pid": "16579",
+      "week": 2,
+      "text": "Hurt his right hamstring late in the Week 2 loss to Minnesota; coach Ben Johnson called him week to week.",
+      "url": "https://www.chicagobears.com/news/caleb-williams-week-to-week-with-hamstring-injury",
+      "date": "September 21",
+      "outlet": "Bears"
+    },
+    {
+      "pid": "14783",
+      "week": 6,
+      "text": "Placed on injured reserve with a blood clot in his calf; the team gave no return date.",
+      "url": "https://www.philadelphiaeagles.com/news/eagles-place-jalen-hurts-on-injured-reserve-sign-jaydon-blue-to-the-active-roster-2026-nfl-week-6-panthers",
+      "date": "October 17",
+      "outlet": "Eagles"
+    },
+    {
+      "pid": "13593",
+      "week": 4,
+      "text": "Left the Week 4 game against Tennessee at halftime with an ankle injury.",
+      "url": "https://www.news4jax.com/sports/2026/10/04/after-an-impressive-1st-half-lamar-jackson-leaves-baltimores-game-against-titans-with-ankle-injury/",
+      "date": "October 4",
+      "outlet": "AP"
+    },
+    {
+      "pid": "13593",
+      "week": 8,
+      "text": "Returned for Week 8 at Buffalo and hurt his right thumb on the first snap; he scored zero.",
+      "url": "https://www.news4jax.com/sports/2026/11/01/ravens-qb-lamar-jackson-ruled-out-after-hurting-thumb-on-right-throwing-hand/",
+      "date": "November 1",
+      "outlet": "AP"
+    },
+    {
+      "pid": "13593",
+      "week": 9,
+      "text": "Placed on injured reserve; the team said he would miss at least four games and no return date was given.",
+      "url": "https://www.baltimoreravens.com/news/lamar-jackson-tyler-huntley-injured-reserve-austin-reed-adisa-isaac-jake-moody",
+      "date": "November 5",
+      "outlet": "Ravens"
+    }
+  ],
+  "addison": {
+    "text": "Minnesota placed Jordan Addison on injured reserve with a thumb injury and said he will have minor surgery. The team expects him back in about four weeks from November 16. That is an estimate, not a date.",
+    "url": "https://www.vikings.com/news/wide-receiver-jordan-addison-short-term-injured-reserve-2026",
+    "date": "November 16",
+    "outlet": "Vikings"
+  },
+  "crossChat": {
+    "mid": "1572217375346925629"
+  }
+}
