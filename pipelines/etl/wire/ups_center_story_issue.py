@@ -627,6 +627,7 @@ class StoryIssue(I.Issue):
         tc = self.ctx.get("tradeContext") or {}
         src = "MFL public transactions + rosters + weeklyResults exports (trade of %s)" % datetime.fromtimestamp(tr["timestamp"], I.ET).strftime("%b %d, %Y")
         when = I.et_clock(tr["timestamp"])
+        self.L.put("trade:sel", tr["timestamp"], src)                  # which trade is printed: the validator binds every trade claim to this MFL timestamp
         A, B = e(self.owner[a]), e(self.owner[b])
         sa, sb = self.sn(a), self.sn(b)                              # surnames after the first mention, as the hand edit does
 
@@ -636,6 +637,13 @@ class StoryIssue(I.Issue):
             if x["kind"] == "pick":
                 own = ("%s&rsquo;s " % e(self.owner[x["origin"]])) if x.get("origin") in self.owner else ""
                 return "%s%d %s-round pick" % (own, x["year"], self.ORDW.get(x["round"], str(x["round"])))
+            # blind-bid money is a registered claim, one per BB token, validated against the MFL transaction's own token
+            for side_, gave_ in (("a", tr["a_gave"]), ("b", tr["b_gave"])):
+                bbs = [y for y in gave_ if y["kind"] == "bb"]
+                for i_, y in enumerate(bbs):
+                    if y is x:
+                        amt = x.get("amount", 0)
+                        return "%s of blind-bid money" % self.L.put("trade:bb:%s:%d" % (side_, i_), amt, src, "${:,.0f}".format(amt))
             return "$%s of blind-bid money" % "{:,.0f}".format(x.get("amount", 0))
         na, nb = len(trade_list(tr["a_gave"])), len(trade_list(tr["b_gave"]))
         n = d["assets"]
@@ -646,8 +654,8 @@ class StoryIssue(I.Issue):
         sal_b = self.L.put("trade:sal:b", tr["b_salary"], src, "${:,.0f}".format(tr["b_salary"]))
         lines = []
         # 1. the trade, as news
-        lines.append(("Stuart", "Sunday was the record. The other story of the week arrived Tuesday, and it was big: %s and %s made a %s-asset trade at %s. %s sent %s. %s sent %s." % (
-            A, B, self.word(n) if n <= 12 else n_c, I.et_clock(tr["timestamp"], with_day=False) + " ET", sa, join(desc(x) for x in tr["a_gave"]), sb, join(desc(x) for x in tr["b_gave"]))))
+        lines.append(("Stuart", "The other story of the week arrived %s, and it was big: %s and %s made %s %s-asset trade at %s. %s sent %s. %s sent %s." % (
+            datetime.fromtimestamp(tr["timestamp"], I.ET).strftime("%A"), A, B, "an" if n in (8, 11, 18) else "a", self.word(n) if n <= 12 else n_c, I.et_clock(tr["timestamp"], with_day=False) + " ET", sa, join(desc(x) for x in tr["a_gave"]), sb, join(desc(x) for x in tr["b_gave"]))))
         # 2. what it says about the rosters: running back points, then the Keith-side chat line if a pick fits
         rb = tc.get("rbPts") or {}
         if rb:
@@ -807,7 +815,7 @@ class StoryIssue(I.Issue):
                     rows.append(self.row([e(self.owner[recv]), desc(x), "&mdash;", "&mdash;", "&mdash;"]))
         table = self.table(["Receives", "Player or pick", "Salary", "Years left", "Starts for the sender"], rows)
         cap = ('<p class="caption">Source: MFL&rsquo;s public transaction, roster and weekly-results exports; salary and years left are the players&rsquo; current MFL contracts; '
-               'starts are weekly lineups through Week %d. The trade was executed after this issue&rsquo;s build began, so the Playoff Picture below is the forecast rerun on '
+               'starts are weekly lineups through Week %d. The Playoff Picture below is the forecast on '
                'the post-trade rosters.</p>' % tc.get("through", self.week))
         return "%s and %s made a big trade" % (A, B), self.desk(lines) + table + cap
 
@@ -961,7 +969,7 @@ class StoryIssue(I.Issue):
                 withp = ", with %s from %s%s" % (I.n1(card["score"]), e(card["player"]), (" on %s catches" % m.group(1)) if m else "")
                 if m:
                     self.L.put("box:" + card["player"], I.tidy_box(card["boxLine"]), "pack playcard (nflverse box score)")
-            if wins and not losses or not withp:
+            if not withp:
                 txt = "%s scored %s%s and went %s: %s." % (e(self.owner[f]), self.score(f), withp, self.wkrec_c(f), "; ".join(parts))
             else:
                 txt = "%s scored %s%s, and went %s: %s." % (e(self.owner[f]), self.score(f), withp, self.wkrec_c(f), "; ".join(parts))
@@ -1137,6 +1145,13 @@ class StoryIssue(I.Issue):
                 rest = qs[1:]
                 out.append(("Kenny", "%s. %s: %s%s." % (lead, qs[0][0], qs[0][1], (", and then, " + ", ".join("%s: %s" % (w, q) for w, q, _ in rest)) if rest else "")))
         return out
+
+    def dominant_tail(self, n):
+        """'Those are the only three Dominant teams' reads right for 2-4 teams; one team is 'That is the only Dominant team' (Keith review of #1462:
+        'Those are the only one Dominant teams'). More than four teams: no sentence."""
+        if n == 1:
+            return " That is the only Dominant team in the league."
+        return (" Those are the only %s Dominant teams in the league." % self.word(n)) if 2 <= n <= 4 else ""
 
     def chapter_of(self, owner):
         for pot in self.pack["pots"]:
@@ -1461,7 +1476,7 @@ class StoryIssue(I.Issue):
             if dom:
                 t1 = "Treat the last three weeks as their own season. In %s, %s." % (w_last, join(
                     "%s is %s in All-Play" % (e(self.owner[f]), a3(f)) if j == 0 else "%s is %s" % (e(self.owner[f]), a3(f)) for j, f in enumerate(dom[:3])))
-                t1 += " Those are the only %s Dominant teams in the league." % self.word(len(dom)) if len(dom) <= 4 else ""
+                t1 += self.dominant_tail(len(dom))
             else:
                 t1 = "Treat the last three weeks as their own season. In %s, no team was Dominant." % w_last
             t1 += " The next best are %s." % join("%s at %s" % (e(self.owner[f]), a3(f)) for f in rest[:2])
@@ -1509,16 +1524,19 @@ class StoryIssue(I.Issue):
                 f1, f2, f3 = low
                 hh = lambda f: "%s of %s by All-Play rank and %s of %s by wins" % (hv(f, "apMade"), hv(f, "apN"), hv(f, "winMade"), hv(f, "winN"))
                 hs_ = lambda f: "%s of %s and %s of %s" % (hv(f, "apMade"), hv(f, "apN"), hv(f, "winMade"), hv(f, "winN"))
-                lines.append(("Stuart", "At the bottom, %s is %s, and %s is %s. Their odds are %s and %s. %s is %s, and %s." % (
-                    e(self.owner[f1]), hh(f1), e(self.owner[f2]), hs_(f2), self.po(f1), self.po(f2), e(self.owner[f3]), hs_(f3), self.po(f3))))
+                odds_ = ("Both are at %s." % self.po(f1)) if self.po(f1) == self.po(f2) else ("Their odds are %s and %s." % (self.po(f1), self.po(f2)))
+                lines.append(("Stuart", "At the bottom, %s is %s, and %s is %s. %s %s is %s, with odds of %s." % (
+                    e(self.owner[f1]), hh(f1), e(self.owner[f2]), hs_(f2), odds_, e(self.owner[f3]), hs_(f3), self.po(f3))))
         if H:
             lk = sorted(H, key=lambda f: (-H[f]["luck"], f))
             lu, un = lk[0], lk[-1]
             bn = max(H, key=lambda f: (H[f]["bench"], f))
             sg = lambda v: ("%+.1f" % v).replace("-", "&minus;")
-            lines.append(("Rich", "And luck. %s is %s wins over what the All-Play rate predicts, the most in the league, and %s is %s, the fewest. %s leaves %s points on the bench every week, %s the most, and %s of %s losses would have been wins with the best lineup." % (
-                e(self.owner[lu]), self.L.put("heat:luck:" + lu, H[lu]["luck"], src, sg(H[lu]["luck"])), e(self.owner[un]),
-                self.L.put("heat:luck:" + un, H[un]["luck"], src, sg(H[un]["luck"])), e(self.owner[bn]),
+            lvl_ = lambda who, f: (" (%s is level at that figure)" % join(e(self.owner[g]) for g in H if g not in (f,) and sg(H[g]["luck"]) == sg(H[f]["luck"]) and g != who)) if any(
+                g != f and sg(H[g]["luck"]) == sg(H[f]["luck"]) for g in H) else ""
+            lines.append(("Rich", "And luck. %s is %s wins over what the All-Play rate predicts, the most in the league%s, and %s is %s, the fewest%s. %s leaves %s points on the bench every week, %s the most, and %s of %s losses would have been wins with the best lineup." % (
+                e(self.owner[lu]), self.L.put("heat:luck:" + lu, H[lu]["luck"], src, sg(H[lu]["luck"])), lvl_(None, lu), e(self.owner[un]),
+                self.L.put("heat:luck:" + un, H[un]["luck"], src, sg(H[un]["luck"])), lvl_(None, un), e(self.owner[bn]),
                 self.L.put("heat:bench:" + bn, H[bn]["bench"], src, "%.1f" % H[bn]["bench"]), "also" if bn in (lu, un) or True else "",
                 self.L.put("heat:lostBest:" + bn, H[bn]["lostBest"], src), self.L.put("heat:losses:" + bn, H[bn]["losses"], src))))
         wu = getattr(self, "_worst_unplaced", None)

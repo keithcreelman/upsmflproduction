@@ -435,6 +435,50 @@ def _elias_check(rest, v, ctx, bad, key):
         bad(key, "unknown elias claim")
 
 
+def _trade_matches_raw(info, raw):
+    """The parsed trade must be the raw MFL transaction: same two franchises and the same multiset of assets on each side (players by id,
+    picks by origin/year/round, blind-bid money by amount). Returns None when it matches, else a plain reason."""
+    import re as _re
+    if info.get("a") != raw.get("franchise") or info.get("b") != raw.get("franchise2"):
+        return "the parsed trade's franchises (%s, %s) are not the raw transaction's (%s, %s)" % (info.get("a"), info.get("b"), raw.get("franchise"), raw.get("franchise2"))
+    for side, key, gave in (("a", "franchise1_gave_up", info.get("a_gave") or []), ("b", "franchise2_gave_up", info.get("b_gave") or [])):
+        exp = []
+        for t_ in [x for x in str(raw.get(key) or "").split(",") if x]:
+            m_ = _re.match(r"^FP_(\d{4})_(\d{4})_(\d+)$", t_)
+            b_ = _re.match(r"^BB_(\d+(?:\.\d+)?)$", t_)
+            d_ = _re.match(r"^DP_(\d+)_(\d+)$", t_)
+            exp.append(("player", t_) if t_.isdigit() else ("pick", m_.group(1), int(m_.group(2)), int(m_.group(3))) if m_
+                       else ("bb", float(b_.group(1))) if b_ else ("pick", None, None, int(d_.group(1)) + 1) if d_ else ("other", t_))
+        got = []
+        for x in gave:
+            got.append(("player", str(x.get("id"))) if x["kind"] == "player" else ("pick", x.get("origin"), x["year"] if x.get("origin") else None, x["round"]) if x["kind"] == "pick"
+                       else ("bb", float(x["amount"])) if x["kind"] == "bb" else ("other", x.get("token")))
+        if sorted(map(repr, exp)) != sorted(map(repr, got)):
+            return "side %s: the parsed assets %r are not the raw MFL tokens %r" % (side, got, exp)
+    return None
+
+
+def _trade_binding(ctx, claims):
+    """Every trade claim is bound to the trade actually PRINTED (claim `trade:sel` = its MFL timestamp), never to a list position. Exactly one raw
+    MFL transaction and exactly one parsed copy must carry that timestamp, and the parsed copy must equal the raw transaction. Fails closed.
+    Returns (parsed trade, raw transaction, error or None)."""
+    sel = claims.get("trade:sel")
+    if not sel:
+        return None, None, "a trade is printed but no selected trade is registered (trade:sel); trade claims cannot be bound to a transaction"
+    try:
+        ts = int(sel["value"])
+    except (TypeError, ValueError):
+        return None, None, "the selected trade's timestamp %r is not a number" % (sel.get("value"),)
+    raws = [t for t in ((ctx.get("mfl") or {}).get("trades") or []) if str(t.get("timestamp") or "").isdigit() and int(t["timestamp"]) == ts]
+    infos = [i for i in (ctx.get("tradeInfo") or []) if int(i.get("timestamp") or 0) == ts]
+    if len(raws) != 1:
+        return None, None, "%d raw MFL transactions match the selected trade (timestamp %d); exactly one is required" % (len(raws), ts)
+    if len(infos) != 1:
+        return None, None, "%d parsed trades match the selected trade (timestamp %d); exactly one is required" % (len(infos), ts)
+    why = _trade_matches_raw(infos[0], raws[0])
+    return (None, None, why) if why else (infos[0], raws[0], None)
+
+
 def validate(res, ctx, pack):
     errors, warnings, n = [], [], {}
     s, st = ctx["mfl"]["scores"], ctx["mfl"]["standings"]
@@ -586,9 +630,13 @@ def validate(res, ctx, pack):
             elif abs(float(truth[rest]) - float(v)) > 0.05:
                 bad(key, "page %r, recomputed %r" % (v, truth[rest]))
         elif kind == "trade":
-            info = (ctx.get("tradeInfo") or [None])[0]
-            if not info:
-                bad(key, "no trade in the snapshot")
+            info, raw_trade, trade_err = n.setdefault("_trade_bound", _trade_binding(ctx, res["claims"]))
+            if rest == "sel":
+                if trade_err:
+                    bad(key, trade_err)
+                continue
+            if trade_err:
+                bad(key, trade_err)
             else:
                 what, _, pid = rest.partition(":")
                 pl = [x for x in info["a_gave"] + info["b_gave"] if x["kind"] == "player"]
@@ -631,6 +679,11 @@ def validate(res, ctx, pack):
                     w_ = next((x["salary"] for x in pl if x["id"] == pid), None)
                 elif what == "yrs":
                     w_ = next((int(x["years"]) for x in pl if x["id"] == pid), None)
+                elif what == "bb":
+                    side_, _, i_ = pid.partition(":")
+                    raw_ = raw_trade                                                  # the MFL transaction's own tokens (the one bound to the printed trade), not the parsed copy
+                    toks_ = [t_ for t_ in str(raw_.get("franchise1_gave_up" if side_ == "a" else "franchise2_gave_up") or "").split(",") if t_.startswith("BB_")]
+                    w_ = float(toks_[int(i_)][3:]) if i_.isdigit() and int(i_) < len(toks_) else None
                 else:
                     w_ = want.get(what)
                 if w_ is None or abs(float(w_) - float(v)) > 0.05:

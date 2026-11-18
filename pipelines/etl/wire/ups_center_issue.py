@@ -848,13 +848,26 @@ class Issue:
                'class="wire-navlink" data-wire-goto="/" type="button">Front Page</button>\n      <button class="wire-navlink" '
                'data-wire-goto="/f/weekly" type="button">The Week</button>\n    </nav>\n    <span class="wire-topbar-title">UPS '
                'Center</span>\n  </div>\n\n  <header class="wire-hero mast">\n    <div class="wire-eyebrow">Week %d recap</div>\n'
-               '    <h1 class="brand">UPS <span>CENTER</span></h1>\n    <p class="show">At the desk: Stuart, Rich &amp; Boomer '
-               '&middot; Kenny Mayne in the Coffee Shop</p>\n    <p class="wire-dek">%s</p>\n  </header>\n<nav class="wire-rail" '
+               '    <h1 class="brand">UPS <span>CENTER</span></h1>\n    <p class="show">%s</p>\n    <p class="wire-dek">%s</p>\n  </header>\n<nav class="wire-rail" '
                'data-wire-rail data-wire-rail-named aria-label="Segments"></nav>\n\n%s\n\n%s\n</div>\n</div>\n<script '
                'data-wire-runtime>\n%s</script>\n</body>\n</html>\n' % (
-                   self.week, meta, sha, wire.STYLE_BANNER, combined, self.week, dek, "\n".join(segs), method, runtime))
+                   self.week, meta, sha, wire.STYLE_BANNER, combined, self.week, self.masthead("\n".join(segs)), dek, "\n".join(segs), method, runtime))
         return {"id": aid, "html": doc, "claims": self.L.claims, "claimsDigest": self.L.digest(), "gaps": self.gaps,
                 "format": self.format_name, "bigStory": getattr(self, "big_pick", None), "kennyDropped": getattr(self, "dropped_picks", [])}
+
+
+    @staticmethod
+    def masthead(segments_html):
+        """The 'At the desk' line names only the voices that actually speak in this issue (Keith review of #1462: the Boomer masthead with no Boomer
+        dialogue). Stuart, Rich and Boomer are the desk; Kenny Mayne is named only when a Kenny line is printed."""
+        import re as _re
+        spoken = set(_re.findall(r'class="lt (stuart|rich|boomer|kenny)"', segments_html))
+        desk = [n_ for n_, k_ in (("Stuart", "stuart"), ("Rich", "rich"), ("Boomer", "boomer")) if k_ in spoken]
+        names = (desk[0] if len(desk) == 1 else (" &amp; ".join([", ".join(desk[:-1]), desk[-1]]) if desk else "")) if desk else ""
+        line = ("At the desk: " + names) if names else "At the desk"
+        if "kenny" in spoken:
+            line += " &middot; Kenny Mayne in the Coffee Shop"
+        return line
 
 
 def render(pack, ctx, generated_at=None, local_candidates=False, fmt=None):
