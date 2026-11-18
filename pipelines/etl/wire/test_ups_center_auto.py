@@ -1291,5 +1291,11 @@ check("with Kenny picks printed the masthead names Kenny", "Kenny Mayne in the C
 check("the masthead helper: three voices, two voices, one voice", ISSUE.Issue.masthead('class="lt stuart" class="lt rich" class="lt boomer"') == "At the desk: Stuart, Rich &amp; Boomer"
       and ISSUE.Issue.masthead('class="lt stuart" class="lt rich"') == "At the desk: Stuart &amp; Rich" and ISSUE.Issue.masthead('class="lt rich" class="lt kenny"') == "At the desk: Rich &middot; Kenny Mayne in the Coffee Shop")
 
+t8_ = VAL.visible_text(r8["html"])
+check("a player-detail clause is closed by a comma before 'and went' (never 'with 48.1 from Mahomes and went 3-0')", not re.search(r", with [\d.]+ from [^,.]+? and went", t8_), re.findall(r", with [\d.]+ from [^,.]+? and went", t8_)[:2])
+check("the bottom-of-the-table Survival Line never prints a bare percentage as a clause ('..., and <0.01%.') and says 'Both are at' for equal odds",
+      not re.search(r", and (?:<)?[\d.]+%\.", t8_) and ("Both are at" in t8_ or "Their odds are" in t8_), re.findall(r"At the bottom.{0,260}", t8_)[:1])
+check("the trade footnote no longer claims the trade came after the build began (true only some weeks)", "executed after this issue" not in VAL.visible_text(rtd["html"]), VAL.visible_text(rtd["html"])[-300:])
+
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)
