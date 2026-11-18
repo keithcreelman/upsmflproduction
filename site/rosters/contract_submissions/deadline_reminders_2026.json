@@ -2,11 +2,32 @@
   "meta": {
     "schema_version": 1,
     "season": 2026,
-    "updated_at": "2026-09-05T13:05:44.217Z",
-    "row_count": 3,
+    "updated_at": "2026-11-18T14:05:11.544Z",
+    "row_count": 4,
     "source": "worker-deadline-reminders"
   },
   "reminders": [
+    {
+      "season": 2026,
+      "league_id": "74598",
+      "reminder_key": "2026|trade_deadline|one_week|primary|2026-11-25",
+      "event_key": "trade_deadline",
+      "event_title": "Trade Deadline",
+      "deadline_date_et": "2026-11-25",
+      "deadline_time_et": "20:00",
+      "trigger_date_et": "2026-11-18",
+      "trigger_time_et": "09:00",
+      "reminder_code": "one_week",
+      "reminder_label": "1 Week",
+      "delivery_target": "primary",
+      "test_flag": 0,
+      "discord_channel_id": "1057657441011109898",
+      "discord_message_id": "1572613647891435530",
+      "gif_query": "calendar marked reminder",
+      "gif_url": "https://media1.giphy.com/media/GgGj1YQy1B41Q4dU1K/giphy.gif?cid=e4832a7a9g247sinwhpxsbpkx420j63622cv1kk1hdqtzru1&ep=v1_gifs_search&rid=giphy.gif&ct=g",
+      "posted_at_utc": "2026-11-18T14:05:11.544Z",
+      "source": "worker-deadline-reminders"
+    },
     {
       "season": 2026,
       "league_id": "74598",
