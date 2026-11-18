@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-17T18:44:55.937773+00:00",
+    "generated_at_utc": "2026-11-18T18:23:38.376220+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2461,18 +2461,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_14590",
-          "display": "Azeez Al-Shaair",
-          "player_id": "14590",
-          "position": "LB",
-          "nfl_team": "HOU",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_14405",
           "display": "Carl Granderson",
           "player_id": "14405",
@@ -3198,7 +3186,7 @@
           "display": "Jaydon Blue",
           "player_id": "17069",
           "position": "RB",
-          "nfl_team": "FA",
+          "nfl_team": "PHI",
           "salary": 2000,
           "contract_year": 2,
           "contract_status": "Rookie-Draft",
@@ -3617,18 +3605,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_14179",
-          "display": "Julian Love",
-          "player_id": "14179",
-          "position": "S",
-          "nfl_team": "SEA",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-MYM",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5388,7 +5364,7 @@
           "salary": 22000,
           "contract_year": 1,
           "contract_status": "Vet-Ext1",
-          "roster_status": "ROSTER",
+          "roster_status": "INJURED_RESERVE",
           "taxi": false
         },
         {
@@ -6101,6 +6077,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_17485",
+          "display": "Kaelon Black",
+          "player_id": "17485",
+          "position": "RB",
+          "nfl_team": "SFO",
+          "salary": 5000,
+          "contract_year": 3,
+          "contract_status": "Rookie-Draft",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16206",
           "display": "Michael Wilson",
           "player_id": "16206",
@@ -6279,30 +6267,6 @@
           "contract_status": "Vet-MYM",
           "roster_status": "ROSTER",
           "taxi": false
-        },
-        {
-          "asset_id": "P_13782",
-          "display": "Michael Dickson",
-          "player_id": "13782",
-          "position": "PN",
-          "nfl_team": "SEA",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_17485",
-          "display": "Kaelon Black",
-          "player_id": "17485",
-          "position": "RB",
-          "nfl_team": "SFO",
-          "salary": 5000,
-          "contract_year": 3,
-          "contract_status": "Rookie-Draft",
-          "roster_status": "TAXI_SQUAD",
-          "taxi": true
         },
         {
           "asset_id": "P_17468",
