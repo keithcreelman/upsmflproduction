@@ -21,7 +21,7 @@ This module does not generate or publish anything. It makes the gap visible:
                  no site/wire/data/elias_<season>_wk<NN>.json records the check.
   preflight  --stage publish (default): exit 1 when ANY destination already has
              the issue -- the repo index, the live Pages page or index, a
-             ups_wire_threads row, or a post in #league-announcements. Run it
+             ups_wire_threads row, or a post in #ups-wire or #league-announcements. Run it
              before a catch-up build and again before the publish merge.
              --stage announce: exit 1 unless the page IS live, or when an
              announcement already exists (ups_wire_threads row or a post).
@@ -47,7 +47,8 @@ from datetime import datetime, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.abspath(os.path.join(HERE, "..", "..", ".."))
 PAGES = "https://keithcreelman.github.io/upsmflproduction/wire/"
-ANNOUNCE_CHANNEL = "1057657441011109898"          # #league-announcements
+sys.path.insert(0, HERE)
+import announce_config as AC  # noqa: E402  (#ups-wire is canonical; the old channel is still searched)
 DEADLINE_LEAD_S = 8 * 3600                        # due 8h before the next week's first kickoff
 FINAL_AFTER_LAST_KICKOFF_S = 5 * 3600             # a week is final ~5h after its last kickoff
 LAST_REGULAR_NFL_WEEK = 17                        # UPS weeks 1-17
@@ -152,7 +153,8 @@ def _announced(aid, title, wire_thread_article_ids, discord_messages):
         text = " ".join([m.get("content") or ""] + [(e.get("title") or "") + " " + (e.get("url") or "")
                                                      for e in m.get("embeds") or []])
         if title in text or aid in text:
-            found.append("#league-announcements message %s (%s) already announces it" % (m.get("id"), m.get("timestamp")))
+            found.append("%s message %s (%s) already announces it"
+                         % (AC.channel_name(m.get("channel_id") or AC.WEEKLY_CHANNEL_ID), m.get("id"), m.get("timestamp")))
     return found
 
 
@@ -229,10 +231,11 @@ def cmd_preflight(args):
         sys.path.insert(0, os.path.join(REPO, "pipelines", "etl", "scripts"))
         import ingest_discord_chat as I  # noqa: E402  (Keychain bot token, 429-aware GET)
         I.TOKEN = I.keychain_token()
-        messages = I.api("/channels/%s/messages?limit=100" % ANNOUNCE_CHANNEL)
+        for ch in AC.announced_channel_ids():            # #ups-wire first, then the channel weeks 1-6 used
+            messages.extend(I.api("/channels/%s/messages?limit=100" % ch))
     found = preflight_findings(args.season, args.week, repo_index(), live_index, page, threads, messages,
                                stage=args.stage, candidate=args.candidate)
-    skipped = [n for n, off in (("ups_wire_threads", args.no_d1), ("#league-announcements", args.no_discord)) if off]
+    skipped = [n for n, off in (("ups_wire_threads", args.no_d1), ("#ups-wire and #league-announcements", args.no_discord)) if off]
     for f in found:
         print("STOP: " + f)
     note = (" (NOT checked: %s)" % ", ".join(skipped)) if skipped else ""
