@@ -211,7 +211,7 @@ test("NAVIGATION RACE: a request that starts on route A and fails after the owne
   t.equal(rowsOf(p)[0].screen, "Lineup", "the report says Lineup, not More or Rosters");
   t.equal(rowsOf(p)[0].err_endpoint, "/api/taxi-callups", "the ORIGINAL request");
   t.equal(rowsOf(p)[0].err_status, 500);
-  t.equal(rowsOf(p)[0].err_name, "HTTP");
+  t.equal(rowsOf(p)[0].err_name, "HTTPError");
   // back on A the chip returns
   p.dom.document.body._kids.filter((k) => k.className === "ups-rb-back").forEach((k) => k.remove());
   await p.go("#myteam/lineup");

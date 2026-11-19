@@ -305,7 +305,7 @@
       try {
         var st = res && Number(res.status);
         if (!(st >= 400) || isExpected(endpoint, st)) return;
-        record({ route: start.route, screen: start.screen, name: "HTTP", message: "HTTP " + st + (label ? " (" + label + ")" : ""), endpoint: endpoint, status: st });
+        record({ route: start.route, screen: start.screen, name: "HTTPError", message: "HTTP " + st + (label ? " (" + label + ")" : ""), endpoint: endpoint, status: st });
       } catch (e) { /* the observer never breaks a request */ }
     }, function (err) {
       try {
