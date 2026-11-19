@@ -255,6 +255,7 @@ export const MESSAGES = Object.freeze({
   summary_required:     { http: 400, state: "fix",      title: "Add a few words", message: "Say briefly what went wrong, then tap Send." },
   unknown_field:        { http: 400, state: "error",    title: "This version can't send that report", message: "The app and the server disagree about this report. Update the app and try again. Nothing was sent." },
   too_large:            { http: 413, state: "fix",      title: "Report is too long", message: "Shorten your note and try again." },
+  key_in_address:       { http: 400, state: "error",    title: "Key not accepted in the address", message: "Send the commissioner key in the Authorization header, never in the web address. Nothing was read." },
   bad_request:          { http: 400, state: "error",    title: "That report couldn't be read", message: "Something in the report was missing or malformed. Nothing was sent." },
   server_error:         { http: 500, state: "retry",    title: "Something went wrong on our side", message: "The report wasn't saved. Try again in a minute." },
 });

@@ -45,7 +45,7 @@ passwords, keys, full web addresses, page text, response bodies, screenshots, lo
 | Reader | Route | Sees |
 |---|---|---|
 | The owner | `POST /api/bug-reports/mine` | Their own reports only (`WHERE franchise_id =` the proven team): code, status, their summary, times, how many times they reported it. No notes, errors or team ids |
-| The commissioner | `POST /api/bug-reports/commish/list`, `/commish/get` | Everything, including team, note, error fields, redaction count and events. Allowed: a proven commissioner MFL session, or the commissioner key as `Authorization: Bearer` or `?APIKEY=` |
+| The commissioner | `POST /api/bug-reports/commish/list`, `/commish/get` | Everything, including team, note, error fields, redaction count and events. Allowed: a proven commissioner MFL session in the body, or the commissioner key as `Authorization: Bearer` **only**. A key in the address (`?APIKEY=` or a look-alike such as `key`, `token`) is **refused with 400 before anything is read**, even beside a valid session or header; the response never repeats it |
 | Everyone else | | Nothing |
 | Discord, GitHub, the repo, public Pages | | Nothing in this slice. Later steps may carry only an ID, the page name and a one-line summary: never error text, notes, team names or screenshots |
 

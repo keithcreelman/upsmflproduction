@@ -11,8 +11,9 @@
 // Why the commissioner routes are NOT under /admin/: the /admin front door (admin_authority.js)
 // takes a commissioner session only as ?MFL_USER_ID= in the address, and would add a second MFL
 // read on top of ours. These routes authenticate once, here, with the same primitives
-// (resolveTradeCaller + isAdminCaller): an Authorization: Bearer key, ?APIKEY=, or a proven
-// commissioner session in the body.
+// (resolveTradeCaller + isAdminCaller): an Authorization: Bearer key, or a proven commissioner
+// session in the body. A key in the address (?APIKEY= and look-alikes) is REFUSED, never read:
+// addresses end up in logs, history, referrers and shared screenshots.
 //
 // What this module does NOT do: post to Discord, send a DM, call GitHub or Anthropic, run an
 // agent, or write any repo or public file. Its outbound calls are exactly two: the MFL
@@ -31,6 +32,13 @@ const ROUTES = new Set([
 ]);
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
+
+// Address parameters that look like a credential. The commissioner routes refuse any of them outright.
+const KEY_PARAM_NAMES = new Set(["apikey", "api_key", "api-key", "key", "commish_api_key", "x-commish-apikey", "x-mfl-apikey", "authorization", "bearer", "token", "access_token"]);
+export function keyInAddress(url) {
+  for (const name of url.searchParams.keys()) if (KEY_PARAM_NAMES.has(String(name).toLowerCase())) return true;
+  return false;
+}
 
 // ---------------------------------------------------------------------------
 // Stores. Same contract, two implementations: D1 (production) and memory (tests, preview).
@@ -163,9 +171,12 @@ function withTimeout(promise, ms) {
 // deps.detectFranchise (MFL TYPE=myleagues). It is bounded here so a slow MFL cannot hold the request.
 async function identify(ctx, body, token, { allowAdminKey }) {
   let url = ctx.url;
-  if (allowAdminKey) {                       // commissioner routes also take the key as a Bearer header (never in the address)
+  if (allowAdminKey) {
+    // The commissioner key is taken from the Authorization header ONLY. resolveTradeCaller reads it from
+    // an APIKEY parameter, so hand it a private copy of the address carrying the header's value. The
+    // caller's own address never carries a key here: handleBugReportRequest refuses one before this point.
     const m = /^bearer\s+(.+)$/i.exec(safeStr(ctx.request.headers.get("authorization")));
-    if (m && !safeStr(url.searchParams.get("APIKEY"))) { url = new URL(url.href); url.searchParams.set("APIKEY", m[1].trim()); }
+    if (m) { url = new URL(url.href); url.searchParams.set("APIKEY", m[1].trim()); }
   }
   return resolveTradeCaller({
     url, body: body && typeof body === "object" ? body : null, env: ctx.env,
@@ -206,6 +217,10 @@ export async function handleBugReportRequest(ctx) {
   let enabled = false;
   try { enabled = !!(await ctx.deps.isEnabled()); } catch (_) { enabled = false; } // unknown = off
   if (!enabled) return refuse(ctx, "disabled");
+
+  // A commissioner key in the address is refused before anything is read, whatever else the request carries.
+  // The response never repeats the value.
+  if (ctx.path.startsWith("/api/bug-reports/commish/") && keyInAddress(ctx.url)) return refuse(ctx, "key_in_address");
 
   try {
     const parsed = await readJsonBody(ctx);

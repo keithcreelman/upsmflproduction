@@ -161,8 +161,8 @@ test("a slow MFL is cut off at the timeout, not held open", async () => {
 
 test("the admin key never files a report, and a stray APIKEY beside an owner session is ignored", async () => {
   const { env, db } = fresh();
-  const asAdmin = await submit(env, { mfl_user_id: "" }, Q + "&APIKEY=" + ADMIN_KEY);
-  t.equal(asAdmin.status, 401, "admin key alone is not a report author");
+  const asAdmin = await callWorker(env, "POST", "/api/bug-reports" + Q, { body: report({ mfl_user_id: "" }), headers: { Authorization: "Bearer " + ADMIN_KEY } });
+  t.equal(asAdmin.status, 401, "the commissioner key alone is not a report author");
   const stray = await submit(env, {}, Q + "&APIKEY=not-the-key");
   t.equal(stray.status, 201, "a foreign APIKEY beside a real owner session is not an error");
   t.equal(rows(db).length, 1);
@@ -354,7 +354,7 @@ test("only the commissioner reads reports: a signed-in owner, a stranger and a w
     t.equal((await post(env, p, { mfl_user_id: OWNER_A, id: 1 })).status, 403, "owner on " + p);
     t.equal((await post(env, p, { mfl_user_id: OWNER_B, id: 1 })).status, 403, "other owner on " + p);
     t.equal((await post(env, p, { mfl_user_id: "", id: 1 })).status, 401, "nobody on " + p);
-    t.equal((await post(env, p, { mfl_user_id: "", id: 1 }, Q + "&APIKEY=wrong")).status, 403, "wrong key on " + p);
+    t.equal((await callWorker(env, "POST", p + Q, { body: { id: 1 }, headers: { Authorization: "Bearer wrong" } })).status, 403, "wrong key on " + p);
   }
 });
 
@@ -364,30 +364,50 @@ test("the commissioner (session or admin key) sees everything, including private
     await submit(env, { note: "owner note A" });
     advance(30);
     await submit(env, { mfl_user_id: OWNER_B, note: "owner note B", screen: "Roster" });
-    for (const [label, body, extra] of [["session", { mfl_user_id: COMMISH }, Q], ["admin key", {}, Q + "&APIKEY=" + ADMIN_KEY]]) {
-      const l = await post(env, "/api/bug-reports/commish/list", body, extra);
+    for (const [label, body, headers] of [["session", { mfl_user_id: COMMISH }, {}], ["admin key", {}, { Authorization: "Bearer " + ADMIN_KEY }]]) {
+      const call = (p, b) => callWorker(env, "POST", p + Q, { body: b, headers });
+      const l = await call("/api/bug-reports/commish/list", body);
       t.equal(l.status, 200, label);
       t.equal(l.json.reports.length, 2, label);
       const first = l.json.reports.find((x) => x.franchise_id === "0002");
       t.equal(first.note, "owner note A", label);
       t.equal(first.error.endpoint, "/api/waivers/window", label);
       t.ok(!l.text.includes(OWNER_A) && !l.text.includes(COMMISH), "no tokens in the commissioner view either");
-      const g = await post(env, "/api/bug-reports/commish/get", { ...body, id: first.id }, extra);
+      const g = await call("/api/bug-reports/commish/get", { ...body, id: first.id });
       t.equal(g.status, 200, label);
       t.equal(g.json.events[0].kind, "submitted", label);
-      t.equal((await post(env, "/api/bug-reports/commish/get", { ...body, id: 999 }, extra)).status, 404, label);
+      t.equal((await call("/api/bug-reports/commish/get", { ...body, id: 999 })).status, 404, label);
     }
   });
 });
 
-test("the commissioner key may arrive as a Bearer header, so it never has to sit in an address", async () => {
+test("the commissioner key is accepted ONLY in the Authorization header", async () => {
   const { env } = fresh();
   await submit(env);
-  const ok = await callWorker(env, "POST", "/api/bug-reports/commish/list" + Q, { body: {}, headers: { Authorization: "Bearer " + ADMIN_KEY } });
-  t.equal(ok.status, 200);
-  t.equal(ok.json.reports.length, 1);
-  const bad = await callWorker(env, "POST", "/api/bug-reports/commish/list" + Q, { body: {}, headers: { Authorization: "Bearer nope" } });
-  t.equal(bad.status, 403);
+  const ROUTES = ["/api/bug-reports/commish/list", "/api/bug-reports/commish/get"];
+  for (const route of ROUTES) {
+    const ok = await callWorker(env, "POST", route + Q, { body: { id: 1 }, headers: { Authorization: "Bearer " + ADMIN_KEY } });
+    t.equal(ok.status, 200, "Bearer works on " + route);
+    // A valid key in the address is refused outright, before anything is read, and never repeated.
+    for (const name of ["APIKEY", "apikey", "key", "token"]) {
+      const r = await callWorker(env, "POST", route + Q + "&" + name + "=" + encodeURIComponent(ADMIN_KEY), { body: { id: 1 } });
+      t.equal(r.status, 400, name + " in the address is refused on " + route);
+      t.equal(r.json.code, "key_in_address");
+      t.ok(!r.text.includes(ADMIN_KEY), "the refusal never repeats the key");
+      t.ok(!JSON.stringify([...r.headers]).includes(ADMIN_KEY), "nor puts it in a header");
+      t.ok(!("reports" in r.json) && !("report" in r.json), "no report data came back");
+    }
+    // Refused even beside a valid header and a valid commissioner session.
+    const both = await callWorker(env, "POST", route + Q + "&APIKEY=" + encodeURIComponent(ADMIN_KEY), { body: { id: 1, mfl_user_id: COMMISH }, headers: { Authorization: "Bearer " + ADMIN_KEY } });
+    t.equal(both.status, 400, "a key in the address is refused even beside a valid header and session");
+    // A wrong key in the address is refused the same way (it is the address that is refused, not the key).
+    t.equal((await callWorker(env, "POST", route + Q + "&APIKEY=wrong", { body: { id: 1 } })).json.code, "key_in_address");
+  }
+  // The commissioner SESSION in the body still works, and the owner routes still ignore a stray page key.
+  t.equal((await post(env, "/api/bug-reports/commish/list", { mfl_user_id: COMMISH })).status, 200);
+  t.equal((await post(env, "/api/bug-reports/mine", { mfl_user_id: OWNER_A }, Q + "&APIKEY=not-a-credential")).status, 200);
+  const src = fs.readFileSync(path.join(ROOT, "worker", "src", "bug_reports.js"), "utf8");
+  t.match(src, /keyInAddress\(ctx\.url\)/, "the guard is in the entry point");
 });
 
 test("the commissioner routes are not under /admin (no address-borne session, no second MFL read)", () => {
