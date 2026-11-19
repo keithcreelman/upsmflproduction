@@ -87,12 +87,21 @@ export function makeD1Store(db) {
       if (!(changes > 0)) return { inserted: false };
       return { inserted: true, report: await first("SELECT * FROM ups_bug_reports WHERE franchise_id=? AND client_request_id=? LIMIT 1", row.franchise_id, row.client_request_id) };
     },
-    async bumpDuplicate(id, event) {
-      await db.batch([
-        db.prepare("UPDATE ups_bug_reports SET dup_count=dup_count+1, updated_at=? WHERE id=?").bind(event.at, id),
-        db.prepare("INSERT INTO ups_bug_report_events (report_id, at, actor, kind, detail) VALUES (?,?,?,?,?)").bind(id, event.at, event.actor, event.kind, event.detail || ""),
+    // Record a duplicate against an open report, ATOMICALLY up to `max` (MAT-4). The cap check and the event insert are
+    // one statement: the event row is inserted only if fewer than `max` duplicate events exist for the report, so
+    // simultaneous duplicates cannot all pass a stale read of dup_count. The counter is then derived from the events
+    // (never incremented blindly), and only written when it changed, so a refused duplicate writes nothing.
+    // Returns { ok: false } when the cap is reached, else { ok: true, report }.
+    async bumpDuplicate(id, event, max) {
+      const results = await db.batch([
+        db.prepare("INSERT INTO ups_bug_report_events (report_id, at, actor, kind, detail) SELECT ?, ?, ?, ?, ? WHERE (SELECT COUNT(*) FROM ups_bug_report_events WHERE report_id=? AND kind=?) < ?")
+          .bind(id, event.at, event.actor, event.kind, event.detail || "", id, event.kind, max),
+        db.prepare("UPDATE ups_bug_reports SET dup_count=(SELECT COUNT(*) FROM ups_bug_report_events WHERE report_id=? AND kind=?), updated_at=? WHERE id=? AND dup_count<>(SELECT COUNT(*) FROM ups_bug_report_events WHERE report_id=? AND kind=?)")
+          .bind(id, event.kind, event.at, id, id, event.kind),
       ]);
-      return first("SELECT * FROM ups_bug_reports WHERE id=?", id);
+      const inserted = Number(results && results[0] && results[0].meta && results[0].meta.changes);
+      if (!(inserted > 0)) return { ok: false };
+      return { ok: true, report: await first("SELECT * FROM ups_bug_reports WHERE id=?", id) };
     },
     listMine: (fid, limit) => all(
       "SELECT id, env, status, summary, created_at, updated_at, dup_count FROM ups_bug_reports WHERE franchise_id=? ORDER BY created_at DESC LIMIT ?", fid, limit),
@@ -129,10 +138,13 @@ export function makeMemoryStore() {
       events.push({ id: nextEvt++, report_id: rec.id, at: event.at, actor: event.actor, kind: event.kind, detail: event.detail || "" });
       return { inserted: true, report: clone(rec) };
     },
-    async bumpDuplicate(id, event) {
-      const rec = reports.find((r) => r.id === id); rec.dup_count += 1; rec.updated_at = event.at;
+    // Same contract as the D1 store; no await between the check and the writes, so it is atomic in JS.
+    async bumpDuplicate(id, event, max) {
+      const rec = reports.find((r) => r.id === id);
+      if (events.filter((e) => e.report_id === id && e.kind === event.kind).length >= max) return { ok: false };
       events.push({ id: nextEvt++, report_id: id, at: event.at, actor: event.actor, kind: event.kind, detail: event.detail || "" });
-      return clone(rec);
+      rec.dup_count = events.filter((e) => e.report_id === id && e.kind === event.kind).length; rec.updated_at = event.at;
+      return { ok: true, report: clone(rec) };
     },
     async listMine(fid, limit) {
       return reports.filter((r) => r.franchise_id === fid).sort(byNewest).slice(0, limit)
@@ -269,7 +281,10 @@ export async function handleBugReportRequest(ctx) {
         // A double tap that landed after the original's insert matches its own report: that is a replay, not a duplicate.
         if (dup.client_request_id === val.client_request_id) return respond(ctx, 200, { ok: true, replay: true, duplicate: false, report: ownerView(dup) });
         if ((dup.dup_count || 0) >= LIMITS.DUP_MAX) return refuse(ctx, "duplicate_limit", { report: ownerView(dup) });
-        const bumped = await store.bumpDuplicate(dup.id, { at: nowIso, actor: "owner:" + fid, kind: "duplicate", detail: val.note });
+        // The check above is only an early exit on a possibly stale read; the cap itself is enforced atomically inside bumpDuplicate (MAT-4).
+        const bump = await store.bumpDuplicate(dup.id, { at: nowIso, actor: "owner:" + fid, kind: "duplicate", detail: val.note }, LIMITS.DUP_MAX);
+        if (!bump.ok) return refuse(ctx, "duplicate_limit", { report: ownerView((await store.getById(dup.id)) || dup) });
+        const bumped = bump.report;
         return respond(ctx, 200, {
           ok: true, replay: false, duplicate: true, report: ownerView(bumped),
           message: "You already reported this (" + reportCode(bumped) + "). We added your note to it instead of opening a second report.",

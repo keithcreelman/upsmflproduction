@@ -72,7 +72,7 @@ still pass the facts to the commissioner another way.
 ## Rate limit, duplicates, redaction
 
 * **Retry** (same `client_request_id`): answered with the first report. Never a second row; does not count.
-* **Same problem, same team, within 24 h** (same page + error name + message with digits collapsed + endpoint + status; with no error captured, the owner's words): added to the open report as a `duplicate` event instead of a new report. Up to 10, then refused. Does not use the daily allowance.
+* **Same problem, same team, within 24 h** (same page + error name + message with digits collapsed + endpoint + status; with no error captured, the owner's words): added to the open report as a `duplicate` event instead of a new report. Up to 10, then refused. Does not use the daily allowance. **The cap is atomic:** the duplicate event is inserted by a statement that checks `fewer than 10 duplicate events exist` in the same statement, and the counter is then derived from the events (never blindly incremented), so more than 10 simultaneous duplicates stop at exactly 10 and the rest are refused with `duplicate_limit` and write nothing.
 * **Rate limit** (new reports only, per team): at least 20 s apart; 5 per rolling 24 h. A refusal carries `retry_after_seconds` and a `Retry-After` header.
 * **The limit is an atomic reservation, not a read followed by a write.** The gap and the cap are conditions *inside* the same `INSERT … SELECT … WHERE NOT EXISTS (newer than 20 s) AND (count in window) < 5` that stores the report, so simultaneous submissions from one team cannot all pass on the same earlier read (SQLite runs one statement under its write lock; D1 runs the report and event inserts as one batch/transaction). A refused attempt writes **0 rows**. It then reads the team's recent reports, only to tell the owner which limit applies and how long to wait. A same-`client_request_id` request that raced and lost is answered as a replay, not as a limit.
 * **Two simultaneous reports of the same problem** (different request ids; both passed the duplicate lookup before either was saved): the one that wins the reservation is stored; the other, after losing it, looks for the now-open report and is recorded there as a duplicate (its note kept), never as a rate-limit refusal. Only when no matching open report exists does a refused reservation answer with the limit.
@@ -104,7 +104,8 @@ Table at its one-day worst case (12 teams × 5 reports = 60 rows). The SQL measu
 | Refused by the 20 s gap: conditional insert + its event statement | 3 + 3 | **0** |
 | Refused by the daily cap | 8 + 3 | **0** |
 | After a refusal: recent reports, to word the message | 5 | |
-| Duplicate added: counter + event | 3 | 4 |
+| Duplicate added (atomic: capped event insert + counter derived from the events) | 12 for the 1st, up to ~39 for the 10th | 4 |
+| Duplicate refused at the cap (the 11th, if it got past the early check) | ≈ 28 | **0** |
 | Owner's own list (20 max) | 6 | |
 | Commissioner list (50 of 60) | 50 | |
 | Commissioner open one report | 1 + 2 | |

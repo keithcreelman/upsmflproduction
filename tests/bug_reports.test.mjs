@@ -361,12 +361,14 @@ test("a retry or a duplicate does not use up the daily allowance", async () => {
 // `n` of them have arrived. By then each has already done every read it was going to do, so all `n` decided on the same
 // earlier state. Code that checks the limits with a read and then inserts lets all `n` through; an atomic reservation
 // lets only the allowed ones through. (Released after 1 s even if fewer than n arrive, so a regression fails instead of hanging.)
-function holdInsertsUntil(db, n) {
+function holdInsertsUntil(db, n) { return holdBatchesUntil(db, n, /^\s*INSERT INTO ups_bug_reports\b/i); }
+// Same barrier, for any batch whose first matching statement is `re` (e.g. the duplicate counter's event insert).
+function holdBatchesUntil(db, n, re) {
   const rawBatch = db.batch.bind(db);
   let arrived = 0; let release; const gate = new Promise((r) => { release = r; });
   const timer = setTimeout(release, 1000);
   db.batch = async (stmts) => {
-    if (stmts.some((st) => /^\s*INSERT INTO ups_bug_reports\b/i.test(st.sql || ""))) {
+    if (stmts.some((st) => re.test(st.sql || ""))) {
       if (++arrived >= n) release();
       await gate;
     }
@@ -500,6 +502,85 @@ test("MAT-3: a same-problem loser is a duplicate even when the daily cap is alre
     t.equal(rows(db).length, 5);
     t.ok(everything(db).includes("cap note 1") && everything(db).includes("cap note 2"));
   });
+});
+
+const DUP_EVENT_INSERT = /^\s*INSERT INTO ups_bug_report_events\b/i;
+const dupEvents = (db) => events(db).filter((e) => e.kind === "duplicate");
+
+test("MAT-4: more than 10 simultaneous same-problem reports (distinct request ids) stop at the cap: 10 recorded, the rest get duplicate_limit", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    const same = (i) => report({ client_request_id: "req-mat4-a-" + String(i).padStart(2, "0"), note: "Dup note " + i + " same failure." });
+    t.equal((await post(env, "/api/bug-reports", same(0))).status, 201, "the original");
+    advance(30);
+    const N = 14;
+    const hold = holdBatchesUntil(db, N, DUP_EVENT_INSERT);   // every request has read dup_count = 0 before any counts
+    const res = await Promise.all(Array.from({ length: N }, (_, i) => post(env, "/api/bug-reports", same(i + 1))));
+    t.equal(hold.arrived(), N, "all " + N + " requests passed the stale cap check together"); hold.done();
+    const okDup = res.filter((r) => r.status === 200 && r.json.duplicate === true);
+    const limited = res.filter((r) => r.status === 429 && r.json.code === "duplicate_limit");
+    t.equal(okDup.length, 10, "exactly 10 recorded: " + res.map((r) => r.status).join(","));
+    t.equal(limited.length, N - 10, "the rest are refused with duplicate_limit");
+    t.equal(res.length, okDup.length + limited.length, "no other outcome (no 500, no new report)");
+    t.equal(rows(db).length, 1, "still one report");
+    t.equal(rows(db)[0].dup_count, 10, "the counter stops at 10");
+    t.equal(dupEvents(db).length, 10, "and so do the duplicate events");
+    t.equal(events(db).length, 11, "plus the original's 'submitted' event");
+    t.ok(limited.every((r) => r.json.report && r.json.report.times_reported === 11), "a refused caller is told the report's current count (1 + 10)");
+    // The seen counts are a set: ten distinct notes were kept, and the refused ones were not stored.
+    const kept = dupEvents(db).map((e) => e.detail);
+    t.equal(new Set(kept).size, 10, "ten distinct duplicate notes kept");
+    // Cost: the cap query is an index lookup on the report's events.
+    const ins = db.log.find((q) => /INSERT INTO ups_bug_report_events/i.test(q.sql) && /COUNT\(\*\)/i.test(q.sql));
+    t.ok(ins, "the cap is checked inside the event insert");
+    const plan = db.raw.prepare("EXPLAIN QUERY PLAN " + ins.sql).all(...ins.args).map((p) => p.detail).join(" | ");
+    t.match(plan, /idx_ups_bug_report_events_report/, plan);
+    t.doesNotMatch(plan, /SCAN ups_bug_report_events(?! USING)/, "no full scan of the events table: " + plan);
+  });
+});
+
+test("MAT-4: with 8 duplicates already recorded, 5 simultaneous more fill exactly the last 2 slots", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    const same = (tag, i) => report({ client_request_id: "req-mat4-" + tag + "-" + String(i).padStart(2, "0"), note: "Note " + tag + i + " same failure." });
+    await post(env, "/api/bug-reports", same("s", 0));
+    for (let i = 1; i <= 8; i++) { advance(30); t.equal((await post(env, "/api/bug-reports", same("s", i))).json.duplicate, true); }
+    t.equal(rows(db)[0].dup_count, 8);
+    advance(30);
+    const hold = holdBatchesUntil(db, 5, DUP_EVENT_INSERT);
+    const res = await Promise.all([1, 2, 3, 4, 5].map((i) => post(env, "/api/bug-reports", same("c", i))));
+    hold.done();
+    t.equal(res.filter((r) => r.status === 200 && r.json.duplicate === true).length, 2, "two slots left: " + res.map((r) => r.status).join(","));
+    t.equal(res.filter((r) => r.status === 429 && r.json.code === "duplicate_limit").length, 3);
+    t.equal(rows(db)[0].dup_count, 10);
+    t.equal(dupEvents(db).length, 10);
+  });
+});
+
+test("MAT-4: a refused duplicate writes nothing (no event, no counter, no timestamp change)", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    const same = (i) => report({ client_request_id: "req-mat4-w-" + String(i).padStart(2, "0"), note: "w" + i });
+    await post(env, "/api/bug-reports", same(0));
+    for (let i = 1; i <= 10; i++) { advance(30); await post(env, "/api/bug-reports", same(i)); }
+    advance(30);
+    // Drive the store directly so the early cap check cannot answer first: this is the atomic path itself.
+    const store = (await import("../worker/src/bug_reports.js")).makeD1Store(db);
+    const before = JSON.stringify({ r: rows(db), e: events(db) });
+    const w0 = db.raw.prepare("SELECT total_changes() AS n").get().n;
+    const out = await store.bumpDuplicate(1, { at: "2026-11-19T16:00:00.000Z", actor: "owner:0002", kind: "duplicate", detail: "late" }, 10);
+    t.equal(out.ok, false);
+    t.equal(db.raw.prepare("SELECT total_changes() AS n").get().n - w0, 0, "zero rows changed");
+    t.equal(JSON.stringify({ r: rows(db), e: events(db) }), before);
+  });
+});
+
+test("MAT-4: memory store (preview) enforces the same cap", async () => {
+  const store = makeMemoryStore();
+  await store.reserveReport({ franchise_id: "0002", client_request_id: "req-mem-0000", created_at: "2026-11-19T15:00:00.000Z", status: "open", dup_count: 0 }, { at: "x", actor: "a", kind: "submitted" }, { gapCutoffIso: "0", windowStartIso: "0", dailyMax: 5 });
+  const res = await Promise.all(Array.from({ length: 14 }, (_, i) => store.bumpDuplicate(1, { at: "x", actor: "a", kind: "duplicate", detail: "n" + i }, 10)));
+  t.equal(res.filter((r) => r.ok).length, 10);
+  t.equal(store._reports[0].dup_count, 10);
 });
 
 test("the reservation is one statement: the gap and the cap are checked in the same INSERT that stores the report", async () => {
