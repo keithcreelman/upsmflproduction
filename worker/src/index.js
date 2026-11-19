@@ -27,7 +27,7 @@ import { franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
-import { handleBugReportRequest, makeD1Store as makeBugReportStore } from "./bug_reports.js";
+import { handleBugReportRequest, bugReportsEnabled, makeD1Store as makeBugReportStore } from "./bug_reports.js";
 import { parseDropLockSetting, dropsFromTransactions, resolveWaiverAvailability } from "./waiver_availability.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
@@ -16288,7 +16288,7 @@ export default {
         deps: {
           detectFranchise: _rdhDetectFranchise,
           commishFids: _rdhCommishFids,
-          isEnabled: () => getFeatureFlag(env, "BUG_REPORT_ENABLED"),
+          isEnabled: () => bugReportsEnabled(env),   // wrangler var only: no D1 read, even to decide "off"
           store: () => makeBugReportStore(env.UPS_MFL_DB),
         },
         defaultLeagueId: _rdhLeagueId(), defaultSeason: YEAR,

@@ -66,6 +66,33 @@ test("flag off (the default): 404 before any MFL call or database read", async (
   for (const p of ["/api/bug-reports/mine", "/api/bug-reports/commish/list", "/api/bug-reports/commish/get"]) t.equal((await post(env, p, { mfl_user_id: COMMISH })).status, 404, p);
 });
 
+test("flag off: the endpoint makes NO D1 call at all (not even to read the settings table), on every route", async () => {
+  const { env, mfl, db } = fresh({ env: { BUG_REPORT_ENABLED: "0" } });
+  const calls = []; let execs = 0; let batches = 0;
+  const rawPrepare = db.prepare.bind(db); const rawExec = db.exec.bind(db); const rawBatch = db.batch.bind(db);
+  db.prepare = (sql) => { calls.push(sql); return rawPrepare(sql); };
+  db.exec = (sql) => { execs++; calls.push(sql); return rawExec(sql); };
+  db.batch = (st) => { batches++; return rawBatch(st); };
+  const before = db.log.length;
+  for (const p of ["/api/bug-reports", "/api/bug-reports/mine", "/api/bug-reports/commish/list", "/api/bug-reports/commish/get"]) {
+    const r = await post(env, p, report({ mfl_user_id: COMMISH }));
+    t.equal(r.status, 404, p);
+    t.equal(r.json.code, "disabled", p);
+  }
+  t.equal(calls.length, 0, "no prepare() or exec() on the database: " + calls.join(" | ").slice(0, 200));
+  t.equal(execs + batches, 0, "no exec() or batch()");
+  t.equal(db.log.length, before, "no statement run, including against ups_settings");
+  t.ok(!calls.some((q) => /ups_settings/.test(q)), "ups_settings is never created or read while the feature is off");
+  t.equal(mfl.st.exports.length, 0, "and no MFL read");
+  // Unreadable or odd values are off too, with no database call.
+  for (const v of ["", "0", "true", "yes", " 0 "]) {
+    const e2 = fresh({ env: { BUG_REPORT_ENABLED: v } });
+    const n = e2.db.log.length;
+    t.equal((await submit(e2.env)).status, 404, JSON.stringify(v));
+    t.equal(e2.db.log.length, n, "no D1 call for " + JSON.stringify(v));
+  }
+});
+
 test("the flag is a wrangler var that ships off", () => {
   const toml = fs.readFileSync(path.join(ROOT, "worker", "wrangler.toml"), "utf8");
   t.match(toml, /^BUG_REPORT_ENABLED\s*=\s*"0"\s*$/m);
@@ -328,6 +355,152 @@ test("a retry or a duplicate does not use up the daily allowance", async () => {
     advance(25);
     t.equal((await submit(env, { screen: "Some other screen" })).status, 201);
   });
+});
+
+// Worst-case interleaving, made deterministic: hold every request at the moment it is about to WRITE a report until all
+// `n` of them have arrived. By then each has already done every read it was going to do, so all `n` decided on the same
+// earlier state. Code that checks the limits with a read and then inserts lets all `n` through; an atomic reservation
+// lets only the allowed ones through. (Released after 1 s even if fewer than n arrive, so a regression fails instead of hanging.)
+function holdInsertsUntil(db, n) {
+  const rawBatch = db.batch.bind(db);
+  let arrived = 0; let release; const gate = new Promise((r) => { release = r; });
+  const timer = setTimeout(release, 1000);
+  db.batch = async (stmts) => {
+    if (stmts.some((st) => /^\s*INSERT INTO ups_bug_reports\b/i.test(st.sql || ""))) {
+      if (++arrived >= n) release();
+      await gate;
+    }
+    return rawBatch(stmts);
+  };
+  return { arrived: () => arrived, done: () => { clearTimeout(timer); db.batch = rawBatch; } };
+}
+
+// A submit makes several awaits before it inserts (MFL identity read, replay lookup, duplicate lookup). Firing N at once
+// makes every one of them read the table BEFORE any one inserts. Nothing here is sequential.
+const distinctReport = (i, over) => ({
+  screen: "Screen " + String.fromCharCode(65 + i), summary: "Problem number " + (i + 1),
+  error: { name: "E" + String.fromCharCode(65 + i), message: "boom " + String.fromCharCode(65 + i), endpoint: "/api/x" + String.fromCharCode(97 + i), status: 500 },
+  ...(over || {}),
+});
+
+test("concurrent submissions: the 20-second gap holds (one wins, the rest are refused, one row)", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+    const hold = holdInsertsUntil(db, 8);
+    const res = await Promise.all([0, 1, 2, 3, 4, 5, 6, 7].map((i) => submit(env, distinctReport(i))));
+    t.equal(hold.arrived(), 8, "all 8 requests reached the write together (so each decided on the same earlier state)"); hold.done();
+    const ok = res.filter((r) => r.status === 201); const slow = res.filter((r) => r.status === 429);
+    t.equal(ok.length, 1, "exactly one new report: " + res.map((r) => r.status).join(","));
+    t.equal(slow.length, 7);
+    for (const r of slow) { t.equal(r.json.code, "too_fast"); t.ok(r.json.retry_after_seconds >= 1 && r.json.retry_after_seconds <= 20); t.ok(r.headers.get("retry-after")); }
+    t.equal(rows(db).length, 1, "one report row");
+    t.equal(events(db).length, 1, "one event row: a refused attempt writes nothing");
+  });
+});
+
+test("concurrent submissions: the 5-per-24-hours cap holds even when every request sees the same earlier state", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    // Four reports already, each 21 s apart (all valid), so the gap is clear and exactly ONE slot is left.
+    for (let i = 0; i < 4; i++) { t.equal((await submit(env, distinctReport(i))).status, 201); advance(21); }
+    const hold = holdInsertsUntil(db, 6);
+    const res = await Promise.all([4, 5, 6, 7, 8, 9].map((i) => submit(env, distinctReport(i))));
+    t.equal(hold.arrived(), 6, "all 6 requests reached the write together"); hold.done();
+    const ok = res.filter((r) => r.status === 201);
+    t.equal(ok.length, 1, "one slot left, one winner: " + res.map((r) => r.status + ":" + (r.json.code || "ok")).join(","));
+    t.equal(rows(db).length, 5, "never more than 5 in the window");
+    // A burst after the cap is hit: all refused, none stored. (Advance past the gap so only the daily cap can refuse.)
+    advance(21);
+    const hold2 = holdInsertsUntil(db, 4);
+    const after = await Promise.all([10, 11, 12, 13].map((i) => submit(env, distinctReport(i))));
+    hold2.done();
+    t.ok(after.every((r) => r.status === 429 && r.json.code === "daily_limit"), "daily_limit for all: " + after.map((r) => r.json.code).join(","));
+    t.equal(rows(db).length, 5);
+    t.equal(events(db).length, 5);
+  });
+});
+
+test("concurrent submissions: the cap is per team, so a burst from one team does not block another", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+    const hold = holdInsertsUntil(db, 6);
+    const res = await Promise.all([
+      ...[0, 1, 2].map((i) => submit(env, distinctReport(i, { mfl_user_id: OWNER_A }))),
+      ...[0, 1, 2].map((i) => submit(env, distinctReport(i, { mfl_user_id: OWNER_B }))),
+    ]);
+    hold.done();
+    t.equal(res.filter((r) => r.status === 201).length, 2, "one winner per team");
+    t.equal(rows(db).filter((r) => r.franchise_id === "0002").length, 1);
+    t.equal(rows(db).filter((r) => r.franchise_id === "0003").length, 1);
+  });
+});
+
+test("concurrent identical requests (a double tap): one report, every caller gets it, no limit error", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+    const body = report();
+    const hold = holdInsertsUntil(db, 5);
+    const res = await Promise.all([1, 2, 3, 4, 5].map(() => post(env, "/api/bug-reports", body)));
+    hold.done();
+    t.ok(res.every((r) => r.status === 200 || r.status === 201), "no refusal: " + res.map((r) => r.status).join(","));
+    t.equal(res.filter((r) => r.status === 201).length, 1);
+    t.equal(rows(db).length, 1);
+    t.equal(events(db).length, 1);
+  });
+});
+
+test("a double tap that lands after the original was saved is a replay, not a 'duplicate' of itself", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+    const body = report();
+    const res = await Promise.all([1, 2, 3].map(() => post(env, "/api/bug-reports", body)));   // no barrier: the natural interleaving
+    t.ok(res.every((r) => r.status === 200 || r.status === 201), res.map((r) => r.status).join(","));
+    t.ok(res.every((r) => r.json.duplicate === false), "none is called a duplicate: " + res.map((r) => r.json.duplicate).join(","));
+    t.equal(rows(db).length, 1);
+    t.equal(rows(db)[0].dup_count, 0, "times reported stays 1");
+    t.equal(events(db).length, 1);
+  });
+});
+
+test("the reservation is one statement: the gap and the cap are checked in the same INSERT that stores the report", async () => {
+  const { env, db } = fresh();
+  db.log.length = 0;
+  await submit(env);
+  const ins = db.log.filter((q) => /^\s*INSERT INTO ups_bug_reports\b/i.test(q.sql));
+  t.equal(ins.length, 1);
+  t.match(ins[0].sql, /WHERE NOT EXISTS \(SELECT 1 FROM ups_bug_reports WHERE franchise_id=\? AND created_at>\?\)/, "gap check inside the insert");
+  t.match(ins[0].sql, /SELECT COUNT\(\*\) FROM \(SELECT 1 FROM ups_bug_reports WHERE franchise_id=\? AND created_at>=\? LIMIT \?\)\) < \?/, "cap check inside the insert");
+  // No separate read of the recent reports on the happy path: nothing for a concurrent request to be stale against.
+  t.ok(!db.log.some((q) => /^\s*SELECT created_at FROM ups_bug_reports/i.test(q.sql)), "no separate rate read before the insert");
+  // Both subqueries are index lookups on the (team, time) index.
+  const sub = db.raw.prepare("EXPLAIN QUERY PLAN " + ins[0].sql).all(...ins[0].args).map((p) => p.detail).join(" | ");
+  t.match(sub, /idx_ups_bug_reports_team_time/, sub);
+  t.doesNotMatch(sub, /SCAN ups_bug_reports(?! USING)/, "no full scan: " + sub);
+});
+
+test("a refused reservation writes nothing (no report row, no event row, no counter)", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    await submit(env, distinctReport(0));
+    advance(5);
+    const before = JSON.stringify({ r: rows(db), e: events(db) });
+    const total = (d) => d.raw.prepare("SELECT total_changes() AS n").get().n;
+    const w0 = total(db);
+    const r = await submit(env, distinctReport(1));
+    t.equal(r.status, 429);
+    t.equal(total(db) - w0, 0, "zero rows changed by the refused attempt");
+    t.equal(JSON.stringify({ r: rows(db), e: events(db) }), before);
+  });
+});
+
+test("memory store (preview) enforces the same reservation", async () => {
+  const store = makeMemoryStore();
+  const lim = { gapCutoffIso: "2026-11-19T14:59:40.000Z", windowStartIso: "2026-11-18T15:00:00.000Z", dailyMax: 5 };
+  const mk = (n, at) => ({ franchise_id: "0002", client_request_id: "req-mem-" + n, created_at: at, status: "open", dup_count: 0 });
+  const ev = { at: "x", actor: "owner:0002", kind: "submitted", detail: "" };
+  const res = await Promise.all([0, 1, 2].map((n) => store.reserveReport(mk(n, "2026-11-19T15:00:00.000Z"), ev, lim)));
+  t.equal(res.filter((r) => r.inserted).length, 1);
+  t.equal(store._reports.length, 1);
 });
 
 // ------------------------------------------------------------------ privacy and access

@@ -9,7 +9,7 @@ This page holds no real report, name, team or error text: only rules.
 | Is | Is not |
 |---|---|
 | A phone sheet (`site/m/report_bug.js`) that shows what will be sent, then sends it | Wired into `site/m/index.html` or `app.js` (not loaded by the app yet) |
-| Worker routes behind `BUG_REPORT_ENABLED`, which ships `"0"` | Enabled in production |
+| Worker routes behind `BUG_REPORT_ENABLED`, a wrangler var that ships `"0"`. Off means **zero D1 calls and zero MFL calls**: the flag is read from the environment only, never from the database | Enabled in production |
 | Private D1 storage (`ups_bug_reports`, `ups_bug_report_events`) | A repo file, a Pages file or a cache |
 | One MFL identity read per request, plus D1 | A Discord post, a DM, a GitHub call, an Anthropic call or an agent |
 | Text only | Screenshots |
@@ -74,6 +74,8 @@ still pass the facts to the commissioner another way.
 * **Retry** (same `client_request_id`): answered with the first report. Never a second row; does not count.
 * **Same problem, same team, within 24 h** (same page + error name + message with digits collapsed + endpoint + status; with no error captured, the owner's words): added to the open report as a `duplicate` event instead of a new report. Up to 10, then refused. Does not use the daily allowance.
 * **Rate limit** (new reports only, per team): at least 20 s apart; 5 per rolling 24 h. A refusal carries `retry_after_seconds` and a `Retry-After` header.
+* **The limit is an atomic reservation, not a read followed by a write.** The gap and the cap are conditions *inside* the same `INSERT … SELECT … WHERE NOT EXISTS (newer than 20 s) AND (count in window) < 5` that stores the report, so simultaneous submissions from one team cannot all pass on the same earlier read (SQLite runs one statement under its write lock; D1 runs the report and event inserts as one batch/transaction). A refused attempt writes **0 rows**. It then reads the team's recent reports, only to tell the owner which limit applies and how long to wait. A same-`client_request_id` request that raced and lost is answered as a replay, not as a limit.
+* A double tap that lands *after* the original was saved matches its own report by request id and is a replay, never a "duplicate" of itself.
 * **Redaction** (server side, authoritative, before anything is stored): drops control and bidi-override characters; removes `key=value` pairs whose key is an API key, MFL user id, cookie, token, session, password, secret, authorization or signature; `Bearer …`; Discord webhook addresses; e-mail addresses; any 32+ character token-like string; and the query string and fragment of every address. The response says how many items were removed; the row stores the count.
 
 ## The one MFL read
@@ -88,22 +90,27 @@ Its latency was **not measured** (no live MFL call in this slice).
 
 ## D1 cost (measured locally in Miniflare with D1's own counters; production not touched)
 
-Table at its one-day worst case (12 teams × 5 reports = 60 rows):
+Table at its one-day worst case (12 teams × 5 reports = 60 rows). The SQL measured is the exact SQL in `makeD1Store`.
 
 | Step | rows read | rows written |
 |---|---|---|
 | Retry check (unique index) | 1 | |
 | Duplicate check (pinned to its index) | 1 | |
-| Rate window (≤ 5 rows) | 5 | |
-| Save a new report: report row (+ 4 indexes) | 1 | 6 |
-| Save a new report: event row (+ index) | 3 | 3 |
+| Save a new report, rate check included: one conditional insert (report row + 4 indexes) | 8 (team already at 4 reports; 4 for a team with none) | 6 |
+| Save a new report: event row (+ index) | 4 | 3 |
+| Read the saved row back | 1 | |
+| **A new report in total** | **≈ 15** | **9** |
+| Refused by the 20 s gap: conditional insert + its event statement | 3 + 3 | **0** |
+| Refused by the daily cap | 8 + 3 | **0** |
+| After a refusal: recent reports, to word the message | 5 | |
 | Duplicate added: counter + event | 3 | 4 |
 | Owner's own list (20 max) | 6 | |
 | Commissioner list (50 of 60) | 50 | |
 | Commissioner open one report | 1 + 2 | |
+| Feature off | **0** | **0** |
 
-A new report is about **9 rows written and ~12 read**. At most 60 new reports a day.
-The measurement caught a real problem: without `INDEXED BY`, the duplicate check read all 60 rows.
+At most 60 new reports a day, so the whole feature is a few hundred rows read and about 540 written per day at its ceiling. A refused attempt needs a proven owner session and costs about 14 rows read, 0 written.
+Two real problems were caught by measuring and testing: without `INDEXED BY` the duplicate check read all 60 rows; and a separate "read recent, then insert" let simultaneous requests all pass the limits (now the single conditional insert; the old separate rate read is gone from the happy path).
 
 ## Migration
 
@@ -125,3 +132,4 @@ Not needed for this slice; needed before any Discord step. Nothing here was chec
 `node scripts/safe_tests/run.mjs` (offline, no production). Files: `tests/bug_report_core.test.mjs`
 (rules and redaction corpus), `tests/bug_reports.test.mjs` (the real worker, real SQLite, stubbed MFL),
 `tests/report_bug_client.test.mjs` (what the sheet sends and shows, and its agreement with the server).
+Concurrency tests hold every request at the moment it is about to write until all have arrived, so each decided on the same earlier state (the worst case), and fail against a read-then-insert design. The test D1 adapter runs a batch with no `await` between statements, as D1 does. Not verified: behavior under real D1's concurrency (no production call in this slice).

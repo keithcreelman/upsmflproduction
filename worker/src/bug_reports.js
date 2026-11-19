@@ -33,6 +33,11 @@ const ROUTES = new Set([
 
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 
+// The flag is a wrangler var and nothing else. It is deliberately NOT in feature_flags.js, so there is no
+// override map to read: deciding "off" costs no database call at all (a public endpoint must not spend D1
+// operations while it is disabled).
+export function bugReportsEnabled(env) { return safeStr(env && env.BUG_REPORT_ENABLED) === "1"; }
+
 // Address parameters that look like a credential. The commissioner routes refuse any of them outright.
 const KEY_PARAM_NAMES = new Set(["apikey", "api_key", "api-key", "key", "commish_api_key", "x-commish-apikey", "x-mfl-apikey", "authorization", "bearer", "token", "access_token"]);
 export function keyInAddress(url) {
@@ -63,14 +68,24 @@ export function makeD1Store(db) {
     recentByFranchise: async (fid, sinceIso, limit) => (await all(
       "SELECT created_at FROM ups_bug_reports WHERE franchise_id=? AND created_at>=? ORDER BY created_at DESC LIMIT ?",
       fid, sinceIso, limit)).map((r) => r.created_at),
-    async insertReport(row, event) {
+    // The rate-limit check and the insert are ONE statement, so simultaneous submissions cannot all pass on the
+    // same earlier read: SQLite runs a single statement under the write lock, and D1 runs a batch as one
+    // transaction. The row is inserted only if (a) the team has no report newer than the gap cutoff and
+    // (b) fewer than `dailyMax` reports exist since the window start. Both subqueries use idx_ups_bug_reports_team_time.
+    // The event row is added only for a report that has no event yet, so a refused attempt writes nothing.
+    // Returns { inserted: false } when refused, else { inserted: true, report }. A duplicate (franchise_id,
+    // client_request_id) still throws UNIQUE, which the caller answers as a replay.
+    async reserveReport(row, event, lim) {
       const ph = REPORT_COLS.map(() => "?").join(",");
-      await db.batch([
-        db.prepare(`INSERT INTO ups_bug_reports (${REPORT_COLS.join(",")}) VALUES (${ph})`).bind(...REPORT_COLS.map((c) => row[c] == null ? null : row[c])),
-        db.prepare("INSERT INTO ups_bug_report_events (report_id, at, actor, kind, detail) VALUES ((SELECT id FROM ups_bug_reports WHERE franchise_id=? AND client_request_id=?), ?, ?, ?, ?)")
-          .bind(row.franchise_id, row.client_request_id, event.at, event.actor, event.kind, event.detail || ""),
+      const results = await db.batch([
+        db.prepare(`INSERT INTO ups_bug_reports (${REPORT_COLS.join(",")}) SELECT ${ph} WHERE NOT EXISTS (SELECT 1 FROM ups_bug_reports WHERE franchise_id=? AND created_at>?) AND (SELECT COUNT(*) FROM (SELECT 1 FROM ups_bug_reports WHERE franchise_id=? AND created_at>=? LIMIT ?)) < ?`)
+          .bind(...REPORT_COLS.map((c) => row[c] == null ? null : row[c]), row.franchise_id, lim.gapCutoffIso, row.franchise_id, lim.windowStartIso, lim.dailyMax, lim.dailyMax),
+        db.prepare("INSERT INTO ups_bug_report_events (report_id, at, actor, kind, detail) SELECT r.id, ?, ?, ?, ? FROM ups_bug_reports r WHERE r.franchise_id=? AND r.client_request_id=? AND NOT EXISTS (SELECT 1 FROM ups_bug_report_events e WHERE e.report_id=r.id)")
+          .bind(event.at, event.actor, event.kind, event.detail || "", row.franchise_id, row.client_request_id),
       ]);
-      return first("SELECT * FROM ups_bug_reports WHERE franchise_id=? AND client_request_id=? LIMIT 1", row.franchise_id, row.client_request_id);
+      const changes = Number(results && results[0] && results[0].meta && results[0].meta.changes);
+      if (!(changes > 0)) return { inserted: false };
+      return { inserted: true, report: await first("SELECT * FROM ups_bug_reports WHERE franchise_id=? AND client_request_id=? LIMIT 1", row.franchise_id, row.client_request_id) };
     },
     async bumpDuplicate(id, event) {
       await db.batch([
@@ -102,13 +117,17 @@ export function makeMemoryStore() {
     async recentByFranchise(fid, sinceIso, limit) {
       return reports.filter((r) => r.franchise_id === fid && r.created_at >= sinceIso).sort(byNewest).slice(0, limit).map((r) => r.created_at);
     },
-    async insertReport(row, event) {
+    // Same contract as the D1 store. No await between the check and the push, so it is atomic in JS too.
+    async reserveReport(row, event, lim) {
       if (reports.some((r) => r.franchise_id === row.franchise_id && r.client_request_id === row.client_request_id)) {
         throw new Error("UNIQUE constraint failed: ups_bug_reports.franchise_id, ups_bug_reports.client_request_id");
       }
+      const mine = reports.filter((r) => r.franchise_id === row.franchise_id);
+      if (mine.some((r) => r.created_at > lim.gapCutoffIso)) return { inserted: false };
+      if (mine.filter((r) => r.created_at >= lim.windowStartIso).length >= lim.dailyMax) return { inserted: false };
       const rec = { id: nextId++, ...row }; reports.push(rec);
       events.push({ id: nextEvt++, report_id: rec.id, at: event.at, actor: event.actor, kind: event.kind, detail: event.detail || "" });
-      return clone(rec);
+      return { inserted: true, report: clone(rec) };
     },
     async bumpDuplicate(id, event) {
       const rec = reports.find((r) => r.id === id); rec.dup_count += 1; rec.updated_at = event.at;
@@ -247,6 +266,8 @@ export async function handleBugReportRequest(ctx) {
       const fp = await fingerprint(val);
       const dup = await store.findOpenByFingerprint(fid, fp, windowStartIso(nowMs));
       if (dup) {
+        // A double tap that landed after the original's insert matches its own report: that is a replay, not a duplicate.
+        if (dup.client_request_id === val.client_request_id) return respond(ctx, 200, { ok: true, replay: true, duplicate: false, report: ownerView(dup) });
         if ((dup.dup_count || 0) >= LIMITS.DUP_MAX) return refuse(ctx, "duplicate_limit", { report: ownerView(dup) });
         const bumped = await store.bumpDuplicate(dup.id, { at: nowIso, actor: "owner:" + fid, kind: "duplicate", detail: val.note });
         return respond(ctx, 200, {
@@ -256,12 +277,9 @@ export async function handleBugReportRequest(ctx) {
         });
       }
 
-      // 3. Rate limit (only reports that would be NEW count).
-      const recent = await store.recentByFranchise(fid, windowStartIso(nowMs), LIMITS.DAILY_MAX);
-      const rate = rateDecision(recent, nowMs);
-      if (!rate.allow) return refuse(ctx, rate.code, { retry_after_seconds: rate.retryAfterSeconds });
-
-      // 4. Store.
+      // 3. Rate limit + store, ONE atomic reservation (only reports that would be NEW count). The gap and the
+      //    daily cap are checked inside the same statement that inserts, so simultaneous submissions from one team
+      //    cannot all pass on the same earlier read.
       const row = {
         env: "test", league_id: who.caller.leagueId, season: who.caller.season, franchise_id: fid, status: "open",
         summary: val.summary, note: val.note, screen: val.screen, build: val.build,
@@ -270,9 +288,14 @@ export async function handleBugReportRequest(ctx) {
         fingerprint: fp, client_request_id: val.client_request_id, dup_count: 0, redactions: v.redactions,
         created_at: nowIso, updated_at: nowIso,
       };
-      let saved;
+      const lim = {
+        windowStartIso: windowStartIso(nowMs),
+        gapCutoffIso: new Date(nowMs - LIMITS.MIN_GAP_SECONDS * 1000).toISOString(),
+        dailyMax: LIMITS.DAILY_MAX,
+      };
+      let res;
       try {
-        saved = await store.insertReport(row, { at: nowIso, actor: "owner:" + fid, kind: "submitted", detail: "" });
+        res = await store.reserveReport(row, { at: nowIso, actor: "owner:" + fid, kind: "submitted", detail: "" }, lim);
       } catch (e) {
         // Two identical requests raced: the unique index let one through. Answer the loser as a replay.
         if (/UNIQUE/i.test(String(e && e.message))) {
@@ -281,6 +304,17 @@ export async function handleBugReportRequest(ctx) {
         }
         throw e;
       }
+      if (!res.inserted) {
+        // Refused by the reservation. A same-id request that raced and won is still a replay, not a limit.
+        const again = await store.findByRequestId(fid, val.client_request_id);
+        if (again) return respond(ctx, 200, { ok: true, replay: true, duplicate: false, report: ownerView(again) });
+        // Only now read the recent reports, to tell the owner which limit and how long to wait.
+        const recent = await store.recentByFranchise(fid, lim.windowStartIso, LIMITS.DAILY_MAX);
+        const rate = rateDecision(recent, nowMs);
+        if (rate.allow) return refuse(ctx, "too_fast", { retry_after_seconds: LIMITS.MIN_GAP_SECONDS });   // the window moved between the two reads
+        return refuse(ctx, rate.code, { retry_after_seconds: rate.retryAfterSeconds });
+      }
+      const saved = res.report;
       return respond(ctx, 201, { ok: true, replay: false, duplicate: false, report: ownerView(saved), redactions: v.redactions });
     }
 
