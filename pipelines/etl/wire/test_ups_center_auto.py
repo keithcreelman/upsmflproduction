@@ -1377,5 +1377,9 @@ rqd, vqd, _ = build8(trackers_down, local=False)
 check("tracker data that could not be read is a visible EDITOR REVIEW box, never a silent omission", any(g["id"] == "tracker:qb" for g in rqd["gaps"]) and "EDITOR REVIEW" in rqd["html"], [g["id"] for g in rqd["gaps"]])
 check("an older snapshot with no tracker data at all builds without the new segments (no regression)", "qbbet" not in r8["html"] and "id=\"hall\"" not in r8["html"])
 
+print("S17. the report's checkedClaims holds only counts, so the draft PR body can print it (the 9 AM build failed in ups_center_pr.body on a leaked trade tuple, 2026-11-19)")
+import ups_center_pr as PRM
+check("a draft with a printed trade has integer-only checkedClaims and the PR body renders", all(isinstance(x, int) for x in vtd["checkedClaims"].values()) and bool(PRM.body("x", rtd, vtd, [], "p")), vtd["checkedClaims"])
+
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

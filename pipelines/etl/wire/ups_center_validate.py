@@ -943,7 +943,7 @@ def validate(res, ctx, pack):
         errors.append("claims with no source: %s" % ", ".join(unsourced[:20]))
     if "status: draft" not in doc:
         errors.append("article is not status: draft")
-    for k in ("_season_truth", "_arch_truth", "_arch_tables", "_trig_truth"):
+    for k in ("_season_truth", "_arch_truth", "_arch_tables", "_trig_truth", "_trade_bound"):
         n.pop(k, None)
     # markup must balance: Week 8's plays ledger closed the page wrapper and un-styled the last segment
     body = re.sub(r"<script[\s\S]*?</script>|<style[\s\S]*?</style>", "", doc[doc.index("<body"):])
