@@ -114,6 +114,29 @@ Table at its one-day worst case (12 teams × 5 reports = 60 rows). The SQL measu
 At most 60 new reports a day, so the whole feature is a few hundred rows read and about 540 written per day at its ceiling. A refused attempt needs a proven owner session and costs about 14 rows read, 0 written.
 Two real problems were caught by measuring and testing: without `INDEXED BY` the duplicate check read all 60 rows; and a separate "read recent, then insert" let simultaneous requests all pass the limits (now the single conditional insert; the old separate rate read is gone from the happy path).
 
+
+## Integration with the phone app (test-only, issue #1473)
+
+Still test-only: `site/m/index.html` does **not** reference `report_bug.js`, the worker flag stays `"0"`, the migration stays unapplied. A page that wants the sheet loads `report_bug.js` **before** `app.js` and calls `UPSReportBug.install({ build, observe: true })`; with the script absent the app behaves exactly as before (a recorded golden proves it).
+
+**Where a failure is caught**
+| Source | How | Visible to the owner as |
+|---|---|---|
+| Any failed request (network error, timeout/abort, HTTP 400+), including ones the app swallows with `.catch(() => [])` | `install({ observe: true })` wraps the global `fetch`. Every request in `site/m` goes through it (a test fails the build if an XHR, beacon, EventSource, WebSocket, Worker or an aliased `fetch` ever appears) | the **chip** on the route where the request **started** |
+| A render error the app catches (`renderRoute`) | guarded hook `reportBugNote` in `app.js` | the chip |
+| An error toast (`showToast(text, "err")`) | guarded hook in `app.js` | the chip |
+| A page that looks wrong with nothing recorded | **More → Report a problem** (a row `app.js` shows only when the script is present) | the sheet, with "No error message was captured" |
+
+**Not covered, stated plainly:** a JavaScript error swallowed by one of the app's `try/catch` blocks that never reaches the render boundary or a toast. No network layer can see it; the owner can still report it from More.
+
+**The chip** ("Something didn't load · Report bug") sits above the bottom nav while the screen the owner is on has a recorded failure from the last 10 minutes. It carries that failure's screen name, endpoint path, status and error name/message. A request that starts on route A and fails after the owner has moved to route B is attributed to **A**: no chip on B; it stays reportable from More (the sheet lists recent failures newest first, then "Something else looks wrong") and the chip returns on A.
+
+**Expected-exception ledger** (`EXPECTED_NON_FAILURES` in `report_bug.js`): HTTP 400+ and network errors are reportable **unless** a path + status + reason is listed. The list is short and each entry is checked against real app code by a test: `/api/trades/proposals` 401 and 403 (signed-out Trades state), `/api/auction/*` 503 (falls back to MFL's page), `/api/trades/2way` 409 (rule gates the app explains itself), `/api/player-weekly-box` 404 (shown as unavailable). Matching is by path and status only because response bodies are never read. **Noise is unverified** until a real signed-in phone runs it: a missing static Pages data file (a 404 the app treats as "no data") would show the chip, and the ledger is where such a case would be added once it is seen.
+
+**What the observer never does:** read a request or response body or header; keep the query string or fragment (the endpoint is a path); record the bug-report POST itself; change the request, the response or the promise the app gets back.
+
+**Tests:** `tests/report_bug_transport.test.mjs` (the global `fetch` is the only transport; ledger and page names), `tests/report_bug_integration.test.mjs` (the real `app.js` and `report_bug.js` on a fake phone with the real handler behind a stub worker: identical-without-script golden, healthy phone, every request on every route in every failure mode, the navigation race, More, render errors, toasts, leaks, mutation checks), `tests/fixtures/phone_vm.mjs` (the fake phone). Not in the safe suite: the real views and real Chromium (there is no DOM or browser dependency); those run separately as evidence.
+
 ## Migration
 
 `worker/migrations/0175_bug_reports.sql` has a **provisional** number. `0174` is held by the

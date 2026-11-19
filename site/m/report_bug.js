@@ -4,9 +4,12 @@
  * will be sent before it is sent, explains every refusal (especially a failed MFL sign-in), and
  * keeps the owner's note on screen when something goes wrong.
  *
- *   UPSReportBug.install({ build })                       start remembering the last error (memory only)
- *   UPSReportBug.noteFailure({ message, endpoint, status })   a failed request the app already knows about
- *   UPSReportBug.open({ apiBase, leagueId, season, getUserId, screen, error?, build?, fetch? })
+ *   UPSReportBug.install({ build, observe })              start remembering the last error (memory only); observe:true
+ *                                                         also watches every failed fetch (see "failure observer" below)
+ *   UPSReportBug.noteFailure({ name, message, endpoint, status })   a failure the app already knows about (render error, error toast)
+ *   UPSReportBug.configure(function () { return { apiBase, leagueId, season, getUserId, build } })   host settings, read at open time
+ *   UPSReportBug.reportFromMore()                         More -> "Report a problem": recent failures (newest first) or "something else"
+ *   UPSReportBug.open({ apiBase, leagueId, season, getUserId, screen, error?, choices?, build?, fetch? })
  *
  * Privacy rules this file keeps (the server enforces them again, see worker/src/bug_report_core.js):
  *   - nothing is stored in localStorage / sessionStorage / cookies; the error buffer lives in memory
@@ -172,6 +175,7 @@
   }
   function install(opts) {
     installedBuild = cap(str(opts && opts.build), 40);
+    if (opts && opts.observe) startObserver();
     if (installed || !root.addEventListener) return;
     installed = true;
     root.addEventListener("error", function (ev) {
@@ -183,7 +187,206 @@
       remember({ name: (r && r.name) || "UnhandledRejection", message: (r && r.message) || str(r) });
     });
   }
-  function noteFailure(e) { remember(e); }
+  function noteFailure(e) {
+    // A failure the app already knows about (render error, error toast): attributed to the screen the owner is on now.
+    if (!e) return;
+    var at = screenNow();
+    var rec = record({ route: at.route, screen: at.screen, name: e.name || "Error", message: e.message, endpoint: e.endpoint, status: e.status });
+    if (!rec) remember(e);
+  }
+
+  // ------------------------------------------------------------------ failure observer (opt-in: install({ observe: true }))
+  //
+  // Every network request the phone app makes goes through the global fetch (a test pins that: no XMLHttpRequest, beacon,
+  // EventSource, WebSocket or aliased fetch anywhere in site/m). So wrapping fetch sees EVERY failed request, including the
+  // ones the app then swallows with .catch(() => []). It records, per failure: the screen the request STARTED on, an error
+  // name and message, the endpoint as a bare path, and the HTTP status. It never reads a request or response body or any
+  // header, never records the bug-report POST itself, and returns the very same promise the app would have got.
+
+  var RECENT_MS = RECENT_ERROR_MS;
+
+  // Page names an owner sees, by route. Top-level routes are app.js registerView names; sub-routes are what the views switch on.
+  var ROUTE_LABELS = {
+    home: "Home", scores: "Live Scoring", more: "More", "more/rules": "Rules", players: "Players", stats: "Stats", market: "Market", events: "Events",
+    myteam: "My Team", "myteam/lineup": "Lineup", "myteam/contracts": "Contracts", "myteam/tagging": "Tagging", "myteam/ir": "Injured reserve", "myteam/taxi": "Taxi squad",
+    league: "League", "league/rosters": "Rosters", "league/trade": "Trade", "league/auction": "Auction", "league/draft": "Draft", "league/otb": "On the block", "league/stats": "League stats",
+  };
+
+  // Failures that are NOT failures: the app handles the answer as a normal state. Anything else with HTTP 400+ (or a network
+  // error) is reportable. Each entry says where in the app the answer is handled. Matching is by path and status only
+  // (bodies are never read), so an entry hides every failure of that path and status: keep this list short and justified.
+  var EXPECTED_NON_FAILURES = [
+    { path: "/api/trades/proposals", status: 401, reason: "Shown as the signed-out Trades state (app.js fetchTradeOffers, views/trade.js)" },
+    { path: "/api/trades/proposals", status: 403, reason: "Shown as the signed-out Trades state (app.js fetchTradeOffers, views/trade.js)" },
+    { path: "/api/auction/", prefix: true, status: 503, reason: "Auction off in the app: falls back to MFL's own auction page (views/auction.js)" },
+    { path: "/api/trades/2way", status: 409, reason: "Rule gates the app explains in its own sheets: loaded-contract limit, cap acknowledgement, staging required (views/trade.js)" },
+    { path: "/api/player-weekly-box", status: 404, reason: "No weekly box score for this player: shown as 'unavailable' (player_sheet.js)" },
+  ];
+  function isExpected(endpoint, status, list) {
+    var L = list || EXPECTED_NON_FAILURES;
+    for (var i = 0; i < L.length; i++) {
+      var e = L[i];
+      if (Number(e.status) !== Number(status)) continue;
+      if (e.prefix ? endpoint.indexOf(e.path) === 0 : endpoint === e.path) return true;
+    }
+    return false;
+  }
+
+  /** "myteam/lineup/foo" -> "myteam/lineup"; "#Home?x=1" -> "home". */
+  function routeKey(hash) {
+    var h = str(hash).replace(/^#/, "").split("?")[0].toLowerCase();
+    var parts = h.split("/").filter(Boolean);
+    return (parts[0] ? parts.slice(0, 2).join("/") : "home");
+  }
+  function screenFor(hash) {
+    var key = routeKey(hash);
+    if (ROUTE_LABELS[key]) return ROUTE_LABELS[key];
+    var top = key.split("/")[0];
+    if (ROUTE_LABELS[top]) return ROUTE_LABELS[top];
+    return top ? top.charAt(0).toUpperCase() + top.slice(1) : "Home";
+  }
+  function screenNow() {
+    var h = "";
+    try { h = (root.location && root.location.hash) || ""; } catch (e) { h = ""; }
+    return { route: routeKey(h), screen: screenFor(h) };
+  }
+
+  var failures = [];          // newest last, max 30: { id, route, screen, name, message, endpoint, status, at, count, dismissed }
+  var seq = 0;
+  var observing = false;
+  var origFetch = null;
+  var hostFn = null;
+  var prevScreen = "";
+  var chipEl = null;
+
+  function record(f) {
+    var n = normalizeError(f);
+    if (!n) return null;
+    var now = Date.now();
+    for (var i = failures.length - 1; i >= 0; i--) {
+      var o = failures[i];
+      if (now - o.at > 60000) break;
+      if (o.route === f.route && o.endpoint === n.endpoint && o.status === n.status && o.name === n.name && o.message === n.message) { o.count += 1; o.at = now; refreshChip(); return o; }
+    }
+    var rec = { id: ++seq, route: f.route, screen: f.screen, name: n.name, message: n.message, endpoint: n.endpoint, status: n.status, at: now, count: 1, dismissed: false };
+    failures.push(rec);
+    if (failures.length > 30) failures.shift();
+    remember(rec);
+    refreshChip();
+    return rec;
+  }
+  function recentFailures() { var now = Date.now(); return failures.filter(function (f) { return now - f.at <= RECENT_MS; }); }
+  function publicFailure(f) { return { id: f.id, route: f.route, screen: f.screen, name: f.name, message: f.message, endpoint: f.endpoint, status: f.status, count: f.count, at: f.at }; }
+  function errorOf(f) { return { name: f.name, message: f.message, endpoint: f.endpoint, status: f.status }; }
+
+  function urlOf(input) {
+    try {
+      if (typeof input === "string") return input;
+      if (input && typeof input.url === "string") return input.url;
+      return str(input);
+    } catch (e) { return ""; }
+  }
+  function isOwnPost(endpoint) { return /^\/api\/bug-reports(\/|$)/.test(endpoint); }
+  function safeLabel(url) {
+    var m = /[?&]TYPE=([A-Za-z]{2,30})(?:&|#|$)/.exec(str(url));
+    return m ? m[1] : "";
+  }
+
+  function observe(url, start, promise) {
+    var u;
+    try { u = new URL(str(url), (root.location && root.location.href) || "https://localhost/"); } catch (e) { return; }
+    if (u.protocol !== "http:" && u.protocol !== "https:") return;      // data:, blob:, javascript: ...
+    var endpoint = cleanEndpoint(u.pathname);                           // path only: the query string and fragment are dropped here
+    if (isOwnPost(endpoint)) return;
+    var label = safeLabel(u.search);
+    promise.then(function (res) {
+      try {
+        var st = res && Number(res.status);
+        if (!(st >= 400) || isExpected(endpoint, st)) return;
+        record({ route: start.route, screen: start.screen, name: "HTTP", message: "HTTP " + st + (label ? " (" + label + ")" : ""), endpoint: endpoint, status: st });
+      } catch (e) { /* the observer never breaks a request */ }
+    }, function (err) {
+      try {
+        var aborted = err && err.name === "AbortError";
+        record({ route: start.route, screen: start.screen, name: (err && err.name) || "Error",
+          message: (aborted ? "The request timed out or was cancelled" : ((err && err.message) || "The request failed")) + (label ? " (" + label + ")" : ""), endpoint: endpoint, status: null });
+      } catch (e) { /* ignore */ }
+    });
+  }
+
+  function startObserver() {
+    if (observing || typeof root.fetch !== "function") return;
+    observing = true;
+    origFetch = root.fetch;
+    root.fetch = function (input, init) {
+      var start = screenNow();
+      var p = origFetch.apply(root, arguments);
+      try { observe(urlOf(input), start, p); } catch (e) { /* ignore */ }
+      return p;
+    };
+    try {
+      prevScreen = screenNow().screen;
+      var onNav = function () { var s = screenNow().screen; if (s !== "More" && s !== "Rules") prevScreen = s; refreshChip(); };
+      if (root.addEventListener) { root.addEventListener("hashchange", onNav); root.addEventListener("popstate", onNav); }
+      onNav();
+    } catch (e) { /* ignore */ }
+  }
+
+  /** What the owner can report for the screen they are on right now (null = nothing; no chip). */
+  function chipFailure() {
+    var cur = screenNow().screen, found = null;
+    recentFailures().forEach(function (f) { if (f.screen === cur && !f.dismissed) found = f; });
+    return found;
+  }
+
+  function hostOpts() {
+    var h = {};
+    try { h = (hostFn && hostFn()) || {}; } catch (e) { h = {}; }
+    return h;
+  }
+  function openFor(f) {
+    var o = hostOpts();
+    o.screen = f.screen; o.error = errorOf(f);
+    return open(o);
+  }
+
+  function refreshChip() {
+    var doc = root.document;
+    if (!doc || !doc.body) return;
+    var f = chipFailure();
+    if (!f) { if (chipEl) { chipEl.remove(); chipEl = null; } return; }
+    ensureCss(doc);
+    if (!chipEl) {
+      chipEl = doc.createElement("div");
+      chipEl.className = "ups-rb-chip";
+      chipEl.setAttribute("role", "group");
+      chipEl.setAttribute("aria-label", "Report a problem");
+      chipEl.innerHTML = '<button type="button" class="go" data-chip="go">Something didn’t load · Report bug</button><button type="button" class="x" data-chip="x" aria-label="Dismiss">×</button>';
+      chipEl.addEventListener("click", function (ev) {
+        var b = ev.target && ev.target.closest ? ev.target.closest("[data-chip]") : null;
+        var cf = chipFailure();
+        if (!b || !cf) return;
+        if (b.getAttribute("data-chip") === "x") { cf.dismissed = true; refreshChip(); return; }
+        openFor(cf);
+      });
+      doc.body.appendChild(chipEl);
+    }
+  }
+
+  /** More -> "Report a problem": the recent failures (newest first, any screen) plus "something else". */
+  function reportFromMore() {
+    var seen = {}, choices = [];
+    recentFailures().slice().reverse().forEach(function (f) {
+      var k = f.screen + "|" + f.endpoint + "|" + f.status + "|" + f.name;
+      if (seen[k] || choices.length >= 5) return;
+      seen[k] = 1;
+      choices.push({ label: f.screen + ": " + (f.endpoint ? f.endpoint + " " : "") + (f.status != null ? "(HTTP " + f.status + ")" : f.name || "failed"), screen: f.screen, error: errorOf(f) });
+    });
+    choices.push({ label: "Something else looks wrong", screen: prevScreen || screenNow().screen, error: null });
+    var o = hostOpts();
+    o.choices = choices; o.pick = 0;
+    return open(o);
+  }
 
   // ------------------------------------------------------------------ the sheet
 
@@ -195,9 +398,10 @@
     ".ups-rb .sub{margin:0 0 12px;color:var(--fg-muted,#8a97ad)}",
     ".ups-rb label{display:block;margin:12px 0 4px;font-weight:600}",
     ".ups-rb .opt{font-weight:400;color:var(--fg-muted,#8a97ad)}",
+    ".ups-rb select{width:100%;min-height:44px;padding:10px 12px;font:inherit;font-size:16px;color:var(--fg,#e8edf5);background:var(--bg,#0e1320);border:2px solid var(--line-soft,#3a455c);border-radius:10px}",
     ".ups-rb input,.ups-rb textarea{width:100%;min-height:44px;padding:10px 12px;font:inherit;font-size:16px;color:var(--fg,#e8edf5);background:var(--bg,#0e1320);border:2px solid var(--line-soft,#3a455c);border-radius:10px}",
     ".ups-rb textarea{min-height:88px;resize:vertical}",
-    ".ups-rb input:focus,.ups-rb textarea:focus,.ups-rb button:focus-visible{outline:3px solid var(--accent,#5b8dff);outline-offset:2px}",
+    ".ups-rb input:focus,.ups-rb textarea:focus,.ups-rb select:focus,.ups-rb button:focus-visible{outline:3px solid var(--accent,#5b8dff);outline-offset:2px}",
     ".ups-rb .count{margin-top:2px;text-align:right;font-size:12px;color:var(--fg-muted,#8a97ad)}",
     ".ups-rb .box{margin-top:12px;padding:10px 12px;border:1px solid var(--line,#2a3446);border-radius:10px;background:var(--bg,#0e1320)}",
     ".ups-rb .box h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--fg-muted,#8a97ad)}",
@@ -220,6 +424,11 @@
     ".ups-rb .done .code{display:inline-block;margin:8px 0;padding:4px 10px;font:600 15px ui-monospace,Menlo,monospace;border:1px solid var(--line,#2a3446);border-radius:8px}",
     ".ups-rb .err{margin-top:4px;color:var(--danger,#ff6b6b);font-size:13px}",
     ".ups-rb .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}",
+    ".ups-rb-chip{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:2147482000;display:flex;align-items:stretch;gap:0;max-width:560px;margin:0 auto;background:var(--bg-elev,#141a26);color:var(--fg,#e8edf5);border:2px solid var(--warn,#ffb86b);border-radius:12px;box-shadow:0 4px 18px rgba(0,0,0,.35);font:14px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}",
+    ".ups-rb-chip button{min-height:44px;margin:0;padding:8px 12px;font:inherit;color:inherit;background:transparent;border:0;cursor:pointer}",
+    ".ups-rb-chip .go{flex:1;text-align:left;font-weight:600}",
+    ".ups-rb-chip .x{flex:0 0 44px;font-size:18px;border-left:1px solid var(--line,#2a3446)}",
+    ".ups-rb-chip button:focus-visible{outline:3px solid var(--accent,#5b8dff);outline-offset:-3px}",
     "@media (prefers-reduced-motion:no-preference){.ups-rb{animation:ups-rb-up .18s ease-out}@keyframes ups-rb-up{from{transform:translateY(24px);opacity:.6}to{transform:none;opacity:1}}}",
   ].join("\n");
 
@@ -236,14 +445,16 @@
     if (!doc) return null;
     ensureCss(doc);
     var prior = doc.activeElement;
+    var choices = (opts.choices || []).slice(0, 6);
+    var picked = choices.length ? Math.max(0, Math.min(choices.length - 1, Math.round(Number(opts.pick)) || 0)) : -1;
     var ctx = {
       requestId: newRequestId(),
-      screen: cap(squeeze(opts.screen), 80),
+      screen: cap(squeeze(picked >= 0 ? choices[picked].screen : opts.screen), 80),
       build: cap(str(opts.build || installedBuild), 40),
       now: new Date().toISOString(),
       viewport: { w: Math.round(root.innerWidth || 0), h: Math.round(root.innerHeight || 0) },
       online: typeof root.navigator !== "undefined" && typeof root.navigator.onLine === "boolean" ? root.navigator.onLine : null,
-      error: opts.error || lastError(),
+      error: picked >= 0 ? (choices[picked].error || null) : (opts.error || lastError()),
     };
     var form = { summary: str(opts.summary), note: "" };
     var view = { mode: "compose", banner: null, fieldError: "" };
@@ -288,6 +499,11 @@
       }
       h += '<h2 id="ups-rb-title">Report a problem</h2>';
       h += '<p class="sub">Goes to the commissioner. Other members can’t see it.</p>';
+      if (choices.length > 1) {
+        h += '<label for="ups-rb-pick">Which problem?</label><select id="ups-rb-pick">';
+        choices.forEach(function (c, i) { h += '<option value="' + i + '"' + (i === picked ? " selected" : "") + ">" + esc(c.label) + "</option>"; });
+        h += "</select>";
+      }
       if (view.banner) {
         var b = view.banner;
         h += '<div class="alert ' + esc(b.state) + '" role="alert"><span class="ic" aria-hidden="true">' + (b.state === "signin" ? "!" : b.state === "limit" ? "i" : "!") + '</span><div><b>' + esc(b.title) + "</b>" + esc(b.message) +
@@ -320,6 +536,16 @@
     sheet.addEventListener("input", function (ev) {
       if (ev.target.id === "ups-rb-sum") { form.summary = ev.target.value; setSendEnabled(); }
       if (ev.target.id === "ups-rb-note") { form.note = ev.target.value; var c = sheet.querySelector("#ups-rb-count"); if (c) c.textContent = form.note.length + " / " + LIMITS.noteMax; }
+    });
+
+    sheet.addEventListener("change", function (ev) {
+      if (!ev.target || ev.target.id !== "ups-rb-pick") return;
+      var i = Math.round(Number(ev.target.value));
+      if (!(i >= 0 && i < choices.length)) return;
+      picked = i;
+      ctx.screen = cap(squeeze(choices[i].screen), 80);
+      ctx.error = choices[i].error || null;
+      draw("#ups-rb-pick");
     });
 
     sheet.addEventListener("click", function (ev) {
@@ -394,6 +620,11 @@
 
   var api = {
     install: install, noteFailure: noteFailure, open: open, lastError: lastError,
+    configure: function (fn) { hostFn = typeof fn === "function" ? fn : null; },
+    reportFromMore: reportFromMore, chipFailure: function () { var f = chipFailure(); return f ? publicFailure(f) : null; },
+    failures: function () { return recentFailures().map(publicFailure); },
+    _reset: function () { failures = []; seq = 0; if (chipEl) { chipEl.remove(); chipEl = null; } },
+    routeKey: routeKey, screenFor: screenFor, isExpected: isExpected, ROUTE_LABELS: ROUTE_LABELS, EXPECTED_NON_FAILURES: EXPECTED_NON_FAILURES,
     // pure parts (unit tests, preview)
     cleanEndpoint: cleanEndpoint, scrubText: scrubText, normalizeError: normalizeError, buildPayload: buildPayload,
     previewRows: previewRows, viewForResponse: viewForResponse, humanWait: humanWait, copyText: copyText,
