@@ -1,0 +1,3457 @@
+{
+ "ap:0001": {
+  "shown": "40&ndash;70",
+  "source": "MFL leagueStandings",
+  "value": "40-70"
+ },
+ "ap:0002": {
+  "shown": "57&ndash;53",
+  "source": "MFL leagueStandings",
+  "value": "57-53"
+ },
+ "ap:0003": {
+  "shown": "32&ndash;78",
+  "source": "MFL leagueStandings",
+  "value": "32-78"
+ },
+ "ap:0004": {
+  "shown": "66&ndash;44",
+  "source": "MFL leagueStandings",
+  "value": "66-44"
+ },
+ "ap:0005": {
+  "shown": "81&ndash;29",
+  "source": "MFL leagueStandings",
+  "value": "81-29"
+ },
+ "ap:0006": {
+  "shown": "27&ndash;83",
+  "source": "MFL leagueStandings",
+  "value": "27-83"
+ },
+ "ap:0007": {
+  "shown": "24&ndash;86",
+  "source": "MFL leagueStandings",
+  "value": "24-86"
+ },
+ "ap:0008": {
+  "shown": "59&ndash;51",
+  "source": "MFL leagueStandings",
+  "value": "59-51"
+ },
+ "ap:0009": {
+  "shown": "99&ndash;11",
+  "source": "MFL leagueStandings",
+  "value": "99-11"
+ },
+ "ap:0010": {
+  "shown": "69&ndash;41",
+  "source": "MFL leagueStandings",
+  "value": "69-41"
+ },
+ "ap:0011": {
+  "shown": "49&ndash;61",
+  "source": "MFL leagueStandings",
+  "value": "49-61"
+ },
+ "ap:0012": {
+  "shown": "57&ndash;53",
+  "source": "MFL leagueStandings",
+  "value": "57-53"
+ },
+ "arch:ahead:0009": {
+  "shown": "1",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 1
+ },
+ "arch:ap:2013:0002": {
+  "shown": "84&ndash;26",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": "84-26"
+ },
+ "arch:ap:2015:0002": {
+  "shown": "85&ndash;25",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": "85-25"
+ },
+ "arch:ap:2017:0006": {
+  "shown": "84&ndash;26",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": "84-26"
+ },
+ "arch:ap:2018:0007": {
+  "shown": "103&ndash;7",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": "103-7"
+ },
+ "arch:ap:2021:0009": {
+  "shown": "28&ndash;82",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": "28-82"
+ },
+ "arch:ap:2025:0006": {
+  "shown": "36&ndash;74",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": "36-74"
+ },
+ "arch:atbelow:0006": {
+  "shown": "13",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete (previous week's All-Play = standings minus this week's games)",
+  "value": 13
+ },
+ "arch:final:2013:0002": {
+  "shown": "Champion",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 1
+ },
+ "arch:final:2015:0002": {
+  "shown": "Third",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 3
+ },
+ "arch:final:2017:0006": {
+  "shown": "Champion",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 1
+ },
+ "arch:final:2018:0007": {
+  "shown": "Lost the final",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 2
+ },
+ "arch:fullap:2018:0007": {
+  "shown": "155&ndash;21",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": "155-21"
+ },
+ "arch:fullbest:2018:0007": {
+  "shown": "",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": true
+ },
+ "arch:fullrec:2018:0007": {
+  "shown": "25&ndash;1",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": "25-1"
+ },
+ "arch:n": {
+  "shown": "180",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 180
+ },
+ "arch:pct:2013:0002": {
+  "shown": ".764",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 0.764
+ },
+ "arch:pct:2015:0002": {
+  "shown": ".773",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 0.773
+ },
+ "arch:pct:2017:0006": {
+  "shown": ".764",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 0.764
+ },
+ "arch:pct:2018:0007": {
+  "shown": ".936",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 0.936
+ },
+ "arch:pct:2021:0009": {
+  "shown": ".255",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 0.255
+ },
+ "arch:pct:cur:0009": {
+  "shown": ".900",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete",
+  "value": 0.9
+ },
+ "arch:prev:0006": {
+  "shown": "22&ndash;77",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete (previous week's All-Play = standings minus this week's games)",
+  "value": "22-77"
+ },
+ "arch:prevbelow:0006": {
+  "shown": "4",
+  "source": "league archive mfl_database.db (sha256 of first MiB 08e33b4c2e84), regular season, weeks 1-10 complete (previous week's All-Play = standings minus this week's games)",
+  "value": 4
+ },
+ "box:Christian McCaffrey": {
+  "shown": "13 carries for 62 and 1 TD; 4 catches on 4 targets for 161 and 2 TD",
+  "source": "pack playcard (nflverse box score)",
+  "value": "13 carries for 62 and 1 TD; 4 catches on 4 targets for 161 and 2 TD"
+ },
+ "box:Patrick Mahomes": {
+  "shown": "22-of-35 for 348, 5 TD; 2 carries for 15",
+  "source": "pack playcard (nflverse box score)",
+  "value": "22-of-35 for 348, 5 TD; 2 carries for 15"
+ },
+ "count:graded": {
+  "shown": "192",
+  "source": "D1 evidence (starters graded)",
+  "value": 192
+ },
+ "count:ungraded": {
+  "shown": "0",
+  "source": "D1 evidence (starters not graded)",
+  "value": 0
+ },
+ "diff:12620": {
+  "shown": "+32.1",
+  "source": "pack t.bb.off.bargain",
+  "value": "+32.1"
+ },
+ "diff:13116": {
+  "shown": "+31.8",
+  "source": "pack t.bb.off.bargain",
+  "value": "+31.8"
+ },
+ "diff:13130": {
+  "shown": "+30.2",
+  "source": "pack t.bb.off.bargain",
+  "value": "+30.2"
+ },
+ "diff:13198": {
+  "shown": "-6.7",
+  "source": "pack t.bb.idp.bust",
+  "value": "-6.7"
+ },
+ "diff:13713": {
+  "shown": "-7.4",
+  "source": "pack t.bb.idp.bust",
+  "value": "-7.4"
+ },
+ "diff:14225": {
+  "shown": "+13.5",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+13.5"
+ },
+ "diff:14249": {
+  "shown": "+9.0",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+9.0"
+ },
+ "diff:14302": {
+  "shown": "-6.8",
+  "source": "pack t.bb.idp.bust",
+  "value": "-6.8"
+ },
+ "diff:14777": {
+  "shown": "+31.6",
+  "source": "pack t.bb.off.bargain",
+  "value": "+31.6"
+ },
+ "diff:14877": {
+  "shown": "-6.7",
+  "source": "pack t.bb.idp.bust",
+  "value": "-6.7"
+ },
+ "diff:15710": {
+  "shown": "-12.5",
+  "source": "pack t.bb.off.bust",
+  "value": "-12.5"
+ },
+ "diff:15762": {
+  "shown": "+36.8",
+  "source": "pack t.bb.off.bargain",
+  "value": "+36.8"
+ },
+ "diff:15789": {
+  "shown": "-10.0",
+  "source": "pack t.bb.off.bust",
+  "value": "-10.0"
+ },
+ "diff:15794": {
+  "shown": "-12.2",
+  "source": "pack t.bb.off.bust",
+  "value": "-12.2"
+ },
+ "diff:15923": {
+  "shown": "-9.4",
+  "source": "pack t.bb.idp.bust",
+  "value": "-9.4"
+ },
+ "diff:16241": {
+  "shown": "+7.9",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+7.9"
+ },
+ "diff:16580": {
+  "shown": "-13.5",
+  "source": "pack t.bb.off.bust",
+  "value": "-13.5"
+ },
+ "diff:16641": {
+  "shown": "-15.2",
+  "source": "pack t.bb.off.bust",
+  "value": "-15.2"
+ },
+ "diff:16650": {
+  "shown": "+9.5",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+9.5"
+ },
+ "diff:16667": {
+  "shown": "+10.0",
+  "source": "pack t.bb.idp.bargain",
+  "value": "+10.0"
+ },
+ "divrec:0005": {
+  "shown": "6&ndash;0",
+  "source": "D1 src_schedule, same-division games",
+  "value": "6-0"
+ },
+ "divrec:0012": {
+  "shown": "1&ndash;5",
+  "source": "D1 src_schedule, same-division games",
+  "value": "1-5"
+ },
+ "divweek:gamesn": {
+  "shown": "18",
+  "source": "pack pots",
+  "value": 18
+ },
+ "divweek:sweeps": {
+  "shown": "3",
+  "source": "pack pots (teams that won every game they played in the group)",
+  "value": 3
+ },
+ "elias:count": {
+  "shown": "5",
+  "source": "elias.py check (MFL site news, Official Statistics Changes) vs scores_published_2026_wk10",
+  "value": 5
+ },
+ "elias:nonstarters": {
+  "shown": "3",
+  "source": "elias.py check (MFL site news, Official Statistics Changes) vs scores_published_2026_wk10",
+  "value": 3
+ },
+ "elias:players": {
+  "shown": "3",
+  "source": "elias.py check (MFL site news, Official Statistics Changes) vs scores_published_2026_wk10",
+  "value": 3
+ },
+ "fact:f.grade.favorites": {
+  "shown": "13",
+  "source": "pack f.grade.favorites",
+  "value": 13
+ },
+ "grade:0": {
+  "shown": "Bear Dunn (97%) 308.9-135.0 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Bear Dunn (97%)",
+   "final": "308.9-135.0",
+   "game": "Bear Dunn vs Josh Martel"
+  }
+ },
+ "grade:1": {
+  "shown": "Bear Dunn (86%) 308.9-232.5 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Bear Dunn (86%)",
+   "final": "308.9-232.5",
+   "game": "Bear Dunn vs Ryan Bousquet"
+  }
+ },
+ "grade:10": {
+  "shown": "Keith Creelman (63%) 250.8-158.5 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Keith Creelman (63%)",
+   "final": "250.8-158.5",
+   "game": "Keith Creelman vs Eric Mannila"
+  }
+ },
+ "grade:11": {
+  "shown": "Chris Klingenberg (59%) 174.5-232.5 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Chris Klingenberg (59%)",
+   "final": "174.5-232.5",
+   "game": "Chris Klingenberg vs Ryan Bousquet"
+  }
+ },
+ "grade:12": {
+  "shown": "Derrick Whitman (58%) 181.1-204.6 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Derrick Whitman (58%)",
+   "final": "181.1-204.6",
+   "game": "Derrick Whitman vs Brian Cross"
+  }
+ },
+ "grade:13": {
+  "shown": "Matt Gerardi (57%) 240.7-204.6 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Matt Gerardi (57%)",
+   "final": "240.7-204.6",
+   "game": "Matt Gerardi vs Brian Cross"
+  }
+ },
+ "grade:14": {
+  "shown": "Ryan Bousquet (53%) 232.5-158.5 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Ryan Bousquet (53%)",
+   "final": "232.5-158.5",
+   "game": "Ryan Bousquet vs Eric Mannila"
+  }
+ },
+ "grade:15": {
+  "shown": "Shawn Blake (51%) 266.0-224.9 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Shawn Blake (51%)",
+   "final": "266.0-224.9",
+   "game": "Shawn Blake vs Brian Cutting"
+  }
+ },
+ "grade:16": {
+  "shown": "Eric Martel (51%) 193.3-266.0 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Eric Martel (51%)",
+   "final": "193.3-266.0",
+   "game": "Eric Martel vs Shawn Blake"
+  }
+ },
+ "grade:17": {
+  "shown": "Keith Creelman (51%) 250.8-174.5 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Keith Creelman (51%)",
+   "final": "250.8-174.5",
+   "game": "Keith Creelman vs Chris Klingenberg"
+  }
+ },
+ "grade:2": {
+  "shown": "Chris Klingenberg (85%) 174.5-135.0 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Chris Klingenberg (85%)",
+   "final": "174.5-135.0",
+   "game": "Chris Klingenberg vs Josh Martel"
+  }
+ },
+ "grade:3": {
+  "shown": "Bear Dunn (81%) 308.9-250.8 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Bear Dunn (81%)",
+   "final": "308.9-250.8",
+   "game": "Bear Dunn vs Keith Creelman"
+  }
+ },
+ "grade:4": {
+  "shown": "Shawn Blake (80%) 266.0-204.6 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Shawn Blake (80%)",
+   "final": "266.0-204.6",
+   "game": "Shawn Blake vs Brian Cross"
+  }
+ },
+ "grade:5": {
+  "shown": "Eric Mannila (77%) 158.5-135.0 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Eric Mannila (77%)",
+   "final": "158.5-135.0",
+   "game": "Eric Mannila vs Josh Martel"
+  }
+ },
+ "grade:6": {
+  "shown": "Eric Martel (75%) 193.3-240.7 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Eric Martel (75%)",
+   "final": "193.3-240.7",
+   "game": "Eric Martel vs Matt Gerardi"
+  }
+ },
+ "grade:7": {
+  "shown": "Eric Martel (74%) 193.3-181.1 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Eric Martel (74%)",
+   "final": "193.3-181.1",
+   "game": "Eric Martel vs Derrick Whitman"
+  }
+ },
+ "grade:8": {
+  "shown": "Brian Cutting (74%) 224.9-240.7 no",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "no",
+   "fav": "Brian Cutting (74%)",
+   "final": "224.9-240.7",
+   "game": "Brian Cutting vs Matt Gerardi"
+  }
+ },
+ "grade:9": {
+  "shown": "Brian Cutting (74%) 224.9-181.1 yes",
+  "source": "pack t.grade.games (preview_grade.py)",
+  "value": {
+   "called": "yes",
+   "fav": "Brian Cutting (74%)",
+   "final": "224.9-181.1",
+   "game": "Brian Cutting vs Derrick Whitman"
+  }
+ },
+ "heat:ap3:0001": {
+  "shown": "16&ndash;17",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "16-17"
+ },
+ "heat:ap3:0002": {
+  "shown": "8&ndash;25",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "8-25"
+ },
+ "heat:ap3:0003": {
+  "shown": "12&ndash;21",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "12-21"
+ },
+ "heat:ap3:0004": {
+  "shown": "18&ndash;15",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "18-15"
+ },
+ "heat:ap3:0005": {
+  "shown": "25&ndash;8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "25-8"
+ },
+ "heat:ap3:0006": {
+  "shown": "6&ndash;27",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "6-27"
+ },
+ "heat:ap3:0007": {
+  "shown": "10&ndash;23",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "10-23"
+ },
+ "heat:ap3:0008": {
+  "shown": "20&ndash;13",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "20-13"
+ },
+ "heat:ap3:0009": {
+  "shown": "32&ndash;1",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "32-1"
+ },
+ "heat:ap3:0010": {
+  "shown": "21&ndash;12",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "21-12"
+ },
+ "heat:ap3:0011": {
+  "shown": "15&ndash;18",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "15-18"
+ },
+ "heat:ap3:0012": {
+  "shown": "15&ndash;18",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "15-18"
+ },
+ "heat:ap:0001": {
+  "shown": "40&ndash;70",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "40-70"
+ },
+ "heat:ap:0002": {
+  "shown": "57&ndash;53",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "57-53"
+ },
+ "heat:ap:0003": {
+  "shown": "32&ndash;78",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "32-78"
+ },
+ "heat:ap:0004": {
+  "shown": "66&ndash;44",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "66-44"
+ },
+ "heat:ap:0005": {
+  "shown": "81&ndash;29",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "81-29"
+ },
+ "heat:ap:0006": {
+  "shown": "27&ndash;83",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "27-83"
+ },
+ "heat:ap:0007": {
+  "shown": "24&ndash;86",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "24-86"
+ },
+ "heat:ap:0008": {
+  "shown": "59&ndash;51",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "59-51"
+ },
+ "heat:ap:0009": {
+  "shown": "99&ndash;11",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "99-11"
+ },
+ "heat:ap:0010": {
+  "shown": "69&ndash;41",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "69-41"
+ },
+ "heat:ap:0011": {
+  "shown": "49&ndash;61",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "49-61"
+ },
+ "heat:ap:0012": {
+  "shown": "57&ndash;53",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": "57-53"
+ },
+ "heat:bench:0001": {
+  "shown": "26.3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 26.3
+ },
+ "heat:bench:0002": {
+  "shown": "24.8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 24.8
+ },
+ "heat:bench:0003": {
+  "shown": "28.4",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 28.4
+ },
+ "heat:bench:0004": {
+  "shown": "41.5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 41.5
+ },
+ "heat:bench:0005": {
+  "shown": "30.1",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 30.1
+ },
+ "heat:bench:0006": {
+  "shown": "18.5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 18.5
+ },
+ "heat:bench:0007": {
+  "shown": "22.7",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 22.7
+ },
+ "heat:bench:0008": {
+  "shown": "26.2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 26.2
+ },
+ "heat:bench:0009": {
+  "shown": "20.3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 20.3
+ },
+ "heat:bench:0010": {
+  "shown": "25.8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 25.8
+ },
+ "heat:bench:0011": {
+  "shown": "23.8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 23.8
+ },
+ "heat:bench:0012": {
+  "shown": "28.5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 28.5
+ },
+ "heat:losses:0001": {
+  "shown": "16",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 16
+ },
+ "heat:losses:0002": {
+  "shown": "14",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 14
+ },
+ "heat:losses:0003": {
+  "shown": "20",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 20
+ },
+ "heat:losses:0004": {
+  "shown": "12",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 12
+ },
+ "heat:losses:0005": {
+  "shown": "7",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 7
+ },
+ "heat:losses:0006": {
+  "shown": "21",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 21
+ },
+ "heat:losses:0007": {
+  "shown": "20",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 20
+ },
+ "heat:losses:0008": {
+  "shown": "12",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 12
+ },
+ "heat:losses:0009": {
+  "shown": "3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 3
+ },
+ "heat:losses:0010": {
+  "shown": "11",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 11
+ },
+ "heat:losses:0011": {
+  "shown": "14",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 14
+ },
+ "heat:losses:0012": {
+  "shown": "12",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 12
+ },
+ "heat:lostBest:0001": {
+  "shown": "6",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 6
+ },
+ "heat:lostBest:0002": {
+  "shown": "5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 5
+ },
+ "heat:lostBest:0003": {
+  "shown": "8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 8
+ },
+ "heat:lostBest:0004": {
+  "shown": "7",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 7
+ },
+ "heat:lostBest:0005": {
+  "shown": "3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 3
+ },
+ "heat:lostBest:0006": {
+  "shown": "4",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 4
+ },
+ "heat:lostBest:0007": {
+  "shown": "6",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 6
+ },
+ "heat:lostBest:0008": {
+  "shown": "5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 5
+ },
+ "heat:lostBest:0009": {
+  "shown": "2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 2
+ },
+ "heat:lostBest:0010": {
+  "shown": "5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 5
+ },
+ "heat:lostBest:0011": {
+  "shown": "6",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 6
+ },
+ "heat:lostBest:0012": {
+  "shown": "2",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 2
+ },
+ "heat:luck:0001": {
+  "shown": "+1.3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 1.3
+ },
+ "heat:luck:0002": {
+  "shown": "&minus;1.3",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": -1.3
+ },
+ "heat:luck:0003": {
+  "shown": "&minus;0.5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": -0.5
+ },
+ "heat:luck:0004": {
+  "shown": "&minus;1.4",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": -1.4
+ },
+ "heat:luck:0005": {
+  "shown": "+0.5",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 0.5
+ },
+ "heat:luck:0006": {
+  "shown": "&minus;0.9",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": -0.9
+ },
+ "heat:luck:0007": {
+  "shown": "+1.8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 1.8
+ },
+ "heat:luck:0008": {
+  "shown": "&minus;0.0",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": -0.0
+ },
+ "heat:luck:0009": {
+  "shown": "&minus;0.8",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": -0.8
+ },
+ "heat:luck:0010": {
+  "shown": "&minus;1.4",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": -1.4
+ },
+ "heat:luck:0011": {
+  "shown": "+1.7",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 1.7
+ },
+ "heat:luck:0012": {
+  "shown": "+0.9",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 0.9
+ },
+ "heat:rkFirst:0001": {
+  "shown": "10th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 10
+ },
+ "heat:rkFirst:0002": {
+  "shown": "5th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 5
+ },
+ "heat:rkFirst:0003": {
+  "shown": "11th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 11
+ },
+ "heat:rkFirst:0004": {
+  "shown": "4th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 4
+ },
+ "heat:rkFirst:0005": {
+  "shown": "2nd",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 2
+ },
+ "heat:rkFirst:0006": {
+  "shown": "9th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 9
+ },
+ "heat:rkFirst:0007": {
+  "shown": "12th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 12
+ },
+ "heat:rkFirst:0008": {
+  "shown": "6th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 6
+ },
+ "heat:rkFirst:0009": {
+  "shown": "1st",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 1
+ },
+ "heat:rkFirst:0010": {
+  "shown": "3rd",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 3
+ },
+ "heat:rkFirst:0011": {
+  "shown": "8th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 8
+ },
+ "heat:rkFirst:0012": {
+  "shown": "7th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 7
+ },
+ "heat:rkLast:0001": {
+  "shown": "6th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 6
+ },
+ "heat:rkLast:0002": {
+  "shown": "10th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 10
+ },
+ "heat:rkLast:0003": {
+  "shown": "9th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 9
+ },
+ "heat:rkLast:0004": {
+  "shown": "5th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 5
+ },
+ "heat:rkLast:0005": {
+  "shown": "2nd",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 2
+ },
+ "heat:rkLast:0006": {
+  "shown": "12th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 12
+ },
+ "heat:rkLast:0007": {
+  "shown": "11th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 11
+ },
+ "heat:rkLast:0008": {
+  "shown": "3rd",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 3
+ },
+ "heat:rkLast:0009": {
+  "shown": "1st",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 1
+ },
+ "heat:rkLast:0010": {
+  "shown": "4th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 4
+ },
+ "heat:rkLast:0011": {
+  "shown": "7th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 7
+ },
+ "heat:rkLast:0012": {
+  "shown": "8th",
+  "source": "D1 src_franchise_weekly_score + src_schedule, weeks 1-10",
+  "value": 8
+ },
+ "hist:apMade:0001": {
+  "shown": "3",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 3
+ },
+ "hist:apMade:0002": {
+  "shown": "12",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 12
+ },
+ "hist:apMade:0003": {
+  "shown": "3",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 3
+ },
+ "hist:apMade:0004": {
+  "shown": "17",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 17
+ },
+ "hist:apMade:0005": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:apMade:0006": {
+  "shown": "1",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 1
+ },
+ "hist:apMade:0007": {
+  "shown": "1",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 1
+ },
+ "hist:apMade:0008": {
+  "shown": "12",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 12
+ },
+ "hist:apMade:0009": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:apMade:0010": {
+  "shown": "17",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 17
+ },
+ "hist:apMade:0011": {
+  "shown": "3",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 3
+ },
+ "hist:apMade:0012": {
+  "shown": "12",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 12
+ },
+ "hist:apN:0001": {
+  "shown": "17",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 17
+ },
+ "hist:apN:0002": {
+  "shown": "16",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:apN:0003": {
+  "shown": "17",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 17
+ },
+ "hist:apN:0004": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:apN:0005": {
+  "shown": "20",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 20
+ },
+ "hist:apN:0006": {
+  "shown": "17",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 17
+ },
+ "hist:apN:0007": {
+  "shown": "17",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 17
+ },
+ "hist:apN:0008": {
+  "shown": "16",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:apN:0009": {
+  "shown": "20",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 20
+ },
+ "hist:apN:0010": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:apN:0011": {
+  "shown": "20",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 20
+ },
+ "hist:apN:0012": {
+  "shown": "16",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:winMade:0001": {
+  "shown": "3",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 3
+ },
+ "hist:winMade:0002": {
+  "shown": "10",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 10
+ },
+ "hist:winMade:0003": {
+  "shown": "0",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 0
+ },
+ "hist:winMade:0004": {
+  "shown": "10",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 10
+ },
+ "hist:winMade:0005": {
+  "shown": "10",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 10
+ },
+ "hist:winMade:0006": {
+  "shown": "0",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 0
+ },
+ "hist:winMade:0007": {
+  "shown": "0",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 0
+ },
+ "hist:winMade:0008": {
+  "shown": "10",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 10
+ },
+ "hist:winMade:0009": {
+  "shown": "7",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 7
+ },
+ "hist:winMade:0010": {
+  "shown": "10",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 10
+ },
+ "hist:winMade:0011": {
+  "shown": "10",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 10
+ },
+ "hist:winMade:0012": {
+  "shown": "10",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 10
+ },
+ "hist:winN:0001": {
+  "shown": "16",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 16
+ },
+ "hist:winN:0002": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:winN:0003": {
+  "shown": "8",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 8
+ },
+ "hist:winN:0004": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:winN:0005": {
+  "shown": "11",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 11
+ },
+ "hist:winN:0006": {
+  "shown": "8",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 8
+ },
+ "hist:winN:0007": {
+  "shown": "8",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 8
+ },
+ "hist:winN:0008": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:winN:0009": {
+  "shown": "7",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 7
+ },
+ "hist:winN:0010": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:winN:0011": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "hist:winN:0012": {
+  "shown": "18",
+  "source": "D1 weeks 1-10 of 2017-2025 + /api/playoff-bracket",
+  "value": 18
+ },
+ "margin:0001:0011": {
+  "shown": "74.0",
+  "source": "MFL weeklyResults W10",
+  "value": 74.0
+ },
+ "margin:0001:0012": {
+  "shown": "58.0",
+  "source": "MFL weeklyResults W10",
+  "value": 58.0
+ },
+ "margin:0003:0004": {
+  "shown": "15.8",
+  "source": "MFL weeklyResults W10",
+  "value": 15.8
+ },
+ "margin:0003:0005": {
+  "shown": "47.4",
+  "source": "MFL weeklyResults W10",
+  "value": 47.4
+ },
+ "margin:0003:0006": {
+  "shown": "36.1",
+  "source": "MFL weeklyResults W10",
+  "value": 36.1
+ },
+ "margin:0004:0002": {
+  "shown": "43.8",
+  "source": "MFL weeklyResults W10",
+  "value": 43.8
+ },
+ "margin:0005:0002": {
+  "shown": "12.2",
+  "source": "MFL weeklyResults W10",
+  "value": 12.2
+ },
+ "margin:0006:0002": {
+  "shown": "23.5",
+  "source": "MFL weeklyResults W10",
+  "value": 23.5
+ },
+ "margin:0008:0011": {
+  "shown": "92.3",
+  "source": "MFL weeklyResults W10",
+  "value": 92.3
+ },
+ "margin:0008:0012": {
+  "shown": "76.3",
+  "source": "MFL weeklyResults W10",
+  "value": 76.3
+ },
+ "margin:0009:0001": {
+  "shown": "76.4",
+  "source": "MFL weeklyResults W10",
+  "value": 76.4
+ },
+ "margin:0009:0007": {
+  "shown": "173.9",
+  "source": "MFL weeklyResults W10",
+  "value": 173.9
+ },
+ "margin:0009:0008": {
+  "shown": "58.1",
+  "source": "MFL weeklyResults W10",
+  "value": 58.1
+ },
+ "margin:0010:0004": {
+  "shown": "41.1",
+  "source": "MFL weeklyResults W10",
+  "value": 41.1
+ },
+ "margin:0010:0005": {
+  "shown": "72.7",
+  "source": "MFL weeklyResults W10",
+  "value": 72.7
+ },
+ "margin:0010:0006": {
+  "shown": "61.4",
+  "source": "MFL weeklyResults W10",
+  "value": 61.4
+ },
+ "margin:0011:0007": {
+  "shown": "23.5",
+  "source": "MFL weeklyResults W10",
+  "value": 23.5
+ },
+ "margin:0012:0007": {
+  "shown": "39.5",
+  "source": "MFL weeklyResults W10",
+  "value": 39.5
+ },
+ "miss:0009": {
+  "shown": "21.9",
+  "source": "pack t.bb busts (projection captured before kickoff)",
+  "value": {
+   "rows": [
+    [
+     "Brock Bowers",
+     20.4,
+     5.2
+    ],
+    [
+     "Chase Young",
+     8.2,
+     1.5
+    ]
+   ],
+   "short": 21.9
+  }
+ },
+ "odds:bye:0001": {
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.0
+ },
+ "odds:bye:0002": {
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.0
+ },
+ "odds:bye:0003": {
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.0
+ },
+ "odds:bye:0004": {
+  "raw": 0.58,
+  "shown": "0.6%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.58
+ },
+ "odds:bye:0005": {
+  "raw": 97.65,
+  "shown": "97.7%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 97.65
+ },
+ "odds:bye:0006": {
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.0
+ },
+ "odds:bye:0007": {
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.0
+ },
+ "odds:bye:0008": {
+  "raw": 0.02,
+  "shown": "0.02%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.02
+ },
+ "odds:bye:0009": {
+  "raw": 100.0,
+  "shown": "99.99%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 100.0
+ },
+ "odds:bye:0010": {
+  "raw": 1.75,
+  "shown": "1.8%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 1.75
+ },
+ "odds:bye:0011": {
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.0
+ },
+ "odds:bye:0012": {
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.0
+ },
+ "odds:div:0001": {
+  "lr": 4.5,
+  "raw": 4.47,
+  "shown": "4.5%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 4.5
+ },
+ "odds:div:0002": {
+  "lr": 5.9,
+  "raw": 5.93,
+  "shown": "5.9%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 5.9
+ },
+ "odds:div:0003": {
+  "lr": 0.0,
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 0.0
+ },
+ "odds:div:0004": {
+  "lr": 0.7,
+  "raw": 0.71,
+  "shown": "0.7%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 0.7
+ },
+ "odds:div:0005": {
+  "lr": 99.3,
+  "raw": 99.29,
+  "shown": "99.3%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 99.3
+ },
+ "odds:div:0006": {
+  "lr": 0.0,
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 0.0
+ },
+ "odds:div:0007": {
+  "lr": 0.0,
+  "raw": 0.01,
+  "shown": "0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 0.01
+ },
+ "odds:div:0008": {
+  "lr": 95.5,
+  "raw": 95.52,
+  "shown": "95.5%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 95.5
+ },
+ "odds:div:0009": {
+  "lr": 100.0,
+  "raw": 100.0,
+  "shown": "99.99%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 100.0
+ },
+ "odds:div:0010": {
+  "lr": 94.1,
+  "raw": 94.07,
+  "shown": "94.1%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 94.1
+ },
+ "odds:div:0011": {
+  "lr": 0.0,
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 0.0
+ },
+ "odds:div:0012": {
+  "lr": 0.0,
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder by division",
+  "value": 0.0
+ },
+ "odds:floor": {
+  "shown": "0.01",
+  "source": "ups_center_prob.text: the smallest probability printed",
+  "value": 0.01
+ },
+ "odds:po:0001": {
+  "raw": 5.04,
+  "shown": "5.0%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 5.04
+ },
+ "odds:po:0002": {
+  "raw": 53.1,
+  "shown": "53.1%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 53.1
+ },
+ "odds:po:0003": {
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.0
+ },
+ "odds:po:0004": {
+  "raw": 99.55,
+  "shown": "99.6%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 99.55
+ },
+ "odds:po:0005": {
+  "raw": 100.0,
+  "shown": "99.99%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 100.0
+ },
+ "odds:po:0006": {
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.0
+ },
+ "odds:po:0007": {
+  "raw": 0.01,
+  "shown": "0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 0.01
+ },
+ "odds:po:0008": {
+  "raw": 96.57,
+  "shown": "96.6%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 96.57
+ },
+ "odds:po:0009": {
+  "raw": 100.0,
+  "shown": "99.99%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 100.0
+ },
+ "odds:po:0010": {
+  "raw": 99.3,
+  "shown": "99.3%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 99.3
+ },
+ "odds:po:0011": {
+  "raw": 8.82,
+  "shown": "8.8%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 8.82
+ },
+ "odds:po:0012": {
+  "raw": 37.61,
+  "shown": "37.6%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 37.61
+ },
+ "odds:runs": {
+  "shown": "10,000",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z)",
+  "value": 10000
+ },
+ "odds:title:0001": {
+  "lr": 0.0,
+  "raw": 0.03,
+  "shown": "0.03%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 0.03
+ },
+ "odds:title:0002": {
+  "lr": 0.9,
+  "raw": 0.84,
+  "shown": "0.9%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 0.9
+ },
+ "odds:title:0003": {
+  "lr": 0.0,
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 0.0
+ },
+ "odds:title:0004": {
+  "lr": 12.7,
+  "raw": 12.72,
+  "shown": "12.7%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 12.7
+ },
+ "odds:title:0005": {
+  "lr": 23.1,
+  "raw": 23.05,
+  "shown": "23.1%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 23.1
+ },
+ "odds:title:0006": {
+  "lr": 0.0,
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 0.0
+ },
+ "odds:title:0007": {
+  "lr": 0.0,
+  "raw": 0.0,
+  "shown": "<0.01%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 0.0
+ },
+ "odds:title:0008": {
+  "lr": 3.8,
+  "raw": 3.78,
+  "shown": "3.8%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 3.8
+ },
+ "odds:title:0009": {
+  "lr": 53.1,
+  "raw": 53.12,
+  "shown": "53.1%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 53.1
+ },
+ "odds:title:0010": {
+  "lr": 6.2,
+  "raw": 6.24,
+  "shown": "6.2%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 6.2
+ },
+ "odds:title:0011": {
+  "lr": 0.0,
+  "raw": 0.02,
+  "shown": "0.02%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 0.02
+ },
+ "odds:title:0012": {
+  "lr": 0.2,
+  "raw": 0.2,
+  "shown": "0.2%",
+  "source": "season_sim live wk10 (10000 runs, 2026-11-19T14:13:11Z), largest-remainder",
+  "value": 0.2
+ },
+ "pf:0001": {
+  "shown": "1,955.0",
+  "source": "MFL leagueStandings",
+  "value": 1955.0
+ },
+ "pf:0002": {
+  "shown": "2,097.4",
+  "source": "MFL leagueStandings",
+  "value": 2097.4
+ },
+ "pf:0003": {
+  "shown": "1,859.7",
+  "source": "MFL leagueStandings",
+  "value": 1859.7
+ },
+ "pf:0004": {
+  "shown": "2,253.8",
+  "source": "MFL leagueStandings",
+  "value": 2253.8
+ },
+ "pf:0005": {
+  "shown": "2,447.4",
+  "source": "MFL leagueStandings",
+  "value": 2447.4
+ },
+ "pf:0006": {
+  "shown": "1,856.2",
+  "source": "MFL leagueStandings",
+  "value": 1856.2
+ },
+ "pf:0007": {
+  "shown": "1,780.7",
+  "source": "MFL leagueStandings",
+  "value": 1780.7
+ },
+ "pf:0008": {
+  "shown": "2,209.2",
+  "source": "MFL leagueStandings",
+  "value": 2209.2
+ },
+ "pf:0009": {
+  "shown": "2,732.0",
+  "source": "MFL leagueStandings",
+  "value": 2732.0
+ },
+ "pf:0010": {
+  "shown": "2,289.8",
+  "source": "MFL leagueStandings",
+  "value": 2289.8
+ },
+ "pf:0011": {
+  "shown": "2,026.4",
+  "source": "MFL leagueStandings",
+  "value": 2026.4
+ },
+ "pf:0012": {
+  "shown": "2,026.3",
+  "source": "MFL leagueStandings",
+  "value": 2026.3
+ },
+ "proj:12620": {
+  "shown": "17.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794777900,
+   "value": 17.1
+  }
+ },
+ "proj:13116": {
+  "shown": "16.3",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794764266,
+   "kickoff": 1794765600,
+   "value": 16.3
+  }
+ },
+ "proj:13130": {
+  "shown": "21.7",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794777900,
+   "value": 21.7
+  }
+ },
+ "proj:13198": {
+  "shown": "6.7",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794776700,
+   "value": 6.7
+  }
+ },
+ "proj:13713": {
+  "shown": "9.5",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794764266,
+   "kickoff": 1794765600,
+   "value": 9.5
+  }
+ },
+ "proj:14225": {
+  "shown": "7.0",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794776700,
+   "value": 7.0
+  }
+ },
+ "proj:14249": {
+  "shown": "6.5",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794764266,
+   "kickoff": 1794765600,
+   "value": 6.5
+  }
+ },
+ "proj:14302": {
+  "shown": "8.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794764266,
+   "kickoff": 1794765600,
+   "value": 8.1
+  }
+ },
+ "proj:14777": {
+  "shown": "15.9",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794792000,
+   "value": 15.9
+  }
+ },
+ "proj:14877": {
+  "shown": "8.2",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794764266,
+   "kickoff": 1794765600,
+   "value": 8.2
+  }
+ },
+ "proj:15710": {
+  "shown": "17.5",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794776700,
+   "value": 17.5
+  }
+ },
+ "proj:15762": {
+  "shown": "10.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794777900,
+   "value": 10.1
+  }
+ },
+ "proj:15789": {
+  "shown": "17.1",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794764266,
+   "kickoff": 1794765600,
+   "value": 17.1
+  }
+ },
+ "proj:15794": {
+  "shown": "23.8",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794776700,
+   "value": 23.8
+  }
+ },
+ "proj:15923": {
+  "shown": "11.5",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794776700,
+   "value": 11.5
+  }
+ },
+ "proj:16241": {
+  "shown": "7.8",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794776700,
+   "value": 7.8
+  }
+ },
+ "proj:16580": {
+  "shown": "16.9",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794598261,
+   "kickoff": 1794753000,
+   "value": 16.9
+  }
+ },
+ "proj:16641": {
+  "shown": "20.4",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794773187,
+   "kickoff": 1794776700,
+   "value": 20.4
+  }
+ },
+ "proj:16650": {
+  "shown": "6.0",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794764266,
+   "kickoff": 1794765600,
+   "value": 6.0
+  }
+ },
+ "proj:16667": {
+  "shown": "6.5",
+  "source": "D1 ups_player_projections (last_pregame)",
+  "value": {
+   "captured": 1794764266,
+   "kickoff": 1794765600,
+   "value": 6.5
+  }
+ },
+ "pts:Andrew Van Ginkel": {
+  "shown": "15.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 15.5
+ },
+ "pts:Brock Bowers": {
+  "shown": "5.2",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 5.2
+ },
+ "pts:Cedric Gray": {
+  "shown": "16.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 16.5
+ },
+ "pts:Chase Young": {
+  "shown": "1.5",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 1.5
+ },
+ "pts:Christian McCaffrey": {
+  "shown": "51.9",
+  "source": "pack playcard (src_weekly)",
+  "value": 51.9
+ },
+ "pts:Christian Watson": {
+  "shown": "7.1",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 7.1
+ },
+ "pts:Dak Prescott": {
+  "shown": "49.2",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 49.2
+ },
+ "pts:Dallas Turner": {
+  "shown": "15.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 15.5
+ },
+ "pts:Devon Witherspoon": {
+  "shown": "15.7",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 15.7
+ },
+ "pts:Drake Maye": {
+  "shown": "3.4",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 3.4
+ },
+ "pts:George Pickens": {
+  "shown": "46.9",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 46.9
+ },
+ "pts:Joe Burrow": {
+  "shown": "47.5",
+  "source": "pack t.bb.off.bargain (src_weekly)",
+  "value": 47.5
+ },
+ "pts:Kyren Williams": {
+  "shown": "5.0",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 5.0
+ },
+ "pts:Maxx Crosby": {
+  "shown": "20.5",
+  "source": "pack t.bb.idp.bargain (src_weekly)",
+  "value": 20.5
+ },
+ "pts:Minkah Fitzpatrick": {
+  "shown": "2.1",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 2.1
+ },
+ "pts:Myles Garrett": {
+  "shown": "0.0",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 0.0
+ },
+ "pts:Nick Scott": {
+  "shown": "1.3",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 1.3
+ },
+ "pts:Patrick Mahomes": {
+  "shown": "48.1",
+  "source": "pack playcard (src_weekly)",
+  "value": 48.1
+ },
+ "pts:Quentin Lake": {
+  "shown": "2.1",
+  "source": "pack t.bb.idp.bust (src_weekly)",
+  "value": 2.1
+ },
+ "pts:Trey McBride": {
+  "shown": "11.6",
+  "source": "pack t.bb.off.bust (src_weekly)",
+  "value": 11.6
+ },
+ "quote:1571608487719469260": {
+  "shown": "I\u2019m coming for you, mofos. I may even hit 210 this week! Check your rearview mirror, Bear.\ud83e\udd26\u200d\u2642\ufe0f",
+  "source": "D1 ups_discord_messages",
+  "value": "I\u2019m coming for you, mofos. I may even hit 210 this week! Check your rearview mirror, Bear.\ud83e\udd26\u200d\u2642\ufe0f"
+ },
+ "quote:1571608732733931591": {
+  "shown": "You would need a 22nd-century rearview",
+  "source": "D1 ups_discord_messages",
+  "value": "You would need a 22nd-century rearview"
+ },
+ "rec:0001": {
+  "shown": "11&ndash;16",
+  "source": "MFL leagueStandings",
+  "value": "11-16"
+ },
+ "rec:0002": {
+  "shown": "13&ndash;14",
+  "source": "MFL leagueStandings",
+  "value": "13-14"
+ },
+ "rec:0003": {
+  "shown": "7&ndash;20",
+  "source": "MFL leagueStandings",
+  "value": "7-20"
+ },
+ "rec:0004": {
+  "shown": "15&ndash;12",
+  "source": "MFL leagueStandings",
+  "value": "15-12"
+ },
+ "rec:0005": {
+  "shown": "20&ndash;7",
+  "source": "MFL leagueStandings",
+  "value": "20-7"
+ },
+ "rec:0006": {
+  "shown": "6&ndash;21",
+  "source": "MFL leagueStandings",
+  "value": "6-21"
+ },
+ "rec:0007": {
+  "shown": "7&ndash;20",
+  "source": "MFL leagueStandings",
+  "value": "7-20"
+ },
+ "rec:0008": {
+  "shown": "15&ndash;12",
+  "source": "MFL leagueStandings",
+  "value": "15-12"
+ },
+ "rec:0009": {
+  "shown": "24&ndash;3",
+  "source": "MFL leagueStandings",
+  "value": "24-3"
+ },
+ "rec:0010": {
+  "shown": "16&ndash;11",
+  "source": "MFL leagueStandings",
+  "value": "16-11"
+ },
+ "rec:0011": {
+  "shown": "13&ndash;14",
+  "source": "MFL leagueStandings",
+  "value": "13-14"
+ },
+ "rec:0012": {
+  "shown": "15&ndash;12",
+  "source": "MFL leagueStandings",
+  "value": "15-12"
+ },
+ "rule:c25": {
+  "shown": "25",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 25
+ },
+ "rule:c60": {
+  "shown": "60",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 60
+ },
+ "rule:c8": {
+  "shown": "8",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 8
+ },
+ "rule:c90": {
+  "shown": "90",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 90
+ },
+ "rule:dom": {
+  "shown": "28",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 28
+ },
+ "rule:of": {
+  "shown": "33",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 33
+ },
+ "rule:sink": {
+  "shown": "5",
+  "source": "UPS Center definition (Week 5 issue, 2026-10-14)",
+  "value": 5
+ },
+ "score:0001": {
+  "shown": "232.5",
+  "source": "MFL weeklyResults W10",
+  "value": 232.5
+ },
+ "score:0002": {
+  "shown": "181.1",
+  "source": "MFL weeklyResults W10",
+  "value": 181.1
+ },
+ "score:0003": {
+  "shown": "240.7",
+  "source": "MFL weeklyResults W10",
+  "value": 240.7
+ },
+ "score:0004": {
+  "shown": "224.9",
+  "source": "MFL weeklyResults W10",
+  "value": 224.9
+ },
+ "score:0005": {
+  "shown": "193.3",
+  "source": "MFL weeklyResults W10",
+  "value": 193.3
+ },
+ "score:0006": {
+  "shown": "204.6",
+  "source": "MFL weeklyResults W10",
+  "value": 204.6
+ },
+ "score:0007": {
+  "shown": "135.0",
+  "source": "MFL weeklyResults W10",
+  "value": 135.0
+ },
+ "score:0008": {
+  "shown": "250.8",
+  "source": "MFL weeklyResults W10",
+  "value": 250.8
+ },
+ "score:0009": {
+  "shown": "308.9",
+  "source": "MFL weeklyResults W10",
+  "value": 308.9
+ },
+ "score:0010": {
+  "shown": "266.0",
+  "source": "MFL weeklyResults W10",
+  "value": 266.0
+ },
+ "score:0011": {
+  "shown": "158.5",
+  "source": "MFL weeklyResults W10",
+  "value": 158.5
+ },
+ "score:0012": {
+  "shown": "174.5",
+  "source": "MFL weeklyResults W10",
+  "value": 174.5
+ },
+ "tk:bet:stake": {
+  "shown": "$50",
+  "source": "bet terms, Discord (linked)",
+  "value": 50
+ },
+ "tk:cap:extra": {
+  "shown": "$2,000",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (computed: salary taken on - salary given up - cap space received)",
+  "value": 2000.0
+ },
+ "tk:cap:salary:in": {
+  "shown": "$17,000",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (rosters)",
+  "value": 17000.0
+ },
+ "tk:cap:salary:out": {
+  "shown": "$37,000",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (rosters)",
+  "value": 37000.0
+ },
+ "tk:cap:space": {
+  "shown": "$18,000",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (the trade's cap-space token)",
+  "value": 18000.0
+ },
+ "tk:hh:2011:Eric Mannila:pct": {
+  "shown": ".133",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": 0.133
+ },
+ "tk:hh:2011:Eric Mannila:rec": {
+  "shown": "19&ndash;124",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": "19-124-0"
+ },
+ "tk:hh:2011:Eric Mannila:weeks": {
+  "shown": "13",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": 13
+ },
+ "tk:hh:2014:Chris Klingenberg:pct": {
+  "shown": ".196",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": 0.196
+ },
+ "tk:hh:2014:Chris Klingenberg:rec": {
+  "shown": "28&ndash;115",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": "28-115-0"
+ },
+ "tk:hh:2014:Chris Klingenberg:weeks": {
+  "shown": "13",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": 13
+ },
+ "tk:hh:2018:Chris Klingenberg:pct": {
+  "shown": ".165",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": 0.165
+ },
+ "tk:hh:2018:Chris Klingenberg:rec": {
+  "shown": "29&ndash;147",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": "29-147-0"
+ },
+ "tk:hh:2018:Chris Klingenberg:weeks": {
+  "shown": "16",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": 16
+ },
+ "tk:hh:2024:Josh Lima:pct": {
+  "shown": ".107",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": 0.107
+ },
+ "tk:hh:2024:Josh Lima:rec": {
+  "shown": "20&ndash;167",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": "20-167-0"
+ },
+ "tk:hh:2024:Josh Lima:weeks": {
+  "shown": "17",
+  "source": "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises",
+  "value": 17
+ },
+ "tk:hos:0003:need": {
+  "shown": "6",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 6
+ },
+ "tk:hos:0003:rec": {
+  "shown": "32-78-0",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": "32-78-0"
+ },
+ "tk:hos:0003:w": {
+  "shown": "32",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 32
+ },
+ "tk:hos:0006:need": {
+  "shown": "11",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 11
+ },
+ "tk:hos:0006:rec": {
+  "shown": "27-83-0",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": "27-83-0"
+ },
+ "tk:hos:0006:w": {
+  "shown": "27",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 27
+ },
+ "tk:hos:0007:need": {
+  "shown": "14",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 14
+ },
+ "tk:hos:0007:rec": {
+  "shown": "24-86-0",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": "24-86-0"
+ },
+ "tk:hos:0007:w": {
+  "shown": "24",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 24
+ },
+ "tk:hos:games": {
+  "shown": "187",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 187
+ },
+ "tk:hos:left": {
+  "shown": "77",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 77
+ },
+ "tk:hos:line": {
+  "shown": ".200",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 0.2
+ },
+ "tk:hos:safe": {
+  "shown": "38",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 38
+ },
+ "tk:hos:weeks": {
+  "shown": "17",
+  "source": "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)",
+  "value": 17
+ },
+ "tk:qb:13593:1": {
+  "shown": "29.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 29.8
+ },
+ "tk:qb:13593:2": {
+  "shown": "16.5",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 16.5
+ },
+ "tk:qb:13593:3": {
+  "shown": "27.2",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 27.2
+ },
+ "tk:qb:13593:4": {
+  "shown": "23.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 23.6
+ },
+ "tk:qb:13593:8": {
+  "shown": "0.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 0.0
+ },
+ "tk:qb:14783:1": {
+  "shown": "30.2",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 30.2
+ },
+ "tk:qb:14783:2": {
+  "shown": "22.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 22.6
+ },
+ "tk:qb:14783:3": {
+  "shown": "13.2",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 13.2
+ },
+ "tk:qb:14783:4": {
+  "shown": "16.2",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 16.2
+ },
+ "tk:qb:14783:5": {
+  "shown": "17.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 17.0
+ },
+ "tk:qb:15237:1": {
+  "shown": "35.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 35.8
+ },
+ "tk:qb:15237:10": {
+  "shown": "36.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 36.6
+ },
+ "tk:qb:15237:2": {
+  "shown": "6.4",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 6.4
+ },
+ "tk:qb:15237:3": {
+  "shown": "27.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 27.8
+ },
+ "tk:qb:15237:4": {
+  "shown": "16.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 16.0
+ },
+ "tk:qb:15237:5": {
+  "shown": "27.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 27.8
+ },
+ "tk:qb:15237:6": {
+  "shown": "39.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 39.7
+ },
+ "tk:qb:15237:8": {
+  "shown": "23.9",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 23.9
+ },
+ "tk:qb:15237:9": {
+  "shown": "18.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 18.8
+ },
+ "tk:qb:16579:1": {
+  "shown": "43.9",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 43.9
+ },
+ "tk:qb:16579:2": {
+  "shown": "7.3",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 7.3
+ },
+ "tk:qb:16579:6": {
+  "shown": "18.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 18.6
+ },
+ "tk:qb:16579:7": {
+  "shown": "28.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 28.0
+ },
+ "tk:qb:16579:8": {
+  "shown": "17.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 17.6
+ },
+ "tk:qb:16579:9": {
+  "shown": "20.2",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 20.2
+ },
+ "tk:qb:cum:cross": {
+  "shown": "332.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 332.0
+ },
+ "tk:qb:cum:josh": {
+  "shown": "232.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 232.7
+ },
+ "tk:qb:cumw:cross:1": {
+  "shown": "66.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 66.0
+ },
+ "tk:qb:cumw:cross:10": {
+  "shown": "332.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 332.0
+ },
+ "tk:qb:cumw:cross:2": {
+  "shown": "95.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 95.0
+ },
+ "tk:qb:cumw:cross:3": {
+  "shown": "136.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 136.0
+ },
+ "tk:qb:cumw:cross:4": {
+  "shown": "168.2",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 168.2
+ },
+ "tk:qb:cumw:cross:5": {
+  "shown": "213.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 213.0
+ },
+ "tk:qb:cumw:cross:6": {
+  "shown": "252.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 252.7
+ },
+ "tk:qb:cumw:cross:7": {
+  "shown": "252.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 252.7
+ },
+ "tk:qb:cumw:cross:8": {
+  "shown": "276.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 276.6
+ },
+ "tk:qb:cumw:cross:9": {
+  "shown": "295.4",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 295.4
+ },
+ "tk:qb:cumw:josh:1": {
+  "shown": "73.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 73.7
+ },
+ "tk:qb:cumw:josh:10": {
+  "shown": "232.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 232.7
+ },
+ "tk:qb:cumw:josh:2": {
+  "shown": "97.5",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 97.5
+ },
+ "tk:qb:cumw:josh:3": {
+  "shown": "124.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 124.7
+ },
+ "tk:qb:cumw:josh:4": {
+  "shown": "148.3",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 148.3
+ },
+ "tk:qb:cumw:josh:5": {
+  "shown": "148.3",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 148.3
+ },
+ "tk:qb:cumw:josh:6": {
+  "shown": "166.9",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 166.9
+ },
+ "tk:qb:cumw:josh:7": {
+  "shown": "194.9",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 194.9
+ },
+ "tk:qb:cumw:josh:8": {
+  "shown": "212.5",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 212.5
+ },
+ "tk:qb:cumw:josh:9": {
+  "shown": "232.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 232.7
+ },
+ "tk:qb:lead": {
+  "shown": "99.3",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 99.3
+ },
+ "tk:qb:leadw:1": {
+  "shown": "-7.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": -7.7
+ },
+ "tk:qb:leadw:10": {
+  "shown": "+99.3",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 99.3
+ },
+ "tk:qb:leadw:2": {
+  "shown": "-2.5",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": -2.5
+ },
+ "tk:qb:leadw:3": {
+  "shown": "+11.3",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 11.3
+ },
+ "tk:qb:leadw:4": {
+  "shown": "+19.9",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 19.9
+ },
+ "tk:qb:leadw:5": {
+  "shown": "+64.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 64.7
+ },
+ "tk:qb:leadw:6": {
+  "shown": "+85.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 85.8
+ },
+ "tk:qb:leadw:7": {
+  "shown": "+57.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 57.8
+ },
+ "tk:qb:leadw:8": {
+  "shown": "+64.1",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 64.1
+ },
+ "tk:qb:leadw:9": {
+  "shown": "+62.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 62.7
+ },
+ "tk:qb:pair:cross:1": {
+  "shown": "66.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 66.0
+ },
+ "tk:qb:pair:cross:10": {
+  "shown": "36.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 36.6
+ },
+ "tk:qb:pair:cross:2": {
+  "shown": "29.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 29.0
+ },
+ "tk:qb:pair:cross:3": {
+  "shown": "41.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 41.0
+ },
+ "tk:qb:pair:cross:4": {
+  "shown": "32.2",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 32.2
+ },
+ "tk:qb:pair:cross:5": {
+  "shown": "44.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 44.8
+ },
+ "tk:qb:pair:cross:6": {
+  "shown": "39.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 39.7
+ },
+ "tk:qb:pair:cross:7": {
+  "shown": "0.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 0.0
+ },
+ "tk:qb:pair:cross:8": {
+  "shown": "23.9",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 23.9
+ },
+ "tk:qb:pair:cross:9": {
+  "shown": "18.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 18.8
+ },
+ "tk:qb:pair:josh:1": {
+  "shown": "73.7",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 73.7
+ },
+ "tk:qb:pair:josh:10": {
+  "shown": "0.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 0.0
+ },
+ "tk:qb:pair:josh:2": {
+  "shown": "23.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 23.8
+ },
+ "tk:qb:pair:josh:3": {
+  "shown": "27.2",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 27.2
+ },
+ "tk:qb:pair:josh:4": {
+  "shown": "23.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 23.6
+ },
+ "tk:qb:pair:josh:5": {
+  "shown": "0.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 0.0
+ },
+ "tk:qb:pair:josh:6": {
+  "shown": "18.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 18.6
+ },
+ "tk:qb:pair:josh:7": {
+  "shown": "28.0",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 28.0
+ },
+ "tk:qb:pair:josh:8": {
+  "shown": "17.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 17.6
+ },
+ "tk:qb:pair:josh:9": {
+  "shown": "20.2",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 20.2
+ },
+ "tk:qb:swing:10": {
+  "shown": "36.6",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 36.6
+ },
+ "tk:qb:swing:5": {
+  "shown": "44.8",
+  "source": "MFL public exports (transactions, salaryAdjustments, rosters, playerScores, nflSchedule) (playerScores W=ALL; nflSchedule for byes)",
+  "value": 44.8
+ },
+ "tk:qb:wk:1": {
+  "shown": "Wk 1",
+  "source": "NFL schedule",
+  "value": 1
+ },
+ "tk:qb:wk:10": {
+  "shown": "Wk 10",
+  "source": "NFL schedule",
+  "value": 10
+ },
+ "tk:qb:wk:11": {
+  "shown": "Wk 11",
+  "source": "NFL schedule",
+  "value": 11
+ },
+ "tk:qb:wk:12": {
+  "shown": "Wk 12",
+  "source": "NFL schedule",
+  "value": 12
+ },
+ "tk:qb:wk:13": {
+  "shown": "Wk 13",
+  "source": "NFL schedule",
+  "value": 13
+ },
+ "tk:qb:wk:14": {
+  "shown": "Wk 14",
+  "source": "NFL schedule",
+  "value": 14
+ },
+ "tk:qb:wk:15": {
+  "shown": "Wk 15",
+  "source": "NFL schedule",
+  "value": 15
+ },
+ "tk:qb:wk:16": {
+  "shown": "Wk 16",
+  "source": "NFL schedule",
+  "value": 16
+ },
+ "tk:qb:wk:17": {
+  "shown": "Wk 17",
+  "source": "NFL schedule",
+  "value": 17
+ },
+ "tk:qb:wk:2": {
+  "shown": "Wk 2",
+  "source": "NFL schedule",
+  "value": 2
+ },
+ "tk:qb:wk:3": {
+  "shown": "Wk 3",
+  "source": "NFL schedule",
+  "value": 3
+ },
+ "tk:qb:wk:4": {
+  "shown": "Wk 4",
+  "source": "NFL schedule",
+  "value": 4
+ },
+ "tk:qb:wk:5": {
+  "shown": "Wk 5",
+  "source": "NFL schedule",
+  "value": 5
+ },
+ "tk:qb:wk:6": {
+  "shown": "Wk 6",
+  "source": "NFL schedule",
+  "value": 6
+ },
+ "tk:qb:wk:7": {
+  "shown": "Wk 7",
+  "source": "NFL schedule",
+  "value": 7
+ },
+ "tk:qb:wk:8": {
+  "shown": "Wk 8",
+  "source": "NFL schedule",
+  "value": 8
+ },
+ "tk:qb:wk:9": {
+  "shown": "Wk 9",
+  "source": "NFL schedule",
+  "value": 9
+ },
+ "tk:runs": {
+  "shown": "10,000",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 10000
+ },
+ "tk:side:0002:c": {
+  "shown": "53.1",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 53.1
+ },
+ "tk:side:0002:h": {
+  "shown": "46.9",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 46.9
+ },
+ "tk:side:0008:c": {
+  "shown": "96.6",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 96.6
+ },
+ "tk:side:0008:h": {
+  "shown": "3.4",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 3.4
+ },
+ "tk:slot:0002:1": {
+  "shown": "15.9",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 15.9
+ },
+ "tk:slot:0002:10": {
+  "shown": "3.9",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 3.9
+ },
+ "tk:slot:0002:11": {
+  "shown": "2.3",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 2.3
+ },
+ "tk:slot:0002:12": {
+  "shown": "0.8",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.8
+ },
+ "tk:slot:0002:2": {
+  "shown": "13.7",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 13.7
+ },
+ "tk:slot:0002:3": {
+  "shown": "9.2",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 9.2
+ },
+ "tk:slot:0002:4": {
+  "shown": "7.7",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 7.7
+ },
+ "tk:slot:0002:5": {
+  "shown": "0.3",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.3
+ },
+ "tk:slot:0002:6": {
+  "shown": "0.1",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.1
+ },
+ "tk:slot:0002:7": {
+  "shown": "14.1",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 14.1
+ },
+ "tk:slot:0002:8": {
+  "shown": "20.3",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 20.3
+ },
+ "tk:slot:0002:9": {
+  "shown": "11.7",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 11.7
+ },
+ "tk:slot:0005:10": {
+  "shown": "25.6",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 25.6
+ },
+ "tk:slot:0005:11": {
+  "shown": "33.1",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 33.1
+ },
+ "tk:slot:0005:12": {
+  "shown": "23.0",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 23.0
+ },
+ "tk:slot:0005:7": {
+  "shown": "0.5",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.5
+ },
+ "tk:slot:0005:8": {
+  "shown": "0.3",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.3
+ },
+ "tk:slot:0005:9": {
+  "shown": "17.5",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 17.5
+ },
+ "tk:slot:0006:1": {
+  "shown": "4.5",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 4.5
+ },
+ "tk:slot:0006:2": {
+  "shown": "7.5",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 7.5
+ },
+ "tk:slot:0006:3": {
+  "shown": "8.3",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 8.3
+ },
+ "tk:slot:0006:4": {
+  "shown": "12.5",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 12.5
+ },
+ "tk:slot:0006:5": {
+  "shown": "32.0",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 32.0
+ },
+ "tk:slot:0006:6": {
+  "shown": "35.2",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 35.2
+ },
+ "tk:slot:0008:1": {
+  "shown": "1.5",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 1.5
+ },
+ "tk:slot:0008:10": {
+  "shown": "14.3",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 14.3
+ },
+ "tk:slot:0008:11": {
+  "shown": "5.5",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 5.5
+ },
+ "tk:slot:0008:12": {
+  "shown": "3.8",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 3.8
+ },
+ "tk:slot:0008:2": {
+  "shown": "0.6",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.6
+ },
+ "tk:slot:0008:3": {
+  "shown": "0.8",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.8
+ },
+ "tk:slot:0008:4": {
+  "shown": "0.3",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.3
+ },
+ "tk:slot:0008:5": {
+  "shown": "0.1",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.1
+ },
+ "tk:slot:0008:6": {
+  "shown": "0.1",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 0.1
+ },
+ "tk:slot:0008:7": {
+  "shown": "30.8",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 30.8
+ },
+ "tk:slot:0008:8": {
+  "shown": "25.7",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 25.7
+ },
+ "tk:slot:0008:9": {
+  "shown": "16.5",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 16.5
+ },
+ "tk:slotlabel:1:1": {
+  "shown": "1.01",
+  "source": "league draft order (canon A1)",
+  "value": 101
+ },
+ "tk:slotlabel:1:12": {
+  "shown": "1.12",
+  "source": "league draft order (canon A1)",
+  "value": 112
+ },
+ "tk:slotlabel:1:5": {
+  "shown": "1.05",
+  "source": "league draft order (canon A1)",
+  "value": 105
+ },
+ "tk:slotlabel:1:6": {
+  "shown": "1.06",
+  "source": "league draft order (canon A1)",
+  "value": 106
+ },
+ "tk:slotlabel:1:7": {
+  "shown": "1.07",
+  "source": "league draft order (canon A1)",
+  "value": 107
+ },
+ "tk:slotlabel:1:8": {
+  "shown": "1.08",
+  "source": "league draft order (canon A1)",
+  "value": 108
+ },
+ "tk:slotlabel:2:1": {
+  "shown": "2.01",
+  "source": "league draft order (canon A1)",
+  "value": 201
+ },
+ "tk:slotlabel:2:5": {
+  "shown": "2.05",
+  "source": "league draft order (canon A1)",
+  "value": 205
+ },
+ "tk:slotlabel:2:6": {
+  "shown": "2.06",
+  "source": "league draft order (canon A1)",
+  "value": 206
+ },
+ "tk:slotlabel:3:1": {
+  "shown": "3.01",
+  "source": "league draft order (canon A1)",
+  "value": 301
+ },
+ "tk:slotlabel:3:12": {
+  "shown": "3.12",
+  "source": "league draft order (canon A1)",
+  "value": 312
+ },
+ "tk:slotlabel:3:6": {
+  "shown": "3.06",
+  "source": "league draft order (canon A1)",
+  "value": 306
+ },
+ "tk:slotlabel:3:7": {
+  "shown": "3.07",
+  "source": "league draft order (canon A1)",
+  "value": 307
+ },
+ "tk:slotlabel:5:12": {
+  "shown": "5.12",
+  "source": "league draft order (canon A1)",
+  "value": 512
+ },
+ "tk:slotlabel:5:7": {
+  "shown": "5.07",
+  "source": "league draft order (canon A1)",
+  "value": 507
+ },
+ "tk:slotno:1": {
+  "shown": "1",
+  "source": "league draft order (canon A1)",
+  "value": 1
+ },
+ "tk:slotno:10": {
+  "shown": "10",
+  "source": "league draft order (canon A1)",
+  "value": 10
+ },
+ "tk:slotno:11": {
+  "shown": "11",
+  "source": "league draft order (canon A1)",
+  "value": 11
+ },
+ "tk:slotno:12": {
+  "shown": "12",
+  "source": "league draft order (canon A1)",
+  "value": 12
+ },
+ "tk:slotno:2": {
+  "shown": "2",
+  "source": "league draft order (canon A1)",
+  "value": 2
+ },
+ "tk:slotno:3": {
+  "shown": "3",
+  "source": "league draft order (canon A1)",
+  "value": 3
+ },
+ "tk:slotno:4": {
+  "shown": "4",
+  "source": "league draft order (canon A1)",
+  "value": 4
+ },
+ "tk:slotno:5": {
+  "shown": "5",
+  "source": "league draft order (canon A1)",
+  "value": 5
+ },
+ "tk:slotno:6": {
+  "shown": "6",
+  "source": "league draft order (canon A1)",
+  "value": 6
+ },
+ "tk:slotno:7": {
+  "shown": "7",
+  "source": "league draft order (canon A1)",
+  "value": 7
+ },
+ "tk:slotno:8": {
+  "shown": "8",
+  "source": "league draft order (canon A1)",
+  "value": 8
+ },
+ "tk:slotno:9": {
+  "shown": "9",
+  "source": "league draft order (canon A1)",
+  "value": 9
+ },
+ "tk:slotsum:0006:5:6": {
+  "shown": "67.2",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 67.2
+ },
+ "tk:slotsum:0008:7:8": {
+  "shown": "56.5",
+  "source": "season_sim --through-week 10, 10000 runs, generated 2026-11-19T14:13:11Z UTC (draft slots from each simulated postseason bracket finish, canon A1)",
+  "value": 56.5
+ },
+ "trade:asset:15237": {
+  "shown": "$37,000",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 37000.0
+ },
+ "trade:asset:16186": {
+  "shown": "$17,000",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 17000.0
+ },
+ "trade:capspace:b:0": {
+  "shown": "$18,000",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 18000.0
+ },
+ "trade:n": {
+  "shown": "8",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 8
+ },
+ "trade:na": {
+  "shown": "4",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 4
+ },
+ "trade:nb": {
+  "shown": "4",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 4
+ },
+ "trade:onroster:15237": {
+  "shown": "10",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 10
+ },
+ "trade:onroster:16186": {
+  "shown": "10",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 10
+ },
+ "trade:rk": {
+  "shown": "66",
+  "source": "league archive transactions_trades (2010&ndash;2025 trade groups)",
+  "value": 66
+ },
+ "trade:rn": {
+  "shown": "1,036",
+  "source": "league archive transactions_trades (2010&ndash;2025 trade groups)",
+  "value": 1036
+ },
+ "trade:sal:a": {
+  "shown": "$17,000",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 17000.0
+ },
+ "trade:sal:b": {
+  "shown": "$37,000",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 37000.0
+ },
+ "trade:sel": {
+  "shown": "1794909763",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 1794909763
+ },
+ "trade:started:15237": {
+  "shown": "9",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 9
+ },
+ "trade:started:16186": {
+  "shown": "0",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 0
+ },
+ "trade:yrs:15237": {
+  "shown": "1",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 1
+ },
+ "trade:yrs:16186": {
+  "shown": "1",
+  "source": "MFL public transactions + rosters + weeklyResults exports (trade of Nov 17, 2026)",
+  "value": 1
+ },
+ "trig:recn": {
+  "shown": "2,724",
+  "source": "D1 archive + season scores (ups_center_story_triggers)",
+  "value": 2724
+ },
+ "trig:recraw:0009": {
+  "shown": "7th",
+  "source": "D1 archive + season scores (ups_center_story_triggers)",
+  "value": 7
+ },
+ "trig:recshare:0009": {
+  "shown": "26th",
+  "source": "D1 archive + season scores (ups_center_story_triggers)",
+  "value": 26
+ },
+ "trig:streak:dom:0009": {
+  "shown": "9",
+  "source": "D1 archive + season scores (ups_center_story_triggers)",
+  "value": 9
+ },
+ "trig:streakk:dom:0009": {
+  "shown": "1",
+  "source": "D1 archive + season scores (ups_center_story_triggers)",
+  "value": 1
+ },
+ "trig:streaktop:dom:0009:0": {
+  "shown": "10",
+  "source": "D1 archive + season scores (ups_center_story_triggers)",
+  "value": {
+   "L": 10,
+   "owner": "Josh Martel",
+   "season": 2018
+  }
+ },
+ "usage:Brock Bowers": {
+  "shown": "2 targets, 10 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "2 targets, 10 air yards"
+ },
+ "usage:Christian McCaffrey": {
+  "shown": "13 carries, 4 targets",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "13 carries, 4 targets"
+ },
+ "usage:Christian Watson": {
+  "shown": "5 targets, 45 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "5 targets, 45 air yards"
+ },
+ "usage:Dak Prescott": {
+  "shown": "51 passes, 595 air yards, 4 carries",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "51 passes, 595 air yards, 4 carries"
+ },
+ "usage:Drake Maye": {
+  "shown": "4 passes, 11 air yards, 1 carry",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "4 passes, 11 air yards, 1 carry"
+ },
+ "usage:George Pickens": {
+  "shown": "18 targets, 295 air yards",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "18 targets, 295 air yards"
+ },
+ "usage:Joe Burrow": {
+  "shown": "44 passes, 265 air yards, 1 carry",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "44 passes, 265 air yards, 1 carry"
+ },
+ "usage:Kyren Williams": {
+  "shown": "12 carries, 5 targets",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "12 carries, 5 targets"
+ },
+ "usage:Patrick Mahomes": {
+  "shown": "35 passes, 325 air yards, 2 carries",
+  "source": "pack t.bb.off.bargain (nflverse ffopportunity usage)",
+  "value": "35 passes, 325 air yards, 2 carries"
+ },
+ "usage:Trey McBride": {
+  "shown": "5 targets, 23 air yards",
+  "source": "pack t.bb.off.bust (nflverse ffopportunity usage)",
+  "value": "5 targets, 23 air yards"
+ },
+ "wkap:0001": {
+  "shown": "7&ndash;4",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "7-4"
+ },
+ "wkap:0002": {
+  "shown": "3&ndash;8",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "3-8"
+ },
+ "wkap:0003": {
+  "shown": "8&ndash;3",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "8-3"
+ },
+ "wkap:0004": {
+  "shown": "6&ndash;5",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "6-5"
+ },
+ "wkap:0005": {
+  "shown": "4&ndash;7",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "4-7"
+ },
+ "wkap:0006": {
+  "shown": "5&ndash;6",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "5-6"
+ },
+ "wkap:0007": {
+  "shown": "0&ndash;11",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "0-11"
+ },
+ "wkap:0008": {
+  "shown": "9&ndash;2",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "9-2"
+ },
+ "wkap:0009": {
+  "shown": "11&ndash;0",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "11-0"
+ },
+ "wkap:0010": {
+  "shown": "10&ndash;1",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "10-1"
+ },
+ "wkap:0011": {
+  "shown": "1&ndash;10",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "1-10"
+ },
+ "wkap:0012": {
+  "shown": "2&ndash;9",
+  "source": "MFL weeklyResults W10 (all-play)",
+  "value": "2-9"
+ },
+ "wkrec:0001": {
+  "shown": "2&ndash;1",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "2-1"
+ },
+ "wkrec:0002": {
+  "shown": "0&ndash;3",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "0-3"
+ },
+ "wkrec:0003": {
+  "shown": "3&ndash;0",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "3-0"
+ },
+ "wkrec:0004": {
+  "shown": "1&ndash;2",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "1-2"
+ },
+ "wkrec:0005": {
+  "shown": "1&ndash;2",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "1-2"
+ },
+ "wkrec:0006": {
+  "shown": "1&ndash;2",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "1-2"
+ },
+ "wkrec:0007": {
+  "shown": "0&ndash;3",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "0-3"
+ },
+ "wkrec:0008": {
+  "shown": "2&ndash;1",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "2-1"
+ },
+ "wkrec:0009": {
+  "shown": "3&ndash;0",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "3-0"
+ },
+ "wkrec:0010": {
+  "shown": "3&ndash;0",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "3-0"
+ },
+ "wkrec:0011": {
+  "shown": "1&ndash;2",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "1-2"
+ },
+ "wkrec:0012": {
+  "shown": "1&ndash;2",
+  "source": "MFL weeklyResults W10 (head-to-head games)",
+  "value": "1-2"
+ }
+}

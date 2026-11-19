@@ -1,0 +1,2756 @@
+{
+ "schema": 2,
+ "season": 2026,
+ "throughWeek": 10,
+ "generatedAtUtc": "2026-11-19T14:13:11Z",
+ "runs": 10000,
+ "seed": 20260911,
+ "preseasonSource": "site/wire/data/season_sim_2026.json",
+ "preseasonGeneratedAtUtc": "2026-09-12T18:57:32Z",
+ "model": {
+  "regress": 0.7,
+  "sigmaWeekly": 29.51,
+  "sigmaSeason": 0.0,
+  "regularSeasonWeeks": 14,
+  "endWeek": 17,
+  "offenseProjections": "expected value",
+  "evCoverage": {
+   "source": "Sleeper weekly projections (RotoWire stat lines) scored with UPS rules; MFL decides availability",
+   "rotowirePoints": 14173,
+   "keptMfl": 130,
+   "nameMatchedPlayers": 165,
+   "mflSaysOut": 85,
+   "mflSaysPlays": 44,
+   "availabilityDisagreements": [
+    {
+     "pid": "16597",
+     "player": "Brooks, Jonathon",
+     "rotowireAverageWhenPlaying": 6.1,
+     "mflSaysOut": [
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "11247",
+     "player": "Ertz, Zach",
+     "rotowireAverageWhenPlaying": 3.3,
+     "mflSaysOut": [
+      12,
+      13,
+      14,
+      16,
+      17
+     ],
+     "mflSaysPlays": [
+      7
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "10700",
+     "player": "Cousins, Kirk",
+     "rotowireAverageWhenPlaying": 21.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [
+      1,
+      2,
+      5
+     ],
+     "mflBackup": [
+      7,
+      8
+     ]
+    },
+    {
+     "pid": "17476",
+     "player": "Singleton, Nicholas",
+     "rotowireAverageWhenPlaying": 3.3,
+     "mflSaysOut": [
+      13,
+      14,
+      15,
+      16,
+      17
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "14056",
+     "player": "Murray, Kyler",
+     "rotowireAverageWhenPlaying": 20.4,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [
+      7,
+      8
+     ],
+     "mflBackup": [
+      1,
+      5
+     ]
+    },
+    {
+     "pid": "15589",
+     "player": "White, Cody",
+     "rotowireAverageWhenPlaying": 2.8,
+     "mflSaysOut": [
+      4,
+      5,
+      6,
+      7
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "12616",
+     "player": "Brissett, Jacoby",
+     "rotowireAverageWhenPlaying": 16.9,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      7,
+      16,
+      17
+     ]
+    },
+    {
+     "pid": "15757",
+     "player": "Robinson, Wan'Dale",
+     "rotowireAverageWhenPlaying": 10.6,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      15,
+      16,
+      17
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16168",
+     "player": "Abanikanda, Israel",
+     "rotowireAverageWhenPlaying": 3.8,
+     "mflSaysOut": [
+      11,
+      12,
+      13
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "11675",
+     "player": "Adams, Davante",
+     "rotowireAverageWhenPlaying": 15.9,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [
+      6
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "12773",
+     "player": "Moore, Chris",
+     "rotowireAverageWhenPlaying": 2.7,
+     "mflSaysOut": [
+      2,
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13593",
+     "player": "Jackson, Lamar",
+     "rotowireAverageWhenPlaying": 25.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      16,
+      17
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "14083",
+     "player": "Homer, Travis",
+     "rotowireAverageWhenPlaying": 4.7,
+     "mflSaysOut": [
+      3,
+      4
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15271",
+     "player": "Herbert, Khalil",
+     "rotowireAverageWhenPlaying": 4.3,
+     "mflSaysOut": [
+      7,
+      8
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15319",
+     "player": "Palmer, Joshua",
+     "rotowireAverageWhenPlaying": 3.2,
+     "mflSaysOut": [
+      13,
+      17
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15730",
+     "player": "Goodson, Tyler",
+     "rotowireAverageWhenPlaying": 4.3,
+     "mflSaysOut": [
+      3,
+      5
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15768",
+     "player": "Pierce, Alec",
+     "rotowireAverageWhenPlaying": 9.8,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      12,
+      14
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15800",
+     "player": "Heyward, Connor",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      1,
+      2
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16206",
+     "player": "Wilson, Michael",
+     "rotowireAverageWhenPlaying": 14.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      9
+     ],
+     "mflStarter": [],
+     "mflBackup": [
+      8
+     ]
+    },
+    {
+     "pid": "16212",
+     "player": "Mayer, Michael",
+     "rotowireAverageWhenPlaying": 9.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      1,
+      2
+     ]
+    },
+    {
+     "pid": "16441",
+     "player": "DeVito, Tommy",
+     "rotowireAverageWhenPlaying": 16.1,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      12,
+      13
+     ]
+    },
+    {
+     "pid": "16580",
+     "player": "Maye, Drake",
+     "rotowireAverageWhenPlaying": 24.3,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      12,
+      13
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16627",
+     "player": "McConkey, Ladd",
+     "rotowireAverageWhenPlaying": 13.1,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      4,
+      5
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16633",
+     "player": "Whittington, Jordan",
+     "rotowireAverageWhenPlaying": 2.3,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [
+      9
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17492",
+     "player": "Donaldson, CJ",
+     "rotowireAverageWhenPlaying": 2.6,
+     "mflSaysOut": [
+      4,
+      5
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17593",
+     "player": "Klein, Marlin",
+     "rotowireAverageWhenPlaying": 1.7,
+     "mflSaysOut": [
+      1,
+      2
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "10948",
+     "player": "Keenum, Case",
+     "rotowireAverageWhenPlaying": 13.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      3
+     ]
+    },
+    {
+     "pid": "12141",
+     "player": "Mariota, Marcus",
+     "rotowireAverageWhenPlaying": 14.2,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      4
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "12610",
+     "player": "Wentz, Carson",
+     "rotowireAverageWhenPlaying": 19.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      2
+     ]
+    },
+    {
+     "pid": "12658",
+     "player": "Shepard, Sterling",
+     "rotowireAverageWhenPlaying": 4.6,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "12785",
+     "player": "Robinson, Demarcus",
+     "rotowireAverageWhenPlaying": 3.9,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      7
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13148",
+     "player": "Ogunbowale, Dare",
+     "rotowireAverageWhenPlaying": 3.5,
+     "mflSaysOut": [
+      11
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13418",
+     "player": "Bourne, Kendrick",
+     "rotowireAverageWhenPlaying": 6.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      8
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13590",
+     "player": "Mayfield, Baker",
+     "rotowireAverageWhenPlaying": 18.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      11
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13604",
+     "player": "Barkley, Saquon",
+     "rotowireAverageWhenPlaying": 15.8,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      4
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13633",
+     "player": "Kirk, Christian",
+     "rotowireAverageWhenPlaying": 7.3,
+     "mflSaysOut": [
+      7
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13635",
+     "player": "Moore, D.J.",
+     "rotowireAverageWhenPlaying": 14.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      5
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "13793",
+     "player": "Valdes-Scantling, Marquez",
+     "rotowireAverageWhenPlaying": 2.3,
+     "mflSaysOut": [
+      5
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "14108",
+     "player": "Dortch, Greg",
+     "rotowireAverageWhenPlaying": 2.5,
+     "mflSaysOut": [
+      5
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "14137",
+     "player": "Fant, Noah",
+     "rotowireAverageWhenPlaying": 5.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      4
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "14789",
+     "player": "Huntley, Tyler",
+     "rotowireAverageWhenPlaying": 14.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [
+      7
+     ],
+     "mflBackup": []
+    },
+    {
+     "pid": "14797",
+     "player": "Swift, D'Andre",
+     "rotowireAverageWhenPlaying": 16.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      9
+     ]
+    },
+    {
+     "pid": "14836",
+     "player": "Jefferson, Justin",
+     "rotowireAverageWhenPlaying": 20.1,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      12
+     ]
+    },
+    {
+     "pid": "14840",
+     "player": "Aiyuk, Brandon",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      1
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "14858",
+     "player": "Jefferson, Van",
+     "rotowireAverageWhenPlaying": 2.6,
+     "mflSaysOut": [
+      10
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15258",
+     "player": "Carter, Michael",
+     "rotowireAverageWhenPlaying": 4.3,
+     "mflSaysOut": [
+      8
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15281",
+     "player": "Chase, Ja'Marr",
+     "rotowireAverageWhenPlaying": 21.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      4
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15702",
+     "player": "McKee, Tanner",
+     "rotowireAverageWhenPlaying": 15.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      7
+     ]
+    },
+    {
+     "pid": "15717",
+     "player": "Pierce, Dameon",
+     "rotowireAverageWhenPlaying": 7.2,
+     "mflSaysOut": [
+      5
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15727",
+     "player": "Knight, Bam",
+     "rotowireAverageWhenPlaying": 6.1,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      8
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15733",
+     "player": "Strong Jr., Pierre",
+     "rotowireAverageWhenPlaying": 4.1,
+     "mflSaysOut": [
+      5
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "15787",
+     "player": "Thornton, Tyquan",
+     "rotowireAverageWhenPlaying": 6.1,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      4
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16175",
+     "player": "Johnson, Roschon",
+     "rotowireAverageWhenPlaying": 6.5,
+     "mflSaysOut": [
+      7
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16186",
+     "player": "Addison, Jordan",
+     "rotowireAverageWhenPlaying": 10.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      12
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16194",
+     "player": "Rice, Rashee",
+     "rotowireAverageWhenPlaying": 15.4,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      4
+     ]
+    },
+    {
+     "pid": "16211",
+     "player": "Nacua, Puka",
+     "rotowireAverageWhenPlaying": 22.4,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      2
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16384",
+     "player": "Bagent, Tyson",
+     "rotowireAverageWhenPlaying": 17.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      3
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16385",
+     "player": "Demercado, Emari",
+     "rotowireAverageWhenPlaying": 3.8,
+     "mflSaysOut": [
+      9
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16387",
+     "player": "Brooks, Chris",
+     "rotowireAverageWhenPlaying": 3.8,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16390",
+     "player": "McLaughlin, Jaleel",
+     "rotowireAverageWhenPlaying": 2.3,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      6
+     ]
+    },
+    {
+     "pid": "16595",
+     "player": "Estime, Audric",
+     "rotowireAverageWhenPlaying": 4.7,
+     "mflSaysOut": [
+      6
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16604",
+     "player": "Lloyd, MarShawn",
+     "rotowireAverageWhenPlaying": 6.7,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16617",
+     "player": "Coleman, Keon",
+     "rotowireAverageWhenPlaying": 8.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      5
+     ]
+    },
+    {
+     "pid": "16629",
+     "player": "Wilson, Roman",
+     "rotowireAverageWhenPlaying": 4.0,
+     "mflSaysOut": [
+      12
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16630",
+     "player": "Williams, Isaiah",
+     "rotowireAverageWhenPlaying": 5.3,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16678",
+     "player": "Vaki, Sione",
+     "rotowireAverageWhenPlaying": 4.3,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      1
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "16757",
+     "player": "Vidal, Kimani",
+     "rotowireAverageWhenPlaying": 6.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      2
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17047",
+     "player": "Sampson, Dylan",
+     "rotowireAverageWhenPlaying": 8.0,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      6
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17048",
+     "player": "Johnson, Kaleb",
+     "rotowireAverageWhenPlaying": 4.4,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17059",
+     "player": "Gordon II, Ollie",
+     "rotowireAverageWhenPlaying": 11.2,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17066",
+     "player": "Monangai, Kyle",
+     "rotowireAverageWhenPlaying": 7.8,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      9
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17069",
+     "player": "Blue, Jaydon",
+     "rotowireAverageWhenPlaying": 2.5,
+     "mflSaysOut": [
+      6
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17072",
+     "player": "Harris, Tre",
+     "rotowireAverageWhenPlaying": 6.5,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      5
+     ]
+    },
+    {
+     "pid": "17077",
+     "player": "Restrepo, Xavier",
+     "rotowireAverageWhenPlaying": 2.9,
+     "mflSaysOut": [
+      11
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17082",
+     "player": "Bryant, Pat",
+     "rotowireAverageWhenPlaying": 8.5,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17088",
+     "player": "Wease, Theo",
+     "rotowireAverageWhenPlaying": 3.0,
+     "mflSaysOut": [
+      6
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17106",
+     "player": "Taylor, Mason",
+     "rotowireAverageWhenPlaying": 7.6,
+     "mflSaysOut": [
+      1
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17276",
+     "player": "Armstrong, Andrew",
+     "rotowireAverageWhenPlaying": 2.3,
+     "mflSaysOut": [
+      7
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17462",
+     "player": "Mendoza, Fernando",
+     "rotowireAverageWhenPlaying": 16.4,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      6
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17469",
+     "player": "Daniels, Jalon",
+     "rotowireAverageWhenPlaying": 15.7,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": [
+      11
+     ]
+    },
+    {
+     "pid": "17472",
+     "player": "Love, Jeremiyah",
+     "rotowireAverageWhenPlaying": 11.9,
+     "mflSaysOut": [],
+     "mflSaysPlays": [
+      8
+     ],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17473",
+     "player": "Price, Jadarian",
+     "rotowireAverageWhenPlaying": 8.8,
+     "mflSaysOut": [
+      8
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17498",
+     "player": "Tyson, Jordyn",
+     "rotowireAverageWhenPlaying": 11.1,
+     "mflSaysOut": [
+      9
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17502",
+     "player": "Cooper Jr., Omar",
+     "rotowireAverageWhenPlaying": 10.0,
+     "mflSaysOut": [
+      6
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17528",
+     "player": "Coleman, Kevin",
+     "rotowireAverageWhenPlaying": 3.1,
+     "mflSaysOut": [
+      3
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17543",
+     "player": "Sadiq, Kenyon",
+     "rotowireAverageWhenPlaying": 7.4,
+     "mflSaysOut": [
+      1
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17544",
+     "player": "Stowers, Eli",
+     "rotowireAverageWhenPlaying": 2.8,
+     "mflSaysOut": [
+      9
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17567",
+     "player": "Delp, Oscar",
+     "rotowireAverageWhenPlaying": 2.5,
+     "mflSaysOut": [
+      4
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    },
+    {
+     "pid": "17654",
+     "player": "Payton, Cole",
+     "rotowireAverageWhenPlaying": null,
+     "mflSaysOut": [],
+     "mflSaysPlays": [],
+     "mflStarter": [
+      7
+     ],
+     "mflBackup": []
+    },
+    {
+     "pid": "17821",
+     "player": "Desrosiers, Gregory",
+     "rotowireAverageWhenPlaying": 4.2,
+     "mflSaysOut": [
+      9
+     ],
+     "mflSaysPlays": [],
+     "mflStarter": [],
+     "mflBackup": []
+    }
+   ],
+   "sleeperUpdatedAt": "2026-11-19T13:51:02Z"
+  },
+  "official": "refresh-only: played weeks are fixed to actual results; every remaining week uses this run's live rosters and MFL projections with the shared, un-updated prior N(0, sigma_s^2) -- the same form as a fresh preseason run, just re-run on today's data. No persistent per-team shock is applied to the published numbers.",
+  "shadow": "each team's shadowShock carries the Bayesian posterior-shock model (a normal-normal conjugate update of the season-long shock term, drawn from that team's own deviation from `wp` instead of the shared prior) -- an internal diagnostic, not backtested, not published. See docs/wire/dynamic_forecast_model.md."
+ },
+ "teams": [
+  {
+   "franchiseId": "0009",
+   "team": "C-Town Chivalry",
+   "division": "03",
+   "weekScore": 308.9,
+   "weekRank": 1,
+   "weekApWins": 11,
+   "weekApLosses": 0,
+   "weekApTies": 0,
+   "currentApWins": 99,
+   "currentApLosses": 11,
+   "currentApTies": 0,
+   "currentApPct": 0.9,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.8846,
+   "apP10": 0.8442,
+   "apP90": 0.9156,
+   "currentDivisionOdds": 1.0,
+   "currentPlayoffOdds": 1.0,
+   "currentByeOdds": 1.0,
+   "currentTitleOdds": 0.5312,
+   "startingAllPlayPct": 0.5947,
+   "startingPowerRank": 1,
+   "preseasonTitleOdds": 0.1806,
+   "preseasonPlayoffOdds": 0.7433,
+   "preseasonDivisionOdds": 0.5763,
+   "titleOddsChange": 0.3506,
+   "playoffOddsChange": 0.2567,
+   "biggestAbsence": null,
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": 35.24,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.9145,
+    "currentDivisionOdds": 1.0,
+    "currentPlayoffOdds": 1.0,
+    "currentByeOdds": 1.0,
+    "currentTitleOdds": 0.735,
+    "titleOddsChange": 0.5544
+   }
+  },
+  {
+   "franchiseId": "0005",
+   "team": "HammerTime 🔨 ⏰",
+   "division": "00",
+   "weekScore": 193.3,
+   "weekRank": 8,
+   "weekApWins": 4,
+   "weekApLosses": 7,
+   "weekApTies": 0,
+   "currentApWins": 81,
+   "currentApLosses": 29,
+   "currentApTies": 0,
+   "currentApPct": 0.7364,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.7259,
+   "apP10": 0.6753,
+   "apP90": 0.7727,
+   "currentDivisionOdds": 0.9929,
+   "currentPlayoffOdds": 1.0,
+   "currentByeOdds": 0.9765,
+   "currentTitleOdds": 0.2305,
+   "startingAllPlayPct": 0.5439,
+   "startingPowerRank": 4,
+   "preseasonTitleOdds": 0.1163,
+   "preseasonPlayoffOdds": 0.5929,
+   "preseasonDivisionOdds": 0.3454,
+   "titleOddsChange": 0.1142,
+   "playoffOddsChange": 0.4071,
+   "biggestAbsence": null,
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": 19.77,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.7546,
+    "currentDivisionOdds": 0.9995,
+    "currentPlayoffOdds": 1.0,
+    "currentByeOdds": 0.9909,
+    "currentTitleOdds": 0.1892,
+    "titleOddsChange": 0.0729
+   }
+  },
+  {
+   "franchiseId": "0004",
+   "team": "Pure Greatness",
+   "division": "00",
+   "weekScore": 224.9,
+   "weekRank": 6,
+   "weekApWins": 6,
+   "weekApLosses": 5,
+   "weekApTies": 0,
+   "currentApWins": 66,
+   "currentApLosses": 44,
+   "currentApTies": 0,
+   "currentApPct": 0.6,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.6145,
+   "apP10": 0.5649,
+   "apP90": 0.6623,
+   "currentDivisionOdds": 0.0071,
+   "currentPlayoffOdds": 0.9955,
+   "currentByeOdds": 0.0058,
+   "currentTitleOdds": 0.1272,
+   "startingAllPlayPct": 0.5809,
+   "startingPowerRank": 2,
+   "preseasonTitleOdds": 0.1501,
+   "preseasonPlayoffOdds": 0.696,
+   "preseasonDivisionOdds": 0.4697,
+   "titleOddsChange": -0.0229,
+   "playoffOddsChange": 0.2995,
+   "biggestAbsence": {
+    "player": "Jackson, Lamar",
+    "pos": "QB",
+    "weeksOut": [
+     11,
+     12,
+     13,
+     14,
+     15
+    ],
+    "details": "Thumb",
+    "estPtsPerWeek": 8.1,
+    "estTotalPtsLost": 40.6
+   },
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": -5.29,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.597,
+    "currentDivisionOdds": 0.0005,
+    "currentPlayoffOdds": 0.9898,
+    "currentByeOdds": 0.0003,
+    "currentTitleOdds": 0.0196,
+    "titleOddsChange": -0.1305
+   }
+  },
+  {
+   "franchiseId": "0010",
+   "team": "Blake Bombers",
+   "division": "01",
+   "weekScore": 266.0,
+   "weekRank": 2,
+   "weekApWins": 10,
+   "weekApLosses": 1,
+   "weekApTies": 0,
+   "currentApWins": 69,
+   "currentApLosses": 41,
+   "currentApTies": 0,
+   "currentApPct": 0.6273,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.6091,
+   "apP10": 0.5584,
+   "apP90": 0.6623,
+   "currentDivisionOdds": 0.9407,
+   "currentPlayoffOdds": 0.993,
+   "currentByeOdds": 0.0175,
+   "currentTitleOdds": 0.0624,
+   "startingAllPlayPct": 0.5491,
+   "startingPowerRank": 3,
+   "preseasonTitleOdds": 0.1023,
+   "preseasonPlayoffOdds": 0.6649,
+   "preseasonDivisionOdds": 0.5247,
+   "titleOddsChange": -0.0399,
+   "playoffOddsChange": 0.3281,
+   "biggestAbsence": {
+    "player": "McLaurin, Terry",
+    "pos": "WR",
+    "weeksOut": [
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17
+    ],
+    "details": "Knee",
+    "estPtsPerWeek": 1.3,
+    "estTotalPtsLost": 8.8
+   },
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": 14.36,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.639,
+    "currentDivisionOdds": 0.9766,
+    "currentPlayoffOdds": 0.9985,
+    "currentByeOdds": 0.0088,
+    "currentTitleOdds": 0.045,
+    "titleOddsChange": -0.0573
+   }
+  },
+  {
+   "franchiseId": "0008",
+   "team": "Real Deal Creel",
+   "division": "02",
+   "weekScore": 250.8,
+   "weekRank": 3,
+   "weekApWins": 9,
+   "weekApLosses": 2,
+   "weekApTies": 0,
+   "currentApWins": 59,
+   "currentApLosses": 51,
+   "currentApTies": 0,
+   "currentApPct": 0.5364,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.5361,
+   "apP10": 0.4805,
+   "apP90": 0.5909,
+   "currentDivisionOdds": 0.9552,
+   "currentPlayoffOdds": 0.9657,
+   "currentByeOdds": 0.0002,
+   "currentTitleOdds": 0.0378,
+   "startingAllPlayPct": 0.5079,
+   "startingPowerRank": 5,
+   "preseasonTitleOdds": 0.1011,
+   "preseasonPlayoffOdds": 0.5444,
+   "preseasonDivisionOdds": 0.4011,
+   "titleOddsChange": -0.0633,
+   "playoffOddsChange": 0.4213,
+   "biggestAbsence": {
+    "player": "Nacua, Puka",
+    "pos": "WR",
+    "weeksOut": [
+     11,
+     12,
+     13,
+     14
+    ],
+    "details": "Knee - MCL",
+    "estPtsPerWeek": 10.3,
+    "estTotalPtsLost": 41.2
+   },
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": -0.18,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.5346,
+    "currentDivisionOdds": 0.9748,
+    "currentPlayoffOdds": 0.9794,
+    "currentByeOdds": 0.0,
+    "currentTitleOdds": 0.0078,
+    "titleOddsChange": -0.0933
+   }
+  },
+  {
+   "franchiseId": "0002",
+   "team": "CBP",
+   "division": "01",
+   "weekScore": 181.1,
+   "weekRank": 9,
+   "weekApWins": 3,
+   "weekApLosses": 8,
+   "weekApTies": 0,
+   "currentApWins": 57,
+   "currentApLosses": 53,
+   "currentApTies": 0,
+   "currentApPct": 0.5182,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.4945,
+   "apP10": 0.4416,
+   "apP90": 0.5455,
+   "currentDivisionOdds": 0.0593,
+   "currentPlayoffOdds": 0.531,
+   "currentByeOdds": 0.0,
+   "currentTitleOdds": 0.0084,
+   "startingAllPlayPct": 0.498,
+   "startingPowerRank": 7,
+   "preseasonTitleOdds": 0.0736,
+   "preseasonPlayoffOdds": 0.5149,
+   "preseasonDivisionOdds": 0.3593,
+   "titleOddsChange": -0.0652,
+   "playoffOddsChange": 0.0161,
+   "biggestAbsence": null,
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": -1.49,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.4935,
+    "currentDivisionOdds": 0.0234,
+    "currentPlayoffOdds": 0.5415,
+    "currentByeOdds": 0.0,
+    "currentTitleOdds": 0.0027,
+    "titleOddsChange": -0.0709
+   }
+  },
+  {
+   "franchiseId": "0012",
+   "team": "Hawks",
+   "division": "03",
+   "weekScore": 174.5,
+   "weekRank": 10,
+   "weekApWins": 2,
+   "weekApLosses": 9,
+   "weekApTies": 0,
+   "currentApWins": 57,
+   "currentApLosses": 53,
+   "currentApTies": 0,
+   "currentApPct": 0.5182,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.4805,
+   "apP10": 0.4286,
+   "apP90": 0.5325,
+   "currentDivisionOdds": 0.0,
+   "currentPlayoffOdds": 0.3761,
+   "currentByeOdds": 0.0,
+   "currentTitleOdds": 0.002,
+   "startingAllPlayPct": 0.4573,
+   "startingPowerRank": 10,
+   "preseasonTitleOdds": 0.0435,
+   "preseasonPlayoffOdds": 0.3638,
+   "preseasonDivisionOdds": 0.1878,
+   "titleOddsChange": -0.0415,
+   "playoffOddsChange": 0.0123,
+   "biggestAbsence": {
+    "player": "Wilson, Michael",
+    "pos": "WR",
+    "weeksOut": [
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17
+    ],
+    "details": "Neck",
+    "estPtsPerWeek": 3.2,
+    "estTotalPtsLost": 22.4
+   },
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": -3.79,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.4752,
+    "currentDivisionOdds": 0.0,
+    "currentPlayoffOdds": 0.3429,
+    "currentByeOdds": 0.0,
+    "currentTitleOdds": 0.0004,
+    "titleOddsChange": -0.0431
+   }
+  },
+  {
+   "franchiseId": "0011",
+   "team": "Cleon Ca$h",
+   "division": "03",
+   "weekScore": 158.5,
+   "weekRank": 11,
+   "weekApWins": 1,
+   "weekApLosses": 10,
+   "weekApTies": 0,
+   "currentApWins": 49,
+   "currentApLosses": 61,
+   "currentApTies": 0,
+   "currentApPct": 0.4455,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.4347,
+   "apP10": 0.3831,
+   "apP90": 0.487,
+   "currentDivisionOdds": 0.0,
+   "currentPlayoffOdds": 0.0882,
+   "currentByeOdds": 0.0,
+   "currentTitleOdds": 0.0002,
+   "startingAllPlayPct": 0.484,
+   "startingPowerRank": 8,
+   "preseasonTitleOdds": 0.0552,
+   "preseasonPlayoffOdds": 0.4339,
+   "preseasonDivisionOdds": 0.2359,
+   "titleOddsChange": -0.055,
+   "playoffOddsChange": -0.3457,
+   "biggestAbsence": {
+    "player": "Dart, Jaxson",
+    "pos": "QB",
+    "weeksOut": [
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17
+    ],
+    "details": "Knee - Meniscus",
+    "estPtsPerWeek": 6.1,
+    "estTotalPtsLost": 42.9
+   },
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": 0.44,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.4391,
+    "currentDivisionOdds": 0.0,
+    "currentPlayoffOdds": 0.1203,
+    "currentByeOdds": 0.0,
+    "currentTitleOdds": 0.0003,
+    "titleOddsChange": -0.0549
+   }
+  },
+  {
+   "franchiseId": "0001",
+   "team": "L.A. Looks",
+   "division": "02",
+   "weekScore": 232.5,
+   "weekRank": 5,
+   "weekApWins": 7,
+   "weekApLosses": 4,
+   "weekApTies": 0,
+   "currentApWins": 40,
+   "currentApLosses": 70,
+   "currentApTies": 0,
+   "currentApPct": 0.3636,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.3852,
+   "apP10": 0.3312,
+   "apP90": 0.4351,
+   "currentDivisionOdds": 0.0447,
+   "currentPlayoffOdds": 0.0504,
+   "currentByeOdds": 0.0,
+   "currentTitleOdds": 0.0003,
+   "startingAllPlayPct": 0.4354,
+   "startingPowerRank": 11,
+   "preseasonTitleOdds": 0.0284,
+   "preseasonPlayoffOdds": 0.3401,
+   "preseasonDivisionOdds": 0.222,
+   "titleOddsChange": -0.0281,
+   "playoffOddsChange": -0.2897,
+   "biggestAbsence": null,
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": -10.95,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.362,
+    "currentDivisionOdds": 0.0251,
+    "currentPlayoffOdds": 0.0275,
+    "currentByeOdds": 0.0,
+    "currentTitleOdds": 0.0,
+    "titleOddsChange": -0.0284
+   }
+  },
+  {
+   "franchiseId": "0003",
+   "team": "Gride",
+   "division": "01",
+   "weekScore": 240.7,
+   "weekRank": 4,
+   "weekApWins": 8,
+   "weekApLosses": 3,
+   "weekApTies": 0,
+   "currentApWins": 32,
+   "currentApLosses": 78,
+   "currentApTies": 0,
+   "currentApPct": 0.2909,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.324,
+   "apP10": 0.2727,
+   "apP90": 0.3766,
+   "currentDivisionOdds": 0.0,
+   "currentPlayoffOdds": 0.0,
+   "currentByeOdds": 0.0,
+   "currentTitleOdds": 0.0,
+   "startingAllPlayPct": 0.3794,
+   "startingPowerRank": 12,
+   "preseasonTitleOdds": 0.0171,
+   "preseasonPlayoffOdds": 0.2039,
+   "preseasonDivisionOdds": 0.1161,
+   "titleOddsChange": -0.0171,
+   "playoffOddsChange": -0.2039,
+   "biggestAbsence": null,
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": -11.69,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.2999,
+    "currentDivisionOdds": 0.0,
+    "currentPlayoffOdds": 0.0,
+    "currentByeOdds": 0.0,
+    "currentTitleOdds": 0.0,
+    "titleOddsChange": -0.0171
+   }
+  },
+  {
+   "franchiseId": "0007",
+   "team": "Sex Manther",
+   "division": "02",
+   "weekScore": 135.0,
+   "weekRank": 12,
+   "weekApWins": 0,
+   "weekApLosses": 11,
+   "weekApTies": 0,
+   "currentApWins": 24,
+   "currentApLosses": 86,
+   "currentApTies": 0,
+   "currentApPct": 0.2182,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.2582,
+   "apP10": 0.2078,
+   "apP90": 0.3117,
+   "currentDivisionOdds": 0.0001,
+   "currentPlayoffOdds": 0.0001,
+   "currentByeOdds": 0.0,
+   "currentTitleOdds": 0.0,
+   "startingAllPlayPct": 0.501,
+   "startingPowerRank": 6,
+   "preseasonTitleOdds": 0.0775,
+   "preseasonPlayoffOdds": 0.5221,
+   "preseasonDivisionOdds": 0.3769,
+   "titleOddsChange": -0.0775,
+   "playoffOddsChange": -0.522,
+   "biggestAbsence": {
+    "player": "Achane, De'Von",
+    "pos": "RB",
+    "weeksOut": [
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17
+    ],
+    "details": "Knee - ACL",
+    "estPtsPerWeek": 10.7,
+    "estTotalPtsLost": 75.0
+   },
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": -10.17,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.2399,
+    "currentDivisionOdds": 0.0001,
+    "currentPlayoffOdds": 0.0001,
+    "currentByeOdds": 0.0,
+    "currentTitleOdds": 0.0,
+    "titleOddsChange": -0.0775
+   }
+  },
+  {
+   "franchiseId": "0006",
+   "team": "The Long Haulers",
+   "division": "00",
+   "weekScore": 204.6,
+   "weekRank": 7,
+   "weekApWins": 5,
+   "weekApLosses": 6,
+   "weekApTies": 0,
+   "currentApWins": 27,
+   "currentApLosses": 83,
+   "currentApTies": 0,
+   "currentApPct": 0.2455,
+   "gamesPlayed": 27,
+   "gamesTotal": 37,
+   "projectedEndingApPct": 0.2527,
+   "apP10": 0.2078,
+   "apP90": 0.2987,
+   "currentDivisionOdds": 0.0,
+   "currentPlayoffOdds": 0.0,
+   "currentByeOdds": 0.0,
+   "currentTitleOdds": 0.0,
+   "startingAllPlayPct": 0.4684,
+   "startingPowerRank": 9,
+   "preseasonTitleOdds": 0.0544,
+   "preseasonPlayoffOdds": 0.3797,
+   "preseasonDivisionOdds": 0.1849,
+   "titleOddsChange": -0.0544,
+   "playoffOddsChange": -0.3797,
+   "biggestAbsence": {
+    "player": "Hurts, Jalen",
+    "pos": "QB",
+    "weeksOut": [
+     11,
+     12,
+     13,
+     14,
+     15,
+     16,
+     17
+    ],
+    "details": "Calf",
+    "estPtsPerWeek": 6.8,
+    "estTotalPtsLost": 47.4
+   },
+   "biggestDecline": null,
+   "shadowShock": {
+    "posteriorShockMean": -4.25,
+    "posteriorShockSd": 9.33,
+    "projectedEndingApPct": 0.2506,
+    "currentDivisionOdds": 0.0,
+    "currentPlayoffOdds": 0.0,
+    "currentByeOdds": 0.0,
+    "currentTitleOdds": 0.0,
+    "titleOddsChange": -0.0544
+   }
+  }
+ ],
+ "standingsForecast": {
+  "places": "place[i] = share of simulated seasons finishing (i+1)th in the full league: 1-6 are playoff seeds (1-2 byes), 7-12 are H1-H6, the Hawk Tuah Bowl side. Same seeding as the Standings page: division winners by MFL's standingsSort, the top two of them seeds 1-2, then all-play %, overall record, points for (league_context F.1).",
+  "bracket": "both sides: round 1 3v6 and 4v5 (week 15), the top seed meets the lowest seed left (week 16), final week 17. Hawk Tuah games use random.Random(seed + 1).",
+  "hawkSeed": 20260912,
+  "finals": "finalPairs[side] = [champion, runner-up, share of simulated seasons] for every final that happened at least once, most common first; side ups = the UPS Championship, hawk = the Hawk Tuah Bowl. A matchup's share is its two orders added together.",
+  "finalPairs": {
+   "ups": [
+    [
+     "0009",
+     "0005",
+     0.2848
+    ],
+    [
+     "0005",
+     "0009",
+     0.1585
+    ],
+    [
+     "0009",
+     "0004",
+     0.1397
+    ],
+    [
+     "0009",
+     "0010",
+     0.0783
+    ],
+    [
+     "0004",
+     "0009",
+     0.0652
+    ],
+    [
+     "0010",
+     "0009",
+     0.0273
+    ],
+    [
+     "0005",
+     "0004",
+     0.026
+    ],
+    [
+     "0004",
+     "0010",
+     0.0249
+    ],
+    [
+     "0004",
+     "0005",
+     0.0215
+    ],
+    [
+     "0009",
+     "0008",
+     0.0207
+    ],
+    [
+     "0010",
+     "0004",
+     0.02
+    ],
+    [
+     "0005",
+     "0008",
+     0.0184
+    ],
+    [
+     "0005",
+     "0010",
+     0.0136
+    ],
+    [
+     "0008",
+     "0005",
+     0.0122
+    ],
+    [
+     "0004",
+     "0008",
+     0.0106
+    ],
+    [
+     "0005",
+     "0002",
+     0.0091
+    ],
+    [
+     "0010",
+     "0005",
+     0.0082
+    ],
+    [
+     "0008",
+     "0009",
+     0.0079
+    ],
+    [
+     "0008",
+     "0004",
+     0.0066
+    ],
+    [
+     "0008",
+     "0010",
+     0.006
+    ],
+    [
+     "0009",
+     "0002",
+     0.0052
+    ],
+    [
+     "0010",
+     "0008",
+     0.004
+    ],
+    [
+     "0005",
+     "0012",
+     0.0039
+    ],
+    [
+     "0008",
+     "0002",
+     0.0037
+    ],
+    [
+     "0004",
+     "0002",
+     0.0033
+    ],
+    [
+     "0002",
+     "0005",
+     0.0031
+    ],
+    [
+     "0002",
+     "0004",
+     0.0023
+    ],
+    [
+     "0009",
+     "0012",
+     0.0018
+    ],
+    [
+     "0010",
+     "0002",
+     0.0017
+    ],
+    [
+     "0002",
+     "0008",
+     0.0011
+    ],
+    [
+     "0004",
+     "0012",
+     0.0011
+    ],
+    [
+     "0008",
+     "0012",
+     0.0011
+    ],
+    [
+     "0012",
+     "0005",
+     0.0011
+    ],
+    [
+     "0002",
+     "0010",
+     0.001
+    ],
+    [
+     "0002",
+     "0009",
+     0.0009
+    ],
+    [
+     "0010",
+     "0012",
+     0.0008
+    ],
+    [
+     "0009",
+     "0011",
+     0.0007
+    ],
+    [
+     "0005",
+     "0011",
+     0.0006
+    ],
+    [
+     "0005",
+     "0001",
+     0.0004
+    ],
+    [
+     "0012",
+     "0004",
+     0.0004
+    ],
+    [
+     "0004",
+     "0001",
+     0.0003
+    ],
+    [
+     "0004",
+     "0011",
+     0.0003
+    ],
+    [
+     "0010",
+     "0001",
+     0.0003
+    ],
+    [
+     "0012",
+     "0009",
+     0.0003
+    ],
+    [
+     "0008",
+     "0011",
+     0.0002
+    ],
+    [
+     "0012",
+     "0010",
+     0.0002
+    ],
+    [
+     "0001",
+     "0002",
+     0.0001
+    ],
+    [
+     "0001",
+     "0005",
+     0.0001
+    ],
+    [
+     "0001",
+     "0010",
+     0.0001
+    ],
+    [
+     "0008",
+     "0001",
+     0.0001
+    ],
+    [
+     "0010",
+     "0011",
+     0.0001
+    ],
+    [
+     "0011",
+     "0008",
+     0.0001
+    ],
+    [
+     "0011",
+     "0010",
+     0.0001
+    ]
+   ],
+   "hawk": [
+    [
+     "0012",
+     "0011",
+     0.0696
+    ],
+    [
+     "0011",
+     "0012",
+     0.0649
+    ],
+    [
+     "0002",
+     "0011",
+     0.064
+    ],
+    [
+     "0011",
+     "0002",
+     0.0537
+    ],
+    [
+     "0001",
+     "0003",
+     0.0427
+    ],
+    [
+     "0003",
+     "0011",
+     0.041
+    ],
+    [
+     "0011",
+     "0003",
+     0.0392
+    ],
+    [
+     "0002",
+     "0001",
+     0.0378
+    ],
+    [
+     "0003",
+     "0001",
+     0.0374
+    ],
+    [
+     "0012",
+     "0001",
+     0.036
+    ],
+    [
+     "0001",
+     "0002",
+     0.0341
+    ],
+    [
+     "0001",
+     "0011",
+     0.0336
+    ],
+    [
+     "0001",
+     "0012",
+     0.0312
+    ],
+    [
+     "0011",
+     "0001",
+     0.0288
+    ],
+    [
+     "0012",
+     "0003",
+     0.0257
+    ],
+    [
+     "0002",
+     "0003",
+     0.0215
+    ],
+    [
+     "0011",
+     "0007",
+     0.0215
+    ],
+    [
+     "0003",
+     "0002",
+     0.0211
+    ],
+    [
+     "0011",
+     "0006",
+     0.0211
+    ],
+    [
+     "0001",
+     "0007",
+     0.0198
+    ],
+    [
+     "0003",
+     "0012",
+     0.0197
+    ],
+    [
+     "0002",
+     "0012",
+     0.0163
+    ],
+    [
+     "0007",
+     "0011",
+     0.0161
+    ],
+    [
+     "0001",
+     "0006",
+     0.016
+    ],
+    [
+     "0003",
+     "0007",
+     0.0144
+    ],
+    [
+     "0006",
+     "0011",
+     0.0137
+    ],
+    [
+     "0012",
+     "0002",
+     0.0126
+    ],
+    [
+     "0003",
+     "0006",
+     0.0125
+    ],
+    [
+     "0007",
+     "0001",
+     0.0117
+    ],
+    [
+     "0012",
+     "0007",
+     0.0097
+    ],
+    [
+     "0002",
+     "0006",
+     0.0088
+    ],
+    [
+     "0002",
+     "0007",
+     0.0087
+    ],
+    [
+     "0007",
+     "0006",
+     0.0087
+    ],
+    [
+     "0007",
+     "0003",
+     0.0078
+    ],
+    [
+     "0006",
+     "0001",
+     0.0074
+    ],
+    [
+     "0006",
+     "0003",
+     0.0074
+    ],
+    [
+     "0012",
+     "0006",
+     0.0068
+    ],
+    [
+     "0006",
+     "0007",
+     0.0067
+    ],
+    [
+     "0007",
+     "0002",
+     0.006
+    ],
+    [
+     "0006",
+     "0002",
+     0.0057
+    ],
+    [
+     "0007",
+     "0012",
+     0.0045
+    ],
+    [
+     "0008",
+     "0011",
+     0.0044
+    ],
+    [
+     "0006",
+     "0012",
+     0.0039
+    ],
+    [
+     "0008",
+     "0012",
+     0.0036
+    ],
+    [
+     "0008",
+     "0002",
+     0.0033
+    ],
+    [
+     "0003",
+     "0008",
+     0.0019
+    ],
+    [
+     "0008",
+     "0003",
+     0.0017
+    ],
+    [
+     "0010",
+     "0011",
+     0.0017
+    ],
+    [
+     "0002",
+     "0008",
+     0.0016
+    ],
+    [
+     "0004",
+     "0011",
+     0.0016
+    ],
+    [
+     "0008",
+     "0006",
+     0.0012
+    ],
+    [
+     "0011",
+     "0008",
+     0.0012
+    ],
+    [
+     "0010",
+     "0001",
+     0.0011
+    ],
+    [
+     "0008",
+     "0007",
+     0.0007
+    ],
+    [
+     "0012",
+     "0008",
+     0.0007
+    ],
+    [
+     "0004",
+     "0003",
+     0.0006
+    ],
+    [
+     "0007",
+     "0008",
+     0.0006
+    ],
+    [
+     "0001",
+     "0010",
+     0.0004
+    ],
+    [
+     "0004",
+     "0001",
+     0.0004
+    ],
+    [
+     "0006",
+     "0008",
+     0.0004
+    ],
+    [
+     "0010",
+     "0003",
+     0.0004
+    ],
+    [
+     "0011",
+     "0010",
+     0.0004
+    ],
+    [
+     "0003",
+     "0010",
+     0.0003
+    ],
+    [
+     "0010",
+     "0007",
+     0.0003
+    ],
+    [
+     "0011",
+     "0004",
+     0.0003
+    ],
+    [
+     "0004",
+     "0007",
+     0.0002
+    ],
+    [
+     "0004",
+     "0012",
+     0.0002
+    ],
+    [
+     "0010",
+     "0006",
+     0.0002
+    ],
+    [
+     "0010",
+     "0012",
+     0.0002
+    ],
+    [
+     "0001",
+     "0004",
+     0.0001
+    ],
+    [
+     "0002",
+     "0004",
+     0.0001
+    ],
+    [
+     "0003",
+     "0004",
+     0.0001
+    ],
+    [
+     "0004",
+     "0002",
+     0.0001
+    ],
+    [
+     "0008",
+     "0004",
+     0.0001
+    ],
+    [
+     "0012",
+     "0010",
+     0.0001
+    ]
+   ]
+  },
+  "teams": {
+   "0001": {
+    "place": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0009,
+     0.0495,
+     0.0349,
+     0.1696,
+     0.5883,
+     0.1423,
+     0.0135,
+     0.001
+    ],
+    "expectedPlace": 8.78,
+    "titleOdds": 0.0003,
+    "runnerUpOdds": 0.0011,
+    "hawkTitleOdds": 0.1779,
+    "hawkRunnerUpOdds": 0.1606,
+    "slot": [
+     0.1779,
+     0.1606,
+     0.1882,
+     0.1557,
+     0.1623,
+     0.1049,
+     0.016,
+     0.0215,
+     0.0079,
+     0.0036,
+     0.0011,
+     0.0003
+    ]
+   },
+   "0002": {
+    "place": [
+     0.0,
+     0.0,
+     0.0037,
+     0.0291,
+     0.1765,
+     0.3217,
+     0.3245,
+     0.1242,
+     0.0201,
+     0.0002,
+     0.0,
+     0.0
+    ],
+    "expectedPlace": 6.39,
+    "titleOdds": 0.0084,
+    "runnerUpOdds": 0.0231,
+    "hawkTitleOdds": 0.1588,
+    "hawkRunnerUpOdds": 0.1366,
+    "slot": [
+     0.1588,
+     0.1366,
+     0.0919,
+     0.0769,
+     0.0034,
+     0.0014,
+     0.1408,
+     0.2025,
+     0.1169,
+     0.0393,
+     0.0231,
+     0.0084
+    ]
+   },
+   "0003": {
+    "place": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0008,
+     0.0176,
+     0.1395,
+     0.6413,
+     0.1584,
+     0.0424
+    ],
+    "expectedPlace": 10.07,
+    "titleOdds": 0.0,
+    "runnerUpOdds": 0.0,
+    "hawkTitleOdds": 0.1484,
+    "hawkRunnerUpOdds": 0.147,
+    "slot": [
+     0.1484,
+     0.147,
+     0.1769,
+     0.1746,
+     0.196,
+     0.1571,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "0004": {
+    "place": [
+     0.0,
+     0.0058,
+     0.5036,
+     0.3915,
+     0.0813,
+     0.0133,
+     0.0045,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "expectedPlace": 3.61,
+    "titleOdds": 0.1272,
+    "runnerUpOdds": 0.195,
+    "hawkTitleOdds": 0.0031,
+    "hawkRunnerUpOdds": 0.0007,
+    "slot": [
+     0.0031,
+     0.0007,
+     0.0004,
+     0.0003,
+     0.0,
+     0.0,
+     0.239,
+     0.0913,
+     0.1476,
+     0.1954,
+     0.195,
+     0.1272
+    ]
+   },
+   "0005": {
+    "place": [
+     0.0008,
+     0.9757,
+     0.0195,
+     0.0038,
+     0.0002,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "expectedPlace": 2.03,
+    "titleOdds": 0.2305,
+    "runnerUpOdds": 0.331,
+    "hawkTitleOdds": 0.0,
+    "hawkRunnerUpOdds": 0.0,
+    "slot": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0054,
+     0.0027,
+     0.1747,
+     0.2557,
+     0.331,
+     0.2305
+    ]
+   },
+   "0006": {
+    "place": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0001,
+     0.0065,
+     0.0747,
+     0.3799,
+     0.5388
+    ],
+    "expectedPlace": 11.45,
+    "titleOdds": 0.0,
+    "runnerUpOdds": 0.0,
+    "hawkTitleOdds": 0.0452,
+    "hawkRunnerUpOdds": 0.0753,
+    "slot": [
+     0.0452,
+     0.0753,
+     0.0832,
+     0.1248,
+     0.3197,
+     0.3518,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ]
+   },
+   "0007": {
+    "place": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0001,
+     0.0,
+     0.0004,
+     0.0104,
+     0.1233,
+     0.448,
+     0.4178
+    ],
+    "expectedPlace": 11.27,
+    "titleOdds": 0.0,
+    "runnerUpOdds": 0.0,
+    "hawkTitleOdds": 0.0554,
+    "hawkRunnerUpOdds": 0.082,
+    "slot": [
+     0.0554,
+     0.082,
+     0.106,
+     0.156,
+     0.2559,
+     0.3446,
+     0.0,
+     0.0,
+     0.0,
+     0.0001,
+     0.0,
+     0.0
+    ]
+   },
+   "0008": {
+    "place": [
+     0.0,
+     0.0002,
+     0.0363,
+     0.1415,
+     0.5012,
+     0.2865,
+     0.0145,
+     0.0137,
+     0.0061,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "expectedPlace": 5.17,
+    "titleOdds": 0.0378,
+    "runnerUpOdds": 0.0549,
+    "hawkTitleOdds": 0.015,
+    "hawkRunnerUpOdds": 0.0064,
+    "slot": [
+     0.015,
+     0.0064,
+     0.008,
+     0.0034,
+     0.0009,
+     0.0006,
+     0.3076,
+     0.257,
+     0.1653,
+     0.1431,
+     0.0549,
+     0.0378
+    ]
+   },
+   "0009": {
+    "place": [
+     0.9992,
+     0.0008,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "expectedPlace": 1.0,
+    "titleOdds": 0.5312,
+    "runnerUpOdds": 0.2601,
+    "hawkTitleOdds": 0.0,
+    "hawkRunnerUpOdds": 0.0,
+    "slot": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0668,
+     0.1419,
+     0.2601,
+     0.5312
+    ]
+   },
+   "0010": {
+    "place": [
+     0.0,
+     0.0175,
+     0.4347,
+     0.4169,
+     0.1064,
+     0.0175,
+     0.0065,
+     0.0005,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "expectedPlace": 3.69,
+    "titleOdds": 0.0624,
+    "runnerUpOdds": 0.1242,
+    "hawkTitleOdds": 0.0039,
+    "hawkRunnerUpOdds": 0.0012,
+    "slot": [
+     0.0039,
+     0.0012,
+     0.0015,
+     0.0004,
+     0.0,
+     0.0,
+     0.1929,
+     0.1879,
+     0.2318,
+     0.1938,
+     0.1242,
+     0.0624
+    ]
+   },
+   "0011": {
+    "place": [
+     0.0,
+     0.0,
+     0.0002,
+     0.0011,
+     0.0184,
+     0.0685,
+     0.2092,
+     0.4922,
+     0.1926,
+     0.0176,
+     0.0002,
+     0.0
+    ],
+    "expectedPlace": 7.82,
+    "titleOdds": 0.0002,
+    "runnerUpOdds": 0.0019,
+    "hawkTitleOdds": 0.2311,
+    "hawkRunnerUpOdds": 0.2457,
+    "slot": [
+     0.2311,
+     0.2457,
+     0.1809,
+     0.1672,
+     0.0545,
+     0.0324,
+     0.0234,
+     0.0458,
+     0.0127,
+     0.0042,
+     0.0019,
+     0.0002
+    ]
+   },
+   "0012": {
+    "place": [
+     0.0,
+     0.0,
+     0.002,
+     0.0161,
+     0.1151,
+     0.2429,
+     0.4051,
+     0.1817,
+     0.0365,
+     0.0006,
+     0.0,
+     0.0
+    ],
+    "expectedPlace": 6.73,
+    "titleOdds": 0.002,
+    "runnerUpOdds": 0.0087,
+    "hawkTitleOdds": 0.1612,
+    "hawkRunnerUpOdds": 0.1445,
+    "slot": [
+     0.1612,
+     0.1445,
+     0.163,
+     0.1407,
+     0.0073,
+     0.0072,
+     0.0749,
+     0.1913,
+     0.0763,
+     0.0229,
+     0.0087,
+     0.002
+    ]
+   }
+  },
+  "slots": "teams[f].slot[i] = share of simulated seasons in which the team's own FINAL FINISH sets draft slot i+1 (rounds 1-5 use the same order): the bracket games plus the week-16 game between the two round-1 losers of a side and the week-17 game between the two semifinal losers (canon A1). Consolation games use random.Random(seed + 2)."
+ }
+}
