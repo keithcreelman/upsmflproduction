@@ -264,8 +264,8 @@ export async function handleBugReportRequest(ctx) {
 
       // 2. Same problem from the same team inside 24 hours: add to the open report, don't make another.
       const fp = await fingerprint(val);
-      const dup = await store.findOpenByFingerprint(fid, fp, windowStartIso(nowMs));
-      if (dup) {
+      // Used for a duplicate found before the write AND for one found after losing the write race (MAT-3).
+      const answerDuplicate = async (dup) => {
         // A double tap that landed after the original's insert matches its own report: that is a replay, not a duplicate.
         if (dup.client_request_id === val.client_request_id) return respond(ctx, 200, { ok: true, replay: true, duplicate: false, report: ownerView(dup) });
         if ((dup.dup_count || 0) >= LIMITS.DUP_MAX) return refuse(ctx, "duplicate_limit", { report: ownerView(dup) });
@@ -275,7 +275,9 @@ export async function handleBugReportRequest(ctx) {
           message: "You already reported this (" + reportCode(bumped) + "). We added your note to it instead of opening a second report.",
           redactions: v.redactions,
         });
-      }
+      };
+      const dup = await store.findOpenByFingerprint(fid, fp, windowStartIso(nowMs));
+      if (dup) return answerDuplicate(dup);
 
       // 3. Rate limit + store, ONE atomic reservation (only reports that would be NEW count). The gap and the
       //    daily cap are checked inside the same statement that inserts, so simultaneous submissions from one team
@@ -308,6 +310,11 @@ export async function handleBugReportRequest(ctx) {
         // Refused by the reservation. A same-id request that raced and won is still a replay, not a limit.
         const again = await store.findByRequestId(fid, val.client_request_id);
         if (again) return respond(ctx, 200, { ok: true, replay: true, duplicate: false, report: ownerView(again) });
+        // MAT-3: two simultaneous reports of the SAME problem (different request ids) both passed the duplicate
+        // lookup before either was saved. The winner was stored; this one lost the reservation, but it is a duplicate
+        // of the winner's now-open report, so record it there (its note is kept) instead of telling the owner to wait.
+        const raced = await store.findOpenByFingerprint(fid, fp, lim.windowStartIso);
+        if (raced) return answerDuplicate(raced);
         // Only now read the recent reports, to tell the owner which limit and how long to wait.
         const recent = await store.recentByFranchise(fid, lim.windowStartIso, LIMITS.DAILY_MAX);
         const rate = rateDecision(recent, nowMs);

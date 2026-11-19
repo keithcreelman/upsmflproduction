@@ -462,6 +462,46 @@ test("a double tap that lands after the original was saved is a replay, not a 'd
   });
 });
 
+test("MAT-3: simultaneous reports of the SAME problem (different request ids): one report, the rest recorded as duplicates with their notes, no rate-limit refusal", async () => {
+  for (const n of [2, 4]) {
+    const { env, db } = fresh();
+    await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+      // Identical problem details (page, error, endpoint, status), but each tap has its own request id and its own words.
+      const same = (i) => report({ client_request_id: "req-mat3-" + n + "-" + i, note: "My note number " + i + " about the same failure." });
+      const hold = holdInsertsUntil(db, n);   // every request has passed the duplicate lookup (all found nothing) before any is saved
+      const res = await Promise.all(Array.from({ length: n }, (_, i) => post(env, "/api/bug-reports", same(i + 1))));
+      t.equal(hold.arrived(), n, "all " + n + " requests passed the duplicate lookup together"); hold.done();
+      t.equal(res.filter((r) => r.status === 429).length, 0, "no spurious rate-limit refusal: " + res.map((r) => r.status + ":" + (r.json.code || "ok")).join(","));
+      t.equal(res.filter((r) => r.status === 201).length, 1, "exactly one new report");
+      const dups = res.filter((r) => r.status === 200 && r.json.duplicate === true);
+      t.equal(dups.length, n - 1, "the rest are recorded as duplicates");
+      t.ok(dups.every((r) => /already reported/.test(r.json.message) && r.json.report.code === "TEST-001"), "pointed at the one open report");
+      t.equal(rows(db).length, 1, "one report row");
+      t.equal(rows(db)[0].dup_count, n - 1, "counted");
+      t.equal(events(db).filter((e) => e.kind === "duplicate").length, n - 1, "one duplicate event each");
+      // Every owner's words are kept: the winner's in the report row, the others in duplicate events.
+      const kept = everything(db);
+      for (let i = 1; i <= n; i++) t.ok(kept.includes("My note number " + i + " about"), "note " + i + " retained");
+    });
+  }
+});
+
+test("MAT-3: a same-problem loser is a duplicate even when the daily cap is already used up (a duplicate never spends allowance)", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    for (let i = 0; i < 4; i++) { t.equal((await submit(env, distinctReport(i))).status, 201); advance(21); }
+    const hold = holdInsertsUntil(db, 2);
+    const mk = (i) => report({ ...distinctReport(4), client_request_id: "req-mat3cap-" + i, note: "cap note " + i });
+    const res = await Promise.all([1, 2].map((i) => post(env, "/api/bug-reports", mk(i))));
+    hold.done();
+    t.equal(res.filter((r) => r.status === 201).length, 1);
+    t.equal(res.filter((r) => r.status === 200 && r.json.duplicate === true).length, 1);
+    t.equal(res.filter((r) => r.status === 429).length, 0);
+    t.equal(rows(db).length, 5);
+    t.ok(everything(db).includes("cap note 1") && everything(db).includes("cap note 2"));
+  });
+});
+
 test("the reservation is one statement: the gap and the cap are checked in the same INSERT that stores the report", async () => {
   const { env, db } = fresh();
   db.log.length = 0;
