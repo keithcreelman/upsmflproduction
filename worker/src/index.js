@@ -27,6 +27,7 @@ import { franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
+import { handleBugReportRequest, makeD1Store as makeBugReportStore } from "./bug_reports.js";
 import { parseDropLockSetting, dropsFromTransactions, resolveWaiverAvailability } from "./waiver_availability.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
@@ -16278,6 +16279,21 @@ export default {
         if (!isAdminCaller(r.caller)) return { deny: tradeForbidden("That needs the commissioner.") };
         return { caller: r.caller };
       };
+
+      // ── Owner bug reports: private D1, BUG_REPORT_ENABLED (wrangler var, default "0") ───────
+      // Returns null for every other path. When the flag is off it answers 404 before any
+      // identity check or database read. See worker/src/bug_reports.js and docs/BUG_REPORTS.md.
+      const bugReportResp = await handleBugReportRequest({
+        request, url, path, env, corsHeaders,
+        deps: {
+          detectFranchise: _rdhDetectFranchise,
+          commishFids: _rdhCommishFids,
+          isEnabled: () => getFeatureFlag(env, "BUG_REPORT_ENABLED"),
+          store: () => makeBugReportStore(env.UPS_MFL_DB),
+        },
+        defaultLeagueId: _rdhLeagueId(), defaultSeason: YEAR,
+      });
+      if (bugReportResp) return bugReportResp;
 
       // ── GET /api/franchise-ownership-history ─────────────────────────────────
       // Returns the authoritative per-year franchise → owner_name mapping by
