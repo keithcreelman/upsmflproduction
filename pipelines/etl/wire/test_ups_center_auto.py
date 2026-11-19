@@ -1349,8 +1349,8 @@ rq, vq, cq = build8(with_trackers, local=False)
 tq = VAL.visible_text(rq["html"])
 idq = re.findall(r'<section class="wire-sec" id="([^"]+)"', rq["html"])
 check("The QB Bet then the Hall of Shame are the last two segments, after The Season So Far (Keith 2026-11-19)", idq[-3:] == ["season", "qbbet", "hall"], idq)
-check("the previous Hall of Shame seasons table lists 2011, 2014, 2018 and 2024 with percentage and weeks counted, and the story line names Klingenberg twice and Lima's .107 as the lowest",
-      all(x in tq for x in ("Previous Hall of Shame seasons", "19\u2013124", "28\u2013115", "29\u2013147", "20\u2013167", ".107", "Weeks counted")) and "Chris Klingenberg appears twice" in tq and "Josh Lima\u2019s .107 in 2024 is the lowest of these four" in tq, tq[tq.find("Previous Hall"):][:400])
+check("the previous Hall of Shame seasons table lists 2011, 2014, 2018 and 2024 with percentage and weeks counted, and the column is 'Owner of record' with the 2024 footnote, and the story line names Klingenberg twice and the 2024 franchise's .107 as the lowest (not Lima)",
+      all(x in tq for x in ("Previous Hall of Shame seasons", "19\u2013124", "28\u2013115", "29\u2013147", "20\u2013167", ".107", "Weeks counted")) and "Chris Klingenberg appears twice" in tq and "The 2024 franchise\u2019s .107 is the lowest of these four" in tq and "Owner of record" in tq and "Lima built the roster; Cross took over before Week 1." in tq and "Josh Lima\u2019s" not in tq, tq[tq.find("Previous Hall"):][:400])
 check("the draft with both trackers validates (every number a claim, re-derived from the raw scores and standings)", vq["ok"], vq["errors"][:4])
 check("four headshots, each with alt text naming the player and team, and an onerror fallback to MFL's photo", rq["html"].count('class="qb-head"') == 4 and 'alt="Jalen Hurts, PHI quarterback"' in rq["html"] and rq["html"].count("data-fallback=") == 4)
 check("the table carries Weeks 1-17: eight played (through Week 8) and nine pending", rq["html"].count('class="qb-pend"') == 9)

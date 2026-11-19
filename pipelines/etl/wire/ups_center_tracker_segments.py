@@ -481,14 +481,15 @@ class TrackerSegments:
         hist = TK.hall_history(raw)
         if not hist:
             return ""
+        fn = (T.get("notes") or {}).get("hallHistoryNotes") or {}               # owner-of-record footnotes (league_context D.2)
         src = "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises"
         body = []
         for h in hist:
             rec = self.L.put("tk:hh:%d:%s:rec" % (h["season"], h["owner"]), "%d-%d-%d" % (h["w"], h["l"], h["t"]), src, "%d&ndash;%d" % (h["w"], h["l"]) if not h["t"] else "%d&ndash;%d&ndash;%d" % (h["w"], h["l"], h["t"]))
             pct = self.L.put("tk:hh:%d:%s:pct" % (h["season"], h["owner"]), h["pct"], src, ".%03d" % round(h["pct"] * 1000))
             wk = self.L.put("tk:hh:%d:%s:weeks" % (h["season"], h["owner"]), h["weeks"], src, str(h["weeks"]))
-            body.append(self.row([str(h["season"]), e(h["owner"]), rec, pct, wk]))
-        tbl = self.table(["Season", "Owner", "All-Play", "Percentage", "Weeks counted"], body)
+            body.append(self.row([str(h["season"]), e(h["owner"]) + ("&dagger;" if str(h["season"]) in fn else ""), rec, pct, wk]))
+        tbl = self.table(["Season", "Owner of record", "All-Play", "Percentage", "Weeks counted"], body)
         owners = {}
         for h in hist:
             owners[h["owner"]] = owners.get(h["owner"], 0) + 1
@@ -497,7 +498,12 @@ class TrackerSegments:
         bits = []
         if twice:
             bits.append("%s appears twice" % jn(e(o) for o in twice))
-        bits.append("%s&rsquo;s %s in %d is the lowest of these %s" % (e(low["owner"]), self.L.put("tk:hh:%d:%s:pct" % (low["season"], low["owner"]), low["pct"], src, ".%03d" % round(low["pct"] * 1000)), low["season"], self.word(len(hist))))
+        lowpct = self.L.put("tk:hh:%d:%s:pct" % (low["season"], low["owner"]), low["pct"], src, ".%03d" % round(low["pct"] * 1000))
+        if str(low["season"]) in fn:                                             # the owner of record did not manage the whole season: name the franchise's year, not the person
+            bits.append("The %d franchise&rsquo;s %s is the lowest of these %s" % (low["season"], lowpct, self.word(len(hist))))
+        else:
+            bits.append("%s&rsquo;s %s in %d is the lowest of these %s" % (e(low["owner"]), lowpct, low["season"], self.word(len(hist))))
         cap = ('<p class="caption">Previous seasons below .200, from the league&rsquo;s canonical All-Play record: the regular season through 2016 and the full season from 2017, so each season counts the weeks the league actually counted. '
-               'Weeks counted = comparisons divided by eleven. Source: src_standings.allplay_historical_*.</p>')
-        return '<h3 class="hos-sub">Previous Hall of Shame seasons</h3>' + self.desk([("Stuart", "%s." % "; ".join(bits))]) + tbl + cap
+               'Weeks counted = comparisons divided by eleven. Owner of record = the owner who built the auction roster (league rule). Source: src_standings.allplay_historical_*.</p>'
+               + "".join('<p class="caption">&dagger; %s: %s</p>' % (e(y), e(txt)) for y, txt in sorted(fn.items())))
+        return '<h3 class="hos-sub">Previous Hall of Shame seasons</h3>' + self.desk([("Stuart", "%s." % ". ".join(bits))]) + tbl + cap
