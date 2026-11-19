@@ -34,7 +34,15 @@ async function lazy(p) {   // the lazy reads a screen asks for (leaderboards, ca
   await settle();
 }
 const rowsOf = (p) => p.worker.store._reports;
-const send = async (p, summary) => { p.type("ups-rb-sum", summary || "It broke"); p.press("send"); await settle(); };
+// Wait for a condition on wall-clock time, not for a fixed number of event-loop turns: the report handler fingerprints the
+// report with WebCrypto (SHA-256), which finishes on a thread pool, so a slower machine needs longer than any tick count.
+async function waitFor(cond, ms = 8000) {
+  const end = Date.now() + ms;
+  while (Date.now() < end) { if (cond()) return true; await new Promise((r) => setTimeout(r, 2)); }
+  return !!cond();
+}
+const sheetDone = (p) => { const h = (p.sheet() && p.sheet().innerHTML) || ""; return /Report sent|Already reported/.test(h) || /class="alert /.test(h); };
+const send = async (p, summary) => { p.type("ups-rb-sum", summary || "It broke"); p.press("send"); await waitFor(() => sheetDone(p)); await settle(); };
 
 // ---------------------------------------------------------------- 1. no script: golden
 const SCENARIOS = {

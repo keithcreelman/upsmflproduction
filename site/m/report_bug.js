@@ -207,7 +207,9 @@
 
   // Page names an owner sees, by route. Top-level routes are app.js registerView names; sub-routes are what the views switch on.
   var ROUTE_LABELS = {
-    home: "Home", scores: "Live Scoring", more: "More", "more/rules": "Rules", players: "Players", stats: "Stats", market: "Market", events: "Events",
+    // "market" is a redirect (views/home.js renderMarket sends #market to #players): the owner never sees a page called Market,
+    // so a request that starts on #market is attributed to the page the owner lands on. A real-browser run found this.
+    home: "Home", scores: "Live Scoring", more: "More", "more/rules": "Rules", players: "Players", stats: "Stats", market: "Players", events: "Events",
     myteam: "My Team", "myteam/lineup": "Lineup", "myteam/contracts": "Contracts", "myteam/tagging": "Tagging", "myteam/ir": "Injured reserve", "myteam/taxi": "Taxi squad",
     league: "League", "league/rosters": "Rosters", "league/trade": "Trade", "league/auction": "Auction", "league/draft": "Draft", "league/otb": "On the block", "league/stats": "League stats",
   };

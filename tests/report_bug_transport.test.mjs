@@ -134,6 +134,9 @@ test("page names: every route the app registers has one, and the bottom-nav labe
     t.equal(RB.screenFor("#" + m[1]), m[2].trim(), "nav item " + m[1]);
   }
   t.ok(n >= 5, "nav items checked: " + n);
+  // A route that redirects is named for the page the owner lands on (found by a real-browser run: #market -> #players).
+  t.match(read("site/m/views/home.js"), /function renderMarket\([^)]*\)\s*\{[\s\S]*?M\.route\.navigate\("#players"\)/, "#market still redirects to #players (revisit ROUTE_LABELS.market if this changes)");
+  t.equal(RB.screenFor("#market"), RB.screenFor("#players"), "#market is reported as the page the owner sees");
   t.equal(RB.screenFor("#myteam/lineup/some/deep/path?x=1"), "Lineup");
   t.equal(RB.screenFor(""), "Home");
   t.equal(RB.screenFor("#nonsense"), "Nonsense");
