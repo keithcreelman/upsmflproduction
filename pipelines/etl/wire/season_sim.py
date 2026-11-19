@@ -392,8 +392,32 @@ def bracket(side, play, reg_end, end):
     return champ, (f2 if champ == f1 else f1)
 
 
+# Draft slot by final finish (canon docs/league_context_v1.md section A1, the same table as pick_valuation.SLOT_BY_FINISH): the Hawk Tuah
+# side (finish 7-12) picks 1.01-1.06, the championship side (finish 1-6) picks 1.07-1.12; the two first-round losers of a side play a
+# week-16 game for the better pick, the two semifinal losers a week-17 game for third.
+SLOT_BY_FINISH = {1: 12, 2: 11, 3: 10, 4: 9, 5: 7, 6: 8, 7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6}
+# The consolation games draw from their OWN random stream, so every number published before they existed stays exactly the same.
+CONS_SEED_OFFSET = 2
+
+
+def bracket_full(side, play, cplay, reg_end, end):
+    """bracket() plus the two consolation games: (champion, runner-up, [finish 1..6 within the side]). The main calls are made in the
+    SAME order as bracket()'s, so a stream used for both gives the same champion and runner-up; `cplay` (its own stream) plays the
+    week-16 game between the two round-1 losers (winner finishes 5th) and the week-17 game between the two semifinal losers (winner 3rd)."""
+    w36, w45 = play(side[2], side[5], reg_end + 1), play(side[3], side[4], reg_end + 1)
+    l36, l45 = (side[5] if w36 == side[2] else side[2]), (side[4] if w45 == side[3] else side[3])
+    low, high = sorted((w36, w45), key=lambda f: side.index(f), reverse=True)
+    f1, f2 = play(side[0], low, reg_end + 2), play(side[1], high, reg_end + 2)
+    champ = play(f1, f2, min(end, reg_end + 3))
+    runner = f2 if champ == f1 else f1
+    s1, s2 = (side[0] if f1 == low else low), (side[1] if f2 == high else high)       # the semifinal losers
+    r5 = cplay(l36, l45, reg_end + 2)
+    r3 = cplay(s1, s2, min(end, reg_end + 3))
+    return champ, runner, [champ, runner, r3, s2 if r3 == s1 else s1, r5, l45 if r5 == l36 else l36]
+
+
 def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True, hook=None,
-             actual=None, posterior=None, rng_hawk=None):
+             actual=None, posterior=None, rng_hawk=None, rng_cons=None):
     """`actual` ({week: {fid: real score}}) fixes already-played weeks instead of
     drawing them -- what happened is not a random variable. `posterior`
     ({fid: (mean, var)}) replaces the shared N(0, sigma_s) shock draw with each
@@ -406,10 +430,12 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
     Every collected season also records each team's full-league place, 1-12: seeds
     1-6, then H1-H6 (the non-playoff teams in seeding order), the order the Standings
     page shows."""
+    if rng_cons is not None and rng_hawk is None:
+        raise ValueError("season_sim: draft-slot counts need both sides' brackets (pass rng_hawk with rng_cons)")
     fids = sorted(teams)
     agg = {f: {"h2h_w": 0.0, "ap_pct": 0.0, "div": 0, "po": 0, "bye": 0, "title": 0, "runner": 0,
                "ap_rank": [0] * len(fids), "ap_samples": [],
-               "place": [0] * len(fids), "hawk_title": 0, "hawk_runner": 0} for f in fids}
+               "place": [0] * len(fids), "hawk_title": 0, "hawk_runner": 0, "slot": [0] * len(fids)} for f in fids}
     # THE SHAPE OF A SEASON, not just its average. Keith 2026-09-12: "i need to
     # see a more realistic regular season. You can show 'Averages' as a baseline
     # but then also show the more league-shaped result." A team's MEAN all-play
@@ -486,13 +512,23 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
                 sb = wp[b][wk] + shock[b] + r.gauss(0, sigma_w)
                 return a if sa >= sb else b
             return play
-        champ, runner = bracket(seeds, player(rng), reg_end, end)
+        if rng_cons is not None:
+            champ, runner, fin_ups = bracket_full(seeds, player(rng), player(rng_cons), reg_end, end)
+        else:
+            champ, runner = bracket(seeds, player(rng), reg_end, end)
         # The Hawk Tuah side: H1-H6 = the six non-playoff teams in the same seeding order.
         hawk = sorted((f for f in fids if f not in seeds), key=seed_key)
         for i, f in enumerate(seeds + hawk):
             agg[f]["place"][i] += 1
         if rng_hawk is not None:
-            h_champ, h_runner = bracket(hawk, player(rng_hawk), reg_end, end)
+            if rng_cons is not None:
+                h_champ, h_runner, fin_hawk = bracket_full(hawk, player(rng_hawk), player(rng_cons), reg_end, end)
+                for i, f in enumerate(fin_ups):
+                    agg[f]["slot"][SLOT_BY_FINISH[i + 1] - 1] += 1
+                for i, f in enumerate(fin_hawk):
+                    agg[f]["slot"][SLOT_BY_FINISH[i + 7] - 1] += 1
+            else:
+                h_champ, h_runner = bracket(hawk, player(rng_hawk), reg_end, end)
             agg[h_champ]["hawk_title"] += 1
             agg[h_runner]["hawk_runner"] += 1
             finals["hawk"][(h_champ, h_runner)] = finals["hawk"].get((h_champ, h_runner), 0) + 1
@@ -1123,6 +1159,13 @@ def standings_forecast(agg, fids, runs, seed):
     for i in range(n):
         if sum(agg[f]["place"][i] for f in fids) != runs:
             raise AssertionError("season_sim: place %d was not filled exactly once per season" % (i + 1))
+    if any(sum(agg[f]["slot"]) for f in fids):
+        for i in range(n):
+            if sum(agg[f]["slot"][i] for f in fids) != runs:
+                raise AssertionError("season_sim: draft slot %d was not filled exactly once per season" % (i + 1))
+        for f in fids:
+            if sum(agg[f]["slot"]) != runs or sum(agg[f]["slot"][6:]) != sum(agg[f]["place"][:6]):
+                raise AssertionError("season_sim: %s draft slots %r disagree with its playoff places" % (f, agg[f]["slot"]))
     for key in ("title", "runner", "hawk_title", "hawk_runner"):
         if sum(agg[f][key] for f in fids) != runs:
             raise AssertionError("season_sim: %s was not decided exactly once per season" % key)
@@ -1147,6 +1190,8 @@ def standings_forecast(agg, fids, runs, seed):
             "titleOdds": round(a["title"] / runs, 4), "runnerUpOdds": round(a["runner"] / runs, 4),
             "hawkTitleOdds": round(a["hawk_title"] / runs, 4), "hawkRunnerUpOdds": round(a["hawk_runner"] / runs, 4),
         }
+        if sum(a["slot"]):
+            teams[f]["slot"] = [round(c / runs, 4) for c in a["slot"]]
     return {
         "places": "place[i] = share of simulated seasons finishing (i+1)th in the full league: 1-6 are playoff "
                   "seeds (1-2 byes), 7-12 are H1-H6, the Hawk Tuah Bowl side. Same seeding as the Standings page: "
@@ -1160,6 +1205,9 @@ def standings_forecast(agg, fids, runs, seed):
                   "matchup's share is its two orders added together.",
         "finalPairs": pairs,
         "teams": teams,
+        "slots": ("teams[f].slot[i] = share of simulated seasons in which the team's own FINAL FINISH sets draft slot i+1 (rounds 1-5 use "
+                  "the same order): the bracket games plus the week-16 game between the two round-1 losers of a side and the week-17 game "
+                  "between the two semifinal losers (canon A1). Consolation games use random.Random(seed + %d)." % CONS_SEED_OFFSET),
     }
 
 
@@ -1211,7 +1259,8 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
     # docs/wire/dynamic_forecast_model.md.
     agg, ap_var = simulate(teams, prep["sched"], wp, reg_end, end, runs, sigma_w, sigma_s,
                            random.Random(seed), collect=True, actual=actual, posterior=None,
-                           rng_hawk=random.Random(seed + HAWK_SEED_OFFSET))
+                           rng_hawk=random.Random(seed + HAWK_SEED_OFFSET),
+                           rng_cons=random.Random(seed + CONS_SEED_OFFSET))
     agg_shadow, _ = simulate(teams, prep["sched"], wp, reg_end, end, runs, sigma_w, sigma_s,
                              random.Random(seed), collect=True, actual=actual, posterior=posterior)
     injury_by_fid = biggest_absences(prep, cache_dir)

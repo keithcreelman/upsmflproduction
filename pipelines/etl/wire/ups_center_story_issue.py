@@ -37,6 +37,7 @@ import ups_center_stories as STORIES  # noqa: E402
 import ups_center_story_triggers as TRG  # noqa: E402
 import ups_center_prob as PROB  # noqa: E402
 import chat_exclusions  # noqa: E402
+import ups_center_tracker_segments as TSEG  # noqa: E402
 
 e = html.escape
 WORDS = {0: "none", 1: "one", 2: "two", 3: "three", 4: "four"}
@@ -56,7 +57,7 @@ def finish_label(n):
     return {1: "Champion", 2: "Lost the final", 3: "Third"}.get(n) or "Finished " + I.Issue._ord(n)
 
 
-class StoryIssue(I.Issue):
+class StoryIssue(TSEG.TrackerSegments, I.Issue):
     format_name = "story"
 
     # ------------------------------------------------------------ claim helpers (same keys and values as the tables use)
@@ -638,14 +639,15 @@ class StoryIssue(I.Issue):
             if x["kind"] == "pick":
                 own = ("%s&rsquo;s " % e(self.owner[x["origin"]])) if x.get("origin") in self.owner else ""
                 return "%s%d %s-round pick" % (own, x["year"], self.ORDW.get(x["round"], str(x["round"])))
-            # blind-bid money is a registered claim, one per BB token, validated against the MFL transaction's own token
+            # cap space (MFL's BB_ token) is a registered claim, one per token, validated against the MFL transaction's own token. Keith 2026-11-18:
+            # it is cap space the team sent, never blind-bid waiver money.
             for side_, gave_ in (("a", tr["a_gave"]), ("b", tr["b_gave"])):
                 bbs = [y for y in gave_ if y["kind"] == "bb"]
                 for i_, y in enumerate(bbs):
                     if y is x:
                         amt = x.get("amount", 0)
-                        return "%s of blind-bid money" % self.L.put("trade:bb:%s:%d" % (side_, i_), amt, src, "${:,.0f}".format(amt))
-            return "$%s of blind-bid money" % "{:,.0f}".format(x.get("amount", 0))
+                        return "%s of cap space" % self.L.put("trade:capspace:%s:%d" % (side_, i_), amt, src, "${:,.0f}".format(amt))
+            return "$%s of cap space" % "{:,.0f}".format(x.get("amount", 0))
         na, nb = len(trade_list(tr["a_gave"])), len(trade_list(tr["b_gave"]))
         n = d["assets"]
         self.L.put("trade:na", na, src)
@@ -715,6 +717,9 @@ class StoryIssue(I.Issue):
                                                                       self.L.put("trade:onroster:" + key_["id"], st_["onRoster"], src, str(st_["onRoster"])), self.sn(mf_))) if st_ else ""
                 lines.append(("Kenny", "%s made the case in the chat %s: %s The player at the center of it was %s: %s%s%s." % (
                     e(m_["owner_name"]), w_, q, e(key_["name"]), sal_, yrs_, srt_)))
+        # 3c. the two deals as one story, the injury, the cap argument and where the picks could land (Keith 2026-11-18)
+        lines += self.trade_round_trip(tr, src)
+        lines += self.pick_lines(tr)
         # 4. the league's reaction: the bot, and the Cousins question
         ids = self.slot_ids("trade", "bot")
         if ids:
@@ -830,11 +835,11 @@ class StoryIssue(I.Issue):
                     rows.append(self.row([e(self.owner[recv]), "%s (%s, %s)" % (e(x["name"]), e(x.get("pos") or ""), e(x.get("team") or "")), s_, y_, sr]))
                 else:
                     rows.append(self.row([e(self.owner[recv]), desc(x), "&mdash;", "&mdash;", "&mdash;"]))
-        table = self.table(["Receives", "Player or pick", "Salary", "Years left", "Starts for the sender"], rows)
+        table = self.table(["Receives", "Player, pick or cap space", "Salary", "Years left", "Starts for the sender"], rows)
         cap = ('<p class="caption">Source: MFL&rsquo;s public transaction, roster and weekly-results exports; salary and years left are the players&rsquo; current MFL contracts; '
                'starts are weekly lineups through Week %d. The Playoff Picture below is the forecast on '
                'the post-trade rosters.</p>' % tc.get("through", self.week))
-        return "%s and %s made a big trade" % (A, B), self.desk(lines) + table + cap
+        return "%s and %s made a big trade" % (A, B), self.desk(lines) + self.pick_visual(tr) + table + cap
 
     def story_streak(self, head, evidence):
         f, d = head["fid"], head["data"]
@@ -1239,7 +1244,27 @@ class StoryIssue(I.Issue):
         moved = {t["fid"]: t for t in rep.get("teams") or []}
         apch = {c["fid"]: c for c in rep.get("allplayChanges") or []}
         if not moved and not apch:
-            return ""                                   # corrections only: nothing moved, nothing to tell
+            # corrections that moved no team: a short panel so the reader (and Keith) sees that Elias posted and what it touched (Keith 2026-11-19)
+            src_e = "elias.py check (MFL site news, Official Statistics Changes) vs scores_published_%d_wk%02d" % (self.season, self.week)
+            pl = rep.get("players") or []
+            n_c = self.L.put("elias:count", n_official, src_e)
+            when = ""
+            m_ = re.search(r"(\w{3}) (\w{3}) (\d+) (\d+:\d+):\d+ ([ap])\.m\. ET", str((posts[0] if posts else {}).get("publishedText") or ""))
+            if m_:
+                when = " %s at %s %s ET" % ({"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"}.get(m_.group(1), m_.group(1)),
+                                            m_.group(4), "AM" if m_.group(5) == "a" else "PM")
+            if pl:
+                n_p = self.L.put("elias:players", len(pl), src_e)
+                n_ns = sum(1 for p in pl if p.get("status") == "nonstarter")
+                n_nsc = self.L.put("elias:nonstarters", n_ns, src_e)
+                touch = "%s of them changed the score of a rostered player%s" % (
+                    self.word(len(pl)).capitalize() if len(pl) <= 12 else n_p,
+                    (", and %s" % ("all %s were nonstarters" % self.word(len(pl)) if n_ns == len(pl) else "%s were nonstarters" % self.word(n_ns))) if len(pl) else "")
+            else:
+                touch = "None of them changed a rostered player&rsquo;s score"
+            txt = ("Elias posted %s official statistics change%s%s. %s. No team score, result, ranking or All-Play changed, so Week %d stands as played." % (
+                self.word(n_official) if n_official <= 12 else n_c, "" if n_official == 1 else "s", when, touch, self.week))
+            return self.section("elias", "Elias", 3, "Elias <small>&mdash; official statistics changes</small>", self.desk([("Stuart", txt)]))
         src_e = "elias.py check (MFL site news, Official Statistics Changes) vs scores_published_%d_wk%02d" % (self.season, self.week)
         s = self.ctx["mfl"]["scores"]
         pub = (self.ctx.get("scoresPublished") or {}).get("teams") or {}
@@ -1582,7 +1607,7 @@ class StoryIssue(I.Issue):
 
     # ------------------------------------------------------------ assembly
     def segments(self):
-        segs = [self.seg_big(), self.seg_div(), self.seg_elias_story(), self.seg_odds(), self.seg_story_plays(), self.seg_story_season()]
+        segs = [self.seg_big(), self.seg_div(), self.seg_elias_story(), self.seg_odds(), self.seg_story_plays(), self.seg_story_season(), self.seg_qb_bet(), self.seg_hall()]
         segs = [x for x in segs if x]
         n = [0]
 

@@ -920,7 +920,7 @@ check("the local review copy lists the candidate lines by division, verbatim and
 def quiet(c):
     c["eliasReport"] = dict(c["eliasReport"], teams=[], allplayChanges=[], players=[], rankChanges=[], resultsFlipped=0)
 rq, vq, _ = build8(quiet)
-check("Elias posted but nothing moved -> no Elias segment and no box (corrections only)", 'id="elias"' not in rq["html"] and vq["ok"] and
+check("Elias posted but nothing moved -> a short Elias panel (what posted, what it touched, nothing moved) and no box (Keith 2026-11-19)", 'id="elias"' in rq["html"] and "No team score, result, ranking or All-Play changed" in VAL.visible_text(rq["html"]) and vq["ok"] and
       [g["id"] for g in rq["gaps"]] == ["coffee:kenny"], (vq["errors"], [g["id"] for g in rq["gaps"]]))
 def not_posted(c):
     c["mfl"]["elias"] = []
@@ -1199,19 +1199,19 @@ pk_ = next(k for k in claims if k.startswith("odds:pre:"))
 claims[pk_]["value"] = 1.0
 check("a wrong pre-trade odds figure fails", any(pk_ in e for e in VAL.validate(dict(rtd, claims=claims), ctd, PACK8)["errors"]))
 
-print("S11b. blind-bid money in a trade is a registered, validated claim (Week 10: BB_18000 failed as an unregistered number)")
+print("S11b. cap space in a trade is a registered, validated claim, and is never called blind-bid money (Week 10: BB_18000 failed as an unregistered number; Keith 2026-11-18: it is cap space)")
 def with_bb(c):
     with_trade(c)
     c["tradeInfo"][0]["b_gave"].append({"kind": "bb", "amount": 18000.0})
     c["mfl"]["trades"] = [dict(RAW_SYN, franchise2_gave_up="16161,BB_18000")]
 rbb, vbb, cbb = build8(with_bb, local=False)
 tbb = VAL.visible_text(rbb["html"])
-check("the blind-bid figure prints as dollars, is a registered claim, and the draft validates (no stray number)",
-      "$18,000 of blind-bid money" in tbb and rbb["claims"].get("trade:bb:b:0", {}).get("value") == 18000.0 and vbb["ok"], (vbb["errors"], rbb["claims"].get("trade:bb:b:0")))
+check("the cap-space figure prints as dollars, is a registered claim, and the draft validates (no stray number)",
+      "$18,000 of cap space" in tbb and "blind" not in tbb.lower() and rbb["claims"].get("trade:capspace:b:0", {}).get("value") == 18000.0 and vbb["ok"], (vbb["errors"], rbb["claims"].get("trade:capspace:b:0")))
 claims = copy.deepcopy(rbb["claims"])
-claims["trade:bb:b:0"]["value"] = 17000.0
-check("a wrong blind-bid amount fails against the MFL transaction token",
-      any("trade:bb:b:0" in e for e in VAL.validate(dict(rbb, claims=claims), cbb, PACK8)["errors"]))
+claims["trade:capspace:b:0"]["value"] = 17000.0
+check("a wrong cap-space amount fails against the MFL transaction token",
+      any("trade:capspace:b:0" in e for e in VAL.validate(dict(rbb, claims=claims), cbb, PACK8)["errors"]))
 
 print("S11c. every trade claim is bound to the trade actually PRINTED, not to list position (Keith review of #1462)")
 DECOY = {"timestamp": 1794300000, "a": "0001", "b": "0002", "a_salary": 1000.0, "b_salary": 1000.0,
@@ -1229,9 +1229,9 @@ check("a two-trade window: the printed trade is the second one (the big one, not
 c_alt = copy.deepcopy(c2t)
 for t_ in c_alt["mfl"]["trades"]:
     if int(t_["timestamp"]) == SYN["timestamp"]:
-        t_["franchise2_gave_up"] = "16161,BB_17000"                 # alter ONLY the printed trade's blind-bid token; the decoy (index 0) still says 18000
-check("the printed trade's blind-bid amount altered in the raw MFL transaction is refused (the first trade still says $18,000, which position-0 logic would have accepted)",
-      any("trade:bb:b:0" in e_ or "raw MFL tokens" in e_ for e_ in VAL.validate(r2t, c_alt, PACK8)["errors"]), VAL.validate(r2t, c_alt, PACK8)["errors"][:3])
+        t_["franchise2_gave_up"] = "16161,BB_17000"                 # alter ONLY the printed trade's cap-space token; the decoy (index 0) still says 18000
+check("the printed trade's cap-space amount altered in the raw MFL transaction is refused (the first trade still says $18,000, which position-0 logic would have accepted)",
+      any("trade:capspace:b:0" in e_ or "raw MFL tokens" in e_ for e_ in VAL.validate(r2t, c_alt, PACK8)["errors"]), VAL.validate(r2t, c_alt, PACK8)["errors"][:3])
 c_dup = copy.deepcopy(c2t)
 c_dup["mfl"]["trades"].append(dict(c_dup["mfl"]["trades"][-1]))     # two raw transactions with the printed timestamp
 check("two raw MFL transactions carrying the printed trade's timestamp is refused (exactly one is required)",
@@ -1330,6 +1330,52 @@ def lead_owner_pick(c):
 r10b, v10b, c10b = build8(lead_owner_pick, local=False)
 check("a pace pick from the lead team itself (not an owner who played and lost to the lead) is dropped and reported, never parked in a chapter, and the page still validates",
       [i_ for i_, _ in r10b["kennyDropped"]] == [c10b["d1"]["chat"][0]["message_id"]] and v10b["ok"] and "Check your rearview mirror." not in VAL.visible_text(r10b["html"]), (r10b.get("kennyDropped"), v10b["errors"][:2]))
+
+print("S16. the trackers (Keith 2026-11-18): Cross vs Josh Martel and the Hall of Shame are claims re-derived from the snapshot; a bye is not a miss")
+import ups_center_trackers as TKR
+FXQ = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "tests", "fixtures", "qb_bet_hall_2026_wk10.json"), encoding="utf-8"))
+NOTES_Q = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "site", "wire", "data", "tracker_notes_2026.json"), encoding="utf-8"))
+def with_trackers(c, through=8):
+    gt = {str(w): sorted(t for t in FXQ["teams"].values() if w not in FXQ["byeWeeks"][t]) for w in range(1, through + 1)}
+    pid_name = {"14783": ("Hurts, Jalen", "PHI"), "15237": ("Lawrence, Trevor", "JAC"), "16579": ("Williams, Caleb", "CHI"), "13593": ("Jackson, Lamar", "BAL")}
+    c["trackers"] = {"through": through, "errors": [], "notes": NOTES_Q, "regWeeks": 14,
+                     "allWeeks": 17, "hallHistory": [{"season": 2011, "owner": "Eric Mannila", "w": 19, "l": 124, "t": 0, "teams": 12}, {"season": 2014, "owner": "Chris Klingenberg", "w": 28, "l": 115, "t": 0, "teams": 12}, {"season": 2018, "owner": "Chris Klingenberg", "w": 29, "l": 147, "t": 0, "teams": 12}, {"season": 2024, "owner": "Josh Lima", "w": 20, "l": 167, "t": 0, "teams": 12}], "qb": {"sides": FXQ["sides"], "players": {p: {"name": n, "team": t, "pos": "QB"} for p, (n, t) in pid_name.items()},
+                            "scores": FXQ["scores"], "gameTeams": gt, "moves": {p: [] for p in pid_name},
+                            "photos": {p: {"url": "https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/%s.png&w=350&h=254" % p, "fallbackUrl": "https://example.test/%s.jpg" % p} for p in pid_name}}}
+    for f in c["d1"]["franchises"]:
+        c["d1"]["franchises"][f] = dict(c["d1"]["franchises"][f])
+    # the real bet's franchises: 0006 Cross and 0007 Josh Martel exist in the Week 8 fixture's franchise table
+rq, vq, cq = build8(with_trackers, local=False)
+tq = VAL.visible_text(rq["html"])
+idq = re.findall(r'<section class="wire-sec" id="([^"]+)"', rq["html"])
+check("The QB Bet then the Hall of Shame are the last two segments, after The Season So Far (Keith 2026-11-19)", idq[-3:] == ["season", "qbbet", "hall"], idq)
+check("the previous Hall of Shame seasons table lists 2011, 2014, 2018 and 2024 with percentage and weeks counted, and the column is 'Owner of record' with the 2024 footnote, and the story line names Klingenberg twice and the 2024 franchise's .107 as the lowest (not Lima)",
+      all(x in tq for x in ("Previous Hall of Shame seasons", "19\u2013124", "28\u2013115", "29\u2013147", "20\u2013167", ".107", "Weeks counted")) and "Chris Klingenberg appears twice" in tq and "The 2024 franchise\u2019s .107 is the lowest of these four" in tq and "Owner of record" in tq and "Lima built the roster; Cross took over before Week 1." in tq and "Josh Lima\u2019s" not in tq, tq[tq.find("Previous Hall"):][:400])
+check("the draft with both trackers validates (every number a claim, re-derived from the raw scores and standings)", vq["ok"], vq["errors"][:4])
+check("four headshots, each with alt text naming the player and team, and an onerror fallback to MFL's photo", rq["html"].count('class="qb-head"') == 4 and 'alt="Jalen Hurts, PHI quarterback"' in rq["html"] and rq["html"].count("data-fallback=") == 4)
+check("the table carries Weeks 1-17: eight played (through Week 8) and nine pending", rq["html"].count('class="qb-pend"') == 9)
+check("a bye is labelled BYE and a missed game OUT; a posted zero is a score", "BYE" in rq["html"] and ">OUT<" in rq["html"] and ">0.0<" in rq["html"])
+check("both bets are described as unsettled and no quarterback is substituted", "unsettled" in tq and "No quarterback is substituted" in tq)
+check("the Hall of Shame states the rule with 187 comparisons and a 38-win safe line", "187" in tq and "38 wins" in tq and "below .200" in tq and "all 17 weeks" in tq, tq[tq.find("Hall of Shame"):][:300])
+cl = copy.deepcopy(rq["claims"])
+k_ = next(k for k in cl if k.startswith("tk:qb:15237:"))
+cl[k_]["value"] = cl[k_]["value"] + 5.0
+check("a wrong quarterback score fails against the MFL player scores", any(k_ in e_ for e_ in VAL.validate(dict(rq, claims=cl), cq, PACK8)["errors"]))
+cl = copy.deepcopy(rq["claims"])
+cl["tk:qb:lead"]["value"] = cl["tk:qb:lead"]["value"] + 10.0
+check("a wrong lead fails", any("tk:qb:lead" in e_ for e_ in VAL.validate(dict(rq, claims=cl), cq, PACK8)["errors"]))
+cl = copy.deepcopy(rq["claims"])
+hk = next((k for k in cl if k.startswith("tk:hos:") and k.endswith(":need")), None)
+check("a wrong 'wins still needed' fails (Hall of Shame)", hk is None or any(hk in e_ for e_ in VAL.validate(dict(rq, claims={**cl, hk: dict(cl[hk], value=cl[hk]["value"] + 3.0)}), cq, PACK8)["errors"]))
+cl = copy.deepcopy(rq["claims"])
+k_ = next(k for k in cl if k.startswith("tk:hh:2018:") and k.endswith(":pct"))
+check("a wrong historical All-Play percentage fails against the historical record", any(k_ in e_ for e_ in VAL.validate(dict(rq, claims={**cl, k_: dict(cl[k_], value=0.25)}), cq, PACK8)["errors"]))
+def trackers_down(c):
+    with_trackers(c)
+    c["trackers"] = {"errors": ["quarterback bet data unreadable: boom"], "notes": NOTES_Q, "through": 8}
+rqd, vqd, _ = build8(trackers_down, local=False)
+check("tracker data that could not be read is a visible EDITOR REVIEW box, never a silent omission", any(g["id"] == "tracker:qb" for g in rqd["gaps"]) and "EDITOR REVIEW" in rqd["html"], [g["id"] for g in rqd["gaps"]])
+check("an older snapshot with no tracker data at all builds without the new segments (no regression)", "qbbet" not in r8["html"] and "id=\"hall\"" not in r8["html"])
 
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

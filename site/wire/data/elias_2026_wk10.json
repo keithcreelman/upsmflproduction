@@ -1,0 +1,106 @@
+{
+ "allplayChanged": false,
+ "allplayChanges": [],
+ "checkedAtUtc": "2026-11-19T12:19:42Z",
+ "games": [],
+ "officialChanges": [
+  {
+   "from": 1.0,
+   "game": "Kansas City Chiefs at Atlanta Falcons",
+   "player": "James Pearce",
+   "publishedText": "Wed Nov 18 11:14:49 p.m. ET 2026",
+   "stat": "Passes Defended",
+   "to": 0.0
+  },
+  {
+   "from": 1.0,
+   "game": "Minnesota Vikings at Green Bay Packers",
+   "player": "James Pierre",
+   "publishedText": "Wed Nov 18 11:14:49 p.m. ET 2026",
+   "stat": "Tackles",
+   "to": 2.0
+  },
+  {
+   "from": 6.0,
+   "game": "Minnesota Vikings at Green Bay Packers",
+   "player": "Isaiah McDuffie",
+   "publishedText": "Wed Nov 18 11:14:49 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 7.0
+  },
+  {
+   "from": 2.0,
+   "game": "Minnesota Vikings at Green Bay Packers",
+   "player": "Dani Dennis-Sutton",
+   "publishedText": "Wed Nov 18 11:14:49 p.m. ET 2026",
+   "stat": "Assists",
+   "to": 1.0
+  },
+  {
+   "from": 3.0,
+   "game": "Pittsburgh Steelers at Cincinnati Bengals",
+   "player": "Boye Mafe",
+   "publishedText": "Wed Nov 18 11:14:49 p.m. ET 2026",
+   "stat": "Quarterback Hits",
+   "to": 4.0
+  }
+ ],
+ "players": [
+  {
+   "after": 1.0,
+   "before": 2.5,
+   "delta": -1.5,
+   "elias": [
+    {
+     "from": 1.0,
+     "stat": "Passes Defended",
+     "to": 0.0
+    }
+   ],
+   "fid": "0008",
+   "pid": "17115",
+   "player": "James Pearce",
+   "status": "nonstarter"
+  },
+  {
+   "after": 9.0,
+   "before": 8.5,
+   "delta": 0.5,
+   "elias": [
+    {
+     "from": 3.0,
+     "stat": "Quarterback Hits",
+     "to": 4.0
+    }
+   ],
+   "fid": "0008",
+   "pid": "15853",
+   "player": "Boye Mafe",
+   "status": "nonstarter"
+  },
+  {
+   "after": 6.5,
+   "before": 6.0,
+   "delta": 0.5,
+   "elias": [
+    {
+     "from": 6.0,
+     "stat": "Assists",
+     "to": 7.0
+    }
+   ],
+   "fid": "0010",
+   "pid": "15473",
+   "player": "Isaiah McDuffie",
+   "status": "nonstarter"
+  }
+ ],
+ "published": [
+  "Wed Nov 18, 11:14 PM ET"
+ ],
+ "rankChanges": [],
+ "resultsFlipped": 0,
+ "season": 2026,
+ "teams": [],
+ "week": 10
+}
