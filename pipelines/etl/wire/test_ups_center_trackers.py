@@ -41,17 +41,31 @@ check("cumulative = running sum of the pair totals, lead = Cross minus Josh, eve
       all(abs(tb[i]["cum"]["cross"] - sum(t["pair"]["cross"] for t in tb[:i + 1])) < 0.051 and abs(tb[i]["lead"] - (tb[i]["cum"]["cross"] - tb[i]["cum"]["josh"])) < 0.051 for i in range(10)))
 check("Josh Martel led after Weeks 1 and 2, Cross from Week 3", [tb[i]["lead"] < 0 for i in range(2)] == [True, True] and all(tb[i]["lead"] > 0 for i in range(2, 10)), [r["lead"] for r in tb[:10]])
 
-print("2. the Hall of Shame")
-h = TK.hall_rows(FX["allplay"], 12, 14, 10)
-check("154 comparisons, safe line 31 wins, 44 left after Week 10", (h["0007"]["games"], h["0007"]["safe"], h["0007"]["left"]) == (154, 31.0, 44), h["0007"])
-check("Josh Martel (24-86) needs 7; Cross (27-83) needs 4; Gerardi (32-78) is already safe",
-      (h["0007"]["need"], h["0006"]["need"], h["0003"]["status"]) == (7.0, 4.0, "safe"), (h["0007"], h["0006"], h["0003"]))
-check("Josh and Cross are candidates, not inducted, with the season still running", h["0007"]["status"] == h["0006"]["status"] == "candidate")
-check("31 wins / 154 = .201 is safe; 30 wins is .195 and is not", 31 / 154 >= 0.2 > 30 / 154)
-check("a tie is half a win: 30-123-1 style record (30.5) still needs a half win", TK.hall_rows({"x": "30-70-1"}, 12, 14, 10)["x"]["need"] == 0.5)
-check("a team that cannot reach the line is locked in, and is inducted when the season ends",
-      TK.hall_rows({"x": "5-117-0"}, 12, 14, 12)["x"]["status"] == "locked" and TK.hall_rows({"x": "10-144-0"}, 12, 14, 14)["x"]["status"] == "inducted")
-check("after the final week a team on the line is safe", TK.hall_rows({"x": "31-123-0"}, 12, 14, 14)["x"]["status"] == "safe")
+print("2. the Hall of Shame: All-Play through ALL 17 weeks, playoffs included (Keith 2026-11-19)")
+h = TK.hall_rows(FX["allplay"], 12, 17, 10)
+check("187 comparisons, 38 wins is the no-tie minimum, 77 left after Week 10", (h["0007"]["games"], h["0007"]["safe"], h["0007"]["left"]) == (187, 38, 77), h["0007"])
+check("Josh Martel (24-86) needs 14, Cross (27-83) needs 11, Gerardi (32-78) needs 6 and is NOT already safe",
+      (h["0007"]["need"], h["0006"]["need"], h["0003"]["need"], h["0003"]["status"]) == (14, 11, 6, "candidate"), (h["0007"], h["0006"], h["0003"]))
+check("38/187 = .203 is at or above .200; 37/187 = .198 is not", 38 / 187 >= 0.2 > 37 / 187)
+check("a tie counts half: 37-100-1 (37.5) is safe, 36-100-2 (37.0) needs one more win",
+      TK.hall_rows({"x": "37-100-1"}, 12, 17, 12)["x"]["need"] == 0 and TK.hall_rows({"x": "36-100-2"}, 12, 17, 12)["x"]["need"] == 1)
+check("a team that cannot reach the line is locked in, and is inducted when Week 17 ends",
+      TK.hall_rows({"x": "4-150-0"}, 12, 17, 14)["x"]["status"] == "locked" and TK.hall_rows({"x": "20-167-0"}, 12, 17, 17)["x"]["status"] == "inducted")
+check("after the final week a team on the line is safe", TK.hall_rows({"x": "38-149-0"}, 12, 17, 17)["x"]["status"] == "safe")
+# MFL standings that stop at the regular season: the playoff weeks are counted from the official weekly team scores
+fids = ["%02d" % i for i in range(12)]
+reg = {f: "%d-%d-0" % (i, 154 - i) for i, f in enumerate(fids)}               # 14 weeks x 11 = 154 comparisons
+scores = {str(w): {f: 100.0 + i for i, f in enumerate(fids)} for w in (15, 16, 17)}
+got = TK.hall_allplay(reg, 12, 14, 17, scores)
+check("standings that stop at Week 14 are extended with Weeks 15-17 from the team scores (187 comparisons each; the top scorer gains 33 wins)",
+      all(sum(int(x) for x in v.split("-")) == 187 for v in got.values()) and got["11"] == "%d-%d-0" % (11 + 33, 154 - 11), got["11"])
+check("standings that already count the playoffs are used as they are",
+      TK.hall_allplay({f: "%d-%d-0" % (i, 187 - i) for i, f in enumerate(fids)}, 12, 14, 17, None)["05"] == "5-182-0")
+try:
+    TK.hall_allplay({f: "1-1-0" for f in fids}, 12, 14, 17, scores)
+    check("standings that are neither complete nor the regular season are refused", False)
+except ValueError:
+    check("standings that are neither complete nor the regular season are refused", True)
 
 print("3. the cap argument")
 c = FX["cap"]

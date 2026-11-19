@@ -371,6 +371,12 @@ def _elias_check(rest, v, ctx, bad, key):
         if v != want and v != len(ctx["mfl"].get("elias") or []):
             bad(key, "page %s, Elias report %s" % (v, want))
         return
+    if what in ("players", "nonstarters"):
+        pl = rep.get("players") or []
+        want = len(pl) if what == "players" else sum(1 for p in pl if p.get("status") == "nonstarter")
+        if v != want:
+            bad(key, "page %s, Elias report %s" % (v, want))
+        return
     if what == "flipped":
         if v != rep.get("resultsFlipped"):
             bad(key, "page %s, report %s" % (v, rep.get("resultsFlipped")))
@@ -488,6 +494,13 @@ def _tk_check(rest, v, shown, ctx, claims):
     sim = (ctx.get("forecast") or {}).get("sim") or {}
     if k == "runs":
         return None if sim.get("runs") == v and shown == "{:,}".format(v) else "page %r runs, forecast %r" % (v, sim.get("runs"))
+    if k == "slotsum":
+        slot = ((sim.get("teams") or {}).get(parts[1]) or {}).get("slot")
+        if not slot or len(slot) != 12:
+            return "no draft-slot shares for %s" % parts[1]
+        disp = season_sim.display_percentages({str(i + 1): slot[i] for i in range(12)}, 1)
+        want = round(float(disp[parts[2]]) + float(disp[parts[3]]), 1)
+        return None if abs(want - float(v)) < 1e-9 else "page %r, recomputed %r" % (v, want)
     if k == "slotlabel":
         return None if v == int(parts[1]) * 100 + int(parts[2]) and 1 <= int(parts[1]) <= 5 and 1 <= int(parts[2]) <= 12 and shown == "%d.%02d" % (int(parts[1]), int(parts[2])) else "slot label %r" % (shown,)
     if k == "slotno":
@@ -510,14 +523,19 @@ def _tk_check(rest, v, shown, ctx, claims):
         return None if (((T.get("notes") or {}).get("bet") or {}).get("stake")) == v else "stake %r is not in the bet notes" % (v,)
     if k == "hos":
         st = ctx["mfl"]["standings"]
-        reg = T.get("regWeeks")
-        if not reg:
-            return "no regular-season length in the snapshot"
-        rows = TK.hall_rows({f: m["allplay"] for f, m in st.items()}, len(st), reg, int(T.get("through") or ctx["week"]))
+        reg, weeks = T.get("regWeeks"), T.get("allWeeks")
+        if not reg or not weeks:
+            return "no season length in the snapshot"
+        through = int(T.get("through") or ctx["week"])
+        try:
+            ap = TK.hall_allplay({f: m["allplay"] for f, m in st.items()}, len(st), reg, through, T.get("playoffScores"))
+        except ValueError as exc:
+            return "All-Play cannot be counted: %s" % exc
+        rows = TK.hall_rows(ap, len(st), weeks, through)
         any_ = next(iter(rows.values()))
         sub = parts[1]
-        if sub in ("games", "safe", "left", "safepct", "line"):
-            want = {"games": any_["games"], "safe": any_["safe"], "left": any_["left"], "safepct": round(any_["safe"] / any_["games"], 3), "line": TK.HALL_LINE}[sub]
+        if sub in ("games", "safe", "left", "weeks", "line"):
+            want = {"games": any_["games"], "safe": any_["safe"], "left": any_["left"], "weeks": weeks, "line": TK.HALL_LINE}[sub]
             return None if abs(float(v) - float(want)) < 1e-9 else "page %r, recomputed %r" % (v, want)
         r = rows.get(sub)
         if not r:
@@ -543,23 +561,18 @@ def _tk_check(rest, v, shown, ctx, claims):
             rows_ = [c_ for c_ in T2.get("cap") or [] if abs(c_["timestamp"] - int(raw["timestamp"] if parts[2] == "now" else (T2.get("priorRaw") or {}).get("timestamp") or 0)) <= 900]
             return None if len(rows_) == 2 and abs(rows_[0]["amount"] + rows_[1]["amount"]) < 0.5 and any(abs(abs(c_["amount"]) - float(v)) < 0.5 for c_ in rows_) \
                 else "page %r, ledger rows %r" % (v, rows_)
-        if sub in ("salary", "space", "free", "free_ir"):
+        if sub in ("salary", "space", "extra"):
             k_out, k_in = ("franchise2_gave_up", "franchise1_gave_up") if any(x.startswith("BB_") for x in side_tokens("franchise2_gave_up")) else ("franchise1_gave_up", "franchise2_gave_up")
-            out_ids = [x for x in side_tokens(k_out) if x.isdigit()]                    # the side that sent the cap space
+            out_ids = [x for x in side_tokens(k_out) if x.isdigit()]                    # the side that sent the cap space (and the quarterback)
             in_ids = [x for x in side_tokens(k_in) if x.isdigit()]
             bb = [float(x[3:]) for x in side_tokens(k_out) if x.startswith("BB_")]
             if not bb or not out_ids or not in_ids:
                 return "the printed trade has no cap-space token or no players on a side"
+            if any(ros[x]["status"] != "ROSTER" for x in in_ids if x in ros):
+                return "a player the cap sentence counts at full salary is no longer on an active roster"
             sal_out = max(ros[x]["salary"] for x in out_ids if x in ros)
             sal_in = max(ros[x]["salary"] for x in in_ids if x in ros)
-            if sub == "salary":
-                want = sal_out if parts[2] == "out" else sal_in
-            elif sub == "space":
-                want = bb[0]
-            else:
-                inc = [x for x in in_ids if x in ros]
-                ir = sub == "free_ir" or any(ros[x]["status"] == "INJURED_RESERVE" for x in inc)
-                want = -TK.cap_effect(sal_out, bb[0], sal_in, ir_got=ir)
+            want = sal_out if (sub == "salary" and parts[2] == "out") else sal_in if sub == "salary" else bb[0] if sub == "space" else sal_out - sal_in - bb[0]
             return None if abs(float(v) - want) < 0.5 else "page %r, recomputed %r" % (v, want)
         return "unknown cap claim %s" % rest
     if k == "qb":

@@ -1244,7 +1244,27 @@ class StoryIssue(TSEG.TrackerSegments, I.Issue):
         moved = {t["fid"]: t for t in rep.get("teams") or []}
         apch = {c["fid"]: c for c in rep.get("allplayChanges") or []}
         if not moved and not apch:
-            return ""                                   # corrections only: nothing moved, nothing to tell
+            # corrections that moved no team: a short panel so the reader (and Keith) sees that Elias posted and what it touched (Keith 2026-11-19)
+            src_e = "elias.py check (MFL site news, Official Statistics Changes) vs scores_published_%d_wk%02d" % (self.season, self.week)
+            pl = rep.get("players") or []
+            n_c = self.L.put("elias:count", n_official, src_e)
+            when = ""
+            m_ = re.search(r"(\w{3}) (\w{3}) (\d+) (\d+:\d+):\d+ ([ap])\.m\. ET", str((posts[0] if posts else {}).get("publishedText") or ""))
+            if m_:
+                when = " %s at %s %s ET" % ({"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday", "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"}.get(m_.group(1), m_.group(1)),
+                                            m_.group(4), "AM" if m_.group(5) == "a" else "PM")
+            if pl:
+                n_p = self.L.put("elias:players", len(pl), src_e)
+                n_ns = sum(1 for p in pl if p.get("status") == "nonstarter")
+                n_nsc = self.L.put("elias:nonstarters", n_ns, src_e)
+                touch = "%s of them changed the score of a rostered player%s" % (
+                    self.word(len(pl)).capitalize() if len(pl) <= 12 else n_p,
+                    (", and %s" % ("all %s were nonstarters" % self.word(len(pl)) if n_ns == len(pl) else "%s were nonstarters" % self.word(n_ns))) if len(pl) else "")
+            else:
+                touch = "None of them changed a rostered player&rsquo;s score"
+            txt = ("Elias posted %s official statistics change%s%s. %s. No team score, result, ranking or All-Play changed, so Week %d stands as played." % (
+                self.word(n_official) if n_official <= 12 else n_c, "" if n_official == 1 else "s", when, touch, self.week))
+            return self.section("elias", "Elias", 3, "Elias <small>&mdash; official statistics changes</small>", self.desk([("Stuart", txt)]))
         src_e = "elias.py check (MFL site news, Official Statistics Changes) vs scores_published_%d_wk%02d" % (self.season, self.week)
         s = self.ctx["mfl"]["scores"]
         pub = (self.ctx.get("scoresPublished") or {}).get("teams") or {}

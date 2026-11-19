@@ -920,7 +920,7 @@ check("the local review copy lists the candidate lines by division, verbatim and
 def quiet(c):
     c["eliasReport"] = dict(c["eliasReport"], teams=[], allplayChanges=[], players=[], rankChanges=[], resultsFlipped=0)
 rq, vq, _ = build8(quiet)
-check("Elias posted but nothing moved -> no Elias segment and no box (corrections only)", 'id="elias"' not in rq["html"] and vq["ok"] and
+check("Elias posted but nothing moved -> a short Elias panel (what posted, what it touched, nothing moved) and no box (Keith 2026-11-19)", 'id="elias"' in rq["html"] and "No team score, result, ranking or All-Play changed" in VAL.visible_text(rq["html"]) and vq["ok"] and
       [g["id"] for g in rq["gaps"]] == ["coffee:kenny"], (vq["errors"], [g["id"] for g in rq["gaps"]]))
 def not_posted(c):
     c["mfl"]["elias"] = []
@@ -1339,7 +1339,7 @@ def with_trackers(c, through=8):
     gt = {str(w): sorted(t for t in FXQ["teams"].values() if w not in FXQ["byeWeeks"][t]) for w in range(1, through + 1)}
     pid_name = {"14783": ("Hurts, Jalen", "PHI"), "15237": ("Lawrence, Trevor", "JAC"), "16579": ("Williams, Caleb", "CHI"), "13593": ("Jackson, Lamar", "BAL")}
     c["trackers"] = {"through": through, "errors": [], "notes": NOTES_Q, "regWeeks": 14,
-                     "qb": {"sides": FXQ["sides"], "players": {p: {"name": n, "team": t, "pos": "QB"} for p, (n, t) in pid_name.items()},
+                     "allWeeks": 17, "qb": {"sides": FXQ["sides"], "players": {p: {"name": n, "team": t, "pos": "QB"} for p, (n, t) in pid_name.items()},
                             "scores": FXQ["scores"], "gameTeams": gt, "moves": {p: [] for p in pid_name},
                             "photos": {p: {"url": "https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/%s.png&w=350&h=254" % p, "fallbackUrl": "https://example.test/%s.jpg" % p} for p in pid_name}}}
     for f in c["d1"]["franchises"]:
@@ -1354,7 +1354,7 @@ check("four headshots, each with alt text naming the player and team, and an one
 check("the table carries Weeks 1-17: eight played (through Week 8) and nine pending", rq["html"].count('class="qb-pend"') == 9)
 check("a bye is labelled BYE and a missed game OUT; a posted zero is a score", "BYE" in rq["html"] and ">OUT<" in rq["html"] and ">0.0<" in rq["html"])
 check("both bets are described as unsettled and no quarterback is substituted", "unsettled" in tq and "No quarterback is substituted" in tq)
-check("the Hall of Shame states the rule with 154 comparisons and a 31-win safe line", "154" in tq and "31 wins" in tq and "below .200" in tq, tq[tq.find("Hall of Shame"):][:300])
+check("the Hall of Shame states the rule with 187 comparisons and a 38-win safe line", "187" in tq and "38 wins" in tq and "below .200" in tq and "all 17 weeks" in tq, tq[tq.find("Hall of Shame"):][:300])
 cl = copy.deepcopy(rq["claims"])
 k_ = next(k for k in cl if k.startswith("tk:qb:15237:"))
 cl[k_]["value"] = cl[k_]["value"] + 5.0

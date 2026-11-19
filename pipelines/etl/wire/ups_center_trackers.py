@@ -54,35 +54,61 @@ def qb_table(rows, sides, through, status_of, last=QB_THROUGH):
     return out
 
 
-def hall_need(played):
-    """Comparisons in a full regular season (every team against the other eleven each week)."""
-    return played
+def hall_allplay(reg_allplay, teams, reg_weeks, through, playoff_scores=None):
+    """{fid: "W-L-T"} All-Play through `through` weeks. MFL's standings cover the regular season; if they stop accumulating in the playoffs, the
+    later weeks are counted here from the official weekly team scores (every team scores every week, UPS plays all twelve in weeks 15-17).
+    Raises ValueError when the standings are neither complete through `through` nor exactly the regular season."""
+    games_full = (teams - 1) * through
+    games_reg = (teams - 1) * min(through, reg_weeks)
+    totals = {f: sum(int(x) for x in rec.split("-")) for f, rec in reg_allplay.items()}
+    if all(t == games_full for t in totals.values()):
+        return dict(reg_allplay)
+    if through <= reg_weeks or not all(t == games_reg for t in totals.values()):
+        raise ValueError("MFL All-Play comparisons are %s, expected %d (through Week %d) or %d (the regular season)" % (sorted(set(totals.values())), games_full, through, games_reg))
+    out = {}
+    for f, rec in reg_allplay.items():
+        w, l, t = (int(x) for x in rec.split("-"))
+        for wk in range(reg_weeks + 1, through + 1):
+            sc = (playoff_scores or {}).get(str(wk)) or (playoff_scores or {}).get(wk)
+            if not sc or len(sc) != teams or f not in sc:
+                raise ValueError("no team scores for Week %d" % wk)
+            for o, v in sc.items():
+                if o == f:
+                    continue
+                if sc[f] > v:
+                    w += 1
+                elif sc[f] < v:
+                    l += 1
+                else:
+                    t += 1
+        out[f] = "%d-%d-%d" % (w, l, t)
+    return out
 
 
-def hall_rows(allplay, teams, reg_weeks, through):
-    """The Hall of Shame arithmetic for every franchise: allplay {fid: "W-L-T"}.
-    games  = comparisons in a full regular season = (teams - 1) * reg_weeks            (154 for 12 teams, 14 weeks)
-    safe   = the least win total (a tie is half a win) whose percentage is not below HALL_LINE   (31)
-    left   = comparisons still to play = (teams - 1) * (reg_weeks - through)           (44 after Week 10)
-    need   = additional wins to reach `safe`, in half-win steps; status safe | candidate | locked (cannot reach it) | inducted (season over)."""
-    games = (teams - 1) * reg_weeks
-    safe2 = math.ceil(HALL_LINE * games * 2 - 1e-9)          # in half-wins: 0.2 * 154 * 2 = 61.6 -> 62 = 31.0 wins
-    left = (teams - 1) * (reg_weeks - through)
+def hall_rows(allplay, teams, weeks, through):
+    """The Hall of Shame arithmetic (Keith 2026-11-19: All-Play through ALL 17 weeks, playoffs included; below .200 qualifies).
+    games = (teams - 1) * weeks                                    (187 for twelve teams and 17 weeks)
+    safe  = the fewest wins that stay at or above .200 with no ties (38; a tie counts half)
+    left  = comparisons still to play = (teams - 1) * (weeks - through)    (77 after Week 10)
+    need  = more wins to reach .200, whole wins; status safe | candidate | locked (cannot reach it) | inducted (the season is over)."""
+    games = (teams - 1) * weeks
+    line = HALL_LINE * games
+    left = (teams - 1) * (weeks - through)
     out = {}
     for f, rec in allplay.items():
         w, l, t = (int(x) for x in rec.split("-"))
-        have2 = 2 * w + t
-        need2 = max(0, safe2 - have2)
-        if through >= reg_weeks:
-            status = "safe" if need2 == 0 else "inducted"
-        elif need2 == 0:
+        have = w + t / 2.0
+        need = max(0, math.ceil(line - have - 1e-9))
+        if need == 0:
             status = "safe"
-        elif need2 > 2 * left:
+        elif through >= weeks:
+            status = "inducted"
+        elif need > left:
             status = "locked"
         else:
             status = "candidate"
-        out[f] = {"w": w, "l": l, "t": t, "games": games, "safe": safe2 / 2.0, "left": left, "need": need2 / 2.0, "status": status,
-                  "pct": (w + t / 2.0) / (w + l + t) if (w + l + t) else 0.0}
+        out[f] = {"w": w, "l": l, "t": t, "games": games, "safe": math.ceil(line - 1e-9), "left": left, "need": need, "status": status,
+                  "pct": have / (w + l + t) if (w + l + t) else 0.0}
     return out
 
 
@@ -136,9 +162,23 @@ def gather(season, week, get, mfl, parse_trades, current, trades_all, photo=None
     try:
         lg = get(mfl % (season, "league", ""))["league"]
         out["regWeeks"] = int(lg["lastRegularSeasonWeek"])
+        out["allWeeks"] = int(lg["endWeek"])
         out["irShare"] = float(lg.get("includeIRWithSalary") or 50) / 100.0
     except Exception as exc:                                            # noqa: BLE001
         out["errors"].append("league settings unreadable: %s" % plain(exc))
+    if out.get("regWeeks") and int(week) > out["regWeeks"]:
+        try:
+            ps = {}
+            for w in range(out["regWeeks"] + 1, int(week) + 1):
+                wr = get(mfl % (season, "weeklyResults", "&W=%d" % w))["weeklyResults"]
+                sc = {}
+                for m in _list(wr.get("matchup")):
+                    for f in _list(m.get("franchise")):
+                        sc[f["id"]] = float(f["score"])
+                ps[str(w)] = sc
+            out["playoffScores"] = ps
+        except Exception as exc:                                        # noqa: BLE001
+            out["errors"].append("playoff team scores unreadable: %s" % plain(exc))
     # ---- the quarterback bet
     if sides["cross"] and sides["josh"]:
         try:

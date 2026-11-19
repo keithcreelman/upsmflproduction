@@ -84,47 +84,33 @@ class TrackerSegments:
 
     # ------------------------------------------------------------------------------------------- the trade, told as one story
     def trade_round_trip(self, tr, src):
-        """Lines (voice, text) for the printed trade: the earlier deal between the same two teams that it partly reverses, Addison's injury, the
-        cap argument. [] when the earlier deal is not in the snapshot (the story then stands as it was)."""
+        """Short lines for the printed trade (Keith 2026-11-19): the April deal in one sentence, Addison's injury and what Cross said, the cap cost once.
+        [] when the earlier deal is not in the snapshot."""
         T = (self.tk_data().get("trade") or {})
         prior, praw = T.get("prior"), T.get("priorRaw")
         if not prior or not praw:
             return []
-        a, b = tr["a"], tr["b"]                                       # the printed trade: a = franchise, b = franchise2
+        a, b = tr["a"], tr["b"]
         pa, pb = prior["a"], prior["b"]
         if {pa, pb} != {a, b}:
             return []
         lines = []
-        when = datetime.fromtimestamp(int(praw["timestamp"]), I.ET).strftime("%B %-d")
         day = datetime.fromtimestamp(tr["timestamp"], I.ET).strftime("%A")
         picks_back = [x for x in prior["a_gave"] + prior["b_gave"] if x["kind"] == "pick"]
         cross = pa if any(x["kind"] == "pick" for x in prior["a_gave"]) else pb       # the team that sent picks in April
         other = pb if cross == pa else pa
         sent, got = (prior["a_gave"], prior["b_gave"]) if cross == pa else (prior["b_gave"], prior["a_gave"])
-        s_key, g_key = ("a", "b") if cross == pa else ("b", "a")
-        now_other = tr["a_gave"] if other == a else tr["b_gave"]                        # what `other` sent on the printed trade
+        s_key = "a" if cross == pa else "b"
+        now_other = tr["a_gave"] if other == a else tr["b_gave"]
         now_cross = tr["a_gave"] if cross == a else tr["b_gave"]
         returned = [x for x in now_other if x["kind"] == "pick" and any(x.get("origin") == p.get("origin") and x.get("year") == p.get("year")
                                                                         and x.get("round") == p.get("round") for p in picks_back)]
         if len(returned) != len([x for x in sent if x["kind"] == "pick"]):
-            return []                                                                  # not a round trip of the same picks: say nothing about it
-        lines.append(("Stuart", "It was the second deal between the two teams. On %s, %s sent %s %s for %s. %s&rsquo;s trade sent both of those picks back to %s." % (
-            when, self.sn(cross), self.sn(other), self.assets_phrase(sent, s_key, sender=cross), self.assets_phrase(got, g_key), day, self.sn(cross))))
-        carried = [x for x in got if x["kind"] == "player" and (T.get("roster") or {}).get(str(x["id"]), {}).get("fid") == cross]
-        cap = T.get("cap") or []
-        apr = [c for c in cap if abs(c["timestamp"] - int(praw["timestamp"])) <= 900]
-        now = [c for c in cap if abs(c["timestamp"] - int(tr["timestamp"])) <= 900]
-        bb_prior = [x for x in got if x["kind"] == "bb"]
-        bb_now = [x for x in now_cross if x["kind"] == "bb"]
-        if carried and bb_prior and bb_now and len(apr) == 2 and len(now) == 2:
-            nm = " and ".join(e(self.mname(x)) for x in carried)
-            st = (T.get("roster") or {}).get(str(carried[0]["id"]), {}).get("status")
-            on_ir = (" (on injured reserve)" if st == "INJURED_RESERVE" else "")
-            sa = self.L.put("tk:cap:ledger:prior", abs(apr[0]["amount"]), SRC_MFL + " (salaryAdjustments, the earlier trade)", money(abs(apr[0]["amount"])))
-            sn_ = self.L.put("tk:cap:ledger:now", abs(now[0]["amount"]), SRC_MFL + " (salaryAdjustments, the latest trade)", money(abs(now[0]["amount"])))
-            lines.append(("Rich", "It did not undo the whole April deal. %s is still on %s&rsquo;s roster%s, and %s sent back %s of cap space, not the %s he received. MFL&rsquo;s cap ledger shows both transfers posted: %s of cap room to %s in April, and %s the other way on %s." % (
-                nm, self.sn(cross), on_ir, self.sn(cross), self.L.put("trade:capspace:%s:0" % ("a" if cross == a else "b"), bb_now[0]["amount"], SRC_MFL, money(bb_now[0]["amount"])), self.cap_money(bb_prior[0], g_key, 0),
-                sa, self.sn(cross), sn_, day)))
+            return []
+        players_got = [x for x in got if x["kind"] == "player"]
+        lines.append(("Stuart", "%s had given %s %s in April for %s. %s&rsquo;s trade brought both picks back." % (
+            self.sn(cross), self.sn(other), self.assets_phrase([x for x in sent if x["kind"] == "pick"], s_key, sender=cross),
+            jn(e(self.mname(x)) for x in players_got) or "his April package", day)))
         notes = (self.tk_data().get("notes") or {})
         ad = notes.get("addison")
         incoming = [x for x in now_other if x["kind"] == "player"]
@@ -136,25 +122,21 @@ class TrackerSegments:
             iname, oname = e(self.mname(inc)), e(self.mname(out))
             ichat = (notes.get("crossChat") or {}).get("mid")
             clink = ('<a class="srcl" href="https://discord.com/channels/%s/%s/%s" target="_blank" rel="noopener">said himself</a>' % (I.GUILD, (notes.get("bet") or {}).get("channel_id", ""), ichat)) if ichat else "said himself"
-            lines.append(("Stuart", "%s is hurt, and that changes what %s took in. %s <a class=\"srcl\" href=\"%s\" target=\"_blank\" rel=\"noopener\">Source: %s, %s</a>. %s %s that he was after draft capital and that no player helps him now." % (
-                iname, self.sn(cross), e(ad["text"]), e(ad["url"]), e(ad["outlet"]), e(ad["date"]), self.sn(cross), clink)))
-            sal_out = self.L.put("tk:cap:salary:out", out["salary"], SRC_MFL + " (rosters)", money(out["salary"]))
-            sal_in = self.L.put("tk:cap:salary:in", inc["salary"], SRC_MFL + " (rosters)", money(inc["salary"]))
-            space = self.L.put("tk:cap:space", bb_out[0]["amount"], SRC_MFL + " (the trade's cap-space token)", money(bb_out[0]["amount"]))
+            lines.append(("Stuart", "%s is hurt. %s <a class=\"srcl\" href=\"%s\" target=\"_blank\" rel=\"noopener\">Source: %s, %s</a>. %s %s that he wanted draft capital, not immediate help." % (
+                iname, e(ad["text"]), e(ad["url"]), e(ad["outlet"]), e(ad["date"]), self.sn(cross), clink)))
             st = ros[str(inc["id"])].get("status")
-            free = TK.cap_effect(out["salary"], bb_out[0]["amount"], inc["salary"], ir_got=(st == "INJURED_RESERVE"))
-            free_ir = TK.cap_effect(out["salary"], bb_out[0]["amount"], inc["salary"], ir_got=True)
-            fr = self.L.put("tk:cap:free", -free, SRC_MFL + " (computed: salary out - cap space sent - salary in)", money(-free))
-            fr_ir = self.L.put("tk:cap:free_ir", -free_ir, SRC_MFL + " (computed at half salary on injured reserve, league setting includeIRWithSalary 50)", money(-free_ir))
-            where = "active roster" if st == "ROSTER" else ("injured reserve" if st == "INJURED_RESERVE" else "roster")
-            asof = self.tk_data().get("gatheredAtUtc")
-            asof_t = (" (MFL roster status read %s)" % I.et_clock(int(datetime.strptime(asof, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp()))) if asof else ""
-            body = ("The cap argument is smaller than it sounds. %s&rsquo;s 2026 salary is %s and %s&rsquo;s is %s, and %s also sent %s of cap space. With %s on %s&rsquo;s %s%s, the trade frees %s only %s of 2026 cap room."
-                    % (oname.split(" ")[-1], sal_out, iname.split(" ")[-1], sal_in, self.sn(cross), space, iname.split(" ")[-1], self.sn(cross), where, asof_t, self.sn(cross), fr))
             if st == "ROSTER":
-                body += " If %s moves to UPS injured reserve, which counts at half salary, the figure becomes %s." % (iname.split(" ")[-1], fr_ir)
-            body += " %s owns %s&rsquo;s contract now; %s did not keep it." % (self.sn(other), oname.split(" ")[-1], self.sn(cross))
-            lines.append(("Rich", body))
+                sal_out = self.L.put("tk:cap:salary:out", out["salary"], SRC_MFL + " (rosters)", money(out["salary"]))
+                sal_in = self.L.put("tk:cap:salary:in", inc["salary"], SRC_MFL + " (rosters)", money(inc["salary"]))
+                space = self.L.put("tk:cap:space", bb_out[0]["amount"], SRC_MFL + " (the trade's cap-space token)", money(bb_out[0]["amount"]))
+                extra = self.L.put("tk:cap:extra", out["salary"] - inc["salary"] - bb_out[0]["amount"], SRC_MFL + " (computed: salary taken on - salary given up - cap space received)",
+                                   money(out["salary"] - inc["salary"] - bb_out[0]["amount"]))
+                lines.append(("Rich", "With %s on %s&rsquo;s active roster, %s gives up %s&rsquo;s %s salary, takes on %s&rsquo;s %s salary, and receives %s of cap space. That makes %s an additional %s of 2026 cap cost for %s. "
+                                       "%s still owns %s&rsquo;s contract; %s is the current cap effect, not his total cost." % (
+                                           iname.split(" ")[-1], self.sn(cross), self.sn(other), iname.split(" ")[-1], sal_in, oname.split(" ")[-1], sal_out, space,
+                                           oname.split(" ")[-1], extra, self.sn(other), self.sn(other), oname.split(" ")[-1], extra)))
+            else:
+                lines.append(("Rich", "%s is no longer on %s&rsquo;s active roster, so the cap effect of the trade needs a fresh calculation." % (iname.split(" ")[-1], self.sn(cross))))
         return lines
 
     # ------------------------------------------------------------------------------------------- pick ranges
@@ -212,7 +194,7 @@ class TrackerSegments:
                 heat = min(1.0, v / 0.35)
                 cells += '<span class="pk-c" style="--h:%.2f" title="%s%%">%s</span>' % (heat, shown, shown)
             rounds = sorted(r["round"] for r in rs)
-            rl = " and ".join("%s" % self.ORDW.get(x, str(x)) for x in rounds)
+            rl = "- and ".join("%s" % self.ORDW.get(x, str(x)) for x in rounds)
             who = self.owner[fid]
             dirs = jn(sorted({("back to %s" % self.sn(r["to"])) if r["to"] == fid else ("to %s" % self.sn(r["to"])) for r in rs}))
             if allh:
@@ -227,50 +209,50 @@ class TrackerSegments:
             out.append('<div class="pk-row"><div class="pk-who"><b>%s&rsquo;s 2027 %s-round pick%s</b> <span class="pk-dir">%s</span></div>'
                        '<div class="pk-side">%s</div><div class="pk-strip">%s</div></div>' % (
                            e(who), rl, "s" if len(rs) > 1 else "", dirs, side_txt, cells))
-        out.append('<p class="caption">Where the picks could land, not where they will. Shares come from %s simulated seasons using the rosters after this trade '
-                   '(forecast generated %s, MFL data through Week %d). Each season&rsquo;s slot is set by that team&rsquo;s own postseason bracket finish: the Hawk Tuah side '
-                   'picks first (the Hawk Tuah winner takes the first slot), the championship side last, and the two teams that lose in each side&rsquo;s first round play a '
-                   'Week 16 game for the better slot. A blank cell is a slot the team never reached in the simulation. Shares are rounded to add to a whole; sampling error is about one point '
-                   'when a share is near half, and the model itself (projections, injuries) moves every week. The same slot order applies to every round.</p>' % (
-                       runs_c, I.et_clock(int(datetime.strptime(sim["generatedAtUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=__import__("datetime").timezone.utc).timestamp())),
+        out.append('<p class="caption">Estimates, not predictions: shares of %s simulated seasons on the rosters after this trade (forecast generated %s, MFL data through Week %d). A season&rsquo;s slot comes from that team&rsquo;s own postseason bracket finish; the Hawk Tuah winner takes the first slot and the UPS champion the last. A blank cell is a slot the team never reached. Shares are rounded; the model moves every week.</p>' % (
+                       runs_c, I.et_clock(int(datetime.strptime(sim["generatedAtUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).timestamp())),
                        int(sim.get("throughWeek") or self.week)))
         out.append("</div>")
         return "".join(out)
 
     def pick_lines(self, tr):
-        """The prose over the pick visual: ranges, never a predicted slot."""
+        """The visual's conclusion in the dialogue (Keith 2026-11-19): the two most likely adjacent slots of the returned first and of the first that was
+        sent, and the top slot's small chance. Estimates from the simulation, never a predicted slot."""
         rows, sim = self.pick_rows(tr)
         teams = (sim or {}).get("teams") or {}
         if not rows or not all((teams.get(r["fid"]) or {}).get("slot") for r in rows):
             return []
+        cf = next((r["to"] for r in rows if r["to"] == r["fid"]), None)
+        back = sorted([r for r in rows if r["to"] == r["fid"]], key=lambda r: r["round"])
+        sent = sorted([r for r in rows if r["from"] == cf and r["fid"] != cf], key=lambda r: r["round"])
+        if not cf or not back or not sent or back[0]["round"] != sent[0]["round"]:
+            return []
         runs = sim.get("runs")
         src = "season_sim --through-week %s, %s runs, generated %s UTC (draft slots from each simulated postseason bracket finish, canon A1)" % (sim.get("throughWeek"), runs, sim.get("generatedAtUtc"))
         runs_c = self.L.put("tk:runs", runs, src, "{:,}".format(runs))
-        sents, ret = [], []
-        for fid in sorted({r["fid"] for r in rows}, key=lambda f: min(r["round"] for r in rows if r["fid"] == f)):
+        day = datetime.strptime(sim["generatedAtUtc"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc).astimezone(I.ET).strftime("%B %-d")
+
+        def top2(fid, rnd):
             share = teams[fid]["slot"]
-            hawk = sum(share[:6])
-            rs = sorted([r for r in rows if r["fid"] == fid], key=lambda r: r["round"])
-            rounds = [r["round"] for r in rs]
-            rd = " and ".join(self.ORDW.get(x, str(x)) for x in rounds)
-            nm = ("%s&rsquo;s 2027 %s-round pick%s" % (e(self.owner[fid]), rd, "s" if len(rs) > 1 else ""))
-            if abs(hawk - 1) < 1e-9:
-                ret.append("%s %s on the Hawk Tuah side (%s) in all %s runs" % (nm, "are" if len(rs) > 1 else "is", self.ranges(rounds, 1, 6), runs_c))
-            elif abs(hawk) < 1e-9:
-                ret.append("%s %s on the championship side (%s) in all %s runs" % (nm, "are" if len(rs) > 1 else "is", self.ranges(rounds, 7, 12), runs_c))
-            else:
-                d = SIM.display_percentages({"h": hawk, "c": 1 - hawk}, 1)
-                hs = self.L.put("tk:side:%s:h" % fid, float(d["h"]), src, d["h"])
-                cs = self.L.put("tk:side:%s:c" % fid, float(d["c"]), src, d["c"])
-                sents.append("%s lands on the championship side in %s%% of runs and on the Hawk Tuah side in %s%%" % (nm, cs, hs))
-        out = ["The picks are ranges, not slots. In the simulation, %s." % jn(ret + sents)]
-        cf = next((r["to"] for r in rows if r["to"] == r["fid"]), None)
-        if cf:
-            share = teams[cf]["slot"]
-            d = SIM.display_percentages({str(i + 1): share[i] for i in range(12)}, 1)
-            title = self.L.put("tk:slot:%s:1" % cf, float(d["1"]), src, d["1"])
-            out.append("A poor regular season does not hand %s the first slot: the Hawk Tuah winner earns it, and this run gives him a %s%% chance at that title." % (self.sn(cf), title))
-        return [("Rich", " ".join(out))]
+            disp = SIM.display_percentages({str(i + 1): share[i] for i in range(12)}, 1)
+            idx = sorted(sorted(range(12), key=lambda i: -share[i])[:2])
+            vals = [self.L.put("tk:slot:%s:%d" % (fid, i + 1), float(disp[str(i + 1)]), src, disp[str(i + 1)]) for i in idx]
+            tot = round(float(disp[str(idx[0] + 1)]) + float(disp[str(idx[1] + 1)]), 1)
+            tot_c = self.L.put("tk:slotsum:%s:%d:%d" % (fid, idx[0] + 1, idx[1] + 1), tot, src, "%.1f" % tot)
+            return [self.lab(rnd, i + 1) for i in idx], vals, tot_c, idx
+        rl, rv, rt, ridx = top2(back[0]["fid"], back[0]["round"])
+        sl, sv, st_, sidx = top2(sent[0]["fid"], sent[0]["round"])
+        first = self.ORDW.get(back[0]["round"], str(back[0]["round"]))
+        own1 = self.L.put("tk:slot:%s:1" % cf, float(SIM.display_percentages({str(i + 1): teams[cf]["slot"][i] for i in range(12)}, 1)["1"]), src,
+                          SIM.display_percentages({str(i + 1): teams[cf]["slot"][i] for i in range(12)}, 1)["1"])
+        text = ("In the draft&rsquo;s %s simulation of %s seasons, %s&rsquo;s returned %s-round pick lands at %s in %s%% of runs and %s in %s%%, %s%% combined." % (
+            day, runs_c, self.sn(cf), first, rl[0], rv[0], rl[1], rv[1], rt))
+        if len(back) > 1:
+            text += " His returned %s-round pick follows the same positions, %s or %s." % (self.ORDW.get(back[1]["round"], str(back[1]["round"])), self.lab(back[1]["round"], ridx[0] + 1), self.lab(back[1]["round"], ridx[1] + 1))
+        text += (" The %s %s-round pick that %s sent to %s lands at %s in %s%% and %s in %s%%, %s%% combined. %s&rsquo;s own first reaches %s in only %s%%. "
+                 "That supports his case that he improved his first, and it is a gentle reminder to anyone getting excited about a top pick. These are estimates; they get rechecked if the forecast cutoff changes." % (
+                     e(self.owner[sent[0]["fid"]]), first, self.sn(cf), self.sn(sent[0]["to"]), sl[0], sv[0], sl[1], sv[1], st_, self.sn(cf), self.lab(back[0]["round"], 1), own1))
+        return [("Rich", text)]
 
     # ------------------------------------------------------------------------------------------- Cross vs. Josh Martel
     def seg_qb_bet(self):
@@ -441,51 +423,53 @@ class TrackerSegments:
         if "trackers" not in self.ctx:
             return ""
         T = self.tk_data()
-        reg = T.get("regWeeks")
+        reg, weeks = T.get("regWeeks"), T.get("allWeeks")
         st = self.ctx["mfl"]["standings"]
-        if not reg:
+        if not reg or not weeks:
             return self.section("hall", "Hall of Shame watch", 0, "Hall of Shame watch", self.tk_missing("tracker:hall", "hall", "The Hall of Shame watch"))
         through = int(T.get("through") or self.week)
-        ap = {f: m["allplay"] for f, m in st.items()}
-        rows = TK.hall_rows(ap, len(st), reg, through)
-        src = "MFL leagueStandings (all_play_wlt) + league settings (lastRegularSeasonWeek %s)" % reg
+        try:
+            ap = TK.hall_allplay({f: m["allplay"] for f, m in st.items()}, len(st), reg, through, T.get("playoffScores"))
+        except ValueError as exc:
+            return self.section("hall", "Hall of Shame watch", 0, "Hall of Shame watch", self.gap("tracker:hall", "hall", "The Hall of Shame watch could not be counted (%s)." % TK.plain(exc)))
+        rows = TK.hall_rows(ap, len(st), weeks, through)
+        src = "MFL leagueStandings (all_play_wlt; playoff weeks from weeklyResults team scores if MFL stops counting them) + league settings (endWeek)"
         watch = sorted([f for f, r in rows.items() if r["pct"] < 0.300], key=lambda f: (rows[f]["pct"], f))
         if not watch:
             return ""
-        g = rows[watch[0]]["games"]
-        games_c = self.L.put("tk:hos:games", g, src, str(g))
-        safe_c = self.L.put("tk:hos:safe", rows[watch[0]]["safe"], src, "%d" % rows[watch[0]]["safe"] if rows[watch[0]]["safe"] == int(rows[watch[0]]["safe"]) else "%.1f" % rows[watch[0]]["safe"])
-        left_c = self.L.put("tk:hos:left", rows[watch[0]]["left"], src, str(rows[watch[0]]["left"]))
-        pct_c = self.L.put("tk:hos:safepct", round(rows[watch[0]]["safe"] / g, 3), src, ".%03d" % round(rows[watch[0]]["safe"] / g * 1000))
+        r0 = rows[watch[0]]
+        games_c = self.L.put("tk:hos:games", r0["games"], src, str(r0["games"]))
+        safe_c = self.L.put("tk:hos:safe", r0["safe"], src, str(r0["safe"]))
+        left_c = self.L.put("tk:hos:left", r0["left"], src, str(r0["left"]))
+        weeks_c = self.L.put("tk:hos:weeks", weeks, src, str(weeks))
         line_c = self.L.put("tk:hos:line", TK.HALL_LINE, src, ".200")
-        lines = [("Stuart", "The Hall of Shame takes any team whose final regular-season All-Play percentage is below %s. With twelve teams and %s regular-season weeks, each team has %s comparisons, so %s wins is the least a team can finish with and stay out (%s). "
-                  "After Week %d, %s comparisons remain for each team." % (line_c, self.word(reg) if reg <= 12 else reg, games_c, safe_c, pct_c, through, left_c)),
-                 ("Rich", "This is All-Play arithmetic, not playoff odds. A tie counts as half a win. The list updates after each completed week from MFL&rsquo;s official standings, so an Elias change that moves a score moves it too; a team is inducted only when the regular season ends below the line.")]
+        lines = [("Stuart", "The Hall of Shame takes any team whose final All-Play percentage, counted through all %s weeks and playoffs included, is below %s. With twelve teams, each team has %s comparisons, so %s wins is the fewest that stays at or above %s with no ties. "
+                  "After Week %d, %s comparisons remain for each team." % (weeks_c, line_c, games_c, safe_c, line_c, through, left_c)),
+                 ("Rich", "This is All-Play arithmetic, not playoff odds. A tie counts as half a win. The list updates after each completed week from MFL&rsquo;s official standings, so an Elias change that moves a score moves it too; a team is inducted only when Week %d ends below the line." % weeks)]
         scale = max([rows[f]["w"] + rows[f]["left"] for f in watch] + [rows[watch[0]]["safe"]])
         bars = []
         for f in watch:
             r = rows[f]
             w_c = self.L.put("tk:hos:%s:w" % f, r["w"], src, str(r["w"]))
             if r["status"] == "safe":
-                state, note = "safe", "Already safe"
-                need = ""
+                state, note, need = "safe", "Safe", ""
             else:
-                n_c = self.L.put("tk:hos:%s:need" % f, r["need"], src, "%d" % r["need"] if r["need"] == int(r["need"]) else "%.1f" % r["need"])
+                n_c = self.L.put("tk:hos:%s:need" % f, r["need"], src, str(r["need"]))
                 state = r["status"]
                 note = {"candidate": "Candidate", "locked": "Cannot escape", "inducted": "Inducted"}[r["status"]]
                 need = "needs %s more in the next %s comparisons" % (n_c, left_c)
+            rec = self.L.put("tk:hos:%s:rec" % f, "%d-%d-%d" % (r["w"], r["l"], r["t"]), src, "%d-%d-%d" % (r["w"], r["l"], r["t"]))
             wp = 100.0 * r["w"] / scale
             needp = 100.0 * min(r["need"], r["left"]) / scale
             leftp = 100.0 * max(0, r["left"] - r["need"]) / scale
             linep = 100.0 * r["safe"] / scale
             bars.append('<div class="hos-row hos-%s"><div class="hos-head"><span class="hos-name">%s</span><span class="hos-state">%s</span></div>'
-                        '<div class="hos-track" role="img" aria-label="%s has %d All-Play wins of the %d needed to stay out of the Hall of Shame; %d comparisons remain">'
+                        '<div class="hos-track" role="img" aria-label="%s has %d All-Play wins; %d are needed to stay out of the Hall of Shame and %d comparisons remain">'
                         '<span class="hos-w" style="width:%.2f%%"></span><span class="hos-need" style="left:%.2f%%;width:%.2f%%"></span><span class="hos-left" style="left:%.2f%%;width:%.2f%%"></span>'
                         '<span class="hos-line" style="left:%.2f%%"></span></div>'
-                        '<div class="hos-nums"><span>%s wins</span><span>%s</span><span>%s</span></div></div>' % (
-                            state, e(self.owner[f]), note, e(self.owner[f]), r["w"], int(r["safe"]), r["left"], wp, wp, needp, wp + needp, leftp, linep,
-                            w_c, need or "no more wins needed", ("record %s" % self.L.put("tk:hos:%s:rec" % f, "%d-%d-%d" % (r["w"], r["l"], r["t"]), src, "%d-%d-%d" % (r["w"], r["l"], r["t"]))))
-                        )
+                        '<div class="hos-nums"><span>%s wins</span><span>%s</span><span>record %s</span></div></div>' % (
+                            state, e(self.owner[f]), note, e(self.owner[f]), r["w"], r["safe"], r["left"], wp, wp, needp, wp + needp, leftp, linep,
+                            w_c, need or "no more wins needed", rec))
         legend = ('<p class="caption">Bar = current All-Play wins (solid), wins still needed to reach the safe line (striped), then the remaining comparisons; the vertical line is the safe line. '
-                  'Teams below .300 All-Play are listed. Candidate = can still finish below the line; inducted = the regular season ended below it. Source: MFL standings and league settings.</p>')
+                  'Teams below .300 All-Play are listed. Candidate = can still finish below the line; inducted = the season ended below it. Source: MFL standings and league settings; any playoff week MFL does not count is counted from that week&rsquo;s official team scores.</p>')
         return self.section("hall", "Hall of Shame watch", 0, "Hall of Shame watch", self.desk(lines) + '<div class="hos">%s</div>' % "".join(bars) + legend)
