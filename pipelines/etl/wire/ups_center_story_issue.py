@@ -292,6 +292,7 @@ class StoryIssue(I.Issue):
                                                  join("%s by %s" % (e(self.owner[o]), self.margin(f, o)) for o in won))
         lines = [("Stuart", "%s scored %s in Week %d%s.%s %s is %s overall and %s in All-Play." % (
             e(me), self.score(f), self.week, note, sweep, e(me), self.rec_c(f), self.ap_c(f)))]
+        lines[1:1] = self.kenny_pace_lines(f)                     # the chat's reaction sits right after the lead's score and games
         P = SD.pool(arc, self.week)
         ahead_rows = sorted([x for x in P if (x["pct"] > mypct + 1e-12 if best else x["pct"] < mypct - 1e-12)],
                             key=lambda x: (-x["pct"] if best else x["pct"], x["season"]))
@@ -698,6 +699,22 @@ class StoryIssue(I.Issue):
         lines.append(("Rich", "The players %s sent carry %s in salary, and the players %s sent carry %s. Only %s of the %s trades in league history since 2010 moved %s assets or more." % (
             sa, sal_a, sb, sal_b, self.L.put("trade:rk", d["rank"], "league archive transactions_trades (2010&ndash;2025 trade groups)"),
             self.L.put("trade:rn", d["pool"], "league archive transactions_trades (2010&ndash;2025 trade groups)", "{:,}".format(d["pool"])), self.word(n) if n <= 12 else n)))
+        # 3b. a party to the trade makes the case in the chat: the quote is carried by the facts about the player that left that roster
+        ids = self.slot_ids("trade", "seller")
+        if ids:
+            m_ = next(x for x in self.ctx["d1"]["chat"] if x["message_id"] == ids[0])
+            mf_ = self.fid.get(m_["owner_name"])
+            outs_ = [x for x in ((tr["a_gave"] if mf_ == a else tr["b_gave"] if mf_ == b else []) or []) if x["kind"] == "player"]
+            key_ = max(outs_, key=lambda x: x.get("salary") or 0) if outs_ else None
+            if key_:
+                w_, q, m_ = self.kq(ids[0])
+                st_ = (tc.get("players") or {}).get(key_["id"]) or {}
+                sal_ = self.L.put("trade:asset:" + key_["id"], key_["salary"], src, "${:,.0f}".format(key_["salary"]))
+                yrs_ = (", %s year%s left" % (self.L.put("trade:yrs:" + key_["id"], int(key_["years"]), src, str(key_["years"])), "" if int(key_["years"]) == 1 else "s")) if key_.get("years") else ""
+                srt_ = (", and a starter in %s of %s weeks for %s" % (self.L.put("trade:started:" + key_["id"], st_["started"], src, str(st_["started"])),
+                                                                      self.L.put("trade:onroster:" + key_["id"], st_["onRoster"], src, str(st_["onRoster"])), self.sn(mf_))) if st_ else ""
+                lines.append(("Kenny", "%s made the case in the chat %s: %s The player at the center of it was %s: %s%s%s." % (
+                    e(m_["owner_name"]), w_, q, e(key_["name"]), sal_, yrs_, srt_)))
         # 4. the league's reaction: the bot, and the Cousins question
         ids = self.slot_ids("trade", "bot")
         if ids:
@@ -1085,7 +1102,7 @@ class StoryIssue(I.Issue):
     # ------------------------------------------------------------ Kenny: committed picks (message ids), woven into chapters
     def kenny_picks(self):
         """The editor's picks grouped by the story they belong to: {target: {owner: [(pick, message)]}}. A pick says which story it reacts to
-        (`story`: "record" = the scoring-record Big Story, "trade" = the trade story) and may name the players it is about (`about`: MFL player
+        (`story`: "record" = the scoring-record Big Story, "pace" = the all-time-start (pace) Big Story, "trade" = the trade story) and may name the players it is about (`about`: MFL player
         ids that are in the trade). A pick with no story, or whose story is not in this issue, is DROPPED (never parked in a chapter) and reported
         in self.kenny_dropped."""
         if not hasattr(self, "_kp"):
@@ -1100,7 +1117,7 @@ class StoryIssue(I.Issue):
                 txt = " ".join((m["content"] or "").split())
                 if chat_exclusions.reason(m["message_id"], txt, chat_exclusions.excluded_ids()):
                     raise ValueError("Kenny pick %s may not be used: %s" % (p["id"], chat_exclusions.reason(m["message_id"], txt)))
-                if p.get("story") in ("record", "trade"):
+                if p.get("story") in ("record", "trade", "pace"):
                     groups.setdefault(p["story"], {}).setdefault(m["owner_name"], []).append((p, m))
                 else:
                     self.kenny_dropped.append((str(p["id"]), "no story given: it is not attached to a fact"))
@@ -1119,6 +1136,23 @@ class StoryIssue(I.Issue):
         if first:
             return "%s, %s: %s" % (d.strftime("%A"), clock, q), d.date()
         return ("Then, at %s: %s" % (clock, q) if d.date() == prev else "Then, %s, %s: %s" % (d.strftime("%A"), clock, q)), d.date()
+
+    def kenny_pace_lines(self, f):
+        """Kenny's lines for the all-time-start (pace) Big Story: the picked chat lines of an owner who played the lead team and lost, carried by the
+        game's own facts (the owner's score and the lead's margin). A pick from an owner who did not lose to the lead is not used (it is dropped and
+        reported). [("Kenny", html)]."""
+        out = []
+        sc = self.ctx["mfl"]["scores"]
+        for owner, items in (self.kenny_picks().get("pace") or {}).items():
+            of = self.fid.get(owner)
+            if not of or of == f or not any({g["a"], g["b"]} == {f, of} for g in self.ctx["mfl"]["games"]) or sc[f] <= sc[of]:
+                continue
+            parts = [self.kq(str(p["id"])) for p, _ in items]
+            day0 = parts[0][0].split(" at ")[0]
+            rest = "".join(", and then %s: %s" % (("at " + w_.split(" at ", 1)[1]) if w_.split(" at ")[0] == day0 else w_, q) for w_, q, _ in parts[1:])
+            out.append(("Kenny", "%s put it in the chat %s: %s%s. %s scored %s that week and lost to %s by %s." % (
+                e(owner), parts[0][0], parts[0][1], rest, e(owner), self.score(of), e(self.owner[f]), self.margin(f, of))))
+        return out
 
     def kenny_lines(self, target, ranks=None):
         """Kenny's lines for the scoring-record story: the quotes sit INSIDE sentences that carry the fact they react to. [("Kenny", html)]."""

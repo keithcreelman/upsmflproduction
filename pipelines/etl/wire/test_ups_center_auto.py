@@ -1297,5 +1297,39 @@ check("the bottom-of-the-table Survival Line never prints a bare percentage as a
       not re.search(r", and (?:<)?[\d.]+%\.", t8_) and ("Both are at" in t8_ or "Their odds are" in t8_), re.findall(r"At the bottom.{0,260}", t8_)[:1])
 check("the trade footnote no longer claims the trade came after the build began (true only some weeks)", "executed after this issue" not in VAL.visible_text(rtd["html"]), VAL.visible_text(rtd["html"])[-300:])
 
+print("S15. Week 10 Kenny: a pace pick sits in the lead's story, carried by the owner's score and the lead's margin; a seller pick sits in the trade story, carried by the player who left (Keith 11-18)")
+def week10_kenny(c):
+    with_bb(c)
+    kenny_ctx([])(c)                                          # tradeContext with the synthetic trade; no picks yet
+    c["tradeInfo"] = [copy.deepcopy(SYN)]
+    c["tradeInfo"][0]["b_gave"].append({"kind": "bb", "amount": 18000.0})
+    c["mfl"]["trades"] = [dict(RAW_SYN, franchise2_gave_up="16161,BB_18000")]
+    c["tradeContext"]["players"]["17501"] = {"fid": "0008", "onRoster": 8, "started": 5}
+    ch = c["d1"]["chat"]
+    lead_owner = CTX8["ledger_owner"] if "ledger_owner" in CTX8 else None
+    opp = next(g for g in c["mfl"]["games"] if "0009" in (g["a"], g["b"]))
+    of_ = opp["b"] if opp["a"] == "0009" else opp["a"]
+    owner_of = c["d1"]["franchises"][of_]["owner_name"]
+    ch[0].update(owner_name=owner_of, content="Check your rearview mirror.")
+    ch[1].update(owner_name=owner_of, content="You would need a longer mirror.", posted_at_unix=ch[0]["posted_at_unix"] + 60)
+    ch[2].update(owner_name=c["d1"]["franchises"]["0011"]["owner_name"], content="I could not let him be lost with nothing.")
+    c["kennyPicks"] = {"picks": [{"id": ch[0]["message_id"], "story": "pace"}, {"id": ch[1]["message_id"], "story": "pace"},
+                                 {"id": ch[2]["message_id"], "story": "trade", "slot": "seller"}]}
+r10, v10, c10 = build8(week10_kenny, local=False)
+h10 = r10["html"]; t10 = VAL.visible_text(h10)
+big10 = h10.split('id="bigstory"')[1].split('id="divweek"')[0]
+check("the pace pick prints both verbatim lines in the Big Story, right after the lead's score paragraph, with the owner's score and the lead's margin, and the draft validates",
+      "Check your rearview mirror." in big10 and "You would need a longer mirror." in big10 and "lost to Bear Dunn by" in t10 and v10["ok"], (v10["errors"][:3], r10.get("kennyDropped")))
+check("the second line is introduced by its clock time ('and then at 8:...'), not a repeated day when both are the same day",
+      re.search(r", and then at \d+:\d\d [AP]M: ", t10) is not None, re.findall(r"put it in the chat.{0,260}", t10)[:1])
+check("the seller pick sits in the trade story with the facts about the player who left that roster (salary, years left, starts), and is not parked in a chapter",
+      "made the case in the chat" in t10 and "The player at the center of it was" in t10 and "I could not let him be lost with nothing." in big10 and not r10["kennyDropped"], (r10.get("kennyDropped"), re.findall(r"made the case.{0,300}", t10)[:1]))
+def lead_owner_pick(c):
+    week10_kenny(c)
+    c["d1"]["chat"][0]["owner_name"] = c["d1"]["franchises"]["0009"]["owner_name"]      # the lead's own line: not an owner who played and lost to the lead
+r10b, v10b, c10b = build8(lead_owner_pick, local=False)
+check("a pace pick from the lead team itself (not an owner who played and lost to the lead) is dropped and reported, never parked in a chapter, and the page still validates",
+      [i_ for i_, _ in r10b["kennyDropped"]] == [c10b["d1"]["chat"][0]["message_id"]] and v10b["ok"] and "Check your rearview mirror." not in VAL.visible_text(r10b["html"]), (r10b.get("kennyDropped"), v10b["errors"][:2]))
+
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)
