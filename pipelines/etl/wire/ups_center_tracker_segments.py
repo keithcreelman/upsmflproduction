@@ -472,4 +472,32 @@ class TrackerSegments:
                             w_c, need or "no more wins needed", rec))
         legend = ('<p class="caption">Bar = current All-Play wins (solid), wins still needed to reach the safe line (striped), then the remaining comparisons; the vertical line is the safe line. '
                   'Teams below .300 All-Play are listed. Candidate = can still finish below the line; inducted = the season ended below it. Source: MFL standings and league settings; any playoff week MFL does not count is counted from that week&rsquo;s official team scores.</p>')
-        return self.section("hall", "Hall of Shame watch", 0, "Hall of Shame watch", self.desk(lines) + '<div class="hos">%s</div>' % "".join(bars) + legend)
+        return self.section("hall", "Hall of Shame watch", 0, "Hall of Shame watch", self.desk(lines) + '<div class="hos">%s</div>' % "".join(bars) + legend + self.hall_history_block(T))
+
+    def hall_history_block(self, T):
+        raw = T.get("hallHistory")
+        if raw is None:
+            return self.gap("tracker:hallhist", "hall", "The previous Hall of Shame seasons could not be read from src_standings.allplay_historical_*.")
+        hist = TK.hall_history(raw)
+        if not hist:
+            return ""
+        src = "D1 src_standings.allplay_historical_* (league-canonical: regular season through 2016, full season from 2017) + src_franchises"
+        body = []
+        for h in hist:
+            rec = self.L.put("tk:hh:%d:%s:rec" % (h["season"], h["owner"]), "%d-%d-%d" % (h["w"], h["l"], h["t"]), src, "%d&ndash;%d" % (h["w"], h["l"]) if not h["t"] else "%d&ndash;%d&ndash;%d" % (h["w"], h["l"], h["t"]))
+            pct = self.L.put("tk:hh:%d:%s:pct" % (h["season"], h["owner"]), h["pct"], src, ".%03d" % round(h["pct"] * 1000))
+            wk = self.L.put("tk:hh:%d:%s:weeks" % (h["season"], h["owner"]), h["weeks"], src, str(h["weeks"]))
+            body.append(self.row([str(h["season"]), e(h["owner"]), rec, pct, wk]))
+        tbl = self.table(["Season", "Owner", "All-Play", "Percentage", "Weeks counted"], body)
+        owners = {}
+        for h in hist:
+            owners[h["owner"]] = owners.get(h["owner"], 0) + 1
+        twice = [o for o, n in owners.items() if n == 2]
+        low = min(hist, key=lambda h: h["pct"])
+        bits = []
+        if twice:
+            bits.append("%s appears twice" % jn(e(o) for o in twice))
+        bits.append("%s&rsquo;s %s in %d is the lowest of these %s" % (e(low["owner"]), self.L.put("tk:hh:%d:%s:pct" % (low["season"], low["owner"]), low["pct"], src, ".%03d" % round(low["pct"] * 1000)), low["season"], self.word(len(hist))))
+        cap = ('<p class="caption">Previous seasons below .200, from the league&rsquo;s canonical All-Play record: the regular season through 2016 and the full season from 2017, so each season counts the weeks the league actually counted. '
+               'Weeks counted = comparisons divided by eleven. Source: src_standings.allplay_historical_*.</p>')
+        return '<h3 class="hos-sub">Previous Hall of Shame seasons</h3>' + self.desk([("Stuart", "%s." % "; ".join(bits))]) + tbl + cap

@@ -1607,7 +1607,7 @@ class StoryIssue(TSEG.TrackerSegments, I.Issue):
 
     # ------------------------------------------------------------ assembly
     def segments(self):
-        segs = [self.seg_big(), self.seg_div(), self.seg_elias_story(), self.seg_odds(), self.seg_qb_bet(), self.seg_hall(), self.seg_story_plays(), self.seg_story_season()]
+        segs = [self.seg_big(), self.seg_div(), self.seg_elias_story(), self.seg_odds(), self.seg_story_plays(), self.seg_story_season(), self.seg_qb_bet(), self.seg_hall()]
         segs = [x for x in segs if x]
         n = [0]
 

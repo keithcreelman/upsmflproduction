@@ -343,7 +343,11 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
             ctx["trackers"] = TK.gather(season, week, _get, MFL, trade_details, ctx.get("tradeInfo"), all_trades,
                                         photo=D.player_photo, notes=TK.load_notes(data_dir, int(season)))
         except Exception as exc:                          # noqa: BLE001  (no tracker is printed that cannot be proven)
-            ctx["trackers"] = {"errors": ["trackers unreadable: %s" % exc]}
+            ctx["trackers"] = {"errors": ["trackers unreadable: %s" % TK.plain(exc)]}
+        try:                                              # earlier sub-.200 All-Play seasons, from the league-canonical historical record
+            ctx["trackers"]["hallHistory"] = TK.hall_history_rows(D.d1, int(season))
+        except Exception as exc:                          # noqa: BLE001
+            ctx["trackers"].setdefault("errors", []).append("Hall of Shame history unreadable: %s" % TK.plain(exc))
 
     # ---- D1: the league's own copies (must agree with MFL) and the evidence tables
     ctx["d1"]["teamScores"] = {r["franchise_id"]: float(r["score"]) for r in D.d1(

@@ -112,6 +112,27 @@ def hall_rows(allplay, teams, weeks, through):
     return out
 
 
+def hall_history_rows(d1, season):
+    """Every earlier season in which a team's league-canonical All-Play record (src_standings.allplay_historical_*: regular season through 2016,
+    full season from 2017, the 2010 record corrected from MFL's own page) finished below .200. Raw rows; hall_history() derives the rest."""
+    return d1("SELECT s.season, s.franchise_id, f.owner_name AS owner, s.allplay_historical_w AS w, s.allplay_historical_l AS l, "
+              "COALESCE(s.allplay_historical_t, 0) AS t, (SELECT COUNT(*) FROM src_standings x WHERE x.season = s.season) AS teams "
+              "FROM src_standings s JOIN src_franchises f ON f.season = s.season AND f.franchise_id = s.franchise_id "
+              "WHERE s.season < %d AND s.allplay_historical_w IS NOT NULL AND (s.allplay_historical_w + 0.5 * COALESCE(s.allplay_historical_t, 0)) * 1.0 / "
+              "(s.allplay_historical_w + s.allplay_historical_l + COALESCE(s.allplay_historical_t, 0)) < %s ORDER BY s.season, s.franchise_id" % (int(season), HALL_LINE))
+
+
+def hall_history(rows):
+    """[{season, owner, record, pct, weeks}] for the raw rows: pct counts a tie as half; weeks = comparisons / (teams - 1), the weeks that season's
+    record actually covers (never a fixed denominator)."""
+    out = []
+    for r in rows:
+        w, l, t, teams = int(r["w"]), int(r["l"]), int(r.get("t") or 0), int(r["teams"])
+        n = w + l + t
+        out.append({"season": int(r["season"]), "owner": r["owner"], "w": w, "l": l, "t": t, "pct": round((w + t / 2.0) / n, 3), "weeks": n // (teams - 1), "exact": n % (teams - 1) == 0})
+    return out
+
+
 def cap_effect(sent_salary, sent_cap_space, got_salary, ir_got=False):
     """Change in the sender's cap charge (negative = room freed): the salary that left, plus the cap space it sent, plus the salary that came
     back (at half while on injured reserve, league setting includeIRWithSalary = 50)."""

@@ -821,3 +821,5 @@ th.wire-sortable[aria-sort="descending"]::after { content: " \2193"; opacity: .9
 .uc .hos-line{width:2px;background:var(--ink);z-index:2}
 .uc .hos-nums{display:flex;justify-content:space-between;gap:.5rem;flex-wrap:wrap;font-family:var(--mono);font-size:.78rem;color:var(--ink-dim);font-variant-numeric:tabular-nums}
 @media (max-width:30rem){.uc .qb-vs{grid-template-columns:minmax(0,1fr)}.uc .qb-mid{justify-self:center}.uc .qb-fig{width:4rem}.uc .pk-c{min-height:1.8rem;font-size:.58rem}}
+
+.uc .hos-sub{font-family:var(--display);font-weight:700;font-size:.9rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-dim);margin:1.6rem 0 .6rem}

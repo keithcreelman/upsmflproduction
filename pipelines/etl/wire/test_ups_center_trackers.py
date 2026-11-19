@@ -67,6 +67,10 @@ try:
 except ValueError:
     check("standings that are neither complete nor the regular season are refused", True)
 
+print("2b. earlier Hall of Shame seasons use the league-canonical record, never a fixed denominator")
+hh = TK.hall_history([{"season": 2011, "owner": "A", "w": 19, "l": 124, "t": 0, "teams": 12}, {"season": 2018, "owner": "B", "w": 29, "l": 147, "t": 0, "teams": 12}, {"season": 2024, "owner": "C", "w": 20, "l": 167, "t": 0, "teams": 12}])
+check("pct 19-124 = .133 over 13 weeks, 29-147 = .165 over 16, 20-167 = .107 over 17", [(h["pct"], h["weeks"]) for h in hh] == [(0.133, 13), (0.165, 16), (0.107, 17)], hh)
+
 print("3. the cap argument")
 c = FX["cap"]
 check("Addison on the active roster: Cross frees only $2,000", -TK.cap_effect(c["lawrenceSalary"], c["capSpace"], c["addisonSalary"]) == 2000)

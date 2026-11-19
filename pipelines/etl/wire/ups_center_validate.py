@@ -521,6 +521,15 @@ def _tk_check(rest, v, shown, ctx, claims):
         return None if shown == disp and abs(float(disp) - float(v)) < 1e-9 else "page %r, recomputed %s" % (shown, disp)
     if k == "bet":
         return None if (((T.get("notes") or {}).get("bet") or {}).get("stake")) == v else "stake %r is not in the bet notes" % (v,)
+    if k == "hh":
+        rows = {(h["season"], h["owner"]): h for h in TK.hall_history(T.get("hallHistory") or [])}
+        h = rows.get((int(parts[1]), parts[2]))
+        if not h:
+            return "no sub-.200 season %s for %s in the historical record" % (parts[1], parts[2])
+        want = {"rec": "%d-%d-%d" % (h["w"], h["l"], h["t"]), "pct": h["pct"], "weeks": h["weeks"]}[parts[3]]
+        if h["pct"] >= TK.HALL_LINE or not h["exact"]:
+            return "that season is not a whole number of weeks below .200"
+        return None if str(v) == str(want) or (isinstance(want, (int, float)) and abs(float(v) - float(want)) < 1e-9) else "page %r, recomputed %r" % (v, want)
     if k == "hos":
         st = ctx["mfl"]["standings"]
         reg, weeks = T.get("regWeeks"), T.get("allWeeks")

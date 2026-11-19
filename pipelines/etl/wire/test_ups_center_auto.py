@@ -1339,7 +1339,7 @@ def with_trackers(c, through=8):
     gt = {str(w): sorted(t for t in FXQ["teams"].values() if w not in FXQ["byeWeeks"][t]) for w in range(1, through + 1)}
     pid_name = {"14783": ("Hurts, Jalen", "PHI"), "15237": ("Lawrence, Trevor", "JAC"), "16579": ("Williams, Caleb", "CHI"), "13593": ("Jackson, Lamar", "BAL")}
     c["trackers"] = {"through": through, "errors": [], "notes": NOTES_Q, "regWeeks": 14,
-                     "allWeeks": 17, "qb": {"sides": FXQ["sides"], "players": {p: {"name": n, "team": t, "pos": "QB"} for p, (n, t) in pid_name.items()},
+                     "allWeeks": 17, "hallHistory": [{"season": 2011, "owner": "Eric Mannila", "w": 19, "l": 124, "t": 0, "teams": 12}, {"season": 2014, "owner": "Chris Klingenberg", "w": 28, "l": 115, "t": 0, "teams": 12}, {"season": 2018, "owner": "Chris Klingenberg", "w": 29, "l": 147, "t": 0, "teams": 12}, {"season": 2024, "owner": "Josh Lima", "w": 20, "l": 167, "t": 0, "teams": 12}], "qb": {"sides": FXQ["sides"], "players": {p: {"name": n, "team": t, "pos": "QB"} for p, (n, t) in pid_name.items()},
                             "scores": FXQ["scores"], "gameTeams": gt, "moves": {p: [] for p in pid_name},
                             "photos": {p: {"url": "https://a.espncdn.com/combiner/i?img=/i/headshots/nfl/players/full/%s.png&w=350&h=254" % p, "fallbackUrl": "https://example.test/%s.jpg" % p} for p in pid_name}}}
     for f in c["d1"]["franchises"]:
@@ -1348,7 +1348,9 @@ def with_trackers(c, through=8):
 rq, vq, cq = build8(with_trackers, local=False)
 tq = VAL.visible_text(rq["html"])
 idq = re.findall(r'<section class="wire-sec" id="([^"]+)"', rq["html"])
-check("the QB bet and the Hall of Shame are their own segments, after the Playoff Picture", idq[:6] == ["bigstory", "divweek", "elias", "odds", "qbbet", "hall"][:len(idq[:6])] or ("qbbet" in idq and idq.index("qbbet") > idq.index("odds")), idq)
+check("The QB Bet then the Hall of Shame are the last two segments, after The Season So Far (Keith 2026-11-19)", idq[-3:] == ["season", "qbbet", "hall"], idq)
+check("the previous Hall of Shame seasons table lists 2011, 2014, 2018 and 2024 with percentage and weeks counted, and the story line names Klingenberg twice and Lima's .107 as the lowest",
+      all(x in tq for x in ("Previous Hall of Shame seasons", "19\u2013124", "28\u2013115", "29\u2013147", "20\u2013167", ".107", "Weeks counted")) and "Chris Klingenberg appears twice" in tq and "Josh Lima\u2019s .107 in 2024 is the lowest of these four" in tq, tq[tq.find("Previous Hall"):][:400])
 check("the draft with both trackers validates (every number a claim, re-derived from the raw scores and standings)", vq["ok"], vq["errors"][:4])
 check("four headshots, each with alt text naming the player and team, and an onerror fallback to MFL's photo", rq["html"].count('class="qb-head"') == 4 and 'alt="Jalen Hurts, PHI quarterback"' in rq["html"] and rq["html"].count("data-fallback=") == 4)
 check("the table carries Weeks 1-17: eight played (through Week 8) and nine pending", rq["html"].count('class="qb-pend"') == 9)
@@ -1365,6 +1367,9 @@ check("a wrong lead fails", any("tk:qb:lead" in e_ for e_ in VAL.validate(dict(r
 cl = copy.deepcopy(rq["claims"])
 hk = next((k for k in cl if k.startswith("tk:hos:") and k.endswith(":need")), None)
 check("a wrong 'wins still needed' fails (Hall of Shame)", hk is None or any(hk in e_ for e_ in VAL.validate(dict(rq, claims={**cl, hk: dict(cl[hk], value=cl[hk]["value"] + 3.0)}), cq, PACK8)["errors"]))
+cl = copy.deepcopy(rq["claims"])
+k_ = next(k for k in cl if k.startswith("tk:hh:2018:") and k.endswith(":pct"))
+check("a wrong historical All-Play percentage fails against the historical record", any(k_ in e_ for e_ in VAL.validate(dict(rq, claims={**cl, k_: dict(cl[k_], value=0.25)}), cq, PACK8)["errors"]))
 def trackers_down(c):
     with_trackers(c)
     c["trackers"] = {"errors": ["quarterback bet data unreadable: boom"], "notes": NOTES_Q, "through": 8}
