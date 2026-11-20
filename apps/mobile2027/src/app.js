@@ -63,7 +63,8 @@
   }
 
   // ---- loading ----
-  // While Sample mode is on the page makes no request at all: every read goes through these two guards.
+  // While Sample mode is on the page starts no new request: every read goes through these two guards (and Sample screens draw no image,
+  // so the browser fetches no photo). A read already out is not recalled; its answer is dropped by the generation check below.
   function loadCore() {
     if (S.sample.on) return Promise.resolve();
     var mine = ++gen;

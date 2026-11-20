@@ -172,9 +172,10 @@ test("popstate and Escape close the profile; a reload clears the calculation and
   t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 2, "the calculation is read again after a reload");
 });
 
-test("Sample mode: while it is on the page makes no request at all (not a read, not a retry, not a profile's calculation), and nothing about it is stored", async () => {
+test("Sample mode: while it is on the page starts no new request (not a read, not a retry, not a profile's calculation, not a photo), and nothing about it is stored", async () => {
   const a = boot(); await tick(30);
   const before = a.calls.length; t.ok(before >= 4, "the normal load made its reads");
+  t.match(a.html(), /<img[^>]*data-chain/, "the real Team screen draws headshots (so the no-image check below can fail)");
   await a.click({ "data-act": "about" }); t.match(a.html(), /Turn Sample mode on/);
   const loggedBefore = /<b>(\d+)<\/b> data requests/.exec(a.html())[1];
   await a.click({ "data-act": "sample" });
@@ -186,6 +187,9 @@ test("Sample mode: while it is on the page makes no request at all (not a read, 
   await a.click({ "data-act": "retry" }); await a.click({ "data-act": "retrypen" }); await tick(20);
   await a.click({ "data-act": "nav", "data-v": "market" }); await a.click({ "data-act": "nav", "data-v": "team" }); await tick(20);
   t.equal(a.calls.length, before, "zero requests were made while Sample mode was on");
+  // headshots are requests too (the browser fetches an <img> by itself): Sample mode never draws one, so none starts
+  await a.click({ "data-act": "about" }); t.doesNotMatch(a.html(), /<img\b|data-chain|espncdn|player_photos/, "no image is drawn in Sample mode (About)"); await a.click({ "data-act": "close" });
+  t.doesNotMatch(a.html(), /<img\b|data-chain|espncdn|player_photos/, "no image is drawn in Sample mode (screens)");
   await a.click({ "data-act": "about" }); t.match(a.html(), new RegExp("<b>" + loggedBefore + "</b> data requests"), "the loader was not even asked: its own log did not grow, so the page's two guards held without the fetch guard");
   await a.click({ "data-act": "close" });
   t.doesNotMatch(JSON.stringify(a.storage), /sample/i, "nothing about Sample mode is stored on the phone");
