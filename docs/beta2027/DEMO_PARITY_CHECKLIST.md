@@ -10,6 +10,8 @@ Keith (chat, 2026-11-20): the beta must match the approved demo **1:1 across the
 
 **Decision 2 (Keith, chat 2026-11-20): demo-only scope, recorded.** The pinned Player Profile Look demo (S1) is the source of truth for this parity work: the Home lineup card, Team (Roster, Contracts, Cap & picks), the player profile, Actions and Contracts. **Market and the other areas listed below stay later, separately scoped specs and are not added to this implementation by implication.** No implementation or deployment is authorized by this decision.
 
+**Decision 3 (Keith, chat 2026-11-20): the labeled "Helmet TBD" placeholder is approved, recorded.** The demo's dashed "Helmet TBD" circle on the profile photo is added as shown; **no helmet art is drawn or invented.** His earlier choice to leave the badge out is superseded by the direction to match the pinned demo 1:1. No implementation or deployment is authorized by this decision.
+
 ## 2. What "the demo" is (pinned versions)
 
 | Source | What it is | Version and hash | Role here |
@@ -41,7 +43,7 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | Not built | 63 |
 | Need a real write (`W`) | 22 |
 | Need new or unconfirmed read data (`D`) | 40 |
-| Need a decision (`X`) | 20 |
+| Need a decision (`X`) | 19 |
 | Need wording checked against canon (`C`) | 5 |
 
 **In plain words:** the beta today is the read-only roster, the contract details and the team-colored profile header. Everything that edits (lineup, moves, drop, extension, restructure, MYAC, MYM) is not built, and several things the demo *shows* have no live data source yet (section 6).
@@ -138,7 +140,7 @@ The demo's own title for it is "Team › Contracts" (approved for the design con
 | ID | Element | Demo does | Beta today | Status | What remains | Needs | Stage |
 |---|---|---|---|---|---|---|---|
 | F1 | Team-colored header | Hero in the player's NFL team colors: photo with ring, first/last name, team · position · type, status pills, stripe, label, small Close tag. | Built to within half a pixel of the demo at 320 and 375 px (commit `b9abb61`, awaiting Keith's review). | Built | Franchise name stays on the More tab. |  | - |
-| F2 | Helmet badge | A labeled dashed "Helmet TBD" circle on the photo (no helmet art exists). | Left out (earlier ruling: no helmet badge). | Not built | Keith's new ruling says every badge: add the same labeled placeholder, never a drawn helmet. Real helmet art stays unapproved. | X | S1 |
+| F2 | Helmet badge | A labeled dashed "Helmet TBD" circle on the photo (no helmet art exists). | Left out (earlier Preview 0 ruling). | Not built | **Approved (Decision 3):** add the same labeled placeholder exactly as the demo draws it; never draw or invent helmet art. Real helmet art stays unapproved. |  | S1 |
 | F3 | Actions button | Full-width "Actions · n available" (or "can't confirm") under the header. | None. | Not built | Button; opens the Actions sheet (F13). | D | S1 |
 | F4 | Tabs | Performance · Schedule · Contract · More. | Same four; Contract is built, the others are partial or placeholders. | Partial | Build the other three. |  | S1 |
 | F5 | Performance: season chips | Season chips (2026, 2025 …, ⚠ for incomplete history). | None. | Not built | Needs the history source. | D | S1 |
@@ -245,7 +247,7 @@ The worker holds one commissioner MFL session that works for **both** the live l
 
 1. ~~**Build targets.**~~ **Decided (A, 2026-11-20):** Preview draws the full Actions UI and review sheets with Submit disabled and no write code; real transactions only in the Test build (league 25625); each flow comes back to Keith for separate approval before it is enabled in the invited beta.
 2. ~~**Spec scope.**~~ **Decided (demo-only, 2026-11-20):** S1 is the source of truth (Home lineup card, Team, profile, Actions, Contracts). Market, Trades, Auction, Draft, League, Cap & picks pages, Commissioner and Desktop are later, separately scoped specs; none is added to this implementation by implication.
-3. **Helmet placeholder.** Add the labeled "Helmet TBD" circle as the demo shows (your 1:1 ruling), or keep it out (your Preview 0 ruling). Recommended: add the placeholder; no helmet art.
+3. ~~**Helmet placeholder.**~~ **Decided (2026-11-20):** add the demo's labeled dashed "Helmet TBD" circle as shown; no helmet art is drawn or invented. Supersedes the Preview 0 choice to leave it out.
 4. **Scaffolding.** Sample mode for the scenario toggles, Report a bug instead of Feedback, drop the navigation-compare sheet. Recommended.
 5. **Navigation.** Four tabs or five (the demo leaves it open).
 6. **Test clock** for windows that are closed until March (settable clock on the test environment only, recorded cases, or wait). Needed before S3d.
