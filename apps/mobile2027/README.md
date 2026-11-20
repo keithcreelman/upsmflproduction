@@ -17,9 +17,11 @@ Four public GET paths on the UPS worker, nothing else. `src/lib/data.js` refuses
 
 Photos load from ESPN, then MFL's own thumbnail, then a neutral placeholder (the order the current app uses).
 
+The profile header is colored by the player's NFL team, as in the approved "Player Profile Look" prototype: the team color is the ground (nudged only as far as needed for readable text: 4.5:1, or 7:1 in High contrast), the secondary color is the stripe and the photo ring, with the name, team, position, type and status pills on it. An unknown team or a free agent gets a neutral slate. The page forbids inline styles, so every team and skin is a rule in `src/team-colors.css`, written by `scripts/team_colors.mjs` (`node apps/mobile2027/scripts/team_colors.mjs`, or `--check`); a test fails if the file is not the generator's exact output. Colors are ESPN's public team data (read 2026-11-18). No logos, no helmet art.
+
 ## What is deliberately not here
 
-Any action; cap space; the Team › Contracts and Cap & picks tabs; injury status, projections, game log, schedule, news, bio; sign-in; the helmet badge and team colors (not approved). A missing fact reads "Not available" or "Not recorded", never `$0`.
+Any action; cap space; the Team › Contracts and Cap & picks tabs; injury status, projections, game log, schedule, news, bio; sign-in; the helmet badge (no verified helmet art exists, so none is drawn or implied). A missing fact reads "Not available" or "Not recorded", never `$0`.
 
 ## Choices that go beyond the approved prototypes (each is easy to change)
 
@@ -44,4 +46,4 @@ The deploy script's project (`ups-mobile-beta`) and branch (`preview`) are const
 
 ## Files
 
-`src/index.html` (content policy: the worker for data, ESPN and MFL for images, nothing else) · `src/lib/data.js` (the only network code) · `contract.js` · `model.js` · `views.js` · `photo.js` · `format.js` · `src/app.js` (taps and drawing) · `src/styles.css` · `scripts/build.mjs`, `scripts/deploy_preview.mjs` · tests in `tests/mobile2027_preview0.test.mjs` with a trimmed recording of the public routes in `tests/fixtures/mobile2027/`.
+`src/index.html` (content policy: the worker for data, ESPN and MFL for images, nothing else) · `src/lib/data.js` (the only network code) · `contract.js` · `model.js` · `views.js` · `photo.js` · `format.js` · `src/app.js` (taps and drawing) · `src/styles.css` · `src/team-colors.css` (generated) · `scripts/build.mjs`, `scripts/deploy_preview.mjs`, `scripts/team_colors.mjs` · tests in `tests/mobile2027_preview0.test.mjs` with a trimmed recording of the public routes in `tests/fixtures/mobile2027/`.

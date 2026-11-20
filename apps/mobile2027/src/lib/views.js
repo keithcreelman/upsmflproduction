@@ -260,18 +260,38 @@
       return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="Player profile" tabindex="-1"><div class="grab"></div><div class="top"><h3>Player not found</h3></div><div class="ex">This player is not on a roster in the data that loaded.</div><button class="btn blk" data-act="close">Close</button></div></div>';
     }
     var tab = S.profile.tab || "contract";
-    var chips = (p.status === "ir" ? chip("cr", "IR ") : p.status === "taxi" ? chip("", "Taxi ") : "") + (p.bye && p.bye === S.model.week ? chip("wn", "▲ Bye week") : "");
+    var pills = (p.status === "ir" ? pill("IR") : p.status === "taxi" ? pill("Taxi") : "") + (p.bye && p.bye === S.model.week ? pill("▲ Bye week") : "");
     var tabs = [["perf", "Performance"], ["sched", "Schedule"], ["contract", "Contract"], ["more", "More"]];
     var body = tab === "perf" ? performanceTab(p) : tab === "sched" ? scheduleTab() : tab === "more" ? moreTab(S, p) : contractTab(S, p);
-    var urls = require_photo(p);
-    return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="Player profile: ' + esc(p.name) + '" tabindex="-1">' +
-      '<div class="grab"></div><div class="top"><h3>' + esc(p.name) + '</h3><button class="btn" data-act="close">Close</button></div>' +
-      '<div class="phead"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(p.pos) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' +
-      '<div class="pinfo"><div class="mu sm">' + esc(p.pos) + " · " + esc(p.nflTeam || "No NFL team") + " · " + esc(p.type || "Type not recorded") + '</div><div class="mu sm">' + esc(p.franchiseName) + "</div><div class=\"mt3\">" + chips + "</div></div></div>" +
+    return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full phero" role="dialog" aria-modal="true" aria-label="Player profile: ' + esc(p.name) + '" tabindex="-1">' +
+      hero(p, pills) +
       '<div class="ptabs" role="tablist">' + tabs.map(function (t) { return '<button role="tab" data-act="ptab" data-v="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] + "</button>"; }).join("") + "</div>" +
       '<div class="pbody">' + body + "</div></div></div>";
   }
   function require_photo(p) { return P.chain(p.espnId, p.id); }
+
+  // The profile header, colored by the player's NFL team. The color is a CSS class (tm-XXX) answered by the generated
+  // team-colors.css, because the page's content policy forbids inline styles. An unknown, blank or free-agent code gets no class
+  // and so the neutral palette; the class is only ever 2 or 3 capital letters, so nothing from the data can leave the attribute.
+  function teamCls(code) {
+    var c = String(code == null ? "" : code).trim().toUpperCase();
+    return /^[A-Z]{2,3}$/.test(c) ? " tm-" + c : "";
+  }
+  function nameParts(n) {
+    var s = String(n == null ? "" : n).trim(), i = s.indexOf(" ");
+    return i < 0 ? ["", s] : [s.slice(0, i), s.slice(i + 1)];
+  }
+  function pill(text) { return '<span class="hp">' + esc(text) + "</span>"; }
+  function hero(p, pills) {
+    var np = nameParts(p.name), urls = require_photo(p);
+    return '<div class="hero' + teamCls(p.nflTeam) + '"><div class="grab"></div>' +
+      '<div class="top"><span class="hlb">Player profile</span><button class="btn" data-act="close">Close</button></div>' +
+      '<div class="hrow"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(p.pos) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' +
+      '<div class="htx"><h3 class="hnm">' + (np[0] ? '<span class="hfn">' + esc(np[0]) + "</span> " : "") + '<span class="hln">' + esc(np[1]) + "</span></h3>" +
+      '<div class="hsub"><b>' + esc(p.nflTeam || "No NFL team") + "</b><span>" + esc(p.pos) + "</span><span>" + esc(p.type || "Type not recorded") + "</span></div>" +
+      '<div class="hfr">' + esc(p.franchiseName) + "</div></div></div>" +
+      (pills ? '<div class="hpills">' + pills + "</div>" : "") + '<div class="hbar"></div></div>';
+  }
 
   // ---------- sheets ----------
   function teamSheet(S) {

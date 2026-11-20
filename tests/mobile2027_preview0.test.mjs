@@ -502,6 +502,62 @@ test("every skin, with and without the position colors, meets the contrast targe
   t.ok(checked > 100, "checked " + checked + " pairs");
 });
 
+// ───────────────────────── 7b. team-colored profile header ─────────────────────────
+test("the profile header is colored by the player's NFL team: every team and skin is readable, the stylesheet is exactly what the generator writes, and the headshot and contract details are unchanged", async () => {
+  const TC = await import(pathToFileURL(path.join(APP, "scripts/team_colors.mjs")).href);
+  const css = read("team-colors.css");
+  t.equal(css, TC.generate(), "team-colors.css is the generator's output, byte for byte (run apps/mobile2027/scripts/team_colors.mjs)");
+  t.doesNotMatch(css, /@import|url\(|https?:|<|expression\(/i, "the stylesheet loads nothing and holds no markup");
+  t.match(read("index.html"), /<link rel="stylesheet" href="team-colors\.css">/);
+  const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
+  t.ok(B.FILES.includes("team-colors.css"), "the build ships it");
+
+  // readable on every team in every skin (4.5:1; 7:1 in High contrast), plus the neutral palette for an unknown team
+  const codes = Object.keys(TC.TEAMC);
+  t.equal(codes.length, 32, "all 32 NFL teams");
+  let checked = 0;
+  for (const skin of TC.SKINS) for (const code of ["", ...codes]) {
+    const p = TC.heroPal(code, skin), need = skin === "hc" ? 7 : 4.5, tag = `${skin} ${code || "(no team)"}`;
+    [["t", "g1"], ["t", "g2"], ["m", "g1"], ["m", "g2"]].forEach(([a, b]) => { checked++; t.ok(TC.crat(p[a], p[b]) >= need, `${tag}: ${a} on ${b} is ${TC.crat(p[a], p[b]).toFixed(2)}:1, needs ${need}`); });
+    checked++; t.ok(TC.crat(p.pillt, p.pill) >= need, `${tag}: pill text on pill`);
+    checked++; t.ok(TC.crat(p.ring, p.g1) >= 3 || TC.crat(p.ring, p.g2) >= 3, `${tag}: the photo ring stands out from the ground`);
+    checked++; t.ok(TC.crat(p.t, p.av) >= 3, `${tag}: the position badge text on the photo ground`);
+  }
+  t.equal(checked, 3 * 33 * 7, "3 skins x (32 teams + the neutral palette) x 7 pairs");
+  // the stylesheet really has a rule for every team in every skin, and for the MFL spellings of the same teams
+  for (const skin of TC.SKINS) {
+    t.match(css, new RegExp(`:root\\[data-skin="${skin}"\\] \\.hero\\{--h1:`), skin + ": a neutral palette for an unknown team");
+    for (const code of codes) t.ok(css.includes(`:root[data-skin="${skin}"] .hero.tm-${code}`), `${skin} ${code} has a rule`);
+    Object.keys(TC.TMAP).forEach((mfl) => t.ok(css.includes(`:root[data-skin="${skin}"] .hero.tm-${mfl}`), `${skin} MFL code ${mfl} has a rule`));
+  }
+  // every real team code in the recorded data is covered; only free agents fall back to the neutral palette
+  const known = new Set(codes.concat(Object.keys(TC.TMAP)));
+  const dataCodes = [...new Set(allPlayers().map((p) => p.nfl_team))];
+  t.deepEqual(dataCodes.filter((c) => !known.has(c)).sort(), ["FA"], "the only code without a team color is FA (a free agent)");
+
+  // the header: team class, full name as the heading, the same headshot chain, the same contract details
+  const p = findPlayer((x) => /Smith-Njigba/.test(x.name));
+  const html = V.app(state({ profile: { pid: p.id, tab: "contract" } }));
+  const hero = html.match(/<div class="hero[^"]*">[\s\S]*?<div class="hbar"><\/div><\/div>/)[0];
+  t.match(hero, new RegExp(`class="hero tm-${p.nfl_team}"`), "the hero carries the player's team class");
+  t.equal(hero.match(/<h3 class="hnm">([\s\S]*?)<\/h3>/)[1].replace(/<[^>]+>/g, ""), "Jaxon Smith-Njigba", "the heading still reads the full name");
+  t.match(hero, /data-chain="\[&quot;https:\/\/a\.espncdn\.com\/i\/headshots\/nfl\/players\/full\/\d+\.png&quot;,&quot;https:\/\/www48\.myfantasyleague\.com\/player_photos_2014\/\d+_thumb\.jpg&quot;\]"/, "ESPN, then MFL");
+  t.match(hero, /class="avpos">WR</, "the position badge underneath the photo");
+  t.doesNotMatch(html, /helmet/i, "no helmet badge");
+  ["\\$14,588", "\\$37,912", "\\$55,000", "Salary 2026", "Years left", "Earned counts through Week 10", "Where these numbers come from"].forEach((s) => t.match(html, new RegExp(s)));
+  t.match(html, /data-act="close"/); t.equal((html.match(/data-act="close"/g) || []).length, 2, "the scrim and one Close button");
+  // a free agent, a blank team and hostile text never produce a color class that is not a team, and never leave the attribute
+  const mk = (nfl) => { const m = model(); const pl = m.byId[p.id]; pl.nflTeam = nfl; return V.app(state({ model: m, profile: { pid: p.id, tab: "contract" } })).match(/<div class="hero([^"]*)">/)[1]; };
+  t.equal(mk(""), "", "blank: neutral"); t.equal(mk(null), "", "missing: neutral");
+  t.equal(mk("FA"), " tm-FA", "FA gets a class that has no rule, so the neutral palette"); t.doesNotMatch(css, /tm-FA\b/);
+  t.equal(mk("kcc"), " tm-KCC", "lowercase is read as the same team");
+  ['BUF"><img src=x onerror=1>', "BUF BAL", "BÜF", "BUFFALO", "a'b", "<b>"].forEach((bad) => t.equal(mk(bad), "", "refused: " + bad));
+  const shown = V.app(state({ model: (() => { const m = model(); m.byId[p.id].nflTeam = 'BUF"><img src=x onerror=1>'; return m; })(), profile: { pid: p.id, tab: "contract" } }));
+  t.doesNotMatch(shown, /<img src=x/, "hostile team text is escaped where it is shown");
+  // team colors are drawn only for the profile; the roster rows are not recolored
+  t.doesNotMatch(V.app(state()), /class="hero/);
+});
+
 // ───────────────────────── 8. build and deploy guards ─────────────────────────
 const COMMIT = "a".repeat(40), OTHER = "b".repeat(40);
 const G = (commit = COMMIT, dirty = false) => () => ({ commit, dirty }); // a stand-in for the repository's state

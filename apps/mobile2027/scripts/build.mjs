@@ -18,7 +18,7 @@ export const ROOT = path.resolve(HERE, "..");
 export const SRC = path.join(ROOT, "src");
 
 export const FILES = [
-  "index.html", "styles.css", "config.js", "app.js", "_headers",
+  "index.html", "styles.css", "team-colors.css", "config.js", "app.js", "_headers",
   "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/photo.js", "lib/views.js",
 ];
 
