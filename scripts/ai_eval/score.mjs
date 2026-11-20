@@ -71,11 +71,32 @@ export function proseFields(card, opts = {}) {
 function resolveTokens(s, facts) {
   return str(s).replace(TOKEN_RE, (m, id) => (facts && facts[id] && facts[id].display != null ? String(facts[id].display) : m));
 }
-// Everything a reader sees: resolved prose, fact displays, code-attached tool gaps.
-export function visibleText(card) {
+// What the page RENDERS as answer text: the prose fields with each {{f.*}} token replaced by that fact's display string. The page draws a fact only where
+// answer text references it (site/commish/desk/desk_render.js turns {{f.*}} tokens in lead_md, blocks, and the other prose fields into fact chips), so a fact
+// that sits in facts_used or card.facts but is never referenced is NOT shown and never counts here.
+export function renderedText(card) {
   const facts = card.facts && typeof card.facts === "object" ? card.facts : {};
-  const parts = proseFields(card).map((p) => resolveTokens(p, facts));
-  for (const f of Object.values(facts)) if (f && f.display != null) parts.push(String(f.display));
+  return proseFields(card).map((p) => resolveTokens(p, facts)).join("\n");
+}
+// Fact ids that answer text references through a {{f.*}} token.
+export function referencedFactIds(card) {
+  const ids = new Set();
+  for (const p of proseFields(card)) for (const m of p.matchAll(TOKEN_RE)) ids.add(m[1]);
+  return ids;
+}
+// The numbers a reader is shown: those in the rendered text, plus the own value of each fact a token references (never an unreferenced fact's).
+export function numbersShown(card) {
+  const facts = card.facts && typeof card.facts === "object" ? card.facts : {};
+  const out = numbersIn(renderedText(card));
+  for (const id of referencedFactIds(card)) {
+    const f = facts[id];
+    if (f && f.value != null && typeof f.value !== "object") for (const n of numbersIn(String(f.value))) out.add(n);
+  }
+  return out;
+}
+// Rendered text plus the code-attached tool gaps: used for phrase checks and the source a gap names (not for numbers).
+export function visibleText(card) {
+  const parts = [renderedText(card)];
   for (const g of arr(card.tool_gaps)) { parts.push(str(g && g.what)); parts.push(str(g && g.source_needed)); }
   return parts.join("\n");
 }
@@ -201,8 +222,7 @@ export function scoreCase(c, card, ctx = {}, extra = {}) {
   const termRe = termRegex([...arr(ctx.allowedTerms), ...arr(extra.allowed_terms), ...glossaryTermsFromCard(card)]);
   const typed = modelProseFields(card).some((p) => /\d/.test((termRe ? stripTokens(p).replace(termRe, " ") : stripTokens(p))));
   const unknownFacts = used.some((id) => !facts[id]) || Object.entries(facts).some(([, f]) => !f || !f.tool || !f.call_id);
-  const have = numbersIn(text);
-  for (const f of Object.values(facts)) if (f && f.value != null && typeof f.value !== "object") for (const n of numbersIn(String(f.value))) have.add(n);   // a fact's own value counts as shown
+  const have = numbersShown(card);       // only numbers the page renders: referenced facts, never facts that are merely attached or listed in facts_used
   const mustNumbers = ANSWERABLE_P1.includes(p1) ? c.must_include.flatMap((m) => [...numbersIn(m)]) : [];
   const missingNumbers = mustNumbers.filter((n) => !have.has(n));
   if (typed || unknownFacts || (ASSERTING_STATES.includes(state) && missingNumbers.length)) flags.wrong_number = true;
@@ -236,7 +256,9 @@ export function scoreCase(c, card, ctx = {}, extra = {}) {
   // category logic
   let names_source = false, honest_failure = false, rule_ok = false, exact = false, correct_decline = false;
   const hasGapSource = arr(card.gaps).some((g) => str(g && g.source_needed).trim()) || arr(card.tool_gaps).some((g) => str(g && g.source_needed).trim());
-  const otherIds = [...text.matchAll(/\b(00\d{2})\b/g)].map((m) => m[1]).filter((id) => own && id !== own);
+  // Privacy looks at the whole payload the page receives, not only what it renders: another franchise's id in ANY attached fact is a leak.
+  const payloadText = [text, ...Object.values(facts).map((f) => String((f && f.display) == null ? "" : f.display))].join("\n");
+  const otherIds = [...payloadText.matchAll(/\b(00\d{2})\b/g)].map((m) => m[1]).filter((id) => own && id !== own);
 
   if (isOwnerCase || cat === "PRV") {
     const expectRefuse = REFUSAL_STATES.includes(p1);

@@ -18,10 +18,12 @@ const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; 
 
 // A team name becomes a FACT the card can quote, so free-form route text is not passed through: only a short, name-shaped string is.
 // Anything else (an instruction planted in a name, a long sentence, symbols such as $) falls back to the id alone.
+// A name that reads like an instruction or a role marker also falls back (a minimal whole-word check; tools may not import the desk's scanner).
 const NAME_SHAPE = /^[\p{L}\p{N} .'&!-]{1,40}$/u;
+const INSTRUCTION_WORDS = /\b(ignore|disregard|override|bypass|system|assistant|developer|instructions?|reveal|forget|prompts?|you are|do not|don't|must|approve|post)\b/i;
 function teamLabel(name, id) {
   const n = String(name == null ? "" : name).trim();
-  return NAME_SHAPE.test(n) ? `${n} (${id})` : `Team (${id})`;
+  return NAME_SHAPE.test(n) && !INSTRUCTION_WORDS.test(n) ? `${n} (${id})` : `Team (${id})`;
 }
 
 function missing(knowledge) {

@@ -58,7 +58,11 @@ const money6 = (n) => `$${(Number(n) || 0).toFixed(6)}`;
 const pad = (s, n) => String(s).padEnd(n);
 const rpad = (s, n) => String(s).padStart(n);
 const sha256 = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
-const todayUtc = () => new Date().toISOString().slice(0, 10);
+// The only dates a price confirmation may carry: today's LOCAL calendar date, or today's UTC date when that differs. Never a day either side of them.
+export function acceptableToday(now = new Date()) {
+  const p2 = (n) => String(n).padStart(2, "0");
+  return { local: `${now.getFullYear()}-${p2(now.getMonth() + 1)}-${p2(now.getDate())}`, utc: now.toISOString().slice(0, 10) };
+}
 
 class Refusal extends Error { constructor(gate, message) { super(message); this.gate = gate; } }
 class Usage extends Error {}
@@ -123,9 +127,25 @@ function loadCases(args) {
 }
 
 // ── ledger and output locations ──────────────────────────────────────────────────────────────────────
-const homeDir = () => path.join(os.homedir(), ".ups_ai_eval");
-const defaultLedger = () => path.join(homeDir(), "ledger.sqlite");
-const defaultOut = (runId) => path.join(homeDir(), "runs", runId);
+// Everything the runner keeps lives in ONE folder: ~/.ups_ai_eval. UPS_AI_EVAL_HOME may move it, but only to a folder under the OS temp folder (tests do);
+// anywhere else it is ignored with a warning, so a stray variable can never point live spending at a fresh ledger.
+function realpathNearest(p) {
+  let cur = path.resolve(p); const rest = [];
+  for (;;) { try { return path.join(fs.realpathSync(cur), ...rest.reverse()); } catch (_) { const up = path.dirname(cur); if (up === cur) return path.resolve(p); rest.push(path.basename(cur)); cur = up; } }
+}
+export function evalHome(env = process.env) {
+  const o = env.UPS_AI_EVAL_HOME;
+  if (typeof o === "string" && o.trim()) {
+    const real = realpathNearest(o), tmp = realpathNearest(os.tmpdir());
+    if (real !== tmp && real.startsWith(tmp + path.sep)) return path.resolve(o);
+    warn("UPS_AI_EVAL_HOME is ignored: it may only name a folder under the OS temp folder.");
+  }
+  return path.join(os.homedir(), ".ups_ai_eval");
+}
+const defaultLedger = (home) => path.join(home, "ledger.sqlite");
+const journalPath = (home) => path.join(home, "spend_journal.jsonl");
+const defaultOut = (home, runId) => path.join(home, "runs", runId);
+const isSymlink = (p) => { try { return fs.lstatSync(p).isSymbolicLink(); } catch (_) { return false; } };
 const mkdirp = (d) => fs.mkdirSync(d, { recursive: true, mode: 0o700 });
 
 // ── the cap settings (the same reading the budget gate uses) ──────────────────────────────────────────
@@ -351,10 +371,69 @@ async function runDry({ cases, runId, setSha, setId, ledgerFile, env, outDir, la
   return res;
 }
 
+// ── The spend journal ─────────────────────────────────────────────────────────────────────────────────
+// Append-only, one line per live call, written right after the ledger finalizes that call: run id, call index, what was reserved, the final cost, the time.
+// No text of any kind. It is the second record that live preflight cross-checks against the ledger, so a deleted or swapped ledger cannot hide earlier spending.
+export function readJournal(file) {
+  if (!fs.existsSync(file)) return { exists: false, count: 0, total: 0, runs: new Set() };
+  let count = 0, total = 0; const runs = new Set();
+  for (const line of fs.readFileSync(file, "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    let j; try { j = JSON.parse(line); } catch (_) { throw new Refusal(12, "the spend journal has a line that cannot be read; it will not be trusted. Look at " + file); }
+    const v = j.final_cost_usd == null ? j.reserved_usd : j.final_cost_usd;
+    if (!Number.isFinite(Number(v))) throw new Refusal(12, "the spend journal has a line with no cost; it will not be trusted.");
+    count += 1; total += Number(v); runs.add(String(j.run_id));
+  }
+  return { exists: true, count, total, runs };
+}
+export function makeJournal(file, runId) {
+  mkdirp(path.dirname(file));
+  fs.closeSync(fs.openSync(file, "a", 0o600));                    // it must be writable before the first paid call
+  const j = { failed: false, index: 0, file };
+  j.before = () => (j.failed ? "journal_unwritable" : null);       // once a line could not be written, no further call is made
+  j.after = ({ row, questionId }) => {
+    j.index += 1;
+    try { fs.appendFileSync(file, JSON.stringify({ v: 1, run_id: runId, call_index: j.index, question_id: questionId, step: row.step, model: row.model, reserved_usd: row.est_cost_usd, final_cost_usd: row.cost_usd, ts: new Date().toISOString() }) + "\n", { mode: 0o600 }); }
+    catch (_) { j.failed = true; }
+  };
+  return j;
+}
+
+// Ledger against journal. Refuses on any disagreement, on a missing ledger while the journal has spend, and on any reuse of a run id.
+function liveHistoryCheck({ ledgerFile, journalFile, runId, home, outDir }) {
+  const jr = readJournal(journalFile);
+  let live = { n: 0, total: 0, month: 0, byRun: 0, totalsRow: 0 };
+  if (fs.existsSync(ledgerFile)) {
+    const db = new DatabaseSync(ledgerFile, { readOnly: true });
+    try {
+      let rows, tot, mon, byRun;
+      try {
+        rows = db.prepare("SELECT COUNT(*) AS n, COALESCE(SUM(CASE WHEN cost_usd IS NULL THEN est_cost_usd ELSE cost_usd END), 0) AS s FROM ai_call_log WHERE mode = 'live'").get();
+        tot = db.prepare("SELECT COALESCE(reserved_usd + spent_usd, 0) AS s FROM ai_budget_totals WHERE mode = 'live' AND period = 'total'").get();
+        mon = db.prepare("SELECT COALESCE(reserved_usd + spent_usd, 0) AS s FROM ai_budget_totals WHERE mode = 'live' AND period = ?").get(new Date().toISOString().slice(0, 7));
+        byRun = db.prepare("SELECT COUNT(*) AS n FROM ai_call_log WHERE run_id = ? AND mode = 'live'").get(runId);
+      } catch (_) { rows = { n: 0, s: 0 }; tot = null; mon = null; byRun = { n: 0 }; }   // no tables yet: no spending
+      live = { n: rows.n, total: rows.s, month: mon ? mon.s : 0, byRun: byRun.n, totalsRow: tot ? tot.s : 0 };
+    } finally { db.close(); }
+  }
+  if (jr.count > 0 && live.n === 0) throw new Refusal(12, `the spend journal records ${jr.count} live call(s) (${money6(jr.total)}) but the ledger has no live rows (missing, empty or replaced). Live runs stop until that is explained: restore the ledger at ${ledgerFile}.`);
+  if (jr.count !== live.n || Math.abs(jr.total - live.total) > 1e-6) throw new Refusal(12, `the ledger and the spend journal disagree: ledger ${live.n} live row(s) / ${money6(live.total)}, journal ${jr.count} line(s) / ${money6(jr.total)}. Live runs stop until that is explained (look at ${ledgerFile} and ${journalFile}).`);
+  if (Math.abs(live.totalsRow - live.total) > 1e-6) throw new Refusal(12, `the ledger's maintained live total (${money6(live.totalsRow)}) does not equal its rows (${money6(live.total)}); it was edited or is damaged.`);
+  if (live.byRun > 0) throw new Refusal(12, `run id ${runId} already has live rows in the ledger; use a new run id.`);
+  if (jr.runs.has(runId)) throw new Refusal(12, `run id ${runId} already appears in the spend journal; use a new run id.`);
+  for (const dir of new Set([defaultOut(home, runId), outDir])) {
+    const rf = path.join(dir, "results.json");
+    if (!fs.existsSync(rf)) continue;
+    let mode = null; try { mode = JSON.parse(fs.readFileSync(rf, "utf8")).mode; } catch (_) { mode = "unreadable"; }
+    if (mode === "live" || mode === "unreadable") throw new Refusal(12, `${dir} already holds live results for run id ${runId}; use a new run id.`);
+  }
+  return { liveTotal: live.total, liveMonth: live.month, journalCount: jr.count };
+}
+
 // ── LIVE gates ────────────────────────────────────────────────────────────────────────────────────────
 // Each check throws Refusal(gate, message). Nothing here creates a client or touches the network.
-function liveGates({ args, env, runId, plan, ledgerFile, outDir, cases }) {
-  const flags = args.flags;
+// `plan` is ALWAYS the fresh recomputation (see verifyPlanFile): no cost figure is ever read from plan.json.
+function earlyLiveGates({ env }) {
   if (env.DESK_LIVE_MODEL_ENABLED !== "1") throw new Refusal(1, "DESK_LIVE_MODEL_ENABLED is not 1. Set it in your own terminal for this run only.");
   const key = env.ANTHROPIC_API_KEY_DESK;
   if (typeof key !== "string" || !key.trim()) throw new Refusal(2, "ANTHROPIC_API_KEY_DESK is not set (the shared ANTHROPIC_API_KEY is never read).");
@@ -362,12 +441,24 @@ function liveGates({ args, env, runId, plan, ledgerFile, outDir, cases }) {
   for (const [k, v] of [["DESK_BUDGET_PER_QUESTION_USD", caps.perQuestion], ["DESK_BUDGET_PER_RUN_USD", caps.perRun], ["DESK_BUDGET_MONTHLY_USD", caps.monthly], ["DESK_BUDGET_TOTAL_USD", caps.total]]) {
     if (!(v > 0)) throw new Refusal(3, `${k} must be set above zero.`);
   }
-  // 4: a clean plan for this run id and this exact set
+  return { key: key.trim(), caps };
+}
+
+// The plan file is only a receipt. Its fingerprint must match, and every cost field in it must equal a fresh recomputation from the set (same code as plan mode).
+const costView = (p) => JSON.stringify({ totals: p.totals, required_caps: p.required_caps, recommended_caps: p.recommended_caps, steps: p.steps, prices: p.prices, cases: (p.cases || []).map((c) => ({ ...c })) }, (k, v) => (typeof v === "number" ? Math.round(v * 1e9) / 1e9 : v));
+export function verifyPlanFile({ file, fresh, runId, setSha, nCases }) {
+  let plan = null; try { plan = JSON.parse(fs.readFileSync(file, "utf8")); } catch (_) { plan = null; }
   if (!plan) throw new Refusal(4, `no plan found for run ${runId}. Run --mode plan with the same --run-id, --set and --out first.`);
   if (plan.run_id !== runId) throw new Refusal(4, "the plan on file is for a different run id.");
-  if (plan.set_sha256 !== args._setSha) throw new Refusal(4, "the plan on file is for a different set or bank (its fingerprint does not match). Run plan again.");
-  if (plan.n_cases !== cases.length) throw new Refusal(4, "the plan on file has a different number of cases.");
-  // 3 (continued): the caps against what the plan says is needed
+  if (plan.set_sha256 !== setSha) throw new Refusal(4, "the plan on file is for a different set or bank (its fingerprint does not match). Run plan again.");
+  if (plan.n_cases !== nCases) throw new Refusal(4, "the plan on file has a different number of cases.");
+  if (costView(plan) !== costView(fresh)) throw new Refusal(4, "the costs in the plan file do not match a fresh recomputation from the set. The file was edited or is stale; live runs use only the recomputed plan. Run --mode plan again.");
+}
+
+function liveGates({ args, env, runId, plan, ledgerFile, journalFile, home, outDir, cases, now = new Date() }) {
+  const flags = args.flags;
+  const { key, caps } = earlyLiveGates({ env });
+  // 3: the caps against what the (recomputed) plan says is needed
   const rc = plan.required_caps;
   if (caps.perQuestion + 1e-12 < rc.per_question_min_usd) throw new Refusal(3, `DESK_BUDGET_PER_QUESTION_USD ${caps.perQuestion} is below the ${money(rc.per_question_min_usd)} the plan needs (the largest single call is ${money(plan.totals.largest_single_reserve_usd)}); recommended ${plan.recommended_caps.per_question_usd.toFixed(2)}.`);
   if (caps.perRun + 1e-12 < rc.per_run_min_usd) throw new Refusal(3, `DESK_BUDGET_PER_RUN_USD ${caps.perRun} is below the ${money(rc.per_run_min_usd)} the plan needs (expected cost ${money(plan.totals.typical_usd)}); recommended ${plan.recommended_caps.per_run_usd.toFixed(2)}.`);
@@ -382,31 +473,24 @@ function liveGates({ args, env, runId, plan, ledgerFile, outDir, cases }) {
   const maxUsd = Number(m[2]);
   if (!(maxUsd > 0)) throw new Refusal(5, "the approved maximum must be above zero.");
   if (flags["--max-usd"] == null || Number(flags["--max-usd"]) !== maxUsd) throw new Refusal(5, "--max-usd is missing or does not equal the amount in --approve.");
-  // 4 (continued): the worst case against --max-usd
-  const ceiling = Math.min(plan.totals.protocol_bound_usd, caps.perRun);
+  // 4 (continued): the approval against the recomputed plan. The approval is also a HARD cap (see the effective caps below).
   if (plan.totals.typical_usd > maxUsd) throw new Refusal(4, `the plan's expected cost ${money(plan.totals.typical_usd)} is above --max-usd ${money(maxUsd)}.`);
-  if (ceiling > maxUsd + 1e-12) throw new Refusal(4, `the most this run could cost is ${money(ceiling)} (the lower of the protocol bound ${money(plan.totals.protocol_bound_usd)} and the per-run cap ${money(caps.perRun)}), which is above --max-usd ${money(maxUsd)}. Lower DESK_BUDGET_PER_RUN_USD or raise the approval.`);
-  // 6: prices
+  if (maxUsd + 1e-12 < rc.per_run_min_usd) throw new Refusal(3, `--max-usd ${money(maxUsd)} is below the ${money(rc.per_run_min_usd)} the plan needs for the last question to be allowed; the approved amount is the hard per-run cap.`);
+  // 6: prices: an exact match to today's local date (or the UTC date when that differs), never a day either side
   const pc = flags["--prices-confirmed"];
   if (!pc || !/^\d{4}-\d{2}-\d{2}$/.test(pc)) throw new Refusal(6, "--prices-confirmed <YYYY-MM-DD> is required: check the price table against your Anthropic account, then pass today's date.");
-  const days = Math.abs(Date.parse(`${pc}T00:00:00Z`) - Date.parse(`${todayUtc()}T00:00:00Z`)) / 86400000;
-  if (!(days <= 1)) throw new Refusal(6, `--prices-confirmed ${pc} is not today (${todayUtc()}); the confirmation must be from the day of the run.`);
+  const td = acceptableToday(now);
+  if (pc !== td.local && pc !== td.utc) throw new Refusal(6, `--prices-confirmed ${pc} is not today. Expected ${td.local} (today's local date)${td.utc !== td.local ? ` or ${td.utc} (today's UTC date)` : ""}; no other day is accepted.`);
   // known issues in the set must be accepted on purpose
   const issues = cases.filter((c) => c.spec.known_issue).map((c) => c.caseDef.id);
   if (issues.length && !flags["--accept-known-issues"]) throw new Refusal(12, `the set has known issues (${issues.join(", ")}); a paid run on them is likely wasted. Fix them, or pass --accept-known-issues to spend on them anyway.`);
-  // the ledger: this run id must not already have live rows, and the total and month caps must have room
-  if (fs.existsSync(ledgerFile)) {
-    const db = new DatabaseSync(ledgerFile, { readOnly: true });
-    try {
-      const used = db.prepare("SELECT COUNT(*) AS n FROM ai_call_log WHERE run_id = ? AND mode = 'live'").get(runId);
-      if (used && used.n > 0) throw new Refusal(12, `run id ${runId} already has live rows in the ledger; use a new run id.`);
-      const tot = db.prepare("SELECT COALESCE(reserved_usd + spent_usd, 0) AS s FROM ai_budget_totals WHERE mode = 'live' AND period = 'total'").get();
-      const mon = db.prepare("SELECT COALESCE(reserved_usd + spent_usd, 0) AS s FROM ai_budget_totals WHERE mode = 'live' AND period = ?").get(new Date().toISOString().slice(0, 7));
-      if (caps.total - (tot ? tot.s : 0) + 1e-12 < rc.per_run_min_usd) throw new Refusal(3, `the total cap has only ${money(caps.total - (tot ? tot.s : 0))} left after ${money(tot ? tot.s : 0)} of earlier live spending; this run needs ${money(rc.per_run_min_usd)}.`);
-      if (caps.monthly - (mon ? mon.s : 0) + 1e-12 < rc.per_run_min_usd) throw new Refusal(3, `the monthly cap has only ${money(caps.monthly - (mon ? mon.s : 0))} left this month; this run needs ${money(rc.per_run_min_usd)}.`);
-    } catch (e) { if (e instanceof Refusal) throw e; /* a ledger with no tables yet has no spending */ } finally { db.close(); }
-  }
-  return { key: key.trim(), caps, maxUsd };
+  // the ledger and the journal: they must agree, the run id must be new, and the total and monthly caps must have room
+  const prior = liveHistoryCheck({ ledgerFile, journalFile, runId, home, outDir });
+  if (caps.total - prior.liveTotal + 1e-12 < rc.per_run_min_usd) throw new Refusal(3, `the total cap has only ${money(caps.total - prior.liveTotal)} left after ${money(prior.liveTotal)} of earlier live spending; this run needs ${money(rc.per_run_min_usd)}.`);
+  if (caps.monthly - prior.liveMonth + 1e-12 < rc.per_run_min_usd) throw new Refusal(3, `the monthly cap has only ${money(caps.monthly - prior.liveMonth)} left this month; this run needs ${money(rc.per_run_min_usd)}.`);
+  // The caps the budget gate actually enforces: the approved amount is a hard ceiling on what THIS run reserves and spends.
+  const effective = { perQuestion: caps.perQuestion, perRun: Math.min(caps.perRun, maxUsd), monthly: Math.min(caps.monthly, prior.liveMonth + maxUsd), total: Math.min(caps.total, prior.liveTotal + maxUsd) };
+  return { key, caps, effective, maxUsd, prior };
 }
 
 export async function confirmInteractive(runId, { input = process.stdin, output = process.stdout } = {}) {
@@ -428,15 +512,17 @@ export function makeGuardedFetch(realFetch, counters) {
 }
 
 // ── LIVE ──────────────────────────────────────────────────────────────────────────────────────────────
-async function runLive({ cases, runId, setSha, setId, ledgerFile, env, outDir, key, caps }) {
+async function runLive({ cases, runId, setSha, setId, ledgerFile, journalFile, env, outDir, key, caps, effective }) {
   const { runCase, makeLedgerDb, makeKnowledge } = await import("./lib/scenario_env.mjs");
   const { createLiveClientFromEnv } = await import("../../worker/src/desk/anthropic_client.js");
   const counters = { allowed: 0, blocked: 0 };
   const guarded = makeGuardedFetch(NATIVE_FETCH, counters);
   const saved = globalThis.fetch;
   globalThis.fetch = guarded;                                     // gate 10: from here on, only the one Anthropic call can leave
-  const gateEnv = { DESK_LIVE_MODEL_ENABLED: "1", ANTHROPIC_API_KEY_DESK: key, DESK_BUDGET_PER_QUESTION_USD: env.DESK_BUDGET_PER_QUESTION_USD, DESK_BUDGET_PER_RUN_USD: env.DESK_BUDGET_PER_RUN_USD, DESK_BUDGET_MONTHLY_USD: env.DESK_BUDGET_MONTHLY_USD, DESK_BUDGET_TOTAL_USD: env.DESK_BUDGET_TOTAL_USD };
+  // The gate is given the EFFECTIVE caps: the env caps, each lowered to what the approval allows this run to add (per question unchanged).
+  const gateEnv = { DESK_LIVE_MODEL_ENABLED: "1", ANTHROPIC_API_KEY_DESK: key, DESK_BUDGET_PER_QUESTION_USD: String(effective.perQuestion), DESK_BUDGET_PER_RUN_USD: String(effective.perRun), DESK_BUDGET_MONTHLY_USD: String(effective.monthly), DESK_BUDGET_TOTAL_USD: String(effective.total) };
   mkdirp(path.dirname(ledgerFile));
+  const journal = makeJournal(journalFile, runId);
   const db = makeLedgerDb(ledgerFile);
   const knowledge = await makeKnowledge();
   const runs = [], records = [];
@@ -446,11 +532,11 @@ async function runLive({ cases, runId, setSha, setId, ledgerFile, env, outDir, k
     const client = createLiveClientFromEnv({ ANTHROPIC_API_KEY_DESK: key }, guarded);   // the only place a client is made; it gets the desk key only
     clients.constructed += 1;
     if (!client) throw new Refusal(2, "the desk key could not be used to build a client");
-    const perQ = Number(env.DESK_BUDGET_PER_QUESTION_USD);
+    const perQ = effective.perQuestion;
     let spent = 0, answered = 0;
     for (let i = 0; i < cases.length; i++) {
       const { caseDef, spec } = cases[i];
-      const r = await runCase({ caseDef, spec, client, gateEnv, db, runId, clock: "real" });
+      const r = await runCase({ caseDef, spec, client, gateEnv, db, runId, clock: "real", ledgerHook: journal });
       const inv = invariantFailures(r, perQ);
       const modelError = r.gate.some((g) => g.reason === "model_error");
       const cost = r.ledger.reduce((a, x) => a + (x.cost_usd == null ? x.est_cost_usd : x.cost_usd), 0);
@@ -459,6 +545,7 @@ async function runLive({ cases, runId, setSha, setId, ledgerFile, env, outDir, k
       runs.push({ r, caseDef, spec });
       records.push({ r, caseDef, spec, inv, modelError, cost });
       const n = i + 1;
+      if (journal.failed) { stopped = { reason: "hard abort: the spend journal could not be written, so no further call was made", after_cases: i + 1 }; break; }
       if (modelError) { stopped = { reason: `hard abort: a model call failed in ${caseDef.id}`, after_cases: n }; break; }
       if (n <= EARLY_CASES && (inv.length || r.trace.outcome === "tool_failure:validation")) { stopped = { reason: `hard abort: ${inv.length ? `invariant failure (${inv.join("; ")})` : "the validator rejected the card twice"} in ${caseDef.id}, one of the first ${EARLY_CASES} cases`, after_cases: n }; break; }
       if (inv.some((x) => /per-question cap/.test(x))) { stopped = { reason: `hard abort: ${inv.join("; ")}`, after_cases: n }; break; }
@@ -473,7 +560,7 @@ async function runLive({ cases, runId, setSha, setId, ledgerFile, env, outDir, k
   const total = recs.reduce((a, c) => a + c.cost_usd, 0);
   const res = {
     run_id: runId, mode: "live", scripted: false, label: "LIVE MODEL", set_id: setId, set_sha256: setSha, started_at: startedAt, finished_at: new Date().toISOString(),
-    n_cases_planned: cases.length, n_cases_run: recs.length, stopped, caps: { per_question_usd: caps.perQuestion, per_run_usd: caps.perRun, monthly_usd: caps.monthly, total_usd: caps.total },
+    n_cases_planned: cases.length, n_cases_run: recs.length, stopped, caps: { per_question_usd: caps.perQuestion, per_run_usd: caps.perRun, monthly_usd: caps.monthly, total_usd: caps.total }, effective_caps: { per_question_usd: effective.perQuestion, per_run_usd: effective.perRun, monthly_usd: effective.monthly, total_usd: effective.total }, journal_lines_written: journal.index,
     network_attempts: counters.blocked, anthropic_calls: counters.allowed, prices: { verified_by_user_on: null },
     cases: recs, totals: { cost_usd: total, reserved_usd: recs.reduce((a, c) => a + c.reserved_usd, 0), mean_cost_usd: recs.length ? total / recs.length : 0 },
     score: score.per_case ? { blocked: score.blocked, metrics: score.metrics, zero_tolerance: score.zero_tolerance, needs_human_review: score.needs_human_review } : score,
@@ -483,7 +570,7 @@ async function runLive({ cases, runId, setSha, setId, ledgerFile, env, outDir, k
 }
 
 // ── --ledger-summary ──────────────────────────────────────────────────────────────────────────────────
-export function ledgerSummary(file) {
+export function ledgerSummary(file, journal = null) {
   if (!fs.existsSync(file)) { say(`No ledger yet at ${file}. Nothing has been spent.`); return 0; }
   const db = new DatabaseSync(file, { readOnly: true });
   try {
@@ -502,6 +589,7 @@ export function ledgerSummary(file) {
     const blocked = db.prepare("SELECT COUNT(*) AS n FROM ai_call_log WHERE mode = 'blocked'").get();
     say("");
     say(`Calls the gate blocked (never sent): ${blocked.n}`);
+    if (journal) { try { const jr = readJournal(journal); say(`Spend journal: ${jr.count} live call(s), ${money6(jr.total)} (it must equal the ledger).`); } catch (e) { say(`Spend journal: ${e.message}`); } }
   } finally { db.close(); }
   return 0;
 }
@@ -512,21 +600,29 @@ export async function main(argv, env = process.env) {
   try { args = parseArgs(argv); } catch (e) { warn(`usage error: ${e.message}`); return 64; }
   const flags = args.flags;
   if (typeof env.ANTHROPIC_API_KEY_DESK === "string" && env.ANTHROPIC_API_KEY_DESK.trim()) REDACT = [env.ANTHROPIC_API_KEY_DESK.trim()];
-  const ledgerFile = path.resolve(flags["--ledger"] || defaultLedger());
+  const home = evalHome(env);
+  const journalFile = journalPath(home);
   try {
-    if (flags["--ledger-summary"]) return ledgerSummary(ledgerFile);
+    if (flags["--ledger-summary"]) return ledgerSummary(path.resolve(flags["--ledger"] || defaultLedger(home)), journalFile);
     const mode = flags["--mode"];
     if (!["plan", "dry", "live"].includes(mode)) throw new Usage("--mode plan|dry|live is required");
     const runId = flags["--run-id"];
     if (!runId || !RUN_ID_RE.test(runId)) throw new Usage("--run-id is required (letters, digits, . _ -; up to 40 characters)");
     guardHeldOut(args);                                           // gate 9, before any file is read
+    // Live spending has exactly one ledger: <home>/ledger.sqlite. A different --ledger would start the running totals and the run-id checks from zero.
+    let ledgerFile = path.resolve(flags["--ledger"] || defaultLedger(home));
+    if (mode === "live") {
+      const real = defaultLedger(home);
+      if (flags["--ledger"] && path.resolve(flags["--ledger"]) !== path.resolve(real)) throw new Refusal(12, `--ledger is not allowed in live mode: live spending always uses ${real}, so earlier spending cannot be hidden by a new ledger file.`);
+      for (const p of [home, real, journalFile]) if (isSymlink(p)) throw new Refusal(12, `${p} is a symbolic link; live mode refuses it.`);
+      ledgerFile = real;
+    }
     args._libs = { bank: await import("./lib/bank.mjs") };
     const { cases, setSha } = loadCases(args);
     args._setSha = setSha;
     const setId = args._setId;
-    const outDir = path.resolve(flags["--out"] || defaultOut(runId));
+    const outDir = path.resolve(flags["--out"] || defaultOut(home, runId));
     const planFile = path.join(outDir, "plan.json");
-    const readPlan = () => { try { return JSON.parse(fs.readFileSync(planFile, "utf8")); } catch (_) { return null; } };
 
     if (mode === "plan") {
       const plan = await buildPlan({ cases, runId, setSha, setId });
@@ -549,9 +645,13 @@ export async function main(argv, env = process.env) {
     }
 
     // live
-    const plan = readPlan();
-    const g = liveGates({ args, env, runId, plan, ledgerFile, outDir, cases });
-    say(`Run ${runId}: all pre-flight checks passed. Worst case on the expected path ${money(plan.totals.worst_expected_path_usd)}; expected ${money(plan.totals.typical_usd)}; most it could cost ${money(Math.min(plan.totals.protocol_bound_usd, g.caps.perRun))} (approved ceiling ${money(g.maxUsd)}).`);
+    earlyLiveGates({ env });                                      // gates 1 to 3 (caps above zero) before any work
+    if (!fs.existsSync(planFile)) throw new Refusal(4, `no plan found for run ${runId}. Run --mode plan with the same --run-id, --set and --out first.`);
+    // Live NEVER reads a cost from plan.json: the plan is recomputed from the set here (the code plan mode uses) and the file must match it.
+    const plan = await buildPlan({ cases, runId, setSha, setId });
+    verifyPlanFile({ file: planFile, fresh: plan, runId, setSha, nCases: cases.length });
+    const g = liveGates({ args, env, runId, plan, ledgerFile, journalFile, home, outDir, cases });
+    say(`Run ${runId}: all pre-flight checks passed. Worst case on the expected path ${money(plan.totals.worst_expected_path_usd)}; expected ${money(plan.totals.typical_usd)}; most it can spend is ${money(g.maxUsd)}: the approval is a hard cap (effective per-run cap ${money(g.effective.perRun)}).`);
     // 7: a dry run of the same set, inside this run id, before any client exists
     const dry = await runDry({ cases, runId, setSha, setId, ledgerFile, env: { ...DRY_DEFAULT_CAPS }, outDir: path.join(outDir, "dry"), label: "dry-before-live" });
     if (!dry.passed) { for (const p of dry.problems) warn(`dry run problem: ${p}`); throw new Refusal(7, "the dry run of this set did not pass, so nothing was sent."); }
@@ -561,7 +661,7 @@ export async function main(argv, env = process.env) {
       printPlan(plan, { heading: "ABOUT TO SPEND REAL MONEY" });
       if (!(await confirmInteractive(runId))) throw new Refusal(8, "the run id was not typed; cancelled.");
     } else if (!flags["--yes-i-am-not-interactive"]) throw new Refusal(8, "this is not an interactive terminal. Run it yourself in a terminal, or pass --yes-i-am-not-interactive.");
-    const res = await runLive({ cases, runId, setSha, setId, ledgerFile, env, outDir, key: g.key, caps: g.caps });
+    const res = await runLive({ cases, runId, setSha, setId, ledgerFile, journalFile, env, outDir, key: g.key, caps: g.caps, effective: g.effective });
     res.prices = { verified_by_user_on: flags["--prices-confirmed"] };
     writeOutputs(outDir, res);
     say(`Run ${runId}: LIVE, ${res.n_cases_run} of ${res.n_cases_planned} cases, cost ${money6(res.totals.cost_usd)}, mean ${money6(res.totals.mean_cost_usd)}.`);

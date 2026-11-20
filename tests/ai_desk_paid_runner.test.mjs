@@ -23,7 +23,11 @@ const SET_REL = "scripts/ai_eval/sets/first10.json";
 const BANK = path.join(ROOT, "tests/fixtures/ai_desk/eval_bank_dev.jsonl");
 const DESK_KEY = "sk-ant-desk-CANARY-0000000000000000";
 const SHARED_KEY = "sk-ant-shared-CANARY-1111111111111111";
-const TODAY = new Date().toISOString().slice(0, 10);
+const p2 = (n) => String(n).padStart(2, "0");
+const LOCAL_TODAY = (() => { const d = new Date(); return `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; })();
+const UTC_TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = LOCAL_TODAY;
+const shiftDay = (iso, n) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86400000).toISOString().slice(0, 10);
 const ANTHROPIC = "https://api.anthropic.com/v1/messages";
 let seq = 0;
 const uniq = (name) => path.join(TMP, `${name}-${++seq}`);
@@ -65,7 +69,7 @@ function runner(args, { env = {}, fakeAnthropic = false, ledger = null } = {}) {
   return new Promise((resolve) => {
     const child = spawn(process.execPath, ["--import", PRELOAD, "scripts/ai_eval/run_eval.mjs", ...args], {
       cwd: ROOT, stdio: ["ignore", "pipe", "pipe"],
-      env: { NODE_NO_WARNINGS: "1", HOME: TMP, FAKE_LOG: log, SHARED_KEY, ...(fakeAnthropic ? { FAKE_ANTHROPIC: "1" } : {}), ...(ledger ? { LEDGER: ledger } : {}), ...env },
+      env: { NODE_NO_WARNINGS: "1", HOME: TMP, TMPDIR: os.tmpdir(), FAKE_LOG: log, SHARED_KEY, ...(fakeAnthropic ? { FAKE_ANTHROPIC: "1" } : {}), ...(ledger ? { LEDGER: ledger } : {}), ...(ledger && path.basename(ledger) === "ledger.sqlite" ? { UPS_AI_EVAL_HOME: path.dirname(ledger) } : {}), ...env },
     });
     let out = "", err = "";
     child.stdout.on("data", (d) => { out += d; });
@@ -98,12 +102,16 @@ function liveCmd(o = {}) {
   const out = o.out || uniq("live-out");
   if (!o.noPlanCopy) { fs.mkdirSync(out, { recursive: true }); fs.copyFileSync(path.join(BASE_OUT, "plan.json"), path.join(out, "plan.json")); }
   const maxUsd = o.maxUsd || "2.00";
-  const args = ["--set", o.set || SET_REL, "--mode", "live", "--run-id", o.runId || "R1", "--out", out, "--ledger", o.ledger || uniq("ledger") + ".sqlite", "--max-usd", maxUsd];
+  const home = o.ledger ? path.dirname(o.ledger) : uniq("home");
+  fs.mkdirSync(home, { recursive: true });
+  const args = ["--set", o.set || SET_REL, "--mode", "live", "--run-id", o.runId || "R1", "--out", out, "--max-usd", maxUsd];
+  if (o.liveLedgerFlag) args.push("--ledger", o.liveLedgerFlag);
   if (!o.noApprove) args.push("--approve", o.approve || `R1:${maxUsd}:10`);
   if (!o.noPrices) args.push("--prices-confirmed", o.prices || TODAY);
   if (!o.noYes) args.push("--yes-i-am-not-interactive");
   if (o.acceptKnown) args.push("--accept-known-issues");
-  return { args, out, ledger: args[args.indexOf("--ledger") + 1] };
+  if (o.tamper) { const pf = path.join(out, "plan.json"); const p = readJson(pf); o.tamper(p); fs.writeFileSync(pf, JSON.stringify(p)); }
+  return { args, out, home, ledger: path.join(home, "ledger.sqlite"), journal: path.join(home, "spend_journal.jsonl") };
 }
 const liveCapsEnv = (plan) => liveEnv({ DESK_BUDGET_PER_QUESTION_USD: String(Math.max(1, plan.recommended_caps.per_question_usd)), DESK_BUDGET_PER_RUN_USD: "1.5" });
 
@@ -148,7 +156,13 @@ const GATES = [
   ["gate 4: the plan is for a different run id", () => ({ cmd: { runId: "R9", approve: "R9:2.00:10" } }), 4, /different run id/],
   ["gate 4: the plan is for a different set", () => ({ cmd: { set: "COPY_WITH_EDIT" } }), 4, /different set or bank/],
   ["gate 4: the expected cost is above --max-usd", () => ({ cmd: { maxUsd: "0.10", approve: "R1:0.10:10" } }), 4, /expected cost .* above --max-usd/],
-  ["gate 4: the most the run could cost is above --max-usd", () => ({ cmd: { maxUsd: "1.00", approve: "R1:1.00:10" } }), 4, /could cost .* above --max-usd/],
+  ["gate 3: --max-usd is below what the plan needs (the approval is the hard per-run cap)", () => ({ cmd: { maxUsd: "0.40", approve: "R1:0.40:10" } }), 3, /--max-usd \$0\.4000 is below the/],
+  ["gate 4: a doctored plan file (low protocol bound and expected cost) does not match the recomputation", () => ({ cmd: { tamper: (p) => { p.totals.protocol_bound_usd = 0.01; p.totals.typical_usd = 0.01; } } }), 4, /do not match a fresh recomputation/],
+  ["gate 4: a doctored plan file (lowered required caps) does not match the recomputation", () => ({ cmd: { tamper: (p) => { p.required_caps.per_run_min_usd = 0.01; p.required_caps.per_question_min_usd = 0.01; } } }), 4, /do not match a fresh recomputation/],
+  ["gate 4: a doctored plan file (one case's reservations) does not match the recomputation", () => ({ cmd: { tamper: (p) => { p.cases[0].steps[1].reserve_usd = 0.0001; } } }), 4, /do not match a fresh recomputation/],
+  ["gate 6: yesterday is refused", () => ({ cmd: { prices: shiftDay(UTC_TODAY < LOCAL_TODAY ? UTC_TODAY : LOCAL_TODAY, -1) } }), 6, /is not today\. Expected /],
+  ["gate 6: tomorrow is refused", () => ({ cmd: { prices: shiftDay(UTC_TODAY > LOCAL_TODAY ? UTC_TODAY : LOCAL_TODAY, 1) } }), 6, /is not today\. Expected /],
+  ["gate 12: --ledger names another file in live mode", () => ({ cmd: { liveLedgerFlag: path.join(TMP, "elsewhere.sqlite") } }), 12, /--ledger is not allowed in live mode/],
   ["gate 5: no approval string", () => ({ cmd: { noApprove: true } }), 5, /--approve/],
   ["gate 5: the approval names another run", () => ({ cmd: { approve: "R2:2.00:10" } }), 5, /different run id/],
   ["gate 5: the approval has the wrong case count", () => ({ cmd: { approve: "R1:2.00:9" } }), 5, /says 9 cases/],
@@ -156,6 +170,7 @@ const GATES = [
   ["gate 5: a malformed approval", () => ({ cmd: { approve: "yes please" } }), 5, /--approve/],
   ["gate 6: prices were not confirmed", () => ({ cmd: { noPrices: true } }), 6, /--prices-confirmed/],
   ["gate 6: the price confirmation is from another day", () => ({ cmd: { prices: "2020-01-01" } }), 6, /not today/],
+  ["gate 6: the refusal says which date it expected", () => ({ cmd: { prices: "2020-01-01" } }), 6, new RegExp(`Expected ${LOCAL_TODAY}`)],
   ["gate 8: not interactive and no --yes-i-am-not-interactive", () => ({ cmd: { noYes: true } }), 8, /not an interactive terminal/],
 ];
 
@@ -329,11 +344,126 @@ test("LIVE with every gate satisfied (interceptor): ONLY POST api.anthropic.com/
   const files = allText(cmd.out);
   t.ok(!files.includes(DESK_KEY) && !files.includes(SHARED_KEY), "neither key is in any file the run wrote");
   // spending is visible, and a second live run under the same run id is refused (the ledger remembers)
-  const s = await runner(["--ledger-summary", "--ledger", cmd.ledger]);
+  const s = await runner(["--ledger-summary", "--ledger", cmd.ledger], { ledger: cmd.ledger });
   t.match(s.out, /live\s+total\s+\$0\.\d+/); t.match(s.out, /R1\s+live\s+40/); clean(s);
   const again = liveCmd({ ledger: cmd.ledger });
   const r2 = await runner(again.args, { env, fakeAnthropic: true, ledger: cmd.ledger });
   t.equal(r2.code, 2); t.match(r2.err, /already has live rows/); t.equal(r2.anthropic.length, 0, "the second attempt sent nothing");
+  // the spend journal: one line per live call, no text, and it equals the ledger
+  const lines = fs.readFileSync(cmd.journal, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  t.equal(lines.length, 40);
+  t.deepEqual(Object.keys(lines[0]).sort(), ["call_index", "final_cost_usd", "model", "question_id", "reserved_usd", "run_id", "step", "ts", "v"], "ids, numbers and a timestamp only: no text");
+  t.ok(lines.every((l, i) => l.run_id === "R1" && l.call_index === i + 1 && l.final_cost_usd > 0 && l.final_cost_usd < l.reserved_usd));
+  t.ok(Math.abs(lines.reduce((a, l) => a + l.final_cost_usd, 0) - res.totals.cost_usd) < 1e-9, "the journal total equals the run's cost");
+  t.ok(!fs.readFileSync(cmd.journal, "utf8").includes(DESK_KEY));
+  t.match(s.out, /Spend journal: 40 live call\(s\)/);
+});
+
+// A real run once, then every way of hiding or repeating spending. Each needs a plan for the NEW run id (a plan for R2 is built, free).
+async function planFor(runId) { const out = uniq(`plan-${runId}`); const p = await runner(["--set", SET_REL, "--mode", "plan", "--run-id", runId, "--out", out]); t.equal(p.code, 0); return out; }
+function nextCmd(first, runId, planOut, extra = {}) {
+  const args = ["--set", SET_REL, "--mode", "live", "--run-id", runId, "--out", planOut, "--max-usd", "2.00", "--approve", `${runId}:2.00:10`, "--prices-confirmed", TODAY, "--yes-i-am-not-interactive", ...(extra.args || [])];
+  return args;
+}
+test("LIVE history: the ledger and the journal must agree; a replaced, deleted or edited ledger, a deleted journal, a symlink and any run id reuse are refused", async () => {
+  const plan = await ensurePlan();
+  const env = liveCapsEnv(plan);
+  const first = liveCmd({ out: undefined });
+  const r1 = await runner(first.args, { env, fakeAnthropic: true, ledger: first.ledger });
+  t.equal(r1.code, 0, r1.out.slice(-300) + r1.err.slice(0, 300));
+  const out2 = await planFor("R2"), out3 = await planFor("R3");
+  const go = async (runId, planOut, over = {}) => { const r = await runner(nextCmd(first, runId, planOut), { env, fakeAnthropic: true, ledger: first.ledger, ...over }); return r; };
+  const snap = (f) => (fs.existsSync(f) ? fs.readFileSync(f) : null);
+  const ledgerBytes = snap(first.ledger), journalBytes = snap(first.journal);
+
+  // 1. a fresh ledger path cannot be used in live mode (--ledger is refused), and a missing ledger while the journal has spend is refused
+  const flag = await runner([...nextCmd(first, "R2", out2), "--ledger", path.join(TMP, "fresh.sqlite")], { env, fakeAnthropic: true, ledger: first.ledger });
+  t.equal(flag.code, 2); t.match(flag.err, /REFUSED \(gate 12\)[^\n]*--ledger is not allowed in live mode/); t.equal(flag.anthropic.length, 0);
+  fs.rmSync(first.ledger);
+  const gone = await go("R2", out2);
+  t.equal(gone.code, 2); t.match(gone.err, /REFUSED \(gate 12\)[^\n]*journal records 40 live call\(s\)[^\n]*ledger has no live rows/); t.equal(gone.anthropic.length, 0);
+  fs.writeFileSync(first.ledger, "");                                 // an empty file is the same
+  const empty = await go("R2", out2);
+  t.equal(empty.code, 2); t.match(empty.err, /journal records 40 live call/); t.equal(empty.anthropic.length, 0);
+  fs.writeFileSync(first.ledger, ledgerBytes);
+
+  // 2. the journal deleted (the ledger still has the spending) or shortened
+  fs.rmSync(first.journal);
+  const nojournal = await go("R2", out2);
+  t.equal(nojournal.code, 2); t.match(nojournal.err, /ledger and the spend journal disagree/); t.equal(nojournal.anthropic.length, 0);
+  fs.writeFileSync(first.journal, journalBytes.toString("utf8").split("\n").slice(0, 30).join("\n") + "\n");
+  const short = await go("R2", out2);
+  t.equal(short.code, 2); t.match(short.err, /disagree/);
+  fs.writeFileSync(first.journal, journalBytes);
+
+  // 3. a ledger edited down (a call's cost lowered) disagrees with the journal; the maintained total disagrees with the rows
+  const db = new DatabaseSync(first.ledger); db.exec("UPDATE ai_call_log SET cost_usd = cost_usd / 2 WHERE id = (SELECT MIN(id) FROM ai_call_log WHERE mode = 'live')"); db.close();
+  const edited = await go("R2", out2);
+  t.equal(edited.code, 2); t.match(edited.err, /disagree/);
+  fs.writeFileSync(first.ledger, ledgerBytes);
+  const db2 = new DatabaseSync(first.ledger); db2.exec("UPDATE ai_budget_totals SET spent_usd = 0 WHERE mode = 'live'"); db2.close();
+  const totals = await go("R2", out2);
+  t.equal(totals.code, 2); t.match(totals.err, /maintained live total/);
+  fs.writeFileSync(first.ledger, ledgerBytes);
+
+  // 4. a symbolic link in place of the ledger or the home folder
+  const real = path.join(TMP, "real-ledger.sqlite"); fs.writeFileSync(real, ledgerBytes); fs.rmSync(first.ledger); fs.symlinkSync(real, first.ledger);
+  const link = await go("R2", out2);
+  t.equal(link.code, 2); t.match(link.err, /is a symbolic link; live mode refuses it/); t.equal(link.anthropic.length, 0);
+  fs.rmSync(first.ledger); fs.writeFileSync(first.ledger, ledgerBytes);
+
+  // 5. run id reuse: ledger row, journal line, and live results in the run's folder, each on its own
+  const sameLedger = await runner(nextCmd(first, "R1", first.out), { env, fakeAnthropic: true, ledger: first.ledger });
+  t.equal(sameLedger.code, 2); t.match(sameLedger.err, /already has live rows/);
+  fs.rmSync(first.ledger); fs.rmSync(first.journal);                  // both records gone: only the results folder remembers
+  const results = await runner(nextCmd(first, "R1", first.out), { env, fakeAnthropic: true, ledger: first.ledger });
+  t.equal(results.code, 2); t.match(results.err, /already holds live results for run id R1/); t.equal(results.anthropic.length, 0);
+  fs.writeFileSync(first.ledger, ledgerBytes);
+  const db3 = new DatabaseSync(first.ledger); db3.exec("DELETE FROM ai_call_log WHERE mode = 'live'; UPDATE ai_budget_totals SET spent_usd = 0, reserved_usd = 0 WHERE mode = 'live'"); db3.close();
+  fs.writeFileSync(first.journal, journalBytes);                      // the journal alone remembers: the ledger rows are gone, so it is also a disagreement
+  const journalOnly = await runner(nextCmd(first, "R1", out2.replace(/plan-R2.*$/, "x")), { env, fakeAnthropic: true, ledger: first.ledger });
+  t.equal(journalOnly.code, 2); t.ok(/journal records 40 live call|already appears in the spend journal|no plan found/.test(journalOnly.err), journalOnly.err.slice(0, 200));
+
+  // 6. everything restored: a NEW run id is accepted, and the journal grows by exactly its calls
+  fs.writeFileSync(first.ledger, ledgerBytes); fs.writeFileSync(first.journal, journalBytes);
+  const ok = await go("R3", out3);
+  t.equal(ok.code, 0, ok.out.slice(-300) + ok.err.slice(0, 300)); t.equal(ok.anthropic.length, 40);
+  t.equal(fs.readFileSync(first.journal, "utf8").split("\n").filter(Boolean).length, 80);
+  const dbEnd = new DatabaseSync(first.ledger, { readOnly: true });
+  t.equal(dbEnd.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'live'").get().n, 80, "cumulative spending is kept in the one ledger");
+  dbEnd.close();
+});
+
+test("LIVE hard cap: the approved --max-usd limits what the run can reserve and spend, even when the env caps are higher", async () => {
+  const plan = await ensurePlan();
+  const cmd = liveCmd({ maxUsd: "0.50", approve: "R1:0.50:10" });
+  const env = { ...liveCapsEnv(plan), DESK_BUDGET_PER_RUN_USD: "1.50", DESK_BUDGET_MONTHLY_USD: "5", DESK_BUDGET_TOTAL_USD: "5", FAKE_USAGE_SCALE: "3" };
+  const r = await runner(cmd.args, { env, fakeAnthropic: true, ledger: cmd.ledger });
+  t.ok([0, 3].includes(r.code), r.out.slice(-400) + r.err.slice(0, 300));
+  const db = new DatabaseSync(cmd.ledger, { readOnly: true });
+  const sum = db.prepare("SELECT COALESCE(SUM(CASE WHEN cost_usd IS NULL THEN est_cost_usd ELSE cost_usd END), 0) s FROM ai_call_log WHERE mode = 'live'").get().s;
+  t.ok(sum <= 0.50 + 1e-9, `reserved plus spent ${sum} never passes the approved $0.50 (env per-run cap was $1.50)`);
+  t.ok(sum > 0.30, `the run did spend (${sum}) and was stopped by the approval, not by running out of questions`);
+  const blocked = db.prepare("SELECT error_code FROM ai_call_log WHERE mode = 'blocked'").all().map((x) => x.error_code);
+  t.ok(blocked.some((c) => /^budget_(per_run|total|monthly)$/.test(c)), `the gate blocked a call at the approved amount (${blocked.join(",")})`);
+  db.close();
+  const res = readJson(path.join(cmd.out, "results.json"));
+  t.equal(res.effective_caps.per_run_usd, 0.5); t.equal(res.caps.per_run_usd, 1.5); t.ok(res.effective_caps.total_usd <= 0.5 + 1e-9);
+  t.ok(res.cases.some((c) => c.state === "budget_exceeded"), "a card is the code-built budget card");
+  const lines = fs.readFileSync(cmd.journal, "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l));
+  t.ok(Math.abs(lines.reduce((a, l) => a + (l.final_cost_usd == null ? l.reserved_usd : l.final_cost_usd), 0) - sum) < 1e-6, "the journal matches the ledger");
+  clean(r);
+});
+
+test("UPS_AI_EVAL_HOME is honored only for a folder under the OS temp folder; anywhere else it is ignored and the real default is used", async () => {
+  const mod = await import("../scripts/ai_eval/run_eval.mjs");
+  t.equal(mod.evalHome({ UPS_AI_EVAL_HOME: path.join(TMP, "somewhere") }), path.join(TMP, "somewhere"));
+  const real = mod.evalHome({});
+  t.equal(real, path.join(os.homedir(), ".ups_ai_eval"));
+  for (const bad of ["/etc/ups", path.join(os.homedir(), "elsewhere"), os.tmpdir(), "/", path.join(TMP, "..", "..", "..", "x")]) t.equal(mod.evalHome({ UPS_AI_EVAL_HOME: bad }), real, `${bad} is ignored`);
+  const d = mod.acceptableToday(new Date(2026, 10, 20, 23, 30));            // local 2026-11-20 evening
+  t.equal(d.local, "2026-11-20");
+  t.ok(d.utc === "2026-11-20" || d.utc === "2026-11-21");
 });
 
 test("LIVE smoke stop: if the mean cost per answered question is above $0.08 after 5 cases, the run stops and reports (exit 3)", async () => {

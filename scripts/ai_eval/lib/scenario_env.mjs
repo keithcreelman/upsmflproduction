@@ -414,7 +414,9 @@ export function ruleReport(errors) {
 //   caseDef   a bank line ({ id, question, ... })      spec  the set entry ({ scenario, fault, oracle, ... })
 //   client    { mode, complete(request) }               gateEnv  { DESK_BUDGET_*_USD, and for live DESK_LIVE_MODEL_ENABLED + the desk key }
 //   db        a ledger database (makeLedgerDb)          clock    "fixed" (deterministic, for transcripts) or "real"
-export async function runCase({ caseDef, spec, client, gateEnv, db, runId, clock = "real", keepRequests = false }) {
+//   ledgerHook  optional { before(): reason|null, after({ row, runId, questionId }) }: the live runner's spend journal. before() can stop a call (its reason is returned
+//               to the pipeline like a gate block); after() is called with the ledger row of every call the gate reserved, once the gate has finalized it.
+export async function runCase({ caseDef, spec, client, gateEnv, db, runId, clock = "real", keepRequests = false, ledgerHook = null }) {
   const { makeCommishCaller } = await import("../../../worker/src/desk/contract.js");
   const { answerQuestion } = await import("../../../worker/src/desk/pipeline.js");
   const { guardedCall } = await import("../../../worker/src/desk/budget.js");
@@ -438,12 +440,18 @@ export async function runCase({ caseDef, spec, client, gateEnv, db, runId, clock
   let loopMessages = [];                                            // the pipeline's own message list for the tool loop (it appends to this same array)
   const callModel = async (req) => {
     if (req.step === "loop") loopMessages = req.messages;
+    const stopWhy = ledgerHook && ledgerHook.before ? ledgerHook.before() : null;
+    if (stopWhy) { gate.push({ step: req.step, model: req.model, max_tokens: req.max_tokens, ok: false, reason: stopWhy, detail: null, cost_usd: 0, call_id: null, mode: null, ledger_warning: null }); return { ok: false, blocked: true, reason: stopWhy }; }
     const res = await guardedCall({
       env: gateEnv, db, caller, client: rec, deskEnabled: true, nowMs: nowMs(),
       // meta.tools is the key the ledger reads (not toolIds): the tool ids offered to the model in this step
       meta: { feature: "commish_desk", runId, questionId, step: req.step, promptHash: req.promptHash || null, canonSha: sc.knowledge.rulesMeta.canon_sha7, tools: req.toolIds || null },
       request: { model: req.model, system: req.system, messages: req.messages, tools: req.tools, tool_choice: req.tool_choice, max_tokens: req.max_tokens },
     });
+    if (ledgerHook && ledgerHook.after && res && res.callId != null) {
+      const row = db.raw.prepare("SELECT id, step, model, est_cost_usd, cost_usd FROM ai_call_log WHERE id = ?").get(res.callId);
+      if (row) ledgerHook.after({ row, runId, questionId });
+    }
     gate.push({ step: req.step, model: req.model, max_tokens: req.max_tokens, ok: !!res.ok, reason: res.reason || null, detail: res.detail || null, cost_usd: res.ok ? res.costUsd : 0, call_id: res.callId == null ? null : res.callId, mode: res.mode || null, ledger_warning: res.ledgerWarning || null });
     return res;
   };
