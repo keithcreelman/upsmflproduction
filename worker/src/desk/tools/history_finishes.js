@@ -317,7 +317,10 @@ const tool = defineTool({
     const gaps = [];
     const notes = [];
     if (rejected) gaps.push(gap(`${rejected} route row(s) had an unreadable season or franchise id and were left out`, "partial_coverage", "a clean src_final_standings row for each"));
-    if (dateAsOf) gaps.push(DATE_MAPPED_GAP(asOf, asOfYear));
+    // A year-end date (December 31) is the end of its season, so a season result IS the standing on that date; the mapping gap is only needed for a date inside a season.
+    // (R4 DEV-REC-02: nine "mapped by calendar year" gap lines on a nine-season list, one per year-end date, were noise.)
+    const yearEnd = dateAsOf && /-12-31$/.test(asOf);
+    if (dateAsOf && !yearEnd) gaps.push(DATE_MAPPED_GAP(asOf, asOfYear));
     if (cs && (argSeason === cs || asOfYear === cs) && !bySeason.has(cs)) {
       gaps.push(gap(`The ${cs} season is still in progress; its final places are recorded after the playoffs, so none are shown for it`, "partial_coverage", `${cs} final standings (after the season ends)`));
     }
@@ -381,6 +384,7 @@ const tool = defineTool({
 
     // Title counts across the scope (all seasons in scope; only when the question is not about one season).
     let titles = null;
+    const titleGrades = new Map();      // "c<franchise>_<season>" (championship) / "t<franchise>_<season>" (Toilet Bowl) -> the grade of that season's finish
     const excludedFromCounts = [];
     if (argSeason == null) {
       const byFr = new Map();
@@ -393,8 +397,8 @@ const tool = defineTool({
           if (franchise && d.franchise_id !== franchise) continue;
           const e = byFr.get(d.franchise_id) || { franchise_id: d.franchise_id, franchise_name: d.franchise_name, champion_titles: 0, champion_seasons: [], toilet_bowl_titles: 0, toilet_bowl_seasons: [] };
           if (d.franchise_name) e.franchise_name = d.franchise_name;
-          if (d.final_finish === 1 && d.label_kind === "championship_bracket") { e.champion_titles += 1; e.champion_seasons.push(s); }
-          if (d.final_finish === 7 && d.label_kind === "toilet_bowl_champion") { e.toilet_bowl_titles += 1; e.toilet_bowl_seasons.push(s); }
+          if (d.final_finish === 1 && d.label_kind === "championship_bracket") { e.champion_titles += 1; e.champion_seasons.push(s); titleGrades.set(`c${d.franchise_id}_${s}`, d.place_verified === true && d.season_status === "ok" ? "C" : "D"); }
+          if (d.final_finish === 7 && d.label_kind === "toilet_bowl_champion") { e.toilet_bowl_titles += 1; e.toilet_bowl_seasons.push(s); titleGrades.set(`t${d.franchise_id}_${s}`, d.place_verified === true && d.season_status === "ok" ? "C" : "D"); }
           byFr.set(d.franchise_id, e);
         }
       }
@@ -462,6 +466,10 @@ const tool = defineTool({
       for (const e of titles.slice(0, 30)) {
         if (view !== "toilet_bowl") facts.push(fact(`titles_f${e.franchise_id}`, `Championships won by franchise ${e.franchise_id}`, e.champion_titles, "count", `${src} (counted in code)`, "C", asOf));
         if (view !== "champions") facts.push(fact(`toilet_titles_f${e.franchise_id}`, `Toilet Bowl titles won by franchise ${e.franchise_id}`, e.toilet_bowl_titles, "count", `${src} (counted in code)`, "C", asOf));
+        // Every season behind the count, listed by code (R4 DEV-REC-01: a card named two of a franchise's three title seasons). The grade is the lowest of the seasons it lists.
+        const worst = (prefix, seasons) => (seasons.some((y) => (titleGrades.get(`${prefix}${e.franchise_id}_${y}`) || "D") === "D") ? "D" : "C");
+        if (view !== "toilet_bowl" && e.champion_seasons.length) facts.push(fact(`title_years_f${e.franchise_id}`, `Seasons in which franchise ${e.franchise_id} won the championship`, e.champion_seasons.join(", "), "text", `${src} (listed in code)`, worst("c", e.champion_seasons), asOf));
+        if (view !== "champions" && e.toilet_bowl_seasons.length) facts.push(fact(`toilet_years_f${e.franchise_id}`, `Seasons in which franchise ${e.franchise_id} won the Toilet Bowl`, e.toilet_bowl_seasons.join(", "), "text", `${src} (listed in code)`, worst("t", e.toilet_bowl_seasons), asOf));
       }
       const counted = scopeSeasons.filter((s) => s !== 2010).length;
       facts.push(fact("seasons_counted", "Seasons included in the title counts", counted, "count", `${src} (counted in code)`, "C", asOf));
@@ -478,13 +486,13 @@ const tool = defineTool({
 
     // The registry rejects more than MAX_FACTS (200). Worst case here is about 175; if it is ever exceeded, drop the title-count tail and say so.
     if (facts.length > 190) {
-      const keep = facts.filter((f) => !/\.(titles|toilet_titles)_f\d{4}$/.test(f.id));
+      const keep = facts.filter((f) => !/^(titles|toilet_titles|title_years|toilet_years)_f\d{4}$/.test(f.key));
       gaps.push(gap(`Title counts per franchise were dropped from the facts (too many facts); ${facts.length - keep.length} count facts omitted. The counts are in data.titles.`, "partial_coverage", "none (narrow with a franchise)"));
       facts.length = 0; facts.push(...keep);
     }
     notes.push("Results are by franchise id; the team name shown is the one stored for that season.");
     notes.push("regular_season_finish is the playoff seed by all-play percent, not the final finish.");
-    if (dateAsOf) notes.push(`as_of ${asOf} was mapped to its season by calendar year.`);
+    if (dateAsOf && !yearEnd) notes.push(`as_of ${asOf} was mapped to its season by calendar year.`);
 
     const data = {
       view,

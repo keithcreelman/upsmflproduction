@@ -128,11 +128,13 @@ function computeOracle(key, knowledge) {
   if (key === "no_number_expected") return { kind: "no_number" };
   if (key === "rule_superflex_2022") {
     const hit = knowledge && knowledge.rules.order.map((a) => knowledge.rules.byAnchor[a]).find((r) => /superflex transition/i.test(r.title) && /2022/.test(r.title));
-    return { kind: "rule_cite", anchor: hit ? hit.anchor : null, must_appear_in_rule_text: "2022" };
+    return { kind: "rule_cite", anchor: hit ? hit.anchor : null, must_appear_in_rule_text: "2022", year_fact: { key: "rule_year", value: 2022 } };
   }
   if (key === "rule_ext1_status") {
     const hit = knowledge && knowledge.rules.byAnchor["s1-c4"];
-    return { kind: "rule_cite", anchor: hit ? hit.anchor : null, glossary_term: "Ext1" };
+    // Keith's ruling (2026-11-20): the answer must carry three distinctions, not a bare yes or no: Extension is the contract family; Ext1 is its one-year designation and a
+    // contract_type value in canon (C4, T3.3); Vet-Ext1 is the related status token. The check is mechanical (the words must be on the card); a human reads the answer too.
+    return { kind: "rule_cite", anchor: hit ? hit.anchor : null, glossary_term: "Ext1", visible_terms: [/\bextension\b/i, /\bext1\b/i, /\bcontract[ _-]?type/i, /\bvet-ext1\b/i, /\bstatus\b/i] };
   }
   return { kind: "unknown", key };
 }
@@ -383,7 +385,13 @@ export function checkOracle(oracle, card, knowledge) {
       const hit = (card.cites || []).find((c) => c.anchor === oracle.anchor);
       const text = knowledge && knowledge.rules.byAnchor[oracle.anchor] ? `${knowledge.rules.byAnchor[oracle.anchor].title} ${knowledge.rules.byAnchor[oracle.anchor].text}` : "";
       const needs = oracle.must_appear_in_rule_text ? text.includes(oracle.must_appear_in_rule_text) : true;
-      return { pass: !!hit && needs, detail: hit ? `cites ${oracle.anchor}${oracle.must_appear_in_rule_text ? `; its text holds "${oracle.must_appear_in_rule_text}": ${needs}` : ""}` : `does not cite ${oracle.anchor}` };
+      // A year fact: the card must carry the rule's heading year as a fact (a token), not as typed text.
+      const yf = oracle.year_fact ? Object.entries(card.facts || {}).find(([id, f]) => id.endsWith(`.${oracle.year_fact.key}`) && Number(f.value) === oracle.year_fact.value) : null;
+      const yearOk = oracle.year_fact ? !!yf && (card.facts_used || []).includes(yf[0]) : true;
+      // Distinctions: every listed term must be in the text the page shows (the lead, table cells, cite claims).
+      const shown = visibleLines(card).join("\n");
+      const missing = (oracle.visible_terms || []).filter((re) => !re.test(shown)).map((re) => String(re));
+      return { pass: !!hit && needs && yearOk && !missing.length, detail: hit ? `cites ${oracle.anchor}${oracle.must_appear_in_rule_text ? `; its text holds "${oracle.must_appear_in_rule_text}": ${needs}` : ""}${oracle.year_fact ? `; year fact on the card: ${yearOk}` : ""}${missing.length ? `; missing from the answer: ${missing.join(" ")}` : ""}` : `does not cite ${oracle.anchor}` };
     }
     case "no_number": {
       const txt = visibleLines(card).join("\n");

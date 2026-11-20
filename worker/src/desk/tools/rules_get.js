@@ -1,6 +1,6 @@
 // Tool 2: rules.get. Exact rule text by anchor, for citation. Current canon only; a past as_of labels the text as current.
 import { defineTool } from "../registry.js";
-import { getRule, staleIndexRefusal, MAX_RULE_PARTS } from "../knowledge.js";
+import { getRule, staleIndexRefusal, MAX_RULE_PARTS, ruleHeadingYear } from "../knowledge.js";
 
 const todayIso = (now) => (now instanceof Date ? now : new Date(now)).toISOString().slice(0, 10);
 const dateOnly = (s) => (typeof s === "string" ? s.slice(0, 10) : null);
@@ -60,14 +60,23 @@ export default defineTool({
         provenance, freshness,
       };
     }
+    const SRC = "site/m/data/rules.json";
+    const facts = [
+      { key: "rule_anchor", label: "Rule anchor", value: e.anchor, unit: "id", as_of: "current", source: SRC, grade: "B" },
+      { key: "canon_sha", label: "Canon version (commit)", value: e.canon_sha, unit: "text", as_of: "current", source: SRC, grade: "B" },
+      // The rule's own heading, as the canon writes it. It may be printed only beside a cite to this same rule (validator RULE_FACT_UNCITED).
+      { key: "rule_title", label: "Heading of this rule in the canon", value: String(e.title).slice(0, 200), unit: "text", as_of: "current", source: SRC, grade: "B" },
+    ];
+    // The year that heading names (only a "Rule changes by year" heading with exactly one year). It is the year in the heading, not a proved effective date: the gap below stays.
+    const headingYear = ruleHeadingYear(e);
+    if (headingYear != null) facts.push({ key: "rule_year", label: "Year in the heading of this rule", value: headingYear, unit: "season", as_of: "current", source: SRC, grade: "B" });
+    const gaps = got.parts_total > got.part ? [{ what: `the rest of this rule (part ${got.part} of ${got.parts_total} shown)`, why: "partial_coverage", source_needed: "call rules.get again with the next part" }] : [];
+    if (headingYear != null) gaps.push({ what: "The exact date this rule took effect: the heading names a year only", why: "NO_RECORD", source_needed: "League Record slice S4 (rules by date)" });
     return {
       status: "ok",
       data,
-      facts: [
-        { key: "rule_anchor", label: "Rule anchor", value: e.anchor, unit: "id", as_of: "current", source: "site/m/data/rules.json", grade: "B" },
-        { key: "canon_sha", label: "Canon version (commit)", value: e.canon_sha, unit: "text", as_of: "current", source: "site/m/data/rules.json", grade: "B" },
-      ],
-      coverage: { supported: true, gaps: got.parts_total > got.part ? [{ what: `the rest of this rule (part ${got.part} of ${got.parts_total} shown)`, why: "partial_coverage", source_needed: "call rules.get again with the next part" }] : [] },
+      facts,
+      coverage: { supported: gaps.length === 0, gaps },
       provenance, freshness,
     };
   },

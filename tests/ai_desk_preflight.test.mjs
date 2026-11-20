@@ -242,10 +242,16 @@ test("matrix: the grade is independent of the oracle (an oracle PASS can still b
   const base = MATRIX.rows.filter((r) => r.scenario === "baseline");
   t.equal(base.length, 10);
   t.ok(base.every((r) => r.grade === "Correct" || r.grade === "Partial"), "no baseline answer is Incorrect or a Technical failure");
-  t.ok(base.some((r) => r.oracle_pass === true && r.grade === "Partial"), "an oracle pass that is only a Partial answer exists (DEV-REC-02 has a listed gap)");
+  t.ok(base.some((r) => r.oracle_pass === true && r.grade === "Partial"), "an oracle pass that is only a Partial answer exists (DEV-REC-02 and DEV-RUL-02 have a listed gap)");
   for (const [scenario, reason] of [["text_only_composer_always", "validation_failed"], ["unicode_digit_always", "validation_failed"], ["truncated_loop", "tool_limit:max_tokens"], ["refusal_loop", "tool_limit:refusal"], ["bad_response_loop", "model_unavailable:loop"], ["http400_loop2", "model_unavailable:loop"]]) {
     const rows = MATRIX.rows.filter((r) => r.scenario === scenario);
-    t.equal(rows.length, 10); t.ok(rows.every((r) => r.state === "tool_failure" && r.reason === reason), scenario);
+    t.equal(rows.length, 10);
+    // Phase 1 closeout: a question whose only evidence is "no record" is declined by code and never reaches the composer, so a composer failure cannot touch it.
+    const composerScenario = scenario.endsWith("_composer_always") || scenario === "unicode_digit_always";
+    const declined = (r) => composerScenario && ["DEV-LIN-03", "DEV-CON-02", "DEV-UNA-08"].includes(r.case);
+    t.ok(rows.filter((r) => !declined(r)).every((r) => r.state === "tool_failure" && r.reason === reason), scenario);
+    t.ok(rows.filter(declined).every((r) => r.state === "abstain" && r.reason === "no_record" && r.grade === "Correct"), `${scenario}: the code-built declines are untouched`);
+    t.equal(rows.filter(declined).length, composerScenario ? 3 : 0);
   }
   const d = MATRIX.rows.filter((r) => r.scenario === "http400_loop2");
   t.ok(d.every((r) => r.diagnostics && r.diagnostics.status === 400 && r.diagnostics.provider_type === "invalid_request_error" && r.diagnostics.provider_path === "messages.1.content.0.text" && r.diagnostics.shape.messages.length >= 3));

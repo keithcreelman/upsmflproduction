@@ -7,7 +7,7 @@
 // Guarantees:
 //  - A caller that is not the proven commissioner throws DeskAuthError before any model call (the handler turns it into a 403).
 //  - A bad question (empty, over 600 characters, bad as_of) throws DeskInputError (the handler turns it into a 400).
-//  - Code chooses budget_exceeded, tool_failure, stale_data and out_of_scope; those cards carry no model-written text.
+//  - Code chooses budget_exceeded, tool_failure, stale_data and out_of_scope, and the "no record" decline (decline.js); those cards carry no model-written text.
 //  - A card the validator rejects gets ONE retry of the composer with the error codes; a second failure is a code-built
 //    tool_failure. Raw tool JSON and stack traces never enter a card or the trace.
 
@@ -16,7 +16,8 @@ import { promptHash } from "./prompts.js";
 import { routeQuestion, detectActionRequest } from "./router.js";
 import { deriveTemporal } from "./temporal.js";
 import { runLoop } from "./loop.js";
-import { composeCard, buildServerCard, codeCard, newRequestId, retrievedRules, glossaryTerms } from "./composer.js";
+import { composeCard, buildServerCard, codeCard, noRecordCard, newRequestId, retrievedRules, glossaryTerms } from "./composer.js";
+import { findNoRecordDecline } from "./decline.js";
 import { validateCard, errorCodes } from "./validator.js";
 import { INJECTION_NOTE } from "./injection.js";
 
@@ -134,6 +135,14 @@ export async function answerQuestion({ caller, question, asOf, requestId: givenR
 
   // 3. Stale data the policy says to withhold: code decides, no model text.
   if (envelopes.some(isStaleWithhold)) return finish(codeCard("stale_data", meta({ asOf: asOfLabel, reasonCode: "stale_withheld" })), "stale_data");
+
+  // 3b. The only evidence is "the desk has no record" for the season this run is about: code writes the decline, no composer call (decline.js has the conditions).
+  const decline = findNoRecordDecline(envelopes, { effAsOf, currentSeason: deps.knowledge && deps.knowledge.currentSeason, forbidCurrent });
+  if (decline) {
+    trace.injection = { suspicious: loop.injection.suspicious, sources: loop.injection.sources };
+    trace.decline = { kind: "no_record", domains: decline.domains };
+    return finish(noRecordCard({ ...meta({ asOf: asOfLabel, notes: loop.injection.suspicious ? [INJECTION_NOTE] : [] }), gaps: decline.gaps, toolGaps: decline.toolGaps, note: loop.injection.suspicious ? "" : decline.note }), "abstain:no_record");
+  }
 
   // 4. Compose, validate, retry once.
   const vctx = { envelopes, knowledge: deps.knowledge, ceiling: caller.ceiling, asOf: effAsOf, forbidCurrent, today, retrievedAnchors: retrievedRules(envelopes), allowedTerms: glossaryTerms(envelopes) };

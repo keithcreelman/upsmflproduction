@@ -15,6 +15,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "ups-desk-demo-"));
 const rd = (rel) => JSON.parse(fs.readFileSync(path.join(ROOT, rel), "utf8"));
 const SET = rd("scripts/ai_eval/sets/first10.json");
+const CODE_DECLINES = ["DEV-LIN-03", "DEV-CON-02", "DEV-UNA-08"];     // the evidence is only "no record": the desk writes the card (decline.js)
 const IDS = SET.cases.map((c) => c.id);
 
 // A preload that turns every outbound fetch into a logged throw.
@@ -60,6 +61,13 @@ test("every one of the ten demos exits 0, has every section and the closing line
     t.ok(r.out.includes("MODE: SCRIPTED model (no AI, no network, no cost)"), `${id} says SCRIPTED up front`);
     t.ok(/ledger lane "fake"/.test(r.out) && /Mode: fake/.test(r.out), `${id} ran in the fake ledger lane`);
     t.ok(/Budget gate: all \d+ calls allowed; each was reserved in the ledger BEFORE the call/.test(r.out), `${id} budget gate allowed every call`);
+    if (CODE_DECLINES.includes(id)) {
+      // Phase 1 closeout: when the only evidence is "the desk has no record", the desk writes the decline itself (decline.js): no composer, so nothing to validate.
+      t.ok(r.out.includes("(the composer was not reached; the desk built the card itself)"), `${id} says the desk built the decline itself`);
+      t.ok(r.out.includes("(nothing to validate)"), `${id} has no model card to validate`);
+      t.ok(!/Attempt 1/.test(r.out), `${id} shows no validator attempt`);
+      continue;
+    }
     t.ok(/Attempt 1: PASS/.test(r.out), `${id} validator passed attempt 1`);
     for (const rule of ["R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8"]) t.ok(new RegExp(`PASS  ${rule}  `).test(r.out), `${id} lists validator rule ${rule}`);
   }
@@ -114,7 +122,7 @@ test("DEV-LIN-03 (a refusal): the demo shows WHY it declined: the coverage gap a
   t.match(o, /"domain":"pick_lineage"/);
   t.match(o, /Data coverage: Who held a draft pick/);
   t.match(o, /NO_RECORD: Who held a draft pick, its slot, and the player taken for 2013 \[source needed: League Record slice S1 \(trades and picks\)\]/);
-  t.match(o, /"state": "abstain"/);
+  t.match(o, /the composer was not reached; the desk built the card itself/, "a code-built decline: no model card exists");
   t.match(o, /State:\s+abstain/);
   t.match(o, /Facts on the card: none/);
   t.match(o, /source needed: League Record slice S1/, "the page text names the missing source");
@@ -178,7 +186,8 @@ test("the demo shows what the pipeline ran: the same route calls the pipeline ma
     const { run: r } = await demoCase(id);
     const piped = r.audit.reduce((n, a) => n + (a.routes || []).length, 0);
     t.equal(r.routes.length, piped, `${id}: the routes shown (${r.routes.length}) are exactly the pipeline's own (${piped}); nothing was run again`);
-    t.ok(r.validator.length >= 1 && r.validator.every((v) => v.matches_pipeline === true), `${id}: the validator re-check agrees with trace.attempts`);
+    if (CODE_DECLINES.includes(id)) t.deepEqual(r.validator, [], `${id}: a code-built decline has no model card, so no validator attempt`);
+    else t.ok(r.validator.length >= 1 && r.validator.every((v) => v.matches_pipeline === true), `${id}: the validator re-check agrees with trace.attempts`);
     t.equal(r.toolCalls.length, r.trace.tool_calls, `${id}: tool calls shown equal the pipeline's count`);
     // the ledger's tools column is filled (meta.tools): loop rows name the tools offered
     t.ok(r.ledger.filter((x) => x.step === "loop").every((x) => /rules\.search/.test(x.tools || "")), `${id}: loop rows carry meta.tools`);
@@ -189,12 +198,23 @@ test("DEV-RUL-02 and DEV-RUL-10: the cite is a rule retrieved in this run, with 
   const a = JSON.parse((await demo(["--case", "DEV-RUL-02", "--json"])).out);
   t.equal(a.card.cites[0].anchor, "s4-2022-superflex-transition-concurrent-with-rest-of-league-rul");
   t.match(a.card.cites[0].rule.title, /2022 .* Superflex transition/);
-  t.equal(a.oracleCheck.pass, true);
+  t.equal(a.oracleCheck.pass, true, a.oracleCheck.detail);
   t.ok(!/\d/.test(a.card.lead_md.replace(/\{\{f\.[^}]+\}\}/g, "")), "no typed digit in the lead");
+  // Phase 1 closeout: the year is a source-bound fact token (the year in the rule's own heading), printed beside the cite to that rule; the exact date stays a gap
+  const yearFact = Object.entries(a.card.facts).find(([id]) => id.endsWith(".rule_year"));
+  t.ok(yearFact && yearFact[1].value === 2022 && yearFact[1].display === "2022" && yearFact[1].grade === "B", "the 2022 comes from the rule_year fact");
+  t.ok(a.card.facts_used.includes(yearFact[0]) && a.card.lead_md.includes(`{{f.${yearFact[0]}}}`));
+  t.equal(a.card.state, "answer_with_gap");
+  t.ok(a.card.gaps.some((g) => /exact date/.test(g.what) && g.source_needed === "League Record slice S4 (rules by date)"));
   const b = JSON.parse((await demo(["--case", "DEV-RUL-10", "--json"])).out);
   t.equal(b.card.cites[0].anchor, "s1-c4"); t.equal(b.card.state, "answer"); t.deepEqual(b.card.facts_used, []);
-  t.match(b.card.lead_md, /^No\. The glossary lists Vet-Ext1 as a status token/, "the glossary term is written as spelled (it has a digit)");
-  t.equal(b.oracleCheck.pass, true);
+  // The commissioner's ruling (2026-11-20): three distinctions, not a bare no. Extension is the family; Ext1 is its one-year designation and a contract_type value; Vet-Ext1 is the related status token.
+  t.match(b.card.lead_md, /^Extension is the contract family\./);
+  t.match(b.card.lead_md, /Ext1 is the designation for extending a contract by a year/);
+  t.match(b.card.lead_md, /contract type value/);
+  t.match(b.card.lead_md, /related status token is Vet-Ext1/, "the glossary term is written as spelled (it has a digit)");
+  t.doesNotMatch(b.card.lead_md, /^(No|Yes)\b/, "never a bare yes or no");
+  t.equal(b.oracleCheck.pass, true, b.oracleCheck.detail);
   t.deepEqual(b.toolCalls.map((c) => c.tool), ["rules.search", "glossary.lookup"]);
 });
 

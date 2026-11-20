@@ -938,4 +938,47 @@ test("every tool result stays inside the registry's output limit and is JSON-saf
   }
 });
 
+// ── Phase 1 closeout: a rule's own title and heading year as source-bound facts (R4 DEV-RUL-02) ─────────────────────
+test("rules.get: rule_title is always a fact; rule_year only for a 'Rule changes by year' heading with exactly one year, with the exact-date gap kept", async () => {
+  const sf = await call("rules.get", { anchor: "s4-2022-superflex-transition-concurrent-with-rest-of-league-rul", as_of: "current" });
+  t.equal(sf.status, "ok");
+  const byKey = (env, k) => env.facts.find((f) => f.id.endsWith(`.${k}`));
+  t.equal(byKey(sf, "rule_year").value, 2022);
+  t.equal(byKey(sf, "rule_year").unit, "season");
+  t.equal(byKey(sf, "rule_year").grade, "B");
+  t.match(byKey(sf, "rule_title").value, /^2022 \u2014 Superflex transition/);
+  t.deepEqual(sf.coverage.gaps.map((g) => [g.why, g.source_needed]), [["NO_RECORD", "League Record slice S4 (rules by date)"]], "the exact effective date stays a listed gap");
+  t.equal(sf.coverage.supported, false);
+  // headings that must NOT yield a year: a doubt, a full date, no year at all, and a rule outside the dated group
+  for (const a of ["s4-2018-or-2019-verify-in-forumotion", "s4-2015-12-01-2016-comp-committee-agenda-forumotion-t245", "s4-rb-ppr-evolution-years-tbd-multiple-changes", "s1-c4", "s1-d1"]) {
+    const env = await call("rules.get", { anchor: a, as_of: "current" });
+    t.equal(env.status, "ok", a);
+    t.equal(env.facts.some((f) => f.id.endsWith(".rule_year")), false, `${a}: no year may be made up`);
+    t.equal(env.facts.some((f) => f.id.endsWith(".rule_title")), true, `${a}: the title is still a fact`);
+    if (!/^s4-/.test(a)) t.equal(env.coverage.gaps.some((g) => /effective/.test(g.what)), false, `${a}: no date gap on a rule that names no year`);
+  }
+  // ruleHeadingYear on its own
+  const { ruleHeadingYear } = know;
+  const p = ["League History", "Rule changes by year (bid-sheet relevant)", "x"];
+  t.equal(ruleHeadingYear({ path: p, title: "2019 \u2014 Cap-penalty overhaul" }), 2019);
+  t.equal(ruleHeadingYear({ path: p, title: "2013" }), 2013);
+  t.equal(ruleHeadingYear({ path: p, title: "2018 or 2019 (verify)" }), null);
+  t.equal(ruleHeadingYear({ path: p, title: "2015-12-01 \u2014 agenda" }), null);
+  t.equal(ruleHeadingYear({ path: p, title: "2018-2019 \u2014 two years" }), null);
+  t.equal(ruleHeadingYear({ path: ["Other", "x"], title: "2022 \u2014 not in the dated group" }), null);
+  t.equal(ruleHeadingYear({ path: p, title: "1999 \u2014 too early to be a league year" }), null);
+  t.equal(ruleHeadingYear({ path: "League History,Rule changes by year (x),y", title: "2021 \u2014 string path" }), 2021);
+  t.equal(ruleHeadingYear(null), null);
+});
+
+test("glossary.lookup: the Extension entry now carries all three distinctions (family, contract_type values, related status token)", async () => {
+  const env = await call("glossary.lookup", { term: "Extension", as_of: "current" });
+  t.equal(env.status, "ok");
+  const e = env.data.entries[0];
+  t.match(e.definition, /family/); t.match(e.definition, /contract_type/); t.match(e.definition, /status token/);
+  const st = await call("glossary.lookup", { term: "Vet-Ext1", as_of: "current" });
+  t.match(st.data.entries[0].definition, /contract_type value/);
+  t.match(st.data.entries[0].definition, /Status token/);
+});
+
 await run("ai_desk_tools_knowledge");

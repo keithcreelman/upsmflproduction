@@ -230,6 +230,18 @@ export function codeCard(state, o) {
   };
 }
 
+// The card for a run whose only evidence is "the desk has no record" (decline.js decides when). Every word is written by code: a closed sentence, an optional
+// one-line note from the coverage matrix (code-sourced, no model text), and the tool's own gaps verbatim (what is missing, why, which League Record slice would
+// close it). State abstain; no facts, no cites, no model call.
+export const NO_RECORD_TEXT = "The desk has no record that answers this question. The gaps below say what is missing and which source would have to supply it. No answer is guessed.";
+export function noRecordCard({ gaps, toolGaps, note, ...rest }) {
+  return {
+    ...baseCard({ state: "abstain", ...rest }),
+    lead_md: note ? `${NO_RECORD_TEXT} ${note}` : NO_RECORD_TEXT, blocks: [], facts_used: [], facts: {}, cites: [], gaps: (gaps || []).map((g) => ({ ...g })), conflicts: [],
+    ruling_question: "", follow_ups: [], tool_gaps: (toolGaps || []).map((g) => ({ ...g })), refusals: [], reason_code: "no_record",
+  };
+}
+
 // Gap entries are built in code: every tool gap verbatim (digits in them are code-sourced), then the model's own extra gaps,
 // which the validator already held to the no-digits rule. An exact model copy of a tool gap was dropped by the validator.
 export function codeBuiltGaps(modelGaps, envelopes) {
@@ -247,11 +259,50 @@ export function attachRuleText(cites, envelopes) {
   });
 }
 
+// A title list the code completes (Phase 1 closeout, R4 DEV-REC-01: a card named two of a franchise's three title seasons). When the card uses a franchise's title count or its
+// list of title seasons, the server attaches ONE complete table for the whole tool result (every franchise with a title, its count, and every season behind it), built from the
+// tool's own facts and shown through tokens like any other table. The model still writes the lead; it can no longer leave a season out of what the page shows. Skipped when the
+// model's own blocks already carry every season list of that call.
+const TITLE_KINDS = Object.freeze([
+  { count: "titles", years: "title_years", title: "Championships by franchise, with every season" },
+  { count: "toilet_titles", years: "toilet_years", title: "Toilet Bowl titles by franchise, with every season" },
+]);
+export function completeTitleBlocks({ index, factsUsed, blocks }) {
+  const used = new Set(factsUsed || []);
+  const inBlocks = new Set((blocks || []).flatMap((b) => (b && Array.isArray(b.fact_ids) ? b.fact_ids : [])));
+  const calls = new Set();
+  for (const id of used) { const m = /^(c\d{1,3})\.(?:titles|title_years|toilet_titles|toilet_years)_f\d{4}$/.exec(id); if (m) calls.add(m[1]); }
+  const out = []; const factIds = [];
+  for (const call of [...calls].sort()) {
+    for (const k of TITLE_KINDS) {
+      const years = [...index.keys()].filter((id) => new RegExp(`^${call}\\.${k.years}_f\\d{4}$`).test(id));
+      if (!years.length) continue;
+      const touched = years.some((id) => used.has(id)) || years.some((id) => used.has(id.replace(k.years, k.count)));
+      if (!touched) continue;
+      if (years.every((id) => inBlocks.has(id))) continue;
+      const rows = years.map((yid) => {
+        const fid = /_f(\d{4})$/.exec(yid)[1];
+        const cnt = `${call}.${k.count}_f${fid}`;
+        const last = String(index.get(yid).value).split(", ").map(Number).filter(Number.isFinite).sort((a, b) => b - a)[0];
+        const team = `${call}.s${last}_f${fid}_team`;
+        return { fid, yid, cnt, team: index.has(team) ? team : null, n: Number(index.get(cnt) && index.get(cnt).value) || 0 };
+      }).filter((r) => index.has(r.cnt)).sort((a, b) => b.n - a.n || a.fid.localeCompare(b.fid));
+      if (!rows.length) continue;
+      const ids = rows.flatMap((r) => [r.team, r.cnt, r.yid].filter(Boolean));
+      out.push({ type: "table", title: k.title, columns: ["Franchise", "Titles", "Seasons"], rows: rows.map((r) => [r.team ? `{{f.${r.team}}}` : `Franchise ${r.fid}`, `{{f.${r.cnt}}}`, `{{f.${r.yid}}}`]), fact_ids: ids, tool_call_ids: [call] });
+      factIds.push(...ids);
+    }
+  }
+  return { blocks: out, factIds: [...new Set(factIds)] };
+}
+
 // The card the page renders, from a CLEANED (validated) model card plus this run's envelopes. Raw tool data never goes in.
 export function buildServerCard({ cleaned, envelopes, calls, asOf, canonSha, requestId, costUsd, modelCalls, notes }) {
   const index = buildFactIndex(envelopes);
   const facts = {};
-  for (const id of cleaned.facts_used) {
+  const added = completeTitleBlocks({ index, factsUsed: cleaned.facts_used, blocks: cleaned.blocks });
+  const factsUsed = [...new Set([...cleaned.facts_used, ...added.factIds])].sort();
+  for (const id of factsUsed) {
     const f = index.get(id);
     if (!f) continue; // the validator guarantees presence; never invent
     facts[id] = { value: f.value, unit: f.unit, display: formatFact(f), grade: f.grade, source: f.source, as_of: f.as_of, tool: f.tool, call_id: f.call_id, label: f.label };
@@ -265,7 +316,7 @@ export function buildServerCard({ cleaned, envelopes, calls, asOf, canonSha, req
   }
   return {
     ...baseCard({ state: cleaned.state, asOf, canonSha, requestId, calls, costUsd, modelCalls, notes }),
-    lead_md: cleaned.lead_md, blocks: cleaned.blocks, facts_used: cleaned.facts_used, facts, cites: attachRuleText(cleaned.cites, envelopes), gaps: codeBuiltGaps(cleaned.gaps, envelopes),
+    lead_md: cleaned.lead_md, blocks: [...cleaned.blocks, ...added.blocks], facts_used: factsUsed, facts, cites: attachRuleText(cleaned.cites, envelopes), gaps: codeBuiltGaps(cleaned.gaps, envelopes),
     conflicts: cleaned.conflicts, ruling_question: cleaned.ruling_question, follow_ups: cleaned.follow_ups, tool_gaps: toolGaps, refusals,
   };
 }

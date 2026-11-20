@@ -402,6 +402,19 @@ function splitParts(text, size) {
 }
 
 // -> { found, entry, part, parts_total, text } | { found:false, suggestions:[anchors] }
+// The year a canon rule's own heading names, or null. Only a heading under "Rule changes by year" whose title is one four-digit year (alone, or followed by an
+// em dash and words) counts: "2022 — Superflex transition ...". A full date ("2015-12-01 — ..."), a range or a doubt ("2018 or 2019 (verify ...)") and a title with no
+// year give null, so a year is never made up. This is the year in the HEADING; the exact effective date still needs the dated rule-version table (slice S4).
+const HEADING_YEAR_GROUP_RE = /^\s*Rule changes by year\b/i;
+const HEADING_YEAR_RE = /^(20\d{2})(?:\s+\u2014\s|\s*$)/;
+export function ruleHeadingYear(entry) {
+  if (!entry || typeof entry.title !== "string") return null;
+  const segments = Array.isArray(entry.path) ? entry.path : typeof entry.path === "string" ? entry.path.split(",") : [];
+  if (!segments.some((seg) => typeof seg === "string" && HEADING_YEAR_GROUP_RE.test(seg))) return null;
+  const m = HEADING_YEAR_RE.exec(entry.title.trim());
+  return m ? Number(m[1]) : null;
+}
+
 export function getRule(knowledge, anchor, part = 1) {
   const rules = knowledge.rules;
   const key = String(anchor || "").trim().toLowerCase();

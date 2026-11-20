@@ -127,7 +127,8 @@ const use = (name, input) => ({ type: "tool_use", id: `toolu_scripted_${String(+
 const loopReply = (uses) => (uses.length ? { stop_reason: "tool_use", content: [{ type: "text", text: "Checking the records." }, ...uses] } : { stop_reason: "end_turn", content: [{ type: "text", text: "Enough evidence." }] });
 
 const LOOPS = {
-  "DEV-RUL-02": (q, asOf) => [use("rules__search", { query: contentWords(q).join(" "), as_of: asOf || "current", limit: 8 })],
+  // The scripted model reads the dated canon entry directly (it knows the anchor the way a model would after rules.search): rules.get returns the heading year as a fact.
+  "DEV-RUL-02": (q, asOf) => [use("rules__search", { query: contentWords(q).join(" "), as_of: asOf || "current", limit: 8 }), use("rules__get", { anchor: "s4-2022-superflex-transition-concurrent-with-rest-of-league-rul", as_of: asOf || "current" })],
   "DEV-RUL-10": (q, asOf) => [use("rules__search", { query: contentWords(q).join(" "), as_of: asOf || "current", limit: 8 }), use("glossary__lookup", { term: contentWords(q)[0], as_of: asOf || "current" })],
   // "from 2017 to 2025" compares dates, so the pipeline refuses as_of current: pass the last season's date. One call returns every season through it.
   "DEV-REC-02": (q, asOf) => [use("history__finishes", { view: "champions", as_of: asOf || `${Math.max(...yearsIn(q))}-12-31` })],
@@ -157,26 +158,28 @@ function bestRule(ev, q) {
 function claimFor(q) { return `the rule on ${contentWords(q).filter((w) => !/\d/.test(w)).slice(0, 3).join(" ")}`; }
 
 const COMPOSERS = {
-  // "When did Superflex start?" The year cannot be typed (no digits in prose), so the answer is the cited rule, whose own text the server shows beside the cite.
+  // "When did Superflex start?" The year is a fact token (rules.get returns the year in the rule's own heading), printed beside the cite to that same rule. The exact
+  // effective date is a listed gap (rules by date, slice S4), so the state is answer_with_gap.
   "DEV-RUL-02": (ev, q) => {
-    const rule = bestRule(ev, q); const sha = factSuffix(ev, "canon_sha");
-    if (!rule || !sha) return declineCard("the rules search returned no rule on this");
-    return { state: "answer", lead_md: `Canon covers this in the cited rule, at canon version {{f.${sha.id}}}. The rule text shown beside the cite gives the season it began and what changed.`,
-      facts_used: [sha.id], cites: [{ anchor: rule.anchor, canon_sha: sha7(rule.canon_sha), claim: claimFor(q) }], follow_ups: ["Show the full rule text"] };
+    const rule = bestRule(ev, q); const year = factSuffix(ev, "rule_year");
+    if (!rule) return declineCard("the rules search returned no rule on this");
+    if (!year) return { state: "answer", lead_md: "Canon covers this in the cited rule. The rule text shown beside the cite gives the season it began and what changed.",
+      cites: [{ anchor: rule.anchor, canon_sha: sha7(rule.canon_sha), claim: claimFor(q) }], follow_ups: ["Show the full rule text"] };
+    return { state: "answer_with_gap", lead_md: `Canon dates the Superflex transition in its entry for {{f.${year.id}}}, the year named in the rule's own heading. The cited rule says the Superflex era begins there. The exact date it took effect is not on record.`,
+      facts_used: [year.id], cites: [{ anchor: rule.anchor, canon_sha: sha7(rule.canon_sha), claim: claimFor(q) }], follow_ups: ["Show the full rule text"] };
   },
-  // The composer now sees the glossary entry. It defines the label as a status token, so the answer is no, with the extension rule cited. A glossary term may be
-  // written exactly as spelled (it has a digit in it); the definition sentence is reused only if it carries no digit and no spelled quantity.
+  // Keith's ruling (2026-11-20): Extension is the contract family; Ext1 is its one-year designation AND a contract_type value in canon (C4, T3.3); Vet-Ext1 is the related status token.
+  // The answer carries all three distinctions, with the extension rule cited (and the transaction-catalog entry when it was retrieved). A glossary term may be written as spelled.
   "DEV-RUL-10": (ev, q) => {
-    const rule = bestRule(ev, q);
+    const rule = ev.rules.find((r) => r.anchor === "s1-c4") || bestRule(ev, q);
     const g = ev.glossary.find((x) => x.kind === "status_token") || ev.glossary[0];
     if (!rule) return declineCard("the rules search returned no rule on this");
-    if (!g) return { state: "cite_and_abstain", lead_md: "Canon's extension rule is cited below. Whether the label counts as a contract type depends on canon's wording, so the desk points to the rule instead of ruling on it.",
-      cites: [{ anchor: rule.anchor, canon_sha: sha7(rule.canon_sha), claim: claimFor(q) }], follow_ups: ["Ask for a ruling on the wording"] };
-    const kind = g.kind.replace(/_/g, " ");
-    const first = String(g.definition).split(/\.\s/)[0].replace(/\.$/, "");
-    const quote = !/\d/.test(first) && !findSpelledQuantities(first).length ? ` The glossary defines it this way: ${first.charAt(0).toLowerCase()}${first.slice(1)}.` : "";
-    return { state: "answer", lead_md: `No. The glossary lists ${g.term} as a ${kind}, a label a contract carries, not a separate kind of contract.${quote} The cited extension rule gives the detail.`,
-      cites: [{ anchor: rule.anchor, canon_sha: sha7(rule.canon_sha) || sha7(g.canon_sha), claim: claimFor(q) }], follow_ups: ["Show the full extension rule"] };
+    const cites = [{ anchor: rule.anchor, canon_sha: sha7(rule.canon_sha), claim: "the extension rule names its designations as contract types" }];
+    const t33 = ev.rules.find((r) => r.anchor === "s2-t3-3");
+    if (t33) cites.push({ anchor: t33.anchor, canon_sha: sha7(t33.canon_sha), claim: "the transaction catalog uses the same designations" });
+    if (!g) return { state: "cite_and_abstain", lead_md: "Canon's extension rule is cited below. Whether a label counts as a contract type depends on canon's wording, so the desk points to the rule instead of ruling on it.", cites, follow_ups: ["Ask for a ruling on the wording"] };
+    return { state: "answer", lead_md: `Extension is the contract family. Ext1 is the designation for extending a contract by a year, and canon's extension rule, cited below, uses it as a contract type value. The related status token is ${g.term}, the label a contract carries once it has been extended.`,
+      cites, follow_ups: ["Show the full extension rule"] };
   },
   "DEV-REC-02": (ev, q) => {
     const ys = yearsIn(q); const lo = Math.min(...ys), hi = Math.max(...ys);

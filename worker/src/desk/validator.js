@@ -41,7 +41,7 @@ export const CODES = Object.freeze({
   UNSAFE_MARKUP: "UNSAFE_MARKUP", FAKE_ANCHOR: "FAKE_ANCHOR", UNRETRIEVED_ANCHOR: "UNRETRIEVED_ANCHOR", CURRENT_FACT_FOR_PAST_DATE: "CURRENT_FACT_FOR_PAST_DATE", WRONG_CANON_SHA: "WRONG_CANON_SHA", OVER_CLASS_FACT: "OVER_CLASS_FACT",
   MISSING_GAP: "MISSING_GAP", GAPS_ON_PLAIN_ANSWER: "GAPS_ON_PLAIN_ANSWER", AS_OF_UNSUPPORTED_ANSWER: "AS_OF_UNSUPPORTED_ANSWER",
   FACT_FROM_REFUSED_TOOL: "FACT_FROM_REFUSED_TOOL", FACTS_IN_NO_FACT_STATE: "FACTS_IN_NO_FACT_STATE", NO_OK_TOOL: "NO_OK_TOOL",
-  UNKNOWN_TOOL_CALL: "UNKNOWN_TOOL_CALL", ROW_CELL: "ROW_CELL", STATE_NEEDS_FIELD: "STATE_NEEDS_FIELD", NO_CANON_INDEX: "NO_CANON_INDEX",
+  UNKNOWN_TOOL_CALL: "UNKNOWN_TOOL_CALL", ROW_CELL: "ROW_CELL", STATE_NEEDS_FIELD: "STATE_NEEDS_FIELD", NO_CANON_INDEX: "NO_CANON_INDEX", RULE_FACT_UNCITED: "RULE_FACT_UNCITED",
 });
 
 export const LIMITS = Object.freeze({
@@ -58,6 +58,7 @@ const CITE_KEYS = ["anchor", "canon_sha", "claim"];
 const GAP_KEYS = ["what", "why", "source_needed"];
 const CONFLICT_KEYS = ["fact_a", "fact_b", "note"];
 const CALL_ID_RE = /^c\d{1,3}$/;
+const RULE_OWN_FACTS = /\.(?:rule_title|rule_year)$/;
 const TOKEN_RE = /\{\{f\.(c\d{1,3}\.[a-z][a-z0-9_]{0,63})\}\}/g;
 const ANCHOR_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/;
 const SHA_RE = /^[0-9a-f]{7,40}$/;
@@ -98,8 +99,20 @@ function wordList(text) {
   return out;
 }
 
+// The one pronoun case allowed (R4, DEV-UNA-08: a correct decline "...so it cannot name one." was rejected): "one" that ends a sentence right after a
+// negation and a closed list of naming verbs. It cannot assert a count: there is no count in "cannot name one". Anything else stays a quantity: "has one",
+// "won one", "only one", "name one title", "cannot name one: {{token}}", "cannot name one, it won one". The end of the sentence is a period, question mark,
+// exclamation mark or the end of the text only (a colon, semicolon or comma can introduce a quantity), and both lists are closed.
+const NEGATED_PRONOUN_ONE_RE = /\b(?:cannot|can't|can not|won't|will not|does not|doesn't|do not|don't|did not|didn't|is unable to|are unable to|unable to|is not able to|not able to)\s+(?:[a-z']+\s+){0,2}?(?:name|give|identify|provide|state|tell|trace|find|say|show)\s+one(?=\s*(?:[.?!](?:\s|$)|$))/gi;
+// The phrase is stripped only when none of its filler words is itself a quantity ("does not give two name one." keeps its "two").
+function stripNegatedPronounOne(text) {
+  return text.replace(NEGATED_PRONOUN_ONE_RE, (m) => {
+    const before = m.toLowerCase().split(/\s+/).slice(0, -1);
+    return before.some((w) => NUMBER_WORDS.has(w) || BIG_ORDINALS.has(w) || SMALL_ORDINALS.has(w)) ? m : " ";
+  });
+}
 export function findSpelledQuantities(text) {
-  const ws = wordList(String(text || ""));
+  const ws = wordList(stripNegatedPronounOne(String(text || "").replace(/’/g, "'")));
   const hits = [];
   for (let i = 0; i < ws.length; i++) {
     const w = ws[i].w;
@@ -410,6 +423,16 @@ export function validateCard(card, ctx) {
     if ((f.status && f.status !== "ok") || (env && env.status !== "ok")) { errors.push({ code: CODES.FACT_FROM_REFUSED_TOOL, path: id, message: "the tool did not return an ok result" }); continue; }
     if (!classAllowed(ceiling, f.data_class)) errors.push({ code: CODES.OVER_CLASS_FACT, path: id, message: "fact is above the caller's data class" });
     if ((pastRun || c.forbidCurrent) && f.as_of === "current") errors.push({ code: CODES.CURRENT_FACT_FOR_PAST_DATE, path: id, message: "this fact is today's value; the question is about a past date or compares dates" });
+  }
+
+  // ── Rule 3b: a rule's own title or heading year is a fact about THAT rule: it may be printed only beside a cite to the same rule (Phase 1 closeout, R4 DEV-RUL-02).
+  // Without this a model could print the year of one retrieved rule while citing another.
+  const citedAnchors = new Set(cites.filter((x) => isObj(x) && typeof x.anchor === "string").map((x) => x.anchor));
+  for (const id of used) {
+    if (!isFactId(id) || !RULE_OWN_FACTS.test(id)) continue;
+    const env = byCall.get(id.split(".")[0]);
+    const anchor = env && env.data && typeof env.data.anchor === "string" ? env.data.anchor : null;
+    if (!anchor || !citedAnchors.has(anchor)) errors.push({ code: CODES.RULE_FACT_UNCITED, path: id, message: "a rule's title or year may be used only with a cite to that same rule (the one this call read)" });
   }
 
   // ── Rule 8: states that carry no facts ─────────────────────────────────────────────────────────

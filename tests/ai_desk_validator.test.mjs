@@ -76,6 +76,55 @@ test("spelled quantities rejected; documented idioms accepted", () => {
   t.ok(validateCard({ ...GOOD(), lead_md: "One of the franchises, {{f.c1.franchise}}, has {{f.c1.cap_available}}." }, ctx).ok);
 });
 
+test("R4 regression: 'cannot name one.' (a refusal, not a count) is accepted; every count use of 'one' stays rejected", () => {
+  // the exact R4 sentence (DEV-UNA-08, attempt 2) and the other refusal forms the closed list allows
+  const accepted = [
+    "The desk has no record of the title winner for that season, so it cannot name one.",
+    "It can't give one.", "It can’t give one.", "The desk is unable to identify one!", "The record does not state one?", "It will not provide one.",
+    "The desk cannot reliably name one.", "The desk did not find one.", "It cannot name one. It has no record.",
+  ];
+  for (const s of accepted) t.equal(findSpelledQuantities(s).length, 0, `should accept: ${s} (got ${findSpelledQuantities(s)})`);
+  // anything that can assert a count keeps failing: no negation, a count noun after it, a colon, comma or semicolon after it, a number word in the filler, a second "one"
+  const rejected = [
+    "The franchise has one.", "It won one.", "Only one.", "It cannot name one title.", "It cannot name one: {{f.c1.rank}}.", "It cannot name one, it won one.",
+    "It cannot name one; it has one.", "It does not give two name one.", "The desk can name one.", "The desk can name one. It cannot name one. It has one.",
+    "It cannot name one and won one.", "name one.",
+  ];
+  for (const s of rejected) t.ok(findSpelledQuantities(s).length > 0, `should reject: ${s}`);
+  // the number rule itself is untouched: a refusal sentence does not excuse a real quantity
+  t.ok(findSpelledQuantities("It cannot name one. It listed twenty.").length > 0);
+  t.ok(findSpelledQuantities("It cannot name one. It listed 20.").length === 0, "digits are the digit rule's job, not this one");
+  // through the validator, in a decline card
+  const ctx = ctxFor([env("c1", "coverage.check", "ok", { gaps: [{ what: "Final finishes for that season", why: "NO_RECORD", source_needed: "a record of that season" }] })]);
+  const ok = validateCard({ state: "abstain", lead_md: "The desk has no record of the title winner for that season, so it cannot name one.", gaps: [{ what: "Final finishes for that season", why: "NO_RECORD", source_needed: "a record of that season" }] }, ctx);
+  t.ok(ok.ok, JSON.stringify(ok.errors));
+  t.deepEqual(codes({ state: "abstain", lead_md: "The desk has no record, but franchise {{f.c1.x}} has one.", gaps: [{ what: "Final finishes for that season", why: "NO_RECORD", source_needed: "a record of that season" }] }, ctx).includes(CODES.SPELLED_QUANTITY), true);
+});
+
+test("Phase 1 closeout: a rule's title or heading year may be printed only beside a cite to the SAME rule that call read (RULE_FACT_UNCITED)", () => {
+  const gap = { what: "The exact date this rule took effect: the heading names a year only", why: "NO_RECORD", source_needed: "League Record slice S4 (rules by date)" };
+  const rg = { ...env("c1", "rules.get", "ok", { facts: [fact("c1", "rule_year", 2022, "season", "B"), fact("c1", "rule_title", "2022 \u2014 Superflex transition", "text", "B"), fact("c1", "canon_sha", SHA, "text", "B")], gaps: [gap] }),
+    data: { anchor: "s1-c4", title: "2022 \u2014 Superflex transition" } };
+  const other = { ...env("c2", "rules.get", "ok", { facts: [fact("c2", "rule_year", 2019, "season", "B")], gaps: [gap] }), data: { anchor: "s2-t6-1", title: "2019 \u2014 Cap-penalty overhaul" } };
+  const ctx = ctxFor([rg, other]);
+  const card = (o = {}) => ({ state: "answer_with_gap", lead_md: "The canon entry for {{f.c1.rule_year}} records the Superflex transition.", facts_used: ["c1.rule_year"], cites: [{ anchor: "s1-c4", canon_sha: SHA, claim: "the rule on the Superflex transition" }], ...o });
+  const good = validateCard(card(), ctx);
+  t.ok(good.ok, JSON.stringify(good.errors));
+  // no cite at all
+  t.deepEqual(codes(card({ cites: [] }), ctx), [CODES.RULE_FACT_UNCITED]);
+  // a cite to a different retrieved rule: the year of one rule beside the cite of another is refused
+  t.deepEqual(codes(card({ cites: [{ anchor: "s2-t6-1", canon_sha: SHA, claim: "the rule on cap penalties" }] }), ctx), [CODES.RULE_FACT_UNCITED]);
+  // the title token follows the same rule
+  t.deepEqual(codes(card({ lead_md: "The canon heading reads {{f.c1.rule_title}}.", facts_used: ["c1.rule_title"], cites: [] }), ctx), [CODES.RULE_FACT_UNCITED]);
+  t.ok(validateCard(card({ lead_md: "The canon heading reads {{f.c1.rule_title}}.", facts_used: ["c1.rule_title"] }), ctx).ok);
+  // both rules cited: each year may be used
+  t.ok(validateCard(card({ lead_md: "Entries for {{f.c1.rule_year}} and {{f.c2.rule_year}} are cited.", facts_used: ["c1.rule_year", "c2.rule_year"], cites: [{ anchor: "s1-c4", canon_sha: SHA, claim: "the first rule" }, { anchor: "s2-t6-1", canon_sha: SHA, claim: "the second rule" }] }), ctx).ok);
+  // the number rule is untouched: a typed year is still a digit in prose
+  t.ok(codes(card({ lead_md: "Superflex started in 2022." }), ctx).includes(CODES.DIGIT_IN_PROSE));
+  // facts that are not a rule's own (the anchor and the canon version) need no cite
+  t.ok(validateCard(card({ lead_md: "Canon version {{f.c1.canon_sha}} was read.", facts_used: ["c1.canon_sha"], cites: [] }), ctx).ok);
+});
+
 test("unknown fact, malformed token, bad fact-id shape", () => {
   const ctx = ctxFor([OK1]);
   t.deepEqual(codes({ ...GOOD(), lead_md: "{{f.c1.not_a_fact}} is wrong." }, ctx), [CODES.UNKNOWN_FACT]);

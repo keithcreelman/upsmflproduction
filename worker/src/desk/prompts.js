@@ -48,6 +48,8 @@ Rules:
    a. The no-digit and no-quantity-word rule (1) covers EVERY string you write, including each cites[].claim, lead_md, table labels and follow_ups. Do not write counting or ordinal words anywhere (one, single, once, one-time, first, second, two, half). Say "the keeper selection", "the extension type", not "one-time selection" or "single-year extension".
    b. A glossary term, or one of the aliases listed beside it, may be written as spelled under GLOSSARY (capitalization does not matter), digit and all. A term that was not looked up (Ext2 when only Ext1 was) must not be written with its digit. Say what the rule itself says: if the rule calls it a contract type, do not credit the rule with the glossary's status-token name.
    c. The desk prints each cited rule's title and excerpt (with its year or number) beside your citation. When a cited rule answers the question, say so and point to it ("the cited rule gives the date") instead of saying you cannot give it. Say you cannot confirm something only for a gap that is actually listed.
+   d. When rules.get returned the facts rule_title and rule_year for a rule, you may print them by token, only beside a cite to that same rule: for example "The canon's entry for {{f.c3.rule_year}} records the Superflex transition." The year is the year in the rule's own heading; the exact effective date stays a listed gap. Never type a year yourself.
+   e. A card that answers a title or champion question uses the facts the tool returned for every season it names; the desk adds the complete table of seasons by itself, so do not try to list every season in prose.
 7. Say "franchise", not "owner". Keep it short: a lead of one to three sentences. American spelling.
 8. The desk only reads. Never offer to post, send, or change anything.
 ${DATA_RULE}`;
@@ -55,7 +57,7 @@ ${DATA_RULE}`;
 const PROMPTS = Object.freeze({
   router: Object.freeze({ id: "router", version: "1.0.0", text: ROUTER }),
   loop: Object.freeze({ id: "loop", version: "1.1.0", text: LOOP }),
-  composer: Object.freeze({ id: "composer", version: "1.4.0", text: COMPOSER }),
+  composer: Object.freeze({ id: "composer", version: "1.5.0", text: COMPOSER }),
 });
 
 export function getPrompt(id) {

@@ -12,21 +12,25 @@
       "fault": null,
       "oracle": "rule_superflex_2022",
       "expected_tools": [
-        "rules.search"
+        "rules.search",
+        "rules.get"
       ],
       "correct_answer_must_contain": [
         "a cite to the 2022 Superflex transition rule (anchor s4-2022-superflex-transition-concurrent-with-rest-of-league-rul) at the current canon version",
-        "no typed year or number (prose cannot hold digits; the cited rule's own text, shown beside the cite, carries the season)"
+        "the year as a fact token (rule_year, from rules.get: the year in the rule's own heading), printed beside that cite",
+        "the exact effective date left as a listed gap (rules by date, slice S4)"
       ],
       "must_not": [
         "a year or number typed in prose",
+        "a year from a rule that is not the one cited",
         "a rule that was not retrieved in this run",
         "an answer from memory"
       ],
-      "why_in_set": "The basic rules question: does the model find the right rule and cite it, with no number of its own? Tests rules.search, cite binding and the no-digits rule together.",
+      "why_in_set": "The basic rules question: does the model find the right rule, cite it, and state its year only through a source-bound fact token? Tests rules.search, rules.get, cite binding and the no-digits rule together.",
       "acceptable_states": [
-        "answer",
         "answer_with_caveat",
+        "answer_with_gap",
+        "answer",
         "cite_and_abstain"
       ]
     },
@@ -41,19 +45,23 @@
         "glossary.lookup"
       ],
       "correct_answer_must_contain": [
-        "a cite to the extension rule (anchor s1-c4, canon section C4)",
-        "a plain no: the glossary lists the label as a status token, not a contract type (the glossary term may be written as spelled)"
+        "a cite to the extension rule (anchor s1-c4, canon section C4), and to the transaction catalog entry (anchor s2-t3-3, T3.3) when it was retrieved",
+        "Extension named as the contract family",
+        "Ext1 explained as the one-year extension designation AND as a contract_type value in the canonical rules (C4 and T3.3), not a bare no",
+        "Vet-Ext1 explained as the related status token (the glossary term may be written as spelled)"
       ],
       "must_not": [
-        "a digit typed in prose other than the glossary term as spelled",
-        "a confident ruling that contradicts the extension rule"
+        "a bare no or a bare yes that leaves out the family or the status-token distinction",
+        "a digit typed in prose other than a glossary term as spelled",
+        "a confident ruling that contradicts the extension rule's own wording"
       ],
-      "why_in_set": "A glossary or wording question with a known canon trap (an older line says otherwise). Tests whether the model cites instead of ruling, and whether the composer can work from rule snippets alone.",
+      "why_in_set": "A wording question where canon contradicts itself (its contract-type table versus C4 and T3.3). The commissioner ruled that Extension is the family, Ext1 is its one-year designation and a contract_type value, and Vet-Ext1 is the related status token. Tests that the model reports the distinction with citations instead of picking one side.",
       "acceptable_states": [
         "answer",
         "answer_with_caveat",
         "cite_and_abstain"
-      ]
+      ],
+      "note": "Expectation updated 2026-11-20 on the commissioner's ruling (it was a plain no). The contradictory canon wording is documented in docs/ai_desk/EXT1_CANON_PROPOSAL.md; the canon itself is unchanged."
     },
     {
       "order": 3,

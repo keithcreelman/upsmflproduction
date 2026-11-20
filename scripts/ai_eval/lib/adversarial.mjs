@@ -19,14 +19,14 @@ export const SCENARIOS = Object.freeze([
   { id: "redacted_thinking", behavior: "redacted_thinking", kind: "same", extra: 0 },
   { id: "mixed_text", behavior: "mixed_text", kind: "same", extra: 0 },
   { id: "parallel9", behavior: "parallel9", kind: "parallel", extra: 0 },
-  { id: "text_only_composer_once", behavior: "text_only_composer_once", kind: "same", extra: 1 },
-  { id: "truncated_composer_once", behavior: "truncated_composer_once", kind: "same", extra: 1 },
+  { id: "text_only_composer_once", behavior: "text_only_composer_once", composer: true, kind: "same", extra: 1 },
+  { id: "truncated_composer_once", behavior: "truncated_composer_once", composer: true, kind: "same", extra: 1 },
   { id: "bad_tool_seq", behavior: "bad_tool_seq", kind: "same", extra: 0 },
   { id: "glossary_case", behavior: "glossary_case", kind: "same", extra: 0 },
-  { id: "unicode_digit_once", behavior: "unicode_digit_once", kind: "same", extra: 1 },
-  { id: "unicode_digit_claim_once", behavior: "unicode_digit_claim_once", kind: "same", extra: 1 },
-  { id: "text_only_composer_always", behavior: "text_only_composer_always", kind: "failsafe", reason: "validation_failed" },
-  { id: "unicode_digit_always", behavior: "unicode_digit_always", kind: "failsafe", reason: "validation_failed" },
+  { id: "unicode_digit_once", behavior: "unicode_digit_once", composer: true, kind: "same", extra: 1 },
+  { id: "unicode_digit_claim_once", behavior: "unicode_digit_claim_once", composer: true, kind: "same", extra: 1 },
+  { id: "text_only_composer_always", behavior: "text_only_composer_always", composer: true, kind: "failsafe", reason: "validation_failed" },
+  { id: "unicode_digit_always", behavior: "unicode_digit_always", composer: true, kind: "failsafe", reason: "validation_failed" },
   { id: "truncated_loop", behavior: "truncated_loop", kind: "failsafe", reason: "tool_limit:max_tokens" },
   { id: "refusal_loop", behavior: "refusal_loop", kind: "failsafe", reason: "tool_limit:refusal" },
   { id: "bad_response_loop", behavior: "bad_response_loop", kind: "failsafe", reason: "model_unavailable:loop" },
@@ -80,8 +80,15 @@ export async function runMatrix({ cases, invariantFailures, caps, scenarios = SC
         const fromModel = !["tool_failure", "budget_exceeded", "stale_data"].includes(card.state);
 
         if (sc.kind === "baseline") {
-          base = { state: card.state, grade: g.grade, calls: r.modelCalls, lead: card.lead_md };
+          base = { state: card.state, grade: g.grade, calls: r.modelCalls, lead: card.lead_md, declined: card.reason_code === "no_record" };
           if (row.gate_blocks.length) row.why.push("a baseline call was blocked");
+        } else if (sc.composer && base && base.declined) {
+          // The baseline is the code-built "no record" decline (decline.js): the composer is never called, so a composer misbehavior cannot fire. The outcome must be the baseline's, with no extra calls.
+          if (card.state !== base.state || card.reason_code !== "no_record") row.why.push(`expected the baseline no_record decline, got ${card.state} / ${card.reason_code}`);
+          if (g.grade !== base.grade) row.why.push(`grade ${g.grade}, baseline ${base.grade}`);
+          if (r.modelCalls !== base.calls) row.why.push(`${r.modelCalls} model calls, expected ${base.calls} (no composer call)`);
+          if (card.lead_md !== base.lead) row.why.push("the decline text differs from the baseline's");
+          if (row.gate_blocks.length) row.why.push("a call was blocked");
         } else if (sc.kind === "same") {
           if (!base) row.why.push("no baseline");
           else {

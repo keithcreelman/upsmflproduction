@@ -840,6 +840,49 @@ test("/api/eras is never called by any tool in this file", () => {
   t.ok(SEASON_NOTES[2010].status === "disputed");
 });
 
+// ── Phase 1 closeout: complete title-season lists (R4 DEV-REC-01 left out 2023) ──────────────────────────────────────
+test("champions view: every franchise's title seasons are listed in full by code, graded by the weakest season; the lists agree with the counts and the corrected fixture", async () => {
+  const s = fakeSelf(finishRoute());
+  const e = await call("history.finishes", { view: "champions", as_of: "2025-12-31" }, deps(s.fetchSelf));
+  t.equal(e.status, "ok");
+  const champs = {};
+  for (const [season, m] of Object.entries(FIN.finishes)) for (const [fid, ff] of Object.entries(m)) if (ff === 1 && Number(season) >= 2011) (champs[fid] = champs[fid] || []).push(Number(season));
+  let franchises = 0;
+  for (const [fid, seasons] of Object.entries(champs)) {
+    franchises += 1;
+    t.equal(fv(e, `title_years_f${fid}`), seasons.join(", "), `franchise ${fid}`);
+    t.equal(fv(e, `titles_f${fid}`), seasons.length, `the count of ${fid} equals the length of its list`);
+  }
+  t.ok(franchises >= 8);
+  // 2015 is the defective season: a list that contains it carries the lower grade; a list without it keeps grade C
+  const grade = (key) => e.facts.find((f) => f.id.endsWith("." + key)).grade;
+  const with2015 = Object.entries(champs).find(([, ys]) => ys.includes(2015))[0];
+  const without = Object.entries(champs).find(([, ys]) => !ys.includes(2015))[0];
+  t.equal(grade(`title_years_f${with2015}`), "D");
+  t.equal(grade(`title_years_f${without}`), "C");
+  t.equal(e.facts.find((f) => f.id.endsWith(".title_years_f" + with2015)).unit, "text");
+  // the Toilet Bowl view lists its own seasons and never the championship list
+  const tb = await call("history.finishes", { view: "toilet_bowl", as_of: "2025-12-31" }, deps(s.fetchSelf));
+  t.ok(tb.facts.some((f) => /\.toilet_years_f\d{4}$/.test(f.id)));
+  t.ok(!tb.facts.some((f) => /\.title_years_f\d{4}$/.test(f.id)));
+  // a single season has no list of seasons
+  const one = await call("history.finishes", { view: "champions", season: 2023, as_of: "current" }, deps(s.fetchSelf));
+  t.ok(!one.facts.some((f) => /title_years_f/.test(f.id)));
+});
+
+test("a year-end date no longer carries the 'mapped by calendar year' gap; a date inside a season still does", async () => {
+  const s = fakeSelf(finishRoute());
+  const end = await call("history.finishes", { view: "champions", as_of: "2025-12-31" }, deps(s.fetchSelf));
+  t.equal(hasGap(end, /mapped to the 2025 season/), false, "December 31 is the end of its season");
+  t.ok(!end.data.notes.some((n) => /mapped to its season/.test(n)));
+  const mid = await call("history.finishes", { view: "champions", as_of: "2025-07-01" }, deps(s.fetchSelf));
+  t.ok(hasGap(mid, /mapped to the 2025 season/, "partial_coverage"));
+  t.ok(mid.data.notes.some((n) => /mapped to its season/.test(n)));
+  // the standing gaps stay on a year-end answer
+  t.ok(hasGap(end, /2010/, "conflict_in_canon"));
+  t.ok(hasGap(end, /2015 stored final standings are defective/, "partial_coverage"));
+});
+
 await run("ai_desk_tools_history");
 globalThis.fetch = baseFetch;
 mfl.restore();

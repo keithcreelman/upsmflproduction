@@ -36,7 +36,7 @@
 | # | Tool | Answers | Backing [V] | Authority | Class | Coverage / freshness | Status |
 |---|---|---|---|---|---|---|---|
 | 1 | `rules.search(query, as_of, audience)` | Which rule applies | `site/m/data/rules.json` (CI-built from canon; 178 rules, anchors, `internal` flags, `canon_sha`) | Canon | P0 (internal blocks P2) | Current canon only; `as_of` other than current → returns the canon §4 text plus `unsupported_as_of` | **Build:** small keyword index at CI time |
-| 2 | `rules.get(anchor)` | Exact rule text for citation | Same payload | Canon | P0/P2 | Rebuilt on each canon push | Ready (file) |
+| 2 | `rules.get(anchor)` | Exact rule text for citation; facts `rule_title` always and `rule_year` for a single-year "Rule changes by year" heading (the year in the heading, not a proved effective date: the S4 gap stays) | Same payload | Canon | P0/P2 | Rebuilt on each canon push | Ready (file) |
 | 3 | `glossary.lookup(term or raw token)` | "What is Ext1 / MYM / Vet-ERA-BL?" | Canon + the league's contract-status vocabulary (about 75 tokens) | Canon; crosswalk is grade C | P0 | Needs a CI drift check (it already caught `Vet-Ext1-FL`) | **Build:** port |
 | 4 | `coverage.check(domain, season)` | "Does data exist to answer this?" | Coverage matrix and gap list (#1386) as a static generated file | Gap plan | P0 | Regenerated when a gap closes | **Build:** small; the main defense against confident wrong answers |
 | 5 | `roster.current(franchise)` | Current roster and contracts | `/roster-workbench` (48228) | MFL live | P0 | Live, 60 s cache. Call without an owner cookie (the route personalizes) | Ready |
@@ -46,7 +46,7 @@
 | 9 | `extension.price(player, years)` | Extension cost under current rules | `extension_pricing.js` (`PRICING_VERSION 2026-09-26.1`) | Code = canon §C4 | P0 | Current rules only | **Wrap:** module, no route |
 | 10 | `calendar.events(season)` | Deadlines, windows, trade lock | `/api/league-events` (20577), `trade_deadline.js` | `league_events` | P0 | 2011–26 | Ready |
 | 11 | `standings.get(season)` and `bracket(season)` | Standings, seeds, playoff results | `/api/standings` (20846), `/api/playoff-bracket` (21168) | `src_*` tables | P0 | 2011–25 solid; 2010 disputed (GAP-03/17) | Ready |
-| 12 | `history.finishes()` / `champions()` | Titles, finishes, eras | `/api/historical-finishes` (21522), `/api/hall-of-champions` (21813), `/api/eras` (21566) | `src_final_standings` | P0 | 2010–25 at franchise level, not owner level | Ready |
+| 12 | `history.finishes()` / `champions()` | Titles, finishes, eras; each franchise's title seasons listed in full by code (`title_years_<franchise>`) | `/api/historical-finishes` (21522), `/api/hall-of-champions` (21813), `/api/eras` (21566) | `src_final_standings` | P0 | 2010–25 at franchise level, not owner level | Ready |
 | 13 | `player.transactions(player)` / `player.profile(player)` | A player's trades, adds, drops, draft, extensions, tags | `/api/player-transactions` (14510), `/api/player-bundle` (15189, needs `&L=`) | `src_*`, extension and tag masters | P0 | All years. Gaps: WAIVER-type moves 2010–17 (GAP-09); multi-player drops (GAP-15). Picks appear as tokens, not traced | Ready |
 | 14 | `data.freshness()` | How fresh each source is | `/api/data-freshness` (20514) + valuation snapshot freshness | `etl_runs` | P0 | **Partial:** most jobs don't write `etl_runs` [I] | Ready (partial) |
 
