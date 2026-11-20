@@ -19,7 +19,8 @@ import path from "node:path";
 import vm from "node:vm";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { LOCK, REPO, SHARED, SHARED_DIR, SRC, readLock, scan, scanWriteCode, sharedOut } from "./build.mjs";
+import { DERIVED, LOCK, REPO, SHARED, SHARED_DIR, SRC, derivedOut, readLock, scan, scanWriteCode, sharedOut } from "./build.mjs";
+import { compareResolvers, loadResolver } from "./injury_equivalence.mjs";
 
 const require = createRequire(import.meta.url);
 const GLOBALS = { "contract_windows.js": "UPS_CONTRACT_WINDOWS", "taxi_rule.js": "UPS_TAXI_RULE" };
@@ -51,6 +52,23 @@ export function checkShared(opts = {}) {
     add(`${n}: makes no request while loading`, calls.length === 0, calls.join(","));
   }
   for (const n of Object.keys(lock.files)) if (!SHARED.includes(n)) add(`pin for ${n}`, false, "the lock pins a module that is not on the SHARED list");
+
+  // derived copies: the classic source and the extraction, each against its pin, then the original and the derived side by side
+  for (const d of DERIVED) {
+    const file = path.join(sharedDir, d.name), pin = lock.derived && lock.derived[d.name];
+    if (!fs.existsSync(file)) { add(`${d.name}: present`, false, `site/shared/${d.name} is gone`); continue; }
+    const buf = fs.readFileSync(file), text = buf.toString("utf8");
+    add(`${d.name}: bytes equal the pin`, !!pin && pin.source === crypto.createHash("sha256").update(buf).digest("hex"), `site/shared/${d.name} changed since the beta pinned it (the beta derives ${d.out} from it). Review whether the beta may take the change, then run: node apps/mobile2027/scripts/build.mjs --write-lock`);
+    const r = d.derive(text);
+    add(`${d.out}: the extraction still applies`, r.ok, r.why || "");
+    if (!r.ok) continue;
+    add(`${d.out}: equals its pin`, !!pin && pin.output === crypto.createHash("sha256").update(Buffer.from(r.text, "utf8")).digest("hex"), "the derived result differs from the pinned, reviewed one");
+    const problems = [...scan(derivedOut(d), r.text), ...scanWriteCode(derivedOut(d), r.text)];
+    add(`${d.out}: free of write and network code`, problems.length === 0, problems.join("; "));
+    const eq = compareResolvers(text, r.text);
+    add(`${d.out}: answers exactly like ${d.name} (${eq.cases} generated cases)`, eq.diffs.length === 0, eq.diffs.slice(0, 3).join(" | "));
+  }
+  for (const n of Object.keys((lock.derived) || {})) if (!DERIVED.some((d) => d.name === n)) add(`derived pin for ${n}`, false, "the lock pins a derived copy that is not on the DERIVED list");
 
   // the beta's contract parser against the shared cap math, for every recorded player
   try {

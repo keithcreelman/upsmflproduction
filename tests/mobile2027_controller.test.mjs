@@ -8,25 +8,34 @@
 import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(HERE, "..", "apps", "mobile2027", "src");
 const FX = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/public_reads.json"), "utf8"));
+const FX2 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r2_reads.json"), "utf8")); // stage R2 reads
+// The injury resolver the page loads is the beta's DERIVED copy, made from the reviewed copy of the classic file (tests never read site/shared/).
+const BUILD = await import(pathToFileURL(path.join(HERE, "..", "apps", "mobile2027", "scripts", "build.mjs")).href);
+const FIXSH = path.join(HERE, "fixtures/mobile2027/shared");
+const INJURY_PURE = BUILD.derivedBytes(BUILD.DERIVED[0], FIXSH).toString("utf8");
 const read = (rel) => fs.readFileSync(path.join(SRC, rel), "utf8");
 const tick = async (n = 12) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0)); };
 
-function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false } = {}) {
+function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false, failStatus = 0, failWeek10 = 0, clock = null, holdIntel = false } = {}) {
   const calls = [];
   let releasePen = () => {}; const penGate = holdPen ? new Promise((r) => { releasePen = r; }) : null;
   let release = () => {}; const gate = hold ? new Promise((r) => { release = r; }) : null; // holds the roster read open until release()
-  const state = { failRoster, failPenalty };
+  const state = { failRoster, failPenalty, failStatus, failWeek10 };
+  let releaseIntel = () => {}; const intelGate = holdIntel ? new Promise((r) => { releaseIntel = r; }) : null; // holds the Team › Roster adds open until releaseIntel()
   const body = (u) => {
     if (u.pathname === "/roster-workbench") return FX.roster_workbench;
     if (u.pathname === "/api/current-lineup-week") return FX.current_lineup_week;
     if (u.pathname === "/api/cap-penalty/preview") return FX.cap_penalty;
-    return u.searchParams.get("TYPE") === "league" ? FX.league : FX.weekly_results;
+    if (u.pathname === "/api/player-status") return FX2.player_status;
+    if (u.pathname === "/api/lineup-matchups") return Object.assign({}, FX2.lineup_matchups_w11, { week: Number(u.searchParams.get("W")) });
+    if (u.searchParams.get("TYPE") === "league") return FX.league;
+    return u.searchParams.get("W") === "10" ? FX2.weekly_results_w10 : FX.weekly_results;
   };
   const fetchFake = async (url, opts) => {
     const u = new URL(url);
@@ -35,6 +44,9 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     if (penGate && u.pathname === "/api/cap-penalty/preview") await penGate;
     if (u.pathname === "/roster-workbench" && state.failRoster > 0) { state.failRoster--; return { ok: false, status: 503, text: async () => "down" }; }
     if (u.pathname === "/api/cap-penalty/preview" && state.failPenalty > 0) { state.failPenalty--; return { ok: false, status: 500, text: async () => "x" }; }
+    if (intelGate && (u.pathname === "/api/player-status" || u.pathname === "/api/lineup-matchups")) await intelGate;
+    if (u.pathname === "/api/player-status" && state.failStatus > 0) { state.failStatus--; return { ok: false, status: 502, text: async () => "x" }; }
+    if (u.pathname === "/api/mfl-export" && u.searchParams.get("W") === "10" && state.failWeek10 > 0) { state.failWeek10--; return { ok: false, status: 502, text: async () => "x" }; }
     return { ok: true, status: 200, text: async () => JSON.stringify(body(u)) };
   };
   const listeners = {}, winL = {}, docAttrs = {}, storage = { ...stored }, pushes = [], replaces = [];
@@ -50,7 +62,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     back() { this.state = null; location.hash = ""; (winL.popstate || (() => {}))(); },
   };
   const ctx = vm.createContext({
-    console, setTimeout, clearTimeout, URL, URLSearchParams, Intl, JSON, Date, Math, Promise, Array, Object, String, Number, isFinite, parseInt, parseFloat, encodeURIComponent,
+    console, setTimeout, clearTimeout, URL, URLSearchParams, Intl, JSON, Date: clock ? clock.Date : Date, Math, Promise, Array, Object, String, Number, isFinite, parseInt, parseFloat, encodeURIComponent,
     AbortController: undefined, // not needed by the stub; the loader runs without a timer
     document: { getElementById: (id) => (id === "app" ? appEl : null), documentElement: { setAttribute(k, v) { docAttrs[k] = v; } }, activeElement: null, title: "" },
     localStorage: { getItem: (k) => (k in storage ? storage[k] : null), setItem: (k, v) => { storage[k] = String(v); } },
@@ -60,13 +72,14 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
   ctx.fetch = fetchFake;
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
+  vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
   const click = async (attrs) => {
     const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));
     await tick();
   };
-  return { appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, release: () => release(), releasePen: () => releasePen(), html: () => appEl.innerHTML };
+  return { appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, release: () => release(), releasePen: () => releasePen(), releaseIntel: () => releaseIntel(), html: () => appEl.innerHTML };
 }
 
 test("boot: loads the roster, shows the first team with starters above the bench, and every request is a bare GET", async () => {
@@ -74,7 +87,8 @@ test("boot: loads the roster, shows the first team with starters above the bench
   t.match(a.html(), /aria-busy="true"/, "a loading state is drawn first");
   await tick(30);
   t.match(a.html(), /Week 11 starters/); t.match(a.html(), /Blake Bombers/); t.match(a.html(), /Data as of/);
-  t.deepEqual(a.calls.map((c) => c.path).sort(), ["/api/current-lineup-week", "/api/mfl-export", "/api/mfl-export", "/roster-workbench"]);
+  // the four core reads, then the two Team › Roster adds (injury status and this week's NFL games), each once
+  t.deepEqual(a.calls.map((c) => c.path).sort(), ["/api/current-lineup-week", "/api/lineup-matchups", "/api/mfl-export", "/api/mfl-export", "/api/player-status", "/roster-workbench"]);
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.equal(c.opts.headers, undefined); });
   t.equal(a.docAttrs["data-skin"], "light"); t.equal(a.docAttrs["data-vib"], "1");
 });
@@ -226,6 +240,100 @@ test("a calculation that finishes after Sample mode went on is dropped, and the 
   await a.click({ "data-act": "sample" }); await tick(20);
   await a.click({ "data-act": "card", "data-pid": pid }); await tick(20);
   t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 2, "the late answer was not kept as if it were current");
+});
+
+
+// ───────────────────────── stage R2: Team › Roster reads and views ─────────────────────────
+const asked = (a) => a.calls.map((c) => c.path.replace(/^\/(api\/)?/, "") + (c.url.match(/[?&]W=(\d+)/) ? "#" + c.url.match(/[?&]W=(\d+)/)[1] : ""));
+const FakeClock = () => { const c = { t: Date.now() }; c.Date = class extends Date { constructor(...a) { if (a.length) super(...a); else super(c.t); } static now() { return c.t; } }; return c; };
+
+test("R2: switching views, weeks and teams never asks for a read again; each added address is asked for once", async () => {
+  const a = boot(); await tick(40);
+  t.deepEqual(asked(a).sort(), ["current-lineup-week", "lineup-matchups#11", "mfl-export", "mfl-export#11", "player-status", "roster-workbench"].sort(), "boot: the four core reads, injury status and this week's games");
+  const n0 = a.calls.length;
+  await a.click({ "data-act": "view", "data-v": "contracts" }); await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" });
+  t.equal(a.calls.length, n0, "three views: nothing asked");
+  await a.click({ "data-act": "view", "data-v": "performance" }); await tick(30);
+  t.deepEqual(asked(a).slice(n0), ["mfl-export#10"], "Performance asks once for last week's scores");
+  await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "view", "data-v": "performance" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await tick(10);
+  t.equal(a.calls.length, n0 + 1, "going back and forth asks nothing more");
+  await a.click({ "data-act": "pickteam", "data-fid": "0009" }); await a.click({ "data-act": "pickteam", "data-fid": "0010" }); await tick(10);
+  t.equal(a.calls.length, n0 + 1, "changing teams asks nothing (the reads cover the whole league)");
+  // a past week: its lineup and its games, once; the week before is already in memory
+  await a.click({ "data-act": "weeks" }); t.match(a.html(), /aria-label="Choose a week"/);
+  await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(40);
+  t.deepEqual(asked(a).slice(n0 + 1), [], "Week 10's lineups and scores were already read for Performance, and a past week asks for no NFL games (MAT-1)");
+  t.match(a.html(), /Week 10 · played/); t.doesNotMatch(a.html(), /Bench · /);
+  await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "9" }); await tick(40);
+  t.deepEqual(asked(a).slice(n0 + 1), ["mfl-export#9"], "Week 9, first visit: one request (its lineups and scores)");
+  await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
+  await a.click({ "data-act": "view", "data-v": "performance" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
+  t.equal(a.calls.length, n0 + 2, "revisiting past weeks asks nothing");
+  await a.click({ "data-act": "pickweek", "data-v": "11" }); await tick(10);
+  t.match(a.html(), /Week 11 starters/); t.equal(a.calls.length, n0 + 2, "back to the current week: nothing");
+  await a.click({ "data-act": "pickweek", "data-v": "12" }); t.doesNotMatch(a.html(), /Week 12 starters/, "a later week cannot be chosen"); t.equal(a.calls.length, n0 + 2);
+  const keys = asked(a); t.equal(new Set(keys).size, keys.length, "no address was asked twice in the whole visit");
+  a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
+  t.doesNotMatch(JSON.stringify(a.storage), /wk|week|intel|status/i, "no week or read is stored on the phone");
+});
+
+test("R2: the injury read is asked again only when it has gone stale and the screen is used; an old read never shows chips", async () => {
+  const clock = FakeClock(); const a = boot({ clock }); await tick(40);
+  t.match(a.html(), /▲ Questionable/, "chips show while the read is fresh");
+  const n0 = a.calls.length;
+  clock.t += 4 * 60 * 1000; await a.click({ "data-act": "view", "data-v": "byes" }); await tick(20); t.equal(a.calls.length, n0, "4 minutes: not asked again");
+  clock.t += 2 * 60 * 1000; await a.click({ "data-act": "view", "data-v": "lineup" }); await tick(30);
+  t.deepEqual(asked(a).slice(n0).filter((k) => k === "player-status"), ["player-status"], "6 minutes: asked once more");
+  t.match(a.html(), /▲ Questionable/, "and the chips are there again");
+  t.equal(asked(a).filter((k) => k === "player-status").length, 2);
+});
+
+test("R2: a failed injury read says so, shows no guessed tags, and Try again recovers; a failed past week offers its own retry", async () => {
+  const a = boot({ failStatus: 1, failWeek10: 1 }); await tick(40);
+  t.match(a.html(), /Injury status couldn’t be loaded, so no injury tags are shown/); t.doesNotMatch(a.html(), /▲ Questionable/);
+  t.match(a.html(), /Week 11 starters/, "the roster still shows");
+  await a.click({ "data-act": "view", "data-v": "performance" }); await tick(30);
+  t.match(a.html(), /Wk 10 —/, "last week's scores could not be read: a dash, never 0.0");
+  await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
+  t.match(a.html(), /That week’s lineup could not be read \(HTTP 502\)/); t.match(a.html(), /data-act="pickweek" data-v="10"/);
+  await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
+  t.match(a.html(), /Week 10 starters/); t.doesNotMatch(a.html(), /could not be read/);
+  await a.click({ "data-act": "pickweek", "data-v": "11" });
+  await a.click({ "data-act": "retry" }); await tick(40);
+  t.doesNotMatch(a.html(), /Injury status couldn’t be loaded/); t.match(a.html(), /▲ Questionable/, "Reload the data asks again and recovers");
+});
+
+test("R2: Sample mode starts no Team › Roster read either, drops one already out, and asks again for what is missing when it ends", async () => {
+  const a = boot({ holdIntel: true }); await tick(30);
+  t.deepEqual(asked(a).filter((k) => /player-status|lineup-matchups/.test(k)).sort(), ["lineup-matchups#11", "player-status"], "the two reads are out (held open)");
+  const before = a.calls.length;
+  await a.click({ "data-act": "sample" });
+  a.releaseIntel(); await tick(30);
+  t.equal(a.calls.length, before, "nothing new started, and the answers that arrived late were dropped");
+  t.match(a.html(), /Sample data/); t.doesNotMatch(a.html(), /▲ Questionable|QB1/, "no late data is drawn");
+  await a.click({ "data-act": "about" }); const logged = /<b>(\d+)<\/b> data requests/.exec(a.html())[1]; await a.click({ "data-act": "close" });
+  await a.click({ "data-act": "nav", "data-v": "team" }); await a.click({ "data-act": "view", "data-v": "performance" }); await a.click({ "data-act": "weeks" });
+  t.equal(a.calls.length, before, "tapping around in Sample mode starts nothing");
+  await a.click({ "data-act": "about" }); t.match(a.html(), new RegExp("<b>" + logged + "</b> data requests"), "the loader was not even asked: its log did not grow, so the page's own guard held without the fetch guard"); await a.click({ "data-act": "close" });
+  await a.click({ "data-act": "sample" }); await tick(40);
+  t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Week 11 starters/);
+  t.match(a.html(), /▲ Questionable/, "the answers that arrived while Sample mode was on were kept in memory (not drawn then), so they show now");
+  t.deepEqual(asked(a).slice(before), ["mfl-export#10"], "and the held reads were not asked again; only the Performance view the owner chose meanwhile needs last week's scores");
+  // a read that never finished is asked for again, not waited for
+  const b = boot({ holdIntel: true }); await tick(30); const nb = b.calls.length;
+  await b.click({ "data-act": "sample" }); await b.click({ "data-act": "sample" }); await tick(10);
+  t.deepEqual(asked(b).slice(nb).sort(), ["lineup-matchups#11", "player-status"], "never finished: asked for again when Sample mode ends");
+  b.releaseIntel(); await tick(40); t.match(b.html(), /▲ Questionable/);
+});
+
+test("R2: the About sheet carries the bench-group setting, which is kept on the phone and changes what opens by default", async () => {
+  const a = boot(); await tick(40);
+  t.match(a.html(), /data-g="bRB" aria-expanded="false"/);
+  await a.click({ "data-act": "about" }); t.match(a.html(), /Bench groups/); await a.click({ "data-act": "gdef", "data-v": "all" });
+  t.equal(a.storage["ups2027-p0-gdef"], "all"); await a.click({ "data-act": "close" });
+  t.match(a.html(), /data-g="bRB" aria-expanded="true"/);
+  const b = boot({ stored: { "ups2027-p0-gdef": "all" } }); await tick(40); t.match(b.html(), /data-g="bRB" aria-expanded="true"/, "a fresh page remembers it");
+  await a.click({ "data-act": "grp", "data-g": "bRB" }); t.match(a.html(), /data-g="bRB" aria-expanded="false"/, "an owner's own tap still wins over the default");
 });
 
 await run("mobile2027_controller");

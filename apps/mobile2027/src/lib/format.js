@@ -50,5 +50,23 @@
     } catch (e) { return ""; }
   }
 
-  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp };
+  // "Sun 1:00 PM" in the league's time zone, from a Unix time in seconds, or "" if it cannot be read.
+  function etKickoff(unix) {
+    var n = Number(unix);
+    if (!isFinite(n) || n <= 0) return "";
+    try {
+      var parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }).formatToParts(new Date(n * 1000));
+      var m = {}; parts.forEach(function (p) { m[p.type] = p.value; });
+      return m.weekday + " " + m.hour + ":" + m.minute + " " + (m.dayPeriod || "");
+    } catch (e) { return ""; }
+  }
+
+  // The common NFL abbreviation (KC, GB, SF), not MFL's spelling (KCC, GBP, SFO).
+  var COMMON = { GBP: "GB", KCC: "KC", LVR: "LV", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", JAC: "JAX", WSH: "WAS" };
+  function commonCode(code) {
+    var c = String(code == null ? "" : code).trim().toUpperCase();
+    return COMMON[c] || c;
+  }
+
+  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp, etKickoff: etKickoff, commonCode: commonCode };
 });

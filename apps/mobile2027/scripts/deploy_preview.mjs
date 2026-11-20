@@ -15,7 +15,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ALL_PATHS, LOCK, MODE, SHARED_DIR, SRC, digestOf, gitState, readLock, scan, scanWriteCode } from "./build.mjs";
+import { ALL_PATHS, DERIVED, LOCK, MODE, SHARED_DIR, SRC, derivedBytes, derivedOut, digestOf, gitState, readLock, scan, scanWriteCode } from "./build.mjs";
 
 export const PROJECT = "ups-mobile-beta";
 export const BRANCH = "preview";
@@ -71,7 +71,11 @@ export function plan(argv, fsImpl = fs, ctx = {}) {
     const text = fsImpl.readFileSync(path.join(dir, f.path), "utf8");
     const problems = [...scan(f.path, text), ...scanWriteCode(f.path, text)];
     if (problems.length) throw new Error("A built file fails the Preview scan: " + problems.join("; "));
-    if (f.path.startsWith("shared/")) {
+    const dv = DERIVED.find((d) => derivedOut(d) === f.path);
+    if (dv) {
+      const pin = lock.derived && lock.derived[dv.name];
+      if (!pin || pin.output !== f.sha256) throw new Error(`A derived copy is not the pinned, reviewed one: ${f.path}`);
+    } else if (f.path.startsWith("shared/")) {
       const name = f.path.slice("shared/".length);
       if (lock.files[name] !== f.sha256) throw new Error(`A shared module is not the pinned, reviewed one: ${f.path}`);
     }
@@ -84,7 +88,14 @@ export function plan(argv, fsImpl = fs, ctx = {}) {
   if (state.dirty) throw new Error("The working tree has uncommitted changes. Commit first so the deploy names a commit.");
   if (state.commit !== manifest.source.commit) throw new Error(`The build came from commit ${manifest.source.commit.slice(0, 8)} but HEAD is ${String(state.commit).slice(0, 8)}. Rebuild at this commit.`);
   for (const f of manifest.files) {
-    // a shared module must be the byte-for-byte file in site/shared/ at this commit; everything else is the app's own source
+    // a shared module must be the byte-for-byte file in site/shared/ at this commit; a derived copy must be what the build's
+    // extraction makes from that file at this commit; everything else is the app's own source
+    const dv = DERIVED.find((d) => derivedOut(d) === f.path);
+    if (dv) {
+      const want = derivedBytes(dv, sharedDir);
+      if (!want || sha(want) !== f.sha256) throw new Error(`Built file is not what the extraction makes at the named commit: ${f.path}`);
+      continue;
+    }
     const src = f.path.startsWith("shared/") ? path.join(sharedDir, f.path.slice("shared/".length)) : path.join(srcDir, f.path);
     if (!fsImpl.existsSync(src) || sha(fsImpl.readFileSync(src)) !== f.sha256) throw new Error(`Built file is not the source at the named commit: ${f.path}`);
   }

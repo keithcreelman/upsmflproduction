@@ -93,6 +93,26 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .rx .rt{flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-variant-numeric:tabular-nums;font-size:13px}
 .tag{flex:0 0 40px;height:40px;border-radius:9px;display:grid;place-items:center;font-size:12px;font-weight:700}
 .tag.pp{border:0;background:transparent}
+/* R2 (Team › Roster): the demo's slot tag, flag row, problem and empty rows, the four-way view switch, the week bar and the summary line */
+.tag.sl{border:1.5px solid var(--bs);background:var(--s2);align-self:flex-start;margin-top:4px}
+.rx.prob{box-shadow:inset 4px 0 0 var(--wn);padding-left:8px;margin-left:-4px}
+.rx.empty .in b{color:var(--wn)}
+.rx .fl{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+.rx .rt .chip{margin-top:2px}
+.rx .rt .sm{font-size:12px}
+#screen>*{flex-shrink:0}
+.seg4 button{font-size:12px;padding:0 2px;min-width:0}
+@media (max-width:359px){.seg4{flex-wrap:wrap}.seg4 button{flex:1 1 50%;font-size:13px}.seg4 button:nth-child(2){border-right:0}.seg4 button:nth-child(-n+2){border-bottom:1px solid var(--bd)}}
+.wsel{display:block;width:100%;border:2px solid var(--ac);border-radius:12px;background:var(--sf);padding:6px 12px;text-align:left}
+.wsel .r1{display:flex;align-items:baseline;gap:8px;min-height:32px}
+.wsel .r2{display:flex;gap:6px;flex-wrap:wrap;padding-bottom:2px}
+.wsel.past{border-style:dashed;border-color:var(--bs)}
+.wsel .w1{font-size:19px;font-weight:800}
+.wsel .w2{font-size:12px;color:var(--mu);font-weight:600}
+.wsel .go{margin-left:auto;font-size:16px}
+.sumc{padding:6px 12px;font-size:12.5px}
+.sheet .so.off{opacity:.6}
+.sheet .so[aria-pressed="true"]{border-color:var(--ac);border-width:2px}
 .sk{height:12px;border-radius:6px;background:var(--s2);border:1px solid var(--bd)}
 .sk.w60{width:60%}.sk.w40{width:40%;margin-top:6px}.sk.w20{width:52px}
 

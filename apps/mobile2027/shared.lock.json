@@ -1,8 +1,14 @@
 {
-  "note": "SHA-256 of each shared module as reviewed. If a classic-app change touches one, review whether the beta may take it, then run: node apps/mobile2027/scripts/build.mjs --write-lock",
+  "note": "SHA-256 of each shared module as reviewed, and, for each derived copy, of the classic source and of the derived result. If a classic-app change touches one, review whether the beta may take it, then run: node apps/mobile2027/scripts/build.mjs --write-lock",
   "from": "site/shared",
   "files": {
     "contract_windows.js": "3b1d9486c03983e33ab04de706bc839e444353d5c76a9e6c18a3733424f27211",
     "taxi_rule.js": "17a5364feffd0280b154da9acadbc1b32cacdada456dbafa2022625a44a504a0"
+  },
+  "derived": {
+    "injury_status.js": {
+      "source": "b603856a7f347f5b7871667d88449fed32e4a9d6041ed11e964cb0c00dbe93ad",
+      "output": "f587ea6be815348bc8208d65ab5756d8cd3012f3abb70d8cb3de18b5390bfe61"
+    }
   }
 }

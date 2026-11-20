@@ -16,6 +16,7 @@ on:
       - "site/shared/contract_windows.js"
       - "site/shared/taxi_rule.js"
       - "site/shared/cap_math.js"
+      - "site/shared/injury_status.js"
       - "apps/mobile2027/**"
       - "tests/mobile2027_*"
       - "tests/fixtures/mobile2027/**"

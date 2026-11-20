@@ -32,19 +32,48 @@ export const MODE = "preview";
 
 export const FILES = [
   "index.html", "styles.css", "team-colors.css", "config.js", "app.js", "_headers",
-  "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/views.js",
+  "lib/format.js", "lib/contract.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/views.js",
 ];
 
 // Shared modules taken from site/shared/ unchanged: the contract-window rules and the taxi rule, which the next stages need.
 // Both are pure (no network, no storage). Two shared modules are NOT here on purpose, and the scan above would refuse them:
 //   site/shared/cap_math.js       calls the worker itself and hard-codes league 74598;
-//   site/shared/injury_status.js  carries a loader (createLoader) that calls fetch, a second network path. Stage R2 takes its
-//                                 pure resolver either by a reviewed exception proven dormant, or as a generated twin.
+//   site/shared/injury_status.js  carries a loader (createLoader) that calls fetch, a second network path. It is taken as a DERIVED
+//                                 copy instead (below): the same file with exactly that loader cut out.
 export const SHARED_DIR = path.join(REPO, "site", "shared");
 export const SHARED = ["contract_windows.js", "taxi_rule.js"];
 export const sharedOut = (name) => "shared/" + name;
+
+// DERIVED copies (stage R2). The injury resolver is one classic file that mixes ~200 lines of pure rules with a small loader that calls
+// fetch. The Preview build may not contain a fetch reference, and the classic file may not change for the beta, so the build derives
+// the beta's copy by cutting out exactly two spans: the createLoader function and its entry in the export list. Nothing else is
+// touched. The lock pins BOTH hashes (the classic source and the derived result); the build and the deploy refuse a source that no
+// longer matches its pin, an anchor that is not found exactly once, or a result that differs from its pin. tests/ run the original and
+// the derived file side by side and require identical answers.
+const LOADER_START = "  // A small loader for a page that has no status loader of its own (desktop Game Day).\n";
+const LOADER_END = "    return { load: load, read: function () { return st; } };\n  }\n\n";
+const LOADER_EXPORT = "createLoader: createLoader, ";
+function findOnce(text, piece) { const i = text.indexOf(piece); return i >= 0 && text.indexOf(piece, i + 1) < 0 ? i : -1; }
+export function deriveInjuryPure(text) {
+  const a = findOnce(text, LOADER_START), b = findOnce(text, LOADER_END), c = findOnce(text, LOADER_EXPORT);
+  if (a < 0) return { ok: false, why: "the loader's opening comment was not found exactly once" };
+  if (b < 0) return { ok: false, why: "the loader's closing lines were not found exactly once" };
+  if (c < 0) return { ok: false, why: "the loader's export entry was not found exactly once" };
+  if (!(a < b && b < c)) return { ok: false, why: "the loader and its export entry are not in the expected order" };
+  const out = text.slice(0, a) + text.slice(b + LOADER_END.length, c) + text.slice(c + LOADER_EXPORT.length);
+  return { ok: true, text: out };
+}
+export const DERIVED = [{ name: "injury_status.js", out: "injury_status.pure.js", derive: deriveInjuryPure }];
+export const derivedOut = (d) => "shared/" + d.out;
+// The derived bytes for one entry, from the classic source in `sharedDir` (null if the source is missing or does not derive).
+export function derivedBytes(d, sharedDir = SHARED_DIR) {
+  const p = path.join(sharedDir, d.name);
+  if (!fs.existsSync(p)) return null;
+  const r = d.derive(fs.readFileSync(p, "utf8"));
+  return r.ok ? Buffer.from(r.text, "utf8") : null;
+}
 // Every file in the artifact, in the order the digest is computed.
-export const ALL_PATHS = FILES.concat(SHARED.map(sharedOut));
+export const ALL_PATHS = FILES.concat(SHARED.map(sharedOut), DERIVED.map(derivedOut));
 
 // Text that must never be in a published file. The page holds no credential, so any of these is a mistake.
 export const SECRET_PATTERNS = [
@@ -66,7 +95,7 @@ export function scan(name, text) {
 // ── The Preview scan ────────────────────────────────────────────────────────────────────────────────────────────────
 // The Preview build can read and cannot write. Four layers keep it that way, and this scan is only the first:
 //   1. this scan: a LINT against accidents and the obvious. It cannot prove arbitrary JavaScript harmless, and does not claim to;
-//   2. the loader's own allowlist: lib/data.js refuses any address, method or query outside four GET routes before the network;
+//   2. the loader's own allowlist: lib/data.js refuses any address, method or query outside six GET routes before the network;
 //   3. the page's content policy and the response headers, both pinned below (connect-src names the worker only);
 //   4. tests that run the real app against a fake fetch and count every request, including while Sample mode is on.
 // The scan refuses what it recognizes: network and write APIs, a method other than a literal GET, credentials other than
@@ -216,9 +245,14 @@ export function readLock(lockPath = LOCK) {
   try { return JSON.parse(fs.readFileSync(lockPath, "utf8")); } catch (e) { return null; }
 }
 export function computeLock(sharedDir = SHARED_DIR) {
-  const files = {};
+  const files = {}, derived = {};
   for (const n of SHARED) files[n] = sha(fs.readFileSync(path.join(sharedDir, n)));
-  return { note: "SHA-256 of each shared module as reviewed. If a classic-app change touches one, review whether the beta may take it, then run: node apps/mobile2027/scripts/build.mjs --write-lock", from: "site/shared", files };
+  for (const d of DERIVED) {
+    const r = d.derive(fs.readFileSync(path.join(sharedDir, d.name), "utf8"));
+    if (!r.ok) throw new Error(`cannot derive ${d.out} from site/shared/${d.name}: ${r.why}`);
+    derived[d.name] = { source: sha(fs.readFileSync(path.join(sharedDir, d.name))), output: sha(Buffer.from(r.text, "utf8")) };
+  }
+  return { note: "SHA-256 of each shared module as reviewed, and, for each derived copy, of the classic source and of the derived result. If a classic-app change touches one, review whether the beta may take it, then run: node apps/mobile2027/scripts/build.mjs --write-lock", from: "site/shared", files, derived };
 }
 
 // `srcDir`, `git`, `sharedDir` and `lockPath` are only passed by tests, to prove the build refuses a missing file, an extra
@@ -255,6 +289,21 @@ export function build(outDir, srcDir = SRC, git = gitState, sharedDir = SHARED_D
     files.push({ path: sharedOut(n), bytes: buf.length, sha256: sha(buf), buf });
   }
   if (lock && lock.files) for (const n of Object.keys(lock.files)) if (!SHARED.includes(n)) problems.push(`shared.lock.json pins a module that is not on the SHARED list: ${n}`);
+  for (const d of DERIVED) {
+    const p = path.join(sharedDir, d.name);
+    if (!fs.existsSync(p)) { problems.push(`missing shared module: site/shared/${d.name}`); continue; }
+    const srcBuf = fs.readFileSync(p);
+    const pin = lock && lock.derived && lock.derived[d.name];
+    if (!pin) { problems.push(`shared.lock.json has no pin for the derived copy of ${d.name}: review it, then run build.mjs --write-lock`); continue; }
+    if (pin.source !== sha(srcBuf)) { problems.push(`shared module changed since it was pinned: site/shared/${d.name} (the beta derives ${d.out} from it). Review the change, then run build.mjs --write-lock.`); continue; }
+    const r = d.derive(srcBuf.toString("utf8"));
+    if (!r.ok) { problems.push(`cannot derive ${d.out} from site/shared/${d.name}: ${r.why}`); continue; }
+    const buf = Buffer.from(r.text, "utf8");
+    if (pin.output !== sha(buf)) { problems.push(`the derived copy ${d.out} does not match its pin (the extraction changed)`); continue; }
+    problems.push(...scan(derivedOut(d), r.text), ...scanWriteCode(derivedOut(d), r.text));
+    files.push({ path: derivedOut(d), bytes: buf.length, sha256: sha(buf), buf });
+  }
+  if (lock && lock.derived) for (const n of Object.keys(lock.derived)) if (!DERIVED.some((d) => d.name === n)) problems.push(`shared.lock.json pins a derived copy that is not on the DERIVED list: ${n}`);
   // the page's own configuration names the mode; it must be the one mode this build makes
   const cfg = files.find((x) => x.path === "config.js");
   const m = cfg ? /\bmode\s*:\s*"([a-z]+)"/.exec(cfg.buf.toString("utf8")) : null;
