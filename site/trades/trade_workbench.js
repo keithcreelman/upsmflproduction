@@ -1209,6 +1209,8 @@
           franchise_abbrev: safeStr(rt.franchise_abbrev || rt.abbrev || teamId),
           icon_url: safeStr(rt.icon_url || rt.franchise_logo || rt.logo || ""),
           is_default: parseBool(rt.is_default || rt.my_team, false),
+          // null = the worker could not read MFL's salaryAdjustments: the cap
+          // figures are suppressed downstream, never priced as $0.
           salary_adjustment_total_dollars: safeMoneyInt(
             rt.salary_adjustment_total_dollars != null
               ? rt.salary_adjustment_total_dollars
@@ -1217,7 +1219,7 @@
                     ? rt.summary.salary_adjustment_total_dollars
                     : rt.summary.salaryAdjustmentTotal
                 )),
-            0
+            null
           ),
           available_salary_dollars: safeMoneyInt(
             rt.available_salary_dollars != null
@@ -1253,6 +1255,8 @@
           franchise_abbrev: safeStr(rf.franchise_abbrev || rf.abbrev || fId),
           icon_url: safeStr(rf.icon_url || rf.logo || ""),
           is_default: parseBool(rf.is_default || rf.my_team, false),
+          // null = the worker could not read MFL's salaryAdjustments: the cap
+          // figures are suppressed downstream, never priced as $0.
           salary_adjustment_total_dollars: safeMoneyInt(
             rf.salary_adjustment_total_dollars != null
               ? rf.salary_adjustment_total_dollars
@@ -1261,7 +1265,7 @@
                     ? rf.summary.salary_adjustment_total_dollars
                     : rf.summary.salaryAdjustmentTotal
                 )),
-            0
+            null
           ),
           available_salary_dollars: safeMoneyInt(
             rf.available_salary_dollars != null
@@ -1528,69 +1532,12 @@
     }
   }
 
-  function resolveTradeSalaryAdjustmentLedgerUrl(season) {
-    var candidates = [
-      window.UPS_TWB_SALARY_ADJUSTMENTS_URL,
-      window.UPS_TRADE_WORKBENCH_SALARY_ADJUSTMENTS_URL
-    ];
-    var seasonText = safeStr(season || "");
-    for (var i = 0; i < candidates.length; i += 1) {
-      var raw = safeStr(candidates[i]);
-      if (!raw) continue;
-      raw = raw.replace(/\{YEAR\}/g, seasonText);
-      try {
-        return new URL(raw, window.location.href).toString();
-      } catch (e) {
-        return raw;
-      }
-    }
-
-    return resolveRelativeUrl("../reports/salary_adjustments/salary_adjustments_" + encodeURIComponent(seasonText) + ".json");
-  }
-
-  async function loadTradeSalaryAdjustmentLedgerRows(season) {
-    var url = resolveTradeSalaryAdjustmentLedgerUrl(season);
-    if (!url) return [];
-    try {
-      var payload = await fetchJson(url);
-      if (Array.isArray(payload)) return payload;
-      if (payload && Array.isArray(payload.rows)) return payload.rows;
-      return [];
-    } catch (err) {
-      return [];
-    }
-  }
-
-  function summarizeTradeSalaryAdjustmentRows(rows) {
-    var byFranchise = {};
-    var list = Array.isArray(rows) ? rows : [];
-    var i;
-    for (i = 0; i < list.length; i += 1) {
-      var row = list[i] || {};
-      var franchiseId = pad4(row.franchise_id || row.franchiseId);
-      if (!franchiseId) continue;
-      if (row.import_eligible === false) continue;
-      byFranchise[franchiseId] = safeInt(byFranchise[franchiseId], 0) + safeInt(row.amount, 0);
-    }
-    return byFranchise;
-  }
-
-  function applySalaryAdjustmentLedgerToTradeData(data, rows) {
-    var teams = Array.isArray(data && data.teams) ? data.teams : [];
-    if (!teams.length) return data;
-
-    var byFranchise = summarizeTradeSalaryAdjustmentRows(rows);
-    var i;
-    for (i = 0; i < teams.length; i += 1) {
-      var team = teams[i] || {};
-      var franchiseId = pad4(team.franchise_id);
-      team.salary_adjustment_total_dollars = safeInt(
-        byFranchise[franchiseId],
-        safeInt(team.salary_adjustment_total_dollars, 0)
-      );
-    }
-    return data;
-  }
+  // Cap adjustments come from the worker's live MFL salaryAdjustments read
+  // (salary_adjustment_total_dollars per team). The page used to REPLACE that
+  // total with ../reports/salary_adjustments/salary_adjustments_<YEAR>.json, a
+  // static file of last season's drop-penalty candidates, so "Available after
+  // trade" was off by up to $34,000 a team (#1338, checked 2026-10-20). The
+  // server's cap gate at accept never used it.
 
   function applyAcquisitionLookupToTradeData(data, rows) {
     var teams = Array.isArray(data && data.teams) ? data.teams : [];
@@ -1652,12 +1599,8 @@
   async function normalizeDataWithFallbacks(raw) {
     var data = normalizeData(raw);
     var season = data && data.meta && data.meta.season;
-    var results = await Promise.all([
-      loadTradeAcquisitionLookupRows(season),
-      loadTradeSalaryAdjustmentLedgerRows(season)
-    ]);
-    applyAcquisitionLookupToTradeData(data, results[0]);
-    applySalaryAdjustmentLedgerToTradeData(data, results[1]);
+    var acquisitionRows = await loadTradeAcquisitionLookupRows(season);
+    applyAcquisitionLookupToTradeData(data, acquisitionRows);
     return data;
   }
 

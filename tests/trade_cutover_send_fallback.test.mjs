@@ -59,9 +59,9 @@ function sliceByAnchors(lines, startText, startLine, endText, endLine) {
 // ══════════════════════ harness: the REAL desktop cutover-fallback functions ══════════════════════
 function loadDesktopFallback(env, { token, fid, previewResult } = {}) {
   const lines = DESK_SRC.split("\n");
-  const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3950, "async function replayOutbox(criteria)", 3984);
-  const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4241, "async function submitOfferToQueue()", 4314);
-  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8329, "var tw2s = { listStatus:", 8357);
+  const fjr = sliceByAnchors(lines, "async function fetchJsonRequest(url, options)", 3893, "async function replayOutbox(criteria)", 3927);
+  const gates = sliceByAnchors(lines, "async function submitTradeCreateWithGates(apiUrl, initialBody, fromFranchiseId)", 4184, "async function submitOfferToQueue()", 4257);
+  const movs = sliceByAnchors(lines, "function tw2sAssetToken(a)", 8272, "var tw2s = { listStatus:", 8300);
   const code = fjr + "\n" + gates + "\n" + movs;
   const bridge = bridgeFetch(env);
   const resolveStaged2WayApiUrl = () => `https://worker.test/api/trades/2way?MFL_USER_ID=${token}&L=74598&YEAR=2026`;
