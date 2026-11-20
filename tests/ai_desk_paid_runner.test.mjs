@@ -282,7 +282,11 @@ test("dry: all ten cases through the same pipeline, gate and ledger; every ledge
   t.match(fs.readFileSync(path.join(out, "summary.md"), "utf8"), /SCRIPTED MODEL/);
   const db = new DatabaseSync(led, { readOnly: true });
   t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'fake'").get().n, 40);
-  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE step = 'loop' AND mode = 'fake' AND tools LIKE '%history.finishes%'").get().n, 20, "the ledger's tools column is filled for loop calls (meta.tools)");
+  // The ledger's tools column names the definitions each loop call was OFFERED (narrowed per question): all 20 loop rows carry the core tools,
+  // and the narrowing is visible (some rows omit a tool that other rows offer).
+  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE step = 'loop' AND mode = 'fake' AND tools LIKE '%rules.search%' AND tools LIKE '%coverage.check%'").get().n, 20, "the ledger's tools column is filled for loop calls (meta.tools)");
+  t.ok(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE step = 'loop' AND mode = 'fake' AND tools LIKE '%history.finishes%'").get().n >= 1);
+  t.ok(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE step = 'loop' AND mode = 'fake' AND tools NOT LIKE '%cap.penalty_quote%'").get().n >= 1, "a rules or records question is not shown the penalty tool");
   t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'live'").get().n, 0, "no live row");
   t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE cost_usd IS NULL").get().n, 0, "every reservation was finalized");
   const sumRows = db.prepare("SELECT SUM(cost_usd) s FROM ai_call_log WHERE mode = 'fake'").get().s;
