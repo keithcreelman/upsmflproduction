@@ -716,7 +716,7 @@ test("a request that asks for prompt caching is reserved at the cache-WRITE rate
 });
 
 
-test("R2 diagnostics: a 400 records WHERE in the request it is (a field path), never the provider's message; nothing a provider might echo can pass", async () => {
+test("R2 diagnostics: a 400 records WHERE in the request it is (a field path), never the provider's message; nothing free-form a provider might echo can pass", async () => {
   const mk = (message, status = 400, type = "invalid_request_error") => createAnthropicClient({ apiKey: "desk-key-123", fetch: async () => ({ ok: false, status, text: async () => JSON.stringify({ error: { type, message } }) }) });
   const fail = async (client) => { try { await client.complete(req()); } catch (e) { return e; } return null; };
   // The shapes an invalid request message takes: a path, a colon, then what is wrong.

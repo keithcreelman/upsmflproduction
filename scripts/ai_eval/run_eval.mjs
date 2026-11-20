@@ -379,7 +379,7 @@ async function runDry({ cases, runId, setSha, setId, ledgerFile, env, outDir, la
   const { runCase, makeLedgerDb, makeKnowledge } = await import("./lib/scenario_env.mjs");
   const { createScriptedClient, SCRIPTED_CASE_IDS } = await import("./lib/scripted_model.mjs");
   const caps = dryCapsFrom(env);
-  const ledgerRunId = `${runId}-${label === "dry" ? "dry" : "pre"}-${Date.now().toString(36)}`.slice(0, 64);
+  const ledgerRunId = `${runId}-${label === "dry" ? "dry" : "pre"}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.slice(0, 64);
   mkdirp(path.dirname(ledgerFile));
   const db = makeLedgerDb(ledgerFile);
   const knowledge = await makeKnowledge();

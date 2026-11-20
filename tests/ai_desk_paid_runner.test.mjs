@@ -335,7 +335,7 @@ test("dry (the R2 lesson): your monthly and total caps are NOT applied to script
   t.equal(low.code, 1); t.match(low.out, /DRY RUN FAILED/);
 });
 
-test("a failed dry run can never lead to a paid call: the live preflight re-runs the dry test from scratch (it never reads an earlier result) and refuses with exit 2 before any client exists", async () => {
+test("standing guard (not new behavior): the live preflight re-runs the dry test from scratch, never trusting an earlier PASSED result, and refuses with exit 2 before any client exists", async () => {
   // A previous dry run PASSED and left its results in the run folder; the set is then changed so the dry run would fail. Live must not trust the old result.
   const s = readJson(path.join(ROOT, SET_REL));
   const out = uniq("g7b");
@@ -574,7 +574,7 @@ test("LIVE hard cap: the approved --max-usd limits what the run can reserve and 
 test("LIVE smoke stop: if the mean cost per answered question is above $0.08 after 5 cases, the run stops and reports (exit 3)", async () => {
   const plan = await ensurePlan();
   const cmd = liveCmd({});
-  const r = await liveRun(cmd, { env: liveCapsEnv(plan), fake: makeFake({ ledger: cmd.ledger, usageScale: 6 }) });
+  const r = await liveRun(cmd, { env: liveCapsEnv(plan), fake: makeFake({ ledger: cmd.ledger, usageScale: 3 }) });
   t.equal(r.code, 3, r.out.slice(-500) + r.err.slice(0, 300));
   t.match(r.out, /STOPPED: smoke stop: the mean cost per answered question is \$0\.\d+, above \$0\.0800, after 5 cases/);
   const res = readJson(path.join(cmd.out, "results.json"));

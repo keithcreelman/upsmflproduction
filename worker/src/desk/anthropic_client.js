@@ -15,8 +15,9 @@ export const ANTHROPIC_VERSION = "2023-06-01";
 export const DEFAULT_TIMEOUT_MS = 60000;
 
 // Where in the request the provider says a 400 is. The message text is NEVER kept; only a request FIELD PATH such as "messages.1.content.0.text" survives, and
-// only when the message starts with one (an invalid_request_error normally begins "<path>: <what is wrong>"). The first segment must be a known request field,
-// the rest only letters, digits, underscores and dots, so nothing the provider might echo (a question, a name, a key) can pass through.
+// only when the message starts with one (an invalid_request_error normally begins "<path>: <what is wrong>"). The first segment must be on a CLOSED LIST of request
+// fields; the later segments are syntax-limited (letters, digits and underscores, at most 30 characters each, at most 9 segments, no spaces or hyphens), not a list, so
+// a path is short structure like "messages.1.content.0.text", and nothing free-form the provider might echo (a sentence, a key) can pass through.
 const PATH_ROOTS = new Set(["messages", "system", "tools", "tool_choice", "max_tokens", "model", "thinking", "output_config", "metadata", "stop_sequences", "temperature", "top_p", "top_k", "cache_control"]);
 export function safeProviderPath(parsed) {
   const msg = parsed && parsed.error && typeof parsed.error.message === "string" ? parsed.error.message : "";
