@@ -675,7 +675,8 @@ test("plan and dry may use UPS_AI_EVAL_HOME, but only for a folder under the OS 
   t.equal(mod.evalHome({ UPS_AI_EVAL_HOME: path.join(TMP, "somewhere") }), path.join(TMP, "somewhere"));
   const real = mod.evalHome({});
   t.equal(real, path.join(os.homedir(), ".ups_ai_eval"));
-  for (const bad of ["/etc/ups", path.join(os.homedir(), "elsewhere"), os.tmpdir(), "/", path.join(TMP, "..", "..", "..", "x")]) t.equal(mod.evalHome({ UPS_AI_EVAL_HOME: bad }), real, `${bad} is ignored`);
+  // The account's real home (not $HOME, which the safe suite points inside the OS temp folder, where a path would be legitimately accepted).
+  for (const bad of ["/etc/ups", path.join(os.userInfo().homedir, "elsewhere"), os.tmpdir(), "/", path.join(TMP, "..", "..", "..", "x")]) t.equal(mod.evalHome({ UPS_AI_EVAL_HOME: bad }), real, `${bad} is ignored`);
   const d = mod.acceptableToday(new Date(2026, 10, 20, 23, 30));            // local 2026-11-20 evening
   t.equal(d.local, "2026-11-20");
   t.ok(d.utc === "2026-11-20" || d.utc === "2026-11-21");
