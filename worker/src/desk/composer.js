@@ -5,6 +5,7 @@
 
 import { formatFact, MODEL_CARD_STATES, GAP_REASONS } from "./contract.js";
 import { MODELS, getPrompt, promptHash, toolChoiceFor } from "./prompts.js";
+import { classifyResponse } from "./request_contract.js";
 import { scanForInjection, wrapAsData, INJECTION_NOTE } from "./injection.js";
 import { buildFactIndex, collectToolGaps, anchorSet, MAX_CARD_GAPS, LIMITS } from "./validator.js";
 
@@ -188,6 +189,8 @@ export async function composeCard({ question, asOf, envelopes, call, errors, ext
     tools: [EMIT_CARD_TOOL], tool_choice: toolChoiceFor(MODELS.composer, EMIT_CARD_TOOL.name), max_tokens: 2500, promptHash: await promptHash("composer"),
   });
   if (!res.ok) return { ok: false, blocked: res };
+  // A truncated, refused or malformed reply never yields a card, even if it holds a tool call (a cut-off card is not a card): same classifier as the loop.
+  if (!classifyResponse(res.response).ok) return { ok: false, noCard: true, suspicious: scan.suspicious };
   const block = ((res.response && res.response.content) || []).find((b) => b && b.type === "tool_use" && b.name === EMIT_CARD_TOOL.name);
   if (!block || !block.input || typeof block.input !== "object" || Array.isArray(block.input)) return { ok: false, noCard: true, suspicious: scan.suspicious };
   return { ok: true, card: block.input, suspicious: scan.suspicious };

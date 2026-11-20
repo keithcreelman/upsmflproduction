@@ -117,10 +117,37 @@ export function findSpelledQuantities(text) {
 // The ONE rule for "a digit in prose". After fact tokens, the digit-bearing proper nouns (49ers, 76ers) and any league terms the glossary returned this run
 // (termRe, from termRegex) are removed, any Unicode number character that is left is a typed digit. checkProseBase below applies this same rule; the eval runner's
 // invariant calls this function instead of keeping a copy (at R3 a private copy drifted and aborted a validator-approved answer).
-export function hasDigitOutsideTokens(text, termRe = null) {
-  let rest = String(text == null ? "" : text).replace(TOKEN_RE, " ").replace(DIGIT_PROPER_NOUNS, " ");
+function stripAllowedLiterals(text, termRe) {
+  let rest = String(text == null ? "" : text).replace(DIGIT_PROPER_NOUNS, " ");
+  // League terms a tool returned in this run (glossary.lookup entries) may be written as spelled, even with a digit ("Ext1").
   if (termRe) rest = rest.replace(termRe, " ");
-  return /\p{N}/u.test(rest);
+  return rest;
+}
+export function hasDigitOutsideTokens(text, termRe = null) {
+  return /\p{N}/u.test(stripAllowedLiterals(String(text == null ? "" : text).replace(TOKEN_RE, " "), termRe));
+}
+
+// Every string on a card that the MODEL wrote and an owner can read: [{ path, text }]. This is the one list the validator's prose rules cover, exported so the eval
+// runner and the checks use it instead of keeping their own (a test plants a digit in each path and requires validateCard to catch every one). Gaps that are exact
+// copies of a tool gap are code-sourced and left out, the same exemption validateCard applies. toolGaps: the run's tool gaps (collectToolGaps); a final card carries them as tool_gaps.
+export function modelProseFields(card, toolGaps = null) {
+  const out = [];
+  if (!isObj(card)) return out;
+  const skip = new Set((Array.isArray(toolGaps) ? toolGaps : Array.isArray(card.tool_gaps) ? card.tool_gaps : []).map((g) => gapKey(g)));
+  const add = (path, v) => { if (typeof v === "string" && v !== "") out.push({ path, text: v }); };
+  add("lead_md", card.lead_md);
+  (Array.isArray(card.blocks) ? card.blocks : []).forEach((b, i) => {
+    if (!isObj(b)) return;
+    add(`blocks[${i}].title`, b.title);
+    (Array.isArray(b.columns) ? b.columns : []).forEach((c, j) => add(`blocks[${i}].columns[${j}]`, c));
+    (Array.isArray(b.rows) ? b.rows : []).forEach((r, k) => (Array.isArray(r) ? r : []).forEach((cell, m) => add(`blocks[${i}].rows[${k}][${m}]`, cell)));
+  });
+  (Array.isArray(card.cites) ? card.cites : []).forEach((c, i) => { if (isObj(c)) add(`cites[${i}].claim`, c.claim); });
+  (Array.isArray(card.gaps) ? card.gaps : []).forEach((g, i) => { if (!isObj(g) || skip.has(gapKey(g))) return; add(`gaps[${i}].what`, g.what); add(`gaps[${i}].source_needed`, g.source_needed); });
+  (Array.isArray(card.conflicts) ? card.conflicts : []).forEach((c, i) => { if (isObj(c)) add(`conflicts[${i}].note`, c.note); });
+  add("ruling_question", card.ruling_question);
+  (Array.isArray(card.follow_ups) ? card.follow_ups : []).forEach((f, i) => add(`follow_ups[${i}]`, f));
+  return out;
 }
 
 // ── Prose check ───────────────────────────────────────────────────────────────────────────────────
@@ -135,10 +162,8 @@ function checkProseBase(text, path, opts, errors) {
   if (/\{\{|\}\}/.test(rest)) errors.push({ code: CODES.MALFORMED_TOKEN, path, message: "a {{ }} that is not a well-formed {{f.cN.key}} token" });
   if (tokens.length && !o.allowTokens) errors.push({ code: CODES.TOKEN_NOT_ALLOWED_HERE, path, message: "fact tokens are not allowed in this field" });
   if (/<\/?[a-zA-Z!][^>]*>|https?:\/\/|\bdata:[a-z]+\/|\bjavascript:|\]\(\s*[a-z]+:/i.test(rest)) errors.push({ code: CODES.UNSAFE_MARKUP, path, message: "HTML, links and URLs are not allowed" });
-  rest = rest.replace(DIGIT_PROPER_NOUNS, " ");
-  // League terms a tool returned in this run (glossary.lookup entries) may be written as spelled, even with a digit ("Ext1").
-  if (o.termRe) rest = rest.replace(o.termRe, " ");
-  if (/\p{N}/u.test(rest)) errors.push({ code: CODES.DIGIT_IN_PROSE, path, message: "a digit outside a fact token" });
+  rest = stripAllowedLiterals(rest, o.termRe);
+  if (hasDigitOutsideTokens(text, o.termRe)) errors.push({ code: CODES.DIGIT_IN_PROSE, path, message: "a digit outside a fact token" });   // the one shared rule (above)
   const spelled = findSpelledQuantities(rest);
   if (spelled.length) errors.push({ code: CODES.SPELLED_QUANTITY, path, message: `a spelled quantity outside a fact token (${spelled.slice(0, 3).join(", ")})` });
   return { tokens };

@@ -246,6 +246,21 @@ test("gate 7: a live run needs a dry run of the SAME set to pass first; a set wh
   clean(r);
 });
 
+test("gate 7b: a failed ADVERSARIAL preflight refuses the run (exit 2) before the confirmation prompt and before any client exists; it is mandatory and cannot be skipped by a flag", async () => {
+  const cmd = liveCmd({});
+  const r = await runner(cmd.args, { env: { ...liveCapsEnv(await ensurePlan()), UPS_AI_EVAL_FORCE_PREFLIGHT_FAIL: "adversarial" }, fakeAnthropic: true, ledger: cmd.ledger });
+  t.equal(r.code, 2, r.err.slice(0, 300));
+  t.match(r.err, /REFUSED \(gate 7\)/); t.match(r.err, /adversarial preflight problem: forced by the test gate/); t.match(r.err, /the adversarial preflight did not pass, so nothing was sent/);
+  t.ok(!/Type exactly/.test(r.out), "the confirmation prompt was never reached");
+  t.ok(!/Gate 7b: the adversarial preflight passed/.test(r.out));
+  t.deepEqual(r.net, [], "no network attempt, so no paid call");
+  t.ok(!fs.existsSync(path.join(cmd.out, "results.json")) || readJson(path.join(cmd.out, "results.json")).mode !== "live");
+  // No flag turns the preflight off, and the forcing hook works only under the test gate (a literal canary key plus the test flag).
+  for (const f of ["--skip-preflight", "--no-preflight", "--skip-adversarial"]) { const x = await runner([...cmd.args, f], { env: liveCapsEnv(await ensurePlan()), fakeAnthropic: true, ledger: cmd.ledger }); t.equal(x.code, 64, f); clean(x); }
+  t.equal(mod.isTestGate({ ANTHROPIC_API_KEY_DESK: "sk-ant-real-looking-key", UPS_AI_EVAL_UNDER_TEST: "1", UPS_AI_EVAL_FORCE_PREFLIGHT_FAIL: "adversarial" }), false);
+  clean(r);
+});
+
 test("gate 9: a held-out or sealed bank path, or an HO- id, is refused in EVERY mode before any file is read", async () => {
   const cases = [
     ["--set", "/Volumes/locked/heldout/set.json"], ["--set", "/x/SEALED/set.json"], ["--bank", "/x/held-out/bank.jsonl", "--ids", "DEV-RUL-02"], ["--bank", "/x/held_out/bank.jsonl", "--ids", "DEV-RUL-02"],
@@ -410,7 +425,7 @@ test("LIVE with every gate satisfied (interceptor, fake terminal): ONLY POST api
   const fake = makeFake({ ledger: cmd.ledger });
   const r = await liveRun(cmd, { env, fake });
   t.equal(r.code, 0, r.out.slice(-800) + r.err.slice(0, 400));
-  t.match(r.out, /Gate 7: the dry run of this set passed\./);
+  t.match(r.out, /Gate 7: the dry run of this set passed\./); t.match(r.out, /Gate 7b: the adversarial preflight passed \(10 questions x 16 scenarios, no network\)\./);
   t.match(r.out, /Provider-side spend limit confirmed by you: \$3\.0000/);
   t.match(r.out, /Run R1: LIVE, 10 of 10 cases/);
   t.equal(r.blocked.length, 0, "the interceptor saw nothing but the one allowed call");
@@ -777,7 +792,7 @@ test("argument parsing: unknown flags and missing values are usage errors (exit 
   t.throws(() => mod.parseArgs(["--nope"]));
   t.throws(() => mod.parseArgs(["--mode"]));
   const r = await runner(["--set", SET_REL, "--run-id", "R1"]);
-  t.equal(r.code, 64); t.match(r.err, /--mode plan\|dry\|live is required/);
+  t.equal(r.code, 64); t.match(r.err, /--mode plan\|dry\|adversarial\|live is required/);
   const r2 = await runner(["--mode", "plan", "--run-id", "bad id!", "--set", SET_REL]);
   t.equal(r2.code, 64);
 });

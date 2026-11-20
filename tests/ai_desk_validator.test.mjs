@@ -1,6 +1,7 @@
 // Commissioner Desk: validator tests. Offline and deterministic. Run: node tests/ai_desk_validator.test.mjs
 import { test, run, t } from "./fixtures/mini_test.mjs";
-import { validateCard, findSpelledQuantities, errorCodes, buildFactIndex, canonShaMatches, collectToolGaps, LIMITS, CODES, termRegex, hasDigitOutsideTokens } from "../worker/src/desk/validator.js";
+import { validateCard, findSpelledQuantities, errorCodes, buildFactIndex, canonShaMatches, collectToolGaps, LIMITS, CODES, termRegex, hasDigitOutsideTokens, modelProseFields } from "../worker/src/desk/validator.js";
+import { modelProseFields as scorerProseFields } from "../scripts/ai_eval/score.mjs";
 
 const SHA = "194f8df4109cefab2ef7133a0c59d73d7d588954";
 const RULES = { canon_sha: SHA, anchors: ["s1-c4", "s2-t6-1"] };
@@ -183,6 +184,35 @@ test("PARITY: hasDigitOutsideTokens (used by the eval runner's invariant) gives 
     }
   }
   t.equal(hasDigitOutsideTokens(undefined), false); t.equal(hasDigitOutsideTokens(null, null), false);
+});
+
+
+test("ONE LIST of model prose: modelProseFields names every field the validator checks (a digit planted in EACH is rejected at that path), skips code-copied tool gaps, and matches the frozen scorer's own field list", () => {
+  const mk = () => ({ state: "answer", lead_md: "t_lead", blocks: [{ type: "table", title: "t_title", columns: ["t_col"], rows: [["t_cell"]], fact_ids: [], tool_call_ids: [] }], facts_used: [], cites: [{ anchor: "x", canon_sha: "y", claim: "t_claim" }],
+    gaps: [{ what: "t_gap_what", why: "no_record", source_needed: "t_gap_src" }], conflicts: [{ fact_a: "c1.rank", fact_b: "c1.rank", note: "t_note" }], ruling_question: "t_ruling", follow_ups: ["t_follow"] });
+  const setters = {
+    "lead_md": (c) => { c.lead_md = "a 7 b"; }, "blocks[0].title": (c) => { c.blocks[0].title = "a 7 b"; }, "blocks[0].columns[0]": (c) => { c.blocks[0].columns[0] = "a 7 b"; },
+    "blocks[0].rows[0][0]": (c) => { c.blocks[0].rows[0][0] = "a 7 b"; }, "cites[0].claim": (c) => { c.cites[0].claim = "a 7 b"; }, "gaps[0].what": (c) => { c.gaps[0].what = "a 7 b"; },
+    "gaps[0].source_needed": (c) => { c.gaps[0].source_needed = "a 7 b"; }, "conflicts[0].note": (c) => { c.conflicts[0].note = "a 7 b"; }, "ruling_question": (c) => { c.ruling_question = "a 7 b"; },
+    "follow_ups[0]": (c) => { c.follow_ups[0] = "a 7 b"; },
+  };
+  const listed = modelProseFields(mk());
+  t.deepEqual(listed.map((f) => f.path).sort(), Object.keys(setters).sort(), "the list names exactly these fields (a new prose field must be added to both the list and this test)");
+  for (const [p, set] of Object.entries(setters)) {
+    const c = mk(); set(c);
+    const errs = validateCard(c, ctxFor([OK1])).errors;
+    t.ok(errs.some((e) => e.code === CODES.DIGIT_IN_PROSE && e.path === p), `a digit in ${p} is rejected at that path: ${JSON.stringify(errs.map((e) => [e.code, e.path]).slice(0, 4))}`);
+    t.ok(modelProseFields(c).some((f) => f.path === p && /7/.test(f.text)), `${p} is on the list`);
+  }
+  // A gap that is an exact copy of a tool gap is code-sourced: left out of the list, as the validator leaves it out of the prose rules.
+  const c = mk(); c.gaps = [{ what: "Table for 2026", why: "no_record", source_needed: "Slice S4" }];
+  t.deepEqual(modelProseFields(c).map((f) => f.path).filter((p) => p.startsWith("gaps")), ["gaps[0].what", "gaps[0].source_needed"]);
+  t.deepEqual(modelProseFields(c, [{ what: "Table for 2026", why: "no_record", source_needed: "Slice S4" }]).map((f) => f.path).filter((p) => p.startsWith("gaps")), []);
+  t.deepEqual(modelProseFields({ ...c, tool_gaps: [{ what: "Table for 2026", why: "no_record", source_needed: "Slice S4" }] }).map((f) => f.path).filter((p) => p.startsWith("gaps")), [], "a final card carries its tool gaps");
+  t.deepEqual(modelProseFields(null), []); t.deepEqual(modelProseFields({ lead_md: 5, blocks: "x", cites: [null], gaps: [5] }), []);
+  // The frozen scorer keeps its own list; the two must cover the same strings.
+  const full = mk();
+  t.deepEqual(scorerProseFields(full).slice().sort(), listed.map((f) => f.text).sort(), "the scorer's field list and the validator's list cover the same strings");
 });
 
 

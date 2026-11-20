@@ -26,7 +26,7 @@ import { PHASE1_TOOL_IDS } from "../../worker/src/desk/tools/index.js";
 import { buildKnowledge } from "../../worker/src/desk/knowledge.js";
 import RULES_DATA from "../../worker/src/desk/data/rules_data.js";
 import { answerQuestion } from "../../worker/src/desk/pipeline.js";
-import { validateCard } from "../../worker/src/desk/validator.js";
+import { validateCard, hasDigitOutsideTokens } from "../../worker/src/desk/validator.js";
 import { INJECTION_NOTE } from "../../worker/src/desk/injection.js";
 import { labelFinish } from "../../worker/src/desk/tools/history_finishes.js";
 
@@ -93,8 +93,8 @@ function scripted(plan) {
   };
   return { callModel, requests };
 }
-const stripTokens = (s) => String(s || "").replace(/\{\{f\.c\d+\.[a-z0-9_]+\}\}/g, " ");
-const hasDigit = (s) => /\d/.test(stripTokens(s));
+// The validator's own digit rule (tokens, 49ers/76ers, any Unicode digit), not a private copy.
+const hasDigit = (s) => hasDigitOutsideTokens(s);
 
 // ── Infra properties (each returns { pass, detail }; cached per key) ────────────────────────────
 const cache = new Map();

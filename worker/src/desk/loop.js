@@ -11,6 +11,7 @@ import { formatFact, assertCommishCaller } from "./contract.js";
 import { MODELS, getPrompt, promptHash } from "./prompts.js";
 import { scanForInjection, wrapAsData } from "./injection.js";
 import { selectToolIds } from "./tool_select.js";
+import { classifyResponse } from "./request_contract.js";
 
 export const LOOP_LIMITS = Object.freeze({ rounds: 6, calls: 12, resultChars: 12000, maxTokens: 1500 });
 
@@ -61,7 +62,8 @@ export function withLastMarker(messages) {
 // Thinking text is the model's own and goes only back to the same model; it is never shown on a card or read by any code.
 export function cleanBlock(b) {
   if (!b || typeof b !== "object") return null;
-  if (b.type === "tool_use") return { type: "tool_use", id: String(b.id || ""), name: String(b.name || ""), input: b.input && typeof b.input === "object" && !Array.isArray(b.input) ? b.input : {} };
+  // A tool call with no usable id or name can never be paired with a result, so it is dropped rather than replayed (a request carrying it would be refused).
+  if (b.type === "tool_use") return typeof b.id === "string" && b.id && typeof b.name === "string" && b.name ? { type: "tool_use", id: b.id, name: b.name, input: b.input && typeof b.input === "object" && !Array.isArray(b.input) ? b.input : {} } : null;
   if (b.type === "text") return typeof b.text === "string" && b.text.trim() !== "" ? { type: "text", text: b.text } : null;
   if (b.type === "thinking") return typeof b.thinking === "string" && typeof b.signature === "string" ? { type: "thinking", thinking: b.thinking, signature: b.signature } : null;
   if (b.type === "redacted_thinking") return typeof b.data === "string" ? { type: "redacted_thinking", data: b.data } : null;
@@ -97,9 +99,20 @@ export async function runLoop({ caller, question, asOf, forbidCurrent = false, r
   for (;;) {
     const res = await call({ step: "loop", model: MODELS.loop, system: cachedSystem(system), messages: withLastMarker(messages), tools: specs, max_tokens: LOOP_LIMITS.maxTokens, promptHash: hash, toolIds });
     if (!res.ok) return done("blocked", { blocked: res });
-    // A reply cut off by max_tokens may hold a half-written tool call (more likely when the model thinks and calls many tools at once): fail closed, run nothing from it.
-    if (res.response && res.response.stop_reason === "max_tokens") return done("limit", { limit: "max_tokens" });
-    const content = ((res.response && res.response.content) || []).map(cleanBlock).filter(Boolean);
+    // A reply cut off by max_tokens may hold a half-written tool call (more likely when the model thinks and calls many tools at once), a refusal has nothing to
+    // run, and a malformed reply cannot be trusted: all three fail closed and run nothing from the reply (one classifier, request_contract.classifyResponse).
+    const cls = classifyResponse(res.response);
+    if (cls.truncated) return done("limit", { limit: "max_tokens" });
+    if (cls.refusal) return done("limit", { limit: "refusal" });
+    if (cls.malformed) return done("limit", { limit: "bad_response" });
+    // Clean the turn, then drop a tool call whose id repeats an earlier one in the same turn (the second could not be answered separately).
+    const seenIds = new Set();
+    const content = ((res.response && res.response.content) || []).map(cleanBlock).filter(Boolean).filter((b) => {
+      if (b.type !== "tool_use") return true;
+      if (seenIds.has(b.id)) return false;
+      seenIds.add(b.id);
+      return true;
+    });
     const uses = content.filter((b) => b.type === "tool_use");
     if (!uses.length) {
       // Safety valve for a narrowed set: a first reply that used NO tool at all may mean the router sent the question to the wrong domain, so the

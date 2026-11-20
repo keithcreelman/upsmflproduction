@@ -52,7 +52,10 @@ import crypto from "node:crypto";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
-import { termRegex, hasDigitOutsideTokens } from "../../worker/src/desk/validator.js";
+import { termRegex, hasDigitOutsideTokens, modelProseFields } from "../../worker/src/desk/validator.js";
+import { runMatrix, SCENARIOS, PREFLIGHT_SCENARIO_IDS } from "./lib/adversarial.mjs";
+import { gradeAnswer } from "./lib/grade.mjs";
+import { plantedNumbers } from "./score.mjs";
 import { glossaryTerms } from "../../worker/src/desk/composer.js";
 
 const NATIVE_FETCH = globalThis.fetch;          // captured before anything can replace it
@@ -288,15 +291,18 @@ function printPlan(plan, { heading = "PLAN (no spend, no network, no Anthropic c
   say(`Anthropic clients constructed: ${plan.clients_constructed}`);
 }
 
-// ── Invariants, results, scoring ──────────────────────────────────────────────────────────────────────
-function modelProse(card) {
-  const o = [card.lead_md, card.ruling_question];
-  for (const b of card.blocks || []) { o.push(b.title); for (const c of b.columns || []) o.push(c); for (const r of b.rows || []) for (const c of r) o.push(c); }
-  for (const c of card.cites || []) o.push(c.claim);
-  for (const f of card.follow_ups || []) o.push(f);
-  for (const c of card.conflicts || []) o.push(c.note);
-  return o.filter((x) => typeof x === "string");
+function printMatrix(res) {
+  const byScenario = new Map();
+  for (const r of res.rows) { const a = byScenario.get(r.scenario) || { ok: 0, bad: 0 }; (r.ok ? a.ok++ : a.bad++); byScenario.set(r.scenario, a); }
+  say(`  ${pad("scenario", 28)}${pad("passed", 8)}failed`);
+  for (const [k, v] of byScenario) say(`  ${pad(k, 28)}${pad(String(v.ok), 8)}${v.bad}`);
+  const grades = {}; for (const r of res.rows.filter((x) => x.scenario === "baseline")) grades[r.grade] = (grades[r.grade] || 0) + 1;
+  say(`  baseline grades (independent of the oracle): ${Object.entries(grades).map(([k, v]) => `${k} ${v}`).join(", ") || "none"}`);
+  for (const f of res.failures.slice(0, 20)) say(`  PROBLEM ${f.case} / ${f.scenario}: ${f.why.join("; ")}`);
+  say(`Network attempts: ${res.network_attempts}. ${res.failures.length ? `ADVERSARIAL RUN FAILED (${res.failures.length} of ${res.rows.length})` : `ADVERSARIAL RUN PASSED (${res.rows.length} of ${res.rows.length})`}`);
 }
+
+// ── Invariants, results, scoring ──────────────────────────────────────────────────────────────────────
 export function invariantFailures(r, perQuestionCapUsd) {
   const fails = [];
   const card = r.card;
@@ -305,7 +311,8 @@ export function invariantFailures(r, perQuestionCapUsd) {
   // This is the validator's OWN term list and matcher, imported, not a copy: at R3 a hand-built, case-sensitive copy here aborted a validator-approved answer.
   const termRe = termRegex(glossaryTerms(r.envelopes));
   const typed = (s) => hasDigitOutsideTokens(s, termRe);          // the validator's own rule: tokens, 49ers/76ers, glossary terms, any Unicode digit
-  if (!CODE_STATES.includes(card.state) && modelProse(card).some(typed)) fails.push("a digit in model prose outside a fact token");
+  // ALL model-authored prose (lead, tables, citations, gaps that are not code copies, conflict notes, ruling question, follow-ups): the validator's own field list.
+  if (!CODE_STATES.includes(card.state) && modelProseFields(card).some((f) => typed(f.text))) fails.push("a digit in model prose outside a fact token");
   for (const id of card.facts_used || []) if (!(card.facts && card.facts[id])) fails.push(`fact ${id} is used but not on the card`);
   const spent = r.ledger.reduce((a, x) => a + (x.cost_usd == null ? x.est_cost_usd : x.cost_usd), 0);
   if (perQuestionCapUsd != null && spent > perQuestionCapUsd + 1e-9) fails.push(`spend ${money6(spent)} is above the per-question cap ${money6(perQuestionCapUsd)}`);
@@ -324,6 +331,14 @@ function caseRecord(r, { spec, caseDef }, score, extra = {}) {
     route_calls: r.routes.map((x) => ({ path: x.path, status: x.status, fault: x.fault })),
     validator: r.validator.map((v) => ({ attempt: v.attempt, ok: v.ok, matches_pipeline: v.matches_pipeline, failed_rules: v.rules.filter((x) => !x.pass).map((x) => x.id), errors: v.errors.map((e) => ({ code: e.code, path: e.path })), model_card: v.card })),
     oracle: r.oracle, oracle_check: r.oracleCheck, score: score || null,
+    // The grade an owner would give (Correct / Partial / Incorrect / Technical failure), independent of the oracle and the scorer (lib/grade.mjs), and a flag when the
+    // frozen scorer calls a card's prose a typed number although the validator and the invariant both accepted it (a person must read the card: scorer_parity.mjs).
+    ...(() => {
+      const inv = (extra.invariant_failures || []);
+      const g = gradeAnswer({ p1: caseDef.p1_expected, card: r.card, question: caseDef.question, invariants: inv, sourcesDown: !!spec.fault, injectionNumbers: [...plantedNumbers(caseDef.question)] });
+      const adjud = !!(score && score.flags && score.flags.wrong_number && !inv.length && (r.validator || []).some((v) => v.ok));
+      return { answer_grade: g.grade, answer_grade_why: g.why, adjudicate: adjud ? "the scorer flags a typed number but the validator and the invariant accepted this card: read it and overrule or confirm (scripts/ai_eval/scorer_parity.mjs)" : null };
+    })(),
     cost_usd: spent, reserved_usd: r.ledger.reduce((a, x) => a + x.est_cost_usd, 0), latency_ms: r.ms, model_calls: r.modelCalls, ledger: r.ledger, gate: r.gate,
     ...extra,
   };
@@ -348,12 +363,12 @@ function renderSummary(res) {
   L.push(`Set ${res.set_id}, ${res.n_cases_run} of ${res.n_cases_planned} cases run. ${res.stopped ? `STOPPED: ${res.stopped.reason}` : "Completed."}`);
   L.push(`Total cost ${money6(res.totals.cost_usd)} (reserved before calls ${money6(res.totals.reserved_usd)}); mean per question ${money6(res.totals.mean_cost_usd)}; network attempts outside the allowed call: ${res.network_attempts}.`);
   L.push("");
-  L.push("| case | state | oracle | score | cost | latency ms | notes |");
-  L.push("|---|---|---|---|---|---|---|");
+  L.push("| case | state | grade | oracle | score | cost | latency ms | notes |");
+  L.push("|---|---|---|---|---|---|---|---|");
   for (const c of res.cases) {
     const sc = c.score ? (c.score.pass ? "pass" : `FAIL: ${c.score.reasons.join(", ")}`) : "n/a";
     const orc = c.oracle_check.pass === true ? "pass" : c.oracle_check.pass === false ? "MISMATCH" : "n/a";
-    L.push(`| ${c.id} | ${c.state} | ${orc} | ${sc} | ${money6(c.cost_usd)} | ${c.latency_ms} | ${c.known_issue ? "KNOWN ISSUE" : ""}${c.invariant_failures && c.invariant_failures.length ? ` INVARIANT: ${c.invariant_failures.join("; ")}` : ""} |`);
+    L.push(`| ${c.id} | ${c.state} | ${c.answer_grade || "n/a"} | ${orc} | ${sc} | ${money6(c.cost_usd)} | ${c.latency_ms} | ${c.known_issue ? "KNOWN ISSUE" : ""}${c.invariant_failures && c.invariant_failures.length ? ` INVARIANT: ${c.invariant_failures.join("; ")}` : ""} |`);
   }
   if (res.score && res.score.metrics) {
     L.push("");
@@ -361,6 +376,8 @@ function renderSummary(res) {
     for (const m of res.score.metrics) L.push(`- ${m.ok === true ? "ok" : m.ok === false ? "FAIL" : "n/a"} ${m.id}${m.failures == null ? (m.observed == null ? "" : `: ${m.observed}`) : `: ${m.failures} of ${m.n} (allowed ${m.allowed_failures})`}`);
     L.push(res.score.blocked ? "Scorer verdict: BLOCKED (read the failing metrics above)." : "Scorer verdict: thresholds met on the measured metrics.");
   } else if (res.score && res.score.error) L.push(`\nScoring: ${res.score.error}`);
+  const adj = res.cases.filter((c) => c.adjudicate);
+  if (adj.length) { L.push(""); for (const c of adj) L.push(`- ADJUDICATE ${c.id}: ${c.adjudicate}`); }
   const mism = res.cases.filter((c) => c.oracle_check.pass === false);
   if (mism.length) { L.push(""); for (const c of mism) L.push(`- ORACLE MISMATCH ${c.id}: ${c.oracle_check.detail}${c.known_issue ? ` (known issue: ${c.known_issue})` : ""}`); }
   const notes = res.cases.filter((c) => c.scorer_note && c.score && !c.score.pass);
@@ -731,7 +748,7 @@ export async function main(argv, env = process.env, injectedIo = null) {
   try {
     if (flags["--ledger-summary"]) { const L = liveHome(env); return ledgerSummary(path.resolve(flags["--ledger"] || defaultLedger(L.home)), [journalPath(L.home), path.join(L.second, "spend_journal.jsonl")]); }
     const mode = flags["--mode"];
-    if (!["plan", "dry", "live"].includes(mode)) throw new Usage("--mode plan|dry|live is required");
+    if (!["plan", "dry", "adversarial", "live"].includes(mode)) throw new Usage("--mode plan|dry|adversarial|live is required");
     const runId = flags["--run-id"];
     if (!runId || !RUN_ID_RE.test(runId)) throw new Usage("--run-id is required (letters, digits, . _ -; up to 40 characters)");
     guardHeldOut(args);                                           // gate 9, before any file is read
@@ -774,6 +791,17 @@ export async function main(argv, env = process.env, injectedIo = null) {
       return res.passed ? 0 : 1;
     }
 
+    if (mode === "adversarial") {
+      // Free. Every question through the real pipeline against a model that misbehaves and sources that fail; each result graded independently of the oracle.
+      say(`Run ${runId}: ADVERSARIAL (SCRIPTED model, no network, no key, no spend): ${cases.length} questions x ${SCENARIOS.length} scenarios`);
+      const res = await runMatrix({ cases, invariantFailures, caps: DRY_DEFAULT_CAPS, runId });
+      printMatrix(res);
+      mkdirp(outDir);
+      fs.writeFileSync(path.join(outDir, "adversarial.json"), JSON.stringify({ run_id: runId, set_id: setId, set_sha256: setSha, scripted: true, rows: res.rows, network_attempts: res.network_attempts }, null, 2) + "\n", { mode: 0o600 });
+      say(`Results: ${path.join(outDir, "adversarial.json")}`);
+      return res.failures.length === 0 && res.network_attempts === 0 ? 0 : 1;
+    }
+
     // live
     earlyLiveGates({ env });                                      // gates 1 to 3 (caps above zero) before any work
     if (!isTestGate(env)) {
@@ -793,6 +821,17 @@ export async function main(argv, env = process.env, injectedIo = null) {
     const dry = await runDry({ cases, runId, setSha, setId, ledgerFile, env: { ...DRY_DEFAULT_CAPS }, outDir: path.join(outDir, "dry"), label: "dry-before-live" });
     if (!dry.passed) { for (const p of dry.problems) warn(`dry run problem: ${p}`); throw new Refusal(7, "the dry run of this set did not pass, so nothing was sent."); }
     say("Gate 7: the dry run of this set passed.");
+    // 7b: the adversarial preflight, also from scratch: the same questions through the real pipeline against a misbehaving scripted model and failing sources. A failure here
+    // refuses the run exactly like gate 7 (before the confirmation prompt and before any client exists).
+    {
+      const subset = SCENARIOS.filter((s) => PREFLIGHT_SCENARIO_IDS.includes(s.id));
+      const adv = await runMatrix({ cases, invariantFailures, caps: DRY_DEFAULT_CAPS, scenarios: subset, runId: `${runId}-pf` });
+      const problems = adv.failures.map((x) => `${x.case} / ${x.scenario}: ${x.why[0]}`);
+      if (adv.network_attempts) problems.push(`${adv.network_attempts} network attempt(s) during the adversarial preflight`);
+      if (isTestGate(env) && env.UPS_AI_EVAL_FORCE_PREFLIGHT_FAIL === "adversarial") problems.push("forced by the test gate");   // test-only: honored only with the canary key
+      if (problems.length) { for (const p of problems.slice(0, 10)) warn(`adversarial preflight problem: ${p}`); throw new Refusal(7, "the adversarial preflight did not pass, so nothing was sent."); }
+      say(`Gate 7b: the adversarial preflight passed (${adv.cases} questions x ${adv.scenarios} scenarios, no network).`);
+    }
     // 8: confirmation
     await liveConfirmation({ runId, maxUsd: g.maxUsd, input: io.stdin, output: io.stdout, plan, estimateOnly: g.estimateOnly });
     const res = await runLive({ cases, runId, setSha, setId, ledgerFile, journalFiles, env, outDir, key: g.key, caps: g.caps, effective: g.effective, providerLimit: g.providerLimit, estimateOnly: g.estimateOnly, maxUsd: g.maxUsd });

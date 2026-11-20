@@ -15,6 +15,7 @@
 // Token usage in a scripted response is an ESTIMATE (UTF-8 bytes / 2.5, the ratio R1 measured; cache creation and reads are modeled), so fake costs are a rough guide, not a price quote.
 import { findSpelledQuantities } from "../../../worker/src/desk/validator.js";
 import { createFakeClient } from "../../../tests/fixtures/ai_desk/fake_client.mjs";
+import { DeskModelError } from "../../../worker/src/desk/anthropic_client.js";
 
 export const SCRIPTED_LABEL = "SCRIPTED MODEL: this proves tools, facts and validation, not model quality";
 export const SCRIPTED_CASE_IDS = Object.freeze(["DEV-RUL-02", "DEV-RUL-10", "DEV-REC-02", "DEV-REC-01", "DEV-NOW-01", "DEV-INJ-05", "DEV-TFL-01", "DEV-LIN-03", "DEV-CON-02", "DEV-UNA-08"]);
@@ -304,6 +305,116 @@ export function createScriptedClient(caseId) {
   const cache = createCacheModel();
   const client = createFakeClient((request) => scriptedResponse(caseId, request, cache));
   client.scripted = true;
+  return client;
+}
+
+// ── The ADVERSARIAL scripted model ───────────────────────────────────────────────────────────────────
+// The scripted model above behaves like a careful, well-behaved model, which is exactly why it could not find what the paid runs R1 to R3 found. This wrapper takes the
+// same scripted answer and makes it misbehave in the ways a real model (or the provider) did or could: thinking blocks, many parallel tool calls, mixed text,
+// a prose reply instead of a card, a reply cut off by max_tokens, a refusal, an invalid tool sequence, odd capitalization of a league term, a non-ASCII digit, a provider
+// error. It never touches the network and never invents a fact: a behavior only reshapes or damages the scripted response.
+//
+// behavior: one of BEHAVIORS. Each applies to a step (router, loop, composer) and, where it says "once", only to the first call of that step (the composer's retry is
+// its second call, so "once" lets the retry succeed and "always" does not).
+export const BEHAVIORS = Object.freeze({
+  thinking: { step: ["router", "loop", "composer"], note: "a thinking block (empty text, a signature) before every reply" },
+  thinking_summarized: { step: ["loop", "composer"], note: "a thinking block with text and a signature" },
+  redacted_thinking: { step: ["loop", "composer"], note: "a redacted_thinking block and a thinking block before every reply" },
+  mixed_text: { step: ["loop"], note: "text before, between and after the tool calls, and an empty text block" },
+  parallel9: { step: ["loop"], note: "nine parallel tool calls in one turn (the planned calls, repeated with new ids)" },
+  text_only_composer_once: { step: ["composer"], note: "the first composer reply is prose with no emit_card call" },
+  text_only_composer_always: { step: ["composer"], note: "every composer reply is prose with no emit_card call" },
+  truncated_loop: { step: ["loop"], note: "the first loop reply is cut off by max_tokens while holding tool calls" },
+  truncated_composer_once: { step: ["composer"], note: "the first composer card is cut off by max_tokens" },
+  refusal_loop: { step: ["loop"], note: "the first loop reply is a refusal with no content" },
+  bad_tool_seq: { step: ["loop"], note: "an unknown tool, a string input, a call with no id and a repeated id are added to the first loop turn" },
+  glossary_case: { step: ["composer"], note: "a league term written in other capitalizations (Ext1, EXT1, ext1)" },
+  unicode_digit_once: { step: ["composer"], note: "the first card has an Arabic-Indic digit in its lead" },
+  unicode_digit_always: { step: ["composer"], note: "every card has an Arabic-Indic digit in its lead" },
+  unicode_digit_claim_once: { step: ["composer"], note: "the first card has a fullwidth digit in a citation claim" },
+  http400_loop2: { step: ["loop"], note: "the provider answers the second loop request with HTTP 400 invalid_request_error" },
+  bad_response_loop: { step: ["loop"], note: "the first loop call fails with a malformed provider reply" },
+});
+
+function applyBehavior(behavior, step, n, base) {
+  const r = { ...base, content: Array.isArray(base.content) ? base.content.map((b) => ({ ...b })) : [] };
+  const sigs = (k) => `SIGNATURE-${step}-${n}-${k}`;
+  switch (behavior) {
+    case "thinking": r.content = [{ type: "thinking", thinking: "", signature: sigs(1) }, ...r.content]; return r;
+    case "thinking_summarized": r.content = [{ type: "thinking", thinking: "The question needs the records; check them first.", signature: sigs(1) }, ...r.content]; return r;
+    case "redacted_thinking": r.content = [{ type: "redacted_thinking", data: `REDACTED-${step}-${n}` }, { type: "thinking", thinking: "", signature: sigs(2) }, ...r.content]; return r;
+    case "mixed_text": {
+      if (step !== "loop") return r;
+      const out = [{ type: "text", text: "" }];
+      for (const b of r.content) { out.push(b); if (b.type === "tool_use") out.push({ type: "text", text: "Next." }); }
+      r.content = out;
+      return r;
+    }
+    case "parallel9": {
+      if (step !== "loop") return r;
+      const uses = r.content.filter((b) => b.type === "tool_use");
+      if (!uses.length) return r;
+      let k = 0;
+      const extra = [];
+      while (uses.length + extra.length < 9) { const src = uses[k % uses.length]; extra.push({ ...src, id: `toolu_par_${n}_${k}`, input: { ...src.input } }); k += 1; }
+      r.content = [...r.content, ...extra];
+      return r;
+    }
+    case "text_only_composer_once": if (step === "composer" && n === 1) return { ...base, stop_reason: "end_turn", content: [{ type: "text", text: "The answer is below in plain prose, not as a card." }] }; return r;
+    case "text_only_composer_always": if (step === "composer") return { ...base, stop_reason: "end_turn", content: [{ type: "text", text: "Here it is in prose, with no card: twelve thousand dollars." }] }; return r;
+    case "truncated_loop": if (step === "loop" && n === 1 && r.content.some((b) => b.type === "tool_use")) return { ...r, stop_reason: "max_tokens" }; return r;
+    case "truncated_composer_once": if (step === "composer" && n === 1) return { ...r, stop_reason: "max_tokens" }; return r;
+    case "refusal_loop": if (step === "loop" && n === 1) return { ...base, stop_reason: "refusal", content: [] }; return r;
+    case "bad_tool_seq": {
+      if (step !== "loop" || n !== 1) return r;
+      const first = r.content.find((b) => b.type === "tool_use");
+      r.content = [...r.content,
+        { type: "tool_use", id: "toolu_bad_unknown", name: "not__a_registered_tool", input: {} },
+        { type: "tool_use", id: "toolu_bad_input", name: first ? first.name : "rules__search", input: "this is a string, not an object" },
+        { type: "tool_use", id: "", name: first ? first.name : "rules__search", input: {} },
+        ...(first ? [{ ...first, input: { ...first.input } }] : [])];            // the same id again
+      return r;
+    }
+    case "glossary_case": {
+      if (step !== "composer") return r;
+      const tu = r.content.find((b) => b.type === "tool_use" && b.name === "emit_card");
+      if (!tu || typeof tu.input.lead_md !== "string" || !/ext1/i.test(tu.input.lead_md)) return r;
+      tu.input = { ...tu.input, lead_md: tu.input.lead_md.replace(/Vet-Ext1/g, "VET-EXT1").replace(/(?<![-\w])Ext1/g, "ext1") + " Written as Ext1 and EXT1 too." };
+      return r;
+    }
+    case "unicode_digit_once": case "unicode_digit_always": {
+      if (step !== "composer" || (behavior === "unicode_digit_once" && n !== 1)) return r;
+      const tu = r.content.find((b) => b.type === "tool_use" && b.name === "emit_card");
+      if (tu) tu.input = { ...tu.input, lead_md: `${tu.input.lead_md} ١` };
+      return r;
+    }
+    case "unicode_digit_claim_once": {
+      if (step !== "composer" || n !== 1) return r;
+      const tu = r.content.find((b) => b.type === "tool_use" && b.name === "emit_card");
+      if (tu) tu.input = Array.isArray(tu.input.cites) && tu.input.cites.length
+        ? { ...tu.input, cites: tu.input.cites.map((c, i) => (i === 0 ? { ...c, claim: `${c.claim} ３` } : c)) }
+        : { ...tu.input, follow_ups: [...(tu.input.follow_ups || []), "Ask again about ３ seasons?"] };
+      return r;
+    }
+    case "http400_loop2": if (step === "loop" && n === 2) return new DeskModelError("http_error", { status: 400, providerType: "invalid_request_error", providerPath: "messages.1.content.0.text" }); return r;
+    case "bad_response_loop": if (step === "loop" && n === 1) return new DeskModelError("bad_response"); return r;
+    default: return r;
+  }
+}
+
+// behavior: a key of BEHAVIORS, or null for the plain scripted model. Same interface as createScriptedClient.
+export function createAdversarialClient(caseId, behavior = null) {
+  if (!SCRIPTED_CASE_IDS.includes(caseId)) throw new Error(`no scripted model for case ${String(caseId).slice(0, 40)}`);
+  if (behavior !== null && !Object.prototype.hasOwnProperty.call(BEHAVIORS, behavior)) throw new Error(`unknown behavior ${String(behavior).slice(0, 40)}`);
+  const cache = createCacheModel();
+  const counts = { router: 0, loop: 0, composer: 0 };
+  const client = createFakeClient((request) => {
+    const step = stepOf(request);
+    counts[step] += 1;
+    const base = scriptedResponse(caseId, request, cache);
+    return behavior ? applyBehavior(behavior, step, counts[step], base) : base;
+  });
+  client.scripted = true; client.adversarial = behavior;
   return client;
 }
 

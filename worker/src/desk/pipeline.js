@@ -72,6 +72,9 @@ export async function answerQuestion({ caller, question, asOf, requestId: givenR
     const ok = !!(res && res.ok === true && res.response);
     trace.steps.push({ step: request.step, model: request.model, ok, ms: Math.max(0, deps.nowMs() - s0), ...(ok ? {} : { reason: String((res && res.reason) || "blocked").slice(0, 80) }) });
     if (ok) { acc.modelCalls += 1; acc.costUsd += Number(res.costUsd) || 0; return res; }
+    // A call that failed AFTER it was sent (a malformed reply, a 5xx, a timeout) keeps its reservation as its cost in the ledger: the card's cost must show it too, or
+    // the failure card would under-report what the run was charged (found by the adversarial matrix, scenario bad_response_loop).
+    if (res && res.reason === "model_error") acc.costUsd += Number(res.costUsd) || 0;
     return { ok: false, blocked: true, reason: String((res && res.reason) || "blocked") };
   };
 

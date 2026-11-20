@@ -27,6 +27,7 @@
 import { assertCommishCaller } from "./contract.js";
 import { createStore, StoreError } from "./store.js";
 import { desiredKeyName, DeskModelError, buildBody } from "./anthropic_client.js";
+import { checkRequestContract, describeRequest } from "./request_contract.js";
 import { costUsd, estimateInputTokensFromBytes, estimateWorstCaseUsd, isPricedModel, utf8Bytes, DeskPriceError } from "./prices.js";
 
 export const MAX_TOKENS_CEILING = 4000;      // hard ceiling on max_tokens for any single call
@@ -146,6 +147,11 @@ export async function guardedCall({ env, db, caller, client, meta, request, desk
     if (!gate.allowed) return refuse(gate.reasons[0], { reasons: gate.reasons });
   }
 
+  // The request CONTRACT (request_contract.js): the rules the provider is known to enforce, checked on the exact request about to be sent, in every mode. A request that
+  // breaks one is never reserved and never sent. `shape` is content-free (block types and counts only) so a failure can be diagnosed from a results file.
+  const contract = checkRequestContract(request);
+  if (!contract.ok) return refuse("request_contract", { detail: contract.errors[0].code, problems: contract.errors.slice(0, 6), shape: describeRequest(request) });
+
   let est;
   try {
     est = estimateWorstCaseUsd({ model: request.model, inputTokensEstimate: estimateInputTokensFromBytes(rq.bytes), maxOutputTokens: request.max_tokens, usesCache: rq.usesCache });
@@ -198,7 +204,7 @@ export async function guardedCall({ env, db, caller, client, meta, request, desk
       const ledgerCode = e instanceof DeskModelError ? [e.code, e.status || null, e.providerType || null, e.providerPath || null].filter((x) => x !== null).join(":") : code;
       const cost = definitelyNotBilled(e) ? 0 : est;
       try { await store.finalizeCall(caller, callId, { costUsd: cost, latencyMs: clock() - t0, errorCode: ledgerCode }); } catch (_) { /* reservation stays at its estimate */ }
-      return blocked("model_error", { detail: code, callId });
+      return blocked("model_error", { detail: code, callId, costUsd: cost, status: e instanceof DeskModelError ? e.status : null, providerType: e instanceof DeskModelError ? e.providerType : null, providerPath: e instanceof DeskModelError ? e.providerPath : null, shape: describeRequest(request) });
     }
   }
 
