@@ -458,10 +458,12 @@ test("every skin, with and without the position colors, meets the contrast targe
 });
 
 // ───────────────────────── 8. build and deploy guards ─────────────────────────
+const COMMIT = "a".repeat(40), OTHER = "b".repeat(40);
+const G = (commit = COMMIT, dirty = false) => () => ({ commit, dirty }); // a stand-in for the repository's state
 test("the build copies exactly the allowlist, is repeatable, and refuses extras and secrets", async () => {
   const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
   const out1 = fs.mkdtempSync(path.join(os.tmpdir(), "m27a-")), out2 = fs.mkdtempSync(path.join(os.tmpdir(), "m27b-"));
-  const r1 = B.build(out1), r2 = B.build(out2);
+  const r1 = B.build(out1, SRC, G()), r2 = B.build(out2, SRC, G());
   t.ok(r1.ok && r2.ok); t.equal(r1.digest, r2.digest, "the same sources give the same artifact digest");
   const listed = []; (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else listed.push(path.relative(out1, p).split(path.sep).join("/")); } })(out1);
   t.deepEqual(listed.sort(), B.FILES.concat(["build-manifest.json"]).sort());
@@ -476,36 +478,107 @@ test("the build copies exactly the allowlist, is repeatable, and refuses extras 
   // a copy of the sources, damaged on purpose: the build must refuse each damage and write nothing
   const mkSrc = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "m27s-")); fs.cpSync(SRC, d, { recursive: true }); return d; };
   const outDir = path.join(os.tmpdir(), "m27-should-not-exist-" + process.pid);
-  const clean = mkSrc(); t.ok(B.build(outDir, clean).ok, "an undamaged copy builds"); fs.rmSync(outDir, { recursive: true, force: true });
+  const clean = mkSrc(); t.ok(B.build(outDir, clean, G()).ok, "an undamaged copy builds"); fs.rmSync(outDir, { recursive: true, force: true });
   const withSecret = mkSrc(); fs.appendFileSync(path.join(withSecret, "app.js"), '\nvar k = "APIKEY=abc123";\n');
-  const rs = B.build(outDir, withSecret); t.equal(rs.ok, false); t.match(rs.problems.join(" "), /app\.js: looks like an API key/); t.equal(fs.existsSync(outDir), false, "nothing written");
+  const rs = B.build(outDir, withSecret, G()); t.equal(rs.ok, false); t.match(rs.problems.join(" "), /app\.js: looks like an API key/); t.equal(fs.existsSync(outDir), false, "nothing written");
   const withExtra = mkSrc(); fs.writeFileSync(path.join(withExtra, "lib", "extra.js"), "var x = 1;");
-  const re = B.build(outDir, withExtra); t.equal(re.ok, false); t.match(re.problems.join(" "), /lib\/extra\.js/); t.equal(fs.existsSync(outDir), false);
+  const re = B.build(outDir, withExtra, G()); t.equal(re.ok, false); t.match(re.problems.join(" "), /lib\/extra\.js/); t.equal(fs.existsSync(outDir), false);
   const withMissing = mkSrc(); fs.rmSync(path.join(withMissing, "lib", "photo.js"));
-  const rm = B.build(outDir, withMissing); t.equal(rm.ok, false); t.match(rm.problems.join(" "), /missing from src\/: lib\/photo\.js/); t.equal(fs.existsSync(outDir), false);
+  const rm = B.build(outDir, withMissing, G()); t.equal(rm.ok, false); t.match(rm.problems.join(" "), /missing from src\/: lib\/photo\.js/); t.equal(fs.existsSync(outDir), false);
+  // the source commit: recorded in the manifest; a dirty tree, a malformed commit or an unreadable git state is refused and writes nothing
+  const ok = B.build(outDir, clean, G(OTHER)); t.ok(ok.ok); t.deepEqual(ok.manifest.source, { commit: OTHER }, "the manifest names the commit it was built at");
+  t.deepEqual(JSON.parse(fs.readFileSync(path.join(outDir, "build-manifest.json"), "utf8")).source, { commit: OTHER }); fs.rmSync(outDir, { recursive: true, force: true });
+  const rd = B.build(outDir, clean, G(COMMIT, true)); t.equal(rd.ok, false); t.match(rd.problems.join(" "), /uncommitted changes/); t.equal(fs.existsSync(outDir), false, "a dirty tree writes nothing");
+  const rb = B.build(outDir, clean, G("main")); t.equal(rb.ok, false); t.match(rb.problems.join(" "), /40-character/); t.equal(fs.existsSync(outDir), false);
+  const rx = B.build(outDir, clean, () => { throw new Error("not a git repository"); }); t.equal(rx.ok, false); t.match(rx.problems.join(" "), /git state/); t.equal(fs.existsSync(outDir), false);
   [clean, withSecret, withExtra, withMissing].forEach((d) => fs.rmSync(d, { recursive: true, force: true }));
+});
+
+test("the real git check sees a clean tree, an edit and an untracked file (tried on a throwaway repository)", async () => {
+  const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
+  const { execFileSync } = await import("node:child_process");
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "m27g-"));
+  const g = (...a) => execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.invalid", ...a], { cwd: repo, stdio: "ignore", env: { PATH: process.env.PATH, HOME: repo } });
+  g("init", "-q"); fs.writeFileSync(path.join(repo, "a.txt"), "one"); g("add", "."); g("commit", "-q", "-m", "x", "--no-gpg-sign");
+  const head = execFileSync("git", ["rev-parse", "HEAD"], { cwd: repo, encoding: "utf8", env: { PATH: process.env.PATH, HOME: repo } }).trim();
+  const s0 = B.gitState(repo); t.equal(s0.commit, head); t.equal(s0.dirty, false);
+  fs.writeFileSync(path.join(repo, "a.txt"), "two"); t.equal(B.gitState(repo).dirty, true, "an edited tracked file is dirty");
+  g("checkout", "--", "a.txt"); t.equal(B.gitState(repo).dirty, false);
+  fs.writeFileSync(path.join(repo, "new.txt"), "x"); t.equal(B.gitState(repo).dirty, true, "an untracked file is dirty");
+  fs.rmSync(repo, { recursive: true, force: true });
 });
 
 test("the deploy script can only name the ups-mobile-beta preview address, and only for an unchanged build", async () => {
   const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
   const S = await import(pathToFileURL(path.join(APP, "scripts/deploy_preview.mjs")).href);
   t.equal(S.PROJECT, "ups-mobile-beta"); t.equal(S.BRANCH, "preview"); t.equal(S.PRODUCTION_BRANCH, "live"); t.ok(S.BRANCH !== S.PRODUCTION_BRANCH);
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "m27d-")); B.build(dir);
-  const p = S.plan([dir]);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "m27d-")); B.build(dir, SRC, G());
+  const ctx = { git: G(), srcDir: SRC };
+  const plan = (a, c = ctx) => S.plan(a, fs, c);
+  const p = plan([dir]);
+  t.equal(p.commit, COMMIT, "the plan names the source commit"); t.equal(p.digest.length, 64);
   t.equal(p.execute, false, "a dry run by default");
   t.deepEqual(p.command.slice(0, 3), ["wrangler", "pages", "deploy"]);
   t.equal(p.command[p.command.indexOf("--project-name") + 1], "ups-mobile-beta");
   t.equal(p.command[p.command.indexOf("--branch") + 1], "preview");
   t.equal(p.command.filter((c) => c === "--branch").length, 1, "an explicit --branch, once");
   t.ok(!p.command.includes("live") && !p.command.includes("--production") && !p.command.includes("main"));
-  t.equal(S.plan([dir, "--execute"]).execute, true);
-  ["--branch", "--project-name", "--production"].forEach((flag) => t.throws(() => S.plan([dir, flag, "live"]), /Usage|Unexpected/, flag + " cannot be passed"));
-  t.throws(() => S.plan(["--branch=live"]), /Unexpected flag/);
-  t.throws(() => S.plan([]), /Usage/);
-  t.throws(() => S.plan([path.join(dir, "nope")]), /build-manifest/);
-  fs.writeFileSync(path.join(dir, "extra.txt"), "x"); t.throws(() => S.plan([dir]), /do not match/); fs.rmSync(path.join(dir, "extra.txt"));
-  fs.appendFileSync(path.join(dir, "app.js"), "\n// changed after the build\n"); t.throws(() => S.plan([dir]), /changed since the build/);
+  t.equal(plan([dir, "--execute"]).execute, true);
+  ["--branch", "--project-name", "--production"].forEach((flag) => t.throws(() => plan([dir, flag, "live"]), /Usage|Unexpected/, flag + " cannot be passed"));
+  t.throws(() => plan(["--branch=live"]), /Unexpected flag/);
+  t.throws(() => plan([]), /Usage/);
+  t.throws(() => plan([path.join(dir, "nope")]), /build-manifest/);
+  fs.writeFileSync(path.join(dir, "extra.txt"), "x"); t.throws(() => plan([dir]), /do not match/); fs.rmSync(path.join(dir, "extra.txt"));
+  fs.appendFileSync(path.join(dir, "app.js"), "\n// changed after the build\n"); t.throws(() => plan([dir]), /size differs|changed since the build/);
   fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// Codex round-1 MAT-1: the manifest is data an attacker (or a mistake) can rewrite, so the deploy check must not trust it.
+test("the deploy check refuses a tampered manifest: digest, file list, hashes, commit, dirty tree, bytes not from the commit", async () => {
+  const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
+  const S = await import(pathToFileURL(path.join(APP, "scripts/deploy_preview.mjs")).href);
+  const { createHash } = await import("node:crypto");
+  const sha = (b) => createHash("sha256").update(b).digest("hex");
+  const ctx = { git: G(), srcDir: SRC };
+  const fresh = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "m27t-")); t.ok(B.build(d, SRC, G()).ok); return d; };
+  const mf = (d) => JSON.parse(fs.readFileSync(path.join(d, "build-manifest.json"), "utf8"));
+  const save = (d, m) => fs.writeFileSync(path.join(d, "build-manifest.json"), JSON.stringify(m, null, 2) + "\n");
+  const rehash = (m) => { m.digest = B.digestOf(m.files); return m; }; // a careful forger keeps the digest consistent with the list
+  const refused = (name, d, re, c = ctx) => { t.throws(() => S.plan([d], fs, c), re, name); t.throws(() => S.plan([d, "--execute"], fs, c), re, name + " (with --execute)"); fs.rmSync(d, { recursive: true, force: true }); };
+
+  { const d = fresh(); t.equal(S.plan([d], fs, ctx).digest, mf(d).digest, "an untouched build passes and reports its digest"); t.equal(B.digestOf(mf(d).files), mf(d).digest, "the digest is the canonical one"); fs.rmSync(d, { recursive: true, force: true }); }
+
+  // 1. the aggregate digest changed, files untouched
+  { const d = fresh(); const m = mf(d); m.digest = "0".repeat(64); save(d, m); refused("a rewritten digest", d, /digest does not match/); }
+  { const d = fresh(); const m = mf(d); m.digest = m.digest.toUpperCase(); save(d, m); refused("an upper-case digest", d, /not a SHA-256/); }
+  { const d = fresh(); const m = mf(d); delete m.digest; save(d, m); refused("no digest", d, /exactly these fields/); }
+  // 2. a different file set, with matching hashes and a matching digest
+  { const d = fresh(); fs.writeFileSync(path.join(d, "evil.js"), "x"); const m = mf(d); m.files.push({ path: "evil.js", bytes: 1, sha256: sha("x") }); save(d, rehash(m)); refused("an extra file listed with matching hash and digest", d, /not exactly the build allowlist/); }
+  { const d = fresh(); fs.rmSync(path.join(d, "lib/photo.js")); const m = mf(d); m.files = m.files.filter((f) => f.path !== "lib/photo.js"); save(d, rehash(m)); refused("a file dropped from disk and manifest", d, /not exactly the build allowlist/); }
+  { const d = fresh(); const m = mf(d); m.files.push({ ...m.files[0] }); save(d, rehash(m)); refused("a duplicated entry", d, /not exactly the build allowlist/); }
+  { const d = fresh(); const m = mf(d); m.files.reverse(); save(d, rehash(m)); refused("a reordered list", d, /not exactly the build allowlist/); }
+  { const d = fresh(); const m = mf(d); m.files[0].path = "../" + m.files[0].path; save(d, rehash(m)); refused("a path that escapes the folder", d, /not exactly the build allowlist/); }
+  { const d = fresh(); fs.writeFileSync(path.join(d, "stray.txt"), "x"); refused("an unlisted file on disk", d, /do not match/); }
+  // 3. a file changed and the manifest rewritten to match (hash, size and digest)
+  { const d = fresh(); const f = path.join(d, "app.js"); fs.appendFileSync(f, "\n// edited\n"); const m = mf(d); const e = m.files.find((x) => x.path === "app.js"); const buf = fs.readFileSync(f); e.bytes = buf.length; e.sha256 = sha(buf); save(d, rehash(m)); refused("a changed file with a fully rewritten manifest", d, /not the source at the named commit/); }
+  { const d = fresh(); const m = mf(d); m.files[0].bytes += 1; save(d, rehash(m)); refused("a wrong size", d, /size differs/); }
+  { const d = fresh(); const m = mf(d); m.files[0].sha256 = "1".repeat(64); save(d, rehash(m)); refused("a wrong file hash", d, /changed since the build/); }
+  // 4. the manifest's shape
+  { const d = fresh(); const m = mf(d); m.extra = 1; save(d, m); refused("an unknown manifest field", d, /exactly these fields/); }
+  { const d = fresh(); const m = mf(d); m.files[0].note = "x"; save(d, m); refused("an unknown file-entry field", d, /malformed/); }
+  { const d = fresh(); const m = mf(d); m.build = "preview9"; save(d, m); refused("another build name", d, /not a Preview 0 build/); }
+  { const d = fresh(); fs.writeFileSync(path.join(d, "build-manifest.json"), "{not json"); refused("unparseable JSON", d, /not valid JSON/); }
+  // 5. the source commit
+  { const d = fresh(); const m = mf(d); delete m.source; save(d, m); refused("no source commit", d, /exactly these fields/); }
+  { const d = fresh(); const m = mf(d); m.source.commit = "main"; save(d, m); refused("a branch name instead of a commit", d, /40-character source commit/); }
+  { const d = fresh(); const m = mf(d); m.source = { commit: COMMIT, dirty: false }; save(d, m); refused("an extra source field", d, /40-character source commit/); }
+  { const d = fresh(); refused("HEAD is a different commit than the build's", d, /came from commit aaaaaaaa but HEAD is bbbbbbbb/, { git: G(OTHER), srcDir: SRC }); }
+  { const d = fresh(); const m = mf(d); m.source.commit = OTHER; save(d, m); refused("a manifest rewritten to name another commit", d, /came from commit bbbbbbbb but HEAD is aaaaaaaa/); }
+  { const d = fresh(); refused("a dirty tree, in a dry run too", d, /uncommitted changes/, { git: G(COMMIT, true), srcDir: SRC }); }
+  { const d = fresh(); refused("an unreadable git state", d, /Could not read the git state/, { git: () => { throw new Error("no git"); }, srcDir: SRC }); }
+  // 6. a build made at one commit, deployed after the source moved: the bytes are no longer that commit's source
+  { const d = fresh(); const moved = fs.mkdtempSync(path.join(os.tmpdir(), "m27m-")); fs.cpSync(SRC, moved, { recursive: true }); fs.appendFileSync(path.join(moved, "config.js"), "\n// the source moved on\n");
+    refused("built bytes that differ from the checked-out source", d, /not the source at the named commit: config\.js/, { git: G(), srcDir: moved }); fs.rmSync(moved, { recursive: true, force: true }); }
 });
 
 await run("mobile2027_preview0");

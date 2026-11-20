@@ -35,12 +35,12 @@ Any action; cap space; the Team › Contracts and Cap & picks tabs; injury statu
 ```bash
 python3 -m http.server 8741 --directory apps/mobile2027/src    # open http://localhost:8741 (reads the live public routes)
 node tests/mobile2027_preview0.test.mjs                         # offline; or: node scripts/safe_tests/run.mjs
-node apps/mobile2027/scripts/build.mjs                          # writes apps/mobile2027/dist and prints the artifact digest
+node apps/mobile2027/scripts/build.mjs                          # clean tree only: writes apps/mobile2027/dist, prints the source commit and artifact digest
 node apps/mobile2027/scripts/deploy_preview.mjs apps/mobile2027/dist            # dry run: prints the plan
 node apps/mobile2027/scripts/deploy_preview.mjs apps/mobile2027/dist --execute  # publishes to the preview address only
 ```
 
-The deploy script's project (`ups-mobile-beta`) and branch (`preview`) are constants. It has no way to name the production branch and refuses a build folder that changed after the build.
+The deploy script's project (`ups-mobile-beta`) and branch (`preview`) are constants. It has no way to name the production branch. It trusts nothing in `build-manifest.json`: it requires the file list to equal the build allowlist, re-hashes every file, recomputes the artifact digest, and refuses unless the manifest's source commit is the commit checked out now, the tree is clean (in a dry run too), and every built file is byte for byte that commit's source file.
 
 ## Files
 
