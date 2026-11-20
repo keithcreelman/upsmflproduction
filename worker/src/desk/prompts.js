@@ -3,7 +3,8 @@
 
 export const MODELS = Object.freeze({ router: "claude-haiku-5-5", loop: "claude-sonnet-5-5", composer: "claude-sonnet-5-5" });
 
-// Forced tool choice ({type:"tool"}) is a 400 on Sonnet 5.5 (found by the first live run, R1: the composer call failed). Haiku 5.5 accepts it
+// Forced tool choice ({type:"tool"}) is documented as a 400 on Sonnet 5.5, and is the likely cause of the composer failure in the first live run (R1 recorded only
+// an unspecified HTTP 4xx, so this is not proven until R2). Haiku 5.5 accepts it
 // (the router worked in R1). Only models listed here are ever sent a forced tool; everyone else gets tool_choice "auto" and the prompt says
 // to call the tool exactly once. The caller must then check that a tool call came back.
 export const FORCED_TOOL_MODELS = Object.freeze(["claude-haiku-5-5"]);
