@@ -6,6 +6,8 @@
 
 Keith (chat, 2026-11-20): the beta must match the approved demo **1:1 across the full experience**, with the demo as the product and interaction spec: every screen, section, badge, deadline, control and action it shows. Actions are not to be left out because Preview 0 was scoped read-only, and they must **work for real**, built and verified against the **test league first**, with **read-back confirmation from MFL for each transaction type**. Production and live-league writes stay **disabled** until the test-league flows pass **and** Keith separately approves enabling them in the invited beta. Do not deploy the expanded build or enable production writes without separate approval.
 
+**Decision 1 (Keith, chat 2026-11-20): A, recorded.** The **Preview build shows the complete Actions UI and every review sheet, with Submit disabled and no write code in that build** (a test must pin that the Preview artifact contains no submit or write module and makes no non-GET request). **Real transactions live only in the Test build, against league 25625.** Each flow is tested and verified there first, then brought back to Keith for **separate approval before it is enabled in the invited beta.** This ruling does not start implementation and changes neither the approved demo nor the original mobile app.
+
 ## 2. What "the demo" is (pinned versions)
 
 | Source | What it is | Version and hash | Role here |
@@ -239,7 +241,7 @@ The worker holds one commissioner MFL session that works for **both** the live l
 
 ## 8. Decisions needed from Keith, one at a time
 
-1. **Build targets.** Preview (no write code, Actions drawn and Submit disabled) and Test/Live (write code, same screens) from one codebase. Recommended. The alternative is to show Actions only in Test.
+1. ~~**Build targets.**~~ **Decided (A, 2026-11-20):** Preview draws the full Actions UI and review sheets with Submit disabled and no write code; real transactions only in the Test build (league 25625); each flow comes back to Keith for separate approval before it is enabled in the invited beta.
 2. **Spec scope.** S1 only (Team, Home lineup card, profile, actions, Contracts), with Market, Trades, Auction, Draft, League, Cap & picks, Commissioner and Desktop as later specs; or add the Market prototype now. Recommended: S1 only.
 3. **Helmet placeholder.** Add the labeled "Helmet TBD" circle as the demo shows (your 1:1 ruling), or keep it out (your Preview 0 ruling). Recommended: add the placeholder; no helmet art.
 4. **Scaffolding.** Sample mode for the scenario toggles, Report a bug instead of Feedback, drop the navigation-compare sheet. Recommended.
