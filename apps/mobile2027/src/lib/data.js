@@ -22,8 +22,10 @@
   ];
   var SECRET_NAME = /mfl_user_id|apikey|api_key|key|token|session|cookie|password|auth/i;
 
-  // { ok:true, rule } or { ok:false, reason }
-  function check(url, workerBase) {
+  // { ok:true, rule } or { ok:false, reason }. `rules` is only passed by tests, to prove each layer refuses on its own:
+  // the credential-name layer must refuse even if the query-name allowlist were widened by mistake.
+  function check(url, workerBase, rules) {
+    rules = rules || RULES;
     var u;
     try { u = new URL(url); } catch (e) { return { ok: false, reason: "not a web address" }; }
     var base;
@@ -31,13 +33,13 @@
     if (u.protocol !== "https:" || u.origin !== base.origin) return { ok: false, reason: "not the UPS worker" };
     if (u.username || u.password || u.hash) return { ok: false, reason: "address carries credentials or a fragment" };
     var rule = null;
-    for (var i = 0; i < RULES.length; i++) if (RULES[i].path === u.pathname) rule = RULES[i];
+    for (var i = 0; i < rules.length; i++) if (rules[i].path === u.pathname) rule = rules[i];
     if (!rule) return { ok: false, reason: "path not allowed: " + u.pathname };
     var type = null;
     var names = [];
     u.searchParams.forEach(function (v, k) { names.push(k); if (k === "TYPE") type = v; });
     for (var j = 0; j < names.length; j++) {
-      if (SECRET_NAME.test(names[j]) && names[j] !== "TYPE") return { ok: false, reason: "credential-like query name: " + names[j] };
+      if (SECRET_NAME.test(names[j])) return { ok: false, reason: "credential-like query name: " + names[j] };
       if (rule.query.indexOf(names[j]) < 0) return { ok: false, reason: "query name not allowed: " + names[j] };
     }
     if (rule.types && rule.types.indexOf(type) < 0) return { ok: false, reason: "export type not allowed: " + type };

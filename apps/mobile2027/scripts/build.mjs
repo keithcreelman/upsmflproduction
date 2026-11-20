@@ -47,15 +47,16 @@ function listSrc(dir, base = dir) {
   return out.sort();
 }
 
-export function build(outDir) {
+// `srcDir` is only passed by tests, to prove the build refuses a missing file, an extra file and a secret.
+export function build(outDir, srcDir = SRC) {
   const problems = [];
-  const present = listSrc(SRC);
+  const present = listSrc(srcDir);
   for (const f of FILES) if (!present.includes(f)) problems.push(`missing from src/: ${f}`);
   for (const f of present) if (!FILES.includes(f)) problems.push(`not on the allowlist (add it to FILES on purpose, or remove it): ${f}`);
   const files = [];
   for (const f of FILES) {
     if (!present.includes(f)) continue;
-    const buf = fs.readFileSync(path.join(SRC, f));
+    const buf = fs.readFileSync(path.join(srcDir, f));
     problems.push(...scan(f, buf.toString("utf8")));
     files.push({ path: f, bytes: buf.length, sha256: crypto.createHash("sha256").update(buf).digest("hex"), buf });
   }

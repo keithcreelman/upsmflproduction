@@ -149,6 +149,17 @@ test("the request guard: four GET paths, the worker only, export types on a list
   t.equal(D.check(u.roster, "").ok, false, "no worker configured");
 });
 
+test("each guard layer refuses on its own, even if the layer beside it were widened by mistake", () => {
+  const names = ["MFL_USER_ID", "APIKEY", "token", "session", "cookie", "Authorization"];
+  const widened = [{ path: "/roster-workbench", query: ["L", "YEAR"].concat(names) }, { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"] }];
+  names.forEach((n) => t.equal(D.check(`${WORKER}/roster-workbench?L=74598&YEAR=2026&${n}=x`, WORKER, widened).ok, false, "credential-name layer: " + n));
+  t.equal(D.check(`${WORKER}/api/mfl-export?TYPE=transactions&L=74598&YEAR=2026&JSON=1`, WORKER, widened).ok, true, "(control) with no type list and no name layer this would pass: the type list is what refuses it");
+  t.equal(D.check(`${WORKER}/api/mfl-export?TYPE=transactions&L=74598&YEAR=2026&JSON=1`, WORKER).ok, false);
+  t.equal(D.check(`${WORKER}/roster-workbench?L=74598&YEAR=2026&NO_CACHE=1`, WORKER, widened).ok, false, "query-name layer");
+  t.equal(D.check(`${WORKER}/api/settings?L=74598`, WORKER, widened).ok, false, "path layer");
+  t.equal(D.check(`https://example.com/roster-workbench?L=74598&YEAR=2026`, WORKER, widened).ok, false, "host layer");
+});
+
 test("every request the loader makes is a bare GET with credentials omitted; a refused address never reaches fetch", async () => {
   const calls = [];
   const bodies = { "/roster-workbench": FX.roster_workbench, "/api/current-lineup-week": FX.current_lineup_week, "/api/cap-penalty/preview": FX.cap_penalty };
@@ -364,6 +375,27 @@ test("data text is escaped everywhere it is drawn", () => {
   t.equal(F.esc(`<&>"'`), "&lt;&amp;&gt;&quot;&#39;");
 });
 
+test("no screen, tab, sheet or state draws an inline style, an event handler, a script, a form field or a control outside the read-only set", () => {
+  const open = { bQB: true, bRB: true, bWR: true, bTE: true, bPK: true, bPN: true, bDL: true, bLB: true, bDB: true, ir: true, taxi: true };
+  const flags = { rules: true, earned: true, cut: true, raw: true };
+  const states = [];
+  ["home", "market", "league"].forEach((tab) => states.push(state({ tab })));
+  ["roster", "contracts", "cap"].forEach((sub) => ["lineup", "contracts"].forEach((view) => states.push(state({ sub, view, open }))));
+  states.push(state({ model: null, load: { core: "loading", coreNotes: [] } }), state({ model: null, load: { core: "error", coreNotes: [], error: "x" } }), state({ sheet: "teams" }), state({ sheet: "about" }),
+    state({ model: M.build(FX.roster_workbench, FX.league, null, null, 2026), open }));
+  allPlayers().forEach((p) => ["perf", "sched", "contract", "more"].forEach((tab) => {
+    states.push(state({ profile: { pid: p.id, tab }, flags, penalty: tab === "contract" ? penalty() : { state: "loading" } }));
+  }));
+  states.push(state({ profile: { pid: "1", tab: "contract" }, penalty: { state: "error", error: "HTTP 500" }, flags }));
+  t.ok(states.length > 500, "drew " + states.length + " states");
+  states.forEach((S) => {
+    const html = V.app(S);
+    t.doesNotMatch(html, /\sstyle=/i); t.doesNotMatch(html, /<script|<form|<input|<textarea|<select|<iframe|<object|<embed|<link|<style/i);
+    [...html.matchAll(/<[a-z][^>]*>/gi)].forEach((m) => t.doesNotMatch(m[0].replace(/"[^"]*"/g, '""'), /\son[a-z]+\s*=|\shref=|\ssrc=/i));
+    [...html.matchAll(/data-act="([a-z]+)"/g)].forEach((m) => t.ok(ALLOWED_ACTS.includes(m[1]), "control " + m[1]));
+  });
+});
+
 test("About lists the requests made, the unavailable items and the display controls", () => {
   const S = state({ sheet: "about", requestLog: [{ label: "roster and contracts", path: "/roster-workbench", type: "", method: "GET", status: 200, bytes: 600000, ms: 900, refused: "" }, { label: "blocked", path: "/api/pick", type: "", method: "GET", status: null, refused: "path not allowed" }], requestSummary: { requests: 2, ok: 1, failed: 0, refused: 1, nonGet: 0 } });
   const html = V.app(S);
@@ -441,6 +473,17 @@ test("the build copies exactly the allowlist, is repeatable, and refuses extras 
   t.ok(B.scan("x", "ups_bs_ABCDEFGHIJKLMNOP").length === 1);
   t.equal(B.FILES.filter((f) => B.scan(f, read(f)).length).length, 0, "the real sources are clean");
   fs.rmSync(out1, { recursive: true, force: true }); fs.rmSync(out2, { recursive: true, force: true });
+  // a copy of the sources, damaged on purpose: the build must refuse each damage and write nothing
+  const mkSrc = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "m27s-")); fs.cpSync(SRC, d, { recursive: true }); return d; };
+  const outDir = path.join(os.tmpdir(), "m27-should-not-exist-" + process.pid);
+  const clean = mkSrc(); t.ok(B.build(outDir, clean).ok, "an undamaged copy builds"); fs.rmSync(outDir, { recursive: true, force: true });
+  const withSecret = mkSrc(); fs.appendFileSync(path.join(withSecret, "app.js"), '\nvar k = "APIKEY=abc123";\n');
+  const rs = B.build(outDir, withSecret); t.equal(rs.ok, false); t.match(rs.problems.join(" "), /app\.js: looks like an API key/); t.equal(fs.existsSync(outDir), false, "nothing written");
+  const withExtra = mkSrc(); fs.writeFileSync(path.join(withExtra, "lib", "extra.js"), "var x = 1;");
+  const re = B.build(outDir, withExtra); t.equal(re.ok, false); t.match(re.problems.join(" "), /lib\/extra\.js/); t.equal(fs.existsSync(outDir), false);
+  const withMissing = mkSrc(); fs.rmSync(path.join(withMissing, "lib", "photo.js"));
+  const rm = B.build(outDir, withMissing); t.equal(rm.ok, false); t.match(rm.problems.join(" "), /missing from src\/: lib\/photo\.js/); t.equal(fs.existsSync(outDir), false);
+  [clean, withSecret, withExtra, withMissing].forEach((d) => fs.rmSync(d, { recursive: true, force: true }));
 });
 
 test("the deploy script can only name the ups-mobile-beta preview address, and only for an unchanged build", async () => {
