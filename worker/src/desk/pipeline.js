@@ -137,7 +137,7 @@ export async function answerQuestion({ caller, question, asOf, requestId: givenR
   if (envelopes.some(isStaleWithhold)) return finish(codeCard("stale_data", meta({ asOf: asOfLabel, reasonCode: "stale_withheld" })), "stale_data");
 
   // 3b. The only evidence is "the desk has no record" for the season this run is about: code writes the decline, no composer call (decline.js has the conditions).
-  const decline = findNoRecordDecline(envelopes, { effAsOf, currentSeason: deps.knowledge && deps.knowledge.currentSeason, forbidCurrent });
+  const decline = findNoRecordDecline(envelopes, { effAsOf, currentSeason: deps.knowledge && deps.knowledge.currentSeason, forbidCurrent, question: q });
   if (decline) {
     trace.injection = { suspicious: loop.injection.suspicious, sources: loop.injection.sources };
     trace.decline = { kind: "no_record", domains: decline.domains };

@@ -176,9 +176,9 @@ const COMPOSERS = {
     if (!rule) return declineCard("the rules search returned no rule on this");
     const cites = [{ anchor: rule.anchor, canon_sha: sha7(rule.canon_sha), claim: "the extension rule names its designations as contract types" }];
     const t33 = ev.rules.find((r) => r.anchor === "s2-t3-3");
-    if (t33) cites.push({ anchor: t33.anchor, canon_sha: sha7(t33.canon_sha), claim: "the transaction catalog uses the same designations" });
+    if (t33) cites.push({ anchor: t33.anchor, canon_sha: sha7(t33.canon_sha), claim: "the extension entry gives the contract type and the eligibility for a player in the final year of his contract" });
     if (!g) return { state: "cite_and_abstain", lead_md: "Canon's extension rule is cited below. Whether a label counts as a contract type depends on canon's wording, so the desk points to the rule instead of ruling on it.", cites, follow_ups: ["Ask for a ruling on the wording"] };
-    return { state: "answer", lead_md: `Extension is the contract family. Ext1 is the designation for extending a contract by a year, and canon's extension rule, cited below, uses it as a contract type value. The related status token is ${g.term}, the label a contract carries once it has been extended.`,
+    return { state: "answer", lead_md: `Extension is the contract family. Canon's extension rule, cited below, lists its designation for extending a contract by a year as a contract type value. The related status token is ${g.term}, the label a contract carries once it has been extended.`,
       cites, follow_ups: ["Show the full extension rule"] };
   },
   "DEV-REC-02": (ev, q) => {

@@ -126,6 +126,10 @@ function liveCmd(o = {}) {
 const liveCapsEnv = (plan) => liveEnv({ DESK_BUDGET_PER_QUESTION_USD: String(Math.max(1, plan.recommended_caps.per_question_usd)), DESK_BUDGET_PER_RUN_USD: "1.5" });
 
 // ── plan ──────────────────────────────────────────────────────────────────────────────────────────
+// Phase 1 closeout: three of the ten questions are declined by code from a "no record" coverage answer (decline.js), so they make no composer call: 7 x 4 + 3 x 3 = 37.
+const CODE_DECLINE_IDS = ["DEV-LIN-03", "DEV-CON-02", "DEV-UNA-08"];
+const CALLS_PER_RUN = 37;
+
 test("plan: prints the cases, models, max_tokens and the cost table; constructs no Anthropic client; zero network; no ledger is created", async () => {
   const plan = await ensurePlan();
   const r = PLAN.r;
@@ -133,7 +137,7 @@ test("plan: prints the cases, models, max_tokens and the cost table; constructs 
   for (const id of ["DEV-RUL-02", "DEV-RUL-10", "DEV-REC-02", "DEV-REC-01", "DEV-NOW-01", "DEV-INJ-05", "DEV-TFL-01", "DEV-LIN-03", "DEV-CON-02", "DEV-UNA-08"]) t.ok(r.out.includes(id), id);
   t.match(r.out, /router\s+claude-haiku-5-5\s+300/); t.match(r.out, /loop\s+claude-sonnet-5-5\s+1500/); t.match(r.out, /composer\s+claude-sonnet-5-5\s+2500/);
   t.match(r.out, /case\s+calls\s+typical\s+worst, path\s+largest call\s+protocol bound/);
-  t.match(r.out, /TOTAL\s+40\s+\$\d+\.\d{4}/);
+  t.match(r.out, /TOTAL\s+37\s+\$\d+\.\d{4}/);
   t.match(r.out, /DESK_BUDGET_PER_QUESTION_USD at least \$/); t.match(r.out, /DESK_BUDGET_PER_RUN_USD\s+at least \$/);
   t.match(r.out, /Anthropic clients constructed: 0/);
   t.doesNotMatch(r.out, /KNOWN ISSUE/, "the set has no known issue any more");
@@ -143,7 +147,7 @@ test("plan: prints the cases, models, max_tokens and the cost table; constructs 
   t.ok(plan.totals.worst_expected_path_usd > plan.totals.typical_usd, "worst case is above typical");
   t.ok(plan.required_caps.per_question_min_usd >= plan.totals.largest_single_reserve_usd, "the per-question need covers the largest single call");
   t.ok(plan.required_caps.per_run_min_usd >= plan.totals.typical_usd, "the per-run need covers the expected cost");
-  t.equal(plan.cases.length, 10); t.ok(plan.cases.every((c) => c.steps.length === 4 && c.steps.every((s) => s.reserve_usd > 0 && s.max_tokens > 0)));
+  t.equal(plan.cases.length, 10); t.ok(plan.cases.every((c) => c.steps.length === (CODE_DECLINE_IDS.includes(c.id) ? 3 : 4) && c.steps.every((s) => s.reserve_usd > 0 && s.max_tokens > 0)));
   // plan never writes the shared ledger
   const led = uniq("ledger-plan") + ".sqlite";
   const r2 = await runner(["--set", SET_REL, "--mode", "plan", "--run-id", "R2", "--out", uniq("plan2"), "--ledger", led]);
@@ -293,7 +297,7 @@ test("dry: all ten cases through the same pipeline, gate and ledger; every ledge
   t.equal(res.n_cases_run, 10); t.equal(res.network_attempts, 0); t.equal(res.passed, true); t.deepEqual(res.problems, []);
   for (const c of res.cases) {
     t.ok(c.question && c.state && c.final_card && Array.isArray(c.tool_calls) && Array.isArray(c.facts) && Array.isArray(c.validator) && c.oracle_check && c.score && Number.isFinite(c.cost_usd) && Number.isFinite(c.latency_ms), `${c.id}: every result field is present`);
-    t.equal(c.ledger.length, 4, `${c.id}: four ledger rows`); t.ok(c.ledger.every((x) => x.mode === "fake" && x.cost_usd > 0 && x.cost_usd < x.est_cost_usd), `${c.id}: fake rows, charged below the reservation`);
+    t.equal(c.ledger.length, CODE_DECLINE_IDS.includes(c.id) ? 3 : 4, `${c.id}: four ledger rows (three for a code-built decline: no composer call)`); t.ok(c.ledger.every((x) => x.mode === "fake" && x.cost_usd > 0 && x.cost_usd < x.est_cost_usd), `${c.id}: fake rows, charged below the reservation`);
   }
   t.ok(res.cases.every((c) => c.oracle_check.pass === true), "every fixture oracle passes");
   t.deepEqual(res.cases.filter((c) => !c.score.pass).map((c) => c.id), [], "no scorer failure on any case (glossary terms are passed to the scorer as allowed_terms)");
@@ -302,7 +306,7 @@ test("dry: all ten cases through the same pipeline, gate and ledger; every ledge
   t.ok(fs.existsSync(path.join(out, "summary.md")));
   t.match(fs.readFileSync(path.join(out, "summary.md"), "utf8"), /SCRIPTED MODEL/);
   const db = new DatabaseSync(led, { readOnly: true });
-  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'fake'").get().n, 40);
+  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'fake'").get().n, CALLS_PER_RUN);
   // The ledger's tools column names the definitions each loop call was OFFERED (narrowed per question): all 20 loop rows carry the core tools,
   // and the narrowing is visible (some rows omit a tool that other rows offer).
   t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE step = 'loop' AND mode = 'fake' AND tools LIKE '%rules.search%' AND tools LIKE '%coverage.check%'").get().n, 20, "the ledger's tools column is filled for loop calls (meta.tools)");
@@ -317,7 +321,7 @@ test("dry: all ten cases through the same pipeline, gate and ledger; every ledge
   t.ok(!allText(out).includes(DESK_KEY) && !allText(out).includes(SHARED_KEY), "no key in any output file");
   // --ledger-summary reads the same file
   const s = await runner(["--ledger-summary", "--ledger", led]);
-  t.equal(s.code, 0); t.match(s.out, /fake\s+total\s+\$0\.\d+/); t.match(s.out, /D1-dry-\w+\s+fake\s+40/); t.match(s.out, /Calls the gate blocked \(never sent\): 0/); clean(s);
+  t.equal(s.code, 0); t.match(s.out, /fake\s+total\s+\$0\.\d+/); t.match(s.out, /D1-dry-\w+\s+fake\s+37/); t.match(s.out, /Calls the gate blocked \(never sent\): 0/); clean(s);
   t.ok(!/\slive\s+total/.test(s.out), "no live spending shown");
   const none = await runner(["--ledger-summary", "--ledger", uniq("nope") + ".sqlite"]);
   t.equal(none.code, 0); t.match(none.out, /No ledger yet/);
@@ -435,7 +439,7 @@ test("LIVE with every gate satisfied (interceptor, fake terminal): ONLY POST api
   t.match(r.out, /Provider-side spend limit confirmed by you: \$3\.0000/);
   t.match(r.out, /Run R1: LIVE, 10 of 10 cases/);
   t.equal(r.blocked.length, 0, "the interceptor saw nothing but the one allowed call");
-  t.equal(r.anthropic.length, 40, "ten questions, four calls each");
+  t.equal(r.anthropic.length, CALLS_PER_RUN, "ten questions: four calls each, three for the code-built declines");
   for (const e of r.anthropic) {
     t.equal(e.url, ANTHROPIC); t.equal(e.method, "POST"); t.equal(e.x_api_key, DESK_KEY, "the desk key"); t.equal(e.version, "2023-06-01");
     t.equal(e.has_shared, false, "the shared key is not in any request body"); t.equal(e.has_desk, false, "the key is only in the header");
@@ -443,7 +447,7 @@ test("LIVE with every gate satisfied (interceptor, fake terminal): ONLY POST api
     t.ok(["claude-haiku-5-5", "claude-sonnet-5-5"].includes(e.model));
   }
   const res = readJson(path.join(cmd.out, "results.json"));
-  t.equal(res.mode, "live"); t.equal(res.scripted, false); t.equal(res.n_cases_run, 10); t.equal(res.stopped, null); t.equal(res.anthropic_calls, 40); t.equal(res.network_attempts, 0);
+  t.equal(res.mode, "live"); t.equal(res.scripted, false); t.equal(res.n_cases_run, 10); t.equal(res.stopped, null); t.equal(res.anthropic_calls, CALLS_PER_RUN); t.equal(res.network_attempts, 0);
   t.equal(res.status, "COMPLETE"); t.equal(res.approved_max_usd, 2); t.equal(res.prices.verified_by_user_on, TODAY); t.equal(res.price_margin, 1.25); t.equal(res.provider_limit_usd, 3); t.equal(res.estimate_only, false);
   const perQ = Number(env.DESK_BUDGET_PER_QUESTION_USD);
   for (const c of res.cases) { t.ok(c.cost_usd <= perQ + 1e-9, `${c.id}: spend within the per-question cap`); t.ok(c.final_card && c.tool_calls && c.facts && c.validator && c.score, c.id); t.ok(c.ledger.every((x) => x.mode === "live" && x.cost_usd != null)); }
@@ -454,7 +458,7 @@ test("LIVE with every gate satisfied (interceptor, fake terminal): ONLY POST api
   const expected = fake.log.usage.reduce((a, u) => a + costUsd(u.model, { input_tokens: Math.ceil(u.usage.input_tokens * 1.25), output_tokens: Math.ceil(u.usage.output_tokens * 1.25) }), 0);
   const unscaled = fake.log.usage.reduce((a, u) => a + costUsd(u.model, u.usage), 0);
   const db = new DatabaseSync(cmd.ledger, { readOnly: true });
-  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'live'").get().n, 40);
+  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'live'").get().n, CALLS_PER_RUN);
   t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'live' AND cost_usd IS NULL").get().n, 0, "every reservation finalized");
   const liveSum = db.prepare("SELECT SUM(cost_usd) s FROM ai_call_log WHERE mode = 'live'").get().s;
   t.ok(Math.abs(liveSum - res.totals.cost_usd) < 1e-9);
@@ -468,14 +472,14 @@ test("LIVE with every gate satisfied (interceptor, fake terminal): ONLY POST api
   const raw1 = fs.readFileSync(cmd.journal, "utf8"), raw2 = fs.readFileSync(secondJournal(cmd), "utf8");
   t.equal(raw1, raw2, "the second copy is written with every line");
   const lines = raw1.split("\n").filter(Boolean).map((l) => JSON.parse(l));
-  t.equal(lines.length, 40);
+  t.equal(lines.length, CALLS_PER_RUN);
   t.deepEqual(Object.keys(lines[0]).sort(), ["call_index", "final_cost_usd", "model", "question_id", "reserved_usd", "run_id", "step", "ts", "v"], "ids, numbers and a timestamp only: no text");
   t.ok(lines.every((l, i) => l.run_id === "R1" && l.call_index === i + 1 && l.final_cost_usd > 0 && l.final_cost_usd < l.reserved_usd));
   t.ok(Math.abs(lines.reduce((a, l) => a + l.final_cost_usd, 0) - res.totals.cost_usd) < 1e-9, "the journal total equals the run's cost");
   t.ok(!raw1.includes(DESK_KEY));
   // spending is visible; a second live run under the same run id is refused (the ledger remembers); the first-run flag is refused once history exists
   const s = await runner(["--ledger-summary", "--ledger", cmd.ledger], { ledger: cmd.ledger });
-  t.match(s.out, /live\s+total\s+\$0\.\d+/); t.match(s.out, /R1\s+live\s+40/); t.match(s.out, /Spend journal: 40 live call\(s\)/); t.match(s.out, /Second journal copy: 40 live call\(s\)/); clean(s);
+  t.match(s.out, /live\s+total\s+\$0\.\d+/); t.match(s.out, /R1\s+live\s+37/); t.match(s.out, /Spend journal: 37 live call\(s\)/); t.match(s.out, /Second journal copy: 37 live call\(s\)/); clean(s);
   const again = liveCmd({ ledger: cmd.ledger, noFirst: true });
   const r2 = await liveRun(again, { env, fake: makeFake({ ledger: cmd.ledger }) });
   t.equal(r2.code, 2); t.match(r2.err, /already has live rows/); t.equal(r2.anthropic.length, 0, "the second attempt sent nothing");
@@ -521,13 +525,13 @@ test("LIVE history: the ledger and BOTH journals must agree; a replaced, deleted
   refused(await go("R2", out2, ["--ledger", path.join(TMP, "fresh.sqlite")]), /--ledger is not allowed in live mode/, "fresh --ledger");
   // 2. the ledger missing, empty or replaced while a journal shows spending
   fs.rmSync(first.ledger);
-  refused(await go("R2", out2), /the ledger show no live spending[^\n]*the spend journal shows 40 live call\(s\)/, "ledger deleted");
+  refused(await go("R2", out2), /the ledger show no live spending[^\n]*the spend journal shows 37 live call\(s\)/, "ledger deleted");
   fs.writeFileSync(first.ledger, "");
   refused(await go("R2", out2), /the ledger show no live spending/, "ledger empty");
   restore();
   // 3. either journal copy, or both, missing or short while the others show spending
   fs.rmSync(first.journal);
-  refused(await go("R2", out2), /the spend journal show no live spending[^\n]*the ledger shows 40/, "journal deleted");
+  refused(await go("R2", out2), /the spend journal show no live spending[^\n]*the ledger shows 37/, "journal deleted");
   restore(); fs.rmSync(j2);
   refused(await go("R2", out2), /the second copy of the spend journal show no live spending/, "second copy deleted");
   restore(); fs.rmSync(first.journal); fs.rmSync(j2);
@@ -560,10 +564,10 @@ test("LIVE history: the ledger and BOTH journals must agree; a replaced, deleted
   restore();
   // 8. everything restored: a NEW run id is accepted (no flag), and both journals grow by exactly its calls
   const ok = await go("R3", out3);
-  t.equal(ok.code, 0, ok.out.slice(-300) + ok.err.slice(0, 300)); t.equal(ok.anthropic.length, 40);
-  for (const f of [first.journal, j2]) t.equal(fs.readFileSync(f, "utf8").split("\n").filter(Boolean).length, 80, "both copies grew");
+  t.equal(ok.code, 0, ok.out.slice(-300) + ok.err.slice(0, 300)); t.equal(ok.anthropic.length, CALLS_PER_RUN);
+  for (const f of [first.journal, j2]) t.equal(fs.readFileSync(f, "utf8").split("\n").filter(Boolean).length, CALLS_PER_RUN * 2, "both copies grew");
   const dbEnd = new DatabaseSync(first.ledger, { readOnly: true });
-  t.equal(dbEnd.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'live'").get().n, 80, "cumulative spending is kept in the one ledger");
+  t.equal(dbEnd.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'live'").get().n, CALLS_PER_RUN * 2, "cumulative spending is kept in the one ledger");
   dbEnd.close();
   async function runner2(base, runId, planOut) { return { ...(await liveRun({ args: ["--set", SET_REL, "--mode", "live", "--run-id", runId, "--out", planOut, "--max-usd", "2.00", "--approve", `${runId}:2.00:10`, "--prices-confirmed", TODAY, "--provider-limit-confirmed", "3.00"], home: base.home, out: planOut }, { env, fake: makeFake({ ledger: base.ledger }), runId })) }; }
 });

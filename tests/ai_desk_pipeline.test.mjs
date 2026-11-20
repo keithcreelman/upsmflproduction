@@ -1072,14 +1072,14 @@ test("no-record decline: the injection note passes through, and a comparison of 
 
 test("findNoRecordDecline: the conditions, one at a time", () => {
   const e = (o = {}) => ({ tool: "coverage.check", call_id: "c1", status: "ok", data: { domain: "finishes", season: 2013, level: "none", reason: "NO_RECORD", note: "A note.", ...(o.data || {}) }, facts: [], coverage: { supported: false, gaps: o.gaps || [{ what: "Pick lineage for 2013", why: "NO_RECORD", source_needed: "League Record slice S1 (trades and picks)" }] }, ...(o.top || {}) });
-  const ctx = { effAsOf: "2013-07-01", currentSeason: 2026 };
+  const ctx = { effAsOf: "2013-07-01", currentSeason: 2026, question: "Who won the title in 2013?" };
   const d = findNoRecordDecline([e()], ctx);
   t.ok(d && d.gaps.length === 1 && d.note === "A note.");
   t.equal(findNoRecordDecline([e()], { ...ctx, forbidCurrent: true }), null, "comparison");
   t.equal(findNoRecordDecline([e()], { ...ctx, effAsOf: "2014-07-01" }), null, "season is not the run's season");
-  t.equal(findNoRecordDecline([e({ data: { season: 2026 } })], { effAsOf: "current", currentSeason: 2026 }) !== null, true, "current run, current season");
-  t.equal(findNoRecordDecline([e({ data: { season: 2025 } })], { effAsOf: "current", currentSeason: 2026 }), null);
-  t.equal(findNoRecordDecline([e()], { effAsOf: "current", currentSeason: null }), null);
+  t.equal(findNoRecordDecline([e({ data: { season: 2026 } })], { effAsOf: "current", currentSeason: 2026, question: "Who won the title in 2026?" }) !== null, true, "current run, current season");
+  t.equal(findNoRecordDecline([e({ data: { season: 2025 } })], { effAsOf: "current", currentSeason: 2026, question: "Who won the title in 2026?" }), null);
+  t.equal(findNoRecordDecline([e()], { effAsOf: "current", currentSeason: null, question: "Who won the title?" }), null);
   for (const [label, o] of [["partial", { data: { level: "partial" } }], ["full", { data: { level: "full" } }], ["stale", { data: { reason: "stale" } }], ["partial_coverage reason", { data: { reason: "partial_coverage" } }],
     ["all", { data: { domain: "all" } }], ["not ok", { top: { status: "no_record" } }], ["other tool", { top: { tool: "cap.position" } }], ["no data", { top: { data: null } }], ["no source", { gaps: [{ what: "x", why: "NO_RECORD", source_needed: "" }] }], ["no gap", { gaps: [] }]]) {
     t.equal(findNoRecordDecline([e(o)], ctx), null, label);
@@ -1089,6 +1089,35 @@ test("findNoRecordDecline: the conditions, one at a time", () => {
   t.ok(findNoRecordDecline([e(), { tool: "nope", call_id: "c2", status: "forbidden", error: { code: "unknown_tool" }, coverage: { gaps: [] } }], ctx), "the model's own malformed attempts are noise, not evidence");
   t.equal(findNoRecordDecline([e(), { tool: "cap.position", call_id: "c2", status: "ok", data: {}, coverage: { gaps: [] } }], ctx), null, "any real result of another tool disqualifies it");
   t.equal(findNoRecordDecline([e({ data: { note: "<b>x</b>" } })], ctx).note, "", "a note with markup is dropped");
+  t.equal(findNoRecordDecline([e()], { ...ctx, question: undefined }), null, "no question text, no binding, no decline");
+});
+
+test("no-record decline (R15 review): the checked domain must be one the QUESTION is about, read from the question's own words in code", () => {
+  const cov = (domain, season = 2013) => ({ tool: "coverage.check", call_id: "c1", status: "ok", data: { domain, season, level: "none", reason: "NO_RECORD", note: "" }, facts: [], coverage: { supported: false, gaps: [{ what: `${domain} for ${season}`, why: "NO_RECORD", source_needed: "League Record slice" }] } });
+  const run = (domains, question, season) => findNoRecordDecline(domains.map((d, i) => ({ ...cov(d, season), call_id: `c${i + 1}` })), { effAsOf: `${season || 2013}-07-01`, currentSeason: 2026, question });
+  // matching pairs decline (the three R4 questions among them)
+  t.ok(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton."), "pick lineage for a pick question");
+  t.ok(run(["contract_timeline", "roster_current"], "In Week 1 of 2013, what was Davante Adams's team, salary, years remaining and contract string?"), "contract timeline for a salary question");
+  t.ok(run(["finishes"], "Who won the 2013 UPS title?"), "finishes for a title question");
+  // the reviewer's case: a question about a recorded champion, but the model checked rules by date (or any domain the question is not about): composer, never a decline
+  t.equal(run(["rules_by_date"], "Who was the champion in 2013?"), null, "a domain with no binding never declines");
+  t.equal(run(["pick_lineage"], "Who won the 2013 UPS title?"), null, "pick lineage checked for a title question");
+  t.equal(run(["finishes"], "Trace the 2013 pick that became Markus Wheaton."), null, "finishes checked for a pick question");
+  t.equal(run(["contract_timeline"], "Who won the 2013 UPS title?"), null, "contract timeline checked for a title question");
+  // a question that also asks about something the checked domains do not serve is not declined as a whole
+  t.equal(run(["finishes"], "Who won the 2013 UPS title and how much cap room does franchise 0003 have?"), null, "the cap half is unserved");
+  t.equal(run(["pick_lineage"], "Trace the 2013 pick and show the salary on his contract."), null, "the salary half is unserved");
+  // every checked domain must be one the question names
+  t.equal(run(["pick_lineage", "contract_timeline"], "Trace the 2013 pick that became Markus Wheaton."), null, "a second checked domain the question does not name");
+  // words that name no domain at all
+  t.equal(run(["finishes"], "Tell me something interesting."), null, "no domain words in the question");
+});
+
+test("no-record decline, end to end (R15 review): a wrong coverage domain chosen by the model reaches the composer instead of a false decline", async () => {
+  const card = { state: "abstain", lead_md: "That rule history is not on record.", gaps: [{ what: "Final finishes and titles for 2009", why: "NO_RECORD", source_needed: "League Record slice S3 (history cleanup)" }] };
+  const r = await ask({ question: NO_REC_Q, plan: noRecPlan([["coverage__check", { domain: "rules_by_date", season: 2009 }]], { composer: [emit(card)], retry: [emit(card)] }) });
+  t.ok(r.s.steps().includes("composer"), "the composer ran");
+  t.notEqual(r.card.reason_code, "no_record");
 });
 
 test("complete title table: a card that uses a franchise's count gets a server-built table with EVERY season, from tool facts; skipped when the model's table already has them", () => {
@@ -1107,8 +1136,13 @@ test("complete title table: a card that uses a franchise's count gets a server-b
   t.equal(card.facts["c1.title_years_f0010"].grade, "D", "the weakest season's grade shows");
   t.ok(card.facts_used.includes("c1.title_years_f0001") && card.facts_used.includes("c1.s2021_f0001_team"));
   // the model's own table already carries every season list: nothing is added
-  const own = { ...cleaned, blocks: [{ type: "table", title: "t", columns: ["a"], rows: [["{{f.c1.title_years_f0010}}"]], fact_ids: ["c1.title_years_f0010", "c1.title_years_f0001"], tool_call_ids: ["c1"] }] };
+  const own = { ...cleaned, blocks: [{ type: "table", title: "t", columns: ["a"], rows: [["{{f.c1.title_years_f0010}}"], ["{{f.c1.title_years_f0001}}"]], fact_ids: ["c1.title_years_f0010", "c1.title_years_f0001"], tool_call_ids: ["c1"] }] };
   t.equal(buildServerCard({ cleaned: own, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] }).blocks.length, 1);
+  // R15 review: fact_ids is bookkeeping, the page shows the cells. A block that LISTS every season list in fact_ids but SHOWS only one row does not count as complete.
+  const hidden = { ...cleaned, blocks: [{ type: "table", title: "t", columns: ["a"], rows: [["{{f.c1.title_years_f0010}}"]], fact_ids: ["c1.title_years_f0010", "c1.title_years_f0001"], tool_call_ids: ["c1"] }] };
+  const hiddenCard = buildServerCard({ cleaned: hidden, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] });
+  t.equal(hiddenCard.blocks.length, 2, "the complete table is still added");
+  t.deepEqual(hiddenCard.blocks[1].rows.map((r) => r[2]), ["{{f.c1.title_years_f0010}}", "{{f.c1.title_years_f0001}}"]);
   // a card that uses no title fact gets no table
   const plain = { ...cleaned, lead_md: "nothing", facts_used: [] };
   t.equal(buildServerCard({ cleaned: plain, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] }).blocks.length, 0);

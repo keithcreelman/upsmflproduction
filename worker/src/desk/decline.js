@@ -11,11 +11,29 @@
 //  3. each of them says level "none" with reason NO_RECORD or unsupported_as_of (never "stale", never "partial");
 //  4. each checked the season the CODE derived for this run (the model chooses the coverage call's season; a wrong choice must not produce a decline),
 //     and the season is the one in effect: the as_of year, or the current season when the run is "current";
-//  5. at least one gap names the source that would close it.
+//  5. at least one gap names the source that would close it;
+//  6. (R15 review) the domain the model checked is one the QUESTION TEXT is about: the words of the question, read in code (tool_select.keywordDomains), must fit the
+//     checked domain. A model that checked the wrong domain (rules by date for a question about the champion) must not turn an answerable question into a decline.
 // Anything else goes to the composer exactly as before. The authorization, input and budget gates ran before this point and are unchanged.
 import { collectToolGaps } from "./validator.js";
+import { keywordDomains } from "./tool_select.js";
 
 const DECLINE_REASONS = new Set(["NO_RECORD", "unsupported_as_of"]);
+
+// Which question-text domains (tool_select.KEYWORD_DOMAINS) each coverage domain may serve. A year or a "when" word alone puts a question into the GENERIC domains, which
+// say nothing about WHAT was asked, so they never bind and never object. SPECIFIC question domains (cap, contracts, trades, picks, roster, players) must each be served by
+// one of the domains the run checked, and every checked domain must be served by at least one domain the question names. A coverage domain that is not listed here (rules by
+// date, forum history, anything new) never produces a code-built decline: the composer handles it as before.
+const GENERIC = new Set(["history", "standings", "calendar", "data_freshness"]);
+export const DOMAIN_BINDING = Object.freeze({
+  finishes: Object.freeze({ any: ["history", "standings"], specific: [] }),
+  pick_lineage: Object.freeze({ any: ["picks", "trades"], specific: ["picks", "trades"] }),
+  draft_order: Object.freeze({ any: ["picks", "trades"], specific: ["picks", "trades"] }),
+  contract_timeline: Object.freeze({ any: ["contracts", "cap"], specific: ["contracts", "cap"] }),
+  roster_current: Object.freeze({ any: ["roster", "players", "contracts", "cap"], specific: ["roster", "players", "contracts", "cap"] }),
+  player_transactions: Object.freeze({ any: ["players", "roster", "trades"], specific: ["players", "roster", "trades"] }),
+  owner_history: Object.freeze({ any: ["roster", "players"], specific: ["roster", "players"] }),
+});
 const MAX_NOTE = 200;
 
 function isNoise(env) {
@@ -31,8 +49,9 @@ export function runSeason(effAsOf, currentSeason) {
 }
 
 // -> null (compose as usual) | { gaps, toolGaps, note, domains }
-export function findNoRecordDecline(envelopes, { effAsOf, currentSeason, forbidCurrent = false } = {}) {
+export function findNoRecordDecline(envelopes, { effAsOf, currentSeason, forbidCurrent = false, question } = {}) {
   if (forbidCurrent) return null;
+  if (typeof question !== "string" || !question.trim()) return null;      // the binding below needs the question's own words
   const season = runSeason(effAsOf, currentSeason);
   if (season == null) return null;
   const real = (envelopes || []).filter((e) => e && !isNoise(e));
@@ -44,8 +63,16 @@ export function findNoRecordDecline(envelopes, { effAsOf, currentSeason, forbidC
     if (typeof d.domain !== "string" || !d.domain || d.domain === "all") return null;
     if (d.level !== "none" || !DECLINE_REASONS.has(d.reason)) return null;
     if (d.season !== season) return null;
+    if (!Object.prototype.hasOwnProperty.call(DOMAIN_BINDING, d.domain)) return null;
     if (typeof d.note === "string" && d.note.trim() && d.note.length <= MAX_NOTE && !/[<>{}\[\]]|https?:/i.test(d.note) && !notes.includes(d.note.trim())) notes.push(d.note.trim());
   }
+  // The binding to the question's words.
+  const asked = keywordDomains(question);
+  const specificAsked = asked.filter((x) => !GENERIC.has(x));
+  const domains = real.map((e) => e.data.domain);
+  for (const dom of domains) if (!DOMAIN_BINDING[dom].any.some((x) => asked.includes(x))) return null;
+  const served = new Set(domains.flatMap((dom) => DOMAIN_BINDING[dom].specific));
+  if (specificAsked.some((x) => !served.has(x))) return null;
   const toolGaps = collectToolGaps(real);
   if (!toolGaps.length || !toolGaps.some((g) => g.source_needed)) return null;
   return {

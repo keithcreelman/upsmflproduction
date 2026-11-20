@@ -269,7 +269,15 @@ const TITLE_KINDS = Object.freeze([
 ]);
 export function completeTitleBlocks({ index, factsUsed, blocks }) {
   const used = new Set(factsUsed || []);
-  const inBlocks = new Set((blocks || []).flatMap((b) => (b && Array.isArray(b.fact_ids) ? b.fact_ids : [])));
+  // What the page SHOWS: the fact tokens in the cells, titles and column labels of the model's own blocks. A block's fact_ids list is bookkeeping, not display (R15 review:
+  // a table that listed every season in fact_ids but showed one row suppressed the complete table).
+  const shown = new Set();
+  for (const b of blocks || []) {
+    if (!b || typeof b !== "object") continue;
+    const cells = [b.title, ...(Array.isArray(b.columns) ? b.columns : []), ...(Array.isArray(b.rows) ? b.rows.flat() : [])];
+    for (const c of cells) if (typeof c === "string") for (const m of c.matchAll(/\{\{f\.([^}]+)\}\}/g)) shown.add(m[1]);
+  }
+  const inBlocks = shown;
   const calls = new Set();
   for (const id of used) { const m = /^(c\d{1,3})\.(?:titles|title_years|toilet_titles|toilet_years)_f\d{4}$/.exec(id); if (m) calls.add(m[1]); }
   const out = []; const factIds = [];

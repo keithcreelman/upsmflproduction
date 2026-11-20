@@ -210,8 +210,7 @@ test("DEV-RUL-02 and DEV-RUL-10: the cite is a rule retrieved in this run, with 
   t.equal(b.card.cites[0].anchor, "s1-c4"); t.equal(b.card.state, "answer"); t.deepEqual(b.card.facts_used, []);
   // The commissioner's ruling (2026-11-20): three distinctions, not a bare no. Extension is the family; Ext1 is its one-year designation and a contract_type value; Vet-Ext1 is the related status token.
   t.match(b.card.lead_md, /^Extension is the contract family\./);
-  t.match(b.card.lead_md, /Ext1 is the designation for extending a contract by a year/);
-  t.match(b.card.lead_md, /contract type value/);
+  t.match(b.card.lead_md, /designation for extending a contract by a year as a contract type value/);
   t.match(b.card.lead_md, /related status token is Vet-Ext1/, "the glossary term is written as spelled (it has a digit)");
   t.doesNotMatch(b.card.lead_md, /^(No|Yes)\b/, "never a bare yes or no");
   t.equal(b.oracleCheck.pass, true, b.oracleCheck.detail);
