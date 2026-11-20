@@ -10,11 +10,13 @@ import { t, test, run } from "./fixtures/mini_test.mjs";
 import { quiet } from "./fixtures/worker_harness.mjs";
 import { makeBetaEnv, makeMfl, callWorker, ADMIN_KEY, LEAGUE, MARKER, TEST_KEY, ALL_FLAGS, setFlags, allOn, signIn, bearer, captureConsole } from "./fixtures/beta_worker_harness.mjs";
 import { makeBetaStore, sha256Hex, SESSION_TTL_MS } from "../worker/src/beta_session.js";
+import { handleBetaRoute } from "../worker/src/beta_routes.js";
 
 const restore = quiet();
 const fresh = (over) => { const env = makeBetaEnv(over); const mfl = makeMfl({}); mfl.install(); allOn(env); return { env, mfl }; };
 const q = `L=${LEAGUE}&YEAR=2026`;
 const mflCalls = (mfl) => mfl.st.exports.length + mfl.st.imports.length;
+const rowsChanged = (env) => env.UPS_MFL_DB.raw.prepare("SELECT total_changes() AS n").get().n;   // rows actually modified (a zero-row UPDATE is not a write)
 const writes = (env) => env.UPS_MFL_DB.log.filter((l) => /^\s*(INSERT|UPDATE|DELETE)/i.test(l.sql)).length;
 
 // ───────────────────────────── the lifecycle ─────────────────────────────
@@ -129,13 +131,14 @@ test("NO FALLBACK: expired, revoked, paused, malformed and wrong-environment cre
     ["POST", `/api/settings?${q}`, { mfl_user_id: "tok-A" }],
     ["POST", `/admin/3way/cancel?${q}`, {}],
     ["GET", `/admin/config-health?${q}`, undefined],
+    ["POST", `/api/beta/signout?${q}`, { mfl_user_id: "tok-A" }],                   // a lifecycle route with a raw original-app session mixed in (round-1 MAT-1)
   ];
   const mflBefore = mflCalls(mfl), writesBefore = writes(env);
   for (const [name, [headers, code]] of Object.entries(bad)) {
     for (const [method, path, body] of routes) {
       const r = await callWorker(env, method, path, { headers, body });
-      const isAdmin = path.startsWith("/admin");
-      t.equal(r.json && r.json.code, isAdmin ? "beta_route_not_allowed" : code, `${name} ${method} ${path.split("?")[0]} -> ${r.status} ${r.text.slice(0, 80)}`);
+      const isAdmin = path.startsWith("/admin"), isRawSignout = path.startsWith("/api/beta/signout");
+      t.equal(r.json && r.json.code, isAdmin ? "beta_route_not_allowed" : isRawSignout ? "ambiguous_credentials" : code, `${name} ${method} ${path.split("?")[0]} -> ${r.status} ${r.text.slice(0, 80)}`);
       t.ok(r.status >= 400, `${name} ${path.split("?")[0]} is a refusal`);
     }
   }
@@ -143,7 +146,7 @@ test("NO FALLBACK: expired, revoked, paused, malformed and wrong-environment cre
   t.equal(writes(env), writesBefore, "not one D1 write was made for any bad credential");
   // paused: a perfectly good session is refused everywhere owner-scoped
   setFlags(env, { BETA_ENABLED: false });
-  for (const [method, path, body] of routes.filter((r) => !r[1].startsWith("/admin"))) {
+  for (const [method, path, body] of routes.filter((r) => !r[1].startsWith("/admin") && !r[1].startsWith("/api/beta/"))) {
     const r = await callWorker(env, method, path, { headers: bearer(good.sid), body });
     t.equal(r.json.code, "beta_paused", `paused ${method} ${path.split("?")[0]}`);
   }
@@ -241,6 +244,82 @@ test("CONCURRENCY THROUGH THE ROUTES: simultaneous redemptions of one code give 
   const liveNow = env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_beta_sessions WHERE revoked_at IS NULL AND live_until > ?").get(Date.now()).n;
   t.ok(liveNow <= 3, "at most three live sessions remain after 12 simultaneous handoffs: " + liveNow);
   t.equal(env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_beta_sessions WHERE revoked_at IS NOT NULL AND (mfl_enc IS NOT NULL OR sid_hash IS NOT NULL OR handoff_hash IS NOT NULL)").get().n, 0, "every evicted session was wiped");
+});
+
+// ── round-1 MAT-1: a beta-classified sign-out never falls back to a raw MFL session ──
+test("SIGN-OUT NEVER FALLS BACK: a beta-classified sign-out with a bad, wrong-kind, other-scheme or missing credential AND a valid original-app session in the body makes no MFL call, writes nothing and revokes nothing", async () => {
+  const { env, mfl } = fresh();
+  const a = await signIn(env), a2 = await signIn(env), other = await signIn(env, { token: "tok-B", fid: "0001" });
+  const alive = async (s) => (await callWorker(env, "GET", `/api/me?${q}`, { headers: bearer(s.sid) })).status === 200;
+  const out = (headers, body) => callWorker(env, "POST", `/api/beta/signout?${q}`, { headers, body });
+  const raw = { mfl_user_id: "tok-A" };                                    // a VALID original-app session for franchise 0008
+  const kinds = {
+    malformed_bearer: bearer("ups_bs_short"),
+    wrong_kind_bearer: bearer(a.code),                                     // a handoff code presented as a session id
+    unknown_bearer: bearer("ups_bs_" + "E".repeat(43)),
+    marker_only: MARKER,
+    other_scheme: { ...MARKER, Authorization: "Basic dXNlcjpwYXNz" },
+    valid_bearer_plus_raw: bearer(a2.sid),                                 // even a GOOD beta session id may not be mixed with a raw session
+    beta_shaped_without_marker: { Authorization: "Bearer ups_bs_short" },  // classified as beta by the credential alone
+  };
+  for (const paused of [false, true]) {
+    setFlags(env, { BETA_ENABLED: !paused });
+    for (const [name, headers] of Object.entries(kinds)) {
+      const mflBefore = mflCalls(mfl), writesBefore = rowsChanged(env);
+      const r = await out(headers, raw);
+      t.equal(r.status, 400, `${name}${paused ? " (paused)" : ""}: refused`);
+      t.equal(r.json.code, "ambiguous_credentials", `${name}${paused ? " (paused)" : ""}`);
+      t.equal(mflCalls(mfl), mflBefore, `${name}: no MFL call (the raw session was never proven)`);
+      t.equal(rowsChanged(env), writesBefore, `${name}: no D1 write`);
+    }
+  }
+  setFlags(env, { BETA_ENABLED: true });
+  t.ok(await alive(a) && await alive(a2) && await alive(other), "no session of that franchise, or of another, was revoked by any of them");
+  // the same bad credentials WITHOUT a raw session: quiet, idempotent, no MFL call, no write
+  for (const [name, headers] of Object.entries(kinds)) {
+    if (name === "valid_bearer_plus_raw") continue;
+    const mflBefore = mflCalls(mfl), writesBefore = rowsChanged(env);
+    const r = await out(headers, {});
+    t.equal(r.status, 200, name); t.deepEqual(r.json, { ok: true });
+    t.equal(mflCalls(mfl), mflBefore, `${name} without a body session: no MFL call`); t.equal(rowsChanged(env), writesBefore, `${name} without a body session: no D1 write`);
+  }
+  t.ok(await alive(a) && await alive(a2) && await alive(other), "still nothing revoked");
+  // a valid beta sign-out ends ONLY that session, is idempotent, and works while paused
+  t.equal((await out(bearer(a2.sid), {})).status, 200);
+  t.ok(!(await alive(a2)) && await alive(a) && await alive(other), "only that one session ended");
+  t.equal((await out(bearer(a2.sid), {})).status, 200, "idempotent: the same sign-out again");
+  setFlags(env, { BETA_ENABLED: false });
+  t.equal((await out(bearer(a.sid), {})).status, 200, "a valid beta sign-out works while the beta is paused");
+  setFlags(env, { BETA_ENABLED: true });
+  t.ok(!(await alive(a)) && await alive(other), "and it ended that session");
+  // the ORIGINAL app (unmarked) still proves its own session and ends every beta session of the franchise
+  const b1 = await signIn(env), b2 = await signIn(env);
+  const orig = await callWorker(env, "POST", `/api/beta/signout?${q}`, { headers: { "X-UPS-Client": "classic/2026.11.19.1" }, body: raw });
+  t.equal(orig.status, 200);
+  t.ok(!(await alive(b1)) && !(await alive(b2)) && await alive(other), "unmarked original-app sign-out is unchanged: all of that franchise's beta sessions end, others do not");
+});
+
+test("SIGN-OUT, SECOND LAYER: even if the gate were bypassed, the handler itself never proves a raw MFL session for a beta-classified sign-out (the original app still does)", async () => {
+  const mk = (headers, body) => {
+    const calls = { detect: 0, revoke: 0, signout: 0 };
+    const store = { signout: async () => { calls.signout++; return 0; }, revokeFranchise: async () => { calls.revoke++; return 1; } };
+    const a = { request: new Request("https://worker.test/api/beta/signout?L=74598&YEAR=2026", { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) }),
+      url: new URL("https://worker.test/api/beta/signout?L=74598&YEAR=2026"), env: {}, corsHeaders: {}, now: 1, store, getFlags: async () => ({ ok: true, flags: { BETA_ENABLED: true } }),
+      detectFranchise: async () => { calls.detect++; return { franchise_id: "0008" }; }, leagueId: "74598", season: "2026" };
+    return { a, calls };
+  };
+  const raw = { mfl_user_id: "tok-A" };
+  for (const headers of [{ "X-UPS-Client": "beta/1" }, { Authorization: "Bearer ups_bs_short" }, { "X-UPS-Client": "beta/1", Authorization: "Bearer " + "x".repeat(10) }, { Authorization: "Bearer ups_bh_" + "A".repeat(22) }]) {
+    const { a, calls } = mk(headers, raw);
+    const r = await handleBetaRoute(a);
+    t.equal(r.status, 200); t.deepEqual(await r.json(), { ok: true });
+    t.equal(calls.detect, 0, "no MFL proof for " + JSON.stringify(headers)); t.equal(calls.revoke, 0, "no franchise-wide revocation"); t.equal(calls.signout, 0, "and no session ended without a valid id");
+  }
+  const { a, calls } = mk({ "X-UPS-Client": "classic/1" }, raw);                  // control: not beta-classified
+  t.equal((await handleBetaRoute(a)).status, 200);
+  t.equal(calls.detect, 1, "an unmarked original-app request still proves its session"); t.equal(calls.revoke, 1, "and ends the franchise's beta sessions");
+  const good = mk({ Authorization: "Bearer ups_bs_" + "A".repeat(43) }, {});
+  t.equal((await handleBetaRoute(good.a)).status, 200); t.equal(good.calls.signout, 1, "a well-formed beta id signs that session out"); t.equal(good.calls.detect, 0);
 });
 
 test("ORIGINAL-APP SIGN-OUT: a proven original-app session ends every beta session of that franchise; an unknown credential gets the same quiet answer", async () => {

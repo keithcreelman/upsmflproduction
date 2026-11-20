@@ -125,7 +125,19 @@ export async function betaGate(a) {
   if (c.rawSession.query || c.rawSession.cookie) return refuse("ambiguous_credentials");
 
   // The session lifecycle: a beta page may redeem a code or sign out; the route handler does its own checks. Handoff/status are original-app only.
-  if (path.startsWith("/api/beta/")) return BETA_LIFECYCLE_FROM_BETA.has(path) ? { kind: "route" } : refuse("beta_route_not_allowed");
+  if (path.startsWith("/api/beta/")) {
+    if (!BETA_LIFECYCLE_FROM_BETA.has(path)) return refuse("beta_route_not_allowed");
+    // A beta sign-out is authenticated by its own session id (or by nothing: it is idempotent). It never carries a raw MFL session, so a
+    // beta-classified sign-out that does is a MIXED request and is refused here, before the handler. (Round-1 MAT-1: the handler used to
+    // fall back to proving that raw body session and revoking the whole franchise.) The handler ALSO refuses that branch for any
+    // beta-classified request, so neither layer alone can be bypassed.
+    if (path === "/api/beta/signout" && method === "POST") {
+      const body = await readJsonBody(request);
+      if (body && body.tooLarge) return refuse("beta_route_not_allowed");
+      if (body) for (const k of RAW_BODY_FIELDS) if (body[k] != null && String(body[k]) !== "") return refuse("ambiguous_credentials");
+    }
+    return { kind: "route" };
+  }
 
   const route = matchBetaRoute(method, path);
 

@@ -157,6 +157,17 @@ test("LIFECYCLE PATHS: a beta page may redeem and sign out, and nothing else und
   const w = await world();
   t.equal((await w.gate("POST", "/api/beta/session" + Q, { body: {} })).kind, "route");
   t.equal((await w.gate("POST", "/api/beta/signout" + Q, { body: {} })).kind, "route");
+  // round-1 MAT-1: a beta-classified sign-out never carries a raw MFL session or key (mixed credentials are refused before the handler)
+  const sid = await w.session();
+  for (const body of [{ mfl_user_id: "tok-A" }, { MFL_USER_ID: "tok-A" }, { APIKEY: "k" }, { commish_api_key: "k" }]) {
+    for (const o of [{}, { sid }, { sid: "ups_bs_short" }, { marker: false, headers: { Authorization: "Bearer ups_bs_short" } }]) {
+      t.equal((await w.gate("POST", "/api/beta/signout" + Q, { ...o, body })).code, "ambiguous_credentials", JSON.stringify(body) + " " + JSON.stringify(Object.keys(o)));
+    }
+  }
+  t.equal((await w.gate("POST", "/api/beta/signout" + Q, { sid, body: {} })).kind, "route", "a plain beta sign-out is routed");
+  t.equal((await w.gate("POST", "/api/beta/signout" + Q, { sid: "ups_bs_short" })).kind, "route", "a malformed credential with no body session is routed (the handler answers quietly)");
+  t.equal((await w.gate("POST", "/api/beta/signout" + Q, { marker: false, body: { mfl_user_id: "tok-A" } })).kind, "original", "an UNMARKED original-app sign-out with a body session is not a beta request and is left alone");
+  t.equal((await w.gate("POST", "/api/beta/signout" + Q + "&MFL_USER_ID=x", { sid, body: {} })).code, "ambiguous_credentials", "a raw session in the query was already refused");
   for (const p of ["/api/beta/handoff", "/api/beta/status", "/api/beta/", "/api/beta/anything", "/api/beta/session/x"]) t.equal((await w.gate("POST", p + Q, { body: {} })).code, "beta_route_not_allowed", p);
 });
 

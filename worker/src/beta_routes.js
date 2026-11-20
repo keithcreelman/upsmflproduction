@@ -8,7 +8,7 @@
 //   POST /admin/beta/purge-sessions    commissioner/admin only: wipe every stored MFL session
 //
 // Nothing here ever returns the MFL session or echoes a credential. Every response is `Cache-Control: no-store`. Every failure is a stable code.
-import { BETA_MASTER, betaRefusalResponse } from "./beta_gate.js";
+import { BETA_MASTER, betaRefusalResponse, classifyBeta } from "./beta_gate.js";
 import {
   environmentForLeague, looksLikeHandoffCode, looksLikeSessionId, newHandoffCode, newRowId, newSessionId, padFid, parseKeyring, sealMflSession, sha256Hex,
 } from "./beta_session.js";
@@ -48,8 +48,13 @@ export async function handleBetaRoute(a) {
   // ── sign-out works even while the beta is paused: ending a session is always allowed ──
   if (path === "/api/beta/signout") {
     const auth = /^bearer\s+(\S+)$/i.exec(safeStr(a.request.headers.get("authorization")));
+    // A BETA-classified sign-out (marker or beta credential) is authenticated ONLY by its own session id, or by nothing: it never falls
+    // back to a raw MFL session in the body (round-1 MAT-1). Only an UNMARKED original-app request may prove its MFL session and end every
+    // beta session of that franchise. The gate also refuses a beta sign-out that carries a raw session; this is the second layer.
+    const betaClassified = classifyBeta(a.request, a.url).isBeta;
     try {
       if (auth && looksLikeSessionId(auth[1])) { await a.store.signout(await sha256Hex(auth[1]), a.now); return json(200, { ok: true }, cors); }
+      if (betaClassified) return json(200, { ok: true }, cors);       // missing, malformed or wrong-kind credential: quiet and idempotent, no MFL call, no write
       const body = await readBody(a.request);
       if (safeStr(body.mfl_user_id)) {
         const env = environmentForLeague(a.env, a.leagueId);
