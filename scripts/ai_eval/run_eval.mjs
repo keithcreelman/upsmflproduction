@@ -52,6 +52,8 @@ import crypto from "node:crypto";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
+import { termRegex } from "../../worker/src/desk/validator.js";
+import { glossaryTerms } from "../../worker/src/desk/composer.js";
 
 const NATIVE_FETCH = globalThis.fetch;          // captured before anything can replace it
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -300,10 +302,9 @@ export function invariantFailures(r, perQuestionCapUsd) {
   const fails = [];
   const card = r.card;
   if (!card || typeof card.state !== "string") return ["no card"];
-  // League terms a glossary.lookup returned in this run may be written as spelled even with a digit in them ("Vet-Ext1"): the validator allows it, so this does too.
-  const terms = [];
-  for (const e of r.envelopes || []) if (e && e.tool === "glossary.lookup" && e.status === "ok" && e.data && Array.isArray(e.data.entries)) for (const g of e.data.entries) terms.push(g.term, ...(g.aliases || []));
-  const termRe = terms.filter((x) => typeof x === "string" && x.length >= 2).length ? new RegExp(`(?<![\\p{L}\\p{N}])(?:${terms.filter((x) => typeof x === "string" && x.length >= 2).sort((x, y) => y.length - x.length).map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})(?![\\p{L}\\p{N}])`, "gu") : null;
+  // League terms a glossary.lookup returned in this run may be written as spelled even with a digit in them ("Vet-Ext1", and any capitalization of an alias such as "Ext1").
+  // This is the validator's OWN term list and matcher, imported, not a copy: at R3 a hand-built, case-sensitive copy here aborted a validator-approved answer.
+  const termRe = termRegex(glossaryTerms(r.envelopes));
   const typed = (s) => /\d/.test(s.replace(TOKEN_RE, " ").replace(termRe || /$^/, " "));
   if (!CODE_STATES.includes(card.state) && modelProse(card).some(typed)) fails.push("a digit in model prose outside a fact token");
   for (const id of card.facts_used || []) if (!(card.facts && card.facts[id])) fails.push(`fact ${id} is used but not on the card`);

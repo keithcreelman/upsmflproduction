@@ -753,6 +753,22 @@ test("invariants: a typed digit, a fact missing from the card and an over-cap qu
   t.deepEqual(mod.invariantFailures({ ...good, card: { state: "tool_failure", lead_md: "Could not verify 12.", facts_used: [], facts: {}, footer: { cost_usd: 0.01 } } }, 0.5), [], "a code-built card is not model prose");
 });
 
+test("R3 regression: the runner's digit invariant accepts exactly what the validator accepts for league terms (the owner's 'Ext1' in any capitalization), and nothing more", async () => {
+  const good = { card: { state: "answer", lead_md: "x", facts_used: [], facts: {}, footer: { cost_usd: 0.01 } }, ledger: [{ cost_usd: 0.01, est_cost_usd: 0.05 }] };
+  const lookup = [{ tool: "glossary.lookup", status: "ok", data: { entries: [{ term: "Vet-Ext1", aliases: ["ext1", "rookie-ext1", "ext 1"] }] } }];
+  const withLead = (lead, envelopes = lookup) => ({ ...good, card: { ...good.card, lead_md: lead }, envelopes });
+  // What the model wrote in R3, word for word in shape: the owner's capital-E spelling and the status token in one lead.
+  t.deepEqual(mod.invariantFailures(withLead("Yes. The cited rule names Ext1 among its contract types. The glossary tracks the status token Vet-Ext1."), 0.5), [], "R3 DEV-RUL-10");
+  for (const spelling of ["Ext1", "ext1", "EXT1", "Vet-Ext1", "vet-ext1"]) t.deepEqual(mod.invariantFailures(withLead(`${spelling} is a contract type.`), 0.5), [], spelling);
+  // Still caught: a term never looked up, a longer word, a digit that is not part of a returned term, no lookup at all.
+  for (const lead of ["Ext2 is a contract type.", "NEXT1 and Ext10 are not terms.", "Ext1 lasts 1 year.", "Room is 9."]) t.equal(mod.invariantFailures(withLead(lead), 0.5).length, 1, lead);
+  t.equal(mod.invariantFailures(withLead("Ext1 is a contract type.", []), 0.5).length, 1, "without the glossary lookup, no exception");
+  // It must stay the validator's own matcher, not a private copy that can drift (the R3 cause).
+  const src = fs.readFileSync(path.join(ROOT, "scripts/ai_eval/run_eval.mjs"), "utf8");
+  t.match(src, /import \{ termRegex \} from "\.\.\/\.\.\/worker\/src\/desk\/validator\.js"/); t.match(src, /termRegex\(glossaryTerms\(r\.envelopes\)\)/);
+  t.ok(!/new RegExp\(`\(\?<!\[\\\\p\{L\}\\\\p\{N\}\]\)/.test(src.slice(src.indexOf("export function invariantFailures"), src.indexOf("function caseRecord"))), "no hand-built term regex inside invariantFailures");
+});
+
 test("argument parsing: unknown flags and missing values are usage errors (exit 64), and --mode is required", async () => {
   t.throws(() => mod.parseArgs(["--nope"]));
   t.throws(() => mod.parseArgs(["--mode"]));
