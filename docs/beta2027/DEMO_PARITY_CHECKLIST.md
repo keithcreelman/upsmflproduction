@@ -8,13 +8,15 @@ Keith (chat, 2026-11-20): the beta must match the approved demo **1:1 across the
 
 **Decision 1 (Keith, chat 2026-11-20): A, recorded.** The **Preview build shows the complete Actions UI and every review sheet, with Submit disabled and no write code in that build** (a test must pin that the Preview artifact contains no submit or write module and makes no non-GET request). **Real transactions live only in the Test build, against league 25625.** Each flow is tested and verified there first, then brought back to Keith for **separate approval before it is enabled in the invited beta.** This ruling does not start implementation and changes neither the approved demo nor the original mobile app.
 
+**Decision 2 (Keith, chat 2026-11-20): demo-only scope, recorded.** The pinned Player Profile Look demo (S1) is the source of truth for this parity work: the Home lineup card, Team (Roster, Contracts, Cap & picks), the player profile, Actions and Contracts. **Market and the other areas listed below stay later, separately scoped specs and are not added to this implementation by implication.** No implementation or deployment is authorized by this decision.
+
 ## 2. What "the demo" is (pinned versions)
 
 | Source | What it is | Version and hash | Role here |
 |---|---|---|---|
 | **S1** Player Profile Look | The full phone prototype: Home lineup card, Team (Roster, Contracts, Cap & picks), lineup editing, week selector, player profile with four tabs, actions and their reviews, Controls | artifact `7Vd91JB79xS2KiozmEFaYx`, version `1795048681-ef20`, 172,746 bytes, SHA-256 `018131724bec1c0569406c4b2d8aca0c415b5011e4f51093a34f66b76d51e157` | **The spec.** |
 | S2 Team Roster Prototype | The earlier approved roster prototype; it has the same 61 actions as S1, without the team-colored header | artifact `9azAfVTtAEziLmQnJyhf3H`, version `1795027966-fbfa`, SHA-256 `d47af1872d0621aad9770dfe41a6922c07762561a3023f6d46b6ecf39b1bfdf0` | Superseded by S1 for this checklist. |
-| S3 Market Prototype | Find players, bids, claims | artifact `GAXhn4TaNqx8jxyHB7h1wi`, version `1795052304-7291`, SHA-256 `de1225be104b0554c0b243fcb8e65c363f1aafd108f028f2e9d3583adf9ddc72` | **Not in this checklist.** Market is still in review per the Page Review; Keith decides whether it joins (D2 below). |
+| S3 Market Prototype | Find players, bids, claims | artifact `GAXhn4TaNqx8jxyHB7h1wi`, version `1795052304-7291`, SHA-256 `de1225be104b0554c0b243fcb8e65c363f1aafd108f028f2e9d3583adf9ddc72` | **Not in this checklist, and not added by implication.** Market is still in review per the Page Review; per Decision 2 it is a later, separately scoped spec. |
 | S4 Page Review | The approval log: Team roster and Team › Contracts approved for the design concept 2026-11-17, Player profile 2026-11-18, Market in review, Home and Lineup/Trades/Auction/Draft/Commissioner/Desktop later | artifact `VJRJeTbwjfua4gb6wmfD9u`, version `1795092235-9a48` | Approval history. |
 
 The approved prototypes are never edited. Comparisons use a local copy where only sample data is swapped for a real player.
@@ -39,7 +41,7 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | Not built | 63 |
 | Need a real write (`W`) | 22 |
 | Need new or unconfirmed read data (`D`) | 40 |
-| Need a decision (`X`) | 21 |
+| Need a decision (`X`) | 20 |
 | Need wording checked against canon (`C`) | 5 |
 
 **In plain words:** the beta today is the read-only roster, the contract details and the team-colored profile header. Everything that edits (lineup, moves, drop, extension, restructure, MYAC, MYM) is not built, and several things the demo *shows* have no live data source yet (section 6).
@@ -186,7 +188,7 @@ The demo's Controls sheet exists so Keith can try states. These are not owner fe
 
 | ID | Element | Demo does | Beta today | Status | What remains | Needs | Stage |
 |---|---|---|---|---|---|---|---|
-| I1 | Market tab | "Market. Later release." | Placeholder with its own wording. | Partial | Match wording. The Market prototype is a separate, still-in-review spec (not part of this checklist unless Keith adds it). | X | S1 |
+| I1 | Market tab | "Market. Later release." | Placeholder with its own wording. | Partial | Match wording only. The Market prototype is a later, separately scoped spec (Decision 2); it is not part of this work. |  | S1 |
 | I2 | League tab | "League. Later page." | Placeholder. | Partial | Match wording. |  | S1 |
 
 ## 5. What the beta has that the demo does not
@@ -242,7 +244,7 @@ The worker holds one commissioner MFL session that works for **both** the live l
 ## 8. Decisions needed from Keith, one at a time
 
 1. ~~**Build targets.**~~ **Decided (A, 2026-11-20):** Preview draws the full Actions UI and review sheets with Submit disabled and no write code; real transactions only in the Test build (league 25625); each flow comes back to Keith for separate approval before it is enabled in the invited beta.
-2. **Spec scope.** S1 only (Team, Home lineup card, profile, actions, Contracts), with Market, Trades, Auction, Draft, League, Cap & picks, Commissioner and Desktop as later specs; or add the Market prototype now. Recommended: S1 only.
+2. ~~**Spec scope.**~~ **Decided (demo-only, 2026-11-20):** S1 is the source of truth (Home lineup card, Team, profile, Actions, Contracts). Market, Trades, Auction, Draft, League, Cap & picks pages, Commissioner and Desktop are later, separately scoped specs; none is added to this implementation by implication.
 3. **Helmet placeholder.** Add the labeled "Helmet TBD" circle as the demo shows (your 1:1 ruling), or keep it out (your Preview 0 ruling). Recommended: add the placeholder; no helmet art.
 4. **Scaffolding.** Sample mode for the scenario toggles, Report a bug instead of Feedback, drop the navigation-compare sheet. Recommended.
 5. **Navigation.** Four tabs or five (the demo leaves it open).
