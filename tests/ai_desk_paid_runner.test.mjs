@@ -183,9 +183,11 @@ const GATES = [
   ["gate 13: no provider-side limit and no estimate-only flag", () => ({ cmd: { noProvider: true } }), 13, /provider-side spend limit is required/],
   ["gate 13: both the provider limit and the estimate-only flag", () => ({ cmd: { bothProvider: true } }), 13, /not both/],
   ["gate 13: the provider limit is below --max-usd", () => ({ cmd: { providerLimit: "1.50" } }), 13, /is below --max-usd/],
-  ["gate 13: the provider limit is more than 3 times --max-usd", () => ({ cmd: { providerLimit: "6.50" } }), 13, /more than 3 times --max-usd/],
+  ["gate 13: the provider limit is more than 2 times --max-usd", () => ({ cmd: { providerLimit: "4.50" } }), 13, /more than 2 times --max-usd/],
+  ["gate 13: the provider limit is exactly 3 times --max-usd (no longer allowed)", () => ({ cmd: { providerLimit: "6.00" } }), 13, /more than 2 times --max-usd/],
   ["gate 13: the provider limit is not a number", () => ({ cmd: { providerLimit: "lots" } }), 13, /dollar amount above zero/],
-  ["gate 13: estimate-only with an approval above $2.00", () => ({ cmd: { estimateOnly: true, maxUsd: "2.50", approve: "R1:2.50:10" } }), 13, /may not exceed \$2\.0000/],
+  ["gate 13: estimate-only with an approval above $1.00", () => ({ cmd: { estimateOnly: true, maxUsd: "1.50", approve: "R1:1.50:10" } }), 13, /may not exceed \$1\.0000/],
+  ["gate 13: estimate-only with the old $2.00 ceiling", () => ({ cmd: { estimateOnly: true, maxUsd: "2.00", approve: "R1:2.00:10" } }), 13, /may not exceed \$1\.0000/],
   ["gate 12: the very first live run without --first-live-run", () => ({ cmd: { noFirst: true } }), 12, /pass --first-live-run/],
 ];
 
@@ -390,7 +392,7 @@ test("LIVE with every gate satisfied (interceptor, fake terminal): ONLY POST api
   }
   const res = readJson(path.join(cmd.out, "results.json"));
   t.equal(res.mode, "live"); t.equal(res.scripted, false); t.equal(res.n_cases_run, 10); t.equal(res.stopped, null); t.equal(res.anthropic_calls, 40); t.equal(res.network_attempts, 0);
-  t.equal(res.prices.verified_by_user_on, TODAY); t.equal(res.price_margin, 1.25); t.equal(res.provider_limit_usd, 3); t.equal(res.estimate_only, false);
+  t.equal(res.status, "COMPLETE"); t.equal(res.approved_max_usd, 2); t.equal(res.prices.verified_by_user_on, TODAY); t.equal(res.price_margin, 1.25); t.equal(res.provider_limit_usd, 3); t.equal(res.estimate_only, false);
   const perQ = Number(env.DESK_BUDGET_PER_QUESTION_USD);
   for (const c of res.cases) { t.ok(c.cost_usd <= perQ + 1e-9, `${c.id}: spend within the per-question cap`); t.ok(c.final_card && c.tool_calls && c.facts && c.validator && c.score, c.id); t.ok(c.ledger.every((x) => x.mode === "live" && x.cost_usd != null)); }
   const dry = readJson(path.join(cmd.out, "dry", "results.json"));
@@ -578,6 +580,66 @@ test("LIVE hard abort: a card the validator rejects twice in the first three cas
   clean(r);
 });
 
+test("LIVE aborts the moment ACTUAL spend passes the approved amount: a fake client whose returned usage costs more than its reservation (exit 4, ABORTED_OVER_CAP, no further call)", async () => {
+  const plan = await ensurePlan();
+  const cmd = liveCmd({ maxUsd: "0.50", approve: "R1:0.50:10", providerLimit: "0.80" });
+  const env = { ...liveCapsEnv(plan), DESK_BUDGET_PER_RUN_USD: "1.50", DESK_BUDGET_MONTHLY_USD: "5", DESK_BUDGET_TOTAL_USD: "5" };
+  const r = await liveRun(cmd, { env, fake: makeFake({ ledger: cmd.ledger, usageScale: 20 }) });
+  t.equal(r.code, 4, r.out.slice(-500) + r.err.slice(0, 300));
+  t.match(r.out, /ABORTED_OVER_CAP: actual spend \$0\.\d+ is over the approved \$0\.500000; no further call was made/);
+  t.equal(r.anthropic.length, 3, "router, loop, loop: the composer call and everything after it were never made");
+  const res = readJson(path.join(cmd.out, "results.json"));
+  t.equal(res.status, "ABORTED_OVER_CAP"); t.equal(res.stopped.aborted_over_cap, true); t.equal(res.n_cases_run, 1); t.equal(res.approved_max_usd, 0.5);
+  t.match(fs.readFileSync(path.join(cmd.out, "summary.md"), "utf8"), /Status: ABORTED_OVER_CAP/);
+  const db = new DatabaseSync(cmd.ledger, { readOnly: true });
+  const rows = db.prepare("SELECT est_cost_usd, cost_usd FROM ai_call_log WHERE mode = 'live' ORDER BY id").all();
+  t.equal(rows.length, 3);
+  t.ok(rows.some((x) => x.cost_usd > x.est_cost_usd), "a call's ACTUAL cost was above its reservation: the check uses the returned usage, not the reservation");
+  const spent = rows.reduce((a, x) => a + x.cost_usd, 0);
+  t.ok(spent > 0.5, `actual spend ${spent} passed the approved $0.50`);
+  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'live' AND cost_usd IS NULL").get().n, 0);
+  db.close();
+  t.equal(fs.readFileSync(cmd.journal, "utf8").split("\n").filter(Boolean).length, 3, "every call that was made is in the journal");
+  clean(r);
+});
+
+test("injected terminal streams, home and fetch seams are IGNORED unless the test gate is open: a real-looking key with fake TTY streams is refused (gate 8) up front", async () => {
+  const realish = "sk-ant-api03-REAL-LOOKING-KEY-0000000000";
+  const plan = await ensurePlan();
+  const input = new PassThrough(), output = new PassThrough(); input.isTTY = true; output.isTTY = true; output.resume();
+  input.write("R1 $1.00\n");
+  const cmd = liveCmd({ maxUsd: "1.00", approve: "R1:1.00:10", providerLimit: "2.00" });
+  const saved = { i: process.stdin.isTTY, o: process.stdout.isTTY };
+  Object.defineProperty(process.stdin, "isTTY", { value: false, configurable: true }); Object.defineProperty(process.stdout, "isTTY", { value: false, configurable: true });   // a developer may run this from a terminal
+  const errL = [], keep = { log: console.log, error: console.error };
+  console.log = () => {}; console.error = (...a) => errL.push(a.join(" "));
+  let codes = [];
+  try {
+    for (const over of [{ ANTHROPIC_API_KEY_DESK: realish }, { ANTHROPIC_API_KEY_DESK: realish, UPS_AI_EVAL_UNDER_TEST: "1" }, { ANTHROPIC_API_KEY_DESK: DESK_KEY }]) {   // real key, real key + flag, canary without the flag
+      codes.push(await mod.main(cmd.args, { ...liveCapsEnv(plan), ...over, ...homeEnv(cmd.home), UPS_AI_EVAL_UNDER_TEST: over.UPS_AI_EVAL_UNDER_TEST }, { stdin: input, stdout: output }));
+    }
+  } finally {
+    console.log = keep.log; console.error = keep.error;
+    for (const [k, v] of [["isTTY", saved.i]]) { if (v === undefined) delete process.stdin[k]; else Object.defineProperty(process.stdin, k, { value: v, configurable: true }); }
+    if (saved.o === undefined) delete process.stdout.isTTY; else Object.defineProperty(process.stdout, "isTTY", { value: saved.o, configurable: true });
+  }
+  t.deepEqual(codes, [2, 2, 2]);
+  t.equal(errL.filter((l) => /REFUSED \(gate 8\)/.test(l) && /terminal streams supplied by a caller are ignored/.test(l)).length, 3, "each attempt: refused up front because the injected TTY streams were ignored");
+  t.ok(!errL.join("\n").includes(realish), "the key is not printed");
+  t.ok(!fs.existsSync(cmd.ledger) && !fs.existsSync(path.join(cmd.out, "results.json")), "nothing was written");
+  // the pieces
+  const real = { stdin: process.stdin, stdout: process.stdout };
+  const fake = { stdin: input, stdout: output };
+  t.equal(mod.resolveIo({ ANTHROPIC_API_KEY_DESK: realish, UPS_AI_EVAL_UNDER_TEST: "1" }, fake).stdin, real.stdin, "real key: injected streams ignored");
+  t.equal(mod.resolveIo({ ANTHROPIC_API_KEY_DESK: DESK_KEY }, fake).stdout, real.stdout, "canary without the test flag: ignored");
+  t.equal(mod.resolveIo({ ANTHROPIC_API_KEY_DESK: DESK_KEY, UPS_AI_EVAL_UNDER_TEST: "1" }, fake).stdin, input, "the full test gate: honored");
+  t.equal(mod.isTestGate({ ANTHROPIC_API_KEY_DESK: DESK_KEY, UPS_AI_EVAL_UNDER_TEST: "1" }), true); t.equal(mod.isTestGate({ ANTHROPIC_API_KEY_DESK: realish, UPS_AI_EVAL_UNDER_TEST: "1" }), false); t.equal(mod.isTestGate(null), false);
+  // the fetch seam: outside the test gate live needs Node's own fetch (a replaced fetch is refused), which a child process without any preload has
+  t.equal(mod.looksLikeNodeFetch(async () => new Response("{}")), false); t.equal(mod.looksLikeNodeFetch(null), false);
+  const child = await new Promise((resolve) => { let out = ""; const c = spawn(process.execPath, ["--input-type=module", "-e", `import("${pathToFileURL(path.join(ROOT, "scripts/ai_eval/run_eval.mjs")).href}").then((m) => console.log(m.looksLikeNodeFetch(globalThis.fetch)))`], { cwd: ROOT, env: { NODE_NO_WARNINGS: "1", HOME: TMP }, stdio: ["ignore", "pipe", "ignore"] }); c.stdout.on("data", (d) => { out += d; }); c.on("close", () => resolve(out.trim())); });
+  t.equal(child, "true", "Node's own fetch is recognized");
+});
+
 test("the spend journal: both copies are written together, and a write that fails on either one stops further calls", () => {
   const a = path.join(TMP, "jf", "a.jsonl"), b = path.join(TMP, "jf2", "b.jsonl");
   const j = mod.makeJournal([a, b], "RJ");
@@ -641,7 +703,7 @@ test("the typed confirmation: both streams must be TTYs, and the exact run id an
     let msg = null; try { await mod.liveConfirmation({ runId: "R1", maxUsd: 1, ...mk(true, typed) }); } catch (e) { msg = e.message; }
     t.match(msg, /was not typed; cancelled/, JSON.stringify(typed));
   }
-  for (const [label, streams] of [["no TTY on either", mk(false, "R1 $1.00\n")], ["TTY in, none out", { ...mk(true, "R1 $1.00\n"), output: Object.assign(new PassThrough(), { isTTY: false }) }], ["no streams", { input: null, output: null }]]) {
+  for (const [label, streams] of [["isTTY merely truthy (1), not true", { ...mk(true, "R1 $1.00\n"), input: Object.assign(new PassThrough(), { isTTY: 1 }) }], ["no TTY on either", mk(false, "R1 $1.00\n")], ["TTY in, none out", { ...mk(true, "R1 $1.00\n"), output: Object.assign(new PassThrough(), { isTTY: false }) }], ["no streams", { input: null, output: null }]]) {
     let msg = null; try { await mod.liveConfirmation({ runId: "R1", maxUsd: 1, ...streams }); } catch (e) { msg = e.message; }
     t.match(msg, /real terminal/, label);
   }

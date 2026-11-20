@@ -77,6 +77,8 @@ export default defineTool({
     const lock = body.trade_lock && typeof body.trade_lock === "object" ? body.trade_lock : {};
     const tradeLock = { state: safeToken(lock.state), date_et: isoDate(lock.date_et), time_et: safeToken(lock.time_et) || null, label: safeText(lock.label, 60) || null, reason: safeToken(lock.reason), source: safeToken(lock.source) };
 
+    // a timestamp is parsed and re-emitted here; the route's own string is never copied
+    const verifiedAt = /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})?$/.test(str(lock.verified_at_utc).trim()) && Number.isFinite(Date.parse(str(lock.verified_at_utc).trim())) ? new Date(Date.parse(str(lock.verified_at_utc).trim())).toISOString() : null;
     const wk1Unix = body.week_kickoffs && Number(body.week_kickoffs["1"]) > 0 ? Number(body.week_kickoffs["1"]) : null;
     const wk1 = wk1Unix ? { unix: wk1Unix, ...(({ date_et, time_et }) => ({ date_et, time_et }))(etParts(wk1Unix)), source: safeToken(body.week_kickoffs_source) } : null;
 
@@ -146,7 +148,7 @@ export default defineTool({
         date_authority: "nfl_schedule_first_kickoff and mfl_calendar are MFL-derived (grade A); stored_row is the commissioner's typed row (grade B)",
         conflict_policy: "both canon readings are reported; neither is chosen",
       },
-      freshness: lock.verified_at_utc ? { trade_lock_verified_at_utc: safeToken(lock.verified_at_utc) } : null,
+      freshness: verifiedAt ? { trade_lock_verified_at_utc: verifiedAt } : null,
     };
   },
 });

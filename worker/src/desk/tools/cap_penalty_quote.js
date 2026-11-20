@@ -30,6 +30,14 @@ const STATUS_ONLY_BASES = new Set(["taxi_exempt", "taxi_callup_exempt", "taxi_el
 const UNPRICED_BASES = new Set(["week_authority_unresolved", "contract_unstamped_needs_review", "no_pre_drop_contract"]);
 
 const s = (v) => String(v == null ? "" : v).trim();
+const numOrNull = (v) => ((typeof v === "number" || (typeof v === "string" && /^-?\d{1,12}(\.\d+)?$/.test(v.trim()))) && Number.isFinite(Number(v)) ? Number(v) : null);
+// A timestamp is parsed and RE-EMITTED by this tool; the route's own string is never copied.
+const isoOf = (v) => {
+  const x = s(v);
+  if (!/^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})?$/.test(x)) return null;
+  const ms = Date.parse(x);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+};
 const isoDay = (d) => d.toISOString().slice(0, 10);
 const validDate = (v) => DATE_RE.test(v) && !Number.isNaN(Date.parse(v + "T00:00:00Z")) && isoDay(new Date(v + "T00:00:00Z")) === v;
 
@@ -142,13 +150,18 @@ export default defineTool({
     if (pre.status === 404) {
       return { status: "no_record", coverage: { supported: true, gaps: [{ what: "that player is not on any roster right now", why: "NO_RECORD", source_needed: "a currently rostered player id" }] }, provenance: prov };
     }
-    const r = pre.json;
-    if (!pre.ok || !r || r.ok !== true) {
+    if (!pre.ok || !pre.json || pre.json.ok !== true) {
       return { status: "error", error: { code: "route_failed", message: `/api/cap-penalty/preview answered ${pre.status}` } };
     }
+    // Every numeric field is validated by shape here (a number, or a numeric string; anything else becomes null) and every id-like value is
+    // digits only, so route prose cannot ride into a fact, the data or the provenance as a "number".
+    const r = { ...pre.json };
+    for (const k of ["penalty", "guaranteed", "earned", "prior_earned", "current_year_earned", "tcv", "cl", "years_remaining", "years_played", "acquisition_week", "eligible_weeks", "current_year_salary", "earned_through_week"]) r[k] = numOrNull(pre.json[k]);
+    r.franchise_id = /^\d{1,4}$/.test(s(pre.json.franchise_id)) ? s(pre.json.franchise_id).padStart(4, "0") : "";
+    r.calculated_at = isoOf(pre.json.calculated_at);
 
     // 2. The calculator itself could not price it (held for review, unstamped, week authority unresolved): never a number.
-    if (r.needs_review === true || UNPRICED_BASES.has(s(r.basis)) || !Number.isFinite(Number(r.penalty))) {
+    if (r.needs_review === true || UNPRICED_BASES.has(s(r.basis)) || r.penalty == null) {
       return refuse("unverified_calculation", "the charged calculator held this cut for review instead of pricing it (unreadable week authority, unstamped contract or acquisition week); a held row is not a $0",
         { what: "the drop penalty is not priced yet", why: "unverified_calculation", source_needed: "MFL scoring and transactions readable, and a stamped contract for the player" }, { ...prov, basis: safeToken(r.basis) });
     }
@@ -236,7 +249,7 @@ export default defineTool({
     if (Number.isFinite(Number(r.guaranteed)) && r.guaranteed != null) facts.push(f("guaranteed", label("Guaranteed amount (75% of TCV)"), Number(r.guaranteed), "usd"));
     if (r.earned != null && Number.isFinite(Number(r.earned))) facts.push(f("earned", label("Salary earned to the drop date"), Number(r.earned), "usd"));
     if (Number(r.tcv) > 0) facts.push(f("tcv", label("Total contract value used"), Number(r.tcv), "usd"));
-    if (Number.isFinite(Number(r.years_remaining))) facts.push(f("years_remaining", label("Contract years remaining"), Number(r.years_remaining), "years"));
+    if (r.years_remaining != null) facts.push(f("years_remaining", label("Contract years remaining"), Number(r.years_remaining), "years"));
     if (Number.isFinite(Number(r.earned_through_week)) && r.earned_through_week != null) facts.push(f("completed_weeks", label("Completed payable NFL weeks counted"), Number(r.earned_through_week), "count"));
     if (r.acquisition_week) facts.push(f("acquisition_week", label("Acquisition week used for the earning window"), Number(r.acquisition_week), "week"));
     facts.push(f("basis", label("Pricing basis"), basis, "text"));
@@ -247,7 +260,7 @@ export default defineTool({
         player_id: String(args.player_id), franchise_id: s(r.franchise_id).replace(/\D/g, "").slice(0, 4), season, drop_date: dropArg || today, what_if: whatIf,
         penalty: Number(r.penalty), guaranteed: r.guaranteed == null ? null : Number(r.guaranteed), earned: r.earned == null ? null : Number(r.earned),
         prior_earned: r.prior_earned == null ? null : Number(r.prior_earned), current_year_earned: r.current_year_earned == null ? null : Number(r.current_year_earned),
-        tcv: Number(r.tcv) || null, contract_length: r.cl == null ? null : Number(r.cl), years_remaining: Number(r.years_remaining), years_played: Number(r.years_played),
+        tcv: Number(r.tcv) || null, contract_length: r.cl == null ? null : Number(r.cl), years_remaining: r.years_remaining, years_played: r.years_played,
         acquisition_week: r.acquisition_week == null ? null : Number(r.acquisition_week), eligible_weeks: r.eligible_weeks == null ? null : Number(r.eligible_weeks),
         current_year_salary: r.current_year_salary == null ? null : Number(r.current_year_salary),
         completed_weeks: r.earned_through_week == null ? null : Number(r.earned_through_week),
@@ -258,8 +271,8 @@ export default defineTool({
       },
       facts,
       coverage: { supported: true, gaps: [] },
-      provenance: { ...prov, basis, calculated_at: safeToken(r.calculated_at), guards: { g1: g1.checked ? (g1.year_tokens_verified ? "passed (year-by-year salaries verified)" : "passed (no completed years)") : "not needed (cap-free by status alone)", g2: g2.applies ? "passed (route and canon agree)" : "not a tag contract" } },
-      freshness: { calculated_at: safeToken(r.calculated_at) },
+      provenance: { ...prov, basis, calculated_at: r.calculated_at, guards: { g1: g1.checked ? (g1.year_tokens_verified ? "passed (year-by-year salaries verified)" : "passed (no completed years)") : "not needed (cap-free by status alone)", g2: g2.applies ? "passed (route and canon agree)" : "not a tag contract" } },
+      freshness: { calculated_at: r.calculated_at },
     };
   },
 });

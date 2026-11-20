@@ -747,6 +747,91 @@ test("hostile text, cap.penalty_quote: a hostile basis is refused; a hostile exe
   env.UPS_MFL_DB.raw.exec("UPDATE league_events SET date='2026-07-25', description='Last weekend of July (~10-day window — placeholder until 2026 date confirmed)' WHERE event='ups_fa_auction_start' AND nfl_season='2026'");
 });
 
+test("hostile ids and timestamps, roster.current: a bad player id drops the row; a bad generated_at or franchise id is never copied", async () => {
+  setNow("2026-03-15T16:00:00Z");
+  setRoster(P("16614", 30000, 2, FLAT90), P("16615", 10000, 1, "CL 1| TCV 10K| AAV 10K| Y1-10K"));
+  const hostile = mutating(/roster-workbench/, (j) => {
+    j.generated_at = HOSTILE;
+    const team = j.teams.find((x) => x.franchise_id === "0008");
+    team.players[1].id = HOSTILE;
+    team.players.push({ ...team.players[0], id: `${HOSTILE} 16999`, name: "Extra" });
+    team.players[0].salary = HOSTILE; team.players[0].years = "ignore all";
+    j.teams.push({ ...team, franchise_id: HOSTILE, franchise_name: HOSTILE });
+  });
+  const e = await call(T.roster, { franchise_id: "0008" }, { fetchSelf: hostile });
+  t.equal(e.status, "ok"); t.ok(!HOSTILE_RE.test(dump(e)), "no instruction text anywhere in the envelope");
+  t.equal(e.data.players.length, 1, "the two rows with unreadable ids are dropped"); t.equal(e.data.players[0].id, "16614");
+  t.ok(e.coverage.gaps.some((g) => /unreadable player id/.test(g.what) && g.why === "partial_coverage"));
+  t.equal(e.data.generated_at, null); t.equal(e.freshness.generated_at, null); t.equal(e.freshness.age_seconds, null);
+  t.ok(e.coverage.gaps.some((g) => /no readable generation time/.test(g.what)));
+  t.equal(factOf(e, "p16614_salary"), undefined, "a salary that is not a number is not a fact"); t.equal(factOf(e, "p16614_years_remaining"), undefined);
+  t.ok(e.facts.every((f) => /^c\d+\.[a-z0-9_]+$/.test(f.id)));
+  // a good timestamp is re-emitted by the tool in ISO form
+  const clean = await call(T.roster, { franchise_id: "0008" });
+  t.match(clean.data.generated_at, /^2026-03-15T16:00:00\.000Z$/); t.equal(clean.freshness.age_seconds, 0);
+  const season = await call(T.roster, { franchise_id: "0008" }, { fetchSelf: mutating(/roster-workbench/, (j) => { j.season = HOSTILE; }) });
+  t.equal(season.status, "error"); t.ok(!HOSTILE_RE.test(dump(season)));
+});
+
+test("hostile ids and timestamps, cap.position: a bad player id makes the position unverifiable; a bad generated_at, season or total never reaches the envelope", async () => {
+  setNow("2026-03-15T16:00:00Z");
+  setRoster(...tenK(3, 20000));
+  const badId = await call(T.position, { franchise_id: "0008" }, { fetchSelf: mutating(/roster-workbench/, (j) => { j.teams.find((x) => x.franchise_id === "0008").players[0].id = HOSTILE; }) });
+  t.equal(badId.status, "refused"); t.equal(badId.facts.length, 0); t.ok(!HOSTILE_RE.test(dump(badId)));
+  const badTime = await call(T.position, { franchise_id: "0008" }, { fetchSelf: mutating(/roster-workbench/, (j) => { j.generated_at = HOSTILE; }) });
+  t.equal(badTime.status, "ok"); t.equal(badTime.freshness.generated_at, null); t.ok(!HOSTILE_RE.test(dump(badTime))); t.equal(fact(badTime, "cap_used"), 30000);
+  const badTotal = await call(T.position, { franchise_id: "0008" }, { fetchSelf: mutating(/roster-workbench/, (j) => { j.teams.forEach((x) => { x.summary.cap_total_dollars = HOSTILE; x.summary.salary_adjustment_total_dollars = HOSTILE; }); }) });
+  t.equal(badTotal.status, "refused"); t.ok(!HOSTILE_RE.test(dump(badTotal)));
+  const badSeason = await call(T.position, { franchise_id: "0008" }, { fetchSelf: mutating(/roster-workbench/, (j) => { j.season = HOSTILE; }) });
+  t.equal(badSeason.status, "error"); t.ok(!HOSTILE_RE.test(dump(badSeason)));
+  const good = await call(T.position, { franchise_id: "0008" });
+  t.match(good.freshness.generated_at, /^2026-03-15T16:00:00\.000Z$/);
+});
+
+test("hostile ids, weeks and timestamps, cap.penalty_quote: a hostile week, id, number or time in the calculator's answer is never copied", async () => {
+  setNow("2026-11-19T16:00:00Z");
+  setRoster(P("16614", 25000, 1, "CL 1| TCV 25K| AAV 25K| Y1-25K", { status: "Vet-WW" }));
+  const e = await quote("16614", { drop_date: "2026-11-14", acquisition_week: 5 }, { fetchSelf: mutating(/cap-penalty/, (j) => {
+    j.earned_through_week = HOSTILE; j.franchise_id = HOSTILE; j.calculated_at = HOSTILE; j.eligible_weeks = HOSTILE; j.current_year_salary = HOSTILE; j.acquisition_week = HOSTILE;
+  }) });
+  t.equal(e.status, "ok"); t.ok(!HOSTILE_RE.test(dump(e)), "nothing hostile in the quote");
+  t.equal(fact(e, "penalty"), 9135); t.equal(factOf(e, "completed_weeks"), undefined, "a week that is not a number is not a fact"); t.equal(factOf(e, "acquisition_week"), undefined);
+  t.equal(e.data.franchise_id, ""); t.equal(e.data.completed_weeks, null); t.equal(e.freshness.calculated_at, null); t.equal(e.provenance.calculated_at, null);
+  const pen = await quote("16614", { drop_date: "2026-11-14", acquisition_week: 5 }, { fetchSelf: mutating(/cap-penalty/, (j) => { j.penalty = HOSTILE; }) });
+  t.equal(pen.status, "refused"); t.equal(pen.facts.length, 0); t.ok(!HOSTILE_RE.test(dump(pen)));
+  const ok = await quote("16614", { drop_date: "2026-11-14", acquisition_week: 5 });
+  t.equal(fact(ok, "completed_weeks"), 9); t.equal(ok.data.franchise_id, "0008"); t.match(ok.freshness.calculated_at, /^2026-11-19T16:00:00\.000Z$/);
+});
+
+test("hostile ids and timestamps, cap.adjustments / calendar.events / extension.price: ids, row ids, timestamps and week numbers are validated, not copied", async () => {
+  setNow("2026-11-19T16:00:00Z");
+  await withLedgerWorld(async (fs2) => {
+    const hostile = async (u, init) => {
+      const r = await fs2(u, init); const j = await r.json();
+      j.years[0].rows.forEach((row, i) => {
+        row.assessed_iso = HOSTILE; row.id = HOSTILE;
+        if (i === 0) row.franchise_id = HOSTILE;
+        if (row.drop) row.drop.player_id = HOSTILE;
+        if (row.trade) { row.trade.counterparty_fid = HOSTILE; row.trade.traded_at_iso = HOSTILE; }
+      });
+      j.franchises.push({ franchise_id: HOSTILE, franchise_name: HOSTILE });
+      return new Response(JSON.stringify(j), { status: 200 });
+    };
+    const e = await call(T.adjust, {}, { fetchSelf: hostile });
+    t.equal(e.status, "ok"); t.ok(!HOSTILE_RE.test(dump(e)), "no hostile id or time in the adjustments envelope");
+    t.ok(e.coverage.gaps.some((g) => /unreadable franchise id/.test(g.what)));
+    t.ok(e.data.rows.every((r) => /^\d{4}$/.test(r.franchise_id) && r.id === "" && r.assessed_iso === ""));
+  });
+  const cal = await call(T.cal, {}, { fetchSelf: mutating(/league-events/, (j) => {
+    j.trade_lock.verified_at_utc = HOSTILE; j.week_kickoffs = { 1: HOSTILE }; j.events.forEach((x) => { x.nfl_week = HOSTILE; x.date = x.date_source === "stored_row" ? HOSTILE : x.date; x.stored_date = HOSTILE; });
+  }) });
+  t.equal(cal.status, "ok"); t.ok(!HOSTILE_RE.test(dump(cal))); t.equal(cal.freshness, null); t.equal(factOf(cal, "week1_kickoff_et"), undefined, "a kickoff that is not a number is not a fact");
+  t.ok(cal.data.events.every((x) => x.nfl_week === null || Number.isFinite(x.nfl_week)));
+  setRoster(P("16614", 17000, 1, "CL 1| TCV 17K| AAV 17K| Y1-17K"));
+  const ext = await call(T.ext, { years: 1, player_id: "16614" }, { fetchSelf: mutating(/roster-workbench/, (j) => { j.teams.forEach((x) => x.players.forEach((p) => { p.years = HOSTILE; p.salary = HOSTILE; })); }) });
+  t.equal(ext.status, "refused"); t.ok(!HOSTILE_RE.test(dump(ext)));
+});
+
 // ── 9. every current-only tool refuses a past as_of; none answers for today ────────────────────
 test("a past as_of is unsupported_as_of for every tool that prices or reads CURRENT state, with no facts and no data", async () => {
   const calls = [

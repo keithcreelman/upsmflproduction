@@ -61,9 +61,8 @@ export const SEASON_NOTES = Object.freeze({
 export function analyzeSeasonFinishes(rows) {
   const counts = new Map();
   for (const r of rows || []) {
-    const f = r && r.final_finish;
-    const n = Number(f);
-    if (f === null || f === undefined || f === "" || !Number.isInteger(n)) continue;
+    const n = plainInt(r && r.final_finish);
+    if (n === null) continue;
     counts.set(n, (counts.get(n) || 0) + 1);
   }
   const anomalies = [];
@@ -81,7 +80,8 @@ export function analyzeSeasonFinishes(rows) {
 //   kind: championship_bracket | toilet_bowl_champion | toilet_bracket | disputed | unlabeled
 export function labelFinish(season, finish, analysis) {
   const s = Number(season);
-  const f = typeof finish === "number" ? finish : (finish === null || finish === undefined || finish === "" ? NaN : Number(finish));
+  const pf = plainInt(finish);
+  const f = pf === null ? NaN : pf;
   const status = s === 2010 ? "disputed" : (analysis && analysis.defective ? "defective" : "ok");
   if (!Number.isInteger(f) || f < 1 || f > LEAGUE_SIZE) {
     return { label: "Not labeled: no valid final place is recorded", kind: "unlabeled", verified: false, season_status: status };
@@ -115,10 +115,39 @@ export function seasonNoteTexts(season, analysis) {
 }
 
 // ── Shared helpers for the three history tools ──────────────────────────────────────────────────
-export const pad4 = (v) => { const d = String(v == null ? "" : v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
+// STRICT validators for route values. A hostile string that merely CONTAINS numerals is not an id, a year or a week:
+// anything that is not exactly the plain shape returns null, and the caller drops the row or fact and says so in a gap.
+const asText = (v) => (typeof v === "string" ? v : (typeof v === "number" && Number.isFinite(v) ? String(v) : ""));
+export const plainNum = (v) => {                                    // plain decimal only: no hex, exponent, spaces, Infinity
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  return typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : null;
+};
+export const plainInt = (v) => { const n = plainNum(v); return Number.isInteger(n) ? n : null; };
+export const pad4 = (v) => { const s = asText(v); return /^\d{1,4}$/.test(s) ? s.padStart(4, "0") : null; };      // a franchise id: 1 to 4 numerals
+export const yearOf = (v) => { const s = asText(v); return /^\d{4}$/.test(s) && Number(s) >= 2000 && Number(s) <= 2099 ? Number(s) : null; };
+export const weekOf = (v) => { const s = asText(v); return /^\d{1,2}$/.test(s) && Number(s) >= 1 && Number(s) <= 30 ? Number(s) : null; };
 export const seasonOfAsOf = (asOf) => Number(String(asOf).slice(0, 4));
-export const leagueIdOf = (knowledge) => { const v = knowledge && knowledge.leagueId; const s = v == null ? "" : String(v).replace(/\D/g, ""); return s || null; };
-export const currentSeasonOf = (knowledge) => { const n = Number(knowledge && knowledge.currentSeason); return Number.isInteger(n) && n > 2000 ? n : null; };
+export const leagueIdOf = (knowledge) => { const s = asText(knowledge && knowledge.leagueId); return /^\d{1,8}$/.test(s) ? s : null; };
+export const currentSeasonOf = (knowledge) => yearOf(knowledge && knowledge.currentSeason);
+
+// A route date or time, parsed and RE-EMITTED by this tool; the route's own string is never copied.
+// Accepts: an ISO day (2019-05-02), a date-time with a space or T (2022-09-30 10:00:00), a ten-numeral epoch in seconds (MFL), a four-numeral year.
+// -> { iso: "YYYY-MM-DD" | "YYYY", year, precision: "day" | "year" } or null.
+export function parseWhen(v) {
+  const s = asText(v).trim();
+  const day = (y, m, d, hh = 0, mm = 0, ss = 0) => {
+    if (y < 2000 || y > 2099 || hh > 23 || mm > 59 || ss > 59) return null;
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+    return { iso: dt.toISOString().slice(0, 10), year: y, precision: "day" };
+  };
+  let m;
+  if ((m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s))) return day(+m[1], +m[2], +m[3]);
+  if ((m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:\.\d+)?Z?$/.exec(s))) return day(+m[1], +m[2], +m[3], +m[4], +m[5], +(m[6] || 0));
+  if (/^\d{10}$/.test(s)) { const dt = new Date(Number(s) * 1000); return day(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate()); }
+  if (/^\d{4}$/.test(s)) { const y = yearOf(s); return y ? { iso: String(y), year: y, precision: "year" } : null; }
+  return null;
+}
 // Route text never reaches a fact raw: a team name passes the shared screen or becomes "Team (0008)".
 export const teamText = (name, fid) => safeTeamName(name, fid);
 export { cleanName };
@@ -128,9 +157,13 @@ export const OWNER_GAP = () => gap(
   "These results are by franchise, not by owner. A franchise can change owners, so a count here is not a person's career total.",
   "partial_coverage", "owner registry (slice S3, needs Keith's rulings)");
 
+export const MAX_GAPS = 20;      // the registry rejects more than this
 export function dedupeGaps(gaps) {
   const seen = new Set();
-  return gaps.filter((g) => { const k = `${g.why}|${g.what}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  const out = gaps.filter((g) => { const k = `${g.why}|${g.what}`; if (seen.has(k)) return false; seen.add(k); return true; });
+  if (out.length <= MAX_GAPS) return out;
+  const rest = out.slice(MAX_GAPS - 1);
+  return [...out.slice(0, MAX_GAPS - 1), gap(`${rest.length} more coverage notes were folded into this one: ${rest.map((g) => g.what).join(" | ").slice(0, 300)}`, "partial_coverage", "see the other gaps")];
 }
 
 // The season as a fact: prose may not contain digits, so a year can only reach a card through this token.
@@ -180,16 +213,14 @@ const MAX_FACT_ROWS = 40;
 
 function decorate(season, x, analysis) {
   const lab = labelFinish(season, x.final_finish, analysis);
-  const ff = Number(x.final_finish);
-  const rs = Number(x.regular_season_finish);
   return {
     season,
-    franchise_id: pad4(x.franchise_id),
+    franchise_id: x.franchise_id,
     franchise_name: cleanName(x.franchise_name),
-    final_finish: Number.isInteger(ff) && x.final_finish !== null && x.final_finish !== "" ? ff : null,
+    final_finish: plainInt(x.final_finish),
     label: lab.label,
     label_kind: lab.kind,
-    regular_season_finish: Number.isInteger(rs) && x.regular_season_finish !== null && x.regular_season_finish !== "" ? rs : null,
+    regular_season_finish: plainInt(x.regular_season_finish),
     place_verified: lab.verified,
     season_status: lab.season_status,
   };
@@ -267,13 +298,16 @@ const tool = defineTool({
       return noRecord([gap("No final standings are stored in the database", "NO_RECORD", "src_final_standings (migration 0033 and its loader)")]);
     }
 
+    // Route values are validated strictly: a row whose season or franchise id is not exactly a year or 1-4 numerals is left out.
     const bySeason = new Map();
+    let rejected = 0;
     for (const x of all) {
-      const s = Number(x && x.season);
-      if (!Number.isInteger(s)) continue;
+      const s = yearOf(x && x.season), fid = pad4(x && x.franchise_id);
+      if (s === null || fid === null) { rejected += 1; continue; }
       if (!bySeason.has(s)) bySeason.set(s, []);
-      bySeason.get(s).push(x);
+      bySeason.get(s).push({ ...x, franchise_id: fid });
     }
+    if (!bySeason.size) return noRecord([gap("No readable final standings rows were returned", "NO_RECORD", "src_final_standings")]);
     const analysis = new Map();
     for (const [s, rows] of bySeason) analysis.set(s, analyzeSeasonFinishes(rows));
 
@@ -282,6 +316,7 @@ const tool = defineTool({
 
     const gaps = [];
     const notes = [];
+    if (rejected) gaps.push(gap(`${rejected} route row(s) had an unreadable season or franchise id and were left out`, "partial_coverage", "a clean src_final_standings row for each"));
     if (dateAsOf) gaps.push(DATE_MAPPED_GAP(asOf, asOfYear));
     if (cs && (argSeason === cs || asOfYear === cs) && !bySeason.has(cs)) {
       gaps.push(gap(`The ${cs} season is still in progress; its final places are recorded after the playoffs, so none are shown for it`, "partial_coverage", `${cs} final standings (after the season ends)`));
@@ -379,23 +414,28 @@ const tool = defineTool({
       if (!h.ok || !h.json || h.json.ok === false) return routeFail(HOC_ROUTE, h);
       const champs = Array.isArray(h.json.champions) ? h.json.champions : [];
       titleGames = [];
+      const noGame = [], badGame = [];                       // seasons, summarized into ONE gap each (the registry allows 20 gaps)
       for (const d of sel) {
         if (d.final_finish !== 1 || d.label_kind !== "championship_bracket") continue;
-        const c = champs.find((x) => Number(x.season) === d.season);
-        if (!c) { gaps.push(gap(`No championship game record for ${d.season}`, "NO_RECORD", "src_schedule playoff rows")); continue; }
-        if (pad4(c.franchise_id) !== d.franchise_id) {
-          gaps.push(gap(`The ${d.season} champion in the title-game record (franchise ${pad4(c.franchise_id)}) differs from the final standings (franchise ${d.franchise_id}); the game score is not shown`, "conflict_in_canon", "a ruling on which record governs"));
+        const c = champs.find((x) => yearOf(x && x.season) === d.season);
+        if (!c) { noGame.push(d.season); continue; }
+        const cf = pad4(c.franchise_id);
+        if (cf !== d.franchise_id) {
+          gaps.push(gap(`The ${d.season} champion in the title-game record (${cf ? `franchise ${cf}` : "an unreadable franchise id"}) differs from the final standings (franchise ${d.franchise_id}); the game score is not shown`, "conflict_in_canon", "a ruling on which record governs"));
           continue;
         }
         const g = c.final_game;
-        if (!g) { gaps.push(gap(`No championship game record for ${d.season}`, "NO_RECORD", "src_schedule playoff rows")); continue; }
+        if (!g) { noGame.push(d.season); continue; }
+        const oid = pad4(g.opponent_franchise_id), wk = weekOf(g.week), cs1 = plainNum(g.champion_score), os1 = plainNum(g.opponent_score);
+        if (oid === null || wk === null || cs1 === null || os1 === null) { badGame.push(d.season); continue; }
         titleGames.push({
-          season: d.season, week: Number.isInteger(Number(g.week)) ? Number(g.week) : null, franchise_id: d.franchise_id,
-          opponent_franchise_id: pad4(g.opponent_franchise_id), opponent_franchise_name: cleanName(g.opponent_franchise_name),
-          champion_score: Number.isFinite(Number(g.champion_score)) ? Number(g.champion_score) : null,
-          opponent_score: Number.isFinite(Number(g.opponent_score)) ? Number(g.opponent_score) : null,
+          season: d.season, week: wk, franchise_id: d.franchise_id,
+          opponent_franchise_id: oid, opponent_franchise_name: cleanName(g.opponent_franchise_name),
+          champion_score: cs1, opponent_score: os1,
         });
       }
+      if (noGame.length) gaps.push(gap(`No championship game record for ${noGame.join(", ")}`, "NO_RECORD", "src_schedule playoff rows"));
+      if (badGame.length) gaps.push(gap(`The title-game record for ${badGame.join(", ")} has an unreadable id, week or score, so the game is not shown`, "partial_coverage", "a clean championship game row"));
     }
 
     // Facts (code-made; the model may state only these).

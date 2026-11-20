@@ -32,11 +32,18 @@
 //          12 history: live uses the real home directory only (HOME and UPS_AI_EVAL_HOME are ignored; tests use a canary key to get a temp home); the ledger
 //             and BOTH copies of the spend journal must agree; the very first live run needs --first-live-run (refused once history exists); a run id that has
 //             any live row, journal line or live results is refused; a set with known issues needs --accept-known-issues.
-//          13 a provider-side spend limit: --provider-limit-confirmed <USD> (you set it in the Console; at least --max-usd and at most 3 x --max-usd), or
-//             --no-provider-limit-estimate-only (a loud warning; the approved amount may not exceed $2.00).
+//          13 a provider-side spend limit: --provider-limit-confirmed <USD> (at least --max-usd and at most 2 x --max-usd), or
+//             --no-provider-limit-estimate-only (a loud warning; the approved amount may not exceed $1.00).
+//             THE PROVIDER LIMIT IS SELF-ATTESTED: this program cannot see the Console, so the flag only records what Keith says he set. The local gate caps
+//             ESTIMATED charges (an unverified price table, with a 1.25 margin). The real worst case is bounded by the provider-side limit Keith sets, not by
+//             anything in this file.
+//          14 after EVERY call the ledger's actual live spend for the run (the returned usage priced, not the reservation) is compared with --max-usd; if it is
+//             over, no further call is made, the run is marked ABORTED_OVER_CAP and the exit code is 4.
 //         While PRICES_VERIFIED is false, every live call's recorded usage (and so its cost) carries a 1.25 safety margin.
 //
-// Exit codes: 0 done, 1 failed, 2 refused by a gate (nothing was sent), 3 stopped early by a stop rule, 64 bad usage.
+// Exit codes: 0 done, 1 failed, 2 refused by a gate (nothing was sent), 3 stopped early by a stop rule, 4 ABORTED_OVER_CAP, 64 bad usage.
+// The terminal streams main() uses come from process.stdin/process.stdout and must be real TTYs. Injected streams (and the home folder, and the starting fetch)
+// are honored only under the test gate (see isTestGate): an automation that imports main() cannot supply its own terminal.
 // The key is read once from ANTHROPIC_API_KEY_DESK, handed only to the Anthropic client, never printed, logged or written (all output is redacted).
 import fs from "node:fs";
 import os from "node:os";
@@ -85,7 +92,14 @@ const VALUE_FLAGS = ["--set", "--bank", "--ids", "--mode", "--run-id", "--out", 
 const BOOL_FLAGS = ["--ledger-summary", "--accept-known-issues", "--first-live-run", "--no-provider-limit-estimate-only"];
 export const TEST_KEY = "TEST-CANARY-KEY-NOT-REAL";   // the one literal key that lets tests redirect the live home; a real key never equals it
 export const PRICE_MARGIN_UNVERIFIED = 1.25;
-export const ESTIMATE_ONLY_MAX_USD = 2.0;
+export const ESTIMATE_ONLY_MAX_USD = 1.0;
+export const PROVIDER_LIMIT_MAX_MULTIPLE = 2;
+// THE TEST GATE. Everything a test needs to redirect (the home folder, the terminal streams, the fetch the run starts with) is honored ONLY when the desk key
+// is the literal canary and UPS_AI_EVAL_UNDER_TEST=1. A real key never equals the canary, so a program that imports this module and passes its own streams,
+// home folder or fetch gets them ignored: live mode then uses the real home, process.stdin/process.stdout (which must be real TTYs) and Node's own fetch.
+export const isTestGate = (env) => !!env && env.ANTHROPIC_API_KEY_DESK === TEST_KEY && env.UPS_AI_EVAL_UNDER_TEST === "1";
+export const looksLikeNodeFetch = (fn) => typeof fn === "function" && /undici/.test(Function.prototype.toString.call(fn));   // Node's built-in fetch lazy-loads undici
+export function resolveIo(env, injected) { return isTestGate(env) && injected && injected.stdin && injected.stdout ? injected : { stdin: process.stdin, stdout: process.stdout }; }
 export function parseArgs(argv) {
   const a = { flags: {} };
   for (let i = 0; i < argv.length; i++) {
@@ -162,7 +176,7 @@ export function evalHome(env = process.env) {
 // spending from a fresh, empty history. Tests need a temp home; they get one ONLY with the literal canary key AND UPS_AI_EVAL_UNDER_TEST=1.
 // The second copy of the journal lives outside ~/.ups_ai_eval (macOS: ~/Library/Application Support/UPS AI Eval, elsewhere ~/.local/share/ups-ai-eval).
 export function liveHome(env = process.env) {
-  if (env.ANTHROPIC_API_KEY_DESK === TEST_KEY && env.UPS_AI_EVAL_UNDER_TEST === "1") {
+  if (isTestGate(env)) {
     const o = env.UPS_AI_EVAL_HOME;
     if (typeof o !== "string" || !o.trim()) throw new Refusal(12, "test mode needs UPS_AI_EVAL_HOME.");
     const real = realpathNearest(o), tmp = realpathNearest(os.tmpdir());
@@ -322,6 +336,7 @@ function renderSummary(res) {
   const L = [];
   L.push(`# Commissioner Desk eval: run ${res.run_id} (${res.mode})`);
   L.push("");
+  if (res.status) L.push(`**Status: ${res.status}**`, "");
   L.push(res.scripted ? "**SCRIPTED MODEL: this proves tools, facts and validation, not model quality. No AI was used and nothing was spent.**" : "**LIVE MODEL run.**");
   L.push("");
   L.push(`Set ${res.set_id}, ${res.n_cases_run} of ${res.n_cases_planned} cases run. ${res.stopped ? `STOPPED: ${res.stopped.reason}` : "Completed."}`);
@@ -531,13 +546,13 @@ function liveGates({ args, env, runId, plan, ledgerFile, journalFiles, home, out
   // 13: a provider-side spend limit, or an explicit estimate-only run with a lower ceiling
   const pl = flags["--provider-limit-confirmed"], estOnly = !!flags["--no-provider-limit-estimate-only"];
   if (pl != null && estOnly) throw new Refusal(13, "give --provider-limit-confirmed <USD> OR --no-provider-limit-estimate-only, not both.");
-  if (pl == null && !estOnly) throw new Refusal(13, "a provider-side spend limit is required. In the Anthropic Console set a spend limit on the workspace, then pass --provider-limit-confirmed <USD> (at least --max-usd, at most 3 times it). Without one, pass --no-provider-limit-estimate-only (a loud warning, and the approved amount may not exceed $2.00).");
+  if (pl == null && !estOnly) throw new Refusal(13, "a provider-side spend limit is required. In the Anthropic Console set a spend limit on the workspace, then pass --provider-limit-confirmed <USD> (at least --max-usd, at most 2 times it). It is self-attested: this program cannot see the Console. Without one, pass --no-provider-limit-estimate-only (a loud warning, and the approved amount may not exceed $1.00).");
   let providerLimit = null;
   if (pl != null) {
     providerLimit = /^\d+(\.\d+)?$/.test(String(pl)) ? Number(pl) : NaN;
     if (!(providerLimit > 0)) throw new Refusal(13, "--provider-limit-confirmed must be a dollar amount above zero.");
     if (providerLimit + 1e-12 < maxUsd) throw new Refusal(13, `--provider-limit-confirmed ${money(providerLimit)} is below --max-usd ${money(maxUsd)}: the provider would stop the run before the approved amount.`);
-    if (providerLimit > 3 * maxUsd + 1e-12) throw new Refusal(13, `--provider-limit-confirmed ${money(providerLimit)} is more than 3 times --max-usd ${money(maxUsd)}: a limit that high does not protect this run. Lower the Console limit or raise the approval.`);
+    if (providerLimit > PROVIDER_LIMIT_MAX_MULTIPLE * maxUsd + 1e-12) throw new Refusal(13, `--provider-limit-confirmed ${money(providerLimit)} is more than 2 times --max-usd ${money(maxUsd)}: a limit that high does not protect this run. Lower the Console limit or raise the approval.`);
   } else if (maxUsd > ESTIMATE_ONLY_MAX_USD + 1e-12) throw new Refusal(13, `without a provider-side limit the approved amount may not exceed ${money(ESTIMATE_ONLY_MAX_USD)} (--max-usd is ${money(maxUsd)}).`);
   // 6: prices: an exact match to today's local date (or the UTC date when that differs), never a day either side
   const pc = flags["--prices-confirmed"];
@@ -561,9 +576,10 @@ function liveGates({ args, env, runId, plan, ledgerFile, journalFiles, home, out
 // (A process that fakes a pseudo-terminal and types the phrase is a person-level bypass, not an accident; the provider-side limit is what stops that.)
 export const confirmPhrase = (runId, maxUsd) => `${runId} $${Number(maxUsd).toFixed(2)}`;
 export async function liveConfirmation({ runId, maxUsd, input, output, plan = null, estimateOnly = false }) {
-  if (!input || !input.isTTY || !output || !output.isTTY) throw new Refusal(8, "live runs need a person at a real terminal (stdin and stdout must be a TTY). A script, an agent or a CI job can never run live; open a terminal and run it yourself.");
+  if (!input || input.isTTY !== true || !output || output.isTTY !== true) throw new Refusal(8, "live runs need a person at a real terminal (stdin and stdout must be a TTY). A script, an agent or a CI job can never run live; open a terminal and run it yourself.");
   if (plan) printPlan(plan, { heading: "ABOUT TO SPEND REAL MONEY" });
-  if (estimateOnly) say("WARNING: no provider-side spend limit. The local caps meter ESTIMATED charges from an UNVERIFIED price table, so a real account rate above the table could cost more than the approved amount.");
+  if (estimateOnly) say("WARNING: no provider-side spend limit. The local caps meter ESTIMATED charges from an UNVERIFIED price table (margin 1.25), so a real account rate above the table could cost more than the approved amount.");
+  else say("Note: the provider-side limit is self-attested (this program cannot see the Console); the real worst case is bounded by the limit you set there.");
   const phrase = confirmPhrase(runId, maxUsd);
   const rl = readline.createInterface({ input, output });
   const answer = await new Promise((resolve) => rl.question(`Type exactly "${phrase}" to start the paid run, anything else cancels: `, resolve));
@@ -599,7 +615,7 @@ export function withPriceMargin(inner, factor) {
     },
   };
 }
-async function runLive({ cases, runId, setSha, setId, ledgerFile, journalFiles, env, outDir, key, caps, effective, providerLimit, estimateOnly }) {
+async function runLive({ cases, runId, setSha, setId, ledgerFile, journalFiles, env, outDir, key, caps, effective, providerLimit, estimateOnly, maxUsd }) {
   const { runCase, makeLedgerDb, makeKnowledge } = await import("./lib/scenario_env.mjs");
   const { createLiveClientFromEnv } = await import("../../worker/src/desk/anthropic_client.js");
   const counters = { allowed: 0, blocked: 0 };
@@ -610,6 +626,17 @@ async function runLive({ cases, runId, setSha, setId, ledgerFile, journalFiles, 
   const gateEnv = { DESK_LIVE_MODEL_ENABLED: "1", ANTHROPIC_API_KEY_DESK: key, DESK_BUDGET_PER_QUESTION_USD: String(effective.perQuestion), DESK_BUDGET_PER_RUN_USD: String(effective.perRun), DESK_BUDGET_MONTHLY_USD: String(effective.monthly), DESK_BUDGET_TOTAL_USD: String(effective.total) };
   mkdirp(path.dirname(ledgerFile));
   const journal = makeJournal(journalFiles, runId);
+  // After EVERY call finalizes: the ledger's live spend for this run (cost_usd: the returned usage priced, with the margin; NOT the reservation) against the
+  // approved amount. Over it: no further call is made (before() refuses), and the run ends ABORTED_OVER_CAP.
+  const guard = { overCap: null };
+  const hook = {
+    before: () => journal.before() || (guard.overCap ? "aborted_over_cap" : null),
+    after: (info) => {
+      journal.after(info);
+      const spent = db.raw.prepare("SELECT COALESCE(SUM(cost_usd), 0) AS s FROM ai_call_log WHERE run_id = ? AND mode = 'live'").get(runId).s;
+      if (Number.isFinite(maxUsd) && spent > maxUsd + 1e-9 && !guard.overCap) guard.overCap = { spent, maxUsd };
+    },
+  };
   const { PRICES_VERIFIED } = await import("../../worker/src/desk/prices.js");
   const margin = PRICES_VERIFIED ? 1 : PRICE_MARGIN_UNVERIFIED;
   const db = makeLedgerDb(ledgerFile);
@@ -626,7 +653,7 @@ async function runLive({ cases, runId, setSha, setId, ledgerFile, journalFiles, 
     let spent = 0, answered = 0;
     for (let i = 0; i < cases.length; i++) {
       const { caseDef, spec } = cases[i];
-      const r = await runCase({ caseDef, spec, client, gateEnv, db, runId, clock: "real", ledgerHook: journal });
+      const r = await runCase({ caseDef, spec, client, gateEnv, db, runId, clock: "real", ledgerHook: hook });
       const inv = invariantFailures(r, perQ);
       const modelError = r.gate.some((g) => g.reason === "model_error");
       const cost = r.ledger.reduce((a, x) => a + (x.cost_usd == null ? x.est_cost_usd : x.cost_usd), 0);
@@ -635,6 +662,7 @@ async function runLive({ cases, runId, setSha, setId, ledgerFile, journalFiles, 
       runs.push({ r, caseDef, spec });
       records.push({ r, caseDef, spec, inv, modelError, cost });
       const n = i + 1;
+      if (guard.overCap) { stopped = { reason: `ABORTED_OVER_CAP: actual spend ${money6(guard.overCap.spent)} is over the approved ${money6(guard.overCap.maxUsd)}; no further call was made`, after_cases: n, aborted_over_cap: true }; break; }
       if (journal.failed) { stopped = { reason: "hard abort: the spend journal could not be written, so no further call was made", after_cases: i + 1 }; break; }
       if (modelError) { stopped = { reason: `hard abort: a model call failed in ${caseDef.id}`, after_cases: n }; break; }
       if (n <= EARLY_CASES && (inv.length || r.trace.outcome === "tool_failure:validation")) { stopped = { reason: `hard abort: ${inv.length ? `invariant failure (${inv.join("; ")})` : "the validator rejected the card twice"} in ${caseDef.id}, one of the first ${EARLY_CASES} cases`, after_cases: n }; break; }
@@ -650,7 +678,7 @@ async function runLive({ cases, runId, setSha, setId, ledgerFile, journalFiles, 
   const total = recs.reduce((a, c) => a + c.cost_usd, 0);
   const res = {
     run_id: runId, mode: "live", scripted: false, label: "LIVE MODEL", set_id: setId, set_sha256: setSha, started_at: startedAt, finished_at: new Date().toISOString(),
-    n_cases_planned: cases.length, n_cases_run: recs.length, stopped, caps: { per_question_usd: caps.perQuestion, per_run_usd: caps.perRun, monthly_usd: caps.monthly, total_usd: caps.total }, effective_caps: { per_question_usd: effective.perQuestion, per_run_usd: effective.perRun, monthly_usd: effective.monthly, total_usd: effective.total }, journal_lines_written: journal.index, price_margin: margin, provider_limit_usd: providerLimit, estimate_only: !!estimateOnly,
+    status: guard.overCap ? "ABORTED_OVER_CAP" : stopped ? "STOPPED" : "COMPLETE", approved_max_usd: maxUsd, n_cases_planned: cases.length, n_cases_run: recs.length, stopped, caps: { per_question_usd: caps.perQuestion, per_run_usd: caps.perRun, monthly_usd: caps.monthly, total_usd: caps.total }, effective_caps: { per_question_usd: effective.perQuestion, per_run_usd: effective.perRun, monthly_usd: effective.monthly, total_usd: effective.total }, journal_lines_written: journal.index, price_margin: margin, provider_limit_usd: providerLimit, estimate_only: !!estimateOnly,
     network_attempts: counters.blocked, anthropic_calls: counters.allowed, prices: { verified_by_user_on: null },
     cases: recs, totals: { cost_usd: total, reserved_usd: recs.reduce((a, c) => a + c.reserved_usd, 0), mean_cost_usd: recs.length ? total / recs.length : 0 },
     score: score.per_case ? { blocked: score.blocked, metrics: score.metrics, zero_tolerance: score.zero_tolerance, needs_human_review: score.needs_human_review } : score,
@@ -685,7 +713,8 @@ export function ledgerSummary(file, journals = []) {
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────────────────────────────
-export async function main(argv, env = process.env, io = { stdin: process.stdin, stdout: process.stdout }) {
+export async function main(argv, env = process.env, injectedIo = null) {
+  const io = resolveIo(env, injectedIo);                          // injected streams count only under the test gate; otherwise the real process streams
   let args;
   try { args = parseArgs(argv); } catch (e) { warn(`usage error: ${e.message}`); return 64; }
   const flags = args.flags;
@@ -739,6 +768,11 @@ export async function main(argv, env = process.env, io = { stdin: process.stdin,
 
     // live
     earlyLiveGates({ env });                                      // gates 1 to 3 (caps above zero) before any work
+    if (!isTestGate(env)) {
+      // Real mode: a real terminal and Node's own fetch are required UP FRONT, before any history is read or any work is done.
+      if (io.stdin.isTTY !== true || io.stdout.isTTY !== true) throw new Refusal(8, "live runs need a person at a real terminal (process.stdin and process.stdout must be a TTY; terminal streams supplied by a caller are ignored). A script, an agent or a CI job can never run live; open a terminal and run it yourself.");
+      if (!looksLikeNodeFetch(NATIVE_FETCH)) throw new Refusal(10, "globalThis.fetch was replaced before this program loaded; live mode uses only Node's own fetch.");
+    }
     if (!fs.existsSync(planFile)) throw new Refusal(4, `no plan found for run ${runId}. Run --mode plan with the same --run-id, --set and --out first.`);
     // Live NEVER reads a cost from plan.json: the plan is recomputed from the set here (the code plan mode uses) and the file must match it.
     const plan = await buildPlan({ cases, runId, setSha, setId });
@@ -753,12 +787,12 @@ export async function main(argv, env = process.env, io = { stdin: process.stdin,
     say("Gate 7: the dry run of this set passed.");
     // 8: confirmation
     await liveConfirmation({ runId, maxUsd: g.maxUsd, input: io.stdin, output: io.stdout, plan, estimateOnly: g.estimateOnly });
-    const res = await runLive({ cases, runId, setSha, setId, ledgerFile, journalFiles, env, outDir, key: g.key, caps: g.caps, effective: g.effective, providerLimit: g.providerLimit, estimateOnly: g.estimateOnly });
+    const res = await runLive({ cases, runId, setSha, setId, ledgerFile, journalFiles, env, outDir, key: g.key, caps: g.caps, effective: g.effective, providerLimit: g.providerLimit, estimateOnly: g.estimateOnly, maxUsd: g.maxUsd });
     res.prices = { verified_by_user_on: flags["--prices-confirmed"] };
     writeOutputs(outDir, res);
     say(`Run ${runId}: LIVE, ${res.n_cases_run} of ${res.n_cases_planned} cases, cost ${money6(res.totals.cost_usd)}, mean ${money6(res.totals.mean_cost_usd)}.`);
     for (const c of res.cases) say(`  ${pad(c.id, 12)}${pad(c.state, 18)}oracle ${pad(c.oracle_check.pass === true ? "pass" : c.oracle_check.pass === false ? "MISMATCH" : "n/a", 9)}score ${pad(c.score ? (c.score.pass ? "pass" : "fail") : "n/a", 5)}${money6(c.cost_usd)}`);
-    if (res.stopped) { say(`STOPPED: ${res.stopped.reason}`); say(`Results: ${path.join(outDir, "results.json")}`); return 3; }
+    if (res.stopped) { say(`${res.status === "ABORTED_OVER_CAP" ? "" : "STOPPED: "}${res.stopped.reason}`); say(`Results: ${path.join(outDir, "results.json")}`); return res.status === "ABORTED_OVER_CAP" ? 4 : 3; }
     say(`Results: ${path.join(outDir, "results.json")}  Summary: ${path.join(outDir, "summary.md")}`);
     return 0;
   } catch (e) {

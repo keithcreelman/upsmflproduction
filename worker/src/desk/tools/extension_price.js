@@ -22,6 +22,8 @@ const R_WORKBENCH = "/roster-workbench";
 const SOURCE = `extension_pricing.js ${PRICING_VERSION}`;
 
 const MISSING_INPUT = new Set(["pricing_position_unavailable", "pricing_contract_unreadable", "pricing_salary_unreadable", "pricing_aav_unavailable"]);
+// A route number must be a number or a numeric string; anything else is null (the module then refuses for want of the input).
+const numOrNull = (v) => ((typeof v === "number" || (typeof v === "string" && /^-?\d{1,12}(\.\d+)?$/.test(v.trim()))) && Number.isFinite(Number(v)) ? Number(v) : null);
 const s = (v) => String(v == null ? "" : v).trim();
 
 function refuse(code, reason, gap, provenance) {
@@ -89,7 +91,7 @@ export default defineTool({
       // Route text is screened (shared_text.js) before it is priced, shown or stored: a contract string that fails the screen is treated as
       // missing (the module then refuses for want of an AAV token) rather than repaired.
       name = safePlayerName(p.name, String(args.player_id));
-      input = { position: safeToken(p.position), yearsRemaining: p.years, salary: p.salary, contractInfo: safeText(p.special, 190) };
+      input = { position: safeToken(p.position), yearsRemaining: numOrNull(p.years), salary: numOrNull(p.salary), contractInfo: safeText(p.special, 190) };
       Object.assign(prov, { route: R_WORKBENCH, season: String(knowledge.currentSeason), contract_source: "roster-workbench (display-normalized contractInfo; the same contract the Front Office shows)" });
     } else if (hasStated) {
       mode = "what_if";

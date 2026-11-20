@@ -13,7 +13,7 @@ import { t, test, run } from "./fixtures/mini_test.mjs";
 import { runTool, defineTool, getTool } from "../worker/src/desk/registry.js";
 import { makeCommishCaller, formatFact, isFactId } from "../worker/src/desk/contract.js";
 import standingsTool from "../worker/src/desk/tools/standings_get.js";
-import historyTool, { FINISH_LABELS, analyzeSeasonFinishes, labelFinish, SEASON_NOTES } from "../worker/src/desk/tools/history_finishes.js";
+import historyTool, { FINISH_LABELS, analyzeSeasonFinishes, labelFinish, SEASON_NOTES, pad4, yearOf, weekOf, plainNum, parseWhen, leagueIdOf, currentSeasonOf } from "../worker/src/desk/tools/history_finishes.js";
 import playerTool from "../worker/src/desk/tools/player_transactions.js";
 import { makeWorkerEnv, makeMfl, workerFetch, quiet } from "./fixtures/worker_harness.mjs";
 import { SCHEMA, loadSeason, recorded2026 } from "./fixtures/standings_d1.mjs";
@@ -583,6 +583,97 @@ test("hostile route TEXT (team, division, player, label, detail, status) never r
   t.equal(envs[2].data.finishes[0].franchise_name, null);
   t.equal(fv(envs[2], "s2024_f0005_team"), "Team (0005)");
   t.equal(fv(envs[6], "name"), "Player (14056)"); t.equal(fv(envs[6], "holder"), "Team (0001)");
+});
+
+test("strict validators: ids, years, weeks, numbers and dates are exact shapes, never 'contains numerals'", () => {
+  for (const [v, want] of [["5", "0005"], ["0005", "0005"], [5, "0005"], ["12", "0012"], ["12345", null], ["0x1F", null], [" 5", null], ["5 ", null], ["see 0001", null], ["1e3", null], ["-1", null], ["", null], [null, null], [{}, null], [["0001"], null]]) {
+    t.equal(pad4(v), want, `pad4(${JSON.stringify(v)})`);
+  }
+  for (const [v, want] of [["2024", 2024], [2024, 2024], ["20245", null], ["2024 HOSTILEMARK", null], ["0x7E8", null], ["1999", null], ["2100", null], ["", null]]) t.equal(yearOf(v), want, `yearOf(${JSON.stringify(v)})`);
+  for (const [v, want] of [["16", 16], [16, 16], ["1", 1], ["0", null], ["31", null], ["160", null], ["1e1", null], ["week 16", null], ["0x10", null]]) t.equal(weekOf(v), want, `weekOf(${JSON.stringify(v)})`);
+  for (const [v, want] of [["12.5", 12.5], [12.5, 12.5], ["-3", -3], ["0x10", null], ["1e3", null], [" 1", null], ["1 ", null], ["Infinity", null], ["NaN", null], [".5", null], ["5.", null], ["", null], [null, null], [Infinity, null]]) t.equal(plainNum(v), want, `plainNum(${JSON.stringify(v)})`);
+  t.equal(leagueIdOf({ leagueId: "74598" }), "74598"); t.equal(leagueIdOf({ leagueId: 74598 }), "74598");
+  t.equal(leagueIdOf({ leagueId: "league 74598" }), null); t.equal(leagueIdOf({ leagueId: "7e4" }), null); t.equal(leagueIdOf({}), null);
+  t.equal(currentSeasonOf({ currentSeason: 2026 }), 2026); t.equal(currentSeasonOf({ currentSeason: "2026x" }), null);
+  // dates: parsed and re-emitted
+  t.deepEqual(parseWhen("2019-05-02"), { iso: "2019-05-02", year: 2019, precision: "day" });
+  t.deepEqual(parseWhen("2022-09-30 10:00:00"), { iso: "2022-09-30", year: 2022, precision: "day" });
+  t.deepEqual(parseWhen("2022-09-30T10:00:00Z"), { iso: "2022-09-30", year: 2022, precision: "day" });
+  t.deepEqual(parseWhen("1633176000"), { iso: "2021-10-02", year: 2021, precision: "day" });
+  t.deepEqual(parseWhen(1633176000), { iso: "2021-10-02", year: 2021, precision: "day" });
+  t.deepEqual(parseWhen("2023"), { iso: "2023", year: 2023, precision: "year" });
+  for (const bad of ["tomorrow", "2023-02-31", "2023-13-01", "2023-01-01 25:00:00", "2023-01-01 HOSTILEMARK", "1e9", "99999999999", "0x10", "", null, undefined, "next 2024", "1970-01-01", "2019-5-2"]) t.equal(parseWhen(bad), null, `parseWhen(${JSON.stringify(bad)})`);
+});
+
+test("gaps are deduplicated and capped at the registry's 20, never silently dropped", async () => {
+  const { dedupeGaps, MAX_GAPS } = await import("../worker/src/desk/tools/history_finishes.js");
+  const many = Array.from({ length: 30 }, (_, i) => ({ what: `gap number ${i}`, why: "partial_coverage", source_needed: "x" }));
+  const out = dedupeGaps([...many, ...many]);
+  t.equal(MAX_GAPS, 20); t.equal(out.length, 20);
+  t.match(out[19].what, /11 more coverage notes were folded into this one/);
+  t.equal(dedupeGaps([many[0], many[0]]).length, 1);
+});
+
+test("hostile ids, years, weeks, numbers and dates (text that merely CONTAINS numerals) never reach an envelope; real data still passes", async () => {
+  const BAD_ID = "see 0001 HOSTILEMARK", BAD_YR = "2024 HOSTILEMARK", BAD_WK = "week 16 HOSTILEMARK", BAD_NUM = "0x10", BAD_DATE = "tomorrow";
+  const corrupt = (o, over) => ({ ...o, ...over });
+  const stRows = REC25.rows.map((r, i) => (i === 0 ? corrupt(r, { franchise_id: BAD_ID }) : i === 1 ? corrupt(r, { h2h_w: BAD_NUM, pf_total: "1e3", pf: "0x1", division_rank: BAD_WK, playoff_seed: "2024 HOSTILEMARK" }) : r));
+  const brSeeds = BRK["2025"].seeds.map((x, i) => (i === 0 ? corrupt(x, { franchise_id: BAD_ID }) : i === 1 ? corrupt(x, { final_finish: BAD_NUM, seed: BAD_WK, regular_season_finish: "1e1" }) : x));
+  const brGames = BRK["2025"].matchups.map((m, i) => (i === 0 ? corrupt(m, { week: BAD_WK }) : i === 1 ? corrupt(m, { team_score: BAD_NUM, opponent_score: "1e3" }) : i === 2 ? corrupt(m, { opponent_franchise_id: BAD_ID }) : m));
+  const finRows = finishRows().map((r, i) => (i === 0 ? corrupt(r, { season: BAD_YR }) : i === 1 ? corrupt(r, { franchise_id: BAD_ID }) : i === 2 ? corrupt(r, { final_finish: BAD_NUM }) : r));
+  const hoc = { ok: true, champions: [{ season: 2024, franchise_id: "0005", final_game: { week: BAD_WK, opponent_franchise_id: "0009", champion_score: BAD_NUM, opponent_score: 1 } }, { season: BAD_YR, franchise_id: "0003", final_game: { week: 17, opponent_franchise_id: BAD_ID, champion_score: 2, opponent_score: 1 } }] };
+  const evs = [
+    { seq: 1, season: 2019, date: BAD_DATE, kind: "draft", label: "Rookie Draft", franchise_id: "0008", franchise_name: "Real Deal Creel" },
+    { seq: 2, season: BAD_YR, date: "2021-08-14", kind: "auction", label: "Auction Won", franchise_id: "0003" },
+    { seq: BAD_NUM, season: 2021, date: "2021-08-14", kind: "add", label: "Free Agent Add", franchise_id: "0003" },
+    { seq: 4, season: 2022, date: "2022-13-45", kind: "trade", label: "Traded", franchise_id: BAD_ID, from_franchise_id: BAD_ID },
+    { seq: 5, season: 2022, ts: 1633176000, date: "2024-01-01 HOSTILEMARK", kind: "drop", label: "Dropped", franchise_id: "0001", franchise_name: "L.A. Looks" },
+    { seq: 6, season: 2024, date: "1633176000", kind: "tag", label: "Tagged", franchise_id: "5" },
+  ];
+  const bundle = { player_id: "14056", profile: { playerProfile: { player: { name: "Test, Player" } } },
+    current_roster: { season: BAD_YR, franchise_id: BAD_ID, team_name: "Gride", status: "ROSTER" },
+    trade_history: [{ season: BAD_YR, franchise_id: BAD_ID, asset_role: "X", datetime_et: BAD_DATE }, { season: 2022, franchise_id: "0001", franchise_name: "L.A. Looks", asset_role: "RECEIVED", datetime_et: "tomorrow HOSTILEMARK" }, { season: 2023, franchise_id: "1", franchise_name: "Gride", asset_role: "RECEIVED", datetime_et: "2023-03-05 08:00:00" }],
+    last_add: { season: 2021, franchise_id: "0003", franchise_name: "Gride", method: "AUCTION", datetime_et: BAD_DATE } };
+  const s = fakeSelf({
+    "/api/standings": json({ ...REC25, rows: stRows, meta: { ...REC25.meta, last_regular_season_week: BAD_WK }, regular_season: { through_week: BAD_WK } }),
+    "/api/playoff-bracket": json({ ...BRK["2025"], seeds: brSeeds, matchups: brGames, playoff_weeks: [15, BAD_WK, "16", "99"] }),
+    "/api/historical-finishes": json({ ok: true, rows: finRows }), "/api/hall-of-champions": json(hoc),
+    "/api/player-transactions": json(txBody(evs)), "/api/player-bundle": json(bundle),
+  });
+  const envs = await Promise.all([
+    call("standings.get", { season: 2025, view: "both", as_of: "current" }, deps(s.fetchSelf)),
+    call("history.finishes", { season: 2024, as_of: "current" }, deps(s.fetchSelf)),
+    call("history.finishes", { view: "champions", include_title_game: true, as_of: "current" }, deps(s.fetchSelf)),
+    call("player.transactions", { pid: "14056", as_of: "current" }, deps(s.fetchSelf)),
+    call("player.transactions", { pid: "14056", view: "profile", as_of: "current" }, deps(s.fetchSelf)),
+  ]);
+  for (const e of envs) {
+    const blob = JSON.stringify(e);
+    t.equal(e.status, "ok", `${e.tool} ${JSON.stringify(e.error)}`);
+    t.ok(!blob.includes("HOSTILEMARK"), `${e.tool}: no hostile text`);
+    t.ok(!/tomorrow|0x10|"1e3"|2022-13-45/.test(blob), `${e.tool}: no hostile date or number copied`);
+    t.ok(!/see 0001/.test(blob), `${e.tool}: a hostile id never becomes an id`);
+    t.ok(e.coverage.gaps.some((g) => /unreadable|left out/.test(g.what)), `${e.tool}: the dropped values are a stated gap`);
+  }
+  const [st, fin, champs, tx, prof] = envs;
+  t.equal(st.data.standings.length, 11, "the row with a hostile id is dropped");
+  t.equal(st.data.standings.find((r) => r.franchise_id === "0009").record, null, "a hex or exponent value is not a number");
+  t.equal(st.data.playoffs.seeds.length, 11);
+  t.deepEqual(st.data.playoffs.playoff_weeks, [15, 16], "only real weeks survive");
+  t.equal(st.data.through_week, null);
+  t.equal(fin.data.finishes.length, 12, "2024 is intact; the hostile rows were 2010 rows and are left out");
+  t.equal(fin.data.finishes.find((x) => x.franchise_id === "0012").final_finish, 7, "real golden data still passes");
+  t.deepEqual(champs.data.title_games.filter((g) => g.season === 2024), [], "a hostile week or score drops the title game");
+  // player transactions: the draft keeps its row but has no date; real epoch and ISO dates are re-emitted
+  t.deepEqual(tx.data.events.map((e) => e.seq), [1, 4, 5, 6]);
+  t.equal(tx.data.events.find((e) => e.seq === 4).franchise_id, null, "a hostile franchise id is blank, not repaired");
+  t.equal(tx.data.events.find((e) => e.seq === 1).date, "");
+  t.equal(tx.data.events.find((e) => e.seq === 5).date, "2021-10-02", "the route's date was hostile; its epoch was used");
+  t.equal(tx.data.events.find((e) => e.seq === 6).date, "2021-10-02", "an epoch date is re-emitted as ISO");
+  t.equal(tx.data.events.find((e) => e.seq === 6).franchise_id, "0005", "a short plain id is padded");
+  t.equal(prof.data.roster_in_season, null, "a hostile franchise id is not a holder");
+  t.deepEqual(prof.data.trade_history.map((x) => [x.franchise_id, x.date]), [["0001", null], ["0001", "2023-03-05"]]);
+  t.equal(prof.data.last_add.date, null);
 });
 
 test("real names still pass the screen: team names and player names with apostrophes, periods, hyphens, commas and suffixes", async () => {

@@ -16,8 +16,17 @@ const SIGN = "positive = a charge that raises cap used, negative = a credit";
 const MIN_ROSTER = 27;                 // canon section 6.F / B1: the roster minimum the max-bid reserve is measured against
 const RESERVE_PER_SLOT = 1000;
 
-const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
-const int = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n) : null; };
+// Route values are validated by SHAPE before use; an id-like or number-like string that is not exactly that is dropped, never copied.
+const pad4 = (v) => { const x = String(v == null ? "" : v).trim(); return /^\d{1,4}$/.test(x) ? x.padStart(4, "0") : null; };       // franchise id
+const pidOf = (v) => { const x = String(v == null ? "" : v).trim(); return /^\d{1,8}$/.test(x) ? x : null; };                        // player id
+const int = (v) => ((typeof v === "number" || (typeof v === "string" && /^-?\d{1,12}(\.\d+)?$/.test(v.trim()))) && Number.isFinite(Number(v)) ? Math.round(Number(v)) : null);
+// A timestamp is parsed and RE-EMITTED by this tool; the route's own string is never copied.
+const isoOf = (v) => {
+  const x = String(v == null ? "" : v).trim();
+  if (!/^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})?$/.test(x)) return null;
+  const ms = Date.parse(x);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+};
 
 // Route text (team and player names) reaches facts and data only through the shared screen (shared_text.js).
 const teamLabel = (name, id) => safeTeamName(name, id);
@@ -78,7 +87,10 @@ export default defineTool({
     if (!team) {
       return { status: "no_record", coverage: { supported: true, gaps: [{ what: `franchise ${fid} is not in the league's franchise list for ${season}`, why: "NO_RECORD", source_needed: "a valid franchise id" }] }, provenance: prov };
     }
-    const sum = team.summary || {};
+    if (int(body.season) !== Number(season)) {
+      return { status: "error", error: { code: "route_failed", message: "the roster workbench answered for a different season than asked" } };
+    }
+    const sum = team.summary && typeof team.summary === "object" ? team.summary : {};
     const cap = int(body.salary_cap_dollars);
     const committed = int(sum.cap_total_dollars);
     const adj = int(sum.salary_adjustment_total_dollars);
@@ -95,9 +107,15 @@ export default defineTool({
     }
 
     // Per-player cap hit with the SAME cap_math rule; the sum must equal the route's own total.
-    const players = (Array.isArray(team.players) ? team.players : []).map((p) => {
+    const rawPlayers = Array.isArray(team.players) ? team.players : [];
+    if (rawPlayers.some((p) => !p || typeof p !== "object" || pidOf(p.id) === null)) {
+      // dropping a row would change the total, so a malformed player id makes the whole position unverifiable
+      return refuse("unverified_calculation", "the roster workbench returned a player row with an unreadable id, so cap used cannot be verified",
+        { what: "a well-formed roster response", why: "unverified_calculation", source_needed: "a readable /roster-workbench response" }, prov);
+    }
+    const players = rawPlayers.map((p) => {
       const hit = currentCapHit({ salary: int(p.salary), years: Math.max(0, int(p.years) || 0), taxi: !!p.is_taxi, ir: !!p.is_ir, unknown: !!p.contract_unknown });
-      return { id: String(p.id), name: safePlayerName(p.name, String(p.id)), status: safeToken(p.status), salary: int(p.salary), years: int(p.years), contract_unknown: !!p.contract_unknown, is_taxi: !!p.is_taxi, is_ir: !!p.is_ir, cap_hit: hit };
+      return { id: pidOf(p.id), name: safePlayerName(p.name, pidOf(p.id)), status: safeToken(p.status), salary: int(p.salary), years: int(p.years), contract_unknown: !!p.contract_unknown, is_taxi: !!p.is_taxi, is_ir: !!p.is_ir, cap_hit: hit };
     });
     const recomputed = players.reduce((a, p) => a + p.cap_hit, 0);
     if (recomputed !== committed) {
@@ -140,7 +158,7 @@ export default defineTool({
     return {
       status: "ok",
       data: {
-        season: Number(season), franchise_id: pad4(team.franchise_id), franchise_name: cleanName(team.franchise_name) || "", sign_convention: SIGN,
+        season: Number(season), franchise_id: teamId, franchise_name: cleanName(team.franchise_name) || "", sign_convention: SIGN,
         salary_cap: cap, committed_salary: committed, salary_adjustments: adj,
         adjustment_breakdown: {
           cut_players: int(sum.salary_adjustment_breakdown_dollars && sum.salary_adjustment_breakdown_dollars.cut_players_dollars),
@@ -154,7 +172,7 @@ export default defineTool({
       facts,
       coverage: { supported: true, gaps },
       provenance: { ...prov, contract_note: "contract values are not recomputed; salaries and years come from the route" },
-      freshness: { generated_at: String(body.generated_at || ""), cache: "bypassed" },
+      freshness: { generated_at: isoOf(body.generated_at), cache: "bypassed" },
     };
   },
 });

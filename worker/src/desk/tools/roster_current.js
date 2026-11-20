@@ -14,8 +14,17 @@ import { safeTeamName, safePlayerName, safeToken, safeText, cleanName } from "./
 const ROUTE = "/roster-workbench";
 const SOURCE = "MFL via /roster-workbench";
 
-const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
-const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+// Route values are validated by SHAPE before use; an id-like or number-like string that is not exactly that is dropped, never copied.
+const pad4 = (v) => { const x = String(v == null ? "" : v).trim(); return /^\d{1,4}$/.test(x) ? x.padStart(4, "0") : null; };      // franchise id
+const pidOf = (v) => { const x = String(v == null ? "" : v).trim(); return /^\d{1,8}$/.test(x) ? x : null; };                       // player id
+const num = (v) => ((typeof v === "number" || (typeof v === "string" && /^-?\d{1,12}(\.\d+)?$/.test(v.trim()))) && Number.isFinite(Number(v)) ? Number(v) : null);
+// A timestamp is parsed and RE-EMITTED by this tool; the route's own string is never copied.
+const isoOf = (v) => {
+  const x = String(v == null ? "" : v).trim();
+  if (!/^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})?$/.test(x)) return null;
+  const ms = Date.parse(x);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+};
 
 // Route text (team and player names, contract strings) reaches facts and data only through the shared screen (shared_text.js).
 const teamLabel = (name, id) => safeTeamName(name, id);
@@ -77,9 +86,15 @@ export default defineTool({
       };
     }
 
-    const players = (Array.isArray(team.players) ? team.players : []).map((p) => ({
-      id: String(p.id),
-      name: safePlayerName(p.name, String(p.id)),
+    if (num(body.season) !== Number(season)) {
+      return { status: "error", error: { code: "route_failed", message: "the roster workbench answered for a different season than asked" } };
+    }
+    const rawPlayers = Array.isArray(team.players) ? team.players : [];
+    const validRows = rawPlayers.filter((p) => p && typeof p === "object" && pidOf(p.id) !== null);
+    const droppedRows = rawPlayers.length - validRows.length;
+    const players = validRows.map((p) => ({
+      id: pidOf(p.id),
+      name: safePlayerName(p.name, pidOf(p.id)),
       position: safeToken(p.position),
       nfl_team: safeToken(p.nfl_team),
       salary: num(p.salary),
@@ -124,6 +139,9 @@ export default defineTool({
     }
 
     const gaps = [];
+    if (droppedRows) {
+      gaps.push({ what: `${droppedRows} roster row(s) had an unreadable player id and are left out`, why: "partial_coverage", source_needed: "a well-formed roster response from MFL" });
+    }
     if (unknown) {
       gaps.push({ what: "some players have no contract stamped in MFL (status, length and info all blank); their contracts are unknown, not zero", why: "partial_coverage", source_needed: "a stamped contract in MFL for those players" });
     }
@@ -136,13 +154,15 @@ export default defineTool({
       gaps.push({ what: "some players have a blank salary in MFL (blank is not $0)", why: "partial_coverage", source_needed: "a salary recorded in MFL for those players" });
     }
 
-    const generatedMs = Date.parse(body.generated_at || "");
+    const generatedAt = isoOf(body.generated_at);
+    const generatedMs = generatedAt ? Date.parse(generatedAt) : NaN;
     const nowMs = now instanceof Date ? now.getTime() : Date.now();
+    if (!generatedAt) gaps.push({ what: "the roster workbench gave no readable generation time, so the age of this roster is unknown", why: "partial_coverage", source_needed: "a timestamped roster response" });
     return {
       status: "ok",
       data: {
-        season: num(body.season), franchise_id: pad4(team.franchise_id), franchise_name: cleanName(team.franchise_name) || "",
-        franchise_abbrev: cleanName(team.franchise_abbrev) || "", generated_at: String(body.generated_at || ""), source: SOURCE,
+        season: Number(season), franchise_id: teamId, franchise_name: cleanName(team.franchise_name) || "",
+        franchise_abbrev: cleanName(team.franchise_abbrev) || "", generated_at: generatedAt, source: SOURCE,
         players, counts,
       },
       facts,
@@ -151,7 +171,7 @@ export default defineTool({
         route: ROUTE, season, no_cache: true, ext_url_sent: false,
         contract_info_source: "roster-workbench `special` (the Front Office's display-normalized contractInfo; tokens not re-derived by the desk)",
       },
-      freshness: { generated_at: String(body.generated_at || ""), age_seconds: Number.isFinite(generatedMs) ? Math.max(0, Math.round((nowMs - generatedMs) / 1000)) : null, cache: "bypassed" },
+      freshness: { generated_at: generatedAt, age_seconds: Number.isFinite(generatedMs) ? Math.max(0, Math.round((nowMs - generatedMs) / 1000)) : null, cache: "bypassed" },
     };
   },
 });

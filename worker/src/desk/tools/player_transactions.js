@@ -20,7 +20,7 @@
 import { defineTool } from "../registry.js";
 import { cleanName, safePlayerName, safeToken, safeText } from "./shared_text.js";
 import {
-  pad4, leagueIdOf, currentSeasonOf, resolveSeason, seasonOfAsOf, teamText, gap, fact, yearFact, fail, routeFail, noRecord, dedupeGaps,
+  pad4, plainNum, plainInt, yearOf, parseWhen, leagueIdOf, currentSeasonOf, resolveSeason, seasonOfAsOf, teamText, gap, fact, yearFact, fail, routeFail, noRecord, dedupeGaps,
 } from "./history_finishes.js";
 
 const TX_ROUTE = "/api/player-transactions";
@@ -36,7 +36,9 @@ export const STANDING_GAPS = () => [
   gap("The transaction ledger is read from the 2019 season on; an add, drop or trade before 2019 is not in this result.", "partial_coverage", "MFL transaction records before 2019"),
 ];
 
-const num = (v) => { const n = Number(v); return v === null || v === undefined || v === "" || !Number.isFinite(n) ? null : n; };
+// Route values are validated strictly (see history_finishes.js): plain decimals, 1-4 numeral franchise ids, four-numeral years.
+// A date is parsed and re-emitted as ISO by this tool; the route's own string is never copied.
+const has = (v) => v !== null && v !== undefined && v !== "";
 
 function eventSummary(e) {
   const to = e.franchise_name || e.franchise_id ? teamText(e.franchise_name, e.franchise_id) : null;
@@ -55,6 +57,7 @@ function eventGrade(e) {
 }
 
 const isIsoDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
+const isYearOnly = (s) => /^\d{4}$/.test(String(s || ""));
 
 function profileOf(json, pid) {
   const pp = (json.profile && json.profile.playerProfile) || {};
@@ -115,8 +118,8 @@ const tool = defineTool({
       "roster_in_season.season", "roster_in_season.franchise_id", "roster_in_season.team_name", "roster_in_season.status",
       "roster_in_season.is_free_agent", "roster_in_season.is_not_rostered",
       "trade_history[].season", "trade_history[].franchise_id", "trade_history[].franchise_name", "trade_history[].asset_role",
-      "trade_history[].datetime_et",
-      "last_add.season", "last_add.franchise_id", "last_add.franchise_name", "last_add.method", "last_add.datetime_et",
+      "trade_history[].date",
+      "last_add.season", "last_add.franchise_id", "last_add.franchise_name", "last_add.method", "last_add.date",
       "notes",
     ],
   },
@@ -125,7 +128,8 @@ const tool = defineTool({
     if (!L) return fail("no_league_id", "the league id is not configured for the desk");
     const cs = currentSeasonOf(knowledge);
     const view = args.view || "transactions";
-    const pid = String(args.pid).replace(/\D/g, "");
+    if (typeof args.pid !== "string" || !/^\d{3,6}$/.test(args.pid)) return fail("bad_arguments", "pid must be 3 to 6 numerals");
+    const pid = args.pid;
     const argSeason = args.season != null ? Number(args.season) : null;
     const dateAsOf = asOf !== "current";
 
@@ -147,20 +151,27 @@ const tool = defineTool({
       if (!r.ok || !r.json || r.json.error) return routeFail(BUNDLE_ROUTE, r);
       const b = r.json;
       const profile = profileOf(b, pid);
-      const roster = b.current_roster && typeof b.current_roster === "object" ? {
-        season: num(b.current_roster.season) || year,
-        franchise_id: pad4(b.current_roster.franchise_id),
-        team_name: cleanName(b.current_roster.team_name),
-        status: safeToken(b.current_roster.status) || null,
-      } : (b.is_free_agent === true ? { season: year, is_free_agent: true } : (b.is_not_rostered === true ? { season: year, is_not_rostered: true } : null));
-      const trades = (Array.isArray(b.trade_history) ? b.trade_history : []).slice(0, 30).map((t) => ({
-        season: num(t.season), franchise_id: pad4(t.franchise_id), franchise_name: cleanName(t.franchise_name),
-        asset_role: safeToken(t.asset_role) || null, datetime_et: safeToken(t.datetime_et) || null,
-      }));
-      const la = b.last_add && typeof b.last_add === "object" && Object.keys(b.last_add).length ? {
-        season: num(b.last_add.season), franchise_id: pad4(b.last_add.franchise_id), franchise_name: cleanName(b.last_add.franchise_name),
-        method: safeToken(b.last_add.method) || null, datetime_et: safeToken(b.last_add.datetime_et) || null,
-      } : null;
+      const bad = { ids: 0, dates: 0 };
+      const idOf = (v) => { const id = pad4(v); if (id === null && has(v)) bad.ids += 1; return id; };
+      const dayOf = (v) => { const w = parseWhen(v); if (w === null && has(v)) bad.dates += 1; return w && w.precision === "day" ? w.iso : null; };
+      let roster = null;
+      if (b.current_roster && typeof b.current_roster === "object") {
+        const fid = idOf(b.current_roster.franchise_id);
+        roster = fid ? { season: yearOf(b.current_roster.season) || year, franchise_id: fid, team_name: cleanName(b.current_roster.team_name), status: safeToken(b.current_roster.status) || null } : null;
+      } else if (b.is_free_agent === true) roster = { season: year, is_free_agent: true };
+      else if (b.is_not_rostered === true) roster = { season: year, is_not_rostered: true };
+      const trades = [];
+      for (const t of (Array.isArray(b.trade_history) ? b.trade_history : []).slice(0, 30)) {
+        const fid = idOf(t && t.franchise_id);
+        if (fid === null) continue;
+        trades.push({ season: yearOf(t.season), franchise_id: fid, franchise_name: cleanName(t.franchise_name), asset_role: safeToken(t.asset_role) || null, date: dayOf(t.datetime_et) });
+      }
+      let la = null;
+      if (b.last_add && typeof b.last_add === "object" && Object.keys(b.last_add).length) {
+        const fid = idOf(b.last_add.franchise_id);
+        if (fid !== null) la = { season: yearOf(b.last_add.season), franchise_id: fid, franchise_name: cleanName(b.last_add.franchise_name), method: safeToken(b.last_add.method) || null, date: dayOf(b.last_add.datetime_et) };
+      }
+      if (bad.ids || bad.dates) gaps.push(gap(`${bad.ids} franchise id(s) and ${bad.dates} date(s) from the route were unreadable; those rows or dates are left out.`, "partial_coverage", "clean ids and dates in the player bundle"));
       if (!profile && !roster && !trades.length) {
         return noRecord([gap(`No profile data was returned for player ${pid} in ${year}`, "NO_RECORD", "MFL player profile and D1 player rows"), ...gaps]);
       }
@@ -181,7 +192,7 @@ const tool = defineTool({
       }
       trades.slice(0, 10).forEach((t, i) => {
         const n = i + 1;
-        const when = t.datetime_et ? String(t.datetime_et).slice(0, 10) : String(t.season || "");
+        const when = t.date || (t.season ? String(t.season) : "undated");
         facts.push(fact(`trade${n}_summary`, `Trade row ${n} (most recent first)`, `${when}: ${teamText(t.franchise_name, t.franchise_id)}${t.asset_role ? `, ${String(t.asset_role).toLowerCase()}` : ""}`, "text", "src_trades via /api/player-bundle", "A", factAsOf));
       });
       if (trades.length) facts.push(fact("trades_listed", "Trade rows listed (most recent first)", trades.length, "count", "src_trades via /api/player-bundle", "A", factAsOf));
@@ -201,12 +212,24 @@ const tool = defineTool({
     if (!r.ok || !r.json || r.json.ok === false) return routeFail(TX_ROUTE, r);
     const raw = Array.isArray(r.json.events) ? r.json.events : [];
 
-    let events = raw.filter((e) => e && EVENT_KINDS_KEPT.has(String(e.kind))).map((e) => ({
-      seq: num(e.seq), season: num(e.season), date: safeToken(e.date), date_approx: e.date_approx === true,
-      kind: String(e.kind), label: safeText(e.label, 40) || null, detail: safeText(e.detail, 60),
-      franchise_id: pad4(e.franchise_id) || null, franchise_name: cleanName(e.franchise_name),
-      from_franchise_id: pad4(e.from_franchise_id) || null, from_franchise_name: cleanName(e.from_franchise_name),
-    }));
+    let events = [];
+    const bad = { events: 0, ids: 0, dates: 0 };
+    for (const e of raw) {
+      if (!e || !EVENT_KINDS_KEPT.has(String(e.kind))) continue;
+      const season = yearOf(e.season), seq = plainInt(e.seq);
+      if (season === null || seq === null) { bad.events += 1; continue; }
+      const w = parseWhen(e.date) || parseWhen(e.ts);                 // the route's date, else its epoch seconds; re-emitted by this tool
+      if (w === null && has(e.date)) bad.dates += 1;
+      const fid = pad4(e.franchise_id), from = pad4(e.from_franchise_id);
+      if ((fid === null && has(e.franchise_id)) || (from === null && has(e.from_franchise_id))) bad.ids += 1;
+      events.push({
+        seq, season, date: w ? w.iso : "", date_approx: w ? (w.precision === "year" || e.date_approx === true) : false,
+        kind: String(e.kind), label: safeText(e.label, 40) || null, detail: safeText(e.detail, 60),
+        franchise_id: fid, franchise_name: fid ? cleanName(e.franchise_name) : null,
+        from_franchise_id: from, from_franchise_name: from ? cleanName(e.from_franchise_name) : null,
+      });
+    }
+    if (bad.events || bad.ids || bad.dates) gaps.push(gap(`${bad.events} move(s) were left out and ${bad.ids} franchise id(s) and ${bad.dates} date(s) were left blank because the route's values were unreadable.`, "partial_coverage", "clean ids, seasons and dates in the transaction ledger"));
 
     // A season filter narrows to that season's moves.
     if (argSeason != null) events = events.filter((e) => e.season === argSeason);
@@ -217,7 +240,7 @@ const tool = defineTool({
       const y = seasonOfAsOf(asOf);
       events = events.filter((e) => {
         if (isIsoDate(e.date)) return e.date <= asOf;
-        const ey = num(String(e.date).slice(0, 4)) || e.season;
+        const ey = isYearOnly(e.date) ? Number(e.date) : e.season;
         if (ey == null) { sameYearUnplaced += 1; return false; }
         if (ey < y) return true;
         if (ey === y) { sameYearUnplaced += 1; return false; }

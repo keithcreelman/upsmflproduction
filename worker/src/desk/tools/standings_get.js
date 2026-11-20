@@ -16,7 +16,7 @@
 import { defineTool } from "../registry.js";
 import { cleanName, safeToken } from "./shared_text.js";
 import {
-  analyzeSeasonFinishes, labelFinish, seasonNoteTexts, pad4, leagueIdOf, currentSeasonOf, resolveSeason, teamText,
+  analyzeSeasonFinishes, labelFinish, seasonNoteTexts, pad4, plainNum, plainInt, weekOf, leagueIdOf, currentSeasonOf, resolveSeason, teamText,
   gap, fact, yearFact, fail, routeFail, noRecord, dedupeGaps, DATE_MAPPED_GAP, OWNER_GAP,
 } from "./history_finishes.js";
 
@@ -24,14 +24,17 @@ const STANDINGS_ROUTE = "/api/standings";
 const BRACKET_ROUTE = "/api/playoff-bracket";
 const MAX_GAMES = 40;
 
-const num = (v) => { const n = Number(v); return v === null || v === undefined || v === "" || !Number.isFinite(n) ? null : n; };
+// Plain decimal numbers only (no hex, exponent or text); anything else is null.
+const num = plainNum;
 const recordText = (w, l, t) => (num(w) == null || num(l) == null ? null : `${num(w)}-${num(l)}${num(t) ? `-${num(t)}` : ""}`);
 
-function standingsRows(json) {
-  const takeoverFids = new Set((Array.isArray(json.takeovers) ? json.takeovers : []).map((x) => pad4(x && x.fid)));
-  return (Array.isArray(json.rows) ? json.rows : []).map((r) => {
-    const fid = pad4(r.franchise_id);
-    return {
+function standingsRows(json, tally) {
+  const takeoverFids = new Set((Array.isArray(json.takeovers) ? json.takeovers : []).map((x) => pad4(x && x.fid)).filter(Boolean));
+  const out = [];
+  for (const r of Array.isArray(json.rows) ? json.rows : []) {
+    const fid = pad4(r && r.franchise_id);
+    if (fid === null) { tally.rejected += 1; continue; }
+    out.push({
       franchise_id: fid,
       franchise_name: cleanName(r.franchise_name),
       division_name: cleanName(r.division_name),
@@ -45,12 +48,13 @@ function standingsRows(json) {
       points_for_per_game: num(r.pf),
       points_against_per_game: num(r.pa),
       is_division_leader: r.is_division_leader === true,
-      division_rank: num(r.division_rank),
-      playoff_seed: num(r.playoff_seed),
+      division_rank: plainInt(r.division_rank),
+      playoff_seed: plainInt(r.playoff_seed),
       playoff_status: safeToken(r.playoff_status) || null,
       ownership_changed_in_season: !!(r.takeover || takeoverFids.has(fid)),
-    };
-  });
+    });
+  }
+  return out;
 }
 
 // One entry per game: both sides of a game appear in the route's rows, so keep the winner's orientation.
@@ -58,8 +62,8 @@ function playoffGames(matchups) {
   const seen = new Map();
   for (const m of Array.isArray(matchups) ? matchups : []) {
     const a = pad4(m.franchise_id), b = pad4(m.opponent_franchise_id);
-    const week = num(m.week);
-    if (!a || !b || week == null) continue;
+    const week = weekOf(m.week);
+    if (!a || !b || week === null) continue;
     const key = `${week}|${[a, b].sort().join("|")}`;
     const ts = num(m.team_score), os = num(m.opponent_score);
     const aWon = ts != null && os != null && ts > os;
@@ -179,7 +183,8 @@ const tool = defineTool({
 
     if (season === 2010) gaps.push(gap("The 2010 season is disputed (GAP-03, GAP-17): a loser advanced and no Toilet Bowl title was awarded", "conflict_in_canon", "a ruling on the 2010 bracket"));
 
-    const standings = st ? standingsRows(st) : null;
+    const tally = { rejected: 0 };
+    const standings = st ? standingsRows(st, tally) : null;
     const seasonCompleteFinalWeek = !!complete;
     const rsInfo = st && st.regular_season ? st.regular_season : null;
 
@@ -187,27 +192,32 @@ const tool = defineTool({
     let playoffs = null;
     let finishAnalysis = null;
     if (br) {
-      const seeds = (Array.isArray(br.seeds) ? br.seeds : []);
+      const seeds = [];
+      for (const x of Array.isArray(br.seeds) ? br.seeds : []) {
+        const fid = pad4(x && x.franchise_id);
+        if (fid === null) { tally.rejected += 1; continue; }
+        seeds.push({ ...x, franchise_id: fid });
+      }
       const withFinish = seeds.filter((x) => x.final_finish !== null && x.final_finish !== undefined);
       finishAnalysis = withFinish.length ? analyzeSeasonFinishes(seeds) : null;
       const outSeeds = seeds.map((x) => {
         const hasFinish = x.final_finish !== null && x.final_finish !== undefined && x.final_finish !== "";
         const lab = hasFinish ? labelFinish(season, x.final_finish, finishAnalysis) : null;
         return {
-          franchise_id: pad4(x.franchise_id),
+          franchise_id: x.franchise_id,
           franchise_name: cleanName(x.franchise_name),
-          seed: num(x.seed), path: safeToken(x.path) || null, bye: x.bye === true, is_division_leader: x.is_division_leader === true,
-          final_finish: hasFinish ? num(x.final_finish) : null,
+          seed: plainInt(x.seed), path: safeToken(x.path) || null, bye: x.bye === true, is_division_leader: x.is_division_leader === true,
+          final_finish: hasFinish ? plainInt(x.final_finish) : null,
           label: lab ? lab.label : (complete ? "No final finish is recorded for this franchise" : "No final finish yet (the season is in progress)"),
           label_kind: lab ? lab.kind : "none",
-          regular_season_finish: num(x.regular_season_finish),
+          regular_season_finish: plainInt(x.regular_season_finish),
           place_verified: lab ? lab.verified : false,
         };
       });
       outSeeds.sort((a, b) => (a.seed == null ? 99 : a.seed) - (b.seed == null ? 99 : b.seed) || a.franchise_id.localeCompare(b.franchise_id));
       playoffs = {
         seeding_status: safeToken(br.seeding_status) || null,
-        playoff_weeks: Array.isArray(br.playoff_weeks) ? br.playoff_weeks.map(Number).filter(Number.isFinite) : [],
+        playoff_weeks: Array.isArray(br.playoff_weeks) ? br.playoff_weeks.map(weekOf).filter((w) => w !== null) : [],
         seeds: outSeeds,
         games: playoffGames(br.matchups),
       };
@@ -234,7 +244,7 @@ const tool = defineTool({
     const bsrc = "src_final_standings and src_schedule via /api/playoff-bracket";
     facts.push(yearFact(season, src, "A", factAsOf));
     facts.push(fact("data_basis", "What these results are", complete ? "final season results" : "latest standings; the season is in progress", "text", src, "C", factAsOf));
-    if (rsInfo && rsInfo.through_week != null && !complete) facts.push(fact("through_week", "Latest week in the data", num(rsInfo.through_week), "week", src, "A", factAsOf));
+    if (rsInfo && weekOf(rsInfo.through_week) !== null && !complete) facts.push(fact("through_week", "Latest week in the data", weekOf(rsInfo.through_week), "week", src, "A", factAsOf));
     if (standings) {
       const pick = franchise ? standings.filter((r) => r.franchise_id === franchise) : standings;
       if (franchise && !pick.length) gaps.push(gap(`Franchise ${franchise} has no standings row for ${season}`, "NO_RECORD", `${season} standings`));
@@ -288,13 +298,14 @@ const tool = defineTool({
     if (br) notes.push("regular_season_finish is the playoff seed by all-play percent, not the final finish.");
     if (st && st.has_conferences) notes.push(`${season} was a conference-era season.`);
     // Owner-vs-franchise caveat for the cross-franchise comparison a standings table invites.
+    if (tally.rejected) gaps.push(gap(`${tally.rejected} route row(s) had an unreadable franchise id and were left out`, "partial_coverage", "a clean standings row for each franchise"));
     if (!franchise) gaps.push(OWNER_GAP());
 
     const data = {
       season, basis: st ? safeToken(st.standings_basis) : (br ? safeToken(br.seeding_status) : ""),
       as_of_basis: asOfBasis, season_complete: seasonCompleteFinalWeek,
-      through_week: rsInfo && rsInfo.through_week != null ? num(rsInfo.through_week) : null,
-      last_regular_season_week: st && st.meta && st.meta.last_regular_season_week != null ? num(st.meta.last_regular_season_week) : null,
+      through_week: rsInfo ? weekOf(rsInfo.through_week) : null,
+      last_regular_season_week: st && st.meta ? weekOf(st.meta.last_regular_season_week) : null,
       ...(standings ? { standings } : {}),
       ...(playoffs ? { playoffs } : {}),
       season_notes: seasonNotes,
@@ -304,7 +315,7 @@ const tool = defineTool({
       status: "ok", data, facts,
       coverage: { supported: true, gaps: dedupeGaps(gaps) },
       provenance: { source: "src_standings, src_schedule, src_final_standings", inputs: { season, franchise, view }, year_sent: season, never_read: "/api/eras" },
-      freshness: { basis: asOfBasis, season, through_week: rsInfo && rsInfo.through_week != null ? num(rsInfo.through_week) : null },
+      freshness: { basis: asOfBasis, season, through_week: rsInfo ? weekOf(rsInfo.through_week) : null },
     };
   },
 });

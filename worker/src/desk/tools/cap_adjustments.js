@@ -9,7 +9,7 @@
 // The route's commissioner-facing "review" block (unsettled and partially settled traded salary) is NOT exposed: it is a settlement
 // work list, not a record of what was booked, and it is not on this tool's output allowlist.
 import { defineTool } from "../registry.js";
-import { cleanName, safePlayerName, safeToken, safeText } from "./shared_text.js";
+import { cleanName, safePlayerName, safeToken, safeText, looksLikeInstruction } from "./shared_text.js";
 
 const ROUTE = "/api/salary-adjustments/ledger";
 const SIGN = "positive = a charge that raises the team's cap used, negative = a credit";
@@ -18,9 +18,18 @@ const COMPLETE_FROM = 2026;
 const MAX_ROWS = 60;            // rows returned (and facts emitted); the totals always cover every row
 const MAX_ROW_FACTS = 40;
 
-const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
-const int = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n) : null; };
-const digits = (v) => String(v == null ? "" : v).replace(/\D/g, "").slice(0, 8);
+// Route values are validated by SHAPE before use; an id-like or number-like string that is not exactly that is dropped, never copied.
+const pad4 = (v) => { const x = String(v == null ? "" : v).trim(); return /^\d{1,4}$/.test(x) ? x.padStart(4, "0") : null; };     // franchise id
+const int = (v) => ((typeof v === "number" || (typeof v === "string" && /^-?\d{1,12}(\.\d+)?$/.test(v.trim()))) && Number.isFinite(Number(v)) ? Math.round(Number(v)) : null);
+// A timestamp is parsed and RE-EMITTED by this tool; the route's own string is never copied. "" when unreadable.
+const isoOf = (v) => {
+  const x = String(v == null ? "" : v).trim();
+  if (!/^\d{4}-\d{2}-\d{2}(T[\d:.]+(Z|[+-]\d{2}:?\d{2})?)?$/.test(x)) return "";
+  const ms = Date.parse(x);
+  return Number.isFinite(ms) ? new Date(ms).toISOString() : "";
+};
+const idKey = (v) => { const x = String(v == null ? "" : v).trim(); return /^[A-Za-z0-9_.:-]{1,64}$/.test(x) && !looksLikeInstruction(x) ? x : ""; };   // a row id such as mfl:12 or d1:ledger_key
+const digits = (v) => { const x = String(v == null ? "" : v).trim(); return /^\d{1,8}$/.test(x) ? x : ""; };   // a player id: digits only, else ""
 
 // Every route-derived free-text value passes the shared screen (shared_text.js) before it reaches data, a fact value or a fact label.
 // The row's own description (a commissioner-typed sentence) and a misc row's reason are NOT passed on at all: the row type, kind and
@@ -35,14 +44,14 @@ function trimRow(r) {
   const m = r.misc && typeof r.misc === "object" ? r.misc : null;
   const fid = pad4(r.franchise_id);
   return {
-    id: safeToken(r.id), franchise_id: fid, franchise_name: teamName(r.franchise_name, fid), type: rowType(r.type), amount: int(r.amount),
-    assessed_iso: safeToken(r.assessed_iso), source: safeToken(r.source), in_mfl: !!r.in_mfl,
+    id: idKey(r.id), franchise_id: fid, franchise_name: teamName(r.franchise_name, fid), type: rowType(r.type), amount: int(r.amount),
+    assessed_iso: isoOf(r.assessed_iso), source: safeToken(r.source), in_mfl: !!r.in_mfl,
     drop: d ? {
       player_id: digits(d.player_id), player_name: safePlayerName(d.player_name, digits(d.player_id)), contract_status: safeToken(d.contract_status), contract_info: safeText(d.contract_info, 190),
       original_years: int(d.original_years), years_remaining: int(d.years_remaining), tcv: int(d.tcv), gtd: int(d.gtd), earned: int(d.earned),
       penalty_basis: safeToken(d.penalty_basis), ledger_amount: int(d.ledger_amount), penalty_exempt: !!d.penalty_exempt, details_source: d.details_source == null ? null : (safeToken(d.details_source) || null),
     } : null,
-    trade: tr ? { matched: !!tr.matched, counterparty_fid: pad4(tr.counterparty_fid), counterparty_name: teamName(tr.counterparty_name, pad4(tr.counterparty_fid)), traded_at_iso: safeToken(tr.traded_at_iso), three_way: !!tr.three_way } : null,
+    trade: tr ? { matched: !!tr.matched, counterparty_fid: pad4(tr.counterparty_fid) || "", counterparty_name: cleanName(tr.counterparty_name) || (pad4(tr.counterparty_fid) ? `Team (${pad4(tr.counterparty_fid)})` : "Team"), traded_at_iso: isoOf(tr.traded_at_iso), three_way: !!tr.three_way } : null,
     misc: m ? { kind: safeToken(m.kind) } : null,
   };
 }
@@ -137,8 +146,11 @@ export default defineTool({
       else gaps.push({ what: "next season's booked adjustments could not be bucketed because the FA Auction start was unresolved", why: "partial_coverage", source_needed: "the FA Auction start date" });
     }
 
-    const pick = (rows) => (Array.isArray(rows) ? rows : []).filter((r) => !fid || pad4(r.franchise_id) === fid);
-    const allRows = pick(y0.rows);
+    const rawRows = Array.isArray(y0.rows) ? y0.rows : [];
+    const wellFormed = rawRows.filter((r) => r && typeof r === "object" && pad4(r.franchise_id) !== null);
+    if (wellFormed.length !== rawRows.length) gaps.push({ what: `${rawRows.length - wellFormed.length} ledger row(s) had an unreadable franchise id and are left out of the list`, why: "partial_coverage", source_needed: "a well-formed ledger response" });
+    const pick = (rows) => rows.filter((r) => !fid || pad4(r.franchise_id) === fid);
+    const allRows = pick(wellFormed);
     const rows = allRows.slice(0, MAX_ROWS).map(trimRow);
     const truncated = allRows.length > rows.length;
     if (truncated) gaps.push({ what: `only the first ${MAX_ROWS} of ${allRows.length} rows are listed (totals cover every row)`, why: "partial_coverage", source_needed: "a narrower query (one franchise)" });
