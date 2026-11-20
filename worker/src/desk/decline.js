@@ -12,6 +12,9 @@
 //  4. each checked the season the CODE derived for this run (the model chooses the coverage call's season; a wrong choice must not produce a decline),
 //     and the season is the one in effect: the as_of year, or the current season when the run is "current";
 //  5. at least one gap names the source that would close it;
+//  6c. (R18 review) the question has the SHAPE of a plain question about that domain: a short template per domain (below), not a blacklist of connectives. A blacklist can always
+//     miss a second clause ("as well as", a second sentence, a slash); a template cannot match one. A question that fits no template goes to the composer, which is exactly what
+//     every decline did before this closeout.
 //  6b. (R17 review) the question is ONE clause: no comma, semicolon, colon, conjunction or second question mark, and at most 20 words. The keyword net cannot see a clause it has
 //     no word for ("which team lifted the trophy"), so a multi-part question can never be shown to be fully covered by a no-record answer; it goes to the composer.
 //  6. (R15 review) the domain the model checked is one the QUESTION TEXT is about: the words of the question, read in code (tool_select.keywordDomains), must fit the
@@ -31,11 +34,23 @@ const DECLINE_REASONS = new Set(["NO_RECORD", "unsupported_as_of"]);
 // who was the owner of that team?" checked only against owner history must not be declined whole).
 const GENERIC = new Set(["calendar", "data_freshness"]);
 export const MAX_DECLINE_WORDS = 20;
-const MULTI_CLAUSE_RE = /[,;:]|\b(?:and|or|also|then|but|plus|while|because)\b|\?[^?]*\?/i;
+// Anything that can join a second clause or a second request: punctuation, a newline, a slash, an ampersand, a connective or a "what about". Checked first, on the whole question.
+const MULTI_CLAUSE_RE = /[,;:]|[\/&\n\r]|\b(?:and|or|also|then|but|plus|while|because|with|without|within|versus|vs|including|except|as\s+well|along|what\s+about|how\s+about|else|too|both|each|every|all)\b|\?[^?]*\?|[.!?]\s*\S/i;
 export function isSingleClause(question) {
   const q = String(question || "").trim();
   if (!q || MULTI_CLAUSE_RE.test(q)) return false;
   return q.split(/\s+/).filter(Boolean).length <= MAX_DECLINE_WORDS;
+}
+// One plain template per coverage domain (applied after the trailing punctuation is removed). Only these shapes may be declined in code.
+const NOT_PUNCT = "[^.?!;:,]";
+export const DOMAIN_TEMPLATES = Object.freeze({
+  finishes: new RegExp(`^(?:who|which\\s+(?:franchise|team))\\s+(?:won|was)\\b${NOT_PUNCT}*\\b(?:title|championship|champion|champions)\\b${NOT_PUNCT}*$`, "i"),
+  pick_lineage: new RegExp(`^(?:trace|follow)\\b${NOT_PUNCT}*\\bpicks?\\b${NOT_PUNCT}*$`, "i"),
+  contract_timeline: new RegExp(`^what\\s+(?:was|is)\\b${NOT_PUNCT}*['\u2019]s\\s+(?:salary|contract)\\b${NOT_PUNCT}*$`, "i"),
+});
+export function fitsTemplate(domain, question) {
+  const re = DOMAIN_TEMPLATES[domain];
+  return !!re && re.test(String(question || "").trim().replace(/[.?!]+$/, ""));
 }
 const stripYears = (q) => String(q).replace(/\b(?:19|20)\d{2}(?:-\d{2}-\d{2})?\b/g, " ");
 export const DOMAIN_BINDING = Object.freeze({
@@ -84,6 +99,7 @@ export function findNoRecordDecline(envelopes, { effAsOf, currentSeason, forbidC
   const asked = keywordDomains(stripYears(question));
   const specificAsked = asked.filter((x) => !GENERIC.has(x));
   const domains = real.map((e) => e.data.domain);
+  for (const dom of domains) if (!fitsTemplate(dom, question)) return null;
   for (const dom of domains) if (!DOMAIN_BINDING[dom].any.some((x) => asked.includes(x))) return null;
   const served = new Set(domains.flatMap((dom) => DOMAIN_BINDING[dom].specific));
   if (specificAsked.some((x) => !served.has(x))) return null;

@@ -13,7 +13,7 @@ import { cleanBlock } from "../worker/src/desk/loop.js";
 import { LOOP_LIMITS } from "../worker/src/desk/loop.js";
 import { deriveTemporal, extractTemporal } from "../worker/src/desk/temporal.js";
 import { summarizeEvidence, retrievedRules, BODY_CHARS, NO_RECORD_TEXT, buildServerCard } from "../worker/src/desk/composer.js";
-import { findNoRecordDecline, isSingleClause } from "../worker/src/desk/decline.js";
+import { findNoRecordDecline, isSingleClause, fitsTemplate } from "../worker/src/desk/decline.js";
 
 const SHA = "194f8df4109cefab2ef7133a0c59d73d7d588954";
 const RULES = { canon_sha: SHA, anchors: ["s1-c4", "s2-t6-1"] };
@@ -1106,6 +1106,20 @@ test("no-record decline (R15 review): the checked domain must be one the QUESTIO
   t.equal(run(["finishes"], `Who won the title in 2013 ${"really ".repeat(20)}?`), null, "too long to be one clause");
   t.ok(isSingleClause("Trace the 2013 pick that became Markus Wheaton.") && isSingleClause("Who won the 2009 UPS title?"));
   t.ok(!isSingleClause("") && !isSingleClause("a, b") && !isSingleClause("what happened and why"));
+  // R18 review: second clauses with no comma or listed conjunction. A question must fit a plain template for its domain, so none of these can be declined in code.
+  for (const q of ["Who was the owner of franchise 0010 in 2013. Which team lifted the trophy?", "Who was the owner of franchise 0010 in 2013 as well as which team lifted the trophy?", "Who won the 2013 title / who owned it?",
+    "Who won the 2013 title\nwho owned it?", "Who won the 2013 title along with the owner?", "Who won the 2013 title & the owner?", "Who won the 2013 title versus 2012?", "Who won the 2013 title including the owner?"]) {
+    t.equal(run(["finishes"], q), null, q.replace(/\n/g, "\\n"));
+    t.equal(run(["owner_history"], q), null, `${q.replace(/\n/g, "\\n")} (owner history)`);
+  }
+  // a plain shape per domain is the only thing declined in code
+  t.ok(run(["finishes"], "Who was the champion in 2013?") && run(["finishes"], "Which franchise won the 2013 championship?") && run(["finishes"], "who won the 2013 UPS title"));
+  t.ok(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton.") && run(["contract_timeline"], "What was Davante Adams's salary in Week 1 of 2013?"));
+  t.equal(run(["finishes"], "Tell me the 2013 title winner."), null, "no template, so the composer");
+  t.equal(run(["owner_history"], "Who was the owner of franchise 0010 in 2013?"), null, "owner history has no template");
+  t.equal(run(["roster_current"], "What was Davante Adams's team in 2013?"), null, "roster has no template");
+  t.equal(run(["draft_order"], "Trace the 2013 pick."), null, "draft order has no template");
+  t.ok(fitsTemplate("finishes", "Who won the 2009 UPS title?") && !fitsTemplate("finishes", "Who won the 2009 UPS title? And the owner?") && !fitsTemplate("rules_by_date", "Who won the title?"));
   t.ok(run(["finishes"], "Who won the 2013 UPS title?"), "finishes for a title question");
   // the reviewer's case: a question about a recorded champion, but the model checked rules by date (or any domain the question is not about): composer, never a decline
   t.equal(run(["rules_by_date"], "Who was the champion in 2013?"), null, "a domain with no binding never declines");
