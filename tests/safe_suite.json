@@ -80,6 +80,10 @@
     {
       "path": "tests/safe_tests_runner.test.mjs",
       "reason": "The runner's own test: the matches are string literals fed to tripwireText() to prove the tripwire fires, and planted fake variable names proving secrets never reach a test. It executes only fixtures under tests/fixtures/safe_tests/."
+    },
+    {
+      "path": "tests/ai_desk_paid_runner.test.mjs",
+      "reason": "Safety test for the paid-run runner: every case runs in a scrubbed child process or in-process with the literal canary key TEST-CANARY-KEY-NOT-REAL, an intercepted fetch that allows only POST api.anthropic.com/v1/messages, and temp ledgers; it proves each live gate refuses and that nothing real is contacted. Reviewed by an independent Codex pass (rounds 4 to 7)."
     }
   ],
   "env": {},
