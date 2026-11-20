@@ -233,7 +233,7 @@ export function codeCard(state, o) {
 // The card for a run whose only evidence is "the desk has no record" (decline.js decides when). Every word is written by code: a closed sentence, an optional
 // one-line note from the coverage matrix (code-sourced, no model text), and the tool's own gaps verbatim (what is missing, why, which League Record slice would
 // close it). State abstain; no facts, no cites, no model call.
-export const NO_RECORD_TEXT = "The desk has no record that answers this question. The gaps below say what is missing and which source would have to supply it. No answer is guessed.";
+export const NO_RECORD_TEXT = "The desk has no record for what this question asks about. The gaps below say what is missing and which source would have to supply it. If the question has other parts, ask them separately. No answer is guessed.";
 export function noRecordCard({ gaps, toolGaps, note, ...rest }) {
   return {
     ...baseCard({ state: "abstain", ...rest }),
