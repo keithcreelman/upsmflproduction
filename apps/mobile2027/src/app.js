@@ -28,14 +28,25 @@
   if (mq && mq.addEventListener) mq.addEventListener("change", function () { if (S.skin === "system") applySkin(); });
 
   // ---- drawing ----
+  function focusKey() {
+    var a = document.activeElement;
+    if (!a || !a.getAttribute || !appEl.contains(a)) return null;
+    var act = a.getAttribute("data-act");
+    if (!act) return null;
+    var sel = '[data-act="' + act + '"]';
+    ["data-v", "data-g", "data-pid", "data-fid"].forEach(function (k) { var v = a.getAttribute(k); if (v != null) sel += "[" + k + '="' + v + '"]'; });
+    return sel;
+  }
   function render(keepFocus) {
     var scr = document.getElementById("screen"), sheet = appEl.querySelector(".sheet");
     var scrTop = scr ? scr.scrollTop : 0, sheetTop = sheet ? sheet.scrollTop : 0, hadSheet = !!sheet;
+    var again = keepFocus ? focusKey() : null; // a toggle or tab that was just tapped keeps keyboard focus after the redraw
     S.requestSummary = loader.summary();
     appEl.innerHTML = U.views.app(S);
     var scr2 = document.getElementById("screen"); if (scr2) scr2.scrollTop = scrTop;
     var sheet2 = appEl.querySelector(".sheet");
     if (sheet2) { if (hadSheet) sheet2.scrollTop = sheetTop; if (!keepFocus || !hadSheet) sheet2.focus({ preventScroll: true }); }
+    if (again) { var f = appEl.querySelector(again); if (f && f.focus) f.focus({ preventScroll: true }); }
     Array.prototype.forEach.call(appEl.querySelectorAll("img[data-chain]"), function (img) {
       var urls = []; try { urls = JSON.parse(img.getAttribute("data-chain")) || []; } catch (e) { urls = []; }
       U.photo.attach(img, urls, function (src) { S.photoSource = S.photoSource || {}; S.photoSource[img.getAttribute("data-chain")] = src; }, known);
@@ -92,10 +103,10 @@
   function closeLayer() {
     var wasProfile = !!S.profile;
     S.profile = null; S.sheet = null;
+    render(); // draw now; the popstate that history.back() causes only has to find nothing left to close
+    restoreFocus();
     if (wasProfile && history.state && history.state.p) { history.back(); return; }
     if (wasProfile) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* ignore */ } }
-    render();
-    restoreFocus();
   }
   function restoreFocus() {
     if (!S.lastFocusPid) return;
@@ -105,7 +116,7 @@
   window.addEventListener("popstate", function () {
     var h = hashState();
     if (h.p) { if (!S.profile || S.profile.pid !== h.p) { S.profile = { pid: h.p, tab: "contract" }; S.flags = {}; render(); loadPenalty(false); } }
-    else if (S.profile) { S.profile = null; render(); restoreFocus(); }
+    else { var open = !!(S.profile || S.sheet); S.profile = null; S.sheet = null; if (open) { render(); restoreFocus(); } }
   });
 
   // ---- taps ----
@@ -132,7 +143,7 @@
     else if (act === "vib") { S.vib = v; setPref("vib", v); applySkin(); render(true); }
     else if (act === "tog") { S.flags[v] = !S.flags[v]; render(true); }
     else if (act === "ptab") { if (S.profile) { S.profile.tab = v; render(true); } }
-    else if (act === "retry") loadCore();
+    else if (act === "retry") { S.sheet = null; S.penalty = { state: "idle" }; loadCore(); }
     else if (act === "retrypen") loadPenalty(true);
   });
   appEl.addEventListener("keydown", function (ev) {
