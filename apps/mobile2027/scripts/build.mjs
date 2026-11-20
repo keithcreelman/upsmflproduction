@@ -63,12 +63,19 @@ export function scan(name, text) {
   return hits;
 }
 
-// ── The Preview write-code scan ─────────────────────────────────────────────────────────────────────────────────────
-// The Preview build can read and cannot write. This looks for anything that could send data anywhere or run code from
-// somewhere else, in every script and page of the artifact. Comments are ignored (they may talk about writes); strings
-// and code are not. `fetch(` is allowed in exactly one file, the loader that only issues bare GETs.
-export const FETCH_FILE = "lib/data.js"; // the loader: the only file that calls the network
-export const FETCH_MENTION_FILES = [FETCH_FILE, "app.js"]; // app.js only hands the loader the page's fetch function
+// ── The Preview scan ────────────────────────────────────────────────────────────────────────────────────────────────
+// The Preview build can read and cannot write. Four layers keep it that way, and this scan is only the first:
+//   1. this scan: a LINT against accidents and the obvious. It cannot prove arbitrary JavaScript harmless, and does not claim to;
+//   2. the loader's own allowlist: lib/data.js refuses any address, method or query outside four GET routes before the network;
+//   3. the page's content policy and the response headers, both pinned below (connect-src names the worker only);
+//   4. tests that run the real app against a fake fetch and count every request, including while Sample mode is on.
+// The scan refuses what it recognizes: network and write APIs, a method other than a literal GET, credentials other than
+// omit, computed access to the global object, dynamic code, loading properties set from script, and any `fetch` except the one
+// sanctioned line in app.js (which hands the loader a guarded fetch). Comments are ignored by a small tokenizer that keeps
+// strings, so a "//" or "/*" inside a string cannot hide code. Template literals are not allowed in Preview scripts: they
+// would need a full parser to read safely.
+export const SANCTIONED_FETCH = { "app.js": "window.fetch(url, opts)" };
+export const SRC_ASSIGN_FILES = ["lib/photo.js"]; // images are loaded by assigning src; the content policy limits which hosts
 export const WRITE_PATTERNS = [
   [/\bFormData\b/, "FormData"],
   [/\bXMLHttpRequest\b/, "XMLHttpRequest"],
@@ -76,22 +83,105 @@ export const WRITE_PATTERNS = [
   [/\bWebSocket\b/, "WebSocket"],
   [/\bEventSource\b/, "EventSource"],
   [/\bimportScripts\b/, "importScripts"],
-  [/\beval\s*\(/, "eval"],
+  [/\beval\b/, "eval"],
+  [/(?<![.\w$])Function\s*\(/, "the Function constructor"],
   [/\bnew\s+Function\b/, "new Function"],
-  [/["'`](?:POST|PUT|PATCH|DELETE)["'`]/i, "a write verb as a string"],
+  [/\bimport\s*\(/, "dynamic import"],
+  [/\bnew\s+(?:Image|Worker|SharedWorker|Request|Audio)\b/, "an object that can load or send"],
+  [/\b(?:window|self|globalThis|top|parent|frames)\s*\[/, "computed access to the global object"],
+  [/\bnavigator\s*\./, "navigator"],
+  [/\blocation\s*=(?!=)|\blocation\s*\.\s*(?:href|hash|pathname|search|protocol|host|hostname|port)\s*=(?!=)|\blocation\s*\.\s*(?:assign|replace|reload)\b/, "navigating or rewriting the address from script"],
+  [/\bwindow\s*\.\s*open\b/, "window.open"],
+  [/\bpostMessage\b/, "postMessage"],
+  [/\bBroadcastChannel\b/, "BroadcastChannel"],
+  [/\bserviceWorker\b/, "serviceWorker"],
+  [/\bdocument\s*\.\s*(?:write|writeln|createElement|createElementNS|cookie|domain)\b/, "document write, create or cookie"],
+  [/\.\s*setAttribute\s*\(\s*["'](?:src|href|action|formaction|ping|srcset|data)["']/i, "setting a loading attribute"],
+  [/\\u00[4-7][0-9a-fA-F]|\\x[4-7][0-9a-fA-F]/, "an escaped ASCII letter (it can hide a name)"],
+  [/`/, "a template literal (not allowed in Preview scripts)"],
+  [/["'](?:POST|PUT|PATCH|DELETE)["']/i, "a write verb as a string"],
   [/\bmethod\s*[:=](?!=)(?!\s*["']GET["'])/, "a request method other than a literal GET"],
   [/\bcredentials\s*[:=](?!=)(?!\s*["']omit["'])/, "credentials other than omit"],
 ];
 export function stripComments(text) {
-  return text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\"'`])\/\/[^\n]*/g, "$1");
+  const out = []; const n = text.length; let i = 0, last = "";
+  const regexOk = () => last === "" || "(,=:[!&|?{};+-*%<>~^".includes(last);
+  while (i < n) {
+    const c = text[i], d = text[i + 1];
+    if (c === "/" && d === "/") { while (i < n && text[i] !== "\n") i++; continue; }
+    if (c === "/" && d === "*") { i += 2; while (i < n && !(text[i] === "*" && text[i + 1] === "/")) i++; i += 2; out.push(" "); continue; }
+    if (c === '"' || c === "'") {
+      out.push(c); i++;
+      while (i < n && text[i] !== c && text[i] !== "\n") { if (text[i] === "\\") { out.push(text[i], text[i + 1] || ""); i += 2; continue; } out.push(text[i++]); }
+      if (text[i] === c) { out.push(c); i++; }
+      last = c; continue;
+    }
+    if (c === "/" && regexOk()) {
+      out.push(c); i++; let cls = false;
+      while (i < n && text[i] !== "\n") {
+        const e = text[i];
+        if (e === "\\") { out.push(e, text[i + 1] || ""); i += 2; continue; }
+        if (e === "[") cls = true; else if (e === "]") cls = false; else if (e === "/" && !cls) { out.push(e); i++; break; }
+        out.push(e); i++;
+      }
+      last = "/"; continue;
+    }
+    out.push(c); if (!/\s/.test(c)) last = c; i++;
+  }
+  return out.join("");
 }
+
+// The content policy of the page, exactly as reviewed. A different policy stops the build.
+export const EXPECTED_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src https://a.espncdn.com https://*.myfantasyleague.com data:; connect-src https://upsmflproduction.keith-creelman.workers.dev; base-uri 'none'; form-action 'none'";
+// The response headers the page may set (names, and the one content-policy value), exactly as reviewed.
+export const ALLOWED_HEADERS = ["cache-control", "x-content-type-options", "referrer-policy", "x-robots-tag", "x-frame-options", "content-security-policy", "permissions-policy"];
+
+function scanHtml(name, text) {
+  const hits = []; const h = text.replace(/<!--[\s\S]*?-->/g, "");
+  const bad = [
+    [/<form\b/i, "a form"], [/<iframe\b/i, "an iframe"], [/<(?:object|embed|applet|frame|frameset)\b/i, "an embedded object"],
+    [/<img\b/i, "an image tag (images are loaded by the page's code, under the content policy)"], [/<base\b/i, "a base tag"],
+    [/<style\b/i, "an inline style block"], [/\sstyle\s*=/i, "an inline style"], [/\son[a-z]+\s*=/i, "an event handler"],
+    [/http-equiv\s*=\s*["']?refresh/i, "a refresh"],
+    [/<script(?![^>]*\ssrc\s*=)[^>]*>/i, "an inline script"],
+    [/\s(?:src|href|action|formaction|data|ping|poster|srcset)\s*=\s*["']?\s*(?:[a-z][a-z0-9+.-]*:|\/\/)/i, "an absolute or protocol-relative address"],
+  ];
+  for (const [re, what] of bad) if (re.test(h)) hits.push(`${name}: page: ${what}`);
+  const csp = /http-equiv\s*=\s*"Content-Security-Policy"\s+content\s*=\s*"([^"]*)"/i.exec(h);
+  if (!csp) hits.push(`${name}: page: no content policy`);
+  else if (csp[1] !== EXPECTED_CSP) hits.push(`${name}: page: the content policy is not the reviewed one`);
+  return hits;
+}
+function scanCss(name, text) {
+  const t = stripComments(text); const hits = [];
+  for (const [re, what] of [[/@import/i, "@import"], [/url\s*\(/i, "url()"], [/expression\s*\(/i, "expression()"], [/behavior\s*:/i, "behavior"], [/javascript:/i, "javascript:"]]) if (re.test(t)) hits.push(`${name}: style: ${what}`);
+  return hits;
+}
+function scanHeaders(name, text) {
+  const hits = [];
+  for (const raw of text.split("\n")) {
+    const line = raw.trim(); if (!line || line.startsWith("#") || line.startsWith("/")) continue;
+    const m = /^([A-Za-z-]+)\s*:\s*(.*)$/.exec(line);
+    if (!m || !ALLOWED_HEADERS.includes(m[1].toLowerCase())) { hits.push(`${name}: header not on the reviewed list: ${line.slice(0, 40)}`); continue; }
+    if (m[1].toLowerCase() === "content-security-policy" && m[2].trim() !== "frame-ancestors 'none'") hits.push(`${name}: the header content policy is not the reviewed one`);
+  }
+  return hits;
+}
+
 export function scanWriteCode(name, text) {
   const hits = [];
-  if (/(?:^|\/)[^/]*(?:submit|write|post|put|delete|save)[^/]*$/i.test(name)) hits.push(`${name}: the file name says it writes (a Preview file must not)`);
-  if (!/\.(?:js|html)$/.test(name)) return hits;
-  const code = name.endsWith(".html") ? stripComments(text.replace(/<!--[\s\S]*?-->/g, "")) : stripComments(text);
-  for (const [re, what] of WRITE_PATTERNS) if (re.test(code)) hits.push(`${name}: write code: ${what}`);
-  if (!FETCH_MENTION_FILES.includes(name) && /(?:^|[^A-Za-z0-9_$])fetch\b/.test(code)) hits.push(`${name}: network code: a reference to fetch outside ${FETCH_FILE} (a Preview file has one transport)`);
+  if (/(?:^|[\/_.\-])(?:submit|write|post|put|delete|save|upload|send|xhr|beacon|form|sync)(?:[\/_.\-]|$)/i.test(name)) hits.push(`${name}: the file name says it writes or sends (a Preview file must not)`);
+  if (name.endsWith(".html")) return hits.concat(scanHtml(name, text));
+  if (name.endsWith(".css")) return hits.concat(scanCss(name, text));
+  if (name === "_headers") return hits.concat(scanHeaders(name, text));
+  if (!name.endsWith(".js")) return hits;
+  let code = stripComments(text);
+  for (const [re, what] of WRITE_PATTERNS) {
+    if (re.test(code)) hits.push(`${name}: write code: ${what}`);
+  }
+  if (!SRC_ASSIGN_FILES.includes(name) && /\.\s*(?:src|href|action|formAction|srcset)\s*=(?!=)/.test(code)) hits.push(`${name}: write code: assigning a loading property from script`);
+  if (SANCTIONED_FETCH[name]) code = code.split(SANCTIONED_FETCH[name]).join("");
+  if (/(?:^|[^A-Za-z0-9_$])fetch\b/.test(code)) hits.push(`${name}: network code: a reference to fetch (the page has one sanctioned line, in app.js; everything else goes through the loader)`);
   return hits;
 }
 

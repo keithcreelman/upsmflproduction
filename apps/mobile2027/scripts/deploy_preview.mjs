@@ -15,7 +15,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { ALL_PATHS, MODE, SHARED_DIR, SRC, digestOf, gitState } from "./build.mjs";
+import { ALL_PATHS, LOCK, MODE, SHARED_DIR, SRC, digestOf, gitState, readLock, scan, scanWriteCode } from "./build.mjs";
 
 export const PROJECT = "ups-mobile-beta";
 export const BRANCH = "preview";
@@ -62,6 +62,19 @@ export function plan(argv, fsImpl = fs, ctx = {}) {
     const buf = fsImpl.readFileSync(path.join(dir, f.path));
     if (buf.length !== f.bytes) throw new Error(`File size differs from the manifest: ${f.path}`);
     if (sha(buf) !== f.sha256) throw new Error(`File changed since the build: ${f.path}`);
+  }
+  // 3b. the deploy does not trust that the build ran its checks: it runs them again on the files it is about to publish
+  //     (secrets, the write-code scan, the pinned content policy and headers, and the pins of the shared modules)
+  const lock = readLock(ctx.lockPath || LOCK);
+  if (!lock || !lock.files) throw new Error("shared.lock.json is missing or unreadable.");
+  for (const f of manifest.files) {
+    const text = fsImpl.readFileSync(path.join(dir, f.path), "utf8");
+    const problems = [...scan(f.path, text), ...scanWriteCode(f.path, text)];
+    if (problems.length) throw new Error("A built file fails the Preview scan: " + problems.join("; "));
+    if (f.path.startsWith("shared/")) {
+      const name = f.path.slice("shared/".length);
+      if (lock.files[name] !== f.sha256) throw new Error(`A shared module is not the pinned, reviewed one: ${f.path}`);
+    }
   }
   // 4. the aggregate digest, recomputed from the verified files
   if (digestOf(manifest.files) !== manifest.digest) throw new Error("The manifest digest does not match its files (recomputed from the verified files).");

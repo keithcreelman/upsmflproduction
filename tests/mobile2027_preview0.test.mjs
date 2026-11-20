@@ -207,13 +207,16 @@ test("a failed read is reported as failed, not as an empty league", async () => 
   t.equal(pen.state, "error");
 });
 
-test("the source holds no write verb, credential name or second transport; fetch lives in one file", () => {
+test("the source holds no write verb, credential name or second transport; fetch lives in one file", async () => {
+  const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
   const files = ["app.js", "config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/photo.js", "lib/views.js"];
   const forbidden = [/XMLHttpRequest/, /sendBeacon/, /WebSocket/, /EventSource/, /document\.cookie/, /indexedDB/, /serviceWorker/, /importScripts/, /\beval\s*\(/, /new Function/,
     /\bPOST\b/, /\bPUT\b/, /\bDELETE\b/, /\bPATCH\b/, /MFL_USER_ID\s*[=:]/, /APIKEY\s*[=:]/i, /Authorization/, /method:\s*["'](?!GET)/];
   files.forEach((f) => { const s = read(f); forbidden.forEach((re) => t.doesNotMatch(s, re, f + " must not match " + re)); });
-  files.filter((f) => f !== "lib/data.js").forEach((f) => t.doesNotMatch(read(f).replace(/window\.fetch\.bind\(window\)/, ""), /\bfetch\s*\(/, f + " does not call fetch itself"));
-  t.match(read("app.js"), /window\.fetch\.bind\(window\)/); // the loader is handed fetch; nothing else is
+  files.forEach((f) => t.doesNotMatch(B.stripComments(read(f)).replace(/window\.fetch\(url, opts\)/, ""), /(^|[^A-Za-z0-9_$])fetch\b/, f + " does not name fetch itself"));
+  t.match(read("app.js"), /window\.fetch\(url, opts\)/); // the one fetch, inside guardedFetch
+  t.match(read("app.js"), /createLoader\(cfg, guardedFetch\)/); // the loader is handed only the guarded one
+  t.match(read("app.js"), /if \(S\.sample\.on\) return Promise\.reject/, "and the guarded one refuses while Sample mode is on");
   files.filter((f) => f !== "app.js").forEach((f) => t.doesNotMatch(read(f), /localStorage|sessionStorage/, f + " does not store anything"));
   t.deepEqual([...read("app.js").matchAll(/setPref\("([a-z]+)"/g)].map((m) => m[1]).sort().filter((x, i, a) => a.indexOf(x) === i), ["skin", "team", "vib"]);
 });
@@ -466,6 +469,8 @@ test("the headshot chain is ESPN, then MFL, then a placeholder, in that order", 
   const img3 = mk(); P.attach(img3, [], (s) => seen2.push(s)); t.equal(img3.hidden, true);
   const known = { "https://a.espncdn.com/i/headshots/nfl/players/full/1.png": true };
   const img4 = mk(); P.attach(img4, P.chain("1", "2"), null, known); t.equal(img4.hidden, false, "a photo that already loaded does not flash the badge");
+  // an image whose screen was redrawn (no longer in the page) stops walking the chain: no further address is requested for it
+  const img5 = mk(); P.attach(img5, P.chain("1", "2"), null); const first = img5.src; img5.isConnected = false; img5.handlers.error(); t.equal(img5.src, first, "a detached image does not move on to the next address");
 });
 
 // ───────────────────────── 6. page policy ─────────────────────────
@@ -685,11 +690,17 @@ test("the deploy check refuses a tampered manifest: digest, file list, hashes, c
   { const d = fresh(); const m = mf(d); m.files[0].note = "x"; save(d, m); refused("an unknown file-entry field", d, /malformed/); }
   { const d = fresh(); const m = mf(d); m.build = "preview9"; save(d, m); refused("another build name", d, /not a Preview 0 build/); }
   { const d = fresh(); fs.writeFileSync(path.join(d, "build-manifest.json"), "{not json"); refused("unparseable JSON", d, /not valid JSON/); }
+  // 3b. the deploy runs the scans again on the files it will publish, so a manifest rewritten to match cannot carry write code
+  const rewrite = (d, rel, edit) => { const f = path.join(d, rel); fs.writeFileSync(f, edit(fs.readFileSync(f, "utf8"))); const m = mf(d); const e = m.files.find((x) => x.path === rel); const buf = fs.readFileSync(f); e.bytes = buf.length; e.sha256 = sha(buf); save(d, rehash(m)); };
+  { const d = fresh(); rewrite(d, "app.js", (x) => x + '\nfetch("/x", { method: "POST" });\n'); refused("write code in a built script, manifest rewritten to match", d, /fails the Preview scan: app\.js/); }
+  { const d = fresh(); rewrite(d, "index.html", (x) => x.replace("connect-src https://upsmflproduction.keith-creelman.workers.dev", "connect-src *")); refused("a widened content policy, manifest rewritten to match", d, /fails the Preview scan: index\.html: page: the content policy is not the reviewed one/); }
+  { const d = fresh(); rewrite(d, "_headers", (x) => x + "\n  Access-Control-Allow-Origin: *\n"); refused("an unreviewed response header, manifest rewritten to match", d, /fails the Preview scan: _headers/); }
+  { const d = fresh(); rewrite(d, "styles.css", (x) => x + "\n@import url(https://evil.example/x.css);\n"); refused("a remote style import, manifest rewritten to match", d, /fails the Preview scan: styles\.css/); }
   // 4b. the build mode and the shared modules
   { const d = fresh(); const m = mf(d); m.mode = "test"; save(d, m); refused("another build mode", d, /mode is not "preview"/); }
   { const d = fresh(); const m = mf(d); delete m.mode; save(d, m); refused("no build mode", d, /exactly these fields/); }
   { const d = fresh(); const f = path.join(d, "shared/taxi_rule.js"); fs.appendFileSync(f, "\n// edited after the build\n"); const m = mf(d); const e = m.files.find((x) => x.path === "shared/taxi_rule.js"); const buf = fs.readFileSync(f); e.bytes = buf.length; e.sha256 = sha(buf); save(d, rehash(m));
-    refused("a shared module changed with a fully rewritten manifest", d, /not the source at the named commit: shared\/taxi_rule\.js/); }
+    refused("a shared module changed with a fully rewritten manifest", d, /not the pinned, reviewed one: shared\/taxi_rule\.js/); }
   { const d = fresh(); const moved = fs.mkdtempSync(path.join(os.tmpdir(), "m27h-")); fs.cpSync(B.SHARED_DIR, moved, { recursive: true }); fs.appendFileSync(path.join(moved, "contract_windows.js"), "\n// the shared file moved on\n");
     refused("a shared module that moved on after the build", d, /not the source at the named commit: shared\/contract_windows\.js/, { git: G(), srcDir: SRC, sharedDir: moved }); fs.rmSync(moved, { recursive: true, force: true }); }
   // 5. the source commit
@@ -781,9 +792,69 @@ test("the Preview write-code scan: what it refuses, what it allows, and that the
   hit("lib/views.js", "var go = fetch;", /reference to fetch/);
   hit("lib/submit_lineup.js", "var a = 1;", /file name says it writes/);
   hit("lib/save.js", "var a = 1;", /file name says it writes/);
-  hit("index.html", '<script>fetch("/x")</script>', /reference to fetch/);
-  clean("lib/data.js", 'fetchImpl(url, { method: "GET", credentials: "omit" }); fetch(u)');
-  clean("app.js", "var l = U.data.createLoader(cfg, window.fetch.bind(window));");
+  hit("lib/data.js", "fetch(u)", /reference to fetch/);
+  hit("lib/x.js", "var f = window.fetch.bind(window);", /reference to fetch/);
+  hit("app.js", "var f = window.fetch.bind(window);", /reference to fetch/);
+  clean("lib/data.js", 'fetchImpl(url, { method: "GET", credentials: "omit" });');
+  clean("app.js", "function guardedFetch(url, opts) {\n  return window.fetch(url, opts);\n}");
+  // what the independent review tried, and the scan now refuses
+  hit("lib/x.js", 'var s = "//"; fetch(u);', /reference to fetch/); // a // inside a string no longer hides the rest of the line
+  hit("lib/x.js", 'var s = "/*"; fetch(u); var t = "*/";', /reference to fetch/);
+  hit("lib/x.js", 'var a = "x"; /* c */ eval(a);', /eval/);
+  hit("lib/x.js", "(0, eval)(c)", /eval/);
+  hit("lib/x.js", 'window["fe" + "tch"](u)', /computed access to the global object/);
+  hit("lib/x.js", 'self["fetch"](u)', /computed access to the global object/);
+  hit("lib/x.js", "globalThis.fetch(u)", /reference to fetch/);
+  hit("lib/x.js", "var f = Function('return 1'); f()", /Function constructor/);
+  hit("lib/x.js", "new Image().src = u", /can load or send/);
+  hit("lib/x.js", "new Request(u)", /can load or send/);
+  hit("lib/x.js", "img.src = u", /loading property/);
+  hit("lib/x.js", "a.href = u", /loading property/);
+  hit("lib/x.js", 'el.setAttribute("src", u)', /loading attribute/);
+  hit("lib/x.js", 'document.createElement("script")', /document write, create or cookie/);
+  hit("lib/x.js", "document.write(x)", /document write, create or cookie/);
+  hit("lib/x.js", "location.href = u", /navigating/);
+  hit("lib/x.js", "location = u", /navigating/);
+  hit("lib/x.js", "location.assign(u)", /navigating/);
+  hit("lib/x.js", "window.open(u)", /window\.open/);
+  hit("lib/x.js", "navigator.sendBeacon(u)", /sendBeacon|navigator/);
+  hit("lib/x.js", 'var n = "\\u0066etch"; ', /escaped ASCII/);
+  hit("lib/x.js", "var s = `x`;", /template literal/);
+  hit("lib/x.js", "import('x.js')", /dynamic import/);
+  hit("lib/x.js", "postMessage(x)", /postMessage/);
+  hit("lib/x.js", 'o["method"] = "PUT";', /write verb/);
+  hit("lib/x.js", "o.method = m;", /method other than/);
+  hit("lib/x.js", "o.credentials = c;", /credentials other than omit/);
+  // images are loaded by assigning src, in one file only (the content policy limits their hosts)
+  clean("lib/photo.js", "img.src = urls[i];");
+  // pages: a form, a frame, an inline script or handler, a remote script or image, a refresh, or a changed policy
+  const page = (extra, csp) => '<!doctype html><meta http-equiv="Content-Security-Policy" content="' + (csp || B.EXPECTED_CSP) + '"><link rel="stylesheet" href="styles.css"><div id="app"></div>' + (extra || "") + '<script src="config.js"></script>';
+  clean("index.html", page(""));
+  hit("index.html", page('<script>fetch("/x")</script>'), /inline script/);
+  hit("index.html", page('<button onclick="go()">x</button>'), /event handler/);
+  hit("index.html", page('<form action="/x" method="post"></form>'), /a form/);
+  hit("index.html", page('<iframe src="x.html"></iframe>'), /iframe/);
+  hit("index.html", page('<img src="x.png">'), /image tag/);
+  hit("index.html", page('<script src="https://evil.example/x.js"></script>'), /absolute or protocol-relative/);
+  hit("index.html", page('<link rel="stylesheet" href="//evil.example/x.css">'), /absolute or protocol-relative/);
+  hit("index.html", page('<meta http-equiv="refresh" content="0;url=x">'), /refresh/);
+  hit("index.html", page('<style>a{}</style>'), /inline style/);
+  hit("index.html", page('<div style="color:red"></div>'), /inline style/);
+  hit("index.html", page("", B.EXPECTED_CSP.replace("connect-src https://upsmflproduction.keith-creelman.workers.dev", "connect-src *")), /content policy is not the reviewed one/);
+  hit("index.html", page("", B.EXPECTED_CSP + "; frame-src https://x"), /content policy is not the reviewed one/);
+  hit("index.html", '<!doctype html><div id="app"></div><script src="config.js"></script>', /no content policy/);
+  // style sheets and the response-header file
+  hit("styles.css", "@import 'x.css';", /@import/);
+  hit("styles.css", "a{background:url(https://evil.example/x.png)}", /url\(\)/);
+  clean("styles.css", "a{color:red} /* url(x) in a comment */");
+  clean("_headers", "/*\n  X-Content-Type-Options: nosniff\n  Content-Security-Policy: frame-ancestors 'none'\n  Cache-Control: no-cache\n");
+  hit("_headers", "/*\n  Access-Control-Allow-Origin: *\n", /header not on the reviewed list/);
+  hit("_headers", "/*\n  Content-Security-Policy: default-src *\n", /header content policy is not the reviewed one/);
+  hit("_headers", "/*\n  Link: <https://evil.example/x.js>; rel=preload\n", /header not on the reviewed list/);
+  // file names: a whole word between separators, not a substring
+  hit("lib/send_lineup.js", "var a = 1;", /file name says it writes/);
+  hit("lib/sync.js", "var a = 1;", /file name says it writes/);
+  clean("lib/postseason.js", "var a = 1;");
   clean("lib/x.js", '// POST is never used here\n/* method: "DELETE" and credentials: "include" in a comment */ var a = 1;');
   clean("lib/x.js", 'if (e.method !== "GET") n++; var u = "https://a.example/b";');
   clean("lib/photo.js", "var prefetchedImages = 1; // fetchable later");
@@ -810,10 +881,11 @@ test("Sample mode: client-only, labeled, off at every start, and it keeps the pa
   t.equal(SM.envText(false), "Preview: view only"); t.match(SM.envText(true), /^Sample data · nothing is real and nothing is sent$/);
   // the screens
   const off = V.app(state()), on = V.app(state({ sample: { on: true } }));
-  t.match(off, /<div class="envbar" role="status"><span>Preview: view only<\/span>/); t.doesNotMatch(off, /Sample data/);
-  t.match(on, /<div class="envbar sample" role="status"><span>Sample data · nothing is real and nothing is sent<\/span>/);
+  t.match(off, /<div class="envbar"><span>Preview: view only<\/span>/); t.doesNotMatch(off, /Sample data/);
+  t.match(on, /<div class="envbar sample"><span>Sample data · nothing is real and nothing is sent<\/span>/);
   t.match(on, /Nothing here is real, and nothing is sent\./); t.doesNotMatch(on, /Week 11 starters|class="rx"/, "no league data is drawn in Sample mode");
-  t.equal((on.match(/data-act="sample"/g) || []).length, 1, "one control, to turn it off");
+  t.equal((on.match(/data-act="sample"/g) || []).length, 1, "one control, to turn it off"); t.match(on, /data-act="sample" data-v="screen"/);
+  const aboutOn = V.app(state({ sheet: "about", sample: { on: true } })); t.match(aboutOn, /data-act="sample" data-v="about"/, "the two Sample buttons are told apart, so focus returns to the right one"); t.doesNotMatch(aboutOn, /Reload the data/, "Reload is hidden while Sample mode is on"); t.match(V.app(state({ sheet: "about" })), /Reload the data/);
   const withProfile = V.app(state({ sample: { on: true }, profile: { pid: allPlayers()[0].id, tab: "contract" } })); t.doesNotMatch(withProfile, /role="dialog"/, "a profile is not drawn in Sample mode");
   // the label shows on every tab, every sheet and every state
   ["team", "home", "market", "league"].forEach((tab) => { t.match(V.app(state({ tab })), /class="envbar"/, tab + " carries the marker"); t.match(V.app(state({ tab, sample: { on: true } })), /class="envbar sample"/, tab + " carries the Sample label"); });

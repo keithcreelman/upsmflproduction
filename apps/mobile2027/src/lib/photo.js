@@ -28,6 +28,7 @@
     img.hidden = !(known && urls[0] && known[urls[0]]); // the position badge underneath shows until a photo has actually loaded
     img.addEventListener("load", function () { img.hidden = false; if (known) known[urls[i]] = true; if (onResult) onResult(names(i)); });
     img.addEventListener("error", function () {
+      if (img.isConnected === false) return; // the screen was redrawn: do not keep walking the chain for an image nobody sees
       i++;
       if (i < urls.length) img.src = urls[i];
       else { img.removeAttribute("src"); img.hidden = true; if (onResult) onResult("placeholder"); }

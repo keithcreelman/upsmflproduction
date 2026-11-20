@@ -17,8 +17,10 @@ const FX = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/publi
 const read = (rel) => fs.readFileSync(path.join(SRC, rel), "utf8");
 const tick = async (n = 12) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0)); };
 
-function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0 } = {}) {
+function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false } = {}) {
   const calls = [];
+  let releasePen = () => {}; const penGate = holdPen ? new Promise((r) => { releasePen = r; }) : null;
+  let release = () => {}; const gate = hold ? new Promise((r) => { release = r; }) : null; // holds the roster read open until release()
   const state = { failRoster, failPenalty };
   const body = (u) => {
     if (u.pathname === "/roster-workbench") return FX.roster_workbench;
@@ -29,6 +31,8 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0 } = {}) 
   const fetchFake = async (url, opts) => {
     const u = new URL(url);
     calls.push({ url, path: u.pathname, type: u.searchParams.get("TYPE"), opts });
+    if (gate && u.pathname === "/roster-workbench") await gate;
+    if (penGate && u.pathname === "/api/cap-penalty/preview") await penGate;
     if (u.pathname === "/roster-workbench" && state.failRoster > 0) { state.failRoster--; return { ok: false, status: 503, text: async () => "down" }; }
     if (u.pathname === "/api/cap-penalty/preview" && state.failPenalty > 0) { state.failPenalty--; return { ok: false, status: 500, text: async () => "x" }; }
     return { ok: true, status: 200, text: async () => JSON.stringify(body(u)) };
@@ -62,7 +66,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0 } = {}) 
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));
     await tick();
   };
-  return { appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, html: () => appEl.innerHTML };
+  return { appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, release: () => release(), releasePen: () => releasePen(), html: () => appEl.innerHTML };
 }
 
 test("boot: loads the roster, shows the first team with starters above the bench, and every request is a bare GET", async () => {
@@ -172,6 +176,7 @@ test("Sample mode: while it is on the page makes no request at all (not a read, 
   const a = boot(); await tick(30);
   const before = a.calls.length; t.ok(before >= 4, "the normal load made its reads");
   await a.click({ "data-act": "about" }); t.match(a.html(), /Turn Sample mode on/);
+  const loggedBefore = /<b>(\d+)<\/b> data requests/.exec(a.html())[1];
   await a.click({ "data-act": "sample" });
   t.match(a.html(), /Sample data · nothing is real and nothing is sent/); t.match(a.html(), /Turn Sample mode off/);
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
@@ -181,12 +186,42 @@ test("Sample mode: while it is on the page makes no request at all (not a read, 
   await a.click({ "data-act": "retry" }); await a.click({ "data-act": "retrypen" }); await tick(20);
   await a.click({ "data-act": "nav", "data-v": "market" }); await a.click({ "data-act": "nav", "data-v": "team" }); await tick(20);
   t.equal(a.calls.length, before, "zero requests were made while Sample mode was on");
+  await a.click({ "data-act": "about" }); t.match(a.html(), new RegExp("<b>" + loggedBefore + "</b> data requests"), "the loader was not even asked: its own log did not grow, so the page's two guards held without the fetch guard");
+  await a.click({ "data-act": "close" });
   t.doesNotMatch(JSON.stringify(a.storage), /sample/i, "nothing about Sample mode is stored on the phone");
   // turning it off brings the real screens back
   await a.click({ "data-act": "sample" });
   t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Preview: view only/); t.match(a.html(), /Week 11 starters/);
   // it is never remembered: a fresh page starts with it off
   const b = boot(); await tick(30); t.doesNotMatch(b.html(), /Sample data/); t.match(b.html(), /Preview: view only/);
+});
+
+test("Sample mode switched on while the first read is out, or with a profile open: nothing late is drawn, nothing is left stuck, and off reads again", async () => {
+  const a = boot({ hold: true }); await tick(10);
+  t.match(a.html(), /aria-busy="true"/, "the first read is still out");
+  await a.click({ "data-act": "about" }); await a.click({ "data-act": "sample" });
+  const atOn = a.calls.length; a.release(); await tick(30);
+  t.equal(a.calls.length, atOn, "no request left the page after Sample mode went on, not even the rest of the load");
+  t.match(a.html(), /Sample data · nothing is real and nothing is sent/); t.doesNotMatch(a.html(), /Week 11 starters/, "the late answer was dropped, not drawn");
+  t.doesNotMatch(a.html(), /Reload the data/, "Reload is paused while Sample mode is on");
+  await a.click({ "data-act": "sample" }); await tick(40);
+  t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Week 11 starters/, "turning it off read the league again instead of leaving a spinner or an error");
+  // a profile that is open when Sample mode goes on is closed, and is not left stuck on the way back
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await a.click({ "data-act": "close" }); t.doesNotMatch(a.html(), /role="dialog"/, "the About sheet is closed");
+  await a.click({ "data-act": "card", "data-pid": pid }); await tick(20); t.match(a.html(), /role="dialog"/);
+  await a.click({ "data-act": "sample" }); t.doesNotMatch(a.html(), /role="dialog"/, "no profile is drawn in Sample mode"); t.match(a.html(), /Nothing here is real/);
+  await a.click({ "data-act": "sample" }); await tick(20); t.doesNotMatch(a.html(), /role="dialog"/); t.match(a.html(), /Week 11 starters/);
+});
+
+test("a calculation that finishes after Sample mode went on is dropped, and the profile reads it again afterward", async () => {
+  const a = boot({ holdPen: true }); await tick(30);
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await a.click({ "data-act": "card", "data-pid": pid }); await tick(10);
+  await a.click({ "data-act": "sample" }); a.releasePen(); await tick(30);
+  await a.click({ "data-act": "sample" }); await tick(20);
+  await a.click({ "data-act": "card", "data-pid": pid }); await tick(20);
+  t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 2, "the late answer was not kept as if it were current");
 });
 
 await run("mobile2027_controller");

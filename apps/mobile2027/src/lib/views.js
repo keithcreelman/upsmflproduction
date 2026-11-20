@@ -327,9 +327,9 @@
     }).join("");
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="About Preview 0" tabindex="-1"><div class="grab"></div><div class="top"><h3>About Preview 0</h3><button class="btn" data-act="close">Close</button></div>' +
       '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of two redesigned screens: Team roster and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
-      '<div class="card"><h2>Data</h2><div class="ex">Read from the league when this page opened' + (S.model ? " (" + esc(F.etStamp(S.model.asOf) || "just now") + ")" : "") + '. The worker keeps each answer for up to a minute.</div><button class="btn blk" data-act="retry">Reload the data</button></div>' +
+      '<div class="card"><h2>Data</h2><div class="ex">Read from the league when this page opened' + (S.model ? " (" + esc(F.etStamp(S.model.asOf) || "just now") + ")" : "") + '. The worker keeps each answer for up to a minute.</div>' + (sampleOn(S) ? '<div class="ex">Reloading is paused while Sample mode is on.</div>' : '<button class="btn blk" data-act="retry">Reload the data</button>') + "</div>" +
       '<div class="card"><h2>Display</h2>' + chipRow("skin", [["system", "Match my phone"], ["light", "Light"], ["dark", "Dark"], ["hc", "High contrast"]], S.skin, "Skin") + chipRow("vib", [["1", "Vibrant"], ["0", "Plain"]], S.vib, "Position colors") + "</div>" +
-      '<div class="card"><h2>Sample mode</h2><div class="ex">For trying screens without league data. Labeled, local to this phone, never remembered, and it makes no request while it is on.</div><button class="btn blk" data-act="sample">' + (sampleOn(S) ? "Turn Sample mode off" : "Turn Sample mode on") + "</button></div>" +
+      '<div class="card"><h2>Sample mode</h2><div class="ex">For trying screens without league data. Labeled, local to this phone, never remembered, and it makes no request while it is on.</div><button class="btn blk" data-act="sample" data-v="about">' + (sampleOn(S) ? "Turn Sample mode off" : "Turn Sample mode on") + "</button></div>" +
       '<div class="card"><h2>Requests this page made</h2><div class="ex"><b>' + sum.requests + "</b> data requests: <b>" + sum.ok + "</b> succeeded, <b>" + sum.failed + "</b> failed, <b>" + sum.refused + "</b> refused. Methods other than GET: <b>" + sum.nonGet + '</b>. No cookie, session or key is ever sent.</div>' + rows +
       '<div class="ex mt6">Player photos load straight from ESPN, then MFL, as the current app does. They are images, not data requests.</div></div>' +
       '<div class="card"><h2>Not in Preview 0</h2><ul class="pl"><li>Any action: lineup changes, drops, extensions, bids, trades</li><li>Cap space and the Contracts and Cap &amp; picks tabs</li><li>Injury status, projections, game log, schedule, news, bio</li><li>Helmet badge and team colors (not approved)</li><li>Sign-in: you are not signed in as anyone</li></ul></div>' +
@@ -340,12 +340,12 @@
   function sampleOn(S) { return !!(S.sample && S.sample.on); }
   function envBar(S) {
     var on = sampleOn(S);
-    return '<div class="envbar' + (on ? " sample" : "") + '" role="status"><span>' + esc(SM.envText(on)) + "</span></div>";
+    return '<div class="envbar' + (on ? " sample" : "") + '"><span>' + esc(SM.envText(on)) + "</span></div>";
   }
   function sampleScreen() {
     return header("Sample mode", "") + '<div id="screen"><div class="card hl"><h2>Sample mode</h2><div class="big2"><b>Nothing here is real, and nothing is sent.</b></div>' +
       '<div class="ex">Sample scenarios let a screen be tried without any league data. They live on this phone only, and this page makes no request while Sample mode is on. No scenario is installed yet: they arrive with the screens that use them.</div>' +
-      '<button class="btn pri blk" data-act="sample">Turn Sample mode off</button></div></div>';
+      '<button class="btn pri blk" data-act="sample" data-v="screen">Turn Sample mode off</button></div></div>';
   }
 
   function app(S) {

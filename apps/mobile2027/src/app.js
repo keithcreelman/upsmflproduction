@@ -4,8 +4,15 @@
   "use strict";
   var U = window.UPS2027, cfg = window.UPS2027_CONFIG;
   var appEl = document.getElementById("app");
-  var loader = U.data.createLoader(cfg, window.fetch.bind(window));
+  // The page's one fetch. It is the loader's only way out, and it refuses outright while Sample mode is on (a third guard,
+  // behind the two in loadCore/loadPenalty). The build scan allows exactly this line and no other reference to fetch.
+  function guardedFetch(url, opts) {
+    if (S.sample.on) return Promise.reject(new Error("Sample mode: no requests are made"));
+    return window.fetch(url, opts);
+  }
+  var loader = U.data.createLoader(cfg, guardedFetch);
   var known = {}; // photo addresses that already loaded this visit
+  var gen = 0; // bumped whenever Sample mode changes or a load starts, so a read that finishes late is dropped
 
   function pref(k, d) { try { var v = localStorage.getItem("ups2027-p0-" + k); return v === null ? d : v; } catch (e) { return d; } }
   function setPref(k, v) { try { localStorage.setItem("ups2027-p0-" + k, v); } catch (e) { /* private window or blocked storage: the choice just is not remembered */ } }
@@ -59,9 +66,11 @@
   // While Sample mode is on the page makes no request at all: every read goes through these two guards.
   function loadCore() {
     if (S.sample.on) return Promise.resolve();
+    var mine = ++gen;
     S.load = { core: "loading", coreNotes: [], error: "" };
     render();
     return loader.loadCore().then(function (r) {
+      if (mine !== gen || S.sample.on) return; // Sample mode was switched on (or a newer load started) while this read was out
       var rw = r.roster.state === "ok" ? r.roster.data : null;
       if (!rw || rw.ok !== true || !Array.isArray(rw.teams) || !rw.teams.length) {
         S.load = { core: "error", coreNotes: [], error: r.roster.state === "ok" ? "The league data came back in an unexpected shape." : r.roster.error };
@@ -85,7 +94,11 @@
     if (S.sample.on) return;
     if (!force && (S.penalty.state === "loading" || S.penalty.state === "ok")) return;
     S.penalty = { state: "loading" };
-    loader.loadPenalty().then(function (r) { S.penalty = r; render(true); });
+    var mine = gen;
+    loader.loadPenalty().then(function (r) {
+      if (mine !== gen || S.sample.on) { if (S.penalty.state === "loading") S.penalty = { state: "idle" }; return; }
+      S.penalty = r; render(true);
+    });
   }
 
   // ---- routing: the address only records the open profile, so Back closes it ----
@@ -129,6 +142,21 @@
     if (!t) return [];
     return U.model.benchGroups(t).map(function (g) { return "b" + g.pos; }).concat(["ir", "taxi"]);
   }
+  // Sample mode: turning it on drops anything in flight and closes an open profile (no league data is drawn);
+  // turning it off reloads whatever the real screens still need, so nothing is left loading or empty.
+  function toggleSample() {
+    gen++;
+    S.sample.toggle();
+    if (S.sample.on) {
+      S.profile = null;
+      if (S.penalty.state === "loading") S.penalty = { state: "idle" };
+      if (S.load.core === "loading") S.load = { core: "loading", coreNotes: [], error: "" };
+      render(true);
+      return;
+    }
+    if (!S.model || S.load.core === "loading" || S.load.core === "error") { loadCore(); return; }
+    render(true);
+  }
   appEl.addEventListener("click", function (ev) {
     var el = ev.target.closest ? ev.target.closest("[data-act]") : null;
     if (!el || !appEl.contains(el)) return;
@@ -143,7 +171,7 @@
     else if (act === "teams") { S.sheet = "teams"; render(); }
     else if (act === "pickteam") { S.teamId = el.getAttribute("data-fid"); setPref("team", S.teamId); S.open = {}; S.sheet = null; render(); }
     else if (act === "about") { S.sheet = "about"; render(); }
-    else if (act === "sample") { S.sample.toggle(); render(true); }
+    else if (act === "sample") { toggleSample(); }
     else if (act === "skin") { S.skin = v; setPref("skin", v); applySkin(); render(true); }
     else if (act === "vib") { S.vib = v; setPref("vib", v); applySkin(); render(true); }
     else if (act === "tog") { S.flags[v] = !S.flags[v]; render(true); }
