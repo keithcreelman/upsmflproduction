@@ -308,8 +308,10 @@ test("R2: Sample mode starts no Team › Roster read either, drops one already o
   a.releaseIntel(); await tick(30);
   t.equal(a.calls.length, before, "nothing new started, and the answers that arrived late were dropped");
   t.match(a.html(), /Sample data/); t.doesNotMatch(a.html(), /▲ Questionable|QB1/, "no late data is drawn");
+  await a.click({ "data-act": "about" }); const logged = /<b>(\d+)<\/b> data requests/.exec(a.html())[1]; await a.click({ "data-act": "close" });
   await a.click({ "data-act": "nav", "data-v": "team" }); await a.click({ "data-act": "view", "data-v": "performance" }); await a.click({ "data-act": "weeks" });
   t.equal(a.calls.length, before, "tapping around in Sample mode starts nothing");
+  await a.click({ "data-act": "about" }); t.match(a.html(), new RegExp("<b>" + logged + "</b> data requests"), "the loader was not even asked: its log did not grow, so the page's own guard held without the fetch guard"); await a.click({ "data-act": "close" });
   await a.click({ "data-act": "sample" }); await tick(40);
   t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Week 11 starters/);
   t.match(a.html(), /▲ Questionable/, "the answers that arrived while Sample mode was on were kept in memory (not drawn then), so they show now");

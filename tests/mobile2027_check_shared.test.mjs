@@ -44,6 +44,9 @@ test("the check passes on reviewed copies, and reports each kind of drift by nam
   fs.writeFileSync(path.join(c2.shared, "injury_status.js"), fs.readFileSync(path.join(FIXSH, "injury_status.js"), "utf8").replace('Doubtful: "d"', 'Doubtful: "q"'));
   const d3 = K.checkShared(c2.opts); t.match(failing(d3), /injury_status\.js: bytes equal the pin/);
   fs.rmSync(c2.dir, { recursive: true, force: true });
+  // the derived result no longer matches its pin
+  const c3 = sandboxCopy(); const l3 = JSON.parse(fs.readFileSync(c3.lockPath, "utf8")); l3.derived["injury_status.js"].output = "0".repeat(64); fs.writeFileSync(c3.lockPath, JSON.stringify(l3));
+  t.match(failing(K.checkShared(c3.opts)), /injury_status\.pure\.js: equals its pin[^|]*differs from the pinned, reviewed one/); fs.rmSync(c3.dir, { recursive: true, force: true });
   // a module that is gone
   fs.rmSync(path.join(c.shared, "contract_windows.js"));
   const g = K.checkShared(c.opts); t.equal(g.ok, false); t.match(failing(g), /contract_windows\.js: present/);

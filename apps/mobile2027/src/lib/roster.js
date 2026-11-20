@@ -179,9 +179,9 @@
     if (!idx) return undefined;
     return idx[fid] ? idx[fid].total : null;
   }
-  // The most recent FINAL week the Performance view reports for the selected week: that week itself when it is past, the week
-  // before when it is the current one (its games are not all played).
-  function scoreWeek(wi) { return wi.sel == null ? null : wi.past ? wi.sel : wi.sel - 1 >= 1 ? wi.sel - 1 : null; }
+  // The week before the selected (current) week: the most recent one whose games are all final. A past week's rows use that week
+  // itself (views.js passes it), so this is only for the current week.
+  function scoreWeek(wi) { return wi.sel != null && wi.sel - 1 >= 1 ? wi.sel - 1 : null; }
   function avgOf(S, pid, wk) {
     var r = S.intel && S.intel.mu && S.intel.mu[wk];
     if (r && r.state === "error") return null;

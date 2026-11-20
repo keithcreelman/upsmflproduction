@@ -252,4 +252,43 @@ test("the injury note and the status line: only when something is wrong; 'n to f
   t.match(text(V.rosterBody(state({ ...intel, status: { state: "loading" } }, { view: "byes" }))), /nothing to fix \(injuries not checked\)/);
 });
 
+
+test("each fact is the one the read gave: home or away, the team's own week, one decimal, the years that end, bye and IR rules", async () => {
+  const intel = await intelFor();
+  const m = model(), tm = m.teams.find((x) => x.id === TEAM), lineup = R.lineupFor(state(intel), tm, 11);
+  // home and away: "vs" is the home team, "@" the visitor, from the recorded games
+  const games = intel.mu[11].data.games;
+  const homeP = lineup.slots.map((x) => x.player).find((p) => games[p.nflTeam] && games[p.nflTeam].isHome), awayP = lineup.slots.map((x) => x.player).find((p) => games[p.nflTeam] && !games[p.nflTeam].isHome);
+  t.ok(homeP && awayP, "the recorded lineup has a home starter and an away starter");
+  t.match(R.oppText(state(intel), homeP, 11), /^vs [A-Z]{2,3}$/); t.match(R.oppText(state(intel), awayP, 11), /^@ [A-Z]{2,3}$/);
+  // a team the games read does not list, and no bye for him, is "unavailable", not blank and not a guess
+  t.equal(R.oppText(state(intel), { ...homeP, nflTeam: "XXX", bye: null }, 11), "Opponent unavailable");
+  t.equal(R.oppText(state(intel), { ...homeP, nflTeam: "XXX", bye: 11 }, 11), "Bye week", "unless MFL's own bye week says so");
+  // the Performance and past rows speak for the right week, with one decimal
+  const sc10 = Object.fromEntries(FX2.weekly_results_w10.weeklyResults.matchup.flatMap((x) => x.franchise).filter((f) => f.id === TEAM)[0].player.map((p) => [p.id, p.score]));
+  const withDecimal = lineup.slots.map((x) => x.player).find((p) => /\.\d$/.test(String(sc10[p.id])) && !/\.0$/.test(String(sc10[p.id])));
+  t.ok(withDecimal, "a recorded starter with a non-whole score");
+  t.match(text(V.rosterBody(state(intel, { view: "performance" }))), new RegExp(withDecimal.name + " Wk 10 " + String(sc10[withDecimal.id]).replace(".", "\\.") + " · Avg"), "current week: last week's (Week 10) score, to one decimal");
+  const past = text(V.rosterBody(state(intel, { wk: 10 })));
+  t.match(past, new RegExp(withDecimal.name + " [A-Z]+ · [^ ]+ [^ ]+ " + String(sc10[withDecimal.id]).replace(".", "\\.") + " pts"), "past week 10: that week's own score");
+  // a failed games read: the average is a dash, not 'loading'
+  const noMu = text(V.rosterBody(state({ ...intel, mu: { 11: { state: "error", error: "x" } } }, { view: "performance" })));
+  t.match(noMu, /Avg —/); t.doesNotMatch(noMu, /Avg …/);
+  // a starter on a bye this week is one to fix
+  const m2 = model(); const st = lineup.slots.map((x) => x.player)[0]; m2.byId[st.id].bye = 11;
+  t.match(text(V.rosterBody(state(intel, { view: "byes", model: m2 }))), /18 of 18 starters · 1 to fix/);
+  // "end after 2026" counts a final year only (years left = 1), not an expired or unrecorded contract
+  const m3 = model(); const t3 = m3.teams.find((x) => x.id === TEAM); const act = t3.players.filter((p) => p.status === "active");
+  const want = act.filter((p) => p.years === 1).length; act[0].years = 0; act[1].years = 1;
+  t.equal(R.endingAfterSeason(t3), act.filter((p) => p.years === 1).length); t.ok(want >= 1);
+  // an IR-section player does not repeat the IR chip, but another designation (PUP) still shows
+  const s2 = clone(FX2.player_status); const irs = tm.players.filter((p) => p.status === "ir");
+  t.ok(irs.length >= 2, "the team has IR players");
+  s2.players[irs[0].id] = { roster: { status: "IR", label: "Injured reserve", chip: "IR", detail: null, exp_return: null } };
+  s2.players[irs[1].id] = { roster: { status: "IR-PUP", label: "Physically unable to perform", chip: "PUP", detail: null, exp_return: null } };
+  const irHtml = V.rosterBody(state(await intelFor({ status: s2 }), { open: { ir: true } }));
+  const rowOf = (pid) => irHtml.split('<div class="rx').find((r) => r.includes('data-pid="' + pid + '"'));
+  t.doesNotMatch(rowOf(irs[0].id), /■ IR/, "an IR player in the IR section shows no IR chip"); t.match(rowOf(irs[1].id), /■ PUP/, "a PUP designation still shows");
+});
+
 await run("mobile2027_roster");
