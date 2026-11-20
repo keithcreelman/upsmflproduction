@@ -56,6 +56,15 @@ MFL_HOST = "https://www48.myfantasyleague.com"
 MFL_APIKEY = os.environ.get("UPS_COMMISH_API_KEY") or os.environ.get("MFL_APIKEY", "")
 CURRENT_YEAR = 2026
 
+# Final finish (1-12) -> Round 1-5 draft slot, canon docs/league_context_v1.md §A1.
+# The toilet side picks first (7 = Hawktuah champion -> .01 ... 12 -> .06); on the
+# championship side the Week-16 fifth-place game WINNER (finish 5) takes .07 and the
+# loser (finish 6) .08, then 4 -> .09 ... 1 -> .12. Proven by replaying every pick trade
+# 2012-2025 (tests/fixtures/draft_slot_by_finish_evidence.json): finish 5 held slot 7 in
+# 18 of 19 traceable picks, finish 6 slot 8 in 22 of 25. This table had 5 and 6 swapped.
+FINISH_TO_SLOT = {7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6,
+                  5: 7, 6: 8, 4: 9, 3: 10, 2: 11, 1: 12}
+
 OFFENSE_POS = {"QB", "RB", "WR", "TE"}
 DB_POS = {"CB", "S", "SS", "FS", "DB"}
 DL_POS = {"DE", "DT", "DL"}
@@ -2108,9 +2117,7 @@ def build_future_picks() -> dict:
         for i, fid in enumerate(tb_fids, 7):        # ordinals 7..12
             final_ordinal[fid] = i
 
-        # League mapping
-        FINISH_TO_SLOT = {7: 1, 8: 2, 9: 3, 10: 4, 11: 5, 12: 6,
-                          6: 7, 5: 8, 4: 9, 3: 10, 2: 11, 1: 12}
+        # League mapping (module-level FINISH_TO_SLOT, canon §A1)
         r1_slot_assign = {fid2: FINISH_TO_SLOT.get(ord_)
                           for fid2, ord_ in final_ordinal.items()}
         std_slot_assign = dict(r1_slot_assign)
@@ -2194,7 +2201,7 @@ def build_future_picks() -> dict:
                 "Step 2: if base rank is top-6 (playoff bracket), apply their playoff-bracket Δ "
                 "(bed-shitter penalty or rally bonus). If base rank is bot-6 (TB bracket), "
                 "apply their TB-bracket Δ (tanker penalty or try-hard bonus). "
-                "Step 3: re-rank by adjusted finish; map via FINISH_TO_SLOT (7→1.01, 8→1.02 … 1→1.12). "
+                "Step 3: re-rank by adjusted finish; map via FINISH_TO_SLOT (7→1.01 … 12→1.06, 5→1.07, 6→1.08, 4→1.09 … 1→1.12). "
                 "R2-R5 same mapping; R6 random."
             ),
             "lookback_years": RECENT_YEARS,

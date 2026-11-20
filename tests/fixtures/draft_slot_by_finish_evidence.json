@@ -1,0 +1,2667 @@
+{
+ "_about": "Rookie-draft slots (Rounds 1-5, drafts 2012-2025) traced back to their ORIGINAL owner by replaying every MFL pick trade (future-pick FP_<orig>_<year>_<round> trades, then current-pick DP_<round>_<slot> trades, slot zero-indexed), joined to that owner's prior-season final finish (src_final_standings / local metadata_finalstandings). Built 2026-10-17 read-only from a copy of the legacy mfl_database.db (transactions_trades, draftresults_combined, metadata_finalstandings). Only picks whose original owner is unambiguous are listed. The few rows that disagree with the canon table come from recorded finishes that are themselves wrong (2015 has two finish-6 teams; 2023 finish 9/10 are swapped against the game) or compensatory picks.",
+ "summary_slot_counts_by_finish": {
+  "1": {
+   "12": 23
+  },
+  "2": {
+   "11": 24
+  },
+  "3": {
+   "1": 1,
+   "2": 2,
+   "10": 15
+  },
+  "4": {
+   "1": 1,
+   "9": 29
+  },
+  "5": {
+   "2": 1,
+   "7": 18
+  },
+  "6": {
+   "1": 2,
+   "7": 1,
+   "8": 22
+  },
+  "7": {
+   "1": 20,
+   "2": 2,
+   "7": 1
+  },
+  "8": {
+   "2": 14,
+   "3": 2,
+   "5": 1
+  },
+  "9": {
+   "3": 19,
+   "4": 4
+  },
+  "10": {
+   "3": 3,
+   "4": 18,
+   "5": 1,
+   "11": 1,
+   "12": 1
+  },
+  "11": {
+   "1": 3,
+   "2": 1,
+   "4": 1,
+   "5": 16,
+   "7": 2,
+   "8": 1
+  },
+  "12": {
+   "1": 1,
+   "6": 30
+  }
+ },
+ "clean_examples": [
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 8,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 6,
+   "picked_by": "0004",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 4,
+   "slot": 2,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 5,
+   "picked_by": "0006",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 2,
+   "slot": 7,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 5,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 5,
+   "slot": 7,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 5,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2022,
+   "round": 3,
+   "slot": 8,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 6,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2022,
+   "round": 4,
+   "slot": 8,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 6,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 5,
+   "slot": 7,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 5,
+   "picked_by": "0008",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 5,
+   "slot": 7,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 5,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  }
+ ],
+ "rows": [
+  {
+   "draft_year": 2012,
+   "round": 1,
+   "slot": 2,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 11,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 1,
+   "slot": 3,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0011",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2012,
+   "round": 1,
+   "slot": 4,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 10,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 1,
+   "slot": 5,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 8,
+   "picked_by": "0012",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2012,
+   "round": 1,
+   "slot": 6,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 12,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 1,
+   "slot": 8,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 11,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 1,
+   "slot": 11,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 1,
+   "slot": 12,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 1,
+   "picked_by": "0007",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2012,
+   "round": 2,
+   "slot": 1,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 4,
+   "picked_by": "0001",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 2,
+   "slot": 2,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 7,
+   "picked_by": "0003",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 2,
+   "slot": 3,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 2,
+   "slot": 4,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 10,
+   "picked_by": null,
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2012,
+   "round": 2,
+   "slot": 6,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 12,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 2,
+   "slot": 9,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 4,
+   "picked_by": "0001",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 2,
+   "slot": 11,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 2,
+   "slot": 12,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 1,
+   "picked_by": null,
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 1,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 3,
+   "picked_by": "0007",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 2,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 3,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 3,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0011",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 6,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 12,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 7,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 7,
+   "picked_by": "0003",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 8,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 6,
+   "picked_by": "0004",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 9,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 4,
+   "picked_by": "0001",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 11,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 3,
+   "slot": 12,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 1,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 4,
+   "slot": 1,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 7,
+   "picked_by": "0003",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 4,
+   "slot": 2,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 5,
+   "picked_by": "0006",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 4,
+   "slot": 3,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 4,
+   "slot": 6,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 12,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 4,
+   "slot": 7,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 11,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 4,
+   "slot": 11,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 4,
+   "slot": 12,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 1,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 5,
+   "slot": 1,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 11,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 5,
+   "slot": 2,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 3,
+   "picked_by": "0002",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 5,
+   "slot": 3,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 5,
+   "slot": 6,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 12,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 5,
+   "slot": 7,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 11,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 5,
+   "slot": 9,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 4,
+   "picked_by": "0004",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 5,
+   "slot": 11,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2012,
+   "round": 5,
+   "slot": 12,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 1,
+   "picked_by": null,
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 1,
+   "slot": 2,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 8,
+   "picked_by": "0012",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 1,
+   "slot": 4,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 10,
+   "picked_by": "0007",
+   "current_pick_trades": 4
+  },
+  {
+   "draft_year": 2013,
+   "round": 1,
+   "slot": 7,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 5,
+   "picked_by": "0003",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2013,
+   "round": 1,
+   "slot": 9,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 4,
+   "picked_by": "0007",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2013,
+   "round": 1,
+   "slot": 12,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 1,
+   "picked_by": "0006",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2013,
+   "round": 2,
+   "slot": 2,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 8,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 2,
+   "slot": 3,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0006",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 2,
+   "slot": 8,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 6,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2013,
+   "round": 2,
+   "slot": 11,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 2,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 3,
+   "slot": 1,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 7,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 3,
+   "slot": 3,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 3,
+   "slot": 7,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 5,
+   "picked_by": "0012",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2013,
+   "round": 3,
+   "slot": 11,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 2,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 4,
+   "slot": 2,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 8,
+   "picked_by": "0009",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2013,
+   "round": 4,
+   "slot": 3,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0011",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 4,
+   "slot": 4,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 10,
+   "picked_by": "0010",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 4,
+   "slot": 7,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 5,
+   "picked_by": "0012",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 4,
+   "slot": 9,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 4,
+   "picked_by": "0002",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2013,
+   "round": 4,
+   "slot": 12,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 1,
+   "picked_by": "0003",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2013,
+   "round": 5,
+   "slot": 3,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2013,
+   "round": 5,
+   "slot": 5,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 11,
+   "picked_by": "0010",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 5,
+   "slot": 6,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 12,
+   "picked_by": "0002",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2013,
+   "round": 5,
+   "slot": 9,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 4,
+   "picked_by": "0001",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2013,
+   "round": 5,
+   "slot": 12,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 1,
+   "picked_by": "0006",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2014,
+   "round": 1,
+   "slot": 4,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 10,
+   "picked_by": "0010",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2014,
+   "round": 1,
+   "slot": 9,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 4,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 1,
+   "slot": 12,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 1,
+   "picked_by": "0011",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2014,
+   "round": 2,
+   "slot": 6,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 12,
+   "picked_by": "0010",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2014,
+   "round": 2,
+   "slot": 7,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 5,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 2,
+   "slot": 9,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 4,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 3,
+   "slot": 1,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 7,
+   "picked_by": "0010",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2014,
+   "round": 3,
+   "slot": 5,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 11,
+   "picked_by": "0011",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2014,
+   "round": 3,
+   "slot": 6,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 12,
+   "picked_by": "0010",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2014,
+   "round": 3,
+   "slot": 11,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 2,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 4,
+   "slot": 1,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 12,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 4,
+   "slot": 2,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 8,
+   "picked_by": "0007",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2014,
+   "round": 4,
+   "slot": 3,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 9,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 4,
+   "slot": 7,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 5,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 4,
+   "slot": 8,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 6,
+   "picked_by": "0007",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2014,
+   "round": 4,
+   "slot": 9,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 4,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 5,
+   "slot": 3,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 9,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 5,
+   "slot": 6,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 12,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 5,
+   "slot": 7,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 5,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 5,
+   "slot": 8,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 6,
+   "picked_by": "0012",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2014,
+   "round": 5,
+   "slot": 9,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 4,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2014,
+   "round": 5,
+   "slot": 12,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 1,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2015,
+   "round": 1,
+   "slot": 1,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 7,
+   "picked_by": "0010",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2015,
+   "round": 1,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0003",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2015,
+   "round": 1,
+   "slot": 9,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 4,
+   "picked_by": "0008",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2015,
+   "round": 2,
+   "slot": 1,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 11,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2015,
+   "round": 2,
+   "slot": 3,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 10,
+   "picked_by": "0010",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2015,
+   "round": 2,
+   "slot": 5,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 11,
+   "picked_by": "0011",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2015,
+   "round": 2,
+   "slot": 9,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 4,
+   "picked_by": "0012",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2015,
+   "round": 3,
+   "slot": 2,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 8,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2015,
+   "round": 3,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2015,
+   "round": 3,
+   "slot": 9,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 4,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2015,
+   "round": 3,
+   "slot": 12,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 1,
+   "picked_by": "0004",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2015,
+   "round": 4,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2015,
+   "round": 4,
+   "slot": 12,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 1,
+   "picked_by": "0005",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2015,
+   "round": 5,
+   "slot": 1,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 7,
+   "picked_by": "0007",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2015,
+   "round": 5,
+   "slot": 4,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 9,
+   "picked_by": "0010",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2015,
+   "round": 5,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0008",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2015,
+   "round": 5,
+   "slot": 8,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 6,
+   "picked_by": "0004",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2015,
+   "round": 5,
+   "slot": 9,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 4,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2015,
+   "round": 5,
+   "slot": 11,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 2,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2016,
+   "round": 1,
+   "slot": 3,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 8,
+   "picked_by": "0003",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2016,
+   "round": 1,
+   "slot": 4,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2016,
+   "round": 2,
+   "slot": 7,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 5,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2016,
+   "round": 2,
+   "slot": 9,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 4,
+   "picked_by": "0006",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2016,
+   "round": 2,
+   "slot": 11,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 2,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2016,
+   "round": 3,
+   "slot": 5,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 11,
+   "picked_by": "0004",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2016,
+   "round": 3,
+   "slot": 8,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 6,
+   "picked_by": "0010",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2016,
+   "round": 4,
+   "slot": 1,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 6,
+   "picked_by": "0008",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2016,
+   "round": 4,
+   "slot": 3,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 8,
+   "picked_by": "0005",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2016,
+   "round": 4,
+   "slot": 4,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 9,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2016,
+   "round": 4,
+   "slot": 8,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 6,
+   "picked_by": "0004",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2016,
+   "round": 4,
+   "slot": 9,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 4,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2016,
+   "round": 4,
+   "slot": 11,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 2,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2016,
+   "round": 4,
+   "slot": 12,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 1,
+   "picked_by": "0001",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2016,
+   "round": 5,
+   "slot": 1,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 11,
+   "picked_by": "0008",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2016,
+   "round": 5,
+   "slot": 2,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 7,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2016,
+   "round": 5,
+   "slot": 5,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 11,
+   "picked_by": "0008",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2016,
+   "round": 5,
+   "slot": 7,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 5,
+   "picked_by": "0006",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2016,
+   "round": 5,
+   "slot": 9,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 4,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2017,
+   "round": 1,
+   "slot": 4,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 10,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2017,
+   "round": 2,
+   "slot": 4,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 10,
+   "picked_by": "0009",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2017,
+   "round": 2,
+   "slot": 9,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 4,
+   "picked_by": "0010",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2017,
+   "round": 2,
+   "slot": 11,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2017,
+   "round": 2,
+   "slot": 12,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 1,
+   "picked_by": "0012",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2017,
+   "round": 3,
+   "slot": 4,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 10,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2017,
+   "round": 4,
+   "slot": 1,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 6,
+   "picked_by": "0006",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2017,
+   "round": 4,
+   "slot": 4,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 10,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2017,
+   "round": 4,
+   "slot": 8,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 6,
+   "picked_by": null,
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2017,
+   "round": 5,
+   "slot": 1,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 7,
+   "picked_by": "0006",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2017,
+   "round": 5,
+   "slot": 4,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 10,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2017,
+   "round": 5,
+   "slot": 12,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 1,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2018,
+   "round": 1,
+   "slot": 1,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 7,
+   "picked_by": "0003",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2018,
+   "round": 1,
+   "slot": 5,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 11,
+   "picked_by": "0008",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2018,
+   "round": 1,
+   "slot": 6,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 12,
+   "picked_by": "0004",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2018,
+   "round": 1,
+   "slot": 7,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 5,
+   "picked_by": "0001",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2018,
+   "round": 1,
+   "slot": 9,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 4,
+   "picked_by": "0009",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2018,
+   "round": 2,
+   "slot": 2,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 8,
+   "picked_by": "0011",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2018,
+   "round": 2,
+   "slot": 3,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 9,
+   "picked_by": "0007",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2018,
+   "round": 2,
+   "slot": 6,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 12,
+   "picked_by": "0011",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2018,
+   "round": 2,
+   "slot": 7,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 5,
+   "picked_by": "0003",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2018,
+   "round": 2,
+   "slot": 8,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 6,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2018,
+   "round": 2,
+   "slot": 12,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 1,
+   "picked_by": "0006",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2018,
+   "round": 3,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2018,
+   "round": 3,
+   "slot": 11,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 2,
+   "picked_by": "0004",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2018,
+   "round": 4,
+   "slot": 7,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 6,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2018,
+   "round": 5,
+   "slot": 2,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 8,
+   "picked_by": "0007",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2018,
+   "round": 5,
+   "slot": 4,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 10,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2018,
+   "round": 5,
+   "slot": 6,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 12,
+   "picked_by": "0001",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2018,
+   "round": 5,
+   "slot": 8,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 6,
+   "picked_by": "0006",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 1,
+   "slot": 4,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 10,
+   "picked_by": "0006",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2019,
+   "round": 1,
+   "slot": 5,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 10,
+   "picked_by": "0001",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2019,
+   "round": 1,
+   "slot": 7,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 5,
+   "picked_by": "0003",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2019,
+   "round": 1,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0004",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2019,
+   "round": 1,
+   "slot": 11,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 2,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2019,
+   "round": 2,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0008",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2019,
+   "round": 2,
+   "slot": 9,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 4,
+   "picked_by": "0004",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2019,
+   "round": 3,
+   "slot": 4,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 11,
+   "picked_by": "0002",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 3,
+   "slot": 5,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 11,
+   "picked_by": "0002",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 3,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0002",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2019,
+   "round": 3,
+   "slot": 12,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 1,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 4,
+   "slot": 1,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 7,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 4,
+   "slot": 5,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 11,
+   "picked_by": "0011",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2019,
+   "round": 4,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 4,
+   "slot": 11,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 10,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 4,
+   "slot": 12,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 10,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2019,
+   "round": 5,
+   "slot": 1,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 7,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 5,
+   "slot": 3,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 9,
+   "picked_by": "0006",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 5,
+   "slot": 4,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 10,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2019,
+   "round": 5,
+   "slot": 5,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 11,
+   "picked_by": "0002",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2019,
+   "round": 5,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0005",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2019,
+   "round": 5,
+   "slot": 9,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 4,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2019,
+   "round": 5,
+   "slot": 12,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 1,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2020,
+   "round": 1,
+   "slot": 4,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 10,
+   "picked_by": "0001",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2020,
+   "round": 2,
+   "slot": 1,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 7,
+   "picked_by": "0007",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2020,
+   "round": 2,
+   "slot": 5,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 11,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2020,
+   "round": 2,
+   "slot": 7,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 5,
+   "picked_by": "0011",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2020,
+   "round": 3,
+   "slot": 1,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 7,
+   "picked_by": "0004",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2020,
+   "round": 3,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2020,
+   "round": 3,
+   "slot": 11,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 2,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2020,
+   "round": 4,
+   "slot": 6,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 12,
+   "picked_by": "0008",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2020,
+   "round": 4,
+   "slot": 7,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 5,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2020,
+   "round": 4,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0010",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2020,
+   "round": 5,
+   "slot": 3,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 9,
+   "picked_by": "0002",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2020,
+   "round": 5,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0005",
+   "current_pick_trades": 4
+  },
+  {
+   "draft_year": 2021,
+   "round": 1,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0011",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2021,
+   "round": 2,
+   "slot": 1,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 7,
+   "picked_by": "0008",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2021,
+   "round": 2,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2021,
+   "round": 2,
+   "slot": 8,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 6,
+   "picked_by": "0005",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2021,
+   "round": 3,
+   "slot": 9,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 4,
+   "picked_by": "0001",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2021,
+   "round": 4,
+   "slot": 2,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 8,
+   "picked_by": "0004",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2021,
+   "round": 4,
+   "slot": 3,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 9,
+   "picked_by": "0002",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2021,
+   "round": 4,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2021,
+   "round": 4,
+   "slot": 11,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 2,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2021,
+   "round": 4,
+   "slot": 12,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 1,
+   "picked_by": "0001",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2021,
+   "round": 5,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0002",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2021,
+   "round": 5,
+   "slot": 8,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 6,
+   "picked_by": "0002",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2021,
+   "round": 5,
+   "slot": 11,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 2,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2021,
+   "round": 5,
+   "slot": 12,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 1,
+   "picked_by": "0006",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2022,
+   "round": 1,
+   "slot": 8,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 6,
+   "picked_by": "0007",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2022,
+   "round": 1,
+   "slot": 11,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2022,
+   "round": 2,
+   "slot": 8,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 6,
+   "picked_by": "0009",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2022,
+   "round": 2,
+   "slot": 11,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2022,
+   "round": 3,
+   "slot": 1,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 7,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2022,
+   "round": 3,
+   "slot": 8,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 6,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2022,
+   "round": 3,
+   "slot": 11,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2022,
+   "round": 4,
+   "slot": 8,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 6,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2022,
+   "round": 4,
+   "slot": 9,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 4,
+   "picked_by": "0001",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2022,
+   "round": 5,
+   "slot": 4,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 10,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 1,
+   "slot": 1,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 7,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 1,
+   "slot": 4,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 10,
+   "picked_by": "0005",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2023,
+   "round": 1,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0001",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 2,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 2,
+   "slot": 8,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 6,
+   "picked_by": "0003",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2023,
+   "round": 2,
+   "slot": 9,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 4,
+   "picked_by": "0009",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2023,
+   "round": 2,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0001",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2023,
+   "round": 3,
+   "slot": 1,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 7,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 3,
+   "slot": 7,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 5,
+   "picked_by": "0007",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2023,
+   "round": 3,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 4,
+   "slot": 5,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 11,
+   "picked_by": "0010",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2023,
+   "round": 4,
+   "slot": 8,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 6,
+   "picked_by": "0011",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2023,
+   "round": 4,
+   "slot": 9,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 4,
+   "picked_by": "0006",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2023,
+   "round": 4,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0006",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2023,
+   "round": 4,
+   "slot": 12,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 1,
+   "picked_by": "0004",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2023,
+   "round": 5,
+   "slot": 2,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 8,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 5,
+   "slot": 3,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 9,
+   "picked_by": "0005",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2023,
+   "round": 5,
+   "slot": 5,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 11,
+   "picked_by": "0007",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2023,
+   "round": 5,
+   "slot": 6,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 12,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 5,
+   "slot": 7,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 5,
+   "picked_by": "0008",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 5,
+   "slot": 9,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 4,
+   "picked_by": "0006",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 5,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2023,
+   "round": 5,
+   "slot": 11,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 2,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 1,
+   "slot": 2,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 8,
+   "picked_by": "0008",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 1,
+   "slot": 6,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 12,
+   "picked_by": "0007",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2024,
+   "round": 1,
+   "slot": 8,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 6,
+   "picked_by": "0002",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 1,
+   "slot": 11,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 2,
+   "picked_by": "0009",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2024,
+   "round": 2,
+   "slot": 1,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 7,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 2,
+   "slot": 2,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 8,
+   "picked_by": "0007",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2024,
+   "round": 2,
+   "slot": 3,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 10,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2024,
+   "round": 2,
+   "slot": 5,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 11,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2024,
+   "round": 2,
+   "slot": 9,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 4,
+   "picked_by": "0005",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2024,
+   "round": 3,
+   "slot": 1,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 7,
+   "picked_by": "0007",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2024,
+   "round": 3,
+   "slot": 2,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 8,
+   "picked_by": "0003",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 3,
+   "slot": 7,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 5,
+   "picked_by": "0004",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2024,
+   "round": 3,
+   "slot": 9,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 4,
+   "picked_by": "0009",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2024,
+   "round": 3,
+   "slot": 12,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 1,
+   "picked_by": "0003",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2024,
+   "round": 4,
+   "slot": 1,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 7,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 4,
+   "slot": 2,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 8,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 4,
+   "slot": 3,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 10,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 4,
+   "slot": 4,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 9,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 4,
+   "slot": 10,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 3,
+   "picked_by": "0006",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2024,
+   "round": 5,
+   "slot": 1,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 7,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 5,
+   "slot": 6,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 12,
+   "picked_by": "0005",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2024,
+   "round": 5,
+   "slot": 11,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 2,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 1,
+   "slot": 2,
+   "original_franchise_id": "0007",
+   "prior_season_final_finish": 8,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 1,
+   "slot": 3,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 9,
+   "picked_by": "0010",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2025,
+   "round": 1,
+   "slot": 4,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 10,
+   "picked_by": "0008",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2025,
+   "round": 1,
+   "slot": 6,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 12,
+   "picked_by": "0010",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2025,
+   "round": 1,
+   "slot": 7,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 5,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 2,
+   "slot": 5,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 11,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 2,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0007",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2025,
+   "round": 2,
+   "slot": 11,
+   "original_franchise_id": "0002",
+   "prior_season_final_finish": 2,
+   "picked_by": "0003",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 3,
+   "slot": 5,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 11,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 3,
+   "slot": 6,
+   "original_franchise_id": "0006",
+   "prior_season_final_finish": 12,
+   "picked_by": "0010",
+   "current_pick_trades": 2
+  },
+  {
+   "draft_year": 2025,
+   "round": 3,
+   "slot": 8,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 6,
+   "picked_by": "0011",
+   "current_pick_trades": 3
+  },
+  {
+   "draft_year": 2025,
+   "round": 3,
+   "slot": 9,
+   "original_franchise_id": "0001",
+   "prior_season_final_finish": 4,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 3,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0009",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 4,
+   "slot": 3,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 9,
+   "picked_by": "0011",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 4,
+   "slot": 4,
+   "original_franchise_id": "0008",
+   "prior_season_final_finish": 10,
+   "picked_by": "0003",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 4,
+   "slot": 5,
+   "original_franchise_id": "0003",
+   "prior_season_final_finish": 11,
+   "picked_by": "0007",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 4,
+   "slot": 8,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 6,
+   "picked_by": "0006",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2025,
+   "round": 4,
+   "slot": 10,
+   "original_franchise_id": "0009",
+   "prior_season_final_finish": 3,
+   "picked_by": "0006",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 4,
+   "slot": 12,
+   "original_franchise_id": "0005",
+   "prior_season_final_finish": 1,
+   "picked_by": "0001",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 5,
+   "slot": 1,
+   "original_franchise_id": "0012",
+   "prior_season_final_finish": 7,
+   "picked_by": "0002",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 5,
+   "slot": 3,
+   "original_franchise_id": "0011",
+   "prior_season_final_finish": 9,
+   "picked_by": "0001",
+   "current_pick_trades": 1
+  },
+  {
+   "draft_year": 2025,
+   "round": 5,
+   "slot": 7,
+   "original_franchise_id": "0010",
+   "prior_season_final_finish": 5,
+   "picked_by": "0010",
+   "current_pick_trades": 0
+  },
+  {
+   "draft_year": 2025,
+   "round": 5,
+   "slot": 8,
+   "original_franchise_id": "0004",
+   "prior_season_final_finish": 6,
+   "picked_by": "0012",
+   "current_pick_trades": 0
+  }
+ ]
+}
