@@ -1,0 +1,4361 @@
+{
+ "issue": 1307,
+ "kind": "dry run; nothing written to production",
+ "sources": {
+  "mfl_replies_cached": 640,
+  "mfl_fetched_first_utc": "2026-10-21T11:40:19Z",
+  "mfl_fetched_last_utc": "2026-10-21T12:43:32Z",
+  "d1_rows_read_total": 52142,
+  "d1_read_first_utc": "2026-10-21T11:40:33Z",
+  "d1_read_last_utc": "2026-10-21T11:50:19Z",
+  "archive": "mfl_database_2026-06-05.db",
+  "unproven_policy": "null"
+ },
+ "production_d1_reads": {
+  "total_rows_read": 52142,
+  "queries": [
+   {
+    "name": "schema",
+    "rows_read": 735
+   },
+   {
+    "name": "playoff_2011",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2012",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2013",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2014",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2015",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2016",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2017",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2018",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2019",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2020",
+    "rows_read": 1
+   },
+   {
+    "name": "playoff_2021",
+    "rows_read": 1032
+   },
+   {
+    "name": "playoff_2022",
+    "rows_read": 1060
+   },
+   {
+    "name": "playoff_2023",
+    "rows_read": 1070
+   },
+   {
+    "name": "playoff_2024",
+    "rows_read": 1062
+   },
+   {
+    "name": "playoff_2025",
+    "rows_read": 1072
+   },
+   {
+    "name": "sample_2011_w1",
+    "rows_read": 1144
+   },
+   {
+    "name": "sample_2011_w13",
+    "rows_read": 1165
+   },
+   {
+    "name": "sample_2012_w1",
+    "rows_read": 1151
+   },
+   {
+    "name": "sample_2012_w13",
+    "rows_read": 1140
+   },
+   {
+    "name": "sample_2013_w13",
+    "rows_read": 1160
+   },
+   {
+    "name": "sample_2014_w13",
+    "rows_read": 1164
+   },
+   {
+    "name": "sample_2015_w13",
+    "rows_read": 1161
+   },
+   {
+    "name": "sample_2016_w13",
+    "rows_read": 1092
+   },
+   {
+    "name": "sample_2017_w13",
+    "rows_read": 1167
+   },
+   {
+    "name": "sample_2018_w13",
+    "rows_read": 1170
+   },
+   {
+    "name": "sample_2019_w13",
+    "rows_read": 1179
+   },
+   {
+    "name": "sample_2020_w1",
+    "rows_read": 1205
+   },
+   {
+    "name": "sample_2020_w13",
+    "rows_read": 1126
+   },
+   {
+    "name": "sample_2021_w14",
+    "rows_read": 1066
+   },
+   {
+    "name": "sample_2022_w14",
+    "rows_read": 994
+   },
+   {
+    "name": "sample_2023_w14",
+    "rows_read": 1143
+   },
+   {
+    "name": "sample_2024_w14",
+    "rows_read": 986
+   },
+   {
+    "name": "sample_2025_w14",
+    "rows_read": 1065
+   },
+   {
+    "name": "pointssummary_2010",
+    "rows_read": 646
+   },
+   {
+    "name": "pointssummary_2011",
+    "rows_read": 1548
+   },
+   {
+    "name": "pointssummary_2012",
+    "rows_read": 1538
+   },
+   {
+    "name": "pointssummary_2013",
+    "rows_read": 1533
+   },
+   {
+    "name": "pointssummary_2014",
+    "rows_read": 1565
+   },
+   {
+    "name": "pointssummary_2015",
+    "rows_read": 1572
+   },
+   {
+    "name": "pointssummary_2016",
+    "rows_read": 1581
+   },
+   {
+    "name": "pointssummary_2017",
+    "rows_read": 1576
+   },
+   {
+    "name": "pointssummary_2018",
+    "rows_read": 1612
+   },
+   {
+    "name": "pointssummary_2019",
+    "rows_read": 1651
+   },
+   {
+    "name": "pointssummary_2020",
+    "rows_read": 1745
+   },
+   {
+    "name": "pointssummary_2021",
+    "rows_read": 1869
+   },
+   {
+    "name": "pointssummary_2022",
+    "rows_read": 1744
+   },
+   {
+    "name": "pointssummary_2023",
+    "rows_read": 1744
+   },
+   {
+    "name": "pointssummary_2024",
+    "rows_read": 1759
+   },
+   {
+    "name": "pointssummary_2025",
+    "rows_read": 1742
+   },
+   {
+    "name": "rep_players",
+    "rows_read": 217
+   },
+   {
+    "name": "franchises",
+    "rows_read": 181
+   }
+  ]
+ },
+ "checks": {
+  "archive_equals_d1_on_samples": {
+   "weeks": 18,
+   "rows": 20260,
+   "mismatched_cells": 0,
+   "missing": 0,
+   "extra": 0,
+   "ok": true
+  },
+  "table_rank_rule_reproduces_d1_sample_weeks": {
+   "overall_match": 20260,
+   "pos_match": 20260
+  }
+ },
+ "season_shape": {
+  "2011": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 13889,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2012": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 13787,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2013": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 13869,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2014": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 13981,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2015": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 13934,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2016": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 13973,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2017": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 13893,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2018": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 14037,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2019": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 14090,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2020": {
+   "last_regular_week": 13,
+   "end_week": 16,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 14456,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2021": {
+   "last_regular_week": 14,
+   "end_week": 17,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 15830,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2022": {
+   "last_regular_week": 14,
+   "end_week": 17,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 15708,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2023": {
+   "last_regular_week": 14,
+   "end_week": 17,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 15852,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "CB+S/DT+DE"
+  },
+  "2024": {
+   "last_regular_week": 14,
+   "end_week": 17,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 15795,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "DB/DL"
+  },
+  "2025": {
+   "last_regular_week": 14,
+   "end_week": 17,
+   "matches_canon": true,
+   "regular_weeks_vs_mfl": {
+    "rows": 15720,
+    "missing": 0,
+    "extra": 0,
+    "score_diff": 0
+   },
+   "pos_group_vocabulary": "DB/DL"
+  }
+ },
+ "phases": {
+  "A": {
+   "rows": 34900,
+   "by_season_week": {
+    "2011-W14": {
+     "lineup:starter": 152,
+     "lineup:nonstarter": 77,
+     "unresolved_no_lineup:None": 16,
+     "unproven_fa_rosters_export_not_weekly:None": 928
+    },
+    "2011-W15": {
+     "lineup:starter": 168,
+     "lineup:nonstarter": 83,
+     "unproven_fa_rosters_export_not_weekly:None": 916
+    },
+    "2011-W16": {
+     "lineup:starter": 112,
+     "unresolved_no_lineup:None": 76,
+     "lineup:nonstarter": 56,
+     "unproven_fa_rosters_export_not_weekly:None": 912
+    },
+    "2012-W14": {
+     "lineup:starter": 167,
+     "lineup:nonstarter": 107,
+     "unresolved_roster_not_in_lineup:None": 8,
+     "unproven_fa_rosters_export_not_weekly:None": 841,
+     "unproven_taxi_rosters_export_not_weekly:None": 29
+    },
+    "2012-W15": {
+     "unproven_taxi_rosters_export_not_weekly:None": 26,
+     "lineup:nonstarter": 103,
+     "lineup:starter": 167,
+     "unproven_fa_rosters_export_not_weekly:None": 849,
+     "unresolved_roster_not_in_lineup:None": 2
+    },
+    "2012-W16": {
+     "lineup:starter": 153,
+     "unresolved_no_lineup:None": 14,
+     "unproven_taxi_rosters_export_not_weekly:None": 26,
+     "lineup:nonstarter": 94,
+     "unproven_fa_rosters_export_not_weekly:None": 859
+    },
+    "2013-W14": {
+     "lineup:nonstarter": 102,
+     "lineup:starter": 154,
+     "unresolved_roster_not_in_lineup:None": 15,
+     "unproven_taxi_rosters_export_not_weekly:None": 27,
+     "unresolved_no_lineup:None": 23,
+     "unproven_fa_rosters_export_not_weekly:None": 836,
+     "unproven_ir_rosters_export_not_weekly:None": 1
+    },
+    "2013-W15": {
+     "lineup:starter": 166,
+     "lineup:nonstarter": 104,
+     "unresolved_roster_not_in_lineup:None": 8,
+     "unproven_fa_rosters_export_not_weekly:None": 850,
+     "unproven_taxi_rosters_export_not_weekly:None": 26
+    },
+    "2013-W16": {
+     "lineup:starter": 111,
+     "lineup:nonstarter": 68,
+     "unresolved_no_lineup:None": 91,
+     "taxi:nonstarter": 25,
+     "fa:fa": 854
+    },
+    "2014-W14": {
+     "lineup:starter": 166,
+     "lineup:nonstarter": 114,
+     "unproven_fa_rosters_export_not_weekly:None": 849,
+     "unproven_taxi_rosters_export_not_weekly:None": 23,
+     "unresolved_roster_not_in_lineup:None": 13
+    },
+    "2014-W15": {
+     "lineup:starter": 166,
+     "lineup:nonstarter": 106,
+     "unproven_fa_rosters_export_not_weekly:None": 851,
+     "unproven_taxi_rosters_export_not_weekly:None": 24,
+     "unresolved_roster_not_in_lineup:None": 6
+    },
+    "2014-W16": {
+     "lineup:nonstarter": 106,
+     "lineup:starter": 167,
+     "fa:fa": 850,
+     "taxi:nonstarter": 24,
+     "ir:nonstarter": 1
+    },
+    "2015-W14": {
+     "lineup:starter": 179,
+     "lineup:nonstarter": 95,
+     "unproven_taxi_rosters_export_not_weekly:None": 24,
+     "unproven_fa_rosters_export_not_weekly:None": 847,
+     "unresolved_roster_not_in_lineup:None": 13
+    },
+    "2015-W15": {
+     "lineup:starter": 177,
+     "lineup:nonstarter": 100,
+     "unproven_fa_rosters_export_not_weekly:None": 849,
+     "unproven_taxi_rosters_export_not_weekly:None": 24,
+     "unresolved_roster_not_in_lineup:None": 8,
+     "unproven_ir_rosters_export_not_weekly:None": 1
+    },
+    "2015-W16": {
+     "lineup:nonstarter": 77,
+     "lineup:starter": 162,
+     "unresolved_no_lineup:None": 25,
+     "fa:fa": 863,
+     "taxi:nonstarter": 25
+    },
+    "2016-W14": {
+     "lineup:starter": 179,
+     "lineup:nonstarter": 102,
+     "unresolved_roster_not_in_lineup:None": 17,
+     "unproven_fa_rosters_export_not_weekly:None": 823,
+     "unproven_taxi_rosters_export_not_weekly:None": 38,
+     "unproven_ir_rosters_export_not_weekly:None": 1
+    },
+    "2016-W15": {
+     "lineup:starter": 177,
+     "unproven_fa_rosters_export_not_weekly:None": 839,
+     "lineup:nonstarter": 101,
+     "unresolved_roster_not_in_lineup:None": 5,
+     "unproven_taxi_rosters_export_not_weekly:None": 34,
+     "unproven_ir_rosters_export_not_weekly:None": 1
+    },
+    "2016-W16": {
+     "lineup:starter": 148,
+     "lineup:nonstarter": 83,
+     "fa:fa": 850,
+     "taxi:nonstarter": 35,
+     "unresolved_no_lineup:None": 40
+    },
+    "2017-W14": {
+     "lineup:starter": 178,
+     "lineup:nonstarter": 102,
+     "unproven_fa_rosters_export_not_weekly:None": 829,
+     "unproven_taxi_rosters_export_not_weekly:None": 31,
+     "unresolved_roster_not_in_lineup:None": 19
+    },
+    "2017-W15": {
+     "lineup:starter": 180,
+     "lineup:nonstarter": 98,
+     "unproven_fa_rosters_export_not_weekly:None": 839,
+     "unresolved_roster_not_in_lineup:None": 10,
+     "unproven_taxi_rosters_export_not_weekly:None": 31
+    },
+    "2017-W16": {
+     "lineup:starter": 150,
+     "lineup:nonstarter": 84,
+     "unresolved_no_lineup:None": 43,
+     "fa:fa": 840,
+     "taxi:nonstarter": 32
+    },
+    "2018-W14": {
+     "lineup:starter": 203,
+     "lineup:nonstarter": 125,
+     "fa:fa": 803,
+     "taxi:nonstarter": 40
+    },
+    "2018-W15": {
+     "lineup:starter": 202,
+     "lineup:nonstarter": 118,
+     "fa:fa": 799,
+     "taxi:nonstarter": 39
+    },
+    "2018-W16": {
+     "lineup:starter": 200,
+     "lineup:nonstarter": 111,
+     "taxi:nonstarter": 37,
+     "fa:fa": 812,
+     "ir:nonstarter": 1
+    },
+    "2019-W14": {
+     "lineup:nonstarter": 116,
+     "lineup:starter": 204,
+     "fa:fa": 812,
+     "taxi:nonstarter": 42
+    },
+    "2019-W15": {
+     "lineup:starter": 203,
+     "lineup:nonstarter": 109,
+     "taxi:nonstarter": 38,
+     "fa:fa": 828
+    },
+    "2019-W16": {
+     "lineup:starter": 200,
+     "lineup:nonstarter": 114,
+     "fa:fa": 822,
+     "taxi:nonstarter": 40,
+     "ir:nonstarter": 1
+    },
+    "2020-W14": {
+     "lineup:starter": 202,
+     "lineup:nonstarter": 131,
+     "fa:fa": 812,
+     "taxi:nonstarter": 52,
+     "ir:nonstarter": 1
+    },
+    "2020-W15": {
+     "lineup:nonstarter": 126,
+     "lineup:starter": 203,
+     "taxi:nonstarter": 49,
+     "fa:fa": 820
+    },
+    "2020-W16": {
+     "lineup:starter": 168,
+     "unresolved_no_lineup:None": 51,
+     "lineup:nonstarter": 94,
+     "fa:fa": 848,
+     "taxi:nonstarter": 47,
+     "ir:nonstarter": 1
+    }
+   },
+   "by_class": {
+    "lineup": 8170,
+    "unresolved_no_lineup": 379,
+    "unproven_fa_rosters_export_not_weekly": 13717,
+    "unresolved_roster_not_in_lineup": 124,
+    "unproven_taxi_rosters_export_not_weekly": 363,
+    "unproven_ir_rosters_export_not_weekly": 4,
+    "taxi": 525,
+    "fa": 11613,
+    "ir": 5
+   },
+   "by_status": {
+    "starter": 5164,
+    "nonstarter": 3536,
+    "null": 14587,
+    "fa": 11613
+   },
+   "name_sources": {
+    "src_weekly": 1773,
+    "none": 14337,
+    "src_franchises": 7177,
+    "fixed": 11613
+   },
+   "null_pos_group": 0,
+   "null_pos_rank": 0
+  },
+  "B": {
+   "rows": 13392,
+   "by_season_week": {
+    "2021-W15": {
+     "fa:fa": 849,
+     "taxi:nonstarter": 58,
+     "ir:nonstarter": 3
+    },
+    "2021-W16": {
+     "fa:fa": 857,
+     "taxi:nonstarter": 51,
+     "ir:nonstarter": 3
+    },
+    "2021-W17": {
+     "unresolved_no_lineup:None": 24,
+     "taxi:nonstarter": 55,
+     "fa:fa": 847,
+     "ir:nonstarter": 2
+    },
+    "2022-W15": {
+     "taxi:nonstarter": 50,
+     "fa:fa": 838
+    },
+    "2022-W16": {
+     "fa:fa": 840,
+     "taxi:nonstarter": 51
+    },
+    "2022-W17": {
+     "taxi:nonstarter": 53,
+     "fa:fa": 781
+    },
+    "2023-W15": {
+     "fa:fa": 833,
+     "taxi:nonstarter": 59
+    },
+    "2023-W16": {
+     "fa:fa": 839,
+     "taxi:nonstarter": 59,
+     "ir:nonstarter": 3
+    },
+    "2023-W17": {
+     "taxi:nonstarter": 61,
+     "fa:fa": 840
+    },
+    "2024-W15": {
+     "fa:fa": 827,
+     "taxi:nonstarter": 56
+    },
+    "2024-W16": {
+     "fa:fa": 831,
+     "taxi:nonstarter": 56,
+     "ir:nonstarter": 1
+    },
+    "2024-W17": {
+     "fa:fa": 840,
+     "taxi:nonstarter": 59,
+     "ir:nonstarter": 2
+    },
+    "2025-W15": {
+     "taxi:nonstarter": 53,
+     "fa:fa": 826
+    },
+    "2025-W16": {
+     "fa:fa": 829,
+     "taxi:nonstarter": 58,
+     "ir:nonstarter": 1
+    },
+    "2025-W17": {
+     "taxi:nonstarter": 55,
+     "fa:fa": 842
+    }
+   },
+   "by_class": {
+    "fa": 12519,
+    "taxi": 834,
+    "ir": 15,
+    "unresolved_no_lineup": 24
+   },
+   "by_status": {
+    "fa": 12519,
+    "nonstarter": 849,
+    "null": 24
+   },
+   "name_sources": {
+    "fixed": 12519,
+    "src_weekly": 873
+   },
+   "null_pos_group": 0,
+   "null_pos_rank": 0
+  },
+  "C": {
+   "rows": 3063,
+   "by_season": {
+    "2021": 586,
+    "2022": 612,
+    "2023": 620,
+    "2024": 615,
+    "2025": 630
+   },
+   "by_column": {
+    "overall_rank": 3058,
+    "pos_rank": 1613,
+    "pos_group": 15
+   },
+   "by_change": {},
+   "by_class": {}
+  },
+  "E": {
+   "rows": 29913,
+   "by_season": {
+    "2011": 944,
+    "2012": 3413,
+    "2013": 3346,
+    "2014": 3346,
+    "2015": 3364,
+    "2016": 3390,
+    "2017": 3426,
+    "2018": 4163,
+    "2019": 4521
+   },
+   "by_column": {
+    "status": 29680,
+    "roster_franchise_id": 29913,
+    "roster_franchise_name": 29913
+   },
+   "by_change": {
+    "fa->nonstarter": 10481,
+    "fa->starter": 19199
+   },
+   "by_class": {
+    "lineup": 28853,
+    "lineup_corrects_franchise": 233,
+    "taxi": 826,
+    "ir": 1
+   }
+  }
+ },
+ "unresolved_summary": {
+  "A unresolved_no_lineup": 379,
+  "A unproven_fa_rosters_export_not_weekly": 13717,
+  "E unresolved_roster_not_in_lineup": 3367,
+  "A unresolved_roster_not_in_lineup": 124,
+  "A unproven_taxi_rosters_export_not_weekly": 363,
+  "E unproven_taxi_rosters_export_not_weekly": 2574,
+  "A unproven_ir_rosters_export_not_weekly": 4,
+  "E unproven_ir_rosters_export_not_weekly": 23,
+  "B unresolved_no_lineup": 24
+ },
+ "blank_score_rows": {
+  "rows": 553,
+  "by_season": {
+   "2021": 128,
+   "2022": 123,
+   "2023": 112,
+   "2024": 91,
+   "2025": 99
+  }
+ },
+ "regular_status_check": {
+  "2011": {
+   "weeks_rosters_export_not_weekly": 13,
+   "unchanged": 12577,
+   "class_unproven_fa_rosters_export_not_weekly": 10460,
+   "class_unresolved_roster_not_in_lineup": 368,
+   "unresolved_kept_as_is": 368,
+   "class_lineup": 2828,
+   "fa->nonstarter": 258,
+   "class_lineup_corrects_franchise": 233,
+   "nonstarter->nonstarter": 91,
+   "fa->starter": 453,
+   "starter->starter": 142
+  },
+  "2012": {
+   "weeks_rosters_export_not_weekly": 13,
+   "unchanged": 9752,
+   "class_unproven_fa_rosters_export_not_weekly": 9752,
+   "class_lineup": 3413,
+   "fa->starter": 2176,
+   "class_unresolved_roster_not_in_lineup": 278,
+   "unresolved_kept_as_is": 622,
+   "fa->nonstarter": 1237,
+   "class_unproven_taxi_rosters_export_not_weekly": 344
+  },
+  "2013": {
+   "weeks_rosters_export_not_weekly": 13,
+   "unchanged": 9641,
+   "class_unproven_fa_rosters_export_not_weekly": 9641,
+   "class_lineup": 3346,
+   "fa->nonstarter": 1169,
+   "class_unresolved_roster_not_in_lineup": 523,
+   "unresolved_kept_as_is": 882,
+   "fa->starter": 2177,
+   "class_unproven_taxi_rosters_export_not_weekly": 359
+  },
+  "2014": {
+   "weeks_rosters_export_not_weekly": 13,
+   "unchanged": 9751,
+   "class_unproven_fa_rosters_export_not_weekly": 9751,
+   "class_lineup": 3346,
+   "fa->starter": 2168,
+   "fa->nonstarter": 1178,
+   "class_unresolved_roster_not_in_lineup": 538,
+   "unresolved_kept_as_is": 884,
+   "class_unproven_taxi_rosters_export_not_weekly": 345,
+   "class_unproven_ir_rosters_export_not_weekly": 1
+  },
+  "2015": {
+   "weeks_rosters_export_not_weekly": 13,
+   "unchanged": 9662,
+   "class_unproven_fa_rosters_export_not_weekly": 9662,
+   "class_unresolved_roster_not_in_lineup": 537,
+   "unresolved_kept_as_is": 908,
+   "class_lineup": 3364,
+   "fa->starter": 2299,
+   "fa->nonstarter": 1065,
+   "class_unproven_taxi_rosters_export_not_weekly": 364,
+   "class_unproven_ir_rosters_export_not_weekly": 7
+  },
+  "2016": {
+   "weeks_rosters_export_not_weekly": 13,
+   "unchanged": 9572,
+   "class_unproven_fa_rosters_export_not_weekly": 9572,
+   "class_lineup": 3390,
+   "fa->nonstarter": 1066,
+   "fa->starter": 2324,
+   "class_unresolved_roster_not_in_lineup": 571,
+   "unresolved_kept_as_is": 1011,
+   "class_unproven_taxi_rosters_export_not_weekly": 440
+  },
+  "2017": {
+   "weeks_rosters_export_not_weekly": 13,
+   "unchanged": 9504,
+   "class_unproven_fa_rosters_export_not_weekly": 9504,
+   "class_lineup": 3426,
+   "fa->starter": 2323,
+   "fa->nonstarter": 1103,
+   "class_unresolved_roster_not_in_lineup": 552,
+   "unresolved_kept_as_is": 963,
+   "class_unproven_taxi_rosters_export_not_weekly": 409,
+   "class_unproven_ir_rosters_export_not_weekly": 2
+  },
+  "2018": {
+   "weeks_rosters_export_not_weekly": 7,
+   "unchanged": 9548,
+   "class_unproven_fa_rosters_export_not_weekly": 5310,
+   "class_lineup": 3942,
+   "fa->nonstarter": 1524,
+   "fa->starter": 2639,
+   "class_unproven_ir_rosters_export_not_weekly": 13,
+   "unresolved_kept_as_is": 326,
+   "class_unproven_taxi_rosters_export_not_weekly": 313,
+   "weeks_rosters_export_weekly": 6,
+   "class_fa": 4238,
+   "class_taxi": 221
+  },
+  "2019": {
+   "weeks_rosters_export_weekly": 13,
+   "class_fa": 9569,
+   "unchanged": 9569,
+   "class_lineup": 3915,
+   "fa->starter": 2640,
+   "fa->nonstarter": 1881,
+   "class_taxi": 605,
+   "class_ir": 1
+  },
+  "2020": {
+   "weeks_rosters_export_weekly": 13,
+   "class_fa": 9799,
+   "unchanged": 14456,
+   "class_lineup": 4008,
+   "class_taxi": 646,
+   "class_ir": 3
+  }
+ },
+ "playoff_week_checks": {
+  "2011": {
+   "14": {
+    "mfl_scored": 1173,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1173,
+    "franchises_with_empty_lineup": [
+     "0005"
+    ],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1173,
+     "legacy_fa_vs_proposed_starter": 152,
+     "legacy_fa_vs_proposed_nonstarter": 77,
+     "legacy_fa_vs_proposed_None": 944,
+     "unresolved_legacy_fa": 944
+    }
+   },
+   "15": {
+    "mfl_scored": 1167,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1167,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1167,
+     "legacy_fa_vs_proposed_starter": 168,
+     "legacy_fa_vs_proposed_nonstarter": 83,
+     "legacy_fa_vs_proposed_None": 916,
+     "unresolved_legacy_fa": 916
+    }
+   },
+   "16": {
+    "mfl_scored": 1156,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1156,
+    "franchises_with_empty_lineup": [
+     "0003",
+     "0004",
+     "0006",
+     "0007"
+    ],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1156,
+     "legacy_fa_vs_proposed_starter": 112,
+     "legacy_fa_vs_proposed_None": 988,
+     "legacy_fa_vs_proposed_nonstarter": 56,
+     "unresolved_legacy_fa": 988
+    }
+   }
+  },
+  "2012": {
+   "14": {
+    "mfl_scored": 1152,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1152,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1152,
+     "legacy_fa_vs_proposed_starter": 167,
+     "legacy_fa_vs_proposed_nonstarter": 107,
+     "legacy_fa_vs_proposed_None": 878,
+     "unresolved_legacy_fa": 878
+    }
+   },
+   "15": {
+    "mfl_scored": 1147,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1147,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1147,
+     "legacy_fa_vs_proposed_None": 877,
+     "legacy_fa_vs_proposed_nonstarter": 103,
+     "legacy_fa_vs_proposed_starter": 167,
+     "unresolved_legacy_fa": 877
+    }
+   },
+   "16": {
+    "mfl_scored": 1146,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1146,
+    "franchises_with_empty_lineup": [
+     "0009"
+    ],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1146,
+     "legacy_fa_vs_proposed_starter": 153,
+     "legacy_fa_vs_proposed_None": 899,
+     "legacy_fa_vs_proposed_nonstarter": 94,
+     "unresolved_legacy_fa": 899
+    }
+   }
+  },
+  "2013": {
+   "14": {
+    "mfl_scored": 1158,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1158,
+    "franchises_with_empty_lineup": [
+     "0002"
+    ],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1158,
+     "legacy_fa_vs_proposed_nonstarter": 102,
+     "legacy_fa_vs_proposed_starter": 154,
+     "legacy_fa_vs_proposed_None": 902,
+     "unresolved_legacy_fa": 902
+    }
+   },
+   "15": {
+    "mfl_scored": 1154,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1154,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1154,
+     "legacy_fa_vs_proposed_starter": 166,
+     "legacy_fa_vs_proposed_nonstarter": 104,
+     "legacy_fa_vs_proposed_None": 884,
+     "unresolved_legacy_fa": 884
+    }
+   },
+   "16": {
+    "mfl_scored": 1149,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1149,
+    "franchises_with_empty_lineup": [
+     "0001",
+     "0004",
+     "0006",
+     "0009"
+    ],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1149,
+     "legacy_fa_vs_proposed_starter": 111,
+     "legacy_fa_vs_proposed_nonstarter": 93,
+     "legacy_fa_vs_proposed_None": 91,
+     "unresolved_legacy_fa": 91
+    }
+   }
+  },
+  "2014": {
+   "14": {
+    "mfl_scored": 1165,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1165,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1165,
+     "legacy_fa_vs_proposed_starter": 166,
+     "legacy_fa_vs_proposed_nonstarter": 114,
+     "legacy_fa_vs_proposed_None": 885,
+     "unresolved_legacy_fa": 885
+    }
+   },
+   "15": {
+    "mfl_scored": 1153,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1153,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1153,
+     "legacy_fa_vs_proposed_starter": 166,
+     "legacy_fa_vs_proposed_nonstarter": 106,
+     "legacy_fa_vs_proposed_None": 881,
+     "unresolved_legacy_fa": 881
+    }
+   },
+   "16": {
+    "mfl_scored": 1148,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1148,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1148,
+     "legacy_fa_vs_proposed_nonstarter": 131,
+     "legacy_fa_vs_proposed_starter": 167
+    }
+   }
+  },
+  "2015": {
+   "14": {
+    "mfl_scored": 1158,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1158,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1158,
+     "legacy_fa_vs_proposed_starter": 179,
+     "legacy_fa_vs_proposed_nonstarter": 95,
+     "legacy_fa_vs_proposed_None": 884,
+     "unresolved_legacy_fa": 884
+    }
+   },
+   "15": {
+    "mfl_scored": 1159,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1159,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1159,
+     "legacy_fa_vs_proposed_starter": 177,
+     "legacy_fa_vs_proposed_nonstarter": 100,
+     "legacy_fa_vs_proposed_None": 882,
+     "unresolved_legacy_fa": 882
+    }
+   },
+   "16": {
+    "mfl_scored": 1152,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1152,
+    "franchises_with_empty_lineup": [
+     "0009"
+    ],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1152,
+     "legacy_fa_vs_proposed_nonstarter": 102,
+     "legacy_fa_vs_proposed_starter": 162,
+     "legacy_fa_vs_proposed_None": 25,
+     "unresolved_legacy_fa": 25
+    }
+   }
+  },
+  "2016": {
+   "14": {
+    "mfl_scored": 1160,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1160,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1160,
+     "legacy_fa_vs_proposed_starter": 179,
+     "legacy_fa_vs_proposed_nonstarter": 102,
+     "legacy_fa_vs_proposed_None": 879,
+     "unresolved_legacy_fa": 879
+    }
+   },
+   "15": {
+    "mfl_scored": 1157,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1157,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1157,
+     "legacy_fa_vs_proposed_starter": 177,
+     "legacy_fa_vs_proposed_None": 879,
+     "legacy_fa_vs_proposed_nonstarter": 101,
+     "unresolved_legacy_fa": 879
+    }
+   },
+   "16": {
+    "mfl_scored": 1156,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1156,
+    "franchises_with_empty_lineup": [
+     "0002",
+     "0003"
+    ],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1156,
+     "legacy_fa_vs_proposed_starter": 148,
+     "legacy_fa_vs_proposed_nonstarter": 118,
+     "legacy_fa_vs_proposed_None": 40,
+     "unresolved_legacy_fa": 40
+    }
+   }
+  },
+  "2017": {
+   "14": {
+    "mfl_scored": 1159,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1159,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1159,
+     "legacy_fa_vs_proposed_starter": 178,
+     "legacy_fa_vs_proposed_nonstarter": 102,
+     "legacy_fa_vs_proposed_None": 879,
+     "unresolved_legacy_fa": 879
+    }
+   },
+   "15": {
+    "mfl_scored": 1158,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1158,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": false,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1158,
+     "legacy_fa_vs_proposed_starter": 180,
+     "legacy_fa_vs_proposed_nonstarter": 98,
+     "legacy_fa_vs_proposed_None": 880,
+     "unresolved_legacy_fa": 880
+    }
+   },
+   "16": {
+    "mfl_scored": 1149,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1149,
+    "franchises_with_empty_lineup": [
+     "0002",
+     "0005"
+    ],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1149,
+     "legacy_fa_vs_proposed_starter": 150,
+     "legacy_fa_vs_proposed_nonstarter": 116,
+     "legacy_fa_vs_proposed_None": 43,
+     "unresolved_legacy_fa": 43
+    }
+   }
+  },
+  "2018": {
+   "14": {
+    "mfl_scored": 1171,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1171,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1171,
+     "legacy_fa_vs_proposed_starter": 203,
+     "legacy_fa_vs_proposed_nonstarter": 165
+    }
+   },
+   "15": {
+    "mfl_scored": 1158,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1158,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1158,
+     "legacy_fa_vs_proposed_starter": 202,
+     "legacy_fa_vs_proposed_nonstarter": 157
+    }
+   },
+   "16": {
+    "mfl_scored": 1161,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1161,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1161,
+     "legacy_fa_vs_proposed_starter": 200,
+     "legacy_fa_vs_proposed_nonstarter": 149
+    }
+   }
+  },
+  "2019": {
+   "14": {
+    "mfl_scored": 1174,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1174,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1174,
+     "legacy_fa_vs_proposed_nonstarter": 158,
+     "legacy_fa_vs_proposed_starter": 204
+    }
+   },
+   "15": {
+    "mfl_scored": 1178,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1178,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1178,
+     "legacy_fa_vs_proposed_starter": 203,
+     "legacy_fa_vs_proposed_nonstarter": 147
+    }
+   },
+   "16": {
+    "mfl_scored": 1177,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1177,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1177,
+     "legacy_fa_vs_proposed_starter": 200,
+     "legacy_fa_vs_proposed_nonstarter": 155
+    }
+   }
+  },
+  "2020": {
+   "14": {
+    "mfl_scored": 1198,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1198,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1198,
+     "legacy_nonstarter_vs_proposed_starter": 68,
+     "new_row_has_legacy_win_chunks": 134,
+     "legacy_starter_vs_proposed_starter": 134,
+     "legacy_nonstarter_vs_proposed_nonstarter": 184
+    }
+   },
+   "15": {
+    "mfl_scored": 1198,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1198,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 1198,
+     "legacy_nonstarter_vs_proposed_nonstarter": 175,
+     "new_row_has_legacy_win_chunks": 203,
+     "legacy_starter_vs_proposed_starter": 203
+    }
+   },
+   "16": {
+    "mfl_scored": 1209,
+    "existing_rows": 0,
+    "existing_null_score": 0,
+    "proposed_inserts": 1209,
+    "franchises_with_empty_lineup": [
+     "0003",
+     "0012"
+    ],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {},
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "new_row_has_legacy_win_chunks": 135,
+     "rank_equals_legacy": 1209,
+     "legacy_starter_vs_proposed_starter": 135,
+     "legacy_nonstarter_vs_proposed_None": 51,
+     "legacy_nonstarter_vs_proposed_nonstarter": 142,
+     "legacy_nonstarter_vs_proposed_starter": 33,
+     "unresolved_legacy_nonstarter": 51
+    }
+   }
+  },
+  "2021": {
+   "15": {
+    "mfl_scored": 1220,
+    "existing_rows": 351,
+    "existing_null_score": 41,
+    "proposed_inserts": 910,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 202,
+     "update_pos_rank": 101
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 910,
+     "legacy_nonstarter_vs_proposed_nonstarter": 61
+    }
+   },
+   "16": {
+    "mfl_scored": 1219,
+    "existing_rows": 353,
+    "existing_null_score": 45,
+    "proposed_inserts": 911,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 192,
+     "update_pos_rank": 112
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 911,
+     "legacy_nonstarter_vs_proposed_nonstarter": 54
+    }
+   },
+   "17": {
+    "mfl_scored": 1213,
+    "existing_rows": 327,
+    "existing_null_score": 42,
+    "proposed_inserts": 928,
+    "franchises_with_empty_lineup": [
+     "0012"
+    ],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 192,
+     "update_pos_rank": 110
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 928,
+     "legacy_nonstarter_vs_proposed_None": 24,
+     "legacy_nonstarter_vs_proposed_nonstarter": 57,
+     "unresolved_legacy_nonstarter": 24
+    }
+   }
+  },
+  "2022": {
+   "15": {
+    "mfl_scored": 1204,
+    "existing_rows": 356,
+    "existing_null_score": 40,
+    "proposed_inserts": 888,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 211,
+     "update_pos_rank": 114,
+     "update_pos_group": 1
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 888,
+     "legacy_nonstarter_vs_proposed_nonstarter": 50
+    }
+   },
+   "16": {
+    "mfl_scored": 1212,
+    "existing_rows": 352,
+    "existing_null_score": 31,
+    "proposed_inserts": 891,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 204,
+     "update_pos_rank": 108,
+     "update_pos_group": 2
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 891,
+     "legacy_nonstarter_vs_proposed_nonstarter": 51
+    }
+   },
+   "17": {
+    "mfl_scored": 1133,
+    "existing_rows": 351,
+    "existing_null_score": 52,
+    "proposed_inserts": 834,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 197,
+     "update_pos_rank": 101,
+     "update_pos_group": 2
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 834,
+     "legacy_nonstarter_vs_proposed_nonstarter": 53
+    }
+   }
+  },
+  "2023": {
+   "15": {
+    "mfl_scored": 1221,
+    "existing_rows": 357,
+    "existing_null_score": 28,
+    "proposed_inserts": 892,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 216,
+     "update_pos_rank": 109
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 892,
+     "legacy_nonstarter_vs_proposed_nonstarter": 59
+    }
+   },
+   "16": {
+    "mfl_scored": 1215,
+    "existing_rows": 354,
+    "existing_null_score": 40,
+    "proposed_inserts": 901,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 202,
+     "update_pos_rank": 102
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 901,
+     "legacy_nonstarter_vs_proposed_nonstarter": 62
+    }
+   },
+   "17": {
+    "mfl_scored": 1215,
+    "existing_rows": 358,
+    "existing_null_score": 44,
+    "proposed_inserts": 901,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 202,
+     "update_pos_rank": 102,
+     "update_pos_group": 1
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 901,
+     "legacy_nonstarter_vs_proposed_nonstarter": 61
+    }
+   }
+  },
+  "2024": {
+   "15": {
+    "mfl_scored": 1216,
+    "existing_rows": 353,
+    "existing_null_score": 20,
+    "proposed_inserts": 883,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 220,
+     "update_pos_rank": 108
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 883,
+     "legacy_nonstarter_vs_proposed_nonstarter": 56
+    }
+   },
+   "16": {
+    "mfl_scored": 1206,
+    "existing_rows": 356,
+    "existing_null_score": 38,
+    "proposed_inserts": 888,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 192,
+     "update_pos_rank": 105,
+     "update_pos_group": 2
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 888,
+     "legacy_nonstarter_vs_proposed_nonstarter": 57
+    }
+   },
+   "17": {
+    "mfl_scored": 1220,
+    "existing_rows": 352,
+    "existing_null_score": 33,
+    "proposed_inserts": 901,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 201,
+     "update_pos_rank": 99,
+     "update_pos_group": 2
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 901,
+     "legacy_nonstarter_vs_proposed_nonstarter": 61
+    }
+   }
+  },
+  "2025": {
+   "15": {
+    "mfl_scored": 1208,
+    "existing_rows": 359,
+    "existing_null_score": 30,
+    "proposed_inserts": 879,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 214,
+     "update_pos_rank": 114,
+     "update_pos_group": 1
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 754,
+     "legacy_nonstarter_vs_proposed_nonstarter": 53,
+     "rank_differs_from_legacy": 125
+    }
+   },
+   "16": {
+    "mfl_scored": 1216,
+    "existing_rows": 357,
+    "existing_null_score": 29,
+    "proposed_inserts": 888,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 207,
+     "update_pos_rank": 118,
+     "update_pos_group": 2
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 0,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 0,
+     "rank_equals_legacy": 508,
+     "legacy_nonstarter_vs_proposed_nonstarter": 59,
+     "rank_differs_from_legacy": 380
+    }
+   },
+   "17": {
+    "mfl_scored": 1212,
+    "existing_rows": 355,
+    "existing_null_score": 40,
+    "proposed_inserts": 897,
+    "franchises_with_empty_lineup": [],
+    "rosters_export_consistent": true,
+    "existing_row_checks": {
+     "update_overall_rank": 206,
+     "update_pos_rank": 110,
+     "update_pos_group": 2
+    },
+    "archive_cross_check": {
+     "mfl_not_in_archive": 4,
+     "archive_not_in_mfl": 0,
+     "score_differs_from_archive": 12,
+     "rank_equals_legacy": 113,
+     "legacy_nonstarter_vs_proposed_nonstarter": 55,
+     "rank_differs_from_legacy": 780
+    }
+   }
+  }
+ },
+ "pointssummary": {
+  "rule": "DENSE rank on exact points_total / ppg within (season, positional_grouping); population = every player in src_pointssummary that season; no games minimum; weeks = 1 .. last UPS week (playoffs included)",
+  "by_season": {
+   "2011": {
+    "rank_shown_before": 259,
+    "ppg_rank_shown_before": 72,
+    "rank_shown_after": 1547,
+    "ppg_rank_shown_after": 1202,
+    "pointssummary_rows": 1547,
+    "after_shown_but_rank_differs_from_mfl_recompute": 270,
+    "after_shown_rank_differs_float_noise_only": 270
+   },
+   "2012": {
+    "rank_shown_before": 258,
+    "ppg_rank_shown_before": 84,
+    "rank_shown_after": 1537,
+    "ppg_rank_shown_after": 1183,
+    "pointssummary_rows": 1537,
+    "after_shown_but_rank_differs_from_mfl_recompute": 386,
+    "after_shown_rank_differs_float_noise_only": 386
+   },
+   "2013": {
+    "rank_shown_before": 260,
+    "ppg_rank_shown_before": 58,
+    "rank_shown_after": 1532,
+    "ppg_rank_shown_after": 1180,
+    "pointssummary_rows": 1532,
+    "after_shown_but_rank_differs_from_mfl_recompute": 306,
+    "after_shown_rank_differs_float_noise_only": 306
+   },
+   "2014": {
+    "rank_shown_before": 275,
+    "ppg_rank_shown_before": 78,
+    "rank_shown_after": 1564,
+    "ppg_rank_shown_after": 1187,
+    "pointssummary_rows": 1564,
+    "after_shown_but_rank_differs_from_mfl_recompute": 375,
+    "after_shown_rank_differs_float_noise_only": 375
+   },
+   "2015": {
+    "rank_shown_before": 277,
+    "ppg_rank_shown_before": 89,
+    "rank_shown_after": 1571,
+    "ppg_rank_shown_after": 1213,
+    "pointssummary_rows": 1571,
+    "after_shown_but_rank_differs_from_mfl_recompute": 276,
+    "after_shown_rank_differs_float_noise_only": 276
+   },
+   "2016": {
+    "rank_shown_before": 278,
+    "ppg_rank_shown_before": 85,
+    "rank_shown_after": 1580,
+    "ppg_rank_shown_after": 1206,
+    "pointssummary_rows": 1580,
+    "after_shown_but_rank_differs_from_mfl_recompute": 222,
+    "after_shown_rank_differs_float_noise_only": 222
+   },
+   "2017": {
+    "rank_shown_before": 282,
+    "ppg_rank_shown_before": 79,
+    "rank_shown_after": 1575,
+    "ppg_rank_shown_after": 1184,
+    "pointssummary_rows": 1575,
+    "after_shown_but_rank_differs_from_mfl_recompute": 142,
+    "after_shown_rank_differs_float_noise_only": 142
+   },
+   "2018": {
+    "rank_shown_before": 311,
+    "ppg_rank_shown_before": 68,
+    "rank_shown_after": 1611,
+    "ppg_rank_shown_after": 1183,
+    "pointssummary_rows": 1611,
+    "after_shown_but_rank_differs_from_mfl_recompute": 417,
+    "after_shown_rank_differs_float_noise_only": 417
+   },
+   "2019": {
+    "rank_shown_before": 323,
+    "ppg_rank_shown_before": 94,
+    "rank_shown_after": 1650,
+    "ppg_rank_shown_after": 1206,
+    "pointssummary_rows": 1650,
+    "after_shown_but_rank_differs_from_mfl_recompute": 610,
+    "after_shown_rank_differs_float_noise_only": 610
+   },
+   "2020": {
+    "rank_shown_before": 343,
+    "ppg_rank_shown_before": 86,
+    "rank_shown_after": 1744,
+    "ppg_rank_shown_after": 1250,
+    "pointssummary_rows": 1744,
+    "after_shown_but_rank_differs_from_mfl_recompute": 542,
+    "after_shown_rank_differs_float_noise_only": 542
+   },
+   "2021": {
+    "rank_shown_before": 637,
+    "ppg_rank_shown_before": 353,
+    "rank_shown_after": 1868,
+    "ppg_rank_shown_after": 1222,
+    "pointssummary_rows": 1868,
+    "after_shown_but_rank_differs_from_mfl_recompute": 587,
+    "after_shown_rank_differs_float_noise_only": 587
+   },
+   "2022": {
+    "rank_shown_before": 692,
+    "ppg_rank_shown_before": 388,
+    "rank_shown_after": 1743,
+    "ppg_rank_shown_after": 1212,
+    "pointssummary_rows": 1743,
+    "after_shown_but_rank_differs_from_mfl_recompute": 645,
+    "after_shown_rank_differs_float_noise_only": 645
+   },
+   "2023": {
+    "rank_shown_before": 675,
+    "ppg_rank_shown_before": 393,
+    "rank_shown_after": 1739,
+    "ppg_rank_shown_after": 1225,
+    "pointssummary_rows": 1743,
+    "after_mismatch_duplicate_rows_in_legacy_table": 4,
+    "after_shown_but_rank_differs_from_mfl_recompute": 458,
+    "after_shown_rank_differs_float_noise_only": 387,
+    "after_shown_rank_differs_real_drift": 71
+   },
+   "2024": {
+    "rank_shown_before": 692,
+    "ppg_rank_shown_before": 398,
+    "rank_shown_after": 1751,
+    "ppg_rank_shown_after": 1211,
+    "pointssummary_rows": 1758,
+    "after_mismatch_duplicate_rows_in_legacy_table": 7,
+    "after_shown_but_rank_differs_from_mfl_recompute": 1134,
+    "after_shown_rank_differs_real_drift": 868,
+    "after_shown_rank_differs_float_noise_only": 266
+   },
+   "2025": {
+    "rank_shown_before": 671,
+    "ppg_rank_shown_before": 384,
+    "rank_shown_after": 1730,
+    "ppg_rank_shown_after": 1203,
+    "pointssummary_rows": 1742,
+    "after_mismatch_mfl_total_differs_from_rank_basis": 12,
+    "after_shown_but_rank_differs_from_mfl_recompute": 673,
+    "after_shown_rank_differs_real_drift": 493,
+    "after_shown_rank_differs_float_noise_only": 180
+   }
+  },
+  "shown_but_stale_rank_offsets": {
+   "float_noise_only_pts_off_by_1": 2583,
+   "float_noise_only_ppg_off_by_0": 1677,
+   "float_noise_only_pts_off_by_2": 736,
+   "float_noise_only_ppg_off_by_1": 2456,
+   "float_noise_only_pts_off_by_3": 338,
+   "float_noise_only_pts_off_by_0": 1301,
+   "float_noise_only_pts_off_by_4": 321,
+   "float_noise_only_ppg_off_by_4": 176,
+   "float_noise_only_ppg_off_by_3": 461,
+   "float_noise_only_ppg_off_by_2": 715,
+   "float_noise_only_pts_off_by_5+": 332,
+   "float_noise_only_ppg_off_by_5+": 126,
+   "real_drift_pts_off_by_0": 447,
+   "real_drift_ppg_off_by_1": 842,
+   "real_drift_pts_off_by_1": 475,
+   "real_drift_ppg_off_by_0": 225,
+   "real_drift_pts_off_by_4": 46,
+   "real_drift_pts_off_by_2": 156,
+   "real_drift_ppg_off_by_5+": 72,
+   "real_drift_pts_off_by_3": 130,
+   "real_drift_ppg_off_by_2": 138,
+   "real_drift_pts_off_by_5+": 178,
+   "real_drift_ppg_off_by_3": 98,
+   "real_drift_ppg_off_by_4": 57
+  },
+  "examples": {
+   "duplicate_rows_in_legacy_table": [
+    {
+     "season": 2023,
+     "player_id": "13418",
+     "name": "Bourne, Kendrick",
+     "rank_basis": [
+      179.2,
+      11
+     ],
+     "after": [
+      104.2,
+      8
+     ],
+     "mfl": [
+      104.2,
+      8
+     ]
+    },
+    {
+     "season": 2023,
+     "player_id": "14075",
+     "name": "Harris, Damien",
+     "rank_basis": [
+      31.9,
+      10
+     ],
+     "after": [
+      21.4,
+      7
+     ],
+     "mfl": [
+      21.4,
+      7
+     ]
+    },
+    {
+     "season": 2023,
+     "player_id": "14799",
+     "name": "Akers, Cam",
+     "rank_basis": [
+      75.7,
+      10
+     ],
+     "after": [
+      46.6,
+      7
+     ],
+     "mfl": [
+      46.6,
+      7
+     ]
+    },
+    {
+     "season": 2023,
+     "player_id": "15807",
+     "name": "Ojabo, David",
+     "rank_basis": [
+      43.5,
+      6
+     ],
+     "after": [
+      13.5,
+      3
+     ],
+     "mfl": [
+      13.5,
+      3
+     ]
+    },
+    {
+     "season": 2024,
+     "player_id": "12620",
+     "name": "Prescott, Dak",
+     "rank_basis": [
+      245.7,
+      14
+     ],
+     "after": [
+      151.2,
+      8
+     ],
+     "mfl": [
+      151.2,
+      8
+     ]
+    },
+    {
+     "season": 2024,
+     "player_id": "13633",
+     "name": "Kirk, Christian",
+     "rank_basis": [
+      89.1,
+      11
+     ],
+     "after": [
+      76.5,
+      8
+     ],
+     "mfl": [
+      76.5,
+      8
+     ]
+    },
+    {
+     "season": 2024,
+     "player_id": "14162",
+     "name": "Wilkins, Christian",
+     "rank_basis": [
+      66.0,
+      11
+     ],
+     "after": [
+      31.5,
+      5
+     ],
+     "mfl": [
+      31.5,
+      5
+     ]
+    },
+    {
+     "season": 2024,
+     "player_id": "14412",
+     "name": "Singleton, Alex",
+     "rank_basis": [
+      73.0,
+      6
+     ],
+     "after": [
+      31.0,
+      3
+     ],
+     "mfl": [
+      31.0,
+      3
+     ]
+    },
+    {
+     "season": 2024,
+     "player_id": "14840",
+     "name": "Aiyuk, Brandon",
+     "rank_basis": [
+      83.8,
+      10
+     ],
+     "after": [
+      68.2,
+      7
+     ],
+     "mfl": [
+      68.2,
+      7
+     ]
+    },
+    {
+     "season": 2024,
+     "player_id": "15351",
+     "name": "Owusu-Koramoah, Jeremiah",
+     "rank_basis": [
+      134.0,
+      14
+     ],
+     "after": [
+      81.5,
+      8
+     ],
+     "mfl": [
+      81.5,
+      8
+     ]
+    },
+    {
+     "season": 2024,
+     "player_id": "16080",
+     "name": "Shaheed, Rashid",
+     "rank_basis": [
+      159.6,
+      9
+     ],
+     "after": [
+      95.1,
+      6
+     ],
+     "mfl": [
+      95.1,
+      6
+     ]
+    }
+   ],
+   "mfl_total_differs_from_rank_basis": [
+    {
+     "season": 2025,
+     "player_id": "12772",
+     "name": "Murray, Eric",
+     "rank_basis": [
+      78.3,
+      11
+     ],
+     "after": [
+      77.0,
+      11
+     ],
+     "mfl": [
+      77.0,
+      11
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "13688",
+     "name": "Davenport, Marcus",
+     "rank_basis": [
+      18.0,
+      7
+     ],
+     "after": [
+      19.0,
+      7
+     ],
+     "mfl": [
+      19.0,
+      7
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "13714",
+     "name": "James, Derwin",
+     "rank_basis": [
+      144.2,
+      16
+     ],
+     "after": [
+      143.7,
+      16
+     ],
+     "mfl": [
+      143.7,
+      16
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "13813",
+     "name": "Oluokun, Foyesade",
+     "rank_basis": [
+      135.5,
+      16
+     ],
+     "after": [
+      136.5,
+      16
+     ],
+     "mfl": [
+      136.5,
+      16
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "14896",
+     "name": "Queen, Patrick",
+     "rank_basis": [
+      112.0,
+      16
+     ],
+     "after": [
+      112.5,
+      16
+     ],
+     "mfl": [
+      112.5,
+      16
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "15914",
+     "name": "Rodriguez, Malcolm",
+     "rank_basis": [
+      7.0,
+      6
+     ],
+     "after": [
+      6.5,
+      6
+     ],
+     "mfl": [
+      6.5,
+      6
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "16280",
+     "name": "Henley, Daiyan",
+     "rank_basis": [
+      112.0,
+      16
+     ],
+     "after": [
+      112.5,
+      16
+     ],
+     "mfl": [
+      112.5,
+      16
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "16288",
+     "name": "Blackmon, Mekhi",
+     "rank_basis": [
+      98.3,
+      16
+     ],
+     "after": [
+      96.8,
+      16
+     ],
+     "mfl": [
+      96.8,
+      16
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "17059",
+     "name": "Gordon, Ollie",
+     "rank_basis": [
+      56.9,
+      16
+     ],
+     "after": [
+      57.4,
+      16
+     ],
+     "mfl": [
+      57.4,
+      16
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "17137",
+     "name": "Harmon, Derrick",
+     "rank_basis": [
+      37.0,
+      11
+     ],
+     "after": [
+      36.5,
+      11
+     ],
+     "mfl": [
+      36.5,
+      11
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "17200",
+     "name": "Marshall, Jason",
+     "rank_basis": [
+      37.4,
+      11
+     ],
+     "after": [
+      36.6,
+      11
+     ],
+     "mfl": [
+      36.6,
+      11
+     ]
+    },
+    {
+     "season": 2025,
+     "player_id": "17430",
+     "name": "Clark, Jordan",
+     "rank_basis": [
+      8.0,
+      3
+     ],
+     "after": [
+      8.9,
+      3
+     ],
+     "mfl": [
+      8.9,
+      3
+     ]
+    }
+   ]
+  }
+ },
+ "archive_duplicate_player_seasons": [
+  "2010:2986",
+  "2010:4891",
+  "2010:512",
+  "2010:531",
+  "2010:6789",
+  "2010:7150",
+  "2010:7455",
+  "2010:8339",
+  "2010:8679",
+  "2010:8685",
+  "2010:8702",
+  "2010:8758",
+  "2010:9087",
+  "2010:9308",
+  "2010:9437",
+  "2010:9460",
+  "2023:13418",
+  "2023:14075",
+  "2023:14799",
+  "2023:15807",
+  "2024:12620",
+  "2024:13633",
+  "2024:14162",
+  "2024:14412",
+  "2024:14840",
+  "2024:15351",
+  "2024:16080"
+ ],
+ "mfl_ytd_vs_weekly": {
+  "2011": {
+   "match": 1547,
+   "after_matches_ytd": 1547
+  },
+  "2012": {
+   "match": 1537,
+   "after_matches_ytd": 1537
+  },
+  "2013": {
+   "match": 1532,
+   "after_matches_ytd": 1532
+  },
+  "2014": {
+   "match": 1564,
+   "after_matches_ytd": 1564
+  },
+  "2015": {
+   "match": 1571,
+   "after_matches_ytd": 1571
+  },
+  "2016": {
+   "match": 1580,
+   "after_matches_ytd": 1580
+  },
+  "2017": {
+   "match": 1575,
+   "after_matches_ytd": 1575
+  },
+  "2018": {
+   "match": 1611,
+   "after_matches_ytd": 1611
+  },
+  "2019": {
+   "match": 1650,
+   "after_matches_ytd": 1650
+  },
+  "2020": {
+   "match": 1744,
+   "after_matches_ytd": 1744
+  },
+  "2021": {
+   "match": 1868,
+   "after_matches_ytd": 1868
+  },
+  "2022": {
+   "match": 1743,
+   "after_matches_ytd": 1743
+  },
+  "2023": {
+   "match": 1743,
+   "after_matches_ytd": 1743
+  },
+  "2024": {
+   "match": 1758,
+   "after_matches_ytd": 1758
+  },
+  "2025": {
+   "match": 1746,
+   "after_matches_ytd": 1746
+  }
+ },
+ "representative_players": {
+  "12620": {
+   "name": "Dak Prescott",
+   "seasons": [
+    {
+     "season": 2016,
+     "d1_today": [
+      267.4,
+      12
+     ],
+     "before": [
+      267.4,
+      12
+     ],
+     "after": [
+      321.4,
+      15
+     ],
+     "rank_basis": [
+      321.4,
+      15
+     ],
+     "pos_rank": 6,
+     "pos_ppg_rank": 9,
+     "true_rank": [
+      6,
+      9
+     ],
+     "mfl_ytd": 321.4
+    },
+    {
+     "season": 2017,
+     "d1_today": [
+      209.0,
+      12
+     ],
+     "before": [
+      209.0,
+      12
+     ],
+     "after": [
+      256.1,
+      15
+     ],
+     "rank_basis": [
+      256.1,
+      15
+     ],
+     "pos_rank": 14,
+     "pos_ppg_rank": 16,
+     "true_rank": [
+      14,
+      16
+     ],
+     "mfl_ytd": 256.1
+    },
+    {
+     "season": 2018,
+     "d1_today": [
+      203.9,
+      12
+     ],
+     "before": [
+      203.9,
+      12
+     ],
+     "after": [
+      258.5,
+      15
+     ],
+     "rank_basis": [
+      258.5,
+      15
+     ],
+     "pos_rank": 15,
+     "pos_ppg_rank": 23,
+     "true_rank": [
+      15,
+      23
+     ],
+     "mfl_ytd": 258.5
+    },
+    {
+     "season": 2019,
+     "d1_today": [
+      308.2,
+      12
+     ],
+     "before": [
+      308.2,
+      12
+     ],
+     "after": [
+      361.1,
+      15
+     ],
+     "rank_basis": [
+      361.1,
+      15
+     ],
+     "pos_rank": 2,
+     "pos_ppg_rank": 5,
+     "true_rank": [
+      2,
+      5
+     ],
+     "mfl_ytd": 361.1
+    },
+    {
+     "season": 2020,
+     "d1_today": [
+      152.2,
+      5
+     ],
+     "before": [
+      152.2,
+      5
+     ],
+     "after": [
+      152.2,
+      5
+     ],
+     "rank_basis": [
+      152.2,
+      5
+     ],
+     "pos_rank": 29,
+     "pos_ppg_rank": 1,
+     "true_rank": [
+      29,
+      1
+     ],
+     "mfl_ytd": 152.2
+    },
+    {
+     "season": 2021,
+     "d1_today": [
+      384.5,
+      15
+     ],
+     "before": [
+      384.5,
+      15
+     ],
+     "after": [
+      384.5,
+      15
+     ],
+     "rank_basis": [
+      384.5,
+      15
+     ],
+     "pos_rank": 8,
+     "pos_ppg_rank": 8,
+     "true_rank": [
+      8,
+      8
+     ],
+     "mfl_ytd": 384.5
+    },
+    {
+     "season": 2022,
+     "d1_today": [
+      246.9,
+      11
+     ],
+     "before": [
+      246.9,
+      11
+     ],
+     "after": [
+      246.9,
+      11
+     ],
+     "rank_basis": [
+      246.9,
+      11
+     ],
+     "pos_rank": 17,
+     "pos_ppg_rank": 9,
+     "true_rank": [
+      17,
+      9
+     ],
+     "mfl_ytd": 246.9
+    },
+    {
+     "season": 2023,
+     "d1_today": [
+      404.7,
+      16
+     ],
+     "before": [
+      404.7,
+      16
+     ],
+     "after": [
+      404.7,
+      16
+     ],
+     "rank_basis": [
+      404.7,
+      16
+     ],
+     "pos_rank": 3,
+     "pos_ppg_rank": 5,
+     "true_rank": [
+      3,
+      5
+     ],
+     "mfl_ytd": 404.7
+    },
+    {
+     "season": 2024,
+     "d1_today": [
+      151.2,
+      8
+     ],
+     "before": [
+      151.2,
+      8
+     ],
+     "after": [
+      151.2,
+      8
+     ],
+     "rank_basis": [
+      245.7,
+      14
+     ],
+     "pos_rank": 20,
+     "pos_ppg_rank": 22,
+     "true_rank": [
+      30,
+      18
+     ],
+     "mfl_ytd": 151.2
+    },
+    {
+     "season": 2025,
+     "d1_today": [
+      409.3,
+      16
+     ],
+     "before": [
+      409.3,
+      16
+     ],
+     "after": [
+      409.3,
+      16
+     ],
+     "rank_basis": [
+      409.3,
+      16
+     ],
+     "pos_rank": 4,
+     "pos_ppg_rank": 5,
+     "true_rank": [
+      4,
+      5
+     ],
+     "mfl_ytd": 409.3
+    }
+   ]
+  },
+  "12616": {
+   "name": "Jacoby Brissett",
+   "seasons": [
+    {
+     "season": 2016,
+     "d1_today": [
+      23.7,
+      3
+     ],
+     "before": [
+      23.7,
+      3
+     ],
+     "after": [
+      23.7,
+      3
+     ],
+     "rank_basis": [
+      23.7,
+      3
+     ],
+     "pos_rank": 44,
+     "pos_ppg_rank": 44,
+     "true_rank": [
+      44,
+      44
+     ],
+     "mfl_ytd": 23.7
+    },
+    {
+     "season": 2017,
+     "d1_today": [
+      142.5,
+      12
+     ],
+     "before": [
+      142.5,
+      12
+     ],
+     "after": [
+      180.1,
+      15
+     ],
+     "rank_basis": [
+      180.1,
+      15
+     ],
+     "pos_rank": 25,
+     "pos_ppg_rank": 33,
+     "true_rank": [
+      25,
+      33
+     ],
+     "mfl_ytd": 180.1
+    },
+    {
+     "season": 2018,
+     "d1_today": [
+      -0.6,
+      4
+     ],
+     "before": [
+      -0.6,
+      4
+     ],
+     "after": [
+      -0.6,
+      4
+     ],
+     "rank_basis": [
+      -0.6,
+      4
+     ],
+     "pos_rank": 62,
+     "pos_ppg_rank": 63,
+     "true_rank": [
+      62,
+      63
+     ],
+     "mfl_ytd": -0.6
+    },
+    {
+     "season": 2019,
+     "d1_today": [
+      190.6,
+      11
+     ],
+     "before": [
+      190.6,
+      11
+     ],
+     "after": [
+      237.5,
+      14
+     ],
+     "rank_basis": [
+      237.5,
+      14
+     ],
+     "pos_rank": 18,
+     "pos_ppg_rank": 20,
+     "true_rank": [
+      18,
+      20
+     ],
+     "mfl_ytd": 237.5
+    },
+    {
+     "season": 2020,
+     "d1_today": [
+      18.7,
+      7
+     ],
+     "before": [
+      18.7,
+      7
+     ],
+     "after": [
+      18.8,
+      10
+     ],
+     "rank_basis": [
+      18.8,
+      10
+     ],
+     "pos_rank": 48,
+     "pos_ppg_rank": 61,
+     "true_rank": [
+      48,
+      61
+     ],
+     "mfl_ytd": 18.8
+    },
+    {
+     "season": 2021,
+     "d1_today": [
+      84.4,
+      8
+     ],
+     "before": [
+      84.4,
+      8
+     ],
+     "after": [
+      84.8,
+      11
+     ],
+     "rank_basis": [
+      84.8,
+      11
+     ],
+     "pos_rank": 38,
+     "pos_ppg_rank": 51,
+     "true_rank": [
+      38,
+      51
+     ],
+     "mfl_ytd": 84.8
+    },
+    {
+     "season": 2022,
+     "d1_today": [
+      208.7,
+      13
+     ],
+     "before": [
+      208.7,
+      13
+     ],
+     "after": [
+      209.6,
+      15
+     ],
+     "rank_basis": [
+      209.6,
+      15
+     ],
+     "pos_rank": 22,
+     "pos_ppg_rank": 33,
+     "true_rank": [
+      22,
+      33
+     ],
+     "mfl_ytd": 209.6
+    },
+    {
+     "season": 2023,
+     "d1_today": [
+      30.9,
+      3
+     ],
+     "before": [
+      30.9,
+      3
+     ],
+     "after": [
+      30.9,
+      3
+     ],
+     "rank_basis": [
+      30.9,
+      3
+     ],
+     "pos_rank": 49,
+     "pos_ppg_rank": 43,
+     "true_rank": [
+      49,
+      43
+     ],
+     "mfl_ytd": 30.9
+    },
+    {
+     "season": 2024,
+     "d1_today": [
+      42.6,
+      7
+     ],
+     "before": [
+      42.6,
+      7
+     ],
+     "after": [
+      42.5,
+      8
+     ],
+     "rank_basis": [
+      42.5,
+      8
+     ],
+     "pos_rank": 46,
+     "pos_ppg_rank": 50,
+     "true_rank": [
+      46,
+      50
+     ],
+     "mfl_ytd": 42.5
+    },
+    {
+     "season": 2025,
+     "d1_today": [
+      259.9,
+      13
+     ],
+     "before": [
+      259.9,
+      13
+     ],
+     "after": [
+      259.9,
+      13
+     ],
+     "rank_basis": [
+      259.9,
+      13
+     ],
+     "pos_rank": 17,
+     "pos_ppg_rank": 17,
+     "true_rank": [
+      17,
+      17
+     ],
+     "mfl_ytd": 259.9
+    }
+   ]
+  }
+ },
+ "alltime_rank_proposal": {
+  "definition": "completed seasons 2011-2025; PPG = all MFL points over every UPS week / weeks with a posted score; eligible when weeks scored >= ceil(0.75 x the season's UPS weeks) (12 of 16, 13 of 17); competition rank within src_weekly pos_group; top 100 shown",
+  "by_pos_group": {
+   "DB": {
+    "eligible_after": 3335,
+    "eligible_before": 2117,
+    "top100_changed_vs_before": 100,
+    "top5": [
+     {
+      "season": 2023,
+      "player_id": "14909",
+      "name": "Winfield, Antoine",
+      "ppg": 13.22,
+      "games": 16,
+      "rank": 1
+     },
+     {
+      "season": 2019,
+      "player_id": "11316",
+      "name": "Ryan, Logan",
+      "ppg": 12.75,
+      "games": 15,
+      "rank": 2
+     },
+     {
+      "season": 2023,
+      "player_id": "13737",
+      "name": "Bates, Jessie",
+      "ppg": 12.71,
+      "games": 16,
+      "rank": 3
+     },
+     {
+      "season": 2022,
+      "player_id": "15850",
+      "name": "Pitre, Jalen",
+      "ppg": 12.51,
+      "games": 16,
+      "rank": 4
+     },
+     {
+      "season": 2024,
+      "player_id": "13251",
+      "name": "Baker, Budda",
+      "ppg": 12.38,
+      "games": 16,
+      "rank": 5
+     }
+    ]
+   },
+   "DL": {
+    "eligible_after": 2790,
+    "eligible_before": 1929,
+    "top100_changed_vs_before": 89,
+    "top5": [
+     {
+      "season": 2014,
+      "player_id": "10272",
+      "name": "Watt, J.J.",
+      "ppg": 15.17,
+      "games": 15,
+      "rank": 1
+     },
+     {
+      "season": 2012,
+      "player_id": "10272",
+      "name": "Watt, J.J.",
+      "ppg": 14.53,
+      "games": 15,
+      "rank": 2
+     },
+     {
+      "season": 2025,
+      "player_id": "13198",
+      "name": "Garrett, Myles",
+      "ppg": 13.22,
+      "games": 16,
+      "rank": 3
+     },
+     {
+      "season": 2018,
+      "player_id": "11757",
+      "name": "Donald, Aaron",
+      "ppg": 13.03,
+      "games": 15,
+      "rank": 4
+     },
+     {
+      "season": 2023,
+      "player_id": "13214",
+      "name": "Watt, T.J.",
+      "ppg": 12.88,
+      "games": 16,
+      "rank": 5
+     }
+    ]
+   },
+   "LB": {
+    "eligible_after": 2428,
+    "eligible_before": 1675,
+    "top100_changed_vs_before": 99,
+    "top5": [
+     {
+      "season": 2018,
+      "player_id": "13733",
+      "name": "Leonard, Shaquille",
+      "ppg": 14.07,
+      "games": 14,
+      "rank": 1
+     },
+     {
+      "season": 2021,
+      "player_id": "13214",
+      "name": "Watt, T.J.",
+      "ppg": 13.11,
+      "games": 14,
+      "rank": 2
+     },
+     {
+      "season": 2013,
+      "player_id": "10768",
+      "name": "David, Lavonte",
+      "ppg": 12.73,
+      "games": 15,
+      "rank": 3
+     },
+     {
+      "season": 2019,
+      "player_id": "13733",
+      "name": "Leonard, Shaquille",
+      "ppg": 12.54,
+      "games": 12,
+      "rank": 4
+     },
+     {
+      "season": 2013,
+      "player_id": "8669",
+      "name": "Posluszny, Paul",
+      "ppg": 12.36,
+      "games": 14,
+      "rank": 5
+     }
+    ]
+   },
+   "PK": {
+    "eligible_after": 424,
+    "eligible_before": 387,
+    "top100_changed_vs_before": 92,
+    "top5": [
+     {
+      "season": 2017,
+      "player_id": "10868",
+      "name": "Zuerlein, Greg",
+      "ppg": 13.25,
+      "games": 14,
+      "rank": 1
+     },
+     {
+      "season": 2017,
+      "player_id": "13354",
+      "name": "Butker, Harrison",
+      "ppg": 13.12,
+      "games": 12,
+      "rank": 2
+     },
+     {
+      "season": 2025,
+      "player_id": "12437",
+      "name": "Myers, Jason",
+      "ppg": 12.94,
+      "games": 16,
+      "rank": 3
+     },
+     {
+      "season": 2025,
+      "player_id": "12860",
+      "name": "Fairbairn, Ka'imi",
+      "ppg": 12.61,
+      "games": 14,
+      "rank": 4
+     },
+     {
+      "season": 2011,
+      "player_id": "3579",
+      "name": "Akers, David",
+      "ppg": 12.53,
+      "games": 15,
+      "rank": 5
+     }
+    ]
+   },
+   "PN": {
+    "eligible_after": 453,
+    "eligible_before": 431,
+    "top100_changed_vs_before": 91,
+    "top5": [
+     {
+      "season": 2011,
+      "player_id": "9712",
+      "name": "Colquitt, Britton",
+      "ppg": 18.31,
+      "games": 15,
+      "rank": 1
+     },
+     {
+      "season": 2011,
+      "player_id": "7614",
+      "name": "Jones, Donnie",
+      "ppg": 18.26,
+      "games": 15,
+      "rank": 2
+     },
+     {
+      "season": 2011,
+      "player_id": "8501",
+      "name": "Ryan, Jon",
+      "ppg": 17.68,
+      "games": 15,
+      "rank": 3
+     },
+     {
+      "season": 2011,
+      "player_id": "5791",
+      "name": "Lechler, Shane",
+      "ppg": 17.13,
+      "games": 15,
+      "rank": 4
+     },
+     {
+      "season": 2011,
+      "player_id": "10523",
+      "name": "Conley, T.J.",
+      "ppg": 16.5,
+      "games": 15,
+      "rank": 5
+     }
+    ]
+   },
+   "QB": {
+    "eligible_after": 376,
+    "eligible_before": 309,
+    "top100_changed_vs_before": 93,
+    "top5": [
+     {
+      "season": 2022,
+      "player_id": "13116",
+      "name": "Mahomes, Patrick",
+      "ppg": 33.65,
+      "games": 16,
+      "rank": 1
+     },
+     {
+      "season": 2024,
+      "player_id": "13593",
+      "name": "Jackson, Lamar",
+      "ppg": 32.72,
+      "games": 16,
+      "rank": 2
+     },
+     {
+      "season": 2018,
+      "player_id": "13116",
+      "name": "Mahomes, Patrick",
+      "ppg": 32.64,
+      "games": 15,
+      "rank": 3
+     },
+     {
+      "season": 2013,
+      "player_id": "3291",
+      "name": "Manning, Peyton",
+      "ppg": 32.63,
+      "games": 15,
+      "rank": 4
+     },
+     {
+      "season": 2019,
+      "player_id": "13593",
+      "name": "Jackson, Lamar",
+      "ppg": 32.54,
+      "games": 15,
+      "rank": 5
+     }
+    ]
+   },
+   "RB": {
+    "eligible_after": 1346,
+    "eligible_before": 962,
+    "top100_changed_vs_before": 98,
+    "top5": [
+     {
+      "season": 2019,
+      "player_id": "13130",
+      "name": "McCaffrey, Christian",
+      "ppg": 30.25,
+      "games": 15,
+      "rank": 1
+     },
+     {
+      "season": 2016,
+      "player_id": "12171",
+      "name": "Johnson, David",
+      "ppg": 26.77,
+      "games": 15,
+      "rank": 2
+     },
+     {
+      "season": 2018,
+      "player_id": "12150",
+      "name": "Gurley, Todd",
+      "ppg": 26.75,
+      "games": 14,
+      "rank": 3
+     },
+     {
+      "season": 2016,
+      "player_id": "11192",
+      "name": "Bell, Le'Veon",
+      "ppg": 26.18,
+      "games": 12,
+      "rank": 4
+     },
+     {
+      "season": 2025,
+      "player_id": "13130",
+      "name": "McCaffrey, Christian",
+      "ppg": 25.98,
+      "games": 16,
+      "rank": 5
+     }
+    ]
+   },
+   "TE": {
+    "eligible_after": 1158,
+    "eligible_before": 812,
+    "top100_changed_vs_before": 98,
+    "top5": [
+     {
+      "season": 2025,
+      "player_id": "15794",
+      "name": "McBride, Trey",
+      "ppg": 23.76,
+      "games": 16,
+      "rank": 1
+     },
+     {
+      "season": 2020,
+      "player_id": "11244",
+      "name": "Kelce, Travis",
+      "ppg": 22.77,
+      "games": 15,
+      "rank": 2
+     },
+     {
+      "season": 2011,
+      "player_id": "9902",
+      "name": "Gronkowski, Rob",
+      "ppg": 21.62,
+      "games": 15,
+      "rank": 3
+     },
+     {
+      "season": 2013,
+      "player_id": "9925",
+      "name": "Graham, Jimmy",
+      "ppg": 21.0,
+      "games": 15,
+      "rank": 4
+     },
+     {
+      "season": 2022,
+      "player_id": "11244",
+      "name": "Kelce, Travis",
+      "ppg": 20.99,
+      "games": 16,
+      "rank": 5
+     }
+    ]
+   },
+   "WR": {
+    "eligible_after": 1834,
+    "eligible_before": 1283,
+    "top100_changed_vs_before": 95,
+    "top5": [
+     {
+      "season": 2020,
+      "player_id": "11675",
+      "name": "Adams, Davante",
+      "ppg": 28.74,
+      "games": 13,
+      "rank": 1
+     },
+     {
+      "season": 2021,
+      "player_id": "13164",
+      "name": "Kupp, Cooper",
+      "ppg": 28.41,
+      "games": 16,
+      "rank": 2
+     },
+     {
+      "season": 2019,
+      "player_id": "12652",
+      "name": "Thomas, Michael",
+      "ppg": 27.1,
+      "games": 15,
+      "rank": 3
+     },
+     {
+      "season": 2015,
+      "player_id": "9988",
+      "name": "Brown, Antonio",
+      "ppg": 27.01,
+      "games": 15,
+      "rank": 4
+     },
+     {
+      "season": 2014,
+      "player_id": "9988",
+      "name": "Brown, Antonio",
+      "ppg": 26.75,
+      "games": 15,
+      "rank": 5
+     }
+    ]
+   }
+  },
+  "rep_players": {
+   "12620": [
+    {
+     "season": 2021,
+     "ppg": 25.63,
+     "games": 15,
+     "rank": 42,
+     "pos_group": "QB"
+    },
+    {
+     "season": 2025,
+     "ppg": 25.58,
+     "games": 16,
+     "rank": 43,
+     "pos_group": "QB"
+    },
+    {
+     "season": 2023,
+     "ppg": 25.29,
+     "games": 16,
+     "rank": 48,
+     "pos_group": "QB"
+    },
+    {
+     "season": 2019,
+     "ppg": 24.07,
+     "games": 15,
+     "rank": 71,
+     "pos_group": "QB"
+    },
+    {
+     "season": 2016,
+     "ppg": 21.43,
+     "games": 15,
+     "rank": 127,
+     "pos_group": "QB"
+    },
+    {
+     "season": 2018,
+     "ppg": 17.23,
+     "games": 15,
+     "rank": 241,
+     "pos_group": "QB"
+    },
+    {
+     "season": 2017,
+     "ppg": 17.07,
+     "games": 15,
+     "rank": 245,
+     "pos_group": "QB"
+    }
+   ],
+   "12616": [
+    {
+     "season": 2025,
+     "ppg": 19.99,
+     "games": 13,
+     "rank": 161,
+     "pos_group": "QB"
+    },
+    {
+     "season": 2019,
+     "ppg": 16.96,
+     "games": 14,
+     "rank": 249,
+     "pos_group": "QB"
+    },
+    {
+     "season": 2022,
+     "ppg": 13.97,
+     "games": 15,
+     "rank": 320,
+     "pos_group": "QB"
+    },
+    {
+     "season": 2017,
+     "ppg": 12.01,
+     "games": 15,
+     "rank": 342,
+     "pos_group": "QB"
+    }
+   ]
+  }
+ },
+ "fingerprints": {
+  "A_2011": "v1:3496:5977aa2e2290525b8bc604f978820fb1306a0e12a2d478c542b37df253980f18",
+  "A_2012": "v1:3445:9a5858a68007e4477e1dec6e438c69c6c6acabe11cc7dd5f296fce95734e26a0",
+  "A_2013": "v1:3461:5f94c5006fa532dbe72481a043bd32bd55701f12274ae7e107911ae05df9140a",
+  "A_2014": "v1:3466:db7caf6a92ced73c3bbed3797f06b65fc52e47c894891c6402bb7a90393c08fa",
+  "A_2015": "v1:3469:3bccd12317535757eb1cbe268ce00a87bdc12eab05b911aff240442b1b689790",
+  "A_2016": "v1:3473:7b7b6a4010591dfbbd0c8fb83a4bd5bfc9d66cc64f71453a896f0a1253c43ec7",
+  "A_2017": "v1:3466:3d97aa58c753978995d6dffbe8271c78316525ec2394b80ddae7ec54d6806411",
+  "A_2018": "v1:3490:cbee7fc086eca310755f7ce1a253fa6319e7344db3157e25f4759350feb92e86",
+  "A_2019": "v1:3529:92883384c7d1c6a3975d6f1a7ab4126d44de0ccfc57d99d7600bab4de5f713d0",
+  "A_2020": "v1:3605:bce5c7ac236d37f22686c93ffacecec829cb2e64d30ab9541960f9f7f8773303",
+  "B_2021": "v1:2749:eaac0868f32f24e3f5280946ffc6391643b134edf1d751293b182225fa75ceb3",
+  "B_2022": "v1:2613:da2c6e69a032a736080735b89465c1b2151d9d46886634015f19768d3e7892b2",
+  "B_2023": "v1:2694:290cac3e002d856881e5b66b5f90f03542381636e329a2e3b60660b9c66a0ab8",
+  "B_2024": "v1:2672:83a7ee6d666d0161a65315ec00688400fa06c543bbdd4613335aa50df1404392",
+  "B_2025": "v1:2664:4787c9d9d0851573c7c15717416027a87afd1369eb62596123b39b1141b50b5b",
+  "C_2021": "v1:586:12cd69c311c3c299f8619eb70d1865a39212cca4cedfa1b2e736f9073d87b088",
+  "C_2022": "v1:612:b0ddd2fdd4f1de91e9cf67a23b0956a89cdb1d77b11cf1cceebe94723c22bbcd",
+  "C_2023": "v1:620:a3e3b598a2d7900f7e34041c9e670a5cf41d462e28ebef8c5851224737679ecd",
+  "C_2024": "v1:615:9215309da10ab01afb660ff6368931021cf5197f549c6014379818f7a14c9e0c",
+  "C_2025": "v1:630:c68f026c61ddafa9eeb8f2b47fc50d53753e75dcc88df15d8cf0fd83299b428d",
+  "E_2011": "v1:944:3459f94da9f3738a59fdff4e4c7cdd415baa18faeb78cde4f320cd689428fe89",
+  "E_2012": "v1:3413:ed2aefb4e27cdd4730e3dd410fce5bfdcbd4d947ff799b9d44923a2e1ec32acb",
+  "E_2013": "v1:3346:6e739c8f7462c2a311a3595d5f36a4ae032bfe1672da5085078b16f48da57c29",
+  "E_2014": "v1:3346:f8f35c56e4cbb7e6cfedb905664437b9760b012c785b9abb4bf7c633bf903f31",
+  "E_2015": "v1:3364:001046c45ae366bb11d9a74986937af4732afc757f416e29dfa88fc164620c9d",
+  "E_2016": "v1:3390:d1e030accf67fc5f385584be336ac2cc69eabf636aaebfb1b3239b61e158488c",
+  "E_2017": "v1:3426:96c8d2e0f690f456cab3c45ccfa5fa47ac79058a6d68a9ae7291b5cef0dc3d42",
+  "E_2018": "v1:4163:99aec8274ec2802f2233296ae38a086207f5d7a2d77edcab088686a4e8aa072a",
+  "E_2019": "v1:4521:122779800e67b1a894a0cf480eba28f8485e3a449c02d2f6e62d4fedd5ffa3eb"
+ },
+ "d1_measure_local_miniflare": {
+  "phases": {
+   "A_2011": {
+    "forward": {
+     "statements": 44,
+     "rows_read": 0,
+     "rows_written": 13984,
+     "changes": 3496
+    },
+    "rerun": {
+     "statements": 44,
+     "rows_read": 3496,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 10485,
+     "rows_written": 3496,
+     "changes": 3496
+    }
+   },
+   "A_2012": {
+    "forward": {
+     "statements": 44,
+     "rows_read": 0,
+     "rows_written": 13780,
+     "changes": 3445
+    },
+    "rerun": {
+     "statements": 44,
+     "rows_read": 3445,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 10335,
+     "rows_written": 3445,
+     "changes": 3445
+    }
+   },
+   "A_2013": {
+    "forward": {
+     "statements": 44,
+     "rows_read": 0,
+     "rows_written": 13844,
+     "changes": 3461
+    },
+    "rerun": {
+     "statements": 44,
+     "rows_read": 3461,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 10383,
+     "rows_written": 3461,
+     "changes": 3461
+    }
+   },
+   "A_2014": {
+    "forward": {
+     "statements": 44,
+     "rows_read": 0,
+     "rows_written": 13864,
+     "changes": 3466
+    },
+    "rerun": {
+     "statements": 44,
+     "rows_read": 3466,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 10398,
+     "rows_written": 3466,
+     "changes": 3466
+    }
+   },
+   "A_2015": {
+    "forward": {
+     "statements": 44,
+     "rows_read": 0,
+     "rows_written": 13876,
+     "changes": 3469
+    },
+    "rerun": {
+     "statements": 44,
+     "rows_read": 3469,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 10407,
+     "rows_written": 3469,
+     "changes": 3469
+    }
+   },
+   "A_2016": {
+    "forward": {
+     "statements": 44,
+     "rows_read": 0,
+     "rows_written": 13892,
+     "changes": 3473
+    },
+    "rerun": {
+     "statements": 44,
+     "rows_read": 3473,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 10419,
+     "rows_written": 3473,
+     "changes": 3473
+    }
+   },
+   "A_2017": {
+    "forward": {
+     "statements": 44,
+     "rows_read": 0,
+     "rows_written": 13864,
+     "changes": 3466
+    },
+    "rerun": {
+     "statements": 44,
+     "rows_read": 3466,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 10398,
+     "rows_written": 3466,
+     "changes": 3466
+    }
+   },
+   "A_2018": {
+    "forward": {
+     "statements": 44,
+     "rows_read": 0,
+     "rows_written": 13960,
+     "changes": 3490
+    },
+    "rerun": {
+     "statements": 44,
+     "rows_read": 3490,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 10470,
+     "rows_written": 3490,
+     "changes": 3490
+    }
+   },
+   "A_2019": {
+    "forward": {
+     "statements": 45,
+     "rows_read": 0,
+     "rows_written": 14116,
+     "changes": 3529
+    },
+    "rerun": {
+     "statements": 45,
+     "rows_read": 3529,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 10587,
+     "rows_written": 3529,
+     "changes": 3529
+    }
+   },
+   "A_2020": {
+    "forward": {
+     "statements": 46,
+     "rows_read": 0,
+     "rows_written": 14420,
+     "changes": 3605
+    },
+    "rerun": {
+     "statements": 46,
+     "rows_read": 3605,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 10,
+     "rows_read": 10815,
+     "rows_written": 3605,
+     "changes": 3605
+    }
+   },
+   "B_2021": {
+    "forward": {
+     "statements": 35,
+     "rows_read": 0,
+     "rows_written": 10996,
+     "changes": 2749
+    },
+    "rerun": {
+     "statements": 35,
+     "rows_read": 2749,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 8247,
+     "rows_written": 2749,
+     "changes": 2749
+    }
+   },
+   "B_2022": {
+    "forward": {
+     "statements": 33,
+     "rows_read": 0,
+     "rows_written": 10452,
+     "changes": 2613
+    },
+    "rerun": {
+     "statements": 33,
+     "rows_read": 2613,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 7839,
+     "rows_written": 2613,
+     "changes": 2613
+    }
+   },
+   "B_2023": {
+    "forward": {
+     "statements": 34,
+     "rows_read": 0,
+     "rows_written": 10776,
+     "changes": 2694
+    },
+    "rerun": {
+     "statements": 34,
+     "rows_read": 2694,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 8082,
+     "rows_written": 2694,
+     "changes": 2694
+    }
+   },
+   "B_2024": {
+    "forward": {
+     "statements": 34,
+     "rows_read": 0,
+     "rows_written": 10688,
+     "changes": 2672
+    },
+    "rerun": {
+     "statements": 34,
+     "rows_read": 2672,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 8016,
+     "rows_written": 2672,
+     "changes": 2672
+    }
+   },
+   "B_2025": {
+    "forward": {
+     "statements": 34,
+     "rows_read": 0,
+     "rows_written": 10656,
+     "changes": 2664
+    },
+    "rerun": {
+     "statements": 34,
+     "rows_read": 2664,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 9,
+     "rows_read": 7992,
+     "rows_written": 2664,
+     "changes": 2664
+    }
+   },
+   "C_2021": {
+    "forward": {
+     "statements": 586,
+     "rows_read": 586,
+     "rows_written": 586,
+     "changes": 586
+    },
+    "rerun": {
+     "statements": 586,
+     "rows_read": 586,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 586,
+     "rows_read": 586,
+     "rows_written": 586,
+     "changes": 586
+    }
+   },
+   "C_2022": {
+    "forward": {
+     "statements": 612,
+     "rows_read": 612,
+     "rows_written": 612,
+     "changes": 612
+    },
+    "rerun": {
+     "statements": 612,
+     "rows_read": 612,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 612,
+     "rows_read": 612,
+     "rows_written": 612,
+     "changes": 612
+    }
+   },
+   "C_2023": {
+    "forward": {
+     "statements": 620,
+     "rows_read": 620,
+     "rows_written": 620,
+     "changes": 620
+    },
+    "rerun": {
+     "statements": 620,
+     "rows_read": 620,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 620,
+     "rows_read": 620,
+     "rows_written": 620,
+     "changes": 620
+    }
+   },
+   "C_2024": {
+    "forward": {
+     "statements": 615,
+     "rows_read": 615,
+     "rows_written": 615,
+     "changes": 615
+    },
+    "rerun": {
+     "statements": 615,
+     "rows_read": 615,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 615,
+     "rows_read": 615,
+     "rows_written": 615,
+     "changes": 615
+    }
+   },
+   "C_2025": {
+    "forward": {
+     "statements": 630,
+     "rows_read": 630,
+     "rows_written": 630,
+     "changes": 630
+    },
+    "rerun": {
+     "statements": 630,
+     "rows_read": 630,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 630,
+     "rows_read": 630,
+     "rows_written": 630,
+     "changes": 630
+    }
+   },
+   "E_2011": {
+    "forward": {
+     "statements": 944,
+     "rows_read": 944,
+     "rows_written": 944,
+     "changes": 944
+    },
+    "rerun": {
+     "statements": 944,
+     "rows_read": 944,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 944,
+     "rows_read": 944,
+     "rows_written": 944,
+     "changes": 944
+    }
+   },
+   "E_2012": {
+    "forward": {
+     "statements": 3413,
+     "rows_read": 3413,
+     "rows_written": 3413,
+     "changes": 3413
+    },
+    "rerun": {
+     "statements": 3413,
+     "rows_read": 3413,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 3413,
+     "rows_read": 3413,
+     "rows_written": 3413,
+     "changes": 3413
+    }
+   },
+   "E_2013": {
+    "forward": {
+     "statements": 3346,
+     "rows_read": 3346,
+     "rows_written": 3346,
+     "changes": 3346
+    },
+    "rerun": {
+     "statements": 3346,
+     "rows_read": 3346,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 3346,
+     "rows_read": 3346,
+     "rows_written": 3346,
+     "changes": 3346
+    }
+   },
+   "E_2014": {
+    "forward": {
+     "statements": 3346,
+     "rows_read": 3346,
+     "rows_written": 3346,
+     "changes": 3346
+    },
+    "rerun": {
+     "statements": 3346,
+     "rows_read": 3346,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 3346,
+     "rows_read": 3346,
+     "rows_written": 3346,
+     "changes": 3346
+    }
+   },
+   "E_2015": {
+    "forward": {
+     "statements": 3364,
+     "rows_read": 3364,
+     "rows_written": 3364,
+     "changes": 3364
+    },
+    "rerun": {
+     "statements": 3364,
+     "rows_read": 3364,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 3364,
+     "rows_read": 3364,
+     "rows_written": 3364,
+     "changes": 3364
+    }
+   },
+   "E_2016": {
+    "forward": {
+     "statements": 3390,
+     "rows_read": 3390,
+     "rows_written": 3390,
+     "changes": 3390
+    },
+    "rerun": {
+     "statements": 3390,
+     "rows_read": 3390,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 3390,
+     "rows_read": 3390,
+     "rows_written": 3390,
+     "changes": 3390
+    }
+   },
+   "E_2017": {
+    "forward": {
+     "statements": 3426,
+     "rows_read": 3426,
+     "rows_written": 3426,
+     "changes": 3426
+    },
+    "rerun": {
+     "statements": 3426,
+     "rows_read": 3426,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 3426,
+     "rows_read": 3426,
+     "rows_written": 3426,
+     "changes": 3426
+    }
+   },
+   "E_2018": {
+    "forward": {
+     "statements": 4163,
+     "rows_read": 4163,
+     "rows_written": 4163,
+     "changes": 4163
+    },
+    "rerun": {
+     "statements": 4163,
+     "rows_read": 4163,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 4163,
+     "rows_read": 4163,
+     "rows_written": 4163,
+     "changes": 4163
+    }
+   },
+   "E_2019": {
+    "forward": {
+     "statements": 4521,
+     "rows_read": 4521,
+     "rows_written": 4521,
+     "changes": 4521
+    },
+    "rerun": {
+     "statements": 4521,
+     "rows_read": 4521,
+     "rows_written": 0,
+     "changes": 0
+    },
+    "rollback": {
+     "statements": 4521,
+     "rows_read": 4521,
+     "rows_written": 4521,
+     "changes": 4521
+    }
+   }
+  },
+  "totals": {
+   "forward_rows_written": 226144,
+   "forward_rows_read": 32976,
+   "rerun_rows_written": 0,
+   "rerun_rows_read": 81268,
+   "rollback_rows_written": 81268,
+   "rollback_rows_read": 177849
+  },
+  "before": {
+   "rows": 35204,
+   "sha256": "76dac0b1f7b77d2b2adc50eab0da29f3225bffe9fb038f710add49214782301a"
+  },
+  "after_forward": {
+   "rows": 83496,
+   "sha256": "92d6793d8319763ab93aae5ffe23dd796bd41cd1b6d5cb61253a624622e20184"
+  },
+  "after_rollback": {
+   "rows": 35204,
+   "sha256": "76dac0b1f7b77d2b2adc50eab0da29f3225bffe9fb038f710add49214782301a"
+  },
+  "ok": true
+ },
+ "local_sqlite_proof": {
+  "run_at_utc": "2026-10-21T12:47:44Z",
+  "before": {
+   "rows": 35204,
+   "sha256": "6de1da9f06278fb47a43d06867f8b8314702299d123b85cdcf08dcf9a8a21648"
+  },
+  "phases": {
+   "A_2011": {
+    "forward_changes": 3496,
+    "rerun_changes": 0,
+    "rollback_changes": 3496
+   },
+   "A_2012": {
+    "forward_changes": 3445,
+    "rerun_changes": 0,
+    "rollback_changes": 3445
+   },
+   "A_2013": {
+    "forward_changes": 3461,
+    "rerun_changes": 0,
+    "rollback_changes": 3461
+   },
+   "A_2014": {
+    "forward_changes": 3466,
+    "rerun_changes": 0,
+    "rollback_changes": 3466
+   },
+   "A_2015": {
+    "forward_changes": 3469,
+    "rerun_changes": 0,
+    "rollback_changes": 3469
+   },
+   "A_2016": {
+    "forward_changes": 3473,
+    "rerun_changes": 0,
+    "rollback_changes": 3473
+   },
+   "A_2017": {
+    "forward_changes": 3466,
+    "rerun_changes": 0,
+    "rollback_changes": 3466
+   },
+   "A_2018": {
+    "forward_changes": 3490,
+    "rerun_changes": 0,
+    "rollback_changes": 3490
+   },
+   "A_2019": {
+    "forward_changes": 3529,
+    "rerun_changes": 0,
+    "rollback_changes": 3529
+   },
+   "A_2020": {
+    "forward_changes": 3605,
+    "rerun_changes": 0,
+    "rollback_changes": 3605
+   },
+   "B_2021": {
+    "forward_changes": 2749,
+    "rerun_changes": 0,
+    "rollback_changes": 2749
+   },
+   "B_2022": {
+    "forward_changes": 2613,
+    "rerun_changes": 0,
+    "rollback_changes": 2613
+   },
+   "B_2023": {
+    "forward_changes": 2694,
+    "rerun_changes": 0,
+    "rollback_changes": 2694
+   },
+   "B_2024": {
+    "forward_changes": 2672,
+    "rerun_changes": 0,
+    "rollback_changes": 2672
+   },
+   "B_2025": {
+    "forward_changes": 2664,
+    "rerun_changes": 0,
+    "rollback_changes": 2664
+   },
+   "C_2021": {
+    "forward_changes": 586,
+    "rerun_changes": 0,
+    "rollback_changes": 586
+   },
+   "C_2022": {
+    "forward_changes": 612,
+    "rerun_changes": 0,
+    "rollback_changes": 612
+   },
+   "C_2023": {
+    "forward_changes": 620,
+    "rerun_changes": 0,
+    "rollback_changes": 620
+   },
+   "C_2024": {
+    "forward_changes": 615,
+    "rerun_changes": 0,
+    "rollback_changes": 615
+   },
+   "C_2025": {
+    "forward_changes": 630,
+    "rerun_changes": 0,
+    "rollback_changes": 630
+   },
+   "E_2011": {
+    "forward_changes": 944,
+    "rerun_changes": 0,
+    "rollback_changes": 944
+   },
+   "E_2012": {
+    "forward_changes": 3413,
+    "rerun_changes": 0,
+    "rollback_changes": 3413
+   },
+   "E_2013": {
+    "forward_changes": 3346,
+    "rerun_changes": 0,
+    "rollback_changes": 3346
+   },
+   "E_2014": {
+    "forward_changes": 3346,
+    "rerun_changes": 0,
+    "rollback_changes": 3346
+   },
+   "E_2015": {
+    "forward_changes": 3364,
+    "rerun_changes": 0,
+    "rollback_changes": 3364
+   },
+   "E_2016": {
+    "forward_changes": 3390,
+    "rerun_changes": 0,
+    "rollback_changes": 3390
+   },
+   "E_2017": {
+    "forward_changes": 3426,
+    "rerun_changes": 0,
+    "rollback_changes": 3426
+   },
+   "E_2018": {
+    "forward_changes": 4163,
+    "rerun_changes": 0,
+    "rollback_changes": 4163
+   },
+   "E_2019": {
+    "forward_changes": 4521,
+    "rerun_changes": 0,
+    "rollback_changes": 4521
+   }
+  },
+  "after_forward": {
+   "rows": 83496,
+   "sha256": "cafb5231897878377c364e2e3f4061da2831d11f2f4d9b85e82ab6f71a51b090"
+  },
+  "after_rerun": {
+   "rows": 83496,
+   "sha256": "cafb5231897878377c364e2e3f4061da2831d11f2f4d9b85e82ab6f71a51b090",
+   "identical_to_after_forward": true
+  },
+  "after_forward_equals_proposal": true,
+  "after_rollback": {
+   "rows": 35204,
+   "sha256": "6de1da9f06278fb47a43d06867f8b8314702299d123b85cdcf08dcf9a8a21648",
+   "identical_to_before": true
+  },
+  "ok": true
+ }
+}
