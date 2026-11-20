@@ -260,6 +260,10 @@ test("gate 7b: a failed ADVERSARIAL preflight refuses the run (exit 2) before th
   // No flag turns the preflight off, and the forcing hook works only under the test gate (a literal canary key plus the test flag).
   for (const f of ["--skip-preflight", "--no-preflight", "--skip-adversarial"]) { const x = await runner([...cmd.args, f], { env: liveCapsEnv(await ensurePlan()), fakeAnthropic: true, ledger: cmd.ledger }); t.equal(x.code, 64, f); clean(x); }
   t.equal(mod.isTestGate({ ANTHROPIC_API_KEY_DESK: "sk-ant-real-looking-key", UPS_AI_EVAL_UNDER_TEST: "1", UPS_AI_EVAL_FORCE_PREFLIGHT_FAIL: "adversarial" }), false);
+  // A preflight that runs nothing is a failure, not a pass: a list that names no real scenario refuses the run.
+  const empty = await runner(cmd.args, { env: { ...liveCapsEnv(await ensurePlan()), UPS_AI_EVAL_PREFLIGHT_SCENARIOS: "no_such_scenario,another_typo" }, fakeAnthropic: true, ledger: cmd.ledger });
+  t.equal(empty.code, 2, empty.err.slice(0, 300)); t.match(empty.err, /REFUSED \(gate 7\)/); t.match(empty.err, /the adversarial preflight ran 0 of 0 expected results/); t.deepEqual(empty.net, []);
+  clean(empty);
   clean(r);
 });
 

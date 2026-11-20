@@ -830,6 +830,8 @@ export async function main(argv, env = process.env, injectedIo = null) {
       const subset = SCENARIOS.filter((s) => wanted.includes(s.id));
       const adv = await runMatrix({ cases, invariantFailures, caps: DRY_DEFAULT_CAPS, scenarios: subset, runId: `${runId}-pf` });
       const problems = adv.failures.map((x) => `${x.case} / ${x.scenario}: ${x.why[0]}`);
+      // A preflight that ran nothing proves nothing: an empty scenario list (or a matrix with no rows) is a failure, never a pass.
+      if (!subset.length || !adv.rows.length || adv.rows.length !== cases.length * subset.length) problems.push(`the adversarial preflight ran ${adv.rows.length} of ${cases.length * subset.length} expected results`);
       if (adv.network_attempts) problems.push(`${adv.network_attempts} network attempt(s) during the adversarial preflight`);
       if (isTestGate(env) && env.UPS_AI_EVAL_FORCE_PREFLIGHT_FAIL === "adversarial") problems.push("forced by the test gate");   // test-only: honored only with the canary key
       if (problems.length) { for (const p of problems.slice(0, 10)) warn(`adversarial preflight problem: ${p}`); throw new Refusal(7, "the adversarial preflight did not pass, so nothing was sent."); }
