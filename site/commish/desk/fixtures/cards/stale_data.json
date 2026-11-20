@@ -1,0 +1,72 @@
+{
+  "state": "stale_data",
+  "question": "Who is on injured reserve for franchise 0004?",
+  "lead_md": "The roster feed was last refreshed {{f.c1.age}} ago, and its limit is {{f.c1.limit}}. The injured reserve list is withheld until it refreshes.",
+  "blocks": [],
+  "facts_used": [
+    "c1.age",
+    "c1.limit"
+  ],
+  "cites": [],
+  "gaps": [
+    {
+      "what": "A fresh roster pull",
+      "why": "stale",
+      "source_needed": "The next roster refresh"
+    }
+  ],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "Show the data freshness report"
+  ],
+  "facts": {
+    "c1.age": {
+      "label": "Feed age",
+      "value": "31 hours",
+      "unit": "text",
+      "display": "31 hours",
+      "grade": "A",
+      "source": "Data freshness report",
+      "as_of": "2026-11-19",
+      "tool": "data.freshness",
+      "call_id": "c1"
+    },
+    "c1.limit": {
+      "label": "Freshness limit",
+      "value": "6 hours",
+      "unit": "text",
+      "display": "6 hours",
+      "grade": "B",
+      "source": "Tool policy",
+      "as_of": "2026-11-19",
+      "tool": "data.freshness",
+      "call_id": "c1"
+    }
+  },
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "data.freshness",
+        "call_id": "c1",
+        "ms": 180,
+        "status": "ok"
+      },
+      {
+        "id": "roster.current",
+        "call_id": "c2",
+        "ms": 0,
+        "status": "stale",
+        "code": "stale_data"
+      }
+    ],
+    "cost_usd": 0.0066
+  },
+  "request_id": "demo-stale_data"
+}

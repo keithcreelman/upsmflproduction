@@ -21,6 +21,15 @@ compatibility_date = "2026-02-02"
 # (1059111651846131833) because DISCORD_DROPS_CHANNEL_ID is unset — re-add that
 # secret if a different channel is wanted.
 [vars]
+# Commissioner Desk (AI, commissioner-only, read-only). Ships DARK: every value below is the off/zero default.
+# DESK_ENABLED gates the /admin/commish-desk/* routes and the page tab. DESK_LIVE_MODEL_ENABLED is the separate switch for any paid model call; it
+# also needs the secret ANTHROPIC_API_KEY_DESK (not set; never the shared ANTHROPIC_API_KEY). The four budget caps are USD, and 0 means "block every call".
+DESK_ENABLED = "0"
+DESK_LIVE_MODEL_ENABLED = "0"
+DESK_BUDGET_PER_QUESTION_USD = "0"
+DESK_BUDGET_PER_RUN_USD = "0"
+DESK_BUDGET_MONTHLY_USD = "0"
+DESK_BUDGET_TOTAL_USD = "0"
 # Rule Proposals v2 (2026-07-15). LIVE ships OFF — dark-launch: publishes DM
 # only the commish + run in the test channel until he flips it in Kill Switches.
 RULE_PROPOSALS_ENABLED = "1"

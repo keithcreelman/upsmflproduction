@@ -1,0 +1,24 @@
+{
+  "state": "budget_exceeded",
+  "question": "Compare the cap health of every franchise.",
+  "lead_md": "Paused: the AI budget for this period is used up. No model call was made. Ask again when the next period starts.",
+  "blocks": [],
+  "facts_used": [],
+  "cites": [],
+  "gaps": [],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [],
+  "facts": {},
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [],
+    "cost_usd": 0.0
+  },
+  "request_id": "demo-budget_exceeded"
+}

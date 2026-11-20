@@ -599,6 +599,7 @@
   }
 
   function renderTab() {
+    if (CS.tab === "desk") return renderDesk();
     if (CS.tab === "health") return renderHealth();
     if (CS.tab === "warroom") return renderWarRoom();
     if (CS.tab === "auctioncal") return renderAuctionCalendar();
@@ -2907,9 +2908,63 @@
     });
   }
 
+  // ════════════════════════════════════════════════════════════════════
+  // DESK — AI Commissioner Desk (read-only). Hidden unless the worker answers {enabled:true}.
+  // Flag off (the default): one quiet status probe, no tab, no other change to this page.
+  // ════════════════════════════════════════════════════════════════════
+  // DESK-TAB-LOGIC-START
+  function deskStatusEnabled(d) { return !!(d && typeof d === "object" && d.enabled === true); }
+  function deskCall(method, path, body) {
+    var url = _withUserId(apiUrl("/admin/commish-desk/" + path) + (path.indexOf("?") < 0 ? "?" : "&") + "L=" + encodeURIComponent(L));
+    var init = { method: method, credentials: "omit", cache: "no-store" };
+    if (body) { init.headers = { "Content-Type": "application/json" }; init.body = JSON.stringify(body); }
+    return fetch(url, init).then(function (r) { return r.text().then(function (t) {
+      var d = null; try { d = t ? JSON.parse(t) : null; } catch (_) {}
+      if (!r.ok) { var e = new Error((d && (d.message || d.error)) || ("HTTP " + r.status)); e.status = r.status; e.data = d; throw e; }
+      return d || {};
+    }); });
+  }
+  function addDeskTab() {
+    if (tabByKey("desk")) return;
+    TABS.push({ key: "desk", label: "Desk" });
+    TAB_GROUPS.push({ label: "AI", keys: ["desk"] });
+    var nav = document.getElementById("cs-tabs"); if (!nav) return;
+    var grp = document.createElement("div"); grp.className = "cs-tabgrp";
+    grp.innerHTML = '<div class="cs-tabgrp-l">AI</div><div class="cs-tabgrp-btns"><button type="button" data-cstab="desk">Desk</button></div>';
+    nav.appendChild(grp);
+  }
+  function probeDesk() {
+    return deskCall("GET", "status").then(function (d) { var on = deskStatusEnabled(d); if (on) addDeskTab(); return on; }, function () { return false; });
+  }
+  // DESK-TAB-LOGIC-END
+  var _deskAssets = null;
+  function loadDeskAssets() {
+    if (_deskAssets) return _deskAssets;
+    var css = document.createElement("link"); css.rel = "stylesheet"; css.href = "desk/desk.css"; document.head.appendChild(css);
+    var load = function (src) { return new Promise(function (ok, no) { var x = document.createElement("script"); x.src = src; x.onload = ok; x.onerror = function () { no(new Error("could not load " + src)); }; document.head.appendChild(x); }); };
+    _deskAssets = load("desk/desk_render.js").then(function () { return load("desk/desk.js"); });
+    _deskAssets.catch(function () { _deskAssets = null; });
+    return _deskAssets;
+  }
+  function renderDesk() {
+    var host = content(), myTab = CS.tab;
+    host.innerHTML = '<div id="cs-desk-mount"><div class="fo-card"><div class="fo-table-loading">Loading the desk…</div></div></div>';
+    loadDeskAssets().then(function () {
+      if (CS.tab !== myTab) return;
+      var api = {
+        ask: function (req) { return deskCall("POST", "ask", { question: req.question, as_of: req.as_of }); },
+        history: function () { return deskCall("GET", "history"); },
+        question: function (id) { return deskCall("GET", "question?id=" + encodeURIComponent(id)); },
+        report: function (r) { return deskCall("POST", "report", { id: r.id, note: r.note }); }
+      };
+      window.UPSDesk.mount(document.getElementById("cs-desk-mount"), { api: api, theme: "dark" });
+    }).catch(function (e) { host.innerHTML = '<div class="fo-card">The desk could not load: ' + esc(e && e.message) + '</div>'; });
+  }
+
   // ── Boot ───────────────────────────────────────────────────────────────
   renderShell();
   renderTab();
+  probeDesk();
 })();
 </script>
 </body>

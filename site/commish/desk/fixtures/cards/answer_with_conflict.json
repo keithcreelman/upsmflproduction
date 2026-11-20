@@ -1,0 +1,131 @@
+{
+  "state": "answer_with_conflict",
+  "question": "Who finished 10th in 2015?",
+  "lead_md": "The {{f.c1.season}} final standings are defective. {{f.c1.team_a}} ({{f.c1.fid_a}}) and {{f.c1.team_b}} ({{f.c1.fid_b}}) are both recorded at {{f.c1.finish_a}}. No franchise is recorded in the spot below, so the desk can't say who finished there.",
+  "blocks": [],
+  "facts_used": [
+    "c1.season",
+    "c1.team_a",
+    "c1.fid_a",
+    "c1.finish_a",
+    "c1.team_b",
+    "c1.fid_b",
+    "c1.finish_b"
+  ],
+  "cites": [],
+  "gaps": [
+    {
+      "what": "A corrected 2015 final standings",
+      "why": "NO_RECORD",
+      "source_needed": "The MFL standings export for 2015, or a commissioner note"
+    }
+  ],
+  "conflicts": [
+    {
+      "fact_a": "f.c1.finish_a",
+      "fact_b": "f.c1.finish_b",
+      "note": "Two franchises share one finish and the next place down is empty. This is a known defect in the season record."
+    }
+  ],
+  "ruling_question": "",
+  "follow_ups": [
+    "Show the 2015 standings as recorded"
+  ],
+  "facts": {
+    "c1.season": {
+      "label": "Season",
+      "value": 2015,
+      "unit": "season",
+      "display": "2015",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.team_a": {
+      "label": "Franchise A",
+      "value": "Bay Bandits",
+      "unit": "text",
+      "display": "Bay Bandits",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.fid_a": {
+      "label": "Franchise A id",
+      "value": "0004",
+      "unit": "id",
+      "display": "0004",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.finish_a": {
+      "label": "Final finish, source A",
+      "value": 6,
+      "unit": "rank",
+      "display": "6th",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.team_b": {
+      "label": "Franchise B",
+      "value": "Delta Dragons",
+      "unit": "text",
+      "display": "Delta Dragons",
+      "grade": "A",
+      "source": "Hall of champions page",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.fid_b": {
+      "label": "Franchise B id",
+      "value": "0011",
+      "unit": "id",
+      "display": "0011",
+      "grade": "A",
+      "source": "Hall of champions page",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.finish_b": {
+      "label": "Final finish, source B",
+      "value": 6,
+      "unit": "rank",
+      "display": "6th",
+      "grade": "B",
+      "source": "Hall of champions page",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    }
+  },
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "history.finishes",
+        "call_id": "c1",
+        "ms": 1010,
+        "status": "ok"
+      }
+    ],
+    "cost_usd": 0.0139
+  },
+  "request_id": "demo-answer_with_conflict"
+}

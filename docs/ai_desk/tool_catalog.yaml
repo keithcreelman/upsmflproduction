@@ -1,0 +1,33 @@
+# UPS AI tool catalog — planning draft 2026-11-19 (not implemented)
+version: 0.1-planning
+envelope: {data: any, facts: "[{id, value, unit, as_of, source, grade}]", coverage: "{supported, gaps[]}", provenance: "{route|module, inputs, code_sha, data_version}", data_class: "P0|P1|P2", freshness: "iso8601"}
+grades: {A: MFL record, B: league document, C: derived by code, D: inferred, NO_RECORD: looked and not found}
+tools:
+  - {id: rules.search, phase: P1, status: build-index, backing: "site/m/data/rules.json", authority: canon, class: "P0 (internal P2)", as_of: "current only; else unsupported_as_of + canon §4 text"}
+  - {id: rules.get, phase: P1, status: ready, backing: "site/m/data/rules.json", authority: canon, class: "P0/P2"}
+  - {id: glossary.lookup, phase: P1, status: build-port, backing: "canon + league contract-status vocabulary (about 75 tokens)", grade: C, class: P0, drift_check: required}
+  - {id: coverage.check, phase: P1, status: build-small, backing: "generated coverage matrix + #1386 gap list", class: P0}
+  - {id: roster.current, phase: P1, status: ready, backing: "/roster-workbench (index.js:48228)", authority: "MFL live", class: P0, notes: "call without owner cookie"}
+  - {id: cap.position, phase: P1, status: ready, backing: "/roster-workbench + cap_math.js", class: P0, coverage: "current + next season"}
+  - {id: cap.penalty_quote, phase: P1, status: ready-with-guards, backing: "/api/cap-penalty/preview (55487) -> _computeDropPenalty (3801/3822)", authority: "worker charged calculator", class: P0, guards: ["refuse exact quote when contractInfo lacks year-by-year salaries (AAV x years fallback misprices)", "refuse tag-cut quote between auction start and Aug 1 (hardcoded Aug 1 vs canon 'before FA auction')", "always pass YEAR (route defaults to hardcoded 2026)"]}
+  # readiness review 2026-11-19: all backings GET-only; internal cache writes only (ups_settings memo index.js:187, edge cache). roster.current must send NO_CACHE=1 and never EXT_URL. history.finishes must use a label map (7 = Toilet Bowl champion) and must not use /api/eras toilet counts (uses 12). Desk routes: /admin/commish-desk/* + commishSessionProven + DESK_ENABLED=0.
+  - {id: cap.adjustments, phase: P1, status: ready, backing: "/api/salary-adjustments/ledger (53003)", class: P0, coverage: "2026 complete; traded cap 2020+; earlier partial"}
+  - {id: extension.price, phase: P1, status: wrap-module, backing: "worker/src/extension_pricing.js (PRICING_VERSION 2026-09-26.1)", class: P0, as_of: current-rules-only}
+  - {id: calendar.events, phase: P1, status: ready, backing: "/api/league-events (20577) + trade_deadline.js", class: P0, coverage: "2011-2026"}
+  - {id: standings.get, phase: P1, status: ready, backing: "/api/standings (20846), /api/playoff-bracket (21168)", class: P0, coverage: "2011-2025 solid; 2010 disputed"}
+  - {id: history.finishes, phase: P1, status: ready, backing: "/api/historical-finishes (21522), /api/hall-of-champions (21813), /api/eras (21566)", class: P0, grain: franchise}
+  - {id: player.transactions, phase: P1, status: ready, backing: "/api/player-transactions (14510), /api/player-bundle (15189, &L= required)", class: P0, gaps: ["GAP-09 WAIVER 2010-17", "GAP-15 multi-player drops", "picks as untraced tokens"]}
+  - {id: data.freshness, phase: P1, status: ready-partial, backing: "/api/data-freshness (20514) + valuation snapshot freshness", class: P0}
+  - {id: valuation.snapshot, phase: P1-optional, status: wrap-file, backing: "data/valuation/trade_valuation_snapshot.json", freshness: "8 days in season / 14 offseason"}
+  - {id: forecast.season, phase: P1-optional, status: ready-file, backing: "site/wire/packs/<y>/season_sim_*.json", notes: "stale between packages until #1442"}
+  - {id: pick.lineage, phase: S1, status: missing, needs: ["raw_json tokens", "draftresults 2012-25", "STORED per-season draft order from MFL"], finding: "13-minus-final-finish derivation matched ~10% of clean picks; do not derive"}
+  - {id: trade.tree, phase: S1, status: missing, limits: ["processing-time timestamps pre-2024", "cap money visible 2020+", "3-way only 2026"]}
+  - {id: contract.timeline, phase: S2, status: missing, needs: ["rosters_weekly 2017-25", "snapshots 2026", "ups_extension_master evidence grades"], limits: ["contractInfo 17-27% filled 2017-19", "restructures pre-2026 ~absent", "GF in contract_status"]}
+  - {id: state.roster_at, phase: S2, status: missing, coverage: "2026 daily; 2017-25 and 2010-11 weekly; 2012-16 lineup-only (C)"}
+  - {id: cap.position_at, phase: S2-S4, status: missing, limits: ["no adjustment ledger before 2020"]}
+  - {id: owner.history, phase: S3, status: missing, needs: ["owner registry", "Keith rulings GAP-04/05"], replaces: "/api/franchise-ownership-history (16293, live MFL via worker cookie)"}
+  - {id: rules.at_date, phase: S4, status: missing, needs: ["rule_versions table"], partial_now: ["cap_penalty_rule_eras", "canon §4"]}
+  - {id: penalty.by_era, phase: S4, status: missing, notes: "consolidate orphaned lib/cap_penalty.js with charged calculator first"}
+  - {id: rulings.search, phase: S2-plus, status: missing, partial_now: ["canon inline rulings", "changelog (12)"]}
+  - {id: narrative.search, phase: later, status: missing, store: private-only}
+forbidden: ["/refresh/after-trade", "/reconcile/extensions", "GET /trade-offers", "GET /api/draft-state", "/admin/backfill-playoff-weekly?commit=1", "/admin/sync-src-draft-picks", "any-method /admin/* routes", "/api/mfl-export", "free-form SQL for owner surfaces"]

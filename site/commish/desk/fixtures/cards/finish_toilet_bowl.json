@@ -1,0 +1,149 @@
+{
+  "state": "answer",
+  "question": "Who won the Toilet Bowl in 2019?",
+  "lead_md": "{{f.c1.team}} ({{f.c1.fid}}) won the Toilet Bowl in {{f.c1.season}}. That is the finish labeled {{f.c1.label}}, not a regular place.",
+  "blocks": [
+    {
+      "type": "table",
+      "title": "Bottom of the final standings",
+      "columns": [
+        "Final finish",
+        "Label",
+        "Franchise"
+      ],
+      "rows": [
+        [
+          "{{f.c1.finish}}",
+          "Toilet Bowl champion (Hawk Tuah Bowl)",
+          "Prairie Wolves (0005)"
+        ],
+        [
+          "{{f.c1.f8}}",
+          "Toilet bracket, runner-up",
+          "Delta Dragons (0011)"
+        ],
+        [
+          "{{f.c1.f9}}",
+          "Toilet bracket, third",
+          "Summit Stags (0010)"
+        ]
+      ],
+      "tool_call_ids": [
+        "c1"
+      ]
+    }
+  ],
+  "facts_used": [
+    "c1.season",
+    "c1.team",
+    "c1.fid",
+    "c1.label",
+    "c1.finish",
+    "c1.f8",
+    "c1.f9"
+  ],
+  "cites": [],
+  "gaps": [],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "List every Toilet Bowl champion"
+  ],
+  "facts": {
+    "c1.season": {
+      "label": "Season",
+      "value": 2019,
+      "unit": "season",
+      "display": "2019",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.team": {
+      "label": "Franchise",
+      "value": "Prairie Wolves",
+      "unit": "text",
+      "display": "Prairie Wolves",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.fid": {
+      "label": "Franchise id",
+      "value": "0005",
+      "unit": "id",
+      "display": "0005",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.label": {
+      "label": "Finish label",
+      "value": "Toilet Bowl champion",
+      "unit": "text",
+      "display": "Toilet Bowl champion",
+      "grade": "C",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.finish": {
+      "label": "Final finish number",
+      "value": 7,
+      "unit": "rank",
+      "display": "7th",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.f8": {
+      "label": "Final finish number",
+      "value": 8,
+      "unit": "rank",
+      "display": "8th",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.f9": {
+      "label": "Final finish number",
+      "value": 9,
+      "unit": "rank",
+      "display": "9th",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    }
+  },
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "history.finishes",
+        "call_id": "c1",
+        "ms": 870,
+        "status": "ok"
+      }
+    ],
+    "cost_usd": 0.0105
+  },
+  "request_id": "demo-finish_toilet_bowl"
+}

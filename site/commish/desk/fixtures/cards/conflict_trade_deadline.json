@@ -1,0 +1,83 @@
+{
+  "state": "answer_with_conflict",
+  "question": "When is the trade deadline this year?",
+  "lead_md": "The league calendar shows the trade deadline on {{f.c1.cal_deadline}}. Canon's wording works out to {{f.c2.canon_deadline}}. The desk does not pick one.",
+  "blocks": [],
+  "facts_used": [
+    "c1.cal_deadline",
+    "c2.canon_deadline"
+  ],
+  "cites": [
+    {
+      "anchor": "t2-c1",
+      "canon_sha": "194f8df",
+      "claim": "Trades must be completed before the trade deadline."
+    }
+  ],
+  "gaps": [
+    {
+      "what": "Which date governs the deadline",
+      "why": "conflict_in_canon",
+      "source_needed": "A commissioner ruling"
+    }
+  ],
+  "conflicts": [
+    {
+      "fact_a": "f.c1.cal_deadline",
+      "fact_b": "f.c2.canon_deadline",
+      "note": "The calendar entry and the canon wording disagree. A ruling would settle which one governs."
+    }
+  ],
+  "ruling_question": "",
+  "follow_ups": [
+    "Draft a ruling question about the deadline"
+  ],
+  "facts": {
+    "c1.cal_deadline": {
+      "label": "Deadline, league calendar",
+      "value": "2026-11-25",
+      "unit": "date",
+      "display": "2026-11-25",
+      "grade": "A",
+      "source": "League calendar events",
+      "as_of": "2026-11-19",
+      "tool": "calendar.events",
+      "call_id": "c1"
+    },
+    "c2.canon_deadline": {
+      "label": "Deadline, canon wording",
+      "value": "2026-11-18",
+      "unit": "date",
+      "display": "2026-11-18",
+      "grade": "B",
+      "source": "Canon, trades section",
+      "as_of": "2026-11-19",
+      "tool": "calendar.events",
+      "call_id": "c2"
+    }
+  },
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "calendar.events",
+        "call_id": "c1",
+        "ms": 420,
+        "status": "ok"
+      },
+      {
+        "id": "rules.search",
+        "call_id": "c2",
+        "ms": 190,
+        "status": "ok"
+      }
+    ],
+    "cost_usd": 0.0143
+  },
+  "request_id": "demo-conflict_trade_deadline"
+}
