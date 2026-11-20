@@ -1,12 +1,15 @@
 // trade_3way_model.js — pure (no I/O) model for UPS 3-way trades.
 //
-// One place defines: the state machine, the asset-token grammar, the CANONICAL
+// One place defines: the state machine and the CANONICAL
 // trade object every surface (mobile, desktop, Discord follow-ups) consumes, and
-// the server-side permission decisions. trade_3way.js (engine, D1) and
+// the server-side permission decisions. Asset-token grammar lives in trade_rules.js. trade_3way.js (engine, D1) and
 // trade_3way_http.js (routes) import this; the tests import it directly.
 //
 // The canonical object is built from the D1 row ONLY (plus optional resolved
 // names). Nothing here reads a request, a cookie, or the network.
+
+import { parseAssetToken } from "./trade_rules.js";
+export { parseAssetToken };
 
 export const STATUSES = ["collecting", "executing", "completed", "failed", "cancelled"];
 export const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
@@ -50,35 +53,6 @@ function safeStr(v) { return String(v == null ? "" : v).trim(); }
 function safeInt(v, fb) { const n = parseInt(v, 10); return Number.isFinite(n) ? n : (fb == null ? 0 : fb); }
 export function padFid(v) { const s = safeStr(v).replace(/\D/g, ""); return s ? s.padStart(4, "0").slice(-4) : ""; }
 function isFid(v) { return /^\d{4}$/.test(safeStr(v)); }
-
-// ───────────────────────── asset tokens ─────────────────────────
-// Builder tokens (mobile + desktop emit these; trade_3way.js toMflAsset()
-// translates them to MFL form at execution):
-//   P_<playerId>                       player
-//   FP_<origFid>_<year>_<round>        future pick (FP_<year>_<round>_<orig> also accepted)
-//   DP_<year>_<round>_<slot>           current-year draft pick
-//   BB_<dollars>                       cap money (BlindBid$) — normally injected at execution
-export function parseAssetToken(token) {
-  const t = safeStr(token);
-  let m;
-  if ((m = /^P_(\d+)$/.exec(t))) return { token: t, kind: "player", player_id: m[1] };
-  if (t.startsWith("FP_")) {
-    const parts = t.slice(3).split("_").filter(Boolean);
-    const year = parts.find((p) => /^20\d\d$/.test(p)) || "";
-    const rest = parts.filter((p) => p !== year);
-    const orig = rest.find((p) => p.length === 4) || rest[0] || "";
-    const round = rest.find((p) => p !== orig) || "";
-    if (year && /^\d{1,2}$/.test(round) && isFid(orig)) {
-      return { token: t, kind: "pick", pick: { year: Number(year), round: Number(round), slot: null, original_fid: padFid(orig) } };
-    }
-    return { token: t, kind: "unknown" };
-  }
-  if ((m = /^DP_(20\d\d)_(\d{1,2})_(\d{1,2})$/.exec(t))) {
-    return { token: t, kind: "pick", pick: { year: Number(m[1]), round: Number(m[2]), slot: Number(m[3]), original_fid: "" } };
-  }
-  if ((m = /^BB_(\d+)$/.exec(t))) return { token: t, kind: "cap", cap_k: Math.round(Number(m[1]) / 1000) };
-  return { token, kind: "unknown" };
-}
 
 function ordinal(n) {
   const v = n % 100;

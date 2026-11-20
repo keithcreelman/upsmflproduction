@@ -41,6 +41,7 @@
 import { currentCapHit, derivePlayerCapFields, parseCapDollars, readSalaryOverlay } from "./cap_math.js";
 import { resolveLoadedStatus, resolveExtensionLoadedStatus } from "./contract_classification.js";
 import { evaluateLineupFeasibility, posGroup } from "./trade_lineup_feasibility.js";
+import { isOverCap } from "./trade_rules.js";
 
 export const ROSTER_MIN = 27;   // canon B1: MFL-enforced minimum (not exposed by the API)
 export const LOADED_CONTRACT_MAX = 5;   // canon §2.G/§6.G: max 5 loaded (FL+BL combined) contracts per roster
@@ -359,7 +360,7 @@ export function evaluateTradeCompliance({ league, rosters, salaries, adjustments
     const st = state[fid], over = st.after - L.cap;
     const row = { franchise_id: fid, franchise_name: name(fid), used_before: st.before, used_after: st.after, cap_dollars: L.cap, room_after: L.cap - st.after, over_by: Math.max(0, over) };
     capRows.push(row);
-    if (over > 0) violations.push({ franchise_id: fid, franchise_name: name(fid), amount_over: over, projected_used: st.after, cap_dollars: L.cap,
+    if (isOverCap(st.after, L.cap)) violations.push({ franchise_id: fid, franchise_name: name(fid), amount_over: over, projected_used: st.after, cap_dollars: L.cap,
       message: `${name(fid)} would be ${money(over)} over the ${money(L.cap)} salary cap after this trade (projected ${money(st.after)}).` });
   }
   const rosterRows = [], warnings = [];

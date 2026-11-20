@@ -121,7 +121,8 @@ export function makeMfl(opts) {
         if (type === "league") { const seeEmail = /COMMISH-COOKIE/.test(cookie) || /tok-commish/.test(cookie); return json({ league: { salaryCapAmount: "300000", ...(st.league || {}), franchises: { franchise: Object.entries(NAMES).map(([id, name]) => ({ id, name, abbrev: ABBREVS[id] || name, ...(seeEmail ? { email: `${id}@ups.test` } : {}) })) } } }); }
         if (type === "salaries") return json({ salaries: { leagueUnit: { player: st.salaries || [] } } });
         if (type === "pendingTrades") {
-          const who = franchiseOf(cookie, params);
+          // the commissioner's APIKEY (no cookie) reads like the commissioner cookie: FRANCHISE_ID's offers, refused under lockout
+          const who = franchiseOf(!cookie && params.get("APIKEY") ? COMMISH_COOKIE : cookie, params);
           if (who.error) return json({ error: who.error }, 401);
           const rows = st.pending.filter((t) => t.offeringteam === who.fid || t.offeredto === who.fid);
           return json({ pendingTrades: { pendingTrade: rows } });
