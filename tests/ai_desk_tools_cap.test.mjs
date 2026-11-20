@@ -832,6 +832,47 @@ test("hostile ids and timestamps, cap.adjustments / calendar.events / extension.
   t.equal(ext.status, "refused"); t.ok(!HOSTILE_RE.test(dump(ext)));
 });
 
+test("calendar.events: only REAL calendar days become dates; hostile or impossible days and weeks are dropped with no fact", async () => {
+  setNow("2026-10-21T16:00:00Z");
+  const BAD_DATES = ["2026-09-31", "2026-02-30", "2026-13-01", "2026-09-0x", "tomorrow 2026-09-09"];
+  const withEvents = (extra, tweak) => mutating(/league-events/, (j) => { for (const e of extra) j.events.push(e); if (tweak) tweak(j); });
+  // an event with an impossible / hostile date: dropped (null), no fact, and a "no resolvable date" gap
+  const events = BAD_DATES.map((d, i) => ({ event: `ups_bad_day_${i}`, date: d, date_source: "stored_row", description: null }));
+  const e = await call(T.cal, {}, { fetchSelf: withEvents([...events, { event: "ups_real_day", date: "2026-09-30", date_source: "stored_row" }]) });
+  t.equal(e.status, "ok");
+  BAD_DATES.forEach((d, i) => {
+    t.equal(factOf(e, `ev_ups_bad_day_${i}`), undefined, `'${d}' is not a fact`);
+    t.equal(e.data.events.find((x) => x.event === `ups_bad_day_${i}`).date, null, `'${d}' is null in the data`);
+    t.ok(e.coverage.gaps.some((g) => g.what === `ups_bad_day_${i} has no resolvable date for 2026`), `'${d}' is named as a gap`);
+  });
+  t.equal(fact(e, "ev_ups_real_day"), "2026-09-30", "a real date still passes");
+  t.equal(fact(e, "ev_ups_trade_deadline"), "2026-11-24"); t.equal(fact(e, "week1_kickoff_et"), "2026-09-09");
+  // a leap day is real in a leap year and not otherwise
+  const leap = await call(T.cal, {}, { fetchSelf: withEvents([{ event: "ups_leap_ok", date: "2028-02-29", date_source: "stored_row" }, { event: "ups_leap_bad", date: "2026-02-29", date_source: "stored_row" }]) });
+  t.equal(fact(leap, "ev_ups_leap_ok"), "2028-02-29"); t.equal(factOf(leap, "ev_ups_leap_bad"), undefined);
+  // the trade lock and the stored trade-deadline date go through the same check
+  for (const d of BAD_DATES) {
+    const lock = await call(T.cal, {}, { fetchSelf: withEvents([], (j) => { j.trade_lock.date_et = d; j.events.forEach((x) => { if (x.event === "ups_trade_deadline") x.stored_date = d; }); }) });
+    t.equal(lock.status, "ok"); t.equal(factOf(lock, "trade_lock_et"), undefined, `trade lock '${d}' is not a fact`);
+    t.equal(factOf(lock, "trade_deadline_stored"), undefined, `stored deadline '${d}' is not a fact`);
+    t.equal(lock.data.trade_lock.date_et, null);
+    t.ok(lock.coverage.gaps.some((g) => /trade lock for 2026 is not resolved/.test(g.what)));
+  }
+  const goodLock = await call(T.cal, {}, { fetchSelf: withEvents([], (j) => { j.trade_lock.date_et = "2026-11-25"; }) });
+  t.equal(fact(goodLock, "trade_lock_et"), "2026-11-25", "a real trade-lock date still passes");
+  // weeks and the Week 1 kickoff must be plain numbers: no hex, exponent or padded strings
+  for (const w of ["0x10", "1e1", " 5", "5 ", "0b11", "Infinity"]) {
+    const wk = await call(T.cal, {}, { fetchSelf: withEvents([], (j) => { j.events.forEach((x) => { x.nfl_week = w; }); }) });
+    t.ok(wk.data.events.every((x) => x.nfl_week === null), `nfl_week '${w}' is null`);
+  }
+  const okWeek = await call(T.cal, {}, { fetchSelf: withEvents([], (j) => { j.events.forEach((x) => { if (x.event === "preseason_mymdeadline") x.nfl_week = "3"; }); }) });
+  t.equal(okWeek.data.events.find((x) => x.event === "preseason_mymdeadline").nfl_week, 3, "a plain numeric week still passes");
+  for (const k of ["0x1f", "1e9", " 1788999600", "Infinity"]) {
+    const kick = await call(T.cal, {}, { fetchSelf: withEvents([], (j) => { j.week_kickoffs = { 1: k }; }) });
+    t.equal(factOf(kick, "week1_kickoff_et"), undefined, `week_kickoffs['1'] = '${k}' makes no fact`); t.equal(kick.data.week1_kickoff, null);
+  }
+});
+
 // ── 9. every current-only tool refuses a past as_of; none answers for today ────────────────────
 test("a past as_of is unsupported_as_of for every tool that prices or reads CURRENT state, with no facts and no data", async () => {
   const calls = [

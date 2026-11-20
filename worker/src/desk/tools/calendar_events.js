@@ -29,7 +29,14 @@ const CANON_WEEK1 = [
 ];
 
 const str = (v) => String(v == null ? "" : v);
-const isoDate = (v) => { const x = str(v).slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : null; };
+// A date is accepted only when it is a REAL calendar day (2026-09-31 is refused), re-emitted from the parsed value, never copied as text.
+const isoDate = (v) => {
+  const x = str(v).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(x)) return null;
+  const d = new Date(x + "T00:00:00Z");
+  return Number.isFinite(d.getTime()) && d.toISOString().slice(0, 10) === x ? d.toISOString().slice(0, 10) : null;
+};
+const plainNum = (v) => (typeof v === "number" && Number.isFinite(v)) || (typeof v === "string" && /^-?\d+(\.\d+)?$/.test(v)) ? Number(v) : null;
 const SAFE_KEY = (e) => String(e).toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 52);
 
 export default defineTool({
@@ -72,14 +79,15 @@ export default defineTool({
     const events = body.events.map((e) => ({
       event: safeToken(e.event), date: isoDate(e.date), date_source: safeToken(e.date_source),
       time_et: safeToken(e.time_et) || null, label: safeText(e.label, 60) || null, stored_date: isoDate(e.stored_date),
-      nfl_week: Number.isFinite(Number(e.nfl_week)) && e.nfl_week != null ? Number(e.nfl_week) : null,
+      nfl_week: plainNum(e.nfl_week),
     })).filter((e) => e.event);   // an event whose name fails the screen is dropped
     const lock = body.trade_lock && typeof body.trade_lock === "object" ? body.trade_lock : {};
     const tradeLock = { state: safeToken(lock.state), date_et: isoDate(lock.date_et), time_et: safeToken(lock.time_et) || null, label: safeText(lock.label, 60) || null, reason: safeToken(lock.reason), source: safeToken(lock.source) };
 
     // a timestamp is parsed and re-emitted here; the route's own string is never copied
     const verifiedAt = /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:?\d{2})?$/.test(str(lock.verified_at_utc).trim()) && Number.isFinite(Date.parse(str(lock.verified_at_utc).trim())) ? new Date(Date.parse(str(lock.verified_at_utc).trim())).toISOString() : null;
-    const wk1Unix = body.week_kickoffs && Number(body.week_kickoffs["1"]) > 0 ? Number(body.week_kickoffs["1"]) : null;
+    const wk1Raw = body.week_kickoffs ? plainNum(body.week_kickoffs["1"]) : null;
+    const wk1Unix = wk1Raw !== null && wk1Raw > 0 ? wk1Raw : null;
     const wk1 = wk1Unix ? { unix: wk1Unix, ...(({ date_et, time_et }) => ({ date_et, time_et }))(etParts(wk1Unix)), source: safeToken(body.week_kickoffs_source) } : null;
 
     const asFact = String(asOf);
