@@ -10,6 +10,8 @@ function safeStr(v) { return String(v == null ? "" : v).trim(); }
 
 // The flags the commish can toggle. `key` is the wrangler.toml env var name.
 export const FEATURE_FLAGS = [
+  { key: "DESK_ENABLED", label: "Commissioner Desk (AI, read-only)", help: "The commissioner-only AI desk in Commish Settings: answers league rules, cap, contract-penalty, standings and history questions from read-only tools, and declines what the data cannot support. It never posts, writes or changes anything. OFF = the /admin/commish-desk routes answer 403 and the Desk tab is hidden. It makes NO paid model call by itself: that needs the separate switch below." },
+  { key: "DESK_LIVE_MODEL_ENABLED", label: "Commissioner Desk — allow paid model calls", help: "ON = the desk may call the Anthropic API (costs real money), but ONLY while a desk API key is set AND the budget caps in wrangler.toml are above zero; every call is checked against those caps first and logged. OFF (default) = no paid call is possible; the desk answers 'budget paused'.", danger: true },
   { key: "TRADE_DM_ENABLED",   label: "Trade-offer DMs",      help: "DM owners when they receive a trade offer, plus the reminder cadence." },
   { key: "TRADE_3WAY_ENABLED", label: "3-way trades",         help: "Arm the 3-way feature — the builders, partner DMs, and acceptance." },
   { key: "TRADE_3WAY_EXECUTE", label: "3-way LIVE execution", help: "ON = an accepted 3-way actually moves rosters in MFL (can't be undone). OFF = dry-run (everything runs but no rosters move).", danger: true },

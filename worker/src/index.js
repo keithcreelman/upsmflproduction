@@ -57687,6 +57687,28 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         });
       };
 
+      // ---- Commissioner Desk (AI, commissioner-only, read-only; ships DARK: DESK_ENABLED="0") ----
+      // Five exact routes, all behind (1) the /admin front door + adminAuthority above, (2) the STRICT commissioner proof
+      // (commishSessionProven: API key or an MFL session that resolves to a COMMISH_FRANCHISE_IDS franchise; no email heuristic),
+      // and (3) the DESK_ENABLED switch, which worker/src/desk/handler.js reads before doing anything but /status.
+      // The desk code, its tools and its two private tables live in worker/src/desk/; nothing here touches league data.
+      const deskRoute = async () => {
+        const proof = await commishSessionProven();
+        if (!proof.ok) return jsonOut(403, { ok: false, error: "commish_only", reason: proof.reason });
+        const { handleDeskRoute } = await import("./desk/handler.js");
+        return handleDeskRoute({
+          request, url, env, path, proof,
+          leagueId: L || env.LEAGUE_ID || "74598", season: YEAR || new Date().getUTCFullYear(),
+          deskEnabled: await getFeatureFlag(env, "DESK_ENABLED"),
+          fetchSelf: (u, i) => env.SELF.fetch(u, i),
+        });
+      };
+      if (path === "/admin/commish-desk/status" && request.method === "GET") { return deskRoute(); }
+      if (path === "/admin/commish-desk/ask" && request.method === "POST") { return deskRoute(); }
+      if (path === "/admin/commish-desk/history" && request.method === "GET") { return deskRoute(); }
+      if (path === "/admin/commish-desk/question" && request.method === "GET") { return deskRoute(); }
+      if (path === "/admin/commish-desk/report" && request.method === "POST") { return deskRoute(); }
+
       // GET/POST /admin/commish-settings — read/write commish-configurable
       // settings (per-mechanism Discord routing for now). D1 ups_settings.
       //

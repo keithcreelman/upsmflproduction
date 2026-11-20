@@ -14,10 +14,10 @@ route handler (handler.js)  --proves commissioner--> makeCommishCaller()  (froze
 ```
 - Authorization is code, in `registry.runTool` (caller proof on every call, schema-checked args, mandatory `as_of`, exact route allowlist, GET-only, output allowlist, secret stripping, data-class ceiling). The model can never widen it.
 - A tool cannot write anything: it is never given a database handle or `env`. The desk's own writes (call log, question history) happen only in `store.js`, called by the handler and the budget gate, into `ai_call_log` and `ai_desk_questions` (migrations 0180, 0181), never into league tables.
-- `routeGet(path, params)` calls the Worker's own read-only GET routes via `env.SELF.fetch` (injected as `deps.fetchSelf`), with no headers or credentials.
+- `routeGet(path, params)` calls the Worker's own read-only GET routes via `env.SELF.fetch` (injected as `deps.fetchSelf`), with no headers or credentials, called as `fetchSelf(url, { redirect: "manual", signal })`; a redirect answer is an error.
 
 ## Tool definition (`defineTool`, see `registry.js`)
-Each tool file exports its definition by calling `defineTool({...})` and exports `default` = that definition. Fields: `id`, `version`, `description` (what the model sees; say plainly what the tool can and cannot answer), `phase:"P1"`, `dataClass` (`P0` or `P2`), `readOnly:true`, `inputSchema` (`type:"object"`, `properties`, `required`; `as_of` is added by the registry), `asOf:{supports:"current"|"season"|"any", from?, check?}`, `allowlist:{routes:[{path,params:[...]}], modules:[...], tables:[]}`, `output:{allow:[dotted paths]}` (everything else is dropped), `run`.
+Each tool file exports its definition by calling `defineTool({...})` and exports `default` = that definition. Fields: `id`, `version`, `description` (what the model sees; say plainly what the tool can and cannot answer), `phase:"P1"`, `dataClass` (`P0` or `P2`), `readOnly:true`, `inputSchema` (`type:"object"`, `properties`, `required`; `as_of` is added by the registry), `asOf:{supports:"current"|"season"|"any", from?, check?}`, `allowlist:{routes:[{path,params:[...]}], modules:[...], tables:[]}`, `output:{allow:[dotted paths]}` (REQUIRED and non-empty for every tool; everything else is dropped), `run`.
 
 `run({args, asOf, caller, now, routeGet, knowledge})` returns
 `{status, data, facts, coverage:{supported, gaps:[{what, why, source_needed}]}, provenance:{...}, freshness, refusal?, error?}`.

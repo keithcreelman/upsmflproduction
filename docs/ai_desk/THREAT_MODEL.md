@@ -1,0 +1,40 @@
+# Commissioner Desk: threat model and review checklist (Phase 1)
+
+Scope: the draft branch `claude/ai-commish-desk`. Nothing here is deployed. The desk is commissioner-only, read-only, and ships dark.
+
+## What must hold (each has a test or a stated check)
+| # | Property | Where enforced | Evidence |
+|---|---|---|---|
+| T1 | Only the proven commissioner reaches any desk route. | Existing admin front door (`admin_routes.js` exact-match) + `adminAuthority` + the strict `commishSessionProven` (not the looser email-heuristic gate) + `DESK_ENABLED` flag, all before any desk code runs. | `tests/ai_desk_handler.test.mjs`, `tests/admin_route_security.test.mjs` |
+| T2 | A tool cannot run for any other caller, and the caller object cannot be forged. | `contract.assertCommishCaller` (frozen object built only by `makeCommishCaller`) at the start of `runTool`, `guardedCall`, every store method, `answerQuestion`. | `tests/ai_desk_registry.test.mjs` |
+| T3 | Authorization never depends on the model. | The model only proposes tool names and arguments; the registry validates tool, schema, `as_of`, route and parameter allowlists in code. | registry tests, pipeline tests (forged tool calls) |
+| T4 | Tools are read-only. | Tools receive no `env`, no database handle, no credentials; only GET `routeGet` over a per-tool exact path and parameter allowlist; forbidden route patterns rejected at definition and at call. | registry tests; `defineTool` rejects non-GET, P1/P3, writable tables |
+| T5 | The desk reaches no data above the commissioner's class and leaks no secret-looking fields. | Per-tool output allowlist (dotted paths) + secret-key stripping + class ceiling check. | registry and tool tests (owner emails and names absent) |
+| T6 | Past dates are never answered with today's data. | `as_of` is mandatory; `current`-only tools return `unsupported_as_of` for any past date. | registry and tool tests |
+| T7 | The model cannot state a number the code did not produce. | Prose may contain only `{{f.cN.key}}` tokens; validator rejects typed digits and spelled quantities, unknown facts, fake anchors, facts from refused tools. | validator tests |
+| T8 | The two known calculator discrepancies are never returned as authoritative. | Guards G1 (`incomplete_contract_data`) and G2 (`tag_cutoff_unreliable`) in `cap.penalty_quote`. The production calculator is not changed. | `tests/ai_desk_tools_cap.test.mjs` |
+| T9 | No paid model call is possible without separate approval. | `liveCallsAllowed` needs `DESK_LIVE_MODEL_ENABLED=1` AND `ANTHROPIC_API_KEY_DESK` AND a budget above zero; defaults are off, unset and zero. The client never reads the shared `ANTHROPIC_API_KEY`. | `tests/ai_desk_budget.test.mjs`, `scripts/ai_eval/budget_demo.mjs` |
+| T10 | Spend is capped, reserved before the call, and fails closed. | `budget.guardedCall` reserves the worst-case cost in `ai_call_log` before calling; an unreadable ledger blocks. | budget tests and demo |
+| T11 | The desk's writes cannot touch league data. | `store.js` is the only SQL the desk runs, against `ai_call_log` and `ai_desk_questions` only, bound parameters, no `CREATE TABLE` in the worker. | static-scan tests |
+| T12 | Retrieved text cannot instruct the model. | Tool results are passed as delimited data; injection scanner flags instruction-like text; authorization and the validator do not depend on model compliance. | pipeline tests |
+| T13 | The page renders only server-built cards and escapes everything. | `desk_render.js` escapes all dynamic text; no unescaped innerHTML. | `tests/ai_desk_ui.test.mjs` |
+| T14 | The branch cannot deploy by itself. | Worker and Pages deploy workflows trigger on push to `main` only. See "CI" below for the manual-dispatch caveat. | workflow review |
+| T15 | Existing behavior is unchanged while the flag is off. | New routes return 403 when disabled; the Desk tab is hidden unless `/admin/commish-desk/status` says enabled; no existing route or tab is modified. | handler test, UI test, full safe suite |
+
+## Known residual risks (accepted for Phase 1, named for review)
+1. **Worker-cookie fallback in backing routes.** `/roster-workbench`, `/api/cap-penalty/preview`, `/api/salary-adjustments/ledger`, `/api/league-events` and `/api/standings` read MFL with the Worker's own commissioner cookie for any caller. The desk is commissioner-only so this adds no exposure *to the desk*, but future owner-facing AI surfaces cannot rely on route auth; they must filter by data class in the AI core. Not changed here.
+2. **`/roster-workbench` `EXT_URL` cache poisoning (separate production finding).** The desk never passes `EXT_URL`, always sends `NO_CACHE=1`, and its allowlist does not list `EXT_URL`. The route itself is not changed here.
+3. **Small internal cache writes inside backing routes** (an `ups_settings` memo row, edge cache, `CREATE TABLE IF NOT EXISTS` in feature-flag reads). Pre-existing, not league records.
+4. **Rules index freshness.** `worker/src/desk/data/rules_data.js` is generated from `site/m/data/rules.json`. The desk compares its `canon_digest` with the digest of the canon text the Worker bundles and declines rule answers on a mismatch. Regenerating on canon change needs a workflow change (not made here; `.github/` changes need Keith's go).
+5. **Model prompt injection** can still make a model say something odd; the validator limits what can be shown (tokens only, anchors must exist, states constrained) but a grader should read the cases in `tests/ai_desk_pipeline.test.mjs`.
+6. **Price table unverified** against the Anthropic account (`PRICES_VERIFIED=false`).
+
+## CI and preview: can this branch deploy?
+- `deploy-worker.yml` and `pages-deploy.yml` run on **push to `main`** (path-filtered) and on **manual `workflow_dispatch`**. A push of this branch or a PR does not trigger either.
+- Manual dispatch is a pre-existing hole for every branch: Actions "Run workflow" with this branch selected would deploy this branch's Worker or site. Nobody should dispatch those two workflows on this branch. Closing the hole (a `github.ref == 'refs/heads/main'` condition) is a `.github/` change, deliberately NOT made here without Keith's go.
+- PR events run `safe-tests.yml` (no secrets, loopback-only network), `lint-site-inline-js`, `mobile-build-check` (only for `site/m/**`), and others that are path-filtered or restricted to unrelated branch names (`wire/auto/*`, `Rule Integration:` titles). None deploys.
+- `worker/wrangler.preview.toml` is a manual-only config bound to the PRODUCTION D1. This work does not use or modify it.
+- **Merge risk (not this branch):** merging this PR to `main` deploys the Worker automatically. The desk then ships dark (flag off, key unset, caps zero); the two migrations are not applied by the deploy and need a separate manual go.
+
+## Review checklist for Codex
+Read `docs/ai_desk/DESK_CONTRACT.md` first. Priority order: (1) authorization: `contract.js`, `registry.js`, the handler and its index.js block; (2) data-tool restrictions: every file in `worker/src/desk/tools/` (allowlists, output projection, `routeGet` use, no env/db); (3) the two guards and the golden calculator tests; (4) migrations 0180/0181 and `store.js` SQL; (5) the budget gate and the fake-vs-live separation; (6) the validator; (7) the page renderer's escaping; (8) anything that could write outside the two desk tables.

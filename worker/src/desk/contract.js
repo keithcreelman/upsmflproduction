@@ -52,9 +52,16 @@ export class DeskAuthError extends Error {
   constructor(reason) { super(`desk authorization failed: ${reason}`); this.name = "DeskAuthError"; this.reason = reason; }
 }
 
-export function makeCommishCaller(franchiseId) {
-  const id = String(franchiseId == null ? "" : franchiseId).replace(/\D/g, "").padStart(4, "0");
-  return Object.freeze({ class: "commish", proven: true, scope: "desk", franchiseId: id, ceiling: COMMISH_CEILING });
+// `who` is a franchise id ("0008") when known, or a proof label ("session" | "apikey"): the existing commissioner proof
+// (commishSessionProven) answers only "yes, by which route", not which franchise, so the desk records how the caller was proven.
+// A caller is real only if THIS module made it. Object.freeze() on a look-alike literal is not proof; membership in this private set is.
+const BRANDED_CALLERS = new WeakSet();
+export function makeCommishCaller(who) {
+  const raw = String(who == null ? "" : who).trim();
+  const id = /^\d{1,4}$/.test(raw) ? raw.padStart(4, "0") : (raw.replace(/[^a-z_]/gi, "").toLowerCase().slice(0, 12) || "commish");
+  const caller = Object.freeze({ class: "commish", proven: true, scope: "desk", franchiseId: id, ceiling: COMMISH_CEILING });
+  BRANDED_CALLERS.add(caller);
+  return caller;
 }
 
 // Throws unless the caller is the proven commissioner. Every tool run, every store write and every model call starts here.
@@ -63,7 +70,7 @@ export function assertCommishCaller(caller) {
   if (caller.class !== "commish") throw new DeskAuthError("caller is not the commissioner");
   if (caller.proven !== true) throw new DeskAuthError("commissioner proof missing");
   if (caller.scope !== "desk") throw new DeskAuthError("wrong scope");
-  if (!Object.isFrozen(caller)) throw new DeskAuthError("caller was not built by makeCommishCaller");
+  if (!BRANDED_CALLERS.has(caller)) throw new DeskAuthError("caller was not built by makeCommishCaller");
   if (caller.ceiling !== COMMISH_CEILING) throw new DeskAuthError("bad ceiling");
   return caller;
 }
@@ -120,7 +127,11 @@ function ordinalSuffix(n) {
 
 // ── Output hygiene ──────────────────────────────────────────────────────────────────────────────
 // Keys that must never leave a tool, whatever the route returned (defense in depth under each tool's own output allowlist).
-export const SECRET_KEY_RE = /(^|_)(email|e_mail|cookie|apikey|api_key|token|password|passwd|secret|authorization|mfl_user_id|phone)(_|$)/i;
+// Matched on the key with every non-letter removed and lowercased, so userEmail, user_email, "api-key", accessToken, mflUserId, Cookies all hit.
+// Substring match on purpose: over-stripping a harmless field is safe; leaking one is not.
+export const SECRET_KEY_RE = /(email|cookie|apikey|token|password|passwd|secret|authorization|mfluserid|phone|credential|session|bearer)/;
+export function isSecretKey(key) { return SECRET_KEY_RE.test(String(key).toLowerCase().replace(/[^a-z]/g, "")); }
+export function isUnsafeKey(key) { return key === "__proto__" || key === "constructor" || key === "prototype"; }
 
 // ── Forbidden routes ────────────────────────────────────────────────────────────────────────────
 // The registry refuses these for every tool, even if a tool definition lists them by mistake.
@@ -135,6 +146,11 @@ export const FORBIDDEN_ROUTE_PATTERNS = [
   /^\/commish/i,
   /\/(write|post|import|backfill|sync|commit|execute|apply|cancel|accept|decline|revoke)(\/|$|-)/i,
 ];
+
+// A route path must be plain: letters, digits, "-", "_", "." and "/" only; no "..", no "//", no "%" (encoded separators), no query or fragment.
+export function isPlainRoutePath(p) {
+  return typeof p === "string" && p.length <= 120 && /^\/[A-Za-z0-9_\-./]*$/.test(p) && !p.includes("..") && !p.includes("//") && !p.split("/").some((seg) => seg === "." || seg === "..");
+}
 
 // ── Small helpers ───────────────────────────────────────────────────────────────────────────────
 export function freezeDeep(o) {
