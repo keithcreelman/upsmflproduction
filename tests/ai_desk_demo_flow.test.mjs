@@ -15,7 +15,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "ups-desk-demo-"));
 const rd = (rel) => JSON.parse(fs.readFileSync(path.join(ROOT, rel), "utf8"));
 const SET = rd("scripts/ai_eval/sets/first10.json");
-const CODE_DECLINES = ["DEV-LIN-03", "DEV-CON-02", "DEV-UNA-08"];     // the evidence is only "no record": the desk writes the card (decline.js)
+const CODE_DECLINES = ["DEV-LIN-03", "DEV-UNA-08"];     // the evidence is only "no record": the desk writes the card (decline.js)
 const IDS = SET.cases.map((c) => c.id);
 
 // A preload that turns every outbound fetch into a logged throw.

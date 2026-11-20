@@ -12,6 +12,8 @@
 //  4. each checked the season the CODE derived for this run (the model chooses the coverage call's season; a wrong choice must not produce a decline),
 //     and the season is the one in effect: the as_of year, or the current season when the run is "current";
 //  5. at least one gap names the source that would close it;
+//  6b. (R17 review) the question is ONE clause: no comma, semicolon, colon, conjunction or second question mark, and at most 20 words. The keyword net cannot see a clause it has
+//     no word for ("which team lifted the trophy"), so a multi-part question can never be shown to be fully covered by a no-record answer; it goes to the composer.
 //  6. (R15 review) the domain the model checked is one the QUESTION TEXT is about: the words of the question, read in code (tool_select.keywordDomains), must fit the
 //     checked domain. A model that checked the wrong domain (rules by date for a question about the champion) must not turn an answerable question into a decline.
 // Anything else goes to the composer exactly as before. The authorization, input and budget gates ran before this point and are unchanged.
@@ -28,6 +30,13 @@ const DECLINE_REASONS = new Set(["NO_RECORD", "unsupported_as_of"]);
 // history or standings WORD ("champion", "won", "title", "since") is a clause the desk can answer, so a checked domain must serve it (R16 review: "who was the 2013 champion, and
 // who was the owner of that team?" checked only against owner history must not be declined whole).
 const GENERIC = new Set(["calendar", "data_freshness"]);
+export const MAX_DECLINE_WORDS = 20;
+const MULTI_CLAUSE_RE = /[,;:]|\b(?:and|or|also|then|but|plus|while|because)\b|\?[^?]*\?/i;
+export function isSingleClause(question) {
+  const q = String(question || "").trim();
+  if (!q || MULTI_CLAUSE_RE.test(q)) return false;
+  return q.split(/\s+/).filter(Boolean).length <= MAX_DECLINE_WORDS;
+}
 const stripYears = (q) => String(q).replace(/\b(?:19|20)\d{2}(?:-\d{2}-\d{2})?\b/g, " ");
 export const DOMAIN_BINDING = Object.freeze({
   finishes: Object.freeze({ any: ["history", "standings"], specific: ["history", "standings"] }),
@@ -56,6 +65,7 @@ export function runSeason(effAsOf, currentSeason) {
 export function findNoRecordDecline(envelopes, { effAsOf, currentSeason, forbidCurrent = false, question } = {}) {
   if (forbidCurrent) return null;
   if (typeof question !== "string" || !question.trim()) return null;      // the binding below needs the question's own words
+  if (!isSingleClause(question)) return null;
   const season = runSeason(effAsOf, currentSeason);
   if (season == null) return null;
   const real = (envelopes || []).filter((e) => e && !isNoise(e));

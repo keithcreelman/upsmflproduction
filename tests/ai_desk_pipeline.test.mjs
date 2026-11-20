@@ -13,7 +13,7 @@ import { cleanBlock } from "../worker/src/desk/loop.js";
 import { LOOP_LIMITS } from "../worker/src/desk/loop.js";
 import { deriveTemporal, extractTemporal } from "../worker/src/desk/temporal.js";
 import { summarizeEvidence, retrievedRules, BODY_CHARS, NO_RECORD_TEXT, buildServerCard } from "../worker/src/desk/composer.js";
-import { findNoRecordDecline } from "../worker/src/desk/decline.js";
+import { findNoRecordDecline, isSingleClause } from "../worker/src/desk/decline.js";
 
 const SHA = "194f8df4109cefab2ef7133a0c59d73d7d588954";
 const RULES = { canon_sha: SHA, anchors: ["s1-c4", "s2-t6-1"] };
@@ -1097,7 +1097,15 @@ test("no-record decline (R15 review): the checked domain must be one the QUESTIO
   const run = (domains, question, season) => findNoRecordDecline(domains.map((d, i) => ({ ...cov(d, season), call_id: `c${i + 1}` })), { effAsOf: `${season || 2013}-07-01`, currentSeason: 2026, question });
   // matching pairs decline (the three R4 questions among them)
   t.ok(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton."), "pick lineage for a pick question");
-  t.ok(run(["contract_timeline", "roster_current"], "In Week 1 of 2013, what was Davante Adams's team, salary, years remaining and contract string?"), "contract timeline for a salary question");
+  t.ok(run(["contract_timeline"], "What was Davante Adams's salary in Week 1 of 2013?"), "contract timeline for a single-clause salary question");
+  // R17 review: a question with several clauses or fields is never declined in code, because the keyword net cannot see a clause it has no word for
+  t.equal(run(["contract_timeline", "roster_current"], "In Week 1 of 2013, what was Davante Adams's team, salary, years remaining and contract string?"), null, "a list of fields goes to the composer");
+  t.equal(run(["owner_history"], "Who was the owner of franchise 0010 in 2013, and which team lifted the trophy?"), null, "the trophy clause is invisible to the keyword net, so the whole question goes to the composer");
+  t.equal(run(["finishes"], "Who won the 2013 title; who was the runner-up?"), null, "two questions");
+  t.equal(run(["finishes"], "Who won the title in 2013 but not the one before?"), null, "a conjunction");
+  t.equal(run(["finishes"], `Who won the title in 2013 ${"really ".repeat(20)}?`), null, "too long to be one clause");
+  t.ok(isSingleClause("Trace the 2013 pick that became Markus Wheaton.") && isSingleClause("Who won the 2009 UPS title?"));
+  t.ok(!isSingleClause("") && !isSingleClause("a, b") && !isSingleClause("what happened and why"));
   t.ok(run(["finishes"], "Who won the 2013 UPS title?"), "finishes for a title question");
   // the reviewer's case: a question about a recorded champion, but the model checked rules by date (or any domain the question is not about): composer, never a decline
   t.equal(run(["rules_by_date"], "Who was the champion in 2013?"), null, "a domain with no binding never declines");
@@ -1155,6 +1163,9 @@ test("complete title table: a card that uses a franchise's count gets a server-b
   t.equal(buildServerCard({ cleaned: inTitle, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] }).blocks.length, 2, "tokens in a title do not count as shown");
   const inLead = { ...cleaned, lead_md: "{{f.c1.titles_f0010}} then {{f.c1.title_years_f0010}} and {{f.c1.title_years_f0001}}" };
   t.equal(buildServerCard({ cleaned: inLead, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] }).blocks.length, 0, "every list in the lead is shown, so nothing is added");
+  // R17 review: timeline rows are not printed as plain cells, so season tokens there do not count as shown
+  const inTimeline = { ...cleaned, blocks: [{ type: "timeline", title: "t", columns: [], rows: [["{{f.c1.title_years_f0010}}", "{{f.c1.title_years_f0001}}"]], fact_ids: [], tool_call_ids: [] }] };
+  t.equal(buildServerCard({ cleaned: inTimeline, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] }).blocks.length, 2, "a timeline's row cells do not count as shown");
   // a card that uses no title fact gets no table
   const plain = { ...cleaned, lead_md: "nothing", facts_used: [] };
   t.equal(buildServerCard({ cleaned: plain, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] }).blocks.length, 0);

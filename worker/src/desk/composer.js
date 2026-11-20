@@ -275,7 +275,7 @@ export function completeTitleBlocks({ index, factsUsed, blocks, lead }) {
   const addTokens = (c) => { if (typeof c === "string") for (const m of c.matchAll(/\{\{f\.([^}]+)\}\}/g)) shown.add(m[1]); };
   addTokens(lead);
   for (const b of blocks || []) {
-    if (!b || typeof b !== "object" || !Array.isArray(b.rows)) continue;
+    if (!b || typeof b !== "object" || !Array.isArray(b.rows) || !["table", "comparison"].includes(b.type)) continue;      // timeline, chart and branch rows are not printed as plain cells (R17 review)
     for (const r of b.rows) for (const c of Array.isArray(r) ? r : []) addTokens(c);
   }
   const inBlocks = shown;

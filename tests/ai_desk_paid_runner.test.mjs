@@ -126,9 +126,9 @@ function liveCmd(o = {}) {
 const liveCapsEnv = (plan) => liveEnv({ DESK_BUDGET_PER_QUESTION_USD: String(Math.max(1, plan.recommended_caps.per_question_usd)), DESK_BUDGET_PER_RUN_USD: "1.5" });
 
 // ── plan ──────────────────────────────────────────────────────────────────────────────────────────
-// Phase 1 closeout: three of the ten questions are declined by code from a "no record" coverage answer (decline.js), so they make no composer call: 7 x 4 + 3 x 3 = 37.
-const CODE_DECLINE_IDS = ["DEV-LIN-03", "DEV-CON-02", "DEV-UNA-08"];
-const CALLS_PER_RUN = 37;
+// Phase 1 closeout: two of the ten questions are single-clause "no record" questions declined by code (decline.js), so they make no composer call: 8 x 4 + 2 x 3 = 38. (DEV-CON-02 lists several fields, so it still reaches the composer.)
+const CODE_DECLINE_IDS = ["DEV-LIN-03", "DEV-UNA-08"];
+const CALLS_PER_RUN = 38;
 
 test("plan: prints the cases, models, max_tokens and the cost table; constructs no Anthropic client; zero network; no ledger is created", async () => {
   const plan = await ensurePlan();
@@ -137,7 +137,7 @@ test("plan: prints the cases, models, max_tokens and the cost table; constructs 
   for (const id of ["DEV-RUL-02", "DEV-RUL-10", "DEV-REC-02", "DEV-REC-01", "DEV-NOW-01", "DEV-INJ-05", "DEV-TFL-01", "DEV-LIN-03", "DEV-CON-02", "DEV-UNA-08"]) t.ok(r.out.includes(id), id);
   t.match(r.out, /router\s+claude-haiku-5-5\s+300/); t.match(r.out, /loop\s+claude-sonnet-5-5\s+1500/); t.match(r.out, /composer\s+claude-sonnet-5-5\s+2500/);
   t.match(r.out, /case\s+calls\s+typical\s+worst, path\s+largest call\s+protocol bound/);
-  t.match(r.out, /TOTAL\s+37\s+\$\d+\.\d{4}/);
+  t.match(r.out, /TOTAL\s+38\s+\$\d+\.\d{4}/);
   t.match(r.out, /DESK_BUDGET_PER_QUESTION_USD at least \$/); t.match(r.out, /DESK_BUDGET_PER_RUN_USD\s+at least \$/);
   t.match(r.out, /Anthropic clients constructed: 0/);
   t.doesNotMatch(r.out, /KNOWN ISSUE/, "the set has no known issue any more");
@@ -321,7 +321,7 @@ test("dry: all ten cases through the same pipeline, gate and ledger; every ledge
   t.ok(!allText(out).includes(DESK_KEY) && !allText(out).includes(SHARED_KEY), "no key in any output file");
   // --ledger-summary reads the same file
   const s = await runner(["--ledger-summary", "--ledger", led]);
-  t.equal(s.code, 0); t.match(s.out, /fake\s+total\s+\$0\.\d+/); t.match(s.out, /D1-dry-\w+\s+fake\s+37/); t.match(s.out, /Calls the gate blocked \(never sent\): 0/); clean(s);
+  t.equal(s.code, 0); t.match(s.out, /fake\s+total\s+\$0\.\d+/); t.match(s.out, /D1-dry-\w+\s+fake\s+38/); t.match(s.out, /Calls the gate blocked \(never sent\): 0/); clean(s);
   t.ok(!/\slive\s+total/.test(s.out), "no live spending shown");
   const none = await runner(["--ledger-summary", "--ledger", uniq("nope") + ".sqlite"]);
   t.equal(none.code, 0); t.match(none.out, /No ledger yet/);
@@ -479,7 +479,7 @@ test("LIVE with every gate satisfied (interceptor, fake terminal): ONLY POST api
   t.ok(!raw1.includes(DESK_KEY));
   // spending is visible; a second live run under the same run id is refused (the ledger remembers); the first-run flag is refused once history exists
   const s = await runner(["--ledger-summary", "--ledger", cmd.ledger], { ledger: cmd.ledger });
-  t.match(s.out, /live\s+total\s+\$0\.\d+/); t.match(s.out, /R1\s+live\s+37/); t.match(s.out, /Spend journal: 37 live call\(s\)/); t.match(s.out, /Second journal copy: 37 live call\(s\)/); clean(s);
+  t.match(s.out, /live\s+total\s+\$0\.\d+/); t.match(s.out, /R1\s+live\s+38/); t.match(s.out, /Spend journal: 38 live call\(s\)/); t.match(s.out, /Second journal copy: 38 live call\(s\)/); clean(s);
   const again = liveCmd({ ledger: cmd.ledger, noFirst: true });
   const r2 = await liveRun(again, { env, fake: makeFake({ ledger: cmd.ledger }) });
   t.equal(r2.code, 2); t.match(r2.err, /already has live rows/); t.equal(r2.anthropic.length, 0, "the second attempt sent nothing");
@@ -525,13 +525,13 @@ test("LIVE history: the ledger and BOTH journals must agree; a replaced, deleted
   refused(await go("R2", out2, ["--ledger", path.join(TMP, "fresh.sqlite")]), /--ledger is not allowed in live mode/, "fresh --ledger");
   // 2. the ledger missing, empty or replaced while a journal shows spending
   fs.rmSync(first.ledger);
-  refused(await go("R2", out2), /the ledger show no live spending[^\n]*the spend journal shows 37 live call\(s\)/, "ledger deleted");
+  refused(await go("R2", out2), /the ledger show no live spending[^\n]*the spend journal shows 38 live call\(s\)/, "ledger deleted");
   fs.writeFileSync(first.ledger, "");
   refused(await go("R2", out2), /the ledger show no live spending/, "ledger empty");
   restore();
   // 3. either journal copy, or both, missing or short while the others show spending
   fs.rmSync(first.journal);
-  refused(await go("R2", out2), /the spend journal show no live spending[^\n]*the ledger shows 37/, "journal deleted");
+  refused(await go("R2", out2), /the spend journal show no live spending[^\n]*the ledger shows 38/, "journal deleted");
   restore(); fs.rmSync(j2);
   refused(await go("R2", out2), /the second copy of the spend journal show no live spending/, "second copy deleted");
   restore(); fs.rmSync(first.journal); fs.rmSync(j2);

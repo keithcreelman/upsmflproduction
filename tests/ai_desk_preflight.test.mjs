@@ -248,10 +248,10 @@ test("matrix: the grade is independent of the oracle (an oracle PASS can still b
     t.equal(rows.length, 10);
     // Phase 1 closeout: a question whose only evidence is "no record" is declined by code and never reaches the composer, so a composer failure cannot touch it.
     const composerScenario = scenario.endsWith("_composer_always") || scenario === "unicode_digit_always";
-    const declined = (r) => composerScenario && ["DEV-LIN-03", "DEV-CON-02", "DEV-UNA-08"].includes(r.case);
+    const declined = (r) => composerScenario && ["DEV-LIN-03", "DEV-UNA-08"].includes(r.case);
     t.ok(rows.filter((r) => !declined(r)).every((r) => r.state === "tool_failure" && r.reason === reason), scenario);
     t.ok(rows.filter(declined).every((r) => r.state === "abstain" && r.reason === "no_record" && r.grade === "Correct"), `${scenario}: the code-built declines are untouched`);
-    t.equal(rows.filter(declined).length, composerScenario ? 3 : 0);
+    t.equal(rows.filter(declined).length, composerScenario ? 2 : 0);
   }
   const d = MATRIX.rows.filter((r) => r.scenario === "http400_loop2");
   t.ok(d.every((r) => r.diagnostics && r.diagnostics.status === 400 && r.diagnostics.provider_type === "invalid_request_error" && r.diagnostics.provider_path === "messages.1.content.0.text" && r.diagnostics.shape.messages.length >= 3));
