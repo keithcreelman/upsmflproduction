@@ -3,7 +3,8 @@
 //
 // OBSERVED in R1 (question DEV-RUL-02, ledger rows 161-164; the recorded tokens carried the runner's 1.25 margin, so they are divided by 1.25 here):
 //   loop round 1: 9,022 in / 187 out   round 2: 11,872 in / 140 out   round 3: 13,397 in / 333 out   router: 1,470 in / 217 out
-// NOT observed: the composer call (it failed with HTTP 4xx before R1 could bill it). Its size below is an ASSUMPTION and R2 will measure it.
+// OBSERVED in R2 (ledger rows 314-326, same margin): composer 4,643 / 4,543 in and 849 / 389 out; retry 4,724 / 4,740 in and 807 / 973 out; caching worked
+//   (round 1 wrote 5,625 / 7,600 tokens, round 2 read them back and wrote 2,853 / 2,954 more). Both finished questions needed one composer retry.
 // Prices: the table in worker/src/desk/prices.js (Sonnet 5.5 in 2 / out 10 / cache read 0.10 / cache write 2.5; Haiku 5.5 in 0.10 / out 0.50), per million tokens.
 
 import fs from "node:fs";
@@ -24,7 +25,8 @@ const R1 = {
   loop_out: [187, 140, 333].map((n) => Math.round(n / MARGIN)),
   router_in: Math.round(1470 / MARGIN), router_out: Math.round(217 / MARGIN),
 };
-const ASSUMED_COMPOSER = { in: 4200, out: 450 };       // not observed
+const ASSUMED_COMPOSER = { in: Math.round((4643 + 4543) / 2 / MARGIN), out: Math.round((849 + 389) / 2 / MARGIN) };       // observed in R2 (two questions), margin removed
+const RETRY = { in: Math.round((4724 + 4740) / 2 / MARGIN), out: Math.round((807 + 973) / 2 / MARGIN) };
 const S = PRICES["claude-sonnet-5-5"], H = PRICES["claude-haiku-5-5"];
 const usd = (n) => `$${n.toFixed(4)}`;
 const M = 1e6;
@@ -55,6 +57,7 @@ function loopCost(toolTokens, mode) {
 }
 const routerCost = (R1.router_in * H.input + R1.router_out * H.output) / M;
 const composerCost = (ASSUMED_COMPOSER.in * S.input + ASSUMED_COMPOSER.out * S.output) / M;
+const retryCost = (RETRY.in * S.input + RETRY.out * S.output) / M;
 
 // The first-10 cases, with the router domains the scripted router uses (a real router may differ; tool_select adds a keyword net on top).
 const set = JSON.parse(fs.readFileSync(path.join(ROOT, "scripts/ai_eval/sets/first10.json"), "utf8"));
@@ -87,7 +90,7 @@ P("## What R1 billed (margin removed)");
 P(`- Loop request, round 1: ${R1.loop_in[0].toLocaleString()} input tokens = the 14 tool definitions (${fullToolTokens.toLocaleString()}), the loop prompt (${systemTokens}), and the question plus request framing (${firstMsgTokens}, the unmeasured remainder). About ${BYTES_PER_TOKEN} bytes per token.`);
 P(`- Rounds 2 and 3 added ${growth[0].toLocaleString()} and ${growth[1].toLocaleString()} tokens (tool results and the model's calls). Outputs: ${R1.loop_out.join(", ")}.`);
 P(`- The old shape cost ${usd(loopCost(fullToolTokens, "plain").cost)} for the three loop rounds alone (the plan expected ${usd(0.0358)} for the whole question).`);
-P("- The composer was never billed in R1; it is assumed at " + `${ASSUMED_COMPOSER.in.toLocaleString()} in / ${ASSUMED_COMPOSER.out} out (${usd(composerCost)}). R2 will measure it.`);
+P(`- The composer was observed in R2: about ${ASSUMED_COMPOSER.in.toLocaleString()} in / ${ASSUMED_COMPOSER.out} out per call (${usd(composerCost)}); a retry (a second composer call) about ${RETRY.in.toLocaleString()} in / ${RETRY.out} out (${usd(retryCost)}).`);
 P();
 P("## Tokens in the loop request, per question (round 1)");
 P("| case | tools offered | tool-definition tokens | old (all 14) | saved |");
@@ -107,8 +110,14 @@ P("- **warm**: the system-plus-tools prefix was already cached by an earlier que
 P("- The runner's stop rule is a mean above $0.08 per answered question after five cases.");
 P();
 P("## What this model cannot tell you");
-P("- Real cache behavior: whether the entry is created and read as modeled (usage will show `cache_creation_input_tokens` and `cache_read_input_tokens`). If a prefix were under Anthropic's minimum it would simply not cache and cost the 'narrowed only' column.");
-P("- The composer's real token use, the number of loop rounds a real model takes for each question, and retries. R1 saw three rounds on one rules question.");
+P("- Cache behavior was CONFIRMED in R2 (creation in round 1, reads in round 2, even across questions with the same offered tools); the cold and warm columns bracket it.");
+P("- The number of loop rounds a real model takes (R1: three; R2: two for the rules questions, and one round of nine parallel calls for the champions list) and how often the composer needs a retry.");
+P();
+P("## Retries (R2 saw one on both finished questions)");
+P("| composer retries per question | mean per question with margin, cold | warm | ten questions, cold |");
+P("|---|---:|---:|---:|");
+for (const rate of [0, 0.5, 1]) { const extra = rate * retryCost; P(`| ${Math.round(rate * 100)}% | ${usd(((sum("cold") + 10 * extra) * MARGIN) / 10)} | ${usd(((sum("warm") + 10 * extra) * MARGIN) / 10)} | ${usd((sum("cold") + 10 * extra) * MARGIN)} |`); }
+P("- The runner's stop rule (mean above $0.08 per answered question after five cases) is met with room at every retry rate.");
 const text = lines.join("\n") + "\n";
 const w = process.argv.indexOf("--write");
 if (w > 0 && process.argv[w + 1]) { fs.writeFileSync(path.resolve(ROOT, process.argv[w + 1]), text); console.log(`wrote ${process.argv[w + 1]}`); }

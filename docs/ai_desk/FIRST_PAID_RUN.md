@@ -67,7 +67,7 @@ Use the checkout that has branch `claude/ai-commish-desk`.
    ```
    node scripts/ai_eval/run_eval.mjs --set scripts/ai_eval/sets/first10.json --mode dry --run-id R2
    ```
-   It must end with `DRY RUN PASSED`.
+   It must end with `DRY RUN PASSED`. A manual dry run applies your per-question and per-run caps (when exported) but not your monthly and total caps, because scripted rows cost no money; it prints the caps it used. The live command always repeats the dry test from scratch (it never reuses an earlier result) and refuses, with nothing sent, if it fails.
 5. **Set the caps and the key, in that terminal only** (zsh). The key goes in through a hidden prompt, so it never appears on screen or in your shell history:
    ```
    export DESK_BUDGET_PER_QUESTION_USD=0.25

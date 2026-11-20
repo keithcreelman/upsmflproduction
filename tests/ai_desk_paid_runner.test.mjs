@@ -296,7 +296,7 @@ test("dry: all ten cases through the same pipeline, gate and ledger; every ledge
   t.ok(!allText(out).includes(DESK_KEY) && !allText(out).includes(SHARED_KEY), "no key in any output file");
   // --ledger-summary reads the same file
   const s = await runner(["--ledger-summary", "--ledger", led]);
-  t.equal(s.code, 0); t.match(s.out, /fake\s+total\s+\$0\.\d+/); t.match(s.out, /D1\s+fake\s+40/); t.match(s.out, /Calls the gate blocked \(never sent\): 0/); clean(s);
+  t.equal(s.code, 0); t.match(s.out, /fake\s+total\s+\$0\.\d+/); t.match(s.out, /D1-dry-\w+\s+fake\s+40/); t.match(s.out, /Calls the gate blocked \(never sent\): 0/); clean(s);
   t.ok(!/\slive\s+total/.test(s.out), "no live spending shown");
   const none = await runner(["--ledger-summary", "--ledger", uniq("nope") + ".sqlite"]);
   t.equal(none.code, 0); t.match(none.out, /No ledger yet/);
@@ -315,17 +315,44 @@ test("dry: the per-question cap blocks (budget_exceeded cards, blocked ledger ro
   db.close(); t.deepEqual(r.net, []);
 });
 
-test("dry: the total cap blocks too (a tiny total stops every call before it is reserved)", async () => {
+test("dry (the R2 lesson): your monthly and total caps are NOT applied to scripted rows, and repeated dry runs of one run id never add up against each other", async () => {
+  // At R2 a first manual dry run failed with budget_monthly because EARLIER free dry runs had used up the month's scripted lane under the user's real $2.00 cap.
   const out = uniq("dry-t"), led = uniq("dry-t-ledger") + ".sqlite";
-  const r = await runner(["--set", SET_REL, "--mode", "dry", "--run-id", "T1", "--out", out, "--ledger", led], { env: { DESK_BUDGET_PER_QUESTION_USD: "5", DESK_BUDGET_PER_RUN_USD: "50", DESK_BUDGET_MONTHLY_USD: "50", DESK_BUDGET_TOTAL_USD: "0.03" } });
-  t.equal(r.code, 1); t.match(r.out, /DRY RUN FAILED/);
-  const res = readJson(path.join(out, "results.json"));
-  t.ok(res.cases.some((c) => c.state === "budget_exceeded" && c.final_card.reason_code === "budget_total"), "a card names the total cap");
+  const tiny = { DESK_BUDGET_PER_QUESTION_USD: "0.25", DESK_BUDGET_PER_RUN_USD: "1.00", DESK_BUDGET_MONTHLY_USD: "0.05", DESK_BUDGET_TOTAL_USD: "0.05" };
+  for (let i = 1; i <= 5; i++) {              // five dry runs of the same run id: about $0.30 of scripted spend each, far over the tiny monthly, total AND per-run caps in sum
+    const r = await runner(["--set", SET_REL, "--mode", "dry", "--run-id", "T1", "--out", `${out}-${i}`, "--ledger", led], { env: tiny });
+    t.equal(r.code, 0, `dry run ${i}: ${r.out.slice(-300)} ${r.err.slice(0, 200)}`); t.match(r.out, /DRY RUN PASSED/);
+    t.match(r.out, /caps used: per question \$0\.2500, per run \$1\.0000/);
+  }
   const db = new DatabaseSync(led, { readOnly: true });
-  const spent = db.prepare("SELECT COALESCE(SUM(cost_usd), 0) s FROM ai_call_log WHERE mode = 'fake'").get().s;
-  t.ok(spent <= 0.03 + 1e-9, `fake spend ${spent} never exceeds the total cap`);
-  t.ok(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'blocked' AND error_code = 'budget_total'").get().n > 0);
+  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'blocked'").get().n, 0, "no call was blocked");
+  t.equal(db.prepare("SELECT COUNT(DISTINCT run_id) n FROM ai_call_log WHERE mode = 'fake'").get().n, 5, "each dry run has its own ledger run id");
+  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'fake' AND run_id = 'T1'").get().n, 0);
+  t.equal(db.prepare("SELECT COUNT(*) n FROM ai_call_log WHERE mode = 'live'").get().n, 0);
   db.close();
+  // The per-run cap is still the user's own for ONE dry run: too low for the plan, so the dry run fails (and says so).
+  const low = await runner(["--set", SET_REL, "--mode", "dry", "--run-id", "T2", "--out", uniq("dry-low"), "--ledger", uniq("dry-low-ledger") + ".sqlite"], { env: { ...tiny, DESK_BUDGET_PER_RUN_USD: "0.05" } });
+  t.equal(low.code, 1); t.match(low.out, /DRY RUN FAILED/);
+});
+
+test("a failed dry run can never lead to a paid call: the live preflight re-runs the dry test from scratch (it never reads an earlier result) and refuses with exit 2 before any client exists", async () => {
+  // A previous dry run PASSED and left its results in the run folder; the set is then changed so the dry run would fail. Live must not trust the old result.
+  const s = readJson(path.join(ROOT, SET_REL));
+  const out = uniq("g7b");
+  const good = await runner(["--set", SET_REL, "--mode", "plan", "--run-id", "R1", "--out", out]);
+  t.equal(good.code, 0);
+  const d = await runner(["--set", SET_REL, "--mode", "dry", "--run-id", "R1", "--out", out, "--ledger", uniq("g7b-led") + ".sqlite"]);
+  t.equal(d.code, 0); t.match(d.out, /DRY RUN PASSED/);
+  t.ok(fs.existsSync(path.join(out, "results.json")), "an earlier PASSED dry result is on disk in the same run folder");
+  s.cases.find((c) => c.id === "DEV-NOW-01").oracle = "cap_room_0001";
+  const bad = path.join(TMP, "set_bad_oracle_b.json"); fs.writeFileSync(bad, JSON.stringify(s));
+  const out2 = out;                               // the SAME folder, holding the earlier passing result
+  const p2 = await runner(["--set", bad, "--mode", "plan", "--run-id", "R1", "--out", out2]);
+  t.equal(p2.code, 0);
+  const cmd = liveCmd({ set: bad, out: out2, noPlanCopy: true });
+  const r = await runner(cmd.args, { env: liveCapsEnv(await ensurePlan()), fakeAnthropic: true, ledger: cmd.ledger });
+  t.equal(r.code, 2, r.err.slice(0, 300)); t.match(r.err, /REFUSED \(gate 7\)/); t.deepEqual(r.net, [], "no network attempt, so no paid call");
+  clean(r);
 });
 
 // ── live, in process (a live run needs a TTY, so these drive main() directly with fake terminal streams and an intercepted fetch) ─────────────────

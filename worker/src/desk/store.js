@@ -143,7 +143,7 @@ export function createStore(db) {
       assertCommishCaller(caller);
       const cost = Math.max(0, num(f.costUsd)), rid = Number(id);
       const res = await batch([
-        stmt(SQL.finalize, [intOrNull(f.inputTokens), intOrNull(f.outputTokens), intOrNull(f.cacheReadTokens), intOrNull(f.cacheWriteTokens), cost, intOrNull(f.latencyMs), str(f.errorCode, 60), rid]),
+        stmt(SQL.finalize, [intOrNull(f.inputTokens), intOrNull(f.outputTokens), intOrNull(f.cacheReadTokens), intOrNull(f.cacheWriteTokens), cost, intOrNull(f.latencyMs), str(f.errorCode, 120), rid]),
         stmt(SQL.finalizeTotals, [rid, cost, rid, rid]),
       ]);
       return !!(res && res[0] && res[0].meta && num(res[0].meta.changes) > 0);

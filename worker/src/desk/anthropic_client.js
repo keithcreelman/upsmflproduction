@@ -14,16 +14,27 @@ export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 export const ANTHROPIC_VERSION = "2023-06-01";
 export const DEFAULT_TIMEOUT_MS = 60000;
 
+// Where in the request the provider says a 400 is. The message text is NEVER kept; only a request FIELD PATH such as "messages.1.content.0.text" survives, and
+// only when the message starts with one (an invalid_request_error normally begins "<path>: <what is wrong>"). The first segment must be a known request field,
+// the rest only letters, digits, underscores and dots, so nothing the provider might echo (a question, a name, a key) can pass through.
+const PATH_ROOTS = new Set(["messages", "system", "tools", "tool_choice", "max_tokens", "model", "thinking", "output_config", "metadata", "stop_sequences", "temperature", "top_p", "top_k", "cache_control"]);
+export function safeProviderPath(parsed) {
+  const msg = parsed && parsed.error && typeof parsed.error.message === "string" ? parsed.error.message : "";
+  const m = /^([A-Za-z_][A-Za-z0-9_]{0,30}(?:\.[A-Za-z0-9_]{1,30}){0,8})\s*:/.exec(msg.slice(0, 160));
+  return m && PATH_ROOTS.has(m[1].split(".")[0]) ? m[1] : null;
+}
+
 export class DeskModelError extends Error {
   // code: no_key | timeout | network | http_error | bad_response | bad_usage
   // bad_usage: the provider answered 2xx (so the call was billed) but the usage block cannot be trusted. The parsed answer is attached as
   // a NON-enumerable `response` so the budget gate can still hand it back while charging the worst-case reservation; it never serializes.
-  constructor(code, { status = null, providerType = null } = {}) {
-    super(`desk model call failed: ${code}${status ? ` (http ${status})` : ""}${providerType ? ` ${providerType}` : ""}`);
+  constructor(code, { status = null, providerType = null, providerPath = null } = {}) {
+    super(`desk model call failed: ${code}${status ? ` (http ${status})` : ""}${providerType ? ` ${providerType}` : ""}${providerPath ? ` at ${providerPath}` : ""}`);
     this.name = "DeskModelError";
     this.code = code;
     this.status = status;
     this.providerType = providerType;
+    this.providerPath = providerPath;
   }
 }
 
@@ -71,7 +82,7 @@ export function createAnthropicClient({ apiKey, fetch: fetchImpl, timeoutMs = DE
         let text = "";
         try { text = await res.text(); } catch (e) { if (e && e.name === "AbortError") throw new DeskModelError("timeout"); text = ""; }
         try { parsed = text ? JSON.parse(text) : null; } catch (_) { parsed = null; }
-        if (!res.ok) throw new DeskModelError("http_error", { status: Number(res.status) || 0, providerType: safeProviderType(parsed) });
+        if (!res.ok) throw new DeskModelError("http_error", { status: Number(res.status) || 0, providerType: safeProviderType(parsed), providerPath: safeProviderPath(parsed) });
         if (!parsed || !Array.isArray(parsed.content)) throw new DeskModelError("bad_response", { status: Number(res.status) || 0 });
         const out = { content: parsed.content, stop_reason: parsed.stop_reason == null ? null : String(parsed.stop_reason), usage: parsed.usage, model: typeof parsed.model === "string" ? parsed.model : request.model };
         if (!validateUsage(parsed.usage).ok) {

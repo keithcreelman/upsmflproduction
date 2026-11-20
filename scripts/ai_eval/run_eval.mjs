@@ -197,10 +197,16 @@ function capsFrom(env) {
   const num = (v) => { const s = String(v == null ? "" : v).trim(); return /^\d+(\.\d+)?$/.test(s) && Number(s) > 0 ? Number(s) : 0; };
   return { perQuestion: num(env.DESK_BUDGET_PER_QUESTION_USD), perRun: num(env.DESK_BUDGET_PER_RUN_USD), monthly: num(env.DESK_BUDGET_MONTHLY_USD), total: num(env.DESK_BUDGET_TOTAL_USD) };
 }
+// The caps a MANUAL dry run uses. The per-question and per-run caps are the user's own when set (so a dry run still fails if they are too low for the plan).
+// The monthly and total caps are NEVER the user's: they meter real money and accumulate across runs, but the dry run's rows are scripted (the "fake" lane,
+// no money), so applying them let earlier free dry runs use up the month and fail a later dry run with budget_monthly (found at the second live run, R2).
+// The live gates (liveGates) apply the monthly and total caps to the live lane. A dry run also gets its own ledger run id each time (see runDry).
 function dryCapsFrom(env) {
   const c = capsFrom(env);
-  const allSet = c.perQuestion > 0 && c.perRun > 0 && c.monthly > 0 && c.total > 0;
-  return allSet ? Object.fromEntries(CAP_VARS.map((k) => [k, String(env[k])])) : { ...DRY_DEFAULT_CAPS };
+  const caps = { ...DRY_DEFAULT_CAPS };
+  if (c.perQuestion > 0) caps.DESK_BUDGET_PER_QUESTION_USD = String(env.DESK_BUDGET_PER_QUESTION_USD);
+  if (c.perRun > 0) caps.DESK_BUDGET_PER_RUN_USD = String(env.DESK_BUDGET_PER_RUN_USD);
+  return caps;
 }
 
 // ── PLAN ──────────────────────────────────────────────────────────────────────────────────────────────
@@ -373,6 +379,7 @@ async function runDry({ cases, runId, setSha, setId, ledgerFile, env, outDir, la
   const { runCase, makeLedgerDb, makeKnowledge } = await import("./lib/scenario_env.mjs");
   const { createScriptedClient, SCRIPTED_CASE_IDS } = await import("./lib/scripted_model.mjs");
   const caps = dryCapsFrom(env);
+  const ledgerRunId = `${runId}-${label === "dry" ? "dry" : "pre"}-${Date.now().toString(36)}`.slice(0, 64);
   mkdirp(path.dirname(ledgerFile));
   const db = makeLedgerDb(ledgerFile);
   const knowledge = await makeKnowledge();
@@ -384,7 +391,7 @@ async function runDry({ cases, runId, setSha, setId, ledgerFile, env, outDir, la
   try {
     for (const c of cases) {
       if (!SCRIPTED_CASE_IDS.includes(c.caseDef.id)) throw new Usage(`no scripted path exists for ${c.caseDef.id}`);
-      const r = await runCase({ caseDef: c.caseDef, spec: c.spec, client: createScriptedClient(c.caseDef.id), gateEnv: { ...caps }, db, runId, clock: "real" });
+      const r = await runCase({ caseDef: c.caseDef, spec: c.spec, client: createScriptedClient(c.caseDef.id), gateEnv: { ...caps }, db, runId, ledgerRunId, clock: "real" });
       runs.push({ r, caseDef: c.caseDef, spec: c.spec });
     }
   } finally { globalThis.fetch = saved; db.close(); }
@@ -758,6 +765,7 @@ export async function main(argv, env = process.env, injectedIo = null) {
     if (mode === "dry") {
       const res = await runDry({ cases, runId, setSha, setId, ledgerFile, env, outDir });
       say(`Run ${runId}: DRY (SCRIPTED model: this proves tools, facts and validation, not model quality)`);
+      { const dc = dryCapsFrom(env); say(`  caps used: per question ${money(Number(dc.DESK_BUDGET_PER_QUESTION_USD))}, per run ${money(Number(dc.DESK_BUDGET_PER_RUN_USD))} (your values when set); monthly and total are not applied to scripted rows, the live run applies them.`); }
       for (const c of res.cases) say(`  ${pad(c.id, 12)}${pad(c.state, 18)}oracle ${pad(c.oracle_check.pass === true ? "pass" : c.oracle_check.pass === false ? "MISMATCH" : "n/a", 9)}score ${pad(c.score ? (c.score.pass ? "pass" : "fail") : "n/a", 5)}${money6(c.cost_usd)}${c.known_issue ? "  KNOWN ISSUE" : ""}`);
       say(`Total ${money6(res.totals.cost_usd)} in the fake ledger lane; network attempts ${res.network_attempts}.`);
       for (const p of res.problems) say(`PROBLEM: ${p}`);

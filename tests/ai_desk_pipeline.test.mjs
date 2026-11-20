@@ -9,6 +9,7 @@ import { answerQuestion, DeskInputError, sanitizeQuestion, MAX_QUESTION_CHARS } 
 import { detectActionRequest } from "../worker/src/desk/router.js";
 import { scanForInjection, wrapAsData, INJECTION_NOTE } from "../worker/src/desk/injection.js";
 import { promptHash, listPrompts, getPrompt, MODELS, FORCED_TOOL_MODELS, toolChoiceFor } from "../worker/src/desk/prompts.js";
+import { cleanBlock } from "../worker/src/desk/loop.js";
 import { LOOP_LIMITS } from "../worker/src/desk/loop.js";
 import { deriveTemporal, extractTemporal } from "../worker/src/desk/temporal.js";
 import { summarizeEvidence, retrievedRules, BODY_CHARS } from "../worker/src/desk/composer.js";
@@ -958,6 +959,56 @@ test("a composer that answers in plain text (tool choice is auto on Sonnet 5.5) 
   // A text reply followed by a good tool call on the retry still produces an honest card.
   const r2 = await ask({ plan: { loop: [toolUses(CAP_CALL), endTurn()], composer: [endTurn("Let me think about that.")], retry: [emit(GOOD_CARD())] } });
   t.equal(r2.card.state, "answer");
+});
+
+
+// ── The second live run (R2), question 3: the model's turn must go back to it as a VALID turn ─────────────────────────────────────────────
+const rawReply = (content) => ({ ok: true, costUsd: 0.01, usage: {}, response: { stop_reason: "tool_use", usage: {}, content } });
+const emptyText = (b) => b && b.type === "text" && String(b.text || "").trim() === "";
+const allBlocks = (reqs) => reqs.flatMap((q) => q.messages.flatMap((m) => (Array.isArray(m.content) ? m.content : [])));
+
+test("R2 regression: a thinking block in the model's reply goes back unchanged, no empty text block is ever sent, unknown blocks are dropped, tool results answer every call", async () => {
+  const YEARS = [2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025];
+  const calls = YEARS.map((y, i) => ({ type: "tool_use", id: `toolu_par_${i}`, name: "history__finishes", input: { franchise: "0003", as_of: `${y}-12-31` } }));
+  const THINK = { type: "thinking", thinking: "", signature: "SIGNATURE-OPAQUE-1" };            // display omitted: empty text, a signature
+  const REDACTED = { type: "redacted_thinking", data: "OPAQUE-REDACTED-2" };
+  const reply = rawReply([THINK, { type: "text", text: "" }, { type: "text", text: "   " }, { type: "text", text: "Checking each season." }, REDACTED, { type: "server_tool_use", id: "x", name: "web_search", input: {} }, { type: "thinking", thinking: 5, signature: "bad" }, ...calls]);
+  const r = await ask({ question: "List the champions from 2017 to 2025", plan: { router: [route({ domains: ["history"], intent: "titles" })], loop: [reply, endTurn()], composer: [emit({ state: "answer_with_gap", lead_md: "Franchise finished {{f.c1.finish}}.", facts_used: [] })] } });
+  const reqs = loopRequests(r);
+  t.equal(reqs.length, 2);
+  const assistant = reqs[1].messages.find((m) => m.role === "assistant").content;
+  t.deepEqual(assistant.slice(0, 3), [THINK, { type: "text", text: "Checking each season." }, REDACTED], "thinking and redacted thinking are returned exactly as received, in their original order");
+  t.deepEqual(assistant.slice(3).map((b) => b.type), Array(9).fill("tool_use"));
+  t.equal(assistant.length, 12, "an empty or blank text block, a server tool block and a malformed thinking block are dropped");
+  t.equal(allBlocks(r.s.requests).filter(emptyText).length, 0, "no request in the whole run carries an empty text block");
+  const results = reqs[1].messages[reqs[1].messages.length - 1].content;
+  t.equal(results.length, 9); t.deepEqual(results.map((b) => b.tool_use_id), calls.map((c) => c.id), "every parallel call is answered, in order");
+  t.deepEqual(results[8].cache_control, { type: "ephemeral" }); t.equal(markerCount(results.slice(0, 8)), 0, "only the last result carries the cache marker");
+  t.equal(r.counters.hist, 9);
+  // The thinking block in the stored history is never given a cache marker or edited.
+  t.equal(markerCount(reqs[1].messages.slice(0, -1)), 0);
+});
+
+test("cleanBlock: only what the API accepts back survives", () => {
+  t.deepEqual(cleanBlock({ type: "text", text: "hi" }), { type: "text", text: "hi" });
+  for (const bad of [{ type: "text", text: "" }, { type: "text", text: " \n" }, { type: "text" }, { type: "thinking", thinking: "x" }, { type: "thinking", signature: "s" }, { type: "redacted_thinking" }, { type: "image" }, null, undefined, "x", 5]) t.equal(cleanBlock(bad), null, JSON.stringify(bad));
+  t.deepEqual(cleanBlock({ type: "thinking", thinking: "", signature: "s", extra: "dropped" }), { type: "thinking", thinking: "", signature: "s" });
+  t.deepEqual(cleanBlock({ type: "tool_use", id: "t1", name: "a__b", input: [1], junk: 1 }), { type: "tool_use", id: "t1", name: "a__b", input: {} }, "a non-object input becomes an empty object");
+});
+
+
+test("a loop reply cut off by max_tokens runs nothing and fails closed (a half-written tool call is never executed)", async () => {
+  const cut = { ok: true, costUsd: 0.01, usage: {}, response: { stop_reason: "max_tokens", usage: {}, content: [{ type: "text", text: "Checking." }, { type: "tool_use", id: "toolu_cut", name: "cap__position", input: { franchise: "0003", as_of: "current" } }] } };
+  const r = await ask({ plan: { loop: [cut], composer: [emit(GOOD_CARD())] } });
+  t.equal(r.card.state, "tool_failure"); t.equal(r.card.reason_code, "tool_limit:max_tokens");
+  t.equal(r.counters.cap, 0, "the cut-off tool call never ran"); t.equal(r.s.requests.filter((q) => q.step === "composer").length, 0, "no composer call either");
+});
+
+test("composer prompt 1.4.0 carries the R2 lessons (claims are prose too, glossary terms exactly as listed, the cited rule shows its own year or number)", () => {
+  const c = getPrompt("composer");
+  t.equal(c.version, "1.4.0");
+  t.match(c.text, /cites\[\]\.claim/); t.match(c.text, /one-time/); t.match(c.text, /Vet-Ext1/); t.match(c.text, /beside your citation/);
+  t.ok(!/league_context|hard stop/i.test(c.text), "still no canon text in a prompt");
 });
 
 await run("ai_desk_pipeline");

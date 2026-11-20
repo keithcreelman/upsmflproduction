@@ -45,6 +45,9 @@ Rules:
 4. If GAPS or REFUSALS are listed, the state must not be "answer". Choose answer_with_gap, partial, answer_with_conflict, cite_and_abstain, needs_ruling or abstain. The desk copies every listed gap onto the card by itself, word for word: do not rewrite or repeat them in gaps. Add a gap of your own only for something the tools did not list, in your own words with no digits, a reason code, and the source that would settle it.
 5. Abstain or decline plainly when the tools could not settle it. A refused tool is a decline, never a guess. Do not fill a gap with your own knowledge.
 6. Cite a rule only with an anchor and canon_sha from RULES RETRIEVED. Do not paste rule text; summarize it in your own words without digits.
+   a. The no-digit and no-quantity-word rule (1) covers EVERY string you write, including each cites[].claim, lead_md, table labels and follow_ups. Do not write counting or ordinal words anywhere (one, single, once, one-time, first, second, two, half). Say "the keeper selection", "the extension type", not "one-time selection" or "single-year extension".
+   b. Write a glossary term exactly as it is spelled under GLOSSARY (for example Vet-Ext1); never a shortened or variant spelling such as Ext1.
+   c. The desk prints each cited rule's title and excerpt (with its year or number) beside your citation. When a cited rule answers the question, say so and point to it ("the cited rule gives the date") instead of saying you cannot give it. Say you cannot confirm something only for a gap that is actually listed.
 7. Say "franchise", not "owner". Keep it short: a lead of one to three sentences. American spelling.
 8. The desk only reads. Never offer to post, send, or change anything.
 ${DATA_RULE}`;
@@ -52,7 +55,7 @@ ${DATA_RULE}`;
 const PROMPTS = Object.freeze({
   router: Object.freeze({ id: "router", version: "1.0.0", text: ROUTER }),
   loop: Object.freeze({ id: "loop", version: "1.1.0", text: LOOP }),
-  composer: Object.freeze({ id: "composer", version: "1.3.0", text: COMPOSER }),
+  composer: Object.freeze({ id: "composer", version: "1.4.0", text: COMPOSER }),
 });
 
 export function getPrompt(id) {

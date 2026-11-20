@@ -715,4 +715,34 @@ test("a request that asks for prompt caching is reserved at the cache-WRITE rate
   t.ok(8000 * 0.10 < 8000 * 2 && 8000 * 2 < 8000 * 2.5);
 });
 
+
+test("R2 diagnostics: a 400 records WHERE in the request it is (a field path), never the provider's message; nothing a provider might echo can pass", async () => {
+  const mk = (message, status = 400, type = "invalid_request_error") => createAnthropicClient({ apiKey: "desk-key-123", fetch: async () => ({ ok: false, status, text: async () => JSON.stringify({ error: { type, message } }) }) });
+  const fail = async (client) => { try { await client.complete(req()); } catch (e) { return e; } return null; };
+  // The shapes an invalid request message takes: a path, a colon, then what is wrong.
+  for (const [msg, want] of [["messages.1.content.0.text: text content blocks must be non-empty", "messages.1.content.0.text"], ["tool_choice: type \"tool\" is not supported", "tool_choice"],
+    ["messages.3.content.12.tool_result.content: bad", "messages.3.content.12.tool_result.content"], ["system.0.cache_control: no", "system.0.cache_control"], ["max_tokens: must be greater than 0", "max_tokens"]]) {
+    const e = await fail(mk(msg));
+    t.equal(e.providerPath, want, msg); t.equal(e.status, 400); t.equal(e.providerType, "invalid_request_error");
+    t.equal(/non-empty|supported|greater|desk-key-123/.test(e.message + JSON.stringify(e) + e.providerPath), false, "the words of the message never survive");
+  }
+  // Anything that is not a plain request-field path is dropped: unknown first segment, free text, an echo of the user's text, a key, too many segments, too long.
+  for (const msg of ["ZEBRA-PRIVATE-QUESTION: something", "Your credit balance is too low to access the API", "desk-key-123: invalid x-api-key", "who won in 2017: text", "foo.bar: x", "messages: ok only the root", "messages.a-b.c: hyphen", "messages." + "x".repeat(50) + ": long segment", `messages.${Array(12).fill("1").join(".")}: deep`, "", "messages.1.content.0.text without a colon"]) {
+    const e = await fail(mk(msg));
+    if (msg === "messages: ok only the root") t.equal(e.providerPath, "messages", "a bare root is a field name, nothing more");
+    else t.equal(e.providerPath, null, JSON.stringify(msg));
+    t.equal(/ZEBRA|credit balance|desk-key-123/.test(e.message + JSON.stringify(e)), false);
+  }
+  // Non-JSON or non-400 bodies: no path.
+  t.equal((await fail(createAnthropicClient({ apiKey: "k", fetch: async () => ({ ok: false, status: 500, text: async () => "<html>messages.1.content.0.text: x</html>" }) }))).providerPath, null);
+  // The ledger row carries status, type and path (closed vocabulary, bounded length).
+  const d = freshDb();
+  const eReal = await fail(mk("messages.1.content.0.text: text content blocks must be non-empty"));      // the error the real client builds ...
+  const r = await call({ env: BIG, db: d, client: createFakeClient([eReal]), request: req() });          // ... as the gate sees it (a fake-lane client throwing it)
+  t.deepEqual([r.ok, r.reason, r.detail], [false, "model_error", "http_error"], "the caller still sees only the bare code");
+  const [row] = rows(d);
+  t.equal(row.error_code, "http_error:400:invalid_request_error:messages.1.content.0.text"); t.equal(row.cost_usd, 0, "a 400 is not billed");
+  t.ok(row.error_code.length <= 120);
+});
+
 run("ai_desk_budget");

@@ -195,7 +195,7 @@ export async function guardedCall({ env, db, caller, client, meta, request, desk
       const code = e instanceof DeskModelError ? e.code : "client_error";
       // The ledger keeps the short, non-secret detail too (HTTP status and the provider's error TYPE, e.g. "http_error:400:invalid_request_error"),
       // so a failed call explains itself. Never the provider's message or body. The caller-facing `detail` stays the bare code.
-      const ledgerCode = e instanceof DeskModelError ? [e.code, e.status || null, e.providerType || null].filter((x) => x !== null).join(":") : code;
+      const ledgerCode = e instanceof DeskModelError ? [e.code, e.status || null, e.providerType || null, e.providerPath || null].filter((x) => x !== null).join(":") : code;
       const cost = definitelyNotBilled(e) ? 0 : est;
       try { await store.finalizeCall(caller, callId, { costUsd: cost, latencyMs: clock() - t0, errorCode: ledgerCode }); } catch (_) { /* reservation stays at its estimate */ }
       return blocked("model_error", { detail: code, callId });

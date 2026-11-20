@@ -50,9 +50,22 @@ export function withLastMarker(messages) {
   return [...messages.slice(0, -1), { ...last, content }];
 }
 
-function cleanBlock(b) {
-  if (b && b.type === "tool_use") return { type: "tool_use", id: String(b.id || ""), name: String(b.name || ""), input: b.input && typeof b.input === "object" ? b.input : {} };
-  return { type: "text", text: b && typeof b.text === "string" ? b.text : "" };
+// The model's assistant turn is sent back to it on the next round, so it must stay a VALID turn (found by the second live run, R2, question 3: a round that
+// had many parallel tool calls and a long reply was answered with HTTP 400 invalid_request_error on the next round). Before, every block that was not a
+// tool_use became a text block, so a "thinking" block turned into an EMPTY text block, which the API rejects, and the thinking itself was lost. Now:
+//   tool_use           rebuilt from its three fields (as before)
+//   text               kept only when it has text (an empty text block is never sent)
+//   thinking           returned exactly as received (type, thinking, signature): the API checks that a replayed thinking block is unchanged
+//   redacted_thinking  returned exactly as received (type, data)
+//   anything else      dropped
+// Thinking text is the model's own and goes only back to the same model; it is never shown on a card or read by any code.
+export function cleanBlock(b) {
+  if (!b || typeof b !== "object") return null;
+  if (b.type === "tool_use") return { type: "tool_use", id: String(b.id || ""), name: String(b.name || ""), input: b.input && typeof b.input === "object" && !Array.isArray(b.input) ? b.input : {} };
+  if (b.type === "text") return typeof b.text === "string" && b.text.trim() !== "" ? { type: "text", text: b.text } : null;
+  if (b.type === "thinking") return typeof b.thinking === "string" && typeof b.signature === "string" ? { type: "thinking", thinking: b.thinking, signature: b.signature } : null;
+  if (b.type === "redacted_thinking") return typeof b.data === "string" ? { type: "redacted_thinking", data: b.data } : null;
+  return null;
 }
 
 // ctx: { caller, question, asOf, route, call, deps }  (call = the pipeline's metered model caller)
@@ -84,7 +97,9 @@ export async function runLoop({ caller, question, asOf, forbidCurrent = false, r
   for (;;) {
     const res = await call({ step: "loop", model: MODELS.loop, system: cachedSystem(system), messages: withLastMarker(messages), tools: specs, max_tokens: LOOP_LIMITS.maxTokens, promptHash: hash, toolIds });
     if (!res.ok) return done("blocked", { blocked: res });
-    const content = ((res.response && res.response.content) || []).map(cleanBlock);
+    // A reply cut off by max_tokens may hold a half-written tool call (more likely when the model thinks and calls many tools at once): fail closed, run nothing from it.
+    if (res.response && res.response.stop_reason === "max_tokens") return done("limit", { limit: "max_tokens" });
+    const content = ((res.response && res.response.content) || []).map(cleanBlock).filter(Boolean);
     const uses = content.filter((b) => b.type === "tool_use");
     if (!uses.length) {
       // Safety valve for a narrowed set: a first reply that used NO tool at all may mean the router sent the question to the wrong domain, so the
