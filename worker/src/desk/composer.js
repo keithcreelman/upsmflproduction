@@ -267,15 +267,16 @@ const TITLE_KINDS = Object.freeze([
   { count: "titles", years: "title_years", title: "Championships by franchise, with every season" },
   { count: "toilet_titles", years: "toilet_years", title: "Toilet Bowl titles by franchise, with every season" },
 ]);
-export function completeTitleBlocks({ index, factsUsed, blocks }) {
+export function completeTitleBlocks({ index, factsUsed, blocks, lead }) {
   const used = new Set(factsUsed || []);
-  // What the page SHOWS: the fact tokens in the cells, titles and column labels of the model's own blocks. A block's fact_ids list is bookkeeping, not display (R15 review:
-  // a table that listed every season in fact_ids but showed one row suppressed the complete table).
+  // What the page SHOWS and RESOLVES: fact tokens in the lead and in the ROW cells of the model's own blocks. A block's fact_ids list is bookkeeping, and a block title or a
+  // column label is printed without resolving tokens (site/commish/desk/desk_render.js titleHtml), so neither counts (R15 and R16 reviews).
   const shown = new Set();
+  const addTokens = (c) => { if (typeof c === "string") for (const m of c.matchAll(/\{\{f\.([^}]+)\}\}/g)) shown.add(m[1]); };
+  addTokens(lead);
   for (const b of blocks || []) {
-    if (!b || typeof b !== "object") continue;
-    const cells = [b.title, ...(Array.isArray(b.columns) ? b.columns : []), ...(Array.isArray(b.rows) ? b.rows.flat() : [])];
-    for (const c of cells) if (typeof c === "string") for (const m of c.matchAll(/\{\{f\.([^}]+)\}\}/g)) shown.add(m[1]);
+    if (!b || typeof b !== "object" || !Array.isArray(b.rows)) continue;
+    for (const r of b.rows) for (const c of Array.isArray(r) ? r : []) addTokens(c);
   }
   const inBlocks = shown;
   const calls = new Set();
@@ -308,7 +309,7 @@ export function completeTitleBlocks({ index, factsUsed, blocks }) {
 export function buildServerCard({ cleaned, envelopes, calls, asOf, canonSha, requestId, costUsd, modelCalls, notes }) {
   const index = buildFactIndex(envelopes);
   const facts = {};
-  const added = completeTitleBlocks({ index, factsUsed: cleaned.facts_used, blocks: cleaned.blocks });
+  const added = completeTitleBlocks({ index, factsUsed: cleaned.facts_used, blocks: cleaned.blocks, lead: cleaned.lead_md });
   const factsUsed = [...new Set([...cleaned.facts_used, ...added.factIds])].sort();
   for (const id of factsUsed) {
     const f = index.get(id);

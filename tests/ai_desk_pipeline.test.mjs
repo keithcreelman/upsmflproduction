@@ -1111,6 +1111,13 @@ test("no-record decline (R15 review): the checked domain must be one the QUESTIO
   t.equal(run(["pick_lineage", "contract_timeline"], "Trace the 2013 pick that became Markus Wheaton."), null, "a second checked domain the question does not name");
   // words that name no domain at all
   t.equal(run(["finishes"], "Tell me something interesting."), null, "no domain words in the question");
+  // R16 review: an answerable history clause beside an unserved clause is never declined whole, whichever domain the model checked
+  t.equal(run(["owner_history"], "Who was the 2013 champion, and who was the owner of that team?"), null, "the champion clause is answerable");
+  t.equal(run(["pick_lineage"], "Who won the title after the 2013 pick was traded?"), null, "a title clause beside a pick clause");
+  t.equal(run(["contract_timeline"], "What was the salary of the 2013 champion?"), null, "a champion clause beside a salary clause");
+  // a year or a date alone is not a clause: these still decline
+  t.ok(run(["pick_lineage"], "Trace the pick from 2013-06-05 that became Markus Wheaton."), "a date is stripped");
+  t.ok(run(["finishes"], "Who won the 2013 UPS title?"), "a title word is served by finishes");
 });
 
 test("no-record decline, end to end (R15 review): a wrong coverage domain chosen by the model reaches the composer instead of a false decline", async () => {
@@ -1143,6 +1150,11 @@ test("complete title table: a card that uses a franchise's count gets a server-b
   const hiddenCard = buildServerCard({ cleaned: hidden, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] });
   t.equal(hiddenCard.blocks.length, 2, "the complete table is still added");
   t.deepEqual(hiddenCard.blocks[1].rows.map((r) => r[2]), ["{{f.c1.title_years_f0010}}", "{{f.c1.title_years_f0001}}"]);
+  // R16 review: tokens in a block TITLE are printed unresolved by the page, so a title that names every list does not count either; tokens in the lead and in row cells do
+  const inTitle = { ...cleaned, blocks: [{ type: "table", title: "{{f.c1.title_years_f0010}} {{f.c1.title_years_f0001}}", columns: ["a"], rows: [], fact_ids: [], tool_call_ids: [] }] };
+  t.equal(buildServerCard({ cleaned: inTitle, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] }).blocks.length, 2, "tokens in a title do not count as shown");
+  const inLead = { ...cleaned, lead_md: "{{f.c1.titles_f0010}} then {{f.c1.title_years_f0010}} and {{f.c1.title_years_f0001}}" };
+  t.equal(buildServerCard({ cleaned: inLead, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] }).blocks.length, 0, "every list in the lead is shown, so nothing is added");
   // a card that uses no title fact gets no table
   const plain = { ...cleaned, lead_md: "nothing", facts_used: [] };
   t.equal(buildServerCard({ cleaned: plain, envelopes: [envelope], calls: [], asOf: "2025-12-31", canonSha: SHA, requestId: "req_t", costUsd: 0, modelCalls: 0, notes: [] }).blocks.length, 0);

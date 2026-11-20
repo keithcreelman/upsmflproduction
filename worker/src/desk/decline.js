@@ -24,9 +24,13 @@ const DECLINE_REASONS = new Set(["NO_RECORD", "unsupported_as_of"]);
 // say nothing about WHAT was asked, so they never bind and never object. SPECIFIC question domains (cap, contracts, trades, picks, roster, players) must each be served by
 // one of the domains the run checked, and every checked domain must be served by at least one domain the question names. A coverage domain that is not listed here (rules by
 // date, forum history, anything new) never produces a code-built decline: the composer handles it as before.
-const GENERIC = new Set(["history", "standings", "calendar", "data_freshness"]);
+// Only calendar and freshness words are context rather than a clause. A bare year or date is removed from the question before its words are read (it names WHEN, not WHAT), but a
+// history or standings WORD ("champion", "won", "title", "since") is a clause the desk can answer, so a checked domain must serve it (R16 review: "who was the 2013 champion, and
+// who was the owner of that team?" checked only against owner history must not be declined whole).
+const GENERIC = new Set(["calendar", "data_freshness"]);
+const stripYears = (q) => String(q).replace(/\b(?:19|20)\d{2}(?:-\d{2}-\d{2})?\b/g, " ");
 export const DOMAIN_BINDING = Object.freeze({
-  finishes: Object.freeze({ any: ["history", "standings"], specific: [] }),
+  finishes: Object.freeze({ any: ["history", "standings"], specific: ["history", "standings"] }),
   pick_lineage: Object.freeze({ any: ["picks", "trades"], specific: ["picks", "trades"] }),
   draft_order: Object.freeze({ any: ["picks", "trades"], specific: ["picks", "trades"] }),
   contract_timeline: Object.freeze({ any: ["contracts", "cap"], specific: ["contracts", "cap"] }),
@@ -67,7 +71,7 @@ export function findNoRecordDecline(envelopes, { effAsOf, currentSeason, forbidC
     if (typeof d.note === "string" && d.note.trim() && d.note.length <= MAX_NOTE && !/[<>{}\[\]]|https?:/i.test(d.note) && !notes.includes(d.note.trim())) notes.push(d.note.trim());
   }
   // The binding to the question's words.
-  const asked = keywordDomains(question);
+  const asked = keywordDomains(stripYears(question));
   const specificAsked = asked.filter((x) => !GENERIC.has(x));
   const domains = real.map((e) => e.data.domain);
   for (const dom of domains) if (!DOMAIN_BINDING[dom].any.some((x) => asked.includes(x))) return null;
