@@ -1,0 +1,283 @@
+{
+ "recorded_from": "origin/main 7d24bc5b, real worker, harness tests/fixtures/worker_harness.mjs",
+ "requests": [
+  {
+   "name": "me via query session",
+   "method": "GET",
+   "path": "/api/me?L=74598&YEAR=2026&MFL_USER_ID=tok-A",
+   "status": 200,
+   "body": "{\"configured\":true,\"franchise_id\":\"0008\",\"franchise_name\":\"UPS\",\"is_commish\":true}",
+   "mfl_exports": [
+    "myleagues"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "me via cookie session",
+   "method": "GET",
+   "path": "/api/me?L=74598&YEAR=2026",
+   "status": 200,
+   "body": "{\"configured\":true,\"franchise_id\":\"0001\",\"franchise_name\":\"UPS\",\"is_commish\":false}",
+   "mfl_exports": [
+    "myleagues"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "me commissioner session",
+   "method": "GET",
+   "path": "/api/me?L=74598&YEAR=2026&MFL_USER_ID=tok-commish",
+   "status": 200,
+   "body": "{\"configured\":true,\"franchise_id\":\"0000\",\"franchise_name\":\"UPS\",\"is_commish\":true}",
+   "mfl_exports": [
+    "myleagues"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "me with a franchise id only",
+   "method": "GET",
+   "path": "/api/me?L=74598&YEAR=2026&franchise_id=0001",
+   "status": 200,
+   "body": "{\"configured\":true,\"franchise_id\":\"0001\",\"franchise_name\":\"L.A. Looks\",\"is_commish\":false}",
+   "mfl_exports": [
+    "league"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "me with no credentials",
+   "method": "GET",
+   "path": "/api/me?L=74598&YEAR=2026",
+   "status": 200,
+   "body": "{\"configured\":false}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "me with an unknown session",
+   "method": "GET",
+   "path": "/api/me?L=74598&YEAR=2026&MFL_USER_ID=tok-nobody",
+   "status": 200,
+   "body": "{\"configured\":false}",
+   "mfl_exports": [
+    "myleagues"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "me with an unrelated Authorization header",
+   "method": "GET",
+   "path": "/api/me?L=74598&YEAR=2026&MFL_USER_ID=tok-A",
+   "status": 200,
+   "body": "{\"configured\":true,\"franchise_id\":\"0008\",\"franchise_name\":\"UPS\",\"is_commish\":true}",
+   "mfl_exports": [
+    "myleagues"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "me from a client that says it is not the beta",
+   "method": "GET",
+   "path": "/api/me?L=74598&YEAR=2026&MFL_USER_ID=tok-A",
+   "status": 200,
+   "body": "{\"configured\":true,\"franchise_id\":\"0008\",\"franchise_name\":\"UPS\",\"is_commish\":true}",
+   "mfl_exports": [
+    "myleagues"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "lineup read, no credentials",
+   "method": "GET",
+   "path": "/api/lineup?L=74598&YEAR=2026&franchise_id=0008",
+   "status": 401,
+   "body": "{\"ok\":false,\"known\":false,\"state\":\"unknown\",\"starters\":null,\"error\":\"MFL_USER_ID cookie required (sign in to MFL first)\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "lineup read, session in the query",
+   "method": "GET",
+   "path": "/api/lineup?L=74598&YEAR=2026&franchise_id=0008&MFL_USER_ID=tok-A",
+   "status": 200,
+   "body": "{\"ok\":false,\"known\":false,\"state\":\"unknown\",\"source\":\"none\",\"franchise_id\":\"0008\",\"week\":\"\",\"starters\":null,\"error\":\"no playerRosterStatuses block\",\"ledger_error\":\"ledger_read_failed: no such table: ups_lineup_submissions\",\"diag\":{\"fid\":\"0008\",\"week\":\"\",\"viewerIdentity\":\"query_param\",\"viewer\":{\"step\":\"parsed\",\"ok\":false,\"matched\":0,\"counts\":{},\"weekUsed\":\"current\"},\"anon\":{\"step\":\"parsed\",\"ok\":false,\"matched\":0,\"starters\":0,\"counts\":{}},\"accepted\":\"none\"}}",
+   "mfl_exports": [
+    "myleagues",
+    "rosters",
+    "playerRosterStatus",
+    "rosters",
+    "playerRosterStatus"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "submit lineup, no credentials",
+   "method": "POST",
+   "path": "/api/submit-lineup?L=74598&YEAR=2026",
+   "status": 400,
+   "body": "{\"ok\":false,\"error\":\"starters[] required\",\"week_requested\":\"12\",\"week_used\":\"12\",\"week_source\":\"client\",\"week_resolve_error\":\"no credentials, so no season was resolved\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "trade offers list, session in the query",
+   "method": "GET",
+   "path": "/api/trades/proposals?L=74598&YEAR=2026&MFL_USER_ID=tok-A",
+   "status": 200,
+   "body": "{\"ok\":true,\"server\":\"worker.test\",\"league_id\":\"74598\",\"season\":2026,\"franchise_id\":\"\",\"source\":\"worker:live_mfl_pending_trades\",\"pending_lookup\":{\"ok\":true,\"rows_count\":0,\"upstream_status\":200,\"error\":\"\",\"stored_only_outgoing\":0,\"stored_only_incoming\":0},\"counts\":{\"total\":0,\"related_total\":0,\"incoming_total\":0,\"outgoing_total\":0,\"incoming_pending\":0,\"outgoing_pending\":0,\"incoming_mfl_present_pending\":0,\"outgoing_mfl_present_pending\":0,\"outgoing_stored_only\":0,\"incoming_stored_only\":0},\"proposals\":[],\"incoming\":[],\"outgoing\":[],\"offers\":[],\"generated_at\":\"<T>\"}",
+   "mfl_exports": [
+    "pendingTrades",
+    "league"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "trade offers list, no credentials",
+   "method": "GET",
+   "path": "/api/trades/proposals?L=74598&YEAR=2026",
+   "status": 401,
+   "body": "{\"ok\":false,\"error\":\"Missing MFL owner session (MFL_USER_ID). Re-open the workbench from MFL or pass MFL_USER_ID.\",\"pending_lookup\":{\"ok\":false,\"rows_count\":0,\"upstream_status\":401,\"error\":\"missing_owner_session_mfl_user_id\",\"cookie_role\":\"missing\",\"missing_owner_session\":true},\"upstream\":{\"status\":401,\"url\":\"\",\"error\":\"missing_owner_session_mfl_user_id\",\"preview\":\"\"}}",
+   "mfl_exports": [
+    "league"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "trade offer create, no credentials",
+   "method": "POST",
+   "path": "/api/trades/proposals?L=74598&YEAR=2026",
+   "status": 401,
+   "body": "{\"ok\":false,\"code\":\"unauthenticated\",\"error\":\"Sign in to MFL to do that.\",\"message\":\"Sign in to MFL to do that.\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "waivers state, no credentials",
+   "method": "GET",
+   "path": "/api/waivers/state?L=74598&YEAR=2026",
+   "status": 200,
+   "body": "{\"ok\":true,\"league_id\":\"74598\",\"season\":\"2026\",\"now_unix\":<N>,\"mode\":\"\",\"waiver_type\":null,\"waiver_type_known\":false,\"write_enabled\":false,\"write_enabled_source\":\"WAIVERS_INAPP_ENABLED\",\"native_link\":\"https://www48.myfantasyleague.com/2026/add_drop?L=74598\",\"window\":{\"mode\":\"closed\",\"mode_reason\":\"no_waiver_calendar_events_and_unknown_waiver_type\",\"add_drop_allowed\":true,\"blackout\":null,\"next_bbid_run_unix\":null,\"next_bbid_run_label\":\"\",\"next_bbid_run_source\":\"\",\"fcfs_closes_unix\":null,\"fcfs_closes_label\":\"\",\"bbid_runs_upcoming\":[],\"waivers_open\":false,\"waivers_open_at_unix\":null},\"limits\":{\"known\":false,\"league_readable\":true,\"bbid_minimum\":null,\"bbid_increment\":null,\"max_rounds\":null,\"conditional\":null,\"waiver_type\":null,\"waiver_type_known\":false,\"roster_size\":null},\"calendar_events\":[],\"last_run\":{\"known\":true,\"unix\":null,\"label\":\"\",\"source\":\"\",\"unknown_reason\":\"\"},\"viewer\":null}",
+   "mfl_exports": [
+    "calendar",
+    "league",
+    "nflSchedule"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "auction bid, no credentials",
+   "method": "POST",
+   "path": "/api/auction/bid?L=74598&YEAR=2026",
+   "status": 503,
+   "body": "{\"ok\":false,\"error\":\"auction_not_open\",\"message\":\"The Free-Agent auction isn't running right now.\",\"native_link\":\"https://www48.myfantasyleague.com/2026/options?LEAGUE_ID=74598&O=43\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "roster move, no credentials",
+   "method": "POST",
+   "path": "/roster-workbench/action?L=74598&YEAR=2026",
+   "status": 403,
+   "body": "{\"ok\":false,\"error\":\"Authentication required — forward the viewer session (MFL_USER_ID) or a valid COMMISH_API_KEY.\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "contract update, no credentials",
+   "method": "POST",
+   "path": "/commish-contract-update?L=74598&YEAR=2026",
+   "status": 401,
+   "body": "{\"ok\":false,\"status\":\"unauthorized\",\"code\":\"unauthenticated\",\"error\":\"This page didn't send your MFL sign-in. Reload it (on the app: tap Reload when it offers the new version) and try again — nothing was changed.\",\"message\":\"This page didn't send your MFL sign-in. Reload it (on the app: tap Reload when it offers the new version) and try again — nothing was changed.\",\"submission_id\":\"\",\"details\":{\"reason\":\"This page didn't send your MFL sign-in. Reload it (on the app: tap Reload when it offers the new version) and try again — nothing was changed.\",\"code\":\"unauthenticated\"}}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "draft pick, no credentials",
+   "method": "POST",
+   "path": "/api/pick?L=74598&YEAR=2026",
+   "status": 200,
+   "body": "{\"ok\":true,\"simulated\":true,\"slot\":\"?\",\"round\":null,\"pick\":null,\"franchise_id\":\"0008\",\"franchise_name\":\"Real Deal Creel\",\"player_id\":\"16614\",\"player_name\":\"Test P16614\",\"contract\":null,\"discord_test_posted\":false,\"discord_message\":\"🏈 ? — Real Deal Creel selects **Test P16614**\"}",
+   "mfl_exports": [
+    "draftResults",
+    "players",
+    "league"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "settings, session in the body",
+   "method": "POST",
+   "path": "/api/settings?L=74598&YEAR=2026",
+   "status": 200,
+   "body": "{\"franchise_id\":\"0008\",\"franchise_name\":\"UPS\",\"league_name\":\"UPS\"}",
+   "mfl_exports": [
+    "myleagues"
+   ],
+   "mfl_imports": 0
+  },
+  {
+   "name": "admin route, no credentials",
+   "method": "POST",
+   "path": "/admin/3way/cancel?L=74598&YEAR=2026",
+   "status": 401,
+   "body": "{\"ok\":false,\"code\":\"unauthenticated\",\"error\":\"Authentication required.\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "admin route, wrong key",
+   "method": "GET",
+   "path": "/admin/config-health?L=74598&YEAR=2026&APIKEY=wrong",
+   "status": 403,
+   "body": "{\"ok\":false,\"code\":\"forbidden\",\"error\":\"Not permitted.\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "admin route, right key",
+   "method": "GET",
+   "path": "/admin/config-health?L=74598&YEAR=2026&APIKEY=admin-key-secret",
+   "status": 200,
+   "body": "{\"ok\":true,\"checked\":35,\"missing\":[{\"key\":\"LEAGUE_ID\",\"category\":\"mfl\",\"silent_fallback\":true},{\"key\":\"ROAST_TRACK_API_KEY\",\"category\":\"auth\",\"silent_fallback\":false},{\"key\":\"ANTHROPIC_API_KEY\",\"category\":\"ai\",\"silent_fallback\":false},{\"key\":\"GITHUB_PAT\",\"category\":\"github\",\"silent_fallback\":false},{\"key\":\"GIPHY_API_KEY\",\"category\":\"media\",\"silent_fallback\":false},{\"key\":\"DISCORD_CONTRACT_BOT_TOKEN\",\"category\":\"discord-core\",\"silent_fallback\":false},{\"key\":\"DISCORD_APPLICATION_ID\",\"category\":\"discord-core\",\"silent_fallback\":false},{\"key\":\"DISCORD_PUBLIC_KEY\",\"category\":\"discord-core\",\"silent_fallback\":false},{\"key\":\"DISCORD_GUILD_ID\",\"category\":\"discord-core\",\"silent_fallback\":false},{\"key\":\"COMMISH_DISCORD_USER_ID\",\"category\":\"discord-core\",\"silent_fallback\":false},{\"key\":\"DISCORD_RULES_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":false},{\"key\":\"DISCORD_AUCTION_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":true},{\"key\":\"DISCORD_AUCTION_TEST_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":true},{\"key\":\"DISCORD_DRAFT_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":true},{\"key\":\"DISCORD_DRAFT_TEST_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":true},{\"key\":\"DISCORD_PICKS_THREAD_PARENT_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":true},{\"key\":\"DISCORD_CONTRACT_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":true},{\"key\":\"DISCORD_CONTRACT_TEST_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":true},{\"key\":\"DISCORD_REMINDER_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":true},{\"key\":\"DISCORD_DROPS_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":true},{\"key\":\"OTB_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":false},{\"key\":\"OTB_TEST_CHANNEL_ID\",\"category\":\"discord-channels\",\"silent_fallback\":false}],\"present_count\":4}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "unknown admin path",
+   "method": "GET",
+   "path": "/admin/nope?L=74598&YEAR=2026",
+   "status": 404,
+   "body": "{\"ok\":false,\"error\":\"not_found\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "unknown api path",
+   "method": "GET",
+   "path": "/api/nope?L=74598&YEAR=2026",
+   "status": 404,
+   "body": "{\"ok\":false,\"error\":\"not_found\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "hall (handled before routing)",
+   "method": "GET",
+   "path": "/api/hall/proposals?L=74598&YEAR=2026",
+   "status": 500,
+   "body": "{\"ok\":false,\"isAdmin\":false,\"error\":\"Worker error: no such table: hall_proposals\",\"reason\":\"Worker error: no such table: hall_proposals\"}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  },
+  {
+   "name": "missing league parameter",
+   "method": "GET",
+   "path": "/api/me",
+   "status": 200,
+   "body": "{\"configured\":false}",
+   "mfl_exports": [],
+   "mfl_imports": 0
+  }
+ ]
+}

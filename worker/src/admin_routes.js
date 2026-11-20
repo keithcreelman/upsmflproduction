@@ -35,6 +35,8 @@ export const ADMIN_ROUTES = {
   "/admin/auction/snapshot-era-pool": ["POST"],
   "/admin/auction/void-nom-day": ["POST"],
   "/admin/backfill-playoff-weekly": ["GET"],
+  "/admin/beta/invites": ["POST"],
+  "/admin/beta/purge-sessions": ["POST"],
   "/admin/bug-report/status": ["*","POST"],
   "/admin/bug-report/test-discord": ["*","POST"],
   "/admin/bug-report/triage-note": ["*","POST"],

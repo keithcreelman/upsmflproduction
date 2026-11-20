@@ -41,6 +41,15 @@ export const FEATURE_FLAGS = [
   { key: "LINEUP_FORFEIT_REVERSAL_ENABLED", label: "Reverse MFL trades of a forfeited pick (switches lockout off and on)", help: "Keith\u2019s ruling (2026-10-12). ON = when the hourly forfeit check finds a forfeited pick traded on MFL\u2019s own site, the worker replies in that trade\u2019s #transactions thread tagging both owners (\u201cthis trade will be reversed\u201d), switches MFL commissioner lockout OFF on Setup \u2192 Abilities Setup (only that radio; every other field re-submitted as loaded and verified unchanged), reverses the WHOLE trade as the two teams, and switches lockout back ON. MFL emails all owners each time lockout changes. Holds and DMs the commissioner instead if the trade can\u2019t be identified exactly, any asset has moved since, or the lockout page doesn\u2019t behave. OFF = nothing is reversed; the commissioner and both owners are still told.", danger: true },
   { key: "LINEUP_AUTO_PUBLISH_ENABLED", label: "Lineup violations → automatic ruling + Injury Report post", help: "Keith\u2019s standing rule (2026-10-11). ON = on the first run after a week\u2019s final kickoff, each booked §G3 lineup violation whose evidence is unambiguous is ruled (offense number, penalty, exact pick reserved) and posted ONCE inside that week\u2019s existing Week N Injury Report thread, @mentioning the owner. Anything ambiguous \u2014 missing or conflicting injury evidence, an unreadable or changed lineup, an unverifiable thread or owner mention, the mass-booking breaker, unreadable pick ownership, several qualifying picks, needs_review \u2014 is held and DMs the commissioner instead. OFF = nothing is ruled or posted automatically; booking still records candidates and the manual /admin/lineup routes still work. Penalties are never applied on MFL by this switch.", danger: true },
   { key: "IR_NATIVE_ANNOUNCE_ENABLED", label: "IR native-move announcer (real Discord posts)", help: "The IR placed/activated announcement only ever fired at write-time, from this app's own roster-action UI — a move made on MFL's native page was silent forever (found 2026-08-31: Hammer placed Josh Jacobs on IR with zero announcement). The hourly cron now diffs the live roster against ups_ir_roster_status and detects any non-IR↔IR transition, from either path. OFF = the diff still runs and the ledger stays warm every hour, but every detected transition is posted as dry_run only — nothing hits Discord. ON = a detected transition posts for real, using the exact same copy/GIF pools/thread structure as the app's own write-time announcement. Armed 2026-08-31 via a direct D1 override ahead of this registration shipping — this entry exists so the switch is visible and toggleable from the settings panel like every other kill switch, not just from a raw D1 write.", danger: true },
+  // Optional mobile beta (issue #1475). OFF by default; a beta request is refused before any MFL call or D1 write
+  // when the master is off (worker/src/beta_gate.js). One switch per flow so a flow can be stopped on its own.
+  { key: "BETA_ENABLED", label: "Mobile beta: master switch", help: "OFF = every mobile-beta request is refused (stable code beta_paused), including from pages that are already open. The original app is unaffected.", danger: true },
+  { key: "BETA_FLOW_LINEUP", label: "Mobile beta: lineup flow", help: "ON = the beta may read and submit lineups.", danger: true },
+  { key: "BETA_FLOW_ROSTER", label: "Mobile beta: roster moves", help: "ON = the beta may submit drops, IR and taxi moves.", danger: true },
+  { key: "BETA_FLOW_TRADES", label: "Mobile beta: trades", help: "ON = the beta may propose, respond to and cancel trades and post trade-bait notes.", danger: true },
+  { key: "BETA_FLOW_WAIVERS", label: "Mobile beta: waivers", help: "ON = the beta may read and submit waiver claims.", danger: true },
+  { key: "BETA_FLOW_AUCTION", label: "Mobile beta: auction", help: "ON = the beta may bid and nominate.", danger: true },
+  { key: "BETA_FLOW_CONTRACTS", label: "Mobile beta: contract actions", help: "ON = the beta may submit extensions, MYM, MYAC, restructures and tags.", danger: true },
 ];
 const FLAG_KEYS = FEATURE_FLAGS.map((f) => f.key);
 
@@ -75,6 +84,19 @@ export async function getFeatureFlag(env, name) {
   if (overrides === null) return false;
   if (Object.prototype.hasOwnProperty.call(overrides, name)) return String(overrides[name]) === "1";
   return safeStr(env && env[name]) === "1";
+}
+
+// Several flags from ONE override read (the beta gate needs the master plus a flow on every request). Same rules as
+// getFeatureFlag: an unreadable override map means every flag is OFF, and { ok:false } tells the caller it could not know.
+export async function getFeatureFlagsFor(env, names) {
+  const overrides = await readOverrides(env);
+  const out = {};
+  for (const name of names) {
+    if (overrides === null) out[name] = false;
+    else if (Object.prototype.hasOwnProperty.call(overrides, name)) out[name] = String(overrides[name]) === "1";
+    else out[name] = safeStr(env && env[name]) === "1";
+  }
+  return { ok: overrides !== null, flags: out };
 }
 
 // Every flag's effective state + source, for the settings UI.
