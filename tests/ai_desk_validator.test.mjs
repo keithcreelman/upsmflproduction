@@ -1,6 +1,6 @@
 // Commissioner Desk: validator tests. Offline and deterministic. Run: node tests/ai_desk_validator.test.mjs
 import { test, run, t } from "./fixtures/mini_test.mjs";
-import { validateCard, findSpelledQuantities, errorCodes, buildFactIndex, canonShaMatches, LIMITS, CODES } from "../worker/src/desk/validator.js";
+import { validateCard, findSpelledQuantities, errorCodes, buildFactIndex, canonShaMatches, collectToolGaps, LIMITS, CODES } from "../worker/src/desk/validator.js";
 
 const SHA = "194f8df4109cefab2ef7133a0c59d73d7d588954";
 const RULES = { canon_sha: SHA, anchors: ["s1-c4", "s2-t6-1"] };
@@ -10,7 +10,7 @@ function env(callId, tool, status, o = {}) {
   return { tool, call_id: callId, status, data: null, facts: o.facts || [], coverage: { supported: status === "ok", gaps: o.gaps || [] }, provenance: {}, data_class: o.dataClass || "P0", freshness: null, refusal: o.refusal || null, error: o.error || null };
 }
 const OK1 = env("c1", "cap.position", "ok", { facts: [fact("c1", "cap_available", 12000, "usd"), fact("c1", "franchise", "0003", "id"), fact("c1", "rank", 4, "rank")] });
-const ctxFor = (envelopes, o = {}) => ({ envelopes, knowledge: { rules: RULES }, ceiling: "P2", asOf: "current", today: "2026-11-19", ...o });
+const ctxFor = (envelopes, o = {}) => ({ envelopes, knowledge: { rules: RULES }, retrievedAnchors: ["s1-c4", "s2-t6-1"], ceiling: "P2", asOf: "current", today: "2026-11-19", ...o });
 const GOOD = () => ({ state: "answer", lead_md: "Franchise {{f.c1.franchise}} has {{f.c1.cap_available}} of cap space.", facts_used: ["c1.cap_available", "c1.franchise"] });
 const codes = (card, ctx) => errorCodes(validateCard(card, ctx).errors);
 
@@ -105,6 +105,32 @@ test("fake anchor and wrong canon_sha", () => {
   t.ok(codes({ ...GOOD(), cites: [{ anchor: "s1-c5", canon_sha: "194f8df", claim: "x" }] }, { ...ctx, knowledge: { rules: real } }).includes(CODES.FAKE_ANCHOR));
 });
 
+test("a valid anchor that was never retrieved this run is rejected (retrieval binding)", () => {
+  const cite = [{ anchor: "s2-t6-1", canon_sha: "194f8df", claim: "A rule." }];
+  const ok = validateCard({ ...GOOD(), cites: cite }, ctxFor([OK1]));
+  t.ok(ok.ok, JSON.stringify(ok.errors));
+  // real anchor, in the index, but not returned by rules.search / rules.get this run
+  t.deepEqual(codes({ ...GOOD(), cites: cite }, ctxFor([OK1], { retrievedAnchors: ["s1-c4"] })), [CODES.UNRETRIEVED_ANCHOR]);
+  t.deepEqual(codes({ ...GOOD(), cites: cite }, ctxFor([OK1], { retrievedAnchors: undefined })), [CODES.UNRETRIEVED_ANCHOR], "absent means none retrieved");
+  t.deepEqual(codes({ ...GOOD(), cites: cite }, ctxFor([OK1], { retrievedAnchors: [] })), [CODES.UNRETRIEVED_ANCHOR]);
+  // Set, Map and object forms all work
+  t.ok(validateCard({ ...GOOD(), cites: cite }, ctxFor([OK1], { retrievedAnchors: new Set(["s2-t6-1"]) })).ok);
+  t.ok(validateCard({ ...GOOD(), cites: cite }, ctxFor([OK1], { retrievedAnchors: new Map([["s2-t6-1", {}]]) })).ok);
+  t.ok(validateCard({ ...GOOD(), cites: cite }, ctxFor([OK1], { retrievedAnchors: { "s2-t6-1": 1 } })).ok);
+  // a fake anchor is reported as fake, not as unretrieved
+  t.deepEqual(codes({ ...GOOD(), cites: [{ anchor: "s9-z9", canon_sha: "194f8df" }] }, ctxFor([OK1], { retrievedAnchors: [] })), [CODES.FAKE_ANCHOR]);
+});
+
+test("a fact whose as_of is current never answers a past-date question", () => {
+  const cur = env("c1", "cap.position", "ok", { facts: [{ ...fact("c1", "cap_available", 12000, "usd"), as_of: "current" }] });
+  const past = env("c1", "cap.position", "ok", { facts: [{ ...fact("c1", "cap_available", 12000, "usd"), as_of: "2023-10-01" }] });
+  const card = { state: "answer", lead_md: "Space was {{f.c1.cap_available}}." };
+  t.deepEqual(codes(card, ctxFor([cur], { asOf: "2023-10-01" })), [CODES.CURRENT_FACT_FOR_PAST_DATE]);
+  t.ok(validateCard(card, ctxFor([past], { asOf: "2023-10-01" })).ok);
+  t.ok(validateCard(card, ctxFor([cur], { asOf: "current" })).ok, "a current question may use current facts");
+  t.ok(codes({ state: "answer_with_caveat", lead_md: "Space was {{f.c1.cap_available}}." }, ctxFor([cur], { asOf: "2023-10-01" })).includes(CODES.CURRENT_FACT_FOR_PAST_DATE));
+});
+
 test("fact above the caller ceiling is rejected", () => {
   const p2 = env("c1", "cap.position", "ok", { dataClass: "P2", facts: [fact("c1", "cap_available", 12000, "usd")] });
   t.ok(validateCard({ ...GOOD(), lead_md: "Space is {{f.c1.cap_available}}.", facts_used: [] }, ctxFor([p2], { ceiling: "P2" })).ok);
@@ -121,23 +147,69 @@ test("fact above the caller ceiling is rejected", () => {
   t.ok(validateCard(GOOD(), { ...ctxFor([OK1]), facts: o }).ok);
 });
 
-test("tool gaps force a non-answer state and a gaps list that covers them", () => {
+test("tool gaps force a non-answer state; code adds them to the card", () => {
   const g = env("c2", "calendar.events", "ok", { gaps: [{ what: "dates conflict", why: "conflict_in_canon", source_needed: "a ruling" }, { what: "late", why: "stale", source_needed: "a refresh" }] });
   const ctx = ctxFor([OK1, g]);
-  const asAnswer = codes(GOOD(), ctx);
-  t.ok(asAnswer.includes(CODES.STATE_NOT_ALLOWED) && asAnswer.includes(CODES.MISSING_GAP), asAnswer.join());
-  t.deepEqual(codes({ ...GOOD(), state: "answer_with_gap" }, ctx).sort(), [CODES.MISSING_GAP, CODES.STATE_NEEDS_FIELD].sort());
-  // covers only one reason: still missing the other
-  const half = { ...GOOD(), state: "answer_with_gap", gaps: [{ what: "dates conflict", why: "conflict_in_canon", source_needed: "a ruling" }] };
-  t.deepEqual(codes(half, ctx), [CODES.MISSING_GAP]);
-  const full = { ...half, gaps: [...half.gaps, { what: "data is late", why: "stale", source_needed: "a refresh" }] };
-  t.ok(validateCard(full, ctx).ok);
-  // answer_with_caveat is not "answer"; allowed once the gaps are listed
-  t.ok(validateCard({ ...full, state: "answer_with_caveat" }, ctx).ok);
+  t.deepEqual(codes(GOOD(), ctx), [CODES.STATE_NOT_ALLOWED]);
+  // the model need not list tool gaps: code supplies them, so a gap state with no model gaps is valid
+  t.ok(validateCard({ ...GOOD(), state: "answer_with_gap" }, ctx).ok);
+  t.ok(validateCard({ ...GOOD(), state: "partial" }, ctx).ok);
+  t.ok(validateCard({ ...GOOD(), state: "answer_with_caveat" }, ctx).ok);
   // no tool gaps: a plain answer may not list gaps
   t.deepEqual(codes({ ...GOOD(), gaps: [{ what: "x", why: "NO_RECORD" }] }, ctxFor([OK1])), [CODES.GAPS_ON_PLAIN_ANSWER]);
   // answer_with_gap / partial need gaps even with clean tools
   t.deepEqual(codes({ ...GOOD(), state: "partial" }, ctxFor([OK1])), [CODES.STATE_NEEDS_FIELD]);
+});
+
+test("gap text with digits: an exact copy of a tool gap is code-sourced and allowed; any other model gap keeps the no-digits rule", () => {
+  const tg = { what: "Domain not covered before League Record slice S1", why: "partial_coverage", source_needed: "League Record slice S1" };
+  const g = env("c2", "coverage.check", "ok", { gaps: [tg] });
+  const ctx = ctxFor([OK1, g]);
+  // copied verbatim (digits and all): accepted, and dropped from the model's own list (code carries the tool's entry)
+  const v = validateCard({ ...GOOD(), state: "answer_with_gap", gaps: [tg] }, ctx);
+  t.ok(v.ok, JSON.stringify(v.errors));
+  t.deepEqual(v.cleaned.gaps, []);
+  t.deepEqual(collectToolGaps([OK1, g]).map(({ what, why, source_needed }) => ({ what, why, source_needed })), [tg]);
+  // whitespace around a verbatim copy does not matter; a changed word or a missing source_needed is not an exact copy
+  t.ok(validateCard({ ...GOOD(), state: "answer_with_gap", gaps: [{ ...tg, what: `  ${tg.what} ` }] }, ctx).ok);
+  t.ok(codes({ ...GOOD(), state: "answer_with_gap", gaps: [{ ...tg, what: "Domain not covered before League Record slice S2" }] }, ctx).includes(CODES.DIGIT_IN_PROSE));
+  t.ok(codes({ ...GOOD(), state: "answer_with_gap", gaps: [{ what: tg.what, why: tg.why }] }, ctx).includes(CODES.DIGIT_IN_PROSE));
+  t.ok(codes({ ...GOOD(), state: "answer_with_gap", gaps: [{ ...tg, why: "stale" }] }, ctx).includes(CODES.DIGIT_IN_PROSE));
+  // a model gap of its own stays held to the rule, and is kept next to the tool gap
+  t.ok(codes({ ...GOOD(), state: "answer_with_gap", gaps: [{ what: "missing since 2015", why: "NO_RECORD" }] }, ctx).includes(CODES.DIGIT_IN_PROSE));
+  const own = validateCard({ ...GOOD(), state: "answer_with_gap", gaps: [tg, { what: "an older season is missing", why: "NO_RECORD", source_needed: "the archive" }] }, ctx);
+  t.ok(own.ok);
+  t.deepEqual(own.cleaned.gaps.map((x) => x.why), ["NO_RECORD"]);
+  // a tool gap from a noise envelope (the model's own bad call) is not a real gap
+  const noise = env("c3", "x.nope", "forbidden", { error: { code: "unknown_tool" }, gaps: [tg] });
+  t.deepEqual(collectToolGaps([noise]), []);
+  // a non-ok tool with no gap of its own still needs the model to say what is missing
+  t.ok(codes({ ...GOOD(), state: "partial" }, ctxFor([OK1, env("c3", "x.y", "error", { error: { code: "tool_exception" } })])).includes(CODES.MISSING_GAP));
+});
+
+test("every real anchor is well formed and can be cited when retrieved", async () => {
+  const fs = await import("node:fs");
+  const { buildKnowledge } = await import("../worker/src/desk/knowledge.js");
+  const rulesJson = JSON.parse(fs.readFileSync(new URL("../site/m/data/rules.json", import.meta.url), "utf8"));
+  const K = buildKnowledge({ rulesJson, leagueId: "74598", currentSeason: 2026 });
+  const all = K.rules.anchors;
+  t.ok(all.length >= 100, `real index has ${all.length} anchors`);
+  const longest = Math.max(...all.map((a) => a.length));
+  t.ok(longest > 60, "the real index has anchors longer than the old 60-character limit");
+  t.ok(LIMITS.anchor >= longest + 30 && LIMITS.anchor <= 160, `limit ${LIMITS.anchor} covers the longest (${longest}) with headroom`);
+  const ctx = { envelopes: [OK1], knowledge: { rules: K.rules }, retrievedAnchors: all, ceiling: "P2", asOf: "current", today: "2026-11-19" };
+  let bad = 0;
+  for (const a of all) {
+    const v = validateCard({ ...GOOD(), cites: [{ anchor: a, canon_sha: K.rules.canon_sha.slice(0, 7), claim: "A rule." }] }, ctx);
+    if (!v.ok) { bad += 1; if (bad < 4) console.log("rejected", a, JSON.stringify(v.errors)); }
+  }
+  t.equal(bad, 0, "every real anchor can be cited when retrieved");
+  // the same anchors are UNRETRIEVED when the run did not return them, never FAKE
+  const long = all.find((a) => a.length === longest);
+  t.deepEqual(codes({ ...GOOD(), cites: [{ anchor: long, canon_sha: "194f8df" }] }, { ...ctx, retrievedAnchors: [] }), [CODES.UNRETRIEVED_ANCHOR]);
+  // an over-long or malformed anchor is still rejected
+  t.deepEqual(codes({ ...GOOD(), cites: [{ anchor: "a".repeat(161), canon_sha: "194f8df" }] }, ctx), [CODES.FAKE_ANCHOR]);
+  t.deepEqual(codes({ ...GOOD(), cites: [{ anchor: "a b", canon_sha: "194f8df" }] }, ctx), [CODES.FAKE_ANCHOR]);
 });
 
 test("a non-ok status forces a non-answer state with gaps", () => {
@@ -159,7 +231,9 @@ test("answer after unsupported_as_of on a past date is rejected", () => {
   const c = codes(GOOD(), ctx);
   t.ok(c.includes(CODES.AS_OF_UNSUPPORTED_ANSWER), c.join());
   const ok = { ...GOOD(), state: "answer_with_gap", gaps: [{ what: "that date cannot be checked", why: "unsupported_as_of", source_needed: "a dated record" }] };
-  t.ok(validateCard(ok, ctx).ok);
+  const dated = env("c1", "history.finishes", "ok", { facts: ["cap_available", "franchise"].map((k) => ({ ...fact("c1", k, 1, "id"), as_of: "2024-01-01" })) });
+  t.ok(validateCard(ok, ctxFor([dated, u], { asOf: "2024-01-01" })).ok);
+  t.ok(codes(ok, ctx).includes(CODES.CURRENT_FACT_FOR_PAST_DATE), "today's facts cannot answer a past date");
   // a future or current as_of does not trigger the past-date rule on its own (rule 5 still does)
   t.ok(!codes(GOOD(), ctxFor([OK1, u], { asOf: "current" })).includes(CODES.AS_OF_UNSUPPORTED_ANSWER));
 });

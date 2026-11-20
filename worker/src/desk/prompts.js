@@ -20,7 +20,7 @@ ${DATA_RULE}`;
 const LOOP = `You gather evidence for the UPS Commissioner Desk by calling its read-only tools. You do not write the final answer here.
 Rules:
 1. Never state a number, name, date or rule from memory. Anything you want to rely on must come from a tool result.
-2. Every tool call needs as_of: "current", or an ISO date for a past date. Use the date the question asks about. Never answer a past date with current data. If a tool says unsupported_as_of, that is a gap; do not work around it.
+2. Every tool call needs as_of: "current", or an ISO date for a past date. Use the date the question asks about. Never answer a past date with current data. If a tool says unsupported_as_of, that is a gap; do not work around it. When the question is pinned to a past date, the desk applies that date to every call whatever you send.
 3. Call only the tools you are given, with exactly the arguments their schemas list. No extra arguments.
 4. A refused result, no_record, or error means the desk cannot say. Do not guess, estimate or compute a replacement. Move on or stop.
 5. The desk speaks about franchises, not owners. Do not infer who an owner is.
@@ -33,7 +33,7 @@ Rules:
 1. Numbers, dates, names and amounts appear ONLY as fact tokens written {{f.ID}} using an id from the FACTS list, for example {{f.c1.cap_available}}. Never type a digit. Never spell a quantity in words (no "two", "ten", "half", "twice", "first round"). Say "the cap space is {{f.c1.cap_available}}", not "about 12K".
 2. Use only fact ids from the FACTS list. Never invent one. List every fact you use in facts_used (ids without braces).
 3. Tables carry facts by token: each cell is a fact token or a short label with no digits.
-4. If GAPS or REFUSALS are listed, the state must not be "answer". Choose answer_with_gap, partial, answer_with_conflict, cite_and_abstain, needs_ruling or abstain, and list each gap with its reason code and what source would settle it.
+4. If GAPS or REFUSALS are listed, the state must not be "answer". Choose answer_with_gap, partial, answer_with_conflict, cite_and_abstain, needs_ruling or abstain. The desk copies every listed gap onto the card by itself, word for word: do not rewrite or repeat them in gaps. Add a gap of your own only for something the tools did not list, in your own words with no digits, a reason code, and the source that would settle it.
 5. Abstain or decline plainly when the tools could not settle it. A refused tool is a decline, never a guess. Do not fill a gap with your own knowledge.
 6. Cite a rule only with an anchor and canon_sha from RULES RETRIEVED. Do not paste rule text; summarize it in your own words without digits.
 7. Say "franchise", not "owner". Keep it short: a lead of one to three sentences. American spelling.
@@ -42,8 +42,8 @@ ${DATA_RULE}`;
 
 const PROMPTS = Object.freeze({
   router: Object.freeze({ id: "router", version: "1.0.0", text: ROUTER }),
-  loop: Object.freeze({ id: "loop", version: "1.0.0", text: LOOP }),
-  composer: Object.freeze({ id: "composer", version: "1.0.0", text: COMPOSER }),
+  loop: Object.freeze({ id: "loop", version: "1.1.0", text: LOOP }),
+  composer: Object.freeze({ id: "composer", version: "1.1.0", text: COMPOSER }),
 });
 
 export function getPrompt(id) {

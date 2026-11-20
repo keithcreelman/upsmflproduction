@@ -6,7 +6,7 @@
 import { formatFact, MODEL_CARD_STATES, GAP_REASONS } from "./contract.js";
 import { MODELS, getPrompt, promptHash } from "./prompts.js";
 import { scanForInjection, wrapAsData, INJECTION_NOTE } from "./injection.js";
-import { buildFactIndex, LIMITS } from "./validator.js";
+import { buildFactIndex, collectToolGaps, MAX_CARD_GAPS, LIMITS } from "./validator.js";
 
 const STR = (max) => ({ type: "string", maxLength: max });
 export const EMIT_CARD_TOOL = Object.freeze({
@@ -48,22 +48,30 @@ function isNoise(env) {
   return (env.status === "forbidden" && code === "unknown_tool") || (env.status === "error" && code === "bad_arguments");
 }
 
-// Rule objects retrieved by rules.search / rules.get: any object with a string `anchor` (and optional text, title, canon_sha).
-export function collectRules(envelopes) {
-  const out = []; const seen = new Set();
+// Rules RETURNED in this run: any object with a string `anchor` inside the data of an OK rules.search or rules.get result.
+// This is the only source for cite binding (validator ctx.retrievedAnchors) and for the excerpt the server shows beside a cite.
+// `children` and `suggestions` are pointers, not retrieved text, so they are not walked.
+export const RULE_TOOLS = Object.freeze(["rules.search", "rules.get"]);
+const EXCERPT_CHARS = 400;
+export function retrievedRules(envelopes, max = 200) {
+  const out = new Map();
   const walk = (v, canon, depth) => {
-    if (!v || typeof v !== "object" || depth > 6 || out.length >= 8) return;
+    if (!v || typeof v !== "object" || depth > 6 || out.size >= max) return;
     if (Array.isArray(v)) { for (const x of v) walk(x, canon, depth + 1); return; }
     const sha = typeof v.canon_sha === "string" ? v.canon_sha : canon;
-    if (typeof v.anchor === "string" && !seen.has(v.anchor)) {
-      seen.add(v.anchor);
-      out.push({ anchor: v.anchor, canon_sha: sha ? String(sha).slice(0, 7) : "", title: String(v.title || v.section || "").slice(0, 120), text: String(v.text || v.summary || v.excerpt || "").slice(0, 400) });
+    if (typeof v.anchor === "string" && !out.has(v.anchor)) {
+      out.set(v.anchor, {
+        anchor: v.anchor, canon_sha: sha ? String(sha).slice(0, 7) : "",
+        title: String(v.title || "").slice(0, 160), path: String(v.path || v.section || "").slice(0, 200),
+        text: String(v.text || v.snippet || v.summary || v.excerpt || "").slice(0, EXCERPT_CHARS),
+      });
     }
-    for (const k of Object.keys(v)) if (v[k] && typeof v[k] === "object") walk(v[k], sha, depth + 1);
+    for (const k of Object.keys(v)) if (k !== "children" && k !== "suggestions" && v[k] && typeof v[k] === "object") walk(v[k], sha, depth + 1);
   };
-  for (const e of envelopes || []) if (e && e.status === "ok" && !isNoise(e)) walk(e.data, null, 0);
+  for (const e of envelopes || []) if (e && e.status === "ok" && RULE_TOOLS.includes(e.tool)) walk(e.data, null, 0);
   return out;
 }
+export function collectRules(envelopes) { return [...retrievedRules(envelopes, 8).values()]; }
 
 export function summarizeEvidence(envelopes) {
   const real = (envelopes || []).filter((e) => !isNoise(e));
@@ -73,7 +81,7 @@ export function summarizeEvidence(envelopes) {
   let nFacts = 0;
   for (const e of real) for (const f of e.facts || []) { nFacts += 1; lines.push(`- id=${f.id} | ${f.label} | display=${formatFact(f)} | grade ${f.grade} | as_of ${f.as_of}`); }
   if (!nFacts) lines.push("- (none)");
-  lines.push("GAPS (list each in gaps with the same reason code):");
+  lines.push("GAPS (the desk adds every one of these to the card itself, word for word; do not rewrite or repeat them):");
   let nGaps = 0;
   for (const e of real) for (const g of (e.coverage && e.coverage.gaps) || []) { nGaps += 1; lines.push(`- ${e.call_id} why=${g.why} | ${String(g.what || "").slice(0, 160)} | source_needed: ${String(g.source_needed || "").slice(0, 120)}`); }
   if (!nGaps) lines.push("- (none)");
@@ -152,6 +160,23 @@ export function codeCard(state, o) {
   };
 }
 
+// Gap entries are built in code: every tool gap verbatim (digits in them are code-sourced), then the model's own extra gaps,
+// which the validator already held to the no-digits rule. An exact model copy of a tool gap was dropped by the validator.
+export function codeBuiltGaps(modelGaps, envelopes) {
+  const fromTools = collectToolGaps(envelopes).map(({ what, why, source_needed }) => ({ what, why, source_needed }));
+  return [...fromTools, ...(modelGaps || [])].slice(0, MAX_CARD_GAPS);
+}
+
+// Each accepted cite gets the rule's own title, path and an excerpt of its text from the retrieved tool data, never from the model.
+// (Code cannot prove a rule supports the claim; showing the quoted text next to it lets the commissioner judge.)
+export function attachRuleText(cites, envelopes) {
+  const rules = retrievedRules(envelopes);
+  return (cites || []).map((c) => {
+    const r = rules.get(c.anchor);
+    return { ...c, rule: r ? { title: r.title, path: r.path, excerpt: r.text, canon_sha: r.canon_sha } : null };
+  });
+}
+
 // The card the page renders, from a CLEANED (validated) model card plus this run's envelopes. Raw tool data never goes in.
 export function buildServerCard({ cleaned, envelopes, calls, asOf, canonSha, requestId, costUsd, modelCalls, notes }) {
   const index = buildFactIndex(envelopes);
@@ -170,7 +195,7 @@ export function buildServerCard({ cleaned, envelopes, calls, asOf, canonSha, req
   }
   return {
     ...baseCard({ state: cleaned.state, asOf, canonSha, requestId, calls, costUsd, modelCalls, notes }),
-    lead_md: cleaned.lead_md, blocks: cleaned.blocks, facts_used: cleaned.facts_used, facts, cites: cleaned.cites, gaps: cleaned.gaps,
+    lead_md: cleaned.lead_md, blocks: cleaned.blocks, facts_used: cleaned.facts_used, facts, cites: attachRuleText(cleaned.cites, envelopes), gaps: codeBuiltGaps(cleaned.gaps, envelopes),
     conflicts: cleaned.conflicts, ruling_question: cleaned.ruling_question, follow_ups: cleaned.follow_ups, tool_gaps: toolGaps, refusals,
   };
 }

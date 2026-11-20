@@ -5,10 +5,16 @@
 // It implements the eight rules of docs/ai_desk/DESK_CONTRACT.md ("Validator rules"):
 //   1 every {{f.cN.key}} token resolves to a fact returned in THIS run
 //   2 prose has no digits and no spelled quantities outside tokens
-//   3 every cited anchor exists in the rules index, and the cited canon_sha equals the index's
+//   3 every cited anchor exists in the rules index, the cited canon_sha equals the index's, AND the anchor was RETURNED in this run
+//     by a successful rules.search / rules.get (ctx.retrievedAnchors; otherwise UNRETRIEVED_ANCHOR, even for a real anchor).
+//     Limit, stated plainly: code cannot prove that a cited rule SUPPORTS the claim next to it. That is judged by people in the eval.
+//     The code-level controls are retrieval binding (the model can only cite a rule it was shown this run) and the server attaching
+//     the rule's own title, path and an excerpt taken from the retrieved tool data (never from the model) to every accepted cite,
+//     so the commissioner reads what the rule says beside the claim.
 //   4 no fact above the caller's data-class ceiling
 //   5 tool gaps or a non-ok tool status force a non-"answer" state and a non-empty gaps list that covers them
-//   6 a past as_of with an unsupported_as_of tool result cannot be "answer"
+//   6 a past as_of with an unsupported_as_of tool result cannot be "answer"; a fact whose as_of is "current" never answers a
+//     past-date question (CURRENT_FACT_FOR_PAST_DATE). ctx.asOf is the EFFECTIVE as_of of the run (the pipeline's), not the model's.
 //   7 a refused / no_record / error tool cannot back a fact or an answer
 //   8 states that carry no facts have none
 // plus: the model may only choose MODEL_CARD_STATES, unknown keys are rejected, every field has a size limit, and
@@ -19,7 +25,8 @@
 //   facts?: Map|object id -> fact {id,value,unit,grade,data_class,call_id,tool,status}  // default: buildFactIndex(envelopes)
 //   knowledge: { rules },                                   // rules index (see anchorSet)
 //   ceiling: "P2",                                          // the caller's data-class ceiling
-//   asOf: "current" | "YYYY-MM-DD",
+//   retrievedAnchors: Set|Array|Map|object of rule anchors returned this run by rules.search / rules.get (absent = none retrieved)
+//   asOf: "current" | "YYYY-MM-DD",           // the run's effective as_of
 //   today?: "YYYY-MM-DD",                                   // for "is the as_of in the past"; default: the clock
 // }
 
@@ -30,7 +37,7 @@ export const CODES = Object.freeze({
   BAD_SHAPE: "BAD_SHAPE", UNKNOWN_KEY: "UNKNOWN_KEY", MISSING_FIELD: "MISSING_FIELD", OVERSIZE: "OVERSIZE",
   STATE_NOT_ALLOWED: "STATE_NOT_ALLOWED", UNKNOWN_FACT: "UNKNOWN_FACT", MALFORMED_TOKEN: "MALFORMED_TOKEN",
   TOKEN_NOT_ALLOWED_HERE: "TOKEN_NOT_ALLOWED_HERE", DIGIT_IN_PROSE: "DIGIT_IN_PROSE", SPELLED_QUANTITY: "SPELLED_QUANTITY",
-  UNSAFE_MARKUP: "UNSAFE_MARKUP", FAKE_ANCHOR: "FAKE_ANCHOR", WRONG_CANON_SHA: "WRONG_CANON_SHA", OVER_CLASS_FACT: "OVER_CLASS_FACT",
+  UNSAFE_MARKUP: "UNSAFE_MARKUP", FAKE_ANCHOR: "FAKE_ANCHOR", UNRETRIEVED_ANCHOR: "UNRETRIEVED_ANCHOR", CURRENT_FACT_FOR_PAST_DATE: "CURRENT_FACT_FOR_PAST_DATE", WRONG_CANON_SHA: "WRONG_CANON_SHA", OVER_CLASS_FACT: "OVER_CLASS_FACT",
   MISSING_GAP: "MISSING_GAP", GAPS_ON_PLAIN_ANSWER: "GAPS_ON_PLAIN_ANSWER", AS_OF_UNSUPPORTED_ANSWER: "AS_OF_UNSUPPORTED_ANSWER",
   FACT_FROM_REFUSED_TOOL: "FACT_FROM_REFUSED_TOOL", FACTS_IN_NO_FACT_STATE: "FACTS_IN_NO_FACT_STATE", NO_OK_TOOL: "NO_OK_TOOL",
   UNKNOWN_TOOL_CALL: "UNKNOWN_TOOL_CALL", ROW_CELL: "ROW_CELL", STATE_NEEDS_FIELD: "STATE_NEEDS_FIELD", NO_CANON_INDEX: "NO_CANON_INDEX",
@@ -38,7 +45,7 @@ export const CODES = Object.freeze({
 
 export const LIMITS = Object.freeze({
   lead_md: 1200, blocks: 6, block_title: 120, columns: 12, column_label: 40, rows: 40, cells: 12, cell: 80,
-  block_fact_ids: 40, block_tool_call_ids: 12, facts_used: 60, cites: 8, claim: 240, anchor: 60, gaps: 10, gap_what: 200,
+  block_fact_ids: 40, block_tool_call_ids: 12, facts_used: 60, cites: 8, claim: 240, anchor: 160, gaps: 10, gap_what: 200,
   gap_source: 200, conflicts: 5, conflict_note: 240, ruling_question: 400, follow_ups: 4, follow_up: 120,
 });
 
@@ -51,7 +58,7 @@ const GAP_KEYS = ["what", "why", "source_needed"];
 const CONFLICT_KEYS = ["fact_a", "fact_b", "note"];
 const CALL_ID_RE = /^c\d{1,3}$/;
 const TOKEN_RE = /\{\{f\.(c\d{1,3}\.[a-z][a-z0-9_]{0,63})\}\}/g;
-const ANCHOR_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,59}$/;
+const ANCHOR_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/;
 const SHA_RE = /^[0-9a-f]{7,40}$/;
 // States that must carry a particular field to mean what they say.
 const STATE_NEEDS = { answer_with_gap: "gaps", partial: "gaps", answer_with_conflict: "conflicts", needs_ruling: "ruling_question", cite_and_abstain: "cites" };
@@ -141,6 +148,28 @@ function factLookup(ctx) {
   return (id) => (src instanceof Map ? src.get(id) : (src && Object.prototype.hasOwnProperty.call(src, id) ? src[id] : undefined));
 }
 
+// ── Tool gaps ─────────────────────────────────────────────────────────────────────────────────────
+// Gap entries on the final card are built by CODE from the tool envelopes' coverage gaps (what / why / source_needed verbatim,
+// so digits in them are code-sourced and allowed). A model-authored gap is accepted without the prose rules only when it equals a
+// tool gap exactly; any other model gap stays under the no-digits rule. The model never needs to rewrite a tool gap.
+export const MAX_CARD_GAPS = 30;
+const gapStr = (v) => (typeof v === "string" ? v.trim() : "");
+export function gapKey(g) { return JSON.stringify([gapStr(g && g.what), g && g.why, gapStr(g && g.source_needed)]); }
+export function collectToolGaps(envelopes) {
+  const out = []; const seen = new Set();
+  for (const e of envelopes || []) {
+    if (!e || isNoise(e)) continue;
+    for (const g of (e.coverage && e.coverage.gaps) || []) {
+      if (!g || !GAP_REASONS.includes(g.why)) continue;
+      const k = gapKey(g);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push({ what: gapStr(g.what).slice(0, 400), why: g.why, source_needed: gapStr(g.source_needed).slice(0, 400), tool: e.tool, call_id: e.call_id });
+    }
+  }
+  return out;
+}
+
 const ANCHOR_CACHE = new WeakMap();
 // Accepts the CI-built rules.json shape ({canon_sha, sections[].groups[].rules[].anchor, groups ids, topics[].cites[].anchor})
 // or a prepared index ({canon_sha, anchors: Set|Array|Object|Map}).
@@ -168,6 +197,13 @@ export function canonShaMatches(citeSha, indexSha) {
 }
 
 // ── Structure helpers ─────────────────────────────────────────────────────────────────────────────
+function keySet(v) {
+  if (v instanceof Set) return v;
+  if (v instanceof Map) return new Set(v.keys());
+  if (Array.isArray(v)) return new Set(v.map(String));
+  if (v && typeof v === "object") return new Set(Object.keys(v));
+  return new Set();
+}
 function isObj(v) { return v && typeof v === "object" && !Array.isArray(v); }
 function checkKeys(obj, allowed, path, errors) {
   for (const k of Object.keys(obj)) if (!allowed.includes(k)) errors.push({ code: CODES.UNKNOWN_KEY, path: `${path}${path ? "." : ""}${k}`, message: "unknown key" });
@@ -197,6 +233,10 @@ export function validateCard(card, ctx) {
   const getFact = factLookup(c);
   const ceiling = c.ceiling || "P0";
   const byCall = new Map(envelopes.map((e) => [e.call_id, e]));
+  const pastRun = isPastAsOf(c.asOf, c.today);
+  const real = envelopes.filter((e) => !isNoise(e));
+  const toolGaps = collectToolGaps(envelopes);
+  const toolGapKeys = new Set(toolGaps.map(gapKey));
 
   if (!isObj(card)) return { ok: false, errors: [{ code: CODES.BAD_SHAPE, path: "", message: "the card must be an object" }] };
   checkKeys(card, TOP_KEYS, "", errors);
@@ -262,14 +302,16 @@ export function validateCard(card, ctx) {
   const cites = arrayOf(card.cites, "cites", LIMITS.cites, errors);
   const rules = c.knowledge && c.knowledge.rules;
   const anchors = anchorSet(rules);
+  const retrieved = keySet(c.retrievedAnchors);
   cites.forEach((ct, i) => {
     const p = `cites[${i}]`;
     if (!isObj(ct)) { errors.push({ code: CODES.BAD_SHAPE, path: p, message: "a cite must be an object" }); return; }
     checkKeys(ct, CITE_KEYS, p, errors);
     if (typeof ct.anchor !== "string" || !ANCHOR_RE.test(ct.anchor)) errors.push({ code: CODES.FAKE_ANCHOR, path: `${p}.anchor`, message: "not a well-formed anchor" });
+    if (typeof ct.anchor === "string" && ANCHOR_RE.test(ct.anchor) && anchors && !anchors.has(ct.anchor)) errors.push({ code: CODES.FAKE_ANCHOR, path: `${p}.anchor`, message: "anchor is not in the rules index" });
+    else if (typeof ct.anchor === "string" && ANCHOR_RE.test(ct.anchor) && !retrieved.has(ct.anchor)) errors.push({ code: CODES.UNRETRIEVED_ANCHOR, path: `${p}.anchor`, message: "this rule was not retrieved for this question; call rules.search or rules.get first" });
     if (!anchors || !rules || !rules.canon_sha) errors.push({ code: CODES.NO_CANON_INDEX, path: p, message: "the rules index is not available to check this cite" });
     else {
-      if (typeof ct.anchor === "string" && !anchors.has(ct.anchor)) errors.push({ code: CODES.FAKE_ANCHOR, path: `${p}.anchor`, message: "anchor is not in the rules index" });
       if (!canonShaMatches(ct.canon_sha, rules.canon_sha)) errors.push({ code: CODES.WRONG_CANON_SHA, path: `${p}.canon_sha`, message: "canon_sha does not match the rules index" });
     }
     if (ct.claim !== undefined) note(checkProse(ct.claim, `${p}.claim`, { max: LIMITS.claim }, errors).tokens);
@@ -282,6 +324,7 @@ export function validateCard(card, ctx) {
     if (!isObj(g)) { errors.push({ code: CODES.BAD_SHAPE, path: p, message: "a gap must be an object" }); return; }
     checkKeys(g, GAP_KEYS, p, errors);
     if (!GAP_REASONS.includes(g.why)) errors.push({ code: CODES.BAD_SHAPE, path: `${p}.why`, message: `why must be one of ${GAP_REASONS.join("|")}` });
+    if (toolGapKeys.has(gapKey(g))) return; // an exact copy of a tool gap: code-sourced text, replaced by the code-built entry
     note(checkProse(g.what, `${p}.what`, { max: LIMITS.gap_what }, errors).tokens);
     if (g.source_needed !== undefined) checkProse(g.source_needed, `${p}.source_needed`, { max: LIMITS.gap_source, allowTokens: false }, errors);
   });
@@ -317,31 +360,24 @@ export function validateCard(card, ctx) {
     }
     if ((f.status && f.status !== "ok") || (env && env.status !== "ok")) { errors.push({ code: CODES.FACT_FROM_REFUSED_TOOL, path: id, message: "the tool did not return an ok result" }); continue; }
     if (!classAllowed(ceiling, f.data_class)) errors.push({ code: CODES.OVER_CLASS_FACT, path: id, message: "fact is above the caller's data class" });
+    if (pastRun && f.as_of === "current") errors.push({ code: CODES.CURRENT_FACT_FOR_PAST_DATE, path: id, message: "this fact is today's value; the question is about a past date" });
   }
 
   // ── Rule 8: states that carry no facts ─────────────────────────────────────────────────────────
   if (noFact && used.size) errors.push({ code: CODES.FACTS_IN_NO_FACT_STATE, path: "state", message: `state ${state} carries no facts, tokens or fact ids` });
 
   // ── Rules 5, 6, 7: tool results against the state ──────────────────────────────────────────────
-  const real = envelopes.filter((e) => !isNoise(e));
   const nonOk = real.filter((e) => e.status !== "ok");
-  const toolGaps = [];
-  for (const e of real) for (const g of (e.coverage && e.coverage.gaps) || []) if (g && GAP_REASONS.includes(g.why)) toolGaps.push(g);
   const unsupported = real.filter((e) => e.status === "unsupported_as_of" || (e.coverage && (e.coverage.gaps || []).some((g) => g && g.why === "unsupported_as_of")));
   const hasProblem = nonOk.length > 0 || toolGaps.length > 0 || real.some((e) => e.coverage && e.coverage.supported === false);
-  const cardWhy = new Set(gaps.filter(isObj).map((g) => g.why));
 
   if (state === "answer" && hasProblem) errors.push({ code: CODES.STATE_NOT_ALLOWED, path: "state", message: "a tool reported gaps or a non-ok status, so the state cannot be plain answer" });
-  if (hasProblem) {
-    if (!cardWhy.size) errors.push({ code: CODES.MISSING_GAP, path: "gaps", message: "a tool reported gaps or a non-ok status; list them in gaps" });
-    else {
-      const missing = [...new Set(toolGaps.map((g) => g.why))].filter((w) => !cardWhy.has(w));
-      if (missing.length) errors.push({ code: CODES.MISSING_GAP, path: "gaps", message: `gaps must also cover: ${missing.join(", ")}` });
-    }
-  } else if (state === "answer" && gaps.length) {
+  // Tool gaps are added to the card by code. A non-ok tool that reported no gap of its own still needs the model to say what is missing.
+  if (hasProblem && !toolGaps.length && !gaps.length) errors.push({ code: CODES.MISSING_GAP, path: "gaps", message: "a tool returned a non-ok status without a gap; say in gaps what could not be checked" });
+  if (!hasProblem && state === "answer" && gaps.length) {
     errors.push({ code: CODES.GAPS_ON_PLAIN_ANSWER, path: "gaps", message: "plain answer lists no gaps; use answer_with_gap" });
   }
-  if (state === "answer" && unsupported.length && isPastAsOf(c.asOf, c.today)) {
+  if (state === "answer" && unsupported.length && pastRun) {
     errors.push({ code: CODES.AS_OF_UNSUPPORTED_ANSWER, path: "state", message: "the as_of is in the past and a tool could not honor it" });
   }
   if (ASSERTING_STATES.includes(state) && !real.some((e) => e.status === "ok")) {
@@ -349,7 +385,7 @@ export function validateCard(card, ctx) {
   }
   if (typeof state === "string" && STATE_NEEDS[state]) {
     const need = STATE_NEEDS[state];
-    const v = need === "gaps" ? gaps : need === "conflicts" ? conflicts : need === "cites" ? cites : card.ruling_question;
+    const v = need === "gaps" ? [...gaps, ...toolGaps] : need === "conflicts" ? conflicts : need === "cites" ? cites : card.ruling_question;
     if (!(Array.isArray(v) ? v.length : typeof v === "string" && v.trim())) errors.push({ code: CODES.STATE_NEEDS_FIELD, path: need, message: `state ${state} needs ${need}` });
   }
 
@@ -359,7 +395,8 @@ export function validateCard(card, ctx) {
   const cleaned = {
     state, lead_md: card.lead_md.trim(), blocks: cleanBlocks, facts_used: factsUsed,
     cites: cites.map((x) => ({ anchor: x.anchor, canon_sha: x.canon_sha, claim: typeof x.claim === "string" ? x.claim.trim() : "" })),
-    gaps: gaps.map((g) => ({ what: g.what.trim(), why: g.why, source_needed: typeof g.source_needed === "string" ? g.source_needed.trim() : "" })),
+    // Model gaps that equal a tool gap are dropped here: the server card carries the tool's own entry (see composer.buildServerCard).
+    gaps: gaps.filter((g) => !toolGapKeys.has(gapKey(g))).map((g) => ({ what: g.what.trim(), why: g.why, source_needed: typeof g.source_needed === "string" ? g.source_needed.trim() : "" })),
     conflicts: conflicts.map((x) => ({ fact_a: x.fact_a, fact_b: x.fact_b, note: typeof x.note === "string" ? x.note.trim() : "" })),
     ruling_question: typeof card.ruling_question === "string" ? card.ruling_question.trim() : "",
     follow_ups: followUps.map((x) => x.trim()),

@@ -464,3 +464,19 @@ export function resolveCoverage(knowledge, domainId, season, asOf = "current") {
   const sp = d.spans.find((s) => season >= s.from && season <= s.to);
   return sp ? out(sp) : none("NO_RECORD", "X", "No coverage is recorded for that season.");
 }
+
+// ── Stale index ─────────────────────────────────────────────────────────────────────────────────────
+// When the bundled rules index does not match the canon the Worker carries (rulesMeta.stale), a tool that quotes rule text
+// declines rather than answer from text that may be out of date. Returns a tool result to return as-is, or null when the index is fine.
+export function staleIndexRefusal(knowledge) {
+  const meta = knowledge && knowledge.rulesMeta;
+  if (!meta || meta.stale !== true) return null;
+  return {
+    status: "refused",
+    data: null,
+    facts: [],
+    refusal: { code: "stale_data", reason: "The bundled rules index does not match the canon text the Worker carries, so rule answers are withheld until it is regenerated." },
+    coverage: { supported: false, gaps: [{ what: "The bundled rules index does not match the canon text the Worker carries", why: "stale", source_needed: "regenerate worker/src/desk/data/rules_data.js" }] },
+    provenance: { module: "knowledge.js", source: "rules index", canon_sha: meta.canon_sha || null },
+  };
+}

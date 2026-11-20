@@ -1,6 +1,6 @@
 // Tool 2: rules.get. Exact rule text by anchor, for citation. Current canon only; a past as_of labels the text as current.
 import { defineTool } from "../registry.js";
-import { getRule, MAX_RULE_PARTS } from "../knowledge.js";
+import { getRule, staleIndexRefusal, MAX_RULE_PARTS } from "../knowledge.js";
 
 const todayIso = (now) => (now instanceof Date ? now : new Date(now)).toISOString().slice(0, 10);
 const dateOnly = (s) => (typeof s === "string" ? s.slice(0, 10) : null);
@@ -32,6 +32,8 @@ export default defineTool({
     if (!knowledge || !knowledge.rules || !knowledge.rulesMeta) {
       return { status: "error", error: { code: "knowledge_missing", message: "the rules index is not loaded" }, coverage: { supported: false, gaps: [] } };
     }
+    const stale = staleIndexRefusal(knowledge);
+    if (stale) return stale;
     const meta = knowledge.rulesMeta;
     const provenance = { module: "knowledge.js", source: "site/m/data/rules.json", canon_sha: meta.canon_sha, canon_date: meta.canon_date };
     const freshness = { canon_date: meta.canon_date, canon_sha: meta.canon_sha };

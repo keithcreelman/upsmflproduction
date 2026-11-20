@@ -2,7 +2,7 @@
 // docs/league_context_v1.md). Current canon text only. A past as_of answers "unsupported_as_of" and returns the
 // current text clearly labeled as such, never as the rule in force on that date.
 import { defineTool } from "../registry.js";
-import { searchRules, MAX_SEARCH_HITS } from "../knowledge.js";
+import { searchRules, staleIndexRefusal, MAX_SEARCH_HITS } from "../knowledge.js";
 
 const todayIso = (now) => (now instanceof Date ? now : new Date(now)).toISOString().slice(0, 10);
 const dateOnly = (s) => (typeof s === "string" ? s.slice(0, 10) : null);
@@ -34,6 +34,8 @@ export default defineTool({
     if (!knowledge || !knowledge.rules || !knowledge.rulesMeta) {
       return { status: "error", error: { code: "knowledge_missing", message: "the rules index is not loaded" }, coverage: { supported: false, gaps: [] } };
     }
+    const stale = staleIndexRefusal(knowledge);
+    if (stale) return stale;
     const meta = knowledge.rulesMeta;
     const r = searchRules(knowledge, args.query, { limit: args.limit || 5 });
     const past = asOf !== "current" && asOf !== todayIso(now);

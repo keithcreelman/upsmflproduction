@@ -1,7 +1,7 @@
 // Tool 3: glossary.lookup. League terms and contract-status tokens, each tied to a canon anchor or a repo source file.
 // Where canon is silent the entry says so. It explains a token; it never reclassifies a contract.
 import { defineTool } from "../registry.js";
-import { lookupGlossary } from "../knowledge.js";
+import { lookupGlossary, staleIndexRefusal } from "../knowledge.js";
 import { normalizeGlossaryKey } from "../data/glossary.js";
 
 const sourceLabel = (n) => `canon ${n.anchor}`;
@@ -56,6 +56,8 @@ export default defineTool({
     if (!knowledge || !knowledge.glossary) {
       return { status: "error", error: { code: "knowledge_missing", message: "the glossary is not loaded" }, coverage: { supported: false, gaps: [] } };
     }
+    const stale = staleIndexRefusal(knowledge);
+    if (stale) return stale;
     const lk = lookupGlossary(knowledge, args.term);
     const provenance = { module: "knowledge.js", source: "worker/src/desk/data/glossary.js", entries: knowledge.glossary.entries.length };
     const slim = (e) => ({ id: e.id, term: e.term, kind: e.kind, definition: e.definition, aliases: e.aliases, canon_silent: !!e.canon_silent, caveat: e.caveat || undefined, sources: e.sources });

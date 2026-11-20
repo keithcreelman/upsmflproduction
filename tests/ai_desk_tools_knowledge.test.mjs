@@ -11,7 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => fs.readFileSync(path.join(ROOT, p), "utf8");
 const D = (p) => import(path.join(ROOT, "worker/src/desk", p));
 
-const { makeCommishCaller, GAP_REASONS, TOOL_STATUSES } = await D("contract.js");
+const { makeCommishCaller, GAP_REASONS, TOOL_STATUSES, REFUSAL_CODES: C_REFUSAL_CODES } = await D("contract.js");
 const { runTool, getTool, MAX_OUTPUT_BYTES } = await D("registry.js");
 const know = await D("knowledge.js");
 const { buildKnowledge, searchRules, getRule, lookupGlossary, resolveCoverage, htmlToText, sha256Hex, MAX_SEARCH_HITS, MAX_SNIPPET_CHARS, RULE_PART_CHARS } = know;
@@ -798,6 +798,54 @@ test("data.freshness: current only (a past as_of does not touch the route), no a
   const big = await call("data.freshness", { as_of: "current" }, { fetchSelf: freshRoute(many) });
   t.equal(big.data.etl.sources.length, dataFreshnessMod.MAX_SOURCES_REPORTED);
   t.ok(JSON.stringify(big.data).length < MAX_OUTPUT_BYTES);
+});
+
+test("stale rules index: rules.search, rules.get and glossary.lookup refuse (stale_data) with no data and no facts; coverage.check and data.freshness keep working", async () => {
+  const variants = {
+    "bundled sha differs": buildKnowledge({ rulesJson, canonText, leagueId: "74598", currentSeason: 2026, canonShaBundled: "deadbeef00000000000000000000000000000000" }),
+    "bundled digest differs": buildKnowledge({ rulesJson, canonDigestBundled: "000000000000", leagueId: "74598", currentSeason: 2026 }),
+    "canon text differs": buildKnowledge({ rulesJson, canonText: canonText + "\nedited", leagueId: "74598", currentSeason: 2026 }),
+  };
+  const calls = [
+    ["rules.search", { query: "cap penalty formula" }],
+    ["rules.search", { query: "cap penalty formula", limit: 3 }],
+    ["rules.get", { anchor: "s1-d1" }],
+    ["rules.get", { anchor: "s9-nope" }],
+    ["glossary.lookup", { term: "Vet-ERA" }],
+    ["glossary.lookup", { term: "flibbertigibbet" }],
+  ];
+  for (const [name, kk] of Object.entries(variants)) {
+    t.equal(kk.rulesMeta.stale, true, name);
+    for (const [id, args] of calls) {
+      const env = await call(id, { ...args, as_of: "current" }, { knowledge: kk });
+      t.equal(env.status, "refused", `${name}: ${id} ${JSON.stringify(args)}`);
+      t.equal(env.refusal.code, "stale_data");
+      t.ok(C_REFUSAL_CODES.includes(env.refusal.code));
+      t.equal(env.data, null);
+      t.deepEqual(env.facts, []);
+      t.equal(env.coverage.supported, false);
+      t.deepEqual(env.coverage.gaps, [{ what: "The bundled rules index does not match the canon text the Worker carries", why: "stale", source_needed: "regenerate worker/src/desk/data/rules_data.js" }]);
+      t.deepEqual(env._fetched, []);
+    }
+    // past dates do not get around it
+    const past = await call("rules.search", { query: "cap penalty", as_of: "2019-01-01" }, { knowledge: kk });
+    t.equal(past.status, "refused");
+    t.equal((await call("rules.get", { anchor: "s1-d1", as_of: "2019-01-01" }, { knowledge: kk })).status, "refused");
+    // the two meta tools still work and still report the staleness
+    const cov = await call("coverage.check", { domain: "pick_lineage", season: 2024, as_of: "current" }, { knowledge: kk });
+    t.equal(cov.status, "ok");
+    t.equal(cov.data.level, "none");
+    const fr = await call("data.freshness", { as_of: "current" }, { knowledge: kk, fetchSelf: freshRoute(HEALTHY) });
+    t.equal(fr.status, "ok");
+    t.equal(fr.data.rules_index.status, "stale");
+    t.equal(fr.data.overall, "stale");
+  }
+  // a fresh index still answers
+  for (const [id, args] of calls.slice(0, 1).concat([calls[2], calls[4]])) t.equal((await call(id, { ...args, as_of: "current" })).status, "ok", id);
+  // nothing to compare with is unverified, not stale: the tools still answer
+  const unverified = buildKnowledge({ rulesJson, leagueId: "74598", currentSeason: 2026 });
+  t.equal(unverified.rulesMeta.stale, false);
+  t.equal((await call("rules.search", { query: "cap penalty", as_of: "current" }, { knowledge: unverified })).status, "ok");
 });
 
 test("object-prototype names used as data (constructor, __proto__, toString) are plain words everywhere, never inherited members", async () => {

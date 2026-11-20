@@ -112,7 +112,8 @@ export async function handleDeskRoute(ctx) {
       const client = liveClient || { mode: "live", complete: async () => { throw new Error("no_client"); } };
       const callModel = (req) => guardedCall({
         env, db: env.UPS_MFL_DB, caller, client, deskEnabled: !!ctx.deskEnabled,
-        meta: { feature: "commish_desk", runId: null, questionId: requestId, step: req.step, promptHash: req.promptHash || null, canonSha: knowledge.rulesMeta && knowledge.rulesMeta.canon_sha7, toolIds: req.toolIds || [] },
+        meta: { feature: "commish_desk", runId: requestId, questionId: requestId,   // one question is one run, so the per-run cap bounds the question's calls together
+         step: req.step, promptHash: req.promptHash || null, canonSha: knowledge.rulesMeta && knowledge.rulesMeta.canon_sha7, toolIds: req.toolIds || [] },
         request: { model: req.model, system: req.system, messages: req.messages, tools: req.tools, tool_choice: req.tool_choice, max_tokens: req.max_tokens },
       });
       const t0 = nowMs();

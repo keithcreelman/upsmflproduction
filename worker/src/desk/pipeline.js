@@ -15,7 +15,7 @@ import { assertCommishCaller, isAsOf } from "./contract.js";
 import { promptHash } from "./prompts.js";
 import { routeQuestion } from "./router.js";
 import { runLoop } from "./loop.js";
-import { composeCard, buildServerCard, codeCard, newRequestId } from "./composer.js";
+import { composeCard, buildServerCard, codeCard, newRequestId, retrievedRules } from "./composer.js";
 import { validateCard, errorCodes } from "./validator.js";
 import { INJECTION_NOTE } from "./injection.js";
 
@@ -92,12 +92,16 @@ export async function answerQuestion({ caller, question, asOf, requestId: givenR
   trace.route = { intent: route.intent, domains: route.domains, needs_as_of: route.needs_as_of, out_of_scope: route.out_of_scope, by: route.by };
   if (route.out_of_scope) return finish(codeCard("out_of_scope", meta({ reasonCode: route.by === "code" ? "action_request" : "out_of_scope" })), "out_of_scope");
 
-  // The as_of the whole run is judged against: the caller's, else a past date the router read from the question.
-  const effAsOf = requestedAsOf !== "current" ? requestedAsOf : (route.needs_as_of && route.needs_as_of <= today ? route.needs_as_of : "current");
+  // The as_of the whole run is judged against: the caller's date, else the date the router read from the question, else "current".
+  // A date is binding: the loop replaces every tool call's as_of with it. (A router date in the future is honored too; the tools
+  // answer unsupported_as_of for it, which fails closed instead of quietly answering with today's data.)
+  const effAsOf = requestedAsOf !== "current" ? requestedAsOf : (route.needs_as_of || "current");
+  trace.as_of = effAsOf;
+  trace.as_of_source = requestedAsOf !== "current" ? "user" : (route.needs_as_of ? "router" : "default");
 
   // 2. Tool loop.
   const loop = await runLoop({ caller, question: q, asOf: effAsOf, route, call, deps });
-  calls = loop.calls; trace.rounds = loop.rounds; trace.tool_calls = loop.toolCalls; trace.injection = loop.injection;
+  calls = loop.calls; trace.rounds = loop.rounds; trace.tool_calls = loop.toolCalls; trace.injection = loop.injection; trace.as_of_overrides = loop.overrides;
   if (loop.outcome === "blocked") return blockedCard(loop.blocked, "loop");
   if (loop.outcome === "limit") return finish(codeCard("tool_failure", meta({ asOf: effAsOf, reasonCode: `tool_limit:${loop.limit}` })), "tool_failure:limit");
   const envelopes = loop.envelopes;
@@ -106,7 +110,7 @@ export async function answerQuestion({ caller, question, asOf, requestId: givenR
   if (envelopes.some(isStaleWithhold)) return finish(codeCard("stale_data", meta({ asOf: effAsOf, reasonCode: "stale_withheld" })), "stale_data");
 
   // 4. Compose, validate, retry once.
-  const vctx = { envelopes, knowledge: deps.knowledge, ceiling: caller.ceiling, asOf: effAsOf, today };
+  const vctx = { envelopes, knowledge: deps.knowledge, ceiling: caller.ceiling, asOf: effAsOf, today, retrievedAnchors: retrievedRules(envelopes) };
   let errors = null;
   let suspicious = loop.injection.suspicious;
   for (let attempt = 1; attempt <= 2; attempt++) {

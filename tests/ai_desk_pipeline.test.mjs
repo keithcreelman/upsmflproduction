@@ -38,7 +38,7 @@ function defineStubs(counters, o = {}) {
     async run() {
       counters.hist += 1;
       return { status: "ok", data: null, facts: [{ key: "finish", label: "Finish", value: 7, unit: "rank", grade: "A" }],
-        coverage: { supported: true, gaps: [{ what: "the archive is missing some seasons", why: "partial_coverage", source_needed: "the league archive" }] } };
+        coverage: { supported: true, gaps: [o.gap || { what: "the archive is missing some seasons", why: "partial_coverage", source_needed: "the league archive" }] } };
     } });
   defineTool({ ...base, id: "cap.penalty_quote", description: "Quote a drop penalty (stub that always refuses).",
     inputSchema: { type: "object", properties: { franchise: { type: "string", pattern: "^\\d{4}$", maxLength: 4 } }, required: ["franchise"] }, asOf: { supports: "current" },
@@ -152,10 +152,40 @@ test("answer_with_gap when a tool reports a gap; a plain answer is retried once"
   t.equal(r2.card.state, "answer_with_gap");
   t.deepEqual(r2.s.steps(), ["router", "loop", "loop", "composer", "retry"]);
   t.equal(r2.trace.attempts[0].ok, false);
-  t.ok(r2.trace.attempts[0].codes.includes("MISSING_GAP") && r2.trace.attempts[0].codes.includes("STATE_NOT_ALLOWED"));
+  t.deepEqual(r2.trace.attempts[0].codes, ["STATE_NOT_ALLOWED"]);
   const retryText = r2.s.requests[4].messages[0].content[0].text;
-  t.match(retryText, /MISSING_GAP at gaps/);
+  t.match(retryText, /STATE_NOT_ALLOWED at state/);
   t.match(retryText, /previous card was rejected/);
+});
+
+test("gaps on the card are built in code from the tool gaps; digits in them are code-sourced", async () => {
+  const gap = { what: "Domain not covered before League Record slice S1", why: "partial_coverage", source_needed: "League Record slice S1" };
+  const hist = [toolUses([["history__finishes", { franchise: "0003", as_of: "current" }]]), endTurn()];
+  const base = { state: "answer_with_gap", lead_md: "Franchise finished {{f.c1.finish}}, with a gap.", facts_used: [] };
+  // the model lists no gaps at all: the tool's gap is on the card, verbatim
+  const r1 = await ask({ stub: { gap }, plan: { loop: hist, composer: [emit(base)] } });
+  t.equal(r1.card.state, "answer_with_gap");
+  t.deepEqual(r1.card.gaps, [gap]);
+  t.deepEqual(r1.trace.attempts, [{ attempt: 1, ok: true, codes: [] }]);
+  // the model copies the gap verbatim (digits and all): no retry, listed once
+  const r2 = await ask({ stub: { gap }, plan: { loop: hist, composer: [emit({ ...base, gaps: [gap] })] } });
+  t.deepEqual(r2.card.gaps, [gap]);
+  t.equal(r2.s.steps().includes("retry"), false);
+  // the model adds a gap of its own: kept after the tool's, and held to the no-digits rule
+  const own = { what: "an older season is missing", why: "NO_RECORD", source_needed: "the archive" };
+  const r3 = await ask({ stub: { gap }, plan: { loop: hist, composer: [emit({ ...base, gaps: [gap, own] })] } });
+  t.deepEqual(r3.card.gaps, [gap, own]);
+  const badOwn = { what: "missing since 2015", why: "NO_RECORD", source_needed: "the archive" };
+  const r4 = await ask({ stub: { gap }, plan: { loop: hist, composer: [emit({ ...base, gaps: [gap, badOwn] })], retry: [emit({ ...base, gaps: [gap, own] })] } });
+  t.deepEqual(r4.trace.attempts[0].codes, ["DIGIT_IN_PROSE"]);
+  t.deepEqual(r4.card.gaps, [gap, own]);
+  // a slightly rewritten copy of a tool gap is a model gap, so its digits are rejected
+  const r5 = await ask({ stub: { gap }, plan: { loop: hist, composer: [emit({ ...base, gaps: [{ ...gap, what: "Not covered before League Record slice S1" }] })], retry: [emit(base)] } });
+  t.deepEqual(r5.trace.attempts[0].codes, ["DIGIT_IN_PROSE"]);
+  t.deepEqual(r5.card.gaps, [gap]);
+  // the composer is told the desk adds tool gaps itself
+  t.match(r1.s.requests[3].messages[0].content[0].text, /the desk adds every one of these to the card itself, word for word/);
+  t.match(getPrompt("composer").text, /copies every listed gap onto the card by itself/);
 });
 
 test("a refused tool becomes a decline card, never a guess", async () => {
@@ -285,8 +315,10 @@ test("an injection planted in a tool result does not change the card, and adds t
   t.deepEqual(clean.card.notes, []);
   t.deepEqual(dirty.card.notes, [INJECTION_NOTE]);
   t.equal(INJECTION_NOTE, "ignored instructions found in source text");
-  const strip = (c) => { const { notes, ...rest } = c; return rest; };
+  const strip = (c) => { const { notes, cites, ...rest } = c; return { ...rest, cites: cites.map(({ rule, ...k }) => k) }; };
   t.deepEqual(strip(dirty.card), strip(clean.card), "the answer, state, facts and cites are unchanged");
+  t.equal(clean.card.cites[0].rule.excerpt, CLEAN_RULE);
+  t.equal(dirty.card.cites[0].rule.excerpt, INJECTED_RULE.slice(0, 400), "excerpt is quoted tool text, shown as data");
   t.equal(dirty.trace.injection.suspicious, true);
   t.deepEqual(dirty.trace.injection.sources, ["c1"]);
   // the tool result was fed back wrapped and flagged; the injected text could not close the delimiter
@@ -401,9 +433,89 @@ test("past as_of with an unsupported tool cannot be a plain answer", async () =>
   const r2 = await ask({ question: "What was the cap space for franchise 0003 on that date?", plan: { router: [route({ needs_as_of: "2024-01-01" })], loop: [toolUses(call), endTurn()], composer: [emit(abstain)] } });
   t.equal(r2.card.header.as_of, "2024-01-01");
   t.match(r2.s.requests[1].messages[0].content[0].text, /Pinned as_of for this question: 2024-01-01/);
-  // a future date from the router is ignored
-  const r3 = await ask({ plan: { router: [route({ needs_as_of: "2031-01-01" })], loop: [toolUses(CAP_CALL), endTurn()], composer: [emit(GOOD_CARD())] } });
-  t.equal(r3.card.header.as_of, "current");
+  // a future date from the router is honored too: the tool says unsupported_as_of (fail closed), never today's data
+  const r3 = await ask({ plan: { router: [route({ needs_as_of: "2031-01-01" })], loop: [toolUses(CAP_CALL), endTurn()], composer: [emit(abstain)] } });
+  t.equal(r3.card.header.as_of, "2031-01-01");
+  t.equal(r3.counters.cap, 0);
+  t.equal(r3.card.state, "abstain");
+});
+
+test("a past-date question cannot be answered with today's data: code overrides every call's as_of", async () => {
+  const abstain = { state: "abstain", lead_md: "The cap space cannot be shown for that past date.", gaps: [{ what: "the tool answers for the current state only", why: "unsupported_as_of", source_needed: "a dated record" }] };
+  const answerIt = { state: "answer", lead_md: "Franchise {{f.c1.franchise}} has {{f.c1.cap_available}} of cap space.", facts_used: [] };
+  // user as_of is a past date; the model sends "current" to a current-only tool
+  const sends = [["cap__position", { franchise: "0003", as_of: "current" }]];
+  const r = await ask({ asOf: "2023-10-01", plan: { loop: [toolUses(sends), endTurn()], composer: [emit(answerIt)], retry: [emit(abstain)] } });
+  t.equal(r.counters.cap, 0, "the tool never saw a current request");
+  t.deepEqual(r.card.footer.tools.map((x) => x.status), ["unsupported_as_of"]);
+  t.deepEqual(r.trace.as_of_overrides, [{ call_id: "c1", tool: "cap.position", sent: "current", forced: "2023-10-01" }]);
+  t.equal(r.trace.as_of, "2023-10-01");
+  t.equal(r.trace.as_of_source, "user");
+  t.notEqual(r.card.state, "answer");
+  t.equal(r.card.state, "abstain");
+  t.ok(r.trace.attempts[0].codes.includes("NO_OK_TOOL"), "a plain answer had no ok tool behind it");
+  t.match(r.s.requests[2].messages.at(-1).content[0].content[0].text, /unsupported_as_of/);
+  // two rejections of "answer" end in a code-built tool_failure, never an answer
+  const r2 = await ask({ asOf: "2023-10-01", plan: { loop: [toolUses(sends), endTurn()], composer: [emit(answerIt)], retry: [emit(answerIt)] } });
+  t.equal(r2.card.state, "tool_failure");
+  // the router's date counts when the caller gave none (same override)
+  const r3 = await ask({ question: "What was the cap space for franchise 0003 then?", plan: { router: [route({ needs_as_of: "2023-10-01" })], loop: [toolUses(sends), endTurn()], composer: [emit(answerIt)], retry: [emit(abstain)] } });
+  t.equal(r3.trace.as_of_source, "router");
+  t.equal(r3.counters.cap, 0);
+  t.equal(r3.trace.as_of_overrides[0].sent, "current");
+  t.equal(r3.card.state, "abstain");
+  t.equal(r3.card.header.as_of, "2023-10-01");
+  // the user's date beats the router's
+  const r4 = await ask({ asOf: "2022-01-01", plan: { router: [route({ needs_as_of: "2023-10-01" })], loop: [toolUses(sends), endTurn()], composer: [emit(abstain)] } });
+  t.equal(r4.trace.as_of, "2022-01-01");
+  // a call that omits as_of gets the pinned date, a call that already has it is not an override; extra args still fail
+  const calls = [["history__finishes", { franchise: "0003" }], ["history__finishes", { franchise: "0003", as_of: "2023-10-01" }], ["history__finishes", { franchise: "0003", extra: 1 }]];
+  const r5 = await ask({ asOf: "2023-10-01", plan: { loop: [toolUses(calls), endTurn()], composer: [emit({ state: "abstain", lead_md: "Part of this could not be checked.", gaps: [{ what: "a lookup failed", why: "partial_coverage" }] })] } });
+  t.equal(r5.counters.hist, 2);
+  t.deepEqual(r5.card.footer.tools.map((x) => x.status), ["ok", "ok", "error"]);
+  t.deepEqual(r5.trace.as_of_overrides.map((o) => [o.call_id, o.sent]), [["c1", null], ["c3", null]]);
+  t.equal(r5.s.requests[2].messages.at(-1).content.length, 3);
+  // a fact the tool dated "current" can never back a past-date answer (validator rule 6)
+  // current question: the model may pass a past date itself (history), nothing is overridden
+  const hist = { state: "answer_with_gap", lead_md: "Franchise finished {{f.c1.finish}}.", facts_used: [], gaps: [{ what: "some seasons are missing", why: "partial_coverage" }] };
+  const r6 = await ask({ plan: { loop: [toolUses([["history__finishes", { franchise: "0003", as_of: "2019-01-01" }]]), endTurn()], composer: [emit(hist)] } });
+  t.deepEqual(r6.trace.as_of_overrides, []);
+  t.equal(r6.trace.as_of, "current");
+  t.equal(r6.card.facts["c1.finish"].as_of, "2019-01-01");
+  t.equal(r6.card.state, "answer_with_gap");
+});
+
+test("citations are bound to rules retrieved in this run; the excerpt comes from the tool data", async () => {
+  const cardWith = (cites) => ({ state: "answer", lead_md: "Franchise {{f.c2.franchise}} has {{f.c2.cap_available}} of cap space.", facts_used: [], cites });
+  const rulesAndCap = [["rules__search", { query: "cap", as_of: "current" }], ["cap__position", { franchise: "0003", as_of: "current" }]];
+  const fixed = cardWith([{ anchor: "s1-c4", canon_sha: "194f8df", claim: "The cap rule applies." }]);
+  // s2-t6-1 is a real anchor in the index but rules.search did not return it
+  const unretrieved = cardWith([{ anchor: "s2-t6-1", canon_sha: "194f8df", claim: "A rule." }]);
+  const r = await ask({ plan: { loop: [toolUses(rulesAndCap), endTurn()], composer: [emit(unretrieved)], retry: [emit(fixed)] } });
+  t.deepEqual(r.trace.attempts[0].codes, ["UNRETRIEVED_ANCHOR"]);
+  t.equal(r.card.state, "answer");
+  t.deepEqual(r.card.cites.map((c) => c.anchor), ["s1-c4"]);
+  t.equal(r.card.cites[0].claim, "The cap rule applies.");
+  t.deepEqual(r.card.cites[0].rule, { title: "Cap", path: "", excerpt: CLEAN_RULE, canon_sha: "194f8df" });
+  // never retrieved at all (no rules tool): two rejections, tool_failure
+  const nocall = cardWith([{ anchor: "s1-c4", canon_sha: "194f8df", claim: "x" }]);
+  const r2 = await ask({ plan: { loop: [toolUses(CAP_CALL), endTurn()], composer: [emit({ ...nocall, lead_md: "Franchise {{f.c1.franchise}} has {{f.c1.cap_available}}." })], retry: [emit({ ...nocall, lead_md: "Franchise {{f.c1.franchise}} has {{f.c1.cap_available}}." })] } });
+  t.equal(r2.card.state, "tool_failure");
+  t.ok(r2.trace.attempts.every((a) => a.codes.includes("UNRETRIEVED_ANCHOR")));
+  // the model cannot supply the excerpt: extra cite keys are rejected, and a lying claim does not change the quoted text
+  const sneaky = cardWith([{ anchor: "s1-c4", canon_sha: "194f8df", claim: "x", excerpt: "The cap is unlimited.", rule: { excerpt: "The cap is unlimited." } }]);
+  const r3 = await ask({ plan: { loop: [toolUses(rulesAndCap), endTurn()], composer: [emit(sneaky)], retry: [emit(cardWith([{ anchor: "s1-c4", canon_sha: "194f8df", claim: "The cap is unlimited." }]))] } });
+  t.ok(r3.trace.attempts[0].codes.includes("UNKNOWN_KEY"));
+  t.equal(r3.card.cites[0].claim, "The cap is unlimited.");
+  t.equal(r3.card.cites[0].rule.excerpt, CLEAN_RULE, "the excerpt is the rule's own text, whatever the claim says");
+  // the excerpt is capped at 400 characters
+  const r4 = await ask({ stub: { ruleText: "A".repeat(1000) }, plan: { loop: [toolUses(rulesAndCap), endTurn()], composer: [emit(fixed)] } });
+  t.equal(r4.card.cites[0].rule.excerpt.length, 400);
+  // a rules call that was not ok (past date: current text only) retrieves nothing
+  const gap = [{ what: "rule text for that date", why: "unsupported_as_of" }];
+  const r5 = await ask({ asOf: "2023-10-01", plan: { loop: [toolUses([["rules__search", { query: "cap", as_of: "current" }]]), endTurn()], composer: [emit({ state: "cite_and_abstain", lead_md: "The rule cannot be shown for that date.", cites: fixed.cites, gaps: gap })], retry: [emit({ state: "abstain", lead_md: "The rule cannot be shown for that date.", gaps: gap })] } });
+  t.ok(r5.trace.attempts[0].codes.includes("UNRETRIEVED_ANCHOR"));
+  t.equal(r5.card.state, "abstain");
 });
 
 test("stale data the policy withholds: code-built stale_data, no composer call", async () => {

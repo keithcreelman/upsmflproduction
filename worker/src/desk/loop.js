@@ -55,8 +55,10 @@ export async function runLoop({ caller, question, asOf, route, call, deps }) {
   const envelopes = [];
   const calls = [];            // [{id, call_id, status, ms}]
   const injectionSources = []; // call ids whose results looked instruction-like
+  const overrides = [];        // [{call_id, tool, sent, forced}]: calls whose as_of the model sent and code replaced
+  const pinnedDate = typeof asOf === "string" && asOf !== "current" ? asOf : null;
   let rounds = 0, callSeq = 0, truncatedAny = false;
-  const done = (outcome, extra = {}) => ({ outcome, envelopes, calls, rounds, toolCalls: callSeq, injection: { suspicious: injectionSources.length > 0, sources: injectionSources }, truncated: truncatedAny, ...extra });
+  const done = (outcome, extra = {}) => ({ outcome, envelopes, calls, rounds, toolCalls: callSeq, injection: { suspicious: injectionSources.length > 0, sources: injectionSources }, overrides, truncated: truncatedAny, ...extra });
 
   for (;;) {
     const res = await call({ step: "loop", model: MODELS.loop, system, messages, tools: specs, max_tokens: LOOP_LIMITS.maxTokens, promptHash: hash, toolIds });
@@ -75,7 +77,15 @@ export async function runLoop({ caller, question, asOf, route, call, deps }) {
       // A name that was not offered never reaches a real tool, even if it spells a registered id with dots.
       const toolId = offered.has(u.name) ? toolIdFromModelName(u.name) : `x.${String(u.name).replace(/[^a-z0-9_.]/gi, "").slice(0, 40) || "unnamed"}`;
       const t0 = deps.nowMs();
-      const env = await runTool({ caller, callSeq }, toolId, u.input, deps);
+      // When the question is about a past date, the date is CODE's decision: whatever as_of the model sent is replaced, so a
+      // current-only tool can never be asked for (and answer with) today's data. When the as_of is "current" the model may still
+      // pass a past date itself (a history question).
+      let input = u.input;
+      if (pinnedDate && input && typeof input === "object" && !Array.isArray(input)) {
+        if (input.as_of !== pinnedDate) overrides.push({ call_id: `c${callSeq}`, tool: toolId, sent: typeof input.as_of === "string" ? input.as_of.slice(0, 20) : null, forced: pinnedDate });
+        input = { ...input, as_of: pinnedDate };
+      }
+      const env = await runTool({ caller, callSeq }, toolId, input, deps);
       calls.push({ id: toolId, call_id: env.call_id, status: env.status, ms: Math.max(0, deps.nowMs() - t0) });
       envelopes.push(env);
       const view = envelopeForModel(env);

@@ -57,6 +57,21 @@ test("AUTH: an owner session (not the commissioner) is refused; wrong methods an
   }
 });
 
+test("LEAGUE PIN: a request naming any other league (a foreign commissioner's L) is refused before any proof or desk code", async () => {
+  const { env, mfl } = fresh();
+  for (const [method, name] of ROUTES) {
+    const r = await callWorker(env, method, `/admin/commish-desk/${name}?L=99999&YEAR=2026&APIKEY=${ADMIN_KEY}`, method === "POST" ? { body: { question: "What is the cap?" } } : {});
+    t.ok(r.status === 403 || r.status === 401, `${name} with L=99999 -> ${r.status}`);
+    t.ok(!/card|items|enabled/.test(r.text), `${name} leaked a body for a foreign league`);
+  }
+  const mixed = await callWorker(env, "GET", `/admin/commish-desk/status?L=74598&L=99999&YEAR=2026&APIKEY=${ADMIN_KEY}`);
+  t.ok(mixed.status === 403 || mixed.status === 401, `repeated L -> ${mixed.status}`);
+  t.equal(env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) n FROM ai_desk_questions").get().n, 0);
+  const ok = await callWorker(env, "GET", `/admin/commish-desk/status?${Q}`);
+  t.equal(ok.status, 200);
+  t.equal(mfl.writes().length, 0);
+});
+
 test("OFF BY DEFAULT: /status answers enabled:false; every other route is 403 desk_disabled; nothing is written", async () => {
   const { env } = fresh({ desk: false });
   const before = digest(env, []);

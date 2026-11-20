@@ -57693,12 +57693,18 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
       // and (3) the DESK_ENABLED switch, which worker/src/desk/handler.js reads before doing anything but /status.
       // The desk code, its tools and its two private tables live in worker/src/desk/; nothing here touches league data.
       const deskRoute = async () => {
+        // Pin the desk to THIS league. The commissioner proofs ask MFL "is this session a COMMISH_FRANCHISE_IDS franchise in league L?" with L taken
+        // from the URL, and every MFL league has a 0000 commissioner franchise, so without this pin a commissioner of ANY other MFL league could
+        // name their own L and pass. Any L other than the UPS league (env.LEAGUE_ID, default 74598) is refused before any proof or desk code runs.
+        const deskLeague = String(env.LEAGUE_ID || "74598");
+        const namedLeagues = url.searchParams.getAll("L");
+        if (namedLeagues.some((v) => v !== deskLeague) || (!namedLeagues.length && deskLeague !== "74598")) return jsonOut(403, { ok: false, error: "wrong_league" });
         const proof = await commishSessionProven();
         if (!proof.ok) return jsonOut(403, { ok: false, error: "commish_only", reason: proof.reason });
         const { handleDeskRoute } = await import("./desk/handler.js");
         return handleDeskRoute({
           request, url, env, path, proof,
-          leagueId: L || env.LEAGUE_ID || "74598", season: YEAR || new Date().getUTCFullYear(),
+          leagueId: deskLeague, season: YEAR || new Date().getUTCFullYear(),
           deskEnabled: await getFeatureFlag(env, "DESK_ENABLED"),
           fetchSelf: (u, i) => env.SELF.fetch(u, i),
         });
