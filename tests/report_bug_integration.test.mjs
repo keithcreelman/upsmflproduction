@@ -404,6 +404,99 @@ test("A SHEET THAT MISBEHAVES CANNOT CHANGE THE APP: a throwing recorder, a thro
   t.ok(!p.main().includes("Report a problem"));
 });
 
+// ---------------------------------------------------------------- 6b. uncaught errors and unhandled rejections (round-1 MAT-1)
+// These need no failed request and no toast: the browser fires window "error" / "unhandledrejection". They must reach the SAME route-aware
+// recording as the render boundary and the toasts, so the chip shows on the screen, More lists them, and the submitted report carries them.
+const rowsErr = (p) => rowsOf(p).map((r) => ({ screen: r.screen, name: r.err_name, message: r.err_message, endpoint: r.err_endpoint, status: r.err_status }));
+const dispatchError = (p, err, message) => p.win.dispatchEvent({ type: "error", message: message || ("Uncaught " + err.name + ": " + err.message), error: err });
+const dispatchRejection = (p, reason) => p.win.dispatchEvent({ type: "unhandledrejection", reason });
+
+test("UNCAUGHT ERROR (no failed request, no toast): recorded against the screen, chip there, listed by More, and the submitted report carries its name and message", async () => {
+  const p = await boot({ hash: "#myteam/lineup" });
+  t.equal(p.R().failures().length, 0); t.equal(p.chip(), null);
+  dispatchError(p, new TypeError("lineup.slots is not iterable"));
+  const f = p.R().failures();
+  t.equal(f.length, 1, "recorded: " + JSON.stringify(f));
+  t.equal(f[0].screen, "Lineup"); t.equal(f[0].route, "myteam/lineup"); t.equal(f[0].name, "TypeError"); t.match(f[0].message, /lineup\.slots is not iterable/);
+  t.ok(p.chip(), "the chip shows on the screen where it happened");
+  t.equal(p.R().chipFailure().id, f[0].id);
+  await p.go("#more");                                               // the owner opens More without tapping the chip
+  t.equal(p.chip(), null, "no chip on More");
+  p.tapMore();
+  const text = p.sheet().innerHTML;
+  t.match(text, /Lineup: TypeError/, "More lists the exception first, named by its screen and name");
+  t.match(text, /Something else looks wrong/);
+  await send(p, "The lineup page crashed");
+  const r = rowsErr(p);
+  t.equal(r.length, 1); t.equal(r[0].screen, "Lineup", "the report says Lineup, not More"); t.equal(r[0].name, "TypeError");
+  t.match(r[0].message, /lineup\.slots is not iterable/, "and carries the message");
+});
+
+test("UNHANDLED REJECTION: an Error, a string and a plain object are each recorded; More lists them newest first (one entry per name) and the chosen one is what is submitted", async () => {
+  const p = await boot({ hash: "#players" });
+  dispatchRejection(p, new RangeError("pick index out of range"));
+  dispatchRejection(p, "plain string failure");
+  dispatchRejection(p, { code: 42 });                                // no name, no message: still an unhandled rejection, recorded generically
+  const f = p.R().failures();
+  t.equal(f.length, 3, "three rejections: " + JSON.stringify(f.map((x) => [x.name, x.message])));
+  t.equal(f[0].name, "RangeError"); t.equal(f[0].screen, "Players");
+  t.equal(f[1].name, "UnhandledRejection"); t.match(f[1].message, /plain string failure/);
+  t.equal(f[2].name, "UnhandledRejection", "a rejection with no name or message is still reported, generically");
+  t.ok(p.chip());
+  await p.go("#more"); p.tapMore();
+  const text = p.sheet().innerHTML;
+  t.ok(text.indexOf("Players: UnhandledRejection") !== -1 && text.indexOf("Players: UnhandledRejection") < text.indexOf("Players: RangeError"), "newest first");
+  p.choose(1);                                                       // the owner picks the older one
+  await send(p, "Something rejected");
+  t.equal(rowsErr(p).length, 1); t.equal(rowsErr(p)[0].name, "RangeError"); t.match(rowsErr(p)[0].message, /pick index out of range/); t.equal(rowsErr(p)[0].screen, "Players");
+});
+
+test("UNCAUGHT ERROR, NAVIGATION: an error on Lineup, then the owner is on Rosters: no chip on Rosters, still reportable from More with Lineup and the original error; the chip is back on Lineup", async () => {
+  const p = await boot({ hash: "#myteam/lineup" });
+  dispatchError(p, new TypeError("slots.map is not a function"));
+  await p.go("#league/rosters");
+  t.equal(p.chip(), null, "no chip on Rosters");
+  await p.go("#more"); p.tapMore();
+  await send(p, "It crashed on lineup");
+  t.equal(rowsErr(p)[0].screen, "Lineup"); t.equal(rowsErr(p)[0].name, "TypeError"); t.match(rowsErr(p)[0].message, /slots\.map is not a function/);
+  p.dom.document.body._kids.filter((k) => k.className === "ups-rb-back").forEach((k) => k.remove());
+  await p.go("#myteam/lineup");
+  t.ok(p.chip(), "the chip is back on Lineup");
+});
+
+test("UNCAUGHT ERROR: the same error repeating is one entry with a count; a ResizeObserver notice is not a failure; an error with no details is still reported generically; a hostile event never throws out of the listener", async () => {
+  const p = await boot({ hash: "#home" });
+  for (let i = 0; i < 4; i++) dispatchError(p, new Error("again"));
+  t.equal(p.R().failures().length, 1); t.equal(p.R().failures()[0].count, 4);
+  const before = p.R().failures().length;
+  p.win.dispatchEvent({ type: "error", message: "ResizeObserver loop completed with undelivered notifications." });
+  t.equal(p.R().failures().length, before, "the ResizeObserver notice is not a failure");
+  p.win.dispatchEvent({ type: "error" });                            // no message, no error object: still an uncaught error, recorded as a generic one
+  t.equal(p.R().failures().length, before + 1, "an error with no details is still reported (generic)");
+  const mid = p.R().failures().length;
+  const hostile = { type: "error", get message() { throw new Error("hostile getter"); }, error: {} };
+  p.win.dispatchEvent(hostile);                                      // would throw out of an unprotected listener
+  p.win.dispatchEvent({ type: "unhandledrejection", get reason() { throw new Error("hostile reason"); } });
+  t.equal(p.R().failures().length, mid, "and recorded nothing");
+  t.ok(true, "no exception escaped dispatch");
+});
+
+test("UNCAUGHT ERROR: tokens and keys in the message never reach the record, the sheet, the POST or the stored row", async () => {
+  const SECRET_ = "sk_live_ABCDEF0123456789abcdef", TOK_ = "tokUNCAUGHT99";
+  const p = await boot({ hash: "#home" });
+  dispatchError(p, new TypeError("failed at https://w.example/api/x?APIKEY=" + SECRET_ + " MFL_USER_ID=" + TOK_ + " token=" + SECRET_ + " Bearer " + SECRET_ + "zz"));
+  t.ok(p.R().failures().length === 1);
+  t.ok(!JSON.stringify(p.R().failures()).includes(SECRET_) && !JSON.stringify(p.R().failures()).includes(TOK_), "not in the record");
+  await p.go("#more"); p.tapMore();
+  t.ok(!p.sheet().innerHTML.includes(SECRET_) && !p.sheet().innerHTML.includes(TOK_), "not in the sheet");
+  await send(p, "Crashed");
+  const post = p.posts.find((x) => x.path === "/api/bug-reports");
+  t.ok(post, "the report was sent");
+  const rest = JSON.stringify({ ...JSON.parse(post.body), mfl_user_id: undefined });
+  t.ok(!rest.includes(SECRET_) && !rest.includes(TOK_), "not anywhere in the POST");
+  t.ok(!JSON.stringify(rowsOf(p)).includes(SECRET_) && !JSON.stringify(rowsOf(p)).includes(TOK_), "not in the stored row");
+});
+
 // ---------------------------------------------------------------- 7. mutation checks
 function mutate(src, from, to) {
   t.equal(src.split(from).length - 1, 1, "mutation target present exactly once: " + from.slice(0, 60));
@@ -424,6 +517,13 @@ const CHECKS = {
     await p.go("#league/rosters"); p.release(hold, "500"); await pend.catch(() => {}); await settle();
     return p.R().failures()[0] && p.R().failures()[0].screen === "Lineup" && p.chip() === null;
   },
+  uncaughtHook: async (a, s) => {   // round-1 MAT-1: both window listeners must feed the route-aware recording (chip, More, submission)
+    const p = await makePhone({ appSrc: a, scriptSrc: s, script: true, stored: SIGNED_IN, hash: "#myteam/lineup" });
+    p.win.dispatchEvent({ type: "error", message: "Uncaught TypeError: boom2", error: new TypeError("boom2") });
+    p.win.dispatchEvent({ type: "unhandledrejection", reason: new RangeError("rej2") });
+    const f = p.R().failures();
+    return f.some((x) => String(x.message).includes("boom2") && x.screen === "Lineup") && f.some((x) => String(x.message).includes("rej2") && x.screen === "Lineup") && !!p.chip();
+  },
   ownPost: async (a, s) => {
     const p = await makePhone({ appSrc: a, scriptSrc: s, script: true, stored: SIGNED_IN, hash: "#myteam/lineup" });
     p.M.ui.showToast("x", "err"); p.fail({ path: "/api/bug-reports", mode: "500" }); p.tapChip("go"); await send(p, "A real summary");
@@ -443,6 +543,9 @@ test("MUTATION CHECKS: cut each mechanism out and the check that protects it mus
     ["noScriptSafe", mutate(APP, "try { var R = window.UPSReportBug; if (R && R.noteFailure) R.noteFailure(info); } catch (e) { /* never affects the app */ }", "window.UPSReportBug.noteFailure(info);"), SCRIPT],
     ["startAttribution", APP, mutate(SCRIPT, "try { observe(urlOf(input), start, p); }", "try { observe(urlOf(input), { get route() { return screenNow().route; }, get screen() { return screenNow().screen; } }, p); }")],
     ["ownPost", APP, mutate(SCRIPT, "if (isOwnPost(endpoint)) return;", "")],
+    // the original defect, one listener at a time: the exception reaches only the plain error memory, which neither the chip nor More reads
+    ["uncaughtHook", APP, mutate(SCRIPT, "noteUncaught((ev.error && ev.error.name) || \"Error\", ev.message || (ev.error && ev.error.message));", "remember({ name: (ev.error && ev.error.name) || \"Error\", message: ev.message || (ev.error && ev.error.message) });")],
+    ["uncaughtHook", APP, mutate(SCRIPT, "noteUncaught((r && r.name) || \"UnhandledRejection\", (r && r.message) || str(r));", "remember({ name: (r && r.name) || \"UnhandledRejection\", message: (r && r.message) || str(r) });")],
   ];
   for (const [name, a, s] of cases) t.equal(await CHECKS[name](a, s), false, "MUTANT FAILS the '" + name + "' check");
   // The golden itself is sensitive: a one-word visible change in app.js, and an extra request, are both caught.

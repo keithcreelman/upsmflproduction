@@ -178,14 +178,27 @@
     if (opts && opts.observe) startObserver();
     if (installed || !root.addEventListener) return;
     installed = true;
+    // An uncaught error and an unhandled promise rejection take the SAME route-aware path as a render error or an error toast
+    // (noteFailure -> record): attributed to the screen the owner is on when it happens, so the chip shows there and More -> Report a
+    // problem lists it with its name and message. (Round-1 MAT-1: these used to reach only the plain error memory, which neither the
+    // chip nor the More picker reads, so a report from More carried no error.) Sanitizing happens in record -> normalizeError.
+    // Each listener body is wrapped: a recorder or DOM fault must never become a second uncaught error (which would re-enter here).
     root.addEventListener("error", function (ev) {
-      if (!ev || /ResizeObserver loop/i.test(str(ev.message))) return;
-      remember({ name: (ev.error && ev.error.name) || "Error", message: ev.message || (ev.error && ev.error.message) });
+      try {
+        if (!ev || /ResizeObserver loop/i.test(str(ev.message))) return;
+        noteUncaught((ev.error && ev.error.name) || "Error", ev.message || (ev.error && ev.error.message));
+      } catch (e) { /* never throws out of the listener */ }
     });
     root.addEventListener("unhandledrejection", function (ev) {
-      var r = ev && ev.reason;
-      remember({ name: (r && r.name) || "UnhandledRejection", message: (r && r.message) || str(r) });
+      try {
+        var r = ev && ev.reason;
+        noteUncaught((r && r.name) || "UnhandledRejection", (r && r.message) || str(r));
+      } catch (e) { /* never throws out of the listener */ }
     });
+  }
+  function noteUncaught(name, message) {
+    try { noteFailure({ name: name, message: message }); }
+    catch (e) { try { remember({ name: name, message: message }); } catch (e2) { /* ignore */ } }
   }
   function noteFailure(e) {
     // A failure the app already knows about (render error, error toast): attributed to the screen the owner is on now.
