@@ -16,6 +16,8 @@ Keith (chat, 2026-11-20): the beta must match the approved demo **1:1 across the
 
 **Decision 5 (Keith, chat 2026-11-20): navigation B, four tabs, recorded.** The bottom bar is Home, Team, Market and League. **Fix lineup** on Home stays a one-tap shortcut into Team's lineup workspace. An unsaved-changes indicator shows inside that workspace, and the app prompts before navigating away with unsaved edits. **Market and League remain navigation destinations; their presence does not expand the scope approved in Decision 2.** No implementation or deployment is authorized by this decision.
 
+**Decisions 6, 7 and 8 (Keith, chat 2026-11-20), recorded together.** **6 Test clock:** A, paired with B's closed-window refusal cases; the override is honored only for authorized Test sessions on league 25625, production never honors it, and it must not change the shared worker's global clock; the docs state which restrictions belong to our worker and which to MFL and never claim the override bypasses MFL's own rules. **7 Write order:** Report a bug first (routed only to #keiths-test during integration testing), then lineup, roster moves, drop, and contract actions; each flow needs verified results before the next. **8 Missing data:** use existing league and NFL sources first and audit the repository and the current app before building any new route or declaring data unavailable; establish a source for action eligibility, injury timing, opponents and kickoffs, weekly scoring history and the contract calendar; projections, news, bio and IR return dates use the demo's Unavailable state until a suitable source is approved; never infer an exact return date. **These rulings complete the planning decisions. Implementation and deployment approval remain separate.** The audit and the consolidated implementation proposal are in `docs/beta2027/IMPLEMENTATION_PROPOSAL.md`.
+
 ## 2. What "the demo" is (pinned versions)
 
 | Source | What it is | Version and hash | Role here |
@@ -33,7 +35,7 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 
 **Status:** Built = matches the demo · Partial = exists but differs or is incomplete · Not built · Exception = a difference from the demo that Keith has ruled on (section 5a).
 
-**Needs:** `W` a real write (test league first) · `D` a read source or worker route that does not exist yet, or whose contents are not confirmed · `A` the sign-in and identity work (Stage 2) · `X` a decision from Keith · `C` wording to verify against canon.
+**Needs:** `W` a real write (test league first) · `D` a read source must be wired into the beta; an existing route or module often already provides it (see the audit in `IMPLEMENTATION_PROPOSAL.md`) · `A` the sign-in and identity work (Stage 2) · `X` a decision from Keith · `C` wording to verify against canon.
 
 **Stage:** S1 read-only parity (public data, no write code) · S2 test-league foundation · S3a lineup · S3b roster moves · S3c drop · S3d contract actions · S3e report a bug.
 
@@ -47,8 +49,8 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | Not built | 60 |
 | Exception (a ruled difference from the demo) | 5 |
 | Need a real write (`W`) | 23 |
-| Need new or unconfirmed read data (`D`) | 41 |
-| Need a decision (`X`) | 12 |
+| Need new or unconfirmed read data (`D`) | 39 |
+| Need a decision (`X`) | 7 |
 | Need wording checked against canon (`C`) | 5 |
 
 **In plain words:** the beta today is the read-only roster, the contract details and the team-colored profile header. Everything that edits (lineup, moves, drop, extension, restructure, MYAC, MYM) is not built, and several things the demo *shows* have no live data source yet (section 6).
@@ -97,16 +99,16 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | C8 | Status line on other views | "18 of 18 starters · nothing to fix · Open Lineup". | None. | Not built | Line. | D | S1 |
 | C9 | Contracts-view summary | "n end after 2026 · Open full Contracts ›". | None. | Not built | Line (data is in the roster read). |  | S1 |
 | C10 | Byes-view summary | "Week 11 · n on a bye · Week 12 · n". | None. | Not built | Line (bye weeks are in the roster read). |  | S1 |
-| C11 | Performance-view summary | "Projected lineup 126.4 · last week 118.2". | None. | Not built | Needs projections (rights unresolved) and weekly points. | D X | S1 |
+| C11 | Performance-view summary | "Projected lineup 126.4 · last week 118.2". | None. | Not built | Last-week points from the weekly read; the projected figure shows the demo's **Unavailable** state until a projection source is approved (Decision 8). | D | S1 |
 | C12 | Starters block with slot tags | "Week 11 starters · 18 of 18"; each row tagged with its slot (QB1 … SF, K, P, DL1, DF). | Starters in MFL's order with a position badge; no slot tags; "The lineup as MFL has it" note. | Partial | Slot tags from the league's lineup settings; keep "unknown is never empty". | D | S1 |
 | C13 | Starter row controls | Swap (starter), Locked (game started), Start (bench), "Bye week" (disabled), Fill (empty slot). | None (read-only rows). | Not built | Controls; lock rules from kickoff times. | D W | S3a |
 | C14 | Empty slot row | "Empty" with a Fill button, highlighted. | None. | Not built | Row. | W | S3a |
 | C15 | Row status chips | ▲ Bye week, ■ OUT, ▲ Doubtful, ■ IR tag. | ▲ Bye week only. | Partial | Injury chips (needs the injury read; MFL's injuries export keeps lapsed designations, so timing must be derived). | D | S1 |
 | C16 | Row: opponent and kickoff | "DAL · vs NYG" on lineup rows; kickoff for locks. | NFL team only. | Partial | Opponent and kickoff from a schedule read. | D | S1 |
-| C17 | Row: IR return date | "SFO · back Dec 3". | None. | Not built | A source for expected return is not known; show only what a source supports. | D X | S1 |
+| C17 | Row: IR return date | "SFO · back Dec 3". | None. | Not built | **Decision 8: never infer an exact return date.** Nothing is shown (the repo's injury resolver already forbids expected-return dates); the demo's Unavailable state applies if a place for it is kept. |  | S1 |
 | C18 | Row: taxi call-ups | "DAL · 1/3 call-ups". | Shown on the profile More tab, not on the row. | Partial | Move to the row. |  | S1 |
 | C19 | Row (Contracts view) | Type · through 2028 · cap note ("cap hit 50%" on IR, "taxi, $0 on cap"); salary; years left or "▲ Final year". | Type · through year; salary; years left or Final year. No IR or taxi cap notes. A missing salary reads "Not recorded". | Partial | IR and taxi cap notes. |  | S1 |
-| C20 | Row (Performance view) | "Wk 10 18.2 · Avg 14.1 · vs NYG"; projection on the right. | None. | Not built | Weekly points and opponent; projection per rights. | D X | S1 |
+| C20 | Row (Performance view) | "Wk 10 18.2 · Avg 14.1 · vs NYG"; projection on the right. | None. | Not built | Weekly points and opponent from existing reads; projection shows **Unavailable** until a source is approved (Decision 8). | D | S1 |
 | C21 | Row (Byes view) | "MIA · bye week 11 · week 11" and "Wk 11" with a Week chip. | None. | Not built | Row (data in hand). |  | S1 |
 | C22 | Bench groups | By position; count; "Needs you" chip; Expand all / Collapse all; rule setting "All groups open" or "Only what needs you". | By position with counts; Expand all / Collapse all. | Partial | "Needs you" chip and the group rule (needs C7, C15). | D X | S1 |
 | C23 | Injured reserve and Taxi sections | "Injured reserve · 1 of 15", "Taxi squad · 3 of 10", collapsible. | Same, with limits from the league settings. | Built | None. |  | - |
@@ -153,13 +155,13 @@ The demo's own title for it is "Team › Contracts" (approved for the design con
 | F5 | Performance: season chips | Season chips (2026, 2025 …, ⚠ for incomplete history). | None. | Not built | Needs the history source. | D | S1 |
 | F6 | Performance: season tiles | Season Pts, PPG, PPG rank at the position. | "Season points so far" and "Last week —". | Partial | PPG and rank. | D | S1 |
 | F7 | Performance: Start / Boom / Bust | Percent and "n of m weeks" per rate; counts only for kickers and punters; "Not enough weeks yet (needs 3)". | None. | Not built | Rates over the league's own weekly lineups (definitions in the ⓘ sheet). | D C | S1 |
-| F8 | Performance: projection | "Projection · Concept": this week, rest of season, projected PPG, source "Pending review"; Out of date and Unavailable states. | "Not in Preview 0". | Not built | Show only with a licensed, current source; otherwise "Unavailable". | D X | S1 |
+| F8 | Performance: projection | "Projection · Concept": this week, rest of season, projected PPG, source "Pending review"; Out of date and Unavailable states. | "Not in Preview 0". | Not built | **Decision 8:** the demo's **Unavailable** state until a suitable projection source is approved. |  | S1 |
 | F9 | Performance: game log | Per week: vs/@ opponent, points, grade chip (Boom, Starter-level, Below, Bust), role (Started, Benched, On Team n, Free agent), BYE rows. | None. | Not built | Weekly scoring and roles. | D | S1 |
 | F10 | Schedule tab | "Allowed to <position>"; next 4 or all remaining games with opponent, kickoff, allowed vs usual, % vs usual, rank of 32, games n. | "Not in Preview 0". | Not built | Opponent-allowed-to-position source. | D | S1 |
 | F11 | Contract tab: tiles and years | Salary, Years left, Earned to date, Remaining guarantee; Salary by year (3 years); option year; beyond 2028. | Built, with "Not recorded" and worker-flagged states. | Built | Copy touch-ups ("Through Week 10"). |  | - |
 | F12 | Contract tab: Deadlines | Closed actions with their reasons or dates (Extend, Restructure, MYAC, MYM, Tag: "Deadline 5/21 · Passed", "Auction contracts only"), plus the note that MYAC/MYM come before Extension. | "Closed actions and their deadlines are not in Preview 0." | Not built | Deadlines from the season calendar and the player's acquisition record. | D | S1 |
 | F13 | Contract tab: Rules and totals, If cut now | Type, Total value, Guaranteed; cut penalty and its basis. | Built (read-only, from the worker's answer). | Built | None. |  | - |
-| F14 | More tab | Injury, Owner, taxi call-ups, News (source and date), Bio. | Roster spot, team, acquired, taxi details. | Partial | Injury; News and Bio need sources and rights that are unresolved. | D X | S1 |
+| F14 | More tab | Injury, Owner, taxi call-ups, News (source and date), Bio. | Roster spot, team, acquired, taxi details. | Partial | Injury from the one shared resolver. **News and Bio show the demo's Unavailable state until a suitable source is approved (Decision 8)**; routes exist (`/api/player-news`, `/api/player-bundle`) but rights are unresolved. | D | S1 |
 | F15 | Actions sheet | Lists what he can do now (each opens a review); closed ones show "Not available" with the reason; "Can't confirm" with Try again. | None. | Not built | Sheet from one server preview route that returns every action's state and reason (does not exist today). | D | S1 |
 
 ## G. Actions (each ends in a review, then a real submit with MFL read-back)
@@ -215,23 +217,25 @@ The demo's Controls sheet exists so Keith can try states. These are not owner fe
 | Compare navigation A and B sheet; A/B setting | Sheet comparing the two bars; a selector | Dropped; navigation fixed at four tabs | Decision 5 (B) |
 | Kept as owner settings (not exceptions) | Skin, vibrant colors, position-group rule | Same, in settings | - |
 
-## 6. What the demo shows that no live source provides today
+## 6. Data the demo shows: what the repository and the current app already provide (audit, Decision 8)
 
-These are the reason parity is more than screen work. Each needs a worker route, measured against the D1 free-plan budget (`docs/D1_QUERY_RULES.md`), before its screen can be real.
+A first-pass audit of the worker (`worker/src/index.js` and its modules), the shared browser modules (`site/shared/`) and the current phone app (`site/m/`), read from the code and **not exercised**. The beta reuses what exists and adds a route only where a gap is proven. Details and sources are in `IMPLEMENTATION_PROPOSAL.md`.
 
-| Gap | Used by | Note |
+| Need | Found | Remaining gap |
 |---|---|---|
-| D1 Per-player action eligibility and reasons (one route) | F3, F12, F15, G1-G8 | The demo's own note: "a live eligibility source does not exist yet." Windows need the season calendar and each player's acquisition and prior-extension record. |
-| D2 Injury status with the time it reached the report, and notice deadlines | B1, C7, C15, C32, F14 | MFL's injuries export keeps lapsed designations, so timing must be derived, and unknown must stay unknown. |
-| D3 Opponent, home/away and kickoff per player per week | C12, C16, C27, F9, F10 | Needed for locks and for "vs NYG". |
-| D4 Weekly scoring history and roles (Started, Benched, On Team n, Free agent), PPG rank | C20, F5-F9 | Candidates exist (`/api/player-weekly-box`, `/api/player-bundle`); contents unconfirmed. |
-| D5 Opponent-allowed-to-position figures | F10 | No route identified. |
-| D6 Projections | C11, F8 | The demo marks them Concept; rights, source and cost are unresolved. Without a source the demo's "Unavailable" state is the honest result. |
-| D7 News and bio | F14 | Sources and rights unresolved. |
-| D8 IR expected return date | C17 | No source identified. |
-| D9 Cap space reconciled to the Front Office number | C1 | Left out on purpose today. |
-| D10 Team's confirmed-violation count (the §G3 ladder) | C32 | Unknown must read "we couldn't read it", never zero. |
-| D11 Season calendar for contract windows, restructures used, loaded-contract count, MYM count, call-ups used | G2-G7 | Several are in D1 or the worker today; each to be confirmed. |
+| Action eligibility (Extend, Restructure, MYAC, MYM, Tag, taxi, IR, drop) | Client predicates `site/m/front_office_actions.js` (verbatim Front Office mirror), `site/shared/contract_windows.js`, `site/shared/taxi_rule.js` (twin of `worker/src/taxi_rule.js`); the pre-season ladder is resolved on the worker (`league_events_ladder.js`); the worker enforces windows at submit | No single server preview of "what can he do now". Reuse the shared pure modules first; add a read route only if a parity test shows divergence |
+| Injury status and timing | `/api/player-status` (official report, roster designation, MFL designation) and the one resolver `site/shared/injury_status.js`; lineup-violation booking in `lineup_compliance.js` and `lineup_rulings.js` | Confirm the notice-deadline facts the demo's issue sheet shows are readable; the resolver forbids expected-return dates |
+| Opponents, home/away, kickoff, spread | `/api/lineup-matchups` (this week's game per NFL team plus the next three weeks) and `/api/fantasy-sos` (the league's full schedule by week with byes and game state) | None identified |
+| Allowed-to-position, usual, rank of 32 | `defRatings` in `/api/lineup-matchups` and `/api/fantasy-sos` (the Pts Agst engine, `worker/src/fpa_engine.js`) | None identified |
+| Weekly scoring history, PPG, rank | `/api/player-weekly-box` (box score and snaps), MFL player scores through `site/m/season_scoring.js`, `site/shared/player_facts.js` | Per-week role (Started, Benched, On Team n, Free agent) is not identified as a stored fact; derive from MFL lineups or show no role (the demo shows none for partial history) |
+| Start / Boom / Bust | `/api/player-starter-rates` (worker `starter_rates.js`, defined by Keith 2026-10-10 against the UPS starter pool) | The demo's thresholds are placeholders; the beta uses the worker's definitions and says so |
+| Contract calendar and deadlines | `getAuctionCalendar` and `resolveContractDeadlineUtc` on the worker, `/api/league-events`, `league_events_ladder.js`, `site/shared/contract_windows.js` | Confirm the read carries every date the Deadlines list shows |
+| Cut penalty, earned, guarantee | `/api/cap-penalty/preview` (already in the beta); `site/m/front_office_penalty.js` is an older client estimate and is not used | None |
+| Cap space | `site/m/front_office_cap.js` and the Front Office number | Reconcile before showing (left out today on purpose) |
+| Projections | Lineup projection fetch exists in the current app | **Unavailable state** until a suitable source is approved (Decision 8) |
+| News and Bio | `/api/player-news` (Sleeper via MFL ids) and `/api/player-bundle` (MFL playerProfile) exist; the current sheet has News and Bio tabs | **Unavailable state** until a suitable source and its rights are approved (Decision 8) |
+| IR expected return | MFL's injuries export carries an expected-return field; the repo's resolver deliberately shows none | **Never infer an exact return date** (Decision 8): nothing is shown |
+| Team's confirmed-violation count (the §G3 ladder) | Lineup rulings tables on the worker | Confirm a readable count; unknown must read "we couldn't read it" |
 
 ## 7. Staged plan (proposal; nothing is approved)
 
@@ -249,7 +253,7 @@ Each stage is its own set of PRs. Each PR has one outcome, runs the safe suite, 
 | **S3e** | Notify commissioner / report a bug. | test league only | Evidence pack; G3. |
 | **S4+** | Review all results; the Beta button; invited beta; **live writes enabled one flow at a time, each on Keith's separate approval after the Test-vs-Live comparison.** | live, staged | GL per flow. |
 
-Suggested write order (lowest blast radius first, Keith decides): lineup → roster moves → drop → contract actions → report. The demo's Controls scenarios are not a test plan; the evidence pack below is.
+**Write order (Decision 7, decided):** report a bug (S3e) first, routed only to #keiths-test during integration testing; then lineup (S3a), roster moves (S3b), drop (S3c) and contract actions (S3d). Each flow needs verified results before the next begins. The stage names keep their letters; the order of work is S3e, S3a, S3b, S3c, S3d. The demo's Controls scenarios are not a test plan; the evidence pack below is.
 
 ### Evidence pack for every flow (test league)
 
@@ -266,9 +270,9 @@ The worker holds one commissioner MFL session that works for **both** the live l
 3. ~~**Helmet placeholder.**~~ **Decided (2026-11-20):** add the demo's labeled dashed "Helmet TBD" circle as shown; no helmet art is drawn or invented. Supersedes the Preview 0 choice to leave it out.
 4. ~~**Scaffolding.**~~ **Decided (2026-11-20):** Sample mode for scenario toggles (labeled, never sends transactions), Report a bug replaces Feedback (reachable everywhere, carries screen and error, #keiths-test only during integration testing), compare sheet dropped, skin / vibrant / position-group rule stay as owner settings. Recorded as explicit exceptions in section 5a.
 5. ~~**Navigation.**~~ **Decided (B, 2026-11-20):** four tabs (Home, Team, Market, League); Fix lineup stays a one-tap shortcut into Team's lineup workspace; unsaved indicator inside the workspace and a prompt before navigating away with unsaved edits; Market and League are destinations only and do not widen the Decision 2 scope.
-6. **Test clock** (needed before S3d). Most contract windows are closed until the March roll-forward (unverified), so Extend, Restructure, MYAC and MYM cannot be exercised end to end on a real clock. Options: **A (recommended)** a request-scoped test clock honored only for Test sessions on league 25625, enforced on the worker and proven by a negative test that production requests ignore it (a deploy-config-only test clock, `TWR_TEST_NOW_MS`, already exists for trade deadlines; it must not become a setting on the shared worker); **B** recorded cases only, no live test writes for closed windows; **C** wait until the windows open. Pair A with B's closed-window refusal cases.
-7. **Write order** for S3. Recommended: **report a bug first** (it writes only to #keiths-test, and integration testing needs it), then lineup, roster moves, drop, contract actions. Lineup, moves and drop are in season today; contract actions wait on decision 6.
-8. **Data sources** the demo shows that do not exist (section 6). Recommended split: build from our own data first (action eligibility route, injury timing, opponent and kickoff, weekly scoring history, allowed-to-position if derivable, calendar), and show the demo's own "Unavailable" state for projections, news, bio and IR return date until Keith approves a source and its rights.
+6. ~~**Test clock**~~ **Decided (A paired with B, 2026-11-20):** a request-scoped test clock honored only for authorized Test sessions on league 25625; production never honors it; it does not change the shared worker's global clock; plus B's closed-window refusal cases (a closed window writes nothing). The documentation states which restrictions our worker enforces and which MFL enforces, and does not claim the override bypasses MFL's own rules.
+7. ~~**Write order**~~ **Decided (2026-11-20):** Report a bug first (routed only to #keiths-test during integration testing), then lineup, roster moves, drop, and contract actions. Each flow needs verified results before progressing.
+8. ~~**Data sources**~~ **Decided (2026-11-20):** use existing league and NFL data sources first; audit the repository and the current app before building new routes or declaring data unavailable; establish a source for action eligibility, injury timing, opponents and kickoffs, weekly scoring history and the contract calendar; projections, news, bio and IR return dates use the demo's Unavailable state until a suitable source is approved; never infer an exact return date.
 
 ## 9. What this does not do
 
