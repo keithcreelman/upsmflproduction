@@ -153,6 +153,22 @@ test("a league term the glossary returned this run may be written as spelled, di
   t.ok(codes(card("It is 2025 for {{f.c1.franchise}}."), ctx(["2025", "x".repeat(60) + "1"])).includes(CODES.DIGIT_IN_PROSE));
 });
 
+test("R2 regression: a glossary alias listed in lower case ('ext1') allows the owner's spelling 'Ext1', in any capitalization, and nothing else", () => {
+  const ctx = (terms) => ctxFor([OK1], { allowedTerms: terms });
+  const card = (lead) => ({ ...GOOD(), lead_md: lead });
+  // What the glossary returned for Ext1 in R2: the term "Vet-Ext1" and the alias "ext1". The question and the canon write "Ext1".
+  const returned = ["Vet-Ext1", "ext1", "rookie-ext1", "ext 1"];
+  for (const spelling of ["Ext1", "ext1", "EXT1", "Vet-Ext1", "vet-ext1"]) t.ok(validateCard(card(`${spelling} is a contract type for {{f.c1.franchise}}.`), ctx(returned)).ok, spelling);
+  // Still refused: a term that was never looked up, a longer word, a digit that is not part of a returned term, and a spelled quantity beside the term.
+  t.deepEqual(codes(card("Ext2 is a contract type for {{f.c1.franchise}}."), ctx(returned)), [CODES.DIGIT_IN_PROSE]);
+  t.deepEqual(codes(card("NEXT1 and Ext10 are not terms for {{f.c1.franchise}}."), ctx(returned)), [CODES.DIGIT_IN_PROSE]);
+  t.deepEqual(codes(card("Ext1 lasts 1 year for {{f.c1.franchise}}."), ctx(returned)), [CODES.DIGIT_IN_PROSE]);
+  t.ok(codes(card("Ext1 twice for {{f.c1.franchise}}."), ctx(returned)).includes(CODES.SPELLED_QUANTITY));
+  // Not looked up at all: no exception for any spelling.
+  for (const spelling of ["Ext1", "ext1"]) t.deepEqual(codes(card(`${spelling} is a contract type for {{f.c1.franchise}}.`), ctx([])), [CODES.DIGIT_IN_PROSE], spelling);
+});
+
+
 test("fact above the caller ceiling is rejected", () => {
   const p2 = env("c1", "cap.position", "ok", { dataClass: "P2", facts: [fact("c1", "cap_available", 12000, "usd")] });
   t.ok(validateCard({ ...GOOD(), lead_md: "Space is {{f.c1.cap_available}}.", facts_used: [] }, ctxFor([p2], { ceiling: "P2" })).ok);

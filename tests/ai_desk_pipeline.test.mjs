@@ -1007,7 +1007,7 @@ test("a loop reply cut off by max_tokens runs nothing and fails closed (a half-w
 test("composer prompt 1.4.0 carries the R2 lessons (claims are prose too, glossary terms exactly as listed, the cited rule shows its own year or number)", () => {
   const c = getPrompt("composer");
   t.equal(c.version, "1.4.0");
-  t.match(c.text, /cites\[\]\.claim/); t.match(c.text, /one-time/); t.match(c.text, /Vet-Ext1/); t.match(c.text, /beside your citation/);
+  t.match(c.text, /cites\[\]\.claim/); t.match(c.text, /one-time/); t.match(c.text, /aliases listed beside it/); t.match(c.text, /capitalization does not matter/); t.match(c.text, /beside your citation/);
   t.ok(!/league_context|hard stop/i.test(c.text), "still no canon text in a prompt");
 });
 

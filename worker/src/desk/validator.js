@@ -230,11 +230,13 @@ function isPastAsOf(asOf, today) {
 
 // ── validateCard ──────────────────────────────────────────────────────────────────────────────────
 // Terms a glossary.lookup returned (code data): letters required, bounded, regex-safe. Exact spelling, whole word.
+// Case-insensitive on purpose: the glossary lists an alias as "ext1" while owners (and the canon) write "Ext1". Matching is still whole-word and only for terms the
+// glossary returned this run, so the only digits it can let through are the ones inside those terms themselves.
 export function termRegex(terms) {
   const list = [...new Set((terms || []).filter((x) => typeof x === "string" && x.length >= 2 && x.length <= 40 && /\p{L}/u.test(x)))].sort((a, b) => b.length - a.length).slice(0, 60);
   if (!list.length) return null;
   const esc = list.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  return new RegExp(`(?<![\\p{L}\\p{N}])(?:${esc.join("|")})(?![\\p{L}\\p{N}])`, "gu");
+  return new RegExp(`(?<![\\p{L}\\p{N}])(?:${esc.join("|")})(?![\\p{L}\\p{N}])`, "giu");
 }
 
 export function validateCard(card, ctx) {
