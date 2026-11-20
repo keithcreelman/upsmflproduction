@@ -763,10 +763,14 @@ test("R3 regression: the runner's digit invariant accepts exactly what the valid
   // Still caught: a term never looked up, a longer word, a digit that is not part of a returned term, no lookup at all.
   for (const lead of ["Ext2 is a contract type.", "NEXT1 and Ext10 are not terms.", "Ext1 lasts 1 year.", "Room is 9."]) t.equal(mod.invariantFailures(withLead(lead), 0.5).length, 1, lead);
   t.equal(mod.invariantFailures(withLead("Ext1 is a contract type.", []), 0.5).length, 1, "without the glossary lookup, no exception");
-  // It must stay the validator's own matcher, not a private copy that can drift (the R3 cause).
+  // The same verdict as the validator on the cases Codex found a private copy could get wrong: a digit-bearing proper noun, and a non-ASCII digit.
+  t.deepEqual(mod.invariantFailures(withLead("The 49ers and the 76ers are proper nouns."), 0.5), [], "49ers and 76ers are not typed numbers");
+  for (const lead of ["Arabic-Indic digit \u0661 here.", "Fullwidth \uff11 here.", "A fraction \u00bd here."]) t.equal(mod.invariantFailures(withLead(lead), 0.5).length, 1, lead);
+  // It must call the validator's own rules, not keep a private copy that can drift (the R3 cause). Behavior is proven above and in the validator's parity test;
+  // this only guards against a private digit or term regex coming back into the invariant.
   const src = fs.readFileSync(path.join(ROOT, "scripts/ai_eval/run_eval.mjs"), "utf8");
-  t.match(src, /import \{ termRegex \} from "\.\.\/\.\.\/worker\/src\/desk\/validator\.js"/); t.match(src, /termRegex\(glossaryTerms\(r\.envelopes\)\)/);
-  t.ok(!/new RegExp\(`\(\?<!\[\\\\p\{L\}\\\\p\{N\}\]\)/.test(src.slice(src.indexOf("export function invariantFailures"), src.indexOf("function caseRecord"))), "no hand-built term regex inside invariantFailures");
+  const body = src.slice(src.indexOf("export function invariantFailures"), src.indexOf("function caseRecord"));
+  t.match(body, /hasDigitOutsideTokens\(/); t.match(body, /termRegex\(glossaryTerms\(/); t.ok(!/new RegExp\(/.test(body) && !/\\d\//.test(body), "no private regex in the invariant");
 });
 
 test("argument parsing: unknown flags and missing values are usage errors (exit 64), and --mode is required", async () => {

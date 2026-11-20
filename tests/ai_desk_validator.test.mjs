@@ -1,6 +1,6 @@
 // Commissioner Desk: validator tests. Offline and deterministic. Run: node tests/ai_desk_validator.test.mjs
 import { test, run, t } from "./fixtures/mini_test.mjs";
-import { validateCard, findSpelledQuantities, errorCodes, buildFactIndex, canonShaMatches, collectToolGaps, LIMITS, CODES } from "../worker/src/desk/validator.js";
+import { validateCard, findSpelledQuantities, errorCodes, buildFactIndex, canonShaMatches, collectToolGaps, LIMITS, CODES, termRegex, hasDigitOutsideTokens } from "../worker/src/desk/validator.js";
 
 const SHA = "194f8df4109cefab2ef7133a0c59d73d7d588954";
 const RULES = { canon_sha: SHA, anchors: ["s1-c4", "s2-t6-1"] };
@@ -166,6 +166,23 @@ test("R2 regression: a glossary alias listed in lower case ('ext1') allows the o
   t.ok(codes(card("Ext1 twice for {{f.c1.franchise}}."), ctx(returned)).includes(CODES.SPELLED_QUANTITY));
   // Not looked up at all: no exception for any spelling.
   for (const spelling of ["Ext1", "ext1"]) t.deepEqual(codes(card(`${spelling} is a contract type for {{f.c1.franchise}}.`), ctx([])), [CODES.DIGIT_IN_PROSE], spelling);
+});
+
+
+test("PARITY: hasDigitOutsideTokens (used by the eval runner's invariant) gives the same verdict as validateCard's DIGIT_IN_PROSE for every string, term list and capitalization", () => {
+  const terms = ["Vet-Ext1", "ext1", "rookie-ext1", "ext 1"];
+  const ctx = (list) => ctxFor([OK1], { allowedTerms: list });
+  const card = (lead) => ({ ...GOOD(), lead_md: lead });
+  const leads = ["Yes. Ext1 is a contract type.", "EXT1 and ext1 and Vet-Ext1.", "The 49ers and the 76ers are proper nouns.", "49ERS fans", "Ext2 is not looked up.", "NEXT1 is a word.", "Ext10 too.",
+    "Room is 9.", "Arabic-Indic digit ١ here.", "Fullwidth １ here.", "Roman numeral Ⅶ here.", "A fraction ½ here.", "Superscript ² here.", "No digits at all.", "Token {{f.c1.franchise}} then Ext1.", "Token {{f.c1.franchise}} then 7."];
+  for (const list of [terms, [], ["Ext1"]]) {
+    const re = termRegex(list);
+    for (const lead of leads) {
+      const validatorSays = codes(card(lead), ctx(list)).includes(CODES.DIGIT_IN_PROSE);
+      t.equal(hasDigitOutsideTokens(lead, re), validatorSays, `${JSON.stringify(lead)} with terms ${JSON.stringify(list)}`);
+    }
+  }
+  t.equal(hasDigitOutsideTokens(undefined), false); t.equal(hasDigitOutsideTokens(null, null), false);
 });
 
 

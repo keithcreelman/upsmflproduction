@@ -114,6 +114,15 @@ export function findSpelledQuantities(text) {
   return hits;
 }
 
+// The ONE rule for "a digit in prose". After fact tokens, the digit-bearing proper nouns (49ers, 76ers) and any league terms the glossary returned this run
+// (termRe, from termRegex) are removed, any Unicode number character that is left is a typed digit. checkProseBase below applies this same rule; the eval runner's
+// invariant calls this function instead of keeping a copy (at R3 a private copy drifted and aborted a validator-approved answer).
+export function hasDigitOutsideTokens(text, termRe = null) {
+  let rest = String(text == null ? "" : text).replace(TOKEN_RE, " ").replace(DIGIT_PROPER_NOUNS, " ");
+  if (termRe) rest = rest.replace(termRe, " ");
+  return /\p{N}/u.test(rest);
+}
+
 // ── Prose check ───────────────────────────────────────────────────────────────────────────────────
 // Returns { tokens: [factId...] }. Pushes errors for digits, spelled quantities, markup, malformed or disallowed tokens, length.
 function checkProseBase(text, path, opts, errors) {

@@ -52,7 +52,7 @@ import crypto from "node:crypto";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
-import { termRegex } from "../../worker/src/desk/validator.js";
+import { termRegex, hasDigitOutsideTokens } from "../../worker/src/desk/validator.js";
 import { glossaryTerms } from "../../worker/src/desk/composer.js";
 
 const NATIVE_FETCH = globalThis.fetch;          // captured before anything can replace it
@@ -289,7 +289,6 @@ function printPlan(plan, { heading = "PLAN (no spend, no network, no Anthropic c
 }
 
 // ── Invariants, results, scoring ──────────────────────────────────────────────────────────────────────
-const TOKEN_RE = /\{\{f\.c\d{1,3}\.[a-z][a-z0-9_]{0,63}\}\}/g;
 function modelProse(card) {
   const o = [card.lead_md, card.ruling_question];
   for (const b of card.blocks || []) { o.push(b.title); for (const c of b.columns || []) o.push(c); for (const r of b.rows || []) for (const c of r) o.push(c); }
@@ -305,7 +304,7 @@ export function invariantFailures(r, perQuestionCapUsd) {
   // League terms a glossary.lookup returned in this run may be written as spelled even with a digit in them ("Vet-Ext1", and any capitalization of an alias such as "Ext1").
   // This is the validator's OWN term list and matcher, imported, not a copy: at R3 a hand-built, case-sensitive copy here aborted a validator-approved answer.
   const termRe = termRegex(glossaryTerms(r.envelopes));
-  const typed = (s) => /\d/.test(s.replace(TOKEN_RE, " ").replace(termRe || /$^/, " "));
+  const typed = (s) => hasDigitOutsideTokens(s, termRe);          // the validator's own rule: tokens, 49ers/76ers, glossary terms, any Unicode digit
   if (!CODE_STATES.includes(card.state) && modelProse(card).some(typed)) fails.push("a digit in model prose outside a fact token");
   for (const id of card.facts_used || []) if (!(card.facts && card.facts[id])) fails.push(`fact ${id} is used but not on the card`);
   const spent = r.ledger.reduce((a, x) => a + (x.cost_usd == null ? x.est_cost_usd : x.cost_usd), 0);
