@@ -55,18 +55,21 @@
   function schedule(player, season) {
     var c = parseSpecial(player.special);
     var years = Math.max(0, parseInt(player.years, 10) || 0);
-    var salary = Number(player.salary);
+    // only a real number is a recorded salary: null, "", whitespace, booleans and text are unknown, never $0
+    var raw = player.salary;
+    var known = raw != null && typeof raw !== "boolean" && !(typeof raw === "string" && raw.trim() === "") && isFinite(Number(raw));
+    var salary = known ? Number(raw) : null;
     var cl = c.cl || 0;
     var idx0 = (cl >= years && years > 0) ? cl - years + 1 : null; // 1-based contract year that is this season
     var out = { parsed: c, cl: cl || null, yearsLeft: years, through: years ? season + years - 1 : null, yearsPlayed: idx0 ? idx0 - 1 : null, rows: [], option: null, notes: [] };
     for (var k = 0; k < years; k++) {
       var amount = null;
-      if (k === 0) amount = isFinite(salary) && player.salary !== "" && player.salary != null ? salary : null;
+      if (k === 0) amount = salary;
       else if (idx0 != null && c.y[idx0 + k] != null) amount = c.y[idx0 + k];
       out.rows.push({ year: season + k, amount: amount });
     }
     if (c.option && idx0 != null) out.option = { year: season + (c.option.idx - idx0), amount: c.option.amount };
-    if (idx0 != null && c.y[idx0] != null && isFinite(salary) && c.y[idx0] !== salary) out.notes.push("current_year_token_differs");
+    if (idx0 != null && c.y[idx0] != null && salary != null && c.y[idx0] !== salary) out.notes.push("current_year_token_differs");
     return out;
   }
 

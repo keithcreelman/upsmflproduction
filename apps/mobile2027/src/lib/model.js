@@ -10,7 +10,11 @@
 
   function asArray(v) { return Array.isArray(v) ? v : v == null || v === "" ? [] : [v]; }
   function int(v) { var n = parseInt(v, 10); return isFinite(n) ? n : null; }
-  function num(v) { var n = Number(v); return isFinite(n) ? n : null; }
+  // Number(null), Number("") and Number("  ") are all 0, which would draw a missing value as $0: those stay unknown (null).
+  function num(v) {
+    if (v == null || typeof v === "boolean" || (typeof v === "string" && v.trim() === "")) return null;
+    var n = Number(v); return isFinite(n) ? n : null;
+  }
   function pad4(v) { var d = String(v == null ? "" : v).replace(/\D/g, ""); return d ? ("0000" + d).slice(-4) : ""; }
 
   var STATUS = { ROSTER: "active", TAXI_SQUAD: "taxi", INJURED_RESERVE: "ir" };
@@ -56,7 +60,10 @@
           rawPos: F.str(p.position),
           pos: F.posGroup(p.position),
           nflTeam: F.str(p.nfl_team),
-          salary: num(p.salary),
+          // The Front Office read sends salary 0 with salary_unresolved: true when MFL left the salary blank. That is
+          // "unknown", never $0: the flag is kept, and the number is dropped.
+          salary: p.salary_unresolved === true ? null : num(p.salary),
+          salaryUnresolved: p.salary_unresolved === true,
           years: int(p.years) || 0,
           type: F.str(p.type),
           special: F.str(p.special),

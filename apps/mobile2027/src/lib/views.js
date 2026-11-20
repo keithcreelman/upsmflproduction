@@ -179,7 +179,8 @@
       earnedCell = e.kind === "amount" ? "<b>" + money(e.amount) + "</b>" : e.kind === "rule" || e.kind === "na" ? "<b>" + esc(e.label) + "</b>" : '<b class="wn">Not available</b>';
       guarCell = rg == null ? (e.kind === "unavailable" ? '<b class="wn">Not available</b>' : "<b>—</b>") : "<b>" + money(rg) + "</b>";
     }
-    out += '<div class="k2"><div>' + salary + "<small>Salary " + season + "</small></div><div><b>" + esc(left) + "</b><small>Years left</small></div><div>" + earnedCell + "<small>Earned to date</small></div><div>" + guarCell + "<small>Remaining guarantee</small></div></div>";
+    var blank = p.salaryUnresolved ? '<div class="ex wn mt4">MFL has no salary recorded for this player, so none is shown.</div>' : "";
+    out += blank + '<div class="k2"><div>' + salary + "<small>Salary " + season + "</small></div><div><b>" + esc(left) + "</b><small>Years left</small></div><div>" + earnedCell + "<small>Earned to date</small></div><div>" + guarCell + "<small>Remaining guarantee</small></div></div>";
     if (ok && wk != null) out += '<div class="ex mt4">Earned counts through Week ' + wk + ".</div>";
     if (pstate === "error") out += '<div class="ex mt4 wn">The worker’s calculation could not be read: ' + esc(S.penalty.error || "") + '. Nothing is guessed in its place. <button class="link" data-act="retrypen">Try again</button></div>';
     if (ok && e.kind === "unavailable") out += '<div class="ex mt4 wn">' + esc(e.why) + ".</div>";

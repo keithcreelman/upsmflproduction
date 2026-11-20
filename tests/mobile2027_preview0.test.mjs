@@ -222,7 +222,7 @@ test("the source holds no write verb, credential name or second transport; fetch
 test("the model keeps an allowlist of fields, flips names, groups IDP positions and reads the submitted lineup", () => {
   const m = model();
   t.equal(m.teams.length, 12); t.equal(m.week, 11); t.deepEqual(m.limits, { roster: 30, ir: 15, taxi: 10, starters: 18 });
-  const allowed = ["id", "rawName", "name", "rawPos", "pos", "nflTeam", "salary", "years", "type", "special", "aav", "acquisition", "status", "bye", "espnId", "points", "order", "franchiseId", "franchiseName", "starter", "taxi"].sort();
+  const allowed = ["id", "rawName", "name", "rawPos", "pos", "nflTeam", "salary", "salaryUnresolved", "years", "type", "special", "aav", "acquisition", "status", "bye", "espnId", "points", "order", "franchiseId", "franchiseName", "starter", "taxi"].sort();
   Object.values(m.byId).forEach((p) => t.deepEqual(Object.keys(p).sort(), allowed, "no extra fields on " + p.name));
   const sn = findPlayer((p) => /Smith-Njigba/.test(p.name));
   t.equal(m.byId[sn.id].name, "Jaxon Smith-Njigba");
@@ -270,6 +270,51 @@ test("the Contracts view of the roster shows recorded salary and years; a missin
   t.match(html, /\$\d{1,3}(,\d{3})*/); t.match(html, /yrs left|Final year/);
   const S2 = state({ view: "contracts" }); const p = M.starters(S2.model.teams.find((x) => x.id === "0010"))[0]; p.salary = null;
   t.match(V.app(S2), /Not recorded/);
+});
+
+// Codex round-2 MAT-2: the worker sends salary 0 with salary_unresolved: true when MFL left a salary blank, and
+// `Number(null)` / `Number("")` are 0 too. These go through the real model (not a hand-edited player) to the real screens.
+test("a blank or unresolved salary stays unknown from the raw read to the roster and the profile: 'Not recorded', never $0", () => {
+  const target = findPlayer((x) => x.years >= 2 && x.status === "ROSTER" && FX.cap_penalty.players[x.id]);
+  const allOpen = { bQB: true, bRB: true, bWR: true, bTE: true, bDL: true, bLB: true, bDB: true, ir: true, taxi: true };
+  const variants = {
+    "salary 0 + salary_unresolved": { salary: 0, salary_unresolved: true },
+    "salary null": { salary: null },
+    "salary empty string": { salary: "" },
+    "salary whitespace": { salary: "  " },
+    "salary missing": { salary: undefined },
+    "unresolved flag wins over a number": { salary: 7000, salary_unresolved: true },
+  };
+  const control = M.build(FX.roster_workbench, FX.league, FX.weekly_results, 11, 2026).byId[target.id];
+  t.ok(control.salary > 0 && control.salaryUnresolved === false, "a recorded salary is unchanged");
+  Object.entries(variants).forEach(([name, patch]) => {
+    const rw = JSON.parse(JSON.stringify(FX.roster_workbench));
+    const raw = rw.teams.flatMap((tm) => tm.players).find((x) => String(x.id) === String(target.id));
+    Object.assign(raw, patch); if (patch.salary === undefined) delete raw.salary;
+    const model = M.build(rw, FX.league, FX.weekly_results, 11, 2026);
+    const p = model.byId[target.id];
+    t.equal(p.salary, null, name + ": the model keeps the salary unknown, not 0");
+    t.equal(p.salaryUnresolved, patch.salary_unresolved === true, name + ": the unresolved flag is kept");
+    // the player's roster card (Contracts view) and the profile's salary tile and current-year cell
+    const roster = V.app(state({ model, teamId: p.franchiseId, view: "contracts", open: allOpen }));
+    const at = roster.indexOf('data-pid="' + target.id + '"'); t.ok(at > 0, name + ": the player is on the open roster");
+    const mine = roster.slice(at);
+    const row = mine.slice(0, mine.indexOf('class="go"')); // from the name button to the end of this row: the salary sits after the button
+    t.match(row, /<b class="wn">Not recorded<\/b>/, name + ": the roster row says Not recorded");
+    t.doesNotMatch(row, /<b>\$0<\/b>/, name + ": the roster row is not $0");
+    const html = V.app(state({ model, profile: { pid: String(target.id), tab: "contract" } }));
+    t.match(html, /<b class="wn">Not recorded<\/b><small>Salary 2026<\/small>/, name + ": the salary tile says Not recorded");
+    t.match(html, /<b class="wn">Not recorded<\/b><small>2026<\/small>/, name + ": this season's salary-by-year cell says Not recorded");
+    t.doesNotMatch(html, /<b>\$0<\/b><small>(Salary 2026|2026)<\/small>/, name + ": neither is $0");
+    t.doesNotMatch(html, /The recorded year amount differs/, name + ": an unknown salary does not raise a mismatch note");
+    if (patch.salary_unresolved === true) t.match(html, /MFL has no salary recorded for this player/, name + ": the profile says why");
+    else t.doesNotMatch(html, /MFL has no salary recorded for this player/);
+  });
+  // the same through the contract maths
+  t.equal(C.schedule({ salary: null, years: 2, special: "CL 2|TCV 4K|AAV 2K|Y1-2K, Y2-2K" }, 2026).rows[0].amount, null);
+  t.equal(C.schedule({ salary: "  ", years: 2, special: "CL 2|TCV 4K|AAV 2K|Y1-2K, Y2-2K" }, 2026).rows[0].amount, null);
+  t.deepEqual(C.schedule({ salary: null, years: 2, special: "CL 2|TCV 4K|AAV 2K|Y1-2K, Y2-2K" }, 2026).notes, [], "no false 'differs' note for an unknown salary");
+  t.equal(C.schedule({ salary: 0, years: 1, special: "" }, 2026).rows[0].amount, 0, "a recorded number, even 0, passes through the contract maths untouched");
 });
 
 test("when the lineup cannot be read the screen says so, and the bye chip shows only in the bye week", () => {
