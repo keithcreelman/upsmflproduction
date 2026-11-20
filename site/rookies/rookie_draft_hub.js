@@ -4151,8 +4151,8 @@
       ${hpmKnown
         ? `<p class="small" style="color:var(--muted); margin: 0 0 4px;">Submitting as <strong>${escapeHtml(me.franchise_name || me.franchise_id)}</strong> (auto-detected from your MFL session).</p>`
         : `<label style="display:flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted); margin-top: 6px;">
-            MFL_USER_ID cookie (optional — only needed if not signed in)
-            <input type="text" id="pick-user-id" placeholder="blank = use league API key">
+            MFL_USER_ID cookie (only needed if you're not signed in to MFL)
+            <input type="text" id="pick-user-id" placeholder="blank = use your MFL sign-in">
            </label>`
       }
 
@@ -4184,8 +4184,12 @@
           // (worker still writes to MFL). Picks AND trades both honor it.
           silence_discord: !isSim && !!STATE.silenceTradeAnnouncements,
         };
-        if (userId) payload.user_id = userId;
-        const r = await fetch(apiUrl("/api/pick") + "?L=74598", {
+        // The worker submits a pick only for the signed-in owner of that team or the commissioner, so the
+        // viewer's MFL session goes with the request (a cookie typed above wins over the forwarded one).
+        const pickUrl = userId
+          ? apiUrl("/api/pick") + "?L=74598&MFL_USER_ID=" + encodeURIComponent(userId)
+          : withHubSession(apiUrl("/api/pick") + "?L=74598");
+        const r = await fetch(pickUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
