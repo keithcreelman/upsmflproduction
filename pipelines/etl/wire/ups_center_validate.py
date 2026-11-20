@@ -631,6 +631,14 @@ def validate(res, ctx, pack):
     def bad(key, why):
         errors.append("%s: %s" % (key, why))
 
+    def memo(key, make):
+        """Compute a truth table on the first claim that needs it, then reuse it for the rest of this validation.
+        (`n.setdefault(key, make())` looked lazy but was not: Python evaluates make() BEFORE setdefault looks at the key,
+        so every claim of the kind rebuilt the whole table and the stored copy was never used.) Cleared at the end."""
+        if key not in n:
+            n[key] = make()
+        return n[key]
+
     for key, c in res["claims"].items():
         kind, _, rest = key.partition(":")
         v = c["value"]
@@ -749,7 +757,7 @@ def validate(res, ctx, pack):
             else:
                 bad(key, "unknown odds claim")
         elif kind in ("heat", "hist"):
-            truth = n.setdefault("_season_truth", _season_truth(ctx))
+            truth = memo("_season_truth", lambda: _season_truth(ctx))
             what, _, fid = rest.partition(":")
             if (what, fid) not in truth:
                 bad(key, "no %s value for %s in the season snapshot" % (what, fid))
@@ -761,7 +769,7 @@ def validate(res, ctx, pack):
         elif kind == "elias":
             _elias_check(rest, v, ctx, bad, key)
         elif kind == "trig":
-            truth = n.setdefault("_trig_truth", _trig_truth(ctx))
+            truth = memo("_trig_truth", lambda: _trig_truth(ctx))
             if rest not in truth:
                 bad(key, "no recomputed value for %s" % rest)
             elif isinstance(truth[rest], dict):
@@ -770,7 +778,7 @@ def validate(res, ctx, pack):
             elif abs(float(truth[rest]) - float(v)) > 0.05:
                 bad(key, "page %r, recomputed %r" % (v, truth[rest]))
         elif kind == "trade":
-            info, raw_trade, trade_err = n.setdefault("_trade_bound", _trade_binding(ctx, res["claims"]))
+            info, raw_trade, trade_err = memo("_trade_bound", lambda: _trade_binding(ctx, res["claims"]))
             if rest == "sel":
                 if trade_err:
                     bad(key, trade_err)
@@ -873,12 +881,12 @@ def validate(res, ctx, pack):
             if v != "%d-%d" % (w_, l_):
                 bad(key, "page %s, MFL games %d-%d" % (v, w_, l_))
         elif kind == "arch":
-            truth = n.setdefault("_arch_truth", _archive_truth(ctx))
+            truth = memo("_arch_truth", lambda: _archive_truth(ctx))
             if not truth:
                 bad(key, "no archive in the snapshot")
             elif rest in ("champs", "runnerup", "tablek"):
                 idx = {"tablek": 0, "champs": 1, "runnerup": 2}[rest]
-                counts = n.setdefault("_arch_tables", _table_counts(ctx, truth))
+                counts = memo("_arch_tables", lambda: _table_counts(ctx, truth))
                 if not any(v in [c[idx] for c in cs] for cs in counts.values()):
                     bad(key, "page %s, recomputed table counts %s" % (v, sorted({c[idx] for cs in counts.values() for c in cs})))
             elif rest not in truth:
