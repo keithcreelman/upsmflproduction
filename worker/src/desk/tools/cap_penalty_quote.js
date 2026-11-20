@@ -15,6 +15,7 @@
 // A refused result carries no facts, no data and no number: the route's figure is never returned when a guard fires.
 // A quote that IS returned is grade C (derived by the worker's charged calculator) and is labeled a current-rule quote.
 import { defineTool } from "../registry.js";
+import { safeToken } from "./shared_text.js";
 
 const R_PREVIEW = "/api/cap-penalty/preview";
 const R_WORKBENCH = "/roster-workbench";
@@ -63,7 +64,7 @@ async function resolveAuctionStart({ knowledge, season, routeGet }) {
     const d = ev ? s(ev.date).slice(0, 10) : "";
     // A typed placeholder is not a date canon can rely on.
     if (ev && validDate(d) && d.startsWith(String(season) + "-") && !/placeholder|tbd|to be confirmed/i.test(s(ev.description)) && ev.date_source !== "unresolved") {
-      return { date: d, source: `${R_EVENTS} ups_fa_auction_start (${ev.date_source || "stored"})` };
+      return { date: d, source: `${R_EVENTS} ups_fa_auction_start (${safeToken(ev.date_source) || "stored"})` };
     }
   } catch (_) { /* unresolved */ }
   return null;
@@ -113,7 +114,7 @@ export default defineTool({
     allow: [
       "player_id", "franchise_id", "season", "drop_date", "what_if", "penalty", "guaranteed", "earned", "prior_earned", "current_year_earned",
       "tcv", "contract_length", "years_remaining", "years_played", "acquisition_week", "eligible_weeks", "current_year_salary", "completed_weeks",
-      "basis", "exempt", "exempt_reason", "earned_rule", "week_authority_source", "acquisition_week_source", "notes",
+      "basis", "exempt", "earned_rule", "week_authority_source", "acquisition_week_source", "notes",
       "guards.g1", "guards.g2.applies", "guards.g2.auction_start", "guards.g2.auction_start_source", "guards.g2.route_view", "guards.g2.canon_view",
     ],
   },
@@ -149,7 +150,14 @@ export default defineTool({
     // 2. The calculator itself could not price it (held for review, unstamped, week authority unresolved): never a number.
     if (r.needs_review === true || UNPRICED_BASES.has(s(r.basis)) || !Number.isFinite(Number(r.penalty))) {
       return refuse("unverified_calculation", "the charged calculator held this cut for review instead of pricing it (unreadable week authority, unstamped contract or acquisition week); a held row is not a $0",
-        { what: "the drop penalty is not priced yet", why: "unverified_calculation", source_needed: "MFL scoring and transactions readable, and a stamped contract for the player" }, { ...prov, basis: s(r.basis) });
+        { what: "the drop penalty is not priced yet", why: "unverified_calculation", source_needed: "MFL scoring and transactions readable, and a stamped contract for the player" }, { ...prov, basis: safeToken(r.basis) });
+    }
+
+    // The basis reaches a fact and the data: it must be a plain token (guarantee_minus_earned, tag_pre_auction_exempt, ...), never route prose.
+    const basis = safeToken(r.basis);
+    if (!basis) {
+      return refuse("unverified_calculation", "the calculator's pricing basis is not a plain token, so the quote is not used",
+        { what: "a readable pricing basis", why: "unverified_calculation", source_needed: "a calculator answer with a plain basis token" }, prov);
     }
 
     // 3. The player's own contract text and status: what-if overrides win (the route used them); otherwise the roster workbench.
@@ -231,27 +239,27 @@ export default defineTool({
     if (Number.isFinite(Number(r.years_remaining))) facts.push(f("years_remaining", label("Contract years remaining"), Number(r.years_remaining), "years"));
     if (Number.isFinite(Number(r.earned_through_week)) && r.earned_through_week != null) facts.push(f("completed_weeks", label("Completed payable NFL weeks counted"), Number(r.earned_through_week), "count"));
     if (r.acquisition_week) facts.push(f("acquisition_week", label("Acquisition week used for the earning window"), Number(r.acquisition_week), "week"));
-    facts.push(f("basis", label("Pricing basis"), s(r.basis), "text"));
+    facts.push(f("basis", label("Pricing basis"), basis, "text"));
 
     return {
       status: "ok",
       data: {
-        player_id: String(args.player_id), franchise_id: s(r.franchise_id), season, drop_date: dropArg || today, what_if: whatIf,
+        player_id: String(args.player_id), franchise_id: s(r.franchise_id).replace(/\D/g, "").slice(0, 4), season, drop_date: dropArg || today, what_if: whatIf,
         penalty: Number(r.penalty), guaranteed: r.guaranteed == null ? null : Number(r.guaranteed), earned: r.earned == null ? null : Number(r.earned),
         prior_earned: r.prior_earned == null ? null : Number(r.prior_earned), current_year_earned: r.current_year_earned == null ? null : Number(r.current_year_earned),
         tcv: Number(r.tcv) || null, contract_length: r.cl == null ? null : Number(r.cl), years_remaining: Number(r.years_remaining), years_played: Number(r.years_played),
         acquisition_week: r.acquisition_week == null ? null : Number(r.acquisition_week), eligible_weeks: r.eligible_weeks == null ? null : Number(r.eligible_weeks),
         current_year_salary: r.current_year_salary == null ? null : Number(r.current_year_salary),
         completed_weeks: r.earned_through_week == null ? null : Number(r.earned_through_week),
-        basis: s(r.basis), exempt, exempt_reason: s(r.exempt_reason), earned_rule: r.earned_rule || null,
-        week_authority_source: s(r.week_authority_source), acquisition_week_source: s(r.acquisition_week_source),
+        basis, exempt, earned_rule: safeToken(r.earned_rule) || null,
+        week_authority_source: safeToken(r.week_authority_source), acquisition_week_source: safeToken(r.acquisition_week_source),
         notes: ["Current rules only. Which season's cap the charge lands on (canon 3.C buckets) is not part of this quote."],
         guards: { g1, g2 },
       },
       facts,
       coverage: { supported: true, gaps: [] },
-      provenance: { ...prov, basis: s(r.basis), calculated_at: s(r.calculated_at), guards: { g1: g1.checked ? (g1.year_tokens_verified ? "passed (year-by-year salaries verified)" : "passed (no completed years)") : "not needed (cap-free by status alone)", g2: g2.applies ? "passed (route and canon agree)" : "not a tag contract" } },
-      freshness: { calculated_at: s(r.calculated_at) },
+      provenance: { ...prov, basis, calculated_at: safeToken(r.calculated_at), guards: { g1: g1.checked ? (g1.year_tokens_verified ? "passed (year-by-year salaries verified)" : "passed (no completed years)") : "not needed (cap-free by status alone)", g2: g2.applies ? "passed (route and canon agree)" : "not a tag contract" } },
+      freshness: { calculated_at: safeToken(r.calculated_at) },
     };
   },
 });

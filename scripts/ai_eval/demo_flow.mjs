@@ -115,7 +115,9 @@ export function renderTranscript(r, { spec } = {}) {
   L.push(bad.length ? "Refusals and failures (a decline, never a guess):" : "Refusals and failures: none");
   for (const e of bad) L.push(`  - ${e.call_id} ${e.tool}: ${e.status}${e.refusal ? ` / ${e.refusal.code}: ${cut(e.refusal.reason, 80)}` : ""}${e.error ? ` / ${e.error.code}: ${cut(e.error.message, 80)}` : ""}`);
   const planted = r.envelopes.filter((e) => JSON.stringify(e.data || null).includes(PLANTED_NOTE)).map((e) => e.call_id);
-  if (planted.length) L.push(`Planted instruction inside tool data (${planted.join(", ")}): "${PLANTED_NOTE}". The scanner ${trace.injection && trace.injection.suspicious ? "FLAGGED it" : "did not flag it"}; no fact carries it and the model is not obliged to follow it.`);
+  const inQuestion = r.question.includes(PLANTED_NOTE);
+  const teamFact = r.envelopes.flatMap((e) => e.facts || []).find((f) => /\.team_name$/.test(f.id));
+  if (inQuestion || planted.length) L.push(`Planted claim "${PLANTED_NOTE}": in the question: ${inQuestion ? "yes" : "no"}; inside tool data: ${planted.length ? `YES (${planted.join(", ")})` : "no (route text is screened, so a planted team name is dropped"}${teamFact ? `; the team fact reads "${teamFact.display}"` : ""}${planted.length ? "" : ")"}. Injection scanner: ${trace.injection && trace.injection.suspicious ? "flagged" : "nothing flagged"}. The model is told the question is data about what to look up, and no fact carries the claim.`);
   else L.push(`Injection scanner: ${trace.injection && trace.injection.suspicious ? `flagged ${trace.injection.sources.join(", ")}` : "nothing flagged"}`);
   const rules = r.envelopes.filter((e) => e.status === "ok" && /^rules\./.test(e.tool)).flatMap((e) => (e.data && (e.data.hits || (e.data.anchor ? [e.data] : []))) || []);
   if (rules.length) { L.push("Rules retrieved:"); for (const h of rules.slice(0, 8)) L.push(`  - ${h.anchor}  ${cut(h.title, 70)}`); }

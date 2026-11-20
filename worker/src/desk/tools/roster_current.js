@@ -9,6 +9,7 @@
 //   - output is projected to an explicit allowlist: nothing else the route returns (owner e-mails, upstream URLs, raw adjustment rows,
 //     extension previews, taxi internals) can leave this tool.
 import { defineTool } from "../registry.js";
+import { safeTeamName, safePlayerName, safeToken, safeText, cleanName } from "./shared_text.js";
 
 const ROUTE = "/roster-workbench";
 const SOURCE = "MFL via /roster-workbench";
@@ -16,15 +17,8 @@ const SOURCE = "MFL via /roster-workbench";
 const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 
-// A team name becomes a FACT the card can quote, so free-form route text is not passed through: only a short, name-shaped string is.
-// Anything else (an instruction planted in a name, a long sentence, symbols such as $) falls back to the id alone.
-// A name that reads like an instruction or a role marker also falls back (a minimal whole-word check; tools may not import the desk's scanner).
-const NAME_SHAPE = /^[\p{L}\p{N} .'&!-]{1,40}$/u;
-const INSTRUCTION_WORDS = /\b(ignore|disregard|override|bypass|system|assistant|developer|instructions?|reveal|forget|prompts?|you are|do not|don't|must|approve|post)\b/i;
-function teamLabel(name, id) {
-  const n = String(name == null ? "" : name).trim();
-  return NAME_SHAPE.test(n) && !INSTRUCTION_WORDS.test(n) ? `${n} (${id})` : `Team (${id})`;
-}
+// Route text (team and player names, contract strings) reaches facts and data only through the shared screen (shared_text.js).
+const teamLabel = (name, id) => safeTeamName(name, id);
 
 function missing(knowledge) {
   if (!knowledge || !knowledge.leagueId) return "knowledge.leagueId";
@@ -85,14 +79,15 @@ export default defineTool({
 
     const players = (Array.isArray(team.players) ? team.players : []).map((p) => ({
       id: String(p.id),
-      name: String(p.name == null ? "" : p.name),
-      position: String(p.position == null ? "" : p.position),
-      nfl_team: String(p.nfl_team == null ? "" : p.nfl_team),
+      name: safePlayerName(p.name, String(p.id)),
+      position: safeToken(p.position),
+      nfl_team: safeToken(p.nfl_team),
       salary: num(p.salary),
       years: num(p.years),
-      type: String(p.type == null ? "" : p.type),
-      special: String(p.special == null ? "" : p.special),       // contractInfo: preserved exactly as served
-      status: String(p.status == null ? "" : p.status),
+      type: safeToken(p.type),
+      special: safeText(p.special, 160),                          // contractInfo: served as is when it passes the screen, withheld otherwise
+      special_withheld: !!(p.special && p.special !== "-" && !safeText(p.special, 160)),
+      status: safeToken(p.status),
       is_taxi: !!p.is_taxi,
       is_ir: !!p.is_ir,
       contract_unknown: !!p.contract_unknown,
@@ -132,6 +127,10 @@ export default defineTool({
     if (unknown) {
       gaps.push({ what: "some players have no contract stamped in MFL (status, length and info all blank); their contracts are unknown, not zero", why: "partial_coverage", source_needed: "a stamped contract in MFL for those players" });
     }
+    const withheld = players.filter((p) => p.special_withheld).length;
+    if (withheld) {
+      gaps.push({ what: `${withheld} player contractInfo string(s) failed the text safety screen and are withheld`, why: "partial_coverage", source_needed: "a plain contractInfo string in MFL for those players" });
+    }
     const unresolved = players.filter((p) => p.salary_unresolved && !p.is_taxi).length;
     if (unresolved) {
       gaps.push({ what: "some players have a blank salary in MFL (blank is not $0)", why: "partial_coverage", source_needed: "a salary recorded in MFL for those players" });
@@ -142,8 +141,8 @@ export default defineTool({
     return {
       status: "ok",
       data: {
-        season: num(body.season), franchise_id: pad4(team.franchise_id), franchise_name: String(team.franchise_name || ""),
-        franchise_abbrev: String(team.franchise_abbrev || ""), generated_at: String(body.generated_at || ""), source: SOURCE,
+        season: num(body.season), franchise_id: pad4(team.franchise_id), franchise_name: cleanName(team.franchise_name) || "",
+        franchise_abbrev: cleanName(team.franchise_abbrev) || "", generated_at: String(body.generated_at || ""), source: SOURCE,
         players, counts,
       },
       facts,

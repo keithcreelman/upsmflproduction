@@ -122,7 +122,7 @@ function routerReply(caseId, request) {
 // ── Loop (which tools to call, with which arguments) ───────────────────────────────────────────────
 export const LAST_FINISHED_SEASON = 2025;      // the season before the scenario clock (2026-11-20): the last one with final standings
 let useSeq = 0;
-const use = (name, input) => ({ type: "tool_use", id: `toolu_scripted_${++useSeq}`, name, input });
+const use = (name, input) => ({ type: "tool_use", id: `toolu_scripted_${String(++useSeq).padStart(6, "0")}`, name, input });
 const loopReply = (uses) => (uses.length ? { stop_reason: "tool_use", content: [{ type: "text", text: "Checking the records." }, ...uses] } : { stop_reason: "end_turn", content: [{ type: "text", text: "Enough evidence." }] });
 
 const LOOPS = {

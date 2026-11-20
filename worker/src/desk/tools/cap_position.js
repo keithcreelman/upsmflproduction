@@ -7,6 +7,7 @@
 // The numbers are never recomputed by hand: the route's totals are re-derived with cap_math.js over the route's own player rows and the tool
 // REFUSES if the two disagree, or if the route reports any unresolved input (blank salary, unreadable adjustment).
 import { defineTool } from "../registry.js";
+import { safeTeamName, safePlayerName, safeToken, cleanName } from "./shared_text.js";
 import { currentCapHit } from "../../cap_math.js";
 
 const ROUTE = "/roster-workbench";
@@ -18,15 +19,8 @@ const RESERVE_PER_SLOT = 1000;
 const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
 const int = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n) : null; };
 
-// A team name becomes a FACT the card can quote, so free-form route text is not passed through: only a short, name-shaped string is.
-// Anything else (an instruction planted in a name, a long sentence, symbols such as $) falls back to the id alone.
-// A name that reads like an instruction or a role marker also falls back (a minimal whole-word check; tools may not import the desk's scanner).
-const NAME_SHAPE = /^[\p{L}\p{N} .'&!-]{1,40}$/u;
-const INSTRUCTION_WORDS = /\b(ignore|disregard|override|bypass|system|assistant|developer|instructions?|reveal|forget|prompts?|you are|do not|don't|must|approve|post)\b/i;
-function teamLabel(name, id) {
-  const n = String(name == null ? "" : name).trim();
-  return NAME_SHAPE.test(n) && !INSTRUCTION_WORDS.test(n) ? `${n} (${id})` : `Team (${id})`;
-}
+// Route text (team and player names) reaches facts and data only through the shared screen (shared_text.js).
+const teamLabel = (name, id) => safeTeamName(name, id);
 
 function refuse(code, reason, gap, provenance) {
   return {
@@ -103,7 +97,7 @@ export default defineTool({
     // Per-player cap hit with the SAME cap_math rule; the sum must equal the route's own total.
     const players = (Array.isArray(team.players) ? team.players : []).map((p) => {
       const hit = currentCapHit({ salary: int(p.salary), years: Math.max(0, int(p.years) || 0), taxi: !!p.is_taxi, ir: !!p.is_ir, unknown: !!p.contract_unknown });
-      return { id: String(p.id), name: String(p.name == null ? "" : p.name), status: String(p.status == null ? "" : p.status), salary: int(p.salary), years: int(p.years), contract_unknown: !!p.contract_unknown, is_taxi: !!p.is_taxi, is_ir: !!p.is_ir, cap_hit: hit };
+      return { id: String(p.id), name: safePlayerName(p.name, String(p.id)), status: safeToken(p.status), salary: int(p.salary), years: int(p.years), contract_unknown: !!p.contract_unknown, is_taxi: !!p.is_taxi, is_ir: !!p.is_ir, cap_hit: hit };
     });
     const recomputed = players.reduce((a, p) => a + p.cap_hit, 0);
     if (recomputed !== committed) {
@@ -146,7 +140,7 @@ export default defineTool({
     return {
       status: "ok",
       data: {
-        season: Number(season), franchise_id: pad4(team.franchise_id), franchise_name: String(team.franchise_name || ""), sign_convention: SIGN,
+        season: Number(season), franchise_id: pad4(team.franchise_id), franchise_name: cleanName(team.franchise_name) || "", sign_convention: SIGN,
         salary_cap: cap, committed_salary: committed, salary_adjustments: adj,
         adjustment_breakdown: {
           cut_players: int(sum.salary_adjustment_breakdown_dollars && sum.salary_adjustment_breakdown_dollars.cut_players_dollars),

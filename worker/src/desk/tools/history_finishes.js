@@ -22,6 +22,7 @@
 // The three Phase 1 history tools share this file's small helpers (labels, season resolution, fact and gap builders).
 
 import { defineTool } from "../registry.js";
+import { safeTeamName, cleanName } from "./shared_text.js";
 
 export const LEAGUE_SIZE = 12;
 
@@ -118,7 +119,9 @@ export const pad4 = (v) => { const d = String(v == null ? "" : v).replace(/\D/g,
 export const seasonOfAsOf = (asOf) => Number(String(asOf).slice(0, 4));
 export const leagueIdOf = (knowledge) => { const v = knowledge && knowledge.leagueId; const s = v == null ? "" : String(v).replace(/\D/g, ""); return s || null; };
 export const currentSeasonOf = (knowledge) => { const n = Number(knowledge && knowledge.currentSeason); return Number.isInteger(n) && n > 2000 ? n : null; };
-export const teamText = (name, fid) => `${name ? String(name) : "Franchise"} (${fid})`;
+// Route text never reaches a fact raw: a team name passes the shared screen or becomes "Team (0008)".
+export const teamText = (name, fid) => safeTeamName(name, fid);
+export { cleanName };
 
 export function gap(what, why, source_needed) { return { what, why, source_needed }; }
 export const OWNER_GAP = () => gap(
@@ -182,7 +185,7 @@ function decorate(season, x, analysis) {
   return {
     season,
     franchise_id: pad4(x.franchise_id),
-    franchise_name: x.franchise_name ? String(x.franchise_name) : null,
+    franchise_name: cleanName(x.franchise_name),
     final_finish: Number.isInteger(ff) && x.final_finish !== null && x.final_finish !== "" ? ff : null,
     label: lab.label,
     label_kind: lab.kind,
@@ -388,7 +391,7 @@ const tool = defineTool({
         if (!g) { gaps.push(gap(`No championship game record for ${d.season}`, "NO_RECORD", "src_schedule playoff rows")); continue; }
         titleGames.push({
           season: d.season, week: Number.isInteger(Number(g.week)) ? Number(g.week) : null, franchise_id: d.franchise_id,
-          opponent_franchise_id: pad4(g.opponent_franchise_id), opponent_franchise_name: g.opponent_franchise_name ? String(g.opponent_franchise_name) : null,
+          opponent_franchise_id: pad4(g.opponent_franchise_id), opponent_franchise_name: cleanName(g.opponent_franchise_name),
           champion_score: Number.isFinite(Number(g.champion_score)) ? Number(g.champion_score) : null,
           opponent_score: Number.isFinite(Number(g.opponent_score)) ? Number(g.opponent_score) : null,
         });

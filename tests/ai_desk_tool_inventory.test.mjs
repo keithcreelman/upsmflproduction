@@ -83,7 +83,11 @@ function walk(dir, out = []) {
 }
 const rel = (p) => path.relative(REPO, p);
 const DESK_FILES = walk(DESK).filter((p) => !p.includes(`${path.sep}data${path.sep}rules_data.js`));   // rules_data.js is generated JSON-like data (one 600 KB literal)
-const TOOL_FILES = DESK_FILES.filter((p) => p.includes(`${path.sep}tools${path.sep}`) && path.basename(p) !== "index.js");
+// Helper files in tools/ that define no tool: pure modules the tools share (reviewed here by name, so a new one cannot slip in).
+const HELPER_NAMES = ["shared_text.js"];
+const ALL_TOOLS_DIR_FILES = DESK_FILES.filter((p) => p.includes(`${path.sep}tools${path.sep}`) && path.basename(p) !== "index.js");
+const HELPER_FILES = ALL_TOOLS_DIR_FILES.filter((p) => HELPER_NAMES.includes(path.basename(p)));
+const TOOL_FILES = ALL_TOOLS_DIR_FILES.filter((p) => !HELPER_NAMES.includes(path.basename(p)));
 const SRC = new Map(DESK_FILES.map((p) => [p, lex(fs.readFileSync(p, "utf8"))]));
 const importsOf = (plain) => [...plain.matchAll(/(?:^|[;\n])\s*(?:import|export)\s+(?:[^"'`;]*?\sfrom\s*)?["']([^"']+)["']/g)].map((m) => m[1]);
 const dynamicImports = (code) => /\bimport\s*\(/.test(code);
@@ -116,6 +120,8 @@ test("INVENTORY: exactly the 14 Phase 1 tool ids are registered, once each, in o
   t.deepEqual(listTools().map((x) => x.id).sort(), [...EXPECTED_IDS].sort());
   t.equal(new Set(listTools().map((x) => x.id)).size, 14);
   t.equal(TOOL_FILES.length, 14, "one file per tool, no stray tool file");
+  t.deepEqual(HELPER_FILES.map((p) => path.basename(p)), HELPER_NAMES);
+  for (const h of HELPER_FILES) { const src = fs.readFileSync(h, "utf8"); t.ok(!/defineTool/.test(src), `${rel(h)} defines a tool`); t.deepEqual(importsOf(SRC.get(h).plain), [], `${rel(h)} must import nothing`); }
   const idx = SRC.get(path.join(DESK, "tools/index.js"));
   t.deepEqual(importsOf(idx.plain).sort(), TOOL_FILES.map((p) => `./${path.basename(p)}`).sort(), "tools/index.js imports exactly the 14 tool files");
 });
@@ -160,7 +166,7 @@ const FORBIDDEN_IN_TOOL_CODE = [
   ["dynamic import", /\bimport\s*\(/], ["secret names", /\b(apikey|api_key|authorization|password|secret)\b/i],
 ];
 test("SCAN tools: no tool references env, the database, global fetch, crypto, cookies, secrets or dynamic code", () => {
-  for (const p of TOOL_FILES) {
+  for (const p of [...TOOL_FILES, ...HELPER_FILES]) {
     const { code } = SRC.get(p);
     for (const [name, re] of FORBIDDEN_IN_TOOL_CODE) t.ok(!re.test(code), `${rel(p)} references ${name}`);
   }
@@ -178,7 +184,7 @@ test("SCAN tools: a tool imports only contract.js, registry.js, sibling tool hel
       const resolved = path.resolve(path.dirname(file), spec);
       const r = rel(resolved);
       if (spec === "../registry.js" || spec === "../contract.js") continue;
-      if (spec.startsWith("./") && TOOL_FILES.includes(resolved)) continue;          // sibling helper
+      if (spec.startsWith("./") && (TOOL_FILES.includes(resolved) || HELPER_FILES.includes(resolved))) continue;          // sibling helper
       const ok = [...allowedModules].some((m) => r === m || r.endsWith(`/${m}`));
       t.ok(ok, `${rel(file)} imports ${spec}, which is not in ${tool.id}'s allowlist.modules ${JSON.stringify([...allowedModules])}`);
     }
@@ -188,10 +194,27 @@ test("SCAN tools: a tool imports only contract.js, registry.js, sibling tool hel
   void byFile;
 });
 
-test("SCAN tools: sibling helper imports only come from history_finishes.js (shared label and gap helpers), never from index.js", () => {
+test("SCAN tools: sibling imports are only history_finishes.js (shared label and gap helpers) and shared_text.js (the free-text screen), never index.js", () => {
   const users = [];
   for (const p of TOOL_FILES) for (const s of importsOf(SRC.get(p).plain)) if (s.startsWith("./")) users.push(`${path.basename(p)} -> ${s}`);
-  t.deepEqual(users.sort(), ["player_transactions.js -> ./history_finishes.js", "standings_get.js -> ./history_finishes.js"]);
+  t.deepEqual(users.sort(), ["calendar_events.js -> ./shared_text.js","cap_adjustments.js -> ./shared_text.js","cap_penalty_quote.js -> ./shared_text.js","cap_position.js -> ./shared_text.js","data_freshness.js -> ./shared_text.js","extension_price.js -> ./shared_text.js","history_finishes.js -> ./shared_text.js","player_transactions.js -> ./history_finishes.js","player_transactions.js -> ./shared_text.js","roster_current.js -> ./shared_text.js","standings_get.js -> ./history_finishes.js","standings_get.js -> ./shared_text.js"]);
+});
+
+test("SCAN tools: EVERY tool whose allowlist has routes imports the shared text screen (shared_text.js), so a new route-backed tool cannot ship unscreened", () => {
+  let checked = 0;
+  for (const tool of PHASE1_TOOLS) {
+    const file = TOOL_FILES.find((p) => fs.readFileSync(p, "utf8").includes(`id: "${tool.id}"`));
+    t.ok(file, `a source file for ${tool.id}`);
+    const imports = importsOf(SRC.get(file).plain);
+    const screened = imports.includes("./shared_text.js");
+    if (tool.allowlist.routes.length) { checked += 1; t.ok(screened, `${tool.id} calls a route but does not import ./shared_text.js`); }
+    else t.ok(true);
+  }
+  t.equal(checked, 10, "ten route-backed tools");
+  // the screen itself: pure (no imports, no I/O, no defineTool), as checked for every helper above
+  const h = SRC.get(HELPER_FILES.find((p) => path.basename(p) === "shared_text.js"));
+  t.deepEqual(importsOf(h.plain), []);
+  t.ok(!/\b(fetch|env|process|globalThis|Date|Math\.random)\b|\bdefineTool\b|\brequire\b|\bimport\s*\(/.test(h.code), "shared_text.js must stay pure");
 });
 
 // ── Static scans: the whole desk ───────────────────────────────────────────────────────────────────────────────

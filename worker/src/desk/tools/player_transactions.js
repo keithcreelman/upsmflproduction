@@ -18,6 +18,7 @@
 // /api/player-bundle answers 503 for a call that names no season and cannot resolve the active one: a named season never hits that path.
 
 import { defineTool } from "../registry.js";
+import { cleanName, safePlayerName, safeToken, safeText } from "./shared_text.js";
 import {
   pad4, leagueIdOf, currentSeasonOf, resolveSeason, seasonOfAsOf, teamText, gap, fact, yearFact, fail, routeFail, noRecord, dedupeGaps,
 } from "./history_finishes.js";
@@ -36,7 +37,6 @@ export const STANDING_GAPS = () => [
 ];
 
 const num = (v) => { const n = Number(v); return v === null || v === undefined || v === "" || !Number.isFinite(n) ? null : n; };
-const str = (v) => (v === null || v === undefined ? null : String(v));
 
 function eventSummary(e) {
   const to = e.franchise_name || e.franchise_id ? teamText(e.franchise_name, e.franchise_id) : null;
@@ -56,12 +56,13 @@ function eventGrade(e) {
 
 const isIsoDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ""));
 
-function profileOf(json) {
+function profileOf(json, pid) {
   const pp = (json.profile && json.profile.playerProfile) || {};
   const pl = pp.player && typeof pp.player === "object" ? pp.player : pp;
-  const name = str(pl.name || pp.name);
-  const position = str(pl.position || pp.position);
-  const team = str(pl.team || pp.team);
+  const rawName = pl.name || pp.name;
+  const name = rawName ? safePlayerName(rawName, pid) : null;      // route text: screened, never copied raw
+  const position = safeToken(pl.position || pp.position) || null;
+  const team = safeToken(pl.team || pp.team) || null;
   return name || position || team ? { name, position, team } : null;
 }
 
@@ -145,20 +146,20 @@ const tool = defineTool({
       const r = await routeGet(BUNDLE_ROUTE, { pid, L, YEAR: year });
       if (!r.ok || !r.json || r.json.error) return routeFail(BUNDLE_ROUTE, r);
       const b = r.json;
-      const profile = profileOf(b);
+      const profile = profileOf(b, pid);
       const roster = b.current_roster && typeof b.current_roster === "object" ? {
         season: num(b.current_roster.season) || year,
         franchise_id: pad4(b.current_roster.franchise_id),
-        team_name: str(b.current_roster.team_name),
-        status: str(b.current_roster.status),
+        team_name: cleanName(b.current_roster.team_name),
+        status: safeToken(b.current_roster.status) || null,
       } : (b.is_free_agent === true ? { season: year, is_free_agent: true } : (b.is_not_rostered === true ? { season: year, is_not_rostered: true } : null));
       const trades = (Array.isArray(b.trade_history) ? b.trade_history : []).slice(0, 30).map((t) => ({
-        season: num(t.season), franchise_id: pad4(t.franchise_id), franchise_name: str(t.franchise_name),
-        asset_role: str(t.asset_role), datetime_et: str(t.datetime_et),
+        season: num(t.season), franchise_id: pad4(t.franchise_id), franchise_name: cleanName(t.franchise_name),
+        asset_role: safeToken(t.asset_role) || null, datetime_et: safeToken(t.datetime_et) || null,
       }));
       const la = b.last_add && typeof b.last_add === "object" && Object.keys(b.last_add).length ? {
-        season: num(b.last_add.season), franchise_id: pad4(b.last_add.franchise_id), franchise_name: str(b.last_add.franchise_name),
-        method: str(b.last_add.method), datetime_et: str(b.last_add.datetime_et),
+        season: num(b.last_add.season), franchise_id: pad4(b.last_add.franchise_id), franchise_name: cleanName(b.last_add.franchise_name),
+        method: safeToken(b.last_add.method) || null, datetime_et: safeToken(b.last_add.datetime_et) || null,
       } : null;
       if (!profile && !roster && !trades.length) {
         return noRecord([gap(`No profile data was returned for player ${pid} in ${year}`, "NO_RECORD", "MFL player profile and D1 player rows"), ...gaps]);
@@ -201,10 +202,10 @@ const tool = defineTool({
     const raw = Array.isArray(r.json.events) ? r.json.events : [];
 
     let events = raw.filter((e) => e && EVENT_KINDS_KEPT.has(String(e.kind))).map((e) => ({
-      seq: num(e.seq), season: num(e.season), date: str(e.date) || "", date_approx: e.date_approx === true,
-      kind: String(e.kind), label: str(e.label), detail: str(e.detail) || "",
-      franchise_id: pad4(e.franchise_id) || null, franchise_name: str(e.franchise_name),
-      from_franchise_id: pad4(e.from_franchise_id) || null, from_franchise_name: str(e.from_franchise_name),
+      seq: num(e.seq), season: num(e.season), date: safeToken(e.date), date_approx: e.date_approx === true,
+      kind: String(e.kind), label: safeText(e.label, 40) || null, detail: safeText(e.detail, 60),
+      franchise_id: pad4(e.franchise_id) || null, franchise_name: cleanName(e.franchise_name),
+      from_franchise_id: pad4(e.from_franchise_id) || null, from_franchise_name: cleanName(e.from_franchise_name),
     }));
 
     // A season filter narrows to that season's moves.

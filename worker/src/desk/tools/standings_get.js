@@ -14,6 +14,7 @@
 // Final finishes come back labeled by the finish label map in history_finishes.js (7 = Toilet Bowl champion, never "seventh").
 
 import { defineTool } from "../registry.js";
+import { cleanName, safeToken } from "./shared_text.js";
 import {
   analyzeSeasonFinishes, labelFinish, seasonNoteTexts, pad4, leagueIdOf, currentSeasonOf, resolveSeason, teamText,
   gap, fact, yearFact, fail, routeFail, noRecord, dedupeGaps, DATE_MAPPED_GAP, OWNER_GAP,
@@ -32,9 +33,9 @@ function standingsRows(json) {
     const fid = pad4(r.franchise_id);
     return {
       franchise_id: fid,
-      franchise_name: r.franchise_name ? String(r.franchise_name) : null,
-      division_name: r.division_name ? String(r.division_name) : null,
-      conference_name: r.conference_name ? String(r.conference_name) : null,
+      franchise_name: cleanName(r.franchise_name),
+      division_name: cleanName(r.division_name),
+      conference_name: cleanName(r.conference_name),
       record: recordText(r.h2h_w, r.h2h_l, r.h2h_t),
       h2h_w: num(r.h2h_w), h2h_l: num(r.h2h_l), h2h_t: num(r.h2h_t), h2h_pct: num(r.h2h_pct),
       div_w: num(r.div_w), div_l: num(r.div_l), div_pct: num(r.div_pct),
@@ -46,7 +47,7 @@ function standingsRows(json) {
       is_division_leader: r.is_division_leader === true,
       division_rank: num(r.division_rank),
       playoff_seed: num(r.playoff_seed),
-      playoff_status: r.playoff_status ? String(r.playoff_status) : null,
+      playoff_status: safeToken(r.playoff_status) || null,
       ownership_changed_in_season: !!(r.takeover || takeoverFids.has(fid)),
     };
   });
@@ -194,8 +195,8 @@ const tool = defineTool({
         const lab = hasFinish ? labelFinish(season, x.final_finish, finishAnalysis) : null;
         return {
           franchise_id: pad4(x.franchise_id),
-          franchise_name: x.franchise_name ? String(x.franchise_name) : null,
-          seed: num(x.seed), path: x.path ? String(x.path) : null, bye: x.bye === true, is_division_leader: x.is_division_leader === true,
+          franchise_name: cleanName(x.franchise_name),
+          seed: num(x.seed), path: safeToken(x.path) || null, bye: x.bye === true, is_division_leader: x.is_division_leader === true,
           final_finish: hasFinish ? num(x.final_finish) : null,
           label: lab ? lab.label : (complete ? "No final finish is recorded for this franchise" : "No final finish yet (the season is in progress)"),
           label_kind: lab ? lab.kind : "none",
@@ -205,7 +206,7 @@ const tool = defineTool({
       });
       outSeeds.sort((a, b) => (a.seed == null ? 99 : a.seed) - (b.seed == null ? 99 : b.seed) || a.franchise_id.localeCompare(b.franchise_id));
       playoffs = {
-        seeding_status: br.seeding_status ? String(br.seeding_status) : null,
+        seeding_status: safeToken(br.seeding_status) || null,
         playoff_weeks: Array.isArray(br.playoff_weeks) ? br.playoff_weeks.map(Number).filter(Number.isFinite) : [],
         seeds: outSeeds,
         games: playoffGames(br.matchups),
@@ -290,7 +291,7 @@ const tool = defineTool({
     if (!franchise) gaps.push(OWNER_GAP());
 
     const data = {
-      season, basis: st ? String(st.standings_basis || "") : (br ? String(br.seeding_status || "") : ""),
+      season, basis: st ? safeToken(st.standings_basis) : (br ? safeToken(br.seeding_status) : ""),
       as_of_basis: asOfBasis, season_complete: seasonCompleteFinalWeek,
       through_week: rsInfo && rsInfo.through_week != null ? num(rsInfo.through_week) : null,
       last_regular_season_week: st && st.meta && st.meta.last_regular_season_week != null ? num(st.meta.last_regular_season_week) : null,

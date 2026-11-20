@@ -15,6 +15,7 @@
 // Rounding: canon gives NO rounding rule for extensions. The module rounds each amount to the nearest $1K, halves up. When the contract's
 // AAV token or salary is not a whole $1K (for example AAV 16.5K) the number is returned WITH a caveat gap saying the rounding is not stated in canon.
 import { defineTool } from "../registry.js";
+import { safePlayerName, safeToken, safeText } from "./shared_text.js";
 import { priceExtension, parseContractInfo, PRICING_VERSION } from "../../extension_pricing.js";
 
 const R_WORKBENCH = "/roster-workbench";
@@ -85,12 +86,14 @@ export default defineTool({
         return { status: "no_record", coverage: { supported: true, gaps: [{ what: "that player is not on any roster right now", why: "NO_RECORD", source_needed: "a currently rostered player id" }] }, provenance: { ...prov, route: R_WORKBENCH } };
       }
       mode = "player";
-      name = s(p.name);
-      input = { position: s(p.position), yearsRemaining: p.years, salary: p.salary, contractInfo: s(p.special) === "-" ? "" : s(p.special) };
+      // Route text is screened (shared_text.js) before it is priced, shown or stored: a contract string that fails the screen is treated as
+      // missing (the module then refuses for want of an AAV token) rather than repaired.
+      name = safePlayerName(p.name, String(args.player_id));
+      input = { position: safeToken(p.position), yearsRemaining: p.years, salary: p.salary, contractInfo: safeText(p.special, 190) };
       Object.assign(prov, { route: R_WORKBENCH, season: String(knowledge.currentSeason), contract_source: "roster-workbench (display-normalized contractInfo; the same contract the Front Office shows)" });
     } else if (hasStated) {
       mode = "what_if";
-      input = { position: s(args.position), yearsRemaining: args.years_remaining, salary: args.salary, contractInfo: s(args.contract_info) };
+      input = { position: safeToken(args.position), yearsRemaining: args.years_remaining, salary: args.salary, contractInfo: safeText(args.contract_info, 190) };
       Object.assign(prov, { contract_source: "stated by the caller (not read from MFL)" });
     } else {
       return refuse("incomplete_contract_data", "name a player_id, or state position, years_remaining, salary and contract_info for a what-if",
@@ -129,7 +132,7 @@ export default defineTool({
       f("tcv", "New total contract value (forward-looking)", c.tcv, "usd"),
       f("gtd", "New guarantee (75% of the new TCV)", c.gtd, "usd"),
       f("contract_length", "New contract length", c.contract_length, "years"),
-      f("contract_info", "New contractInfo text", c.contract_info, "text"),
+      ...(safeText(c.contract_info, 190) ? [f("contract_info", "New contractInfo text", safeText(c.contract_info, 190), "text")] : []),
       f("pricing_version", "Pricing module version", PRICING_VERSION, "text"),
     ];
 
@@ -139,7 +142,7 @@ export default defineTool({
         mode, player_id: args.player_id === undefined ? null : String(args.player_id), player_name: name,
         position_group: c.position_group, schedule: c.schedule, escalator: c.escalator, extension_years: c.extension_years, contract_length: c.contract_length, status: c.status,
         salary_year1: c.salary_year1, aav_current: c.aav_current, aav_source: c.aav_source, aav_future: c.aav_future, tcv: c.tcv, gtd: c.gtd, salary_by_year: c.salary_by_year,
-        contract_info: c.contract_info, pricing_version: PRICING_VERSION,
+        contract_info: safeText(c.contract_info, 190), pricing_version: PRICING_VERSION,
         inputs: { position: input.position, years_remaining: Number(input.yearsRemaining), salary: Number(input.salary), contract_info: input.contractInfo },
       },
       facts,

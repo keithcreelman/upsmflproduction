@@ -9,6 +9,7 @@
 // The route's commissioner-facing "review" block (unsettled and partially settled traded salary) is NOT exposed: it is a settlement
 // work list, not a record of what was booked, and it is not on this tool's output allowlist.
 import { defineTool } from "../registry.js";
+import { cleanName, safePlayerName, safeToken, safeText } from "./shared_text.js";
 
 const ROUTE = "/api/salary-adjustments/ledger";
 const SIGN = "positive = a charge that raises the team's cap used, negative = a credit";
@@ -19,23 +20,41 @@ const MAX_ROW_FACTS = 40;
 
 const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
 const int = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n) : null; };
-const str = (v) => String(v == null ? "" : v);
+const digits = (v) => String(v == null ? "" : v).replace(/\D/g, "").slice(0, 8);
+
+// Every route-derived free-text value passes the shared screen (shared_text.js) before it reaches data, a fact value or a fact label.
+// The row's own description (a commissioner-typed sentence) and a misc row's reason are NOT passed on at all: the row type, kind and
+// amount carry what a question needs, and a typed sentence is the riskiest text in the league.
+const ROW_TYPES = new Set(["trade", "drop", "misc"]);
+const rowType = (v) => { const x = safeToken(v); return ROW_TYPES.has(x) ? x : "adjustment"; };
+const teamName = (name, fid) => cleanName(name) || `Team (${fid})`;
 
 function trimRow(r) {
   const d = r.drop && typeof r.drop === "object" ? r.drop : null;
   const tr = r.trade && typeof r.trade === "object" ? r.trade : null;
   const m = r.misc && typeof r.misc === "object" ? r.misc : null;
+  const fid = pad4(r.franchise_id);
   return {
-    id: str(r.id), franchise_id: pad4(r.franchise_id), franchise_name: str(r.franchise_name), type: str(r.type), amount: int(r.amount),
-    assessed_iso: str(r.assessed_iso), description: str(r.description).slice(0, 160), source: str(r.source), in_mfl: !!r.in_mfl,
+    id: safeToken(r.id), franchise_id: fid, franchise_name: teamName(r.franchise_name, fid), type: rowType(r.type), amount: int(r.amount),
+    assessed_iso: safeToken(r.assessed_iso), source: safeToken(r.source), in_mfl: !!r.in_mfl,
     drop: d ? {
-      player_id: str(d.player_id), player_name: str(d.player_name), contract_status: str(d.contract_status), contract_info: str(d.contract_info),
+      player_id: digits(d.player_id), player_name: safePlayerName(d.player_name, digits(d.player_id)), contract_status: safeToken(d.contract_status), contract_info: safeText(d.contract_info, 190),
       original_years: int(d.original_years), years_remaining: int(d.years_remaining), tcv: int(d.tcv), gtd: int(d.gtd), earned: int(d.earned),
-      penalty_basis: str(d.penalty_basis), ledger_amount: int(d.ledger_amount), penalty_exempt: !!d.penalty_exempt, details_source: d.details_source == null ? null : str(d.details_source),
+      penalty_basis: safeToken(d.penalty_basis), ledger_amount: int(d.ledger_amount), penalty_exempt: !!d.penalty_exempt, details_source: d.details_source == null ? null : (safeToken(d.details_source) || null),
     } : null,
-    trade: tr ? { matched: !!tr.matched, counterparty_fid: pad4(tr.counterparty_fid), counterparty_name: str(tr.counterparty_name), traded_at_iso: str(tr.traded_at_iso), three_way: !!tr.three_way } : null,
-    misc: m ? { kind: str(m.kind), reason: str(m.reason).slice(0, 160) } : null,
+    trade: tr ? { matched: !!tr.matched, counterparty_fid: pad4(tr.counterparty_fid), counterparty_name: teamName(tr.counterparty_name, pad4(tr.counterparty_fid)), traded_at_iso: safeToken(tr.traded_at_iso), three_way: !!tr.three_way } : null,
+    misc: m ? { kind: safeToken(m.kind) } : null,
   };
+}
+
+// The route's source flags: booleans pass, anything textual is screened.
+function cleanSources(src) {
+  const out = {};
+  for (const [k, v] of Object.entries(src && typeof src === "object" ? src : {})) {
+    const key = safeToken(k, 40);
+    if (key) out[key] = typeof v === "boolean" ? v : safeToken(v);
+  }
+  return out;
 }
 
 export default defineTool({
@@ -147,14 +166,14 @@ export default defineTool({
     return {
       status: "ok",
       data: {
-        season, completeness, sign_convention: SIGN, franchise_id: fid, franchise_name: fid ? str((body.franchises.find((x) => pad4(x.franchise_id) === fid) || {}).franchise_name) : null,
+        season, completeness, sign_convention: SIGN, franchise_id: fid, franchise_name: fid ? teamName((body.franchises.find((x) => pad4(x.franchise_id) === fid) || {}).franchise_name, fid) : null,
         this_season: { total: int(by0.total) || 0, trade: int(by0.trade) || 0, drop: int(by0.drop) || 0, misc: int(by0.misc) || 0, count: allRows.length },
         next_season: by1 ? { season: season + 1, total: int(by1.total) || 0, count: int(by1.count) || 0 } : null,
         rows, rows_returned: rows.length, rows_total: allRows.length, rows_truncated: truncated,
       },
       facts,
       coverage: { supported: true, gaps },
-      provenance: { ...prov, completeness, sources: body.sources || {}, review_block: "not exposed", row_classification: "type (trade, drop, misc) is the ledger route's own text classification of each row's description" },
+      provenance: { ...prov, completeness, sources: cleanSources(body.sources), review_block: "not exposed", row_classification: "type (trade, drop, misc) is the ledger route's own text classification of each row's description" },
       freshness: null,
     };
   },

@@ -4,6 +4,7 @@
 // Honest limits: most scheduled jobs do not write etl_runs, so a source missing here is "not tracked", not "fresh".
 // Per-source limits are not published anywhere; every source gets the default below, and the output says so.
 import { defineTool } from "../registry.js";
+import { safeToken } from "./shared_text.js";
 
 // The nflverse refresh workflow runs weekly in season (Mon to Wed UTC). A week plus a day of slack.
 export const ETL_DEFAULT_MAX_AGE_HOURS = 192;
@@ -15,13 +16,20 @@ const LIMIT_BASIS = "default for every source (weekly refresh plus a day of slac
 
 const short = (s) => String(s || "").slice(0, 8);
 
+// Everything the route hands us is screened before it can reach data, a fact or a gap: names and statuses through safeToken (instruction-like
+// or oddly shaped text is replaced by a neutral label, never repaired), times re-derived from the parsed date, numbers coerced.
+const UNNAMED = "source (unnamed)";
+const isoOrNull = (v) => { const ts = typeof v === "string" ? Date.parse(v) : NaN; return Number.isFinite(ts) ? new Date(ts).toISOString() : null; };
+const intOrNull = (v) => (Number.isInteger(v) && v >= 0 && v < 10000 ? v : null);
+
 function judgeSources(rows, nowMs) {
   const out = [];
   for (const r of (Array.isArray(rows) ? rows : []).slice(0, MAX_SOURCES_REPORTED)) {
     if (!r || typeof r.source !== "string") continue;
     const ts = Date.parse(r.last_run_utc);
     const limit = Object.prototype.hasOwnProperty.call(ETL_SOURCE_MAX_AGE_HOURS, r.source) ? ETL_SOURCE_MAX_AGE_HOURS[r.source] : ETL_DEFAULT_MAX_AGE_HOURS;
-    const status = typeof r.status === "string" ? r.status.slice(0, 40) : null;
+    const status = typeof r.status === "string" ? (safeToken(r.status) || null) : null;
+    const name = safeToken(r.source) || UNNAMED;
     let age = null, stale = false, reason = null;
     if (!Number.isFinite(ts)) { stale = true; reason = "no usable last-run time"; }
     else {
@@ -29,7 +37,7 @@ function judgeSources(rows, nowMs) {
       if (age > limit) { stale = true; reason = `older than the ${limit} hour limit`; }
     }
     if (!stale && status === "error") { stale = true; reason = "the last run failed"; }
-    out.push({ source: r.source.slice(0, 60), last_run_utc: Number.isFinite(ts) ? r.last_run_utc : null, status, age_hours: age, limit_hours: limit, stale, reason });
+    out.push({ source: name, last_run_utc: isoOrNull(r.last_run_utc), status, age_hours: age, limit_hours: limit, stale, reason });
   }
   return out.sort((a, b) => (a.source < b.source ? -1 : a.source > b.source ? 1 : 0));
 }
@@ -78,9 +86,9 @@ export default defineTool({
       const res = await routeGet("/api/data-freshness", params);
       if (res.ok && res.json && res.json.ok === true && Array.isArray(res.json.etl)) {
         const sources = judgeSources(res.json.etl, nowMs);
-        const wc = res.json.weeklyCoverage && typeof res.json.weeklyCoverage === "object" ? { season: res.json.weeklyCoverage.season ?? null, week: res.json.weeklyCoverage.week ?? null } : null;
+        const wc = res.json.weeklyCoverage && typeof res.json.weeklyCoverage === "object" ? { season: intOrNull(res.json.weeklyCoverage.season), week: intOrNull(res.json.weeklyCoverage.week) } : null;
         etl = {
-          available: true, route_error: null, generated_at: typeof res.json.generated_at === "string" ? res.json.generated_at : null,
+          available: true, route_error: null, generated_at: isoOrNull(res.json.generated_at),
           source_count: sources.length, stale_count: sources.filter((s) => s.stale).length, sources, ...(wc ? { weekly_coverage: wc } : {}),
         };
         // The registry allows at most 20 gaps per result, so name the first few stale sources and summarize the rest.
@@ -91,7 +99,7 @@ export default defineTool({
         etl.route_error = `route answered ${res.status}`;
       }
     } catch (e) {
-      etl.route_error = (e && e.deskCode) || "route_failed";
+      etl.route_error = safeToken(e && e.deskCode) || "route_failed";
     }
     if (!etl.available) gaps.push({ what: "ETL freshness stamps", why: "stale", source_needed: "/api/data-freshness did not answer, so source ages are unknown" });
 

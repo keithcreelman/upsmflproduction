@@ -9,6 +9,7 @@
 // The MFL-derived value is returned as a grade A fact; the stored or canon readings are returned alongside, and each contradiction is a
 // coverage gap with reason conflict_in_canon that names both readings and where they sit (file and line, no long quotes).
 import { defineTool } from "../registry.js";
+import { safeToken, safeText } from "./shared_text.js";
 import { etParts } from "../../trade_deadline.js";
 
 const ROUTE = "/api/league-events";
@@ -28,6 +29,7 @@ const CANON_WEEK1 = [
 ];
 
 const str = (v) => String(v == null ? "" : v);
+const isoDate = (v) => { const x = str(v).slice(0, 10); return /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : null; };
 const SAFE_KEY = (e) => String(e).toLowerCase().replace(/[^a-z0-9_]/g, "_").slice(0, 52);
 
 export default defineTool({
@@ -45,7 +47,7 @@ export default defineTool({
   allowlist: { routes: [{ path: ROUTE, params: ["L", "season", "from", "limit", "kickoffs"] }], modules: ["trade_deadline.js"], tables: [] },
   output: {
     allow: [
-      "season", "events[].event", "events[].date", "events[].date_source", "events[].description", "events[].time_et", "events[].label", "events[].stored_date", "events[].nfl_week",
+      "season", "events[].event", "events[].date", "events[].date_source", "events[].time_et", "events[].label", "events[].stored_date", "events[].nfl_week",
       "week1_kickoff.unix", "week1_kickoff.date_et", "week1_kickoff.time_et", "week1_kickoff.source",
       "trade_lock.state", "trade_lock.date_et", "trade_lock.time_et", "trade_lock.label", "trade_lock.reason", "trade_lock.source",
       "conflicts[].topic", "conflicts[].mfl_value", "conflicts[].stored_value", "conflicts[].canon_readings[].file", "conflicts[].canon_readings[].lines", "conflicts[].canon_readings[].reading",
@@ -65,16 +67,18 @@ export default defineTool({
       return { status: "error", error: { code: "route_failed", message: `/api/league-events answered ${res.status}` } };
     }
 
+    // Route text reaches data, facts and gaps only through the shared screen. An event's own description (commissioner-typed) is never passed on:
+    // the event token, its date and where the date came from answer the question.
     const events = body.events.map((e) => ({
-      event: str(e.event), date: e.date == null ? null : str(e.date), date_source: str(e.date_source), description: e.description == null ? null : str(e.description).slice(0, 200),
-      time_et: e.time_et == null ? null : str(e.time_et), label: e.label == null ? null : str(e.label), stored_date: e.stored_date == null ? null : str(e.stored_date),
-      nfl_week: e.nfl_week == null ? null : Number(e.nfl_week),
-    }));
+      event: safeToken(e.event), date: isoDate(e.date), date_source: safeToken(e.date_source),
+      time_et: safeToken(e.time_et) || null, label: safeText(e.label, 60) || null, stored_date: isoDate(e.stored_date),
+      nfl_week: Number.isFinite(Number(e.nfl_week)) && e.nfl_week != null ? Number(e.nfl_week) : null,
+    })).filter((e) => e.event);   // an event whose name fails the screen is dropped
     const lock = body.trade_lock && typeof body.trade_lock === "object" ? body.trade_lock : {};
-    const tradeLock = { state: str(lock.state), date_et: lock.date_et || null, time_et: lock.time_et || null, label: lock.label || null, reason: str(lock.reason), source: str(lock.source) };
+    const tradeLock = { state: safeToken(lock.state), date_et: isoDate(lock.date_et), time_et: safeToken(lock.time_et) || null, label: safeText(lock.label, 60) || null, reason: safeToken(lock.reason), source: safeToken(lock.source) };
 
     const wk1Unix = body.week_kickoffs && Number(body.week_kickoffs["1"]) > 0 ? Number(body.week_kickoffs["1"]) : null;
-    const wk1 = wk1Unix ? { unix: wk1Unix, ...(({ date_et, time_et }) => ({ date_et, time_et }))(etParts(wk1Unix)), source: str(body.week_kickoffs_source) } : null;
+    const wk1 = wk1Unix ? { unix: wk1Unix, ...(({ date_et, time_et }) => ({ date_et, time_et }))(etParts(wk1Unix)), source: safeToken(body.week_kickoffs_source) } : null;
 
     const asFact = String(asOf);
     const f = (key, label, value, unit, grade, source) => ({ key, label, value, unit, as_of: asFact, source, grade });
@@ -102,7 +106,7 @@ export default defineTool({
       const key = `ev_${SAFE_KEY(e.event)}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      facts.push(f(key, `${e.event} date, ${season} (${e.date_source || "source unknown"})${e.description ? ": " + e.description : ""}`.slice(0, 118), e.date, "date", grade, `${SRC_EVENTS} (${e.date_source || "unknown"})`));
+      facts.push(f(key, `${e.event} date, ${season} (${e.date_source || "source unknown"})`.slice(0, 118), e.date, "date", grade, `${SRC_EVENTS} (${e.date_source || "unknown"})`));
       if (e.date_source === "stored_row_stale_fallback") {
         gaps.push({ what: `${e.event} is the commissioner's stored date because the NFL schedule could not be read`, why: "stale", source_needed: "MFL's nflSchedule for that week" });
       }
@@ -142,7 +146,7 @@ export default defineTool({
         date_authority: "nfl_schedule_first_kickoff and mfl_calendar are MFL-derived (grade A); stored_row is the commissioner's typed row (grade B)",
         conflict_policy: "both canon readings are reported; neither is chosen",
       },
-      freshness: lock.verified_at_utc ? { trade_lock_verified_at_utc: str(lock.verified_at_utc) } : null,
+      freshness: lock.verified_at_utc ? { trade_lock_verified_at_utc: safeToken(lock.verified_at_utc) } : null,
     };
   },
 });
