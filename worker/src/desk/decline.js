@@ -41,16 +41,31 @@ export function isSingleClause(question) {
   if (!q || MULTI_CLAUSE_RE.test(q)) return false;
   return q.split(/\s+/).filter(Boolean).length <= MAX_DECLINE_WORDS;
 }
-// One plain template per coverage domain (applied after the trailing punctuation is removed). Only these shapes may be declined in code.
-const NOT_PUNCT = "[^.?!;:,]";
+// One plain template per coverage domain: a FULLY ENUMERATED sentence shape, not "starts like a title question". Free text is allowed in exactly one place, a person's name
+// (one to four capitalized words), so nothing else can ride along ("Who won the 2026 UPS title when is kickoff?" fits no template: R19 review). Applied after the trailing
+// punctuation is removed. A question that fits none goes to the composer.
+const YEAR = "(?:19|20)\\d{2}";
+const NAME = "[A-Z][\\p{L}'\u2019.\\-]*(?: [A-Z][\\p{L}'\u2019.\\-]*){0,3}";
+const TITLE_WORD = "(?:title|championship|champion|champions)";
 export const DOMAIN_TEMPLATES = Object.freeze({
-  finishes: new RegExp(`^(?:who|which\\s+(?:franchise|team))\\s+(?:won|was)\\b${NOT_PUNCT}*\\b(?:title|championship|champion|champions)\\b${NOT_PUNCT}*$`, "i"),
-  pick_lineage: new RegExp(`^(?:trace|follow)\\b${NOT_PUNCT}*\\bpicks?\\b${NOT_PUNCT}*$`, "i"),
-  contract_timeline: new RegExp(`^what\\s+(?:was|is)\\b${NOT_PUNCT}*['\u2019]s\\s+(?:salary|contract)\\b${NOT_PUNCT}*$`, "i"),
+  // "Who won the 2009 UPS title" / "Who was the champion in 2013" / "Which franchise won the 2013 championship"
+  finishes: [
+    new RegExp(`^(?:Who|Which (?:franchise|team)) (?:won|was) the (?:${YEAR} )?(?:UPS )?(?:league )?${TITLE_WORD}(?: (?:in|for|of) (?:the )?${YEAR}(?: season)?)?$`, "iu"),
+  ],
+  // "Trace the 2013 pick that became Markus Wheaton"
+  pick_lineage: [
+    new RegExp(`^(?:Trace|Follow) the (?:${YEAR} )?(?:[Rr]ound \\d )?pick that (?:became|turned into) ${NAME}$`, "u"),
+  ],
+  // "What was Davante Adams's salary in Week 1 of 2013"
+  contract_timeline: [
+    new RegExp(`^What (?:was|is) ${NAME}['\u2019]s (?:salary|contract) (?:in|during|for) (?:[Ww]eek \\d{1,2} of )?(?:the )?${YEAR}(?: season)?$`, "u"),
+  ],
 });
 export function fitsTemplate(domain, question) {
-  const re = DOMAIN_TEMPLATES[domain];
-  return !!re && re.test(String(question || "").trim().replace(/[.?!]+$/, ""));
+  const list = DOMAIN_TEMPLATES[domain];
+  if (!list) return false;
+  const q = String(question || "").trim().replace(/[.?!]+$/, "");
+  return list.some((re) => re.test(q));
 }
 const stripYears = (q) => String(q).replace(/\b(?:19|20)\d{2}(?:-\d{2}-\d{2})?\b/g, " ");
 export const DOMAIN_BINDING = Object.freeze({

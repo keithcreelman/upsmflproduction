@@ -1116,6 +1116,17 @@ test("no-record decline (R15 review): the checked domain must be one the QUESTIO
   t.ok(run(["finishes"], "Who was the champion in 2013?") && run(["finishes"], "Which franchise won the 2013 championship?") && run(["finishes"], "who won the 2013 UPS title"));
   t.ok(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton.") && run(["contract_timeline"], "What was Davante Adams's salary in Week 1 of 2013?"));
   t.equal(run(["finishes"], "Tell me the 2013 title winner."), null, "no template, so the composer");
+  // R19 review: free text after a template's key word is where a second request hides. The templates are fully enumerated; only a person's name is free.
+  t.equal(run(["finishes"], "Who won the 2026 UPS title when is kickoff?", 2026), null, "a calendar request after the title words");
+  t.equal(run(["finishes"], "Who won the 2013 UPS title owner of franchise 0003?"), null, "a trailing owner request");
+  t.equal(run(["finishes"], "Who won the 2013 title (and the owner)?"), null, "parentheses");
+  t.equal(run(["finishes"], "Who was the champion in 2013 next to 2012 results?"), null, "a modifier phrase");
+  t.equal(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton when is kickoff?"), null, "words after the name");
+  t.equal(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton Kickoff Week One Schedule?"), null, "more than four name words");
+  t.equal(run(["contract_timeline"], "What was Davante Adams's salary in Week 1 of 2013 for the owner?"), null, "a trailing request");
+  t.ok(run(["finishes"], "Who won the 2009 UPS title?") && run(["finishes"], "Which team won the league championship in 2013?") && run(["finishes"], "Who was the champion for 2013?"));
+  t.ok(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton.") && run(["pick_lineage"], "Follow the 2013 round 1 pick that turned into Markus Wheaton?"));
+  t.ok(run(["contract_timeline"], "What was Davante Adams's salary in Week 1 of 2013?") && run(["contract_timeline"], "What is Davante O'Brien-Adams\u2019s contract for 2013?"));
   t.equal(run(["owner_history"], "Who was the owner of franchise 0010 in 2013?"), null, "owner history has no template");
   t.equal(run(["roster_current"], "What was Davante Adams's team in 2013?"), null, "roster has no template");
   t.equal(run(["draft_order"], "Trace the 2013 pick."), null, "draft order has no template");
@@ -1138,7 +1149,7 @@ test("no-record decline (R15 review): the checked domain must be one the QUESTIO
   t.equal(run(["pick_lineage"], "Who won the title after the 2013 pick was traded?"), null, "a title clause beside a pick clause");
   t.equal(run(["contract_timeline"], "What was the salary of the 2013 champion?"), null, "a champion clause beside a salary clause");
   // a year or a date alone is not a clause: these still decline
-  t.ok(run(["pick_lineage"], "Trace the pick from 2013-06-05 that became Markus Wheaton."), "a date is stripped");
+  t.equal(run(["pick_lineage"], "Trace the pick from 2013-06-05 that became Markus Wheaton."), null, "a shape outside the template goes to the composer");
   t.ok(run(["finishes"], "Who won the 2013 UPS title?"), "a title word is served by finishes");
 });
 
