@@ -1,0 +1,65 @@
+# Front Office Trade Finder: method and evidence
+
+Model: `site/shared/trade_fit.js` (pure). Tests: `tests/trade_fit_model.test.mjs`. Backtest: `pipelines/etl/scripts/trade_fit_signal_backtest.py`. Umbrella: #1338.
+
+**Framing:** trade-fit *discovery*. It says where each team is strong or short and which swaps would improve **both** lineups. It never says a trade is fair, never proposes, submits or messages anything. Inputs are public MFL data only (rosters, MFL scores, byes, injuries, trade bait, picks); nothing from the commissioner-only draft-guide or auction-value models.
+
+### The unit: points a week in this league's real lineup
+1. **Player value** = season-to-date points per MFL-scored week (the released phone definition). Recent form and last season are shown beside it, not mixed in (evidence below).
+2. **Best legal lineup** for each team from its active, available players with the released 18-slot model (`site/m/front_office_lineup.js`: QB, 2 RB, 2 WR, TE, 2 Flex, SuperFlex, K, P, 2 DL, 2 LB, 2 DB, D-Flex). IR, taxi and players ruled Out are not available now. An empty slot is filled at **replacement level**: the 3rd-best free agent at QB/RB/WR/TE, 6th at K/P, 12th at DL/LB/DB (the Wire forecast's tested setting, `season_sim.py`).
+3. **Strength** at a position = the team's starters there (flex included) in points a week above replacement, compared with the league median.
+4. **Need** at a position = how many points a week the team's best lineup gains if it adds the league's median starter at that position. This handles Flex and SuperFlex without special cases.
+5. **Surplus** = a healthy player outside the team's best lineup who would start for at least one other team (gain > 0 there).
+6. **Fit** for teams A and B: a 1-for-1 swap where A's best lineup and B's best lineup **both** get better, ranked by the smaller of the two gains. Shown with each side's gain, cap room after the swap (MFL formula; over the cap is flagged because the app refuses it), roster count, years left, age, bye overlap, injury chip and trade-bait listing.
+7. **Uncertainty:** every fit says whether it still holds on last-4-weeks values; small samples (fewer than half the final weeks) are marked. Kickers and punters are shown but never drive a fit (they don't predict, below).
+
+No weights were chosen by hand: the only settings are the signal (picked by the backtest) and replacement depth (reused, already tested).
+
+### Evidence: which signal identifies current strength? (offline backtest)
+Seasons 2022–2025, cut at Weeks 4, 6, 8 and 10 (16 cells per row). Target: each player's rest-of-season points per MFL week (Weeks t+1–17). MFL's own league scores; point-in-time rosters (`rosters&W=t`). "Proj" = RotoWire weekly projections scored with UPS rules (`ev_projections.py`), offense only. Spearman rank correlation, higher is better; best in-app signal in **bold**.
+
+**Players** (the top 2× starter demand at each position):
+| Pos | Season PPG | Last 4 | Last 3 | Last season | Proj (RotoWire) | Season + Proj | Season + last season |
+|---|---|---|---|---|---|---|---|
+| QB | **.58** | .53 | .50 | .32 | .63 | .65 | .53 |
+| RB | **.68** | .66 | .64 | .58 | .72 | .75 | .69 |
+| WR | **.64** | .58 | .53 | .65 | .67 | .72 | .70 |
+| TE | **.48** | .41 | .37 | .54 | .60 | .60 | .58 |
+| DL | **.39** | .27 | .24 | .48 | — | — | .52 |
+| LB | **.31** | .27 | .21 | .23 | — | — | .31 |
+| DB | **.28** | .18 | .13 | .26 | — | — | .31 |
+| K | .17 | .15 | .14 | .01 | — | — | .13 |
+| P | .20 | .24 | .23 | .13 | — | — | .18 |
+
+**Teams** (each team's starters at the position, predicted vs realized rest of season; 12 teams):
+| | QB | RB | WR | TE | DL | LB | DB | K | P | Whole lineup |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Season PPG | **.62** | .81 | .77 | .60 | .62 | .61 | .74 | .21 | .22 | **.70** |
+| Last 4 weeks | .60 | .77 | .75 | .61 | .58 | .63 | .65 | .20 | .21 | .62 |
+| Season + last season | .55 | .80 | .81 | .62 | .70 | .65 | .78 | .26 | .15 | .68 |
+| Proj (offense only) | .58 | .85 | .83 | .74 | — | — | — | — | — | — |
+
+**Reading it:**
+- **Recent form doesn't beat the season.** For players, last 3–4 weeks lose to season PPG at every position except punter; for teams they lose overall (.62 vs .70) and tie within .02 only at TE and LB. Hot streaks are shown as context only.
+- **Season PPG is the best signal the app has today** for whole-lineup strength (.70) and the simplest to explain.
+- **RotoWire projections are better for offense** (season + projection is best at every offensive position), but the app doesn't serve them yet (they live in the Wire pipeline). Serving them is a follow-up, not part of this build.
+- **Last season helps WR/TE/DL early**, hurts QB. Shown in the player panel, not blended.
+- **Kickers and punters are close to noise** (.2): never a reason to trade.
+- **IDP is the least predictable** (.3–.4 per player, .6–.7 per team): IDP strength is shown, but IDP-only fits are marked lower confidence.
+
+Script: `pipelines/etl/scripts/trade_fit_signal_backtest.py` (public reads cached under `$TMPDIR`; rerun is offline). Matching RotoWire players to MFL is by unique name + position (no D1 crosswalk), so offense projection coverage is partial; that biases the projection rows down, not up.
+
+### Limits, stated on screen
+- A fit is "both lineups get better by points a week", not "fair". Contract length, salary, age and picks are shown, not scored.
+- Picks are listed (owned, traded, forfeited) but not valued (draft #1337 changes how the grader values them; that is Keith's call).
+- Rest-of-season only; dynasty value is out of scope.
+- Before Week 1, current-season numbers are never used (standing rule): the Finder says "starts after Week 1" until MFL has posted a week.
+
+## API (window.UPS_TRADE_FIT)
+| Function | Returns |
+|---|---|
+| `buildLeague({teams, values, freeAgents, lineup?})` | per team: best lineup, `strength` and `vsMedian` by group (points a week above replacement), `need` by group (points a week from the league's median starter), `surplus` (bench players that would start elsewhere, with each team they help); league `repl`, `typical`, `medians` |
+| `pairFits(model, fidA, fidB, {alt?, capRoom?, limit?, minGain?})` | 1-for-1 swaps where both lineups gain: `gainA`, `gainB`, `mutual`, cap room after each side (`overCap` flag), `idpOnly`, `holdsOnAlt` |
+| `teamSummary(model, fid)` | strong groups, needs, top surplus, replacement starts |
+
+`teams[].players[]`: `{pid, pos, status (ROSTER / TAXI_SQUAD / INJURED_RESERVE), chip (released injury chip), salary}`. `values`: `{pid: points per MFL-scored week}`. Players with no MFL week count as 0 and are marked by the screen.
