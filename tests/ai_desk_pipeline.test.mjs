@@ -67,7 +67,7 @@ let useSeq = 0;
 const toolUses = (uses, text = "Checking.") => ({ ok: true, costUsd: 0.01, usage: {}, response: { stop_reason: "tool_use", usage: {}, content: [{ type: "text", text }, ...uses.map(([name, input]) => ({ type: "tool_use", id: `toolu_${++useSeq}`, name, input }))] } });
 const endTurn = (text = "Enough evidence.") => ({ ok: true, costUsd: 0.01, usage: {}, response: { stop_reason: "end_turn", usage: {}, content: [{ type: "text", text }] } });
 const emit = (card, name = "emit_card") => ({ ok: true, costUsd: 0.02, usage: {}, response: { stop_reason: "tool_use", usage: {}, content: [{ type: "tool_use", id: `toolu_${++useSeq}`, name, input: card }] } });
-const route = (o = {}) => ({ ok: true, costUsd: 0.001, usage: {}, response: { stop_reason: "tool_use", usage: {}, content: [{ type: "tool_use", id: `toolu_${++useSeq}`, name: "route_question", input: { intent: "cap_lookup", domains: ["cap"], needs_as_of: null, out_of_scope: false, reason: "a cap question", ...o } }] } });
+const route = (o = {}) => ({ ok: true, costUsd: 0.001, usage: {}, response: { stop_reason: "tool_use", usage: {}, content: [{ type: "tool_use", id: `toolu_${++useSeq}`, name: "route_question", input: { intent: "cap_lookup", domains: ["cap", "history"], needs_as_of: null, out_of_scope: false, reason: "a cap question", ...o } }] } });
 const blocked = (reason) => ({ ok: false, blocked: true, reason });
 
 function scripted(plan) {
@@ -143,7 +143,8 @@ test("requests carry model, promptHash, forced tools, and data delimiters", asyn
   t.ok(l1.tools.some((x) => x.name === "cap__position"));
   t.ok(l1.toolIds.includes("cap.position"));
   t.match(l1.messages[0].content[0].text, /<<<UPS_DATA question/);
-  t.match(l1.system, /untrusted data/);
+  t.match(l1.system[0].text, /untrusted data/);   // the system prompt is a block carrying a cache marker
+  t.deepEqual(l1.system[0].cache_control, { type: "ephemeral" });
   const res = l2.messages[l2.messages.length - 1].content[0];
   t.equal(res.type, "tool_result");
   t.match(res.content[0].text, /^<<<UPS_DATA tool_result tool="cap\.position" call="c1" untrusted="true">>>/);
@@ -878,5 +879,85 @@ test("a rule or glossary answer: the composer is shown the text, and a glossary 
   t.deepEqual(r4.trace.attempts[0].codes, ["UNRETRIEVED_ANCHOR"]);
 });
 
+
+
+// ── Cost measures from the first live run: narrowed definitions, prompt-cache markers, the widening valve, a text-only composer ──────────
+const loopRequests = (r) => r.s.requests.filter((q) => q.step === "loop");
+const markerCount = (v) => (JSON.stringify(v).match(/"cache_control"/g) || []).length;
+
+test("the loop is shown only the definitions the route needs; the registry still authorizes every call", async () => {
+  const q = "Who won the title in 2017?";
+  const r = await ask({ question: q, plan: { router: [route({ domains: ["history"], intent: "titles" })], loop: [toolUses([["history__finishes", { franchise: "0003", as_of: "2017-12-31" }]]), endTurn()], composer: [emit(GOOD_CARD())] } });
+  const names = loopRequests(r)[0].tools.map((x) => x.name);
+  t.ok(names.includes("history__finishes") && names.includes("rules__search"), "the domain's tool and the core are offered");
+  t.ok(!names.includes("cap__position"), "an unrelated tool's definition is not sent");
+  t.ok(r.trace.tools_offered.offered < r.trace.tools_offered.of, "fewer definitions than are registered");
+  t.deepEqual(r.trace.tools_offered.domains, ["history"]); t.equal(r.trace.tools_offered.reason, "domains"); t.equal(r.trace.tools_offered.widened, false);
+  // The request metadata names exactly what was offered.
+  t.deepEqual(loopRequests(r)[0].toolIds.slice().sort(), r.trace.tools_offered.ids.slice().sort());
+  // A tool that was NOT offered is refused even if the model asks for it by its registered name.
+  const r2 = await ask({ question: q, plan: { router: [route({ domains: ["history"], intent: "titles" })], loop: [toolUses([["cap__position", { franchise: "0003", as_of: "current" }]]), endTurn()], composer: [emit(GOOD_CARD())] } });
+  t.equal(r2.counters.cap, 0, "the cap tool never ran");
+  t.ok(r2.trace.tool_calls >= 1);
+  // A wrong router (names the wrong domain) cannot hide a tool the question's own words call for: the keyword net adds it.
+  const r3 = await ask({ question: "How much cap space does 0003 have?", plan: { router: [route({ domains: ["history"], intent: "x" })], loop: [toolUses(CAP_CALL), endTurn()], composer: [emit(GOOD_CARD())] } });
+  t.ok(loopRequests(r3)[0].tools.some((x) => x.name === "cap__position"), "cap words in the question add the cap tools even if the router said history");
+  t.equal(r3.trace.tools_offered.keyword_domains.includes("cap"), true);
+  t.equal(r3.counters.cap, 1);
+});
+
+test("an unknown, empty or 'other' route offers every definition (the old behavior, never less)", async () => {
+  for (const domains of [[], ["other"], ["not_a_domain"]]) {
+    const r = await ask({ plan: { router: [route({ domains })], loop: [toolUses(CAP_CALL), endTurn()], composer: [emit(GOOD_CARD())] } });
+    t.equal(r.trace.tools_offered.offered, r.trace.tools_offered.of, JSON.stringify(domains));
+    t.match(r.trace.tools_offered.reason, /^all:/);
+  }
+});
+
+test("prompt cache markers: the system block and only the newest message, 2 of the 4 allowed, never accumulating across rounds", async () => {
+  const twoRounds = [toolUses(CAP_CALL), toolUses([["rules__search", { query: "cap", as_of: "current" }]]), endTurn()];
+  const r = await ask({ plan: { loop: twoRounds, composer: [emit(GOOD_CARD())] } });
+  const reqs = loopRequests(r);
+  t.equal(reqs.length, 3);
+  for (const q of reqs) {
+    t.ok(Array.isArray(q.system) && q.system.length === 1 && q.system[0].type === "text" && typeof q.system[0].text === "string");
+    t.deepEqual(q.system[0].cache_control, { type: "ephemeral" });
+    t.equal(markerCount(q), 2, "exactly the system block and the newest message");
+    const last = q.messages[q.messages.length - 1];
+    t.deepEqual(last.content[last.content.length - 1].cache_control, { type: "ephemeral" }, "the marker sits on the final block of the newest message");
+    t.equal(markerCount(q.messages.slice(0, -1)), 0, "no marker is left on older messages");
+    t.equal(markerCount(q.tools), 0);
+  }
+  // The composer and router do not use the cache (one call each; nothing to reuse).
+  for (const q of r.s.requests.filter((x) => x.step !== "loop")) t.equal(markerCount(q), 0, q.step);
+});
+
+test("widening valve: a narrowed first reply that used NO tool is retried once with every definition; never after a tool ran", async () => {
+  const r = await ask({ question: "Who won the title in 2017?", plan: { router: [route({ domains: ["calendar"], intent: "x" })], loop: [endTurn("I have no tool for that."), toolUses([["history__finishes", { franchise: "0003", as_of: "2017-12-31" }]]), endTurn()], composer: [emit(GOOD_CARD())] } });
+  const reqs = loopRequests(r);
+  t.equal(reqs.length, 3);
+  t.ok(reqs[1].tools.length > reqs[0].tools.length, "the second request carries every definition");
+  t.equal(reqs[1].tools.length, r.trace.tools_offered.of);
+  t.equal(r.trace.tools_offered.widened, true);
+  t.equal(r.counters.hist, 1, "the widened loop reached the tool the narrowed one hid");
+  // Not widened once a tool has run, or when all tools were already offered.
+  const r2 = await ask({ question: "Who won the title in 2017?", plan: { router: [route({ domains: ["history"], intent: "x" })], loop: [toolUses([["history__finishes", { franchise: "0003", as_of: "2017-12-31" }]]), endTurn()], composer: [emit(GOOD_CARD())] } });
+  t.equal(r2.trace.tools_offered.widened, false); t.equal(loopRequests(r2).length, 2);
+  const r3 = await ask({ plan: { router: [route({ domains: ["other"] })], loop: [endTurn("nothing")], composer: [emit({ state: "abstain", lead_md: "x" })] } });
+  t.equal(r3.trace.tools_offered.widened, false); t.equal(loopRequests(r3).length, 1);
+});
+
+test("a composer that answers in plain text (tool choice is auto on Sonnet 5.5) fails safe: one nudged retry, then a code-built card with no model text", async () => {
+  const r = await ask({ plan: { loop: [toolUses(CAP_CALL), endTurn()], composer: [endTurn("The cap space is twelve thousand dollars.")], retry: [endTurn("Sure! Here is the answer in plain text: 12000.")] } });
+  t.equal(r.card.state, "tool_failure"); t.equal(r.card.reason_code, "validation_failed");
+  t.deepEqual(r.trace.attempts.map((a) => a.codes[0]), ["NO_CARD", "NO_CARD"]);
+  t.ok(!JSON.stringify(r.card).includes("twelve thousand") && !JSON.stringify(r.card).includes("12000"), "none of the model's text reaches the card");
+  const retryReq = r.s.requests.find((q) => q.step === "retry");
+  t.match(retryReq.messages[0].content[0].text, /did not call emit_card\. Reply ONLY by calling emit_card/);
+  t.deepEqual(retryReq.tool_choice, { type: "auto" });
+  // A text reply followed by a good tool call on the retry still produces an honest card.
+  const r2 = await ask({ plan: { loop: [toolUses(CAP_CALL), endTurn()], composer: [endTurn("Let me think about that.")], retry: [emit(GOOD_CARD())] } });
+  t.equal(r2.card.state, "answer");
+});
 
 await run("ai_desk_pipeline");

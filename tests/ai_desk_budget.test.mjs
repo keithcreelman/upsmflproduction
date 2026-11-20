@@ -692,4 +692,27 @@ test("static: the real client file sends only to api.anthropic.com and has no to
   t.doesNotMatch(src, /for\s*\(.*retry|attempt/i, "no retry loop");
 });
 
+
+test("a request that asks for prompt caching is reserved at the cache-WRITE rate (25 percent above plain input), then charged at the real cache rates", async () => {
+  const d = freshDb();
+  const plainReq = req({ system: [{ type: "text", text: "be brief" }] });
+  const cachedReq = req({ system: [{ type: "text", text: "be brief", cache_control: { type: "ephemeral" } }] });
+  const estOf = (r, usesCache) => estimateWorstCaseUsd({ model: r.model, inputTokensEstimate: estimateInputTokensFromBytes(utf8Bytes(JSON.stringify(buildBody(r)))), maxOutputTokens: r.max_tokens, usesCache });
+  const estPlain = estOf(plainReq, false), estCached = estOf(cachedReq, true);
+  t.ok(estCached > estPlain, "a marked request reserves more, because the worst case is that every input token is a cache write");
+  // The input part of the reservation rises by the write/input ratio (2.5 / 2 on Sonnet 5.5); the output part is unchanged.
+  const outPart = (1000 * 10) / 1e6;
+  approx((estCached - outPart) / (estOf(cachedReq, false) - outPart), 2.5 / 2, "cache write rate over plain rate on the input part");
+  // A scripted creation, then a read: priced with the cache rates, recorded in the ledger's cache columns.
+  const c = createFakeClient([textResponse("a", { input_tokens: 0, output_tokens: 100, cache_creation_input_tokens: 8000, cache_read_input_tokens: 0 }), textResponse("b", { input_tokens: 300, output_tokens: 120, cache_creation_input_tokens: 1200, cache_read_input_tokens: 8000 })]);
+  const r1 = await call({ env: BIG, db: d, client: c, request: cachedReq });
+  const r2 = await call({ env: BIG, db: d, client: c, request: cachedReq });
+  approx(r1.costUsd, (100 * 10 + 8000 * 2.5) / 1e6, "creation priced at the write rate");
+  approx(r2.costUsd, (300 * 2 + 120 * 10 + 1200 * 2.5 + 8000 * 0.10) / 1e6, "a read is a tenth of plain input");
+  const [a, b] = rows(d);
+  t.equal(a.cache_write_tokens, 8000); t.equal(b.cache_read_tokens, 8000); t.equal(b.cache_write_tokens, 1200);
+  approx(a.est_cost_usd, estCached, "the gate itself reserved at the cache-write rate");  // Plain input is cheaper than the same tokens written to the cache once, and far cheaper than reading them: the model of the saving.
+  t.ok(8000 * 0.10 < 8000 * 2 && 8000 * 2 < 8000 * 2.5);
+});
+
 run("ai_desk_budget");

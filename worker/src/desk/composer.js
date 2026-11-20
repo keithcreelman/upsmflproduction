@@ -171,6 +171,8 @@ export function composerMessages({ question, asOf, evidenceText, suspicious, err
   if (errors && errors.length) {
     const lines = errors.slice(0, 20).map((e) => `- ${e.code} at ${String(e.path || "").replace(/[^\w.\[\]-]/g, "").slice(0, 80)}: ${String(e.message || "").slice(0, 140)}`);
     text += `\nYour previous card was rejected. Fix every problem and emit a corrected card:\n${lines.join("\n")}`;
+    // A text-only reply (no emit_card call) is possible because the tool choice is "auto" on Sonnet 5.5: say plainly what is required.
+    if (errors.some((e) => e && e.code === "NO_CARD")) text += "\nYour previous reply did not call emit_card. Reply ONLY by calling emit_card, with no text before or after the call.";
   }
   return [{ role: "user", content: [{ type: "text", text }] }];
 }

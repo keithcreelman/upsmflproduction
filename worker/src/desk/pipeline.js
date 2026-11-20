@@ -124,7 +124,7 @@ export async function answerQuestion({ caller, question, asOf, requestId: givenR
 
   // 2. Tool loop.
   const loop = await runLoop({ caller, question: q, asOf: effAsOf, forbidCurrent, range: temporal.range, route, call, deps });
-  calls = loop.calls; trace.rounds = loop.rounds; trace.tool_calls = loop.toolCalls; trace.injection = loop.injection; trace.as_of_overrides = loop.overrides;
+  calls = loop.calls; trace.tools_offered = { reason: loop.selection.reason, domains: loop.selection.domains, keyword_domains: loop.selection.keyword_domains, widened: !!loop.selection.widened, offered: loop.selection.offered, of: loop.selection.total, ids: loop.selection.ids }; trace.rounds = loop.rounds; trace.tool_calls = loop.toolCalls; trace.injection = loop.injection; trace.as_of_overrides = loop.overrides;
   if (loop.outcome === "blocked") return blockedCard(loop.blocked, "loop");
   if (loop.outcome === "limit") return finish(codeCard("tool_failure", meta({ asOf: asOfLabel, reasonCode: `tool_limit:${loop.limit}` })), "tool_failure:limit");
   const envelopes = loop.envelopes;

@@ -12,7 +12,7 @@
 //
 // Interface: the same as tests/fixtures/ai_desk/fake_client.mjs ({ mode: "fake", complete(request) }), so budget.guardedCall treats it as a
 // fake-mode client: the SAME gate, caps and ledger code as a live call, in the ledger's separate "fake" lane.
-// Token usage in a scripted response is an ESTIMATE (UTF-8 bytes / 3.5), so fake costs are a rough guide, not a price quote.
+// Token usage in a scripted response is an ESTIMATE (UTF-8 bytes / 2.5, the ratio R1 measured; cache creation and reads are modeled), so fake costs are a rough guide, not a price quote.
 import { findSpelledQuantities } from "../../../worker/src/desk/validator.js";
 import { createFakeClient } from "../../../tests/fixtures/ai_desk/fake_client.mjs";
 
@@ -99,7 +99,7 @@ const franchiseIn = (q) => (/(?<!\d)(\d{4})(?!\d)/.exec(String(q)) || [])[1] || 
 const factSuffix = (ev, suffix) => ev.facts.find((f) => f.id.endsWith(`.${suffix}`));
 
 // ── Router (a cheap classifier: the question, a short label, domains, an optional past date) ────────
-const ROUTES = {
+export const SCRIPTED_ROUTES = {
   "DEV-RUL-02": { intent: "rule_lookup", domains: ["rules", "history"] },
   "DEV-RUL-10": { intent: "rule_lookup", domains: ["rules", "glossary"] },
   "DEV-REC-02": { intent: "champions_list", domains: ["history", "standings"] },
@@ -112,7 +112,7 @@ const ROUTES = {
   "DEV-UNA-08": { intent: "title_lookup", domains: ["history"] },
 };
 function routerReply(caseId, request) {
-  const r = ROUTES[caseId];
+  const r = SCRIPTED_ROUTES[caseId];
   const q = questionOf(request);
   const ys = yearsIn(q).filter((y) => y !== 2026);
   const isRange = /\b(since|from|between|through|until)\b|\b(19|20)\d{2}\s*(to|-)\s*(19|20)\d{2}\b/i.test(q);   // a range is several seasons, not one date
@@ -256,22 +256,53 @@ function composerStep(caseId, request) {
 // The step is told by the tools offered (a forced tool_choice is not sent to every model): one tool named route_question or emit_card, else the loop.
 const toolNames = (request) => (Array.isArray(request.tools) ? request.tools.map((x) => x && x.name) : []);
 const stepOf = (request) => { const n = toolNames(request); return n.length === 1 && n[0] === "route_question" ? "router" : n.length === 1 && n[0] === "emit_card" ? "composer" : "loop"; };
-const bytes = (v) => new TextEncoder().encode(JSON.stringify(v)).length;
-export function estimateUsage(request, content) {
-  return { input_tokens: Math.ceil(bytes({ system: request.system, messages: request.messages, tools: request.tools }) / 3.5), output_tokens: Math.max(20, Math.ceil(bytes(content) / 3.5)) };
+const bytes = (v) => new TextEncoder().encode(typeof v === "string" ? v : JSON.stringify(v)).length;
+
+// ── Modeled token usage (an ESTIMATE, never a price quote) ──────────────────────────────────────────
+// 2.5 bytes per token: measured in the first live run (R1), where a loop request of about 18.0 KB (14 tool definitions, the prompt and the question)
+// was billed 7,218 input tokens (9,022 recorded with the 25 percent margin). The earlier 3.5 understated every scripted cost by about 40 percent.
+export const BYTES_PER_TOKEN = 2.5;
+export const MIN_CACHEABLE_TOKENS = 512;        // Sonnet 5.5 / Haiku 5.5, per Anthropic's published minimum (verify against the current docs)
+const tokensOf = (n) => Math.ceil(n / BYTES_PER_TOKEN);
+const hasMarker = (v) => JSON.stringify(v == null ? null : v).includes('"cache_control"');
+const strip = (v) => JSON.parse(JSON.stringify(v == null ? null : v, (k, x) => (k === "cache_control" ? undefined : x)));
+
+// A modeled prompt cache, one per scripted client: the cache covers tools, then system, then messages, and a hit needs an identical prefix.
+// Entries are written at each marked breakpoint (system block, newest message); a later request reads the longest stored prefix it starts with,
+// is charged cache creation only for the part beyond what it read, and the rest of its input is plain input tokens.
+export function createCacheModel() { return { entries: [] }; }
+export function estimateUsage(request, content, cache = null) {
+  const tools = JSON.stringify(strip(request.tools)), system = JSON.stringify(strip(request.system));
+  const msgs = (strip(request.messages) || []).map((m) => JSON.stringify(m));
+  const full = tools + system + msgs.join("");
+  const total = tokensOf(bytes(full));
+  const usage = { input_tokens: total, output_tokens: Math.max(20, Math.ceil(bytes(content) / BYTES_PER_TOKEN)) };
+  if (!cache || !hasMarker(request)) return usage;
+  const prefixes = [];
+  if (hasMarker(request.system)) prefixes.push(tools + system);
+  if (Array.isArray(request.messages) && request.messages.length && hasMarker(request.messages[request.messages.length - 1])) prefixes.push(full);
+  const usable = prefixes.filter((p) => tokensOf(bytes(p)) >= MIN_CACHEABLE_TOKENS);
+  if (!usable.length) return usage;
+  const last = usable[usable.length - 1];
+  let read = 0;
+  for (const e of cache.entries) if (full.startsWith(e.text) && e.tokens > read) read = e.tokens;
+  const lastTokens = tokensOf(bytes(last));
+  for (const p of usable) if (!cache.entries.some((e) => e.text === p)) cache.entries.push({ text: p, tokens: tokensOf(bytes(p)) });
+  return { ...usage, input_tokens: Math.max(0, total - lastTokens), cache_read_input_tokens: Math.min(read, lastTokens), cache_creation_input_tokens: Math.max(0, lastTokens - read) };
 }
 
-export function scriptedResponse(caseId, request) {
+export function scriptedResponse(caseId, request, cache = null) {
   if (!SCRIPTED_CASE_IDS.includes(caseId)) throw new Error(`no scripted model for case ${String(caseId).slice(0, 40)}`);
   const step = stepOf(request);
   const r = step === "router" ? routerReply(caseId, request) : step === "composer" ? composerStep(caseId, request) : loopStep(caseId, request);
-  return { ...r, usage: estimateUsage(request, r.content) };
+  return { ...r, usage: estimateUsage(request, r.content, cache) };
 }
 
 // A fake-mode client (the budget gate keeps its spend in the "fake" lane). Every request is recorded in `calls`.
 export function createScriptedClient(caseId) {
   if (!SCRIPTED_CASE_IDS.includes(caseId)) throw new Error(`no scripted model for case ${String(caseId).slice(0, 40)}`);
-  const client = createFakeClient((request) => scriptedResponse(caseId, request));
+  const cache = createCacheModel();
+  const client = createFakeClient((request) => scriptedResponse(caseId, request, cache));
   client.scripted = true;
   return client;
 }

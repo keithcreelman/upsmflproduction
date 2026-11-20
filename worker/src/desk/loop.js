@@ -10,6 +10,7 @@ import { runTool, envelope, toolSpecsForModel, toolIdFromModelName } from "./reg
 import { formatFact, assertCommishCaller } from "./contract.js";
 import { MODELS, getPrompt, promptHash } from "./prompts.js";
 import { scanForInjection, wrapAsData } from "./injection.js";
+import { selectToolIds } from "./tool_select.js";
 
 export const LOOP_LIMITS = Object.freeze({ rounds: 6, calls: 12, resultChars: 12000, maxTokens: 1500 });
 
@@ -35,6 +36,20 @@ export function envelopeForModel(env) {
   return { text, truncated };
 }
 
+// Prompt caching (cost only; it changes nothing the model is told). Two breakpoints: the system block (the cache covers tools, then system, so the
+// definitions and the prompt are written once and read on every later round) and the LAST block of the newest message (each round reads everything
+// before it). The API allows 4 breakpoints at most, so older markers are never kept: the view below is rebuilt each round with a marker on the
+// final block only, and the stored history carries none.
+const EPHEMERAL = Object.freeze({ type: "ephemeral" });
+export function cachedSystem(text) { return [{ type: "text", text, cache_control: { ...EPHEMERAL } }]; }
+export function withLastMarker(messages) {
+  if (!Array.isArray(messages) || !messages.length) return messages;
+  const last = messages[messages.length - 1];
+  if (!last || !Array.isArray(last.content) || !last.content.length) return messages;
+  const content = last.content.map((b, i) => (i === last.content.length - 1 && b && typeof b === "object" ? { ...b, cache_control: { ...EPHEMERAL } } : b));
+  return [...messages.slice(0, -1), { ...last, content }];
+}
+
 function cleanBlock(b) {
   if (b && b.type === "tool_use") return { type: "tool_use", id: String(b.id || ""), name: String(b.name || ""), input: b.input && typeof b.input === "object" ? b.input : {} };
   return { type: "text", text: b && typeof b.text === "string" ? b.text : "" };
@@ -43,11 +58,15 @@ function cleanBlock(b) {
 // ctx: { caller, question, asOf, route, call, deps }  (call = the pipeline's metered model caller)
 export async function runLoop({ caller, question, asOf, forbidCurrent = false, range = null, route, call, deps }) {
   assertCommishCaller(caller);
-  const specs = toolSpecsForModel();
-  const offered = new Set(specs.map((s) => s.name));
+  const allSpecs = toolSpecsForModel();
+  // Only the definitions this question can plausibly need (see tool_select.js). Authorization is unchanged: runTool checks every call.
+  const selection = selectToolIds({ route, question, allIds: allSpecs.map((s) => toolIdFromModelName(s.name)) });
+  const chosen = new Set(selection.ids);
+  let specs = allSpecs.filter((s) => chosen.has(toolIdFromModelName(s.name)));
+  let offered = new Set(specs.map((s) => s.name));
   const system = getPrompt("loop").text;
   const hash = await promptHash("loop");
-  const toolIds = specs.map((s) => toolIdFromModelName(s.name));
+  let toolIds = specs.map((s) => toolIdFromModelName(s.name));
   const pinned = asOf && asOf !== "current" ? `Pinned as_of for this question: ${asOf}` : "as_of for this question: current unless the question names a past date";
   const rangeText = range ? ` It covers a range (${range.last_n ? `the last ${range.last_n} ${range.unit}` : `from ${range.from}${range.to ? ` to ${range.to}` : " to now"}`}): check each season in it with its own dated call.` : "";
   const compare = forbidCurrent ? `\nThis question compares several dates.${rangeText} Pass an explicit date (YYYY-MM-DD) as as_of on every call, one call per date. A call with as_of current is refused.` : "";
@@ -60,14 +79,23 @@ export async function runLoop({ caller, question, asOf, forbidCurrent = false, r
   const overrides = [];        // [{call_id, tool, sent, forced}]: calls whose as_of the model sent and code replaced
   const pinnedDate = typeof asOf === "string" && asOf !== "current" ? asOf : null;
   let rounds = 0, callSeq = 0, truncatedAny = false;
-  const done = (outcome, extra = {}) => ({ outcome, envelopes, calls, rounds, toolCalls: callSeq, injection: { suspicious: injectionSources.length > 0, sources: injectionSources }, overrides, truncated: truncatedAny, ...extra });
+  const done = (outcome, extra = {}) => ({ outcome, selection, envelopes, calls, rounds, toolCalls: callSeq, injection: { suspicious: injectionSources.length > 0, sources: injectionSources }, overrides, truncated: truncatedAny, ...extra });
 
   for (;;) {
-    const res = await call({ step: "loop", model: MODELS.loop, system, messages, tools: specs, max_tokens: LOOP_LIMITS.maxTokens, promptHash: hash, toolIds });
+    const res = await call({ step: "loop", model: MODELS.loop, system: cachedSystem(system), messages: withLastMarker(messages), tools: specs, max_tokens: LOOP_LIMITS.maxTokens, promptHash: hash, toolIds });
     if (!res.ok) return done("blocked", { blocked: res });
     const content = ((res.response && res.response.content) || []).map(cleanBlock);
     const uses = content.filter((b) => b.type === "tool_use");
-    if (!uses.length) return done("complete");
+    if (!uses.length) {
+      // Safety valve for a narrowed set: a first reply that used NO tool at all may mean the router sent the question to the wrong domain, so the
+      // loop widens ONCE to every definition and asks again (one more model call, only in this rare case). Never after any tool has run.
+      if (selection.reason === "domains" && callSeq === 0 && rounds === 0 && specs.length < allSpecs.length) {
+        specs = allSpecs; offered = new Set(specs.map((s) => s.name)); toolIds = specs.map((s) => toolIdFromModelName(s.name));
+        selection.widened = true; selection.offered = specs.length; selection.ids = toolIds;
+        continue;
+      }
+      return done("complete");
+    }
     if (rounds >= LOOP_LIMITS.rounds) return done("limit", { limit: "rounds" });
     if (callSeq + uses.length > LOOP_LIMITS.calls) return done("limit", { limit: "calls" });
     rounds += 1;

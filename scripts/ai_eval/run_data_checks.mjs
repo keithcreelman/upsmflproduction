@@ -177,7 +177,7 @@ function propQuestionAsData() {
       const closers = (text.match(/<<<END_UPS_DATA>>>/g) || []).length;
       const openers = (text.match(/<<<UPS_DATA /g) || []).length;
       if (closers !== openers) return { pass: false, detail: "a forged closing delimiter in the question survived" };
-      if (!/untrusted data/.test(String(r.system))) return { pass: false, detail: "a model call went out without the untrusted-data rule" };
+      if (!/untrusted data/.test(typeof r.system === "string" ? r.system : JSON.stringify(r.system))) return { pass: false, detail: "a model call went out without the untrusted-data rule" };
     }
     return { pass: true, detail: "question delimited as data in every model request; forged delimiter neutralized" };
   });

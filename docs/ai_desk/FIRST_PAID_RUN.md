@@ -1,6 +1,6 @@
 # First paid run of the Commissioner Desk
 
-Status: prepared, NOT run. Nothing in this folder has called a paid model. No run happens without your written go for the exact run id and cap (see the last section).
+Status: R1 ran on 2026-11-20 and stopped by design after its first question (see `R1_FINDINGS.md`). The fixes and the cost cuts are built and reviewed offline; R2 is prepared and NOT run. No run happens without your written go for the exact run id and cap (see the last section).
 
 ## What this run is
 Ten real questions go to a real model (Anthropic's Claude) through the desk's real code: the router, the tool loop, the composer, the validator and the budget gate. The tools read offline fixture data (copies of league records and a made-up cap roster), never production. The point is to find out, for about a dollar or less, how a real model behaves on the hard parts: citing a rule, listing champions, giving a live number, ignoring a planted instruction, and declining when it should.
@@ -25,18 +25,23 @@ The ten questions all come from the DEVELOPMENT bank. No held-out question is us
 Each case's file entry (`scripts/ai_eval/sets/first10.json`) lists the tools it should use, what a correct answer must contain, what it must not contain, and why it is in the set.
 
 ## What it should cost
-These numbers come from `node scripts/ai_eval/run_eval.mjs --set scripts/ai_eval/sets/first10.json --mode plan --run-id R1`. They use the budget gate's own arithmetic on the real requests the desk builds, with a scripted stand-in producing the answers. A real model will differ.
+Two sources, and they agree to within a few percent:
+- the plan: `node scripts/ai_eval/run_eval.mjs --set scripts/ai_eval/sets/first10.json --mode plan --run-id R2` (the budget gate's own arithmetic on the real requests, with a scripted stand-in producing the answers, now sized at the 2.5 bytes per token R1 measured);
+- the cost model, built from R1's billed tokens: `node scripts/ai_eval/cost_model.mjs` (see `COST_MODEL.md`).
 
 | | Per question | All ten |
 |---|---|---|
-| Typical (what it should cost) | about $0.03 to $0.05 | **about $0.38** |
-| Worst case on the expected path (the gate's reservations) | about $0.14 to $0.19 | **about $1.60** |
-| Largest single call (reservation) | up to $0.083 | $0.083 |
+| Typical, plan (scripted tokens x the 1.25 margin) | about $0.025 to $0.059 | **about $0.37** |
+| Cost model, narrowed tools + cache, cold / warm (with margin) | $0.052 / $0.037 mean | **$0.52 / $0.37** |
+| The same ten the OLD way (all 14 tools, no cache), with margin | $0.092 mean | $0.92 |
+| Worst case on the expected path (the gate's reservations) | about $0.13 to $0.18 | **about $1.60** |
+| Largest single call (reservation) | up to $0.084 | $0.084 |
 
-- Prices used: Haiku 5.5 at $0.10 in and $0.50 out, Sonnet 5.5 at $2 in and $10 out, per million tokens. The price table is from 2026-11-03 and has not been checked against your account. You confirm it at the live step.
-- The worst case is about four times typical because the gate must assume the worst (one token per byte of the request). It is a ceiling, not a forecast.
+- Prices used: Haiku 5.5 at $0.10 in and $0.50 out, Sonnet 5.5 at $2 in and $10 out, cache reads $0.10 and cache writes $2.50 per million tokens (Sonnet). The price table is from 2026-11-03; you confirm it at the live step.
+- The worst case is about four times typical because the gate must assume the worst (one token per byte of the request, every cached token a write). It is a ceiling, not a forecast.
 - If the model wandered (every allowed tool round, plus a retry) the code's own limits would allow about $1.2 per question. That never happens in a normal run, and the caps below stop it long before.
-- Caps the plan says are needed (the runner refuses below these): per question at least $0.10, per run at least $0.42, monthly and total at least $0.42. Recommended with room: per question $0.15 to $0.25, per run $0.61 to $1.00.
+- Caps the plan says are needed (the runner refuses below these): per question at least $0.10, per run at least $0.41, monthly and total at least $0.41. Recommended with room: per question $0.15 to $0.25, per run $0.62 to $1.00.
+- The composer's real size is the one thing R1 could not measure (its call failed). The model assumes about 4,200 input and 450 output tokens; R2 will measure it.
 
 ## Before you spend anything: what the dry run shows today
 The earlier blockers are fixed upstream: "since YEAR" is a range, the scorer ignores gaps the desk copies from tools, the history tools return season facts, the cap tool returns the team name, the composer sees glossary definitions, and the ledger's `tools` column is filled. All ten fixture oracles now pass in the dry run, including DEV-REC-01 (franchise 0010, three titles, seasons 2011, 2015 and 2023).
@@ -55,12 +60,12 @@ Use the checkout that has branch `claude/ai-commish-desk`.
 2. **Keep the key out of chat and out of every file.** Put it in your password manager. Never paste it into a chat, an issue, a PR, a file or a screenshot.
 3. **See the plan (free, no key needed).**
    ```
-   node scripts/ai_eval/run_eval.mjs --set scripts/ai_eval/sets/first10.json --mode plan --run-id R1
+   node scripts/ai_eval/run_eval.mjs --set scripts/ai_eval/sets/first10.json --mode plan --run-id R2
    ```
    Read the cost table and the price table. Check the prices against your account today.
 4. **Run the dry run (free).**
    ```
-   node scripts/ai_eval/run_eval.mjs --set scripts/ai_eval/sets/first10.json --mode dry --run-id R1
+   node scripts/ai_eval/run_eval.mjs --set scripts/ai_eval/sets/first10.json --mode dry --run-id R2
    ```
    It must end with `DRY RUN PASSED`.
 5. **Set the caps and the key, in that terminal only** (zsh). The key goes in through a hidden prompt, so it never appears on screen or in your shell history:
@@ -75,18 +80,18 @@ Use the checkout that has branch `claude/ai-commish-desk`.
    The runner reads only `ANTHROPIC_API_KEY_DESK`. It never reads `ANTHROPIC_API_KEY`.
 6. **Run it live, with your approval string and your own typed confirmation** (replace the date with today's, which says you checked the prices today):
    ```
-   node scripts/ai_eval/run_eval.mjs --set scripts/ai_eval/sets/first10.json --mode live --run-id R1 \
-     --max-usd 1.00 --approve "R1:1.00:10" --prices-confirmed <TODAY'S-LOCAL-DATE-YYYY-MM-DD> \
-     --provider-limit-confirmed 2.00 --first-live-run
+   node scripts/ai_eval/run_eval.mjs --set scripts/ai_eval/sets/first10.json --mode live --run-id R2 \
+     --max-usd <APPROVED-CAP> --approve "R2:<APPROVED-CAP>:10" --prices-confirmed <TODAY'S-LOCAL-DATE-YYYY-MM-DD> \
+     --provider-limit-confirmed 2.00
    ```
    What each flag means:
    - `--mode live`: the paid run. Everything else only refuses or prepares.
-   - `--run-id R1`: the name of this run. A run id can be used for live spending once, ever.
+   - `--run-id R2`: the name of this run. A run id can be used for live spending once, ever (R1 is used up). The cap is whatever Keith approves in writing; it is not decided in this document.
    - `--max-usd 1.00` and `--approve "R1:1.00:10"`: the most you will pay (`<run id>:<dollars>:<number of cases>`). They must agree and match the run. **This is a hard cap**: the run is given a budget of that amount to add to the ledger, even if your `DESK_BUDGET_*` caps are higher.
    - `--prices-confirmed <date>`: your statement that you checked the price table against your account today. It must be exactly today's date (your local date, or the UTC date if that differs); yesterday and tomorrow are refused.
    - `--provider-limit-confirmed 2.00`: your statement that you set a spend limit of that many dollars on the Console workspace (step 1). It must be at least `--max-usd` and at most **two** times it (a limit far above the run does not protect it). **Or**, if you did not set one, replace it with `--no-provider-limit-estimate-only`: that prints a loud warning (the local gate only caps ESTIMATED charges, and an account price above the table could cost more than approved) and the approved amount may not be more than **$1.00**. Give one of the two, never both.
    - After every single call the program compares what the run has ACTUALLY cost so far (the returned usage, priced, not the reservation) with `--max-usd`. If it is over, no further call is made, the results say `ABORTED_OVER_CAP`, and the exit code is 4.
-   - `--first-live-run`: only for the very first live run ever. It says "I know there is no earlier live spending". Once any live spending exists the flag is refused, and without it a first run is refused, so a wiped history cannot pass as a first run.
+   - `--first-live-run`: only for the very first live run ever, so R2 does NOT use it (and it is refused now: R1 left live spending in the ledger). It was for R1. Its meaning: It says "I know there is no earlier live spending". Once any live spending exists the flag is refused, and without it a first run is refused, so a wiped history cannot pass as a first run.
    - There is no flag to skip the next step. The terminal must be real: the program uses the process's own stdin and stdout and requires both to be TTYs; terminal streams, home folders or a replaced `fetch` supplied by a caller that imports the code are ignored (only the test gate, a literal canary key plus a test flag, honors them).
 
    **Then you type the confirmation yourself.** The program prints the plan and asks you to type exactly `R1 $1.00` (the run id, a space, and the approved amount). It needs a real terminal on both input and output, so a script, an agent or a CI job can never get past this step. Anything else cancels and nothing is sent.
