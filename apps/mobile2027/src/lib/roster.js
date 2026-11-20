@@ -2,9 +2,11 @@
    state object: no network, no storage, no DOM. Every fact that is not known comes back as null or "unavailable", never as 0.
 
    Two kinds of fact are kept apart on purpose (Keith, 2026-11-20):
-     HISTORICAL  a past week's submitted lineup, its scores and its NFL matchups (read for that week);
-     CURRENT     injury status, who is on the roster, contracts and cap rules (read now, as of now).
-   A past week's screen shows only the historical kind. A current fact is never drawn inside a past-week row. */
+     HISTORICAL  a past week's submitted lineup and its scores (read for that week);
+     CURRENT     injury status, who is on the roster, contracts, cap rules, and each player's NFL club, bye week and opponent (read now).
+   A past week's screen shows only the historical kind. A current fact is never drawn inside a past-week row. In particular no read says
+   which NFL club a player was with in a past week, so a past week's opponents and bye weeks are Unavailable (MAT-1, Codex review of
+   dc5b35d7): today's club may not be the club he played for. */
 (function (root, factory) {
   var req = typeof require === "function";
   var api = factory(req ? require("./format.js") : root.UPS2027.format);

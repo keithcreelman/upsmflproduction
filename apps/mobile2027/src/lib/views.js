@@ -79,7 +79,7 @@
   function weekSheet(S) {
     var wi = R.weekInfo(S);
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Choose a week" tabindex="-1"><div class="grab"></div><div class="top"><h3>Choose a week</h3><button class="btn" data-act="close">Close</button></div>' +
-      '<div class="ex">A past week shows that week’s lineup, scores and NFL matchups as MFL recorded them. Injury status, rosters and contracts are only shown for the current week. Later weeks are not available in this preview.</div>' +
+      '<div class="ex">A past week shows that week’s lineup and scores as MFL recorded them. NFL opponents and bye weeks, injury status, rosters and contracts are only shown for the current week. Later weeks are not available in this preview.</div>' +
       R.weekChoices(wi.cur).map(function (c) {
         var label = c.kind === "current" ? "Current week" : c.kind === "past" ? "Played" : c.kind === "future" ? "Not available in this preview" : "Unavailable";
         var on = c.n === wi.sel, off = c.kind === "future" || c.kind === "unknown";
@@ -110,7 +110,12 @@
       if (p.status === "gone") { inPlay = false; parts = []; }
       if (!past && p.status === "ir") parts.push("Return: Unavailable"); // MFL's expected-return text is not shown (ruling 2026-11-20)
       else if (!past && p.status === "taxi") parts.push(p.taxi.used == null ? "Call-ups unavailable" : p.taxi.used + "/" + (p.taxi.max || 3) + " call-ups");
-      else if (inPlay) {
+      else if (past) {
+        // MAT-1 (Codex, review of dc5b35d7): none of the reads says which NFL club a player was with in a past week, and his club today
+        // may not be the one he played for then, so today's club cannot be used to look up that week's opponent or bye. The recorded
+        // lineup and score stay; the club is labeled "now"; the opponent is Unavailable.
+        if (p.status !== "gone") parts = [esc(team) + " now", "Opponent unavailable"];
+      } else if (inPlay) {
         var opp = R.oppText(S, p, wk);
         if (opp) parts.push(esc(opp));
         if (!past && S.view === "lineup" && o.tag) { var ko = R.kickoffText(S, p, wk); if (ko) parts.push(esc(ko)); }
@@ -119,7 +124,7 @@
       else if (past && p.franchiseId && S.teamId && p.franchiseId !== S.teamId) parts.push("now on another team");
       if (view === "performance" || view === "past") {
         var sw = past ? wk : R.scoreWeek(wi), sc = sw ? R.scoreOf(S, p.id, sw) : null;
-        var sct = !sw ? "—" : sc === undefined ? "…" : sc === null && p.bye === sw ? "Bye" : R.pts(sc);
+        var sct = !sw ? "—" : sc === undefined ? "…" : R.pts(sc); // no "Bye" label: his bye week today says nothing about the club he was with in a past week
         if (!past) {
           if (p.status !== "active") parts = [esc(team), "not in play"];
           else {
@@ -135,7 +140,7 @@
         if (onB) chips.push(chip("wn", "▲ Bye week"));
         var ic = R.injuryChip(S, p);
         if (ic) chips.push(chip(ic.cls, esc(ic.text)));
-      } else if (o.tag && R.onBye(p, wk)) chips.push(chip("wn", "▲ Bye week"));
+      }
     }
     var tag = o.tag ? '<span class="tag sl">' + esc(o.tag) + "</span>" : '<span class="tag pp">' + pcx(p.pos) + "</span>";
     return '<div class="rx' + (o.problem ? " prob" : "") + '">' + tag + '<div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + small + "</small></button>" +
@@ -191,7 +196,7 @@
 
     // A past week (Lineup and Performance): only what MFL recorded for that week.
     if (wi.past && (S.view === "lineup" || S.view === "performance")) {
-      out += sumCard("<b>Week " + wi.sel + " · played</b> · Lineup, scores and NFL matchups are from that week. Injury status, rosters and contracts are as of now, so none of them is drawn here. Each player’s NFL team is his team today, so a player who changed teams may show a different opponent.<div><button class=\"link\" data-act=\"pickweek\" data-v=\"" + wi.cur + "\">Go to Week " + wi.cur + " (current)</button></div>");
+      out += sumCard("<b>Week " + wi.sel + " · played</b> · Lineup and scores are from that week. NFL opponents and bye weeks are Unavailable for a past week: no read says which NFL team a player was with then, and his team today could be the wrong one. Injury status, rosters and contracts are as of now, so none of them is drawn here.<div><button class=\"link\" data-act=\"pickweek\" data-v=\"" + wi.cur + "\">Go to Week " + wi.cur + " (current)</button></div>");
       var pl = R.lineupFor(S, t, wi.sel);
       if (pl.state === "loading") return out + '<div class="card rows" aria-busy="true">' + skeletonRows(6) + '</div><div class="mu ctr sm">Loading Week ' + wi.sel + "…</div>";
       if (pl.state !== "ok") return out + '<div class="card warnc"><h2>Week ' + wi.sel + '</h2><div class="ex">' + (pl.state === "missing" ? "MFL has no lineup recorded for this team in that week." : "That week’s lineup could not be read" + (pl.error ? " (" + esc(pl.error) + ")" : "") + ". Nothing is guessed in its place.") + '</div><button class="btn blk" data-act="pickweek" data-v="' + wi.sel + '">Try again</button></div>';

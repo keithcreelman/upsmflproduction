@@ -262,10 +262,13 @@ test("R2: switching views, weeks and teams never asks for a read again; each add
   // a past week: its lineup and its games, once; the week before is already in memory
   await a.click({ "data-act": "weeks" }); t.match(a.html(), /aria-label="Choose a week"/);
   await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(40);
-  t.deepEqual(asked(a).slice(n0 + 1), ["lineup-matchups#10"], "Week 10's lineup was already read for Performance, so only its games are new");
+  t.deepEqual(asked(a).slice(n0 + 1), [], "Week 10's lineups and scores were already read for Performance, and a past week asks for no NFL games (MAT-1)");
   t.match(a.html(), /Week 10 · played/); t.doesNotMatch(a.html(), /Bench · /);
+  await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "9" }); await tick(40);
+  t.deepEqual(asked(a).slice(n0 + 1), ["mfl-export#9"], "Week 9, first visit: one request (its lineups and scores)");
+  await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
   await a.click({ "data-act": "view", "data-v": "performance" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
-  t.equal(a.calls.length, n0 + 2, "revisiting the same past week asks nothing");
+  t.equal(a.calls.length, n0 + 2, "revisiting past weeks asks nothing");
   await a.click({ "data-act": "pickweek", "data-v": "11" }); await tick(10);
   t.match(a.html(), /Week 11 starters/); t.equal(a.calls.length, n0 + 2, "back to the current week: nothing");
   await a.click({ "data-act": "pickweek", "data-v": "12" }); t.doesNotMatch(a.html(), /Week 12 starters/, "a later week cannot be chosen"); t.equal(a.calls.length, n0 + 2);

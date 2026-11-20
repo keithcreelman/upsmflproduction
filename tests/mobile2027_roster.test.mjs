@@ -175,9 +175,9 @@ test("MFL's 'expected return' text is never kept or drawn (ruling 2026-11-20: Un
 test("a past week shows only that week's facts; every current fact is left out or labeled as of now", async () => {
   const intel = await intelFor();
   const S = state(intel, { wk: 10 }), html = V.rosterBody(S), tx = text(html);
-  t.match(tx, /Week 10 · played · Lineup, scores and NFL matchups are from that week/);
+  t.match(tx, /Week 10 · played · Lineup and scores are from that week/);
+  t.match(tx, /NFL opponents and bye weeks are Unavailable for a past week: no read says which NFL team a player was with then/);
   t.match(tx, /Injury status, rosters and contracts are as of now, so none of them is drawn here/);
-  t.match(tx, /a player who changed teams may show a different opponent/);
   t.match(tx, /Go to Week 11 \(current\)/);
   t.match(html, /class="wsel past"/); t.match(tx, /Played · as MFL recorded it/);
   t.match(tx, /Week 10 starters · \d+ of 18/);
@@ -232,7 +232,7 @@ test("the week sheet: past weeks can be chosen, later weeks are listed as not av
   t.match(text(html), /Week 11 Current week/); t.match(text(html), /Week 12 Not available in this preview/); t.match(text(html), /Week 3 Played/);
   t.deepEqual([...html.matchAll(/data-act="pickweek" data-v="(\d+)"/g)].map((m) => +m[1]), [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 12, 13, 14, 15, 16, 17], "current week first, then played weeks most recent first, then later weeks");
   t.match(html, /data-v="11" aria-pressed="true"/);
-  t.match(text(html), /Injury status, rosters and contracts are only shown for the current week/);
+  t.match(text(html), /NFL opponents and bye weeks, injury status, rosters and contracts are only shown for the current week/);
 });
 
 test("the injury note and the status line: only when something is wrong; 'n to fix' counts empty slots, byes and players who cannot play", async () => {
@@ -270,7 +270,7 @@ test("each fact is the one the read gave: home or away, the team's own week, one
   t.ok(withDecimal, "a recorded starter with a non-whole score");
   t.match(text(V.rosterBody(state(intel, { view: "performance" }))), new RegExp(withDecimal.name + " Wk 10 " + String(sc10[withDecimal.id]).replace(".", "\\.") + " · Avg"), "current week: last week's (Week 10) score, to one decimal");
   const past = text(V.rosterBody(state(intel, { wk: 10 })));
-  t.match(past, new RegExp(withDecimal.name + " [A-Z]+ · [^ ]+ [^ ]+ " + String(sc10[withDecimal.id]).replace(".", "\\.") + " pts"), "past week 10: that week's own score");
+  t.match(past, new RegExp(withDecimal.name + " [A-Z]+ now · Opponent unavailable " + String(sc10[withDecimal.id]).replace(".", "\\.") + " pts"), "past week 10: that week's own score, his club labeled 'now', the opponent Unavailable");
   // a failed games read: the average is a dash, not 'loading'
   const noMu = text(V.rosterBody(state({ ...intel, mu: { 11: { state: "error", error: "x" } } }, { view: "performance" })));
   t.match(noMu, /Avg —/); t.doesNotMatch(noMu, /Avg …/);
@@ -289,6 +289,42 @@ test("each fact is the one the read gave: home or away, the team's own week, one
   const irHtml = V.rosterBody(state(await intelFor({ status: s2 }), { open: { ir: true } }));
   const rowOf = (pid) => irHtml.split('<div class="rx').find((r) => r.includes('data-pid="' + pid + '"'));
   t.doesNotMatch(rowOf(irs[0].id), /■ IR/, "an IR player in the IR section shows no IR chip"); t.match(rowOf(irs[1].id), /■ PUP/, "a PUP designation still shows");
+});
+
+
+test("MAT-1 (Codex, dc5b35d7): a past week never uses a player's club TODAY to find that week's opponent or bye; the recorded lineup and score stay", async () => {
+  const intel = await intelFor();
+  const m0 = model(), tm0 = m0.teams.find((x) => x.id === TEAM);
+  const starter = R.lineupFor(state(intel, { wk: 10 }), tm0, 10).slots[0].player;
+  const sc10 = Object.fromEntries(FX2.weekly_results_w10.weeklyResults.matchup.flatMap((x) => x.franchise).filter((f) => f.id === TEAM)[0].player.map((p) => [p.id, p.score]));
+  // a games read for that week IS in memory (the page no longer asks for one, but a stale or future read must not be used either),
+  // and the two clubs have different opponents and different bye weeks
+  const games = { OLD: { opp: "AAA", isHome: true, kickoff: 1795000000, status: "final" }, NEW: { opp: "BBB", isHome: false, kickoff: 1795000000, status: "final" } };
+  const withGames = { ...intel, mu: { ...intel.mu, 10: { state: "ok", data: { week: 10, games, avg: {}, asOf: "" }, at: Date.now() } } };
+  const rowOf = (html, pid) => html.split('<div class="rx').find((r) => r.includes('data-pid="' + pid + '"'));
+  const draw = (club, bye) => { const m = model(); m.byId[starter.id].nflTeam = club; m.byId[starter.id].bye = bye; return V.rosterBody(state(withGames, { model: m, wk: 10 })); };
+  const before = rowOf(draw("OLD", 5), starter.id), after = rowOf(draw("NEW", 10), starter.id);
+  t.ok(before && after, "the starter's row is drawn");
+  // only his club's label changes (it says 'now'); nothing about the opponent or the bye depends on it
+  t.equal(before.replace("OLD now", "CLUB now"), after.replace("NEW now", "CLUB now"), "changing only his current club changes nothing else in the row");
+  [before, after].forEach((r) => {
+    t.match(text(r), /now · Opponent unavailable/); t.doesNotMatch(r, /\b(vs|@) (AAA|BBB)\b|AAA|BBB/, "no opponent from either club's schedule");
+    t.doesNotMatch(r, /Bye week|▲|>Bye</, "no bye indicator, whichever club's bye week it would be");
+    t.match(text(r), new RegExp(String(sc10[starter.id]).replace(".", "\\.") + " pts"), "the recorded score stays");
+    t.match(r, /class="tag sl">QB1</, "and the recorded lineup (his slot) stays");
+  });
+  // his current bye week equals the selected past week: still no bye indicator, on the Lineup or the Performance view
+  const m3 = model(); m3.byId[starter.id].bye = 10;
+  t.doesNotMatch(V.rosterBody(state(withGames, { model: m3, wk: 10 })), /Bye week/);
+  t.doesNotMatch(V.rosterBody(state(withGames, { model: m3, wk: 10, view: "performance" })), /Bye week|>Bye</);
+  // the current week's Performance view reports last week's score: a missing score is a dash, never 'Bye' taken from his club's bye week today
+  const m5 = model(); const target = R.lineupFor(state(intel, { model: m5 }), m5.teams.find((x) => x.id === TEAM), 11).slots[1].player; m5.byId[target.id].bye = 10;
+  const i5 = { ...intel, wk: { ...intel.wk, 10: { state: "ok", at: Date.now(), data: { weeklyResults: { week: "10", matchup: [{ franchise: [{ id: TEAM, score: "1", player: [{ id: target.id, status: "nonstarter", score: "" }] }] }] } } } } };
+  const perf = text(V.rosterBody(state(i5, { model: m5, view: "performance" })));
+  t.match(perf, new RegExp(target.name + " Wk 10 — · Avg"), "no score reads as a dash"); t.doesNotMatch(perf, /Wk 10 Bye/);
+  // the current week is unchanged: a bye this week still shows, from his club's bye week today (a current fact)
+  const m6 = model(); const cur = R.lineupFor(state(intel, { model: m6 }), m6.teams.find((x) => x.id === TEAM), 11).slots[0].player; m6.byId[cur.id].bye = 11;
+  t.match(V.rosterBody(state(intel, { model: m6 })), /▲ Bye week/);
 });
 
 await run("mobile2027_roster");

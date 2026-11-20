@@ -117,8 +117,8 @@
     if (!wi.cur) return;
     var historical = wi.past && (S.view === "lineup" || S.view === "performance");
     if (historical) {
+      // a past week needs only its own lineups and scores; its NFL games are not asked for (see MAT-1 in views.js: no read says which club a player was with then)
       intelRead(S.intel.wk, wi.sel, function (f) { return loader.loadWeekly(wi.sel, f); }, force && S.intel.wk[wi.sel] && S.intel.wk[wi.sel].state === "error");
-      intelRead(S.intel.mu, wi.sel, function (f) { return loader.loadMatchups(wi.sel, f); }, force && S.intel.mu[wi.sel] && S.intel.mu[wi.sel].state === "error");
       return;
     }
     // current information: injury status and this week's games, plus last week's scores for the Performance view
