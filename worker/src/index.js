@@ -26,7 +26,10 @@ import { handle2WayStagedHttp } from "./trade_2way_http.js";
 import { franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { checkAgingDropFirstSequences } from "./trade_2way.js";
 import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
-import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
+import { getAllFeatureFlags, getFeatureFlag, getFeatureFlagsFor, setFeatureFlags } from "./feature_flags.js";
+import { betaGate, betaRefusalResponse } from "./beta_gate.js";
+import { handleBetaRoute, handleBetaAdminRoute } from "./beta_routes.js";
+import { makeBetaStore, parseKeyring } from "./beta_session.js";
 import { parseDropLockSetting, dropsFromTransactions, resolveWaiverAvailability } from "./waiver_availability.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";
 import { resolveActiveSeason, mflSeasonReaders } from "./league_year.js";
@@ -8372,6 +8375,11 @@ export default {
       return;
     }
 
+    // ── Mobile beta: deletion maintenance (issue #1475, Stage 1) ──
+    // Wipes expired encrypted MFL sessions and deletes old session rows. ENFORCEMENT never depends on this: the request path refuses
+    // expired and revoked sessions on its own. A failure, or the migration not being applied yet ("no such table"), is harmless.
+    try { await makeBetaStore(env.UPS_MFL_DB).sweep(Date.now()); } catch (_) { /* nothing to do, or not applied yet */ }
+
     // ── §G3 INJURY-STATUS POLL ────────────────────────────────────────────
     // MFL's TYPE=injuries reports CURRENT status and keeps no history, so
     // "was he declared Out more than 24 hours before kickoff?" is unanswerable
@@ -9028,10 +9036,27 @@ export default {
       const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        "Access-Control-Allow-Headers": "Content-Type, Authorization, X-UPS-Client",
       };
       if (request.method === "OPTIONS") {
         return new Response("", { headers: corsHeaders });
+      }
+
+      // ---------- Mobile beta gate (issue #1475, Stage 1) ----------
+      // A request is "beta" if it carries the X-UPS-Client: beta/<build> marker OR a beta session id (Authorization: Bearer ups_bs_...).
+      // It is judged HERE, before any route (Hall and Discord included), and every refusal happens before any MFL call or D1 write.
+      // A request with neither is the original app (or any other caller): kind "original", no flag read, no D1, nothing changes.
+      // Only for an allowlisted route does the gate hand the route the owner's MFL session (betaCtx.mflSession), which replaces the
+      // ?MFL_USER_ID= read below; commissioner authority is switched off for every beta request (see _rdhCommishFids,
+      // commishSessionProven, sessionByCookie). Design and tests: docs/BETA_SESSIONS.md, tests/beta_*.test.mjs.
+      let betaCtx = null;
+      {
+        const bg = await betaGate({
+          request, env, now: Date.now(),
+          deps: { getFlags: (names) => getFeatureFlagsFor(env, names), store: makeBetaStore(env.UPS_MFL_DB), keyring: () => parseKeyring(env) },
+        });
+        if (bg.kind === "refuse") return betaRefusalResponse(bg, corsHeaders);
+        if (bg.kind === "inject") betaCtx = bg.ctx;
       }
 
       // ---------- Hall (League proposals/voting) ----------
@@ -9074,7 +9099,7 @@ export default {
           (pathYearMatch ? pathYearMatch[1] : defaultSeason) ||
           defaultSeason
       ).trim() || defaultSeason;
-      const browserMflUserId = String(url.searchParams.get("MFL_USER_ID") || "").trim();
+      const browserMflUserId = betaCtx ? betaCtx.mflSession : String(url.searchParams.get("MFL_USER_ID") || "").trim();   // beta: the gate's decrypted session, allowlisted routes only
       const browserApiKey = String(url.searchParams.get("APIKEY") || "").trim();
 
       // ---------- /admin/* front door (exact match) ----------
@@ -9493,6 +9518,7 @@ export default {
       // that MFL could invalidate. Cached (commishProofCache): fresh 10 min,
       // stale-honored 30 min when MFL errors, so polling doesn't hammer MFL.
       const commishSessionProven = async () => {
+        if (betaCtx) return { ok: false, reason: "beta_no_commish_authority" };   // a beta session never carries commissioner authority
         if (commishKeyProven()) return { ok: true, reason: "ok_apikey" };
         const token = browserMflUserId;
         if (!token) return { ok: false, reason: "no_token" };
@@ -15939,6 +15965,7 @@ export default {
           note: "The active season couldn't be read from MFL, so nothing was written. Name it with ?YEAR= to proceed." }) };
       };
       const _rdhCommishFids = () => {
+        if (betaCtx) return [];   // beta requests never carry commissioner authority (trade_authz isCommish, /api/me is_commish, draft gates)
         // Commish allowlist (Keith 2026-06-06: only 0008 + 0000, NOT 0001):
         //   0008 — Keith / Real Deal Creel (actual UPS commish team)
         //   0000 — MFL pseudo-franchise for the league owner login (no
@@ -16270,6 +16297,21 @@ export default {
         queryToken: browserMflUserId, cookieToken: "", allowCookieToken: false, ...opts,
       });
       const tradeDeny = (r) => jsonOut(r.http, callerFailureBody(r));
+      // ── Mobile beta session lifecycle (issue #1475, Stage 1) ─────────────────────────────────────────────────────────────────
+      // /api/beta/{status,handoff,session,signout}: the master switch (D1 flag BETA_ENABLED, fail closed) is read inside. The
+      // /admin/beta/* routes below are exact entries in the admin route table, so the /admin front door already required a real
+      // credential, and the beta gate refuses any beta request to them. Nothing returns an MFL session or echoes a credential.
+      {
+        const betaA = {
+          request, url, env, corsHeaders, now: Date.now(), store: makeBetaStore(env.UPS_MFL_DB),
+          getFlags: (names) => getFeatureFlagsFor(env, names), detectFranchise: _rdhDetectFranchise, leagueId: _rdhLeagueId(), season: YEAR,
+        };
+        const betaResp = await handleBetaRoute(betaA);
+        if (betaResp) return betaResp;
+        if (path === "/admin/beta/invites" && request.method === "POST") return await handleBetaAdminRoute(betaA);
+        if (path === "/admin/beta/purge-sessions" && request.method === "POST") return await handleBetaAdminRoute(betaA);
+      }
+
       const tradeForbidden = (message) => jsonOut(403, { ok: false, code: "forbidden", error: message, message });
       // Administrative routes: the admin key OR a proven commissioner session — nothing else.
       const tradeAdminGate = async (body) => {
@@ -24157,7 +24199,7 @@ const mflToSleeper = {};
       // Empty when there's no browser identity (the payload is then proxy-free
       // and safe to share under the plain franchise key).
       const acqViewerCacheTag = browserCookieValue ? `u:${browserCookieValue}` : "";
-      const sessionByCookie = !!browserCookieValue && browserCookieValue === secretCookieValue;
+      const sessionByCookie = !betaCtx && !!browserCookieValue && browserCookieValue === secretCookieValue;   // never true for a beta request
       const commishApiKey = String(env.COMMISH_API_KEY || "").trim();
       // NOTE: false whenever COMMISH_API_KEY is unset/empty — which is exactly
       // what we want. Every commish-only route now gates on `!sessionByApiKey`

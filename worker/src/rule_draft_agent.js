@@ -55,9 +55,21 @@ const EMPTY_DRAFT = {
 // tells the model to avoid write-verbs in literals and it rewrites). The
 // word boundary means `updated_at` / `created_at_utc` pass untouched: \b
 // fails between the keyword and the following 'd'/'_'.
+// Tables this agent may NEVER read, by name prefix. Hiding them from list_tables is not enough, because run_sql accepts arbitrary SELECTs:
+// guardSql refuses any query whose TEXT contains the prefix (direct, join, subquery, CTE, quoted, any case), and describe_table refuses the
+// name. SQLite cannot build an identifier from pieces, so a query without the prefix in its text cannot name such a table.
+// ups_beta_* holds the encrypted MFL sessions of the mobile beta (issue #1475).
+export const DENIED_TABLE_PREFIXES = ["ups_beta_"];
+export function touchesDeniedTable(text) {
+  const raw = String(text == null ? "" : text).toLowerCase();
+  const bare = raw.replace(/["`\[\]]/g, "");
+  return DENIED_TABLE_PREFIXES.some((p) => raw.includes(p) || bare.includes(p));
+}
+
 export function guardSql(raw) {
   let q = safeStr(raw).replace(/;+\s*$/, "");
   if (!q) return { error: "empty query" };
+  if (touchesDeniedTable(q)) return { error: "that table is not available to this tool" };
   if (q.includes(";")) return { error: "single statement only — no semicolons" };
   if (!/^\s*(select|with)\b/i.test(q)) return { error: "must start with SELECT or WITH" };
   const bad = q.match(/\b(insert|update|delete|drop|alter|create|replace|attach|detach|pragma|vacuum|reindex)\b/i);
@@ -258,7 +270,8 @@ async function callModel(env, model, body, remainingMs) {
 }
 
 // ── Tool execution ──────────────────────────────────────────────────────
-async function executeTool(env, sessionId, block, state) {
+// (exported so tests can drive the real tool dispatcher: list_tables, describe_table and run_sql)
+export async function executeTool(env, sessionId, block, state) {
   const name = safeStr(block.name);
   const input = block.input || {};
   try {
@@ -266,7 +279,7 @@ async function executeTool(env, sessionId, block, state) {
       await setStatusText(env, sessionId, "listing database tables…");
       const { results } = await env.UPS_MFL_DB.prepare(
         `SELECT name FROM sqlite_master WHERE type='table'
-           AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf%' AND name NOT LIKE 'd1_%'
+           AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf%' AND name NOT LIKE 'd1_%' AND substr(name, 1, 9) <> 'ups_beta_'
          ORDER BY name`
       ).all();
       return JSON.stringify((results || []).map((r) => r.name));
@@ -275,6 +288,7 @@ async function executeTool(env, sessionId, block, state) {
       const table = safeStr(input.table);
       await setStatusText(env, sessionId, `inspecting table ${table}…`);
       if (!/^[A-Za-z0-9_]+$/.test(table)) return { error: "invalid table name" };
+      if (touchesDeniedTable(table)) return { error: "that table is not available to this tool" };
       const exists = await env.UPS_MFL_DB.prepare(
         `SELECT name FROM sqlite_master WHERE type='table' AND name = ?`
       ).bind(table).first();
