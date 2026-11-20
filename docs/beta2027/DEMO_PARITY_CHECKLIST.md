@@ -14,6 +14,8 @@ Keith (chat, 2026-11-20): the beta must match the approved demo **1:1 across the
 
 **Decision 4 (Keith, chat 2026-11-20): scaffolding treatment approved, recorded.** Scenario toggles go in client-only **Sample** mode and the appropriate Test controls. **Report a bug** replaces the Feedback tab and stays reachable throughout the app and inside sheets, carrying the current screen and the captured error. The "Compare navigation A and B" sheet is dropped. Skin, vibrant colors and the position-group rule stay as owner settings. These are **explicit exceptions to visual and interaction parity** (section 5a). Sample scenarios stay clearly labeled and never send transactions. **During integration testing, bug reports go only to #keiths-test.** No implementation or deployment is authorized by this decision.
 
+**Decision 5 (Keith, chat 2026-11-20): navigation B, four tabs, recorded.** The bottom bar is Home, Team, Market and League. **Fix lineup** on Home stays a one-tap shortcut into Team's lineup workspace. An unsaved-changes indicator shows inside that workspace, and the app prompts before navigating away with unsaved edits. **Market and League remain navigation destinations; their presence does not expand the scope approved in Decision 2.** No implementation or deployment is authorized by this decision.
+
 ## 2. What "the demo" is (pinned versions)
 
 | Source | What it is | Version and hash | Role here |
@@ -39,14 +41,14 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 
 | | Rows |
 |---|---|
-| Total checklist rows | **95** |
-| Built | 9 |
-| Partial | 22 |
+| Total checklist rows | **96** |
+| Built | 10 |
+| Partial | 21 |
 | Not built | 60 |
-| Exception (a ruled difference from the demo) | 4 |
-| Need a real write (`W`) | 22 |
+| Exception (a ruled difference from the demo) | 5 |
+| Need a real write (`W`) | 23 |
 | Need new or unconfirmed read data (`D`) | 41 |
-| Need a decision (`X`) | 14 |
+| Need a decision (`X`) | 12 |
 | Need wording checked against canon (`C`) | 5 |
 
 **In plain words:** the beta today is the read-only roster, the contract details and the team-colored profile header. Everything that edits (lineup, moves, drop, extension, restructure, MYAC, MYM) is not built, and several things the demo *shows* have no live data source yet (section 6).
@@ -55,8 +57,8 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 
 | ID | Element | Demo does | Beta today | Status | What remains | Needs | Stage |
 |---|---|---|---|---|---|---|---|
-| A1 | Bottom navigation | Five tabs (Home, Lineup, Team, Market, League) or four without Lineup; the choice is shown as open. Team tab shows a dot while a lineup change is unsaved. | Four provisional tabs (Home, Team, Market, League). No unsaved dot. | Partial | Unsaved-changes dot; the Lineup tab if Keith picks five. | X | S1 |
-| A2 | "Compare navigation A and B" sheet | A sheet that compares the two bars and their tap counts. | None. | Exception | **Dropped by ruling (Decision 4).** The navigation choice itself is decision 5. |  | - |
+| A1 | Bottom navigation | Five tabs (Home, Lineup, Team, Market, League) or four without Lineup; the choice is shown as open. Team tab shows a dot while a lineup change is unsaved. | Four tabs (Home, Team, Market, League). | Built | **Decided (Decision 5): B, four tabs.** Market and League stay navigation destinations only; their presence does not widen the scope (Decision 2). The unsaved-changes indicator lives inside Team's lineup workspace (C2, C26), not on the tab. |  | - |
+| A2 | "Compare navigation A and B" sheet | A sheet that compares the two bars and their tap counts. | None. | Exception | **Dropped by ruling (Decision 4).** The navigation choice is Decision 5 (B). |  | - |
 | A3 | Header and as-of line | Screen title, "✓ Fri 2:14 PM ET". | Title, ⓘ, "✓ Data as of … · Week 11". | Built | None. |  | - |
 | A4 | Skins | Dark, Light, High contrast; Standard or Vibrant position colors. | Match my phone, Light, Dark, High contrast; Vibrant or Plain. All pass the contrast tests. | Built | None (the beta adds "Match my phone"). |  | - |
 | A5 | Loading state | Skeleton rows and "Loading your roster…" / "Loading contracts…". | Skeleton rows on the roster; none for tabs that do not exist yet. | Partial | Skeletons for the Contracts tab and the profile tabs when they exist. |  | S1 |
@@ -69,6 +71,7 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | A12 | Environment marker | "Demo · Sample data" bar with a Controls button. | None on the preview address. | Partial | Per the planning record: "Preview: view only"; a permanent red "TEST LEAGUE: nothing here is real" on every screen and confirm in Test mode. | A | S2 |
 | A13 | Choose any team (beta only) | Not in the demo (it is always "you"). | Team picker sheet; any team's public roster. | Built | Keep as view-only ("View as another team"); every write control stays disabled while the viewed team differs from the proven franchise. | A | S2 |
 | A14 | Sample mode label and safety | The demo labels itself "Demo · Sample data" and simulates every submit ("Simulated. Nothing was sent."). | None. | Not built | **Decision 4:** every Sample scenario is clearly labeled and **never sends a transaction**: a test must pin that Sample mode has no submit path and makes no request that is not a read of public data. |  | S1 |
+| A15 | Unsaved changes: indicator and leave prompt | A dot on the Team tab while a lineup change is unsaved (five-tab option) and the pending bar "n unsaved · Undo · Review & save". | None. | Not built | **Decision 5:** an unsaved-changes indicator inside Team's lineup workspace (week chips and the pending bar, C2, C26) and a **prompt before navigating away with unsaved edits** (leave, or keep editing). The tab dot is not used in the four-tab layout. | W | S3a |
 
 ## B. Home
 
@@ -78,7 +81,7 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | B2 | Home lineup card: ready | "✓ Lineup looks ready", "On MFL 18 of 18 · locks …". | Placeholder. | Not built | Same card. | D | S1 |
 | B3 | Home lineup card: could not check | "Couldn't check your lineup. This is not an all-clear." Try again / Open Team. | Placeholder. | Not built | Same card; unknown is never an all-clear. |  | S1 |
 | B4 | Rest of Home | "Rest of Home. Not in this prototype." | Placeholder. | Partial | Match the demo's placeholder wording (Home is reviewed last). |  | S1 |
-| B5 | Fix lineup action | Opens Team on the Lineup view. | None. | Not built | Navigation. |  | S1 |
+| B5 | Fix lineup action | Opens Team on the Lineup view. | None. | Not built | **Kept as a one-tap shortcut (Decision 5)** into Team's lineup workspace. |  | S1 |
 
 ## C. Team › Roster (lineup, views, moves)
 
@@ -183,7 +186,7 @@ The demo's Controls sheet exists so Keith can try states. These are not owner fe
 | ID | Element | Demo does | Beta today | Status | What remains | Needs | Stage |
 |---|---|---|---|---|---|---|---|
 | H1 | Profile header look, Headshot states, Helmet badge states, Team colors preview | Selectors to compare looks and states. | None. | Exception | **Exception (Decision 4):** replaced by Sample mode (client only). |  | S1 |
-| H2 | Navigation (A or B) | Selector. | Four tabs fixed. | Not built | Product setting only if Keith keeps both; otherwise decide A or B (decision 5). The compare sheet is dropped (A2). | X | S1 |
+| H2 | Navigation (A or B) | Selector. | Four tabs fixed. | Exception | **Exception (Decision 5):** no A/B setting ships; navigation is fixed at B (four tabs). |  | - |
 | H3 | Bench position-group rule | All open / Only what needs you. | None. | Not built | **Kept as an owner setting (Decision 4)**; needs the "Needs you" logic (C22). | D | S1 |
 | H4 | Scenario toggles | Sample week (problem or clean), Future-week save outcome, Season phase, Restructures used, Loaded contracts, Contract windows, Extension demo date, Acquisition and history records, Taxi eligibility records, Worker penalty answer, Profile eligibility, Screen state, Next demo save result, Reset. | None. | Exception | **Exception (Decision 4):** client-only **Sample** mode, plus the appropriate Test-mode controls (in Test the equivalents are real: a settable clock is decision 6, real records). Sample scenarios are clearly labeled and never send a transaction. |  | S1 |
 | H5 | Skin, Standard/Vibrant | Selectors. | In About. | Built | None. |  | - |
@@ -209,7 +212,7 @@ The demo's Controls sheet exists so Keith can try states. These are not owner fe
 |---|---|---|---|
 | Scenario toggles (Controls › Settings) | Sample week, future-week outcome, season phase, restructures used, loaded contracts, windows, demo date, record states, worker answer, screen state, next save result, Reset | Client-only **Sample** mode; real equivalents in Test mode | Clearly labeled; **never sends a transaction**; pinned by a test (A14) |
 | Feedback and Try-this tabs | Notes box that copies text for the chat | **Report a bug**, reachable from every screen and inside every sheet; carries the current screen and the captured error | Integration testing: reports go **only to #keiths-test** |
-| Compare navigation A and B sheet | Sheet comparing the two bars | Dropped | The navigation choice is decision 5 |
+| Compare navigation A and B sheet; A/B setting | Sheet comparing the two bars; a selector | Dropped; navigation fixed at four tabs | Decision 5 (B) |
 | Kept as owner settings (not exceptions) | Skin, vibrant colors, position-group rule | Same, in settings | - |
 
 ## 6. What the demo shows that no live source provides today
@@ -262,10 +265,10 @@ The worker holds one commissioner MFL session that works for **both** the live l
 2. ~~**Spec scope.**~~ **Decided (demo-only, 2026-11-20):** S1 is the source of truth (Home lineup card, Team, profile, Actions, Contracts). Market, Trades, Auction, Draft, League, Cap & picks pages, Commissioner and Desktop are later, separately scoped specs; none is added to this implementation by implication.
 3. ~~**Helmet placeholder.**~~ **Decided (2026-11-20):** add the demo's labeled dashed "Helmet TBD" circle as shown; no helmet art is drawn or invented. Supersedes the Preview 0 choice to leave it out.
 4. ~~**Scaffolding.**~~ **Decided (2026-11-20):** Sample mode for scenario toggles (labeled, never sends transactions), Report a bug replaces Feedback (reachable everywhere, carries screen and error, #keiths-test only during integration testing), compare sheet dropped, skin / vibrant / position-group rule stay as owner settings. Recorded as explicit exceptions in section 5a.
-5. **Navigation.** Four tabs or five (the demo leaves it open).
-6. **Test clock** for windows that are closed until March (settable clock on the test environment only, recorded cases, or wait). Needed before S3d.
-7. **Write order** for S3 (suggested above).
-8. **Data sources** the demo shows that do not exist (section 6): projections, news, bio, IR return date. Show "Unavailable" (recommended) or source them.
+5. ~~**Navigation.**~~ **Decided (B, 2026-11-20):** four tabs (Home, Team, Market, League); Fix lineup stays a one-tap shortcut into Team's lineup workspace; unsaved indicator inside the workspace and a prompt before navigating away with unsaved edits; Market and League are destinations only and do not widen the Decision 2 scope.
+6. **Test clock** (needed before S3d). Most contract windows are closed until the March roll-forward (unverified), so Extend, Restructure, MYAC and MYM cannot be exercised end to end on a real clock. Options: **A (recommended)** a request-scoped test clock honored only for Test sessions on league 25625, enforced on the worker and proven by a negative test that production requests ignore it (a deploy-config-only test clock, `TWR_TEST_NOW_MS`, already exists for trade deadlines; it must not become a setting on the shared worker); **B** recorded cases only, no live test writes for closed windows; **C** wait until the windows open. Pair A with B's closed-window refusal cases.
+7. **Write order** for S3. Recommended: **report a bug first** (it writes only to #keiths-test, and integration testing needs it), then lineup, roster moves, drop, contract actions. Lineup, moves and drop are in season today; contract actions wait on decision 6.
+8. **Data sources** the demo shows that do not exist (section 6). Recommended split: build from our own data first (action eligibility route, injury timing, opponent and kickoff, weekly scoring history, allowed-to-position if derivable, calendar), and show the demo's own "Unavailable" state for projections, news, bio and IR return date until Keith approves a source and its rights.
 
 ## 9. What this does not do
 
