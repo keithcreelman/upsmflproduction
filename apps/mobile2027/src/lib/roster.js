@@ -3,10 +3,10 @@
 
    Two kinds of fact are kept apart on purpose (Keith, 2026-11-20):
      HISTORICAL  a past week's submitted lineup and its scores (read for that week);
-     CURRENT     injury status, who is on the roster, contracts, cap rules, and each player's NFL club, bye week and opponent (read now).
+     CURRENT     injury status, who is on the roster, contracts, cap rules, and each player's position, NFL club, bye week and opponent (read now).
    A past week's screen shows only the historical kind. A current fact is never drawn inside a past-week row. In particular no read says
-   which NFL club a player was with in a past week, so a past week's opponents and bye weeks are Unavailable (MAT-1, Codex review of
-   dc5b35d7): today's club may not be the club he played for. */
+   which NFL club or position a player had in a past week, so a past week's opponents and bye weeks are Unavailable (MAT-1) and its slots,
+   empty slots and filled-slot count are not rebuilt: the recorded starters are listed in the recorded order with their scores (MAT-2). */
 (function (root, factory) {
   var req = typeof require === "function";
   var api = factory(req ? require("./format.js") : root.UPS2027.format);
@@ -108,10 +108,11 @@
     if (rec.state !== "ok") return { state: "error", error: rec.error || "" };
     var idx = indexOf(rec), e = idx && idx[team.id];
     if (!e) return { state: "missing" };
+    // MAT-2 (Codex, review of 4951dfce): a past week's record is the starters' ids, in MFL's order, with their scores. It does not say which
+    // slot each filled or what position he played that week, and today's position may differ, so slots, empty slots and a filled-slot count
+    // are NOT rebuilt from today's positions. The starters are listed in the recorded order, with the recorded count.
     var players = e.starters.map(function (id) { return S.model.byId[id] || stub(id); });
-    var a = assignSlots(players);
-    var filled = a.slots.filter(function (x) { return x.player; }).length;
-    return { state: "ok", slots: a.slots, extra: a.extra, count: e.starters.length, filled: filled, scores: e.scores, total: e.total };
+    return { state: "ok", recorded: true, starters: players, count: e.starters.length, scores: e.scores, total: e.total };
   }
 
   // ---------- NFL games ----------

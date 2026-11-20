@@ -295,7 +295,7 @@ test("each fact is the one the read gave: home or away, the team's own week, one
 test("MAT-1 (Codex, dc5b35d7): a past week never uses a player's club TODAY to find that week's opponent or bye; the recorded lineup and score stay", async () => {
   const intel = await intelFor();
   const m0 = model(), tm0 = m0.teams.find((x) => x.id === TEAM);
-  const starter = R.lineupFor(state(intel, { wk: 10 }), tm0, 10).slots[0].player;
+  const starter = R.lineupFor(state(intel, { wk: 10 }), tm0, 10).starters[0];
   const sc10 = Object.fromEntries(FX2.weekly_results_w10.weeklyResults.matchup.flatMap((x) => x.franchise).filter((f) => f.id === TEAM)[0].player.map((p) => [p.id, p.score]));
   // a games read for that week IS in memory (the page no longer asks for one, but a stale or future read must not be used either),
   // and the two clubs have different opponents and different bye weeks
@@ -311,7 +311,7 @@ test("MAT-1 (Codex, dc5b35d7): a past week never uses a player's club TODAY to f
     t.match(text(r), /now · Opponent unavailable/); t.doesNotMatch(r, /\b(vs|@) (AAA|BBB)\b|AAA|BBB/, "no opponent from either club's schedule");
     t.doesNotMatch(r, /Bye week|▲|>Bye</, "no bye indicator, whichever club's bye week it would be");
     t.match(text(r), new RegExp(String(sc10[starter.id]).replace(".", "\\.") + " pts"), "the recorded score stays");
-    t.match(r, /class="tag sl">QB1</, "and the recorded lineup (his slot) stays");
+    t.match(r, /class="tag sl" role="img" aria-label="Recorded starter number 1">1</, "and his place in the recorded order stays (no slot is claimed for a past week)");
   });
   // his current bye week equals the selected past week: still no bye indicator, on the Lineup or the Performance view
   const m3 = model(); m3.byId[starter.id].bye = 10;
@@ -325,6 +325,50 @@ test("MAT-1 (Codex, dc5b35d7): a past week never uses a player's club TODAY to f
   // the current week is unchanged: a bye this week still shows, from his club's bye week today (a current fact)
   const m6 = model(); const cur = R.lineupFor(state(intel, { model: m6 }), m6.teams.find((x) => x.id === TEAM), 11).slots[0].player; m6.byId[cur.id].bye = 11;
   t.match(V.rosterBody(state(intel, { model: m6 })), /▲ Bye week/);
+});
+
+
+test("MAT-2 (Codex, 4951dfce): a past week lists the recorded starters in the recorded order with the recorded count; today's positions cannot change membership, count, slots or empty slots", async () => {
+  const intel = await intelFor();
+  const tm = model().teams.find((x) => x.id === TEAM);
+  const rec = R.lineupFor(state(intel, { wk: 10 }), tm, 10);
+  t.equal(rec.recorded, true); t.equal(rec.count, 18, "the recorded starter count"); t.equal(rec.starters.length, 18);
+  t.equal(rec.slots, undefined, "no slots are built for a past week"); t.equal(rec.filled, undefined, "and no filled-slot count");
+  const recordedIds = FX2.weekly_results_w10.weeklyResults.matchup.flatMap((x) => x.franchise).filter((f) => f.id === TEAM)[0].player.filter((p) => p.status === "starter").map((p) => p.id);
+  t.deepEqual(rec.starters.map((p) => p.id), recordedIds, "the starters are the recorded ones, in the recorded order");
+  const base = V.rosterBody(state(intel, { wk: 10 }));
+  t.match(text(base), /Week 10 starters · 18 of 18/); t.doesNotMatch(base, /Empty|class="tag sl">[A-Z]/, "no empty slot and no slot tag");
+  const rows = (html) => (html.match(/aria-label="Recorded starter number (\d+)"/g) || []).length;
+  t.equal(rows(base), 18, "eighteen recorded rows, numbered in the recorded order");
+  // Codex's reproduction: the current slots are all filled; change ONLY one starter's current position (DB -> LB)
+  const cur = R.lineupFor(state(intel), tm, 11);
+  t.equal(cur.filled, 18, "(control: the current Week 11 lineup fills all 18 slots)");
+  const mv = (pid, pos) => { const m = model(); m.byId[pid].pos = pos; m.byId[pid].rawPos = pos; return m; };
+  const dbRow = rec.starters.find((p) => p.pos === "DB"), anyRow = rec.starters[3];
+  t.ok(dbRow, "the recorded lineup has a DB starter");
+  [mv(dbRow.id, "LB"), mv(anyRow.id, "QB"), mv(rec.starters[7].id, "PK"), mv(rec.starters[9].id, "?")].forEach((m, i) => {
+    const html = V.rosterBody(state(intel, { wk: 10, model: m }));
+    t.equal(html, base, "past week, position change " + i + ": the screen is byte for byte the same");
+    t.equal(R.lineupFor(state(intel, { model: m, wk: 10 }), m.teams.find((x) => x.id === TEAM), 10).count, 18);
+  });
+  // the Performance view of a past week is the same list
+  const perf = V.rosterBody(state(intel, { wk: 10, view: "performance" }));
+  t.equal(V.rosterBody(state(intel, { wk: 10, view: "performance", model: mv(dbRow.id, "LB") })), perf);
+  // the recorded count is the recorded count: 17 recorded starters read 17, 19 read 19, never a filled-slot count
+  const withCount = (n) => { const w = clone(FX2.weekly_results_w10); w.weeklyResults.matchup.flatMap((x) => x.franchise).filter((f) => f.id === TEAM).forEach((f) => {
+    const starters = f.player.filter((p) => p.status === "starter"), others = f.player.filter((p) => p.status !== "starter");
+    if (n < 18) starters.slice(n).forEach((p) => { p.status = "nonstarter"; }); else others.slice(0, n - 18).forEach((p) => { p.status = "starter"; }); });
+    return state({ ...intel, wk: { ...intel.wk, 10: { state: "ok", data: w, at: Date.now() } } }, { wk: 10 }); };
+  const h17 = V.rosterBody(withCount(17)), h19 = V.rosterBody(withCount(19));
+  t.match(text(h17), /Week 10 starters · 17 of 18/); t.equal(rows(h17), 17); t.doesNotMatch(h17, /Empty/);
+  t.match(text(h19), /Week 10 starters · 19 of 18/); t.equal(rows(h19), 19); t.doesNotMatch(h19, /Empty/);
+  // the note says what is not shown; no recorded starters reads as no starters recorded
+  t.match(text(base), /Listed in the order MFL recorded them\. Slots and positions are not shown for a past week/);
+  // the current week is unchanged: slots, empty slots and the filled count are still built from today's positions
+  const curBase = V.rosterBody(state(intel));
+  t.match(curBase, /class="tag sl">QB1</); t.match(text(curBase), /Week 11 starters · 18 of 18/);
+  const dbNow = cur.slots.map((x) => x.player).find((p) => p.pos === "DB");
+  t.notEqual(V.rosterBody(state(intel, { model: mv(dbNow.id, "LB") })), curBase, "the current week still follows today's positions");
 });
 
 await run("mobile2027_roster");

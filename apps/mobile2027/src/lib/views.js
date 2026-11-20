@@ -142,7 +142,8 @@
         if (ic) chips.push(chip(ic.cls, esc(ic.text)));
       }
     }
-    var tag = o.tag ? '<span class="tag sl">' + esc(o.tag) + "</span>" : '<span class="tag pp">' + pcx(p.pos) + "</span>";
+    // a past week's rows carry the recorded order (1, 2, 3 ...), never a slot or a position: neither is recorded for that week
+    var tag = o.tag ? '<span class="tag sl">' + esc(o.tag) + "</span>" : o.ord ? '<span class="tag sl" role="img" aria-label="Recorded starter number ' + o.ord + '">' + esc(o.ord) + "</span>" : '<span class="tag pp">' + pcx(p.pos) + "</span>";
     return '<div class="rx' + (o.problem ? " prob" : "") + '">' + tag + '<div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + small + "</small></button>" +
       (chips.length ? '<div class="fl">' + chips.join("") + "</div>" : "") + "</div>" + right + '<span class="go" aria-hidden="true">›</span></div>';
   }
@@ -180,6 +181,12 @@
 
   function lineupBlock(S, t, wi, lineup, past) {
     var lim = S.model.limits.starters || 18, wk = wi.sel;
+    if (lineup.recorded) {
+      // the recorded starters, in the recorded order, with the recorded count: no slots, no empty slots, no filled-slot count (MAT-2)
+      return '<div class="grp"><span>Week ' + wk + " starters · " + lineup.count + (lim ? " of " + lim : "") + '</span></div><div class="card rows">' +
+        (lineup.starters.length ? lineup.starters.map(function (p, i) { return row(p, S, { ord: i + 1, wk: wk, past: true }); }).join("") : '<div class="rx"><div class="in"><b>No starters recorded</b></div></div>') + "</div>" +
+        '<div class="ex pad">Listed in the order MFL recorded them. Slots and positions are not shown for a past week: no read gives a player’s slot or position in that week.</div>';
+    }
     var rows = lineup.slots.map(function (x) {
       return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past);
     }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); })).join("");
