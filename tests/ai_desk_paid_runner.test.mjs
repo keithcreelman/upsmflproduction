@@ -68,6 +68,8 @@ globalThis.fetch = async (input, init) => {
 };
 `);
 
+// Under the test gate a test may name a smaller preflight list (most live-mode tests do not need the whole gate 7b); two tests use the full list ("").
+const LIGHT_PREFLIGHT = "baseline,http400_loop2";
 // ── spawning the runner ───────────────────────────────────────────────────────────────────────────
 function runner(args, { env = {}, fakeAnthropic = false, ledger = null } = {}) {
   const log = uniq("net") + ".log";
@@ -75,7 +77,7 @@ function runner(args, { env = {}, fakeAnthropic = false, ledger = null } = {}) {
     const child = spawn(process.execPath, ["--import", PRELOAD, "scripts/ai_eval/run_eval.mjs", ...args], {
       cwd: ROOT, stdio: ["ignore", "pipe", "pipe"],
       env: Object.fromEntries(Object.entries({ NODE_NO_WARNINGS: "1", HOME: TMP, TMPDIR: os.tmpdir(), FAKE_LOG: log, SHARED_KEY, ...(fakeAnthropic ? { FAKE_ANTHROPIC: "1" } : {}), ...(ledger ? { LEDGER: ledger } : {}),
-        ...(ledger && path.basename(ledger) === "ledger.sqlite" ? { UPS_AI_EVAL_HOME: path.dirname(ledger), UPS_AI_EVAL_UNDER_TEST: "1", ANTHROPIC_API_KEY_DESK: DESK_KEY } : {}), ...env }).filter(([, v]) => v !== undefined)),
+        ...(ledger && path.basename(ledger) === "ledger.sqlite" ? { UPS_AI_EVAL_HOME: path.dirname(ledger), UPS_AI_EVAL_UNDER_TEST: "1", ANTHROPIC_API_KEY_DESK: DESK_KEY, UPS_AI_EVAL_PREFLIGHT_SCENARIOS: LIGHT_PREFLIGHT } : {}), ...env }).filter(([, v]) => v !== undefined)),
     });
     let out = "", err = "";
     child.stdout.on("data", (d) => { out += d; });
@@ -411,7 +413,7 @@ async function liveRun(cmd, { env, fake = null, typed, tty = true, runId = "R1" 
   const keep = { log: console.log, error: console.error };
   console.log = (...a) => outL.push(a.join(" ")); console.error = (...a) => errL.push(a.join(" "));
   let code;
-  try { code = await mod.main(cmd.args, { ...env, ...homeEnv(cmd.home) }, { stdin: input, stdout: output }); }
+  try { code = await mod.main(cmd.args, { UPS_AI_EVAL_PREFLIGHT_SCENARIOS: LIGHT_PREFLIGHT, ...env, ...homeEnv(cmd.home) }, { stdin: input, stdout: output }); }
   finally { console.log = keep.log; console.error = keep.error; currentFake = null; }
   const entries = fake ? fake.log.entries : [];
   return { code, out: outL.join("\n"), err: errL.join("\n"), net: entries, blocked: entries.filter((e) => e.kind === "blocked"), anthropic: entries.filter((e) => e.kind === "anthropic") };
@@ -421,7 +423,7 @@ const secondJournal = (cmd) => path.join(cmd.home, "second_copy", "spend_journal
 test("LIVE with every gate satisfied (interceptor, fake terminal): ONLY POST api.anthropic.com/v1/messages, the desk key, reserved before each call, both journals, the 1.25 margin", async () => {
   const plan = await ensurePlan();
   const cmd = liveCmd({});
-  const env = liveCapsEnv(plan);
+  const env = { ...liveCapsEnv(plan), UPS_AI_EVAL_PREFLIGHT_SCENARIOS: "" };      // "": the FULL gate 7b list (16 scenarios) for this one test
   const fake = makeFake({ ledger: cmd.ledger });
   const r = await liveRun(cmd, { env, fake });
   t.equal(r.code, 0, r.out.slice(-800) + r.err.slice(0, 400));

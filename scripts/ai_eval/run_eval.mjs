@@ -824,7 +824,10 @@ export async function main(argv, env = process.env, injectedIo = null) {
     // 7b: the adversarial preflight, also from scratch: the same questions through the real pipeline against a misbehaving scripted model and failing sources. A failure here
     // refuses the run exactly like gate 7 (before the confirmation prompt and before any client exists).
     {
-      const subset = SCENARIOS.filter((s) => PREFLIGHT_SCENARIO_IDS.includes(s.id));
+      // The full PREFLIGHT_SCENARIO_IDS list, always, in a real run. Only under the test gate (the literal canary key plus the test flag) may a test name a SMALLER list, so the
+      // many live-mode tests do not each pay for the whole preflight; two tests keep the full list. A real key can never reach this.
+      const wanted = isTestGate(env) && typeof env.UPS_AI_EVAL_PREFLIGHT_SCENARIOS === "string" && env.UPS_AI_EVAL_PREFLIGHT_SCENARIOS.trim() ? env.UPS_AI_EVAL_PREFLIGHT_SCENARIOS.split(",").map((x) => x.trim()) : PREFLIGHT_SCENARIO_IDS;
+      const subset = SCENARIOS.filter((s) => wanted.includes(s.id));
       const adv = await runMatrix({ cases, invariantFailures, caps: DRY_DEFAULT_CAPS, scenarios: subset, runId: `${runId}-pf` });
       const problems = adv.failures.map((x) => `${x.case} / ${x.scenario}: ${x.why[0]}`);
       if (adv.network_attempts) problems.push(`${adv.network_attempts} network attempt(s) during the adversarial preflight`);
