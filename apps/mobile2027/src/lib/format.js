@@ -1,0 +1,54 @@
+/* UPS 2027 Preview 0: small display helpers. Plain script (browser) and CommonJS (tests).
+   Nothing here touches the network or storage. */
+(function (root, factory) {
+  var api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.format = api; }
+})(typeof self !== "undefined" ? self : this, function () {
+  "use strict";
+
+  function str(v) { return v == null ? "" : String(v).trim(); }
+
+  // Whole dollars with a thousands separator. Never called with an unknown value:
+  // callers show "Not available" / "Not recorded" instead of a made-up $0.
+  function money(n) {
+    var v = Math.round(Number(n));
+    if (!isFinite(v)) return "";
+    var sign = v < 0 ? "-" : "";
+    var s = String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return sign + "$" + s;
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  // MFL writes "Last, First". "Smith-Njigba, Jaxon" -> "Jaxon Smith-Njigba". Anything else is left alone.
+  function flipName(n) {
+    var s = str(n);
+    var i = s.indexOf(",");
+    if (i < 1) return s;
+    var last = s.slice(0, i).trim(), first = s.slice(i + 1).trim();
+    return first ? first + " " + last : last;
+  }
+
+  // MFL's IDP positions are DE/DT/CB/S; UPS lineups and the approved screens group them as DL and DB.
+  var POS_GROUP = { QB: "QB", RB: "RB", WR: "WR", TE: "TE", PK: "PK", PN: "PN", DE: "DL", DT: "DL", DL: "DL", LB: "LB", CB: "DB", S: "DB", DB: "DB" };
+  var POS_ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
+  function posGroup(p) { var k = str(p).toUpperCase(); return POS_GROUP[k] || k || "?"; }
+
+  // "Fri 10:03 PM ET" in the league's time zone, or "" if the time cannot be read.
+  function etStamp(iso) {
+    var t = Date.parse(iso);
+    if (!isFinite(t)) return "";
+    try {
+      var parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" }).formatToParts(new Date(t));
+      var m = {}; parts.forEach(function (p) { m[p.type] = p.value; });
+      return m.weekday + " " + m.hour + ":" + m.minute + " " + (m.dayPeriod || "") + " ET";
+    } catch (e) { return ""; }
+  }
+
+  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp };
+});
