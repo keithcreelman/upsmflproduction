@@ -130,6 +130,11 @@ export function dedupeGaps(gaps) {
   return gaps.filter((g) => { const k = `${g.why}|${g.what}`; if (seen.has(k)) return false; seen.add(k); return true; });
 }
 
+// The season as a fact: prose may not contain digits, so a year can only reach a card through this token.
+export function yearFact(season, source, grade, asOf) {
+  return fact(`s${Number(season)}_year`, "Season", Number(season), "season", source, grade, asOf);
+}
+
 export function fact(key, label, value, unit, source, grade, asOf) {
   return { key, label, value, unit, as_of: asOf, source, grade };
 }
@@ -395,6 +400,13 @@ const tool = defineTool({
     const src = "src_final_standings via /api/historical-finishes";
     const factRows = sel.slice(0, MAX_FACT_ROWS);
     if (sel.length > MAX_FACT_ROWS) gaps.push(gap(`Only the first ${MAX_FACT_ROWS} of ${sel.length} matching rows are itemized as facts; narrow the request with a season or franchise`, "partial_coverage", "none (narrow the question)"));
+    // One year fact per season shown (shared by every row of that season), so a card can print the year through a token.
+    const yearSet = new Set(factRows.map((d) => d.season));
+    for (const e of titles || []) {
+      if (view !== "toilet_bowl") e.champion_seasons.forEach((y) => yearSet.add(y));
+      if (view !== "champions") e.toilet_bowl_seasons.forEach((y) => yearSet.add(y));
+    }
+    for (const yr of [...yearSet].sort((a, b) => a - b)) facts.push(yearFact(yr, src, "C", asOf));
     for (const d of factRows) {
       const pfx = `s${d.season}_f${d.franchise_id}`;
       facts.push(fact(`${pfx}_team`, `${d.season} team for franchise ${d.franchise_id}`, teamText(d.franchise_name, d.franchise_id), "text", src, "A", asOf));
@@ -421,6 +433,12 @@ const tool = defineTool({
       }
     }
 
+    // The registry rejects more than MAX_FACTS (200). Worst case here is about 175; if it is ever exceeded, drop the title-count tail and say so.
+    if (facts.length > 190) {
+      const keep = facts.filter((f) => !/\.(titles|toilet_titles)_f\d{4}$/.test(f.id));
+      gaps.push(gap(`Title counts per franchise were dropped from the facts (too many facts); ${facts.length - keep.length} count facts omitted. The counts are in data.titles.`, "partial_coverage", "none (narrow with a franchise)"));
+      facts.length = 0; facts.push(...keep);
+    }
     notes.push("Results are by franchise id; the team name shown is the one stored for that season.");
     notes.push("regular_season_finish is the playoff seed by all-play percent, not the final finish.");
     if (dateAsOf) notes.push(`as_of ${asOf} was mapped to its season by calendar year.`);

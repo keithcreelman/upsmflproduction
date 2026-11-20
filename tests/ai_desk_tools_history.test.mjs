@@ -11,7 +11,7 @@
 import fs from "node:fs";
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { runTool, defineTool, getTool } from "../worker/src/desk/registry.js";
-import { makeCommishCaller } from "../worker/src/desk/contract.js";
+import { makeCommishCaller, formatFact, isFactId } from "../worker/src/desk/contract.js";
 import standingsTool from "../worker/src/desk/tools/standings_get.js";
 import historyTool, { FINISH_LABELS, analyzeSeasonFinishes, labelFinish, SEASON_NOTES } from "../worker/src/desk/tools/history_finishes.js";
 import playerTool from "../worker/src/desk/tools/player_transactions.js";
@@ -256,6 +256,55 @@ test("include_title_game reads /api/hall-of-champions only when asked; owner nam
   t.ok(hasGap(e, /2023 champion in the title-game record/, "conflict_in_canon"), "2023: the two records disagree");
   t.equal(e.data.title_games.some((g) => g.season === 2023), false);
   t.doesNotMatch(JSON.stringify(e), PERSONAL);
+});
+
+// ── 2b. season (year) facts: prose may not contain numerals, so a year reaches a card only through a token ──
+const yearFacts = (e) => e.facts.filter((f) => /\.s\d{4}_year$/.test(f.id));
+const checkYearFacts = (e, label) => {
+  const ys = yearFacts(e);
+  t.ok(ys.length > 0, `${label}: has year facts`);
+  t.equal(new Set(e.facts.map((f) => f.id)).size, e.facts.length, `${label}: every fact id is unique`);
+  t.ok(e.facts.length <= 200, `${label}: within MAX_FACTS (${e.facts.length})`);
+  for (const f of ys) {
+    t.equal(f.unit, "season"); t.equal(f.label, "Season"); t.ok(["A", "C"].includes(f.grade));
+    t.ok(isFactId(f.id) && /^c1\.s\d{4}_year$/.test(f.id), "key is lowercase [a-z0-9_]");
+    t.equal(`s${f.value}_year`, f.id.slice(3), "the key carries the same year as the value");
+    t.equal(formatFact(f), String(f.value), "formatFact prints the plain year");
+  }
+  return ys;
+};
+const renderLead = (lead, e) => lead.replace(/\{\{f\.([^}]+)\}\}/g, (_, id) => formatFact(e.facts.find((f) => f.id === id)));
+
+test("season facts: history.finishes has one s<year>_year fact per season shown; a card prints the year through a token", async () => {
+  const s = fakeSelf(finishRoute());
+  const champs = await call("history.finishes", { view: "champions", as_of: "current" }, deps(s.fetchSelf));
+  const ys = checkYearFacts(champs, "champions");
+  t.deepEqual(ys.map((f) => f.value), Array.from({ length: 16 }, (_, i) => 2010 + i), "one per season 2010-2025, none repeated");
+  const lead = "Franchise {{f.c1.s2017_f0006_team}} won in {{f.c1.s2017_year}}.";
+  t.equal(renderLead(lead, champs), "Franchise Team 0006 (0006) won in 2017.");
+  t.doesNotMatch(lead.replace(/\{\{[^}]+\}\}/g, ""), /\d/, "the prose has no numerals; the year is a token");
+  const fr = await call("history.finishes", { franchise: "0005", as_of: "current" }, deps(s.fetchSelf));
+  checkYearFacts(fr, "franchise history");
+  const one = await call("history.finishes", { season: 2024, as_of: "current" }, deps(s.fetchSelf));
+  t.deepEqual(yearFacts(one).map((f) => f.id), ["c1.s2024_year"], "one year fact shared by all twelve rows");
+  const tb = await call("history.finishes", { view: "toilet_bowl", as_of: "current" }, deps(s.fetchSelf));
+  checkYearFacts(tb, "toilet bowl");
+  t.equal(tb.facts.some((f) => f.id.endsWith("s2015_year")), false, "an excluded season has no year fact");
+});
+
+test("season facts: standings.get carries the season it answers for; player.transactions carries each event season and the range", async () => {
+  const s = fakeSelf({ "/api/standings": json(standingsJson()), "/api/playoff-bracket": json(BRK["2025"]), "/api/player-transactions": json(txBody()), "/api/player-bundle": json({ player_id: "14056", profile: { playerProfile: { player: { name: "T, P" } } }, trade_history: [], last_add: {} }) });
+  const st = await call("standings.get", { season: 2025, view: "both", as_of: "current" }, deps(s.fetchSelf));
+  t.deepEqual(yearFacts(st).map((f) => f.id), ["c1.s2025_year"]); checkYearFacts(st, "standings");
+  t.equal(st.facts.some((f) => f.id === "c1.season"), false, "the old key is gone");
+  const tx = await call("player.transactions", { pid: "14056", as_of: "current" }, deps(s.fetchSelf));
+  const ys = checkYearFacts(tx, "transactions");
+  t.deepEqual(ys.map((f) => f.value), [2019, 2021, 2022, 2023, 2024]);
+  t.equal(fv(tx, "first_season"), 2019); t.equal(fv(tx, "last_season"), 2024);
+  t.equal(tx.facts.find((f) => f.id.endsWith("first_season")).unit, "season");
+  t.equal(renderLead("From {{f.c1.first_season}} to {{f.c1.last_season}}.", tx), "From 2019 to 2024.");
+  const pr = await call("player.transactions", { pid: "14056", view: "profile", as_of: "current" }, deps(s.fetchSelf));
+  t.deepEqual(yearFacts(pr).map((f) => f.id), ["c1.s2026_year"]);
 });
 
 // ── 3. standings.get ────────────────────────────────────────────────────────────────────────────

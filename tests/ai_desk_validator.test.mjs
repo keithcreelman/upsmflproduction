@@ -137,6 +137,22 @@ test("a fact whose as_of is current never answers a past-date question", () => {
   t.ok(validateCard(card, ctxFor([past, refused], { asOf: "current", forbidCurrent: true })).ok);
 });
 
+test("a league term the glossary returned this run may be written as spelled, digits and all", () => {
+  const ctx = (terms) => ctxFor([OK1], { allowedTerms: terms });
+  const card = (lead) => ({ ...GOOD(), lead_md: lead });
+  t.ok(validateCard(card("Ext1 is a contract status for {{f.c1.franchise}}."), ctx(["Ext1"])).ok);
+  t.ok(validateCard(card("Both Ext1 and Vet-Ext2 are statuses ({{f.c1.rank}})."), ctx(["Ext1", "Vet-Ext2"])).ok);
+  t.ok(validateCard(card("A FL/BL suffix applies, as in Vet-FAA-BL2 ({{f.c1.rank}})."), ctx(["Vet-FAA-BL2", "FL/BL"])).ok);
+  // not returned by the tool: rejected; a digit outside the term: rejected; a longer word that contains the term: rejected
+  t.deepEqual(codes(card("Ext2 is a contract status for {{f.c1.franchise}}."), ctx(["Ext1"])), [CODES.DIGIT_IN_PROSE]);
+  t.deepEqual(codes(card("Ext1 adds 1 year for {{f.c1.franchise}}."), ctx(["Ext1"])), [CODES.DIGIT_IN_PROSE]);
+  t.deepEqual(codes(card("Ext10 is a status for {{f.c1.franchise}}."), ctx(["Ext1"])), [CODES.DIGIT_IN_PROSE]);
+  t.deepEqual(codes(card("Ext1 is a status for {{f.c1.franchise}}."), ctx([])), [CODES.DIGIT_IN_PROSE]);
+  // a term cannot hide a spelled quantity next to it, and digit-only or oversized terms are ignored
+  t.ok(codes(card("Ext1 twice for {{f.c1.franchise}}."), ctx(["Ext1"])).includes(CODES.SPELLED_QUANTITY));
+  t.ok(codes(card("It is 2025 for {{f.c1.franchise}}."), ctx(["2025", "x".repeat(60) + "1"])).includes(CODES.DIGIT_IN_PROSE));
+});
+
 test("fact above the caller ceiling is rejected", () => {
   const p2 = env("c1", "cap.position", "ok", { dataClass: "P2", facts: [fact("c1", "cap_available", 12000, "usd")] });
   t.ok(validateCard({ ...GOOD(), lead_md: "Space is {{f.c1.cap_available}}.", facts_used: [] }, ctxFor([p2], { ceiling: "P2" })).ok);

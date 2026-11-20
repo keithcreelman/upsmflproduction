@@ -19,7 +19,7 @@
 
 import { defineTool } from "../registry.js";
 import {
-  pad4, leagueIdOf, currentSeasonOf, resolveSeason, seasonOfAsOf, teamText, gap, fact, fail, routeFail, noRecord, dedupeGaps,
+  pad4, leagueIdOf, currentSeasonOf, resolveSeason, seasonOfAsOf, teamText, gap, fact, yearFact, fail, routeFail, noRecord, dedupeGaps,
 } from "./history_finishes.js";
 
 const TX_ROUTE = "/api/player-transactions";
@@ -169,6 +169,7 @@ const tool = defineTool({
 
       const facts = [];
       const src = "MFL playerProfile and rosters via /api/player-bundle";
+      facts.push(yearFact(year, src, "A", factAsOf));
       if (profile && profile.name) facts.push(fact("name", "Player name", profile.name, "text", src, "A", factAsOf));
       if (profile && profile.position) facts.push(fact("position", "Position", profile.position, "text", src, "A", factAsOf));
       if (profile && profile.team) facts.push(fact("nfl_team", "NFL team", profile.team, "text", src, "A", factAsOf));
@@ -237,6 +238,13 @@ const tool = defineTool({
     const shown = events.slice(0, MAX_EVENT_FACTS);
     if (events.length > shown.length) gaps.push(gap(`Only the first ${shown.length} of ${events.length} moves are itemized as facts; pass a season to narrow the list.`, "partial_coverage", "none (narrow with a season)"));
     const src = "MFL transactions, src_draft_picks, ups_tag_master and ups_extension_master via /api/player-transactions";
+    // Year facts: one per distinct season among the itemized moves, plus the range actually covered by this result.
+    const seasonsShown = [...new Set(shown.map((e) => e.season).filter((x) => x != null))].sort((a, b) => a - b);
+    for (const yr of seasonsShown) facts.push(yearFact(yr, src, "C", factAsOf));
+    if (seasonsShown.length) {
+      facts.push(fact("first_season", "First season with a move in this result", seasonsShown[0], "season", src, "C", factAsOf));
+      facts.push(fact("last_season", "Last season with a move in this result", seasonsShown[seasonsShown.length - 1], "season", src, "C", factAsOf));
+    }
     for (const e of shown) {
       const k = `e${e.seq != null ? e.seq : shown.indexOf(e) + 1}`;
       const g = eventGrade(e);

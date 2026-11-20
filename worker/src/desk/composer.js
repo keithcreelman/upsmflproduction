@@ -6,7 +6,7 @@
 import { formatFact, MODEL_CARD_STATES, GAP_REASONS } from "./contract.js";
 import { MODELS, getPrompt, promptHash } from "./prompts.js";
 import { scanForInjection, wrapAsData, INJECTION_NOTE } from "./injection.js";
-import { buildFactIndex, collectToolGaps, MAX_CARD_GAPS, LIMITS } from "./validator.js";
+import { buildFactIndex, collectToolGaps, anchorSet, MAX_CARD_GAPS, LIMITS } from "./validator.js";
 
 const STR = (max) => ({ type: "string", maxLength: max });
 export const EMIT_CARD_TOOL = Object.freeze({
@@ -52,28 +52,76 @@ function isNoise(env) {
 // This is the only source for cite binding (validator ctx.retrievedAnchors) and for the excerpt the server shows beside a cite.
 // `children` and `suggestions` are pointers, not retrieved text, so they are not walked.
 export const RULE_TOOLS = Object.freeze(["rules.search", "rules.get"]);
-const EXCERPT_CHARS = 400;
+const EXCERPT_CHARS = 400;           // what the card displays beside a cite
+export const BODY_CHARS = 1500;      // what the composer is shown per rule (its reading material, never displayed)
+export const MAX_RULES_WITH_TEXT = 4;
+export const MAX_RULE_TITLES = 4;    // further retrieved rules are listed by title only
+const MAX_GLOSSARY_ENTRIES = 4;
+const GLOSSARY_DEF_CHARS = 700;
+const GLOSSARY_CAVEAT_CHARS = 300;
 export function retrievedRules(envelopes, max = 200) {
   const out = new Map();
+  let toolId = "";
   const walk = (v, canon, depth) => {
     if (!v || typeof v !== "object" || depth > 6 || out.size >= max) return;
     if (Array.isArray(v)) { for (const x of v) walk(x, canon, depth + 1); return; }
     const sha = typeof v.canon_sha === "string" ? v.canon_sha : canon;
     if (typeof v.anchor === "string" && !out.has(v.anchor)) {
+      const full = String(v.text || v.snippet || v.summary || v.excerpt || "");
       out.set(v.anchor, {
-        anchor: v.anchor, canon_sha: sha ? String(sha).slice(0, 7) : "",
+        anchor: v.anchor, canon_sha: sha ? String(sha).slice(0, 7) : "", tool: toolId,
         title: String(v.title || "").slice(0, 160), path: String(v.path || v.section || "").slice(0, 200),
-        text: String(v.text || v.snippet || v.summary || v.excerpt || "").slice(0, EXCERPT_CHARS),
+        text: full.slice(0, EXCERPT_CHARS), body: full.slice(0, BODY_CHARS),
       });
     }
     for (const k of Object.keys(v)) if (k !== "children" && k !== "suggestions" && v[k] && typeof v[k] === "object") walk(v[k], sha, depth + 1);
   };
-  for (const e of envelopes || []) if (e && e.status === "ok" && RULE_TOOLS.includes(e.tool)) walk(e.data, null, 0);
+  for (const e of envelopes || []) if (e && e.status === "ok" && RULE_TOOLS.includes(e.tool)) { toolId = e.tool; walk(e.data, null, 0); }
+  // A successful glossary.lookup returns the canon anchors its entries are tied to; those anchors were returned in this run, so they
+  // may be cited, and the excerpt is the glossary definition (labeled as such), taken from the tool data like any other.
+  for (const e of envelopes || []) {
+    if (!e || e.status !== "ok" || e.tool !== "glossary.lookup") continue;
+    for (const g of glossaryEntries(e)) {
+      for (const a of g.anchors) {
+        if (out.has(a) || out.size >= max) continue;
+        out.set(a, { anchor: a, canon_sha: "", tool: "glossary.lookup", title: `Glossary: ${g.term}`.slice(0, 160), path: "League glossary", text: g.definition.slice(0, EXCERPT_CHARS), body: g.definition.slice(0, BODY_CHARS) });
+      }
+    }
+  }
   return out;
 }
 export function collectRules(envelopes) { return [...retrievedRules(envelopes, 8).values()]; }
 
-export function summarizeEvidence(envelopes) {
+// Entries of one ok glossary.lookup result: term, definition, caveat, the canon anchors and source files behind it.
+export function glossaryEntries(env) {
+  const out = [];
+  const list = env && env.data && Array.isArray(env.data.entries) ? env.data.entries : [];
+  for (const e of list) {
+    if (!e || typeof e !== "object" || typeof e.term !== "string") continue;
+    const sources = Array.isArray(e.sources) ? e.sources : [];
+    out.push({
+      term: e.term.slice(0, 80), kind: String(e.kind || "").slice(0, 30), aliases: (Array.isArray(e.aliases) ? e.aliases : []).filter((a) => typeof a === "string").map((a) => a.slice(0, 40)).slice(0, 8), definition: String(e.definition || "").slice(0, GLOSSARY_DEF_CHARS),
+      caveat: String(e.caveat || "").slice(0, GLOSSARY_CAVEAT_CHARS), canonSilent: !!e.canon_silent,
+      anchors: [...new Set(sources.map((s) => (s && typeof s.anchor === "string" ? s.anchor : "")).filter(Boolean))].slice(0, 6),
+      files: [...new Set(sources.map((s) => (s && typeof s.file === "string" ? s.file : "")).filter(Boolean))].slice(0, 3),
+    });
+    if (out.length >= MAX_GLOSSARY_ENTRIES) break;
+  }
+  return out;
+}
+
+// League terms (and their aliases) the glossary returned this run: the validator lets the card write them as spelled.
+export function glossaryTerms(envelopes) {
+  const out = [];
+  for (const e of envelopes || []) {
+    if (!e || e.status !== "ok" || e.tool !== "glossary.lookup") continue;
+    for (const g of glossaryEntries(e)) out.push(g.term, ...g.aliases);
+  }
+  return [...new Set(out)];
+}
+
+// opts: { canonSha } the 7 character canon version to print beside glossary anchors; { rulesIndex } to list only citable glossary anchors.
+export function summarizeEvidence(envelopes, opts = {}) {
   const real = (envelopes || []).filter((e) => !isNoise(e));
   const lines = ["TOOLS RUN:"];
   for (const e of real) lines.push(`- ${e.call_id} ${e.tool}: ${e.status}`);
@@ -94,10 +142,26 @@ export function summarizeEvidence(envelopes) {
     lines.push(`- ${e.call_id} ${e.tool}: ${e.status}${why ? " | " + why : ""}`);
   }
   if (!nRef) lines.push("- (none)");
-  lines.push("RULES RETRIEVED (cite by anchor and canon_sha only):");
-  const rules = collectRules(real);
-  for (const r of rules) lines.push(`- anchor=${r.anchor} canon_sha=${r.canon_sha} | ${r.title} | ${r.text}`);
-  if (!rules.length) lines.push("- (none)");
+  lines.push("RULES RETRIEVED (cite by anchor and canon_sha only; the text is the rule's own words, there to read, not to copy digits from):");
+  const all = [...retrievedRules(real).values()].filter((r) => r.tool !== "glossary.lookup");
+  // rules.get text first (the full rule), then search hits; the first few with text, the next few by title only.
+  const ranked = [...all.filter((r) => r.tool === "rules.get"), ...all.filter((r) => r.tool !== "rules.get")];
+  ranked.slice(0, MAX_RULES_WITH_TEXT).forEach((r) => lines.push(`- anchor=${r.anchor} canon_sha=${r.canon_sha} | ${r.title} | ${r.path}\n  text: ${r.body}`));
+  ranked.slice(MAX_RULES_WITH_TEXT, MAX_RULES_WITH_TEXT + MAX_RULE_TITLES).forEach((r) => lines.push(`- anchor=${r.anchor} canon_sha=${r.canon_sha} | ${r.title} (title only)`));
+  if (!ranked.length) lines.push("- (none)");
+  lines.push("GLOSSARY (league terms; write a term exactly as spelled here, even with a digit in it; a definition is not a number source; cite its canon anchor with canon_sha, never a file):");
+  const idx = opts.rulesIndex ? anchorSet(opts.rulesIndex) : null;
+  let nGloss = 0;
+  for (const e of real) {
+    if (e.status !== "ok" || e.tool !== "glossary.lookup") continue;
+    for (const g of glossaryEntries(e)) {
+      nGloss += 1;
+      const anchors = g.anchors.filter((a) => !idx || idx.has(a));
+      const cite = anchors.length ? `canon anchors (cite with canon_sha ${opts.canonSha || "from RULES"}): ${anchors.join(", ")}` : "no citable canon anchor";
+      lines.push(`- ${g.term} (${g.kind})${g.canonSilent ? " [canon is silent on this term]" : ""} | ${g.definition}${g.caveat ? ` | caveat: ${g.caveat}` : ""} | ${cite}${g.files.length ? ` | code source: ${g.files.join(", ")}` : ""}`);
+    }
+  }
+  if (!nGloss) lines.push("- (none)");
   return lines.join("\n");
 }
 
@@ -112,8 +176,8 @@ export function composerMessages({ question, asOf, evidenceText, suspicious, err
 }
 
 // Calls the model once. Returns { ok:true, card, suspicious } | { ok:false, blocked } | { ok:false, noCard:true }.
-export async function composeCard({ question, asOf, envelopes, call, errors, extraSuspicious }) {
-  const evidenceText = summarizeEvidence(envelopes);
+export async function composeCard({ question, asOf, envelopes, call, errors, extraSuspicious, canonSha, rulesIndex }) {
+  const evidenceText = summarizeEvidence(envelopes, { canonSha: canonSha ? String(canonSha).slice(0, 7) : "", rulesIndex });
   const scan = scanForInjection(evidenceText);
   const suspicious = scan.suspicious || !!extraSuspicious;
   const res = await call({

@@ -18,6 +18,14 @@ const RESERVE_PER_SLOT = 1000;
 const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
 const int = (v) => { const n = Number(v); return Number.isFinite(n) ? Math.round(n) : null; };
 
+// A team name becomes a FACT the card can quote, so free-form route text is not passed through: only a short, name-shaped string is.
+// Anything else (an instruction planted in a name, a long sentence, symbols such as $) falls back to the id alone.
+const NAME_SHAPE = /^[\p{L}\p{N} .'&!-]{1,40}$/u;
+function teamLabel(name, id) {
+  const n = String(name == null ? "" : name).trim();
+  return NAME_SHAPE.test(n) ? `${n} (${id})` : `Team (${id})`;
+}
+
 function refuse(code, reason, gap, provenance) {
   return {
     status: "refused", data: null, facts: [],
@@ -108,7 +116,10 @@ export default defineTool({
     const rosterCount = players.length - taxi;      // the auction's own roster count: everything except taxi (IR counts)
     const asOf = "current";
     const f = (key, label, value, unit, grade) => ({ key, label, value, unit, as_of: asOf, source: SOURCE, grade });
+    const teamId = pad4(team.franchise_id);
     const facts = [
+      f("franchise_id", "Franchise id this cap position belongs to", teamId, "id", "A"),
+      f("team_name", "Team name as the roster workbench returns it", teamLabel(team.franchise_name, teamId), "text", "A"),
       f("salary_cap", "Salary cap amount (MFL league setting)", cap, "usd", "A"),
       f("committed_salary", "Committed salary: sum of current cap hits (taxi $0, IR 50%, expired $0; an unknown contract counts its salary)", committed, "usd", "C"),
       f("salary_adjustments", `Salary adjustments total (${SIGN})`, adj, "usd", "C"),

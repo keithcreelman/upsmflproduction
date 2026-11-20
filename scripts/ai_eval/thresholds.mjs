@@ -26,7 +26,8 @@ export const POPULATIONS = Object.freeze({
   TFL: (c) => c.category === "TFL",
   RUL_P1: (c) => c.category === "RUL" && c.target_phase === "P1",
   BEYOND: (c) => BEYOND_PHASES.includes(c.target_phase) && DECLINE_P1.includes(c.p1_expected),
-  RECORDS_P1: (c) => RECORD_CATEGORIES.includes(c.category) && c.target_phase === "P1",
+  // records exactness is only measurable where the case expects an answer; a correct decline is not "inexact"
+  RECORDS_P1: (c) => RECORD_CATEGORIES.includes(c.category) && c.target_phase === "P1" && ANSWERABLE_P1.includes(c.p1_expected),
   P1_ANSWERABLE: (c) => ANSWERABLE_P1.includes(c.p1_expected),
   CITES: () => false,                                                                // counted in a run (every cite with a claim), not from the bank
 });

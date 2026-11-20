@@ -16,6 +16,14 @@ const SOURCE = "MFL via /roster-workbench";
 const pad4 = (v) => String(v == null ? "" : v).replace(/\D/g, "").padStart(4, "0").slice(-4);
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
 
+// A team name becomes a FACT the card can quote, so free-form route text is not passed through: only a short, name-shaped string is.
+// Anything else (an instruction planted in a name, a long sentence, symbols such as $) falls back to the id alone.
+const NAME_SHAPE = /^[\p{L}\p{N} .'&!-]{1,40}$/u;
+function teamLabel(name, id) {
+  const n = String(name == null ? "" : name).trim();
+  return NAME_SHAPE.test(n) ? `${n} (${id})` : `Team (${id})`;
+}
+
 function missing(knowledge) {
   if (!knowledge || !knowledge.leagueId) return "knowledge.leagueId";
   if (!knowledge.currentSeason) return "knowledge.currentSeason";
@@ -96,7 +104,10 @@ export default defineTool({
     const counts = { players: players.length, active: players.length - taxi, taxi, ir, contract_unknown: unknown };
 
     const asOf = "current";
+    const teamId = pad4(team.franchise_id);
     const facts = [
+      { key: "franchise_id", label: "Franchise id this roster belongs to", value: teamId, unit: "id", as_of: asOf, source: SOURCE, grade: "A" },
+      { key: "team_name", label: "Team name as the roster workbench returns it", value: teamLabel(team.franchise_name, teamId), unit: "text", as_of: asOf, source: SOURCE, grade: "A" },
       { key: "player_count", label: "Players on the roster (active, IR and taxi)", value: counts.players, unit: "count", as_of: asOf, source: SOURCE, grade: "A" },
       { key: "active_count", label: "Players on the roster excluding the taxi squad (IR counts)", value: counts.active, unit: "count", as_of: asOf, source: SOURCE, grade: "A" },
       { key: "taxi_count", label: "Players on the taxi squad", value: counts.taxi, unit: "count", as_of: asOf, source: SOURCE, grade: "A" },

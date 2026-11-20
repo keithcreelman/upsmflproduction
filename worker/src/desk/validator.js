@@ -25,6 +25,7 @@
 //   facts?: Map|object id -> fact {id,value,unit,grade,data_class,call_id,tool,status}  // default: buildFactIndex(envelopes)
 //   knowledge: { rules },                                   // rules index (see anchorSet)
 //   ceiling: "P2",                                          // the caller's data-class ceiling
+//   allowedTerms: league terms a glossary.lookup returned this run (written as spelled, digits allowed: "Ext1")
 //   retrievedAnchors: Set|Array|Map|object of rule anchors returned this run by rules.search / rules.get (absent = none retrieved)
 //   asOf: "current" | "YYYY-MM-DD",           // the run's effective as_of
 //   today?: "YYYY-MM-DD",                                   // for "is the as_of in the past"; default: the clock
@@ -115,7 +116,7 @@ export function findSpelledQuantities(text) {
 
 // ── Prose check ───────────────────────────────────────────────────────────────────────────────────
 // Returns { tokens: [factId...] }. Pushes errors for digits, spelled quantities, markup, malformed or disallowed tokens, length.
-function checkProse(text, path, opts, errors) {
+function checkProseBase(text, path, opts, errors) {
   const o = { allowTokens: true, max: 400, ...opts };
   if (typeof text !== "string") { errors.push({ code: CODES.BAD_SHAPE, path, message: "must be a string" }); return { tokens: [] }; }
   if (text.length > o.max) errors.push({ code: CODES.OVERSIZE, path, message: `longer than ${o.max} characters` });
@@ -126,6 +127,8 @@ function checkProse(text, path, opts, errors) {
   if (tokens.length && !o.allowTokens) errors.push({ code: CODES.TOKEN_NOT_ALLOWED_HERE, path, message: "fact tokens are not allowed in this field" });
   if (/<\/?[a-zA-Z!][^>]*>|https?:\/\/|\bdata:[a-z]+\/|\bjavascript:|\]\(\s*[a-z]+:/i.test(rest)) errors.push({ code: CODES.UNSAFE_MARKUP, path, message: "HTML, links and URLs are not allowed" });
   rest = rest.replace(DIGIT_PROPER_NOUNS, " ");
+  // League terms a tool returned in this run (glossary.lookup entries) may be written as spelled, even with a digit ("Ext1").
+  if (o.termRe) rest = rest.replace(o.termRe, " ");
   if (/\p{N}/u.test(rest)) errors.push({ code: CODES.DIGIT_IN_PROSE, path, message: "a digit outside a fact token" });
   const spelled = findSpelledQuantities(rest);
   if (spelled.length) errors.push({ code: CODES.SPELLED_QUANTITY, path, message: `a spelled quantity outside a fact token (${spelled.slice(0, 3).join(", ")})` });
@@ -226,9 +229,19 @@ function isPastAsOf(asOf, today) {
 }
 
 // ── validateCard ──────────────────────────────────────────────────────────────────────────────────
+// Terms a glossary.lookup returned (code data): letters required, bounded, regex-safe. Exact spelling, whole word.
+export function termRegex(terms) {
+  const list = [...new Set((terms || []).filter((x) => typeof x === "string" && x.length >= 2 && x.length <= 40 && /\p{L}/u.test(x)))].sort((a, b) => b.length - a.length).slice(0, 60);
+  if (!list.length) return null;
+  const esc = list.map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return new RegExp(`(?<![\\p{L}\\p{N}])(?:${esc.join("|")})(?![\\p{L}\\p{N}])`, "gu");
+}
+
 export function validateCard(card, ctx) {
   const errors = [];
   const c = ctx || {};
+  const termRe = termRegex(c.allowedTerms);
+  const checkProse = (text, path, opts, errs) => checkProseBase(text, path, { ...opts, termRe }, errs);
   const envelopes = Array.isArray(c.envelopes) ? c.envelopes : [];
   const getFact = factLookup(c);
   const ceiling = c.ceiling || "P0";

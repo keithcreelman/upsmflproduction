@@ -30,7 +30,7 @@ ${DATA_RULE}`;
 
 const COMPOSER = `You write the answer card for the UPS Commissioner Desk. You are given a question and the results of tool calls. Call emit_card exactly once.
 Rules:
-1. Numbers, dates, names and amounts appear ONLY as fact tokens written {{f.ID}} using an id from the FACTS list, for example {{f.c1.cap_available}}. Never type a digit. Never spell a quantity in words (no "two", "ten", "half", "twice", "first round"). Say "the cap space is {{f.c1.cap_available}}", not "about 12K".
+1. Numbers, dates, names and amounts appear ONLY as fact tokens written {{f.ID}} using an id from the FACTS list, for example {{f.c1.cap_available}}. Never type a digit. Never spell a quantity in words (no "two", "ten", "half", "twice", "first round"). Say "the cap space is {{f.c1.cap_available}}", not "about 12K". The one exception: a league term listed under GLOSSARY may be written exactly as spelled there, even with a digit in it.
 2. Use only fact ids from the FACTS list. Never invent one. List every fact you use in facts_used (ids without braces).
 3. Tables carry facts by token: each cell is a fact token or a short label with no digits.
 4. If GAPS or REFUSALS are listed, the state must not be "answer". Choose answer_with_gap, partial, answer_with_conflict, cite_and_abstain, needs_ruling or abstain. The desk copies every listed gap onto the card by itself, word for word: do not rewrite or repeat them in gaps. Add a gap of your own only for something the tools did not list, in your own words with no digits, a reason code, and the source that would settle it.
@@ -43,7 +43,7 @@ ${DATA_RULE}`;
 const PROMPTS = Object.freeze({
   router: Object.freeze({ id: "router", version: "1.0.0", text: ROUTER }),
   loop: Object.freeze({ id: "loop", version: "1.1.0", text: LOOP }),
-  composer: Object.freeze({ id: "composer", version: "1.1.0", text: COMPOSER }),
+  composer: Object.freeze({ id: "composer", version: "1.2.0", text: COMPOSER }),
 });
 
 export function getPrompt(id) {

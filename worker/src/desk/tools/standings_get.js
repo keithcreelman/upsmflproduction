@@ -16,7 +16,7 @@
 import { defineTool } from "../registry.js";
 import {
   analyzeSeasonFinishes, labelFinish, seasonNoteTexts, pad4, leagueIdOf, currentSeasonOf, resolveSeason, teamText,
-  gap, fact, fail, routeFail, noRecord, dedupeGaps, DATE_MAPPED_GAP, OWNER_GAP,
+  gap, fact, yearFact, fail, routeFail, noRecord, dedupeGaps, DATE_MAPPED_GAP, OWNER_GAP,
 } from "./history_finishes.js";
 
 const STANDINGS_ROUTE = "/api/standings";
@@ -231,7 +231,7 @@ const tool = defineTool({
     const facts = [];
     const src = "src_standings via /api/standings";
     const bsrc = "src_final_standings and src_schedule via /api/playoff-bracket";
-    facts.push(fact("season", "Season", season, "season", src, "A", factAsOf));
+    facts.push(yearFact(season, src, "A", factAsOf));
     facts.push(fact("data_basis", "What these results are", complete ? "final season results" : "latest standings; the season is in progress", "text", src, "C", factAsOf));
     if (rsInfo && rsInfo.through_week != null && !complete) facts.push(fact("through_week", "Latest week in the data", num(rsInfo.through_week), "week", src, "A", factAsOf));
     if (standings) {

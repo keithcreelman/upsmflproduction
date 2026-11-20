@@ -41,7 +41,7 @@ function cleanBlock(b) {
 }
 
 // ctx: { caller, question, asOf, route, call, deps }  (call = the pipeline's metered model caller)
-export async function runLoop({ caller, question, asOf, forbidCurrent = false, route, call, deps }) {
+export async function runLoop({ caller, question, asOf, forbidCurrent = false, range = null, route, call, deps }) {
   assertCommishCaller(caller);
   const specs = toolSpecsForModel();
   const offered = new Set(specs.map((s) => s.name));
@@ -49,7 +49,8 @@ export async function runLoop({ caller, question, asOf, forbidCurrent = false, r
   const hash = await promptHash("loop");
   const toolIds = specs.map((s) => toolIdFromModelName(s.name));
   const pinned = asOf && asOf !== "current" ? `Pinned as_of for this question: ${asOf}` : "as_of for this question: current unless the question names a past date";
-  const compare = forbidCurrent ? "\nThis question compares several dates. Pass an explicit date (YYYY-MM-DD) as as_of on every call, one call per date. A call with as_of current is refused." : "";
+  const rangeText = range ? ` It covers a range (${range.last_n ? `the last ${range.last_n} ${range.unit}` : `from ${range.from}${range.to ? ` to ${range.to}` : " to now"}`}): check each season in it with its own dated call.` : "";
+  const compare = forbidCurrent ? `\nThis question compares several dates.${rangeText} Pass an explicit date (YYYY-MM-DD) as as_of on every call, one call per date. A call with as_of current is refused.` : "";
   const first = `${wrapAsData("question", question, { id: "q" })}\n${pinned}${compare}\nRoute: ${route ? route.intent : "unknown"} (${route ? route.domains.join(", ") : ""})`;
   const messages = [{ role: "user", content: [{ type: "text", text: first }] }];
 

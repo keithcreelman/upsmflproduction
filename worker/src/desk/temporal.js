@@ -1,20 +1,23 @@
 // Commissioner Desk: temporal scope, derived IN CODE from the question text. The model router is never the authority on
 // "which date is this question about": a router that misses a date must not let today's data answer a past-date question.
 //
-//   extractTemporal(question, { today, currentSeason }) -> { dates, years, currentMentioned, relative }
+//   extractTemporal(question, { today, currentSeason }) -> { dates, years, currentMentioned, relative, range }
 //   deriveTemporal(question, { requestedAsOf, today, currentSeason }) -> {
-//     source: "user" | "text" | "none",   asOf: ISO date | null,   comparison: boolean,   needsDate: boolean, ... }
+//     source: "user" | "text" | "none",   asOf: ISO date | null,   comparison: boolean,   range: {...} | null,   needsDate: boolean, ... }
 //
 // Rules (docs/ai_desk, coordinator brief):
 //  1. a date the caller passed as as_of wins;
-//  2. else exactly one distinct explicit past (or future) date or year in the text -> that date (a bare year is YYYY-07-01;
+//  2. a RANGE ("since 2011", "from 2011", "after 2011", "2011 onward", "2017 to 2025", "between 2017 and 2025", "the last five
+//     seasons") is not one date: it is treated exactly like a multi-date comparison (below) and exposed as range = {from, to}
+//     (to is null when the range runs to now; "the last N seasons" has from and to null and last_n/unit set);
+//  3. else exactly one distinct explicit past (or future) date or year in the text -> that date (a bare year is YYYY-07-01;
 //     "October 2025" is 2025-10-01); the current season's year is "now", not a past scope;
-//  3. two or more distinct scopes (a comparison, including a past year next to the current season) -> no single date: the loop
+//  4. two or more distinct scopes (a comparison, including a past year next to the current season) -> no single date: the loop
 //     refuses any tool call whose as_of is "current", and the validator rejects any used fact dated "current";
-//  4. a relative past phrase ("last season", "yesterday", "two years ago") with no date to derive -> needsDate: the pipeline answers
+//  5. a relative past phrase ("last season", "yesterday", "two years ago") with no date to derive -> needsDate: the pipeline answers
 //     with a code-built abstain card and makes no model call;
-//  5. the router may only ADD precision (a date inside the same bare year, or a date when the text has no signal at all);
-//  6. no signal -> "current".
+//  6. the router may only ADD precision (a date inside the same bare year, or a date when the text has no signal at all);
+//  7. no signal -> "current".
 
 import { isAsOf } from "./contract.js";
 
@@ -40,35 +43,78 @@ const RELATIVE_RES = [
   /\bearlier\s+(?:this\s+)?(?:season|year)\b/i,
 ];
 
+// ── Ranges ────────────────────────────────────────────────────────────────────────────────────────
+const TOKEN = "(\\d{4}-\\d{2}-\\d{2}|20[1-9]\\d)";
+const BETWEEN_RE = new RegExp(`\\bbetween\\s+(?:the\\s+)?${TOKEN}\\s+(?:and|&)\\s+(?:the\\s+)?${TOKEN}(?![\\d-])`, "gi");
+const SPAN_RE = new RegExp(`(?<![\\d-])(?:from\\s+)?${TOKEN}\\s*(?:to|through|thru|until|till|[-\\u2013\\u2014])\\s*${TOKEN}(?![\\d-])`, "gi");
+const NUMBER_WORDS = { two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20 };
+const LAST_N_RE = new RegExp(`\\b(?:the\\s+)?(?:last|past|previous|prior)\\s+(\\d{1,2}|${Object.keys(NUMBER_WORDS).join("|")})\\s+(seasons?|years?)\\b`, "gi");
+// "since 2011", "from 2011", "after 2011" (directly before the date), "2011 onward", "2011 and later".
+const OPEN_BEFORE = /\b(?:since|after|from)\s+(?:the\s+)?$/i;
+const OPEN_AFTER = /^\s*(?:onwards?\b|forwards?\b|and\s+(?:later|after|beyond|on)\b)/i;
+const tokenValue = (t) => (/^\d{4}$/.test(t) ? Number(t) : t);
+const tokenKey = (t) => (/^\d{4}$/.test(t) ? `${t}-07-01` : t);
+
 export function extractTemporal(question, { today, currentSeason } = {}) {
-  let text = String(question || "");
+  const original = String(question || "");
+  let text = original;
+  let range = null;
+  const setRange = (r) => { if (!range) range = r; };
+
+  // 1. bounded ranges: "between 2017 and 2025", "2017 to 2025", "from 2017 through 2025", "2017-2025"
+  const bounded = (m, a, b) => {
+    const [x, y] = tokenKey(a) <= tokenKey(b) ? [a, b] : [b, a];
+    setRange({ from: tokenValue(x), to: tokenValue(y) });
+    return " ";
+  };
+  text = text.replace(BETWEEN_RE, (m, a, b) => bounded(m, a, b));
+  text = text.replace(SPAN_RE, (m, a, b) => bounded(m, a, b));
+  // 2. "the last N seasons / years" (N of one is the relative phrase "last season", handled below)
+  text = text.replace(LAST_N_RE, (m, n, unit) => {
+    const k = /^\d+$/.test(n) ? Number(n) : NUMBER_WORDS[n.toLowerCase()];
+    if (!k || k < 2) return m;
+    setRange({ from: null, to: null, last_n: k, unit: unit.toLowerCase().replace(/s$/, "") + "s" });
+    return " ";
+  });
+
+  // 3. full dates (an open boundary makes the date the start of a range, not a single date)
   const dates = [];
   for (const { re, to } of DATE_PATTERNS) {
     text = text.replace(re, (...args) => {
-      const d = to(args.slice(0, -2)); // [match, ...captures]
-      if (!d) return args[0];
-      dates.push(d);
+      const m = args.slice(0, -2); // [match, ...captures]
+      const offset = args[args.length - 2];
+      const str = args[args.length - 1];
+      const d = to(m);
+      if (!d) return m[0];
+      if (OPEN_BEFORE.test(str.slice(Math.max(0, offset - 14), offset)) || OPEN_AFTER.test(str.slice(offset + m[0].length, offset + m[0].length + 22))) setRange({ from: d, to: null });
+      else dates.push(d);
       return " ";
     });
   }
+
+  // 4. bare years
   const season = Number(currentSeason) || Number(String(today || new Date().toISOString()).slice(0, 4));
   const years = [];
   let currentMentioned = false;
   for (const m of text.matchAll(YEAR_RE)) {
     const y = Number(m[1]);
+    if (OPEN_BEFORE.test(text.slice(Math.max(0, m.index - 14), m.index)) || OPEN_AFTER.test(text.slice(m.index + 4, m.index + 26))) { setRange({ from: y, to: null }); continue; }
     if (y === season) currentMentioned = true;
     else if (!years.includes(y)) years.push(y);
   }
-  const relative = RELATIVE_RES.map((re) => (String(question || "").match(re) || [])[0]).filter(Boolean).map((s) => s.toLowerCase());
-  return { dates: [...new Set(dates)], years: years.sort(), currentMentioned, relative };
+  const relative = RELATIVE_RES.map((re) => (original.match(re) || [])[0]).filter(Boolean).map((s) => s.toLowerCase());
+  return { dates: [...new Set(dates)], years: years.sort(), currentMentioned, relative, range };
 }
 
 export function deriveTemporal(question, { requestedAsOf = "current", today, currentSeason } = {}) {
   const t0 = today || new Date().toISOString().slice(0, 10);
-  const base = { source: "none", asOf: null, comparison: false, needsDate: false, dates: [], years: [], relative: [], currentMentioned: false, bareYear: null };
+  const base = { source: "none", asOf: null, comparison: false, range: null, needsDate: false, dates: [], years: [], relative: [], currentMentioned: false, bareYear: null };
   const ex = extractTemporal(question, { today: t0, currentSeason });
-  Object.assign(base, { dates: ex.dates, years: ex.years, relative: ex.relative, currentMentioned: ex.currentMentioned });
+  Object.assign(base, { dates: ex.dates, years: ex.years, relative: ex.relative, currentMentioned: ex.currentMentioned, range: ex.range });
   if (requestedAsOf && requestedAsOf !== "current") return { ...base, source: "user", asOf: requestedAsOf };
+
+  // A range is never one date: no override, "current" is forbidden to the loop and the validator, the model passes dates.
+  if (ex.range) return { ...base, source: "text", comparison: true };
 
   // Distinct scopes. A date equal to today is "now"; a year that a full date already covers is not counted again.
   const scopes = new Map(); // key -> ISO date
