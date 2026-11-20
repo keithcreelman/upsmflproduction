@@ -10,6 +10,7 @@ import { detectActionRequest } from "../worker/src/desk/router.js";
 import { scanForInjection, wrapAsData, INJECTION_NOTE } from "../worker/src/desk/injection.js";
 import { promptHash, listPrompts, getPrompt, MODELS } from "../worker/src/desk/prompts.js";
 import { LOOP_LIMITS } from "../worker/src/desk/loop.js";
+import { deriveTemporal, extractTemporal } from "../worker/src/desk/temporal.js";
 
 const SHA = "194f8df4109cefab2ef7133a0c59d73d7d588954";
 const RULES = { canon_sha: SHA, anchors: ["s1-c4", "s2-t6-1"] };
@@ -37,7 +38,7 @@ function defineStubs(counters, o = {}) {
     inputSchema: { type: "object", properties: { franchise: { type: "string", pattern: "^\\d{4}$", maxLength: 4 } }, required: ["franchise"] }, asOf: { supports: "any" },
     async run() {
       counters.hist += 1;
-      return { status: "ok", data: null, facts: [{ key: "finish", label: "Finish", value: 7, unit: "rank", grade: "A" }],
+      return { status: "ok", data: null, facts: [{ key: "finish", label: "Finish", value: 7, unit: "rank", grade: "A", as_of: o.finishAsOf }],
         coverage: { supported: true, gaps: [o.gap || { what: "the archive is missing some seasons", why: "partial_coverage", source_needed: "the league archive" }] } };
     } });
   defineTool({ ...base, id: "cap.penalty_quote", description: "Quote a drop penalty (stub that always refuses).",
@@ -584,5 +585,164 @@ test("a malformed tool_use input is answered as an error and counted; a missing 
   const r2 = await ask({ plan: { loop: [weird, endTurn()], composer: [emit({ state: "abstain", lead_md: "Nothing could be checked." })] } });
   t.equal(r2.card.state, "abstain");
 });
+
+// ── Temporal scope is derived in code, never from the model router ────────────────────────────────
+const TODAY = "2026-11-19";
+const D = (q, o = {}) => deriveTemporal(q, { requestedAsOf: "current", today: TODAY, currentSeason: 2026, ...o });
+const ABSTAIN_DATE = { state: "abstain", lead_md: "That past date cannot be checked from the current state.", gaps: [{ what: "the tool answers for the current state only", why: "unsupported_as_of", source_needed: "a dated record" }] };
+const PLAIN = { state: "answer", lead_md: "Franchise {{f.c1.franchise}} has {{f.c1.cap_available}} of cap space.", facts_used: [] };
+const HIST_CARD = { state: "answer_with_gap", lead_md: "Franchise finished {{f.c1.finish}}.", facts_used: [] };
+const sendCurrent = [["cap__position", { franchise: "0003", as_of: "current" }]];
+
+test("temporal extractor: dates, month names, years, relative phrases, comparisons, and what is not a date", () => {
+  t.equal(D("What was my cap room on 2025-10-01?").asOf, "2025-10-01");
+  t.equal(D("cap on Oct 1, 2025?").asOf, "2025-10-01");
+  t.equal(D("cap on October 1 2025").asOf, "2025-10-01");
+  t.equal(D("cap on Sept. 3rd, 2024").asOf, "2024-09-03");
+  t.equal(D("cap on 1st October 2025").asOf, "2025-10-01");
+  t.equal(D("cap on 10/1/2025").asOf, "2025-10-01");
+  t.equal(D("cap in October 2025").asOf, "2025-10-01");
+  for (const q of ["Who owned him in 2019?", "Week 5 of 2019", "the 2019 season", "back in 2019", "before the 2019 draft", "2019-20 results"]) {
+    const r = D(q); t.equal(r.asOf, "2019-07-01", q); t.equal(r.bareYear, 2019);
+  }
+  t.equal(D("cap room in 2031").asOf, "2031-07-01", "a future year is a date too (the tools refuse it)");
+  // a year a full date already covers is not a second scope
+  t.equal(D("the 2025 season, as of 2025-10-01").comparison, false);
+  t.equal(D("the 2025 season, as of 2025-10-01").asOf, "2025-10-01");
+  // comparisons
+  for (const q of ["Compare 2019 and 2023", "cap on 2025-10-01 versus 2024-10-01", "2025 vs 2026", "since 2019 until now in 2026"]) t.equal(D(q).comparison, true, q);
+  t.equal(D("Compare 2019 and 2023").asOf, null);
+  // relative past phrases need a date
+  for (const q of ["Show last season standings", "what about yesterday", "cap last year", "two seasons ago", "as of last week", "the previous season", "3 years ago"]) {
+    const r = D(q); t.equal(r.needsDate, true, q); t.equal(r.asOf, null);
+  }
+  t.equal(D("last season in 2023").needsDate, false, "an explicit year beats a relative phrase");
+  t.equal(D("last season in 2023").asOf, "2023-07-01");
+  // no signal, the current season, today, ids and money are not scopes
+  for (const q of ["What is the cap space for franchise 0003?", "the 2026 season", "as of 2026-11-19", "$2024 on franchise 2010K", "Tag price for a quarterback?", "Feb 30, 2026 is not a date"]) {
+    const r = D(q); t.equal(r.asOf === null || /^2026/.test(r.asOf), true, q); t.equal(r.comparison, false, q); t.equal(r.needsDate, false, q);
+  }
+  t.equal(D("the 2026 season").source, "none");
+  // the caller's date wins over everything in the text
+  const u = D("Compare 2019 and 2023, last season", { requestedAsOf: "2022-05-05" });
+  t.deepEqual([u.source, u.asOf, u.comparison, u.needsDate], ["user", "2022-05-05", false, false]);
+  t.deepEqual(extractTemporal("Oct 1, 2025 and 2024", { today: TODAY, currentSeason: 2026 }).dates, ["2025-10-01"]);
+});
+
+test("a router that returns no date for an ISO-date question cannot let a current fact through", async () => {
+  const q = "What was the cap space for franchise 0003 on 2025-10-01?";
+  const r = await ask({ question: q, plan: { router: [route({ needs_as_of: null })], loop: [toolUses(sendCurrent), endTurn()], composer: [emit(PLAIN)], retry: [emit(ABSTAIN_DATE)] } });
+  t.equal(r.trace.as_of, "2025-10-01");
+  t.equal(r.trace.as_of_source, "text");
+  t.equal(r.counters.cap, 0, "the tool never saw a current request");
+  t.deepEqual(r.trace.as_of_overrides, [{ call_id: "c1", tool: "cap.position", sent: "current", forced: "2025-10-01" }]);
+  t.notEqual(r.card.state, "answer");
+  t.equal(r.card.state, "abstain");
+  t.equal(r.card.header.as_of, "2025-10-01");
+  // a tool that CAN answer a past date answers for that date: the fact carries the date, never "current"
+  const h = await ask({ question: q, plan: { router: [route({ needs_as_of: null })], loop: [toolUses([["history__finishes", { franchise: "0003", as_of: "current" }]]), endTurn()], composer: [emit(HIST_CARD)] } });
+  t.equal(h.card.facts["c1.finish"].as_of, "2025-10-01");
+  t.equal(h.card.state, "answer_with_gap");
+  // the router also sees the code-derived date as a hint
+  t.match(h.s.requests[0].messages[0].content[0].text, /Requested as_of: 2025-10-01/);
+});
+
+test("month-name dates and bare years are pinned in code too", async () => {
+  for (const [q, want] of [["What was the cap space for franchise 0003 on Oct 1, 2025?", "2025-10-01"], ["What was the cap space for franchise 0003 on October 1 2025?", "2025-10-01"], ["What was the cap space for franchise 0003 in 2019?", "2019-07-01"]]) {
+    const r = await ask({ question: q, plan: { router: [route({ needs_as_of: null })], loop: [toolUses(sendCurrent), endTurn()], composer: [emit(PLAIN)], retry: [emit(ABSTAIN_DATE)] } });
+    t.equal(r.trace.as_of, want, q);
+    t.equal(r.counters.cap, 0, q);
+    t.equal(r.card.state, "abstain", q);
+    t.equal(r.trace.as_of_overrides[0].forced, want);
+  }
+});
+
+test("a relative past phrase with no date: code-built abstain, no model call, digit-free gap", async () => {
+  for (const q of ["What was the cap space for franchise 0003 last season?", "Show yesterday's roster for franchise 0003", "cap two years ago"]) {
+    const r = await ask({ question: q, plan: {} });
+    t.equal(r.card.state, "abstain", q);
+    t.deepEqual(r.s.steps(), [], "no model call");
+    t.equal(r.counters.cap, 0);
+    t.deepEqual(r.card.gaps, [{ what: "The question refers to a past time without naming a date", why: "unsupported_as_of", source_needed: "the date to check" }]);
+    t.doesNotMatch(JSON.stringify(r.card.gaps), /\d/);
+    t.doesNotMatch(r.card.lead_md, /\d/);
+    t.equal(r.card.reason_code, "relative_date");
+    t.equal(r.card.footer.model_calls, 0);
+    t.deepEqual(r.card.facts, {});
+  }
+  // the caller's date, or a year in the text, makes it answerable; an action request stays out_of_scope
+  const okUser = await ask({ question: "What was the cap space for franchise 0003 last season?", asOf: "2025-10-01", plan: { loop: [toolUses(sendCurrent), endTurn()], composer: [emit(ABSTAIN_DATE)] } });
+  t.equal(okUser.trace.as_of, "2025-10-01");
+  t.ok(okUser.s.steps().includes("router"));
+  const act = await ask({ question: "Post last week's standings to Discord", plan: {} });
+  t.equal(act.card.state, "out_of_scope");
+});
+
+test("a comparison of several dates: current is refused to the loop and rejected by the validator", async () => {
+  const q = "Compare the finishes of franchise 0003 in 2019 and 2023";
+  const calls = [["cap__position", { franchise: "0003", as_of: "current" }], ["history__finishes", { franchise: "0003", as_of: "2019-07-01" }], ["history__finishes", { franchise: "0003" }], ["history__finishes", { franchise: "0003", as_of: "2023-07-01" }]];
+  const card = { state: "answer_with_gap", lead_md: "Franchise finished {{f.c2.finish}} then {{f.c4.finish}}.", facts_used: [] };
+  const r = await ask({ question: q, plan: { router: [route({ needs_as_of: "2019-01-01" })], loop: [toolUses(calls), endTurn()], composer: [emit(card)] } });
+  t.equal(r.trace.temporal.comparison, true);
+  t.equal(r.trace.as_of_source, "text_comparison");
+  t.equal(r.card.header.as_of, "multiple");
+  t.equal(r.counters.cap, 0, "a current call never ran");
+  t.equal(r.counters.hist, 2);
+  t.deepEqual(r.card.footer.tools.map((x) => x.status), ["error", "ok", "error", "ok"]);
+  t.deepEqual(r.trace.as_of_overrides, [], "nothing is overridden in a comparison");
+  const res = r.s.requests[2].messages.at(-1).content;
+  t.equal(res[0].is_error, true);
+  t.match(res[0].content[0].text, /as_of_required/);
+  t.match(res[0].content[0].text, /pass an explicit date/);
+  t.equal(res[2].is_error, true, "a call with no as_of is refused too");
+  t.match(r.s.requests[1].messages[0].content[0].text, /compares several dates/);
+  t.equal(r.card.state, "answer_with_gap");
+  t.equal(r.card.facts["c2.finish"].as_of, "2019-07-01");
+  t.equal(r.card.facts["c4.finish"].as_of, "2023-07-01");
+  t.equal(r.trace.router_as_of_ignored, true, "the router's date did not narrow the comparison");
+  // a fact dated "current" cannot back the comparison, even from a call that passed a date
+  const cur = await ask({ question: q, stub: { finishAsOf: "current" }, plan: { loop: [toolUses([calls[1]]), endTurn()], composer: [emit({ state: "answer_with_gap", lead_md: "Franchise finished {{f.c1.finish}}.", facts_used: [] })], retry: [emit({ state: "abstain", lead_md: "The comparison cannot be shown.", gaps: [{ what: "dated values are missing", why: "NO_RECORD" }] })] } });
+  t.deepEqual(cur.trace.attempts[0].codes, ["CURRENT_FACT_FOR_PAST_DATE"]);
+  t.equal(cur.card.state, "abstain");
+  // a past year next to the current season is a comparison as well
+  const mix = await ask({ question: "Compare the cap space of franchise 0003 in 2025 and 2026", plan: { loop: [toolUses(sendCurrent), endTurn()], composer: [emit(ABSTAIN_DATE)] } });
+  t.equal(mix.trace.temporal.comparison, true);
+  t.equal(mix.counters.cap, 0);
+});
+
+test("code wins over a router that names a different date; the router may only add precision", async () => {
+  const one = "What was the cap space for franchise 0003 on 2025-10-01?";
+  const lie = await ask({ question: one, plan: { router: [route({ needs_as_of: "2023-03-03" })], loop: [toolUses([["history__finishes", { franchise: "0003", as_of: "current" }]]), endTurn()], composer: [emit(HIST_CARD)] } });
+  t.equal(lie.trace.as_of, "2025-10-01");
+  t.equal(lie.trace.router_as_of_ignored, true);
+  t.equal(lie.card.facts["c1.finish"].as_of, "2025-10-01");
+  // a bare year: the router can refine inside that year, not move it
+  const yr = "What was the cap space for franchise 0003 in 2019?";
+  const refine = await ask({ question: yr, plan: { router: [route({ needs_as_of: "2019-09-08" })], loop: [toolUses(sendCurrent), endTurn()], composer: [emit(ABSTAIN_DATE)] } });
+  t.equal(refine.trace.as_of, "2019-09-08");
+  t.equal(refine.trace.as_of_source, "text+router");
+  const move = await ask({ question: yr, plan: { router: [route({ needs_as_of: "2021-01-01" })], loop: [toolUses(sendCurrent), endTurn()], composer: [emit(ABSTAIN_DATE)] } });
+  t.equal(move.trace.as_of, "2019-07-01");
+  t.equal(move.trace.router_as_of_ignored, true);
+  // with no temporal signal in the text the router's date is still used (precision the code cannot see)
+  const added = await ask({ question: "What was the cap space for franchise 0003 back then?", plan: { router: [route({ needs_as_of: "2023-03-03" })], loop: [toolUses(sendCurrent), endTurn()], composer: [emit(ABSTAIN_DATE)] } });
+  t.equal(added.trace.as_of, "2023-03-03");
+  t.equal(added.trace.as_of_source, "router");
+});
+
+test("a question with no temporal signal stays current", async () => {
+  const r = await ask({ plan: { router: [route({ needs_as_of: null })], loop: [toolUses(CAP_CALL), endTurn()], composer: [emit(GOOD_CARD())] } });
+  t.equal(r.trace.as_of, "current");
+  t.equal(r.trace.as_of_source, "default");
+  t.deepEqual(r.trace.as_of_overrides, []);
+  t.equal(r.card.state, "answer");
+  t.equal(r.counters.cap, 1);
+  t.equal(r.trace.temporal.source, "none");
+  // the current season's own year is not a past scope
+  const cur = await ask({ question: "What is the cap space for franchise 0003 in the 2026 season?", plan: { loop: [toolUses(CAP_CALL), endTurn()], composer: [emit(GOOD_CARD())] } });
+  t.equal(cur.trace.as_of, "current");
+  t.equal(cur.card.state, "answer");
+});
+
 
 await run("ai_desk_pipeline");

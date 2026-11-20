@@ -232,7 +232,7 @@ test("KEY ISOLATION: the shared key alone never starts a call; the switch alone 
   }
 });
 
-test("FAIL CLOSED: a provider error is finalized at zero cost and surfaces as a plain card; the key is never echoed", async () => {
+test("FAIL CLOSED: a provider error keeps the reservation as its cost (a 429 may have been processed) and surfaces as a plain card; the key is never echoed", async () => {
   const env = freshEnv();
   const net = makeNetwork(env, { router: [], loop: [], composer: [] });
   const base = globalThis.fetch;
@@ -247,7 +247,7 @@ test("FAIL CLOSED: a provider error is finalized at zero cost and surfaces as a 
   t.ok(["tool_failure", "budget_exceeded"].includes(r.json.card.state));
   t.ok(!r.text.includes(DESK_KEY) && !r.text.includes("slow down"), "the provider's body and the key are never echoed");
   const rows = env.UPS_MFL_DB.raw.prepare("SELECT cost_usd, error_code FROM ai_call_log WHERE mode='live'").all();
-  t.equal(rows.length, 1); t.equal(rows[0].cost_usd, 0); t.equal(rows[0].error_code, "http_error");
+  t.equal(rows.length, 1); t.ok(rows[0].cost_usd > 0, "a 429 may have been processed: the reservation is kept as the cost, never zero"); t.equal(rows[0].error_code, "http_error");
 });
 
 await run("ai_desk_live_wiring");

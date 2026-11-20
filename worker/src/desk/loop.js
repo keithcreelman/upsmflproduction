@@ -6,7 +6,7 @@
 // answers with a code-built tool_failure card. A tool_use for an unknown tool, or with extra arguments, is answered with an
 // error tool_result (the registry refuses it) and counted against the 12.
 
-import { runTool, toolSpecsForModel, toolIdFromModelName } from "./registry.js";
+import { runTool, envelope, toolSpecsForModel, toolIdFromModelName } from "./registry.js";
 import { formatFact, assertCommishCaller } from "./contract.js";
 import { MODELS, getPrompt, promptHash } from "./prompts.js";
 import { scanForInjection, wrapAsData } from "./injection.js";
@@ -41,7 +41,7 @@ function cleanBlock(b) {
 }
 
 // ctx: { caller, question, asOf, route, call, deps }  (call = the pipeline's metered model caller)
-export async function runLoop({ caller, question, asOf, route, call, deps }) {
+export async function runLoop({ caller, question, asOf, forbidCurrent = false, route, call, deps }) {
   assertCommishCaller(caller);
   const specs = toolSpecsForModel();
   const offered = new Set(specs.map((s) => s.name));
@@ -49,7 +49,8 @@ export async function runLoop({ caller, question, asOf, route, call, deps }) {
   const hash = await promptHash("loop");
   const toolIds = specs.map((s) => toolIdFromModelName(s.name));
   const pinned = asOf && asOf !== "current" ? `Pinned as_of for this question: ${asOf}` : "as_of for this question: current unless the question names a past date";
-  const first = `${wrapAsData("question", question, { id: "q" })}\n${pinned}\nRoute: ${route ? route.intent : "unknown"} (${route ? route.domains.join(", ") : ""})`;
+  const compare = forbidCurrent ? "\nThis question compares several dates. Pass an explicit date (YYYY-MM-DD) as as_of on every call, one call per date. A call with as_of current is refused." : "";
+  const first = `${wrapAsData("question", question, { id: "q" })}\n${pinned}${compare}\nRoute: ${route ? route.intent : "unknown"} (${route ? route.domains.join(", ") : ""})`;
   const messages = [{ role: "user", content: [{ type: "text", text: first }] }];
 
   const envelopes = [];
@@ -85,7 +86,11 @@ export async function runLoop({ caller, question, asOf, route, call, deps }) {
         if (input.as_of !== pinnedDate) overrides.push({ call_id: `c${callSeq}`, tool: toolId, sent: typeof input.as_of === "string" ? input.as_of.slice(0, 20) : null, forced: pinnedDate });
         input = { ...input, as_of: pinnedDate };
       }
-      const env = await runTool({ caller, callSeq }, toolId, input, deps);
+      let env;
+      if (forbidCurrent && !pinnedDate && !(input && typeof input === "object" && typeof input.as_of === "string" && input.as_of !== "current" && input.as_of !== "")) {
+        // A multi-date comparison: "current" (or no as_of) is refused by code; nothing runs. The call is counted.
+        env = envelope({ tool: toolId, call_id: `c${callSeq}`, status: "error", error: { code: "as_of_required", message: "this question compares several dates; pass an explicit date (YYYY-MM-DD) as as_of, never current" }, coverage: { supported: false, gaps: [] } });
+      } else env = await runTool({ caller, callSeq }, toolId, input, deps);
       calls.push({ id: toolId, call_id: env.call_id, status: env.status, ms: Math.max(0, deps.nowMs() - t0) });
       envelopes.push(env);
       const view = envelopeForModel(env);

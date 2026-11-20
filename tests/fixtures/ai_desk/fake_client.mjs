@@ -34,6 +34,15 @@ export function createFakeClient(script, opts = {}) {
   return client;
 }
 
+// Cloudflare D1 runs one batch at a time per database. The sqlite fixture's batch() awaits between statements, so two concurrent batches can
+// interleave (and the second BEGIN fails). Wrap the fixture so overlapping batches queue, as D1 does, when a test fires concurrent calls.
+export function serializeBatches(d1) {
+  let tail = Promise.resolve();
+  const w = Object.create(d1);
+  w.batch = (stmts) => { const p = tail.then(() => d1.batch(stmts)); tail = p.catch(() => {}); return p; };
+  return w;
+}
+
 // Convenience builders for scripts.
 export const textResponse = (text, usage = { input_tokens: 100, output_tokens: 50 }) =>
   ({ content: [{ type: "text", text }], stop_reason: "end_turn", usage });

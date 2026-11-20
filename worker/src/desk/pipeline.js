@@ -13,7 +13,8 @@
 
 import { assertCommishCaller, isAsOf } from "./contract.js";
 import { promptHash } from "./prompts.js";
-import { routeQuestion } from "./router.js";
+import { routeQuestion, detectActionRequest } from "./router.js";
+import { deriveTemporal } from "./temporal.js";
 import { runLoop } from "./loop.js";
 import { composeCard, buildServerCard, codeCard, newRequestId, retrievedRules } from "./composer.js";
 import { validateCard, errorCodes } from "./validator.js";
@@ -85,36 +86,58 @@ export async function answerQuestion({ caller, question, asOf, requestId: givenR
 
   for (const id of ["router", "loop", "composer"]) trace.prompts[id] = await promptHash(id);
 
+  // 0. Temporal scope, from the question text, in code. The model router is never the authority on the date.
+  const temporal = deriveTemporal(q, { requestedAsOf, today, currentSeason: deps.knowledge && deps.knowledge.currentSeason });
+  trace.temporal = { source: temporal.source, as_of: temporal.asOf, comparison: temporal.comparison, needs_date: temporal.needsDate, dates: temporal.dates, years: temporal.years, relative: temporal.relative };
+  // A relative past phrase with no date to derive: abstain in code, no model call (an action request is answered as out_of_scope instead).
+  if (temporal.needsDate && !detectActionRequest(q).action) {
+    return finish(codeCard("abstain", meta({ reasonCode: "relative_date", gaps: [{ what: "The question refers to a past time without naming a date", why: "unsupported_as_of", source_needed: "the date to check" }] })), "abstain:relative_date");
+  }
+
   // 1. Route (action verbs are caught in code before any model call).
-  const routed = await routeQuestion({ question: q, asOf: requestedAsOf, call });
+  const routed = await routeQuestion({ question: q, asOf: temporal.asOf || requestedAsOf, call });
   if (!routed.ok) return blockedCard(routed.blocked, "router");
   const route = routed.route;
   trace.route = { intent: route.intent, domains: route.domains, needs_as_of: route.needs_as_of, out_of_scope: route.out_of_scope, by: route.by };
   if (route.out_of_scope) return finish(codeCard("out_of_scope", meta({ reasonCode: route.by === "code" ? "action_request" : "out_of_scope" })), "out_of_scope");
 
-  // The as_of the whole run is judged against: the caller's date, else the date the router read from the question, else "current".
-  // A date is binding: the loop replaces every tool call's as_of with it. (A router date in the future is honored too; the tools
-  // answer unsupported_as_of for it, which fails closed instead of quietly answering with today's data.)
-  const effAsOf = requestedAsOf !== "current" ? requestedAsOf : (route.needs_as_of || "current");
-  trace.as_of = effAsOf;
-  trace.as_of_source = requestedAsOf !== "current" ? "user" : (route.needs_as_of ? "router" : "default");
+  // The as_of the whole run is judged against, in this order: the caller's date; the single date or year the question text names
+  // (code; the router may only refine a bare year within that year); a comparison (several dates: no single date, "current" is
+  // forbidden to the loop and the validator); the router's date only when the text has no temporal signal; else "current".
+  // A date is binding: the loop replaces every tool call's as_of with it. A future date is honored too: the tools answer
+  // unsupported_as_of for it, which fails closed instead of quietly answering with today's data. The router can never remove
+  // a date the code found.
+  let effAsOf, asOfSource;
+  const routerDate = route.needs_as_of || null;
+  if (requestedAsOf !== "current") { effAsOf = requestedAsOf; asOfSource = "user"; }
+  else if (temporal.comparison) { effAsOf = "current"; asOfSource = "text_comparison"; }
+  else if (temporal.asOf) {
+    effAsOf = temporal.asOf; asOfSource = "text";
+    if (temporal.bareYear && routerDate && routerDate.startsWith(`${temporal.bareYear}-`)) { effAsOf = routerDate; asOfSource = "text+router"; }
+  } else if (routerDate) { effAsOf = routerDate; asOfSource = "router"; }
+  else { effAsOf = "current"; asOfSource = "default"; }
+  const forbidCurrent = asOfSource === "text_comparison";
+  const asOfLabel = forbidCurrent ? "multiple" : effAsOf;
+  trace.as_of = asOfLabel;
+  trace.as_of_source = asOfSource;
+  trace.router_as_of_ignored = routerDate !== null && routerDate !== effAsOf;
 
   // 2. Tool loop.
-  const loop = await runLoop({ caller, question: q, asOf: effAsOf, route, call, deps });
+  const loop = await runLoop({ caller, question: q, asOf: effAsOf, forbidCurrent, route, call, deps });
   calls = loop.calls; trace.rounds = loop.rounds; trace.tool_calls = loop.toolCalls; trace.injection = loop.injection; trace.as_of_overrides = loop.overrides;
   if (loop.outcome === "blocked") return blockedCard(loop.blocked, "loop");
-  if (loop.outcome === "limit") return finish(codeCard("tool_failure", meta({ asOf: effAsOf, reasonCode: `tool_limit:${loop.limit}` })), "tool_failure:limit");
+  if (loop.outcome === "limit") return finish(codeCard("tool_failure", meta({ asOf: asOfLabel, reasonCode: `tool_limit:${loop.limit}` })), "tool_failure:limit");
   const envelopes = loop.envelopes;
 
   // 3. Stale data the policy says to withhold: code decides, no model text.
-  if (envelopes.some(isStaleWithhold)) return finish(codeCard("stale_data", meta({ asOf: effAsOf, reasonCode: "stale_withheld" })), "stale_data");
+  if (envelopes.some(isStaleWithhold)) return finish(codeCard("stale_data", meta({ asOf: asOfLabel, reasonCode: "stale_withheld" })), "stale_data");
 
   // 4. Compose, validate, retry once.
-  const vctx = { envelopes, knowledge: deps.knowledge, ceiling: caller.ceiling, asOf: effAsOf, today, retrievedAnchors: retrievedRules(envelopes) };
+  const vctx = { envelopes, knowledge: deps.knowledge, ceiling: caller.ceiling, asOf: effAsOf, forbidCurrent, today, retrievedAnchors: retrievedRules(envelopes) };
   let errors = null;
   let suspicious = loop.injection.suspicious;
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const comp = await composeCard({ question: q, asOf: effAsOf, envelopes, call, errors, extraSuspicious: loop.injection.suspicious });
+    const comp = await composeCard({ question: q, asOf: asOfLabel, envelopes, call, errors, extraSuspicious: loop.injection.suspicious });
     if (!comp.ok && comp.blocked) return blockedCard(comp.blocked, attempt === 1 ? "composer" : "retry");
     if (comp.suspicious) suspicious = true;
     let verdict;
@@ -124,11 +147,11 @@ export async function answerQuestion({ caller, question, asOf, requestId: givenR
     if (verdict.ok) {
       const notes = suspicious ? [INJECTION_NOTE] : [];
       trace.injection = { suspicious, sources: loop.injection.sources };
-      const card = buildServerCard({ cleaned: verdict.cleaned, envelopes, calls, asOf: effAsOf, canonSha, requestId, costUsd: acc.costUsd, modelCalls: acc.modelCalls, notes });
+      const card = buildServerCard({ cleaned: verdict.cleaned, envelopes, calls, asOf: asOfLabel, canonSha, requestId, costUsd: acc.costUsd, modelCalls: acc.modelCalls, notes });
       return finish(card, `card:${card.state}`);
     }
     errors = verdict.errors;
   }
   trace.injection = { suspicious, sources: loop.injection.sources };
-  return finish(codeCard("tool_failure", meta({ asOf: effAsOf, reasonCode: "validation_failed", notes: suspicious ? [INJECTION_NOTE] : [] })), "tool_failure:validation");
+  return finish(codeCard("tool_failure", meta({ asOf: asOfLabel, reasonCode: "validation_failed", notes: suspicious ? [INJECTION_NOTE] : [] })), "tool_failure:validation");
 }

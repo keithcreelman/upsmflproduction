@@ -6,12 +6,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, run, t } from "./fixtures/mini_test.mjs";
 import { makeD1, applyMigrations } from "./fixtures/d1_sqlite.mjs";
-import { createFakeClient, textResponse } from "./fixtures/ai_desk/fake_client.mjs";
+import { createFakeClient, textResponse, serializeBatches } from "./fixtures/ai_desk/fake_client.mjs";
 import { makeCommishCaller, DeskAuthError } from "../worker/src/desk/contract.js";
-import { PRICES, PRICES_AS_OF, PRICES_VERIFIED, costUsd, estimateWorstCaseUsd, estimateTokens, isPricedModel, DeskPriceError } from "../worker/src/desk/prices.js";
-import { getLimits, liveCallsAllowed, guardedCall, MAX_TOKENS_CEILING, MAX_REQUEST_CHARS } from "../worker/src/desk/budget.js";
-import { createStore, SQL, LEDGER_WINDOW_START } from "../worker/src/desk/store.js";
-import { createAnthropicClient, createLiveClientFromEnv, desiredKeyName, DeskModelError, ANTHROPIC_URL } from "../worker/src/desk/anthropic_client.js";
+import { PRICES, PRICES_AS_OF, PRICES_VERIFIED, INPUT_OVERHEAD_TOKENS, costUsd, estimateWorstCaseUsd, estimateInputTokensFromBytes, utf8Bytes, validateUsage, isPricedModel, DeskPriceError } from "../worker/src/desk/prices.js";
+import { getLimits, liveCallsAllowed, guardedCall, MAX_TOKENS_CEILING, MAX_REQUEST_BYTES } from "../worker/src/desk/budget.js";
+import { createStore, SQL, periodOf } from "../worker/src/desk/store.js";
+import { createAnthropicClient, createLiveClientFromEnv, desiredKeyName, DeskModelError, ANTHROPIC_URL, buildBody } from "../worker/src/desk/anthropic_client.js";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const DESK_DIR = path.resolve(HERE, "..", "worker", "src", "desk");
@@ -24,13 +24,24 @@ const approx = (a, b, msg) => t.ok(Math.abs(a - b) < 1e-12, `${msg || ""} expect
 const freshDb = () => { const d = makeD1(); applyMigrations(d, MIGRATIONS); return d; };
 const rows = (d, where = "1=1", args = []) => d.raw.prepare(`SELECT * FROM ai_call_log WHERE ${where} ORDER BY id`).all(...args);
 const req = (over = {}) => ({ model: "claude-sonnet-5-5", max_tokens: 1000, system: "be brief", messages: [{ role: "user", content: "hello" }], ...over });
-const estFor = (r) => estimateWorstCaseUsd({ model: r.model, inputTokensEstimate: estimateTokens(JSON.stringify(r).length), maxOutputTokens: r.max_tokens });
+const estFor = (r) => estimateWorstCaseUsd({ model: r.model, inputTokensEstimate: estimateInputTokensFromBytes(utf8Bytes(JSON.stringify(buildBody(r)))), maxOutputTokens: r.max_tokens });
 const BIG = { DESK_BUDGET_PER_QUESTION_USD: "5", DESK_BUDGET_PER_RUN_USD: "10", DESK_BUDGET_MONTHLY_USD: "20", DESK_BUDGET_TOTAL_USD: "50" };
 const call = (o) => guardedCall({ caller, nowMs: NOW, deskEnabled: true, meta: { step: "loop", questionId: "q1", runId: "r1" }, request: req(), ...o });
 // Usage that costs about `frac` of the sonnet estimate for req(): output tokens priced at $10 per million.
 const usageCosting = (usd) => ({ input_tokens: 0, output_tokens: Math.round((usd / 10) * 1e6) });
-const seed = (d, o) => d.raw.prepare(`INSERT INTO ai_call_log (created_at, feature, run_id, question_id, step, model, mode, est_cost_usd, cost_usd) VALUES (?, 'commish_desk', ?, ?, 'loop', 'claude-sonnet-5-5', ?, ?, ?)`)
-  .run(o.createdAt ?? NOW_S - 60, o.runId ?? null, o.questionId ?? null, o.mode ?? "fake", o.est ?? 0, o.cost ?? null);
+// Seed a ledger row AND keep ai_budget_totals consistent with it (the gate reads the totals, not the ledger, for total and month).
+const seed = (d, o) => {
+  const mode = o.mode ?? "fake", at = o.createdAt ?? NOW_S - 60, est = o.est ?? 0, cost = o.cost ?? null;
+  d.raw.prepare(`INSERT INTO ai_call_log (created_at, feature, run_id, question_id, step, model, mode, est_cost_usd, cost_usd) VALUES (?, 'commish_desk', ?, ?, 'loop', 'claude-sonnet-5-5', ?, ?, ?)`)
+    .run(at, o.runId ?? null, o.questionId ?? null, mode, est, cost);
+  const period = periodOf(at * 1000);
+  for (const per of ["total", period]) {
+    d.raw.prepare("INSERT OR IGNORE INTO ai_budget_totals (mode, period) VALUES (?, ?)").run(mode, per);
+    d.raw.prepare(`UPDATE ai_budget_totals SET ${cost == null ? "reserved_usd = reserved_usd + ?" : "spent_usd = spent_usd + ?"} WHERE mode = ? AND period = ?`).run(cost == null ? est : cost, mode, per);
+  }
+};
+const usageCostSonnet = (usd) => Math.round((usd / 10) * 1e6) * 10 / 1e6;
+const totals = (d, mode = "fake") => Object.fromEntries(d.raw.prepare("SELECT period, reserved_usd, spent_usd FROM ai_budget_totals WHERE mode = ? ORDER BY period").all(mode).map((r) => [r.period, { reserved: r.reserved_usd, spent: r.spent_usd }]));
 
 // ── prices ─────────────────────────────────────────────────────────────────────────────────────
 test("price table: as-of date, unverified flag, the three models", () => {
@@ -50,25 +61,49 @@ test("cost arithmetic, hand-computed, per model (1M of each token kind)", () => 
   approx(costUsd("claude-sonnet-5-5", { input_tokens: 1000, output_tokens: 500 }), 0.002 + 0.005, "small sonnet");
   approx(costUsd("claude-haiku-5-5", { input_tokens: 2000, output_tokens: 1000 }), 0.0002 + 0.0005, "small haiku");
   approx(costUsd("claude-opus-5-5", { input_tokens: 1000, output_tokens: 1000 }), 0.004 + 0.02, "small opus");
-  approx(costUsd("claude-sonnet-5-5", {}), 0, "empty usage object");
-  approx(costUsd("claude-sonnet-5-5", { input_tokens: -5, output_tokens: "x" }), 0, "junk counts are zero, never NaN");
+  approx(costUsd("claude-sonnet-5-5", { input_tokens: 0, output_tokens: 0 }), 0, "a valid zero usage is zero");
 });
 
 test("unknown model and missing usage are errors, never a guess", () => {
   t.throws(() => costUsd("gpt-whatever", { input_tokens: 1 }), (e) => e instanceof DeskPriceError && e.code === "unknown_model");
   t.throws(() => costUsd("claude-sonnet-5-5", null), (e) => e instanceof DeskPriceError && e.code === "bad_usage");
+  for (const bad of [{}, { input_tokens: 5 }, { output_tokens: 5 }, { input_tokens: -1, output_tokens: 1 }, { input_tokens: 1, output_tokens: -1 }, { input_tokens: NaN, output_tokens: 1 },
+    { input_tokens: 1, output_tokens: Infinity }, { input_tokens: 1.5, output_tokens: 1 }, { input_tokens: "10", output_tokens: 1 }, { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: -2 },
+    { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0.5 }, { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: "x" }, [1, 2], "usage"]) {
+    t.throws(() => costUsd("claude-sonnet-5-5", bad), (e) => e instanceof DeskPriceError && e.code === "bad_usage", JSON.stringify(bad));
+    t.equal(validateUsage(bad).ok, false);
+  }
+  t.equal(validateUsage({ input_tokens: 1, output_tokens: 2, cache_read_input_tokens: null }).ok, true, "absent or null cache counts are fine");
   t.throws(() => estimateWorstCaseUsd({ model: "nope", inputTokensEstimate: 1, maxOutputTokens: 1 }), (e) => e.code === "unknown_model");
 });
 
-test("worst case: every input token at the input rate, every allowed output token at the output rate; chars/3 rounded up", () => {
-  t.equal(estimateTokens(9), 3);
-  t.equal(estimateTokens(10), 4);
-  t.equal(estimateTokens(0), 0);
+test("worst case: every input token at the input rate, every allowed output token at the output rate", () => {
   approx(estimateWorstCaseUsd({ model: "claude-haiku-5-5", inputTokensEstimate: 1000, maxOutputTokens: 1000 }), 0.0001 + 0.0005, "haiku");
   approx(estimateWorstCaseUsd({ model: "claude-sonnet-5-5", inputTokensEstimate: 3000, maxOutputTokens: 4000 }), 0.006 + 0.04, "sonnet");
   approx(estimateWorstCaseUsd({ model: "claude-opus-5-5", inputTokensEstimate: 10000, maxOutputTokens: 2000 }), 0.04 + 0.04, "opus");
   // with prompt caching in the request the dearer cache-write rate is used (still an upper bound)
   approx(estimateWorstCaseUsd({ model: "claude-sonnet-5-5", inputTokensEstimate: 1e6, maxOutputTokens: 0, usesCache: true }), 2.5, "cache write rate");
+});
+
+test("input-token estimate is a hard bound: UTF-8 bytes of the body plus a fixed overhead", () => {
+  t.equal(INPUT_OVERHEAD_TOKENS, 1000);
+  t.equal(estimateInputTokensFromBytes(0), 1000);
+  t.equal(estimateInputTokensFromBytes(48000), 49000);
+  t.equal(utf8Bytes("abc"), 3); t.equal(utf8Bytes("\u00e9"), 2); t.equal(utf8Bytes("\u4e2d"), 3); t.equal(utf8Bytes("\u{1F600}"), 4);
+  // token-dense inputs: whatever the tokenizer does, tokens <= bytes, and the estimate is >= bytes (+ overhead)
+  const dense = {
+    cjk: "\u4e2d\u6587\u6d4b\u8bd5\u6587\u672c".repeat(2000), base64: Buffer.from(Array.from({ length: 6000 }, (_, i) => (i * 7919) % 256)).toString("base64"),
+    digits: "8675309142".repeat(2500), emoji: "\u{1F600}\u{1F680}\u{1F9E0}".repeat(1500), mixed: "a1\u00fc\u4e2d\u{1F600}=+/".repeat(2000), json: JSON.stringify(Array.from({ length: 3000 }, (_, i) => ({ k: i, v: [i, -i] }))),
+  };
+  for (const [name, text] of Object.entries(dense)) {
+    const r = req({ messages: [{ role: "user", content: text }] });
+    const bytes = utf8Bytes(JSON.stringify(buildBody(r)));
+    const estTok = estimateInputTokensFromBytes(bytes);
+    t.ok(estTok >= bytes, `${name}: estimate ${estTok} >= bytes ${bytes}`);
+    t.ok(estTok >= bytes + INPUT_OVERHEAD_TOKENS);
+    t.ok(estTok >= text.length, `${name}: also >= characters`);
+    t.ok(estFor(r) >= (bytes * 2) / 1e6, `${name}: dollars cover every byte as a token`);
+  }
 });
 
 // ── limits and switch ──────────────────────────────────────────────────────────────────────────
@@ -281,7 +316,7 @@ test("bad requests are blocked and never reach the model", async () => {
     [req({ model: "gpt-5" }), "unknown_model"], [req({ model: undefined }), "unknown_model"],
     [req({ max_tokens: undefined }), "bad_request"], [req({ max_tokens: MAX_TOKENS_CEILING + 1 }), "bad_request"], [req({ max_tokens: 0 }), "bad_request"], [req({ max_tokens: 1.5 }), "bad_request"],
     [req({ messages: [] }), "bad_request"], [req({ messages: "hi" }), "bad_request"], [req({ messages: [{ role: "system", content: "x" }] }), "bad_request"],
-    [req({ messages: [{ role: "user", content: "x".repeat(MAX_REQUEST_CHARS) }] }), "bad_request"],
+    [req({ messages: [{ role: "user", content: "x".repeat(MAX_REQUEST_BYTES) }] }), "bad_request"],
     [req({ tools: "none" }), "bad_request"], [null, "bad_request"], ["hello", "bad_request"],
   ];
   for (const [request, reason] of cases) {
@@ -313,17 +348,22 @@ test("ledger unreadable fails closed: dropped table, never-migrated database, fa
   const bare = makeD1();
   const r2 = await call({ env: BIG, db: bare, client: c });
   t.equal(r2.reason, "ledger_unreadable"); t.equal(c.calls.length, 0);
+  // the totals table missing (an old 0180 without ai_budget_totals): fail closed, ledger itself intact
+  const nt = freshDb(); nt.raw.exec("DROP TABLE ai_budget_totals");
+  const rn = await call({ env: BIG, db: nt, client: c });
+  t.deepEqual([rn.reason, rn.detail], ["ledger_unreadable", "not_ready"]); t.equal(c.calls.length, 0);
   // writes failing (reservation cannot be recorded, so no call)
-  const w = freshDb(); w.opts.beforeRun = (sql) => { if (/INSERT INTO/i.test(sql)) throw new Error("D1_ERROR: simulated write failure"); };   // (the fixture's failWrites only matches statements that START with INSERT; ours starts with WITH)
+  const w = freshDb(); w.opts.beforeRun = (sql) => { if (/INSERT INTO ai_call_log/i.test(sql)) throw new Error("D1_ERROR: simulated write failure"); };
   const r3 = await call({ env: BIG, db: w, client: c });
   t.equal(r3.reason, "ledger_unreadable"); t.equal(c.calls.length, 0);
+  t.deepEqual(totals(w).total, undefined, "the failed batch rolled back, including the totals rows");
   // no db at all
   const r4 = await call({ env: BIG, db: undefined, client: c });
   t.equal(r4.reason, "ledger_unreadable"); t.equal(c.calls.length, 0);
 });
 
 test("a concurrent burst cannot overshoot: reservations are checked and written in one statement", async () => {
-  const d = freshDb(), est = estFor(req());
+  const d = serializeBatches(freshDb()), est = estFor(req());   // D1 runs one batch at a time; the sqlite fixture's batch can interleave across awaits, so serialize it
   const env = { ...BIG, DESK_BUDGET_TOTAL_USD: String(est * 3.5), DESK_BUDGET_MONTHLY_USD: "50", DESK_BUDGET_PER_RUN_USD: "50", DESK_BUDGET_PER_QUESTION_USD: "50" };
   const c = createFakeClient(async () => { await new Promise((r) => setTimeout(r, 5)); return textResponse("x", usageCosting(est * 0.5)); });   // slow, so all reservations overlap
   const results = await Promise.all(Array.from({ length: 12 }, (_, i) => call({ env, db: d, client: c, meta: { questionId: `burst${i}`, runId: "burst" } })));
@@ -335,69 +375,187 @@ test("a concurrent burst cannot overshoot: reservations are checked and written 
   t.equal(l.length, 3);
   t.ok(l.reduce((s, r) => s + (r.cost_usd ?? r.est_cost_usd), 0) <= est * 3.5 + 1e-9, "never over the cap");
   t.equal(rows(d, "mode = 'blocked'").length, 9);
+  const tot = totals(d).total; approx(tot.reserved, 0); approx(tot.spent, 3 * usageCostSonnet(est * 0.5), "totals match the three finalized calls");
 });
 
-test("model error: typed, no provider body, cost 0, blocked model_error", async () => {
-  const d = freshDb();
-  const leak = "sk-ant-SECRET-body-text";
-  const c = createFakeClient([new Error(`provider said ${leak}`), new DeskModelError("http_error", { status: 429, providerType: "rate_limit_error" })]);
-  const a = await call({ env: BIG, db: d, client: c });
-  t.deepEqual([a.ok, a.reason, a.detail], [false, "model_error", "client_error"]);
-  t.equal(JSON.stringify(a).includes(leak), false);
-  const b = await call({ env: BIG, db: d, client: c });
-  t.deepEqual([b.reason, b.detail], ["model_error", "http_error"]);
-  const l = rows(d);
-  t.equal(l.length, 2);
-  t.deepEqual(l.map((r) => [r.cost_usd, r.error_code]), [[0, "client_error"], [0, "http_error"]]);
-  t.equal(JSON.stringify(l).includes(leak), false);
+test("the totals table is maintained with the ledger: reserve raises reserved, finalize moves it to spent, a refused reserve changes nothing", async () => {
+  const d = freshDb(), est = estFor(req()), ym = periodOf(NOW);
+  const during = [];
+  const c = createFakeClient(() => { during.push(totals(d)); return textResponse("x", usageCosting(est * 0.5)); });
+  const spent = usageCostSonnet(est * 0.5);
+  t.equal((await call({ env: BIG, db: d, client: c })).ok, true);
+  approx(during[0].total.reserved, est, "in flight: reserved at the estimate"); approx(during[0].total.spent, 0);
+  approx(during[0][ym].reserved, est);
+  t.deepEqual(Object.keys(totals(d)).sort(), [ym, "total"].sort(), "only the total row and this month");
+  approx(totals(d).total.reserved, 0, "released at finalize"); approx(totals(d).total.spent, spent, "spent = real cost");
+  approx(totals(d)[ym].spent, spent);
+  // a refused reservation (cap) changes no totals
+  const before = JSON.stringify(totals(d));
+  const r = await call({ env: { ...BIG, DESK_BUDGET_TOTAL_USD: String(spent + est * 0.5) }, db: d, client: c });
+  t.equal(r.reason, "budget_total");
+  t.equal(JSON.stringify(totals(d)), before, "refused: no increment");
+  t.equal(rows(d, "mode = 'fake'").length, 1);
+  // lanes: a live call touches only live totals
+  const live = { mode: "live", async complete() { return textResponse("x", usageCosting(est * 0.25)); } };
+  const liveEnv = { ...BIG, DESK_LIVE_MODEL_ENABLED: "1", ANTHROPIC_API_KEY_DESK: "k" };
+  t.equal((await call({ env: liveEnv, db: d, client: live })).ok, true);
+  approx(totals(d, "live").total.spent, usageCostSonnet(est * 0.25)); approx(totals(d).total.spent, spent, "fake lane untouched");
+  // finalize is once-only: a second finalize does not double-count
+  const store = createStore(d);
+  const id = rows(d, "mode = 'fake'")[0].id;
+  t.equal(await store.finalizeCall(caller, id, { costUsd: 99 }), false);
+  approx(totals(d).total.spent, spent, "a repeated finalize changes no totals");
 });
 
-test("a timeout keeps the worst-case reservation as its cost (it may have been billed)", async () => {
+test("an unfinalized reservation older than this month keeps counting in its own month and in total", async () => {
   const d = freshDb(), est = estFor(req());
-  const c = createFakeClient([new DeskModelError("timeout")]);
-  const r = await call({ env: BIG, db: d, client: c });
-  t.equal(r.reason, "model_error");
-  const [row] = rows(d);
-  approx(row.cost_usd, est); t.equal(row.error_code, "timeout");
+  seed(d, { createdAt: Date.UTC(2026, 9, 30) / 1000, est, cost: null });
+  const t0 = totals(d);
+  approx(t0.total.reserved, est); approx(t0["2026-10"].reserved, est);
+  const env = { ...BIG, DESK_BUDGET_TOTAL_USD: String(est * 1.5), DESK_BUDGET_MONTHLY_USD: String(est * 1.5) };
+  const r = await call({ env, db: d, client: createFakeClient([textResponse("x")]) });
+  t.equal(r.reason, "budget_total", "old in-flight reservation counts toward the total, not this month");
 });
 
-test("a response with no usage is charged the worst case; a failed finalize keeps the paid answer and the reservation", async () => {
+test("error accounting: only a definite 4xx refusal is free; everything else keeps the reservation as its cost", async () => {
   const est = estFor(req());
+  const leak = "sk-ant-SECRET-body-text";
+  const free = [400, 401, 403, 404, 413, 422];
+  const charged = [new DeskModelError("http_error", { status: 408 }), new DeskModelError("http_error", { status: 409 }), new DeskModelError("http_error", { status: 429 }),
+    new DeskModelError("http_error", { status: 500 }), new DeskModelError("http_error", { status: 502 }), new DeskModelError("http_error", { status: 503 }), new DeskModelError("http_error", { status: 529 }),
+    new DeskModelError("http_error", { status: 0 }), new DeskModelError("http_error"), new DeskModelError("timeout"), new DeskModelError("network"), new DeskModelError("bad_response", { status: 200 }),
+    new Error(`provider said ${leak}`)];
+  for (const status of free) {
+    const d = freshDb();
+    const r = await call({ env: BIG, db: d, client: createFakeClient([new DeskModelError("http_error", { status, providerType: "invalid_request_error" })]) });
+    t.deepEqual([r.ok, r.reason, r.detail], [false, "model_error", "http_error"], `http ${status}`);
+    const [row] = rows(d);
+    t.equal(row.cost_usd, 0, `http ${status} is free`); t.equal(row.error_code, "http_error");
+    t.deepEqual(totals(d).total, { reserved: 0, spent: 0 });
+  }
+  for (const err of charged) {
+    const d = freshDb();
+    const c = createFakeClient([err]);
+    const r = await call({ env: BIG, db: d, client: c });
+    t.equal(r.reason, "model_error", String(err && err.code || err));
+    t.equal(JSON.stringify(r).includes(leak), false, "provider text is never echoed");
+    const [row] = rows(d);
+    approx(row.cost_usd, est, `${err && err.code || "unknown"} ${err && err.status || ""} keeps the reservation`);
+    t.equal(JSON.stringify(row).includes(leak), false);
+    const tot = totals(d).total; approx(tot.spent, est); approx(tot.reserved, 0);
+  }
+  // a refused-for-free call really does leave its allowance intact for the next one
   const d = freshDb();
-  const r = await call({ env: BIG, db: d, client: createFakeClient([{ content: [{ type: "text", text: "x" }] }]) });
-  t.equal(r.ok, true);
-  const nousage = createFakeClient([{ content: [], usage: null }]);
-  const r1 = await call({ env: BIG, db: d, client: { mode: "fake", async complete(q) { const o = await nousage.complete(q); o.usage = undefined; return o; } } });
-  t.equal(r1.ok, true); approx(r1.costUsd, est); t.equal(rows(d)[1].error_code, "usage_missing");
+  const env = { ...BIG, DESK_BUDGET_PER_QUESTION_USD: String(est * 1.5) };
+  const c = createFakeClient([new DeskModelError("http_error", { status: 400 }), textResponse("ok", usageCosting(est * 0.9)), textResponse("no")]);
+  t.equal((await call({ env, db: d, client: c })).reason, "model_error");
+  t.equal((await call({ env, db: d, client: c })).ok, true, "the 400 cost nothing, so the allowance was intact");
+  t.equal((await call({ env, db: d, client: c })).reason, "budget_per_question", "after a paid call the question allowance is spent");
+});
+
+test("a response with malformed or missing usage is returned, charged the reservation, and flagged usage_unverified", async () => {
+  const est = estFor(req());
+  const badUsages = [undefined, null, {}, { output_tokens: 5 }, { input_tokens: 5 }, { input_tokens: -1, output_tokens: 5 }, { input_tokens: NaN, output_tokens: 5 }, { input_tokens: 1.5, output_tokens: 5 },
+    { input_tokens: "7", output_tokens: 5 }, { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: -3 }];
+  for (const usage of badUsages) {
+    const d = freshDb();
+    const c = { mode: "fake", async complete() { return { content: [{ type: "text", text: "paid answer" }], stop_reason: "end_turn", usage, model: "claude-sonnet-5-5" }; } };
+    const r = await call({ env: BIG, db: d, client: c });
+    t.equal(r.ok, true, JSON.stringify(usage)); t.equal(r.ledgerWarning, "usage_unverified"); t.equal(r.response.content[0].text, "paid answer");
+    approx(r.costUsd, est, "charged the reservation, never 0");
+    const [row] = rows(d);
+    approx(row.cost_usd, est); t.equal(row.error_code, "usage_unverified"); t.equal(row.input_tokens, null, "untrusted token counts are not stored");
+    approx(totals(d).total.spent, est);
+  }
+  // the real client: a 2xx with bad usage throws a typed bad_usage error carrying the answer (not enumerable); the gate turns it into the same outcome
+  const stub = async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ model: "claude-sonnet-5-5", content: [{ type: "text", text: "paid answer" }], stop_reason: "end_turn", usage: { input_tokens: 5 } }) });
+  const live = createAnthropicClient({ apiKey: "k", fetch: stub });
+  let err = null; try { await live.complete(req()); } catch (e) { err = e; }
+  t.ok(err instanceof DeskModelError); t.equal(err.code, "bad_usage"); t.equal(err.status, 200);
+  t.equal(JSON.stringify(err).includes("paid answer"), false, "the attached answer never serializes");
+  t.equal(err.response.content[0].text, "paid answer");
+  const d = freshDb();
+  const liveEnv = { ...BIG, DESK_LIVE_MODEL_ENABLED: "1", ANTHROPIC_API_KEY_DESK: "k" };
+  const r = await call({ env: liveEnv, db: d, client: live });
+  t.equal(r.ok, true); t.equal(r.ledgerWarning, "usage_unverified"); approx(r.costUsd, est);
+  t.equal(rows(d)[0].mode, "live"); approx(rows(d)[0].cost_usd, est);
+});
+
+test("real client validates usage: required counts, optional cache counts", async () => {
+  const mk = (usage) => createAnthropicClient({ apiKey: "k", fetch: async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ content: [], stop_reason: "end_turn", usage }) }) });
+  for (const usage of [undefined, {}, { input_tokens: 1 }, { output_tokens: 1 }, { input_tokens: -1, output_tokens: 1 }, { input_tokens: 1.5, output_tokens: 1 }, { input_tokens: "1", output_tokens: 1 },
+    { input_tokens: 1, output_tokens: 1, cache_read_input_tokens: -1 }, { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 2.5 }]) {
+    let e = null; try { await mk(usage).complete(req()); } catch (x) { e = x; }
+    t.ok(e instanceof DeskModelError && e.code === "bad_usage", JSON.stringify(usage));
+  }
+  const ok = await mk({ input_tokens: 5, output_tokens: 2, cache_read_input_tokens: 0, cache_creation_input_tokens: null, service_tier: "standard" }).complete(req());
+  t.equal(ok.usage.input_tokens, 5);
+});
+
+test("a failed finalize keeps the paid answer and leaves the reservation counting (the batch rolled back)", async () => {
+  const est = estFor(req());
   const d2 = freshDb();
   const c2 = createFakeClient([textResponse("paid answer", usageCosting(est * 0.1))]);
-  d2.opts.beforeRun = (sql) => { if (/^\s*UPDATE/i.test(sql)) throw new Error("D1_ERROR: simulated"); };
+  d2.opts.beforeRun = (sql) => { if (/^\s*UPDATE ai_call_log SET input_tokens/i.test(sql)) throw new Error("D1_ERROR: simulated"); };
   const r2 = await call({ env: BIG, db: d2, client: c2 });
   t.equal(r2.ok, true); t.equal(r2.ledgerWarning, "finalize_failed");
   const [row] = rows(d2);
   t.equal(row.cost_usd, null, "reservation stays unfinalized");
   approx(row.est_cost_usd, est);
+  approx(totals(d2).total.reserved, est); approx(totals(d2).total.spent, 0);
 });
 
-test("ledger read: one indexed range scan (EXPLAIN QUERY PLAN) and a bounded window", async () => {
+test("a 5,000-row ledger still reads only a handful of rows per call (totals by primary key; run and question by index)", async () => {
   const d = freshDb();
-  // 50 rows before the window floor, 20 live + 5 fake inside it
-  for (let i = 0; i < 50; i++) seed(d, { createdAt: LEDGER_WINDOW_START - 1000 - i, mode: "live", cost: 1 });
-  for (let i = 0; i < 20; i++) seed(d, { createdAt: LEDGER_WINDOW_START + 1000 + i, mode: "live", cost: 0.5 });
-  for (let i = 0; i < 5; i++) seed(d, { createdAt: LEDGER_WINDOW_START + 2000 + i, mode: "fake", cost: 0.5 });
-  const store = createStore(d);
-  const s = await store.readLedgerSums(caller, { mode: "live", runId: null, questionId: null, monthStart: LEDGER_WINDOW_START });
-  t.equal(s.rows, 20, "only in-window rows of the requested mode are summed");
-  approx(s.total, 10, "total");
-  approx(s.run, 0, "no run id: nothing matches"); approx(s.question, 0, "no question id: nothing matches");
-  const args = [LEDGER_WINDOW_START, null, null, LEDGER_WINDOW_START, "live"];
-  for (const sql of [SQL.readSums]) {
-    const plan = d.raw.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...args).map((p) => p.detail).join(" | ");
-    t.match(plan, /USING (COVERING )?INDEX idx_ai_call_log_created/, plan);
-    t.doesNotMatch(plan, /SCAN ai_call_log(?! USING)/, "no full table scan");
+  d.raw.exec("BEGIN");
+  for (let i = 0; i < 5000; i++) seed(d, { createdAt: NOW_S - 86400 * 40 - i, runId: `run${i % 500}`, questionId: `qq${i % 1000}`, mode: i % 2 ? "fake" : "live", cost: 0.01 });
+  d.raw.exec("COMMIT");
+  t.equal(d.raw.prepare("SELECT COUNT(*) AS n FROM ai_call_log").get().n, 5000);
+  const mode = "fake", period = periodOf(NOW);
+  // 1) every statement of the reserve/finalize/read path searches by index: no SCAN of ai_call_log, none of ai_budget_totals
+  const est = 0.01, caps = [9, 9, 9, 9];
+  const reserveArgs = [NOW_S, "commish_desk", "run1", "qq1", "loop", "m", mode, null, null, null, est, mode, "total", est, 9, mode, period, est, 9, "run1", mode, est, 9, "qq1", mode, est, 9];
+  const plans = {
+    reserve: [SQL.reserve, reserveArgs], reserveTotals: [SQL.reserveTotals, [est, mode, period]], readSums: [SQL.readSums, [mode, "total", mode, period, "run1", mode, "qq1", mode]],
+    finalize: [SQL.finalize, [1, 1, 0, 0, 0.1, 5, null, 1]], finalizeTotals: [SQL.finalizeTotals, [1, 0.1, 1, 1]], ensureTotals: [SQL.ensureTotals, [mode, "total"]],
+  };
+  for (const [name, [sql, args]] of Object.entries(plans)) {
+    const plan = d.raw.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...args).map((p) => p.detail);
+    t.equal(plan.filter((x) => /^SCAN (ai_call_log|ai_budget_totals)(?! USING)/.test(x)).length, 0, `${name}: no table scan: ${plan.join(" | ")}`);
   }
-  const reservePlan = d.raw.prepare(`EXPLAIN QUERY PLAN ${SQL.reserve}`).all(...args, NOW_S, "commish_desk", null, null, "loop", "m", "fake", null, null, null, 0.1, 1, 9, 1, 9, 1, 9, 1, 9).map((p) => p.detail).join(" | ");
-  t.match(reservePlan, /INDEX idx_ai_call_log_created/, reservePlan);
+  const rp = d.raw.prepare(`EXPLAIN QUERY PLAN ${SQL.reserve}`).all(...reserveArgs).map((p) => p.detail).join(" | ");
+  t.match(rp, /SEARCH ai_call_log USING INDEX idx_ai_call_log_run \(run_id=\?\)/, rp);
+  t.match(rp, /SEARCH ai_call_log USING INDEX idx_ai_call_log_question \(question_id=\?\)/, rp);
+  t.match(rp, /SEARCH ai_budget_totals USING (COVERING )?INDEX sqlite_autoindex_ai_budget_totals_1 \(mode=\? AND period=\?\)/, rp);
+  // 2) rows those index searches visit: the run's and the question's own rows (10 and 5 here), plus 2 totals rows. Not 5,000.
+  const runRows = d.raw.prepare("SELECT COUNT(*) AS n FROM ai_call_log WHERE run_id = 'run1'").get().n;
+  const qRows = d.raw.prepare("SELECT COUNT(*) AS n FROM ai_call_log WHERE question_id = 'qq1'").get().n;
+  t.equal(runRows, 10); t.equal(qRows, 5);
+  t.ok(runRows + qRows + 2 <= 20, "about 17 rows read for a 5,000-row ledger");
+  // 3) the total and monthly caps come from the totals rows, not the ledger: they are the only thing that decides
+  const env = { ...BIG, DESK_BUDGET_TOTAL_USD: "1", DESK_BUDGET_MONTHLY_USD: "1" };
+  const c = createFakeClient([textResponse("x")]);
+  t.ok(d.raw.prepare("SELECT SUM(cost_usd) AS s FROM ai_call_log WHERE mode = 'fake'").get().s > 20, "the ledger itself holds far more than the cap");
+  d.raw.prepare("UPDATE ai_budget_totals SET spent_usd = 0").run();   // ...but only the totals rows are consulted
+  t.equal((await call({ env, db: d, client: c })).ok, true, "5,000 ledger rows are invisible to the total cap when the totals row is small");
+  d.raw.prepare("UPDATE ai_budget_totals SET spent_usd = 5 WHERE mode = 'fake' AND period = 'total'").run();
+  t.equal((await call({ env, db: d, client: c, meta: { questionId: "other", runId: "other" } })).reason, "budget_total", "and the totals row alone can close it");
+  d.raw.prepare("UPDATE ai_budget_totals SET spent_usd = 0 WHERE mode = 'fake' AND period = 'total'").run();
+  d.raw.prepare("UPDATE ai_budget_totals SET spent_usd = 5 WHERE mode = 'fake' AND period = ?").run(period);
+  t.equal((await call({ env, db: d, client: c, meta: { questionId: "other2", runId: "other2" } })).reason, "budget_monthly");
+  // 4) a missing totals row is treated as full, never as empty
+  d.raw.prepare("DELETE FROM ai_budget_totals WHERE mode = 'fake'").run();
+  const store = createStore(d);
+  const sums = await store.readLedgerSums(caller, { mode: "fake", runId: "run1", questionId: "qq1", nowMs: NOW });
+  approx(sums.total, 0);
+});
+
+test("ai_call_log is never purged by the desk's purge (the totals make that safe)", async () => {
+  const d = freshDb(), store = createStore(d);
+  seed(d, { createdAt: NOW_S - 400 * 86400, cost: 0.5 });
+  await store.purgeOlderThan(caller, 1, { nowMs: NOW });
+  t.equal(d.raw.prepare("SELECT COUNT(*) AS n FROM ai_call_log").get().n, 1);
+  approx(totals(d).total.spent, 0.5);
 });
 
 // ── real client (stub fetch only) ───────────────────────────────────────────────────────────────
@@ -497,7 +655,7 @@ const desk = (f) => fs.readFileSync(path.join(DESK_DIR, f), "utf8");
 function walk(dir) { return fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : e.name.endsWith(".js") ? [path.join(dir, e.name)] : [])); }
 
 test("static: the gate's own files name no table but ai_call_log / ai_desk_questions and never create one", () => {
-  const allowed = new Set(["ai_call_log", "ai_desk_questions", "s"]);   // "s" is the CTE alias in the ledger query
+  const allowed = new Set(["ai_call_log", "ai_budget_totals", "ai_desk_questions"]);
   for (const f of ["budget.js", "store.js", "anthropic_client.js", "prices.js"]) {
     const src = desk(f);
     t.doesNotMatch(src, /create\s+table/i, `${f} must not create tables`);

@@ -3,7 +3,7 @@
 //
 // Hard rules for this adapter (docs/ai_desk/DESK_CONTRACT.md, tool 5):
 //   - it ALWAYS sends NO_CACHE=1 (the route then neither reads nor writes the shared edge cache), and L + YEAR explicitly;
-//   - it NEVER sends EXT_URL (an anonymous EXT_URL can poison the shared edge cache) and the allowlist below does not list it;
+//   - it never sends the route's optional caller-supplied override parameters (such as EXT_URL), and the allowlist below does not list them; it always sends NO_CACHE=1 so a desk read never uses or fills the shared edge cache;
 //   - contractInfo is passed through exactly as the route serves it (`special`): no token is re-derived here. AAV is never TCV / length,
 //     and MFL's contractYear is YEARS REMAINING;
 //   - output is projected to an explicit allowlist: nothing else the route returns (owner e-mails, upstream URLs, raw adjustment rows,

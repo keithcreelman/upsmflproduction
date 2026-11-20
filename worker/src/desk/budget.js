@@ -8,10 +8,16 @@
 //   2. request shape, price known, ceilings            -> blocked bad_request | unknown_model
 //   3. live client only: switch + key + desk flag      -> blocked live_calls_disabled | no_key | desk_disabled
 //   4. worst-case estimate vs each cap                 -> blocked budget_per_question | budget_per_run | budget_monthly | budget_total
-//   5. ATOMIC reserve in ai_call_log (one INSERT ... SELECT ... WHERE caps still hold), BEFORE the call.
-//      Unreadable/missing ledger -> blocked ledger_unreadable (nothing is logged, nothing is called).
-//   6. client.complete(request). Success: the row is finalized with real usage and cost. Failure: the row is finalized with an error code
-//      (cost 0, except a timeout, which may have been billed and is kept at the reservation) -> blocked model_error.
+//   5. ATOMIC reserve (one D1 batch, store.reserveCall): a guarded INSERT of the ai_call_log row that only happens if the caps hold, using the
+//      maintained ai_budget_totals rows for total and month plus the run's and the question's own ledger rows, then the totals are raised in
+//      the same batch. This happens BEFORE the call. Unreadable/missing ledger or totals -> blocked ledger_unreadable (nothing is called).
+//   6. client.complete(request). Success: the row and the totals are finalized with real usage and cost. If the usage block is missing or
+//      malformed the call WAS billed but its price is unknown: the reservation is kept as the cost, the answer is still returned, and the
+//      result carries ledgerWarning "usage_unverified". Failure: only a 4xx refusal that cannot have been processed (not 408, 409 or 429) is
+//      recorded at cost 0; a timeout, network error, 408/409/429, 5xx or anything unknown keeps the reservation as its cost, because a
+//      connection that failed after the provider processed the request must not look free. -> blocked model_error.
+// The input-token estimate is a hard upper bound (UTF-8 bytes of the request body + fixed overhead, see prices.js), so the reservation can
+// only be too high, never too low.
 // Fake and live spend live in separate lanes of the same ledger (the `mode` column) but obey the SAME limits and the SAME code, so tests
 // and demos exercise exactly the production path. Reservations count at their est_cost_usd until finalized, so concurrent calls cannot overshoot.
 // A worker that dies mid-call leaves its reservation unfinalized: it keeps counting at the worst-case estimate (safe side) until a human clears it.
@@ -20,11 +26,11 @@
 
 import { assertCommishCaller } from "./contract.js";
 import { createStore, StoreError } from "./store.js";
-import { desiredKeyName, DeskModelError } from "./anthropic_client.js";
-import { costUsd, estimateTokens, estimateWorstCaseUsd, isPricedModel, DeskPriceError } from "./prices.js";
+import { desiredKeyName, DeskModelError, buildBody } from "./anthropic_client.js";
+import { costUsd, estimateInputTokensFromBytes, estimateWorstCaseUsd, isPricedModel, utf8Bytes, DeskPriceError } from "./prices.js";
 
 export const MAX_TOKENS_CEILING = 4000;      // hard ceiling on max_tokens for any single call
-export const MAX_REQUEST_CHARS = 300000;     // hard ceiling on the serialized request (about 100k estimated tokens)
+export const MAX_REQUEST_BYTES = 300000;     // hard ceiling on the serialized request body, in UTF-8 bytes (the estimate counts one token per byte)
 export const ID_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
 const STEP_RE = /^[a-z_]{1,20}$/;
 const HASH_RE = /^[A-Za-z0-9:_-]{1,128}$/;
@@ -78,10 +84,13 @@ function checkRequest(request) {
   }
   if (request.system != null && typeof request.system !== "string" && !Array.isArray(request.system)) return { reason: "bad_request" };
   if (request.tools != null && !Array.isArray(request.tools)) return { reason: "bad_request" };
+  // Exactly the body the client would send (whitelisted fields only), measured in UTF-8 bytes.
   let json;
-  try { json = JSON.stringify(request); } catch (_) { return { reason: "bad_request" }; }
-  if (typeof json !== "string" || json.length > MAX_REQUEST_CHARS) return { reason: "bad_request" };
-  return { chars: json.length, usesCache: json.includes('"cache_control"') };
+  try { json = JSON.stringify(buildBody(request)); } catch (_) { return { reason: "bad_request" }; }
+  if (typeof json !== "string") return { reason: "bad_request" };
+  const bytes = utf8Bytes(json);
+  if (bytes > MAX_REQUEST_BYTES) return { reason: "bad_request" };
+  return { bytes, usesCache: json.includes('"cache_control"') };
 }
 
 function cleanMeta(meta) {
@@ -101,9 +110,10 @@ function cleanMeta(meta) {
   return out;
 }
 
-function monthStartSec(nowMs) {
-  const d = new Date(nowMs);
-  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1) / 1000;
+// True only when the provider definitely refused the request before processing it: an HTTP 4xx other than 408 (timeout), 409 (conflict)
+// and 429 (rate limit). Those are the only failures that may be recorded at cost 0.
+function definitelyNotBilled(e) {
+  return e instanceof DeskModelError && e.code === "http_error" && Number.isInteger(e.status) && e.status >= 400 && e.status < 500 && ![408, 409, 429].includes(e.status);
 }
 
 const blocked = (reason, extra) => ({ ok: false, blocked: true, reason, ...(extra || {}) });
@@ -138,7 +148,7 @@ export async function guardedCall({ env, db, caller, client, meta, request, desk
 
   let est;
   try {
-    est = estimateWorstCaseUsd({ model: request.model, inputTokensEstimate: estimateTokens(rq.chars), maxOutputTokens: request.max_tokens, usesCache: rq.usesCache });
+    est = estimateWorstCaseUsd({ model: request.model, inputTokensEstimate: estimateInputTokensFromBytes(rq.bytes), maxOutputTokens: request.max_tokens, usesCache: rq.usesCache });
   } catch (e) { return refuse(e instanceof DeskPriceError ? e.code : "bad_request"); }
   if (!Number.isFinite(est) || est <= 0) return refuse("bad_request");
 
@@ -150,20 +160,19 @@ export async function guardedCall({ env, db, caller, client, meta, request, desk
   if (!(lim.totalUsd > 0 && est <= lim.totalUsd)) return refuse("budget_total");
 
   const t0 = clock();
-  const monthStart = monthStartSec(t0);
   const entry = { ...entryBase, mode: client.mode, nowMs: t0 };
   const caps = { question: lim.perQuestionUsd, run: lim.perRunUsd, month: lim.monthlyUsd, total: lim.totalUsd };
 
   // Atomic reserve BEFORE the call.
   let rsv;
-  try { rsv = await store.reserveCall(caller, { entry, est, caps, monthStart }); }
+  try { rsv = await store.reserveCall(caller, { entry, est, caps }); }
   catch (e) { return blocked("ledger_unreadable", { detail: e instanceof StoreError ? e.code : "error" }); }  // detail: not_ready (tables missing) or ledger_unreadable
 
   if (!rsv.reserved) {
     // Some cap would be exceeded by reserved + spent + estimate. Read the sums only to name which one (the decision was already made atomically).
     let reason = "budget_contended";
     try {
-      const s = await store.readLedgerSums(caller, { mode: client.mode, runId: m.runId, questionId: m.questionId, monthStart });
+      const s = await store.readLedgerSums(caller, { mode: client.mode, runId: m.runId, questionId: m.questionId, nowMs: t0 });
       const EPS = 1e-9;
       if (s.question + est > caps.question + EPS) reason = "budget_per_question";
       else if (s.run + est > caps.run + EPS) reason = "budget_per_run";
@@ -175,29 +184,36 @@ export async function guardedCall({ env, db, caller, client, meta, request, desk
   const callId = rsv.id;
 
   // The call. This is the only place a model is contacted.
-  let response;
+  let response, usageUnverified = false;
   try {
     response = await client.complete(request);
   } catch (e) {
-    const code = e instanceof DeskModelError ? e.code : "client_error";
-    // A timeout may have been billed by the provider and we cannot tell: keep the worst-case reservation as the cost. Other failures cost nothing.
-    const cost = code === "timeout" ? est : 0;
-    try { await store.finalizeCall(caller, callId, { costUsd: cost, latencyMs: clock() - t0, errorCode: code }); } catch (_) { /* reservation stays at its estimate */ }
-    return blocked("model_error", { detail: code, callId });
+    if (e instanceof DeskModelError && e.code === "bad_usage" && e.response) {
+      // 2xx with an untrustworthy usage block: billed, price unknown. Keep the answer, charge the reservation.
+      response = e.response; usageUnverified = true;
+    } else {
+      const code = e instanceof DeskModelError ? e.code : "client_error";
+      const cost = definitelyNotBilled(e) ? 0 : est;
+      try { await store.finalizeCall(caller, callId, { costUsd: cost, latencyMs: clock() - t0, errorCode: code }); } catch (_) { /* reservation stays at its estimate */ }
+      return blocked("model_error", { detail: code, callId });
+    }
   }
 
   const latency = clock() - t0;
-  let cost = est, errorCode = null;
   const usage = response && response.usage;
-  try { cost = costUsd(request.model, usage); } catch (_) { errorCode = "usage_missing"; /* unknown usage: charge the worst case */ }
-  const tok = (k) => (usage && Number.isFinite(Number(usage[k])) ? Number(usage[k]) : null);
-  let ledgerWarning = null;
+  let cost = est;
+  if (!usageUnverified) {
+    try { cost = costUsd(request.model, usage); } catch (_) { usageUnverified = true; cost = est; /* missing, malformed or unpriceable usage: charge the worst case */ }
+  }
+  const tok = (k) => (!usageUnverified && usage && Number.isFinite(Number(usage[k])) ? Number(usage[k]) : null);
+  const warnings = [];
+  if (usageUnverified) warnings.push("usage_unverified");
   try {
     await store.finalizeCall(caller, callId, {
       inputTokens: tok("input_tokens"), outputTokens: tok("output_tokens"), cacheReadTokens: tok("cache_read_input_tokens"), cacheWriteTokens: tok("cache_creation_input_tokens"),
-      costUsd: cost, latencyMs: latency, errorCode,
+      costUsd: cost, latencyMs: latency, errorCode: usageUnverified ? "usage_unverified" : null,
     });
-  } catch (_) { ledgerWarning = "finalize_failed"; /* the paid response is kept; the unfinalized reservation keeps counting at the worst case */ }
+  } catch (_) { warnings.push("finalize_failed"); /* the paid response is kept; the unfinalized reservation keeps counting at the worst case */ }
 
-  return { ok: true, response, usage, costUsd: cost, callId, mode: client.mode, ...(ledgerWarning ? { ledgerWarning } : {}) };
+  return { ok: true, response, usage, costUsd: cost, callId, mode: client.mode, ...(warnings.length ? { ledgerWarning: warnings[0], ledgerWarnings: warnings } : {}) };
 }

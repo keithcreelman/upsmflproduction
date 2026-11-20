@@ -3,16 +3,17 @@
 // Offline and safe anywhere: a fake model client, an in-memory SQLite database with migrations 0180 + 0181 applied, no network, no secrets,
 // no production. It exits non-zero if any claim below fails.
 import { makeD1, applyMigrations } from "../../tests/fixtures/d1_sqlite.mjs";
-import { createFakeClient, textResponse } from "../../tests/fixtures/ai_desk/fake_client.mjs";
+import { createFakeClient, textResponse, serializeBatches } from "../../tests/fixtures/ai_desk/fake_client.mjs";
 import { makeCommishCaller } from "../../worker/src/desk/contract.js";
 import { guardedCall } from "../../worker/src/desk/budget.js";
-import { estimateWorstCaseUsd, estimateTokens } from "../../worker/src/desk/prices.js";
+import { estimateWorstCaseUsd, estimateInputTokensFromBytes, utf8Bytes } from "../../worker/src/desk/prices.js";
+import { buildBody, DeskModelError } from "../../worker/src/desk/anthropic_client.js";
 
 const NOW = Date.UTC(2026, 10, 19, 15, 0, 0);
 const caller = makeCommishCaller("0008");
 const SECRET = "SECRET-QUESTION-TEXT-ABOUT-FRANCHISE-0001";
 const request = { model: "claude-sonnet-5-5", max_tokens: 1000, system: "be brief", messages: [{ role: "user", content: SECRET }] };
-const est = estimateWorstCaseUsd({ model: request.model, inputTokensEstimate: estimateTokens(JSON.stringify(request).length), maxOutputTokens: request.max_tokens });
+const est = estimateWorstCaseUsd({ model: request.model, inputTokensEstimate: estimateInputTokensFromBytes(utf8Bytes(JSON.stringify(buildBody(request)))), maxOutputTokens: request.max_tokens });
 const usageCosting = (usd) => ({ input_tokens: 0, output_tokens: Math.round((usd / 10) * 1e6) });
 const BIG = { DESK_BUDGET_PER_QUESTION_USD: "5", DESK_BUDGET_PER_RUN_USD: "10", DESK_BUDGET_MONTHLY_USD: "20", DESK_BUDGET_TOTAL_USD: "50" };
 const usd = (n) => `$${n.toFixed(6)}`;
@@ -65,6 +66,7 @@ section("4. Per-run cap spans questions in one run");
 
 section("5. Monthly and total caps");
 { const d = freshDb(); d.raw.prepare("INSERT INTO ai_call_log (created_at, feature, step, model, mode, est_cost_usd, cost_usd) VALUES (?, 'commish_desk', 'loop', 'm', 'fake', 0, ?)").run(NOW / 1000 - 3600, est * 5);
+  for (const per of ["total", "2026-11"]) { d.raw.prepare("INSERT INTO ai_budget_totals (mode, period, spent_usd) VALUES ('fake', ?, ?)").run(per, est * 5); }   // the gate reads the totals rows
   const m = await go({ env: { ...BIG, DESK_BUDGET_MONTHLY_USD: String(est * 2) }, db: d, client: createFakeClient([textResponse("x")]) }); show("this month already spent", m);
   const tt = await go({ env: { ...BIG, DESK_BUDGET_TOTAL_USD: String(est * 5.5) }, db: d, client: createFakeClient([textResponse("x")]) }); show("total nearly used", tt);
   claim("monthly cap blocks: budget_monthly", m.reason === "budget_monthly");
@@ -77,7 +79,7 @@ section("6. Ledger unreadable: fail closed");
   claim("the model was never sent a request", c.calls.length === 0); }
 
 section("7. A concurrent burst cannot overshoot (12 overlapping calls, room for 3)");
-{ const d = freshDb(), env = { ...BIG, DESK_BUDGET_TOTAL_USD: String(est * 3.5) };
+{ const d = serializeBatches(freshDb()), env = { ...BIG, DESK_BUDGET_TOTAL_USD: String(est * 3.5) };   // D1 runs one batch at a time
   const c = createFakeClient(async () => { await new Promise((r) => setTimeout(r, 5)); return textResponse("x", usageCosting(est * 0.5)); });
   const res = await Promise.all(Array.from({ length: 12 }, (_, i) => go({ env, db: d, client: c, meta: { step: "loop", questionId: `b${i}`, runId: "burst" } })));
   const okN = res.filter((r) => r.ok).length, led = rows(d, "mode = 'fake'");
@@ -107,6 +109,33 @@ section("9. No question or answer text in the ledger");
   claim("the question text is not in any ledger column", !dump.includes(SECRET) && !dump.includes("FRANCHISE-0001"));
   claim("the answer text is not in any ledger column", !dump.includes("ANSWER-TEXT-SHOULD-NOT-BE-LOGGED"));
   claim("the model itself did receive the question (the fake recorded it)", JSON.stringify(c.calls[0]).includes(SECRET)); }
+
+section("10. Malformed usage never erases spend; only a definite 4xx refusal is free");
+{ const d = freshDb(); const bad = { mode: "fake", async complete() { return { content: [{ type: "text", text: "paid" }], usage: { output_tokens: 5 } }; } };
+  const r = await go({ env: BIG, db: d, client: bad }); show("answer with a broken usage block", r);
+  claim("the answer is returned, flagged usage_unverified", r.ok && r.ledgerWarning === "usage_unverified");
+  claim("it was charged the full reservation, not $0", Math.abs(r.costUsd - est) < 1e-12 && Math.abs(rows(d)[0].cost_usd - est) < 1e-12);
+  const outcomes = {};
+  for (const [label, err] of [["HTTP 400", new DeskModelError("http_error", { status: 400 })], ["HTTP 429", new DeskModelError("http_error", { status: 429 })], ["HTTP 503", new DeskModelError("http_error", { status: 503 })],
+    ["timeout", new DeskModelError("timeout")], ["network", new DeskModelError("network")], ["unknown error", new Error("boom")]]) {
+    const dd = freshDb(); await go({ env: BIG, db: dd, client: createFakeClient([err]) });
+    outcomes[label] = rows(dd)[0].cost_usd; console.log(`    ${label}: recorded cost ${usd(outcomes[label])}`);
+  }
+  claim("HTTP 400 (refused before processing) is recorded at $0", outcomes["HTTP 400"] === 0);
+  claim("429, 5xx, timeout, network and unknown failures keep the reservation", ["HTTP 429", "HTTP 503", "timeout", "network", "unknown error"].every((k) => Math.abs(outcomes[k] - est) < 1e-12)); }
+
+section("11. A large ledger still reads a handful of rows: the totals table carries total and monthly spend");
+{ const d = freshDb();
+  d.raw.exec("BEGIN");
+  for (let i = 0; i < 5000; i++) d.raw.prepare("INSERT INTO ai_call_log (created_at, feature, run_id, question_id, step, model, mode, est_cost_usd, cost_usd) VALUES (?, 'commish_desk', ?, ?, 'loop', 'm', 'fake', 0.01, 0.01)").run(NOW / 1000 - 86400 * 40 - i, `run${i % 500}`, `qq${i % 1000}`);
+  d.raw.exec("COMMIT");
+  const plan = d.raw.prepare("EXPLAIN QUERY PLAN SELECT * FROM ai_call_log WHERE run_id = ? AND mode = ?").all("run1", "fake").map((p) => p.detail).join(" | ");
+  const runRows = d.raw.prepare("SELECT COUNT(*) AS n FROM ai_call_log WHERE run_id = 'run1'").get().n, qRows = d.raw.prepare("SELECT COUNT(*) AS n FROM ai_call_log WHERE question_id = 'qq1'").get().n;
+  console.log(`    ledger rows: 5000; per-run index search reads ${runRows}, per-question ${qRows}; plan: ${plan}`);
+  const c = createFakeClient([textResponse("x")]);
+  const r = await go({ env: { ...BIG, DESK_BUDGET_TOTAL_USD: "1", DESK_BUDGET_MONTHLY_USD: "1" }, db: d, client: c });
+  claim("the per-run and per-question sums are index searches over a handful of rows", /USING INDEX idx_ai_call_log_run/.test(plan) && runRows + qRows <= 20);
+  claim("the total cap consulted the totals rows, not the 5,000-row ledger (a $50 ledger did not block a $1 total cap)", r.ok === true); }
 
 console.log(`\n${n - failed}/${n} claims hold${failed ? `, ${failed} FAILED` : ""}.`);
 process.exit(failed ? 1 : 0);

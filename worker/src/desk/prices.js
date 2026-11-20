@@ -27,24 +27,45 @@ export function priceFor(model) {
 
 export function isPricedModel(model) { return priceFor(model) !== null; }
 
-// Deliberately pessimistic: one token per 3 characters (real English text is nearer 4; JSON and numbers are denser).
-export function estimateTokens(chars) {
-  const n = Number(chars);
-  if (!Number.isFinite(n) || n <= 0) return 0;
-  return Math.ceil(n / 3);
+// ── Input-token upper bound ─────────────────────────────────────────────────────────────────────
+// The reservation must be a HARD upper bound, so it cannot rest on a chars-per-token guess (CJK text, base64, long digit strings and emoji
+// all run close to one token per character or worse). A byte-level tokenizer can never emit more tokens than the UTF-8 BYTES it is given, so
+// the bound is: UTF-8 byte length of the serialized request body, plus a fixed overhead for the provider's own wrapping (tool and system
+// scaffolding added server-side, message framing). Real English text is about 4 bytes per token, so this over-reserves by 3 to 4 times on
+// ordinary prompts; that is the price of a bound that cannot be wrong. Actual cost is charged from the response's usage block.
+export const INPUT_OVERHEAD_TOKENS = 1000;
+
+const ENCODER = new TextEncoder();
+export function utf8Bytes(text) { return ENCODER.encode(String(text)).length; }
+
+export function estimateInputTokensFromBytes(bytes) {
+  const n = Number(bytes);
+  return (Number.isFinite(n) && n > 0 ? Math.ceil(n) : 0) + INPUT_OVERHEAD_TOKENS;
+}
+
+// A usage block is trusted only if the two required counts are non-negative integers and any cache counts present are too.
+const isCount = (v) => Number.isSafeInteger(v) && v >= 0;
+export function validateUsage(usage) {
+  if (!usage || typeof usage !== "object" || Array.isArray(usage)) return { ok: false, reason: "usage not an object" };
+  if (!isCount(usage.input_tokens)) return { ok: false, reason: "input_tokens" };
+  if (!isCount(usage.output_tokens)) return { ok: false, reason: "output_tokens" };
+  for (const k of ["cache_read_input_tokens", "cache_creation_input_tokens"]) {
+    if (usage[k] != null && !isCount(usage[k])) return { ok: false, reason: k };
+  }
+  return { ok: true };
 }
 
 function tokenCount(v) { const n = Number(v); return Number.isFinite(n) && n > 0 ? n : 0; }
 
 // Actual cost of a response from its usage block. Throws DeskPriceError('unknown_model') for an unpriced model and
-// DeskPriceError('bad_usage') when usage is not an object. Never returns NaN.
+// DeskPriceError('bad_usage') for any usage block that fails validateUsage: it never prices a malformed block as zero.
 export function costUsd(model, usage) {
   const p = priceFor(model);
   if (!p) throw new DeskPriceError("unknown_model", `no price for model "${String(model).slice(0, 60)}"`);
-  if (!usage || typeof usage !== "object") throw new DeskPriceError("bad_usage", "usage block missing");
-  const inTok = tokenCount(usage.input_tokens), outTok = tokenCount(usage.output_tokens);
-  const crTok = tokenCount(usage.cache_read_input_tokens), cwTok = tokenCount(usage.cache_creation_input_tokens);
-  return (inTok * p.input + outTok * p.output + crTok * p.cacheRead + cwTok * p.cacheWrite) / 1e6;
+  const v = validateUsage(usage);
+  if (!v.ok) throw new DeskPriceError("bad_usage", `usage invalid: ${v.reason}`);
+  return (usage.input_tokens * p.input + usage.output_tokens * p.output
+    + (usage.cache_read_input_tokens || 0) * p.cacheRead + (usage.cache_creation_input_tokens || 0) * p.cacheWrite) / 1e6;
 }
 
 // Upper bound for a call before it is made: EVERY input token at the full input rate (or the cache-write rate when the request uses

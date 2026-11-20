@@ -45,7 +45,7 @@ export const EMIT_CARD_TOOL = Object.freeze({
 // ── Evidence summary ──────────────────────────────────────────────────────────────────────────────
 function isNoise(env) {
   const code = env && env.error && env.error.code;
-  return (env.status === "forbidden" && code === "unknown_tool") || (env.status === "error" && code === "bad_arguments");
+  return (env.status === "forbidden" && code === "unknown_tool") || (env.status === "error" && (code === "bad_arguments" || code === "as_of_required"));
 }
 
 // Rules RETURNED in this run: any object with a string `anchor` inside the data of an OK rules.search or rules.get result.
@@ -133,6 +133,7 @@ const CODE_TEXT = Object.freeze({
   tool_failure: "Could not verify this right now. No answer is shown and no numbers are filled in.",
   out_of_scope: "The desk answers read-only questions about UPS league records and rules. It cannot post, send, change or accept anything.",
   stale_data: "A source needed for this answer is older than its freshness limit, so the answer is withheld.",
+  abstain: "The question refers to a past time without naming a date, so it cannot be checked. Name the date and ask again.",
 });
 
 function newRequestId(deps) {
@@ -150,12 +151,12 @@ function baseCard({ state, asOf, canonSha, requestId, calls, costUsd, modelCalls
   };
 }
 
-// A card whose text is written by code alone. state: budget_exceeded | tool_failure | out_of_scope | stale_data.
+// A card whose text is written by code alone. state: budget_exceeded | tool_failure | out_of_scope | stale_data | abstain.
 export function codeCard(state, o) {
   if (!CODE_TEXT[state]) throw new Error(`no code-built card for state ${state}`);
   return {
     ...baseCard({ state, ...o, requestId: o.requestId }),
-    lead_md: CODE_TEXT[state], blocks: [], facts_used: [], facts: {}, cites: [], gaps: [], conflicts: [], ruling_question: "", follow_ups: [],
+    lead_md: CODE_TEXT[state], blocks: [], facts_used: [], facts: {}, cites: [], gaps: (o.gaps || []).map((g) => ({ ...g })), conflicts: [], ruling_question: "", follow_ups: [],
     tool_gaps: [], refusals: [], reason_code: o.reasonCode || state,
   };
 }

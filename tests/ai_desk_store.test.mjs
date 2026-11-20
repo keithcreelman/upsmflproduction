@@ -13,7 +13,6 @@ const freshDb = () => { const d = makeD1(); applyMigrations(d, MIGRATIONS); retu
 const q = (over = {}) => ({ question: "How much cap does franchise 0001 have?", asOf: "current", state: "answer", card: { lead_md: "x {{f.c1.cap}}" }, costUsd: 0.012, durationMs: 1500, toolCalls: 2, canonSha: "194f8df", nowMs: NOW, ...over });
 const entry = (over = {}) => ({ feature: "commish_desk", runId: "r1", questionId: "q1", step: "loop", model: "claude-sonnet-5-5", mode: "fake", promptHash: "sha256:aa", canonSha: "194f8df", tools: "rules.search", nowMs: NOW, ...over });
 const caps = (n) => ({ question: n, run: n, month: n, total: n });
-const monthStart = Date.UTC(2026, 10, 1) / 1000;
 
 const ALL_METHODS = {
   saveQuestion: (s, c) => s.saveQuestion(c, q()),
@@ -21,8 +20,8 @@ const ALL_METHODS = {
   getQuestion: (s, c) => s.getQuestion(c, "x"),
   reportProblem: (s, c) => s.reportProblem(c, "x", "note"),
   purgeOlderThan: (s, c) => s.purgeOlderThan(c, 90),
-  readLedgerSums: (s, c) => s.readLedgerSums(c, { mode: "fake", monthStart }),
-  reserveCall: (s, c) => s.reserveCall(c, { entry: entry(), est: 0.1, caps: caps(1), monthStart }),
+  readLedgerSums: (s, c) => s.readLedgerSums(c, { mode: "fake", nowMs: NOW }),
+  reserveCall: (s, c) => s.reserveCall(c, { entry: entry(), est: 0.1, caps: caps(1) }),
   finalizeCall: (s, c) => s.finalizeCall(c, 1, { costUsd: 0 }),
   annotateCall: (s, c) => s.annotateCall(c, 1, { validatorResult: "pass" }),
   logBlocked: (s, c) => s.logBlocked(c, entry(), "x"),
@@ -116,30 +115,30 @@ test("purgeOlderThan: deletes only old questions, at most one bounded batch per 
 
 test("reserveCall is atomic and only reserves while every cap holds; finalize works once", async () => {
   const d = freshDb(); const s = createStore(d);
-  const a = await s.reserveCall(caller, { entry: entry(), est: 0.6, caps: caps(1), monthStart });
+  const a = await s.reserveCall(caller, { entry: entry(), est: 0.6, caps: caps(1) });
   t.equal(a.reserved, true); t.ok(a.id > 0);
-  const b = await s.reserveCall(caller, { entry: entry({ step: "composer" }), est: 0.6, caps: caps(1), monthStart });
+  const b = await s.reserveCall(caller, { entry: entry({ step: "composer" }), est: 0.6, caps: caps(1) });
   t.equal(b.reserved, false, "0.6 reserved + 0.6 would pass 1.0");
   t.equal(d.raw.prepare("SELECT COUNT(*) AS n FROM ai_call_log").get().n, 1);
-  const sums = await s.readLedgerSums(caller, { mode: "fake", runId: "r1", questionId: "q1", monthStart });
-  t.deepEqual([sums.total, sums.month, sums.run, sums.question, sums.rows], [0.6, 0.6, 0.6, 0.6, 1]);
-  t.equal((await s.readLedgerSums(caller, { mode: "live", runId: "r1", questionId: "q1", monthStart })).total, 0, "other lane");
+  const sums = await s.readLedgerSums(caller, { mode: "fake", runId: "r1", questionId: "q1", nowMs: NOW });
+  t.deepEqual([sums.total, sums.month, sums.run, sums.question], [0.6, 0.6, 0.6, 0.6]);
+  t.equal((await s.readLedgerSums(caller, { mode: "live", runId: "r1", questionId: "q1", nowMs: NOW })).total, 0, "other lane");
   t.equal(await s.finalizeCall(caller, a.id, { inputTokens: 10, outputTokens: 5, costUsd: 0.1, latencyMs: 12 }), true);
   t.equal(await s.finalizeCall(caller, a.id, { costUsd: 99 }), false, "a finalized row is never rewritten");
   t.equal(d.raw.prepare("SELECT cost_usd FROM ai_call_log WHERE id = ?").get(a.id).cost_usd, 0.1);
-  const c = await s.reserveCall(caller, { entry: entry({ step: "composer" }), est: 0.6, caps: caps(1), monthStart });
+  const c = await s.reserveCall(caller, { entry: entry({ step: "composer" }), est: 0.6, caps: caps(1) });
   t.equal(c.reserved, true, "after finalizing at 0.1 there is room again");
   // each cap is enforced on its own
   for (const which of ["question", "run", "month", "total"]) {
     const dd = freshDb(), ss = createStore(dd);
     const cp = { question: 9, run: 9, month: 9, total: 9, [which]: 0.05 };
-    t.equal((await ss.reserveCall(caller, { entry: entry(), est: 0.1, caps: cp, monthStart })).reserved, false, which);
+    t.equal((await ss.reserveCall(caller, { entry: entry(), est: 0.1, caps: cp })).reserved, false, which);
   }
 });
 
 test("annotateCall accepts only known validator results and card states", async () => {
   const d = freshDb(); const s = createStore(d);
-  const { id } = await s.reserveCall(caller, { entry: entry(), est: 0.1, caps: caps(1), monthStart });
+  const { id } = await s.reserveCall(caller, { entry: entry(), est: 0.1, caps: caps(1) });
   t.equal(await s.annotateCall(caller, id, { validatorResult: "retry", state: "answer_with_gap" }), true);
   const row = d.raw.prepare("SELECT validator_result, state FROM ai_call_log WHERE id = ?").get(id);
   t.deepEqual({ ...row }, { validator_result: "retry", state: "answer_with_gap" });
@@ -166,7 +165,7 @@ test("tables missing: every method reports not_ready (the gate then fails closed
 test("a database error is reported as ledger_unreadable, with no SQL or driver text", async () => {
   const d = freshDb(); const s = createStore(d);
   d.opts.beforeRun = () => { throw new Error("SQLITE_BUSY: secret internal detail with ai_call_log"); };
-  let err = null; try { await s.readLedgerSums(caller, { mode: "fake", monthStart }); } catch (e) { err = e; }
+  let err = null; try { await s.readLedgerSums(caller, { mode: "fake", nowMs: NOW }); } catch (e) { err = e; }
   t.ok(err instanceof StoreError); t.equal(err.code, "ledger_unreadable"); t.equal(/secret|SQLITE/.test(err.message), false);
 });
 
@@ -174,8 +173,8 @@ test("every executed statement uses bound parameters and touches only the two de
   const d = freshDb(); const s = createStore(d);
   const { id } = await s.saveQuestion(caller, q({ question: "x'; DROP TABLE ai_call_log; --" }));
   await s.getQuestion(caller, id); await s.listQuestions(caller, { limit: 3 }); await s.reportProblem(caller, id, "n'; DELETE FROM ai_desk_questions; --");
-  const r = await s.reserveCall(caller, { entry: entry({ runId: "r';--" }), est: 0.1, caps: caps(1), monthStart });
-  await s.readLedgerSums(caller, { mode: "fake", runId: "r1", questionId: "q1", monthStart });
+  const r = await s.reserveCall(caller, { entry: entry({ runId: "r';--" }), est: 0.1, caps: caps(1) });
+  await s.readLedgerSums(caller, { mode: "fake", runId: "r1", questionId: "q1", nowMs: NOW });
   await s.finalizeCall(caller, r.id, { costUsd: 0.01 }); await s.annotateCall(caller, r.id, { state: "answer" }); await s.logBlocked(caller, entry(), "x"); await s.purgeOlderThan(caller, 90, { nowMs: NOW });
   t.ok(d.log.length >= 10);
   t.equal(d.raw.prepare("SELECT COUNT(*) AS n FROM ai_desk_questions").get().n, 1, "injection text was stored as data");
@@ -183,9 +182,9 @@ test("every executed statement uses bound parameters and touches only the two de
   for (const { sql, args } of d.log) {
     t.equal((sql.match(/\?/g) || []).length, args.length, `placeholders match args: ${sql.slice(0, 50)}`);
     t.doesNotMatch(sql, /create\s+table|alter\s+table|drop\s+table/i);
-    for (const m of sql.matchAll(/\b(FROM|JOIN|INTO|UPDATE)\s+([A-Za-z_][A-Za-z0-9_]*)/g)) t.ok([...TABLES, "s"].includes(m[2]), `table ${m[2]}`);
+    for (const m of sql.matchAll(/\b(FROM|JOIN|INTO|UPDATE)\s+([A-Za-z_][A-Za-z0-9_]*)/g)) t.ok([...TABLES].includes(m[2]), `table ${m[2]}`);
   }
-  t.deepEqual([...TABLES], ["ai_call_log", "ai_desk_questions"]);
+  t.deepEqual([...TABLES], ["ai_call_log", "ai_budget_totals", "ai_desk_questions"]);
 });
 
 run("ai_desk_store");

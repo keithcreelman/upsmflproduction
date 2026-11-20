@@ -160,6 +160,21 @@ test("STATUS: reports tools, zero caps and the live blockers; never a secret or 
   t.doesNotMatch(s.text, /admin-key-secret|COMMISH-COOKIE|sk-ant/);
 });
 
+test("KNOWLEDGE: the canon digest is verified BEFORE anything is cached, so a /status call can never seed an unverified index", async () => {
+  const H = await import("../worker/src/desk/handler.js");
+  const real = (await import("../worker/src/desk/data/rules_data.js")).default;
+  const outOfDate = JSON.parse(JSON.stringify(real)); outOfDate.canon_digest = "000000000000";
+  H._resetKnowledgeCacheForTests();
+  const first = await H.loadKnowledge({ leagueId: "74598", season: 2026, canonText: "canon text the index was not built from", rulesData: outOfDate });
+  t.equal(first.rulesMeta.stale, true, "a mismatched digest must read stale on the very first (status-like) load");
+  const again = await H.loadKnowledge({ leagueId: "74598", season: 2026, canonText: "canon text the index was not built from", rulesData: real });
+  t.equal(again.rulesMeta.stale, true, "the cached knowledge stays stale for later questions");
+  H._resetKnowledgeCacheForTests();
+  const noCanon = await H.loadKnowledge({ leagueId: "74598", season: 2026, canonText: "", rulesData: real });
+  t.equal(noCanon.rulesMeta.stale, true, "an unavailable canon digest fails closed");
+  H._resetKnowledgeCacheForTests();
+});
+
 test("SOURCE: the index.js desk block touches no league table or write route", async () => {
   const fs = await import("node:fs");
   const src = fs.readFileSync(new URL("../worker/src/index.js", import.meta.url), "utf8");

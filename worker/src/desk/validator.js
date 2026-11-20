@@ -217,7 +217,7 @@ function arrayOf(v, path, max, errors) {
 function isNoise(env) {
   // The model's own malformed attempts (unknown tool, bad arguments) are counted by the loop but do not make the DATA incomplete.
   const code = env && env.error && env.error.code;
-  return (env.status === "forbidden" && code === "unknown_tool") || (env.status === "error" && code === "bad_arguments");
+  return (env.status === "forbidden" && code === "unknown_tool") || (env.status === "error" && (code === "bad_arguments" || code === "as_of_required"));
 }
 function isPastAsOf(asOf, today) {
   if (!asOf || asOf === "current") return false;
@@ -360,7 +360,7 @@ export function validateCard(card, ctx) {
     }
     if ((f.status && f.status !== "ok") || (env && env.status !== "ok")) { errors.push({ code: CODES.FACT_FROM_REFUSED_TOOL, path: id, message: "the tool did not return an ok result" }); continue; }
     if (!classAllowed(ceiling, f.data_class)) errors.push({ code: CODES.OVER_CLASS_FACT, path: id, message: "fact is above the caller's data class" });
-    if (pastRun && f.as_of === "current") errors.push({ code: CODES.CURRENT_FACT_FOR_PAST_DATE, path: id, message: "this fact is today's value; the question is about a past date" });
+    if ((pastRun || c.forbidCurrent) && f.as_of === "current") errors.push({ code: CODES.CURRENT_FACT_FOR_PAST_DATE, path: id, message: "this fact is today's value; the question is about a past date or compares dates" });
   }
 
   // ── Rule 8: states that carry no facts ─────────────────────────────────────────────────────────

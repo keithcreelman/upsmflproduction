@@ -7,13 +7,17 @@
 // No retries on purpose: a retry is a second paid call. A failure is surfaced as a typed DeskModelError that carries a short code and,
 // at most, the HTTP status and the provider's short error type. The key and the response body are never echoed.
 
+import { validateUsage } from "./prices.js";
+
 export const desiredKeyName = "ANTHROPIC_API_KEY_DESK";
 export const ANTHROPIC_URL = "https://api.anthropic.com/v1/messages";
 export const ANTHROPIC_VERSION = "2023-06-01";
 export const DEFAULT_TIMEOUT_MS = 60000;
 
 export class DeskModelError extends Error {
-  // code: no_key | timeout | network | http_error | bad_response
+  // code: no_key | timeout | network | http_error | bad_response | bad_usage
+  // bad_usage: the provider answered 2xx (so the call was billed) but the usage block cannot be trusted. The parsed answer is attached as
+  // a NON-enumerable `response` so the budget gate can still hand it back while charging the worst-case reservation; it never serializes.
   constructor(code, { status = null, providerType = null } = {}) {
     super(`desk model call failed: ${code}${status ? ` (http ${status})` : ""}${providerType ? ` ${providerType}` : ""}`);
     this.name = "DeskModelError";
@@ -26,7 +30,7 @@ export class DeskModelError extends Error {
 // Only these request fields are sent. Anything else a caller adds is dropped, so a stray field can never widen what is transmitted.
 const REQUEST_FIELDS = ["model", "max_tokens", "system", "messages", "tools", "tool_choice", "temperature"];
 
-function buildBody(request) {
+export function buildBody(request) {
   const body = {};
   for (const k of REQUEST_FIELDS) if (request[k] !== undefined) body[k] = request[k];
   return body;
@@ -68,8 +72,14 @@ export function createAnthropicClient({ apiKey, fetch: fetchImpl, timeoutMs = DE
         try { text = await res.text(); } catch (e) { if (e && e.name === "AbortError") throw new DeskModelError("timeout"); text = ""; }
         try { parsed = text ? JSON.parse(text) : null; } catch (_) { parsed = null; }
         if (!res.ok) throw new DeskModelError("http_error", { status: Number(res.status) || 0, providerType: safeProviderType(parsed) });
-        if (!parsed || !Array.isArray(parsed.content) || !parsed.usage || typeof parsed.usage !== "object") throw new DeskModelError("bad_response", { status: Number(res.status) || 0 });
-        return { content: parsed.content, stop_reason: parsed.stop_reason == null ? null : String(parsed.stop_reason), usage: parsed.usage, model: typeof parsed.model === "string" ? parsed.model : request.model };
+        if (!parsed || !Array.isArray(parsed.content)) throw new DeskModelError("bad_response", { status: Number(res.status) || 0 });
+        const out = { content: parsed.content, stop_reason: parsed.stop_reason == null ? null : String(parsed.stop_reason), usage: parsed.usage, model: typeof parsed.model === "string" ? parsed.model : request.model };
+        if (!validateUsage(parsed.usage).ok) {
+          const err = new DeskModelError("bad_usage", { status: Number(res.status) || 0 });
+          Object.defineProperty(err, "response", { value: out, enumerable: false });
+          throw err;
+        }
+        return out;
       } catch (e) {
         if (e instanceof DeskModelError) throw e;
         throw new DeskModelError(e && e.name === "AbortError" ? "timeout" : "bad_response");

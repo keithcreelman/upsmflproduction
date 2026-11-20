@@ -129,6 +129,12 @@ test("a fact whose as_of is current never answers a past-date question", () => {
   t.ok(validateCard(card, ctxFor([past], { asOf: "2023-10-01" })).ok);
   t.ok(validateCard(card, ctxFor([cur], { asOf: "current" })).ok, "a current question may use current facts");
   t.ok(codes({ state: "answer_with_caveat", lead_md: "Space was {{f.c1.cap_available}}." }, ctxFor([cur], { asOf: "2023-10-01" })).includes(CODES.CURRENT_FACT_FOR_PAST_DATE));
+  // a multi-date comparison (ctx.forbidCurrent): the effective as_of stays "current", but a fact dated current is still rejected
+  t.deepEqual(codes(card, ctxFor([cur], { asOf: "current", forbidCurrent: true })), [CODES.CURRENT_FACT_FOR_PAST_DATE]);
+  t.ok(validateCard(card, ctxFor([past], { asOf: "current", forbidCurrent: true })).ok);
+  // the loop's own refusal of a current call (as_of_required) is noise, not missing data
+  const refused = env("c2", "cap.position", "error", { error: { code: "as_of_required" } });
+  t.ok(validateCard(card, ctxFor([past, refused], { asOf: "current", forbidCurrent: true })).ok);
 });
 
 test("fact above the caller ceiling is rejected", () => {

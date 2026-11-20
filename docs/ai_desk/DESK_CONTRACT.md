@@ -13,7 +13,7 @@ route handler (handler.js)  --proves commissioner--> makeCommishCaller()  (froze
                   tools/*.js  get ONLY { args, asOf, caller, now, routeGet, knowledge }: no env, no D1, no cookies
 ```
 - Authorization is code, in `registry.runTool` (caller proof on every call, schema-checked args, mandatory `as_of`, exact route allowlist, GET-only, output allowlist, secret stripping, data-class ceiling). The model can never widen it.
-- A tool cannot write anything: it is never given a database handle or `env`. The desk's own writes (call log, question history) happen only in `store.js`, called by the handler and the budget gate, into `ai_call_log` and `ai_desk_questions` (migrations 0180, 0181), never into league tables.
+- A tool cannot write anything: it is never given a database handle or `env`. The desk's own writes (call log, question history) happen only in `store.js`, called by the handler and the budget gate, into `ai_call_log`, `ai_budget_totals` (both in migration 0180) and `ai_desk_questions` (migration 0181), never into league tables.
 - `routeGet(path, params)` calls the Worker's own read-only GET routes via `env.SELF.fetch` (injected as `deps.fetchSelf`), with no headers or credentials, called as `fetchSelf(url, { redirect: "manual", signal })`; a redirect answer is an error.
 
 ## Tool definition (`defineTool`, see `registry.js`)

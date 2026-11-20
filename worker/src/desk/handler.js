@@ -33,15 +33,24 @@ async function readJson(request) {
 }
 
 // Knowledge is rebuilt per isolate and cached: rules index (bundled), glossary, coverage matrix, the bundled canon digest.
+// The digest of the canon text this Worker carries is ALWAYS computed before anything is cached (a /status call must never seed the cache with an
+// unverified index). If it cannot be computed, the sentinel "unavailable" never equals the index's digest, so the rules tools fail closed (stale).
 let knowledgeCache = null;
-export async function loadKnowledge({ env, leagueId, season, canonText, rulesData, sha256Hex }) {
+let canonDigestCache = null;
+async function bundledCanonDigest(canonText) {
+  if (canonDigestCache === null) {
+    try { canonDigestCache = canonText ? (await sha256Hex(canonText)).slice(0, 12) : "unavailable"; } catch (_) { return "unavailable"; }
+  }
+  return canonDigestCache;
+}
+export async function loadKnowledge({ leagueId, season, canonText, rulesData }) {
   if (knowledgeCache && knowledgeCache.leagueId === String(leagueId) && knowledgeCache.currentSeason === Number(season)) return knowledgeCache;
   const data = rulesData || (await import("./data/rules_data.js")).default;
-  const canonDigest = canonText && sha256Hex ? (await sha256Hex(canonText)).slice(0, 12) : null;
+  const canonDigest = await bundledCanonDigest(canonText);
   knowledgeCache = buildKnowledge({ rulesJson: data, canonText: null, leagueId: String(leagueId), currentSeason: Number(season), calendar: {}, canonDigestBundled: canonDigest });
   return knowledgeCache;
 }
-export function _resetKnowledgeCacheForTests() { knowledgeCache = null; }
+export function _resetKnowledgeCacheForTests() { knowledgeCache = null; canonDigestCache = null; }
 
 export async function sha256Hex(text) {
   const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(text)));
@@ -104,7 +113,7 @@ export async function handleDeskRoute(ctx) {
       if (question.length > 600) return out(400, { ok: false, error: "question_too_long" });
       if (!isAsOf(asOf)) return out(400, { ok: false, error: "bad_as_of" });
 
-      const knowledge = await loadKnowledge({ ...ctx, sha256Hex });
+      const knowledge = await loadKnowledge(ctx);
       const requestId = crypto.randomUUID().replace(/-/g, "").slice(0, 24);
       const now = ctx.now || (() => new Date());
       const nowMs = () => Date.now();

@@ -257,11 +257,11 @@ test("SCAN desk: the registry and every data/validation module never see env or 
   for (const d of ["data/coverage_matrix.js", "data/glossary.js"]) t.ok(!/\benv\b|\bfetch\b/.test(SRC.get(path.join(DESK, d)).code));
 });
 
-test("SCAN desk: the two desk tables are the only tables store.js names; it creates none", () => {
+test("SCAN desk: the three desk tables (call log, question history, budget totals) are the only tables store.js names; it creates none", () => {
   const { strings, code } = SRC.get(path.join(DESK, "store.js"));
   const tables = new Set();
   for (const s of strings) for (const m of s.matchAll(/\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_]+)/g)) tables.add(m[1]);
-  t.deepEqual([...tables].filter((x) => !["s"].includes(x)).sort(), ["ai_call_log", "ai_desk_questions"]);
+  t.deepEqual([...tables].sort(), ["ai_budget_totals", "ai_call_log", "ai_desk_questions"]);
   t.ok(!strings.some((s) => /CREATE\s+TABLE/i.test(s)));
   t.ok(code.length > 0);
 });

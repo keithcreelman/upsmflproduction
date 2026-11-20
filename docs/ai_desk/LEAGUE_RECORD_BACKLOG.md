@@ -28,3 +28,13 @@
 | LR-16 | An unused era-aware penalty library sits beside the charged penalty calculator; it is not wired into the code that charges. | [V] earlier audit; re-checked in the readiness review. | S4: consolidate into one era-aware calculator, then retire copies. | Phase 1 quotes **current-rule** penalties only, from the charged calculator. |
 
 **Where this should live:** a private record (your "Keith · Work and Learning" Project, or a UPS issue if you approve posting). It isn't posted anywhere yet.
+
+## Added 2026-11-20 (found while building and testing the Phase 1 tools)
+| # | Item | Evidence | Slice that fixes it | Phase 1 behavior (no block) |
+|---|---|---|---|---|
+| LR-17 | **Stored final finishes disagree with the corrected fixture in three seasons:** 2011 has places 8 and 11 swapped, 2015 is defective (two franchises at 6, none at 10), 2023 has a stored 9th/10th swap (per the fixture's own note). | [V] `tests/fixtures/final_finish_history_2010_2025.json` vs stored D1 values | S3 history cleanup, with Keith's rulings on the true places | `history.finishes` flags those places as unverified (grade D) and refuses to label 2015's lower places. |
+| LR-18 | **`/api/player-transactions` reads the MFL ledger only from 2019 onward** (code floor 2019), so earlier adds, drops and trades are not returned, although the catalog says all years. | [V] route code | S2 `contract.timeline` / archive-backed transactions | The tool attaches a standing gap to every result; it never says "no transactions" for earlier seasons. |
+| LR-19 | **The route's per-event contract strings are reconstructed, and some are even-split guesses.** | [V] route code | S2 (event-chain evidence) | `player.transactions` omits contract terms; a historical contract question gets a decline. |
+| LR-20 | **Drop-penalty rounding is not exposed by the preview.** The route returns raw per-drop amounts; the $1K rounding happens at team level in a write route (reconcile-post). | [V] | S4 era-aware calculator | The desk quotes the per-drop figure and says the team-level rounding is not applied. |
+| LR-21 | **`regular_season_finish` has duplicate values in 2013** (two franchises at 6). | [V] | S3 | Passed through with a note that it is the seed by all-play percent. |
+| LR-22 | **The calendar's FA Auction start row is a placeholder in 2026**, so the tag-cut guard cannot resolve the auction start from data. | [V] | Calendar data entry | `cap.penalty_quote` refuses tag-cut quotes in the window (fails closed). Supplying `knowledge.calendar.faAuctionStart` removes the refusal. |

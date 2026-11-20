@@ -3,7 +3,10 @@
 -- BEFORE every call, and the audit trail for "what did the model see and what did it cost". It never holds question text, answer text,
 -- tool results or secrets: those live (for the desk) in ai_desk_questions, which is private and purged.
 -- DELIBERATELY SEPARATE from hall_qa_log (the owner-facing Discord Q&A store): different audience, different retention, different permissions.
--- Writes: a handful of rows per desk question. The budget gate sums cost over a bounded window (index on created_at), a few hundred rows at most.
+-- Writes: a handful of rows per desk question. The budget gate does NOT sum this table for the total and monthly caps: it reads two rows of
+-- ai_budget_totals (below), so a call costs a handful of rows read however large the ledger grows. Only the per-run and per-question sums
+-- read ledger rows, by their own indexes (rows of one run or one question). ai_call_log is never purged by the desk (only ai_desk_questions
+-- is); the maintained totals are what make that safe.
 -- Numbered 0180 to stay clear of the numbers other open branches already claim (0174 trade idempotency, 0175 bug reports, 0176 beta sessions);
 -- renumber at merge time if another file lands first. NOT applied anywhere: local databases only until Keith approves a production migration.
 CREATE TABLE IF NOT EXISTS ai_call_log (
@@ -31,3 +34,16 @@ CREATE TABLE IF NOT EXISTS ai_call_log (
 );
 CREATE INDEX IF NOT EXISTS idx_ai_call_log_created ON ai_call_log (created_at);
 CREATE INDEX IF NOT EXISTS idx_ai_call_log_run ON ai_call_log (run_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_ai_call_log_question ON ai_call_log (question_id, created_at);
+
+-- Maintained spend aggregate, one row per (mode, period): period is 'total' or a UTC month 'YYYY-MM'. mode is 'live' or 'fake' (separate lanes,
+-- same limits). reserved_usd = worst-case estimates of calls still in flight; spent_usd = finalized cost (or the estimate when a call's cost
+-- cannot be known). The budget gate updates it in the SAME atomic D1 batch as the ledger row (reserve: guarded INSERT then UPDATE ... WHERE
+-- changes() > 0; finalize: row update then totals update), so the two cannot disagree. Missing rows or a missing table mean "blocked".
+CREATE TABLE IF NOT EXISTS ai_budget_totals (
+  mode TEXT NOT NULL,                       -- live | fake
+  period TEXT NOT NULL,                     -- 'total' or 'YYYY-MM' (UTC)
+  reserved_usd REAL NOT NULL DEFAULT 0,
+  spent_usd REAL NOT NULL DEFAULT 0,
+  PRIMARY KEY (mode, period)
+);
