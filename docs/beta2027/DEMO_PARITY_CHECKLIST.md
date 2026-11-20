@@ -12,6 +12,8 @@ Keith (chat, 2026-11-20): the beta must match the approved demo **1:1 across the
 
 **Decision 3 (Keith, chat 2026-11-20): the labeled "Helmet TBD" placeholder is approved, recorded.** The demo's dashed "Helmet TBD" circle on the profile photo is added as shown; **no helmet art is drawn or invented.** His earlier choice to leave the badge out is superseded by the direction to match the pinned demo 1:1. No implementation or deployment is authorized by this decision.
 
+**Decision 4 (Keith, chat 2026-11-20): scaffolding treatment approved, recorded.** Scenario toggles go in client-only **Sample** mode and the appropriate Test controls. **Report a bug** replaces the Feedback tab and stays reachable throughout the app and inside sheets, carrying the current screen and the captured error. The "Compare navigation A and B" sheet is dropped. Skin, vibrant colors and the position-group rule stay as owner settings. These are **explicit exceptions to visual and interaction parity** (section 5a). Sample scenarios stay clearly labeled and never send transactions. **During integration testing, bug reports go only to #keiths-test.** No implementation or deployment is authorized by this decision.
+
 ## 2. What "the demo" is (pinned versions)
 
 | Source | What it is | Version and hash | Role here |
@@ -27,7 +29,7 @@ The approved prototypes are never edited. Comparisons use a local copy where onl
 
 Every screen, sheet, state and control was listed from the demo's own code (S1: **61 distinct actions, 24 sheet types, 12 information topics, 5 navigation tabs in option A**), then compared with the beta as built (branch `claude/preview0-roster-profile` at `b9abb61`; the deployed preview is the earlier `dc1961a`). "Beta today" is what a reviewer can see in that build, measured in a real browser at 320 and 375 px where it concerns layout. Worker routes were found by reading `worker/src/index.js` and were **not exercised**.
 
-**Status:** Built = matches the demo · Partial = exists but differs or is incomplete · Not built.
+**Status:** Built = matches the demo · Partial = exists but differs or is incomplete · Not built · Exception = a difference from the demo that Keith has ruled on (section 5a).
 
 **Needs:** `W` a real write (test league first) · `D` a read source or worker route that does not exist yet, or whose contents are not confirmed · `A` the sign-in and identity work (Stage 2) · `X` a decision from Keith · `C` wording to verify against canon.
 
@@ -37,13 +39,14 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 
 | | Rows |
 |---|---|
-| Total checklist rows | **94** |
+| Total checklist rows | **95** |
 | Built | 9 |
 | Partial | 22 |
-| Not built | 63 |
+| Not built | 60 |
+| Exception (a ruled difference from the demo) | 4 |
 | Need a real write (`W`) | 22 |
-| Need new or unconfirmed read data (`D`) | 40 |
-| Need a decision (`X`) | 19 |
+| Need new or unconfirmed read data (`D`) | 41 |
+| Need a decision (`X`) | 14 |
 | Need wording checked against canon (`C`) | 5 |
 
 **In plain words:** the beta today is the read-only roster, the contract details and the team-colored profile header. Everything that edits (lineup, moves, drop, extension, restructure, MYAC, MYM) is not built, and several things the demo *shows* have no live data source yet (section 6).
@@ -53,11 +56,11 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | ID | Element | Demo does | Beta today | Status | What remains | Needs | Stage |
 |---|---|---|---|---|---|---|---|
 | A1 | Bottom navigation | Five tabs (Home, Lineup, Team, Market, League) or four without Lineup; the choice is shown as open. Team tab shows a dot while a lineup change is unsaved. | Four provisional tabs (Home, Team, Market, League). No unsaved dot. | Partial | Unsaved-changes dot; the Lineup tab if Keith picks five. | X | S1 |
-| A2 | "Compare navigation A and B" sheet | A sheet that compares the two bars and their tap counts. | None. | Not built | Prototype aid. Keep only in the Test/Sample controls, or drop (Keith decides). | X | S1 |
+| A2 | "Compare navigation A and B" sheet | A sheet that compares the two bars and their tap counts. | None. | Exception | **Dropped by ruling (Decision 4).** The navigation choice itself is decision 5. |  | - |
 | A3 | Header and as-of line | Screen title, "✓ Fri 2:14 PM ET". | Title, ⓘ, "✓ Data as of … · Week 11". | Built | None. |  | - |
 | A4 | Skins | Dark, Light, High contrast; Standard or Vibrant position colors. | Match my phone, Light, Dark, High contrast; Vibrant or Plain. All pass the contrast tests. | Built | None (the beta adds "Match my phone"). |  | - |
 | A5 | Loading state | Skeleton rows and "Loading your roster…" / "Loading contracts…". | Skeleton rows on the roster; none for tabs that do not exist yet. | Partial | Skeletons for the Contracts tab and the profile tabs when they exist. |  | S1 |
-| A6 | Failed read | "Couldn't read your roster. Try again." with Try again and Notify commissioner. | Failure card with Try again. No Notify commissioner. | Partial | Notify commissioner (see G9). | A | S3e |
+| A6 | Failed read | "Couldn't read your roster. Try again." with Try again and Notify commissioner. | Failure card with Try again. No Notify commissioner. | Partial | Report a bug from the failure card, carrying the captured error (see G9). | A | S3e |
 | A7 | Offline state | "You're offline. Reconnect to load your roster." No Notify button while offline (nothing is saved to send later). | Same failure card as any failed read. | Partial | Detect offline; the offline wording. |  | S1 |
 | A8 | Information (ⓘ) sheets | Twelve topics: demo, lineup card, contract numbers, performance, schedule, projections, restructure, extension pricing, Mid-Year Multi, extension window, drop review, actions. | ⓘ opens "About Preview 0" (display settings, request log). No topic sheets. | Not built | Twelve sheets. Reuse the demo wording after checking each against canon (`docs/league_context_v1.md`). | C | S1 |
 | A9 | Toast with Undo | "<Player> moved" with Undo (moves) or OK. | None. | Not built | Toast; the Undo reverses only until confirmed on MFL. | W | S3b |
@@ -65,6 +68,7 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | A11 | Sheet chrome | Grab bar, title, dimmed scrim, Close. | Same. | Built | None. |  | - |
 | A12 | Environment marker | "Demo · Sample data" bar with a Controls button. | None on the preview address. | Partial | Per the planning record: "Preview: view only"; a permanent red "TEST LEAGUE: nothing here is real" on every screen and confirm in Test mode. | A | S2 |
 | A13 | Choose any team (beta only) | Not in the demo (it is always "you"). | Team picker sheet; any team's public roster. | Built | Keep as view-only ("View as another team"); every write control stays disabled while the viewed team differs from the proven franchise. | A | S2 |
+| A14 | Sample mode label and safety | The demo labels itself "Demo · Sample data" and simulates every submit ("Simulated. Nothing was sent."). | None. | Not built | **Decision 4:** every Sample scenario is clearly labeled and **never sends a transaction**: a test must pin that Sample mode has no submit path and makes no request that is not a read of public data. |  | S1 |
 
 ## B. Home
 
@@ -169,21 +173,21 @@ Per flow, the existing worker route found by reading the code (not exercised), t
 | G6 | Multi-year contract (MYAC) | 2 or 3 years at his salary; open until the contract deadline; auction 1-year contracts only. | None. | Not built | Same contract route family. Same gate. | W D A X | S3d |
 | G7 | Mid-Year Multi (MYM) | 2 or 3 years; opens after MYAC; closes at the Week 3 kickoff; 4 per team. | None. | Not built | `/offer-mym`. Same gate. | W D A X | S3d |
 | G8 | Tag, rookie option | Listed as "Not available" (deadline passed; "Desktop only"). | None. | Not built | Shown as the demo shows them; no flow. (Tag is a write flow in the classic app; it joins the matrix only if Keith adds it.) | X | S1 |
-| G9 | Notify commissioner / report a bug | Sheet saying what is and is not sent; Send report; Report sent. | None in the beta. The classic app has the integration (#1474, draft). | Not built | Worker `/bug-report` with a beta-tagged session; the same "not included" disclosure. | A | S3e |
+| G9 | Notify commissioner / report a bug | Sheet saying what is and is not sent; Send report; Report sent. Offered on failed-read states; the Controls sheet has a separate Feedback notes box. | None in the beta. The classic app has the integration (#1474, draft). | Not built | **Decision 4:** Report a bug replaces the Feedback tab and is reachable from every screen and from inside every sheet; it carries the current screen and the captured error. Worker `/bug-report` with a beta-tagged session and the same "not included" disclosure. **During integration testing reports go only to #keiths-test** (channel routing is a worker setting; unverified, to be confirmed and pinned by a test in S2). | A | S3e |
 | G10 | Submit result | Demo: "Submitted. Simulated. Nothing was sent." | n/a | Not built | Replace with the four real states (confirmed, unconfirmed, mismatch, refused) and the evidence pack per flow. | W | S3 |
 
 ## H. Demo scaffolding (prototype controls)
 
-The demo's Controls sheet exists so Keith can try states. These are not owner features. Proposed treatment: product settings stay; state toggles become the **Sample** mode (client only, no network) and the Test-mode controls; the Feedback tab is replaced by Report a bug.
+The demo's Controls sheet exists so Keith can try states. These are not owner features. Treatment ruled in Decision 4 (section 5a): product settings stay; state toggles become the **Sample** mode (client only, no network) and the Test-mode controls; the Feedback tab is replaced by Report a bug.
 
 | ID | Element | Demo does | Beta today | Status | What remains | Needs | Stage |
 |---|---|---|---|---|---|---|---|
-| H1 | Profile header look, Headshot states, Helmet badge states, Team colors preview | Selectors to compare looks and states. | None. | Not built | Sample mode. | X | S1 |
-| H2 | Navigation (A or B) and compare sheet | Selector. | Four tabs fixed. | Not built | Product setting only if Keith keeps both; otherwise decide A or B. | X | S1 |
-| H3 | Bench position-group rule | All open / Only what needs you. | None. | Not built | A real owner setting (C22). | X | S1 |
-| H4 | Scenario toggles | Sample week (problem or clean), Future-week save outcome, Season phase, Restructures used, Loaded contracts, Contract windows, Extension demo date, Acquisition and history records, Taxi eligibility records, Worker penalty answer, Profile eligibility, Screen state, Next demo save result, Reset. | None. | Not built | Sample mode on the phone. In Test mode the equivalents are real: a settable clock (decision), real records. | X | S1 |
+| H1 | Profile header look, Headshot states, Helmet badge states, Team colors preview | Selectors to compare looks and states. | None. | Exception | **Exception (Decision 4):** replaced by Sample mode (client only). |  | S1 |
+| H2 | Navigation (A or B) | Selector. | Four tabs fixed. | Not built | Product setting only if Keith keeps both; otherwise decide A or B (decision 5). The compare sheet is dropped (A2). | X | S1 |
+| H3 | Bench position-group rule | All open / Only what needs you. | None. | Not built | **Kept as an owner setting (Decision 4)**; needs the "Needs you" logic (C22). | D | S1 |
+| H4 | Scenario toggles | Sample week (problem or clean), Future-week save outcome, Season phase, Restructures used, Loaded contracts, Contract windows, Extension demo date, Acquisition and history records, Taxi eligibility records, Worker penalty answer, Profile eligibility, Screen state, Next demo save result, Reset. | None. | Exception | **Exception (Decision 4):** client-only **Sample** mode, plus the appropriate Test-mode controls (in Test the equivalents are real: a settable clock is decision 6, real records). Sample scenarios are clearly labeled and never send a transaction. |  | S1 |
 | H5 | Skin, Standard/Vibrant | Selectors. | In About. | Built | None. |  | - |
-| H6 | Try this checklist and Feedback notes (Copy all notes) | Tick list and a notes box that copies text for the chat. | None. | Not built | Replace with Report a bug (G9) plus a short Try-this list in Test mode. | X | S3e |
+| H6 | Try this checklist and Feedback notes (Copy all notes) | Tick list and a notes box that copies text for the chat. | None. | Exception | **Exception (Decision 4):** Feedback is replaced by Report a bug (G9). A short Try-this list may stay in Test mode. |  | S3e |
 | H7 | Demo and Sample-data labels | On the bar and every sheet. | None. | Not built | Environment markers (A12). |  | S2 |
 
 ## I. Other placeholders the demo shows
@@ -198,6 +202,15 @@ The demo's Controls sheet exists so Keith can try states. These are not owner fe
 - A team picker (view any team's public roster, view-only). The demo is always "you".
 - The "Match my phone" skin option, a request log and the display notes in About.
 - The franchise name on the profile More tab (the demo's header has none).
+
+## 5a. Explicit exceptions to parity with the demo (Keith's rulings)
+
+| Exception | Demo | Beta | Rule that goes with it |
+|---|---|---|---|
+| Scenario toggles (Controls › Settings) | Sample week, future-week outcome, season phase, restructures used, loaded contracts, windows, demo date, record states, worker answer, screen state, next save result, Reset | Client-only **Sample** mode; real equivalents in Test mode | Clearly labeled; **never sends a transaction**; pinned by a test (A14) |
+| Feedback and Try-this tabs | Notes box that copies text for the chat | **Report a bug**, reachable from every screen and inside every sheet; carries the current screen and the captured error | Integration testing: reports go **only to #keiths-test** |
+| Compare navigation A and B sheet | Sheet comparing the two bars | Dropped | The navigation choice is decision 5 |
+| Kept as owner settings (not exceptions) | Skin, vibrant colors, position-group rule | Same, in settings | - |
 
 ## 6. What the demo shows that no live source provides today
 
@@ -248,7 +261,7 @@ The worker holds one commissioner MFL session that works for **both** the live l
 1. ~~**Build targets.**~~ **Decided (A, 2026-11-20):** Preview draws the full Actions UI and review sheets with Submit disabled and no write code; real transactions only in the Test build (league 25625); each flow comes back to Keith for separate approval before it is enabled in the invited beta.
 2. ~~**Spec scope.**~~ **Decided (demo-only, 2026-11-20):** S1 is the source of truth (Home lineup card, Team, profile, Actions, Contracts). Market, Trades, Auction, Draft, League, Cap & picks pages, Commissioner and Desktop are later, separately scoped specs; none is added to this implementation by implication.
 3. ~~**Helmet placeholder.**~~ **Decided (2026-11-20):** add the demo's labeled dashed "Helmet TBD" circle as shown; no helmet art is drawn or invented. Supersedes the Preview 0 choice to leave it out.
-4. **Scaffolding.** Sample mode for the scenario toggles, Report a bug instead of Feedback, drop the navigation-compare sheet. Recommended.
+4. ~~**Scaffolding.**~~ **Decided (2026-11-20):** Sample mode for scenario toggles (labeled, never sends transactions), Report a bug replaces Feedback (reachable everywhere, carries screen and error, #keiths-test only during integration testing), compare sheet dropped, skin / vibrant / position-group rule stay as owner settings. Recorded as explicit exceptions in section 5a.
 5. **Navigation.** Four tabs or five (the demo leaves it open).
 6. **Test clock** for windows that are closed until March (settable clock on the test environment only, recorded cases, or wait). Needed before S3d.
 7. **Write order** for S3 (suggested above).
