@@ -66,6 +66,10 @@
   ],
   "tripwire_reviewed": [
     {
+      "path": "tests/mobile2027_preview0.test.mjs",
+      "reason": "The match is assertions about the DEPLOY SCRIPT's printed plan (it must name only the preview branch and the ups-mobile-beta project); the test imports plan() and never runs wrangler or any deploy. The suite's PATH stubs would stop a wrangler call anyway."
+    },
+    {
       "path": "pipelines/etl/scripts/test_roast_bot_fire_ab_safety.py",
       "reason": "Safety test: it blocks sockets and subprocess itself, removes real tokens and sets a FAKE ANTHROPIC_API_KEY so it can prove the A/B script refuses to send."
     },
