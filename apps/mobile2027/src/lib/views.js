@@ -277,6 +277,12 @@
     var c = String(code == null ? "" : code).trim().toUpperCase();
     return /^[A-Z]{2,3}$/.test(c) ? " tm-" + c : "";
   }
+  // The header prints the common NFL abbreviation, as the prototype does (KC, GB, SF), not MFL's spelling (KCC, GBP, SFO).
+  var COMMON = { GBP: "GB", KCC: "KC", LVR: "LV", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", JAC: "JAX", WSH: "WAS" };
+  function commonCode(code) {
+    var c = String(code == null ? "" : code).trim().toUpperCase();
+    return COMMON[c] || c;
+  }
   function nameParts(n) {
     var s = String(n == null ? "" : n).trim(), i = s.indexOf(" ");
     return i < 0 ? ["", s] : [s.slice(0, i), s.slice(i + 1)];
@@ -285,11 +291,10 @@
   function hero(p, pills) {
     var np = nameParts(p.name), urls = require_photo(p);
     return '<div class="hero' + teamCls(p.nflTeam) + '"><div class="grab"></div>' +
-      '<div class="top"><span class="hlb">Player profile</span><button class="btn" data-act="close">Close</button></div>' +
+      '<div class="top"><span class="hlb">Player profile</span><button class="hx" data-act="close" aria-label="Close player profile"><span>Close</span></button></div>' +
       '<div class="hrow"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(p.pos) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' +
       '<div class="htx"><h3 class="hnm">' + (np[0] ? '<span class="hfn">' + esc(np[0]) + "</span> " : "") + '<span class="hln">' + esc(np[1]) + "</span></h3>" +
-      '<div class="hsub"><b>' + esc(p.nflTeam || "No NFL team") + "</b><span>" + esc(p.pos) + "</span><span>" + esc(p.type || "Type not recorded") + "</span></div>" +
-      '<div class="hfr">' + esc(p.franchiseName) + "</div></div></div>" +
+      '<div class="hsub"><b>' + esc(commonCode(p.nflTeam) || "No NFL team") + "</b><span>" + esc(p.pos) + "</span><span>" + esc(p.type || "Type not recorded") + "</span></div></div></div>" +
       (pills ? '<div class="hpills">' + pills + "</div>" : "") + '<div class="hbar"></div></div>';
   }
 

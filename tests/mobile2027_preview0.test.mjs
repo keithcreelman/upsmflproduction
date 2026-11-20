@@ -554,6 +554,17 @@ test("the profile header is colored by the player's NFL team: every team and ski
   ['BUF"><img src=x onerror=1>', "BUF BAL", "BÜF", "BUFFALO", "a'b", "<b>"].forEach((bad) => t.equal(mk(bad), "", "refused: " + bad));
   const shown = V.app(state({ model: (() => { const m = model(); m.byId[p.id].nflTeam = 'BUF"><img src=x onerror=1>'; return m; })(), profile: { pid: p.id, tab: "contract" } }));
   t.doesNotMatch(shown, /<img src=x/, "hostile team text is escaped where it is shown");
+  // the header is the prototype's shape (measured against the prototype in a real browser: within half a pixel at 320 and 375 px):
+  // a small outlined Close tag in the top row (inside a 44 px button), no franchise line, the common NFL abbreviation
+  t.match(hero, /<div class="top"><span class="hlb">Player profile<\/span><button class="hx" data-act="close" aria-label="Close player profile"><span>Close<\/span><\/button><\/div>/, "the top row is the label and the small Close tag");
+  t.match(read("styles.css"), /\.hero \.hx\{[^}]*min-height:44px/, "the Close button around the tag is still a 44 px tap target");
+  const fname = model().byId[p.id].franchiseName;
+  t.ok(fname && !hero.includes(fname), "the header has no franchise line (the owner is on the More tab)");
+  t.match(V.app(state({ profile: { pid: p.id, tab: "more" } })), new RegExp("Team</b><span>" + fname.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  const hsubOf = (nfl) => { const m = model(); m.byId[p.id].nflTeam = nfl; return V.app(state({ model: m, profile: { pid: p.id, tab: "contract" } })).match(/<div class="hsub"><b>([^<]*)<\/b>/)[1]; };
+  t.deepEqual(["KCC", "GBP", "SFO", "NOS", "NEP", "TBB", "LVR", "JAC", "WSH", "BUF", "FA", "kcc"].map(hsubOf), ["KC", "GB", "SF", "NO", "NE", "TB", "LV", "JAX", "WAS", "BUF", "FA", "KC"], "the header prints the common abbreviation, as the prototype does");
+  t.equal(hsubOf(""), "No NFL team"); t.equal(hsubOf(null), "No NFL team");
+  t.match(V.app(state()), /<small>[^<]*(SFO|KCC|GBP|NOS)/, "the roster rows still print MFL's code");
   // team colors are drawn only for the profile; the roster rows are not recolored
   t.doesNotMatch(V.app(state()), /class="hero/);
 });

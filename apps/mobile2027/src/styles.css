@@ -117,7 +117,10 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .hero .grab{background:var(--ht);opacity:.55}
 .hero .top{display:flex;align-items:center;gap:8px}
 .hero .hlb{flex:1;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--hm)}
-.hero .btn{color:var(--ht);border-color:var(--ht)}
+/* Close: drawn as the small outlined tag the prototype has in this spot, so the header is the prototype's height; the button around it is
+   44 px tall (negative margins keep the row from growing), so it is still a full-size tap target. */
+.hero .hx{flex:0 0 auto;display:inline-flex;align-items:center;min-height:44px;margin:-12px -8px -12px 0;padding:0 8px;border:0;background:transparent;color:var(--ht)}
+.hero .hx span{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;line-height:1.35;border:1.5px solid var(--ht);border-radius:6px;padding:1px 6px}
 .hrow{display:flex;gap:14px;align-items:center;min-width:0}
 .av2{position:relative;flex:0 0 auto;width:clamp(76px,26vw,100px);aspect-ratio:1;border-radius:50%;background:var(--hav,var(--s2));border:3px solid var(--hr,var(--bs));overflow:hidden;display:grid;place-items:center}
 .avpos{font-weight:800;font-size:22px;letter-spacing:.02em;color:var(--ht,var(--mu))}
@@ -125,11 +128,10 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .av2 img[hidden]{display:none}
 .htx{flex:1;min-width:0}
 .hero .hnm{margin:0;font-size:clamp(22px,7.4vw,30px);line-height:1.08;font-weight:800;overflow-wrap:anywhere;text-wrap:balance;color:var(--ht)}
-.hero .hfn{display:block;font-size:14px;font-weight:600;line-height:1.3;color:var(--hm)}
+.hero .hfn{display:block;font-size:14px;font-weight:600;line-height:1.35;color:var(--hm)}
 .hsub{display:flex;flex-wrap:wrap;gap:2px 8px;font-size:14px;margin-top:4px;color:var(--hm)}
 .hsub b{color:var(--ht);font-size:15px;letter-spacing:.02em}
 .hsub>*+*:before{content:"·";margin-right:8px}
-.hfr{font-size:12.5px;margin-top:3px;color:var(--hm);overflow-wrap:anywhere}
 .hpills{display:flex;flex-wrap:wrap;gap:6px}
 .hp{display:inline-flex;align-items:center;gap:4px;min-height:26px;padding:2px 10px;border-radius:99px;background:var(--hp);color:var(--hpt);font-size:12.5px;font-weight:700;white-space:nowrap}
 .hbar{height:6px;background:var(--hs);margin:2px calc(-1*max(16px,env(safe-area-inset-right,0px))) 0 calc(-1*max(16px,env(safe-area-inset-left,0px)))}
