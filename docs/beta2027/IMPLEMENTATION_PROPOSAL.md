@@ -171,9 +171,9 @@ No route in this document was exercised. Not read: the state of league 25625; wh
 | Stage | PR / head | Built | Independently reviewed | Phone-approved |
 |---|---|---|---|---|
 | R1 build foundation | #1481 / `f0e6664d` | yes, CI pass | **Codex CLEAN at `f0e6664d`** (relayed by Keith) | no, not deployed |
-| R2 Team › Roster parity | #1482 / `dc5b35d7` | yes, CI pass | pending (handoff prepared) | no, not deployed |
+| R2 Team › Roster parity | #1482 / `4951dfce` | yes, CI pass | **Codex NOT CLEAN at `dc5b35d7` (MAT-1); fix `4951dfce` awaits re-review** | no, not deployed |
 
-Decided while building R2 (recorded on #1475): the injury resolver is a **derived, hash-pinned copy** of the classic file (not a twin and not a dormant `fetch`); MFL's expected-return text is **Unavailable** (explicit exception C17); a past week shows only that week's facts. Database reads of the two added routes are measured locally in `R2_D1_MEASUREMENT.md`. Deployment, worker changes, migrations, flags and transactions remain under their own approvals.
+Decided while building R2 (recorded on #1475): the injury resolver is a **derived, hash-pinned copy** of the classic file (not a twin and not a dormant `fetch`); MFL's expected-return text is **Unavailable** (explicit exception C17); a past week shows only that week's lineup and scores (its NFL opponents and byes are Unavailable: no read gives a past week's club). Database reads of the two added routes are measured locally in `R2_D1_MEASUREMENT.md`. Deployment, worker changes, migrations, flags and transactions remain under their own approvals.
 
 ## 10. Decision requested
 

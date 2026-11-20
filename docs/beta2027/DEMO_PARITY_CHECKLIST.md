@@ -104,7 +104,7 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | C13 | Starter row controls | Swap (starter), Locked (game started), Start (bench), "Bye week" (disabled), Fill (empty slot). | None (read-only rows). | Not built | Controls; lock rules from kickoff times. | D W | S3a |
 | C14 | Empty slot row | "Empty" with a Fill button, highlighted. | None. | Not built | Row. | W | S3a |
 | C15 | Row status chips | ▲ Bye week, ■ OUT, ▲ Doubtful, ■ IR tag. | ▲ Bye week only. | Built (R2) | Injury chips (needs the injury read; MFL's injuries export keeps lapsed designations, so timing must be derived). | D | S1 |
-| C16 | Row: opponent and kickoff | "DAL · vs NYG" on lineup rows; kickoff for locks. | NFL team only. | Built (R2) | Opponent and kickoff from a schedule read. | D | S1 |
+| C16 | Row: opponent and kickoff | "DAL · vs NYG" on lineup rows; kickoff for locks. | NFL team only. | Built (R2; current week only: a past week's opponents and byes are Unavailable) | Opponent and kickoff from a schedule read. | D | S1 |
 | C17 | Row: IR return date | "SFO · back Dec 3". | None. Beta now: IR rows read "Return: Unavailable"; MFL's expected-return text is dropped by the loader and drawn nowhere. | Exception (R2) | **Exception to demo parity (Keith, 2026-11-20): Unavailable** until the field's meaning and its placeholder behavior (every retired player reads "Feb 15, 2027") are verified. Reopening needs that verification first. |  | S1 |
 | C18 | Row: taxi call-ups | "DAL · 1/3 call-ups". | Shown on the profile More tab, not on the row. | Built (R2) | Move to the row. |  | S1 |
 | C19 | Row (Contracts view) | Type · through 2028 · cap note ("cap hit 50%" on IR, "taxi, $0 on cap"); salary; years left or "▲ Final year". | Type · through year; salary; years left or Final year. No IR or taxi cap notes. A missing salary reads "Not recorded". | Built (R2) | IR and taxi cap notes. |  | S1 |
@@ -210,9 +210,9 @@ These are three different things and are counted separately. **Built** = merged 
 |---|---|---|---|---|
 | Preview 0 (#1477): the 10 rows built before R1 | the rows with status Built before R1 | yes, deployed to the preview address earlier | per the #1477 record | per the #1477 record (not re-stated here) |
 | **R1** (PR #1481, head `f0e6664d`): A14 Sample mode, F2 Helmet placeholder (both Built); H7 labels (Partial) | A14, F2, H7 | yes (CI pass on merge result `e53209f7`) | **yes: Codex CLEAN at `f0e6664d68f8037caeab2400aa3902eb2e228232`**, posted on #1481 (relayed by Keith) | **no: nothing with R1 is deployed** |
-| **R2** (PR #1482, head `dc5b35d7`): Team › Roster | Built: C6, C9, C10, C12, C15, C16, C18, C19, C21. Partial: C2, C3, C8, C11, C20, C22. Exception: C17 | yes (CI pass on merge result `145436054bb6144b0a178a015605876e4ec432f5`, 281 passed) | **pending**: handoff prepared for Codex review of `dc5b35d7` | **no: nothing with R2 is deployed** |
+| **R2** (PR #1482, head `4951dfce`): Team › Roster | Built: C6, C9, C10, C12, C15, C16, C18, C19, C21. Partial: C2, C3, C8, C11, C20, C22. Exception: C17 | yes (CI pass on merge result `cc2f38170b3628085accd031ad7ffa357490d20c`, 281 passed) | **not yet: Codex returned NOT CLEAN at `dc5b35d7` (MAT-1: past-week opponents and byes used today's NFL club). The fix is `4951dfce`; re-review pending** | **no: nothing with R2 is deployed** |
 
-So of the 21 Built rows: 10 predate R1; 2 are R1 (reviewed); 9 are R2 (review pending). **No R1 or R2 row is phone-approved.** The counts above change only when a row's own status changes, never because a PR merges or deploys.
+So of the 21 Built rows: 10 predate R1; 2 are R1 (reviewed); 9 are R2 (**not independently reviewed yet**: the first review was NOT CLEAN and the fix awaits re-review). **No R1 or R2 row is phone-approved.** The counts above change only when a row's own status changes, never because a PR merges or deploys.
 
 Not part of any count: stage R1's build-target field, hash-pinned shared modules and Preview write-code scan (foundation, no checklist row), and R2's derived injury resolver (foundation for C15).
 
