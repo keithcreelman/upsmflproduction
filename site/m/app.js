@@ -11,7 +11,7 @@
   // and the ?v= cache-buster in index.html — bump all three together on each
   // ship. The boot-time checkForUpdate() compares this to the DEPLOYED
   // version.json and surfaces a reload banner when a stale cache is detected.
-  var BUILD = "2026.11.14.2";
+  var BUILD = "2026.11.19.1";
   var WORKER_BASE_DEFAULT = "https://upsmflproduction.keith-creelman.workers.dev";
   var LEAGUE_ID_DEFAULT = "74598";
 
@@ -3370,6 +3370,24 @@
     }, function (e) { renderLoadFailure(main, e); });
   }
   var UNGATED_ROUTES = { more: 1, scores: 1 };
+
+  // ---------- Report bug hooks (test-only slice, issue #1473) ----------
+  // site/m/report_bug.js is NOT referenced by index.html. These three helpers do nothing unless a page loads it
+  // (window.UPSReportBug), and each is wrapped so a failing recorder can never change what the app does or shows.
+  function reportBugNote(info) {
+    try { var R = window.UPSReportBug; if (R && R.noteFailure) R.noteFailure(info); } catch (e) { /* never affects the app */ }
+  }
+  function reportBugAvailable() {
+    try { return !!(window.UPSReportBug && window.UPSReportBug.reportFromMore); } catch (e) { return false; }
+  }
+  function reportBugConfigure() {
+    try {
+      var R = window.UPSReportBug;
+      if (R && R.configure) R.configure(function () {
+        return { apiBase: workerBase(), leagueId: state.ctx.leagueId, season: state.ctx.year, getUserId: getStoredMflUserId, build: BUILD };
+      });
+    } catch (e) { /* never affects the app */ }
+  }
   function renderLoadFailure(main, e) {
     if (e && e.seasonUnresolved) {
       // #1237: no season, no data, no guess. Try again asks the worker again.
@@ -3424,6 +3442,7 @@
     try {
       renderFn(main, parts.slice(1));
     } catch (e) {
+      reportBugNote({ name: (e && e.name) || "Error", message: (e && e.message) || String(e) });
       main.innerHTML = '<div class="ups-m-error">Render error: ' + escapeHtml(e && e.message || String(e)) + '</div>';
     }
     renderLoadErrorsBanner(main);
@@ -3564,6 +3583,7 @@
   }
 
   function showToast(text, kind) {
+    if (kind === "err") reportBugNote({ name: "Error", message: text });
     var el = document.getElementById("ups-m-toast");
     if (!el) return;
     el.textContent = text;
@@ -3666,6 +3686,7 @@
         switchTeamBtn +
       '</div>' +
       '<a class="ups-m-desktop-link" href="#more/rules">' + ic("book-open") + 'Rules</a>' +
+      (reportBugAvailable() ? '<button class="ups-m-desktop-link" id="ups-m-report-bug" style="cursor:pointer;background:none;font-size:14px">Report a problem</button>' : "") +
       // Explicit refresh button (Keith MobileNotesV1: previously the only
       // refresh affordance was the pull-to-refresh gesture, which Keith
       // noted "doesn't do anything" — likely because it's only visible
@@ -3680,6 +3701,8 @@
     });
     var stBtn = document.getElementById("ups-m-switch-team");
     if (stBtn) stBtn.addEventListener("click", switchTeam);
+    var rbBtn = document.getElementById("ups-m-report-bug");
+    if (rbBtn) rbBtn.addEventListener("click", function () { try { window.UPSReportBug.reportFromMore(); } catch (e) { /* never affects the app */ } });
     var refreshBtn = document.getElementById("ups-m-refresh-data");
     if (refreshBtn) {
       refreshBtn.addEventListener("click", function () {
@@ -3846,6 +3869,7 @@
   }
   function boot() {
     registerServiceWorker();
+    reportBugConfigure();
     detectContext();
     // ups-cap-penalty-ready / ups-taxi-callups-ready / ups-advanced-stats-ready
     // now land after a screen asked (see lazyRead), so each screen that shows
