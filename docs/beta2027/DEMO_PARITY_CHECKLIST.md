@@ -1,6 +1,6 @@
 # UPS 2027 Beta: demo parity checklist and staged plan
 
-**Status: DRAFT for Keith's decision. Planning only.** Nothing here builds, deploys, enables a write or touches the original mobile app or the approved prototype. Companion record: issue #1475 (revision 11) and PR #1477 (Preview 0).
+**Status: planning record, with implementation status added 2026-11-20 (section 4a).** The planning decisions below are recorded. R1 is built and independently reviewed; R2 is built and awaiting independent review; **nothing is deployed with either, so nothing here is phone-approved yet.** Nothing here enables a write or touches the original mobile app or the approved prototype. Companion record: issue #1475 (revision 11) and PR #1477 (Preview 0).
 
 ## 1. The ruling this answers
 
@@ -44,16 +44,16 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | | Rows |
 |---|---|
 | Total checklist rows | **96** |
-| Built | 10 |
-| Partial | 21 |
-| Not built | 60 |
-| Exception (a ruled difference from the demo) | 5 |
+| Built | **21** (was 10 before R1) |
+| Partial | **21** (was 21) |
+| Not built | **48** (was 60) |
+| Exception (a ruled difference from the demo) | **6** (was 5; C17 added) |
 | Need a real write (`W`) | 23 |
 | Need new or unconfirmed read data (`D`) | 39 |
 | Need a decision (`X`) | 7 |
 | Need wording checked against canon (`C`) | 5 |
 
-**In plain words:** the beta today is the read-only roster, the contract details and the team-colored profile header. Everything that edits (lineup, moves, drop, extension, restructure, MYAC, MYM) is not built, and several things the demo *shows* have no live data source yet (section 6).
+**In plain words:** the beta (as built on the draft branches, not deployed) is the read-only roster with four views and a week selector, the contract details and the team-colored profile header. Everything that edits (lineup, moves, drop, extension, restructure, MYAC, MYM) is not built, and several things the demo *shows* have no live data source yet (section 6).
 
 ## A. Shell, navigation, states
 
@@ -72,7 +72,7 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | A11 | Sheet chrome | Grab bar, title, dimmed scrim, Close. | Same. | Built | None. |  | - |
 | A12 | Environment marker | "Demo · Sample data" bar with a Controls button. | None on the preview address. | Partial | Per the planning record: "Preview: view only"; a permanent red "TEST LEAGUE: nothing here is real" on every screen and confirm in Test mode. | A | S2 |
 | A13 | Choose any team (beta only) | Not in the demo (it is always "you"). | Team picker sheet; any team's public roster. | Built | Keep as view-only ("View as another team"); every write control stays disabled while the viewed team differs from the proven franchise. | A | S2 |
-| A14 | Sample mode label and safety | The demo labels itself "Demo · Sample data" and simulates every submit ("Simulated. Nothing was sent."). | None. | Not built | **Decision 4:** every Sample scenario is clearly labeled and **never sends a transaction**: a test must pin that Sample mode has no submit path and makes no request that is not a read of public data. |  | S1 |
+| A14 | Sample mode label and safety | The demo labels itself "Demo · Sample data" and simulates every submit ("Simulated. Nothing was sent."). | None. | Built (R1) | **Decision 4:** every Sample scenario is clearly labeled and **never sends a transaction**: a test must pin that Sample mode has no submit path and makes no request that is not a read of public data. |  | S1 |
 | A15 | Unsaved changes: indicator and leave prompt | A dot on the Team tab while a lineup change is unsaved (five-tab option) and the pending bar "n unsaved · Undo · Review & save". | None. | Not built | **Decision 5:** an unsaved-changes indicator inside Team's lineup workspace (week chips and the pending bar, C2, C26) and a **prompt before navigating away with unsaved edits** (leave, or keep editing). The tab dot is not used in the four-tab layout. | W | S3a |
 
 ## B. Home
@@ -90,27 +90,27 @@ Every screen, sheet, state and control was listed from the demo's own code (S1: 
 | ID | Element | Demo does | Beta today | Status | What remains | Needs | Stage |
 |---|---|---|---|---|---|---|---|
 | C1 | Cap strip | "$41,200 cap · Active 29/30 · Taxi 3 · IR 1". | Counts only ("Active 30 of 30 · Taxi 5 of 10 · IR 3 of 15"). Cap space is left out on purpose until it matches the Front Office number. | Partial | Cap space from the worker's cap math, reconciled to the Front Office number. | D | S1 |
-| C2 | Week selector button | "Week 11 · current ▾" with "Saved on MFL · 18 of 18" or "Draft in app · not on MFL" and "n unsaved" chips. | Fixed to the current week. | Not built | Selector and chips. | D | S1 |
-| C3 | Choose a week sheet | Weeks 11 to 17, each with its own saved, draft or not-set state. | None. | Not built | Sheet; per-week lineup reads. Whether MFL holds a future week is unproven (G1). | D W | S3a |
+| C2 | Week selector button | "Week 11 · current ▾" with "Saved on MFL · 18 of 18" or "Draft in app · not on MFL" and "n unsaved" chips. | Fixed to the current week. | Partial (R2) | Selector and chips. | D | S1 |
+| C3 | Choose a week sheet | Weeks 11 to 17, each with its own saved, draft or not-set state. | None. | Partial (R2) | Sheet; per-week lineup reads. Whether MFL holds a future week is unproven (G1). | D W | S3a |
 | C4 | "How future weeks work" proposal sheet | A design note: what main does today, server changes needed, test-league checks, two outcomes. | None. | Not built | Becomes the test plan for G1; shown only in Sample/Test. | X | S3a |
 | C5 | Copy Week 11 lineup | Fills an empty future week from the current one. | None. | Not built | Action on an empty future week. | W | S3a |
-| C6 | Roster view switch | Lineup · Performance · Contracts · Byes. | Lineup · Contracts. | Partial | Performance and Byes views. | D | S1 |
+| C6 | Roster view switch | Lineup · Performance · Contracts · Byes. | Lineup · Contracts. | Built (R2) | Performance and Byes views. | D | S1 |
 | C7 | Lineup status card | "18 of 18 starters", "n to fix", each problem with Fill or Replace and Details ›, "n not saved". | None (a note says nothing here can change the lineup). | Not built | Card, issue list and Details sheets. | D W | S3a |
-| C8 | Status line on other views | "18 of 18 starters · nothing to fix · Open Lineup". | None. | Not built | Line. | D | S1 |
-| C9 | Contracts-view summary | "n end after 2026 · Open full Contracts ›". | None. | Not built | Line (data is in the roster read). |  | S1 |
-| C10 | Byes-view summary | "Week 11 · n on a bye · Week 12 · n". | None. | Not built | Line (bye weeks are in the roster read). |  | S1 |
-| C11 | Performance-view summary | "Projected lineup 126.4 · last week 118.2". | None. | Not built | Last-week points from the weekly read; the projected figure shows the demo's **Unavailable** state until a projection source is approved (Decision 8). | D | S1 |
-| C12 | Starters block with slot tags | "Week 11 starters · 18 of 18"; each row tagged with its slot (QB1 … SF, K, P, DL1, DF). | Starters in MFL's order with a position badge; no slot tags; "The lineup as MFL has it" note. | Partial | Slot tags from the league's lineup settings; keep "unknown is never empty". | D | S1 |
+| C8 | Status line on other views | "18 of 18 starters · nothing to fix · Open Lineup". | None. | Partial (R2) | Line. | D | S1 |
+| C9 | Contracts-view summary | "n end after 2026 · Open full Contracts ›". | None. | Built (R2) | Line (data is in the roster read). |  | S1 |
+| C10 | Byes-view summary | "Week 11 · n on a bye · Week 12 · n". | None. | Built (R2) | Line (bye weeks are in the roster read). |  | S1 |
+| C11 | Performance-view summary | "Projected lineup 126.4 · last week 118.2". | None. | Partial (R2) | Last-week points from the weekly read; the projected figure shows the demo's **Unavailable** state until a projection source is approved (Decision 8). | D | S1 |
+| C12 | Starters block with slot tags | "Week 11 starters · 18 of 18"; each row tagged with its slot (QB1 … SF, K, P, DL1, DF). | Starters in MFL's order with a position badge; no slot tags; "The lineup as MFL has it" note. | Built (R2) | Slot tags from the league's lineup settings; keep "unknown is never empty". | D | S1 |
 | C13 | Starter row controls | Swap (starter), Locked (game started), Start (bench), "Bye week" (disabled), Fill (empty slot). | None (read-only rows). | Not built | Controls; lock rules from kickoff times. | D W | S3a |
 | C14 | Empty slot row | "Empty" with a Fill button, highlighted. | None. | Not built | Row. | W | S3a |
-| C15 | Row status chips | ▲ Bye week, ■ OUT, ▲ Doubtful, ■ IR tag. | ▲ Bye week only. | Partial | Injury chips (needs the injury read; MFL's injuries export keeps lapsed designations, so timing must be derived). | D | S1 |
-| C16 | Row: opponent and kickoff | "DAL · vs NYG" on lineup rows; kickoff for locks. | NFL team only. | Partial | Opponent and kickoff from a schedule read. | D | S1 |
-| C17 | Row: IR return date | "SFO · back Dec 3". | None. | Not built | **Decision 8: never infer an exact return date.** Nothing is shown (the repo's injury resolver already forbids expected-return dates); the demo's Unavailable state applies if a place for it is kept. |  | S1 |
-| C18 | Row: taxi call-ups | "DAL · 1/3 call-ups". | Shown on the profile More tab, not on the row. | Partial | Move to the row. |  | S1 |
-| C19 | Row (Contracts view) | Type · through 2028 · cap note ("cap hit 50%" on IR, "taxi, $0 on cap"); salary; years left or "▲ Final year". | Type · through year; salary; years left or Final year. No IR or taxi cap notes. A missing salary reads "Not recorded". | Partial | IR and taxi cap notes. |  | S1 |
-| C20 | Row (Performance view) | "Wk 10 18.2 · Avg 14.1 · vs NYG"; projection on the right. | None. | Not built | Weekly points and opponent from existing reads; projection shows **Unavailable** until a source is approved (Decision 8). | D | S1 |
-| C21 | Row (Byes view) | "MIA · bye week 11 · week 11" and "Wk 11" with a Week chip. | None. | Not built | Row (data in hand). |  | S1 |
-| C22 | Bench groups | By position; count; "Needs you" chip; Expand all / Collapse all; rule setting "All groups open" or "Only what needs you". | By position with counts; Expand all / Collapse all. | Partial | "Needs you" chip and the group rule (needs C7, C15). | D X | S1 |
+| C15 | Row status chips | ▲ Bye week, ■ OUT, ▲ Doubtful, ■ IR tag. | ▲ Bye week only. | Built (R2) | Injury chips (needs the injury read; MFL's injuries export keeps lapsed designations, so timing must be derived). | D | S1 |
+| C16 | Row: opponent and kickoff | "DAL · vs NYG" on lineup rows; kickoff for locks. | NFL team only. | Built (R2) | Opponent and kickoff from a schedule read. | D | S1 |
+| C17 | Row: IR return date | "SFO · back Dec 3". | None. Beta now: IR rows read "Return: Unavailable"; MFL's expected-return text is dropped by the loader and drawn nowhere. | Exception (R2) | **Exception to demo parity (Keith, 2026-11-20): Unavailable** until the field's meaning and its placeholder behavior (every retired player reads "Feb 15, 2027") are verified. Reopening needs that verification first. |  | S1 |
+| C18 | Row: taxi call-ups | "DAL · 1/3 call-ups". | Shown on the profile More tab, not on the row. | Built (R2) | Move to the row. |  | S1 |
+| C19 | Row (Contracts view) | Type · through 2028 · cap note ("cap hit 50%" on IR, "taxi, $0 on cap"); salary; years left or "▲ Final year". | Type · through year; salary; years left or Final year. No IR or taxi cap notes. A missing salary reads "Not recorded". | Built (R2) | IR and taxi cap notes. |  | S1 |
+| C20 | Row (Performance view) | "Wk 10 18.2 · Avg 14.1 · vs NYG"; projection on the right. | None. | Partial (R2) | Weekly points and opponent from existing reads; projection shows **Unavailable** until a source is approved (Decision 8). | D | S1 |
+| C21 | Row (Byes view) | "MIA · bye week 11 · week 11" and "Wk 11" with a Week chip. | None. | Built (R2) | Row (data in hand). |  | S1 |
+| C22 | Bench groups | By position; count; "Needs you" chip; Expand all / Collapse all; rule setting "All groups open" or "Only what needs you". | By position with counts; Expand all / Collapse all. | Partial (R2) | "Needs you" chip and the group rule (needs C7, C15). | D X | S1 |
 | C23 | Injured reserve and Taxi sections | "Injured reserve · 1 of 15", "Taxi squad · 3 of 10", collapsible. | Same, with limits from the league settings. | Built | None. |  | - |
 | C24 | Move buttons on rows | Move to IR · Activate from IR · Call up · Return to Taxi (only the first available). | None. | Not built | Buttons from the same eligibility the server uses (G2). | D W | S3b |
 | C25 | Move review sheet | Effects table (active roster, taxi, IR, his cap hit, your cap space), checks, Confirm move, Cancel. | None. | Not built | Sheet from a server preview, not a client guess. | D W | S3b |
@@ -149,7 +149,7 @@ The demo's own title for it is "Team › Contracts" (approved for the design con
 | ID | Element | Demo does | Beta today | Status | What remains | Needs | Stage |
 |---|---|---|---|---|---|---|---|
 | F1 | Team-colored header | Hero in the player's NFL team colors: photo with ring, first/last name, team · position · type, status pills, stripe, label, small Close tag. | Built to within half a pixel of the demo at 320 and 375 px (commit `b9abb61`, awaiting Keith's review). | Built | Franchise name stays on the More tab. |  | - |
-| F2 | Helmet badge | A labeled dashed "Helmet TBD" circle on the photo (no helmet art exists). | Left out (earlier Preview 0 ruling). | Not built | **Approved (Decision 3):** add the same labeled placeholder exactly as the demo draws it; never draw or invent helmet art. Real helmet art stays unapproved. |  | S1 |
+| F2 | Helmet badge | A labeled dashed "Helmet TBD" circle on the photo (no helmet art exists). | Left out (earlier Preview 0 ruling). | Built (R1) | **Approved (Decision 3):** add the same labeled placeholder exactly as the demo draws it; never draw or invent helmet art. Real helmet art stays unapproved. |  | S1 |
 | F3 | Actions button | Full-width "Actions · n available" (or "can't confirm") under the header. | None. | Not built | Button; opens the Actions sheet (F13). | D | S1 |
 | F4 | Tabs | Performance · Schedule · Contract · More. | Same four; Contract is built, the others are partial or placeholders. | Partial | Build the other three. |  | S1 |
 | F5 | Performance: season chips | Season chips (2026, 2025 …, ⚠ for incomplete history). | None. | Not built | Needs the history source. | D | S1 |
@@ -193,7 +193,7 @@ The demo's Controls sheet exists so Keith can try states. These are not owner fe
 | H4 | Scenario toggles | Sample week (problem or clean), Future-week save outcome, Season phase, Restructures used, Loaded contracts, Contract windows, Extension demo date, Acquisition and history records, Taxi eligibility records, Worker penalty answer, Profile eligibility, Screen state, Next demo save result, Reset. | None. | Exception | **Exception (Decision 4):** client-only **Sample** mode, plus the appropriate Test-mode controls (in Test the equivalents are real: a settable clock is decision 6, real records). Sample scenarios are clearly labeled and never send a transaction. |  | S1 |
 | H5 | Skin, Standard/Vibrant | Selectors. | In About. | Built | None. |  | - |
 | H6 | Try this checklist and Feedback notes (Copy all notes) | Tick list and a notes box that copies text for the chat. | None. | Exception | **Exception (Decision 4):** Feedback is replaced by Report a bug (G9). A short Try-this list may stay in Test mode. |  | S3e |
-| H7 | Demo and Sample-data labels | On the bar and every sheet. | None. | Not built | Environment markers (A12). |  | S2 |
+| H7 | Demo and Sample-data labels | On the bar and every sheet. | None. | Partial (R1) | Environment markers (A12). |  | S2 |
 
 ## I. Other placeholders the demo shows
 
@@ -201,6 +201,20 @@ The demo's Controls sheet exists so Keith can try states. These are not owner fe
 |---|---|---|---|---|---|---|---|
 | I1 | Market tab | "Market. Later release." | Placeholder with its own wording. | Partial | Match wording only. The Market prototype is a later, separately scoped spec (Decision 2); it is not part of this work. |  | S1 |
 | I2 | League tab | "League. Later page." | Placeholder. | Partial | Match wording. |  | S1 |
+
+### 4a. Implementation status: built, independently reviewed, phone-approved (2026-11-20)
+
+These are three different things and are counted separately. **Built** = merged into a draft branch and passing the safe suite. **Independently reviewed** = a Codex verdict on a named SHA. **Phone-approved** = Keith opened a deployed preview on a phone and accepted it.
+
+| Stage | Rows | Built | Independently reviewed | Phone-approved |
+|---|---|---|---|---|
+| Preview 0 (#1477): the 10 rows built before R1 | the rows with status Built before R1 | yes, deployed to the preview address earlier | per the #1477 record | per the #1477 record (not re-stated here) |
+| **R1** (PR #1481, head `f0e6664d`): A14 Sample mode, F2 Helmet placeholder (both Built); H7 labels (Partial) | A14, F2, H7 | yes (CI pass on merge result `e53209f7`) | **yes: Codex CLEAN at `f0e6664d68f8037caeab2400aa3902eb2e228232`**, posted on #1481 (relayed by Keith) | **no: nothing with R1 is deployed** |
+| **R2** (PR #1482, head `dc5b35d7`): Team › Roster | Built: C6, C9, C10, C12, C15, C16, C18, C19, C21. Partial: C2, C3, C8, C11, C20, C22. Exception: C17 | yes (CI pass on merge result `145436054bb6144b0a178a015605876e4ec432f5`, 281 passed) | **pending**: handoff prepared for Codex review of `dc5b35d7` | **no: nothing with R2 is deployed** |
+
+So of the 21 Built rows: 10 predate R1; 2 are R1 (reviewed); 9 are R2 (review pending). **No R1 or R2 row is phone-approved.** The counts above change only when a row's own status changes, never because a PR merges or deploys.
+
+Not part of any count: stage R1's build-target field, hash-pinned shared modules and Preview write-code scan (foundation, no checklist row), and R2's derived injury resolver (foundation for C15).
 
 ## 5. What the beta has that the demo does not
 
@@ -215,6 +229,7 @@ The demo's Controls sheet exists so Keith can try states. These are not owner fe
 | Scenario toggles (Controls › Settings) | Sample week, future-week outcome, season phase, restructures used, loaded contracts, windows, demo date, record states, worker answer, screen state, next save result, Reset | Client-only **Sample** mode; real equivalents in Test mode | Clearly labeled; **never sends a transaction**; pinned by a test (A14) |
 | Feedback and Try-this tabs | Notes box that copies text for the chat | **Report a bug**, reachable from every screen and inside every sheet; carries the current screen and the captured error | Integration testing: reports go **only to #keiths-test** |
 | Compare navigation A and B sheet; A/B setting | Sheet comparing the two bars; a selector | Dropped; navigation fixed at four tabs | Decision 5 (B) |
+| **IR return date on a row (C17)** | "SFO · back Dec 3" | **Unavailable** ("Return: Unavailable"). MFL's expected-return text is not kept or drawn anywhere, on rows or on the profile | Keith, 2026-11-20: until the meaning of MFL's `exp_return` and its placeholder behavior are verified. The classic app's own placement (#1452 beside the chip, moved the same day by #1453 into the player popup) is unchanged and out of scope |
 | Kept as owner settings (not exceptions) | Skin, vibrant colors, position-group rule | Same, in settings | - |
 
 ## 6. Data the demo shows: what the repository and the current app already provide (audit, Decision 8)
