@@ -1,6 +1,6 @@
 # UPS 2027 Beta: demo parity checklist and staged plan
 
-**Status: planning record, with implementation status added 2026-11-20 (section 4a).** The planning decisions below are recorded. R1 is built and independently reviewed; R2 is built and awaiting independent review; **nothing is deployed with either, so nothing here is phone-approved yet.** Nothing here enables a write or touches the original mobile app or the approved prototype. Companion record: issue #1475 (revision 11) and PR #1477 (Preview 0).
+**Status: planning record, with implementation status added 2026-11-20 (section 4a).** The planning decisions below are recorded. R1 and R2 are built and independently reviewed (Codex CLEAN at `f0e6664d` and `87355d4d`); **nothing is deployed with either, so nothing here is phone-approved yet.** Nothing here enables a write or touches the original mobile app or the approved prototype. Companion record: issue #1475 (revision 11) and PR #1477 (Preview 0).
 
 ## 1. The ruling this answers
 
@@ -210,9 +210,9 @@ These are three different things and are counted separately. **Built** = merged 
 |---|---|---|---|---|
 | Preview 0 (#1477): the 10 rows built before R1 | the rows with status Built before R1 | yes, deployed to the preview address earlier | per the #1477 record | per the #1477 record (not re-stated here) |
 | **R1** (PR #1481, head `f0e6664d`): A14 Sample mode, F2 Helmet placeholder (both Built); H7 labels (Partial) | A14, F2, H7 | yes (CI pass on merge result `e53209f7`) | **yes: Codex CLEAN at `f0e6664d68f8037caeab2400aa3902eb2e228232`**, posted on #1481 (relayed by Keith) | **no: nothing with R1 is deployed** |
-| **R2** (PR #1482, head `87355d4d`): Team › Roster | Built: C6, C9, C10, C12, C15, C16, C18, C19, C21. Partial: C2, C3, C8, C11, C20, C22. Exception: C17 | yes (CI pass on merge result `0bd157aa0a247802e7a198ec8ff7d72a0c504415`, 281 passed) | **not yet: Codex returned NOT CLEAN twice (MAT-1 at `dc5b35d7`: past-week opponents and byes from today's club; MAT-2 at `4951dfce`: past-week slots rebuilt from today's positions). MAT-1 is resolved; the MAT-2 fix is `87355d4d`; targeted re-review pending** | **no: nothing with R2 is deployed** |
+| **R2** (PR #1482, head `87355d4d`): Team › Roster | Built: C6, C9, C10, C12, C15, C16, C18, C19, C21. Partial: C2, C3, C8, C11, C20, C22. Exception: C17 | yes (CI pass on merge result `0bd157aa0a247802e7a198ec8ff7d72a0c504415`, 281 passed) | **yes: Codex CLEAN at `87355d4d666e8c6e8edb5d7b7f0f13a21472c1d7`** (targeted re-review, [verdict](https://github.com/keithcreelman/upsmflproduction/pull/1482#issuecomment-7053536797)), after two NOT CLEAN rounds (MAT-1 at `dc5b35d7`, MAT-2 at `4951dfce`), both resolved | **no: not deployed yet; awaiting Keith's approval of digest `7a70d298929c25d2d03967bea94ab274a2b8d0658cc3af8aa2c2a008d09c74d9`** |
 
-So of the 21 Built rows: 10 predate R1; 2 are R1 (reviewed); 9 are R2 (**not independently reviewed yet**: two reviews were NOT CLEAN and the second fix awaits a targeted re-review). **No R1 or R2 row is phone-approved.** The counts above change only when a row's own status changes, never because a PR merges or deploys.
+So of the 21 Built rows: 10 predate R1; 2 are R1 (reviewed); 9 are R2 (independently reviewed: Codex CLEAN at `87355d4d` after two resolved NOT CLEAN rounds). **No R1 or R2 row is phone-approved.** The counts above change only when a row's own status changes, never because a PR merges or deploys.
 
 Not part of any count: stage R1's build-target field, hash-pinned shared modules and Preview write-code scan (foundation, no checklist row), and R2's derived injury resolver (foundation for C15).
 

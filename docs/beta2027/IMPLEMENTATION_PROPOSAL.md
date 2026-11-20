@@ -171,7 +171,7 @@ No route in this document was exercised. Not read: the state of league 25625; wh
 | Stage | PR / head | Built | Independently reviewed | Phone-approved |
 |---|---|---|---|---|
 | R1 build foundation | #1481 / `f0e6664d` | yes, CI pass | **Codex CLEAN at `f0e6664d`** (relayed by Keith) | no, not deployed |
-| R2 Team › Roster parity | #1482 / `87355d4d` | yes, CI pass | **Codex NOT CLEAN twice (MAT-1 resolved; MAT-2 fix `87355d4d` awaits a targeted re-review)** | no, not deployed |
+| R2 Team › Roster parity | #1482 / `87355d4d` | yes, CI pass | **Codex CLEAN at `87355d4d`** (after two resolved NOT CLEAN rounds) | no: awaiting approval of digest `7a70d298…74d9` for a preview deploy |
 
 Decided while building R2 (recorded on #1475): the injury resolver is a **derived, hash-pinned copy** of the classic file (not a twin and not a dormant `fetch`); MFL's expected-return text is **Unavailable** (explicit exception C17); a past week shows only that week's recorded starters in the recorded order with their scores and the recorded count (its NFL opponents, byes, slots and positions are not shown: no read gives a past week's club, slot or position). Database reads of the two added routes are measured locally in `R2_D1_MEASUREMENT.md`. Deployment, worker changes, migrations, flags and transactions remain under their own approvals.
 
