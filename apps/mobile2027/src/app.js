@@ -14,7 +14,8 @@
     model: null, load: { core: "loading", coreNotes: [], error: "" }, penalty: { state: "idle" },
     teamId: pref("team", ""), tab: "team", sub: "roster", view: "lineup", open: {}, flags: {},
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
-    requestLog: loader.log, requestSummary: loader.summary()
+    requestLog: loader.log, requestSummary: loader.summary(),
+    sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
   };
 
   // ---- display choices ----
@@ -55,7 +56,9 @@
   }
 
   // ---- loading ----
+  // While Sample mode is on the page makes no request at all: every read goes through these two guards.
   function loadCore() {
+    if (S.sample.on) return Promise.resolve();
     S.load = { core: "loading", coreNotes: [], error: "" };
     render();
     return loader.loadCore().then(function (r) {
@@ -79,6 +82,7 @@
   }
 
   function loadPenalty(force) {
+    if (S.sample.on) return;
     if (!force && (S.penalty.state === "loading" || S.penalty.state === "ok")) return;
     S.penalty = { state: "loading" };
     loader.loadPenalty().then(function (r) { S.penalty = r; render(true); });
@@ -139,6 +143,7 @@
     else if (act === "teams") { S.sheet = "teams"; render(); }
     else if (act === "pickteam") { S.teamId = el.getAttribute("data-fid"); setPref("team", S.teamId); S.open = {}; S.sheet = null; render(); }
     else if (act === "about") { S.sheet = "about"; render(); }
+    else if (act === "sample") { S.sample.toggle(); render(true); }
     else if (act === "skin") { S.skin = v; setPref("skin", v); applySkin(); render(true); }
     else if (act === "vib") { S.vib = v; setPref("vib", v); applySkin(); render(true); }
     else if (act === "tog") { S.flags[v] = !S.flags[v]; render(true); }

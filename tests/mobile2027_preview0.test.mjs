@@ -42,7 +42,7 @@ function state(over) {
     requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
   };
 }
-const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen"];
+const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample"];
 const findPlayer = (pred) => allPlayers().find(pred);
 
 // ───────────────────────── 1. contract text and schedule ─────────────────────────
@@ -543,7 +543,9 @@ test("the profile header is colored by the player's NFL team: every team and ski
   t.equal(hero.match(/<h3 class="hnm">([\s\S]*?)<\/h3>/)[1].replace(/<[^>]+>/g, ""), "Jaxon Smith-Njigba", "the heading still reads the full name");
   t.match(hero, /data-chain="\[&quot;https:\/\/a\.espncdn\.com\/i\/headshots\/nfl\/players\/full\/\d+\.png&quot;,&quot;https:\/\/www48\.myfantasyleague\.com\/player_photos_2014\/\d+_thumb\.jpg&quot;\]"/, "ESPN, then MFL");
   t.match(hero, /class="avpos">WR</, "the position badge underneath the photo");
-  t.doesNotMatch(html, /helmet/i, "no helmet badge");
+  t.equal((html.match(/class="hm ph"/g) || []).length, 1, "one helmet placeholder");
+  t.match(hero, /<div class="pfw"><div class="av2"[\s\S]*?<\/div><div class="hm ph" role="img" aria-label="Team helmet placeholder: verified team art is not available"><span>Helmet<\/span><span>TBD<\/span><\/div><\/div>/, "the labeled placeholder sits on the photo, as the demo draws it");
+  t.doesNotMatch(hero, /helmet[^"'<>]*\.(png|jpe?g|svg|webp|gif)|<svg|<canvas|url\(/i, "no helmet art is drawn or implied");
   ["\\$14,588", "\\$37,912", "\\$55,000", "Salary 2026", "Years left", "Earned counts through Week 10", "Where these numbers come from"].forEach((s) => t.match(html, new RegExp(s)));
   t.match(html, /data-act="close"/); t.equal((html.match(/data-act="close"/g) || []).length, 2, "the scrim and one Close button");
   // a free agent, a blank team and hostile text never produce a color class that is not a team, and never leave the attribute
@@ -578,14 +580,17 @@ test("the build copies exactly the allowlist, is repeatable, and refuses extras 
   const r1 = B.build(out1, SRC, G()), r2 = B.build(out2, SRC, G());
   t.ok(r1.ok && r2.ok); t.equal(r1.digest, r2.digest, "the same sources give the same artifact digest");
   const listed = []; (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else listed.push(path.relative(out1, p).split(path.sep).join("/")); } })(out1);
-  t.deepEqual(listed.sort(), B.FILES.concat(["build-manifest.json"]).sort());
+  t.deepEqual(listed.sort(), B.ALL_PATHS.concat(["build-manifest.json"]).sort());
   B.FILES.forEach((f) => t.equal(fs.readFileSync(path.join(out1, f), "utf8"), read(f), f + " is byte for byte the reviewed source"));
+  B.SHARED.forEach((n) => t.equal(fs.readFileSync(path.join(out1, "shared", n), "utf8"), fs.readFileSync(path.join(B.SHARED_DIR, n), "utf8"), "shared/" + n + " is byte for byte the file in site/shared/"));
+  t.equal(r1.manifest.mode, "preview", "the manifest names the build mode");
   const hits = B.scan("x.js", "var a = 'APIKEY=abc123'; mfl_user_id: x");
   t.equal(hits.length, 2); t.ok(hits.some((h) => /MFL session id/.test(h)) && hits.some((h) => /API key/.test(h)));
   t.ok(B.scan("x", "contact me at someone@example.com").length === 1);
   t.ok(B.scan("x", "Authorization: Bearer abcdefghijklmnop1234").length >= 1);
   t.ok(B.scan("x", "ups_bs_ABCDEFGHIJKLMNOP").length === 1);
   t.equal(B.FILES.filter((f) => B.scan(f, read(f)).length).length, 0, "the real sources are clean");
+  t.equal(B.SHARED.filter((n) => B.scan(n, fs.readFileSync(path.join(B.SHARED_DIR, n), "utf8")).length).length, 0, "the shared modules are clean");
   fs.rmSync(out1, { recursive: true, force: true }); fs.rmSync(out2, { recursive: true, force: true });
   // a copy of the sources, damaged on purpose: the build must refuse each damage and write nothing
   const mkSrc = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "m27s-")); fs.cpSync(SRC, d, { recursive: true }); return d; };
@@ -680,6 +685,13 @@ test("the deploy check refuses a tampered manifest: digest, file list, hashes, c
   { const d = fresh(); const m = mf(d); m.files[0].note = "x"; save(d, m); refused("an unknown file-entry field", d, /malformed/); }
   { const d = fresh(); const m = mf(d); m.build = "preview9"; save(d, m); refused("another build name", d, /not a Preview 0 build/); }
   { const d = fresh(); fs.writeFileSync(path.join(d, "build-manifest.json"), "{not json"); refused("unparseable JSON", d, /not valid JSON/); }
+  // 4b. the build mode and the shared modules
+  { const d = fresh(); const m = mf(d); m.mode = "test"; save(d, m); refused("another build mode", d, /mode is not "preview"/); }
+  { const d = fresh(); const m = mf(d); delete m.mode; save(d, m); refused("no build mode", d, /exactly these fields/); }
+  { const d = fresh(); const f = path.join(d, "shared/taxi_rule.js"); fs.appendFileSync(f, "\n// edited after the build\n"); const m = mf(d); const e = m.files.find((x) => x.path === "shared/taxi_rule.js"); const buf = fs.readFileSync(f); e.bytes = buf.length; e.sha256 = sha(buf); save(d, rehash(m));
+    refused("a shared module changed with a fully rewritten manifest", d, /not the source at the named commit: shared\/taxi_rule\.js/); }
+  { const d = fresh(); const moved = fs.mkdtempSync(path.join(os.tmpdir(), "m27h-")); fs.cpSync(B.SHARED_DIR, moved, { recursive: true }); fs.appendFileSync(path.join(moved, "contract_windows.js"), "\n// the shared file moved on\n");
+    refused("a shared module that moved on after the build", d, /not the source at the named commit: shared\/contract_windows\.js/, { git: G(), srcDir: SRC, sharedDir: moved }); fs.rmSync(moved, { recursive: true, force: true }); }
   // 5. the source commit
   { const d = fresh(); const m = mf(d); delete m.source; save(d, m); refused("no source commit", d, /exactly these fields/); }
   { const d = fresh(); const m = mf(d); m.source.commit = "main"; save(d, m); refused("a branch name instead of a commit", d, /40-character source commit/); }
@@ -691,6 +703,146 @@ test("the deploy check refuses a tampered manifest: digest, file list, hashes, c
   // 6. a build made at one commit, deployed after the source moved: the bytes are no longer that commit's source
   { const d = fresh(); const moved = fs.mkdtempSync(path.join(os.tmpdir(), "m27m-")); fs.cpSync(SRC, moved, { recursive: true }); fs.appendFileSync(path.join(moved, "config.js"), "\n// the source moved on\n");
     refused("built bytes that differ from the checked-out source", d, /not the source at the named commit: config\.js/, { git: G(), srcDir: moved }); fs.rmSync(moved, { recursive: true, force: true }); }
+});
+
+
+// ───────────────────────── 9. R1: build target, shared modules, write-code scan ─────────────────────────
+test("the build target: config.js names the mode, the build only makes 'preview', and a different mode is refused", async () => {
+  const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
+  t.equal(B.MODE, "preview"); t.match(read("config.js"), /\bmode:\s*"preview"/);
+  const mkSrc = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "m27c-")); fs.cpSync(SRC, d, { recursive: true }); return d; };
+  const outDir = path.join(os.tmpdir(), "m27-mode-" + process.pid);
+  const wrong = mkSrc(); fs.writeFileSync(path.join(wrong, "config.js"), read("config.js").replace('mode: "preview"', 'mode: "test"'));
+  const r = B.build(outDir, wrong, G()); t.equal(r.ok, false); t.match(r.problems.join(" "), /mode "test", but this build only makes "preview"/); t.equal(fs.existsSync(outDir), false, "nothing written");
+  const none = mkSrc(); fs.writeFileSync(path.join(none, "config.js"), read("config.js").replace(/,\s*\n\s*mode:[^\n]*/, ""));
+  const r2 = B.build(outDir, none, G()); t.equal(r2.ok, false); t.match(r2.problems.join(" "), /does not name a build mode/);
+  [wrong, none].forEach((d) => fs.rmSync(d, { recursive: true, force: true }));
+  // a dev build: a local working copy that may be made on a dirty tree, marked dev, and refused by the deploy script
+  const S = await import(pathToFileURL(path.join(APP, "scripts/deploy_preview.mjs")).href);
+  t.equal(B.build(outDir, SRC, G(COMMIT, true)).ok, false, "a normal build refuses a dirty tree");
+  const dev = B.build(outDir, SRC, G(COMMIT, true), B.SHARED_DIR, B.LOCK, { dev: true }); t.ok(dev.ok); t.equal(dev.manifest.dev, true);
+  t.ok(fs.existsSync(path.join(outDir, "shared", "taxi_rule.js")), "the working copy has its shared files next to the page");
+  t.throws(() => S.plan([outDir], fs, { git: G(), srcDir: SRC }), /exactly these fields/, "the deploy script does not accept a dev build");
+  t.equal(B.build(outDir, SRC, G(COMMIT, false), B.SHARED_DIR, B.LOCK, { dev: false }).manifest.dev, undefined, "a normal build carries no dev mark"); fs.rmSync(outDir, { recursive: true, force: true });
+});
+
+test("shared modules: taken byte for byte, pinned by SHA-256, loadable in the page, and a changed one stops the build until it is re-pinned", async () => {
+  const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
+  const { createHash } = await import("node:crypto");
+  const sha = (b) => createHash("sha256").update(b).digest("hex");
+  t.deepEqual(B.SHARED, ["contract_windows.js", "taxi_rule.js"], "the first intake is exactly the two pure modules the next stages need");
+  const lock = B.readLock(); t.ok(lock && lock.files);
+  t.deepEqual(Object.keys(lock.files).sort(), B.SHARED.slice().sort(), "the lock pins exactly the shared list");
+  B.SHARED.forEach((n) => t.equal(lock.files[n], sha(fs.readFileSync(path.join(B.SHARED_DIR, n))), n + " is the file that was reviewed (re-pin on purpose: build.mjs --write-lock)"));
+  t.deepEqual(B.computeLock().files, lock.files, "the pins are exactly what the lock command writes");
+  // each module loads as a plain script, attaches its one global, and makes no request while loading
+  const calls = []; const sandbox = { fetch: (...a) => { calls.push(a); }, XMLHttpRequest: function () { calls.push("xhr"); } };
+  sandbox.window = sandbox; vm.createContext(sandbox);
+  B.SHARED.forEach((n) => vm.runInContext(fs.readFileSync(path.join(B.SHARED_DIR, n), "utf8"), sandbox, { filename: n }));
+  t.ok(sandbox.UPS_CONTRACT_WINDOWS && typeof sandbox.UPS_CONTRACT_WINDOWS === "object", "contract windows attach UPS_CONTRACT_WINDOWS");
+  t.ok(sandbox.UPS_TAXI_RULE && typeof sandbox.UPS_TAXI_RULE === "object", "the taxi rule attaches UPS_TAXI_RULE");
+  t.equal(calls.length, 0, "loading them makes no request");
+  // the page loads them, before the app's own files
+  const scripts = [...read("index.html").matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
+  B.SHARED.forEach((n) => t.ok(scripts.includes("shared/" + n), n + " is loaded by the page"));
+  t.ok(scripts.indexOf("shared/contract_windows.js") > scripts.indexOf("config.js") && scripts.indexOf("shared/taxi_rule.js") < scripts.indexOf("lib/format.js"), "after the configuration, before the app's own files");
+  t.ok(scripts.includes("lib/sample.js"));
+  // a shared file edited for the classic app stops the build until someone re-pins it
+  const sharedCopy = fs.mkdtempSync(path.join(os.tmpdir(), "m27sh-")); fs.cpSync(B.SHARED_DIR, sharedCopy, { recursive: true });
+  const outDir = path.join(os.tmpdir(), "m27-shared-" + process.pid);
+  t.ok(B.build(outDir, SRC, G(), sharedCopy).ok, "the unchanged copy builds"); fs.rmSync(outDir, { recursive: true, force: true });
+  fs.appendFileSync(path.join(sharedCopy, "taxi_rule.js"), "\n// changed for the classic app\n");
+  const r = B.build(outDir, SRC, G(), sharedCopy); t.equal(r.ok, false); t.match(r.problems.join(" "), /shared module changed since it was pinned: site\/shared\/taxi_rule\.js/); t.equal(fs.existsSync(outDir), false);
+  fs.rmSync(path.join(sharedCopy, "contract_windows.js")); const r2 = B.build(outDir, SRC, G(), sharedCopy); t.equal(r2.ok, false); t.match(r2.problems.join(" "), /missing shared module: site\/shared\/contract_windows\.js/);
+  const noLock = B.build(outDir, SRC, G(), B.SHARED_DIR, path.join(os.tmpdir(), "no-such-lock.json")); t.equal(noLock.ok, false); t.match(noLock.problems.join(" "), /shared\.lock\.json is missing/);
+  const extraPin = path.join(os.tmpdir(), "m27-lock-" + process.pid + ".json"); fs.writeFileSync(extraPin, JSON.stringify({ files: { ...lock.files, "injury_status.js": "0".repeat(64) } }));
+  const r3 = B.build(outDir, SRC, G(), B.SHARED_DIR, extraPin); t.equal(r3.ok, false); t.match(r3.problems.join(" "), /pins a module that is not on the SHARED list: injury_status\.js/);
+  fs.rmSync(sharedCopy, { recursive: true, force: true }); fs.rmSync(extraPin, { force: true });
+  // why two shared modules are NOT taken: the scan refuses them on the real files
+  const real = (n) => fs.readFileSync(path.join(B.SHARED_DIR, n), "utf8");
+  t.ok(B.scanWriteCode("shared/injury_status.js", real("injury_status.js")).some((h) => /reference to fetch/.test(h)), "injury_status.js carries a loader that calls fetch, so the Preview scan refuses it");
+  t.ok(B.scanWriteCode("shared/cap_math.js", real("cap_math.js")).some((h) => /reference to fetch/.test(h)), "cap_math.js calls the worker itself, so the Preview scan refuses it");
+});
+
+test("the Preview write-code scan: what it refuses, what it allows, and that the built tree is clean", async () => {
+  const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
+  const hit = (name, code, re) => t.ok(B.scanWriteCode(name, code).some((h) => re.test(h)), `${name}: ${code.slice(0, 50)} is refused`);
+  const clean = (name, code) => t.deepEqual(B.scanWriteCode(name, code), [], `${name}: ${code.slice(0, 50)} is allowed`);
+  hit("lib/x.js", 'fetch(u, { method: "POST" })', /write verb|method other than/);
+  hit("lib/x.js", 'var o = { method: "GET" }; o.method = "DELETE";', /write verb|method other than/);
+  hit("lib/x.js", "var o = { method: m };", /method other than/);
+  hit("lib/x.js", 'var o = { credentials: "include" };', /credentials other than omit/);
+  hit("lib/x.js", "var f = new FormData();", /FormData/);
+  hit("lib/x.js", 'navigator.sendBeacon("/x", b);', /sendBeacon/);
+  hit("lib/x.js", "var x = new XMLHttpRequest();", /XMLHttpRequest/);
+  hit("lib/x.js", 'new WebSocket("wss://x")', /WebSocket/);
+  hit("lib/x.js", "eval(code)", /eval/);
+  hit("lib/views.js", "window.fetch(url)", /reference to fetch/);
+  hit("lib/views.js", "var go = fetch;", /reference to fetch/);
+  hit("lib/submit_lineup.js", "var a = 1;", /file name says it writes/);
+  hit("lib/save.js", "var a = 1;", /file name says it writes/);
+  hit("index.html", '<script>fetch("/x")</script>', /reference to fetch/);
+  clean("lib/data.js", 'fetchImpl(url, { method: "GET", credentials: "omit" }); fetch(u)');
+  clean("app.js", "var l = U.data.createLoader(cfg, window.fetch.bind(window));");
+  clean("lib/x.js", '// POST is never used here\n/* method: "DELETE" and credentials: "include" in a comment */ var a = 1;');
+  clean("lib/x.js", 'if (e.method !== "GET") n++; var u = "https://a.example/b";');
+  clean("lib/photo.js", "var prefetchedImages = 1; // fetchable later");
+  clean("styles.css", "body{color:red} /* POST */");
+  // the real built tree: every script and page, source and shared, is clean
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "m27w-")); const r = B.build(out, SRC, G()); t.ok(r.ok);
+  const bad = []; (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else { const rel = path.relative(out, p).split(path.sep).join("/"); if (rel !== "build-manifest.json") bad.push(...B.scanWriteCode(rel, fs.readFileSync(p, "utf8"))); } } })(out);
+  t.deepEqual(bad, [], "the built Preview tree contains no write code"); fs.rmSync(out, { recursive: true, force: true });
+  // the build refuses damage, and writes nothing
+  const mkSrc = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), "m27x-")); fs.cpSync(SRC, d, { recursive: true }); return d; };
+  const outDir = path.join(os.tmpdir(), "m27-scan-" + process.pid);
+  const withPost = mkSrc(); fs.appendFileSync(path.join(withPost, "lib/views.js"), '\nfetch("/x", { method: "POST" });\n');
+  const a = B.build(outDir, withPost, G()); t.equal(a.ok, false); t.match(a.problems.join(" "), /lib\/views\.js: write code/); t.equal(fs.existsSync(outDir), false);
+  const withSubmit = mkSrc(); fs.writeFileSync(path.join(withSubmit, "lib/submit_drop.js"), "var x = 1;");
+  const b = B.build(outDir, withSubmit, G()); t.equal(b.ok, false); t.match(b.problems.join(" "), /lib\/submit_drop\.js/);
+  [withPost, withSubmit].forEach((d) => fs.rmSync(d, { recursive: true, force: true }));
+});
+
+test("Sample mode: client-only, labeled, off at every start, and it keeps the page from making any request", () => {
+  const SM = require(path.join(SRC, "lib/sample.js"));
+  const s = SM.create(); t.equal(s.on, false, "off at every start"); t.deepEqual(s.scenarios, {});
+  t.equal(s.toggle(), true); t.equal(s.toggle(), false);
+  t.throws(() => s.register("", {}), /needs an id/); t.throws(() => s.register("a", null), /plain data/); s.register("a", { week: 11 }); t.throws(() => s.register("a", {}), /already registered/);
+  t.equal(SM.envText(false), "Preview: view only"); t.match(SM.envText(true), /^Sample data · nothing is real and nothing is sent$/);
+  // the screens
+  const off = V.app(state()), on = V.app(state({ sample: { on: true } }));
+  t.match(off, /<div class="envbar" role="status"><span>Preview: view only<\/span>/); t.doesNotMatch(off, /Sample data/);
+  t.match(on, /<div class="envbar sample" role="status"><span>Sample data · nothing is real and nothing is sent<\/span>/);
+  t.match(on, /Nothing here is real, and nothing is sent\./); t.doesNotMatch(on, /Week 11 starters|class="rx"/, "no league data is drawn in Sample mode");
+  t.equal((on.match(/data-act="sample"/g) || []).length, 1, "one control, to turn it off");
+  const withProfile = V.app(state({ sample: { on: true }, profile: { pid: allPlayers()[0].id, tab: "contract" } })); t.doesNotMatch(withProfile, /role="dialog"/, "a profile is not drawn in Sample mode");
+  // the label shows on every tab, every sheet and every state
+  ["team", "home", "market", "league"].forEach((tab) => { t.match(V.app(state({ tab })), /class="envbar"/, tab + " carries the marker"); t.match(V.app(state({ tab, sample: { on: true } })), /class="envbar sample"/, tab + " carries the Sample label"); });
+  t.match(V.app(state({ sheet: "about" })), /class="envbar"[\s\S]*Turn Sample mode on/); t.match(V.app(state({ sheet: "about", sample: { on: true } })), /Turn Sample mode off/);
+  t.match(V.app(state({ model: null, load: { core: "loading", coreNotes: [] } })), /class="envbar"/); t.match(V.app(state({ model: null, load: { core: "error", coreNotes: [], error: "x" } })), /class="envbar"/);
+  // the module itself holds no network or storage code
+  const src = read("lib/sample.js"); t.doesNotMatch(src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, ""), /\bfetch\b|XMLHttpRequest|localStorage|sessionStorage|indexedDB|document\.cookie|sendBeacon/);
+});
+
+test("the Preview marker and the Sample banner: colors that read in every skin, and the helmet placeholder styled as the demo styles it", () => {
+  const css = read("styles.css");
+  t.match(css, /\.envbar\{[^}]*min-height:calc\(26px \+ env\(safe-area-inset-top/, "the marker clears the phone's top inset itself");
+  t.match(css, /\.hd\{[^}]*padding:8px max\(8px/, "so the header no longer adds the inset a second time");
+  t.match(css, /\.envbar\.sample\{background:var\(--wn\);color:var\(--on\)/);
+  t.match(css, /\.pfw\{position:relative;flex:0 0 auto;width:clamp\(76px,26vw,100px\)\}/);
+  t.match(css, /\.hm\.ph\{width:clamp\(52px,16vw,60px\);padding:0;border-style:dashed;border-color:#0b0f18;color:#0b0f18;/, "the dashed placeholder, exactly the demo's rule");
+  t.match(css, /\.hm\{position:absolute;right:-6px;bottom:-8px;width:clamp\(46px,15vw,58px\);aspect-ratio:1;border-radius:50%;background:#fff;/);
+  // contrast of the two marker states in every skin (4.5:1; 7:1 in High contrast)
+  const block = (sel) => { const i = css.indexOf(sel + "{"); if (i < 0) return {}; const body = css.slice(i + sel.length + 1, css.indexOf("}", i)); const o = {}; for (const m of body.matchAll(/(--[a-z0-9]+):([^;]+);?/g)) o[m[1]] = m[2].trim(); return o; };
+  const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  let n = 0;
+  for (const skin of ["light", "dark", "hc"]) for (const vib of [false, true]) {
+    const tok = { ...block(":root"), ...block(`:root[data-skin="${skin}"]`), ...(vib ? block(`:root[data-skin="${skin}"][data-vib="1"]`) : {}) };
+    const need = skin === "hc" ? 7 : 4.5, tag = skin + (vib ? "+vibrant" : "");
+    [["mu", "s2"], ["on", "wn"]].forEach(([a, b]) => { n++; t.ok(ratio(tok["--" + a], tok["--" + b]) >= need, `${tag}: ${a} on ${b} is ${ratio(tok["--" + a], tok["--" + b]).toFixed(2)}:1, needs ${need}`); });
+  }
+  t.equal(n, 12);
+  t.ok(ratio("#0b0f18", "#ffffff") >= 7, "the placeholder's near-black text on white");
 });
 
 await run("mobile2027_preview0");

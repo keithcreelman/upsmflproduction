@@ -56,7 +56,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0 } = {}) 
   ctx.fetch = fetchFake;
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/photo.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
   const click = async (attrs) => {
     const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));
@@ -166,6 +166,27 @@ test("popstate and Escape close the profile; a reload clears the calculation and
   t.equal(roster(), before + 1); t.doesNotMatch(a.html(), /About Preview 0/);
   await a.click({ "data-act": "card", "data-pid": pid }); await tick(20);
   t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 2, "the calculation is read again after a reload");
+});
+
+test("Sample mode: while it is on the page makes no request at all (not a read, not a retry, not a profile's calculation), and nothing about it is stored", async () => {
+  const a = boot(); await tick(30);
+  const before = a.calls.length; t.ok(before >= 4, "the normal load made its reads");
+  await a.click({ "data-act": "about" }); t.match(a.html(), /Turn Sample mode on/);
+  await a.click({ "data-act": "sample" });
+  t.match(a.html(), /Sample data · nothing is real and nothing is sent/); t.match(a.html(), /Turn Sample mode off/);
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await a.click({ "data-act": "close" });
+  t.match(a.html(), /Nothing here is real, and nothing is sent\./); t.doesNotMatch(a.html(), /Week 11 starters/);
+  await a.click({ "data-act": "card", "data-pid": pid }); await tick(20);
+  await a.click({ "data-act": "retry" }); await a.click({ "data-act": "retrypen" }); await tick(20);
+  await a.click({ "data-act": "nav", "data-v": "market" }); await a.click({ "data-act": "nav", "data-v": "team" }); await tick(20);
+  t.equal(a.calls.length, before, "zero requests were made while Sample mode was on");
+  t.doesNotMatch(JSON.stringify(a.storage), /sample/i, "nothing about Sample mode is stored on the phone");
+  // turning it off brings the real screens back
+  await a.click({ "data-act": "sample" });
+  t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Preview: view only/); t.match(a.html(), /Week 11 starters/);
+  // it is never remembered: a fresh page starts with it off
+  const b = boot(); await tick(30); t.doesNotMatch(b.html(), /Sample data/); t.match(b.html(), /Preview: view only/);
 });
 
 await run("mobile2027_controller");

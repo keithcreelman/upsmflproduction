@@ -27,7 +27,9 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 @media (min-width:600px){#app{border-left:1px solid var(--bd);border-right:1px solid var(--bd)}}
 .noscript{padding:16px}
 
-.hd{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top,0px)) max(8px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
+.envbar{flex:0 0 auto;display:flex;align-items:center;min-height:calc(26px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));background:var(--s2);color:var(--mu);border-bottom:1px solid var(--bd);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.envbar.sample{background:var(--wn);color:var(--on);border-bottom-color:var(--wn)}
+.hd{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px max(8px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
 .hd h1{margin:0;flex:1;font-size:19px;letter-spacing:-.01em}
 .asof{flex:0 0 auto;padding:2px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));font-size:12px;color:var(--mu);min-height:16px}
 .ib{min-width:44px;min-height:44px;border:0;background:transparent;color:var(--ac);font-size:20px;line-height:1;padding:0}
@@ -126,6 +128,11 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .avpos{font-weight:800;font-size:22px;letter-spacing:.02em;color:var(--ht,var(--mu))}
 .av2 img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 25%;background:var(--hav,var(--s2));max-width:none}
 .av2 img[hidden]{display:none}
+/* the labeled placeholder where a team helmet would sit: no helmet art exists, and none is drawn or implied */
+.pfw{position:relative;flex:0 0 auto;width:clamp(76px,26vw,100px)}
+.pfw .av2{width:100%}
+.hm{position:absolute;right:-6px;bottom:-8px;width:clamp(46px,15vw,58px);aspect-ratio:1;border-radius:50%;background:#fff;border:2.5px solid var(--hr);display:grid;place-items:center;padding:6px}
+.hm.ph{width:clamp(52px,16vw,60px);padding:0;border-style:dashed;border-color:#0b0f18;color:#0b0f18;flex-direction:column;font-size:12px;font-weight:800;line-height:1.1;text-align:center;align-content:center}
 .htx{flex:1;min-width:0}
 .hero .hnm{margin:0;font-size:clamp(22px,7.4vw,30px);line-height:1.08;font-weight:800;overflow-wrap:anywhere;text-wrap:balance;color:var(--ht)}
 .hero .hfn{display:block;font-size:14px;font-weight:600;line-height:1.35;color:var(--hm)}

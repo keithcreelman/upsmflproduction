@@ -35,15 +35,31 @@ Any action; cap space; the Team › Contracts and Cap & picks tabs; injury statu
 ## Run, test, build, deploy
 
 ```bash
-python3 -m http.server 8741 --directory apps/mobile2027/src    # open http://localhost:8741 (reads the live public routes)
+node apps/mobile2027/scripts/build.mjs --dev                    # a local working copy in apps/mobile2027/dist-dev (dirty tree allowed; never deployable)
+python3 -m http.server 8741 --directory apps/mobile2027/dist-dev   # open http://localhost:8741 (reads the live public routes)
 node tests/mobile2027_preview0.test.mjs                         # offline; or: node scripts/safe_tests/run.mjs
 node apps/mobile2027/scripts/build.mjs                          # clean tree only: writes apps/mobile2027/dist, prints the source commit and artifact digest
+node apps/mobile2027/scripts/build.mjs --write-lock             # re-pin the shared modules, after reviewing a change to one of them
 node apps/mobile2027/scripts/deploy_preview.mjs apps/mobile2027/dist            # dry run: prints the plan
 node apps/mobile2027/scripts/deploy_preview.mjs apps/mobile2027/dist --execute  # publishes to the preview address only
 ```
 
 The deploy script's project (`ups-mobile-beta`) and branch (`preview`) are constants. It has no way to name the production branch. It trusts nothing in `build-manifest.json`: it requires the file list to equal the build allowlist, re-hashes every file, recomputes the artifact digest, and refuses unless the manifest's source commit is the commit checked out now, the tree is clean (in a dry run too), and every built file is byte for byte that commit's source file.
 
+## Build target, shared code and Sample mode (R1)
+
+**Build target.** `config.js` names the build mode (`preview`) and the manifest records it. The build only makes `preview`; the deploy script refuses any other mode. A Test build (write modules, league 25625) is a later, separately approved stage.
+
+**Shared code, used directly.** The build copies `site/shared/contract_windows.js` and `site/shared/taxi_rule.js` into the artifact **byte for byte**, so there is one copy of those rules. Each is pinned by SHA-256 in `shared.lock.json`: a change made for the classic app stops this build until someone reviews it and runs `build.mjs --write-lock`. The deploy script re-checks that the built bytes equal the repository file.
+
+**Why not twins in R1.** Nothing in R1 needs a generated calculator twin. The two modules above are pure and load as they are. Two shared modules are left out on purpose, and the write-code scan refuses them (a test proves it on the real files): `cap_math.js` calls the worker itself and hard-codes league 74598; `injury_status.js` carries a loader that calls `fetch`, a second network path. Stage R2 takes the pure injury resolver either as a reviewed exception proven dormant or as a generated twin. A twin becomes necessary at R5: the extension, restructure, MYAC and MYM calculators sit in the same classic files as the submit code (`site/m/front_office_*_submit.js`), which the Preview build may not contain. Those will be generated from the originals by a script, with an equivalence test over recorded fixtures (the `taxi_rule` pattern), never hand-copied. Today's contract parsing is already checked against `site/shared/cap_math.js` for every recorded player (see the contract tests).
+
+**Write-code scan.** Every script and page in the artifact is scanned at build time and again by the tests: no `FormData`, `XMLHttpRequest`, `sendBeacon`, `WebSocket`, `eval`, write verbs, request method other than a literal GET, credentials other than `omit`, no file named like a submit or save module, and no reference to `fetch` outside `lib/data.js` (and the line in `app.js` that hands it the page's `fetch`). Comments are ignored.
+
+**Sample mode** (`lib/sample.js`, About › Sample mode). A client-only store, off at every start and never remembered. While it is on the page makes no request at all (a test counts them), the label reads "Sample data · nothing is real and nothing is sent", and no league data is drawn. No scenario is installed yet; they arrive with the screens that use them. **The marker** at the top of every screen reads "Preview: view only".
+
+**Helmet placeholder.** The profile photo carries the demo's labeled dashed "Helmet TBD" circle. No helmet art exists, and none is drawn.
+
 ## Files
 
-`src/index.html` (content policy: the worker for data, ESPN and MFL for images, nothing else) · `src/lib/data.js` (the only network code) · `contract.js` · `model.js` · `views.js` · `photo.js` · `format.js` · `src/app.js` (taps and drawing) · `src/styles.css` · `src/team-colors.css` (generated) · `scripts/build.mjs`, `scripts/deploy_preview.mjs`, `scripts/team_colors.mjs` · tests in `tests/mobile2027_preview0.test.mjs` with a trimmed recording of the public routes in `tests/fixtures/mobile2027/`.
+`src/index.html` (content policy: the worker for data, ESPN and MFL for images, nothing else) · `src/lib/data.js` (the only network code) · `contract.js` · `model.js` · `views.js` · `photo.js` · `sample.js` · `format.js` · `src/app.js` (taps and drawing) · `src/styles.css` · `src/team-colors.css` (generated) · `shared.lock.json` · `scripts/build.mjs`, `scripts/deploy_preview.mjs`, `scripts/team_colors.mjs` · tests in `tests/mobile2027_preview0.test.mjs` with a trimmed recording of the public routes in `tests/fixtures/mobile2027/`.

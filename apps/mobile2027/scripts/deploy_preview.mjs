@@ -15,13 +15,13 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { FILES, SRC, digestOf, gitState } from "./build.mjs";
+import { ALL_PATHS, MODE, SHARED_DIR, SRC, digestOf, gitState } from "./build.mjs";
 
 export const PROJECT = "ups-mobile-beta";
 export const BRANCH = "preview";
 export const PRODUCTION_BRANCH = "live";
 
-const MANIFEST_KEYS = ["build", "digest", "files", "source"];
+const MANIFEST_KEYS = ["build", "digest", "files", "mode", "source"];
 const ENTRY_KEYS = ["bytes", "path", "sha256"];
 const sameKeys = (o, keys) => !!o && typeof o === "object" && !Array.isArray(o) && JSON.stringify(Object.keys(o).sort()) === JSON.stringify(keys);
 const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
@@ -30,9 +30,9 @@ const sha = (buf) => crypto.createHash("sha256").update(buf).digest("hex");
 // Nothing in the manifest is trusted: the file list must equal the build allowlist, every file is re-hashed, the aggregate
 // digest is recomputed with the build's own function, and the manifest's commit must be the commit checked out right now,
 // on a clean tree, with every built file byte for byte equal to that commit's source file.
-// `ctx` ({ git, srcDir }) is only passed by tests, to stand in for the repository.
+// `ctx` ({ git, srcDir, sharedDir }) is only passed by tests, to stand in for the repository.
 export function plan(argv, fsImpl = fs, ctx = {}) {
-  const git = ctx.git || gitState, srcDir = ctx.srcDir || SRC;
+  const git = ctx.git || gitState, srcDir = ctx.srcDir || SRC, sharedDir = ctx.sharedDir || SHARED_DIR;
   const args = argv.slice();
   const execute = args.includes("--execute");
   const rest = args.filter((a) => a !== "--execute");
@@ -45,17 +45,18 @@ export function plan(argv, fsImpl = fs, ctx = {}) {
   try { manifest = JSON.parse(fsImpl.readFileSync(manifestPath, "utf8")); } catch (e) { throw new Error("build-manifest.json is not valid JSON."); }
   if (!sameKeys(manifest, MANIFEST_KEYS)) throw new Error(`build-manifest.json must have exactly these fields: ${MANIFEST_KEYS.join(", ")}.`);
   if (manifest.build !== "preview0") throw new Error("The manifest is not a Preview 0 build.");
+  if (manifest.mode !== MODE) throw new Error(`The manifest mode is not "${MODE}". This script publishes the Preview build only.`);
   if (!sameKeys(manifest.source, ["commit"]) || !/^[0-9a-f]{40}$/.test(manifest.source.commit)) throw new Error("The manifest does not name a full 40-character source commit.");
   if (typeof manifest.digest !== "string" || !/^[0-9a-f]{64}$/.test(manifest.digest)) throw new Error("The manifest digest is not a SHA-256.");
   if (!Array.isArray(manifest.files) || !manifest.files.every((f) => sameKeys(f, ENTRY_KEYS) && typeof f.path === "string" && typeof f.sha256 === "string" && /^[0-9a-f]{64}$/.test(f.sha256) && Number.isInteger(f.bytes))) {
     throw new Error("The manifest's file list is malformed.");
   }
-  // 1. exactly the build allowlist, once each, in the build's order (no more, no fewer, no alternate set)
-  if (JSON.stringify(manifest.files.map((f) => f.path)) !== JSON.stringify(FILES)) throw new Error("The manifest's file list is not exactly the build allowlist.");
+  // 1. exactly the build allowlist (the app's own files, then the shared modules), once each, in the build's order (no more, no fewer, no alternate set)
+  if (JSON.stringify(manifest.files.map((f) => f.path)) !== JSON.stringify(ALL_PATHS)) throw new Error("The manifest's file list is not exactly the build allowlist.");
   // 2. exactly those files on disk, plus the manifest
   const onDisk = [];
   (function walk(d) { for (const e of fsImpl.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else onDisk.push(path.relative(dir, p).split(path.sep).join("/")); } })(dir);
-  if (JSON.stringify(onDisk.sort()) !== JSON.stringify(FILES.concat(["build-manifest.json"]).sort())) throw new Error("The folder's files do not match its manifest (extra or missing files).");
+  if (JSON.stringify(onDisk.sort()) !== JSON.stringify(ALL_PATHS.concat(["build-manifest.json"]).sort())) throw new Error("The folder's files do not match its manifest (extra or missing files).");
   // 3. every file's size and hash
   for (const f of manifest.files) {
     const buf = fsImpl.readFileSync(path.join(dir, f.path));
@@ -70,7 +71,8 @@ export function plan(argv, fsImpl = fs, ctx = {}) {
   if (state.dirty) throw new Error("The working tree has uncommitted changes. Commit first so the deploy names a commit.");
   if (state.commit !== manifest.source.commit) throw new Error(`The build came from commit ${manifest.source.commit.slice(0, 8)} but HEAD is ${String(state.commit).slice(0, 8)}. Rebuild at this commit.`);
   for (const f of manifest.files) {
-    const src = path.join(srcDir, f.path);
+    // a shared module must be the byte-for-byte file in site/shared/ at this commit; everything else is the app's own source
+    const src = f.path.startsWith("shared/") ? path.join(sharedDir, f.path.slice("shared/".length)) : path.join(srcDir, f.path);
     if (!fsImpl.existsSync(src) || sha(fsImpl.readFileSync(src)) !== f.sha256) throw new Error(`Built file is not the source at the named commit: ${f.path}`);
   }
   if (BRANCH === PRODUCTION_BRANCH) throw new Error("Refusing: the preview branch equals the production branch.");

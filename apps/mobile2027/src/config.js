@@ -4,5 +4,6 @@ window.UPS2027_CONFIG = {
   workerBase: "https://upsmflproduction.keith-creelman.workers.dev",
   leagueId: "74598",
   season: "2026",
-  build: "preview0.1"
+  build: "preview0.2",
+  mode: "preview" // the one build mode that exists; the build refuses any other (a Test build is a later, separately approved stage)
 };

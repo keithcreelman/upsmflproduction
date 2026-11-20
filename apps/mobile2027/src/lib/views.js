@@ -7,11 +7,12 @@
     req ? require("./format.js") : root.UPS2027.format,
     req ? require("./contract.js") : root.UPS2027.contract,
     req ? require("./model.js") : root.UPS2027.model,
-    req ? require("./photo.js") : root.UPS2027.photo
+    req ? require("./photo.js") : root.UPS2027.photo,
+    req ? require("./sample.js") : root.UPS2027.sample
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.views = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C, M, P) {
+})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM) {
   "use strict";
 
   var esc = F.esc, money = F.money;
@@ -287,12 +288,16 @@
     var s = String(n == null ? "" : n).trim(), i = s.indexOf(" ");
     return i < 0 ? ["", s] : [s.slice(0, i), s.slice(i + 1)];
   }
+  // The demo's labeled placeholder where a team helmet would sit. No helmet art exists, and none is drawn or implied (Decision 3).
+  function helmetPlaceholder() {
+    return '<div class="hm ph" role="img" aria-label="Team helmet placeholder: verified team art is not available"><span>Helmet</span><span>TBD</span></div>';
+  }
   function pill(text) { return '<span class="hp">' + esc(text) + "</span>"; }
   function hero(p, pills) {
     var np = nameParts(p.name), urls = require_photo(p);
     return '<div class="hero' + teamCls(p.nflTeam) + '"><div class="grab"></div>' +
       '<div class="top"><span class="hlb">Player profile</span><button class="hx" data-act="close" aria-label="Close player profile"><span>Close</span></button></div>' +
-      '<div class="hrow"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(p.pos) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' +
+      '<div class="hrow"><div class="pfw"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(p.pos) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' + helmetPlaceholder() + "</div>" +
       '<div class="htx"><h3 class="hnm">' + (np[0] ? '<span class="hfn">' + esc(np[0]) + "</span> " : "") + '<span class="hln">' + esc(np[1]) + "</span></h3>" +
       '<div class="hsub"><b>' + esc(commonCode(p.nflTeam) || "No NFL team") + "</b><span>" + esc(p.pos) + "</span><span>" + esc(p.type || "Type not recorded") + "</span></div></div></div>" +
       (pills ? '<div class="hpills">' + pills + "</div>" : "") + '<div class="hbar"></div></div>';
@@ -324,19 +329,33 @@
       '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of two redesigned screens: Team roster and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
       '<div class="card"><h2>Data</h2><div class="ex">Read from the league when this page opened' + (S.model ? " (" + esc(F.etStamp(S.model.asOf) || "just now") + ")" : "") + '. The worker keeps each answer for up to a minute.</div><button class="btn blk" data-act="retry">Reload the data</button></div>' +
       '<div class="card"><h2>Display</h2>' + chipRow("skin", [["system", "Match my phone"], ["light", "Light"], ["dark", "Dark"], ["hc", "High contrast"]], S.skin, "Skin") + chipRow("vib", [["1", "Vibrant"], ["0", "Plain"]], S.vib, "Position colors") + "</div>" +
+      '<div class="card"><h2>Sample mode</h2><div class="ex">For trying screens without league data. Labeled, local to this phone, never remembered, and it makes no request while it is on.</div><button class="btn blk" data-act="sample">' + (sampleOn(S) ? "Turn Sample mode off" : "Turn Sample mode on") + "</button></div>" +
       '<div class="card"><h2>Requests this page made</h2><div class="ex"><b>' + sum.requests + "</b> data requests: <b>" + sum.ok + "</b> succeeded, <b>" + sum.failed + "</b> failed, <b>" + sum.refused + "</b> refused. Methods other than GET: <b>" + sum.nonGet + '</b>. No cookie, session or key is ever sent.</div>' + rows +
       '<div class="ex mt6">Player photos load straight from ESPN, then MFL, as the current app does. They are images, not data requests.</div></div>' +
       '<div class="card"><h2>Not in Preview 0</h2><ul class="pl"><li>Any action: lineup changes, drops, extensions, bids, trades</li><li>Cap space and the Contracts and Cap &amp; picks tabs</li><li>Injury status, projections, game log, schedule, news, bio</li><li>Helmet badge and team colors (not approved)</li><li>Sign-in: you are not signed in as anyone</li></ul></div>' +
       '<div class="ex">Build ' + esc(S.build || "") + "</div></div></div>";
   }
 
+  // The marker at the top of every screen: "Preview: view only", or the Sample label while Sample mode is on.
+  function sampleOn(S) { return !!(S.sample && S.sample.on); }
+  function envBar(S) {
+    var on = sampleOn(S);
+    return '<div class="envbar' + (on ? " sample" : "") + '" role="status"><span>' + esc(SM.envText(on)) + "</span></div>";
+  }
+  function sampleScreen() {
+    return header("Sample mode", "") + '<div id="screen"><div class="card hl"><h2>Sample mode</h2><div class="big2"><b>Nothing here is real, and nothing is sent.</b></div>' +
+      '<div class="ex">Sample scenarios let a screen be tried without any league data. They live on this phone only, and this page makes no request while Sample mode is on. No scenario is installed yet: they arrive with the screens that use them.</div>' +
+      '<button class="btn pri blk" data-act="sample">Turn Sample mode off</button></div></div>';
+  }
+
   function app(S) {
-    var screen = S.tab === "team" ? teamScreen(S) : placeholderScreen(S.tab);
+    var on = sampleOn(S);
+    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : placeholderScreen(S.tab);
     var layer = "";
-    if (S.profile && S.model) layer = profile(S);
-    else if (S.sheet === "teams" && S.model) layer = teamSheet(S);
-    else if (S.sheet === "about") layer = aboutSheet(S);
-    return screen + nav(S) + layer;
+    if (S.sheet === "about") layer = aboutSheet(S);
+    else if (!on && S.profile && S.model) layer = profile(S);
+    else if (!on && S.sheet === "teams" && S.model) layer = teamSheet(S);
+    return envBar(S) + screen + nav(S) + layer;
   }
 
   return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, teamSheet: teamSheet, rosterBody: rosterBody, NAVS: NAVS };
