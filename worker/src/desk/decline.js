@@ -110,6 +110,10 @@ export function findNoRecordDecline(envelopes, { effAsOf, currentSeason, forbidC
     if (!Object.prototype.hasOwnProperty.call(DOMAIN_BINDING, d.domain)) return null;
     if (typeof d.note === "string" && d.note.trim() && d.note.length <= MAX_NOTE && !/[<>{}\[\]]|https?:/i.test(d.note) && !notes.includes(d.note.trim())) notes.push(d.note.trim());
   }
+  // (R20 review) The year the QUESTION names must be the season that was checked. The run's season can come from the caller's as_of instead, so a 2013 question asked with a
+  // 2026 as_of and a 2026 coverage check must not be declined: the 2013 record exists. A question that names no year must be about the run's season.
+  const yearsNamed = [...String(question).matchAll(/(?<![\d-])((?:19|20)\d{2})(?![\d-])/g)].map((m) => Number(m[1]));
+  if (yearsNamed.some((y) => y !== season)) return null;
   // The binding to the question's words.
   const asked = keywordDomains(stripYears(question));
   const specificAsked = asked.filter((x) => !GENERIC.has(x));

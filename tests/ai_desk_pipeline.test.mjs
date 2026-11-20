@@ -1118,13 +1118,18 @@ test("no-record decline (R15 review): the checked domain must be one the QUESTIO
   t.equal(run(["finishes"], "Tell me the 2013 title winner."), null, "no template, so the composer");
   // R19 review: free text after a template's key word is where a second request hides. The templates are fully enumerated; only a person's name is free.
   t.equal(run(["finishes"], "Who won the 2026 UPS title when is kickoff?", 2026), null, "a calendar request after the title words");
+  // R20 review: the year in the question must be the season checked (the run's season can come from the caller's as_of): a 2013 question with a 2026 coverage check goes to the composer
+  const cov2026 = [{ tool: "coverage.check", call_id: "c1", status: "ok", data: { domain: "finishes", season: 2026, level: "none", reason: "NO_RECORD", note: "" }, facts: [], coverage: { supported: false, gaps: [{ what: "finishes for 2026", why: "NO_RECORD", source_needed: "League Record slice" }] } }];
+  t.equal(findNoRecordDecline(cov2026, { effAsOf: "2026-11-19", currentSeason: 2026, question: "Who won the 2013 UPS title?" }), null, "a 2013 question, a 2026 as_of and a 2026 check");
+  t.ok(findNoRecordDecline(cov2026, { effAsOf: "2026-11-19", currentSeason: 2026, question: "Who won the 2026 UPS title?" }), "the same check for a 2026 question declines");
+  t.equal(findNoRecordDecline(cov2026, { effAsOf: "2026-11-19", currentSeason: 2026, question: "Who won the 2013 UPS title in 2026?" }), null, "two different years");
   t.equal(run(["finishes"], "Who won the 2013 UPS title owner of franchise 0003?"), null, "a trailing owner request");
   t.equal(run(["finishes"], "Who won the 2013 title (and the owner)?"), null, "parentheses");
   t.equal(run(["finishes"], "Who was the champion in 2013 next to 2012 results?"), null, "a modifier phrase");
   t.equal(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton when is kickoff?"), null, "words after the name");
   t.equal(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton Kickoff Week One Schedule?"), null, "more than four name words");
   t.equal(run(["contract_timeline"], "What was Davante Adams's salary in Week 1 of 2013 for the owner?"), null, "a trailing request");
-  t.ok(run(["finishes"], "Who won the 2009 UPS title?") && run(["finishes"], "Which team won the league championship in 2013?") && run(["finishes"], "Who was the champion for 2013?"));
+  t.ok(run(["finishes"], "Who won the 2009 UPS title?", 2009) && run(["finishes"], "Which team won the league championship in 2013?") && run(["finishes"], "Who was the champion for 2013?"));
   t.ok(run(["pick_lineage"], "Trace the 2013 pick that became Markus Wheaton.") && run(["pick_lineage"], "Follow the 2013 round 1 pick that turned into Markus Wheaton?"));
   t.ok(run(["contract_timeline"], "What was Davante Adams's salary in Week 1 of 2013?") && run(["contract_timeline"], "What is Davante O'Brien-Adams\u2019s contract for 2013?"));
   t.equal(run(["owner_history"], "Who was the owner of franchise 0010 in 2013?"), null, "owner history has no template");
