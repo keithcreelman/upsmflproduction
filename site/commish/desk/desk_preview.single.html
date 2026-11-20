@@ -1,0 +1,1100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Commissioner Desk preview</title>
+<style>
+/* UPS Commissioner Desk: styles. Phone first (320 px and up), light and dark, no external fonts or libraries.
+ * Scoped under .ud-root. Theme: follows prefers-color-scheme; data-theme="dark" or "light" on .ud-root forces one.
+ * Every text/background pair below is at least 4.5:1 (checked), borders at least 3:1. Color is never the only signal:
+ * grades, states and boxes all carry text labels. */
+
+.ud-root {
+  --ud-bg: #f4f6fa; --ud-surface: #ffffff; --ud-surface2: #e9edf4; --ud-text: #161c2a; --ud-muted: #455064; --ud-border: #7d889e; --ud-hair: #c9d1de;
+  --ud-accent: #1a47c4; --ud-accent-text: #ffffff; --ud-link: #1a47c4; --ud-focus: #b25000;
+  --ud-amber-bg: #fff1c7; --ud-amber-tx: #452b00; --ud-amber-bd: #8a5700;
+  --ud-blue-bg: #e1ebff; --ud-blue-tx: #0e2766; --ud-blue-bd: #2b55c7;
+  --ud-red-bg: #fde4e2; --ud-red-tx: #5a0e08; --ud-red-bd: #b42318;
+  --ud-grey-bg: #e7ebf2; --ud-grey-tx: #2a3244; --ud-grey-bd: #6b768b;
+  --ud-info-bg: #e3edf4; --ud-info-tx: #17364d; --ud-info-bd: #3b6e95;
+  --ud-ok-bg: #e7f3ec; --ud-ok-tx: #12351f; --ud-ok-bd: #2f7a4d;
+  --ud-gA-bg: #d9f2e1; --ud-gA-tx: #0c4a28; --ud-gB-bg: #dce8ff; --ud-gB-tx: #12388f; --ud-gC-bg: #e8e0ff; --ud-gC-tx: #37238a;
+  --ud-gD-bg: #ffe6bd; --ud-gD-tx: #5e3500; --ud-gN-bg: #ffdada; --ud-gN-tx: #6e0c0c;
+  --ud-shadow: 0 8px 28px rgba(10, 20, 40, .28);
+}
+@media (prefers-color-scheme: dark) {
+  .ud-root:not([data-theme="light"]) {
+    --ud-bg: #0b101b; --ud-surface: #131a29; --ud-surface2: #1c2538; --ud-text: #e8edf7; --ud-muted: #b0bacd; --ud-border: #6a7690; --ud-hair: #2e3a54;
+    --ud-accent: #8fb2ff; --ud-accent-text: #0a1226; --ud-link: #9dbaff; --ud-focus: #ffb454;
+    --ud-amber-bg: #3a2a06; --ud-amber-tx: #ffe3a8; --ud-amber-bd: #d99a1e;
+    --ud-blue-bg: #14264f; --ud-blue-tx: #d3e2ff; --ud-blue-bd: #7aa0ff;
+    --ud-red-bg: #40130f; --ud-red-tx: #ffd6d1; --ud-red-bd: #ff8272;
+    --ud-grey-bg: #222c42; --ud-grey-tx: #dde4f1; --ud-grey-bd: #8793ac;
+    --ud-info-bg: #14303f; --ud-info-tx: #cfe8f7; --ud-info-bd: #6fb0d8;
+    --ud-ok-bg: #12301f; --ud-ok-tx: #cdeedb; --ud-ok-bd: #4fae78;
+    --ud-gA-bg: #12402a; --ud-gA-tx: #c4f2d4; --ud-gB-bg: #1b3270; --ud-gB-tx: #d0defe; --ud-gC-bg: #33276b; --ud-gC-tx: #e0d8ff;
+    --ud-gD-bg: #4a3208; --ud-gD-tx: #ffe2b0; --ud-gN-bg: #521818; --ud-gN-tx: #ffd5d5;
+    --ud-shadow: 0 8px 28px rgba(0, 0, 0, .6);
+  }
+}
+.ud-root[data-theme="dark"] {
+  --ud-bg: #0b101b; --ud-surface: #131a29; --ud-surface2: #1c2538; --ud-text: #e8edf7; --ud-muted: #b0bacd; --ud-border: #6a7690; --ud-hair: #2e3a54;
+  --ud-accent: #8fb2ff; --ud-accent-text: #0a1226; --ud-link: #9dbaff; --ud-focus: #ffb454;
+  --ud-amber-bg: #3a2a06; --ud-amber-tx: #ffe3a8; --ud-amber-bd: #d99a1e;
+  --ud-blue-bg: #14264f; --ud-blue-tx: #d3e2ff; --ud-blue-bd: #7aa0ff;
+  --ud-red-bg: #40130f; --ud-red-tx: #ffd6d1; --ud-red-bd: #ff8272;
+  --ud-grey-bg: #222c42; --ud-grey-tx: #dde4f1; --ud-grey-bd: #8793ac;
+  --ud-info-bg: #14303f; --ud-info-tx: #cfe8f7; --ud-info-bd: #6fb0d8;
+  --ud-ok-bg: #12301f; --ud-ok-tx: #cdeedb; --ud-ok-bd: #4fae78;
+  --ud-gA-bg: #12402a; --ud-gA-tx: #c4f2d4; --ud-gB-bg: #1b3270; --ud-gB-tx: #d0defe; --ud-gC-bg: #33276b; --ud-gC-tx: #e0d8ff;
+  --ud-gD-bg: #4a3208; --ud-gD-tx: #ffe2b0; --ud-gN-bg: #521818; --ud-gN-tx: #ffd5d5;
+  --ud-shadow: 0 8px 28px rgba(0, 0, 0, .6);
+}
+
+/* ── Base ─────────────────────────────────────────────────────────────────────────────────── */
+.ud-root, .ud-root * { box-sizing: border-box; }
+.ud-root {
+  background: var(--ud-bg); color: var(--ud-text); max-width: 100%; min-width: 0; padding: 12px 16px 40px;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  overflow-wrap: anywhere; -webkit-text-size-adjust: 100%;
+}
+.ud-root > * { max-width: 760px; margin-left: auto; margin-right: auto; }
+.ud-root h1, .ud-root h2, .ud-root h3, .ud-root h4, .ud-root p, .ud-root ul, .ud-root ol, .ud-root dl, .ud-root dd, .ud-root figure { margin: 0; }
+.ud-root code { font: 12.5px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--ud-surface2); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+.ud-root a { color: var(--ud-link); }
+.ud-sr { position: absolute !important; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.ud-muted { color: var(--ud-muted); }
+.ud-note { color: var(--ud-muted); font-size: 13px; line-height: 1.45; margin-top: 6px; }
+.ud-root :focus-visible { outline: 3px solid var(--ud-focus); outline-offset: 2px; border-radius: 4px; }
+.ud-root [hidden] { display: none !important; }
+
+/* Grid containers must not grow to the widest child: one shrinkable column. */
+.ud-form, .ud-card, .ud-lead, .ud-block, .ud-branches, .ud-branch, .ud-box, .ud-conflict, .ud-follow, .ud-foot, .ud-report, .ud-drawer-panel, .ud-steps, .ud-tl-main { grid-template-columns: minmax(0, 1fr); }
+
+/* ── Buttons and inputs (44 px tap targets) ───────────────────────────────────────────────── */
+.ud-btn { font: inherit; font-weight: 600; min-height: 44px; min-width: 44px; padding: 8px 16px; border-radius: 10px; border: 1px solid var(--ud-border);
+  background: var(--ud-surface); color: var(--ud-text); cursor: pointer; text-align: center; max-width: 100%; }
+.ud-btn-primary { background: var(--ud-accent); color: var(--ud-accent-text); border-color: var(--ud-accent); }
+.ud-btn-ghost { background: transparent; }
+.ud-btn-chip { text-align: left; font-weight: 500; border-radius: 22px; padding: 8px 14px; line-height: 1.3; }
+.ud-btn:hover { filter: brightness(.96); }
+.ud-btn:disabled, .ud-btn[aria-disabled="true"], .ud-hist:disabled { opacity: .55; cursor: not-allowed; }
+.ud-input { font: inherit; width: 100%; min-height: 44px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--ud-border); background: var(--ud-surface); color: var(--ud-text); resize: vertical; }
+select.ud-input, input.ud-input { max-width: 100%; }
+.ud-label { display: block; font-weight: 700; margin-bottom: 6px; }
+
+/* ── Ask box ──────────────────────────────────────────────────────────────────────────────── */
+.ud-fixture-note { margin-bottom: 10px; }
+.ud-ask { background: var(--ud-surface); border: 1px solid var(--ud-hair); border-radius: 14px; padding: 14px; }
+.ud-form { display: grid; gap: 10px; }
+.ud-asof { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ud-asof label { font-size: 13px; color: var(--ud-muted); }
+.ud-asof .ud-input { width: auto; min-width: 150px; }
+.ud-form .ud-btn-primary { width: 100%; }
+.ud-msg { min-height: 20px; font-size: 13px; color: var(--ud-red-tx); background: transparent; }
+.ud-msg:empty { display: none; }
+.ud-suggest { margin-top: 12px; }
+.ud-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ud-more { margin-top: 10px; }
+.ud-more > summary { min-height: 44px; display: flex; align-items: center; }
+
+/* ── Progress ─────────────────────────────────────────────────────────────────────────────── */
+.ud-progress { margin-top: 12px; background: var(--ud-surface); border: 1px solid var(--ud-hair); border-left: 5px solid var(--ud-accent); border-radius: 12px; padding: 12px 14px; }
+.ud-steps { list-style: none; padding: 0; display: grid; gap: 4px; }
+.ud-steps li { display: flex; gap: 8px; align-items: baseline; color: var(--ud-muted); }
+.ud-steps li.ud-s-done { color: var(--ud-text); }
+.ud-steps li.ud-s-now { color: var(--ud-text); font-weight: 700; }
+.ud-step-m { display: inline-block; min-width: 18px; text-align: center; }
+.ud-elapsed { margin-top: 6px; font-size: 13px; color: var(--ud-muted); font-variant-numeric: tabular-nums; }
+
+/* ── Card ─────────────────────────────────────────────────────────────────────────────────── */
+.ud-result { margin-top: 14px; outline: none; }
+.ud-card { background: var(--ud-surface); border: 1px solid var(--ud-hair); border-radius: 14px; padding: 14px; display: grid; gap: 12px; min-width: 0; }
+.ud-head { display: flex; flex-wrap: wrap; gap: 6px; }
+.ud-chip { display: inline-flex; align-items: center; min-height: 26px; padding: 2px 10px; border-radius: 13px; border: 1px solid var(--ud-border); background: var(--ud-surface2); font-size: 12px; font-weight: 600; color: var(--ud-text); }
+.ud-chip-ai { background: var(--ud-accent); color: var(--ud-accent-text); border-color: var(--ud-accent); }
+.ud-chip-phase { background: var(--ud-amber-bg); color: var(--ud-amber-tx); border-color: var(--ud-amber-bd); }
+.ud-qline { color: var(--ud-muted); font-size: 14px; }
+.ud-qlabel { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; margin-right: 6px; color: var(--ud-text); }
+.ud-banner { border: 1px solid; border-left-width: 6px; border-radius: 10px; padding: 8px 12px; font-size: 14px; }
+.ud-banner-t { margin-right: 4px; }
+.ud-tone-ok { background: var(--ud-ok-bg); color: var(--ud-ok-tx); border-color: var(--ud-ok-bd); }
+.ud-tone-grey { background: var(--ud-grey-bg); color: var(--ud-grey-tx); border-color: var(--ud-grey-bd); }
+.ud-tone-amber { background: var(--ud-amber-bg); color: var(--ud-amber-tx); border-color: var(--ud-amber-bd); }
+.ud-tone-blue { background: var(--ud-blue-bg); color: var(--ud-blue-tx); border-color: var(--ud-blue-bd); }
+.ud-tone-red { background: var(--ud-red-bg); color: var(--ud-red-tx); border-color: var(--ud-red-bd); }
+.ud-tone-info { background: var(--ud-info-bg); color: var(--ud-info-tx); border-color: var(--ud-info-bd); }
+.ud-state-stale_data .ud-banner { border-style: solid; border-width: 2px 2px 2px 8px; }
+.ud-lead { display: grid; gap: 8px; font-size: 16px; line-height: 1.65; }
+.ud-lead-p { margin: 0; }
+.ud-caveat, .ud-notice { background: var(--ud-grey-bg); color: var(--ud-grey-tx); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.ud-notice { background: var(--ud-info-bg); color: var(--ud-info-tx); }
+
+/* Fact chip: one tap opens the provenance drawer. The ::after widens the hit area to 44 px without growing the line. */
+.ud-fact { position: relative; display: inline-flex; align-items: center; gap: 5px; margin: 1px 2px; padding: 1px 4px 1px 8px; min-height: 28px; font: inherit; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: var(--ud-text); background: var(--ud-surface2); border: 1px solid var(--ud-border); border-radius: 8px; cursor: pointer; vertical-align: baseline; max-width: 100%; text-align: left; overflow-wrap: anywhere; }
+.ud-fact::after { content: ""; position: absolute; left: -4px; right: -4px; top: 50%; height: 44px; transform: translateY(-50%); }
+.ud-fact:hover { border-color: var(--ud-accent); }
+.ud-fv { min-width: 0; }
+.ud-gr { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .03em; line-height: 1; padding: 4px 6px; border-radius: 5px; white-space: nowrap; border: 1px solid transparent; }
+.ud-g-A { background: var(--ud-gA-bg); color: var(--ud-gA-tx); border-color: var(--ud-gA-tx); }
+.ud-g-B { background: var(--ud-gB-bg); color: var(--ud-gB-tx); border-color: var(--ud-gB-tx); }
+.ud-g-C { background: var(--ud-gC-bg); color: var(--ud-gC-tx); border-color: var(--ud-gC-tx); }
+.ud-g-D { background: var(--ud-gD-bg); color: var(--ud-gD-tx); border-color: var(--ud-gD-tx); border-style: dotted; }
+.ud-g-NO_RECORD { background: var(--ud-gN-bg); color: var(--ud-gN-tx); border-color: var(--ud-gN-tx); border-style: dashed; }
+.ud-missing { display: inline-block; padding: 1px 8px; border: 2px dashed var(--ud-red-bd); border-radius: 8px; background: var(--ud-red-bg); color: var(--ud-red-tx); font-size: 13px; font-weight: 700; }
+.ud-missing-t { text-transform: uppercase; font-size: 11px; letter-spacing: .04em; }
+
+/* ── Blocks ───────────────────────────────────────────────────────────────────────────────── */
+.ud-block { display: grid; gap: 8px; min-width: 0; border-top: 1px solid var(--ud-hair); padding-top: 12px; }
+.ud-block-t { font-size: 14px; font-weight: 800; }
+.ud-block-src { font-size: 12px; color: var(--ud-muted); }
+.ud-scroll { overflow-x: auto; max-width: 100%; border: 1px solid var(--ud-hair); border-radius: 10px; -webkit-overflow-scrolling: touch; }
+.ud-table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 14px; }
+.ud-table th, .ud-table td { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ud-hair); min-width: 78px; }
+.ud-table thead th { background: var(--ud-surface2); font-weight: 800; font-size: 12.5px; position: sticky; top: 0; }
+.ud-table tbody th { position: sticky; left: 0; background: var(--ud-surface); font-weight: 700; z-index: 1; min-width: 110px; max-width: 150px; border-right: 1px solid var(--ud-hair); }
+.ud-table tbody tr:last-child th, .ud-table tbody tr:last-child td { border-bottom: 0; }
+.ud-table .ud-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ud-table td, .ud-table th { overflow-wrap: break-word; }
+.ud-compare thead th:not(:first-child) { text-align: center; }
+.ud-chart svg { display: block; width: 100%; height: auto; max-height: 220px; background: var(--ud-surface2); border-radius: 10px; }
+.ud-bar { fill: var(--ud-accent); }
+.ud-base { stroke: var(--ud-muted); stroke-width: 1; }
+.ud-axis { fill: var(--ud-text); font-size: 9.5px; font-family: inherit; }
+.ud-era { stroke: var(--ud-amber-bd); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.ud-era-t { fill: var(--ud-text); font-size: 9px; font-weight: 700; }
+
+.ud-timeline { list-style: none; padding: 0; display: grid; gap: 0; border-left: 3px solid var(--ud-border); margin-left: 6px; }
+.ud-tl-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 6px 0 10px 12px; position: relative; }
+.ud-tl-row::before { content: ""; position: absolute; left: -9px; top: 12px; width: 13px; height: 13px; border-radius: 50%; background: var(--ud-surface); border: 3px solid var(--ud-accent); }
+.ud-tl-date { grid-column: 1; font-size: 12.5px; color: var(--ud-muted); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ud-tl-main { grid-column: 1; display: grid; gap: 2px; min-width: 0; }
+.ud-tl-g { grid-column: 2; grid-row: 1 / span 2; align-self: start; }
+.ud-tl-move { font-weight: 600; }
+.ud-tl-final .ud-tl-move, .ud-tl-final .ud-tl-what { font-weight: 800; }
+.ud-tl-final::before { background: var(--ud-accent); }
+.ud-tl-gap { border-top: 0; }
+.ud-tl-gap::before { border-style: dashed; border-color: var(--ud-amber-bd); background: var(--ud-amber-bg); }
+.ud-tl-gap .ud-tl-main { border: 2px dashed var(--ud-amber-bd); border-radius: 8px; padding: 6px 10px; background: var(--ud-amber-bg); color: var(--ud-amber-tx); }
+.ud-gap-tag { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 4px 6px; border-radius: 5px; background: var(--ud-amber-bg); color: var(--ud-amber-tx); border: 1px dashed var(--ud-amber-bd); }
+.ud-tl-what { color: var(--ud-text); font-size: 14px; }
+.ud-det > summary { cursor: pointer; font-weight: 700; font-size: 13.5px; min-height: 44px; display: flex; align-items: center; }
+.ud-tl-det ul, .ud-det ul { padding-left: 18px; }
+.ud-tl-det > summary { color: var(--ud-link); }
+
+.ud-branches { display: grid; gap: 10px; }
+.ud-branch { border: 1px solid var(--ud-border); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; background: var(--ud-surface); }
+.ud-branch-t { font-size: 14px; }
+.ud-anchor { display: inline-block; font-weight: 800; font-size: 12px; padding: 1px 7px; border-radius: 6px; background: var(--ud-blue-bg); color: var(--ud-blue-tx); border: 1px solid var(--ud-blue-bd); }
+.ud-canon { font-size: 12px; color: var(--ud-muted); margin-left: 6px; }
+.ud-claim { display: block; margin-top: 3px; font-size: 14px; }
+
+/* ── Boxes ────────────────────────────────────────────────────────────────────────────────── */
+.ud-box { border: 2px solid; border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; }
+.ud-box-amber { background: var(--ud-amber-bg); color: var(--ud-amber-tx); border-color: var(--ud-amber-bd); }
+.ud-box-blue { background: var(--ud-blue-bg); color: var(--ud-blue-tx); border-color: var(--ud-blue-bd); }
+.ud-box .ud-note { color: inherit; opacity: .9; margin-top: 0; }
+.ud-box-t { font-size: 14.5px; font-weight: 800; }
+.ud-box .ud-list { padding-left: 18px; display: grid; gap: 8px; }
+.ud-why { display: inline-block; margin-left: 4px; font-size: 12px; font-weight: 700; padding: 1px 7px; border: 1px solid currentColor; border-radius: 10px; }
+.ud-need { display: block; font-size: 13.5px; margin-top: 2px; }
+.ud-conflict { display: grid; gap: 8px; }
+.ud-sides { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.ud-side { background: var(--ud-surface); color: var(--ud-text); border: 1px solid var(--ud-amber-bd); border-radius: 10px; padding: 8px 10px; display: grid; gap: 4px; justify-items: start; }
+.ud-side-t { font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--ud-muted); }
+.ud-side-s { font-size: 13px; color: var(--ud-muted); }
+.ud-ruling { background: var(--ud-surface); }
+.ud-box-blue .ud-btn { justify-self: start; background: var(--ud-surface); }
+
+.ud-follow { display: grid; gap: 8px; border-top: 1px solid var(--ud-hair); padding-top: 12px; }
+.ud-actions { display: flex; gap: 8px; }
+.ud-foot { display: grid; gap: 2px; border-top: 1px solid var(--ud-hair); padding-top: 8px; font-size: 13px; }
+.ud-foot .ud-btn { justify-self: start; margin-top: 6px; }
+.ud-cost { color: var(--ud-muted); }
+.ud-report { background: var(--ud-surface2); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+.ud-report .ud-actions { flex-wrap: wrap; }
+
+/* ── History ──────────────────────────────────────────────────────────────────────────────── */
+.ud-history { margin-top: 22px; }
+.ud-history h2 { font-size: 16px; }
+.ud-hist-list { list-style: none; padding: 0; display: grid; gap: 6px; margin-top: 8px; }
+.ud-hist { display: grid; gap: 2px; width: 100%; min-height: 56px; text-align: left; font: inherit; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--ud-hair); background: var(--ud-surface); color: var(--ud-text); cursor: pointer; }
+.ud-hist:hover { border-color: var(--ud-accent); }
+.ud-hist-q { font-weight: 600; }
+.ud-hist-m { font-size: 12.5px; color: var(--ud-muted); }
+.ud-tag { display: inline-block; font-size: 11px; font-weight: 800; padding: 1px 7px; border-radius: 9px; border: 1px solid; }
+.ud-empty { color: var(--ud-muted); padding: 8px 2px; }
+
+/* ── Provenance drawer ────────────────────────────────────────────────────────────────────── */
+.ud-drawer { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; max-width: none !important; }
+.ud-drawer-bg { position: absolute; inset: 0; background: rgba(5, 10, 20, .6); }
+.ud-drawer-panel { position: relative; width: 100%; max-width: 560px; max-height: 86vh; overflow-y: auto; background: var(--ud-surface); color: var(--ud-text); border-radius: 16px 16px 0 0; padding: 16px 16px 24px; box-shadow: var(--ud-shadow); display: grid; gap: 10px; }
+.ud-drawer-x { justify-self: end; }
+.ud-drawer-t { font-size: 17px; }
+.ud-prov-val { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.ud-prov-label { color: var(--ud-muted); }
+.ud-prov { display: grid; grid-template-columns: minmax(84px, 120px) 1fr; gap: 6px 12px; font-size: 14px; }
+.ud-prov dt { color: var(--ud-muted); font-weight: 700; }
+.ud-prov dd { min-width: 0; }
+.ud-legend { list-style: none; padding-left: 0 !important; display: grid; gap: 6px; }
+@media (min-width: 720px) { .ud-drawer { align-items: center; } .ud-drawer-panel { border-radius: 16px; } }
+
+@media (max-width: 380px) {
+  .ud-root { padding-left: 12px; padding-right: 12px; }
+  .ud-card { padding: 12px; }
+  .ud-prov { grid-template-columns: 1fr; gap: 0; }
+  .ud-prov dd { margin-bottom: 6px; }
+}
+@media (min-width: 600px) { .ud-sides { grid-template-columns: 1fr 1fr; } .ud-form .ud-btn-primary { width: auto; justify-self: start; } }
+@media (prefers-reduced-motion: no-preference) { .ud-btn, .ud-fact, .ud-hist { transition: border-color .12s, filter .12s; } }
+@media print { .ud-ask, .ud-history, .ud-progress, .ud-drawer { display: none !important; } }
+
+</style>
+<style>
+  html { background: #f4f6fa; }
+  @media (prefers-color-scheme: dark) { html { background: #0b101b; } }
+  body { margin: 0; min-height: 100vh; }
+  .pv-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; background: var(--ud-surface); border: 1px solid var(--ud-hair); border-radius: 14px; padding: 12px 14px; margin-top: 4px; }
+  .pv-bar h1 { font-size: 17px; }
+  .pv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .pv-row label { font-size: 13px; font-weight: 700; }
+  .pv-row select { min-height: 44px; max-width: 100%; min-width: 0; font: inherit; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--ud-border); background: var(--ud-surface); color: var(--ud-text); }
+  #pv-desk { padding: 0; background: transparent; }
+  #pv-desk .ud-fixture-note { margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="ud-root" id="pv-shell">
+  <section class="pv-bar" aria-label="Preview controls">
+    <h1>Commissioner Desk: fixture preview</h1>
+    <p class="ud-note">Sample cards with made-up numbers. No league data, no network, nothing is saved or sent. This is the page that ships dark in Phase 1.</p>
+    <div class="pv-row">
+      <label for="pv-gallery">Show a card state</label>
+      <select id="pv-gallery"><option value="">Pick a card...</option></select>
+      <label for="pv-theme">Theme</label>
+      <select id="pv-theme"><option value="">Match my device</option><option value="light">Light</option><option value="dark">Dark</option></select>
+    </div>
+    <p class="ud-msg" id="pv-err" role="alert"></p>
+  </section>
+  <div id="pv-desk"></div>
+</div>
+
+<script>
+/* UPS Commissioner Desk: pure card renderer.
+ *
+ * No DOM, no network, no globals read. renderCardHtml(card, opts) returns an HTML string.
+ * Every dynamic string goes through esc(); the only markup that is not escaped text is
+ * markup this file builds itself. Runs in the browser (window.UPSDeskRender) and in node.
+ *
+ * Contract: docs/ai_desk/DESK_CONTRACT.md "The card", docs/ai_desk/DESK_UX_SPEC.md.
+ *   card = { state, lead_md, blocks[], facts_used[], cites[], gaps[], conflicts[], ruling_question,
+ *            follow_ups[], facts{id -> {value, unit, display, grade, source, as_of, tool, call_id}},
+ *            header{ai_generated, as_of, canon_sha, phase}, footer{tools[], cost_usd}, request_id }
+ * Optional fields this renderer also reads (all escaped text): caveat, injection_note, question,
+ *   header.league_record_version, fact.label, fact.inputs, fact.code_sha, fact.raw_url (https only),
+ *   block.expand_question, footer.sources.
+ */
+(function (global) {
+  "use strict";
+
+  // ── Vocabulary ────────────────────────────────────────────────────────────────────────────
+  var GRADE_INFO = {
+    A: { text: "A", name: "MFL record" },
+    B: { text: "B", name: "League document" },
+    C: { text: "C", name: "Derived by code" },
+    D: { text: "D", name: "Inferred" },
+    NO_RECORD: { text: "NO RECORD", name: "Looked, found nothing" }
+  };
+  var GRADE_ORDER = ["A", "B", "C", "D", "NO_RECORD"];
+
+  // tone: ok | grey | amber | blue | red | info. `copy` is the one-line banner text (short on purpose).
+  var STATE_META = {
+    answer: { label: "Answer", tone: "ok", copy: "" },
+    answer_with_caveat: { label: "Answer, with a caveat", tone: "grey", copy: "" },
+    answer_with_gap: { label: "Partly answered", tone: "amber", copy: "Some of this is not on record. The gaps are listed below." },
+    partial: { label: "Partly answered", tone: "amber", copy: "Only part of this is covered. The gaps are listed below." },
+    answer_with_conflict: { label: "Sources disagree", tone: "amber", copy: "Two sources give different answers. Both are shown. The desk does not pick one." },
+    cite_and_abstain: { label: "Rules found, can't settle it", tone: "info", copy: "The rule text is cited below. The facts or the era can't be settled." },
+    needs_ruling: { label: "Needs your ruling", tone: "blue", copy: "Canon is silent or unclear here. A draft question is below for you to edit." },
+    abstain: { label: "Not determinable", tone: "grey", copy: "The records needed are not on file. The missing source is named below." },
+    refuse_privacy: { label: "Can't share this", tone: "grey", copy: "This data is not available to the desk." },
+    refuse_fairness: { label: "Declined", tone: "grey", copy: "The desk will not answer this one." },
+    ignore_injection: { label: "Answer, with a notice", tone: "info", copy: "" },
+    tool_failure: { label: "Couldn't verify", tone: "red", copy: "A check failed. No numbers were substituted." },
+    stale_data: { label: "Stale data", tone: "red", copy: "A source is older than its limit. Treat any value here as out of date." },
+    budget_exceeded: { label: "Paused: AI budget reached for this period", tone: "amber", copy: "No model call was made for this question." },
+    out_of_scope: { label: "Outside the desk's scope", tone: "grey", copy: "The desk answers league questions. It never posts, sends or changes anything." },
+    not_ready: { label: "Desk not ready", tone: "grey", copy: "The desk is not ready yet. Try again shortly." }
+  };
+  var UNKNOWN_META = { label: "Can't show this answer", tone: "red", copy: "This card has a state the page does not know. Nothing here is shown as fact." };
+
+  var WHY_LABEL = {
+    NO_RECORD: "No record",
+    unsupported_as_of: "Not available for that date",
+    partial_coverage: "Partly covered",
+    stale: "Out of date",
+    unverified_calculation: "Calculation not verified",
+    conflict_in_canon: "Canon disagrees with itself"
+  };
+
+  var PHASE_LABEL = { P1: "Phase 1 · draft", P2: "Phase 2", P3: "Phase 3", P4: "Phase 4" };
+
+  var TOKEN_RE = /\{\{([^{}]*)\}\}/g;
+  var FACT_TOKEN_RE = /^\s*f\.(c\d{1,3}\.[a-z][a-z0-9_]{0,63})\s*$/;
+  var NUMERIC_UNITS = { usd: 1, count: 1, pct: 1, rank: 1, years: 1, week: 1 };
+
+  // ── Small helpers ─────────────────────────────────────────────────────────────────────────
+  function str(v) { return v == null ? "" : String(v); }
+  function esc(v) {
+    return str(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function own(o, k) { return !!o && typeof o === "object" && Object.prototype.hasOwnProperty.call(o, k); }
+  function arr(v) { return Array.isArray(v) ? v : []; }
+  function plain(o) { return o && typeof o === "object" && !Array.isArray(o) ? o : {}; }
+  function gradeKey(g) { var k = str(g).toUpperCase().replace(/[\s-]+/g, "_"); return own(GRADE_INFO, k) ? k : ""; }
+
+  // Same deterministic formatting as worker/src/desk/contract.js formatFact; used only when a fact has no server display.
+  function ordinal(n) {
+    var m = n % 100; if (m >= 11 && m <= 13) return "th";
+    return ({ 1: "st", 2: "nd", 3: "rd" })[n % 10] || "th";
+  }
+  function formatFact(fact) {
+    if (!fact || typeof fact !== "object") return "";
+    var v = fact.value, n;
+    switch (fact.unit) {
+      case "usd":
+        n = Number(v); if (!isFinite(n)) return str(v);
+        var a = Math.abs(n), sign = n < 0 ? "-" : "";
+        return a >= 1000 && a % 1000 === 0 ? sign + "$" + (a / 1000) + "K" : sign + "$" + a.toLocaleString("en-US");
+      case "pct": return Number(v) + "%";
+      case "rank": n = Number(v); return isFinite(n) ? n + ordinal(n) : str(v);
+      case "years": return Number(v) === 1 ? "1 year" : str(v) + " years";
+      case "week": return "Week " + str(v);
+      default: return str(v);
+    }
+  }
+  function factDisplay(fact) {
+    if (fact && typeof fact.display === "string" && fact.display !== "") return fact.display;
+    if (fact && gradeKey(fact.grade) === "NO_RECORD" && (fact.value == null || fact.value === "")) return "No record";
+    return formatFact(fact);
+  }
+  function getFact(card, id) { return card && own(card.facts, id) && card.facts[id] && typeof card.facts[id] === "object" ? card.facts[id] : null; }
+
+  // The "what I checked" lookup: call id -> tool id.
+  function toolByCall(card) {
+    var m = {};
+    arr(plain(card.footer).tools).forEach(function (t) { if (t && t.call_id != null) m[str(t.call_id)] = str(t.id); });
+    return m;
+  }
+
+  // ── Grade chip and fact chip ──────────────────────────────────────────────────────────────
+  function gradeBadge(g) {
+    var k = gradeKey(g); if (!k) return "";
+    var i = GRADE_INFO[k];
+    return '<span class="ud-gr ud-g-' + k + '" title="' + esc("Grade " + i.text + ": " + i.name) + '"><span class="ud-sr">Evidence grade </span>' + esc(i.text) + "</span>";
+  }
+
+  function factChip(id, fact) {
+    var k = gradeKey(fact.grade), i = k ? GRADE_INFO[k] : null;
+    var disp = factDisplay(fact);
+    var label = disp + (i ? ", evidence grade " + i.text + ", " + i.name : ", no evidence grade") + ". Show where it comes from.";
+    return '<button type="button" class="ud-fact' + (k ? " ud-fg-" + k : "") + '" data-act="fact" data-fact="' + esc(id) + '" aria-haspopup="dialog" aria-label="' + esc(label) + '">' +
+      '<span class="ud-fv">' + esc(disp) + "</span>" + (i ? '<span class="ud-gr ud-g-' + k + '" aria-hidden="true">' + esc(i.text) + "</span>" : "") + "</button>";
+  }
+
+  function missingMarker(shown) {
+    return '<span class="ud-missing" role="note"><span class="ud-missing-t">Missing fact</span> <code>' + esc(shown) + "</code></span>";
+  }
+
+  function inlineText(s) {
+    return esc(s).replace(/\*\*([^*\n]{1,200}?)\*\*/g, "<strong>$1</strong>");
+  }
+
+  // Fill {{f.cN.key}} tokens with fact chips. A token with no fact becomes a visible marker and is reported; never a guess.
+  function fill(text, card, ctx) {
+    var src = str(text), out = "", last = 0, m;
+    TOKEN_RE.lastIndex = 0;
+    while ((m = TOKEN_RE.exec(src)) !== null) {
+      out += inlineText(src.slice(last, m.index));
+      last = m.index + m[0].length;
+      var t = FACT_TOKEN_RE.exec(m[1]);
+      var fact = t ? getFact(card, t[1]) : null;
+      if (fact) out += factChip(t[1], fact);
+      else {
+        var shown = t ? t[1] : m[1].trim().slice(0, 40);
+        if (ctx) { ctx.missing.push(shown); if (typeof ctx.onMissing === "function") { try { ctx.onMissing(shown); } catch (e) { /* logging must never break rendering */ } } }
+        out += missingMarker(shown);
+      }
+    }
+    return out + inlineText(src.slice(last));
+  }
+
+  // Every fact id a piece of text points at (for tests and the controller).
+  function tokenIds(text) {
+    var ids = [], m; TOKEN_RE.lastIndex = 0;
+    while ((m = TOKEN_RE.exec(str(text))) !== null) { var t = FACT_TOKEN_RE.exec(m[1]); if (t) ids.push(t[1]); }
+    return ids;
+  }
+
+  function paragraphs(text, card, ctx, cls) {
+    var parts = str(text).split(/\n{2,}/).map(function (p) { return p.trim(); }).filter(Boolean);
+    return parts.map(function (p) { return '<p class="' + cls + '">' + fill(p, card, ctx).replace(/\n/g, "<br>") + "</p>"; }).join("");
+  }
+
+  // ── Blocks ────────────────────────────────────────────────────────────────────────────────
+  function blockSource(block, card) {
+    var calls = arr(block.tool_call_ids).map(str).filter(Boolean);
+    if (!calls.length) return "";
+    var map = toolByCall(card);
+    var bits = calls.map(function (c) { return (map[c] ? "<code>" + esc(map[c]) + "</code> " : "") + "(call " + esc(c) + ")"; });
+    return '<p class="ud-block-src">Checked by ' + bits.join(", ") + "</p>";
+  }
+
+  function cellHtml(cell, card, ctx) {
+    if (cell == null || cell === "") return "—";
+    return fill(cell, card, ctx);
+  }
+  function isNumericCell(cell, card) {
+    var m = /^\s*\{\{([^{}]*)\}\}\s*$/.exec(str(cell)); if (!m) return false;
+    var t = FACT_TOKEN_RE.exec(m[1]); var f = t ? getFact(card, t[1]) : null;
+    return !!(f && own(NUMERIC_UNITS, f.unit));
+  }
+
+  function tableHtml(columns, rows, card, ctx, cls, caption) {
+    var cols = arr(columns), body = arr(rows);
+    var head = cols.length ? "<thead><tr>" + cols.map(function (c) { return '<th scope="col">' + fill(c, card, ctx) + "</th>"; }).join("") + "</tr></thead>" : "";
+    var trs = body.map(function (r) {
+      var cells = arr(r);
+      return "<tr>" + cells.map(function (c, i) {
+        var num = i > 0 && isNumericCell(c, card) ? ' class="ud-num"' : "";
+        return i === 0 ? '<th scope="row">' + cellHtml(c, card, ctx) + "</th>" : "<td" + num + ">" + cellHtml(c, card, ctx) + "</td>";
+      }).join("") + "</tr>";
+    }).join("");
+    return '<div class="ud-scroll" tabindex="0" role="region" aria-label="' + esc(caption || "Table") + '"><table class="ud-table ' + cls + '"><caption class="ud-sr">' + esc(caption || "Table") + "</caption>" + head + "<tbody>" + trs + "</tbody></table></div>";
+  }
+
+  function titleHtml(block, fallback) {
+    var t = str(block.title) || fallback;
+    return t ? '<h3 class="ud-block-t">' + esc(t) + "</h3>" : "";
+  }
+
+  function timelineHtml(block, card, ctx) {
+    var rows = arr(block.rows).map(function (r) {
+      r = plain(r);
+      var kind = r.kind === "gap" ? " ud-tl-gap" : r.kind === "final" ? " ud-tl-final" : "";
+      var move = r.from != null || r.to != null ? '<span class="ud-tl-move">' + fill(r.from, card, ctx) + ' <span class="ud-arrow"><span aria-hidden="true">→</span><span class="ud-sr"> to </span></span> ' + fill(r.to, card, ctx) + "</span>" : "";
+      var what = r.what != null && r.what !== "" ? '<span class="ud-tl-what">' + fill(r.what, card, ctx) + "</span>" : "";
+      var det = arr(r.detail).length
+        ? '<details class="ud-det ud-tl-det"><summary>What was exchanged</summary><ul>' + arr(r.detail).map(function (d) { return "<li>" + fill(d, card, ctx) + "</li>"; }).join("") + "</ul></details>" : "";
+      var gr = r.kind === "gap" ? '<span class="ud-gap-tag">Gap</span>' : gradeBadge(r.grade);
+      return '<li class="ud-tl-row' + kind + '"><span class="ud-tl-date">' + fill(r.date, card, ctx) + '</span><div class="ud-tl-main">' + move + what + det + '</div><span class="ud-tl-g">' + gr + "</span></li>";
+    }).join("");
+    return '<ol class="ud-timeline">' + rows + "</ol>";
+  }
+
+  function chartHtml(block, card, ctx) {
+    var cols = arr(block.columns), rows = arr(block.rows);
+    var pts = rows.map(function (r) {
+      var cells = arr(r), label = str(cells[0]), raw = cells[1], v = NaN;
+      var m = /^\s*\{\{([^{}]*)\}\}\s*$/.exec(str(raw)), t = m ? FACT_TOKEN_RE.exec(m[1]) : null, f = t ? getFact(card, t[1]) : null;
+      if (f) v = Number(f.value); else if (!m && raw != null && raw !== "") v = Number(raw);
+      return { label: label, v: v, disp: f ? factDisplay(f) : str(raw) };
+    });
+    var table = tableHtml(cols, rows, card, ctx, "ud-chart-table", str(block.title) + " (values)");
+    var good = pts.filter(function (p) { return isFinite(p.v); });
+    if (pts.length < 4 || good.length < 2) return '<p class="ud-note">A chart appears only for a trend across four or more seasons. The table has the values.</p>' + table;
+    var W = 320, H = 156, padL = 6, padR = 6, padT = 30, padB = 26;
+    var max = Math.max.apply(null, good.map(function (p) { return p.v; }).concat([0]));
+    var min = Math.min.apply(null, good.map(function (p) { return p.v; }).concat([0]));
+    var span = max - min || 1;
+    var pw = (W - padL - padR) / pts.length;
+    var y = function (v) { return padT + (max - v) / span * (H - padT - padB); };
+    var y0 = y(0), svg = "";
+    var every = pts.length > 8 ? 2 : 1;
+    pts.forEach(function (p, i) {
+      var x = padL + i * pw;
+      if (isFinite(p.v)) {
+        var top = Math.min(y(p.v), y0), h = Math.max(Math.abs(y(p.v) - y0), 1);
+        svg += '<rect class="ud-bar" x="' + (x + pw * 0.15).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + (pw * 0.7).toFixed(1) + '" height="' + h.toFixed(1) + '"></rect>';
+      }
+      if (i % every === 0) svg += '<text class="ud-axis" x="' + (x + pw / 2).toFixed(1) + '" y="' + (H - 9) + '" text-anchor="middle">' + esc(p.label) + "</text>";
+    });
+    arr(block.eras).forEach(function (e, ei) {
+      e = plain(e);
+      var idx = -1; pts.forEach(function (p, i) { if (idx < 0 && p.label === str(e.at)) idx = i; });
+      if (idx < 0) return;
+      var x = padL + idx * pw;
+      svg += '<line class="ud-era" x1="' + x.toFixed(1) + '" x2="' + x.toFixed(1) + '" y1="' + (padT - 6 - (ei % 2) * 11) + '" y2="' + (H - padB) + '"></line>';
+      svg += '<text class="ud-era-t" x="' + (x + 3).toFixed(1) + '" y="' + (padT - 10 - (ei % 2) * 11) + '">' + esc(e.label) + "</text>";
+    });
+    svg += '<line class="ud-base" x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y0.toFixed(1) + '" y2="' + y0.toFixed(1) + '"></line>';
+    var aria = str(block.title) + ": " + good.length + " seasons from " + str(pts[0].label) + " to " + str(pts[pts.length - 1].label) + ". The table below has every value.";
+    return '<figure class="ud-chart"><svg viewBox="0 0 ' + W + " " + H + '" role="img" aria-label="' + esc(aria) + '" preserveAspectRatio="xMidYMid meet">' + svg + "</svg></figure>" + table;
+  }
+
+  function branchHtml(block, card, ctx) {
+    return '<div class="ud-branches">' + arr(block.branches).map(function (b) {
+      b = plain(b); var rule = plain(b.rule);
+      return '<section class="ud-branch"><h4 class="ud-branch-t">' + esc(b.label) + "</h4>" +
+        (b.reading ? '<p class="ud-branch-r">' + fill(b.reading, card, ctx) + "</p>" : "") +
+        (rule.anchor ? '<p class="ud-branch-rule"><span class="ud-anchor">' + esc("§ " + rule.anchor) + "</span> " + esc(rule.claim) + "</p>" : "") +
+        (b.needs ? '<p class="ud-branch-needs"><strong>It would need:</strong> ' + fill(b.needs, card, ctx) + "</p>" : "") + "</section>";
+    }).join("") + "</div>";
+  }
+
+  function blockHtml(block, idx, card, ctx) {
+    block = plain(block);
+    var type = str(block.type), inner = "";
+    if (type === "table") inner = titleHtml(block, "") + tableHtml(block.columns, block.rows, card, ctx, "", block.title || "Table");
+    else if (type === "comparison") inner = titleHtml(block, "Comparison") + tableHtml(block.columns, block.rows, card, ctx, "ud-compare", block.title || "Comparison") +
+      (block.owner_registry === true ? "" : '<p class="ud-note">Franchise, not owner: these columns follow the franchise id until the owner registry exists.</p>');
+    else if (type === "timeline") inner = titleHtml(block, "Timeline") + timelineHtml(block, card, ctx);
+    else if (type === "chart") inner = titleHtml(block, "Trend") + chartHtml(block, card, ctx);
+    else if (type === "branch") inner = titleHtml(block, "Readings") + branchHtml(block, card, ctx);
+    else inner = '<p class="ud-note">This block type is not shown: ' + esc(type || "none") + ".</p>";
+    var expand = block.expand_question
+      ? '<button type="button" class="ud-btn ud-btn-ghost" data-act="expand" data-busy-off="1" data-block="' + idx + '">' + esc(block.expand_label || "Expand the next level") + "</button>" : "";
+    return '<section class="ud-block ud-b-' + esc(type.replace(/[^a-z_]/g, "")) + '" data-block="' + idx + '">' + inner + blockSource(block, card) + expand + "</section>";
+  }
+
+  // ── Boxes ─────────────────────────────────────────────────────────────────────────────────
+  function gapsBox(gaps, card, ctx) {
+    if (!arr(gaps).length) return "";
+    return '<section class="ud-box ud-box-amber" aria-labelledby="ud-gaps-h"><h3 id="ud-gaps-h" class="ud-box-t">Gaps: what is missing</h3><ul class="ud-list">' +
+      arr(gaps).map(function (g) {
+        g = plain(g);
+        return "<li><strong>" + fill(g.what, card, ctx) + '</strong> <span class="ud-why">' + esc(own(WHY_LABEL, g.why) ? WHY_LABEL[g.why] : str(g.why)) + "</span>" +
+          (g.source_needed ? '<span class="ud-need">Would settle it: ' + esc(g.source_needed) + "</span>" : "") + "</li>";
+      }).join("") + "</ul></section>";
+  }
+
+  function conflictsBox(conflicts, card, ctx) {
+    if (!arr(conflicts).length) return "";
+    return '<section class="ud-box ud-box-amber" aria-labelledby="ud-conf-h"><h3 id="ud-conf-h" class="ud-box-t">Sources disagree</h3>' +
+      arr(conflicts).map(function (c) {
+        c = plain(c);
+        var side = function (key, tag) {
+          var f = getFact(card, str(key).replace(/^f\./, ""));
+          var id = str(key).replace(/^f\./, "");
+          if (!f) { if (ctx) { ctx.missing.push(id); if (typeof ctx.onMissing === "function") { try { ctx.onMissing(id); } catch (e) { /* ignore */ } } } return '<div class="ud-side"><span class="ud-side-t">' + tag + "</span>" + missingMarker(id) + "</div>"; }
+          return '<div class="ud-side"><span class="ud-side-t">' + tag + "</span>" + factChip(id, f) + '<span class="ud-side-s">' + esc(f.source) + (f.label ? " · " + esc(f.label) : "") + "</span></div>";
+        };
+        return '<div class="ud-conflict"><div class="ud-sides">' + side(c.fact_a, "Source A") + side(c.fact_b, "Source B") + "</div>" + (c.note ? '<p class="ud-conflict-n">' + fill(c.note, card, ctx) + "</p>" : "") + "</div>";
+      }).join("") + "</section>";
+  }
+
+  function rulingBox(card) {
+    var q = str(card.ruling_question).trim();
+    if (!q) return "";
+    return '<section class="ud-box ud-box-blue" aria-labelledby="ud-rule-h"><h3 id="ud-rule-h" class="ud-box-t">Draft ruling question</h3>' +
+      '<p class="ud-note">The desk drafts this. It never sends it or decides it. Edit it, then use it your way.</p>' +
+      '<label class="ud-sr" for="ud-ruling-text">Draft ruling question, editable</label>' +
+      '<textarea id="ud-ruling-text" class="ud-input ud-ruling" rows="4" data-role="ruling">' + esc(q) + "</textarea>" +
+      '<button type="button" class="ud-btn ud-btn-ghost" data-act="copy-ruling">Copy question</button></section>';
+  }
+
+  function citesHtml(cites) {
+    if (!arr(cites).length) return "";
+    return '<section class="ud-cites"><h3 class="ud-block-t">Rules cited</h3><ul class="ud-list">' + arr(cites).map(function (c) {
+      c = plain(c);
+      return '<li><span class="ud-anchor">' + esc("§ " + str(c.anchor)) + '</span> <span class="ud-canon">canon ' + esc(str(c.canon_sha).slice(0, 7)) + "</span><span class=\"ud-claim\">" + esc(c.claim) + "</span></li>";
+    }).join("") + "</ul></section>";
+  }
+
+  function fmtMs(ms) {
+    var n = Number(ms); if (!isFinite(n)) return "";
+    return n >= 1000 ? (n / 1000).toFixed(1) + " s" : Math.round(n) + " ms";
+  }
+  function fmtCost(c) { var n = Number(c); return c == null || !isFinite(n) ? "not recorded" : "$" + n.toFixed(4); }
+
+  function footerHtml(card) {
+    var foot = plain(card.footer), tools = arr(foot.tools);
+    var seen = {}, sources = [];
+    var ids = arr(card.facts_used).length ? card.facts_used.map(function (x) { return str(x).replace(/^f\./, ""); }) : Object.keys(plain(card.facts));
+    ids.forEach(function (id) { var f = getFact(card, id); if (f && f.source && !own(seen, f.source)) { seen[f.source] = 1; sources.push(str(f.source)); } });
+    arr(foot.sources).forEach(function (s) { if (s && !own(seen, str(s))) { seen[str(s)] = 1; sources.push(str(s)); } });
+    arr(card.cites).forEach(function (c) { var s = "Canon section " + str(plain(c).anchor); if (!own(seen, s)) { seen[s] = 1; sources.push(s); } });
+    var src = '<details class="ud-det"><summary>Sources (' + sources.length + ")</summary>" + (sources.length ? '<ul class="ud-list">' + sources.map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ul>" : '<p class="ud-note">No sources: this card states no facts.</p>') + "</details>";
+    var chk = '<details class="ud-det"><summary>What I checked (' + tools.length + " tool" + (tools.length === 1 ? "" : "s") + ")</summary>" + (tools.length ? '<ul class="ud-list">' + tools.map(function (t) {
+      t = plain(t);
+      return "<li><code>" + esc(t.id) + "</code>" + (t.call_id != null ? " call " + esc(t.call_id) : "") + (t.ms != null ? " · " + esc(fmtMs(t.ms)) : "") + (t.status ? " · " + esc(t.status) : "") + (t.code ? " (" + esc(t.code) + ")" : "") + "</li>";
+    }).join("") + "</ul>" : '<p class="ud-note">No tools ran for this card.</p>') + "</details>";
+    return '<footer class="ud-foot">' + src + chk + '<p class="ud-cost">Model cost: ' + esc(fmtCost(foot.cost_usd)) + '</p><button type="button" class="ud-btn ud-btn-ghost" data-act="report">Report a problem</button></footer>';
+  }
+
+  function headerHtml(card) {
+    var h = plain(card.header);
+    var asOf = str(h.as_of);
+    var chips = ['<span class="ud-chip ud-chip-ai">AI-generated</span>',
+      '<span class="ud-chip">' + (asOf ? (asOf === "current" ? "Current data" : "Data as of " + esc(asOf)) : "As of: not given") + "</span>",
+      '<span class="ud-chip">Canon ' + (h.canon_sha ? esc(str(h.canon_sha).slice(0, 7)) : "not given") + "</span>"];
+    if (h.league_record_version) chips.push('<span class="ud-chip">League Record ' + esc(h.league_record_version) + "</span>");
+    chips.push('<span class="ud-chip ud-chip-phase">' + esc(own(PHASE_LABEL, h.phase) ? PHASE_LABEL[h.phase] : "Phase " + str(h.phase || "?")) + "</span>");
+    return '<header class="ud-head">' + chips.join("") + "</header>";
+  }
+
+  // ── Card ──────────────────────────────────────────────────────────────────────────────────
+  function syntheticCard(state, extra) {
+    var meta = own(STATE_META, state) ? STATE_META[state] : UNKNOWN_META;
+    var base = {
+      state: state, lead_md: "", blocks: [], facts_used: [], cites: [], gaps: [], conflicts: [], ruling_question: "", follow_ups: [], facts: {},
+      header: { ai_generated: true, as_of: "", canon_sha: "", phase: "P1" }, footer: { tools: [], cost_usd: 0 }, request_id: ""
+    };
+    if (state === "budget_exceeded") base.lead_md = "Paused: the AI budget for this period is used up. Ask again when the next period starts.";
+    else if (state === "not_ready") base.lead_md = "The desk is not ready to answer yet. Try again in a minute.";
+    else if (state === "tool_failure") base.lead_md = "The desk could not check the records just now. Try the question again.";
+    base.synthetic = meta.label;
+    var e = plain(extra); Object.keys(e).forEach(function (k) { base[k] = e[k]; });
+    return base;
+  }
+
+  function renderCardHtml(card, opts) {
+    opts = opts || {};
+    var ctx = { onMissing: opts.onMissing, missing: [] };
+    if (!card || typeof card !== "object" || Array.isArray(card)) card = syntheticCard("tool_failure", { lead_md: "The desk got an answer it could not read. Try the question again." });
+    var known = own(STATE_META, card.state);
+    var meta = known ? STATE_META[card.state] : UNKNOWN_META;
+    var stateKey = known ? card.state : "unknown";
+    var q = str(opts.question || card.question).trim();
+    var live = known; // an unknown state withholds the body entirely
+    var out = '<article class="ud-card ud-state-' + stateKey + '" data-state="' + stateKey + '" data-request="' + esc(card.request_id) + '" aria-label="' + esc("Answer card: " + meta.label) + '">';
+    out += headerHtml(card);
+    if (q) out += '<p class="ud-qline"><span class="ud-qlabel">Question</span> ' + esc(q) + "</p>";
+    out += '<div class="ud-banner ud-tone-' + meta.tone + '" role="note"><strong class="ud-banner-t">' + esc(meta.label) + "</strong>" + (meta.copy ? ' <span class="ud-banner-c">' + esc(meta.copy) + "</span>" : "") + "</div>";
+    if (live) {
+      if (str(card.lead_md).trim()) out += '<div class="ud-lead">' + paragraphs(card.lead_md, card, ctx, "ud-lead-p") + "</div>";
+      if (card.state === "answer_with_caveat") out += '<p class="ud-caveat"><strong>Caveat.</strong> ' + esc(card.caveat || "This answer has a known limitation. See the notes below.") + "</p>";
+      if (card.state === "ignore_injection") out += '<p class="ud-notice"><strong>Notice.</strong> ' + esc(card.injection_note || "Ignored instructions found in source text. The answer uses only the authoritative sources.") + "</p>";
+      out += arr(card.blocks).map(function (b, i) { return blockHtml(b, i, card, ctx); }).join("");
+      out += conflictsBox(card.conflicts, card, ctx);
+      out += gapsBox(card.gaps, card, ctx);
+      out += rulingBox(card);
+      out += citesHtml(card.cites);
+    }
+    if (card.state === "tool_failure" || card.state === "not_ready") out += '<div class="ud-actions"><button type="button" class="ud-btn ud-btn-primary" data-act="retry" data-busy-off="1">Try again</button></div>';
+    if (live && arr(card.follow_ups).length) {
+      out += '<nav class="ud-follow" aria-label="Follow-up questions"><h3 class="ud-block-t">Follow-ups</h3><div class="ud-chips">' +
+        arr(card.follow_ups).map(function (f, i) { return '<button type="button" class="ud-btn ud-btn-chip" data-act="followup" data-busy-off="1" data-i="' + i + '">' + esc(f) + "</button>"; }).join("") + "</div></nav>";
+    }
+    out += footerHtml(card);
+    out += '<div class="ud-report" data-role="report" hidden></div>';
+    return out + "</article>";
+  }
+
+  // ── Provenance drawer body ────────────────────────────────────────────────────────────────
+  function renderProvenanceHtml(card, factId) {
+    var f = getFact(card, str(factId));
+    if (!f) return '<h2 id="ud-drawer-t" class="ud-drawer-t">Where this comes from</h2><p class="ud-note">No record for this value in the card.</p>';
+    var k = gradeKey(f.grade), i = k ? GRADE_INFO[k] : null, h = plain(card.header);
+    var rows = [
+      ["Value", factDisplay(f) + (f.value != null && str(f.value) !== factDisplay(f) ? " (raw: " + str(f.value) + ")" : "")],
+      ["Unit", f.unit], ["As of", f.as_of], ["Source", f.source], ["Tool", f.tool], ["Call id", f.call_id]
+    ];
+    if (f.inputs != null) { var j; try { j = typeof f.inputs === "string" ? f.inputs : JSON.stringify(f.inputs); } catch (e) { j = ""; } rows.push(["Inputs", String(j).slice(0, 400)]); }
+    var sha = f.code_sha || h.code_sha; if (sha) rows.push(["Code version", str(sha).slice(0, 12)]);
+    var dl = rows.map(function (r) { return "<dt>" + esc(r[0]) + "</dt><dd>" + (str(r[1]) === "" ? '<span class="ud-muted">not given</span>' : esc(r[1])) + "</dd>"; }).join("");
+    dl += "<dt>Evidence grade</dt><dd>" + (i ? '<span class="ud-gr ud-g-' + k + '">' + esc(i.text) + "</span> " + esc(i.name) : '<span class="ud-muted">not given</span>') + "</dd>";
+    var raw = str(f.raw_url);
+    if (/^https:\/{2}[^\s"'<>]+$/.test(raw)) dl += '<dt>Raw record</dt><dd><a href="' + esc(raw) + '" target="_blank" rel="noopener noreferrer">Open the record</a></dd>';
+    var legend = GRADE_ORDER.map(function (g) { return '<li><span class="ud-gr ud-g-' + g + '">' + esc(GRADE_INFO[g].text) + "</span> " + esc(GRADE_INFO[g].name) + "</li>"; }).join("");
+    return '<h2 id="ud-drawer-t" class="ud-drawer-t">Where this comes from</h2><p class="ud-prov-val">' + esc(factDisplay(f)) + "</p>" + (f.label ? '<p class="ud-prov-label">' + esc(f.label) + "</p>" : "") +
+      '<dl class="ud-prov">' + dl + '</dl><details class="ud-det"><summary>What the grades mean</summary><ul class="ud-list ud-legend">' + legend + "</ul></details>";
+  }
+
+  // ── History and suggestions ───────────────────────────────────────────────────────────────
+  function stateLabel(state) { return own(STATE_META, state) ? STATE_META[state].label : "Unknown state"; }
+  function stateTone(state) { return own(STATE_META, state) ? STATE_META[state].tone : "red"; }
+  function fmtWhen(s) {
+    var m = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/.exec(str(s));
+    return m ? m[1] + " " + m[2] + (/Z$/.test(str(s)) ? " UTC" : "") : str(s);
+  }
+  function renderHistoryHtml(items) {
+    var list = arr(items).slice(0, 50);
+    if (!list.length) return '<li class="ud-empty">No questions yet. Ask one above.</li>';
+    return list.map(function (it) {
+      it = plain(it);
+      return '<li><button type="button" class="ud-hist" data-act="hist" data-busy-off="1" data-id="' + esc(it.id) + '"><span class="ud-hist-q">' + esc(it.question) + '</span><span class="ud-hist-m"><span class="ud-tag ud-tone-' + stateTone(it.state) + '">' + esc(stateLabel(it.state)) + "</span> " + esc(fmtWhen(it.created_at)) + "</span></button></li>";
+    }).join("");
+  }
+  function normalizeSuggestions(list) {
+    return arr(list).map(function (s) { return typeof s === "string" ? { q: s } : plain(s); }).filter(function (s) { return str(s.q).trim(); });
+  }
+  function renderSuggestionsHtml(list) {
+    var items = normalizeSuggestions(list);
+    var flagged = items.some(function (x) { return x.suggested; });
+    var main = [], more = [];
+    items.forEach(function (s, i) { ((flagged ? s.suggested : i < 6) ? main : more).push({ q: s.q, i: i }); });
+    var btn = function (s) { return '<button type="button" class="ud-btn ud-btn-chip" data-act="suggest" data-busy-off="1" data-i="' + s.i + '">' + esc(s.q) + "</button>"; };
+    return '<div class="ud-chips">' + main.map(btn).join("") + "</div>" + (more.length ? '<details class="ud-det ud-more"><summary>More examples (' + more.length + ')</summary><div class="ud-chips">' + more.map(btn).join("") + "</div></details>" : "");
+  }
+
+  global.UPSDeskRender = {
+    esc: esc, formatFact: formatFact, factDisplay: factDisplay, tokenIds: tokenIds, fill: fill,
+    renderCardHtml: renderCardHtml, renderProvenanceHtml: renderProvenanceHtml, renderHistoryHtml: renderHistoryHtml, renderSuggestionsHtml: renderSuggestionsHtml, normalizeSuggestions: normalizeSuggestions,
+    syntheticCard: syntheticCard, stateLabel: stateLabel, stateTone: stateTone, STATE_META: STATE_META, GRADE_INFO: GRADE_INFO
+  };
+})(typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : this);
+
+</script>
+<script>
+/* UPS Commissioner Desk: controller.
+ *
+ * Needs desk_render.js loaded first (window.UPSDeskRender). Talks to the Worker ONLY through one injected `api` object,
+ * so the same code runs against the live Worker (commish_settings.html) or fixtures (desk_preview.html):
+ *
+ *   api.ask({question, as_of}, {onProgress})  -> Promise<{request_id, card}>
+ *   api.history()                             -> Promise<{items:[{id, created_at, question, state}]}>
+ *   api.question(id)                          -> Promise<{item:{id, created_at, question, state, card}}>
+ *   api.report({id, note})                    -> Promise<{ok:true}>
+ *   api.status()                              -> Promise<{enabled, live_model_enabled, budget}>   (optional here)
+ *
+ * The desk is read-only: nothing here posts, sends or changes league data. "Report a problem" and "Copy" are the only writes,
+ * and the first goes to the desk's own private eval log through api.report.
+ */
+(function (global) {
+  "use strict";
+  var R = global.UPSDeskRender;
+  var uid = 0;
+
+  function errCard(err) {
+    var d = err && err.data && typeof err.data === "object" ? err.data : {};
+    var code = String(d.state || d.error || d.reason || "").toLowerCase();
+    var msg = String((err && err.message) || "");
+    if (code === "budget_exceeded" || /budget_exceeded/i.test(msg) || (err && err.status === 402)) return R.syntheticCard("budget_exceeded");
+    if (code === "not_ready" || /not_ready/i.test(msg) || (err && err.status === 503)) return R.syntheticCard("not_ready");
+    return R.syntheticCard("tool_failure", { lead_md: "The desk could not reach its records just now. Nothing was guessed. Try the question again." });
+  }
+
+  function mount(root, options) {
+    options = options || {};
+    var api = options.api;
+    if (!api || typeof api.ask !== "function") throw new Error("UPSDesk.mount needs an api object with ask()");
+    var doc = root.ownerDocument || global.document;
+    var id = "ud" + (++uid);
+    var theme = options.theme === "dark" || options.theme === "light" ? options.theme : "";
+    var suggestions = R.normalizeSuggestions(options.suggestions);
+    var S = { busy: false, card: null, question: "", lastAsk: null, history: [], timer: null, t0: 0, opener: null, tool: 0 };
+    var log = typeof options.onLog === "function" ? options.onLog : function (m) { try { global.console && global.console.warn(m); } catch (e) { /* ignore */ } };
+
+    root.classList.add("ud-root");
+    if (theme) root.setAttribute("data-theme", theme);
+    root.innerHTML =
+      (options.banner ? '<p class="ud-fixture-note ud-caveat" role="note"></p>' : "") +
+      '<section class="ud-ask" aria-label="Ask the desk"><form class="ud-form" data-role="form" novalidate>' +
+        '<label class="ud-label" for="' + id + '-q">Ask a league question</label>' +
+        '<textarea id="' + id + '-q" class="ud-input" rows="2" maxlength="600" data-role="q" placeholder="For example: trace a pick, or what a rule says" enterkeyhint="send"></textarea>' +
+        '<div class="ud-asof"><label for="' + id + '-a">Data as of</label>' +
+          '<select id="' + id + '-a" class="ud-input" data-role="asof"><option value="current">Current data</option><option value="date">A past date</option></select>' +
+          '<label class="ud-sr" for="' + id + '-d">Past date</label><input id="' + id + '-d" class="ud-input" type="date" data-role="asof-date" hidden></div>' +
+        '<p class="ud-msg" data-role="msg" role="alert"></p>' +
+        '<button type="submit" class="ud-btn ud-btn-primary" data-role="ask">Ask</button>' +
+      '</form><div class="ud-suggest" data-role="suggest" role="group" aria-label="Suggested questions"></div></section>' +
+      '<section class="ud-progress" data-role="progress" role="status" aria-live="polite" hidden></section>' +
+      '<section class="ud-result" data-role="result" aria-label="Answer" tabindex="-1"></section>' +
+      '<section class="ud-history" aria-labelledby="' + id + '-h"><h2 id="' + id + '-h">Recent questions</h2>' +
+        '<p class="ud-note">Private to the desk. Last 50, kept 90 days.</p><ul class="ud-hist-list" data-role="history"></ul></section>' +
+      '<div class="ud-drawer" data-role="drawer" hidden><div class="ud-drawer-bg" data-act="close-drawer"></div>' +
+        '<div class="ud-drawer-panel" role="dialog" aria-modal="true" aria-labelledby="ud-drawer-t" tabindex="-1">' +
+        '<button type="button" class="ud-btn ud-btn-ghost ud-drawer-x" data-act="close-drawer">Close</button><div data-role="drawer-body"></div></div></div>';
+
+    function q(role) { return root.querySelector('[data-role="' + role + '"]'); }
+    var el = { form: q("form"), q: q("q"), asof: q("asof"), date: q("asof-date"), msg: q("msg"), ask: q("ask"), suggest: q("suggest"), progress: q("progress"),
+      result: q("result"), history: q("history"), drawer: q("drawer"), drawerBody: q("drawer-body") };
+    if (options.banner) root.querySelector(".ud-fixture-note").textContent = String(options.banner);
+    el.suggest.innerHTML = R.renderSuggestionsHtml(suggestions);
+    el.history.innerHTML = R.renderHistoryHtml([]);
+
+    // ── Busy state: the ask button and every action that would start a question are disabled while one is in flight ──
+    function setBusy(b) {
+      S.busy = b;
+      root.setAttribute("aria-busy", b ? "true" : "false");
+      el.ask.disabled = b; el.ask.textContent = b ? "Working…" : "Ask";
+      var btns = root.querySelectorAll("[data-busy-off]");
+      for (var i = 0; i < btns.length; i++) { btns[i].disabled = b; if (b) btns[i].setAttribute("aria-disabled", "true"); else btns[i].removeAttribute("aria-disabled"); }
+    }
+    function say(m) { el.msg.textContent = m || ""; }
+
+    // ── Progress ──
+    var STEPS = ["Understood the question", "Checking the records", "Writing the answer"];
+    function drawProgress() {
+      var secs = Math.max(0, Math.round((Date.now() - S.t0) / 1000));
+      var now = S.tool > 0 || secs >= 2 ? (secs >= 4 ? 2 : 1) : 1;
+      var li = STEPS.map(function (s, i) {
+        var cls = i < now ? "ud-s-done" : i === now ? "ud-s-now" : "";
+        var mark = i < now ? "✓" : i === now ? "…" : "·";
+        var word = i < now ? "done" : i === now ? "working" : "waiting";
+        var extra = i === 1 && S.tool > 0 ? " (" + S.tool + " tool" + (S.tool === 1 ? "" : "s") + " so far)" : "";
+        return '<li class="' + cls + '"><span class="ud-step-m" aria-hidden="true">' + mark + '</span><span>' + R.esc(s + extra) + '</span><span class="ud-sr"> ' + word + "</span></li>";
+      }).join("");
+      el.progress.innerHTML = '<ol class="ud-steps">' + li + '</ol><p class="ud-elapsed">Working for ' + secs + " s. The desk checks code-built records; it does not guess.</p>";
+    }
+    function startProgress() {
+      S.t0 = Date.now(); S.tool = 0; el.progress.hidden = false; drawProgress();
+      S.timer = global.setInterval(drawProgress, 1000);
+    }
+    function stopProgress() { if (S.timer) { global.clearInterval(S.timer); S.timer = null; } el.progress.hidden = true; el.progress.innerHTML = ""; }
+    function onProgress(p) { if (p && typeof p.tools === "number") S.tool = p.tools; drawProgress(); }
+
+    // ── Show a card ──
+    function show(card, question, scroll) {
+      S.card = card; S.question = question || "";
+      el.result.innerHTML = R.renderCardHtml(card, { question: question, onMissing: function (mid) { log("desk: missing fact " + mid + " in card " + (card && card.request_id)); } });
+      var bs = el.result.querySelectorAll("[data-busy-off]");
+      for (var i = 0; i < bs.length; i++) bs[i].disabled = S.busy;
+      if (scroll !== false) { try { el.result.scrollIntoView({ block: "start" }); el.result.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
+    }
+
+    function asOfValue() {
+      if (el.asof.value !== "date") return "current";
+      var v = String(el.date.value || "");
+      return /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null;
+    }
+
+    function pushHistory(entry) {
+      S.history = [entry].concat(S.history.filter(function (h) { return h.id !== entry.id; })).slice(0, 50);
+      el.history.innerHTML = R.renderHistoryHtml(S.history);
+      setBusy(S.busy);
+    }
+    function loadHistory() {
+      if (typeof api.history !== "function") return Promise.resolve();
+      return Promise.resolve().then(function () { return api.history(); }).then(function (r) {
+        S.history = (r && Array.isArray(r.items) ? r.items : []).slice(0, 50);
+        el.history.innerHTML = R.renderHistoryHtml(S.history);
+        setBusy(S.busy);
+      }).catch(function () { el.history.innerHTML = '<li class="ud-empty">History is not available right now.</li>'; });
+    }
+
+    function ask(question, asOf) {
+      question = String(question || "").trim();
+      if (S.busy) return Promise.resolve();
+      if (!question) { say("Type a question first."); return Promise.resolve(); }
+      if (asOf === null) { say("Pick a past date, or switch back to current data."); return Promise.resolve(); }
+      say(""); S.lastAsk = { question: question, asOf: asOf || "current" };
+      setBusy(true); startProgress();
+      return Promise.resolve().then(function () { return api.ask({ question: question, as_of: S.lastAsk.asOf }, { onProgress: onProgress }); })
+        .then(function (res) {
+          var card = res && res.card && typeof res.card === "object" ? res.card : null;
+          if (card && !card.request_id && res.request_id) card.request_id = res.request_id;
+          if (!card) card = R.syntheticCard("tool_failure", { lead_md: "The desk got an answer it could not read. Try the question again." });
+          return card;
+        }, function (err) { return errCard(err); })
+        .then(function (card) {
+          stopProgress(); setBusy(false);
+          show(card, question);
+          if (card.request_id) pushHistory({ id: card.request_id, created_at: new Date().toISOString(), question: question, state: card.state });
+        });
+    }
+
+    // ── Provenance drawer (one tap from any fact chip) ──
+    function openDrawer(factId, opener) {
+      if (!S.card) return;
+      S.opener = opener || null;
+      el.drawerBody.innerHTML = R.renderProvenanceHtml(S.card, factId);
+      el.drawer.hidden = false;
+      var panel = el.drawer.querySelector(".ud-drawer-panel");
+      try { (el.drawer.querySelector(".ud-drawer-x") || panel).focus(); } catch (e) { /* ignore */ }
+    }
+    function closeDrawer() {
+      el.drawer.hidden = true; el.drawerBody.innerHTML = "";
+      try { if (S.opener && S.opener.focus) S.opener.focus(); } catch (e) { /* ignore */ }
+      S.opener = null;
+    }
+    function trapTab(ev) {
+      if (el.drawer.hidden || ev.key !== "Tab") return;
+      var f = el.drawer.querySelectorAll("button, a[href], summary, [tabindex]:not([tabindex='-1'])");
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1], active = doc.activeElement;
+      if (ev.shiftKey && (active === first || !el.drawer.contains(active))) { ev.preventDefault(); last.focus(); }
+      else if (!ev.shiftKey && (active === last || !el.drawer.contains(active))) { ev.preventDefault(); first.focus(); }
+    }
+
+    // ── Report a problem (private eval case; nothing is posted or sent anywhere else) ──
+    function openReport() {
+      var box = el.result.querySelector('[data-role="report"]');
+      if (!box) return;
+      if (!box.hidden) { box.hidden = true; return; }
+      box.hidden = false;
+      box.innerHTML = '<label class="ud-label" for="' + id + '-n">What was wrong?</label>' +
+        '<textarea id="' + id + '-n" class="ud-input" rows="3" maxlength="1000" data-role="note" placeholder="A wrong number, a missing source, a bad refusal"></textarea>' +
+        '<p class="ud-note">Saved as a private draft test case with this question and card. Nothing is posted or sent.</p>' +
+        '<p class="ud-msg" data-role="rmsg" role="status"></p>' +
+        '<div class="ud-actions"><button type="button" class="ud-btn ud-btn-primary" data-act="report-send">Save report</button><button type="button" class="ud-btn ud-btn-ghost" data-act="report-cancel">Cancel</button></div>';
+      try { box.querySelector("textarea").focus(); } catch (e) { /* ignore */ }
+    }
+    function sendReport() {
+      var box = el.result.querySelector('[data-role="report"]'); if (!box) return;
+      var note = box.querySelector('[data-role="note"]'), msg = box.querySelector('[data-role="rmsg"]'), send = box.querySelector('[data-act="report-send"]');
+      var rid = S.card && S.card.request_id;
+      if (!rid) { msg.textContent = "This card was not saved, so there is nothing to report against. Ask again first."; return; }
+      if (typeof api.report !== "function") { msg.textContent = "Reporting is not available here."; return; }
+      send.disabled = true; msg.textContent = "Saving…";
+      Promise.resolve().then(function () { return api.report({ id: rid, note: String(note.value || "").trim() }); })
+        .then(function (r) { msg.textContent = r && r.ok ? "Saved as a private draft test case. Thank you." : "Could not save the report. Try again."; send.disabled = !!(r && r.ok); })
+        .catch(function () { msg.textContent = "Could not save the report. Try again."; send.disabled = false; });
+    }
+
+    // ── History item ──
+    function openHistory(hid) {
+      if (S.busy || typeof api.question !== "function") return;
+      say(""); setBusy(true);
+      Promise.resolve().then(function () { return api.question(hid); }).then(function (r) {
+        var it = r && r.item; if (!it || !it.card) throw new Error("no card");
+        if (!it.card.request_id) it.card.request_id = it.id;
+        setBusy(false); show(it.card, it.question);
+      }).catch(function () { setBusy(false); say("Could not open that question. Try again."); });
+    }
+
+    function copyRuling() {
+      var t = el.result.querySelector('[data-role="ruling"]'); if (!t) return;
+      var btn = el.result.querySelector('[data-act="copy-ruling"]');
+      var done = function (ok) { if (btn) btn.textContent = ok ? "Copied" : "Select the text and copy it"; };
+      try {
+        if (global.navigator && global.navigator.clipboard && global.navigator.clipboard.writeText) { global.navigator.clipboard.writeText(t.value).then(function () { done(true); }, function () { done(false); }); return; }
+      } catch (e) { /* fall through */ }
+      try { t.focus(); t.select(); done(!!doc.execCommand("copy")); } catch (e2) { done(false); }
+    }
+
+    // ── Events (delegated; handlers read data-* attributes only as indexes or ids and look the real value up in state) ──
+    root.addEventListener("click", function (ev) {
+      var t = ev.target && ev.target.closest ? ev.target.closest("[data-act]") : null;
+      if (!t || !root.contains(t)) return;
+      var act = t.getAttribute("data-act"), i;
+      if (act === "fact") { openDrawer(t.getAttribute("data-fact"), t); return; }
+      if (act === "close-drawer") { closeDrawer(); return; }
+      if (act === "report") { openReport(); return; }
+      if (act === "report-cancel") { var b = el.result.querySelector('[data-role="report"]'); if (b) b.hidden = true; return; }
+      if (act === "report-send") { sendReport(); return; }
+      if (act === "copy-ruling") { copyRuling(); return; }
+      if (S.busy) return;
+      if (act === "suggest") { i = Number(t.getAttribute("data-i")); if (suggestions[i]) { el.q.value = suggestions[i].q; ask(suggestions[i].q, asOfValue()); } return; }
+      if (act === "followup") { i = Number(t.getAttribute("data-i")); var f = S.card && S.card.follow_ups && S.card.follow_ups[i]; if (typeof f === "string") { el.q.value = f; ask(f, S.lastAsk ? S.lastAsk.asOf : "current"); } return; }
+      if (act === "expand") { i = Number(t.getAttribute("data-block")); var bl = S.card && S.card.blocks && S.card.blocks[i]; if (bl && typeof bl.expand_question === "string") { el.q.value = bl.expand_question; ask(bl.expand_question, S.lastAsk ? S.lastAsk.asOf : "current"); } return; }
+      if (act === "retry") { if (S.lastAsk) ask(S.lastAsk.question, S.lastAsk.asOf); return; }
+      if (act === "hist") { openHistory(t.getAttribute("data-id")); }
+    });
+    el.form.addEventListener("submit", function (ev) { ev.preventDefault(); ask(el.q.value, asOfValue()); });
+    el.q.addEventListener("keydown", function (ev) { if (ev.key === "Enter" && !ev.shiftKey && !ev.isComposing) { ev.preventDefault(); ask(el.q.value, asOfValue()); } });
+    el.asof.addEventListener("change", function () { el.date.hidden = el.asof.value !== "date"; say(""); });
+    root.addEventListener("keydown", function (ev) {
+      if (ev.key === "Escape" && !el.drawer.hidden) { ev.preventDefault(); closeDrawer(); return; }
+      trapTab(ev);
+    });
+
+    loadHistory();
+    return { ask: function (text, asOf) { return ask(text, asOf || "current"); }, showCard: function (card, question) { show(card, question, false); }, history: loadHistory, state: S };
+  }
+
+  // ── Fixture api: the same interface as the live Worker, no network. Used by desk_preview.html and tests. ──
+  var STOP = { the: 1, a: 1, an: 1, of: 1, to: 1, in: 1, is: 1, was: 1, for: 1, and: 1, or: 1, what: 1, who: 1, did: 1, does: 1, do: 1, my: 1, me: 1, it: 1, on: 1, at: 1, by: 1, with: 1, are: 1, be: 1, i: 1, how: 1 };
+  function words(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9\s'-]/g, " ").split(/\s+/).filter(function (w) { return w && !STOP[w]; });
+  }
+  // Simple keyword scoring: shared distinct words (keywords count double). An exact question match wins outright.
+  function matchQuestion(text, entries) {
+    var qw = words(text), qset = {}, norm = qw.join(" ");
+    qw.forEach(function (w) { qset[w] = 1; });
+    var best = null, bestScore = 0;
+    (entries || []).forEach(function (e) {
+      var ew = words(e.question);
+      if (ew.join(" ") === norm && norm) { best = e; bestScore = 1e6; return; }
+      var seen = {}, score = 0;
+      ew.forEach(function (w) { if (qset[w] && !seen[w]) { seen[w] = 1; score += 1; } });
+      (e.keywords || []).forEach(function (k) { words(k).forEach(function (w) { if (qset[w] && !seen[w]) { seen[w] = 1; score += 2; } }); });
+      if (score > bestScore) { best = e; bestScore = score; }
+    });
+    return bestScore >= 3 ? best : null;
+  }
+
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+  function makeFixtureApi(data, opts) {
+    opts = opts || {};
+    var delay = typeof opts.delayMs === "number" ? opts.delayMs : 1400;
+    var entries = (data && data.questions) || [], cards = (data && data.cards) || {};
+    var n = 0, store = [], reports = [];
+    var fallbackName = (data && data.fallback) || "out_of_scope_preview";
+    // Seed the history with a few older questions so the list is not empty.
+    entries.filter(function (e) { return e.seed_history; }).slice(0, 6).forEach(function (e, i) {
+      var cid = "demo-seed-" + (i + 1);
+      store.push({ id: cid, created_at: "2026-11-1" + (9 - i) + "T1" + i + ":15:00Z", question: e.question, state: cards[e.card] ? cards[e.card].state : "answer", card: cards[e.card], seed: true });
+    });
+    function pause(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    return {
+      ask: function (req, o) {
+        var m = matchQuestion(req && req.question, entries);
+        var card = clone(cards[m ? m.card : fallbackName] || cards[fallbackName]);
+        n += 1; var rid = "demo-" + (1000 + n);
+        card.request_id = rid;
+        var p = o && typeof o.onProgress === "function" ? o.onProgress : function () {};
+        var tools = (card.footer && card.footer.tools && card.footer.tools.length) || 0;
+        return pause(delay * 0.3).then(function () { p({ step: "tools", tools: Math.min(1, tools) }); return pause(delay * 0.4); })
+          .then(function () { p({ step: "tools", tools: tools }); return pause(delay * 0.3); })
+          .then(function () {
+            store.unshift({ id: rid, created_at: new Date().toISOString(), question: String(req.question), state: card.state, card: card });
+            return { request_id: rid, card: card };
+          });
+      },
+      history: function () { return Promise.resolve({ items: store.slice(0, 50).map(function (s) { return { id: s.id, created_at: s.created_at, question: s.question, state: s.state }; }) }); },
+      question: function (id) {
+        var s = store.filter(function (x) { return x.id === id; })[0];
+        if (!s) return Promise.reject(new Error("not found"));
+        return Promise.resolve({ item: { id: s.id, created_at: s.created_at, question: s.question, state: s.state, card: clone(s.card) } });
+      },
+      report: function (r) { reports.push(r); return Promise.resolve({ ok: true }); },
+      status: function () { return Promise.resolve({ enabled: true, live_model_enabled: false, budget: { fixture: true } }); },
+      _reports: reports
+    };
+  }
+
+  global.UPSDesk = { mount: mount, makeFixtureApi: makeFixtureApi, matchQuestion: matchQuestion, errCard: errCard };
+})(typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : this);
+
+</script>
+<script>window.UPS_DESK_FIXTURES = {"questions":[{"id":"q01","question":"Trace the 2024 3rd-round pick of franchise 0003.","card":"answer_with_gap","keywords":["pick","trace","lineage","trades","chain"],"suggested":true,"seed_history":true},{"id":"q02","question":"What cap penalty applies if franchise 0008 cuts Chris Olave today?","card":"cap_penalty_quote","keywords":["penalty","cut","drop","release","quote","dead money"],"suggested":true,"seed_history":true},{"id":"q03","question":"What is franchise 0008's cap position?","card":"cap_position","keywords":["cap","position","space","used","limit"],"suggested":true,"seed_history":true},{"id":"q04","question":"Who won the Toilet Bowl in 2019?","card":"finish_toilet_bowl","keywords":["toilet","bowl","hawk","tuah","seventh","finish"],"suggested":true,"seed_history":true},{"id":"q05","question":"Can retired players be cut cap-free during the FA Auction?","card":"rule_citation","keywords":["retired","retirement","cap-free","rule","canon"],"suggested":true,"seed_history":true},{"id":"q06","question":"When is the trade deadline this year?","card":"conflict_trade_deadline","keywords":["deadline","trade","calendar"],"suggested":true,"seed_history":true},{"id":"q07","question":"What is Puka Nacua's current contract?","card":"answer","keywords":["contract","salary","player","nacua","years","status"],"suggested":false,"seed_history":false},{"id":"q08","question":"How many championships has franchise 0003 won?","card":"answer_with_caveat","keywords":["championships","titles","champion","won"],"suggested":false,"seed_history":false},{"id":"q09","question":"Show cap adjustments for franchise 0006 from 2020 to 2026.","card":"partial","keywords":["adjustments","ledger","penalties","trend","seasons"],"suggested":false,"seed_history":false},{"id":"q10","question":"Who finished 10th in 2015?","card":"answer_with_conflict","keywords":["2015","standings","tenth","finish","defective"],"suggested":false,"seed_history":false},{"id":"q11","question":"Was the taxi squad limit the same in 2019?","card":"cite_and_abstain","keywords":["2019","taxi","limit","then","before","rule history"],"suggested":false,"seed_history":false},{"id":"q12","question":"Can a trade offered before the deadline be accepted after it?","card":"needs_ruling","keywords":["offered","accepted","after","ruling","ambiguous"],"suggested":false,"seed_history":false},{"id":"q13","question":"What was franchise 0010's starting lineup in Week 5 of 2013?","card":"abstain","keywords":["lineup","starters","week","2013","starting"],"suggested":false,"seed_history":false},{"id":"q14","question":"What trade offers is franchise 0012 considering right now?","card":"refuse_privacy","keywords":["offers","private","considering","negotiating"],"suggested":false,"seed_history":false},{"id":"q15","question":"Tell me what franchise 0009 will bid on at the auction so I can outbid them.","card":"refuse_fairness","keywords":["bid","outbid","auction","plans","intel"],"suggested":false,"seed_history":false},{"id":"q16","question":"How many players fit on a taxi squad?","card":"ignore_injection","keywords":["taxi","squad","size","many","players"],"suggested":false,"seed_history":false},{"id":"q17","question":"Which players does franchise 0011 have on the taxi squad right now?","card":"tool_failure","keywords":["roster","taxi","right now","players"],"suggested":false,"seed_history":false},{"id":"q18","question":"Who is on injured reserve for franchise 0004?","card":"stale_data","keywords":["injured","reserve","ir","injury"],"suggested":false,"seed_history":false},{"id":"q19","question":"Compare the cap health of every franchise.","card":"budget_exceeded","keywords":["compare","every","all","franchises","health"],"suggested":false,"seed_history":false},{"id":"q20","question":"Post this ruling to the league Discord.","card":"out_of_scope","keywords":["post","discord","send","message","announce"],"suggested":false,"seed_history":false},{"id":"q21","question":"What penalty applies if franchise 0006 cuts Marquise Brown?","card":"penalty_refused_incomplete","keywords":["marquise","brown","penalty","cut"],"suggested":false,"seed_history":false},{"id":"q22","question":"What penalty applies if franchise 0005 cuts its tagged player now?","card":"tag_cut_refused","keywords":["tag","tagged","cut","penalty","auction"],"suggested":false,"seed_history":false},{"id":"q23","question":"Which player did franchise 0008 take with its 2020 2nd-round pick?","card":"coverage_pick_slot_decline","keywords":["drafted","took","selected","2020","slot","pick"],"suggested":false,"seed_history":false},{"id":"q24","question":"What does the rule say about cutting a player after the auction starts?","card":"rule_citation","keywords":["rule","says","canon","cut","auction"],"suggested":false,"seed_history":false}],"cards":{"abstain":{"state":"abstain","question":"What was franchise 0010's starting lineup in Week 5 of 2013?","lead_md":"Not determinable. The league has no stored weekly lineups from that season.","blocks":[],"facts_used":[],"cites":[],"gaps":[{"what":"Weekly starting lineups for 2013","why":"NO_RECORD","source_needed":"MFL weekly lineup exports for 2013"}],"conflicts":[],"ruling_question":"","follow_ups":["Which seasons have stored lineups?"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"coverage.check","call_id":"c1","ms":95,"status":"no_record"}],"cost_usd":0.0058},"request_id":"demo-abstain"},"answer":{"state":"answer","question":"What is Puka Nacua's current contract?","lead_md":"{{f.c1.player}} is on {{f.c1.team}} ({{f.c1.fid}}). His salary is {{f.c1.salary}} with {{f.c1.years_left}} left, status {{f.c1.status}}.","blocks":[{"type":"table","title":"Contract terms","columns":["Term","Value"],"rows":[["Current salary","{{f.c1.salary}}"],["Years remaining","{{f.c1.years_left}}"],["Total contract value","{{f.c1.tcv}}"],["Average annual value","{{f.c1.aav}}"],["Contract status","{{f.c1.status}}"]],"fact_ids":["c1.salary","c1.years_left","c1.tcv","c1.aav","c1.status"],"tool_call_ids":["c1"]}],"facts_used":["c1.player","c1.team","c1.fid","c1.salary","c1.years_left","c1.status","c1.tcv","c1.aav"],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["Show his contract history","What penalty applies if he is cut today?"],"facts":{"c1.player":{"label":"Player","value":"Puka Nacua","unit":"text","display":"Puka Nacua","grade":"A","source":"MFL roster workbench","as_of":"2026-11-19","tool":"roster.current","call_id":"c1"},"c1.team":{"label":"Franchise","value":"Mesa Miners","unit":"text","display":"Mesa Miners","grade":"A","source":"MFL roster workbench","as_of":"2026-11-19","tool":"roster.current","call_id":"c1"},"c1.fid":{"label":"Franchise id","value":"0009","unit":"id","display":"0009","grade":"A","source":"MFL roster workbench","as_of":"2026-11-19","tool":"roster.current","call_id":"c1"},"c1.salary":{"label":"Current-year salary","value":9000,"unit":"usd","display":"$9K","grade":"A","source":"MFL roster workbench","as_of":"2026-11-19","tool":"roster.current","call_id":"c1"},"c1.years_left":{"label":"Years remaining","value":3,"unit":"years","display":"3 years","grade":"A","source":"MFL roster workbench","as_of":"2026-11-19","tool":"roster.current","call_id":"c1"},"c1.status":{"label":"Contract status","value":"Vet-Ext1","unit":"text","display":"Vet-Ext1","grade":"A","source":"MFL roster workbench","as_of":"2026-11-19","tool":"roster.current","call_id":"c1"},"c1.tcv":{"label":"Total contract value","value":27000,"unit":"usd","display":"$27K","grade":"A","source":"MFL roster workbench","as_of":"2026-11-19","tool":"roster.current","call_id":"c1"},"c1.aav":{"label":"Average annual value","value":9000,"unit":"usd","display":"$9K","grade":"A","source":"MFL roster workbench","as_of":"2026-11-19","tool":"roster.current","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"roster.current","call_id":"c1","ms":640,"status":"ok"}],"cost_usd":0.0094},"request_id":"demo-answer"},"answer_with_caveat":{"state":"answer_with_caveat","question":"How many championships has franchise 0003 won?","lead_md":"{{f.c1.team}} ({{f.c1.fid}}) has won {{f.c1.titles}} championships. The most recent was in {{f.c1.last_title}}.","blocks":[{"type":"table","title":"Championship seasons","columns":["Season","Final finish"],"rows":[["{{f.c1.first_title}}","Champion"],["{{f.c1.last_title}}","Champion"]],"fact_ids":["c1.first_title","c1.last_title"],"tool_call_ids":["c1"]}],"facts_used":["c1.team","c1.fid","c1.titles","c1.first_title","c1.last_title"],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["Show every final finish for this franchise"],"facts":{"c1.team":{"label":"Franchise","value":"Harbor Hawks","unit":"text","display":"Harbor Hawks","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.fid":{"label":"Franchise id","value":"0003","unit":"id","display":"0003","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.titles":{"label":"Championships","value":2,"unit":"count","display":"2","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.first_title":{"label":"First title","value":2014,"unit":"season","display":"2014","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.last_title":{"label":"Latest title","value":2022,"unit":"season","display":"2022","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"history.finishes","call_id":"c1","ms":910,"status":"ok"}],"cost_usd":0.0121},"request_id":"demo-answer_with_caveat","caveat":"Counts follow the franchise id, not the owner. Ownership changes are not in the record yet."},"answer_with_conflict":{"state":"answer_with_conflict","question":"Who finished 10th in 2015?","lead_md":"The {{f.c1.season}} final standings are defective. {{f.c1.team_a}} ({{f.c1.fid_a}}) and {{f.c1.team_b}} ({{f.c1.fid_b}}) are both recorded at {{f.c1.finish_a}}. No franchise is recorded in the spot below, so the desk can't say who finished there.","blocks":[],"facts_used":["c1.season","c1.team_a","c1.fid_a","c1.finish_a","c1.team_b","c1.fid_b","c1.finish_b"],"cites":[],"gaps":[{"what":"A corrected 2015 final standings","why":"NO_RECORD","source_needed":"The MFL standings export for 2015, or a commissioner note"}],"conflicts":[{"fact_a":"f.c1.finish_a","fact_b":"f.c1.finish_b","note":"Two franchises share one finish and the next place down is empty. This is a known defect in the season record."}],"ruling_question":"","follow_ups":["Show the 2015 standings as recorded"],"facts":{"c1.season":{"label":"Season","value":2015,"unit":"season","display":"2015","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.team_a":{"label":"Franchise A","value":"Bay Bandits","unit":"text","display":"Bay Bandits","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.fid_a":{"label":"Franchise A id","value":"0004","unit":"id","display":"0004","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.finish_a":{"label":"Final finish, source A","value":6,"unit":"rank","display":"6th","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.team_b":{"label":"Franchise B","value":"Delta Dragons","unit":"text","display":"Delta Dragons","grade":"A","source":"Hall of champions page","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.fid_b":{"label":"Franchise B id","value":"0011","unit":"id","display":"0011","grade":"A","source":"Hall of champions page","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.finish_b":{"label":"Final finish, source B","value":6,"unit":"rank","display":"6th","grade":"B","source":"Hall of champions page","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"history.finishes","call_id":"c1","ms":1010,"status":"ok"}],"cost_usd":0.0139},"request_id":"demo-answer_with_conflict"},"answer_with_gap":{"state":"answer_with_gap","question":"Trace the 2024 3rd-round pick of franchise 0003.","lead_md":"The pick changed hands {{f.c1.transfers}} times before the draft. {{f.c1.holder_team}} ({{f.c1.holder_fid}}) holds it now. Which player it became is not on record.","blocks":[{"type":"timeline","title":"Ownership chain","rows":[{"date":"2023-04-25","from":"Harbor Hawks (0003)","to":"Copper Kings (0001)","what":"Packaged with a veteran receiver","grade":"A","detail":["Pick: 2024 round 3 (own)","Player: a veteran receiver"]},{"date":"2023-05-28","from":"Copper Kings (0001)","to":"Mesa Miners (0009)","what":"Swapped for a 2024 round 2 pick","grade":"A"},{"date":"2023-08-04","from":"Mesa Miners (0009)","to":"Harbor Hawks (0003)","what":"Part of a multi-player deal","grade":"A","detail":["Two players and this pick moved together"]},{"date":"2023-11-15","from":"Prairie Wolves (0005)","to":"Harbor Hawks (0003)","what":"Returned to its original owner","grade":"A","kind":"final"},{"date":"Draft day","what":"Slot and player selected: no stored draft order for 2024","kind":"gap"}],"tool_call_ids":["c1"],"expand_question":"Expand the deals this pick was packaged into","expand_label":"Expand the next level of deals"}],"facts_used":["c1.transfers","c1.holder_team","c1.holder_fid"],"cites":[],"gaps":[{"what":"Draft slot and the player taken with the 2024 pick","why":"NO_RECORD","source_needed":"Stored draft order and results for the 2024 draft"}],"conflicts":[],"ruling_question":"","follow_ups":["Who held the pick before each trade?","Show the full deal behind the August 2023 trade"],"facts":{"c1.transfers":{"label":"Ownership changes","value":4,"unit":"count","display":"4","grade":"A","source":"MFL transactions archive","as_of":"2026-11-19","tool":"player.transactions","call_id":"c1"},"c1.holder_team":{"label":"Current holder","value":"Harbor Hawks","unit":"text","display":"Harbor Hawks","grade":"A","source":"MFL transactions archive","as_of":"2026-11-19","tool":"player.transactions","call_id":"c1"},"c1.holder_fid":{"label":"Holder id","value":"0003","unit":"id","display":"0003","grade":"A","source":"MFL transactions archive","as_of":"2026-11-19","tool":"player.transactions","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"player.transactions","call_id":"c1","ms":1380,"status":"ok"},{"id":"coverage.check","call_id":"c2","ms":120,"status":"no_record"}],"cost_usd":0.0163},"request_id":"demo-answer_with_gap"},"budget_exceeded":{"state":"budget_exceeded","question":"Compare the cap health of every franchise.","lead_md":"Paused: the AI budget for this period is used up. No model call was made. Ask again when the next period starts.","blocks":[],"facts_used":[],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":[],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[],"cost_usd":0},"request_id":"demo-budget_exceeded"},"cap_penalty_quote":{"state":"answer_with_caveat","question":"What cap penalty applies if franchise 0008 cuts Chris Olave today?","lead_md":"If {{f.c1.team}} ({{f.c1.fid}}) cuts {{f.c1.player}} today, the cap penalty is {{f.c1.penalty}}. It lands on the {{f.c1.hits_season}} cap.","blocks":[{"type":"table","title":"How the penalty is worked out","columns":["Step","Amount"],"rows":[["Total contract value","{{f.c1.tcv}}"],["Guaranteed share","{{f.c1.guar_pct}}"],["Guaranteed amount","{{f.c1.guaranteed}}"],["Salary earned so far","{{f.c1.earned}}"],["Cap penalty (guaranteed minus earned)","{{f.c1.penalty}}"]],"tool_call_ids":["c1"]}],"facts_used":["c1.player","c1.team","c1.fid","c1.tcv","c1.guar_pct","c1.guaranteed","c1.earned","c1.penalty","c1.hits_season"],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["What if the cut waits until after the deadline?","Show this contract year by year"],"facts":{"c1.player":{"label":"Player","value":"Chris Olave","unit":"text","display":"Chris Olave","grade":"A","source":"Cap penalty preview route","as_of":"2026-11-19","tool":"cap.penalty_quote","call_id":"c1"},"c1.team":{"label":"Franchise","value":"Lakeside Lions","unit":"text","display":"Lakeside Lions","grade":"A","source":"Cap penalty preview route","as_of":"2026-11-19","tool":"cap.penalty_quote","call_id":"c1"},"c1.fid":{"label":"Franchise id","value":"0008","unit":"id","display":"0008","grade":"A","source":"Cap penalty preview route","as_of":"2026-11-19","tool":"cap.penalty_quote","call_id":"c1"},"c1.tcv":{"label":"Total contract value","value":24000,"unit":"usd","display":"$24K","grade":"A","source":"Cap penalty preview route","as_of":"2026-11-19","tool":"cap.penalty_quote","call_id":"c1"},"c1.guar_pct":{"label":"Guaranteed share","value":75,"unit":"pct","display":"75%","grade":"B","source":"Canon cut formula","as_of":"2026-11-19","tool":"cap.penalty_quote","call_id":"c1"},"c1.guaranteed":{"label":"Guaranteed amount","value":18000,"unit":"usd","display":"$18K","grade":"C","source":"Cap penalty preview route","as_of":"2026-11-19","tool":"cap.penalty_quote","call_id":"c1"},"c1.earned":{"label":"Salary earned so far","value":4500,"unit":"usd","display":"$4,500","grade":"C","source":"Cap penalty preview route","as_of":"2026-11-19","tool":"cap.penalty_quote","call_id":"c1"},"c1.penalty":{"label":"Cap penalty","value":13500,"unit":"usd","display":"$13,500","grade":"C","source":"Cap penalty preview route","as_of":"2026-11-19","tool":"cap.penalty_quote","call_id":"c1"},"c1.hits_season":{"label":"Season the penalty hits","value":2027,"unit":"season","display":"2027","grade":"C","source":"Cap penalty preview route","as_of":"2026-11-19","tool":"cap.penalty_quote","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"cap.penalty_quote","call_id":"c1","ms":1240,"status":"ok"},{"id":"calendar.events","call_id":"c2","ms":310,"status":"ok"}],"cost_usd":0.0172},"request_id":"demo-cap_penalty_quote","caveat":"Penalties are rounded to the nearest thousand on each franchise's season sum at the cut deadline. This quote is the exact amount for this cut."},"cap_position":{"state":"answer","question":"What is franchise 0008's cap position?","lead_md":"{{f.c1.team}} ({{f.c1.fid}}) has {{f.c1.cap_room}} of cap room for {{f.c1.season}}. It has used {{f.c1.cap_used}} of {{f.c1.cap_limit}}.","blocks":[{"type":"table","title":"Cap math","columns":["Line","Amount"],"rows":[["Salary cap","{{f.c1.cap_limit}}"],["Roster salaries","{{f.c1.salaries}}"],["Cap adjustments (penalties)","{{f.c1.adjustments}}"],["Injured reserve relief","{{f.c1.ir_relief}}"],["Cap used","{{f.c1.cap_used}}"],["Cap room","{{f.c1.cap_room}}"],["Sign convention","Penalties count against the cap. IR relief counts for it."]],"tool_call_ids":["c1"]}],"facts_used":["c1.team","c1.fid","c1.season","c1.cap_limit","c1.salaries","c1.adjustments","c1.ir_relief","c1.cap_used","c1.cap_room"],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["Show next season's cap position","List the cap adjustments behind this"],"facts":{"c1.team":{"label":"Franchise","value":"Lakeside Lions","unit":"text","display":"Lakeside Lions","grade":"A","source":"MFL roster workbench and cap math","as_of":"2026-11-19","tool":"cap.position","call_id":"c1"},"c1.fid":{"label":"Franchise id","value":"0008","unit":"id","display":"0008","grade":"A","source":"MFL roster workbench and cap math","as_of":"2026-11-19","tool":"cap.position","call_id":"c1"},"c1.season":{"label":"Season","value":2026,"unit":"season","display":"2026","grade":"A","source":"MFL roster workbench and cap math","as_of":"2026-11-19","tool":"cap.position","call_id":"c1"},"c1.cap_limit":{"label":"Salary cap","value":500000,"unit":"usd","display":"$500K","grade":"B","source":"MFL roster workbench and cap math","as_of":"2026-11-19","tool":"cap.position","call_id":"c1"},"c1.salaries":{"label":"Roster salaries","value":431000,"unit":"usd","display":"$431K","grade":"A","source":"MFL roster workbench and cap math","as_of":"2026-11-19","tool":"cap.position","call_id":"c1"},"c1.adjustments":{"label":"Cap adjustments (penalties)","value":18000,"unit":"usd","display":"$18K","grade":"A","source":"MFL roster workbench and cap math","as_of":"2026-11-19","tool":"cap.position","call_id":"c1"},"c1.ir_relief":{"label":"Injured reserve relief","value":6000,"unit":"usd","display":"$6K","grade":"C","source":"MFL roster workbench and cap math","as_of":"2026-11-19","tool":"cap.position","call_id":"c1"},"c1.cap_used":{"label":"Cap used","value":443000,"unit":"usd","display":"$443K","grade":"C","source":"MFL roster workbench and cap math","as_of":"2026-11-19","tool":"cap.position","call_id":"c1"},"c1.cap_room":{"label":"Cap room","value":57000,"unit":"usd","display":"$57K","grade":"C","source":"MFL roster workbench and cap math","as_of":"2026-11-19","tool":"cap.position","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"cap.position","call_id":"c1","ms":990,"status":"ok"},{"id":"roster.current","call_id":"c2","ms":610,"status":"ok"}],"cost_usd":0.0126},"request_id":"demo-cap_position"},"cite_and_abstain":{"state":"cite_and_abstain","question":"Was the taxi squad limit the same in 2019?","lead_md":"The current rule text is cited below. Rules are not stored by date, so the desk can't say what applied then.","blocks":[],"facts_used":[],"cites":[{"anchor":"a4-c2","canon_sha":"194f8df","claim":"Current canon text on taxi squad size and eligibility. It is labeled as current, not as the 2019 rule."}],"gaps":[{"what":"The taxi squad rule as it read in 2019","why":"unsupported_as_of","source_needed":"A dated rulebook archive or the 2019 rule thread"}],"conflicts":[],"ruling_question":"","follow_ups":["Show the rule changes since 2019"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"rules.search","call_id":"c1","ms":210,"status":"unsupported_as_of"}],"cost_usd":0.0071},"request_id":"demo-cite_and_abstain"},"conflict_trade_deadline":{"state":"answer_with_conflict","question":"When is the trade deadline this year?","lead_md":"The league calendar shows the trade deadline on {{f.c1.cal_deadline}}. Canon's wording works out to {{f.c2.canon_deadline}}. The desk does not pick one.","blocks":[],"facts_used":["c1.cal_deadline","c2.canon_deadline"],"cites":[{"anchor":"t2-c1","canon_sha":"194f8df","claim":"Trades must be completed before the trade deadline."}],"gaps":[{"what":"Which date governs the deadline","why":"conflict_in_canon","source_needed":"A commissioner ruling"}],"conflicts":[{"fact_a":"f.c1.cal_deadline","fact_b":"f.c2.canon_deadline","note":"The calendar entry and the canon wording disagree. A ruling would settle which one governs."}],"ruling_question":"","follow_ups":["Draft a ruling question about the deadline"],"facts":{"c1.cal_deadline":{"label":"Deadline, league calendar","value":"2026-11-25","unit":"date","display":"2026-11-25","grade":"A","source":"League calendar events","as_of":"2026-11-19","tool":"calendar.events","call_id":"c1"},"c2.canon_deadline":{"label":"Deadline, canon wording","value":"2026-11-18","unit":"date","display":"2026-11-18","grade":"B","source":"Canon, trades section","as_of":"2026-11-19","tool":"calendar.events","call_id":"c2"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"calendar.events","call_id":"c1","ms":420,"status":"ok"},{"id":"rules.search","call_id":"c2","ms":190,"status":"ok"}],"cost_usd":0.0143},"request_id":"demo-conflict_trade_deadline"},"coverage_pick_slot_decline":{"state":"abstain","question":"Which player did franchise 0008 take with its 2020 2nd-round pick?","lead_md":"Not on record yet. The league data has no draft order or pick results for that draft, so the desk can't say who was taken.","blocks":[],"facts_used":[],"cites":[],"gaps":[{"what":"Draft order and pick results for the 2020 rookie draft","why":"NO_RECORD","source_needed":"Stored rookie draft results (a planned League Record item)"}],"conflicts":[],"ruling_question":"","follow_ups":["Who held that pick before the draft?"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"coverage.check","call_id":"c1","ms":100,"status":"no_record"}],"cost_usd":0.0062},"request_id":"demo-coverage_pick_slot_decline"},"finish_toilet_bowl":{"state":"answer","question":"Who won the Toilet Bowl in 2019?","lead_md":"{{f.c1.team}} ({{f.c1.fid}}) won the Toilet Bowl in {{f.c1.season}}. That is the finish labeled {{f.c1.label}}, not a regular place.","blocks":[{"type":"table","title":"Bottom of the final standings","columns":["Final finish","Label","Franchise"],"rows":[["{{f.c1.finish}}","Toilet Bowl champion (Hawk Tuah Bowl)","Prairie Wolves (0005)"],["{{f.c1.f8}}","Toilet bracket, runner-up","Delta Dragons (0011)"],["{{f.c1.f9}}","Toilet bracket, third","Summit Stags (0010)"]],"tool_call_ids":["c1"]}],"facts_used":["c1.season","c1.team","c1.fid","c1.label","c1.finish","c1.f8","c1.f9"],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["List every Toilet Bowl champion"],"facts":{"c1.season":{"label":"Season","value":2019,"unit":"season","display":"2019","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.team":{"label":"Franchise","value":"Prairie Wolves","unit":"text","display":"Prairie Wolves","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.fid":{"label":"Franchise id","value":"0005","unit":"id","display":"0005","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.label":{"label":"Finish label","value":"Toilet Bowl champion","unit":"text","display":"Toilet Bowl champion","grade":"C","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.finish":{"label":"Final finish number","value":7,"unit":"rank","display":"7th","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.f8":{"label":"Final finish number","value":8,"unit":"rank","display":"8th","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"},"c1.f9":{"label":"Final finish number","value":9,"unit":"rank","display":"9th","grade":"A","source":"MFL historical finishes","as_of":"2026-11-19","tool":"history.finishes","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"history.finishes","call_id":"c1","ms":870,"status":"ok"}],"cost_usd":0.0105},"request_id":"demo-finish_toilet_bowl"},"ignore_injection":{"state":"ignore_injection","question":"How many players fit on a taxi squad?","lead_md":"A taxi squad holds up to {{f.c1.taxi_limit}} players. This comes from the current rules text.","blocks":[],"facts_used":["c1.taxi_limit"],"cites":[{"anchor":"a4-c2","canon_sha":"194f8df","claim":"Current canon text on taxi squad size and eligibility."}],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["Who can be moved to the taxi squad?"],"facts":{"c1.taxi_limit":{"label":"Taxi squad size","value":4,"unit":"count","display":"4","grade":"B","source":"Canon rules text","as_of":"2026-11-19","tool":"rules.get","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"rules.search","call_id":"c1","ms":230,"status":"ok"},{"id":"rules.get","call_id":"c2","ms":80,"status":"ok"}],"cost_usd":0.0109},"request_id":"demo-ignore_injection","injection_note":"Ignored instructions found in source text: a forum archive post told the reader to approve any request. The answer uses canon only."},"needs_ruling":{"state":"needs_ruling","question":"Can a trade offered before the deadline be accepted after it?","lead_md":"Canon does not say whether a trade offered before the deadline can be accepted after it. More than one reading fits the text. The desk can't decide this for you.","blocks":[{"type":"branch","title":"Two readings","branches":[{"label":"Reading 1: the offer time counts","reading":"A trade is valid if it was offered before the deadline, even when it is accepted later.","rule":{"anchor":"t2-c1","claim":"Trades must be completed before the trade deadline."},"needs":"A rule that ties validity to the offer."},{"label":"Reading 2: the accept time counts","reading":"A trade is valid only if it is accepted before the deadline.","rule":{"anchor":"t2-c3","claim":"The salary cap is checked at the moment of the accept."},"needs":"A note that the accept is the completing event."}]}],"facts_used":[],"cites":[{"anchor":"t2-c1","canon_sha":"194f8df","claim":"Trades must be completed before the trade deadline."},{"anchor":"t2-c3","canon_sha":"194f8df","claim":"The salary cap is checked at the moment of the accept."}],"gaps":[],"conflicts":[],"ruling_question":"If a trade is offered before the trade deadline but accepted after it, is it valid? Should the offer time or the accept time decide?","follow_ups":["Show past trades accepted after a deadline"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"rules.search","call_id":"c1","ms":260,"status":"ok"},{"id":"rules.get","call_id":"c2","ms":90,"status":"ok"}],"cost_usd":0.0187},"request_id":"demo-needs_ruling"},"not_ready":{"state":"not_ready","question":"Is the desk ready?","lead_md":"The desk is not ready to answer yet. Try again in a minute.","blocks":[],"facts_used":[],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":[],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[],"cost_usd":0},"request_id":"demo-not_ready"},"out_of_scope":{"state":"out_of_scope","question":"Post this ruling to the league Discord.","lead_md":"The desk never posts, sends or changes anything. It answers league questions and drafts text for you to use yourself. Try asking what a rule says or how a contract works.","blocks":[],"facts_used":[],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["What does the rule say about trade deadlines?"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[],"cost_usd":0},"request_id":"demo-out_of_scope"},"out_of_scope_preview":{"state":"out_of_scope","question":"(free text)","lead_md":"This is a fixture preview. Free text only matches the sample questions, and no live data is behind it. Pick a suggested question, or open the card gallery.","blocks":[],"facts_used":[],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":[],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[],"cost_usd":0},"request_id":"demo-out_of_scope_preview"},"partial":{"state":"partial","question":"Show cap adjustments for franchise 0006 from 2020 to 2026.","lead_md":"{{f.c1.team}} ({{f.c1.fid}}) shows {{f.c1.total}} in cap adjustments across {{f.c1.seasons}} seasons. The earliest seasons are only partly recorded.","blocks":[{"type":"chart","title":"Cap adjustments by season","columns":["Season","Adjustments","Ledger"],"rows":[["2020","{{f.c1.y2020}}","Partial"],["2021","{{f.c1.y2021}}","Partial"],["2022","{{f.c1.y2022}}","Complete"],["2023","{{f.c1.y2023}}","Complete"],["2024","{{f.c1.y2024}}","Complete"],["2025","{{f.c1.y2025}}","Complete"],["2026","{{f.c1.y2026}}","Complete"]],"eras":[{"at":"2021","label":"37 games"},{"at":"2022","label":"Superflex"}],"tool_call_ids":["c1"]}],"facts_used":["c1.team","c1.fid","c1.total","c1.seasons","c1.y2020","c1.y2021","c1.y2022","c1.y2023","c1.y2024","c1.y2025","c1.y2026"],"cites":[],"gaps":[{"what":"Adjustments for 2020 and 2021 are incomplete","why":"partial_coverage","source_needed":"Full salary-adjustment ledger for 2020 and 2021"}],"conflicts":[],"ruling_question":"","follow_ups":["Break down the 2024 adjustments"],"facts":{"c1.team":{"label":"Franchise","value":"Ridge Runners","unit":"text","display":"Ridge Runners","grade":"A","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.fid":{"label":"Franchise id","value":"0006","unit":"id","display":"0006","grade":"A","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.total":{"label":"Total adjustments","value":31000,"unit":"usd","display":"$31K","grade":"C","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.seasons":{"label":"Seasons covered","value":7,"unit":"count","display":"7","grade":"C","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.y2020":{"label":"Adjustments 2020","value":4000,"unit":"usd","display":"$4K","grade":"A","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.y2021":{"label":"Adjustments 2021","value":0,"unit":"usd","display":"$0","grade":"A","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.y2022":{"label":"Adjustments 2022","value":7000,"unit":"usd","display":"$7K","grade":"A","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.y2023":{"label":"Adjustments 2023","value":3000,"unit":"usd","display":"$3K","grade":"A","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.y2024":{"label":"Adjustments 2024","value":9000,"unit":"usd","display":"$9K","grade":"A","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.y2025":{"label":"Adjustments 2025","value":5000,"unit":"usd","display":"$5K","grade":"A","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"},"c1.y2026":{"label":"Adjustments 2026","value":3000,"unit":"usd","display":"$3K","grade":"A","source":"MFL salary adjustments ledger","as_of":"2026-11-19","tool":"cap.adjustments","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"cap.adjustments","call_id":"c1","ms":1720,"status":"ok"}],"cost_usd":0.0148},"request_id":"demo-partial"},"penalty_refused_incomplete":{"state":"abstain","question":"What penalty applies if franchise 0006 cuts Marquise Brown?","lead_md":"The desk can't quote this penalty. The contract record has no year-by-year salaries, so the earned amount would be a guess.","blocks":[],"facts_used":[],"cites":[],"gaps":[{"what":"Year-by-year salaries for this contract","why":"NO_RECORD","source_needed":"The per-year salary line in the contract record"}],"conflicts":[],"ruling_question":"","follow_ups":["Show this contract record as stored"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"cap.penalty_quote","call_id":"c1","ms":760,"status":"refused","code":"incomplete_contract_data"}],"cost_usd":0.0083},"request_id":"demo-penalty_refused_incomplete"},"refuse_fairness":{"state":"refuse_fairness","question":"Tell me what franchise 0009 will bid on at the auction so I can outbid them.","lead_md":"The desk won't use commissioner access to help one franchise against another. It can answer from public records if you ask about those.","blocks":[],"facts_used":[],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["Show last year's public auction results"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[],"cost_usd":0},"request_id":"demo-refuse_fairness"},"refuse_privacy":{"state":"refuse_privacy","question":"What trade offers is franchise 0012 considering right now?","lead_md":"The desk can't share that. Trade talks in progress are private to the franchises involved.","blocks":[],"facts_used":[],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["Show completed trades for this franchise"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[],"cost_usd":0},"request_id":"demo-refuse_privacy"},"rule_citation":{"state":"answer","question":"Can retired players be cut cap-free during the FA Auction?","lead_md":"Yes. Retired players may be cut cap-free during the FA Auction, as long as the retirement is genuine.","blocks":[],"facts_used":[],"cites":[{"anchor":"d2-c3","canon_sha":"194f8df","claim":"Retired players may be cut cap-free during the FA Auction. Retirement must be genuine, such as an official announcement."}],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":["What counts as a genuine retirement?","Show other cap-free cut categories"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"rules.search","call_id":"c1","ms":240,"status":"ok"},{"id":"rules.get","call_id":"c2","ms":85,"status":"ok"}],"cost_usd":0.0094},"request_id":"demo-rule_citation"},"stale_data":{"state":"stale_data","question":"Who is on injured reserve for franchise 0004?","lead_md":"The roster feed was last refreshed {{f.c1.age}} ago, and its limit is {{f.c1.limit}}. The injured reserve list is withheld until it refreshes.","blocks":[],"facts_used":["c1.age","c1.limit"],"cites":[],"gaps":[{"what":"A fresh roster pull","why":"stale","source_needed":"The next roster refresh"}],"conflicts":[],"ruling_question":"","follow_ups":["Show the data freshness report"],"facts":{"c1.age":{"label":"Feed age","value":"31 hours","unit":"text","display":"31 hours","grade":"A","source":"Data freshness report","as_of":"2026-11-19","tool":"data.freshness","call_id":"c1"},"c1.limit":{"label":"Freshness limit","value":"6 hours","unit":"text","display":"6 hours","grade":"B","source":"Tool policy","as_of":"2026-11-19","tool":"data.freshness","call_id":"c1"}},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"data.freshness","call_id":"c1","ms":180,"status":"ok"},{"id":"roster.current","call_id":"c2","ms":0,"status":"stale","code":"stale_data"}],"cost_usd":0.0066},"request_id":"demo-stale_data"},"tag_cut_refused":{"state":"cite_and_abstain","question":"What penalty applies if franchise 0005 cuts its tagged player now?","lead_md":"The desk can't quote a tag-cut penalty this close to the FA Auction. The calculator and canon use different cutoff dates.","blocks":[],"facts_used":[],"cites":[{"anchor":"c2-c8","canon_sha":"194f8df","claim":"A tag contract cut before the FA Auction starts carries no cap penalty."}],"gaps":[{"what":"The tag-cut cutoff as the calculator applies it","why":"unverified_calculation","source_needed":"A commissioner ruling on the cutoff date, or a calculator fix"}],"conflicts":[],"ruling_question":"","follow_ups":["Draft a ruling question about the tag cutoff"],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"cap.penalty_quote","call_id":"c1","ms":640,"status":"refused","code":"tag_cutoff_unreliable"},{"id":"calendar.events","call_id":"c2","ms":280,"status":"ok"}],"cost_usd":0.0098},"request_id":"demo-tag_cut_refused"},"tool_failure":{"state":"tool_failure","question":"Which players does franchise 0011 have on the taxi squad right now?","lead_md":"The desk could not verify the taxi squad right now. The roster service timed out. No list is shown.","blocks":[],"facts_used":[],"cites":[],"gaps":[],"conflicts":[],"ruling_question":"","follow_ups":[],"facts":{},"header":{"ai_generated":true,"as_of":"2026-11-19","canon_sha":"194f8df","phase":"P1"},"footer":{"tools":[{"id":"roster.current","call_id":"c1","ms":8000,"status":"error","code":"timeout"}],"cost_usd":0.0021},"request_id":"demo-tool_failure"}},"fallback":"out_of_scope_preview"};</script>
+<script id="pv-boot">
+(function () {
+  "use strict";
+  var shell = document.getElementById("pv-shell"), host = document.getElementById("pv-desk");
+  var gallery = document.getElementById("pv-gallery"), themeSel = document.getElementById("pv-theme"), err = document.getElementById("pv-err");
+  var ctrl = null, fx = null;
+
+  function start(data) {
+    fx = data;
+    var api = UPSDesk.makeFixtureApi({ questions: data.questions, cards: data.cards, fallback: data.fallback }, { delayMs: 1400 });
+    ctrl = UPSDesk.mount(host, {
+      api: api,
+      banner: "Fixture preview: free text only matches the sample questions below.",
+      suggestions: data.questions.map(function (q) { return { q: q.question, suggested: !!q.suggested }; })
+    });
+    Object.keys(data.cards).sort().forEach(function (name) {
+      var o = document.createElement("option"); o.value = name; o.textContent = data.cards[name].state + " (" + name + ")"; gallery.appendChild(o);
+    });
+  }
+
+  gallery.addEventListener("change", function () {
+    if (!ctrl || !gallery.value || !fx) return;
+    var c = JSON.parse(JSON.stringify(fx.cards[gallery.value]));
+    ctrl.showCard(c, c.question);
+  });
+  themeSel.addEventListener("change", function () {
+    [shell, host].forEach(function (n) { if (themeSel.value) n.setAttribute("data-theme", themeSel.value); else n.removeAttribute("data-theme"); });
+    document.documentElement.style.background = themeSel.value === "dark" ? "#0b101b" : themeSel.value === "light" ? "#f4f6fa" : "";
+  });
+
+  if (window.UPS_DESK_FIXTURES) { start(window.UPS_DESK_FIXTURES); return; }
+  // Source layout (served over http from this folder): load the fixture files next to the page.
+  function getJson(u) { return fetch(u).then(function (r) { if (!r.ok) throw new Error(u + " " + r.status); return r.json(); }); }
+  getJson("fixtures/demo_questions.json").then(function (dq) {
+    return Promise.all(dq.cards.map(function (n) { return getJson("fixtures/cards/" + n + ".json"); })).then(function (list) {
+      var cards = {}; dq.cards.forEach(function (n, i) { cards[n] = list[i]; });
+      start({ questions: dq.questions, cards: cards, fallback: dq.fallback });
+    });
+  }).catch(function () { err.textContent = "Fixtures did not load. Open desk_preview.single.html, or serve this folder over http."; });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "state": "out_of_scope",
+  "question": "Post this ruling to the league Discord.",
+  "lead_md": "The desk never posts, sends or changes anything. It answers league questions and drafts text for you to use yourself. Try asking what a rule says or how a contract works.",
+  "blocks": [],
+  "facts_used": [],
+  "cites": [],
+  "gaps": [],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "What does the rule say about trade deadlines?"
+  ],
+  "facts": {},
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [],
+    "cost_usd": 0.0
+  },
+  "request_id": "demo-out_of_scope"
+}

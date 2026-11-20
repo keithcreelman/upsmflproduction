@@ -1,0 +1,40 @@
+{
+  "state": "abstain",
+  "question": "What penalty applies if franchise 0006 cuts Marquise Brown?",
+  "lead_md": "The desk can't quote this penalty. The contract record has no year-by-year salaries, so the earned amount would be a guess.",
+  "blocks": [],
+  "facts_used": [],
+  "cites": [],
+  "gaps": [
+    {
+      "what": "Year-by-year salaries for this contract",
+      "why": "NO_RECORD",
+      "source_needed": "The per-year salary line in the contract record"
+    }
+  ],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "Show this contract record as stored"
+  ],
+  "facts": {},
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "cap.penalty_quote",
+        "call_id": "c1",
+        "ms": 760,
+        "status": "refused",
+        "code": "incomplete_contract_data"
+      }
+    ],
+    "cost_usd": 0.0083
+  },
+  "request_id": "demo-penalty_refused_incomplete"
+}

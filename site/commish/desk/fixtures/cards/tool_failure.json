@@ -1,0 +1,32 @@
+{
+  "state": "tool_failure",
+  "question": "Which players does franchise 0011 have on the taxi squad right now?",
+  "lead_md": "The desk could not verify the taxi squad right now. The roster service timed out. No list is shown.",
+  "blocks": [],
+  "facts_used": [],
+  "cites": [],
+  "gaps": [],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [],
+  "facts": {},
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "roster.current",
+        "call_id": "c1",
+        "ms": 8000,
+        "status": "error",
+        "code": "timeout"
+      }
+    ],
+    "cost_usd": 0.0021
+  },
+  "request_id": "demo-tool_failure"
+}

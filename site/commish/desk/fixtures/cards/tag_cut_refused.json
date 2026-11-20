@@ -1,0 +1,52 @@
+{
+  "state": "cite_and_abstain",
+  "question": "What penalty applies if franchise 0005 cuts its tagged player now?",
+  "lead_md": "The desk can't quote a tag-cut penalty this close to the FA Auction. The calculator and canon use different cutoff dates.",
+  "blocks": [],
+  "facts_used": [],
+  "cites": [
+    {
+      "anchor": "c2-c8",
+      "canon_sha": "194f8df",
+      "claim": "A tag contract cut before the FA Auction starts carries no cap penalty."
+    }
+  ],
+  "gaps": [
+    {
+      "what": "The tag-cut cutoff as the calculator applies it",
+      "why": "unverified_calculation",
+      "source_needed": "A commissioner ruling on the cutoff date, or a calculator fix"
+    }
+  ],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "Draft a ruling question about the tag cutoff"
+  ],
+  "facts": {},
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "cap.penalty_quote",
+        "call_id": "c1",
+        "ms": 640,
+        "status": "refused",
+        "code": "tag_cutoff_unreliable"
+      },
+      {
+        "id": "calendar.events",
+        "call_id": "c2",
+        "ms": 280,
+        "status": "ok"
+      }
+    ],
+    "cost_usd": 0.0098
+  },
+  "request_id": "demo-tag_cut_refused"
+}

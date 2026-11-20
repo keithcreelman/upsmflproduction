@@ -1,0 +1,46 @@
+{
+  "state": "answer",
+  "question": "Can retired players be cut cap-free during the FA Auction?",
+  "lead_md": "Yes. Retired players may be cut cap-free during the FA Auction, as long as the retirement is genuine.",
+  "blocks": [],
+  "facts_used": [],
+  "cites": [
+    {
+      "anchor": "d2-c3",
+      "canon_sha": "194f8df",
+      "claim": "Retired players may be cut cap-free during the FA Auction. Retirement must be genuine, such as an official announcement."
+    }
+  ],
+  "gaps": [],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "What counts as a genuine retirement?",
+    "Show other cap-free cut categories"
+  ],
+  "facts": {},
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "rules.search",
+        "call_id": "c1",
+        "ms": 240,
+        "status": "ok"
+      },
+      {
+        "id": "rules.get",
+        "call_id": "c2",
+        "ms": 85,
+        "status": "ok"
+      }
+    ],
+    "cost_usd": 0.0094
+  },
+  "request_id": "demo-rule_citation"
+}
