@@ -2,7 +2,7 @@
 
    Read-only by construction:
    - every request is a plain GET with credentials omitted and no custom headers;
-   - the address must be the UPS worker, one of four allowed paths, and only the query names listed below;
+   - the address must be the UPS worker, one of six allowed paths, and only the query names listed below;
    - an MFL export may only be of a TYPE on the allowlist (no transactions, trade bait or other owner text);
    - a session id, API key or cookie can never be sent: no such query name is allowed and nothing here reads one.
    Anything else is refused before the network is touched, and the refusal is recorded in the request log shown
@@ -18,7 +18,10 @@
     { path: "/roster-workbench", query: ["L", "YEAR"] },
     { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults"] },
     { path: "/api/current-lineup-week", query: ["L", "YEAR"] },
-    { path: "/api/cap-penalty/preview", query: ["L", "YEAR"] }
+    { path: "/api/cap-penalty/preview", query: ["L", "YEAR"] },
+    // stage R2 (Team › Roster): injury status for every player, and this week's NFL games (opponent, home or away, kickoff)
+    { path: "/api/player-status", query: ["season", "L"] },
+    { path: "/api/lineup-matchups", query: ["YEAR", "W"] }
   ];
   var SECRET_NAME = /mfl_user_id|apikey|api_key|key|token|session|cookie|password|auth/i;
 
@@ -56,7 +59,9 @@
       league: base + "/api/mfl-export?" + q({ TYPE: "league", L: L, YEAR: Y, JSON: 1 }),
       week: base + "/api/current-lineup-week?" + q({ L: L, YEAR: Y }),
       weekly: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "weeklyResults", L: L, YEAR: Y, JSON: 1, W: w }); },
-      penalty: base + "/api/cap-penalty/preview?" + q({ L: L, YEAR: Y })
+      penalty: base + "/api/cap-penalty/preview?" + q({ L: L, YEAR: Y }),
+      status: base + "/api/player-status?" + q({ season: Y, L: L }),
+      matchups: function (w) { return base + "/api/lineup-matchups?" + q({ YEAR: Y, W: w }); }
     };
 
     function get(url, label) {
@@ -92,14 +97,87 @@
 
     // The roster read is the one the screens cannot do without. League limits, the lineup week and the submitted
     // lineup improve the screen; if any of them fails, the roster still shows and says what is missing.
+    // Each added read is kept in memory by its exact address and reused (switching views, weeks or teams never asks again).
+    // It is asked again only on an explicit reload, or when its freshness limit has passed and the screen is used again.
+    var memo = {};
+    var LIMIT = { status: 4 * 60 * 1000 + 30 * 1000, matchups: 5 * 60 * 1000, weekly: 60 * 60 * 1000 };
+    function cached(key, limit, run, force) {
+      var m = memo[key], now = Date.now();
+      if (!force && m) {
+        if (m.state === "loading") return m.promise;
+        if (m.state === "ok" && now - m.at <= limit) return m.promise;
+        if (m.state === "error" && now - m.at <= 60 * 1000) return m.promise;
+      }
+      var rec = { state: "loading", at: now, promise: null };
+      rec.promise = run().then(function (r) { rec.state = r.state; rec.at = Date.now(); return r; });
+      memo[key] = rec;
+      return rec.promise;
+    }
+    // A failed read is not kept past a mode change or a Try again.
+    function clearErrors() { Object.keys(memo).forEach(function (k) { if (memo[k].state === "error" || memo[k].state === "loading") delete memo[k]; }); }
+    function clearAll() { memo = {}; }
+
+    // MFL's injury read has an expected-return text on every row. Its meaning is not verified (Keith, 2026-11-20: show Unavailable), so
+    // it is dropped HERE, before anything else can hold it: nothing in the page can display what is never kept.
+    function stripReturn(j) {
+      var out = {}; Object.keys(j).forEach(function (k) { if (k !== "players") out[k] = j[k]; });
+      out.players = {};
+      Object.keys(j.players).forEach(function (id) {
+        var e = j.players[id] || {}, c = {};
+        Object.keys(e).forEach(function (k) {
+          var v = e[k];
+          if ((k === "mfl" || k === "roster") && v && typeof v === "object") {
+            var w = {}; Object.keys(v).forEach(function (f) { if (f !== "exp_return" && f !== "return_date") w[f] = v[f]; });
+            v = w;
+          }
+          c[k] = v;
+        });
+        out.players[id] = c;
+      });
+      return out;
+    }
+    function loadStatus(force) {
+      return cached("status", LIMIT.status, function () {
+        return settle(get(urls.status, "injury status")).then(function (r) {
+          if (r.state !== "ok") return r;
+          var j = r.data;
+          if (!j || j.ok !== true || !j.players || typeof j.players !== "object") return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: stripReturn(j), at: Date.now() };
+        });
+      }, force);
+    }
+    // Only what the screens use is kept from the matchup read: each team's game that week, and each player's points per final game.
+    function loadMatchups(week, force) {
+      return cached("mu:" + week, LIMIT.matchups, function () {
+        return settle(get(urls.matchups(week), "NFL games, week " + week)).then(function (r) {
+          if (r.state !== "ok") return r;
+          var j = r.data;
+          if (!j || j.ok === false || !j.matchups || typeof j.matchups !== "object") return { state: "error", data: null, error: "Unexpected answer" };
+          var games = {}, avg = {};
+          Object.keys(j.matchups).forEach(function (t) { var g = j.matchups[t] || {}; games[t] = { opp: String(g.opp || ""), isHome: g.isHome === true, kickoff: Number(g.kickoff) || 0, status: String(g.status || "") }; });
+          Object.keys(j.playerWindow || {}).forEach(function (id) { var w = j.playerWindow[id] || {}; if (isFinite(Number(w.avg)) && w.avg != null) avg[id] = { avg: Number(w.avg), games: Number(w.games) || 0 }; });
+          return { state: "ok", data: { week: Number(j.week) || Number(week), games: games, avg: avg, asOf: String(j.as_of || "") }, at: Date.now() };
+        });
+      }, force);
+    }
+    function loadWeekly(week, force) {
+      return cached("wk:" + week, LIMIT.weekly, function () {
+        return settle(get(urls.weekly(week), "lineups and scores, week " + week)).then(function (r) {
+          if (r.state === "ok" && !(r.data && r.data.weeklyResults)) return { state: "error", data: null, error: "Unexpected answer" };
+          return r;
+        });
+      }, force);
+    }
+
     function loadCore() {
+      clearAll(); // an explicit (re)load starts from nothing
       var rw = settle(get(urls.roster, "roster and contracts"));
       var league = settle(get(urls.league, "league limits"));
       var weekRead = settle(get(urls.week, "current lineup week"));
       return Promise.all([rw, league, weekRead]).then(function (r) {
         var wk = r[2].state === "ok" && r[2].data && r[2].data.ok !== false ? parseInt(r[2].data.week, 10) : NaN;
         var week = isFinite(wk) ? wk : null;
-        var weeklyP = week ? settle(get(urls.weekly(week), "submitted lineups, week " + week)) : Promise.resolve({ state: "error", data: null, error: "Lineup week unknown" });
+        var weeklyP = week ? loadWeekly(week, true) : Promise.resolve({ state: "error", data: null, error: "Lineup week unknown" });
         return weeklyP.then(function (weekly) { return { roster: r[0], league: r[1], week: week, weekRead: r[2], weekly: weekly }; });
       });
     }
@@ -124,7 +202,7 @@
       return by;
     }
 
-    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, summary: summary };
+    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadStatus: loadStatus, loadMatchups: loadMatchups, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
   }
 
   return { RULES: RULES, check: check, createLoader: createLoader };

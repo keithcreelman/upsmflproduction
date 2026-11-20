@@ -8,14 +8,15 @@
     req ? require("./contract.js") : root.UPS2027.contract,
     req ? require("./model.js") : root.UPS2027.model,
     req ? require("./photo.js") : root.UPS2027.photo,
-    req ? require("./sample.js") : root.UPS2027.sample
+    req ? require("./sample.js") : root.UPS2027.sample,
+    req ? require("./roster.js") : root.UPS2027.roster
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.views = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM) {
+})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R) {
   "use strict";
 
-  var esc = F.esc, money = F.money;
+  var esc = F.esc, money = F.money, commonCode = F.commonCode;
   var NAVS = [
     ["home", "Home", "M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"],
     ["team", "Team", "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 20c0-3.3 2.7-5 6-5s6 1.7 6 5M16 11a2.5 2.5 0 1 0 0-5M17 15c2.5.3 4 1.8 4 5"],
@@ -61,54 +62,161 @@
     return '<div class="cap"><b>Active ' + of(t.counts.active, lim.roster) + "</b> · Taxi " + of(t.counts.taxi, lim.taxi) + " · IR " + of(t.counts.ir, lim.ir) + "</div>";
   }
 
+  var VIEWS = [["lineup", "Lineup"], ["performance", "Performance"], ["contracts", "Contracts"], ["byes", "Byes"]];
   function seg(view) {
-    return '<div class="seg" role="group" aria-label="Roster view">' +
-      [["lineup", "Lineup"], ["contracts", "Contracts"]].map(function (o) {
-        return '<button data-act="view" data-v="' + o[0] + '" aria-pressed="' + (view === o[0]) + '">' + o[1] + "</button>";
-      }).join("") + "</div>";
+    return '<div class="seg seg4" role="group" aria-label="Roster view">' +
+      VIEWS.map(function (o) { return '<button data-act="view" data-v="' + o[0] + '" aria-pressed="' + (view === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
   }
 
-  function row(p, S) {
-    var small, right = "";
-    if (S.view === "contracts") {
+  // ---------- the week on screen ----------
+  function weekBar(S, wi) {
+    if (!wi.cur) return "";
+    var past = wi.past;
+    return '<button class="wsel' + (past ? " past" : "") + '" data-act="weeks" aria-label="Week ' + wi.sel + (past ? ", past" : ", current") + '. Change week"><span class="r1"><span class="w1">Week ' + wi.sel +
+      '</span><span class="w2">' + (past ? "past" : "current") + '</span><span class="go" aria-hidden="true">▾</span></span><span class="r2">' +
+      (past ? chip("", "Played · as MFL recorded it") : chip("ok", "✓ As MFL has it")) + "</span></button>";
+  }
+  function weekSheet(S) {
+    var wi = R.weekInfo(S);
+    return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Choose a week" tabindex="-1"><div class="grab"></div><div class="top"><h3>Choose a week</h3><button class="btn" data-act="close">Close</button></div>' +
+      '<div class="ex">A past week shows that week’s lineup, scores and NFL matchups as MFL recorded them. Injury status, rosters and contracts are only shown for the current week. Later weeks are not available in this preview.</div>' +
+      R.weekChoices(wi.cur).map(function (c) {
+        var label = c.kind === "current" ? "Current week" : c.kind === "past" ? "Played" : c.kind === "future" ? "Not available in this preview" : "Unavailable";
+        var on = c.n === wi.sel, off = c.kind === "future" || c.kind === "unknown";
+        return '<button class="so' + (off ? " off" : "") + '" data-act="pickweek" data-v="' + c.n + '"' + (off ? " disabled" : "") + ' aria-pressed="' + on + '"><span class="in"><b>Week ' + c.n + "</b><small>" + label + "</small></span>" + (on ? '<span class="ok">✓</span>' : "") + "</button>";
+      }).join("") + "</div></div>";
+  }
+
+  // ---------- rows ----------
+  // `o.wk` is the week the row speaks for; `o.tag` the starter's slot tag. A row in a past week shows only HISTORICAL facts
+  // (that week's opponent, bye and score); injury chips and cap notes are CURRENT and are drawn only when the week is current.
+  function row(p, S, o) {
+    o = o || {};
+    var wi = R.weekInfo(S), wk = o.wk != null ? o.wk : wi.cur, past = !!o.past;
+    var team = p.nflTeam || "No NFL team"; // MFL's own code, as the roster rows have always printed it
+    var small = "", right = "", chips = [];
+    var view = past ? "past" : S.view;
+    if (view === "contracts") {
       var through = p.years ? "through " + (S.model.season + p.years - 1) : "no years recorded";
-      small = esc(p.type || "Type not recorded") + " · " + through;
+      small = esc(p.type || "Type not recorded") + " · " + through + esc(R.capNote(p));
       var sal = p.salary == null ? '<b class="wn">Not recorded</b>' : "<b>" + money(p.salary) + "</b>";
       right = '<div class="rt">' + sal + (p.years === 1 ? chip("wn", "▲ Final year") : p.years ? '<span class="mu sm">' + p.years + " yrs left</span>" : "") + "</div>";
+    } else if (view === "byes") {
+      small = esc(team) + " · " + (p.bye ? "bye week " + p.bye + " · " + R.relWeek(p.bye, wi.cur) : "bye week unavailable");
+      right = '<div class="rt"><b>' + (p.bye ? "Wk " + p.bye : "—") + "</b>" + (p.bye && p.bye === wi.cur ? chip("wn", "▲ Week " + wi.cur) : "") + "</div>";
     } else {
-      small = esc(p.nflTeam || "No NFL team") + (p.bye && p.bye === S.model.week ? " · Bye week" : "");
-      right = p.bye && p.bye === S.model.week && p.status === "active" ? '<div class="rt">' + chip("wn", "▲ Bye week") + "</div>" : "";
+      var parts = [esc(team)];
+      var inPlay = past || p.status === "active";
+      if (p.status === "gone") { inPlay = false; parts = []; }
+      if (!past && p.status === "ir") parts.push("Return: Unavailable"); // MFL's expected-return text is not shown (ruling 2026-11-20)
+      else if (!past && p.status === "taxi") parts.push(p.taxi.used == null ? "Call-ups unavailable" : p.taxi.used + "/" + (p.taxi.max || 3) + " call-ups");
+      else if (inPlay) {
+        var opp = R.oppText(S, p, wk);
+        if (opp) parts.push(esc(opp));
+        if (!past && S.view === "lineup" && o.tag) { var ko = R.kickoffText(S, p, wk); if (ko) parts.push(esc(ko)); }
+      }
+      if (p.status === "gone") parts.push("No longer on a UPS roster");
+      else if (past && p.franchiseId && S.teamId && p.franchiseId !== S.teamId) parts.push("now on another team");
+      if (view === "performance" || view === "past") {
+        var sw = past ? wk : R.scoreWeek(wi), sc = sw ? R.scoreOf(S, p.id, sw) : null;
+        var sct = !sw ? "—" : sc === undefined ? "…" : sc === null && p.bye === sw ? "Bye" : R.pts(sc);
+        if (!past) {
+          if (p.status !== "active") parts = [esc(team), "not in play"];
+          else {
+            var av = R.avgOf(S, p.id, wi.cur);
+            parts = [esc((sw ? "Wk " + sw + " " + sct : "No earlier week") + " · Avg " + (av === undefined ? "…" : R.pts(av)))].concat(parts.slice(1));
+          }
+        }
+        right = past ? '<div class="rt"><b>' + sct + '</b><span class="mu sm">pts</span></div>' : '<div class="rt"><b>—</b><span class="mu sm">proj</span></div>';
+      }
+      small = parts.join(" · ");
+      if (!past) {
+        var onB = R.onBye(p, wk) && o.tag;
+        if (onB) chips.push(chip("wn", "▲ Bye week"));
+        var ic = R.injuryChip(S, p);
+        if (ic) chips.push(chip(ic.cls, esc(ic.text)));
+      } else if (o.tag && R.onBye(p, wk)) chips.push(chip("wn", "▲ Bye week"));
     }
-    return '<div class="rx"><span class="tag pp">' + pcx(p.pos) + '</span><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + small + "</small></button></div>" + right + '<span class="go" aria-hidden="true">›</span></div>';
+    var tag = o.tag ? '<span class="tag sl">' + esc(o.tag) + "</span>" : '<span class="tag pp">' + pcx(p.pos) + "</span>";
+    return '<div class="rx' + (o.problem ? " prob" : "") + '">' + tag + '<div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + small + "</small></button>" +
+      (chips.length ? '<div class="fl">' + chips.join("") + "</div>" : "") + "</div>" + right + '<span class="go" aria-hidden="true">›</span></div>';
+  }
+  function emptyRow(slot, current) {
+    return '<div class="rx empty' + (current ? " prob" : "") + '"><span class="tag sl">' + esc(slot.tag) + '</span><div class="in"><b>Empty</b></div></div>';
   }
 
-  function group(key, label, players, S, badge) {
-    var open = !!S.open[key];
-    return '<button class="gh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + "</span>" + badge + '<span class="t"><b>' + players.length + " " + esc(label) + "</b></span></button>" +
-      (open ? '<div class="card rows">' + players.map(function (p) { return row(p, S); }).join("") + "</div>" : "");
+  function groupDefault(S, key) {
+    if (key === "ir" || key === "taxi") return false;
+    if (S.gdef === "all") return true;
+    var t = team(S), g = t ? M.benchGroups(t).filter(function (x) { return "b" + x.pos === key; })[0] : null;
+    return !!(g && R.groupReasons(S, g.players).length);
+  }
+  function isOpen(S, key) { return S.open && S.open[key] !== undefined ? !!S.open[key] : groupDefault(S, key); }
+
+  function group(key, label, players, S, badge, extra) {
+    var open = isOpen(S, key), reasons = extra && extra.reasons || [];
+    return '<button class="gh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + "</span>" + badge + '<span class="t"><b>' + players.length + " " + esc(label) + "</b>" + (reasons.length ? " " + chip("wn", "Needs you") : "") + "</span></button>" +
+      (open ? '<div class="card rows">' + players.map(function (p) { return row(p, S, {}); }).join("") + "</div>" + reasons.map(function (r) { return '<div class="ex pad">' + esc(r) + ".</div>"; }).join("") : "");
+  }
+
+  // ---------- summary lines ----------
+  function sumCard(html) { return '<div class="card sumc">' + html + "</div>"; }
+  function statusLine(S, lineup, wi, view) {
+    var lim = S.model.limits.starters || 18, is = R.issues(S, lineup, wi.cur);
+    var checked = S.intel && S.intel.status && S.intel.status.state === "ok";
+    return sumCard("<b>" + lineup.filled + " of " + lim + " starters</b> · " + (is.n ? is.n + " to fix" : "nothing to fix") + (checked ? "" : " (injuries not checked)") +
+      (view !== "lineup" ? ' <button class="link" data-act="view" data-v="lineup">Open Lineup</button>' : ""));
+  }
+
+  function teamScoreLine(S, t, wi) {
+    var sw = R.scoreWeek(wi), v = sw ? R.teamScoreOf(S, t.id, sw) : null;
+    return !sw ? "Unavailable" : v === undefined ? "…" : R.pts(v) + " (Week " + sw + ")";
+  }
+
+  function lineupBlock(S, t, wi, lineup, past) {
+    var lim = S.model.limits.starters || 18, wk = wi.sel;
+    var rows = lineup.slots.map(function (x) {
+      return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past);
+    }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); })).join("");
+    return '<div class="grp"><span>Week ' + wk + " starters · " + lineup.filled + " of " + lim + '</span></div><div class="card rows">' + rows + "</div>";
   }
 
   function rosterBody(S) {
-    var t = team(S), m = S.model, out = "";
-    out += teamPicker(t) + countsLine(t, m.limits) + seg(S.view);
+    var t = team(S), m = S.model, wi = R.weekInfo(S), out = "";
+    out += teamPicker(t) + countsLine(t, m.limits);
     if (S.load.core !== "ok" && S.load.coreNotes && S.load.coreNotes.length) {
       out += '<div class="card warnc"><h2>Not everything loaded</h2>' + S.load.coreNotes.map(function (n) { return '<div class="ex">' + esc(n) + "</div>"; }).join("") + "</div>";
     }
-    // starters, as the lineup MFL holds for this week
-    var st = M.starters(t);
-    if (t.lineup.state === "ok") {
-      out += '<div class="grp"><span>Week ' + m.week + " starters · " + st.length + (m.limits.starters ? " of " + m.limits.starters : "") + '</span></div><div class="card rows">' +
-        (st.length ? st.map(function (p) { return row(p, S); }).join("") : '<div class="rx"><div class="in"><b>No starters set on MFL</b></div></div>') + "</div>";
-      out += '<div class="ex pad">The lineup as MFL has it for Week ' + m.week + ". Nothing here can change it.</div>";
+    out += weekBar(S, wi) + seg(S.view);
+
+    // A past week (Lineup and Performance): only what MFL recorded for that week.
+    if (wi.past && (S.view === "lineup" || S.view === "performance")) {
+      out += sumCard("<b>Week " + wi.sel + " · played</b> · Lineup, scores and NFL matchups are from that week. Injury status, rosters and contracts are as of now, so none of them is drawn here. Each player’s NFL team is his team today, so a player who changed teams may show a different opponent.<div><button class=\"link\" data-act=\"pickweek\" data-v=\"" + wi.cur + "\">Go to Week " + wi.cur + " (current)</button></div>");
+      var pl = R.lineupFor(S, t, wi.sel);
+      if (pl.state === "loading") return out + '<div class="card rows" aria-busy="true">' + skeletonRows(6) + '</div><div class="mu ctr sm">Loading Week ' + wi.sel + "…</div>";
+      if (pl.state !== "ok") return out + '<div class="card warnc"><h2>Week ' + wi.sel + '</h2><div class="ex">' + (pl.state === "missing" ? "MFL has no lineup recorded for this team in that week." : "That week’s lineup could not be read" + (pl.error ? " (" + esc(pl.error) + ")" : "") + ". Nothing is guessed in its place.") + '</div><button class="btn blk" data-act="pickweek" data-v="' + wi.sel + '">Try again</button></div>';
+      return out + lineupBlock(S, t, wi, pl, true) + '<div class="ex pad">Bench, injured reserve and taxi are not shown for past weeks: rosters change, and a roster drawn here would be today’s, not that week’s.</div>';
+    }
+    if (wi.past) out += '<div class="ex pad">' + (S.view === "contracts" ? "Contracts and cap notes are as of now, not Week " + wi.sel + "." : "Bye weeks are shown for today’s roster.") + "</div>";
+
+    var cur = wi.cur, lineup = t.lineup.state === "ok" ? R.lineupFor(S, t, cur) : null;
+    var inj = R.injuryNote(S);
+    if (lineup && lineup.state === "ok") {
+      if (S.view === "contracts") out += statusLine(S, lineup, wi, S.view) + sumCard("<b>" + R.endingAfterSeason(t) + " end after " + m.season + '</b> <button class="link" data-act="sub" data-v="contracts">Open full Contracts ›</button>');
+      else if (S.view === "byes") { var bc = R.byeCounts(t, cur); out += statusLine(S, lineup, wi, S.view) + sumCard("<b>Week " + cur + " · " + bc.now + " on a bye</b> · Week " + (cur + 1) + " · " + bc.next); }
+      else if (S.view === "performance") out += statusLine(S, lineup, wi, S.view) + sumCard("<b>Projected lineup Unavailable</b> · last week " + esc(teamScoreLine(S, t, wi))) + '<div class="ex pad">Projections are Unavailable until a projection source is approved. Nothing is estimated.</div>';
+      if (inj && S.view !== "contracts") out += '<div class="ex pad">' + esc(inj) + "</div>";
+      out += lineupBlock(S, t, wi, lineup, false);
+      if (S.view === "lineup") out += '<div class="ex pad">The lineup as MFL has it for Week ' + cur + ". Nothing here can change it. Kickoff times are Eastern.</div>";
     } else {
       out += '<div class="card warnc"><h2>Lineup not available</h2><div class="ex">MFL’s submitted lineup could not be read, so no starters are shown. Every active player is under Bench. This is not an empty lineup.</div></div>';
     }
     // bench
     var groups = M.benchGroups(t);
     var benchN = groups.reduce(function (n, g) { return n + g.players.length; }, 0);
-    var allOpen = groups.every(function (g) { return S.open["b" + g.pos]; }) && !!S.open.ir && !!S.open.taxi;
+    var allOpen = groups.every(function (g) { return isOpen(S, "b" + g.pos); }) && isOpen(S, "ir") && isOpen(S, "taxi");
     out += '<div class="grp"><span>Bench · ' + benchN + '</span><button class="link" data-act="expall">' + (allOpen ? "Collapse all" : "Expand all") + "</button></div>";
-    out += groups.map(function (g) { return group("b" + g.pos, "on bench", g.players, S, pcx(g.pos)); }).join("");
+    out += groups.map(function (g) { return group("b" + g.pos, "on bench", g.players, S, pcx(g.pos), { reasons: R.groupReasons(S, g.players) }); }).join("");
     // reserves
     var ir = M.reserve(t, "ir"), tx = M.reserve(t, "taxi");
     out += '<div class="grp"><span>Injured reserve · ' + ir.length + (m.limits.ir ? " of " + m.limits.ir : "") + "</span></div>";
@@ -252,7 +360,7 @@
       ["Acquired", esc(p.acquisition || "Not recorded")]
     ]) +
       (p.status === "taxi" ? '<div class="sec2">Taxi</div>' + kv([["Call-ups used", p.taxi.used == null ? "Not available" : p.taxi.used + (p.taxi.max ? " of " + p.taxi.max : "")], ["Eligibility", esc(p.taxi.text || "Not available")]]) : "") +
-      '<div class="ex mt6">Injury status, news and bio are not in Preview 0.</div>';
+      '<div class="ex mt6">News and bio are not in Preview 0. Injury tags show on the roster rows; this profile shows no injury detail and no return date yet.</div>';
   }
 
   function profile(S) {
@@ -279,11 +387,7 @@
     return /^[A-Z]{2,3}$/.test(c) ? " tm-" + c : "";
   }
   // The header prints the common NFL abbreviation, as the prototype does (KC, GB, SF), not MFL's spelling (KCC, GBP, SFO).
-  var COMMON = { GBP: "GB", KCC: "KC", LVR: "LV", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", JAC: "JAX", WSH: "WAS" };
-  function commonCode(code) {
-    var c = String(code == null ? "" : code).trim().toUpperCase();
-    return COMMON[c] || c;
-  }
+  var commonCode = F.commonCode;
   function nameParts(n) {
     var s = String(n == null ? "" : n).trim(), i = s.indexOf(" ");
     return i < 0 ? ["", s] : [s.slice(0, i), s.slice(i + 1)];
@@ -326,13 +430,13 @@
       return '<div class="lg"><span class="lgw">' + esc(e.label || "") + "<small>" + esc(what) + '</small></span><span class="lgr">' + esc(e.method) + " " + esc(res) + (e.bytes != null ? "<small>" + Math.round(e.bytes / 1024) + " KB · " + (e.ms || 0) + " ms</small>" : "") + "</span></div>";
     }).join("");
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="About Preview 0" tabindex="-1"><div class="grab"></div><div class="top"><h3>About Preview 0</h3><button class="btn" data-act="close">Close</button></div>' +
-      '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of two redesigned screens: Team roster and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
+      '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of two redesigned screens: Team roster (four views and a week selector) and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
       '<div class="card"><h2>Data</h2><div class="ex">Read from the league when this page opened' + (S.model ? " (" + esc(F.etStamp(S.model.asOf) || "just now") + ")" : "") + '. The worker keeps each answer for up to a minute.</div>' + (sampleOn(S) ? '<div class="ex">Reloading is paused while Sample mode is on.</div>' : '<button class="btn blk" data-act="retry">Reload the data</button>') + "</div>" +
-      '<div class="card"><h2>Display</h2>' + chipRow("skin", [["system", "Match my phone"], ["light", "Light"], ["dark", "Dark"], ["hc", "High contrast"]], S.skin, "Skin") + chipRow("vib", [["1", "Vibrant"], ["0", "Plain"]], S.vib, "Position colors") + "</div>" +
+      '<div class="card"><h2>Display</h2>' + chipRow("skin", [["system", "Match my phone"], ["light", "Light"], ["dark", "Dark"], ["hc", "High contrast"]], S.skin, "Skin") + chipRow("vib", [["1", "Vibrant"], ["0", "Plain"]], S.vib, "Position colors") + chipRow("gdef", [["needs", "Only what needs you"], ["all", "All groups open"]], S.gdef || "needs", "Bench groups") + "</div>" +
       '<div class="card"><h2>Sample mode</h2><div class="ex">For trying screens without league data. Labeled, local to this phone, never remembered, and it starts no new request (data or photos) while it is on.</div><button class="btn blk" data-act="sample" data-v="about">' + (sampleOn(S) ? "Turn Sample mode off" : "Turn Sample mode on") + "</button></div>" +
       '<div class="card"><h2>Requests this page made</h2><div class="ex"><b>' + sum.requests + "</b> data requests: <b>" + sum.ok + "</b> succeeded, <b>" + sum.failed + "</b> failed, <b>" + sum.refused + "</b> refused. Methods other than GET: <b>" + sum.nonGet + '</b>. No cookie, session or key is ever sent.</div>' + rows +
-      '<div class="ex mt6">Player photos load straight from ESPN, then MFL, as the current app does. They are images, not data requests.</div></div>' +
-      '<div class="card"><h2>Not in Preview 0</h2><ul class="pl"><li>Any action: lineup changes, drops, extensions, bids, trades</li><li>Cap space and the Contracts and Cap &amp; picks tabs</li><li>Injury status, projections, game log, schedule, news, bio</li><li>Helmet badge and team colors (not approved)</li><li>Sign-in: you are not signed in as anyone</li></ul></div>' +
+      '<div class="ex mt6">Player photos load straight from ESPN, then MFL, as the current app does. They are images, not data requests. Injury status and NFL games are read once and reused when you change views or weeks.</div></div>' +
+      '<div class="card"><h2>Not in this preview</h2><ul class="pl"><li>Any action: lineup changes, drops, extensions, bids, trades</li><li>Cap space, the Contracts tab and Cap &amp; picks</li><li>Projections, game log, schedule, news, bio</li><li>Return dates for injured players: MFL lists one, but what it means is not verified, so it shows Unavailable</li><li>A real team helmet (a labeled placeholder is shown)</li><li>Sign-in: you are not signed in as anyone</li></ul></div>' +
       '<div class="ex">Build ' + esc(S.build || "") + "</div></div></div>";
   }
 
@@ -355,8 +459,9 @@
     if (S.sheet === "about") layer = aboutSheet(S);
     else if (!on && S.profile && S.model) layer = profile(S);
     else if (!on && S.sheet === "teams" && S.model) layer = teamSheet(S);
+    else if (!on && S.sheet === "weeks" && S.model) layer = weekSheet(S);
     return envBar(S) + screen + nav(S) + layer;
   }
 
-  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, teamSheet: teamSheet, rosterBody: rosterBody, NAVS: NAVS };
+  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS };
 });

@@ -86,7 +86,7 @@
       players.forEach(function (p) { counts[p.status]++; });
       return {
         id: fid, name: F.str(t.franchise_name), abbrev: F.str(t.franchise_abbrev), icon: F.str(t.icon_url),
-        players: players, counts: counts, lineup: startSet ? { state: "ok", count: startSet.length } : { state: "unavailable" }
+        players: players, counts: counts, lineup: startSet ? { state: "ok", count: startSet.length, ids: startSet.slice() } : { state: "unavailable" }
       };
     });
     return { season: season, week: week, asOf: F.str(rw && rw.generated_at), limits: limits, teams: teams, byId: byId };

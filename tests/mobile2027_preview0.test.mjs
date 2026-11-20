@@ -3,7 +3,7 @@
 //
 // Offline. The data is a trimmed recording of the public routes (tests/fixtures/mobile2027/public_reads.json); no test
 // touches the network, MFL, D1 or Discord. What is proven here:
-//   - read-only by construction: the only network code allows 4 GET paths, refuses everything else, and the source holds
+//   - read-only by construction: the only network code allows 6 GET paths, refuses everything else, and the source holds
 //     no write verb, credential name or second transport;
 //   - the contract numbers equal what the existing cap math and the worker say, and a missing fact is never drawn as $0;
 //   - every piece of data text is escaped; no inline script or style; the page's content policy names only the worker;
@@ -54,7 +54,7 @@ function state(over) {
     requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
   };
 }
-const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample"];
+const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef"];
 const findPlayer = (pred) => allPlayers().find(pred);
 
 // ───────────────────────── 1. contract text and schedule ─────────────────────────
@@ -133,7 +133,7 @@ test("the worker's answer is shown as the worker states it; anything unconfirmed
 });
 
 // ───────────────────────── 2. read-only by construction ─────────────────────────
-test("the request guard: four GET paths, the worker only, export types on a list, no credential-like name", () => {
+test("the request guard: six GET paths (four from Preview 0, two added for Team › Roster), the worker only, export types on a list, no credential-like name", () => {
   const L = D.createLoader(CFG, async () => { throw new Error("no network in tests"); });
   const u = L.urls;
   [u.roster, u.league, u.week, u.weekly(11), u.penalty].forEach((x) => t.ok(D.check(x, WORKER).ok, "allowed: " + x));
@@ -230,7 +230,7 @@ test("the source holds no write verb, credential name or second transport; fetch
   t.match(read("app.js"), /createLoader\(cfg, guardedFetch\)/); // the loader is handed only the guarded one
   t.match(read("app.js"), /if \(S\.sample\.on\) return Promise\.reject/, "and the guarded one refuses while Sample mode is on");
   files.filter((f) => f !== "app.js").forEach((f) => t.doesNotMatch(read(f), /localStorage|sessionStorage/, f + " does not store anything"));
-  t.deepEqual([...read("app.js").matchAll(/setPref\("([a-z]+)"/g)].map((m) => m[1]).sort().filter((x, i, a) => a.indexOf(x) === i), ["skin", "team", "vib"]);
+  t.deepEqual([...read("app.js").matchAll(/setPref\("([a-z]+)"/g)].map((m) => m[1]).sort().filter((x, i, a) => a.indexOf(x) === i), ["gdef", "skin", "team", "vib"]); // three display choices and the last team viewed
 });
 
 // ───────────────────────── 3. the model ─────────────────────────
@@ -460,7 +460,7 @@ test("About lists the requests made, the unavailable items and the display contr
   const S = state({ sheet: "about", requestLog: [{ label: "roster and contracts", path: "/roster-workbench", type: "", method: "GET", status: 200, bytes: 600000, ms: 900, refused: "" }, { label: "blocked", path: "/api/pick", type: "", method: "GET", status: null, refused: "path not allowed" }], requestSummary: { requests: 2, ok: 1, failed: 0, refused: 1, nonGet: 0 } });
   const html = V.app(S);
   t.match(html, /<b>2<\/b> data requests/); t.match(html, /Methods other than GET: <b>0<\/b>/); t.match(html, /Refused/);
-  t.match(html, /Helmet badge and team colors \(not approved\)/); t.match(html, /you are not signed in as anyone/);
+  t.doesNotMatch(html, /team colors \(not approved\)/, "the old copy is gone: team colors and the Helmet TBD placeholder are in the preview"); t.match(html, /Return dates for injured players/); t.match(html, /a labeled placeholder is shown/); t.match(html, /you are not signed in as anyone/);
   t.match(html, /data-act="skin"/); t.match(html, /data-act="vib"/);
   t.match(V.app(state({ sheet: "teams" })), /does not sign you in and cannot change anything/);
 });

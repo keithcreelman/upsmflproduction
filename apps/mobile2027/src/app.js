@@ -20,6 +20,9 @@
   var S = {
     model: null, load: { core: "loading", coreNotes: [], error: "" }, penalty: { state: "idle" },
     teamId: pref("team", ""), tab: "team", sub: "roster", view: "lineup", open: {}, flags: {},
+    wk: null, // the week on screen; null means the current lineup week. Only a past week ever changes it (view-only)
+    intel: { status: null, mu: {}, wk: {} }, // reads added in R2, by their own address: injury status, NFL games, weekly lineups and scores
+    gdef: pref("gdef", "needs"),
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(),
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
@@ -83,12 +86,52 @@
       else if (r.weekly.state !== "ok") notes.push("MFL’s submitted lineups could not be read (" + r.weekly.error + ").");
       S.model = U.model.build(rw, r.league.state === "ok" ? r.league.data : null, r.weekly.state === "ok" ? r.weekly.data : null, r.week, parseInt(cfg.season, 10));
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
+      S.intel = { status: null, mu: {}, wk: {} }; S.wk = null;
+      if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
       if (h.t && ids.indexOf(h.t) >= 0) S.teamId = h.t;
       if (ids.indexOf(S.teamId) < 0) S.teamId = ids[0];
       if (h.p) openProfile(h.p, true); else render();
+      ensureIntel();
     });
+  }
+
+  // ---- the reads Team › Roster adds (injury status, NFL games, other weeks' lineups and scores) ----
+  // Each is asked for by its exact address, once; the loader keeps the answer and gives it back when the view, the week or the
+  // team changes. It asks again only after Reload, or when its freshness limit has passed and the screen is used again.
+  function same(a, b) { return !!a && !!b && a.state === b.state && a.at === b.at; }
+  function intelRead(holder, key, ask, force) {
+    var mine = gen;
+    if (!holder[key]) holder[key] = { state: "loading" };
+    ask(force).then(function (r) {
+      if (mine !== gen || S.sample.on) return;
+      var next = r.state === "ok" ? { state: "ok", data: r.data, at: r.at || Date.now() } : { state: "error", error: r.error || "" };
+      if (same(holder[key], next)) return;
+      holder[key] = next; render(true);
+    });
+  }
+  function ensureIntel(force) {
+    if (S.sample.on || !S.model || S.tab !== "team" || S.sub !== "roster") return;
+    var wi = U.roster.weekInfo(S);
+    if (!wi.cur) return;
+    var historical = wi.past && (S.view === "lineup" || S.view === "performance");
+    if (historical) {
+      intelRead(S.intel.wk, wi.sel, function (f) { return loader.loadWeekly(wi.sel, f); }, force && S.intel.wk[wi.sel] && S.intel.wk[wi.sel].state === "error");
+      intelRead(S.intel.mu, wi.sel, function (f) { return loader.loadMatchups(wi.sel, f); }, force && S.intel.mu[wi.sel] && S.intel.mu[wi.sel].state === "error");
+      return;
+    }
+    // current information: injury status and this week's games, plus last week's scores for the Performance view
+    if (!S.intel.status) S.intel.status = { state: "loading" };
+    var mine = gen;
+    loader.loadStatus(force && S.intel.status.state === "error").then(function (r) {
+      if (mine !== gen || S.sample.on) return;
+      var next = r.state === "ok" ? { state: "ok", data: r.data, at: r.at } : { state: "error", error: r.error || "" };
+      if (same(S.intel.status, next)) return;
+      S.intel.status = next; render(true);
+    });
+    intelRead(S.intel.mu, wi.cur, function (f) { return loader.loadMatchups(wi.cur, f); }, force && S.intel.mu[wi.cur] && S.intel.mu[wi.cur].state === "error");
+    if (S.view === "performance" && wi.cur > 1) intelRead(S.intel.wk, wi.cur - 1, function (f) { return loader.loadWeekly(wi.cur - 1, f); }, force && S.intel.wk[wi.cur - 1] && S.intel.wk[wi.cur - 1].state === "error");
   }
 
   function loadPenalty(force) {
@@ -155,18 +198,26 @@
       render(true);
       return;
     }
+    loader.clearErrors();
     if (!S.model || S.load.core === "loading" || S.load.core === "error") { loadCore(); return; }
     render(true);
+    ensureIntel();
   }
   appEl.addEventListener("click", function (ev) {
     var el = ev.target.closest ? ev.target.closest("[data-act]") : null;
     if (!el || !appEl.contains(el)) return;
     var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
-    if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); }
-    else if (act === "sub") { S.sub = v; render(); }
-    else if (act === "view") { S.view = v; render(); }
-    else if (act === "grp") { var g = el.getAttribute("data-g"); S.open[g] = !S.open[g]; render(true); }
-    else if (act === "expall") { var keys = groupKeys(), all = keys.every(function (k) { return S.open[k]; }); keys.forEach(function (k) { S.open[k] = !all; }); render(true); }
+    if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); }
+    else if (act === "sub") { S.sub = v; render(); ensureIntel(); }
+    else if (act === "view") { S.view = v; S.sheet = null; render(); ensureIntel(); }
+    else if (act === "weeks") { S.sheet = "weeks"; render(); }
+    else if (act === "pickweek") {
+      var n = parseInt(v, 10), wi0 = U.roster.weekInfo(S);
+      if (isFinite(n) && wi0.cur && n >= 1 && n <= wi0.cur) { var again = n === wi0.sel; S.wk = n === wi0.cur ? null : n; S.sheet = null; render(); ensureIntel(again); }
+    }
+    else if (act === "gdef") { S.gdef = v === "all" ? "all" : "needs"; setPref("gdef", S.gdef); S.open = {}; render(true); }
+    else if (act === "grp") { var g = el.getAttribute("data-g"); S.open[g] = !U.views.isOpen(S, g); render(true); }
+    else if (act === "expall") { var keys = groupKeys(), all = keys.every(function (k) { return U.views.isOpen(S, k); }); keys.forEach(function (k) { S.open[k] = !all; }); render(true); }
     else if (act === "card") openProfile(el.getAttribute("data-pid"), false);
     else if (act === "close") closeLayer();
     else if (act === "teams") { S.sheet = "teams"; render(); }
