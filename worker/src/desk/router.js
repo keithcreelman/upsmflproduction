@@ -3,7 +3,7 @@
 // flag is a second net. Either way the card is `out_of_scope` and no tool and no further model call runs.
 
 import { isAsOf } from "./contract.js";
-import { MODELS, getPrompt, promptHash } from "./prompts.js";
+import { MODELS, getPrompt, promptHash, toolChoiceFor } from "./prompts.js";
 import { wrapAsData } from "./injection.js";
 
 export const DOMAINS = ["rules", "cap", "contracts", "roster", "trades", "picks", "standings", "history", "calendar", "players", "glossary", "data_freshness", "other"];
@@ -66,7 +66,7 @@ export async function routeQuestion({ question, asOf, call }) {
   const res = await call({
     step: "router", model: MODELS.router, system: getPrompt("router").text,
     messages: [{ role: "user", content: [{ type: "text", text: `${wrapAsData("question", question, { id: "q" })}\n${hint}` }] }],
-    tools: [ROUTE_TOOL], tool_choice: { type: "tool", name: ROUTE_TOOL.name }, max_tokens: 300, promptHash: await promptHash("router"),
+    tools: [ROUTE_TOOL], tool_choice: toolChoiceFor(MODELS.router, ROUTE_TOOL.name), max_tokens: 300, promptHash: await promptHash("router"),
   });
   if (!res.ok) return { ok: false, blocked: res };
   const block = ((res.response && res.response.content) || []).find((b) => b && b.type === "tool_use" && b.name === ROUTE_TOOL.name);

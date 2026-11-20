@@ -289,7 +289,7 @@ test("the scripted model is labeled, covers exactly the ten cases, and builds ca
   t.throws(() => scriptedResponse("DEV-NOPE-01", { messages: [] }));
   // Give the composer an evidence summary with made-up ids: the card must use exactly those ids and no other.
   const evidence = "TOOLS RUN:\n- c1 cap.position: ok\nFACTS (use these ids):\n- id=c1.cap_available | Cap available | display=$7K | grade C | as_of current\n- id=c1.cap_used | Cap used | display=$293K | grade C | as_of current\n- id=c1.salary_cap | Cap | display=$300K | grade A | as_of current\nGAPS (x):\n- (none)\nREFUSALS AND FAILURES (x):\n- (none)\nRULES RETRIEVED (x):\n- (none)";
-  const request = { tool_choice: { type: "tool", name: "emit_card" }, system: "s", messages: [{ role: "user", content: [{ type: "text", text: `<<<UPS_DATA question id="q" untrusted="true">>>\nHow much cap room does 0003 have right now?\n<<<END_UPS_DATA>>>\nas_of: current\n<<<UPS_DATA evidence id="e" untrusted="true">>>\n${evidence}\n<<<END_UPS_DATA>>>` }] }] };
+  const request = { tools: [{ name: "emit_card" }], tool_choice: { type: "auto" }, system: "s", messages: [{ role: "user", content: [{ type: "text", text: `<<<UPS_DATA question id="q" untrusted="true">>>\nHow much cap room does 0003 have right now?\n<<<END_UPS_DATA>>>\nas_of: current\n<<<UPS_DATA evidence id="e" untrusted="true">>>\n${evidence}\n<<<END_UPS_DATA>>>` }] }] };
   const ev = parseEvidence(request);
   t.deepEqual(ev.facts.map((f) => f.id), ["c1.cap_available", "c1.cap_used", "c1.salary_cap"]);
   const r = scriptedResponse("DEV-NOW-01", request);

@@ -253,7 +253,9 @@ function composerStep(caseId, request) {
 }
 
 // ── The client ──────────────────────────────────────────────────────────────────────────────────────
-const stepOf = (request) => (request.tool_choice && request.tool_choice.name === "route_question" ? "router" : request.tool_choice && request.tool_choice.name === "emit_card" ? "composer" : "loop");
+// The step is told by the tools offered (a forced tool_choice is not sent to every model): one tool named route_question or emit_card, else the loop.
+const toolNames = (request) => (Array.isArray(request.tools) ? request.tools.map((x) => x && x.name) : []);
+const stepOf = (request) => { const n = toolNames(request); return n.length === 1 && n[0] === "route_question" ? "router" : n.length === 1 && n[0] === "emit_card" ? "composer" : "loop"; };
 const bytes = (v) => new TextEncoder().encode(JSON.stringify(v)).length;
 export function estimateUsage(request, content) {
   return { input_tokens: Math.ceil(bytes({ system: request.system, messages: request.messages, tools: request.tools }) / 3.5), output_tokens: Math.max(20, Math.ceil(bytes(content) / 3.5)) };

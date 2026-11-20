@@ -563,7 +563,7 @@ test("LIVE hard abort: a model error stops the run at once (exit 3); the failed 
   t.equal(res.n_cases_run, 1); t.equal(r.anthropic.length, 3, "nothing after the failed call");
   const db = new DatabaseSync(cmd.ledger, { readOnly: true });
   const failed = db.prepare("SELECT cost_usd, est_cost_usd, error_code FROM ai_call_log WHERE mode = 'live' AND error_code IS NOT NULL").get();
-  t.ok(failed && failed.cost_usd > 0 && failed.cost_usd === failed.est_cost_usd && failed.error_code === "http_error", "a 5xx may have been processed: charged at the reservation");
+  t.ok(failed && failed.cost_usd > 0 && failed.cost_usd === failed.est_cost_usd && /^http_error(:5\d\d)?(:[a-z_]+)?$/.test(failed.error_code), "a 5xx may have been processed: charged at the reservation");
   db.close();
   t.equal(fs.readFileSync(cmd.journal, "utf8").split("\n").filter(Boolean).length, 3, "all three calls, including the failed one, are in the journal");
   clean(r);

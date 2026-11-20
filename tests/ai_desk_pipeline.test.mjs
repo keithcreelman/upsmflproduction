@@ -8,7 +8,7 @@ import { makeCommishCaller, DeskAuthError } from "../worker/src/desk/contract.js
 import { answerQuestion, DeskInputError, sanitizeQuestion, MAX_QUESTION_CHARS } from "../worker/src/desk/pipeline.js";
 import { detectActionRequest } from "../worker/src/desk/router.js";
 import { scanForInjection, wrapAsData, INJECTION_NOTE } from "../worker/src/desk/injection.js";
-import { promptHash, listPrompts, getPrompt, MODELS } from "../worker/src/desk/prompts.js";
+import { promptHash, listPrompts, getPrompt, MODELS, FORCED_TOOL_MODELS, toolChoiceFor } from "../worker/src/desk/prompts.js";
 import { LOOP_LIMITS } from "../worker/src/desk/loop.js";
 import { deriveTemporal, extractTemporal } from "../worker/src/desk/temporal.js";
 import { summarizeEvidence, retrievedRules, BODY_CHARS } from "../worker/src/desk/composer.js";
@@ -132,8 +132,12 @@ test("requests carry model, promptHash, forced tools, and data delimiters", asyn
   t.equal(l1.model, MODELS.loop);
   t.equal(cp.model, MODELS.composer);
   t.deepEqual(rt.tool_choice, { type: "tool", name: "route_question" });
-  t.deepEqual(cp.tool_choice, { type: "tool", name: "emit_card" });
+  t.deepEqual(cp.tool_choice, { type: "auto" });   // forced tool choice is a 400 on Sonnet 5.5 (R1); only Haiku (the router) is forced
   t.deepEqual(cp.tools.map((x) => x.name), ["emit_card"]);
+  // The R1 lesson: a forced tool_choice may only ever reach a model known to accept it (Sonnet 5.5 answers it with a 400).
+  for (const q of r.s.requests) if (q.tool_choice && (q.tool_choice.type === "tool" || q.tool_choice.type === "any")) t.ok(FORCED_TOOL_MODELS.includes(q.model), `forced tool_choice sent to ${q.model}`);
+  t.deepEqual(toolChoiceFor("claude-sonnet-5-5", "x"), { type: "auto" }); t.deepEqual(toolChoiceFor("claude-opus-5-5", "x"), { type: "auto" });
+  t.deepEqual(toolChoiceFor("claude-haiku-5-5", "x"), { type: "tool", name: "x" }); t.deepEqual(toolChoiceFor("unknown-model", "x"), { type: "auto" });
   for (const q of r.s.requests) t.match(q.promptHash, /^[0-9a-f]{64}$/);
   t.equal(new Set(r.s.requests.map((q) => q.promptHash)).size, 3, "three distinct prompts");
   t.ok(l1.tools.some((x) => x.name === "cap__position"));

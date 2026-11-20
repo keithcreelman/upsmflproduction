@@ -4,7 +4,7 @@
 // Cards for budget, tool failure, stale data and out-of-scope are built by CODE (codeCard) with no model-written text.
 
 import { formatFact, MODEL_CARD_STATES, GAP_REASONS } from "./contract.js";
-import { MODELS, getPrompt, promptHash } from "./prompts.js";
+import { MODELS, getPrompt, promptHash, toolChoiceFor } from "./prompts.js";
 import { scanForInjection, wrapAsData, INJECTION_NOTE } from "./injection.js";
 import { buildFactIndex, collectToolGaps, anchorSet, MAX_CARD_GAPS, LIMITS } from "./validator.js";
 
@@ -183,7 +183,7 @@ export async function composeCard({ question, asOf, envelopes, call, errors, ext
   const res = await call({
     step: errors && errors.length ? "retry" : "composer", model: MODELS.composer, system: getPrompt("composer").text,
     messages: composerMessages({ question, asOf, evidenceText, suspicious, errors }),
-    tools: [EMIT_CARD_TOOL], tool_choice: { type: "tool", name: EMIT_CARD_TOOL.name }, max_tokens: 2500, promptHash: await promptHash("composer"),
+    tools: [EMIT_CARD_TOOL], tool_choice: toolChoiceFor(MODELS.composer, EMIT_CARD_TOOL.name), max_tokens: 2500, promptHash: await promptHash("composer"),
   });
   if (!res.ok) return { ok: false, blocked: res };
   const block = ((res.response && res.response.content) || []).find((b) => b && b.type === "tool_use" && b.name === EMIT_CARD_TOOL.name);

@@ -430,7 +430,7 @@ test("error accounting: only a definite 4xx refusal is free; everything else kee
     const r = await call({ env: BIG, db: d, client: createFakeClient([new DeskModelError("http_error", { status, providerType: "invalid_request_error" })]) });
     t.deepEqual([r.ok, r.reason, r.detail], [false, "model_error", "http_error"], `http ${status}`);
     const [row] = rows(d);
-    t.equal(row.cost_usd, 0, `http ${status} is free`); t.equal(row.error_code, "http_error");
+    t.equal(row.cost_usd, 0, `http ${status} is free`); t.equal(row.error_code, `http_error:${status}:invalid_request_error`, "the ledger keeps the status and the provider error TYPE (never its message)");
     t.deepEqual(totals(d).total, { reserved: 0, spent: 0 });
   }
   for (const err of charged) {

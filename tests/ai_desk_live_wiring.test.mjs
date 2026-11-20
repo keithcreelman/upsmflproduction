@@ -51,7 +51,8 @@ function makeNetwork(env, script) {
     if (url !== ANTHROPIC) { net.refused.push(String(url).slice(0, 80)); throw new Error(`offline test: unexpected network call to ${String(url).slice(0, 60)}`); }
     const headers = Object.fromEntries(Object.entries(init && init.headers ? init.headers : {}).map(([k, v]) => [k.toLowerCase(), v]));
     const body = JSON.parse(init.body);
-    const step = body.tool_choice && body.tool_choice.name === "route_question" ? "router" : body.tool_choice && body.tool_choice.name === "emit_card" ? "composer" : "loop";
+    const tn = Array.isArray(body.tools) ? body.tools.map((x) => x && x.name) : [];
+    const step = tn.length === 1 && tn[0] === "route_question" ? "router" : tn.length === 1 && tn[0] === "emit_card" ? "composer" : "loop";
     net.snapshots.push(ledger());          // the ledger as it stood AT the moment the request left the Worker
     net.calls.push({ url, method: init.method, headers, body, rawBody: init.body, step });
     const reply = q[step].shift();
@@ -247,7 +248,7 @@ test("FAIL CLOSED: a provider error keeps the reservation as its cost (a 429 may
   t.ok(["tool_failure", "budget_exceeded"].includes(r.json.card.state));
   t.ok(!r.text.includes(DESK_KEY) && !r.text.includes("slow down"), "the provider's body and the key are never echoed");
   const rows = env.UPS_MFL_DB.raw.prepare("SELECT cost_usd, error_code FROM ai_call_log WHERE mode='live'").all();
-  t.equal(rows.length, 1); t.ok(rows[0].cost_usd > 0, "a 429 may have been processed: the reservation is kept as the cost, never zero"); t.equal(rows[0].error_code, "http_error");
+  t.equal(rows.length, 1); t.ok(rows[0].cost_usd > 0, "a 429 may have been processed: the reservation is kept as the cost, never zero"); t.match(rows[0].error_code, /^http_error:429(:[a-z_]+)?$/);
 });
 
 await run("ai_desk_live_wiring");
