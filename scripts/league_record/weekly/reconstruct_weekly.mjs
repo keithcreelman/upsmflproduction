@@ -56,15 +56,19 @@ export function reconstructWeekly(db) {
       S.franchise_weeks += 1;
       const groups = [...new Set(rs.map((r) => r2(r.ts)))];
       const sm = summary.get(`${y}:${week}:${f}`);
+      // several team-score groups in one franchise-week: keep the group that is SELF-CONSISTENT (its starters add up to its own team score). The summary table cannot arbitrate,
+      // because it is contaminated for some of the same franchise-weeks; whether it agrees is reported, not used.
+      let keep = groups[0];
       if (groups.length > 1) {
         S.contaminated_franchise_weeks += 1;
-        const keep = sm ? groups.find((g) => near(g, sm.sc)) : null;
+        const consistent = groups.filter((g) => near(r2(rs.filter((r) => near(r2(r.ts), g) && r.status === "starter").reduce((a, r) => a + (r.ps || 0), 0)), g));
+        keep = consistent.length === 1 ? consistent[0] : null;
         const bad = rs.filter((r) => keep == null || !near(r2(r.ts), keep)).length;
         S.contaminated_rows += bad;
-        out.defects.push({ season: y, week, franchise: f, kind: "franchise_week_has_several_team_scores", team_score_groups: groups.length, rows_outside_the_summary_group: bad, summary_group_identified: keep != null });
+        out.defects.push({ season: y, week, franchise: f, kind: "franchise_week_has_several_team_scores", team_score_groups: groups.length, rows_set_aside: bad, self_consistent_group_identified: keep != null, summary_agrees_with_kept_group: keep != null && !!sm && near(keep, sm.sc) });
       }
-      const ts = sm && groups.some((g) => near(g, sm.sc)) ? sm.sc : groups[0];
-      const starters = rs.filter((r) => r.status === "starter" && (groups.length === 1 || near(r2(r.ts), ts)));
+      const ts = keep != null ? keep : groups[0];
+      const starters = rs.filter((r) => r.status === "starter" && (groups.length === 1 || near(r2(r.ts), ts)));   // only the kept group's starters
       const sum = r2(starters.reduce((a, r) => a + (r.ps || 0), 0));
       if (near(sum, ts)) S.starter_sum_equals_team_score += 1;
       if (sm) { S.franchise_weeks_with_summary += 1; if (near(ts, sm.sc)) S.team_score_equals_summary += 1; }
@@ -116,4 +120,16 @@ export function compareAllPlayFixture(db, fixture) {
     res[y] = { compared: n, points_for_equal: pfEq, allplay_wins_equal: eq };
   }
   return res;
+}
+
+// Weeks the primary source lacks, checked in a SECOND database (for example a newer local ETL copy). Report only: nothing is merged. For each candidate week it says how many franchise-weeks
+// the second source has and whether each is self-consistent (starters add up to the team score), so a later, approved load can cite it.
+export function compareSecondSource(primary, second, seasonWeeks) {
+  const out = [];
+  for (const [season, weeks] of seasonWeeks) for (const week of weeks) {
+    const g = second.prepare("select franchise_id f, team_score ts, round(sum(case when status = 'starter' then player_score else 0 end), 2) ss, count(*) n from weeklyresults where season = ? and week = ? group by 1, 2").all(season, week);
+    const p = primary.prepare("select count(*) n from weeklyresults where season = ? and week = ?").get(season, week).n;
+    out.push({ season, week, primary_rows: p, second_rows: g.reduce((a, r) => a + r.n, 0), second_franchise_weeks: g.length, second_self_consistent: g.filter((r) => near(r.ss, r.ts)).length });
+  }
+  return out;
 }
