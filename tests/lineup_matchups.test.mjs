@@ -274,7 +274,7 @@ await check("the response cache sits on its own key host with the version, never
     await run("YEAR=2026&W=2&last=1", { 2026: MINI }, { nowMs: NOW, env, over: { "2026:playerScores1": null } });
     const lmu = puts.filter((u) => /upsmfl-lineup\.local/.test(u));
     assert.strictEqual(lmu.length, 1, puts.join("\n"));
-    assert.ok(/\/api\/lineup-matchups\?YEAR=2026&W=2&v=lmu3-/.test(lmu[0]), lmu[0]);
+    assert.ok(lmu[0].includes("/api/lineup-matchups?YEAR=2026&W=2&v=" + LM.LINEUP_MU_VERSION + "&"), lmu[0]);
     assert.ok(env.queries.length > 0 && env.queries.every((q) => /^\s*(WITH|SELECT)\b/i.test(q)));
   } finally { globalThis.caches = saved; }
 });
