@@ -1,0 +1,297 @@
+// League Record S1, Step 1b: tests of the 2010-2025 archive extraction. Offline and read-only: the committed archive only. Every count is re-derived here with separate SQL against the
+// decompressed archive (a different code path from the extraction), representative older periods are checked trade by trade, and the standing rule (no slot from standings, finishes,
+// brackets or a projected order) is tested at the guard, the source scan and the data.
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { DatabaseSync } from "node:sqlite";
+import { test, run, t } from "./fixtures/mini_test.mjs";
+import { openArchive, assertQueryAllowed, ArchiveGuardError, memoryView, BANNED_COLUMNS, MEMORY_COLUMNS } from "../scripts/league_record/s1/archive.mjs";
+import { scanExtractionSources } from "../scripts/league_record/s1/guard.mjs";
+import { buildArchiveExtraction, FIRST_YEAR, LAST_YEAR } from "../scripts/league_record/s1/archive_extract.mjs";
+import { renderArchiveReport } from "../scripts/league_record/s1/archive_report.mjs";
+import { packageView, creditByAsset, ALLOCATION } from "../scripts/league_record/s1/packages.mjs";
+import { buildLedger, pickChain, resolveSlotPick } from "../scripts/league_record/s1/lineage.mjs";
+import { stableStringify } from "../scripts/league_record/s1/pilot.mjs";
+import { loadArchiveSelections, loadKnownForfeitures, FORFEITURE_FILE, FORFEITURE_FIELDS } from "../scripts/league_record/s1/sources.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const OUT = path.join(ROOT, "docs", "league_record", "archive");
+const archive = await openArchive({ root: ROOT });
+const x = buildArchiveExtraction({ archive, root: ROOT });
+const raw = new DatabaseSync(archive.dbPath, { readOnly: true });
+const seasonOf = (y) => x.seasons.find((s) => s.season === y);
+const q = (sql, ...p) => raw.prepare(sql).all(...p);
+
+test("the committed extraction and report equal a fresh build (regenerate with scripts/league_record/s1/run_archive_extract.mjs)", () => {
+  t.equal(fs.readFileSync(path.join(OUT, "extraction.json"), "utf8"), `${stableStringify(x)}\n`);
+  t.equal(fs.readFileSync(path.join(OUT, "archive_report.md"), "utf8"), renderArchiveReport(x));
+});
+
+test("coverage by season equals separate SQL on the raw archive: trades, legs by kind, cap transfers and draft selections", () => {
+  t.equal(x.seasons.length, LAST_YEAR - FIRST_YEAR + 1);
+  for (const s of x.seasons) {
+    const trades = q("select count(distinct trade_group_id) n from transactions_trades where season = ?", s.season)[0].n;
+    t.equal(s.trades.count, trades, `${s.season} trades`);
+    const by = Object.fromEntries(q("select asset_type t, count(*) n from transactions_trades where season = ? and asset_role = 'RELINQUISH' group by asset_type", s.season).map((r) => [r.t, r.n]));
+    t.equal(s.trades.legs.player, by.PLAYER || 0, `${s.season} player legs`);
+    t.equal(s.trades.legs.future_pick, by.DRAFTPICK_FUTURE || 0, `${s.season} future pick legs`);
+    t.equal(s.trades.legs.slot_pick, by.DRAFTPICK_CURRENT || 0, `${s.season} slot pick legs`);
+    t.equal(s.trades.cap.transfers, by.CAP || 0, `${s.season} cap transfers`);
+    t.equal(s.trades.cap.total_amount, q("select coalesce(sum(asset_capadjustment), 0) n from transactions_trades where season = ? and asset_role = 'RELINQUISH' and asset_type = 'CAP'", s.season)[0].n, `${s.season} cap total`);
+    const sel = q("select (select count(*) from draftresults_mfl where season = ?) + (select count(*) from draftresults_legacy where season = ?) n", s.season, s.season)[0].n;
+    t.equal(s.draft.selections, sel, `${s.season} selections`);
+    t.equal(s.trades.legs.unpaired + s.trades.legs.unknown, 0, `${s.season} no unpaired or unknown legs`);
+  }
+  t.equal(x.summary.trades, q("select count(distinct trade_group_id) n from transactions_trades where season between 2010 and 2025")[0].n);
+});
+
+test("representative older periods: 2012 (first draft), 2014 (legacy draft with the slot defect and the one conflict), 2018 (MFL draft table starts, one known forfeiture), 2022 (largest package)", () => {
+  // 2012: sixty legacy selections, five rounds of twelve
+  t.equal(seasonOf(2012).draft.selections, 60); t.equal(seasonOf(2012).draft.rounds, 5); t.equal(seasonOf(2012).draft.source_table, "draftresults_legacy");
+  // the legacy slot defect: pick 1.10 of 2014 is stored with slot 1 and raw text "1.1"; MFL's overall pick number is 10
+  const stored = q("select draftpick_roundorder ro, draftpick_overall ov, raw_pick rp, player_name n from draftresults_legacy where season = 2014 and draftpick_round = 1 and draftpick_overall = 10")[0];
+  t.equal(stored.ro, 1); t.equal(stored.rp, "1.1"); t.equal(stored.n, "West, Terrance");
+  const sels = loadArchiveSelections(archive).filter((s) => s.year === 2014 && s.round === 1);
+  const ten = sels.find((s) => s.slot === 10);
+  t.ok(ten && ten.player_name === "West, Terrance" && ten.slot_correction.stored_slot === 1 && ten.slot_correction.rule === "legacy_slot_from_overall_pick");
+  t.equal(sels.filter((s) => s.slot === 1).length, 1, "slot 1 is no longer duplicated");
+  t.equal(x.summary.legacy_slot_corrections, 30, "five rounds in each of six legacy years");
+  for (const y of [2012, 2013, 2014, 2015, 2016, 2017]) t.deepEqual(seasonOf(y).draft.missing_slots, [], `${y} has every slot after the correction`);
+  // the single conflict: 4.12 of 2014 was moved to 0004 by trade2014_4 but the draft result records 0006
+  t.equal(x.findings.lists.slot_conflicts.length, 1);
+  const c = x.findings.lists.slot_conflicts[0];
+  t.deepEqual([c.asset, c.selector, c.chain_holder_at_selection, c.trades], ["spick:2014:4:12", "0006", "0004", ["trade2014_4"]]);
+  t.deepEqual(q("select franchise_id f, asset_role r from transactions_trades where trade_group_id = 'trade2014_4' and asset_draftpick_round = 4 and asset_draftpick_overall = 11").map((r) => `${r.f}:${r.r}`).sort(), ["0004:ACQUIRE", "0008:RELINQUISH"]);
+  t.equal(q("select franchise_id f from draftresults_legacy where season = 2014 and draftpick_round = 4 and draftpick_overall = 48")[0].f, "0006");
+  // 2018: first season of MFL's own table; 4.12 has no selection in it and is a known forfeiture (commissioner clarification), not a missing record
+  t.equal(seasonOf(2018).draft.source_table, "draftresults_mfl"); t.deepEqual(seasonOf(2018).draft.missing_slots, []); t.deepEqual(seasonOf(2018).draft.forfeited_slots.map((f) => f.slot), ["4.12"]);
+  t.equal(q("select count(*) n from draftresults_mfl where season = 2018")[0].n, 71);
+  // 2022: the largest package of the archive, trade2022_36, is kept as one package with every leg in its direction
+  const rows = q("select franchise_id f, asset_role r, asset_type t from transactions_trades where trade_group_id = 'trade2022_36'");
+  t.equal(rows.length, 106); t.equal(seasonOf(2022).trades.packages.assets_per_trade_max, rows.filter((r) => r.r === "RELINQUISH").length);
+  const led = buildLedger({ archive, root: ROOT });
+  const tr = led.trades.find((z) => z.id === "trade2022_36"); const pv = packageView(tr, () => null);
+  t.equal(pv.package, true); t.equal(pv.sides.reduce((n, sd) => n + sd.sent.length + sd.cap_sent.length, 0), rows.filter((r) => r.r === "RELINQUISH").length);
+  for (const sd of pv.sides) { t.equal(sd.allocation.status, ALLOCATION.NOT_ESTABLISHED); t.equal(creditByAsset(sd, 1000).total, 0, "no double credit in a 53-asset package"); }
+});
+
+test("slot picks: confirmed only when the chain holder made the selection; a draft row without a franchise id is never confirmed or called a conflict", () => {
+  const led = buildLedger({ archive, root: ROOT });
+  for (const s of x.seasons) {
+    const sp = s.slot_picks;
+    t.equal(sp.confirmed + sp.conflict + sp.selector_not_recorded + sp.no_draft_result, sp.assets_traded, `${s.season} classes add up`);
+  }
+  // a legacy row with no franchise id: 2012 has nine; the traded slot picks that land on them are selector_not_recorded
+  const blank = q("select draftpick_round r, draftpick_roundorder ro, draftpick_overall ov from draftresults_legacy where season = 2012 and (franchise_id is null or franchise_id = '')");
+  t.equal(blank.length, 9); t.equal(seasonOf(2012).draft.rows_without_franchise_id, 9);
+  let found = 0;
+  for (const b of blank) { const slot = b.ov - 12 * (b.r - 1); const asset = `spick:2012:${b.r}:${slot}`; if (!led.tradesByAsset.has(asset)) continue; const res = resolveSlotPick(led, pickChain(led, asset), 2012, b.r, slot); t.equal(res.selector_not_recorded, true, asset); t.equal(res.class, "UNRESOLVED"); t.ok(!res.conflict, asset); found += 1; }
+  t.ok(found >= 1, "at least one traded slot pick lands on a row with no franchise id");
+  t.equal(seasonOf(2012).slot_picks.selector_not_recorded, found);
+  // every confirmed pick in the modern era (2018 on) is confirmed because the chain holder made the selection
+  for (const y of [2019, 2022, 2025]) t.equal(seasonOf(y).slot_picks.confirmed, seasonOf(y).slot_picks.assets_traded);
+});
+
+test("future picks: none is CONFIRMED to a slot; INFERRED only under UNIQUE_HOLDER_V1; the strict rule infers nothing in the archive years, and the diagnostic funnel is monotone and labeled", () => {
+  const f = x.summary.future_picks;
+  t.equal(f.confirmed, 0); t.equal(f.inferred + f.unresolved, f.traded);
+  for (const s of x.seasons) {
+    const p = s.future_picks;
+    t.equal(p.inferred + p.unresolved, p.assets_traded, `${s.season}`);
+    t.equal(p.confirmed, 0);
+    const fn = p.funnel;
+    t.ok(fn.would_infer_if_windows_observed_and_tokens_netted <= Math.min(fn.inventory_complete_if_slot_tokens_netted, fn.single_candidate_slot), `${s.season} funnel is monotone`);
+    t.ok(fn.traded === p.assets_traded);
+  }
+  t.equal(f.inferred, 0, "no archive-year future pick meets every condition under the approved rule");
+  t.equal(f.funnel.custody_observed_strict, 0); t.equal(f.funnel.inventory_complete_strict, 0);
+  // the diagnostic is reported as a diagnostic
+  const rep = renderArchiveReport(x);
+  t.match(rep, /DIAGNOSTICS/); t.match(rep, /not something this report assumes/);
+});
+
+test("trades are packages everywhere: every archive trade carries every leg in its direction, and no package credits one asset", () => {
+  const led = buildLedger({ archive, root: ROOT });
+  let multi = 0;
+  for (const tr of led.archiveTrades.filter((z) => z.season >= FIRST_YEAR && z.season <= LAST_YEAR)) {
+    const pv = packageView(tr, () => null);
+    t.equal(pv.sides.reduce((n, sd) => n + sd.sent.length, 0), tr.legs.length, tr.id);
+    t.equal(pv.sides.reduce((n, sd) => n + sd.cap_sent.length, 0), tr.cap.length, `${tr.id} cap`);
+    for (const sd of pv.sides) { const c = creditByAsset(sd, 100); t.ok(c.total === 0 || (sd.allocation.status === ALLOCATION.ESTABLISHED && c.total === 100), tr.id); }
+    if (pv.package) multi += 1;
+  }
+  t.equal(multi, x.summary.multi_asset_trades);
+});
+
+test("production is a sum over verified possession periods per franchise; it is never attached to a pick or a trade; 2012-2016 cannot be verified because no source names the weekly franchise", () => {
+  const rows = x.production_by_franchise_season;
+  t.equal(Math.round(rows.reduce((n, r) => n + r.points_verified, 0) * 10) / 10, Math.round(x.summary.production_points_verified * 10) / 10);
+  for (const r of rows) t.ok(!("asset" in r) && !("trade" in r) && !("pick" in r), `${r.season} ${r.franchise}`);
+  // 2012-2016: the scoring table's franchise column holds the placeholder FA and there is no weekly roster record, so nothing is verified
+  for (const y of [2012, 2013, 2014, 2015, 2016]) { t.equal(seasonOf(y).production.weeks_verified, 0, String(y)); t.ok(seasonOf(y).production.weeks_without_franchise > 0, String(y)); }
+  t.equal(q("select count(distinct roster_franchise_id) n from player_weeklyscoringresults where season = 2014")[0].n, 1);
+  t.equal(q("select distinct roster_franchise_id f from player_weeklyscoringresults where season = 2014")[0].f, "FA");
+  t.equal(q("select count(*) n from rosters_weekly where season between 2012 and 2016")[0].n, 0);
+  // 2017-2019: the weekly roster record names the franchise, so weeks are verified
+  for (const y of [2017, 2018, 2019]) { t.ok(seasonOf(y).production.weeks_verified > 1000, String(y)); t.ok(seasonOf(y).production.weeks_franchise_from_roster_record > 1000, String(y)); }
+  // independent bounds from raw SQL for every 2020-2025 franchise-season: the verified points and weeks can never exceed the franchise's own scoring rows in MFL's weekly table
+  for (const r of rows.filter((z) => z.season >= 2020 && /^\d{4}$/.test(z.franchise))) {
+    const raw2 = q("select count(*) n, coalesce(sum(score), 0) pts from player_weeklyscoringresults where season = ? and roster_franchise_id = ? and week between 1 and ?", r.season, r.franchise, r.season >= 2021 ? 17 : 16)[0];
+    t.ok(r.weeks_verified <= raw2.n, `${r.season} ${r.franchise} weeks`);
+    t.ok(r.points_verified <= Math.round(raw2.pts * 10) / 10 + 0.1, `${r.season} ${r.franchise} points`);
+  }
+  const row = rows.find((r) => r.season === 2021 && r.franchise === "0005");
+  t.ok(row && row.points_verified > 0 && row.weeks_verified > 0);
+});
+
+test("the copy used for the 2010-2025 extraction holds only the columns the extraction reads; owner names and rank columns never leave the archive; wildcards are refused", () => {
+  const mem = memoryView(archive);
+  for (const [tbl, cols] of Object.entries(MEMORY_COLUMNS)) {
+    t.deepEqual(Object.keys(mem.all(`select ${cols.join(", ")} from ${tbl} limit 1`)[0]), cols, tbl);
+    t.throws(() => mem.all(`select owner_name from ${tbl} limit 1`), ArchiveGuardError, `${tbl} owner_name`);
+  }
+  t.throws(() => mem.all("select * from rosters_weekly limit 1"), ArchiveGuardError);
+  t.throws(() => mem.all("select r.* from rosters_weekly r limit 1"), ArchiveGuardError);
+  t.throws(() => archive.all("select * from player_weeklyscoringresults limit 1"), ArchiveGuardError);
+  t.throws(() => archive.all("select owner_name from player_weeklyscoringresults limit 1"), ArchiveGuardError);
+  t.throws(() => archive.all("select pos_rank, overall_rank from player_weeklyscoringresults limit 1"), ArchiveGuardError);
+  t.equal(mem.all("select count(*) n from rosters_weekly")[0].n, q("select count(*) n from rosters_weekly")[0].n, "count(*) is still allowed");
+  const mc = new DatabaseSync(":memory:"); mc.close();
+  mem.close();
+  for (const f of ["archive_extract.mjs", "archive.mjs", "economics.mjs", "pilot.mjs", "lineage.mjs", "sources.mjs"]) { const src = fs.readFileSync(path.join(ROOT, "scripts", "league_record", "s1", f), "utf8"); t.ok(!/owner_name/.test(src.replace(/\/\/.*$/gm, "")) || f === "archive.mjs", `${f} never names the owner column`); }
+});
+
+test("the standing rule holds for the new code: no standings-derived slot, banned columns refused, the memory copy obeys the guard, and the source scan covers every new module", () => {
+  t.deepEqual(scanExtractionSources(path.join(ROOT, "scripts", "league_record", "s1")), []);
+  t.ok(BANNED_COLUMNS.includes("waiver_sort_order"));
+  t.throws(() => archive.all("select waiver_sort_order from metadata_franchise"), ArchiveGuardError);
+  t.throws(() => archive.all("select season, franchise_id, waiver_sort_order from metadata_franchise"), ArchiveGuardError);
+  t.deepEqual(assertQueryAllowed("select season, franchise_id from metadata_franchise where season = 2014", ["metadata_franchise"]), ["metadata_franchise"]);
+  t.equal(archive.all("select distinct franchise_id f from metadata_franchise where season = 2014").length, 12);
+  const mem = memoryView(archive);
+  t.throws(() => mem.all("select * from trade_winning_team_analysis"), ArchiveGuardError);
+  t.throws(() => mem.all("select a.* from rosters_weekly a, standings b"), ArchiveGuardError);
+  t.throws(() => mem.all("select waiver_sort_order from rosters_weekly"), ArchiveGuardError);
+  t.equal(mem.all("select count(*) n from rosters_weekly")[0].n, q("select count(*) n from rosters_weekly")[0].n);
+  mem.close();
+  // the draft-slot source never reads a finish: the slot of every selection is MFL's own round pick number or the overall pick number
+  const src = fs.readFileSync(path.join(ROOT, "scripts", "league_record", "s1", "sources.mjs"), "utf8");
+  t.ok(/overall - 12 \* \(Number\(r\.round\) - 1\)|Number\(r\.overall\) - 12 \* \(Number\(r\.round\) - 1\)/.test(src));
+});
+
+test("gaps and conflicts are listed, not repaired: the named gap, quiet windows, chain breaks and draft-table defects are all in the extraction", () => {
+  t.deepEqual({ from: x.named_gap.from, to: x.named_gap.to }, { from: "2025-11-28", to: "2026-03-07" });
+  t.ok(x.coverage_windows.length > 5);
+  t.equal(x.findings.totals.pick_chain_discontinuities, x.summary.pick_chain_discontinuities);
+  t.ok(x.summary.player_chain_breaks.implicit_release > 0 && x.summary.player_chain_breaks.discontinuity > 0);
+  t.ok(x.findings.lists.player_chain_breaks.length <= x.findings.list_cap);
+  t.equal(x.findings.totals.player_chain_breaks, x.summary.player_chain_breaks.discontinuity + x.summary.player_chain_breaks.implicit_release, "findings and summary count the same 2010-2025 breaks");
+  t.ok(x.findings.outside_the_stated_period.player_chain_breaks_dated_after_2025 > 0, "breaks dated 2026 are disclosed apart, not mixed into the 2010-2025 counts");
+  t.equal(x.findings.totals.draft_missing_source_records, 0, "no scheduled slot is missing a source record: the one slot without a selection is a known forfeiture");
+  t.equal(x.findings.totals.known_forfeitures, 1);
+  const rep = renderArchiveReport(x);
+  for (const w of ["named source-coverage gap", "2025-11-28", "Quiet windows", "implicit releases", "selector not recorded", "slot_correction", "dated 2026"]) t.ok(rep.toLowerCase().includes(w.toLowerCase()), w);
+  // era differences are in the report
+  t.match(rep, /processing_time_likely/); t.match(rep, /draftresults_legacy/); t.match(rep, /draftresults_mfl/);
+});
+
+// ── known forfeitures: a scheduled slot with no selection, explained by a named provenance ───────────
+test("2018 pick 4.12 is FORFEITED (commissioner clarification): the slot is kept, no player is attached, nothing beyond the clarification is invented", () => {
+  const d = seasonOf(2018).draft;
+  t.deepEqual(d.slot_status, { SELECTED: 71, FORFEITED: 1, UNRESOLVED: 0, MISSING_SOURCE_RECORD: 0 }, "71 recorded selections plus one known forfeiture, nothing unexplained");
+  t.equal(d.selections, 71); t.equal(d.scheduled_slots, 72); t.equal(d.slot_status.SELECTED + d.slot_status.FORFEITED, d.scheduled_slots);
+  t.deepEqual(d.missing_slots, []); t.deepEqual(d.overall_numbers_absent, [48], "MFL's own overall numbers: 47 and 49 recorded; 48 (4.12) is the scheduled slot with no selection");
+  const [f] = d.forfeited_slots;
+  t.deepEqual([f.slot, f.overall, f.reason, f.provenance, f.selected_player], ["4.12", 48, "owner violation", "commissioner clarification", null]);
+  t.deepEqual(f.not_recorded, ["the particular violation", "the offending owner or franchise", "the penalty ruling date", "a supporting MFL transaction"]);
+  // separate SQL: the draft table holds 71 rows, none for overall 48, none for round 4 slot 12
+  t.equal(q("select count(*) n from draftresults_mfl where season = 2018")[0].n, 71);
+  t.equal(q("select count(*) n from draftresults_mfl where season = 2018 and (draftpick_overall = 48 or (draftpick_round = 4 and draftpick_roundorder = 12))")[0].n, 0);
+  t.deepEqual(q("select draftpick_overall ov from draftresults_mfl where season = 2018 and draftpick_overall in (47, 49) order by 1").map((r) => Number(r.ov)), [47, 49]);
+  // no fabricated player: the ledger has no selection for the slot or for overall 48, and the forfeiture record carries no player
+  const led = buildLedger({ archive, root: ROOT });
+  t.equal(led.selBySlot.get("2018:4:12"), undefined); t.equal(led.selections.filter((z) => z.year === 2018 && (z.overall === 48 || (z.round === 4 && z.slot === 12))).length, 0);
+  const rec = led.forfeitBySlot.get("2018:4:12");
+  t.ok(rec && rec.selected_player === null && rec.status === "FORFEITED");
+  for (const k of ["player", "player_id", "player_name", "franchise", "franchise_id", "owner", "violation", "ruling_date", "penalty_date", "transaction", "transaction_id"]) t.ok(!(k in rec), `the record has no ${k} field`);
+  // the committed file holds exactly the allowed fields
+  const file = JSON.parse(fs.readFileSync(path.join(ROOT, FORFEITURE_FILE), "utf8"));
+  t.equal(file.records.length, 1); for (const r of file.records) t.deepEqual(Object.keys(r).filter((k) => !FORFEITURE_FIELDS.includes(k)), []);
+  // the report counts it as a forfeiture, never as a missing result
+  const rep = renderArchiveReport(x);
+  t.match(rep, /\*\*1 FORFEITED\*\*/); t.match(rep, /\*\*0 MISSING_SOURCE_RECORD\*\*/); t.match(rep, /\| 2018 \|[^\n]*\| 71 \| 1 \(4\.12\) \| 72 \|/);
+  t.match(rep, /2018 pick 4\.12 \(overall 48\): reason "owner violation", provenance: commissioner clarification/);
+  t.ok(!/MISSING_DRAFT_RESULT/.test(rep) && !/MISSING_DRAFT_RESULT/.test(JSON.stringify(x)));
+  const missingLine = rep.split("\n").find((l) => l.startsWith("- **Draft slots with no selection and no known forfeiture"));
+  t.ok(missingLine && /MISSING_SOURCE_RECORD \(0\):\*\* none\./.test(missingLine) && !/4\.12/.test(missingLine.split("**Slots with more than one row")[0]), "the missing-record line lists nothing for 2018");
+});
+
+test("an absence is never called a forfeiture without a source: with no forfeiture record the same slot is a MISSING_SOURCE_RECORD, and a forfeiture that contradicts the sources is refused", () => {
+  const without = buildArchiveExtraction({ archive, root: ROOT, forfeitures: [] });
+  const d = without.seasons.find((s) => s.season === 2018).draft;
+  t.deepEqual(d.slot_status, { SELECTED: 71, FORFEITED: 0, UNRESOLVED: 0, MISSING_SOURCE_RECORD: 1 }); t.deepEqual(d.missing_slots, ["4.12"]);
+  t.equal(without.findings.totals.draft_missing_source_records, 1); t.equal(without.findings.totals.known_forfeitures, 0);
+  // the other seasons are the same with or without the record: only the one sourced slot changes status
+  for (const s of x.seasons) if (s.season !== 2018) t.deepEqual(without.seasons.find((z) => z.season === s.season).draft.slot_status, s.draft.slot_status, `${s.season} unchanged`);
+  const rec = (over) => [{ season: 2018, round: 4, slot: 12, overall: 48, status: "FORFEITED", reason: "owner violation", provenance: "commissioner clarification", clarification_recorded_on: "2026-11-21", scheduled_slot_basis: "test", not_recorded: [], ...over }];
+  // a forfeiture beside a recorded selection for the same slot is a contradiction
+  t.throws(() => buildLedger({ archive, root: ROOT, forfeitures: rec({ season: 2019, round: 3, slot: 5, overall: 29 }) }), /contradict/);
+  // a slot that is not on the scheduled grid, a season with no draft results, a wrong overall number are refused by the extraction
+  t.throws(() => buildArchiveExtraction({ archive, root: ROOT, forfeitures: rec({ round: 7, overall: 84 }) }), /not a scheduled slot/);
+  t.throws(() => buildArchiveExtraction({ archive, root: ROOT, forfeitures: rec({ overall: 49 }) }), /not a scheduled slot/);
+  t.throws(() => buildArchiveExtraction({ archive, root: ROOT, forfeitures: rec({ season: 2011 }) }), /no draft results/);
+});
+
+test("the forfeiture file accepts only what its provenance supplies: an added violation, owner, franchise, ruling date, transaction or player is refused", () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "s1_forfeit_"));
+  try {
+    const write = (records) => { fs.mkdirSync(path.join(dir, "docs", "league_record"), { recursive: true }); fs.writeFileSync(path.join(dir, FORFEITURE_FILE), JSON.stringify({ schema: "ups.league_record.known_forfeitures/1", records })); return () => loadKnownForfeitures(dir); };
+    const ok = { season: 2018, round: 4, slot: 12, overall: 48, status: "FORFEITED", reason: "owner violation", provenance: "commissioner clarification", clarification_recorded_on: "2026-11-21", scheduled_slot_basis: "x", not_recorded: [] };
+    t.equal(write([ok])().length, 1);
+    for (const extra of [{ player_id: "13000" }, { player_name: "A, B" }, { franchise_id: "0001" }, { owner: "x" }, { violation: "x" }, { ruling_date: "2018-08-01" }, { transaction_id: "t1" }]) t.throws(write([{ ...ok, ...extra }]), /not allowed/, Object.keys(extra)[0]);
+    t.throws(write([{ ...ok, status: "SELECTED" }]), /status must be FORFEITED/);
+    t.throws(write([{ ...ok, provenance: "" }]), /provenance is required/);
+    t.throws(write([{ ...ok, reason: "" }]), /reason is required/);
+    t.throws(write([ok, ok]), /recorded twice/);
+    t.equal(loadKnownForfeitures(path.join(dir, "nowhere")).length, 0);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("a forfeited slot is not a draft result: a traded slot pick on it is not CONFIRMED, and the future picks of its round are not reconciled against a holder nobody recorded", () => {
+  const forfeit = { season: 2018, round: 4, slot: 12, reason: "owner violation", provenance: "commissioner clarification" };
+  const res = resolveSlotPick({ selBySlot: new Map(), forfeitBySlot: new Map([["2018:4:12", forfeit]]) }, { holders: [], events: [] }, 2018, 4, 12);
+  t.equal(res.forfeited, true); t.equal(res.selection, null); t.ok(res.class !== "CONFIRMED"); t.match(res.reason, /forfeited/);
+  const none = resolveSlotPick({ selBySlot: new Map(), forfeitBySlot: new Map() }, { holders: [], events: [] }, 2018, 4, 12);
+  t.ok(!none.forfeited && /no draft result/.test(none.reason), "without a forfeiture record the same slot is only 'no draft result'");
+  // the 2018 round 4 future picks: blocked because the round has a forfeited slot, no longer miscounted as a round with eleven slots
+  const fp = seasonOf(2018).future_picks;
+  const traded = q("select count(distinct asset_draftpick_future_franchiseid) n from transactions_trades where asset_type = 'DRAFTPICK_FUTURE' and asset_role = 'RELINQUISH' and asset_draftpick_future_year = 2018 and asset_draftpick_future_round = 4")[0].n;
+  t.ok(traded > 0 && fp.inventory_blockers.forfeited_slot_in_round > 0, "2018 round 4 future picks were traded and each names the forfeited slot as a blocker");
+  t.equal(fp.inventory_blockers.slot_count_not_one_per_team, 0);
+  t.equal(x.summary.future_picks.inferred, 0); t.equal(x.summary.future_picks.unresolved, x.summary.future_picks.traded);
+});
+
+test("the 2014 pick 4.12 selector conflict is a different record: still a conflict, still SELECTED, and the 2018 forfeiture is not applied to it", () => {
+  t.equal(x.findings.lists.slot_conflicts.length, 1);
+  const c = x.findings.lists.slot_conflicts[0];
+  t.deepEqual([c.asset, c.draft_year, c.selector, c.chain_holder_at_selection], ["spick:2014:4:12", 2014, "0006", "0004"]);
+  t.deepEqual(seasonOf(2014).draft.slot_status, { SELECTED: 60, FORFEITED: 0, UNRESOLVED: 0, MISSING_SOURCE_RECORD: 0 }); t.deepEqual(seasonOf(2014).draft.forfeited_slots, []);
+  t.equal(seasonOf(2014).slot_picks.conflict, 1); t.equal(seasonOf(2014).slot_picks.forfeited_slot, 0);
+  const led = buildLedger({ archive, root: ROOT });
+  t.deepEqual([...led.forfeitBySlot.keys()], ["2018:4:12"], "the only known forfeiture is 2018 4.12");
+  const sel = led.selBySlot.get("2014:4:12"); t.ok(sel && sel.player_id && sel.franchise === "0006", "2014 4.12 has a recorded selection by 0006");
+  // the investigation record exists, is pointed to from the report, and keeps the two records apart
+  const doc = fs.readFileSync(path.join(ROOT, "docs", "league_record", "S1_CONFLICT_2014_4_12.md"), "utf8");
+  t.match(doc, /different record/); t.match(doc, /not resolved/); t.match(doc, /none chosen/);
+  t.match(renderArchiveReport(x), /S1_CONFLICT_2014_4_12\.md[^\n]*different record from the 2018 forfeiture/);
+  // separate SQL: the facts the record states about the trade and the draft row
+  t.deepEqual(q("select franchise_id f, asset_role r from transactions_trades where trade_group_id = 'trade2014_4' and asset_type = 'DRAFTPICK_CURRENT' and asset_draftpick_round = 4 and asset_draftpick_overall = 11 order by 2").map((r) => `${r.f}:${r.r}`), ["0004:ACQUIRE", "0008:RELINQUISH"]);
+  t.equal(q("select count(*) n from draftresults_legacy where season = 2014 and franchise_id = '0004'")[0].n, 0, "0004 made no selection in 2014");
+  t.equal(q("select count(*) n from draftresults_legacy d join metadata_franchise m on m.season = d.season and m.franchise_id = d.franchise_id where d.franchise_id is not null and m.franchise_name != d.raw_franchise")[0].n, 0, "every legacy draft row's franchise name matches the name of its id for the season");
+});
+
+await run("league_record_s1_archive");
+raw.close();
+archive.close();
