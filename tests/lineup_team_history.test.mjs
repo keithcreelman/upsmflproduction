@@ -7,6 +7,7 @@
 import fs from "fs";
 import assert from "assert";
 import * as LM from "../worker/src/lineup_matchups.js";
+import * as E from "../worker/src/fpa_engine.js";
 import { loadFixture, runHandler } from "./helpers/team_history_fixture.mjs";
 
 let fails = 0;
@@ -14,7 +15,7 @@ const check = async (n, fn) => { try { await fn(); console.log("  ok   " + n); }
 
 const fx = loadFixture();
 const GOLD = JSON.parse(fs.readFileSync(new URL("./fixtures/team_history_2026_wk10_golden.json", import.meta.url), "utf8"));
-const NEW_FIELDS = ["teamHistoryState", "teamHistoryReason", "teamHistoryThrough", "teamHistory", "teamHistoryMissing", "teamHistoryConflict", "teamHistoryFirst"];
+const NEW_FIELDS = ["teamHistoryState", "teamHistoryReason", "teamHistoryThrough", "teamHistory", "teamHistoryMissing", "teamHistoryConflict", "teamHistoryConflictWhy", "teamHistoryFirst"];
 const idOf = (name) => { const p = fx.players.find((q) => q[1] === name); assert.ok(p, "fixture has " + name); return p[0]; };
 const pos = Object.fromEntries(fx.players.map((p) => [p[0], p[2]]));
 const FAM = { QB: "O", RB: "O", FB: "O", WR: "O", TE: "O", PK: "S", PN: "S", DT: "D", DE: "D", LB: "D", CB: "D", S: "D" };
@@ -32,22 +33,25 @@ await check("every pre-existing field is byte-for-byte what the pre-change route
   assert.strictEqual(JSON.stringify(rest), JSON.stringify(g));
   assert.strictEqual(Object.keys(B.playerWindow).length, 1635); assert.strictEqual(Object.keys(g.playerWindow).length, 1635);
 });
-await check("the only new top-level keys are the six teamHistory* fields", () => {
+await check("the only new top-level keys are the eight teamHistory* fields", () => {
   const added = Object.keys(B).filter((k) => !(k in GOLD.payload)).sort();
   assert.deepStrictEqual(added, NEW_FIELDS.slice().sort());
 });
-await check("no new database statement and no new network call: same 3 SELECTs and the same GETs as before", () => {
-  assert.strictEqual(base.env.queries.length, GOLD.queries); assert.strictEqual(GOLD.queries, 3);
+await check("the route's own 3 SELECTs and its GETs are unchanged; the beta adds exactly one read-only identity SELECT (cached 6 h, this route only)", () => {
+  assert.strictEqual(GOLD.queries, 3); assert.strictEqual(base.env.queries.length, GOLD.queries + 1);
+  const ident = base.env.queries.filter((q) => /COUNT\(DISTINCT w\.position\)/.test(q)); assert.strictEqual(ident.length, 1);
+  assert.strictEqual(base.env.queries.filter((q) => !/COUNT\(DISTINCT w\.position\)/.test(q)).length, 3, "the original three statements");
   assert.strictEqual(base.calls.length, GOLD.calls);
   assert.ok(base.calls.every((c) => c.method === "GET")); assert.ok(base.env.queries.every((q) => /^\s*(WITH|SELECT)\b/i.test(q)));
+  assert.ok(!/\b(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)\b/i.test(ident[0]));
 });
 await check("the payload grows by under 9 KB (58 listed players, 495 first-record weeks, the two lists)", () => { const d = JSON.stringify(B).length - JSON.stringify(GOLD.payload).length; assert.ok(d > 0 && d < 9000, "grew by " + d); });
 
 // ── 2. The replay oracle: real counts and named players ─────────────────────────────────────────────────────────
 console.log("W1 replay: real 2026 data through Week 10");
 await check("state ok, history through Week 10", () => { assert.strictEqual(B.teamHistoryState, "ok"); assert.strictEqual(B.teamHistoryReason, null); assert.strictEqual(B.teamHistoryThrough, 10); });
-await check("58 listed players (the reference's 46 club changers plus 12 free agents cut before Week 10), 71 with no history (the reference's 70 plus an unrostered free agent), 3 conflicts", () => {
-  assert.strictEqual(Object.keys(B.teamHistory).length, 58); assert.strictEqual(B.teamHistoryMissing.length, 71); assert.strictEqual(B.teamHistoryConflict.length, 3);
+await check("58 listed players (the reference's 46 club changers plus 12 free agents cut before Week 10), 71 with no history (the reference's 70 plus an unrostered free agent), 5 conflicts (the 3 score-week conflicts and 2 position-family conflicts)", () => {
+  assert.strictEqual(Object.keys(B.teamHistory).length, 58); assert.strictEqual(B.teamHistoryMissing.length, 71); assert.strictEqual(B.teamHistoryConflict.length, 5);
   const fa = Object.keys(B.teamHistory).filter((i) => B.teamHistory[i].cur === "");
   assert.strictEqual(fa.length, 12); assert.strictEqual(fa.filter((i) => fx.rostered[i]).length, 0);
   assert.ok(B.teamHistoryMissing.includes(idOf("Jones, Cam")), "a free agent with MFL scores and no weekly row is Missing (found in review)");
@@ -83,11 +87,15 @@ await check("first-record weeks: every no-change player whose first weekly row i
 });
 await check("the 10 rostered changed players and 8 rostered missing players are the ones the client must treat conservatively", () => {
   const r = (ids) => ids.filter((i) => fx.rostered[i]).length;
-  assert.strictEqual(r(Object.keys(B.teamHistory)), 10); assert.strictEqual(r(B.teamHistoryMissing), 8); assert.strictEqual(r(B.teamHistoryConflict), 0);
+  assert.strictEqual(r(Object.keys(B.teamHistory)), 10); assert.strictEqual(r(B.teamHistoryMissing), 8); assert.strictEqual(r(B.teamHistoryConflict), 1, "Travis Hunter, a genuine two-way player nflverse lists as a cornerback: withheld, not guessed");
 });
-await check("known mapping conflicts stay unavailable: the three conflicted ids carry no segments", () => {
+await check("known mapping conflicts stay unavailable: the five conflicted ids carry no segments, each with its reason", () => {
   const names = B.teamHistoryConflict.map((i) => fx.players.find((p) => p[0] === i)[1]).sort();
-  assert.deepStrictEqual(names, ["McClain, Malik", "Waxter, Isas", "Williams, Wydett"]);
+  assert.deepStrictEqual(names, ["Hunter, Travis", "McClain, Malik", "VanSumeren, Ben", "Waxter, Isas", "Williams, Wydett"]);
+  const why = (n) => B.teamHistoryConflictWhy[idOf(n)];
+  assert.strictEqual(why("Hunter, Travis"), "position_family"); assert.strictEqual(why("VanSumeren, Ben"), "position_family");
+  for (const n of ["McClain, Malik", "Waxter, Isas", "Williams, Wydett"]) assert.strictEqual(why(n), "score_weeks", n);
+  assert.deepStrictEqual(Object.keys(B.teamHistoryConflictWhy).sort(), B.teamHistoryConflict.slice().sort());
   for (const i of B.teamHistoryConflict) assert.ok(!(i in B.teamHistory) && !B.teamHistoryMissing.includes(i));
 });
 await check("history is weeks of evidence only: no opponent, no BYE and no game-opportunity field anywhere in the new payload", () => {
@@ -98,7 +106,10 @@ await check("history is weeks of evidence only: no opponent, no BYE and no game-
 // ── 3. The rules, one at a time (pure function) ─────────────────────────────────────────────────────────────────
 console.log("W1 rules (lmuTeamHistory)");
 const H = (o) => LM.lmuTeamHistory({ ctxState: "ok", priorSeason: false, scoredIds: Object.keys(o.scored), scoredWeeks: new Map(Object.entries(o.scored).map(([k, v]) => [k, new Set(v)])),
-  clubOf: (id) => (o.cur || {})[id] || "", ctx: o.ctx });
+  clubOf: (id) => (o.cur || {})[id] || "", ctx: o.ctx,
+  // by default every id has a clean identity row (one nflverse id, no position or name to contradict); tests override per id
+  identityState: "ok", identity: { byMfl: Object.fromEntries(Object.keys(o.scored).map((id) => [id, { g: "g" + id, name: "", fpos: "", wpos: "", wposx: "", wposn: 1, dup: 1, ...((o.ident || {})[id] || {}) }])) },
+  infoOf: (id) => ((o.info || {})[id] || null) });
 const wks = (a, b) => { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; };
 await check("one club all season and MFL agrees: not listed, not missing", () => {
   const r = H({ ctx: { through: 9, one: { a: ["TEN", 1, 9] }, multi: {} }, scored: { a: wks(1, 9) }, cur: { a: "TEN" } });
@@ -164,6 +175,75 @@ await check("exposed thresholds are the documented ones", () => {
   assert.strictEqual(LM.TEAM_HISTORY_COVERAGE_FLOOR, 0.90); assert.strictEqual(LM.TEAM_HISTORY_CHANGED_CEILING, 120); assert.strictEqual(LM.TEAM_HISTORY_MIN_SCORED, 200);
 });
 
+// ── 3b. Identity checks (the bounded W1 expansion) ──────────────────────────────────────────────────────────────
+console.log("W1 identity checks");
+const ONE = { through: 9, one: { a: ["TEN", 1, 9] }, multi: {} };
+await check("lmuIdentityWhy: shared nflverse id, position family, multi-family and name each withhold; normal and unknown data never do", () => {
+  const ok = { g: "g", name: "Josh Allen", fpos: "QB", wpos: "QB", wposx: "QB", wposn: 1, dup: 1 };
+  assert.strictEqual(LM.lmuIdentityWhy(ok, { name: "Allen, Josh", pos: "QB" }), "");
+  assert.strictEqual(LM.lmuIdentityWhy(undefined, { name: "x", pos: "QB" }), "identity_missing");
+  assert.strictEqual(LM.lmuIdentityWhy({ ...ok, dup: 2 }, { name: "Allen, Josh", pos: "QB" }), "shared_nfl_id");
+  assert.strictEqual(LM.lmuIdentityWhy({ ...ok, wpos: "CB", wposx: "CB" }, { name: "Allen, Josh", pos: "QB" }), "position_family");
+  assert.strictEqual(LM.lmuIdentityWhy({ ...ok, fpos: "LB" }, { name: "Allen, Josh", pos: "QB" }), "position_family", "the crosswalk's own position contradicts MFL's");
+  assert.strictEqual(LM.lmuIdentityWhy({ ...ok, wpos: "QB", wposx: "LB", wposn: 2 }, { name: "Allen, Josh", pos: "QB" }), "position_multi_family");
+  assert.strictEqual(LM.lmuIdentityWhy({ ...ok, name: "Josh Allen" }, { name: "Allen, Josh Jr.", pos: "QB" }), "", "suffixes and name order do not flag");
+  assert.strictEqual(LM.lmuIdentityWhy({ ...ok, name: "Jared Allen" }, { name: "Allen, Josh", pos: "QB" }), "name_mismatch");
+  assert.strictEqual(LM.lmuIdentityWhy({ ...ok, wpos: "XX", wposx: "XX", fpos: "" }, { name: "Allen, Josh", pos: "QB" }), "", "an unknown position proves nothing, so it never flags");
+  assert.strictEqual(LM.lmuIdentityWhy({ ...ok, fpos: "DE", wpos: "DT", wposx: "DE", wposn: 2 }, { name: "Allen, Josh", pos: "DE" }), "", "DT and DE are one family");
+  assert.strictEqual(LM.lmuNameKey("Smith-Njigba, Jaxon"), "jaxon smithnjigba");
+});
+await check("a shared nflverse id, a position-family mismatch and a name mismatch each make the player a Conflict (with the reason) and show no segments", () => {
+  const base2 = { ctx: ONE, scored: { a: wks(1, 9) }, cur: { a: "TEN" }, info: { a: { name: "Allen, Josh", pos: "QB" } } };
+  for (const [ident, code] of [[{ dup: 2 }, "shared_nfl_id"], [{ wpos: "CB", wposx: "CB" }, "position_family"], [{ name: "Jared Allen" }, "name_mismatch"]]) {
+    const r = H({ ...base2, ident: { a: ident } });
+    assert.deepStrictEqual(r.teamHistoryConflict, ["a"], code); assert.deepStrictEqual(r.teamHistoryConflictWhy, { a: code }); assert.deepStrictEqual(r.teamHistory, {});
+  }
+  const clean = H({ ...base2, ident: { a: { name: "Josh Allen", wpos: "QB", wposx: "QB" } } });
+  assert.deepStrictEqual(clean.teamHistoryConflict, []);
+});
+await check("no identity evidence means no answer: a failed or missing identity read makes team history unavailable (identity_unavailable); every other field is still served", async () => {
+  const r = await runHandler(LM, fx, { identFail: true });
+  assert.strictEqual(r.json.teamHistoryState, "unavailable"); assert.strictEqual(r.json.teamHistoryReason, "identity_unavailable"); assert.ok(!("teamHistory" in r.json));
+  assert.strictEqual(Object.keys(r.json.playerWindow).length, 1635);
+  const none = LM.lmuTeamHistory({ ctx: ONE, ctxState: "ok", priorSeason: false, scoredIds: ["a"], scoredWeeks: new Map([["a", new Set(wks(1, 9))]]), clubOf: () => "TEN" });
+  assert.strictEqual(none.teamHistoryReason, "identity_unavailable");
+});
+await check("the identity statement is read only, binds only the season, and is not run for a past season", async () => {
+  const q = base.env.queries.find((x) => /COUNT\(DISTINCT w\.position\)/.test(x)); assert.match(q, /FROM nfl_player_weekly w JOIN ff_player_ids f ON f\.gsis_id = w\.gsis_id WHERE w\.season = \?1/);
+  assert.deepStrictEqual(LM.lmuTeamHistory({ ctx: ONE, ctxState: "ok", priorSeason: true, scoredIds: ["a"], scoredWeeks: new Map(), clubOf: () => "" }), { teamHistoryState: "unavailable", teamHistoryReason: "past_season", teamHistoryThrough: null });
+});
+console.log("W1 identity: plausible swapped identities");
+{
+  // swap the weekly rows AND the position evidence of random pairs: what a crosswalk that points an MFL id at someone else's nflverse id does
+  const pairs = (pct, seed, family) => {
+    const R = rng(seed), rowIds = [...new Set(fx.teamRows.map((r) => r[0]))].filter((m) => FAM[pos[m]]), pool = rowIds.slice(), sample = [];
+    const n = Math.floor(rowIds.length * pct / 2) * 2;
+    while (sample.length < n) sample.push(pool.splice(Math.floor(R() * pool.length), 1)[0]);
+    const fam = {}; for (const m of sample) (fam[family === "cross" ? "x" : FAM[pos[m]]] = fam[family === "cross" ? "x" : FAM[pos[m]]] || []).push(m);
+    const swap = {};
+    for (const f in fam) { const l = fam[f]; for (let i = 0; i + 1 < l.length; i += 2) { if (family === "cross" && FAM[pos[l[i]]] === FAM[pos[l[i + 1]]]) continue; swap[l[i]] = l[i + 1]; swap[l[i + 1]] = l[i]; } }
+    const rows = fx.teamRows.map((r) => (swap[r[0]] ? [swap[r[0]], ...r.slice(1)] : r));
+    const ident = fx.identRows.map((r) => (swap[r[0]] ? [r[0], r[1], r[2], r[3], ...fx.identRows.find((x) => x[0] === swap[r[0]]).slice(4)] : r));
+    return { swap, rows, ident };
+  };
+  const rate = async (kind, pct, seed) => {
+    const { swap, rows, ident } = pairs(pct, seed, kind);
+    const j = (await runHandler(LM, fx, { teamRows: rows, identRows: ident })).json;
+    const sw = Object.keys(swap), flagged = sw.filter((i) => j.teamHistoryConflict.includes(i) && !new Set(B.teamHistoryConflict).has(i));
+    return { state: j.teamHistoryState, n: sw.length, flagged: flagged.length, byWhy: flagged.reduce((a, i) => (a[j.teamHistoryConflictWhy[i]] = (a[j.teamHistoryConflictWhy[i]] || 0) + 1, a), {}) };
+  };
+  const out = [];
+  for (const [kind, pct] of [["cross", 0.03], ["same", 0.03], ["same", 0.05]]) {
+    await check("swap " + pct * 100 + "% of identities (" + kind + "-family pairs): state ok; at least 90% of cross-family swaps are withheld by the position check; same-family swaps still rely on the score-week check", async () => {
+      const r = await rate(kind, pct, 11); out.push(kind + " " + pct * 100 + "%: " + r.flagged + "/" + r.n + " " + JSON.stringify(r.byWhy));
+      assert.strictEqual(r.state, "ok"); assert.ok(r.n > 0);
+      if (kind === "cross") assert.ok(r.flagged >= r.n * 0.9, "cross-family swaps flagged: " + r.flagged + " of " + r.n + " (a partner whose nflverse position is blank proves nothing, so it is not flagged)");
+      else assert.ok(r.flagged >= r.n * 0.35, r.flagged + " of " + r.n);
+    });
+  }
+  console.log("         measured: " + out.join(" | "));
+}
+
 // ── 4. Aggregate gates (diagnostic only) ────────────────────────────────────────────────────────────────────────
 console.log("W1 aggregate gates");
 await check("losing 60% of the weekly rows (a broken crosswalk) makes the answer unavailable: crosswalk_failed", async () => {
@@ -213,6 +293,31 @@ console.log("         measured: " + results.map((r) => r.pct * 100 + "% swap -> 
 await check("a duplicate id (two players' rows under one id) is a conflict for the id: the rows no longer match one player's scored weeks", () => {
   const r = H({ ctx: { through: 9, one: {}, multi: { a: { 1: "TEN", 2: "TEN", 3: "TEN", 5: "CHI" } } }, scored: { a: [1, 2, 3, 4] }, cur: { a: "CHI" } });
   assert.deepStrictEqual(r.teamHistoryConflict, ["a"]);
+});
+
+// ── 5b. The classic app is untouched ────────────────────────────────────────────────────────────────────────────
+console.log("W1 classic behavior preserved");
+const PIN = JSON.parse(fs.readFileSync(new URL("./fixtures/fpa_classic_context_sql.json", import.meta.url), "utf8"));
+await check("classic: fpaLoadSeasonContext runs the same statements, byte for byte, with the same binds, and returns the same context keys as on origin/main", async () => {
+  const seen = [];
+  const c = await E.fpaLoadSeasonContext(async (sql, ...b) => { seen.push({ sql, binds: b }); return []; }, 2026);
+  assert.deepStrictEqual(seen, PIN.statements); assert.deepStrictEqual(Object.keys(c), PIN.emptyContextKeys);
+});
+await check("classic: the cached context every other route uses issues only those statements and never reads identity", async () => {
+  const seen = [];
+  const env = { UPS_MFL_DB: { prepare: (sql) => ({ bind: (...b) => ({ all: async () => { seen.push({ sql, binds: b }); return { results: [] }; } }) }) } };
+  const r = await E.fpaSeasonContextCached(env, null, 2026, false);
+  assert.strictEqual(r.state, "ok"); assert.deepStrictEqual(seen, PIN.statements); assert.ok(!r.ctx.ident && !("identity" in r.ctx), "the context object itself gained nothing");
+});
+await check("classic: only the beta route imports the identity functions (no other Worker module can start the extra statement)", () => {
+  const dir = new URL("../worker/src/", import.meta.url), users = [];
+  for (const f of fs.readdirSync(dir)) { if (!f.endsWith(".js")) continue; const t = fs.readFileSync(new URL(f, dir), "utf8"); if (/fpaIdentityCached|fpaLoadIdentity/.test(t)) users.push(f); }
+  assert.deepStrictEqual(users.sort(), ["fpa_engine.js", "lineup_matchups.js"]);
+});
+await check("classic: with the identity read failing, the route's pre-existing fields are still identical to the pre-change route (the beta read can never change them)", async () => {
+  const r = await runHandler(LM, fx, { identFail: true });
+  const rest = { ...r.json }; for (const k of NEW_FIELDS) delete rest[k]; delete rest.version; const g = { ...GOLD.payload }; delete g.version;
+  assert.strictEqual(JSON.stringify(rest), JSON.stringify(g));
 });
 
 // ── 6. Failure of the context path ──────────────────────────────────────────────────────────────────────────────

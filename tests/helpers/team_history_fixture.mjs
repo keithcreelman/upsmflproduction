@@ -37,11 +37,16 @@ export function mflFromFixture(fx, opts) {
 }
 
 // The database side: the route's three context statements, answered with the fixture's rows (or a perturbed copy).
-export function dbFromRows(teamRows, playRows) {
+export function dbFromRows(teamRows, playRows, identRows, opts) {
+  opts = opts || {};
   const queries = [];
   return { queries, UPS_MFL_DB: { prepare: (sql) => ({ bind: (...b) => ({ all: async () => {
     queries.push(sql);
     if (!/^\s*(WITH|SELECT)\b/i.test(sql)) throw new Error("non-SELECT " + sql);
+    if (/COUNT\(DISTINCT w\.position\)/.test(sql)) {
+      if (opts.identFail) throw new Error("identity statement failed");
+      return { results: (identRows || []).map((r) => ({ m: r[0], g: r[1], fname: r[2], fpos: r[3], wpos: r[4], wposx: r[5], wposn: r[6], dup: r[7] })) };
+    }
     if (/WITH pw AS/.test(sql)) return { results: teamRows.map((r) => ({ m: r[0], t: r[1], lo: r[2], hi: r[3], wk: r[4] })) };
     if (/SUM\(COALESCE\(rush_att/.test(sql)) return { results: playRows.map((r) => ({ week: r[0], team: r[1], plays: r[2] })) };
     return { results: [] };
@@ -51,7 +56,7 @@ export function dbFromRows(teamRows, playRows) {
 export async function runHandler(LM, fx, opts) {
   opts = opts || {};
   const { fetchImpl, calls } = mflFromFixture(fx, opts);
-  const env = opts.env || dbFromRows(opts.teamRows || fx.teamRows, fx.playRows);
+  const env = opts.env || dbFromRows(opts.teamRows || fx.teamRows, fx.playRows, opts.identRows || fx.identRows, opts);
   const r = await LM.handleLineupMatchups(new Request("https://w.test/api/lineup-matchups?YEAR=2026&W=" + (opts.W || 11) + (opts.q || "")), env, null,
     { jsonOut, nowMs: fx.meta.nowMs, lid: "74598", fetchImpl });
   return { status: r.status, json: await r.json(), calls, env };

@@ -34,7 +34,7 @@
 import {
   FPA_ENGINE_VERSION, FPA_BASELINE, FpaUpstreamError, NFLV_TO_MFL,
   fpaUrls, fpaLoadMfl, fpaCompute, fpaAggregate, fpaWeekStates, fpaGameStatus, fpaSeasonContextCached,
-  fpaStorePath, fpaStoreOpen, fpaPlayerIndex,
+  fpaStorePath, fpaStoreOpen, fpaPlayerIndex, fpaIdentityCached,
 } from "./fpa_engine.js";
 
 export const LINEUP_MU_VERSION = "lmu4-2026-11-21";   // lmu4: historical club evidence (W1, additive); lmu3: the line from nflverse (#1262)
@@ -299,15 +299,17 @@ export const TEAM_HISTORY_MIN_SCORED = 200;        // below this many scored pla
 //   teamHistory       players with two or more clubs, or whose last record's club is not MFL's club (segments, and `cur`);
 //   teamHistoryFirst  { id: firstWeek } for every other player whose first weekly row is after Week 1 (the earlier weeks are unknown);
 //   teamHistoryMissing / teamHistoryConflict  players the evidence cannot cover (see above).
-export function lmuTeamHistory({ ctx, ctxState, priorSeason, clubOf, scoredWeeks, scoredIds }) {
+export function lmuTeamHistory({ ctx, ctxState, priorSeason, clubOf, scoredWeeks, scoredIds, identity, identityState, infoOf }) {
   const off = (reason) => ({ teamHistoryState: "unavailable", teamHistoryReason: reason, teamHistoryThrough: null });
   if (priorSeason) return off("past_season");
   if (ctxState !== "ok" || !ctx || !ctx.one || typeof ctx.one !== "object" || !ctx.multi || typeof ctx.multi !== "object") return off("context_failed");
   const through = Number(ctx.through) || 0;
   if (through < 1 || !scoredIds.length) return off("no_history");
+  // Identity evidence is required, never optional: without it no mapping can be checked beyond the score-week test, so nothing is claimed.
+  if (identityState !== "ok" || !identity || !identity.byMfl || typeof identity.byMfl !== "object") return off("identity_unavailable");
   const club = (c) => { const u = str(c).toUpperCase(); return NFLV_TO_MFL[u] || u; };
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-  const teamHistory = {}, conflict = [], missing = [], first = {};
+  const teamHistory = {}, conflict = [], missing = [], first = {}, conflictWhy = {};
   let changed = 0;
   const ids = scoredIds.slice().sort((a, b) => Number(a) - Number(b));
   for (const id of ids) {
@@ -328,8 +330,11 @@ export function lmuTeamHistory({ ctx, ctxState, priorSeason, clubOf, scoredWeeks
       if (!(lo >= 1) || !(hiW >= lo)) { missing.push(id); continue; }
       segs = [[club(o[0]), lo, hiW]]; weeksToCheck = lo === hiW ? [lo] : [lo, hiW]; lastClub = segs[0][0];
     } else { missing.push(id); continue; }
+    // identity: a mapping that may be to the wrong person is withheld (never repaired): a shared nflverse id, a different position family, a different name
+    const why = lmuIdentityWhy(identity.byMfl[id], infoOf ? infoOf(id) : null);
+    if (why) { conflict.push(id); conflictWhy[id] = why; continue; }
     // the weekly row must be in a week MFL scored him; otherwise this id is joined to somebody else's rows
-    if (weeksToCheck.some((w) => !weeksSeen.has(w))) { conflict.push(id); continue; }
+    if (weeksToCheck.some((w) => !weeksSeen.has(w))) { conflict.push(id); conflictWhy[id] = "score_weeks"; continue; }
     const multiClub = segs.some((s) => s[0] !== segs[0][0]);
     // moved: MFL's club is not the last record's club. A free agent (no club) whose last row is before the coverage week is listed too, with cur "",
     // so the client never treats his silence after that row as a continuation with his old club.
@@ -343,7 +348,32 @@ export function lmuTeamHistory({ ctx, ctxState, priorSeason, clubOf, scoredWeeks
   }
   if (scoredIds.length >= TEAM_HISTORY_MIN_SCORED && 1 - missing.length / scoredIds.length < TEAM_HISTORY_COVERAGE_FLOOR) return off("crosswalk_failed");
   if (changed > TEAM_HISTORY_CHANGED_CEILING) return off("crosswalk_suspect");
-  return { teamHistoryState: "ok", teamHistoryReason: null, teamHistoryThrough: through, teamHistory, teamHistoryMissing: missing, teamHistoryConflict: conflict, teamHistoryFirst: first };
+  return { teamHistoryState: "ok", teamHistoryReason: null, teamHistoryThrough: through, teamHistory, teamHistoryMissing: missing, teamHistoryConflict: conflict, teamHistoryConflictWhy: conflictWhy, teamHistoryFirst: first };
+}
+
+// Position families the identity check compares (offense, defense, special teams). An unknown position on either side proves nothing, so it never flags.
+const LMU_FAMILY = { QB: "O", RB: "O", FB: "O", WR: "O", TE: "O", PK: "S", PN: "S", K: "S", P: "S",
+  DT: "D", DE: "D", DL: "D", LB: "D", OLB: "D", ILB: "D", MLB: "D", CB: "D", S: "D", FS: "D", SS: "D", DB: "D", NT: "D", EDGE: "D" };
+const lmuFamily = (p) => LMU_FAMILY[str(p).toUpperCase()] || "";
+// "Last, First Jr." and "First Last" compare equal; punctuation and generational suffixes are ignored.
+export function lmuNameKey(n) {
+  let t = str(n).toLowerCase();
+  const i = t.indexOf(",");
+  if (i > 0) t = t.slice(i + 1) + " " + t.slice(0, i);
+  return t.replace(/[^a-z ]/g, "").replace(/\b(jr|sr|ii|iii|iv|v)\b/g, "").split(/\s+/).filter(Boolean).join(" ");
+}
+// ent = the crosswalk's identity row for an MFL id (fpaLoadIdentity), info = MFL's own { name, pos } for him. Returns a reason code or "".
+export function lmuIdentityWhy(ent, info) {
+  if (!ent) return "identity_missing";
+  if (ent.dup > 1) return "shared_nfl_id";
+  const mf = lmuFamily(info && info.pos), wf = lmuFamily(ent.wpos), wx = lmuFamily(ent.wposx), cf = lmuFamily(ent.fpos);
+  if (wf && wx && wf !== wx) return "position_multi_family";   // nflverse records one nflverse id in two position families: not one clear person
+  if (mf && wf && mf !== wf) return "position_family";
+  if (mf && wx && mf !== wx) return "position_family";
+  if (mf && cf && mf !== cf) return "position_family";
+  const a = lmuNameKey(info && info.name), b = lmuNameKey(ent.name);
+  if (a && b && a !== b) return "name_mismatch";
+  return "";
 }
 
 async function cacheMatch(key) {
@@ -450,6 +480,8 @@ export async function handleLineupMatchups(request, env, ctx, { jsonOut, nowMs, 
     // W1: historical club evidence, from the context already loaded above (no database statement of its own).
     let clubHistory;
     try {
+      // identity evidence (beta only: the classic routes never read it); current season, live context only
+      const ident = !stored && !past && !priorSeason && ctxState === "ok" ? await fpaIdentityCached(env, ctx, ratingYr) : { identity: null, state: "none" };
       const idx = mfl.pInfo || (mfl.pInfo = fpaPlayerIndex(mfl.players));
       const scoredWeeks = new Map();
       for (const w of Object.keys(mfl.scoresByWeek || {})) for (const s of mfl.scoresByWeek[w]) {
@@ -459,7 +491,8 @@ export async function handleLineupMatchups(request, env, ctx, { jsonOut, nowMs, 
       }
       clubHistory = lmuTeamHistory({ ctx: seasonCtx, ctxState, priorSeason: priorSeason || past, clubOf: (id) => { const i = idx.get(id); return i ? i.team : ""; },
         // every player MFL has scored this season (not the window-limited playerWindow: `last` and attribution would otherwise hide changed players)
-        scoredWeeks, scoredIds: Array.from(scoredWeeks.keys()).filter((id) => idx.get(id)) });
+        scoredWeeks, scoredIds: Array.from(scoredWeeks.keys()).filter((id) => idx.get(id)),
+        identity: ident.identity, identityState: ident.state, infoOf: (id) => { const i = idx.get(id); return i && i.p ? { name: str(i.p.name), pos: str(i.p.position) } : null; } });
     } catch (_) { clubHistory = { teamHistoryState: "unavailable", teamHistoryReason: "history_error", teamHistoryThrough: null }; }
     const weeksAvailable = priorSeason ? 0 : ws.latestFinal;
     const basis = !weeksUsed.length ? "" : (priorSeason ? ratingYr + " season" : (weeksUsed.length === 1 ? "Wk " + weeksUsed[0] : "Wks " + weeksUsed[0] + "–" + weeksUsed[weeksUsed.length - 1]));
