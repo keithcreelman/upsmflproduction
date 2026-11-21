@@ -55,3 +55,8 @@ pipelines/reports/*.csv
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# Credentials never belong in the repository (containment, 2026-11-21)
+**/apikeys*.json
+services/rulebook/sources/rules/mfl_message_boards/api_info/
+*.cookie

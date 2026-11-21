@@ -183,7 +183,7 @@ Stage everything, create clean initial commit on `main` branch.
 2. **Environment variable consolidation** — Single `.env.example` at root instead of scattered configs
 3. **GitHub Pages deployment config** — Proper `gh-pages` branch or `/docs` publishing
 4. **CI/CD pipeline** — GitHub Action for linting, syntax checks, and validation on PR
-5. **API key rotation** — `mfl_api.py` still has a hardcoded fallback API key (`aRBv1sCXvuWqx0CmP13EaDoeFbox`)
+5. **API key rotation** — `mfl_api.py` still has a hardcoded fallback API key (`<redacted>`)
 
 ### Priority 2 — Developer Experience
 6. **Python dependency management** — Add `requirements.txt` or `pyproject.toml` (pandas, etc.)

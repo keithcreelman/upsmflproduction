@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # For convenience this repo keeps the original key as a fallback so
 # existing local runs continue to work. If you want to force explicit
 # key usage remove the fallback value and set `MFL_APIKEY` instead.
-APIKEY = os.environ.get("MFL_APIKEY", "aRBv1sCXvuWqx0CmP13EaDoeFbox")
+APIKEY = os.environ.get("MFL_APIKEY", "")
 
 # These are tuned by callers (e.g. loadplayers.apply_mode)
 REQUEST_DELAY = 2.5     # seconds to sleep before each request

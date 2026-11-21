@@ -594,7 +594,7 @@
 
   // Read a cookie value WITHOUT decodeURIComponent — needed for forwarding
   // MFL session tokens that contain literal %-escaped bytes in storage
-  // (e.g. aRBv1sCXvrLtj1DnZQifOg%3D%3D). MFL stores + sends the cookie
+  // (e.g. <redacted>). MFL stores + sends the cookie
   // with literal %3D%3D and rejects sessions that come back decoded.
   function readCookieRaw(name) {
     try {
