@@ -104,6 +104,20 @@
       .concat(all.filter(function (c) { return c.kind === "past"; }).reverse(), all.filter(function (c) { return c.kind === "future"; }));
   }
 
+  // ---------- is the roster read complete enough to judge this team's lineup? ----------
+  // MFL's submitted lineup for the current week names its starters. Every one of them is normally on this team's roster in the roster read. If many
+  // are not (the read came back partial, or the two reads are from different moments), judging the lineup from that roster would invent warnings:
+  // generic "Player <id>" names, unknown positions, "Starter fits no lineup slot" for every starter. One or two unresolved starters is a real case
+  // (a player dropped after the lineup was set) and keeps its normal handling; three or more, or a quarter of the lineup, is a data problem.
+  // Returns { checked, ok, total, unresolved, active }.
+  function lineupCoherence(S, team) {
+    if (!S.model || !team || !team.lineup || team.lineup.state !== "ok" || !team.lineup.ids) return { checked: false, ok: true, total: 0, unresolved: 0, active: team ? team.counts.active : 0 };
+    var ids = team.lineup.ids, un = 0;
+    ids.forEach(function (id) { var p = S.model.byId[id]; if (!p || p.franchiseId !== team.id) un++; });
+    var total = ids.length, bad = un >= 3 || (un >= 2 && un * 4 >= total);
+    return { checked: true, ok: !bad, total: total, unresolved: un, active: team.counts.active };
+  }
+
   // ---------- one team's lineup for one week (historical when the week is past) ----------
   function stub(id) { return { id: String(id), name: "Player " + id, pos: "?", nflTeam: "", status: "gone", franchiseId: "", salary: null, years: 0, type: "", bye: null }; }
   function lineupFor(S, team, wk) {
@@ -284,7 +298,7 @@
   function capNote(p) { return p.status === "ir" ? " · cap hit 50%" : p.status === "taxi" ? " · taxi, $0 on cap" : ""; }
 
   return {
-    SLOTS: SLOTS, assignSlots: assignSlots, weeklyIndex: weeklyIndex, weekInfo: weekInfo, weekChoices: weekChoices, lineupFor: lineupFor,
+    SLOTS: SLOTS, lineupCoherence: lineupCoherence, assignSlots: assignSlots, weeklyIndex: weeklyIndex, weekInfo: weekInfo, weekChoices: weekChoices, lineupFor: lineupFor,
     gameState: gameState, oppText: oppText, kickoffText: kickoffText, injuryChip: injuryChip, injuryFresh: injuryFresh, injuryNote: injuryNote, onBye: onBye,
     scoreOf: scoreOf, scoreRead: scoreRead, teamScoreOf: teamScoreOf, scoreWeek: scoreWeek, avgOf: avgOf, pts: pts, attention: attention, groupReasons: groupReasons,
     endingAfterSeason: endingAfterSeason, byeGroups: byeGroups, relWeek: relWeek, capNote: capNote, viewWeek: viewWeek, kickoffInfo: kickoffInfo, ORDINARY_SLATE: ORDINARY_SLATE

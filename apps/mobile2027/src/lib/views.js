@@ -248,10 +248,19 @@
     return sumCard("<b>As of now" + (wi.cur ? " · Week " + wi.cur : "") + "</b> · This view always shows today’s roster, injuries and lineup.");
   }
 
+  // Roster data that does not hold together is said so, once, in place of everything that would be judged from it (starters, bench, contracts,
+  // performance, warnings). Nothing is guessed in its place.
+  function dataUnavailableCard(S, t, coh) {
+    return '<div class="card warnc" role="alert"><h2>Roster and lineup data don’t match</h2><div class="ex">MFL’s Week ' + esc(S.model.week) + " lineup lists " + coh.total + " starters, but " + coh.unresolved +
+      " of them are not on this team’s roster in the data that loaded (the roster has " + coh.active + " active player" + (coh.active === 1 ? "" : "s") + "). The roster read may be incomplete, so starters, bench, contracts, scores and lineup warnings are not shown for this team. Nothing is guessed.</div>" +
+      '<button class="btn blk" data-act="retry">Reload the data</button></div>';
+  }
   function rosterBody(S) {
     var t = team(S), m = S.model, sel = R.weekInfo(S), wi = R.viewWeek(S), out = "";
     var weekAware = S.view === "lineup";
     out += teamPicker(t) + countsLine(t, m.limits);
+    var coh = R.lineupCoherence(S, t);
+    if (!coh.ok) return out + dataUnavailableCard(S, t, coh);
     if (S.load.core !== "ok" && S.load.coreNotes && S.load.coreNotes.length) {
       out += '<div class="card warnc"><h2>Not everything loaded</h2>' + S.load.coreNotes.map(function (n) { return '<div class="ex">' + esc(n) + "</div>"; }).join("") + "</div>";
     }
@@ -305,6 +314,7 @@
     }).join("") + "</div>";
     if (S.load.core === "loading") body = '<div class="card rows" aria-busy="true">' + skeletonRows(7) + '</div><div class="mu ctr sm">Loading the league…</div>';
     else if (S.load.core === "error" || !S.model) body = '<div class="card hl"><h2>Roster</h2><div class="big2"><b>Couldn’t read the league data. Try again.</b></div><div class="ex">' + esc(S.load.error || "") + '</div><button class="btn pri blk" data-act="retry">Try again</button></div>';
+    else if ((S.sub === "contracts" || S.sub === "performance") && !R.lineupCoherence(S, team(S)).ok) body = teamPicker(team(S)) + countsLine(team(S), S.model.limits) + dataUnavailableCard(S, team(S), R.lineupCoherence(S, team(S)));
     else if (S.sub === "contracts") body = teamPicker(team(S)) + countsLine(team(S), S.model.limits) + TV.contractsBody(S);
     else if (S.sub === "performance") body = teamPicker(team(S)) + countsLine(team(S), S.model.limits) + TV.performanceBody(S);
     else if (S.sub === "cap") body = later("Cap & picks", "Not in this preview. Cap space is left out on purpose until it can be checked against the Front Office number.");
