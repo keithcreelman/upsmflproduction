@@ -54,7 +54,7 @@ function state(over) {
     requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
   };
 }
-const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef"];
+const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "gotoview"];
 const findPlayer = (pred) => allPlayers().find(pred);
 
 // ───────────────────────── 1. contract text and schedule ─────────────────────────
@@ -414,7 +414,7 @@ test("other tabs and states: placeholders say what is not here; taxi details; un
   const miss = V.app(state({ profile: { pid: "99999999", tab: "contract" } }));
   t.match(miss, /Player not found/);
   ["home", "market", "league"].forEach((id) => t.match(V.app(state({ tab: id })), /not in Preview 0/i));
-  t.match(V.app(state({ sub: "contracts" })), /not in Preview 0/i); t.match(V.app(state({ sub: "cap" })), /Cap space is left out on purpose/);
+  t.match(V.app(state({ sub: "contracts" })).replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /not in this preview yet. Contract information is available now in two places: Roster › Contracts/); t.match(V.app(state({ sub: "contracts" })), /data-act="gotoview" data-v="contracts"/); t.match(V.app(state({ sub: "cap" })), /Cap space is left out on purpose/);
 });
 
 test("data text is escaped everywhere it is drawn", () => {

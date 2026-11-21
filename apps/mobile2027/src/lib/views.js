@@ -79,7 +79,7 @@
   function weekSheet(S) {
     var wi = R.weekInfo(S);
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Choose a week" tabindex="-1"><div class="grab"></div><div class="top"><h3>Choose a week</h3><button class="btn" data-act="close">Close</button></div>' +
-      '<div class="ex">A past week shows that week’s lineup and scores as MFL recorded them. NFL opponents and bye weeks, injury status, rosters and contracts are only shown for the current week. Later weeks are not available in this preview.</div>' +
+      '<div class="ex">A past week shows that week’s lineup and scores as MFL recorded them, on Lineup and Performance. NFL opponents and bye weeks, injury status, rosters and contracts are only shown for the current week, and Contracts and Byes always show today’s data. Later weeks are not available in this preview.</div>' +
       R.weekChoices(wi.cur).map(function (c) {
         var label = c.kind === "current" ? "Current week" : c.kind === "past" ? "Played" : c.kind === "future" ? "Not available in this preview" : "Unavailable";
         var on = c.n === wi.sel, off = c.kind === "future" || c.kind === "unknown";
@@ -88,11 +88,14 @@
   }
 
   // ---------- rows ----------
-  // `o.wk` is the week the row speaks for; `o.tag` the starter's slot tag. A row in a past week shows only HISTORICAL facts
-  // (that week's opponent, bye and score); injury chips and cap notes are CURRENT and are drawn only when the week is current.
+  function nw(text) { return '<span class="nw">' + esc(text) + "</span>"; } // keeps "@ CHI" or "vs MIA" from breaking in the middle on a narrow phone
+  function statusWord(p) { return p.status === "ir" ? "injured reserve" : p.status === "taxi" ? "taxi squad" : "bench"; }
+
+  // `o.wk` is the week the row speaks for; `o.tag` the starter's slot tag. A row in a past week shows only HISTORICAL facts (the recorded
+  // lineup order and score); injury chips, opponents, kickoffs and cap notes are CURRENT and are drawn only for the current week.
   function row(p, S, o) {
     o = o || {};
-    var wi = R.weekInfo(S), wk = o.wk != null ? o.wk : wi.cur, past = !!o.past;
+    var wi = R.viewWeek(S), wk = o.wk != null ? o.wk : wi.cur, past = !!o.past;
     var team = p.nflTeam || "No NFL team"; // MFL's own code, as the roster rows have always printed it
     var small = "", right = "", chips = [];
     var view = past ? "past" : S.view;
@@ -102,8 +105,8 @@
       var sal = p.salary == null ? '<b class="wn">Not recorded</b>' : "<b>" + money(p.salary) + "</b>";
       right = '<div class="rt">' + sal + (p.years === 1 ? chip("wn", "▲ Final year") : p.years ? '<span class="mu sm">' + p.years + " yrs left</span>" : "") + "</div>";
     } else if (view === "byes") {
-      small = esc(team) + " · " + (p.bye ? "bye week " + p.bye + " · " + R.relWeek(p.bye, wi.cur) : "bye week unavailable");
-      right = '<div class="rt"><b>' + (p.bye ? "Wk " + p.bye : "—") + "</b>" + (p.bye && p.bye === wi.cur ? chip("wn", "▲ Week " + wi.cur) : "") + "</div>";
+      // a row inside a bye group: the group already says which week, so the row says who he is to today's lineup
+      small = nw(team) + " · " + (o.tag ? "current starter" : statusWord(p)) + (p.bye && wi.cur && p.bye < wi.cur ? " · bye was Week " + p.bye : "");
     } else {
       var parts = [esc(team)];
       var inPlay = past || p.status === "active";
@@ -117,30 +120,38 @@
         if (p.status !== "gone") parts = [esc(team) + " now", "Opponent unavailable"];
       } else if (inPlay) {
         var opp = R.oppText(S, p, wk);
-        if (opp) parts.push(esc(opp));
-        if (!past && S.view === "lineup" && o.tag) { var ko = R.kickoffText(S, p, wk); if (ko) parts.push(esc(ko)); }
+        if (opp) parts.push(nw(opp));
+        if (S.view === "lineup" && o.tag) {
+          // R2b, P3: a kickoff is shown on a row only when it is NOT the ordinary Sunday 1:00 PM slate; an unknown time says so
+          var ko = R.onBye(p, wk) ? { state: "none" } : R.kickoffInfo(S, p, wk); // a bye has no kickoff
+          if (ko.state === "known" && !ko.ordinary) parts.push(nw(ko.text)); else if (ko.state === "unknown") parts.push("Kickoff unavailable");
+        }
       }
       if (p.status === "gone") parts.push("No longer on a UPS roster");
       else if (past && p.franchiseId && S.teamId && p.franchiseId !== S.teamId) parts.push("now on another team");
       if (view === "performance" || view === "past") {
-        var sw = past ? wk : R.scoreWeek(wi), sc = sw ? R.scoreOf(S, p.id, sw) : null;
-        var sct = !sw ? "—" : sc === undefined ? "…" : R.pts(sc); // no "Bye" label: his bye week today says nothing about the club he was with in a past week
+        // R2b, P4: the bold number is the score of the COMPLETED week it is labeled with (Wk N, right under it): the week before the current
+        // one, or the past week chosen. Opponent and the season average support it. A score that is not recorded, or a read that failed,
+        // says so; nothing is filled in, and the unavailable projection is one line above, not a column.
+        var sw = past ? wk : R.scoreWeek(wi), rd = sw ? R.scoreRead(S, sw) : "none", sc = sw ? R.scoreOf(S, p.id, sw) : null;
+        var big = !sw ? "—" : rd === "loading" ? "…" : R.pts(sc);
+        var lab = !sw ? "" : rd === "error" ? "Unavailable" : "Wk " + sw;
+        right = '<div class="rt"><b>' + big + '</b><span class="mu sm">' + esc(lab) + "</span></div>";
         if (!past) {
-          if (p.status !== "active") parts = [esc(team), "not in play"];
+          if (p.status !== "active") { parts = [esc(team), "not in play"]; right = ""; }
           else {
             var av = R.avgOf(S, p.id, wi.cur);
-            parts = [esc((sw ? "Wk " + sw + " " + sct : "No earlier week") + " · Avg " + (av === undefined ? "…" : R.pts(av)))].concat(parts.slice(1));
+            parts = parts.slice(1).concat(["Season avg " + (av === undefined ? "…" : R.pts(av))]);
           }
         }
-        right = past ? '<div class="rt"><b>' + sct + '</b><span class="mu sm">pts</span></div>' : '<div class="rt"><b>—</b><span class="mu sm">proj</span></div>';
       }
       small = parts.join(" · ");
-      if (!past) {
-        var onB = R.onBye(p, wk) && o.tag;
-        if (onB) chips.push(chip("wn", "▲ Bye week"));
-        var ic = R.injuryChip(S, p);
-        if (ic) chips.push(chip(ic.cls, esc(ic.text)));
-      }
+    }
+    if (!past) {
+      // the same chips on all four views (current information); a bye chip only for a starter on the Lineup and Performance views
+      if (R.onBye(p, wk) && o.tag && (S.view === "lineup" || S.view === "performance")) chips.push(chip("wn", "▲ Bye week"));
+      var ic = R.injuryChip(S, p);
+      if (ic) chips.push(chip(ic.cls, esc(ic.text)));
     }
     // a past week's rows carry the recorded order (1, 2, 3 ...), never a slot or a position: neither is recorded for that week
     var tag = o.tag ? '<span class="tag sl">' + esc(o.tag) + "</span>" : o.ord ? '<span class="tag sl" role="img" aria-label="Recorded starter number ' + o.ord + '">' + esc(o.ord) + "</span>" : '<span class="tag pp">' + pcx(p.pos) + "</span>";
@@ -152,7 +163,8 @@
   }
 
   function groupDefault(S, key) {
-    if (key === "ir" || key === "taxi") return false;
+    if (key === "ir" || key === "taxi" || key === "bwpast") return false;
+    if (key.indexOf("bw") === 0) return true; // bye groups from this week on are open; only the already-played one starts closed
     if (S.gdef === "all") return true;
     var t = team(S), g = t ? M.benchGroups(t).filter(function (x) { return "b" + x.pos === key; })[0] : null;
     return !!(g && R.groupReasons(S, g.players).length);
@@ -167,16 +179,41 @@
 
   // ---------- summary lines ----------
   function sumCard(html) { return '<div class="card sumc">' + html + "</div>"; }
+  // the same wording everywhere: "n need attention", counted per starting slot (R.attention)
+  function attentionText(a) {
+    return a.n ? a.n + (a.n === 1 ? " needs" : " need") + " attention" : a.injuriesChecked ? "nothing needs attention" : "injuries not checked";
+  }
   function statusLine(S, lineup, wi, view) {
-    var lim = S.model.limits.starters || 18, is = R.issues(S, lineup, wi.cur);
-    var checked = S.intel && S.intel.status && S.intel.status.state === "ok";
-    return sumCard("<b>" + lineup.filled + " of " + lim + " starters</b> · " + (is.n ? is.n + " to fix" : "nothing to fix") + (checked ? "" : " (injuries not checked)") +
+    var lim = S.model.limits.starters || 18, a = R.attention(S, lineup, wi.cur);
+    return sumCard("<b>" + lineup.count + " of " + lim + " starters</b> · " + attentionText(a) +
       (view !== "lineup" ? ' <button class="link" data-act="view" data-v="lineup">Open Lineup</button>' : ""));
+  }
+  // R2b, P3: the read-only starting-decisions card (the demo's, without Replace or Swap). One entry per starting slot, with the player, his
+  // position, what the issue is, the opponent and the kickoff; Unavailable where a time or an opponent is not established.
+  function startingCard(S, wi, lineup) {
+    var cur = wi.cur, lim = S.model.limits.starters || 18, a = R.attention(S, lineup, cur), doubtful = false;
+    var head = '<div class="big2"><b>' + lineup.count + " of " + lim + " starters</b> · " + (a.n ? '<span class="wn">' + esc(attentionText(a)) + "</span>" : esc(attentionText(a))) + "</div>";
+    var body = a.items.map(function (it) {
+      var p = it.player, k = R.kickoffInfo(S, p, cur), isBye = it.issues.some(function (x) { return x.kind === "bye"; });
+      if (it.issues.some(function (x) { return x.kind === "doubtful"; })) doubtful = true;
+      // a player on a bye has no opponent or kickoff to show: the issue already says "Bye week"
+      var rest = [esc(p.pos)];
+      if (!isBye) rest.push(nw(R.oppText(S, p, cur) || "Opponent unavailable"), k.state === "known" ? "Kickoff " + nw(k.text) : "Kickoff unavailable");
+      return '<div class="rx"><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(it.slot.tag) + " · " + esc(p.name) + "</span><small><b class=\"wn\">" +
+        esc(it.issues.map(function (x) { return x.text; }).join(" · ")) + "</b> · " + rest.join(" · ") + "</small></button></div></div>";
+    }).join("") + a.empties.map(function (sl) {
+      return '<div class="rx"><div class="in"><b>' + esc(sl.tag) + ' · Empty</b><small>No starter is set for this slot</small></div></div>';
+    }).join("") + a.extras.map(function (p) {
+      return '<div class="rx"><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small><b class=\"wn\">Starter fits no lineup slot</b> · " + esc(p.pos) + "</small></button></div></div>";
+    }).join("");
+    return '<div class="card ' + (a.n ? "warnc" : "okc") + '">' + head + body +
+      (a.injuriesChecked ? "" : '<div class="ex wn mt4">Injury status is not available yet, so injuries are not counted here.</div>') +
+      '<div class="ex mt4">Read only: nothing here can change the lineup.' + (doubtful ? " “Doubtful” means a decision may be needed, not that a player is out." : "") + "</div></div>";
   }
 
   function teamScoreLine(S, t, wi) {
     var sw = R.scoreWeek(wi), v = sw ? R.teamScoreOf(S, t.id, sw) : null;
-    return !sw ? "Unavailable" : v === undefined ? "…" : R.pts(v) + " (Week " + sw + ")";
+    return !sw ? "Unavailable" : v === undefined ? "…" : v === null ? "Unavailable" : R.pts(v) + " (Wk " + sw + ")";
   }
 
   function lineupBlock(S, t, wi, lineup, past) {
@@ -190,38 +227,79 @@
     var rows = lineup.slots.map(function (x) {
       return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past);
     }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); })).join("");
-    return '<div class="grp"><span>Week ' + wk + " starters · " + lineup.filled + " of " + lim + '</span></div><div class="card rows">' + rows + "</div>";
+    return '<div class="grp"><span>Week ' + wk + " starters · " + lineup.count + " of " + lim + '</span></div><div class="card rows">' + rows + "</div>";
+  }
+
+  // R2b, P6: the Byes view. Players grouped by bye week in week order from this week on; each group says how many of TODAY's starters it leaves
+  // out and which slots, without claiming those players will fill those slots in that week; already-played byes are collapsed.
+  function byeGroupHead(S, key, label, count, open, sub) {
+    return '<button class="gh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + '</span><span class="t"><b>' + esc(label) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></button>";
+  }
+  function byesBody(S, t, wi, lineup) {
+    var cur = wi.cur, g = R.byeGroups(S, t, cur, lineup), out = "";
+    var next = g.groups.slice(0, 4).map(function (x) { return "Week " + x.week + " · " + (g.haveLineup ? x.starters.length + " current starter" + (x.starters.length === 1 ? "" : "s") : x.players.length + " players"); });
+    out += sumCard("<b>Next byes:</b> " + (next.length ? esc(next.join("  ·  ")) : "none recorded"));
+    out += '<div class="ex pad">' + (g.haveLineup ? "Slots are today’s lineup (Week " + cur + "). The lineup for a later week is not set, so these players may not fill the same slots then." : "Today’s lineup could not be read, so starters are not marked.") + "</div>";
+    g.groups.forEach(function (x) {
+      var key = "bw" + x.week, open = isOpen(S, key), who;
+      if (!g.haveLineup) who = x.players.length + " player" + (x.players.length === 1 ? "" : "s") + " on bye";
+      else if (!x.starters.length) who = "no current starters on bye";
+      else who = x.starters.length + " current starter" + (x.starters.length === 1 ? "" : "s") + " on bye: " + x.starters.map(function (s) { return s.tag; }).join(", ");
+      out += byeGroupHead(S, key, (x.week === cur ? "This week · Week " : "Week ") + x.week + " · " + who, x.players.length, open, x.players.length + " player" + (x.players.length === 1 ? "" : "s"));
+      if (open) out += '<div class="card rows">' + x.players.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
+    });
+    if (g.past.length) {
+      var open2 = isOpen(S, "bwpast");
+      out += byeGroupHead(S, "bwpast", "Already played · " + g.past.length + " player" + (g.past.length === 1 ? "" : "s"), g.past.length, open2, "their bye week has passed");
+      if (open2) out += '<div class="card rows">' + g.past.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
+    }
+    if (g.none.length) {
+      var open3 = isOpen(S, "bwnone");
+      out += byeGroupHead(S, "bwnone", "Bye week unavailable · " + g.none.length + " player" + (g.none.length === 1 ? "" : "s"), g.none.length, open3, "no bye week on file");
+      if (open3) out += '<div class="card rows">' + g.none.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
+    }
+    return out;
+  }
+
+  // Contracts and Byes are always "as of now" (R2b, P2): a plain line instead of the week bar, so a past week is never shown over today's data.
+  function nowLine(wi) {
+    return sumCard("<b>As of now" + (wi.cur ? " · Week " + wi.cur : "") + "</b> · This view always shows today’s roster, injuries and lineup.");
   }
 
   function rosterBody(S) {
-    var t = team(S), m = S.model, wi = R.weekInfo(S), out = "";
+    var t = team(S), m = S.model, sel = R.weekInfo(S), wi = R.viewWeek(S), out = "";
+    var weekAware = S.view === "lineup" || S.view === "performance";
     out += teamPicker(t) + countsLine(t, m.limits);
     if (S.load.core !== "ok" && S.load.coreNotes && S.load.coreNotes.length) {
       out += '<div class="card warnc"><h2>Not everything loaded</h2>' + S.load.coreNotes.map(function (n) { return '<div class="ex">' + esc(n) + "</div>"; }).join("") + "</div>";
     }
-    out += weekBar(S, wi) + seg(S.view);
+    out += (weekAware ? weekBar(S, sel) : nowLine(wi)) + seg(S.view);
 
-    // A past week (Lineup and Performance): only what MFL recorded for that week.
-    if (wi.past && (S.view === "lineup" || S.view === "performance")) {
-      out += sumCard("<b>Week " + wi.sel + " · played</b> · Lineup and scores are from that week. NFL opponents and bye weeks are Unavailable for a past week: no read says which NFL team a player was with then, and his team today could be the wrong one. Injury status, rosters and contracts are as of now, so none of them is drawn here.<div><button class=\"link\" data-act=\"pickweek\" data-v=\"" + wi.cur + "\">Go to Week " + wi.cur + " (current)</button></div>");
-      var pl = R.lineupFor(S, t, wi.sel);
-      if (pl.state === "loading") return out + '<div class="card rows" aria-busy="true">' + skeletonRows(6) + '</div><div class="mu ctr sm">Loading Week ' + wi.sel + "…</div>";
-      if (pl.state !== "ok") return out + '<div class="card warnc"><h2>Week ' + wi.sel + '</h2><div class="ex">' + (pl.state === "missing" ? "MFL has no lineup recorded for this team in that week." : "That week’s lineup could not be read" + (pl.error ? " (" + esc(pl.error) + ")" : "") + ". Nothing is guessed in its place.") + '</div><button class="btn blk" data-act="pickweek" data-v="' + wi.sel + '">Try again</button></div>';
-      return out + lineupBlock(S, t, wi, pl, true) + '<div class="ex pad">Bench, injured reserve and taxi are not shown for past weeks: rosters change, and a roster drawn here would be today’s, not that week’s.</div>';
+    // A past week (Lineup and Performance only): only what MFL recorded for that week.
+    if (weekAware && sel.past) {
+      out += sumCard("<b>Week " + sel.sel + " · played</b> · Lineup and scores are from that week. NFL opponents and bye weeks are Unavailable for a past week: no read says which NFL team a player was with then, and his team today could be the wrong one. Injury status, rosters and contracts are as of now, so none of them is drawn here.<div><button class=\"link\" data-act=\"pickweek\" data-v=\"" + sel.cur + "\">Go to Week " + sel.cur + " (current)</button></div>");
+      var pl = R.lineupFor(S, t, sel.sel);
+      if (pl.state === "loading") return out + '<div class="card rows" aria-busy="true">' + skeletonRows(6) + '</div><div class="mu ctr sm">Loading Week ' + sel.sel + "…</div>";
+      if (pl.state !== "ok") return out + '<div class="card warnc"><h2>Week ' + sel.sel + '</h2><div class="ex">' + (pl.state === "missing" ? "MFL has no lineup recorded for this team in that week." : "That week’s lineup could not be read" + (pl.error ? " (" + esc(pl.error) + ")" : "") + ". Nothing is guessed in its place.") + '</div><button class="btn blk" data-act="pickweek" data-v="' + sel.sel + '">Try again</button></div>';
+      return out + lineupBlock(S, t, sel, pl, true) + '<div class="ex pad">Bench, injured reserve and taxi are not shown for past weeks: rosters change, and a roster drawn here would be today’s, not that week’s.</div>';
     }
-    if (wi.past) out += '<div class="ex pad">' + (S.view === "contracts" ? "Contracts and cap notes are as of now, not Week " + wi.sel + "." : "Bye weeks are shown for today’s roster.") + "</div>";
 
     var cur = wi.cur, lineup = t.lineup.state === "ok" ? R.lineupFor(S, t, cur) : null;
     var inj = R.injuryNote(S);
     if (lineup && lineup.state === "ok") {
-      if (S.view === "contracts") out += statusLine(S, lineup, wi, S.view) + sumCard("<b>" + R.endingAfterSeason(t) + " end after " + m.season + '</b> <button class="link" data-act="sub" data-v="contracts">Open full Contracts ›</button>');
-      else if (S.view === "byes") { var bc = R.byeCounts(t, cur); out += statusLine(S, lineup, wi, S.view) + sumCard("<b>Week " + cur + " · " + bc.now + " on a bye</b> · Week " + (cur + 1) + " · " + bc.next); }
-      else if (S.view === "performance") out += statusLine(S, lineup, wi, S.view) + sumCard("<b>Projected lineup Unavailable</b> · last week " + esc(teamScoreLine(S, t, wi))) + '<div class="ex pad">Projections are Unavailable until a projection source is approved. Nothing is estimated.</div>';
-      if (inj && S.view !== "contracts") out += '<div class="ex pad">' + esc(inj) + "</div>";
+      if (S.view === "lineup") out += startingCard(S, wi, lineup);
+      else if (S.view === "contracts") out += statusLine(S, lineup, wi, S.view) + sumCard("<b>" + R.endingAfterSeason(t) + " end after " + m.season + "</b>");
+      else if (S.view === "performance") {
+        out += statusLine(S, lineup, wi, S.view) + sumCard("<b>Team score " + esc(teamScoreLine(S, t, wi)) + "</b> · Projection Unavailable") +
+          '<div class="ex pad">' + (R.scoreWeek(wi) ? "Scores are for Week " + R.scoreWeek(wi) + ", the last completed week. Week " + cur + " is not complete." : "No week has been completed yet, so there are no scores to show. Week " + cur + " is not complete.") + "</div>";
+      } else out += statusLine(S, lineup, wi, S.view);
+      if (inj) out += '<div class="ex pad">' + esc(inj) + "</div>";
+      if (S.view === "byes") return out + byesBody(S, t, wi, lineup);
       out += lineupBlock(S, t, wi, lineup, false);
-      if (S.view === "lineup") out += '<div class="ex pad">The lineup as MFL has it for Week ' + cur + ". Nothing here can change it. Kickoff times are Eastern.</div>";
+      if (S.view === "lineup") out += '<div class="ex pad">The lineup as MFL has it for Week ' + cur + ". Nothing here can change it. A kickoff time is shown on a row only when it is not Sunday 1:00 PM (Eastern).</div>";
     } else {
       out += '<div class="card warnc"><h2>Lineup not available</h2><div class="ex">MFL’s submitted lineup could not be read, so no starters are shown. Every active player is under Bench. This is not an empty lineup.</div></div>';
+      if (S.view === "byes") return out + byesBody(S, t, wi, null);
     }
     // bench
     var groups = M.benchGroups(t);
@@ -249,7 +327,7 @@
     }).join("") + "</div>";
     if (S.load.core === "loading") body = '<div class="card rows" aria-busy="true">' + skeletonRows(7) + '</div><div class="mu ctr sm">Loading the league…</div>';
     else if (S.load.core === "error" || !S.model) body = '<div class="card hl"><h2>Roster</h2><div class="big2"><b>Couldn’t read the league data. Try again.</b></div><div class="ex">' + esc(S.load.error || "") + '</div><button class="btn pri blk" data-act="retry">Try again</button></div>';
-    else if (S.sub === "contracts") body = later("Team › Contracts", "The all-years contracts table is approved as a concept but is not in Preview 0. Open any player for his contract.");
+    else if (S.sub === "contracts") body = '<div class="card"><h2>Team › Contracts</h2><p class="m0">The all-years Contracts table is not in this preview yet. Contract information is available now in two places: Roster › Contracts (salary, years left, final year, and the IR and taxi cap notes) and each player’s profile (year-by-year amounts, earned to date, guarantee).</p><button class="btn pri blk" data-act="gotoview" data-v="contracts">Open Roster › Contracts</button></div>';
     else if (S.sub === "cap") body = later("Cap & picks", "Not in Preview 0. Cap space is left out on purpose until it can be checked against the Front Office number.");
     else body = rosterBody(S);
     return header("Team", asOfLine(S)) + tabs + '<div id="screen">' + body + "</div>";
