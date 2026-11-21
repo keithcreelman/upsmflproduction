@@ -191,6 +191,7 @@
       var r = scoresOf(S)[w];
       if (!r || r.state === "loading") loading = true; else if (r.state === "ok") scores[w] = r.data.scores; else failed = true;
     });
+    Object.keys(scoresOf(S)).forEach(function (w) { var r = scoresOf(S)[w]; if (r && r.state === "ok") scores[w] = r.data.scores; });
     var through = d.hist && typeof d.hist.teamHistoryThrough === "number" ? d.hist.teamHistoryThrough : null;
     // The season totals count a player-game only when his game is FINAL. A newer-week score is in the total when that week is over (the lineup
     // week has moved on) or when his club's game that week is final; otherwise it is a live score the total does not hold.
@@ -313,14 +314,23 @@
 
   // ============================== profile game log ==============================
   // The profile's last four weeks: Week and Points, with a BYE only where the club is known. No opponent: the preview loads no past schedule.
+  // The weeks the full-season game log needs: every week from Week 1 to the latest final week (the four newest are the Performance reads).
+  function logWeeks(L) { var w = []; for (var i = 1; i <= L; i++) w.push(i); return w; }
   function gameLog(S, p) {
     var mu = S.intel && S.intel.mu && S.intel.mu[S.model.week];
     if (!mu || mu.state === "loading") return '<div class="ex">Loading the game log…</div>';
     if (mu.state !== "ok") return '<div class="ex wn">The game log could not be read (' + esc(mu.error || "") + '). <button class="link" data-act="retryperf">Try again</button></div>';
     var ctx = perfInput(S, [p.id]);
     if (!ctx.input.latestFinal) return '<div class="ex">No week has been completed yet.</div>';
-    var log = CH.logFor(ctx.input, p.id);
+    var L = ctx.input.latestFinal, all = !!(S.profile && S.profile.all), from = all ? 1 : Math.max(1, L - 3);
+    var log = CH.logFor(ctx.input, p.id, { fromWeek: from, toWeek: L }).slice().reverse(); // newest first
     var season = ctx.input.season[p.id];
+    var more = "";
+    if (L > 4 && !all) more = '<button class="btn blk" data-act="logmore">Show earlier weeks</button>';
+    else if (all) {
+      var pend = 0, bad = 0; logWeeks(L - 4).forEach(function (w) { var r = scoresOf(S)[w]; if (!r || r.state === "loading") pend++; else if (r.state !== "ok") bad++; });
+      more = pend ? '<div class="ex">Loading earlier weeks… (' + pend + " to go)</div>" : bad ? '<div class="ex wn">' + plural(bad, "earlier week", "earlier weeks") + ' could not be read and show n/a. <button class="link" data-act="retrylog">Try again</button></div>' : '<div class="ex">Showing Weeks 1 to ' + L + ". <button class=\"link\" data-act=\"logless\">Show fewer</button></div>";
+    }
     var rows = log.map(function (r) {
       var cell = r.kind === "score" ? "<b>" + f1(r.score) + "</b>" : r.kind === "newer" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">newer</span>') : r.kind === "bye" ? '<span class="mu">BYE</span>' : r.kind === "live" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">live</span>') : r.kind === "unloaded" ? '<span class="mu">' + (scoresOf(S)[r.week] && scoresOf(S)[r.week].state === "error" ? "n/a" : "…") + "</span>" : '<span class="mu">' + DASH + "</span>";
       return "<tr><td>" + r.week + '</td><td class="n">' + cell + "</td></tr>";
@@ -328,8 +338,8 @@
     var avg = season && season.games ? season.total / season.games : null;
     return '<div class="k3"><div><b>' + f1(avg) + "</b><small>Season average</small></div><div><b>" + (season ? season.games : DASH) + "</b><small>Scored games</small></div><div><b>" + ctx.input.latestFinal + "</b><small>Through week</small></div></div>" +
       '<div class="card tbl"><table><tr><th>Wk</th><th class="n">Pts</th></tr>' + rows + "</table></div>" +
-      '<div class="ex">The last four weeks. 0.0 is a score MFL recorded; ' + DASH + " is no score recorded. BYE appears only where the club is known. Opponents, snaps and lineup status are not in this preview.</div>";
+      more + '<div class="ex">' + (all ? "The full season, newest first. " : "The latest four weeks. ") + '0.0 is a score MFL recorded; ' + DASH + " is no score recorded. BYE appears only where the club is known. Opponents, snaps and lineup status are not in this preview.</div>";
   }
 
-  return { contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, throughOf: throughOf, kmoney: kmoney };
+  return { contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney };
 });

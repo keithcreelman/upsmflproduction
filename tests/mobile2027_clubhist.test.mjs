@@ -345,29 +345,41 @@ check("B gap 0: complete true, or newerFinal absent, or that club's game final: 
   [{ complete: true }, { complete: true, clubs: { BBB: false } }, { complete: false, clubs: { BBB: true } }].forEach((nf) => assert.deepEqual(figs(lv({ newerFinal: nf }).row), figs(G0)));
   assert.equal(G0.scoredGames, 9); assert.equal(G0.teamGames.text, "9 of 9 team games");
 });
-check("B gap 0: that club's game is NOT final -> live: strip kind 'live' with the score carried, excluded from Recent, window count, range, Earlier and scored games", () => {
+check("B gap 0: that club's game is NOT final -> live: skipped for the window like a bye (not a gap); strip 'live' with the score carried; counted in no figure", () => {
   const r = live();
   assert.deepEqual(cell(r, 10), { week: 10, kind: "live", score: 11, loaded: true });
-  assert.equal(r.cmp.state, "shown"); assert.deepEqual(r.window.weeks, [8, 9, 10]); assert.equal(r.window.scoredCount, 2); assert.equal(r.recentN, 2);
-  near(r.recent, (10.8 + 10.9) / 2); near(r.earlier, (10.1 + 10.2 + 10.4 + 10.5 + 10.6 + 10.7) / 6); assert.equal(r.earlierN, 6);
-  assert.equal(r.range.hi, 10.9); assert.equal(r.range.n, 3); assert.equal(r.scoredGames, 8); assert.equal(r.teamGames.known, 8); assert.equal(r.seasonThrough, 10);
-  assert.equal(r.mixedBase, false);
-  // counting it as a final score would give different figures: the branch matters
-  assert.notEqual(G0.recent, r.recent);
-  // live score + one other recent score: only one recent score is left
-  const one = live({ sc: sc([3, 9]) }); assert.equal(one.cmp.reason, "recent_scores_lt_2");
+  assert.equal(r.cmp.state, "shown"); assert.deepEqual(r.window.weeks, [7, 8, 9]);                 // the window continues to the previous completed game
+  assert.equal(r.window.scoredCount, 3); assert.equal(r.recentN, 3);
+  near(r.recent, (10.7 + 10.8 + 10.9) / 3); near(r.earlier, (10.1 + 10.2 + 10.4 + 10.5 + 10.6) / 5); assert.equal(r.earlierN, 5);
+  assert.equal(r.range.hi, 10.9); assert.equal(r.range.n, 3); assert.equal(r.scoredGames, 8); assert.equal(r.seasonThrough, 10); assert.equal(r.mixedBase, false);
+  assert.equal(r.teamGames.text, "8 of 8 team games");                                              // the live game is not a completed team game
+  assert.notEqual(G0.recent, r.recent);                                                             // the branch matters
   // the rule is per player: a player whose club is final is untouched
   assert.deepEqual(figs(lv({ newerFinal: { complete: false, clubs: { BBB: true, AAA: false } } }).row), figs(G0));
 });
-check("B gap 0: inclusion cannot be established (club missing, no club, map absent) -> comparison withheld 'newer_score_unseparable', Recent too (the score is in the window)", () => {
+check("B gap 0: a live game with NO recorded score is skipped the same way (the window is the three games before it)", () => {
+  const r = live({ sc: sc([3, 10]), notInSeason: [] });
+  assert.deepEqual(r.window.weeks, [7, 8, 9]); assert.equal(cell(r, 10).kind, "none"); assert.equal(r.teamGames.text, "8 of 8 team games"); assert.equal(r.cmp.state, "shown");
+});
+check("window: a COMPLETED team game with no score stays a gap (keeps its slot; never reaches farther back for a third score)", () => {
+  const gap10 = lv({ sc: sc([3, 10]) }).row;                                                       // Week 10 final, no score
+  assert.deepEqual(gap10.window.weeks, [8, 9, 10]); assert.equal(gap10.recentN, 2); assert.equal(gap10.window.scoredCount, 2); near(gap10.recent, (10.8 + 10.9) / 2); assert.equal(gap10.cmp.state, "shown");
+  const finalNoScore = lv({ sc: sc([3, 10]), newerFinal: { complete: false, clubs: { BBB: true } } }).row; assert.deepEqual(figs(finalNoScore), figs(gap10));
+  const gap9 = lv({ sc: sc([3, 9]) }).row; assert.deepEqual(gap9.window.weeks, [8, 9, 10]); assert.equal(gap9.recentN, 2);
+  const two = lv({ sc: sc([3, 9, 10]) }).row; assert.equal(two.cmp.reason, "recent_scores_lt_2"); assert.deepEqual(two.window.weeks, [8, 9, 10]);      // only Week 8 scored: not enough, and no reach-back
+  // live skipped is NOT a gap: the window moves back, so one completed no-score game in it still leaves 2 scores
+  const liveGap = live({ sc: sc([3, 9]), notInSeason: [10] }); assert.deepEqual(liveGap.window.weeks, [7, 8, 9]); assert.equal(liveGap.recentN, 2); assert.equal(liveGap.cmp.state, "shown");
+});
+check("B gap 0: inclusion cannot be established -> 'newer_score_unseparable' with a recorded score (Recent too); 'club_game_unclear' (Week L) without one", () => {
   [{ complete: false, clubs: { AAA: false } }, { complete: false }, { complete: false, clubs: { BBB: "no" } }].forEach((nf) => {
     const r = lv({ newerFinal: nf }).row;
     assert.equal(r.cmp.reason, "newer_score_unseparable"); assert.deepEqual([r.recent, r.earlier, r.difference], [null, null, null]);
     assert.equal(cell(r, 10).kind, "score");                                                    // not known to be live, so not drawn as live
+    const none = lv({ sc: sc([3, 10]), newerFinal: nf }).row; assert.equal(none.cmp.reason, "club_game_unclear"); assert.equal(none.cmp.week, 10); assert.equal(none.teamGames.of, null);
   });
   const noClub = run({ L: 10, through: 10, th: LIVE_TH, club: "", byeOf: LIVE_BYE, sc: sc([3]), newerFinal: { complete: false, clubs: { BBB: true } } }).row; assert.equal(noClub.cmp.reason, "newer_score_unseparable");
-  // a player with no recorded Week L score needs no settlement
-  assert.equal(lv({ sc: sc([3, 10]), newerFinal: { complete: false, clubs: {} } }).row.cmp.state, "shown");
+  // a bye at Week L needs no settlement: no game, nothing live
+  const byeL = run({ L: 10, through: 10, th: LIVE_TH, club: "BBB", byeOf: { AAA: 3, BBB: 10 }, sc: sc([3, 10]), newerFinal: { complete: false, clubs: {} } }).row; assert.equal(byeL.cmp.state, "shown");
 });
 check("B gap 1: the newer Week L score stays a 'newer' cell and never enters a figure, whatever its game state", () => {
   const without = u1({ sc: sc([3, 10]) }).row;
@@ -376,6 +388,12 @@ check("B gap 1: the newer Week L score stays a 'newer' cell and never enters a f
     assert.deepEqual(figs(r), figs(without)); assert.equal(cell(r, 10).kind, "newer"); assert.equal(cell(r, 10).score, 11);
   });
   assert.equal(u1({ sc: sc([3]), newerFinal: { complete: false, clubs: {} } }).row.cmp.reason, "newer_score_unseparable");
+});
+check("B gap 1: the window at the cutoff is unaffected by Week L's game state; a completed no-score game at the cutoff stays a gap", () => {
+  const a = u1({ sc: sc([3]), newerFinal: { complete: false, clubs: { BBB: false } }, notInSeason: [10] }).row, b = u1({ sc: sc([3, 10]) }).row;
+  assert.deepEqual(a.window.weeks, [7, 8, 9]); assert.deepEqual(b.window.weeks, [7, 8, 9]);
+  const g = u1({ sc: sc([3, 9, 10]) }).row; assert.deepEqual(g.window.weeks, [7, 8, 9]); assert.equal(g.recentN, 2); assert.equal(g.cmp.state, "shown");
+  const unknownNoScore = u1({ sc: sc([3, 10]), newerFinal: { complete: false, clubs: {} } }).row; assert.equal(unknownNoScore.cmp.state, "shown");   // the newer week is not in the window
 });
 check("B: with no usable history the live score is still not counted (range) and is drawn 'live'; the comparison is withheld anyway", () => {
   const r = run({ hist: null, club: "BBB", byeOf: LIVE_BYE, sc: sc([3]), notInSeason: [10], newerFinal: { complete: false, clubs: { BBB: false } } }).row;
@@ -731,6 +749,62 @@ check("range: the low and high of the recorded scores in the loaded weeks", () =
 });
 
 // ===========================================================================================================================
+console.log("6b full-season game log");
+const FULL = {}; for (let w = 1; w <= 10; w++) { FULL[w] = {}; IDS.forEach((id) => { if (PL[id].scores[w] !== undefined) FULL[w][id] = PL[id].scores[w]; }); }
+const LOGIN = { ...GBASE, scores: FULL };
+const brief = (log) => log.map((c) => [c.week, c.kind, c.score, c.byeKnown]);
+check("weeksNeeded: the strip weeks and the full-season log weeks", () => {
+  assert.deepEqual(C.weeksNeeded({ latestFinal: 10 }), { strip: [7, 8, 9, 10], log: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] }); assert.deepEqual(C.weeksNeeded({ latestFinal: 2 }), { strip: [1, 2], log: [1, 2] });
+  assert.deepEqual(C.weeksNeeded({}), { strip: [], log: [] });
+});
+check("logFor default (no opts) is still the strip weeks; opts select any range", () => {
+  const id = byName("Ferguson, Jake"); assert.deepEqual(C.logFor(LOGIN, id).map((c) => c.week), [7, 8, 9, 10]); assert.deepEqual(C.logFor(LOGIN, id, {}).map((c) => c.week), [7, 8, 9, 10]);
+  assert.deepEqual(C.logFor(LOGIN, id, { fromWeek: 3, toWeek: 5 }).map((c) => c.week), [3, 4, 5]); assert.deepEqual(C.logFor(LOGIN, id, { fromWeek: 5, toWeek: 3 }), []);
+  assert.deepEqual(C.logFor(LOGIN, id, { fromWeek: 1 }).map((c) => c.week), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+});
+check("full 1..L log, Ferguson (Jake, TE): real zeros are scores, the missing Week 10 is 'none'", () => {
+  const log = C.logFor(LOGIN, byName("Ferguson, Jake"), { fromWeek: 1, toWeek: 10 });
+  assert.deepEqual(brief(log), [[1, "score", 3.6, false], [2, "score", 22.9, false], [3, "score", 11, false], [4, "score", 5.8, false], [5, "score", 6.6, false], [6, "score", 5.3, false],
+    [7, "score", 0, false], [8, "score", 0, false], [9, "score", 11.5, false], [10, "none", null, false]]);
+  assert.deepEqual(log.filter((c) => c.week >= 7).map((c) => c.recorded), [true, true, true, false]);
+});
+check("full 1..L log, Bigsby (Tank, RB): scores, then missing weeks 'none', then PHI's Week 10 BYE with known identity", () => {
+  const log = C.logFor(LOGIN, byName("Bigsby, Tank"), { fromWeek: 1, toWeek: 10 });
+  assert.deepEqual(brief(log), [[1, "score", 1.6, false], [2, "score", 12.8, false], [3, "score", -0.7, false], [4, "score", 6.1, false], [5, "none", null, false], [6, "none", null, false],
+    [7, "none", null, false], [8, "none", null, false], [9, "none", null, false], [10, "bye", null, true]]);
+});
+check("full 1..L log, Simmons (Jeffery, DT) and Harrison Jr.: BYE weeks only where the club is known (continuation / bracketed); a gap between two clubs is 'none'", () => {
+  const sim = C.logFor(LOGIN, byName("Simmons, Jeffery"), { fromWeek: 1, toWeek: 10 });
+  assert.deepEqual(sim.map((c) => c.kind), ["score", "score", "score", "score", "score", "score", "score", "score", "score", "bye"]); assert.equal(sim[9].byeKnown, true);
+  const har = C.logFor(LOGIN, byName("Harrison Jr., Marvin"), { fromWeek: 1, toWeek: 10 });
+  assert.deepEqual(har.map((c) => c.kind), ["score", "score", "score", "score", "none", "score", "score", "bye", "score", "none"]);              // Week 5: one of two clubs, no BYE; Week 8: bracketed HOU bye
+  assert.deepEqual([har[4].byeKnown, har[7].byeKnown, har[7].score], [false, true, null]);
+  har.forEach((c) => assert.ok(!("opponent" in c) && !("opp" in c)));
+});
+check("full log: a week absent from input.scores is 'unloaded', never 'none'; a loaded week with no score is 'none'", () => {
+  const partial = { ...LOGIN, scores: { 7: FULL[7], 8: FULL[8], 9: FULL[9], 10: FULL[10] } };
+  const jake = C.logFor(partial, byName("Ferguson, Jake"), { fromWeek: 1, toWeek: 10 });
+  assert.deepEqual(jake.map((c) => c.kind), ["unloaded", "unloaded", "unloaded", "unloaded", "unloaded", "unloaded", "score", "score", "score", "none"]);
+  assert.ok(jake.slice(0, 6).every((c) => c.score === null && c.recorded === false && c.byeKnown === false));
+  const bigsby = C.logFor(partial, byName("Bigsby, Tank"), { fromWeek: 1, toWeek: 10 }); assert.equal(bigsby[0].kind, "unloaded"); assert.equal(bigsby[8].kind, "none"); assert.equal(bigsby[9].kind, "bye");
+  const nothing = C.logFor({ ...LOGIN, scores: {} }, byName("Ferguson, Jake"), { fromWeek: 1, toWeek: 10 }); assert.ok(nothing.every((c) => c.kind === "unloaded"));
+});
+check("full log: a live Week L score is kind 'live' with the score carried; final or unsettled is a plain score; no live without newerFinal.complete === false", () => {
+  const id = byName("Ferguson, Jake"), w10 = { ...FULL, 10: { ...FULL[10], [id]: 4.2 } };
+  const mk = (nf) => C.logFor({ ...LOGIN, scores: w10, newerFinal: nf }, id, { fromWeek: 8, toWeek: 10 })[2];
+  assert.deepEqual(mk({ complete: false, clubs: { DAL: false } }), { week: 10, kind: "live", score: 4.2, byeKnown: false, recorded: true });
+  [undefined, { complete: true }, { complete: false, clubs: { DAL: true } }, { complete: false, clubs: {} }].forEach((nf) => assert.equal(mk(nf).kind, "score"));
+  assert.equal(C.logFor({ ...LOGIN, scores: w10, newerFinal: { complete: false, clubs: { DAL: false } } }, id, { fromWeek: 1, toWeek: 9 }).filter((c) => c.kind === "live").length, 0);
+});
+check("full log: weeks above the cutoff are 'newer' (score carried); nothing above the cutoff is a BYE; unavailable history gives no BYE anywhere", () => {
+  const { input } = u1({ sc: { ...sc([3]), 10: 7.7 }, newerFinal: { complete: true }, loaded: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] });
+  const log = C.logFor(input, "p1", { fromWeek: 1, toWeek: 10 });
+  assert.deepEqual(log.slice(0, 3).map((c) => c.kind), ["score", "score", "bye"]); assert.deepEqual(log[9], { week: 10, kind: "newer", score: 7.7, byeKnown: false, recorded: true });
+  const bye15 = u1({ sc: sc([3]), byeOf: { AAA: 3, BBB: 10 }, newerFinal: { complete: true } }).input; assert.equal(C.logFor(bye15, "p1", { fromWeek: 10, toWeek: 10 })[0].kind, "newer");
+  assert.ok(C.logFor({ ...input, hist: null }, "p1", { fromWeek: 1, toWeek: 10 }).every((c) => c.kind !== "bye" && c.kind !== "newer"));
+  assert.equal(C.logFor({ ...input, loaded: undefined, scores: { 1: { p1: 5 } } }, "p1", { fromWeek: 9, toWeek: 10 }).every((c) => c.kind === "unloaded"), true);      // absent newer weeks: unloaded
+});
+
 console.log("7  speed");
 check("evaluate for 485 players takes well under 200 ms in node", () => {
   C.evaluate(GBASE); const t0 = process.hrtime.bigint(); for (let i = 0; i < 5; i++) C.evaluate(GBASE); const ms = Number(process.hrtime.bigint() - t0) / 1e6 / 5;

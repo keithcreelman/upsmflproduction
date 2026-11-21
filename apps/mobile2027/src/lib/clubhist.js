@@ -14,16 +14,20 @@
      before his first weekly row are unknown identity and opportunity.
      row: { seasonAvg, scoredGames, seasonThrough,            season figures through the cutoff (an included newer score is taken
                                                               back out); seasonThrough = latestFinal when that cannot be settled
-            strip: [{ week, kind: "score"|"none"|"bye"|"newer"|"unloaded", score, loaded, byeByCandidates? }],
+            strip: [{ week, kind: "score"|"none"|"bye"|"newer"|"live"|"unloaded", score, loaded, byeByCandidates? }],
+              "live" = latest final week L, newerFinal.complete === false and his club's game not final: score carried, counted nowhere
             range: { lo, hi, fromWeek, toWeek, n }|null,       recorded scores in loaded strip weeks up to the cutoff
             teamGames: { known, of, text },                    "of" only when every week 1..cutoff has an established game/bye
             coverage: [{ fromWeek, toWeek, identity, opportunity, grade, note }],
-            window: { weeks, scoredCount }|null, recent, earlier, difference, recentN, earlierN   (raw, unrounded)
+            window: { weeks, scoredCount }|null,   the last 3 COMPLETED team games up to the cutoff: byes and live games skipped, a completed game
+                                                   with no score stays a gap (it keeps its slot; Recent needs >= 2 recorded scores in it) recent, earlier, difference, recentN, earlierN   (raw, unrounded)
             cmp: { state: "shown"|"withheld", reason, text, week? },
             cls: "changed"|"nochange"|"missing"|"conflict"|"none"|"unavailable" }
        cmp reasons: recent_scores_lt_2, earlier_scores_lt_4, team_history_unavailable, team_history_stale, club_game_unclear,
                     records_conflict, score_week_not_loaded, season_unavailable, newer_score_unseparable (Earlier/Difference withheld)
-   UPS2027.clubhist.logFor(input, id) -> [{ week, kind, score, byeKnown, recorded }]   (the strip weeks; never an opponent)
+   UPS2027.clubhist.logFor(input, id, opts?) -> [{ week, kind, score, byeKnown, recorded }]   one row per week opts.fromWeek..toWeek
+       (default: the strip weeks); kinds score|none|bye|newer|live|unloaded; a week absent from input.scores is "unloaded"; never an opponent
+   UPS2027.clubhist.weeksNeeded(input) -> { strip: [L-3..L], log: [1..L] }
    UPS2027.clubhist.clubByeMap(players) -> { club: byeWeek }     players = [{club, bye}]; clubs with disagreeing/invalid byes omitted
    UPS2027.clubhist.roundHalfUp1(x) -> x rounded to one decimal, halves up (mirrored for negatives)
 
@@ -216,8 +220,10 @@
       // An id absent from `season` is unavailable, never zero: the Worker drops unattributed player-games, so earlier scores may exist.
       // B: the latest final week L can hold LIVE scores. With newerFinal.complete === false, a score is live when that club's game is not
       // final (excluded from every figure, strip kind "live"), unsettled when that cannot be established (comparison withheld).
-      var sL = scoreOf(L, id), lstat = "final", ne = input.newerFinal, hasScores = !!(se && se.games > 0), q;
-      if (typeof sL === "number" && ne && typeof ne === "object" && ne.complete === false) { q = newerIncluded(ne, cur); lstat = q === true ? "final" : (q === false ? "live" : "unsettled"); }
+      // gstat: is his current club's game in week L completed? "final" | "live" (not final) | "unknown". Only newerFinal.complete === false asks.
+      var sL = scoreOf(L, id), lstat = "final", gstat = "final", ne = input.newerFinal, hasScores = !!(se && se.games > 0), q;
+      if (ne && typeof ne === "object" && ne.complete === false) { q = newerIncluded(ne, cur); gstat = q === true ? "final" : (q === false ? "live" : "unknown"); }
+      if (typeof sL === "number") lstat = gstat === "unknown" ? "unsettled" : gstat;
       var unsettledL = H.ok && cutoff >= L && lstat === "unsettled";
       var cs = function (wk) { var v = scoreOf(wk, id); return wk === L && lstat === "live" ? null : v; };   // a live score counts as no score
       for (k in scores) if (own(scores, k) && typeof scoreOf(Number(k), id) === "number") hasScores = true;
@@ -250,35 +256,44 @@
         for (k = 1; k <= cutoff; k++) if (wk[k].opp === "b" && typeof scoreOf(k, id) === "number") { cls = "conflict"; wk = mk(cls); break; }
         for (k = 1; k <= cutoff; k++) { if (wk[k].opp === "u") unknown++; else if (wk[k].opp === "g") games++; }
         if (!unknown) of = games;
+        if (cutoff >= L && wk[L].opp === "g" && of !== null) { if (gstat === "live") of -= 1; else if (gstat === "unknown") of = null; }   // a live game is not a completed team game
         if (of !== null && sCut && !unsettled && !unsettledL && sCut.games > of) { cls = "conflict"; wk = mk(cls); of = null; unknown = cutoff; }   // more scores than team games
       }
       var usable = H.ok && cls !== "conflict" && cls !== "missing" && cls !== "none";
-      if (usable) {                                                      // window: last 3 team games up to the cutoff; byes skipped; an unknown week stops the look-back
+      if (usable) {      // window: the last 3 COMPLETED team games up to the cutoff. A bye and a live (not final) game are skipped, never gaps; a completed
+                         // game with no score keeps its slot (a gap); an unknown week (or unknown finality) stops the look-back
         win = [];
         for (k = cutoff; k >= 1; k--) {
           if (wk[k].opp === "b") continue;
           if (wk[k].opp === "u") { blocked = k; break; }
+          if (k === L && gstat === "live") continue;
+          if (k === L && gstat === "unknown" && scoreOf(L, id) === null) { blocked = k; break; }
           win.push(k); if (win.length === 3) break;
         }
         win.reverse();
       }
 
-      // strip
-      var strip = [], rec = [], loadedWeeks = [], r4 = 0, all4 = true, c = 0;
-      for (c = 0; c < stripWeeks.length; c++) {
-        var wn = stripWeeks[c], s = scoreOf(wn, id), cell;
-        var live = wn === L && lstat === "live" && typeof s === "number";
-        if (s === undefined) all4 = false; else if (s !== null && !live) r4++;
-        if (H.ok && wn > cutoff) cell = { week: wn, kind: "newer", score: s === undefined ? null : s, loaded: s !== undefined };
-        else if (s === undefined) cell = { week: wn, kind: "unloaded", score: null, loaded: false };
-        else if (live) cell = { week: wn, kind: "live", score: s, loaded: true };                  // an unfinished game: shown, counted nowhere
-        else if (s !== null) cell = { week: wn, kind: "score", score: s, loaded: true };
+      // one cell per week; the strip and the full-season log share it
+      function cellAt(wn) {
+        var v = scoreOf(wn, id), cell, lv = wn === L && lstat === "live" && typeof v === "number";
+        if (H.ok && wn > cutoff) cell = { week: wn, kind: "newer", score: v === undefined ? null : v, loaded: v !== undefined };
+        else if (v === undefined) cell = { week: wn, kind: "unloaded", score: null, loaded: false };
+        else if (lv) cell = { week: wn, kind: "live", score: v, loaded: true };                    // an unfinished game: shown, counted nowhere
+        else if (v !== null) cell = { week: wn, kind: "score", score: v, loaded: true };
         else if (H.ok && wk[wn] && wk[wn].opp === "b" && wk[wn].identity === "known") cell = { week: wn, kind: "bye", score: null, loaded: true };
         else cell = { week: wn, kind: "none", score: null, loaded: true };
         if (cell.kind === "none" && H.ok && wk[wn] && wk[wn].byeByCandidates) cell.byeByCandidates = true;   // a bye by candidate agreement: counted nowhere, drawn as a dash
-        if (cell.loaded && cell.kind !== "newer") { loadedWeeks.push(wn); if (s !== null && !live) rec.push(s); }
+        return cell;
+      }
+      var strip = [], rec = [], loadedWeeks = [], r4 = 0, all4 = true, c = 0;
+      for (c = 0; c < stripWeeks.length; c++) {
+        var cell = cellAt(stripWeeks[c]), s = cell.score;
+        if (!cell.loaded) all4 = false; else if (s !== null && cell.kind !== "live") r4++;
+        if (cell.loaded && cell.kind !== "newer") { loadedWeeks.push(cell.week); if (s !== null && cell.kind !== "live") rec.push(s); }
         strip.push(cell);
       }
+      var log = null;
+      if (input.logWeeks) { log = []; for (c = input.logWeeks[0]; c <= input.logWeeks[1]; c++) log.push(cellAt(c)); }
       var range = null;
       if (rec.length) { range = { lo: Math.min.apply(null, rec), hi: Math.max.apply(null, rec), fromWeek: loadedWeeks[0], toWeek: loadedWeeks[loadedWeeks.length - 1], n: rec.length }; }
 
@@ -330,19 +345,32 @@
         seasonAvg: sCut && sCut.games > 0 ? sCut.total / sCut.games : null, scoredGames: known, seasonThrough: sCut ? seasonTh : null, mixedBase: mixed,
         strip: strip, range: range, teamGames: teamGames, coverage: H.ok ? groupCoverage(wk, cutoff) : [],
         window: win && win.length ? { weeks: win, scoredCount: scoredCount } : null,
-        recent: recent, earlier: earlier, difference: difference, recentN: recentN, earlierN: earlierN, cmp: cmp, cls: cls
+        recent: recent, earlier: earlier, difference: difference, recentN: recentN, earlierN: earlierN, cmp: cmp, cls: cls, log: log
       };
     }
   }
 
-  // The profile game log: the strip weeks for one player. A BYE only with known identity; never an opponent.
-  function logFor(input, id) {
-    var o = {}, k;
+  // The profile game log: one row per week fromWeek..toWeek (default: the strip weeks). A week absent from input.scores is "unloaded", never
+  // "none". A BYE only with known club identity; weeks above the cutoff are "newer"; never an opponent.
+  function logFor(input, id, opts) {
+    var o = {}, k, L = input && input.latestFinal;
     for (k in input) if (own(input, k)) o[k] = input[k];
     o.ids = [id];
+    var from = opts && isInt(opts.fromWeek) ? opts.fromWeek : Math.max(1, L - 3), to = opts && isInt(opts.toWeek) ? opts.toWeek : L;
+    if (!isInt(L) || from < 1 || to < from) return [];
+    o.logWeeks = [from, to];
     var r = evaluate(o).rows[id];
-    return r ? r.strip.map(function (c) { return { week: c.week, kind: c.kind, score: c.score, byeKnown: c.kind === "bye", recorded: c.score !== null }; }) : [];
+    return r && r.log ? r.log.map(function (c) { return { week: c.week, kind: c.loaded ? c.kind : "unloaded", score: c.score, byeKnown: c.kind === "bye", recorded: c.score !== null }; }) : [];
   }
 
-  return { evaluate: evaluate, logFor: logFor, clubByeMap: clubByeMap, roundHalfUp1: roundHalfUp1 };
+  // The weeks of scores the caller must load: the Performance strip, and the full-season profile log.
+  function weeksNeeded(input) {
+    var L = input && input.latestFinal, strip = [], log = [], w;
+    if (!isInt(L) || L < 1) return { strip: strip, log: log };
+    for (w = Math.max(1, L - 3); w <= L; w++) strip.push(w);
+    for (w = 1; w <= L; w++) log.push(w);
+    return { strip: strip, log: log };
+  }
+
+  return { evaluate: evaluate, logFor: logFor, weeksNeeded: weeksNeeded, clubByeMap: clubByeMap, roundHalfUp1: roundHalfUp1 };
 });

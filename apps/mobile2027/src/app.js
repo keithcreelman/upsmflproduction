@@ -134,6 +134,15 @@
       intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && S.intel.scores[w] && S.intel.scores[w].state === "error");
     });
   }
+  // The full-season game log reads the weeks the screen did not need, on demand ("Show earlier weeks"), and reuses every read already in memory.
+  function ensureLog(force) {
+    if (S.sample.on || !S.model || !S.model.week || !U.tabviews) return;
+    var mu = S.intel.mu[S.model.week]; if (!mu || mu.state !== "ok") return;
+    var L = mu.data.latestFinal; if (!(L >= 1)) return;
+    U.tabviews.logWeeks(L).forEach(function (w) {
+      intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && S.intel.scores[w] && S.intel.scores[w].state === "error");
+    });
+  }
   function ensurePerformance(force) {
     if (S.sample.on || !S.model || !S.model.week) return;
     var cur = S.model.week, rec = S.intel.mu[cur];
@@ -246,6 +255,9 @@
     else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; render(true); }
     else if (act === "pfres") { S.pf.res[v] = !S.pf.res[v]; render(true); }
     else if (act === "retryperf") { ensurePerformance(true); }
+    else if (act === "logmore") { if (S.profile) { S.profile.all = true; render(true); ensurePerformance(); ensureLog(); } }
+    else if (act === "logless") { if (S.profile) { S.profile.all = false; render(true); } }
+    else if (act === "retrylog") { ensureLog(true); }
     else if (act === "pickweek") {
       var n = parseInt(v, 10), wi0 = U.roster.weekInfo(S);
       if (isFinite(n) && wi0.cur && n >= 1 && n <= wi0.cur) { var again = n === wi0.sel; S.wk = n === wi0.cur ? null : n; S.sheet = null; render(); ensureIntel(again); }

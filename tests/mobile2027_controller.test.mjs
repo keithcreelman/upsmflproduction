@@ -82,7 +82,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));
     await tick();
   };
-  return { appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, release: () => release(), releasePen: () => releasePen(), releaseIntel: () => releaseIntel(), html: () => appEl.innerHTML };
+  return { setFailScores: (n) => { state.failScores = n; }, appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, release: () => release(), releasePen: () => releasePen(), releaseIntel: () => releaseIntel(), html: () => appEl.innerHTML };
 }
 
 test("boot: loads the roster, shows the first team with starters above the bench, and every request is a bare GET", async () => {
@@ -391,6 +391,36 @@ test("R3: Team › Performance asks for the matchup read, then the weekly score 
   t.match(a.html(), /Comparison through Week 10/); t.match(a.html(), /dashed|class="cell newer"/);
   await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pff", "data-v": "starters" }); await a.click({ "data-act": "pfs", "data-v": "diff" }); await tick(10);
   t.equal(a.calls.length - n, 5, "tabs, filters and sorts ask nothing");
+});
+
+test("R3 ruling 2: the profile game log shows the latest four weeks, then 'Show earlier weeks' loads the rest on demand, once each, and reuses what is in memory", async () => {
+  const a = boot({ r3: true }); await tick(40);
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
+  const rowsOf = () => (a.html().split('<div class="card tbl">')[1] || "").split("</table>")[0].split("<tr>").length - 2;
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11], "opening the log asked for the five weeks the Performance rules need, no more");
+  t.equal(rowsOf(), 4, "the latest four weeks"); t.match(a.html(), /data-act="logmore">Show earlier weeks</); t.match(a.html(), /The latest four weeks/);
+  const n0 = a.calls.length;
+  await a.click({ "data-act": "logmore" }); await tick(60);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "only the missing weeks 1 to 6 were asked, each once");
+  t.equal(a.calls.length - n0, 6, "six more reads, none repeated");
+  t.equal(rowsOf(), 11, "the full season"); t.match(a.html(), /Showing Weeks 1 to 11/); t.match(a.html(), /The full season, newest first/);
+  const weeks = [...(a.html().split('<div class="card tbl">')[1].split("</table>")[0]).matchAll(/<tr><td>(\d+)<\/td>/g)].map((m) => +m[1]);
+  t.deepEqual(weeks, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "newest first");
+  await a.click({ "data-act": "logless" }); await a.click({ "data-act": "logmore" }); await tick(30);
+  t.equal(a.calls.length - n0, 6, "showing fewer and more again asks nothing");
+  t.doesNotMatch(a.html(), /<th[^>]*>(Opponent|Snaps|Lineup)/);
+  a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
+});
+
+test("R3 ruling 2: an earlier week that cannot be read shows n/a with a retry; the weeks that loaded stay", async () => {
+  const a = boot({ r3: true, failScores: 0 }); await tick(40);
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
+  a.setFailScores(1); await a.click({ "data-act": "logmore" }); await tick(60);
+  t.match(a.html(), /could not be read and show n\/a/); t.match(a.html(), /data-act="retrylog"/);
+  await a.click({ "data-act": "retrylog" }); await tick(60);
+  t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /Showing Weeks 1 to 11/);
 });
 
 test("R3 review MAT-1: opening Performance while the boot matchup read is still out still asks for the weekly scores once it arrives (and so does a profile's Performance tab)", async () => {

@@ -36,7 +36,7 @@ async function intelFor(over) {
   };
   const L = D.createLoader(CFG, fake), rec = (r) => ({ state: r.state, data: r.data, error: r.error, at: Date.now() });
   const out = { status: null, mu: { 11: rec(await L.loadMatchups(11)) }, wk: {}, scores: {} };
-  for (const w of [7, 8, 9, 10, 11]) out.scores[w] = rec(await L.loadScores(w));
+  for (const w of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) out.scores[w] = rec(await L.loadScores(w));
   return out;
 }
 const state = (over) => ({
@@ -288,6 +288,25 @@ test("P11: the profile game log is Week and Points only; 0.0 and a missing score
   const html = V.app(state({ intel, profile: { pid: none.id, tab: "perf" } }));
   t.match(html, /<th>Wk<\/th><th class="n">Pts<\/th>/); t.doesNotMatch(html, /<th[^>]*>(Opponent|Snaps|Lineup)/);
   t.match(text(html), /Opponents, snaps and lineup status are not in this preview/);
+});
+
+test("R3 ruling 2: the full-season log keeps 0.0, no score, a bye and a live score apart, and draws a BYE only where the club is known", async () => {
+  const S0 = state({ sub: "performance", intel: await intelFor() });
+  const late = FX3.lineup_matchups_w11.teamHistoryFirst, hist = FX3.lineup_matchups_w11;
+  const known = teamPlayers(S0).find((x) => x.status === "active" && x.bye && x.bye <= 10 && late[x.id] == null && !hist.teamHistory[x.id] && !hist.teamHistoryMissing.includes(x.id) && !hist.teamHistoryConflict.includes(x.id));
+  const unknownClub = teamPlayers(S0).find((x) => x.status === "active" && x.bye && x.bye <= 10 && hist.teamHistoryMissing.includes(x.id));
+  t.ok(known, "a player with a known club and a bye already played");
+  const full = async (p) => V.app(state({ intel: await intelFor(), profile: { pid: p.id, tab: "perf", all: true } })).split('<div class="card tbl">')[1].split("</table>")[0];
+  const k = await full(known);
+  t.match(k, new RegExp("<tr><td>" + known.bye + '</td><td class="n"><span class="mu">BYE</span>'), "his bye week reads BYE");
+  t.ok((k.match(/BYE/g) || []).length === 1, "exactly one bye");
+  const zero = teamPlayers(S0).find((x) => x.status === "active" && FX3.scores["5"].some((r) => r.id === x.id && Number(r.score) === 0));
+  if (zero) t.match(await full(zero), /<td class="n"><b>0\.0<\/b>/, "a recorded 0.0 stays 0.0");
+  if (unknownClub) t.doesNotMatch(await full(unknownClub), /BYE/, "no BYE where the club is unknown");
+  // weeks before a first record never carry a BYE even for a late player
+  const lateP = teamPlayers(S0).find((x) => x.status === "active" && late[x.id] >= 3 && x.bye && x.bye < late[x.id]);
+  if (lateP) t.doesNotMatch(await full(lateP), /BYE/, "a bye before his first record is not drawn");
+  t.doesNotMatch(k, /Opponent|vs |@ /);
 });
 
 // ───────────────────────── escaping and read-only controls ─────────────────────────
