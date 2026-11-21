@@ -309,6 +309,16 @@ test("R3 ruling 2: the full-season log keeps 0.0, no score, a bye and a live sco
   t.doesNotMatch(k, /Opponent|vs |@ /);
 });
 
+test("the profile's season tiles say the same thing as Team › Performance: the same average, the same scored games, through the same week", async () => {
+  const intel = await intelFor(), S = state({ sub: "performance", intel }), p = teamPlayers(S).find((x) => x.status === "active");
+  S.pf = { f: "all", s: "pos", open: { [p.id]: true }, res: {} };
+  const row = body(V.app(S)).split('data-act="pfx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
+  const m = text(row).match(/Season (\d+\.\d) · (\d+) of \d+ team games · through Week (\d+)/) || text(row).match(/Season (\d+\.\d) · (\d+) scored games? · through Week (\d+)/);
+  t.ok(m, "the Performance row states its season figures and the week they run through");
+  const tiles = text(V.app(state({ intel, profile: { pid: p.id, tab: "perf" } })).split('<div class="k3">')[1].split("</div></div>")[0] + "</div>");
+  t.match(tiles, new RegExp(m[1].replace(".", "\\.") + " Season average"), "same average"); t.match(tiles, new RegExp(m[2] + " Scored games"), "same scored games"); t.match(tiles, new RegExp(m[3] + " Through week"), "same week");
+});
+
 // ───────────────────────── escaping and read-only controls ─────────────────────────
 test("data text is escaped in Contracts, and the new tabs draw no inline style, script, form field or write control", () => {
   const S = state(), tm = S.model.teams.find((x) => x.id === TEAM), evil = '"><img src=x onerror=alert(1)><script>alert(1)</script>';

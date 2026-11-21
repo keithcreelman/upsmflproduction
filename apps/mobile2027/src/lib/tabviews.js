@@ -324,7 +324,6 @@
     if (!ctx.input.latestFinal) return '<div class="ex">No week has been completed yet.</div>';
     var L = ctx.input.latestFinal, all = !!(S.profile && S.profile.all), from = all ? 1 : Math.max(1, L - 3);
     var log = CH.logFor(ctx.input, p.id, { fromWeek: from, toWeek: L }).slice().reverse(); // newest first
-    var season = ctx.input.season[p.id];
     var more = "";
     if (L > 4 && !all) more = '<button class="btn blk" data-act="logmore">Show earlier weeks</button>';
     else if (all) {
@@ -335,8 +334,9 @@
       var cell = r.kind === "score" ? "<b>" + f1(r.score) + "</b>" : r.kind === "newer" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">newer</span>') : r.kind === "bye" ? '<span class="mu">BYE</span>' : r.kind === "live" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">live</span>') : r.kind === "unloaded" ? '<span class="mu">' + (scoresOf(S)[r.week] && scoresOf(S)[r.week].state === "error" ? "n/a" : "…") + "</span>" : '<span class="mu">' + DASH + "</span>";
       return "<tr><td>" + r.week + '</td><td class="n">' + cell + "</td></tr>";
     }).join("");
-    var avg = season && season.games ? season.total / season.games : null;
-    return '<div class="k3"><div><b>' + f1(avg) + "</b><small>Season average</small></div><div><b>" + (season ? season.games : DASH) + "</b><small>Scored games</small></div><div><b>" + ctx.input.latestFinal + "</b><small>Through week</small></div></div>" +
+    // the same season figures, through the same week, as Team › Performance (the evidence rules decide which week they run through)
+    var row = CH.evaluate(ctx.input).rows[p.id] || {};
+    return '<div class="k3"><div><b>' + f1(row.seasonAvg) + "</b><small>Season average</small></div><div><b>" + (row.scoredGames == null ? DASH : row.scoredGames) + "</b><small>Scored games</small></div><div><b>" + (row.seasonThrough == null ? DASH : row.seasonThrough) + "</b><small>Through week</small></div></div>" +
       '<div class="card tbl"><table><tr><th>Wk</th><th class="n">Pts</th></tr>' + rows + "</table></div>" +
       more + '<div class="ex">' + (all ? "The full season, newest first. " : "The latest four weeks. ") + '0.0 is a score MFL recorded; ' + DASH + " is no score recorded. BYE appears only where the club is known. Opponents, snaps and lineup status are not in this preview.</div>";
   }
