@@ -39,8 +39,8 @@ Facts checked on 2026-11-21 against the committed archive (read-only):
 
 A verification record (`docs/league_record/coverage_verifications.json`, empty today) covers one interval of one league instance and one event class, and is accepted only if **all** of this holds (`validateVerification`, refusing malformed input without throwing):
 
-1. **Authoritative source:** an MFL export, with the request parameters, the **league id** (it differs by year before 2017) and the **instance year** recorded; the interval must lie inside that year and the next.
-2. **Untruncated:** the response is shown to be whole; `COUNT` and `DAYS` (which MFL documents as restricting the result) are refused, including as a leading parameter.
+1. **Authoritative source:** an MFL export, with the request parameters, the **league id** (it differs by year before 2017) and the **instance year** recorded; the interval must lie inside **the calendar year of that instance**: a record covers one league instance only, so an interval across a year boundary (the 2025-11-28 to 2026-03-07 gap) needs one record from each instance.
+2. **Untruncated:** the response is shown to be whole; `COUNT` and `DAYS` (which MFL documents as restricting the result) are refused in any position, separator or letter case, and URL-encoded.
 3. **Captured after the interval ended**, on a real calendar date.
 4. **Check E1, required, `archive_comparison`:** the export and the archive agree record for record in the interval. **E1 detects loss in the copy only.** The archive is a copy of MFL's own transaction log (the row index is the position in MFL's response), so E1 cannot detect a record MFL never logged as a trade (a commissioner edit of pick ownership, for example).
 5. **Check E3, required, `end_state_reconciliation`:** a dated end-state export (the holder of every traded pick) equals the holder the chains give. It is the one check that does not come from the transaction log. **Chain continuity (E2) is accepted as supporting evidence but never sufficient**, because it is computed from the same log.
@@ -57,7 +57,7 @@ Custody of an asset between two dates (inclusive) is **observed** only if **ever
 - A quiet stretch inside a verified interval does not invalidate custody.
 - A quiet stretch inside an unverified interval does not prove it (as today).
 - **A busy stretch does not prove it either**: a day outside any verification blocks even when it falls between two days with recorded activity (the model is stricter than today's quiet-window rule here; today's strict-custody count is already 0 of 597, so no current result differs).
-- A known gap blocks even when neighbouring intervals are verified.
+- A known gap blocks even when neighboring intervals are verified.
 - A test checks that, with no verification, no custody is observed for any traded future pick and the model is never more permissive than today's rule.
 
 ## 6. How it is tested before any use

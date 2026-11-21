@@ -23,6 +23,8 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 // A verification record is accepted only when every condition holds; the problems are returned, never thrown, so a bad record can never verify anything.
 const isDate = (d) => typeof d === "string" && ISO.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`)) && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d;     // a real calendar date, never 2020-02-30
 
+const decodeParams = (x) => { try { return decodeURIComponent(String(x).replace(/\+/g, " ")); } catch { return String(x); } };          // %43OUNT= is COUNT=
+
 export function validateVerification(v) {
   const problems = [];
   if (!v || typeof v !== "object" || Array.isArray(v)) return { ok: false, problems: ["not an object"] };
@@ -33,11 +35,11 @@ export function validateVerification(v) {
   if (s.kind !== "mfl_export") problems.push("the source must be an authoritative MFL export (source.kind = mfl_export)");
   if (s.truncated !== false) problems.push("the response must be shown to be untruncated (source.truncated = false)");
   if (typeof s.params !== "string" || !s.params) problems.push("the request parameters must be recorded (source.params)");
-  else if (/(^|[?&])(COUNT|DAYS)=/i.test(s.params)) problems.push("COUNT and DAYS truncate the response and are not accepted");
+  else if (/(^|[?&;\s])(COUNT|DAYS)\s*=/i.test(decodeParams(s.params))) problems.push("COUNT and DAYS truncate the response and are not accepted");
   if (!isDate(s.captured_on) || (isDate(v.to) && s.captured_on <= v.to)) problems.push("the export must be captured (a real date) after the interval ends");
   if (typeof s.league_id !== "string" || !s.league_id) problems.push("the league id of the instance must be recorded (it differs by year before 2017)");
   if (!Number.isInteger(s.year)) problems.push("the instance year must be recorded (source.year)");
-  else if (isDate(v.from) && isDate(v.to) && (v.from < `${s.year}-01-01` || v.to > `${s.year + 1}-12-31`)) problems.push("the interval must lie inside the instance year and the year after (a record covers one league instance)");
+  else if (isDate(v.from) && isDate(v.to) && (v.from < `${s.year}-01-01` || v.to > `${s.year}-12-31`)) problems.push("the interval must lie inside the calendar year of the league instance the export came from (a record covers one instance; an interval across a year boundary needs one record per instance)");
   if (!Array.isArray(v.checks)) problems.push("checks must be an array");
   const checks = Array.isArray(v.checks) ? v.checks : [];
   if (checks.some((c) => !c || typeof c !== "object" || !CHECKS[c.kind])) problems.push("unknown check kind");
@@ -77,14 +79,15 @@ export function classifyIntervals({ windows, namedGap, verifications = [], event
   return out;
 }
 
-// The model: the labelled intervals plus the spans that valid verifications cover.
+// The model: the labeled intervals plus the spans that valid verifications cover.
 export function buildCoverageModel({ windows, namedGap, verifications = [], eventClass = "pick_transfer" }) {
   return { event_class: eventClass, intervals: classifyIntervals({ windows, namedGap, verifications, eventClass }), spans: validFor(verifications, eventClass).map((v) => [v.from, v.to]) };
 }
 
 // Would custody of an asset be observed between two dates (inclusive)? Only when EVERY day of the span lies inside valid verifications. A day outside any verification is unverified, whether or not it
-// falls in a quiet window. The blockers list the labelled intervals that touch the span and are not verified, for the reader; `uncovered` says whether any day is unverified.
+// falls in a quiet window. The blockers list the labeled intervals that touch the span and are not verified, for the reader; `uncovered` says whether any day is unverified.
 export function custodyObserved(model, from, to) {
+  if (!isDate(from) || !isDate(to) || from > to) return { observed: false, uncovered: true, blockers: [], invalid_span: true };      // a malformed or reversed span observes nothing
   const uncovered = !coveredBy(model.spans, from, to);
   const blockers = model.intervals.filter((i) => !(i.to < from || i.from > to) && i.state !== COVERAGE_STATE.VERIFIED_COMPLETE);
   return { observed: !uncovered, uncovered, blockers };

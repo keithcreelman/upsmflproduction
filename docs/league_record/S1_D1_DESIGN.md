@@ -22,7 +22,7 @@
 
 1. **Facts, claims and links are separate layers.** Layer 0 sources and coverage; layer 1 facts exactly as recorded (trades, draft rows, events); layer 2 derived periods; layer 3 links with an evidence class. A higher layer is rebuildable from the lower ones.
 2. **Facts are append-only; correct by adding.** A fact row is never changed. A correction is a row in `lr_correction` that points at the stored value, so the original always survives. The only update the design ever makes is closing a derived row (`valid_to_run`).
-3. **Versioned, linear runs.** Layer-1 facts carry `loaded_run`; layers 2 and 3 carry `valid_from_run` and `valid_to_run`. The active release names one run R; a read sees facts with `loaded_run <= R` and derived rows with `valid_from_run <= R < valid_to_run`, excluding any run listed in `lr_run_excluded`. So a release can be reproduced exactly as it was (a fact added later, such as a trade found in the gap, is invisible to an earlier run), and going back to an earlier run is a pointer change. Runs are strictly linear; the rule for continuing after a rollback is in section 8.
+3. **Versioned, linear runs.** Layer-1 facts carry `loaded_run`; layers 2 and 3 carry `valid_from_run` and `valid_to_run`. The active release names one run R; a read sees facts with `loaded_run <= R` and derived rows with `valid_from_run <= R < valid_to_run`, excluding any run listed in `lr_run_excluded` (a derived row whose `valid_to_run` is an excluded run counts as still open, so rows closed by an abandoned run are visible again). So a release can be reproduced exactly as it was (a fact added later, such as a trade found in the gap, is invisible to an earlier run), and going back to an earlier run is a pointer change. Runs are strictly linear; the rule for continuing after a rollback is in section 8.
 4. **Write only what changed.** A rebuild inserts changed or new derived rows and closes the superseded ones; finished seasons are never rewritten (`D1_QUERY_RULES.md`, Writes).
 5. **No private data.** Franchise ids and public league identifiers only: no owner name, e-mail, message text or credential. Free-text `comments` from MFL are not stored.
 6. **Enumerations are enforced by the database** (`CHECK`), not by convention: statuses, classes, event classes, coverage states.
@@ -39,7 +39,7 @@ CREATE TABLE lr_release (                       -- the active release is the row
   release_id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL REFERENCES lr_run(run_id),
   activated_utc TEXT NOT NULL, activated_by_ref TEXT NOT NULL, retired_utc TEXT);
 CREATE TABLE lr_run_excluded (                  -- a run abandoned after a rollback: its rows are invisible to every later run
-  run_id INTEGER PRIMARY KEY REFERENCES lr_run(run_id), excluded_by_run INTEGER NOT NULL REFERENCES lr_run(run_id));
+  run_id INTEGER PRIMARY KEY REFERENCES lr_run(run_id), excluded_by_run INTEGER NOT NULL REFERENCES lr_run(run_id), CHECK (excluded_by_run > run_id));
 CREATE TABLE lr_method (
   method_id TEXT NOT NULL, version INTEGER NOT NULL, description TEXT NOT NULL, approved_ref TEXT,
   status TEXT NOT NULL CHECK (status IN ('approved','diagnostic','retired')), PRIMARY KEY (method_id, version)) WITHOUT ROWID;
@@ -184,12 +184,41 @@ CREATE TRIGGER lr_candidates_only_unresolved BEFORE INSERT ON lr_link_candidate
 CREATE TRIGGER lr_no_failed_check_on_verified BEFORE INSERT ON lr_coverage_check WHEN NEW.passed = 0
   AND EXISTS (SELECT 1 FROM lr_coverage c WHERE c.coverage_id = NEW.coverage_id AND c.state = 'VERIFIED_COMPLETE')
   BEGIN SELECT RAISE(ABORT, 'a failed check voids a verified interval'); END;
-CREATE TRIGGER lr_release_gate BEFORE INSERT ON lr_release              -- a release cannot activate while a verified interval lacks its two required passing checks
+CREATE TRIGGER lr_release_gate BEFORE INSERT ON lr_release              -- a release cannot activate while a verified interval lacks its two required passing checks, or has any failed one
   WHEN EXISTS (SELECT 1 FROM lr_coverage c WHERE c.state = 'VERIFIED_COMPLETE' AND c.valid_from_run <= NEW.run_id AND (c.valid_to_run IS NULL OR c.valid_to_run > NEW.run_id)
        AND (NOT EXISTS (SELECT 1 FROM lr_coverage_check k WHERE k.coverage_id = c.coverage_id AND k.check_kind = 'archive_comparison' AND k.passed = 1)
-         OR NOT EXISTS (SELECT 1 FROM lr_coverage_check k WHERE k.coverage_id = c.coverage_id AND k.check_kind = 'end_state_reconciliation' AND k.passed = 1)))
-  BEGIN SELECT RAISE(ABORT, 'a verified interval needs a passing archive comparison and a passing end-state reconciliation'); END;
+         OR NOT EXISTS (SELECT 1 FROM lr_coverage_check k WHERE k.coverage_id = c.coverage_id AND k.check_kind = 'end_state_reconciliation' AND k.passed = 1)
+         OR EXISTS (SELECT 1 FROM lr_coverage_check k WHERE k.coverage_id = c.coverage_id AND k.passed = 0)))
+  BEGIN SELECT RAISE(ABORT, 'a verified interval needs a passing archive comparison, a passing end-state reconciliation and no failed check'); END;
+CREATE TRIGGER lr_release_not_excluded BEFORE INSERT ON lr_release WHEN EXISTS (SELECT 1 FROM lr_run_excluded e WHERE e.run_id = NEW.run_id)
+  BEGIN SELECT RAISE(ABORT, 'an excluded (abandoned) run can never be released'); END;
+
+-- updates: facts never change; a derived row may only be CLOSED (valid_to_run), so an UPDATE cannot walk around the insert rules above
+CREATE TRIGGER lr_facts_immutable_trade   BEFORE UPDATE ON lr_trade        BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
+CREATE TRIGGER lr_facts_immutable_leg     BEFORE UPDATE ON lr_trade_leg    BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
+CREATE TRIGGER lr_facts_immutable_cap     BEFORE UPDATE ON lr_trade_cap    BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
+CREATE TRIGGER lr_facts_immutable_event   BEFORE UPDATE ON lr_asset_event  BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
+CREATE TRIGGER lr_facts_immutable_row     BEFORE UPDATE ON lr_draft_row    BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
+CREATE TRIGGER lr_facts_immutable_forfeit BEFORE UPDATE ON lr_forfeiture   BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
+CREATE TRIGGER lr_facts_immutable_corr    BEFORE UPDATE ON lr_correction   BEGIN SELECT RAISE(ABORT, 'corrections are append-only'); END;
+CREATE TRIGGER lr_facts_immutable_check   BEFORE UPDATE ON lr_coverage_check BEGIN SELECT RAISE(ABORT, 'checks are append-only'); END;
+CREATE TRIGGER lr_link_close_only BEFORE UPDATE ON lr_link
+  WHEN NEW.link_id IS NOT OLD.link_id OR NEW.link_type IS NOT OLD.link_type OR NEW.from_asset_key IS NOT OLD.from_asset_key OR NEW.to_season IS NOT OLD.to_season OR NEW.to_round IS NOT OLD.to_round OR NEW.to_slot IS NOT OLD.to_slot
+    OR NEW.class IS NOT OLD.class OR NEW.method_id IS NOT OLD.method_id OR NEW.method_version IS NOT OLD.method_version OR NEW.blockers_json IS NOT OLD.blockers_json OR NEW.evidence_json IS NOT OLD.evidence_json OR NEW.valid_from_run IS NOT OLD.valid_from_run
+  BEGIN SELECT RAISE(ABORT, 'a link can only be closed; a changed reading is a new link row'); END;
+CREATE TRIGGER lr_slot_close_only BEFORE UPDATE ON lr_draft_slot
+  WHEN NEW.season IS NOT OLD.season OR NEW.round IS NOT OLD.round OR NEW.slot IS NOT OLD.slot OR NEW.overall IS NOT OLD.overall OR NEW.status IS NOT OLD.status OR NEW.draft_row_id IS NOT OLD.draft_row_id OR NEW.valid_from_run IS NOT OLD.valid_from_run
+  BEGIN SELECT RAISE(ABORT, 'a slot row can only be closed; a changed status is a new row'); END;
+CREATE TRIGGER lr_coverage_close_only BEFORE UPDATE ON lr_coverage
+  WHEN NEW.coverage_id IS NOT OLD.coverage_id OR NEW.source_id IS NOT OLD.source_id OR NEW.event_class IS NOT OLD.event_class OR NEW.from_date IS NOT OLD.from_date OR NEW.to_date IS NOT OLD.to_date OR NEW.state IS NOT OLD.state OR NEW.basis IS NOT OLD.basis OR NEW.valid_from_run IS NOT OLD.valid_from_run
+  BEGIN SELECT RAISE(ABORT, 'a coverage row can only be closed; a changed state is a new row'); END;
+CREATE TRIGGER lr_possession_close_only BEFORE UPDATE ON lr_possession
+  WHEN NEW.possession_id IS NOT OLD.possession_id OR NEW.asset_key IS NOT OLD.asset_key OR NEW.franchise_id IS NOT OLD.franchise_id OR NEW.from_ts IS NOT OLD.from_ts OR NEW.to_ts IS NOT OLD.to_ts OR NEW.from_basis IS NOT OLD.from_basis
+    OR NEW.evidence_class IS NOT OLD.evidence_class OR NEW.weakest_coverage IS NOT OLD.weakest_coverage OR NEW.valid_from_run IS NOT OLD.valid_from_run
+  BEGIN SELECT RAISE(ABORT, 'a possession row can only be closed'); END;
 ```
+
+**A CONFIRMED possession is not gated on coverage** (an open design point): today 439 slot-pick links are CONFIRMED by a token chain plus a draft result while the chain's interval has disclosed coverage gaps, so `weakest_coverage` travels beside the class for the reader instead of blocking it. The commissioner may prefer a stricter rule.
 
 **Rules the constraints encode:** a `SELECTED` slot has a draft row, a `FORFEITED`, `UNRESOLVED` or `MISSING_SOURCE_RECORD` slot never has one (so a forfeiture cannot carry a fabricated player); an `UNRESOLVED` link has no slot; a future pick can never be `CONFIRMED` to a slot; every link names an approved or diagnostic method and its version. A selected draft row with no franchise id stays `SELECTED` (`franchise_id` is nullable): the selector is simply not recorded. The 2014 4.12 disagreement is an `lr_conflict` row beside a `SELECTED` slot, not a slot status.
 
@@ -227,7 +256,7 @@ Row estimates from the archive (counts in bold are exact; the rest are estimates
 
 **Rows written on a first load, counting index entries:** about 31,000 rows times about 2.3 entries per row (tables without a rowid alias count the primary-key index; the eight secondary indexes above add one each) is roughly **72,000 rows written** (range 50,000 to 100,000; the three partial unique indexes add about 2,000). That is under the Free limit of 100,000 per UTC day **only if nothing else writes that day** (the counter is account-wide and shared with the stats refresh). Plan: **three** chunks of at most 25,000 written rows, one chunk per run and at most two chunks per UTC day (so two days, never more than about 50,000 written on one day), measuring with `wrangler d1 info` and `scripts/d1_usage.py` after each chunk; the loader writes only changed rows (the `D1Writer` pattern), so a repeated load writes 0.
 
-**Known data discrepancy (reported, not repaired):** two 2025 trades, `trade2025_35` and `trade2025_60`, carry decimal cap tokens (`BB_3000.00`, `BB_5000.00`) whose cap amount is empty in the archive's trade table; the extraction counts them as 0, so its 2025 cap total of 274,000 is understated by 8,000. The design's `CHECK (amount > 0)` refuses to store a missing amount as 0, so the loader must handle these two transfers explicitly; they are a separate data-discrepancy item for the commissioner. What "from sends cap room to" means for a `BB_` token is also not tied to the league canon here and is unverified.
+**Known data discrepancy (reported, not repaired):** two 2025 trades, `trade2025_35` and `trade2025_60`, carry decimal cap tokens (`BB_3000.00`, `BB_5000.00`) whose cap amount is empty in the archive's trade table; the extraction counts them as 0, so its 2025 cap total of 274,000 is understated by 8,000. The design's `CHECK (amount > 0)` refuses to store a missing amount as 0, so the loader must handle these two transfers explicitly (the extraction's token parser does not read a decimal `BB_` amount either); they are a separate data-discrepancy item for the commissioner. What "from sends cap room to" means for a `BB_` token is also not tied to the league canon here and is unverified.
 
 **Steady state:** a rebuild after one new trade or one new verification writes tens of rows. Finished seasons are never rewritten. A new release is a `lr_run` row, a `lr_release` row and the changed derived rows. (A rebuild in which every derived row changed would add about 12,000 rows; that is the bound used for retention in section 10.)
 
@@ -286,5 +315,5 @@ Each page is on the order of 100 to 1,000 rows against a 5,000,000-row daily rea
 1. **Which slice is first:** the recommendation is slice 1 only (sources, coverage, trades, draft, links, conflicts).
 2. **A or C for the first owner-facing pages** (section 7).
 3. **Raw MFL payloads:** only their hashes and the sanitized extracts are kept (decided in this revision, because a raw payload holds free-text comments and pending offers); revisit only if a later need is shown.
-4. **Free-plan load schedule:** one chunk a day for two days, or a one-off paid-plan window, if the account is still on Workers Paid when the load happens.
+4. **Free-plan load schedule:** three chunks of at most 25,000 written rows, at most two per UTC day (so two days), or a one-off paid-plan window, if the account is still on Workers Paid when the load happens.
 5. **Retention of superseded derived rows:** keep all runs (a rebuild that changed every derived row adds about 12,000 rows; one new trade adds tens) or prune runs older than a stated horizon.

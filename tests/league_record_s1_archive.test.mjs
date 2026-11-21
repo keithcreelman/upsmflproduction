@@ -348,7 +348,7 @@ test("the source-coverage model (decision of 2026-11-21): four things kept apart
   t.equal(cov.named_gap_state, "KNOWN_GAP"); t.equal(x.coverage_windows.length, quiet, "every quiet window is classified");
   t.ok(x.coverage_windows.every((w) => w.state === "UNVERIFIED"));
   // a verification record is accepted only when every condition holds
-  const good = { id: "v1", event_class: "pick_transfer", from: "2020-01-10", to: "2020-03-16", source: { kind: "mfl_export", type: "transactions", year: 2019, league_id: "74598", params: "TYPE=transactions&TRANS_TYPE=*", captured_on: "2026-12-01", truncated: false },
+  const good = { id: "v1", event_class: "pick_transfer", from: "2020-01-10", to: "2020-03-16", source: { kind: "mfl_export", type: "transactions", year: 2020, league_id: "74598", params: "TYPE=transactions&TRANS_TYPE=*", captured_on: "2026-12-01", truncated: false },
     checks: [{ kind: "archive_comparison", passed: true, ref: "r1" }, { kind: "end_state_reconciliation", passed: true, ref: "r2" }] };
   t.ok(validateVerification(good).ok, "a complete record is valid");
   const bad = (over) => validateVerification({ ...good, ...over });
@@ -357,8 +357,8 @@ test("the source-coverage model (decision of 2026-11-21): four things kept apart
     ["captured before the interval ends", bad({ source: { ...good.source, captured_on: "2020-03-01" } })], ["a failed check", bad({ checks: [...good.checks, { kind: "end_state_reconciliation", passed: false }] })],
     ["no archive comparison", bad({ checks: [{ kind: "chain_continuity", passed: true, ref: "x" }, { kind: "end_state_reconciliation", passed: true, ref: "y" }] })], ["no independent corroboration", bad({ checks: [{ kind: "archive_comparison", passed: true, ref: "x" }] })],
     ["comparison and chain continuity only: both come from MFL's own log", bad({ checks: [{ kind: "archive_comparison", passed: true, ref: "x" }, { kind: "chain_continuity", passed: true, ref: "y" }] })], ["no league id", bad({ source: { ...good.source, league_id: undefined } })],
-    ["no instance year", bad({ source: { ...good.source, year: undefined } })], ["an interval outside the instance year and the next", bad({ source: { ...good.source, year: 2015 } })], ["a check with no evidence reference", bad({ checks: [{ kind: "archive_comparison", passed: true }, { kind: "end_state_reconciliation", passed: true, ref: "y" }] })],
-    ["a leading ?COUNT parameter", bad({ source: { ...good.source, params: "COUNT=5&TYPE=transactions" } })],
+    ["no instance year", bad({ source: { ...good.source, year: undefined } })], ["an interval outside the instance's calendar year", bad({ source: { ...good.source, year: 2015 } })], ["an interval that runs into the next year", bad({ to: "2021-01-02" })], ["an URL-encoded COUNT", bad({ source: { ...good.source, params: "TYPE=transactions&%43OUNT=1" } })], ["a check with no evidence reference", bad({ checks: [{ kind: "archive_comparison", passed: true }, { kind: "end_state_reconciliation", passed: true, ref: "y" }] })],
+    ["a leading ?COUNT parameter", bad({ source: { ...good.source, params: "COUNT=5&TYPE=transactions" } })], ["a semicolon-separated COUNT", bad({ source: { ...good.source, params: "TYPE=transactions;COUNT=1" } })],
     ["unknown check kind", bad({ checks: [...good.checks, { kind: "vibes", passed: true }] })], ["no object", validateVerification(null)],
     ["an impossible date", bad({ to: "2020-02-30" })], ["a non-string date", bad({ from: new Date("2020-01-10") })], ["no recorded parameters", bad({ source: { ...good.source, params: undefined } })],
     ["a duplicated check kind", bad({ checks: [...good.checks, { kind: "archive_comparison", passed: true }] })], ["a null check", bad({ checks: [...good.checks, null] })], ["checks that are not an array", bad({ checks: "none" })],
@@ -374,9 +374,12 @@ test("the source-coverage model (decision of 2026-11-21): four things kept apart
   const halves = [{ ...good, id: "a", from: "2020-01-10", to: "2020-02-01" }, { ...good, id: "b", from: "2020-02-02", to: "2020-03-16" }];
   t.equal(st(halves)[0].state, COVERAGE_STATE.VERIFIED_COMPLETE, "adjacent verified intervals together cover the window");
   t.equal(st([])[1].state, COVERAGE_STATE.KNOWN_GAP, "the named gap is a KNOWN_GAP without a source");
-  const gapV = { ...good, id: "g", from: "2025-11-28", to: "2026-03-07", source: { ...good.source, year: 2025, captured_on: "2026-12-05" } };
-  t.equal(st([gapV])[1].state, COVERAGE_STATE.VERIFIED_COMPLETE, "valid verifications covering all of the gap close it");
-  t.equal(st([{ ...gapV, to: "2026-03-06" }])[1].state, COVERAGE_STATE.KNOWN_GAP, "one uncovered day keeps it a KNOWN_GAP");
+  const gap25 = { ...good, id: "g25", from: "2025-11-28", to: "2025-12-31", source: { ...good.source, year: 2025, captured_on: "2026-12-05" } };
+  const gap26 = { ...good, id: "g26", from: "2026-01-01", to: "2026-03-07", source: { ...good.source, year: 2026, captured_on: "2026-12-05" } };
+  t.equal(st([gap25, gap26])[1].state, COVERAGE_STATE.VERIFIED_COMPLETE, "one valid record per instance, together covering all of the gap, close it");
+  t.equal(st([gap25])[1].state, COVERAGE_STATE.KNOWN_GAP, "the 2025 instance alone cannot close days that belong to the 2026 instance");
+  t.ok(!validateVerification({ ...gap25, to: "2026-03-07" }).ok, "a 2025-instance record claiming 2026 days is refused");
+  t.equal(st([gap25, { ...gap26, to: "2026-03-06" }])[1].state, COVERAGE_STATE.KNOWN_GAP, "one uncovered day keeps it a KNOWN_GAP");
   // would custody be observed? Every day of the span must be verified: a day outside any verification blocks, in a quiet window or not.
   const model = (vs, cls = "pick_transfer") => buildCoverageModel({ windows: win, namedGap: gap, verifications: vs, eventClass: cls });
   t.ok(custodyObserved(model([good]), "2020-01-20", "2020-02-10").observed, "custody inside a verified window is observed, although no transaction occurred in it");
@@ -384,8 +387,9 @@ test("the source-coverage model (decision of 2026-11-21): four things kept apart
   t.ok(!custodyObserved(model([good]), "2020-01-01", "2020-04-01").observed, "days around a verified window that nobody verified block custody");
   t.ok(!custodyObserved(model([good]), "2020-01-09", "2020-01-10").observed, "one unverified day at the start blocks"); t.ok(!custodyObserved(model([good]), "2020-03-16", "2020-03-17").observed, "one unverified day at the end blocks");
   t.ok(!custodyObserved(model([]), "2020-01-20", "2020-02-10").observed, "an unverified quiet period does not prove custody");
+  t.ok(!custodyObserved(model([good]), "2020-02-10", "2020-01-20").observed, "a reversed span observes nothing"); t.ok(!custodyObserved(model([good]), "2020-01-20", "2020-2-10").observed, "a malformed date observes nothing");
   t.ok(!custodyObserved(model([]), "2019-05-01", "2019-05-02").observed, "an unverified day outside any quiet window blocks too: a busy stretch is not proof");
-  t.ok(custodyObserved(model([]), "2019-05-01", "2019-05-02").uncovered && custodyObserved(model([]), "2019-05-01", "2019-05-02").blockers.length === 0, "and the reader is told the days are uncovered even when no labelled interval touches them");
+  t.ok(custodyObserved(model([]), "2019-05-01", "2019-05-02").uncovered && custodyObserved(model([]), "2019-05-01", "2019-05-02").blockers.length === 0, "and the reader is told the days are uncovered even when no labeled interval touches them");
   t.ok(!custodyObserved(model([good]), "2025-12-01", "2026-01-15").observed, "a known gap blocks even when other intervals are verified");
   t.ok(!custodyObserved(model([good], "player_move"), "2020-01-20", "2020-02-10").observed, "a verification of another event class observes nothing");
   t.ok(custodyObserved(model(halves), "2020-01-12", "2020-03-01").observed, "adjacent verified intervals observe a span across their join");
@@ -475,6 +479,18 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   ok("insert into lr_trade (trade_id, loaded_run, season, ts, date_et, date_quality, source_id, source_key) values ('t1', 1, 2025, 1, '2025-01-01', 'recorded', 'S', 'k')");
   t.ok(fails("insert into lr_trade_cap values ('t1', 1, '0001', '0002', 0)"), "a cap amount of 0 is refused (a missing amount must be handled, never stored as 0)");
   t.ok(!fails("insert into lr_trade_cap values ('t1', 1, '0001', '0002', 3000)"), "a cap transfer keeps its direction and amount");
+  // updates cannot walk around the insert rules: a derived row may only be closed, facts never change
+  t.ok(fails("update lr_link set class = 'INFERRED', to_season = 2018, to_round = 4, to_slot = 11, evidence_json = 'e', method_id = 'DIAG' where link_id = 1"), "an UNRESOLVED link cannot be turned into INFERRED by an update");
+  t.ok(fails("update lr_draft_slot set status = 'FORFEITED', draft_row_id = null where season = 2018 and round = 4 and slot = 7"), "a missing slot cannot be turned into a forfeiture by an update");
+  t.ok(fails("update lr_coverage set state = 'VERIFIED_COMPLETE' where coverage_id = 4"), "an unverified interval cannot be promoted by an update");
+  t.ok(fails("update lr_trade set season = 2024 where trade_id = 't1'"), "a trade fact is never updated"); t.ok(fails("update lr_trade_cap set amount = 1 where trade_id = 't1'"), "a cap amount is never updated");
+  t.ok(fails("update lr_correction set corrected_value = '9' where target_key = '2'"), "a correction is never edited"); t.ok(fails("update lr_coverage_check set passed = 1 where coverage_id = 5"), "a check is never edited");
+  t.ok(!fails("update lr_link set valid_to_run = 2 where link_id = 1"), "closing a derived row is the one update allowed");
+  // an abandoned run can never be released
+  ok("insert into lr_run (run_id, kind, created_utc, code_sha, source_set_sha256) values (3, 'build', 'z', 'sha', 'sha'), (4, 'rollback', 'z', 'sha', 'sha')");
+  t.ok(fails("insert into lr_run_excluded values (3, 2)"), "an exclusion recorded by an earlier run is refused"); ok("insert into lr_run_excluded values (3, 4)");
+  ok("update lr_release set retired_utc = 'z2' where retired_utc is null");
+  t.ok(fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (3, 'y', 'r')"), "an excluded run cannot be released");
   // the query plans of the design's hot paths use the indexes the document defines
   const plan = (sql) => db.prepare(`explain query plan ${sql}`).all().map((r) => r.detail).join(" | ");
   t.match(plan("select * from lr_trade_leg where asset_key = 'x' order by ts"), /USING (COVERING )?INDEX lr_leg_asset/);

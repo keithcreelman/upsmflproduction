@@ -41,23 +41,23 @@ The archive covers trades up to **2025-11-27** and other transactions up to **20
 
 | # | Instance | Request (exact) | Expected data | Why |
 |---|---|---|---|---|
-| **A1** | 2025 | `GET https://www48.myfantasyleague.com/2025/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_KEY_2526>` | Every executed trade of the 2025 season: for each, `timestamp`, `type`, the two franchises and the two give-up lists with player ids, `FP_<franchise>_<year>_<round>` future-pick tokens, `DP_<round-1>_<slot-1>` slot tokens and `BB_` cap tokens (zero-indexed, as in the archive). Approximately 74 trades (the archive holds 74 for 2025). | Compare with the archive record for record (check E1); any trade dated 2025-11-28 or later is a finding. |
-| **A2** | 2026 | `GET https://www48.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_KEY_2526>` | Every executed trade of the 2026 instance from its start. The snapshot's first 2026 transaction is 2026-03-07 and its first trade 2026-03-27. | Anything dated before 2026-03-07 would sit in the gap; compare the rest with the committed snapshots. |
-| **A3** | 2025 | `GET https://www48.myfantasyleague.com/2025/export?TYPE=futureDraftPicks&L=74598&JSON=1&APIKEY=<MFL_KEY_2526>` | For each franchise, its future picks: `year`, `round`, `originalPickFor` (this repository's code reads that field), as the instance last held them. | An end-state observation near the start of the gap (check E3). The time the 2025 instance was last written is not known; the capture records what it shows, not when. |
-| **A4** | 2026 | `GET https://www48.myfantasyleague.com/2026/export?TYPE=futureDraftPicks&L=74598&JSON=1&APIKEY=<MFL_KEY_2526>` | The same for the 2026 instance on the capture date. | An end-state observation after the gap: the holder of each 2027-and-later pick on the capture date, to compare with the chains. |
+| **A1** | 2025 | `GET https://www48.myfantasyleague.com/2025/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_KEY_2025>` | Every executed trade of the 2025 season: for each, `timestamp`, `type`, the two franchises and the two give-up lists with player ids, `FP_<franchise>_<year>_<round>` future-pick tokens, `DP_<round-1>_<slot-1>` slot tokens and `BB_` cap tokens (zero-indexed, as in the archive). Approximately 74 trades (the archive holds 74 for 2025). | Compare with the archive record for record (check E1); any trade dated 2025-11-28 or later is a finding. |
+| **A2** | 2026 | `GET https://www48.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_KEY_2026>` | Every executed trade of the 2026 instance from its start. The snapshot's first 2026 transaction is 2026-03-07 and its first trade 2026-03-27. | Anything dated before 2026-03-07 would sit in the gap; compare the rest with the committed snapshots. |
+| **A3** | 2025 | `GET https://www48.myfantasyleague.com/2025/export?TYPE=futureDraftPicks&L=74598&JSON=1&APIKEY=<MFL_KEY_2025>` | For each franchise, its future picks: `year`, `round`, `originalPickFor` (this repository's code reads that field), as the instance last held them. | An end-state observation of **unknown date**: the 2025 instance may have been frozen at the rollover or written later, and the response does not say. It brackets the start of the gap but is **not a dated end state** and cannot serve as check E3 by itself. |
+| **A4** | 2026 | `GET https://www48.myfantasyleague.com/2026/export?TYPE=futureDraftPicks&L=74598&JSON=1&APIKEY=<MFL_KEY_2026>` | The same for the 2026 instance on the capture date. | An end-state observation after the gap: the holder of each 2027-and-later pick on the capture date, to compare with the chains. |
 
 **Optional cross-check (2 more requests, separate yes/no):**
 
 | # | Request (exact) | Expected data | Why |
 |---|---|---|---|
-| **B1** | `GET https://www48.myfantasyleague.com/2025/export?TYPE=salaryAdjustments&L=74598&JSON=1&APIKEY=<MFL_KEY_2526>` | The 2025 instance's salary-adjustment entries (cap entries with dates and trade references where present). | A cap transfer tied to a trade inside the gap would show here even if the trade record were missing. Only trades that moved cap money; the entries are also written by commissioner tools. |
-| **B2** | `GET https://www48.myfantasyleague.com/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1&APIKEY=<MFL_KEY_2526>` | The same for the 2026 instance. | The same, for the other side of the boundary. |
+| **B1** | `GET https://www48.myfantasyleague.com/2025/export?TYPE=salaryAdjustments&L=74598&JSON=1&APIKEY=<MFL_KEY_2025>` | The 2025 instance's salary-adjustment entries (cap entries with dates and trade references where present). | A cap transfer tied to a trade inside the gap would show here even if the trade record were missing. Only trades that moved cap money; the entries are also written by commissioner tools. |
+| **B2** | `GET https://www48.myfantasyleague.com/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1&APIKEY=<MFL_KEY_2026>` | The same for the 2026 instance. | The same, for the other side of the boundary. |
 
 **What the answers can and cannot show.** MFL returns what it still holds. A response with no trade in the gap supports "this export, captured on this date, shows none", never "none occurred". A response that shows a trade is a new record to add to the ledger in a separate pull request, after which the chains crossing it are re-evaluated. Neither result resolves a future pick by itself (`S1_COVERAGE_GAP_SOURCES.md`, last section).
 
 **Decision rules, set before any call:**
 
-1. A1/A2 agree with the archive and snapshots in the covered range and show **no trade in the gap**, and A3/A4 agree with the chains: record a verification candidate for the gap under `S1_SOURCE_COVERAGE_MODEL.md` (it becomes VERIFIED_COMPLETE only if every check passes). The 597 stay unresolved.
+1. A1/A2 agree with the archive and snapshots in the covered range and show **no trade in the gap**, and A4 (the only end state with a known date: its capture date) agrees with the chains, and A3 is consistent with them: record **one verification candidate per instance** (2025 for 2025-11-28 to 2025-12-31 and 2026 for 2026-01-01 to 2026-03-07) under `S1_SOURCE_COVERAGE_MODEL.md`. A candidate becomes VERIFIED_COMPLETE only if every required check passes; an end state dated after the interval's end covers days before it only as far as the chains connect them, and where it cannot be shown the days stay unverified. The 597 stay unresolved.
 2. A1 or A2 shows **a trade in the gap**: add it to the ledger in a separate change; the gap stays a KNOWN_GAP until the chains and end states agree.
 3. **Any difference** from the archive inside the covered range (a record present on one side only, or different assets): reported as a finding with both versions; nothing is verified or repaired.
 
@@ -76,34 +76,41 @@ Decision rules: if N1 records franchise 0004 for pick 4.12, the archive's draft 
 ## 4. The exact command block (for approval, not run)
 
 ```bash
-# The commissioner's own shell. The key is typed without echo, kept in a shell variable only (never exported,
-# never written to a file or shell history), and passed to curl on its standard input so it is not in `ps`.
-read -s MFL_KEY_2526; echo                         # key for league 74598 (2025 and 2026 instances)
-# read -s MFL_KEY_2014; echo                       # only if set N is approved: key for league 30590 (2014)
+# The commissioner's own shell. Each key is typed without echo, kept in a shell variable only (never exported,
+# never written to a file or shell history) and passed to curl on its standard input so it is not in `ps`.
+# One key per league-year: a key may not work for another instance.
+read -s MFL_KEY_2025; echo                         # key for the 2025 instance of league 74598
+read -s MFL_KEY_2026; echo                         # key for the 2026 instance of league 74598
+# read -s MFL_KEY_2014; echo                       # only if set N is approved: key for the 2014 league (30590)
 OUT="$HOME/ups_league_record_exports/2026-11"      # outside the repository
 mkdir -p "$OUT"
 UA='ups-league-record-readonly/1'
-get() {  # GET only. args: name, host, path-and-query (no key), key
+get() {  # GET only. args: name, host, path-and-query (no key), key. Returns non-zero (and the chain below stops) on anything but HTTP 200.
   # --max-redirs 0 and no --location: a redirect is a stop, never followed (it could carry the key to another host).
-  printf 'url = "https://%s%s&APIKEY=%s"\n' "$2" "$3" "$4" | \
+  local code
+  local k; k=$(printf '%s' "$4" | python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))')     # URL-encode: a quote or backslash can never break the curl config line
+  code=$(printf 'url = "https://%s%s&APIKEY=%s"\n' "$2" "$3" "$k" | \
     curl --silent --show-error --max-time 60 --max-redirs 0 --header "User-Agent: $UA" \
-         --output "$OUT/$1.json" --write-out "$1 %{http_code} %{size_download} bytes\n" --config -
+         --output "$OUT/$1.json" --write-out '%{http_code}' --config -) || { echo "$1: curl failed; stop and report" >&2; return 1; }
+  echo "$1 HTTP $code $(wc -c < "$OUT/$1.json" | tr -d ' ') bytes"
+  [ "$code" = 200 ] || { echo "$1: HTTP $code (a redirect or an error); stop and report" >&2; return 1; }
   # MFL can return an error as HTTP 200 with an error body: refuse to treat it as data.
   if head -c 400 "$OUT/$1.json" | grep -qi '"error"'; then echo "$1: MFL returned an error body; stop and report" >&2; return 1; fi
   sleep 1
 }
-get A1_transactions_2025_trade 'www48.myfantasyleague.com' '/2025/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2526"
-get A2_transactions_2026_trade 'www48.myfantasyleague.com' '/2026/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2526"
-get A3_futurepicks_2025        'www48.myfantasyleague.com' '/2025/export?TYPE=futureDraftPicks&L=74598&JSON=1' "$MFL_KEY_2526"
-get A4_futurepicks_2026        'www48.myfantasyleague.com' '/2026/export?TYPE=futureDraftPicks&L=74598&JSON=1' "$MFL_KEY_2526"
-# optional B and N sets, only if approved:
-# get B1_saladj_2025             'www48.myfantasyleague.com' '/2025/export?TYPE=salaryAdjustments&L=74598&JSON=1' "$MFL_KEY_2526"
-# get B2_saladj_2026             'www48.myfantasyleague.com' '/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1' "$MFL_KEY_2526"
+# chained with && so the first failure stops everything after it
+get A1_transactions_2025_trade 'www48.myfantasyleague.com' '/2025/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2025" &&
+get A2_transactions_2026_trade 'www48.myfantasyleague.com' '/2026/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2026" &&
+get A3_futurepicks_2025        'www48.myfantasyleague.com' '/2025/export?TYPE=futureDraftPicks&L=74598&JSON=1' "$MFL_KEY_2025" &&
+get A4_futurepicks_2026        'www48.myfantasyleague.com' '/2026/export?TYPE=futureDraftPicks&L=74598&JSON=1' "$MFL_KEY_2026"
+# optional B and N sets, only if approved (append each with && in the same way):
+# get B1_saladj_2025             'www48.myfantasyleague.com' '/2025/export?TYPE=salaryAdjustments&L=74598&JSON=1' "$MFL_KEY_2025"
+# get B2_saladj_2026             'www48.myfantasyleague.com' '/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1' "$MFL_KEY_2026"
 # get N1_draftresults_2014       'www45.myfantasyleague.com' '/2014/export?TYPE=draftResults&L=30590&JSON=1' "$MFL_KEY_2014"
 # get N2_transactions_2014_trade 'www45.myfantasyleague.com' '/2014/export?TYPE=transactions&L=30590&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2014"
 # get N3_transactions_2014_all   'www45.myfantasyleague.com' '/2014/export?TYPE=transactions&L=30590&TRANS_TYPE=*&JSON=1' "$MFL_KEY_2014"
 shasum -a 256 "$OUT"/*.json                        # hash of every raw response, recorded with the capture time
-unset MFL_KEY_2526 MFL_KEY_2014
+unset MFL_KEY_2025 MFL_KEY_2026 MFL_KEY_2014
 ```
 
 `curl` is used in its default `GET` mode; the block contains no `-X`, `-d`, `--data`, `-F`, `-T` or `--location`. The transfer line prints the name, status and size only; no URL and no key is ever printed. A redirect response (3xx) is a stop: it is reported and nothing is retried.
