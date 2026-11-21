@@ -99,7 +99,15 @@ node tests/league_record_s1_archive.test.mjs          # extraction tests (separa
 - **The funnel for future picks** is a diagnostic, not a result: it shows which condition stops each pick (custody across quiet windows, slot-token transfers in the round, the slot count, a unique candidate) and what the count would be if one condition were met another way. Whether to meet a condition another way is a commissioner decision.
 - **Banned columns:** the guard refuses `waiver_sort_order` and similar columns even in an allowlisted table (the franchise list table also holds a waiver order derived from the standings).
 
-## 12. Not verified
+## 12. Commissioner decisions of 2026-11-21 (recorded; each stays scoped as stated)
+
+1. **Legacy draft-slot correction: approved**, only for the documented defect (legacy table, 2012-2017, five rounds of twelve, stored slot 1 with raw text "<round>.1", overall pick number giving slot 10). `slot = overall - 12 x (round - 1)`; the stored value, corrected value, method and source reference are kept; nothing else is corrected, no other season or draft format. 30 rows. The 2014 4.12 conflict stays unresolved.
+2. **Quiet windows: stay conservative; the model is refined** (`S1_SOURCE_COVERAGE_MODEL.md`, `scripts/league_record/s1/coverage.mjs`): verified coverage, unverified coverage, known gap and recorded activity are kept apart. Resolution rules are not relaxed; all 597 unresolved future picks stay.
+3. **Slot-token netting: not approved as a count-only inference.** Count reconciliation stays diagnostic. Event-based accounting is assessed (`S1_FUTURE_PICK_ASSESSMENT.md`), adds no link, and a known forfeiture or a complete round inventory never identifies a pick.
+4. **MFL export: approved in principle, not authorized to run.** The exact requests are in `S1_MFL_EXPORT_REQUESTS.md`; none was sent.
+5. **D1 historical-data design: approved as a design document** (`S1_D1_DESIGN.md`); no migration, route, ingestion or production access.
+
+## 13. Not verified
 
 - MFL itself (live) was not queried; points and rosters are checked against a second archive table, not against MFL.
 - The archive's completeness beyond the records the pilot uses.

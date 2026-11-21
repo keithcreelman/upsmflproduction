@@ -1,0 +1,4 @@
+{
+  "note": "Source-coverage verifications (decision of 2026-11-21). One record per verified interval and event class; see docs/league_record/S1_SOURCE_COVERAGE_MODEL.md. Empty today: no interval has been verified, so every quiet window is UNVERIFIED and the named gap is a KNOWN_GAP. A record is accepted only if scripts/league_record/s1/coverage.mjs validateVerification passes.",
+  "verifications": []
+}

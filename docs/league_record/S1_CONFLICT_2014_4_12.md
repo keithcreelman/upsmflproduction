@@ -34,6 +34,8 @@ No later recorded transfer of the 4.12 token exists, so the chain leaves 0004 ho
 3. 0004's post-draft roster or contract record for the player (the archive's weekly roster record does not exist for 2014).
 4. The league's own draft-day record for 2014, if one is kept.
 
+**Update 2026-11-21.** The exact, read-only requests for sources 1 and 2 (and an optional all-types transactions export for 2014) are written out for approval in `S1_MFL_EXPORT_REQUESTS.md`, section 3 (N1 to N3); none was sent. A local re-check shows the archive cannot stand in for source 3: its weekly roster rows cover seasons 2010, 2011 and 2017 onward only, and the drafted player has no add or drop record. The 2018 forfeiture ruling is not used here and does not apply to this record.
+
 ## Handling in the extraction
 
 The conflict stays a `conflict` in the slot-pick counts (CONFIRMED 439 of 451, conflict 1) and its draft slot stays SELECTED with the recorded selection and selector. Nothing assigns the pick to either franchise. Any decision belongs to the commissioner with one of the sources above.

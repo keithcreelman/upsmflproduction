@@ -135,18 +135,26 @@ export function loadArchiveSelections(archive) {
     source: { kind: "archive", table, key: { season: Number(r.season), round: Number(r.round), slot: Number(r.slot) } }, note: r.note || "",
   });
   const a = archive.all("select season, draftpick_round round, draftpick_roundorder slot, draftpick_overall overall, franchise_id f, player_id pid, player_name pname, unix_timestamp ts, date_et d, raw_comments note from draftresults_mfl");
-  const b = archive.all("select season, draftpick_round round, draftpick_roundorder slot, draftpick_overall overall, franchise_id f, player_id pid, player_name pname, unix_timestamp ts, date_et d, raw_comments note from draftresults_legacy");
-  // DATA DEFECT in the legacy table (2012-2017): the tenth pick of a round ("1.10", raw text "1.1") is stored with slot 1, so slot 1 appears twice and slot 10 never. MFL's own overall pick
-  // number is stored correctly, so the slot is overall - 12 x (round - 1) (twelve picks a round in every legacy year). The correction is applied only when the stored slot disagrees with it and
-  // the result is a slot from 1 to 12, and every corrected row carries the stored value and the rule. Nothing here uses a finish, a standing or an order other than MFL's own pick numbers.
+  const b = archive.all("select season, draftpick_round round, draftpick_roundorder slot, draftpick_overall overall, franchise_id f, player_id pid, player_name pname, unix_timestamp ts, date_et d, raw_comments note, raw_pick, raw_overall from draftresults_legacy");
+  // DOCUMENTED DATA DEFECT (decision of 2026-11-21, approved for exactly this pattern): in the legacy table (2012-2017, twelve teams, five rounds) the tenth pick of a round is stored with slot 1.
+  // The source's own text shows why: the pick "1.10" is written "1.1", so the slot reads as 1 and slot 1 appears twice while slot 10 never does. MFL's own overall pick number is stored
+  // correctly, and overall - 12 x (round - 1) = 10. The correction is applied ONLY when every part of the documented pattern holds: legacy table, season 2012-2017, round 1-5, stored slot 1,
+  // raw pick text "<round>.1", derived slot 10. A row that disagrees with its overall pick number in any other way is NOT corrected: it is left as stored and reported as an unexplained mismatch.
+  // The MFL table (2018 onward) and any other season or format are never corrected. Each corrected row keeps the stored value, the corrected value, the method and the source reference.
   const fixLegacy = (r) => {
-    const calc = Number(r.overall) - 12 * (Number(r.round) - 1);
-    if (calc >= 1 && calc <= 12 && Number(r.slot) !== calc) return { ...r, slot: calc, _correction: { stored_slot: Number(r.slot), rule: "legacy_slot_from_overall_pick" } };
-    return r;
+    const calc = Number(r.overall) - LEGACY_DEFECT.teams * (Number(r.round) - 1);
+    if (Number(r.slot) === calc) return r;                                                        // stored slot agrees with the overall pick number: nothing to correct
+    const season = Number(r.season), round = Number(r.round);
+    const documented = season >= LEGACY_DEFECT.first_season && season <= LEGACY_DEFECT.last_season && round >= 1 && round <= LEGACY_DEFECT.rounds && Number(r.slot) === 1 && calc === 10 && String(r.raw_pick) === `${round}.1`;
+    if (documented) return { ...r, slot: calc, _correction: { stored_slot: Number(r.slot), corrected_slot: calc, method: LEGACY_DEFECT.method, defect: LEGACY_DEFECT.id,
+      source_reference: { table: "draftresults_legacy", season, round, overall: Number(r.overall), raw_pick: String(r.raw_pick), raw_overall: String(r.raw_overall) } } };
+    return { ...r, _unexplained: { stored_slot: Number(r.slot), slot_from_overall: calc, raw_pick: String(r.raw_pick) } };
   };
-  const fromLegacy = b.map(fixLegacy).map((r) => { const sel = mk(r, "draftresults_legacy"); if (r._correction) sel.slot_correction = r._correction; return sel; });
+  const fromLegacy = b.map(fixLegacy).map((r) => { const sel = mk(r, "draftresults_legacy"); if (r._correction) sel.slot_correction = r._correction; if (r._unexplained) sel.slot_mismatch_unexplained = r._unexplained; return sel; });
   return [...a.map((r) => mk(r, "draftresults_mfl")), ...fromLegacy];
 }
+// The one documented defect the correction may repair. Nothing else is ever corrected.
+export const LEGACY_DEFECT = Object.freeze({ id: "legacy_tenth_pick_stored_as_slot_1", first_season: 2012, last_season: 2017, teams: 12, rounds: 5, method: "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1" });
 // ── known forfeitures (commissioner clarifications) ───────────────────────────────────────────────
 // A slot that was scheduled and then FORFEITED has no selected player. It is recorded only from a named provenance in docs/league_record/known_forfeitures.json, which holds exactly these
 // fields and no others: nothing about the violation, the offending owner or franchise, the penalty ruling date or an MFL transaction may be written there unless a source supplies it.

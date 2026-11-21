@@ -3,191 +3,229 @@
     {
       "days": 15,
       "from": "2010-07-27",
+      "state": "UNVERIFIED",
       "to": "2010-08-10"
     },
     {
       "days": 231,
       "from": "2010-12-27",
+      "state": "UNVERIFIED",
       "to": "2011-08-14"
     },
     {
       "days": 105,
       "from": "2012-02-02",
+      "state": "UNVERIFIED",
       "to": "2012-05-16"
     },
     {
       "days": 15,
       "from": "2012-05-31",
+      "state": "UNVERIFIED",
       "to": "2012-06-14"
     },
     {
       "days": 58,
       "from": "2013-03-16",
+      "state": "UNVERIFIED",
       "to": "2013-05-12"
     },
     {
       "days": 33,
       "from": "2013-12-23",
+      "state": "UNVERIFIED",
       "to": "2014-01-24"
     },
     {
       "days": 19,
       "from": "2014-01-26",
+      "state": "UNVERIFIED",
       "to": "2014-02-13"
     },
     {
       "days": 29,
       "from": "2014-03-02",
+      "state": "UNVERIFIED",
       "to": "2014-03-30"
     },
     {
       "days": 26,
       "from": "2014-04-01",
+      "state": "UNVERIFIED",
       "to": "2014-04-26"
     },
     {
       "days": 51,
       "from": "2014-12-31",
+      "state": "UNVERIFIED",
       "to": "2015-02-19"
     },
     {
       "days": 19,
       "from": "2015-04-25",
+      "state": "UNVERIFIED",
       "to": "2015-05-13"
     },
     {
       "days": 88,
       "from": "2015-12-28",
+      "state": "UNVERIFIED",
       "to": "2016-03-24"
     },
     {
       "days": 15,
       "from": "2016-06-15",
+      "state": "UNVERIFIED",
       "to": "2016-06-29"
     },
     {
       "days": 53,
       "from": "2016-12-26",
+      "state": "UNVERIFIED",
       "to": "2017-02-16"
     },
     {
       "days": 13,
       "from": "2017-06-01",
+      "state": "UNVERIFIED",
       "to": "2017-06-13"
     },
     {
       "days": 69,
       "from": "2017-12-31",
+      "state": "UNVERIFIED",
       "to": "2018-03-09"
     },
     {
       "days": 13,
       "from": "2018-05-12",
+      "state": "UNVERIFIED",
       "to": "2018-05-24"
     },
     {
       "days": 51,
       "from": "2018-12-30",
+      "state": "UNVERIFIED",
       "to": "2019-02-18"
     },
     {
       "days": 16,
       "from": "2019-05-18",
+      "state": "UNVERIFIED",
       "to": "2019-06-02"
     },
     {
       "days": 67,
       "from": "2020-01-10",
+      "state": "UNVERIFIED",
       "to": "2020-03-16"
     },
     {
       "days": 13,
       "from": "2020-06-24",
+      "state": "UNVERIFIED",
       "to": "2020-07-06"
     },
     {
       "days": 17,
       "from": "2020-07-17",
+      "state": "UNVERIFIED",
       "to": "2020-08-02"
     },
     {
       "days": 123,
       "from": "2021-01-03",
+      "state": "UNVERIFIED",
       "to": "2021-05-05"
     },
     {
       "days": 14,
       "from": "2021-07-02",
+      "state": "UNVERIFIED",
       "to": "2021-07-15"
     },
     {
       "days": 47,
       "from": "2022-01-04",
+      "state": "UNVERIFIED",
       "to": "2022-02-19"
     },
     {
       "days": 13,
       "from": "2022-02-25",
+      "state": "UNVERIFIED",
       "to": "2022-03-09"
     },
     {
       "days": 20,
       "from": "2022-04-06",
+      "state": "UNVERIFIED",
       "to": "2022-04-25"
     },
     {
       "days": 13,
       "from": "2022-05-18",
+      "state": "UNVERIFIED",
       "to": "2022-05-30"
     },
     {
       "days": 47,
       "from": "2023-01-03",
+      "state": "UNVERIFIED",
       "to": "2023-02-18"
     },
     {
       "days": 24,
       "from": "2023-06-12",
+      "state": "UNVERIFIED",
       "to": "2023-07-05"
     },
     {
       "days": 24,
       "from": "2024-01-02",
+      "state": "UNVERIFIED",
       "to": "2024-01-25"
     },
     {
       "days": 39,
       "from": "2024-01-27",
+      "state": "UNVERIFIED",
       "to": "2024-03-05"
     },
     {
       "days": 22,
       "from": "2024-06-12",
+      "state": "UNVERIFIED",
       "to": "2024-07-03"
     },
     {
       "days": 17,
       "from": "2024-07-05",
+      "state": "UNVERIFIED",
       "to": "2024-07-21"
     },
     {
       "days": 49,
       "from": "2024-12-31",
+      "state": "UNVERIFIED",
       "to": "2025-02-17"
     },
     {
       "days": 30,
       "from": "2025-03-27",
+      "state": "UNVERIFIED",
       "to": "2025-04-25"
     },
     {
       "days": 20,
       "from": "2025-06-11",
+      "state": "UNVERIFIED",
       "to": "2025-06-30"
     },
     {
       "days": 14,
       "from": "2025-07-02",
+      "state": "UNVERIFIED",
       "to": "2025-07-15"
     }
   ],
@@ -329,6 +367,489 @@
           "slot": "4.12"
         }
       ],
+      "legacy_slot_corrections": [
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 10,
+          "round": 1,
+          "season": 2012,
+          "source_reference": {
+            "overall": 10,
+            "raw_overall": "10",
+            "raw_pick": "1.1",
+            "round": 1,
+            "season": 2012,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 22,
+          "round": 2,
+          "season": 2012,
+          "source_reference": {
+            "overall": 22,
+            "raw_overall": "22",
+            "raw_pick": "2.1",
+            "round": 2,
+            "season": 2012,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 34,
+          "round": 3,
+          "season": 2012,
+          "source_reference": {
+            "overall": 34,
+            "raw_overall": "34",
+            "raw_pick": "3.1",
+            "round": 3,
+            "season": 2012,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 46,
+          "round": 4,
+          "season": 2012,
+          "source_reference": {
+            "overall": 46,
+            "raw_overall": "46",
+            "raw_pick": "4.1",
+            "round": 4,
+            "season": 2012,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 58,
+          "round": 5,
+          "season": 2012,
+          "source_reference": {
+            "overall": 58,
+            "raw_overall": "58",
+            "raw_pick": "5.1",
+            "round": 5,
+            "season": 2012,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 10,
+          "round": 1,
+          "season": 2013,
+          "source_reference": {
+            "overall": 10,
+            "raw_overall": "10",
+            "raw_pick": "1.1",
+            "round": 1,
+            "season": 2013,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 22,
+          "round": 2,
+          "season": 2013,
+          "source_reference": {
+            "overall": 22,
+            "raw_overall": "22",
+            "raw_pick": "2.1",
+            "round": 2,
+            "season": 2013,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 34,
+          "round": 3,
+          "season": 2013,
+          "source_reference": {
+            "overall": 34,
+            "raw_overall": "34",
+            "raw_pick": "3.1",
+            "round": 3,
+            "season": 2013,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 46,
+          "round": 4,
+          "season": 2013,
+          "source_reference": {
+            "overall": 46,
+            "raw_overall": "46",
+            "raw_pick": "4.1",
+            "round": 4,
+            "season": 2013,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 58,
+          "round": 5,
+          "season": 2013,
+          "source_reference": {
+            "overall": 58,
+            "raw_overall": "58",
+            "raw_pick": "5.1",
+            "round": 5,
+            "season": 2013,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 10,
+          "round": 1,
+          "season": 2014,
+          "source_reference": {
+            "overall": 10,
+            "raw_overall": "10",
+            "raw_pick": "1.1",
+            "round": 1,
+            "season": 2014,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 22,
+          "round": 2,
+          "season": 2014,
+          "source_reference": {
+            "overall": 22,
+            "raw_overall": "22",
+            "raw_pick": "2.1",
+            "round": 2,
+            "season": 2014,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 34,
+          "round": 3,
+          "season": 2014,
+          "source_reference": {
+            "overall": 34,
+            "raw_overall": "34",
+            "raw_pick": "3.1",
+            "round": 3,
+            "season": 2014,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 46,
+          "round": 4,
+          "season": 2014,
+          "source_reference": {
+            "overall": 46,
+            "raw_overall": "46",
+            "raw_pick": "4.1",
+            "round": 4,
+            "season": 2014,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 58,
+          "round": 5,
+          "season": 2014,
+          "source_reference": {
+            "overall": 58,
+            "raw_overall": "58",
+            "raw_pick": "5.1",
+            "round": 5,
+            "season": 2014,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 10,
+          "round": 1,
+          "season": 2015,
+          "source_reference": {
+            "overall": 10,
+            "raw_overall": "10",
+            "raw_pick": "1.1",
+            "round": 1,
+            "season": 2015,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 22,
+          "round": 2,
+          "season": 2015,
+          "source_reference": {
+            "overall": 22,
+            "raw_overall": "22",
+            "raw_pick": "2.1",
+            "round": 2,
+            "season": 2015,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 34,
+          "round": 3,
+          "season": 2015,
+          "source_reference": {
+            "overall": 34,
+            "raw_overall": "34",
+            "raw_pick": "3.1",
+            "round": 3,
+            "season": 2015,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 46,
+          "round": 4,
+          "season": 2015,
+          "source_reference": {
+            "overall": 46,
+            "raw_overall": "46",
+            "raw_pick": "4.1",
+            "round": 4,
+            "season": 2015,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 58,
+          "round": 5,
+          "season": 2015,
+          "source_reference": {
+            "overall": 58,
+            "raw_overall": "58",
+            "raw_pick": "5.1",
+            "round": 5,
+            "season": 2015,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 10,
+          "round": 1,
+          "season": 2016,
+          "source_reference": {
+            "overall": 10,
+            "raw_overall": "10",
+            "raw_pick": "1.1",
+            "round": 1,
+            "season": 2016,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 22,
+          "round": 2,
+          "season": 2016,
+          "source_reference": {
+            "overall": 22,
+            "raw_overall": "22",
+            "raw_pick": "2.1",
+            "round": 2,
+            "season": 2016,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 34,
+          "round": 3,
+          "season": 2016,
+          "source_reference": {
+            "overall": 34,
+            "raw_overall": "34",
+            "raw_pick": "3.1",
+            "round": 3,
+            "season": 2016,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 46,
+          "round": 4,
+          "season": 2016,
+          "source_reference": {
+            "overall": 46,
+            "raw_overall": "46",
+            "raw_pick": "4.1",
+            "round": 4,
+            "season": 2016,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 58,
+          "round": 5,
+          "season": 2016,
+          "source_reference": {
+            "overall": 58,
+            "raw_overall": "58",
+            "raw_pick": "5.1",
+            "round": 5,
+            "season": 2016,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 10,
+          "round": 1,
+          "season": 2017,
+          "source_reference": {
+            "overall": 10,
+            "raw_overall": "10",
+            "raw_pick": "1.1",
+            "round": 1,
+            "season": 2017,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 22,
+          "round": 2,
+          "season": 2017,
+          "source_reference": {
+            "overall": 22,
+            "raw_overall": "22",
+            "raw_pick": "2.1",
+            "round": 2,
+            "season": 2017,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 34,
+          "round": 3,
+          "season": 2017,
+          "source_reference": {
+            "overall": 34,
+            "raw_overall": "34",
+            "raw_pick": "3.1",
+            "round": 3,
+            "season": 2017,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 46,
+          "round": 4,
+          "season": 2017,
+          "source_reference": {
+            "overall": 46,
+            "raw_overall": "46",
+            "raw_pick": "4.1",
+            "round": 4,
+            "season": 2017,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        },
+        {
+          "corrected_slot": 10,
+          "method": "slot = overall - 12 x (round - 1), applied only where the raw pick text is '<round>.1' and the stored slot is 1",
+          "overall": 58,
+          "round": 5,
+          "season": 2017,
+          "source_reference": {
+            "overall": 58,
+            "raw_overall": "58",
+            "raw_pick": "5.1",
+            "round": 5,
+            "season": 2017,
+            "table": "draftresults_legacy"
+          },
+          "stored_slot": 1
+        }
+      ],
+      "legacy_slot_mismatches_unexplained": [],
       "pick_chain_discontinuities": [
         {
           "asset": "spick:2013:1:12",
@@ -798,6 +1319,8 @@
       "duplicate_legs": 0,
       "future_pick_ambiguous_examples": 0,
       "known_forfeitures": 1,
+      "legacy_slot_corrections": 30,
+      "legacy_slot_mismatches_unexplained": 0,
       "pick_chain_discontinuities": 3,
       "player_chain_breaks": 1260,
       "slot_conflicts": 1,
@@ -2529,6 +3052,7 @@
         "last_date": null,
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 0,
@@ -2548,8 +3072,10 @@
       "future_picks": {
         "assets_traded": 0,
         "confirmed": 0,
+        "event_accounting_blockers": {},
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 0,
           "inventory_complete_if_slot_tokens_netted": 0,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 0,
@@ -2641,6 +3167,7 @@
         "last_date": null,
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 0,
@@ -2660,8 +3187,10 @@
       "future_picks": {
         "assets_traded": 0,
         "confirmed": 0,
+        "event_accounting_blockers": {},
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 0,
           "inventory_complete_if_slot_tokens_netted": 0,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 0,
@@ -2755,6 +3284,7 @@
         "last_date": "2012-07-29",
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 5,
@@ -2774,8 +3304,14 @@
       "future_picks": {
         "assets_traded": 8,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "pick_and_slot_accounts_disagree": 8,
+          "selector_not_recorded_in_round": 8,
+          "slot_token_chain_disagrees_with_draft_result": 6
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 0,
           "inventory_complete_if_slot_tokens_netted": 0,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 3,
@@ -2869,6 +3405,7 @@
         "last_date": "2013-07-01",
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 5,
@@ -2888,8 +3425,13 @@
       "future_picks": {
         "assets_traded": 36,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 20,
+          "slot_token_chain_break": 8
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 8,
           "inventory_complete_if_slot_tokens_netted": 22,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 12,
@@ -2984,6 +3526,7 @@
         "last_date": "2014-06-15",
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 5,
@@ -3003,8 +3546,14 @@
       "future_picks": {
         "assets_traded": 44,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 11,
+          "selector_not_recorded_in_round": 20,
+          "slot_token_chain_disagrees_with_draft_result": 28
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 5,
           "inventory_complete_if_slot_tokens_netted": 16,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 12,
@@ -3098,6 +3647,7 @@
         "last_date": "2015-06-28",
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 5,
@@ -3117,8 +3667,12 @@
       "future_picks": {
         "assets_traded": 47,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 34
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 13,
           "inventory_complete_if_slot_tokens_netted": 8,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 17,
@@ -3212,6 +3766,7 @@
         "last_date": "2016-07-10",
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 5,
@@ -3231,8 +3786,14 @@
       "future_picks": {
         "assets_traded": 46,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 22,
+          "pick_and_slot_accounts_disagree": 10,
+          "selector_not_recorded_in_round": 10
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 14,
           "inventory_complete_if_slot_tokens_netted": 16,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 11,
@@ -3328,6 +3889,7 @@
         "last_date": "2017-06-17",
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 5,
@@ -3347,8 +3909,15 @@
       "future_picks": {
         "assets_traded": 40,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 10,
+          "pick_and_slot_accounts_disagree": 30,
+          "selector_not_recorded_in_round": 30,
+          "slot_token_chain_disagrees_with_draft_result": 20
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 0,
           "inventory_complete_if_slot_tokens_netted": 0,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 11,
@@ -3454,6 +4023,7 @@
         "last_date": "2018-06-09",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [
           48
@@ -3475,8 +4045,15 @@
       "future_picks": {
         "assets_traded": 44,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "forfeited_slot_in_round": 10,
+          "holder_holds_several_picks": 23,
+          "pick_and_slot_accounts_disagree": 10,
+          "slot_count_not_one_per_team": 10
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 11,
           "inventory_complete_if_slot_tokens_netted": 0,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 11,
@@ -3568,6 +4145,7 @@
         "last_date": "2019-06-10",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 6,
@@ -3587,8 +4165,13 @@
       "future_picks": {
         "assets_traded": 45,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 3,
+          "pick_and_slot_accounts_disagree": 38
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 4,
           "inventory_complete_if_slot_tokens_netted": 0,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 12,
@@ -3680,6 +4263,7 @@
         "last_date": "2020-06-01",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 6,
@@ -3699,8 +4283,12 @@
       "future_picks": {
         "assets_traded": 47,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 37
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 10,
           "inventory_complete_if_slot_tokens_netted": 19,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 11,
@@ -3792,6 +4380,7 @@
         "last_date": "2021-06-20",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 6,
@@ -3811,8 +4400,12 @@
       "future_picks": {
         "assets_traded": 50,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 41
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 9,
           "inventory_complete_if_slot_tokens_netted": 20,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 30,
@@ -3904,6 +4497,7 @@
         "last_date": "2022-06-25",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 6,
@@ -3923,8 +4517,12 @@
       "future_picks": {
         "assets_traded": 46,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 42
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 4,
           "inventory_complete_if_slot_tokens_netted": 8,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 11,
@@ -4016,6 +4614,7 @@
         "last_date": "2023-05-28",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 6,
@@ -4035,8 +4634,12 @@
       "future_picks": {
         "assets_traded": 43,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 33
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 10,
           "inventory_complete_if_slot_tokens_netted": 7,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 13,
@@ -4128,6 +4731,7 @@
         "last_date": "2024-05-26",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 6,
@@ -4147,8 +4751,12 @@
       "future_picks": {
         "assets_traded": 50,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 33
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 17,
           "inventory_complete_if_slot_tokens_netted": 10,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 15,
@@ -4240,6 +4848,7 @@
         "last_date": "2025-05-25",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
+        "legacy_slot_mismatches_unexplained": 0,
         "missing_slots": [],
         "overall_numbers_absent": [],
         "rounds": 6,
@@ -4259,8 +4868,12 @@
       "future_picks": {
         "assets_traded": 51,
         "confirmed": 0,
+        "event_accounting_blockers": {
+          "holder_holds_several_picks": 34
+        },
         "funnel": {
           "custody_observed_strict": 0,
+          "event_accounting_eligible_if_custody_verified": 17,
           "inventory_complete_if_slot_tokens_netted": 21,
           "inventory_complete_strict": 0,
           "single_candidate_slot": 24,
@@ -4338,12 +4951,220 @@
   "summary": {
     "cap_total": 1692000,
     "cap_transfers": 130,
+    "coverage": {
+      "by_state": {
+        "KNOWN_GAP": 1,
+        "UNVERIFIED": 38,
+        "VERIFIED_COMPLETE": 0
+      },
+      "days_by_state": {
+        "KNOWN_GAP": 100,
+        "UNVERIFIED": 1532,
+        "VERIFIED_COMPLETE": 0
+      },
+      "event_class": "pick_transfer",
+      "intervals": 39,
+      "named_gap_state": "KNOWN_GAP",
+      "verification_records": 0
+    },
     "draft_rows_without_franchise_id": 20,
     "draft_selections": 935,
     "future_picks": {
       "confirmed": 0,
+      "event_accounting_blockers": {
+        "forfeited_slot_in_round": 10,
+        "holder_holds_several_picks": 343,
+        "pick_and_slot_accounts_disagree": 96,
+        "selector_not_recorded_in_round": 68,
+        "slot_count_not_one_per_team": 10,
+        "slot_token_chain_break": 8,
+        "slot_token_chain_disagrees_with_draft_result": 54
+      },
+      "event_accounting_windows_needed": [
+        {
+          "days": 58,
+          "from": "2013-03-16",
+          "kind": "unobserved",
+          "to": "2013-05-12"
+        },
+        {
+          "days": 33,
+          "from": "2013-12-23",
+          "kind": "unobserved",
+          "to": "2014-01-24"
+        },
+        {
+          "days": 19,
+          "from": "2014-01-26",
+          "kind": "unobserved",
+          "to": "2014-02-13"
+        },
+        {
+          "days": 29,
+          "from": "2014-03-02",
+          "kind": "unobserved",
+          "to": "2014-03-30"
+        },
+        {
+          "days": 26,
+          "from": "2014-04-01",
+          "kind": "unobserved",
+          "to": "2014-04-26"
+        },
+        {
+          "days": 51,
+          "from": "2014-12-31",
+          "kind": "unobserved",
+          "to": "2015-02-19"
+        },
+        {
+          "days": 19,
+          "from": "2015-04-25",
+          "kind": "unobserved",
+          "to": "2015-05-13"
+        },
+        {
+          "days": 88,
+          "from": "2015-12-28",
+          "kind": "unobserved",
+          "to": "2016-03-24"
+        },
+        {
+          "days": 15,
+          "from": "2016-06-15",
+          "kind": "unobserved",
+          "to": "2016-06-29"
+        },
+        {
+          "days": 13,
+          "from": "2017-06-01",
+          "kind": "unobserved",
+          "to": "2017-06-13"
+        },
+        {
+          "days": 69,
+          "from": "2017-12-31",
+          "kind": "unobserved",
+          "to": "2018-03-09"
+        },
+        {
+          "days": 13,
+          "from": "2018-05-12",
+          "kind": "unobserved",
+          "to": "2018-05-24"
+        },
+        {
+          "days": 51,
+          "from": "2018-12-30",
+          "kind": "unobserved",
+          "to": "2019-02-18"
+        },
+        {
+          "days": 16,
+          "from": "2019-05-18",
+          "kind": "unobserved",
+          "to": "2019-06-02"
+        },
+        {
+          "days": 67,
+          "from": "2020-01-10",
+          "kind": "unobserved",
+          "to": "2020-03-16"
+        },
+        {
+          "days": 13,
+          "from": "2020-06-24",
+          "kind": "unobserved",
+          "to": "2020-07-06"
+        },
+        {
+          "days": 17,
+          "from": "2020-07-17",
+          "kind": "unobserved",
+          "to": "2020-08-02"
+        },
+        {
+          "days": 123,
+          "from": "2021-01-03",
+          "kind": "unobserved",
+          "to": "2021-05-05"
+        },
+        {
+          "days": 47,
+          "from": "2022-01-04",
+          "kind": "unobserved",
+          "to": "2022-02-19"
+        },
+        {
+          "days": 13,
+          "from": "2022-02-25",
+          "kind": "unobserved",
+          "to": "2022-03-09"
+        },
+        {
+          "days": 20,
+          "from": "2022-04-06",
+          "kind": "unobserved",
+          "to": "2022-04-25"
+        },
+        {
+          "days": 13,
+          "from": "2022-05-18",
+          "kind": "unobserved",
+          "to": "2022-05-30"
+        },
+        {
+          "days": 47,
+          "from": "2023-01-03",
+          "kind": "unobserved",
+          "to": "2023-02-18"
+        },
+        {
+          "days": 24,
+          "from": "2023-06-12",
+          "kind": "unobserved",
+          "to": "2023-07-05"
+        },
+        {
+          "days": 24,
+          "from": "2024-01-02",
+          "kind": "unobserved",
+          "to": "2024-01-25"
+        },
+        {
+          "days": 39,
+          "from": "2024-01-27",
+          "kind": "unobserved",
+          "to": "2024-03-05"
+        },
+        {
+          "days": 22,
+          "from": "2024-06-12",
+          "kind": "unobserved",
+          "to": "2024-07-03"
+        },
+        {
+          "days": 17,
+          "from": "2024-07-05",
+          "kind": "unobserved",
+          "to": "2024-07-21"
+        },
+        {
+          "days": 49,
+          "from": "2024-12-31",
+          "kind": "unobserved",
+          "to": "2025-02-17"
+        },
+        {
+          "days": 30,
+          "from": "2025-03-27",
+          "kind": "unobserved",
+          "to": "2025-04-25"
+        }
+      ],
       "funnel": {
         "custody_observed_strict": 0,
+        "event_accounting_eligible_if_custody_verified": 122,
         "inventory_complete_if_slot_tokens_netted": 147,
         "inventory_complete_strict": 0,
         "single_candidate_slot": 193,
@@ -4355,6 +5176,7 @@
       "unresolved": 597
     },
     "legacy_slot_corrections": 30,
+    "legacy_slot_mismatches_unexplained": 0,
     "multi_asset_trades": 846,
     "pick_chain_discontinuities": 3,
     "player_chain_breaks": {

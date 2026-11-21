@@ -14,7 +14,10 @@ import { renderArchiveReport } from "../scripts/league_record/s1/archive_report.
 import { packageView, creditByAsset, ALLOCATION } from "../scripts/league_record/s1/packages.mjs";
 import { buildLedger, pickChain, resolveSlotPick } from "../scripts/league_record/s1/lineage.mjs";
 import { stableStringify } from "../scripts/league_record/s1/pilot.mjs";
-import { loadArchiveSelections, loadKnownForfeitures, FORFEITURE_FILE, FORFEITURE_FIELDS } from "../scripts/league_record/s1/sources.mjs";
+import { classifyIntervals, custodyObserved, validateVerification, coverageSummary, loadVerifications, COVERAGE_STATE } from "../scripts/league_record/s1/coverage.mjs";
+import { resolveFuturePick } from "../scripts/league_record/s1/lineage.mjs";
+import { etParts } from "../scripts/league_record/s1/sources.mjs";
+import { loadArchiveSelections, loadKnownForfeitures, FORFEITURE_FILE, FORFEITURE_FIELDS, LEGACY_DEFECT } from "../scripts/league_record/s1/sources.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "docs", "league_record", "archive");
@@ -55,7 +58,7 @@ test("representative older periods: 2012 (first draft), 2014 (legacy draft with 
   t.equal(stored.ro, 1); t.equal(stored.rp, "1.1"); t.equal(stored.n, "West, Terrance");
   const sels = loadArchiveSelections(archive).filter((s) => s.year === 2014 && s.round === 1);
   const ten = sels.find((s) => s.slot === 10);
-  t.ok(ten && ten.player_name === "West, Terrance" && ten.slot_correction.stored_slot === 1 && ten.slot_correction.rule === "legacy_slot_from_overall_pick");
+  t.ok(ten && ten.player_name === "West, Terrance" && ten.slot_correction.stored_slot === 1 && ten.slot_correction.corrected_slot === 10 && ten.slot_correction.method.startsWith("slot = overall - 12"));
   t.equal(sels.filter((s) => s.slot === 1).length, 1, "slot 1 is no longer duplicated");
   t.equal(x.summary.legacy_slot_corrections, 30, "five rounds in each of six legacy years");
   for (const y of [2012, 2013, 2014, 2015, 2016, 2017]) t.deepEqual(seasonOf(y).draft.missing_slots, [], `${y} has every slot after the correction`);
@@ -104,8 +107,14 @@ test("future picks: none is CONFIRMED to a slot; INFERRED only under UNIQUE_HOLD
     const fn = p.funnel;
     t.ok(fn.would_infer_if_windows_observed_and_tokens_netted <= Math.min(fn.inventory_complete_if_slot_tokens_netted, fn.single_candidate_slot), `${s.season} funnel is monotone`);
     t.ok(fn.traded === p.assets_traded);
+    t.ok(fn.event_accounting_eligible_if_custody_verified <= p.assets_traded, `${s.season} event accounting evaluates at most the traded picks`);
   }
   t.equal(f.inferred, 0, "no archive-year future pick meets every condition under the approved rule");
+  // event accounting is a diagnostic: it adds no link, and every pick it could evaluate still crosses at least one unverified interval
+  t.equal(f.funnel.event_accounting_eligible_if_custody_verified, 122); t.equal(f.funnel.custody_observed_strict, 0);
+  t.equal(f.event_accounting_blockers.holder_holds_several_picks, 343, "a franchise that holds several picks is never resolved");
+  t.equal(f.event_accounting_windows_needed.length, 30); t.ok(f.event_accounting_windows_needed.every((w) => w.kind === "unobserved"));
+  t.equal(f.inferred, 0); t.equal(f.unresolved, 597);
   t.equal(f.funnel.custody_observed_strict, 0); t.equal(f.funnel.inventory_complete_strict, 0);
   // the diagnostic is reported as a diagnostic
   const rep = renderArchiveReport(x);
@@ -178,7 +187,7 @@ test("the standing rule holds for the new code: no standings-derived slot, banne
   mem.close();
   // the draft-slot source never reads a finish: the slot of every selection is MFL's own round pick number or the overall pick number
   const src = fs.readFileSync(path.join(ROOT, "scripts", "league_record", "s1", "sources.mjs"), "utf8");
-  t.ok(/overall - 12 \* \(Number\(r\.round\) - 1\)|Number\(r\.overall\) - 12 \* \(Number\(r\.round\) - 1\)/.test(src));
+  t.ok(/Number\(r\.overall\) - LEGACY_DEFECT\.teams \* \(Number\(r\.round\) - 1\)/.test(src), "the slot is derived from MFL's own overall pick number");
 });
 
 test("gaps and conflicts are listed, not repaired: the named gap, quiet windows, chain breaks and draft-table defects are all in the extraction", () => {
@@ -290,6 +299,135 @@ test("the 2014 pick 4.12 selector conflict is a different record: still a confli
   t.deepEqual(q("select franchise_id f, asset_role r from transactions_trades where trade_group_id = 'trade2014_4' and asset_type = 'DRAFTPICK_CURRENT' and asset_draftpick_round = 4 and asset_draftpick_overall = 11 order by 2").map((r) => `${r.f}:${r.r}`), ["0004:ACQUIRE", "0008:RELINQUISH"]);
   t.equal(q("select count(*) n from draftresults_legacy where season = 2014 and franchise_id = '0004'")[0].n, 0, "0004 made no selection in 2014");
   t.equal(q("select count(*) n from draftresults_legacy d join metadata_franchise m on m.season = d.season and m.franchise_id = d.franchise_id where d.franchise_id is not null and m.franchise_name != d.raw_franchise")[0].n, 0, "every legacy draft row's franchise name matches the name of its id for the season");
+});
+
+test("the legacy slot correction (approved 2026-11-21) applies only to the documented defect and keeps its provenance", () => {
+  // separate SQL: the rows the documented pattern describes (legacy table, 2012-2017, stored slot 1, raw text "<round>.1", overall pick = 12 x (round - 1) + 10)
+  const expected = q("select season, draftpick_round r, draftpick_overall o, raw_pick rp, raw_overall ro from draftresults_legacy where season between 2012 and 2017 and draftpick_round between 1 and 5 and draftpick_roundorder = 1 and raw_pick = draftpick_round || '.1' and draftpick_overall = 12 * (draftpick_round - 1) + 10 order by season, r");
+  t.equal(expected.length, 30);
+  const fixed = loadArchiveSelections(archive).filter((s) => s.slot_correction);
+  t.equal(fixed.length, 30);
+  t.deepEqual(fixed.map((s) => `${s.year}:${s.round}:${s.overall}`).sort(), expected.map((r) => `${r.season}:${r.r}:${r.o}`).sort(), "exactly the rows the documented pattern describes");
+  for (const s of fixed) {
+    const c = s.slot_correction;
+    t.equal(c.stored_slot, 1); t.equal(c.corrected_slot, 10); t.equal(s.slot, 10); t.equal(c.defect, LEGACY_DEFECT.id); t.equal(c.method, LEGACY_DEFECT.method);
+    t.deepEqual(c.source_reference, { table: "draftresults_legacy", season: s.year, round: s.round, overall: s.overall, raw_pick: `${s.round}.1`, raw_overall: String(s.overall) });
+    t.equal(s.source.table, "draftresults_legacy");
+  }
+  // nothing else disagrees with its overall pick number: no unexplained mismatch in the archive, and the MFL table (2018 onward) has none either
+  t.equal(x.summary.legacy_slot_mismatches_unexplained, 0);
+  t.equal(q("select count(*) n from draftresults_mfl where draftpick_overall - 12 * (draftpick_round - 1) != draftpick_roundorder")[0].n, 0);
+  t.equal(loadArchiveSelections(archive).filter((s) => s.source.table === "draftresults_mfl" && s.slot_correction).length, 0, "the MFL table is never corrected");
+  // the committed extraction lists all thirty with their provenance
+  t.equal(x.findings.totals.legacy_slot_corrections, 30); t.equal(x.findings.lists.legacy_slot_corrections.length, 30);
+  t.deepEqual(Object.keys(x.findings.lists.legacy_slot_corrections[0]).sort(), ["corrected_slot", "method", "overall", "round", "season", "source_reference", "stored_slot"]);
+  // a stub archive: every other disagreement is left as stored and reported, never corrected
+  const row = (over) => ({ season: 2014, round: 1, slot: 1, overall: 10, f: "0001", pid: "1", pname: "X", ts: 1, d: "2014-06-15", note: "", raw_pick: "1.1", raw_overall: "10", ...over });
+  const stub = (legacy, mfl = []) => ({ all: (sql) => (sql.includes("draftresults_legacy") ? legacy : mfl) });
+  const run1 = (over, mfl) => loadArchiveSelections(stub([row(over)], mfl)).find((s) => s.source.table === "draftresults_legacy");
+  const ok = run1({}); t.equal(ok.slot, 10); t.ok(ok.slot_correction, "the documented pattern is corrected");
+  for (const [label, over] of [["a season outside 2012-2017", { season: 2018 }], ["a stored slot other than 1", { slot: 3, raw_pick: "1.3" }], ["raw text that is not the dropped-zero form", { raw_pick: "1.01" }],
+    ["a round beyond the five legacy rounds", { round: 6, overall: 70, raw_pick: "6.1", raw_overall: "70" }], ["a derived slot other than 10", { overall: 11, raw_overall: "11" }], ["a derived slot outside 1-12", { overall: 40, raw_overall: "40" }]]) {
+    const r = run1(over); t.ok(!r.slot_correction, `${label}: not corrected`); t.ok(r.slot_mismatch_unexplained, `${label}: reported as an unexplained mismatch`); t.equal(r.slot, over.slot || 1, `${label}: slot left as stored`);
+  }
+  const m = loadArchiveSelections(stub([], [{ season: 2019, round: 1, slot: 1, overall: 10, f: "0001", pid: "1", pname: "X", ts: 1, d: "2019-06-15", note: "" }])).find((s) => s.source.table === "draftresults_mfl");
+  t.ok(!m.slot_correction && !m.slot_mismatch_unexplained && m.slot === 1, "an MFL-table row is never touched");
+});
+
+test("the source-coverage model (decision of 2026-11-21): four things kept apart, a quiet period is not a coverage state, nothing relaxes without a valid verification", () => {
+  // today's archive: no verification record exists, so every quiet window is UNVERIFIED and the named gap is a KNOWN_GAP (separate SQL recomputes the windows)
+  const dates = q("select distinct date_et d from transactions_base where date_et is not null order by 1").map((r) => r.d);
+  const dn = (d) => Math.floor(Date.parse(`${d}T00:00:00Z`) / 86400000);
+  let quiet = 0, quietDays = 0; for (let i = 1; i < dates.length; i++) { const gap = dn(dates[i]) - dn(dates[i - 1]); if (gap >= 14) { quiet += 1; quietDays += gap - 1; } }
+  const cov = x.summary.coverage;
+  t.equal(loadVerifications(ROOT).length, 0, "the registry is empty"); t.equal(cov.verification_records, 0);
+  t.deepEqual(cov.by_state, { VERIFIED_COMPLETE: 0, UNVERIFIED: quiet, KNOWN_GAP: 1 }); t.equal(cov.days_by_state.UNVERIFIED, quietDays); t.equal(cov.days_by_state.KNOWN_GAP, 100, "2025-11-28 to 2026-03-07");
+  t.equal(cov.named_gap_state, "KNOWN_GAP"); t.equal(x.coverage_windows.length, quiet, "every quiet window is classified");
+  t.ok(x.coverage_windows.every((w) => w.state === "UNVERIFIED"));
+  // a verification record is accepted only when every condition holds
+  const good = { id: "v1", event_class: "pick_transfer", from: "2020-01-10", to: "2020-03-16", source: { kind: "mfl_export", type: "transactions", year: 2019, league_id: "L", params: "TYPE=transactions&TRANS_TYPE=*", captured_on: "2026-12-01", truncated: false },
+    checks: [{ kind: "archive_comparison", passed: true, ref: "r1" }, { kind: "chain_continuity", passed: true, ref: "r2" }] };
+  t.ok(validateVerification(good).ok, "a complete record is valid");
+  const bad = (over) => validateVerification({ ...good, ...over });
+  for (const [label, rec] of [["unknown event class", bad({ event_class: "contract" })], ["reversed dates", bad({ from: "2020-04-01" })], ["not an MFL export", bad({ source: { ...good.source, kind: "forum_post" } })],
+    ["truncated response", bad({ source: { ...good.source, truncated: true } })], ["COUNT parameter", bad({ source: { ...good.source, params: "TYPE=transactions&COUNT=100" } })], ["DAYS parameter", bad({ source: { ...good.source, params: "TYPE=transactions&DAYS=30" } })],
+    ["captured before the interval ends", bad({ source: { ...good.source, captured_on: "2020-03-01" } })], ["a failed check", bad({ checks: [...good.checks, { kind: "end_state_reconciliation", passed: false }] })],
+    ["no archive comparison", bad({ checks: [{ kind: "chain_continuity", passed: true }, { kind: "end_state_reconciliation", passed: true }] })], ["no independent corroboration", bad({ checks: [{ kind: "archive_comparison", passed: true }] })],
+    ["unknown check kind", bad({ checks: [...good.checks, { kind: "vibes", passed: true }] })], ["no object", validateVerification(null)]]) t.ok(!rec.ok, `${label}: refused`);
+  // classification
+  const win = [{ from: "2020-01-10", to: "2020-03-16", days: 67 }], gap = { from: "2025-11-28", to: "2026-03-07", days: 100 };
+  const st = (vs, cls = "pick_transfer", w = win, g = gap) => classifyIntervals({ windows: w, namedGap: g, verifications: vs, eventClass: cls });
+  t.equal(st([])[0].state, COVERAGE_STATE.UNVERIFIED, "a quiet window with no verification is UNVERIFIED");
+  t.equal(st([good])[0].state, COVERAGE_STATE.VERIFIED_COMPLETE, "the same window inside a verified interval is VERIFIED_COMPLETE, although no transaction occurred in it");
+  t.equal(st([good], "player_move")[0].state, COVERAGE_STATE.UNVERIFIED, "a verification of another event class verifies nothing");
+  t.equal(st([{ ...good, checks: [{ kind: "archive_comparison", passed: false }] }])[0].state, COVERAGE_STATE.UNVERIFIED, "an invalid record verifies nothing");
+  t.equal(st([{ ...good, to: "2020-03-01" }])[0].state, COVERAGE_STATE.UNVERIFIED, "a partly covered window keeps its weaker state");
+  const halves = [{ ...good, id: "a", from: "2020-01-10", to: "2020-02-01" }, { ...good, id: "b", from: "2020-02-02", to: "2020-03-16" }];
+  t.equal(st(halves)[0].state, COVERAGE_STATE.VERIFIED_COMPLETE, "adjacent verified intervals together cover the window");
+  t.equal(st([])[1].state, COVERAGE_STATE.KNOWN_GAP, "the named gap is a KNOWN_GAP without a source");
+  const gapV = { ...good, id: "g", from: "2025-11-28", to: "2026-03-07", source: { ...good.source, captured_on: "2026-12-05" } };
+  t.equal(st([gapV])[1].state, COVERAGE_STATE.VERIFIED_COMPLETE, "valid verifications covering all of the gap close it");
+  t.equal(st([{ ...gapV, to: "2026-03-06" }])[1].state, COVERAGE_STATE.KNOWN_GAP, "one uncovered day keeps it a KNOWN_GAP");
+  // would custody be observed?
+  const ivs = st([good]);
+  t.ok(custodyObserved(ivs, "2020-01-20", "2020-02-10").observed, "custody inside a verified window is observed");
+  t.ok(custodyObserved(ivs, "2020-01-01", "2020-04-01").observed, "a verified quiet period does not invalidate custody");
+  t.ok(!custodyObserved(st([]), "2020-01-01", "2020-04-01").observed, "an unverified quiet period does not prove custody");
+  t.ok(!custodyObserved(ivs, "2025-12-01", "2026-01-15").observed, "a known gap blocks even when other intervals are verified");
+  t.deepEqual(coverageSummary(st([good])).by_state, { VERIFIED_COMPLETE: 1, UNVERIFIED: 0, KNOWN_GAP: 1 });
+  // the property that makes the model safe to test before use: with no verification it is never more permissive than today's quiet-window rule, for every traded future pick
+  const led = buildLedger({ archive, root: ROOT });
+  const intervals = classifyIntervals({ windows: led.windows, namedGap: led.named_gap, verifications: [] });
+  let checked = 0;
+  for (const asset of [...led.tradesByAsset.keys()].filter((k) => k.startsWith("fpick:"))) {
+    const [, orig, ys, rs] = asset.split(":"); const yr = Number(ys); if (yr < 2010 || yr > 2025) continue;
+    const res = resolveFuturePick(led, pickChain(led, asset), { year: yr, round: Number(rs), original: orig }, { slotLists: [] });
+    if (!res.last_transfer_ts || !res.evidence_ts) continue;
+    const m = custodyObserved(intervals, etParts(res.last_transfer_ts).date, etParts(res.evidence_ts).date);
+    t.ok(!(res.coverage_gaps.length > 0 && m.observed), `${asset}: the model never observes custody where the quiet-window rule does not`); checked += 1;
+  }
+  t.ok(checked > 400, "the property was checked on the traded future picks that have a last transfer and an evidence date");
+  t.equal(x.summary.future_picks.unresolved, 597, "all 597 unresolved future picks are preserved");
+});
+
+test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints refuse the uncertain-as-definitive cases (in-memory SQLite only; no D1, no migration)", () => {
+  const doc = fs.readFileSync(path.join(ROOT, "docs", "league_record", "S1_D1_DESIGN.md"), "utf8");
+  t.match(doc, /DESIGN ONLY/); t.match(doc, /not a migration/);
+  const m = doc.match(/```sql\n([\s\S]*?)```/); t.ok(m, "the document holds one SQL block");
+  const db = new DatabaseSync(":memory:"); db.exec("PRAGMA foreign_keys = ON"); db.exec(m[1]);
+  const tables = db.prepare("select name from sqlite_master where type = 'table' and name like 'lr_%' order by 1").all().map((r) => r.name);
+  t.ok(tables.length >= 20 && tables.every((n) => n.startsWith("lr_")), "every table is prefixed lr_ (additive; no existing table is touched)");
+  db.exec("insert into lr_run values (1, 'build', '2026-11-21T00:00:00Z', 'sha', 'sha', null, null)");
+  db.exec("insert into lr_method values ('M', 1, 'd', null, 'diagnostic')");
+  db.exec("insert into lr_source values ('S', 'archive_db', 'derived', null, null, null, null, null, null, null)");
+  db.exec("insert into lr_draft_row values (1, 2018, 4, 11, 47, '4.11', '0001', 'P', 1, 'S', 'k')");
+  const fails = (sql) => { try { db.exec(sql); return false; } catch { return true; } };
+  // the model's own rules
+  t.ok(!fails("insert into lr_draft_slot values (2018, 4, 11, 47, 'SELECTED', 1, 1, null)"), "a SELECTED slot with its draft row is accepted");
+  t.ok(!fails("insert into lr_draft_slot values (2018, 4, 12, 48, 'FORFEITED', null, 1, null)"), "a FORFEITED slot with no row is accepted");
+  t.ok(fails("insert into lr_draft_slot values (2018, 4, 10, 46, 'FORFEITED', 1, 1, null)"), "a FORFEITED slot that carries a player is refused");
+  t.ok(fails("insert into lr_draft_slot values (2018, 4, 9, 45, 'SELECTED', null, 1, null)"), "a SELECTED slot with no draft row is refused");
+  t.ok(fails("insert into lr_draft_slot values (2018, 4, 8, 44, 'MISSING', null, 1, null)"), "an unknown slot status is refused");
+  t.ok(!fails("insert into lr_draft_slot values (2018, 4, 7, 43, 'MISSING_SOURCE_RECORD', null, 1, null)"), "a genuinely missing record is its own status");
+  db.exec("insert into lr_asset values ('fpick:0001:2018:4', 'FUTURE_PICK', null, '0001', 2018, 4, null)");
+  t.ok(fails("insert into lr_asset values ('fpick:bad', 'FUTURE_PICK', null, null, 2018, 4, null)"), "a future pick needs its original franchise");
+  t.ok(fails("insert into lr_asset values ('spick:bad', 'SLOT_PICK', null, '0001', 2018, 4, 3)"), "a slot pick has no original franchise");
+  t.ok(!fails("insert into lr_link values (1, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', null, null, null, 'UNRESOLVED', 'M', 1, null, null, 1, null)"), "an UNRESOLVED link with no slot is accepted");
+  t.ok(fails("insert into lr_link values (2, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', 2018, 4, 11, 'UNRESOLVED', 'M', 1, null, null, 1, null)"), "an UNRESOLVED link that names a slot is refused");
+  t.ok(fails("insert into lr_link values (3, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', 2018, 4, 11, 'CONFIRMED', 'M', 1, null, null, 1, null)"), "a future pick can never be CONFIRMED to a slot");
+  t.ok(!fails("insert into lr_link values (4, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', 2018, 4, 11, 'INFERRED', 'M', 1, null, null, 1, null)"), "an INFERRED link names its slot and its method");
+  t.ok(fails("insert into lr_link values (5, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', 2018, 4, 11, 'INFERRED', 'NOPE', 1, null, null, 1, null)"), "a link must name a method that exists");
+  t.ok(fails("insert into lr_link values (6, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', null, null, null, 'LIKELY', 'M', 1, null, null, 1, null)"), "an unknown evidence class is refused");
+  t.ok(fails("insert into lr_coverage values (1, 'S', 'contract', '2020-01-01', '2020-02-01', 'UNVERIFIED', 'b', 1, null)"), "an unknown event class is refused");
+  t.ok(fails("insert into lr_coverage values (2, 'S', 'pick_transfer', '2020-01-01', '2020-02-01', 'QUIET', 'b', 1, null)"), "a quiet period is not a coverage state");
+  t.ok(!fails("insert into lr_coverage values (3, 'S', 'pick_transfer', '2020-01-01', '2020-02-01', 'UNVERIFIED', 'b', 1, null)"));
+  // the query plans of the design's hot paths use the indexes the document defines
+  const plan = (sql) => db.prepare(`explain query plan ${sql}`).all().map((r) => r.detail).join(" | ");
+  t.match(plan("select * from lr_trade_leg where asset_key = 'x' order by ts"), /USING (COVERING )?INDEX lr_leg_asset/);
+  t.match(plan("select * from lr_possession where franchise_id = '0001' order by from_ts limit 100"), /USING (COVERING )?INDEX lr_poss_franchise/);
+  t.match(plan("select * from lr_link where from_asset_key = 'x' and valid_from_run <= 1"), /USING (COVERING )?INDEX lr_link_asset/);
+  t.match(plan("select * from lr_draft_slot where season = 2018 and round = 4"), /USING (COVERING )?INDEX|PRIMARY KEY/);
+  db.close();
 });
 
 await run("league_record_s1_archive");
