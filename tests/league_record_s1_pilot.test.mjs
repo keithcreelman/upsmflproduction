@@ -139,18 +139,27 @@ test("slot picks: a draft result for a different franchise than the chain leaves
 });
 
 test("UNIQUE_HOLDER_V1: INFERRED only with every condition; the label, the rule and the alternatives are recorded; an inferred pick adds nothing to confirmed totals", () => {
-  const holder = "0007", lastTs = 1570000000, draftTs = 1590000000;
-  const mk = (slots, windows = []) => syntheticLedger({ year: 2020, round: 2, slotsHeld: slots, draftTs, windows });
-  const res = (ledger) => resolveFuturePick(ledger, syntheticChain(holder, lastTs), { year: 2020, round: 2, original: "0001" }, { slotLists: [] });
-  const one = res(mk([{ slot: 3, holder }, { slot: 4, holder: "0002" }]));
-  t.equal(one.class, CLASS.INFERRED); t.equal(one.rule, RULES.UNIQUE_HOLDER_V1); t.equal(one.slot, 3); t.match(one.disclosure, /inferred, never confirmed/); t.equal(one.status_for_totals, undefined);
-  const two = res(mk([{ slot: 3, holder }, { slot: 9, holder }]));
-  t.equal(two.class, CLASS.UNRESOLVED); t.deepEqual(two.candidates.map((c) => c.slot), [3, 9]); t.equal(two.slot, undefined);
-  const gapped = res(mk([{ slot: 3, holder }], [{ from: "2019-12-01", to: "2020-02-01", kind: "unobserved", basis: "test" }]));
+  const draftTs = 1590000000;
+  const res = (opts) => { const led = syntheticLedger({ year: 2020, round: 2, draftTs, ...opts }); return resolveFuturePick(led, syntheticChain(led, "0001", 2020, 2), { year: 2020, round: 2, original: "0001" }, { slotLists: [] }); };
+  const uniq = { "0001": "0007", "0007": "0002" };
+  const one = res({ holdings: uniq });
+  t.equal(one.class, CLASS.INFERRED); t.equal(one.rule, RULES.UNIQUE_HOLDER_V1); t.equal(one.slot, 1); t.match(one.disclosure, /inferred, never confirmed/); t.equal(one.status_for_totals, undefined); t.equal(one.inventory.complete, true);
+  const two = res({ holdings: { "0001": "0007" } });
+  t.equal(two.class, CLASS.UNRESOLVED); t.deepEqual(two.candidates.map((c) => c.slot), [1, 7]); t.equal(two.slot, undefined);
+  const gapped = res({ holdings: uniq, windows: [{ from: "2019-12-01", to: "2020-02-01", kind: "unobserved", basis: "test" }] });
   t.equal(gapped.class, CLASS.UNRESOLVED); t.equal(gapped.coverage_gaps.length, 1);
-  const none = res(mk([{ slot: 4, holder: "0002" }]));
-  t.equal(none.class, CLASS.UNRESOLVED); t.match(none.reason, /owns no slot/);
-  t.equal(resolveFuturePick({ selections: [], selBySlot: new Map(), windows: [], named_gap: { from: "9999-01-01", to: "9999-01-02" } }, syntheticChain(holder, lastTs), { year: 2020, round: 2, original: "0001" }, { slotLists: [] }).class, CLASS.UNRESOLVED);
+  // incomplete inventory (MAT-2): one candidate is not enough when the round is not shown to be complete
+  const short = res({ holdings: uniq, omitSlots: [12] });
+  t.equal(short.class, CLASS.UNRESOLVED); t.equal(short.inventory.complete, false); t.match(short.reason, /not demonstrably complete/); t.match(short.reason, /11 slot/);
+  const disagree = res({ holdings: uniq, slotHolder: { 5: "0007" } });
+  t.equal(disagree.class, CLASS.UNRESOLVED); t.match(disagree.reason, /disagree/);
+  const slotTok = res({ holdings: uniq, slotTokenTransfer: true });
+  t.equal(slotTok.class, CLASS.UNRESOLVED); t.match(slotTok.reason, /slot-token transfer/);
+  const noTeams = (() => { const led = syntheticLedger({ year: 2020, round: 2, draftTs, holdings: uniq }); delete led.franchisesFor; return resolveFuturePick(led, syntheticChain(syntheticLedger({ year: 2020, round: 2, draftTs, holdings: uniq }), "0001", 2020, 2), { year: 2020, round: 2, original: "0001" }, { slotLists: [] }); })();
+  t.equal(noTeams.class, CLASS.UNRESOLVED); t.match(noTeams.reason, /team list/);
+  const none = res({ holdings: { "0001": "0002", "0007": "0002" }, slotHolder: {} });
+  t.equal(none.class, CLASS.UNRESOLVED);
+  t.equal(resolveFuturePick({ selections: [], selBySlot: new Map(), windows: [], named_gap: { from: "9999-01-01", to: "9999-01-02" } }, syntheticChain(syntheticLedger({ year: 2020, round: 2, draftTs, holdings: uniq }), "0001", 2020, 2), { year: 2020, round: 2, original: "0001" }, { slotLists: [] }).class, CLASS.UNRESOLVED);
   // an inferred link never enters a confirmed-only total
   const mutated = JSON.parse(JSON.stringify(bundle)); mutated.nodes.find((n) => n.id === "player:17051").link_class = CLASS.INFERRED;
   t.ok(confirmedTotals(mutated, "0005").excluded_assets.includes("player:17051"));
@@ -184,6 +193,27 @@ test("guard: the archive reader refuses every banned or unlisted table and anyth
   t.throws(() => assertQueryAllowed("delete from transactions_trades"), ArchiveGuardError);
   t.throws(() => assertQueryAllowed("select * from transactions_trades join standings on 1=1"), ArchiveGuardError);
   t.deepEqual(assertQueryAllowed("select a from transactions_trades t join rosters_weekly r on 1=1"), ["transactions_trades", "rosters_weekly"]);
+  // MAT-1: every query form that can name a table is authorized, not only FROM and JOIN. trade_winning_team_analysis holds final_finish and is not on the allowlist.
+  const known = ["trade_winning_team_analysis", "transactions_trades", "rosters_weekly", "players", "draftresults_combined"];
+  const forms = [
+    "select a.* from transactions_trades t, trade_winning_team_analysis a limit 1",
+    "select * from transactions_trades t cross join trade_winning_team_analysis a",
+    "select * from transactions_trades where trade_group_id in (select trade_group_id from trade_winning_team_analysis)",
+    "select (select final_finish from trade_winning_team_analysis limit 1) x from transactions_trades",
+    "select * from transactions_trades t left join (select * from trade_winning_team_analysis) a on 1=1",
+    'select * from transactions_trades, "trade_winning_team_analysis"',
+    "select * from transactions_trades,[trade_winning_team_analysis]",
+    "select * from transactions_trades t natural join trade_winning_team_analysis",
+    "select * from draftresults_combined",
+    "with x as (select * from trade_winning_team_analysis) select * from x",
+    "select * from transactions_trades; select * from trade_winning_team_analysis",
+    "select * from pragma_table_info('players')",
+  ];
+  for (const f of forms) t.throws(() => assertQueryAllowed(f, known), ArchiveGuardError, f);
+  t.deepEqual(assertQueryAllowed("select r.x, 'trade_winning_team_analysis' lit from transactions_trades t, rosters_weekly r -- standings", known), ["transactions_trades", "rosters_weekly"], "a banned name inside a string or a comment is not a table");
+  t.deepEqual(assertQueryAllowed("select * from players where player_id in (select player_id from rosters_weekly)", known), ["players", "rosters_weekly"]);
+  // the same forms through the real archive reader
+  for (const f of forms) t.throws(() => archive.all(f), ArchiveGuardError, `archive: ${f}`);
   for (const bad of ["const a = standings;", "const x = row.final_finish;", "const f = 'finishes';", "const b = bracket;", "SLOT_BY_FINISH[1]", "const p = projectedOrder;", "const o = deriveDraftOrder();", "fetch('/api/historical-finishes')", "import x from '../worker/src/desk/tools/history_finishes.js';", "const s = seed;"]) t.ok(scanSource(bad).length > 0, bad);
   t.equal(scanSource("// standings in a comment are only words\nconst ok = 1;").length, 0, "comments are not code");
   t.equal(scanSource("const order = unit.round1DraftOrder;").length, 0, "MFL's own round-1 holder list is allowed");
@@ -192,7 +222,13 @@ test("guard: the archive reader refuses every banned or unlisted table and anyth
 });
 
 test("guard: introducing a banned idea into an extraction module fails the scan (the build-failure requirement)", () => {
-  const tmp = fs.mkdtempSync(path.join(process.env.TMPDIR || "/tmp", "s1-guard-"));
+  // in memory first (needs no temporary directory): a module that derives a slot from a finish produces hits, a clean one produces none
+  t.deepEqual(scanSource("export const a = 1;\n", "good.mjs"), []);
+  const memHits = scanSource("export const slot = (finish) => 13 - finish; // derive a slot from standings\nexport const q = 'select final_finish from x';\n", "bad.mjs");
+  t.ok(memHits.length >= 1 && memHits.every((h) => h.file === "bad.mjs"), JSON.stringify(memHits));
+  // then through scanExtractionSources on a real directory, when the sandbox allows a temporary directory
+  let tmp = null;
+  try { tmp = fs.mkdtempSync(path.join(process.env.TMPDIR || "/tmp", "s1-guard-")); } catch (e) { if (e && (e.code === "EPERM" || e.code === "EACCES")) return; throw e; }
   fs.writeFileSync(path.join(tmp, "good.mjs"), "export const a = 1;\n");
   t.deepEqual(scanExtractionSources(tmp), []);
   fs.writeFileSync(path.join(tmp, "bad.mjs"), "export const slot = (finish) => 13 - finish; // derive a slot from standings\nexport const q = 'select final_finish from x';\n");
@@ -207,6 +243,27 @@ test("the archive is the pinned file, opened read-only, and the report states ev
   const report = renderReport(bundle, null);
   for (const w of ["CONFIRMED", "CALCULATED", "INFERRED", "UNRESOLVED", "2025-11-28 to 2026-03-07", "owner_identity: not_asserted", "Judkins", "Sinnott"]) t.ok(report.includes(w), w);
   t.equal(bundle.pilot.franchise, PILOT.franchise);
+});
+
+test("classes and the named gap are on every link and every crossing chain (MAT-3, MAT-4)", () => {
+  const ok = (c) => Object.values(CLASS).includes(c);
+  for (const n of bundle.nodes) {
+    t.ok(n.chain.events.every((e) => ok(e.class) && e.source && e.source.kind), `${n.id} events`);
+    t.ok(n.chain.holders.every((h) => ok(h.class)), `${n.id} holders`);
+    t.ok(n.chain.breaks.every((b) => ok(b.class)), `${n.id} breaks`);
+    t.ok(typeof n.named_gap.crosses === "boolean", `${n.id} gap flag`);
+  }
+  for (const tr of Object.values(bundle.trades)) t.ok(ok(tr.class) && tr.legs.every((l) => ok(l.class)) && tr.cap.every((c) => ok(c.class)), tr.id);
+  // the four reported players and the three future picks all cross the unobserved period
+  for (const id of ["player:14104", "player:17051", "player:16644", "player:13130", "fpick:0006:2026:3"]) t.equal(nodeOf(id).named_gap.crosses, true, id);
+  // a slot pick selected in June 2025 does not cross it, and its possession ends at the selection
+  const sp = nodeOf("spick:2025:1:8");
+  t.equal(sp.named_gap.crosses, false); t.equal(sp.chain.holders.at(-1).to.kind, "draft_selection");
+  // the report names every crossing chain
+  const report = renderReport(bundle, null);
+  for (const n of bundle.nodes.filter((x) => x.named_gap.crosses)) t.ok(report.includes(`(${n.id}): `), `report lists ${n.id}`);
+  // a banned finish-bearing table cannot be reached by a comma join through the real reader
+  t.throws(() => archive.all("select a.* from transactions_trades t, trade_winning_team_analysis a limit 1"), ArchiveGuardError);
 });
 
 await run("league_record_s1_pilot");

@@ -28,14 +28,33 @@ export class ArchiveGuardError extends Error {
   constructor(message) { super(message); this.name = "ArchiveGuardError"; }
 }
 
-// Every identifier after FROM or JOIN must be on the allowlist; a banned name anywhere in the text refuses the query.
-export function assertQueryAllowed(sql) {
+// Authorizes a query. The check is on EVERY identifier in the statement, not only the ones after FROM or JOIN, so a comma join, a subquery, an alias list or any other form
+// that names a table is covered:
+//   - comments and string literals are removed first; quoted identifiers ("x", [x], `x`) are unquoted;
+//   - the statement must be one SELECT (no WITH, no second statement, no PRAGMA or sqlite_ names, no table-valued pragma functions);
+//   - any identifier that names a banned table, or ANY table or view of the archive that is not on the allowlist, refuses the query (knownTables is the archive's sqlite_master list);
+//   - an identifier after FROM or JOIN must be on the allowlist even when the archive list is not supplied.
+// Returns the allowlisted tables the query names, in order of first appearance.
+export function assertQueryAllowed(sql, knownTables = []) {
   const text = String(sql);
-  const lower = text.toLowerCase();
-  for (const b of BANNED_TABLES) if (new RegExp(`\\b${b}\\b`).test(lower)) throw new ArchiveGuardError(`the table ${b} may not be read by the S1 extraction (it holds rankings or forecasts; draft slots come only from MFL draft results and slot data)`);
-  if (!/^\s*select\b/i.test(text)) throw new ArchiveGuardError("only SELECT is allowed");
-  const used = [...lower.matchAll(/\b(?:from|join)\s+([a-z_][a-z0-9_]*)/g)].map((m) => m[1]);
-  for (const u of used) if (!ALLOWED_TABLES.includes(u)) throw new ArchiveGuardError(`the table ${u} is not on the S1 extraction allowlist`);
+  if (!/^\s*select\b/i.test(text)) throw new ArchiveGuardError("only a single SELECT is allowed");
+  const bare = text.replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/'(?:[^']|'')*'/g, " ' ' ");
+  if (/;\s*\S/.test(bare)) throw new ArchiveGuardError("only a single SELECT is allowed");
+  const idents = [];
+  for (const m of bare.matchAll(/"((?:[^"]|"")*)"|\[([^\]]*)\]|`([^`]*)`|([A-Za-z_][A-Za-z0-9_]*)/g)) idents.push((m[1] ?? m[2] ?? m[3] ?? m[4]).toLowerCase());
+  const known = new Set(knownTables.map((x) => String(x).toLowerCase()));
+  const used = [];
+  for (const id of idents) {
+    if (id === "with" || id === "pragma" || id === "attach") throw new ArchiveGuardError(`${id} is not allowed in an S1 extraction query`);
+    if (id.startsWith("sqlite_") || id.startsWith("pragma_")) throw new ArchiveGuardError(`the name ${id} is not allowed in an S1 extraction query`);
+    if (BANNED_TABLES.includes(id)) throw new ArchiveGuardError(`the table ${id} may not be read by the S1 extraction (it holds rankings or forecasts; draft slots come only from MFL draft results and slot data)`);
+    if (ALLOWED_TABLES.includes(id)) { if (!used.includes(id)) used.push(id); continue; }
+    if (known.has(id)) throw new ArchiveGuardError(`the table ${id} is not on the S1 extraction allowlist`);
+  }
+  for (const m of bare.toLowerCase().matchAll(/\b(?:from|join)\s+(?:"([^"]+)"|\[([^\]]+)\]|`([^`]+)`|([a-z_][a-z0-9_]*))/g)) {
+    const u = m[1] ?? m[2] ?? m[3] ?? m[4];
+    if (!ALLOWED_TABLES.includes(u)) throw new ArchiveGuardError(`the table ${u} is not on the S1 extraction allowlist`);
+  }
   return used;
 }
 
@@ -63,7 +82,8 @@ export async function openArchive({ root, cacheDir } = {}) {
   }
   const db = new DatabaseSync(dbPath, { readOnly: true });
   const prepared = new Map();
-  const stmt = (sql) => { assertQueryAllowed(sql); if (!prepared.has(sql)) prepared.set(sql, db.prepare(sql)); return prepared.get(sql); };
+  const knownTables = db.prepare("select name from sqlite_master where type in ('table','view')").all().map((r) => r.name);
+  const stmt = (sql) => { assertQueryAllowed(sql, knownTables); if (!prepared.has(sql)) prepared.set(sql, db.prepare(sql)); return prepared.get(sql); };
   return {
     all: (sql, ...params) => stmt(sql).all(...params).map((r) => ({ ...r })),
     get: (sql, ...params) => { const r = stmt(sql).get(...params); return r ? { ...r } : null; },

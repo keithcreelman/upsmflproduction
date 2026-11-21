@@ -3,7 +3,7 @@
     "detail": "",
     "id": "T1",
     "pass": true,
-    "title": "every asset, link and event carries a class and a source reference"
+    "title": "every asset, link and event carries a class and a source reference (nodes, events, possession periods, breaks, trade legs, cap entries, transfers, departures, points, contracts)"
   },
   {
     "detail": "",
@@ -33,7 +33,7 @@
     "detail": "",
     "id": "T6",
     "pass": true,
-    "title": "uniqueness infers only when the holder owns one slot AND custody is observed to the evidence date (INFERRED, labeled); two slots, an unobserved period or no evidence stay UNRESOLVED"
+    "title": "uniqueness infers only when the holder owns one slot AND the round's inventory is demonstrably complete AND custody is observed to the evidence date (INFERRED, labeled); two slots, an incomplete or disagreeing inventory, an unobserved period or no evidence stay UNRESOLVED"
   },
   {
     "detail": "",
@@ -75,13 +75,13 @@
     "detail": "",
     "id": "T13",
     "pass": true,
-    "title": "the 2025-11-28 to 2026-03-07 trade-coverage gap is on the list; no pick whose custody crosses it is resolved; every chain break is a listed gap"
+    "title": "the 2025-11-28 to 2026-03-07 trade-coverage gap is on the list and is shown on every chain (player or pick) that crosses it; no pick whose custody crosses it is resolved; every chain break is a listed gap"
   },
   {
     "detail": "",
     "id": "T14",
     "pass": true,
-    "title": "two builds are byte-identical and match the committed bundle; the archive opens read-only; no extraction module can reach the network"
+    "title": "two builds are byte-identical and match the committed bundle; the archive opens read-only; no extraction module contains a network call pattern (fetch, http, net, WebSocket)"
   },
   {
     "detail": "",
@@ -93,6 +93,6 @@
     "detail": "recorded on the pull request, not asserted by this file",
     "id": "T16",
     "pass": null,
-    "title": "independent review (Codex) and CI on the exact head"
+    "title": "independent review (Codex) on the exact head, and CI on the head and on the merge result of the head with the base, both SHAs named"
   }
 ]

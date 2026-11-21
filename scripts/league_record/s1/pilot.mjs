@@ -24,14 +24,14 @@ const assetKind = (a) => (a.startsWith("player:") ? "player" : a.startsWith("spi
 const pickParts = (a) => a.split(":").slice(1);
 
 function tradeSummary(t) {
-  return { id: t.id, date: t.date, time: t.time, date_quality: t.date_quality, source: t.source, parties: t.parties, team_names: t.names, legs: t.legs.map((l) => ({ asset: l.asset, kind: l.kind || null, from: l.from, to: l.to, label: l.label || null, token: l.token || null, rows: l.rows || null, unpaired: l.unpaired || false })), cap: t.cap.map((c) => ({ amount: c.amount, from: c.from, to: c.to, rows: c.rows || null, token: c.token || null })) };
+  return { id: t.id, class: CLASS.CONFIRMED, class_basis: "a recorded MFL trade", date: t.date, time: t.time, date_quality: t.date_quality, source: t.source, parties: t.parties, team_names: t.names, legs: t.legs.map((l) => ({ class: l.unpaired ? CLASS.UNRESOLVED : CLASS.CONFIRMED, asset: l.asset, kind: l.kind || null, from: l.from, to: l.to, label: l.label || null, token: l.token || null, rows: l.rows || null, unpaired: l.unpaired || false })), cap: t.cap.map((c) => ({ class: CLASS.CONFIRMED, amount: c.amount, from: c.from, to: c.to, rows: c.rows || null, token: c.token || null })) };
 }
 function eventRef(e) {
   if (!e) return null;
-  return { kind: e.kind, date: e.date, time: e.time, trade: e.trade || null, from: e.from || null, to: e.to || null, round: e.round || null, slot: e.slot || null, method: e.method || null, date_quality: e.date_quality || null, source: e.source };
+  return { class: CLASS.CONFIRMED, kind: e.kind, date: e.date, time: e.time, trade: e.trade || null, from: e.from || null, to: e.to || null, round: e.round || null, slot: e.slot || null, method: e.method || null, date_quality: e.date_quality || null, source: e.source };
 }
 function holderRef(h) {
-  return { franchise: h.franchise, from: h.from_event ? { date: h.from_event.date, time: h.from_event.time, kind: h.from_event.kind, trade: h.from_event.trade || null } : { origin: h.origin || "before_the_first_record" }, to: h.to_event ? { date: h.to_event.date, time: h.to_event.time, kind: h.to_event.kind, trade: h.to_event.trade || null } : null };
+  return { class: CLASS.CONFIRMED, franchise: h.franchise, from: h.from_event ? { date: h.from_event.date, time: h.from_event.time, kind: h.from_event.kind, trade: h.from_event.trade || null } : { origin: h.origin || "before_the_first_record" }, to: h.to_event ? { date: h.to_event.date, time: h.to_event.time, kind: h.to_event.kind, trade: h.to_event.trade || null } : null };
 }
 
 export async function buildPilotBundle({ root, cacheDir } = {}) {
@@ -65,6 +65,7 @@ function buildFrom({ archive, root }) {
     const seasons = [];
     for (let s = Math.max(startSeason, 2010); s <= PILOT.last_archive_season; s++) seasons.push(s);
     const e = playerEconomics({ archive, ledger, chain, playerId, seasons });
+    for (const se of e.seasons) { for (const fr of se.by_franchise) fr.class = CLASS.CALCULATED; for (const c of se.contract_by_roster_weeks) c.class = CLASS.CONFIRMED; }
     playerEcon.set(playerId, e);
     return e;
   }
@@ -79,7 +80,7 @@ function buildFrom({ archive, root }) {
       const pid = assetId.split(":")[1];
       const chain = playerChain(ledger, pid, { sinceTs });
       node.label = playerLabel(pid) || `player ${pid}`;
-      node.chain = { holders: chain.holders.map(holderRef), breaks: chain.breaks, events: chain.events.map(eventRef) };
+      node.chain = { holders: chain.holders.map(holderRef), breaks: chain.breaks.map((b) => ({ class: CLASS.UNRESOLVED, ...b })), events: chain.events.map(eventRef) };
       for (const e of chain.events) if (e.trade) useTrade(e.trade);
       if (chain.breaks.length) for (const b of chain.breaks) gapsFound.push({ kind: "chain_break", asset: assetId, ...b });
       const last = lastHolder(chain);
@@ -89,7 +90,7 @@ function buildFrom({ archive, root }) {
       if (expand) expandTransfers(node, chain);
     } else {
       const chain = pickChain(ledger, assetId, { sinceTs });
-      node.chain = { holders: chain.holders.map(holderRef), breaks: chain.breaks, events: chain.events.map(eventRef) };
+      node.chain = { holders: chain.holders.map(holderRef), breaks: chain.breaks.map((b) => ({ class: CLASS.UNRESOLVED, ...b })), events: chain.events.map(eventRef) };
       for (const e of chain.events) if (e.trade) useTrade(e.trade);
       if (chain.breaks.length) for (const b of chain.breaks) gapsFound.push({ kind: "chain_break", asset: assetId, ...b });
       node._chain = chain;
@@ -136,14 +137,14 @@ function buildFrom({ archive, root }) {
 
   // what franchise F received when it sent this asset on: the consideration (confirmed by the trade record) and the other assets in the same deal (companions, not traced)
   function expandTransfers(node, chain) {
-    for (const h of chain.holders.filter((x) => x.franchise === F && x.to_event && x.to_event.kind !== "trade")) node.departures.push({ kind: h.to_event.kind, date: h.to_event.date, time: h.to_event.time, method: h.to_event.method || null, source: h.to_event.source, note: "released rather than traded: no consideration was recorded" });
+    for (const h of chain.holders.filter((x) => x.franchise === F && x.to_event && x.to_event.kind !== "trade")) node.departures.push({ class: CLASS.CONFIRMED, kind: h.to_event.kind, date: h.to_event.date, time: h.to_event.time, method: h.to_event.method || null, source: h.to_event.source, note: "released rather than traded: no consideration was recorded" });
     const heldByF = chain.holders.filter((h) => h.franchise === F && h.to_event && h.to_event.kind === "trade");
     for (const h of heldByF) {
       const t = tradeById.get(h.to_event.trade); useTrade(t.id);
       const sentByF = t.legs.filter((l) => l.from === F), recvByF = t.legs.filter((l) => l.to === F);
       const consideration = recvByF.map((l) => l.asset), companionsSent = sentByF.filter((l) => l.asset !== node.id).map((l) => l.asset);
       const capIn = t.cap.filter((c) => c.to === F), capOut = t.cap.filter((c) => c.from === F);
-      const rec = { trade: t.id, date: t.date, time: t.time, sent_asset: node.id, sent_to: h.to_event.to, consideration, cap_received: capIn.map((c) => c.amount), cap_sent: capOut.map((c) => c.amount), companions_sent: companionsSent, expanded: node.generation < PILOT.max_generation };
+      const rec = { class: CLASS.CONFIRMED, trade: t.id, date: t.date, time: t.time, sent_asset: node.id, sent_to: h.to_event.to, consideration, cap_received: capIn.map((c) => c.amount), cap_sent: capOut.map((c) => c.amount), companions_sent: companionsSent, expanded: node.generation < PILOT.max_generation };
       node.transfers.push(rec);
       if (node.generation < PILOT.max_generation && node.link_class !== CLASS.UNRESOLVED) {
         for (const cid of consideration) if (cid && !nodes.has(cid)) addNode(cid, { generation: node.generation + 1, role: "consideration", entered: { via: "trade", trade: t.id, date: t.date, received_for: node.id }, classOfLink: node.link_class, via: node.id, sinceTs: t.ts });
@@ -161,7 +162,11 @@ function buildFrom({ archive, root }) {
   for (const l of acquired) addNode(l.asset, { generation: 0, role: "acquired_upstream", entered: { via: "trade", trade: up.id, date: up.date, received_by: F }, sinceTs: up.ts - 1 });
 
   // ── bundle ────────────────────────────────────────────────────────────────────────────────────
-  const nodeList = order.map((id) => { const n = nodes.get(id); const { _chain, ...rest } = n; return rest; });
+  const nodeList = order.map((id) => { const n = nodes.get(id); const { _chain, ...rest } = n;
+    // a slot pick stops existing as a pick when it is used: its last possession period ends at the selection
+    if (rest.kind === "slot_pick" && rest.resolution && rest.resolution.selection && rest.chain.holders.length) { const h = rest.chain.holders.at(-1); if (!h.to) h.to = { date: rest.resolution.selection.date, time: rest.resolution.selection.time, kind: "draft_selection", trade: null }; }
+    rest.named_gap = namedGapExposure(ledger, rest.chain.holders);
+    return rest; });
   const frontier = nodeList.flatMap((n) => n.transfers.filter((t) => t.frontier).map((t) => ({ asset: n.id, trade: t.trade, date: t.date, consideration: t.consideration, note: `generation limit ${PILOT.max_generation} reached: this transfer's consideration is listed, not traced` })));
   const views = buildViews(nodeList);
   const trades = Object.fromEntries([...usedTrades.entries()].sort((a, b) => a[1].date.localeCompare(b[1].date) || a[0].localeCompare(b[0], "en", { numeric: true })));
@@ -175,6 +180,14 @@ function buildFrom({ archive, root }) {
     gaps: dedupeGaps(gapsFound, coverage),
   };
   return bundle;
+}
+
+// Does any possession period of the chain overlap the named unobserved trade period? An open period runs to the pinned snapshot day. Dates are Eastern, compared as text.
+function namedGapExposure(ledger, holders) {
+  const g = ledger.named_gap;
+  const spans = holders.filter((h) => (h.from.date == null || h.from.date <= g.to) && (h.to == null ? SNAPSHOT_DAY : h.to.date) >= g.from).map((h) => ({ franchise: h.franchise, from: h.from.date || null, to: h.to ? h.to.date : null }));
+  return { crosses: spans.length > 0, gap: { from: g.from, to: g.to }, possession_periods_spanning: spans,
+    note: spans.length ? "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between" : "no possession period of this chain overlaps the unobserved trade period" };
 }
 
 function packResolution(res) {
@@ -191,7 +204,7 @@ function packFuture(res, { firstList, lastPre, ledger, years, round, labelOf }) 
       moved_after_last_list: !!(sel && last && sel.franchise !== last.holder) };
   });
   return { class: res.class, rule: res.rule || null, rule_considered: res.rule_considered || null, reason: res.reason || null, holder_at_evidence: res.holder, original_franchise: res.original, evidence_kind: res.evidence_kind, evidence_day: res.evidence_day, last_recorded_transfer_ts: res.last_transfer_ts ? etParts(res.last_transfer_ts).date : null,
-    coverage_gaps: (res.coverage_gaps || []).map((g) => ({ from: g.from, to: g.to, kind: g.kind })), candidate_slots: cands, slot: res.slot || null, disclosure: res.disclosure || null,
+    coverage_gaps: (res.coverage_gaps || []).map((g) => ({ from: g.from, to: g.to, kind: g.kind })), candidate_slots: cands, inventory: res.inventory ? { complete: res.inventory.complete, reasons: res.inventory.reasons, teams: res.inventory.checked.teams, slots_listed: res.inventory.checked.slots_listed } : null, slot: res.slot || null, disclosure: res.disclosure || null,
     status_for_totals: res.class === CLASS.INFERRED ? "excluded_from_confirmed_totals" : "no_link_no_totals" };
 }
 

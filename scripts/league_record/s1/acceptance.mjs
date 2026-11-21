@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { CLASS, RULES, resolveFuturePick } from "./lineage.mjs";
+import { CLASS, RULES, resolveFuturePick, pickChain } from "./lineage.mjs";
 import { scanExtractionSources, BANNED_TABLES } from "./guard.mjs";
 import { assertQueryAllowed, ArchiveGuardError } from "./archive.mjs";
 import { readSnapshot } from "./sources.mjs";
@@ -16,29 +16,48 @@ const T = (id, title, pass, detail = "") => ({ id, title, pass, detail });
 function walk(v, fn, p = "") { if (Array.isArray(v)) v.forEach((x, i) => walk(x, fn, `${p}[${i}]`)); else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) walk(x, fn, `${p}.${k}`); else fn(p, v); }
 function keys(v, out = new Set()) { if (Array.isArray(v)) v.forEach((x) => keys(x, out)); else if (v && typeof v === "object") for (const [k, x] of Object.entries(v)) { out.add(k); keys(x, out); } return out; }
 
-// A synthetic ledger for the inference-rule tests: one round of one year, one franchise holding the slots named, no unobserved periods unless asked.
-export function syntheticLedger({ year, round, slotsHeld, draftTs, windows = [] }) {
-  const selections = slotsHeld.map((s) => ({ year, round, slot: s.slot, franchise: s.holder, player_id: `p${s.slot}`, ts: draftTs, date: "2020-06-01", source: { kind: "archive", table: "draftresults_mfl" }, note: "" }));
-  return { selections, selBySlot: new Map(selections.map((s) => [`${year}:${round}:${s.slot}`, s])), windows, named_gap: { from: "9999-01-01", to: "9999-01-02", kind: "none" } };
+// A synthetic ledger for the inference-rule tests: one round of one year, twelve franchises 0001..0012, slot i is the pick of original franchise i, and `holdings` maps an original
+// franchise to the franchise that holds its pick (default: itself). A transfer on 2019-10-02 is recorded for every pick that moved. `omitSlots` removes slots from the evidence
+// (an incomplete inventory); `slotHolder` overrides who the evidence lists for a slot (a records-versus-evidence disagreement); `windows` are unobserved periods.
+export const SYNTHETIC_TRANSFER_TS = 1570000000;
+export function syntheticLedger({ year, round, holdings = {}, draftTs, windows = [], omitSlots = [], slotHolder = {}, teams = 12, slotTokenTransfer = false }) {
+  const ids = Array.from({ length: teams }, (_, i) => String(i + 1).padStart(4, "0"));
+  const holderOf = (o) => holdings[o] || o;
+  const selections = ids.map((o, i) => ({ slot: i + 1, o })).filter((x) => !omitSlots.includes(x.slot)).map(({ slot, o }) => ({ year, round, slot, franchise: slotHolder[slot] || holderOf(o), player_id: `p${slot}`, ts: draftTs, date: "2020-06-01", source: { kind: "archive", table: "draftresults_mfl" }, note: "" }));
+  const tradesByAsset = new Map();
+  ids.forEach((o) => { if (holderOf(o) !== o) tradesByAsset.set(`fpick:${o}:${year}:${round}`, [{ trade: { id: `synthetic_${o}`, ts: SYNTHETIC_TRANSFER_TS, date: "2019-10-02", time: "12:00:00", source: { kind: "synthetic" }, date_quality: "exact" }, leg: { from: o, to: holderOf(o), rows: null } }]); });
+  if (slotTokenTransfer) tradesByAsset.set(`spick:${year}:${round}:1`, [{ trade: { id: "synthetic_slot", ts: SYNTHETIC_TRANSFER_TS, date: "2019-10-02", time: "12:00:00", source: { kind: "synthetic" }, date_quality: "exact" }, leg: { from: "0001", to: "0002", rows: null } }]);
+  return { selections, selBySlot: new Map(selections.map((x) => [`${year}:${round}:${x.slot}`, x])), windows, named_gap: { from: "9999-01-01", to: "9999-01-02", kind: "none" }, tradesByAsset, franchisesFor: () => ids };
 }
-export function syntheticChain(holder, lastTransferTs) {
-  return { holders: [{ franchise: "0001", from_ts: null, to_ts: lastTransferTs, to_event: { kind: "trade", ts: lastTransferTs } }, { franchise: holder, from_ts: lastTransferTs, from_event: { kind: "trade", ts: lastTransferTs }, to_ts: null, to_event: null }], events: [], breaks: [] };
-}
+export const syntheticChain = (ledger, original, year, round) => pickChain(ledger, `fpick:${original}:${year}:${round}`);
 
 export async function runAcceptance({ bundle, root, archive, rebuild, committedBundle = null }) {
   const out = [];
   const b = bundle;
   const extractionDir = path.join(root, "scripts", "league_record", "s1");
 
-  // T1 every line classed and sourced
+  // T1 every asset, link and event carries a class and a source reference
   const unclassified = [];
+  const okClass = (x) => Object.values(CLASS).includes(x);
+  const hasSource = (x) => !!(x && x.kind);
   for (const n of b.nodes) {
-    if (!Object.values(CLASS).includes(n.link_class)) unclassified.push(n.id);
-    if (!n.entered || !(n.entered.trade || n.entered.source)) unclassified.push(`${n.id}: no entry source`);
-    for (const e of n.chain.events) if (!e.source || !e.source.kind) unclassified.push(`${n.id}: event without a source`);
-    if (n.resolution && !Object.values(CLASS).includes(n.resolution.class)) unclassified.push(`${n.id}: resolution unclassed`);
+    if (!okClass(n.link_class)) unclassified.push(`${n.id}: asset link unclassed`);
+    if (!n.entered || !(n.entered.trade || hasSource(n.entered.source))) unclassified.push(`${n.id}: no entry source`);
+    for (const e of n.chain.events) { if (!hasSource(e.source)) unclassified.push(`${n.id}: event without a source`); if (!okClass(e.class)) unclassified.push(`${n.id}: event ${e.kind} ${e.date} unclassed`); }
+    for (const h of n.chain.holders) if (!okClass(h.class)) unclassified.push(`${n.id}: possession period unclassed`);
+    for (const br of n.chain.breaks) if (!okClass(br.class) || !(br.at || br.trade)) unclassified.push(`${n.id}: break ${br.kind} without a class or a source`);
+    for (const tr of n.transfers) { if (!okClass(tr.class) || !b.trades[tr.trade]) unclassified.push(`${n.id}: transfer ${tr.trade} unclassed or not in the trade list`); }
+    for (const d of n.departures) if (!okClass(d.class) || !hasSource(d.source)) unclassified.push(`${n.id}: departure without a class or a source`);
+    if (!n.resolution && n.kind !== "player") unclassified.push(`${n.id}: pick without a resolution`);
+    if (n.resolution && !okClass(n.resolution.class)) unclassified.push(`${n.id}: resolution unclassed`);
+    if (n.economics) for (const se of n.economics.seasons) { for (const fr of se.by_franchise) if (!okClass(fr.class)) unclassified.push(`${n.id} ${se.season}: points unclassed`); for (const c of se.contract_by_roster_weeks) if (!okClass(c.class)) unclassified.push(`${n.id} ${se.season}: contract unclassed`); }
   }
-  out.push(T("T1", "every asset, link and event carries a class and a source reference", unclassified.length === 0, unclassified.join("; ")));
+  for (const [id, tr] of Object.entries(b.trades)) {
+    if (!okClass(tr.class) || !hasSource(tr.source)) unclassified.push(`${id}: trade without a class or a source`);
+    for (const l of tr.legs) if (!okClass(l.class)) unclassified.push(`${id}: leg ${l.asset} unclassed`);
+    for (const c of tr.cap) if (!okClass(c.class)) unclassified.push(`${id}: cap entry unclassed`);
+  }
+  out.push(T("T1", "every asset, link and event carries a class and a source reference (nodes, events, possession periods, breaks, trade legs, cap entries, transfers, departures, points, contracts)", unclassified.length === 0, unclassified.slice(0, 3).join("; ")));
 
   // T2 confirmed facts equal the raw records (second code path)
   const mismatches = [];
@@ -55,12 +74,16 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
       const capHave = [...t.cap, ...t.legs.filter((l) => String(l.asset).startsWith("cap:"))].map((c) => (c.amount != null ? `${c.from}:${c.amount}` : `${c.from}:${String(c.asset).split(":")[1]}`)).sort().join(",");
       if (capRaw !== capHave) mismatches.push(`${id}: cap rows differ (${capRaw} vs ${capHave})`);
       if (rows[0].d !== t.date || rows[0].tm !== t.time) mismatches.push(`${id}: date or time differs`);
-      for (const l of t.legs) { const rec = rows.find((r) => r.r === "ACQUIRE" && r.f === l.to); if (!rec) mismatches.push(`${id}: no receiving row for ${l.asset}`); }
+      const keyOf = (r) => (r.t === "PLAYER" ? `player:${r.pid}` : r.t === "DRAFTPICK_FUTURE" ? `fpick:${r.ff}:${r.fy}:${r.fr}` : `spick:${r.ds}:${r.dr}:${Number(r.dov) + 1}`);
+      const acq = new Set(rows.filter((r) => r.r === "ACQUIRE" && r.t !== "CAP").map((r) => `${r.f}<${keyOf(r)}`));
+      for (const l of t.legs) if (!acq.has(`${l.to}<${l.asset}`)) mismatches.push(`${id}: no receiving row for ${l.asset} at franchise ${l.to}`);
+      if (acq.size !== t.legs.length) mismatches.push(`${id}: ${acq.size} receiving rows but ${t.legs.length} legs`);
     } else {
       const j = readSnapshot(root, t.source.day, t.source.file);
       const raws = j.transactions.transaction[t.source.index];
-      const tokens = [...String(raws.franchise1_gave_up).split(","), ...String(raws.franchise2_gave_up).split(",")].filter(Boolean).length;
-      if (raws.type !== "TRADE" || tokens !== t.legs.length + t.cap.length) mismatches.push(`${id}: snapshot entry differs (${tokens} tokens vs ${t.legs.length + t.cap.length})`);
+      const rawSet = [...String(raws.franchise1_gave_up).split(",").filter(Boolean).map((x) => `${raws.franchise}|${x.trim()}`), ...String(raws.franchise2_gave_up).split(",").filter(Boolean).map((x) => `${raws.franchise2}|${x.trim()}`)].sort().join(";");
+      const haveSet = [...t.legs, ...t.cap].map((x) => `${x.from}|${x.token}`).sort().join(";");
+      if (raws.type !== "TRADE" || rawSet !== haveSet) mismatches.push(`${id}: snapshot tokens differ (${rawSet} vs ${haveSet})`);
     }
   }
   raw.close();
@@ -104,19 +127,22 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
   for (const n of b.nodes.filter((x) => x.kind === "future_pick")) { if (n.resolution.class === CLASS.CONFIRMED) slotErrs.push(`${n.id}: a future pick can never be CONFIRMED to a slot by the tokens`); if (n.resolution.class === CLASS.INFERRED && n.resolution.rule !== RULES.UNIQUE_HOLDER_V1) slotErrs.push(`${n.id}: inferred by an unapproved rule`); }
   out.push(T("T5", "every slot comes from an MFL slot token and the MFL draft result for that slot; a future pick is never confirmed to a slot", slotErrs.length === 0, slotErrs.slice(0, 3).join("; ")));
 
-  // T6 ambiguity stays ambiguous; the inference rule needs all of its conditions
+  // T6 ambiguity stays ambiguous; the inference rule needs all of its conditions, including a demonstrably complete inventory
   const base = { year: 2020, round: 2, draftTs: 1590000000 };
-  const ctx = (slots, windows = []) => syntheticLedger({ ...base, slotsHeld: slots, windows });
   const window = (from, to) => ({ from, to, kind: "unobserved", basis: "test" });
-  const fut = (ledger, chain) => { ledger.selections.forEach(() => {}); return resolveFuturePick({ ...ledger, ...{} }, chain, { year: 2020, round: 2, original: "0001" }, { slotLists: [] }); };
-  const oneSlot = ctx([{ slot: 3, holder: "0007" }, { slot: 4, holder: "0002" }]);
-  const twoSlots = ctx([{ slot: 3, holder: "0007" }, { slot: 9, holder: "0007" }, { slot: 4, holder: "0002" }]);
-  const gapped = ctx([{ slot: 3, holder: "0007" }], [window("2020-01-01", "2020-03-01")]);
-  const chain = syntheticChain("0007", 1570000000);                           // last transfer on 2019-10-02
-  const r1 = fut(oneSlot, chain), r2 = fut(twoSlots, chain), r3 = fut(gapped, chain);
-  const noEvidence = resolveFuturePick({ selections: [], selBySlot: new Map(), windows: [], named_gap: { from: "9999-01-01", to: "9999-01-02" } }, chain, { year: 2020, round: 2, original: "0001" }, { slotLists: [] });
-  const ok6 = r1.class === CLASS.INFERRED && r1.rule === RULES.UNIQUE_HOLDER_V1 && r1.slot === 3 && /never confirmed/.test(r1.disclosure) && r2.class === CLASS.UNRESOLVED && r2.candidates.length === 2 && r3.class === CLASS.UNRESOLVED && r3.coverage_gaps.length === 1 && noEvidence.class === CLASS.UNRESOLVED;
-  out.push(T("T6", "uniqueness infers only when the holder owns one slot AND custody is observed to the evidence date (INFERRED, labeled); two slots, an unobserved period or no evidence stay UNRESOLVED", ok6, ok6 ? "" : JSON.stringify([r1.class, r2.class, r3.class, noEvidence.class])));
+  const run = (opts) => { const led = syntheticLedger({ ...base, ...opts }); return resolveFuturePick(led, syntheticChain(led, "0001", 2020, 2), { year: 2020, round: 2, original: "0001" }, { slotLists: [] }); };
+  const uniq = { "0001": "0007", "0007": "0002" };                             // 0007 holds one pick of the round (0001's); its own went to 0002
+  const r1 = run({ holdings: uniq });
+  const r2 = run({ holdings: { "0001": "0007" } });                            // 0007 holds its own and 0001's: two slots
+  const r3 = run({ holdings: uniq, windows: [window("2020-01-01", "2020-03-01")] });
+  const r4 = run({ holdings: uniq, omitSlots: [12] });                         // eleven slots listed: the inventory is incomplete although 0007 shows exactly one candidate
+  const r5 = run({ holdings: uniq, slotHolder: { 5: "0007" } });             // the evidence gives 0007 a second slot the records do not explain
+  const r6 = run({ holdings: uniq, slotTokenTransfer: true });
+  const noEvidence = resolveFuturePick({ selections: [], selBySlot: new Map(), windows: [], named_gap: { from: "9999-01-01", to: "9999-01-02" } }, syntheticChain(syntheticLedger({ ...base, holdings: uniq }), "0001", 2020, 2), { year: 2020, round: 2, original: "0001" }, { slotLists: [] });
+  const ok6 = r1.class === CLASS.INFERRED && r1.rule === RULES.UNIQUE_HOLDER_V1 && r1.slot === 1 && /never confirmed/.test(r1.disclosure) && r1.inventory.complete
+    && r2.class === CLASS.UNRESOLVED && r2.candidates.length === 2 && r3.class === CLASS.UNRESOLVED && r3.coverage_gaps.length === 1
+    && r4.class === CLASS.UNRESOLVED && /not demonstrably complete/.test(r4.reason) && r5.class === CLASS.UNRESOLVED && /disagree/.test(r5.reason) && r6.class === CLASS.UNRESOLVED && noEvidence.class === CLASS.UNRESOLVED;
+  out.push(T("T6", "uniqueness infers only when the holder owns one slot AND the round's inventory is demonstrably complete AND custody is observed to the evidence date (INFERRED, labeled); two slots, an incomplete or disagreeing inventory, an unobserved period or no evidence stay UNRESOLVED", ok6, ok6 ? "" : JSON.stringify([r1.class, r2.class, r3.class, r4.class, r5.class, r6.class, noEvidence.class])));
 
   // T7 franchise is not owner
   const ks = [...keys(b)].filter((k) => /owner/i.test(k));
@@ -168,9 +194,15 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
 
   // T13 gaps
   const g0 = b.gaps[0];
-  const gapOk = g0 && g0.kind === "incomplete_trade_coverage" && g0.from === "2025-11-28" && g0.to === "2026-03-07" && b.nodes.filter((n) => n.kind === "future_pick" && n.resolution.coverage_gaps.length).every((n) => n.resolution.class !== CLASS.INFERRED && n.resolution.class !== CLASS.CONFIRMED)
+  const spanErrs = [];
+  for (const n of b.nodes) {
+    const g = b.coverage.named_gap;
+    const expect = n.chain.holders.some((h) => (h.from.date == null || h.from.date <= g.to) && (h.to == null ? b.sources.snapshots.pinned_day : h.to.date) >= g.from);
+    if (!n.named_gap || n.named_gap.crosses !== expect) spanErrs.push(`${n.id}: the named gap is ${n.named_gap && n.named_gap.crosses ? "shown" : "not shown"} but the chain ${expect ? "crosses" : "does not cross"} it`);
+  }
+  const gapOk = spanErrs.length === 0 && g0 && g0.kind === "incomplete_trade_coverage" && g0.from === "2025-11-28" && g0.to === "2026-03-07" && b.nodes.filter((n) => n.kind === "future_pick" && n.resolution.coverage_gaps.length).every((n) => n.resolution.class !== CLASS.INFERRED && n.resolution.class !== CLASS.CONFIRMED)
     && b.nodes.flatMap((n) => n.chain.breaks).every((br) => b.gaps.some((g) => (g.date === br.date) && (g.kind === br.kind)));
-  out.push(T("T13", "the 2025-11-28 to 2026-03-07 trade-coverage gap is on the list; no pick whose custody crosses it is resolved; every chain break is a listed gap", !!gapOk, gapOk ? "" : JSON.stringify(g0)));
+  out.push(T("T13", "the 2025-11-28 to 2026-03-07 trade-coverage gap is on the list and is shown on every chain (player or pick) that crosses it; no pick whose custody crosses it is resolved; every chain break is a listed gap", !!gapOk, gapOk ? "" : spanErrs.concat([JSON.stringify(g0)]).slice(0, 3).join("; ")));
 
   // T14 determinism, read-only, offline
   const again = rebuild ? await rebuild() : null;
@@ -179,7 +211,7 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
   let readOnly = false;
   try { const w = new DatabaseSync(dbPath, { readOnly: true }); try { w.exec("create table s1_probe (x)"); } catch (_) { readOnly = true; } w.close(); } catch (_) { readOnly = false; }
   const netHits = fs.readdirSync(extractionDir).filter((f) => f.endsWith(".mjs") && f !== "acceptance.mjs" && f !== "guard.mjs").filter((f) => /\bfetch\s*\(|node:https?|node:net|XMLHttpRequest|WebSocket/.test(fs.readFileSync(path.join(extractionDir, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "")));
-  out.push(T("T14", "two builds are byte-identical and match the committed bundle; the archive opens read-only; no extraction module can reach the network", same && matchesCommitted && readOnly && netHits.length === 0, `${same ? "" : "builds differ "}${matchesCommitted ? "" : "committed bundle differs "}${readOnly ? "" : "archive is writable "}${netHits.join(",")}`));
+  out.push(T("T14", "two builds are byte-identical and match the committed bundle; the archive opens read-only; no extraction module contains a network call pattern (fetch, http, net, WebSocket)", same && matchesCommitted && readOnly && netHits.length === 0, `${same ? "" : "builds differ "}${matchesCommitted ? "" : "committed bundle differs "}${readOnly ? "" : "archive is writable "}${netHits.join(",")}`));
 
   // T15 no private data
   const text = stableStringify(b);
@@ -187,6 +219,6 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
   const priv = [/[\w.+-]+@[\w-]+\.[\w.]+/.test(text) ? "an email address" : null, /owner_name|owner_display|discord/i.test(sqlText.replace(/\/\/.*$/gm, "")) ? "an owner or chat column in the extraction code" : null, /password|api[_-]?key|secret/i.test(text) ? "a credential word" : null].filter(Boolean);
   out.push(T("T15", "only franchise ids, team names and player names appear; no owner column is read; no email, credential or chat text", priv.length === 0, priv.join(", ")));
 
-  out.push(T("T16", "independent review (Codex) and CI on the exact head", null, "recorded on the pull request, not asserted by this file"));
+  out.push(T("T16", "independent review (Codex) on the exact head, and CI on the head and on the merge result of the head with the base, both SHAs named", null, "recorded on the pull request, not asserted by this file"));
   return out;
 }

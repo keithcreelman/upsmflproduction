@@ -35,7 +35,7 @@ export function confirmedTotals(b, F) {
   return { franchise: F, points_verified: Math.round(verified * 10) / 10, started_points_verified: Math.round(started * 10) / 10, weeks_verified: weeks, included_assets: included, excluded_assets: excluded };
 }
 
-function holdersText(n) { return n.chain.holders.map((h) => `${h.franchise} ${h.from.date ? h.from.date : `(${h.from.origin === "asserted_by_first_record" ? "asserted by the first record" : "before the first record"})`} to ${h.to ? `${h.to.date} (${h.to.kind}${h.to.trade ? ` ${h.to.trade}` : ""})` : "now"}`).join("; "); }
+function holdersText(n) { return n.chain.holders.map((h) => `${h.franchise} ${h.from.date ? h.from.date : `(${h.from.origin === "asserted_by_first_record" ? "asserted by the first record" : "before the first record"})`} to ${h.to ? `${h.to.date} (${h.to.kind}${h.to.trade ? ` ${h.to.trade}` : ""})` : "no recorded end"}`).join("; "); }
 
 export function renderReport(b, acceptance = null) {
   const F = b.pilot.franchise;
@@ -56,7 +56,7 @@ export function renderReport(b, acceptance = null) {
   const bsea = bs ? bs.seasons.find((s) => s.season === 2024) : null;
   push(`2. **Brown's production for ${F}:** ${bsea ? `${pts(bsea.points_verified)} verified points in ${bsea.weeks_verified} scored weeks (${pts(bsea.started_points_verified)} while started) in 2024` : "none recorded"}. Weeks without a scoring row (${bsea ? Array.from({ length: 17 }, (_, i) => i + 1).filter((w) => !bsea.scored_weeks.includes(w)).join(", ") : ""}) carry no points; none was filled with zero.`);
   const bc = bsea && bsea.contract[0];
-  push(`3. **Salary he carried:** ${bc ? `${fmt(bc.salary)} for 2024 on a ${bc.contract_status} contract (${bc.years_remaining} year(s) remaining; recorded text \`${bc.contract_info}\`)` : "not recorded"}; the recorded second-year amount that moved with him in March 2025 is ${fmt(b.nodes.find((n) => n.id === "player:14104").economics.seasons.find((s) => s.season === 2025).contract_by_roster_weeks[0].salary)} (franchise ${brown.chain.holders.at(-1).franchise}'s 2025 roster record).`);
+  push(`3. **Salary he carried:** ${bc ? `${fmt(bc.salary)} for 2024 on a ${bc.contract_status} contract (${bc.years_remaining} year(s) remaining; recorded text \`${bc.contract_info}\`)` : "not recorded"}; the first 2025 weekly roster record for franchise ${brown.chain.holders.at(-1).franchise} shows ${fmt(b.nodes.find((n) => n.id === "player:14104").economics.seasons.find((s) => s.season === 2025).contract_by_roster_weeks[0].salary)}. Two roster records show two amounts; the contract text changes between them, so this is not proof that one obligation carried over unchanged.`);
   push(`4. **Received when Brown was traded (${tradeRef(b, b.roots.primary.trade)}):** ${b.roots.primary.received.map((a) => nm.get(a).label).join("; ")}. HammerTime also sent ${b.roots.primary.cap_sent.map((c) => fmt(c)).join(", ")} in cap money (a recorded cap transfer from ${F} to ${brown.chain.holders.at(-1).franchise}).`);
   push(`5. **The 2025 pick** (slot 8, MFL's own slot token) was selected by ${F} on ${nm.get("spick:2025:1:8").resolution.selection.date}: ${nm.get("player:17051").label}, CONFIRMED by the MFL draft result for that slot. The **2026 round 3 pick** was traded again and came home to its original franchise; its slot is UNRESOLVED (section 5).`);
   push(`6. **Judkins was traded** (${tradeRef(b, "trade2025_34")}) for ${nm.get("player:16644").label} and the two 2026 round 2 picks, each of which was traded again (sections 3 and 5).`);
@@ -65,10 +65,10 @@ export function renderReport(b, acceptance = null) {
   // 2. graph
   push("", "## 2. Every traced asset, with its generation and class", "");
   push("Generation 0 is the upstream trade and Brown; each trade of an asset by " + F + " adds the consideration it received as the next generation; a pick that becomes a player adds one generation. Limit: generation " + b.pilot.max_generation + ".", "");
-  push("| Gen | Asset | Role | Entered by | Link class | Possession periods (franchise, from, to) | Final known position |", "|---|---|---|---|---|---|---|");
+  push("| Gen | Asset | Role | Entered by | Link class | Possession periods (franchise, from, to) | Crosses the unobserved trade period | Final known position |", "|---|---|---|---|---|---|---|---|");
   for (const n of b.nodes) {
     const pos = n.kind === "player" ? `${n.final_position.snapshot_franchise || n.final_position.chain_last_holder || "no roster"} on ${n.final_position.snapshot_day}${n.final_position.consistent === false ? " (CONFLICT)" : ""}` : n.resolution ? `${n.resolution.class}${n.became ? ` -> ${n.became}` : ""}` : "";
-    push(`| ${n.generation} | ${n.label} (${n.id}) | ${n.role.replace(/_/g, " ")} | ${n.entered.trade || n.entered.via}${n.entered.date ? ` ${n.entered.date}` : ""} | ${n.link_class} | ${holdersText(n)} | ${pos} |`);
+    push(`| ${n.generation} | ${n.label} (${n.id}) | ${n.role.replace(/_/g, " ")} | ${n.entered.trade || n.entered.via}${n.entered.date ? ` ${n.entered.date}` : ""} | ${n.link_class} | ${holdersText(n)} | ${n.named_gap.crosses ? "YES" : "no"} | ${pos} |`);
   }
 
   // 3. transfers
@@ -108,11 +108,12 @@ export function renderReport(b, acceptance = null) {
     const r = n.resolution;
     push(`**${n.label}** (${n.id}) is **${r.class}**. Chain: ${holdersText(n)}. ${r.reason || r.disclosure || ""}`);
     push(`- Evidence date: ${r.evidence_day || "the draft"} (${r.evidence_kind}); holder then: ${r.holder_at_evidence}; last recorded transfer: ${r.last_recorded_transfer_ts || "none"}.`);
+    if (r.inventory) push(`- Round inventory on the evidence date: ${r.inventory.complete ? "demonstrably complete" : `NOT demonstrably complete (${r.inventory.reasons.join(" | ") || "not evaluated"})`}; ${r.inventory.slots_listed} slot(s) listed for ${r.inventory.teams} teams.`);
     for (const g of r.coverage_gaps) push(`- Unobserved: ${g.from} to ${g.to} (${g.kind}).`);
     for (const c of r.candidate_slots) push(`- Candidate slot ${c.slot}: on ${c.on_first_list ? c.on_first_list.day : "?"} held by ${c.on_first_list ? c.on_first_list.holder : "?"} (notes: ${c.on_first_list && c.on_first_list.notes.length ? c.on_first_list.notes.join(" / ") : "none"}); on ${c.on_last_pre_draft_list ? c.on_last_pre_draft_list.day : "?"} held by ${c.on_last_pre_draft_list ? c.on_last_pre_draft_list.holder : "?"}; draft result: ${c.draft_result ? `franchise ${c.draft_result.franchise}, ${c.draft_result.player_name || "name not in the archive"} (${c.draft_result.player_id})${c.moved_after_last_list ? ", a different franchise from the last list's holder (the slot moved on draft day)" : ""}` : "none"}. **A candidate only; it counts for nothing.**`);
     push("");
   }
-  push(`**Inferred view (rule UNIQUE_HOLDER_V1):** ${b.views.inferred_assets.length ? b.views.inferred_assets.join(", ") : "empty. No pilot link meets the rule's conditions: every future pick's custody between its last recorded transfer and the evidence date crosses the unobserved period below, so uniqueness cannot be used as proof."}`);
+  push(`**Inferred view (rule UNIQUE_HOLDER_V1):** ${b.views.inferred_assets.length ? b.views.inferred_assets.join(", ") : "empty. No pilot link meets the rule's conditions: every future pick's custody between its last recorded transfer and the evidence date crosses the unobserved period below, and no round's pick inventory is demonstrably complete (see each pick's inventory line above), so uniqueness cannot be used as proof."}`);
   push("", `**Unresolved links:** ${b.views.unresolved_links.join(", ") || "none"}.`);
 
   // 6. reconciliation
@@ -129,7 +130,9 @@ export function renderReport(b, acceptance = null) {
   push(`**${g0.from} to ${g0.to}: trade coverage is incomplete.** ${g0.basis}`);
   push(`- Last archive TRADE: ${g0.last_archive_trade} (the deadline). Last archive transaction of any type: ${g0.last_archive_transaction}. First 2026 snapshot transaction: ${g0.first_snapshot_transaction_et} Eastern. First 2026 snapshot TRADE: ${b.coverage.snapshot_first_trade}.`);
   push(`- Supporting indication only: trades by calendar month in the archive are ${JSON.stringify(b.coverage.historical_pattern.trades_by_calendar_month)}; none has been recorded in month ${b.coverage.historical_pattern.months_with_no_recorded_trade.join(" or ") || "(none empty)"} and ${b.coverage.historical_pattern.december_trades.length} in December (${b.coverage.historical_pattern.december_trades.join(", ")}). That fits a closed window after the deadline; it cannot prove the window empty.`);
-  push(`- Chains that cross it: ${b.nodes.filter((n) => n.resolution && n.resolution.coverage_gaps && n.resolution.coverage_gaps.some((x) => x.kind === "incomplete_trade_coverage")).map((n) => n.id).join(", ") || "none"}.`);
+  const crossing = b.nodes.filter((n) => n.named_gap && n.named_gap.crosses);
+  push(`- **Chains that cross it (${crossing.length} of ${b.nodes.length} traced assets):** every possession period below spans the unobserved period, so a transfer in it would not be in any source. Players and picks are both listed.`);
+  for (const n of crossing) push(`  - ${n.label} (${n.id}): ${n.named_gap.possession_periods_spanning.map((p) => `${p.franchise} from ${p.from || "before the first record"} to ${p.to || "no recorded end"}`).join("; ")}`);
   push("", "Other recorded gaps:", "");
   for (const g of b.gaps.slice(1)) push(`- **${g.kind}**${g.asset ? ` (${g.asset})` : ""}: ${g.note || g.date || ""}${g.expected_holder ? ` expected holder ${g.expected_holder}, recorded sender ${g.recorded_sender}` : ""}${g.holder_before ? ` holder before ${g.holder_before}, added by ${g.added_by} on ${g.date}` : ""}`);
   push("", `Annual stretches with no recorded transaction of any kind that overlap the traced chains (data-driven, 14 days or more): ${b.coverage.windows_overlapping_the_chains.map((w) => `${w.from} to ${w.to}`).join("; ") || "none"}. A chain is only as complete as the periods around its records.`);

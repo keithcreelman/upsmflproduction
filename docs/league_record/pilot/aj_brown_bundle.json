@@ -170,6 +170,7 @@
               "table": "transactions_auction",
               "transactionid": "auction2025_278.1"
             },
+            "class": "UNRESOLVED",
             "date": "2025-08-05",
             "holder_before": "0008",
             "kind": "implicit_release",
@@ -178,6 +179,7 @@
         ],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2024-07-24",
             "date_quality": "recorded",
             "from": "0005",
@@ -201,6 +203,7 @@
             "trade": "trade2024_30"
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-08-05",
             "date_quality": null,
             "from": null,
@@ -218,6 +221,7 @@
             "trade": null
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-08-19",
             "date_quality": "recorded",
             "from": "0004",
@@ -253,6 +257,7 @@
             "trade": "trade2025_41"
           },
           {
+            "class": "CONFIRMED",
             "date": "2026-07-19",
             "date_quality": null,
             "from": "0007",
@@ -272,6 +277,7 @@
             "trade": null
           },
           {
+            "class": "CONFIRMED",
             "date": "2026-07-29",
             "date_quality": null,
             "from": null,
@@ -293,6 +299,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "origin": "asserted_by_first_record"
@@ -305,6 +312,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0008",
             "from": {
               "date": "2024-07-24",
@@ -320,6 +328,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0004",
             "from": {
               "date": "2025-08-05",
@@ -335,6 +344,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0007",
             "from": {
               "date": "2025-08-19",
@@ -350,6 +360,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0009",
             "from": {
               "date": "2026-07-29",
@@ -369,6 +380,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0005",
                 "plain_score_mismatches": [],
@@ -406,6 +418,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 2| TCV 109K| AAV 55K, 65K| Y1-44 Y2-65| Ext: Creel, Hood, Hammer",
                 "contract_status": "FL",
                 "franchise": "0005",
@@ -452,6 +465,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0008",
                 "plain_score_mismatches": [],
@@ -477,6 +491,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 2| TCV 109K| AAV 65K| Y1-44 Y2-65| Ext: Creel, Hood, Hammer",
                 "contract_status": "FL",
                 "franchise": "0008",
@@ -511,6 +526,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0007",
                 "plain_score_mismatches": [],
@@ -548,6 +564,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 1|",
                 "contract_status": "Veteran",
                 "franchise": "0007",
@@ -609,6 +626,21 @@
       "kind": "player",
       "label": "McCaffrey, Christian",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0007",
+            "from": "2025-08-19",
+            "to": "2026-07-19"
+          }
+        ]
+      },
       "notes": [],
       "role": "surrendered_upstream",
       "transfers": [],
@@ -619,6 +651,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2024-07-24",
             "date_quality": "recorded",
             "from": "0008",
@@ -642,6 +675,7 @@
             "trade": "trade2024_30"
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-03-05",
             "date_quality": "recorded",
             "from": "0005",
@@ -671,6 +705,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0008",
             "from": {
               "origin": "asserted_by_first_record"
@@ -683,6 +718,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2024-07-24",
@@ -698,6 +734,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0006",
             "from": {
               "date": "2025-03-05",
@@ -717,6 +754,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0005",
                 "plain_score_mismatches": [],
@@ -751,6 +789,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 2| TCV 92K| AAV 46K|Y1-19 Y2-73 | Ext: Sex, Creel",
                 "contract_status": "BL",
                 "franchise": "0005",
@@ -794,6 +833,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0006",
                 "plain_score_mismatches": [],
@@ -830,6 +870,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 2| TCV 129K| AAV 46K, 56K|Y1-73 Y2-56 | Ext: Sex, Creel, LH",
                 "contract_status": "BL",
                 "franchise": "0006",
@@ -899,6 +940,21 @@
       "kind": "player",
       "label": "Brown, A.J.",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0006",
+            "from": "2025-03-05",
+            "to": null
+          }
+        ]
+      },
       "notes": [],
       "role": "acquired_upstream",
       "transfers": [
@@ -907,6 +963,7 @@
           "cap_sent": [
             20000
           ],
+          "class": "CONFIRMED",
           "companions_sent": [],
           "consideration": [
             "spick:2025:1:8",
@@ -928,6 +985,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-03-05",
             "date_quality": "recorded",
             "from": "0006",
@@ -957,6 +1015,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0006",
             "from": {
               "origin": "asserted_by_first_record"
@@ -969,6 +1028,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-03-05",
@@ -976,7 +1036,12 @@
               "time": "13:18:22",
               "trade": "trade2025_5"
             },
-            "to": null
+            "to": {
+              "date": "2025-05-25",
+              "kind": "draft_selection",
+              "time": "19:00:18",
+              "trade": null
+            }
           }
         ]
       },
@@ -997,6 +1062,15 @@
       "kind": "slot_pick",
       "label": "2025 round 1, slot 8 (pick 1.08)",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": false,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "no possession period of this chain overlaps the unobserved trade period",
+        "possession_periods_spanning": []
+      },
       "notes": [],
       "resolution": {
         "class": "CONFIRMED",
@@ -1041,6 +1115,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-05-25",
             "date_quality": null,
             "from": null,
@@ -1062,6 +1137,7 @@
             "trade": null
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-08-07",
             "date_quality": "recorded",
             "from": "0005",
@@ -1091,6 +1167,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-05-25",
@@ -1106,6 +1183,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "date": "2025-08-07",
@@ -1125,6 +1203,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0010",
                 "plain_score_mismatches": [],
@@ -1160,6 +1239,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 3| TCV 24K| AAV 8K | Option Eligible",
                 "contract_status": "Rookie",
                 "franchise": "0010",
@@ -1226,12 +1306,28 @@
       "kind": "player",
       "label": "Judkins, Quinshon",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0010",
+            "from": "2025-08-07",
+            "to": null
+          }
+        ]
+      },
       "notes": [],
       "role": "drafted_player",
       "transfers": [
         {
           "cap_received": [],
           "cap_sent": [],
+          "class": "CONFIRMED",
           "companions_sent": [],
           "consideration": [
             "player:16644",
@@ -1253,6 +1349,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-08-07",
             "date_quality": "recorded",
             "from": "0010",
@@ -1282,6 +1379,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "origin": "asserted_by_first_record"
@@ -1294,6 +1392,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-08-07",
@@ -1313,6 +1412,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0005",
                 "plain_score_mismatches": [],
@@ -1349,6 +1449,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 3| TCV 6K| AAV 2K",
                 "contract_status": "Rookie",
                 "franchise": "0005",
@@ -1409,6 +1510,21 @@
       "kind": "player",
       "label": "Sinnott, Ben",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0005",
+            "from": "2025-08-07",
+            "to": null
+          }
+        ]
+      },
       "notes": [],
       "role": "consideration",
       "transfers": [],
@@ -1419,6 +1535,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-08-07",
             "date_quality": "recorded",
             "from": "0010",
@@ -1446,6 +1563,7 @@
             "trade": "trade2025_34"
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-10-03",
             "date_quality": "recorded",
             "from": "0005",
@@ -1477,6 +1595,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "origin": "asserted_by_first_record"
@@ -1489,6 +1608,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-08-07",
@@ -1504,6 +1624,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0011",
             "from": {
               "date": "2025-10-03",
@@ -1535,6 +1656,21 @@
       "kind": "future_pick",
       "label": "2026 round 2 pick, original franchise 0010",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0011",
+            "from": "2025-10-03",
+            "to": null
+          }
+        ]
+      },
       "notes": [],
       "resolution": {
         "candidate_slots": [
@@ -1586,6 +1722,14 @@
         "evidence_day": "2026-05-24",
         "evidence_kind": "mfl_slot_list",
         "holder_at_evidence": "0011",
+        "inventory": {
+          "complete": false,
+          "reasons": [
+            "a slot-token transfer exists for this season and round: slot-named transfers are not accounted for here"
+          ],
+          "slots_listed": 12,
+          "teams": 12
+        },
         "last_recorded_transfer_ts": "2025-10-03",
         "original_franchise": "0010",
         "reason": "custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof",
@@ -1601,6 +1745,7 @@
             11000
           ],
           "cap_sent": [],
+          "class": "CONFIRMED",
           "companions_sent": [
             "player:13146",
             "fpick:0005:2026:4"
@@ -1630,6 +1775,7 @@
               "kind": "snapshot",
               "type": "AUCTION_WON"
             },
+            "class": "UNRESOLVED",
             "date": "2026-07-27",
             "holder_before": "0005",
             "kind": "implicit_release",
@@ -1638,6 +1784,7 @@
         ],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-10-03",
             "date_quality": "recorded",
             "from": "0011",
@@ -1667,6 +1814,7 @@
             "trade": "trade2025_53"
           },
           {
+            "class": "CONFIRMED",
             "date": "2026-07-27",
             "date_quality": null,
             "from": null,
@@ -1688,6 +1836,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0011",
             "from": {
               "origin": "asserted_by_first_record"
@@ -1700,6 +1849,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-10-03",
@@ -1715,6 +1865,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0002",
             "from": {
               "date": "2026-07-27",
@@ -1728,6 +1879,7 @@
       },
       "departures": [
         {
+          "class": "CONFIRMED",
           "date": "2026-07-27",
           "kind": "add",
           "method": "AUCTION_WON",
@@ -1749,6 +1901,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0010",
                 "plain_score_mismatches": [],
@@ -1771,6 +1924,7 @@
                 "weeks_verified": 0
               },
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0011",
                 "plain_score_mismatches": [],
@@ -1791,6 +1945,7 @@
                 "weeks_verified": 0
               },
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0005",
                 "plain_score_mismatches": [],
@@ -1823,6 +1978,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 1|",
                 "contract_status": "Veteran",
                 "franchise": "0010",
@@ -1833,6 +1989,7 @@
                 "years_remaining": 1
               },
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 1|",
                 "contract_status": "Veteran",
                 "franchise": "0011",
@@ -1843,6 +2000,7 @@
                 "years_remaining": 1
               },
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 1|",
                 "contract_status": "Veteran",
                 "franchise": "0005",
@@ -1903,6 +2061,21 @@
       "kind": "player",
       "label": "Swift, D'Andre",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0005",
+            "from": "2025-10-03",
+            "to": "2026-07-27"
+          }
+        ]
+      },
       "notes": [],
       "role": "consideration",
       "transfers": [],
@@ -1913,6 +2086,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-08-07",
             "date_quality": "recorded",
             "from": "0010",
@@ -1940,6 +2114,7 @@
             "trade": "trade2025_34"
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-11-25",
             "date_quality": "recorded",
             "from": "0005",
@@ -1969,6 +2144,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "origin": "asserted_by_first_record"
@@ -1981,6 +2157,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-08-07",
@@ -1996,6 +2173,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "date": "2025-11-25",
@@ -2028,6 +2206,21 @@
       "kind": "future_pick",
       "label": "2026 round 2 pick, original franchise 0007",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0010",
+            "from": "2025-11-25",
+            "to": null
+          }
+        ]
+      },
       "notes": [],
       "resolution": {
         "candidate_slots": [
@@ -2114,6 +2307,14 @@
         "evidence_day": "2026-05-24",
         "evidence_kind": "mfl_slot_list",
         "holder_at_evidence": "0010",
+        "inventory": {
+          "complete": false,
+          "reasons": [
+            "a slot-token transfer exists for this season and round: slot-named transfers are not accounted for here"
+          ],
+          "slots_listed": 12,
+          "teams": 12
+        },
         "last_recorded_transfer_ts": "2025-11-25",
         "original_franchise": "0007",
         "reason": "custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof",
@@ -2127,6 +2328,7 @@
         {
           "cap_received": [],
           "cap_sent": [],
+          "class": "CONFIRMED",
           "companions_sent": [
             "player:16269",
             "fpick:0008:2026:2"
@@ -2149,6 +2351,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-11-25",
             "date_quality": "recorded",
             "from": "0010",
@@ -2178,6 +2381,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "origin": "asserted_by_first_record"
@@ -2190,6 +2394,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-11-25",
@@ -2209,6 +2414,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0003",
                 "plain_score_mismatches": [],
@@ -2232,6 +2438,7 @@
                 "weeks_verified": 0
               },
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0010",
                 "plain_score_mismatches": [],
@@ -2255,6 +2462,7 @@
                 "weeks_verified": 0
               },
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0005",
                 "plain_score_mismatches": [],
@@ -2281,6 +2489,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 3| TCV 36K| AAV 12K",
                 "contract_status": "Rookie",
                 "franchise": "0003",
@@ -2291,6 +2500,7 @@
                 "years_remaining": 1
               },
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 3| TCV 36K| AAV 12K",
                 "contract_status": "Rookie",
                 "franchise": "0010",
@@ -2301,6 +2511,7 @@
                 "years_remaining": 1
               },
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 3| TCV 36K| AAV 12K",
                 "contract_status": "Rookie",
                 "franchise": "0005",
@@ -2359,6 +2570,21 @@
       "kind": "player",
       "label": "Stroud, C.J.",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0005",
+            "from": "2025-11-25",
+            "to": null
+          }
+        ]
+      },
       "notes": [],
       "role": "consideration",
       "transfers": [],
@@ -2369,6 +2595,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-03-05",
             "date_quality": "recorded",
             "from": "0006",
@@ -2396,6 +2623,7 @@
             "trade": "trade2025_5"
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-03-20",
             "date_quality": "recorded",
             "from": "0005",
@@ -2419,6 +2647,7 @@
             "trade": "trade2025_10"
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-11-22",
             "date_quality": "recorded",
             "from": "0004",
@@ -2446,6 +2675,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0006",
             "from": {
               "origin": "asserted_by_first_record"
@@ -2458,6 +2688,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-03-05",
@@ -2473,6 +2704,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0004",
             "from": {
               "date": "2025-03-20",
@@ -2488,6 +2720,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0006",
             "from": {
               "date": "2025-11-22",
@@ -2521,6 +2754,21 @@
       "kind": "future_pick",
       "label": "2026 round 3 pick, original franchise 0006",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0006",
+            "from": "2025-11-22",
+            "to": null
+          }
+        ]
+      },
       "notes": [],
       "resolution": {
         "candidate_slots": [
@@ -2638,6 +2886,15 @@
         "evidence_day": "2026-05-24",
         "evidence_kind": "mfl_slot_list",
         "holder_at_evidence": "0006",
+        "inventory": {
+          "complete": false,
+          "reasons": [
+            "a slot-token transfer exists for this season and round: slot-named transfers are not accounted for here",
+            "the records and the evidence disagree on who holds the picks of the round (0006: records say 2, the evidence lists 3; 0007: records say 2, the evidence lists 1)"
+          ],
+          "slots_listed": 12,
+          "teams": 12
+        },
         "last_recorded_transfer_ts": "2025-11-22",
         "original_franchise": "0006",
         "reason": "custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof",
@@ -2651,6 +2908,7 @@
         {
           "cap_received": [],
           "cap_sent": [],
+          "class": "CONFIRMED",
           "companions_sent": [],
           "consideration": [
             "spick:2025:3:8"
@@ -2671,6 +2929,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-03-20",
             "date_quality": "recorded",
             "from": "0004",
@@ -2694,6 +2953,7 @@
             "trade": "trade2025_10"
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-05-25",
             "date_quality": "recorded",
             "from": "0005",
@@ -2719,6 +2979,7 @@
             "trade": "trade2025_17"
           },
           {
+            "class": "CONFIRMED",
             "date": "2025-05-25",
             "date_quality": "recorded",
             "from": "0001",
@@ -2750,6 +3011,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0004",
             "from": {
               "origin": "asserted_by_first_record"
@@ -2762,6 +3024,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-03-20",
@@ -2777,6 +3040,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0001",
             "from": {
               "date": "2025-05-25",
@@ -2792,6 +3056,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0011",
             "from": {
               "date": "2025-05-25",
@@ -2799,7 +3064,12 @@
               "time": "20:33:54",
               "trade": "trade2025_19"
             },
-            "to": null
+            "to": {
+              "date": "2025-05-25",
+              "kind": "draft_selection",
+              "time": "20:42:47",
+              "trade": null
+            }
           }
         ]
       },
@@ -2820,6 +3090,15 @@
       "kind": "slot_pick",
       "label": "2025 round 3, slot 8 (pick 3.08)",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": false,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "no possession period of this chain overlaps the unobserved trade period",
+        "possession_periods_spanning": []
+      },
       "notes": [],
       "resolution": {
         "class": "CONFIRMED",
@@ -2854,6 +3133,7 @@
         {
           "cap_received": [],
           "cap_sent": [],
+          "class": "CONFIRMED",
           "companions_sent": [
             "fpick:0005:2026:3"
           ],
@@ -2875,6 +3155,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-05-25",
             "date_quality": null,
             "from": null,
@@ -2898,6 +3179,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0011",
             "from": {
               "date": "2025-05-25",
@@ -2917,6 +3199,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0011",
                 "plain_score_mismatches": [],
@@ -2951,6 +3234,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 3| TCV 6K| AAV 2K",
                 "contract_status": "Rookie",
                 "franchise": "0011",
@@ -3016,6 +3300,21 @@
       "kind": "player",
       "label": "Arroyo, Elijah",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0011",
+            "from": "2025-05-25",
+            "to": null
+          }
+        ]
+      },
       "notes": [],
       "role": "drafted_player",
       "transfers": [],
@@ -3027,6 +3326,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-05-25",
             "date_quality": "recorded",
             "from": "0001",
@@ -3054,6 +3354,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0001",
             "from": {
               "origin": "asserted_by_first_record"
@@ -3066,6 +3367,7 @@
             }
           },
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-05-25",
@@ -3073,7 +3375,12 @@
               "time": "20:24:12",
               "trade": "trade2025_17"
             },
-            "to": null
+            "to": {
+              "date": "2025-05-25",
+              "kind": "draft_selection",
+              "time": "20:25:01",
+              "trade": null
+            }
           }
         ]
       },
@@ -3094,6 +3401,15 @@
       "kind": "slot_pick",
       "label": "2025 round 3, slot 2 (pick 3.02)",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": false,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "no possession period of this chain overlaps the unobserved trade period",
+        "possession_periods_spanning": []
+      },
       "notes": [],
       "resolution": {
         "class": "CONFIRMED",
@@ -3132,6 +3448,7 @@
         "breaks": [],
         "events": [
           {
+            "class": "CONFIRMED",
             "date": "2025-05-25",
             "date_quality": null,
             "from": null,
@@ -3155,6 +3472,7 @@
         ],
         "holders": [
           {
+            "class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-05-25",
@@ -3174,6 +3492,7 @@
           {
             "by_franchise": [
               {
+                "class": "CALCULATED",
                 "disputed_weeks": [],
                 "franchise": "0005",
                 "plain_score_mismatches": [],
@@ -3208,6 +3527,7 @@
             ],
             "contract_by_roster_weeks": [
               {
+                "class": "CONFIRMED",
                 "contract_info": "CL 3| TCV 6K| AAV 2K",
                 "contract_status": "Rookie",
                 "franchise": "0005",
@@ -3273,6 +3593,21 @@
       "kind": "player",
       "label": "Taylor, Mason",
       "link_class": "CONFIRMED",
+      "named_gap": {
+        "crosses": true,
+        "gap": {
+          "from": "2025-11-28",
+          "to": "2026-03-07"
+        },
+        "note": "a possession period of this chain spans the unobserved trade period: a transfer inside it would not be in any source, so the chain's holders there are as recorded before and after, not proven in between",
+        "possession_periods_spanning": [
+          {
+            "franchise": "0005",
+            "from": "2025-05-25",
+            "to": null
+          }
+        ]
+      },
       "notes": [],
       "role": "drafted_player",
       "transfers": [],
@@ -3657,12 +3992,15 @@
   "trades": {
     "trade2024_30": {
       "cap": [],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2024-07-24",
       "date_quality": "recorded",
       "id": "trade2024_30",
       "legs": [
         {
           "asset": "player:14104",
+          "class": "CONFIRMED",
           "from": "0008",
           "kind": "player",
           "label": "Brown, A.J.",
@@ -3676,6 +4014,7 @@
         },
         {
           "asset": "player:13130",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "player",
           "label": "McCaffrey, Christian",
@@ -3711,12 +4050,15 @@
     },
     "trade2025_10": {
       "cap": [],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2025-03-20",
       "date_quality": "recorded",
       "id": "trade2025_10",
       "legs": [
         {
           "asset": "spick:2025:3:8",
+          "class": "CONFIRMED",
           "from": "0004",
           "kind": "slot_pick",
           "label": null,
@@ -3730,6 +4072,7 @@
         },
         {
           "asset": "fpick:0006:2026:3",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "future_pick",
           "label": null,
@@ -3765,12 +4108,15 @@
     },
     "trade2025_17": {
       "cap": [],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2025-05-25",
       "date_quality": "recorded",
       "id": "trade2025_17",
       "legs": [
         {
           "asset": "spick:2025:3:8",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "slot_pick",
           "label": null,
@@ -3784,6 +4130,7 @@
         },
         {
           "asset": "fpick:0005:2026:3",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "future_pick",
           "label": null,
@@ -3797,6 +4144,7 @@
         },
         {
           "asset": "spick:2025:3:2",
+          "class": "CONFIRMED",
           "from": "0001",
           "kind": "slot_pick",
           "label": null,
@@ -3834,12 +4182,15 @@
     },
     "trade2025_19": {
       "cap": [],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2025-05-25",
       "date_quality": "recorded",
       "id": "trade2025_19",
       "legs": [
         {
           "asset": "spick:2025:3:8",
+          "class": "CONFIRMED",
           "from": "0001",
           "kind": "slot_pick",
           "label": null,
@@ -3853,6 +4204,7 @@
         },
         {
           "asset": "spick:2025:5:4",
+          "class": "CONFIRMED",
           "from": "0001",
           "kind": "slot_pick",
           "label": null,
@@ -3866,6 +4218,7 @@
         },
         {
           "asset": "fpick:0001:2026:4",
+          "class": "CONFIRMED",
           "from": "0001",
           "kind": "future_pick",
           "label": null,
@@ -3879,6 +4232,7 @@
         },
         {
           "asset": "spick:2025:3:4",
+          "class": "CONFIRMED",
           "from": "0011",
           "kind": "slot_pick",
           "label": null,
@@ -3892,6 +4246,7 @@
         },
         {
           "asset": "spick:2025:5:3",
+          "class": "CONFIRMED",
           "from": "0011",
           "kind": "slot_pick",
           "label": null,
@@ -3933,12 +4288,15 @@
     },
     "trade2025_34": {
       "cap": [],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2025-08-07",
       "date_quality": "recorded",
       "id": "trade2025_34",
       "legs": [
         {
           "asset": "player:17051",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "player",
           "label": "Judkins, Quinshon",
@@ -3952,6 +4310,7 @@
         },
         {
           "asset": "player:16644",
+          "class": "CONFIRMED",
           "from": "0010",
           "kind": "player",
           "label": "Sinnott, Ben",
@@ -3965,6 +4324,7 @@
         },
         {
           "asset": "fpick:0010:2026:2",
+          "class": "CONFIRMED",
           "from": "0010",
           "kind": "future_pick",
           "label": null,
@@ -3978,6 +4338,7 @@
         },
         {
           "asset": "fpick:0007:2026:2",
+          "class": "CONFIRMED",
           "from": "0010",
           "kind": "future_pick",
           "label": null,
@@ -4019,6 +4380,7 @@
       "cap": [
         {
           "amount": 25000,
+          "class": "CONFIRMED",
           "from": "0004",
           "rows": [
             "trade2025_41.5a",
@@ -4028,12 +4390,15 @@
           "token": null
         }
       ],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2025-08-19",
       "date_quality": "recorded",
       "id": "trade2025_41",
       "legs": [
         {
           "asset": "player:13130",
+          "class": "CONFIRMED",
           "from": "0004",
           "kind": "player",
           "label": "McCaffrey, Christian",
@@ -4047,6 +4412,7 @@
         },
         {
           "asset": "fpick:0004:2026:1",
+          "class": "CONFIRMED",
           "from": "0004",
           "kind": "future_pick",
           "label": null,
@@ -4060,6 +4426,7 @@
         },
         {
           "asset": "fpick:0005:2026:1",
+          "class": "CONFIRMED",
           "from": "0004",
           "kind": "future_pick",
           "label": null,
@@ -4073,6 +4440,7 @@
         },
         {
           "asset": "fpick:0006:2026:1",
+          "class": "CONFIRMED",
           "from": "0004",
           "kind": "future_pick",
           "label": null,
@@ -4086,6 +4454,7 @@
         },
         {
           "asset": "player:16162",
+          "class": "CONFIRMED",
           "from": "0007",
           "kind": "player",
           "label": "Gibbs, Jahmyr",
@@ -4099,6 +4468,7 @@
         },
         {
           "asset": "fpick:0008:2026:5",
+          "class": "CONFIRMED",
           "from": "0007",
           "kind": "future_pick",
           "label": null,
@@ -4112,6 +4482,7 @@
         },
         {
           "asset": "fpick:0010:2026:5",
+          "class": "CONFIRMED",
           "from": "0007",
           "kind": "future_pick",
           "label": null,
@@ -4161,6 +4532,7 @@
       "cap": [
         {
           "amount": 20000,
+          "class": "CONFIRMED",
           "from": "0005",
           "rows": [
             "trade2025_5.2a",
@@ -4170,12 +4542,15 @@
           "token": null
         }
       ],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2025-03-05",
       "date_quality": "recorded",
       "id": "trade2025_5",
       "legs": [
         {
           "asset": "player:14104",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "player",
           "label": "Brown, A.J.",
@@ -4189,6 +4564,7 @@
         },
         {
           "asset": "spick:2025:1:8",
+          "class": "CONFIRMED",
           "from": "0006",
           "kind": "slot_pick",
           "label": null,
@@ -4202,6 +4578,7 @@
         },
         {
           "asset": "fpick:0006:2026:3",
+          "class": "CONFIRMED",
           "from": "0006",
           "kind": "future_pick",
           "label": null,
@@ -4243,6 +4620,7 @@
       "cap": [
         {
           "amount": 11000,
+          "class": "CONFIRMED",
           "from": "0011",
           "rows": [
             "trade2025_53.5a",
@@ -4252,12 +4630,15 @@
           "token": null
         }
       ],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2025-10-03",
       "date_quality": "recorded",
       "id": "trade2025_53",
       "legs": [
         {
           "asset": "player:13146",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "player",
           "label": "Conner, James",
@@ -4271,6 +4652,7 @@
         },
         {
           "asset": "fpick:0010:2026:2",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "future_pick",
           "label": null,
@@ -4284,6 +4666,7 @@
         },
         {
           "asset": "fpick:0005:2026:4",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "future_pick",
           "label": null,
@@ -4297,6 +4680,7 @@
         },
         {
           "asset": "player:14797",
+          "class": "CONFIRMED",
           "from": "0011",
           "kind": "player",
           "label": "Swift, D'Andre",
@@ -4338,12 +4722,15 @@
     },
     "trade2025_71": {
       "cap": [],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2025-11-22",
       "date_quality": "recorded",
       "id": "trade2025_71",
       "legs": [
         {
           "asset": "player:15003",
+          "class": "CONFIRMED",
           "from": "0004",
           "kind": "player",
           "label": "Stone, Geno",
@@ -4357,6 +4744,7 @@
         },
         {
           "asset": "fpick:0006:2026:3",
+          "class": "CONFIRMED",
           "from": "0004",
           "kind": "future_pick",
           "label": null,
@@ -4370,6 +4758,7 @@
         },
         {
           "asset": "player:16708",
+          "class": "CONFIRMED",
           "from": "0006",
           "kind": "player",
           "label": "Smith, Tykee",
@@ -4407,12 +4796,15 @@
     },
     "trade2025_72": {
       "cap": [],
+      "class": "CONFIRMED",
+      "class_basis": "a recorded MFL trade",
       "date": "2025-11-25",
       "date_quality": "recorded",
       "id": "trade2025_72",
       "legs": [
         {
           "asset": "player:16150",
+          "class": "CONFIRMED",
           "from": "0010",
           "kind": "player",
           "label": "Stroud, C.J.",
@@ -4426,6 +4818,7 @@
         },
         {
           "asset": "player:16269",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "player",
           "label": "Strange, Brenton",
@@ -4439,6 +4832,7 @@
         },
         {
           "asset": "fpick:0008:2026:2",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "future_pick",
           "label": null,
@@ -4452,6 +4846,7 @@
         },
         {
           "asset": "fpick:0007:2026:2",
+          "class": "CONFIRMED",
           "from": "0005",
           "kind": "future_pick",
           "label": null,

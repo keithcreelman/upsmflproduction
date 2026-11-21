@@ -40,7 +40,7 @@ The pilot passes only if all of these hold (`scripts/league_record/s1/acceptance
 3. Dates, times, date quality, asset identity and both franchise ids are preserved.
 4. Chains replay the recorded trades; discontinuities are listed, not repaired.
 5. Every slot comes from an MFL slot token and the MFL draft result; a future pick is never confirmed to a slot.
-6. The uniqueness inference applies only when all of its conditions hold; otherwise UNRESOLVED.
+6. The uniqueness inference applies only when all of its conditions hold, including a demonstrably complete pick inventory for the round on the evidence date; otherwise UNRESOLVED.
 7. No owner field or claim anywhere.
 8. Possession comes from events; roster-record disagreements are listed.
 9. The build fails if a ranking, bracket, projection or derived draft order is read.
@@ -48,9 +48,9 @@ The pilot passes only if all of these hold (`scripts/league_record/s1/acceptance
 11. Every salary equals the recorded roster row; none estimated.
 12. The trace stops at the generation limit and lists the frontier.
 13. The 2025-11-28 to 2026-03-07 gap and every break are listed; no pick that crosses the gap is resolved.
-14. Two builds are byte-identical and match the committed bundle; read-only; no network.
+14. Two builds are byte-identical and match the committed bundle; read-only; no network call pattern in the extraction code.
 15. Only franchise ids, team names and player names; no private data.
-16. Independent review and CI on the exact head.
+16. Independent review on the exact head; CI on the head and on the merge result of the head with the base, both SHAs named.
 
 ## 6. Sequence and what needs a decision
 

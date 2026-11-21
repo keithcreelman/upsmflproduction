@@ -10,7 +10,7 @@
 
 1. **Surrendered (trade2024_30 on 2024-07-24 08:51:24 (archive table transactions_trades, group trade2024_30)):** McCaffrey, Christian (player:13130); no pick and no cap money moved in that trade. HammerTime received Brown, A.J..
 2. **Brown's production for 0005:** 239.1 verified points in 13 scored weeks (239.1 while started) in 2024. Weeks without a scoring row (2, 3, 4, 5) carry no points; none was filled with zero.
-3. **Salary he carried:** 19,000 for 2024 on a BL contract (2 year(s) remaining; recorded text `CL 2| TCV 92K| AAV 46K|Y1-19 Y2-73 | Ext: Sex, Creel`); the recorded second-year amount that moved with him in March 2025 is 73,000 (franchise 0006's 2025 roster record).
+3. **Salary he carried:** 19,000 for 2024 on a BL contract (2 year(s) remaining; recorded text `CL 2| TCV 92K| AAV 46K|Y1-19 Y2-73 | Ext: Sex, Creel`); the first 2025 weekly roster record for franchise 0006 shows 73,000. Two roster records show two amounts; the contract text changes between them, so this is not proof that one obligation carried over unchanged.
 4. **Received when Brown was traded (trade2025_5 on 2025-03-05 13:18:22 (archive table transactions_trades, group trade2025_5)):** 2025 round 1, slot 8 (pick 1.08); 2026 round 3 pick, original franchise 0006. HammerTime also sent 20,000 in cap money (a recorded cap transfer from 0005 to 0006).
 5. **The 2025 pick** (slot 8, MFL's own slot token) was selected by 0005 on 2025-05-25: Judkins, Quinshon, CONFIRMED by the MFL draft result for that slot. The **2026 round 3 pick** was traded again and came home to its original franchise; its slot is UNRESOLVED (section 5).
 6. **Judkins was traded** (trade2025_34 on 2025-08-07 10:54:26 (archive table transactions_trades, group trade2025_34)) for Sinnott, Ben and the two 2026 round 2 picks, each of which was traded again (sections 3 and 5).
@@ -20,22 +20,22 @@
 
 Generation 0 is the upstream trade and Brown; each trade of an asset by 0005 adds the consideration it received as the next generation; a pick that becomes a player adds one generation. Limit: generation 4.
 
-| Gen | Asset | Role | Entered by | Link class | Possession periods (franchise, from, to) | Final known position |
-|---|---|---|---|---|---|---|
-| 0 | McCaffrey, Christian (player:13130) | surrendered upstream | trade2024_30 2024-07-24 | CONFIRMED | 0005 (asserted by the first record) to 2024-07-24 (trade trade2024_30); 0008 2024-07-24 to 2025-08-05 (add); 0004 2025-08-05 to 2025-08-19 (trade trade2025_41); 0007 2025-08-19 to 2026-07-19 (drop); 0009 2026-07-29 to now | 0009 on 2026-11-19 |
-| 0 | Brown, A.J. (player:14104) | acquired upstream | trade2024_30 2024-07-24 | CONFIRMED | 0008 (asserted by the first record) to 2024-07-24 (trade trade2024_30); 0005 2024-07-24 to 2025-03-05 (trade trade2025_5); 0006 2025-03-05 to now | 0006 on 2026-11-19 |
-| 1 | 2025 round 1, slot 8 (pick 1.08) (spick:2025:1:8) | consideration | trade2025_5 2025-03-05 | CONFIRMED | 0006 (asserted by the first record) to 2025-03-05 (trade trade2025_5); 0005 2025-03-05 to now | CONFIRMED -> player:17051 |
-| 2 | Judkins, Quinshon (player:17051) | drafted player | draft_selection 2025-05-25 | CONFIRMED | 0005 2025-05-25 to 2025-08-07 (trade trade2025_34); 0010 2025-08-07 to now | 0010 on 2026-11-19 |
-| 3 | Sinnott, Ben (player:16644) | consideration | trade2025_34 2025-08-07 | CONFIRMED | 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to now | 0005 on 2026-11-19 |
-| 3 | 2026 round 2 pick, original franchise 0010 (fpick:0010:2026:2) | consideration | trade2025_34 2025-08-07 | CONFIRMED | 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to 2025-10-03 (trade trade2025_53); 0011 2025-10-03 to now | UNRESOLVED |
-| 4 | Swift, D'Andre (player:14797) | consideration | trade2025_53 2025-10-03 | CONFIRMED | 0011 (asserted by the first record) to 2025-10-03 (trade trade2025_53); 0005 2025-10-03 to 2026-07-27 (add); 0002 2026-07-27 to now | 0002 on 2026-11-19 |
-| 3 | 2026 round 2 pick, original franchise 0007 (fpick:0007:2026:2) | consideration | trade2025_34 2025-08-07 | CONFIRMED | 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to 2025-11-25 (trade trade2025_72); 0010 2025-11-25 to now | UNRESOLVED |
-| 4 | Stroud, C.J. (player:16150) | consideration | trade2025_72 2025-11-25 | CONFIRMED | 0010 (asserted by the first record) to 2025-11-25 (trade trade2025_72); 0005 2025-11-25 to now | 0005 on 2026-11-19 |
-| 1 | 2026 round 3 pick, original franchise 0006 (fpick:0006:2026:3) | consideration | trade2025_5 2025-03-05 | CONFIRMED | 0006 (asserted by the first record) to 2025-03-05 (trade trade2025_5); 0005 2025-03-05 to 2025-03-20 (trade trade2025_10); 0004 2025-03-20 to 2025-11-22 (trade trade2025_71); 0006 2025-11-22 to now | UNRESOLVED |
-| 2 | 2025 round 3, slot 8 (pick 3.08) (spick:2025:3:8) | consideration | trade2025_10 2025-03-20 | CONFIRMED | 0004 (asserted by the first record) to 2025-03-20 (trade trade2025_10); 0005 2025-03-20 to 2025-05-25 (trade trade2025_17); 0001 2025-05-25 to 2025-05-25 (trade trade2025_19); 0011 2025-05-25 to now | CONFIRMED -> player:17108 |
-| 3 | Arroyo, Elijah (player:17108) | drafted player | draft_selection 2025-05-25 | CONFIRMED | 0011 2025-05-25 to now | 0011 on 2026-11-19 |
-| 3 | 2025 round 3, slot 2 (pick 3.02) (spick:2025:3:2) | consideration | trade2025_17 2025-05-25 | CONFIRMED | 0001 (asserted by the first record) to 2025-05-25 (trade trade2025_17); 0005 2025-05-25 to now | CONFIRMED -> player:17106 |
-| 4 | Taylor, Mason (player:17106) | drafted player | draft_selection 2025-05-25 | CONFIRMED | 0005 2025-05-25 to now | 0005 on 2026-11-19 |
+| Gen | Asset | Role | Entered by | Link class | Possession periods (franchise, from, to) | Crosses the unobserved trade period | Final known position |
+|---|---|---|---|---|---|---|---|
+| 0 | McCaffrey, Christian (player:13130) | surrendered upstream | trade2024_30 2024-07-24 | CONFIRMED | 0005 (asserted by the first record) to 2024-07-24 (trade trade2024_30); 0008 2024-07-24 to 2025-08-05 (add); 0004 2025-08-05 to 2025-08-19 (trade trade2025_41); 0007 2025-08-19 to 2026-07-19 (drop); 0009 2026-07-29 to no recorded end | YES | 0009 on 2026-11-19 |
+| 0 | Brown, A.J. (player:14104) | acquired upstream | trade2024_30 2024-07-24 | CONFIRMED | 0008 (asserted by the first record) to 2024-07-24 (trade trade2024_30); 0005 2024-07-24 to 2025-03-05 (trade trade2025_5); 0006 2025-03-05 to no recorded end | YES | 0006 on 2026-11-19 |
+| 1 | 2025 round 1, slot 8 (pick 1.08) (spick:2025:1:8) | consideration | trade2025_5 2025-03-05 | CONFIRMED | 0006 (asserted by the first record) to 2025-03-05 (trade trade2025_5); 0005 2025-03-05 to 2025-05-25 (draft_selection) | no | CONFIRMED -> player:17051 |
+| 2 | Judkins, Quinshon (player:17051) | drafted player | draft_selection 2025-05-25 | CONFIRMED | 0005 2025-05-25 to 2025-08-07 (trade trade2025_34); 0010 2025-08-07 to no recorded end | YES | 0010 on 2026-11-19 |
+| 3 | Sinnott, Ben (player:16644) | consideration | trade2025_34 2025-08-07 | CONFIRMED | 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to no recorded end | YES | 0005 on 2026-11-19 |
+| 3 | 2026 round 2 pick, original franchise 0010 (fpick:0010:2026:2) | consideration | trade2025_34 2025-08-07 | CONFIRMED | 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to 2025-10-03 (trade trade2025_53); 0011 2025-10-03 to no recorded end | YES | UNRESOLVED |
+| 4 | Swift, D'Andre (player:14797) | consideration | trade2025_53 2025-10-03 | CONFIRMED | 0011 (asserted by the first record) to 2025-10-03 (trade trade2025_53); 0005 2025-10-03 to 2026-07-27 (add); 0002 2026-07-27 to no recorded end | YES | 0002 on 2026-11-19 |
+| 3 | 2026 round 2 pick, original franchise 0007 (fpick:0007:2026:2) | consideration | trade2025_34 2025-08-07 | CONFIRMED | 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to 2025-11-25 (trade trade2025_72); 0010 2025-11-25 to no recorded end | YES | UNRESOLVED |
+| 4 | Stroud, C.J. (player:16150) | consideration | trade2025_72 2025-11-25 | CONFIRMED | 0010 (asserted by the first record) to 2025-11-25 (trade trade2025_72); 0005 2025-11-25 to no recorded end | YES | 0005 on 2026-11-19 |
+| 1 | 2026 round 3 pick, original franchise 0006 (fpick:0006:2026:3) | consideration | trade2025_5 2025-03-05 | CONFIRMED | 0006 (asserted by the first record) to 2025-03-05 (trade trade2025_5); 0005 2025-03-05 to 2025-03-20 (trade trade2025_10); 0004 2025-03-20 to 2025-11-22 (trade trade2025_71); 0006 2025-11-22 to no recorded end | YES | UNRESOLVED |
+| 2 | 2025 round 3, slot 8 (pick 3.08) (spick:2025:3:8) | consideration | trade2025_10 2025-03-20 | CONFIRMED | 0004 (asserted by the first record) to 2025-03-20 (trade trade2025_10); 0005 2025-03-20 to 2025-05-25 (trade trade2025_17); 0001 2025-05-25 to 2025-05-25 (trade trade2025_19); 0011 2025-05-25 to 2025-05-25 (draft_selection) | no | CONFIRMED -> player:17108 |
+| 3 | Arroyo, Elijah (player:17108) | drafted player | draft_selection 2025-05-25 | CONFIRMED | 0011 2025-05-25 to no recorded end | YES | 0011 on 2026-11-19 |
+| 3 | 2025 round 3, slot 2 (pick 3.02) (spick:2025:3:2) | consideration | trade2025_17 2025-05-25 | CONFIRMED | 0001 (asserted by the first record) to 2025-05-25 (trade trade2025_17); 0005 2025-05-25 to 2025-05-25 (draft_selection) | no | CONFIRMED -> player:17106 |
+| 4 | Taylor, Mason (player:17106) | drafted player | draft_selection 2025-05-25 | CONFIRMED | 0005 2025-05-25 to no recorded end | YES | 0005 on 2026-11-19 |
 
 ## 3. Every transfer by 0005 and what it received
 
@@ -84,31 +84,34 @@ Confirmed-only total for 0005: **662.6** verified points (assets counted: 8; ass
 
 | Pick | Chain (franchise, date) | Slot evidence | Draft result | Class |
 |---|---|---|---|---|
-| 2025 round 1, slot 8 (pick 1.08) | 0006 (asserted by the first record) to 2025-03-05 (trade trade2025_5); 0005 2025-03-05 to now | MFL slot token in the trade record names slot 8 | franchise 0005 selected player 17051 on 2025-05-25 (draftresults_mfl) | CONFIRMED: Judkins, Quinshon |
-| 2025 round 3, slot 8 (pick 3.08) | 0004 (asserted by the first record) to 2025-03-20 (trade trade2025_10); 0005 2025-03-20 to 2025-05-25 (trade trade2025_17); 0001 2025-05-25 to 2025-05-25 (trade trade2025_19); 0011 2025-05-25 to now | MFL slot token in the trade record names slot 8 | franchise 0011 selected player 17108 on 2025-05-25 (draftresults_mfl) | CONFIRMED: Arroyo, Elijah |
-| 2025 round 3, slot 2 (pick 3.02) | 0001 (asserted by the first record) to 2025-05-25 (trade trade2025_17); 0005 2025-05-25 to now | MFL slot token in the trade record names slot 2 | franchise 0005 selected player 17106 on 2025-05-25 (draftresults_mfl) | CONFIRMED: Taylor, Mason |
+| 2025 round 1, slot 8 (pick 1.08) | 0006 (asserted by the first record) to 2025-03-05 (trade trade2025_5); 0005 2025-03-05 to 2025-05-25 (draft_selection) | MFL slot token in the trade record names slot 8 | franchise 0005 selected player 17051 on 2025-05-25 (draftresults_mfl) | CONFIRMED: Judkins, Quinshon |
+| 2025 round 3, slot 8 (pick 3.08) | 0004 (asserted by the first record) to 2025-03-20 (trade trade2025_10); 0005 2025-03-20 to 2025-05-25 (trade trade2025_17); 0001 2025-05-25 to 2025-05-25 (trade trade2025_19); 0011 2025-05-25 to 2025-05-25 (draft_selection) | MFL slot token in the trade record names slot 8 | franchise 0011 selected player 17108 on 2025-05-25 (draftresults_mfl) | CONFIRMED: Arroyo, Elijah |
+| 2025 round 3, slot 2 (pick 3.02) | 0001 (asserted by the first record) to 2025-05-25 (trade trade2025_17); 0005 2025-05-25 to 2025-05-25 (draft_selection) | MFL slot token in the trade record names slot 2 | franchise 0005 selected player 17106 on 2025-05-25 (draftresults_mfl) | CONFIRMED: Taylor, Mason |
 
 ### Future picks: the token names the ORIGINAL franchise, not a slot
 
-**2026 round 2 pick, original franchise 0010** (fpick:0010:2026:2) is **UNRESOLVED**. Chain: 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to 2025-10-03 (trade trade2025_53); 0011 2025-10-03 to now. custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof
+**2026 round 2 pick, original franchise 0010** (fpick:0010:2026:2) is **UNRESOLVED**. Chain: 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to 2025-10-03 (trade trade2025_53); 0011 2025-10-03 to no recorded end. custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof
 - Evidence date: 2026-05-24 (mfl_slot_list); holder then: 0011; last recorded transfer: 2025-10-03.
+- Round inventory on the evidence date: NOT demonstrably complete (a slot-token transfer exists for this season and round: slot-named transfers are not accounted for here); 12 slot(s) listed for 12 teams.
 - Unobserved: 2025-11-28 to 2026-03-07 (incomplete_trade_coverage).
 - Candidate slot 7: on 2026-04-21 held by 0011 (notes: Pick traded from Blake Bombers.); on 2026-05-24 held by 0011; draft result: franchise 0011, name not in the archive (17476). **A candidate only; it counts for nothing.**
 
-**2026 round 2 pick, original franchise 0007** (fpick:0007:2026:2) is **UNRESOLVED**. Chain: 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to 2025-11-25 (trade trade2025_72); 0010 2025-11-25 to now. custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof
+**2026 round 2 pick, original franchise 0007** (fpick:0007:2026:2) is **UNRESOLVED**. Chain: 0010 (asserted by the first record) to 2025-08-07 (trade trade2025_34); 0005 2025-08-07 to 2025-11-25 (trade trade2025_72); 0010 2025-11-25 to no recorded end. custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof
 - Evidence date: 2026-05-24 (mfl_slot_list); holder then: 0010; last recorded transfer: 2025-11-25.
+- Round inventory on the evidence date: NOT demonstrably complete (a slot-token transfer exists for this season and round: slot-named transfers are not accounted for here); 12 slot(s) listed for 12 teams.
 - Unobserved: 2025-11-28 to 2026-03-07 (incomplete_trade_coverage).
 - Candidate slot 4: on 2026-04-21 held by 0010 (notes: Pick traded from Real Deal Creel.); on 2026-05-24 held by 0010; draft result: franchise 0010, name not in the archive (17463). **A candidate only; it counts for nothing.**
 - Candidate slot 11: on 2026-04-21 held by 0010 (notes: Pick traded from Sex Manther.); on 2026-05-24 held by 0010; draft result: franchise 0010, name not in the archive (17478). **A candidate only; it counts for nothing.**
 
-**2026 round 3 pick, original franchise 0006** (fpick:0006:2026:3) is **UNRESOLVED**. Chain: 0006 (asserted by the first record) to 2025-03-05 (trade trade2025_5); 0005 2025-03-05 to 2025-03-20 (trade trade2025_10); 0004 2025-03-20 to 2025-11-22 (trade trade2025_71); 0006 2025-11-22 to now. custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof
+**2026 round 3 pick, original franchise 0006** (fpick:0006:2026:3) is **UNRESOLVED**. Chain: 0006 (asserted by the first record) to 2025-03-05 (trade trade2025_5); 0005 2025-03-05 to 2025-03-20 (trade trade2025_10); 0004 2025-03-20 to 2025-11-22 (trade trade2025_71); 0006 2025-11-22 to no recorded end. custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof
 - Evidence date: 2026-05-24 (mfl_slot_list); holder then: 0006; last recorded transfer: 2025-11-22.
+- Round inventory on the evidence date: NOT demonstrably complete (a slot-token transfer exists for this season and round: slot-named transfers are not accounted for here | the records and the evidence disagree on who holds the picks of the round (0006: records say 2, the evidence lists 3; 0007: records say 2, the evidence lists 1)); 12 slot(s) listed for 12 teams.
 - Unobserved: 2025-11-28 to 2026-03-07 (incomplete_trade_coverage).
 - Candidate slot 3: on 2026-04-21 held by 0006 (notes: none); on 2026-05-24 held by 0006; draft result: franchise 0006, name not in the archive (17482). **A candidate only; it counts for nothing.**
 - Candidate slot 4: on 2026-04-21 held by 0007 (notes: Pick traded from Real Deal Creel.); on 2026-05-24 held by 0006; draft result: franchise 0006, name not in the archive (17466). **A candidate only; it counts for nothing.**
 - Candidate slot 6: on 2026-04-21 held by 0007 (notes: Pick traded from CBP.); on 2026-05-24 held by 0006; draft result: franchise 0008, name not in the archive (17557), a different franchise from the last list's holder (the slot moved on draft day). **A candidate only; it counts for nothing.**
 
-**Inferred view (rule UNIQUE_HOLDER_V1):** empty. No pilot link meets the rule's conditions: every future pick's custody between its last recorded transfer and the evidence date crosses the unobserved period below, so uniqueness cannot be used as proof.
+**Inferred view (rule UNIQUE_HOLDER_V1):** empty. No pilot link meets the rule's conditions: every future pick's custody between its last recorded transfer and the evidence date crosses the unobserved period below, and no round's pick inventory is demonstrably complete (see each pick's inventory line above), so uniqueness cannot be used as proof.
 
 **Unresolved links:** fpick:0010:2026:2#slot, fpick:0007:2026:2#slot, fpick:0006:2026:3#slot.
 
@@ -124,7 +127,18 @@ Confirmed-only total for 0005: **662.6** verified points (assets counted: 8; ass
 **2025-11-28 to 2026-03-07: trade coverage is incomplete.** the archive's last TRADE is the deadline day; other archive transaction types run to the last archive transaction date; the first 2026 snapshot transaction starts the next observed period. Nothing observes a trade between them.
 - Last archive TRADE: 2025-11-27 (the deadline). Last archive transaction of any type: 2025-12-29. First 2026 snapshot transaction: 2026-03-07 19:13:45 Eastern. First 2026 snapshot TRADE: 2026-03-27.
 - Supporting indication only: trades by calendar month in the archive are {"10":137,"11":204,"12":1,"02":7,"03":54,"04":39,"05":144,"06":178,"07":65,"08":133,"09":74}; none has been recorded in month 01 and 1 in December (2014-12-30). That fits a closed window after the deadline; it cannot prove the window empty.
-- Chains that cross it: fpick:0010:2026:2, fpick:0007:2026:2, fpick:0006:2026:3.
+- **Chains that cross it (11 of 14 traced assets):** every possession period below spans the unobserved period, so a transfer in it would not be in any source. Players and picks are both listed.
+  - McCaffrey, Christian (player:13130): 0007 from 2025-08-19 to 2026-07-19
+  - Brown, A.J. (player:14104): 0006 from 2025-03-05 to no recorded end
+  - Judkins, Quinshon (player:17051): 0010 from 2025-08-07 to no recorded end
+  - Sinnott, Ben (player:16644): 0005 from 2025-08-07 to no recorded end
+  - 2026 round 2 pick, original franchise 0010 (fpick:0010:2026:2): 0011 from 2025-10-03 to no recorded end
+  - Swift, D'Andre (player:14797): 0005 from 2025-10-03 to 2026-07-27
+  - 2026 round 2 pick, original franchise 0007 (fpick:0007:2026:2): 0010 from 2025-11-25 to no recorded end
+  - Stroud, C.J. (player:16150): 0005 from 2025-11-25 to no recorded end
+  - 2026 round 3 pick, original franchise 0006 (fpick:0006:2026:3): 0006 from 2025-11-22 to no recorded end
+  - Arroyo, Elijah (player:17108): 0011 from 2025-05-25 to no recorded end
+  - Taylor, Mason (player:17106): 0005 from 2025-05-25 to no recorded end
 
 Other recorded gaps:
 
@@ -143,22 +157,22 @@ Annual stretches with no recorded transaction of any kind that overlap the trace
 
 | Test | Result | What it proves |
 |---|---|---|
-| T1 | PASS | every asset, link and event carries a class and a source reference |
+| T1 | PASS | every asset, link and event carries a class and a source reference (nodes, events, possession periods, breaks, trade legs, cap entries, transfers, departures, points, contracts) |
 | T2 | PASS | every trade in the bundle equals its raw archive rows or snapshot entry, checked by a separate code path |
 | T3 | PASS | every transaction keeps its date, time, date quality, asset identity and both franchise ids |
 | T4 | PASS | every chain replays the recorded trades; every discontinuity is listed, none is filled |
 | T5 | PASS | every slot comes from an MFL slot token and the MFL draft result for that slot; a future pick is never confirmed to a slot |
-| T6 | PASS | uniqueness infers only when the holder owns one slot AND custody is observed to the evidence date (INFERRED, labeled); two slots, an unobserved period or no evidence stay UNRESOLVED |
+| T6 | PASS | uniqueness infers only when the holder owns one slot AND the round's inventory is demonstrably complete AND custody is observed to the evidence date (INFERRED, labeled); two slots, an incomplete or disagreeing inventory, an unobserved period or no evidence stay UNRESOLVED |
 | T7 | PASS | no owner field or owner name anywhere; every statement is about a franchise id |
 | T8 | PASS | possession periods come from trade, draft and add or drop events; weekly-roster disagreements are listed, not used |
 | T9 | PASS | the build fails if the extraction reads any ranking or forecast data (draft slots come only from MFL draft results, slot tokens and slot lists): the runtime table guard and the static source scan are both clean |
 | T10 | PASS | points are per franchise and per possession, copy weeks are excluded, disputed weeks are not verified, and an INFERRED asset never enters a confirmed-only total |
 | T11 | PASS | every salary and contract shown equals the recorded weekly roster row; none is estimated; team cap totals are explicitly not computed |
 | T12 | PASS | the trace stops at the stated generation limit and every untraced continuation is listed on the frontier |
-| T13 | PASS | the 2025-11-28 to 2026-03-07 trade-coverage gap is on the list; no pick whose custody crosses it is resolved; every chain break is a listed gap |
-| T14 | PASS | two builds are byte-identical and match the committed bundle; the archive opens read-only; no extraction module can reach the network |
+| T13 | PASS | the 2025-11-28 to 2026-03-07 trade-coverage gap is on the list and is shown on every chain (player or pick) that crosses it; no pick whose custody crosses it is resolved; every chain break is a listed gap |
+| T14 | PASS | two builds are byte-identical and match the committed bundle; the archive opens read-only; no extraction module contains a network call pattern (fetch, http, net, WebSocket) |
 | T15 | PASS | only franchise ids, team names and player names appear; no owner column is read; no email, credential or chat text |
-| T16 | external | independent review (Codex) and CI on the exact head: recorded on the pull request, not asserted by this file |
+| T16 | external | independent review (Codex) on the exact head, and CI on the head and on the merge result of the head with the base, both SHAs named: recorded on the pull request, not asserted by this file |
 
 ## 9. Source references
 
