@@ -446,7 +446,7 @@ These are transactions you can do TO a player who's already on your roster. Defi
 
 **Loaded is a modifier, not a type.** Any 2- or 3-year contract can be front-loaded (`FL`) or back-loaded (`BL`) — an uneven year-by-year split of the same TCV. It attaches to Auction, Extension, and MYAC deals; it can never attach to a 1-year deal, a MYM, or a taxi contract.
 
-**`EXT1` / `EXT2` are not separate contract types** — they are the same Extension mechanism recording how many years were added. (`EXT3` also appears in the A3.1 taxonomy; every current rule caps an extension at 2 years, so treat `EXT3` as legacy data, not a live option.)
+**Extension is the contract family (the top-level contract type).** It adds 1 or 2 years to a player in the final year of his contract. `Ext1` (one year added) and `Ext2` (two years added) are its duration designations and the corresponding values of the `contract_type` field in C4 and T3.3, so the A3.1 table above lists one type, Extension, and both designations belong to it. When an extension is written into MFL's `contractStatus` string the contract carries the related status token: `Vet-Ext1` or `Rookie-Ext1`, `Vet-Ext2` or `Rookie-Ext2`. **An `Ext1` is initially flat** (one added year has no salary curve), so the extension itself never gives it a `-FL` / `-BL` suffix; a suffix can appear only after a later, permitted restructure (C5.1). An `Ext2` posts as plain `Ext2`, `Ext2-FL` or `Ext2-BL` according to its two years. (`EXT3` also appears in the A3.1 taxonomy; every current rule caps an extension at 2 years, so treat `EXT3` as legacy data, not a live option.)
 
 ### C1. Initial contract assignment (varies by entry path)
 
@@ -1808,6 +1808,8 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 ## B. Rule changes by year (bid-sheet relevant)
 
 > Each entry should record OLD value → NEW value with enough precision to normalize historical data. Where I have the old value, it's in this doc. Where I don't, **❓DETAIL NEEDED** flags it as a follow-up item for the chronicle work.
+
+> **What a heading year means (commissioner ruling, 2026-11-20):** a heading in this section establishes the year of that historical entry. It does not by itself prove when the rule took effect or was implemented. The heading year, the effective season, the vote date and the implementation date are separate facts and must never be treated as interchangeable; where an entry's own text gives one of the others (a dated vote, for example), cite that one. The 2022 entry is specifically supported as the start of the Superflex era by its own wording ("Superflex era begins").
 
 ### 2010
 - **FA Auction only — NO rookie draft.** Contracts maintained on Forumotion. Format was one-and-done by design.
