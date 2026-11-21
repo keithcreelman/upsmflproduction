@@ -23,7 +23,7 @@ const ISO = /^\d{4}-\d{2}-\d{2}$/;
 // A verification record is accepted only when every condition holds; the problems are returned, never thrown, so a bad record can never verify anything.
 const isDate = (d) => typeof d === "string" && ISO.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`)) && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d;     // a real calendar date, never 2020-02-30
 
-const decodeParams = (x) => { try { return decodeURIComponent(String(x).replace(/\+/g, " ")); } catch { return String(x); } };          // %43OUNT= is COUNT=
+const decodeParams = (x) => String(x).replace(/\+/g, " ").replace(/%([0-9a-fA-F]{2})/g, (_, h) => String.fromCharCode(parseInt(h, 16)));          // %43OUNT= is COUNT=; a malformed % elsewhere cannot stop the valid ones being decoded
 
 export function validateVerification(v) {
   const problems = [];

@@ -128,4 +128,4 @@ unset MFL_KEY_2025 MFL_KEY_2026 MFL_KEY_2014
 - The exact **field set** of `futureDraftPicks` beyond `year`, `round` and `originalPickFor`: only what this repository's code reads is relied on.
 - **Pending trade offers will appear** in a `TRANS_TYPE=TRADE` response according to MFL's documentation; they are dropped and counted by the sanitizer, never kept.
 - **MFL can return an error with HTTP 200**; the block checks the first bytes of each body.
-- **What the answers cannot show:** a response with no trade in the gap supports "this export, on this date, shows none"; it cannot show a pick-ownership change MFL never logged as a trade (a commissioner edit). The two future-picks end states (A3, A4) are the only check against that, and only as to the holder on their own dates.
+- **What the answers cannot show:** a response with no trade in the gap supports "this export, on this date, shows none"; it cannot show a pick-ownership change MFL never logged as a trade (a commissioner edit). The two future-picks end states (A3, A4) are the only check against that, and only as to the holder on the capture date (A4's is known; A3's is not).

@@ -190,11 +190,15 @@ CREATE TRIGGER lr_release_gate BEFORE INSERT ON lr_release              -- a rel
          OR NOT EXISTS (SELECT 1 FROM lr_coverage_check k WHERE k.coverage_id = c.coverage_id AND k.check_kind = 'end_state_reconciliation' AND k.passed = 1)
          OR EXISTS (SELECT 1 FROM lr_coverage_check k WHERE k.coverage_id = c.coverage_id AND k.passed = 0)))
   BEGIN SELECT RAISE(ABORT, 'a verified interval needs a passing archive comparison, a passing end-state reconciliation and no failed check'); END;
+CREATE TRIGGER lr_release_retire_only BEFORE UPDATE ON lr_release          -- a release row can only be retired once; its run and activation never change, so the insert-time gates cannot be walked around
+  WHEN NEW.release_id IS NOT OLD.release_id OR NEW.run_id IS NOT OLD.run_id OR NEW.activated_utc IS NOT OLD.activated_utc OR NEW.activated_by_ref IS NOT OLD.activated_by_ref OR (OLD.retired_utc IS NOT NULL AND NEW.retired_utc IS NOT OLD.retired_utc)
+  BEGIN SELECT RAISE(ABORT, 'a release can only be retired'); END;
 CREATE TRIGGER lr_release_not_excluded BEFORE INSERT ON lr_release WHEN EXISTS (SELECT 1 FROM lr_run_excluded e WHERE e.run_id = NEW.run_id)
   BEGIN SELECT RAISE(ABORT, 'an excluded (abandoned) run can never be released'); END;
 
--- updates: facts never change; a derived row may only be CLOSED (valid_to_run), so an UPDATE cannot walk around the insert rules above
+-- updates: facts never change; a derived row may only be CLOSED (valid_to_run set once, never reopened), so an UPDATE cannot walk around the insert rules above
 CREATE TRIGGER lr_facts_immutable_trade   BEFORE UPDATE ON lr_trade        BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
+CREATE TRIGGER lr_facts_immutable_party   BEFORE UPDATE ON lr_trade_party  BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
 CREATE TRIGGER lr_facts_immutable_leg     BEFORE UPDATE ON lr_trade_leg    BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
 CREATE TRIGGER lr_facts_immutable_cap     BEFORE UPDATE ON lr_trade_cap    BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
 CREATE TRIGGER lr_facts_immutable_event   BEFORE UPDATE ON lr_asset_event  BEGIN SELECT RAISE(ABORT, 'facts are append-only'); END;
@@ -205,16 +209,17 @@ CREATE TRIGGER lr_facts_immutable_check   BEFORE UPDATE ON lr_coverage_check BEG
 CREATE TRIGGER lr_link_close_only BEFORE UPDATE ON lr_link
   WHEN NEW.link_id IS NOT OLD.link_id OR NEW.link_type IS NOT OLD.link_type OR NEW.from_asset_key IS NOT OLD.from_asset_key OR NEW.to_season IS NOT OLD.to_season OR NEW.to_round IS NOT OLD.to_round OR NEW.to_slot IS NOT OLD.to_slot
     OR NEW.class IS NOT OLD.class OR NEW.method_id IS NOT OLD.method_id OR NEW.method_version IS NOT OLD.method_version OR NEW.blockers_json IS NOT OLD.blockers_json OR NEW.evidence_json IS NOT OLD.evidence_json OR NEW.valid_from_run IS NOT OLD.valid_from_run
+    OR (OLD.valid_to_run IS NOT NULL AND NEW.valid_to_run IS NOT OLD.valid_to_run)
   BEGIN SELECT RAISE(ABORT, 'a link can only be closed; a changed reading is a new link row'); END;
 CREATE TRIGGER lr_slot_close_only BEFORE UPDATE ON lr_draft_slot
-  WHEN NEW.season IS NOT OLD.season OR NEW.round IS NOT OLD.round OR NEW.slot IS NOT OLD.slot OR NEW.overall IS NOT OLD.overall OR NEW.status IS NOT OLD.status OR NEW.draft_row_id IS NOT OLD.draft_row_id OR NEW.valid_from_run IS NOT OLD.valid_from_run
+  WHEN NEW.season IS NOT OLD.season OR NEW.round IS NOT OLD.round OR NEW.slot IS NOT OLD.slot OR NEW.overall IS NOT OLD.overall OR NEW.status IS NOT OLD.status OR NEW.draft_row_id IS NOT OLD.draft_row_id OR NEW.valid_from_run IS NOT OLD.valid_from_run OR (OLD.valid_to_run IS NOT NULL AND NEW.valid_to_run IS NOT OLD.valid_to_run)
   BEGIN SELECT RAISE(ABORT, 'a slot row can only be closed; a changed status is a new row'); END;
 CREATE TRIGGER lr_coverage_close_only BEFORE UPDATE ON lr_coverage
-  WHEN NEW.coverage_id IS NOT OLD.coverage_id OR NEW.source_id IS NOT OLD.source_id OR NEW.event_class IS NOT OLD.event_class OR NEW.from_date IS NOT OLD.from_date OR NEW.to_date IS NOT OLD.to_date OR NEW.state IS NOT OLD.state OR NEW.basis IS NOT OLD.basis OR NEW.valid_from_run IS NOT OLD.valid_from_run
+  WHEN NEW.coverage_id IS NOT OLD.coverage_id OR NEW.source_id IS NOT OLD.source_id OR NEW.event_class IS NOT OLD.event_class OR NEW.from_date IS NOT OLD.from_date OR NEW.to_date IS NOT OLD.to_date OR NEW.state IS NOT OLD.state OR NEW.basis IS NOT OLD.basis OR NEW.valid_from_run IS NOT OLD.valid_from_run OR (OLD.valid_to_run IS NOT NULL AND NEW.valid_to_run IS NOT OLD.valid_to_run)
   BEGIN SELECT RAISE(ABORT, 'a coverage row can only be closed; a changed state is a new row'); END;
 CREATE TRIGGER lr_possession_close_only BEFORE UPDATE ON lr_possession
   WHEN NEW.possession_id IS NOT OLD.possession_id OR NEW.asset_key IS NOT OLD.asset_key OR NEW.franchise_id IS NOT OLD.franchise_id OR NEW.from_ts IS NOT OLD.from_ts OR NEW.to_ts IS NOT OLD.to_ts OR NEW.from_basis IS NOT OLD.from_basis
-    OR NEW.evidence_class IS NOT OLD.evidence_class OR NEW.weakest_coverage IS NOT OLD.weakest_coverage OR NEW.valid_from_run IS NOT OLD.valid_from_run
+    OR NEW.evidence_class IS NOT OLD.evidence_class OR NEW.weakest_coverage IS NOT OLD.weakest_coverage OR NEW.valid_from_run IS NOT OLD.valid_from_run OR (OLD.valid_to_run IS NOT NULL AND NEW.valid_to_run IS NOT OLD.valid_to_run)
   BEGIN SELECT RAISE(ABORT, 'a possession row can only be closed'); END;
 ```
 
