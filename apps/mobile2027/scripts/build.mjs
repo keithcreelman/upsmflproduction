@@ -32,7 +32,7 @@ export const MODE = "preview";
 
 export const FILES = [
   "index.html", "styles.css", "team-colors.css", "config.js", "app.js", "_headers",
-  "lib/format.js", "lib/contract.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/views.js",
+  "lib/format.js", "lib/contract.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/tabviews.js", "lib/views.js",
 ];
 
 // Shared modules taken from site/shared/ unchanged: the contract-window rules and the taxi rule, which the next stages need.

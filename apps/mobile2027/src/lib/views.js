@@ -9,11 +9,12 @@
     req ? require("./model.js") : root.UPS2027.model,
     req ? require("./photo.js") : root.UPS2027.photo,
     req ? require("./sample.js") : root.UPS2027.sample,
-    req ? require("./roster.js") : root.UPS2027.roster
+    req ? require("./roster.js") : root.UPS2027.roster,
+    req ? require("./tabviews.js") : root.UPS2027.tabviews
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.views = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R) {
+})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R, TV) {
   "use strict";
 
   var esc = F.esc, money = F.money, commonCode = F.commonCode;
@@ -62,9 +63,9 @@
     return '<div class="cap"><b>Active ' + of(t.counts.active, lim.roster) + "</b> · Taxi " + of(t.counts.taxi, lim.taxi) + " · IR " + of(t.counts.ir, lim.ir) + "</div>";
   }
 
-  var VIEWS = [["lineup", "Lineup"], ["performance", "Performance"], ["contracts", "Contracts"], ["byes", "Byes"]];
+  var VIEWS = [["lineup", "Lineup"], ["byes", "Byes"]];
   function seg(view) {
-    return '<div class="seg seg4" role="group" aria-label="Roster view">' +
+    return '<div class="seg" role="group" aria-label="Roster view">' +
       VIEWS.map(function (o) { return '<button data-act="view" data-v="' + o[0] + '" aria-pressed="' + (view === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
   }
 
@@ -79,7 +80,7 @@
   function weekSheet(S) {
     var wi = R.weekInfo(S);
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Choose a week" tabindex="-1"><div class="grab"></div><div class="top"><h3>Choose a week</h3><button class="btn" data-act="close">Close</button></div>' +
-      '<div class="ex">A past week shows that week’s lineup and scores as MFL recorded them, on Lineup and Performance. NFL opponents and bye weeks, injury status, rosters and contracts are only shown for the current week, and Contracts and Byes always show today’s data. Later weeks are not available in this preview.</div>' +
+      '<div class="ex">A past week shows that week’s lineup and scores as MFL recorded them, on Lineup. NFL opponents and bye weeks, injury status, rosters and contracts are only shown for the current week, and Byes always shows today’s data. Later weeks are not available in this preview.</div>' +
       R.weekChoices(wi.cur).map(function (c) {
         var label = c.kind === "current" ? "Current week" : c.kind === "past" ? "Played" : c.kind === "future" ? "Not available in this preview" : "Unavailable";
         var on = c.n === wi.sel, off = c.kind === "future" || c.kind === "unknown";
@@ -99,12 +100,7 @@
     var team = p.nflTeam || "No NFL team"; // MFL's own code, as the roster rows have always printed it
     var small = "", right = "", chips = [];
     var view = past ? "past" : S.view;
-    if (view === "contracts") {
-      var through = p.years ? "through " + (S.model.season + p.years - 1) : "no years recorded";
-      small = esc(p.type || "Type not recorded") + " · " + through + esc(R.capNote(p));
-      var sal = p.salary == null ? '<b class="wn">Not recorded</b>' : "<b>" + money(p.salary) + "</b>";
-      right = '<div class="rt">' + sal + (p.years === 1 ? chip("wn", "▲ Final year") : p.years ? '<span class="mu sm">' + p.years + " yrs left</span>" : "") + "</div>";
-    } else if (view === "byes") {
+    if (view === "byes") {
       // a row inside a bye group: the group already says which week, so the row says who he is to today's lineup
       small = nw(team) + " · " + (o.tag ? "current starter" : statusWord(p)) + (p.bye && wi.cur && p.bye < wi.cur ? " · bye was Week " + p.bye : "");
     } else {
@@ -129,27 +125,17 @@
       }
       if (p.status === "gone") parts.push("No longer on a UPS roster");
       else if (past && p.franchiseId && S.teamId && p.franchiseId !== S.teamId) parts.push("now on another team");
-      if (view === "performance" || view === "past") {
-        // R2b, P4: the bold number is the score of the COMPLETED week it is labeled with (Wk N, right under it): the week before the current
-        // one, or the past week chosen. Opponent and the season average support it. A score that is not recorded, or a read that failed,
-        // says so; nothing is filled in, and the unavailable projection is one line above, not a column.
-        var sw = past ? wk : R.scoreWeek(wi), rd = sw ? R.scoreRead(S, sw) : "none", sc = sw ? R.scoreOf(S, p.id, sw) : null;
-        var big = !sw ? "—" : rd === "loading" ? "…" : R.pts(sc);
-        var lab = !sw ? "" : rd === "error" ? "Unavailable" : "Wk " + sw;
-        right = '<div class="rt"><b>' + big + '</b><span class="mu sm">' + esc(lab) + "</span></div>";
-        if (!past) {
-          if (p.status !== "active") { parts = [esc(team), "not in play"]; right = ""; }
-          else {
-            var av = R.avgOf(S, p.id, wi.cur);
-            parts = parts.slice(1).concat(["Season avg " + (av === undefined ? "…" : R.pts(av))]);
-          }
-        }
+      if (view === "past") {
+        // R2b, P4: the bold number is the recorded score of the past week chosen, labeled "Wk N" right under it. A score that is not recorded,
+        // or a read that failed, says so; nothing is filled in.
+        var rd = R.scoreRead(S, wk), sc = R.scoreOf(S, p.id, wk);
+        right = '<div class="rt"><b>' + (rd === "loading" ? "…" : R.pts(sc)) + '</b><span class="mu sm">' + esc(rd === "error" ? "Unavailable" : "Wk " + wk) + "</span></div>";
       }
       small = parts.join(" · ");
     }
     if (!past) {
-      // the same chips on all four views (current information); a bye chip only for a starter on the Lineup and Performance views
-      if (R.onBye(p, wk) && o.tag && (S.view === "lineup" || S.view === "performance")) chips.push(chip("wn", "▲ Bye week"));
+      // the same chips on both views (current information); a bye chip only for a starter on the Lineup view
+      if (R.onBye(p, wk) && o.tag && S.view === "lineup") chips.push(chip("wn", "▲ Bye week"));
       var ic = R.injuryChip(S, p);
       if (ic) chips.push(chip(ic.cls, esc(ic.text)));
     }
@@ -212,11 +198,6 @@
       '<div class="ex mt4">Read only: nothing here can change the lineup.' + (doubtful ? " “Doubtful” means a decision may be needed, not that a player is out." : "") + "</div></div>";
   }
 
-  function teamScoreLine(S, t, wi) {
-    var sw = R.scoreWeek(wi), v = sw ? R.teamScoreOf(S, t.id, sw) : null;
-    return !sw ? "Unavailable" : v === undefined ? "…" : v === null ? "Unavailable" : R.pts(v) + " (Wk " + sw + ")";
-  }
-
   function lineupBlock(S, t, wi, lineup, past) {
     var lim = S.model.limits.starters || 18, wk = wi.sel;
     if (lineup.recorded) {
@@ -269,7 +250,7 @@
 
   function rosterBody(S) {
     var t = team(S), m = S.model, sel = R.weekInfo(S), wi = R.viewWeek(S), out = "";
-    var weekAware = S.view === "lineup" || S.view === "performance";
+    var weekAware = S.view === "lineup";
     out += teamPicker(t) + countsLine(t, m.limits);
     if (S.load.core !== "ok" && S.load.coreNotes && S.load.coreNotes.length) {
       out += '<div class="card warnc"><h2>Not everything loaded</h2>' + S.load.coreNotes.map(function (n) { return '<div class="ex">' + esc(n) + "</div>"; }).join("") + "</div>";
@@ -289,11 +270,7 @@
     var inj = R.injuryNote(S);
     if (lineup && lineup.state === "ok") {
       if (S.view === "lineup") out += startingCard(S, wi, lineup);
-      else if (S.view === "contracts") out += statusLine(S, lineup, wi, S.view) + sumCard("<b>" + R.endingAfterSeason(t) + " end after " + m.season + "</b>");
-      else if (S.view === "performance") {
-        out += statusLine(S, lineup, wi, S.view) + sumCard("<b>Team score " + esc(teamScoreLine(S, t, wi)) + "</b> · " + nw("Projection Unavailable")) +
-          '<div class="ex pad">' + (R.scoreWeek(wi) ? "Scores are for Week " + R.scoreWeek(wi) + ", the last completed week. Week " + cur + " is not complete." : "No week has been completed yet, so there are no scores to show. Week " + cur + " is not complete.") + "</div>";
-      } else out += statusLine(S, lineup, wi, S.view);
+      else out += statusLine(S, lineup, wi, S.view);
       if (inj) out += '<div class="ex pad">' + esc(inj) + "</div>";
       if (S.view === "byes") return out + byesBody(S, t, wi, lineup);
       out += lineupBlock(S, t, wi, lineup, false);
@@ -323,13 +300,14 @@
 
   function teamScreen(S) {
     var body;
-    var tabs = '<div class="tabs" role="tablist">' + [["roster", "Roster"], ["contracts", "Contracts"], ["cap", "Cap & picks"]].map(function (o) {
+    var tabs = '<div class="tabs tabs4" role="tablist">' + [["roster", "Roster"], ["contracts", "Contracts"], ["performance", "Performance"], ["cap", "Cap & picks"]].map(function (o) {
       return '<button role="tab" data-act="sub" data-v="' + o[0] + '" aria-selected="' + (S.sub === o[0]) + '">' + esc(o[1]) + "</button>";
     }).join("") + "</div>";
     if (S.load.core === "loading") body = '<div class="card rows" aria-busy="true">' + skeletonRows(7) + '</div><div class="mu ctr sm">Loading the league…</div>';
     else if (S.load.core === "error" || !S.model) body = '<div class="card hl"><h2>Roster</h2><div class="big2"><b>Couldn’t read the league data. Try again.</b></div><div class="ex">' + esc(S.load.error || "") + '</div><button class="btn pri blk" data-act="retry">Try again</button></div>';
-    else if (S.sub === "contracts") body = '<div class="card"><h2>Team › Contracts</h2><p class="m0">The all-years Contracts table is not in this preview yet. Contract information is available now in two places: Roster › Contracts (salary, years left, final year, and the IR and taxi cap notes) and each player’s profile (year-by-year amounts, earned to date, guarantee).</p><button class="btn pri blk" data-act="gotoview" data-v="contracts">Open Roster › Contracts</button></div>';
-    else if (S.sub === "cap") body = later("Cap & picks", "Not in Preview 0. Cap space is left out on purpose until it can be checked against the Front Office number.");
+    else if (S.sub === "contracts") body = teamPicker(team(S)) + countsLine(team(S), S.model.limits) + TV.contractsBody(S);
+    else if (S.sub === "performance") body = teamPicker(team(S)) + countsLine(team(S), S.model.limits) + TV.performanceBody(S);
+    else if (S.sub === "cap") body = later("Cap & picks", "Not in this preview. Cap space is left out on purpose until it can be checked against the Front Office number.");
     else body = rosterBody(S);
     return header("Team", asOfLine(S)) + tabs + '<div id="screen">' + body + "</div>";
   }
@@ -439,9 +417,10 @@
     return out;
   }
 
-  function performanceTab(p) {
-    return '<div class="k2"><div><b>' + (p.points == null ? "Not available" : p.points.toFixed(1)) + "</b><small>Season points so far</small></div><div><b>—</b><small>Last week</small></div></div>" +
-      '<div class="ex mt6">Points are MFL’s league-scored total. The game log, Start / Boom / Bust percentages and projections are not in Preview 0.</div>';
+  function performanceTab(S, p) {
+    return '<div class="k2"><div><b>' + (p.points == null ? "Not available" : p.points.toFixed(1)) + "</b><small>Season points so far</small></div><div><b>" + (p.starter ? "Starting" : p.status === "active" ? "Bench" : p.status === "ir" ? "IR" : "Taxi") + "</b><small>Week " + S.model.week + "</small></div></div>" +
+      '<div class="sec2">Game log</div>' + TV.gameLog(S, p) +
+      '<div class="ex mt6">Points are MFL’s league-scored total. Start / Boom / Bust percentages and projections are not in this preview.</div>';
   }
   function scheduleTab() { return '<div class="ex">The schedule and matchup view is not in Preview 0.</div>'; }
   function moreTab(S, p) {
@@ -462,7 +441,7 @@
     var tab = S.profile.tab || "contract";
     var pills = (p.status === "ir" ? pill("IR") : p.status === "taxi" ? pill("Taxi") : "") + (p.bye && p.bye === S.model.week ? pill("▲ Bye week") : "");
     var tabs = [["perf", "Performance"], ["sched", "Schedule"], ["contract", "Contract"], ["more", "More"]];
-    var body = tab === "perf" ? performanceTab(p) : tab === "sched" ? scheduleTab() : tab === "more" ? moreTab(S, p) : contractTab(S, p);
+    var body = tab === "perf" ? performanceTab(S, p) : tab === "sched" ? scheduleTab() : tab === "more" ? moreTab(S, p) : contractTab(S, p);
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full phero" role="dialog" aria-modal="true" aria-label="Player profile: ' + esc(p.name) + '" tabindex="-1">' +
       hero(p, pills) +
       '<div class="ptabs" role="tablist">' + tabs.map(function (t) { return '<button role="tab" data-act="ptab" data-v="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] + "</button>"; }).join("") + "</div>" +
@@ -521,13 +500,13 @@
       return '<div class="lg"><span class="lgw">' + esc(e.label || "") + "<small>" + esc(what) + '</small></span><span class="lgr">' + esc(e.method) + " " + esc(res) + (e.bytes != null ? "<small>" + Math.round(e.bytes / 1024) + " KB · " + (e.ms || 0) + " ms</small>" : "") + "</span></div>";
     }).join("");
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="About Preview 0" tabindex="-1"><div class="grab"></div><div class="top"><h3>About Preview 0</h3><button class="btn" data-act="close">Close</button></div>' +
-      '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of two redesigned screens: Team roster (four views and a week selector) and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
+      '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of redesigned screens: Team (Roster with Lineup and Byes and a week selector, Contracts, Performance) and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
       '<div class="card"><h2>Data</h2><div class="ex">Read from the league when this page opened' + (S.model ? " (" + esc(F.etStamp(S.model.asOf) || "just now") + ")" : "") + '. The worker keeps each answer for up to a minute.</div>' + (sampleOn(S) ? '<div class="ex">Reloading is paused while Sample mode is on.</div>' : '<button class="btn blk" data-act="retry">Reload the data</button>') + "</div>" +
       '<div class="card"><h2>Display</h2>' + chipRow("skin", [["system", "Match my phone"], ["light", "Light"], ["dark", "Dark"], ["hc", "High contrast"]], S.skin, "Skin") + chipRow("vib", [["1", "Vibrant"], ["0", "Plain"]], S.vib, "Position colors") + chipRow("gdef", [["needs", "Only what needs you"], ["all", "All groups open"]], S.gdef || "needs", "Bench groups") + "</div>" +
       '<div class="card"><h2>Sample mode</h2><div class="ex">For trying screens without league data. Labeled, local to this phone, never remembered, and it starts no new request (data or photos) while it is on.</div><button class="btn blk" data-act="sample" data-v="about">' + (sampleOn(S) ? "Turn Sample mode off" : "Turn Sample mode on") + "</button></div>" +
       '<div class="card"><h2>Requests this page made</h2><div class="ex"><b>' + sum.requests + "</b> data requests: <b>" + sum.ok + "</b> succeeded, <b>" + sum.failed + "</b> failed, <b>" + sum.refused + "</b> refused. Methods other than GET: <b>" + sum.nonGet + '</b>. No cookie, session or key is ever sent.</div>' + rows +
-      '<div class="ex mt6">Player photos load straight from ESPN, then MFL, as the current app does. They are images, not data requests. Injury status and NFL games are read once and reused when you change views or weeks.</div></div>' +
-      '<div class="card"><h2>Not in this preview</h2><ul class="pl"><li>Any action: lineup changes, drops, extensions, bids, trades</li><li>Cap space, the Contracts tab and Cap &amp; picks</li><li>Projections, game log, schedule, news, bio</li><li>Return dates for injured players: MFL lists one, but what it means is not verified, so it shows Unavailable</li><li>A real team helmet (a labeled placeholder is shown)</li><li>Sign-in: you are not signed in as anyone</li></ul></div>' +
+      '<div class="ex mt6">Player photos load straight from ESPN, then MFL, as the current app does. They are images, not data requests. Injury status, NFL games and weekly scores are read once and reused when you change views or weeks.</div></div>' +
+      '<div class="card"><h2>Not in this preview</h2><ul class="pl"><li>Any action: lineup changes, drops, extensions, bids, trades</li><li>Cap space and Cap &amp; picks</li><li>Projections, opponents and snaps in the game log, schedule, news, bio</li><li>Return dates for injured players: MFL lists one, but what it means is not verified, so it shows Unavailable</li><li>A real team helmet (a labeled placeholder is shown)</li><li>Sign-in: you are not signed in as anyone</li></ul></div>' +
       '<div class="ex">Build ' + esc(S.build || "") + "</div></div></div>";
   }
 

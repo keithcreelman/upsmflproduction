@@ -117,7 +117,7 @@ test("only what the screens use is kept: games and per-game averages from the ma
   try {
     st.rawMatchups = true;
     const mu = await L.loadMatchups(11); t.equal(mu.state, "ok");
-    t.deepEqual(Object.keys(mu.data).sort(), ["asOf", "avg", "games", "week"], "no spreads, weather or defense ratings are kept");
+    t.deepEqual(Object.keys(mu.data).sort(), ["asOf", "avg", "games", "hist", "horizon", "horizonWeeks", "latestFinal", "season", "week"], "no spreads, weather or defense ratings are kept");
     const g = Object.values(mu.data.games)[0]; t.deepEqual(Object.keys(g).sort(), ["isHome", "kickoff", "opp", "status"]);
     t.ok(Object.keys(mu.data.games).length >= 20 && Object.values(mu.data.avg).every((a) => typeof a.avg === "number" && !Number.isNaN(a.avg)));
     const ss = await L.loadStatus(); t.equal(ss.state, "ok");

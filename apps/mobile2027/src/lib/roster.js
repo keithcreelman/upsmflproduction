@@ -88,11 +88,12 @@
     return { cur: cur, sel: sel, past: !!(cur && sel && sel < cur) };
   }
   // The weeks the sheet lists: the current week first, then the played weeks, most recent first, then the later weeks.
-  // The week context a view draws with (R2b, P1 and P2). Lineup and Performance honor the chosen week; Contracts and Byes are always
-  // "as of now": they use the current week and today's data, whatever week was chosen (the choice is kept for when the owner returns).
+  // The week context a view draws with (R2b, P1 and P2). Lineup honors the chosen week; Byes is always "as of now": it uses the current week
+  // and today's data, whatever week was chosen (the choice is kept for when the owner returns). Contracts and Performance are Team tabs of
+  // their own and do not use the week selector.
   function viewWeek(S) {
     var wi = weekInfo(S);
-    if (S.view === "lineup" || S.view === "performance") return wi;
+    if (S.view === "lineup") return wi;
     return { cur: wi.cur, sel: wi.cur, past: false };
   }
   function weekChoices(cur) {
