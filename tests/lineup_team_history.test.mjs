@@ -25,7 +25,7 @@ const B = base.json;
 
 // ── 1. Nothing that existed before changes ──────────────────────────────────────────────────────────────────────
 console.log("W1 replay: unchanged behavior");
-await check("the route still answers 200 and the version moves to lmu4", () => { assert.strictEqual(base.status, 200); assert.strictEqual(B.version, "lmu4-2026-11-22"); assert.strictEqual(LM.LINEUP_MU_VERSION, B.version); });
+await check("the route still answers 200 and the version moves to lmu4", () => { assert.strictEqual(base.status, 200); assert.strictEqual(B.version, "lmu4-2026-11-21"); assert.strictEqual(LM.LINEUP_MU_VERSION, B.version); });
 await check("every pre-existing field is byte-for-byte what the pre-change route returned for the same data", () => {
   const rest = { ...B }; for (const k of NEW_FIELDS) delete rest[k]; delete rest.version;
   const g = { ...GOLD.payload }; delete g.version;
@@ -41,13 +41,22 @@ await check("no new database statement and no new network call: same 3 SELECTs a
   assert.strictEqual(base.calls.length, GOLD.calls);
   assert.ok(base.calls.every((c) => c.method === "GET")); assert.ok(base.env.queries.every((q) => /^\s*(WITH|SELECT)\b/i.test(q)));
 });
-await check("the payload grows by under 9 KB (46 changed players, 503 first-record weeks, the two lists)", () => { const d = JSON.stringify(B).length - JSON.stringify(GOLD.payload).length; assert.ok(d > 0 && d < 9000, "grew by " + d); });
+await check("the payload grows by under 9 KB (58 listed players, 495 first-record weeks, the two lists)", () => { const d = JSON.stringify(B).length - JSON.stringify(GOLD.payload).length; assert.ok(d > 0 && d < 9000, "grew by " + d); });
 
 // ── 2. The replay oracle: real counts and named players ─────────────────────────────────────────────────────────
 console.log("W1 replay: real 2026 data through Week 10");
 await check("state ok, history through Week 10", () => { assert.strictEqual(B.teamHistoryState, "ok"); assert.strictEqual(B.teamHistoryReason, null); assert.strictEqual(B.teamHistoryThrough, 10); });
-await check("46 players with a club change, 70 with no history, 3 conflicts (the counts the Python reference produces)", () => {
-  assert.strictEqual(Object.keys(B.teamHistory).length, 46); assert.strictEqual(B.teamHistoryMissing.length, 70); assert.strictEqual(B.teamHistoryConflict.length, 3);
+await check("58 listed players (the reference's 46 club changers plus 12 free agents cut before Week 10), 71 with no history (the reference's 70 plus an unrostered free agent), 3 conflicts", () => {
+  assert.strictEqual(Object.keys(B.teamHistory).length, 58); assert.strictEqual(B.teamHistoryMissing.length, 71); assert.strictEqual(B.teamHistoryConflict.length, 3);
+  const fa = Object.keys(B.teamHistory).filter((i) => B.teamHistory[i].cur === "");
+  assert.strictEqual(fa.length, 12); assert.strictEqual(fa.filter((i) => fx.rostered[i]).length, 0);
+  assert.ok(B.teamHistoryMissing.includes(idOf("Jones, Cam")), "a free agent with MFL scores and no weekly row is Missing (found in review)");
+});
+await check("the lists do not depend on the scoring window: &last=3 lists the same players (review finding MAT-1)", async () => {
+  const j = (await runHandler(LM, fx, { q: "&last=3" })).json;
+  assert.strictEqual(j.teamHistoryState, "ok");
+  assert.deepStrictEqual(Object.keys(j.teamHistory).sort(), Object.keys(B.teamHistory).sort());
+  assert.deepStrictEqual(j.teamHistoryMissing.slice().sort(), B.teamHistoryMissing.slice().sort());
 });
 await check("a player is in at most one of changed / missing / conflict", () => {
   const seen = new Set();
@@ -66,9 +75,9 @@ await check("unchanged players are not listed, and every listed segment lies ins
   for (const id of Object.keys(B.teamHistory)) for (const [, lo, hi] of B.teamHistory[id].seg) assert.ok(lo >= 1 && hi >= lo && hi <= B.teamHistoryThrough);
   const entry = B.teamHistory[idOf("Simmons, Jeffery")]; assert.ok(!("cur" in entry), "no cur when MFL's club equals the last record");
 });
-await check("first-record weeks: every no-change player whose first weekly row is after Week 1 (503; 69 on UPS rosters, as the reference finds); the three named count-only players start in Week 8", () => {
+await check("first-record weeks: every no-change player whose first weekly row is after Week 1 (495; 69 on UPS rosters, as the reference finds); the three named count-only players start in Week 8", () => {
   const f = B.teamHistoryFirst;
-  assert.strictEqual(Object.keys(f).length, 503); assert.strictEqual(Object.keys(f).filter((i) => fx.rostered[i]).length, 69);
+  assert.strictEqual(Object.keys(f).length, 495); assert.strictEqual(Object.keys(f).filter((i) => fx.rostered[i]).length, 69);
   for (const n of ["Giddens, DJ", "Richardson, Anthony", "Charbonnet, Zach"]) assert.strictEqual(f[idOf(n)], 8, n);
   for (const [id, w] of Object.entries(f)) { assert.ok(Number.isInteger(w) && w >= 2 && w <= B.teamHistoryThrough, id + " first week " + w); assert.ok(!(id in B.teamHistory) && !B.teamHistoryMissing.includes(id) && !B.teamHistoryConflict.includes(id), id + " is in exactly one list"); }
 });
@@ -120,8 +129,11 @@ await check("a weekly row in a week MFL has no score for makes the id a CONFLICT
   const m = H({ ctx: { through: 9, one: {}, multi: { a: { 1: "TEN", 2: "CHI" } } }, scored: { a: [1] }, cur: { a: "CHI" } });
   assert.deepStrictEqual(m.teamHistoryConflict, ["a"]);
 });
-await check("a free agent (MFL club FA or blank) is not flagged as moved, and his last real club is kept", () => {
-  for (const cur of ["FA", ""]) { const r = H({ ctx: { through: 9, one: { a: ["TEN", 1, 6] }, multi: {} }, scored: { a: wks(1, 6) }, cur: { a: cur } }); assert.deepStrictEqual(r.teamHistory, {}); }
+await check("a free agent (MFL club FA or blank) cut before the coverage week is listed with cur \"\" and his last real club kept; one whose last row is the coverage week is not (review finding MAT-2)", () => {
+  for (const cur of ["FA", ""]) {
+    const r = H({ ctx: { through: 9, one: { a: ["TEN", 1, 6], b: ["TEN", 1, 9] }, multi: {} }, scored: { a: wks(1, 6), b: wks(1, 9) }, cur: { a: cur, b: cur } });
+    assert.deepStrictEqual(r.teamHistory, { a: { seg: [["TEN", 1, 6]], cur: "" } });
+  }
 });
 await check("rows past the coverage week are ignored, not extended or counted", () => {
   const r = H({ ctx: { through: 5, one: {}, multi: { a: { 1: "TEN", 2: "TEN", 6: "CHI" } } }, scored: { a: [1, 2, 6] }, cur: { a: "CHI" } });

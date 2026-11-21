@@ -37,7 +37,7 @@ import {
   fpaStorePath, fpaStoreOpen, fpaPlayerIndex,
 } from "./fpa_engine.js";
 
-export const LINEUP_MU_VERSION = "lmu4-2026-11-22";   // lmu4: historical club evidence (W1, additive); lmu3: the line from nflverse (#1262)
+export const LINEUP_MU_VERSION = "lmu4-2026-11-21";   // lmu4: historical club evidence (W1, additive); lmu3: the line from nflverse (#1262)
 const LMU_CACHE_HOST = "https://upsmfl-lineup.local";
 const FPA_MFL_TAG = "fpa2";   // the engine's URL tag: Lineup and Pts Agst share one copy of each MFL read
 
@@ -331,7 +331,10 @@ export function lmuTeamHistory({ ctx, ctxState, priorSeason, clubOf, scoredWeeks
     // the weekly row must be in a week MFL scored him; otherwise this id is joined to somebody else's rows
     if (weeksToCheck.some((w) => !weeksSeen.has(w))) { conflict.push(id); continue; }
     const multiClub = segs.some((s) => s[0] !== segs[0][0]);
-    const moved = curClub && lastClub !== curClub;
+    // moved: MFL's club is not the last record's club. A free agent (no club) whose last row is before the coverage week is listed too, with cur "",
+    // so the client never treats his silence after that row as a continuation with his old club.
+    const lastWeek = segs[segs.length - 1][2];
+    const moved = curClub ? lastClub !== curClub : lastWeek < through;
     if (multiClub || moved) {
       const e = { seg: segs };
       if (moved) e.cur = curClub;
@@ -455,8 +458,9 @@ export async function handleLineupMatchups(request, env, ctx, { jsonOut, nowMs, 
         let set = scoredWeeks.get(pid); if (!set) scoredWeeks.set(pid, (set = new Set())); set.add(Number(w));
       }
       clubHistory = lmuTeamHistory({ ctx: seasonCtx, ctxState, priorSeason: priorSeason || past, clubOf: (id) => { const i = idx.get(id); return i ? i.team : ""; },
-        scoredWeeks, scoredIds: Object.keys(playerWindow) });
-    } catch (_) { clubHistory = { teamHistoryState: "unavailable", teamHistoryReason: "context_failed", teamHistoryThrough: null }; }
+        // every player MFL has scored this season (not the window-limited playerWindow: `last` and attribution would otherwise hide changed players)
+        scoredWeeks, scoredIds: Array.from(scoredWeeks.keys()).filter((id) => idx.get(id)) });
+    } catch (_) { clubHistory = { teamHistoryState: "unavailable", teamHistoryReason: "history_error", teamHistoryThrough: null }; }
     const weeksAvailable = priorSeason ? 0 : ws.latestFinal;
     const basis = !weeksUsed.length ? "" : (priorSeason ? ratingYr + " season" : (weeksUsed.length === 1 ? "Wk " + weeksUsed[0] : "Wks " + weeksUsed[0] + "–" + weeksUsed[weeksUsed.length - 1]));
     const payload = {

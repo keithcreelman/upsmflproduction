@@ -1,6 +1,6 @@
 # Team history evidence (W1): mapping provenance and validation
 
-`GET /api/lineup-matchups` (version `lmu4-2026-11-22`) adds six `teamHistory*` fields. They say which NFL club a player was with in which weeks, for players whose club changed, and which players the Worker cannot cover. Everything else in the payload is unchanged (proved byte for byte by `tests/lineup_team_history.test.mjs`). This page records where the evidence comes from, what is and is not validated, and what risk remains. Tracker: #1494 (W1), #1497 (limitations register), #1475 (design record).
+`GET /api/lineup-matchups` (version `lmu4-2026-11-22`) adds seven `teamHistory*` fields. They say which NFL club a player was with in which weeks, for players whose club changed, and which players the Worker cannot cover. Everything else in the payload is unchanged (proved byte for byte by `tests/lineup_team_history.test.mjs`). This page records where the evidence comes from, what is and is not validated, and what risk remains. Tracker: #1494 (W1), #1497 (limitations register), #1475 (design record).
 
 ## What the fields mean
 
@@ -9,8 +9,8 @@
 | `teamHistoryState` | `ok` or `unavailable` |
 | `teamHistoryReason` | `null` when ok; else `past_season`, `context_failed`, `no_history`, `crosswalk_failed` or `crosswalk_suspect` |
 | `teamHistoryThrough` | last week the history covers (the coverage week); `null` when unavailable |
-| `teamHistory` | `{ mflId: { seg: [[club, firstWeek, lastWeek], …], cur? } }`, only for players with more than one club segment or whose MFL club differs from the last record. `cur` is MFL's current club and is never folded into `seg` |
-| `teamHistoryFirst` | `{ mflId: firstWeek }` for every other player (no club change seen) whose first weekly row is after Week 1. The weeks before it are unknown: the client must not count them as team games (2026 Week 10: 503 players, 69 on UPS rosters). Players with a first row in Week 1 are omitted |
+| `teamHistory` | `{ mflId: { seg: [[club, firstWeek, lastWeek], …], cur? } }`, only for players with more than one club segment, or whose MFL club differs from the last record, or who are free agents (MFL club blank or FA) with a last record before the coverage week. `cur` is MFL's current club ("" for a free agent) and is never folded into `seg`. A one-club player's segment spans any gap between his first and last row; a multi-club player's segments split at gaps |
+| `teamHistoryFirst` | `{ mflId: firstWeek }` for every other player (no club change seen) whose first weekly row is after Week 1. The weeks before it are unknown: the client must not count them as team games (2026 Week 10: 495 players, 69 on UPS rosters). Players with a first row in Week 1 are omitted |
 | `teamHistoryMissing` | players with MFL scores and no weekly row at all: club history unknown |
 | `teamHistoryConflict` | players whose weekly rows contradict MFL's score weeks: the identity join is wrong for this id, so nothing is shown |
 
@@ -35,7 +35,7 @@ Per player, in the Worker, on every request:
 Two aggregate gates exist and are **diagnostic only**; they do not validate any individual mapping and passing them is not evidence that mappings are right:
 
 - coverage floor: at least 90% of players with MFL scores must have weekly rows (2026: 95.7%), else `crosswalk_failed`. Not applied below 200 scored players.
-- changed-club ceiling: at most 120 players listed as changed (2026: 46), else `crosswalk_suspect`.
+- changed-club ceiling: at most 120 players listed as changed (2026: 58), else `crosswalk_suspect`.
 
 Both are tunable constants (`TEAM_HISTORY_COVERAGE_FLOOR`, `TEAM_HISTORY_CHANGED_CEILING`).
 
@@ -47,7 +47,7 @@ Run by `tests/lineup_team_history.test.mjs` on the real 2026 data through Week 1
 - **Duplicate id** (two players' rows under one id): flagged as a conflict when the rows do not fit one player's score weeks (test).
 - **Seeded swaps** (the weekly rows of random same-position-family pairs exchanged, which is what a wrong crosswalk does): the per-player check flagged 5 of 12 swapped ids (1%), 22 of 44 (3%) and 38 of 76 (5%). **About half of swapped players are not detectable by the per-player check**, because two players scored in the same weeks cannot be told apart by score weeks alone. At a 10% swap the changed-club count exceeds the ceiling and the whole answer becomes `crosswalk_suspect`.
 - **Truncation**: dropping 60% of the weekly rows gives `crosswalk_failed`; dropping 4% stays available with the lost players listed as missing.
-- **Real-data counts**: 46 players with a club change, 70 with no history, 3 conflicts; of the UPS-rostered players, 10 changed, 8 missing, 0 conflicted.
+- **Real-data counts**: 58 listed players (46 club changers, which is what the Python reference finds, plus 12 free agents cut before Week 10), 71 with no history (the reference's 70 plus one unrostered free agent), 3 conflicts; of the UPS-rostered players, 10 listed, 8 missing, 0 conflicted. The lists cover every player MFL has scored this season, not just the window-limited `playerWindow` (an independent review found the window-limited version hid changed players when `&last=` was used).
 
 ## Residual risk (not resolved)
 
