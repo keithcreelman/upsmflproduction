@@ -186,6 +186,9 @@ export function inventoryCheck(ledger, chain, { year, round, original }, invento
       if (c.breaks && c.breaks.length) reasons.push(`the chain of the ${o} pick has a break, so the records do not say who holds it`);
       // the holder ON THE EVIDENCE DATE (a transfer after it belongs to a later inventory), the last holder when no date is given
       const onDate = evidenceTs != null && c.holders ? holderAt(c, evidenceTs) : null;
+      // a chain whose first record comes AFTER the evidence date starts with an asserted sender: it is accepted only when that sender is the original franchise (nothing earlier is missing)
+      const first = c.holders && c.holders[0];
+      if (evidenceTs != null && first && first.from_ts == null && first.to_ts != null && evidenceTs < first.to_ts && first.franchise !== o) reasons.push(`the earliest record of the ${o} pick comes after the evidence date and names ${first.franchise} as the sender, so who held it on the evidence date is not recorded`);
       const h = onDate || (c.holders && c.holders.length ? c.holders.at(-1).franchise : o);
       implied.set(h, (implied.get(h) || 0) + 1);
     }

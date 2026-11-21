@@ -35,7 +35,7 @@ export function confirmedTotals(b, F) {
   return { franchise: F, points_verified: Math.round(verified * 10) / 10, started_points_verified: Math.round(started * 10) / 10, weeks_verified: weeks, included_assets: included, excluded_assets: excluded };
 }
 
-function holdersText(n) { return n.chain.holders.map((h) => `${h.class && h.class !== CLASS.CONFIRMED ? `[${h.class} period: start ${h.start_class}, end ${h.end_class}] ` : ""}${h.franchise} ${h.from.date ? h.from.date : `(${h.from.origin === "asserted_by_first_record" ? "asserted by the first record" : "before the first record"})`} to ${h.to ? `${h.to.date} (${h.to.kind}${h.to.trade ? ` ${h.to.trade}` : ""})` : "no recorded end"}`).join("; "); }
+function holdersText(n) { return n.chain.holders.map((h) => `${h.class && h.class !== CLASS.CONFIRMED ? `[${h.class} period: start ${h.start_class}, end ${h.end_class}, continuity ${h.continuity_class}] ` : ""}${h.franchise} ${h.from.date ? h.from.date : `(${h.from.origin === "asserted_by_first_record" ? "asserted by the first record" : "before the first record"})`} to ${h.to ? `${h.to.date} (${h.to.kind}${h.to.trade ? ` ${h.to.trade}` : ""})` : "no recorded end"}`).join("; "); }
 
 export function renderReport(b, acceptance = null) {
   const F = b.pilot.franchise;

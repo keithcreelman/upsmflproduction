@@ -45,8 +45,9 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
     if (!n.entered || !(n.entered.trade || hasSource(n.entered.source))) unclassified.push(`${n.id}: no entry source`);
     for (const e of n.chain.events) { if (!hasSource(e.source)) unclassified.push(`${n.id}: event without a source`); if (!okClass(e.class)) unclassified.push(`${n.id}: event ${e.kind} ${e.date} unclassed`); }
     for (const h of n.chain.holders) {
-      if (!okClass(h.class) || !okClass(h.start_class) || !okClass(h.end_class)) unclassified.push(`${n.id}: possession period unclassed`);
+      if (!okClass(h.class) || !okClass(h.start_class) || !okClass(h.end_class) || !okClass(h.continuity_class)) unclassified.push(`${n.id}: possession period unclassed`);
       // a period ended by another franchise's add (no recorded release) can never be CONFIRMED as a whole
+      if (h.class === CLASS.CONFIRMED && n.named_gap.possession_periods_spanning.some((sp) => sp.franchise === h.franchise && sp.from === (h.from.date || null) && sp.to === (h.to ? h.to.date : null))) unclassified.push(`${n.id}: a period that spans the named unobserved period is classed CONFIRMED`);
       if (h.to && h.to.by !== h.franchise && h.class === CLASS.CONFIRMED) unclassified.push(`${n.id}: a period ended by another franchise's ${h.to.kind} is classed CONFIRMED`);
     }
     for (const br of n.chain.breaks) if (!okClass(br.class) || !(br.at || br.trade)) unclassified.push(`${n.id}: break ${br.kind} without a class or a source`);

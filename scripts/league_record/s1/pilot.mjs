@@ -164,7 +164,7 @@ function buildFrom({ archive, root }) {
   // ── bundle ────────────────────────────────────────────────────────────────────────────────────
   const nodeList = order.map((id) => { const n = nodes.get(id); const { _chain, ...rest } = n;
     // a slot pick stops existing as a pick when it is used: its last possession period ends at the selection
-    if (rest.kind === "slot_pick" && rest.resolution && rest.resolution.selection && rest.chain.holders.length) { const h = rest.chain.holders.at(-1); if (!h.to) h.to = { date: rest.resolution.selection.date, time: rest.resolution.selection.time, kind: "draft_selection", trade: null }; }
+    if (rest.kind === "slot_pick" && rest.resolution && rest.resolution.selection && rest.chain.holders.length) { const h = rest.chain.holders.at(-1); if (!h.to) h.to = { date: rest.resolution.selection.date, time: rest.resolution.selection.time, kind: "draft_selection", trade: null, by: rest.resolution.selection.franchise }; }
     rest.named_gap = namedGapExposure(ledger, rest.chain.holders);
     classifyPeriods(rest.chain.holders, rest.named_gap);
     return rest; });
@@ -183,17 +183,19 @@ function buildFrom({ archive, root }) {
   return bundle;
 }
 
-// Class of each possession period, with its start and its end classed separately. The START is CONFIRMED when a recorded event gave the franchise the asset (a trade, a draft selection, an
-// add) and UNRESOLVED when only the first record's sender names it (the earlier history is unknown). The END is CONFIRMED when the franchise's own recorded act ends it (a trade out or a drop),
-// UNRESOLVED when another franchise's add ends it (the release is not recorded: the add dates the end, nothing proves possession up to it), and, for an open period, CONFIRMED to the last record
-// unless the period spans the named unobserved period (then UNRESOLVED: continuity there is not observed). The period is only as good as its weaker end.
-const WEAK = (a, b) => ([CLASS.UNRESOLVED, CLASS.INFERRED, CLASS.CALCULATED, CLASS.CONFIRMED].find((c) => c === a || c === b));
+// Class of each possession period: its START, its END and its CONTINUITY are classed separately and the period is the weakest of the three.
+//   START: CONFIRMED when a recorded event gave the franchise the asset (a trade, a draft selection, an add); UNRESOLVED when only the first record's sender names it.
+//   END: CONFIRMED when the franchise's own recorded act ends it (a trade out, a drop) or the draft selection was made by the holder; UNRESOLVED when another franchise's add or selection
+//        ends it (the release is not recorded: that record dates the end, it does not prove possession up to it); an open period is CONFIRMED to the last record.
+//   CONTINUITY: UNRESOLVED when the period spans the named unobserved trade period (a transfer away and back inside it would be in no source); CONFIRMED otherwise.
+const WEAK = (...cs) => [CLASS.UNRESOLVED, CLASS.INFERRED, CLASS.CALCULATED, CLASS.CONFIRMED].find((c) => cs.includes(c));
 function classifyPeriods(holders, namedGap) {
   holders.forEach((h) => {
+    const spans = namedGap.possession_periods_spanning.some((sp) => sp.franchise === h.franchise && sp.from === (h.from.date || null) && sp.to === (h.to ? h.to.date : null));
     h.start_class = h.from && h.from.date ? CLASS.CONFIRMED : CLASS.UNRESOLVED;
-    if (!h.to) h.end_class = namedGap.possession_periods_spanning.some((sp) => sp.franchise === h.franchise && sp.from === (h.from.date || null)) ? CLASS.UNRESOLVED : CLASS.CONFIRMED;
-    else h.end_class = h.to.by === h.franchise ? CLASS.CONFIRMED : CLASS.UNRESOLVED;
-    h.class = WEAK(h.start_class, h.end_class);
+    h.end_class = !h.to ? CLASS.CONFIRMED : h.to.by === h.franchise ? CLASS.CONFIRMED : CLASS.UNRESOLVED;
+    h.continuity_class = spans ? CLASS.UNRESOLVED : CLASS.CONFIRMED;
+    h.class = WEAK(h.start_class, h.end_class, h.continuity_class);
   });
 }
 

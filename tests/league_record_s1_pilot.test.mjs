@@ -283,6 +283,16 @@ test("classes and the named gap are on every link and every crossing chain (MAT-
   // a period ended by the franchise's own trade out is CONFIRMED at both ends
   const brown0 = nodeOf("player:14104").chain.holders.find((h) => h.franchise === "0005");
   t.equal(brown0.class, CLASS.CONFIRMED);
+  // round 3: a closed period that spans the named unobserved period has unproven continuity, and a slot pick used by its holder is CONFIRMED at both ends
+  const mc = nodeOf("player:13130").chain.holders.find((h) => h.franchise === "0007" && h.from.date === "2025-08-19");
+  t.equal(mc.end_class, CLASS.CONFIRMED); t.equal(mc.continuity_class, CLASS.UNRESOLVED); t.equal(mc.class, CLASS.UNRESOLVED);
+  for (const id of ["spick:2025:1:8", "spick:2025:3:8", "spick:2025:3:2"]) { const h = nodeOf(id).chain.holders.at(-1); t.equal(h.end_class, CLASS.CONFIRMED, id); t.equal(h.class, CLASS.CONFIRMED, id); }
+  // a chain whose first record is after the evidence date and names a sender that is not the original franchise leaves the inventory unproven
+  const draftTs = 1590000000, uniq = { "0001": "0007", "0007": "0002" };
+  const odd = syntheticLedger({ year: 2020, round: 2, draftTs, holdings: uniq });
+  odd.tradesByAsset.set("fpick:0003:2020:2", [{ trade: { id: "odd", ts: draftTs + 86400, date: "2020-06-02", time: "12:00:00", source: { kind: "synthetic" }, date_quality: "exact" }, leg: { from: "0004", to: "0009", rows: null } }]);
+  const oddRes = resolveFuturePick(odd, syntheticChain(odd, "0001", 2020, 2), { year: 2020, round: 2, original: "0001" }, { slotLists: [] });
+  t.equal(oddRes.class, CLASS.UNRESOLVED); t.match(oddRes.reason, /earliest record/);
   // a banned finish-bearing table cannot be reached by a comma join through the real reader
   t.throws(() => archive.all("select a.* from transactions_trades t, trade_winning_team_analysis a limit 1"), ArchiveGuardError);
 });

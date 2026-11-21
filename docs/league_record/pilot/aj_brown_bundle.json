@@ -300,6 +300,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
@@ -316,6 +317,7 @@
           },
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "UNRESOLVED",
             "franchise": "0008",
             "from": {
@@ -335,6 +337,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0004",
             "from": {
@@ -353,7 +356,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
             "end_class": "CONFIRMED",
             "franchise": "0007",
             "from": {
@@ -373,6 +377,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0009",
             "from": {
@@ -720,6 +725,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0008",
             "from": {
@@ -736,6 +742,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
@@ -755,7 +762,8 @@
           },
           {
             "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0006",
             "from": {
               "date": "2025-03-05",
@@ -1038,6 +1046,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0006",
             "from": {
@@ -1053,8 +1062,9 @@
             }
           },
           {
-            "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-03-05",
@@ -1064,6 +1074,7 @@
             },
             "start_class": "CONFIRMED",
             "to": {
+              "by": "0005",
               "date": "2025-05-25",
               "kind": "draft_selection",
               "time": "19:00:18",
@@ -1195,6 +1206,7 @@
         "holders": [
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
@@ -1214,7 +1226,8 @@
           },
           {
             "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "date": "2025-08-07",
@@ -1412,6 +1425,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
@@ -1428,7 +1442,8 @@
           },
           {
             "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-08-07",
@@ -1633,6 +1648,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
@@ -1649,6 +1665,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
@@ -1668,7 +1685,8 @@
           },
           {
             "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0011",
             "from": {
               "date": "2025-10-03",
@@ -1882,6 +1900,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0011",
             "from": {
@@ -1898,6 +1917,7 @@
           },
           {
             "class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
             "end_class": "UNRESOLVED",
             "franchise": "0005",
             "from": {
@@ -1917,6 +1937,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0002",
             "from": {
@@ -2198,6 +2219,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
@@ -2214,6 +2236,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
@@ -2233,7 +2256,8 @@
           },
           {
             "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "date": "2025-11-25",
@@ -2443,6 +2467,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
@@ -2459,7 +2484,8 @@
           },
           {
             "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-11-25",
@@ -2742,6 +2768,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0006",
             "from": {
@@ -2758,6 +2785,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
@@ -2777,6 +2805,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0004",
             "from": {
@@ -2796,7 +2825,8 @@
           },
           {
             "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0006",
             "from": {
               "date": "2025-11-22",
@@ -3089,6 +3119,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0004",
             "from": {
@@ -3105,6 +3136,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
@@ -3124,6 +3156,7 @@
           },
           {
             "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0001",
             "from": {
@@ -3142,8 +3175,9 @@
             }
           },
           {
-            "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0011",
             "from": {
               "date": "2025-05-25",
@@ -3153,6 +3187,7 @@
             },
             "start_class": "CONFIRMED",
             "to": {
+              "by": "0011",
               "date": "2025-05-25",
               "kind": "draft_selection",
               "time": "20:42:47",
@@ -3268,7 +3303,8 @@
         "holders": [
           {
             "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0011",
             "from": {
               "date": "2025-05-25",
@@ -3445,6 +3481,7 @@
         "holders": [
           {
             "class": "UNRESOLVED",
+            "continuity_class": "CONFIRMED",
             "end_class": "CONFIRMED",
             "franchise": "0001",
             "from": {
@@ -3460,8 +3497,9 @@
             }
           },
           {
-            "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "class": "CONFIRMED",
+            "continuity_class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-05-25",
@@ -3471,6 +3509,7 @@
             },
             "start_class": "CONFIRMED",
             "to": {
+              "by": "0005",
               "date": "2025-05-25",
               "kind": "draft_selection",
               "time": "20:25:01",
@@ -3568,7 +3607,8 @@
         "holders": [
           {
             "class": "UNRESOLVED",
-            "end_class": "UNRESOLVED",
+            "continuity_class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-05-25",
