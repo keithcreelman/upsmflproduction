@@ -293,7 +293,7 @@ test("R2: a failed injury read says so, shows no guessed tags, and Try again rec
   t.match(a.html(), /Injury status couldn’t be loaded, so no injury tags are shown/); t.doesNotMatch(a.html(), /▲ Questionable/);
   t.match(a.html(), /Week 11 starters/, "the roster still shows");
   await a.click({ "data-act": "view", "data-v": "performance" }); await tick(30);
-  t.match(a.html(), /Wk 10 —/, "last week's scores could not be read: a dash, never 0.0");
+  t.match(a.html(), /<b>—<\/b><span class="mu sm">Unavailable<\/span>/, "last week scores could not be read: a dash labeled Unavailable, never 0.0"); t.doesNotMatch(a.html(), /<b>0\.0<\/b>/);
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
   t.match(a.html(), /That week’s lineup could not be read \(HTTP 502\)/); t.match(a.html(), /data-act="pickweek" data-v="10"/);
   await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
@@ -334,6 +334,47 @@ test("R2: the About sheet carries the bench-group setting, which is kept on the 
   t.match(a.html(), /data-g="bRB" aria-expanded="true"/);
   const b = boot({ stored: { "ups2027-p0-gdef": "all" } }); await tick(40); t.match(b.html(), /data-g="bRB" aria-expanded="true"/, "a fresh page remembers it");
   await a.click({ "data-act": "grp", "data-g": "bRB" }); t.match(a.html(), /data-g="bRB" aria-expanded="false"/, "an owner's own tap still wins over the default");
+});
+
+// ───────────────────────── stage R2b: one week context, in the running page ─────────────────────────
+
+test("R2b: a chosen past week is kept across Contracts and Byes, which always show today; going back finds the same week; nothing is asked", async () => {
+  const a = boot(); await tick(40);
+  await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(40);
+  t.match(a.html(), /Week 10 starters/); t.match(a.html(), /class="wsel past"/);
+  const n = a.calls.length;
+  for (const round of [1, 2]) {
+    for (const v of ["contracts", "byes"]) {
+      await a.click({ "data-act": "view", "data-v": v });
+      t.match(a.html(), /As of now · Week 11/, v + " (round " + round + "): as of now"); t.doesNotMatch(a.html(), /class="wsel/, v + ": no week bar over today's data");
+      t.doesNotMatch(a.html(), /Week 10 starters|Week 10 · played|Played · as MFL recorded it/, v + ": nothing labeled with the past week");
+      if (v === "contracts") t.match(a.html(), /Week 11 starters/, "today's starters carry today's week");
+    }
+    await a.click({ "data-act": "view", "data-v": "lineup" });
+    t.match(a.html(), /Week 10 starters/, "Lineup: the week chosen before is still chosen"); t.match(a.html(), /class="wsel past"/); t.doesNotMatch(a.html(), /As of now/);
+    await a.click({ "data-act": "view", "data-v": "performance" });
+    t.match(a.html(), /Week 10 · played/, "Performance: the same chosen week"); t.match(a.html(), /Week 10 starters/);
+    await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "performance" });
+    t.match(a.html(), /Week 10 starters/, "through Byes and back: still Week 10");
+  }
+  t.equal(a.calls.length, n, "switching between the past and the present views asks for nothing");
+  // choosing the current week again returns every view to the present
+  await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "11" }); await tick(5);
+  t.match(a.html(), /Week 11 starters/); t.doesNotMatch(a.html(), /class="wsel past"/);
+  await a.click({ "data-act": "view", "data-v": "lineup" }); t.match(a.html(), /Week 11 starters/);
+  t.equal(a.calls.length, n); a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
+});
+
+test("R2b: the top-level Contracts tab says where contracts are and its button opens Roster › Contracts, asking for nothing", async () => {
+  const a = boot(); await tick(40); const n = a.calls.length;
+  await a.click({ "data-act": "sub", "data-v": "contracts" });
+  t.match(a.html(), /not in this preview yet/); t.match(a.html(), /data-act="gotoview" data-v="contracts"/); t.doesNotMatch(a.html(), /Open full Contracts/);
+  await a.click({ "data-act": "gotoview", "data-v": "contracts" });
+  t.match(a.html(), /yrs left|Final year/, "Roster › Contracts"); t.match(a.html(), /As of now · Week 11/); t.doesNotMatch(a.html(), /not in this preview yet/);
+  t.equal(a.calls.length, n, "an in-app jump asks for nothing");
+  // an unknown target falls back to Contracts, never to a blank screen
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await a.click({ "data-act": "gotoview", "data-v": "nonsense" });
+  t.match(a.html(), /yrs left|Final year/);
 });
 
 await run("mobile2027_controller");
