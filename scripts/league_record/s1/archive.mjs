@@ -28,33 +28,50 @@ export class ArchiveGuardError extends Error {
   constructor(message) { super(message); this.name = "ArchiveGuardError"; }
 }
 
-// Authorizes a query. The check is on EVERY identifier in the statement, not only the ones after FROM or JOIN, so a comma join, a subquery, an alias list or any other form
-// that names a table is covered:
-//   - comments and string literals are removed first; quoted identifiers ("x", [x], `x`) are unquoted;
-//   - the statement must be one SELECT (no WITH, no second statement, no PRAGMA or sqlite_ names, no table-valued pragma functions);
-//   - any identifier that names a banned table, or ANY table or view of the archive that is not on the allowlist, refuses the query (knownTables is the archive's sqlite_master list);
-//   - an identifier after FROM or JOIN must be on the allowlist even when the archive list is not supplied.
+// Splits SQL into tokens in ONE left-to-right pass, so a string, a comment and a quoted name are each recognized where they start (a "--" inside a string is not a comment, and a name
+// inside a string is not a table). An unterminated string or comment is not skipped: its characters are scanned as code, which can only make the guard stricter.
+// Kinds: word (a bare name), quoted (a "name", [name] or `name`), string, comment, semi, other.
+export function sqlTokens(text) {
+  const out = [];
+  const re = /'(?:[^']|'')*'|"(?:[^"]|"")*"|\[[^\]]*\]|`[^`]*`|--[^\n]*|\/\*[\s\S]*?\*\/|[A-Za-z_][A-Za-z0-9_]*|;|[^\s]/g;
+  for (const m of String(text).matchAll(re)) {
+    const v = m[0];
+    if (v[0] === "'") out.push({ kind: "string", value: v });
+    else if (v[0] === '"') out.push({ kind: "quoted", value: v.slice(1, -1).replace(/""/g, '"') });
+    else if (v[0] === "[" || v[0] === "`") out.push({ kind: "quoted", value: v.slice(1, -1) });
+    else if (v.startsWith("--") || v.startsWith("/*")) out.push({ kind: "comment", value: v });
+    else if (/^[A-Za-z_]/.test(v)) out.push({ kind: "word", value: v });
+    else if (v === ";") out.push({ kind: "semi", value: v });
+    else out.push({ kind: "other", value: v });
+  }
+  return out;
+}
+
+// Authorizes a query. The check is on EVERY name in the statement, not only the ones after FROM or JOIN, so a comma join, a subquery, an alias list or any other form that names a
+// table is covered:
+//   - the statement must be one SELECT (no WITH, no second statement, no PRAGMA or ATTACH, no sqlite_ or pragma_ names);
+//   - any name that is a banned table, or ANY table or view of the archive that is not on the allowlist, refuses the query (knownTables is the archive's sqlite_master list);
+//   - a name right after FROM or JOIN must be on the allowlist even when the archive list is not supplied.
 // Returns the allowlisted tables the query names, in order of first appearance.
 export function assertQueryAllowed(sql, knownTables = []) {
   const text = String(sql);
   if (!/^\s*select\b/i.test(text)) throw new ArchiveGuardError("only a single SELECT is allowed");
-  const bare = text.replace(/--[^\n]*/g, " ").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/'(?:[^']|'')*'/g, " ' ' ");
-  if (/;\s*\S/.test(bare)) throw new ArchiveGuardError("only a single SELECT is allowed");
-  const idents = [];
-  for (const m of bare.matchAll(/"((?:[^"]|"")*)"|\[([^\]]*)\]|`([^`]*)`|([A-Za-z_][A-Za-z0-9_]*)/g)) idents.push((m[1] ?? m[2] ?? m[3] ?? m[4]).toLowerCase());
+  const toks = sqlTokens(text).filter((x) => x.kind !== "comment");
+  const semi = toks.findIndex((x) => x.kind === "semi");
+  if (semi >= 0 && semi < toks.length - 1) throw new ArchiveGuardError("only a single SELECT is allowed");
   const known = new Set(knownTables.map((x) => String(x).toLowerCase()));
   const used = [];
-  for (const id of idents) {
-    if (id === "with" || id === "pragma" || id === "attach") throw new ArchiveGuardError(`${id} is not allowed in an S1 extraction query`);
+  toks.forEach((tk, i) => {
+    if (tk.kind !== "word" && tk.kind !== "quoted") return;
+    const id = tk.value.toLowerCase();
+    if (tk.kind === "word" && (id === "with" || id === "pragma" || id === "attach")) throw new ArchiveGuardError(`${id} is not allowed in an S1 extraction query`);
     if (id.startsWith("sqlite_") || id.startsWith("pragma_")) throw new ArchiveGuardError(`the name ${id} is not allowed in an S1 extraction query`);
     if (BANNED_TABLES.includes(id)) throw new ArchiveGuardError(`the table ${id} may not be read by the S1 extraction (it holds rankings or forecasts; draft slots come only from MFL draft results and slot data)`);
-    if (ALLOWED_TABLES.includes(id)) { if (!used.includes(id)) used.push(id); continue; }
-    if (known.has(id)) throw new ArchiveGuardError(`the table ${id} is not on the S1 extraction allowlist`);
-  }
-  for (const m of bare.toLowerCase().matchAll(/\b(?:from|join)\s+(?:"([^"]+)"|\[([^\]]+)\]|`([^`]+)`|([a-z_][a-z0-9_]*))/g)) {
-    const u = m[1] ?? m[2] ?? m[3] ?? m[4];
-    if (!ALLOWED_TABLES.includes(u)) throw new ArchiveGuardError(`the table ${u} is not on the S1 extraction allowlist`);
-  }
+    if (ALLOWED_TABLES.includes(id)) { if (!used.includes(id)) used.push(id); }
+    else if (known.has(id)) throw new ArchiveGuardError(`the table ${id} is not on the S1 extraction allowlist`);
+    const prev = toks[i - 1];
+    if (prev && prev.kind === "word" && /^(from|join)$/i.test(prev.value) && !ALLOWED_TABLES.includes(id)) throw new ArchiveGuardError(`the table ${id} is not on the S1 extraction allowlist`);
+  });
   return used;
 }
 

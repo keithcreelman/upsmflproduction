@@ -155,6 +155,11 @@ test("UNIQUE_HOLDER_V1: INFERRED only with every condition; the label, the rule 
   t.equal(disagree.class, CLASS.UNRESOLVED); t.match(disagree.reason, /disagree/);
   const slotTok = res({ holdings: uniq, slotTokenTransfer: true });
   t.equal(slotTok.class, CLASS.UNRESOLVED); t.match(slotTok.reason, /slot-token transfer/);
+  // the reconciliation uses each pick's holder ON the evidence date: a transfer after it must not make a complete round look incomplete
+  const lateLed = syntheticLedger({ year: 2020, round: 2, draftTs, holdings: uniq });
+  lateLed.tradesByAsset.set("fpick:0003:2020:2", [{ trade: { id: "late", ts: draftTs + 86400, date: "2020-06-02", time: "12:00:00", source: { kind: "synthetic" }, date_quality: "exact" }, leg: { from: "0003", to: "0009", rows: null } }]);
+  const lateRes = resolveFuturePick(lateLed, syntheticChain(lateLed, "0001", 2020, 2), { year: 2020, round: 2, original: "0001" }, { slotLists: [] });
+  t.equal(lateRes.class, CLASS.INFERRED, "a transfer after the evidence date is not part of that date's inventory");
   const noTeams = (() => { const led = syntheticLedger({ year: 2020, round: 2, draftTs, holdings: uniq }); delete led.franchisesFor; return resolveFuturePick(led, syntheticChain(syntheticLedger({ year: 2020, round: 2, draftTs, holdings: uniq }), "0001", 2020, 2), { year: 2020, round: 2, original: "0001" }, { slotLists: [] }); })();
   t.equal(noTeams.class, CLASS.UNRESOLVED); t.match(noTeams.reason, /team list/);
   const none = res({ holdings: { "0001": "0002", "0007": "0002" }, slotHolder: {} });
@@ -208,6 +213,13 @@ test("guard: the archive reader refuses every banned or unlisted table and anyth
     "with x as (select * from trade_winning_team_analysis) select * from x",
     "select * from transactions_trades; select * from trade_winning_team_analysis",
     "select * from pragma_table_info('players')",
+    // MAT-1 round 2: a comment marker inside a string must not hide the rest of the statement, and strings and comments are recognized where they start
+    "select '--' as marker, a.final_finish from trade_winning_team_analysis a limit 1",
+    "select '/*' x, a.final_finish from trade_winning_team_analysis a /* */ limit 1",
+    "select 'it''s --' x from transactions_trades t, trade_winning_team_analysis a",
+    "select 1 from transactions_trades /* unterminated comment hides nothing from the guard , trade_winning_team_analysis",
+    "select 1 from transactions_trades where x = 'unterminated , trade_winning_team_analysis",
+    "select [a--b] from transactions_trades t, [trade_winning_team_analysis]",
   ];
   for (const f of forms) t.throws(() => assertQueryAllowed(f, known), ArchiveGuardError, f);
   t.deepEqual(assertQueryAllowed("select r.x, 'trade_winning_team_analysis' lit from transactions_trades t, rosters_weekly r -- standings", known), ["transactions_trades", "rosters_weekly"], "a banned name inside a string or a comment is not a table");
@@ -262,6 +274,15 @@ test("classes and the named gap are on every link and every crossing chain (MAT-
   // the report names every crossing chain
   const report = renderReport(bundle, null);
   for (const n of bundle.nodes.filter((x) => x.named_gap.crosses)) t.ok(report.includes(`(${n.id}): `), `report lists ${n.id}`);
+  // MAT-3 round 2: a period ended only by another franchise's add is never CONFIRMED as a whole, and its departure is UNRESOLVED
+  const swift = nodeOf("player:14797");
+  const sw = swift.chain.holders.find((h) => h.franchise === "0005");
+  t.equal(sw.to.kind, "add"); t.equal(sw.end_class, CLASS.UNRESOLVED); t.equal(sw.class, CLASS.UNRESOLVED); t.equal(sw.start_class, CLASS.CONFIRMED);
+  t.ok(swift.departures.length >= 1 && swift.departures.every((d) => d.class === CLASS.UNRESOLVED));
+  t.ok(swift.chain.breaks.some((b) => b.kind === "implicit_release" && b.class === CLASS.UNRESOLVED));
+  // a period ended by the franchise's own trade out is CONFIRMED at both ends
+  const brown0 = nodeOf("player:14104").chain.holders.find((h) => h.franchise === "0005");
+  t.equal(brown0.class, CLASS.CONFIRMED);
   // a banned finish-bearing table cannot be reached by a comma join through the real reader
   t.throws(() => archive.all("select a.* from transactions_trades t, trade_winning_team_analysis a limit 1"), ArchiveGuardError);
 });

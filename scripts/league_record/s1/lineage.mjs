@@ -169,7 +169,7 @@ export function resolveSlotPick(ledger, chain, year, round, slot) {
 //   3. every future pick of the round (one per original franchise) has a chain without a break, and the holder each chain leaves equals the holder the evidence lists, franchise by franchise
 //      (the count of picks the records say a franchise holds equals the count of slots the evidence gives it), so every possible competing pick is accounted for.
 // Returns { complete, reasons, checked }. Any failed condition is a reason; the caller reports UNRESOLVED.
-export function inventoryCheck(ledger, chain, { year, round, original }, inventory) {
+export function inventoryCheck(ledger, chain, { year, round, original }, inventory, evidenceTs = null) {
   const reasons = [];
   const teams = typeof ledger.franchisesFor === "function" ? ledger.franchisesFor(year) : [];
   if (!teams.length) reasons.push("the league's team list for the season is not known, so a complete round cannot be shown");
@@ -184,7 +184,9 @@ export function inventoryCheck(ledger, chain, { year, round, original }, invento
       const asset = `fpick:${o}:${year}:${round}`;
       const c = o === original && chain ? chain : pickChain(ledger, asset);
       if (c.breaks && c.breaks.length) reasons.push(`the chain of the ${o} pick has a break, so the records do not say who holds it`);
-      const h = c.holders && c.holders.length ? c.holders.at(-1).franchise : o;
+      // the holder ON THE EVIDENCE DATE (a transfer after it belongs to a later inventory), the last holder when no date is given
+      const onDate = evidenceTs != null && c.holders ? holderAt(c, evidenceTs) : null;
+      const h = onDate || (c.holders && c.holders.length ? c.holders.at(-1).franchise : o);
       implied.set(h, (implied.get(h) || 0) + 1);
     }
     const listed = new Map(teams.map((t) => [t, 0]));
@@ -213,7 +215,7 @@ export function resolveFuturePick(ledger, chain, { year, round, original }, { sl
   const base = { holder, original, year, round, candidates, last_transfer_ts: lastLegTs, evidence_day: evidence ? evidence.day : null, evidence_kind: evidence ? "mfl_slot_list" : "draft_results", coverage_gaps: gaps };
   // the evidence inventory of the round: the slot list's slots, or the draft results' selections
   const inventory = evidence ? evidence.slots.filter((x) => x.round === round).map((x) => ({ slot: x.slot, holder: x.holder })) : selections.map((x) => ({ slot: x.slot, holder: x.franchise }));
-  const inv = inventoryCheck(ledger, chain, { year, round, original }, inventory);
+  const inv = inventoryCheck(ledger, chain, { year, round, original }, inventory, evidenceTs);
   if (evidenceTs) base.inventory = inv;
   if (!evidenceTs) return { ...base, class: CLASS.UNRESOLVED, reason: "no slot list or draft result exists for this year and round" };
   if (gaps.length) return { ...base, class: CLASS.UNRESOLVED, reason: "custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof", rule_considered: RULES.UNIQUE_HOLDER_V1 };

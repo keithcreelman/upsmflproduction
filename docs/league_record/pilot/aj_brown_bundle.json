@@ -299,12 +299,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0005",
               "date": "2024-07-24",
               "kind": "trade",
               "time": "08:51:24",
@@ -312,7 +315,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0008",
             "from": {
               "date": "2024-07-24",
@@ -320,7 +324,9 @@
               "time": "08:51:24",
               "trade": "trade2024_30"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0004",
               "date": "2025-08-05",
               "kind": "add",
               "time": "07:47:30",
@@ -329,6 +335,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0004",
             "from": {
               "date": "2025-08-05",
@@ -336,7 +343,9 @@
               "time": "07:47:30",
               "trade": null
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0004",
               "date": "2025-08-19",
               "kind": "trade",
               "time": "21:41:47",
@@ -345,6 +354,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0007",
             "from": {
               "date": "2025-08-19",
@@ -352,7 +362,9 @@
               "time": "21:41:47",
               "trade": "trade2025_41"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0007",
               "date": "2026-07-19",
               "kind": "drop",
               "time": "08:45:12",
@@ -361,6 +373,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0009",
             "from": {
               "date": "2026-07-29",
@@ -368,6 +381,7 @@
               "time": "17:58:05",
               "trade": null
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
@@ -705,12 +719,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0008",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0008",
               "date": "2024-07-24",
               "kind": "trade",
               "time": "08:51:24",
@@ -719,6 +736,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2024-07-24",
@@ -726,7 +744,9 @@
               "time": "08:51:24",
               "trade": "trade2024_30"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0005",
               "date": "2025-03-05",
               "kind": "trade",
               "time": "13:18:22",
@@ -734,7 +754,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0006",
             "from": {
               "date": "2025-03-05",
@@ -742,6 +763,7 @@
               "time": "13:18:22",
               "trade": "trade2025_5"
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
@@ -1015,12 +1037,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0006",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0006",
               "date": "2025-03-05",
               "kind": "trade",
               "time": "13:18:22",
@@ -1028,7 +1053,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0005",
             "from": {
               "date": "2025-03-05",
@@ -1036,6 +1062,7 @@
               "time": "13:18:22",
               "trade": "trade2025_5"
             },
+            "start_class": "CONFIRMED",
             "to": {
               "date": "2025-05-25",
               "kind": "draft_selection",
@@ -1168,6 +1195,7 @@
         "holders": [
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-05-25",
@@ -1175,7 +1203,9 @@
               "time": "19:00:18",
               "trade": null
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0005",
               "date": "2025-08-07",
               "kind": "trade",
               "time": "10:54:26",
@@ -1183,7 +1213,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0010",
             "from": {
               "date": "2025-08-07",
@@ -1191,6 +1222,7 @@
               "time": "10:54:26",
               "trade": "trade2025_34"
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
@@ -1379,12 +1411,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0010",
               "date": "2025-08-07",
               "kind": "trade",
               "time": "10:54:26",
@@ -1392,7 +1427,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0005",
             "from": {
               "date": "2025-08-07",
@@ -1400,6 +1436,7 @@
               "time": "10:54:26",
               "trade": "trade2025_34"
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
@@ -1595,12 +1632,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0010",
               "date": "2025-08-07",
               "kind": "trade",
               "time": "10:54:26",
@@ -1609,6 +1649,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-08-07",
@@ -1616,7 +1657,9 @@
               "time": "10:54:26",
               "trade": "trade2025_34"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0005",
               "date": "2025-10-03",
               "kind": "trade",
               "time": "13:10:49",
@@ -1624,7 +1667,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0011",
             "from": {
               "date": "2025-10-03",
@@ -1632,6 +1676,7 @@
               "time": "13:10:49",
               "trade": "trade2025_53"
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
@@ -1836,12 +1881,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0011",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0011",
               "date": "2025-10-03",
               "kind": "trade",
               "time": "13:10:49",
@@ -1849,7 +1897,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0005",
             "from": {
               "date": "2025-10-03",
@@ -1857,7 +1906,9 @@
               "time": "13:10:49",
               "trade": "trade2025_53"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0002",
               "date": "2026-07-27",
               "kind": "add",
               "time": "15:46:15",
@@ -1866,6 +1917,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0002",
             "from": {
               "date": "2026-07-27",
@@ -1873,17 +1925,18 @@
               "time": "15:46:15",
               "trade": null
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
       },
       "departures": [
         {
-          "class": "CONFIRMED",
+          "class": "UNRESOLVED",
           "date": "2026-07-27",
           "kind": "add",
           "method": "AUCTION_WON",
-          "note": "released rather than traded: no consideration was recorded",
+          "note": "the end of the stint is dated by another franchise's add: the holder's own release is not recorded (UNRESOLVED), and no consideration was recorded",
           "source": {
             "day": "2026-11-19",
             "file": "transactions.json",
@@ -2144,12 +2197,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0010",
               "date": "2025-08-07",
               "kind": "trade",
               "time": "10:54:26",
@@ -2158,6 +2214,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-08-07",
@@ -2165,7 +2222,9 @@
               "time": "10:54:26",
               "trade": "trade2025_34"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0005",
               "date": "2025-11-25",
               "kind": "trade",
               "time": "16:01:40",
@@ -2173,7 +2232,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0010",
             "from": {
               "date": "2025-11-25",
@@ -2181,6 +2241,7 @@
               "time": "16:01:40",
               "trade": "trade2025_72"
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
@@ -2381,12 +2442,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0010",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0010",
               "date": "2025-11-25",
               "kind": "trade",
               "time": "16:01:40",
@@ -2394,7 +2458,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0005",
             "from": {
               "date": "2025-11-25",
@@ -2402,6 +2467,7 @@
               "time": "16:01:40",
               "trade": "trade2025_72"
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
@@ -2675,12 +2741,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0006",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0006",
               "date": "2025-03-05",
               "kind": "trade",
               "time": "13:18:22",
@@ -2689,6 +2758,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-03-05",
@@ -2696,7 +2766,9 @@
               "time": "13:18:22",
               "trade": "trade2025_5"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0005",
               "date": "2025-03-20",
               "kind": "trade",
               "time": "12:54:23",
@@ -2705,6 +2777,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0004",
             "from": {
               "date": "2025-03-20",
@@ -2712,7 +2785,9 @@
               "time": "12:54:23",
               "trade": "trade2025_10"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0004",
               "date": "2025-11-22",
               "kind": "trade",
               "time": "18:42:49",
@@ -2720,7 +2795,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0006",
             "from": {
               "date": "2025-11-22",
@@ -2728,6 +2804,7 @@
               "time": "18:42:49",
               "trade": "trade2025_71"
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
@@ -3011,12 +3088,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0004",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0004",
               "date": "2025-03-20",
               "kind": "trade",
               "time": "12:54:23",
@@ -3025,6 +3105,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0005",
             "from": {
               "date": "2025-03-20",
@@ -3032,7 +3113,9 @@
               "time": "12:54:23",
               "trade": "trade2025_10"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0005",
               "date": "2025-05-25",
               "kind": "trade",
               "time": "20:24:12",
@@ -3041,6 +3124,7 @@
           },
           {
             "class": "CONFIRMED",
+            "end_class": "CONFIRMED",
             "franchise": "0001",
             "from": {
               "date": "2025-05-25",
@@ -3048,7 +3132,9 @@
               "time": "20:24:12",
               "trade": "trade2025_17"
             },
+            "start_class": "CONFIRMED",
             "to": {
+              "by": "0001",
               "date": "2025-05-25",
               "kind": "trade",
               "time": "20:33:54",
@@ -3056,7 +3142,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0011",
             "from": {
               "date": "2025-05-25",
@@ -3064,6 +3151,7 @@
               "time": "20:33:54",
               "trade": "trade2025_19"
             },
+            "start_class": "CONFIRMED",
             "to": {
               "date": "2025-05-25",
               "kind": "draft_selection",
@@ -3179,7 +3267,8 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0011",
             "from": {
               "date": "2025-05-25",
@@ -3187,6 +3276,7 @@
               "time": "20:42:47",
               "trade": null
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]
@@ -3354,12 +3444,15 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "CONFIRMED",
             "franchise": "0001",
             "from": {
               "origin": "asserted_by_first_record"
             },
+            "start_class": "UNRESOLVED",
             "to": {
+              "by": "0001",
               "date": "2025-05-25",
               "kind": "trade",
               "time": "20:24:12",
@@ -3367,7 +3460,8 @@
             }
           },
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0005",
             "from": {
               "date": "2025-05-25",
@@ -3375,6 +3469,7 @@
               "time": "20:24:12",
               "trade": "trade2025_17"
             },
+            "start_class": "CONFIRMED",
             "to": {
               "date": "2025-05-25",
               "kind": "draft_selection",
@@ -3472,7 +3567,8 @@
         ],
         "holders": [
           {
-            "class": "CONFIRMED",
+            "class": "UNRESOLVED",
+            "end_class": "UNRESOLVED",
             "franchise": "0005",
             "from": {
               "date": "2025-05-25",
@@ -3480,6 +3576,7 @@
               "time": "20:25:01",
               "trade": null
             },
+            "start_class": "CONFIRMED",
             "to": null
           }
         ]

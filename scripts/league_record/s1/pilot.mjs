@@ -31,7 +31,7 @@ function eventRef(e) {
   return { class: CLASS.CONFIRMED, kind: e.kind, date: e.date, time: e.time, trade: e.trade || null, from: e.from || null, to: e.to || null, round: e.round || null, slot: e.slot || null, method: e.method || null, date_quality: e.date_quality || null, source: e.source };
 }
 function holderRef(h) {
-  return { class: CLASS.CONFIRMED, franchise: h.franchise, from: h.from_event ? { date: h.from_event.date, time: h.from_event.time, kind: h.from_event.kind, trade: h.from_event.trade || null } : { origin: h.origin || "before_the_first_record" }, to: h.to_event ? { date: h.to_event.date, time: h.to_event.time, kind: h.to_event.kind, trade: h.to_event.trade || null } : null };
+  return { class: CLASS.CONFIRMED, franchise: h.franchise, from: h.from_event ? { date: h.from_event.date, time: h.from_event.time, kind: h.from_event.kind, trade: h.from_event.trade || null } : { origin: h.origin || "before_the_first_record" }, to: h.to_event ? { date: h.to_event.date, time: h.to_event.time, kind: h.to_event.kind, trade: h.to_event.trade || null, by: h.to_event.kind === "trade" || h.to_event.kind === "drop" ? (h.to_event.from || null) : (h.to_event.to || null) } : null };
 }
 
 export async function buildPilotBundle({ root, cacheDir } = {}) {
@@ -137,7 +137,7 @@ function buildFrom({ archive, root }) {
 
   // what franchise F received when it sent this asset on: the consideration (confirmed by the trade record) and the other assets in the same deal (companions, not traced)
   function expandTransfers(node, chain) {
-    for (const h of chain.holders.filter((x) => x.franchise === F && x.to_event && x.to_event.kind !== "trade")) node.departures.push({ class: CLASS.CONFIRMED, kind: h.to_event.kind, date: h.to_event.date, time: h.to_event.time, method: h.to_event.method || null, source: h.to_event.source, note: "released rather than traded: no consideration was recorded" });
+    for (const h of chain.holders.filter((x) => x.franchise === F && x.to_event && x.to_event.kind !== "trade")) node.departures.push({ class: h.to_event.kind === "drop" ? CLASS.CONFIRMED : CLASS.UNRESOLVED, kind: h.to_event.kind, date: h.to_event.date, time: h.to_event.time, method: h.to_event.method || null, source: h.to_event.source, note: h.to_event.kind === "drop" ? "released rather than traded: the drop is recorded and no consideration was recorded" : "the end of the stint is dated by another franchise's add: the holder's own release is not recorded (UNRESOLVED), and no consideration was recorded" });
     const heldByF = chain.holders.filter((h) => h.franchise === F && h.to_event && h.to_event.kind === "trade");
     for (const h of heldByF) {
       const t = tradeById.get(h.to_event.trade); useTrade(t.id);
@@ -166,6 +166,7 @@ function buildFrom({ archive, root }) {
     // a slot pick stops existing as a pick when it is used: its last possession period ends at the selection
     if (rest.kind === "slot_pick" && rest.resolution && rest.resolution.selection && rest.chain.holders.length) { const h = rest.chain.holders.at(-1); if (!h.to) h.to = { date: rest.resolution.selection.date, time: rest.resolution.selection.time, kind: "draft_selection", trade: null }; }
     rest.named_gap = namedGapExposure(ledger, rest.chain.holders);
+    classifyPeriods(rest.chain.holders, rest.named_gap);
     return rest; });
   const frontier = nodeList.flatMap((n) => n.transfers.filter((t) => t.frontier).map((t) => ({ asset: n.id, trade: t.trade, date: t.date, consideration: t.consideration, note: `generation limit ${PILOT.max_generation} reached: this transfer's consideration is listed, not traced` })));
   const views = buildViews(nodeList);
@@ -180,6 +181,20 @@ function buildFrom({ archive, root }) {
     gaps: dedupeGaps(gapsFound, coverage),
   };
   return bundle;
+}
+
+// Class of each possession period, with its start and its end classed separately. The START is CONFIRMED when a recorded event gave the franchise the asset (a trade, a draft selection, an
+// add) and UNRESOLVED when only the first record's sender names it (the earlier history is unknown). The END is CONFIRMED when the franchise's own recorded act ends it (a trade out or a drop),
+// UNRESOLVED when another franchise's add ends it (the release is not recorded: the add dates the end, nothing proves possession up to it), and, for an open period, CONFIRMED to the last record
+// unless the period spans the named unobserved period (then UNRESOLVED: continuity there is not observed). The period is only as good as its weaker end.
+const WEAK = (a, b) => ([CLASS.UNRESOLVED, CLASS.INFERRED, CLASS.CALCULATED, CLASS.CONFIRMED].find((c) => c === a || c === b));
+function classifyPeriods(holders, namedGap) {
+  holders.forEach((h) => {
+    h.start_class = h.from && h.from.date ? CLASS.CONFIRMED : CLASS.UNRESOLVED;
+    if (!h.to) h.end_class = namedGap.possession_periods_spanning.some((sp) => sp.franchise === h.franchise && sp.from === (h.from.date || null)) ? CLASS.UNRESOLVED : CLASS.CONFIRMED;
+    else h.end_class = h.to.by === h.franchise ? CLASS.CONFIRMED : CLASS.UNRESOLVED;
+    h.class = WEAK(h.start_class, h.end_class);
+  });
 }
 
 // Does any possession period of the chain overlap the named unobserved trade period? An open period runs to the pinned snapshot day. Dates are Eastern, compared as text.

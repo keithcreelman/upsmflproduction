@@ -44,7 +44,11 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
     if (!okClass(n.link_class)) unclassified.push(`${n.id}: asset link unclassed`);
     if (!n.entered || !(n.entered.trade || hasSource(n.entered.source))) unclassified.push(`${n.id}: no entry source`);
     for (const e of n.chain.events) { if (!hasSource(e.source)) unclassified.push(`${n.id}: event without a source`); if (!okClass(e.class)) unclassified.push(`${n.id}: event ${e.kind} ${e.date} unclassed`); }
-    for (const h of n.chain.holders) if (!okClass(h.class)) unclassified.push(`${n.id}: possession period unclassed`);
+    for (const h of n.chain.holders) {
+      if (!okClass(h.class) || !okClass(h.start_class) || !okClass(h.end_class)) unclassified.push(`${n.id}: possession period unclassed`);
+      // a period ended by another franchise's add (no recorded release) can never be CONFIRMED as a whole
+      if (h.to && h.to.by !== h.franchise && h.class === CLASS.CONFIRMED) unclassified.push(`${n.id}: a period ended by another franchise's ${h.to.kind} is classed CONFIRMED`);
+    }
     for (const br of n.chain.breaks) if (!okClass(br.class) || !(br.at || br.trade)) unclassified.push(`${n.id}: break ${br.kind} without a class or a source`);
     for (const tr of n.transfers) { if (!okClass(tr.class) || !b.trades[tr.trade]) unclassified.push(`${n.id}: transfer ${tr.trade} unclassed or not in the trade list`); }
     for (const d of n.departures) if (!okClass(d.class) || !hasSource(d.source)) unclassified.push(`${n.id}: departure without a class or a source`);
@@ -198,6 +202,10 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
   for (const n of b.nodes) {
     const g = b.coverage.named_gap;
     const expect = n.chain.holders.some((h) => (h.from.date == null || h.from.date <= g.to) && (h.to == null ? b.sources.snapshots.pinned_day : h.to.date) >= g.from);
+    const g2 = b.coverage.named_gap;
+    const expectSpans = n.chain.holders.filter((h) => (h.from.date == null || h.from.date <= g2.to) && (h.to == null ? b.sources.snapshots.pinned_day : h.to.date) >= g2.from).map((h) => `${h.franchise}|${h.from.date || ""}|${h.to ? h.to.date : ""}`).join(";");
+    const haveSpans = n.named_gap ? n.named_gap.possession_periods_spanning.map((x) => `${x.franchise}|${x.from || ""}|${x.to || ""}`).join(";") : "";
+    if (expectSpans !== haveSpans) spanErrs.push(`${n.id}: the listed spanning periods differ from the chain's`);
     if (!n.named_gap || n.named_gap.crosses !== expect) spanErrs.push(`${n.id}: the named gap is ${n.named_gap && n.named_gap.crosses ? "shown" : "not shown"} but the chain ${expect ? "crosses" : "does not cross"} it`);
   }
   const gapOk = spanErrs.length === 0 && g0 && g0.kind === "incomplete_trade_coverage" && g0.from === "2025-11-28" && g0.to === "2026-03-07" && b.nodes.filter((n) => n.kind === "future_pick" && n.resolution.coverage_gaps.length).every((n) => n.resolution.class !== CLASS.INFERRED && n.resolution.class !== CLASS.CONFIRMED)
