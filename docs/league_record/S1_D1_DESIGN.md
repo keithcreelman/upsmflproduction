@@ -87,8 +87,10 @@ CREATE TABLE lr_trade_leg (                      -- one row per moved asset; the
   PRIMARY KEY (trade_id, leg_no)) WITHOUT ROWID;
 CREATE TABLE lr_trade_cap (                      -- cap-transfer direction: from sends cap room to
   trade_id TEXT NOT NULL REFERENCES lr_trade(trade_id), cap_no INTEGER NOT NULL, from_franchise TEXT NOT NULL, to_franchise TEXT NOT NULL,
-  amount INTEGER NOT NULL CHECK (amount > 0),                                   -- a missing or zero amount is refused, never stored as 0 (see the known discrepancy, section 5)
+  amount INTEGER NOT NULL CHECK (typeof(amount) = 'integer' AND amount > 0),    -- a missing, zero or fractional amount is refused, never stored as 0 or rounded (see the known discrepancy, section 5)
   amount_source TEXT NOT NULL CHECK (amount_source IN ('archive_column','raw_token')),   -- where the number came from (S1_CAP_TOKEN_CORRECTION.md); an unrecoverable amount is not loaded
+  token TEXT,                                                                   -- the raw token an amount was read from
+  CHECK (amount_source <> 'raw_token' OR token IS NOT NULL),
   PRIMARY KEY (trade_id, cap_no)) WITHOUT ROWID;
 CREATE TABLE lr_asset_event (                    -- non-trade events of traded players: draft selection, add, drop; and the forfeiture of a slot
   event_id INTEGER PRIMARY KEY, loaded_run INTEGER NOT NULL REFERENCES lr_run(run_id), asset_key TEXT NOT NULL REFERENCES lr_asset(asset_key),
@@ -125,7 +127,8 @@ CREATE TABLE lr_possession (
   evidence_class TEXT NOT NULL CHECK (evidence_class IN ('CONFIRMED','CALCULATED','INFERRED','UNRESOLVED')),
   weakest_coverage TEXT NOT NULL CHECK (weakest_coverage IN ('VERIFIED_COMPLETE','UNVERIFIED','KNOWN_GAP')),
   valid_from_run INTEGER NOT NULL REFERENCES lr_run(run_id), valid_to_run INTEGER REFERENCES lr_run(run_id),
-  CHECK (valid_to_run IS NULL OR valid_to_run > valid_from_run));
+  CHECK (valid_to_run IS NULL OR valid_to_run > valid_from_run),
+  CHECK (evidence_class NOT IN ('CONFIRMED','CALCULATED') OR weakest_coverage = 'VERIFIED_COMPLETE'));   -- continuity over unverified days is INFERRED (it rests on the absence of a record), never CONFIRMED or CALCULATED
 
 -- ── layer 3: links with a class, never a flattened outcome ───────────────────────────────────
 CREATE TABLE lr_link (
@@ -143,14 +146,17 @@ CREATE TABLE lr_link_candidate (link_id INTEGER NOT NULL REFERENCES lr_link(link
   PRIMARY KEY (link_id, season, round, slot)) WITHOUT ROWID;
 CREATE TABLE lr_conflict (                       -- a recorded disagreement between sources: kept, never resolved by the model (for example 2014 pick 4.12)
   conflict_id INTEGER PRIMARY KEY, subject_key TEXT NOT NULL, kind TEXT NOT NULL, left_ref TEXT NOT NULL, right_ref TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('open','resolved_by_source','resolved_by_ruling')), ruling_ref TEXT, run_id INTEGER NOT NULL REFERENCES lr_run(run_id));
+  status TEXT NOT NULL CHECK (status IN ('open','resolved_by_source','resolved_by_ruling')), ruling_ref TEXT, run_id INTEGER NOT NULL REFERENCES lr_run(run_id),
+  valid_to_run INTEGER REFERENCES lr_run(run_id),                                -- a resolution is a NEW row; the open row is closed
+  CHECK (valid_to_run IS NULL OR valid_to_run > run_id),
+  CHECK (status = 'open' OR length(ifnull(ruling_ref, '')) > 0));               -- a resolved conflict cites the source or ruling that resolved it
 CREATE TABLE lr_evidence_need (                 -- the explicit record of unresolved historical evidence: what is missing, which register item tracks it, and whether the limitation was accepted
   need_id INTEGER PRIMARY KEY, subject_type TEXT NOT NULL CHECK (subject_type IN ('LINK','CONFLICT','COVERAGE','CORRECTION')), subject_id INTEGER NOT NULL,
   need_code TEXT NOT NULL, register_ref TEXT NOT NULL,                  -- the item on the pre-live register (issue #1486), for example 'LR-03'
   description TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION','RESOLVED')), accepted_by_ref TEXT,
   valid_from_run INTEGER NOT NULL REFERENCES lr_run(run_id), valid_to_run INTEGER REFERENCES lr_run(run_id),
   CHECK (valid_to_run IS NULL OR valid_to_run > valid_from_run),
-  CHECK (status <> 'ACCEPTED_LIMITATION' OR accepted_by_ref IS NOT NULL));                 -- a limitation is accepted by a cited decision, never silently
+  CHECK (status <> 'ACCEPTED_LIMITATION' OR length(ifnull(accepted_by_ref, '')) > 0));      -- a limitation is accepted by a cited decision, never silently
 CREATE TABLE lr_summary (run_id INTEGER NOT NULL REFERENCES lr_run(run_id), metric TEXT NOT NULL, value INTEGER NOT NULL, PRIMARY KEY (run_id, metric)) WITHOUT ROWID;  -- funnel counts precomputed at load
 
 -- ── reserved for the dependent slices (NOT built): keys fixed now, columns decided with each slice ──
@@ -194,7 +200,7 @@ CREATE TRIGGER lr_no_failed_check_on_verified BEFORE INSERT ON lr_coverage_check
   AND EXISTS (SELECT 1 FROM lr_coverage c WHERE c.coverage_id = NEW.coverage_id AND c.state = 'VERIFIED_COMPLETE')
   BEGIN SELECT RAISE(ABORT, 'a failed check voids a verified interval'); END;
 CREATE TRIGGER lr_release_gate BEFORE INSERT ON lr_release              -- a release cannot activate while a verified interval lacks its two required passing checks, or has any failed one
-  WHEN EXISTS (SELECT 1 FROM lr_coverage c WHERE c.state = 'VERIFIED_COMPLETE' AND c.valid_from_run <= NEW.run_id AND (c.valid_to_run IS NULL OR c.valid_to_run > NEW.run_id)
+  WHEN EXISTS (SELECT 1 FROM lr_coverage c WHERE c.state = 'VERIFIED_COMPLETE' AND c.valid_from_run <= NEW.run_id AND c.valid_from_run NOT IN (SELECT run_id FROM lr_run_excluded) AND (c.valid_to_run IS NULL OR c.valid_to_run > NEW.run_id OR c.valid_to_run IN (SELECT run_id FROM lr_run_excluded))
        AND (NOT EXISTS (SELECT 1 FROM lr_coverage_check k WHERE k.coverage_id = c.coverage_id AND k.check_kind = 'archive_comparison' AND k.passed = 1)
          OR NOT EXISTS (SELECT 1 FROM lr_coverage_check k WHERE k.coverage_id = c.coverage_id AND k.check_kind = 'end_state_reconciliation' AND k.passed = 1)
          OR EXISTS (SELECT 1 FROM lr_coverage_check k WHERE k.coverage_id = c.coverage_id AND k.passed = 0)))
@@ -203,17 +209,29 @@ CREATE TRIGGER lr_release_retire_only BEFORE UPDATE ON lr_release          -- a 
   WHEN NEW.release_id IS NOT OLD.release_id OR NEW.run_id IS NOT OLD.run_id OR NEW.activated_utc IS NOT OLD.activated_utc OR NEW.activated_by_ref IS NOT OLD.activated_by_ref OR (OLD.retired_utc IS NOT NULL AND NEW.retired_utc IS NOT OLD.retired_utc)
   BEGIN SELECT RAISE(ABORT, 'a release can only be retired'); END;
 CREATE TRIGGER lr_release_needs_recorded_evidence BEFORE INSERT ON lr_release           -- nothing unresolved may be released without its recorded evidence need
-  WHEN EXISTS (SELECT 1 FROM lr_link l WHERE l.class = 'UNRESOLVED' AND l.valid_from_run <= NEW.run_id AND (l.valid_to_run IS NULL OR l.valid_to_run > NEW.run_id)
-        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'LINK' AND n.subject_id = l.link_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION')
-              AND n.valid_from_run <= NEW.run_id AND (n.valid_to_run IS NULL OR n.valid_to_run > NEW.run_id)))        -- the need must apply to the run being released
-    OR EXISTS (SELECT 1 FROM lr_conflict c WHERE c.status = 'open' AND c.run_id <= NEW.run_id
-        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'CONFLICT' AND n.subject_id = c.conflict_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION')
-              AND n.valid_from_run <= NEW.run_id AND (n.valid_to_run IS NULL OR n.valid_to_run > NEW.run_id)))
+  WHEN EXISTS (SELECT 1 FROM lr_link l WHERE l.class = 'UNRESOLVED' AND l.valid_from_run <= NEW.run_id AND l.valid_from_run NOT IN (SELECT run_id FROM lr_run_excluded) AND (l.valid_to_run IS NULL OR l.valid_to_run > NEW.run_id OR l.valid_to_run IN (SELECT run_id FROM lr_run_excluded))
+        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'LINK' AND n.subject_id = l.link_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION') AND n.valid_from_run <= NEW.run_id AND n.valid_from_run NOT IN (SELECT run_id FROM lr_run_excluded) AND (n.valid_to_run IS NULL OR n.valid_to_run > NEW.run_id OR n.valid_to_run IN (SELECT run_id FROM lr_run_excluded))))   -- the need must apply to the run being released
+    OR EXISTS (SELECT 1 FROM lr_conflict c WHERE c.status = 'open' AND c.run_id <= NEW.run_id AND c.run_id NOT IN (SELECT run_id FROM lr_run_excluded) AND (c.valid_to_run IS NULL OR c.valid_to_run > NEW.run_id OR c.valid_to_run IN (SELECT run_id FROM lr_run_excluded))
+        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'CONFLICT' AND n.subject_id = c.conflict_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION') AND n.valid_from_run <= NEW.run_id AND n.valid_from_run NOT IN (SELECT run_id FROM lr_run_excluded) AND (n.valid_to_run IS NULL OR n.valid_to_run > NEW.run_id OR n.valid_to_run IN (SELECT run_id FROM lr_run_excluded))))
   BEGIN SELECT RAISE(ABORT, 'every unresolved link and open conflict needs a recorded evidence need before a release'); END;
 CREATE TRIGGER lr_evidence_need_close_only BEFORE UPDATE ON lr_evidence_need
   WHEN NEW.need_id IS NOT OLD.need_id OR NEW.subject_type IS NOT OLD.subject_type OR NEW.subject_id IS NOT OLD.subject_id OR NEW.need_code IS NOT OLD.need_code OR NEW.register_ref IS NOT OLD.register_ref
     OR NEW.description IS NOT OLD.description OR NEW.status IS NOT OLD.status OR NEW.accepted_by_ref IS NOT OLD.accepted_by_ref OR NEW.valid_from_run IS NOT OLD.valid_from_run OR (OLD.valid_to_run IS NOT NULL AND NEW.valid_to_run IS NOT OLD.valid_to_run)
   BEGIN SELECT RAISE(ABORT, 'an evidence need can only be closed; a changed status is a new row'); END;
+CREATE TRIGGER lr_evidence_need_subject_exists BEFORE INSERT ON lr_evidence_need
+  WHEN NOT CASE NEW.subject_type
+    WHEN 'LINK' THEN EXISTS (SELECT 1 FROM lr_link WHERE link_id = NEW.subject_id)
+    WHEN 'CONFLICT' THEN EXISTS (SELECT 1 FROM lr_conflict WHERE conflict_id = NEW.subject_id)
+    WHEN 'COVERAGE' THEN EXISTS (SELECT 1 FROM lr_coverage WHERE coverage_id = NEW.subject_id)
+    ELSE EXISTS (SELECT 1 FROM lr_correction WHERE correction_id = NEW.subject_id) END
+  BEGIN SELECT RAISE(ABORT, 'an evidence need must point at an existing link, conflict, coverage interval or correction'); END;
+CREATE TRIGGER lr_conflict_close_only BEFORE UPDATE ON lr_conflict
+  WHEN NEW.conflict_id IS NOT OLD.conflict_id OR NEW.subject_key IS NOT OLD.subject_key OR NEW.kind IS NOT OLD.kind OR NEW.left_ref IS NOT OLD.left_ref OR NEW.right_ref IS NOT OLD.right_ref
+    OR NEW.status IS NOT OLD.status OR NEW.ruling_ref IS NOT OLD.ruling_ref OR NEW.run_id IS NOT OLD.run_id OR (OLD.valid_to_run IS NOT NULL AND NEW.valid_to_run IS NOT OLD.valid_to_run)
+  BEGIN SELECT RAISE(ABORT, 'a conflict can only be closed; its resolution is a new row that cites the source or ruling'); END;
+CREATE TRIGGER lr_exclusion_permanent_u BEFORE UPDATE ON lr_run_excluded BEGIN SELECT RAISE(ABORT, 'an exclusion is permanent'); END;
+CREATE TRIGGER lr_exclusion_permanent_d BEFORE DELETE ON lr_run_excluded BEGIN SELECT RAISE(ABORT, 'an exclusion is permanent'); END;
+CREATE TRIGGER lr_release_history_d BEFORE DELETE ON lr_release BEGIN SELECT RAISE(ABORT, 'release history is never deleted'); END;
 CREATE TRIGGER lr_release_not_excluded BEFORE INSERT ON lr_release WHEN EXISTS (SELECT 1 FROM lr_run_excluded e WHERE e.run_id = NEW.run_id)
   BEGIN SELECT RAISE(ABORT, 'an excluded (abandoned) run can never be released'); END;
 
@@ -242,9 +260,30 @@ CREATE TRIGGER lr_possession_close_only BEFORE UPDATE ON lr_possession
   WHEN NEW.possession_id IS NOT OLD.possession_id OR NEW.asset_key IS NOT OLD.asset_key OR NEW.franchise_id IS NOT OLD.franchise_id OR NEW.from_ts IS NOT OLD.from_ts OR NEW.to_ts IS NOT OLD.to_ts OR NEW.from_basis IS NOT OLD.from_basis
     OR NEW.evidence_class IS NOT OLD.evidence_class OR NEW.weakest_coverage IS NOT OLD.weakest_coverage OR NEW.valid_from_run IS NOT OLD.valid_from_run OR (OLD.valid_to_run IS NOT NULL AND NEW.valid_to_run IS NOT OLD.valid_to_run)
   BEGIN SELECT RAISE(ABORT, 'a possession row can only be closed'); END;
+
+-- deletes: a row of a released run is never deleted (a never-released, failed load may be dropped); otherwise a check could be deleted to pass the release gate
+CREATE TRIGGER lr_nodelete_trade BEFORE DELETE ON lr_trade WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.loaded_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_asset BEFORE DELETE ON lr_asset WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.loaded_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_asset_event BEFORE DELETE ON lr_asset_event WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.loaded_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_draft_row BEFORE DELETE ON lr_draft_row WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.loaded_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_forfeiture BEFORE DELETE ON lr_forfeiture WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.loaded_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_source BEFORE DELETE ON lr_source WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= ifnull(OLD.loaded_run, 0)) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_correction BEFORE DELETE ON lr_correction WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.run_id) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_coverage BEFORE DELETE ON lr_coverage WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.valid_from_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_possession BEFORE DELETE ON lr_possession WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.valid_from_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_link BEFORE DELETE ON lr_link WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.valid_from_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_draft_slot BEFORE DELETE ON lr_draft_slot WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.valid_from_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_evidence_need BEFORE DELETE ON lr_evidence_need WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.valid_from_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_conflict BEFORE DELETE ON lr_conflict WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.run_id) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_run BEFORE DELETE ON lr_run WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.run_id) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_trade_party BEFORE DELETE ON lr_trade_party WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= (SELECT loaded_run FROM lr_trade t WHERE t.trade_id = OLD.trade_id)) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_trade_leg BEFORE DELETE ON lr_trade_leg WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= (SELECT loaded_run FROM lr_trade t WHERE t.trade_id = OLD.trade_id)) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_trade_cap BEFORE DELETE ON lr_trade_cap WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= (SELECT loaded_run FROM lr_trade t WHERE t.trade_id = OLD.trade_id)) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_link_candidate BEFORE DELETE ON lr_link_candidate WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= (SELECT valid_from_run FROM lr_link l WHERE l.link_id = OLD.link_id)) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_coverage_check BEFORE DELETE ON lr_coverage_check WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= (SELECT valid_from_run FROM lr_coverage c WHERE c.coverage_id = OLD.coverage_id)) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
 ```
 
-**A CONFIRMED possession is not gated on coverage** (an open design point): today 439 slot-pick links are CONFIRMED by a token chain plus a draft result while the chain's interval has disclosed coverage gaps, so `weakest_coverage` travels beside the class for the reader instead of blocking it. The commissioner may prefer a stricter rule.
+**Possession and coverage (the open Opus question, resolved in the design pending the commissioner's ruling on LR-12):** a **link** (an end-state claim confirmed by an authoritative observation such as a draft result) is not gated on interval coverage, but a **possession period** (a continuity claim) is INFERRED over unverified days, and the schema allows CONFIRMED or CALCULATED only when its weakest coverage is `VERIFIED_COMPLETE` (a `CHECK`). Facts are append-only (updates are refused), derived rows can only be closed, rows of a released run are never deleted, a conflict is resolved by a new row that cites its source or ruling, and every release gate reads the exclusion rule (`lr_run_excluded`) and the validity window of the rows it checks. See `S1_READINESS_ASSESSMENT.md` section 2.
 
 **Rules the constraints encode:** a `SELECTED` slot has a draft row, a `FORFEITED`, `UNRESOLVED` or `MISSING_SOURCE_RECORD` slot never has one (so a forfeiture cannot carry a fabricated player); an `UNRESOLVED` link has no slot; a future pick can never be `CONFIRMED` to a slot; every link names an approved or diagnostic method and its version. A selected draft row with no franchise id stays `SELECTED` (`franchise_id` is nullable): the selector is simply not recorded. The 2014 4.12 disagreement is an `lr_conflict` row beside a `SELECTED` slot, not a slot status.
 

@@ -373,9 +373,10 @@
         {
           "asset": "fpick:0004:2013:2",
           "holder": "0010",
+          "quiet_windows_over_the_round": 1,
           "round": 2,
           "slot": 8,
-          "unverified_intervals_over_the_round": 1,
+          "span_days": 376,
           "year": 2013
         }
       ],

@@ -227,7 +227,7 @@ export function buildArchiveExtraction({ archive, root, forfeitures = null }) {
       const ea = eventAccounting(ledger, y, r, res.evidence_ts, res.holder);
       if (ea.eligible) {
         fp.funnel.event_accounting_eligible_if_custody_verified += 1;
-        if (!ea.flags.length) { fp.funnel.event_accounting_eligible_without_flags += 1; note("event_accounting_unflagged", { asset: a, year: y, round: r, holder: res.holder, slot: ea.slot, unverified_intervals_over_the_round: ea.span ? gapsBetween(ledger, ea.span[0], ea.span[1]).length : null }); }
+        if (!ea.flags.length) { fp.funnel.event_accounting_eligible_without_flags += 1; note("event_accounting_unflagged", { asset: a, year: y, round: r, holder: res.holder, slot: ea.slot, quiet_windows_over_the_round: ea.span ? gapsBetween(ledger, ea.span[0], ea.span[1]).length : null, span_days: ea.span ? Math.round((ea.span[1] - ea.span[0]) / 86400) : null }); }
         for (const fl of ea.flags) fp.funnel[`event_accounting_flag_${fl}`] += 1;
         // custody must be verified over the WHOLE round: every chain of the round from its first recorded event to the last selection (a lower bound: creation dates and never-traded picks have no event)
         if (ea.span) for (const g of gapsBetween(ledger, ea.span[0], ea.span[1])) neededWindows.set(`${g.from}|${g.to}`, { from: g.from, to: g.to, days: g.days, kind: g.kind });
