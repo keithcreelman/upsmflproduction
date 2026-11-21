@@ -7,7 +7,7 @@
 //   INFERRED    a link no record states, derived by a named rule whose conditions are all met; always labeled, never confirmed.
 //   UNRESOLVED  the evidence is incomplete or competing; a candidate may be listed, but it counts for nothing.
 // Draft slots come ONLY from MFL draft results, MFL's own slot lists and the slot tokens in MFL trades. Nothing here reads standings, finishes, brackets or a projected order.
-import { etParts, dayNumber, addDays, playerAsset, slotPickAsset, loadArchiveTrades, loadSnapshotTrades, loadArchiveSelections, loadSnapshotSelections, loadSlotList, snapshotDays, readSnapshot, SNAPSHOT_DAY } from "./sources.mjs";
+import { etParts, dayNumber, addDays, playerAsset, slotPickAsset, loadArchiveTrades, loadSnapshotTrades, loadArchiveSelections, loadSnapshotSelections, loadKnownForfeitures, loadSlotList, snapshotDays, readSnapshot, SNAPSHOT_DAY } from "./sources.mjs";
 
 export const CLASS = Object.freeze({ CONFIRMED: "CONFIRMED", CALCULATED: "CALCULATED", INFERRED: "INFERRED", UNRESOLVED: "UNRESOLVED", MISSING: "MISSING" });
 export const RULES = Object.freeze({
@@ -55,7 +55,7 @@ export function coverageWindows(archive) {
   return windows;
 }
 
-export function buildLedger({ archive, root }) {
+export function buildLedger({ archive, root, forfeitures: forfeitureOverride = null }) {
   const archiveTrades = loadArchiveTrades(archive);
   const snapshotTrades = loadSnapshotTrades(root);
   const trades = [...archiveTrades, ...snapshotTrades].sort((a, b) => a.ts - b.ts || String(a.id).localeCompare(String(b.id), "en", { numeric: true }));
@@ -63,6 +63,10 @@ export function buildLedger({ archive, root }) {
   for (const t of trades) for (const leg of t.legs) { if (!leg.asset) continue; if (!tradesByAsset.has(leg.asset)) tradesByAsset.set(leg.asset, []); tradesByAsset.get(leg.asset).push({ trade: t, leg }); }
   const selections = [...loadArchiveSelections(archive), ...loadSnapshotSelections(root)];
   const selBySlot = new Map(selections.map((s) => [`${s.year}:${s.round}:${s.slot}`, s]));
+  // a forfeited slot has no selection: a forfeiture that sits beside a recorded selection for the same slot is a contradiction in the sources, never silently resolved
+  const forfeitures = forfeitureOverride || loadKnownForfeitures(root);                         // the override exists for tests that must show an absence WITHOUT a source stays a missing record
+  const forfeitBySlot = new Map(forfeitures.map((f) => [`${f.season}:${f.round}:${f.slot}`, f]));
+  for (const [k, f] of forfeitBySlot) if (selBySlot.has(k)) throw new Error(`slot ${k} is recorded as FORFEITED (${f.provenance}) and also has a draft selection: the sources contradict each other`);
   const selByPlayer = new Map();
   for (const s of selections) { if (!selByPlayer.has(s.player_id)) selByPlayer.set(s.player_id, []); selByPlayer.get(s.player_id).push(s); }
   const lastArchiveTrade = archiveTrades.at(-1);
@@ -86,7 +90,7 @@ export function buildLedger({ archive, root }) {
     }
     return franchiseCache.get(year);
   };
-  return { trades, tradesByAsset, selections, selBySlot, selByPlayer, addDrops: loadAddDrops(archive, root), windows, named_gap: named, archiveTrades, snapshotTrades, root, archive, franchisesFor };
+  return { trades, tradesByAsset, selections, selBySlot, forfeitures, forfeitBySlot, selByPlayer, addDrops: loadAddDrops(archive, root), windows, named_gap: named, archiveTrades, snapshotTrades, root, archive, franchisesFor };
 }
 
 // Does an unobserved period overlap [fromTs, toTs]? Dates are compared in Eastern time. Returns the overlapping windows.
@@ -150,6 +154,8 @@ export const lastHolder = (chain) => (chain.holders.length ? chain.holders.at(-1
 // franchise the chain leaves holding the slot at the moment of the selection; a difference is disclosed as a conflict (canon T1.8: draft results record who clicked).
 export function resolveSlotPick(ledger, chain, year, round, slot) {
   const sel = ledger.selBySlot.get(`${year}:${round}:${slot}`) || null;
+  const forfeit = !sel && ledger.forfeitBySlot ? ledger.forfeitBySlot.get(`${year}:${round}:${slot}`) : null;
+  if (forfeit) return { class: CLASS.UNRESOLVED, rule: RULES.SLOT_TOKEN_DRAFT_RESULT, reason: `the slot was forfeited (${forfeit.reason}; ${forfeit.provenance}): no player was selected, so the pick has no draft result to link`, selection: null, forfeited: true, forfeiture: forfeit };
   if (!sel) return { class: CLASS.UNRESOLVED, rule: RULES.SLOT_TOKEN_DRAFT_RESULT, reason: "no draft result is recorded for this slot", selection: null };
   if (!sel.franchise) return { class: CLASS.UNRESOLVED, rule: RULES.SLOT_TOKEN_DRAFT_RESULT, reason: "the draft result for this slot records no franchise id, so the selector cannot be compared with the chain holder", selection: sel, selector_not_recorded: true };
   const holder = holderAt(chain, sel.ts - 1);
@@ -176,7 +182,8 @@ export function inventoryCheck(ledger, chain, { year, round, original }, invento
   if (!teams.length) reasons.push("the league's team list for the season is not known, so a complete round cannot be shown");
   const slotNos = inventory.map((x) => x.slot).sort((a, b) => a - b);
   if (teams.length && (slotNos.length !== teams.length || slotNos.some((n, i) => n !== i + 1))) reasons.push(`the evidence lists ${slotNos.length} slot(s) for round ${round} (${[...new Set(slotNos)].join(", ")}), not one for each of the league's ${teams.length} teams`);
-  if (teams.length && inventory.some((x) => !teams.includes(String(x.holder)))) reasons.push("the evidence names a holder that is not a franchise of the season");
+  if (inventory.some((x) => x.forfeited)) reasons.push(`slot${inventory.filter((x) => x.forfeited).length > 1 ? "s" : ""} ${inventory.filter((x) => x.forfeited).map((x) => `${round}.${String(x.slot).padStart(2, "0")}`).join(", ")} of round ${round} ${inventory.filter((x) => x.forfeited).length > 1 ? "were" : "was"} forfeited and no holder is recorded for ${inventory.filter((x) => x.forfeited).length > 1 ? "them" : "it"}, so the round's picks cannot be reconciled franchise by franchise`);
+  if (teams.length && inventory.some((x) => !x.forfeited && !teams.includes(String(x.holder)))) reasons.push("the evidence names a holder that is not a franchise of the season");
   const prefix = `spick:${year}:${round}:`;
   if ([...(ledger.tradesByAsset ? ledger.tradesByAsset.keys() : [])].some((k) => k.startsWith(prefix))) reasons.push("a slot-token transfer exists for this season and round: slot-named transfers are not accounted for here");
   if (teams.length) {
@@ -194,7 +201,7 @@ export function inventoryCheck(ledger, chain, { year, round, original }, invento
       implied.set(h, (implied.get(h) || 0) + 1);
     }
     const listed = new Map(teams.map((t) => [t, 0]));
-    for (const x of inventory) listed.set(String(x.holder), (listed.get(String(x.holder)) || 0) + 1);
+    for (const x of inventory) if (!x.forfeited) listed.set(String(x.holder), (listed.get(String(x.holder)) || 0) + 1);
     const diff = teams.filter((t) => (implied.get(t) || 0) !== (listed.get(t) || 0)).map((t) => `${t}: records say ${implied.get(t) || 0}, the evidence lists ${listed.get(t) || 0}`);
     if (diff.length) reasons.push(`the records and the evidence disagree on who holds the picks of the round (${diff.slice(0, 4).join("; ")})`);
   }
@@ -219,6 +226,8 @@ export function resolveFuturePick(ledger, chain, { year, round, original }, { sl
   const base = { holder, original, year, round, candidates, last_transfer_ts: lastLegTs, evidence_ts: evidenceTs, evidence_day: evidence ? evidence.day : null, evidence_kind: evidence ? "mfl_slot_list" : "draft_results", coverage_gaps: gaps };
   // the evidence inventory of the round: the slot list's slots, or the draft results' selections
   const inventory = evidence ? evidence.slots.filter((x) => x.round === round).map((x) => ({ slot: x.slot, holder: x.holder })) : selections.map((x) => ({ slot: x.slot, holder: x.franchise }));
+  // a forfeited slot is a scheduled slot of the round with no recorded holder (the provenance does not name the franchise): it is listed, so the round has every slot, and the inventory check refuses to reconcile
+  if (!evidence && ledger.forfeitures) for (const f of ledger.forfeitures) if (f.season === year && f.round === round) inventory.push({ slot: f.slot, holder: null, forfeited: true });
   const inv = inventoryCheck(ledger, chain, { year, round, original }, inventory, evidenceTs);
   if (evidenceTs) base.inventory = inv;
   if (!evidenceTs) return { ...base, class: CLASS.UNRESOLVED, reason: "no slot list or draft result exists for this year and round" };

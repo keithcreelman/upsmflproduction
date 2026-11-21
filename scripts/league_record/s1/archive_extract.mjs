@@ -19,9 +19,9 @@ function newSeason(y) {
   return {
     season: y,
     trades: { count: 0, parties_distinct_pairs: 0, date_quality: {}, legs: { player: 0, future_pick: 0, slot_pick: 0, unknown: 0, unpaired: 0 }, packages: { multi_asset_trades: 0, one_for_one_trades: 0, largest_side_items: 0, assets_per_trade_max: 0 }, cap: { transfers: 0, total_amount: 0 }, same_day_trades: 0 },
-    draft: { source_table: null, selections: 0, rounds: 0, expected_selections: 0, missing_slots: [], duplicate_slots: 0, rows_without_franchise_id: 0, legacy_slot_corrections: 0, selecting_franchises: 0, league_franchises: 0, franchises_without_a_selection: [], first_date: null, last_date: null },
-    slot_picks: { assets_traded: 0, confirmed: 0, conflict: 0, selector_not_recorded: 0, no_draft_result: 0, trades_after_selection: 0, chain_breaks: 0, resolution_rate_confirmed: null },
-    future_picks: { assets_traded: 0, confirmed: 0, inferred: 0, unresolved: 0, unresolved_by_reason: { no_draft_result: 0, custody_not_observed: 0, inventory_not_complete: 0, ambiguous_candidates: 0 }, inventory_blockers: { slot_token_transfer_in_round: 0, records_and_evidence_disagree: 0, slot_count_not_one_per_team: 0, earliest_record_after_evidence: 0, chain_break: 0 }, funnel: { traded: 0, custody_observed_strict: 0, inventory_complete_strict: 0, inventory_complete_if_slot_tokens_netted: 0, single_candidate_slot: 0, would_infer_if_windows_observed_and_tokens_netted: 0 } },
+    draft: { source_table: null, selections: 0, rounds: 0, scheduled_slots: 0, slot_status: { SELECTED: 0, FORFEITED: 0, UNRESOLVED: 0, MISSING_SOURCE_RECORD: 0 }, forfeited_slots: [], overall_numbers_absent: [], missing_slots: [], unresolved_slots: [], duplicate_slots: 0, rows_without_franchise_id: 0, legacy_slot_corrections: 0, selecting_franchises: 0, league_franchises: 0, franchises_without_a_selection: [], first_date: null, last_date: null },
+    slot_picks: { assets_traded: 0, confirmed: 0, conflict: 0, selector_not_recorded: 0, forfeited_slot: 0, no_draft_result: 0, trades_after_selection: 0, chain_breaks: 0, resolution_rate_confirmed: null },
+    future_picks: { assets_traded: 0, confirmed: 0, inferred: 0, unresolved: 0, unresolved_by_reason: { no_draft_result: 0, custody_not_observed: 0, inventory_not_complete: 0, ambiguous_candidates: 0 }, inventory_blockers: { forfeited_slot_in_round: 0, slot_token_transfer_in_round: 0, records_and_evidence_disagree: 0, slot_count_not_one_per_team: 0, earliest_record_after_evidence: 0, chain_break: 0 }, funnel: { traded: 0, custody_observed_strict: 0, inventory_complete_strict: 0, inventory_complete_if_slot_tokens_netted: 0, single_candidate_slot: 0, would_infer_if_windows_observed_and_tokens_netted: 0 } },
     chain_breaks: { players: { discontinuity: 0, implicit_release: 0 }, picks: { discontinuity: 0 } },
     production: { traded_players_with_a_scoring_row: 0, franchise_seasons: 0, points_verified: 0, weeks_verified: 0, weeks_disputed: 0, weeks_transition: 0, weeks_outside_traced_window: 0, weeks_without_franchise: 0, weeks_franchise_from_roster_record: 0, verified_share_of_scored_weeks: null },
   };
@@ -34,6 +34,7 @@ function nettedInventory(ledger, year, round, evidenceTs, holder) {
   const teams = ledger.franchisesFor(year);
   const sels = ledger.selections.filter((x) => x.year === year && x.round === round);
   if (!teams.length || !sels.length || evidenceTs == null) return { complete: false };
+  if ((ledger.forfeitures || []).some((f) => f.season === year && f.round === round)) return { complete: false, forfeited_slot: true };      // a forfeited slot has no recorded holder, so no count-level reconciliation exists
   const slotNos = sels.map((x) => x.slot).sort((a, b) => a - b);
   if (slotNos.length !== teams.length || slotNos.some((n, i) => n !== i + 1)) return { complete: false };
   const implied = new Map(teams.map((t) => [t, 0]));
@@ -52,10 +53,10 @@ function nettedInventory(ledger, year, round, evidenceTs, holder) {
   return { complete: teams.every((t) => (implied.get(t) || 0) === (listed.get(t) || 0)) && (listed.get(holder) || 0) >= 0 };
 }
 
-export function buildArchiveExtraction({ archive, root }) {
-  const ledger = buildLedger({ archive, root });
+export function buildArchiveExtraction({ archive, root, forfeitures = null }) {
+  const ledger = buildLedger({ archive, root, forfeitures });
   const season = new Map(years.map((y) => [y, newSeason(y)]));
-  const lists = { slot_conflicts: [], trades_after_selection: [], pick_chain_discontinuities: [], player_chain_breaks: [], unpaired_or_unknown_legs: [], duplicate_legs: [], draft_gaps: [], future_pick_ambiguous_examples: [] };
+  const lists = { slot_conflicts: [], trades_after_selection: [], pick_chain_discontinuities: [], player_chain_breaks: [], unpaired_or_unknown_legs: [], duplicate_legs: [], draft_missing_source_records: [], draft_unresolved_slots: [], known_forfeitures: [], future_pick_ambiguous_examples: [] };
   const totals = Object.fromEntries(Object.keys(lists).map((k) => [k, 0]));
   const outOfScope = { player_chain_breaks_dated_after_2025: 0 };
   const note = (kind, row) => { totals[kind] += 1; if (lists[kind].length < LIST_CAP) lists[kind].push(row); };
@@ -95,15 +96,31 @@ export function buildArchiveExtraction({ archive, root }) {
     d.league_franchises = teams.length;
     if (!sels.length) continue;
     d.source_table = [...new Set(sels.map((x) => x.source.table))].join("+");
-    d.selections = sels.length; d.rounds = Math.max(...sels.map((x) => x.round)); d.expected_selections = d.rounds * teams.length;
+    d.selections = sels.length; d.rounds = Math.max(...sels.map((x) => x.round)); d.scheduled_slots = d.rounds * teams.length;
     const have = new Map();
     for (const x of sels) have.set(`${x.round}:${x.slot}`, (have.get(`${x.round}:${x.slot}`) || 0) + 1);
-    for (let r = 1; r <= d.rounds; r++) for (let sl = 1; sl <= teams.length; sl++) if (!have.has(`${r}:${sl}`)) { d.missing_slots.push(`${r}.${String(sl).padStart(2, "0")}`); note("draft_gaps", { season: y, missing_slot: `${r}.${String(sl).padStart(2, "0")}` }); }
+    // Every scheduled slot gets exactly one status. SELECTED: one recorded selection. FORFEITED: no selection and a known forfeiture from a named provenance (the player stays empty).
+    // UNRESOLVED: the source has more than one row for the slot, so which is the selection is not decided. MISSING_SOURCE_RECORD: no selection and no known forfeiture (nothing explains the absence).
+    for (let r = 1; r <= d.rounds; r++) for (let sl = 1; sl <= teams.length; sl++) {
+      const label = `${r}.${String(sl).padStart(2, "0")}`, n = have.get(`${r}:${sl}`) || 0, ff = ledger.forfeitBySlot.get(`${y}:${r}:${sl}`);
+      if (n === 1) d.slot_status.SELECTED += 1;
+      else if (n > 1) { d.slot_status.UNRESOLVED += 1; d.unresolved_slots.push(label); note("draft_unresolved_slots", { season: y, slot: label, rows: n }); }
+      else if (ff) { d.slot_status.FORFEITED += 1; d.forfeited_slots.push({ slot: label, overall: ff.overall, reason: ff.reason, provenance: ff.provenance, selected_player: null, not_recorded: ff.not_recorded }); note("known_forfeitures", { season: y, slot: label, overall: ff.overall, reason: ff.reason, provenance: ff.provenance, clarification_recorded_on: ff.clarification_recorded_on, selected_player: null, not_recorded: ff.not_recorded }); }
+      else { d.slot_status.MISSING_SOURCE_RECORD += 1; d.missing_slots.push(label); note("draft_missing_source_records", { season: y, missing_slot: label }); }
+    }
     d.duplicate_slots = [...have.values()].filter((n) => n > 1).length;
+    { const ov = new Set(sels.map((x) => x.overall)); for (let k = 1; k <= d.scheduled_slots; k++) if (!ov.has(k)) d.overall_numbers_absent.push(k); }       // MFL's own overall pick numbers: any number absent from 1..scheduled is an absent selection, whatever the slot text says
     d.rows_without_franchise_id = sels.filter((x) => !x.franchise).length; d.legacy_slot_corrections = sels.filter((x) => x.slot_correction).length;
     const picked = new Set(sels.filter((x) => x.franchise).map((x) => x.franchise));
     d.selecting_franchises = picked.size; d.franchises_without_a_selection = teams.filter((t) => !picked.has(t));
     d.first_date = sels.map((x) => x.date).sort()[0]; d.last_date = sels.map((x) => x.date).sort().at(-1);
+  }
+
+  for (const f of ledger.forfeitures) {
+    if (f.season < FIRST_YEAR || f.season > LAST_YEAR) continue;
+    const d = season.get(f.season).draft, teams = ledger.franchisesFor(f.season).length;
+    if (!d.selections) throw new Error(`forfeiture ${f.season} ${f.round}.${f.slot}: the season has no draft results to place a scheduled slot in`);
+    if (f.round > d.rounds || f.slot > teams || f.overall !== (f.round - 1) * teams + f.slot) throw new Error(`forfeiture ${f.season} ${f.round}.${f.slot}: not a scheduled slot of that draft (overall ${f.overall}, ${d.rounds} rounds, ${teams} teams)`);
   }
 
   // ── C. slot picks: token + draft result ─────────────────────────────────────────────────────
@@ -118,6 +135,7 @@ export function buildArchiveExtraction({ archive, root }) {
     if (chain.breaks.length) { sp.chain_breaks += chain.breaks.length; for (const b of chain.breaks) { season.get(y).chain_breaks.picks.discontinuity += 1; note("pick_chain_discontinuities", { asset: a, date: b.date, trade: b.at, expected_holder: b.expected_holder, recorded_sender: b.recorded_sender }); } }
     if (res.class === CLASS.CONFIRMED) sp.confirmed += 1;
     else if (res.selector_not_recorded) sp.selector_not_recorded += 1;
+    else if (res.forfeited) sp.forfeited_slot += 1;
     else if (res.conflict) { sp.conflict += 1; note("slot_conflicts", { asset: a, draft_year: y, selector: res.selection.franchise, chain_holder_at_selection: res.holder_at_selection, trades: chain.events.map((e) => e.trade), selection_table: res.selection.source.table }); }
     else sp.no_draft_result += 1;
     if (res.selection) { const late = chain.events.filter((e) => e.ts > res.selection.ts); if (late.length) { sp.trades_after_selection += late.length; for (const e of late) note("trades_after_selection", { asset: a, draft_year: y, trade: e.trade, date: e.date, selection_date: res.selection.date }); } }
@@ -148,6 +166,7 @@ export function buildArchiveExtraction({ archive, root }) {
     const reasons = inv ? inv.reasons.join(" | ") : "";
     if (!inv || !inv.checked.slots_listed) { fp.unresolved_by_reason.no_draft_result += 1; continue; }
     // blockers are counted whichever one stops the pick first, so the table shows every obstacle and not only the first
+    if (/forfeited/.test(reasons)) fp.inventory_blockers.forfeited_slot_in_round += 1;
     if (/slot-token transfer/.test(reasons)) fp.inventory_blockers.slot_token_transfer_in_round += 1;
     if (/disagree/.test(reasons)) fp.inventory_blockers.records_and_evidence_disagree += 1;
     if (/not one for each/.test(reasons)) fp.inventory_blockers.slot_count_not_one_per_team += 1;
@@ -217,8 +236,8 @@ export function buildArchiveExtraction({ archive, root }) {
   const sum = (f) => years.reduce((a, y) => a + f(season.get(y)), 0);
   const summary = {
     seasons: years.length, trades: sum((s) => s.trades.count), multi_asset_trades: sum((s) => s.trades.packages.multi_asset_trades), cap_transfers: sum((s) => s.trades.cap.transfers), cap_total: sum((s) => s.trades.cap.total_amount),
-    draft_selections: sum((s) => s.draft.selections), legacy_slot_corrections: sum((s) => s.draft.legacy_slot_corrections), draft_rows_without_franchise_id: sum((s) => s.draft.rows_without_franchise_id),
-    slot_picks: { traded: sum((s) => s.slot_picks.assets_traded), confirmed: sum((s) => s.slot_picks.confirmed), conflict: sum((s) => s.slot_picks.conflict), selector_not_recorded: sum((s) => s.slot_picks.selector_not_recorded), no_draft_result: sum((s) => s.slot_picks.no_draft_result), trades_after_selection: sum((s) => s.slot_picks.trades_after_selection) },
+    draft_selections: sum((s) => s.draft.selections), scheduled_slots: sum((s) => s.draft.scheduled_slots), slot_status: Object.fromEntries(["SELECTED", "FORFEITED", "UNRESOLVED", "MISSING_SOURCE_RECORD"].map((k) => [k, sum((s) => s.draft.slot_status[k])])), legacy_slot_corrections: sum((s) => s.draft.legacy_slot_corrections), draft_rows_without_franchise_id: sum((s) => s.draft.rows_without_franchise_id),
+    slot_picks: { traded: sum((s) => s.slot_picks.assets_traded), confirmed: sum((s) => s.slot_picks.confirmed), conflict: sum((s) => s.slot_picks.conflict), selector_not_recorded: sum((s) => s.slot_picks.selector_not_recorded), forfeited_slot: sum((s) => s.slot_picks.forfeited_slot), no_draft_result: sum((s) => s.slot_picks.no_draft_result), trades_after_selection: sum((s) => s.slot_picks.trades_after_selection) },
     future_picks: { traded: sum((s) => s.future_picks.assets_traded), confirmed: 0, inferred: sum((s) => s.future_picks.inferred), unresolved: sum((s) => s.future_picks.unresolved), funnel: Object.fromEntries(Object.keys(season.get(FIRST_YEAR).future_picks.funnel).map((k) => [k, sum((s) => s.future_picks.funnel[k])])) },
     player_chain_breaks: { discontinuity: sum((s) => s.chain_breaks.players.discontinuity), implicit_release: sum((s) => s.chain_breaks.players.implicit_release) },
     pick_chain_discontinuities: sum((s) => s.chain_breaks.picks.discontinuity),
@@ -226,7 +245,7 @@ export function buildArchiveExtraction({ archive, root }) {
   };
   return {
     schema: "ups.league_record.s1.archive_extraction/1",
-    scope: { first_season: FIRST_YEAR, last_season: LAST_YEAR, source: "committed archive through the guarded reader; no snapshot trade, no 2026 record", rules: ["draft slots only from MFL slot tokens and MFL draft results", "a trade is one package: nothing is credited to a single asset of a multi-asset trade", "a future pick is never CONFIRMED to a slot; INFERRED only by UNIQUE_HOLDER_V1 with a complete inventory and observed custody", "production is a sum over verified possession periods per franchise, never attributed to a pick or a trade"] },
+    scope: { first_season: FIRST_YEAR, last_season: LAST_YEAR, source: "committed archive through the guarded reader; no snapshot trade, no 2026 record", rules: ["draft slots only from MFL slot tokens and MFL draft results", "a scheduled slot is SELECTED, FORFEITED (a known forfeiture from a named provenance, no player), UNRESOLVED or a MISSING_SOURCE_RECORD: an absence is never called a forfeiture without a source", "a trade is one package: nothing is credited to a single asset of a multi-asset trade", "a future pick is never CONFIRMED to a slot; INFERRED only by UNIQUE_HOLDER_V1 with a complete inventory and observed custody", "production is a sum over verified possession periods per franchise, never attributed to a pick or a trade"] },
     summary, seasons: years.map((y) => season.get(y)), eras, coverage_windows: windows, named_gap: ledger.named_gap,
     production_by_franchise_season: production,
     findings: { totals, lists, list_cap: LIST_CAP, outside_the_stated_period: outOfScope },

@@ -1,0 +1,18 @@
+{
+  "schema": "ups.league_record.known_forfeitures/1",
+  "about": "Draft slots that were scheduled and then forfeited, each supplied by a named provenance. A forfeited slot has NO selected player. Only the fields below are recorded: nothing else is known, and nothing may be added without a source (no violation, no offending owner or franchise, no penalty ruling date, no MFL transaction).",
+  "records": [
+    {
+      "season": 2018,
+      "round": 4,
+      "slot": 12,
+      "overall": 48,
+      "status": "FORFEITED",
+      "reason": "owner violation",
+      "provenance": "commissioner clarification",
+      "clarification_recorded_on": "2026-11-21",
+      "scheduled_slot_basis": "MFL's own overall pick numbers run 47 (4.11) then 49 (5.01) in the 2018 draft results; 48 is the only overall number absent in that draft",
+      "not_recorded": ["the particular violation", "the offending owner or franchise", "the penalty ruling date", "a supporting MFL transaction"]
+    }
+  ]
+}

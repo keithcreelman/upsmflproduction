@@ -308,14 +308,27 @@
   "findings": {
     "list_cap": 60,
     "lists": {
-      "draft_gaps": [
-        {
-          "missing_slot": "4.12",
-          "season": 2018
-        }
-      ],
+      "draft_missing_source_records": [],
+      "draft_unresolved_slots": [],
       "duplicate_legs": [],
       "future_pick_ambiguous_examples": [],
+      "known_forfeitures": [
+        {
+          "clarification_recorded_on": "2026-11-21",
+          "not_recorded": [
+            "the particular violation",
+            "the offending owner or franchise",
+            "the penalty ruling date",
+            "a supporting MFL transaction"
+          ],
+          "overall": 48,
+          "provenance": "commissioner clarification",
+          "reason": "owner violation",
+          "season": 2018,
+          "selected_player": null,
+          "slot": "4.12"
+        }
+      ],
       "pick_chain_discontinuities": [
         {
           "asset": "spick:2013:1:12",
@@ -780,9 +793,11 @@
       "player_chain_breaks_dated_after_2025": 99
     },
     "totals": {
-      "draft_gaps": 1,
+      "draft_missing_source_records": 0,
+      "draft_unresolved_slots": 0,
       "duplicate_legs": 0,
       "future_pick_ambiguous_examples": 0,
+      "known_forfeitures": 1,
       "pick_chain_discontinuities": 3,
       "player_chain_breaks": 1260,
       "slot_conflicts": 1,
@@ -2488,6 +2503,7 @@
     "last_season": 2025,
     "rules": [
       "draft slots only from MFL slot tokens and MFL draft results",
+      "a scheduled slot is SELECTED, FORFEITED (a known forfeiture from a named provenance, no player), UNRESOLVED or a MISSING_SOURCE_RECORD: an absence is never called a forfeiture without a source",
       "a trade is one package: nothing is credited to a single asset of a multi-asset trade",
       "a future pick is never CONFIRMED to a slot; INFERRED only by UNIQUE_HOLDER_V1 with a complete inventory and observed custody",
       "production is a sum over verified possession periods per franchise, never attributed to a pick or a trade"
@@ -2507,18 +2523,27 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 0,
         "first_date": null,
+        "forfeited_slots": [],
         "franchises_without_a_selection": [],
         "last_date": null,
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 0,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 0,
         "selecting_franchises": 0,
         "selections": 0,
-        "source_table": null
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 0,
+          "UNRESOLVED": 0
+        },
+        "source_table": null,
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 0,
@@ -2535,6 +2560,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 0,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 0
@@ -2565,6 +2591,7 @@
         "chain_breaks": 0,
         "confirmed": 0,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": null,
         "selector_not_recorded": 0,
@@ -2608,18 +2635,27 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 0,
         "first_date": null,
+        "forfeited_slots": [],
         "franchises_without_a_selection": [],
         "last_date": null,
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 0,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 0,
         "selecting_franchises": 0,
         "selections": 0,
-        "source_table": null
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 0,
+          "UNRESOLVED": 0
+        },
+        "source_table": null,
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 0,
@@ -2636,6 +2672,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 0,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 0
@@ -2666,6 +2703,7 @@
         "chain_breaks": 0,
         "confirmed": 0,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": null,
         "selector_not_recorded": 0,
@@ -2709,8 +2747,8 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 60,
         "first_date": "2012-07-29",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [
           "0008"
         ],
@@ -2718,11 +2756,20 @@
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 5,
         "rows_without_franchise_id": 9,
+        "scheduled_slots": 60,
         "selecting_franchises": 11,
         "selections": 60,
-        "source_table": "draftresults_legacy"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 60,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_legacy",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 8,
@@ -2739,6 +2786,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 8,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 8
@@ -2769,6 +2817,7 @@
         "chain_breaks": 0,
         "confirmed": 11,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 0.647,
         "selector_not_recorded": 6,
@@ -2812,8 +2861,8 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 60,
         "first_date": "2013-07-01",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [
           "0004"
         ],
@@ -2821,11 +2870,20 @@
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 5,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 60,
         "selecting_franchises": 11,
         "selections": 60,
-        "source_table": "draftresults_legacy"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 60,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_legacy",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 36,
@@ -2842,6 +2900,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 36,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 36
@@ -2872,6 +2931,7 @@
         "chain_breaks": 3,
         "confirmed": 37,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -2915,8 +2975,8 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 60,
         "first_date": "2014-06-15",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [
           "0002",
           "0004"
@@ -2925,11 +2985,20 @@
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 5,
         "rows_without_franchise_id": 2,
+        "scheduled_slots": 60,
         "selecting_franchises": 10,
         "selections": 60,
-        "source_table": "draftresults_legacy"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 60,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_legacy",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 44,
@@ -2946,6 +3015,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 44,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 44
@@ -2976,6 +3046,7 @@
         "chain_breaks": 0,
         "confirmed": 32,
         "conflict": 1,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 0.914,
         "selector_not_recorded": 2,
@@ -3019,8 +3090,8 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 60,
         "first_date": "2015-06-28",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [
           "0002"
         ],
@@ -3028,11 +3099,20 @@
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 5,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 60,
         "selecting_franchises": 11,
         "selections": 60,
-        "source_table": "draftresults_legacy"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 60,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_legacy",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 47,
@@ -3049,6 +3129,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 47,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 47
@@ -3079,6 +3160,7 @@
         "chain_breaks": 0,
         "confirmed": 36,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -3122,8 +3204,8 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 60,
         "first_date": "2016-07-10",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [
           "0002"
         ],
@@ -3131,11 +3213,20 @@
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 5,
         "rows_without_franchise_id": 1,
+        "scheduled_slots": 60,
         "selecting_franchises": 11,
         "selections": 60,
-        "source_table": "draftresults_legacy"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 60,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_legacy",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 46,
@@ -3152,6 +3243,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 46,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 46
@@ -3182,6 +3274,7 @@
         "chain_breaks": 0,
         "confirmed": 38,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -3225,8 +3318,8 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 60,
         "first_date": "2017-06-17",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [
           "0002",
           "0004",
@@ -3236,11 +3329,20 @@
         "league_franchises": 12,
         "legacy_slot_corrections": 5,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 5,
         "rows_without_franchise_id": 8,
+        "scheduled_slots": 60,
         "selecting_franchises": 9,
         "selections": 60,
-        "source_table": "draftresults_legacy"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 60,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_legacy",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 40,
@@ -3257,6 +3359,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 40,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 40
@@ -3287,6 +3390,7 @@
         "chain_breaks": 0,
         "confirmed": 29,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 0.906,
         "selector_not_recorded": 3,
@@ -3330,20 +3434,43 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 72,
         "first_date": "2018-06-09",
+        "forfeited_slots": [
+          {
+            "not_recorded": [
+              "the particular violation",
+              "the offending owner or franchise",
+              "the penalty ruling date",
+              "a supporting MFL transaction"
+            ],
+            "overall": 48,
+            "provenance": "commissioner clarification",
+            "reason": "owner violation",
+            "selected_player": null,
+            "slot": "4.12"
+          }
+        ],
         "franchises_without_a_selection": [],
         "last_date": "2018-06-09",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
-        "missing_slots": [
-          "4.12"
+        "missing_slots": [],
+        "overall_numbers_absent": [
+          48
         ],
         "rounds": 6,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 72,
         "selecting_franchises": 12,
         "selections": 71,
-        "source_table": "draftresults_mfl"
+        "slot_status": {
+          "FORFEITED": 1,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 71,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_mfl",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 44,
@@ -3360,8 +3487,9 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 10,
           "records_and_evidence_disagree": 44,
-          "slot_count_not_one_per_team": 10,
+          "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 44
         },
         "unresolved": 44,
@@ -3390,6 +3518,7 @@
         "chain_breaks": 0,
         "confirmed": 36,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -3433,18 +3562,27 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 72,
         "first_date": "2019-06-10",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [],
         "last_date": "2019-06-10",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 6,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 72,
         "selecting_franchises": 12,
         "selections": 72,
-        "source_table": "draftresults_mfl"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 72,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_mfl",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 45,
@@ -3461,6 +3599,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 45,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 45
@@ -3491,6 +3630,7 @@
         "chain_breaks": 0,
         "confirmed": 35,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -3534,18 +3674,27 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 72,
         "first_date": "2020-06-01",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [],
         "last_date": "2020-06-01",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 6,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 72,
         "selecting_franchises": 12,
         "selections": 72,
-        "source_table": "draftresults_mfl"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 72,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_mfl",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 47,
@@ -3562,6 +3711,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 47,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 47
@@ -3592,6 +3742,7 @@
         "chain_breaks": 0,
         "confirmed": 26,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -3635,18 +3786,27 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 72,
         "first_date": "2021-06-20",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [],
         "last_date": "2021-06-20",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 6,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 72,
         "selecting_franchises": 12,
         "selections": 72,
-        "source_table": "draftresults_mfl"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 72,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_mfl",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 50,
@@ -3663,6 +3823,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 50,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 50
@@ -3693,6 +3854,7 @@
         "chain_breaks": 0,
         "confirmed": 35,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -3736,18 +3898,27 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 72,
         "first_date": "2022-06-25",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [],
         "last_date": "2022-06-25",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 6,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 72,
         "selecting_franchises": 12,
         "selections": 72,
-        "source_table": "draftresults_mfl"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 72,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_mfl",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 46,
@@ -3764,6 +3935,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 46,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 46
@@ -3794,6 +3966,7 @@
         "chain_breaks": 0,
         "confirmed": 32,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -3837,18 +4010,27 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 72,
         "first_date": "2023-05-28",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [],
         "last_date": "2023-05-28",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 6,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 72,
         "selecting_franchises": 12,
         "selections": 72,
-        "source_table": "draftresults_mfl"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 72,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_mfl",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 43,
@@ -3865,6 +4047,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 43,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 43
@@ -3895,6 +4078,7 @@
         "chain_breaks": 0,
         "confirmed": 37,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -3938,18 +4122,27 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 72,
         "first_date": "2024-05-26",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [],
         "last_date": "2024-05-26",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 6,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 72,
         "selecting_franchises": 12,
         "selections": 72,
-        "source_table": "draftresults_mfl"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 72,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_mfl",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 50,
@@ -3966,6 +4159,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 50,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 50
@@ -3996,6 +4190,7 @@
         "chain_breaks": 0,
         "confirmed": 30,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -4039,18 +4234,27 @@
       },
       "draft": {
         "duplicate_slots": 0,
-        "expected_selections": 72,
         "first_date": "2025-05-25",
+        "forfeited_slots": [],
         "franchises_without_a_selection": [],
         "last_date": "2025-05-25",
         "league_franchises": 12,
         "legacy_slot_corrections": 0,
         "missing_slots": [],
+        "overall_numbers_absent": [],
         "rounds": 6,
         "rows_without_franchise_id": 0,
+        "scheduled_slots": 72,
         "selecting_franchises": 12,
         "selections": 72,
-        "source_table": "draftresults_mfl"
+        "slot_status": {
+          "FORFEITED": 0,
+          "MISSING_SOURCE_RECORD": 0,
+          "SELECTED": 72,
+          "UNRESOLVED": 0
+        },
+        "source_table": "draftresults_mfl",
+        "unresolved_slots": []
       },
       "future_picks": {
         "assets_traded": 51,
@@ -4067,6 +4271,7 @@
         "inventory_blockers": {
           "chain_break": 0,
           "earliest_record_after_evidence": 0,
+          "forfeited_slot_in_round": 0,
           "records_and_evidence_disagree": 51,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 51
@@ -4097,6 +4302,7 @@
         "chain_breaks": 0,
         "confirmed": 25,
         "conflict": 0,
+        "forfeited_slot": 0,
         "no_draft_result": 0,
         "resolution_rate_confirmed": 1,
         "selector_not_recorded": 0,
@@ -4156,14 +4362,22 @@
       "implicit_release": 1211
     },
     "production_points_verified": 297603.8,
+    "scheduled_slots": 936,
     "seasons": 16,
     "slot_picks": {
       "confirmed": 439,
       "conflict": 1,
+      "forfeited_slot": 0,
       "no_draft_result": 0,
       "selector_not_recorded": 11,
       "traded": 451,
       "trades_after_selection": 0
+    },
+    "slot_status": {
+      "FORFEITED": 1,
+      "MISSING_SOURCE_RECORD": 0,
+      "SELECTED": 935,
+      "UNRESOLVED": 0
     },
     "traded_players": 871,
     "trades": 1036

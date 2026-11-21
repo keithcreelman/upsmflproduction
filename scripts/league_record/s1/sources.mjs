@@ -147,6 +147,29 @@ export function loadArchiveSelections(archive) {
   const fromLegacy = b.map(fixLegacy).map((r) => { const sel = mk(r, "draftresults_legacy"); if (r._correction) sel.slot_correction = r._correction; return sel; });
   return [...a.map((r) => mk(r, "draftresults_mfl")), ...fromLegacy];
 }
+// ── known forfeitures (commissioner clarifications) ───────────────────────────────────────────────
+// A slot that was scheduled and then FORFEITED has no selected player. It is recorded only from a named provenance in docs/league_record/known_forfeitures.json, which holds exactly these
+// fields and no others: nothing about the violation, the offending owner or franchise, the penalty ruling date or an MFL transaction may be written there unless a source supplies it.
+export const FORFEITURE_FILE = "docs/league_record/known_forfeitures.json";
+export const FORFEITURE_FIELDS = ["season", "round", "slot", "overall", "status", "reason", "provenance", "clarification_recorded_on", "scheduled_slot_basis", "not_recorded"];
+export function loadKnownForfeitures(root) {
+  const file = path.join(root, FORFEITURE_FILE);
+  if (!fs.existsSync(file)) return [];
+  const j = JSON.parse(fs.readFileSync(file, "utf8"));
+  if (j.schema !== "ups.league_record.known_forfeitures/1") throw new Error(`${FORFEITURE_FILE}: unknown schema ${j.schema}`);
+  const seen = new Set();
+  return (j.records || []).map((r, i) => {
+    const extra = Object.keys(r).filter((k) => !FORFEITURE_FIELDS.includes(k));
+    if (extra.length) throw new Error(`${FORFEITURE_FILE} record ${i}: field(s) ${extra.join(", ")} are not allowed (a forfeiture records only what its provenance supplies)`);
+    for (const k of ["season", "round", "slot", "overall"]) if (!Number.isInteger(r[k]) || r[k] < 1) throw new Error(`${FORFEITURE_FILE} record ${i}: ${k} must be a positive integer`);
+    if (r.status !== "FORFEITED") throw new Error(`${FORFEITURE_FILE} record ${i}: status must be FORFEITED`);
+    for (const k of ["reason", "provenance"]) if (typeof r[k] !== "string" || !r[k].trim()) throw new Error(`${FORFEITURE_FILE} record ${i}: ${k} is required`);
+    const key = `${r.season}:${r.round}:${r.slot}`;
+    if (seen.has(key)) throw new Error(`${FORFEITURE_FILE}: slot ${key} is recorded twice`);
+    seen.add(key);
+    return { ...r, selected_player: null };
+  });
+}
 export function loadSnapshotSelections(root, day = SNAPSHOT_DAY) {
   const j = readSnapshot(root, day, "draftResults.json");
   const unit = arr(j && j.draftResults && j.draftResults.draftUnit)[0];
