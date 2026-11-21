@@ -51,6 +51,7 @@ export function reconstructWeekly(db) {
     for (const r of rows) { const k = `${r.week}:${r.p}`; seen.set(k, (seen.get(k) || new Set()).add(r.f)); }
     S.players_on_two_franchises_same_week = [...seen.values()].filter((s) => s.size > 1).length;
     const teamScoreByWeek = new Map();
+    const keptRows = [];                                                                              // rows left after the stale score groups are set aside
     for (const [k, rs] of byFw) {
       const [w, f] = k.split(":"); const week = Number(w);
       S.franchise_weeks += 1;
@@ -68,13 +69,19 @@ export function reconstructWeekly(db) {
         out.defects.push({ season: y, week, franchise: f, kind: "franchise_week_has_several_team_scores", team_score_groups: groups.length, rows_set_aside: bad, self_consistent_group_identified: keep != null, summary_agrees_with_kept_group: keep != null && !!sm && near(keep, sm.sc) });
       }
       const ts = keep != null ? keep : groups[0];
+      for (const r of rs) if (groups.length === 1 || near(r2(r.ts), ts)) keptRows.push(r);
       const starters = rs.filter((r) => r.status === "starter" && (groups.length === 1 || near(r2(r.ts), ts)));   // only the kept group's starters
       const sum = r2(starters.reduce((a, r) => a + (r.ps || 0), 0));
       if (near(sum, ts)) S.starter_sum_equals_team_score += 1;
+      else out.defects.push({ season: y, week, franchise: f, kind: "starter_sum_differs_from_team_score", starters: starters.length, starters_sum: sum, team_score: r2(ts), difference: r2(sum - ts), summary_team_score: sm ? r2(sm.sc) : null });   // reported, never adjusted
       if (sm) { S.franchise_weeks_with_summary += 1; if (near(ts, sm.sc)) S.team_score_equals_summary += 1; }
       if (!teamScoreByWeek.has(week)) teamScoreByWeek.set(week, new Map());
       teamScoreByWeek.get(week).set(f, ts);
     }
+    // the same contamination signal after setting the stale groups aside: the rule chose groups by starter sums only, so a zero here is independent corroboration
+    const seenKept = new Map();
+    for (const r of keptRows) { const k = `${r.week}:${r.p}`; seenKept.set(k, (seenKept.get(k) || new Set()).add(r.f)); }
+    S.players_on_two_franchises_same_week_after_set_aside = [...seenKept.values()].filter((s) => s.size > 1).length;
     // all-play: wins against every other franchise's score that week (regular season only), compared with the summary
     for (const [week, m] of teamScoreByWeek) {
       if (week > REGULAR_SEASON_LAST_WEEK(y)) continue;
@@ -122,14 +129,34 @@ export function compareAllPlayFixture(db, fixture) {
   return res;
 }
 
-// Weeks the primary source lacks, checked in a SECOND database (for example a newer local ETL copy). Report only: nothing is merged. For each candidate week it says how many franchise-weeks
-// the second source has and whether each is self-consistent (starters add up to the team score), so a later, approved load can cite it.
+// A SECOND database (for example a newer local ETL copy) compared with the primary, week by week. Report only: nothing is merged and the second source is never trusted wholesale. For each week it reports
+//   - franchise-weeks the second has that the primary lacks, and how many of those MFL itself marks result = 'BYE' (a bye franchise recorded by the source, not inferred from standings);
+//   - whether each second-source franchise-week is self-consistent (starters add up to the team score);
+//   - whether its team score equals the primary archive's `schedule` team score (an independent table), and where it differs from the primary's own team score.
+// With no `seasonWeeks`, every playoff week of every season, plus any week where the second has franchise-weeks the primary lacks, is compared. A later, approved load can cite these figures per week.
 export function compareSecondSource(primary, second, seasonWeeks) {
+  const pairs = [];
+  if (seasonWeeks) for (const [season, weeks] of seasonWeeks) for (const week of weeks) pairs.push([season, week]);
+  else {
+    const prim = new Map();
+    for (const r of primary.prepare("select season, week, count(distinct franchise_id) n from weeklyresults group by 1, 2").all()) prim.set(`${r.season}:${r.week}`, r.n);
+    for (const r of second.prepare("select season, week, count(distinct franchise_id) n from weeklyresults group by 1, 2 order by 1, 2").all())
+      if (r.week > REGULAR_SEASON_LAST_WEEK(r.season) || (prim.get(`${r.season}:${r.week}`) || 0) < r.n) pairs.push([r.season, r.week]);
+  }
   const out = [];
-  for (const [season, weeks] of seasonWeeks) for (const week of weeks) {
-    const g = second.prepare("select franchise_id f, team_score ts, round(sum(case when status = 'starter' then player_score else 0 end), 2) ss, count(*) n from weeklyresults where season = ? and week = ? group by 1, 2").all(season, week);
-    const p = primary.prepare("select count(*) n from weeklyresults where season = ? and week = ?").get(season, week).n;
-    out.push({ season, week, primary_rows: p, second_rows: g.reduce((a, r) => a + r.n, 0), second_franchise_weeks: g.length, second_self_consistent: g.filter((r) => near(r.ss, r.ts)).length });
+  for (const [season, week] of pairs) {
+    const g = second.prepare("select franchise_id f, team_score ts, max(result) res, round(sum(case when status = 'starter' then player_score else 0 end), 2) ss, count(*) n from weeklyresults where season = ? and week = ? group by 1, 2").all(season, week);
+    const p = primary.prepare("select franchise_id f, max(team_score) ts, count(*) n from weeklyresults where season = ? and week = ? group by 1").all(season, week);
+    const pm = new Map(p.map((r) => [r.f, r.ts]));
+    const sch = new Map(primary.prepare("select franchise_id f, team_score ts from schedule where season = ? and week = ?").all(season, week).map((r) => [r.f, r.ts]));
+    const onlySecond = g.filter((r) => !pm.has(r.f));
+    out.push({
+      season, week, primary_rows: p.reduce((a, r) => a + r.n, 0), primary_franchise_weeks: p.length,
+      second_rows: g.reduce((a, r) => a + r.n, 0), second_franchise_weeks: g.length, second_self_consistent: g.filter((r) => near(r.ss, r.ts)).length,
+      second_only_franchise_weeks: onlySecond.length, second_only_marked_bye: onlySecond.filter((r) => r.res === "BYE").length,
+      schedule_compared: g.filter((r) => sch.has(r.f)).length, schedule_equal: g.filter((r) => sch.has(r.f) && near(r.ts, sch.get(r.f))).length,
+      both_compared: g.filter((r) => pm.has(r.f)).length, both_team_score_differs: g.filter((r) => pm.has(r.f) && !near(r.ts, pm.get(r.f))).length,
+    });
   }
   return out;
 }

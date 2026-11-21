@@ -20,7 +20,7 @@ res.source = { db_sha256: crypto.createHash("sha256").update(fs.readFileSync(dbP
 const second = arg("--second-db");
 if (second) {
   const db2 = new DatabaseSync(second, { readOnly: true });
-  res.second_source = { db_sha256: crypto.createHash("sha256").update(fs.readFileSync(second)).digest("hex"), note: "report only; nothing merged", weeks: compareSecondSource(db, db2, [[2012, [13, 14, 15]], [2010, [1, 2, 3, 4, 5, 6]]]) };
+  res.second_source = { db_sha256: crypto.createHash("sha256").update(fs.readFileSync(second)).digest("hex"), note: "report only; nothing merged", weeks: compareSecondSource(db, db2) };
   db2.close();
 }
 fs.mkdirSync(out, { recursive: true });
@@ -29,5 +29,5 @@ for (const [y, s] of Object.entries(res.seasons)) {
   const pct = (a, b) => (b ? `${a}/${b}` : "-");
   console.log(`${y}: rows ${s.player_rows} (starters ${s.starter_rows}, bench ${s.bench_rows}), weeks ${s.weeks_present.length}${s.weeks_missing.length ? ` missing ${s.weeks_missing.join(",")}` : ""}; starter sum = team ${pct(s.starter_sum_equals_team_score, s.franchise_weeks)}; team = summary ${pct(s.team_score_equals_summary, s.franchise_weeks_with_summary)}; player = MFL ${pct(s.player_score_equals_mfl, s.player_rows_with_mfl_score)}; all-play ${pct(s.allplay_recomputed_equals_summary, s.allplay_compared)}; fixture all-play ${pct(res.allplay_fixture[y]?.allplay_wins_equal ?? 0, res.allplay_fixture[y]?.compared ?? 0)}; contaminated fw ${s.contaminated_franchise_weeks}; dup weeks ${s.duplicate_of_next_week.join(",") || "-"}; playoff ${s.playoff_weeks.map((p) => `${p.week}:${p.franchises}`).join(" ")}; opponents ${pct(s.regular_season_with_opponent, s.regular_season_franchise_weeks)}; derived rows with franchise ${s.derived_rows_with_franchise}`);
 }
-if (res.second_source) for (const w of res.second_source.weeks) console.log(`second source ${w.season} week ${w.week}: primary rows ${w.primary_rows}, second rows ${w.second_rows}, franchise-weeks ${w.second_franchise_weeks}, self-consistent ${w.second_self_consistent}`);
+if (res.second_source) for (const w of res.second_source.weeks) console.log(`second source ${w.season} week ${w.week}: primary franchise-weeks ${w.primary_franchise_weeks}, second ${w.second_franchise_weeks} (only in second ${w.second_only_franchise_weeks}, marked BYE ${w.second_only_marked_bye}), self-consistent ${w.second_self_consistent}, = archive schedule ${w.schedule_equal}/${w.schedule_compared}, differs from archive team score ${w.both_team_score_differs}/${w.both_compared}`);
 console.log(`defects: ${res.defects.length}; summary written to ${out}`);
