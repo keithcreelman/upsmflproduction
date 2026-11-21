@@ -514,6 +514,29 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   t.ok(fails("insert into lr_run_excluded values (3, 2)"), "an exclusion recorded by an earlier run is refused"); ok("insert into lr_run_excluded values (3, 4)");
   ok("update lr_release set retired_utc = 'z2' where retired_utc is null");
   t.ok(fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (3, 'y', 'r')"), "an excluded run cannot be released");
+  // the evidence-need release gate, in isolation (fresh databases, no other gate involved): the need must exist, apply to the run being released, and not be a resolved or closed one
+  const fresh = (conflict = false) => {
+    const d = new DatabaseSync(":memory:"); d.exec("PRAGMA foreign_keys = ON"); d.exec(m[1]);
+    d.exec("insert into lr_run (run_id, kind, created_utc, code_sha, source_set_sha256) values (1, 'build', 'a', 's', 's'), (2, 'build', 'b', 's', 's'), (3, 'build', 'c', 's', 's')");
+    d.exec("insert into lr_method values ('DIAG', 1, 'd', null, 'diagnostic')");
+    d.exec("insert into lr_asset (asset_key, loaded_run, asset_type, player_id, orig_franchise, pick_year, pick_round, pick_slot) values ('fpick:0001:2018:4', 1, 'FUTURE_PICK', null, '0001', 2018, 4, null)");
+    if (conflict) d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, run_id) values (1, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'open', 1)");
+    else d.exec("insert into lr_link values (1, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', null, null, null, 'UNRESOLVED', 'DIAG', 1, null, null, 1, null)");
+    const fails2 = (sql) => { try { d.exec(sql); return false; } catch { return true; } };
+    const rel = (run) => `insert into lr_release (run_id, activated_utc, activated_by_ref) values (${run}, 'x', 'r')`;
+    const need = (type, from, to, status, acc = "null") => `insert into lr_evidence_need (subject_type, subject_id, need_code, register_ref, description, status, accepted_by_ref, valid_from_run, valid_to_run) values ('${type}', 1, 'C', 'LR-03', 'd', '${status}', ${acc}, ${from}, ${to})`;
+    return { d, fails2, rel, need };
+  };
+  for (const [kind, subject] of [["link", false], ["conflict", true]]) {
+    const T = subject ? "CONFLICT" : "LINK";
+    let f = fresh(subject); t.ok(f.fails2(f.rel(1)), `${kind}: with no evidence need the release is refused`); f.d.close();
+    f = fresh(subject); f.d.exec(f.need(T, 2, "null", "OPEN")); t.ok(f.fails2(f.rel(1)), `${kind}: a need that only starts at run 2 does not apply to run 1`); f.d.close();
+    f = fresh(subject); f.d.exec(f.need(T, 1, 2, "OPEN")); t.ok(f.fails2(f.rel(2)), `${kind}: a need closed at run 2 does not apply to run 2`); t.ok(!f.fails2(f.rel(1)), `${kind}: it did apply to run 1`); f.d.close();
+    f = fresh(subject); f.d.exec(f.need(T, 1, "null", "RESOLVED")); t.ok(f.fails2(f.rel(1)), `${kind}: a RESOLVED need is not an open evidence need`); f.d.close();
+    f = fresh(subject); f.d.exec(f.need("COVERAGE", 1, "null", "OPEN")); t.ok(f.fails2(f.rel(1)), `${kind}: a need about something else does not count`); f.d.close();
+    f = fresh(subject); f.d.exec(f.need(T, 1, "null", "INVESTIGATING")); t.ok(!f.fails2(f.rel(1)), `${kind}: an investigating need applies`); f.d.close();
+    f = fresh(subject); f.d.exec(f.need(T, 1, "null", "ACCEPTED_LIMITATION", "'issue 1486 comment (decision)'")); t.ok(!f.fails2(f.rel(1)), `${kind}: an accepted limitation with its cited decision applies`); f.d.close();
+  }
   // the query plans of the design's hot paths use the indexes the document defines
   const plan = (sql) => db.prepare(`explain query plan ${sql}`).all().map((r) => r.detail).join(" | ");
   t.match(plan("select * from lr_trade_leg where asset_key = 'x' order by ts"), /USING (COVERING )?INDEX lr_leg_asset/);

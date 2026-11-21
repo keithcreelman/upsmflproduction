@@ -204,9 +204,11 @@ CREATE TRIGGER lr_release_retire_only BEFORE UPDATE ON lr_release          -- a 
   BEGIN SELECT RAISE(ABORT, 'a release can only be retired'); END;
 CREATE TRIGGER lr_release_needs_recorded_evidence BEFORE INSERT ON lr_release           -- nothing unresolved may be released without its recorded evidence need
   WHEN EXISTS (SELECT 1 FROM lr_link l WHERE l.class = 'UNRESOLVED' AND l.valid_from_run <= NEW.run_id AND (l.valid_to_run IS NULL OR l.valid_to_run > NEW.run_id)
-        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'LINK' AND n.subject_id = l.link_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION')))
+        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'LINK' AND n.subject_id = l.link_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION')
+              AND n.valid_from_run <= NEW.run_id AND (n.valid_to_run IS NULL OR n.valid_to_run > NEW.run_id)))        -- the need must apply to the run being released
     OR EXISTS (SELECT 1 FROM lr_conflict c WHERE c.status = 'open' AND c.run_id <= NEW.run_id
-        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'CONFLICT' AND n.subject_id = c.conflict_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION')))
+        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'CONFLICT' AND n.subject_id = c.conflict_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION')
+              AND n.valid_from_run <= NEW.run_id AND (n.valid_to_run IS NULL OR n.valid_to_run > NEW.run_id)))
   BEGIN SELECT RAISE(ABORT, 'every unresolved link and open conflict needs a recorded evidence need before a release'); END;
 CREATE TRIGGER lr_evidence_need_close_only BEFORE UPDATE ON lr_evidence_need
   WHEN NEW.need_id IS NOT OLD.need_id OR NEW.subject_type IS NOT OLD.subject_type OR NEW.subject_id IS NOT OLD.subject_id OR NEW.need_code IS NOT OLD.need_code OR NEW.register_ref IS NOT OLD.register_ref
