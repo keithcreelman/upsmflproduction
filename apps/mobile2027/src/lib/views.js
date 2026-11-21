@@ -117,7 +117,7 @@
         // MAT-1 (Codex, review of dc5b35d7): none of the reads says which NFL club a player was with in a past week, and his club today
         // may not be the one he played for then, so today's club cannot be used to look up that week's opponent or bye. The recorded
         // lineup and score stay; the club is labeled "now"; the opponent is Unavailable.
-        if (p.status !== "gone") parts = [esc(team) + " now", "Opponent unavailable"];
+        if (p.status !== "gone") parts = [nw(esc(team) + " now"), nw("Opponent unavailable")];
       } else if (inPlay) {
         var opp = R.oppText(S, p, wk);
         if (opp) parts.push(nw(opp));

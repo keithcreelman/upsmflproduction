@@ -256,6 +256,9 @@ test("P4: narrow screens (320 px): the opponent, kickoff and week tokens cannot 
   // kickoff tokens too
   const kicks = [...lhtml.matchAll(/<span class="nw">((?:Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d{1,2}:\d{2} [AP]M)<\/span>/g)].map((m) => m[1]);
   t.ok(kicks.length >= 3, "kickoff tokens are wrapped: " + kicks.length);
+  // a past week's rows: "BUF now" and "Opponent unavailable" are single units too, so a narrow screen breaks between them, not inside them
+  const past = V.rosterBody(state(intel, { view: "performance", wk: 10 }));
+  t.match(past, /<span class="nw">[A-Z]{2,3} now<\/span> · <span class="nw">Opponent unavailable<\/span>/);
   // the score column does not shrink and its label sits under the number
   t.match(CSS, /\.rx \.rt\{flex:0 0 auto/); t.match(html, /<div class="rt"><b>[\d.—…]+<\/b><span class="mu sm">Wk 10<\/span><\/div>/);
   // no fixed widths that would overflow 320 px in the roster rows
