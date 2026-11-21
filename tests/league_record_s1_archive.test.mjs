@@ -434,7 +434,7 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   const ok = (sql) => { db.exec(sql); return true; };
   ok("insert into lr_run (run_id, kind, created_utc, code_sha, source_set_sha256) values (1, 'build', '2026-11-21T00:00:00Z', 'sha', 'sha'), (2, 'build', '2026-11-22T00:00:00Z', 'sha', 'sha')");
   ok("insert into lr_method values ('DIAG', 1, 'd', null, 'diagnostic'), ('OK', 1, 'd', 'ref', 'approved')");
-  ok("insert into lr_source (source_id, kind, authority) values ('S', 'archive_db', 'derived')");
+  ok("insert into lr_source (source_id, kind, authority, loaded_run) values ('S', 'archive_db', 'derived', 1)");
   ok("insert into lr_draft_row (draft_row_id, loaded_run, season, round, slot_raw, overall, raw_pick_text, franchise_id, player_id, ts, source_id, source_key) values (1, 1, 2018, 4, 11, 47, '4.11', '0001', 'P', 1, 'S', 'k'), (2, 1, 2014, 1, 1, 10, '1.1', '0002', 'Q', 1, 'S', 'k2'), (3, 1, 2018, 4, 12, 48, '4.12', '0003', 'R', 1, 'S', 'k3')");   // row 3 exists only to prove the unique index, not the trigger, stops a second open row
   const slot = (s, r, sl, ov, st, row, from = 1, to = "null") => `insert into lr_draft_slot values (${s}, ${r}, ${sl}, ${ov}, '${st}', ${row}, ${from}, ${to})`;
   // the draft-slot statuses
@@ -500,7 +500,7 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   t.ok(fails(cap(1, 0, "archive_column")), "a cap amount of 0 is refused (a missing amount must be handled, never stored as 0)");
   t.ok(fails(cap(1, 3000.5, "archive_column")), "a fractional cap amount is refused, never rounded");
   t.ok(fails(cap(1, 3000, "guess")), "an amount must name where it came from: the archive column or the raw token");
-  t.ok(fails(cap(1, 3000, "raw_token")), "an amount read from a raw token must cite the token");
+  t.ok(fails(cap(1, 3000, "raw_token")), "an amount read from a raw token must cite the token"); t.ok(fails(cap(1, 3000, "raw_token", "''")), "an empty token is not a citation");
   t.ok(!fails(cap(1, 3000, "raw_token", "'BB_3000.00'")), "a cap transfer keeps its direction, amount, source and token"); t.ok(!fails(cap(2, 500, "archive_column")));
   // updates cannot walk around the insert rules: a derived row may only be closed, facts never change
   t.ok(fails("update lr_link set class = 'INFERRED', to_season = 2018, to_round = 4, to_slot = 11, evidence_json = 'e', method_id = 'DIAG' where link_id = 1"), "an UNRESOLVED link cannot be turned into INFERRED by an update");
@@ -522,6 +522,7 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
     const d = new DatabaseSync(":memory:"); d.exec("PRAGMA foreign_keys = ON"); d.exec(m[1]);
     d.exec("insert into lr_run (run_id, kind, created_utc, code_sha, source_set_sha256) values (1, 'build', 'a', 's', 's'), (2, 'build', 'b', 's', 's'), (3, 'build', 'c', 's', 's'), (4, 'rollback', 'd', 's', 's'), (5, 'build', 'e', 's', 's')");
     d.exec("insert into lr_method values ('DIAG', 1, 'd', null, 'diagnostic')");
+    d.exec("insert into lr_source (source_id, kind, authority, loaded_run) values ('S', 'archive_db', 'derived', 1)");
     d.exec("insert into lr_asset (asset_key, loaded_run, asset_type, player_id, orig_franchise, pick_year, pick_round, pick_slot) values ('fpick:0001:2018:4', 1, 'FUTURE_PICK', null, '0001', 2018, 4, null)");
     if (conflict) d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, run_id) values (1, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'open', 1)");
     else d.exec("insert into lr_link values (1, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', null, null, null, 'UNRESOLVED', 'DIAG', 1, null, null, 1, null)");
@@ -545,6 +546,16 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
     t.ok(f.fails2(f.rel(5)), "a link closed only by an excluded run counts as open: it needs an evidence need"); f.d.exec(f.need("LINK", 1, "null", "OPEN")); t.ok(!f.fails2(f.rel(5)), "and a valid need satisfies it"); f.d.close();
     f = fresh(false); f.d.exec("insert into lr_run_excluded values (3, 4)"); f.d.exec(f.need("LINK", 3, "null", "OPEN")); t.ok(f.fails2(f.rel(5)), "a need begun by an excluded run does not count"); f.d.close();
     f = fresh(false); f.d.exec("update lr_link set valid_to_run = 3 where link_id = 1"); t.ok(!f.fails2(f.rel(5)), "a link closed by a normal run needs nothing at the later run"); f.d.close(); }
+  // the conflict path in isolation: closing an open conflict without its resolution cannot hide it from the release gate
+  { const f = fresh(true); t.ok(f.fails2("update lr_conflict set valid_to_run = 2 where conflict_id = 1"), "an open conflict cannot be closed without a resolution row"); t.ok(f.fails2(f.rel(1)), "and it still blocks a release without an evidence need"); f.d.close(); }
+  { const f = fresh(true); f.d.exec("insert into lr_run_excluded values (3, 4)"); f.d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, run_id) values (2, 'slot:x', 'selector', 'a', 'b', 'open', 3)");
+    f.d.exec(f.need("CONFLICT", 1, "null", "OPEN")); t.ok(!f.fails2(f.rel(5)), "an open conflict begun by an excluded run does not count at the later release"); f.d.close(); }
+  // the coverage gate's exclusion rule in isolation: a verified interval begun by an abandoned run does not count, one closed only by an abandoned run still does
+  { let f = fresh(false); f.d.exec(f.need("LINK", 1, "null", "OPEN")); f.d.exec("insert into lr_run_excluded values (3, 4)");
+    f.d.exec("insert into lr_coverage values (1, 'S', 'pick_transfer', '2020-01-01', '2020-02-01', 'VERIFIED_COMPLETE', 'b', 3, null)"); t.ok(!f.fails2(f.rel(5)), "a verified interval begun by an excluded run is ignored"); f.d.close();
+    f = fresh(false); f.d.exec(f.need("LINK", 1, "null", "OPEN")); f.d.exec("insert into lr_run_excluded values (3, 4)");
+    f.d.exec("insert into lr_coverage values (1, 'S', 'pick_transfer', '2020-01-01', '2020-02-01', 'VERIFIED_COMPLETE', 'b', 1, null)"); f.d.exec("update lr_coverage set valid_to_run = 3 where coverage_id = 1");
+    t.ok(f.fails2(f.rel(5)), "a verified interval closed only by an excluded run is still live, so its missing checks block the release"); f.d.close(); }
   // no bypass by update, delete or a free-form resolution
   t.ok(!fails("insert into lr_asset (asset_key, loaded_run, asset_type, player_id, orig_franchise, pick_year, pick_round, pick_slot) values ('player:9', 1, 'PLAYER', '9', null, null, null, null), ('player:10', 4, 'PLAYER', '10', null, null, null, null)"));
   t.ok(fails("delete from lr_coverage_check where coverage_id = 5"), "a check of a released run cannot be deleted to pass the release gate"); t.ok(fails("delete from lr_asset where asset_key = 'player:9'"), "a fact of a released run is never deleted");
@@ -552,9 +563,11 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   t.ok(fails("insert into lr_evidence_need (subject_type, subject_id, need_code, register_ref, description, status, accepted_by_ref, valid_from_run) values ('LINK', 1, 'C', 'LR-03', 'd', 'ACCEPTED_LIMITATION', '', 1)"), "an accepted limitation with an empty citation is refused");
   t.ok(fails("insert into lr_evidence_need (subject_type, subject_id, need_code, register_ref, description, status, valid_from_run) values ('LINK', 999, 'C', 'LR-03', 'd', 'OPEN', 1)"), "an evidence need must point at an existing link"); t.ok(fails("insert into lr_evidence_need (subject_type, subject_id, need_code, register_ref, description, status, valid_from_run) values ('CONFLICT', 999, 'C', 'LR-03', 'd', 'OPEN', 1)"), "or conflict");
   ok("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, run_id) values (7, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'open', 1)");
-  t.ok(fails("update lr_conflict set status = 'resolved_by_ruling' where conflict_id = 7"), "a conflict is never edited into a resolution"); t.ok(!fails("update lr_conflict set valid_to_run = 2 where conflict_id = 7"), "it can be closed");
+  t.ok(fails("update lr_conflict set status = 'resolved_by_ruling' where conflict_id = 7"), "a conflict is never edited into a resolution");
+  t.ok(fails("update lr_conflict set valid_to_run = 2 where conflict_id = 7"), "an open conflict cannot be closed (and so dropped from the release gate) without its resolution row");
   t.ok(fails("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, ruling_ref, run_id) values (8, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'resolved_by_ruling', null, 2)"), "a resolution without its ruling or source is refused");
   t.ok(!fails("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, ruling_ref, run_id) values (8, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'resolved_by_source', 'MFL 2014 export hash', 2)"), "with its source it is accepted");
+  t.ok(fails("update lr_conflict set valid_to_run = 3 where conflict_id = 7"), "the resolution must begin in the closing run"); t.ok(!fails("update lr_conflict set valid_to_run = 2 where conflict_id = 7"), "an open conflict can be closed together with its resolution row");
   // possession: continuity over unverified days is INFERRED, never CONFIRMED or CALCULATED
   const poss = (cls, cov) => `insert into lr_possession (asset_key, franchise_id, from_ts, to_ts, from_basis, evidence_class, weakest_coverage, valid_from_run) values ('fpick:0001:2018:4', '0001', 1, 2, 'event', '${cls}', '${cov}', 1)`;
   t.ok(fails(poss("CONFIRMED", "KNOWN_GAP")), "a CONFIRMED possession resting on a known gap is refused"); t.ok(fails(poss("CONFIRMED", "UNVERIFIED")), "nor on unverified coverage"); t.ok(fails(poss("CALCULATED", "UNVERIFIED")), "CALCULATED continuity over unverified days is refused");

@@ -50,7 +50,7 @@ CREATE TABLE lr_source (
   authority TEXT NOT NULL CHECK (authority IN ('authoritative','derived','secondary','context')),
   league_id TEXT, season_year INTEGER, request_template TEXT,        -- the URL with the key replaced by REDACTED
   captured_utc TEXT, content_sha256 TEXT,                            -- only the hash of a raw payload is kept: no raw response, no MFL comments, no pending offers are stored anywhere
-  note_ref TEXT, loaded_run INTEGER REFERENCES lr_run(run_id));
+  note_ref TEXT, loaded_run INTEGER NOT NULL REFERENCES lr_run(run_id));
 CREATE TABLE lr_coverage (
   coverage_id INTEGER PRIMARY KEY, source_id TEXT REFERENCES lr_source(source_id),
   event_class TEXT NOT NULL CHECK (event_class IN ('pick_transfer','player_move')),
@@ -90,7 +90,7 @@ CREATE TABLE lr_trade_cap (                      -- cap-transfer direction: from
   amount INTEGER NOT NULL CHECK (typeof(amount) = 'integer' AND amount > 0),    -- a missing, zero or fractional amount is refused, never stored as 0 or rounded (see the known discrepancy, section 5)
   amount_source TEXT NOT NULL CHECK (amount_source IN ('archive_column','raw_token')),   -- where the number came from (S1_CAP_TOKEN_CORRECTION.md); an unrecoverable amount is not loaded
   token TEXT,                                                                   -- the raw token an amount was read from
-  CHECK (amount_source <> 'raw_token' OR token IS NOT NULL),
+  CHECK (amount_source <> 'raw_token' OR length(ifnull(token, '')) > 0),
   PRIMARY KEY (trade_id, cap_no)) WITHOUT ROWID;
 CREATE TABLE lr_asset_event (                    -- non-trade events of traded players: draft selection, add, drop; and the forfeiture of a slot
   event_id INTEGER PRIMARY KEY, loaded_run INTEGER NOT NULL REFERENCES lr_run(run_id), asset_key TEXT NOT NULL REFERENCES lr_asset(asset_key),
@@ -229,6 +229,10 @@ CREATE TRIGGER lr_conflict_close_only BEFORE UPDATE ON lr_conflict
   WHEN NEW.conflict_id IS NOT OLD.conflict_id OR NEW.subject_key IS NOT OLD.subject_key OR NEW.kind IS NOT OLD.kind OR NEW.left_ref IS NOT OLD.left_ref OR NEW.right_ref IS NOT OLD.right_ref
     OR NEW.status IS NOT OLD.status OR NEW.ruling_ref IS NOT OLD.ruling_ref OR NEW.run_id IS NOT OLD.run_id OR (OLD.valid_to_run IS NOT NULL AND NEW.valid_to_run IS NOT OLD.valid_to_run)
   BEGIN SELECT RAISE(ABORT, 'a conflict can only be closed; its resolution is a new row that cites the source or ruling'); END;
+CREATE TRIGGER lr_conflict_close_needs_resolution BEFORE UPDATE OF valid_to_run ON lr_conflict   -- closing an OPEN conflict hides it from the release gate, so it is allowed only together with its resolution row
+  WHEN OLD.status = 'open' AND NEW.valid_to_run IS NOT NULL
+   AND NOT EXISTS (SELECT 1 FROM lr_conflict r WHERE r.subject_key = OLD.subject_key AND r.status <> 'open' AND r.run_id = NEW.valid_to_run AND r.valid_to_run IS NULL)
+  BEGIN SELECT RAISE(ABORT, 'an open conflict can be closed only by a resolution row (with its source or ruling) begun in the closing run'); END;
 CREATE TRIGGER lr_exclusion_permanent_u BEFORE UPDATE ON lr_run_excluded BEGIN SELECT RAISE(ABORT, 'an exclusion is permanent'); END;
 CREATE TRIGGER lr_exclusion_permanent_d BEFORE DELETE ON lr_run_excluded BEGIN SELECT RAISE(ABORT, 'an exclusion is permanent'); END;
 CREATE TRIGGER lr_release_history_d BEFORE DELETE ON lr_release BEGIN SELECT RAISE(ABORT, 'release history is never deleted'); END;
@@ -267,7 +271,7 @@ CREATE TRIGGER lr_nodelete_asset BEFORE DELETE ON lr_asset WHEN EXISTS (SELECT 1
 CREATE TRIGGER lr_nodelete_asset_event BEFORE DELETE ON lr_asset_event WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.loaded_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
 CREATE TRIGGER lr_nodelete_draft_row BEFORE DELETE ON lr_draft_row WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.loaded_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
 CREATE TRIGGER lr_nodelete_forfeiture BEFORE DELETE ON lr_forfeiture WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.loaded_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
-CREATE TRIGGER lr_nodelete_source BEFORE DELETE ON lr_source WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= ifnull(OLD.loaded_run, 0)) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
+CREATE TRIGGER lr_nodelete_source BEFORE DELETE ON lr_source WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.loaded_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
 CREATE TRIGGER lr_nodelete_correction BEFORE DELETE ON lr_correction WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.run_id) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
 CREATE TRIGGER lr_nodelete_coverage BEFORE DELETE ON lr_coverage WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.valid_from_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
 CREATE TRIGGER lr_nodelete_possession BEFORE DELETE ON lr_possession WHEN EXISTS (SELECT 1 FROM lr_release r WHERE r.run_id >= OLD.valid_from_run) BEGIN SELECT RAISE(ABORT, 'rows of a released run are never deleted'); END;
