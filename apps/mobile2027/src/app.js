@@ -211,6 +211,7 @@
     else if (act === "sub") { S.sub = v; render(); ensureIntel(); }
     else if (act === "view") { S.view = v; S.sheet = null; render(); ensureIntel(); }
     else if (act === "weeks") { S.sheet = "weeks"; render(); }
+    else if (act === "gotoview") { S.sub = "roster"; S.view = v === "performance" || v === "byes" || v === "lineup" ? v : "contracts"; S.sheet = null; render(); ensureIntel(); } // an in-app jump; it asks for nothing itself
     else if (act === "pickweek") {
       var n = parseInt(v, 10), wi0 = U.roster.weekInfo(S);
       if (isFinite(n) && wi0.cur && n >= 1 && n <= wi0.cur) { var again = n === wi0.sel; S.wk = n === wi0.cur ? null : n; S.sheet = null; render(); ensureIntel(again); }

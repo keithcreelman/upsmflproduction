@@ -88,6 +88,13 @@
     return { cur: cur, sel: sel, past: !!(cur && sel && sel < cur) };
   }
   // The weeks the sheet lists: the current week first, then the played weeks, most recent first, then the later weeks.
+  // The week context a view draws with (R2b, P1 and P2). Lineup and Performance honor the chosen week; Contracts and Byes are always
+  // "as of now": they use the current week and today's data, whatever week was chosen (the choice is kept for when the owner returns).
+  function viewWeek(S) {
+    var wi = weekInfo(S);
+    if (S.view === "lineup" || S.view === "performance") return wi;
+    return { cur: wi.cur, sel: wi.cur, past: false };
+  }
   function weekChoices(cur) {
     var all = [];
     for (var n = 1; n <= 17; n++) all.push({ n: n, kind: !cur ? "unknown" : n < cur ? "past" : n === cur ? "current" : "future" });
@@ -138,9 +145,29 @@
     var g = gameOf(S, p.nflTeam, wk);
     return g && g.kickoff ? F.etKickoff(g.kickoff) : "";
   }
+  // A row shows a kickoff only when it is NOT the ordinary Sunday 1:00 PM slate (R2b, P3). "unknown": the game is known but its time is not
+  // (shown as "Kickoff unavailable", never guessed); "none": no game to speak of (a bye, or the games read is out or failed: the opponent
+  // text already says which).
+  var ORDINARY_SLATE = "Sun 1:00 PM";
+  function kickoffInfo(S, p, wk) {
+    if (gameState(S, wk) !== "ok") return { state: "none", text: "" };
+    var g = gameOf(S, p.nflTeam, wk);
+    if (!g) return { state: "none", text: "" };
+    var t = g.kickoff ? F.etKickoff(g.kickoff) : "";
+    return t ? { state: "known", text: t, ordinary: t === ORDINARY_SLATE } : { state: "unknown", text: "" };
+  }
 
   // ---------- injury chips (CURRENT information: drawn only on the current week) ----------
   function statusRead(S) { var st = S.intel && S.intel.status; return st && st.state === "ok" ? { state: "ok", data: st.data, at: st.at } : null; }
+  // The injury read is USABLE only while the resolver would use it: state "ok" with data, and no older than the resolver's own limit
+  // (IS.TTL, the same comparison its `fresh` makes), judged on the same clock (S.nowMs, else Date.now()) the chips and note use. An
+  // expired read draws no chips, so a screen must not count it as "checked" (R2b Codex finding MAT-1).
+  function injuryFresh(S) {
+    var IS = G.UPSInjuryStatus, read = statusRead(S);
+    if (!IS || !read || !read.data) return false;
+    var now = S.nowMs != null ? S.nowMs : Date.now();
+    return (now - (read.at || 0)) <= IS.TTL;
+  }
   // One chip per player from the classic app's resolver (the derived copy). `code` is the resolver's designation; `kind` is
   // "out" (can't play), "res" (an MFL roster designation: IR, PUP, NFI, SUSP, RET) or "warn" (Questionable, Doubtful, HOLD).
   function injuryChip(S, p) {
@@ -167,6 +194,7 @@
 
   // ---------- scores ----------
   // undefined = still being read; null = unknown (the read failed, or he was on no lineup that week)
+  function scoreRead(S, wk) { var rec = S.intel && S.intel.wk && S.intel.wk[wk]; return !rec || rec.state === "loading" ? "loading" : rec.state === "ok" ? "ok" : "error"; }
   function scoreOf(S, pid, wk) {
     var rec = S.intel && S.intel.wk && S.intel.wk[wk];
     if (rec && rec.state === "error") return null;
@@ -195,17 +223,25 @@
   function pts(v) { return v == null ? "—" : (Math.round(v * 10) / 10).toFixed(1); }
 
   // ---------- summaries and groups ----------
-  // Starters who cannot play this week, plus empty slots (current week). Bye, or an injury chip that rules him out.
-  function issues(S, lineup, cur) {
-    var n = 0, byes = 0, outs = 0, empty = 0;
+  // Starting slots that NEED ATTENTION this week (R2b, P3), one entry per slot, never two for the same player: OUT, an MFL roster designation
+  // (IR, PUP, NFI, SUSP, RET), Doubtful ("a decision may be needed", not "out"), a bye this week, and a slot that is genuinely empty. A slot is
+  // reported as empty only when no starter is left over: a starter that fits no slot is reported as that, never as an empty slot.
+  // Questionable is a chip, not an alert. `injuriesChecked` is false while the injury read is out, failed or EXPIRED (see injuryFresh), so a screen never says
+  // "nothing needs attention" on an injury read it does not have.
+  function attention(S, lineup, cur) {
+    var items = [], st = S.intel && S.intel.status;
     lineup.slots.forEach(function (x) {
-      if (!x.player) { n++; empty++; return; }
-      var c = injuryChip(S, x.player), by = onBye(x.player, cur);
-      if (by) byes++;
-      if (c && (c.kind === "out" || c.kind === "res")) outs++;
-      if (by || (c && (c.kind === "out" || c.kind === "res"))) n++;
+      var p = x.player; if (!p) return;
+      var issues = [], c = injuryChip(S, p);
+      if (c && c.kind === "out") issues.push({ kind: "out", text: "Out" });
+      else if (c && c.kind === "res") issues.push({ kind: "designation", text: "MFL designation: " + c.code });
+      else if (c && c.code === "D") issues.push({ kind: "doubtful", text: "Doubtful: a decision may be needed" });
+      if (onBye(p, cur)) issues.push({ kind: "bye", text: "Bye week" });
+      if (issues.length) items.push({ slot: x.slot, player: p, issues: issues });
     });
-    return { n: n, byes: byes, outs: outs, empty: empty };
+    var extras = lineup.extra || [];
+    var empties = extras.length ? [] : lineup.slots.filter(function (x) { return !x.player; }).map(function (x) { return x.slot; });
+    return { items: items, empties: empties, extras: extras, n: items.length + empties.length + extras.length, injuriesChecked: injuryFresh(S), injuryState: st ? (st.state === "ok" && !injuryFresh(S) ? "stale" : st.state) : "loading" };
   }
   // Bench groups that "need you": a player still on the active roster who carries an MFL roster designation (IR, PUP, NFI, SUSP, RET).
   function groupReasons(S, players) {
@@ -213,10 +249,30 @@
       .map(function (p) { return p.name + " has an MFL " + injuryChip(S, p).code + " designation"; });
   }
   function endingAfterSeason(team) { return team.players.filter(function (p) { return p.status === "active" && p.years === 1; }).length; }
-  function byeCounts(team, cur) {
-    var now = 0, next = 0;
-    team.players.forEach(function (p) { if (p.status !== "active") return; if (p.bye === cur) now++; else if (cur && p.bye === cur + 1) next++; });
-    return { now: now, next: next };
+  // Byes (R2b, P6): players grouped by their bye week, in week order from this week on, with the starters in TODAY's lineup that each bye
+  // would leave out. Slots are today's (Week `cur`): the lineup for a later week is not known, so a group never claims who will fill a slot then.
+  // Already-played byes and players with no bye week are returned apart.
+  function byeGroups(S, team, cur, lineup) {
+    var have = !!(lineup && lineup.state === "ok"), slotOf = {}, order = {};
+    if (have) lineup.slots.forEach(function (x, i) { if (x.player) { slotOf[x.player.id] = x.slot.tag; order[x.player.id] = i; } });
+    function isStarter(p) { return slotOf[p.id] !== undefined; }
+    function sortP(a, b) {
+      if (isStarter(a) !== isStarter(b)) return isStarter(a) ? -1 : 1;
+      if (isStarter(a)) return order[a.id] - order[b.id];
+      return (F.POS_ORDER.indexOf(a.pos) - F.POS_ORDER.indexOf(b.pos)) || a.name.localeCompare(b.name);
+    }
+    var weeks = {}, past = [], none = [];
+    team.players.forEach(function (p) {
+      if (!p.bye) none.push(p);
+      else if (cur && p.bye < cur) past.push(p);
+      else (weeks[p.bye] = weeks[p.bye] || []).push(p);
+    });
+    var groups = Object.keys(weeks).map(Number).sort(function (a, b) { return a - b; }).map(function (w) {
+      var ps = weeks[w].sort(sortP);
+      return { week: w, players: ps, starters: ps.filter(isStarter).map(function (p) { return { tag: slotOf[p.id], player: p }; }) };
+    });
+    past.sort(function (a, b) { return (a.bye - b.bye) || sortP(a, b); }); none.sort(sortP);
+    return { groups: groups, past: past, none: none, haveLineup: have, slotOf: slotOf };
   }
   function relWeek(bye, cur) {
     if (!bye) return "bye week unavailable";
@@ -228,8 +284,8 @@
 
   return {
     SLOTS: SLOTS, assignSlots: assignSlots, weeklyIndex: weeklyIndex, weekInfo: weekInfo, weekChoices: weekChoices, lineupFor: lineupFor,
-    gameState: gameState, oppText: oppText, kickoffText: kickoffText, injuryChip: injuryChip, injuryNote: injuryNote, onBye: onBye,
-    scoreOf: scoreOf, teamScoreOf: teamScoreOf, scoreWeek: scoreWeek, avgOf: avgOf, pts: pts, issues: issues, groupReasons: groupReasons,
-    endingAfterSeason: endingAfterSeason, byeCounts: byeCounts, relWeek: relWeek, capNote: capNote
+    gameState: gameState, oppText: oppText, kickoffText: kickoffText, injuryChip: injuryChip, injuryFresh: injuryFresh, injuryNote: injuryNote, onBye: onBye,
+    scoreOf: scoreOf, scoreRead: scoreRead, teamScoreOf: teamScoreOf, scoreWeek: scoreWeek, avgOf: avgOf, pts: pts, attention: attention, groupReasons: groupReasons,
+    endingAfterSeason: endingAfterSeason, byeGroups: byeGroups, relWeek: relWeek, capNote: capNote, viewWeek: viewWeek, kickoffInfo: kickoffInfo, ORDINARY_SLATE: ORDINARY_SLATE
   };
 });
