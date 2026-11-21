@@ -59,6 +59,8 @@ export function assertQueryAllowed(sql, knownTables = []) {
   const toks = sqlTokens(text).filter((x) => x.kind !== "comment");
   const semi = toks.findIndex((x) => x.kind === "semi");
   if (semi >= 0 && semi < toks.length - 1) throw new ArchiveGuardError("only a single SELECT is allowed");
+  // a wildcard would bring every column, including the restricted ones, so names are required (count(*) is the one allowed use of the star)
+  toks.forEach((tk, i) => { if (tk.kind === "other" && tk.value === "*" && !(toks[i - 1] && toks[i - 1].kind === "other" && toks[i - 1].value === "(")) throw new ArchiveGuardError("a wildcard select is not allowed: name the columns"); });
   const known = new Set(knownTables.map((x) => String(x).toLowerCase()));
   const used = [];
   toks.forEach((tk, i) => {
@@ -112,13 +114,21 @@ export async function openArchive({ root, cacheDir } = {}) {
 
 // An indexed in-memory copy of the large per-week tables, for the whole-archive extraction (thousands of per-player lookups). Every row is read THROUGH the archive reader (so the table
 // guard applies to the copy), and every query on the copy passes the same guard. Read-only in effect: nothing is written to the archive.
-const MEMORY_INDEXES = { rosters_weekly: ["player_id", "season"], player_weeklyscoringresults: ["player_id", "season"], playerscores_weekly: ["player_id", "season"], players: ["player_id"] };
-export function memoryView(archive, tables = Object.keys(MEMORY_INDEXES).concat(["leagueevents"])) {
+const MEMORY_INDEXES = { rosters_weekly: ["player_id", "season"], player_weeklyscoringresults: ["player_id", "season"], playerscores_weekly: ["player_id", "season"] };
+// ONLY the columns the extraction reads are copied (no owner name, no rank column, no raw payload).
+export const MEMORY_COLUMNS = Object.freeze({
+  rosters_weekly: ["season", "week", "franchise_id", "player_id", "status", "salary", "contract_year", "contract_status", "contract_info"],
+  player_weeklyscoringresults: ["season", "week", "player_id", "status", "roster_status", "years_remaining", "contract_status", "score", "is_reg", "salary", "roster_franchise_id"],
+  playerscores_weekly: ["season", "week", "player_id", "score"],
+  leagueevents: ["event", "date", "nfl_season"],
+});
+export function memoryView(archive, tables = Object.keys(MEMORY_COLUMNS)) {
   const mem = new DatabaseSync(":memory:");
+  mem.exec("pragma temp_store = memory");
   for (const t of tables) {
-    const rows = archive.all(`select * from ${t}`);
+    const cols = MEMORY_COLUMNS[t];
+    const rows = archive.all(`select ${cols.join(", ")} from ${t}`);
     if (!rows.length) continue;
-    const cols = Object.keys(rows[0]);
     // player_id gets TEXT affinity so a numeric id read from the archive still equals the string id the extraction binds
     mem.exec(`create table ${t} (${cols.map((c) => `"${c}"${c === "player_id" ? " TEXT" : ""}`).join(", ")})`);
     const ins = mem.prepare(`insert into ${t} values (${cols.map(() => "?").join(", ")})`);

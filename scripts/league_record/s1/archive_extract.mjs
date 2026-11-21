@@ -57,6 +57,7 @@ export function buildArchiveExtraction({ archive, root }) {
   const season = new Map(years.map((y) => [y, newSeason(y)]));
   const lists = { slot_conflicts: [], trades_after_selection: [], pick_chain_discontinuities: [], player_chain_breaks: [], unpaired_or_unknown_legs: [], duplicate_legs: [], draft_gaps: [], future_pick_ambiguous_examples: [] };
   const totals = Object.fromEntries(Object.keys(lists).map((k) => [k, 0]));
+  const outOfScope = { player_chain_breaks_dated_after_2025: 0 };
   const note = (kind, row) => { totals[kind] += 1; if (lists[kind].length < LIST_CAP) lists[kind].push(row); };
 
   // ── A. trades: sources, packages, cap transfers ─────────────────────────────────────────────
@@ -167,7 +168,8 @@ export function buildArchiveExtraction({ archive, root }) {
     chains.set(pid, chain);
     for (const b of chain.breaks) {
       const y = yearOf(b.date);
-      if (y >= FIRST_YEAR && y <= LAST_YEAR) season.get(y).chain_breaks.players[b.kind] += 1;
+      if (y < FIRST_YEAR || y > LAST_YEAR) { outOfScope.player_chain_breaks_dated_after_2025 += 1; continue; }     // a break dated 2026 (from the snapshot) is outside the stated period
+      season.get(y).chain_breaks.players[b.kind] += 1;
       note("player_chain_breaks", { player: pid, kind: b.kind, date: b.date, ...(b.expected_holder ? { expected_holder: b.expected_holder, recorded_sender: b.recorded_sender } : { holder_before: b.holder_before, added_by: b.added_by }) });
     }
   }
@@ -227,6 +229,6 @@ export function buildArchiveExtraction({ archive, root }) {
     scope: { first_season: FIRST_YEAR, last_season: LAST_YEAR, source: "committed archive through the guarded reader; no snapshot trade, no 2026 record", rules: ["draft slots only from MFL slot tokens and MFL draft results", "a trade is one package: nothing is credited to a single asset of a multi-asset trade", "a future pick is never CONFIRMED to a slot; INFERRED only by UNIQUE_HOLDER_V1 with a complete inventory and observed custody", "production is a sum over verified possession periods per franchise, never attributed to a pick or a trade"] },
     summary, seasons: years.map((y) => season.get(y)), eras, coverage_windows: windows, named_gap: ledger.named_gap,
     production_by_franchise_season: production,
-    findings: { totals, lists, list_cap: LIST_CAP },
+    findings: { totals, lists, list_cap: LIST_CAP, outside_the_stated_period: outOfScope },
   };
 }

@@ -12,8 +12,10 @@ export const BANNED_TABLES = Object.freeze([
   "schedule", "metadata_leaguewinprofile", "trade_value_picks", "trade_value_model", "early_projection_adp", "view_rookiedraft",
 ]);
 
-// Column names the extraction may never select, even from an allowlisted table (a table that holds a franchise list can also hold a waiver order derived from the standings).
-export const BANNED_COLUMNS = Object.freeze(["waiver_sort_order", "final_finish", "final_rank", "playoff_seed", "draft_order", "projected_order", "projected_finish"]);
+// Column names the extraction may never select, even from an allowlisted table: a table that holds a franchise list can also hold a waiver order derived from the standings, and the weekly
+// scoring table holds owner names and rank columns. A wildcard select is refused as well (archive.mjs), so no restricted column can ride along.
+export const BANNED_COLUMNS = Object.freeze(["waiver_sort_order", "final_finish", "final_rank", "playoff_seed", "draft_order", "projected_order", "projected_finish",
+  "owner_name", "pos_rank", "overall_rank", "winning_week", "win_chunks"]);
 
 // Words and names that must not appear in extraction CODE (comments are removed first). Each one is a way of getting a slot, an order or a rank from somewhere other than MFL's
 // draft results, slot tokens and slot lists.

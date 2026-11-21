@@ -131,9 +131,9 @@ A week is verified only when the possession chain (trades, drafts, adds, drops) 
 ## 6. Data gaps and conflicts requiring investigation
 
 - **Slot conflicts (1):** the chain leaves one franchise holding the slot and the draft result records another. Concentrated in 2014 (1): the legacy era, where the draft result names who clicked.
-- **Slot picks with no draft result (0):** . 2010 and 2011 have no draft table at all; the others name a slot the legacy draft table does not contain.
+- **Slot picks with no draft result:** none. Every traded slot pick in a season that has draft results names a slot those results contain (after the legacy slot correction).
 - **Draft slots missing from the draft tables (1):** 2018: 4.12.
-- **Player chain breaks (1359):** 49 discontinuities and 1211 implicit releases; the first 60 are in `extraction.json`.
+- **Player chain breaks (1260):** 49 discontinuities and 1211 implicit releases; the first 60 are in `extraction.json`. 99 further breaks are dated 2026 (the snapshot era) and are outside this extraction.
 - **Pick chain discontinuities (3)** and **trades recorded after the selection (0)**; **unpaired or unknown trade legs (0)**; **duplicate legs in one trade (0)**.
 - **Named source-coverage gap:** 2025-11-28 to 2026-03-07. The archive's last TRADE is 2025-11-27; its last transaction of any type is 2025-12-29; the first 2026 snapshot transaction is 2026-03-07 19:13:45 Eastern. Preserved as a gap; nothing assumes no trade occurred in it.
 - **Quiet windows** (14 or more days with no recorded transaction of any kind) in or next to the extraction years: 38. They are disclosed on every custody check and, under the strict rule, count as unobserved.

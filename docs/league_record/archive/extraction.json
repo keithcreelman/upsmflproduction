@@ -776,12 +776,15 @@
       "trades_after_selection": [],
       "unpaired_or_unknown_legs": []
     },
+    "outside_the_stated_period": {
+      "player_chain_breaks_dated_after_2025": 99
+    },
     "totals": {
       "draft_gaps": 1,
       "duplicate_legs": 0,
       "future_pick_ambiguous_examples": 0,
       "pick_chain_discontinuities": 3,
-      "player_chain_breaks": 1359,
+      "player_chain_breaks": 1260,
       "slot_conflicts": 1,
       "trades_after_selection": 0,
       "unpaired_or_unknown_legs": 0

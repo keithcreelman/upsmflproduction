@@ -224,7 +224,7 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
 
   // T15 no private data
   const text = stableStringify(b);
-  const sqlText = fs.readdirSync(extractionDir).filter((f) => f.endsWith(".mjs") && f !== "acceptance.mjs").map((f) => fs.readFileSync(path.join(extractionDir, f), "utf8")).join("\n");
+  const sqlText = fs.readdirSync(extractionDir).filter((f) => f.endsWith(".mjs") && f !== "acceptance.mjs" && f !== "guard.mjs").map((f) => fs.readFileSync(path.join(extractionDir, f), "utf8")).join("\n");   // guard.mjs holds the list of banned names
   const priv = [/[\w.+-]+@[\w-]+\.[\w.]+/.test(text) ? "an email address" : null, /owner_name|owner_display|discord/i.test(sqlText.replace(/\/\/.*$/gm, "")) ? "an owner or chat column in the extraction code" : null, /password|api[_-]?key|secret/i.test(text) ? "a credential word" : null].filter(Boolean);
   out.push(T("T15", "only franchise ids, team names and player names appear; no owner column is read; no email, credential or chat text", priv.length === 0, priv.join(", ")));
 

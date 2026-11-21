@@ -49,7 +49,7 @@ export function packageSentence(view, franchise, labelOf = (x) => x) {
   const s = view.sides.find((x) => x.franchise === franchise);
   if (!s) return null;
   const name = (x) => x.label || labelOf(x.asset);
-  const list = (items, caps) => [...items.map(name), ...caps.map((c) => `${Number(c).toLocaleString("en-US")} in cap money`)].join(", ") || "nothing";
+  const list = (items, caps) => [...items.map(name), ...caps.map((c) => `${Number(c).toLocaleString("en-US")} in cap money`)].join("; ") || "nothing";   // "; " because player names contain commas
   const head = `In ${view.trade} (${view.date}) ${franchise} sent ${list(s.sent, s.cap_sent)} and received ${list(s.received, s.cap_received)}`;
   return s.allocation.status === ALLOCATION.ESTABLISHED ? `${head}: a one-for-one exchange, so the transaction itself pairs them.` : `${head}, in one transaction. The record states no allocation among these assets, so no single asset is credited with any part of what was received.`;
 }

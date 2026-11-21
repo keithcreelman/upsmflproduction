@@ -225,7 +225,7 @@ test("guard: the archive reader refuses every banned or unlisted table and anyth
   ];
   for (const f of forms) t.throws(() => assertQueryAllowed(f, known), ArchiveGuardError, f);
   t.deepEqual(assertQueryAllowed("select r.x, 'trade_winning_team_analysis' lit from transactions_trades t, rosters_weekly r -- standings", known), ["transactions_trades", "rosters_weekly"], "a banned name inside a string or a comment is not a table");
-  t.deepEqual(assertQueryAllowed("select * from players where player_id in (select player_id from rosters_weekly)", known), ["players", "rosters_weekly"]);
+  t.deepEqual(assertQueryAllowed("select name from players where player_id in (select player_id from rosters_weekly)", known), ["players", "rosters_weekly"]);
   // the same forms through the real archive reader
   for (const f of forms) t.throws(() => archive.all(f), ArchiveGuardError, `archive: ${f}`);
   for (const bad of ["const a = standings;", "const x = row.final_finish;", "const f = 'finishes';", "const b = bracket;", "SLOT_BY_FINISH[1]", "const p = projectedOrder;", "const o = deriveDraftOrder();", "fetch('/api/historical-finishes')", "import x from '../worker/src/desk/tools/history_finishes.js';", "const s = seed;"]) t.ok(scanSource(bad).length > 0, bad);
@@ -358,6 +358,10 @@ test("packages: the report keeps the three notions apart and never says one pick
   for (const w of ["one package", "NOT ESTABLISHED", "not a net gain", "Package rule", "no allocation among these assets", "Conner, James", "Strange, Brenton", "Everything 0005 sent in the transaction"]) t.ok(report.includes(w), w);
   t.ok(!/(became|bought|paid for|returned) (D'Andre )?Swift/i.test(report) && !/(became|bought|paid for|returned) (C\.J\. )?Stroud/i.test(report));
   t.ok(!/Confirmed-only total of verified points for 0005 over every traced player/.test(report), "the old total wording is gone");
+  // the cap money in the Brown trade went OUT of 0005 and the two picks came IN: the report says so and never says the cap money came back
+  t.match(report, /sent Brown and the cap money; it received the two picks/);
+  t.ok(!/two picks and the cap money are the whole of what came back/.test(report));
+  t.match(report, /0005 sent Brown, A\.J\.; 20,000 in cap money and received 2025 round 1, slot 8 \(pick 1\.08\); 2026 round 3 pick, original franchise 0006, in one transaction/);
   t.ok(!/each trade of an asset by 0005 adds the consideration/.test(report));
   // every sentence that mentions a package in section 1 names every asset sent (so a lone pick is never the stated price)
   t.match(report, /sent .*Conner, James.*2026 round 2 pick, original franchise 0010.*2026 round 4 pick, original franchise 0005 and received D'Andre Swift?|sent .*Conner, James/s);

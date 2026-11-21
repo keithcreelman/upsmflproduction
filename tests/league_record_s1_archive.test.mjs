@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { test, run, t } from "./fixtures/mini_test.mjs";
-import { openArchive, assertQueryAllowed, ArchiveGuardError, memoryView, BANNED_COLUMNS } from "../scripts/league_record/s1/archive.mjs";
+import { openArchive, assertQueryAllowed, ArchiveGuardError, memoryView, BANNED_COLUMNS, MEMORY_COLUMNS } from "../scripts/league_record/s1/archive.mjs";
 import { scanExtractionSources } from "../scripts/league_record/s1/guard.mjs";
 import { buildArchiveExtraction, FIRST_YEAR, LAST_YEAR } from "../scripts/league_record/s1/archive_extract.mjs";
 import { renderArchiveReport } from "../scripts/league_record/s1/archive_report.mjs";
@@ -135,9 +135,31 @@ test("production is a sum over verified possession periods per franchise; it is 
   t.equal(q("select count(*) n from rosters_weekly where season between 2012 and 2016")[0].n, 0);
   // 2017-2019: the weekly roster record names the franchise, so weeks are verified
   for (const y of [2017, 2018, 2019]) { t.ok(seasonOf(y).production.weeks_verified > 1000, String(y)); t.ok(seasonOf(y).production.weeks_franchise_from_roster_record > 1000, String(y)); }
-  // an independent check of one franchise-season: sum of verified points equals the sum over its players' rows
+  // independent bounds from raw SQL for every 2020-2025 franchise-season: the verified points and weeks can never exceed the franchise's own scoring rows in MFL's weekly table
+  for (const r of rows.filter((z) => z.season >= 2020 && /^\d{4}$/.test(z.franchise))) {
+    const raw2 = q("select count(*) n, coalesce(sum(score), 0) pts from player_weeklyscoringresults where season = ? and roster_franchise_id = ? and week between 1 and ?", r.season, r.franchise, r.season >= 2021 ? 17 : 16)[0];
+    t.ok(r.weeks_verified <= raw2.n, `${r.season} ${r.franchise} weeks`);
+    t.ok(r.points_verified <= Math.round(raw2.pts * 10) / 10 + 0.1, `${r.season} ${r.franchise} points`);
+  }
   const row = rows.find((r) => r.season === 2021 && r.franchise === "0005");
   t.ok(row && row.points_verified > 0 && row.weeks_verified > 0);
+});
+
+test("the copy used for the 2010-2025 extraction holds only the columns the extraction reads; owner names and rank columns never leave the archive; wildcards are refused", () => {
+  const mem = memoryView(archive);
+  for (const [tbl, cols] of Object.entries(MEMORY_COLUMNS)) {
+    t.deepEqual(Object.keys(mem.all(`select ${cols.join(", ")} from ${tbl} limit 1`)[0]), cols, tbl);
+    t.throws(() => mem.all(`select owner_name from ${tbl} limit 1`), ArchiveGuardError, `${tbl} owner_name`);
+  }
+  t.throws(() => mem.all("select * from rosters_weekly limit 1"), ArchiveGuardError);
+  t.throws(() => mem.all("select r.* from rosters_weekly r limit 1"), ArchiveGuardError);
+  t.throws(() => archive.all("select * from player_weeklyscoringresults limit 1"), ArchiveGuardError);
+  t.throws(() => archive.all("select owner_name from player_weeklyscoringresults limit 1"), ArchiveGuardError);
+  t.throws(() => archive.all("select pos_rank, overall_rank from player_weeklyscoringresults limit 1"), ArchiveGuardError);
+  t.equal(mem.all("select count(*) n from rosters_weekly")[0].n, q("select count(*) n from rosters_weekly")[0].n, "count(*) is still allowed");
+  const mc = new DatabaseSync(":memory:"); mc.close();
+  mem.close();
+  for (const f of ["archive_extract.mjs", "archive.mjs", "economics.mjs", "pilot.mjs", "lineage.mjs", "sources.mjs"]) { const src = fs.readFileSync(path.join(ROOT, "scripts", "league_record", "s1", f), "utf8"); t.ok(!/owner_name/.test(src.replace(/\/\/.*$/gm, "")) || f === "archive.mjs", `${f} never names the owner column`); }
 });
 
 test("the standing rule holds for the new code: no standings-derived slot, banned columns refused, the memory copy obeys the guard, and the source scan covers every new module", () => {
@@ -164,10 +186,11 @@ test("gaps and conflicts are listed, not repaired: the named gap, quiet windows,
   t.equal(x.findings.totals.pick_chain_discontinuities, x.summary.pick_chain_discontinuities);
   t.ok(x.summary.player_chain_breaks.implicit_release > 0 && x.summary.player_chain_breaks.discontinuity > 0);
   t.ok(x.findings.lists.player_chain_breaks.length <= x.findings.list_cap);
-  t.ok(x.findings.totals.player_chain_breaks >= x.summary.player_chain_breaks.discontinuity + x.summary.player_chain_breaks.implicit_release, "the findings count every break, including the few dated 2026");
+  t.equal(x.findings.totals.player_chain_breaks, x.summary.player_chain_breaks.discontinuity + x.summary.player_chain_breaks.implicit_release, "findings and summary count the same 2010-2025 breaks");
+  t.ok(x.findings.outside_the_stated_period.player_chain_breaks_dated_after_2025 > 0, "breaks dated 2026 are disclosed apart, not mixed into the 2010-2025 counts");
   t.equal(x.findings.totals.draft_gaps, 1, "only 2018's 4.12 is missing after the legacy correction");
   const rep = renderArchiveReport(x);
-  for (const w of ["named source-coverage gap", "2025-11-28", "Quiet windows", "implicit releases", "selector not recorded", "slot_correction"]) t.ok(rep.toLowerCase().includes(w.toLowerCase()), w);
+  for (const w of ["named source-coverage gap", "2025-11-28", "Quiet windows", "implicit releases", "selector not recorded", "slot_correction", "dated 2026"]) t.ok(rep.toLowerCase().includes(w.toLowerCase()), w);
   // era differences are in the report
   t.match(rep, /processing_time_likely/); t.match(rep, /draftresults_legacy/); t.match(rep, /draftresults_mfl/);
 });
