@@ -295,7 +295,10 @@ export const TEAM_HISTORY_MIN_SCORED = 200;        // below this many scored pla
 
 // ctx = the season context (fpaLoadSeasonContext): { one: { mflId: [nflvTeam, firstWeek, lastWeek] }, multi: { mflId: { week: nflvTeam } }, through }.
 // clubOf(id) = MFL's current club code ("" when none or a free agent). scoredWeeks = Map(id → Set(weeks MFL has a score row for)).
-// scoredIds = ids that have MFL scores (the route's playerWindow). Returns the response fields.
+// scoredIds = ids that have MFL scores (the route's playerWindow). Returns the response fields:
+//   teamHistory       players with two or more clubs, or whose last record's club is not MFL's club (segments, and `cur`);
+//   teamHistoryFirst  { id: firstWeek } for every other player whose first weekly row is after Week 1 (the earlier weeks are unknown);
+//   teamHistoryMissing / teamHistoryConflict  players the evidence cannot cover (see above).
 export function lmuTeamHistory({ ctx, ctxState, priorSeason, clubOf, scoredWeeks, scoredIds }) {
   const off = (reason) => ({ teamHistoryState: "unavailable", teamHistoryReason: reason, teamHistoryThrough: null });
   if (priorSeason) return off("past_season");
@@ -304,7 +307,7 @@ export function lmuTeamHistory({ ctx, ctxState, priorSeason, clubOf, scoredWeeks
   if (through < 1 || !scoredIds.length) return off("no_history");
   const club = (c) => { const u = str(c).toUpperCase(); return NFLV_TO_MFL[u] || u; };
   const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
-  const teamHistory = {}, conflict = [], missing = [];
+  const teamHistory = {}, conflict = [], missing = [], first = {};
   let changed = 0;
   const ids = scoredIds.slice().sort((a, b) => Number(a) - Number(b));
   for (const id of ids) {
@@ -333,11 +336,11 @@ export function lmuTeamHistory({ ctx, ctxState, priorSeason, clubOf, scoredWeeks
       const e = { seg: segs };
       if (moved) e.cur = curClub;
       teamHistory[id] = e; changed++;
-    }
+    } else if (segs[0][1] > 1) first[id] = segs[0][1];   // "no change seen", but the weeks before his first weekly row are unknown: the client must not count them
   }
   if (scoredIds.length >= TEAM_HISTORY_MIN_SCORED && 1 - missing.length / scoredIds.length < TEAM_HISTORY_COVERAGE_FLOOR) return off("crosswalk_failed");
   if (changed > TEAM_HISTORY_CHANGED_CEILING) return off("crosswalk_suspect");
-  return { teamHistoryState: "ok", teamHistoryReason: null, teamHistoryThrough: through, teamHistory, teamHistoryMissing: missing, teamHistoryConflict: conflict };
+  return { teamHistoryState: "ok", teamHistoryReason: null, teamHistoryThrough: through, teamHistory, teamHistoryMissing: missing, teamHistoryConflict: conflict, teamHistoryFirst: first };
 }
 
 async function cacheMatch(key) {

@@ -14,7 +14,7 @@ const check = async (n, fn) => { try { await fn(); console.log("  ok   " + n); }
 
 const fx = loadFixture();
 const GOLD = JSON.parse(fs.readFileSync(new URL("./fixtures/team_history_2026_wk10_golden.json", import.meta.url), "utf8"));
-const NEW_FIELDS = ["teamHistoryState", "teamHistoryReason", "teamHistoryThrough", "teamHistory", "teamHistoryMissing", "teamHistoryConflict"];
+const NEW_FIELDS = ["teamHistoryState", "teamHistoryReason", "teamHistoryThrough", "teamHistory", "teamHistoryMissing", "teamHistoryConflict", "teamHistoryFirst"];
 const idOf = (name) => { const p = fx.players.find((q) => q[1] === name); assert.ok(p, "fixture has " + name); return p[0]; };
 const pos = Object.fromEntries(fx.players.map((p) => [p[0], p[2]]));
 const FAM = { QB: "O", RB: "O", FB: "O", WR: "O", TE: "O", PK: "S", PN: "S", DT: "D", DE: "D", LB: "D", CB: "D", S: "D" };
@@ -41,7 +41,7 @@ await check("no new database statement and no new network call: same 3 SELECTs a
   assert.strictEqual(base.calls.length, GOLD.calls);
   assert.ok(base.calls.every((c) => c.method === "GET")); assert.ok(base.env.queries.every((q) => /^\s*(WITH|SELECT)\b/i.test(q)));
 });
-await check("the payload grows by well under 5 KB", () => { const d = JSON.stringify(B).length - JSON.stringify(GOLD.payload).length; assert.ok(d > 0 && d < 5000, "grew by " + d); });
+await check("the payload grows by under 9 KB (46 changed players, 503 first-record weeks, the two lists)", () => { const d = JSON.stringify(B).length - JSON.stringify(GOLD.payload).length; assert.ok(d > 0 && d < 9000, "grew by " + d); });
 
 // ── 2. The replay oracle: real counts and named players ─────────────────────────────────────────────────────────
 console.log("W1 replay: real 2026 data through Week 10");
@@ -65,6 +65,12 @@ await check("a one-club player whose MFL club now differs carries cur, and his s
 await check("unchanged players are not listed, and every listed segment lies inside the coverage window", () => {
   for (const id of Object.keys(B.teamHistory)) for (const [, lo, hi] of B.teamHistory[id].seg) assert.ok(lo >= 1 && hi >= lo && hi <= B.teamHistoryThrough);
   const entry = B.teamHistory[idOf("Simmons, Jeffery")]; assert.ok(!("cur" in entry), "no cur when MFL's club equals the last record");
+});
+await check("first-record weeks: every no-change player whose first weekly row is after Week 1 (503; 69 on UPS rosters, as the reference finds); the three named count-only players start in Week 8", () => {
+  const f = B.teamHistoryFirst;
+  assert.strictEqual(Object.keys(f).length, 503); assert.strictEqual(Object.keys(f).filter((i) => fx.rostered[i]).length, 69);
+  for (const n of ["Giddens, DJ", "Richardson, Anthony", "Charbonnet, Zach"]) assert.strictEqual(f[idOf(n)], 8, n);
+  for (const [id, w] of Object.entries(f)) { assert.ok(Number.isInteger(w) && w >= 2 && w <= B.teamHistoryThrough, id + " first week " + w); assert.ok(!(id in B.teamHistory) && !B.teamHistoryMissing.includes(id) && !B.teamHistoryConflict.includes(id), id + " is in exactly one list"); }
 });
 await check("the 10 rostered changed players and 8 rostered missing players are the ones the client must treat conservatively", () => {
   const r = (ids) => ids.filter((i) => fx.rostered[i]).length;
@@ -96,6 +102,13 @@ await check("two clubs: segments in week order, adjacent weeks of one club merge
 await check("weeks before the first record are NOT given the first club: the first segment starts at its first real week", () => {
   const r = H({ ctx: { through: 9, one: {}, multi: { a: { 4: "TEN", 5: "CHI" } } }, scored: { a: [4, 5] }, cur: { a: "CHI" } });
   assert.strictEqual(r.teamHistory.a.seg[0][1], 4);
+});
+await check("a one-club player whose first weekly row is after Week 1 is listed in teamHistoryFirst; Week 1 starters and changed players are not", () => {
+  const r = H({ ctx: { through: 9, one: { a: ["TEN", 4, 9], b: ["TEN", 1, 9], c: ["TEN", 3, 9] }, multi: { d: { 2: "TEN", 3: "CHI" } } }, scored: { a: wks(4, 9), b: wks(1, 9), c: wks(3, 9), d: [2, 3] }, cur: { a: "TEN", b: "TEN", c: "CHI", d: "CHI" } });
+  assert.deepStrictEqual(r.teamHistoryFirst, { a: 4 }, "c moved (listed with segments) and d changed clubs: neither is here");
+  assert.deepStrictEqual(Object.keys(r.teamHistory).sort(), ["c", "d"]);
+  const u = LM.lmuTeamHistory({ ctx: null, ctxState: "failed", priorSeason: false, scoredIds: ["a"], scoredWeeks: new Map(), clubOf: () => "" });
+  assert.ok(!("teamHistoryFirst" in u), "an unavailable answer carries no list");
 });
 await check("a player with MFL scores and no weekly row is MISSING, never assumed to be on his current club", () => {
   const r = H({ ctx: { through: 9, one: {}, multi: {} }, scored: { a: wks(1, 9) }, cur: { a: "TEN" } });

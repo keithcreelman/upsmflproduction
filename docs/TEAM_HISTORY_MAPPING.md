@@ -10,6 +10,7 @@
 | `teamHistoryReason` | `null` when ok; else `past_season`, `context_failed`, `no_history`, `crosswalk_failed` or `crosswalk_suspect` |
 | `teamHistoryThrough` | last week the history covers (the coverage week); `null` when unavailable |
 | `teamHistory` | `{ mflId: { seg: [[club, firstWeek, lastWeek], …], cur? } }`, only for players with more than one club segment or whose MFL club differs from the last record. `cur` is MFL's current club and is never folded into `seg` |
+| `teamHistoryFirst` | `{ mflId: firstWeek }` for every other player (no club change seen) whose first weekly row is after Week 1. The weeks before it are unknown: the client must not count them as team games (2026 Week 10: 503 players, 69 on UPS rosters). Players with a first row in Week 1 are omitted |
 | `teamHistoryMissing` | players with MFL scores and no weekly row at all: club history unknown |
 | `teamHistoryConflict` | players whose weekly rows contradict MFL's score weeks: the identity join is wrong for this id, so nothing is shown |
 
