@@ -550,6 +550,19 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   { const f = fresh(true); t.ok(f.fails2("update lr_conflict set valid_to_run = 2 where conflict_id = 1"), "an open conflict cannot be closed without a resolution row"); t.ok(f.fails2(f.rel(1)), "and it still blocks a release without an evidence need"); f.d.close(); }
   { const f = fresh(true); f.d.exec("insert into lr_run_excluded values (3, 4)"); f.d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, run_id) values (2, 'slot:x', 'selector', 'a', 'b', 'open', 3)");
     f.d.exec(f.need("CONFLICT", 1, "null", "OPEN")); t.ok(!f.fails2(f.rel(5)), "an open conflict begun by an excluded run does not count at the later release"); f.d.close(); }
+  // the resolution a closure relied on must still exist at release: deleting it (its run was never released, so the delete itself is allowed) cannot hide the conflict
+  { let f = fresh(true); f.d.exec(f.need("CONFLICT", 1, "null", "OPEN"));
+    f.d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, ruling_ref, run_id) values (2, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'resolved_by_source', 'export hash', 2)");
+    f.d.exec("update lr_conflict set valid_to_run = 2 where conflict_id = 1"); f.d.exec("update lr_evidence_need set valid_to_run = 2 where need_id = 1");
+    t.ok(!f.fails2(f.rel(2)), "resolve, close the conflict and its need: the release is allowed while the resolution exists"); f.d.close();
+    f = fresh(true); f.d.exec(f.need("CONFLICT", 1, "null", "OPEN"));
+    f.d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, ruling_ref, run_id) values (2, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'resolved_by_source', 'export hash', 2)");
+    f.d.exec("update lr_conflict set valid_to_run = 2 where conflict_id = 1"); f.d.exec("update lr_evidence_need set valid_to_run = 2 where need_id = 1"); f.d.exec("delete from lr_conflict where conflict_id = 2");
+    t.ok(f.fails2(f.rel(2)), "deleting the resolution before the release cannot make the closed conflict disappear: it needs a live resolution or a live evidence need"); f.d.close();
+    f = fresh(true); f.d.exec(f.need("CONFLICT", 1, "null", "OPEN"));
+    f.d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, ruling_ref, run_id) values (2, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'resolved_by_source', 'export hash', 2)");
+    f.d.exec("update lr_conflict set valid_to_run = 2 where conflict_id = 1"); f.d.exec("update lr_evidence_need set valid_to_run = 2 where need_id = 1"); f.d.exec("update lr_conflict set valid_to_run = 3 where conflict_id = 2");
+    t.ok(f.fails2(f.rel(3)), "a resolution closed before the release no longer counts as live"); f.d.close(); }
   // the coverage gate's exclusion rule in isolation: a verified interval begun by an abandoned run does not count, one closed only by an abandoned run still does
   { let f = fresh(false); f.d.exec(f.need("LINK", 1, "null", "OPEN")); f.d.exec("insert into lr_run_excluded values (3, 4)");
     f.d.exec("insert into lr_coverage values (1, 'S', 'pick_transfer', '2020-01-01', '2020-02-01', 'VERIFIED_COMPLETE', 'b', 3, null)"); t.ok(!f.fails2(f.rel(5)), "a verified interval begun by an excluded run is ignored"); f.d.close();
