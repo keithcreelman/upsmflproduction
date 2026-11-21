@@ -25,7 +25,7 @@ import { handle3WayHttp } from "./trade_3way_http.js";
 import { handle2WayStagedHttp } from "./trade_2way_http.js";
 import { franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { checkAgingDropFirstSequences } from "./trade_2way.js";
-import { resolveTradeCaller, isAdminCaller, callerFailureBody, safeEqual } from "./trade_authz.js";
+import { resolveTradeCaller, isAdminCaller, callerFailureBody } from "./trade_authz.js";
 import { getAllFeatureFlags, getFeatureFlag, setFeatureFlags } from "./feature_flags.js";
 import { parseDropLockSetting, dropsFromTransactions, resolveWaiverAvailability } from "./waiver_availability.js";
 import { AUCTION_CAL_FIELDS, getAuctionCalendar, setAuctionCalendar, buildCalendarEvents, buildLeagueEventRows, normalizeMflCalendar, etWallClockToUnix, deadlineOverridesFromCalendar } from "./auction_calendar.js";

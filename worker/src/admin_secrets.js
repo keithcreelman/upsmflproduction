@@ -127,6 +127,8 @@ export function upsAdminSecret(env) {
   return key;
 }
 
+const u2 = (url, name) => (url ? url.searchParams.get(name) : null);   // the raw (untrimmed) query value
+
 function valuesFor(entry, request, url) {
   const get = (src) => {
     if (src === "bearer") return bearerKey(request);
@@ -134,9 +136,17 @@ function valuesFor(entry, request, url) {
     if (src.startsWith("query:")) return url ? s(url.searchParams.get(src.slice(6))) : "";
     return "";
   };
-  const vals = entry.sources.map(get);
-  if (entry.pick === "first") return [vals.find(Boolean) || ""];
-  return vals;
+  if (entry.pick === "first") {
+    // The site reads `query || header` and trims AFTER choosing: a whitespace-only query value is truthy, so it is chosen and then
+    // trims to nothing (refused) even beside a valid header. Choose on the RAW value to keep exactly that.
+    const raw = (src) => {
+      if (src.startsWith("query:")) return u2(url, src.slice(6));
+      if (src.startsWith("header:")) return request.headers.get(src.slice(7));
+      return "";
+    };
+    return [s(entry.sources.map(raw).find(Boolean))];
+  }
+  return entry.sources.map(get);
 }
 
 const logged = new WeakMap();   // request -> Set of "via|site" already logged (a handler may re-check the same request)

@@ -18,6 +18,16 @@ Generated 2026-11-21 from the code at the PR head. Line numbers drift; every sta
 - **CORS.** The worker answers every `OPTIONS` preflight with a fixed `Access-Control-Allow-Headers: Content-Type`. A browser page that sends a custom header would fail its preflight, so Phase 1 changes that list to `Content-Type, X-UPS-ADMIN-KEY`. `Authorization` is deliberately not added: browser pages use `X-UPS-ADMIN-KEY`; `Authorization: Bearer` is for non-browser callers (workflows, scripts) which have no preflight. This is the only response-header change and is covered by a test.
 - **Alternatives considered.** (a) Reusing `COMMISH_API_KEY` as the header credential: rejected, it is a legacy credential this plan eventually retires. (b) Changing every `sessionByApiKey` gate at once: rejected for this PR, too wide for one reviewable diff; recommended as the next PR (section 2b). (c) Replacing the URL form outright: rejected, it would break ~45 workflows, the pages and the scheduled jobs on the same day.
 
+### What to rely on, stated plainly
+- **Power.** Where `UPS_ADMIN_KEY` is accepted it is exactly as powerful as the commissioner key is at that site. It is a new way to present the same authority, not a reduced one.
+- **Fail closed elsewhere.** Routes whose own check still compares directly against the commissioner key (the `sessionByApiKey` gates and the direct comparisons in section 2b) **refuse `UPS_ADMIN_KEY`** until the Phase 1b extension: it passes the front door and is then refused with that route's own 403, never a 500 and never a success. A test pins this on four real routes (two `sessionByApiKey` gates, two direct comparisons) and checks that the legacy key is still accepted there exactly as before.
+- **Log volume (a note for Phase 3).** A call authorized by a legacy credential now logs one `[admin-auth]` line per site that checks it, so a route checked twice (the front door, then its own migrated check) logs two lines. Worker-internal scheduled calls add lines too. Budget for that when reading a window of logs.
+
+### Known strict-reading differences
+- None for existing credentials' accept/refuse decisions. One was found in review and **restored exactly**: the trade-execution routes read `?APIKEY=` **or, if absent,** `X-COMMISH-APIKEY`, deciding which to use *before* trimming, so `?APIKEY=%20` beside a valid `X-COMMISH-APIKEY` is refused. The policy table now chooses on the raw value (`pick: "first"`) and a test pins both that and the empty-query fall-through to the header.
+- Timing only: the calendar-commit and Hall checks used `===` / `!==` and now use the constant-time comparison.
+- New header only: with `UPS_ADMIN_KEY` configured, a wrong `X-UPS-ADMIN-KEY` alone is a presented credential (403) rather than none (401); with the key unset the answer is today's.
+
 ## 2. The sites
 
 ### 2a. Migrated in Phase 1 (verified by reading the code, then by the tests)

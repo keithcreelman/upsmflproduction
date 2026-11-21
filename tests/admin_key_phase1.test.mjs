@@ -88,12 +88,18 @@ const SITES = [
     legacy: { commish_key: ALL6, test_sync_key: ALL6, mfl_apikey: ALL6 },
     calls: [call("GET", "/bug-reports")],
     denied: FRONT_DOOR_DENIAL,
+    // after the door the handler reads a GitHub-hosted file; offline that read is the stubbed network edge throwing, so THAT marker is the success signal
+    reached: (r) => r.status < 500 || /^fetch_failed: UNEXPECTED network call in test/.test((r.json && r.json.error) || ""),
   },
   {
-    id: "trade_caller", routes: ["GET /api/trades/outbox", "GET /api/trades/2way/queue", "GET /api/trades/3way"], session: "owner",   // an OWNER session is a legitimate (non-admin) caller here, so it is not part of the commissioner-session check below
+    // (the POST paths cover the other two resolveTradeCaller call sites in trade_2way_http.js — execute and the base/accept/cancel family —
+    //  and trade_3way_http.js: if any of them stopped passing `request`, the UPS_ADMIN_KEY header cases below would fail)
+    id: "trade_caller", routes: ["GET /api/trades/outbox", "GET /api/trades/2way/queue", "POST /api/trades/2way/execute", "POST /api/trades/2way", "GET /api/trades/3way", "POST /api/trades/3way"], session: "owner",   // an OWNER session is a legitimate (non-admin) caller here, so it is not part of the commissioner-session check below
     legacy: { commish_key: ["query:APIKEY"] },
-    calls: [call("GET", "/api/trades/outbox"), call("GET", "/api/trades/2way/queue"), call("GET", "/api/trades/3way")],
+    calls: [call("GET", "/api/trades/outbox"), call("GET", "/api/trades/2way/queue"), call("POST", "/api/trades/2way/execute", { id: "synthetic" }), call("POST", "/api/trades/2way", {}), call("GET", "/api/trades/3way"), call("POST", "/api/trades/3way", {})],
     denied: (r) => r.status === 401 || r.status === 403,
+    // past the caller check the trade tables do not exist in the in-memory database: the handlers' own "unavailable" / "outbox couldn't be read" answers are the success signal
+    reached: (r) => r.status < 500 || (r.status === 503 && r.json && r.json.code === "unavailable") || (r.status === 500 && r.json && r.json.error === "The outbox couldn't be read right now."),
   },
   {
     id: "push_mfl_calendar_commit", routes: ["POST /admin/auction/push-mfl-calendar?commit=1"], session: true,
@@ -106,6 +112,7 @@ const SITES = [
     legacy: { commish_key: ["query:APIKEY"] },
     calls: [call("POST", "/admin/3way/cancel", { id: "synthetic", reason: "synthetic" })],
     denied: (r) => FRONT_DOOR_DENIAL(r) || (r.status === 403 && /needs the commissioner API key/.test((r.json && r.json.error) || "")),
+    reached: (r) => r.status < 500 || (r.status === 503 && r.json && r.json.code === "unavailable"),   // trade tables absent offline: the handler's own "unavailable"
   },
   {
     id: "trade_execution_admin", routes: ["GET /admin/release-info"], session: false,
@@ -133,13 +140,17 @@ const SITES = [
   },
 ];
 
+// A call's verdict: "denied" (this site's credential check refused it), "ok" (the check let it through AND the handler did not fail:
+// status < 500, or the site's own `reached(r)` marker where an offline downstream call makes a clean answer impossible), or "error"
+// (let through but the handler failed). Only "ok" counts as accepted and only "denied" as refused, so a handler 500 proves neither.
+const verdict = (site, r) => (site.denied(r) ? "denied" : (site.reached ? site.reached(r) : r.status < 500) ? "ok" : "error");
 const attempt = async (site, env, source, value) => {
   const verdicts = [];
-  for (const c of site.calls) { const r = await c(env, deliver(source, value)); verdicts.push(!site.denied(r)); }
-  return verdicts;      // one entry per route: true = the credential check let the call through
+  for (const c of site.calls) { const r = await c(env, deliver(source, value)); verdicts.push(verdict(site, r)); }
+  return verdicts;      // one entry per route
 };
-const allTrue = (v) => v.every((x) => x === true);
-const allFalse = (v) => v.every((x) => x === false);
+const allTrue = (v) => v.every((x) => x === "ok");
+const allFalse = (v) => v.every((x) => x === "denied");
 
 // ═══════════════════════════ 1. today's policy is unchanged ═══════════════════════════
 for (const site of SITES) {
@@ -156,7 +167,7 @@ for (const site of SITES) {
   test(`${site.id}: a wrong key, an empty key, no credential and an unset secret are all refused`, async () => {
     for (const source of SOURCES) t.ok(allFalse(await attempt(site, baseEnv(), source, WRONG)), `${site.id}: wrong key via ${source}`);
     for (const source of SOURCES) t.ok(allFalse(await attempt(site, baseEnv(), source, "")), `${site.id}: empty key via ${source}`);
-    const none = []; for (const c of site.calls) none.push(!site.denied(await c(baseEnv(), { query: "", headers: {} })));
+    const none = []; for (const c of site.calls) none.push(verdict(site, await c(baseEnv(), { query: "", headers: {} })));
     t.ok(allFalse(none), `${site.id}: no credential at all`);
     // a legacy secret that is not configured never matches, even when the caller sends that exact (now meaningless) value or an empty one
     for (const via of Object.keys(site.legacy)) {
@@ -267,6 +278,58 @@ test("CORS: a preflight for the new header is answered; the allow-list names X-U
   const allow = String(r.headers.get("access-control-allow-headers") || "").toLowerCase();
   t.ok(allow.includes("content-type"), "Content-Type is still allowed");
   t.ok(allow.includes("x-ups-admin-key"), `X-UPS-ADMIN-KEY must be allowed for browser callers (got "${allow}")`);
+  // the stated requirement: Authorization is NOT cross-origin-allowed (browser pages use the dedicated header), in any casing
+  t.doesNotMatch(allow, /authorization/i, `Authorization must not be in Access-Control-Allow-Headers (got "${allow}")`);
+  t.ok(!allow.split(",").map((x) => x.trim()).includes("authorization"));
+  for (const hdr of ["Access-Control-Allow-Headers", "access-control-allow-headers"]) t.doesNotMatch(String(r.headers.get(hdr) || ""), /authorization/i);
+  // an ordinary response carries the same list
+  const g = await callWorker(baseEnv(), "GET", `/admin/release-info?${QS}`);
+  t.doesNotMatch(String(g.headers.get("access-control-allow-headers") || ""), /authorization/i);
+});
+
+// ═══════════════════════════ 4b. un-migrated routes fail closed ═══════════════════════════
+// Routes whose OWN in-route check is not migrated (Phase 1b). UPS_ADMIN_KEY passes the front door (site 1) and is then refused by the route's
+// own 403: not a 500, not a success. The legacy key is still accepted exactly as before (anything but that 403, and never a front-door denial).
+const UNMIGRATED = [
+  { style: "sessionByApiKey gate", method: "POST", path: "/admin/bug-report/triage-note", body: {}, own: { ok: false, error: "Valid COMMISH_API_KEY is required for bug triage updates." } },
+  { style: "sessionByApiKey gate", method: "POST", path: "/admin/bug-report/status", body: {}, own: { ok: false, error: "Valid COMMISH_API_KEY is required for bug status updates." } },
+  { style: "direct commish-key compare (!==)", method: "GET", path: "/admin/trade-offers/pending-ids", own: { ok: false, error: "Need COMMISH_API_KEY" } },
+  { style: "direct commish-key compare (!==)", method: "GET", path: "/admin/3way/inspect", own: { ok: false, error: "Need COMMISH_API_KEY." } },
+];
+for (const u of UNMIGRATED) {
+  test(`un-migrated ${u.method} ${u.path} (${u.style}): UPS_ADMIN_KEY passes the front door and is refused by the route's own 403; the legacy key is unchanged`, async () => {
+    const go = (headers, query) => callWorker(baseEnv(), u.method, `${u.path}?${QS}${query || ""}`, { headers, ...(u.body !== undefined ? { body: u.body } : {}) });
+    for (const headers of [{ "X-UPS-ADMIN-KEY": UPS }, { Authorization: `Bearer ${UPS}` }]) {
+      const r = await go(headers);
+      t.equal(r.status, 403, `${u.path}: own 403 (got ${r.status} ${r.text.slice(0, 120)})`);
+      t.deepEqual(r.json, u.own, `${u.path}: the route's own refusal, byte for byte (so the front door let it through: its text would be "Not permitted.")`);
+    }
+    const viaUrl = await go({}, `&APIKEY=${UPS}`);
+    t.equal(viaUrl.status, 403); t.equal(viaUrl.json.error, "Not permitted.", "UPS_ADMIN_KEY in the URL is stopped at the front door as a wrong key");
+    const legacy = await go({}, `&APIKEY=${COMMISH}`);
+    t.ok(legacy.status !== 403 && legacy.status !== 401, `${u.path}: the legacy key is still accepted (got ${legacy.status})`);
+    t.ok(!FRONT_DOOR_DENIAL(legacy));
+    // fail closed also when the legacy secret is unset: the new key alone does not open an un-migrated route
+    const bare = await callWorker(envWithout("COMMISH_API_KEY", "TEST_SYNC_API_KEY", "MFL_APIKEY"), u.method, `${u.path}?${QS}`, { headers: { "X-UPS-ADMIN-KEY": UPS }, ...(u.body !== undefined ? { body: u.body } : {}) });
+    t.ok(bare.status === 403 || bare.status === 500, `${u.path}: with no legacy secret configured it must still not open (got ${bare.status})`);
+    t.ok(!(bare.json && bare.json.ok === true));
+  });
+}
+
+// ═══════════════════════════ 4c. trade_execution_admin keeps `query || header` on the RAW value ═══════════════════════════
+test("trade_execution_admin: today's `?APIKEY=<whitespace>` + a valid X-COMMISH-APIKEY is still refused; an empty query value falls to the header", async () => {
+  const site = SITES.find((s) => s.id === "trade_execution_admin");
+  const go = (qs, headers) => callWorker(baseEnv(), "GET", `/admin/release-info?${QS}${qs}`, { headers });
+  t.ok(site.denied(await go("&APIKEY=%20", { "X-COMMISH-APIKEY": COMMISH })), "a whitespace-only query value is chosen first, trims to nothing and is refused (as before)");
+  t.ok(site.denied(await go("&APIKEY=%20%20", { "X-COMMISH-APIKEY": COMMISH })));
+  t.ok(!site.denied(await go("&APIKEY=", { "X-COMMISH-APIKEY": COMMISH })), "an EMPTY query value is falsy: the header is used (as before)");
+  t.ok(!site.denied(await go("", { "X-COMMISH-APIKEY": COMMISH })));
+  t.ok(!site.denied(await go(`&APIKEY=%20${encodeURIComponent(COMMISH)}%20`, {})), "a padded right key in the query still trims and matches");
+  t.ok(site.denied(await go(`&APIKEY=${WRONG}`, { "X-COMMISH-APIKEY": COMMISH })));
+  // additive: UPS_ADMIN_KEY is independent of that quirk
+  t.ok(!site.denied(await go("&APIKEY=%20", { "X-UPS-ADMIN-KEY": UPS })));
+  const m = silent(() => AS.matchAdminSecret({ request: reqOf({ "X-COMMISH-APIKEY": COMMISH }), url: urlOf("APIKEY=%20"), env: envOf(), site: "trade_execution_admin", log: false }));
+  t.equal(m.ok, false);
 });
 
 // ═══════════════════════════ 5. denial bodies are byte-for-byte what they were ═══════════════════════════
