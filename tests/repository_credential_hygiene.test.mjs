@@ -15,6 +15,7 @@ const RULES = [
   ["an MFL session cookie", /MFL_USER_ID=[A-Za-z0-9+/=%]{20,}/g],
   ["a hard-coded key fallback", /environ\.get\(\s*["']MFL_APIKEY["']\s*,\s*["'][A-Za-z0-9+/=]{20,}["']\s*\)/g],
   ["a hard-coded key in a JSON field", /"(?:api_?key|apikey|key20\d\d)"\s*:\s*"[A-Za-z0-9+/=]{24,}"/gi],
+  ["a hard-coded fallback for any credential-named variable", /environ\.get\(\s*["'][A-Z0-9_]*(?:KEY|COOKIE|TOKEN|SECRET|PASSWORD|USER_ID)[A-Z0-9_]*["']\s*,\s*["'][A-Za-z0-9+/=_.-]{20,}["']/g],
   ["an MFL user id (session token) in a JSON field", /"(?:submitted_by_)?mfl_user_id"\s*:\s*"[A-Za-z0-9+/=%]{16,}"/gi],
   ["an MFL session token in a submitter label", /"submitted_by_label"\s*:\s*"[^"]*MFL [A-Za-z0-9+/=%]{16,}/g],
 ];
