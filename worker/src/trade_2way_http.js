@@ -52,7 +52,7 @@ export async function handle2WayStagedHttp(a) {
   if (path === "/api/trades/2way/queue" && request.method === "GET") {
     const out = (status, payload) => new Response(JSON.stringify(payload), { status, headers: { "content-type": "application/json", ...(corsHeaders || {}) } });
     const r = await resolveTradeCaller({
-      url, body: null, env, deps,
+      request, url, body: null, env, deps,
       defaultLeagueId: a.defaultLeagueId, defaultSeason: a.defaultSeason,
       queryToken: a.browserMflUserId, cookieToken: a.cookieMflUserId, allowCookieToken: true,
     });
@@ -77,7 +77,7 @@ export async function handle2WayStagedHttp(a) {
     const id = safeStr(execBody && execBody.id);
     if (!id) return out2(400, { ok: false, code: "bad_request", error: "Missing trade id." });
     const r = await resolveTradeCaller({
-      url, body: execBody, env, deps,
+      request, url, body: execBody, env, deps,
       defaultLeagueId: a.defaultLeagueId, defaultSeason: a.defaultSeason,
       queryToken: a.browserMflUserId, cookieToken: a.cookieMflUserId, allowCookieToken: true,
     });
@@ -111,7 +111,7 @@ export async function handle2WayStagedHttp(a) {
   // ── identity (fail closed) ─────────────────────────────────────────────────
   const declared = padFid(url.searchParams.get("acting_franchise_id") || (body && (body.acting_franchise_id || body.franchise_id)) || "");
   const r = await resolveTradeCaller({
-    url, body, env, deps, declaredFid: declared,
+    request, url, body, env, deps, declaredFid: declared,
     defaultLeagueId: a.defaultLeagueId, defaultSeason: a.defaultSeason,
     queryToken: a.browserMflUserId, cookieToken: a.cookieMflUserId, allowCookieToken: true,
   });

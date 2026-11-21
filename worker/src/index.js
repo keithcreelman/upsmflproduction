@@ -71,7 +71,8 @@ import { classifyAdminRequest } from "./admin_front_door.js";
 import { makeLedger, EXEC, isMflExecuted, findExecutedTrade } from "./trade_execution.js";
 import { evaluateExtensionEligibility, latestAcquisition } from "./extension_eligibility.js";
 import { priceExtension, checkExtensionRequest, canonicalizePreviewRows, storedTerms as storedExtensionTerms, compareTerms as compareExtensionTerms, parseContractInfo as parseExtContractInfo, lineageWithExtender, PRICING_VERSION } from "./extension_pricing.js";
-import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
+import { adminAuthority, adminDenial } from "./admin_authority.js";
+import { matchAdminSecret } from "./admin_secrets.js";   // the ONE admin-secret policy table (UPS_ADMIN_KEY header + each site's legacy keys)
 import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
 import { loadPlayerStatus } from "./player_status.js";
 import { seasonTeamSnaps, coversPlayer } from "./team_snaps_season.js";
@@ -9028,7 +9029,9 @@ export default {
       const corsHeaders = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type",
+        // X-UPS-ADMIN-KEY: the header a browser page sends the independent admin key in (instead of a URL parameter).
+        // Authorization is deliberately NOT listed: browser pages use X-UPS-ADMIN-KEY; Authorization: Bearer is for non-browser callers.
+        "Access-Control-Allow-Headers": "Content-Type, X-UPS-ADMIN-KEY",
       };
       if (request.method === "OPTIONS") {
         return new Response("", { headers: corsHeaders });
@@ -11071,8 +11074,8 @@ export default {
           // in this league (verified server-side against MFL, not self-asserted).
           // The commish page has the session, not the key, so #2 is what makes
           // the Push button work without embedding a secret in public JS.
-          const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
-          let keyOk = browserKey && (browserKey === String(env.COMMISH_API_KEY || "").trim() || browserKey === String(env.TEST_SYNC_API_KEY || "").trim());
+          // (the key policy for this site is the one table in admin_secrets.js: COMMISH / TEST_SYNC from ?APIKEY=, UPS_ADMIN_KEY from a header)
+          let keyOk = matchAdminSecret({ request, url, env, site: "push_mfl_calendar_commit" }).ok;
           if (!keyOk && browserMflUserId) {
             try {
               const commishSet = new Set(
@@ -16264,7 +16267,7 @@ export default {
       // identity; the commissioner cookie (env.MFL_COOKIE) is never substituted for an
       // owner's session. `declaredFid` is only an "acting as" claim.
       const tradeCaller = (body, declaredFid, opts = {}) => resolveTradeCaller({
-        url, body, env,
+        request, url, body, env,
         deps: { detectFranchise: _rdhDetectFranchise, commishFids: _rdhCommishFids },
         defaultLeagueId: _rdhLeagueId(), defaultSeason: YEAR, declaredFid,
         queryToken: browserMflUserId, cookieToken: "", allowCookieToken: false, ...opts,
@@ -39429,9 +39432,7 @@ const mflToSleeper = {};
       //   POST /admin/3way/cancel?L=74598&APIKEY=…   body { "id": "<uuid>", "reason": "…" }
       if (path === "/admin/3way/cancel" && request.method === "POST") {
         const failAdmin = (http, code, message, extra) => jsonOut(http, { ok: false, code, error: message, message, ...(extra || {}) });
-        const adminKey = safeStr(env.COMMISH_API_KEY);
-        const givenKey = safeStr(url.searchParams.get("APIKEY"));
-        if (!adminKey || !givenKey || !safeEqual(givenKey, adminKey)) return failAdmin(403, "forbidden", "That needs the commissioner API key.");
+        if (!matchAdminSecret({ request, url, env, site: "three_way_cancel" }).ok) return failAdmin(403, "forbidden", "That needs the commissioner API key.");
         let body = null;
         try { body = await request.json(); } catch (_) { return failAdmin(400, "bad_request", "That request wasn't valid JSON."); }
         const cancelLeague = safeStr(url.searchParams.get("L") || L || "");
@@ -39450,9 +39451,7 @@ const mflToSleeper = {};
       // None of these can ever send a trade to MFL.
       if ((path === "/admin/trade/execution" || path === "/admin/trade/postprocess-retry" || path === "/admin/trade/reconcile-execution" || path === "/admin/release-info" || path === "/admin/trade/extension-review")) {
         const failAdmin = (http, code, message, extra) => jsonOut(http, { ok: false, code, error: message, message, ...(extra || {}) });
-        const adminKey = safeStr(env.COMMISH_API_KEY);
-        const givenKey = safeStr(url.searchParams.get("APIKEY") || request.headers.get("X-COMMISH-APIKEY"));
-        if (!adminKey || !givenKey || !safeEqual(givenKey, adminKey)) return failAdmin(403, "forbidden", "That needs the commissioner API key.");
+        if (!matchAdminSecret({ request, url, env, site: "trade_execution_admin" }).ok) return failAdmin(403, "forbidden", "That needs the commissioner API key.");
         const execLeague = safeStr(url.searchParams.get("L") || L || "");
         const execSeason = safeStr(url.searchParams.get("YEAR") || YEAR || "");
         if (path === "/admin/release-info") {
@@ -39648,9 +39647,7 @@ const mflToSleeper = {};
       // env.SELF.fetch; not an owner route. Body: { league_id, season, movements:[{from,to,tokens[]}],
       // extension_requests[], conditional_drops:{franchiseId:[playerId,...]} }. Read-only.
       if (path === "/admin/3way/compliance" && request.method === "POST") {
-        const commishKey = String(env.COMMISH_API_KEY || "").trim();
-        const browserKey = String(url.searchParams.get("APIKEY") || "").trim();
-        if (!commishKey || !browserKey || !safeEqual(browserKey, commishKey)) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
+        if (!matchAdminSecret({ request, url, env, site: "three_way_compliance" }).ok) return jsonOut(403, { ok: false, error: "Need COMMISH_API_KEY." });
         let body = null;
         try { body = await request.json(); } catch (_) { return jsonOut(400, { ok: false, error: "Invalid JSON payload." }); }
         const leagueId = safeStr(body?.league_id || L || "");
@@ -56194,9 +56191,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // (2026-10-11): a URL carrying it lands in logs, shell history and job
         // output. New callers (players-data-backfill.yml) send the header; the
         // ?APIKEY= form stays only for the two existing workflows.
-        const pcBearer = bearerKey(request);
-        const pcHeaderKeyOk = !!commishApiKey && !!pcBearer && safeEqual(pcBearer, commishApiKey);   // the COMMISH key only
-        if (!sessionByApiKey && !pcHeaderKeyOk) {
+        // Both forms (?APIKEY= and Authorization: Bearer — the COMMISH key only) plus UPS_ADMIN_KEY (header only) are decided in
+        // admin_secrets.js, site "leaderboard_precompute_build".
+        const pcKeyOk = matchAdminSecret({ request, url, env, site: "leaderboard_precompute_build" }).ok;
+        if (!pcKeyOk) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required to build the precompute." });
         }
         const body = await request.json().catch(() => ({}));

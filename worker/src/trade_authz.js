@@ -16,24 +16,20 @@
 // upgraded (Keith 2026-05-28: "trades are always owner-to-owner; the commissioner
 // cookie is never an acceptable substitute for an owner's session").
 
+import { safeEqual, matchAdminSecret } from "./admin_secrets.js";
+export { safeEqual };
+
 function safeStr(v) { return String(v == null ? "" : v).trim(); }
 export function padFid(v) { const s = safeStr(v).replace(/\D/g, ""); return s ? s.padStart(4, "0").slice(-4) : ""; }
 
 export const isValidLeagueId = (v) => /^\d{3,8}$/.test(safeStr(v));
 export const isValidSeason = (v) => /^\d{4}$/.test(safeStr(v));
 
-export function safeEqual(a, b) {
-  a = String(a); b = String(b);
-  let diff = a.length ^ b.length;
-  const n = Math.max(a.length, b.length);
-  for (let i = 0; i < n; i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
-  return diff === 0;
-}
-
 const fail = (http, code, message) => ({ ok: false, http, code, message });
 
 /**
  * @param a.url            URL of the request
+ * @param a.request        the Request (optional): lets a UPS_ADMIN_KEY header (Authorization: Bearer / X-UPS-ADMIN-KEY) authorize an admin caller
  * @param a.body           parsed JSON body (or null)
  * @param a.env            worker env (COMMISH_API_KEY)
  * @param a.deps           { detectFranchise(token) -> {franchise_id}|{error}, commishFids() -> [fid] }
@@ -70,9 +66,11 @@ export async function resolveTradeCaller(a) {
   // below.
   const apiKey = safeStr(url.searchParams.get("APIKEY"));
   const token = safeStr(a.queryToken) || (a.allowCookieToken ? safeStr(a.cookieToken) : "");
-  if (apiKey && a.allowAdminKey !== false) {
-    const expected = safeStr(a.env && a.env.COMMISH_API_KEY);
-    if (expected && safeEqual(apiKey, expected)) {
+  if (a.allowAdminKey !== false) {
+    // The admin credential for this site is decided in ONE place (admin_secrets.js, site "trade_caller"): COMMISH_API_KEY from the
+    // query APIKEY (as before), plus UPS_ADMIN_KEY from a HEADER only (a.request: Authorization: Bearer / X-UPS-ADMIN-KEY).
+    const m = matchAdminSecret({ request: a.request, url, env: a.env, site: "trade_caller" });
+    if (m.ok) {
       // explicit, valid worker authority always wins, even alongside an owner session
       return { ok: true, caller: { kind: "admin", via: "apikey", sessionFid: "", fid: declared, isCommish: true, actingAs: !!declared, token: "", leagueId, season } };
     }
@@ -80,7 +78,7 @@ export async function resolveTradeCaller(a) {
     // fall back to. With one, ignore the key entirely and authenticate the
     // owner normally (never upgraded to admin, never silently accepted as
     // an admin attempt).
-    if (!token) return fail(403, "forbidden", "That administrative key isn't valid.");
+    if (apiKey && !token) return fail(403, "forbidden", "That administrative key isn't valid.");
   }
 
   // ── owner authority: a PROVEN MFL session ─────────────────────────────────
