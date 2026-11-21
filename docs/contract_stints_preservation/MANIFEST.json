@@ -1,0 +1,326 @@
+{
+ "source_branch": "claude/serene-mendeleev-62034a",
+ "source_base": "6d009e12",
+ "preserved_inert": true,
+ "files": [
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2011_2012_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2011_2012_contracts.py.preserved",
+   "sha256_of_original": "3c08639714553083fb89f297bb2c0d5329831f804d985c838116e7610aec37b9",
+   "bytes": 36177,
+   "lines": 742,
+   "classification": "REFERENCE",
+   "reason": "method for the 2011-2012 contract chain; inputs were /tmp dumps not in the repo, so it cannot be reproduced",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 7,
+   "sql_statements_generated": 10,
+   "create_table": 0,
+   "synthetic_id_markers": {}
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2012_alldrops.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2012_alldrops.py.preserved",
+   "sha256_of_original": "6973fde749fc15e1f3439e49e8121ff358f449274f2c090b958f3b8a430e9ba2",
+   "bytes": 7985,
+   "lines": 174,
+   "classification": "REFERENCE",
+   "reason": "2012 drop rows; one remote D1 SELECT; earned salary hard-coded 0",
+   "remote_d1_flags": 1,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 4,
+   "sql_statements_generated": 1,
+   "create_table": 0,
+   "synthetic_id_markers": {}
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2013_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2013_contracts.py.preserved",
+   "sha256_of_original": "6380a61d8193b0dda0ca7245365ce230a1718d9d34be4ce115c898ba1a5b447b",
+   "bytes": 29161,
+   "lines": 606,
+   "classification": "REPLACE",
+   "reason": "per-year template copy: /tmp inputs, placeholder contract type, earned salary hard-coded 0, last-name matching, synthetic ids, SQL file output with no DDL",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 5,
+   "sql_statements_generated": 3,
+   "create_table": 0,
+   "synthetic_id_markers": {
+    "_ROUND_": 2
+   }
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2014_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2014_contracts.py.preserved",
+   "sha256_of_original": "b9f2f28b2d0357820f970383a95295f04ae7c0edc53db06271ce07680d1092ed",
+   "bytes": 27289,
+   "lines": 553,
+   "classification": "REPLACE",
+   "reason": "per-year template copy: /tmp inputs, placeholder contract type, earned salary hard-coded 0, last-name matching, synthetic ids, SQL file output with no DDL",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 5,
+   "sql_statements_generated": 3,
+   "create_table": 0,
+   "synthetic_id_markers": {
+    "_MULTI_": 2,
+    "_ROUND_": 2,
+    "_STANDALONE_": 1
+   }
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2015_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2015_contracts.py.preserved",
+   "sha256_of_original": "86528c36d57505435f528822748717c8ad8aefcef43654ff3c496c80fdd2025a",
+   "bytes": 27523,
+   "lines": 556,
+   "classification": "REPLACE",
+   "reason": "per-year template copy: /tmp inputs, placeholder contract type, earned salary hard-coded 0, last-name matching, synthetic ids, SQL file output with no DDL",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 5,
+   "sql_statements_generated": 3,
+   "create_table": 0,
+   "synthetic_id_markers": {
+    "_MULTI_": 2,
+    "_ROUND_": 2,
+    "_STANDALONE_": 1
+   }
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2016_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2016_contracts.py.preserved",
+   "sha256_of_original": "c384ee9564a4a7559d1d73bd84c002125b266b81e6c4349963845acb240a94d6",
+   "bytes": 27612,
+   "lines": 556,
+   "classification": "REPLACE",
+   "reason": "per-year template copy: /tmp inputs, placeholder contract type, earned salary hard-coded 0, last-name matching, synthetic ids, SQL file output with no DDL",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 5,
+   "sql_statements_generated": 3,
+   "create_table": 0,
+   "synthetic_id_markers": {
+    "_MULTI_": 2,
+    "_ROUND_": 2,
+    "_STANDALONE_": 1
+   }
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2017_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2017_contracts.py.preserved",
+   "sha256_of_original": "34fe6a90cfb5d29d5a69181dac4b77eaa5f3824a8ec2e0c3c85867a487626c56",
+   "bytes": 27612,
+   "lines": 556,
+   "classification": "REPLACE",
+   "reason": "per-year template copy: /tmp inputs, placeholder contract type, earned salary hard-coded 0, last-name matching, synthetic ids, SQL file output with no DDL",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 5,
+   "sql_statements_generated": 3,
+   "create_table": 0,
+   "synthetic_id_markers": {
+    "_MULTI_": 2,
+    "_ROUND_": 2,
+    "_STANDALONE_": 1
+   }
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2018_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2018_contracts.py.preserved",
+   "sha256_of_original": "10c76f08b8ce0ab55191aba83cf83f283417eda55e8bd31b543cf969342a1624",
+   "bytes": 27612,
+   "lines": 556,
+   "classification": "REPLACE",
+   "reason": "per-year template copy: /tmp inputs, placeholder contract type, earned salary hard-coded 0, last-name matching, synthetic ids, SQL file output with no DDL",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 5,
+   "sql_statements_generated": 3,
+   "create_table": 0,
+   "synthetic_id_markers": {
+    "_MULTI_": 2,
+    "_ROUND_": 2,
+    "_STANDALONE_": 1
+   }
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2019_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2019_contracts.py.preserved",
+   "sha256_of_original": "fb5af0a3a4dba39244be8fe621a25ce04ee965cb96d4a36e623877f6df31d084",
+   "bytes": 27612,
+   "lines": 556,
+   "classification": "REPLACE",
+   "reason": "per-year template copy: /tmp inputs, placeholder contract type, earned salary hard-coded 0, last-name matching, synthetic ids, SQL file output with no DDL",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 5,
+   "sql_statements_generated": 3,
+   "create_table": 0,
+   "synthetic_id_markers": {
+    "_MULTI_": 2,
+    "_ROUND_": 2,
+    "_STANDALONE_": 1
+   }
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2020_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2020_contracts.py.preserved",
+   "sha256_of_original": "26b161676d2b267af070eb38e0fba248750474705013a514e000ac6ab6c4d2f0",
+   "bytes": 27612,
+   "lines": 556,
+   "classification": "REPLACE",
+   "reason": "per-year template copy: /tmp inputs, placeholder contract type, earned salary hard-coded 0, last-name matching, synthetic ids, SQL file output with no DDL",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 5,
+   "sql_statements_generated": 3,
+   "create_table": 0,
+   "synthetic_id_markers": {
+    "_MULTI_": 2,
+    "_ROUND_": 2,
+    "_STANDALONE_": 1
+   }
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_2021_contracts.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_2021_contracts.py.preserved",
+   "sha256_of_original": "94edda3c1ea5151265c7ff9676dc0091401f174877e860df57137336c59e61f5",
+   "bytes": 27612,
+   "lines": 556,
+   "classification": "REPLACE",
+   "reason": "per-year template copy: /tmp inputs, placeholder contract type, earned salary hard-coded 0, last-name matching, synthetic ids, SQL file output with no DDL",
+   "remote_d1_flags": 0,
+   "executes_remote_d1_write": false,
+   "tmp_inputs": 5,
+   "sql_statements_generated": 3,
+   "create_table": 0,
+   "synthetic_id_markers": {
+    "_MULTI_": 2,
+    "_ROUND_": 2,
+    "_STANDALONE_": 1
+   }
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_cycles_pass3.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_cycles_pass3.py.preserved",
+   "sha256_of_original": "f6f10725e59e93eb64e1c2e9a6e65cbde9f0d3049a0904a9314ddb7c39001a93",
+   "bytes": 22600,
+   "lines": 584,
+   "classification": "INVESTIGATE",
+   "reason": "executes remote D1 writes (batched --file loads); production state must be audited before any reuse",
+   "remote_d1_flags": 2,
+   "executes_remote_d1_write": true,
+   "tmp_inputs": 1,
+   "sql_statements_generated": 2,
+   "create_table": 0,
+   "synthetic_id_markers": {}
+  },
+  {
+   "original_path": "pipelines/etl/scripts/backfill_cycles_pass4.py",
+   "preserved_path": "docs/contract_stints_preservation/original/scripts/backfill_cycles_pass4.py.preserved",
+   "sha256_of_original": "b44ea17884be94323dceb7acf4b5e67b8fd049e4aa1e3056c520b908c8eeb011",
+   "bytes": 26572,
+   "lines": 693,
+   "classification": "INVESTIGATE",
+   "reason": "executes remote D1 writes (batched --file loads); production state must be audited before any reuse",
+   "remote_d1_flags": 2,
+   "executes_remote_d1_write": true,
+   "tmp_inputs": 2,
+   "sql_statements_generated": 2,
+   "create_table": 0,
+   "synthetic_id_markers": {}
+  },
+  {
+   "original_path": "pipelines/etl/lib/cap_penalty.py",
+   "preserved_path": "docs/contract_stints_preservation/original/changes/cap_penalty.py.diff.txt",
+   "sha256_of_diff": "c311b260402c7291f32bfb866e0c55f94e8aef88ee422027adb39cda72530349",
+   "diff_against": "6d009e12",
+   "classification": "EXTEND",
+   "reason": "adds a tag-cut-before-FA-auction cap-free rule with a hard-coded auction-date table"
+  },
+  {
+   "original_path": "docs/league_context_v1.md",
+   "preserved_path": "docs/contract_stints_preservation/original/changes/league_context_v1.md.diff.txt",
+   "sha256_of_diff": "c3ffd1cc10b649ee34c88212550caa12e509972758b3d1823e0cc97929cc7538",
+   "diff_against": "6d009e12",
+   "classification": "EXTEND",
+   "reason": "adds contract-identity rules (agreement vs ownership stint, section 1.C9/1.C10) and era notes; must be re-verified before any canon edit"
+  },
+  {
+   "original_path": "docs/CURRENT_WORK_HANDOFF.md",
+   "preserved_path": "docs/contract_stints_preservation/original/changes/CURRENT_WORK_HANDOFF.md.diff.txt",
+   "sha256_of_diff": "d6843c7940cd0d641b7b333799b19b3633778f7c822890b7d74961c6304763b8",
+   "diff_against": "6d009e12",
+   "classification": "REFERENCE",
+   "reason": "the original session's claims about what is populated; provenance only"
+  }
+ ],
+ "original_commits": [
+  {
+   "sha": "56943cb3",
+   "subject": "docs(cap): scope Pass 3 to 2020-2024 only; park pre-2020"
+  },
+  {
+   "sha": "724b1376",
+   "subject": "docs(cap): lock Pass 3 contractStatus mapping; resolve pre-fetch probes"
+  },
+  {
+   "sha": "9edd744e",
+   "subject": "feat(cap): Pass 3 financial enrichment \u2014 2,142 cycles enriched, 2,338 deferred"
+  },
+  {
+   "sha": "fe0aab67",
+   "subject": "docs(cap): expand contract semantics + 2011 EOS rollover note"
+  },
+  {
+   "sha": "60fc0de9",
+   "subject": "feat(cap): Pass 4 deferred-cycle enrichment + tag-cut-pre-auction fix"
+  },
+  {
+   "sha": "0a48981f",
+   "subject": "feat(cap): 2011 + 2012 player_contracts event-chain backfill"
+  },
+  {
+   "sha": "01cdc995",
+   "subject": "feat(cap): 2013 player_contracts event-chain backfill"
+  },
+  {
+   "sha": "9be94330",
+   "subject": "feat(cap): 2014 player_contracts event-chain backfill"
+  },
+  {
+   "sha": "e4fc286d",
+   "subject": "feat(cap): 2012 all-drops backfill \u2014 bring row count to parity with 2011/2013/2014"
+  },
+  {
+   "sha": "ce850f47",
+   "subject": "feat(cap): 2015 player_contracts event-chain backfill"
+  },
+  {
+   "sha": "bfb178c1",
+   "subject": "feat(cap): 2016 player_contracts event-chain backfill"
+  },
+  {
+   "sha": "2d855857",
+   "subject": "feat(cap): 2017 player_contracts event-chain backfill"
+  },
+  {
+   "sha": "3012c753",
+   "subject": "feat(cap): 2018 player_contracts event-chain backfill"
+  },
+  {
+   "sha": "b70fc22e",
+   "subject": "feat(cap): 2019 player_contracts event-chain backfill with GF/era detection"
+  },
+  {
+   "sha": "99d551b3",
+   "subject": "feat(cap): 2020 player_contracts event-chain backfill"
+  },
+  {
+   "sha": "c12f2f7a",
+   "subject": "feat(cap): 2021 player_contracts event-chain backfill"
+  }
+ ]
+}

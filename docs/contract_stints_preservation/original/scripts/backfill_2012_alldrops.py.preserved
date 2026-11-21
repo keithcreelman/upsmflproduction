@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""Backfill the missing 2012 all-drops cap-free entries.
+
+Existing event_chain_2012_v1: 30 cap-penalty rows ($64,200).
+Missing: ~200-300 cap-free 2012 cap-year drops (WW churn, TCV<$5K buffer-zone).
+
+Window: 2012-08-01 → 2013-02-02 (parallel to 2011 window Sep 17 2011 → Feb 1 2012).
+Adds rows with source='event_chain_2012_v1' to bring 2012 to consistent row count.
+"""
+import json, sys
+from pathlib import Path
+from collections import defaultdict
+from datetime import datetime, timezone
+
+WORK = Path('/tmp/2012_work')
+
+def load(p): return json.load(open(p))
+def iso_dt(ts): return datetime.fromtimestamp(int(ts), timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+eoy = load('/tmp/mfl_2011_rosters_W17_L40832.json')  # 2011 EOY = 2012 base
+txns = load('/tmp/mfl_2012_txns.json')
+players = load('/tmp/mfl_players_2012.json')
+name_map = {p['id']: (p.get('name','?'), p.get('position','?')) for p in players['players']['player']}
+
+# 2011 EOY base
+eoy_roster = {}
+for fr in eoy['rosters']['franchise']:
+    fid = fr['id']
+    pls = fr.get('player', [])
+    if isinstance(pls, dict): pls = [pls]
+    for p in pls:
+        eoy_roster[p['id']] = {'fid': fid, 'salary': int(float(p.get('salary', 0))),
+                                 'cy': int(p.get('contractYear', 0)),
+                                 'contractInfo': p.get('contractInfo', '')}
+
+# 2012 events
+events = defaultdict(list)
+for t in (txns['transactions'].get('transaction') or []):
+    if isinstance(t, str): continue
+    ts = int(t.get('timestamp', 0))
+    ttype = t.get('type', '')
+    fid = t.get('franchise', '')
+    raw = t.get('transaction', '')
+    if ttype == 'AUCTION_WON':
+        parts = raw.split('|')
+        if parts and parts[0].isdigit():
+            events[parts[0]].append({'ts': ts, 'type': ttype, 'fid': fid,
+                                       'amount': int(parts[1]) if len(parts)>1 and parts[1].isdigit() else 0, 'role':'add'})
+    elif ttype in ('BBID_WAIVER', 'BBID_AUTO_PROCESS_WAIVERS', 'PROCESS_WAIVERS'):
+        if '|' in raw:
+            parts = raw.split('|')
+            if parts and parts[0].isdigit():
+                events[parts[0]].append({'ts': ts, 'type': ttype, 'fid': fid,
+                                          'amount': int(parts[1]) if len(parts)>1 and parts[1].isdigit() else 0, 'role':'add'})
+    for pid in (t.get('added','') or '').replace(';',',').split(','):
+        if pid: events[pid].append({'ts': ts, 'type': ttype, 'fid': fid, 'role':'add'})
+
+# Window for 2012 cap year all-drops
+START = int(datetime(2012, 8, 1, tzinfo=timezone.utc).timestamp())
+END = int(datetime(2013, 2, 2, tzinfo=timezone.utc).timestamp())
+
+# Collect all 2012 cap-year drops
+all_drops = []
+for t in (txns['transactions'].get('transaction') or []):
+    if isinstance(t, str): continue
+    ts = int(t.get('timestamp', 0))
+    if ts < START or ts > END: continue
+    ttype = t.get('type', '')
+    fid = t.get('franchise', '')
+    raw = t.get('transaction', '')
+    for pid in (t.get('dropped','') or '').replace(';',',').split(','):
+        if pid: all_drops.append({'ts': ts, 'pid': pid, 'fid': fid, 'type': ttype})
+    if '|' in raw and ttype.startswith('BBID'):
+        parts = raw.split('|')
+        if len(parts) >= 3 and parts[2] and parts[2] != '0000':
+            all_drops.append({'ts': ts, 'pid': parts[2], 'fid': fid, 'type': ttype})
+
+seen = set(); uniq = []
+for d in all_drops:
+    k = (d['pid'], d['fid'], d['ts'])
+    if k in seen: continue
+    seen.add(k); uniq.append(d)
+print(f'2012 cap-year drops: {len(uniq)}')
+
+# Load already-written 2012 cap-penalty (pid, fid) so we don't double-count
+existing_pid_fid = set()
+prior = json.load(open(WORK / 'rows_for_stints.json'))
+for r in prior.get('rows_2012', []):
+    existing_pid_fid.add((r['player_id'], r['origin_franchise_id']))
+print(f'already-written 2012 cap-penalty (pid,fid) pairs: {len(existing_pid_fid)}')
+
+# Build derived rows for the ones NOT already written
+new_rows = []
+for d in uniq:
+    pid = d['pid']; fid = d['fid']; ts = d['ts']
+    if (pid, fid) in existing_pid_fid: continue
+    # Find prior add
+    adds = [e for e in events.get(pid, []) if e.get('role')=='add' and e['fid']==fid and e['ts'] < ts]
+    add = adds[-1] if adds else None
+    if not add and pid in eoy_roster and eoy_roster[pid]['fid'] == fid:
+        add = {'ts': int(datetime(2012,3,1,tzinfo=timezone.utc).timestamp()), 'type': '2011_EOY_CARRYOVER',
+                'fid': fid, 'amount': eoy_roster[pid]['salary']}
+    add_type = add.get('type', 'unknown') if add else 'unknown'
+    if add_type == 'AUCTION_WON': oe = 'auction'; ct = 'Veteran'
+    elif add_type.startswith('BBID') or add_type == 'PROCESS_WAIVERS': oe = 'ww_bbid'; ct = 'WW'
+    elif add_type in ('FREE_AGENT','WAIVER'): oe = 'fcfs'; ct = 'WW'
+    elif add_type == '2011_EOY_CARRYOVER': oe = 'carryover_2011_eoy'; ct = 'Veteran'
+    else: oe = 'unknown'; ct = None
+    acq = add.get('amount', 0) if add else 0
+    new_rows.append({
+        'pid': pid, 'fid': fid,
+        'origin_event': oe, 'contract_type': ct,
+        'origin_date_iso': iso_dt(add['ts']) if add else '2012-03-01T00:00:00Z',
+        'termination_date_iso': iso_dt(ts),
+        'tcv': max(acq, 1000), 'length': 1, 'aav': max(acq, 1000),
+        'cap_hit_usd': 0,
+        'notes': f'2012 cap-year all-drops backfill. add_type={add_type} acq=${acq}. Cap-free (1yr WW under $5K OR TCV<$5K buffer-zone).',
+    })
+print(f'new 2012 rows to write: {len(new_rows)}')
+
+# Fetch max seqs for these pids — write fresh
+import subprocess
+pids = sorted(set(r['pid'] for r in new_rows))
+pid_clause = ','.join(f"'{p}'" for p in pids)
+result = subprocess.run(
+    ['npx', 'wrangler', 'd1', 'execute', 'ups-mfl-db', '--remote', '--json',
+     '--command', f"SELECT player_id, MAX(contract_seq) max_seq FROM player_contracts WHERE player_id IN ({pid_clause}) GROUP BY player_id"],
+    cwd='/Users/keithcreelman/Code/MFL/upsmflproduction/.claude/worktrees/serene-mendeleev-62034a/worker',
+    capture_output=True, text=True)
+import re
+m = re.search(r'\[\s*\{', result.stdout)
+obj = json.loads(result.stdout[m.start():])
+max_seqs = {r['player_id']: r['max_seq'] for r in obj[0]['results']}
+print(f'fetched {len(max_seqs)} existing max seqs')
+
+# Generate SQL
+def q(v):
+    if v is None: return 'NULL'
+    if isinstance(v, (int, float)): return str(v)
+    s = str(v).replace("'", "''")
+    return f"'{s}'"
+
+seq_counter = defaultdict(int)
+for pid, mx in max_seqs.items(): seq_counter[pid] = int(mx) if mx else 0
+
+sql = ['-- 2012 all-drops backfill — cap-free rows missing from initial 2012 work']
+new_rows.sort(key=lambda r: r['origin_date_iso'])
+for r in new_rows:
+    pid = r['pid']
+    seq_counter[pid] += 1
+    seq = seq_counter[pid]
+    cols_vals = {
+        'player_id': pid, 'contract_seq': seq,
+        'origin_event': r['origin_event'], 'origin_date_iso': r['origin_date_iso'],
+        'origin_franchise_id': r['fid'], 'contract_type': r['contract_type'],
+        'contract_length_cl': r['length'], 'aav_usd': r['aav'], 'tcv_usd': r['tcv'],
+        'year_salaries_json': json.dumps({'Y1': r['tcv']}),
+        'origin_aav_usd': r['aav'], 'origin_tcv_usd': r['tcv'], 'origin_cl': r['length'],
+        'termination_event': 'cut', 'termination_date_iso': r['termination_date_iso'],
+        'termination_franchise_id': r['fid'],
+        'cap_hit_usd': 0, 'earned_at_termination_usd': 0,
+        'source': 'event_chain_2012_v1', 'notes': r['notes'],
+    }
+    cols = ', '.join(cols_vals.keys())
+    vals = ', '.join(q(v) for v in cols_vals.values())
+    sql.append(f"INSERT INTO player_contracts ({cols}) VALUES ({vals});")
+
+open(WORK / 'backfill_2012_alldrops.sql', 'w').write('\n'.join(sql))
+print(f'wrote {len(sql)} lines to {WORK / "backfill_2012_alldrops.sql"}')
+
+# Stint data for follow-up
+stints = [{'pid': r['pid'], 'origin_date_iso': r['origin_date_iso'], 'fid': r['fid'], 'origin_event': r['origin_event']} for r in new_rows]
+open(WORK / 'stints_alldrops_2012.json','w').write(json.dumps(stints))

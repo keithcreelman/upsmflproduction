@@ -1,0 +1,92 @@
+diff --git a/pipelines/etl/lib/cap_penalty.py b/pipelines/etl/lib/cap_penalty.py
+index 95380f30..696078dd 100644
+--- a/pipelines/etl/lib/cap_penalty.py
++++ b/pipelines/etl/lib/cap_penalty.py
+@@ -162,6 +162,46 @@ def determine_rule_era(drop_date: date, was_grandfathered: bool) -> str:
+ # Cap-free override detection
+ # ---------------------------------------------------------------------------
+ 
++# Per league_context_v1.md Section 1.A2 ("FA Auction (last weekend of July, ~1 week)").
++# These are conservative cutoff dates — a Tag cycle dropped strictly BEFORE this
++# date in its drop_year is unambiguously pre-FA-Auction-window. Used by
++# is_cap_free() to fire the tag_cut_pre_auction $0 rule per §1.C8 / §6.C2.
++# Long-term: this should come from a `league_events` row (event='fa_auction_start')
++# rather than a hardcoded table. Tracker.
++FA_AUCTION_START_BY_YEAR = {
++    2019: date(2019, 7, 26),
++    2020: date(2020, 7, 24),
++    2021: date(2021, 7, 23),
++    2022: date(2022, 7, 29),
++    2023: date(2023, 7, 28),
++    2024: date(2024, 7, 26),
++    2025: date(2025, 7, 25),
++    2026: date(2026, 7, 24),
++}
++
++
++def is_tag_cut_pre_auction(c: CycleInputs) -> bool:
++    """Tag-cut-pre-auction cap-free check (per league_context_v1.md §1.C8 + §6.C2).
++
++    A franchise_tag cycle cut BEFORE that year's FA Auction window opens is
++    cap-free — the tag is nullified and the player re-enters FA Auction normally.
++
++    Returns True when:
++      - contract_type == 'tag'
++      - drop_reason in {'cut'}
++      - drop_date < FA Auction start date for drop_date.year
++    """
++    if c.contract_type != "tag":
++        return False
++    if c.drop_reason != "cut":
++        return False
++    cutoff = FA_AUCTION_START_BY_YEAR.get(c.drop_date.year)
++    if cutoff is None:
++        # Unknown year — conservative default: treat July 24 as cutoff
++        cutoff = date(c.drop_date.year, 7, 24)
++    return c.drop_date < cutoff
++
++
+ def is_cap_free(c: CycleInputs) -> tuple[bool, Optional[str]]:
+     """Return (is_cap_free, reason) if cycle qualifies for a $0 penalty
+     regardless of era. These overrides are era-independent per Keith
+@@ -183,6 +223,11 @@ def is_cap_free(c: CycleInputs) -> tuple[bool, Optional[str]]:
+     if reason == "taxi_drop":
+         return True, "taxi_never_permanently_promoted"
+ 
++    # Tag-cut-pre-auction: franchise_tag cycles cut before that year's FA
++    # Auction window opens are cap-free per league_context_v1.md §1.C8 / §6.C2.
++    if is_tag_cut_pre_auction(c):
++        return True, "tag_cut_pre_auction"
++
+     # 1-year ORIGINAL-LENGTH contract under $5K (Veteran or WW): 0% guarantee.
+     # Note: "original" — a multi-year contract whose final year is under $5K
+     # is NOT cap-free by this rule.
+@@ -194,7 +239,8 @@ def is_cap_free(c: CycleInputs) -> tuple[bool, Optional[str]]:
+         return True, "1yr_original_under_5k"
+ 
+     if reason == "cap_free_cut":
+-        # New-owner onboarding, tag-cut-pre-auction, off-season-suspension opt-out, etc.
++        # New-owner onboarding, off-season-suspension opt-out, etc.
++        # (tag-cut-pre-auction handled separately above via is_tag_cut_pre_auction)
+         return True, "explicit_cap_free_category"
+ 
+     return False, None
+@@ -204,8 +250,16 @@ def multi_year_low_tcv_penalty(c: CycleInputs) -> Optional[int]:
+     """Returns the fixed $1K penalty if cycle qualifies for the
+     multi-year-low-TCV special case; else None.
+ 
+-    Rule (preserved across eras): multi-year contract with TCV < $5K cut
+-    with > 1 year remaining → fixed $1K penalty. Otherwise → no special case.
++    Rule (POST-2019 ONLY): multi-year contract with TCV < $5K cut with
++    > 1 year remaining → fixed $1K penalty. Otherwise → no special case.
++
++    NOTE on era scope (Keith confirmed 2026-05-09): this rule did NOT
++    exist in the pre-2019 era. A 3-year × $1K player cut pre-2019 had
++    NO penalty (TCV<$5K → $0 via the pre-2019 buffer-zone rule, see
++    `penalty_pre2019_loaded` line 326). This function is only called
++    from `penalty_calendar_monthly` and `penalty_per_week` — never
++    from the pre-2019 path. Era-gating is enforced structurally by
++    not invoking this function from the pre-2019 branch.
+     """
+     if (
+         c.contract_original_length_years > 1

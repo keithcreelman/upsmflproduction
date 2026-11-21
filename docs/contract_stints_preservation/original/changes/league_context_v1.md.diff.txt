@@ -1,0 +1,324 @@
+diff --git a/docs/league_context_v1.md b/docs/league_context_v1.md
+index b5de3356..f6542a51 100644
+--- a/docs/league_context_v1.md
++++ b/docs/league_context_v1.md
+@@ -4,6 +4,140 @@
+ 
+ ---
+ 
++## ⚠️ READ THIS FIRST — SOURCE OF TRUTH PROTOCOL
++
++**This document is the canonical source of truth for UPS league rules — full stop.** Before answering ANY cap/contract/transaction question, the assistant MUST:
++
++1. **Read the relevant section IN FULL.** Don't skim. Don't reason from a quoted snippet. Don't substitute intuition for what's written here.
++2. **Verify against the worked examples.** Section 6 (Cap Mechanics) and Section D1 (Cut/Release) have canonical worked examples — these are the calibration points. If your interpretation contradicts the worked example, your interpretation is wrong.
++3. **Distinguish "signing-time computation" from "runtime invariants".** Some rules describe how a value is COMPUTED at one moment (e.g., line 315 "TCV is the SUM of remaining year salaries" describes how to compute the NEW TCV at extension time). Those are not statements about how the value behaves between events.
++
++### Cap math invariants — locked, do not re-derive
++
++- **TCV is FIXED at the signed total contract value for the contract's life.** It does NOT decrement at rollovers. The cap penalty formula `(TCV × 75%) − Earned` uses the **original signed TCV** (see §6.D1 worked example: 3yr / $30K/yr contract has TCV $90K used in the formula even after Y1 is earned).
++- **Cap penalty formula is `(TCV × 75%) − Earned`** — NOT `(TCV − Earned) × 75%`. Example: 3yr $9K MYM (TCV $27K), cut after Y2 earned ($18K): cap hit = ($27K × 75%) − $18K = $20,250 − $18K = **$2,250**. The "75% of unearned" framing gives $6,750 and is WRONG.
++- **Earned uses the year's actual salary, not AAV** (line 420). For a Front-Loaded [62/44/17] contract: after Y1 rollover, Earned = $62K (not $41K AAV).
++- **Earned grows year-over-year as full years complete** at rollover. Mid-cycle events get prorated only per the era in effect.
++- **Season Rollover is NOT a contract event** — TCV/AAV/CL stay the same; only `yrs left` decrements and the year-just-completed's actual salary gets added to Earned.
++- **A new contract event** (FA Auction, Multi-Yr submission, Tag, Extension, MYM, Restructure) creates a NEW (TCV, AAV, CL, Earned=$0) tuple. Prior contract is closed.
++- **Contract completion** (yrs left → 0 via final rollover) means no further cap exposure on that contract — Earned will equal TCV. A subsequent "cut" of an already-expired contract is a $0 cap event.
++- **Build contract state from event chain, not rosters.** AUCTION_WON → MYAC/MYM/Ext/Restructure → trade → cut. The MFL rosters API can display post-event state retroactively across historical weeks, so it's not authoritative for game-time contract value. The Rodgers 2023 case is canonical: Mannila won at $50K, played 2023 NFL season as 1yr $50K Veteran, cut 12/21/2023 at $50K. Keith picked up via WW BBID at $9K → MYM'd to 3yr at $9K within the 14-day window. Rosters W=1-W=15 of 2023 displayed the post-MYM $9K cy=3 CL=3 — but the actual game-time contract was $50K cy=1. Cap hits depend on game-time state, not the retroactively-displayed roster state.
++
++- **A cut TERMINATES the contract; the next acquisition is a NEW contract — never the same contract continuing.** Don't conflate distinct contracts as one transforming. The Rodgers 2023 case has TWO separate contracts:
++  - **Contract A (Mannila):** 1yr $50K Veteran. Lifecycle: auction 7/31/2023 → cut 12/21/2023 (terminates). Cap hit on cut: $0 (fully earned). Done.
++  - **Contract B (Keith → Mannila):** 1yr $9K WW. Lifecycle: BBID 12/23/2023 → MYM'd in-place to 3yr at $9K within 14-day window → trade to Mannila 5/24/2024 (carries) → cut by Mannila 5/19/2025 (terminates). Cap hit on cut: $2,250.
++  - **Contract A and Contract B are separate.** They share a player but not a contract identity. Earned (cycle-to-date) resets at the start of each new contract. Stint attribution lives within a contract, not across.
++
++- **MYM/Ext/Restructure MODIFY a contract in-place** (extending length or adjusting salary distribution); they don't create a new contract. WW BBID, FA Auction, Tag, Dispersal, Trade-acquisition all involve EITHER a new contract starting (BBID/FA/Tag/Dispersal) or an existing contract carrying with new ownership (Trade).
++
++- **Era-aware cap-hit math — DO NOT apply the modern 75% guarantee formula to pre-2019 cuts.** The current `(TCV × 75%) − Earned` formula was implemented in/around 2019. Earlier era cuts used a different (smaller) penalty calculation. Worked example: Drew Brees C2 cut by Josh Martel 2015-06-02 with Y2 unearned ($38K of 2yr/$76K). **Pre-2019 era cap hit: $3,800** (NOT $19,000 from modern formula). The cap-penalty calculator must consult the era at termination date and apply the era-appropriate formula. Pre-2019 formula details TBD (verify in `cap_penalty.py` `pre_2019_flat` branch + cycle history) — but Keith confirms historic cap hits are MUCH smaller than what the modern guarantee would compute.
++
++- **Extension is FORWARD-LOOKING — new TCV = current_year + extension_years, not all-years-summed.** Per §C4 line 314-315: "Resets TCV and 75% guarantee against the new TCV. Forward-looking only." Worked example (line 315): 1yr remaining at $17K AAV → extend 1yr Sched 1 → AAV for ext-year $27K. Current year stays $17K. **New TCV = $17K + $27K = $44K** (NOT $44K + Y1-already-played value). Already-earned past years are NOT included in the post-extension TCV. Worked example from Brees C6: BL deal had Y1 ($13K) earned, extension by Rico in 2019 added Y3 ($24K). Post-extension contract = 2yr [Y2=$23K, Y3=$24K] TCV=$47K, NOT 3yr [13, 23, 24] $60K. The Y1=$13K is already-earned in the C5 record; the post-extension contract C6 is forward-looking only.
++
++- **Restructure preserves TCV but redistributes year salaries.** Pre-restructure year salaries must be preserved separately (e.g., in a `pre_restructure_year_salaries_json` field or in notes with structured prefix). Worked example from Brees C4: 2016 EXTENSION + RESTRUCTURE by Keith. Pre-restructure: extension produced [25, 35] (Y1=$25K base + Y2=$35K = $25K + $10K Sched 1 escalator). Post-restructure: redistributed to [30, 30]. TCV preserved at $60K. The "Avg. 25/35" in MFL contractInfo annotation captures the pre-restructure structure.
++
++- **Forum/contractInfo annotations are derivation hints, NOT primary cap-math inputs.** Notes/contractInfo strings ("Underpay 5K", "Avg. 25/35", "Ext CMC '20") are not used consistently enough to trust as primary. Cap math should DERIVE values from contract events + year_salaries; use notes only as fallback verification. If a note conflicts with derived values, investigate but treat the derivation as authoritative when the math reconciles.
++
++### Authoritative D1 schema for contracts (added 2026-05-10)
++
++`player_contracts` (one row per contract) + `player_contract_stints` (one row per owner-stint within a contract). Both defined in [worker/migrations/0034_player_contracts.sql](../worker/migrations/0034_player_contracts.sql). This replaces `player_acquisition_cycles` for cap-mechanics work — the cycles table has phantom cap hits from misclassifying housekeeping cuts and using rosters salary as primary.
++
++**Contract identity rules** (enforced in the schema):
++- **New contract starts on:** auction win, MYAC submission (extends existing), tag application, WW BBID, FCFS, dispersal acquisition, rookie draft, comp pick.
++- **Contract carries on:** trade (new stint, same contract), dispersal (new stint, same contract).
++- **Contract modifies in-place on:** MYM, extension, restructure (update CL/AAV/TCV/year_salaries).
++- **Contract terminates on:** cut (real cap event), expiration via final rollover (yrs_left → 0).
++
++**Per-stint attribution** (decomposes cycle-to-date Earned across owners):
++- Each stint represents continuous ownership under one contract.
++- `earned_during_stint_usd` = the salary credited DURING that owner's tenure (era-aware).
++- `cumulative_earned_at_start/end_usd` = cycle-to-date snapshots at stint boundaries.
++- Sum of all stint earnings on a contract = TCV (when contract plays out fully).
++
++**Canonical Aaron Rodgers (pid=7836) example loaded 2026-05-10** — 9 contracts, 17 stints across 2011-2025. Query with:
++```sql
++SELECT c.contract_seq, c.origin_event, c.contract_type, c.contract_length_cl, c.aav_usd, c.tcv_usd,
++       c.termination_event, c.cap_hit_usd, c.notes
++FROM player_contracts c WHERE c.player_id='7836' ORDER BY c.contract_seq;
++
++SELECT c.contract_seq, s.stint_seq, s.owner_name, s.earned_during_stint_usd,
++       s.cumulative_earned_at_start_usd, s.cumulative_earned_at_end_usd, s.start_event, s.end_event
++FROM player_contracts c JOIN player_contract_stints s USING (contract_id)
++WHERE c.player_id='7836' ORDER BY c.contract_seq, s.stint_seq;
++```
++
++**Total Rodgers cap impact** under the corrected model:
++- 7 contracts terminated by expiration (rollover with yrs_left=0): $0 cap hit each (housekeeping or natural)
++- 1 in-season cut (2023 Mannila $50K mid-Y1): $0 cap hit (16/17 of $50K already earned)
++- 1 offseason cut (2025 Mannila Y3 of $9K MYM unearned): **$2,250** cap hit
++- **Total Rodgers cap hits: $2,250 lifetime** — vs the D1 cycle table phantom of $99K. Confirms the Pass 2 model is wrong; the new model is canonical.
++
++### Rollout plan (TBD — not yet executed)
++
++To populate `player_contracts` + `player_contract_stints` across all 2011-2025 players:
++1. Backfill all `AUCTION_WON` events from MFL `TYPE=transactions` API into `mfl_historical_transactions` (currently only dispersal+tag entries are loaded).
++2. Backfill MYAC/MYM/Extension submission dates from forum data (already partially done in `ups_*_history` tables).
++3. Build a state-machine script that walks each player's chronological event chain (existing skeleton: [pipelines/etl/scripts/build_player_contracts.py](../pipelines/etl/scripts/build_player_contracts.py)) — needs:
++   - Auto-rollover handling (close contracts when their CL years are up)
++   - Era-aware mid-cycle earnings proration (cal-monthly → per-week)
++   - Better player_id resolution for forum-derived events
++   - Proper modification-in-place for MYM/Ext/Restructure
++4. Once stable, deprecate `player_acquisition_cycles` for cap-mechanics queries; keep it for legacy reference.
++
++This new model addresses ~60% of contract scenarios. Open issues for the remaining ~40%: legacy multi-year tag chains (2014-2017 era when sequential same-player tags by different owners were allowed), FL vs BL nuances around Y1 declaration vs auction-bid amount, MYM edge cases around playoff exclusion vs post-playoff allowance, and rookie/extension-during-rookie-portion edge cases.
++
++### Era system for Earned (mid-cycle proration only)
++
++- **`era_pre_2019_flat`** (through 2018-12-31): no mid-cycle proration; Earned only at rollover/completion events.
++- **`era_2019_calendar_monthly`** (2019-01-01 through 2026-05-08): mid-cycle Earned = (completed full NFL months / 4) × current year's actual salary, where Sept=1, Oct=2, Nov=3, Dec=4. **Completed full months only** (a Dec 21 event = 3 completed months: Sept, Oct, Nov).
++- **`era_2026_05_08_per_week`** (current, effective 2026-05-08): Earned = (NFL weeks elapsed / 17) × current year's actual salary for auction/Week-1 acquisitions; mid-season pickups use a different denominator (`18 − pickup_week`). See §6.D1 + §D1 worked examples.
++
++### "Earned (cycle-to-date) [legacy era-at-time]" vs "Earned Current Day Calcs"
++
++When generating any contract timeline / cap report:
++- **Earned (cycle-to-date, era-at-time):** apply the era rule that was IN EFFECT at the date of the event. Pre-2019 events get no mid-cycle proration (legacy completion-only); 2019-Apr-2026 events get cal-monthly; post-2026-05-08 events get per-week. This is what the league actually charged historically.
++- **Earned (Current Day Calcs):** apply the current per-week rule retroactively to ALL events regardless of date. Used for "what would this look like under today's rules" comparisons.
++
++Both columns must be shown side-by-side when reporting a player's full historical contract log. Do not collapse them.
++
++### Common fuckups to avoid
++
++- ❌ "TCV decreases at each rollover" — NO. TCV is fixed.
++- ❌ "Earned = AAV × years completed" — NO. Earned uses each year's ACTUAL salary (matters for FL/BL).
++- ❌ "Cut on an expired contract = cap penalty" — NO. yrs left = 0 means contract is already complete; subsequent cut is $0. (D1 currently has Pass 2 phantoms here — known bug.)
++- ❌ "Tag/Extension/MYM use the same TCV as the prior contract" — NO. Each is a NEW contract event with its own TCV/AAV/CL/Earned reset.
++- ❌ "All offseason cuts are real cap events" — NO. Some are **housekeeping cleanups**: when an owner manually drops a player whose contract had already expired at the prior March rollover. Pre-rollover-automation era, Keith handled rollovers manually for everyone; after the rollover-automation transition, owners clean up their own expired roster spots via manual drops. These are $0 cap events. Distinguish by checking `yrs left` at the moment of the cut: if `yrs left = 0` (contract already expired via prior rollover), the cut is housekeeping and cap-free regardless of MFL `move_type=DROP` flagging. (Pass 2 currently misclassifies these as "cuts" — the source of the 2021 Blake $27K and 2023 Mannila $58.5K phantoms in `player_acquisition_cycles`.)
++- ❌ "WW BBID pickup carries the previous owner's contract" — NO. **Only TRADE (A6 line 266) and DISPERSAL (A7 line 279) carry contracts forward.** WW BBID and FCFS pickups create a **NEW 1-year WW contract** at the BBID/$1K amount (per A4 line 244-245). FA Auction wins also create a NEW contract. After a cut + WW rebid of the same player, the prior multi-year contract is terminated; the new BBID is a fresh 1-year deal. Owner has the post-pickup window (14 days MYM, 15-28 days extension per C4) to convert to multi-year — NOT a transparent carryover of prior terms.
++- ❌ "MFL `TYPE=rosters` salary is the contract value at signing" — NO. **The auction-winning bid (MFL `TYPE=transactions` `AUCTION_WON` `desc=pid|amount|`) is the source of truth for Y1 contract value.** The rosters/salary API can be out of sync with the actual contract value due to admin overrides, restructures not propagated, or MFL data-staleness. Always cross-reference the `AUCTION_WON` event amount against the rosters salary; if they disagree, **trust the auction price** for the contract value at signing. The salary-adjustment record at cut time (`TYPE=salaryAdjustments` describing the dropped contract) is also more authoritative than rosters for the contract state at the moment of the drop. This lesson came from Rodgers 2023: `AUCTION_WON desc=7836|50000|` and the 12/21/2023 cut record showed `Salary: $50,000, CL: 1, Type: Veteran` — but rosters W=1 through W=15 showed `$9K cy=3 CL=3`. Pass 2 used rosters → wrong cap hit. Fix: use auction-winning bid + cut salary-adjustment record as the source of truth.
++
++### Per-owner Earned attribution
++
++When a contract is held by multiple owners across its life (via trade, dispersal, WW pickup carryover), the cumulative cycle-to-date Earned must be **decomposable per owner stint**. A "stint" is a continuous-ownership period under one contract. Stint boundaries:
++- **Stint starts:** new contract signing (FA win), trade-in, dispersal-in, WW BBID pickup carrying contract, tag application.
++- **Stint ends:** trade-out, real cut (with cap impact), housekeeping cut, contract completion (final rollover yrs left → 0).
++
++For each event row in a contract timeline, surface BOTH:
++- **Earned (cycle-to-date)** — running cumulative across all owners on this contract.
++- **Earned (this owner's stint)** — resets to $0 at the current owner's stint start, grows with each rollover/in-season event during their tenure.
++
++Attribution at rollover: the year's actual salary is credited toward whichever owner held the player for the bulk of that NFL season's weeks (or split proportionally per the era rule, if mid-year ownership change). For trade-out events, the outgoing owner's stint Earned = the cycle-to-date right before the trade. The incoming owner's stint Earned begins at $0.
++
++Worked example — 2yr Veteran $18K flat, Cutting acquired via auction 8/19/2019, traded to Blake 11/24/2020 (mid-Y2 W=11→12), housekeeping-cut by Blake 6/1/2021:
++
++| Date | Event | Owner | Earned (cycle, cal-monthly) | Earned (this owner's stint) |
++|---|---|---|---|---|
++| 8/19/2019 | FA Auction | Cutting | $0 | $0 (Cutting stint starts) |
++| 3/1/2020 | Rollover (Y1=$18K earned) | Cutting | $18,000 | $18,000 |
++| 11/24/2020 | Trade (3/4 × Y2 = $13.5K partial) | (Cutting → Blake) | $31,500 | Cutting stint ends: **$31,500** \| Blake stint starts: $0 |
++| 3/1/2021 | Rollover (Y2 complete; remainder credited to Blake) | Blake | $36,000 | $4,500 (Blake stint to date) |
++| 6/1/2021 | Housekeeping cut (yrs left = 0) | Blake | $36,000 | $4,500 (stint stayed; $0 cap impact) |
++
++Cutting's total stint earnings: $31,500. Blake's total stint earnings: $4,500. Sum = $36,000 = TCV (contract fully earned). The $0 cap hit on the 6/1/2021 cut reflects the housekeeping nature.
++
++If unsure, RE-READ the relevant section before answering. The cost of pausing to verify is low; the cost of presenting wrong cap math is high (Keith has to correct it 5 times).
++
++---
++
+ ## 🔖 Document Status & Versioning
+ 
+ This document is the **canonical source of truth** for UPS league rules. The Hall bot grounds every answer here. Other rule documents in the repo (HTML rulebook, JSON rulebook, canonical_rules.md) are **legacy artifacts** being migrated into this file — see the **League Rules Migration** appendix at the bottom.
+@@ -289,12 +423,16 @@ These are transactions you can do TO a player who's already on your roster. Defi
+ ### C3. Mid-Year Multi (MYM)
+ - **What it is:** Convert an existing 1-year contract into a multi-year deal at the SAME salary (no raise). Cannot be loaded.
+ - **Why no loading:** loading would "restructure" Year 1 of the contract, and in-season restructures are banned. So MYMs cannot be loaded.
+-- **Limit (UPDATED 2025): MAX 4 MYMs per season per team** (raised from 3).
++- **Limit (UPDATED 2025): MAX 4 MYMs per season per team** (raised from 3). **Pre-2025 limit was 2 per team per season** (per UW post in 2016 t278: "$1 X3 I still have one 2016 Mid-season contract remaining" after his 2nd MYM).
+ - **Eligibility:**
+   - Player acquired via FA Auction or pre-season waivers, NOT given a multi-year contract by Sept deadline → MYM available **before kickoff of NFL Week 3** (per Keith's recall — verify in event log).
+   - In-season WW or FCFS pickup → **14-day MYM window** from acquisition. **The 14-day clock does NOT reset on trade.** Example: pickup 10/1 → MYM eligible until 10/14. If traded on 10/20 → no MYM possible (clock already expired). The acquiring team via trade does NOT inherit a fresh MYM window.
++  - **Fantasy Playoffs exclusion (CONFIRMED 2015-12-11 commish ruling):** "Players acquired during Fantasy Playoffs are not eligible for any extension" (forum t251 Cecil Shorts III). Applies to MYM as well.
+ - **Type rule (decided 2026-04-27):** MYM is its **own** `contract_type` value — "MYM" — not collapsed into Veteran. Origin (Veteran-MYM vs WW-MYM vs WW-Rookie-MYM) is captured by the `contract_type` history rather than by mutating the type at conversion.
+-- **Length on MYM:** **owner's choice — 2 or 3 years.**
++- **Length on MYM:** **owner's choice — 2 or 3 years.** Forum data shows historical MYM durations: most are 3yr, some 2yr, occasional 4yr (2015 Seth Roberts, Josh Martel) and 5yr (2016 Jalen Richard, Whitman). The current 2-or-3 limit may have tightened post-2017.
++- **Loading on MYM (2013 era):** historical anomaly — 2013 t110 (Tannehill, Ryan B "Front-load this shit, A'IGHT? 8, 5, 2") was approved despite no rule existing yet. Bullets ruling: "no specific language says you can or can't... will OK this deal and we can revisit in off-season." Subsequent rule banned MYM loading (current §C3).
++- **MYM rule introduced 2013** — t100 Sidney Rice 9/7/2013 references "taking advantage of new rule." Pre-2013 there was no in-season multi-year mechanism.
++- **Forum-tracked MYM history (2013-2017):** 39 events parsed and loaded into [`ups_mym_history`](../worker/migrations/0032_mym_history.sql). Distribution: 2013=8, 2014=15 (peak), 2015=7, 2016=8, 2017=1. Many at $1k Y1 (sleeper-locking strategy).
+ 
+ ### C4. Extension (contract types `Ext1` / `Ext2`)
+ - **Eligibility:**
+@@ -310,6 +448,7 @@ These are transactions you can do TO a player who's already on your roster. Defi
+ - **Effect:** Resets TCV and 75% guarantee against the new TCV. Forward-looking only.
+ - **Worked example (Schedule 1):** 1yr remaining at $17K AAV → extend 1yr (Ext1) → AAV for the extension year = $27K. **Current year stays at $17K.** New TCV = $17K + $27K = $44K. (Note: TCV is the SUM of remaining year salaries, not AAV × years — because the AAV bump only applies forward.)
+ - **Worked example, 2-year extension:** 1yr remaining at $30K AAV → extend 2yr Schedule 1 (Ext2) → AAV for both extension years = $50K each. Current year stays $30K. New TCV = $30K + $50K + $50K = $130K.
++- **Rookie-deal extension during the rookie portion** (special case — observed 2019+): when an owner extends a rookie still inside the original 3-year deal, the player's MFL `contractStatus` becomes `Rookie/Veteran` (or `Rookie|Veteran`, separator drift) for the duration of the rookie portion. Once the rookie deal ends, the status transitions to `Veteran`. Merged contract length = remaining rookie years + extension years; counts toward all loaded / 3-year / extension caps. Canonical contract_type: `rookie_extended` (preserved as its own bucket — do NOT collapse to plain `veteran`).
+ - **Deadlines:**
+   - **Standard:** by September contract deadline.
+   - **Rookie / preseason waiver pickups w/ no contract by Sept and no MYM by Week 2-ish:** extend by Week 4. (Edge case.)
+@@ -349,6 +488,73 @@ These are transactions you can do TO a player who's already on your roster. Defi
+   - **Exception:** if cut **before FA Auction starts**, normal rules resume — they're treated like any other free agent.
+ - **Tag salary fallback (unranked players):** `max(lowest-tier salary for the position, prior-season AAV × 1.10 rounded up to $1K)`.
+ 
++### C7a. Forum-tracked extension history (2012-2017) — Forumotion source-of-truth
++- **Coverage:** 118 extension threads scraped from Forumotion subforum [f4 Contract Extensions](https://upsdynastycap.forumotion.com/f4-contract-extensions) and its 6 yearly child subforums (f22=2012, f21=2013, f27=2014, f35=2015, f41=2016, f3=2017). 85 individual extensions parsed and loaded into D1 [`ups_extension_history`](../worker/migrations/0031_extension_history.sql).
++- **Format evolution:** 2012-2013 threads are mostly TEAM-bundled (1 thread per owner with multiple extension lines in OP). 2014+ threads are mostly PLAYER-named (1 thread per extension event). Parser handles both formats.
++- **Salary capture rate:** ~48% (41/85). Many threads just say "2 year extension" without explicit salary — must cross-reference MFL roster snapshot at the player's next-season W=1 to get final salary.
++- **Annual distribution:** 2012=11, 2013=10, 2014=26 (peak), 2015=18, 2016=5, 2017=15.
++- **Critical context note for cap-penalty calculator:** if a player has an extension event in this table for year Y, their player_acquisition_cycle salary/contractYear from the W=1 snapshot of year Y reflects the post-extension state. Pre-extension state lives in year (Y-1) W=16.
++- **Forum era ends 2017** — league migrated to Slack, then Discord. 2018+ extensions live only in MFL roster snapshots without forum bidding/decision context.
++- **Aaron Rodgers note (2026-05-09):** Rodgers (pid=7836) has ZERO extension thread mentions across all 118 threads (2012-2017). Steve Bousquet acquired Rodgers via 2012 dispersal at $55k cy=2 (carryover from Murray's f=0006) and never extended him during the Forumotion era. Any Rodgers contract changes happened either pre-2012 (under Murray) or post-2017 (Slack/Discord era, not yet imported).
++
++### C7b. Forum-tracked FA Auction submissions (2012-2017) — Forumotion source-of-truth
++- **Coverage:** 78 threads scraped from Forumotion subforum [f1 Free Agent Auction Contracts](https://upsdynastycap.forumotion.com/f1-free-agent-auction-contracts) and its 6 yearly child subforums (f13=2012, f14=2013, f24=2014, f34=2015, f42=2016, f44=2017). 57 contracts parsed + 1 hand-parsed (Aaron Rodgers 2016) → 58 total in D1 [`ups_fa_auction_history`](../worker/migrations/0033_fa_auction_history.sql).
++- **Purpose:** after winning auction bids, owners submitted multi-year contract preferences via forum thread. Commissioner (Bullets) confirmed/clarified each. These threads document the **post-auction contract structure** (1/2/3-year duration, FL/BL loading, salary breakdown).
++- **Format variance:** owners had wildly different note styles across years — 'turbin 2yrs x 4' (Steve B 2014), 'Bolden 3, Lewis 3' (Steve B 2015), 'Aaron Rodgers-3 years front-loaded' (Mannila 2016). Parser handles ~50% reliably; rest preserved in raw_op_body for manual review.
++- **Critical Aaron Rodgers finding (2026-05-09):** Rodgers won 2016 FA Auction by Eric Mannila (Baster, f=0011) at 3-year front-loaded $62k/$44k/$17k (TCV $123k, AAV $41k). Confirmed in [t271-baster-contracts](https://upsdynastycap.forumotion.com/t271-baster-contracts) + 2016/2017 W=1 MFL rosters.
++- **Tag-tracking gap discovered via Rodgers contractInfo:** 2014 + 2015 W=1 snapshots show "Franchised by Hood in 2014 & CBP in 2015" — meaning Rodgers was tagged in 2014 (by Steve B/Hood) AND 2015 (by Brian Cutting/CBP). Neither tag appears in the f8/f9 tag forum subforums I scraped. **The f8/f9 Franchise/Transition Tag forums do NOT have complete tag history** — some tags happened via direct MFL action without forum announcement. Use MFL roster snapshot contractInfo annotations as the authoritative source for tag history; cross-reference forum data only as supplementary bidding/comp-pick context.
++
++### C8a. Legacy Franchise / Transition Tag mechanics (2012-2024 era) — superseded by C8 in 2025
++- **Two tag types per owner per year (legacy):** **Franchise Tag** (1) + **Transition Tag** (1). Could tag any 2 eligible players (1 of each type).
++- **Bidding window** (~30 days, mid-April → late June): tagging owner posts an opening bid (= positional-tier minimum salary). Other owners may bid to drive the salary up. **Bidder eligibility:** must hold a 1st-round rookie pick in the current draft (confirmed via t8 thread 2012-05-28: "if we do not hold a 1st rd pick in this yr's rookie draft we are ineligible to bid on another owner's franchised player? — That is correct").
++- **Franchise Tag outcome:** highest bidder wins the player at the final bid salary. **Tagging owner gets compensation** (typically the bidder's 1st-round pick + sometimes more, set at tag time).
++- **Transition Tag outcome:** highest bidder sets the salary, but **tagging owner has the option to MATCH** and retain the player at that salary. If they match → kept. If they decline → bidder wins, no compensation.
++- **Positional tier rulings:** commish (Keith) made Top-5 / Top-10 / below-Top-10 rulings on positional rank that gated minimum salaries (e.g., 2013 AP "Top5 at his position", 2013 Fitz "Not top10 at his position"). Tier determined the salary floor.
++- **Post-tag trades:** very common — winning owner often traded the tagged player to another franchise before W=1, sometimes signing a multi-year extension first. The tag salary persisted through the trade in the same year.
++- **Worked examples:** 12 tag rows logged in `ups_tag_history` table (D1) covering 2012-2017. See [migration 0030](../worker/migrations/0030_tag_history.sql). Forum subforums: [f8 Franchise Tagged Players](https://upsdynastycap.forumotion.com/f8-franchise-tagged-players) + [f9 Transition Tagged Players](https://upsdynastycap.forumotion.com/f9-transition-tagged-players). Distribution: 6 kept_no_bids, 3 kept_matched, 3 lost_to_bidder.
++- **Cutover to current 2-tag-per-side structure:** date TBD (likely 2024 or 2025 offseason; see C8). Forum-tracked tag history ends 2017 due to Forumotion → Slack migration.
++
++### C9. MFL `contractStatus` vocabulary reference (data semantics)
++
++When reading roster snapshots from the MFL API (`TYPE=rosters`), the per-player `contractStatus` field uses UPS-specific abbreviations and legacy values that aren't documented in the MFL platform itself. Lock the canonical mapping below and **strip any trailing ` GF` suffix before mapping** (the GF flag is stored separately as `contract_was_grandfathered_at_drop` per Section 4 — pre-2019 grandfathering).
++
++| `contractStatus` (raw, from MFL API) | Canonical `contract_type` | Notes |
++|---|---|---|
++| `Rookie` | `rookie` | Standard rookie deal (3 years since 2013, +1 option year for Round 1 picks 2025+ — see A1) |
++| `Veteran` | `veteran` | Auction- or trade-acquired veteran contract |
++| `WW` | `waiver_wire` | Waiver-wire-acquired. **Salary varies — never assume $1K or any default; always read the per-player `salary` field.** |
++| `FL` | `front_loaded` | Front-loaded contract structure (Y1 salary > AAV). NOT a loyalty/extension type — see C2 loaded rules. |
++| `BL` | `back_loaded` | Back-loaded contract structure (Y1 salary < AAV, min 20% of TCV in Y1). |
++| `Rookie/Veteran` | `rookie_extended` | Rookie deal extended during the rookie portion. See C4 sub-bullet. |
++| `Rookie\|Veteran` | `rookie_extended` | Same as above (separator drift between `/` and `\|`); normalize on read. |
++| `Tag` | `franchise_tag` | Post-2025 tag naming (current). 1-year by rule. |
++| `Franchise Tag` | `franchise_tag` | Same as `Tag`, long-form name. |
++| `Franchise` | `franchise_tag` | **Legacy** pre-2025 tag value; appears in 2019–2023 historical data. 1-year by rule. |
++| `Transition` | `franchise_tag` | **Legacy** pre-2025 tag value (Transition tag was a separate type historically; collapsed to `franchise_tag` for cap math). |
++| `Franchise GF` / `Veteran GF` / etc. | (strip ` GF` suffix, then map) | The ` GF` suffix marks grandfathered contracts (see Section 4 2019 cutover); applies only to the GF flag, not the canonical contract_type. |
++| Any other / empty | `unknown` | Flag for manual triage; do NOT default to `veteran` silently. |
++
++**Tag-family contracts** (`Tag`, `Franchise Tag`, `Franchise`, `Transition`, plus their ` GF` variants) are always `CL=1` by league rule. If the contractInfo string for a tag contract includes apostrophe-year tokens (e.g. `"Tag Gordon '19 Ext. RB '14 ..."`), those tokens are historical owner annotations, NOT extension indicators — do NOT use the apostrophe-year count as CL for tag-family cycles. See Section 4.D for the apostrophe-year-token format note.
++
++(Sourced from data observed in MFL `TYPE=rosters` snapshots 2019–2024; locked 2026-05-09.)
++
++### C10. MFL `TYPE=rosters` reliability caveats — pre-2020 work especially (added 2026-05-10)
++
++`TYPE=rosters&L={league_id}&W={N}` does NOT return a clean point-in-time snapshot for pre-2020 seasons. Two distinct behaviors that need to be kept separate when reading older roster files:
++
++- **Roster composition (which players are on which franchise) IS per-week-accurate.** Pulling W=01 vs W=07 vs W=14 for a pre-2020 season returns genuinely different player lists per franchise, reflecting actual mid-season acquisitions, drops, and trades up to that week. Empirical confirmation: 2012 W=01..W=17 files differ in size and per-franchise player counts (e.g., f=0010 = 26 players at W=01, 28 at W=14).
++
++- **Per-player contract fields (salary, contractYear, contractInfo) are END-OF-SEASON-stamped, NOT at-pickup or per-week.** A WW pickup acquired in Week 9 will appear on the post-pickup franchise's W=01 roster (composition is correct for "where they ended up") but the `salary` shown will be the EOS salary, not the at-pickup salary that the AUCTION_WON / BBID_WAIVER transaction recorded. Same for any contract that gets MYM'd / extended / restructured later in the season — the modified salary/cy reflects retroactively across all W=N files for that season.
++
++**Verification protocol** when reading any pre-2020 roster file: cross-check a known mid-season pickup's salary against the `transaction` field on the corresponding `BBID_WAIVER` / `FREE_AGENT` event. If they disagree, the roster is showing the EOS-stamped salary — trust the transaction.
++
++**Operating rule for cap-math derivation:**
++1. **Never use rosters W=N as primary source for contract value at a moment in time.**
++2. Build state from the **event chain** — `AUCTION_WON desc=pid|amount|` for Y1; UPS-side `mym_submissions` / `extension_submissions` / `restructure_submissions` for in-place modifications; `TYPE=trades` for ownership changes; `TYPE=salaryAdjustments` salary description for state-at-cut.
++3. Use rosters only for (a) composition / who's-on-which-franchise, (b) `contractInfo` text annotations (apostrophe-year extension hints, "Franchised by X" tag notes), (c) cross-validation of derived state at the END of the season (where EOS-stamped values ARE accurate by definition).
++
++The Rodgers 2023 case ([§ "Common fuckups", line 111](#common-fuckups-to-avoid)) is the canonical worked example for the modern era; the 2011 EOS rollover anomaly ([§4.D, line 1601](#d-source-data-conflicts-to-resolve)) is the canonical pre-2020 worked example. Both are instances of this same underlying API behavior.
++
+ ---
+ 
+ ## D. EXIT PATHS — how a player leaves a UPS roster
+@@ -550,12 +756,13 @@ For each transaction below: **Source** (MFL TYPE / UPS table) · **Initiator** (
+ - **Contract impact:** Creates **Rookie** 3-year contract at scale salary, flat across all 3 years. Round 1: 4th-year option attached.
+ 
+ ### T1.9 Dispersal Draft Pick (UPS-custom, no native MFL TYPE)
+-- **Source:** No native MFL TYPE — historically tracked via forum threads (upsforumotion → Slack → Discord). Player movement to correct rosters happened via post-draft trades. Modern approach: log dispersal events explicitly in commissioner-side records (`salary_adjustments` + a series of trade rows that move the player to the new owner).
++- **Source:** No native MFL TYPE — historically tracked via forum threads (upsforumotion → Slack → Discord). Player movement to correct rosters happened via post-draft trades. Modern approach: log dispersal events explicitly in D1: `ups_dispersal_draft_picks` (forum-derived source-of-truth) + `mfl_historical_transactions` rows with `type='DISPERSAL_DRAFT'`. Schema in [worker/migrations/0029_dispersal_draft.sql](../worker/migrations/0029_dispersal_draft.sql).
+ - **Initiator:** Commissioner runs the draft; opt-in owners + new owner make selections.
+ - **Eligibility:** **Whole rosters AND draft picks** (excluding 6th-round picks per existing rule) of opt-in teams + outgoing owner's roster + outgoing owner's draft picks. NOT just players — picks too.
+ - **Cap effect:** Existing salary transfers as-is (old contract carries forward).
+ - **Contract impact:** Old contract preserved (no new deal). Receiving team takes on the salary + remaining contract years.
+-- **Tracking gaps:** year-by-year mechanics weren't always consistent — would need forum reconstruction to fully document. The current method is what's documented here.
++- **Cut exemption:** Each new owner gets **1 cap-free cut** of an inherited bad contract (see 2012 worked example). Critical for inflated/declining inherited salaries.
++- **2012 worked example (inaugural dispersal):** 4 incoming owners (Whitman→f=0002, Kevin Bousquet→f=0003 [later transferred to Kris Lake before W=1], Josh Martel→f=0007, Steve Bousquet→f=0006) snake-drafted from the COMBINED pool of 4 departed franchises (LaChapelle, Jacques, Murray, Roussin). 63 picks total: 42 player + 18 rookie picks + 1 invalid attempt + 2 cut-exemption claims. Forum: [t3-new-owners-draft](https://upsdynastycap.forumotion.com/t3-new-owners-draft) (5 pages, 102 posts, 2012-05-12 → 2012-05-27). Note: combined-pool design means a player could be drafted by an owner whose franchise is different from where the player ended 2011 (e.g., Cam Newton was on Murray's f=0006 EOY 2011 → drafted by Whitman → landed on f=0002).
+ 
+ ### T1.10 Calvin Johnson Rule Comp Pick Award
+ - **Source:** UPS-custom — recorded as commissioner-side adjustment, draft pick added to the receiving team's available picks.
+@@ -1221,10 +1428,11 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
+ - **Starting lineup: 1 RB mandatory** (1QB / **1RB** / 2WR / 1TE / 2Flex / DL / LB / DB / 3 DefFlex / K / P). The 1-RB minimum stayed in effect through ~2014 (see 2015).
+ - IDP added: split out DT/DE/LB/CB/S, added PN; RB=1-3, TE=1-3, WR=2-4 (starter MAXIMUMS, not minimums).
+ - **RB PPR: 1.0 → 0.75** (CONFIRMED via MFL `metadata_rawrules` 2010→2011 diff). 2010 had `RB CC 0-99=*1` (1.0 PPR for ALL positions including RB — redraft format). 2011 dynasty-Y1 reset extracted RB into its own group at `*.75` while other positions stayed at `*1`. **Keith was right** — there ARE two RB PPR transitions in MFL data: 1.0 (2010) → 0.75 (2011) → 0.80 (2018).
++- **⚠️ 2011 end-of-season contract rollover anomaly (Keith, in conversation 2026-05-09):** at the end of the 2011 season, some cuts were made post-Week-16 AFTER Keith had already rolled contracts forward for the next season. **2011 is the only year this happened** — every other year's rollover ran during the normal Mar 1–15 window. The 2011 end-of-season roster therefore reflects the *post-rollover* state, not the as-played state. Practical consequence for any backfill that touches 2011 data: a player showing `contractYear=2` on the 2011 EOS roster was originally a 3-year contract (already rolled to its 2nd year); some players appearing as cut/expired in late 2011 are post-rollover-state cuts and contracts may not match what was originally given. See also Section 4.D source-data conflicts for cross-references.
+ 
+ ### 2012 — CONFIRMED via MFL `metadata_rawrules` (66 rule changes 2011→2012)
+ - **First rookie draft** (introduced this year — dynasty cap needed it once contracts persisted).
+-- **4-owner dispersal draft.** Original results in Forumotion.
++- **4-owner dispersal draft (inaugural):** May 12-27, 2012. Incoming owners Whitman (f=0002), Kevin Bousquet (f=0003 — franchise transferred to Kris Lake before W=1, possibly because Kevin had MFL login issues throughout the draft per forum thread), Josh Martel (f=0007), Steve Bousquet (f=0006) snake-drafted (W,K,J,S order) from the combined pool of all 4 departed franchises (LaChapelle/f=0002, Jacques/f=0003, Murray/f=0006, Roussin/f=0007). 63 forum picks: 42 player + 18 rookie picks + 1 invalid + 2 cut-exemption claims. Each new owner got 1 cap-free cut exemption. Loaded into D1 via [migration 0029](../worker/migrations/0029_dispersal_draft.sql) + [load_dispersal_draft_2012.py](../pipelines/etl/scripts/load_dispersal_draft_2012.py). Source: [forum thread](https://upsdynastycap.forumotion.com/t3-new-owners-draft).
+ - **MAJOR punter scoring overhaul:** **`PNY` (gross punt yards) entirely REMOVED.** Pre-2012 punters scored on `PNY 0-999 = .1/2` (0.1 pts per 2 yards of gross punting) — that's why they scored obscene amounts in 2011. 2012 onwards: PNY abolished; punters score on the new ANY/big-game tier + KY/UY return yards.
+ - **Big-game / ANY bonus added** for ALL positions: `ANY 60-100 = 5` (5 pts if any single-game position score reaches 60+).
+ - **Tackles added (TKL):** `TKL 0-25 = *1` for all positions — 1 pt per tackle, capped at 25.
+@@ -1312,12 +1520,13 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
+ - Penalty = **20% × total salary remaining** (no "earned" concept; penalty was simply 20% of value left).
+ - TCV < $5K → no penalty (the original buffer-zone rule from 2011).
+ - This was the only cap-penalty mechanic since the league founded.
++- **The post-2019 multi-year-low-TCV $1K fixed-penalty rule did NOT exist pre-2019** (Keith confirmed 2026-05-09). A 3-year × $1K player cut pre-2019 had **no penalty** — the buffer-zone rule above caught it ($0). The $1K fixed-penalty rule was introduced as part of the 2019+ overhaul. Cap_penalty.py enforces this era-gating structurally: `multi_year_low_tcv_penalty()` is only called from the 2019+ and 2026+ branches, never from `penalty_pre2019_loaded()` (which exits with $0 for any TCV < $5K via the buffer-zone exemption).
+ 
+ **2019+ rule (2019 NFL season → 2026-05-07):**
+ - 75% TCV guarantee on Non-Waiver contracts.
+ - Earning curve: 0% before Oct 1, 25% Oct, 50% Nov, 75% Dec, 100% post-rollover.
+ - WW $5K+ in-season cuts: flat **35% × salary** penalty (separate WW-specific rule, not the 75% formula).
+-- Multi-year low-TCV rule (TCV < $5K with multiple years remaining): **fixed $1K penalty** if cut with > 1 year remaining.
++- Multi-year low-TCV rule (TCV < $5K with multiple years remaining): **fixed $1K penalty** if cut with > 1 year remaining. **Post-2019 only — see Pre-2019 rule above for the era-gating contrast.**
+ 
+ **Grandfather clause (CONFIRMED 2026-05-08 via Keith):**
+ - Contracts that were **active at end of 2018 with 2+ years remaining** were "grandfathered" into the OLD 20% flat rule.
+@@ -1406,6 +1615,8 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
+ - **`services/rulebook/sources/rules/settings_changes.md` says "rookie contract length removed pre-2025."** **THIS NEVER HAPPENED** (Keith confirmed 2026-04-28). Rookie contracts have been 3 years consistently since 2013. settings_changes.md is wrong on this point.
+ - **`settings_changes.md` says "rounds 3+ rookie salaries not in current rulebook."** They ARE in 2024.2 §4.5 (R3-5 = $2K, R6 = $1K). settings_changes.md is outdated.
+ - **2024 rulebook v1 (8/4) had wrong lineup spec** — only v2 (8/31) is correct. Don't trust v1 archive.
++- **2011 end-of-season rosters reflect post-rollover state, NOT as-played state** (Keith, in conversation 2026-05-09). Some cuts were made post-Week-16 of 2011 *after* Keith had already rolled contracts forward for 2012 — 2011 is the only year this happened (every other year's rollover ran during the normal Mar 1–15 window). For any backfill or analysis that reads 2011 EOS rosters: a player showing `contractYear=2` was actually on a 3-year contract already rolled to its 2nd year; a player showing as cut or expired in late 2011 may be a post-rollover-state cut whose contract terms don't match what was originally given. Mitigation: when reading 2011 EOS data, treat `contractYear` as one less than the as-given remaining length, and treat post-Week-16 2011 cuts as offseason-rollover events for the 2012 cycle. (Pre-2020 work only — no impact on the active 2020–2024 enrichment scope.)
++- **Pre-2021 contractInfo apostrophe-year extension annotations** (manual commissioner format, observed 2010–2020). Strings like `"Ext. Blake '17 & '18 Bash '19 UW '20 TCV 78K AAV 49K"` use apostrophe-year tokens (`'YY`) to record extension chains: count of tokens = extension length in years, years listed = which seasons were covered, franchise nicknames between groups identify the owner who applied each extension. Manually entered, format-loose (separators include `&`, `,`, `'`, raw whitespace). **Parser rule**: count apostrophe-year tokens for CL inference ONLY when an `Ext.` / `Ext ` keyword precedes them. **Tag-family suppression**: tag contracts (`Tag`/`Franchise Tag`/`Franchise`/`Transition` + ` GF` variants) sometimes also embed apostrophe-year tokens as historical owner annotations (e.g. `"Tag Gordon '19 Ext. RB '14 ..."`) — those tokens are NOT extension indicators for tag contracts; CL=1 by tag rule regardless. See Section 1.C9 for the contractStatus→contract_type mapping that gates this.
+ 
+ ## E. STILL-OPEN for Section 4 (post-v15)
+ 
+@@ -1433,7 +1644,7 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
+ - 2016 FG per-yard scoring proposed 2015-12-01 Comp Committee agenda
+ 
+ ⏳ **Still open** — none of these are scoring-related (already closed via metadata_rawrules):
+-1. **2012 dispersal draft results** — Forumotion `f11-new-owner-s-distribution-draft` not yet pulled.
++1. ~~2012 dispersal draft results~~ — ✅ **DONE** (2026-05-09): pulled from forum thread [t3-new-owners-draft](https://upsdynastycap.forumotion.com/t3-new-owners-draft) (5 pages, 102 posts), parsed into 63 picks, loaded to D1 via migration 0029 + `load_dispersal_draft_2012.py`. Stored in `ups_dispersal_draft_picks` (full forum provenance) + `mfl_historical_transactions` (42 player picks as type='DISPERSAL_DRAFT'). Validated: 42/42 player IDs resolved, all picks traced to one of the 4 departed franchises in 2011 W=16, owner→franchise destination verified against 2012 W=1 rosters.
+ 2. **First Downs expansion narrative** — MFL data shows 1C/FD has been in continuously for ALL positions since 2011. The 2021 Slack vote about "rushing FDs" is contradicted by the data — was likely a clarification/reaffirmation, not new addition. Verify in Slack archive.
+ 3. **In-season restructure ban year** (post-2017, slack/discord).
+ 4. **"Restructure-only-with-extension" overturn year** (same as #3).
+@@ -1552,6 +1763,15 @@ Applied to the cap of the season determined by cut-timing buckets (see Section 3
+    - Same contract Y2 = $30K, cut after Week 5 of Y2: 5/17 × $30K = $8,824 earned.
+    - Earned accrues across years: prior years that played out fully count at 100% of THAT year's actual salary.
+ 
++3. **Pre-2019-era loaded-contract math + the `Underpay N` annotation.** The pre-2019-era cap formula (`penalty_pre2019_loaded` in `cap_penalty.py`) computes:
++   ```
++   AAV               = original_tcv_usd / contract_original_length_years   (stated AAV)
++   years_played      = contract_original_length_years − contract_years_remaining
++   target_total_paid = (AAV × years_played) + (0.20 × AAV × years_remaining)
++   cap_hit           = target_total_paid − actual_paid_total_usd
++   ```
++   For loaded contracts (FL/BL), the **stated AAV** is the cap-rate basis — NOT the math-mean of year salaries (those differ for loaded deals). Some pre-2021 contractInfo strings carry an explicit `Underpay N` (or `Overpay N`) annotation: it represents the delta between Y1 actual salary and the contract's stated AAV (positive when Y1 < AAV, i.e., back-loaded; conceptually negative for FL where Y1 > AAV, though some legacy strings used `Underpay` as a signed magnitude either direction). Brees 2019 example: `"... AAV 18K/24K Underpay 5K"` → AAV=$18K, Y1=$13K, Underpay=$5K = $18K − $13K. ✓ The annotation is a **hint, not a requirement** — the same delta is derivable from `(stated_AAV, Y1_salary)` whenever both are present, and `actual_paid_total_usd` is derivable from `TCV − Σ(remaining-year salaries)` in any year-salaries-known case (per Keith 2026-05-09: *"can be derived by calculating TCV and subtracting that final year"*). Parsers should NOT block on missing `Underpay` tokens.
++
+ ### C2. Special-case overrides (NO penalty regardless of formula)
+ 
+ | Case | Penalty |
