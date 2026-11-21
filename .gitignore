@@ -58,5 +58,7 @@ pipelines/reports/*.csv
 
 # Credentials never belong in the repository (containment, 2026-11-21)
 **/apikeys*.json
-services/rulebook/sources/rules/mfl_message_boards/api_info/
 *.cookie
+# local ETL credentials: scripts read these files; they must never be committed
+pipelines/etl/config/runtime.env
+pipelines/etl/config/runtime.env.live
