@@ -1,14 +1,13 @@
 # League Record S1: proposed read-only MFL export requests (for approval; decision 4 of 2026-11-21)
 
-**Status: PROPOSED. NOTHING HAS BEEN SENT.** No MFL call, no external request, no Cloudflare or D1 access was made to write this document. Each request below is an exact URL template for the commissioner to approve, change or refuse. Approval of "the exact requests" means these templates, in this order, with this handling. Anything else needs a new approval.
+**Status: PROPOSED (revised after the architecture review). NOTHING HAS BEEN SENT.** No MFL call, no external request, no Cloudflare or D1 access was made to write this document. Each request below is an exact URL template for the commissioner to approve, change or refuse. Approval of "the exact requests" means these templates, in this order, with this handling. Anything else needs a new approval.
 
 ## 0. Common rules (apply to every request)
 
 | Topic | Rule |
 |---|---|
 | **Method** | `GET` only, every request. Every URL uses the `export` path; **no `import` URL appears here, and none may be added**. No request body, no `DATA` parameter, no cookie-setting call, no login call. `curl` runs without `-X POST`, `-d`, `--data*`, `-F` or `-T`. |
-| **Host** | `https://www48.myfantasyleague.com` (the host this repository already uses for league 74598). If MFL redirects to another shard, the redirect is followed once and noted; no other host. |
-| **League** | `L=74598` (UPS), the same league id in both seasons. |
+| **Host and league** | **They differ by year.** The archive's `league_years` table gives: 2010 `www45` / 60671, 2011 `www46` / 40832, 2012 `www45` / 37227, 2013 `www46` / 42721, **2014 `www45` / 30590**, 2015 `www44` / 29015, 2016 `www48` / 27191, and **`www48` / 74598 for 2017 through 2026**. Requests for 2025 and 2026 use `https://www48.myfantasyleague.com` and `L=74598`; requests for 2014 use `https://www45.myfantasyleague.com` and `L=30590`. A call with the wrong pair could fail or return another league's data, so each request below names its own pair. **Redirects are not followed** (see the command block). |
 | **Season** | The season is the first path segment: `/2025/export` is the 2025 league instance, `/2026/export` the 2026 instance, `/2014/export` the 2014 instance (section 3). |
 | **Format** | `JSON=1`. |
 | **Never used** | `COUNT` and `DAYS` (MFL documents `COUNT` as returning only the most common types; both truncate), `TYPE=league` (with a commissioner credential it returns owner names and e-mail addresses), and any import. |
@@ -21,16 +20,17 @@
 
 The league is private (MFL documents these exports as "private league access restricted to league owners"), so each call needs a credential.
 
-- **Preferred:** an **owner-level** API key for the commissioner's own franchise, passed as `&APIKEY=<key>`. An owner key never returns commissioner-only data.
-- **Not used:** the commissioner **cookie**. With it, `transactions` returns *all* pending transactions for every franchise and some exports return private owner information.
-- **The credential is supplied by the commissioner, at run time, through an environment variable (`MFL_APIKEY`).** I do not read, print, log or store it; the key is never written into a file, command history I produce or a document. URLs are logged **with the key replaced by `REDACTED`**.
-- **Two ways to run, commissioner's choice:** (a) the commissioner runs the printed command block in their own terminal and hands back the output files, or (b) after approval, I run the exact block with the variable the commissioner has set. In both cases the block is the one printed in section 4.
+- **Preferred:** an **owner-level** API key, passed as `&APIKEY=<key>`. Whether a key issued to the commissioner's own user carries commissioner rights is **not verified**; if it does, `transactions` returns **all** pending transactions for every franchise (MFL documents this), so a key for a non-commissioner franchise is better if one exists. That is a question for the commissioner, not an assumption.
+- **API keys are believed to be issued per user, league and year (not verified).** One key may therefore not serve the 2014 league (`L=30590`) and the 2025 and 2026 league (`L=74598`). Each league-year may need its own key; if a call is refused for authorization it stops and the commissioner is asked. It is never retried with a different credential.
+- **Not used:** the commissioner **cookie**, and `TYPE=league` (with a commissioner credential it returns owner names and e-mail addresses).
+- **The credential is supplied by the commissioner at run time** and is read without echo (`read -s`, below), kept only in a shell variable, and passed to `curl` through its standard input so it is **not visible in the process list**. I do not read, print, log or store it. No command line, file or document contains it.
+- **Two ways to run, commissioner's choice:** (a) the commissioner runs the printed block in their own terminal and hands back the output files, or (b) after approval, I run the exact block with the variable the commissioner has set. In both cases the block is the one printed in section 4.
 
 ### What is kept, what is dropped
 
 1. The raw response is saved to a local file; its **SHA-256, byte count, HTTP status, redirect target (if any) and UTC capture time** are recorded.
 2. A **sanitizer** keeps only: `timestamp`, `type`, `franchise`, `franchise2`, the asset lists (`franchise1_gave_up`, `franchise2_gave_up`), `expires`, and for picks the year, round and original franchise. It **drops free-text `comments`** (they can carry personal remarks) and counts what it dropped without recording the content.
-3. **Pending items:** a record that is not an executed trade (no `timestamp`, or marked pending) is dropped and counted; its content is not kept. Whether a pending offer can appear in a `TRANS_TYPE=TRADE` response for an owner key is **not verified**; the sanitizer assumes it can.
+3. **Pending items:** a record that is not an executed trade (no `timestamp`, or marked pending) is dropped and counted; its content is not kept. MFL's own documentation says an owner request returns that owner's pending transactions (and a commissioner request returns everyone's), so a pending offer **will** appear unless the response says otherwise; the sanitizer drops every one of them.
 4. Only the sanitized extract and a **request record** (the URL with `APIKEY=REDACTED`, parameters, capture time, hash) may enter the repository, in a later pull request that the commissioner reviews. The raw file never does.
 
 ## 1. The question these requests answer
@@ -41,17 +41,17 @@ The archive covers trades up to **2025-11-27** and other transactions up to **20
 
 | # | Instance | Request (exact) | Expected data | Why |
 |---|---|---|---|---|
-| **A1** | 2025 | `GET https://www48.myfantasyleague.com/2025/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_APIKEY>` | Every executed trade of the 2025 season: for each, `timestamp`, `type`, the two franchises and the two give-up lists with player ids, `FP_<franchise>_<year>_<round>` future-pick tokens, `DP_<round-1>_<slot-1>` slot tokens and `BB_` cap tokens (zero-indexed, as in the archive). Approximately 74 trades (the archive holds 74 for 2025). | Compare with the archive record for record (check E1); any trade dated 2025-11-28 or later is a finding. |
-| **A2** | 2026 | `GET https://www48.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_APIKEY>` | Every executed trade of the 2026 instance from its start. The snapshot's first 2026 transaction is 2026-03-07 and its first trade 2026-03-27. | Anything dated before 2026-03-07 would sit in the gap; compare the rest with the committed snapshots. |
-| **A3** | 2025 | `GET https://www48.myfantasyleague.com/2025/export?TYPE=futureDraftPicks&L=74598&JSON=1&APIKEY=<MFL_APIKEY>` | For each franchise, its future picks: `year`, `round`, `originalPickFor` (this repository's code reads that field), as the instance last held them. | An end-state observation near the start of the gap (check E3). The time the 2025 instance was last written is not known; the capture records what it shows, not when. |
-| **A4** | 2026 | `GET https://www48.myfantasyleague.com/2026/export?TYPE=futureDraftPicks&L=74598&JSON=1&APIKEY=<MFL_APIKEY>` | The same for the 2026 instance on the capture date. | An end-state observation after the gap: the holder of each 2027-and-later pick on the capture date, to compare with the chains. |
+| **A1** | 2025 | `GET https://www48.myfantasyleague.com/2025/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_KEY_2526>` | Every executed trade of the 2025 season: for each, `timestamp`, `type`, the two franchises and the two give-up lists with player ids, `FP_<franchise>_<year>_<round>` future-pick tokens, `DP_<round-1>_<slot-1>` slot tokens and `BB_` cap tokens (zero-indexed, as in the archive). Approximately 74 trades (the archive holds 74 for 2025). | Compare with the archive record for record (check E1); any trade dated 2025-11-28 or later is a finding. |
+| **A2** | 2026 | `GET https://www48.myfantasyleague.com/2026/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_KEY_2526>` | Every executed trade of the 2026 instance from its start. The snapshot's first 2026 transaction is 2026-03-07 and its first trade 2026-03-27. | Anything dated before 2026-03-07 would sit in the gap; compare the rest with the committed snapshots. |
+| **A3** | 2025 | `GET https://www48.myfantasyleague.com/2025/export?TYPE=futureDraftPicks&L=74598&JSON=1&APIKEY=<MFL_KEY_2526>` | For each franchise, its future picks: `year`, `round`, `originalPickFor` (this repository's code reads that field), as the instance last held them. | An end-state observation near the start of the gap (check E3). The time the 2025 instance was last written is not known; the capture records what it shows, not when. |
+| **A4** | 2026 | `GET https://www48.myfantasyleague.com/2026/export?TYPE=futureDraftPicks&L=74598&JSON=1&APIKEY=<MFL_KEY_2526>` | The same for the 2026 instance on the capture date. | An end-state observation after the gap: the holder of each 2027-and-later pick on the capture date, to compare with the chains. |
 
 **Optional cross-check (2 more requests, separate yes/no):**
 
 | # | Request (exact) | Expected data | Why |
 |---|---|---|---|
-| **B1** | `GET https://www48.myfantasyleague.com/2025/export?TYPE=salaryAdjustments&L=74598&JSON=1&APIKEY=<MFL_APIKEY>` | The 2025 instance's salary-adjustment entries (cap entries with dates and trade references where present). | A cap transfer tied to a trade inside the gap would show here even if the trade record were missing. Only trades that moved cap money; the entries are also written by commissioner tools. |
-| **B2** | `GET https://www48.myfantasyleague.com/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1&APIKEY=<MFL_APIKEY>` | The same for the 2026 instance. | The same, for the other side of the boundary. |
+| **B1** | `GET https://www48.myfantasyleague.com/2025/export?TYPE=salaryAdjustments&L=74598&JSON=1&APIKEY=<MFL_KEY_2526>` | The 2025 instance's salary-adjustment entries (cap entries with dates and trade references where present). | A cap transfer tied to a trade inside the gap would show here even if the trade record were missing. Only trades that moved cap money; the entries are also written by commissioner tools. |
+| **B2** | `GET https://www48.myfantasyleague.com/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1&APIKEY=<MFL_KEY_2526>` | The same for the 2026 instance. | The same, for the other side of the boundary. |
 
 **What the answers can and cannot show.** MFL returns what it still holds. A response with no trade in the gap supports "this export, captured on this date, shows none", never "none occurred". A response that shows a trade is a new record to add to the ledger in a separate pull request, after which the chains crossing it are re-evaluated. Neither result resolves a future pick by itself (`S1_COVERAGE_GAP_SOURCES.md`, last section).
 
@@ -63,56 +63,62 @@ The archive covers trades up to **2025-11-27** and other transactions up to **20
 
 ## 3. Request set N: the 2014 pick 4.12 selector conflict (2 requests, optional third)
 
-The conflict is described in `S1_CONFLICT_2014_4_12.md`. It is **a different record from the 2018 forfeiture and is not decided by it.** The archive cannot settle it: its weekly rosters cover 2010, 2011 and 2017 onward only, and the drafted player has no add or drop record. Narrow requests to the 2014 instance:
+The conflict is described in `S1_CONFLICT_2014_4_12.md`. It is **a different record from the 2018 forfeiture and is not decided by it.** The archive cannot settle it: its weekly rosters cover 2010, 2011 and 2017 onward only, and the drafted player has no add or drop record. Narrow requests to the 2014 instance (**host `www45`, league `30590`**, from the archive's `league_years`; whether the key works for that league-year is not verified):
 
 | # | Request (exact) | Expected data | Why |
 |---|---|---|---|
-| **N1** | `GET https://www48.myfantasyleague.com/2014/export?TYPE=draftResults&L=74598&JSON=1&APIKEY=<MFL_APIKEY>` | The 2014 draft's picks: `round`, `pick`, `franchise`, `player`, `timestamp`, `comments`. 60 picks. | Which franchise MFL itself records for pick 4.12 (round 4, pick 12); whether the two 2014 rows the archive has without a franchise id carry one; MFL's note on 4.12. Compare with the archive's draft row (franchise 0006). |
-| **N2** | `GET https://www48.myfantasyleague.com/2014/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_APIKEY>` | All 2014 executed trades. The archive holds 86. | Whether `trade2014_4` (2014-05-06, which moved the `DP_3_11` token from 0008 to 0004) is recorded identically, and whether any record moves that token afterward, which would explain the draft row. |
-| **N3 (optional)** | `GET https://www48.myfantasyleague.com/2014/export?TYPE=transactions&L=74598&TRANS_TYPE=*&JSON=1&APIKEY=<MFL_APIKEY>` | All 2014 transactions of every type (about 2,000 records, in the archive 1,983). | Whether an add or drop by franchise 0004 or 0006 around 2014-06-15 shows who rostered the drafted player. Larger and broader; ask for it only if N1 and N2 do not settle the record. |
+| **N1** | `GET https://www45.myfantasyleague.com/2014/export?TYPE=draftResults&L=30590&JSON=1&APIKEY=<MFL_KEY_2014>` | The 2014 draft's picks: `round`, `pick`, `franchise`, `player`, `timestamp`, `comments`. 60 picks. | Which franchise MFL itself records for pick 4.12 (round 4, pick 12); whether the two 2014 rows the archive has without a franchise id carry one; MFL's note on 4.12. Compare with the archive's draft row (franchise 0006). |
+| **N2** | `GET https://www45.myfantasyleague.com/2014/export?TYPE=transactions&L=30590&TRANS_TYPE=TRADE&JSON=1&APIKEY=<MFL_KEY_2014>` | All 2014 executed trades. The archive holds 86. | Whether `trade2014_4` (2014-05-06, which moved the `DP_3_11` token from 0008 to 0004) is recorded identically, and whether any record moves that token afterward, which would explain the draft row. |
+| **N3 (optional)** | `GET https://www45.myfantasyleague.com/2014/export?TYPE=transactions&L=30590&TRANS_TYPE=*&JSON=1&APIKEY=<MFL_KEY_2014>` | All 2014 transactions of every type (about 2,000 records, in the archive 1,983). | Whether an add or drop by franchise 0004 or 0006 around 2014-06-15 shows who rostered the drafted player. Larger and broader; ask for it only if N1 and N2 do not settle the record. |
 
 Decision rules: if N1 records franchise 0004 for pick 4.12, the archive's draft row is wrong and the conflict disappears as a data error; if N1 records 0006 and N2 shows a later transfer of the token to 0006, the chain was incomplete; if both agree with the archive, the conflict stays open and is reported again with these sources named. None of this uses the 2018 ruling.
 
 ## 4. The exact command block (for approval, not run)
 
 ```bash
-# Set once in the commissioner's own shell. Never echoed, never written to a file.
-#   export MFL_APIKEY='...'
-OUT="$HOME/ups_league_record_exports/2026-11"          # outside the repository
+# The commissioner's own shell. The key is typed without echo, kept in a shell variable only (never exported,
+# never written to a file or shell history), and passed to curl on its standard input so it is not in `ps`.
+read -s MFL_KEY_2526; echo                         # key for league 74598 (2025 and 2026 instances)
+# read -s MFL_KEY_2014; echo                       # only if set N is approved: key for league 30590 (2014)
+OUT="$HOME/ups_league_record_exports/2026-11"      # outside the repository
 mkdir -p "$OUT"
 UA='ups-league-record-readonly/1'
-BASE='https://www48.myfantasyleague.com'
-get() {  # GET only: name, then the path-and-query without the key
-  curl --silent --show-error --fail --max-time 60 --location --max-redirs 1 \
-       --header "User-Agent: $UA" \
-       --output "$OUT/$1.json" --write-out "$1 %{http_code} %{size_download} bytes %{num_redirects} redirect(s)\n" \
-       "$BASE$2&APIKEY=$MFL_APIKEY"
+get() {  # GET only. args: name, host, path-and-query (no key), key
+  # --max-redirs 0 and no --location: a redirect is a stop, never followed (it could carry the key to another host).
+  printf 'url = "https://%s%s&APIKEY=%s"\n' "$2" "$3" "$4" | \
+    curl --silent --show-error --max-time 60 --max-redirs 0 --header "User-Agent: $UA" \
+         --output "$OUT/$1.json" --write-out "$1 %{http_code} %{size_download} bytes\n" --config -
+  # MFL can return an error as HTTP 200 with an error body: refuse to treat it as data.
+  if head -c 400 "$OUT/$1.json" | grep -qi '"error"'; then echo "$1: MFL returned an error body; stop and report" >&2; return 1; fi
   sleep 1
 }
-get A1_transactions_2025_trade   '/2025/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1'
-get A2_transactions_2026_trade   '/2026/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1'
-get A3_futurepicks_2025          '/2025/export?TYPE=futureDraftPicks&L=74598&JSON=1'
-get A4_futurepicks_2026          '/2026/export?TYPE=futureDraftPicks&L=74598&JSON=1'
+get A1_transactions_2025_trade 'www48.myfantasyleague.com' '/2025/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2526"
+get A2_transactions_2026_trade 'www48.myfantasyleague.com' '/2026/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2526"
+get A3_futurepicks_2025        'www48.myfantasyleague.com' '/2025/export?TYPE=futureDraftPicks&L=74598&JSON=1' "$MFL_KEY_2526"
+get A4_futurepicks_2026        'www48.myfantasyleague.com' '/2026/export?TYPE=futureDraftPicks&L=74598&JSON=1' "$MFL_KEY_2526"
 # optional B and N sets, only if approved:
-# get B1_saladj_2025             '/2025/export?TYPE=salaryAdjustments&L=74598&JSON=1'
-# get B2_saladj_2026             '/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1'
-# get N1_draftresults_2014       '/2014/export?TYPE=draftResults&L=74598&JSON=1'
-# get N2_transactions_2014_trade '/2014/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1'
-# get N3_transactions_2014_all   '/2014/export?TYPE=transactions&L=74598&TRANS_TYPE=*&JSON=1'
-shasum -a 256 "$OUT"/*.json                                # hash of every raw response, recorded with the capture time
+# get B1_saladj_2025             'www48.myfantasyleague.com' '/2025/export?TYPE=salaryAdjustments&L=74598&JSON=1' "$MFL_KEY_2526"
+# get B2_saladj_2026             'www48.myfantasyleague.com' '/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1' "$MFL_KEY_2526"
+# get N1_draftresults_2014       'www45.myfantasyleague.com' '/2014/export?TYPE=draftResults&L=30590&JSON=1' "$MFL_KEY_2014"
+# get N2_transactions_2014_trade 'www45.myfantasyleague.com' '/2014/export?TYPE=transactions&L=30590&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2014"
+# get N3_transactions_2014_all   'www45.myfantasyleague.com' '/2014/export?TYPE=transactions&L=30590&TRANS_TYPE=*&JSON=1' "$MFL_KEY_2014"
+shasum -a 256 "$OUT"/*.json                        # hash of every raw response, recorded with the capture time
+unset MFL_KEY_2526 MFL_KEY_2014
 ```
 
-`curl` is used in its default `GET` mode; the block contains no `-X`, `-d`, `--data`, `-F` or `-T`. The key is appended inside `get` and is not part of any printed text: the transfer line shows the name, status, size and redirect count only (the redirect URL is deliberately not printed, because a redirect can carry the query string).
+`curl` is used in its default `GET` mode; the block contains no `-X`, `-d`, `--data`, `-F`, `-T` or `--location`. The transfer line prints the name, status and size only; no URL and no key is ever printed. A redirect response (3xx) is a stop: it is reported and nothing is retried.
 
 **Strictly read-only confirmation:** every URL is an `export` request; the block calls no import, login, pending-trade, offer or settings endpoint; it writes only the files in `$OUT` on the local machine; it touches no Cloudflare resource and no production database.
 
-## 5. Not requested here (a separate, optional, later approval)
+## 5. Not requested here
 
-To verify the quiet windows that matter for the future-pick links (`S1_FUTURE_PICK_ASSESSMENT.md`), one `TRANS_TYPE=TRADE` export per instance year, 2013 to 2025 (13 requests), compared with the archive, would allow verification records for the 30 windows listed in `summary.future_picks.event_accounting_windows_needed`. This is **not** part of this request set and would need its own approval and its own total-request count.
+**Past quiet windows (2013-2025).** An earlier draft proposed one trade-only export per year to verify the quiet windows. It is **withdrawn**: an export of an old year compared with the archive (check E1) only detects loss in the copy, because the archive is a copy of MFL's own transaction log, and an end-state export for a past date does not exist (an export shows the state on the capture date). Under `S1_SOURCE_COVERAGE_MODEL.md` these windows therefore cannot be verified by an export. If the commissioner still wants an E1-only comparison for a particular year (to look for loss in the copy), it is a separate request with its own league id and host from the table in section 0, and its own approval.
 
 ## 6. Unverified details (stated, not assumed)
 
 - Whether **MFL still serves old instances** (2014) for this league through these exports, and whether the 2025 instance accepts `futureDraftPicks` after the rollover: unknown until a call is made; a refusal is recorded as a result.
-- Whether an **owner key** may read the 2014 and 2026 instances: unknown; if not, the call stops and the commissioner is asked, never retried with a different credential.
+- Whether **one key serves several league-years** (believed not) and whether the commissioner's user key carries commissioner rights (section 0).
 - The exact **field set** of `futureDraftPicks` beyond `year`, `round` and `originalPickFor`: only what this repository's code reads is relied on.
-- Whether a pending trade offer can appear in a `TRANS_TYPE=TRADE` response (section 0, "pending items").
+- **Pending trade offers will appear** in a `TRANS_TYPE=TRADE` response according to MFL's documentation; they are dropped and counted by the sanitizer, never kept.
+- **MFL can return an error with HTTP 200**; the block checks the first bytes of each body.
+- **What the answers cannot show:** a response with no trade in the gap supports "this export, on this date, shows none"; it cannot show a pick-ownership change MFL never logged as a trade (a commissioner edit). The two future-picks end states (A3, A4) are the only check against that, and only as to the holder on their own dates.

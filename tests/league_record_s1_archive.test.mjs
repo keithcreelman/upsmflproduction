@@ -14,7 +14,7 @@ import { renderArchiveReport } from "../scripts/league_record/s1/archive_report.
 import { packageView, creditByAsset, ALLOCATION } from "../scripts/league_record/s1/packages.mjs";
 import { buildLedger, pickChain, resolveSlotPick } from "../scripts/league_record/s1/lineage.mjs";
 import { stableStringify } from "../scripts/league_record/s1/pilot.mjs";
-import { classifyIntervals, custodyObserved, validateVerification, coverageSummary, loadVerifications, COVERAGE_STATE } from "../scripts/league_record/s1/coverage.mjs";
+import { classifyIntervals, buildCoverageModel, custodyObserved, validateVerification, coverageSummary, loadVerifications, COVERAGE_STATE } from "../scripts/league_record/s1/coverage.mjs";
 import { resolveFuturePick } from "../scripts/league_record/s1/lineage.mjs";
 import { etParts } from "../scripts/league_record/s1/sources.mjs";
 import { loadArchiveSelections, loadKnownForfeitures, FORFEITURE_FILE, FORFEITURE_FIELDS, LEGACY_DEFECT } from "../scripts/league_record/s1/sources.mjs";
@@ -113,7 +113,10 @@ test("future picks: none is CONFIRMED to a slot; INFERRED only under UNIQUE_HOLD
   // event accounting is a diagnostic: it adds no link, and every pick it could evaluate still crosses at least one unverified interval
   t.equal(f.funnel.event_accounting_eligible_if_custody_verified, 122); t.equal(f.funnel.custody_observed_strict, 0);
   t.equal(f.event_accounting_blockers.holder_holds_several_picks, 343, "a franchise that holds several picks is never resolved");
-  t.equal(f.event_accounting_windows_needed.length, 30); t.ok(f.event_accounting_windows_needed.every((w) => w.kind === "unobserved"));
+  t.equal(f.event_accounting_windows_needed.length, 31, "unverified intervals across the whole rounds (a lower bound)"); t.ok(f.event_accounting_windows_needed.every((w) => w.kind === "unobserved"));
+  // an eligible pick still rests on disclosed assumptions: 67 on the first-sender reading of a slot-token trail, 33 with several final slots, 115 with a token trade within a day of a selection
+  t.equal(f.funnel.event_accounting_flag_first_sender_assumption, 67); t.equal(f.funnel.event_accounting_flag_holder_has_several_final_slots, 33); t.equal(f.funnel.event_accounting_flag_token_trade_within_24h_of_a_selection, 115);
+  t.equal(f.funnel.event_accounting_eligible_without_flags, 1, "only one pick passes the screen with none of the three assumptions");
   t.equal(f.inferred, 0); t.equal(f.unresolved, 597);
   t.equal(f.funnel.custody_observed_strict, 0); t.equal(f.funnel.inventory_complete_strict, 0);
   // the diagnostic is reported as a diagnostic
@@ -345,46 +348,58 @@ test("the source-coverage model (decision of 2026-11-21): four things kept apart
   t.equal(cov.named_gap_state, "KNOWN_GAP"); t.equal(x.coverage_windows.length, quiet, "every quiet window is classified");
   t.ok(x.coverage_windows.every((w) => w.state === "UNVERIFIED"));
   // a verification record is accepted only when every condition holds
-  const good = { id: "v1", event_class: "pick_transfer", from: "2020-01-10", to: "2020-03-16", source: { kind: "mfl_export", type: "transactions", year: 2019, league_id: "L", params: "TYPE=transactions&TRANS_TYPE=*", captured_on: "2026-12-01", truncated: false },
-    checks: [{ kind: "archive_comparison", passed: true, ref: "r1" }, { kind: "chain_continuity", passed: true, ref: "r2" }] };
+  const good = { id: "v1", event_class: "pick_transfer", from: "2020-01-10", to: "2020-03-16", source: { kind: "mfl_export", type: "transactions", year: 2019, league_id: "74598", params: "TYPE=transactions&TRANS_TYPE=*", captured_on: "2026-12-01", truncated: false },
+    checks: [{ kind: "archive_comparison", passed: true, ref: "r1" }, { kind: "end_state_reconciliation", passed: true, ref: "r2" }] };
   t.ok(validateVerification(good).ok, "a complete record is valid");
   const bad = (over) => validateVerification({ ...good, ...over });
   for (const [label, rec] of [["unknown event class", bad({ event_class: "contract" })], ["reversed dates", bad({ from: "2020-04-01" })], ["not an MFL export", bad({ source: { ...good.source, kind: "forum_post" } })],
     ["truncated response", bad({ source: { ...good.source, truncated: true } })], ["COUNT parameter", bad({ source: { ...good.source, params: "TYPE=transactions&COUNT=100" } })], ["DAYS parameter", bad({ source: { ...good.source, params: "TYPE=transactions&DAYS=30" } })],
     ["captured before the interval ends", bad({ source: { ...good.source, captured_on: "2020-03-01" } })], ["a failed check", bad({ checks: [...good.checks, { kind: "end_state_reconciliation", passed: false }] })],
-    ["no archive comparison", bad({ checks: [{ kind: "chain_continuity", passed: true }, { kind: "end_state_reconciliation", passed: true }] })], ["no independent corroboration", bad({ checks: [{ kind: "archive_comparison", passed: true }] })],
-    ["unknown check kind", bad({ checks: [...good.checks, { kind: "vibes", passed: true }] })], ["no object", validateVerification(null)]]) t.ok(!rec.ok, `${label}: refused`);
+    ["no archive comparison", bad({ checks: [{ kind: "chain_continuity", passed: true, ref: "x" }, { kind: "end_state_reconciliation", passed: true, ref: "y" }] })], ["no independent corroboration", bad({ checks: [{ kind: "archive_comparison", passed: true, ref: "x" }] })],
+    ["comparison and chain continuity only: both come from MFL's own log", bad({ checks: [{ kind: "archive_comparison", passed: true, ref: "x" }, { kind: "chain_continuity", passed: true, ref: "y" }] })], ["no league id", bad({ source: { ...good.source, league_id: undefined } })],
+    ["no instance year", bad({ source: { ...good.source, year: undefined } })], ["an interval outside the instance year and the next", bad({ source: { ...good.source, year: 2015 } })], ["a check with no evidence reference", bad({ checks: [{ kind: "archive_comparison", passed: true }, { kind: "end_state_reconciliation", passed: true, ref: "y" }] })],
+    ["a leading ?COUNT parameter", bad({ source: { ...good.source, params: "COUNT=5&TYPE=transactions" } })],
+    ["unknown check kind", bad({ checks: [...good.checks, { kind: "vibes", passed: true }] })], ["no object", validateVerification(null)],
+    ["an impossible date", bad({ to: "2020-02-30" })], ["a non-string date", bad({ from: new Date("2020-01-10") })], ["no recorded parameters", bad({ source: { ...good.source, params: undefined } })],
+    ["a duplicated check kind", bad({ checks: [...good.checks, { kind: "archive_comparison", passed: true }] })], ["a null check", bad({ checks: [...good.checks, null] })], ["checks that are not an array", bad({ checks: "none" })],
+    ["a lowercase COUNT parameter", bad({ source: { ...good.source, params: "TYPE=transactions&count=100" } })], ["passed as a string", bad({ checks: [{ kind: "archive_comparison", passed: "true", ref: "a" }, { kind: "end_state_reconciliation", passed: "true", ref: "b" }] })]]) t.ok(!rec.ok, `${label}: refused`);
   // classification
   const win = [{ from: "2020-01-10", to: "2020-03-16", days: 67 }], gap = { from: "2025-11-28", to: "2026-03-07", days: 100 };
   const st = (vs, cls = "pick_transfer", w = win, g = gap) => classifyIntervals({ windows: w, namedGap: g, verifications: vs, eventClass: cls });
   t.equal(st([])[0].state, COVERAGE_STATE.UNVERIFIED, "a quiet window with no verification is UNVERIFIED");
   t.equal(st([good])[0].state, COVERAGE_STATE.VERIFIED_COMPLETE, "the same window inside a verified interval is VERIFIED_COMPLETE, although no transaction occurred in it");
   t.equal(st([good], "player_move")[0].state, COVERAGE_STATE.UNVERIFIED, "a verification of another event class verifies nothing");
-  t.equal(st([{ ...good, checks: [{ kind: "archive_comparison", passed: false }] }])[0].state, COVERAGE_STATE.UNVERIFIED, "an invalid record verifies nothing");
+  t.equal(st([{ ...good, checks: [{ kind: "archive_comparison", passed: false, ref: "r" }] }])[0].state, COVERAGE_STATE.UNVERIFIED, "an invalid record verifies nothing");
   t.equal(st([{ ...good, to: "2020-03-01" }])[0].state, COVERAGE_STATE.UNVERIFIED, "a partly covered window keeps its weaker state");
   const halves = [{ ...good, id: "a", from: "2020-01-10", to: "2020-02-01" }, { ...good, id: "b", from: "2020-02-02", to: "2020-03-16" }];
   t.equal(st(halves)[0].state, COVERAGE_STATE.VERIFIED_COMPLETE, "adjacent verified intervals together cover the window");
   t.equal(st([])[1].state, COVERAGE_STATE.KNOWN_GAP, "the named gap is a KNOWN_GAP without a source");
-  const gapV = { ...good, id: "g", from: "2025-11-28", to: "2026-03-07", source: { ...good.source, captured_on: "2026-12-05" } };
+  const gapV = { ...good, id: "g", from: "2025-11-28", to: "2026-03-07", source: { ...good.source, year: 2025, captured_on: "2026-12-05" } };
   t.equal(st([gapV])[1].state, COVERAGE_STATE.VERIFIED_COMPLETE, "valid verifications covering all of the gap close it");
   t.equal(st([{ ...gapV, to: "2026-03-06" }])[1].state, COVERAGE_STATE.KNOWN_GAP, "one uncovered day keeps it a KNOWN_GAP");
-  // would custody be observed?
-  const ivs = st([good]);
-  t.ok(custodyObserved(ivs, "2020-01-20", "2020-02-10").observed, "custody inside a verified window is observed");
-  t.ok(custodyObserved(ivs, "2020-01-01", "2020-04-01").observed, "a verified quiet period does not invalidate custody");
-  t.ok(!custodyObserved(st([]), "2020-01-01", "2020-04-01").observed, "an unverified quiet period does not prove custody");
-  t.ok(!custodyObserved(ivs, "2025-12-01", "2026-01-15").observed, "a known gap blocks even when other intervals are verified");
+  // would custody be observed? Every day of the span must be verified: a day outside any verification blocks, in a quiet window or not.
+  const model = (vs, cls = "pick_transfer") => buildCoverageModel({ windows: win, namedGap: gap, verifications: vs, eventClass: cls });
+  t.ok(custodyObserved(model([good]), "2020-01-20", "2020-02-10").observed, "custody inside a verified window is observed, although no transaction occurred in it");
+  t.ok(custodyObserved(model([good]), "2020-01-10", "2020-03-16").observed, "the whole verified window, inclusive of both ends");
+  t.ok(!custodyObserved(model([good]), "2020-01-01", "2020-04-01").observed, "days around a verified window that nobody verified block custody");
+  t.ok(!custodyObserved(model([good]), "2020-01-09", "2020-01-10").observed, "one unverified day at the start blocks"); t.ok(!custodyObserved(model([good]), "2020-03-16", "2020-03-17").observed, "one unverified day at the end blocks");
+  t.ok(!custodyObserved(model([]), "2020-01-20", "2020-02-10").observed, "an unverified quiet period does not prove custody");
+  t.ok(!custodyObserved(model([]), "2019-05-01", "2019-05-02").observed, "an unverified day outside any quiet window blocks too: a busy stretch is not proof");
+  t.ok(custodyObserved(model([]), "2019-05-01", "2019-05-02").uncovered && custodyObserved(model([]), "2019-05-01", "2019-05-02").blockers.length === 0, "and the reader is told the days are uncovered even when no labelled interval touches them");
+  t.ok(!custodyObserved(model([good]), "2025-12-01", "2026-01-15").observed, "a known gap blocks even when other intervals are verified");
+  t.ok(!custodyObserved(model([good], "player_move"), "2020-01-20", "2020-02-10").observed, "a verification of another event class observes nothing");
+  t.ok(custodyObserved(model(halves), "2020-01-12", "2020-03-01").observed, "adjacent verified intervals observe a span across their join");
   t.deepEqual(coverageSummary(st([good])).by_state, { VERIFIED_COMPLETE: 1, UNVERIFIED: 0, KNOWN_GAP: 1 });
   // the property that makes the model safe to test before use: with no verification it is never more permissive than today's quiet-window rule, for every traded future pick
   const led = buildLedger({ archive, root: ROOT });
-  const intervals = classifyIntervals({ windows: led.windows, namedGap: led.named_gap, verifications: [] });
+  const modelNow = buildCoverageModel({ windows: led.windows, namedGap: led.named_gap, verifications: [] });
   let checked = 0;
   for (const asset of [...led.tradesByAsset.keys()].filter((k) => k.startsWith("fpick:"))) {
     const [, orig, ys, rs] = asset.split(":"); const yr = Number(ys); if (yr < 2010 || yr > 2025) continue;
     const res = resolveFuturePick(led, pickChain(led, asset), { year: yr, round: Number(rs), original: orig }, { slotLists: [] });
     if (!res.last_transfer_ts || !res.evidence_ts) continue;
-    const m = custodyObserved(intervals, etParts(res.last_transfer_ts).date, etParts(res.evidence_ts).date);
-    t.ok(!(res.coverage_gaps.length > 0 && m.observed), `${asset}: the model never observes custody where the quiet-window rule does not`); checked += 1;
+    const m = custodyObserved(modelNow, etParts(res.last_transfer_ts).date, etParts(res.evidence_ts).date);
+    t.ok(!(res.coverage_gaps.length > 0 && m.observed), `${asset}: the model never observes custody where the quiet-window rule does not`); t.ok(!m.observed, `${asset}: with no verification no custody is observed at all`); checked += 1;
   }
   t.ok(checked > 400, "the property was checked on the traded future picks that have a last transfer and an evidence date");
   t.equal(x.summary.future_picks.unresolved, 597, "all 597 unresolved future picks are preserved");
@@ -397,35 +412,74 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   const db = new DatabaseSync(":memory:"); db.exec("PRAGMA foreign_keys = ON"); db.exec(m[1]);
   const tables = db.prepare("select name from sqlite_master where type = 'table' and name like 'lr_%' order by 1").all().map((r) => r.name);
   t.ok(tables.length >= 20 && tables.every((n) => n.startsWith("lr_")), "every table is prefixed lr_ (additive; no existing table is touched)");
-  db.exec("insert into lr_run values (1, 'build', '2026-11-21T00:00:00Z', 'sha', 'sha', null, null)");
-  db.exec("insert into lr_method values ('M', 1, 'd', null, 'diagnostic')");
-  db.exec("insert into lr_source values ('S', 'archive_db', 'derived', null, null, null, null, null, null, null)");
-  db.exec("insert into lr_draft_row values (1, 2018, 4, 11, 47, '4.11', '0001', 'P', 1, 'S', 'k')");
+  t.ok(!/raw_object_key|R2 by hash/.test(doc.replace(/no raw response[^.]*\./g, "")), "no raw payload is stored");
   const fails = (sql) => { try { db.exec(sql); return false; } catch { return true; } };
-  // the model's own rules
-  t.ok(!fails("insert into lr_draft_slot values (2018, 4, 11, 47, 'SELECTED', 1, 1, null)"), "a SELECTED slot with its draft row is accepted");
-  t.ok(!fails("insert into lr_draft_slot values (2018, 4, 12, 48, 'FORFEITED', null, 1, null)"), "a FORFEITED slot with no row is accepted");
-  t.ok(fails("insert into lr_draft_slot values (2018, 4, 10, 46, 'FORFEITED', 1, 1, null)"), "a FORFEITED slot that carries a player is refused");
-  t.ok(fails("insert into lr_draft_slot values (2018, 4, 9, 45, 'SELECTED', null, 1, null)"), "a SELECTED slot with no draft row is refused");
-  t.ok(fails("insert into lr_draft_slot values (2018, 4, 8, 44, 'MISSING', null, 1, null)"), "an unknown slot status is refused");
-  t.ok(!fails("insert into lr_draft_slot values (2018, 4, 7, 43, 'MISSING_SOURCE_RECORD', null, 1, null)"), "a genuinely missing record is its own status");
-  db.exec("insert into lr_asset values ('fpick:0001:2018:4', 'FUTURE_PICK', null, '0001', 2018, 4, null)");
-  t.ok(fails("insert into lr_asset values ('fpick:bad', 'FUTURE_PICK', null, null, 2018, 4, null)"), "a future pick needs its original franchise");
-  t.ok(fails("insert into lr_asset values ('spick:bad', 'SLOT_PICK', null, '0001', 2018, 4, 3)"), "a slot pick has no original franchise");
-  t.ok(!fails("insert into lr_link values (1, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', null, null, null, 'UNRESOLVED', 'M', 1, null, null, 1, null)"), "an UNRESOLVED link with no slot is accepted");
-  t.ok(fails("insert into lr_link values (2, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', 2018, 4, 11, 'UNRESOLVED', 'M', 1, null, null, 1, null)"), "an UNRESOLVED link that names a slot is refused");
-  t.ok(fails("insert into lr_link values (3, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', 2018, 4, 11, 'CONFIRMED', 'M', 1, null, null, 1, null)"), "a future pick can never be CONFIRMED to a slot");
-  t.ok(!fails("insert into lr_link values (4, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', 2018, 4, 11, 'INFERRED', 'M', 1, null, null, 1, null)"), "an INFERRED link names its slot and its method");
-  t.ok(fails("insert into lr_link values (5, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', 2018, 4, 11, 'INFERRED', 'NOPE', 1, null, null, 1, null)"), "a link must name a method that exists");
-  t.ok(fails("insert into lr_link values (6, 'FUTURE_PICK_TO_SLOT', 'fpick:0001:2018:4', null, null, null, 'LIKELY', 'M', 1, null, null, 1, null)"), "an unknown evidence class is refused");
-  t.ok(fails("insert into lr_coverage values (1, 'S', 'contract', '2020-01-01', '2020-02-01', 'UNVERIFIED', 'b', 1, null)"), "an unknown event class is refused");
-  t.ok(fails("insert into lr_coverage values (2, 'S', 'pick_transfer', '2020-01-01', '2020-02-01', 'QUIET', 'b', 1, null)"), "a quiet period is not a coverage state");
-  t.ok(!fails("insert into lr_coverage values (3, 'S', 'pick_transfer', '2020-01-01', '2020-02-01', 'UNVERIFIED', 'b', 1, null)"));
+  const ok = (sql) => { db.exec(sql); return true; };
+  ok("insert into lr_run (run_id, kind, created_utc, code_sha, source_set_sha256) values (1, 'build', '2026-11-21T00:00:00Z', 'sha', 'sha'), (2, 'build', '2026-11-22T00:00:00Z', 'sha', 'sha')");
+  ok("insert into lr_method values ('DIAG', 1, 'd', null, 'diagnostic'), ('OK', 1, 'd', 'ref', 'approved')");
+  ok("insert into lr_source (source_id, kind, authority) values ('S', 'archive_db', 'derived')");
+  ok("insert into lr_draft_row (draft_row_id, loaded_run, season, round, slot_raw, overall, raw_pick_text, franchise_id, player_id, ts, source_id, source_key) values (1, 1, 2018, 4, 11, 47, '4.11', '0001', 'P', 1, 'S', 'k'), (2, 1, 2014, 1, 1, 10, '1.1', '0002', 'Q', 1, 'S', 'k2'), (3, 1, 2018, 4, 12, 48, '4.12', '0003', 'R', 1, 'S', 'k3')");   // row 3 exists only to prove the unique index, not the trigger, stops a second open row
+  const slot = (s, r, sl, ov, st, row, from = 1, to = "null") => `insert into lr_draft_slot values (${s}, ${r}, ${sl}, ${ov}, '${st}', ${row}, ${from}, ${to})`;
+  // the draft-slot statuses
+  t.ok(!fails(slot(2018, 4, 11, 47, "SELECTED", 1)), "a SELECTED slot with its matching draft row is accepted");
+  t.ok(fails(slot(2018, 4, 10, 46, "SELECTED", 1)), "a SELECTED slot 4.10 pointing at the raw row for 4.11 is refused");
+  t.ok(fails(slot(2018, 4, 9, 45, "SELECTED", "null")), "a SELECTED slot with no draft row is refused");
+  t.ok(fails(slot(2014, 1, 10, 10, "SELECTED", 2)), "a slot that differs from the stored slot, with no correction record, is refused");
+  ok("insert into lr_correction (target_table, target_key, field, original_value, corrected_value, method_id, defect_id, approved_ref, source_ref, run_id) values ('lr_draft_row', '2', 'slot', '1', '10', 'm', 'd', 'a', 's', 1)");
+  t.ok(!fails(slot(2014, 1, 10, 10, "SELECTED", 2)), "the same slot with its correction record (original, corrected value, method, approval) is accepted");
+  t.ok(fails(slot(2018, 4, 12, 48, "FORFEITED", "null")), "a FORFEITED slot with no forfeiture record is refused: an absence is never called a forfeiture without a source");
+  ok("insert into lr_forfeiture values (2018, 4, 12, 48, 'owner violation', 'commissioner clarification', '2026-11-21', '[]', 1)");
+  t.ok(!fails(slot(2018, 4, 12, 48, "FORFEITED", "null")), "a FORFEITED slot with its forfeiture record and no player is accepted");
+  t.ok(fails(slot(2018, 4, 12, 48, "SELECTED", 3)), "the same slot cannot be open as SELECTED beside the FORFEITED one");
+  t.ok(fails(slot(2018, 4, 12, 48, "MISSING_SOURCE_RECORD", "null", 2)), "nor as MISSING_SOURCE_RECORD: one open row per slot");
+  t.ok(fails(slot(2018, 4, 8, 44, "FORFEITED", 1)), "a FORFEITED slot that carries a player is refused");
+  t.ok(fails(slot(2018, 4, 8, 44, "MISSING", "null")), "an unknown slot status is refused");
+  t.ok(!fails(slot(2018, 4, 7, 43, "MISSING_SOURCE_RECORD", "null")), "a genuinely missing record is its own status");
+  t.ok(fails(slot(2018, 4, 6, 42, "MISSING_SOURCE_RECORD", "null", 2, 1)), "a row closed before it opened is refused");
+  // assets and links
+  ok("insert into lr_asset (asset_key, loaded_run, asset_type, player_id, orig_franchise, pick_year, pick_round, pick_slot) values ('fpick:0001:2018:4', 1, 'FUTURE_PICK', null, '0001', 2018, 4, null), ('fpick:0002:2018:4', 1, 'FUTURE_PICK', null, '0002', 2018, 4, null), ('spick:2018:4:11', 1, 'SLOT_PICK', null, null, 2018, 4, 11)");
+  t.ok(fails("insert into lr_asset values ('fpick:bad', 1, 'FUTURE_PICK', null, null, 2018, 4, null)"), "a future pick needs its original franchise");
+  t.ok(fails("insert into lr_asset values ('spick:bad', 1, 'SLOT_PICK', null, '0001', 2018, 4, 3)"), "a slot pick has no original franchise");
+  const link = (id, asset, type, ts, rd, sl, cls, meth, ver, ev, from = 1, to = "null") => `insert into lr_link values (${id}, '${type}', '${asset}', ${ts}, ${rd}, ${sl}, '${cls}', '${meth}', ${ver}, null, ${ev}, ${from}, ${to})`;
+  const F = "FUTURE_PICK_TO_SLOT";
+  t.ok(!fails(link(1, "fpick:0001:2018:4", F, "null", "null", "null", "UNRESOLVED", "DIAG", 1, "null")), "an UNRESOLVED link with no slot is accepted");
+  t.ok(fails(link(2, "fpick:0002:2018:4", F, 2018, 4, 11, "UNRESOLVED", "DIAG", 1, "null")), "an UNRESOLVED link that names a slot is refused");
+  t.ok(fails(link(3, "fpick:0002:2018:4", F, 2018, 4, 11, "CONFIRMED", "OK", 1, "'e'")), "a future pick can never be CONFIRMED to a slot");
+  t.ok(fails(link(3, "fpick:0002:2018:4", F, 2018, 4, 11, "CALCULATED", "OK", 1, "'e'")), "nor CALCULATED (count netting cannot be stored as a calculation)");
+  t.ok(fails(link(4, "fpick:0002:2018:4", F, 2018, 4, 11, "INFERRED", "DIAG", 1, "'e'")), "an INFERRED link from a diagnostic method is refused");
+  t.ok(fails(link(5, "fpick:0002:2018:4", F, 2018, 4, 11, "INFERRED", "NOPE", 1, "'e'")), "a link must name a method that exists");
+  t.ok(fails(link(6, "fpick:0002:2018:4", F, 2018, 4, 11, "INFERRED", "OK", 1, "null")), "an INFERRED link with no evidence is refused");
+  t.ok(fails(link(7, "fpick:0002:2018:4", F, 2019, 4, 11, "INFERRED", "OK", 1, "'e'")), "a future pick of 2018 cannot resolve to a 2019 slot");
+  t.ok(fails(link(8, "fpick:0002:2018:4", F, 2018, "null", 11, "INFERRED", "OK", 1, "'e'")), "a resolved link with no round is refused");
+  t.ok(fails(link(9, "spick:2018:4:11", F, "null", "null", "null", "UNRESOLVED", "DIAG", 1, "null")), "a future-pick link cannot start from a slot pick");
+  t.ok(fails(link(10, "fpick:0001:2018:4", F, "null", "null", "null", "UNRESOLVED", "DIAG", 1, "null", 2)), "two open links for the same pick and type are refused");
+  t.ok(fails(link(11, "fpick:0002:2018:4", F, "null", "null", "null", "LIKELY", "DIAG", 1, "null")), "an unknown evidence class is refused");
+  t.ok(!fails(link(12, "fpick:0002:2018:4", F, 2018, 4, 11, "INFERRED", "OK", 1, "'e'")), "an INFERRED link with an approved method, its own year and round, and evidence is accepted");
+  t.ok(!fails("insert into lr_link_candidate values (1, 2018, 4, 11, 'mfl_slot_list')"), "candidates attach to an UNRESOLVED link");
+  t.ok(fails("insert into lr_link_candidate values (12, 2018, 4, 11, 'mfl_slot_list')"), "candidates on an INFERRED link are refused");
+  // coverage, releases, cap
+  const cov = (id, cls, st, src, to = "null") => `insert into lr_coverage values (${id}, ${src}, '${cls}', '2020-01-01', '2020-02-01', '${st}', 'b', 1, ${to})`;
+  t.ok(fails(cov(1, "contract", "UNVERIFIED", "'S'")), "an unknown event class is refused"); t.ok(fails(cov(2, "pick_transfer", "QUIET", "'S'")), "a quiet period is not a coverage state");
+  t.ok(fails(cov(3, "pick_transfer", "VERIFIED_COMPLETE", "null")), "a VERIFIED_COMPLETE interval with no source is refused");
+  t.ok(!fails(cov(4, "pick_transfer", "UNVERIFIED", "'S'")), "an unverified interval is accepted");
+  t.ok(!fails(cov(5, "pick_transfer", "VERIFIED_COMPLETE", "'S'")), "a verified interval row can be written");
+  t.ok(fails("insert into lr_coverage_check (coverage_id, check_kind, passed) values (5, 'archive_comparison', 0)"), "a failed check beside a verified interval is refused");
+  t.ok(fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (1, 'x', 'r')"), "a release cannot activate while a verified interval lacks its passing checks");
+  ok("insert into lr_coverage_check (coverage_id, check_kind, passed) values (5, 'archive_comparison', 1)");
+  t.ok(fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (1, 'x', 'r')"), "the comparison alone is not enough: the end-state reconciliation is required too");
+  ok("insert into lr_coverage_check (coverage_id, check_kind, passed) values (5, 'end_state_reconciliation', 1)");
+  t.ok(!fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (1, 'x', 'r')"), "with both checks the release activates");
+  t.ok(fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (2, 'y', 'r')"), "a second active release is refused");
+  ok("update lr_release set retired_utc = 'z' where run_id = 1");
+  t.ok(!fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (2, 'y', 'r')"), "after the first is retired, the next activates");
+  ok("insert into lr_trade (trade_id, loaded_run, season, ts, date_et, date_quality, source_id, source_key) values ('t1', 1, 2025, 1, '2025-01-01', 'recorded', 'S', 'k')");
+  t.ok(fails("insert into lr_trade_cap values ('t1', 1, '0001', '0002', 0)"), "a cap amount of 0 is refused (a missing amount must be handled, never stored as 0)");
+  t.ok(!fails("insert into lr_trade_cap values ('t1', 1, '0001', '0002', 3000)"), "a cap transfer keeps its direction and amount");
   // the query plans of the design's hot paths use the indexes the document defines
   const plan = (sql) => db.prepare(`explain query plan ${sql}`).all().map((r) => r.detail).join(" | ");
   t.match(plan("select * from lr_trade_leg where asset_key = 'x' order by ts"), /USING (COVERING )?INDEX lr_leg_asset/);
   t.match(plan("select * from lr_possession where franchise_id = '0001' order by from_ts limit 100"), /USING (COVERING )?INDEX lr_poss_franchise/);
-  t.match(plan("select * from lr_link where from_asset_key = 'x' and valid_from_run <= 1"), /USING (COVERING )?INDEX lr_link_asset/);
+  t.match(plan("select * from lr_link where from_asset_key = 'x' and valid_from_run <= 1"), /USING (COVERING )?INDEX lr_(link_asset|one_open_link)/);
   t.match(plan("select * from lr_draft_slot where season = 2018 and round = 4"), /USING (COVERING )?INDEX|PRIMARY KEY/);
   db.close();
 });
