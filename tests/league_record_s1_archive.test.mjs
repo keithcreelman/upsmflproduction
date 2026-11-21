@@ -549,6 +549,7 @@ while [ $# -gt 0 ]; do case "$1" in --output) out="$2"; shift;; esac; shift; don
 n=$(cat "${stubDir}/n" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "${stubDir}/n"
 cfg=$(cat)
 printf 'ARGS: %s\\n' "$args" >> "${stubDir}/log"; printf 'STDIN: %s\\n' "$cfg" >> "${stubDir}/log"
+env | sort > "${stubDir}/env$n"
 code=$(echo $STUB_CODES | cut -d' ' -f$n)
 cp "${stubDir}/body$n" "$out"
 printf '%s' "$code"
@@ -561,6 +562,13 @@ printf '%s' "$code"
     const log = fs.existsSync(path.join(stubDir, "log")) ? fs.readFileSync(path.join(stubDir, "log"), "utf8") : "";
     return { r, log, out };
   };
+  // an inherited, exported key variable of the same name must never reach a child process, and neither must the typed key
+  fs.rmSync(stubDir, { recursive: true, force: true });
+  { const env = { ...process.env, KEY_2025: "ENVLEAK2025", KEY_2026: "ENVLEAK2026" };
+    const r0 = (() => { fs.mkdirSync(stubDir); bodies.forEach((b, i) => fs.writeFileSync(path.join(stubDir, `body${i + 1}`), b)); return spawnSync("bash", [RUNNER], { input: "KEY2025SECRET\nKEY2026SECRET\n", encoding: "utf8", env: { ...env, PATH: `${bin}:${process.env.PATH}`, OUT: path.join(dir, "out-env"), STUB_CODES: "200 200 200 200" } }); })();
+    t.equal(r0.status, 0);
+    for (let i = 1; i <= 4; i++) { const e = fs.readFileSync(path.join(stubDir, `env${i}`), "utf8"); t.ok(!/KEY_2025|KEY_2026|ENVLEAK|KEY2025SECRET|KEY2026SECRET/.test(e), `child ${i}: no key variable, inherited or typed, in its environment`); }
+    t.ok(!/ENVLEAK|KEY2025SECRET|KEY2026SECRET/.test(r0.stdout + r0.stderr), "no key printed"); }
   // all four succeed
   let a = run("200 200 200 200");
   t.equal(a.r.status, 0, "four clean responses: success");
@@ -611,6 +619,12 @@ test("the sanitizer keeps only what is needed, drops comments, descriptions, exp
   t.ok(stops(() => sanitizeTransactions(txBody([tx({ timestamp: "1640000000" })]), { year: 2025 }), /outside 2025/), "a trade outside the instance year: a different instance");
   t.ok(stops(() => sanitizeTransactions(txBody([tx({ type: "FREE_AGENT" })]), { year: 2025 }), /not TRADE/), "a non-trade record in a trade-only export");
   t.ok(stops(() => sanitizeTransactions(txBody([tx({ franchise2_gave_up: "WEIRD_TOKEN," })]), { year: 2025 }), /unknown shape/), "an unknown token");
+  // a STOP message holds a fixed label and counts only: private text in a token, a field name or a malformed body is never echoed
+  const msgOf = (fn) => { try { fn(); return ""; } catch (e) { return String(e.message); } };
+  t.ok(!/PRIVATE-TOKEN/.test(msgOf(() => sanitizeTransactions(txBody([tx({ franchise2_gave_up: "PRIVATE-TOKEN-john@example.com," })]), { year: 2025 }))), "an unknown token is not printed");
+  t.ok(!/PRIVATE-FIELD/.test(msgOf(() => sanitizeTransactions(JSON.stringify({ transactions: "", "PRIVATE-FIELD": 1 }), { year: 2025 }))), "an unexpected top-level field name is not printed");
+  t.ok(!/PRIVATE-FIELD/.test(msgOf(() => sanitizeFuturePicks(JSON.stringify({ futureDraftPicks: {}, "PRIVATE-FIELD": 1 }), { year: 2025 }))), "nor in a future-pick response");
+  t.ok(!/PRIVATE-BODY/.test(msgOf(() => sanitizeTransactions("PRIVATE-BODY {not json", { year: 2025 }))), "a malformed body is not quoted");
   t.equal(sanitizeTransactions(txBody([tx({ franchise2: "0005" })]), { year: 2025 }).report.dropped_unrecognized_shape, 1, "a trade with itself is dropped");
   // future picks
   const f = sanitizeFuturePicks(fpBody(LEAGUE), { year: 2025 }); t.equal(f.report.picks, 4); t.equal(f.report.fields_dropped, 4); t.ok(!/PRIVATE-DESCRIPTION/.test(JSON.stringify(f)), "no description kept");
@@ -641,6 +655,16 @@ test("the sanitizer keeps only what is needed, drops comments, descriptions, exp
   t.ok(man.includes("UNKNOWN") && man.includes("CURRENT dated observation") && man.includes("EMPTY export does not establish"), "the manifest states what A3, A4 and an empty export do and do not show");
   t.deepEqual(run.manifest.requests.map((r) => r.request), APPROVED.map((x) => x.name)); t.ok(run.manifest.requests.every((r) => r.key === "REDACTED" && /^[0-9a-f]{64}$/.test(r.raw_sha256)));
   fs.rmSync(dir, { recursive: true, force: true });
+  // the command line: a stop prints a fixed label only, and any other failure prints no message and no stack
+  { const d2 = mkdir(), r2 = path.join(d2, "raw"); fs.mkdirSync(r2);
+    let log2 = ""; APPROVED.forEach((x, i) => { const b = i === 0 ? JSON.stringify({ transactions: { transaction: [tx({ franchise2_gave_up: "PRIVATE-TOKEN," })] } }) : bodies[i]; fs.writeFileSync(path.join(r2, `${x.name}.json`), b); log2 += `${x.name}\t${x.host}\t${x.pathq}\t200\t${Buffer.byteLength(b)}\t2026-11-22T12:00:0${i}Z\n`; });
+    fs.writeFileSync(path.join(d2, "requests.log"), log2);
+    const cli = spawnSync("node", ["--no-warnings", path.join(PKG, "sanitize_exports.mjs"), "--dir", d2], { encoding: "utf8" });
+    t.equal(cli.status, 2); t.ok(/^STOP: /.test(cli.stderr) && !/PRIVATE-TOKEN|at file:|node:internal/.test(cli.stdout + cli.stderr), "the command line prints a fixed label and no content or stack");
+    fs.rmSync(path.join(d2, "requests.log")); fs.writeFileSync(path.join(d2, "requests.log"), "garbage");
+    const cli2 = spawnSync("node", ["--no-warnings", path.join(PKG, "sanitize_exports.mjs"), "--dir", d2], { encoding: "utf8" });
+    t.equal(cli2.status, 2); t.ok(!/at file:|node:internal|Error:/.test(cli2.stdout + cli2.stderr), "a missing or garbled record prints no stack");
+    fs.rmSync(d2, { recursive: true, force: true }); }
   // the sanitizer reads and writes only the folder it is given (no network, no repository path)
   const ssrc = fs.readFileSync(path.join(PKG, "sanitize_exports.mjs"), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
   t.ok(!/fetch\(|https?\.request|node:http|node:net|child_process|process\.env/.test(ssrc), "no network, no subprocess, no environment");

@@ -13,6 +13,10 @@
 #   OUT=/some/private/dir ./run_a1_a4.sh   to choose the private folder (default: $HOME/ups_league_record_exports/2026-11).
 set -u
 umask 077
+# A key variable that already exists in the caller's environment (and may be exported) is removed before anything runs; `read` below then creates an UNEXPORTED shell variable.
+# allexport is switched off so a later assignment can never be exported by accident.
+set +a
+unset KEY_2025 KEY_2026 key enc k 2>/dev/null
 
 HOST='www48.myfantasyleague.com'
 UA='ups-league-record-readonly/1'

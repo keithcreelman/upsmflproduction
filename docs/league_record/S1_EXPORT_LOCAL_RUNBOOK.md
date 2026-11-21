@@ -34,7 +34,7 @@ Then read `run_a1_a4.sh` (about 90 lines) for these properties; each is also che
 node scripts/league_record/s1/export_package/sanitize_exports.mjs --dir "$HOME/ups_league_record_exports/2026-11"
 ```
 
-The first command prompts for the two keys and prints one line per request (name, HTTP status, bytes). The second checks and sanitizes. **If either stops, do not retry with another credential; send me only the printed STOP line (it contains no key and no record).**
+The first command prompts for the two keys and prints one line per request (name, HTTP status, bytes). The second checks and sanitizes. **If either stops, do not retry with another credential; send me only the printed STOP line. It holds a fixed label and counts, never a key, a record, a token or a name (the sanitizer is built and tested so that it cannot print response content).**
 
 ## 4. What the sanitizer checks (a stop is exit 2; dropped records give exit 3)
 

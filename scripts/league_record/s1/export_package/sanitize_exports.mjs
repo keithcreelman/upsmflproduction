@@ -37,7 +37,7 @@ export function sanitizeTransactions(rawText, { year, name = "transactions" }) {
   const j = parse(rawText, name);
   const known = new Set(["version", "encoding", "transactions"]);
   const extraTop = Object.keys(j).filter((k) => !known.has(k));
-  if (extraTop.length) stop(`${name}: unexpected top-level field(s): ${extraTop.join(", ")}`);
+  if (extraTop.length) stop(`${name}: ${extraTop.length} unexpected top-level field(s) (names are not printed)`);
   const t = j.transactions;
   if (t != null && t !== "" && (typeof t !== "object" || Array.isArray(t))) stop(`${name}: "transactions" has an unexpected format`);
   const list = t && typeof t === "object" ? arr(t.transaction) : [];
@@ -57,11 +57,11 @@ export function sanitizeTransactions(rawText, { year, name = "transactions" }) {
     for (const x of [...a, ...b]) if (!TOKEN.test(x)) report.unknown_tokens.push(x);
     if (String(r.comments || "").trim()) report.comments_dropped += 1;
     if (r.expires != null && r.expires !== "") report.expires_dropped += 1;
-    ids.add(r.franchise); ids.add(r.franchise2);
-    records.push({ ts, franchise: r.franchise, franchise2: r.franchise2, gave_up_by_franchise: a, gave_up_by_franchise2: b });
+    ids.add(String(r.franchise)); ids.add(String(r.franchise2));
+    records.push({ ts, franchise: String(r.franchise), franchise2: String(r.franchise2), gave_up_by_franchise: a, gave_up_by_franchise2: b });
   }
   if (report.other_types) stop(`${name}: ${report.other_types} record(s) are not TRADE although only trades were requested`);
-  if (report.unknown_tokens.length) stop(`${name}: token(s) of an unknown shape: ${[...new Set(report.unknown_tokens)].slice(0, 5).join(", ")}`);
+  if (report.unknown_tokens.length) stop(`${name}: ${new Set(report.unknown_tokens).size} asset token(s) of an unknown shape (the tokens are not printed; they could hold private text)`);
   records.sort((x, y) => x.ts - y.ts || x.franchise.localeCompare(y.franchise) || JSON.stringify(x).localeCompare(JSON.stringify(y)));
   report.kept = records.length; report.franchise_ids = [...ids].sort();
   return { records, report };
@@ -71,7 +71,7 @@ export function sanitizeTransactions(rawText, { year, name = "transactions" }) {
 export function sanitizeFuturePicks(rawText, { year, name = "futurepicks" }) {
   const j = parse(rawText, name);
   const extraTop = Object.keys(j).filter((k) => !["version", "encoding", "futureDraftPicks"].includes(k));
-  if (extraTop.length) stop(`${name}: unexpected top-level field(s): ${extraTop.join(", ")}`);
+  if (extraTop.length) stop(`${name}: ${extraTop.length} unexpected top-level field(s) (names are not printed)`);
   const fd = j.futureDraftPicks;
   if (fd == null || fd === "" || typeof fd !== "object" || Array.isArray(fd)) stop(`${name}: no "futureDraftPicks" object`);
   const franchises = arr(fd.franchise);
@@ -79,13 +79,13 @@ export function sanitizeFuturePicks(rawText, { year, name = "futurepicks" }) {
   const picks = [], holders = new Set();
   for (const f of franchises) {
     if (!f || typeof f !== "object" || !FID.test(String(f.id))) stop(`${name}: a franchise entry has no valid 4-digit id`);
-    holders.add(f.id);
+    holders.add(String(f.id));
     for (const p of arr(f.futureDraftPick)) {
       if (!p || typeof p !== "object") stop(`${name}: a pick entry has an unexpected format`);
       if (!/^\d{4}$/.test(String(p.year)) || !/^\d{1,2}$/.test(String(p.round))) stop(`${name}: a pick has no valid year and round`);
       if (!FID.test(String(p.originalPickFor))) stop(`${name}: a pick has no valid original franchise (originalPickFor); no default is substituted`);
       for (const k of Object.keys(p)) if (!["year", "round", "originalPickFor"].includes(k)) report.fields_dropped += 1;
-      picks.push({ holder: f.id, year: Number(p.year), round: Number(p.round), original: p.originalPickFor });
+      picks.push({ holder: String(f.id), year: Number(p.year), round: Number(p.round), original: String(p.originalPickFor) });
     }
   }
   picks.sort((a, b) => a.year - b.year || a.round - b.round || a.original.localeCompare(b.original) || a.holder.localeCompare(b.holder));
@@ -169,7 +169,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     console.log(`Sanitized extract and manifest written in ${path.resolve(dir)} (sanitized/ and manifest.json). Share only those, never raw/. Status: ${manifest.status}`);
     process.exit(exit);
   } catch (e) {
-    if (e instanceof StopError) { console.error(`STOP: ${e.message}\nNothing was shared or retried. Report this line only.`); process.exit(2); }
-    throw e;
+    if (e instanceof StopError) { console.error(`STOP: ${e.message}\nNothing was shared or retried. This line holds only a fixed label and counts; report it as is.`); process.exit(2); }
+    // any other failure: no stack trace and no message (either could quote the response), only a fixed label
+    console.error("STOP: an unexpected internal error occurred; no response content is shown. Report this line only."); process.exit(2);
   }
 }

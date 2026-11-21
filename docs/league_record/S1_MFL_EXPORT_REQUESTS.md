@@ -24,7 +24,7 @@ The league is private (MFL documents these exports as "private league access res
 - **API keys are believed to be issued per user, league and year (not verified).** One key may therefore not serve the 2014 league (`L=30590`) and the 2025 and 2026 league (`L=74598`). Each league-year may need its own key; if a call is refused for authorization it stops and the commissioner is asked. It is never retried with a different credential.
 - **Not used:** the commissioner **cookie**, and `TYPE=league` (with a commissioner credential it returns owner names and e-mail addresses).
 - **The credential is supplied by the commissioner at run time** and is read without echo (`read -s`, below), kept only in a shell variable, and passed to `curl` through its standard input so it is **not visible in the process list**. I do not read, print, log or store it. No command line, file or document contains it.
-- **Two ways to run, commissioner's choice:** (a) the commissioner runs the printed block in their own terminal and hands back the output files, or (b) after approval, I run the exact block with the variable the commissioner has set. In both cases the block is the one printed in section 4.
+- **Who runs it (commissioner's ruling, 2026-11-21): the commissioner only, locally.** Claude does not run the requests, does not retrieve a credential from the repository, an account or the environment, and has not seen any response. The runnable, tested package is `scripts/league_record/s1/export_package/` (see `S1_EXPORT_LOCAL_RUNBOOK.md`); the script is the single source of the command.
 
 ### What is kept, what is dropped
 
@@ -73,49 +73,16 @@ The conflict is described in `S1_CONFLICT_2014_4_12.md`. It is **a different rec
 
 Decision rules: if N1 records franchise 0004 for pick 4.12, the archive's draft row is wrong and the conflict disappears as a data error; if N1 records 0006 and N2 shows a later transfer of the token to 0006, the chain was incomplete; if both agree with the archive, the conflict stays open and is reported again with these sources named. None of this uses the 2018 ruling.
 
-## 4. The exact command block (for approval, not run)
+## 4. The command (the script is the single source)
 
-```bash
-# The commissioner's own shell. Each key is typed without echo, kept in a shell variable only (never exported,
-# never written to a file or shell history) and passed to curl on its standard input so it is not in `ps`.
-# One key per league-year: a key may not work for another instance.
-read -s MFL_KEY_2025; echo                         # key for the 2025 instance of league 74598
-read -s MFL_KEY_2026; echo                         # key for the 2026 instance of league 74598
-# read -s MFL_KEY_2014; echo                       # only if set N is approved: key for the 2014 league (30590)
-OUT="$HOME/ups_league_record_exports/2026-11"      # outside the repository
-mkdir -p "$OUT"
-UA='ups-league-record-readonly/1'
-get() {  # GET only. args: name, host, path-and-query (no key), key. Returns non-zero (and the chain below stops) on anything but HTTP 200.
-  # --max-redirs 0 and no --location: a redirect is a stop, never followed (it could carry the key to another host).
-  local code
-  local k; k=$(printf '%s' "$4" | python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))')     # URL-encode: a quote or backslash can never break the curl config line
-  code=$(printf 'url = "https://%s%s&APIKEY=%s"\n' "$2" "$3" "$k" | \
-    curl --silent --show-error --max-time 60 --max-redirs 0 --header "User-Agent: $UA" \
-         --output "$OUT/$1.json" --write-out '%{http_code}' --config -) || { echo "$1: curl failed; stop and report" >&2; return 1; }
-  echo "$1 HTTP $code $(wc -c < "$OUT/$1.json" | tr -d ' ') bytes"
-  [ "$code" = 200 ] || { echo "$1: HTTP $code (a redirect or an error); stop and report" >&2; return 1; }
-  # MFL can return an error as HTTP 200 with an error body: refuse to treat it as data.
-  if head -c 400 "$OUT/$1.json" | grep -qi '"error"'; then echo "$1: MFL returned an error body; stop and report" >&2; return 1; fi
-  sleep 1
-}
-# chained with && so the first failure stops everything after it
-get A1_transactions_2025_trade 'www48.myfantasyleague.com' '/2025/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2025" &&
-get A2_transactions_2026_trade 'www48.myfantasyleague.com' '/2026/export?TYPE=transactions&L=74598&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2026" &&
-get A3_futurepicks_2025        'www48.myfantasyleague.com' '/2025/export?TYPE=futureDraftPicks&L=74598&JSON=1' "$MFL_KEY_2025" &&
-get A4_futurepicks_2026        'www48.myfantasyleague.com' '/2026/export?TYPE=futureDraftPicks&L=74598&JSON=1' "$MFL_KEY_2026"
-# optional B and N sets, only if approved (append each with && in the same way):
-# get B1_saladj_2025             'www48.myfantasyleague.com' '/2025/export?TYPE=salaryAdjustments&L=74598&JSON=1' "$MFL_KEY_2025"
-# get B2_saladj_2026             'www48.myfantasyleague.com' '/2026/export?TYPE=salaryAdjustments&L=74598&JSON=1' "$MFL_KEY_2026"
-# get N1_draftresults_2014       'www45.myfantasyleague.com' '/2014/export?TYPE=draftResults&L=30590&JSON=1' "$MFL_KEY_2014"
-# get N2_transactions_2014_trade 'www45.myfantasyleague.com' '/2014/export?TYPE=transactions&L=30590&TRANS_TYPE=TRADE&JSON=1' "$MFL_KEY_2014"
-# get N3_transactions_2014_all   'www45.myfantasyleague.com' '/2014/export?TYPE=transactions&L=30590&TRANS_TYPE=*&JSON=1' "$MFL_KEY_2014"
-shasum -a 256 "$OUT"/*.json                        # hash of every raw response, recorded with the capture time
-unset MFL_KEY_2025 MFL_KEY_2026 MFL_KEY_2014
-```
+The command is **`scripts/league_record/s1/export_package/run_a1_a4.sh`**, reviewed with `--print` (no key read, no network). It sends exactly the four requests of section 2 and nothing else, and the tests fail if it, the sanitizer or this document ever differ. Its properties (each tested with a stub `curl`):
 
-`curl` is used in its default `GET` mode; the block contains no `-X`, `-d`, `--data`, `-F`, `-T` or `--location`. The transfer line prints the name, status and size only; no URL and no key is ever printed. A redirect response (3xx) is a stop: it is reported and nothing is retried.
+- plain GET only, redirects refused, any status other than 200 or any MFL error body stops the run, and nothing is sent after a failure;
+- the key is typed at a prompt (`read -s`) for each instance (2025, 2026), kept only in an unexported shell variable (an inherited variable of the same name is unset first), URL-encoded, and passed to `curl` on its standard input: never in a file, a history line, a printed line, a process argument or a child's environment;
+- raw responses go to a private folder outside any git work tree (mode 700, files 600);
+- the sanitizer then writes the only shareable output (`sanitized/` and `manifest.json`).
 
-**Strictly read-only confirmation:** every URL is an `export` request; the block calls no import, login, pending-trade, offer or settings endpoint; it writes only the files in `$OUT` on the local machine; it touches no Cloudflare resource and no production database.
+**Strictly read-only confirmation:** every URL is an `export` request; the script calls no import, login, pending-trade, offer or settings endpoint; it writes only files in the private folder on the commissioner's machine; it touches no Cloudflare resource and no production database. The optional sets B and N are **not** in the script (they are not approved).
 
 ## 5. Not requested here
 
