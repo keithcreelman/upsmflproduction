@@ -56191,10 +56191,10 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
         // (2026-10-11): a URL carrying it lands in logs, shell history and job
         // output. New callers (players-data-backfill.yml) send the header; the
         // ?APIKEY= form stays only for the two existing workflows.
-        // Both forms (?APIKEY= and Authorization: Bearer — the COMMISH key only) plus UPS_ADMIN_KEY (header only) are decided in
-        // admin_secrets.js, site "leaderboard_precompute_build".
-        const pcKeyOk = matchAdminSecret({ request, url, env, site: "leaderboard_precompute_build" }).ok;
-        if (!pcKeyOk) {
+        // The header forms (Authorization: Bearer — the COMMISH key only — and UPS_ADMIN_KEY) are decided in admin_secrets.js,
+        // site "leaderboard_precompute_build" (which also lists the ?APIKEY= form; `sessionByApiKey` stays the gate for it, unchanged).
+        const pcHeaderKeyOk = matchAdminSecret({ request, url, env, site: "leaderboard_precompute_build" }).ok;
+        if (!sessionByApiKey && !pcHeaderKeyOk) {
           return jsonOut(403, { ok: false, error: "Valid COMMISH_API_KEY is required to build the precompute." });
         }
         const body = await request.json().catch(() => ({}));

@@ -471,7 +471,7 @@ const countBy = (re) => { const out = {}; for (const f of walk(SRC)) { const n =
 //   index.js                   outgoing MFL / self-call uses + the legacy in-route checks that are NOT yet migrated (see docs/UPS_ADMIN_KEY_MIGRATION.md §2b)
 const SECRET_MENTION_BASELINE = { "admin_secrets.js": 3, "hall.js": 3, "index.js": 162, "lineup_forfeit_reversal.js": 1, "trade_2way.js": 6, "trade_3way.js": 8, "trade_dm.js": 1 };
 const CRED_HEADER_BASELINE = { "admin_authority.js": 1, "admin_secrets.js": 8, "index.js": 17 };
-const SESSION_BY_API_KEY_BASELINE = { "index.js": 65 };
+const SESSION_BY_API_KEY_BASELINE = { "index.js": 66 };
 
 test("structure: safeEqual( is called only inside admin_secrets.js", () => {
   t.deepEqual(Object.keys(countBy(/\bsafeEqual\s*\(/)), ["admin_secrets.js"]);

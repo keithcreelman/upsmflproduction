@@ -43,7 +43,7 @@ Corrections to the list I was given: the seven items map to eight policy sites b
 
 There are many more credential comparisons in `worker/src/index.js`, in routes that sit behind the front door. For these, `UPS_ADMIN_KEY` **already passes the front door (site 1) but is then refused by the route's own check**, which still wants a legacy key. Measured at the PR head:
 
-- `sessionByApiKey` (the shared gate `?APIKEY=` equals COMMISH): 65 references, 42 of them `if (!sessionByApiKey` gates on routes. It is defined once, so migrating all of them is a small, central change (recommended as "Phase 1b").
+- `sessionByApiKey` (the shared gate `?APIKEY=` equals COMMISH): 66 references, 42 of them `if (!sessionByApiKey` gates on routes. It is defined once, so migrating all of them is a small, central change (recommended as "Phase 1b").
 - About 25 direct comparisons of the form `browserKey === commishKey` (some also accept TEST_SYNC; five accept COMMISH or MFL; one reads an `Authorization` header equal to COMMISH), spread over routes such as the calendar and test-sync routes, bug-report triage, the drop tracker and trade-offer routes.
 - About 55 worker-internal calls to its own routes put `APIKEY=<COMMISH>` in a URL (42 in `index.js`, the rest in `trade_2way.js`, `trade_3way.js`, `trade_dm.js`).
 
