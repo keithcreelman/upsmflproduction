@@ -290,7 +290,7 @@
       if (S.view === "lineup") out += startingCard(S, wi, lineup);
       else if (S.view === "contracts") out += statusLine(S, lineup, wi, S.view) + sumCard("<b>" + R.endingAfterSeason(t) + " end after " + m.season + "</b>");
       else if (S.view === "performance") {
-        out += statusLine(S, lineup, wi, S.view) + sumCard("<b>Team score " + esc(teamScoreLine(S, t, wi)) + "</b> · Projection Unavailable") +
+        out += statusLine(S, lineup, wi, S.view) + sumCard("<b>Team score " + esc(teamScoreLine(S, t, wi)) + "</b> · " + nw("Projection Unavailable")) +
           '<div class="ex pad">' + (R.scoreWeek(wi) ? "Scores are for Week " + R.scoreWeek(wi) + ", the last completed week. Week " + cur + " is not complete." : "No week has been completed yet, so there are no scores to show. Week " + cur + " is not complete.") + "</div>";
       } else out += statusLine(S, lineup, wi, S.view);
       if (inj) out += '<div class="ex pad">' + esc(inj) + "</div>";
