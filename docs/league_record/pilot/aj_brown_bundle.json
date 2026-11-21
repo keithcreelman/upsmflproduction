@@ -1,0 +1,4518 @@
+{
+  "coverage": {
+    "archive_last_trade": "2025-11-27",
+    "first_pre_draft_slot_list": "2026-04-21",
+    "historical_pattern": {
+      "december_trades": [
+        "2014-12-30"
+      ],
+      "first_and_last_trade_by_year": {
+        "2018": {
+          "first": "2018-03-20",
+          "last": "2018-11-21"
+        },
+        "2019": {
+          "first": "2019-03-04",
+          "last": "2019-11-28"
+        },
+        "2020": {
+          "first": "2020-03-18",
+          "last": "2020-11-24"
+        },
+        "2021": {
+          "first": "2021-05-08",
+          "last": "2021-11-25"
+        },
+        "2022": {
+          "first": "2022-03-13",
+          "last": "2022-11-24"
+        },
+        "2023": {
+          "first": "2023-03-29",
+          "last": "2023-11-23"
+        },
+        "2024": {
+          "first": "2024-03-13",
+          "last": "2024-11-28"
+        },
+        "2025": {
+          "first": "2025-02-24",
+          "last": "2025-11-27"
+        }
+      },
+      "months_with_no_recorded_trade": [
+        "01"
+      ],
+      "note": "indication only: across 16 seasons the archive records no trade in January and 1 in December (2014-12-30), which fits a closed window after the deadline, but the records cannot prove an empty window",
+      "trades_by_calendar_month": {
+        "10": 137,
+        "11": 204,
+        "12": 1,
+        "02": 7,
+        "03": 54,
+        "04": 39,
+        "05": 144,
+        "06": 178,
+        "07": 65,
+        "08": 133,
+        "09": 74
+      }
+    },
+    "last_pre_draft_slot_list": "2026-05-24",
+    "named_gap": {
+      "basis": "the archive's last TRADE is the deadline day; other archive transaction types run to the last archive transaction date; the first 2026 snapshot transaction starts the next observed period. Nothing observes a trade between them.",
+      "first_snapshot_trade": "2026-03-27",
+      "first_snapshot_transaction_et": "2026-03-07 19:13:45",
+      "from": "2025-11-28",
+      "kind": "incomplete_trade_coverage",
+      "last_archive_trade": "2025-11-27",
+      "last_archive_transaction": "2025-12-29",
+      "to": "2026-03-07"
+    },
+    "snapshot_first_trade": "2026-03-27",
+    "windows_overlapping_the_chains": [
+      {
+        "basis": "no recorded transaction of any kind in the archive for 14 or more days",
+        "from": "2024-12-31",
+        "kind": "unobserved",
+        "to": "2025-02-17"
+      },
+      {
+        "basis": "no recorded transaction of any kind in the archive for 14 or more days",
+        "from": "2025-03-27",
+        "kind": "unobserved",
+        "to": "2025-04-25"
+      },
+      {
+        "basis": "no recorded transaction of any kind in the archive for 14 or more days",
+        "from": "2025-06-11",
+        "kind": "unobserved",
+        "to": "2025-06-30"
+      },
+      {
+        "basis": "no recorded transaction of any kind in the archive for 14 or more days",
+        "from": "2025-07-02",
+        "kind": "unobserved",
+        "to": "2025-07-15"
+      },
+      {
+        "basis": "the archive's last TRADE is the deadline day; other archive transaction types run to the last archive transaction date; the first 2026 snapshot transaction starts the next observed period. Nothing observes a trade between them.",
+        "from": "2025-11-28",
+        "kind": "incomplete_trade_coverage",
+        "to": "2026-03-07"
+      }
+    ]
+  },
+  "frontier": [],
+  "gaps": [
+    {
+      "basis": "the archive's last TRADE is the deadline day; other archive transaction types run to the last archive transaction date; the first 2026 snapshot transaction starts the next observed period. Nothing observes a trade between them.",
+      "first_snapshot_transaction_et": "2026-03-07 19:13:45",
+      "from": "2025-11-28",
+      "kind": "incomplete_trade_coverage",
+      "last_archive_trade": "2025-11-27",
+      "last_archive_transaction": "2025-12-29",
+      "to": "2026-03-07"
+    },
+    {
+      "added_by": "0004",
+      "asset": "player:13130",
+      "at": {
+        "kind": "archive",
+        "table": "transactions_auction",
+        "transactionid": "auction2025_278.1"
+      },
+      "date": "2025-08-05",
+      "holder_before": "0008",
+      "kind": "implicit_release",
+      "note": "the previous holder's release is not recorded; the add by another franchise is the first record that ends the stint"
+    },
+    {
+      "added_by": "0002",
+      "asset": "player:14797",
+      "at": {
+        "day": "2026-11-19",
+        "file": "transactions.json",
+        "index": 1197,
+        "kind": "snapshot",
+        "type": "AUCTION_WON"
+      },
+      "date": "2026-07-27",
+      "holder_before": "0005",
+      "kind": "implicit_release",
+      "note": "the previous holder's release is not recorded; the add by another franchise is the first record that ends the stint"
+    },
+    {
+      "kind": "points_horizon",
+      "note": "the archive's weekly scoring record ends with the 2025 season; no 2026 weekly scores exist in any committed source, so no 2026 points are shown for any asset"
+    },
+    {
+      "kind": "salary_horizon",
+      "note": "weekly roster contracts end with the 2025 season; 2026 contracts are shown only from the latest daily roster snapshot, as recorded on that day"
+    },
+    {
+      "kind": "team_cap_totals_not_computed",
+      "note": "per-player salary and the recorded cap transfers are shown; a franchise's total cap position on a date needs the full roster and adjustment record (League Record slice S2)"
+    },
+    {
+      "kind": "owner_identity_not_asserted",
+      "note": "every statement is about a franchise id; franchise continuity is not owner continuity (League Record slice S3)"
+    }
+  ],
+  "nodes": [
+    {
+      "chain": {
+        "breaks": [
+          {
+            "added_by": "0004",
+            "at": {
+              "kind": "archive",
+              "table": "transactions_auction",
+              "transactionid": "auction2025_278.1"
+            },
+            "date": "2025-08-05",
+            "holder_before": "0008",
+            "kind": "implicit_release",
+            "note": "the previous holder's release is not recorded; the add by another franchise is the first record that ends the stint"
+          }
+        ],
+        "events": [
+          {
+            "date": "2024-07-24",
+            "date_quality": "recorded",
+            "from": "0005",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2024_30",
+              "transaction_ids": [
+                "trade2024_30.1a",
+                "trade2024_30.1b",
+                "trade2024_30.2a",
+                "trade2024_30.2b"
+              ]
+            },
+            "time": "08:51:24",
+            "to": "0008",
+            "trade": "trade2024_30"
+          },
+          {
+            "date": "2025-08-05",
+            "date_quality": null,
+            "from": null,
+            "kind": "add",
+            "method": "AUCTION_WON",
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_auction",
+              "transactionid": "auction2025_278.1"
+            },
+            "time": "07:47:30",
+            "to": "0004",
+            "trade": null
+          },
+          {
+            "date": "2025-08-19",
+            "date_quality": "recorded",
+            "from": "0004",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_41",
+              "transaction_ids": [
+                "trade2025_41.1a",
+                "trade2025_41.1b",
+                "trade2025_41.2a",
+                "trade2025_41.2b",
+                "trade2025_41.3a",
+                "trade2025_41.3b",
+                "trade2025_41.4a",
+                "trade2025_41.4b",
+                "trade2025_41.5a",
+                "trade2025_41.5b",
+                "trade2025_41.6a",
+                "trade2025_41.6b",
+                "trade2025_41.7a",
+                "trade2025_41.7b",
+                "trade2025_41.8a",
+                "trade2025_41.8b"
+              ]
+            },
+            "time": "21:41:47",
+            "to": "0007",
+            "trade": "trade2025_41"
+          },
+          {
+            "date": "2026-07-19",
+            "date_quality": null,
+            "from": "0007",
+            "kind": "drop",
+            "method": "FREE_AGENT",
+            "round": null,
+            "slot": null,
+            "source": {
+              "day": "2026-11-19",
+              "file": "transactions.json",
+              "index": 1538,
+              "kind": "snapshot",
+              "type": "FREE_AGENT"
+            },
+            "time": "08:45:12",
+            "to": null,
+            "trade": null
+          },
+          {
+            "date": "2026-07-29",
+            "date_quality": null,
+            "from": null,
+            "kind": "add",
+            "method": "AUCTION_WON",
+            "round": null,
+            "slot": null,
+            "source": {
+              "day": "2026-11-19",
+              "file": "transactions.json",
+              "index": 995,
+              "kind": "snapshot",
+              "type": "AUCTION_WON"
+            },
+            "time": "17:58:05",
+            "to": "0009",
+            "trade": null
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0005",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2024-07-24",
+              "kind": "trade",
+              "time": "08:51:24",
+              "trade": "trade2024_30"
+            }
+          },
+          {
+            "franchise": "0008",
+            "from": {
+              "date": "2024-07-24",
+              "kind": "trade",
+              "time": "08:51:24",
+              "trade": "trade2024_30"
+            },
+            "to": {
+              "date": "2025-08-05",
+              "kind": "add",
+              "time": "07:47:30",
+              "trade": null
+            }
+          },
+          {
+            "franchise": "0004",
+            "from": {
+              "date": "2025-08-05",
+              "kind": "add",
+              "time": "07:47:30",
+              "trade": null
+            },
+            "to": {
+              "date": "2025-08-19",
+              "kind": "trade",
+              "time": "21:41:47",
+              "trade": "trade2025_41"
+            }
+          },
+          {
+            "franchise": "0007",
+            "from": {
+              "date": "2025-08-19",
+              "kind": "trade",
+              "time": "21:41:47",
+              "trade": "trade2025_41"
+            },
+            "to": {
+              "date": "2026-07-19",
+              "kind": "drop",
+              "time": "08:45:12",
+              "trade": null
+            }
+          },
+          {
+            "franchise": "0009",
+            "from": {
+              "date": "2026-07-29",
+              "kind": "add",
+              "time": "17:58:05",
+              "trade": null
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "economics": {
+        "notes": [],
+        "player_id": "13130",
+        "seasons": [
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0005",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 411.7,
+                "points_asserted_before_first_record": 411.7,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 0,
+                "points_regular_season_verified": 0,
+                "points_started_verified": 0,
+                "points_verified": 0,
+                "week_numbers": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14,
+                  15,
+                  16,
+                  17
+                ],
+                "weeks": 16,
+                "weeks_asserted": 16,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 0,
+                "weeks_verified": 0
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 2| TCV 109K| AAV 55K, 65K| Y1-44 Y2-65| Ext: Creel, Hood, Hammer",
+                "contract_status": "FL",
+                "franchise": "0005",
+                "from_week": 1,
+                "salary": 44000,
+                "to_week": 23,
+                "year_values_k": [
+                  {
+                    "value": 44,
+                    "year_index": 1
+                  },
+                  {
+                    "value": 65,
+                    "year_index": 2
+                  }
+                ],
+                "years_remaining": 2
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2023,
+            "weeks_with_scoring_row": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0008",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 48.4,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 0,
+                "points_regular_season_verified": 48.4,
+                "points_started_verified": 48.4,
+                "points_verified": 48.4,
+                "week_numbers": [
+                  10,
+                  11,
+                  12,
+                  13
+                ],
+                "weeks": 4,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 4,
+                "weeks_verified": 4
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 2| TCV 109K| AAV 65K| Y1-44 Y2-65| Ext: Creel, Hood, Hammer",
+                "contract_status": "FL",
+                "franchise": "0008",
+                "from_week": 1,
+                "salary": 65000,
+                "to_week": 23,
+                "year_values_k": [
+                  {
+                    "value": 44,
+                    "year_index": 1
+                  },
+                  {
+                    "value": 65,
+                    "year_index": 2
+                  }
+                ],
+                "years_remaining": 1
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2024,
+            "weeks_with_scoring_row": [
+              10,
+              11,
+              12,
+              13
+            ]
+          },
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0007",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 415.6,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 81.6,
+                "points_regular_season_verified": 334,
+                "points_started_verified": 415.6,
+                "points_verified": 415.6,
+                "week_numbers": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12,
+                  13,
+                  15,
+                  16,
+                  17
+                ],
+                "weeks": 16,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 16,
+                "weeks_verified": 16
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 1|",
+                "contract_status": "Veteran",
+                "franchise": "0007",
+                "from_week": 1,
+                "salary": 56000,
+                "to_week": 19,
+                "year_values_k": [],
+                "years_remaining": 1
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2025,
+            "weeks_with_scoring_row": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              15,
+              16,
+              17
+            ]
+          }
+        ]
+      },
+      "entered": {
+        "date": "2024-07-24",
+        "sent_by": "0005",
+        "trade": "trade2024_30",
+        "via": "trade"
+      },
+      "final_position": {
+        "chain_ended_by": null,
+        "chain_last_holder": "0009",
+        "consistent": true,
+        "snapshot_contract": {
+          "info": "CL 1| TCV 63K| AAV 63K",
+          "roster_status": "ROSTER",
+          "salary": 63000,
+          "status": "Vet-FAA",
+          "years_remaining": 1
+        },
+        "snapshot_day": "2026-11-19",
+        "snapshot_franchise": "0009"
+      },
+      "generation": 0,
+      "id": "player:13130",
+      "kind": "player",
+      "label": "McCaffrey, Christian",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "role": "surrendered_upstream",
+      "transfers": [],
+      "via": null
+    },
+    {
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2024-07-24",
+            "date_quality": "recorded",
+            "from": "0008",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2024_30",
+              "transaction_ids": [
+                "trade2024_30.1a",
+                "trade2024_30.1b",
+                "trade2024_30.2a",
+                "trade2024_30.2b"
+              ]
+            },
+            "time": "08:51:24",
+            "to": "0005",
+            "trade": "trade2024_30"
+          },
+          {
+            "date": "2025-03-05",
+            "date_quality": "recorded",
+            "from": "0005",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_5",
+              "transaction_ids": [
+                "trade2025_5.1a",
+                "trade2025_5.1b",
+                "trade2025_5.2a",
+                "trade2025_5.2b",
+                "trade2025_5.3a",
+                "trade2025_5.3b",
+                "trade2025_5.4a",
+                "trade2025_5.4b"
+              ]
+            },
+            "time": "13:18:22",
+            "to": "0006",
+            "trade": "trade2025_5"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0008",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2024-07-24",
+              "kind": "trade",
+              "time": "08:51:24",
+              "trade": "trade2024_30"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2024-07-24",
+              "kind": "trade",
+              "time": "08:51:24",
+              "trade": "trade2024_30"
+            },
+            "to": {
+              "date": "2025-03-05",
+              "kind": "trade",
+              "time": "13:18:22",
+              "trade": "trade2025_5"
+            }
+          },
+          {
+            "franchise": "0006",
+            "from": {
+              "date": "2025-03-05",
+              "kind": "trade",
+              "time": "13:18:22",
+              "trade": "trade2025_5"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "economics": {
+        "notes": [],
+        "player_id": "14104",
+        "seasons": [
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0005",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 239.1,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 66.3,
+                "points_regular_season_verified": 172.8,
+                "points_started_verified": 239.1,
+                "points_verified": 239.1,
+                "week_numbers": [
+                  1,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14,
+                  15,
+                  16,
+                  17
+                ],
+                "weeks": 13,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 13,
+                "weeks_verified": 13
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 2| TCV 92K| AAV 46K|Y1-19 Y2-73 | Ext: Sex, Creel",
+                "contract_status": "BL",
+                "franchise": "0005",
+                "from_week": 1,
+                "salary": 19000,
+                "to_week": 23,
+                "year_values_k": [
+                  {
+                    "value": 19,
+                    "year_index": 1
+                  },
+                  {
+                    "value": 73,
+                    "year_index": 2
+                  }
+                ],
+                "years_remaining": 2
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2024,
+            "weeks_with_scoring_row": [
+              1,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          },
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0006",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 239.7,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 44.6,
+                "points_regular_season_verified": 195.1,
+                "points_started_verified": 239.7,
+                "points_verified": 239.7,
+                "week_numbers": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14,
+                  15,
+                  16,
+                  17
+                ],
+                "weeks": 15,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 15,
+                "weeks_verified": 15
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 2| TCV 129K| AAV 46K, 56K|Y1-73 Y2-56 | Ext: Sex, Creel, LH",
+                "contract_status": "BL",
+                "franchise": "0006",
+                "from_week": 1,
+                "salary": 73000,
+                "to_week": 19,
+                "year_values_k": [
+                  {
+                    "value": 73,
+                    "year_index": 1
+                  },
+                  {
+                    "value": 56,
+                    "year_index": 2
+                  }
+                ],
+                "years_remaining": 2
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2025,
+            "weeks_with_scoring_row": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          }
+        ]
+      },
+      "entered": {
+        "date": "2024-07-24",
+        "received_by": "0005",
+        "trade": "trade2024_30",
+        "via": "trade"
+      },
+      "final_position": {
+        "chain_ended_by": null,
+        "chain_last_holder": "0006",
+        "consistent": true,
+        "snapshot_contract": {
+          "info": "CL 2| TCV 129K| AAV 56K|Y1-73 Y2-56| GTD: 96.8K| Ext: Sex, Creel, LH",
+          "roster_status": "ROSTER",
+          "salary": 56000,
+          "status": "Vet-Ext1",
+          "years_remaining": 1
+        },
+        "snapshot_day": "2026-11-19",
+        "snapshot_franchise": "0006"
+      },
+      "generation": 0,
+      "id": "player:14104",
+      "kind": "player",
+      "label": "Brown, A.J.",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "role": "acquired_upstream",
+      "transfers": [
+        {
+          "cap_received": [],
+          "cap_sent": [
+            20000
+          ],
+          "companions_sent": [],
+          "consideration": [
+            "spick:2025:1:8",
+            "fpick:0006:2026:3"
+          ],
+          "date": "2025-03-05",
+          "expanded": true,
+          "sent_asset": "player:14104",
+          "sent_to": "0006",
+          "time": "13:18:22",
+          "trade": "trade2025_5"
+        }
+      ],
+      "via": null
+    },
+    {
+      "became": "player:17051",
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-03-05",
+            "date_quality": "recorded",
+            "from": "0006",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_5",
+              "transaction_ids": [
+                "trade2025_5.1a",
+                "trade2025_5.1b",
+                "trade2025_5.2a",
+                "trade2025_5.2b",
+                "trade2025_5.3a",
+                "trade2025_5.3b",
+                "trade2025_5.4a",
+                "trade2025_5.4b"
+              ]
+            },
+            "time": "13:18:22",
+            "to": "0005",
+            "trade": "trade2025_5"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0006",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2025-03-05",
+              "kind": "trade",
+              "time": "13:18:22",
+              "trade": "trade2025_5"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-03-05",
+              "kind": "trade",
+              "time": "13:18:22",
+              "trade": "trade2025_5"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "entered": {
+        "date": "2025-03-05",
+        "received_for": "player:14104",
+        "trade": "trade2025_5",
+        "via": "trade"
+      },
+      "final_position": {
+        "kind": "slot_pick",
+        "resolved": true,
+        "selected_player": "17051"
+      },
+      "generation": 1,
+      "id": "spick:2025:1:8",
+      "kind": "slot_pick",
+      "label": "2025 round 1, slot 8 (pick 1.08)",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "resolution": {
+        "class": "CONFIRMED",
+        "conflict": false,
+        "coverage_gaps": [
+          {
+            "from": "2025-03-27",
+            "kind": "unobserved",
+            "to": "2025-04-25"
+          }
+        ],
+        "holder_at_selection": "0005",
+        "reason": null,
+        "rule": "SLOT_TOKEN_DRAFT_RESULT",
+        "selection": {
+          "date": "2025-05-25",
+          "franchise": "0005",
+          "note": null,
+          "overall": 8,
+          "player_id": "17051",
+          "round": 1,
+          "slot": 8,
+          "source": {
+            "key": {
+              "round": 1,
+              "season": 2025,
+              "slot": 8
+            },
+            "kind": "archive",
+            "table": "draftresults_mfl"
+          },
+          "time": "19:00:18",
+          "year": 2025
+        }
+      },
+      "role": "consideration",
+      "transfers": [],
+      "via": "player:14104"
+    },
+    {
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-05-25",
+            "date_quality": null,
+            "from": null,
+            "kind": "draft_selection",
+            "method": null,
+            "round": 1,
+            "slot": 8,
+            "source": {
+              "key": {
+                "round": 1,
+                "season": 2025,
+                "slot": 8
+              },
+              "kind": "archive",
+              "table": "draftresults_mfl"
+            },
+            "time": "19:00:18",
+            "to": "0005",
+            "trade": null
+          },
+          {
+            "date": "2025-08-07",
+            "date_quality": "recorded",
+            "from": "0005",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_34",
+              "transaction_ids": [
+                "trade2025_34.1a",
+                "trade2025_34.1b",
+                "trade2025_34.2a",
+                "trade2025_34.2b",
+                "trade2025_34.3a",
+                "trade2025_34.3b",
+                "trade2025_34.4a",
+                "trade2025_34.4b"
+              ]
+            },
+            "time": "10:54:26",
+            "to": "0010",
+            "trade": "trade2025_34"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-05-25",
+              "kind": "draft_selection",
+              "time": "19:00:18",
+              "trade": null
+            },
+            "to": {
+              "date": "2025-08-07",
+              "kind": "trade",
+              "time": "10:54:26",
+              "trade": "trade2025_34"
+            }
+          },
+          {
+            "franchise": "0010",
+            "from": {
+              "date": "2025-08-07",
+              "kind": "trade",
+              "time": "10:54:26",
+              "trade": "trade2025_34"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "economics": {
+        "notes": [],
+        "player_id": "17051",
+        "seasons": [
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0010",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 177,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 14,
+                "points_regular_season_verified": 163,
+                "points_started_verified": 145.5,
+                "points_verified": 177,
+                "week_numbers": [
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14,
+                  15,
+                  16
+                ],
+                "weeks": 14,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 11,
+                "weeks_verified": 14
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 3| TCV 24K| AAV 8K | Option Eligible",
+                "contract_status": "Rookie",
+                "franchise": "0010",
+                "from_week": 1,
+                "salary": 8000,
+                "to_week": 19,
+                "year_values_k": [],
+                "years_remaining": 3
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2025,
+            "weeks_with_scoring_row": [
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16
+            ]
+          }
+        ]
+      },
+      "entered": {
+        "date": "2025-05-25",
+        "source": {
+          "key": {
+            "round": 1,
+            "season": 2025,
+            "slot": 8
+          },
+          "kind": "archive",
+          "table": "draftresults_mfl"
+        },
+        "via": "draft_selection"
+      },
+      "final_position": {
+        "chain_ended_by": null,
+        "chain_last_holder": "0010",
+        "consistent": true,
+        "snapshot_contract": {
+          "info": "CL 3| TCV 24K| AAV 8K| Y1-8K, Y2-8K, Y3-8K, Y4-13K Option| GTD: 18K",
+          "roster_status": "ROSTER",
+          "salary": 8000,
+          "status": "Rookie-Draft",
+          "years_remaining": 2
+        },
+        "snapshot_day": "2026-11-19",
+        "snapshot_franchise": "0010"
+      },
+      "generation": 2,
+      "id": "player:17051",
+      "kind": "player",
+      "label": "Judkins, Quinshon",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "role": "drafted_player",
+      "transfers": [
+        {
+          "cap_received": [],
+          "cap_sent": [],
+          "companions_sent": [],
+          "consideration": [
+            "player:16644",
+            "fpick:0010:2026:2",
+            "fpick:0007:2026:2"
+          ],
+          "date": "2025-08-07",
+          "expanded": true,
+          "sent_asset": "player:17051",
+          "sent_to": "0010",
+          "time": "10:54:26",
+          "trade": "trade2025_34"
+        }
+      ],
+      "via": "spick:2025:1:8"
+    },
+    {
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-08-07",
+            "date_quality": "recorded",
+            "from": "0010",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_34",
+              "transaction_ids": [
+                "trade2025_34.1a",
+                "trade2025_34.1b",
+                "trade2025_34.2a",
+                "trade2025_34.2b",
+                "trade2025_34.3a",
+                "trade2025_34.3b",
+                "trade2025_34.4a",
+                "trade2025_34.4b"
+              ]
+            },
+            "time": "10:54:26",
+            "to": "0005",
+            "trade": "trade2025_34"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0010",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2025-08-07",
+              "kind": "trade",
+              "time": "10:54:26",
+              "trade": "trade2025_34"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-08-07",
+              "kind": "trade",
+              "time": "10:54:26",
+              "trade": "trade2025_34"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "economics": {
+        "notes": [],
+        "player_id": "16644",
+        "seasons": [
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0005",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 31.6,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 15.1,
+                "points_regular_season_verified": 16.5,
+                "points_started_verified": 0,
+                "points_verified": 31.6,
+                "week_numbers": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10,
+                  13,
+                  14,
+                  15,
+                  16,
+                  17
+                ],
+                "weeks": 15,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 0,
+                "weeks_verified": 15
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 3| TCV 6K| AAV 2K",
+                "contract_status": "Rookie",
+                "franchise": "0005",
+                "from_week": 1,
+                "salary": 2000,
+                "to_week": 19,
+                "year_values_k": [],
+                "years_remaining": 2
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2025,
+            "weeks_with_scoring_row": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          }
+        ]
+      },
+      "entered": {
+        "date": "2025-08-07",
+        "received_for": "player:17051",
+        "trade": "trade2025_34",
+        "via": "trade"
+      },
+      "final_position": {
+        "chain_ended_by": null,
+        "chain_last_holder": "0005",
+        "consistent": true,
+        "snapshot_contract": {
+          "info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+          "roster_status": "TAXI_SQUAD",
+          "salary": 2000,
+          "status": "Rookie-Draft",
+          "years_remaining": 1
+        },
+        "snapshot_day": "2026-11-19",
+        "snapshot_franchise": "0005"
+      },
+      "generation": 3,
+      "id": "player:16644",
+      "kind": "player",
+      "label": "Sinnott, Ben",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "role": "consideration",
+      "transfers": [],
+      "via": "player:17051"
+    },
+    {
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-08-07",
+            "date_quality": "recorded",
+            "from": "0010",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_34",
+              "transaction_ids": [
+                "trade2025_34.1a",
+                "trade2025_34.1b",
+                "trade2025_34.2a",
+                "trade2025_34.2b",
+                "trade2025_34.3a",
+                "trade2025_34.3b",
+                "trade2025_34.4a",
+                "trade2025_34.4b"
+              ]
+            },
+            "time": "10:54:26",
+            "to": "0005",
+            "trade": "trade2025_34"
+          },
+          {
+            "date": "2025-10-03",
+            "date_quality": "recorded",
+            "from": "0005",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_53",
+              "transaction_ids": [
+                "trade2025_53.1a",
+                "trade2025_53.1b",
+                "trade2025_53.2a",
+                "trade2025_53.2b",
+                "trade2025_53.3a",
+                "trade2025_53.3b",
+                "trade2025_53.4a",
+                "trade2025_53.4b",
+                "trade2025_53.5a",
+                "trade2025_53.5b"
+              ]
+            },
+            "time": "13:10:49",
+            "to": "0011",
+            "trade": "trade2025_53"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0010",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2025-08-07",
+              "kind": "trade",
+              "time": "10:54:26",
+              "trade": "trade2025_34"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-08-07",
+              "kind": "trade",
+              "time": "10:54:26",
+              "trade": "trade2025_34"
+            },
+            "to": {
+              "date": "2025-10-03",
+              "kind": "trade",
+              "time": "13:10:49",
+              "trade": "trade2025_53"
+            }
+          },
+          {
+            "franchise": "0011",
+            "from": {
+              "date": "2025-10-03",
+              "kind": "trade",
+              "time": "13:10:49",
+              "trade": "trade2025_53"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "entered": {
+        "date": "2025-08-07",
+        "received_for": "player:17051",
+        "trade": "trade2025_34",
+        "via": "trade"
+      },
+      "final_position": {
+        "candidate_slots": [
+          7
+        ],
+        "holder_at_evidence": "0011",
+        "kind": "future_pick",
+        "resolved": false
+      },
+      "generation": 3,
+      "id": "fpick:0010:2026:2",
+      "kind": "future_pick",
+      "label": "2026 round 2 pick, original franchise 0010",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "resolution": {
+        "candidate_slots": [
+          {
+            "draft_result": {
+              "date": "2026-05-24",
+              "franchise": "0011",
+              "player_id": "17476",
+              "player_name": null,
+              "source": {
+                "day": "2026-11-19",
+                "file": "draftResults.json",
+                "key": {
+                  "pick": "07",
+                  "round": "02"
+                },
+                "kind": "snapshot"
+              }
+            },
+            "moved_after_last_list": false,
+            "on_first_list": {
+              "day": "2026-04-21",
+              "holder": "0011",
+              "notes": [
+                "Pick traded from Blake Bombers."
+              ],
+              "traded_from_ids": [
+                "0010"
+              ]
+            },
+            "on_last_pre_draft_list": {
+              "day": "2026-05-24",
+              "holder": "0011",
+              "notes": [],
+              "traded_from_ids": []
+            },
+            "slot": 7
+          }
+        ],
+        "class": "UNRESOLVED",
+        "coverage_gaps": [
+          {
+            "from": "2025-11-28",
+            "kind": "incomplete_trade_coverage",
+            "to": "2026-03-07"
+          }
+        ],
+        "disclosure": null,
+        "evidence_day": "2026-05-24",
+        "evidence_kind": "mfl_slot_list",
+        "holder_at_evidence": "0011",
+        "last_recorded_transfer_ts": "2025-10-03",
+        "original_franchise": "0010",
+        "reason": "custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof",
+        "rule": null,
+        "rule_considered": "UNIQUE_HOLDER_V1",
+        "slot": null,
+        "status_for_totals": "no_link_no_totals"
+      },
+      "role": "consideration",
+      "transfers": [
+        {
+          "cap_received": [
+            11000
+          ],
+          "cap_sent": [],
+          "companions_sent": [
+            "player:13146",
+            "fpick:0005:2026:4"
+          ],
+          "consideration": [
+            "player:14797"
+          ],
+          "date": "2025-10-03",
+          "expanded": true,
+          "sent_asset": "fpick:0010:2026:2",
+          "sent_to": "0011",
+          "time": "13:10:49",
+          "trade": "trade2025_53"
+        }
+      ],
+      "via": "player:17051"
+    },
+    {
+      "chain": {
+        "breaks": [
+          {
+            "added_by": "0002",
+            "at": {
+              "day": "2026-11-19",
+              "file": "transactions.json",
+              "index": 1197,
+              "kind": "snapshot",
+              "type": "AUCTION_WON"
+            },
+            "date": "2026-07-27",
+            "holder_before": "0005",
+            "kind": "implicit_release",
+            "note": "the previous holder's release is not recorded; the add by another franchise is the first record that ends the stint"
+          }
+        ],
+        "events": [
+          {
+            "date": "2025-10-03",
+            "date_quality": "recorded",
+            "from": "0011",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_53",
+              "transaction_ids": [
+                "trade2025_53.1a",
+                "trade2025_53.1b",
+                "trade2025_53.2a",
+                "trade2025_53.2b",
+                "trade2025_53.3a",
+                "trade2025_53.3b",
+                "trade2025_53.4a",
+                "trade2025_53.4b",
+                "trade2025_53.5a",
+                "trade2025_53.5b"
+              ]
+            },
+            "time": "13:10:49",
+            "to": "0005",
+            "trade": "trade2025_53"
+          },
+          {
+            "date": "2026-07-27",
+            "date_quality": null,
+            "from": null,
+            "kind": "add",
+            "method": "AUCTION_WON",
+            "round": null,
+            "slot": null,
+            "source": {
+              "day": "2026-11-19",
+              "file": "transactions.json",
+              "index": 1197,
+              "kind": "snapshot",
+              "type": "AUCTION_WON"
+            },
+            "time": "15:46:15",
+            "to": "0002",
+            "trade": null
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0011",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2025-10-03",
+              "kind": "trade",
+              "time": "13:10:49",
+              "trade": "trade2025_53"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-10-03",
+              "kind": "trade",
+              "time": "13:10:49",
+              "trade": "trade2025_53"
+            },
+            "to": {
+              "date": "2026-07-27",
+              "kind": "add",
+              "time": "15:46:15",
+              "trade": null
+            }
+          },
+          {
+            "franchise": "0002",
+            "from": {
+              "date": "2026-07-27",
+              "kind": "add",
+              "time": "15:46:15",
+              "trade": null
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [
+        {
+          "date": "2026-07-27",
+          "kind": "add",
+          "method": "AUCTION_WON",
+          "note": "released rather than traded: no consideration was recorded",
+          "source": {
+            "day": "2026-11-19",
+            "file": "transactions.json",
+            "index": 1197,
+            "kind": "snapshot",
+            "type": "AUCTION_WON"
+          },
+          "time": "15:46:15"
+        }
+      ],
+      "economics": {
+        "notes": [],
+        "player_id": "14797",
+        "seasons": [
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0010",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 34.6,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 34.6,
+                "points_playoffs_verified": 0,
+                "points_regular_season_verified": 0,
+                "points_started_verified": 0,
+                "points_verified": 0,
+                "week_numbers": [
+                  1,
+                  2,
+                  3
+                ],
+                "weeks": 3,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 3,
+                "weeks_started_verified": 0,
+                "weeks_verified": 0
+              },
+              {
+                "disputed_weeks": [],
+                "franchise": "0011",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 16.2,
+                "points_asserted_before_first_record": 16.2,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 0,
+                "points_regular_season_verified": 0,
+                "points_started_verified": 0,
+                "points_verified": 0,
+                "week_numbers": [
+                  4
+                ],
+                "weeks": 1,
+                "weeks_asserted": 1,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 0,
+                "weeks_verified": 0
+              },
+              {
+                "disputed_weeks": [],
+                "franchise": "0005",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 183.4,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 54.9,
+                "points_regular_season_verified": 128.5,
+                "points_started_verified": 183.4,
+                "points_verified": 183.4,
+                "week_numbers": [
+                  6,
+                  7,
+                  8,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14,
+                  15,
+                  16,
+                  17
+                ],
+                "weeks": 11,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 11,
+                "weeks_verified": 11
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 1|",
+                "contract_status": "Veteran",
+                "franchise": "0010",
+                "from_week": 1,
+                "salary": 23000,
+                "to_week": 3,
+                "year_values_k": [],
+                "years_remaining": 1
+              },
+              {
+                "contract_info": "CL 1|",
+                "contract_status": "Veteran",
+                "franchise": "0011",
+                "from_week": 4,
+                "salary": 23000,
+                "to_week": 4,
+                "year_values_k": [],
+                "years_remaining": 1
+              },
+              {
+                "contract_info": "CL 1|",
+                "contract_status": "Veteran",
+                "franchise": "0005",
+                "from_week": 5,
+                "salary": 23000,
+                "to_week": 19,
+                "year_values_k": [],
+                "years_remaining": 1
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2025,
+            "weeks_with_scoring_row": [
+              1,
+              2,
+              3,
+              4,
+              6,
+              7,
+              8,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          }
+        ]
+      },
+      "entered": {
+        "date": "2025-10-03",
+        "received_for": "fpick:0010:2026:2",
+        "trade": "trade2025_53",
+        "via": "trade"
+      },
+      "final_position": {
+        "chain_ended_by": null,
+        "chain_last_holder": "0002",
+        "consistent": true,
+        "snapshot_contract": {
+          "info": "CL 2| TCV 52K| AAV 26K| Y1-26K, Y2-26K| GTD: 39K",
+          "roster_status": "ROSTER",
+          "salary": 26000,
+          "status": "Vet-MYM",
+          "years_remaining": 2
+        },
+        "snapshot_day": "2026-11-19",
+        "snapshot_franchise": "0002"
+      },
+      "generation": 4,
+      "id": "player:14797",
+      "kind": "player",
+      "label": "Swift, D'Andre",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "role": "consideration",
+      "transfers": [],
+      "via": "fpick:0010:2026:2"
+    },
+    {
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-08-07",
+            "date_quality": "recorded",
+            "from": "0010",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_34",
+              "transaction_ids": [
+                "trade2025_34.1a",
+                "trade2025_34.1b",
+                "trade2025_34.2a",
+                "trade2025_34.2b",
+                "trade2025_34.3a",
+                "trade2025_34.3b",
+                "trade2025_34.4a",
+                "trade2025_34.4b"
+              ]
+            },
+            "time": "10:54:26",
+            "to": "0005",
+            "trade": "trade2025_34"
+          },
+          {
+            "date": "2025-11-25",
+            "date_quality": "recorded",
+            "from": "0005",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_72",
+              "transaction_ids": [
+                "trade2025_72.1a",
+                "trade2025_72.1b",
+                "trade2025_72.2a",
+                "trade2025_72.2b",
+                "trade2025_72.3a",
+                "trade2025_72.3b",
+                "trade2025_72.4a",
+                "trade2025_72.4b"
+              ]
+            },
+            "time": "16:01:40",
+            "to": "0010",
+            "trade": "trade2025_72"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0010",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2025-08-07",
+              "kind": "trade",
+              "time": "10:54:26",
+              "trade": "trade2025_34"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-08-07",
+              "kind": "trade",
+              "time": "10:54:26",
+              "trade": "trade2025_34"
+            },
+            "to": {
+              "date": "2025-11-25",
+              "kind": "trade",
+              "time": "16:01:40",
+              "trade": "trade2025_72"
+            }
+          },
+          {
+            "franchise": "0010",
+            "from": {
+              "date": "2025-11-25",
+              "kind": "trade",
+              "time": "16:01:40",
+              "trade": "trade2025_72"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "entered": {
+        "date": "2025-08-07",
+        "received_for": "player:17051",
+        "trade": "trade2025_34",
+        "via": "trade"
+      },
+      "final_position": {
+        "candidate_slots": [
+          4,
+          11
+        ],
+        "holder_at_evidence": "0010",
+        "kind": "future_pick",
+        "resolved": false
+      },
+      "generation": 3,
+      "id": "fpick:0007:2026:2",
+      "kind": "future_pick",
+      "label": "2026 round 2 pick, original franchise 0007",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "resolution": {
+        "candidate_slots": [
+          {
+            "draft_result": {
+              "date": "2026-05-24",
+              "franchise": "0010",
+              "player_id": "17463",
+              "player_name": null,
+              "source": {
+                "day": "2026-11-19",
+                "file": "draftResults.json",
+                "key": {
+                  "pick": "04",
+                  "round": "02"
+                },
+                "kind": "snapshot"
+              }
+            },
+            "moved_after_last_list": false,
+            "on_first_list": {
+              "day": "2026-04-21",
+              "holder": "0010",
+              "notes": [
+                "Pick traded from Real Deal Creel."
+              ],
+              "traded_from_ids": [
+                "0008"
+              ]
+            },
+            "on_last_pre_draft_list": {
+              "day": "2026-05-24",
+              "holder": "0010",
+              "notes": [],
+              "traded_from_ids": []
+            },
+            "slot": 4
+          },
+          {
+            "draft_result": {
+              "date": "2026-05-24",
+              "franchise": "0010",
+              "player_id": "17478",
+              "player_name": null,
+              "source": {
+                "day": "2026-11-19",
+                "file": "draftResults.json",
+                "key": {
+                  "pick": "11",
+                  "round": "02"
+                },
+                "kind": "snapshot"
+              }
+            },
+            "moved_after_last_list": false,
+            "on_first_list": {
+              "day": "2026-04-21",
+              "holder": "0010",
+              "notes": [
+                "Pick traded from Sex Manther."
+              ],
+              "traded_from_ids": [
+                "0007"
+              ]
+            },
+            "on_last_pre_draft_list": {
+              "day": "2026-05-24",
+              "holder": "0010",
+              "notes": [],
+              "traded_from_ids": []
+            },
+            "slot": 11
+          }
+        ],
+        "class": "UNRESOLVED",
+        "coverage_gaps": [
+          {
+            "from": "2025-11-28",
+            "kind": "incomplete_trade_coverage",
+            "to": "2026-03-07"
+          }
+        ],
+        "disclosure": null,
+        "evidence_day": "2026-05-24",
+        "evidence_kind": "mfl_slot_list",
+        "holder_at_evidence": "0010",
+        "last_recorded_transfer_ts": "2025-11-25",
+        "original_franchise": "0007",
+        "reason": "custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof",
+        "rule": null,
+        "rule_considered": "UNIQUE_HOLDER_V1",
+        "slot": null,
+        "status_for_totals": "no_link_no_totals"
+      },
+      "role": "consideration",
+      "transfers": [
+        {
+          "cap_received": [],
+          "cap_sent": [],
+          "companions_sent": [
+            "player:16269",
+            "fpick:0008:2026:2"
+          ],
+          "consideration": [
+            "player:16150"
+          ],
+          "date": "2025-11-25",
+          "expanded": true,
+          "sent_asset": "fpick:0007:2026:2",
+          "sent_to": "0010",
+          "time": "16:01:40",
+          "trade": "trade2025_72"
+        }
+      ],
+      "via": "player:17051"
+    },
+    {
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-11-25",
+            "date_quality": "recorded",
+            "from": "0010",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_72",
+              "transaction_ids": [
+                "trade2025_72.1a",
+                "trade2025_72.1b",
+                "trade2025_72.2a",
+                "trade2025_72.2b",
+                "trade2025_72.3a",
+                "trade2025_72.3b",
+                "trade2025_72.4a",
+                "trade2025_72.4b"
+              ]
+            },
+            "time": "16:01:40",
+            "to": "0005",
+            "trade": "trade2025_72"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0010",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2025-11-25",
+              "kind": "trade",
+              "time": "16:01:40",
+              "trade": "trade2025_72"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-11-25",
+              "kind": "trade",
+              "time": "16:01:40",
+              "trade": "trade2025_72"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "economics": {
+        "notes": [],
+        "player_id": "16150",
+        "seasons": [
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0003",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 60.2,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 60.2,
+                "points_playoffs_verified": 0,
+                "points_regular_season_verified": 0,
+                "points_started_verified": 0,
+                "points_verified": 0,
+                "week_numbers": [
+                  1,
+                  2,
+                  3,
+                  4
+                ],
+                "weeks": 4,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 4,
+                "weeks_started_verified": 0,
+                "weeks_verified": 0
+              },
+              {
+                "disputed_weeks": [],
+                "franchise": "0010",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 88.3,
+                "points_asserted_before_first_record": 88.3,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 0,
+                "points_regular_season_verified": 0,
+                "points_started_verified": 0,
+                "points_verified": 0,
+                "week_numbers": [
+                  5,
+                  7,
+                  8,
+                  9
+                ],
+                "weeks": 4,
+                "weeks_asserted": 4,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 0,
+                "weeks_verified": 0
+              },
+              {
+                "disputed_weeks": [],
+                "franchise": "0005",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 93,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 68.7,
+                "points_regular_season_verified": 24.3,
+                "points_started_verified": 93,
+                "points_verified": 93,
+                "week_numbers": [
+                  13,
+                  14,
+                  15,
+                  16,
+                  17
+                ],
+                "weeks": 5,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 5,
+                "weeks_verified": 5
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 3| TCV 36K| AAV 12K",
+                "contract_status": "Rookie",
+                "franchise": "0003",
+                "from_week": 1,
+                "salary": 12000,
+                "to_week": 4,
+                "year_values_k": [],
+                "years_remaining": 1
+              },
+              {
+                "contract_info": "CL 3| TCV 36K| AAV 12K",
+                "contract_status": "Rookie",
+                "franchise": "0010",
+                "from_week": 5,
+                "salary": 12000,
+                "to_week": 12,
+                "year_values_k": [],
+                "years_remaining": 1
+              },
+              {
+                "contract_info": "CL 3| TCV 36K| AAV 12K",
+                "contract_status": "Rookie",
+                "franchise": "0005",
+                "from_week": 13,
+                "salary": 12000,
+                "to_week": 19,
+                "year_values_k": [],
+                "years_remaining": 1
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2025,
+            "weeks_with_scoring_row": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              7,
+              8,
+              9,
+              13,
+              14,
+              15,
+              16,
+              17
+            ]
+          }
+        ]
+      },
+      "entered": {
+        "date": "2025-11-25",
+        "received_for": "fpick:0007:2026:2",
+        "trade": "trade2025_72",
+        "via": "trade"
+      },
+      "final_position": {
+        "chain_ended_by": null,
+        "chain_last_holder": "0005",
+        "consistent": true,
+        "snapshot_contract": {
+          "info": "CL 1| TCV 22K| AAV 22K| Y1-22K| GTD: 16.5K| Ext: ð¨ â°",
+          "roster_status": "ROSTER",
+          "salary": 22000,
+          "status": "Vet-Ext1",
+          "years_remaining": 1
+        },
+        "snapshot_day": "2026-11-19",
+        "snapshot_franchise": "0005"
+      },
+      "generation": 4,
+      "id": "player:16150",
+      "kind": "player",
+      "label": "Stroud, C.J.",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "role": "consideration",
+      "transfers": [],
+      "via": "fpick:0007:2026:2"
+    },
+    {
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-03-05",
+            "date_quality": "recorded",
+            "from": "0006",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_5",
+              "transaction_ids": [
+                "trade2025_5.1a",
+                "trade2025_5.1b",
+                "trade2025_5.2a",
+                "trade2025_5.2b",
+                "trade2025_5.3a",
+                "trade2025_5.3b",
+                "trade2025_5.4a",
+                "trade2025_5.4b"
+              ]
+            },
+            "time": "13:18:22",
+            "to": "0005",
+            "trade": "trade2025_5"
+          },
+          {
+            "date": "2025-03-20",
+            "date_quality": "recorded",
+            "from": "0005",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_10",
+              "transaction_ids": [
+                "trade2025_10.1a",
+                "trade2025_10.1b",
+                "trade2025_10.2a",
+                "trade2025_10.2b"
+              ]
+            },
+            "time": "12:54:23",
+            "to": "0004",
+            "trade": "trade2025_10"
+          },
+          {
+            "date": "2025-11-22",
+            "date_quality": "recorded",
+            "from": "0004",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_71",
+              "transaction_ids": [
+                "trade2025_71.1a",
+                "trade2025_71.1b",
+                "trade2025_71.2a",
+                "trade2025_71.2b",
+                "trade2025_71.3a",
+                "trade2025_71.3b"
+              ]
+            },
+            "time": "18:42:49",
+            "to": "0006",
+            "trade": "trade2025_71"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0006",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2025-03-05",
+              "kind": "trade",
+              "time": "13:18:22",
+              "trade": "trade2025_5"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-03-05",
+              "kind": "trade",
+              "time": "13:18:22",
+              "trade": "trade2025_5"
+            },
+            "to": {
+              "date": "2025-03-20",
+              "kind": "trade",
+              "time": "12:54:23",
+              "trade": "trade2025_10"
+            }
+          },
+          {
+            "franchise": "0004",
+            "from": {
+              "date": "2025-03-20",
+              "kind": "trade",
+              "time": "12:54:23",
+              "trade": "trade2025_10"
+            },
+            "to": {
+              "date": "2025-11-22",
+              "kind": "trade",
+              "time": "18:42:49",
+              "trade": "trade2025_71"
+            }
+          },
+          {
+            "franchise": "0006",
+            "from": {
+              "date": "2025-11-22",
+              "kind": "trade",
+              "time": "18:42:49",
+              "trade": "trade2025_71"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "entered": {
+        "date": "2025-03-05",
+        "received_for": "player:14104",
+        "trade": "trade2025_5",
+        "via": "trade"
+      },
+      "final_position": {
+        "candidate_slots": [
+          3,
+          4,
+          6
+        ],
+        "holder_at_evidence": "0006",
+        "kind": "future_pick",
+        "resolved": false
+      },
+      "generation": 1,
+      "id": "fpick:0006:2026:3",
+      "kind": "future_pick",
+      "label": "2026 round 3 pick, original franchise 0006",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "resolution": {
+        "candidate_slots": [
+          {
+            "draft_result": {
+              "date": "2026-05-24",
+              "franchise": "0006",
+              "player_id": "17482",
+              "player_name": null,
+              "source": {
+                "day": "2026-11-19",
+                "file": "draftResults.json",
+                "key": {
+                  "pick": "03",
+                  "round": "03"
+                },
+                "kind": "snapshot"
+              }
+            },
+            "moved_after_last_list": false,
+            "on_first_list": {
+              "day": "2026-04-21",
+              "holder": "0006",
+              "notes": [],
+              "traded_from_ids": []
+            },
+            "on_last_pre_draft_list": {
+              "day": "2026-05-24",
+              "holder": "0006",
+              "notes": [],
+              "traded_from_ids": []
+            },
+            "slot": 3
+          },
+          {
+            "draft_result": {
+              "date": "2026-05-24",
+              "franchise": "0006",
+              "player_id": "17466",
+              "player_name": null,
+              "source": {
+                "day": "2026-11-19",
+                "file": "draftResults.json",
+                "key": {
+                  "pick": "04",
+                  "round": "03"
+                },
+                "kind": "snapshot"
+              }
+            },
+            "moved_after_last_list": false,
+            "on_first_list": {
+              "day": "2026-04-21",
+              "holder": "0007",
+              "notes": [
+                "Pick traded from Real Deal Creel."
+              ],
+              "traded_from_ids": [
+                "0008"
+              ]
+            },
+            "on_last_pre_draft_list": {
+              "day": "2026-05-24",
+              "holder": "0006",
+              "notes": [],
+              "traded_from_ids": []
+            },
+            "slot": 4
+          },
+          {
+            "draft_result": {
+              "date": "2026-05-24",
+              "franchise": "0008",
+              "player_id": "17557",
+              "player_name": null,
+              "source": {
+                "day": "2026-11-19",
+                "file": "draftResults.json",
+                "key": {
+                  "pick": "06",
+                  "round": "03"
+                },
+                "kind": "snapshot"
+              }
+            },
+            "moved_after_last_list": true,
+            "on_first_list": {
+              "day": "2026-04-21",
+              "holder": "0007",
+              "notes": [
+                "Pick traded from CBP."
+              ],
+              "traded_from_ids": [
+                "0002"
+              ]
+            },
+            "on_last_pre_draft_list": {
+              "day": "2026-05-24",
+              "holder": "0006",
+              "notes": [],
+              "traded_from_ids": []
+            },
+            "slot": 6
+          }
+        ],
+        "class": "UNRESOLVED",
+        "coverage_gaps": [
+          {
+            "from": "2025-11-28",
+            "kind": "incomplete_trade_coverage",
+            "to": "2026-03-07"
+          }
+        ],
+        "disclosure": null,
+        "evidence_day": "2026-05-24",
+        "evidence_kind": "mfl_slot_list",
+        "holder_at_evidence": "0006",
+        "last_recorded_transfer_ts": "2025-11-22",
+        "original_franchise": "0006",
+        "reason": "custody of the pick is not observed between its last recorded transfer and the evidence date: a transfer in the unobserved period would change which slot it is, so uniqueness cannot be used as proof",
+        "rule": null,
+        "rule_considered": "UNIQUE_HOLDER_V1",
+        "slot": null,
+        "status_for_totals": "no_link_no_totals"
+      },
+      "role": "consideration",
+      "transfers": [
+        {
+          "cap_received": [],
+          "cap_sent": [],
+          "companions_sent": [],
+          "consideration": [
+            "spick:2025:3:8"
+          ],
+          "date": "2025-03-20",
+          "expanded": true,
+          "sent_asset": "fpick:0006:2026:3",
+          "sent_to": "0004",
+          "time": "12:54:23",
+          "trade": "trade2025_10"
+        }
+      ],
+      "via": "player:14104"
+    },
+    {
+      "became": "player:17108",
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-03-20",
+            "date_quality": "recorded",
+            "from": "0004",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_10",
+              "transaction_ids": [
+                "trade2025_10.1a",
+                "trade2025_10.1b",
+                "trade2025_10.2a",
+                "trade2025_10.2b"
+              ]
+            },
+            "time": "12:54:23",
+            "to": "0005",
+            "trade": "trade2025_10"
+          },
+          {
+            "date": "2025-05-25",
+            "date_quality": "recorded",
+            "from": "0005",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_17",
+              "transaction_ids": [
+                "trade2025_17.1a",
+                "trade2025_17.1b",
+                "trade2025_17.2a",
+                "trade2025_17.2b",
+                "trade2025_17.3a",
+                "trade2025_17.3b"
+              ]
+            },
+            "time": "20:24:12",
+            "to": "0001",
+            "trade": "trade2025_17"
+          },
+          {
+            "date": "2025-05-25",
+            "date_quality": "recorded",
+            "from": "0001",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_19",
+              "transaction_ids": [
+                "trade2025_19.1a",
+                "trade2025_19.1b",
+                "trade2025_19.2a",
+                "trade2025_19.2b",
+                "trade2025_19.3a",
+                "trade2025_19.3b",
+                "trade2025_19.4a",
+                "trade2025_19.4b",
+                "trade2025_19.5a",
+                "trade2025_19.5b"
+              ]
+            },
+            "time": "20:33:54",
+            "to": "0011",
+            "trade": "trade2025_19"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0004",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2025-03-20",
+              "kind": "trade",
+              "time": "12:54:23",
+              "trade": "trade2025_10"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-03-20",
+              "kind": "trade",
+              "time": "12:54:23",
+              "trade": "trade2025_10"
+            },
+            "to": {
+              "date": "2025-05-25",
+              "kind": "trade",
+              "time": "20:24:12",
+              "trade": "trade2025_17"
+            }
+          },
+          {
+            "franchise": "0001",
+            "from": {
+              "date": "2025-05-25",
+              "kind": "trade",
+              "time": "20:24:12",
+              "trade": "trade2025_17"
+            },
+            "to": {
+              "date": "2025-05-25",
+              "kind": "trade",
+              "time": "20:33:54",
+              "trade": "trade2025_19"
+            }
+          },
+          {
+            "franchise": "0011",
+            "from": {
+              "date": "2025-05-25",
+              "kind": "trade",
+              "time": "20:33:54",
+              "trade": "trade2025_19"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "entered": {
+        "date": "2025-03-20",
+        "received_for": "fpick:0006:2026:3",
+        "trade": "trade2025_10",
+        "via": "trade"
+      },
+      "final_position": {
+        "kind": "slot_pick",
+        "resolved": true,
+        "selected_player": "17108"
+      },
+      "generation": 2,
+      "id": "spick:2025:3:8",
+      "kind": "slot_pick",
+      "label": "2025 round 3, slot 8 (pick 3.08)",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "resolution": {
+        "class": "CONFIRMED",
+        "conflict": false,
+        "coverage_gaps": [],
+        "holder_at_selection": "0011",
+        "reason": null,
+        "rule": "SLOT_TOKEN_DRAFT_RESULT",
+        "selection": {
+          "date": "2025-05-25",
+          "franchise": "0011",
+          "note": "[Pick traded from HammerTime 🔨 ⏰. Pick traded from L.A. Looks.]",
+          "overall": 32,
+          "player_id": "17108",
+          "round": 3,
+          "slot": 8,
+          "source": {
+            "key": {
+              "round": 3,
+              "season": 2025,
+              "slot": 8
+            },
+            "kind": "archive",
+            "table": "draftresults_mfl"
+          },
+          "time": "20:42:47",
+          "year": 2025
+        }
+      },
+      "role": "consideration",
+      "transfers": [
+        {
+          "cap_received": [],
+          "cap_sent": [],
+          "companions_sent": [
+            "fpick:0005:2026:3"
+          ],
+          "consideration": [
+            "spick:2025:3:2"
+          ],
+          "date": "2025-05-25",
+          "expanded": true,
+          "sent_asset": "spick:2025:3:8",
+          "sent_to": "0001",
+          "time": "20:24:12",
+          "trade": "trade2025_17"
+        }
+      ],
+      "via": "fpick:0006:2026:3"
+    },
+    {
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-05-25",
+            "date_quality": null,
+            "from": null,
+            "kind": "draft_selection",
+            "method": null,
+            "round": 3,
+            "slot": 8,
+            "source": {
+              "key": {
+                "round": 3,
+                "season": 2025,
+                "slot": 8
+              },
+              "kind": "archive",
+              "table": "draftresults_mfl"
+            },
+            "time": "20:42:47",
+            "to": "0011",
+            "trade": null
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0011",
+            "from": {
+              "date": "2025-05-25",
+              "kind": "draft_selection",
+              "time": "20:42:47",
+              "trade": null
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "economics": {
+        "notes": [],
+        "player_id": "17108",
+        "seasons": [
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0011",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 45.8,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 0,
+                "points_regular_season_verified": 45.8,
+                "points_started_verified": 0,
+                "points_verified": 45.8,
+                "week_numbers": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  9,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14
+                ],
+                "weeks": 13,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 0,
+                "weeks_verified": 13
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 3| TCV 6K| AAV 2K",
+                "contract_status": "Rookie",
+                "franchise": "0011",
+                "from_week": 1,
+                "salary": 2000,
+                "to_week": 19,
+                "year_values_k": [],
+                "years_remaining": 3
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2025,
+            "weeks_with_scoring_row": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14
+            ]
+          }
+        ]
+      },
+      "entered": {
+        "date": "2025-05-25",
+        "source": {
+          "key": {
+            "round": 3,
+            "season": 2025,
+            "slot": 8
+          },
+          "kind": "archive",
+          "table": "draftresults_mfl"
+        },
+        "via": "draft_selection"
+      },
+      "final_position": {
+        "chain_ended_by": null,
+        "chain_last_holder": "0011",
+        "consistent": true,
+        "snapshot_contract": {
+          "info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+          "roster_status": "TAXI_SQUAD",
+          "salary": 2000,
+          "status": "Rookie-Draft",
+          "years_remaining": 2
+        },
+        "snapshot_day": "2026-11-19",
+        "snapshot_franchise": "0011"
+      },
+      "generation": 3,
+      "id": "player:17108",
+      "kind": "player",
+      "label": "Arroyo, Elijah",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "role": "drafted_player",
+      "transfers": [],
+      "via": "spick:2025:3:8"
+    },
+    {
+      "became": "player:17106",
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-05-25",
+            "date_quality": "recorded",
+            "from": "0001",
+            "kind": "trade",
+            "method": null,
+            "round": null,
+            "slot": null,
+            "source": {
+              "kind": "archive",
+              "table": "transactions_trades",
+              "trade_group_id": "trade2025_17",
+              "transaction_ids": [
+                "trade2025_17.1a",
+                "trade2025_17.1b",
+                "trade2025_17.2a",
+                "trade2025_17.2b",
+                "trade2025_17.3a",
+                "trade2025_17.3b"
+              ]
+            },
+            "time": "20:24:12",
+            "to": "0005",
+            "trade": "trade2025_17"
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0001",
+            "from": {
+              "origin": "asserted_by_first_record"
+            },
+            "to": {
+              "date": "2025-05-25",
+              "kind": "trade",
+              "time": "20:24:12",
+              "trade": "trade2025_17"
+            }
+          },
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-05-25",
+              "kind": "trade",
+              "time": "20:24:12",
+              "trade": "trade2025_17"
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "entered": {
+        "date": "2025-05-25",
+        "received_for": "spick:2025:3:8",
+        "trade": "trade2025_17",
+        "via": "trade"
+      },
+      "final_position": {
+        "kind": "slot_pick",
+        "resolved": true,
+        "selected_player": "17106"
+      },
+      "generation": 3,
+      "id": "spick:2025:3:2",
+      "kind": "slot_pick",
+      "label": "2025 round 3, slot 2 (pick 3.02)",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "resolution": {
+        "class": "CONFIRMED",
+        "conflict": false,
+        "coverage_gaps": [],
+        "holder_at_selection": "0005",
+        "reason": null,
+        "rule": "SLOT_TOKEN_DRAFT_RESULT",
+        "selection": {
+          "date": "2025-05-25",
+          "franchise": "0005",
+          "note": "[Pick traded from L.A. Looks.]",
+          "overall": 26,
+          "player_id": "17106",
+          "round": 3,
+          "slot": 2,
+          "source": {
+            "key": {
+              "round": 3,
+              "season": 2025,
+              "slot": 2
+            },
+            "kind": "archive",
+            "table": "draftresults_mfl"
+          },
+          "time": "20:25:01",
+          "year": 2025
+        }
+      },
+      "role": "consideration",
+      "transfers": [],
+      "via": "spick:2025:3:8"
+    },
+    {
+      "chain": {
+        "breaks": [],
+        "events": [
+          {
+            "date": "2025-05-25",
+            "date_quality": null,
+            "from": null,
+            "kind": "draft_selection",
+            "method": null,
+            "round": 3,
+            "slot": 2,
+            "source": {
+              "key": {
+                "round": 3,
+                "season": 2025,
+                "slot": 2
+              },
+              "kind": "archive",
+              "table": "draftresults_mfl"
+            },
+            "time": "20:25:01",
+            "to": "0005",
+            "trade": null
+          }
+        ],
+        "holders": [
+          {
+            "franchise": "0005",
+            "from": {
+              "date": "2025-05-25",
+              "kind": "draft_selection",
+              "time": "20:25:01",
+              "trade": null
+            },
+            "to": null
+          }
+        ]
+      },
+      "departures": [],
+      "economics": {
+        "notes": [],
+        "player_id": "17106",
+        "seasons": [
+          {
+            "by_franchise": [
+              {
+                "disputed_weeks": [],
+                "franchise": "0005",
+                "plain_score_mismatches": [],
+                "points_all_weeks": 115.5,
+                "points_asserted_before_first_record": 0,
+                "points_outside_traced_window": 0,
+                "points_playoffs_verified": 0,
+                "points_regular_season_verified": 115.5,
+                "points_started_verified": 19.6,
+                "points_verified": 115.5,
+                "week_numbers": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  10,
+                  11,
+                  12,
+                  13,
+                  14
+                ],
+                "weeks": 13,
+                "weeks_asserted": 0,
+                "weeks_outside_traced_window": 0,
+                "weeks_started_verified": 2,
+                "weeks_verified": 13
+              }
+            ],
+            "contract_by_roster_weeks": [
+              {
+                "contract_info": "CL 3| TCV 6K| AAV 2K",
+                "contract_status": "Rookie",
+                "franchise": "0005",
+                "from_week": 1,
+                "salary": 2000,
+                "to_week": 19,
+                "year_values_k": [],
+                "years_remaining": 3
+              }
+            ],
+            "excluded_copy_weeks": [],
+            "has_records": true,
+            "last_league_week": 17,
+            "roster_duplicate_weeks": [],
+            "season": 2025,
+            "weeks_with_scoring_row": [
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              10,
+              11,
+              12,
+              13,
+              14
+            ]
+          }
+        ]
+      },
+      "entered": {
+        "date": "2025-05-25",
+        "source": {
+          "key": {
+            "round": 3,
+            "season": 2025,
+            "slot": 2
+          },
+          "kind": "archive",
+          "table": "draftresults_mfl"
+        },
+        "via": "draft_selection"
+      },
+      "final_position": {
+        "chain_ended_by": null,
+        "chain_last_holder": "0005",
+        "consistent": true,
+        "snapshot_contract": {
+          "info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+          "roster_status": "TAXI_SQUAD",
+          "salary": 2000,
+          "status": "Rookie-Draft",
+          "years_remaining": 2
+        },
+        "snapshot_day": "2026-11-19",
+        "snapshot_franchise": "0005"
+      },
+      "generation": 4,
+      "id": "player:17106",
+      "kind": "player",
+      "label": "Taylor, Mason",
+      "link_class": "CONFIRMED",
+      "notes": [],
+      "role": "drafted_player",
+      "transfers": [],
+      "via": "spick:2025:3:2"
+    }
+  ],
+  "pilot": {
+    "franchise": "0005",
+    "id": "aj_brown_hammertime",
+    "last_archive_season": 2025,
+    "max_generation": 4,
+    "primary_trade": "trade2025_5",
+    "team_names": {
+      "0001": "L.A. Looks",
+      "0004": "Pure Greatness",
+      "0005": "HammerTime 🔨 ⏰",
+      "0006": "The Long Haulers",
+      "0007": "Sex Manther",
+      "0008": "Real Deal Creel",
+      "0009": "C-Town Chivalry",
+      "0010": "Blake Bombers",
+      "0011": "Cleon Ca$h"
+    },
+    "upstream_trade": "trade2024_30"
+  },
+  "reconciliation": {
+    "picks": [
+      {
+        "asset": "spick:2025:1:8",
+        "class": "CONFIRMED",
+        "holder_check": {
+          "agree": true,
+          "chain_holder_at_selection": "0005",
+          "draft_result_franchise": "0005"
+        }
+      },
+      {
+        "asset": "fpick:0010:2026:2",
+        "class": "UNRESOLVED",
+        "holder_check": {
+          "candidates": 1,
+          "chain_holder_at_evidence": "0011"
+        }
+      },
+      {
+        "asset": "fpick:0007:2026:2",
+        "class": "UNRESOLVED",
+        "holder_check": {
+          "candidates": 2,
+          "chain_holder_at_evidence": "0010"
+        }
+      },
+      {
+        "asset": "fpick:0006:2026:3",
+        "class": "UNRESOLVED",
+        "holder_check": {
+          "candidates": 3,
+          "chain_holder_at_evidence": "0006"
+        }
+      },
+      {
+        "asset": "spick:2025:3:8",
+        "class": "CONFIRMED",
+        "holder_check": {
+          "agree": true,
+          "chain_holder_at_selection": "0011",
+          "draft_result_franchise": "0011"
+        }
+      },
+      {
+        "asset": "spick:2025:3:2",
+        "class": "CONFIRMED",
+        "holder_check": {
+          "agree": true,
+          "chain_holder_at_selection": "0005",
+          "draft_result_franchise": "0005"
+        }
+      }
+    ],
+    "players": [
+      {
+        "asset": "player:13130",
+        "chain_breaks": 1,
+        "copy_weeks_excluded": [],
+        "disputed_weeks": [],
+        "final_position_consistent": true,
+        "score_table_mismatches": []
+      },
+      {
+        "asset": "player:14104",
+        "chain_breaks": 0,
+        "copy_weeks_excluded": [],
+        "disputed_weeks": [],
+        "final_position_consistent": true,
+        "score_table_mismatches": []
+      },
+      {
+        "asset": "player:17051",
+        "chain_breaks": 0,
+        "copy_weeks_excluded": [],
+        "disputed_weeks": [],
+        "final_position_consistent": true,
+        "score_table_mismatches": []
+      },
+      {
+        "asset": "player:16644",
+        "chain_breaks": 0,
+        "copy_weeks_excluded": [],
+        "disputed_weeks": [],
+        "final_position_consistent": true,
+        "score_table_mismatches": []
+      },
+      {
+        "asset": "player:14797",
+        "chain_breaks": 1,
+        "copy_weeks_excluded": [],
+        "disputed_weeks": [],
+        "final_position_consistent": true,
+        "score_table_mismatches": []
+      },
+      {
+        "asset": "player:16150",
+        "chain_breaks": 0,
+        "copy_weeks_excluded": [],
+        "disputed_weeks": [],
+        "final_position_consistent": true,
+        "score_table_mismatches": []
+      },
+      {
+        "asset": "player:17108",
+        "chain_breaks": 0,
+        "copy_weeks_excluded": [],
+        "disputed_weeks": [],
+        "final_position_consistent": true,
+        "score_table_mismatches": []
+      },
+      {
+        "asset": "player:17106",
+        "chain_breaks": 0,
+        "copy_weeks_excluded": [],
+        "disputed_weeks": [],
+        "final_position_consistent": true,
+        "score_table_mismatches": []
+      }
+    ],
+    "points": {
+      "disputed_weeks": [],
+      "excluded_copy_weeks": [],
+      "weekly_record_vs_plain_table_mismatches": 0
+    },
+    "salary": [
+      {
+        "asset": "player:13130",
+        "contract_text_year1_k": 44,
+        "franchise": "0005",
+        "salary": 44000,
+        "salary_matches_text": true,
+        "season": 2023,
+        "weeks": "1-23",
+        "years_remaining": 2
+      },
+      {
+        "asset": "player:13130",
+        "contract_text_year1_k": 44,
+        "franchise": "0008",
+        "salary": 65000,
+        "salary_matches_text": true,
+        "season": 2024,
+        "weeks": "1-23",
+        "years_remaining": 1
+      },
+      {
+        "asset": "player:13130",
+        "contract_text_year1_k": null,
+        "franchise": "0007",
+        "salary": 56000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "1-19",
+        "years_remaining": 1
+      },
+      {
+        "asset": "player:14104",
+        "contract_text_year1_k": 19,
+        "franchise": "0005",
+        "salary": 19000,
+        "salary_matches_text": true,
+        "season": 2024,
+        "weeks": "1-23",
+        "years_remaining": 2
+      },
+      {
+        "asset": "player:14104",
+        "contract_text_year1_k": 73,
+        "franchise": "0006",
+        "salary": 73000,
+        "salary_matches_text": true,
+        "season": 2025,
+        "weeks": "1-19",
+        "years_remaining": 2
+      },
+      {
+        "asset": "player:17051",
+        "contract_text_year1_k": null,
+        "franchise": "0010",
+        "salary": 8000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "1-19",
+        "years_remaining": 3
+      },
+      {
+        "asset": "player:16644",
+        "contract_text_year1_k": null,
+        "franchise": "0005",
+        "salary": 2000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "1-19",
+        "years_remaining": 2
+      },
+      {
+        "asset": "player:14797",
+        "contract_text_year1_k": null,
+        "franchise": "0010",
+        "salary": 23000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "1-3",
+        "years_remaining": 1
+      },
+      {
+        "asset": "player:14797",
+        "contract_text_year1_k": null,
+        "franchise": "0011",
+        "salary": 23000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "4-4",
+        "years_remaining": 1
+      },
+      {
+        "asset": "player:14797",
+        "contract_text_year1_k": null,
+        "franchise": "0005",
+        "salary": 23000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "5-19",
+        "years_remaining": 1
+      },
+      {
+        "asset": "player:16150",
+        "contract_text_year1_k": null,
+        "franchise": "0003",
+        "salary": 12000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "1-4",
+        "years_remaining": 1
+      },
+      {
+        "asset": "player:16150",
+        "contract_text_year1_k": null,
+        "franchise": "0010",
+        "salary": 12000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "5-12",
+        "years_remaining": 1
+      },
+      {
+        "asset": "player:16150",
+        "contract_text_year1_k": null,
+        "franchise": "0005",
+        "salary": 12000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "13-19",
+        "years_remaining": 1
+      },
+      {
+        "asset": "player:17108",
+        "contract_text_year1_k": null,
+        "franchise": "0011",
+        "salary": 2000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "1-19",
+        "years_remaining": 3
+      },
+      {
+        "asset": "player:17106",
+        "contract_text_year1_k": null,
+        "franchise": "0005",
+        "salary": 2000,
+        "salary_matches_text": null,
+        "season": 2025,
+        "weeks": "1-19",
+        "years_remaining": 3
+      }
+    ],
+    "slot_lists": [
+      {
+        "day": "2026-04-21",
+        "round1_order_recorded": "0011,0012,0006,0008,0003,0012,0003,0002,0008,0010,0003,0002,"
+      },
+      {
+        "day": "2026-05-24",
+        "round1_order_recorded": "0011,0012,0006,0008,0003,0012,0003,0002,0008,0010,0003,0002,"
+      }
+    ],
+    "trade_legs": {
+      "legs": 37,
+      "note": "every leg pairs the sender's row with the receiver's row",
+      "trades_used": 10,
+      "unpaired_legs": 0
+    }
+  },
+  "roots": {
+    "primary": {
+      "cap_received": [],
+      "cap_sent": [
+        20000
+      ],
+      "received": [
+        "spick:2025:1:8",
+        "fpick:0006:2026:3"
+      ],
+      "sent": [
+        "player:14104"
+      ],
+      "trade": "trade2025_5"
+    },
+    "upstream": {
+      "acquired": [
+        "player:14104"
+      ],
+      "cap": [],
+      "surrendered": [
+        "player:13130"
+      ],
+      "trade": "trade2024_30"
+    }
+  },
+  "schema": "ups.league_record.s1.pilot/1",
+  "sources": {
+    "archive": {
+      "path": "data/db-archives/mfl_database_2026-06-05.db.gz",
+      "sha256": "2b344b794422a64ee323c52e02b30ace936e60945a6fbb1ce5784e968eb95c28",
+      "tables_read": [
+        "transactions_trades",
+        "transactions_base",
+        "transactions_adddrop",
+        "draftresults_mfl",
+        "draftresults_legacy",
+        "rosters_weekly",
+        "playerscores_weekly",
+        "player_weeklyscoringresults",
+        "leagueevents",
+        "players",
+        "transactions_auction"
+      ]
+    },
+    "notes": [
+      "owner names and other personal fields are never read or written",
+      "no ranking or forecast data is read: draft slots come only from MFL draft results, MFL slot tokens and MFL slot lists (docs/league_record/S1_METHODOLOGY.md)"
+    ],
+    "snapshots": {
+      "days_available": 212,
+      "dir": "data/mfl-snapshots",
+      "files": [
+        "transactions.json",
+        "draftResults.json",
+        "rosters.json",
+        "league.json",
+        "_snapshot_meta.json"
+      ],
+      "pinned_day": "2026-11-19"
+    }
+  },
+  "trades": {
+    "trade2024_30": {
+      "cap": [],
+      "date": "2024-07-24",
+      "date_quality": "recorded",
+      "id": "trade2024_30",
+      "legs": [
+        {
+          "asset": "player:14104",
+          "from": "0008",
+          "kind": "player",
+          "label": "Brown, A.J.",
+          "rows": [
+            "trade2024_30.1a",
+            "trade2024_30.1b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "player:13130",
+          "from": "0005",
+          "kind": "player",
+          "label": "McCaffrey, Christian",
+          "rows": [
+            "trade2024_30.2a",
+            "trade2024_30.2b"
+          ],
+          "to": "0008",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0005",
+        "0008"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2024_30",
+        "transaction_ids": [
+          "trade2024_30.1a",
+          "trade2024_30.1b",
+          "trade2024_30.2a",
+          "trade2024_30.2b"
+        ]
+      },
+      "team_names": {
+        "0005": "HammerTime 🔨 ⏰",
+        "0008": "Real Deal Creel"
+      },
+      "time": "08:51:24"
+    },
+    "trade2025_10": {
+      "cap": [],
+      "date": "2025-03-20",
+      "date_quality": "recorded",
+      "id": "trade2025_10",
+      "legs": [
+        {
+          "asset": "spick:2025:3:8",
+          "from": "0004",
+          "kind": "slot_pick",
+          "label": null,
+          "rows": [
+            "trade2025_10.1a",
+            "trade2025_10.1b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0006:2026:3",
+          "from": "0005",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_10.2a",
+            "trade2025_10.2b"
+          ],
+          "to": "0004",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0004",
+        "0005"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_10",
+        "transaction_ids": [
+          "trade2025_10.1a",
+          "trade2025_10.1b",
+          "trade2025_10.2a",
+          "trade2025_10.2b"
+        ]
+      },
+      "team_names": {
+        "0004": "Pure Greatness",
+        "0005": "HammerTime 🔨 ⏰"
+      },
+      "time": "12:54:23"
+    },
+    "trade2025_17": {
+      "cap": [],
+      "date": "2025-05-25",
+      "date_quality": "recorded",
+      "id": "trade2025_17",
+      "legs": [
+        {
+          "asset": "spick:2025:3:8",
+          "from": "0005",
+          "kind": "slot_pick",
+          "label": null,
+          "rows": [
+            "trade2025_17.1a",
+            "trade2025_17.1b"
+          ],
+          "to": "0001",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0005:2026:3",
+          "from": "0005",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_17.2a",
+            "trade2025_17.2b"
+          ],
+          "to": "0001",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "spick:2025:3:2",
+          "from": "0001",
+          "kind": "slot_pick",
+          "label": null,
+          "rows": [
+            "trade2025_17.3a",
+            "trade2025_17.3b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0001",
+        "0005"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_17",
+        "transaction_ids": [
+          "trade2025_17.1a",
+          "trade2025_17.1b",
+          "trade2025_17.2a",
+          "trade2025_17.2b",
+          "trade2025_17.3a",
+          "trade2025_17.3b"
+        ]
+      },
+      "team_names": {
+        "0001": "L.A. Looks",
+        "0005": "HammerTime 🔨 ⏰"
+      },
+      "time": "20:24:12"
+    },
+    "trade2025_19": {
+      "cap": [],
+      "date": "2025-05-25",
+      "date_quality": "recorded",
+      "id": "trade2025_19",
+      "legs": [
+        {
+          "asset": "spick:2025:3:8",
+          "from": "0001",
+          "kind": "slot_pick",
+          "label": null,
+          "rows": [
+            "trade2025_19.1a",
+            "trade2025_19.1b"
+          ],
+          "to": "0011",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "spick:2025:5:4",
+          "from": "0001",
+          "kind": "slot_pick",
+          "label": null,
+          "rows": [
+            "trade2025_19.2a",
+            "trade2025_19.2b"
+          ],
+          "to": "0011",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0001:2026:4",
+          "from": "0001",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_19.3a",
+            "trade2025_19.3b"
+          ],
+          "to": "0011",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "spick:2025:3:4",
+          "from": "0011",
+          "kind": "slot_pick",
+          "label": null,
+          "rows": [
+            "trade2025_19.4a",
+            "trade2025_19.4b"
+          ],
+          "to": "0001",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "spick:2025:5:3",
+          "from": "0011",
+          "kind": "slot_pick",
+          "label": null,
+          "rows": [
+            "trade2025_19.5a",
+            "trade2025_19.5b"
+          ],
+          "to": "0001",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0001",
+        "0011"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_19",
+        "transaction_ids": [
+          "trade2025_19.1a",
+          "trade2025_19.1b",
+          "trade2025_19.2a",
+          "trade2025_19.2b",
+          "trade2025_19.3a",
+          "trade2025_19.3b",
+          "trade2025_19.4a",
+          "trade2025_19.4b",
+          "trade2025_19.5a",
+          "trade2025_19.5b"
+        ]
+      },
+      "team_names": {
+        "0001": "L.A. Looks",
+        "0011": "Cleon Ca$h"
+      },
+      "time": "20:33:54"
+    },
+    "trade2025_34": {
+      "cap": [],
+      "date": "2025-08-07",
+      "date_quality": "recorded",
+      "id": "trade2025_34",
+      "legs": [
+        {
+          "asset": "player:17051",
+          "from": "0005",
+          "kind": "player",
+          "label": "Judkins, Quinshon",
+          "rows": [
+            "trade2025_34.1a",
+            "trade2025_34.1b"
+          ],
+          "to": "0010",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "player:16644",
+          "from": "0010",
+          "kind": "player",
+          "label": "Sinnott, Ben",
+          "rows": [
+            "trade2025_34.2a",
+            "trade2025_34.2b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0010:2026:2",
+          "from": "0010",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_34.3a",
+            "trade2025_34.3b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0007:2026:2",
+          "from": "0010",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_34.4a",
+            "trade2025_34.4b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0005",
+        "0010"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_34",
+        "transaction_ids": [
+          "trade2025_34.1a",
+          "trade2025_34.1b",
+          "trade2025_34.2a",
+          "trade2025_34.2b",
+          "trade2025_34.3a",
+          "trade2025_34.3b",
+          "trade2025_34.4a",
+          "trade2025_34.4b"
+        ]
+      },
+      "team_names": {
+        "0005": "HammerTime 🔨 ⏰",
+        "0010": "Blake Bombers"
+      },
+      "time": "10:54:26"
+    },
+    "trade2025_41": {
+      "cap": [
+        {
+          "amount": 25000,
+          "from": "0004",
+          "rows": [
+            "trade2025_41.5a",
+            "trade2025_41.5b"
+          ],
+          "to": "0007",
+          "token": null
+        }
+      ],
+      "date": "2025-08-19",
+      "date_quality": "recorded",
+      "id": "trade2025_41",
+      "legs": [
+        {
+          "asset": "player:13130",
+          "from": "0004",
+          "kind": "player",
+          "label": "McCaffrey, Christian",
+          "rows": [
+            "trade2025_41.1a",
+            "trade2025_41.1b"
+          ],
+          "to": "0007",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0004:2026:1",
+          "from": "0004",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_41.2a",
+            "trade2025_41.2b"
+          ],
+          "to": "0007",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0005:2026:1",
+          "from": "0004",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_41.3a",
+            "trade2025_41.3b"
+          ],
+          "to": "0007",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0006:2026:1",
+          "from": "0004",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_41.4a",
+            "trade2025_41.4b"
+          ],
+          "to": "0007",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "player:16162",
+          "from": "0007",
+          "kind": "player",
+          "label": "Gibbs, Jahmyr",
+          "rows": [
+            "trade2025_41.6a",
+            "trade2025_41.6b"
+          ],
+          "to": "0004",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0008:2026:5",
+          "from": "0007",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_41.7a",
+            "trade2025_41.7b"
+          ],
+          "to": "0004",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0010:2026:5",
+          "from": "0007",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_41.8a",
+            "trade2025_41.8b"
+          ],
+          "to": "0004",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0004",
+        "0007"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_41",
+        "transaction_ids": [
+          "trade2025_41.1a",
+          "trade2025_41.1b",
+          "trade2025_41.2a",
+          "trade2025_41.2b",
+          "trade2025_41.3a",
+          "trade2025_41.3b",
+          "trade2025_41.4a",
+          "trade2025_41.4b",
+          "trade2025_41.5a",
+          "trade2025_41.5b",
+          "trade2025_41.6a",
+          "trade2025_41.6b",
+          "trade2025_41.7a",
+          "trade2025_41.7b",
+          "trade2025_41.8a",
+          "trade2025_41.8b"
+        ]
+      },
+      "team_names": {
+        "0004": "Pure Greatness",
+        "0007": "Sex Manther"
+      },
+      "time": "21:41:47"
+    },
+    "trade2025_5": {
+      "cap": [
+        {
+          "amount": 20000,
+          "from": "0005",
+          "rows": [
+            "trade2025_5.2a",
+            "trade2025_5.2b"
+          ],
+          "to": "0006",
+          "token": null
+        }
+      ],
+      "date": "2025-03-05",
+      "date_quality": "recorded",
+      "id": "trade2025_5",
+      "legs": [
+        {
+          "asset": "player:14104",
+          "from": "0005",
+          "kind": "player",
+          "label": "Brown, A.J.",
+          "rows": [
+            "trade2025_5.1a",
+            "trade2025_5.1b"
+          ],
+          "to": "0006",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "spick:2025:1:8",
+          "from": "0006",
+          "kind": "slot_pick",
+          "label": null,
+          "rows": [
+            "trade2025_5.3a",
+            "trade2025_5.3b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0006:2026:3",
+          "from": "0006",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_5.4a",
+            "trade2025_5.4b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0005",
+        "0006"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_5",
+        "transaction_ids": [
+          "trade2025_5.1a",
+          "trade2025_5.1b",
+          "trade2025_5.2a",
+          "trade2025_5.2b",
+          "trade2025_5.3a",
+          "trade2025_5.3b",
+          "trade2025_5.4a",
+          "trade2025_5.4b"
+        ]
+      },
+      "team_names": {
+        "0005": "HammerTime 🔨 ⏰",
+        "0006": "The Long Haulers"
+      },
+      "time": "13:18:22"
+    },
+    "trade2025_53": {
+      "cap": [
+        {
+          "amount": 11000,
+          "from": "0011",
+          "rows": [
+            "trade2025_53.5a",
+            "trade2025_53.5b"
+          ],
+          "to": "0005",
+          "token": null
+        }
+      ],
+      "date": "2025-10-03",
+      "date_quality": "recorded",
+      "id": "trade2025_53",
+      "legs": [
+        {
+          "asset": "player:13146",
+          "from": "0005",
+          "kind": "player",
+          "label": "Conner, James",
+          "rows": [
+            "trade2025_53.1a",
+            "trade2025_53.1b"
+          ],
+          "to": "0011",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0010:2026:2",
+          "from": "0005",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_53.2a",
+            "trade2025_53.2b"
+          ],
+          "to": "0011",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0005:2026:4",
+          "from": "0005",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_53.3a",
+            "trade2025_53.3b"
+          ],
+          "to": "0011",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "player:14797",
+          "from": "0011",
+          "kind": "player",
+          "label": "Swift, D'Andre",
+          "rows": [
+            "trade2025_53.4a",
+            "trade2025_53.4b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0005",
+        "0011"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_53",
+        "transaction_ids": [
+          "trade2025_53.1a",
+          "trade2025_53.1b",
+          "trade2025_53.2a",
+          "trade2025_53.2b",
+          "trade2025_53.3a",
+          "trade2025_53.3b",
+          "trade2025_53.4a",
+          "trade2025_53.4b",
+          "trade2025_53.5a",
+          "trade2025_53.5b"
+        ]
+      },
+      "team_names": {
+        "0005": "HammerTime 🔨 ⏰",
+        "0011": "Cleon Ca$h"
+      },
+      "time": "13:10:49"
+    },
+    "trade2025_71": {
+      "cap": [],
+      "date": "2025-11-22",
+      "date_quality": "recorded",
+      "id": "trade2025_71",
+      "legs": [
+        {
+          "asset": "player:15003",
+          "from": "0004",
+          "kind": "player",
+          "label": "Stone, Geno",
+          "rows": [
+            "trade2025_71.1a",
+            "trade2025_71.1b"
+          ],
+          "to": "0006",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0006:2026:3",
+          "from": "0004",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_71.2a",
+            "trade2025_71.2b"
+          ],
+          "to": "0006",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "player:16708",
+          "from": "0006",
+          "kind": "player",
+          "label": "Smith, Tykee",
+          "rows": [
+            "trade2025_71.3a",
+            "trade2025_71.3b"
+          ],
+          "to": "0004",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0004",
+        "0006"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_71",
+        "transaction_ids": [
+          "trade2025_71.1a",
+          "trade2025_71.1b",
+          "trade2025_71.2a",
+          "trade2025_71.2b",
+          "trade2025_71.3a",
+          "trade2025_71.3b"
+        ]
+      },
+      "team_names": {
+        "0004": "Pure Greatness",
+        "0006": "The Long Haulers"
+      },
+      "time": "18:42:49"
+    },
+    "trade2025_72": {
+      "cap": [],
+      "date": "2025-11-25",
+      "date_quality": "recorded",
+      "id": "trade2025_72",
+      "legs": [
+        {
+          "asset": "player:16150",
+          "from": "0010",
+          "kind": "player",
+          "label": "Stroud, C.J.",
+          "rows": [
+            "trade2025_72.1a",
+            "trade2025_72.1b"
+          ],
+          "to": "0005",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "player:16269",
+          "from": "0005",
+          "kind": "player",
+          "label": "Strange, Brenton",
+          "rows": [
+            "trade2025_72.2a",
+            "trade2025_72.2b"
+          ],
+          "to": "0010",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0008:2026:2",
+          "from": "0005",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_72.3a",
+            "trade2025_72.3b"
+          ],
+          "to": "0010",
+          "token": null,
+          "unpaired": false
+        },
+        {
+          "asset": "fpick:0007:2026:2",
+          "from": "0005",
+          "kind": "future_pick",
+          "label": null,
+          "rows": [
+            "trade2025_72.4a",
+            "trade2025_72.4b"
+          ],
+          "to": "0010",
+          "token": null,
+          "unpaired": false
+        }
+      ],
+      "parties": [
+        "0005",
+        "0010"
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_72",
+        "transaction_ids": [
+          "trade2025_72.1a",
+          "trade2025_72.1b",
+          "trade2025_72.2a",
+          "trade2025_72.2b",
+          "trade2025_72.3a",
+          "trade2025_72.3b",
+          "trade2025_72.4a",
+          "trade2025_72.4b"
+        ]
+      },
+      "team_names": {
+        "0005": "HammerTime 🔨 ⏰",
+        "0010": "Blake Bombers"
+      },
+      "time": "16:01:40"
+    }
+  },
+  "views": {
+    "confirmed_assets": [
+      "player:13130",
+      "player:14104",
+      "spick:2025:1:8",
+      "player:17051",
+      "player:16644",
+      "fpick:0010:2026:2",
+      "player:14797",
+      "fpick:0007:2026:2",
+      "player:16150",
+      "fpick:0006:2026:3",
+      "spick:2025:3:8",
+      "player:17108",
+      "spick:2025:3:2",
+      "player:17106"
+    ],
+    "inferred_assets": [],
+    "rule": "confirmed totals use only assets in confirmed_assets; an inferred or unresolved link never contributes to a confirmed total",
+    "unresolved_links": [
+      "fpick:0010:2026:2#slot",
+      "fpick:0007:2026:2#slot",
+      "fpick:0006:2026:3#slot"
+    ]
+  }
+}
