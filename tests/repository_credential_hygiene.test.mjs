@@ -15,6 +15,8 @@ const RULES = [
   ["an MFL session cookie", /MFL_USER_ID=[A-Za-z0-9+/=%]{20,}/g],
   ["a hard-coded key fallback", /environ\.get\(\s*["']MFL_APIKEY["']\s*,\s*["'][A-Za-z0-9+/=]{20,}["']\s*\)/g],
   ["a hard-coded key in a JSON field", /"(?:api_?key|apikey|key20\d\d)"\s*:\s*"[A-Za-z0-9+/=]{24,}"/gi],
+  ["an MFL user id (session token) in a JSON field", /"(?:submitted_by_)?mfl_user_id"\s*:\s*"[A-Za-z0-9+/=%]{16,}"/gi],
+  ["an MFL session token in a submitter label", /"submitted_by_label"\s*:\s*"[^"]*MFL [A-Za-z0-9+/=%]{16,}/g],
 ];
 
 test("no tracked file holds an MFL key or session cookie (tests/ hold synthetic values only)", () => {
