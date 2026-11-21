@@ -109,9 +109,10 @@
     ask(force).then(function (r) {
       if (mine !== gen || S.sample.on) return;
       var next = r.state === "ok" ? { state: "ok", data: r.data, at: r.at || Date.now() } : { state: "error", error: r.error || "" };
-      if (same(holder[key], next)) return;
-      holder[key] = next; render(true);
-      if (after) after(next);
+      // Two callers can share one memoized read: the first to resolve fills the holder, and the second finds nothing changed. The follow-up
+      // must still run for the second (the owner may have opened Performance while the boot read was in flight), so it is not skipped.
+      if (!same(holder[key], next)) { holder[key] = next; render(true); }
+      if (after) after(holder[key]);
     });
   }
   // The injury read is shared by Roster and Performance (the chips on a row). Asked once and reused by the loader.
@@ -127,21 +128,24 @@
   }
   // Team › Performance (and a profile's game log): the current week's matchup read (season totals, latest final week, team history, next three
   // weeks), then the weekly scores of the latest final week and the three before it, at most four reads.
-  function ensureScores(L, force) {
+  function ensureScores(L, through, force) {
     if (!(L >= 1) || !U.tabviews) return;
-    U.tabviews.weeksFor(L).forEach(function (w) {
+    U.tabviews.weeksFor(L, through).forEach(function (w) {
       intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && S.intel.scores[w] && S.intel.scores[w].state === "error");
     });
   }
   function ensurePerformance(force) {
     if (S.sample.on || !S.model || !S.model.week) return;
     var cur = S.model.week, rec = S.intel.mu[cur];
-    intelRead(S.intel.mu, cur, function (f) { return loader.loadMatchups(cur, f); }, force && rec && rec.state === "error", function (next) { if (next.state === "ok") ensureScores(next.data.latestFinal, force); });
-    if (rec && rec.state === "ok") ensureScores(rec.data.latestFinal, force);
+    intelRead(S.intel.mu, cur, function (f) { return loader.loadMatchups(cur, f); }, force && rec && rec.state === "error", function (next) { if (next && next.state === "ok") ensureScores(next.data.latestFinal, U.tabviews.throughOf(next.data), force); });
+    // (the follow-up above runs once whether the matchup read was already in memory or arrives later, so it is not repeated here)
   }
   function ensureIntel(force) {
     if (S.sample.on || !S.model || S.tab !== "team") return;
-    if (S.sub === "contracts") { loadPenalty(!!force && S.penalty.state === "error"); return; } // the table paints first; the guarantee column loads second
+    if (S.sub === "contracts") { // the table paints first; the guarantee column loads second; a failed read is asked again only on Try again
+      if (S.penalty.state === "idle") loadPenalty(false); else if (force && S.penalty.state === "error") loadPenalty(true);
+      return;
+    }
     if (S.sub === "performance") { ensureStatus(force); ensurePerformance(force); return; }
     if (S.sub !== "roster") return;
     var wi = U.roster.weekInfo(S);

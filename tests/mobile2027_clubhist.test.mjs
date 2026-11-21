@@ -119,7 +119,7 @@ check("no change seen: MFL's club through the cutoff, game or bye from that club
 check("no change seen needs a current club and MFL scores: no club (or FA), or no scores, gives no evidence", () => {
   ["", "FA", undefined].forEach((c) => { const { row } = run({ club: c }); assert.equal(row.cls, "none"); assert.equal(row.coverage[0].identity, "no_evidence"); assert.equal(row.teamGames.of, null); assert.equal(row.cmp.reason, "team_history_unavailable"); });
   const noScores = run({ club: "BBB", sc: {}, season: {} }).row; assert.equal(noScores.cls, "none"); assert.equal(noScores.seasonAvg, null);
-  assert.equal(noScores.scoredGames, 0); assert.equal(noScores.teamGames.text, "0 scored games");                  // the season read worked and has no entry: no scores
+  assert.equal(noScores.scoredGames, null); assert.equal(noScores.teamGames.text, "Scored games unavailable");      // absent from the season read: unavailable, never 0 (MAT-5)
   const failed = run({ club: "BBB", sc: {}, season: null }).row; assert.equal(failed.scoredGames, null); assert.equal(failed.seasonAvg, null);   // no season read at all: unavailable, not zero
 });
 check("a week above the cutoff is unknown and unused (U1): coverage stops at the cutoff", () => {
@@ -258,6 +258,19 @@ check("cmp: score_week_not_loaded (window reaches a week the phone did not load)
 check("cmp: season_unavailable when the season totals lack the player", () => {
   const { row } = run({ th: { seg: [["AAA", 1, 5], ["BBB", 6, 10]] }, club: "BBB", season: {}, sc: sc([3, 9]) });
   assert.equal(row.cmp.reason, "season_unavailable"); assert.equal(row.seasonAvg, null); assert.equal(row.scoredGames, null);
+  assert.deepEqual([row.earlier, row.difference], [null, null]); assert.ok(row.recent > 10 && row.recentN >= 2); assert.equal(row.range.n, 3); assert.deepEqual(row.strip.map((c) => c.kind), ["score", "score", "bye", "score"]);
+});
+check("A (MAT-5): an id absent from `season` (object or null) has seasonAvg and scoredGames null; Recent, range and strip still work; Earlier withheld 'season_unavailable'", () => {
+  [{}, { other: { total: 5, games: 1 } }, null].forEach((season) => {
+    const ch = run({ th: { seg: [["AAA", 1, 5], ["BBB", 6, 10]] }, club: "BBB", sc: sc([3, 9]), season }).row;
+    const nc = run({ club: "BBB", sc: sc([9]), season }).row;
+    [ch, nc].forEach((r) => {
+      assert.deepEqual([r.seasonAvg, r.scoredGames, r.seasonThrough], [null, null, null]); assert.equal(r.cmp.reason, "season_unavailable"); assert.equal(r.cmp.state, "withheld");
+      assert.deepEqual([r.earlier, r.difference], [null, null]); assert.ok(r.recent > 10); assert.equal(r.range.n, 3); assert.equal(r.teamGames.text, "Scored games unavailable");
+    });
+    assert.equal(nc.cls, "nochange");                                                          // loaded scores show he has MFL scores
+  });
+  const none = run({ club: "BBB", sc: {}, season: {} }).row; assert.equal(none.cls, "none"); assert.equal(none.scoredGames, null);
 });
 check("an unloaded week is kind 'unloaded' (not 'none'), 0.0 is a score, a loaded week with no score is 'none'", () => {
   const { row } = run({ club: "BBB", sc: { ...sc([9]), 10: 0 }, loaded: [8, 9, 10] });
@@ -321,6 +334,73 @@ check("newerFinal: a player with NO recorded newer score needs no subtraction, w
 check("newerFinal: a newer week that is not loaded cannot be separated: season figures as given, comparison withheld 'score_week_not_loaded'", () => {
   const r = u1({ sc: sc([3]), loaded: [6, 7, 8, 9], newerFinal: { complete: true } }).row;
   assert.equal(r.scoredGames, 9); assert.equal(r.seasonThrough, 10); assert.equal(r.cmp.reason, "score_week_not_loaded"); assert.equal(cell(r, 10).kind, "newer"); assert.equal(cell(r, 10).loaded, false);
+});
+// B: live scores in the latest final week L, at gap 0 (L is inside the comparison) -- scenario: history through 10, window Weeks 8-10
+const LIVE_TH = { seg: [["AAA", 1, 5], ["BBB", 6, 10]] }, LIVE_BYE = { AAA: 3, BBB: 15 };
+const lv = (o) => run({ L: 10, through: 10, th: LIVE_TH, club: "BBB", byeOf: LIVE_BYE, sc: sc([3]), ...o });
+const G0 = lv({}).row;                                                                    // no newerFinal: everything counts
+const live = (o) => lv({ notInSeason: [10], newerFinal: { complete: false, clubs: { BBB: false } }, ...o }).row;
+check("B gap 0: complete true, or newerFinal absent, or that club's game final: the Week L score counts as before", () => {
+  assert.equal(G0.cmp.state, "shown"); assert.deepEqual(G0.window.weeks, [8, 9, 10]); assert.equal(G0.recentN, 3); assert.equal(cell(G0, 10).kind, "score");
+  [{ complete: true }, { complete: true, clubs: { BBB: false } }, { complete: false, clubs: { BBB: true } }].forEach((nf) => assert.deepEqual(figs(lv({ newerFinal: nf }).row), figs(G0)));
+  assert.equal(G0.scoredGames, 9); assert.equal(G0.teamGames.text, "9 of 9 team games");
+});
+check("B gap 0: that club's game is NOT final -> live: strip kind 'live' with the score carried, excluded from Recent, window count, range, Earlier and scored games", () => {
+  const r = live();
+  assert.deepEqual(cell(r, 10), { week: 10, kind: "live", score: 11, loaded: true });
+  assert.equal(r.cmp.state, "shown"); assert.deepEqual(r.window.weeks, [8, 9, 10]); assert.equal(r.window.scoredCount, 2); assert.equal(r.recentN, 2);
+  near(r.recent, (10.8 + 10.9) / 2); near(r.earlier, (10.1 + 10.2 + 10.4 + 10.5 + 10.6 + 10.7) / 6); assert.equal(r.earlierN, 6);
+  assert.equal(r.range.hi, 10.9); assert.equal(r.range.n, 3); assert.equal(r.scoredGames, 8); assert.equal(r.teamGames.known, 8); assert.equal(r.seasonThrough, 10);
+  assert.equal(r.mixedBase, false);
+  // counting it as a final score would give different figures: the branch matters
+  assert.notEqual(G0.recent, r.recent);
+  // live score + one other recent score: only one recent score is left
+  const one = live({ sc: sc([3, 9]) }); assert.equal(one.cmp.reason, "recent_scores_lt_2");
+  // the rule is per player: a player whose club is final is untouched
+  assert.deepEqual(figs(lv({ newerFinal: { complete: false, clubs: { BBB: true, AAA: false } } }).row), figs(G0));
+});
+check("B gap 0: inclusion cannot be established (club missing, no club, map absent) -> comparison withheld 'newer_score_unseparable', Recent too (the score is in the window)", () => {
+  [{ complete: false, clubs: { AAA: false } }, { complete: false }, { complete: false, clubs: { BBB: "no" } }].forEach((nf) => {
+    const r = lv({ newerFinal: nf }).row;
+    assert.equal(r.cmp.reason, "newer_score_unseparable"); assert.deepEqual([r.recent, r.earlier, r.difference], [null, null, null]);
+    assert.equal(cell(r, 10).kind, "score");                                                    // not known to be live, so not drawn as live
+  });
+  const noClub = run({ L: 10, through: 10, th: LIVE_TH, club: "", byeOf: LIVE_BYE, sc: sc([3]), newerFinal: { complete: false, clubs: { BBB: true } } }).row; assert.equal(noClub.cmp.reason, "newer_score_unseparable");
+  // a player with no recorded Week L score needs no settlement
+  assert.equal(lv({ sc: sc([3, 10]), newerFinal: { complete: false, clubs: {} } }).row.cmp.state, "shown");
+});
+check("B gap 1: the newer Week L score stays a 'newer' cell and never enters a figure, whatever its game state", () => {
+  const without = u1({ sc: sc([3, 10]) }).row;
+  [{ complete: false, clubs: { BBB: false } }, { complete: false, clubs: { BBB: true } }, { complete: true }].forEach((nf) => {
+    const r = u1({ sc: sc([3]), notInSeason: nf.clubs && nf.clubs.BBB === false ? [10] : [], newerFinal: nf }).row;
+    assert.deepEqual(figs(r), figs(without)); assert.equal(cell(r, 10).kind, "newer"); assert.equal(cell(r, 10).score, 11);
+  });
+  assert.equal(u1({ sc: sc([3]), newerFinal: { complete: false, clubs: {} } }).row.cmp.reason, "newer_score_unseparable");
+});
+check("B: with no usable history the live score is still not counted (range) and is drawn 'live'; the comparison is withheld anyway", () => {
+  const r = run({ hist: null, club: "BBB", byeOf: LIVE_BYE, sc: sc([3]), notInSeason: [10], newerFinal: { complete: false, clubs: { BBB: false } } }).row;
+  assert.equal(cell(r, 10).kind, "live"); assert.equal(r.range.hi, 10.9); assert.equal(r.scoredGames, 8); assert.equal(r.cmp.reason, "team_history_unavailable");
+  assert.equal(C.logFor(run({ hist: null, club: "BBB", byeOf: LIVE_BYE, sc: sc([3]), newerFinal: { complete: false, clubs: { BBB: false } } }).input, "p1")[3].kind, "live");
+});
+// C (MAT-3): never "10 of 9 team games"; the text says which week the count is through
+check("C: an unsettled newer score -> teamGames.of null, text '<n> scored games through Week <seasonThrough>', mixedBase true", () => {
+  const r = u1({ sc: sc([3]) }).row;                                                          // newerFinal absent: unsettled
+  assert.equal(r.cmp.reason, "newer_score_unseparable"); assert.equal(r.mixedBase, true); assert.equal(r.seasonThrough, 10);
+  assert.deepEqual([r.teamGames.known, r.teamGames.of, r.teamGames.text], [9, null, "9 scored games through Week 10"]);
+  assert.ok(!/ of /.test(r.teamGames.text));
+  const unloaded = u1({ sc: sc([3]), loaded: [6, 7, 8, 9], newerFinal: { complete: true } }).row; assert.deepEqual([unloaded.mixedBase, unloaded.teamGames.of, unloaded.teamGames.text], [true, null, "9 scored games through Week 10"]);
+  const l0 = lv({ newerFinal: { complete: false } }).row; assert.deepEqual([l0.mixedBase, l0.teamGames.of, l0.teamGames.text], [true, null, "9 scored games through Week 10"]);   // gap 0, unsettled live score
+  assert.equal(run({ L: 10, through: 9, th: U1TH, club: "BBB", byeOf: U1BYE, sc: { 1: 5, 2: 6, 10: 7 }, newerFinal: undefined }).row.teamGames.text, "3 scored games through Week 10");
+  assert.equal(run({ L: 10, through: 9, th: U1TH, club: "BBB", byeOf: U1BYE, sc: { 10: 7 } }).row.teamGames.text, "1 scored game through Week 10");
+});
+check("C: a settled newer score is not a mixed base: through the cutoff, 'of N' as usual; mixedBase false everywhere else", () => {
+  const r = u1({ sc: sc([3]), newerFinal: { complete: true } }).row;
+  assert.deepEqual([r.mixedBase, r.teamGames.known, r.teamGames.of, r.teamGames.text], [false, 8, 8, "8 of 8 team games"]);
+  assert.equal(G0.mixedBase, false); assert.equal(run({ hist: null, club: "BBB" }).row.mixedBase, false);
+});
+check("C: a stale history says which week the season figures are through", () => {
+  const { row } = run({ L: 12, through: 10, club: "BBB", sc: sc([], 12) });
+  assert.deepEqual([row.teamGames.of, row.teamGames.text, row.mixedBase, row.seasonThrough], [null, "12 scored games through Week 12", false, 12]);
 });
 check("U2: unknown game opportunity -> teamGames.of is null and the text has no 'of N'", () => {
   [run({ th: { seg: [["BBB", 4, 10]] }, club: "BBB", sc: sc([9]) }).row, run({ missing: true, club: "BBB" }).row, run({ hist: null, club: "BBB" }).row, run({ conflict: true, club: "BBB" }).row,
@@ -399,6 +479,13 @@ function invariants(input, out) {
       const sv = input.scores[w] && input.scores[w][id], ne = input.newerFinal, cc = input.clubs[id];
       if (typeof sv === "number" && !(ne && (ne.complete === true || (cc && typeof ne.clubs[cc] === "boolean")))) bad.push(id + ": shown with an unsettled newer score");
     }
+    if (r.mixedBase && (r.teamGames.of !== null || r.cmp.state === "shown" || (r.teamGames.known !== null && (/ of /.test(r.teamGames.text) || !/through Week \d+$/.test(r.teamGames.text))))) bad.push(id + ": mixed base misreported");
+    if (r.teamGames.known !== null && out.cutoff !== null && r.seasonThrough !== null && r.seasonThrough !== out.cutoff && !/through Week/.test(r.teamGames.text)) bad.push(id + ": season through another week, text silent");
+    if (out.state === "ok" && out.cutoff >= out.latestFinal && r.cmp.state === "shown" && input.newerFinal && input.newerFinal.complete === false) {      // a live score at L is settled or absent
+      const sv = input.scores[out.latestFinal] && input.scores[out.latestFinal][id], cc = input.clubs[id];
+      if (typeof sv === "number" && !(cc && typeof input.newerFinal.clubs[cc] === "boolean")) bad.push(id + ": shown with an unsettled latest-week score");
+    }
+    r.strip.forEach((c) => { if (c.kind === "live" && c.week !== out.latestFinal) bad.push(id + ": live cell outside week L"); });
     if (r.cmp.state === "shown" && !(r.window && r.window.weeks.length && r.recentN >= 2 && r.earlierN >= 4)) bad.push(id + ": shown without its minimums");
   }
   return bad;
@@ -535,7 +622,7 @@ check("season totals: the 4 loaded weeks + season totals reproduce the full-seas
 check("(a) season average and scored games identical to the reference for all 485 (baseline and amended)", () => {
   IDS.forEach((id) => {
     const r = AM.rows[id], ref = PL[id].amend;
-    assert.equal(r.scoredGames, ref.G, PL[id].name); assert.equal(PL[id].base.G, ref.G); assert.equal(PL[id].base.season, ref.season);       // season figures are club-independent
+    assert.equal(r.scoredGames, SEASON10[id] ? ref.G : null, PL[id].name); assert.equal(PL[id].base.G, ref.G);          // 23 players have no season entry: unavailable (null), not 0 assert.equal(PL[id].base.season, ref.season);       // season figures are club-independent
     if (ref.season === null) assert.equal(r.seasonAvg, null, PL[id].name); else assert.ok(sameRounded(r.seasonAvg, ref.season), PL[id].name + " " + r.seasonAvg + " vs " + ref.season);
     const t = SEASON10[id]; if (t) near(AM.rows[id].seasonAvg, t.total / t.games);
   });
@@ -599,7 +686,7 @@ check("team-game counts: with teamHistoryFirst, 'of N' equals the reference's te
   IDS.forEach((id) => {
     const T = PL[id].amend.T, r = AM.rows[id];
     assert.equal(r.teamGames.of, typeof T === "number" ? T : null, PL[id].name + " " + T);
-    if (typeof T === "string") assert.match(r.teamGames.text, /^-?\d+ scored games?$/);
+    if (typeof T === "string") assert.match(r.teamGames.text, SEASON10[id] ? /^-?\d+ scored games?$/ : /^Scored games unavailable$/);
   });
   IDS.filter((id) => FIRST[id]).forEach((id) => { assert.equal(AM.rows[id].cls, "nochange"); assert.equal(AM.rows[id].teamGames.of, null); assert.equal(AM.rows[id].coverage[0].identity, "unknown_before_first_record"); });
 });

@@ -137,7 +137,7 @@
     var sorts = [["end", "Ends after"], ["y0", "Salary " + season]]; if (ny > 1) sorts.push(["y1", "Salary " + (season + 1)]); sorts.push(["name", "Name"]);
     out += '<div class="lbl">Sort</div><div class="chs" role="group" aria-label="Sort">' + sorts.map(function (o) { return '<button class="ch" data-act="cts" data-v="' + o[0] + '" aria-pressed="' + (c.s === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
 
-    out += '<div class="thead ' + cols + '" aria-hidden="true"><span>Guarantee left</span>' + tot.map(function (v, i) { return "<span>" + (season + i) + "</span>"; }).join("") + "</div>";
+    out += '<div class="thead ' + cols + '"><span>Guarantee left</span>' + tot.map(function (v, i) { return "<span>" + (season + i) + "</span>"; }).join("") + "</div>";
 
     function rowHtml(p) {
       var open = !!c.open[p.id], g = guarantee(S, p), sch = C.schedule(p, season);
@@ -186,7 +186,7 @@
     var d = mu.data, clubs = {}, byePlayers = [];
     S.model.teams.forEach(function (t) { t.players.forEach(function (p) { byePlayers.push({ club: p.nflTeam, bye: p.bye }); }); });
     ids.forEach(function (id) { var p = S.model.byId[id]; clubs[id] = p ? p.nflTeam : ""; });
-    var L = d.latestFinal, scores = {}, weeks = L ? weeksFor(L) : [], loading = false, failed = false;
+    var L = d.latestFinal, scores = {}, weeks = L ? weeksFor(L, throughOf(d)) : [], loading = false, failed = false;
     weeks.forEach(function (w) {
       var r = scoresOf(S)[w];
       if (!r || r.state === "loading") loading = true; else if (r.state === "ok") scores[w] = r.data.scores; else failed = true;
@@ -199,13 +199,19 @@
     return { read: "ok", mu: d, weeks: weeks, loading: loading, failed: failed,
       input: { through: through, latestFinal: L, hist: d.hist, clubs: clubs, byeOf: CH.clubByeMap(byePlayers), season: d.season || {}, scores: scores, ids: ids, newerFinal: newerFinal } };
   }
-  // the weeks of the four-week strip: the latest final week and the three before it
-  function weeksFor(L) { var w = []; for (var i = Math.max(1, L - 3); i <= L; i++) w.push(i); return w; }
+  // The weeks to read: the strip (the latest final week and the three before it) plus the look-back of the comparison, which runs from the history
+  // coverage week and may need a bye week skipped (cutoff - 3 .. cutoff). With history current that is four weeks; one week behind, five.
+  function throughOf(d) { var h = d && d.hist; return h && typeof h.teamHistoryThrough === "number" && h.teamHistoryThrough >= 1 ? h.teamHistoryThrough : null; }
+  function weeksFor(L, through) {
+    var from = L - 3; if (through != null && through <= L) from = Math.min(from, through - 3);
+    var w = []; for (var i = Math.max(1, from); i <= L; i++) w.push(i); return w;
+  }
 
   function scoresOf(S) { return (S.intel && S.intel.scores) || {}; }
   function cellHtml(c, S) {
     var wk = '<i>W' + c.week + "</i>";
     if (c.kind === "bye") return '<span class="cell by">' + wk + "<b>BYE</b></span>";
+    if (c.kind === "live") return '<span class="cell newer" title="Game not final">' + wk + '<b>' + (c.score == null ? DASH : f1(c.score)) + "</b><u>live</u></span>";
     if (c.kind === "newer") return '<span class="cell newer" title="Newer than the comparison cutoff">' + wk + '<b>' + (c.score == null ? DASH : f1(c.score)) + '</b><u>newer</u></span>';
     if (c.kind === "score") return '<span class="cell">' + wk + "<b>" + f1(c.score) + "</b></span>";
     if (c.kind === "unloaded") return '<span class="cell">' + wk + '<b class="mu">' + (scoresOf(S)[c.week] && scoresOf(S)[c.week].state === "error" ? "n/a" : "…") + "</b></span>";
@@ -272,6 +278,8 @@
     if (ev.state === "ok") why = "Every figure on this screen (season average, scored games and comparisons) is through Week " + ev.cutoff + (ev.cutoff !== ev.latestFinal ? ". A newer score is shown with a dashed cell and is not counted in any figure." : ".");
     else if (ev.reason === "stale") why = "Team history is behind, so no comparison is drawn. Scores and season averages still run through Week " + ev.latestFinal + ".";
     else why = "Without team history the comparison is withheld. Scores, season averages and scored games are shown as MFL recorded them, through Week " + ev.latestFinal + ".";
+    var mixed = Object.keys(ev.rows).some(function (id) { return ev.rows[id].mixedBase; });
+    if (mixed) why += " For some players a newer or in-progress score could not be separated from the season total, so their season figures run through Week " + ev.latestFinal + "; those rows say so.";
     out += '<div class="card' + (ev.state === "ok" ? " okc" : " warnc") + '"><b>' + esc(b.text) + '</b><div class="ex">' + esc(why) + "</div>" +
       (ctx.failed ? '<div class="ex wn mt4">Some weeks of scores could not be read, so their cells say n/a. <button class="link" data-act="retryperf">Try again</button></div>' : ctx.loading ? '<div class="ex mt4">Loading the latest weeks…</div>' : "") + "</div>";
     out += '<div class="lbl">Show</div><div class="chs" role="group" aria-label="Show">' + PF_FILTERS.map(function (o) { return '<button class="ch" data-act="pff" data-v="' + o[0] + '" aria-pressed="' + (c.f === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
@@ -314,7 +322,7 @@
     var log = CH.logFor(ctx.input, p.id);
     var season = ctx.input.season[p.id];
     var rows = log.map(function (r) {
-      var cell = r.kind === "score" ? "<b>" + f1(r.score) + "</b>" : r.kind === "newer" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">newer</span>') : r.kind === "bye" ? '<span class="mu">BYE</span>' : r.kind === "unloaded" ? '<span class="mu">…</span>' : '<span class="mu">' + DASH + "</span>";
+      var cell = r.kind === "score" ? "<b>" + f1(r.score) + "</b>" : r.kind === "newer" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">newer</span>') : r.kind === "bye" ? '<span class="mu">BYE</span>' : r.kind === "live" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">live</span>') : r.kind === "unloaded" ? '<span class="mu">' + (scoresOf(S)[r.week] && scoresOf(S)[r.week].state === "error" ? "n/a" : "…") + "</span>" : '<span class="mu">' + DASH + "</span>";
       return "<tr><td>" + r.week + '</td><td class="n">' + cell + "</td></tr>";
     }).join("");
     var avg = season && season.games ? season.total / season.games : null;
@@ -323,5 +331,5 @@
       '<div class="ex">The last four weeks. 0.0 is a score MFL recorded; ' + DASH + " is no score recorded. BYE appears only where the club is known. Opponents, snaps and lineup status are not in this preview.</div>";
   }
 
-  return { contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, kmoney: kmoney };
+  return { contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, throughOf: throughOf, kmoney: kmoney };
 });

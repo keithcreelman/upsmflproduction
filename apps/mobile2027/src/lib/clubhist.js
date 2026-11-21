@@ -213,10 +213,14 @@
       var se = season && own(season, id) && season[id] && isNum(season[id].total) && isInt(season[id].games) && season[id].games >= 0 ? season[id] : null;
       var cur = club(clubs[id]), cls, e = null, k;
       var first = own(H.first, id) ? H.first[id] : 0;                      // a no-change player's first weekly-row week (W1 teamHistoryFirst)
-      if (!se && season && typeof season === "object" && !own(season, id)) {   // the season read worked and has no entry: no scores this season
-        se = { total: 0, games: 0 };
-        for (k in scores) if (own(scores, k) && scoreOf(Number(k), id) !== null && scoreOf(Number(k), id) !== undefined) se = null;   // ...unless a loaded week says otherwise
-      }
+      // An id absent from `season` is unavailable, never zero: the Worker drops unattributed player-games, so earlier scores may exist.
+      // B: the latest final week L can hold LIVE scores. With newerFinal.complete === false, a score is live when that club's game is not
+      // final (excluded from every figure, strip kind "live"), unsettled when that cannot be established (comparison withheld).
+      var sL = scoreOf(L, id), lstat = "final", ne = input.newerFinal, hasScores = !!(se && se.games > 0), q;
+      if (typeof sL === "number" && ne && typeof ne === "object" && ne.complete === false) { q = newerIncluded(ne, cur); lstat = q === true ? "final" : (q === false ? "live" : "unsettled"); }
+      var unsettledL = H.ok && cutoff >= L && lstat === "unsettled";
+      var cs = function (wk) { var v = scoreOf(wk, id); return wk === L && lstat === "live" ? null : v; };   // a live score counts as no score
+      for (k in scores) if (own(scores, k) && typeof scoreOf(Number(k), id) === "number") hasScores = true;
       // Season figures through the cutoff. The Worker's total counts a game only when it is FINAL, so a recorded newer-week score is
       // taken back out only when that game is known to be final (newerFinal); a recorded score whose inclusion cannot be settled, or a
       // newer week that is not loaded, leaves the total as the Worker gave it (seasonThrough = latestFinal) and Earlier is withheld.
@@ -233,7 +237,7 @@
       else if (own(H.conflict, id)) cls = "conflict";
       else if (own(H.missing, id)) cls = "missing";
       else if (own(H.th, id)) { cls = "changed"; e = H.th[id]; }
-      else cls = se && se.games > 0 && cur ? "nochange" : "none";       // F1: "no change seen" needs MFL scores and a current club
+      else cls = hasScores && cur ? "nochange" : "none";                // F1: "no change seen" needs MFL scores and a current club
       var wk = null, of = null, win = null, blocked = null, unknown = 0, games = 0;
       var mk = function (c) {
         var arr = [], x;
@@ -246,7 +250,7 @@
         for (k = 1; k <= cutoff; k++) if (wk[k].opp === "b" && typeof scoreOf(k, id) === "number") { cls = "conflict"; wk = mk(cls); break; }
         for (k = 1; k <= cutoff; k++) { if (wk[k].opp === "u") unknown++; else if (wk[k].opp === "g") games++; }
         if (!unknown) of = games;
-        if (of !== null && sCut && !unsettled && sCut.games > of) { cls = "conflict"; wk = mk(cls); of = null; unknown = cutoff; }   // more scores than team games
+        if (of !== null && sCut && !unsettled && !unsettledL && sCut.games > of) { cls = "conflict"; wk = mk(cls); of = null; unknown = cutoff; }   // more scores than team games
       }
       var usable = H.ok && cls !== "conflict" && cls !== "missing" && cls !== "none";
       if (usable) {                                                      // window: last 3 team games up to the cutoff; byes skipped; an unknown week stops the look-back
@@ -263,21 +267,27 @@
       var strip = [], rec = [], loadedWeeks = [], r4 = 0, all4 = true, c = 0;
       for (c = 0; c < stripWeeks.length; c++) {
         var wn = stripWeeks[c], s = scoreOf(wn, id), cell;
-        if (s === undefined) all4 = false; else if (s !== null) r4++;
+        var live = wn === L && lstat === "live" && typeof s === "number";
+        if (s === undefined) all4 = false; else if (s !== null && !live) r4++;
         if (H.ok && wn > cutoff) cell = { week: wn, kind: "newer", score: s === undefined ? null : s, loaded: s !== undefined };
         else if (s === undefined) cell = { week: wn, kind: "unloaded", score: null, loaded: false };
+        else if (live) cell = { week: wn, kind: "live", score: s, loaded: true };                  // an unfinished game: shown, counted nowhere
         else if (s !== null) cell = { week: wn, kind: "score", score: s, loaded: true };
         else if (H.ok && wk[wn] && wk[wn].opp === "b" && wk[wn].identity === "known") cell = { week: wn, kind: "bye", score: null, loaded: true };
         else cell = { week: wn, kind: "none", score: null, loaded: true };
         if (cell.kind === "none" && H.ok && wk[wn] && wk[wn].byeByCandidates) cell.byeByCandidates = true;   // a bye by candidate agreement: counted nowhere, drawn as a dash
-        if (cell.loaded && cell.kind !== "newer") { loadedWeeks.push(wn); if (s !== null) rec.push(s); }
+        if (cell.loaded && cell.kind !== "newer") { loadedWeeks.push(wn); if (s !== null && !live) rec.push(s); }
         strip.push(cell);
       }
       var range = null;
       if (rec.length) { range = { lo: Math.min.apply(null, rec), hi: Math.max.apply(null, rec), fromWeek: loadedWeeks[0], toWeek: loadedWeeks[loadedWeeks.length - 1], n: rec.length }; }
 
       var known = sCut ? sCut.games : null;
-      var teamGames = { known: known, of: of, text: known === null ? "Scored games unavailable" : (of !== null ? known + " of " + of + " team games" : plural(known, "scored game", "scored games")) };
+      // C: when the season figures run through a different week than the cutoff (unsettled score, or a stale history) the count is
+      // never set against a team-game total, and the text names the week it is through.
+      var mixed = unsettled || unsettledL, other = known !== null && (mixed || (cutoff !== null && seasonTh !== cutoff));
+      if (mixed) of = null;
+      var teamGames = { known: known, of: of, text: known === null ? "Scored games unavailable" : (of !== null ? known + " of " + of + " team games" : plural(known, "scored game", "scored games") + (other ? " through Week " + seasonTh : "")) };
 
       // comparison
       var recent = null, earlier = null, difference = null, recentN = null, earlierN = null, scoredCount = null;
@@ -288,10 +298,10 @@
         for (x = lo; x <= L; x++) { if (scoreOf(x, id) === undefined) needLoaded = false; }
         if (needLoaded) {
           var inWin = 0, sumW = 0, sumAll = 0, cntAll = 0;
-          for (x = lo; x <= cutoff; x++) { var v = scoreOf(x, id); if (typeof v === "number") { sumAll += v; cntAll++; if (win.indexOf(x) >= 0) { sumW += v; inWin++; } } }
+          for (x = lo; x <= cutoff; x++) { var v = cs(x); if (typeof v === "number") { sumAll += v; cntAll++; if (win.indexOf(x) >= 0) { sumW += v; inWin++; } } }
           scoredCount = inWin; recentN = inWin;
           if (inWin) recent = sumW / inWin;
-          if (sCut && !unsettled) { earlierN = sCut.games - cntAll; if (earlierN > 0) earlier = r6(sCut.total - sumAll) / earlierN; }
+          if (sCut && !mixed) { earlierN = sCut.games - cntAll; if (earlierN > 0) earlier = r6(sCut.total - sumAll) / earlierN; }
         }
       }
       var lt2 = function () { withheld("recent_scores_lt_2", "Not enough recent scores (needs 2)"); };
@@ -307,16 +317,17 @@
       else if (blocked) withheld("club_game_unclear", "Team game unclear in Week " + blocked, blocked);
       else if (!win.length) lt2();
       else if (!needLoaded) withheld("score_week_not_loaded", "Scores for a needed week are not loaded");
-      else if (!sCut) withheld("season_unavailable", "Season totals unavailable");
       else if (recentN < 2) lt2();
-      else if (unsettled) withheld("newer_score_unseparable", "A newer score is recorded and it is not clear whether the season total includes it");
+      else if (!sCut) withheld("season_unavailable", "Season totals unavailable");
+      else if (mixed) withheld("newer_score_unseparable", "A newer score is recorded and it is not clear whether the season total includes it");
       else if (earlierN < 0) withheld("season_unavailable", "Season totals unavailable");
       else if (earlierN < 4) withheld("earlier_scores_lt_4", "Not enough earlier scores (needs 4)");
       else { difference = recent - earlier; cmp = { state: "shown", reason: "shown", text: "Last 3 team games against earlier scored games" }; }
-      if (cmp.state !== "shown") { if (cmp.reason !== "newer_score_unseparable") recent = null; earlier = null; }   // numbers only when shown; Recent survives the one Earlier-only withholding
+      // numbers only when shown; Recent survives the two Earlier-only withholdings (unavailable season, unsettled NEWER score)
+      if (cmp.state !== "shown") { if (unsettledL || (cmp.reason !== "newer_score_unseparable" && cmp.reason !== "season_unavailable")) recent = null; earlier = null; }
 
       return {
-        seasonAvg: sCut && sCut.games > 0 ? sCut.total / sCut.games : null, scoredGames: known, seasonThrough: sCut ? seasonTh : null,
+        seasonAvg: sCut && sCut.games > 0 ? sCut.total / sCut.games : null, scoredGames: known, seasonThrough: sCut ? seasonTh : null, mixedBase: mixed,
         strip: strip, range: range, teamGames: teamGames, coverage: H.ok ? groupCoverage(wk, cutoff) : [],
         window: win && win.length ? { weeks: win, scoredCount: scoredCount } : null,
         recent: recent, earlier: earlier, difference: difference, recentN: recentN, earlierN: earlierN, cmp: cmp, cls: cls

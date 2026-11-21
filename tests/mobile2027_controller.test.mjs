@@ -382,15 +382,38 @@ test("R3: a failed guarantee read says Unavailable (never $0), offers Try again,
   t.doesNotMatch(a.html(), /data-act="retrypen"/); t.match(a.html(), /\$[\d,]+<\/b>|\$\d[\d,]* fully earned|Not tracked/);
 });
 
-test("R3: Team › Performance asks for the matchup read, then the four weekly score reads, once each; going back and forth asks nothing more", async () => {
+test("R3: Team › Performance asks for the matchup read, then the weekly score reads (five, because team history is one week behind), once each; going back and forth asks nothing more", async () => {
   const a = boot({ r3: true }); await tick(40); const n = a.calls.length;
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(40);
-  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [8, 9, 10, 11], "the latest final week and the three before it: four reads");
-  t.equal(a.calls.length - n, 4, "nothing else was asked (the injury and matchup reads were already in memory)");
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11], "the strip (Weeks 8 to 11) plus the look-back from the coverage week (Week 10, back to 7 for a bye): five reads");
+  t.equal(a.calls.length - n, 5, "nothing else was asked (the injury and matchup reads were already in memory)");
   a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.equal(c.type, "playerScores"); });
   t.match(a.html(), /Comparison through Week 10/); t.match(a.html(), /dashed|class="cell newer"/);
   await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pff", "data-v": "starters" }); await a.click({ "data-act": "pfs", "data-v": "diff" }); await tick(10);
-  t.equal(a.calls.length - n, 4, "tabs, filters and sorts ask nothing");
+  t.equal(a.calls.length - n, 5, "tabs, filters and sorts ask nothing");
+});
+
+test("R3 review MAT-1: opening Performance while the boot matchup read is still out still asks for the weekly scores once it arrives (and so does a profile's Performance tab)", async () => {
+  const a = boot({ r3: true, holdIntel: true }); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(10);
+  t.deepEqual(scoreReads(a), [], "nothing can be asked yet: the matchup read is held");
+  a.releaseIntel(); await tick(60);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11], "the two callers shared one read; the second still got its follow-up");
+  t.doesNotMatch(a.html(), /Loading the latest weeks/);
+  const b = boot({ r3: true, holdIntel: true }); await tick(30);
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await b.click({ "data-act": "card", "data-pid": pid }); await b.click({ "data-act": "ptab", "data-v": "perf" }); await tick(10);
+  b.releaseIntel(); await tick(60);
+  t.deepEqual(scoreReads(b).sort((x, y) => x - y), [7, 8, 9, 10, 11]);
+});
+
+test("R3 review: a failed guarantee read is asked again only on Try again, not on every return to Contracts", async () => {
+  const a = boot({ failPenalty: 1 }); await tick(40);
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(20);
+  t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 1, "returning to Contracts asks nothing");
+  await a.click({ "data-act": "retrypen" }); await tick(30);
+  t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 2, "Try again asks once more");
 });
 
 test("R3: a failed weekly score read shows n/a in those cells and a retry; scores that did load stay; nothing is 0.0", async () => {
@@ -398,7 +421,7 @@ test("R3: a failed weekly score read shows n/a in those cells and a retry; score
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(40);
   t.match(a.html(), /n\/a/); t.match(a.html(), /data-act="retryperf"/); t.doesNotMatch(a.html(), /<b>0\.0<\/b><\/span><\/span>\s*<span class="cell"><i>W\d+<\/i><b>n\/a/);
   await a.click({ "data-act": "retryperf" }); await tick(40);
-  t.doesNotMatch(a.html(), /n\/a/); t.equal(scoreReads(a).length, 5, "only the failed week was asked again");
+  t.doesNotMatch(a.html(), /n\/a/); t.equal(scoreReads(a).length, 6, "only the failed week was asked again");
 });
 
 test("R3: the profile's Performance tab shows the game log from the same reads (Week and Points; BYE only where the club is known)", async () => {
@@ -407,7 +430,7 @@ test("R3: the profile's Performance tab shows the game log from the same reads (
   await a.click({ "data-act": "card", "data-pid": pid }); await tick(10);
   const n = scoreReads(a).length; t.equal(n, 0, "opening a profile asks for no scores until its Performance tab is used");
   await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
-  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [8, 9, 10, 11]);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11]);
   t.match(a.html(), /Game log/); t.match(a.html(), /<th>Wk<\/th><th class="n">Pts<\/th>/); t.doesNotMatch(a.html(), /<th[^>]*>(Opponent|Snaps|Lineup)/, "no opponent, snaps or lineup column");
   t.match(a.html(), /Opponents, snaps and lineup status are not in this preview/);
 });

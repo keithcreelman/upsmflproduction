@@ -36,7 +36,7 @@ async function intelFor(over) {
   };
   const L = D.createLoader(CFG, fake), rec = (r) => ({ state: r.state, data: r.data, error: r.error, at: Date.now() });
   const out = { status: null, mu: { 11: rec(await L.loadMatchups(11)) }, wk: {}, scores: {} };
-  for (const w of [8, 9, 10, 11]) out.scores[w] = rec(await L.loadScores(w));
+  for (const w of [7, 8, 9, 10, 11]) out.scores[w] = rec(await L.loadScores(w));
   return out;
 }
 const state = (over) => ({
@@ -252,6 +252,24 @@ test("P9: a stale history (two or more weeks behind) withholds every comparison 
   const html = await perf({ lm });
   t.match(html, /Team history is 2 weeks behind/); rcns(html).forEach((x) => t.match(x, /^Recent — Earlier — Difference —$/));
   t.match(html, /class="cell"><i>W10<\/i><b>\d+\.\d<\/b>/);
+});
+
+test("P7 review: every needed week is read (a bye in the look-back no longer withholds), and a live score from an unfinished game is drawn as 'live' and enters no figure", async () => {
+  const html = await perf();
+  t.doesNotMatch(text(html), /needed week are not loaded/, "the weeks the look-back needs are all read");
+  // history through Week 11 (so Week 11 is inside the comparison), and a LIVE Week 11 score for a player whose club's game is not final
+  const S = state({ sub: "performance", intel: await intelFor() }), games = FX3.lineup_matchups_w11.matchups;
+  const p = teamPlayers(S).find((x) => x.status === "active" && games[x.nflTeam] && games[x.nflTeam].status !== "final" && FX3.scores["10"].some((r) => r.id === x.id) && !FX3.lineup_matchups_w11.teamHistory[x.id] && !FX3.lineup_matchups_w11.teamHistoryMissing.includes(x.id));
+  t.ok(p, "an active player whose club's game is not final");
+  const run = async (extra) => {
+    const lm = clone(FX3.lineup_matchups_w11); lm.teamHistoryThrough = 11;
+    const scores = clone(FX3.scores); if (extra) scores["11"].push({ id: p.id, score: "9.9" });
+    return body(V.app(state({ sub: "performance", intel: await intelFor({ lm, scores }) }))).split('data-act="pfx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
+  };
+  const withLive = await run(true), without = await run(false);
+  t.match(withLive, /<u>live<\/u>/); t.doesNotMatch(without, /<u>live<\/u>/);
+  const rcn = (h) => text(h.match(/<div class="rcn">(.*?)<\/div>/)[1]).trim();
+  t.equal(rcn(withLive), rcn(without), "a live score changes no Recent, Earlier or Difference");
 });
 
 test("P10: Performance carries no matchup rating, color, 'allowed per game' line or defense rank, and the view code reads none of them", async () => {
