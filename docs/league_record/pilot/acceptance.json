@@ -94,5 +94,11 @@
     "id": "T16",
     "pass": null,
     "title": "independent review (Codex) on the exact head, and CI on the head and on the merge result of the head with the base, both SHAs named"
+  },
+  {
+    "detail": "",
+    "id": "T17",
+    "pass": true,
+    "title": "every trade is kept as one package with every asset and cap amount in its direction; lineage participation is separate from attributable return, which is established only for an exact one-for-one exchange; no number sits under an attribution field"
   }
 ]

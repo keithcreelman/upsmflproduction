@@ -8,6 +8,7 @@ import { openArchive, ARCHIVE_GZ_PATH, ARCHIVE_GZ_SHA256, ALLOWED_TABLES } from 
 import { SNAPSHOT_DAY, snapshotDays, snapshotRosterIndex, etParts, franchiseNames } from "./sources.mjs";
 import { buildLedger, playerChain, pickChain, lastHolder, holderAt, resolveSlotPick, resolveFuturePick, loadYearSlotLists, gapsBetween, CLASS, RULES } from "./lineage.mjs";
 import { playerEconomics, kickoffDates, lastLeagueWeek } from "./economics.mjs";
+import { packageView, participation, packageSentence } from "./packages.mjs";
 
 export const PILOT = Object.freeze({
   id: "aj_brown_hammertime",
@@ -18,6 +19,7 @@ export const PILOT = Object.freeze({
   last_archive_season: 2025,
 });
 
+const PACKAGE_RULE = "A trade is one transaction: everything a franchise surrendered was exchanged for everything it received. The record states no allocation among the assets, so (1) DIRECT CONSIDERATION is the whole incoming set for the whole outgoing set, (2) LINEAGE PARTICIPATION only says a traced asset took part, and (3) ATTRIBUTABLE ECONOMIC RETURN is established only for an exact one-for-one exchange with no cap money; otherwise nothing is credited to any single asset (scripts/league_record/s1/packages.mjs).";
 const SCHEMA = "ups.league_record.s1.pilot/1";
 
 const assetKind = (a) => (a.startsWith("player:") ? "player" : a.startsWith("spick:") ? "slot_pick" : a.startsWith("fpick:") ? "future_pick" : "other");
@@ -135,19 +137,21 @@ function buildFrom({ archive, root }) {
     return out;
   }
 
-  // what franchise F received when it sent this asset on: the consideration (confirmed by the trade record) and the other assets in the same deal (companions, not traced)
+  // What franchise F received when it sent this asset on. Every transfer is a PACKAGE: F's whole outgoing set was exchanged for F's whole incoming set (see packages.mjs). The assets that
+  // arrive are traced as participants in that package; none is credited to this asset alone.
   function expandTransfers(node, chain) {
     for (const h of chain.holders.filter((x) => x.franchise === F && x.to_event && x.to_event.kind !== "trade")) node.departures.push({ class: h.to_event.kind === "drop" ? CLASS.CONFIRMED : CLASS.UNRESOLVED, kind: h.to_event.kind, date: h.to_event.date, time: h.to_event.time, method: h.to_event.method || null, source: h.to_event.source, note: h.to_event.kind === "drop" ? "released rather than traded: the drop is recorded and no consideration was recorded" : "the end of the stint is dated by another franchise's add: the holder's own release is not recorded (UNRESOLVED), and no consideration was recorded" });
     const heldByF = chain.holders.filter((h) => h.franchise === F && h.to_event && h.to_event.kind === "trade");
     for (const h of heldByF) {
       const t = tradeById.get(h.to_event.trade); useTrade(t.id);
       const sentByF = t.legs.filter((l) => l.from === F), recvByF = t.legs.filter((l) => l.to === F);
-      const consideration = recvByF.map((l) => l.asset), companionsSent = sentByF.filter((l) => l.asset !== node.id).map((l) => l.asset);
+      const packageReceived = recvByF.map((l) => l.asset), packageAlsoSent = sentByF.filter((l) => l.asset !== node.id).map((l) => l.asset);
       const capIn = t.cap.filter((c) => c.to === F), capOut = t.cap.filter((c) => c.from === F);
-      const rec = { class: CLASS.CONFIRMED, trade: t.id, date: t.date, time: t.time, sent_asset: node.id, sent_to: h.to_event.to, consideration, cap_received: capIn.map((c) => c.amount), cap_sent: capOut.map((c) => c.amount), companions_sent: companionsSent, expanded: node.generation < PILOT.max_generation };
+      const view = packageView(t, () => null), side = view.sides.find((x) => x.franchise === F);
+      const rec = { class: CLASS.CONFIRMED, trade: t.id, date: t.date, time: t.time, sent_asset: node.id, sent_to: h.to_event.to, package_sent: sentByF.map((l) => l.asset), package_also_sent: packageAlsoSent, package_received: packageReceived, cap_received: capIn.map((c) => c.amount), cap_sent: capOut.map((c) => c.amount), attributable_return: side.allocation, expanded: node.generation < PILOT.max_generation };
       node.transfers.push(rec);
       if (node.generation < PILOT.max_generation && node.link_class !== CLASS.UNRESOLVED) {
-        for (const cid of consideration) if (cid && !nodes.has(cid)) addNode(cid, { generation: node.generation + 1, role: "consideration", entered: { via: "trade", trade: t.id, date: t.date, received_for: node.id }, classOfLink: node.link_class, via: node.id, sinceTs: t.ts });
+        for (const cid of packageReceived) if (cid && !nodes.has(cid)) addNode(cid, { generation: node.generation + 1, role: "received_in_package", entered: { via: "trade", trade: t.id, date: t.date, package_sent_by_the_franchise: sentByF.map((l) => l.asset), lineage_parent: node.id }, classOfLink: node.link_class, via: node.id, sinceTs: t.ts });
       } else rec.frontier = true;
     }
   }
@@ -162,13 +166,23 @@ function buildFrom({ archive, root }) {
   for (const l of acquired) addNode(l.asset, { generation: 0, role: "acquired_upstream", entered: { via: "trade", trade: up.id, date: up.date, received_by: F }, sinceTs: up.ts - 1 });
 
   // ── bundle ────────────────────────────────────────────────────────────────────────────────────
+  const labelOfAsset = (a) => {
+    if (a.startsWith("player:")) return playerLabel(a.split(":")[1]) || `player ${a.split(":")[1]}`;
+    if (a.startsWith("fpick:")) { const [o, y, r] = pickParts(a); return `${y} round ${r} pick, original franchise ${o}`; }
+    if (a.startsWith("spick:")) { const [y, r, sl] = pickParts(a); return `${y} round ${r}, slot ${sl} (pick ${r}.${String(sl).padStart(2, "0")})`; }
+    return a;
+  };
+  const packageViews = {};
+  for (const id of usedTrades.keys()) packageViews[id] = packageView(tradeById.get(id), labelOfAsset);
   const nodeList = order.map((id) => { const n = nodes.get(id); const { _chain, ...rest } = n;
     // a slot pick stops existing as a pick when it is used: its last possession period ends at the selection
     if (rest.kind === "slot_pick" && rest.resolution && rest.resolution.selection && rest.chain.holders.length) { const h = rest.chain.holders.at(-1); if (!h.to) h.to = { date: rest.resolution.selection.date, time: rest.resolution.selection.time, kind: "draft_selection", trade: null, by: rest.resolution.selection.franchise }; }
     rest.named_gap = namedGapExposure(ledger, rest.chain.holders);
+    // lineage participation: every trade this asset took part in, with the full package and whether the transaction itself establishes an allocation (never a value)
+    rest.participation = rest.chain.events.filter((e) => e.kind === "trade").map((e) => participation(packageViews[e.trade], rest.id, e.from, e.to));
     classifyPeriods(rest.chain.holders, rest.named_gap);
     return rest; });
-  const frontier = nodeList.flatMap((n) => n.transfers.filter((t) => t.frontier).map((t) => ({ asset: n.id, trade: t.trade, date: t.date, consideration: t.consideration, note: `generation limit ${PILOT.max_generation} reached: this transfer's consideration is listed, not traced` })));
+  const frontier = nodeList.flatMap((n) => n.transfers.filter((t) => t.frontier).map((t) => ({ asset: n.id, trade: t.trade, date: t.date, package_received: t.package_received, note: `generation limit ${PILOT.max_generation} reached: this transfer's consideration is listed, not traced` })));
   const views = buildViews(nodeList);
   const trades = Object.fromEntries([...usedTrades.entries()].sort((a, b) => a[1].date.localeCompare(b[1].date) || a[0].localeCompare(b[0], "en", { numeric: true })));
   const coverage = { named_gap: ledger.named_gap, windows_overlapping_the_chains: collectWindows(ledger, nodes), historical_pattern: tradeSeasonPattern(ledger), first_pre_draft_slot_list: firstList ? firstList.day : null, last_pre_draft_slot_list: lastPre ? lastPre.day : null, archive_last_trade: ledger.archiveTrades.at(-1).date, snapshot_first_trade: ledger.snapshotTrades[0] ? ledger.snapshotTrades[0].date : null };
@@ -177,7 +191,7 @@ function buildFrom({ archive, root }) {
     schema: SCHEMA,
     pilot: { ...PILOT, team_names: Object.fromEntries([...names].filter(([id]) => ["0004", "0005", "0006", "0007", "0008", "0009", "0010", "0011", "0001"].includes(id))) },
     sources: { archive: { path: ARCHIVE_GZ_PATH, sha256: ARCHIVE_GZ_SHA256, tables_read: ALLOWED_TABLES }, snapshots: { dir: "data/mfl-snapshots", pinned_day: SNAPSHOT_DAY, days_available: snapshotDays(root).length, files: ["transactions.json", "draftResults.json", "rosters.json", "league.json", "_snapshot_meta.json"] }, notes: ["owner names and other personal fields are never read or written", "no ranking or forecast data is read: draft slots come only from MFL draft results, MFL slot tokens and MFL slot lists (docs/league_record/S1_METHODOLOGY.md)"] },
-    roots, coverage, trades, nodes: nodeList, frontier, views, reconciliation,
+    roots, coverage, trades, packages: Object.fromEntries(Object.entries(packageViews).sort((a, b) => a[1].date.localeCompare(b[1].date) || a[0].localeCompare(b[0], "en", { numeric: true }))), package_rule: PACKAGE_RULE, nodes: nodeList, frontier, views, reconciliation,
     gaps: dedupeGaps(gapsFound, coverage),
   };
   return bundle;

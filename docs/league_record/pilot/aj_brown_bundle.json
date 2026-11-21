@@ -661,6 +661,50 @@
         ]
       },
       "notes": [],
+      "participation": [
+        {
+          "asset": "player:13130",
+          "attributable_return": {
+            "basis": "one asset each way and no cap money: the transaction itself pairs them",
+            "status": "ESTABLISHED_ONE_FOR_ONE"
+          },
+          "from": "0005",
+          "sender_package": {
+            "received": [
+              "player:14104"
+            ],
+            "sent": [
+              "player:13130"
+            ]
+          },
+          "to": "0008",
+          "trade": "trade2024_30"
+        },
+        {
+          "asset": "player:13130",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 5 item(s) 0004 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0004",
+          "sender_package": {
+            "received": [
+              "player:16162",
+              "fpick:0008:2026:5",
+              "fpick:0010:2026:5"
+            ],
+            "sent": [
+              "player:13130",
+              "fpick:0004:2026:1",
+              "fpick:0005:2026:1",
+              "fpick:0006:2026:1",
+              "cap:25000"
+            ]
+          },
+          "to": "0007",
+          "trade": "trade2025_41"
+        }
+      ],
       "role": "surrendered_upstream",
       "transfers": [],
       "via": null
@@ -986,21 +1030,68 @@
         ]
       },
       "notes": [],
+      "participation": [
+        {
+          "asset": "player:14104",
+          "attributable_return": {
+            "basis": "one asset each way and no cap money: the transaction itself pairs them",
+            "status": "ESTABLISHED_ONE_FOR_ONE"
+          },
+          "from": "0008",
+          "sender_package": {
+            "received": [
+              "player:13130"
+            ],
+            "sent": [
+              "player:14104"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2024_30"
+        },
+        {
+          "asset": "player:14104",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0005 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0005",
+          "sender_package": {
+            "received": [
+              "spick:2025:1:8",
+              "fpick:0006:2026:3"
+            ],
+            "sent": [
+              "player:14104",
+              "cap:20000"
+            ]
+          },
+          "to": "0006",
+          "trade": "trade2025_5"
+        }
+      ],
       "role": "acquired_upstream",
       "transfers": [
         {
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0005 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
           "cap_received": [],
           "cap_sent": [
             20000
           ],
           "class": "CONFIRMED",
-          "companions_sent": [],
-          "consideration": [
+          "date": "2025-03-05",
+          "expanded": true,
+          "package_also_sent": [],
+          "package_received": [
             "spick:2025:1:8",
             "fpick:0006:2026:3"
           ],
-          "date": "2025-03-05",
-          "expanded": true,
+          "package_sent": [
+            "player:14104"
+          ],
           "sent_asset": "player:14104",
           "sent_to": "0006",
           "time": "13:18:22",
@@ -1086,7 +1177,10 @@
       "departures": [],
       "entered": {
         "date": "2025-03-05",
-        "received_for": "player:14104",
+        "lineage_parent": "player:14104",
+        "package_sent_by_the_franchise": [
+          "player:14104"
+        ],
         "trade": "trade2025_5",
         "via": "trade"
       },
@@ -1110,6 +1204,28 @@
         "possession_periods_spanning": []
       },
       "notes": [],
+      "participation": [
+        {
+          "asset": "spick:2025:1:8",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0006 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0006",
+          "sender_package": {
+            "received": [
+              "player:14104",
+              "cap:20000"
+            ],
+            "sent": [
+              "spick:2025:1:8",
+              "fpick:0006:2026:3"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2025_5"
+        }
+      ],
       "resolution": {
         "class": "CONFIRMED",
         "conflict": false,
@@ -1144,7 +1260,7 @@
           "year": 2025
         }
       },
-      "role": "consideration",
+      "role": "received_in_package",
       "transfers": [],
       "via": "player:14104"
     },
@@ -1367,20 +1483,49 @@
         ]
       },
       "notes": [],
+      "participation": [
+        {
+          "asset": "player:17051",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 1 item(s) 0005 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0005",
+          "sender_package": {
+            "received": [
+              "player:16644",
+              "fpick:0010:2026:2",
+              "fpick:0007:2026:2"
+            ],
+            "sent": [
+              "player:17051"
+            ]
+          },
+          "to": "0010",
+          "trade": "trade2025_34"
+        }
+      ],
       "role": "drafted_player",
       "transfers": [
         {
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 1 item(s) 0005 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
           "cap_received": [],
           "cap_sent": [],
           "class": "CONFIRMED",
-          "companions_sent": [],
-          "consideration": [
+          "date": "2025-08-07",
+          "expanded": true,
+          "package_also_sent": [],
+          "package_received": [
             "player:16644",
             "fpick:0010:2026:2",
             "fpick:0007:2026:2"
           ],
-          "date": "2025-08-07",
-          "expanded": true,
+          "package_sent": [
+            "player:17051"
+          ],
           "sent_asset": "player:17051",
           "sent_to": "0010",
           "time": "10:54:26",
@@ -1539,7 +1684,10 @@
       },
       "entered": {
         "date": "2025-08-07",
-        "received_for": "player:17051",
+        "lineage_parent": "player:17051",
+        "package_sent_by_the_franchise": [
+          "player:17051"
+        ],
         "trade": "trade2025_34",
         "via": "trade"
       },
@@ -1578,7 +1726,29 @@
         ]
       },
       "notes": [],
-      "role": "consideration",
+      "participation": [
+        {
+          "asset": "player:16644",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0010 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0010",
+          "sender_package": {
+            "received": [
+              "player:17051"
+            ],
+            "sent": [
+              "player:16644",
+              "fpick:0010:2026:2",
+              "fpick:0007:2026:2"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2025_34"
+        }
+      ],
+      "role": "received_in_package",
       "transfers": [],
       "via": "player:17051"
     },
@@ -1702,7 +1872,10 @@
       "departures": [],
       "entered": {
         "date": "2025-08-07",
-        "received_for": "player:17051",
+        "lineage_parent": "player:17051",
+        "package_sent_by_the_franchise": [
+          "player:17051"
+        ],
         "trade": "trade2025_34",
         "via": "trade"
       },
@@ -1735,6 +1908,49 @@
         ]
       },
       "notes": [],
+      "participation": [
+        {
+          "asset": "fpick:0010:2026:2",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0010 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0010",
+          "sender_package": {
+            "received": [
+              "player:17051"
+            ],
+            "sent": [
+              "player:16644",
+              "fpick:0010:2026:2",
+              "fpick:0007:2026:2"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2025_34"
+        },
+        {
+          "asset": "fpick:0010:2026:2",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0005 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0005",
+          "sender_package": {
+            "received": [
+              "player:14797",
+              "cap:11000"
+            ],
+            "sent": [
+              "player:13146",
+              "fpick:0010:2026:2",
+              "fpick:0005:2026:4"
+            ]
+          },
+          "to": "0011",
+          "trade": "trade2025_53"
+        }
+      ],
       "resolution": {
         "candidate_slots": [
           {
@@ -1801,23 +2017,32 @@
         "slot": null,
         "status_for_totals": "no_link_no_totals"
       },
-      "role": "consideration",
+      "role": "received_in_package",
       "transfers": [
         {
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0005 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
           "cap_received": [
             11000
           ],
           "cap_sent": [],
           "class": "CONFIRMED",
-          "companions_sent": [
+          "date": "2025-10-03",
+          "expanded": true,
+          "package_also_sent": [
             "player:13146",
             "fpick:0005:2026:4"
           ],
-          "consideration": [
+          "package_received": [
             "player:14797"
           ],
-          "date": "2025-10-03",
-          "expanded": true,
+          "package_sent": [
+            "player:13146",
+            "fpick:0010:2026:2",
+            "fpick:0005:2026:4"
+          ],
           "sent_asset": "fpick:0010:2026:2",
           "sent_to": "0011",
           "time": "13:10:49",
@@ -2112,7 +2337,12 @@
       },
       "entered": {
         "date": "2025-10-03",
-        "received_for": "fpick:0010:2026:2",
+        "lineage_parent": "fpick:0010:2026:2",
+        "package_sent_by_the_franchise": [
+          "player:13146",
+          "fpick:0010:2026:2",
+          "fpick:0005:2026:4"
+        ],
         "trade": "trade2025_53",
         "via": "trade"
       },
@@ -2151,7 +2381,30 @@
         ]
       },
       "notes": [],
-      "role": "consideration",
+      "participation": [
+        {
+          "asset": "player:14797",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0011 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0011",
+          "sender_package": {
+            "received": [
+              "player:13146",
+              "fpick:0010:2026:2",
+              "fpick:0005:2026:4"
+            ],
+            "sent": [
+              "player:14797",
+              "cap:11000"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2025_53"
+        }
+      ],
+      "role": "received_in_package",
       "transfers": [],
       "via": "fpick:0010:2026:2"
     },
@@ -2273,7 +2526,10 @@
       "departures": [],
       "entered": {
         "date": "2025-08-07",
-        "received_for": "player:17051",
+        "lineage_parent": "player:17051",
+        "package_sent_by_the_franchise": [
+          "player:17051"
+        ],
         "trade": "trade2025_34",
         "via": "trade"
       },
@@ -2307,6 +2563,48 @@
         ]
       },
       "notes": [],
+      "participation": [
+        {
+          "asset": "fpick:0007:2026:2",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0010 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0010",
+          "sender_package": {
+            "received": [
+              "player:17051"
+            ],
+            "sent": [
+              "player:16644",
+              "fpick:0010:2026:2",
+              "fpick:0007:2026:2"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2025_34"
+        },
+        {
+          "asset": "fpick:0007:2026:2",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0005 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0005",
+          "sender_package": {
+            "received": [
+              "player:16150"
+            ],
+            "sent": [
+              "player:16269",
+              "fpick:0008:2026:2",
+              "fpick:0007:2026:2"
+            ]
+          },
+          "to": "0010",
+          "trade": "trade2025_72"
+        }
+      ],
       "resolution": {
         "candidate_slots": [
           {
@@ -2408,21 +2706,30 @@
         "slot": null,
         "status_for_totals": "no_link_no_totals"
       },
-      "role": "consideration",
+      "role": "received_in_package",
       "transfers": [
         {
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0005 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
           "cap_received": [],
           "cap_sent": [],
           "class": "CONFIRMED",
-          "companions_sent": [
+          "date": "2025-11-25",
+          "expanded": true,
+          "package_also_sent": [
             "player:16269",
             "fpick:0008:2026:2"
           ],
-          "consideration": [
+          "package_received": [
             "player:16150"
           ],
-          "date": "2025-11-25",
-          "expanded": true,
+          "package_sent": [
+            "player:16269",
+            "fpick:0008:2026:2",
+            "fpick:0007:2026:2"
+          ],
           "sent_asset": "fpick:0007:2026:2",
           "sent_to": "0010",
           "time": "16:01:40",
@@ -2639,7 +2946,12 @@
       },
       "entered": {
         "date": "2025-11-25",
-        "received_for": "fpick:0007:2026:2",
+        "lineage_parent": "fpick:0007:2026:2",
+        "package_sent_by_the_franchise": [
+          "player:16269",
+          "fpick:0008:2026:2",
+          "fpick:0007:2026:2"
+        ],
         "trade": "trade2025_72",
         "via": "trade"
       },
@@ -2678,7 +2990,29 @@
         ]
       },
       "notes": [],
-      "role": "consideration",
+      "participation": [
+        {
+          "asset": "player:16150",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 1 item(s) 0010 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0010",
+          "sender_package": {
+            "received": [
+              "player:16269",
+              "fpick:0008:2026:2",
+              "fpick:0007:2026:2"
+            ],
+            "sent": [
+              "player:16150"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2025_72"
+        }
+      ],
+      "role": "received_in_package",
       "transfers": [],
       "via": "fpick:0007:2026:2"
     },
@@ -2842,7 +3176,10 @@
       "departures": [],
       "entered": {
         "date": "2025-03-05",
-        "received_for": "player:14104",
+        "lineage_parent": "player:14104",
+        "package_sent_by_the_franchise": [
+          "player:14104"
+        ],
         "trade": "trade2025_5",
         "via": "trade"
       },
@@ -2877,6 +3214,65 @@
         ]
       },
       "notes": [],
+      "participation": [
+        {
+          "asset": "fpick:0006:2026:3",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0006 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0006",
+          "sender_package": {
+            "received": [
+              "player:14104",
+              "cap:20000"
+            ],
+            "sent": [
+              "spick:2025:1:8",
+              "fpick:0006:2026:3"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2025_5"
+        },
+        {
+          "asset": "fpick:0006:2026:3",
+          "attributable_return": {
+            "basis": "one asset each way and no cap money: the transaction itself pairs them",
+            "status": "ESTABLISHED_ONE_FOR_ONE"
+          },
+          "from": "0005",
+          "sender_package": {
+            "received": [
+              "spick:2025:3:8"
+            ],
+            "sent": [
+              "fpick:0006:2026:3"
+            ]
+          },
+          "to": "0004",
+          "trade": "trade2025_10"
+        },
+        {
+          "asset": "fpick:0006:2026:3",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0004 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0004",
+          "sender_package": {
+            "received": [
+              "player:16708"
+            ],
+            "sent": [
+              "player:15003",
+              "fpick:0006:2026:3"
+            ]
+          },
+          "to": "0006",
+          "trade": "trade2025_71"
+        }
+      ],
       "resolution": {
         "candidate_slots": [
           {
@@ -3010,18 +3406,25 @@
         "slot": null,
         "status_for_totals": "no_link_no_totals"
       },
-      "role": "consideration",
+      "role": "received_in_package",
       "transfers": [
         {
+          "attributable_return": {
+            "basis": "one asset each way and no cap money: the transaction itself pairs them",
+            "status": "ESTABLISHED_ONE_FOR_ONE"
+          },
           "cap_received": [],
           "cap_sent": [],
           "class": "CONFIRMED",
-          "companions_sent": [],
-          "consideration": [
-            "spick:2025:3:8"
-          ],
           "date": "2025-03-20",
           "expanded": true,
+          "package_also_sent": [],
+          "package_received": [
+            "spick:2025:3:8"
+          ],
+          "package_sent": [
+            "fpick:0006:2026:3"
+          ],
           "sent_asset": "fpick:0006:2026:3",
           "sent_to": "0004",
           "time": "12:54:23",
@@ -3199,7 +3602,10 @@
       "departures": [],
       "entered": {
         "date": "2025-03-20",
-        "received_for": "fpick:0006:2026:3",
+        "lineage_parent": "fpick:0006:2026:3",
+        "package_sent_by_the_franchise": [
+          "fpick:0006:2026:3"
+        ],
         "trade": "trade2025_10",
         "via": "trade"
       },
@@ -3223,6 +3629,66 @@
         "possession_periods_spanning": []
       },
       "notes": [],
+      "participation": [
+        {
+          "asset": "spick:2025:3:8",
+          "attributable_return": {
+            "basis": "one asset each way and no cap money: the transaction itself pairs them",
+            "status": "ESTABLISHED_ONE_FOR_ONE"
+          },
+          "from": "0004",
+          "sender_package": {
+            "received": [
+              "fpick:0006:2026:3"
+            ],
+            "sent": [
+              "spick:2025:3:8"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2025_10"
+        },
+        {
+          "asset": "spick:2025:3:8",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0005 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0005",
+          "sender_package": {
+            "received": [
+              "spick:2025:3:2"
+            ],
+            "sent": [
+              "spick:2025:3:8",
+              "fpick:0005:2026:3"
+            ]
+          },
+          "to": "0001",
+          "trade": "trade2025_17"
+        },
+        {
+          "asset": "spick:2025:3:8",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0001 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0001",
+          "sender_package": {
+            "received": [
+              "spick:2025:3:4",
+              "spick:2025:5:3"
+            ],
+            "sent": [
+              "spick:2025:3:8",
+              "spick:2025:5:4",
+              "fpick:0001:2026:4"
+            ]
+          },
+          "to": "0011",
+          "trade": "trade2025_19"
+        }
+      ],
       "resolution": {
         "class": "CONFIRMED",
         "conflict": false,
@@ -3251,20 +3717,28 @@
           "year": 2025
         }
       },
-      "role": "consideration",
+      "role": "received_in_package",
       "transfers": [
         {
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0005 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
           "cap_received": [],
           "cap_sent": [],
           "class": "CONFIRMED",
-          "companions_sent": [
-            "fpick:0005:2026:3"
-          ],
-          "consideration": [
-            "spick:2025:3:2"
-          ],
           "date": "2025-05-25",
           "expanded": true,
+          "package_also_sent": [
+            "fpick:0005:2026:3"
+          ],
+          "package_received": [
+            "spick:2025:3:2"
+          ],
+          "package_sent": [
+            "spick:2025:3:8",
+            "fpick:0005:2026:3"
+          ],
           "sent_asset": "spick:2025:3:8",
           "sent_to": "0001",
           "time": "20:24:12",
@@ -3442,6 +3916,7 @@
         ]
       },
       "notes": [],
+      "participation": [],
       "role": "drafted_player",
       "transfers": [],
       "via": "spick:2025:3:8"
@@ -3521,7 +3996,11 @@
       "departures": [],
       "entered": {
         "date": "2025-05-25",
-        "received_for": "spick:2025:3:8",
+        "lineage_parent": "spick:2025:3:8",
+        "package_sent_by_the_franchise": [
+          "spick:2025:3:8",
+          "fpick:0005:2026:3"
+        ],
         "trade": "trade2025_17",
         "via": "trade"
       },
@@ -3545,6 +4024,27 @@
         "possession_periods_spanning": []
       },
       "notes": [],
+      "participation": [
+        {
+          "asset": "spick:2025:3:2",
+          "attributable_return": {
+            "basis": "the trade record states no allocation among the 1 item(s) 0001 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "from": "0001",
+          "sender_package": {
+            "received": [
+              "spick:2025:3:8",
+              "fpick:0005:2026:3"
+            ],
+            "sent": [
+              "spick:2025:3:2"
+            ]
+          },
+          "to": "0005",
+          "trade": "trade2025_17"
+        }
+      ],
       "resolution": {
         "class": "CONFIRMED",
         "conflict": false,
@@ -3573,7 +4073,7 @@
           "year": 2025
         }
       },
-      "role": "consideration",
+      "role": "received_in_package",
       "transfers": [],
       "via": "spick:2025:3:8"
     },
@@ -3746,11 +4246,1147 @@
         ]
       },
       "notes": [],
+      "participation": [],
       "role": "drafted_player",
       "transfers": [],
       "via": "spick:2025:3:2"
     }
   ],
+  "package_rule": "A trade is one transaction: everything a franchise surrendered was exchanged for everything it received. The record states no allocation among the assets, so (1) DIRECT CONSIDERATION is the whole incoming set for the whole outgoing set, (2) LINEAGE PARTICIPATION only says a traced asset took part, and (3) ATTRIBUTABLE ECONOMIC RETURN is established only for an exact one-for-one exchange with no cap money; otherwise nothing is credited to any single asset (scripts/league_record/s1/packages.mjs).",
+  "packages": {
+    "trade2024_30": {
+      "class": "CONFIRMED",
+      "date": "2024-07-24",
+      "date_quality": "recorded",
+      "package": false,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "one asset each way and no cap money: the transaction itself pairs them",
+            "status": "ESTABLISHED_ONE_FOR_ONE"
+          },
+          "assets_received": 1,
+          "assets_sent": 1,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:14104"
+            ],
+            "surrendered_in_full": [
+              "player:13130"
+            ]
+          },
+          "franchise": "0005",
+          "received": [
+            {
+              "asset": "player:14104",
+              "kind": "player",
+              "label": "Brown, A.J."
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:13130",
+              "kind": "player",
+              "label": "McCaffrey, Christian"
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "one asset each way and no cap money: the transaction itself pairs them",
+            "status": "ESTABLISHED_ONE_FOR_ONE"
+          },
+          "assets_received": 1,
+          "assets_sent": 1,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:13130"
+            ],
+            "surrendered_in_full": [
+              "player:14104"
+            ]
+          },
+          "franchise": "0008",
+          "received": [
+            {
+              "asset": "player:13130",
+              "kind": "player",
+              "label": "McCaffrey, Christian"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:14104",
+              "kind": "player",
+              "label": "Brown, A.J."
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2024_30",
+        "transaction_ids": [
+          "trade2024_30.1a",
+          "trade2024_30.1b",
+          "trade2024_30.2a",
+          "trade2024_30.2b"
+        ]
+      },
+      "time": "08:51:24",
+      "trade": "trade2024_30"
+    },
+    "trade2025_10": {
+      "class": "CONFIRMED",
+      "date": "2025-03-20",
+      "date_quality": "recorded",
+      "package": false,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "one asset each way and no cap money: the transaction itself pairs them",
+            "status": "ESTABLISHED_ONE_FOR_ONE"
+          },
+          "assets_received": 1,
+          "assets_sent": 1,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "fpick:0006:2026:3"
+            ],
+            "surrendered_in_full": [
+              "spick:2025:3:8"
+            ]
+          },
+          "franchise": "0004",
+          "received": [
+            {
+              "asset": "fpick:0006:2026:3",
+              "kind": "future_pick",
+              "label": "2026 round 3 pick, original franchise 0006"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "spick:2025:3:8",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 8 (pick 3.08)"
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "one asset each way and no cap money: the transaction itself pairs them",
+            "status": "ESTABLISHED_ONE_FOR_ONE"
+          },
+          "assets_received": 1,
+          "assets_sent": 1,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "spick:2025:3:8"
+            ],
+            "surrendered_in_full": [
+              "fpick:0006:2026:3"
+            ]
+          },
+          "franchise": "0005",
+          "received": [
+            {
+              "asset": "spick:2025:3:8",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 8 (pick 3.08)"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "fpick:0006:2026:3",
+              "kind": "future_pick",
+              "label": "2026 round 3 pick, original franchise 0006"
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_10",
+        "transaction_ids": [
+          "trade2025_10.1a",
+          "trade2025_10.1b",
+          "trade2025_10.2a",
+          "trade2025_10.2b"
+        ]
+      },
+      "time": "12:54:23",
+      "trade": "trade2025_10"
+    },
+    "trade2025_17": {
+      "class": "CONFIRMED",
+      "date": "2025-05-25",
+      "date_quality": "recorded",
+      "package": true,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 1 item(s) 0001 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 2,
+          "assets_sent": 1,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "spick:2025:3:8",
+              "fpick:0005:2026:3"
+            ],
+            "surrendered_in_full": [
+              "spick:2025:3:2"
+            ]
+          },
+          "franchise": "0001",
+          "received": [
+            {
+              "asset": "spick:2025:3:8",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 8 (pick 3.08)"
+            },
+            {
+              "asset": "fpick:0005:2026:3",
+              "kind": "future_pick",
+              "label": "2026 round 3 pick, original franchise 0005"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "spick:2025:3:2",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 2 (pick 3.02)"
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0005 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 1,
+          "assets_sent": 2,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "spick:2025:3:2"
+            ],
+            "surrendered_in_full": [
+              "spick:2025:3:8",
+              "fpick:0005:2026:3"
+            ]
+          },
+          "franchise": "0005",
+          "received": [
+            {
+              "asset": "spick:2025:3:2",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 2 (pick 3.02)"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "spick:2025:3:8",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 8 (pick 3.08)"
+            },
+            {
+              "asset": "fpick:0005:2026:3",
+              "kind": "future_pick",
+              "label": "2026 round 3 pick, original franchise 0005"
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_17",
+        "transaction_ids": [
+          "trade2025_17.1a",
+          "trade2025_17.1b",
+          "trade2025_17.2a",
+          "trade2025_17.2b",
+          "trade2025_17.3a",
+          "trade2025_17.3b"
+        ]
+      },
+      "time": "20:24:12",
+      "trade": "trade2025_17"
+    },
+    "trade2025_19": {
+      "class": "CONFIRMED",
+      "date": "2025-05-25",
+      "date_quality": "recorded",
+      "package": true,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0001 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 2,
+          "assets_sent": 3,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "spick:2025:3:4",
+              "spick:2025:5:3"
+            ],
+            "surrendered_in_full": [
+              "spick:2025:3:8",
+              "spick:2025:5:4",
+              "fpick:0001:2026:4"
+            ]
+          },
+          "franchise": "0001",
+          "received": [
+            {
+              "asset": "spick:2025:3:4",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 4 (pick 3.04)"
+            },
+            {
+              "asset": "spick:2025:5:3",
+              "kind": "slot_pick",
+              "label": "2025 round 5, slot 3 (pick 5.03)"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "spick:2025:3:8",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 8 (pick 3.08)"
+            },
+            {
+              "asset": "spick:2025:5:4",
+              "kind": "slot_pick",
+              "label": "2025 round 5, slot 4 (pick 5.04)"
+            },
+            {
+              "asset": "fpick:0001:2026:4",
+              "kind": "future_pick",
+              "label": "2026 round 4 pick, original franchise 0001"
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0011 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 3,
+          "assets_sent": 2,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "spick:2025:3:8",
+              "spick:2025:5:4",
+              "fpick:0001:2026:4"
+            ],
+            "surrendered_in_full": [
+              "spick:2025:3:4",
+              "spick:2025:5:3"
+            ]
+          },
+          "franchise": "0011",
+          "received": [
+            {
+              "asset": "spick:2025:3:8",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 8 (pick 3.08)"
+            },
+            {
+              "asset": "spick:2025:5:4",
+              "kind": "slot_pick",
+              "label": "2025 round 5, slot 4 (pick 5.04)"
+            },
+            {
+              "asset": "fpick:0001:2026:4",
+              "kind": "future_pick",
+              "label": "2026 round 4 pick, original franchise 0001"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "spick:2025:3:4",
+              "kind": "slot_pick",
+              "label": "2025 round 3, slot 4 (pick 3.04)"
+            },
+            {
+              "asset": "spick:2025:5:3",
+              "kind": "slot_pick",
+              "label": "2025 round 5, slot 3 (pick 5.03)"
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_19",
+        "transaction_ids": [
+          "trade2025_19.1a",
+          "trade2025_19.1b",
+          "trade2025_19.2a",
+          "trade2025_19.2b",
+          "trade2025_19.3a",
+          "trade2025_19.3b",
+          "trade2025_19.4a",
+          "trade2025_19.4b",
+          "trade2025_19.5a",
+          "trade2025_19.5b"
+        ]
+      },
+      "time": "20:33:54",
+      "trade": "trade2025_19"
+    },
+    "trade2025_34": {
+      "class": "CONFIRMED",
+      "date": "2025-08-07",
+      "date_quality": "recorded",
+      "package": true,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 1 item(s) 0005 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 3,
+          "assets_sent": 1,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:16644",
+              "fpick:0010:2026:2",
+              "fpick:0007:2026:2"
+            ],
+            "surrendered_in_full": [
+              "player:17051"
+            ]
+          },
+          "franchise": "0005",
+          "received": [
+            {
+              "asset": "player:16644",
+              "kind": "player",
+              "label": "Sinnott, Ben"
+            },
+            {
+              "asset": "fpick:0010:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0010"
+            },
+            {
+              "asset": "fpick:0007:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0007"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:17051",
+              "kind": "player",
+              "label": "Judkins, Quinshon"
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0010 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 1,
+          "assets_sent": 3,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:17051"
+            ],
+            "surrendered_in_full": [
+              "player:16644",
+              "fpick:0010:2026:2",
+              "fpick:0007:2026:2"
+            ]
+          },
+          "franchise": "0010",
+          "received": [
+            {
+              "asset": "player:17051",
+              "kind": "player",
+              "label": "Judkins, Quinshon"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:16644",
+              "kind": "player",
+              "label": "Sinnott, Ben"
+            },
+            {
+              "asset": "fpick:0010:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0010"
+            },
+            {
+              "asset": "fpick:0007:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0007"
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_34",
+        "transaction_ids": [
+          "trade2025_34.1a",
+          "trade2025_34.1b",
+          "trade2025_34.2a",
+          "trade2025_34.2b",
+          "trade2025_34.3a",
+          "trade2025_34.3b",
+          "trade2025_34.4a",
+          "trade2025_34.4b"
+        ]
+      },
+      "time": "10:54:26",
+      "trade": "trade2025_34"
+    },
+    "trade2025_41": {
+      "class": "CONFIRMED",
+      "date": "2025-08-19",
+      "date_quality": "recorded",
+      "package": true,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 5 item(s) 0004 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 3,
+          "assets_sent": 5,
+          "cap_received": [],
+          "cap_sent": [
+            25000
+          ],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:16162",
+              "fpick:0008:2026:5",
+              "fpick:0010:2026:5"
+            ],
+            "surrendered_in_full": [
+              "player:13130",
+              "fpick:0004:2026:1",
+              "fpick:0005:2026:1",
+              "fpick:0006:2026:1",
+              "cap:25000"
+            ]
+          },
+          "franchise": "0004",
+          "received": [
+            {
+              "asset": "player:16162",
+              "kind": "player",
+              "label": "Gibbs, Jahmyr"
+            },
+            {
+              "asset": "fpick:0008:2026:5",
+              "kind": "future_pick",
+              "label": "2026 round 5 pick, original franchise 0008"
+            },
+            {
+              "asset": "fpick:0010:2026:5",
+              "kind": "future_pick",
+              "label": "2026 round 5 pick, original franchise 0010"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:13130",
+              "kind": "player",
+              "label": "McCaffrey, Christian"
+            },
+            {
+              "asset": "fpick:0004:2026:1",
+              "kind": "future_pick",
+              "label": "2026 round 1 pick, original franchise 0004"
+            },
+            {
+              "asset": "fpick:0005:2026:1",
+              "kind": "future_pick",
+              "label": "2026 round 1 pick, original franchise 0005"
+            },
+            {
+              "asset": "fpick:0006:2026:1",
+              "kind": "future_pick",
+              "label": "2026 round 1 pick, original franchise 0006"
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0007 sent and the 5 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 5,
+          "assets_sent": 3,
+          "cap_received": [
+            25000
+          ],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:13130",
+              "fpick:0004:2026:1",
+              "fpick:0005:2026:1",
+              "fpick:0006:2026:1",
+              "cap:25000"
+            ],
+            "surrendered_in_full": [
+              "player:16162",
+              "fpick:0008:2026:5",
+              "fpick:0010:2026:5"
+            ]
+          },
+          "franchise": "0007",
+          "received": [
+            {
+              "asset": "player:13130",
+              "kind": "player",
+              "label": "McCaffrey, Christian"
+            },
+            {
+              "asset": "fpick:0004:2026:1",
+              "kind": "future_pick",
+              "label": "2026 round 1 pick, original franchise 0004"
+            },
+            {
+              "asset": "fpick:0005:2026:1",
+              "kind": "future_pick",
+              "label": "2026 round 1 pick, original franchise 0005"
+            },
+            {
+              "asset": "fpick:0006:2026:1",
+              "kind": "future_pick",
+              "label": "2026 round 1 pick, original franchise 0006"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:16162",
+              "kind": "player",
+              "label": "Gibbs, Jahmyr"
+            },
+            {
+              "asset": "fpick:0008:2026:5",
+              "kind": "future_pick",
+              "label": "2026 round 5 pick, original franchise 0008"
+            },
+            {
+              "asset": "fpick:0010:2026:5",
+              "kind": "future_pick",
+              "label": "2026 round 5 pick, original franchise 0010"
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_41",
+        "transaction_ids": [
+          "trade2025_41.1a",
+          "trade2025_41.1b",
+          "trade2025_41.2a",
+          "trade2025_41.2b",
+          "trade2025_41.3a",
+          "trade2025_41.3b",
+          "trade2025_41.4a",
+          "trade2025_41.4b",
+          "trade2025_41.5a",
+          "trade2025_41.5b",
+          "trade2025_41.6a",
+          "trade2025_41.6b",
+          "trade2025_41.7a",
+          "trade2025_41.7b",
+          "trade2025_41.8a",
+          "trade2025_41.8b"
+        ]
+      },
+      "time": "21:41:47",
+      "trade": "trade2025_41"
+    },
+    "trade2025_5": {
+      "class": "CONFIRMED",
+      "date": "2025-03-05",
+      "date_quality": "recorded",
+      "package": true,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0005 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 2,
+          "assets_sent": 2,
+          "cap_received": [],
+          "cap_sent": [
+            20000
+          ],
+          "direct_consideration": {
+            "received_in_full": [
+              "spick:2025:1:8",
+              "fpick:0006:2026:3"
+            ],
+            "surrendered_in_full": [
+              "player:14104",
+              "cap:20000"
+            ]
+          },
+          "franchise": "0005",
+          "received": [
+            {
+              "asset": "spick:2025:1:8",
+              "kind": "slot_pick",
+              "label": "2025 round 1, slot 8 (pick 1.08)"
+            },
+            {
+              "asset": "fpick:0006:2026:3",
+              "kind": "future_pick",
+              "label": "2026 round 3 pick, original franchise 0006"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:14104",
+              "kind": "player",
+              "label": "Brown, A.J."
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0006 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 2,
+          "assets_sent": 2,
+          "cap_received": [
+            20000
+          ],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:14104",
+              "cap:20000"
+            ],
+            "surrendered_in_full": [
+              "spick:2025:1:8",
+              "fpick:0006:2026:3"
+            ]
+          },
+          "franchise": "0006",
+          "received": [
+            {
+              "asset": "player:14104",
+              "kind": "player",
+              "label": "Brown, A.J."
+            }
+          ],
+          "sent": [
+            {
+              "asset": "spick:2025:1:8",
+              "kind": "slot_pick",
+              "label": "2025 round 1, slot 8 (pick 1.08)"
+            },
+            {
+              "asset": "fpick:0006:2026:3",
+              "kind": "future_pick",
+              "label": "2026 round 3 pick, original franchise 0006"
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_5",
+        "transaction_ids": [
+          "trade2025_5.1a",
+          "trade2025_5.1b",
+          "trade2025_5.2a",
+          "trade2025_5.2b",
+          "trade2025_5.3a",
+          "trade2025_5.3b",
+          "trade2025_5.4a",
+          "trade2025_5.4b"
+        ]
+      },
+      "time": "13:18:22",
+      "trade": "trade2025_5"
+    },
+    "trade2025_53": {
+      "class": "CONFIRMED",
+      "date": "2025-10-03",
+      "date_quality": "recorded",
+      "package": true,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0005 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 2,
+          "assets_sent": 3,
+          "cap_received": [
+            11000
+          ],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:14797",
+              "cap:11000"
+            ],
+            "surrendered_in_full": [
+              "player:13146",
+              "fpick:0010:2026:2",
+              "fpick:0005:2026:4"
+            ]
+          },
+          "franchise": "0005",
+          "received": [
+            {
+              "asset": "player:14797",
+              "kind": "player",
+              "label": "Swift, D'Andre"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:13146",
+              "kind": "player",
+              "label": "Conner, James"
+            },
+            {
+              "asset": "fpick:0010:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0010"
+            },
+            {
+              "asset": "fpick:0005:2026:4",
+              "kind": "future_pick",
+              "label": "2026 round 4 pick, original franchise 0005"
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0011 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 3,
+          "assets_sent": 2,
+          "cap_received": [],
+          "cap_sent": [
+            11000
+          ],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:13146",
+              "fpick:0010:2026:2",
+              "fpick:0005:2026:4"
+            ],
+            "surrendered_in_full": [
+              "player:14797",
+              "cap:11000"
+            ]
+          },
+          "franchise": "0011",
+          "received": [
+            {
+              "asset": "player:13146",
+              "kind": "player",
+              "label": "Conner, James"
+            },
+            {
+              "asset": "fpick:0010:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0010"
+            },
+            {
+              "asset": "fpick:0005:2026:4",
+              "kind": "future_pick",
+              "label": "2026 round 4 pick, original franchise 0005"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:14797",
+              "kind": "player",
+              "label": "Swift, D'Andre"
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_53",
+        "transaction_ids": [
+          "trade2025_53.1a",
+          "trade2025_53.1b",
+          "trade2025_53.2a",
+          "trade2025_53.2b",
+          "trade2025_53.3a",
+          "trade2025_53.3b",
+          "trade2025_53.4a",
+          "trade2025_53.4b",
+          "trade2025_53.5a",
+          "trade2025_53.5b"
+        ]
+      },
+      "time": "13:10:49",
+      "trade": "trade2025_53"
+    },
+    "trade2025_71": {
+      "class": "CONFIRMED",
+      "date": "2025-11-22",
+      "date_quality": "recorded",
+      "package": true,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 2 item(s) 0004 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 1,
+          "assets_sent": 2,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:16708"
+            ],
+            "surrendered_in_full": [
+              "player:15003",
+              "fpick:0006:2026:3"
+            ]
+          },
+          "franchise": "0004",
+          "received": [
+            {
+              "asset": "player:16708",
+              "kind": "player",
+              "label": "Smith, Tykee"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:15003",
+              "kind": "player",
+              "label": "Stone, Geno"
+            },
+            {
+              "asset": "fpick:0006:2026:3",
+              "kind": "future_pick",
+              "label": "2026 round 3 pick, original franchise 0006"
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 1 item(s) 0006 sent and the 2 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 2,
+          "assets_sent": 1,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:15003",
+              "fpick:0006:2026:3"
+            ],
+            "surrendered_in_full": [
+              "player:16708"
+            ]
+          },
+          "franchise": "0006",
+          "received": [
+            {
+              "asset": "player:15003",
+              "kind": "player",
+              "label": "Stone, Geno"
+            },
+            {
+              "asset": "fpick:0006:2026:3",
+              "kind": "future_pick",
+              "label": "2026 round 3 pick, original franchise 0006"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:16708",
+              "kind": "player",
+              "label": "Smith, Tykee"
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_71",
+        "transaction_ids": [
+          "trade2025_71.1a",
+          "trade2025_71.1b",
+          "trade2025_71.2a",
+          "trade2025_71.2b",
+          "trade2025_71.3a",
+          "trade2025_71.3b"
+        ]
+      },
+      "time": "18:42:49",
+      "trade": "trade2025_71"
+    },
+    "trade2025_72": {
+      "class": "CONFIRMED",
+      "date": "2025-11-25",
+      "date_quality": "recorded",
+      "package": true,
+      "sides": [
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 3 item(s) 0005 sent and the 1 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 1,
+          "assets_sent": 3,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:16150"
+            ],
+            "surrendered_in_full": [
+              "player:16269",
+              "fpick:0008:2026:2",
+              "fpick:0007:2026:2"
+            ]
+          },
+          "franchise": "0005",
+          "received": [
+            {
+              "asset": "player:16150",
+              "kind": "player",
+              "label": "Stroud, C.J."
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:16269",
+              "kind": "player",
+              "label": "Strange, Brenton"
+            },
+            {
+              "asset": "fpick:0008:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0008"
+            },
+            {
+              "asset": "fpick:0007:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0007"
+            }
+          ]
+        },
+        {
+          "allocation": {
+            "basis": "the trade record states no allocation among the 1 item(s) 0010 sent and the 3 item(s) it received (cap money counted as an item): nothing is credited to any single asset",
+            "status": "NOT_ESTABLISHED"
+          },
+          "assets_received": 3,
+          "assets_sent": 1,
+          "cap_received": [],
+          "cap_sent": [],
+          "direct_consideration": {
+            "received_in_full": [
+              "player:16269",
+              "fpick:0008:2026:2",
+              "fpick:0007:2026:2"
+            ],
+            "surrendered_in_full": [
+              "player:16150"
+            ]
+          },
+          "franchise": "0010",
+          "received": [
+            {
+              "asset": "player:16269",
+              "kind": "player",
+              "label": "Strange, Brenton"
+            },
+            {
+              "asset": "fpick:0008:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0008"
+            },
+            {
+              "asset": "fpick:0007:2026:2",
+              "kind": "future_pick",
+              "label": "2026 round 2 pick, original franchise 0007"
+            }
+          ],
+          "sent": [
+            {
+              "asset": "player:16150",
+              "kind": "player",
+              "label": "Stroud, C.J."
+            }
+          ]
+        }
+      ],
+      "source": {
+        "kind": "archive",
+        "table": "transactions_trades",
+        "trade_group_id": "trade2025_72",
+        "transaction_ids": [
+          "trade2025_72.1a",
+          "trade2025_72.1b",
+          "trade2025_72.2a",
+          "trade2025_72.2b",
+          "trade2025_72.3a",
+          "trade2025_72.3b",
+          "trade2025_72.4a",
+          "trade2025_72.4b"
+        ]
+      },
+      "time": "16:01:40",
+      "trade": "trade2025_72"
+    }
+  },
   "pilot": {
     "franchise": "0005",
     "id": "aj_brown_hammertime",

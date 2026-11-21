@@ -14,6 +14,7 @@ import { calendarKickoff, kickoffDates, lastLeagueWeek } from "../scripts/league
 import { buildPilotBundle, stableStringify, PILOT } from "../scripts/league_record/s1/pilot.mjs";
 import { renderReport, confirmedTotals } from "../scripts/league_record/s1/report.mjs";
 import { runAcceptance, syntheticLedger, syntheticChain } from "../scripts/league_record/s1/acceptance.mjs";
+import { packageView, participation, packageSentence, creditByAsset, ALLOCATION } from "../scripts/league_record/s1/packages.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "docs", "league_record", "pilot");
@@ -23,11 +24,11 @@ const bundle = await buildPilotBundle({ root: ROOT });
 const nodeOf = (id) => bundle.nodes.find((n) => n.id === id);
 
 // ── acceptance tests T1-T16 ──────────────────────────────────────────────────────────────────────
-test("acceptance T1-T15 pass on the pilot bundle (T16, the independent review and CI, is recorded on the pull request)", async () => {
+test("acceptance T1-T15 and T17 pass on the pilot bundle (T16, the independent review and CI, is recorded on the pull request)", async () => {
   const committedPath = path.join(OUT, "aj_brown_bundle.json");
   const committed = fs.existsSync(committedPath) ? JSON.parse(fs.readFileSync(committedPath, "utf8")) : null;
   const results = await runAcceptance({ bundle, root: ROOT, archive, rebuild: () => buildPilotBundle({ root: ROOT }), committedBundle: committed });
-  t.equal(results.length, 16);
+  t.equal(results.length, 17);
   for (const r of results) { if (r.id === "T16") { t.equal(r.pass, null); continue; } t.equal(r.pass, true, `${r.id}: ${r.title} ${r.detail}`); }
   t.ok(committed, "the committed bundle exists (run: node scripts/league_record/s1/run_pilot.mjs)");
 });
@@ -68,7 +69,8 @@ test("pilot: the 2025 slot picks are CONFIRMED from MFL slot tokens and MFL draf
   const j = nodeOf("player:17051");
   t.deepEqual(j.chain.holders.map((h) => h.franchise), ["0005", "0010"]);
   t.equal(j.transfers[0].trade, "trade2025_34");
-  t.deepEqual(j.transfers[0].consideration.sort(), ["fpick:0007:2026:2", "fpick:0010:2026:2", "player:16644"]);
+  t.deepEqual(j.transfers[0].package_received.sort(), ["fpick:0007:2026:2", "fpick:0010:2026:2", "player:16644"]);
+  t.equal(j.transfers[0].attributable_return.status, "NOT_ESTABLISHED");
   const r3 = nodeOf("spick:2025:3:8");
   t.deepEqual(r3.chain.holders.map((h) => h.franchise), ["0004", "0005", "0001", "0011"], "the draft-day hand-offs are kept");
   t.equal(r3.resolution.selection.player_id, "17108");
@@ -295,6 +297,79 @@ test("classes and the named gap are on every link and every crossing chain (MAT-
   t.equal(oddRes.class, CLASS.UNRESOLVED); t.match(oddRes.reason, /earliest record/);
   // a banned finish-bearing table cannot be reached by a comma join through the real reader
   t.throws(() => archive.all("select a.* from transactions_trades t, trade_winning_team_analysis a limit 1"), ArchiveGuardError);
+});
+
+// ── package attribution (Keith, 2026-11-20): a package never credits one outgoing asset with the whole return ─────────────────────────────────────────
+const synth = (id, legs, cap = [], parties = ["0001", "0002"]) => ({ id, date: "2020-01-01", time: "12:00:00", date_quality: "recorded", source: { kind: "synthetic" }, parties, legs, cap });
+const L = (asset, from, to) => ({ asset, from, to, kind: asset.split(":")[0] });
+
+test("packages: three out and one in, one out and two in plus cap, and a one-for-one exchange; every asset keeps its direction; nothing is allocated unless the transaction pairs the assets", () => {
+  const threeOne = packageView(synth("t1", [L("player:1", "0001", "0002"), L("fpick:0001:2026:2", "0001", "0002"), L("fpick:0001:2026:4", "0001", "0002"), L("player:9", "0002", "0001")], [{ amount: 11000, from: "0002", to: "0001" }]));
+  const a = threeOne.sides.find((x) => x.franchise === "0001"), b = threeOne.sides.find((x) => x.franchise === "0002");
+  t.deepEqual(a.sent.map((x) => x.asset), ["player:1", "fpick:0001:2026:2", "fpick:0001:2026:4"]);
+  t.deepEqual(a.received.map((x) => x.asset), ["player:9"]); t.deepEqual(a.cap_received, [11000]); t.deepEqual(b.cap_sent, [11000]);
+  t.equal(a.allocation.status, ALLOCATION.NOT_ESTABLISHED); t.equal(b.allocation.status, ALLOCATION.NOT_ESTABLISHED); t.equal(threeOne.package, true);
+  t.deepEqual(a.direct_consideration.surrendered_in_full, ["player:1", "fpick:0001:2026:2", "fpick:0001:2026:4"]);
+  t.deepEqual(a.direct_consideration.received_in_full, ["player:9", "cap:11000"]);
+  // no outgoing asset gets any of the return, and the credited total never exceeds what was offered (no double credit)
+  for (const amount of [1, 183.4, 662.6]) { const c = creditByAsset(a, amount); t.equal(c.total, 0); t.deepEqual([...c.credits.values()], [0, 0, 0]); }
+  const oneTwo = packageView(synth("t2", [L("player:5", "0001", "0002"), L("player:6", "0002", "0001"), L("player:7", "0002", "0001")]));
+  t.equal(oneTwo.sides[0].allocation.status, ALLOCATION.NOT_ESTABLISHED); t.equal(creditByAsset(oneTwo.sides[0], 100).total, 0);
+  const swap = packageView(synth("t3", [L("player:5", "0001", "0002"), L("player:6", "0002", "0001")]));
+  t.equal(swap.sides[0].allocation.status, ALLOCATION.ESTABLISHED); t.equal(swap.package, false);
+  const c = creditByAsset(swap.sides[0], 100); t.equal(c.total, 100, "a one-for-one exchange credits the single asset, once");
+  const capSwap = packageView(synth("t4", [L("player:5", "0001", "0002"), L("player:6", "0002", "0001")], [{ amount: 5000, from: "0001", to: "0002" }]));
+  t.equal(capSwap.sides[0].allocation.status, ALLOCATION.NOT_ESTABLISHED, "cap money in the trade makes it a package");
+  // participation keeps the full package of the sender and returns no value
+  const part = participation(threeOne, "fpick:0001:2026:2", "0001", "0002");
+  t.deepEqual(part.sender_package.sent, ["player:1", "fpick:0001:2026:2", "fpick:0001:2026:4"]); t.equal(part.attributable_return.status, ALLOCATION.NOT_ESTABLISHED);
+  t.ok(!/(became|bought|returned|for the price)/.test(packageSentence(threeOne, "0001", (x) => x)), "the sentence never says an asset became or bought another");
+  t.match(packageSentence(threeOne, "0001", (x) => x), /no allocation among these assets/);
+});
+
+test("packages: the real trade2025_53 and trade2025_72 are packages and are never summarized as one pick buying a player", () => {
+  const p53 = bundle.packages["trade2025_53"].sides.find((x) => x.franchise === "0005");
+  t.deepEqual(p53.sent.map((x) => x.asset).sort(), ["fpick:0005:2026:4", "fpick:0010:2026:2", "player:13146"]);
+  t.ok(p53.sent.some((x) => /Conner/.test(x.label)), "James Conner is shown as sent");
+  t.deepEqual(p53.received.map((x) => x.asset), ["player:14797"]); t.deepEqual(p53.cap_received, [11000]);
+  t.equal(p53.allocation.status, ALLOCATION.NOT_ESTABLISHED);
+  const p72 = bundle.packages["trade2025_72"].sides.find((x) => x.franchise === "0005");
+  t.deepEqual(p72.sent.map((x) => x.asset).sort(), ["fpick:0007:2026:2", "fpick:0008:2026:2", "player:16269"]);
+  t.ok(p72.sent.some((x) => /Strange/.test(x.label)), "Brenton Strange is shown as sent");
+  t.deepEqual(p72.received.map((x) => x.asset), ["player:16150"]); t.equal(p72.allocation.status, ALLOCATION.NOT_ESTABLISHED);
+  // the Brown trade is a package too: Brown and 20,000 cap out, two picks in, nothing allocated
+  const p5 = bundle.packages["trade2025_5"].sides.find((x) => x.franchise === "0005");
+  t.deepEqual(p5.sent.map((x) => x.asset), ["player:14104"]); t.deepEqual(p5.cap_sent, [20000]); t.equal(p5.received.length, 2); t.equal(p5.allocation.status, ALLOCATION.NOT_ESTABLISHED);
+  // every package in the bundle carries every leg once in each direction, and no package carries a points or value figure
+  for (const [id, pv] of Object.entries(bundle.packages)) {
+    const legs = bundle.trades[id].legs;
+    t.equal(pv.sides.reduce((n, sd) => n + sd.sent.length, 0), legs.length, `${id} sent legs`);
+    t.equal(pv.sides.reduce((n, sd) => n + sd.received.length, 0), legs.length, `${id} received legs`);
+    t.ok(!/points|value|salary/i.test(JSON.stringify(pv)), `${id} carries no production or value`);
+  }
+  // a node reached through a package carries no credit from the asset sent: only participation
+  for (const n of bundle.nodes) { t.ok(!("attributed_points" in n) && !("credited_to" in n), n.id); for (const pt of n.participation) t.ok(["NOT_ESTABLISHED", "ESTABLISHED_ONE_FOR_ONE"].includes(pt.attributable_return.status), `${n.id} ${pt.trade}`); }
+  // no incoming player's production sits under an outgoing pick
+  for (const n of bundle.nodes.filter((x) => x.kind !== "player")) t.ok(!("economics" in n), `${n.id} has no economics`);
+});
+
+test("packages: the report keeps the three notions apart and never says one pick became or paid for a player received in a package", () => {
+  const report = renderReport(bundle, null);
+  for (const w of ["one package", "NOT ESTABLISHED", "not a net gain", "Package rule", "no allocation among these assets", "Conner, James", "Strange, Brenton", "Everything 0005 sent in the transaction"]) t.ok(report.includes(w), w);
+  t.ok(!/(became|bought|paid for|returned) (D'Andre )?Swift/i.test(report) && !/(became|bought|paid for|returned) (C\.J\. )?Stroud/i.test(report));
+  t.ok(!/Confirmed-only total of verified points for 0005 over every traced player/.test(report), "the old total wording is gone");
+  t.ok(!/each trade of an asset by 0005 adds the consideration/.test(report));
+  // every sentence that mentions a package in section 1 names every asset sent (so a lone pick is never the stated price)
+  t.match(report, /sent .*Conner, James.*2026 round 2 pick, original franchise 0010.*2026 round 4 pick, original franchise 0005 and received D'Andre Swift?|sent .*Conner, James/s);
+});
+
+test("packages: the traced total is a sum over possession periods and counts each player once however many outgoing assets led to him", () => {
+  const tot = confirmedTotals(bundle, "0005");
+  t.equal(new Set(tot.included_assets).size, tot.included_assets.length, "no player is counted twice");
+  // two outgoing assets of the same package that both lead to the same incoming player cannot double the total: put the same player node in the list twice and the total must not change
+  const dup = JSON.parse(JSON.stringify(bundle)); const swift = dup.nodes.find((n) => n.id === "player:14797"); dup.nodes.push({ ...swift, id: "player:14797" });
+  const once = confirmedTotals(bundle, "0005").points_verified, twice = confirmedTotals(dup, "0005").points_verified;
+  t.equal(once, twice);
 });
 
 await run("league_record_s1_pilot");

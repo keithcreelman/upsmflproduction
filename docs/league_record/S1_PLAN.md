@@ -31,7 +31,7 @@ The primary trade is `trade2025_5` (2025-03-05), in which HammerTime (franchise 
 
 Evidence classes CONFIRMED, CALCULATED, INFERRED, UNRESOLVED (see the methodology), and these records, each carrying a source reference, a method id and a version: `trade`, `trade_asset` (identity and cap amount preserved), `slot_evidence`, `pick_hop`, `pick_resolution`, `stint`, `outcome`, `gap`. The pilot's JSON bundle is the working shape. Whether and where this is stored (new read-only tables behind new read-only routes) is a separate decision that needs its own approval, a measured query plan and a migration go.
 
-## 5. Acceptance tests T1-T16
+## 5. Acceptance tests T1-T17
 
 The pilot passes only if all of these hold (`scripts/league_record/s1/acceptance.mjs`; T16 is recorded on the pull request):
 
@@ -51,6 +51,7 @@ The pilot passes only if all of these hold (`scripts/league_record/s1/acceptance
 14. Two builds are byte-identical and match the committed bundle; read-only; no network call pattern in the extraction code.
 15. Only franchise ids, team names and player names; no private data.
 16. Independent review on the exact head; CI on the head and on the merge result of the head with the base, both SHAs named.
+17. Every trade is kept as one package with every asset and cap amount in its direction; lineage participation is separate from attributable return, which is established only for an exact one-for-one exchange.
 
 ## 6. Sequence and what needs a decision
 

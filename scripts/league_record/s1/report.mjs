@@ -1,5 +1,6 @@
 // League Record S1 pilot: the human-readable report, generated from the bundle (never typed by hand), so the numbers in it are the bundle's numbers.
 import { CLASS } from "./lineage.mjs";
+import { packageSentence } from "./packages.mjs";
 
 const fmt = (n) => (n == null ? "n/a" : Number(n).toLocaleString("en-US"));
 const pts = (n) => (n == null ? "n/a" : Number(n).toFixed(1));
@@ -25,9 +26,10 @@ export function franchiseStints(b, node, F) {
 // Totals that count only assets whose whole path of links is CONFIRMED. An inferred or unresolved node never contributes.
 export function confirmedTotals(b, F) {
   let verified = 0, started = 0, weeks = 0;
-  const included = [], excluded = [];
+  const included = [], excluded = [], seen = new Set();
   for (const n of b.nodes) {
-    if (n.kind !== "player") continue;
+    if (n.kind !== "player" || seen.has(n.id)) continue;      // a player is counted once, however many outgoing assets of a package led to him
+    seen.add(n.id);
     if (n.link_class !== CLASS.CONFIRMED) { excluded.push(n.id); continue; }
     included.push(n.id);
     for (const st of franchiseStints(b, n, F)) for (const s of st.seasons) { verified += s.points_verified; started += s.started_points_verified; weeks += s.weeks_verified; }
@@ -52,19 +54,19 @@ export function renderReport(b, acceptance = null) {
   const t = confirmedTotals(b, F);
   const bs = franchiseStints(b, brown, F)[0];
   push("", "## 1. What happened, from HammerTime's side (confirmed view)", "");
-  push(`1. **Surrendered (${tradeRef(b, b.roots.upstream.trade)}):** ${b.roots.upstream.surrendered.map((a) => `${nm.get(a).label} (${a})`).join(", ")}${b.roots.upstream.cap.length ? "" : "; no pick and no cap money moved in that trade"}. HammerTime received ${b.roots.upstream.acquired.map((a) => `${nm.get(a).label}`).join(", ")}.`);
+  push(`1. **The upstream trade (${tradeRef(b, b.roots.upstream.trade)}):** ${packageSentence(b.packages[b.roots.upstream.trade], F, (a) => nm.has(a) ? nm.get(a).label : a)}`);
   const bsea = bs ? bs.seasons.find((s) => s.season === 2024) : null;
   push(`2. **Brown's production for ${F}:** ${bsea ? `${pts(bsea.points_verified)} verified points in ${bsea.weeks_verified} scored weeks (${pts(bsea.started_points_verified)} while started) in 2024` : "none recorded"}. Weeks without a scoring row (${bsea ? Array.from({ length: 17 }, (_, i) => i + 1).filter((w) => !bsea.scored_weeks.includes(w)).join(", ") : ""}) carry no points; none was filled with zero.`);
   const bc = bsea && bsea.contract[0];
   push(`3. **Salary he carried:** ${bc ? `${fmt(bc.salary)} for 2024 on a ${bc.contract_status} contract (${bc.years_remaining} year(s) remaining; recorded text \`${bc.contract_info}\`)` : "not recorded"}; the first 2025 weekly roster record for franchise ${brown.chain.holders.at(-1).franchise} shows ${fmt(b.nodes.find((n) => n.id === "player:14104").economics.seasons.find((s) => s.season === 2025).contract_by_roster_weeks[0].salary)}. Two roster records show two amounts; the contract text changes between them, so this is not proof that one obligation carried over unchanged.`);
-  push(`4. **Received when Brown was traded (${tradeRef(b, b.roots.primary.trade)}):** ${b.roots.primary.received.map((a) => nm.get(a).label).join("; ")}. HammerTime also sent ${b.roots.primary.cap_sent.map((c) => fmt(c)).join(", ")} in cap money (a recorded cap transfer from ${F} to ${brown.chain.holders.at(-1).franchise}).`);
-  push(`5. **The 2025 pick** (slot 8, MFL's own slot token) was selected by ${F} on ${nm.get("spick:2025:1:8").resolution.selection.date}: ${nm.get("player:17051").label}, CONFIRMED by the MFL draft result for that slot. The **2026 round 3 pick** was traded again and came home to its original franchise; its slot is UNRESOLVED (section 5).`);
-  push(`6. **Judkins was traded** (${tradeRef(b, "trade2025_34")}) for ${nm.get("player:16644").label} and the two 2026 round 2 picks, each of which was traded again (sections 3 and 5).`);
-  push(`7. **Confirmed-only total of verified points for ${F}** over every traced player: ${pts(t.points_verified)} (${t.weeks_verified} scored weeks; ${pts(t.started_points_verified)} while started). INFERRED and UNRESOLVED links contribute nothing to it.`);
+  push(`4. **The Brown trade (${tradeRef(b, b.roots.primary.trade)}), one package:** ${packageSentence(b.packages[b.roots.primary.trade], F)} The two picks and the cap money are the whole of what came back in that one transaction; the record does not say how much of it was Brown's price, and no part is credited to Brown alone.`);
+  push(`5. **The 2025 pick** (slot 8, MFL's own slot token) was one of the two picks ${F} received in the Brown package. ${F} used it on ${nm.get("spick:2025:1:8").resolution.selection.date}: ${nm.get("player:17051").label}, CONFIRMED by the MFL draft result for that slot (a pick being selected is draft identity, not trade value). The **2026 round 3 pick**, the other incoming pick, was traded again and came home to its original franchise; its slot is UNRESOLVED (section 5).`);
+  push(`6. **Judkins was traded in a package** ${packageSentence(b.packages["trade2025_34"], F)} Both 2026 round 2 picks that arrived in that package later left in further packages: ${packageSentence(b.packages["trade2025_53"], F)} ${packageSentence(b.packages["trade2025_72"], F)} A pick that was part of such a package is said to have been included in it; it is never said to have become the player received.`);
+  push(`7. **Total of verified points for the traced player possession periods of ${F}:** ${pts(t.points_verified)} (${t.weeks_verified} scored weeks; ${pts(t.started_points_verified)} while started). It adds up every traced player's verified points while ${F} held him. It is **not** a net gain, and not the return on the Brown transaction: those players arrived in packages with other assets, and no player's production or value is allocated to any one outgoing asset. INFERRED and UNRESOLVED links contribute nothing to it.`);
 
   // 2. graph
   push("", "## 2. Every traced asset, with its generation and class", "");
-  push("Generation 0 is the upstream trade and Brown; each trade of an asset by " + F + " adds the consideration it received as the next generation; a pick that becomes a player adds one generation. Limit: generation " + b.pilot.max_generation + ".", "");
+  push("Generation 0 is the upstream trade and Brown. Each trade of a traced asset by " + F + " adds the assets " + F + " received in that SAME transaction as the next generation: they are traced because they took part in the package, not because the asset sent \"became\" them (see the package rule below). A pick that is selected adds the drafted player as one more generation. Limit: generation " + b.pilot.max_generation + ".", "", `**Package rule:** ${b.package_rule}`, "");
   push("| Gen | Asset | Role | Entered by | Link class | Possession periods (franchise, from, to) | Crosses the unobserved trade period | Final known position |", "|---|---|---|---|---|---|---|---|");
   for (const n of b.nodes) {
     const pos = n.kind === "player" ? `${n.final_position.snapshot_franchise || n.final_position.chain_last_holder || "no roster"} on ${n.final_position.snapshot_day}${n.final_position.consistent === false ? " (CONFLICT)" : ""}` : n.resolution ? `${n.resolution.class}${n.became ? ` -> ${n.became}` : ""}` : "";
@@ -72,10 +74,12 @@ export function renderReport(b, acceptance = null) {
   }
 
   // 3. transfers
-  push("", "## 3. Every transfer by " + F + " and what it received", "");
-  push("| Trade | Date | Asset sent | To | Consideration received (confirmed by the trade record) | Cap | Other assets in the same trade (not traced) |", "|---|---|---|---|---|---|---|");
+  push("", "## 3. Every package transaction involving a traced asset, from " + F + "'s side", "");
+  push("| Trade | Date | Traced asset sent | Everything " + F + " sent in the transaction | Everything " + F + " received in the transaction | Attributable return of one asset |", "|---|---|---|---|---|---|");
   for (const n of b.nodes) for (const tr of n.transfers) {
-    push(`| ${tr.trade} | ${tr.date} ${tr.time} | ${n.label} | ${tr.sent_to} | ${tr.consideration.map((a) => (nm.get(a) ? nm.get(a).label : a)).join("; ") || "none"} | ${[...tr.cap_received.map((c) => `+${fmt(c)} received`), ...tr.cap_sent.map((c) => `${fmt(c)} sent`)].join(", ") || "none"} | ${tr.companions_sent.join(", ") || "none"} |`);
+    const side = b.packages[tr.trade].sides.find((x) => x.franchise === F);
+    const names = (arr, caps) => [...arr.map((x) => x.label), ...caps.map((c) => `${fmt(c)} cap money`)].join("; ") || "nothing";
+    push(`| ${tr.trade} | ${tr.date} ${tr.time} | ${n.label} | ${names(side.sent, side.cap_sent)} | ${names(side.received, side.cap_received)} | ${tr.attributable_return.status === "NOT_ESTABLISHED" ? "NOT ESTABLISHED: one transaction, no allocation stated" : "established: one-for-one exchange"} |`);
   }
   const dep = b.nodes.flatMap((n) => n.departures.map((d) => ({ n, d })));
   if (dep.length) { push("", "Departures without a trade:"); for (const { n, d } of dep) push(`- ${n.label}: left ${F}'s roster: ${d.kind === "drop" ? `a drop by ${F} is recorded on ${d.date} (${d.method || d.kind})` : `an ${d.kind} by another franchise is recorded on ${d.date} (${d.method || d.kind}); no release by ${F} is recorded, so the end of the stint is dated by that later record and is UNRESOLVED`}.`); }
@@ -94,7 +98,7 @@ export function renderReport(b, acceptance = null) {
     const c = s.contract_by_roster_weeks.filter((x) => x.franchise === fr.franchise).map((x) => fmt(x.salary)).join(", ") || "n/a";
     push(`| ${n.label} | ${s.season} | ${fr.franchise} | ${pts(fr.points_verified)}${fr.weeks_outside_traced_window ? ` (+${pts(fr.points_outside_traced_window)} outside the traced window)` : ""} | ${fr.weeks_verified} | ${c} |`);
   }
-  push("", `Confirmed-only total for ${F}: **${pts(t.points_verified)}** verified points (assets counted: ${t.included_assets.length}; assets excluded because their link is not CONFIRMED: ${t.excluded_assets.length}).`);
+  push("", `Total of verified points for ${F}'s traced player possession periods: **${pts(t.points_verified)}** (assets counted: ${t.included_assets.length}; assets excluded because their link is not CONFIRMED: ${t.excluded_assets.length}). This is a sum over periods, not a net gain and not an attributable return of any one trade or pick.`);
 
   // 5. picks
   push("", "## 5. Picks and the players they became (only authoritative MFL draft results decide a slot)", "");
@@ -140,7 +144,7 @@ export function renderReport(b, acceptance = null) {
 
   // 8. acceptance
   if (acceptance) {
-    push("", "## 8. Acceptance tests T1-T16", "", "| Test | Result | What it proves |", "|---|---|---|");
+    push("", "## 8. Acceptance tests T1-T17", "", "| Test | Result | What it proves |", "|---|---|---|");
     for (const a of acceptance) push(`| ${a.id} | ${a.pass === true ? "PASS" : a.pass === false ? "**FAIL**" : "external"} | ${a.title}${a.detail ? `: ${a.detail}` : ""} |`);
   }
   push("", "## 9. Source references", "");

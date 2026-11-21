@@ -228,6 +228,32 @@ export async function runAcceptance({ bundle, root, archive, rebuild, committedB
   const priv = [/[\w.+-]+@[\w-]+\.[\w.]+/.test(text) ? "an email address" : null, /owner_name|owner_display|discord/i.test(sqlText.replace(/\/\/.*$/gm, "")) ? "an owner or chat column in the extraction code" : null, /password|api[_-]?key|secret/i.test(text) ? "a credential word" : null].filter(Boolean);
   out.push(T("T15", "only franchise ids, team names and player names appear; no owner column is read; no email, credential or chat text", priv.length === 0, priv.join(", ")));
 
+  // T17 package attribution: every transaction is a package; nothing is credited to a single asset unless the transaction itself pairs the assets
+  const pkgErrs = [];
+  for (const [id, tr] of Object.entries(b.trades)) {
+    const pv = b.packages[id];
+    if (!pv) { pkgErrs.push(`${id}: no package view`); continue; }
+    const legsKey = tr.legs.map((l) => `${l.from}>${l.to}:${l.asset}`).sort().join("|");
+    const viewKey = pv.sides.flatMap((sd) => sd.sent.map((x) => { const l = tr.legs.find((q) => q.asset === x.asset && q.from === sd.franchise); return `${sd.franchise}>${l ? l.to : "?"}:${x.asset}`; })).sort().join("|");
+    if (legsKey !== viewKey) pkgErrs.push(`${id}: the package does not carry every leg in its direction`);
+    const capIn = tr.cap.map((c) => `${c.from}>${c.to}:${c.amount}`).sort().join("|");
+    const capView = pv.sides.flatMap((sd) => sd.cap_sent.map((a) => `${sd.franchise}>${tr.cap.find((c) => c.from === sd.franchise && c.amount === a).to}:${a}`)).sort().join("|");
+    if (capIn !== capView) pkgErrs.push(`${id}: the cap transfer is not preserved in its direction`);
+    for (const sd of pv.sides) {
+      const one = sd.sent.length === 1 && sd.received.length === 1 && tr.cap.length === 0;
+      if ((sd.allocation.status === "ESTABLISHED_ONE_FOR_ONE") !== one) pkgErrs.push(`${id}: ${sd.franchise} allocation status disagrees with the one-for-one rule`);
+    }
+  }
+  walk(b, (pth, v) => { if (/attribut|allocated_value|credited/i.test(pth) && typeof v === "number") pkgErrs.push(`${pth}: a number sits under an attribution field`); });
+  for (const n of b.nodes) {
+    const trades = n.chain.events.filter((e) => e.kind === "trade").map((e) => e.trade);
+    if (JSON.stringify(n.participation.map((x) => x.trade)) !== JSON.stringify(trades)) pkgErrs.push(`${n.id}: participation does not list every trade of the chain`);
+    for (const pt of n.participation) if (pt.attributable_return.status === "ESTABLISHED_ONE_FOR_ONE" && !(pt.sender_package.sent.length === 1 && pt.sender_package.received.length === 1)) pkgErrs.push(`${n.id}: an allocation is established for a package of more than one asset in ${pt.trade}`);
+    for (const tr of n.transfers) if (tr.attributable_return.status === "NOT_ESTABLISHED" && tr.package_received.length + tr.cap_received.length > 0 && tr.package_sent.length + tr.cap_sent.length < 1) pkgErrs.push(`${n.id}: a transfer with no package_sent`);
+  }
+  out.push(T("T17", "every trade is kept as one package with every asset and cap amount in its direction; lineage participation is separate from attributable return, which is established only for an exact one-for-one exchange; no number sits under an attribution field", pkgErrs.length === 0, pkgErrs.slice(0, 3).join("; ")));
+
   out.push(T("T16", "independent review (Codex) on the exact head, and CI on the head and on the merge result of the head with the base, both SHAs named", null, "recorded on the pull request, not asserted by this file"));
+  out.sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)));
   return out;
 }
