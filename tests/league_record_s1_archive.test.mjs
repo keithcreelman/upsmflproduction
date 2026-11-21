@@ -563,6 +563,16 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
     f.d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, ruling_ref, run_id) values (2, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'resolved_by_source', 'export hash', 2)");
     f.d.exec("update lr_conflict set valid_to_run = 2 where conflict_id = 1"); f.d.exec("update lr_evidence_need set valid_to_run = 2 where need_id = 1"); f.d.exec("update lr_conflict set valid_to_run = 3 where conflict_id = 2");
     t.ok(f.fails2(f.rel(3)), "a resolution closed before the release no longer counts as live"); f.d.close(); }
+  // a reopened subject: an OLDER resolution of the same subject must not stand in for the resolution of the closing run
+  { const f = fresh(true);
+    f.d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, ruling_ref, run_id) values (2, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'resolved_by_source', 'old export', 2)");
+    f.d.exec("update lr_conflict set valid_to_run = 2 where conflict_id = 1");                       // the first open row is closed by its resolution (run 2)
+    f.d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, run_id) values (3, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'open', 3)");   // reopened in run 3
+    f.d.exec(f.need("CONFLICT", 3, "null", "OPEN").replace(", 1, 'C'", ", 3, 'C'"));
+    f.d.exec("insert into lr_conflict (conflict_id, subject_key, kind, left_ref, right_ref, status, ruling_ref, run_id) values (4, 'slot:2014:4:12', 'selector', 'trade', 'draft', 'resolved_by_ruling', 'ruling', 4)");
+    f.d.exec("update lr_conflict set valid_to_run = 4 where conflict_id = 3"); f.d.exec("update lr_evidence_need set valid_to_run = 4 where need_id = 1");
+    f.d.exec("delete from lr_conflict where conflict_id = 4");                                       // run 4 was never released, so the delete itself is allowed
+    t.ok(f.fails2(f.rel(4)), "the older resolution of the same subject (run 2) cannot stand in for the deleted resolution of the closing run (run 4)"); f.d.close(); }
   // the coverage gate's exclusion rule in isolation: a verified interval begun by an abandoned run does not count, one closed only by an abandoned run still does
   { let f = fresh(false); f.d.exec(f.need("LINK", 1, "null", "OPEN")); f.d.exec("insert into lr_run_excluded values (3, 4)");
     f.d.exec("insert into lr_coverage values (1, 'S', 'pick_transfer', '2020-01-01', '2020-02-01', 'VERIFIED_COMPLETE', 'b', 3, null)"); t.ok(!f.fails2(f.rel(5)), "a verified interval begun by an excluded run is ignored"); f.d.close();
