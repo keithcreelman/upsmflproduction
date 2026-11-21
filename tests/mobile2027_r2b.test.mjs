@@ -36,7 +36,7 @@ const CFG = { workerBase: "https://upsmflproduction.keith-creelman.workers.dev",
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const TEAM = "0009", SHORT = "0010";
 const model = () => M.build(FX.roster_workbench, FX.league, FX.weekly_results, 11, 2026);
-const VIEWS = ["lineup", "performance", "contracts", "byes"];
+const VIEWS = ["lineup", "byes"];
 
 async function intelFor(over) {
   const fetchFake = async (url) => {
@@ -62,27 +62,22 @@ const statusWith = (ids) => { const s = clone(FX2.player_status); Object.entries
 
 // ───────────────────────── P1 and P2: one week context ─────────────────────────
 
-test("P1/P2: Contracts and Byes are always 'as of now', whatever week was chosen; Lineup and Performance keep the chosen week", async () => {
+test("P1/P2: Byes is always 'as of now', whatever week was chosen; Lineup keeps the chosen week", async () => {
   const intel = await intelFor();
   t.deepEqual(R.viewWeek(state(intel, { view: "lineup", wk: 10 })), { cur: 11, sel: 10, past: true }, "Lineup honors the chosen week");
-  t.deepEqual(R.viewWeek(state(intel, { view: "performance", wk: 10 })), { cur: 11, sel: 10, past: true });
-  t.deepEqual(R.viewWeek(state(intel, { view: "contracts", wk: 10 })), { cur: 11, sel: 11, past: false }, "Contracts uses the current week");
   t.deepEqual(R.viewWeek(state(intel, { view: "byes", wk: 10 })), { cur: 11, sel: 11, past: false }, "Byes uses the current week");
   // the screen with a past week chosen is the same screen as with none chosen, for the two as-of-now views
-  ["contracts", "byes"].forEach((view) => {
+  ["byes"].forEach((view) => {
     t.equal(V.rosterBody(state(intel, { view, wk: 10 })), V.rosterBody(state(intel, { view })), view + ": a chosen past week changes nothing on this screen, byte for byte");
     t.equal(V.rosterBody(state(intel, { view, wk: 3 })), V.rosterBody(state(intel, { view })));
     const tx = text(V.rosterBody(state(intel, { view, wk: 10 })));
     t.match(tx, /As of now · Week 11 · This view always shows today’s roster, injuries and lineup\./);
     t.doesNotMatch(tx, /Week 10|Week 3\b|Played · as MFL recorded it/);
   });
-  // Contracts: today's starters under today's week heading
-  t.match(text(V.rosterBody(state(intel, { view: "contracts", wk: 10 }))), /Week 11 starters · 18 of 18/);
-  // the two week-aware views still show the chosen week
+  // the week-aware view still shows the chosen week
   t.match(text(V.rosterBody(state(intel, { view: "lineup", wk: 10 }))), /Week 10 starters · 18 of 18/);
-  t.match(text(V.rosterBody(state(intel, { view: "performance", wk: 10 }))), /Week 10 starters · 18 of 18/);
   t.match(V.rosterBody(state(intel, { view: "lineup", wk: 10 })), /class="wsel past"/);
-  t.doesNotMatch(V.rosterBody(state(intel, { view: "contracts", wk: 10 })), /class="wsel/);
+  t.doesNotMatch(V.rosterBody(state(intel, { view: "byes", wk: 10 })), /class="wsel/);
 });
 
 test("P1: a past week's number never leaks into an as-of-now screen: a bye or an injury is judged against the CURRENT week only", async () => {
@@ -90,7 +85,7 @@ test("P1: a past week's number never leaks into an as-of-now screen: a bye or an
   const S0 = state(intel), p = starterOf(S0, 0), q = starterOf(S0, 1);
   // p's bye is the PAST week 10 (long over), q's bye is the current week 11: only q needs attention, with or without a past week chosen
   const m = model(); m.byId[p.id].bye = 10; m.byId[q.id].bye = 11;
-  [null, 10, 5].forEach((wk) => ["contracts", "byes"].forEach((view) => {
+  [null, 10, 5].forEach((wk) => ["byes"].forEach((view) => {
     const tx = text(V.rosterBody(state(intel, { view, wk, model: m })));
     t.match(tx, /18 of 18 starters · 1 needs attention/, view + " with week " + wk + " chosen: exactly the current week's one bye");
   }));
@@ -198,7 +193,7 @@ test("P3: a kickoff shows on a row only when it is not Sunday 1:00 PM Eastern; a
   ["performance", "contracts", "byes"].forEach((view) => t.doesNotMatch(text(V.rosterBody(state(intel, { view, open: { bw13: true } }))), /Kickoff|\b(Sun|Mon|Thu|Sat) \d{1,2}:\d{2} [AP]M/, view));
 });
 
-test("P3: one injury chip, the same chip, on all four views (and a profile-free read of the same player)", async () => {
+test("P3: one injury chip, the same chip, on both roster views (and a profile-free read of the same player)", async () => {
   const S0 = state(await intelFor()), out = starterOf(S0, 4), q = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map((i) => starterOf(S0, i)).find((p) => p.name === "Brock Bowers");
   t.ok(q, "the recorded Questionable starter");
   const intel = await intelFor({ status: statusWith({ [out.id]: { mfl: { status: "Out", week: 11, details: "Knee" } } }) });
@@ -208,78 +203,46 @@ test("P3: one injury chip, the same chip, on all four views (and a profile-free 
   qChips.forEach((c, i) => { t.equal(c.length, 1, VIEWS[i] + ": exactly one injury chip for the Questionable starter"); t.match(c[0], /Questionable/); });
   t.equal(new Set(outChips.map((c) => c[0])).size, 1, "the same chip on every view"); t.equal(new Set(qChips.map((c) => c[0])).size, 1);
   // a past week draws no chips (an injury is a today fact)
-  ["lineup", "performance"].forEach((view) => t.doesNotMatch(V.rosterBody(state(intel, { view, wk: 10 })), /■ OUT|▲ Questionable/, view + " in a past week"));
-  // the bye chip is for starters on the two week-aware views; Contracts and Byes use words
+  ["lineup"].forEach((view) => t.doesNotMatch(V.rosterBody(state(intel, { view, wk: 10 })), /■ OUT|▲ Questionable/, view + " in a past week"));
+  // the bye chip is for starters on the Lineup view; Byes uses words
   const m = model(); m.byId[out.id].bye = 11;
-  t.match(rowOf(V.rosterBody(state(intel, { view: "lineup", model: m })), out.id), /▲ Bye week/); t.match(rowOf(V.rosterBody(state(intel, { view: "performance", model: m })), out.id), /▲ Bye week/);
-  t.doesNotMatch(rowOf(V.rosterBody(state(intel, { view: "contracts", model: m })), out.id), /▲ Bye week/);
+  t.match(rowOf(V.rosterBody(state(intel, { view: "lineup", model: m })), out.id), /▲ Bye week/);
+  t.doesNotMatch(rowOf(V.rosterBody(state(intel, { view: "byes", model: m })), out.id), /▲ Bye week/);
 });
 
 // ───────────────────────── P4: Performance ─────────────────────────
 
-test("P4: the bold number is the score of the completed week and keeps its label; incomplete, loading and failed reads are said, never made up", async () => {
-  const intel = await intelFor(), S = state(intel, { view: "performance" }), html = V.rosterBody(S), tx = text(html);
-  const sc10 = Object.fromEntries(FX2.weekly_results_w10.weeklyResults.matchup.flatMap((x) => x.franchise).filter((f) => f.id === TEAM)[0].player.map((p) => [p.id, p.score]));
-  const b = starterOf(S, 0), want = R.pts(Number(sc10[b.id]));
-  t.match(rowOf(html, b.id), new RegExp("<b>" + want.replace(".", "\\.") + '</b><span class="mu sm">Wk 10</span>'), "the recorded Week 10 score with 'Wk 10' under it");
-  t.match(tx, /Scores are for Week 10, the last completed week\. Week 11 is not complete\./, "the page says the current week is not complete");
-  t.doesNotMatch(tx, /Week 11 (score|points)|Wk 11 [\d.]+/, "no score is shown for the week in progress");
-  t.match(tx, /Team score [\d.]+ \(Wk 10\) · Projection Unavailable/);
-  // a player with no recorded score: a dash, with the week label, not 0
-  const none = clone(FX2.weekly_results_w10); none.weeklyResults.matchup.flatMap((x) => x.franchise).filter((f) => f.id === TEAM).forEach((f) => f.player.forEach((p) => { if (p.id === b.id) p.score = ""; }));
-  const r0 = rowOf(V.rosterBody(state({ ...intel, wk: { ...intel.wk, 10: { state: "ok", data: none, at: Date.now() } } }, { view: "performance" })), b.id);
-  t.match(r0, /<b>—<\/b><span class="mu sm">Wk 10<\/span>/); t.doesNotMatch(r0, /<b>0(\.0)?<\/b>/);
-  // the scores read is still out: an ellipsis, not a dash and not a number; the team line says so too
-  const ld = V.rosterBody(state({ ...intel, wk: { 11: intel.wk[11] } }, { view: "performance" }));
-  t.match(rowOf(ld, b.id), /<b>…<\/b>/); t.match(text(ld), /Team score … · Projection Unavailable/);
-  // the scores read failed: a dash labeled Unavailable, the team score Unavailable, and no Wk label that would pass for a score
-  const er = V.rosterBody(state({ ...intel, wk: { ...intel.wk, 10: { state: "error", error: "HTTP 502" } } }, { view: "performance" }));
-  t.match(rowOf(er, b.id), /<b>—<\/b><span class="mu sm">Unavailable<\/span>/); t.match(text(er), /Team score Unavailable · Projection Unavailable/);
-  t.doesNotMatch(er, /<b>0(\.0)?<\/b>/);
-  // no completed week yet (season week 1): no score week at all, no label, no invented number
-  const m1 = M.build(FX.roster_workbench, FX.league, FX.weekly_results, 1, 2026), S1 = state({ ...intel, wk: {}, mu: {} }, { view: "performance", model: m1 });
-  t.equal(R.scoreWeek(R.weekInfo(S1)), null);
-  const h1 = V.rosterBody(S1); t.doesNotMatch(h1, /<b>\d+\.\d<\/b><span class="mu sm">Wk/); t.doesNotMatch(text(h1), /Scores are for Week/);
-  t.match(text(h1), /No week has been completed yet, so there are no scores to show\. Week 1 is not complete\./); t.doesNotMatch(text(h1), /Week —/);
-  // the projection is said once and never drawn as a column of dashes
-  t.equal((tx.match(/Projection Unavailable/g) || []).length, 1); t.doesNotMatch(html, />proj</); t.equal((html.match(/<b>—<\/b>/g) || []).length, (html.match(/<b>—<\/b>/g) || []).length);
-  t.ok((html.match(/<b>—<\/b>/g) || []).length <= 5, "dashes only where a score is really missing, not one per row");
-});
-
 test("P4: narrow screens (320 px): the opponent, kickoff and week tokens cannot wrap in the middle", async () => {
-  const intel = await intelFor(), html = V.rosterBody(state(intel, { view: "performance" })), lhtml = V.rosterBody(state(intel));
+  const intel = await intelFor(), html = V.rosterBody(state(intel)), lhtml = html;
   t.match(CSS, /\.nw\{white-space:nowrap\}/, "the no-wrap rule exists");
   // every opponent token is a single non-breaking unit
   const opps = [...html.matchAll(/<span class="nw">((?:vs|@) [A-Z]{2,3})<\/span>/g)].map((m) => m[1]);
   t.ok(opps.length >= 15, "opponent tokens are wrapped: " + opps.length);
-  t.doesNotMatch(html, /[^>](vs|@) [A-Z]{2,3} · Season avg/, "no bare opponent text left outside a no-wrap token");
   // kickoff tokens too
   const kicks = [...lhtml.matchAll(/<span class="nw">((?:Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d{1,2}:\d{2} [AP]M)<\/span>/g)].map((m) => m[1]);
   t.ok(kicks.length >= 3, "kickoff tokens are wrapped: " + kicks.length);
   // a past week's rows: "BUF now" and "Opponent unavailable" are single units too, so a narrow screen breaks between them, not inside them
-  const past = V.rosterBody(state(intel, { view: "performance", wk: 10 }));
+  const past = V.rosterBody(state(intel, { wk: 10 }));
   t.match(past, /<span class="nw">[A-Z]{2,3} now<\/span> · <span class="nw">Opponent unavailable<\/span>/);
   // the score column does not shrink and its label sits under the number
-  t.match(CSS, /\.rx \.rt\{flex:0 0 auto/); t.match(html, /<div class="rt"><b>[\d.—…]+<\/b><span class="mu sm">Wk 10<\/span><\/div>/);
+  t.match(CSS, /\.rx \.rt\{flex:0 0 auto/); t.match(past, /<div class="rt"><b>[\d.—…]+<\/b><span class="mu sm">Wk 10<\/span><\/div>/);
   // no fixed widths that would overflow 320 px in the roster rows
   t.doesNotMatch(CSS.split("\n").filter((l) => /^\.rx/.test(l)).join("\n"), /min-width:\s*(?:[3-9]\d{2}|\d{4})px/);
 });
 
 // ───────────────────────── P5: Contracts ─────────────────────────
 
-test("P5: no link to a Contracts destination that does not exist; the placeholder says where contracts are and jumps there", async () => {
+test("P5: the roster views carry no link to a Contracts destination; Team › Contracts is a real tab with no jump into Cap & picks", async () => {
   const intel = await intelFor();
   VIEWS.forEach((view) => [null, 10].forEach((wk) => {
     const html = V.rosterBody(state(intel, { view, wk }));
     t.doesNotMatch(text(html), /Open full Contracts|full Contracts/, view + " / " + wk);
     t.doesNotMatch(html, /data-act="sub" data-v="contracts"/);
   }));
-  // the top-level placeholder: explains, no dead end, one working jump (an in-app view change that asks for nothing)
+  // Team › Contracts is a real tab now (R3): it says what it is, carries no jump into Cap & picks, and the only way to Cap & picks is its own tab
   const ph = V.app(state(intel, { sub: "contracts" })), tx = text(ph);
-  t.match(tx, /The all-years Contracts table is not in this preview yet\./);
-  t.match(tx, /Contract information is available now in two places: Roster › Contracts \(salary, years left, final year, and the IR and taxi cap notes\) and each player’s profile \(year-by-year amounts, earned to date, guarantee\)\./);
-  t.match(ph, /data-act="gotoview" data-v="contracts"[^>]*>Open Roster › Contracts</);
-  t.doesNotMatch(tx, /not in Preview 0/i, "no bare 'not here'");
+  t.match(tx, /Recorded salary, not cap space/); t.match(tx, /Cap space, adjustments and penalties are not part of this preview/);
+  t.doesNotMatch(ph, /gotoview/); t.equal((ph.match(/data-v="cap"/g) || []).length, 1, "only the tab itself points at Cap & picks");
 });
 
 // ───────────────────────── P6: Byes ─────────────────────────

@@ -16,7 +16,8 @@
 
   var RULES = [
     { path: "/roster-workbench", query: ["L", "YEAR"] },
-    { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults"] },
+    // R3: playerScores (every player's recorded score for one week; public MFL scoring, no owner text) feeds Team › Performance
+    { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults", "playerScores"] },
     { path: "/api/current-lineup-week", query: ["L", "YEAR"] },
     { path: "/api/cap-penalty/preview", query: ["L", "YEAR"] },
     // stage R2 (Team › Roster): injury status for every player, and this week's NFL games (opponent, home or away, kickoff)
@@ -59,6 +60,7 @@
       league: base + "/api/mfl-export?" + q({ TYPE: "league", L: L, YEAR: Y, JSON: 1 }),
       week: base + "/api/current-lineup-week?" + q({ L: L, YEAR: Y }),
       weekly: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "weeklyResults", L: L, YEAR: Y, JSON: 1, W: w }); },
+      scores: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "playerScores", L: L, YEAR: Y, JSON: 1, W: w }); },
       penalty: base + "/api/cap-penalty/preview?" + q({ L: L, YEAR: Y }),
       status: base + "/api/player-status?" + q({ season: Y, L: L }),
       matchups: function (w) { return base + "/api/lineup-matchups?" + q({ YEAR: Y, W: w }); }
@@ -100,7 +102,7 @@
     // Each added read is kept in memory by its exact address and reused (switching views, weeks or teams never asks again).
     // It is asked again only on an explicit reload, or when its freshness limit has passed and the screen is used again.
     var memo = {};
-    var LIMIT = { status: 4 * 60 * 1000 + 30 * 1000, matchups: 5 * 60 * 1000, weekly: 60 * 60 * 1000 };
+    var LIMIT = { status: 4 * 60 * 1000 + 30 * 1000, matchups: 5 * 60 * 1000, weekly: 60 * 60 * 1000, scores: 10 * 60 * 1000 };
     function cached(key, limit, run, force) {
       var m = memo[key], now = Date.now();
       if (!force && m) {
@@ -153,10 +155,42 @@
           if (r.state !== "ok") return r;
           var j = r.data;
           if (!j || j.ok === false || !j.matchups || typeof j.matchups !== "object") return { state: "error", data: null, error: "Unexpected answer" };
-          var games = {}, avg = {};
+          var games = {}, avg = {}, season = {};
           Object.keys(j.matchups).forEach(function (t) { var g = j.matchups[t] || {}; games[t] = { opp: String(g.opp || ""), isHome: g.isHome === true, kickoff: Number(g.kickoff) || 0, status: String(g.status || "") }; });
-          Object.keys(j.playerWindow || {}).forEach(function (id) { var w = j.playerWindow[id] || {}; if (isFinite(Number(w.avg)) && w.avg != null) avg[id] = { avg: Number(w.avg), games: Number(w.games) || 0 }; });
-          return { state: "ok", data: { week: Number(j.week) || Number(week), games: games, avg: avg, asOf: String(j.as_of || "") }, at: Date.now() };
+          Object.keys(j.playerWindow || {}).forEach(function (id) { var w = j.playerWindow[id] || {}; if (isFinite(Number(w.avg)) && w.avg != null) avg[id] = { avg: Number(w.avg), games: Number(w.games) || 0 }; if (w.total != null && isFinite(Number(w.total)) && w.games != null && isFinite(Number(w.games))) season[id] = { total: Number(w.total), games: Number(w.games) }; });
+          var latest = j.season && isFinite(Number(j.season.latestFinalWeek)) ? Number(j.season.latestFinalWeek) : null;
+          var horizon = {};
+          Object.keys(j.horizon || {}).forEach(function (t) { var a = j.horizon[t]; if (Array.isArray(a)) horizon[t] = a.map(function (g) { return { wk: Number(g && g.wk), opp: String(g && g.opp || ""), isHome: !!(g && g.isHome) }; }); });
+          return { state: "ok", data: { week: Number(j.week) || Number(week), games: games, avg: avg, season: season, latestFinal: latest, horizon: horizon, horizonWeeks: Array.isArray(j.horizonWeeks) ? j.horizonWeeks.map(Number) : [], hist: pickHist(j), asOf: String(j.as_of || "") }, at: Date.now() };
+        });
+      }, force);
+    }
+    // W1 (team history): the six fields are copied as the worker sent them, or null when the worker sent none of them (W1 not live).
+    // Nothing here trusts them: lib/clubhist.js validates the shape and treats anything malformed as unavailable.
+    var HIST_KEYS = ["teamHistoryState", "teamHistoryReason", "teamHistoryThrough", "teamHistory", "teamHistoryMissing", "teamHistoryConflict", "teamHistoryFirst"];
+    function pickHist(j) {
+      var any = false, o = {};
+      HIST_KEYS.forEach(function (k) { if (Object.prototype.hasOwnProperty.call(j, k)) { any = true; o[k] = j[k]; } });
+      return any ? o : null;
+    }
+    // One week of every player's recorded score: { id: number } for the players MFL has a score for. A score of 0 is a recorded score.
+    // An answer with no score rows at all is an error, never "no one scored": nothing is claimed from a read that came back empty.
+    function loadScores(week, force) {
+      return cached("ps:" + week, LIMIT.scores, function () {
+        return settle(get(urls.scores(week), "player scores, week " + week)).then(function (r) {
+          if (r.state !== "ok") return r;
+          var ps = r.data && r.data.playerScores, rows = ps && ps.playerScore;
+          rows = Array.isArray(rows) ? rows : rows ? [rows] : [];
+          if (!ps || !rows.length) return { state: "error", data: null, error: "Unexpected answer" };
+          var map = {};
+          rows.forEach(function (e) {
+            if (!e || e.id == null) return;
+            var sc = e.score;
+            if (sc == null || (typeof sc === "string" && sc.trim() === "") || typeof sc === "boolean") return;
+            var n = Number(sc);
+            if (isFinite(n)) map[String(e.id)] = n;
+          });
+          return { state: "ok", data: { week: Number(week), scores: map }, at: Date.now() };
         });
       }, force);
     }
@@ -202,7 +236,7 @@
       return by;
     }
 
-    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadStatus: loadStatus, loadMatchups: loadMatchups, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
+    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
   }
 
   return { RULES: RULES, check: check, createLoader: createLoader };

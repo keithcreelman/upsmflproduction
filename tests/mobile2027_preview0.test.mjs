@@ -54,7 +54,7 @@ function state(over) {
     requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
   };
 }
-const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "gotoview"];
+const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "cts", "ctx", "pff", "pfs", "pfx", "pfres", "retryperf"];
 const findPlayer = (pred) => allPlayers().find(pred);
 
 // ───────────────────────── 1. contract text and schedule ─────────────────────────
@@ -279,12 +279,12 @@ test("the Team screen: starters above bench, groups, reserve counts, and only re
   t.ok((open.match(/data-act="card"/g) || []).length > (html.match(/data-act="card"/g) || []).length, "expanding groups lists more players");
 });
 
-test("the Contracts view of the roster shows recorded salary and years; a missing salary is 'Not recorded', not $0", () => {
-  const S = state({ view: "contracts", open: { bQB: true, bRB: true, bWR: true, bTE: true, ir: true, taxi: true } });
+test("Team › Contracts shows recorded salary and years; a missing salary is 'n/r' in the table and 'Not recorded' in its row, never $0", () => {
+  const S = state({ sub: "contracts" });
   const html = V.app(S);
-  t.match(html, /\$\d{1,3}(,\d{3})*/); t.match(html, /yrs left|Final year/);
-  const S2 = state({ view: "contracts" }); const p = M.starters(S2.model.teams.find((x) => x.id === "0010"))[0]; p.salary = null;
-  t.match(V.app(S2), /Not recorded/);
+  t.match(html, /\$\d+(\.\d+)?K/); t.match(html, /yrs? left/);
+  const S2 = state({ sub: "contracts" }); const p = M.starters(S2.model.teams.find((x) => x.id === "0010"))[0]; p.salary = null;
+  t.match(V.app(S2), /<span class="wn">n\/r<\/span>/);
 });
 
 // Codex round-2 MAT-2: the worker sends salary 0 with salary_unresolved: true when MFL left a salary blank, and
@@ -310,13 +310,14 @@ test("a blank or unresolved salary stays unknown from the raw read to the roster
     const p = model.byId[target.id];
     t.equal(p.salary, null, name + ": the model keeps the salary unknown, not 0");
     t.equal(p.salaryUnresolved, patch.salary_unresolved === true, name + ": the unresolved flag is kept");
-    // the player's roster card (Contracts view) and the profile's salary tile and current-year cell
-    const roster = V.app(state({ model, teamId: p.franchiseId, view: "contracts", open: allOpen }));
-    const at = roster.indexOf('data-pid="' + target.id + '"'); t.ok(at > 0, name + ": the player is on the open roster");
-    const mine = roster.slice(at);
-    const row = mine.slice(0, mine.indexOf('class="go"')); // from the name button to the end of this row: the salary sits after the button
-    t.match(row, /<b class="wn">Not recorded<\/b>/, name + ": the roster row says Not recorded");
-    t.doesNotMatch(row, /<b>\$0<\/b>/, name + ": the roster row is not $0");
+    // the player's row on Team › Contracts (opened) and the profile's salary tile and current-year cell
+    const roster = V.app(state({ model, teamId: p.franchiseId, sub: "contracts", ct: { f: "all", s: "end", open: { [target.id]: true } } }));
+    const at = roster.indexOf('data-act="ctx" data-v="' + target.id + '"'); t.ok(at > 0, name + ": the player is on the Contracts table");
+    const mine = roster.slice(at), nextRow = mine.indexOf('<div class="rw">');
+    const row = nextRow > 0 ? mine.slice(0, nextRow) : mine;
+    t.match(row, /<span class="wn">n\/r<\/span>/, name + ": the table cell says n/r (no amount recorded)");
+    t.match(row, /<span>Not recorded<\/span>/, name + ": the opened row says Not recorded for this season");
+    t.doesNotMatch(row, /\$0(?![,\d])/, name + ": the row is not $0");
     const html = V.app(state({ model, profile: { pid: String(target.id), tab: "contract" } }));
     t.match(html, /<b class="wn">Not recorded<\/b><small>Salary 2026<\/small>/, name + ": the salary tile says Not recorded");
     t.match(html, /<b class="wn">Not recorded<\/b><small>2026<\/small>/, name + ": this season's salary-by-year cell says Not recorded");
@@ -414,7 +415,8 @@ test("other tabs and states: placeholders say what is not here; taxi details; un
   const miss = V.app(state({ profile: { pid: "99999999", tab: "contract" } }));
   t.match(miss, /Player not found/);
   ["home", "market", "league"].forEach((id) => t.match(V.app(state({ tab: id })), /not in Preview 0/i));
-  t.match(V.app(state({ sub: "contracts" })).replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /not in this preview yet. Contract information is available now in two places: Roster › Contracts/); t.match(V.app(state({ sub: "contracts" })), /data-act="gotoview" data-v="contracts"/); t.match(V.app(state({ sub: "cap" })), /Cap space is left out on purpose/);
+  t.match(V.app(state({ sub: "contracts" })), /Recorded salary, not cap space/); t.doesNotMatch(V.app(state({ sub: "contracts" })), /gotoview/);
+  const cap = V.app(state({ sub: "cap" })); t.match(cap, /Not in this preview\. Cap space is left out on purpose/); t.doesNotMatch(cap, /data-act="(?!nav|sub|about)/, "nothing on Cap & picks links anywhere");
 });
 
 test("data text is escaped everywhere it is drawn", () => {
@@ -424,7 +426,7 @@ test("data text is escaped everywhere it is drawn", () => {
   team.name = evil; team.icon = evil;
   const p = team.players[0]; p.name = evil; p.type = evil; p.nflTeam = evil; p.special = evil; p.acquisition = evil; p.franchiseName = evil;
   S.model.byId[p.id] = p;
-  const checks = [V.app(S), V.app({ ...S, open: { bQB: true, bRB: true, bWR: true, bTE: true, ir: true, taxi: true }, view: "contracts" }), V.app({ ...S, profile: { pid: p.id, tab: "contract" }, flags: { rules: true, raw: true, earned: true, cut: true } }), V.app({ ...S, profile: { pid: p.id, tab: "more" } }), V.app({ ...S, sheet: "teams" })];
+  const checks = [V.app(S), V.app({ ...S, sub: "contracts", ct: { f: "all", s: "end", open: { [p.id]: true } } }), V.app({ ...S, profile: { pid: p.id, tab: "contract" }, flags: { rules: true, raw: true, earned: true, cut: true } }), V.app({ ...S, profile: { pid: p.id, tab: "more" } }), V.app({ ...S, sheet: "teams" })];
   checks.forEach((html) => {
     t.doesNotMatch(html, /<script/i); t.doesNotMatch(html, /<img src=x/i);
     // no real tag carries an event-handler attribute (text inside a quoted attribute value does not count)
@@ -440,7 +442,7 @@ test("no screen, tab, sheet or state draws an inline style, an event handler, a 
   const flags = { rules: true, earned: true, cut: true, raw: true };
   const states = [];
   ["home", "market", "league"].forEach((tab) => states.push(state({ tab })));
-  ["roster", "contracts", "cap"].forEach((sub) => ["lineup", "contracts"].forEach((view) => states.push(state({ sub, view, open }))));
+  ["roster", "contracts", "performance", "cap"].forEach((sub) => ["lineup", "byes"].forEach((view) => states.push(state({ sub, view, open }))));
   states.push(state({ model: null, load: { core: "loading", coreNotes: [] } }), state({ model: null, load: { core: "error", coreNotes: [], error: "x" } }), state({ sheet: "teams" }), state({ sheet: "about" }),
     state({ model: M.build(FX.roster_workbench, FX.league, null, null, 2026), open }));
   allPlayers().forEach((p) => ["perf", "sched", "contract", "more"].forEach((tab) => {

@@ -15,6 +15,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(HERE, "..", "apps", "mobile2027", "src");
 const FX = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/public_reads.json"), "utf8"));
 const FX2 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r2_reads.json"), "utf8")); // stage R2 reads
+const FX3 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r3_reads.json"), "utf8")); // stage R3: season figures, team history and weekly player scores (real public data)
 // The injury resolver the page loads is the beta's DERIVED copy, made from the reviewed copy of the classic file (tests never read site/shared/).
 const BUILD = await import(pathToFileURL(path.join(HERE, "..", "apps", "mobile2027", "scripts", "build.mjs")).href);
 const FIXSH = path.join(HERE, "fixtures/mobile2027/shared");
@@ -22,19 +23,20 @@ const INJURY_PURE = BUILD.derivedBytes(BUILD.DERIVED[0], FIXSH).toString("utf8")
 const read = (rel) => fs.readFileSync(path.join(SRC, rel), "utf8");
 const tick = async (n = 12) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0)); };
 
-function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false, failStatus = 0, failWeek10 = 0, clock = null, holdIntel = false } = {}) {
+function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false, failStatus = 0, failWeek10 = 0, clock = null, holdIntel = false, r3 = false, failScores = 0 } = {}) {
   const calls = [];
   let releasePen = () => {}; const penGate = holdPen ? new Promise((r) => { releasePen = r; }) : null;
   let release = () => {}; const gate = hold ? new Promise((r) => { release = r; }) : null; // holds the roster read open until release()
-  const state = { failRoster, failPenalty, failStatus, failWeek10 };
+  const state = { failRoster, failPenalty, failStatus, failWeek10, failScores };
   let releaseIntel = () => {}; const intelGate = holdIntel ? new Promise((r) => { releaseIntel = r; }) : null; // holds the Team › Roster adds open until releaseIntel()
   const body = (u) => {
     if (u.pathname === "/roster-workbench") return FX.roster_workbench;
     if (u.pathname === "/api/current-lineup-week") return FX.current_lineup_week;
     if (u.pathname === "/api/cap-penalty/preview") return FX.cap_penalty;
     if (u.pathname === "/api/player-status") return FX2.player_status;
-    if (u.pathname === "/api/lineup-matchups") return Object.assign({}, FX2.lineup_matchups_w11, { week: Number(u.searchParams.get("W")) });
+    if (u.pathname === "/api/lineup-matchups") return Object.assign({}, r3 ? FX3.lineup_matchups_w11 : FX2.lineup_matchups_w11, { week: Number(u.searchParams.get("W")) });
     if (u.searchParams.get("TYPE") === "league") return FX.league;
+    if (u.searchParams.get("TYPE") === "playerScores") return { playerScores: { playerScore: FX3.scores[u.searchParams.get("W")] || [] } };
     return u.searchParams.get("W") === "10" ? FX2.weekly_results_w10 : FX.weekly_results;
   };
   const fetchFake = async (url, opts) => {
@@ -46,7 +48,8 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     if (u.pathname === "/api/cap-penalty/preview" && state.failPenalty > 0) { state.failPenalty--; return { ok: false, status: 500, text: async () => "x" }; }
     if (intelGate && (u.pathname === "/api/player-status" || u.pathname === "/api/lineup-matchups")) await intelGate;
     if (u.pathname === "/api/player-status" && state.failStatus > 0) { state.failStatus--; return { ok: false, status: 502, text: async () => "x" }; }
-    if (u.pathname === "/api/mfl-export" && u.searchParams.get("W") === "10" && state.failWeek10 > 0) { state.failWeek10--; return { ok: false, status: 502, text: async () => "x" }; }
+    if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "playerScores" && state.failScores > 0) { state.failScores--; return { ok: false, status: 502, text: async () => "x" }; }
+    if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "weeklyResults" && u.searchParams.get("W") === "10" && state.failWeek10 > 0) { state.failWeek10--; return { ok: false, status: 502, text: async () => "x" }; }
     return { ok: true, status: 200, text: async () => JSON.stringify(body(u)) };
   };
   const listeners = {}, winL = {}, docAttrs = {}, storage = { ...stored }, pushes = [], replaces = [];
@@ -73,13 +76,13 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/tabviews.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
   const click = async (attrs) => {
     const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));
     await tick();
   };
-  return { appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, release: () => release(), releasePen: () => releasePen(), releaseIntel: () => releaseIntel(), html: () => appEl.innerHTML };
+  return { setFailScores: (n) => { state.failScores = n; }, appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, release: () => release(), releasePen: () => releasePen(), releaseIntel: () => releaseIntel(), html: () => appEl.innerHTML };
 }
 
 test("boot: loads the roster, shows the first team with starters above the bench, and every request is a bare GET", async () => {
@@ -93,7 +96,7 @@ test("boot: loads the roster, shows the first team with starters above the bench
   t.equal(a.docAttrs["data-skin"], "light"); t.equal(a.docAttrs["data-vib"], "1");
 });
 
-test("taps: expand and collapse all, switch to the Contracts view, open the placeholder tabs, come back", async () => {
+test("taps: expand and collapse all, open Team › Contracts, open the placeholder tabs, come back", async () => {
   const a = boot(); await tick(30);
   const before = (a.html().match(/data-act="card"/g) || []).length;
   await a.click({ "data-act": "expall" });
@@ -102,8 +105,8 @@ test("taps: expand and collapse all, switch to the Contracts view, open the plac
   t.equal((a.html().match(/data-act="card"/g) || []).length, before, "groups closed again");
   await a.click({ "data-act": "grp", "data-g": "bWR" });
   t.match(a.html(), /data-g="bWR" aria-expanded="true"/);
-  await a.click({ "data-act": "view", "data-v": "contracts" });
-  t.match(a.html(), /yrs left|Final year/);
+  await a.click({ "data-act": "sub", "data-v": "contracts" });
+  t.match(a.html(), /Recorded salary, not cap space/); t.match(a.html(), /yrs? left/);
   await a.click({ "data-act": "sub", "data-v": "cap" }); t.match(a.html(), /Cap space is left out on purpose/);
   await a.click({ "data-act": "nav", "data-v": "market" }); t.match(a.html(), /not in Preview 0/i); t.doesNotMatch(a.html(), /Week 11 starters/);
   await a.click({ "data-act": "nav", "data-v": "team" }); t.match(a.html(), /Cap space is left out on purpose/, "the Team tab keeps its sub-tab");
@@ -251,23 +254,19 @@ test("R2: switching views, weeks and teams never asks for a read again; each add
   const a = boot(); await tick(40);
   t.deepEqual(asked(a).sort(), ["current-lineup-week", "lineup-matchups#11", "mfl-export", "mfl-export#11", "player-status", "roster-workbench"].sort(), "boot: the four core reads, injury status and this week's games");
   const n0 = a.calls.length;
-  await a.click({ "data-act": "view", "data-v": "contracts" }); await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" });
-  t.equal(a.calls.length, n0, "three views: nothing asked");
-  await a.click({ "data-act": "view", "data-v": "performance" }); await tick(30);
-  t.deepEqual(asked(a).slice(n0), ["mfl-export#10"], "Performance asks once for last week's scores");
-  await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "view", "data-v": "performance" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await tick(10);
-  t.equal(a.calls.length, n0 + 1, "going back and forth asks nothing more");
+  await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await tick(10);
+  t.equal(a.calls.length, n0, "going back and forth between the two views asks nothing");
   await a.click({ "data-act": "pickteam", "data-fid": "0009" }); await a.click({ "data-act": "pickteam", "data-fid": "0010" }); await tick(10);
-  t.equal(a.calls.length, n0 + 1, "changing teams asks nothing (the reads cover the whole league)");
+  t.equal(a.calls.length, n0, "changing teams asks nothing (the reads cover the whole league)");
   // a past week: its lineup and its games, once; the week before is already in memory
   await a.click({ "data-act": "weeks" }); t.match(a.html(), /aria-label="Choose a week"/);
   await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(40);
-  t.deepEqual(asked(a).slice(n0 + 1), [], "Week 10's lineups and scores were already read for Performance, and a past week asks for no NFL games (MAT-1)");
+  t.deepEqual(asked(a).slice(n0), ["mfl-export#10"], "Week 10's lineups and scores: one request, and a past week asks for no NFL games (MAT-1)");
   t.match(a.html(), /Week 10 · played/); t.doesNotMatch(a.html(), /Bench · /);
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "9" }); await tick(40);
   t.deepEqual(asked(a).slice(n0 + 1), ["mfl-export#9"], "Week 9, first visit: one request (its lineups and scores)");
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
-  await a.click({ "data-act": "view", "data-v": "performance" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
+  await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
   t.equal(a.calls.length, n0 + 2, "revisiting past weeks asks nothing");
   await a.click({ "data-act": "pickweek", "data-v": "11" }); await tick(10);
   t.match(a.html(), /Week 11 starters/); t.equal(a.calls.length, n0 + 2, "back to the current week: nothing");
@@ -292,8 +291,6 @@ test("R2: a failed injury read says so, shows no guessed tags, and Try again rec
   const a = boot({ failStatus: 1, failWeek10: 1 }); await tick(40);
   t.match(a.html(), /Injury status couldn’t be loaded, so no injury tags are shown/); t.doesNotMatch(a.html(), /▲ Questionable/);
   t.match(a.html(), /Week 11 starters/, "the roster still shows");
-  await a.click({ "data-act": "view", "data-v": "performance" }); await tick(30);
-  t.match(a.html(), /<b>—<\/b><span class="mu sm">Unavailable<\/span>/, "last week scores could not be read: a dash labeled Unavailable, never 0.0"); t.doesNotMatch(a.html(), /<b>0\.0<\/b>/);
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
   t.match(a.html(), /That week’s lineup could not be read \(HTTP 502\)/); t.match(a.html(), /data-act="pickweek" data-v="10"/);
   await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
@@ -312,13 +309,13 @@ test("R2: Sample mode starts no Team › Roster read either, drops one already o
   t.equal(a.calls.length, before, "nothing new started, and the answers that arrived late were dropped");
   t.match(a.html(), /Sample data/); t.doesNotMatch(a.html(), /▲ Questionable|QB1/, "no late data is drawn");
   await a.click({ "data-act": "about" }); const logged = /<b>(\d+)<\/b> data requests/.exec(a.html())[1]; await a.click({ "data-act": "close" });
-  await a.click({ "data-act": "nav", "data-v": "team" }); await a.click({ "data-act": "view", "data-v": "performance" }); await a.click({ "data-act": "weeks" });
+  await a.click({ "data-act": "nav", "data-v": "team" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "weeks" });
   t.equal(a.calls.length, before, "tapping around in Sample mode starts nothing");
   await a.click({ "data-act": "about" }); t.match(a.html(), new RegExp("<b>" + logged + "</b> data requests"), "the loader was not even asked: its log did not grow, so the page's own guard held without the fetch guard"); await a.click({ "data-act": "close" });
   await a.click({ "data-act": "sample" }); await tick(40);
   t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Week 11 starters/);
   t.match(a.html(), /▲ Questionable/, "the answers that arrived while Sample mode was on were kept in memory (not drawn then), so they show now");
-  t.deepEqual(asked(a).slice(before), ["mfl-export#10"], "and the held reads were not asked again; only the Performance view the owner chose meanwhile needs last week's scores");
+  t.deepEqual(asked(a).slice(before).filter((k) => !/mfl-export#(8|9|10|11)/.test(k)), [], "and the held reads were not asked again; only Team › Performance, which the owner chose meanwhile, needs the four weeks of scores");
   // a read that never finished is asked for again, not waited for
   const b = boot({ holdIntel: true }); await tick(30); const nb = b.calls.length;
   await b.click({ "data-act": "sample" }); await b.click({ "data-act": "sample" }); await tick(10);
@@ -338,23 +335,20 @@ test("R2: the About sheet carries the bench-group setting, which is kept on the 
 
 // ───────────────────────── stage R2b: one week context, in the running page ─────────────────────────
 
-test("R2b: a chosen past week is kept across Contracts and Byes, which always show today; going back finds the same week; nothing is asked", async () => {
+test("R2b: a chosen past week is kept across Byes, which always shows today; going back finds the same week; nothing is asked", async () => {
   const a = boot(); await tick(40);
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(40);
   t.match(a.html(), /Week 10 starters/); t.match(a.html(), /class="wsel past"/);
   const n = a.calls.length;
   for (const round of [1, 2]) {
-    for (const v of ["contracts", "byes"]) {
+    for (const v of ["byes"]) {
       await a.click({ "data-act": "view", "data-v": v });
       t.match(a.html(), /As of now · Week 11/, v + " (round " + round + "): as of now"); t.doesNotMatch(a.html(), /class="wsel/, v + ": no week bar over today's data");
       t.doesNotMatch(a.html(), /Week 10 starters|Week 10 · played|Played · as MFL recorded it/, v + ": nothing labeled with the past week");
-      if (v === "contracts") t.match(a.html(), /Week 11 starters/, "today's starters carry today's week");
     }
     await a.click({ "data-act": "view", "data-v": "lineup" });
     t.match(a.html(), /Week 10 starters/, "Lineup: the week chosen before is still chosen"); t.match(a.html(), /class="wsel past"/); t.doesNotMatch(a.html(), /As of now/);
-    await a.click({ "data-act": "view", "data-v": "performance" });
-    t.match(a.html(), /Week 10 · played/, "Performance: the same chosen week"); t.match(a.html(), /Week 10 starters/);
-    await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "performance" });
+    await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" });
     t.match(a.html(), /Week 10 starters/, "through Byes and back: still Week 10");
   }
   t.equal(a.calls.length, n, "switching between the past and the present views asks for nothing");
@@ -365,16 +359,110 @@ test("R2b: a chosen past week is kept across Contracts and Byes, which always sh
   t.equal(a.calls.length, n); a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 
-test("R2b: the top-level Contracts tab says where contracts are and its button opens Roster › Contracts, asking for nothing", async () => {
-  const a = boot(); await tick(40); const n = a.calls.length;
-  await a.click({ "data-act": "sub", "data-v": "contracts" });
-  t.match(a.html(), /not in this preview yet/); t.match(a.html(), /data-act="gotoview" data-v="contracts"/); t.doesNotMatch(a.html(), /Open full Contracts/);
-  await a.click({ "data-act": "gotoview", "data-v": "contracts" });
-  t.match(a.html(), /yrs left|Final year/, "Roster › Contracts"); t.match(a.html(), /As of now · Week 11/); t.doesNotMatch(a.html(), /not in this preview yet/);
-  t.equal(a.calls.length, n, "an in-app jump asks for nothing");
-  // an unknown target falls back to Contracts, never to a blank screen
-  await a.click({ "data-act": "sub", "data-v": "contracts" }); await a.click({ "data-act": "gotoview", "data-v": "nonsense" });
-  t.match(a.html(), /yrs left|Final year/);
+// ───────────────────────── stage R3: Team › Contracts, Team › Performance and the profile game log ─────────────────────────
+const scoreReads = (a) => a.calls.filter((c) => c.type === "playerScores").map((c) => Number(c.url.match(/[?&]W=(\d+)/)[1]));
+
+test("R3: Team › Contracts paints the table first and says Loading… for the guarantee column; the answer then fills it; nothing is $0 while it is out", async () => {
+  const a = boot({ holdPen: true }); await tick(40); const n = a.calls.length;
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(5);
+  t.match(a.html(), /Recorded salary, not cap space/); t.match(a.html(), /Guarantee left/); t.match(a.html(), /Loading…/, "the guarantee column says Loading");
+  t.doesNotMatch(a.html(), /\$0 fully earned|Not tracked/); t.doesNotMatch(a.html(), /<b>\$0<\/b>/);
+  t.deepEqual(a.calls.slice(n).map((c) => c.path), ["/api/cap-penalty/preview"], "the one extra read is the guarantee calculation, asked after the table was drawn");
+  a.releasePen(); await tick(30);
+  t.doesNotMatch(a.html(), /Loading…/); t.match(a.html(), /\$\d[\d,]* fully earned|\$[\d,]+<\/b>|Not tracked|Under review|Unavailable/, "the column now holds guarantee values");
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(10);
+  t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 1, "coming back asks nothing more");
+});
+
+test("R3: a failed guarantee read says Unavailable (never $0), offers Try again, and recovers", async () => {
+  const a = boot({ failPenalty: 1 }); await tick(40);
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(30);
+  t.match(a.html(), /Unavailable/); t.match(a.html(), /data-act="retrypen"/); t.doesNotMatch(a.html(), /\$0 fully earned/); t.doesNotMatch(a.html(), /<b>\$0<\/b>/);
+  await a.click({ "data-act": "retrypen" }); await tick(30);
+  t.doesNotMatch(a.html(), /data-act="retrypen"/); t.match(a.html(), /\$[\d,]+<\/b>|\$\d[\d,]* fully earned|Not tracked/);
+});
+
+test("R3: Team › Performance asks for the matchup read, then the weekly score reads (five, because team history is one week behind), once each; going back and forth asks nothing more", async () => {
+  const a = boot({ r3: true }); await tick(40); const n = a.calls.length;
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(40);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11], "the strip (Weeks 8 to 11) plus the look-back from the coverage week (Week 10, back to 7 for a bye): five reads");
+  t.equal(a.calls.length - n, 5, "nothing else was asked (the injury and matchup reads were already in memory)");
+  a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.equal(c.type, "playerScores"); });
+  t.match(a.html(), /Comparison through Week 10/); t.match(a.html(), /dashed|class="cell newer"/);
+  await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pff", "data-v": "starters" }); await a.click({ "data-act": "pfs", "data-v": "diff" }); await tick(10);
+  t.equal(a.calls.length - n, 5, "tabs, filters and sorts ask nothing");
+});
+
+test("R3 ruling 2: the profile game log shows the latest four weeks, then 'Show earlier weeks' loads the rest on demand, once each, and reuses what is in memory", async () => {
+  const a = boot({ r3: true }); await tick(40);
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
+  const rowsOf = () => (a.html().split('<div class="card tbl">')[1] || "").split("</table>")[0].split("<tr>").length - 2;
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11], "opening the log asked for the five weeks the Performance rules need, no more");
+  t.equal(rowsOf(), 4, "the latest four weeks"); t.match(a.html(), /data-act="logmore">Show earlier weeks</); t.match(a.html(), /The latest four weeks/);
+  const n0 = a.calls.length;
+  await a.click({ "data-act": "logmore" }); await tick(60);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "only the missing weeks 1 to 6 were asked, each once");
+  t.equal(a.calls.length - n0, 6, "six more reads, none repeated");
+  t.equal(rowsOf(), 11, "the full season"); t.match(a.html(), /Showing Weeks 1 to 11/); t.match(a.html(), /The full season, newest first/);
+  const weeks = [...(a.html().split('<div class="card tbl">')[1].split("</table>")[0]).matchAll(/<tr><td>(\d+)<\/td>/g)].map((m) => +m[1]);
+  t.deepEqual(weeks, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "newest first");
+  await a.click({ "data-act": "logless" }); await a.click({ "data-act": "logmore" }); await tick(30);
+  t.equal(a.calls.length - n0, 6, "showing fewer and more again asks nothing");
+  t.doesNotMatch(a.html(), /<th[^>]*>(Opponent|Snaps|Lineup)/);
+  a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
+});
+
+test("R3 ruling 2: an earlier week that cannot be read shows n/a with a retry; the weeks that loaded stay", async () => {
+  const a = boot({ r3: true, failScores: 0 }); await tick(40);
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
+  a.setFailScores(1); await a.click({ "data-act": "logmore" }); await tick(60);
+  t.match(a.html(), /could not be read and show n\/a/); t.match(a.html(), /data-act="retrylog"/);
+  await a.click({ "data-act": "retrylog" }); await tick(60);
+  t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /Showing Weeks 1 to 11/);
+});
+
+test("R3 review MAT-1: opening Performance while the boot matchup read is still out still asks for the weekly scores once it arrives (and so does a profile's Performance tab)", async () => {
+  const a = boot({ r3: true, holdIntel: true }); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(10);
+  t.deepEqual(scoreReads(a), [], "nothing can be asked yet: the matchup read is held");
+  a.releaseIntel(); await tick(60);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11], "the two callers shared one read; the second still got its follow-up");
+  t.doesNotMatch(a.html(), /Loading the latest weeks/);
+  const b = boot({ r3: true, holdIntel: true }); await tick(30);
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await b.click({ "data-act": "card", "data-pid": pid }); await b.click({ "data-act": "ptab", "data-v": "perf" }); await tick(10);
+  b.releaseIntel(); await tick(60);
+  t.deepEqual(scoreReads(b).sort((x, y) => x - y), [7, 8, 9, 10, 11]);
+});
+
+test("R3 review: a failed guarantee read is asked again only on Try again, not on every return to Contracts", async () => {
+  const a = boot({ failPenalty: 1 }); await tick(40);
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(20);
+  t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 1, "returning to Contracts asks nothing");
+  await a.click({ "data-act": "retrypen" }); await tick(30);
+  t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 2, "Try again asks once more");
+});
+
+test("R3: a failed weekly score read shows n/a in those cells and a retry; scores that did load stay; nothing is 0.0", async () => {
+  const a = boot({ r3: true, failScores: 1 }); await tick(40);
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(40);
+  t.match(a.html(), /n\/a/); t.match(a.html(), /data-act="retryperf"/); t.doesNotMatch(a.html(), /<b>0\.0<\/b><\/span><\/span>\s*<span class="cell"><i>W\d+<\/i><b>n\/a/);
+  await a.click({ "data-act": "retryperf" }); await tick(40);
+  t.doesNotMatch(a.html(), /n\/a/); t.equal(scoreReads(a).length, 6, "only the failed week was asked again");
+});
+
+test("R3: the profile's Performance tab shows the game log from the same reads (Week and Points; BYE only where the club is known)", async () => {
+  const a = boot({ r3: true }); await tick(40);
+  const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
+  await a.click({ "data-act": "card", "data-pid": pid }); await tick(10);
+  const n = scoreReads(a).length; t.equal(n, 0, "opening a profile asks for no scores until its Performance tab is used");
+  await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11]);
+  t.match(a.html(), /Game log/); t.match(a.html(), /<th>Wk<\/th><th class="n">Pts<\/th>/); t.doesNotMatch(a.html(), /<th[^>]*>(Opponent|Snaps|Lineup)/, "no opponent, snaps or lineup column");
+  t.match(a.html(), /Opponents, snaps and lineup status are not in this preview/);
 });
 
 await run("mobile2027_controller");

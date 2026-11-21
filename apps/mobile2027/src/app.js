@@ -21,7 +21,9 @@
     model: null, load: { core: "loading", coreNotes: [], error: "" }, penalty: { state: "idle" },
     teamId: pref("team", ""), tab: "team", sub: "roster", view: "lineup", open: {}, flags: {},
     wk: null, // the week on screen; null means the current lineup week. Only a past week ever changes it (view-only)
-    intel: { status: null, mu: {}, wk: {} }, // reads added in R2, by their own address: injury status, NFL games, weekly lineups and scores
+    intel: { status: null, mu: {}, wk: {}, scores: {} }, // reads added in R2/R3, by their own address: injury status, NFL games and season figures, weekly lineups, weekly player scores
+    ct: { f: "all", s: "end", open: {} }, // Team › Contracts: which group, sort, and which rows are open
+    pf: { f: "all", s: "pos", open: {}, res: {} }, // Team › Performance: the same
     gdef: pref("gdef", "needs"),
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(),
@@ -86,7 +88,7 @@
       else if (r.weekly.state !== "ok") notes.push("MFL’s submitted lineups could not be read (" + r.weekly.error + ").");
       S.model = U.model.build(rw, r.league.state === "ok" ? r.league.data : null, r.weekly.state === "ok" ? r.weekly.data : null, r.week, parseInt(cfg.season, 10));
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
-      S.intel = { status: null, mu: {}, wk: {} }; S.wk = null;
+      S.intel = { status: null, mu: {}, wk: {}, scores: {} }; S.wk = null;
       if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
@@ -101,27 +103,20 @@
   // Each is asked for by its exact address, once; the loader keeps the answer and gives it back when the view, the week or the
   // team changes. It asks again only after Reload, or when its freshness limit has passed and the screen is used again.
   function same(a, b) { return !!a && !!b && a.state === b.state && a.at === b.at; }
-  function intelRead(holder, key, ask, force) {
+  function intelRead(holder, key, ask, force, after) {
     var mine = gen;
     if (!holder[key]) holder[key] = { state: "loading" };
     ask(force).then(function (r) {
       if (mine !== gen || S.sample.on) return;
       var next = r.state === "ok" ? { state: "ok", data: r.data, at: r.at || Date.now() } : { state: "error", error: r.error || "" };
-      if (same(holder[key], next)) return;
-      holder[key] = next; render(true);
+      // Two callers can share one memoized read: the first to resolve fills the holder, and the second finds nothing changed. The follow-up
+      // must still run for the second (the owner may have opened Performance while the boot read was in flight), so it is not skipped.
+      if (!same(holder[key], next)) { holder[key] = next; render(true); }
+      if (after) after(holder[key]);
     });
   }
-  function ensureIntel(force) {
-    if (S.sample.on || !S.model || S.tab !== "team" || S.sub !== "roster") return;
-    var wi = U.roster.weekInfo(S);
-    if (!wi.cur) return;
-    var historical = wi.past && (S.view === "lineup" || S.view === "performance");
-    if (historical) {
-      // a past week needs only its own lineups and scores; its NFL games are not asked for (see MAT-1 in views.js: no read says which club a player was with then)
-      intelRead(S.intel.wk, wi.sel, function (f) { return loader.loadWeekly(wi.sel, f); }, force && S.intel.wk[wi.sel] && S.intel.wk[wi.sel].state === "error");
-      return;
-    }
-    // current information: injury status and this week's games, plus last week's scores for the Performance view
+  // The injury read is shared by Roster and Performance (the chips on a row). Asked once and reused by the loader.
+  function ensureStatus(force) {
     if (!S.intel.status) S.intel.status = { state: "loading" };
     var mine = gen;
     loader.loadStatus(force && S.intel.status.state === "error").then(function (r) {
@@ -130,8 +125,49 @@
       if (same(S.intel.status, next)) return;
       S.intel.status = next; render(true);
     });
+  }
+  // Team › Performance (and a profile's game log): the current week's matchup read (season totals, latest final week, team history, next three
+  // weeks), then the weekly scores of the latest final week and the three before it, at most four reads.
+  function ensureScores(L, through, force) {
+    if (!(L >= 1) || !U.tabviews) return;
+    U.tabviews.weeksFor(L, through).forEach(function (w) {
+      intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && S.intel.scores[w] && S.intel.scores[w].state === "error");
+    });
+  }
+  // The full-season game log reads the weeks the screen did not need, on demand ("Show earlier weeks"), and reuses every read already in memory.
+  function ensureLog(force) {
+    if (S.sample.on || !S.model || !S.model.week || !U.tabviews) return;
+    var mu = S.intel.mu[S.model.week]; if (!mu || mu.state !== "ok") return;
+    var L = mu.data.latestFinal; if (!(L >= 1)) return;
+    U.tabviews.logWeeks(L).forEach(function (w) {
+      intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && S.intel.scores[w] && S.intel.scores[w].state === "error");
+    });
+  }
+  function ensurePerformance(force) {
+    if (S.sample.on || !S.model || !S.model.week) return;
+    var cur = S.model.week, rec = S.intel.mu[cur];
+    intelRead(S.intel.mu, cur, function (f) { return loader.loadMatchups(cur, f); }, force && rec && rec.state === "error", function (next) { if (next && next.state === "ok") ensureScores(next.data.latestFinal, U.tabviews.throughOf(next.data), force); });
+    // (the follow-up above runs once whether the matchup read was already in memory or arrives later, so it is not repeated here)
+  }
+  function ensureIntel(force) {
+    if (S.sample.on || !S.model || S.tab !== "team") return;
+    if (S.sub === "contracts") { // the table paints first; the guarantee column loads second; a failed read is asked again only on Try again
+      if (S.penalty.state === "idle") loadPenalty(false); else if (force && S.penalty.state === "error") loadPenalty(true);
+      return;
+    }
+    if (S.sub === "performance") { ensureStatus(force); ensurePerformance(force); return; }
+    if (S.sub !== "roster") return;
+    var wi = U.roster.weekInfo(S);
+    if (!wi.cur) return;
+    var historical = wi.past && S.view === "lineup";
+    if (historical) {
+      // a past week needs only its own lineups and scores; its NFL games are not asked for (see MAT-1 in views.js: no read says which club a player was with then)
+      intelRead(S.intel.wk, wi.sel, function (f) { return loader.loadWeekly(wi.sel, f); }, force && S.intel.wk[wi.sel] && S.intel.wk[wi.sel].state === "error");
+      return;
+    }
+    // current information: injury status and this week's games
+    ensureStatus(force);
     intelRead(S.intel.mu, wi.cur, function (f) { return loader.loadMatchups(wi.cur, f); }, force && S.intel.mu[wi.cur] && S.intel.mu[wi.cur].state === "error");
-    if (S.view === "performance" && wi.cur > 1) intelRead(S.intel.wk, wi.cur - 1, function (f) { return loader.loadWeekly(wi.cur - 1, f); }, force && S.intel.wk[wi.cur - 1] && S.intel.wk[wi.cur - 1].state === "error");
   }
 
   function loadPenalty(force) {
@@ -209,9 +245,19 @@
     var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
     if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); }
     else if (act === "sub") { S.sub = v; render(); ensureIntel(); }
-    else if (act === "view") { S.view = v; S.sheet = null; render(); ensureIntel(); }
+    else if (act === "view") { if (v === "lineup" || v === "byes") { S.view = v; S.sheet = null; render(); ensureIntel(); } }
     else if (act === "weeks") { S.sheet = "weeks"; render(); }
-    else if (act === "gotoview") { S.sub = "roster"; S.view = v === "performance" || v === "byes" || v === "lineup" ? v : "contracts"; S.sheet = null; render(); ensureIntel(); } // an in-app jump; it asks for nothing itself
+    else if (act === "ctf") { S.ct.f = v; render(true); }
+    else if (act === "cts") { S.ct.s = v; render(true); }
+    else if (act === "ctx") { S.ct.open[v] = !S.ct.open[v]; render(true); }
+    else if (act === "pff") { S.pf.f = v; render(true); }
+    else if (act === "pfs") { S.pf.s = v; render(true); }
+    else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; render(true); }
+    else if (act === "pfres") { S.pf.res[v] = !S.pf.res[v]; render(true); }
+    else if (act === "retryperf") { ensurePerformance(true); }
+    else if (act === "logmore") { if (S.profile) { S.profile.all = true; render(true); ensurePerformance(); ensureLog(); } }
+    else if (act === "logless") { if (S.profile) { S.profile.all = false; render(true); } }
+    else if (act === "retrylog") { ensureLog(true); }
     else if (act === "pickweek") {
       var n = parseInt(v, 10), wi0 = U.roster.weekInfo(S);
       if (isFinite(n) && wi0.cur && n >= 1 && n <= wi0.cur) { var again = n === wi0.sel; S.wk = n === wi0.cur ? null : n; S.sheet = null; render(); ensureIntel(again); }
@@ -228,7 +274,7 @@
     else if (act === "skin") { S.skin = v; setPref("skin", v); applySkin(); render(true); }
     else if (act === "vib") { S.vib = v; setPref("vib", v); applySkin(); render(true); }
     else if (act === "tog") { S.flags[v] = !S.flags[v]; render(true); }
-    else if (act === "ptab") { if (S.profile) { S.profile.tab = v; render(true); } }
+    else if (act === "ptab") { if (S.profile) { S.profile.tab = v; render(true); if (v === "perf") ensurePerformance(); } }
     else if (act === "retry") { S.sheet = null; S.penalty = { state: "idle" }; loadCore(); }
     else if (act === "retrypen") loadPenalty(true);
   });
