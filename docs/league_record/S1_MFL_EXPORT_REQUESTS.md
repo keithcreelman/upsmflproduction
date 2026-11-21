@@ -11,7 +11,7 @@
 | **Season** | The season is the first path segment: `/2025/export` is the 2025 league instance, `/2026/export` the 2026 instance, `/2014/export` the 2014 instance (section 3). |
 | **Format** | `JSON=1`. |
 | **Never used** | `COUNT` and `DAYS` (MFL documents `COUNT` as returning only the most common types; both truncate), `TYPE=league` (with a commissioner credential it returns owner names and e-mail addresses), and any import. |
-| **Rate** | One request at a time, at least one second apart (`docs/MFL_API.md` canon); on `429` or `5xx`, exponential backoff of 2, 4, 8 seconds and stop after three tries. At most **10** requests in total across all sets. |
+| **Rate** | One request at a time, at least one second apart (`docs/MFL_API.md` canon). **There is no automatic retry:** on a `429`, a `5xx`, a redirect or any other non-200 status the script stops, and the commissioner decides whether to try again later (never with another credential). At most **10** requests in total across all sets (this approval covers 4). |
 | **Client name** | A generic stable `User-Agent: ups-league-record-readonly/1`. No person's name, e-mail or project detail in any header or URL. |
 | **Production** | None. The calls run from a local shell, not through the Worker, not through the ETL, not through any Cloudflare route. No production D1 read or write, no R2, no KV. |
 | **Output location** | Raw responses are saved **outside the repository** (a local scratch folder), never committed, never pasted into a pull request or comment. |
@@ -28,8 +28,8 @@ The league is private (MFL documents these exports as "private league access res
 
 ### What is kept, what is dropped
 
-1. The raw response is saved to a local file; its **SHA-256, byte count, HTTP status, redirect target (if any) and UTC capture time** are recorded.
-2. A **sanitizer** keeps only: `timestamp`, `type`, `franchise`, `franchise2`, the asset lists (`franchise1_gave_up`, `franchise2_gave_up`), `expires`, and for picks the year, round and original franchise. It **drops free-text `comments`** (they can carry personal remarks) and counts what it dropped without recording the content.
+1. The raw response is saved to a private local file; its **SHA-256, byte count, HTTP status and UTC capture time** are recorded (in the manifest and the request log). No redirect is followed, so there is no redirect target to record.
+2. A **sanitizer** keeps only: the trade time, the two franchise ids and the two asset-token lists (player ids, future-pick tokens, slot tokens, cap tokens); for a future pick, the holder, the year, the round and the original franchise. It **drops and counts** free-text `comments`, expiry times, descriptions and every field it does not recognize.
 3. **Pending items:** a record that is not an executed trade (no `timestamp`, or marked pending) is dropped and counted; its content is not kept. MFL's own documentation says an owner request returns that owner's pending transactions (and a commissioner request returns everyone's), so a pending offer **will** appear unless the response says otherwise; the sanitizer drops every one of them.
 4. Only the sanitized extract and a **request record** (the URL with `APIKEY=REDACTED`, parameters, capture time, hash) may enter the repository, in a later pull request that the commissioner reviews. The raw file never does.
 

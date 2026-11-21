@@ -13,10 +13,10 @@
 #   OUT=/some/private/dir ./run_a1_a4.sh   to choose the private folder (default: $HOME/ups_league_record_exports/2026-11).
 set -u
 umask 077
-# A key variable that already exists in the caller's environment (and may be exported) is removed before anything runs; `read` below then creates an UNEXPORTED shell variable.
-# allexport is switched off so a later assignment can never be exported by accident.
+# Every variable that will ever hold a key has a private _LR_ / _lr_ name, and each of those names (and the plain names an earlier version or a caller might have exported) is unset before anything
+# runs, so a variable the caller exported can never carry a key into a child process; `read` below then creates UNEXPORTED shell variables. allexport is switched off as well.
 set +a
-unset KEY_2025 KEY_2026 key enc k 2>/dev/null
+unset _LR_K2025 _LR_K2026 _lr_key _lr_enc KEY_2025 KEY_2026 key enc k v 2>/dev/null
 
 HOST='www48.myfantasyleague.com'
 UA='ups-league-record-readonly/1'
@@ -45,20 +45,19 @@ if command -v git >/dev/null 2>&1 && git -C "$probe" rev-parse --is-inside-work-
 mkdir -p "$RAW" && chmod 700 "$OUT" "$RAW" || { echo "cannot create the private folder $RAW" >&2; exit 1; }
 
 # Keys are typed here, one per league-year. Nothing is echoed; nothing is exported.
-read -r -s -p "MFL key for the 2025 instance (league 74598): " KEY_2025; echo
-read -r -s -p "MFL key for the 2026 instance (league 74598): " KEY_2026; echo
-for k in KEY_2025 KEY_2026; do
-  v="${!k}"; case "$v" in ''|*[[:space:]]*) echo "refusing: $k is empty or contains whitespace" >&2; exit 1;; esac
-done
+read -r -s -p "MFL key for the 2025 instance (league 74598): " _LR_K2025; echo
+read -r -s -p "MFL key for the 2026 instance (league 74598): " _LR_K2026; echo
+case "$_LR_K2025" in ''|*[[:space:]]*) echo "refusing: the 2025 key is empty or contains whitespace" >&2; exit 1;; esac
+case "$_LR_K2026" in ''|*[[:space:]]*) echo "refusing: the 2026 key is empty or contains whitespace" >&2; exit 1;; esac
 
 : > "$OUT/requests.log"; chmod 600 "$OUT/requests.log"
 get() {  # name, key year, path and query (no key). Returns non-zero on anything but a clean HTTP 200 with a non-error body.
-  local name="$1" keyyear="$2" pathq="$3" key code enc captured
-  if [ "$keyyear" = "2025" ]; then key="$KEY_2025"; else key="$KEY_2026"; fi
-  enc=$(printf '%s' "$key" | python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))') || return 1
+  local name="$1" keyyear="$2" pathq="$3" _lr_key code _lr_enc captured
+  if [ "$keyyear" = "2025" ]; then _lr_key="$_LR_K2025"; else _lr_key="$_LR_K2026"; fi
+  _lr_enc=$(printf '%s' "$_lr_key" | python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.stdin.read().strip(), safe=""))') || return 1
   captured=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   # the key goes to curl on stdin as a config line; --max-redirs 0 and no --location: a redirect is a stop
-  code=$(printf 'url = "https://%s%s&APIKEY=%s"\n' "$HOST" "$pathq" "$enc" | \
+  code=$(printf 'url = "https://%s%s&APIKEY=%s"\n' "$HOST" "$pathq" "$_lr_enc" | \
     curl --silent --show-error --max-time 60 --max-redirs 0 --header "User-Agent: $UA" \
          --output "$RAW/$name.json" --write-out '%{http_code}' --config -) || { echo "$name: curl failed; stop and report" >&2; return 1; }
   chmod 600 "$RAW/$name.json" 2>/dev/null
@@ -75,7 +74,7 @@ for r in "${REQUESTS[@]}"; do
   IFS='|' read -r name keyyear pathq <<<"$r"
   get "$name" "$keyyear" "$pathq" || { status=1; break; }       # the first failure stops everything after it
 done
-unset KEY_2025 KEY_2026 key enc
+unset _LR_K2025 _LR_K2026 _lr_key _lr_enc
 if [ "$status" = "0" ]; then
   (cd "$RAW" && shasum -a 256 ./*.json)
   echo "Done. Raw responses stay in $RAW (private). Next: node sanitize_exports.mjs --dir \"$OUT\""

@@ -123,6 +123,13 @@ test("future picks: none is CONFIRMED to a slot; INFERRED only under UNIQUE_HOLD
   // an eligible pick still rests on disclosed assumptions: 67 on the first-sender reading of a slot-token trail, 33 with several final slots, 115 with a token trade within a day of a selection
   t.equal(f.funnel.event_accounting_flag_first_sender_assumption, 67); t.equal(f.funnel.event_accounting_flag_holder_has_several_final_slots, 33); t.equal(f.funnel.event_accounting_flag_token_trade_within_24h_of_a_selection, 115);
   t.equal(f.funnel.event_accounting_eligible_without_flags, 1, "only one pick passes the screen with none of the three assumptions");
+  // the one pick that rests on none of the three assumptions, and the notes diagnostic (corroboration only: it changes no class and no count above)
+  t.deepEqual(x.findings.lists.event_accounting_unflagged, [{ asset: "fpick:0004:2013:2", year: 2013, round: 2, holder: "0010", slot: 8, unverified_intervals_over_the_round: 1 }]);
+  const nc = f.note_corroboration;
+  t.deepEqual(nc, { traded_picks: 597, before_notes_era: 181, unique_note_match: 108, no_note_match: 308, several_note_matches: 0, event_screen_picks_in_notes_era: 82, event_screen_note_matches_same_slot: 20, event_screen_note_matches_other_slot: 0, event_screen_slot_note_absent: 21, event_screen_slot_note_unresolved: 7, event_screen_slot_note_differs: 34 });
+  t.equal(nc.before_notes_era + nc.unique_note_match + nc.no_note_match + nc.several_note_matches, nc.traded_picks, "every traded pick is counted once");
+  t.equal(nc.event_screen_note_matches_same_slot + nc.event_screen_note_matches_other_slot + nc.event_screen_slot_note_absent + nc.event_screen_slot_note_unresolved + nc.event_screen_slot_note_differs, nc.event_screen_picks_in_notes_era);
+  t.equal(q("select count(*) n from draftresults_legacy where season < 2017 and raw_comments like '%Pick traded from%'")[0].n, 0, "the legacy draft rows of 2012-2016 carry no MFL notes, so those picks cannot be corroborated this way");
   t.equal(f.inferred, 0); t.equal(f.unresolved, 597);
   t.equal(f.funnel.custody_observed_strict, 0); t.equal(f.funnel.inventory_complete_strict, 0);
   // the diagnostic is reported as a diagnostic
@@ -564,10 +571,10 @@ printf '%s' "$code"
   };
   // an inherited, exported key variable of the same name must never reach a child process, and neither must the typed key
   fs.rmSync(stubDir, { recursive: true, force: true });
-  { const env = { ...process.env, KEY_2025: "ENVLEAK2025", KEY_2026: "ENVLEAK2026" };
+  { const env = { ...process.env, KEY_2025: "ENVLEAK2025", KEY_2026: "ENVLEAK2026", _LR_K2025: "ENVLEAK3", _LR_K2026: "ENVLEAK4", _lr_key: "ENVLEAK5", _lr_enc: "ENVLEAK6", key: "ENVLEAK7", enc: "ENVLEAK8", k: "ENVLEAK9", v: "ENVLEAK10" };    // every name the script has ever used for a key, exported by the caller
     const r0 = (() => { fs.mkdirSync(stubDir); bodies.forEach((b, i) => fs.writeFileSync(path.join(stubDir, `body${i + 1}`), b)); return spawnSync("bash", [RUNNER], { input: "KEY2025SECRET\nKEY2026SECRET\n", encoding: "utf8", env: { ...env, PATH: `${bin}:${process.env.PATH}`, OUT: path.join(dir, "out-env"), STUB_CODES: "200 200 200 200" } }); })();
     t.equal(r0.status, 0);
-    for (let i = 1; i <= 4; i++) { const e = fs.readFileSync(path.join(stubDir, `env${i}`), "utf8"); t.ok(!/KEY_2025|KEY_2026|ENVLEAK|KEY2025SECRET|KEY2026SECRET/.test(e), `child ${i}: no key variable, inherited or typed, in its environment`); }
+    for (let i = 1; i <= 4; i++) { const e = fs.readFileSync(path.join(stubDir, `env${i}`), "utf8"); t.ok(!/^(KEY_2025|KEY_2026|_LR_K2025|_LR_K2026|_lr_key|_lr_enc|key|enc|k|v)=/m.test(e) && !/ENVLEAK|KEY2025SECRET|KEY2026SECRET/.test(e), `child ${i}: no key variable, inherited or typed, in its environment`); }
     t.ok(!/ENVLEAK|KEY2025SECRET|KEY2026SECRET/.test(r0.stdout + r0.stderr), "no key printed"); }
   // all four succeed
   let a = run("200 200 200 200");
@@ -661,7 +668,12 @@ test("the sanitizer keeps only what is needed, drops comments, descriptions, exp
     fs.writeFileSync(path.join(d2, "requests.log"), log2);
     const cli = spawnSync("node", ["--no-warnings", path.join(PKG, "sanitize_exports.mjs"), "--dir", d2], { encoding: "utf8" });
     t.equal(cli.status, 2); t.ok(/^STOP: /.test(cli.stderr) && !/PRIVATE-TOKEN|at file:|node:internal/.test(cli.stdout + cli.stderr), "the command line prints a fixed label and no content or stack");
-    fs.rmSync(path.join(d2, "requests.log")); fs.writeFileSync(path.join(d2, "requests.log"), "garbage");
+    // an error that is NOT a StopError (here: the output folder cannot be created because a file stands where it must go) prints a fixed label and no path, message or stack
+    let log3 = ""; APPROVED.forEach((x, i) => { fs.writeFileSync(path.join(r2, `${x.name}.json`), bodies[i]); log3 += `${x.name}\t${x.host}\t${x.pathq}\t200\t${Buffer.byteLength(bodies[i])}\t2026-11-22T12:00:0${i}Z\n`; });
+    fs.writeFileSync(path.join(d2, "requests.log"), log3); fs.writeFileSync(path.join(d2, "sanitized"), "x");
+    const cliErr = spawnSync("node", ["--no-warnings", path.join(PKG, "sanitize_exports.mjs"), "--dir", d2], { encoding: "utf8" });
+    t.equal(cliErr.status, 2); t.match(cliErr.stderr, /unexpected internal error/); t.ok(!/EEXIST|ENOTDIR|mkdir|lr-pkg|at file:|node:internal/.test(cliErr.stdout + cliErr.stderr), "no path, system message or stack");
+    fs.rmSync(path.join(d2, "sanitized")); fs.writeFileSync(path.join(d2, "requests.log"), "garbage");
     const cli2 = spawnSync("node", ["--no-warnings", path.join(PKG, "sanitize_exports.mjs"), "--dir", d2], { encoding: "utf8" });
     t.equal(cli2.status, 2); t.ok(!/at file:|node:internal|Error:/.test(cli2.stdout + cli2.stderr), "a missing or garbled record prints no stack");
     fs.rmSync(d2, { recursive: true, force: true }); }

@@ -369,6 +369,16 @@
       "draft_missing_source_records": [],
       "draft_unresolved_slots": [],
       "duplicate_legs": [],
+      "event_accounting_unflagged": [
+        {
+          "asset": "fpick:0004:2013:2",
+          "holder": "0010",
+          "round": 2,
+          "slot": 8,
+          "unverified_intervals_over_the_round": 1,
+          "year": 2013
+        }
+      ],
       "future_pick_ambiguous_examples": [],
       "known_forfeitures": [
         {
@@ -1340,6 +1350,7 @@
       "draft_missing_source_records": 0,
       "draft_unresolved_slots": 0,
       "duplicate_legs": 0,
+      "event_accounting_unflagged": 1,
       "future_pick_ambiguous_examples": 0,
       "known_forfeitures": 1,
       "legacy_slot_corrections": 30,
@@ -3118,6 +3129,19 @@
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 0
         },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 0,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 0,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 0,
+          "several_note_matches": 0,
+          "traded_picks": 0,
+          "unique_note_match": 0
+        },
         "unresolved": 0,
         "unresolved_by_reason": {
           "ambiguous_candidates": 0,
@@ -3238,6 +3262,19 @@
           "records_and_evidence_disagree": 0,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 0
+        },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 0,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 0,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 0,
+          "several_note_matches": 0,
+          "traded_picks": 0,
+          "unique_note_match": 0
         },
         "unresolved": 0,
         "unresolved_by_reason": {
@@ -3366,6 +3403,19 @@
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 8
         },
+        "note_corroboration": {
+          "before_notes_era": 8,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 0,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 0,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 0,
+          "several_note_matches": 0,
+          "traded_picks": 8,
+          "unique_note_match": 0
+        },
         "unresolved": 8,
         "unresolved_by_reason": {
           "ambiguous_candidates": 0,
@@ -3491,6 +3541,19 @@
           "records_and_evidence_disagree": 36,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 36
+        },
+        "note_corroboration": {
+          "before_notes_era": 36,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 0,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 0,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 0,
+          "several_note_matches": 0,
+          "traded_picks": 36,
+          "unique_note_match": 0
         },
         "unresolved": 36,
         "unresolved_by_reason": {
@@ -3620,6 +3683,19 @@
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 44
         },
+        "note_corroboration": {
+          "before_notes_era": 44,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 0,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 0,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 0,
+          "several_note_matches": 0,
+          "traded_picks": 44,
+          "unique_note_match": 0
+        },
         "unresolved": 44,
         "unresolved_by_reason": {
           "ambiguous_candidates": 0,
@@ -3744,6 +3820,19 @@
           "records_and_evidence_disagree": 47,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 47
+        },
+        "note_corroboration": {
+          "before_notes_era": 47,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 0,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 0,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 0,
+          "several_note_matches": 0,
+          "traded_picks": 47,
+          "unique_note_match": 0
         },
         "unresolved": 47,
         "unresolved_by_reason": {
@@ -3871,6 +3960,19 @@
           "records_and_evidence_disagree": 46,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 46
+        },
+        "note_corroboration": {
+          "before_notes_era": 46,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 0,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 0,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 0,
+          "several_note_matches": 0,
+          "traded_picks": 46,
+          "unique_note_match": 0
         },
         "unresolved": 46,
         "unresolved_by_reason": {
@@ -4001,6 +4103,19 @@
           "records_and_evidence_disagree": 40,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 40
+        },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 0,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 0,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 30,
+          "several_note_matches": 0,
+          "traded_picks": 40,
+          "unique_note_match": 10
         },
         "unresolved": 40,
         "unresolved_by_reason": {
@@ -4144,6 +4259,19 @@
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 44
         },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 4,
+          "event_screen_picks_in_notes_era": 11,
+          "event_screen_slot_note_absent": 1,
+          "event_screen_slot_note_differs": 3,
+          "event_screen_slot_note_unresolved": 3,
+          "no_note_match": 30,
+          "several_note_matches": 0,
+          "traded_picks": 44,
+          "unique_note_match": 14
+        },
         "unresolved": 44,
         "unresolved_by_reason": {
           "ambiguous_candidates": 0,
@@ -4268,6 +4396,19 @@
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 45
         },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 4,
+          "event_screen_slot_note_absent": 3,
+          "event_screen_slot_note_differs": 1,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 45,
+          "several_note_matches": 0,
+          "traded_picks": 45,
+          "unique_note_match": 0
+        },
         "unresolved": 45,
         "unresolved_by_reason": {
           "ambiguous_candidates": 0,
@@ -4390,6 +4531,19 @@
           "records_and_evidence_disagree": 47,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 47
+        },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 2,
+          "event_screen_picks_in_notes_era": 10,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 8,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 27,
+          "several_note_matches": 0,
+          "traded_picks": 47,
+          "unique_note_match": 20
         },
         "unresolved": 47,
         "unresolved_by_reason": {
@@ -4514,6 +4668,19 @@
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 50
         },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 2,
+          "event_screen_picks_in_notes_era": 9,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 7,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 40,
+          "several_note_matches": 0,
+          "traded_picks": 50,
+          "unique_note_match": 10
+        },
         "unresolved": 50,
         "unresolved_by_reason": {
           "ambiguous_candidates": 0,
@@ -4636,6 +4803,19 @@
           "records_and_evidence_disagree": 46,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 46
+        },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 2,
+          "event_screen_picks_in_notes_era": 4,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 2,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 21,
+          "several_note_matches": 0,
+          "traded_picks": 46,
+          "unique_note_match": 25
         },
         "unresolved": 46,
         "unresolved_by_reason": {
@@ -4760,6 +4940,19 @@
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 43
         },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 5,
+          "event_screen_picks_in_notes_era": 10,
+          "event_screen_slot_note_absent": 0,
+          "event_screen_slot_note_differs": 2,
+          "event_screen_slot_note_unresolved": 3,
+          "no_note_match": 26,
+          "several_note_matches": 0,
+          "traded_picks": 43,
+          "unique_note_match": 17
+        },
         "unresolved": 43,
         "unresolved_by_reason": {
           "ambiguous_candidates": 0,
@@ -4883,6 +5076,19 @@
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 50
         },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 5,
+          "event_screen_picks_in_notes_era": 17,
+          "event_screen_slot_note_absent": 1,
+          "event_screen_slot_note_differs": 11,
+          "event_screen_slot_note_unresolved": 0,
+          "no_note_match": 38,
+          "several_note_matches": 0,
+          "traded_picks": 50,
+          "unique_note_match": 12
+        },
         "unresolved": 50,
         "unresolved_by_reason": {
           "ambiguous_candidates": 0,
@@ -5005,6 +5211,19 @@
           "records_and_evidence_disagree": 51,
           "slot_count_not_one_per_team": 0,
           "slot_token_transfer_in_round": 51
+        },
+        "note_corroboration": {
+          "before_notes_era": 0,
+          "event_screen_note_matches_other_slot": 0,
+          "event_screen_note_matches_same_slot": 0,
+          "event_screen_picks_in_notes_era": 17,
+          "event_screen_slot_note_absent": 16,
+          "event_screen_slot_note_differs": 0,
+          "event_screen_slot_note_unresolved": 1,
+          "no_note_match": 51,
+          "several_note_matches": 0,
+          "traded_picks": 51,
+          "unique_note_match": 0
         },
         "unresolved": 51,
         "unresolved_by_reason": {
@@ -5303,6 +5522,19 @@
         "would_infer_if_windows_observed_and_tokens_netted": 51
       },
       "inferred": 0,
+      "note_corroboration": {
+        "before_notes_era": 181,
+        "event_screen_note_matches_other_slot": 0,
+        "event_screen_note_matches_same_slot": 20,
+        "event_screen_picks_in_notes_era": 82,
+        "event_screen_slot_note_absent": 21,
+        "event_screen_slot_note_differs": 34,
+        "event_screen_slot_note_unresolved": 7,
+        "no_note_match": 308,
+        "several_note_matches": 0,
+        "traded_picks": 597,
+        "unique_note_match": 108
+      },
       "traded": 597,
       "unresolved": 597
     },
