@@ -11,9 +11,9 @@ import crypto from "node:crypto";
 import zlib from "node:zlib";
 import { pipeline } from "node:stream/promises";
 import { DatabaseSync } from "node:sqlite";
-import { BANNED_TABLES } from "./guard.mjs";
+import { BANNED_TABLES, BANNED_COLUMNS } from "./guard.mjs";
 
-export { BANNED_TABLES };
+export { BANNED_TABLES, BANNED_COLUMNS };
 
 export const ARCHIVE_GZ_PATH = "data/db-archives/mfl_database_2026-06-05.db.gz";
 export const ARCHIVE_GZ_SHA256 = "2b344b794422a64ee323c52e02b30ace936e60945a6fbb1ce5784e968eb95c28";
@@ -21,7 +21,7 @@ export const ARCHIVE_GZ_SHA256 = "2b344b794422a64ee323c52e02b30ace936e60945a6fbb
 // The only archive tables the pilot may read. Every one is an event log, a draft result or a per-week roster or score record.
 export const ALLOWED_TABLES = Object.freeze([
   "transactions_trades", "transactions_base", "transactions_adddrop", "draftresults_mfl", "draftresults_legacy",
-  "rosters_weekly", "playerscores_weekly", "player_weeklyscoringresults", "leagueevents", "players", "transactions_auction",
+  "rosters_weekly", "playerscores_weekly", "player_weeklyscoringresults", "leagueevents", "players", "transactions_auction", "metadata_franchise",
 ]);
 
 export class ArchiveGuardError extends Error {
@@ -66,6 +66,7 @@ export function assertQueryAllowed(sql, knownTables = []) {
     const id = tk.value.toLowerCase();
     if (tk.kind === "word" && (id === "with" || id === "pragma" || id === "attach")) throw new ArchiveGuardError(`${id} is not allowed in an S1 extraction query`);
     if (id.startsWith("sqlite_") || id.startsWith("pragma_")) throw new ArchiveGuardError(`the name ${id} is not allowed in an S1 extraction query`);
+    if (BANNED_COLUMNS.includes(id)) throw new ArchiveGuardError(`the column ${id} may not be read by the S1 extraction (it is derived from league results, not from MFL draft data)`);
     if (BANNED_TABLES.includes(id)) throw new ArchiveGuardError(`the table ${id} may not be read by the S1 extraction (it holds rankings or forecasts; draft slots come only from MFL draft results and slot data)`);
     if (ALLOWED_TABLES.includes(id)) { if (!used.includes(id)) used.push(id); }
     else if (known.has(id)) throw new ArchiveGuardError(`the table ${id} is not on the S1 extraction allowlist`);
@@ -106,5 +107,32 @@ export async function openArchive({ root, cacheDir } = {}) {
     get: (sql, ...params) => { const r = stmt(sql).get(...params); return r ? { ...r } : null; },
     close: () => db.close(),
     gzSha256, dbPath,
+  };
+}
+
+// An indexed in-memory copy of the large per-week tables, for the whole-archive extraction (thousands of per-player lookups). Every row is read THROUGH the archive reader (so the table
+// guard applies to the copy), and every query on the copy passes the same guard. Read-only in effect: nothing is written to the archive.
+const MEMORY_INDEXES = { rosters_weekly: ["player_id", "season"], player_weeklyscoringresults: ["player_id", "season"], playerscores_weekly: ["player_id", "season"], players: ["player_id"] };
+export function memoryView(archive, tables = Object.keys(MEMORY_INDEXES).concat(["leagueevents"])) {
+  const mem = new DatabaseSync(":memory:");
+  for (const t of tables) {
+    const rows = archive.all(`select * from ${t}`);
+    if (!rows.length) continue;
+    const cols = Object.keys(rows[0]);
+    // player_id gets TEXT affinity so a numeric id read from the archive still equals the string id the extraction binds
+    mem.exec(`create table ${t} (${cols.map((c) => `"${c}"${c === "player_id" ? " TEXT" : ""}`).join(", ")})`);
+    const ins = mem.prepare(`insert into ${t} values (${cols.map(() => "?").join(", ")})`);
+    mem.exec("begin");
+    for (const r of rows) ins.run(...cols.map((c) => (Number.isInteger(r[c]) ? BigInt(r[c]) : r[c])));   // integers bind as INTEGER, not REAL
+    mem.exec("commit");
+    if (MEMORY_INDEXES[t] && MEMORY_INDEXES[t].every((c) => cols.includes(c))) mem.exec(`create index ${t}_ix on ${t} (${MEMORY_INDEXES[t].map((c) => `"${c}"`).join(", ")})`);
+  }
+  const known = mem.prepare("select name from sqlite_master where type = 'table'").all().map((r) => r.name);
+  const cache = new Map();
+  const stmt = (sql) => { assertQueryAllowed(sql, [...known, ...ALLOWED_TABLES]); if (!cache.has(sql)) cache.set(sql, mem.prepare(sql)); return cache.get(sql); };
+  return {
+    all: (sql, ...params) => stmt(sql).all(...params).map((r) => ({ ...r })),
+    get: (sql, ...params) => { const r = stmt(sql).get(...params); return r ? { ...r } : null; },
+    close: () => mem.close(), dbPath: archive.dbPath, gzSha256: archive.gzSha256,
   };
 }

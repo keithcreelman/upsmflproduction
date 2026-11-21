@@ -136,7 +136,16 @@ export function loadArchiveSelections(archive) {
   });
   const a = archive.all("select season, draftpick_round round, draftpick_roundorder slot, draftpick_overall overall, franchise_id f, player_id pid, player_name pname, unix_timestamp ts, date_et d, raw_comments note from draftresults_mfl");
   const b = archive.all("select season, draftpick_round round, draftpick_roundorder slot, draftpick_overall overall, franchise_id f, player_id pid, player_name pname, unix_timestamp ts, date_et d, raw_comments note from draftresults_legacy");
-  return [...a.map((r) => mk(r, "draftresults_mfl")), ...b.map((r) => mk(r, "draftresults_legacy"))];
+  // DATA DEFECT in the legacy table (2012-2017): the tenth pick of a round ("1.10", raw text "1.1") is stored with slot 1, so slot 1 appears twice and slot 10 never. MFL's own overall pick
+  // number is stored correctly, so the slot is overall - 12 x (round - 1) (twelve picks a round in every legacy year). The correction is applied only when the stored slot disagrees with it and
+  // the result is a slot from 1 to 12, and every corrected row carries the stored value and the rule. Nothing here uses a finish, a standing or an order other than MFL's own pick numbers.
+  const fixLegacy = (r) => {
+    const calc = Number(r.overall) - 12 * (Number(r.round) - 1);
+    if (calc >= 1 && calc <= 12 && Number(r.slot) !== calc) return { ...r, slot: calc, _correction: { stored_slot: Number(r.slot), rule: "legacy_slot_from_overall_pick" } };
+    return r;
+  };
+  const fromLegacy = b.map(fixLegacy).map((r) => { const sel = mk(r, "draftresults_legacy"); if (r._correction) sel.slot_correction = r._correction; return sel; });
+  return [...a.map((r) => mk(r, "draftresults_mfl")), ...fromLegacy];
 }
 export function loadSnapshotSelections(root, day = SNAPSHOT_DAY) {
   const j = readSnapshot(root, day, "draftResults.json");

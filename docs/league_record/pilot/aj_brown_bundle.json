@@ -430,9 +430,11 @@
                 ],
                 "weeks": 16,
                 "weeks_asserted": 16,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 0,
-                "weeks_verified": 0
+                "weeks_verified": 0,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -503,9 +505,11 @@
                 ],
                 "weeks": 4,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 4,
-                "weeks_verified": 4
+                "weeks_verified": 4,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -576,9 +580,11 @@
                 ],
                 "weeks": 16,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 16,
-                "weeks_verified": 16
+                "weeks_verified": 16,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -856,9 +862,11 @@
                 ],
                 "weeks": 13,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 13,
-                "weeks_verified": 13
+                "weeks_verified": 13,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -937,9 +945,11 @@
                 ],
                 "weeks": 15,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 15,
-                "weeks_verified": 15
+                "weeks_verified": 15,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -1393,9 +1403,11 @@
                 ],
                 "weeks": 14,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 11,
-                "weeks_verified": 14
+                "weeks_verified": 14,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -1639,9 +1651,11 @@
                 ],
                 "weeks": 15,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 0,
-                "weeks_verified": 15
+                "weeks_verified": 15,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -2218,9 +2232,11 @@
                 ],
                 "weeks": 3,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 3,
                 "weeks_started_verified": 0,
-                "weeks_verified": 0
+                "weeks_verified": 0,
+                "weeks_without_franchise": 0
               },
               {
                 "class": "CALCULATED",
@@ -2239,9 +2255,11 @@
                 ],
                 "weeks": 1,
                 "weeks_asserted": 1,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 0,
-                "weeks_verified": 0
+                "weeks_verified": 0,
+                "weeks_without_franchise": 0
               },
               {
                 "class": "CALCULATED",
@@ -2270,9 +2288,11 @@
                 ],
                 "weeks": 11,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 11,
-                "weeks_verified": 11
+                "weeks_verified": 11,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -2832,9 +2852,11 @@
                 ],
                 "weeks": 4,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 4,
                 "weeks_started_verified": 0,
-                "weeks_verified": 0
+                "weeks_verified": 0,
+                "weeks_without_franchise": 0
               },
               {
                 "class": "CALCULATED",
@@ -2856,9 +2878,11 @@
                 ],
                 "weeks": 4,
                 "weeks_asserted": 4,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 0,
-                "weeks_verified": 0
+                "weeks_verified": 0,
+                "weeks_without_franchise": 0
               },
               {
                 "class": "CALCULATED",
@@ -2881,9 +2905,11 @@
                 ],
                 "weeks": 5,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 5,
-                "weeks_verified": 5
+                "weeks_verified": 5,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -3827,9 +3853,11 @@
                 ],
                 "weeks": 13,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 0,
-                "weeks_verified": 13
+                "weeks_verified": 13,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -4157,9 +4185,11 @@
                 ],
                 "weeks": 13,
                 "weeks_asserted": 0,
+                "weeks_franchise_from_roster_record": 0,
                 "weeks_outside_traced_window": 0,
                 "weeks_started_verified": 2,
-                "weeks_verified": 13
+                "weeks_verified": 13,
+                "weeks_without_franchise": 0
               }
             ],
             "contract_by_roster_weeks": [
@@ -5742,7 +5772,8 @@
         "player_weeklyscoringresults",
         "leagueevents",
         "players",
-        "transactions_auction"
+        "transactions_auction",
+        "metadata_franchise"
       ]
     },
     "notes": [

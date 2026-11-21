@@ -76,14 +76,19 @@ export function playerEconomics({ archive, ledger, chain, playerId, seasons }) {
       // a possession change inside Thursday through Monday of the week is a transition week; Tuesday and Wednesday changes belong to the next week
       const transition = startTs ? transferTs.some((t) => t > startTs && t < startTs + 5 * 86400) : false;
       const plainScore = plain.has(w) ? plain.get(w) : null;
+      // The franchise MFL's weekly record names for the week: the scoring table's own franchise column, or (when that column holds a placeholder, as it does for 2012 to 2019: 'FA') the
+      // weekly roster record's franchise. With neither there is no weekly record of the franchise and the week can never be verified.
+      const scoringF = r.f && /^\d{4}$/.test(String(r.f)) ? String(r.f) : null;
+      const rosterF = rosterByWeek.has(w) ? rosterByWeek.get(w).f : null;
+      const srcF = scoringF || rosterF || null;
       weeks.push({
-        week: w, score: Number(r.score), is_reg: Number(r.is_reg) === 1, started: r.status === "starter", status: r.status, source_franchise: r.f,
+        week: w, score: Number(r.score), is_reg: Number(r.is_reg) === 1, started: r.status === "starter", status: r.status, source_franchise: srcF || "no_franchise", franchise_source: scoringF ? "player_weeklyscoringresults" : rosterF ? "rosters_weekly" : "none",
         event_franchise: eventHolder, roster_franchise: rosterByWeek.has(w) ? rosterByWeek.get(w).f : null, transition_week: transition,
         // verified: the chain and MFL's weekly record name the same franchise. asserted: before the first record of the chain, where only the sender named by that first record
         // supports the weekly record. outside_window: before the first record and the weekly record names someone else (a period this trace does not cover). disputed: the chain
         // and the weekly record name different franchises inside the traced window.
-        category: beforeChain ? (chain.holders.length && chain.holders[0].franchise === r.f ? "asserted" : "outside_window") : (transition ? "transition" : eventHolder === r.f ? "verified" : "disputed"),
-        verified: !beforeChain && !!eventHolder && eventHolder === r.f && !transition,
+        category: !srcF ? "no_franchise" : beforeChain ? (chain.holders.length && chain.holders[0].franchise === srcF ? "asserted" : "outside_window") : (transition ? "transition" : eventHolder === srcF ? "verified" : "disputed"),
+        verified: !!srcF && !beforeChain && !!eventHolder && eventHolder === srcF && !transition,
         plain_score: plainScore, plain_score_agrees: plainScore == null ? null : Math.abs(Number(plainScore) - Number(r.score)) < 0.051,
         window_end_ts: windowEnd,
       });
@@ -95,7 +100,7 @@ export function playerEconomics({ archive, ledger, chain, playerId, seasons }) {
       const sum = (xs) => r1(xs.reduce((a, x) => a + x.score, 0));
       const ver = ws.filter((x) => x.verified), dis = ws.filter((x) => x.category === "disputed" || x.category === "transition"), asr = ws.filter((x) => x.category === "asserted"), outw = ws.filter((x) => x.category === "outside_window");
       franchises.push({
-        franchise: f, weeks: ws.length, points_all_weeks: sum(ws), points_asserted_before_first_record: sum(asr), weeks_asserted: asr.length, points_outside_traced_window: sum(outw), weeks_outside_traced_window: outw.length, points_verified: sum(ver), weeks_verified: ver.length, points_started_verified: sum(ver.filter((x) => x.started)), weeks_started_verified: ver.filter((x) => x.started).length,
+        franchise: f, weeks: ws.length, points_all_weeks: sum(ws), points_asserted_before_first_record: sum(asr), weeks_asserted: asr.length, points_outside_traced_window: sum(outw), weeks_outside_traced_window: outw.length, weeks_without_franchise: ws.filter((x) => x.category === "no_franchise").length, weeks_franchise_from_roster_record: ws.filter((x) => x.franchise_source === "rosters_weekly").length, points_verified: sum(ver), weeks_verified: ver.length, points_started_verified: sum(ver.filter((x) => x.started)), weeks_started_verified: ver.filter((x) => x.started).length,
         points_regular_season_verified: sum(ver.filter((x) => x.is_reg)), points_playoffs_verified: sum(ver.filter((x) => !x.is_reg)),
         disputed_weeks: dis.map((x) => ({ week: x.week, category: x.category, source_franchise: x.source_franchise, event_franchise: x.event_franchise, transition_week: x.transition_week })),
         week_numbers: ws.map((x) => x.week),

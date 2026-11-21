@@ -55,8 +55,9 @@ The pilot passes only if all of these hold (`scripts/league_record/s1/acceptance
 
 ## 6. Sequence and what needs a decision
 
-1. **This pull request:** pilot evidence and methodology. Stop for review.
-2. Only after approval: broader extraction (still local), then any storage design, then routes and tools, each with its own approval.
+1. **Step 1 (pilot, accepted 2026-11-20):** A.J. Brown pilot evidence and methodology.
+2. **Step 1b (this pull request, authorized 2026-11-20):** package attribution, then local read-only extraction of the archive years 2010-2025 (`docs/league_record/archive/`). Stop for review.
+3. Only after separate approval: any D1 historical-data layer design, then routes and tools, each with its own approval. The sources that could close the 2025-11-28 to 2026-03-07 gap are listed in `S1_COVERAGE_GAP_SOURCES.md`; none has been queried.
 
 ## 7. Roadmap items and their dependencies (not built)
 

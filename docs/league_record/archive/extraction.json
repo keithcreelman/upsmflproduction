@@ -1,0 +1,4168 @@
+{
+  "coverage_windows": [
+    {
+      "days": 15,
+      "from": "2010-07-27",
+      "to": "2010-08-10"
+    },
+    {
+      "days": 231,
+      "from": "2010-12-27",
+      "to": "2011-08-14"
+    },
+    {
+      "days": 105,
+      "from": "2012-02-02",
+      "to": "2012-05-16"
+    },
+    {
+      "days": 15,
+      "from": "2012-05-31",
+      "to": "2012-06-14"
+    },
+    {
+      "days": 58,
+      "from": "2013-03-16",
+      "to": "2013-05-12"
+    },
+    {
+      "days": 33,
+      "from": "2013-12-23",
+      "to": "2014-01-24"
+    },
+    {
+      "days": 19,
+      "from": "2014-01-26",
+      "to": "2014-02-13"
+    },
+    {
+      "days": 29,
+      "from": "2014-03-02",
+      "to": "2014-03-30"
+    },
+    {
+      "days": 26,
+      "from": "2014-04-01",
+      "to": "2014-04-26"
+    },
+    {
+      "days": 51,
+      "from": "2014-12-31",
+      "to": "2015-02-19"
+    },
+    {
+      "days": 19,
+      "from": "2015-04-25",
+      "to": "2015-05-13"
+    },
+    {
+      "days": 88,
+      "from": "2015-12-28",
+      "to": "2016-03-24"
+    },
+    {
+      "days": 15,
+      "from": "2016-06-15",
+      "to": "2016-06-29"
+    },
+    {
+      "days": 53,
+      "from": "2016-12-26",
+      "to": "2017-02-16"
+    },
+    {
+      "days": 13,
+      "from": "2017-06-01",
+      "to": "2017-06-13"
+    },
+    {
+      "days": 69,
+      "from": "2017-12-31",
+      "to": "2018-03-09"
+    },
+    {
+      "days": 13,
+      "from": "2018-05-12",
+      "to": "2018-05-24"
+    },
+    {
+      "days": 51,
+      "from": "2018-12-30",
+      "to": "2019-02-18"
+    },
+    {
+      "days": 16,
+      "from": "2019-05-18",
+      "to": "2019-06-02"
+    },
+    {
+      "days": 67,
+      "from": "2020-01-10",
+      "to": "2020-03-16"
+    },
+    {
+      "days": 13,
+      "from": "2020-06-24",
+      "to": "2020-07-06"
+    },
+    {
+      "days": 17,
+      "from": "2020-07-17",
+      "to": "2020-08-02"
+    },
+    {
+      "days": 123,
+      "from": "2021-01-03",
+      "to": "2021-05-05"
+    },
+    {
+      "days": 14,
+      "from": "2021-07-02",
+      "to": "2021-07-15"
+    },
+    {
+      "days": 47,
+      "from": "2022-01-04",
+      "to": "2022-02-19"
+    },
+    {
+      "days": 13,
+      "from": "2022-02-25",
+      "to": "2022-03-09"
+    },
+    {
+      "days": 20,
+      "from": "2022-04-06",
+      "to": "2022-04-25"
+    },
+    {
+      "days": 13,
+      "from": "2022-05-18",
+      "to": "2022-05-30"
+    },
+    {
+      "days": 47,
+      "from": "2023-01-03",
+      "to": "2023-02-18"
+    },
+    {
+      "days": 24,
+      "from": "2023-06-12",
+      "to": "2023-07-05"
+    },
+    {
+      "days": 24,
+      "from": "2024-01-02",
+      "to": "2024-01-25"
+    },
+    {
+      "days": 39,
+      "from": "2024-01-27",
+      "to": "2024-03-05"
+    },
+    {
+      "days": 22,
+      "from": "2024-06-12",
+      "to": "2024-07-03"
+    },
+    {
+      "days": 17,
+      "from": "2024-07-05",
+      "to": "2024-07-21"
+    },
+    {
+      "days": 49,
+      "from": "2024-12-31",
+      "to": "2025-02-17"
+    },
+    {
+      "days": 30,
+      "from": "2025-03-27",
+      "to": "2025-04-25"
+    },
+    {
+      "days": 20,
+      "from": "2025-06-11",
+      "to": "2025-06-30"
+    },
+    {
+      "days": 14,
+      "from": "2025-07-02",
+      "to": "2025-07-15"
+    }
+  ],
+  "eras": [
+    {
+      "draft_rounds": 0,
+      "draft_source": "no draft results",
+      "season": 2010,
+      "selecting_franchises_vs_league": "0 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 0,
+      "draft_source": "no draft results",
+      "season": 2011,
+      "selecting_franchises_vs_league": "0 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 5,
+      "draft_source": "draftresults_legacy",
+      "season": 2012,
+      "selecting_franchises_vs_league": "11 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 5,
+      "draft_source": "draftresults_legacy",
+      "season": 2013,
+      "selecting_franchises_vs_league": "11 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 5,
+      "draft_source": "draftresults_legacy",
+      "season": 2014,
+      "selecting_franchises_vs_league": "10 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 5,
+      "draft_source": "draftresults_legacy",
+      "season": 2015,
+      "selecting_franchises_vs_league": "11 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 5,
+      "draft_source": "draftresults_legacy",
+      "season": 2016,
+      "selecting_franchises_vs_league": "11 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 5,
+      "draft_source": "draftresults_legacy",
+      "season": 2017,
+      "selecting_franchises_vs_league": "9 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 6,
+      "draft_source": "draftresults_mfl",
+      "season": 2018,
+      "selecting_franchises_vs_league": "12 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 6,
+      "draft_source": "draftresults_mfl",
+      "season": 2019,
+      "selecting_franchises_vs_league": "12 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 6,
+      "draft_source": "draftresults_mfl",
+      "season": 2020,
+      "selecting_franchises_vs_league": "12 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 6,
+      "draft_source": "draftresults_mfl",
+      "season": 2021,
+      "selecting_franchises_vs_league": "12 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 6,
+      "draft_source": "draftresults_mfl",
+      "season": 2022,
+      "selecting_franchises_vs_league": "12 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 6,
+      "draft_source": "draftresults_mfl",
+      "season": 2023,
+      "selecting_franchises_vs_league": "12 of 12",
+      "trade_time_quality": "processing_time_likely"
+    },
+    {
+      "draft_rounds": 6,
+      "draft_source": "draftresults_mfl",
+      "season": 2024,
+      "selecting_franchises_vs_league": "12 of 12",
+      "trade_time_quality": "recorded"
+    },
+    {
+      "draft_rounds": 6,
+      "draft_source": "draftresults_mfl",
+      "season": 2025,
+      "selecting_franchises_vs_league": "12 of 12",
+      "trade_time_quality": "recorded"
+    }
+  ],
+  "findings": {
+    "list_cap": 60,
+    "lists": {
+      "draft_gaps": [
+        {
+          "missing_slot": "4.12",
+          "season": 2018
+        }
+      ],
+      "duplicate_legs": [],
+      "future_pick_ambiguous_examples": [],
+      "pick_chain_discontinuities": [
+        {
+          "asset": "spick:2013:1:12",
+          "date": "2013-06-27",
+          "expected_holder": "0006",
+          "recorded_sender": "0003",
+          "trade": "trade2013_28"
+        },
+        {
+          "asset": "spick:2013:1:3",
+          "date": "2013-06-27",
+          "expected_holder": "0003",
+          "recorded_sender": "0006",
+          "trade": "trade2013_28"
+        },
+        {
+          "asset": "spick:2013:1:7",
+          "date": "2013-06-27",
+          "expected_holder": "0003",
+          "recorded_sender": "0006",
+          "trade": "trade2013_28"
+        }
+      ],
+      "player_chain_breaks": [
+        {
+          "added_by": "0003",
+          "date": "2011-08-19",
+          "holder_before": "0010",
+          "kind": "implicit_release",
+          "player": "3291"
+        },
+        {
+          "added_by": "0005",
+          "date": "2013-08-05",
+          "holder_before": "0004",
+          "kind": "implicit_release",
+          "player": "3291"
+        },
+        {
+          "added_by": "0006",
+          "date": "2015-08-11",
+          "holder_before": "0009",
+          "kind": "implicit_release",
+          "player": "3291"
+        },
+        {
+          "added_by": "0003",
+          "date": "2011-08-18",
+          "holder_before": "0007",
+          "kind": "implicit_release",
+          "player": "9823"
+        },
+        {
+          "date": "2013-06-27",
+          "expected_holder": "0006",
+          "kind": "discontinuity",
+          "player": "9823",
+          "recorded_sender": "0003"
+        },
+        {
+          "date": "2020-04-30",
+          "expected_holder": "0002",
+          "kind": "discontinuity",
+          "player": "9823",
+          "recorded_sender": "0005"
+        },
+        {
+          "added_by": "0008",
+          "date": "2011-08-30",
+          "holder_before": "0003",
+          "kind": "implicit_release",
+          "player": "3309"
+        },
+        {
+          "added_by": "0008",
+          "date": "2011-09-24",
+          "holder_before": "0006",
+          "kind": "implicit_release",
+          "player": "9639"
+        },
+        {
+          "added_by": "0009",
+          "date": "2011-08-24",
+          "holder_before": "0010",
+          "kind": "implicit_release",
+          "player": "9301"
+        },
+        {
+          "added_by": "0008",
+          "date": "2013-09-25",
+          "holder_before": "0010",
+          "kind": "implicit_release",
+          "player": "9301"
+        },
+        {
+          "added_by": "0011",
+          "date": "2011-08-25",
+          "holder_before": "0010",
+          "kind": "implicit_release",
+          "player": "8266"
+        },
+        {
+          "added_by": "0001",
+          "date": "2012-08-09",
+          "holder_before": "0011",
+          "kind": "implicit_release",
+          "player": "8266"
+        },
+        {
+          "added_by": "0005",
+          "date": "2013-09-25",
+          "holder_before": "0012",
+          "kind": "implicit_release",
+          "player": "8266"
+        },
+        {
+          "added_by": "0008",
+          "date": "2011-08-25",
+          "holder_before": "0006",
+          "kind": "implicit_release",
+          "player": "9436"
+        },
+        {
+          "added_by": "0009",
+          "date": "2013-08-05",
+          "holder_before": "0001",
+          "kind": "implicit_release",
+          "player": "9436"
+        },
+        {
+          "added_by": "0011",
+          "date": "2017-08-10",
+          "holder_before": "0010",
+          "kind": "implicit_release",
+          "player": "9436"
+        },
+        {
+          "added_by": "0003",
+          "date": "2011-08-20",
+          "holder_before": "0007",
+          "kind": "implicit_release",
+          "player": "4923"
+        },
+        {
+          "added_by": "0005",
+          "date": "2013-08-04",
+          "holder_before": "0001",
+          "kind": "implicit_release",
+          "player": "4923"
+        },
+        {
+          "added_by": "0003",
+          "date": "2014-08-06",
+          "holder_before": "0005",
+          "kind": "implicit_release",
+          "player": "4923"
+        },
+        {
+          "added_by": "0008",
+          "date": "2015-08-26",
+          "holder_before": "0003",
+          "kind": "implicit_release",
+          "player": "4923"
+        },
+        {
+          "added_by": "0006",
+          "date": "2015-09-03",
+          "holder_before": "0008",
+          "kind": "implicit_release",
+          "player": "4923"
+        },
+        {
+          "added_by": "0009",
+          "date": "2011-08-19",
+          "holder_before": "0002",
+          "kind": "implicit_release",
+          "player": "7394"
+        },
+        {
+          "added_by": "0002",
+          "date": "2013-08-05",
+          "holder_before": "0009",
+          "kind": "implicit_release",
+          "player": "7394"
+        },
+        {
+          "added_by": "0002",
+          "date": "2015-08-11",
+          "holder_before": "0006",
+          "kind": "implicit_release",
+          "player": "7394"
+        },
+        {
+          "added_by": "0008",
+          "date": "2025-12-11",
+          "holder_before": "0002",
+          "kind": "implicit_release",
+          "player": "7394"
+        },
+        {
+          "added_by": "0008",
+          "date": "2011-08-23",
+          "holder_before": "0002",
+          "kind": "implicit_release",
+          "player": "9437"
+        },
+        {
+          "added_by": "0010",
+          "date": "2012-11-25",
+          "holder_before": "0008",
+          "kind": "implicit_release",
+          "player": "9437"
+        },
+        {
+          "added_by": "0012",
+          "date": "2014-08-10",
+          "holder_before": "0010",
+          "kind": "implicit_release",
+          "player": "9437"
+        },
+        {
+          "added_by": "0005",
+          "date": "2011-10-19",
+          "holder_before": "0006",
+          "kind": "implicit_release",
+          "player": "6929"
+        },
+        {
+          "added_by": "0008",
+          "date": "2012-08-03",
+          "holder_before": "0005",
+          "kind": "implicit_release",
+          "player": "6929"
+        },
+        {
+          "added_by": "0008",
+          "date": "2013-08-08",
+          "holder_before": "0005",
+          "kind": "implicit_release",
+          "player": "6929"
+        },
+        {
+          "date": "2013-10-23",
+          "expected_holder": "0008",
+          "kind": "discontinuity",
+          "player": "6929",
+          "recorded_sender": "0004"
+        },
+        {
+          "added_by": "0004",
+          "date": "2014-08-11",
+          "holder_before": "0009",
+          "kind": "implicit_release",
+          "player": "6929"
+        },
+        {
+          "added_by": "0001",
+          "date": "2014-10-01",
+          "holder_before": "0004",
+          "kind": "implicit_release",
+          "player": "6929"
+        },
+        {
+          "added_by": "0001",
+          "date": "2015-08-16",
+          "holder_before": "0008",
+          "kind": "implicit_release",
+          "player": "6929"
+        },
+        {
+          "added_by": "0008",
+          "date": "2011-08-20",
+          "holder_before": "0006",
+          "kind": "implicit_release",
+          "player": "9087"
+        },
+        {
+          "added_by": "0003",
+          "date": "2013-08-05",
+          "holder_before": "0010",
+          "kind": "implicit_release",
+          "player": "9087"
+        },
+        {
+          "added_by": "0011",
+          "date": "2014-08-07",
+          "holder_before": "0005",
+          "kind": "implicit_release",
+          "player": "9087"
+        },
+        {
+          "added_by": "0002",
+          "date": "2014-09-13",
+          "holder_before": "0011",
+          "kind": "implicit_release",
+          "player": "9087"
+        },
+        {
+          "added_by": "0003",
+          "date": "2015-08-14",
+          "holder_before": "0002",
+          "kind": "implicit_release",
+          "player": "9087"
+        },
+        {
+          "added_by": "0005",
+          "date": "2016-08-13",
+          "holder_before": "0008",
+          "kind": "implicit_release",
+          "player": "9087"
+        },
+        {
+          "added_by": "0003",
+          "date": "2017-08-11",
+          "holder_before": "0005",
+          "kind": "implicit_release",
+          "player": "9087"
+        },
+        {
+          "added_by": "0012",
+          "date": "2010-12-01",
+          "holder_before": "0006",
+          "kind": "implicit_release",
+          "player": "3869"
+        },
+        {
+          "added_by": "0002",
+          "date": "2015-08-18",
+          "holder_before": "0011",
+          "kind": "implicit_release",
+          "player": "9815"
+        },
+        {
+          "added_by": "0010",
+          "date": "2019-08-20",
+          "holder_before": "0003",
+          "kind": "implicit_release",
+          "player": "9815"
+        },
+        {
+          "added_by": "0008",
+          "date": "2011-08-26",
+          "holder_before": "0004",
+          "kind": "implicit_release",
+          "player": "9817"
+        },
+        {
+          "added_by": "0010",
+          "date": "2014-08-11",
+          "holder_before": "0011",
+          "kind": "implicit_release",
+          "player": "9817"
+        },
+        {
+          "added_by": "0007",
+          "date": "2015-08-15",
+          "holder_before": "0010",
+          "kind": "implicit_release",
+          "player": "9817"
+        },
+        {
+          "added_by": "0011",
+          "date": "2016-09-29",
+          "holder_before": "0007",
+          "kind": "implicit_release",
+          "player": "9817"
+        },
+        {
+          "added_by": "0007",
+          "date": "2017-09-13",
+          "holder_before": "0011",
+          "kind": "implicit_release",
+          "player": "9817"
+        },
+        {
+          "added_by": "0012",
+          "date": "2012-08-02",
+          "holder_before": "0004",
+          "kind": "implicit_release",
+          "player": "5848"
+        },
+        {
+          "added_by": "0008",
+          "date": "2013-08-05",
+          "holder_before": "0012",
+          "kind": "implicit_release",
+          "player": "5848"
+        },
+        {
+          "added_by": "0012",
+          "date": "2014-08-03",
+          "holder_before": "0010",
+          "kind": "implicit_release",
+          "player": "5848"
+        },
+        {
+          "added_by": "0008",
+          "date": "2023-08-10",
+          "holder_before": "0009",
+          "kind": "implicit_release",
+          "player": "5848"
+        },
+        {
+          "added_by": "0003",
+          "date": "2012-08-04",
+          "holder_before": "0006",
+          "kind": "implicit_release",
+          "player": "7544"
+        },
+        {
+          "added_by": "0010",
+          "date": "2011-09-07",
+          "holder_before": "0006",
+          "kind": "implicit_release",
+          "player": "8776"
+        },
+        {
+          "added_by": "0008",
+          "date": "2012-09-12",
+          "holder_before": "0006",
+          "kind": "implicit_release",
+          "player": "8776"
+        },
+        {
+          "added_by": "0012",
+          "date": "2014-08-13",
+          "holder_before": "0004",
+          "kind": "implicit_release",
+          "player": "8776"
+        },
+        {
+          "added_by": "0009",
+          "date": "2015-08-18",
+          "holder_before": "0012",
+          "kind": "implicit_release",
+          "player": "8776"
+        },
+        {
+          "added_by": "0002",
+          "date": "2015-09-16",
+          "holder_before": "0009",
+          "kind": "implicit_release",
+          "player": "8776"
+        }
+      ],
+      "slot_conflicts": [
+        {
+          "asset": "spick:2014:4:12",
+          "chain_holder_at_selection": "0004",
+          "draft_year": 2014,
+          "selection_table": "draftresults_legacy",
+          "selector": "0006",
+          "trades": [
+            "trade2014_4"
+          ]
+        }
+      ],
+      "trades_after_selection": [],
+      "unpaired_or_unknown_legs": []
+    },
+    "totals": {
+      "draft_gaps": 1,
+      "duplicate_legs": 0,
+      "future_pick_ambiguous_examples": 0,
+      "pick_chain_discontinuities": 3,
+      "player_chain_breaks": 1359,
+      "slot_conflicts": 1,
+      "trades_after_selection": 0,
+      "unpaired_or_unknown_legs": 0
+    }
+  },
+  "named_gap": {
+    "basis": "the archive's last TRADE is the deadline day; other archive transaction types run to the last archive transaction date; the first 2026 snapshot transaction starts the next observed period. Nothing observes a trade between them.",
+    "first_snapshot_trade": "2026-03-27",
+    "first_snapshot_transaction_et": "2026-03-07 19:13:45",
+    "from": "2025-11-28",
+    "kind": "incomplete_trade_coverage",
+    "last_archive_trade": "2025-11-27",
+    "last_archive_transaction": "2025-12-29",
+    "to": "2026-03-07"
+  },
+  "production_by_franchise_season": [
+    {
+      "franchise": "0002",
+      "players": 2,
+      "points_started_verified": 116.4,
+      "points_verified": 170.7,
+      "season": 2010,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 19,
+      "weeks_transition": 0,
+      "weeks_verified": 10,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 1,
+      "points_started_verified": 94.7,
+      "points_verified": 94.7,
+      "season": 2010,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 15,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 2,
+      "points_started_verified": 209.8,
+      "points_verified": 279.7,
+      "season": 2010,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 15,
+      "weeks_transition": 0,
+      "weeks_verified": 15,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 2,
+      "points_started_verified": 144.8,
+      "points_verified": 188.7,
+      "season": 2010,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 5,
+      "weeks_transition": 0,
+      "weeks_verified": 14,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 1,
+      "points_started_verified": 26.9,
+      "points_verified": 44.6,
+      "season": 2010,
+      "weeks_disputed": 10,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 4,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 3,
+      "points_started_verified": 309.7,
+      "points_verified": 525.1,
+      "season": 2010,
+      "weeks_disputed": 5,
+      "weeks_outside_traced_window": 5,
+      "weeks_transition": 0,
+      "weeks_verified": 31,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2010,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 64
+    },
+    {
+      "franchise": "0001",
+      "players": 2,
+      "points_started_verified": 9.9,
+      "points_verified": 31.8,
+      "season": 2011,
+      "weeks_disputed": 16,
+      "weeks_outside_traced_window": 3,
+      "weeks_transition": 2,
+      "weeks_verified": 3,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 1,
+      "points_started_verified": 4.2,
+      "points_verified": 4.2,
+      "season": 2011,
+      "weeks_disputed": 11,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 1,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 2,
+      "points_started_verified": 169.5,
+      "points_verified": 174,
+      "season": 2011,
+      "weeks_disputed": 9,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 13,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 4,
+      "points_started_verified": 203.8,
+      "points_verified": 203.8,
+      "season": 2011,
+      "weeks_disputed": 24,
+      "weeks_outside_traced_window": 3,
+      "weeks_transition": 5,
+      "weeks_verified": 16,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 1,
+      "points_started_verified": 0,
+      "points_verified": 78.6,
+      "season": 2011,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 6,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 3,
+      "points_started_verified": 85.2,
+      "points_verified": 107.1,
+      "season": 2011,
+      "weeks_disputed": 22,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 2,
+      "weeks_verified": 12,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 4,
+      "points_started_verified": 315.1,
+      "points_verified": 361.5,
+      "season": 2011,
+      "weeks_disputed": 17,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 22,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 1,
+      "points_started_verified": 69.4,
+      "points_verified": 204.8,
+      "season": 2011,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 12,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 1,
+      "points_started_verified": 37,
+      "points_verified": 65.2,
+      "season": 2011,
+      "weeks_disputed": 8,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 3,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 4,
+      "points_started_verified": 167.8,
+      "points_verified": 198.4,
+      "season": 2011,
+      "weeks_disputed": 18,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 4,
+      "weeks_verified": 22,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2011,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 156
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2012,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 1386
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2013,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 1930
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2014,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 2589
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2015,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 2777
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2016,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 2656
+    },
+    {
+      "franchise": "0001",
+      "players": 17,
+      "points_started_verified": 0,
+      "points_verified": 1790.2,
+      "season": 2017,
+      "weeks_disputed": 47,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 151,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 20,
+      "points_started_verified": 0,
+      "points_verified": 1533,
+      "season": 2017,
+      "weeks_disputed": 88,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 9,
+      "weeks_verified": 145,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 14,
+      "points_started_verified": 0,
+      "points_verified": 1156.4,
+      "season": 2017,
+      "weeks_disputed": 43,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 129,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 19,
+      "points_started_verified": 0,
+      "points_verified": 2328.8,
+      "season": 2017,
+      "weeks_disputed": 50,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 185,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 10,
+      "points_started_verified": 0,
+      "points_verified": 1280.7,
+      "season": 2017,
+      "weeks_disputed": 18,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 117,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 14,
+      "points_started_verified": 0,
+      "points_verified": 1682.9,
+      "season": 2017,
+      "weeks_disputed": 63,
+      "weeks_outside_traced_window": 3,
+      "weeks_transition": 5,
+      "weeks_verified": 127,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 10,
+      "points_started_verified": 0,
+      "points_verified": 1429.7,
+      "season": 2017,
+      "weeks_disputed": 35,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 98,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 19,
+      "points_started_verified": 0,
+      "points_verified": 1542.5,
+      "season": 2017,
+      "weeks_disputed": 65,
+      "weeks_outside_traced_window": 9,
+      "weeks_transition": 2,
+      "weeks_verified": 157,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 11,
+      "points_started_verified": 0,
+      "points_verified": 1791.7,
+      "season": 2017,
+      "weeks_disputed": 21,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 132,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 15,
+      "points_started_verified": 0,
+      "points_verified": 1778.6,
+      "season": 2017,
+      "weeks_disputed": 63,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 2,
+      "weeks_verified": 139,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 10,
+      "points_started_verified": 0,
+      "points_verified": 1331.8,
+      "season": 2017,
+      "weeks_disputed": 7,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 2,
+      "weeks_verified": 117,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0012",
+      "players": 9,
+      "points_started_verified": 0,
+      "points_verified": 1092.9,
+      "season": 2017,
+      "weeks_disputed": 25,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 2,
+      "weeks_verified": 90,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2017,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 715
+    },
+    {
+      "franchise": "0001",
+      "players": 33,
+      "points_started_verified": 0,
+      "points_verified": 2564.1,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 218,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 44,
+      "points_started_verified": 0,
+      "points_verified": 3042.1,
+      "season": 2018,
+      "weeks_disputed": 7,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 281,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 30,
+      "points_started_verified": 0,
+      "points_verified": 2865.7,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 4,
+      "weeks_verified": 235,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 41,
+      "points_started_verified": 0,
+      "points_verified": 3156.1,
+      "season": 2018,
+      "weeks_disputed": 1,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 272,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 15,
+      "points_started_verified": 0,
+      "points_verified": 1711,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 140,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 41,
+      "points_started_verified": 0,
+      "points_verified": 3313.1,
+      "season": 2018,
+      "weeks_disputed": 1,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 12,
+      "weeks_verified": 268,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 16,
+      "points_started_verified": 0,
+      "points_verified": 1955.5,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 123,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 36,
+      "points_started_verified": 0,
+      "points_verified": 3036,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 4,
+      "weeks_verified": 244,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 16,
+      "points_started_verified": 0,
+      "points_verified": 2587.8,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 173,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 33,
+      "points_started_verified": 0,
+      "points_verified": 2680.5,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 224,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 30,
+      "points_started_verified": 0,
+      "points_verified": 2837.9,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 244,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0012",
+      "players": 12,
+      "points_started_verified": 0,
+      "points_verified": 1147.4,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 95,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2018,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 543
+    },
+    {
+      "franchise": "0001",
+      "players": 34,
+      "points_started_verified": 0,
+      "points_verified": 2789,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 253,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 27,
+      "points_started_verified": 0,
+      "points_verified": 3016.8,
+      "season": 2019,
+      "weeks_disputed": 4,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 260,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 28,
+      "points_started_verified": 0,
+      "points_verified": 2561,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 219,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 31,
+      "points_started_verified": 0,
+      "points_verified": 3157.4,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 238,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 23,
+      "points_started_verified": 0,
+      "points_verified": 2816.6,
+      "season": 2019,
+      "weeks_disputed": 8,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 230,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 25,
+      "points_started_verified": 0,
+      "points_verified": 1800.6,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 157,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 30,
+      "points_started_verified": 0,
+      "points_verified": 3054.9,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 228,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 29,
+      "points_started_verified": 0,
+      "points_verified": 2746.3,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 232,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 21,
+      "points_started_verified": 0,
+      "points_verified": 2850.5,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 182,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 36,
+      "points_started_verified": 0,
+      "points_verified": 2588.3,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 9,
+      "weeks_verified": 247,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 19,
+      "points_started_verified": 0,
+      "points_verified": 2034.4,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 4,
+      "weeks_verified": 167,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0012",
+      "players": 27,
+      "points_started_verified": 0,
+      "points_verified": 2068.4,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 205,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2019,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 690
+    },
+    {
+      "franchise": "0001",
+      "players": 36,
+      "points_started_verified": 1604.8,
+      "points_verified": 2342.6,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 205,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 40,
+      "points_started_verified": 2033.7,
+      "points_verified": 3253.7,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 1,
+      "weeks_transition": 10,
+      "weeks_verified": 290,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 38,
+      "points_started_verified": 1920.6,
+      "points_verified": 2941.3,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 10,
+      "weeks_verified": 257,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 47,
+      "points_started_verified": 1761.8,
+      "points_verified": 3181,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 17,
+      "weeks_verified": 285,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 30,
+      "points_started_verified": 1826.2,
+      "points_verified": 2422.8,
+      "season": 2020,
+      "weeks_disputed": 4,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 11,
+      "weeks_verified": 221,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 29,
+      "points_started_verified": 1199.5,
+      "points_verified": 2193,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 173,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 27,
+      "points_started_verified": 1541.8,
+      "points_verified": 2583.9,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 213,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 34,
+      "points_started_verified": 1914,
+      "points_verified": 2871.4,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 239,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 25,
+      "points_started_verified": 1803.8,
+      "points_verified": 2928.4,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 225,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 28,
+      "points_started_verified": 2512.2,
+      "points_verified": 3454.5,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 257,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 12,
+      "points_started_verified": 582,
+      "points_verified": 1169.6,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 127,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0012",
+      "players": 27,
+      "points_started_verified": 1011.8,
+      "points_verified": 1774.7,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 174,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2020,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 717
+    },
+    {
+      "franchise": "0001",
+      "players": 33,
+      "points_started_verified": 2277.4,
+      "points_verified": 3302.3,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 14,
+      "weeks_verified": 273,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 43,
+      "points_started_verified": 2629.9,
+      "points_verified": 3519.5,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 314,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 27,
+      "points_started_verified": 1286.4,
+      "points_verified": 2299,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 4,
+      "weeks_verified": 211,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 41,
+      "points_started_verified": 2256.7,
+      "points_verified": 3465.3,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 314,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 42,
+      "points_started_verified": 2368.2,
+      "points_verified": 3937.7,
+      "season": 2021,
+      "weeks_disputed": 10,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 359,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 24,
+      "points_started_verified": 1382.2,
+      "points_verified": 2216.6,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 167,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 20,
+      "points_started_verified": 1785.7,
+      "points_verified": 2282.1,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 4,
+      "weeks_verified": 175,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 47,
+      "points_started_verified": 1964.4,
+      "points_verified": 3319.6,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 13,
+      "weeks_verified": 355,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 34,
+      "points_started_verified": 1873.1,
+      "points_verified": 2537.5,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 9,
+      "weeks_verified": 237,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 34,
+      "points_started_verified": 2117.9,
+      "points_verified": 3071.5,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 249,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 13,
+      "points_started_verified": 1368.8,
+      "points_verified": 2235.4,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 152,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0012",
+      "players": 22,
+      "points_started_verified": 1149.2,
+      "points_verified": 1918.5,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 154,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2021,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 955
+    },
+    {
+      "franchise": "0001",
+      "players": 33,
+      "points_started_verified": 2305,
+      "points_verified": 3743.8,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 317,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 36,
+      "points_started_verified": 1729.7,
+      "points_verified": 2627.5,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 270,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 26,
+      "points_started_verified": 1714.2,
+      "points_verified": 2768.4,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 236,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 50,
+      "points_started_verified": 2434.2,
+      "points_verified": 3604.6,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 19,
+      "weeks_verified": 312,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 37,
+      "points_started_verified": 2170.8,
+      "points_verified": 3345.4,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 370,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 31,
+      "points_started_verified": 2324.6,
+      "points_verified": 3513.2,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 279,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 31,
+      "points_started_verified": 1600.4,
+      "points_verified": 2088.2,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 9,
+      "weeks_verified": 195,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 39,
+      "points_started_verified": 2511.9,
+      "points_verified": 3459.3,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 13,
+      "weeks_verified": 281,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 33,
+      "points_started_verified": 2847.6,
+      "points_verified": 3498.7,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 257,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 33,
+      "points_started_verified": 1369.5,
+      "points_verified": 2313.4,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 4,
+      "weeks_verified": 230,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 21,
+      "points_started_verified": 1418.5,
+      "points_verified": 1808.5,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 2,
+      "weeks_verified": 161,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0012",
+      "players": 25,
+      "points_started_verified": 1847.3,
+      "points_verified": 2070.7,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 177,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2022,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 1026
+    },
+    {
+      "franchise": "0001",
+      "players": 40,
+      "points_started_verified": 2770,
+      "points_verified": 3738.9,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 340,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 28,
+      "points_started_verified": 2741.9,
+      "points_verified": 3883.1,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 4,
+      "weeks_verified": 275,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 34,
+      "points_started_verified": 2484,
+      "points_verified": 3676.6,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 277,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 45,
+      "points_started_verified": 2111.6,
+      "points_verified": 3477.6,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 9,
+      "weeks_verified": 330,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 32,
+      "points_started_verified": 2501.4,
+      "points_verified": 4091.9,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 2,
+      "weeks_verified": 353,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 37,
+      "points_started_verified": 1623.1,
+      "points_verified": 2443.4,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 13,
+      "weeks_verified": 271,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 28,
+      "points_started_verified": 2303.7,
+      "points_verified": 2860.3,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 234,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 47,
+      "points_started_verified": 2693.8,
+      "points_verified": 3530,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 16,
+      "weeks_verified": 316,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 22,
+      "points_started_verified": 1131.6,
+      "points_verified": 1696.3,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 201,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 34,
+      "points_started_verified": 2137.8,
+      "points_verified": 3279.6,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 244,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 23,
+      "points_started_verified": 1810.6,
+      "points_verified": 2190.5,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 225,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0012",
+      "players": 21,
+      "points_started_verified": 1896.3,
+      "points_verified": 2523.5,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 2,
+      "weeks_verified": 227,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2023,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 1164
+    },
+    {
+      "franchise": "0001",
+      "players": 41,
+      "points_started_verified": 2923,
+      "points_verified": 4095.4,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 10,
+      "weeks_verified": 342,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 32,
+      "points_started_verified": 2852.2,
+      "points_verified": 4191.5,
+      "season": 2024,
+      "weeks_disputed": 2,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 308,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 31,
+      "points_started_verified": 1826.4,
+      "points_verified": 2507.6,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 206,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 67,
+      "points_started_verified": 2323.6,
+      "points_verified": 3386.4,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 22,
+      "weeks_verified": 338,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 41,
+      "points_started_verified": 3163.8,
+      "points_verified": 4256,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 352,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 51,
+      "points_started_verified": 1423.1,
+      "points_verified": 1988.8,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 21,
+      "weeks_verified": 225,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 29,
+      "points_started_verified": 1668.2,
+      "points_verified": 2278.5,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 196,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 41,
+      "points_started_verified": 2319.3,
+      "points_verified": 3010.5,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 11,
+      "weeks_verified": 255,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 26,
+      "points_started_verified": 2142.5,
+      "points_verified": 3280.3,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 249,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 32,
+      "points_started_verified": 1987.6,
+      "points_verified": 3225.8,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 9,
+      "weeks_verified": 270,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 23,
+      "points_started_verified": 1943.6,
+      "points_verified": 2893.2,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 222,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0012",
+      "players": 34,
+      "points_started_verified": 2650.2,
+      "points_verified": 3363.5,
+      "season": 2024,
+      "weeks_disputed": 6,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 303,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2024,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 1175
+    },
+    {
+      "franchise": "0001",
+      "players": 37,
+      "points_started_verified": 2795.3,
+      "points_verified": 4185.7,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 11,
+      "weeks_verified": 337,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0002",
+      "players": 28,
+      "points_started_verified": 2132.5,
+      "points_verified": 2682,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 6,
+      "weeks_verified": 232,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0003",
+      "players": 28,
+      "points_started_verified": 1854.9,
+      "points_verified": 2521.7,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 236,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0004",
+      "players": 39,
+      "points_started_verified": 3191.6,
+      "points_verified": 4510.1,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 14,
+      "weeks_verified": 392,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0005",
+      "players": 32,
+      "points_started_verified": 2540.7,
+      "points_verified": 3383.3,
+      "season": 2025,
+      "weeks_disputed": 15,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 301,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0006",
+      "players": 36,
+      "points_started_verified": 2195.3,
+      "points_verified": 3153.5,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 8,
+      "weeks_verified": 293,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0007",
+      "players": 33,
+      "points_started_verified": 2158,
+      "points_verified": 2719,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 14,
+      "weeks_verified": 223,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0008",
+      "players": 43,
+      "points_started_verified": 2214.5,
+      "points_verified": 2851,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 16,
+      "weeks_verified": 248,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0009",
+      "players": 27,
+      "points_started_verified": 2314,
+      "points_verified": 3163.7,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 5,
+      "weeks_verified": 251,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0010",
+      "players": 35,
+      "points_started_verified": 2607.4,
+      "points_verified": 3382.8,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 7,
+      "weeks_verified": 279,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0011",
+      "players": 24,
+      "points_started_verified": 2124,
+      "points_verified": 2603.3,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 1,
+      "weeks_verified": 235,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "0012",
+      "players": 27,
+      "points_started_verified": 1962.8,
+      "points_verified": 2661.4,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 3,
+      "weeks_verified": 214,
+      "weeks_without_franchise": 0
+    },
+    {
+      "franchise": "no_franchise",
+      "players": 0,
+      "points_started_verified": 0,
+      "points_verified": 0,
+      "season": 2025,
+      "weeks_disputed": 0,
+      "weeks_outside_traced_window": 0,
+      "weeks_transition": 0,
+      "weeks_verified": 0,
+      "weeks_without_franchise": 1196
+    }
+  ],
+  "schema": "ups.league_record.s1.archive_extraction/1",
+  "scope": {
+    "first_season": 2010,
+    "last_season": 2025,
+    "rules": [
+      "draft slots only from MFL slot tokens and MFL draft results",
+      "a trade is one package: nothing is credited to a single asset of a multi-asset trade",
+      "a future pick is never CONFIRMED to a slot; INFERRED only by UNIQUE_HOLDER_V1 with a complete inventory and observed custody",
+      "production is a sum over verified possession periods per franchise, never attributed to a pick or a trade"
+    ],
+    "source": "committed archive through the guarded reader; no snapshot trade, no 2026 record"
+  },
+  "seasons": [
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 0,
+          "implicit_release": 2
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 0,
+        "first_date": null,
+        "franchises_without_a_selection": [],
+        "last_date": null,
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [],
+        "rounds": 0,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 0,
+        "selections": 0,
+        "source_table": null
+      },
+      "future_picks": {
+        "assets_traded": 0,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 0,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 0,
+          "traded": 0,
+          "would_infer_if_windows_observed_and_tokens_netted": 0
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 0,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 0
+        },
+        "unresolved": 0,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 0,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 7,
+        "points_verified": 1303.5,
+        "traded_players_with_a_scoring_row": 16,
+        "verified_share_of_scored_weeks": 0.42,
+        "weeks_disputed": 15,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 44,
+        "weeks_transition": 0,
+        "weeks_verified": 89,
+        "weeks_without_franchise": 64
+      },
+      "season": 2010,
+      "slot_picks": {
+        "assets_traded": 0,
+        "chain_breaks": 0,
+        "confirmed": 0,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": null,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 6,
+        "date_quality": {
+          "processing_time_likely": 6
+        },
+        "legs": {
+          "future_pick": 0,
+          "player": 17,
+          "slot_pick": 0,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 5,
+          "largest_side_items": 3,
+          "multi_asset_trades": 4,
+          "one_for_one_trades": 2
+        },
+        "parties_distinct_pairs": 5,
+        "same_day_trades": 0
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 0,
+          "implicit_release": 32
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 0,
+        "first_date": null,
+        "franchises_without_a_selection": [],
+        "last_date": null,
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [],
+        "rounds": 0,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 0,
+        "selections": 0,
+        "source_table": null
+      },
+      "future_picks": {
+        "assets_traded": 0,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 0,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 0,
+          "traded": 0,
+          "would_infer_if_windows_observed_and_tokens_netted": 0
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 0,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 0
+        },
+        "unresolved": 0,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 0,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 11,
+        "points_verified": 1429.4,
+        "traded_players_with_a_scoring_row": 30,
+        "verified_share_of_scored_weeks": 0.266,
+        "weeks_disputed": 125,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 6,
+        "weeks_transition": 16,
+        "weeks_verified": 110,
+        "weeks_without_franchise": 156
+      },
+      "season": 2011,
+      "slot_picks": {
+        "assets_traded": 0,
+        "chain_breaks": 0,
+        "confirmed": 0,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": null,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 10,
+        "date_quality": {
+          "processing_time_likely": 10
+        },
+        "legs": {
+          "future_pick": 8,
+          "player": 23,
+          "slot_pick": 0,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 4,
+          "largest_side_items": 3,
+          "multi_asset_trades": 8,
+          "one_for_one_trades": 2
+        },
+        "parties_distinct_pairs": 10,
+        "same_day_trades": 2
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 8,
+          "implicit_release": 80
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 60,
+        "first_date": "2012-07-29",
+        "franchises_without_a_selection": [
+          "0008"
+        ],
+        "last_date": "2012-07-29",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 5,
+        "missing_slots": [],
+        "rounds": 5,
+        "rows_without_franchise_id": 9,
+        "selecting_franchises": 11,
+        "selections": 60,
+        "source_table": "draftresults_legacy"
+      },
+      "future_picks": {
+        "assets_traded": 8,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 0,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 3,
+          "traded": 8,
+          "would_infer_if_windows_observed_and_tokens_netted": 0
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 8,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 8
+        },
+        "unresolved": 8,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 8,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 1,
+        "points_verified": 0,
+        "traded_players_with_a_scoring_row": 105,
+        "verified_share_of_scored_weeks": 0,
+        "weeks_disputed": 0,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 0,
+        "weeks_verified": 0,
+        "weeks_without_franchise": 1386
+      },
+      "season": 2012,
+      "slot_picks": {
+        "assets_traded": 17,
+        "chain_breaks": 0,
+        "confirmed": 11,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 0.647,
+        "selector_not_recorded": 6,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 45,
+        "date_quality": {
+          "processing_time_likely": 45
+        },
+        "legs": {
+          "future_pick": 69,
+          "player": 102,
+          "slot_pick": 19,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 9,
+          "largest_side_items": 7,
+          "multi_asset_trades": 39,
+          "one_for_one_trades": 6
+        },
+        "parties_distinct_pairs": 29,
+        "same_day_trades": 9
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 3
+        },
+        "players": {
+          "discontinuity": 10,
+          "implicit_release": 84
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 60,
+        "first_date": "2013-07-01",
+        "franchises_without_a_selection": [
+          "0004"
+        ],
+        "last_date": "2013-07-01",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 5,
+        "missing_slots": [],
+        "rounds": 5,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 11,
+        "selections": 60,
+        "source_table": "draftresults_legacy"
+      },
+      "future_picks": {
+        "assets_traded": 36,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 22,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 12,
+          "traded": 36,
+          "would_infer_if_windows_observed_and_tokens_netted": 7
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 36,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 36
+        },
+        "unresolved": 36,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 36,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 1,
+        "points_verified": 0,
+        "traded_players_with_a_scoring_row": 157,
+        "verified_share_of_scored_weeks": 0,
+        "weeks_disputed": 0,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 0,
+        "weeks_verified": 0,
+        "weeks_without_franchise": 1930
+      },
+      "season": 2013,
+      "slot_picks": {
+        "assets_traded": 37,
+        "chain_breaks": 3,
+        "confirmed": 37,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 69,
+        "date_quality": {
+          "processing_time_likely": 69
+        },
+        "legs": {
+          "future_pick": 80,
+          "player": 125,
+          "slot_pick": 60,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 8,
+          "largest_side_items": 5,
+          "multi_asset_trades": 54,
+          "one_for_one_trades": 15
+        },
+        "parties_distinct_pairs": 36,
+        "same_day_trades": 12
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 7,
+          "implicit_release": 117
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 60,
+        "first_date": "2014-06-15",
+        "franchises_without_a_selection": [
+          "0002",
+          "0004"
+        ],
+        "last_date": "2014-06-15",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 5,
+        "missing_slots": [],
+        "rounds": 5,
+        "rows_without_franchise_id": 2,
+        "selecting_franchises": 10,
+        "selections": 60,
+        "source_table": "draftresults_legacy"
+      },
+      "future_picks": {
+        "assets_traded": 44,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 16,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 12,
+          "traded": 44,
+          "would_infer_if_windows_observed_and_tokens_netted": 2
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 44,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 44
+        },
+        "unresolved": 44,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 44,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 1,
+        "points_verified": 0,
+        "traded_players_with_a_scoring_row": 204,
+        "verified_share_of_scored_weeks": 0,
+        "weeks_disputed": 0,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 0,
+        "weeks_verified": 0,
+        "weeks_without_franchise": 2589
+      },
+      "season": 2014,
+      "slot_picks": {
+        "assets_traded": 35,
+        "chain_breaks": 0,
+        "confirmed": 32,
+        "conflict": 1,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 0.914,
+        "selector_not_recorded": 2,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 86,
+        "date_quality": {
+          "processing_time_likely": 86
+        },
+        "legs": {
+          "future_pick": 130,
+          "player": 174,
+          "slot_pick": 61,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 9,
+          "largest_side_items": 7,
+          "multi_asset_trades": 76,
+          "one_for_one_trades": 10
+        },
+        "parties_distinct_pairs": 36,
+        "same_day_trades": 18
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 3,
+          "implicit_release": 109
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 60,
+        "first_date": "2015-06-28",
+        "franchises_without_a_selection": [
+          "0002"
+        ],
+        "last_date": "2015-06-28",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 5,
+        "missing_slots": [],
+        "rounds": 5,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 11,
+        "selections": 60,
+        "source_table": "draftresults_legacy"
+      },
+      "future_picks": {
+        "assets_traded": 47,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 8,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 17,
+          "traded": 47,
+          "would_infer_if_windows_observed_and_tokens_netted": 3
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 47,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 47
+        },
+        "unresolved": 47,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 47,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 1,
+        "points_verified": 0,
+        "traded_players_with_a_scoring_row": 232,
+        "verified_share_of_scored_weeks": 0,
+        "weeks_disputed": 0,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 0,
+        "weeks_verified": 0,
+        "weeks_without_franchise": 2777
+      },
+      "season": 2015,
+      "slot_picks": {
+        "assets_traded": 36,
+        "chain_breaks": 0,
+        "confirmed": 36,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 75,
+        "date_quality": {
+          "processing_time_likely": 75
+        },
+        "legs": {
+          "future_pick": 97,
+          "player": 128,
+          "slot_pick": 60,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 9,
+          "largest_side_items": 5,
+          "multi_asset_trades": 57,
+          "one_for_one_trades": 18
+        },
+        "parties_distinct_pairs": 36,
+        "same_day_trades": 13
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 4,
+          "implicit_release": 100
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 60,
+        "first_date": "2016-07-10",
+        "franchises_without_a_selection": [
+          "0002"
+        ],
+        "last_date": "2016-07-10",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 5,
+        "missing_slots": [],
+        "rounds": 5,
+        "rows_without_franchise_id": 1,
+        "selecting_franchises": 11,
+        "selections": 60,
+        "source_table": "draftresults_legacy"
+      },
+      "future_picks": {
+        "assets_traded": 46,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 16,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 11,
+          "traded": 46,
+          "would_infer_if_windows_observed_and_tokens_netted": 7
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 46,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 46
+        },
+        "unresolved": 46,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 46,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 1,
+        "points_verified": 0,
+        "traded_players_with_a_scoring_row": 222,
+        "verified_share_of_scored_weeks": 0,
+        "weeks_disputed": 0,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 0,
+        "weeks_verified": 0,
+        "weeks_without_franchise": 2656
+      },
+      "season": 2016,
+      "slot_picks": {
+        "assets_traded": 38,
+        "chain_breaks": 0,
+        "confirmed": 38,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 51,
+        "date_quality": {
+          "processing_time_likely": 51
+        },
+        "legs": {
+          "future_pick": 60,
+          "player": 79,
+          "slot_pick": 54,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 7,
+          "largest_side_items": 4,
+          "multi_asset_trades": 46,
+          "one_for_one_trades": 5
+        },
+        "parties_distinct_pairs": 28,
+        "same_day_trades": 9
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 3,
+          "implicit_release": 64
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 60,
+        "first_date": "2017-06-17",
+        "franchises_without_a_selection": [
+          "0002",
+          "0004",
+          "0011"
+        ],
+        "last_date": "2017-06-17",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 5,
+        "missing_slots": [],
+        "rounds": 5,
+        "rows_without_franchise_id": 8,
+        "selecting_franchises": 9,
+        "selections": 60,
+        "source_table": "draftresults_legacy"
+      },
+      "future_picks": {
+        "assets_traded": 40,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 0,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 11,
+          "traded": 40,
+          "would_infer_if_windows_observed_and_tokens_netted": 0
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 40,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 40
+        },
+        "unresolved": 40,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 40,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 13,
+        "points_verified": 18739.2,
+        "traded_players_with_a_scoring_row": 240,
+        "verified_share_of_scored_weeks": 0.551,
+        "weeks_disputed": 525,
+        "weeks_franchise_from_roster_record": 2167,
+        "weeks_outside_traced_window": 12,
+        "weeks_transition": 41,
+        "weeks_verified": 1587,
+        "weeks_without_franchise": 715
+      },
+      "season": 2017,
+      "slot_picks": {
+        "assets_traded": 32,
+        "chain_breaks": 0,
+        "confirmed": 29,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 0.906,
+        "selector_not_recorded": 3,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 67,
+        "date_quality": {
+          "processing_time_likely": 67
+        },
+        "legs": {
+          "future_pick": 84,
+          "player": 141,
+          "slot_pick": 42,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 11,
+          "largest_side_items": 6,
+          "multi_asset_trades": 48,
+          "one_for_one_trades": 19
+        },
+        "parties_distinct_pairs": 34,
+        "same_day_trades": 9
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 1,
+          "implicit_release": 68
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 72,
+        "first_date": "2018-06-09",
+        "franchises_without_a_selection": [],
+        "last_date": "2018-06-09",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [
+          "4.12"
+        ],
+        "rounds": 6,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 12,
+        "selections": 71,
+        "source_table": "draftresults_mfl"
+      },
+      "future_picks": {
+        "assets_traded": 44,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 0,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 11,
+          "traded": 44,
+          "would_infer_if_windows_observed_and_tokens_netted": 0
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 44,
+          "slot_count_not_one_per_team": 10,
+          "slot_token_transfer_in_round": 44
+        },
+        "unresolved": 44,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 44,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 13,
+        "points_verified": 30897.2,
+        "traded_players_with_a_scoring_row": 268,
+        "verified_share_of_scored_weeks": 0.805,
+        "weeks_disputed": 9,
+        "weeks_franchise_from_roster_record": 2583,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 56,
+        "weeks_verified": 2517,
+        "weeks_without_franchise": 543
+      },
+      "season": 2018,
+      "slot_picks": {
+        "assets_traded": 36,
+        "chain_breaks": 0,
+        "confirmed": 36,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 74,
+        "date_quality": {
+          "processing_time_likely": 74
+        },
+        "legs": {
+          "future_pick": 95,
+          "player": 168,
+          "slot_pick": 52,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 14,
+          "largest_side_items": 10,
+          "multi_asset_trades": 61,
+          "one_for_one_trades": 13
+        },
+        "parties_distinct_pairs": 40,
+        "same_day_trades": 12
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 7,
+          "implicit_release": 82
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 72,
+        "first_date": "2019-06-10",
+        "franchises_without_a_selection": [],
+        "last_date": "2019-06-10",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [],
+        "rounds": 6,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 12,
+        "selections": 72,
+        "source_table": "draftresults_mfl"
+      },
+      "future_picks": {
+        "assets_traded": 45,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 0,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 12,
+          "traded": 45,
+          "would_infer_if_windows_observed_and_tokens_netted": 0
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 45,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 45
+        },
+        "unresolved": 45,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 45,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 13,
+        "points_verified": 31484.2,
+        "traded_players_with_a_scoring_row": 282,
+        "verified_share_of_scored_weeks": 0.775,
+        "weeks_disputed": 12,
+        "weeks_franchise_from_roster_record": 2690,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 59,
+        "weeks_verified": 2618,
+        "weeks_without_franchise": 690
+      },
+      "season": 2019,
+      "slot_picks": {
+        "assets_traded": 35,
+        "chain_breaks": 0,
+        "confirmed": 35,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 0,
+          "transfers": 0
+        },
+        "count": 76,
+        "date_quality": {
+          "processing_time_likely": 76
+        },
+        "legs": {
+          "future_pick": 99,
+          "player": 175,
+          "slot_pick": 52,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 9,
+          "largest_side_items": 5,
+          "multi_asset_trades": 59,
+          "one_for_one_trades": 17
+        },
+        "parties_distinct_pairs": 46,
+        "same_day_trades": 12
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 2,
+          "implicit_release": 68
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 72,
+        "first_date": "2020-06-01",
+        "franchises_without_a_selection": [],
+        "last_date": "2020-06-01",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [],
+        "rounds": 6,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 12,
+        "selections": 72,
+        "source_table": "draftresults_mfl"
+      },
+      "future_picks": {
+        "assets_traded": 47,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 19,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 11,
+          "traded": 47,
+          "would_infer_if_windows_observed_and_tokens_netted": 8
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 47,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 47
+        },
+        "unresolved": 47,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 47,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 13,
+        "points_verified": 31116.9,
+        "traded_players_with_a_scoring_row": 305,
+        "verified_share_of_scored_weeks": 0.766,
+        "weeks_disputed": 4,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 1,
+        "weeks_transition": 91,
+        "weeks_verified": 2666,
+        "weeks_without_franchise": 717
+      },
+      "season": 2020,
+      "slot_picks": {
+        "assets_traded": 26,
+        "chain_breaks": 0,
+        "confirmed": 26,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 148000,
+          "transfers": 13
+        },
+        "count": 87,
+        "date_quality": {
+          "processing_time_likely": 87
+        },
+        "legs": {
+          "future_pick": 130,
+          "player": 182,
+          "slot_pick": 40,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 16,
+          "largest_side_items": 8,
+          "multi_asset_trades": 66,
+          "one_for_one_trades": 21
+        },
+        "parties_distinct_pairs": 44,
+        "same_day_trades": 14
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 4,
+          "implicit_release": 96
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 72,
+        "first_date": "2021-06-20",
+        "franchises_without_a_selection": [],
+        "last_date": "2021-06-20",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [],
+        "rounds": 6,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 12,
+        "selections": 72,
+        "source_table": "draftresults_mfl"
+      },
+      "future_picks": {
+        "assets_traded": 50,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 20,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 30,
+          "traded": 50,
+          "would_infer_if_windows_observed_and_tokens_netted": 8
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 50,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 50
+        },
+        "unresolved": 50,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 50,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 13,
+        "points_verified": 34105,
+        "traded_players_with_a_scoring_row": 337,
+        "verified_share_of_scored_weeks": 0.739,
+        "weeks_disputed": 10,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 79,
+        "weeks_verified": 2960,
+        "weeks_without_franchise": 955
+      },
+      "season": 2021,
+      "slot_picks": {
+        "assets_traded": 35,
+        "chain_breaks": 0,
+        "confirmed": 35,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 254000,
+          "transfers": 21
+        },
+        "count": 70,
+        "date_quality": {
+          "processing_time_likely": 70
+        },
+        "legs": {
+          "future_pick": 80,
+          "player": 168,
+          "slot_pick": 48,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 13,
+          "largest_side_items": 8,
+          "multi_asset_trades": 61,
+          "one_for_one_trades": 9
+        },
+        "parties_distinct_pairs": 42,
+        "same_day_trades": 12
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 0,
+          "implicit_release": 108
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 72,
+        "first_date": "2022-06-25",
+        "franchises_without_a_selection": [],
+        "last_date": "2022-06-25",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [],
+        "rounds": 6,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 12,
+        "selections": 72,
+        "source_table": "draftresults_mfl"
+      },
+      "future_picks": {
+        "assets_traded": 46,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 8,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 11,
+          "traded": 46,
+          "would_infer_if_windows_observed_and_tokens_netted": 1
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 46,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 46
+        },
+        "unresolved": 46,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 46,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 13,
+        "points_verified": 34841.7,
+        "traded_players_with_a_scoring_row": 348,
+        "verified_share_of_scored_weeks": 0.735,
+        "weeks_disputed": 0,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 86,
+        "weeks_verified": 3085,
+        "weeks_without_franchise": 1026
+      },
+      "season": 2022,
+      "slot_picks": {
+        "assets_traded": 32,
+        "chain_breaks": 0,
+        "confirmed": 32,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 359000,
+          "transfers": 28
+        },
+        "count": 66,
+        "date_quality": {
+          "processing_time_likely": 66
+        },
+        "legs": {
+          "future_pick": 73,
+          "player": 189,
+          "slot_pick": 49,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 53,
+          "largest_side_items": 27,
+          "multi_asset_trades": 63,
+          "one_for_one_trades": 3
+        },
+        "parties_distinct_pairs": 40,
+        "same_day_trades": 11
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 0,
+          "implicit_release": 72
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 72,
+        "first_date": "2023-05-28",
+        "franchises_without_a_selection": [],
+        "last_date": "2023-05-28",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [],
+        "rounds": 6,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 12,
+        "selections": 72,
+        "source_table": "draftresults_mfl"
+      },
+      "future_picks": {
+        "assets_traded": 43,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 7,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 13,
+          "traded": 43,
+          "would_infer_if_windows_observed_and_tokens_netted": 2
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 43,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 43
+        },
+        "unresolved": 43,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 43,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 13,
+        "points_verified": 37391.7,
+        "traded_players_with_a_scoring_row": 372,
+        "verified_share_of_scored_weeks": 0.725,
+        "weeks_disputed": 0,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 84,
+        "weeks_verified": 3293,
+        "weeks_without_franchise": 1164
+      },
+      "season": 2023,
+      "slot_picks": {
+        "assets_traded": 37,
+        "chain_breaks": 0,
+        "confirmed": 37,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 353000,
+          "transfers": 27
+        },
+        "count": 101,
+        "date_quality": {
+          "processing_time_likely": 101
+        },
+        "legs": {
+          "future_pick": 150,
+          "player": 225,
+          "slot_pick": 67,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 23,
+          "largest_side_items": 12,
+          "multi_asset_trades": 88,
+          "one_for_one_trades": 13
+        },
+        "parties_distinct_pairs": 41,
+        "same_day_trades": 19
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 0,
+          "implicit_release": 73
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 72,
+        "first_date": "2024-05-26",
+        "franchises_without_a_selection": [],
+        "last_date": "2024-05-26",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [],
+        "rounds": 6,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 12,
+        "selections": 72,
+        "source_table": "draftresults_mfl"
+      },
+      "future_picks": {
+        "assets_traded": 50,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 10,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 15,
+          "traded": 50,
+          "would_infer_if_windows_observed_and_tokens_netted": 3
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 50,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 50
+        },
+        "unresolved": 50,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 50,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 13,
+        "points_verified": 38477.5,
+        "traded_players_with_a_scoring_row": 376,
+        "verified_share_of_scored_weeks": 0.716,
+        "weeks_disputed": 8,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 111,
+        "weeks_verified": 3266,
+        "weeks_without_franchise": 1175
+      },
+      "season": 2024,
+      "slot_picks": {
+        "assets_traded": 30,
+        "chain_breaks": 0,
+        "confirmed": 30,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 304000,
+          "transfers": 19
+        },
+        "count": 79,
+        "date_quality": {
+          "recorded": 79
+        },
+        "legs": {
+          "future_pick": 104,
+          "player": 177,
+          "slot_pick": 37,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 12,
+          "largest_side_items": 7,
+          "multi_asset_trades": 60,
+          "one_for_one_trades": 19
+        },
+        "parties_distinct_pairs": 45,
+        "same_day_trades": 14
+      }
+    },
+    {
+      "chain_breaks": {
+        "picks": {
+          "discontinuity": 0
+        },
+        "players": {
+          "discontinuity": 0,
+          "implicit_release": 56
+        }
+      },
+      "draft": {
+        "duplicate_slots": 0,
+        "expected_selections": 72,
+        "first_date": "2025-05-25",
+        "franchises_without_a_selection": [],
+        "last_date": "2025-05-25",
+        "league_franchises": 12,
+        "legacy_slot_corrections": 0,
+        "missing_slots": [],
+        "rounds": 6,
+        "rows_without_franchise_id": 0,
+        "selecting_franchises": 12,
+        "selections": 72,
+        "source_table": "draftresults_mfl"
+      },
+      "future_picks": {
+        "assets_traded": 51,
+        "confirmed": 0,
+        "funnel": {
+          "custody_observed_strict": 0,
+          "inventory_complete_if_slot_tokens_netted": 21,
+          "inventory_complete_strict": 0,
+          "single_candidate_slot": 24,
+          "traded": 51,
+          "would_infer_if_windows_observed_and_tokens_netted": 10
+        },
+        "inferred": 0,
+        "inventory_blockers": {
+          "chain_break": 0,
+          "earliest_record_after_evidence": 0,
+          "records_and_evidence_disagree": 51,
+          "slot_count_not_one_per_team": 0,
+          "slot_token_transfer_in_round": 51
+        },
+        "unresolved": 51,
+        "unresolved_by_reason": {
+          "ambiguous_candidates": 0,
+          "custody_not_observed": 51,
+          "inventory_not_complete": 0,
+          "no_draft_result": 0
+        }
+      },
+      "production": {
+        "franchise_seasons": 13,
+        "points_verified": 37817.5,
+        "traded_players_with_a_scoring_row": 372,
+        "verified_share_of_scored_weeks": 0.712,
+        "weeks_disputed": 15,
+        "weeks_franchise_from_roster_record": 0,
+        "weeks_outside_traced_window": 0,
+        "weeks_transition": 98,
+        "weeks_verified": 3241,
+        "weeks_without_franchise": 1196
+      },
+      "season": 2025,
+      "slot_picks": {
+        "assets_traded": 25,
+        "chain_breaks": 0,
+        "confirmed": 25,
+        "conflict": 0,
+        "no_draft_result": 0,
+        "resolution_rate_confirmed": 1,
+        "selector_not_recorded": 0,
+        "trades_after_selection": 0
+      },
+      "trades": {
+        "cap": {
+          "total_amount": 274000,
+          "transfers": 22
+        },
+        "count": 74,
+        "date_quality": {
+          "recorded": 74
+        },
+        "legs": {
+          "future_pick": 99,
+          "player": 137,
+          "slot_pick": 33,
+          "unknown": 0,
+          "unpaired": 0
+        },
+        "packages": {
+          "assets_per_trade_max": 12,
+          "largest_side_items": 7,
+          "multi_asset_trades": 56,
+          "one_for_one_trades": 18
+        },
+        "parties_distinct_pairs": 37,
+        "same_day_trades": 20
+      }
+    }
+  ],
+  "summary": {
+    "cap_total": 1692000,
+    "cap_transfers": 130,
+    "draft_rows_without_franchise_id": 20,
+    "draft_selections": 935,
+    "future_picks": {
+      "confirmed": 0,
+      "funnel": {
+        "custody_observed_strict": 0,
+        "inventory_complete_if_slot_tokens_netted": 147,
+        "inventory_complete_strict": 0,
+        "single_candidate_slot": 193,
+        "traded": 597,
+        "would_infer_if_windows_observed_and_tokens_netted": 51
+      },
+      "inferred": 0,
+      "traded": 597,
+      "unresolved": 597
+    },
+    "legacy_slot_corrections": 30,
+    "multi_asset_trades": 846,
+    "pick_chain_discontinuities": 3,
+    "player_chain_breaks": {
+      "discontinuity": 49,
+      "implicit_release": 1211
+    },
+    "production_points_verified": 297603.8,
+    "seasons": 16,
+    "slot_picks": {
+      "confirmed": 439,
+      "conflict": 1,
+      "no_draft_result": 0,
+      "selector_not_recorded": 11,
+      "traded": 451,
+      "trades_after_selection": 0
+    },
+    "traded_players": 871,
+    "trades": 1036
+  }
+}

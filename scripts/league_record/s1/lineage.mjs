@@ -80,7 +80,7 @@ export function buildLedger({ archive, root }) {
   const franchiseCache = new Map();
   const franchisesFor = (year) => {
     if (!franchiseCache.has(year)) {
-      let ids = archive.all("select distinct franchise_id f from rosters_weekly where season = ?", year).map((r) => String(r.f));
+      let ids = archive.all("select distinct franchise_id f from metadata_franchise where season = ?", year).map((r) => String(r.f));
       if (!ids.length) ids = arr(readSnapshot(root, SNAPSHOT_DAY, "rosters.json").rosters.franchise).map((f) => String(f.id));
       franchiseCache.set(year, ids.sort());
     }
@@ -151,6 +151,7 @@ export const lastHolder = (chain) => (chain.holders.length ? chain.holders.at(-1
 export function resolveSlotPick(ledger, chain, year, round, slot) {
   const sel = ledger.selBySlot.get(`${year}:${round}:${slot}`) || null;
   if (!sel) return { class: CLASS.UNRESOLVED, rule: RULES.SLOT_TOKEN_DRAFT_RESULT, reason: "no draft result is recorded for this slot", selection: null };
+  if (!sel.franchise) return { class: CLASS.UNRESOLVED, rule: RULES.SLOT_TOKEN_DRAFT_RESULT, reason: "the draft result for this slot records no franchise id, so the selector cannot be compared with the chain holder", selection: sel, selector_not_recorded: true };
   const holder = holderAt(chain, sel.ts - 1);
   const gaps = chain.holders.length ? gapsBetween(ledger, chain.holders.at(-1).from_ts || sel.ts, sel.ts) : [];
   if (holder === sel.franchise) return { class: CLASS.CONFIRMED, rule: RULES.SLOT_TOKEN_DRAFT_RESULT, selection: sel, holder_at_selection: holder, coverage_gaps: gaps };
@@ -215,7 +216,7 @@ export function resolveFuturePick(ledger, chain, { year, round, original }, { sl
   else for (const s of selections.filter((x) => x.franchise === holder)) candidates.push({ slot: s.slot, via: "draft_result", notes: String(s.note || "").split(/\n/).map((x) => x.replace(/^\[|\]$/g, "").trim()).filter(Boolean), selection: s });
   const evidenceTs = evidence ? evidence.ts : draftStart;
   const gaps = lastLegTs && evidenceTs ? gapsBetween(ledger, lastLegTs, evidenceTs) : [];
-  const base = { holder, original, year, round, candidates, last_transfer_ts: lastLegTs, evidence_day: evidence ? evidence.day : null, evidence_kind: evidence ? "mfl_slot_list" : "draft_results", coverage_gaps: gaps };
+  const base = { holder, original, year, round, candidates, last_transfer_ts: lastLegTs, evidence_ts: evidenceTs, evidence_day: evidence ? evidence.day : null, evidence_kind: evidence ? "mfl_slot_list" : "draft_results", coverage_gaps: gaps };
   // the evidence inventory of the round: the slot list's slots, or the draft results' selections
   const inventory = evidence ? evidence.slots.filter((x) => x.round === round).map((x) => ({ slot: x.slot, holder: x.holder })) : selections.map((x) => ({ slot: x.slot, holder: x.franchise }));
   const inv = inventoryCheck(ledger, chain, { year, round, original }, inventory, evidenceTs);

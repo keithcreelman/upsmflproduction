@@ -4,7 +4,7 @@
 
 **Classes used everywhere:** CONFIRMED (a recorded MFL event states it) · CALCULATED (code arithmetic over recorded inputs) · INFERRED (a named rule with all its conditions met; never confirmed) · UNRESOLVED (incomplete or competing evidence; a candidate may be listed and counts for nothing).
 
-**Sources:** archive `data/db-archives/mfl_database_2026-06-05.db.gz` (sha256 `2b344b794422a64e...`, tables read: transactions_trades, transactions_base, transactions_adddrop, draftresults_mfl, draftresults_legacy, rosters_weekly, playerscores_weekly, player_weeklyscoringresults, leagueevents, players, transactions_auction) and the committed daily snapshot `data/mfl-snapshots/2026-11-19` (transactions.json, draftResults.json, rosters.json, league.json, _snapshot_meta.json).
+**Sources:** archive `data/db-archives/mfl_database_2026-06-05.db.gz` (sha256 `2b344b794422a64e...`, tables read: transactions_trades, transactions_base, transactions_adddrop, draftresults_mfl, draftresults_legacy, rosters_weekly, playerscores_weekly, player_weeklyscoringresults, leagueevents, players, transactions_auction, metadata_franchise) and the committed daily snapshot `data/mfl-snapshots/2026-11-19` (transactions.json, draftResults.json, rosters.json, league.json, _snapshot_meta.json).
 
 ## 1. What happened, from HammerTime's side (confirmed view)
 

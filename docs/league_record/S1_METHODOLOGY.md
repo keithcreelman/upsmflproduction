@@ -50,7 +50,7 @@ A chain is the time-ordered list of recorded events for one asset (trades, draft
 2. **UNIQUE_HOLDER_V1 (INFERRED), conditionally approved.** A future pick's last holder owns exactly **one** slot in that round on the evidence date, **and** custody of the pick by that holder is observed from its last recorded transfer to the evidence date (no unobserved period between), **and** the evidence date's record is authoritative (MFL's slot list or the draft results). The holder, season, round and possession period must be supported by records; every competing slot the holder owns on that date is counted; the rule id is recorded; any missing period is disclosed. The link is labeled INFERRED, never CONFIRMED, never establishes a confirmed draft selection by itself, and is excluded from confirmed-only totals. **If any condition fails the identity is UNRESOLVED**; uniqueness is never used as proof when the inventory is incomplete.
 
    **What "the inventory is demonstrably complete" means in code (`inventoryCheck`):** (a) the season's team list is known and the evidence lists exactly one slot per team for the round (slots 1..N, every holder a franchise of the season); (b) no slot-token (`DP_`) transfer exists for that season and round, because slot-named transfers need their own accounting that the pilot does not do; (c) for every original franchise, the chain of its future pick has no break, and the number of picks the records say each franchise holds equals the number of slots the evidence gives it, so every possible competing pick is accounted for franchise by franchise. Any failed condition is printed beside the pick and the link stays UNRESOLVED.
-3. **Notes are not a rule.** MFL's "Pick traded from..." notes on a slot are listed beside candidate slots as corroboration only. Using them as an inference rule needs the commissioner's ruling (open question in the pilot report).
+3. **Notes are not a rule (commissioner's ruling, 2026-11-20: NO).** MFL's "Pick traded from..." notes on a slot are listed beside candidate slots as corroboration only. They do not establish a pick's original franchise or its complete ownership chain and are never a standalone inference rule. The authoritative slot token, the recorded pick identity, corroboration and unresolved candidates are always shown apart.
 
 ## 7. Coverage gaps
 
@@ -82,10 +82,23 @@ Consequences: every trade in the bundle has a `packages` entry listing every ass
 ```bash
 node scripts/league_record/s1/run_pilot.mjs           # writes docs/league_record/pilot/*
 node scripts/league_record/s1/run_pilot.mjs --check   # fails if the committed files differ from a fresh build
-node tests/league_record_s1_pilot.test.mjs            # acceptance tests T1-T15 and unit tests
+node tests/league_record_s1_pilot.test.mjs            # acceptance tests T1-T15 and T17, and unit tests
+node scripts/league_record/s1/run_archive_extract.mjs          # writes docs/league_record/archive/* (2010-2025)
+node scripts/league_record/s1/run_archive_extract.mjs --check  # fails if the committed files differ from a fresh build
+node tests/league_record_s1_archive.test.mjs          # extraction tests (separate SQL, older-period examples, guards)
 ```
 
-## 11. Not verified
+## 11. The 2010-2025 archive extraction (Step 1b)
+
+`scripts/league_record/s1/archive_extract.mjs` (run with `run_archive_extract.mjs`; output in `docs/league_record/archive/`) measures the archive years season by season with the same rules: draft slots only from MFL slot tokens and MFL draft results; every trade is one package; a future pick is never CONFIRMED to a slot; INFERRED only under `UNIQUE_HOLDER_V1`; production is a sum over verified possession periods per franchise and is never attributed to a pick or a trade. Findings that shaped the code:
+
+- **Legacy draft table slot defect (2012-2017):** the tenth pick of each round ("1.10", raw text "1.1") is stored with slot 1, so slot 1 appears twice and slot 10 never. MFL's overall pick number is stored correctly, so the slot is `overall - 12 x (round - 1)`, applied only where the stored slot disagrees and the result is 1 to 12. Each corrected row keeps its stored value and the rule (`slot_correction`). This uses MFL's own pick number; no finish, standing, bracket or order is involved.
+- **Legacy rows without a franchise id** cannot confirm or contradict a chain: they are `selector_not_recorded`, never a conflict.
+- **Weekly franchise record:** the scoring table's franchise column holds the placeholder `FA` for 2012-2019. Where the weekly roster record exists (2010, 2011, 2017 on) it names the franchise; where neither exists (2012-2016) the week is `no_franchise` and is never verified. Free-agent weeks are `no_franchise` too.
+- **The funnel for future picks** is a diagnostic, not a result: it shows which condition stops each pick (custody across quiet windows, slot-token transfers in the round, the slot count, a unique candidate) and what the count would be if one condition were met another way. Whether to meet a condition another way is a commissioner decision.
+- **Banned columns:** the guard refuses `waiver_sort_order` and similar columns even in an allowlisted table (the franchise list table also holds a waiver order derived from the standings).
+
+## 12. Not verified
 
 - MFL itself (live) was not queried; points and rosters are checked against a second archive table, not against MFL.
 - The archive's completeness beyond the records the pilot uses.
