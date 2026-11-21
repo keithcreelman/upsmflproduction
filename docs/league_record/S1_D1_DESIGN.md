@@ -87,7 +87,9 @@ CREATE TABLE lr_trade_leg (                      -- one row per moved asset; the
   PRIMARY KEY (trade_id, leg_no)) WITHOUT ROWID;
 CREATE TABLE lr_trade_cap (                      -- cap-transfer direction: from sends cap room to
   trade_id TEXT NOT NULL REFERENCES lr_trade(trade_id), cap_no INTEGER NOT NULL, from_franchise TEXT NOT NULL, to_franchise TEXT NOT NULL,
-  amount INTEGER NOT NULL CHECK (amount > 0), PRIMARY KEY (trade_id, cap_no)) WITHOUT ROWID;    -- a missing or zero amount is refused, never stored as 0 (see the known discrepancy, section 5)
+  amount INTEGER NOT NULL CHECK (amount > 0),                                   -- a missing or zero amount is refused, never stored as 0 (see the known discrepancy, section 5)
+  amount_source TEXT NOT NULL CHECK (amount_source IN ('archive_column','raw_token')),   -- where the number came from (S1_CAP_TOKEN_CORRECTION.md); an unrecoverable amount is not loaded
+  PRIMARY KEY (trade_id, cap_no)) WITHOUT ROWID;
 CREATE TABLE lr_asset_event (                    -- non-trade events of traded players: draft selection, add, drop; and the forfeiture of a slot
   event_id INTEGER PRIMARY KEY, loaded_run INTEGER NOT NULL REFERENCES lr_run(run_id), asset_key TEXT NOT NULL REFERENCES lr_asset(asset_key),
   kind TEXT NOT NULL CHECK (kind IN ('draft_selection','add','drop','forfeiture')), ts INTEGER NOT NULL, from_franchise TEXT, to_franchise TEXT,
@@ -142,6 +144,13 @@ CREATE TABLE lr_link_candidate (link_id INTEGER NOT NULL REFERENCES lr_link(link
 CREATE TABLE lr_conflict (                       -- a recorded disagreement between sources: kept, never resolved by the model (for example 2014 pick 4.12)
   conflict_id INTEGER PRIMARY KEY, subject_key TEXT NOT NULL, kind TEXT NOT NULL, left_ref TEXT NOT NULL, right_ref TEXT NOT NULL,
   status TEXT NOT NULL CHECK (status IN ('open','resolved_by_source','resolved_by_ruling')), ruling_ref TEXT, run_id INTEGER NOT NULL REFERENCES lr_run(run_id));
+CREATE TABLE lr_evidence_need (                 -- the explicit record of unresolved historical evidence: what is missing, which register item tracks it, and whether the limitation was accepted
+  need_id INTEGER PRIMARY KEY, subject_type TEXT NOT NULL CHECK (subject_type IN ('LINK','CONFLICT','COVERAGE','CORRECTION')), subject_id INTEGER NOT NULL,
+  need_code TEXT NOT NULL, register_ref TEXT NOT NULL,                  -- the item on the pre-live register (issue #1486), for example 'LR-03'
+  description TEXT NOT NULL, status TEXT NOT NULL CHECK (status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION','RESOLVED')), accepted_by_ref TEXT,
+  valid_from_run INTEGER NOT NULL REFERENCES lr_run(run_id), valid_to_run INTEGER REFERENCES lr_run(run_id),
+  CHECK (valid_to_run IS NULL OR valid_to_run > valid_from_run),
+  CHECK (status <> 'ACCEPTED_LIMITATION' OR accepted_by_ref IS NOT NULL));                 -- a limitation is accepted by a cited decision, never silently
 CREATE TABLE lr_summary (run_id INTEGER NOT NULL REFERENCES lr_run(run_id), metric TEXT NOT NULL, value INTEGER NOT NULL, PRIMARY KEY (run_id, metric)) WITHOUT ROWID;  -- funnel counts precomputed at load
 
 -- ── reserved for the dependent slices (NOT built): keys fixed now, columns decided with each slice ──
@@ -193,6 +202,16 @@ CREATE TRIGGER lr_release_gate BEFORE INSERT ON lr_release              -- a rel
 CREATE TRIGGER lr_release_retire_only BEFORE UPDATE ON lr_release          -- a release row can only be retired once; its run and activation never change, so the insert-time gates cannot be walked around
   WHEN NEW.release_id IS NOT OLD.release_id OR NEW.run_id IS NOT OLD.run_id OR NEW.activated_utc IS NOT OLD.activated_utc OR NEW.activated_by_ref IS NOT OLD.activated_by_ref OR (OLD.retired_utc IS NOT NULL AND NEW.retired_utc IS NOT OLD.retired_utc)
   BEGIN SELECT RAISE(ABORT, 'a release can only be retired'); END;
+CREATE TRIGGER lr_release_needs_recorded_evidence BEFORE INSERT ON lr_release           -- nothing unresolved may be released without its recorded evidence need
+  WHEN EXISTS (SELECT 1 FROM lr_link l WHERE l.class = 'UNRESOLVED' AND l.valid_from_run <= NEW.run_id AND (l.valid_to_run IS NULL OR l.valid_to_run > NEW.run_id)
+        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'LINK' AND n.subject_id = l.link_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION')))
+    OR EXISTS (SELECT 1 FROM lr_conflict c WHERE c.status = 'open' AND c.run_id <= NEW.run_id
+        AND NOT EXISTS (SELECT 1 FROM lr_evidence_need n WHERE n.subject_type = 'CONFLICT' AND n.subject_id = c.conflict_id AND n.status IN ('OPEN','INVESTIGATING','ACCEPTED_LIMITATION')))
+  BEGIN SELECT RAISE(ABORT, 'every unresolved link and open conflict needs a recorded evidence need before a release'); END;
+CREATE TRIGGER lr_evidence_need_close_only BEFORE UPDATE ON lr_evidence_need
+  WHEN NEW.need_id IS NOT OLD.need_id OR NEW.subject_type IS NOT OLD.subject_type OR NEW.subject_id IS NOT OLD.subject_id OR NEW.need_code IS NOT OLD.need_code OR NEW.register_ref IS NOT OLD.register_ref
+    OR NEW.description IS NOT OLD.description OR NEW.status IS NOT OLD.status OR NEW.accepted_by_ref IS NOT OLD.accepted_by_ref OR NEW.valid_from_run IS NOT OLD.valid_from_run OR (OLD.valid_to_run IS NOT NULL AND NEW.valid_to_run IS NOT OLD.valid_to_run)
+  BEGIN SELECT RAISE(ABORT, 'an evidence need can only be closed; a changed status is a new row'); END;
 CREATE TRIGGER lr_release_not_excluded BEFORE INSERT ON lr_release WHEN EXISTS (SELECT 1 FROM lr_run_excluded e WHERE e.run_id = NEW.run_id)
   BEGIN SELECT RAISE(ABORT, 'an excluded (abandoned) run can never be released'); END;
 
@@ -244,7 +263,7 @@ CREATE TRIGGER lr_possession_close_only BEFORE UPDATE ON lr_possession
 
 ## 5. Estimated volume and the write budget
 
-Row estimates from the archive (counts in bold are exact; the rest are estimates with their basis; **measure before any go**):
+Row counts below were **computed offline from the committed ledger** (exact for the archive years 2010-2025; no database was touched). They match the earlier estimates; the cost of writing them to a real D1 is **still unmeasured** and must be measured on a local replica and a temporary D1 database before any go (`S1_READINESS_ASSESSMENT.md`, section 3):
 
 | Table | Rows | Basis |
 |---|---|---|
@@ -264,6 +283,19 @@ Row estimates from the archive (counts in bold are exact; the rest are estimates
 **Known data discrepancy (corrected in the extraction, documented in `S1_CAP_TOKEN_CORRECTION.md`):** two 2025 trades, `trade2025_35` and `trade2025_60`, carry decimal cap tokens (`BB_3000.00`, `BB_5000.00`) whose archive amount is blank. The extraction now reads the amount from the sender's raw token (tagged `raw_token`, 8,000 in total) and the 2025 aggregate is 282,000. The design's `CHECK (amount > 0)` still refuses to store a missing amount as 0, and the loader must carry `amount_source` (a new column on `lr_trade_cap`, to be added in the final schema review) so a reader can see where each amount came from. What "from sends cap room to" means for a `BB_` token is not tied to the league canon here and is unverified.
 
 **Steady state:** a rebuild after one new trade or one new verification writes tens of rows. Finished seasons are never rewritten. A new release is a `lr_run` row, a `lr_release` row and the changed derived rows. (A rebuild in which every derived row changed would add about 12,000 rows; that is the bound used for retention in section 10.)
+
+## 5a. Package consideration versus attributable trade value
+
+A trade is one package (`lr_trade`): its **consideration** is what each party gave and received in full (`lr_trade_leg` plus `lr_trade_cap` with direction). That is a recorded fact. **Attributable value** (how much of what happened afterward is due to one asset of the package) is a different, derived, method-dependent claim, and **no column of any fact table holds it**. A leg never carries a value, a score or a "credit". If a later slice computes attributable value, it writes rows to its own table keyed by `(trade_id, party, method_id, method_version)` with the allocation method named and approved, evidence class `INFERRED` or `UNRESOLVED` unless the trade has one asset on each side, and no double counting (the existing `packages.mjs` rule "nothing is credited to a single asset of a multi-asset package" is the default). Production earned by a player while rostered is stored per possession period (the dependent scoring slice), never per trade.
+
+## 5b. Updating history when a previously missing record is recovered
+
+1. The new source is recorded (`lr_source`, hash, request, capture time) and the evidence need it answers is named (`lr_evidence_need`, register item).
+2. The recovered record is **appended** as a fact in a new run (`loaded_run`); no existing row is edited.
+3. Derived rows (possession, links) are rebuilt for the affected assets only: unchanged rows are not rewritten, superseded rows are **closed** (`valid_to_run`) and replaced by new rows.
+4. A **difference report** (what changed in each affected pick, slot and period, with the old and the new class) is produced and reviewed; a class may change only through an approved method.
+5. The release moves to the new run only after the review; earlier runs stay readable "as of" so any answer given earlier can be reproduced, and the correction provenance (`lr_correction`, the source, the approving reference) explains the change.
+6. The register item is updated in the same step (status, evidence). A recovered record never closes an item by itself.
 
 ## 6. Read and query design (estimated `rows_read`; to be measured with `EXPLAIN QUERY PLAN` and the local replica)
 

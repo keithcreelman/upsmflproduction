@@ -481,7 +481,13 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   t.ok(!fails(cov(4, "pick_transfer", "UNVERIFIED", "'S'")), "an unverified interval is accepted");
   t.ok(!fails(cov(5, "pick_transfer", "VERIFIED_COMPLETE", "'S'")), "a verified interval row can be written");
   t.ok(fails("insert into lr_coverage_check (coverage_id, check_kind, passed) values (5, 'archive_comparison', 0)"), "a failed check beside a verified interval is refused");
-  t.ok(fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (1, 'x', 'r')"), "a release cannot activate while a verified interval lacks its passing checks");
+  // unresolved evidence is recorded explicitly: an UNRESOLVED link (link 1) cannot be released without an evidence need that cites the register
+  t.ok(fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (1, 'x', 'r')"), "an UNRESOLVED link with no recorded evidence need blocks a release");
+  t.ok(fails("insert into lr_evidence_need (subject_type, subject_id, need_code, register_ref, description, status, valid_from_run) values ('LINK', 1, 'SLOT_EVIDENCE', 'LR-03', 'd', 'ACCEPTED_LIMITATION', 1)"), "a limitation cannot be accepted without a cited decision");
+  t.ok(fails("insert into lr_evidence_need (subject_type, subject_id, need_code, register_ref, description, status, valid_from_run) values ('FOO', 1, 'x', 'LR-03', 'd', 'OPEN', 1)"), "an unknown subject type is refused");
+  ok("insert into lr_evidence_need (subject_type, subject_id, need_code, register_ref, description, status, valid_from_run) values ('LINK', 1, 'SLOT_EVIDENCE', 'LR-03', 'which original franchise became this slot', 'OPEN', 1)");
+  t.ok(fails("update lr_evidence_need set status = 'RESOLVED' where need_id = 1"), "an evidence need is never edited into RESOLVED: a changed status is a new row");
+  t.ok(fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (1, 'x', 'r')"), "a release still cannot activate while a verified interval lacks its passing checks");
   ok("insert into lr_coverage_check (coverage_id, check_kind, passed) values (5, 'archive_comparison', 1)");
   t.ok(fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (1, 'x', 'r')"), "the comparison alone is not enough: the end-state reconciliation is required too");
   ok("insert into lr_coverage_check (coverage_id, check_kind, passed) values (5, 'end_state_reconciliation', 1)");
@@ -490,8 +496,9 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   ok("update lr_release set retired_utc = 'z' where run_id = 1");
   t.ok(!fails("insert into lr_release (run_id, activated_utc, activated_by_ref) values (2, 'y', 'r')"), "after the first is retired, the next activates");
   ok("insert into lr_trade (trade_id, loaded_run, season, ts, date_et, date_quality, source_id, source_key) values ('t1', 1, 2025, 1, '2025-01-01', 'recorded', 'S', 'k')");
-  t.ok(fails("insert into lr_trade_cap values ('t1', 1, '0001', '0002', 0)"), "a cap amount of 0 is refused (a missing amount must be handled, never stored as 0)");
-  t.ok(!fails("insert into lr_trade_cap values ('t1', 1, '0001', '0002', 3000)"), "a cap transfer keeps its direction and amount");
+  t.ok(fails("insert into lr_trade_cap values ('t1', 1, '0001', '0002', 0, 'archive_column')"), "a cap amount of 0 is refused (a missing amount must be handled, never stored as 0)");
+  t.ok(fails("insert into lr_trade_cap values ('t1', 1, '0001', '0002', 3000, 'guess')"), "an amount must name where it came from: the archive column or the raw token");
+  t.ok(!fails("insert into lr_trade_cap values ('t1', 1, '0001', '0002', 3000, 'raw_token')"), "a cap transfer keeps its direction, amount and source");
   // updates cannot walk around the insert rules: a derived row may only be closed, facts never change
   t.ok(fails("update lr_link set class = 'INFERRED', to_season = 2018, to_round = 4, to_slot = 11, evidence_json = 'e', method_id = 'DIAG' where link_id = 1"), "an UNRESOLVED link cannot be turned into INFERRED by an update");
   t.ok(fails("update lr_draft_slot set status = 'FORFEITED', draft_row_id = null where season = 2018 and round = 4 and slot = 7"), "a missing slot cannot be turned into a forfeiture by an update");
