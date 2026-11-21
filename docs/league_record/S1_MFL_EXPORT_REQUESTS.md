@@ -1,6 +1,6 @@
 # League Record S1: proposed read-only MFL export requests (for approval; decision 4 of 2026-11-21)
 
-**Status: PROPOSED (revised after the architecture review). NOTHING HAS BEEN SENT.** No MFL call, no external request, no Cloudflare or D1 access was made to write this document. Each request below is an exact URL template for the commissioner to approve, change or refuse. Approval of "the exact requests" means these templates, in this order, with this handling. Anything else needs a new approval.
+**Status (2026-11-21): A1 to A4 APPROVED by the commissioner, limited to these exact GET/export requests and their documented purpose, to be run by the commissioner locally with the commissioner's own credentials; Claude does not run them or fetch a credential. B1, B2 and N1 to N3 are NOT approved (N1 to N3 is the recorded next research action for the 2014 4.12 conflict, to be authorized separately). The runnable package and its review steps are in `S1_EXPORT_LOCAL_RUNBOOK.md`. NOTHING HAS BEEN SENT.** (Earlier status: proposed, revised after the architecture review.) No MFL call, no external request, no Cloudflare or D1 access was made to write this document. Each request below is an exact URL template for the commissioner to approve, change or refuse. Approval of "the exact requests" means these templates, in this order, with this handling. Anything else needs a new approval.
 
 ## 0. Common rules (apply to every request)
 

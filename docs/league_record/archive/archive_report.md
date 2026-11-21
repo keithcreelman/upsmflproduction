@@ -8,7 +8,7 @@
 
 ## 1. Totals
 
-- **Trades:** 1,036 across 16 seasons; 846 are multi-asset packages (nothing is credited to a single asset of a package); 130 cap transfers totaling 1,692,000.
+- **Trades:** 1,036 across 16 seasons; 846 are multi-asset packages (nothing is credited to a single asset of a package); 130 cap transfers totaling 1,700,000. **Cap-token correction (register LR-05):** 2 transfers have a blank amount in the archive because the token is a decimal (for example BB_3000.00); their amount is read from the sender's own token in the raw payload, tagged `raw_token` and listed in the findings; 0 amounts are unrecoverable and are left blank, never defaulted. Raw records are not altered.
 - **Draft slots** in the 14 seasons that have draft results: 936 scheduled = **935 SELECTED** (a recorded selection, 935 selections in all) + **1 FORFEITED** (a known forfeiture from a named provenance; no player was selected) + **0 UNRESOLVED** (the source holds more than one row for the slot) + **0 MISSING_SOURCE_RECORD** (no selection and nothing that explains the absence). No draft results exist for: 2010, 2011 (no source for those seasons; that says nothing about any slot).
 - **Draft table defects handled (approved 2026-11-21):** the legacy table stores the tenth pick of a round with slot 1 (the pick "1.10" is written "1.1"). 30 rows (2012-2017, rounds 1-5) are corrected with MFL's own overall pick number, slot = overall - 12 x (round - 1), and only where that exact pattern holds; each keeps its stored value, its corrected value, the method and its source reference (`slot_correction`). 0 other rows disagree with their overall pick number and are left as stored. No other season or draft format is ever corrected. 20 legacy rows record no franchise id, so their selector is unknown.
 - **Slot picks traded** (an MFL slot token names the slot): 451; **CONFIRMED** to a draft result 439 (97.3%); **conflict** (the chain holder is not the franchise that made the selection) 1; **selector not recorded** (the draft row has no franchise id) 11; **forfeited slot** (no player was selected) 0; **no draft result** 0; trades recorded after the selection 0.
@@ -36,7 +36,7 @@
 | 2022 | 66 | 63 | 3 | 27 | 28 (359,000) | processing_time_likely | draftresults_mfl | 72 | 0 | 72 | 6 | 12 / 12 | none | none | 0 | 0 |
 | 2023 | 101 | 88 | 13 | 12 | 27 (353,000) | processing_time_likely | draftresults_mfl | 72 | 0 | 72 | 6 | 12 / 12 | none | none | 0 | 0 |
 | 2024 | 79 | 60 | 19 | 7 | 19 (304,000) | recorded | draftresults_mfl | 72 | 0 | 72 | 6 | 12 / 12 | none | none | 0 | 0 |
-| 2025 | 74 | 56 | 18 | 7 | 22 (274,000) | recorded | draftresults_mfl | 72 | 0 | 72 | 6 | 12 / 12 | none | none | 0 | 0 |
+| 2025 | 74 | 56 | 18 | 7 | 22 (282,000) | recorded | draftresults_mfl | 72 | 0 | 72 | 6 | 12 / 12 | none | none | 0 | 0 |
 
 ## 3. Pick-to-selection links by draft year
 

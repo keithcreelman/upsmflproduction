@@ -3,6 +3,7 @@
 // brackets or a projected order) is tested at the guard, the source scan and the data.
 import fs from "node:fs";
 import os from "node:os";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
@@ -14,10 +15,11 @@ import { renderArchiveReport } from "../scripts/league_record/s1/archive_report.
 import { packageView, creditByAsset, ALLOCATION } from "../scripts/league_record/s1/packages.mjs";
 import { buildLedger, pickChain, resolveSlotPick } from "../scripts/league_record/s1/lineage.mjs";
 import { stableStringify } from "../scripts/league_record/s1/pilot.mjs";
+import { APPROVED, StopError, sanitizeTransactions, sanitizeFuturePicks, checkIdentity, sanitizeRun, readRequestLog, checkRequestRecord } from "../scripts/league_record/s1/export_package/sanitize_exports.mjs";
 import { classifyIntervals, buildCoverageModel, custodyObserved, validateVerification, coverageSummary, loadVerifications, COVERAGE_STATE } from "../scripts/league_record/s1/coverage.mjs";
 import { resolveFuturePick } from "../scripts/league_record/s1/lineage.mjs";
 import { etParts } from "../scripts/league_record/s1/sources.mjs";
-import { loadArchiveSelections, loadKnownForfeitures, FORFEITURE_FILE, FORFEITURE_FIELDS, LEGACY_DEFECT } from "../scripts/league_record/s1/sources.mjs";
+import { loadArchiveSelections, loadKnownForfeitures, FORFEITURE_FILE, FORFEITURE_FIELDS, LEGACY_DEFECT, parseCapToken, capAmount, parseTokens, loadArchiveTrades } from "../scripts/league_record/s1/sources.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "docs", "league_record", "archive");
@@ -42,7 +44,11 @@ test("coverage by season equals separate SQL on the raw archive: trades, legs by
     t.equal(s.trades.legs.future_pick, by.DRAFTPICK_FUTURE || 0, `${s.season} future pick legs`);
     t.equal(s.trades.legs.slot_pick, by.DRAFTPICK_CURRENT || 0, `${s.season} slot pick legs`);
     t.equal(s.trades.cap.transfers, by.CAP || 0, `${s.season} cap transfers`);
-    t.equal(s.trades.cap.total_amount, q("select coalesce(sum(asset_capadjustment), 0) n from transactions_trades where season = ? and asset_role = 'RELINQUISH' and asset_type = 'CAP'", s.season)[0].n, `${s.season} cap total`);
+    // the archive's amount column, plus (separate SQL on the raw payload) the decimal-token amount of every transfer whose column is blank: the register LR-05 correction
+    const colSum = q("select coalesce(sum(asset_capadjustment), 0) n from transactions_trades where season = ? and asset_role = 'RELINQUISH' and asset_type = 'CAP'", s.season)[0].n;
+    const blankSum = q("select franchise_id f, json_extract(raw_json, '$.franchise') jf, json_extract(raw_json, '$.franchise1_gave_up') g1, json_extract(raw_json, '$.franchise2_gave_up') g2 from transactions_trades where season = ? and asset_role = 'RELINQUISH' and asset_type = 'CAP' and asset_capadjustment is null", s.season)
+      .reduce((acc, r) => acc + Number(/BB_(\d+(?:\.\d+)?)/.exec(r.f === r.jf ? r.g1 : r.g2)[1]), 0);        // a plain regex on the sender's own list: a second code path
+    t.equal(s.trades.cap.total_amount, colSum + blankSum, `${s.season} cap total (archive column + decimal-token amounts of the blank rows)`);
     const sel = q("select (select count(*) from draftresults_mfl where season = ?) + (select count(*) from draftresults_legacy where season = ?) n", s.season, s.season)[0].n;
     t.equal(s.draft.selections, sel, `${s.season} selections`);
     t.equal(s.trades.legs.unpaired + s.trades.legs.unknown, 0, `${s.season} no unpaired or unknown legs`);
@@ -501,6 +507,180 @@ test("the proposed D1 schema in S1_D1_DESIGN.md is valid SQL and its constraints
   t.match(plan("select * from lr_link where from_asset_key = 'x' and valid_from_run <= 1"), /USING (COVERING )?INDEX lr_(link_asset|one_open_link)/);
   t.match(plan("select * from lr_draft_slot where season = 2018 and round = 4"), /USING (COVERING )?INDEX|PRIMARY KEY/);
   db.close();
+});
+
+// ── the approved local export package (requests A1-A4; Keith's rulings of 2026-11-21): the runner, the sanitizer and their guarantees ─────────────────────────────────────────────────────────────────
+const PKG = path.join(ROOT, "scripts", "league_record", "s1", "export_package");
+const RUNNER = path.join(PKG, "run_a1_a4.sh");
+const tx = (over = {}) => ({ franchise: "0005", franchise2: "0008", franchise1_gave_up: "14836,", franchise2_gave_up: "16583,FP_0008_2026_1,BB_3000.00,", comments: "PRIVATE-COMMENT", expires: "1743681600", timestamp: "1740414405", type: "TRADE", ...over });
+const txBody = (list) => JSON.stringify({ version: "1.0", encoding: "utf-8", transactions: list.length ? { transaction: list } : "" });
+const fpBody = (ids, over = {}) => JSON.stringify({ version: "1.0", futureDraftPicks: { franchise: ids.map((id) => ({ id, futureDraftPick: [{ year: "2027", round: "1", originalPickFor: id, description: "PRIVATE-DESCRIPTION", ...over }] })) } });
+const LEAGUE = ["0005", "0008", "0009", "0010"];
+const trades25 = txBody([tx(), tx({ franchise: "0009", franchise2: "0010", franchise1_gave_up: "DP_3_11,", franchise2_gave_up: "17000,", timestamp: "1750000000", comments: "" })]);
+const trades26 = txBody([tx({ timestamp: "1775000000" })]);
+const mkdir = () => fs.mkdtempSync(path.join(os.tmpdir(), "lr-pkg-"));
+
+test("the approved export package: the runner sends exactly the four approved GET requests, with no key on any command line, and stops at the first problem (curl is a stub; no network)", () => {
+  const src = fs.readFileSync(RUNNER, "utf8");
+  // the request list in the runner is exactly the approved set, and equals the approved document
+  const rows = [...src.matchAll(/^  '([A-Z]\d_[^|']+)\|(\d{4})\|([^']+)'$/gm)].map((m) => ({ name: m[1], year: Number(m[2]), pathq: m[3] }));
+  t.deepEqual(rows, APPROVED.map((a) => ({ name: a.name, year: a.year, pathq: a.pathq })), "the runner and the sanitizer hold the same four requests");
+  t.equal(APPROVED.length, 4);
+  const doc = fs.readFileSync(path.join(ROOT, "docs", "league_record", "S1_MFL_EXPORT_REQUESTS.md"), "utf8");
+  for (const a of APPROVED) t.ok(doc.includes(`GET https://${a.host}${a.pathq}&APIKEY=`), `${a.name} is in the approved request document`);
+  t.ok(APPROVED.every((a) => a.host === "www48.myfantasyleague.com" && /^\/(2025|2026)\/export\?TYPE=(transactions|futureDraftPicks)&L=74598&/.test(a.pathq) && !/COUNT=|DAYS=|import/i.test(a.pathq)), "every request is a 2025 or 2026 export of league 74598, with no COUNT, DAYS or import");
+  // the script never builds a mutating call and never follows a redirect
+  const code = src.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  const curlCall = (code.match(/curl --silent[\s\S]*?--config -\)/) || [""])[0];                         // the one curl invocation, with its continuation line
+  t.ok(curlCall.length > 50 && (code.match(/\bcurl --/g) || []).length === 1, "exactly one curl invocation");
+  t.ok(!/(^|\s)-X\b|--data|\s-d\s|--form|\s-F\s|--upload|\s-T\s|--location|\s-L\s|--post|--request/.test(curlCall), "no mutating option and no redirect following in the curl call");
+  t.ok(!/\bwget\b|\bnc\b|\bssh\b|\bscp\b/.test(code), "no other network tool");
+  t.ok(/--max-redirs 0/.test(code) && /--config -/.test(code) && /read -r -s/.test(code), "redirects refused, key on stdin, keys read without echo");
+  t.ok(!/printenv|\benv\b|\bsecurity (find|dump)|\bsecret-tool|\bop (read|item)|gh auth|git config|git credential|\.env\b|\bsource\b|\$\{?(MFL_|APIKEY|TOKEN)/i.test(code), "no credential is fetched from the environment, a keychain, a password manager or a repository");
+  t.ok(!/APIKEY=\$|APIKEY=\$\{/.test(code), "the key is never placed on a command line");
+  // --print: shows the requests, redacted, reads nothing, uses no network
+  const pr = spawnSync("bash", [RUNNER, "--print"], { encoding: "utf8" });
+  t.equal(pr.status, 0); t.equal((pr.stdout.match(/GET https:/g) || []).length, 4); t.ok(pr.stdout.includes("APIKEY=REDACTED") && !/APIKEY=(?!REDACTED)/.test(pr.stdout));
+  // a stub curl records what it is given
+  const dir = mkdir(), stubDir = path.join(dir, "stub"), bin = path.join(dir, "bin"); fs.mkdirSync(stubDir); fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, "curl"), `#!/usr/bin/env bash
+out=""; args="$*"
+while [ $# -gt 0 ]; do case "$1" in --output) out="$2"; shift;; esac; shift; done
+n=$(cat "${stubDir}/n" 2>/dev/null || echo 0); n=$((n+1)); echo $n > "${stubDir}/n"
+cfg=$(cat)
+printf 'ARGS: %s\\n' "$args" >> "${stubDir}/log"; printf 'STDIN: %s\\n' "$cfg" >> "${stubDir}/log"
+code=$(echo $STUB_CODES | cut -d' ' -f$n)
+cp "${stubDir}/body$n" "$out"
+printf '%s' "$code"
+`, { mode: 0o755 });
+  const bodies = [trades25, trades26, fpBody(LEAGUE), fpBody(LEAGUE)];
+  const run = (codes, keys = "KEY2025SECRET\nKEY2026SECRET\n", out = path.join(dir, "out"), bodyList = bodies) => {
+    fs.rmSync(stubDir, { recursive: true, force: true }); fs.mkdirSync(stubDir); bodyList.forEach((b, i) => fs.writeFileSync(path.join(stubDir, `body${i + 1}`), b));
+    fs.rmSync(out, { recursive: true, force: true });
+    const r = spawnSync("bash", [RUNNER], { input: keys, encoding: "utf8", env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, OUT: out, STUB_CODES: codes } });
+    const log = fs.existsSync(path.join(stubDir, "log")) ? fs.readFileSync(path.join(stubDir, "log"), "utf8") : "";
+    return { r, log, out };
+  };
+  // all four succeed
+  let a = run("200 200 200 200");
+  t.equal(a.r.status, 0, "four clean responses: success");
+  const argLines = a.log.split("\n").filter((l) => l.startsWith("ARGS:")), cfgLines = a.log.split("\n").filter((l) => l.startsWith("STDIN:"));
+  t.equal(argLines.length, 4); t.equal(cfgLines.length, 4);
+  t.ok(!/KEY2025SECRET|KEY2026SECRET/.test(argLines.join("\n")), "no key on any command line (the process list would show it)");
+  t.ok(!/KEY2025SECRET|KEY2026SECRET/.test(a.r.stdout + a.r.stderr), "no key in any printed line");
+  t.ok(argLines.every((l) => l.includes("--max-redirs 0") && l.includes("--config -") && !/--location|--data|-X /.test(l)), "every call is a plain GET with redirects refused");
+  t.deepEqual(cfgLines.map((l) => l.replace(/^STDIN: url = "https:\/\//, "").replace(/&APIKEY=.*$/, "")), APPROVED.map((x) => `${x.host}${x.pathq}`), "the four URLs sent are exactly the approved ones, in order");
+  t.ok(cfgLines[0].includes("KEY2025SECRET") && cfgLines[1].includes("KEY2026SECRET") && cfgLines[2].includes("KEY2025SECRET") && cfgLines[3].includes("KEY2026SECRET"), "each instance gets its own key, and only on stdin");
+  t.ok(!/KEY\d{4}SECRET/.test(fs.readFileSync(path.join(a.out, "requests.log"), "utf8")), "the request log holds no key");
+  t.equal(fs.readFileSync(path.join(a.out, "requests.log"), "utf8").trim().split("\n").length, 4);
+  t.equal(fs.statSync(path.join(a.out, "raw")).mode & 0o777, 0o700, "the raw folder is private (700)"); t.equal(fs.statSync(path.join(a.out, "raw", "A1_transactions_2025_trade.json")).mode & 0o777, 0o600, "raw files are 600");
+  // the sanitizer accepts exactly what the runner recorded
+  const s = sanitizeRun(a.out);
+  t.equal(s.exit, 0); t.equal(s.manifest.status, "completed");
+  // a redirect stops everything after it
+  a = run("200 302 200 200"); t.equal(a.r.status, 1, "a redirect stops the run"); t.equal(a.log.split("\n").filter((l) => l.startsWith("ARGS:")).length, 2, "no request is sent after the failing one"); t.ok(/stop and report/.test(a.r.stderr));
+  a = run("401 200 200 200"); t.equal(a.r.status, 1, "an authorization failure stops at the first request"); t.equal(a.log.split("\n").filter((l) => l.startsWith("ARGS:")).length, 1);
+  // an MFL error body inside an HTTP 200 stops too
+  a = run("200 200 200 200", undefined, undefined, [trades25, JSON.stringify({ error: { $t: "API requests per minute exceeded" } }), fpBody(LEAGUE), fpBody(LEAGUE)]); t.equal(a.r.status, 1, "an error body is not data"); t.ok(/error body/.test(a.r.stderr));
+  // a bad key is refused before any request
+  a = run("200 200 200 200", "has a space\nKEY2026SECRET\n"); t.equal(a.r.status, 1); t.equal(a.log, "", "no request is sent with a malformed key");
+  // the output folder may never be inside a git work tree
+  a = run("200 200 200 200", undefined, path.join(ROOT, "tmp-should-never-exist")); t.equal(a.r.status, 1); t.ok(/git work tree|outside the repository/.test(a.r.stderr)); t.ok(!fs.existsSync(path.join(ROOT, "tmp-should-never-exist")), "nothing is created inside the repository");
+  // the git guard on its own: a folder inside any git work tree is refused, and nothing is created there
+  const gitDir = path.join(dir, "somerepo"); fs.mkdirSync(gitDir); spawnSync("git", ["init", "-q", gitDir]);
+  a = run("200 200 200 200", undefined, path.join(gitDir, "exports")); t.equal(a.r.status, 1); t.ok(/git work tree/.test(a.r.stderr), "refused inside a git work tree"); t.ok(!fs.existsSync(path.join(gitDir, "exports")), "nothing created there");
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test("the sanitizer keeps only what is needed, drops comments, descriptions, expiry and unrecognized records, and stops on anything unexpected (synthetic data only)", () => {
+  const stops = (fn, re) => { try { fn(); return false; } catch (e) { return e instanceof StopError && re.test(e.message); } };
+  const a = sanitizeTransactions(trades25, { year: 2025, name: "A1" });
+  t.equal(a.report.kept, 2); t.equal(a.report.comments_dropped, 1); t.equal(a.report.expires_dropped, 2);
+  t.ok(!/PRIVATE-COMMENT|expires/.test(JSON.stringify(a.records)), "no comment and no expiry in the extract");
+  t.deepEqual(a.records[0], { ts: 1740414405, franchise: "0005", franchise2: "0008", gave_up_by_franchise: ["14836"], gave_up_by_franchise2: ["16583", "FP_0008_2026_1", "BB_3000.00"] }, "a decimal cap token is kept exactly as recorded");
+  // pending offers and unrecognized records are dropped and counted, never kept
+  const pending = { type: "TRADE", franchise: "0005", offeringteam: "0005", will_give_up: "1,2,", will_receive: "3,", comments: "PRIVATE-PENDING" };
+  const p = sanitizeTransactions(txBody([tx(), pending]), { year: 2025 });
+  t.equal(p.report.kept, 1); t.equal(p.report.dropped_unrecognized_shape, 1); t.ok(!/PRIVATE-PENDING|offeringteam/.test(JSON.stringify(p)), "a pending offer never reaches the extract");
+  // an empty export is reported as empty and never as proof
+  const e = sanitizeTransactions(txBody([]), { year: 2025 }); t.equal(e.report.empty_export, true); t.equal(e.report.kept, 0);
+  // unexpected situations stop
+  t.ok(stops(() => sanitizeTransactions("not json", { year: 2025 }), /not JSON/), "not JSON");
+  t.ok(stops(() => sanitizeTransactions(JSON.stringify({ error: "x" }), { year: 2025 }), /error object/), "an error object");
+  t.ok(stops(() => sanitizeTransactions(JSON.stringify({ transactions: "", extra: 1 }), { year: 2025 }), /unexpected top-level/), "an unexpected top-level field");
+  t.ok(stops(() => sanitizeTransactions(txBody([tx({ timestamp: "1640000000" })]), { year: 2025 }), /outside 2025/), "a trade outside the instance year: a different instance");
+  t.ok(stops(() => sanitizeTransactions(txBody([tx({ type: "FREE_AGENT" })]), { year: 2025 }), /not TRADE/), "a non-trade record in a trade-only export");
+  t.ok(stops(() => sanitizeTransactions(txBody([tx({ franchise2_gave_up: "WEIRD_TOKEN," })]), { year: 2025 }), /unknown shape/), "an unknown token");
+  t.equal(sanitizeTransactions(txBody([tx({ franchise2: "0005" })]), { year: 2025 }).report.dropped_unrecognized_shape, 1, "a trade with itself is dropped");
+  // future picks
+  const f = sanitizeFuturePicks(fpBody(LEAGUE), { year: 2025 }); t.equal(f.report.picks, 4); t.equal(f.report.fields_dropped, 4); t.ok(!/PRIVATE-DESCRIPTION/.test(JSON.stringify(f)), "no description kept");
+  t.deepEqual(f.picks[0], { holder: "0005", year: 2027, round: 1, original: "0005" });
+  t.ok(stops(() => sanitizeFuturePicks(JSON.stringify({ futureDraftPicks: { franchise: [{ id: "0005", futureDraftPick: [{ year: "2027", round: "1" }] }] } }), { year: 2025 }), /original franchise/), "a pick without originalPickFor stops: no default is substituted");
+  t.ok(stops(() => sanitizeFuturePicks(JSON.stringify({ nothing: 1 }), { year: 2025 }), /unexpected top-level|no "futureDraftPicks"/), "no future-pick object");
+  t.equal(sanitizeFuturePicks(JSON.stringify({ futureDraftPicks: {} }), { year: 2025 }).report.empty_export, true, "an empty future-pick list is reported as empty");
+  // source identity
+  t.ok(stops(() => checkIdentity(a.report, sanitizeFuturePicks(fpBody(["0005", "0008"]), { year: 2025 }).report, "2025 instance"), /not franchises of the league/), "trades whose franchises are not in the league's future-pick list: a different league");
+  t.ok(stops(() => checkIdentity(a.report, sanitizeFuturePicks(JSON.stringify({ futureDraftPicks: {} }), { year: 2025 }).report, "2025 instance"), /cannot be checked/), "no franchise list: identity cannot be checked");
+  // the run record must match the approved request exactly
+  const spec = APPROVED[0], good = { name: spec.name, host: spec.host, pathq: spec.pathq, code: 200, bytes: 10, captured_utc: "2026-11-22T12:00:00Z" };
+  checkRequestRecord(spec, good, 10);
+  t.ok(stops(() => checkRequestRecord(spec, undefined, 10), /no record/), "a missing run record");
+  t.ok(stops(() => checkRequestRecord(spec, { ...good, pathq: spec.pathq.replace("TRADE", "*") }, 10), /differs from the approved/), "a request that is not the approved one");
+  t.ok(stops(() => checkRequestRecord(spec, { ...good, host: "www45.myfantasyleague.com" }, 10), /differs from the approved/), "another host");
+  t.ok(stops(() => checkRequestRecord(spec, { ...good, code: 302 }, 10), /not 200/), "a redirect");
+  t.ok(stops(() => checkRequestRecord(spec, good, 11), /size differs/), "a changed file");
+  t.equal(readRequestLog("A1\th\tp\t200\t5\t2026-11-22T12:00:00Z\n").get("A1").bytes, 5);
+  // a whole run: dropped records give exit 3 with the manifest, a stop writes nothing shareable
+  const dir = mkdir(), raw = path.join(dir, "raw"); fs.mkdirSync(raw);
+  const bodies = [txBody([tx(), { type: "TRADE", franchise: "0005", offeringteam: "0005" }]), trades26, fpBody(LEAGUE), fpBody(LEAGUE)];
+  let logText = ""; APPROVED.forEach((x, i) => { fs.writeFileSync(path.join(raw, `${x.name}.json`), bodies[i]); logText += `${x.name}\t${x.host}\t${x.pathq}\t200\t${Buffer.byteLength(bodies[i])}\t2026-11-22T12:00:0${i}Z\n`; });
+  fs.writeFileSync(path.join(dir, "requests.log"), logText);
+  const run = sanitizeRun(dir); t.equal(run.exit, 3); t.equal(run.manifest.status, "completed_with_dropped_records");
+  const man = fs.readFileSync(path.join(dir, "manifest.json"), "utf8");
+  t.ok(!/PRIVATE-|KEY|APIKEY=(?!REDACTED)/.test(man + fs.readdirSync(path.join(dir, "sanitized")).map((f) => fs.readFileSync(path.join(dir, "sanitized", f), "utf8")).join("")), "nothing private in the manifest or the sanitized extract");
+  t.ok(man.includes("UNKNOWN") && man.includes("CURRENT dated observation") && man.includes("EMPTY export does not establish"), "the manifest states what A3, A4 and an empty export do and do not show");
+  t.deepEqual(run.manifest.requests.map((r) => r.request), APPROVED.map((x) => x.name)); t.ok(run.manifest.requests.every((r) => r.key === "REDACTED" && /^[0-9a-f]{64}$/.test(r.raw_sha256)));
+  fs.rmSync(dir, { recursive: true, force: true });
+  // the sanitizer reads and writes only the folder it is given (no network, no repository path)
+  const ssrc = fs.readFileSync(path.join(PKG, "sanitize_exports.mjs"), "utf8").split("\n").filter((l) => !/^\s*\/\//.test(l)).join("\n");
+  t.ok(!/fetch\(|https?\.request|node:http|node:net|child_process|process\.env/.test(ssrc), "no network, no subprocess, no environment");
+});
+
+test("the cap-token correction (register LR-05): decimal cap tokens are read exactly, from the sender's own token, only when unambiguous; raw records and populated amounts are never altered", () => {
+  // the two 2025 trades whose archive amount is blank: their amounts, their direction and the 2025 total
+  const blank = q("select trade_group_id g, franchise_id f, asset_role r, asset_capadjustment c from transactions_trades where asset_type = 'CAP' and asset_capadjustment is null order by 1, 3");
+  t.equal(blank.length, 4, "four blank archive rows = two transfers"); t.deepEqual([...new Set(blank.map((b) => b.g))].sort(), ["trade2025_35", "trade2025_60"]);
+  const trades = loadArchiveTrades(archive);
+  const t35 = trades.find((x) => x.id === "trade2025_35"), t60 = trades.find((x) => x.id === "trade2025_60");
+  t.equal(t35.cap.length, 1); t.equal(t35.cap[0].amount, 3000); t.equal(t35.cap[0].from, "0006"); t.equal(t35.cap[0].to, "0010"); t.equal(t35.cap[0].amount_source, "raw_token"); t.equal(t35.cap[0].token, "BB_3000.00");
+  t.equal(t60.cap[0].amount, 5000); t.equal(t60.cap[0].from, "0006"); t.equal(t60.cap[0].to, "0011"); t.equal(t60.cap[0].token, "BB_5000.00");
+  t.equal(seasonOf(2025).trades.cap.total_amount, 274000 + 8000, "the 2025 aggregate is no longer understated by 8,000"); t.equal(seasonOf(2025).trades.cap.transfers, 22, "no transfer is added or removed");
+  t.equal(x.summary.cap_total, 1692000 + 8000); t.equal(x.summary.cap_transfers, 130); t.equal(x.summary.cap_amounts_from_raw_token, 2); t.equal(x.summary.cap_amounts_unrecoverable, 0);
+  t.equal(x.findings.totals.cap_amount_from_raw_token, 2); t.equal(x.findings.totals.cap_amount_conflicts, 0); t.equal(x.findings.totals.cap_amount_unrecoverable, 0);
+  // validation of the method on the 128 populated transfers: reading the sender's raw token reproduces the archive column EXACTLY, so the method is not a guess
+  const rows = q("select franchise_id f, cast(asset_capadjustment as real) c, json_extract(raw_json, '$.franchise') jf1, json_extract(raw_json, '$.franchise1_gave_up') jg1, json_extract(raw_json, '$.franchise2_gave_up') jg2 from transactions_trades where asset_type = 'CAP' and asset_role = 'RELINQUISH' and asset_capadjustment is not null");
+  t.equal(rows.length, 128); let agree = 0;
+  for (const r of rows) { const fromToken = capAmount({ ...r, cap: null }); if (fromToken.source === "raw_token" && fromToken.amount === r.c) agree += 1; }
+  t.equal(agree, 128, "the raw-token reading equals the populated archive amount in all 128 cases");
+  for (const r of rows) t.equal(capAmount({ ...r, cap: r.c }).source, "archive_column", "a populated amount is never replaced");
+  // the grammar: exact decimals only, malformed tokens refused, nothing guessed
+  t.deepEqual(parseCapToken("BB_3000.00"), { amount: 3000, fractional: false, token: "BB_3000.00" }); t.equal(parseCapToken("BB_3000").amount, 3000); t.deepEqual(parseCapToken("BB_3000.5"), { amount: 3000.5, fractional: true, token: "BB_3000.5" });
+  for (const bad of ["BB_", "BB_-5", "BB_1e3", "BB_3.0.0", "BB_3,000", "BB_ 5", "bb_5", "BB_.5", "BB_1234567890", "BB_5.1234567", "BB_NaN", "FP_0001_2026_1", ""]) t.equal(parseCapToken(bad), null, `refused: ${JSON.stringify(bad)}`);
+  t.deepEqual(parseTokens("14836,BB_3000.00,", 2025).map((k) => k.kind), ["player", "cap"], "the 2026 snapshot parser reads a decimal cap token too"); t.equal(parseTokens("BB_3000.00", 2025)[0].amount, 3000); t.equal(parseTokens("BB_3.0.0", 2025)[0].kind, "unknown");
+  // a stub archive: ambiguous, malformed, absent and conflicting cases are never defaulted
+  const row = (over) => ({ transactionid: "t.1a", g: "tradeX_1", season: 2025, f: "0001", fname: "A", role: "RELINQUISH", t: "CAP", pid: null, pname: null, ds: null, dr: null, dov: null, ff: null, fy: null, fr: null, cap: null, ts: 1740000000, date_et: "2025-02-19", time_et: "12:00:00", jf1: "0001", jg1: "BB_3000.00,", jg2: "5,", ...over });
+  const pair = (a) => [row(a), row({ ...a, transactionid: "t.1b", f: "0002", fname: "B", role: "ACQUIRE" })];
+  const load = (a) => loadArchiveTrades({ all: () => pair(a) })[0].cap[0];
+  t.equal(load({}).amount, 3000); t.equal(load({}).amount_source, "raw_token");
+  t.equal(load({ jg1: "BB_3000.00,BB_100," }).amount, null, "two cap tokens in the sender's list are ambiguous"); t.equal(load({ jg1: "BB_3000.00,BB_100," }).amount_source, "unrecoverable"); t.match(load({ jg1: "BB_3000.00,BB_100," }).problem, /several/);
+  t.equal(load({ jg1: "BB_3.0.0," }).amount, null, "a malformed token is refused"); t.equal(load({ jg1: "5," }).amount, null, "no cap token: no default"); t.match(load({ jg1: "5," }).problem, /no cap token/);
+  t.equal(load({ f: "0001", jf1: "0002", jg2: "BB_7000.00," }).amount, 7000, "the sender's own list is read: franchise 0001 is franchise2 here"); t.equal(load({ jg1: "BB_9999," }).amount, 9999);
+  t.equal(load({ f: "0001", jf1: "0002", jg1: "BB_1,", jg2: "5," }).amount, null, "the other side's token is never used");
+  t.equal(load({ cap: 100, jg1: "BB_3000.00," }).amount, 100, "a populated amount wins"); t.equal(load({ cap: 100, jg1: "BB_3000.00," }).conflict_token, "BB_3000.00", "and a disagreement is recorded, never silently resolved");
+  t.equal(load({ cap: 3000, jg1: "BB_3000.00," }).conflict_token, undefined, "agreement records nothing");
+  t.equal(load({ jg1: "BB_3000.5," }).fractional, true, "a fractional amount is flagged");
+  // the raw archive is not altered and the correction is a read-only derivation
+  t.equal(q("select count(*) n from transactions_trades where asset_type = 'CAP' and asset_capadjustment is null")[0].n, 4, "the blank archive rows are still blank");
 });
 
 await run("league_record_s1_archive");

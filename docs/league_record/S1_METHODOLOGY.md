@@ -106,8 +106,13 @@ node tests/league_record_s1_archive.test.mjs          # extraction tests (separa
 3. **Slot-token netting: not approved as a count-only inference.** Count reconciliation stays diagnostic. Event-based accounting is assessed (`S1_FUTURE_PICK_ASSESSMENT.md`), adds no link, and a known forfeiture or a complete round inventory never identifies a pick.
 4. **MFL export: approved in principle, not authorized to run.** The exact requests are in `S1_MFL_EXPORT_REQUESTS.md`; none was sent.
 5. **D1 historical-data design: approved as a design document** (`S1_D1_DESIGN.md`); no migration, route, ingestion or production access.
+6. **Follow-up rulings (same day, after the design review):** exports A1 to A4 approved for the commissioner's own local execution (`S1_EXPORT_LOCAL_RUNBOOK.md`); a source-preserving cap-token correction prepared for review (`S1_CAP_TOKEN_CORRECTION.md`); the 597 unresolved future picks stay unresolved; B1, B2 and N1 to N3 not approved; no D1 implementation.
 
-## 13. Not verified
+## 13. Pre-live issue register (workflow rule, commissioner decision of 2026-11-21)
+
+Issue #1486 is the central register of historical-data problems, unresolved questions, data-quality corrections and release requirements. Every material finding made during development is added to it, or linked to a dedicated tracked issue, **in the same turn it is found**. Each entry states: what is wrong or unknown; the affected seasons, franchises and assets; the evidence and source references; what is needed to investigate or resolve it; whether it **blocks production** or can be **explicitly accepted as an unresolved limitation**; and its verification requirement and current status (OPEN, INVESTIGATING, FIXED_PENDING_VERIFICATION, RESOLVED, ACCEPTED_LIMITATION). A passing test, a diagnostic count or a plausible answer never closes an item, and nothing silently disappears. Every historical answer a tool gives must separate what is **known**, what is **calculated**, what is **inferred** and what **still needs research**; missing production is never zero and partial scoring is never a complete valuation. Adding this rule to `CLAUDE.md` or `docs/WORK_OPERATING_SYSTEM.md` needs the commissioner's go.
+
+## 14. Not verified
 
 - MFL itself (live) was not queried; points and rosters are checked against a second archive table, not against MFL.
 - The archive's completeness beyond the records the pilot uses.

@@ -346,6 +346,26 @@
   "findings": {
     "list_cap": 60,
     "lists": {
+      "cap_amount_conflicts": [],
+      "cap_amount_from_raw_token": [
+        {
+          "amount": 3000,
+          "archive_column": "blank",
+          "from": "0006",
+          "to": "0010",
+          "token": "BB_3000.00",
+          "trade": "trade2025_35"
+        },
+        {
+          "amount": 5000,
+          "archive_column": "blank",
+          "from": "0006",
+          "to": "0011",
+          "token": "BB_5000.00",
+          "trade": "trade2025_60"
+        }
+      ],
+      "cap_amount_unrecoverable": [],
       "draft_missing_source_records": [],
       "draft_unresolved_slots": [],
       "duplicate_legs": [],
@@ -1314,6 +1334,9 @@
       "player_chain_breaks_dated_after_2025": 99
     },
     "totals": {
+      "cap_amount_conflicts": 0,
+      "cap_amount_from_raw_token": 2,
+      "cap_amount_unrecoverable": 0,
       "draft_missing_source_records": 0,
       "draft_unresolved_slots": 0,
       "duplicate_legs": 0,
@@ -3129,6 +3152,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -3248,6 +3273,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -3373,6 +3400,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -3497,6 +3526,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -3623,6 +3654,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -3746,6 +3779,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -3871,6 +3906,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -3999,6 +4036,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -4139,6 +4178,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -4261,6 +4302,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 0,
           "transfers": 0
         },
@@ -4382,6 +4425,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 148000,
           "transfers": 13
         },
@@ -4503,6 +4548,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 254000,
           "transfers": 21
         },
@@ -4624,6 +4671,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 359000,
           "transfers": 28
         },
@@ -4745,6 +4794,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 353000,
           "transfers": 27
         },
@@ -4866,6 +4917,8 @@
       },
       "trades": {
         "cap": {
+          "amount_from_raw_token": 0,
+          "amount_unrecoverable": 0,
           "total_amount": 304000,
           "transfers": 19
         },
@@ -4987,7 +5040,9 @@
       },
       "trades": {
         "cap": {
-          "total_amount": 274000,
+          "amount_from_raw_token": 2,
+          "amount_unrecoverable": 0,
+          "total_amount": 282000,
           "transfers": 22
         },
         "count": 74,
@@ -5013,7 +5068,9 @@
     }
   ],
   "summary": {
-    "cap_total": 1692000,
+    "cap_amounts_from_raw_token": 2,
+    "cap_amounts_unrecoverable": 0,
+    "cap_total": 1700000,
     "cap_transfers": 130,
     "coverage": {
       "by_state": {

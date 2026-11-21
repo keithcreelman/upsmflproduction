@@ -19,7 +19,7 @@ const pickParts = (a) => a.split(":").slice(1);
 function newSeason(y) {
   return {
     season: y,
-    trades: { count: 0, parties_distinct_pairs: 0, date_quality: {}, legs: { player: 0, future_pick: 0, slot_pick: 0, unknown: 0, unpaired: 0 }, packages: { multi_asset_trades: 0, one_for_one_trades: 0, largest_side_items: 0, assets_per_trade_max: 0 }, cap: { transfers: 0, total_amount: 0 }, same_day_trades: 0 },
+    trades: { count: 0, parties_distinct_pairs: 0, date_quality: {}, legs: { player: 0, future_pick: 0, slot_pick: 0, unknown: 0, unpaired: 0 }, packages: { multi_asset_trades: 0, one_for_one_trades: 0, largest_side_items: 0, assets_per_trade_max: 0 }, cap: { transfers: 0, total_amount: 0, amount_from_raw_token: 0, amount_unrecoverable: 0 }, same_day_trades: 0 },
     draft: { source_table: null, selections: 0, rounds: 0, scheduled_slots: 0, slot_status: { SELECTED: 0, FORFEITED: 0, UNRESOLVED: 0, MISSING_SOURCE_RECORD: 0 }, forfeited_slots: [], overall_numbers_absent: [], missing_slots: [], unresolved_slots: [], duplicate_slots: 0, rows_without_franchise_id: 0, legacy_slot_corrections: 0, legacy_slot_mismatches_unexplained: 0, selecting_franchises: 0, league_franchises: 0, franchises_without_a_selection: [], first_date: null, last_date: null },
     slot_picks: { assets_traded: 0, confirmed: 0, conflict: 0, selector_not_recorded: 0, forfeited_slot: 0, no_draft_result: 0, trades_after_selection: 0, chain_breaks: 0, resolution_rate_confirmed: null },
     future_picks: { assets_traded: 0, confirmed: 0, inferred: 0, unresolved: 0, unresolved_by_reason: { no_draft_result: 0, custody_not_observed: 0, inventory_not_complete: 0, ambiguous_candidates: 0 }, inventory_blockers: { forfeited_slot_in_round: 0, slot_token_transfer_in_round: 0, records_and_evidence_disagree: 0, slot_count_not_one_per_team: 0, earliest_record_after_evidence: 0, chain_break: 0 }, funnel: { traded: 0, custody_observed_strict: 0, inventory_complete_strict: 0, inventory_complete_if_slot_tokens_netted: 0, single_candidate_slot: 0, would_infer_if_windows_observed_and_tokens_netted: 0, event_accounting_eligible_if_custody_verified: 0, event_accounting_eligible_without_flags: 0, event_accounting_flag_first_sender_assumption: 0, event_accounting_flag_holder_has_several_final_slots: 0, event_accounting_flag_token_trade_within_24h_of_a_selection: 0 }, event_accounting_blockers: {} },
@@ -109,7 +109,7 @@ function nettedInventory(ledger, year, round, evidenceTs, holder) {
 export function buildArchiveExtraction({ archive, root, forfeitures = null }) {
   const ledger = buildLedger({ archive, root, forfeitures });
   const season = new Map(years.map((y) => [y, newSeason(y)]));
-  const lists = { slot_conflicts: [], trades_after_selection: [], pick_chain_discontinuities: [], player_chain_breaks: [], unpaired_or_unknown_legs: [], duplicate_legs: [], draft_missing_source_records: [], draft_unresolved_slots: [], known_forfeitures: [], legacy_slot_corrections: [], legacy_slot_mismatches_unexplained: [], future_pick_ambiguous_examples: [] };
+  const lists = { slot_conflicts: [], trades_after_selection: [], pick_chain_discontinuities: [], player_chain_breaks: [], unpaired_or_unknown_legs: [], duplicate_legs: [], draft_missing_source_records: [], draft_unresolved_slots: [], known_forfeitures: [], legacy_slot_corrections: [], legacy_slot_mismatches_unexplained: [], future_pick_ambiguous_examples: [], cap_amount_from_raw_token: [], cap_amount_unrecoverable: [], cap_amount_conflicts: [] };
   const totals = Object.fromEntries(Object.keys(lists).map((k) => [k, 0]));
   const outOfScope = { player_chain_breaks_dated_after_2025: 0 };
   const note = (kind, row) => { totals[kind] += 1; if (lists[kind].length < LIST_CAP) lists[kind].push(row); };
@@ -132,7 +132,13 @@ export function buildArchiveExtraction({ archive, root, forfeitures = null }) {
       if (seen.has(key)) note("duplicate_legs", { trade: t.id, season: t.season, asset: l.asset });
       seen.add(key);
     }
-    for (const c of t.cap) { s.cap.transfers += 1; s.cap.total_amount += c.amount; }
+    for (const c of t.cap) {
+      s.cap.transfers += 1;
+      if (c.amount == null) { s.cap.amount_unrecoverable += 1; note("cap_amount_unrecoverable", { trade: t.id, from: c.from, to: c.to, problem: c.problem }); }
+      else s.cap.total_amount += c.amount;
+      if (c.amount_source === "raw_token") { s.cap.amount_from_raw_token += 1; note("cap_amount_from_raw_token", { trade: t.id, from: c.from, to: c.to, amount: c.amount, token: c.token, archive_column: "blank", ...(c.fractional ? { fractional: true } : {}) }); }
+      if (c.conflict_token) note("cap_amount_conflicts", { trade: t.id, from: c.from, to: c.to, column_amount: c.amount, raw_token: c.conflict_token });
+    }
     const pv = packageView(t, () => null);
     if (pv.package) s.packages.multi_asset_trades += 1; else s.packages.one_for_one_trades += 1;
     s.packages.largest_side_items = Math.max(s.packages.largest_side_items, ...pv.sides.map((x) => Math.max(x.assets_sent, x.assets_received)));
@@ -304,7 +310,7 @@ export function buildArchiveExtraction({ archive, root, forfeitures = null }) {
 
   const sum = (f) => years.reduce((a, y) => a + f(season.get(y)), 0);
   const summary = {
-    coverage, seasons: years.length, trades: sum((s) => s.trades.count), multi_asset_trades: sum((s) => s.trades.packages.multi_asset_trades), cap_transfers: sum((s) => s.trades.cap.transfers), cap_total: sum((s) => s.trades.cap.total_amount),
+    coverage, seasons: years.length, trades: sum((s) => s.trades.count), multi_asset_trades: sum((s) => s.trades.packages.multi_asset_trades), cap_transfers: sum((s) => s.trades.cap.transfers), cap_total: sum((s) => s.trades.cap.total_amount), cap_amounts_from_raw_token: sum((s) => s.trades.cap.amount_from_raw_token), cap_amounts_unrecoverable: sum((s) => s.trades.cap.amount_unrecoverable),
     draft_selections: sum((s) => s.draft.selections), scheduled_slots: sum((s) => s.draft.scheduled_slots), slot_status: Object.fromEntries(["SELECTED", "FORFEITED", "UNRESOLVED", "MISSING_SOURCE_RECORD"].map((k) => [k, sum((s) => s.draft.slot_status[k])])), legacy_slot_corrections: sum((s) => s.draft.legacy_slot_corrections), legacy_slot_mismatches_unexplained: sum((s) => s.draft.legacy_slot_mismatches_unexplained), draft_rows_without_franchise_id: sum((s) => s.draft.rows_without_franchise_id),
     slot_picks: { traded: sum((s) => s.slot_picks.assets_traded), confirmed: sum((s) => s.slot_picks.confirmed), conflict: sum((s) => s.slot_picks.conflict), selector_not_recorded: sum((s) => s.slot_picks.selector_not_recorded), forfeited_slot: sum((s) => s.slot_picks.forfeited_slot), no_draft_result: sum((s) => s.slot_picks.no_draft_result), trades_after_selection: sum((s) => s.slot_picks.trades_after_selection) },
     future_picks: { traded: sum((s) => s.future_picks.assets_traded), confirmed: 0, inferred: sum((s) => s.future_picks.inferred), unresolved: sum((s) => s.future_picks.unresolved), funnel: Object.fromEntries(Object.keys(season.get(FIRST_YEAR).future_picks.funnel).map((k) => [k, sum((s) => s.future_picks.funnel[k])])), event_accounting_windows_needed: [...neededWindows.values()].sort((a, b) => a.from.localeCompare(b.from)), event_accounting_blockers: Object.fromEntries([...new Set(years.flatMap((y) => Object.keys(season.get(y).future_picks.event_accounting_blockers)))].sort().map((k) => [k, sum((s) => s.future_picks.event_accounting_blockers[k] || 0)])) },

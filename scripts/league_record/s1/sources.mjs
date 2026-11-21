@@ -22,6 +22,14 @@ export const futurePickAsset = (orig, year, round) => `fpick:${orig}:${Number(ye
 export const slotPickAsset = (year, round, slot) => `spick:${Number(year)}:${Number(round)}:${Number(slot)}`;
 
 // MFL trade tokens: a bare number is a player; FP_<original franchise>_<year>_<round>; DP_<round0>_<slot0> (the year is the trade's draft year); BB_<dollars> is cap money.
+// A cap token is BB_<amount>: whole dollars, or a decimal such as BB_3000.00 (the form MFL wrote for two 2025 trades). The amount is the exact decimal as recorded; a malformed token (a sign, an
+// exponent, a second dot, an empty amount) is refused, never guessed. fractional is true when the amount is not a whole number, so it can be reported.
+export function parseCapToken(token) {
+  const m = /^BB_(\d{1,9})(?:\.(\d{1,6}))?$/.exec(String(token).trim());
+  if (!m) return null;
+  const amount = Number(m[2] ? `${m[1]}.${m[2]}` : m[1]);
+  return { amount, fractional: !Number.isInteger(amount), token: String(token).trim() };
+}
 export function parseTokens(text, draftYear) {
   const out = [];
   for (const raw of String(text || "").split(",")) {
@@ -31,7 +39,7 @@ export function parseTokens(text, draftYear) {
     if ((m = /^(\d{3,6})$/.exec(t))) out.push({ kind: "player", id: asset(playerAsset(m[1])), player_id: m[1], token: t });
     else if ((m = /^FP_(\d{4})_(\d{4})_(\d{1,2})$/.exec(t))) out.push({ kind: "future_pick", id: futurePickAsset(m[1], m[2], m[3]), original_franchise: m[1], year: Number(m[2]), round: Number(m[3]), token: t });
     else if ((m = /^DP_(\d{1,2})_(\d{1,2})$/.exec(t))) out.push({ kind: "slot_pick", id: slotPickAsset(draftYear, Number(m[1]) + 1, Number(m[2]) + 1), year: draftYear, round: Number(m[1]) + 1, slot: Number(m[2]) + 1, token: t });
-    else if ((m = /^BB_(\d+)$/.exec(t))) out.push({ kind: "cap", id: null, amount: Number(m[1]), token: t });
+    else if (parseCapToken(t)) out.push({ kind: "cap", id: null, amount: parseCapToken(t).amount, token: t });
     else out.push({ kind: "unknown", id: null, token: t });
   }
   return out;
@@ -59,7 +67,8 @@ export function franchiseNames(root, day) {
 // A trade: { id, source, date, time, ts, season, date_quality, parties: [a, b], legs: [{ asset, from, to }], cap: [{ amount, from, to }] }.
 const ARCHIVE_TRADE_SQL = `select transactionid, trade_group_id g, season, franchise_id f, franchise_name fname, asset_role role, asset_type t, player_id pid, player_name pname,
   asset_draftpick_season ds, asset_draftpick_round dr, asset_draftpick_overall dov, asset_draftpick_future_franchiseid ff, asset_draftpick_future_year fy, asset_draftpick_future_round fr,
-  asset_capadjustment cap, unix_timestamp ts, date_et, time_et from transactions_trades order by unix_timestamp, trade_group_id, transactionid`;
+  asset_capadjustment cap, unix_timestamp ts, date_et, time_et,
+  json_extract(raw_json, '$.franchise') jf1, json_extract(raw_json, '$.franchise1_gave_up') jg1, json_extract(raw_json, '$.franchise2_gave_up') jg2 from transactions_trades order by unix_timestamp, trade_group_id, transactionid`;
 
 function archiveAssetKey(r) {
   if (r.t === "PLAYER") return playerAsset(r.pid);
@@ -67,6 +76,21 @@ function archiveAssetKey(r) {
   if (r.t === "DRAFTPICK_CURRENT") return slotPickAsset(r.ds, r.dr, Number(r.dov) + 1);        // the slot is stored zero-indexed in the column named "overall"
   if (r.t === "CAP") return `cap:${r.cap}`;
   return null;
+}
+// The cap amount of a cap movement. Source-preserving correction (decision of 2026-11-21, register LR-05): the archive's amount column is the first source. When it is blank (two 2025 trades whose
+// token is a decimal, BB_3000.00 and BB_5000.00), the amount is read from the sender's own give-up list in the raw payload, only if that list holds exactly ONE well-formed cap token. Anything else
+// is left without an amount and reported as unrecoverable: no default, no guess. If both sources exist and disagree, the column wins and the disagreement is recorded. Raw records are never altered.
+export function capAmount(r) {
+  const column = r.cap != null && r.cap !== "" ? Number(r.cap) : null;
+  const list = String((r.f === r.jf1 ? r.jg1 : r.jg2) || "").split(",").map((x) => x.trim()).filter((x) => /^BB_/.test(x));
+  const token = list.length === 1 ? parseCapToken(list[0]) : null;
+  if (column != null && Number.isFinite(column)) {
+    const out = { amount: column, source: "archive_column" };
+    if (token && token.amount !== column) out.conflict_token = token.token;                    // recorded, never silently resolved
+    return out;
+  }
+  if (token) return { amount: token.amount, source: "raw_token", token: token.token, ...(token.fractional ? { fractional: true } : {}) };
+  return { amount: null, source: "unrecoverable", problem: list.length > 1 ? "the sender's list holds several cap tokens" : list.length === 1 ? "the cap token is malformed" : "no cap token in the sender's list" };
 }
 export function loadArchiveTrades(archive) {
   const rows = archive.all(ARCHIVE_TRADE_SQL);
@@ -84,7 +108,7 @@ export function loadArchiveTrades(archive) {
       if (idx < 0) { legs.push({ asset: key, from: r.f, to: null, unpaired: true, rows: [r.transactionid] }); continue; }
       used.add(idx);
       const to = acq[idx].f;
-      if (r.t === "CAP") cap.push({ amount: Number(r.cap), from: r.f, to, rows: [r.transactionid, acq[idx].transactionid] });
+      if (r.t === "CAP") { const ca = capAmount(r); cap.push({ amount: ca.amount, from: r.f, to, rows: [r.transactionid, acq[idx].transactionid], amount_source: ca.source, ...(ca.token ? { token: ca.token } : {}), ...(ca.fractional ? { fractional: true } : {}), ...(ca.conflict_token ? { conflict_token: ca.conflict_token } : {}), ...(ca.problem ? { problem: ca.problem } : {}) }); }
       else legs.push({ asset: key, kind: r.t === "PLAYER" ? "player" : r.t === "DRAFTPICK_FUTURE" ? "future_pick" : "slot_pick", from: r.f, to, label: r.t === "PLAYER" ? r.pname : null, rows: [r.transactionid, acq[idx].transactionid] });
     }
     const first = rs[0];
