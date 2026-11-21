@@ -206,7 +206,8 @@
     }).join("") + a.extras.map(function (p) {
       return '<div class="rx"><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small><b class=\"wn\">Starter fits no lineup slot</b> · " + esc(p.pos) + "</small></button></div></div>";
     }).join("");
-    return '<div class="card ' + (a.n ? "warnc" : "okc") + '">' + head + body +
+    // the green "all clear" border only when injuries were actually checked (fresh read); an unchecked card is neutral
+    return '<div class="card' + (a.n ? " warnc" : a.injuriesChecked ? " okc" : "") + '">' + head + body +
       (a.injuriesChecked ? "" : '<div class="ex wn mt4">Injury status is not available yet, so injuries are not counted here.</div>') +
       '<div class="ex mt4">Read only: nothing here can change the lineup.' + (doubtful ? " “Doubtful” means a decision may be needed, not that a player is out." : "") + "</div></div>";
   }

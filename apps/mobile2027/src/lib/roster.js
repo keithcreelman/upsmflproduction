@@ -159,6 +159,15 @@
 
   // ---------- injury chips (CURRENT information: drawn only on the current week) ----------
   function statusRead(S) { var st = S.intel && S.intel.status; return st && st.state === "ok" ? { state: "ok", data: st.data, at: st.at } : null; }
+  // The injury read is USABLE only while the resolver would use it: state "ok" with data, and no older than the resolver's own limit
+  // (IS.TTL, the same comparison its `fresh` makes), judged on the same clock (S.nowMs, else Date.now()) the chips and note use. An
+  // expired read draws no chips, so a screen must not count it as "checked" (R2b Codex finding MAT-1).
+  function injuryFresh(S) {
+    var IS = G.UPSInjuryStatus, read = statusRead(S);
+    if (!IS || !read || !read.data) return false;
+    var now = S.nowMs != null ? S.nowMs : Date.now();
+    return (now - (read.at || 0)) <= IS.TTL;
+  }
   // One chip per player from the classic app's resolver (the derived copy). `code` is the resolver's designation; `kind` is
   // "out" (can't play), "res" (an MFL roster designation: IR, PUP, NFI, SUSP, RET) or "warn" (Questionable, Doubtful, HOLD).
   function injuryChip(S, p) {
@@ -217,7 +226,7 @@
   // Starting slots that NEED ATTENTION this week (R2b, P3), one entry per slot, never two for the same player: OUT, an MFL roster designation
   // (IR, PUP, NFI, SUSP, RET), Doubtful ("a decision may be needed", not "out"), a bye this week, and a slot that is genuinely empty. A slot is
   // reported as empty only when no starter is left over: a starter that fits no slot is reported as that, never as an empty slot.
-  // Questionable is a chip, not an alert. `injuriesChecked` is false while the injury read is out or failed, so a screen never says
+  // Questionable is a chip, not an alert. `injuriesChecked` is false while the injury read is out, failed or EXPIRED (see injuryFresh), so a screen never says
   // "nothing needs attention" on an injury read it does not have.
   function attention(S, lineup, cur) {
     var items = [], st = S.intel && S.intel.status;
@@ -232,7 +241,7 @@
     });
     var extras = lineup.extra || [];
     var empties = extras.length ? [] : lineup.slots.filter(function (x) { return !x.player; }).map(function (x) { return x.slot; });
-    return { items: items, empties: empties, extras: extras, n: items.length + empties.length + extras.length, injuriesChecked: !!statusRead(S), injuryState: st ? st.state : "loading" };
+    return { items: items, empties: empties, extras: extras, n: items.length + empties.length + extras.length, injuriesChecked: injuryFresh(S), injuryState: st ? (st.state === "ok" && !injuryFresh(S) ? "stale" : st.state) : "loading" };
   }
   // Bench groups that "need you": a player still on the active roster who carries an MFL roster designation (IR, PUP, NFI, SUSP, RET).
   function groupReasons(S, players) {
@@ -275,7 +284,7 @@
 
   return {
     SLOTS: SLOTS, assignSlots: assignSlots, weeklyIndex: weeklyIndex, weekInfo: weekInfo, weekChoices: weekChoices, lineupFor: lineupFor,
-    gameState: gameState, oppText: oppText, kickoffText: kickoffText, injuryChip: injuryChip, injuryNote: injuryNote, onBye: onBye,
+    gameState: gameState, oppText: oppText, kickoffText: kickoffText, injuryChip: injuryChip, injuryFresh: injuryFresh, injuryNote: injuryNote, onBye: onBye,
     scoreOf: scoreOf, scoreRead: scoreRead, teamScoreOf: teamScoreOf, scoreWeek: scoreWeek, avgOf: avgOf, pts: pts, attention: attention, groupReasons: groupReasons,
     endingAfterSeason: endingAfterSeason, byeGroups: byeGroups, relWeek: relWeek, capNote: capNote, viewWeek: viewWeek, kickoffInfo: kickoffInfo, ORDINARY_SLATE: ORDINARY_SLATE
   };

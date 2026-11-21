@@ -311,4 +311,60 @@ test("P6: Byes groups are chronological, name today's slots only, collapse the p
   t.match(text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }, { view: "byes", model: m }))), /Week 12 · 5 current starters on bye: QB1, WR1, SF, DB1, DF/);
 });
 
+// ───────────────────────── P3 / Codex MAT-1: an EXPIRED injury read is not "checked" ─────────────────────────
+// The resolver (site/shared/injury_status.js) refuses a read older than its TTL (5 minutes) and draws no chips from it. The card used to
+// look only at the read's state, so an idle screen showed the green "nothing needs attention" over an injury read it no longer trusted.
+// The clock is the state's own (`nowMs`), the one the chips and the note already use; nothing here waits or reads the real time.
+
+test("MAT-1: an expired injury read is never an all-clear; the TTL boundary, known bye warnings, and recovery on a fresh read", async () => {
+  const TTL = globalThis.UPSInjuryStatus.TTL, T0 = 1700000000000, a = starterOf(state(await intelFor()), 0), b = starterOf(state(await intelFor()), 1);
+  const out = statusWith({ [a.id]: { mfl: { status: "Out", week: 11, details: "Knee" } } });
+  const base = await intelFor({ status: out }), m = model(); m.byId[b.id].bye = 11; // b is on a bye: a schedule fact, known without any injury read
+  const at = (when) => ({ ...base, status: { state: "ok", data: base.status.data, at: when } });
+  const S = (intel, now, over) => state(intel, { model: m, nowMs: now, ...(over || {}) }), lu = (s) => R.lineupFor(s, s.model.teams.find((x) => x.id === TEAM), 11);
+
+  // fresh, and exactly at the limit (the resolver's comparison is "not older than TTL"): the OUT starter and the bye both count
+  [T0, T0 + 1000, T0 + TTL].forEach((now) => {
+    const s = S(at(T0), now), x = R.attention(s, lu(s), 11);
+    t.equal(R.injuryFresh(s), true, "fresh at +" + (now - T0)); t.equal(x.injuriesChecked, true); t.equal(x.injuryState, "ok");
+    t.equal(x.n, 2, "OUT and bye are two slots"); t.ok(R.injuryChip(s, a), "the resolver draws the chip");
+    t.match(text(V.rosterBody(s)), /18 of 18 starters · 2 need attention/); t.doesNotMatch(text(V.rosterBody(s)), /injuries not checked|not available yet/);
+  });
+
+  // one millisecond past the limit, SAME data and SAME state, only the clock moved (the screen idled): the resolver draws nothing and the card says so
+  const old = S(at(T0), T0 + TTL + 1), xo = R.attention(old, lu(old), 11);
+  t.equal(R.injuryFresh(old), false); t.equal(R.injuryChip(old, a), null, "the resolver refuses the expired read");
+  t.equal(xo.injuriesChecked, false, "the card does not count an expired read as checked"); t.equal(xo.injuryState, "stale");
+  t.equal(R.injuryNote(old), "Checking injury status…", "the card agrees with the resolver's own note");
+  t.equal(xo.n, 1, "the known bye is still reported; the OUT starter is not invented from an expired read");
+  VIEWS.forEach((view) => {
+    const tx = text(V.rosterBody(S(at(T0), T0 + TTL + 1, { view })));
+    t.match(tx, /18 of 18 starters · 1 needs attention/, view + ": the bye still counts"); t.doesNotMatch(tx, /nothing needs attention/, view);
+    if (view === "lineup") t.match(tx, /Injury status is not available yet, so injuries are not counted here\./);
+  });
+  // without any known issue, an expired read says "injuries not checked", on all four views, never "nothing needs attention"
+  const clean = await intelFor(), atC = (when) => ({ ...clean, status: { state: "ok", data: clean.status.data, at: when } });
+  const m0 = model(), plain = (now, view) => state(atC(T0), { model: m0, nowMs: now, view }), s0 = plain(T0 + TTL + 1, "lineup");
+  t.equal(R.attention(s0, lu(s0), 11).n, 0);
+  VIEWS.forEach((view) => {
+    const tx = text(V.rosterBody(plain(T0 + TTL + 60000, view)));
+    t.match(tx, /18 of 18 starters · injuries not checked/, view); t.doesNotMatch(tx, /nothing needs attention/, view);
+    t.doesNotMatch(V.rosterBody(plain(T0 + TTL + 60000, view)), /class="card okc"/, view + ": no green all-clear card");
+  });
+
+  // the chip and the card never disagree: the resolver draws a chip exactly when the card calls the read checked, at every clock point
+  [-1000, 0, TTL - 1, TTL, TTL + 1, 10 * TTL].forEach((d) => { const s = S(at(T0), T0 + d); t.equal(!!R.injuryChip(s, a), R.injuryFresh(s), "chip and freshness agree at +" + d); });
+
+  // recovery: a fresh successful read (a later `at`) restores the injury items and the count, same screen, same clock
+  const rec = S(at(T0 + TTL + 1), T0 + TTL + 1), xr = R.attention(rec, lu(rec), 11);
+  t.equal(R.injuryFresh(rec), true); t.equal(xr.injuriesChecked, true); t.equal(xr.n, 2); t.ok(R.injuryChip(rec, a));
+  t.match(text(V.rosterBody(rec)), /18 of 18 starters · 2 need attention/); t.doesNotMatch(text(V.rosterBody(rec)), /injuries not checked/);
+  // and the plain case recovers to the green card
+  t.match(text(V.rosterBody(state(atC(T0 + 5 * TTL), { model: m0, nowMs: T0 + 5 * TTL }))), /18 of 18 starters · nothing needs attention/);
+
+  // a read with no timestamp is not fresh (the resolver treats a missing `at` as the epoch): never an all-clear either
+  const noAt = state({ ...clean, status: { state: "ok", data: clean.status.data } }, { model: m0, nowMs: T0 });
+  t.equal(R.injuryFresh(noAt), false); t.match(text(V.rosterBody(noAt)), /injuries not checked/);
+});
+
 await run("mobile2027_r2b");
