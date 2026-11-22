@@ -1,0 +1,74 @@
+{
+ "note": "A subset of MFL's players export (league 74598, read 2026-11-22): only the player ids the offline tests use. Same shape as the export.",
+ "players": {
+  "timestamp": "1795336623",
+  "player": [
+   {
+    "position": "WR",
+    "id": "12801",
+    "team": "FA",
+    "name": "Hill, Tyreek"
+   },
+   {
+    "position": "S",
+    "id": "13713",
+    "team": "NYJ",
+    "name": "Fitzpatrick, Minkah"
+   },
+   {
+    "position": "RB",
+    "id": "14085",
+    "team": "TEN",
+    "name": "Pollard, Tony"
+   },
+   {
+    "position": "TE",
+    "id": "14137",
+    "team": "NOS",
+    "name": "Fant, Noah"
+   },
+   {
+    "position": "WR",
+    "id": "14842",
+    "team": "PIT",
+    "name": "Pittman, Michael"
+   },
+   {
+    "position": "WR",
+    "id": "15292",
+    "team": "WAS",
+    "name": "Brown, Dyami"
+   },
+   {
+    "position": "QB",
+    "id": "15702",
+    "team": "PHI",
+    "name": "McKee, Tanner"
+   },
+   {
+    "position": "RB",
+    "id": "16594",
+    "team": "ARI",
+    "name": "Benson, Trey"
+   },
+   {
+    "position": "WR",
+    "id": "16617",
+    "team": "BUF",
+    "name": "Coleman, Keon"
+   },
+   {
+    "position": "WR",
+    "id": "16619",
+    "team": "DEN",
+    "name": "Franklin, Troy"
+   },
+   {
+    "position": "TE",
+    "id": "16649",
+    "team": "NYG",
+    "name": "Johnson, Theo"
+   }
+  ]
+ }
+}

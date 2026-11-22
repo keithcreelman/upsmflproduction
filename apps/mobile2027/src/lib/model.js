@@ -101,7 +101,10 @@
         tm.adjust = A.parseTeamRows(rows, { fid: tm.id, season: season, total: tm.cap.adjTotal, resolveName: resolveName });
       }
     });
-    return { season: season, week: week, asOf: F.str(rw && rw.generated_at), limits: limits, teams: teams, byId: byId };
+    // The league's salary cap for the season, as the roster read reports it (salary_cap_dollars). It is never typed into the app: without a real
+    // number above zero the screen says the total cap is unavailable and draws no available figure.
+    var capLimit = num(rw && rw.salary_cap_dollars);
+    return { season: season, week: week, asOf: F.str(rw && rw.generated_at), limits: limits, capLimit: capLimit != null && capLimit > 0 ? capLimit : null, teams: teams, byId: byId };
   }
 
   // Bench groups for one team: active players who are not starters, by position group in the league's order.
