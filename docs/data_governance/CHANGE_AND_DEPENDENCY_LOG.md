@@ -6,6 +6,8 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · correction (from the backlog session, #1503 H-INF-02)** · The 10 differences between the static `salary_adjustments_2026.json` and MFL's posted charges are explained by canon §D1's sub-$5K TCV rule (fixed $1K). All 10 had a pre-drop TCV ≤ $4K and posted at $1,000. With the rule applied, all 31 reconcile. The file remains a candidate projection that does not apply the rule, so it is not a ledger. On mobile its read is dead (`computeCapFor` uses the MFL feed only); the classic workbenches' use is unchecked (BL-S33). · #1502. · Classic roster and trade workbenches. · Inventory row updated.
+
 **2026-11-22 · finding (from the backlog session, #1503 H-INF-01)** · Three items reported by the backlog session (verified there against MFL's 2026 `salaryAdjustments` export, 2026-11-22 01:30Z; not re-checked here):
 - The cut-penalty poster writes an add/drop id with no player id for 31 of 41 charges (BL-I30, #1502).
 - Adjustment categories depend on exact description text (BL-M06).
