@@ -6,6 +6,13 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · finding** · The trade-bot cutover stopped at `fetch` at 15:51Z ("incorrect old value provided") and opened alert issue #1512. It is the 14th such stop in its log; the job retries every 30 minutes, and the snapshot is unchanged (still Week 10).
+- **Likely cause (inferred, not proven):** the bot's checkout shares one `.git` with dozens of session worktrees, so another process's `git fetch` updating `refs/remotes/origin/main` at the same moment races the cutover's fetch.
+- **Effect:** usually none beyond a 30-minute delay plus an alert issue that the next healthy run closes. Near the 11-25 deadline, though, a delay could matter.
+- **Proposed fix, needs Keith's go:** the cutover retries a failed fetch once after a short pause, or fetches into its own ref namespace.
+
+· `cutover.log`, #1512. · Week 11 delivery (BL-A12). · Watching #1512 and the Week 11 delivery.
+
 **2026-11-22 · change (by the backlog fork, on Keith's go in its chat)** · BL-I03 rolled out. #1509 merged as `312d9b6d` (10:48:14Z) and Discord direct-message alerts to Keith were configured.
 - **TEST message:** a first run failed on a bad target value and sent nothing; a second reported "sent (direct message)".
 - **Status:** BL-I03 stays open until Keith confirms the message reached his phone.
