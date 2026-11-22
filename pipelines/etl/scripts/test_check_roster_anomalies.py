@@ -388,6 +388,12 @@ def check_backtest(tmp: Path) -> list:
     #                            transaction at all. Genuinely unexplained.
     # What is asserted is the noise FLOOR: a check that lights up on ordinary
     # league days stops being read, and then the next silent drop is missed too.
+    # BASELINE (2026-11-21, after BBID_WAIVER drops were accepted): 4 of 212
+    # pairs flag (1.9%) — exactly the four reviewed days above. Before that fix
+    # it was 52 of 212 (24.5%), all but those four being blind-bid false alarms.
+    # Those genuine incident days stay counted on purpose, so a future incident
+    # moves the rate and a parsing regression (like the BBID one) pushes it over
+    # the ceiling and fails PR CI instead of quietly turning the daily run red.
     noisy = 100.0 * len(hits) / pairs if pairs else 0.0
     print(f"    -> {noisy:.1f}% of days flag anything")
     if noisy > 10.0:
