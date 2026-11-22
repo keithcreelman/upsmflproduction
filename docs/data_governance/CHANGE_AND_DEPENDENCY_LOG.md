@@ -6,6 +6,12 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · verified (BL-I33)** · The first scheduled `roster-anomaly-check` after the #1501 merge was **green**: run 45049329915 at 17:25Z on `a1d846a4`, with 0 roster drops, 0 unexplained moves and 0 contract regressions.
+- **The fix was exercised:** the day's window held 7 `BBID_WAIVER` transactions, 6 of them with a drop side. Before #1501 those would have been false alarms.
+- **The #1509 alert step ran:** "success, nothing open". Discord is off (`ALERT_DISCORD_ENABLED=0`), and no target value was printed.
+
+· Run 45049329915. · J3 consumers. · Closed as verified for this run; one run is not a trend.
+
 **2026-11-22 · finding** · The trade-bot cutover stopped at `fetch` at 15:51Z ("incorrect old value provided") and opened alert issue #1512. It is the 14th such stop in its log; the job retries every 30 minutes, and the snapshot is unchanged (still Week 10).
 - **Likely cause (inferred, not proven):** the bot's checkout shares one `.git` with dozens of session worktrees, so another process's `git fetch` updating `refs/remotes/origin/main` at the same moment races the cutover's fetch.
 - **Effect:** usually none beyond a 30-minute delay plus an alert issue that the next healthy run closes. Near the 11-25 deadline, though, a delay could matter.
