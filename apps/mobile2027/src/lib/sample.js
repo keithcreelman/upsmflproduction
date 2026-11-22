@@ -28,8 +28,12 @@
     return s;
   }
 
-  // The marker at the top of every screen.
-  function envText(on) { return on ? LABEL : PREVIEW; }
+  // The marker at the top of every screen. In recorded-data mode `recorded` is the snapshot's time ("Sun Nov 22, 2026, 10:22 AM ET"): the marker then
+  // says the page shows a recording, so nobody takes a figure for a live one. Sample mode keeps its own label.
+  function envText(on, recorded) {
+    if (on) return LABEL;
+    return recorded ? "PREVIEW · RECORDED DATA · recorded " + recorded + " · VIEW ONLY" : PREVIEW;
+  }
 
   return { LABEL: LABEL, PREVIEW: PREVIEW, create: create, envText: envText };
 });

@@ -103,7 +103,11 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/tabviews.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
+  // These tests run the page in LIVE mode against their own fake fetch (the committed default is recorded-data mode, which is tested in mobile2027_recorded.test.mjs).
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/tabviews.js", "lib/views.js", "app.js"]) {
+    vm.runInContext(read(f), ctx, { filename: f });
+    if (f === "config.js") ctx.UPS2027_CONFIG.data = "live";
+  }
   const click = async (attrs) => {
     const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));

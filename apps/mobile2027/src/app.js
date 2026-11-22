@@ -4,10 +4,23 @@
   "use strict";
   var U = window.UPS2027, cfg = window.UPS2027_CONFIG;
   var appEl = document.getElementById("app");
+  // Recorded-data mode (config.js: data "recorded", the committed default): every read is answered from the snapshot bundled with the page
+  // (recorded_data.js), by lib/recorded.js, and nothing is requested. `recordedInfo` carries the snapshot's time for the marker at the top.
+  var recordedFeed = null, recordedInfo = null;
+  if (cfg.data === "recorded") {
+    var bundle = window.UPS2027_RECORDED;
+    recordedFeed = U.recorded ? U.recorded.createFetch(bundle) : null;
+    var recAt = bundle && bundle.meta ? bundle.meta.recordedAt : "";
+    recordedInfo = { at: String(recAt || ""), label: U.format.etRecorded(recAt) || "at a time that could not be read" };
+  }
   // The page's one fetch. It is the loader's only way out, and it refuses outright while Sample mode is on (a third guard,
-  // behind the two in loadCore/loadPenalty). The build scan allows exactly this line and no other reference to fetch.
+  // behind the two in loadCore/loadPenalty). In recorded mode it answers from the snapshot and NEVER reaches the network, even when the snapshot
+  // is missing (the read then fails like any other failed read). Any data mode but the two known ones is refused. The build scan allows exactly the one
+  // network line below and no other reference to fetch.
   function guardedFetch(url, opts) {
     if (S.sample.on) return Promise.reject(new Error("Sample mode: no requests are made"));
+    if (cfg.data === "recorded") return recordedFeed ? recordedFeed(url, opts) : Promise.reject(new Error("The recorded data did not load"));
+    if (cfg.data !== "live") return Promise.reject(new Error("Unknown data mode: no request is made"));
     return window.fetch(url, opts);
   }
   var loader = U.data.createLoader(cfg, guardedFetch);
@@ -28,7 +41,7 @@
     pf: { s: "pos", open: {}, res: {} }, // Team › Performance: the sort (pos | diff | avg), which rows are open, which reserve groups are open
     gdef: pref("gdef", "needs"),
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
-    requestLog: loader.log, requestSummary: loader.summary(),
+    requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
   };
 

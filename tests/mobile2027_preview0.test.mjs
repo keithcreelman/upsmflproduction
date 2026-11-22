@@ -221,7 +221,7 @@ test("a failed read is reported as failed, not as an empty league", async () => 
 
 test("the source holds no write verb, credential name or second transport; fetch lives in one file", async () => {
   const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
-  const files = ["app.js", "config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/photo.js", "lib/views.js"];
+  const files = ["app.js", "config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/views.js"];
   const forbidden = [/XMLHttpRequest/, /sendBeacon/, /WebSocket/, /EventSource/, /document\.cookie/, /indexedDB/, /serviceWorker/, /importScripts/, /\beval\s*\(/, /new Function/,
     /\bPOST\b/, /\bPUT\b/, /\bDELETE\b/, /\bPATCH\b/, /MFL_USER_ID\s*[=:]/, /APIKEY\s*[=:]/i, /Authorization/, /method:\s*["'](?!GET)/];
   files.forEach((f) => { const s = read(f); forbidden.forEach((re) => t.doesNotMatch(s, re, f + " must not match " + re)); });

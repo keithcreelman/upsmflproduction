@@ -50,6 +50,17 @@
     } catch (e) { return ""; }
   }
 
+  // "Sun Nov 22, 2026, 10:22 AM ET" in the league's time zone: when the recorded snapshot was taken. "" if the time cannot be read.
+  function etRecorded(iso) {
+    var t = Date.parse(iso);
+    if (!isFinite(t)) return "";
+    try {
+      var parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).formatToParts(new Date(t));
+      var m = {}; parts.forEach(function (p) { m[p.type] = p.value; });
+      return m.weekday + " " + m.month + " " + m.day + ", " + m.year + ", " + m.hour + ":" + m.minute + " " + (m.dayPeriod || "") + " ET";
+    } catch (e) { return ""; }
+  }
+
   // "Sun 1:00 PM" in the league's time zone, from a Unix time in seconds, or "" if it cannot be read.
   function etKickoff(unix) {
     var n = Number(unix);
@@ -80,5 +91,5 @@
     return COMMON[c] || c;
   }
 
-  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp, etKickoff: etKickoff, dateLabel: dateLabel, commonCode: commonCode };
+  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp, etRecorded: etRecorded, etKickoff: etKickoff, dateLabel: dateLabel, commonCode: commonCode };
 });

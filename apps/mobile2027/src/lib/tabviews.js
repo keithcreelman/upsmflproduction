@@ -241,6 +241,10 @@
 
   // ---- Help: one control per Team screen; this is its text for each tab ----
   function screenHelp(S) {
+    var rec = S && S.recorded ? "<h4>Recorded data</h4><p>This preview uses a recorded snapshot taken " + esc(S.recorded.label) + ", so the figures will not move.</p>" : "";
+    return rec + screenHelpBody(S);
+  }
+  function screenHelpBody(S) {
     var sub = S.sub, m = S.model, wk = S.penalty && S.penalty.meta ? S.penalty.meta.earnedThroughWeek : null, asOf = m ? F.etStamp(m.asOf) : "";
     var G = A.NEXT_SEASON_GAP;
     function h(title, text) { return "<h4>" + esc(title) + "</h4><p>" + text + "</p>"; }
