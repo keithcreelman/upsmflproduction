@@ -6,7 +6,9 @@
 // Unknown" for everything outside it. The sources are kept apart here:
 //   direct source    the row itself carries a player id AND that id resolves to a name in the roster read (nameSource "direct");
 //   reviewed mapping the frozen, approved list of 31 add/drop charges (nameSource "reviewed_mapping"; its own test is mobile2027_reviewed_names);
-//   description text never used. An extra read for names is never made.
+//   description text never used.
+// PR A revision (Keith, 2026-11-22): a row's player id is also looked up in MFL's complete player list (by id, never by roster membership), so the 6 that no roster
+// names are named on screen once that list loads; this file covers the parsing (what an item carries), mobile2027_contracts_pra covers the screen.
 // Recorded data: the 2026 Week 10 roster read of all 12 teams (the 41 cut penalties of the 67 adjustment rows).
 import fs from "node:fs";
 import path from "node:path";
@@ -32,7 +34,7 @@ test("the recorded read has 41 cut penalties: 10 whose row carries a player id a
   t.deepEqual(forms, { player: 10, adddrop: 31 }, "the same 31 add/drop rows that the BL-M01 inventory lists, and the 10 that carry a player id");
 });
 
-test("35 of 41 are named: 4 by direct source (the row's id is on a roster in the read) and 31 by the reviewed list; the other 6 read Player Unknown", () => {
+test("35 of 41 are named by the roster read and the reviewed list: 4 by direct source (the row's id is on a roster in the read) and 31 by the reviewed list; the other 6 are named by id from MFL's complete player list (mobile2027_contracts_pra)", () => {
   const items = parse(A.nameResolver(model, null));
   t.equal(items.length, 41);
   const direct = items.filter((i) => i.nameSource === "direct"), mapped = items.filter((i) => i.nameSource === "reviewed_mapping"), unknown = items.filter((i) => !i.playerName);
@@ -40,7 +42,9 @@ test("35 of 41 are named: 4 by direct source (the row's id is on a roster in the
   t.ok(direct.every((i) => i.playerId && model.byId[i.playerId] && i.playerName === model.byId[i.playerId].name), "a direct name always comes from the row's own id, through the roster read");
   const idBearing = cutRows.filter((x) => A.classify(x.row.explanation).idForm === "player").length;
   t.equal(idBearing - direct.length, 6, "the 6: the row has a player id, the cut player is on no roster in this read, and no extra read is made to find him");
-  t.ok(unknown.every((i) => i.nameSource === null && i.playerId === null), "no source, no name; the app shows Player Unknown");
+  // PR A revision: the row's player id is always kept, so the screen can name these 6 from MFL's complete player list (by id, whatever roster he is on)
+  t.ok(unknown.every((i) => i.nameSource === null && /^\d+$/.test(i.playerId)), "no name from the roster; the id is kept so the screen can look it up in the complete player list");
+  t.ok(items.every((i) => /^\d{4}-\d{2}-\d{2}$/.test(i.cutDate)), "every cut penalty has a verified cut date: the key's drop time (10) or the reviewed list (31)");
 });
 
 test("the reviewed list works without any roster read, and the 6 stay unknown: nothing else names a player, description text included", () => {

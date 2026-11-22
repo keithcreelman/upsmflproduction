@@ -62,6 +62,55 @@ Four GET requests through the Worker's public MFL export route for league 74598:
 | `adddrop2025_692.2` | 0005 | 13189 | Engram, Evan | yes | BBID_WAIVER; 0s; 1 | 0 | $2,800 |
 | `adddrop2025_698.1` | 0011 | 15240 | Lance, Trey | yes | FREE_AGENT; 0s; 1 | 0 | $2,100 |
 
+## Cut dates (added 2026-11-22)
+The Contracts screen shows, for every cut penalty, the **cut date** (for example "Cut Oct 4, 2025") next to the **charge season** ("Charged to 2026"). Dates are shown in Eastern Time and only when verified; a row with no verified date says "Cut date not recorded".
+
+**Method (read-only; no credentials; no writes).**
+1. *The 31 add/drop rows.* The date of each row is the date part of `drop.dropped_at_et` ("YYYY-MM-DD HH:MM:SS", Eastern Time) on the matching row of the 2026 block of the UPS salary-adjustments ledger (`rows[]` whose `description` contains `id:adddrop2025_...`), matched on source token, team and posted amount. These were compared with MFL's own 2025 transactions: the drop of that player by that team has the same Eastern Time calendar date in **31 of 31** rows. The first 10 characters are stored as `cutDate` in `reviewed_names.js`.
+2. *The 10 rows that carry a player id.* The ledger key of such a row is `<player id>_<10 digits>`; the 10 digits are the drop's Unix time. That time equals MFL's own drop transaction to the second in **10 of 10** rows. The app converts it to the Eastern Time date and accepts only a whole number between 1,500,000,000 and 2,000,000,000.
+3. *Next season's ledger.* A "Drop (next season)" row of `/api/cap-adjustments/next-season` carries `dropped_at_iso` (UTC); the app converts it to the Eastern Time date, and only for drop rows. A date with no time or no zone is not placed on a day.
+
+**Result: 31 of 31 (reviewed list) and 10 of 10 (player-id keys).**
+
+**Limits.**
+- The time of day is not shown. A BBID waiver drop is processed at 9:00 AM ET, so the ledger carries 09:00:00 for those rows; only the calendar date is a fact worth showing.
+- The offline test (`tests/mobile2027_reviewed_names.test.mjs`) checks **transcription**: that the bundle's dates equal the second copy in `reviewed_names_31.json`. It does not check that a date is MFL's. That identity is the verification above, which needs live MFL data.
+- The charge season is not the cut date: 31 of the 41 recorded cut penalties carry a 2025 add/drop id (they were cut in 2025) and are 2026 charges.
+
+| Source token | Team | Player (MFL) | Cut date (ET) | Shown as |
+|---|---|---|---|---|
+| `adddrop2025_114.1` | 0010 | Fitzpatrick, Minkah | 2025-08-13 | Aug 13, 2025 |
+| `adddrop2025_129.1` | 0009 | Chark, D.J. | 2025-08-17 | Aug 17, 2025 |
+| `adddrop2025_141.2` | 0007 | Richardson, Anthony | 2025-08-23 | Aug 23, 2025 |
+| `adddrop2025_192.2` | 0006 | Sweat, T'Vondre | 2025-09-12 | Sep 12, 2025 |
+| `adddrop2025_231.2` | 0001 | Pratt, Germaine | 2025-09-25 | Sep 25, 2025 |
+| `adddrop2025_266.2` | 0001 | Felton, Tai | 2025-10-02 | Oct 2, 2025 |
+| `adddrop2025_276.2` | 0002 | Edwards, T.J. | 2025-10-02 | Oct 2, 2025 |
+| `adddrop2025_298.2` | 0010 | Helm, Gunnar | 2025-10-04 | Oct 4, 2025 |
+| `adddrop2025_333.2` | 0006 | Martinez, Damien | 2025-10-11 | Oct 11, 2025 |
+| `adddrop2025_336.1` | 0001 | Browning, Jake | 2025-10-12 | Oct 12, 2025 |
+| `adddrop2025_364.2` | 0007 | Elliss, Kaden | 2025-10-16 | Oct 16, 2025 |
+| `adddrop2025_369.2` | 0008 | Gray, Noah | 2025-10-17 | Oct 17, 2025 |
+| `adddrop2025_370.2` | 0008 | Bates, Jessie | 2025-10-17 | Oct 17, 2025 |
+| `adddrop2025_371.2` | 0008 | Allen, Zach | 2025-10-17 | Oct 17, 2025 |
+| `adddrop2025_380.1` | 0007 | White, Keion | 2025-10-18 | Oct 18, 2025 |
+| `adddrop2025_382.1` | 0003 | Guerendo, Isaac | 2025-10-19 | Oct 19, 2025 |
+| `adddrop2025_391.2` | 0003 | Sanders, Ja'Tavion | 2025-10-19 | Oct 19, 2025 |
+| `adddrop2025_399.2` | 0005 | Franklin, Zaire | 2025-10-23 | Oct 23, 2025 |
+| `adddrop2025_425.2` | 0001 | Chubb, Bradley | 2025-10-25 | Oct 25, 2025 |
+| `adddrop2025_426.2` | 0010 | Chism, Efton | 2025-10-25 | Oct 25, 2025 |
+| `adddrop2025_427.2` | 0010 | Thibodeaux, Kayvon | 2025-10-25 | Oct 25, 2025 |
+| `adddrop2025_490.1` | 0012 | Lockett, Tyler | 2025-11-04 | Nov 4, 2025 |
+| `adddrop2025_549.2` | 0004 | Nubin, Tyler | 2025-11-16 | Nov 16, 2025 |
+| `adddrop2025_594.1` | 0005 | Harris, Najee | 2025-11-26 | Nov 26, 2025 |
+| `adddrop2025_595.1` | 0001 | Engram, Evan | 2025-11-27 | Nov 27, 2025 |
+| `adddrop2025_596.2` | 0005 | Winfield, Antoine | 2025-11-27 | Nov 27, 2025 |
+| `adddrop2025_634.1` | 0012 | Winston, Jameis | 2025-12-04 | Dec 4, 2025 |
+| `adddrop2025_651.2` | 0001 | Greenard, Jonathan | 2025-12-11 | Dec 11, 2025 |
+| `adddrop2025_657.2` | 0008 | Musgrave, Luke | 2025-12-11 | Dec 11, 2025 |
+| `adddrop2025_692.2` | 0005 | Engram, Evan | 2025-12-20 | Dec 20, 2025 |
+| `adddrop2025_698.1` | 0011 | Lance, Trey | 2025-12-21 | Dec 21, 2025 |
+
 ## How to re-verify
 Re-run the script below against fresh exports (it needs network access; it is not part of the safe suite) and compare its table with this one and with `reviewed_names.js`. Any difference needs a new reviewed list and Keith's go before the bundle changes.
 

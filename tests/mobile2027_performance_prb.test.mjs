@@ -23,6 +23,8 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const body = (html) => html.split('id="screen"')[1].split("<nav")[0];
 const LM = () => Object.assign({}, clone(FX3.lineup_matchups_w11), clone(FX4.hist));
 
+// The shared player-list read keeps a row only when it has a name (it also names players on Team › Contracts); the recorded positions file has none, and the real export always does.
+const named = (p) => (p.name ? p : Object.assign({ name: "Player, " + p.id }, p));
 async function intel(over) {
   over = over || {};
   const lm = over.lm || LM();
@@ -30,7 +32,7 @@ async function intel(over) {
     const u = new URL(url), ty = u.searchParams.get("TYPE"), w = u.searchParams.get("W");
     if (u.pathname === "/api/lineup-matchups") return ok(Object.assign({}, lm, { week: Number(w) }));
     if (ty === "playerScores") return ok({ playerScores: { playerScore: (over.scores || FX4.scores)[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) } });
-    if (ty === "players") return over.noPlayers ? { ok: false, status: 502, text: async () => "x" } : ok({ players: { player: over.players || FX4.players } });
+    if (ty === "players") return over.noPlayers ? { ok: false, status: 502, text: async () => "x" } : ok({ players: { player: (over.players || FX4.players).map(named) } });
     if (ty === "nflByeWeeks") return over.failCal ? { ok: false, status: 502, text: async () => "x" } : ok(CAL.byes);
     if (ty === "nflSchedule" && w === "ALL") return over.failCal ? { ok: false, status: 502, text: async () => "x" } : ok(over.calFull || CAL.full);
     if (ty === "nflSchedule") { if (over.failSched === w) return { ok: false, status: 502, text: async () => "x" }; return ok(w === "10" ? (over.schedule10 || FX4.schedule10) : w === "11" ? (over.schedule11 || FX4.schedule11) : { nflSchedule: { matchup: [] } }); }

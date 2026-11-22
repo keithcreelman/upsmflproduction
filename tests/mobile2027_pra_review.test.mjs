@@ -62,9 +62,9 @@ test("2027 detail: figures only when the items add up to the ledger's own total;
   t.match(onMfl, /1 record is already on MFL and not counted here\./); t.doesNotMatch(onMfl, /could not be verified/, "a record on MFL is not unverified");
 });
 
-test("the 2026 commitments row shows no total when the roster read has no cap total", () => {
-  const s = state({ ct: { f: "all", s: "end", open: {}, bd: false, cat: {}, ns: false } }), tm = s.model.teams.find((x) => x.id === "0010"); tm.cap = { capTotal: null, adjTotal: null, unresolved: true };
-  const tx = text(V.app(s)); t.match(tx, /Unavailable: this roster read did not include the team’s cap total/); t.match(tx, /2026 — Cap hits/); t.doesNotMatch(tx, /2026 \$\d/, "no dollar total on the 2026 row");
+test("the cap card shows no total and no available figure when the roster read has no cap total; the later years still show", () => {
+  const s = state({ ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false } }), tm = s.model.teams.find((x) => x.id === "0010"); tm.cap = { capTotal: null, adjTotal: null, unresolved: true };
+  const tx = text(V.app(s)); t.match(tx, /Unavailable: this roster read did not include the team’s cap total/); t.match(tx, /Later years 2027 — Total committed cap/); t.doesNotMatch(tx, /2026 \$\d|Available cap space/, "no dollar total for this season");
 });
 
 test("a disabled button looks disabled", () => {

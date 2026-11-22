@@ -90,7 +90,7 @@ test("player identity: a name only when an authoritative player id resolves; oth
 test("nothing from a source string survives: no description, note, id, date or other team in any result or in the model", () => {
   const r = A.parseTeamRows([row(1000, CUT_ADD), row(-5000, TRADE), row(500, ROUND), row(3000, FINE)], { fid: "0010", season: 2026, total: -500 });
   const s = JSON.stringify(r); ["UPS", "settlement", "adddrop", "ups_rule2", "trade_2026", "ups_drop_rounding", "offense", "explanation", "description", "timestamp"].forEach((w) => t.doesNotMatch(s, new RegExp(w, "i"), w));
-  r.items.forEach((i) => t.deepEqual(Object.keys(i).sort(), ["amount", "category", "nameSource", "playerId", "playerName", "season"]));
+  r.items.forEach((i) => t.deepEqual(Object.keys(i).sort(), ["amount", "category", "cutDate", "nameSource", "playerId", "playerName", "season"]));   // cutDate: an Eastern Time calendar date or null, never a source string
   const ms = JSON.stringify(model()); t.doesNotMatch(ms, /UPS drop penalty|traded salary settlement|RULE 2|rawRows|explanation/);
 });
 
@@ -161,6 +161,68 @@ test("years ahead: this season keeps half injured-reserve relief; later seasons 
   t.equal(y[0].hitsIncomplete, false);
   const gap = { id: "x", status: "active", salary: 5000, years: 2, special: "CL 2|Y1-5K" };
   t.equal(A.commitments({ players: [gap] }, 2026, adj0, none, 2)[1].hitsIncomplete, true, "a year with no recorded amount is incomplete, never $0");
+});
+
+// ───────────────────────── PR A revision: cut dates (Eastern Time) and the player id that is always kept ─────────────────────────
+const F = require(path.join(SRC, "format.js"));
+
+test("etDate: a Unix time becomes its Eastern Time calendar date; late evening UTC is still the previous day in New York; implausible values are null", () => {
+  const sec = (iso) => Date.parse(iso) / 1000;
+  t.equal(A.etDate(sec("2025-10-04T13:00:00Z")), "2025-10-04", "9:00 AM ET (EDT)");
+  t.equal(A.etDate(sec("2025-10-05T02:30:00Z")), "2025-10-04", "10:30 PM EDT on Oct 4 is Oct 5 in UTC");
+  t.equal(A.etDate(sec("2025-12-21T03:30:00Z")), "2025-12-20", "10:30 PM EST (winter) is the next UTC day");
+  t.equal(A.etDate(sec("2025-12-21T05:00:00Z")), "2025-12-21", "midnight EST is the new ET day");
+  t.equal(A.etDate(sec("2025-03-09T06:59:59Z")), "2025-03-09", "just before the spring change"); t.equal(A.etDate(sec("2025-11-02T05:30:00Z")), "2025-11-02", "the fall change day");
+  t.equal(A.etDate(1779459271), "2026-05-22", "Dyami Brown's recorded drop time"); t.equal(A.etDate(1784717601), "2026-07-22");
+  t.equal(A.etDate(1759626000000), "2025-10-04", "13 digits are milliseconds (9:00 PM EDT on Oct 4 is 01:00 UTC on Oct 5)");
+  [1499999999, 2000000001, 0, -5, 17594.5, 1.7e9 + 0.5, NaN, Infinity, null, undefined, "abc", "", true, {}, [1759626000]].forEach((x) => t.equal(A.etDate(x), null, "not a plausible time: " + String(x)));
+  t.equal(A.etDate("1759626000"), "2025-10-04", "a digit string of the right length is accepted"); t.equal(A.etDate("17596260001"), null, "an 11-digit string is neither seconds nor milliseconds");
+});
+
+test("etDateFromIso: only an ISO time WITH a time zone places a drop on a day; a bare date, a date without a zone and junk never do", () => {
+  t.equal(A.etDateFromIso("2026-08-08T13:26:53.000Z"), "2026-08-08"); t.equal(A.etDateFromIso("2026-08-09T01:30:00.000Z"), "2026-08-08", "9:30 PM ET the evening before");
+  t.equal(A.etDateFromIso("2026-08-08T21:30:00-04:00"), "2026-08-08"); t.equal(A.etDateFromIso("2026-09-01T00:00:00Z"), "2026-08-31");
+  ["2026-09-01", "2026-09-01T10:00:00", "2026-09-01 10:00:00Z", "tomorrow", "", null, undefined, 1784717601, {}, "2026-13-45T10:00:00Z", "1999-01-01T00:00:00Z"].forEach((x) => t.equal(A.etDateFromIso(x), null, String(x)));
+});
+
+test("format.dateLabel writes an Eastern Time date as 'Oct 4, 2025' without shifting it, and refuses anything that is not a real date", () => {
+  t.equal(F.dateLabel("2025-10-04"), "Oct 4, 2025"); t.equal(F.dateLabel("2025-12-31"), "Dec 31, 2025"); t.equal(F.dateLabel("2028-02-29"), "Feb 29, 2028"); t.equal(F.dateLabel("2026-01-01"), "Jan 1, 2026");
+  ["2025-02-29", "2025-13-01", "2025-00-10", "2025-10-32", "2025-10-4", "10/04/2025", "", null, undefined, 20251004, "2025-10-04T10:00:00Z"].forEach((x) => t.equal(F.dateLabel(x), "", String(x)));
+});
+
+test("cut dates, 2026 rows: the player-id key carries the drop's Unix time; an add/drop row takes its date from the reviewed list; every other row has no date and no player", () => {
+  const near = "UPS drop penalty Whoever 1000 id:12801_1784717601", late = "UPS drop penalty Whoever 1000 id:12801_" + Math.round(Date.parse("2026-07-23T02:15:00Z") / 1000), odd = "UPS drop penalty Whoever 1000 id:12801_1111111111";
+  const r = A.parseTeamRows([row(1000, near), row(1000, late), row(1000, odd), row(1000, CUT_ADD), row(-5000, TRADE), row(-100, ROUND), row(3000, FINE)], { fid: "0010", season: 2026, total: 1000 + 1000 + 1000 + 1000 - 5000 - 100 + 3000 });
+  t.equal(r.items[0].cutDate, "2026-07-22"); t.equal(r.items[1].cutDate, "2026-07-22", "10:15 PM ET on Jul 22 is Jul 23 in UTC"); t.equal(r.items[2].cutDate, null, "a 10-digit number that is not a plausible time is not a date");
+  t.equal(r.items[3].cutDate, "2025-10-04", "adddrop2025_298.2 on team 0010 is Helm, dropped Oct 4, 2025 (ET)");
+  r.items.slice(4).forEach((i) => { t.equal(i.cutDate, null); t.equal(i.playerId, null); t.equal(i.playerName, null); });
+  t.equal(A.parseTeamRows([row(1000, "UPS drop penalty Whoever 1000 id:adddrop2025_9999.1")], { fid: "0010", season: 2026, total: 1000 }).items[0].cutDate, null, "an add/drop id that is not on the reviewed list: no date");
+});
+
+test("the player id is kept on a player-id row even when the roster does not resolve him; a roster-resolved name stays 'direct'; the reviewed mapping keeps its own source", () => {
+  const none = A.parseTeamRows([row(1000, CUT_PID)], { fid: "0010", season: 2026, total: 1000, resolveName: A.nameResolver(null, {}) }).items[0];
+  t.equal(none.playerId, "12801"); t.equal(none.playerName, null); t.equal(none.nameSource, null, "no name yet: nothing is claimed about a source"); t.equal(none.cutDate, "2026-07-22");
+  const named = A.parseTeamRows([row(1000, CUT_PID)], { fid: "0010", season: 2026, total: 1000, resolveName: A.nameResolver(null, { 12801: "Hill, Tyreek" }) }).items[0];
+  t.equal(named.playerName, "Hill, Tyreek"); t.equal(named.nameSource, "direct"); t.equal(named.playerId, "12801");
+  const rv = A.parseTeamRows([row(1000, CUT_ADD)], { fid: "0010", season: 2026, total: 1000, resolveName: A.nameResolver(null, { 17105: "Someone Else, Entirely" }) }).items[0];
+  t.equal(rv.nameSource, "reviewed_mapping"); t.equal(rv.playerName, "Helm, Gunnar", "the reviewed list wins for an add/drop token; it carries no player id to look up"); t.equal(rv.playerId, "17105");
+  // on the recorded read every one of the 41 cut penalties has a date and a player id; the 6 the roster does not name keep their ids
+  const m = model(); const cuts = []; m.teams.forEach((tm) => tm.adjust.items.forEach((i) => { if (i.category === "Cut Penalty") cuts.push(i); }));
+  t.equal(cuts.length, 41); t.ok(cuts.every((i) => /^\d{4}-\d{2}-\d{2}$/.test(i.cutDate) && /^\d+$/.test(i.playerId)), "41 of 41 have a cut date and a player id");
+  t.equal(cuts.filter((i) => !i.playerName).length, 4); t.ok(cuts.filter((i) => !i.playerName).every((i) => i.nameSource === null));
+});
+
+test("cut dates, 2027 ledger: dropped_at_iso (UTC) becomes the Eastern Time date, only on a drop row; a fine has no player and no date; a row with no time is 'not recorded'", () => {
+  const j = LEDGER({ by_fid: { "0010": { total: 6000 } }, rows: [
+    { player_id: "12801", franchise_id: "0010", amount: 1000, applies_to_season: 2027, dropped_at_iso: "2026-08-09T01:30:00.000Z", kind: "Drop (next season)", in_mfl: false },
+    { player_id: "15292", franchise_id: "0010", amount: 1000, applies_to_season: 2027, dropped_at_iso: "2026-08-08T13:26:53.000Z", kind: "Drop (next season)", in_mfl: false },
+    { player_id: "13713", franchise_id: "0010", amount: 1000, applies_to_season: 2027, kind: "Drop (next season)", in_mfl: false },
+    { player_id: "12", franchise_id: "0010", amount: 3000, applies_to_season: 2027, dropped_at_iso: "2026-07-28T12:00:00.000Z", kind: "RULE 2 fine (next season)", in_mfl: false }] });
+  const r = A.parseNextSeason(j, { fid: "0010", season: 2027, resolveName: A.nameResolver(null, { 12801: "Hill, Tyreek" }) });
+  t.equal(r.state, "ok"); t.deepEqual(r.items.map((i) => i.cutDate), ["2026-08-08", "2026-08-08", null, null]);
+  t.deepEqual(r.items.map((i) => i.playerId), ["12801", "15292", "13713", null], "ids kept on every drop; a fine has none even if the row sent one");
+  t.deepEqual(r.items.map((i) => i.playerName), ["Hill, Tyreek", null, null, null]); t.equal(r.items[0].nameSource, "direct"); t.equal(r.items[1].nameSource, null);
+  r.items.forEach((i) => t.deepEqual(Object.keys(i).sort(), ["amount", "category", "cutDate", "nameSource", "playerId", "playerName", "season"]));
 });
 
 run("mobile2027_adjust");

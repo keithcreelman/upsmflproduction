@@ -21,9 +21,9 @@
     model: null, load: { core: "loading", coreNotes: [], error: "" }, penalty: { state: "idle" },
     teamId: pref("team", ""), tab: "team", sub: "roster", view: "lineup", open: {}, flags: {},
     wk: null, // the week on screen; null means the current lineup week. Only a past week ever changes it (view-only)
-    intel: { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null }, // reads added in R2/R3/PR B, by their own address: injury status, NFL games and team history, weekly lineups, weekly player scores, NFL schedules, positions
+    intel: { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null }, // reads added in R2/R3/PR B, by their own address: injury status, NFL games and team history, weekly lineups, weekly player scores, NFL schedules, MFL’s complete player list (positions, clubs and names)
     live: null, // PR B: when every game of the lineup week was first seen final (starts the quiet period of the Final · updating chip)
-    ct: { f: "all", s: "end", open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group, sort, which rows are open; the cap-charge Breakdown, an open adjustment category, the next-season row
+    ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the sort (exp | sal | name), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
     pf: { f: "all", s: "pos", open: {}, res: {} }, // Team › Performance: the same
     gdef: pref("gdef", "needs"),
@@ -170,10 +170,15 @@
     if (rec && !(force && rec.state === "error")) return;
     intelRead(S.intel, "cal", function (f) { return loader.loadCalendar(U.complete.parseCalendar, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
   }
-  function ensurePlayers(force) {
+  // MFL's complete player list: names the player on a cap adjustment (Team › Contracts, PR A) and gives the position pools of the ranks (Team › Performance, PR B).
+  // One shared read, kept six hours. A failed read is asked again only on Retry (Performance) or, at most once a minute (the loader's own limit), the next time
+  // Contracts is opened (`again`).
+  function ensurePlayers(force, again) {
+    if (S.sample.on || !S.model) return;
     var rec = S.intel.players;
-    if (rec && !(force && rec.state === "error")) return;
-    intelRead(S.intel, "players", function (f) { return loader.loadPlayers(f); }, force && rec && rec.state === "error", null);
+    if (rec && rec.state !== "error") return;
+    if (rec && !force && !again) return;
+    intelRead(S.intel, "players", function (f) { return loader.loadPlayers(f); }, !!force && !!rec, null);
   }
   function ensurePerformance(force) {
     if (S.sample.on || !S.model || !S.model.week) return;
@@ -220,6 +225,7 @@
     if (S.sub === "contracts") { // the table paints first; the guarantee column loads second; a failed read is asked again only on Try again
       if (S.ct && S.ct.ns && S.ns.state === "idle") loadNext(false); // the row is open and nothing is in flight (a reload or Sample mode dropped the answer)
       if (S.penalty.state === "idle") loadPenalty(false); else if (force && S.penalty.state === "error") loadPenalty(true);
+      ensurePlayers(false, true);
       return;
     }
     if (S.sub === "performance") { ensureStatus(force); ensurePerformance(force); return; }
@@ -345,7 +351,8 @@
     else if (act === "view") { if (v === "lineup" || v === "byes") { S.view = v; S.sheet = null; render(); ensureIntel(); } }
     else if (act === "weeks") { S.sheet = "weeks"; render(); }
     else if (act === "ctf") { S.ct.f = v; render(true); }
-    else if (act === "cts") { S.ct.s = v; render(true); }
+    else if (act === "cts") { var nx = U.tabviews.ctNextSort(S.ct, v); S.ct.s = nx.s; S.ct.d = nx.d; render(true); }   // a new sort starts in its own direction; the same sort again reverses it
+    else if (act === "cty") { var yy = parseInt(v, 10); if (yy >= 0 && yy <= 2) { S.ct.y = yy; render(true); } }
     else if (act === "ctx") { S.ct.open[v] = !S.ct.open[v]; render(true); }
     else if (act === "ctbd") { S.ct.bd = !S.ct.bd; render(true); }
     else if (act === "ctcat") { S.ct.cat[v] = !S.ct.cat[v]; render(true); }

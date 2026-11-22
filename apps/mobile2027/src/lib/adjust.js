@@ -1,9 +1,11 @@
 /* UPS 2027 beta (PR A): cap adjustments. Pure functions: no network, no storage, no DOM.
 
-   What an owner may see about an adjustment is four things: the player (only when an authoritative player id resolves, or the charge is on UPS's frozen
+   What an owner may see about an adjustment is five things: the player (only when an authoritative player id resolves, or the charge is on UPS's frozen
    reviewed list (lib/reviewed_names.js, kept apart from direct resolution; Keith's ruling 2026-11-22), otherwise "Player Unknown"), the season, the signed
-   amount and the category. Everything else a source sends (descriptions, notes, dates, other
-   teams) is read here, used to decide those four things, and discarded: this file never returns a source string.
+   amount, the category and, for a cut penalty, the CUT DATE (an Eastern Time calendar date, only from a verified source: the drop time inside a player-id key, the
+   reviewed list, or the 2027 ledger's drop time; otherwise null). Everything else a source sends (descriptions, notes, other
+   teams) is read here, used to decide those things, and discarded: this file never returns a source string. A row's player id is always kept when the row
+   carries one, so the screen can name him from MFL's complete player list (by id, never by roster membership).
 
    Categories (owner ruling 2026-11-21): Cut Penalty, Traded Salary, FA Auction Fine, Rounding, Other.
    - A category is assigned only by an EXACT, full match of a machine-written pattern (a keyword such as "trade" or "drop" inside other
@@ -58,6 +60,26 @@
     return null;
   }
 
+  // ---- cut dates (Eastern Time) ----
+  // A Unix time (seconds, or milliseconds) -> the Eastern Time calendar date "YYYY-MM-DD", or null when it is not a plausible whole-number time
+  // (seconds between 1,500,000,000 and 2,000,000,000). A date is never guessed: anything else is null and the screen says "Cut date not recorded".
+  var ET_DATE = typeof Intl !== "undefined" && Intl.DateTimeFormat ? new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }) : null;
+  function etDate(v) {
+    var n = typeof v === "number" ? v : typeof v === "string" && /^\d{10,13}$/.test(v.trim()) ? Number(v.trim()) : NaN;
+    if (!isFinite(n) || Math.floor(n) !== n) return null;
+    var sec = n >= 1e11 ? n / 1000 : n;                    // a 13-digit value is milliseconds
+    if (!(sec >= 1500000000 && sec <= 2000000000) || !ET_DATE) return null;
+    var m = {};
+    try { ET_DATE.formatToParts(new Date(Math.floor(sec) * 1000)).forEach(function (p) { m[p.type] = p.value; }); } catch (e) { return null; }
+    return m.year && m.month && m.day ? m.year + "-" + m.month + "-" + m.day : null;
+  }
+  // An ISO time WITH a time zone ("2026-08-08T13:26:53.000Z") -> the Eastern Time date; a date with no time or no zone is not enough to place it on a day.
+  function etDateFromIso(s) {
+    if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/.test(s.trim())) return null;
+    var ms = Date.parse(s.trim());
+    return isFinite(ms) ? etDate(Math.round(ms / 1000) * 1000) : null;
+  }
+
   function zeroByCat() { var o = {}; CATEGORIES.forEach(function (c) { o[c] = 0; }); return o; }
   function newResult(season) {
     return { season: season, items: [], unverified: 0, unverifiedWhy: {}, duplicates: 0, byCategory: zeroByCat(), total: 0, reconciled: false, mismatch: null };
@@ -90,13 +112,15 @@
         if (seen[k]) { res.duplicates++; return; }
         seen[k] = true;
       }
-      var item = { category: cl ? cl.category : "Other", amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null };
-      if (cl && cl.idForm === "player" && typeof o.resolveName === "function") {
-        var nm = o.resolveName(cl.playerId);
-        if (nm) { item.playerId = cl.playerId; item.playerName = nm; item.nameSource = "direct"; }
+      var item = { category: cl ? cl.category : "Other", amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null, cutDate: null };
+      if (cl && cl.idForm === "player") {
+        // the row's own player id is always kept (the screen can name him later from the complete player list); a roster-resolved name is "direct"
+        item.playerId = cl.playerId;
+        if (typeof o.resolveName === "function") { var nm = o.resolveName(cl.playerId); if (nm) { item.playerName = nm; item.nameSource = "direct"; } }
+        item.cutDate = etDate(Number(K_PLAYER.exec(cl.key)[2]));   // the 10 digits are the drop's Unix time (verified equal to MFL's own drop record, 10 of 10)
       } else if (cl && cl.idForm === "adddrop" && tok && N) { // the reviewed list: token, team, season and posted amount must all match
         var rv = N.lookup(cl.key, fid, o.season, amt);
-        if (rv) { item.playerId = rv.id; item.playerName = rv.name; item.nameSource = "reviewed_mapping"; }
+        if (rv) { item.playerId = rv.id; item.playerName = rv.name; item.nameSource = "reviewed_mapping"; item.cutDate = /^\d{4}-\d{2}-\d{2}$/.test(rv.cutDate || "") ? rv.cutDate : null; }
       }
       res.items.push(item);
     });
@@ -126,10 +150,13 @@
       var pid = r && /^\d{1,9}$/.test(String(r.player_id == null ? "" : r.player_id)) ? String(r.player_id) : null;
       var key = category + "|" + String(r && (r.player_id || r.dropped_at_iso || "")) + "|" + amt;
       if (pid && r.dropped_at_iso) { if (seen[key + "|" + r.dropped_at_iso]) { res.duplicates++; return; } seen[key + "|" + r.dropped_at_iso] = true; }
-      var item = { category: category, amount: amt, season: o.season, playerId: null, playerName: null };
-      if (category === "Cut Penalty" && pid && typeof o.resolveName === "function") {
-        var nm = o.resolveName(pid);
-        if (nm) { item.playerId = pid; item.playerName = nm; }
+      var item = { category: category, amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null, cutDate: null };
+      if (category === "Cut Penalty") {   // only a drop has a player and a cut date; a fine or any other row never does
+        if (pid) {
+          item.playerId = pid;   // always kept, so the screen can name him from the complete player list
+          if (typeof o.resolveName === "function") { var nm = o.resolveName(pid); if (nm) { item.playerName = nm; item.nameSource = "direct"; } }
+        }
+        item.cutDate = etDateFromIso(r && r.dropped_at_iso);
       }
       res.items.push(item);
     });
@@ -206,7 +233,7 @@
 
   return {
     CATEGORIES: CATEGORIES, UNKNOWN_PLAYER: UNKNOWN_PLAYER, NEXT_SEASON_GAP: NEXT_SEASON_GAP,
-    classify: classify, amountOf: amountOf, parseTeamRows: parseTeamRows, parseNextSeason: parseNextSeason,
+    etDate: etDate, etDateFromIso: etDateFromIso, classify: classify, amountOf: amountOf, parseTeamRows: parseTeamRows, parseNextSeason: parseNextSeason,
     capBreakdown: capBreakdown, commitments: commitments, nameResolver: nameResolver
   };
 });
