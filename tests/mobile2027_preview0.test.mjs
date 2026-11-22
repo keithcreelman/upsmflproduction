@@ -54,7 +54,7 @@ function state(over) {
     requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
   };
 }
-const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "cts", "ctx", "pff", "pfs", "pfx", "pfres", "retryperf"];
+const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "cts", "cty", "ctx", "pff", "pfs", "pfx", "pfres", "retryperf", "help", "ctbd", "ctcat", "nsx", "retryns"];
 const findPlayer = (pred) => allPlayers().find(pred);
 
 // ───────────────────────── 1. contract text and schedule ─────────────────────────
@@ -362,7 +362,7 @@ test("the Player profile Contract tab: salary, years left, earned, remaining gua
   const opened = V.app(state({ profile: { pid: p.id, tab: "contract" }, flags: { rules: true, earned: true, cut: true, raw: true } }));
   t.match(opened, /Total value<\/b><span>\$70,000/); t.match(opened, /Guaranteed<\/b><span>\$52,500/); t.match(opened, /AAV \(as recorded\)<\/b><span>\$30,000/);
   t.match(opened, /\$14,000 from played years \+ \$588 this season/); t.match(opened, /Guarantee \$52,500 minus earned \$14,588/);
-  t.match(opened, /CL 3\| TCV 70K/); t.match(opened, /Nothing can be cut from here/);
+  t.doesNotMatch(opened, /CL 3\| TCV 70K/); t.match(opened, /Nothing can be cut from here/);
 });
 
 test("a rookie option year is shown separately and labeled, not as an obligation", () => {
@@ -393,7 +393,7 @@ test("nothing is drawn as $0 when the worker's answer is missing, loading, faile
   t.match(V.app(cases.failed), /data-act="retrypen"/);
   t.match(V.app(cases.review), /Acquisition week unclear/);
   const none = V.app(cases.absent);
-  t.match(none, /The worker’s answer is not available/);
+  t.match(none, /The UPS cap calculation is not available/);
 });
 
 test("the worker's own zero is shown as $0 (exempt cut), and the earned rules read as the Front Office words them", () => {

@@ -2,10 +2,11 @@
    Only an allowlist of fields is copied from each source. Nothing else the worker sends (extension previews,
    salary-adjustment rows, taxi history) is kept in memory or shown. */
 (function (root, factory) {
-  var api = factory(typeof require === "function" ? require("./format.js") : root.UPS2027.format);
+  var req = typeof require === "function";
+  var api = factory(req ? require("./format.js") : root.UPS2027.format, req ? require("./adjust.js") : root.UPS2027.adjust);
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.model = api; }
-})(typeof self !== "undefined" ? self : this, function (F) {
+})(typeof self !== "undefined" ? self : this, function (F, A) {
   "use strict";
 
   function asArray(v) { return Array.isArray(v) ? v : v == null || v === "" ? [] : [v]; }
@@ -84,12 +85,26 @@
       });
       var counts = { active: 0, taxi: 0, ir: 0 };
       players.forEach(function (p) { counts[p.status]++; });
+      var sm = t && t.summary && typeof t.summary === "object" ? t.summary : null;
       return {
         id: fid, name: F.str(t.franchise_name), abbrev: F.str(t.franchise_abbrev), icon: F.str(t.icon_url),
-        players: players, counts: counts, lineup: startSet ? { state: "ok", count: startSet.length, ids: startSet.slice() } : { state: "unavailable" }
+        players: players, counts: counts, lineup: startSet ? { state: "ok", count: startSet.length, ids: startSet.slice() } : { state: "unavailable" },
+        // The roster read's cap summary, allowlisted: three numbers. The adjustment rows are parsed below and their text is never kept.
+        cap: sm ? { capTotal: num(sm.cap_total_dollars), adjTotal: num(sm.salary_adjustment_total_dollars), unresolved: Array.isArray(sm.cap_unresolved) ? sm.cap_unresolved.length > 0 : !!sm.cap_unresolved, rawRows: Array.isArray(sm.salary_adjustment_raw_rows) ? sm.salary_adjustment_raw_rows : null } : null,
+        adjust: null
       };
     });
-    return { season: season, week: week, asOf: F.str(rw && rw.generated_at), limits: limits, teams: teams, byId: byId };
+    var resolveName = A.nameResolver({ byId: byId });
+    teams.forEach(function (tm) {
+      if (tm.cap) {
+        var rows = tm.cap.rawRows; tm.cap.rawRows = undefined; delete tm.cap.rawRows;
+        tm.adjust = A.parseTeamRows(rows, { fid: tm.id, season: season, total: tm.cap.adjTotal, resolveName: resolveName });
+      }
+    });
+    // The league's salary cap for the season, as the roster read reports it (salary_cap_dollars). It is never typed into the app: without a real
+    // number above zero the screen says the total cap is unavailable and draws no available figure.
+    var capLimit = num(rw && rw.salary_cap_dollars);
+    return { season: season, week: week, asOf: F.str(rw && rw.generated_at), limits: limits, capLimit: capLimit != null && capLimit > 0 ? capLimit : null, teams: teams, byId: byId };
   }
 
   // Bench groups for one team: active players who are not starters, by position group in the league's order.

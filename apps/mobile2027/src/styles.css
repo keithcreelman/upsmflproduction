@@ -53,6 +53,7 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border-radius:10px;border:1.5px solid var(--bs);background:transparent;font-weight:600;font-size:13px}
 .btn.pri{background:var(--ac);border-color:var(--ac);color:var(--on)}
 .btn.blk{display:flex;width:100%;margin-top:8px}
+.btn:disabled,.btn[aria-disabled="true"]{opacity:.5;cursor:not-allowed;border-style:dashed}
 [data-vib="1"] .btn.pri{background:linear-gradient(135deg,var(--ac),var(--g2));border-color:transparent}
 .link{border:0;background:transparent;color:var(--ac);min-height:44px;padding:0 4px;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none}
 
@@ -177,6 +178,10 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .k2 small,.k3 small{display:block;font-size:12px;color:var(--mu)}
 .sec2{margin:10px 0 2px;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mu)}
 .sec2.first{margin-top:0}
+.tprow{display:flex;gap:8px;align-items:stretch}.tprow .tp{flex:1;min-width:0}.tprow .ib{flex:0 0 44px;min-height:44px}
+.helpb h4{margin:12px 0 2px;font-size:13px}.helpb p{margin:2px 0;font-size:13px}
+.cl{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px}.cl b{font-variant-numeric:tabular-nums}.cl .link{text-align:left}
+.link.blk{display:block;width:100%;text-align:left;padding:6px 0}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
 .kv b{font-weight:600;color:var(--mu)}
 .kv span{min-width:0;overflow-wrap:anywhere}
@@ -218,6 +223,20 @@ button.btnrow{cursor:pointer}
 .rw{border-bottom:1px solid var(--bd)}
 .rw:last-child{border-bottom:0}
 .rb{display:flex;flex-direction:column;gap:2px;width:100%;min-height:44px;border:0;background:transparent;text-align:left;padding:8px 2px;color:var(--tx)}
+/* PR A (Team › Contracts): the name opens the profile (its own 44 px control); the rest of the row opens the details */
+.nmb{display:block;width:100%;min-height:44px;border:0;background:transparent;text-align:left;padding:8px 2px 0;color:var(--tx)}
+.nmb .l1{font-weight:700;font-size:14px;overflow-wrap:anywhere;text-decoration:underline;text-decoration-color:var(--bs);text-underline-offset:3px}
+.rw .rb{padding-top:0}
+.rb .chv{white-space:nowrap;color:var(--ac);font-weight:600}
+.cells .g small{display:block;font-size:12px}
+.kv span small{display:block;color:var(--mu);font-size:12px;font-weight:400}
+.big{font-size:28px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.capfig{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.capa{min-width:0;flex:1 1 auto}
+.capt{flex:0 0 auto;text-align:right;font-variant-numeric:tabular-nums}
+.capt b{display:block;font-size:16px}
+.cl .who{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}
+.seg button[aria-pressed="true"] span{font-size:12px}
 .rb .l1{font-weight:600;font-size:14px;overflow-wrap:anywhere}
 .rb .l2{font-size:12.5px;color:var(--mu);overflow-wrap:anywhere}
 .cells{font-size:13px;margin-top:2px}

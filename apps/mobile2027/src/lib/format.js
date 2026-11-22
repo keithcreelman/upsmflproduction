@@ -61,6 +61,18 @@
     } catch (e) { return ""; }
   }
 
+  // "2025-10-04" (a calendar date already in Eastern Time) -> "Oct 4, 2025", or "" when it is not a real date. No time zone is applied here:
+  // the date is written out exactly as given, so it can never shift by a day.
+  var MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function dateLabel(ymd) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(typeof ymd === "string" ? ymd : "");
+    if (!m) return "";
+    var y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+    var last = new Date(Date.UTC(y, mo, 0)).getUTCDate();   // days in that month (UTC, so the zone cannot matter)
+    if (mo < 1 || mo > 12 || d < 1 || d > last) return "";
+    return MONTHS[mo - 1] + " " + d + ", " + y;
+  }
+
   // The common NFL abbreviation (KC, GB, SF), not MFL's spelling (KCC, GBP, SFO).
   var COMMON = { GBP: "GB", KCC: "KC", LVR: "LV", NEP: "NE", NOS: "NO", SFO: "SF", TBB: "TB", JAC: "JAX", WSH: "WAS" };
   function commonCode(code) {
@@ -68,5 +80,5 @@
     return COMMON[c] || c;
   }
 
-  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp, etKickoff: etKickoff, commonCode: commonCode };
+  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp, etKickoff: etKickoff, dateLabel: dateLabel, commonCode: commonCode };
 });

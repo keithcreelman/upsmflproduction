@@ -17,12 +17,15 @@
   var RULES = [
     { path: "/roster-workbench", query: ["L", "YEAR"] },
     // R3: playerScores (every player's recorded score for one week; public MFL scoring, no owner text) feeds Team › Performance
-    { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults", "playerScores"] },
+    // PR A: players (MFL's complete player list: id, name, position, club; public data) names the player on a cap adjustment by id, whether or not he is on a roster
+  { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults", "playerScores", "players"] },
     { path: "/api/current-lineup-week", query: ["L", "YEAR"] },
     { path: "/api/cap-penalty/preview", query: ["L", "YEAR"] },
     // stage R2 (Team › Roster): injury status for every player, and this week's NFL games (opponent, home or away, kickoff)
     { path: "/api/player-status", query: ["season", "L"] },
-    { path: "/api/lineup-matchups", query: ["YEAR", "W"] }
+    { path: "/api/lineup-matchups", query: ["YEAR", "W"] },
+    // PR A: next season's recorded drop penalties and missed-nomination fines (the UPS ledger, not yet on MFL); asked for only when the next-season row is opened
+    { path: "/api/cap-adjustments/next-season", query: ["L", "YEAR"] }
   ];
   var SECRET_NAME = /mfl_user_id|apikey|api_key|key|token|session|cookie|password|auth/i;
 
@@ -61,9 +64,11 @@
       week: base + "/api/current-lineup-week?" + q({ L: L, YEAR: Y }),
       weekly: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "weeklyResults", L: L, YEAR: Y, JSON: 1, W: w }); },
       scores: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "playerScores", L: L, YEAR: Y, JSON: 1, W: w }); },
+      players: base + "/api/mfl-export?" + q({ TYPE: "players", L: L, YEAR: Y, JSON: 1 }),
       penalty: base + "/api/cap-penalty/preview?" + q({ L: L, YEAR: Y }),
       status: base + "/api/player-status?" + q({ season: Y, L: L }),
-      matchups: function (w) { return base + "/api/lineup-matchups?" + q({ YEAR: Y, W: w }); }
+      matchups: function (w) { return base + "/api/lineup-matchups?" + q({ YEAR: Y, W: w }); },
+      nextSeason: base + "/api/cap-adjustments/next-season?" + q({ L: L, YEAR: Y })
     };
 
     function get(url, label) {
@@ -102,7 +107,7 @@
     // Each added read is kept in memory by its exact address and reused (switching views, weeks or teams never asks again).
     // It is asked again only on an explicit reload, or when its freshness limit has passed and the screen is used again.
     var memo = {};
-    var LIMIT = { status: 4 * 60 * 1000 + 30 * 1000, matchups: 5 * 60 * 1000, weekly: 60 * 60 * 1000, scores: 10 * 60 * 1000 };
+    var LIMIT = { status: 4 * 60 * 1000 + 30 * 1000, matchups: 5 * 60 * 1000, weekly: 60 * 60 * 1000, scores: 10 * 60 * 1000, players: 6 * 60 * 60 * 1000 };
     function cached(key, limit, run, force) {
       var m = memo[key], now = Date.now();
       if (!force && m) {
@@ -216,6 +221,39 @@
       });
     }
 
+    // PR A: next season's ledger of recorded cut charges and fines. Kept in memory by its exact address and reused (the answer is never stored
+    // on the phone); asked again only on Try again. The caller parses it right away and keeps only the allowlisted fields.
+    function loadNextSeason(force) {
+      return cached("ns", 10 * 60 * 1000, function () {
+        return settle(get(urls.nextSeason, "next-season adjustments")).then(function (r) {
+          if (r.state !== "ok") return r;
+          if (!r.data || typeof r.data !== "object") return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: r.data, at: Date.now() };
+        });
+      }, force);
+    }
+
+    // PR A: MFL's complete player list, kept in memory for six hours. Only { pos, club, name } per player id is kept (the name is MFL's "Last, First"
+    // string). An answer with no players is an error, never "no players": nothing is named from a read that came back empty.
+    function loadPlayers(force) {
+      return cached("players", LIMIT.players, function () {
+        return settle(get(urls.players, "player list")).then(function (r) {
+          if (r.state !== "ok") return r;
+          var pl = r.data && r.data.players, rows = pl && pl.player;
+          rows = Array.isArray(rows) ? rows : rows ? [rows] : [];
+          if (!rows.length) return { state: "error", data: null, error: "Unexpected answer" };
+          var byId = {};
+          rows.forEach(function (e) {
+            if (!e || e.id == null) return;
+            var id = String(e.id).trim(), name = typeof e.name === "string" ? e.name.trim() : "";
+            if (id && name) byId[id] = { pos: String(e.position == null ? "" : e.position).trim(), club: String(e.team == null ? "" : e.team).trim(), name: name };
+          });
+          if (!Object.keys(byId).length) return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: { byId: byId }, at: Date.now() };
+        });
+      }, force);
+    }
+
     function loadPenalty() {
       return settle(get(urls.penalty, "contract calculations")).then(function (r) {
         if (r.state !== "ok") return r;
@@ -236,7 +274,7 @@
       return by;
     }
 
-    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
+    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
   }
 
   return { RULES: RULES, check: check, createLoader: createLoader };

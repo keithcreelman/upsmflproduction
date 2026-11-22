@@ -78,14 +78,14 @@
 
   // kind: amount | rule | na | unavailable
   function earned(row) {
-    if (!row) return { kind: "unavailable", why: "The worker’s answer is not available" };
-    if (row.needs_review) return { kind: "unavailable", why: F.str(row.review_reason) || "The worker flagged this contract for review" };
+    if (!row) return { kind: "unavailable", why: "The UPS cap calculation is not available" };
+    if (row.needs_review) return { kind: "unavailable", why: F.str(row.review_reason) || "This contract is flagged for review" };
     var rule = row.earned_rule;
     if (rule === "full_year_sub_5k") return { kind: "rule", label: "Full-year rule" };
     if (rule === "ww_earned_na") return { kind: "na", label: "Not applicable" };
     if (rule) return { kind: "unavailable", why: "An earned rule this preview does not know" };
     if (finite(row.earned)) return { kind: "amount", amount: row.earned };
-    return { kind: "unavailable", why: "No earned amount from the worker" };
+    return { kind: "unavailable", why: "No earned amount in the calculation" };
   }
 
   function remainingGuarantee(row) {
@@ -95,9 +95,9 @@
   }
 
   function cutNow(row) {
-    if (!row) return { kind: "unavailable", why: "The worker’s cut-cost answer is not available" };
+    if (!row) return { kind: "unavailable", why: "The cut-cost calculation is not available" };
     if (row.needs_review) return { kind: "unavailable", why: F.str(row.review_reason) || "Needs review" };
-    if (!finite(row.penalty)) return { kind: "unavailable", why: "No cut cost from the worker" };
+    if (!finite(row.penalty)) return { kind: "unavailable", why: "No cut cost in the calculation" };
     var why = F.str(row.exempt_reason);
     if (!why && row.basis === "guarantee_minus_earned" && finite(row.guaranteed) && finite(row.earned)) {
       why = "Guarantee " + F.money(row.guaranteed) + " minus earned " + F.money(row.earned);

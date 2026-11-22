@@ -119,11 +119,17 @@
   }
 
   // ---------- one team's lineup for one week (historical when the week is past) ----------
+  // Only the HISTORICAL list uses this: a past week's starter who is no longer on any roster is shown as he was recorded ("No longer on a UPS roster").
   function stub(id) { return { id: String(id), name: "Player " + id, pos: "?", nflTeam: "", status: "gone", franchiseId: "", salary: null, years: 0, type: "", bye: null }; }
   function lineupFor(S, team, wk) {
     if (S.model && wk === S.model.week && team.lineup && team.lineup.state === "ok" && team.lineup.ids) {
-      var cp = team.lineup.ids.map(function (id) { return S.model.byId[id] || stub(id); }), ca = assignSlots(cp);
-      return { state: "ok", slots: ca.slots, extra: ca.extra, count: cp.length, filled: ca.slots.filter(function (x) { return x.player; }).length, scores: {}, total: null };
+      // A starter MFL names who is not in the roster read at all is UNRESOLVED: his position, slot, bye and injury are unknown, so no check that needs
+      // them is run for him. He is listed apart and never judged ("fits no lineup slot" is a claim about a known player). The mismatch threshold
+      // (lineupCoherence) only decides whether the whole screen is withheld; it never decides whether a missing fact is a lineup error.
+      var resolved = [], unresolved = [];
+      team.lineup.ids.forEach(function (id) { var p = S.model.byId[id]; if (p) resolved.push(p); else unresolved.push(String(id)); });
+      var ca = assignSlots(resolved);
+      return { state: "ok", slots: ca.slots, extra: ca.extra, unresolved: unresolved, count: team.lineup.ids.length, filled: ca.slots.filter(function (x) { return x.player; }).length, scores: {}, total: null };
     }
     var rec = S.intel && S.intel.wk && S.intel.wk[wk];
     if (!rec || rec.state === "loading") return { state: "loading" };
@@ -254,9 +260,13 @@
       if (onBye(p, cur)) issues.push({ kind: "bye", text: "Bye week" });
       if (issues.length) items.push({ slot: x.slot, player: p, issues: issues });
     });
-    var extras = lineup.extra || [];
-    var empties = extras.length ? [] : lineup.slots.filter(function (x) { return !x.player; }).map(function (x) { return x.slot; });
-    return { items: items, empties: empties, extras: extras, n: items.length + empties.length + extras.length, injuriesChecked: injuryFresh(S), injuryState: st ? (st.state === "ok" && !injuryFresh(S) ? "stale" : st.state) : "loading" };
+    var extras = lineup.extra || [], unresolved = lineup.unresolved || [], k = unresolved.length;
+    var emptySlots = lineup.slots.filter(function (x) { return !x.player; }).map(function (x) { return x.slot; });
+    // With unresolved starters we cannot say WHICH slot each fills: a slot is reported as empty only when there are more empty slots than
+    // unresolved starters, and then as a count, never by tag. With none unresolved it is reported by tag, as before.
+    var empties = extras.length || k ? [] : emptySlots;
+    var emptyCount = k && !extras.length ? Math.max(0, emptySlots.length - k) : 0;
+    return { items: items, empties: empties, emptyCount: emptyCount, extras: extras, unresolved: unresolved, n: items.length + empties.length + emptyCount + extras.length, injuriesChecked: injuryFresh(S), injuryState: st ? (st.state === "ok" && !injuryFresh(S) ? "stale" : st.state) : "loading" };
   }
   // Bench groups that "need you": a player still on the active roster who carries an MFL roster designation (IR, PUP, NFI, SUSP, RET).
   function groupReasons(S, players) {

@@ -22,20 +22,30 @@ const FIXSH = path.join(HERE, "fixtures/mobile2027/shared");
 const INJURY_PURE = BUILD.derivedBytes(BUILD.DERIVED[0], FIXSH).toString("utf8");
 const read = (rel) => fs.readFileSync(path.join(SRC, rel), "utf8");
 const tick = async (n = 12) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0)); };
+// PR A: next season's ledger as the Worker returns it (the shape is read from worker/src/index.js, GET /api/cap-adjustments/next-season)
+const NEXT_LEDGER = { ok: true, season: "2026", next_season: 2027, league_id: "74598", by_fid: { "0010": { total: 4000 } }, held_unpriced: [], needs_review: [], rows: [
+  { player_id: "12801", player: "Name In Text", franchise_id: "0010", amount: 1000, applies_to_season: 2027, dropped_at_iso: "2026-09-01T00:00:00Z", kind: "Drop (next season)", in_mfl: false },
+  { player_id: null, player: "Missed nomination", franchise_id: "0010", amount: 3000, applies_to_season: 2027, dropped_at_iso: "2026-07-28", kind: "RULE 2 fine (next season)", in_mfl: false }] };
 
-function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false, failStatus = 0, failWeek10 = 0, clock = null, holdIntel = false, r3 = false, failScores = 0 } = {}) {
+// PR A revision: MFL's complete player list (the ids these tests use; same shape as the export) and the league's salary cap, as the roster read reports it
+const PLAYERS = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/players_subset.json"), "utf8"));
+const ROSTER_READ = Object.assign({}, FX.roster_workbench, { salary_cap_dollars: 300000 });
+
+function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false, failStatus = 0, failWeek10 = 0, clock = null, holdIntel = false, r3 = false, failScores = 0, failNext = 0, failPlayers = 0 } = {}) {
   const calls = [];
   let releasePen = () => {}; const penGate = holdPen ? new Promise((r) => { releasePen = r; }) : null;
   let release = () => {}; const gate = hold ? new Promise((r) => { release = r; }) : null; // holds the roster read open until release()
-  const state = { failRoster, failPenalty, failStatus, failWeek10, failScores };
+  const state = { failRoster, failPenalty, failStatus, failWeek10, failScores, failNext, failPlayers };
   let releaseIntel = () => {}; const intelGate = holdIntel ? new Promise((r) => { releaseIntel = r; }) : null; // holds the Team › Roster adds open until releaseIntel()
   const body = (u) => {
-    if (u.pathname === "/roster-workbench") return FX.roster_workbench;
+    if (u.pathname === "/roster-workbench") return ROSTER_READ;
     if (u.pathname === "/api/current-lineup-week") return FX.current_lineup_week;
     if (u.pathname === "/api/cap-penalty/preview") return FX.cap_penalty;
+    if (u.pathname === "/api/cap-adjustments/next-season") return NEXT_LEDGER;
     if (u.pathname === "/api/player-status") return FX2.player_status;
     if (u.pathname === "/api/lineup-matchups") return Object.assign({}, r3 ? FX3.lineup_matchups_w11 : FX2.lineup_matchups_w11, { week: Number(u.searchParams.get("W")) });
     if (u.searchParams.get("TYPE") === "league") return FX.league;
+    if (u.searchParams.get("TYPE") === "players") return PLAYERS;
     if (u.searchParams.get("TYPE") === "playerScores") return { playerScores: { playerScore: FX3.scores[u.searchParams.get("W")] || [] } };
     return u.searchParams.get("W") === "10" ? FX2.weekly_results_w10 : FX.weekly_results;
   };
@@ -46,6 +56,8 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     if (penGate && u.pathname === "/api/cap-penalty/preview") await penGate;
     if (u.pathname === "/roster-workbench" && state.failRoster > 0) { state.failRoster--; return { ok: false, status: 503, text: async () => "down" }; }
     if (u.pathname === "/api/cap-penalty/preview" && state.failPenalty > 0) { state.failPenalty--; return { ok: false, status: 500, text: async () => "x" }; }
+    if (u.pathname === "/api/cap-adjustments/next-season" && state.failNext > 0) { state.failNext--; return { ok: false, status: 500, text: async () => "x" }; }
+    if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "players" && state.failPlayers > 0) { state.failPlayers--; return { ok: false, status: 502, text: async () => "x" }; }
     if (intelGate && (u.pathname === "/api/player-status" || u.pathname === "/api/lineup-matchups")) await intelGate;
     if (u.pathname === "/api/player-status" && state.failStatus > 0) { state.failStatus--; return { ok: false, status: 502, text: async () => "x" }; }
     if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "playerScores" && state.failScores > 0) { state.failScores--; return { ok: false, status: 502, text: async () => "x" }; }
@@ -76,7 +88,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/tabviews.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/tabviews.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
   const click = async (attrs) => {
     const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));
@@ -167,7 +179,7 @@ test("a failed read shows a retry that works; a failed calculation shows 'Not av
   const b = boot({ failPenalty: 1 }); await tick(30);
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await b.click({ "data-act": "card", "data-pid": pid }); await tick(20);
-  t.match(b.html(), /Not available/); t.match(b.html(), /data-act="retrypen"/); t.match(b.html(), /HTTP 500/);
+  t.match(b.html(), /Not available/); t.match(b.html(), /data-act="retrypen"/); t.match(b.html(), /Couldn’t load this/); t.match(b.html(), /Report bug/);
   await b.click({ "data-act": "retrypen" }); await tick(20);
   t.doesNotMatch(b.html(), /data-act="retrypen"/); t.equal(b.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 2);
 });
@@ -294,7 +306,7 @@ test("R2: a failed injury read says so, shows no guessed tags, and Try again rec
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
   t.match(a.html(), /That week’s lineup could not be read \(HTTP 502\)/); t.match(a.html(), /data-act="pickweek" data-v="10"/);
   await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
-  t.match(a.html(), /Week 10 starters/); t.doesNotMatch(a.html(), /could not be read/);
+  t.match(a.html(), /Recorded starters · Week 10/); t.doesNotMatch(a.html(), /could not be read/);
   await a.click({ "data-act": "pickweek", "data-v": "11" });
   await a.click({ "data-act": "retry" }); await tick(40);
   t.doesNotMatch(a.html(), /Injury status couldn’t be loaded/); t.match(a.html(), /▲ Questionable/, "Reload the data asks again and recovers");
@@ -338,18 +350,18 @@ test("R2: the About sheet carries the bench-group setting, which is kept on the 
 test("R2b: a chosen past week is kept across Byes, which always shows today; going back finds the same week; nothing is asked", async () => {
   const a = boot(); await tick(40);
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(40);
-  t.match(a.html(), /Week 10 starters/); t.match(a.html(), /class="wsel past"/);
+  t.match(a.html(), /Recorded starters · Week 10/); t.match(a.html(), /class="wsel past"/);
   const n = a.calls.length;
   for (const round of [1, 2]) {
     for (const v of ["byes"]) {
       await a.click({ "data-act": "view", "data-v": v });
       t.match(a.html(), /As of now · Week 11/, v + " (round " + round + "): as of now"); t.doesNotMatch(a.html(), /class="wsel/, v + ": no week bar over today's data");
-      t.doesNotMatch(a.html(), /Week 10 starters|Week 10 · played|Played · as MFL recorded it/, v + ": nothing labeled with the past week");
+      t.doesNotMatch(a.html(), /Recorded starters · Week 10|Week 10 · played|Played · as MFL recorded it/, v + ": nothing labeled with the past week");
     }
     await a.click({ "data-act": "view", "data-v": "lineup" });
-    t.match(a.html(), /Week 10 starters/, "Lineup: the week chosen before is still chosen"); t.match(a.html(), /class="wsel past"/); t.doesNotMatch(a.html(), /As of now/);
+    t.match(a.html(), /Recorded starters · Week 10/, "Lineup: the week chosen before is still chosen"); t.match(a.html(), /class="wsel past"/); t.doesNotMatch(a.html(), /As of now/);
     await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" });
-    t.match(a.html(), /Week 10 starters/, "through Byes and back: still Week 10");
+    t.match(a.html(), /Recorded starters · Week 10/, "through Byes and back: still Week 10");
   }
   t.equal(a.calls.length, n, "switching between the past and the present views asks for nothing");
   // choosing the current week again returns every view to the present
@@ -365,11 +377,11 @@ const scoreReads = (a) => a.calls.filter((c) => c.type === "playerScores").map((
 test("R3: Team › Contracts paints the table first and says Loading… for the guarantee column; the answer then fills it; nothing is $0 while it is out", async () => {
   const a = boot({ holdPen: true }); await tick(40); const n = a.calls.length;
   await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(5);
-  t.match(a.html(), /Recorded salary, not cap space/); t.match(a.html(), /Guarantee left/); t.match(a.html(), /Loading…/, "the guarantee column says Loading");
-  t.doesNotMatch(a.html(), /\$0 fully earned|Not tracked/); t.doesNotMatch(a.html(), /<b>\$0<\/b>/);
-  t.deepEqual(a.calls.slice(n).map((c) => c.path), ["/api/cap-penalty/preview"], "the one extra read is the guarantee calculation, asked after the table was drawn");
+  t.match(a.html(), /Recorded salary, not cap space/); t.match(a.html(), /Remaining guarantee/); t.match(a.html(), /Loading…/, "the guarantee column says Loading");
+  t.doesNotMatch(a.html(), /Fully earned|Not applicable/); t.doesNotMatch(a.html(), /<b>\$0<\/b>/);
+  t.deepEqual(a.calls.slice(n).map((c) => c.path + (c.type ? ":" + c.type : "")), ["/api/cap-penalty/preview", "/api/mfl-export:players"], "the extra reads are the guarantee calculation, asked after the table was drawn, and MFL's player list (PR A)");
   a.releasePen(); await tick(30);
-  t.doesNotMatch(a.html(), /Loading…/); t.match(a.html(), /\$\d[\d,]* fully earned|\$[\d,]+<\/b>|Not tracked|Under review|Unavailable/, "the column now holds guarantee values");
+  t.doesNotMatch(a.html(), /Loading…/); t.match(a.html(), /\$[\d,]+<\/b>|Fully earned|Not applicable|Under review|Unavailable/, "the column now holds guarantee values");
   await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(10);
   t.equal(a.calls.filter((c) => c.path === "/api/cap-penalty/preview").length, 1, "coming back asks nothing more");
 });
@@ -377,9 +389,9 @@ test("R3: Team › Contracts paints the table first and says Loading… for the 
 test("R3: a failed guarantee read says Unavailable (never $0), offers Try again, and recovers", async () => {
   const a = boot({ failPenalty: 1 }); await tick(40);
   await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(30);
-  t.match(a.html(), /Unavailable/); t.match(a.html(), /data-act="retrypen"/); t.doesNotMatch(a.html(), /\$0 fully earned/); t.doesNotMatch(a.html(), /<b>\$0<\/b>/);
+  t.match(a.html(), /Unavailable/); t.match(a.html(), /data-act="retrypen"/); t.doesNotMatch(a.html(), /Fully earned/); t.doesNotMatch(a.html(), /<b>\$0<\/b>/);
   await a.click({ "data-act": "retrypen" }); await tick(30);
-  t.doesNotMatch(a.html(), /data-act="retrypen"/); t.match(a.html(), /\$[\d,]+<\/b>|\$\d[\d,]* fully earned|Not tracked/);
+  t.doesNotMatch(a.html(), /data-act="retrypen"/); t.match(a.html(), /\$[\d,]+<\/b>|Fully earned|Not applicable/);
 });
 
 test("R3: Team › Performance asks for the matchup read, then the weekly score reads (five, because team history is one week behind), once each; going back and forth asks nothing more", async () => {
@@ -465,4 +477,82 @@ test("R3: the profile's Performance tab shows the game log from the same reads (
   t.match(a.html(), /Opponents, snaps and lineup status are not in this preview/);
 });
 
-await run("mobile2027_controller");
+test("PR A: Contracts reads nothing for next season until the next-season row is opened; then one bare GET, reused; a failure offers Retry and a disabled Report bug", async () => {
+  const ns = (a) => a.calls.filter((c) => c.path === "/api/cap-adjustments/next-season");
+  const a = boot(); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(15);
+  t.equal(ns(a).length, 0, "opening Contracts makes no next-season read");
+  await a.click({ "data-act": "nsx" }); await tick(20);
+  t.equal(ns(a).length, 1); t.equal(ns(a)[0].opts.method, "GET"); t.equal(ns(a)[0].opts.credentials, "omit"); t.equal(ns(a)[0].opts.headers, undefined);
+  t.deepEqual([...new URL(ns(a)[0].url).searchParams.keys()].sort(), ["L", "YEAR"]);
+  t.match(a.html(), /UPS ledger amounts, not yet on MFL/); t.match(a.html(), /adjustments \+\$4,000/);
+  await a.click({ "data-act": "ctcat", "data-v": "y27Cut Penalty" }); t.match(a.html(), /Tyreek Hill/, "named by his id from MFL's complete player list"); t.match(a.html(), /Cut Aug 31, 2026 · Charged to 2027/, "2026-09-01T00:00:00Z is 8:00 PM ET on Aug 31"); t.doesNotMatch(a.html(), /Player Unknown|Name In Text|Missed nomination/);
+  await a.click({ "data-act": "nsx" }); await a.click({ "data-act": "nsx" }); await tick(10);
+  t.equal(ns(a).length, 1, "closing and reopening the row reuses the answer");
+  const b = boot({ failNext: 1 }); await tick(30);
+  await b.click({ "data-act": "sub", "data-v": "contracts" }); await b.click({ "data-act": "nsx" }); await tick(20);
+  t.match(b.html(), /Couldn’t load this/); t.match(b.html(), /data-act="retryns"/); t.match(b.html(), /<button class="btn" disabled aria-disabled="true">Report bug<\/button>/);
+  t.doesNotMatch(b.html(), /adjustments \+\$/, "a failed read shows no amount");
+  await b.click({ "data-act": "retryns" }); await tick(20);
+  t.equal(ns(b).length, 2); t.match(b.html(), /adjustments \+\$4,000/); t.doesNotMatch(b.html(), /Couldn’t load this/);
+  b.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
+});
+
+test("PR A: the disabled Report bug placeholder does nothing: no request, no change, even if a tap reaches it", async () => {
+  const a = boot({ failNext: 1 }); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await a.click({ "data-act": "nsx" }); await tick(20);
+  const before = a.calls.length, htmlBefore = a.html();
+  await a.click({}); await tick(5); // a tap on an element with no data-act (the placeholder has none)
+  t.equal(a.calls.length, before); t.equal(a.html(), htmlBefore);
+  t.equal((a.html().match(/Report bug/g) || []).length, 1); t.doesNotMatch(a.html(), /data-act="report/);
+});
+
+await test("PR A review: an open next-season row is asked again after Sample mode drops its read; it never sits on Loading… with nothing in flight", async () => {
+  const a = boot(); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(15);
+  const opened = a.click({ "data-act": "nsx" }); // the read starts and is still in flight when Sample mode is switched on and off
+  await a.click({ "data-act": "sample" }); await a.click({ "data-act": "sample" }); await opened; await tick(40);
+  t.match(a.html(), /adjustments \+\$4,000/); t.doesNotMatch(a.html(), /Loading…/);
+});
+
+test("PR A revision: Contracts asks for MFL's complete player list once (a bare GET of the allowed export type), reuses it, and names a player by id; nothing else new is asked", async () => {
+  const pl = (a) => a.calls.filter((c) => c.type === "players");
+  const a = boot(); await tick(30); const n = a.calls.length;
+  t.equal(pl(a).length, 0, "nothing asks for the list until Team › Contracts is opened");
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(30);
+  t.equal(pl(a).length, 1); t.equal(pl(a)[0].opts.method, "GET"); t.equal(pl(a)[0].opts.credentials, "omit"); t.equal(pl(a)[0].opts.headers, undefined); t.equal(pl(a)[0].path, "/api/mfl-export");
+  t.deepEqual([...new URL(pl(a)[0].url).searchParams.keys()].sort(), ["JSON", "L", "TYPE", "YEAR"]); t.equal(new URL(pl(a)[0].url).searchParams.get("TYPE"), "players");
+  t.deepEqual(a.calls.slice(n).map((c) => c.path + (c.type ? ":" + c.type : "")).sort(), ["/api/cap-penalty/preview", "/api/mfl-export:players"], "the guarantee calculation and the player list: nothing else");
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "sub", "data-v": "contracts" }); await a.click({ "data-act": "nav", "data-v": "market" }); await a.click({ "data-act": "nav", "data-v": "team" }); await tick(20);
+  await a.click({ "data-act": "cts", "data-v": "sal" }); await a.click({ "data-act": "cty", "data-v": "1" }); await a.click({ "data-act": "ctbd" }); await a.click({ "data-act": "nsx" }); await tick(30); await a.click({ "data-act": "ctcat", "data-v": "y27Cut Penalty" });
+  t.equal(pl(a).length, 1, "coming back, sorting and opening a row ask for the list no more");
+  t.equal(a.calls.filter((c) => c.path === "/api/cap-adjustments/next-season").length, 1, "the 2027 row still makes its one read, when it is opened");
+  t.match(a.html().replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /Tyreek Hill Cut Aug 31, 2026 · Charged to 2027/, "no tap needed to name him: the list was already in memory");
+  a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
+});
+
+test("PR A revision: while the player list is out a name is a quiet '…'; if it fails the row says 'Name unavailable' (never Player Unknown), and the screen is not blocked", async () => {
+  const a = boot({ failPlayers: 1 }); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await a.click({ "data-act": "nsx" }); await tick(30); await a.click({ "data-act": "ctcat", "data-v": "y27Cut Penalty" }); await tick(5);
+  t.doesNotMatch(a.html(), /Player Unknown/);
+  t.match(a.html().replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /Name unavailable Cut Aug 31, 2026 · Charged to 2027 \+\$1,000/);
+  t.match(a.html(), /Recorded salary, not cap space/, "the rest of the screen works");
+  t.equal(a.calls.filter((c) => c.type === "players").length, 1, "a failed list is not asked again on every tap");
+});
+
+test("PR A revision: the sort segments work in the real app: Salary shows the year chips, tapping the active sort reverses it, Expiration reverses its groups; no request is made", async () => {
+  const a = boot(); await tick(30); await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(30); const n = a.calls.length;
+  const heads = () => [...a.html().matchAll(/Expiration date <b>(\d{4})<\/b>/g)].map((m) => +m[1]);
+  t.doesNotMatch(a.html(), /data-act="cty"/); const asc = heads(); t.ok(asc.length >= 2);
+  await a.click({ "data-act": "cts", "data-v": "exp" }); t.deepEqual(heads(), asc.slice().reverse(), "tapping the active Expiration reverses the groups"); t.match(a.html(), /aria-label="Sorted by expiration, latest first\. Tap to reverse\."/);
+  await a.click({ "data-act": "cts", "data-v": "exp" }); t.deepEqual(heads(), asc, "and again");
+  await a.click({ "data-act": "cts", "data-v": "sal" }); t.match(a.html(), /data-act="cty" data-v="0" aria-pressed="true"/); t.match(a.html(), /aria-label="Sorted by salary, highest first/); t.doesNotMatch(a.html(), /Expiration date/);
+  await a.click({ "data-act": "cty", "data-v": "1" }); t.match(a.html(), /data-act="cty" data-v="1" aria-pressed="true"/); t.match(a.html(), /data-act="cty" data-v="0" aria-pressed="false"/);
+  await a.click({ "data-act": "cts", "data-v": "sal" }); t.match(a.html(), /aria-label="Sorted by salary, lowest first/); t.match(a.html(), /data-act="cty" data-v="1" aria-pressed="true"/, "reversing keeps the year");
+  await a.click({ "data-act": "cts", "data-v": "name" }); t.doesNotMatch(a.html(), /data-act="cty"/, "the year chips leave with Salary"); t.match(a.html(), /Sorted by name, A to Z/);
+  await a.click({ "data-act": "cts", "data-v": "sal" }); t.match(a.html(), /aria-label="Sorted by salary, highest first/, "coming back to Salary starts highest first");
+  await a.click({ "data-act": "cty", "data-v": "7" }); t.match(a.html(), /data-act="cty" data-v="1" aria-pressed="true"/, "a year outside 2026 to 2028 is ignored");
+  t.equal(a.calls.length, n, "sorting asks for nothing");
+});
+
+run("mobile2027_controller");

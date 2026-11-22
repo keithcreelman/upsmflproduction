@@ -21,8 +21,9 @@
     model: null, load: { core: "loading", coreNotes: [], error: "" }, penalty: { state: "idle" },
     teamId: pref("team", ""), tab: "team", sub: "roster", view: "lineup", open: {}, flags: {},
     wk: null, // the week on screen; null means the current lineup week. Only a past week ever changes it (view-only)
-    intel: { status: null, mu: {}, wk: {}, scores: {} }, // reads added in R2/R3, by their own address: injury status, NFL games and season figures, weekly lineups, weekly player scores
-    ct: { f: "all", s: "end", open: {} }, // Team › Contracts: which group, sort, and which rows are open
+    intel: { status: null, mu: {}, wk: {}, scores: {}, players: null }, // reads added in R2/R3, by their own address: injury status, NFL games and season figures, weekly lineups, weekly player scores, MFL's complete player list (PR A)
+    ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the sort (exp | sal | name), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
+    ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
     pf: { f: "all", s: "pos", open: {}, res: {} }, // Team › Performance: the same
     gdef: pref("gdef", "needs"),
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
@@ -88,7 +89,7 @@
       else if (r.weekly.state !== "ok") notes.push("MFL’s submitted lineups could not be read (" + r.weekly.error + ").");
       S.model = U.model.build(rw, r.league.state === "ok" ? r.league.data : null, r.weekly.state === "ok" ? r.weekly.data : null, r.week, parseInt(cfg.season, 10));
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
-      S.intel = { status: null, mu: {}, wk: {}, scores: {} }; S.wk = null;
+      S.intel = { status: null, mu: {}, wk: {}, scores: {}, players: null }; S.wk = null; S.ns = { state: "idle" };
       if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
@@ -126,6 +127,21 @@
       S.intel.status = next; render(true);
     });
   }
+  // MFL's complete player list (PR A): names the player on a cap adjustment by id, whatever roster he is on. Asked once when Team › Contracts is opened and
+  // kept (six hours); a failed read is asked again, at most once a minute, the next time the screen is opened.
+  function ensurePlayers(force) {
+    if (S.sample.on || !S.model) return;
+    var cur = S.intel.players;
+    if (cur && (cur.state === "ok" || cur.state === "loading") && !force) return;
+    if (!cur) S.intel.players = { state: "loading" };
+    var mine = gen;
+    loader.loadPlayers(!!force).then(function (r) {
+      if (mine !== gen || S.sample.on) return;
+      var next = r.state === "ok" ? { state: "ok", data: r.data, at: r.at } : { state: "error", error: r.error || "" };
+      if (same(S.intel.players, next)) return;
+      S.intel.players = next; render(true);
+    });
+  }
   // Team › Performance (and a profile's game log): the current week's matchup read (season totals, latest final week, team history, next three
   // weeks), then the weekly scores of the latest final week and the three before it, at most four reads.
   function ensureScores(L, through, force) {
@@ -152,7 +168,9 @@
   function ensureIntel(force) {
     if (S.sample.on || !S.model || S.tab !== "team") return;
     if (S.sub === "contracts") { // the table paints first; the guarantee column loads second; a failed read is asked again only on Try again
+      if (S.ct && S.ct.ns && S.ns.state === "idle") loadNext(false); // the row is open and nothing is in flight (a reload or Sample mode dropped the answer)
       if (S.penalty.state === "idle") loadPenalty(false); else if (force && S.penalty.state === "error") loadPenalty(true);
+      ensurePlayers(false);
       return;
     }
     if (S.sub === "performance") { ensureStatus(force); ensurePerformance(force); return; }
@@ -178,6 +196,26 @@
     loader.loadPenalty().then(function (r) {
       if (mine !== gen || S.sample.on) { if (S.penalty.state === "loading") S.penalty = { state: "idle" }; return; }
       S.penalty = r; render(true);
+    });
+  }
+
+  // Next season's ledger: parsed the moment it arrives, for every team, keeping only the allowlisted fields (category, signed amount, season, and a
+  // player only when his id resolves). The answer itself is dropped; nothing from it is stored on the phone.
+  function loadNext(force) {
+    if (S.sample.on || !S.model) return;
+    if (!force && (S.ns.state === "loading" || S.ns.state === "ok")) return;
+    S.ns = { state: "loading" }; render(true);
+    var mine = gen;
+    loader.loadNextSeason(!!force).then(function (r) {
+      if (mine !== gen || S.sample.on) { if (S.ns.state === "loading") S.ns = { state: "idle" }; return; }
+      if (r.state !== "ok") { S.ns = { state: "error", why: "read" }; return render(true); }
+      var season = S.model.season + 1, resolveName = U.adjust.nameResolver(S.model, null), by = {}, bad = false;
+      S.model.teams.forEach(function (t) {
+        var p = U.adjust.parseNextSeason(r.data, { fid: t.id, season: season, resolveName: resolveName });
+        if (p.state !== "ok") bad = p.why || "unexpected"; else by[t.id] = p;
+      });
+      S.ns = bad ? { state: "error", why: bad } : { state: "ok", at: r.at, by: by };
+      render(true);
     });
   }
 
@@ -224,8 +262,18 @@
   }
   // Sample mode: turning it on drops anything in flight and closes an open profile (no league data is drawn);
   // turning it off reloads whatever the real screens still need, so nothing is left loading or empty.
+  // A read that Sample mode dropped leaves its holder at "loading" with nothing in flight: forget those records so the screen asks again.
+  function dropLoading() {
+    Object.keys(S.intel || {}).forEach(function (k) {
+      var v = S.intel[k];
+      if (v && v.state === "loading") S.intel[k] = null;
+      else if (v && typeof v === "object" && !v.state) Object.keys(v).forEach(function (w) { if (v[w] && v[w].state === "loading") delete v[w]; });
+    });
+    if (S.ns && S.ns.state === "loading") S.ns = { state: "idle" };
+  }
   function toggleSample() {
     gen++;
+    dropLoading();
     S.sample.toggle();
     if (S.sample.on) {
       S.profile = null;
@@ -248,8 +296,14 @@
     else if (act === "view") { if (v === "lineup" || v === "byes") { S.view = v; S.sheet = null; render(); ensureIntel(); } }
     else if (act === "weeks") { S.sheet = "weeks"; render(); }
     else if (act === "ctf") { S.ct.f = v; render(true); }
-    else if (act === "cts") { S.ct.s = v; render(true); }
+    else if (act === "cts") { var nx = U.tabviews.ctNextSort(S.ct, v); S.ct.s = nx.s; S.ct.d = nx.d; render(true); }   // a new sort starts in its own direction; the same sort again reverses it
+    else if (act === "cty") { var yy = parseInt(v, 10); if (yy >= 0 && yy <= 2) { S.ct.y = yy; render(true); } }
     else if (act === "ctx") { S.ct.open[v] = !S.ct.open[v]; render(true); }
+    else if (act === "ctbd") { S.ct.bd = !S.ct.bd; render(true); }
+    else if (act === "ctcat") { S.ct.cat[v] = !S.ct.cat[v]; render(true); }
+    else if (act === "nsx") { S.ct.ns = !S.ct.ns; render(true); if (S.ct.ns) loadNext(false); }
+    else if (act === "retryns") { loadNext(true); }
+    else if (act === "help") { S.sheet = "help"; render(); }
     else if (act === "pff") { S.pf.f = v; render(true); }
     else if (act === "pfs") { S.pf.s = v; render(true); }
     else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; render(true); }

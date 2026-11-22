@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-20T18:00:17.541843+00:00",
+    "generated_at_utc": "2026-11-21T16:56:54.944170+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -2437,6 +2437,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_16655",
+          "display": "Chop Robinson",
+          "player_id": "16655",
+          "position": "DE",
+          "nfl_team": "MIA",
+          "salary": 2000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_17125",
           "display": "Demetrius Knight",
           "player_id": "17125",
@@ -2466,18 +2478,6 @@
           "player_id": "14405",
           "position": "DE",
           "nfl_team": "NOS",
-          "salary": 1000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_16280",
-          "display": "Daiyan Henley",
-          "player_id": "16280",
-          "position": "LB",
-          "nfl_team": "LAC",
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
@@ -3513,6 +3513,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_9207",
+          "display": "Josh Johnson",
+          "player_id": "9207",
+          "position": "QB",
+          "nfl_team": "ARI",
+          "salary": 4000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16230",
           "display": "Lukas Van Ness",
           "player_id": "16230",
@@ -4048,6 +4060,18 @@
           "contract_year": 1,
           "contract_status": "Vet-WW",
           "roster_status": "INJURED_RESERVE",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_17254",
+          "display": "Konata Mumpfield",
+          "player_id": "17254",
+          "position": "WR",
+          "nfl_team": "LAR",
+          "salary": 9000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
           "taxi": false
         },
         {
