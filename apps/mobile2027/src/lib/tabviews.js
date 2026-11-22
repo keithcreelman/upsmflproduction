@@ -202,7 +202,7 @@
         h("Taxi", "A taxi-eligible player can be released with a $0 cut charge while taxi eligibility applies. Releasing ends eligibility.") +
         h("Where the numbers come from", "Contracts as recorded on MFL" + (asOf ? " (as of " + esc(asOf) + ")" : "") + ". Earned, guarantee and cut charge: the UPS cap calculation" + (wk != null ? " through Week " + esc(wk) : "") + ".") +
         h("Symbols", esc(DASH) + " contract ended · n/r no amount recorded.") +
-        h("Adjustments", "Cut Penalty, Traded Salary (including three-team settlements), FA Auction Fine, Rounding. Other is a posted adjustment that fits none of them; its reason is not guessed. “Player Unknown” means no authoritative player ID is available for that charge.") +
+        h("Adjustments", "Cut Penalty, Traded Salary (including three-team settlements), FA Auction Fine, Rounding. Other is a posted adjustment that fits none of them; its reason is not guessed. A player’s name appears only when the charge’s own player ID names him or the charge is on UPS’s reviewed list. Otherwise it reads “Player Unknown”.") +
         h("Next-season adjustments", esc(G.completeness) + " " + esc(G.reconciliation) + " " + esc(G.calculation));
     }
     if (sub === "performance") {

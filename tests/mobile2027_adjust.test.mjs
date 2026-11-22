@@ -77,20 +77,20 @@ test("duplicates versus distinct: the same id and amount is one record; differen
 
 test("player identity: a name only when an authoritative player id resolves; otherwise Player Unknown; never from description text", () => {
   const names = { 12801: "Tyreek Hill" };
-  const r = A.parseTeamRows([row(1000, CUT_PID), row(1000, CUT_ADD), row(1000, "UPS drop penalty Tyreek Hill 1000 id:99999_1784717601")], { fid: "0010", season: 2026, total: 3000, resolveName: A.nameResolver(null, names) });
+  const r = A.parseTeamRows([row(1000, CUT_PID), row(1000, "UPS drop penalty Someone Else 1000 id:adddrop2025_9999.1"), row(1000, "UPS drop penalty Tyreek Hill 1000 id:99999_1784717601")], { fid: "0010", season: 2026, total: 3000, resolveName: A.nameResolver(null, names) });
   t.equal(r.items[0].playerName, "Tyreek Hill"); t.equal(r.items[0].playerId, "12801");
-  t.equal(r.items[1].playerName, null, "add/drop id: no player id"); t.equal(r.items[2].playerName, null, "the id does not resolve, and the name in the text is not used");
+  t.equal(r.items[1].playerName, null, "an add/drop id that is not on the reviewed list: no player id, no name"); t.equal(r.items[2].playerName, null, "the id does not resolve, and the name in the text is not used");
   t.equal(A.UNKNOWN_PLAYER, "Player Unknown");
   const none = A.parseTeamRows([row(1000, CUT_PID)], { fid: "0010", season: 2026, total: 1000 }); t.equal(none.items[0].playerName, null, "no resolver: Player Unknown");
   t.equal(A.nameResolver({ byId: { "7": { name: "Rostered Guy" } } }, null)("7"), "Rostered Guy"); t.equal(A.nameResolver({ byId: {} }, null)("7"), null);
   const rec = model(); let unknown = 0; rec.teams.forEach((tm) => tm.adjust.items.forEach((i) => { if (i.category === "Cut Penalty" && i.playerName === null) unknown++; }));
-  t.equal(unknown, 35, "41 cut penalties; 10 carry a player id and 6 of those players are on a roster in this read, so only 6 resolve a name here (PR B's players export resolves more)");
+  t.equal(unknown, 4, "41 cut penalties: the 31 add/drop charges are on the reviewed list (named), and of the 10 that carry a player id only the players on a roster in this read resolve; 4 stay Player Unknown (BL-M50)");
 });
 
 test("nothing from a source string survives: no description, note, id, date or other team in any result or in the model", () => {
   const r = A.parseTeamRows([row(1000, CUT_ADD), row(-5000, TRADE), row(500, ROUND), row(3000, FINE)], { fid: "0010", season: 2026, total: -500 });
   const s = JSON.stringify(r); ["UPS", "settlement", "adddrop", "ups_rule2", "trade_2026", "ups_drop_rounding", "offense", "explanation", "description", "timestamp"].forEach((w) => t.doesNotMatch(s, new RegExp(w, "i"), w));
-  r.items.forEach((i) => t.deepEqual(Object.keys(i).sort(), ["amount", "category", "playerId", "playerName", "season"]));
+  r.items.forEach((i) => t.deepEqual(Object.keys(i).sort(), ["amount", "category", "nameSource", "playerId", "playerName", "season"]));
   const ms = JSON.stringify(model()); t.doesNotMatch(ms, /UPS drop penalty|traded salary settlement|RULE 2|rawRows|explanation/);
 });
 
