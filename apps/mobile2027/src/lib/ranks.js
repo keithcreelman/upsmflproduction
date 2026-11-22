@@ -22,10 +22,15 @@
   "use strict";
 
   function isInt(n) { return typeof n === "number" && isFinite(n) && Math.floor(n) === n; }
-  // A recorded MFL score as integer hundredths, or null (not a number, or more precision than MFL records).
+  // A recorded MFL score as integer hundredths, or null (not a readable number, or more precision than MFL records). ONE definition of readable, the same as the
+  // loader's (lib/data.js loadScores): a finite number, or a string that is a plain decimal ("12", "-0.5", "7.50"). Anything else (exponent or hexadecimal text such as
+  // "1e3" or "0x10", a boolean, an object or an array) is unreadable and has no value here: the loader keeps it as text so that it is withheld, and Number() must
+  // never turn it back into a score.
   function toCents(v) {
-    if (v == null || typeof v === "boolean" || (typeof v === "string" && v.trim() === "")) return null;
-    var x = Number(v);
+    var x;
+    if (typeof v === "number") x = v;
+    else if (typeof v === "string" && /^-?\d+(?:\.\d+)?$/.test(v.trim())) x = Number(v.trim());
+    else return null;
     if (!isFinite(x)) return null;
     var c = Math.round(x * 100);
     return Math.abs(x * 100 - c) < 1e-6 ? c : null;

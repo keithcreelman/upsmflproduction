@@ -15,7 +15,9 @@
 
   function asArray(v) { return Array.isArray(v) ? v : v == null || v === "" ? [] : [v]; }
   function isInt(n) { return typeof n === "number" && isFinite(n) && Math.floor(n) === n; }
-  function hasScore(s) { return s != null && !(typeof s === "string" && s.trim() === "") && isFinite(Number(s)); }
+  // A number, or a string that is a plain decimal; anything else (hexadecimal or exponent text, a boolean, an object) is NaN: the same definition of readable as the loader's.
+  function plain(s) { return typeof s === "number" ? s : typeof s === "string" && /^-?\d+(?:\.\d+)?$/.test(s.trim()) ? Number(s.trim()) : NaN; }
+  function hasScore(s) { return isFinite(plain(s)); }
 
   // The schedule export for one week -> [{ clubs: [a, b], secondsRemaining, scored, final }]. null when the answer is not the expected shape.
   function parseSchedule(j, week) {
@@ -26,7 +28,7 @@
     for (var i = 0; i < ms.length; i++) {
       var m = ms[i], tm = asArray(m && m.team);
       if (!m || tm.length !== 2 || !tm[0] || !tm[1] || typeof tm[0] !== "object" || typeof tm[1] !== "object") return null;   // a missing or malformed team is an unexpected shape, never a crash
-      var secs = m.gameSecondsRemaining == null || String(m.gameSecondsRemaining).trim() === "" ? null : Number(m.gameSecondsRemaining);
+      var secs = m.gameSecondsRemaining == null || String(m.gameSecondsRemaining).trim() === "" ? null : plain(m.gameSecondsRemaining);
       var scored = hasScore(tm[0].score) && hasScore(tm[1].score);
       out.push({ clubs: [String(tm[0].id || "").toUpperCase(), String(tm[1].id || "").toUpperCase()], secondsRemaining: isFinite(secs) ? secs : null, scored: scored, final: secs === 0 && scored });
     }

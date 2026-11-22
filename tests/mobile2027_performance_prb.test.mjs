@@ -351,4 +351,45 @@ test("season and weekly pool bounds count only competitors who could be in the g
   const known = K.perGameRank([E("me", "QB", 3000, 10, "eligible")], "me", [{ id: "q", group: "QB", usable: false }]); t.equal(known.unknownPosN, 0); t.equal(known.unplacedN, 1); t.doesNotMatch(K.rankDetail(known), /no known position/, "a known position is not described as unknown");
 });
 
+// ---- review finding (PR B ba84145e): text the loader keeps as unreadable must stay unreadable in every total, comparison and rank
+test("one definition of a readable score: whatever the loader keeps as text is never turned back into a number by the rank code", async () => {
+  const raw = ["1e3", "1E3", "0x10", "0X1f", "0b11", "0o7", "1_0", "Infinity", "-Infinity", "NaN", "+5", ".5", "5.", "1,000", "12.345", "N/A", "abc", "١٢", " 1e3 ", true, false, {}, [], [5], ["5"], { a: 1 }];
+  const L = D.createLoader(CFG, async () => ({ ok: true, status: 200, text: async () => JSON.stringify({ playerScores: { playerScore: raw.map((v, i) => ({ id: "p" + i, score: v })) } }) })), r = await L.loadScores(3);
+  raw.forEach((v, i) => { const kept = r.data.scores["p" + i]; if (typeof kept === "string") t.equal(K.toCents(kept), null, JSON.stringify(v) + " was kept as unreadable text, so it has no value in cents"); });
+  ["p0", "p1", "p2", "p3", "p4"].forEach((k) => t.equal(typeof r.data.scores[k], "string", k + " stays text in the loader"));
+  // the schedule parser uses the same definition: a game whose seconds or scores are hexadecimal or exponent text is not final
+  const g = (secs, a, b) => X.parseSchedule({ nflSchedule: { matchup: [{ gameSecondsRemaining: secs, team: [{ id: "AAA", score: a }, { id: "BBB", score: b }] }] } }, null)[0];
+  t.equal(g("0", "21", "14").final, true, "plain text is read"); t.equal(g("0x0", "21", "14").final, false, "hexadecimal seconds are not 0"); t.equal(g("0e0", "21", "14").final, false); t.equal(g("0", "0x15", "14").final, false, "hexadecimal score is not a score"); t.equal(g("0", "1e1", "14").scored, false); t.equal(g(0, 21, 14).final, true);
+  t.equal(K.toCents("1e3"), null); t.equal(K.toCents("0x10"), null); t.equal(K.toCents([5]), null); t.equal(K.toCents({}), null); t.equal(K.toCents(true), null); t.equal(K.toCents(" 12 "), 1200); t.equal(K.toCents("7.50"), 750); t.equal(K.toCents("-0.5"), -50); t.equal(K.toCents(7.5), 750); t.equal(K.toCents("12.345"), null); t.equal(K.toCents(""), null); t.equal(K.toCents(null), null);
+});
+
+test("exponent and hexadecimal score text end to end: the player's totals, per-game figure and ranks are withheld everywhere, and his competitors' rank bounds widen (he could be ahead)", async () => {
+  const mine = []; for (let w = 1; w <= 10; w++) { const x = FX4.scores[String(w)].find((y) => y.id === ID.purdy); if (x) mine.push({ w, v: Number(x.score) }); }
+  const sum = mine.reduce((a, b) => a + b.v, 0), w3 = mine.find((x) => x.w === 3).v;
+  for (const bad of ["1e3", "0x10"]) {
+    const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === ID.purdy ? { id: x.id, score: bad } : x));
+    const html = await perf({ scores: sc }, { pf: { f: "all", s: "pos", open: { [ID.purdy]: true }, res: {} } }), tx = text(html), p = text(row(html, ID.purdy));
+    const total = sum - w3 + (bad === "1e3" ? 1000 : 16), perGame = total / mine.length;
+    [total, perGame].forEach((n) => { const a = n.toFixed(1), b = n.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); t.ok(!p.includes(a) && !p.includes(b), bad + ": the value " + a + " is not shown in his row"); if (bad === "1e3") t.ok(!tx.includes(a) && !tx.includes(b), bad + ": the value " + a + " appears nowhere on the screen"); });
+    t.match(p, /Season points\s+—\s+Unverified/, bad + ": season points withheld"); t.match(p, /Per scored game\s+—\s+Unverified/, bad + ": per-game withheld"); t.match(p, /1 score could not be read/);
+    t.doesNotMatch(p, /QB \d/, bad + ": no rank for him");
+  }
+  // his competitors: he is an unplaced competitor who could be ahead of every QB (not a definite 1,227-point season, and not ignored)
+  const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "1e3" } : x));
+  const I = await intel({ scores: sc }), S1 = state({ intel: I }), RD = TV.rankData(S1, TV.perfInput(S1, Object.keys(S1.model.byId || {})));
+  t.equal(RD.sf.invalid[ID.purdy], true, "invalid in the season model"); t.ok(RD.sf.unplaced.some((u) => u.id === ID.purdy && u.value === null), "an unplaced competitor with no usable value"); t.equal(RD.sf.entries.some((e) => e.id === ID.purdy), false, "never a placed entry");
+  t.ok(RD.bad[ID.purdy] >= 1, "counted as unreadable");
+  const qbs = RD.sf.entries.filter((e) => e.group === "QB").sort((a, b) => b.value - a.value), top = qbs[0], second = qbs[1];
+  const without = RD.sf.unplaced.filter((u) => u.id !== ID.purdy);
+  const rt = K.totalRank(RD.sf.entries, top.id, RD.sf.unplaced), clean = K.totalRank(RD.sf.entries, top.id, without);
+  t.equal(rt.worst, clean.worst + 1, "the top other QB's worst case includes the unreadable QB, once"); t.equal(rt.best, clean.best, "his best case is untouched"); t.equal(rt.exact, false, "so his rank is a range, never exact");
+  t.equal(rt.poolHi, clean.poolHi + 1, "the pool's upper bound counts him once");
+  const r2 = K.totalRank(RD.sf.entries, second.id, RD.sf.unplaced); t.ok(r2.worst > r2.best, "a lower QB's rank widens too");
+  const el = qbs.find((e) => RD.elig[e.id] && RD.elig[e.id].status === "eligible"); t.ok(el, "an eligible QB exists");
+  const pg = K.perGameRank(RD.entries, el.id, RD.unplacedGame), pgNo = K.perGameRank(RD.entries.filter((e) => e.id !== ID.purdy), el.id, RD.unplacedGame.filter((u) => u.id !== ID.purdy));
+  t.equal(pg.worst, pgNo.worst + 1, "per-game: he is counted once toward the worst case"); t.equal(pg.poolHi, pgNo.poolHi + 1, "and once toward the pool, though he is in both the entries and the unplaced list");
+  const wr = RD.sf.entries.filter((e) => e.group === "WR")[0], rw = K.totalRank(RD.sf.entries, wr.id, RD.sf.unplaced), rwClean = K.totalRank(RD.sf.entries, wr.id, without);
+  t.deepEqual([rw.best, rw.worst, rw.poolHi], [rwClean.best, rwClean.worst, rwClean.poolHi], "other position groups are not affected");
+});
+
 run("mobile2027_performance_prb");
