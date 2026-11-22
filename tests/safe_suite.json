@@ -36,16 +36,7 @@
       "reason": "Manual local smoke script: starts the rulebook API on 127.0.0.1 and curls it. It first runs scripts/validate_release.sh, which fails on main today (44 absolute-path matches), so it is not part of the suite."
     }
   ],
-  "partial": [
-    {
-      "path": "pipelines/etl/scripts/test_check_roster_anomalies.py",
-      "argv": [
-        "--no-backtest"
-      ],
-      "category": "known-failing",
-      "reason": "Sections 1-5 (incident replay, unexplained variant, revert-in-window, false-positive control, no-fail-open) run. Section 6, the backtest over committed MFL snapshots, fails on main today: 30 of 174 snapshot days flag a drop (17.2%, ceiling 10%), mostly in-season September-October days. That is a data finding about the nightly roster check, not a code regression; it needs its own review before it can gate PRs."
-    }
-  ],
+  "partial": [],
   "known_network_attempts": [
     {
       "path": "tests/leaderboard_paging.test.mjs",

@@ -32,6 +32,16 @@ WHAT IS PROVEN HERE
 6. BACKTEST — every consecutive pair of committed snapshots, to show the new
    check does not cry wolf on ordinary league days.
 
+   WHAT THE 10% LIMIT MEANS. A "day" is one consecutive pair of committed daily
+   snapshots. The backtest FAILS when more than 10% of those days flag any drop.
+   It is a noise budget: a nightly check that is red on ordinary league days stops
+   being read, and then a real silent drop is missed. Passing does NOT mean no
+   anomaly happened. The flagged days are real findings, listed in
+   KNOWN_FLAGGED_DAYS with what each one is. A flagged day that is NOT in that
+   list prints as NEW: investigate it, then either record it there or fix the
+   check. This backtest measures alert noise only. It does not verify contracts,
+   salaries or cap-penalty charges.
+
 Usage:
   python3 pipelines/etl/scripts/test_check_roster_anomalies.py
   python3 pipelines/etl/scripts/test_check_roster_anomalies.py --no-backtest
@@ -360,6 +370,22 @@ def _truncate_log(snap: Path, before_ts: int):
     (snap / "transactions.json").write_text(json.dumps(data))
 
 
+# Every day the backtest flags, with what it is (reviewed 2026-11-22 against the
+# committed snapshots). Labels only: they never change pass/fail.
+KNOWN_FLAGGED_DAYS = {
+    "2026-04-23->2026-04-24": "commissioner bulk roster import (LOAD_ROSTERS, by_commish=1, "
+                              "2026-04-23 14:37Z); 1 player removed. Flagged by design.",
+    "2026-05-21->2026-05-22": "commissioner bulk roster import (LOAD_ROSTERS, by_commish=1, "
+                              "2026-05-22 10:49Z); 27 players removed. Flagged by design.",
+    "2026-07-16->2026-07-17": "5 auction winners on a roster for one day, then gone with no drop "
+                              "transaction (documented as the FAA test-residue purge). Unexplained "
+                              "by MFL's transaction log.",
+    "2026-07-18->2026-07-19": "2 auction winners on a roster 1-2 days, then gone with no drop "
+                              "transaction from that franchise (same purge). Unexplained by MFL's "
+                              "transaction log.",
+}
+
+
 def check_backtest(tmp: Path) -> list:
     """Every consecutive committed pair — a check that is red on ordinary days is unread."""
     dates = sorted(p.name for p in SNAP_DIR.iterdir()
@@ -379,6 +405,8 @@ def check_backtest(tmp: Path) -> list:
           f"{sum(len(v) for v in hits.values())} drop(s) on {len(hits)} day(s)")
     for day, ds in sorted(hits.items()):
         print(f"    {day}  {len(ds)}: {', '.join(ds)}")
+        print(f"      known: {KNOWN_FLAGGED_DAYS[day]}" if day in KNOWN_FLAGGED_DAYS
+              else "      NEW: not in KNOWN_FLAGGED_DAYS; investigate before trusting this run")
     # The findings themselves are NOT asserted away — every historical hit was
     # reviewed and is a real event of exactly the kind this check exists for:
     #   2026-04-24 / 2026-05-22  bulk commissioner LOAD_ROSTERS imports
@@ -389,7 +417,8 @@ def check_backtest(tmp: Path) -> list:
     # What is asserted is the noise FLOOR: a check that lights up on ordinary
     # league days stops being read, and then the next silent drop is missed too.
     noisy = 100.0 * len(hits) / pairs if pairs else 0.0
-    print(f"    -> {noisy:.1f}% of days flag anything")
+    print(f"    -> {noisy:.1f}% of days flag anything (limit 10%: a noise budget, not a "
+          "data-correctness check; contracts and cap-penalty charges are not verified here)")
     if noisy > 10.0:
         return [f"BACKTEST: {len(hits)}/{pairs} days flag a drop ({noisy:.1f}%) — "
                 "too noisy to be read"]
