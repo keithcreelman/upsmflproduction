@@ -12,6 +12,7 @@ refresh) cannot change these results.
   python3 pipelines/etl/scripts/test_rebuild_valuation_snapshot.py
 """
 import json
+import shlex
 import shutil
 import sys
 import tempfile
@@ -326,7 +327,7 @@ class UnpushedSnapshot(unittest.TestCase):
         fakebin.mkdir(exist_ok=True)
         (fakebin / "gh").write_text(
             "#!/bin/sh\n"
-            f"echo \"$*\" >> {calls}\n"
+            f"echo \"$*\" >> {shlex.quote(str(calls))}\n"
             "case \"$1 $2\" in \"issue list\") [ -n \"$FAKE_OPEN\" ] && echo \"$FAKE_OPEN\" ;; esac\n"
             "exit 0\n")
         (fakebin / "gh").chmod(0o755)
