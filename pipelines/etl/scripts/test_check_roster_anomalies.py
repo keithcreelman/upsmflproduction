@@ -32,15 +32,19 @@ WHAT IS PROVEN HERE
 6. BACKTEST — every consecutive pair of committed snapshots, to show the new
    check does not cry wolf on ordinary league days.
 
-   WHAT THE 10% LIMIT MEANS. A "day" is one consecutive pair of committed daily
-   snapshots. The backtest FAILS when more than 10% of those days flag any drop.
-   It is a noise budget: a nightly check that is red on ordinary league days stops
-   being read, and then a real silent drop is missed. Passing does NOT mean no
-   anomaly happened. The flagged days are real findings, listed in
-   KNOWN_FLAGGED_DAYS with what each one is. A flagged day that is NOT in that
-   list prints as NEW: investigate it, then either record it there or fix the
-   check. This backtest measures alert noise only. It does not verify contracts,
-   salaries or cap-penalty charges.
+   TWO SEPARATE CHECKS. A "day" is one consecutive pair of committed daily
+   snapshots.
+   (a) BASELINE: the flagged days must be exactly the reviewed days in
+       KNOWN_FLAGGED_DAYS, each with its reviewed drop count. An unlisted flagged
+       day FAILS (a new anomaly nobody has reviewed). A listed day that no longer
+       flags, or flags a different number of drops, also FAILS (the check stopped
+       catching something it used to catch). To accept a new day: investigate it,
+       record what it is and its count in KNOWN_FLAGGED_DAYS, in a reviewed PR.
+   (b) NOISE: more than 10% of days flagged FAILS. A nightly check that is red on
+       ordinary league days stops being read. This limits overall alarm noise; it
+       is not a data-correctness check.
+   Passing means only that today's flags match the reviewed baseline. It does
+   not verify contracts, salaries or cap-penalty charges.
 
 Usage:
   python3 pipelines/etl/scripts/test_check_roster_anomalies.py
@@ -370,19 +374,20 @@ def _truncate_log(snap: Path, before_ts: int):
     (snap / "transactions.json").write_text(json.dumps(data))
 
 
-# Every day the backtest flags, with what it is (reviewed 2026-11-22 against the
-# committed snapshots). Labels only: they never change pass/fail.
+# The reviewed baseline: every day the backtest flags, with its exact drop count
+# and what it is (reviewed 2026-11-22 against the committed snapshots). The
+# backtest FAILS if the flagged days or counts differ from this list.
 KNOWN_FLAGGED_DAYS = {
-    "2026-04-23->2026-04-24": "commissioner bulk roster import (LOAD_ROSTERS, by_commish=1, "
-                              "2026-04-23 14:37Z); 1 player removed. Flagged by design.",
-    "2026-05-21->2026-05-22": "commissioner bulk roster import (LOAD_ROSTERS, by_commish=1, "
-                              "2026-05-22 10:49Z); 27 players removed. Flagged by design.",
-    "2026-07-16->2026-07-17": "5 auction winners on a roster for one day, then gone with no drop "
-                              "transaction (documented as the FAA test-residue purge). Unexplained "
-                              "by MFL's transaction log.",
-    "2026-07-18->2026-07-19": "2 auction winners on a roster 1-2 days, then gone with no drop "
-                              "transaction from that franchise (same purge). Unexplained by MFL's "
-                              "transaction log.",
+    "2026-04-23->2026-04-24": (1, "commissioner bulk roster import (LOAD_ROSTERS, by_commish=1, "
+                                  "2026-04-23 14:37Z). Flagged by design."),
+    "2026-05-21->2026-05-22": (27, "commissioner bulk roster import (LOAD_ROSTERS, by_commish=1, "
+                                   "2026-05-22 10:49Z). Flagged by design."),
+    "2026-07-16->2026-07-17": (5, "auction winners on a roster for one day, then gone with no drop "
+                                  "transaction (documented as the FAA test-residue purge). "
+                                  "Unexplained by MFL's transaction log."),
+    "2026-07-18->2026-07-19": (2, "auction winners on a roster 1-2 days, then gone with no drop "
+                                  "transaction from that franchise (same purge). Unexplained by "
+                                  "MFL's transaction log."),
 }
 
 
@@ -405,8 +410,10 @@ def check_backtest(tmp: Path) -> list:
           f"{sum(len(v) for v in hits.values())} drop(s) on {len(hits)} day(s)")
     for day, ds in sorted(hits.items()):
         print(f"    {day}  {len(ds)}: {', '.join(ds)}")
-        print(f"      known: {KNOWN_FLAGGED_DAYS[day]}" if day in KNOWN_FLAGGED_DAYS
-              else "      NEW: not in KNOWN_FLAGGED_DAYS; investigate before trusting this run")
+        if day in KNOWN_FLAGGED_DAYS:
+            print(f"      known ({KNOWN_FLAGGED_DAYS[day][0]} reviewed): {KNOWN_FLAGGED_DAYS[day][1]}")
+        else:
+            print("      NEW: not in the reviewed baseline (KNOWN_FLAGGED_DAYS) -> FAIL")
     # The findings themselves are NOT asserted away — every historical hit was
     # reviewed and is a real event of exactly the kind this check exists for:
     #   2026-04-24 / 2026-05-22  bulk commissioner LOAD_ROSTERS imports
@@ -416,13 +423,27 @@ def check_backtest(tmp: Path) -> list:
     #                            transaction at all. Genuinely unexplained.
     # What is asserted is the noise FLOOR: a check that lights up on ordinary
     # league days stops being read, and then the next silent drop is missed too.
+    fails = []
+    # (a) BASELINE: flagged days and counts must equal the reviewed list exactly.
+    for day in sorted(set(hits) - set(KNOWN_FLAGGED_DAYS)):
+        fails.append(f"BACKTEST BASELINE: {day} flags {len(hits[day])} drop(s) and is not in "
+                     "KNOWN_FLAGGED_DAYS. Investigate it; record it only after review.")
+    for day, (want, _label) in sorted(KNOWN_FLAGGED_DAYS.items()):
+        got = len(hits.get(day, []))
+        if got != want:
+            fails.append(f"BACKTEST BASELINE: {day} flags {got} drop(s), reviewed baseline is "
+                         f"{want}. The check changed what it catches on a reviewed day.")
+    # (b) NOISE: overall alarm rate, a separate limit.
     noisy = 100.0 * len(hits) / pairs if pairs else 0.0
-    print(f"    -> {noisy:.1f}% of days flag anything (limit 10%: a noise budget, not a "
-          "data-correctness check; contracts and cap-penalty charges are not verified here)")
+    print(f"    -> baseline: {len(set(hits) & set(KNOWN_FLAGGED_DAYS))} of "
+          f"{len(KNOWN_FLAGGED_DAYS)} reviewed day(s) matched, "
+          f"{len(set(hits) - set(KNOWN_FLAGGED_DAYS))} new")
+    print(f"    -> noise: {noisy:.1f}% of days flag anything (limit 10%). Neither check "
+          "verifies contracts, salaries or cap-penalty charges.")
     if noisy > 10.0:
-        return [f"BACKTEST: {len(hits)}/{pairs} days flag a drop ({noisy:.1f}%) — "
-                "too noisy to be read"]
-    return []
+        fails.append(f"BACKTEST NOISE: {len(hits)}/{pairs} days flag a drop ({noisy:.1f}%) — "
+                     "too noisy to be read")
+    return fails
 
 
 def main():
