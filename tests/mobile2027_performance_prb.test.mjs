@@ -29,7 +29,7 @@ async function intel(over) {
     if (u.pathname === "/api/lineup-matchups") return ok(Object.assign({}, lm, { week: Number(w) }));
     if (ty === "playerScores") return ok({ playerScores: { playerScore: (over.scores || FX4.scores)[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) } });
     if (ty === "players") return over.noPlayers ? { ok: false, status: 502, text: async () => "x" } : ok({ players: { player: FX4.players } });
-    if (ty === "nflSchedule") { if (over.failSched === w) return { ok: false, status: 502, text: async () => "x" }; return ok(w === "10" ? FX4.schedule10 : w === "11" ? (over.schedule11 || FX4.schedule11) : { nflSchedule: { matchup: [] } }); }
+    if (ty === "nflSchedule") { if (over.failSched === w) return { ok: false, status: 502, text: async () => "x" }; return ok(w === "10" ? (over.schedule10 || FX4.schedule10) : w === "11" ? (over.schedule11 || FX4.schedule11) : { nflSchedule: { matchup: [] } }); }
     return ok({});
   };
   const ok = (b) => ({ ok: true, status: 200, text: async () => JSON.stringify(b) });
@@ -188,6 +188,62 @@ test("PR B review: the rank memo follows a refreshed score read (same weeks, new
   const w10 = I.scores[10], scores10 = Object.assign({}, w10.data.scores); scores10[ID.purdy] = scores10[ID.purdy] + 10;
   I.scores[10] = Object.assign({}, w10, { data: Object.assign({}, w10.data, { scores: scores10 }), at: w10.at + 1 });
   t.match(text(row(body(V.app(S1)), ID.purdy)), /Season points\s+280\.0/, "the refreshed Week 10 score is in the totals, not the memo's old answer");
+});
+
+// ---- unplaceable competitors, unreadable scores, truncated schedules
+const CHm = require(path.join(SRC, "lib/clubhist.js"));
+const E = (id, group, total, n, status, usable) => ({ id, group, total, n, status, usable });
+
+test("per-game rank: competitors with no known position widen the bounds like the season rank; each counts once; no position is assigned; the rest is untouched", () => {
+  const base = [E("me", "QB", 3000, 10, "eligible"), E("a", "QB", 4000, 10, "eligible"), E("u1", "QB", 1000, 10, "unsettled")];
+  const r0 = K.perGameRank(base, "me"); t.deepEqual([r0.best, r0.worst, r0.poolLo, r0.poolHi, r0.exact], [2, 2, 2, 3, true]); t.equal(r0.unplacedN, 0);
+  const hi = K.perGameRank(base, "me", [{ id: "z", total: 5000, n: 10, usable: true }]); t.deepEqual([hi.best, hi.worst, hi.poolLo, hi.poolHi, hi.exact, hi.unplacedN], [2, 3, 2, 4, false, 1], "could be ahead and could be in the pool");
+  const lo = K.perGameRank(base, "me", [{ id: "z", total: 100, n: 10, usable: true }]); t.deepEqual([lo.best, lo.worst, lo.poolHi, lo.exact], [2, 2, 4, true], "below him: only the pool's upper bound grows");
+  const bad = K.perGameRank(base, "me", [{ id: "z", total: 0, n: 0, usable: false }]); t.deepEqual([bad.worst, bad.poolHi], [3, 4], "an unreadable score has no figure: he could be ahead");
+  t.deepEqual([K.perGameRank(base, "me", [{ id: "z", total: 0, n: 0, usable: true }]).poolHi], [3], "a readable figure with no scores is not a competitor");
+  const dup = K.perGameRank(base, "me", [{ id: "z", total: 5000, n: 10, usable: true }, { id: "z", total: 5000, n: 10, usable: true }, { id: "a", total: 9000, n: 10, usable: true }, { id: "u1", total: 9000, n: 10, usable: true }, { id: "me", total: 9999, n: 10, usable: true }]);
+  t.deepEqual([dup.worst, dup.poolHi, dup.unplacedN], [3, 4, 1], "the same id twice, and ids already in the pool, are never counted again");
+  const grp = K.perGameRank(base, "me", [{ id: "q", group: "RB", total: 9999, n: 5, usable: true }, { id: "r", group: "QB", total: 9999, n: 5, usable: true }]);
+  t.deepEqual([grp.worst, grp.poolHi, grp.unplacedN], [3, 4, 1], "a competitor whose position is known counts only in his own group; none is given a position"); t.equal(grp.group, "QB");
+  t.match(K.rankDetail(hi), /1 player with no known position is included in the bounds\./);
+});
+
+const withScores = (add) => { const sc = clone(FX4.scores); Object.keys(sc).forEach((w) => { if (Number(w) <= 10) sc[w] = sc[w].concat([add(Number(w))]); }); return sc; };
+test("on screen: an unplaceable scorer (not in the players read) widens the per-game and season ranks wherever he could matter, once; a low one only grows the pool", async () => {
+  const hi = await perf({ scores: withScores(() => ({ id: "99999", score: "40" })) }), p = text(row(hi, ID.purdy)), s = text(row(hi, ID.shaheed));
+  t.match(p, /Season points\s+270\.0\s+QB 3–4 of 73–74/); t.match(p, /Per scored game\s+30\.0\s+QB 2–3 of 35–55/, "one unplaceable scorer adds one to the pool, not ten");
+  t.match(s, /Season points\s+66\.7\s+WR 66–67 of 240–241/); t.match(s, /Per scored game\s+8\.3\s+WR 63–67 of 169–210/, "he could be a WR too");
+  const lo = text(row(await perf({ scores: withScores(() => ({ id: "99999", score: "1" })) }), ID.purdy));
+  t.match(lo, /Season points\s+270\.0\s+QB 3 of 73–74/); t.match(lo, /Per scored game\s+30\.0\s+QB 2 of 35–55/);
+  t.match(text(row(await perf(), ID.purdy)), /QB 2 of 35–54/, "with no such scorer nothing changes");
+});
+
+test("unreadable scores: kept as text by the loader, shown as unverified (figures and ranks withheld, a note, a '?' cell), never silently dropped; other positions are unaffected", async () => {
+  const L = D.createLoader(CFG, async () => okAns({ playerScores: { playerScore: [{ id: "1", score: "N/A" }, { id: "2", score: "" }, { id: "3", score: "7.5" }, { id: "4", score: "-" }] } })), r = await L.loadScores(3);
+  t.equal(r.data.scores["1"], "N/A"); t.equal(r.data.scores["2"], undefined, "a blank is no score"); t.equal(r.data.scores["3"], 7.5); t.equal(r.data.scores["4"], "-");
+  const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "N/A" } : x));
+  const html = await perf({ scores: sc }), p = text(row(html, ID.purdy));
+  t.match(p, /Season points\s+—\s+Unverified/); t.match(p, /Per scored game\s+—\s+Unverified/); t.match(p, /1 score could not be read, so his season figures and ranks are not shown\./); t.doesNotMatch(p, /QB \d/);
+  t.match(text(row(html, ID.shaheed)), /WR 66 of 240/, "his position is known: another position's rank is not widened by him");
+  const I = await intel({ scores: sc }), S2 = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
+  t.match(V.app(S2).split('<div class="card tbl">')[1].split("</table>")[0], /<td>3<\/td><td class="n"><span class="mu">unreadable<\/span>/, "the game log says unreadable, not a dash");
+});
+
+const coverOf = (w) => { const S0 = state(), byeP = [], clubs = {}; S0.model.teams.forEach((tm) => tm.players.forEach((p) => { const c = String(p.nflTeam || "").trim().toUpperCase(); if (c && c !== "FA") clubs[c] = 1; byeP.push({ club: p.nflTeam, bye: p.bye }); })); return { clubs: Object.keys(clubs), byeOf: CHm.clubByeMap(byeP), week: w }; };
+test("schedule coverage: every known club plays or is on its bye; a truncated, repeated or contradictory schedule is not a complete week", () => {
+  const g10 = X.parseSchedule(FX4.schedule10, 10), c10 = coverOf(10);
+  t.equal(c10.clubs.length, 32); t.equal(X.coverage(g10, c10).state, "ok", "the recorded Week 10 accounts for all 32 clubs (28 play, 4 are on their bye)"); t.equal(X.weekComplete(g10, null, c10), true);
+  const cut = g10.slice(1), cv = X.coverage(cut, c10);
+  t.equal(cv.state, "truncated"); t.deepEqual(cv.truncated.slice().sort(), g10[0].clubs.slice().sort(), "the two clubs of the missing game"); t.equal(X.weekComplete(cut, null, c10), false);
+  t.equal(X.coverage(g10.concat([g10[0]]), c10).state, "inconsistent", "a club twice");
+  const playing = Object.assign({}, c10.byeOf); playing[g10[0].clubs[0]] = 10; t.equal(X.coverage(g10, Object.assign({}, c10, { byeOf: playing })).state, "inconsistent", "a club playing in its own bye week");
+  const missing = c10.clubs.filter((c) => !g10.some((g) => g.clubs.indexOf(c) >= 0))[0], nobye = Object.assign({}, c10.byeOf); delete nobye[missing];
+  t.equal(X.coverage(g10, Object.assign({}, c10, { byeOf: nobye })).state, "unverified", "a missing club with no known bye cannot be told from a bye");
+  t.equal(X.coverage(g10, null).state, "ok", "no club list: nothing can be asserted");
+  // the cutoff: a truncated lastCompleteWeek is not complete; only the last two weeks are ever asked for
+  t.deepEqual(X.cutoffWeek(10, { 10: g10 }, null, 11, c10), { state: "ok", week: 10 }, "Week 9 is never asked for when Week 10 is complete");
+  const u = X.cutoffWeek(10, { 10: cut }, null, 11, c10); t.deepEqual([u.state, u.need], ["unavailable", 9]);
+  const c = X.cutoffWeek(10, { 10: cut, 9: [] }, null, 11, c10); t.deepEqual([c.state, c.why, c.week], ["conflict", "schedule_truncated", 10], "both checked weeks fail: nothing is drawn, and the reason is the missing games");
 });
 
 run("mobile2027_performance_prb");

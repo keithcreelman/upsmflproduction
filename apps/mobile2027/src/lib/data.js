@@ -195,7 +195,7 @@
             var sc = e.score;
             if (sc == null || (typeof sc === "string" && sc.trim() === "") || typeof sc === "boolean") return;
             var n = Number(sc);
-            if (isFinite(n)) map[String(e.id)] = n;
+            map[String(e.id)] = isFinite(n) ? n : String(sc).trim();   // a non-numeric score is kept as text so it shows as unverified, never silently dropped
           });
           return { state: "ok", data: { week: Number(week), scores: map }, at: Date.now() };
         });

@@ -208,6 +208,7 @@
       if (o == null || typeof o !== "object") return undefined;
       return own(o, id) && isNum(o[id]) ? o[id] : null;
     }
+    function rawBad(wk, id) { var o = scores[wk]; return o != null && typeof o === "object" && own(o, id) && typeof o[id] === "string"; }   // recorded, but not a number
     for (i = 0; i < ids.length; i++) rows[ids[i]] = buildRow(ids[i]);
     return { state: state, reason: reason, cutoff: cutoff, latestFinal: L, gap: gap, stripWeeks: stripWeeks, banner: banner, rows: rows };
 
@@ -280,6 +281,7 @@
         else if (v === undefined) cell = { week: wn, kind: "unloaded", score: null, loaded: false };
         else if (lv) cell = { week: wn, kind: "live", score: v, loaded: true };                    // an unfinished game: shown, counted nowhere
         else if (v !== null) cell = { week: wn, kind: "score", score: v, loaded: true };
+        else if (rawBad(wn, id)) cell = { week: wn, kind: "unreadable", score: null, loaded: true };   // a recorded value that is not a number: shown as unreadable, never as "no score"
         else if (H.ok && wk[wn] && wk[wn].opp === "b" && wk[wn].identity === "known") cell = { week: wn, kind: "bye", score: null, loaded: true };
         else cell = { week: wn, kind: "none", score: null, loaded: true };
         if (cell.kind === "none" && H.ok && wk[wn] && wk[wn].byeByCandidates) cell.byeByCandidates = true;   // a bye by candidate agreement: counted nowhere, drawn as a dash

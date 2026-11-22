@@ -52,9 +52,33 @@
 
   // The Worker's status for a club when statuses are expected (the lineup week): a club with no entry is "missing", which is never agreement.
   function statusOf(byClub, club) { return Object.prototype.hasOwnProperty.call(byClub, club) ? byClub[club] : "missing"; }
+  // Is the schedule the WHOLE week? cover = { clubs: [the clubs the league's rosters know], byeOf: { club: bye week }, week }. Every known club must either
+  // be in a game or be on its bye that week. -> { state: "ok" | "truncated" (a club with a bye in another week is missing: games are missing) |
+  // "unverified" (a missing club has no known bye, so it cannot be told from a bye) | "inconsistent" (a club twice, or playing in its own bye week),
+  // truncated: [clubs], unknown: [clubs] }. Without a club list nothing can be asserted and the schedule is taken as listed.
+  function coverage(games, cover) {
+    var out = { state: "ok", truncated: [], unknown: [] };
+    if (!cover || !Array.isArray(cover.clubs) || !cover.clubs.length || !Array.isArray(games)) return out;
+    var present = {}, i, j, c, b, byeOf = cover.byeOf || {};
+    for (i = 0; i < games.length; i++) for (j = 0; j < 2; j++) {
+      c = games[i].clubs[j];
+      if (present[c]) { out.state = "inconsistent"; return out; }
+      present[c] = true;
+      b = Object.prototype.hasOwnProperty.call(byeOf, c) ? byeOf[c] : null;
+      if (isInt(b) && b === cover.week) { out.state = "inconsistent"; return out; }
+    }
+    cover.clubs.forEach(function (club) {
+      if (present[club]) return;
+      var by = Object.prototype.hasOwnProperty.call(byeOf, club) ? byeOf[club] : null;
+      if (isInt(by)) { if (by !== cover.week) out.truncated.push(club); } else out.unknown.push(club);
+    });
+    out.state = out.truncated.length ? "truncated" : out.unknown.length ? "unverified" : "ok";
+    return out;
+  }
   // Every game of the week is final by the schedule (and, when given, the per-club status agrees). An empty or missing schedule is not complete.
-  function weekComplete(games, statusByClub) {
+  function weekComplete(games, statusByClub, cover) {
     if (!Array.isArray(games) || !games.length) return false;
+    if (cover && coverage(games, cover).state !== "ok") return false;   // a schedule that does not account for every club is not a complete week
     for (var i = 0; i < games.length; i++) {
       var g = games[i], a = statusByClub ? statusOf(statusByClub, g.clubs[0]) : null, b = statusByClub ? statusOf(statusByClub, g.clubs[1]) : null;
       if (gameState(g, a) !== "final" || gameState(g, b) !== "final") return false;
@@ -65,16 +89,25 @@
   // The week every season figure runs through. lastComplete: the Worker's `lastCompleteWeek`; schedules: { week: games | null (the read failed) | undefined (not read) };
   // statusByClub: the Worker's per-team statuses for the lineup week (only used when that week is examined). Never reads latestFinalWeek.
   // -> { state: "ok", week } | { state: "none" } (no week is complete yet) | { state: "unavailable", need } (the schedule of `need` is missing) | { state: "conflict" }
-  function cutoffWeek(lastComplete, schedules, statusByClub, lineupWeek) {
+  // Why only the last two weeks are checked against the schedule. The cutoff guards one thing: that no figure includes a week that is still being played.
+  // That can only be the newest week(s). The Worker's lastCompleteWeek names the newest all-final week, so its week and the one before it are the only
+  // ones the schedule has to confirm (the Worker running one week ahead is the realistic error). A game postponed out of an older week is scored by MFL in
+  // its ORIGINAL week, and the preview sums Weeks 1..N from MFL's own score reads each time, so a late score lands in the right week and an old game that is
+  // never played simply has no score in MFL either: neither makes a figure partial. If both checked weeks fail, the answer is "conflict" (nothing is drawn),
+  // never a quiet step back further. Recorded Weeks 1 to 10 were all fully final (every game 0 seconds with both scores).
+  // coverBase (optional): { clubs, byeOf }; each week is also checked for coverage (a truncated schedule is not a complete week).
+  function cutoffWeek(lastComplete, schedules, statusByClub, lineupWeek, coverBase) {
     if (!isInt(lastComplete) || lastComplete < 1) return { state: "none" };
-    var w = lastComplete, tried = 0;
+    var w = lastComplete, tried = 0, why = null, whyWeek = null;
     while (w >= 1 && tried < 2) {
       var g = schedules ? schedules[w] : undefined;
       if (g === undefined || g === null) return { state: "unavailable", need: w };
-      if (weekComplete(g, w === lineupWeek ? statusByClub : null)) return { state: "ok", week: w };
+      var cov = coverBase ? { clubs: coverBase.clubs, byeOf: coverBase.byeOf, week: w } : null;
+      if (weekComplete(g, w === lineupWeek ? statusByClub : null, cov)) return { state: "ok", week: w };
+      if (cov && g.length && why === null) { var cs = coverage(g, cov).state; if (cs !== "ok") { why = "schedule_" + cs; whyWeek = w; } }
       w--; tried++;
     }
-    return w < 1 ? { state: "none" } : { state: "conflict" };
+    return w < 1 ? { state: "none" } : why ? { state: "conflict", why: why, week: whyWeek } : { state: "conflict" };
   }
 
   // ---------- the Live -> Final · updating -> regular display handoff ----------
@@ -100,5 +133,5 @@
   // Is an answer usable for the handoff? It must be from the current load and read after the preview first saw the game (or week) final.
   function answerFresh(a) { return !!a && a.gen === a.currentGen && isInt(a.readAt) && isInt(a.firstSeenFinalAt) && a.readAt >= a.firstSeenFinalAt; }
 
-  return { parseSchedule: parseSchedule, gameState: gameState, gameOf: gameOf, weekComplete: weekComplete, cutoffWeek: cutoffWeek, handoff: handoff, answerFresh: answerFresh, QUIET_MS: QUIET_MS };
+  return { coverage: coverage, parseSchedule: parseSchedule, gameState: gameState, gameOf: gameOf, weekComplete: weekComplete, cutoffWeek: cutoffWeek, handoff: handoff, answerFresh: answerFresh, QUIET_MS: QUIET_MS };
 });

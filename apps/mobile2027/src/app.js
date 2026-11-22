@@ -183,7 +183,7 @@
       if (cur > C0.week) ensureWeekScores(cur, force);
       ensurePlayers(force);
       var sc = S.intel.sched[cur];
-      if (sc && sc.state === "ok" && U.complete.weekComplete(sc.data.games, null) && !(S.live && S.live.allFinalAt != null)) S.live = { allFinalAt: Date.now() }; // the first time every game of the lineup week is seen final (the quiet period starts here)
+      if (sc && sc.state === "ok" && U.complete.weekComplete(sc.data.games, null, U.tabviews.coverFor(S, cur)) && !(S.live && S.live.allFinalAt != null)) S.live = { allFinalAt: Date.now() }; // the first time every game of the lineup week is seen final (the quiet period starts here)
     }
   }
   // Retry. When a read failed, only the reads that failed are asked again. When nothing failed (a "Final · not yet in season totals" chip has nothing to
