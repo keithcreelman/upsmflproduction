@@ -147,6 +147,13 @@
   function emptyRow(slot, current) {
     return '<div class="rx empty' + (current ? " prob" : "") + '"><span class="tag sl">' + esc(slot.tag) + '</span><div class="in"><b>Empty</b></div></div>';
   }
+  // A starter MFL names who is not in this roster read: no name, position, slot, bye or injury is claimed for him, and no lineup warning is drawn.
+  function unresolvedRow(id) {
+    return '<div class="rx"><div class="in"><b>Not in this roster read</b><small>Player ID ' + esc(id) + ' · MFL lists him as a starter</small><div class="fl">' + chip("wn", "Can’t check") + "</div></div></div>";
+  }
+  function unresolvedNote(n) {
+    return n ? '<div class="ex wn mt4">' + n + (n === 1 ? " starter couldn’t be matched" : " starters couldn’t be matched") + " to this roster read, so checks that need " + (n === 1 ? "him" : "them") + " are skipped. Everyone else is still checked.</div>" : "";
+  }
 
   function groupDefault(S, key) {
     if (key === "ir" || key === "taxi" || key === "bwpast") return false;
@@ -167,7 +174,8 @@
   function sumCard(html) { return '<div class="card sumc">' + html + "</div>"; }
   // the same wording everywhere: "n need attention", counted per starting slot (R.attention)
   function attentionText(a) {
-    return a.n ? a.n + (a.n === 1 ? " needs" : " need") + " attention" : a.injuriesChecked ? "nothing needs attention" : "injuries not checked";
+    var base = a.n ? a.n + (a.n === 1 ? " needs" : " need") + " attention" : a.injuriesChecked ? "nothing needs attention" : "injuries not checked";
+    return a.unresolved && a.unresolved.length ? base + " · " + a.unresolved.length + " can’t be checked" : base;
   }
   function statusLine(S, lineup, wi, view) {
     var lim = S.model.limits.starters || 18, a = R.attention(S, lineup, wi.cur);
@@ -189,11 +197,11 @@
         esc(it.issues.map(function (x) { return x.text; }).join(" · ")) + "</b> · " + rest.join(" · ") + "</small></button></div></div>";
     }).join("") + a.empties.map(function (sl) {
       return '<div class="rx"><div class="in"><b>' + esc(sl.tag) + ' · Empty</b><small>No starter is set for this slot</small></div></div>';
-    }).join("") + a.extras.map(function (p) {
+    }).join("") + (a.emptyCount ? '<div class="rx"><div class="in"><b>' + a.emptyCount + (a.emptyCount === 1 ? " slot has" : " slots have") + ' no starter</b><small>Counted even if every unmatched starter fills a slot</small></div></div>' : "") + a.extras.map(function (p) {
       return '<div class="rx"><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small><b class=\"wn\">Starter fits no lineup slot</b> · " + esc(p.pos) + "</small></button></div></div>";
     }).join("");
     // the green "all clear" border only when injuries were actually checked (fresh read); an unchecked card is neutral
-    return '<div class="card' + (a.n ? " warnc" : a.injuriesChecked ? " okc" : "") + '">' + head + body +
+    return '<div class="card' + (a.n ? " warnc" : a.injuriesChecked && !a.unresolved.length ? " okc" : "") + '">' + head + body + unresolvedNote(a.unresolved.length) +
       (a.injuriesChecked ? "" : '<div class="ex wn mt4">Injury status is not available yet, so injuries are not counted here.</div>') +
       '<div class="ex mt4">Read only: nothing here can change the lineup.' + (doubtful ? " “Doubtful” means a decision may be needed, not that a player is out." : "") + "</div></div>";
   }
@@ -206,9 +214,11 @@
         (lineup.starters.length ? lineup.starters.map(function (p, i) { return row(p, S, { ord: i + 1, wk: wk, past: true }); }).join("") : '<div class="rx"><div class="in"><b>No starters recorded</b></div></div>') + "</div>" +
         '<div class="ex pad">Listed in the order MFL recorded them. Slots and positions are not shown for a past week: no read gives a player’s slot or position in that week.</div>';
     }
+    var held = !!(lineup.unresolved && lineup.unresolved.length); // an empty slot cannot be named while unmatched starters may fill it
     var rows = lineup.slots.map(function (x) {
+      if (!x.player && held) return "";
       return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past);
-    }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); })).join("");
+    }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); }), (lineup.unresolved || []).map(unresolvedRow)).join("");
     return '<div class="grp"><span>Week ' + wk + " starters · " + lineup.count + " of " + lim + '</span></div><div class="card rows">' + rows + "</div>";
   }
 

@@ -36,7 +36,7 @@ test("reproduction: the recorded teams resolve their lineup to placeholders (the
     t.ok(coh.checked && !coh.ok, id + ": incoherent"); t.ok(coh.unresolved >= coh.total - 2, id + ": nearly every starter is unresolved (" + coh.unresolved + " of " + coh.total + ")");
     t.ok(tm.counts.active < coh.total, id + ": fewer active players (" + tm.counts.active + ") than starters (" + coh.total + "), which no real roster can have");
     const lu = R.lineupFor({ model: m, teamId: id, wk: null, intel: { mu: {}, wk: {} } }, tm, 11);
-    t.ok(lu.extra.length >= coh.total - 2 && lu.extra.every((p) => p.status === "gone" || p.name), id + ": the starters fall through as 'fits no slot' placeholders without the guard");
+    t.ok(lu.extra.length === 0 && lu.unresolved.length >= coh.total - 2, id + ": the unresolved starters are listed apart, never 'fits no slot' placeholders (PR A), even before the screen-level guard");
   });
   GOOD.forEach((id) => { const coh = R.lineupCoherence({ model: model() }, model().teams.find((x) => x.id === id)); t.ok(coh.checked && coh.ok && coh.unresolved === 0, id + ": coherent"); });
 });
@@ -73,7 +73,8 @@ test("the line between a real problem and a data problem: one or two starters dr
     t.ok(coh.ok, n + " unresolved of " + coh.total + " is a real lineup case"); t.equal(coh.unresolved, n);
     const tx = text(V.app(state({ model: m, teamId: "0009" })));
     t.doesNotMatch(tx, /Roster and lineup data don’t match/);
-    if (n) t.equal((tx.match(/Starter fits no lineup slot/g) || []).length, n, "each genuinely unresolved starter still draws its warning");
+    // PR A: an unresolved starter is a data gap, listed apart ("Not in this roster read"), never a "fits no lineup slot" claim
+    t.equal((tx.match(/Not in this roster read/g) || []).length, n, "each unresolved starter is listed apart"); t.doesNotMatch(tx, /Starter fits no lineup slot/);
   });
   const m3 = withMissing(3), tm3 = m3.teams.find((x) => x.id === "0009");
   t.ok(!R.lineupCoherence({ model: m3 }, tm3).ok, "three unresolved is a data problem"); t.match(text(V.app(state({ model: m3, teamId: "0009" }))), /Roster and lineup data don’t match/);
