@@ -1,0 +1,29 @@
+name: Data alert test message
+
+# BL-I03 delivery check: sends ONE clearly labeled TEST message through the same path the job alerts use
+# (pipelines/ops/job_alert.py --test). Manual only; never scheduled. Changes no issue and no data.
+# Run only with Keith's go, after he has chosen the private target (repository variables
+# ALERT_DISCORD_ENABLED=1 plus ALERT_DISCORD_USER_ID or ALERT_DISCORD_CHANNEL_ID).
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  test-message:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Send one TEST message
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ALERT_DISCORD_ENABLED: ${{ vars.ALERT_DISCORD_ENABLED }}
+          ALERT_DISCORD_USER_ID: ${{ vars.ALERT_DISCORD_USER_ID }}
+          ALERT_DISCORD_CHANNEL_ID: ${{ vars.ALERT_DISCORD_CHANNEL_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 pipelines/ops/job_alert.py --job data-alert-test --test --run-url "$RUN_URL"

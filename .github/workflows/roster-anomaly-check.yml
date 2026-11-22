@@ -29,6 +29,7 @@ concurrency:
 
 permissions:
   contents: read
+  issues: write   # the data-alert issue (BL-I03); nothing else is written
 
 jobs:
   check:
@@ -56,3 +57,22 @@ jobs:
           name: roster-anomaly-report
           path: /tmp/roster_anomaly_report.json
           if-no-files-found: ignore
+
+      # BL-I03 (Keith 2026-11-22): one data-alert issue per job with counts, timestamps and run links,
+      # plus a brief private Discord message (initial, a reminder every 48 h, one recovery). Discord stays
+      # off until the repository variable ALERT_DISCORD_ENABLED is "1" and one target variable is set.
+      # A failed Discord delivery turns this step red and is written on the issue.
+      - name: Alert (data-alert issue + private Discord)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ALERT_DISCORD_ENABLED: ${{ vars.ALERT_DISCORD_ENABLED }}
+          ALERT_DISCORD_USER_ID: ${{ vars.ALERT_DISCORD_USER_ID }}
+          ALERT_DISCORD_CHANNEL_ID: ${{ vars.ALERT_DISCORD_CHANNEL_ID }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 pipelines/ops/job_alert.py --job roster-anomaly-check --status "$JOB_STATUS" \
+            --run-url "$RUN_URL" \
+            --affects "nightly roster and contract drift detection (silent drops, flattened contracts)"
