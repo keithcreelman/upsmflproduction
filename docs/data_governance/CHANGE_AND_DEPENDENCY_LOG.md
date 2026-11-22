@@ -6,6 +6,13 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · finding (from the backlog session, #1503 H-INF-01)** · Three items reported by the backlog session (verified there against MFL's 2026 `salaryAdjustments` export, 2026-11-22 01:30Z; not re-checked here):
+- The cut-penalty poster writes an add/drop id with no player id for 31 of 41 charges (BL-I30, #1502).
+- Adjustment categories depend on exact description text (BL-M06).
+- The static `salary_adjustments_2026.json` (built 10-06) differs from posted charges for 10 of 31.
+
+· Refines the 11-21 correction below: the worker ledger route is D1-backed, but mobile (`site/m/app.js:1159`), `roster_workbench.js:2856` and `trade_workbench.js:1548` still read the stale static file. · #1502, #1503. · Mobile Contracts itemized adjustments, AI `cap.adjustments` explanations, the cap reconciliation in P1-9. · Added to the inventory; a fix must be forward-only, because MFL's salaryAdj import appends and re-posting would duplicate charges.
+
 **2026-11-22 · change (draft)** · J3 fix proposed in draft PR #1501 (head `2d7d4a79`): `BBID_WAIVER` counts as a legitimate departure, and its drop is read from the third segment. On the committed 11-19 to 11-21 snapshots the flags go from 13/3/1 to 0/0/0, and a synthetic unexplained drop still flags. · Closes the P0-1 false-positive finding once merged. · PR #1501 diff and its offline test. · Same consumers as the J3 finding below. · Awaiting CI and Keith's merge decision.
 
 **2026-11-22 · correction** · The #1399 bot comment reports 13 safe-suite failures on `main` `bc607887`. A clean local run at `52338bf9` (the same code plus docs) passed 275 with 0 failures. · The bot-cutover job likely runs in the stale, dirty Mac checkout (inferred). · Local run log. · The trade-bot valuation snapshot delivery that the cutover job gates. · Open; tied to P0-5.
