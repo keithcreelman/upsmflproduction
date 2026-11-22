@@ -421,6 +421,9 @@ def check_backtest(tmp: Path) -> list:
     #   2026-07-17 / 2026-07-19  the FAA test-residue purge — players that sat
     #                            on a roster for one day and vanished with no
     #                            transaction at all. Genuinely unexplained.
+    # Before the BBID_WAIVER fix (#1501) the same 212 pairs flagged on 52 days (24.5%):
+    # all but the four reviewed days were blind-bid false alarms (figure first noted in
+    # #1506, re-measured 2026-11-22 on main bc607887).
     # What is asserted is the noise FLOOR: a check that lights up on ordinary
     # league days stops being read, and then the next silent drop is missed too.
     fails = []
