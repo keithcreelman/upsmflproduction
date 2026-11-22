@@ -6,6 +6,16 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · change (by the backlog fork, on Keith's go in its chat)** · BL-I03 rolled out. #1509 merged as `312d9b6d` (10:48:14Z). Repository variables `ALERT_DISCORD_ENABLED=1` and `ALERT_DISCORD_USER_ID` were set; the target is a direct message to Keith.
+- **TEST runs:** 45014219854 failed with no message sent (the variable held a literal `-`). 45014261493 logged "sent (direct message)".
+- **Status:** BL-I03 stays open until Keith confirms the message reached his phone.
+- **Known limitation (Keith asked that it be recorded):** reminders only go out when the job runs and fails again. A job that stops running sends none. Missing-run detection is a separate backlog item awaiting Keith's ruling; nothing has been built for it.
+
+**2026-11-22 · finding (privacy, low)** · GitHub prints repository **variables** in each step's environment in the public Actions log; it masks only secrets. Keith's Discord user id is therefore visible in the log of TEST run 45014261493. The nightly `roster-anomaly-check` would print it again on every run. The value is not repeated here.
+- **Fix drafted in #1510:** the target ids move to secrets in every workflow, and a non-numeric id is rejected without echoing it.
+- **Needs Keith's go, in order:** create the secret → merge #1510 → delete the variable → delete that run's log.
+- **Affects:** the data-alert path; any workflow log that prints variables.
+
 **2026-11-22 · change (draft #1504, head `2a7eb821`)** · Keith's ruling, relayed by the backlog fork, revises his every-PR blocking rule. The PR backtest is now pinned to reviewed snapshot days (`REVIEWED_THROUGH = 2026-11-21`, which must be a committed date).
 - Reviewed counts 1/27/5/2 still fail on change; new days are left to the nightly `roster-anomaly-check`.
 - That removes the dependency that let an unreviewed flag block unrelated PRs or the trade-bot cutover. Bot checks are untouched.
