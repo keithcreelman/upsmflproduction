@@ -176,9 +176,8 @@
     if (!(lc >= 1)) return;
     ensureSched(lc, force);
     if (cur !== lc) ensureSched(cur, force);
-    var sl = S.intel.sched[lc];   // the week before is read only when the schedule says the Worker's last complete week is not complete
-    if (sl && sl.state === "ok" && lc - 1 >= 1 && !U.complete.weekComplete(sl.data.games, null)) ensureSched(lc - 1, force);
     var C0 = U.tabviews.completion(S);
+    if (C0.state === "loading" && C0.need) ensureSched(C0.need, force);   // the week before is read only when the cutoff has to step back (the schedule and the Worker's statuses together say so)
     if (C0.state === "ok") {
       for (var w = 1; w <= C0.week; w++) ensureWeekScores(w, force);
       if (cur > C0.week) ensureWeekScores(cur, force);
@@ -186,6 +185,22 @@
       var sc = S.intel.sched[cur];
       if (sc && sc.state === "ok" && U.complete.weekComplete(sc.data.games, null) && !(S.live && S.live.allFinalAt != null)) S.live = { allFinalAt: Date.now() }; // the first time every game of the lineup week is seen final (the quiet period starts here)
     }
+  }
+  // Retry. When a read failed, only the reads that failed are asked again. When nothing failed (a "Final · not yet in season totals" chip has nothing to
+  // re-ask), the answers the display waits on (the matchup, the schedule and the scores of the lineup week) are asked again.
+  function anyFailedRead() {
+    var any = false;
+    [S.intel.mu, S.intel.sched, S.intel.scores].forEach(function (h) { Object.keys(h || {}).forEach(function (k) { if (h[k] && h[k].state === "error") any = true; }); });
+    return any || !!(S.intel.players && S.intel.players.state === "error");
+  }
+  function refreshPerformance() {
+    if (S.sample.on || !S.model || !S.model.week) return;
+    if (anyFailedRead()) { ensurePerformance(true); return; }
+    var cur = S.model.week, after = function () { ensurePerformance(false); };
+    intelRead(S.intel.mu, cur, function () { return loader.loadMatchups(cur, true); }, true, after);
+    intelRead(S.intel.sched, cur, function () { return loader.loadSchedule(cur, U.complete.parseSchedule, true); }, true, after);
+    intelRead(S.intel.scores, cur, function () { return loader.loadScores(cur, true); }, true, after);
+    ensurePerformance(true);
   }
   function ensureIntel(force) {
     if (S.sample.on || !S.model || S.tab !== "team") return;
@@ -328,7 +343,7 @@
     else if (act === "pfs") { S.pf.s = v; render(true); }
     else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; render(true); }
     else if (act === "pfres") { S.pf.res[v] = !S.pf.res[v]; render(true); }
-    else if (act === "retryperf") { ensurePerformance(true); }
+    else if (act === "retryperf") { refreshPerformance(); }
     else if (act === "logmore") { if (S.profile) { S.profile.all = true; render(true); ensurePerformance(); ensureLog(); } }
     else if (act === "logless") { if (S.profile) { S.profile.all = false; render(true); } }
     else if (act === "retrylog") { ensureLog(true); }

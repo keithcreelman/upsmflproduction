@@ -135,4 +135,59 @@ test("the profile game log runs through the cutoff, never the Worker's latestFin
   t.deepEqual(weeks, [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]); t.match(text(html), /Showing Weeks 1 to 10/);
 });
 
+// ---- fixes from the independent code review of 62bc56bd
+const K = require(path.join(SRC, "lib/ranks.js"));
+const okAns = (b) => ({ ok: true, status: 200, text: async () => JSON.stringify(b) });
+
+test("PR B review: Retry is never drawn inside the row's own button (a button cannot sit inside a button)", async () => {
+  const done = clone(FX4.schedule11); done.nflSchedule.matchup.forEach((m) => { m.gameSecondsRemaining = "0"; m.team[0].score = "21"; m.team[1].score = "14"; });
+  const scores = clone(FX4.scores); scores["11"] = [{ id: "1", score: "0" }, { id: ID.purdy, score: "28.44" }];
+  const allFinal = LM(); Object.keys(allFinal.matchups).forEach((c) => { allFinal.matchups[c].status = "final"; });
+  const html = await perf({ schedule11: done, scores, lm: allFinal }, { live: { allFinalAt: Date.now() }, nowMs: Date.now() + 31 * 60 * 1000 });
+  const afterMarker = html.split('data-act="pfx" data-v="' + ID.purdy + '"')[1], rowButton = afterMarker.split("</button>")[0];
+  t.doesNotMatch(rowButton, /<button/, "no button inside the row's button"); t.match(text(rowButton), /Final · not yet in season totals/);
+  t.match(afterMarker.split('<div class="rw">')[0], /data-act="retryperf"/, "Retry is still there, next to the row");
+});
+
+test("PR B review: a schedule answer for another week, or with a missing team, is an error, never a read left loading", async () => {
+  t.equal(X.parseSchedule({ nflSchedule: { week: "10", matchup: [] } }, 11), null, "an answer for Week 10 is not Week 11's schedule");
+  t.ok(Array.isArray(X.parseSchedule({ nflSchedule: { week: "11", matchup: [] } }, 11)));
+  t.ok(Array.isArray(X.parseSchedule({ nflSchedule: { matchup: [] } }, 11)), "no week field: nothing to contradict");
+  t.equal(X.parseSchedule({ nflSchedule: { matchup: [{ team: [null, { id: "A" }] }] } }), null, "a null team does not throw");
+  t.equal(X.parseSchedule({ nflSchedule: { matchup: [{ team: [{ id: "A" }, "x"] }] } }), null);
+  const L1 = D.createLoader(CFG, async () => okAns({ nflSchedule: { week: "10", matchup: [] } })); t.equal((await L1.loadSchedule(11, X.parseSchedule)).state, "error");
+  const L2 = D.createLoader(CFG, async () => okAns({ nflSchedule: { matchup: [] } })); t.equal((await L2.loadSchedule(12, () => { throw new Error("boom"); })).state, "error", "a parser that throws is an error, not a promise that never settles");
+});
+
+test("PR B review: a club with no Worker status is not a final game", async () => {
+  const games = X.parseSchedule(Object.assign({}, { nflSchedule: { matchup: clone(FX4.schedule11.nflSchedule.matchup).map((m) => Object.assign(m, { gameSecondsRemaining: "0" })) } }));
+  games.forEach((g) => { g.final = true; });
+  const all = {}; games.forEach((g) => { all[g.clubs[0]] = "final"; all[g.clubs[1]] = "final"; });
+  t.equal(X.weekComplete(games, all), true, "every club has a final status");
+  const missing = Object.assign({}, all); delete missing[games[0].clubs[0]];
+  t.equal(X.weekComplete(games, missing), false, "one club has no status: no agreement, no final");
+  t.equal(X.weekComplete(games, null), true, "a past week is judged by the schedule alone");
+  const club = (id) => state().model.byId[id].nflTeam.toUpperCase();
+  const s11 = clone(FX4.schedule11); s11.nflSchedule.matchup.forEach((m) => { if (m.team.some((x) => x.id.toUpperCase() === club(ID.purdy))) { m.gameSecondsRemaining = "0"; m.team[0].score = "24"; m.team[1].score = "17"; } });
+  const scores = clone(FX4.scores); scores["11"] = [{ id: "1", score: "0" }, { id: ID.purdy, score: "28.44" }];
+  const lm = LM(); Object.keys(lm.matchups).forEach((c) => { if (c.toUpperCase() === club(ID.purdy)) delete lm.matchups[c]; });
+  t.doesNotMatch(text(row(await perf({ schedule11: s11, scores, lm }), ID.purdy)), /Final/, "no 'Final' chip without the Worker's status for his club");
+});
+
+test("PR B review: the season-points rank never talks about eligibility; the per-game rank still does", () => {
+  const g = (id) => ({ a: "QB", b: "QB" }[id] || ""), sf = K.seasonFrom({ 1: { a: 10, b: 20, z: 50 } }, 1, g), r = K.totalRank(sf.entries, "a", sf.unplaced);
+  const d = K.rankDetail(r, "season"); t.doesNotMatch(d, /eligib|unsettled|settled/i); t.match(d, /Best 2, worst 3/); t.match(d, /1 placed QB is ahead/); t.match(d, /without a position group or with an unreadable score/); t.match(d, /The worst case is a bound, not a result/);
+  const ex = K.rankDetail(K.totalRank(K.seasonFrom({ 1: { a: 10, b: 20 } }, 1, g).entries, "b", []), "season"); t.equal(ex, "1 is exact. 2 QBs are placed.");
+  const pg = K.perGameRank([{ id: "me", group: "WR", total: 1000, n: 5, status: "eligible" }, { id: "up", group: "WR", total: 1300, n: 5, status: "unsettled" }], "me");
+  t.match(K.rankDetail(pg), /with unsettled eligibility could also be/); t.match(K.rankDetail(pg), /1 settled WR is|0 settled WRs are/);
+});
+
+test("PR B review: the rank memo follows a refreshed score read (same weeks, newer data)", async () => {
+  const I = await intel(), S1 = state({ intel: I });
+  t.match(text(row(body(V.app(S1)), ID.purdy)), /Season points\s+270\.0/);
+  const w10 = I.scores[10], scores10 = Object.assign({}, w10.data.scores); scores10[ID.purdy] = scores10[ID.purdy] + 10;
+  I.scores[10] = Object.assign({}, w10, { data: Object.assign({}, w10.data, { scores: scores10 }), at: w10.at + 1 });
+  t.match(text(row(body(V.app(S1)), ID.purdy)), /Season points\s+280\.0/, "the refreshed Week 10 score is in the totals, not the memo's old answer");
+});
+
 run("mobile2027_performance_prb");

@@ -128,11 +128,14 @@
     return r.group + " " + range(r.best, r.worst) + " of " + range(r.poolLo, r.poolHi);
   }
   // The expansion text: what is exact, what is a bound, and how many players are unsettled.
-  function rankDetail(r, label) {
+  // kind "season" (season points or a weekly rank, no eligibility rule): the uncertain competitors are players who could not be placed in a position
+  // group or whose score is unreadable. Otherwise (the per-game rank) they are players whose eligibility is unsettled.
+  function rankDetail(r, kind) {
     if (!r) return "";
-    var unsettled = r.poolHi - r.poolLo;
-    var head = r.exact ? (r.best + " is exact" + (unsettled ? ": no " + r.group + " with unsettled eligibility could rank ahead" : "")) : ("Best " + r.best + ", worst " + r.worst + ": " + (r.best - 1) + " settled " + r.group + (r.best - 1 === 1 ? " is" : "s are") + " ahead, and up to " + (r.worst - r.best) + " with unsettled eligibility could also be. The worst case is a bound, not a result");
-    return head + ". " + r.poolLo + " " + r.group + (r.poolLo === 1 ? " is" : "s are") + " settled" + (unsettled ? "; up to " + unsettled + " more are unsettled" : "") + ".";
+    var season = kind === "season", unsettled = r.poolHi - r.poolLo;
+    var who = season ? "without a position group or with an unreadable score" : "with unsettled eligibility", set = season ? "placed" : "settled";
+    var head = r.exact ? (r.best + " is exact" + (unsettled ? ": no " + r.group + " " + who + " could rank ahead" : "")) : ("Best " + r.best + ", worst " + r.worst + ": " + (r.best - 1) + " " + set + " " + r.group + (r.best - 1 === 1 ? " is" : "s are") + " ahead, and up to " + (r.worst - r.best) + " " + who + " could also be. The worst case is a bound, not a result");
+    return head + ". " + r.poolLo + " " + r.group + (r.poolLo === 1 ? " is" : "s are") + " " + set + (unsettled ? "; up to " + unsettled + " more are " + (season ? "not placed" : "unsettled") : "") + ".";
   }
 
   return { toCents: toCents, fmtCents: fmtCents, cmpPPG: cmpPPG, eligibility: eligibility, perGameRank: perGameRank, totalRank: totalRank, seasonFrom: seasonFrom, weekFrom: weekFrom, rankText: rankText, rankDetail: rankDetail, isInt: isInt };

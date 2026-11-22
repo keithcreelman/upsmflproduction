@@ -18,13 +18,14 @@
   function hasScore(s) { return s != null && !(typeof s === "string" && s.trim() === "") && isFinite(Number(s)); }
 
   // The schedule export for one week -> [{ clubs: [a, b], secondsRemaining, scored, final }]. null when the answer is not the expected shape.
-  function parseSchedule(j) {
+  function parseSchedule(j, week) {
     var root = j && j.nflSchedule;
     if (!root || typeof root !== "object") return null;
+    if (week != null && root.week != null && String(root.week).trim() !== String(week)) return null;   // an answer for another week is not this week's schedule
     var ms = asArray(root.matchup), out = [];
     for (var i = 0; i < ms.length; i++) {
       var m = ms[i], tm = asArray(m && m.team);
-      if (!m || tm.length !== 2) return null;
+      if (!m || tm.length !== 2 || !tm[0] || !tm[1] || typeof tm[0] !== "object" || typeof tm[1] !== "object") return null;   // a missing or malformed team is an unexpected shape, never a crash
       var secs = m.gameSecondsRemaining == null || String(m.gameSecondsRemaining).trim() === "" ? null : Number(m.gameSecondsRemaining);
       var scored = hasScore(tm[0].score) && hasScore(tm[1].score);
       out.push({ clubs: [String(tm[0].id || "").toUpperCase(), String(tm[1].id || "").toUpperCase()], secondsRemaining: isFinite(secs) ? secs : null, scored: scored, final: secs === 0 && scored });
@@ -49,11 +50,13 @@
     return null;
   }
 
+  // The Worker's status for a club when statuses are expected (the lineup week): a club with no entry is "missing", which is never agreement.
+  function statusOf(byClub, club) { return Object.prototype.hasOwnProperty.call(byClub, club) ? byClub[club] : "missing"; }
   // Every game of the week is final by the schedule (and, when given, the per-club status agrees). An empty or missing schedule is not complete.
   function weekComplete(games, statusByClub) {
     if (!Array.isArray(games) || !games.length) return false;
     for (var i = 0; i < games.length; i++) {
-      var g = games[i], a = statusByClub ? statusByClub[g.clubs[0]] : null, b = statusByClub ? statusByClub[g.clubs[1]] : null;
+      var g = games[i], a = statusByClub ? statusOf(statusByClub, g.clubs[0]) : null, b = statusByClub ? statusOf(statusByClub, g.clubs[1]) : null;
       if (gameState(g, a) !== "final" || gameState(g, b) !== "final") return false;
     }
     return true;

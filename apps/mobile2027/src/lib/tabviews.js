@@ -365,7 +365,7 @@
     });
     var r = X.cutoffWeek(lc, sch, statusMap(d), cur);
     if (r.state === "ok") return { state: "ok", week: r.week };
-    if (r.state === "unavailable") return sch[r.need] === null ? { state: "error" } : { state: "loading" };
+    if (r.state === "unavailable") return sch[r.need] === null ? { state: "error" } : { state: "loading", need: r.need };   // `need`: the schedule that must still be read
     return { state: r.state };
   }
 
@@ -380,7 +380,8 @@
     if (pl.state !== "ok") return { state: "error" };
     if (ctx.failed) return { state: "weeks" };
     if (ctx.loading || !ctx.input.season) return { state: "loading" };
-    var L = ctx.input.latestFinal, nScores = Object.keys(scoresOf(S)).length;
+    var L = ctx.input.latestFinal, nScores = ""; // the memo key includes when each week was read, so a refreshed score read is never served from the memo
+    for (var sw0 = 1; sw0 <= L; sw0++) { var r0 = scoresOf(S)[sw0]; nScores += (r0 && r0.at != null ? r0.at : "-") + ","; }
     if (RANK_MEMO && RANK_MEMO.d === ctx.mu && RANK_MEMO.pl === pl.data && RANK_MEMO.L === L && RANK_MEMO.n === nScores) return RANK_MEMO.v;
     var wm = {}, w, byId = pl.data.byId;
     for (w = 1; w <= L; w++) wm[w] = scoresOf(S)[w].data.scores;
@@ -419,7 +420,7 @@
     if (!t || RD.sf.invalid[id]) return o;
     o.total = t.total / 100; o.n = t.n; o.ppg = t.total / 100 / t.n;
     var sr = K.totalRank(RD.seasonEntries, id, RD.sf.unplaced);
-    if (sr) { o.seasonRank = K.rankText(sr); o.detail.push(["Season points rank", K.rankText(sr) + ". " + K.rankDetail(sr)]); }
+    if (sr) { o.seasonRank = K.rankText(sr); o.detail.push(["Season points rank", K.rankText(sr) + ". " + K.rankDetail(sr, "season")]); }
     var pg = K.perGameRank(RD.entries, id), e = RD.elig[id];
     if (pg) { o.gameRank = K.rankText(pg); o.detail.push(["Per-game rank", K.rankText(pg) + ". " + K.rankDetail(pg)]); }
     else if (e) { o.gameWhy = e.why; if (e.why) o.detail.push(["Per-game rank", "Not shown: " + e.why + "."]); }
@@ -428,14 +429,14 @@
   // The Live / Final · updating chip for one player in the lineup week (lib/complete.js decides). "" when there is nothing to say.
   function liveChip(S, p, ctx) {
     var cur = S.model.week, N = ctx.input.latestFinal;
-    if (!(cur > N)) return "";
+    if (!(cur > N)) return { html: "", retry: false };
     var sch = S.intel.sched && S.intel.sched[cur], sc = scoresOf(S)[cur], d = ctx.mu, club = String(p.nflTeam || "").toUpperCase();
-    if (!sch || sch.state !== "ok") return "";
-    var games = sch.data.games, st = statusMap(d), g = X.gameOf(games, club), gs = X.gameState(g, g ? st[club] : null);
+    if (!sch || sch.state !== "ok") return { html: "", retry: false };
+    var games = sch.data.games, st = statusMap(d), g = X.gameOf(games, club), gs = X.gameState(g, g ? (st[club] === undefined ? "missing" : st[club]) : null);
     var score = sc && sc.state === "ok" && sc.data.scores[p.id] != null ? sc.data.scores[p.id] : null;
     var all = X.weekComplete(games, st), now = S.nowMs != null ? S.nowMs : Date.now();
     var h = X.handoff({ game: gs, score: score, cutoff: N, week: cur, weekAllFinal: all, read: sc && sc.state ? { state: sc.state, at: sc.at } : { state: "loading" }, tries: { startedAt: S.live && S.live.allFinalAt != null ? S.live.allFinalAt : null, now: now } });
-    return h.chip ? '<span class="live">' + esc(h.chip) + "</span>" + (h.retry ? ' <button class="link" data-act="retryperf">Retry</button>' : "") : "";
+    return { html: h.chip ? '<span class="live">' + esc(h.chip) + "</span>" : "", retry: !!(h.chip && h.retry) };   // Retry is drawn by the row, outside its button (a button cannot sit inside a button)
   }
   // The weeks to read: the strip (the latest final week and the three before it) plus the look-back of the comparison, which runs from the history
   // coverage week and may need a bye week skipped (cutoff - 3 .. cutoff). With history current that is four weeks; one week behind, five.
@@ -490,10 +491,10 @@
     var open = !!pfState(S).open[p.id], cmp = row.cmp, banner = ctx.ev.banner, shown = cmp.state === "shown";
     var lab = "Last 3 team games" + (row.window && typeof row.window.scoredCount === "number" ? " · " + row.window.scoredCount + " of 3 scored" : "");
     var g3 = '<span><i>Recent</i><b>' + (shown ? f1(row.recent) : DASH) + "</b></span><span><i>Earlier</i><b>" + (shown ? f1(row.earlier) + " <small>(" + row.earlierN + ")</small>" : DASH) + "</b></span><span><i>Difference</i><b>" + (shown ? signed(row.difference) : DASH) + "</b></span>";
-    var cells = row.strip.map(function (c) { return cellHtml(c, S); }).join("");
-    var h = '<div class="rw"><button class="rb" data-act="pfx" data-v="' + esc(p.id) + '" aria-expanded="' + open + '"><div class="in"><div class="l1">' + esc(p.name) + " " + pcx(p.pos) + '</div><div class="l2">' + esc(F.commonCode(p.nflTeam) || "No NFL team") + '</div><div class="fl">' + startingTag(p) + injuryChip(S, p) + liveChip(S, p, ctx) + "</div>" + statGrid(S, p, ctx) + '<div class="cells4">' + cells + "</div>" +
+    var cells = row.strip.map(function (c) { return cellHtml(c, S); }).join(""), lc = liveChip(S, p, ctx);
+    var h = '<div class="rw"><button class="rb" data-act="pfx" data-v="' + esc(p.id) + '" aria-expanded="' + open + '"><div class="in"><div class="l1">' + esc(p.name) + " " + pcx(p.pos) + '</div><div class="l2">' + esc(F.commonCode(p.nflTeam) || "No NFL team") + '</div><div class="fl">' + startingTag(p) + injuryChip(S, p) + lc.html + "</div>" + statGrid(S, p, ctx) + '<div class="cells4">' + cells + "</div>" +
       '<div class="cmpl">' + esc(lab) + '</div><div class="rcn">' + g3 + "</div>" + (shown ? "" : '<div class="ex">' + esc(cmp.text) + "</div>") +
-      '<div class="ex">' + esc(row.teamGames && row.teamGames.text ? row.teamGames.text : "") + "</div></div></button>";
+      '<div class="ex">' + esc(row.teamGames && row.teamGames.text ? row.teamGames.text : "") + "</div></div></button>" + (lc.retry ? '<div class="ex"><button class="link" data-act="retryperf">Retry</button></div>' : "");
     if (open) {
       var zero = row.strip.some(function (c) { return c.kind === "score" && c.score === 0; }), newer = row.strip.filter(function (c) { return c.kind === "newer" && c.score != null; });
       h += '<div class="det"><div class="kv"><b>Season</b><span>' + f1(row.seasonAvg) + " · " + esc(row.teamGames && row.teamGames.text ? row.teamGames.text : "") + (row.seasonThrough != null ? " · through Week " + row.seasonThrough : "") + "</span>" +

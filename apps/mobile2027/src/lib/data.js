@@ -255,7 +255,7 @@
       return cached("sched:" + week, 2 * 60 * 1000, function () {
         return settle(get(urls.schedule(week), "NFL schedule, week " + week)).then(function (r) {
           if (r.state !== "ok") return r;
-          var games = parse(r.data);
+          var games = null; try { games = parse(r.data, week); } catch (e) { games = null; }   // an answer that cannot be parsed (or is for another week) is an error, never a read left loading
           if (!games) return { state: "error", data: null, error: "Unexpected answer" };
           return { state: "ok", data: { week: Number(week), games: games }, at: Date.now() };
         });
