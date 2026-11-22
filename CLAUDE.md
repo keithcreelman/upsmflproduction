@@ -13,6 +13,7 @@ This public repository is the UPS platform source. Do not store private chat, cr
 - Enhancement: explain the owner need, compare viable designs, build one focused draft, then provide an interactive preview Keith can open on a phone.
 - Data discrepancy: report source, timestamp, scope and examples. Do not quietly rewrite pipelines or production data.
 - For UI: provide a phone-openable HTTPS preview of the real interaction, plus screenshots at 320px and 375px. A screenshot alone is not an interactive preview. State when authenticated MFL behavior or real Safari was not verified.
+- Owner-facing mobile screens follow `docs/mobile_design_guidance.md` (Keith's standing direction: useful information and actions, fewer boxes, buttons and technical explanations; detail goes to Help).
 - For any contract change follow the standing gate in `docs/CHANGE_PLAYBOOK.md` §0. Never use a dry run as proof that an endpoint has no side effects.
 - Before claiming release, distinguish local tests, CI, deployed asset/worker, and authenticated owner behavior. Do not perform a real roster, cap, trade, or Discord write as a smoke test.
 - Keep draft PRs reviewable. Present the exact diff, preview, test result, and remaining risk before merging or publishing. Keith makes league-rule, production-setting, financial-data, publication, and final release decisions.
