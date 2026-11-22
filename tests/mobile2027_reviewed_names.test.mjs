@@ -1,8 +1,10 @@
 // UPS 2027 beta (PR A): the frozen reviewed list of 31 cut-penalty names (Keith's display ruling 2026-11-22, recorded on #1502).
 //   node tests/mobile2027_reviewed_names.test.mjs
-// The bundle (lib/reviewed_names.js) is compared row for row with the reviewed inventory kept as a separate fixture (reviewed_names_31.json, taken from the
-// #1502 inventory; the bundle was generated from the build session's own MFL verification, and the two had to agree). A reviewed mapping is kept apart from
-// direct resolution: items carry nameSource "direct" or "reviewed_mapping".
+// WHAT THIS TEST ESTABLISHES, AND WHAT IT DOES NOT. The bundle (lib/reviewed_names.js) is compared row for row with a second copy of the reviewed table
+// (reviewed_names_31.json, taken from the #1502 inventory). Both copies come from the same verified table, so this checks TRANSCRIPTION and CONSISTENCY and the
+// matching rules; it is NOT an independent check that a token names that player. That identity evidence is the separate MFL verification (transactions,
+// players and salary-adjustment exports, 31 of 31) kept in docs/evidence/bl_m01_mfl_verification_2026-11-22.md and on issue #1502; it needs live MFL data and
+// cannot run offline. A reviewed mapping is kept apart from direct resolution: items carry nameSource "direct" or "reviewed_mapping".
 import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -20,7 +22,7 @@ const text = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
 const asObjects = () => R.rows().map(([token, team, season, amount, playerId, name]) => ({ token, team, season, amount, playerId, name }));
 const byToken = (a, b) => (a.token < b.token ? -1 : 1);
 
-test("the bundle equals the reviewed inventory row for row (31 rows: token, team, season, amount, player id, name)", () => {
+test("transcription and consistency: the bundle equals the second copy of the reviewed table row for row (31 rows; identity is verified separately against MFL)", () => {
   t.equal(R.COUNT, 31); t.equal(FIX.rows.length, 31); t.equal(new Set(FIX.rows.map((r) => r.token)).size, 31, "31 distinct tokens");
   t.deepEqual(asObjects().sort(byToken), FIX.rows.slice().sort(byToken));
   FIX.rows.forEach((r) => t.deepEqual(R.lookup(r.token, r.team, r.season, r.amount), { id: r.playerId, name: r.name }, r.token));
@@ -84,6 +86,13 @@ test("on screen: team 0010's four cut penalties show their reviewed names with t
   t.doesNotMatch(tx, /Player Unknown/, "all four are named");
   t.doesNotMatch(V.app(state("0010")), /adddrop|id:/, "the source token is never drawn");
   const other = text(V.app(state("0009"))); t.match(other, /Player Unknown|Chark, D\.J\./, "another team renders its own rows");
+});
+
+test("the separate MFL verification is kept in the repository and names every token; the provenance points to it and states the limit of this test", () => {
+  const doc = fs.readFileSync(path.join(HERE, "..", "docs", "evidence", "bl_m01_mfl_verification_2026-11-22.md"), "utf8");
+  FIX.rows.forEach((r) => t.ok(doc.indexOf("`" + r.token + "`") >= 0, "evidence lists " + r.token));
+  t.match(doc, /transcription and consistency/); t.match(doc, /NOT\*\* an independent check|not\*\* an independent check|It is \*\*not\*\*/); t.match(doc, /31 of 31 consistent/); t.match(doc, /12\*\* tokens the same team made another drop|For \*\*12\*\* tokens/);
+  t.match(R.PROVENANCE.evidence, /docs\/evidence\/bl_m01_mfl_verification_2026-11-22\.md/); t.match(R.PROVENANCE.testNote, /transcription and consistency, not identity/);
 });
 
 run("mobile2027_reviewed_names");
