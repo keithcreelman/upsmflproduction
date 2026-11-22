@@ -251,12 +251,16 @@ button.btnrow{cursor:pointer}
 .rb .fl{display:flex;flex-wrap:wrap;gap:4px}
 .cells4{display:flex;gap:4px;margin-top:2px}
 .cell{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;border:1px solid var(--bd);border-radius:8px;padding:3px 2px;background:var(--s2)}
-.cell i{font-style:normal;font-size:12px;color:var(--mu)}
-.cell b{font-size:14px}
+/* A weekly cell is three lines: Week / Points / position rank (or a label such as live or newer). Every line has a fixed height and the third is always present
+   (empty when there is nothing to show), so every cell has the same height whatever it holds. */
+.cell i{font-style:normal;font-size:12px;line-height:16px;color:var(--mu)}
+.cell b{font-size:14px;line-height:18px}
 .cell.by b{color:var(--mu);font-weight:600}
 .cell.by{border-style:dashed}
 .cell.newer{border-style:dashed;border-color:var(--wn)}
-.cell u{text-decoration:none;font-size:12px;color:var(--wn)}
+.cell u,.cell em.wr{display:block;max-width:100%;min-height:16px;line-height:16px;text-decoration:none;font-style:normal;font-size:12px;white-space:nowrap;overflow:hidden}
+.cell u{color:var(--wn)}
+.cell em.wr{color:var(--mu);font-variant-numeric:tabular-nums}
 .cmpl{font-size:12px;color:var(--mu);margin-top:4px}
 .rb .rcn{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
 .rb .rcn span{display:flex;flex-direction:column}

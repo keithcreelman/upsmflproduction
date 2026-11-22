@@ -219,13 +219,15 @@ test("P7: Last 3 team games, Recent, Earlier and Difference are labeled numbers 
   t.match(text(html), /Not enough recent scores|Not enough earlier|Team history|club|not loaded/i);
 });
 
-test("P8: with team history absent (W1 not live) scores, season average, scored games and range still show; BYE cells are dashes; only the comparison is withheld, with its reason", async () => {
+test("P8: with team history absent (W1 not live) scores, season average, scored games and range still show; BYE cells are dashes; only the comparison is withheld, said once at the top", async () => {
+  // revised (Keith's Performance decisions): the comparison block is not drawn at all without team history (it used to draw Recent / Earlier / Difference as dashes
+  // with 'Team history unavailable' on every player); one line at the top says the per-game rank and the recent comparison are not available yet
   const S = state({ sub: "performance", intel: await intelFor({ lm: noHist() }) });
-  S.pf = { f: "all", s: "pos", open: allOpen(S), res: {} };
+  S.pf = { s: "pos", open: allOpen(S), res: {} };
   const html = body(V.app(S));
-  t.match(html, /Team history unavailable/); t.doesNotMatch(html, /Comparison through Week/);
+  t.equal((text(html).match(/Per-game rank and the recent comparison aren’t available yet\./g) || []).length, 1, "one notice"); t.doesNotMatch(text(html), /Team history/); t.doesNotMatch(html, /Comparison through Week/);
   t.doesNotMatch(html, /<b>BYE<\/b>/, "no BYE label without club identity");
-  rcns(html).forEach((x) => t.match(x, /^Recent — Earlier — Difference —$/));
+  t.equal(rcns(html).length, 0, "no Recent / Earlier / Difference block on any row"); t.doesNotMatch(text(html), /Last 3 team games|Not available/);
   t.match(html, /class="cell"><i>W10<\/i><b>\d+\.\d<\/b>/, "recorded scores show"); t.match(html, /<b>Range<\/b><span>\d+\.\d to \d+\.\d \(Weeks \d+ to \d+\)<\/span>/);
   t.match(html, /<b>Season<\/b><span>\d+\.\d · /);
 });
@@ -268,7 +270,8 @@ test("P9: a stale history (two or more weeks behind) withholds every comparison 
   // the Worker's answer two weeks behind the last all-final week (10): coverage through Week 8, nothing recorded after it
   const lm = historyThrough(8);
   const html = await perf({ lm });
-  t.match(html, /Team history is 2 weeks behind/); rcns(html).forEach((x) => t.match(x, /^Recent — Earlier — Difference —$/));
+  // revised: the stale-history reason is one line in the header card, and no row draws a dashed comparison block
+  t.equal((text(html).match(/Team history is 2 weeks behind/g) || []).length, 1); t.equal(rcns(html).length, 0);
   t.match(html, /class="cell"><i>W10<\/i><b>\d+\.\d<\/b>/);
 });
 

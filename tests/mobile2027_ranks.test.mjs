@@ -83,8 +83,8 @@ test("uncertain competitors: above widens the worst case, level and below do not
   const mk = (id, total, n, status) => ({ id, group: "WR", total, n, status });
   const base = [mk("me", 1000, 5, "eligible"), mk("up", 1200, 5, "eligible"), mk("lvl", 1000, 5, "unsettled"), mk("low", 900, 5, "unsettled"), mk("above", 1300, 5, "unsettled"), mk("none", 9999, 0, "unsettled")];
   const r = K.perGameRank(base, "me"); t.deepEqual([r.best, r.worst, r.poolLo, r.poolHi], [2, 3, 2, 5]); t.equal(r.exact, false);
-  t.equal(K.rankText(r), "WR 2–3 of 2–5"); t.match(K.rankDetail(r), /Best 2, worst 3/); t.match(K.rankDetail(r), /The worst case is a bound, not a result/);
-  const e = K.perGameRank([mk("me", 1000, 5, "eligible"), mk("lvl", 1000, 5, "unsettled")], "me"); t.deepEqual([e.best, e.worst, e.poolLo, e.poolHi], [1, 1, 1, 2]); t.equal(K.rankText(e), "WR 1 of 1–2"); t.match(K.rankDetail(e), /1 is exact/);
+  t.equal(K.rankText(r), "WR 2–3 of 2–5"); t.equal(K.rankDetail, undefined, "the methodology sentences are no longer built in code: a row shows only the compact rank, and Help explains the rest");
+  const e = K.perGameRank([mk("me", 1000, 5, "eligible"), mk("lvl", 1000, 5, "unsettled")], "me"); t.deepEqual([e.best, e.worst, e.poolLo, e.poolHi], [1, 1, 1, 2]); t.equal(K.rankText(e), "WR 1 of 1–2"); t.equal(e.exact, true);
   t.equal(K.perGameRank(base, "low"), null, "an unsettled player gets no rank"); t.equal(K.perGameRank([mk("x", 1, 1, "below")], "x"), null);
   const solo = K.perGameRank([mk("only", 500, 4, "eligible")], "only"); t.equal(K.rankText(solo), "WR 1 of 1");
 });

@@ -25,7 +25,7 @@
     live: null, // PR B: when every game of the lineup week was first seen final (starts the quiet period of the Final · updating chip)
     ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the sort (exp | sal | name), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
-    pf: { f: "all", s: "pos", open: {}, res: {} }, // Team › Performance: the same
+    pf: { s: "pos", open: {}, res: {} }, // Team › Performance: the sort (pos | diff | avg), which rows are open, which reserve groups are open
     gdef: pref("gdef", "needs"),
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(),
@@ -359,7 +359,6 @@
     else if (act === "nsx") { S.ct.ns = !S.ct.ns; render(true); if (S.ct.ns) loadNext(false); }
     else if (act === "retryns") { loadNext(true); }
     else if (act === "help") { S.sheet = "help"; render(); }
-    else if (act === "pff") { S.pf.f = v; render(true); }
     else if (act === "pfs") { S.pf.s = v; render(true); }
     else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; render(true); }
     else if (act === "pfres") { S.pf.res[v] = !S.pf.res[v]; render(true); }

@@ -148,17 +148,7 @@
     if (!r) return "";
     return r.group + " " + range(r.best, r.worst) + " of " + range(r.poolLo, r.poolHi);
   }
-  // The expansion text: what is exact, what is a bound, and how many players are unsettled.
-  // kind "season" (season points or a weekly rank, no eligibility rule): the uncertain competitors are players who could not be placed in a position
-  // group or whose score is unreadable. Otherwise (the per-game rank) they are players whose eligibility is unsettled.
-  function rankDetail(r, kind) {
-    if (!r) return "";
-    var season = kind === "season", unsettled = r.poolHi - r.poolLo;
-    var who = season ? "without a position group or with an unreadable score" : "with unsettled eligibility", set = season ? "placed" : "settled";
-    var head = r.exact ? (r.best + " is exact" + (unsettled ? ": no " + r.group + " " + who + " could rank ahead" : "")) : ("Best " + r.best + ", worst " + r.worst + ": " + (r.best - 1) + " " + set + " " + r.group + (r.best - 1 === 1 ? " is" : "s are") + " ahead, and up to " + (r.worst - r.best) + " " + who + " could also be. The worst case is a bound, not a result");
-    return head + ". " + r.poolLo + " " + r.group + (r.poolLo === 1 ? " is" : "s are") + " " + set + (unsettled ? "; up to " + unsettled + " more are " + (season ? "not placed" : "unsettled") : "") + "." +
-      (r.unknownPosN ? " " + r.unknownPosN + (r.unknownPosN === 1 ? " player with no known position is" : " players with no known position are") + " included in the bounds." : "");
-  }
+  // (How a rank is bounded, and what an unsettled or unplaced competitor is, is explained once in Team › Performance Help. A row shows only the compact rank text above.)
 
-  return { toCents: toCents, fmtCents: fmtCents, cmpPPG: cmpPPG, eligibility: eligibility, perGameRank: perGameRank, totalRank: totalRank, seasonFrom: seasonFrom, weekFrom: weekFrom, rankText: rankText, rankDetail: rankDetail, isInt: isInt };
+  return { toCents: toCents, fmtCents: fmtCents, cmpPPG: cmpPPG, eligibility: eligibility, perGameRank: perGameRank, totalRank: totalRank, seasonFrom: seasonFrom, weekFrom: weekFrom, rankText: rankText, isInt: isInt };
 });

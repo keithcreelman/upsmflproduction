@@ -65,7 +65,9 @@ test("season production first: points, per scored game, scored games, with both 
   t.match(p, /Season points\s+270\.0\s+QB 3 of 73/); t.match(p, /Per scored game\s+30\.0\s+QB 2 of 35–54/); t.match(p, /Scored games\s+9/);
   t.match(s, /Season points\s+66\.7\s+WR 66 of 240/); t.match(s, /Per scored game\s+8\.3\s+WR 63–66 of 169–209/); t.match(s, /Scored games\s+8/);
   const open = text(row(await perf({}, { pf: { f: "all", s: "pos", open: { [ID.shaheed]: true, [ID.purdy]: true }, res: {} } }), ID.shaheed));
-  t.match(open, /Per-game rank WR 63–66 of 169–209\. Best 63, worst 66/); t.match(open, /The worst case is a bound, not a result/); t.match(open, /Season points rank WR 66 of 240\. 66 is exact/);
+  // revised (Keith's Performance decisions): the opened breakdown keeps only the compact rank; the methodology sentences live in Help
+  t.match(open, /Per-game rank WR 63–66 of 169–209/); t.match(open, /Season points rank WR 66 of 240/);
+  t.doesNotMatch(open, /is exact|are placed|is placed|are settled|Best 63|worst 66|worst case|a bound|unsettled|unplaced|without a position group/i, "no explanation of how a rank is bounded on a row");
 });
 
 test("ranks and pools are never exact when unsettled players could change them; a settled exact rank shows an exact number with a pool range", async () => {
@@ -99,10 +101,12 @@ test("a week the Worker calls complete but the schedule does not: the cutoff ste
   const html = await perf({ lm }); t.match(text(html), /Season through Week 10 · completed games/);
 });
 
-test("team history unavailable or conflicting: season figures and season ranks stay; only the per-game rank is withheld, with its reason", async () => {
+test("team history unavailable or conflicting: season figures and season ranks stay; only the per-game rank is withheld, and the reason is said once at the top, not on the row", async () => {
+  // revised: this test used to expect 'Team history unavailable' on the player's own row; the reason is now ONE line in the header card
   const lm = LM(); lm.teamHistoryState = "unavailable"; lm.teamHistoryReason = "no_history"; lm.teamHistoryThrough = null; delete lm.teamHistory; delete lm.teamHistoryFirst;
   const html = await perf({ lm }), p = text(row(html, ID.purdy));
-  t.match(p, /Season points\s+270\.0\s+QB 3 of 73/); t.match(p, /Team history unavailable/); t.doesNotMatch(p, /QB 2 of/);
+  t.match(p, /Season points\s+270\.0\s+QB 3 of 73/); t.match(p, /Per scored game\s+30\.0/, "the per-game figure does not depend on team history"); t.doesNotMatch(p, /Team history/); t.doesNotMatch(p, /QB 2 of/);
+  t.equal((text(html).match(/Team history unavailable/g) || []).length, 1, "a real reason (the Worker says none is recorded) is named once, at the top"); t.match(text(html), /Team history unavailable: none is recorded\./);
 });
 
 test("the players read failed: season totals still show; ranks are absent, never invented", async () => {
@@ -182,12 +186,13 @@ test("PR B review: a club with no Worker status is not a final game", async () =
   t.doesNotMatch(text(row(await perf({ schedule11: s11, scores, lm }), ID.purdy)), /Final/, "no 'Final' chip without the Worker's status for his club");
 });
 
-test("PR B review: the season-points rank never talks about eligibility; the per-game rank still does", () => {
+test("PR B review (revised): ranks are compact text only: a range is the whole indication that a rank is uncertain, and no sentence about how it is bounded is built anywhere", () => {
+  // revised: this test used to check the long 'Best 2, worst 3 ... 2 QBs are placed' sentences, which now live (shortened) in Help
   const g = (id) => ({ a: "QB", b: "QB" }[id] || ""), sf = K.seasonFrom({ 1: { a: 10, b: 20, z: 50 } }, 1, g), r = K.totalRank(sf.entries, "a", sf.unplaced);
-  const d = K.rankDetail(r, "season"); t.doesNotMatch(d, /eligib|unsettled|settled/i); t.match(d, /Best 2, worst 3/); t.match(d, /1 placed QB is ahead/); t.match(d, /without a position group or with an unreadable score/); t.match(d, /The worst case is a bound, not a result/);
-  const ex = K.rankDetail(K.totalRank(K.seasonFrom({ 1: { a: 10, b: 20 } }, 1, g).entries, "b", []), "season"); t.equal(ex, "1 is exact. 2 QBs are placed.");
+  t.equal(K.rankText(r), "QB 2–3 of 2–3", "an unplaced scorer above him makes it a range"); t.equal(r.exact, false);
+  const ex = K.totalRank(K.seasonFrom({ 1: { a: 10, b: 20 } }, 1, g).entries, "b", []); t.equal(K.rankText(ex), "QB 1 of 2"); t.equal(ex.exact, true);
   const pg = K.perGameRank([{ id: "me", group: "WR", total: 1000, n: 5, status: "eligible" }, { id: "up", group: "WR", total: 1300, n: 5, status: "unsettled" }], "me");
-  t.match(K.rankDetail(pg), /with unsettled eligibility could also be/); t.match(K.rankDetail(pg), /1 settled WR is|0 settled WRs are/);
+  t.equal(K.rankText(pg), "WR 1–2 of 1–2"); t.equal(pg.exact, false); t.equal(K.rankDetail, undefined);
 });
 
 test("PR B review: the rank memo follows a refreshed score read (same weeks, newer data)", async () => {
@@ -213,7 +218,7 @@ test("per-game rank: competitors with no known position widen the bounds like th
   t.deepEqual([dup.worst, dup.poolHi, dup.unplacedN], [3, 4, 1], "the same id twice, and ids already in the pool, are never counted again");
   const grp = K.perGameRank(base, "me", [{ id: "q", group: "RB", total: 9999, n: 5, usable: true }, { id: "r", group: "QB", total: 9999, n: 5, usable: true }]);
   t.deepEqual([grp.worst, grp.poolHi, grp.unplacedN], [3, 4, 1], "a competitor whose position is known counts only in his own group; none is given a position"); t.equal(grp.group, "QB");
-  t.match(K.rankDetail(hi), /1 player with no known position is included in the bounds\./);
+  t.equal(hi.unknownPosN, 1, "one player with no known position is in the bounds (counted once)");
 });
 
 const withScores = (add) => { const sc = clone(FX4.scores); Object.keys(sc).forEach((w) => { if (Number(w) <= 10) sc[w] = sc[w].concat([add(Number(w))]); }); return sc; };
@@ -231,7 +236,7 @@ test("unreadable scores: kept as text by the loader, shown as unverified (figure
   t.equal(r.data.scores["1"], "N/A"); t.equal(r.data.scores["2"], undefined, "a blank is no score"); t.equal(r.data.scores["3"], 7.5); t.equal(r.data.scores["4"], "-");
   const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "N/A" } : x));
   const html = await perf({ scores: sc }), p = text(row(html, ID.purdy));
-  t.match(p, /Season points\s+—\s+Unverified/); t.match(p, /Per scored game\s+—\s+Unverified/); t.match(p, /1 score could not be read, so his season figures and ranks are not shown\./); t.doesNotMatch(p, /QB \d/);
+  t.match(p, /Season points\s+—\s+Unverified/); t.match(p, /Per scored game\s+—\s+Unverified/); t.match(p, /1 score could not be read, so his season figures and ranks are not shown\./); t.doesNotMatch(p, /QB \d+(–\d+)? of/, "no season or per-game rank (the weekly position rank of a week he has a readable score for is a different, exact fact and stays)");
   t.match(text(row(html, ID.shaheed)), /WR 66 of 240/, "his position is known: another position's rank is not widened by him");
   const I = await intel({ scores: sc }), S2 = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
   t.match(V.app(S2).split('<div class="card tbl">')[1].split("</table>")[0], /<td>3<\/td><td class="n"><span class="mu">unreadable<\/span>/, "the game log says unreadable, not a dash");
@@ -349,8 +354,8 @@ test("season and weekly pool bounds count only competitors who could be in the g
   t.deepEqual([ra.best, ra.worst, ra.poolLo, ra.poolHi], [2, 3, 2, 3], "the RB is in no QB bound; only z (no position) is");
   const rr = K.totalRank([{ id: "r2", group: "RB", value: 100 }], "r2", s.unplaced); t.deepEqual([rr.best, rr.worst, rr.poolLo, rr.poolHi], [1, 3, 1, 3], "for an RB: the unreadable RB and z");
   const pg = K.perGameRank([E("me", "QB", 3000, 10, "eligible")], "me", [{ id: "x", group: "RB", usable: false }, { id: "y", group: "", total: 9000, n: 3, usable: true }]); t.deepEqual([pg.worst, pg.poolHi, pg.unknownPosN], [2, 2, 1]);
-  t.match(K.rankDetail(pg), /1 player with no known position is included/);
-  const known = K.perGameRank([E("me", "QB", 3000, 10, "eligible")], "me", [{ id: "q", group: "QB", usable: false }]); t.equal(known.unknownPosN, 0); t.equal(known.unplacedN, 1); t.doesNotMatch(K.rankDetail(known), /no known position/, "a known position is not described as unknown");
+  t.equal(pg.unknownPosN, 1);
+  const known = K.perGameRank([E("me", "QB", 3000, 10, "eligible")], "me", [{ id: "q", group: "QB", usable: false }]); t.equal(known.unknownPosN, 0, "a known position is not counted as unknown"); t.equal(known.unplacedN, 1);
 });
 
 // ---- review finding (PR B ba84145e): text the loader keeps as unreadable must stay unreadable in every total, comparison and rank
@@ -374,7 +379,7 @@ test("exponent and hexadecimal score text end to end: the player's totals, per-g
     const total = sum - w3 + (bad === "1e3" ? 1000 : 16), perGame = total / mine.length;
     [total, perGame].forEach((n) => { const a = n.toFixed(1), b = n.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); t.ok(!p.includes(a) && !p.includes(b), bad + ": the value " + a + " is not shown in his row"); if (bad === "1e3") t.ok(!tx.includes(a) && !tx.includes(b), bad + ": the value " + a + " appears nowhere on the screen"); });
     t.match(p, /Season points\s+—\s+Unverified/, bad + ": season points withheld"); t.match(p, /Per scored game\s+—\s+Unverified/, bad + ": per-game withheld"); t.match(p, /1 score could not be read/);
-    t.doesNotMatch(p, /QB \d/, bad + ": no rank for him");
+    t.doesNotMatch(p, /QB \d+(–\d+)? of/, bad + ": no season or per-game rank for him");
   }
   // his competitors: he is an unplaced competitor who could be ahead of every QB (not a definite 1,227-point season, and not ignored)
   const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "1e3" } : x));
@@ -392,6 +397,137 @@ test("exponent and hexadecimal score text end to end: the player's totals, per-g
   t.equal(pg.worst, pgNo.worst + 1, "per-game: he is counted once toward the worst case"); t.equal(pg.poolHi, pgNo.poolHi + 1, "and once toward the pool, though he is in both the entries and the unplaced list");
   const wr = RD.sf.entries.filter((e) => e.group === "WR")[0], rw = K.totalRank(RD.sf.entries, wr.id, RD.sf.unplaced), rwClean = K.totalRank(RD.sf.entries, wr.id, without);
   t.deepEqual([rw.best, rw.worst, rw.poolHi], [rwClean.best, rwClean.worst, rwClean.poolHi], "other position groups are not affected");
+});
+
+// ============ Keith's Performance decisions (revision of PR B): no filters, compact ranks, one history notice, stacked weekly cells, name = profile ============
+const CSS = fs.readFileSync(path.join(SRC, "styles.css"), "utf8");
+const actives = () => state().model.teams.find((x) => x.id === "0010").players.filter((p) => p.status === "active");
+const noHistLM = () => { const o = LM(); ["teamHistoryState", "teamHistoryReason", "teamHistoryThrough", "teamHistory", "teamHistoryMissing", "teamHistoryConflict", "teamHistoryFirst"].forEach((k) => delete o[k]); return o; };
+const allOpen = () => ({ pf: { s: "pos", open: Object.fromEntries(actives().map((p) => [p.id, true])), res: {} } });
+const count = (s, re) => (s.match(re) || []).length;
+const NOTICE = /Per-game rank and the recent comparison aren’t available yet\./g;
+
+test("revised: no All / Starters / Bench filter; every player of the team is listed, grouped by position, each with his own starter indicator", async () => {
+  const html = await perf({}, { pf: { f: "starters", s: "pos", open: {}, res: {} } });   // a leftover filter value changes nothing: the control and its handler are gone
+  t.doesNotMatch(html, /data-act="pff"/); t.doesNotMatch(html, />Starters</); t.doesNotMatch(html, />All</); t.doesNotMatch(html, /class="lbl">Show</);
+  t.equal(count(html, /data-act="pfx"/g), actives().length, "every active player is listed, starter or not");
+  t.match(text(html), /Starting/); t.match(text(html), /Bench/, "the starter indicator is per player");
+  t.match(html, /class="gh2"><span>QB · /); t.match(html, /class="gh2"><span>WR · /);
+  t.doesNotMatch(fs.readFileSync(path.join(SRC, "app.js"), "utf8"), /"pff"/, "the handler is gone with the control");
+});
+
+test("revised: the Sort offers only what applies: By position and Season average always; Difference only when the recent comparison exists; a stored sort that is not offered falls back to By position", async () => {
+  const sorts = (html) => [...html.matchAll(/data-act="pfs" data-v="(\w+)" aria-pressed="(\w+)"/g)].map((m) => [m[1], m[2]]);
+  t.deepEqual(sorts(await perf()), [["pos", "true"], ["diff", "false"], ["avg", "false"]], "history available: all three");
+  t.deepEqual(sorts(await perf({ lm: noHistLM() })), [["pos", "true"], ["avg", "false"]], "no team history: the order that needs the comparison is withheld with the figures it orders");
+  t.deepEqual(sorts(await perf({ lm: noHistLM() }, { pf: { s: "diff", open: {}, res: {} } })), [["pos", "true"], ["avg", "false"]], "a stored Difference falls back to By position");
+  const bad = LM(); bad.teamHistoryThrough = 13; t.deepEqual(sorts(await perf({ lm: bad })).map((x) => x[0]), ["pos", "avg"], "history that is not believed: the same");
+  const byAvg = await perf({}, { pf: { s: "avg", open: {}, res: {} } }); t.equal(count(byAvg, /data-act="pfx"/g), actives().length, "Season average lists the same players"); t.match(text(byAvg), /Season average, highest first/);
+});
+
+test("revised: compact ranks only: no 'is exact', 'are placed' or other methodology on a row; 'Ranges can narrow as weeks complete.' once, at section level; the long explanation is in Help", async () => {
+  const html = await perf({}, allOpen()), tx = text(html);
+  t.match(text(row(html, ID.purdy)), /Season points rank QB 3 of 73/); t.match(text(row(html, ID.purdy)), /Per-game rank QB 2 of 35–54/);
+  t.match(text(row(html, ID.shaheed)), /Season points rank WR 66 of 240/); t.match(text(row(html, ID.shaheed)), /Per-game rank WR 63–66 of 169–209/);
+  t.doesNotMatch(tx, /is exact|are placed|is placed|are settled|Best \d+, worst|worst case|a bound, not|unsettled|unplaced|eligib|without a position group/i);
+  t.ok(count(html, /\d+–\d+ of \d+/g) >= 2, "several players show a range"); t.equal(count(tx, /Ranges can narrow as weeks complete\./g), 1, "yet the note appears once");
+  t.doesNotMatch(text(await perf({ noPlayers: true })), /Ranges can narrow/, "no rank shown, no range to explain");
+  const help = text(TV.screenHelp(state()));
+  t.match(help, /Season points/); t.match(help, /Per scored game/); t.match(help, /scored games/); t.match(help, /QB 3 of 73/); t.match(help, /range/i); t.match(help, /Ranges can narrow as weeks complete/); t.match(help, /Weekly position rank/); t.match(help, /only when it is exact/);
+  t.match(help, /per-game rank and the recent comparison need team history/i); t.doesNotMatch(help, /worker|endpoint|backend|server|\bAPI\b|PR #/i, "no backend mechanics in Help");
+});
+
+test("revised: team history not available is ONE notice at the top; no row repeats it; every figure it does not touch stays fully usable", async () => {
+  const html = await perf({ lm: noHistLM() }, allOpen()), tx = text(html), body0 = html.split('data-act="pfx"')[0];
+  t.equal(count(tx, NOTICE), 1, "one notice"); t.ok(text(body0).match(NOTICE), "and it is at the top, before the first player");
+  t.match(text(body0), /Season through Week 10 · completed games/, "the completed-games claim is unchanged and in the same card");
+  t.equal(count(html, /class="card[^"]*"><b>Season through Week/g), 1); t.equal(count(html, /Comparison through Week/g), 0, "the second card is gone");
+  const rest = tx.replace(NOTICE, "");
+  t.doesNotMatch(rest, /Team history|Not available|Not shown|Recent|Earlier|Difference|Last 3 team games/, "no per-player repeat: no sub-line, no comparison block, no 'Not available' lines in the opened rows");
+  actives().forEach((p) => t.doesNotMatch(text(row(html, p.id)), /history|Not available|Recent|Earlier/i, p.name));
+  const notice = tx.match(/Per-game rank and the recent comparison aren’t available yet\./)[0]; t.doesNotMatch(notice, /missing|wrong|incorrect|error|problem|could not|failed|data/i, "it never says or implies that player data is missing or wrong");
+  const p = text(row(html, ID.purdy));
+  t.match(p, /Season points\s+270\.0\s+QB 3 of 73/); t.match(p, /Per scored game\s+30\.0/, "the per-game figure is not affected by history"); t.match(p, /Scored games\s+9/); t.doesNotMatch(p, /QB 2 of|35–54/, "only the per-game RANK is withheld");
+  t.match(p, /Season points rank QB 3 of 73/); t.match(p, /Range\s+\d+\.\d to \d+\.\d/, "the opened row is still useful");
+  t.equal(count(html, /class="rcn"/g), 0); t.equal(count(html, /class="cmpl"/g), 0);
+  // the claim rules still work beside the notice
+  const f = text(await perf({ lm: noHistLM(), failCal: true })); t.match(f, /Game completion unverified/); t.doesNotMatch(f, /completed games/); t.equal(count(f, NOTICE), 1);
+  // history available: no notice, and the comparison block is on every row
+  const ok = await perf(); t.equal(count(text(ok), NOTICE), 0); t.equal(count(ok, /class="rcn"/g), actives().length); t.match(text(ok), /Comparison through Week 10/);
+  // a REAL reason is named once, still not per row
+  const mal = LM(); mal.teamHistoryThrough = 13; const mh = text(await perf({ lm: mal }, allOpen()));
+  t.equal(count(mh, /Team history unavailable/g), 1, "one line naming the reason"); t.match(mh, /Team history unavailable: the answer was not in the expected form\./); t.equal(count(mh, NOTICE), 0);
+});
+
+// an independent computation of the weekly position rank, from the recorded files only (nothing from the code under test)
+const GRP = { QB: "QB", RB: "RB", WR: "WR", TE: "TE", PK: "K", PN: "P", DE: "DL", DT: "DL", DL: "DL", LB: "LB", CB: "DB", S: "DB", DB: "DB" };
+function weeklyRankOf(scoresByWeek, players, rosterPos, week, id, over) {
+  const pos = Object.fromEntries((over || players).map((p) => [p.id, p.position])), groupOf = (x) => { const g = GRP[pos[x]]; if (!g) return ""; const rp = rosterPos[x]; return rp && GRP[rp] !== g ? "" : g; };
+  const cents = (s) => (/^-?\d+(\.\d+)?$/.test(String(s).trim()) && Math.abs(Number(s) * 100 - Math.round(Number(s) * 100)) < 1e-6 ? Math.round(Number(s) * 100) : null);
+  const rows = scoresByWeek[week] || [], mine = rows.find((r) => r.id === id), g = groupOf(id), me = mine ? cents(mine.score) : null;
+  if (!mine || me == null || !g) return "";
+  let better = 0, uncertain = 0;
+  rows.forEach((r) => { if (r.id === id) return; const c = cents(r.score), gg = groupOf(r.id); if (c == null || !gg) { if (c == null || c > me) uncertain++; } else if (gg === g && c > me) better++; });
+  return uncertain ? "" : g + " " + (better + 1);
+}
+const cellsOf = (rowHtml) => [...rowHtml.matchAll(/<span class="cell([^"]*)"([^>]*)>(.*?)<\/span>/g)].map((m) => ({ cls: m[1].trim(), inner: m[3], wk: (m[3].match(/<i>W(\d+)<\/i>/) || [])[1], pts: (m[3].match(/<b[^>]*>([^<]*)<\/b>/) || [])[1], rank: (m[3].match(/<em class="wr"[^>]*>([^<]*)<\/em>/) || [])[1] }));
+const kidsOf = (inner) => [...inner.matchAll(/<(i|b|em|u)\b/g)].map((m) => m[1]);
+
+test("revised: weekly cells are stacked Week / Points / position rank; the rank equals an independent computation on the recorded weeks and shows only when exact", async () => {
+  const html = await perf({}, allOpen()), rosterPos = Object.fromEntries(Object.values(state().model.byId).map((p) => [p.id, p.pos]));
+  let compared = 0, ranked = 0, withheld = 0;
+  actives().forEach((p) => {
+    const cells = cellsOf(row(html, p.id)); t.equal(cells.length, 4, p.name + ": four weekly cells");
+    cells.forEach((c) => {
+      t.equal(kidsOf(c.inner).length, 3, p.name + " W" + c.wk + ": three lines"); t.ok(/^(em|u)$/.test(kidsOf(c.inner)[2]), "the third line is always there");
+      if (c.cls === "" && /^-?\d/.test(c.pts || "")) {   // a plain score
+        const want = weeklyRankOf(FX4.scores, FX4.players, rosterPos, c.wk, p.id); compared++; if (want) ranked++; else withheld++;
+        t.equal(c.rank || "", want, p.name + " W" + c.wk + " " + c.pts + ": rank equals the independent computation");
+      } else t.equal(c.rank || "", "", p.name + ": a dash, BYE, ? or label cell has no rank line");
+    });
+  });
+  t.ok(compared >= 60 && ranked >= 40, "enough real cells were compared (" + compared + ", " + ranked + " with a rank, " + withheld + " without)");
+  t.match(row(html, ID.purdy), /<i>W10<\/i><b>43\.4<\/b><em class="wr" title="Rank among players at his position that week">QB 4<\/em>/, "a recorded Week 10 cell: Week, Points, 'QB 4'");
+  t.match(row(html, ID.purdy), /<span class="cell by"><i>W8<\/i><b>BYE<\/b><em class="wr"><\/em><\/span>/, "a bye keeps its form and its empty third line");
+  const dash = await perf({ lm: noHistLM() }, allOpen()); t.match(row(dash, ID.purdy), /<span class="cell"><i>W8<\/i><b>—<\/b><em class="wr"><\/em><\/span>/, "no score: the dash cell keeps its empty third line");
+});
+
+test("revised: no rank line when the rank is not exact, when the player has no reliable position group, or when the score cannot be read; the cell keeps the same three-line structure and height", async () => {
+  // a scorer nobody can place (not in the players read) with a score above everyone's: no weekly rank can be exact
+  const big = clone(FX4.scores); Object.keys(big).forEach((w) => { if (Number(w) <= 10) big[w] = big[w].concat([{ id: "99999", score: "199.5" }]); });
+  const a = await perf({ scores: big }, allOpen());
+  t.equal(count(a, /<em class="wr" title=/g), 0, "not exact anywhere: no weekly rank line is drawn"); t.ok(count(a, /<em class="wr"><\/em>/g) >= 60, "the empty third line is there instead");
+  actives().forEach((p) => cellsOf(row(a, p.id)).forEach((c) => t.equal(kidsOf(c.inner).length, 3)));
+  // an unreadable competitor above him has the same effect
+  const bad = clone(FX4.scores); bad["10"] = bad["10"].concat([{ id: "99998", score: "1e3" }]);
+  const b = await perf({ scores: bad }, allOpen()); t.match(row(b, ID.purdy), /<i>W10<\/i><b>43\.4<\/b><em class="wr"><\/em>/, "an unreadable score elsewhere that could be ahead makes Week 10 not exact"); t.match(row(b, ID.purdy), /<i>W9<\/i><b>31\.9<\/b><em class="wr" title="[^"]*">QB 4<\/em>/, "other weeks are untouched");
+  // the players read and the roster disagree about his position: no reliable group, no weekly rank (and the cells are the same shape)
+  const pl = FX4.players.map((p) => (p.id === ID.purdy ? Object.assign({}, p, { position: "WR" }) : p)), c = await perf({ players: pl }, allOpen());
+  cellsOf(row(c, ID.purdy)).forEach((x) => { t.equal(x.rank || "", "", "no group: no rank line"); t.equal(kidsOf(x.inner).length, 3); });
+  // and he is a scorer who could be in any group, so another player's weekly rank is exact only where he is not above him: checked against the independent computation, player by player
+  const rosterPos = Object.fromEntries(Object.values(state().model.byId).map((p) => [p.id, p.pos])); let seen = 0;
+  actives().forEach((p) => cellsOf(row(c, p.id)).forEach((x) => { if (x.cls === "" && /^-?\d/.test(x.pts || "")) { seen++; t.equal(x.rank || "", weeklyRankOf(FX4.scores, FX4.players, rosterPos, x.wk, p.id, pl), p.name + " W" + x.wk); } }));
+  t.ok(seen >= 60); t.ok(count(c, /<em class="wr" title=/g) >= 1, "some other cells still have an exact rank (players who out-scored him that week)");
+  // the players read failed: no groups at all, so no weekly ranks, and every cell is still three lines
+  const d = await perf({ noPlayers: true }, allOpen()); t.equal(count(d, /<em class="wr" title=/g), 0); cellsOf(row(d, ID.purdy)).forEach((x) => t.equal(kidsOf(x.inner).length, 3));
+  // an unreadable week score: the '?' cell has no rank and the same shape; a week with no score keeps its dash
+  const sc = clone(FX4.scores); sc["10"] = sc["10"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "N/A" } : x));
+  const e = cellsOf(row(await perf({ scores: sc }, allOpen()), ID.purdy)); const q = e.find((x) => x.wk === "10"); t.equal(q.pts, "?"); t.equal(q.rank || "", ""); t.deepEqual(kidsOf(q.inner), ["i", "b", "em"]);
+  // heights: one fixed height for every line of every cell, so a stack of three lines is the same height whatever it holds
+  t.match(CSS, /\.cell u,\.cell em\.wr\{display:block;max-width:100%;min-height:16px;line-height:16px;/); t.match(CSS, /\.cell i\{[^}]*line-height:16px/); t.match(CSS, /\.cell b\{[^}]*line-height:18px/);
+});
+
+test("revised: on Performance the name opens the profile and a separate, labeled control expands the breakdown, built the same way as on Contracts; both are 44 px native buttons; no redundant link inside the details", async () => {
+  const closed = await perf({}, { pf: { s: "pos", open: {}, res: {} } }), opened = await perf({}, { pf: { s: "pos", open: { [ID.purdy]: true }, res: {} } }), nm = state().model.byId[ID.purdy].name;
+  const nmb = new RegExp('<button class="nmb" data-act="card" data-pid="' + ID.purdy + '" aria-label="Open ' + nm + ' profile"><span class="l1">' + nm + " "), tog = (open) => new RegExp('<button class="rb" data-act="pfx" data-v="' + ID.purdy + '" aria-expanded="' + open + '" aria-label="' + (open ? "Hide" : "Show") + " performance details for " + nm + '">');
+  t.match(closed, nmb); t.match(closed, tog(false)); t.match(opened, tog(true)); t.match(opened, nmb);
+  t.ok(closed.search(nmb) < closed.search(tog(false)), "the name button comes first and is a different element from the details button");
+  const rb = opened.split('data-act="pfx" data-v="' + ID.purdy + '"')[1].split("</button>")[0]; t.doesNotMatch(rb, /<button|data-act="card"/, "no button inside the details button, and the name is not part of it");
+  t.doesNotMatch(text(row(opened, ID.purdy)), /Open .* profile|’s profile/, "the 'Open … profile' link inside the details is gone");
+  const contracts = body(V.app(state({ sub: "contracts" })));
+  t.match(contracts, new RegExp('<button class="nmb" data-act="card" data-pid="' + ID.purdy + '" aria-label="Open ' + nm + ' profile">'), "Contracts builds the same name button (the same class, action and label)");
+  t.match(CSS, /\.nmb\{[^}]*min-height:44px/); t.match(CSS, /\.rb\{[^}]*min-height:44px/);
+  t.equal(count(closed, /<button class="nmb"/g), actives().length); t.equal(count(closed, /<a /g), 0);
 });
 
 run("mobile2027_performance_prb");

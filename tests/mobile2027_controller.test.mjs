@@ -418,8 +418,21 @@ test("PR B: Team › Performance asks for the two NFL schedules, the players and
   t.equal(a.calls.length - n, 16, "nothing else was asked (the injury and matchup reads were already in memory)");
   a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.ok(["playerScores", "nflSchedule", "players", "nflByeWeeks"].includes(c.type)); });
   t.match(a.html(), /Comparison through Week 10/); t.match(a.html(), /Season through Week 10 · completed games/); t.match(a.html(), /QB 2 of 35–54/); t.match(a.html(), /WR 63–66 of 169–209/);
-  await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pff", "data-v": "starters" }); await a.click({ "data-act": "pfs", "data-v": "diff" }); await tick(10);
-  t.equal(a.calls.length - n, 16, "tabs, filters and sorts ask nothing");
+  await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pfs", "data-v": "diff" }); await a.click({ "data-act": "pfs", "data-v": "avg" }); await tick(10);   // revised: the Starters / Bench filter is gone, so only the sorts are tapped
+  t.equal(a.calls.length - n, 16, "tabs and sorts ask nothing");
+});
+
+test("revised: on Team › Performance the name opens the profile and the separate details control expands the breakdown; the filter is gone; no new read of any kind", async () => {
+  const a = boot({ r3: true }); await tick(40);
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100); const n = a.calls.length;
+  t.doesNotMatch(a.html(), /data-act="pff"/); t.match(a.html(), /data-act="pfx" data-v="15698" aria-expanded="false"/);
+  await a.click({ "data-act": "pfx", "data-v": "15698" });
+  t.match(a.html(), /data-act="pfx" data-v="15698" aria-expanded="true"/, "the details control expands the breakdown"); t.doesNotMatch(a.html(), /Player profile<\/span>/, "and does not open the profile"); t.equal(a.calls.length, n, "expanding asks for nothing");
+  await a.click({ "data-act": "pfx", "data-v": "15698" }); t.match(a.html(), /data-act="pfx" data-v="15698" aria-expanded="false"/, "and collapses it");
+  await a.click({ "data-act": "card", "data-pid": "15698" }); await tick(30);
+  t.match(a.html(), /Player profile/, "the name opens the profile"); t.doesNotMatch(a.html(), /data-act="pfx" data-v="15698" aria-expanded="true"/);
+  t.deepEqual(a.calls.slice(n).map((c) => c.path + (c.type ? ":" + c.type : "")), ["/api/cap-penalty/preview"], "opening a profile makes its one read of the guarantee calculation and nothing else (no new Performance read)");
+  a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 
 test("R3 ruling 2: the profile game log shows the latest four weeks, then 'Show earlier weeks' loads the rest on demand, once each, and reuses what is in memory", async () => {
