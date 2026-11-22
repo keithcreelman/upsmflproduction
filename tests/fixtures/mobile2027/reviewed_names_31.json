@@ -1,5 +1,5 @@
 {
- "note": "The reviewed inventory of 31 add/drop cut-penalty charges from issue #1502 (backlog session), season 2026. Compared row for row with lib/reviewed_names.js.",
+ "note": "A second copy of the reviewed table of 31 add/drop cut-penalty charges from issue #1502 (backlog session), season 2026. Compared row for row with lib/reviewed_names.js: a consistency check, not independent identity evidence (that is the MFL verification in docs/evidence/bl_m01_mfl_verification_2026-11-22.md).",
  "source": "https://github.com/keithcreelman/upsmflproduction/issues/1502",
  "rows": [
   {

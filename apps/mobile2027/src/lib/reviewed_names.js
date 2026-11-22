@@ -70,7 +70,8 @@
 
   // -> { id, name } or null. All four parts must match a reviewed row exactly.
   function lookup(token, fid, season, amount) {
-    var k = String(token) + "|" + String(fid) + "|" + Number(season) + "|" + Number(amount);
+    if (typeof token !== "string" || typeof fid !== "string" || typeof season !== "number" || typeof amount !== "number") return null;   // no coercion: "2026" and [1000] are not 2026 and 1000
+    var k = token + "|" + fid + "|" + season + "|" + amount;
     return Object.prototype.hasOwnProperty.call(BY, k) ? { id: BY[k].id, name: BY[k].name } : null;
   }
   function rows() { return ROWS.map(function (r) { return r.slice(); }); }

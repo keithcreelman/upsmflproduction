@@ -19,8 +19,8 @@ test("a cut penalty needs one of the two known id forms: a rounding row with a d
   t.equal(A.classify("UPS drop penalty Some Player 1000 id:whatever"), null, "an unknown id form");
   t.equal(A.classify("UPS drop penalty Some Player 1000 id:12345_177945927"), null, "9 digits is not the machine-written time");
   t.equal(A.classify("UPS drop penalty Some Player 1000 id:12345_17794592711"), null, "11 digits is not either");
-  t.deepEqual(A.classify("UPS drop penalty Some Player 1000 id:12345_1779459271"), { category: "Cut Penalty", idForm: "player", playerId: "12345" });
-  t.deepEqual(A.classify("UPS drop penalty Some Player 1000 id:adddrop2025_114.1"), { category: "Cut Penalty", idForm: "adddrop", playerId: null });
+  t.deepEqual(A.classify("UPS drop penalty Some Player 1000 id:12345_1779459271"), { category: "Cut Penalty", idForm: "player", playerId: "12345", key: "12345_1779459271" });
+  t.deepEqual(A.classify("UPS drop penalty Some Player 1000 id:adddrop2025_114.1"), { category: "Cut Penalty", idForm: "adddrop", playerId: null, key: "adddrop2025_114.1" });
   t.equal(A.classify("UPS drop penalty rounding Team -100 id:ups_drop_rounding_0011_2026").category, "Rounding", "a real rounding row is still Rounding");
   const r = A.parseTeamRows([{ amount: 1000, franchise_id: "0010", explanation: "UPS drop penalty Some Player 1000 id:whatever" }], { fid: "0010", season: 2026, total: 1000 });
   t.equal(r.items[0].category, "Other", "it falls to Other, never guessed as a cut penalty");

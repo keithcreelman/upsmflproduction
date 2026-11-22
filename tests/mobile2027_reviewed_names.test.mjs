@@ -39,7 +39,7 @@ test("all four parts must match: another team, season or amount, or an unknown t
   ["adddrop2025_999.1", "adddrop2026_114.1", "adddrop2025_114.2", "", null, undefined, "__proto__", "constructor"].forEach((k) => t.equal(R.lookup(k, "0010", 2026, 1000), null, String(k)));
 });
 
-test("team 0010: the pair where a mix-up would put the wrong name on an amount (Chism $1,000, Thibodeaux $2,000) and the other two rows", () => {
+test("team 0010: the pair where a mix-up would put the wrong name on an amount (Chism $1,000, Thibodeaux $2,000) and the other two rows (guards a transcription swap between the bundle, the second copy and these assertions; identity is the separate MFL verification)", () => {
   t.deepEqual(R.lookup("adddrop2025_426.2", "0010", 2026, 1000), { id: "17269", name: "Chism, Efton" });
   t.deepEqual(R.lookup("adddrop2025_427.2", "0010", 2026, 2000), { id: "15806", name: "Thibodeaux, Kayvon" });
   t.equal(R.lookup("adddrop2025_426.2", "0010", 2026, 2000), null, "Chism's token with Thibodeaux's amount is nobody");
@@ -58,7 +58,7 @@ test("on the recorded read: 4 direct + 31 reviewed mapping = 35 named, 6 stay Pl
   t.equal(items.length, 41);
   const by = (s) => items.filter((i) => i.nameSource === s).length;
   t.equal(by("direct"), 4); t.equal(by("reviewed_mapping"), 31); t.equal(items.filter((i) => i.playerName).length, 35); t.equal(items.filter((i) => !i.playerName).length, 6);
-  t.ok(items.filter((i) => i.nameSource === "reviewed_mapping").every((i) => FIX.rows.some((r) => r.playerId === i.playerId && r.name === i.playerName)), "a mapped name is always a row of the list");
+  t.ok(items.filter((i) => i.nameSource === "reviewed_mapping").every((i) => FIX.rows.some((r) => r.playerId === i.playerId && r.name === i.playerName)), "a mapped name's player id and name are a row of the list (the four-part key is covered by the lookup tests)");
   t.ok(items.filter((i) => !i.playerName).every((i) => i.nameSource === null && i.playerId === null), "no source, no name");
   t.equal(A.parseTeamRows(FX.teams[0].summary.salary_adjustment_raw_rows, { fid: FX.teams[0].franchise_id, season: 2026, total: 0 }).items.filter((i) => i.category !== "Cut Penalty" && i.playerName).length, 0, "the list is never applied to another category");
   // a new charge (a token not on the list) and a row whose text names someone: Player Unknown
@@ -93,6 +93,17 @@ test("the separate MFL verification is kept in the repository and names every to
   FIX.rows.forEach((r) => t.ok(doc.indexOf("`" + r.token + "`") >= 0, "evidence lists " + r.token));
   t.match(doc, /transcription and consistency/); t.match(doc, /NOT\*\* an independent check|not\*\* an independent check|It is \*\*not\*\*/); t.match(doc, /31 of 31 consistent/); t.match(doc, /12\*\* tokens the same team made another drop|For \*\*12\*\* tokens/);
   t.match(R.PROVENANCE.evidence, /docs\/evidence\/bl_m01_mfl_verification_2026-11-22\.md/); t.match(R.PROVENANCE.testNote, /transcription and consistency, not identity/);
+});
+
+test("the id that is looked up is the id that was validated, and nothing is coerced", () => {
+  const row = (explanation) => [{ amount: 1000, franchise_id: "0010", explanation }];
+  const two = A.parseTeamRows(row("UPS drop penalty Foo id:adddrop2025_426.2 1000 id:adddrop2025_999.1"), { fid: "0010", season: 2026, total: 1000 }).items[0];
+  t.equal(two.playerName, null, "the validated id (the last one, 999.1) is not on the list; an earlier ' id:' in the text is never used to look anyone up");
+  const ok = A.parseTeamRows(row("UPS drop penalty Foo 1000 id:adddrop2025_426.2"), { fid: "0010", season: 2026, total: 1000 }).items[0];
+  t.equal(ok.playerName, "Chism, Efton"); t.equal(ok.nameSource, "reviewed_mapping");
+  [["adddrop2025_426.2", "0010", "2026", 1000], ["adddrop2025_426.2", "0010", 2026, "1000"], ["adddrop2025_426.2", "0010", 2026, [1000]], [["adddrop2025_426.2"], "0010", 2026, 1000], ["adddrop2025_426.2", 10, 2026, 1000], ["adddrop2025_426.2", ["0010"], 2026, 1000]].forEach((a) => t.equal(R.lookup.apply(null, a), null, JSON.stringify(a)));
+  const dup = A.parseTeamRows([{ amount: 1000, franchise_id: "0010", explanation: "UPS drop penalty Foo 1000 id:adddrop2025_426.2" }, { amount: 1000, franchise_id: "0010", explanation: "UPS drop penalty Bar id:adddrop2025_5.1 1000 id:adddrop2025_426.2" }], { fid: "0010", season: 2026, total: 1000 });
+  t.equal(dup.items.length, 1); t.equal(dup.duplicates, 1, "de-duplicated on the validated id");
 });
 
 run("mobile2027_reviewed_names");
