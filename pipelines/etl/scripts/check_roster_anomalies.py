@@ -259,6 +259,10 @@ def transaction_players(tx: dict) -> set[str]:
         # "addedCSV|droppedCSV" — both sides are players
         for seg in field.split("|"):
             pids |= set(PID_RE.findall(seg))
+    elif ty == "BBID_WAIVER":
+        # "addedCSV|bid|droppedCSV" — the middle segment is the winning bid
+        # (e.g. "1000"), not a player, so it must not be read as a player id.
+        pids |= added_side(tx) | dropped_side(tx)
     elif ty in ("TAXI",):
         pids |= set(PID_RE.findall(str(tx.get("promoted", ""))))
         pids |= set(PID_RE.findall(str(tx.get("demoted", ""))))
@@ -311,16 +315,38 @@ def load_transactions(snap: Path, txs: list | None = None):
 #                disappearance. Accepting them would reopen the 2026-08-06 hole.
 #   AUCTION_*  — a franchise winning/bidding on a player says nothing about
 #                another franchise losing one.
-LEGIT_DEPARTURE_TYPES = ("FREE_AGENT", "WAIVER", "WAIVER_REQUEST")
+#   BBID_WAIVER — IS here: a processed blind-bid waiver claim. Its drop side is
+#                the THIRD pipe segment ("added,|bid|dropped,"), see dropped_side().
+#                Missing it made every blind-bid drop an "UNEXPLAINED ROSTER
+#                DROP" (17 false alarms 2026-11-19..21).
+LEGIT_DEPARTURE_TYPES = ("FREE_AGENT", "WAIVER", "WAIVER_REQUEST", "BBID_WAIVER")
 # Technically a transaction, still always reported: a bulk commissioner roster
 # import that silently removes players is the incident, not the explanation.
 BULK_DEPARTURE_TYPES = ("LOAD_ROSTERS",)
 
 
+# Which pipe segment of the `transaction` field holds the DROPPED players.
+#   FREE_AGENT / WAIVER / WAIVER_REQUEST / LOAD_ROSTERS:  "addedCSV|droppedCSV"
+#   BBID_WAIVER:                                          "addedCSV|bid|droppedCSV"
+# Reading segment 1 of a BBID_WAIVER would return the BID AMOUNT as a "player".
+DROP_SEGMENT = {"BBID_WAIVER": 2}
+
+
+def added_side(tx: dict) -> set[str]:
+    """Player ids on the ADD side (first pipe segment) of a roster-move field."""
+    return set(PID_RE.findall(str(tx.get("transaction", "")).split("|", 1)[0]))
+
+
 def dropped_side(tx: dict) -> set[str]:
-    """Player ids on the DROP side of an `addedCSV|droppedCSV` transaction field."""
+    """Player ids on the DROP side of a roster-move transaction field.
+
+    `addedCSV|droppedCSV` for most types; `addedCSV|bid|droppedCSV` for
+    BBID_WAIVER (see DROP_SEGMENT). A field too short to have a drop side has
+    no drops — it is never read from a different segment instead.
+    """
     parts = str(tx.get("transaction", "")).split("|")
-    return set(PID_RE.findall(parts[1])) if len(parts) > 1 else set()
+    seg = DROP_SEGMENT.get(str(tx.get("type", "")), 1)
+    return set(PID_RE.findall(parts[seg])) if len(parts) > seg else set()
 
 
 def gave_up_side(tx: dict, key: str) -> set[str]:
@@ -631,7 +657,7 @@ def main() -> int:
                     "incident (Levis / Bigsby / Charbonnet).")
         else:
             head = (f"UNEXPLAINED ROSTER DROP — {who} ({d['pid']}) left F{d['fid']} {fname} with NO "
-                    "FREE_AGENT / WAIVER / TRADE transaction from that franchise to explain it "
+                    "FREE_AGENT / WAIVER / BBID_WAIVER / TRADE transaction from that franchise to explain it "
                     "(TAXI and IR cannot: those players stay in the rosters export).")
         if d["landed_on_fid"]:
             head += (f" He is now on F{d['landed_on_fid']} "
