@@ -21,6 +21,20 @@ Owner screens in the mobile app (the 2027 beta, `apps/mobile2027`, and any later
 - The player profile is reachable the same way wherever a player is shown, and a performance or contract breakdown can be expanded in place.
 - Controls: fewer, and each one earns its space. Prefer one control with a selector (for example one Salary sort with a year) to a row of near-identical buttons.
 
+## A feature that needs a backend capability that is not deployed yet
+
+(Keith, 2026-11-22.) When part of a screen depends on a backend change that has not been released:
+
+- Show **one concise notice** at the page or section level. Do not repeat the dependency warning under every player or row.
+- Keep everything the missing capability does not affect fully usable.
+- **Withhold the affected figures** and leave their cells quiet. Never imply that a player's data is missing or wrong when the cause is the undeployed dependency.
+- **Track the deployment dependency separately** (its own issue or PR), not inside the screen's copy; the notice says what is unavailable, not how the backend works.
+- Do not hide the problem and do not manufacture the missing data.
+
+## Preview data
+
+A phone preview uses **sanitized recorded data** unless Keith separately approves live reads for that preview. A preview says on its own screen that the data is recorded and when it was recorded. A deviation from this (a preview that reads live routes) must be disclosed at once and is not repeated without approval.
+
 ## Checks before a layout is chosen
 
 - Look at it at **320 px and 375 px**, including the worst case (four-digit ranks, 100-point weeks, long names), before deciding. A screenshot or desktop emulation is not a phone review; say what remains unverified.
