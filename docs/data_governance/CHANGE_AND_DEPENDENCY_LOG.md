@@ -6,6 +6,13 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · change (draft #1504, head `2a7eb821`)** · Keith's ruling, relayed by the backlog fork, revises his every-PR blocking rule. The PR backtest is now pinned to reviewed snapshot days (`REVIEWED_THROUGH = 2026-11-21`, which must be a committed date).
+- Reviewed counts 1/27/5/2 still fail on change; new days are left to the nightly `roster-anomaly-check`.
+- That removes the dependency that let an unreviewed flag block unrelated PRs or the trade-bot cutover. Bot checks are untouched.
+- Mutation-proven; CI PASS (run 45012422587); local 276/0.
+- **Reporting gap stated plainly:** the nightly check reports by a red scheduled run, `::error` lines and a JSON artifact. Only GitHub's own failed-run notice reaches anyone (delivery unverified). An alert step is P0-3, not built.
+- The fork merges. · #1504. · All PRs' CI, trade-bot cutover. · Ready for the fork.
+
 **2026-11-22 · change / risk** · #1501 merged (`c1ad9d4e`, 10:13:07Z) by the backlog fork on Keith's go in its chat; this session merged nothing. #1504 was retargeted to `main` with main merged in (`b1ff3110`); its earlier red was `twr_merge_state` on the stacked base.
 - **Coupling risk, recorded on #1504:** the cutover gate runs the full safe suite on `origin/main`. With #1504, a new flagged roster day would block trade-bot snapshot delivery. Options A/B/C are on the PR; B (pin the backtest to reviewed snapshots) is recommended but needs Keith.
 - **Plan (the fork's, per Keith):** merge #1504 only after the Week 11 snapshot is delivered and loaded.
