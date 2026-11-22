@@ -11,7 +11,7 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 - **Status:** BL-I03 stays open until Keith confirms the message reached his phone.
 - **Known limitation (Keith asked that it be recorded):** reminders only go out when the job runs and fails again. A job that stops running sends none. Missing-run detection is a separate backlog item awaiting Keith's ruling; nothing has been built for it.
 
-**2026-11-22 · finding (security, details private)** · A configuration value was exposed in a public Actions log. Remediation is in progress: Discord alerts are off for now, and #1510 moves the alert target configuration to secrets. Details are recorded privately (Keith's rule: security details stay out of public text). · Affects: the data-alert path. · Open.
+**2026-11-22 · finding (security, details private)** · A configuration value was exposed in a public Actions log. Remediation is in progress: Discord alerts are off for now, and the exposed log was deleted on Keith's go (verified 404; the run record remains). #1510 moves the alert target configuration to secrets; its secret and merge wait for Keith's go, after he confirms which Discord account should receive alerts. Details are recorded privately (Keith's rule: security details stay out of public text). · Affects: the data-alert path. · Open.
 
 **2026-11-22 · change (draft #1504, head `2a7eb821`)** · Keith's ruling, relayed by the backlog fork, revises his every-PR blocking rule. The PR backtest is now pinned to reviewed snapshot days (`REVIEWED_THROUGH = 2026-11-21`, which must be a committed date).
 - Reviewed counts 1/27/5/2 still fail on change; new days are left to the nightly `roster-anomaly-check`.
