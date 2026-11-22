@@ -6,6 +6,13 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · change / risk** · #1501 merged (`c1ad9d4e`, 10:13:07Z) by the backlog fork on Keith's go in its chat; this session merged nothing. #1504 was retargeted to `main` with main merged in (`b1ff3110`); its earlier red was `twr_merge_state` on the stacked base.
+- **Coupling risk, recorded on #1504:** the cutover gate runs the full safe suite on `origin/main`. With #1504, a new flagged roster day would block trade-bot snapshot delivery. Options A/B/C are on the PR; B (pin the backtest to reviewed snapshots) is recommended but needs Keith.
+- **Plan (the fork's, per Keith):** merge #1504 only after the Week 11 snapshot is delivered and loaded.
+- **Watching:** BL-I33, the first scheduled J3 run after #1501; BL-A12, `snapshot_weeks` reaching 11.
+
+· #1504 comment 7077672843. · Trade grading, all PRs' CI. · Open.
+
 **2026-11-22 · audit record** · Keith's verbatim approval for the cutover plist change, the #1508 merge and the #1506 closure is posted with the clock order on #1399 (comment 7077605181) and #1503 (comment 7077605341). It is this session's own evidence; the message was typed into this session's chat. Its arrival is bounded between 03:41:35Z and 03:46:35Z; the exact time is not available. It is not retroactive approval from another session. #1501 and #1504 are not merged by this session; the backlog fork will relay the merge go. · Audit trail. · #1508, #1506.
 
 **2026-11-22 · verified** · First real cutover after the fix **succeeded** at 04:20Z (launchd exit 0).
