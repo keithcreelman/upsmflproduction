@@ -6,6 +6,12 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · change (draft #1504, head `20608580`)** · On Keith's recommendation, the backtest is now two checks:
+- **(a) Reviewed baseline:** flagged days must equal `KNOWN_FLAGGED_DAYS` exactly, with drop counts 1/27/5/2. An unlisted day fails. A listed day that stops flagging or changes count also fails; that half is this session's addition.
+- **(b) Noise limit:** the separate 10% limit.
+
+Mutation-tested (an unlisted day and a changed count both fail, exit 1); local safe suite 276/0. **Consequence:** daily snapshot commits to `main` mean a real new flagged day turns every PR's safe-tests red until it is reviewed and recorded. **Follow-up validation after merge (open):** record the first scheduled `roster-anomaly-check` run (expected green, or red only on a reviewed real event). 2026 cut-penalty charges stay unverified. · #1504, #1503. · All PRs' safe-tests. · Draft; CI pending on this head.
+
 **2026-11-22 · change (draft, on Keith's go in chat)** · The J3 snapshot backtest goes back into the safe suite as a **separate change** on its own draft PR #1504 (stacked on #1501). #1501 stays the BBID fix only.
 - **What the 10% limit means:** a day is one pair of consecutive committed snapshots. The test fails when more than 10% of days flag any drop. It is an alert-noise budget. It is not a data check, and passing does not mean no anomaly happened.
 - **The 4 flagged days (1.9% of 212), verified against the committed snapshots:**
