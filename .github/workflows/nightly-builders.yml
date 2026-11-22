@@ -17,6 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  issues: write   # data-alert issue (BL-I03)
   contents: write
 
 jobs:
@@ -64,3 +65,20 @@ jobs:
           done
           echo "Failed to push after 3 attempts."
           exit 1
+
+      # BL-I03 (Keith 2026-11-22): data-alert issue + private Discord message for this job.
+      # See pipelines/ops/job_alert.py. The Discord target ids are secrets so the public log masks them.
+      - name: Alert (data-alert issue + private Discord)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ALERT_DISCORD_ENABLED: ${{ vars.ALERT_DISCORD_ENABLED }}
+          ALERT_DISCORD_USER_ID: ${{ secrets.ALERT_DISCORD_USER_ID }}
+          ALERT_DISCORD_CHANNEL_ID: ${{ secrets.ALERT_DISCORD_CHANNEL_ID }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 pipelines/ops/job_alert.py --job nightly-builders --status "$JOB_STATUS" \
+            --run-url "$RUN_URL" \
+            --affects "the franchise assets snapshot behind the rookie hub"

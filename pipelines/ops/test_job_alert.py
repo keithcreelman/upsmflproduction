@@ -20,7 +20,7 @@ ja = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(ja)
 
 T0 = datetime(2026, 11, 22, 18, 0, tzinfo=timezone.utc)
-ON = {"ALERT_DISCORD_ENABLED": "1", "DISCORD_BOT_TOKEN": "fake-token-xyz", "ALERT_DISCORD_USER_ID": "424242"}
+ON = {"ALERT_DISCORD_ENABLED": "1", "DISCORD_BOT_TOKEN": "fake-token-xyz", "ALERT_DISCORD_USER_ID": "424242424242424242"}
 OFF = {}
 
 
@@ -120,12 +120,19 @@ check(ja.discord_config({"ALERT_DISCORD_ENABLED": "1", "ALERT_DISCORD_USER_ID": 
       == "no Discord bot token available to this job", "missing token must be reported")
 both = dict(ON, ALERT_DISCORD_CHANNEL_ID="99")
 check("exactly one" in (ja.discord_config(both)[1] or ""), "two targets must be rejected")
+# The literal "-" that `gh variable set --body -` stored on 2026-11-22 must be rejected before any send,
+# without echoing the value.
+for bad in ("-", "abc", "12345", "1234567890123456789012"):
+    r = ja.discord_config(dict(ON, ALERT_DISCORD_USER_ID=bad))[1] or ""
+    check("is not a Discord id" in r and bad not in r.replace("15 to 21", ""), f"bad id {bad!r} must be rejected: {r!r}")
+check(ja.discord_config(dict(ON, ALERT_DISCORD_USER_ID="123456789012345678"))[1] is None, "an 18-digit id is valid")
 
 # 6. Nothing secret in issue text or comments.
 gh, rec = FakeGH(), Recorder()
 run(gh, "failure", T0, ON, rec)
 text = gh.issues[1]["body"] + " ".join(gh.comments.get(1, []))
-check("fake-token-xyz" not in text and "424242" not in text, "issue text must not contain the token or target id")
+check("fake-token-xyz" not in text and "424242424242424242" not in text,
+      "issue text must not contain the token or target id")
 
 # 7. Cancelled/skipped runs change nothing.
 check(ja.main(["--job", "x", "--status", "cancelled"]) == 0, "cancelled is a no-op")

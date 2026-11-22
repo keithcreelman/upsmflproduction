@@ -71,6 +71,9 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write   # data-alert issue (BL-I03)
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
@@ -241,3 +244,20 @@ jobs:
 
           if [ "${FAILED}" = "1" ]; then echo "One or more sources failed (see groups above)."; exit 1; fi
           echo "All nflverse sources refreshed."
+
+      # BL-I03 (Keith 2026-11-22): data-alert issue + private Discord message for this job.
+      # See pipelines/ops/job_alert.py. The Discord target ids are secrets so the public log masks them.
+      - name: Alert (data-alert issue + private Discord)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ALERT_DISCORD_ENABLED: ${{ vars.ALERT_DISCORD_ENABLED }}
+          ALERT_DISCORD_USER_ID: ${{ secrets.ALERT_DISCORD_USER_ID }}
+          ALERT_DISCORD_CHANNEL_ID: ${{ secrets.ALERT_DISCORD_CHANNEL_ID }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 pipelines/ops/job_alert.py --job nflverse-stats-refresh --status "$JOB_STATUS" \
+            --run-url "$RUN_URL" \
+            --affects "D1 NFL player stats behind box scores, leaderboards and stats freshness"

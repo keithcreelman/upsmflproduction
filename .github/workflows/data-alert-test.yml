@@ -23,7 +23,7 @@ jobs:
         env:
           DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
           ALERT_DISCORD_ENABLED: ${{ vars.ALERT_DISCORD_ENABLED }}
-          ALERT_DISCORD_USER_ID: ${{ vars.ALERT_DISCORD_USER_ID }}
-          ALERT_DISCORD_CHANNEL_ID: ${{ vars.ALERT_DISCORD_CHANNEL_ID }}
+          ALERT_DISCORD_USER_ID: ${{ secrets.ALERT_DISCORD_USER_ID }}
+          ALERT_DISCORD_CHANNEL_ID: ${{ secrets.ALERT_DISCORD_CHANNEL_ID }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: python3 pipelines/ops/job_alert.py --job data-alert-test --test --run-url "$RUN_URL"
