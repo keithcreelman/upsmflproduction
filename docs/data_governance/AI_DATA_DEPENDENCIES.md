@@ -63,7 +63,14 @@ Every tool is read-only and returns facts with `as_of`, `source` and a grade (A 
 | Wire / UPS Center (`pipelines/etl/wire/*`) | D1, worker routes, MFL, snapshots, `ups_discord_messages` | Fact tokens with `sources`/`asof`; a pack with no sources is rejected | Best-labeled; `ups_discord_messages` has no migration; projection table re-stamp bug (BL-I13) |
 | `content_engine.py` proxy mode | `/api/anthropic-proxy` | — | The route does not exist in the worker (R, assets appendix) |
 
-## 4. Conflicts to resolve with the AI session (open)
+## 4. Conflicts to resolve with the AI session
+
+**Status 2026-11-22:**
+- The AI session (owner of #1478 and #1484) **confirmed C1-C3 against the code at `44805bec`, acknowledged C4 and agreed to C5.** That was agent status, not a Keith ruling.
+- No desk code has changed. Keith decides which session implements the desk fixes.
+- **Added evidence for C1 (reported by the AI session from its local raw-log ledger):** the parsed add/drop table keeps only moves with exactly one player id. About 1,683 multi-player free-agent moves and 873 WAIVER transactions (1,616 moves) are missing, and pick-slot parsing has errors.
+- **C3 input:** the AI session holds private, local-only season × event-type coverage matrices. Nothing public may be derived from them until Keith reviews its evidence packet.
+
 
 | # | Conflict | AI-session position (evidence) | Data-infra position | Needs |
 |---|---|---|---|---|

@@ -6,6 +6,10 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · dependency (reported by the AI session)** · The Mac jobs that write `src_final_standings` and current-season `src_*` run from two checkouts: `~/Code/MFL/upsmflproduction` and the UPS Center auto-builder's cached repo. Both currently get their MFL key from the copy that draft #1489 removes. If #1489 merges before both checkouts have their runtime key file, those jobs would run without a key and the tables would go stale **with no alert** (no job alerting; baseline §4 #2). · Not re-checked here; no key values read. · #1489 merge gate; standings, history and AI desk standings/history tools. · Needs a per-checkout key check plus a freshness stamp before or with the #1489 merge.
+
+**2026-11-22 · dependency** · The AI session confirmed conflicts C1-C3, acknowledged C4 and agreed to C5 (`AI_DATA_DEPENDENCIES.md` §4). No code has changed. · AI session message, 2026-11-22. · #1478. · Implementation owner to be assigned by Keith.
+
 **2026-11-22 · dependency** · AI data dependencies recorded per tool in `AI_DATA_DEPENDENCIES.md` (desk `44805bec`, League Record S1, Discord/Wire/rule bots). Five conflicts opened with the AI session:
 - C1: `src_trades` rows graded A.
 - C2: freshness targets.
