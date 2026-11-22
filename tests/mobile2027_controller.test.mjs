@@ -16,6 +16,7 @@ const SRC = path.join(HERE, "..", "apps", "mobile2027", "src");
 const FX = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/public_reads.json"), "utf8"));
 const FX2 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r2_reads.json"), "utf8")); // stage R2 reads
 const FX3 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r3_reads.json"), "utf8")); // stage R3: season figures, team history and weekly player scores (real public data)
+const FX4 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r4_reads.json"), "utf8")); // PR B: the whole league, Weeks 1 to 10 (real public data)
 // The injury resolver the page loads is the beta's DERIVED copy, made from the reviewed copy of the classic file (tests never read site/shared/).
 const BUILD = await import(pathToFileURL(path.join(HERE, "..", "apps", "mobile2027", "scripts", "build.mjs")).href);
 const FIXSH = path.join(HERE, "fixtures/mobile2027/shared");
@@ -39,9 +40,12 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     if (u.pathname === "/api/cap-penalty/preview") return FX.cap_penalty;
     if (u.pathname === "/api/cap-adjustments/next-season") return NEXT_LEDGER;
     if (u.pathname === "/api/player-status") return FX2.player_status;
-    if (u.pathname === "/api/lineup-matchups") return Object.assign({}, r3 ? FX3.lineup_matchups_w11 : FX2.lineup_matchups_w11, { week: Number(u.searchParams.get("W")) });
+    if (u.pathname === "/api/lineup-matchups") return Object.assign({}, r3 ? FX3.lineup_matchups_w11 : FX2.lineup_matchups_w11, r3 ? FX4.hist : {}, { week: Number(u.searchParams.get("W")) });
     if (u.searchParams.get("TYPE") === "league") return FX.league;
-    if (u.searchParams.get("TYPE") === "playerScores") return { playerScores: { playerScore: FX3.scores[u.searchParams.get("W")] || [] } };
+    // PR B: the whole-league reads the Performance screen needs (weekly scores Weeks 1 to 10, positions, the NFL schedules of Weeks 10 and 11)
+    if (u.searchParams.get("TYPE") === "players") return { players: { player: FX4.players } };
+    if (u.searchParams.get("TYPE") === "nflSchedule") return u.searchParams.get("W") === "10" ? FX4.schedule10 : u.searchParams.get("W") === "11" ? FX4.schedule11 : { nflSchedule: { matchup: [] } };
+    if (u.searchParams.get("TYPE") === "playerScores") { const w = u.searchParams.get("W"); return { playerScores: { playerScore: (r3 ? FX4.scores[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) : FX3.scores[w]) || [] } }; }
     return u.searchParams.get("W") === "10" ? FX2.weekly_results_w10 : FX.weekly_results;
   };
   const fetchFake = async (url, opts) => {
@@ -82,7 +86,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/tabviews.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/tabviews.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
   const click = async (attrs) => {
     const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));
@@ -388,15 +392,16 @@ test("R3: a failed guarantee read says Unavailable (never $0), offers Try again,
   t.doesNotMatch(a.html(), /data-act="retrypen"/); t.match(a.html(), /\$[\d,]+<\/b>|\$\d[\d,]* fully earned|Not tracked/);
 });
 
-test("R3: Team › Performance asks for the matchup read, then the weekly score reads (five, because team history is one week behind), once each; going back and forth asks nothing more", async () => {
+test("PR B: Team › Performance asks for the two NFL schedules, the players and the weekly scores (Weeks 1 to 10 for the season, Week 11 for the live chip), once each; going back and forth asks nothing more", async () => {
   const a = boot({ r3: true }); await tick(40); const n = a.calls.length;
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(40);
-  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11], "the strip (Weeks 8 to 11) plus the look-back from the coverage week (Week 10, back to 7 for a bye): five reads");
-  t.equal(a.calls.length - n, 5, "nothing else was asked (the injury and matchup reads were already in memory)");
-  a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.equal(c.type, "playerScores"); });
-  t.match(a.html(), /Comparison through Week 10/); t.match(a.html(), /dashed|class="cell newer"/);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "every week of the season through the last all-final week (10), and the live Week 11");
+  t.equal(a.calls.slice(n).filter((c) => c.type === "nflSchedule").length, 2, "the schedules of Week 10 (the cutoff) and Week 11 (the lineup week)"); t.equal(a.calls.slice(n).filter((c) => c.type === "players").length, 1);
+  t.equal(a.calls.length - n, 14, "nothing else was asked (the injury and matchup reads were already in memory)");
+  a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.ok(["playerScores", "nflSchedule", "players"].includes(c.type)); });
+  t.match(a.html(), /Comparison through Week 10/); t.match(a.html(), /Season through Week 10 · completed games/); t.match(a.html(), /QB 2 of 35–54/); t.match(a.html(), /WR 63–66 of 169–209/);
   await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pff", "data-v": "starters" }); await a.click({ "data-act": "pfs", "data-v": "diff" }); await tick(10);
-  t.equal(a.calls.length - n, 5, "tabs, filters and sorts ask nothing");
+  t.equal(a.calls.length - n, 14, "tabs, filters and sorts ask nothing");
 });
 
 test("R3 ruling 2: the profile game log shows the latest four weeks, then 'Show earlier weeks' loads the rest on demand, once each, and reuses what is in memory", async () => {
@@ -404,29 +409,29 @@ test("R3 ruling 2: the profile game log shows the latest four weeks, then 'Show 
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
   const rowsOf = () => (a.html().split('<div class="card tbl">')[1] || "").split("</table>")[0].split("<tr>").length - 2;
-  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11], "opening the log asked for the five weeks the Performance rules need, no more");
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "opening the log asked for the season through Week 10 and the live Week 11, once each");
   t.equal(rowsOf(), 4, "the latest four weeks"); t.match(a.html(), /data-act="logmore">Show earlier weeks</); t.match(a.html(), /The latest four weeks/);
   const n0 = a.calls.length;
   await a.click({ "data-act": "logmore" }); await tick(60);
-  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "only the missing weeks 1 to 6 were asked, each once");
-  t.equal(a.calls.length - n0, 6, "six more reads, none repeated");
-  t.equal(rowsOf(), 11, "the full season"); t.match(a.html(), /Showing Weeks 1 to 11/); t.match(a.html(), /The full season, newest first/);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "every week was already read for the season figures: nothing more is asked");
+  t.equal(a.calls.length - n0, 0, "no more reads, none repeated");
+  t.equal(rowsOf(), 10, "the full season through Week 10"); t.match(a.html(), /Showing Weeks 1 to 10/); t.match(a.html(), /The full season, newest first/);
   const weeks = [...(a.html().split('<div class="card tbl">')[1].split("</table>")[0]).matchAll(/<tr><td>(\d+)<\/td>/g)].map((m) => +m[1]);
-  t.deepEqual(weeks, [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "newest first");
+  t.deepEqual(weeks, [10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "newest first");
   await a.click({ "data-act": "logless" }); await a.click({ "data-act": "logmore" }); await tick(30);
-  t.equal(a.calls.length - n0, 6, "showing fewer and more again asks nothing");
+  t.equal(a.calls.length - n0, 0, "showing fewer and more again asks nothing");
   t.doesNotMatch(a.html(), /<th[^>]*>(Opponent|Snaps|Lineup)/);
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 
 test("R3 ruling 2: an earlier week that cannot be read shows n/a with a retry; the weeks that loaded stay", async () => {
-  const a = boot({ r3: true, failScores: 0 }); await tick(40);
+  const a = boot({ r3: true, failScores: 1 }); await tick(40); // the first score read (Week 1) fails; the season figures are withheld, never a partial sum
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
-  a.setFailScores(1); await a.click({ "data-act": "logmore" }); await tick(60);
+  await a.click({ "data-act": "logmore" }); await tick(60);
   t.match(a.html(), /could not be read and show n\/a/); t.match(a.html(), /data-act="retrylog"/);
   await a.click({ "data-act": "retrylog" }); await tick(60);
-  t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /Showing Weeks 1 to 11/);
+  t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /Showing Weeks 1 to 10/);
 });
 
 test("R3 review MAT-1: opening Performance while the boot matchup read is still out still asks for the weekly scores once it arrives (and so does a profile's Performance tab)", async () => {
@@ -434,13 +439,13 @@ test("R3 review MAT-1: opening Performance while the boot matchup read is still 
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(10);
   t.deepEqual(scoreReads(a), [], "nothing can be asked yet: the matchup read is held");
   a.releaseIntel(); await tick(60);
-  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11], "the two callers shared one read; the second still got its follow-up");
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "the two callers shared one read; the second still got its follow-up");
   t.doesNotMatch(a.html(), /Loading the latest weeks/);
   const b = boot({ r3: true, holdIntel: true }); await tick(30);
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await b.click({ "data-act": "card", "data-pid": pid }); await b.click({ "data-act": "ptab", "data-v": "perf" }); await tick(10);
   b.releaseIntel(); await tick(60);
-  t.deepEqual(scoreReads(b).sort((x, y) => x - y), [7, 8, 9, 10, 11]);
+  t.deepEqual(scoreReads(b).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
 });
 
 test("R3 review: a failed guarantee read is asked again only on Try again, not on every return to Contracts", async () => {
@@ -455,9 +460,9 @@ test("R3 review: a failed guarantee read is asked again only on Try again, not o
 test("R3: a failed weekly score read shows n/a in those cells and a retry; scores that did load stay; nothing is 0.0", async () => {
   const a = boot({ r3: true, failScores: 1 }); await tick(40);
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(40);
-  t.match(a.html(), /n\/a/); t.match(a.html(), /data-act="retryperf"/); t.doesNotMatch(a.html(), /<b>0\.0<\/b><\/span><\/span>\s*<span class="cell"><i>W\d+<\/i><b>n\/a/);
+  t.match(a.html(), /Some weeks of scores could not be read/); t.match(a.html(), /data-act="retryperf"/); t.doesNotMatch(a.html(), /<span>Season points<\/span><b>\d/, "no season figure is drawn from a partial set of weeks");
   await a.click({ "data-act": "retryperf" }); await tick(40);
-  t.doesNotMatch(a.html(), /n\/a/); t.equal(scoreReads(a).length, 6, "only the failed week was asked again");
+  t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /<span>Season points<\/span><b>\d/); t.equal(scoreReads(a).length, 12, "only the failed week was asked again");
 });
 
 test("R3: the profile's Performance tab shows the game log from the same reads (Week and Points; BYE only where the club is known)", async () => {
@@ -466,7 +471,7 @@ test("R3: the profile's Performance tab shows the game log from the same reads (
   await a.click({ "data-act": "card", "data-pid": pid }); await tick(10);
   const n = scoreReads(a).length; t.equal(n, 0, "opening a profile asks for no scores until its Performance tab is used");
   await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
-  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [7, 8, 9, 10, 11]);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   t.match(a.html(), /Game log/); t.match(a.html(), /<th>Wk<\/th><th class="n">Pts<\/th>/); t.doesNotMatch(a.html(), /<th[^>]*>(Opponent|Snaps|Lineup)/, "no opponent, snaps or lineup column");
   t.match(a.html(), /Opponents, snaps and lineup status are not in this preview/);
 });

@@ -21,7 +21,8 @@
     model: null, load: { core: "loading", coreNotes: [], error: "" }, penalty: { state: "idle" },
     teamId: pref("team", ""), tab: "team", sub: "roster", view: "lineup", open: {}, flags: {},
     wk: null, // the week on screen; null means the current lineup week. Only a past week ever changes it (view-only)
-    intel: { status: null, mu: {}, wk: {}, scores: {} }, // reads added in R2/R3, by their own address: injury status, NFL games and season figures, weekly lineups, weekly player scores
+    intel: { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null }, // reads added in R2/R3/PR B, by their own address: injury status, NFL games and team history, weekly lineups, weekly player scores, NFL schedules, positions
+    live: null, // PR B: when every game of the lineup week was first seen final (starts the quiet period of the Final · updating chip)
     ct: { f: "all", s: "end", open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group, sort, which rows are open; the cap-charge Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
     pf: { f: "all", s: "pos", open: {}, res: {} }, // Team › Performance: the same
@@ -89,7 +90,7 @@
       else if (r.weekly.state !== "ok") notes.push("MFL’s submitted lineups could not be read (" + r.weekly.error + ").");
       S.model = U.model.build(rw, r.league.state === "ok" ? r.league.data : null, r.weekly.state === "ok" ? r.weekly.data : null, r.week, parseInt(cfg.season, 10));
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
-      S.intel = { status: null, mu: {}, wk: {}, scores: {} }; S.wk = null; S.ns = { state: "idle" };
+      S.intel = { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null }; S.wk = null; S.ns = { state: "idle" }; S.live = null;
       if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
@@ -138,17 +139,53 @@
   // The full-season game log reads the weeks the screen did not need, on demand ("Show earlier weeks"), and reuses every read already in memory.
   function ensureLog(force) {
     if (S.sample.on || !S.model || !S.model.week || !U.tabviews) return;
-    var mu = S.intel.mu[S.model.week]; if (!mu || mu.state !== "ok") return;
-    var L = mu.data.latestFinal; if (!(L >= 1)) return;
+    var C0 = U.tabviews.completion(S); if (C0.state !== "ok") return;   // the log runs through the last all-final week, never the Worker's latestFinalWeek
+    var L = C0.week; if (!(L >= 1)) return;
     U.tabviews.logWeeks(L).forEach(function (w) {
       intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && S.intel.scores[w] && S.intel.scores[w].state === "error");
     });
   }
+  // PR B: Team › Performance needs, in order: the matchup read (the Worker's lastCompleteWeek and the team history), the NFL schedule of that week (and of the
+  // lineup week) to establish per game which week is complete, then the weekly scores Weeks 1..N for the season totals and the players read for the position
+  // pools. Each step asks for its read once (the loader reuses it), and the next step starts when the one before it has arrived. A failed read is asked again
+  // only on Retry.
+  function ensureSched(w, force) {
+    var rec = S.intel.sched[w];
+    if (rec && !(force && rec.state === "error")) return; // asked once; the loader keeps the answer. Only Retry asks again after a failure
+    intelRead(S.intel.sched, w, function (f) { return loader.loadSchedule(w, U.complete.parseSchedule, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
+  }
+  function ensureWeekScores(w, force) {
+    var rec = S.intel.scores[w];
+    if (rec && !(force && rec.state === "error")) return;
+    intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
+  }
+  function ensurePlayers(force) {
+    var rec = S.intel.players;
+    if (rec && !(force && rec.state === "error")) return;
+    intelRead(S.intel, "players", function (f) { return loader.loadPlayers(f); }, force && rec && rec.state === "error", null);
+  }
   function ensurePerformance(force) {
     if (S.sample.on || !S.model || !S.model.week) return;
     var cur = S.model.week, rec = S.intel.mu[cur];
-    intelRead(S.intel.mu, cur, function (f) { return loader.loadMatchups(cur, f); }, force && rec && rec.state === "error", function (next) { if (next && next.state === "ok") ensureScores(next.data.latestFinal, U.tabviews.throughOf(next.data), force); });
-    // (the follow-up above runs once whether the matchup read was already in memory or arrives later, so it is not repeated here)
+    if (!rec || rec.state !== "ok") {
+      // (a read another caller already started is joined, not repeated: the loader shares it, and this follow-up still runs when it arrives)
+      intelRead(S.intel.mu, cur, function (f) { return loader.loadMatchups(cur, f); }, force && rec && rec.state === "error", function (next) { if (next && next.state === "ok") ensurePerformance(false); });
+      return;
+    }
+    var lc = rec.data.lastComplete;
+    if (!(lc >= 1)) return;
+    ensureSched(lc, force);
+    if (cur !== lc) ensureSched(cur, force);
+    var sl = S.intel.sched[lc];   // the week before is read only when the schedule says the Worker's last complete week is not complete
+    if (sl && sl.state === "ok" && lc - 1 >= 1 && !U.complete.weekComplete(sl.data.games, null)) ensureSched(lc - 1, force);
+    var C0 = U.tabviews.completion(S);
+    if (C0.state === "ok") {
+      for (var w = 1; w <= C0.week; w++) ensureWeekScores(w, force);
+      if (cur > C0.week) ensureWeekScores(cur, force);
+      ensurePlayers(force);
+      var sc = S.intel.sched[cur];
+      if (sc && sc.state === "ok" && U.complete.weekComplete(sc.data.games, null) && !(S.live && S.live.allFinalAt != null)) S.live = { allFinalAt: Date.now() }; // the first time every game of the lineup week is seen final (the quiet period starts here)
+    }
   }
   function ensureIntel(force) {
     if (S.sample.on || !S.model || S.tab !== "team") return;

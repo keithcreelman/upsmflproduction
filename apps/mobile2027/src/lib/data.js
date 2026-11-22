@@ -17,7 +17,7 @@
   var RULES = [
     { path: "/roster-workbench", query: ["L", "YEAR"] },
     // R3: playerScores (every player's recorded score for one week; public MFL scoring, no owner text) feeds Team › Performance
-    { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults", "playerScores"] },
+    { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults", "playerScores", "players", "nflSchedule"] },
     { path: "/api/current-lineup-week", query: ["L", "YEAR"] },
     { path: "/api/cap-penalty/preview", query: ["L", "YEAR"] },
     // stage R2 (Team › Roster): injury status for every player, and this week's NFL games (opponent, home or away, kickoff)
@@ -66,7 +66,9 @@
       penalty: base + "/api/cap-penalty/preview?" + q({ L: L, YEAR: Y }),
       status: base + "/api/player-status?" + q({ season: Y, L: L }),
       matchups: function (w) { return base + "/api/lineup-matchups?" + q({ YEAR: Y, W: w }); },
-      nextSeason: base + "/api/cap-adjustments/next-season?" + q({ L: L, YEAR: Y })
+      nextSeason: base + "/api/cap-adjustments/next-season?" + q({ L: L, YEAR: Y }),
+      players: base + "/api/mfl-export?" + q({ TYPE: "players", L: L, YEAR: Y, JSON: 1 }),
+      schedule: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: w }); }
     };
 
     function get(url, label) {
@@ -162,9 +164,11 @@
           Object.keys(j.matchups).forEach(function (t) { var g = j.matchups[t] || {}; games[t] = { opp: String(g.opp || ""), isHome: g.isHome === true, kickoff: Number(g.kickoff) || 0, status: String(g.status || "") }; });
           Object.keys(j.playerWindow || {}).forEach(function (id) { var w = j.playerWindow[id] || {}; if (isFinite(Number(w.avg)) && w.avg != null) avg[id] = { avg: Number(w.avg), games: Number(w.games) || 0 }; if (w.total != null && isFinite(Number(w.total)) && w.games != null && isFinite(Number(w.games))) season[id] = { total: Number(w.total), games: Number(w.games) }; });
           var latest = j.season && isFinite(Number(j.season.latestFinalWeek)) ? Number(j.season.latestFinalWeek) : null;
+          // PR B: `lastCompleteWeek` (every game final) is the Worker's own second opinion on completion; `latestFinalWeek` (at least one final game) is NOT completion
+          var lastComplete = j.season && j.season.lastCompleteWeek != null && isFinite(Number(j.season.lastCompleteWeek)) ? Number(j.season.lastCompleteWeek) : null;
           var horizon = {};
           Object.keys(j.horizon || {}).forEach(function (t) { var a = j.horizon[t]; if (Array.isArray(a)) horizon[t] = a.map(function (g) { return { wk: Number(g && g.wk), opp: String(g && g.opp || ""), isHome: !!(g && g.isHome) }; }); });
-          return { state: "ok", data: { week: Number(j.week) || Number(week), games: games, avg: avg, season: season, latestFinal: latest, horizon: horizon, horizonWeeks: Array.isArray(j.horizonWeeks) ? j.horizonWeeks.map(Number) : [], hist: pickHist(j), asOf: String(j.as_of || "") }, at: Date.now() };
+          return { state: "ok", data: { week: Number(j.week) || Number(week), games: games, avg: avg, season: season, latestFinal: latest, lastComplete: lastComplete, horizon: horizon, horizonWeeks: Array.isArray(j.horizonWeeks) ? j.horizonWeeks.map(Number) : [], hist: pickHist(j), asOf: String(j.as_of || "") }, at: Date.now() };
         });
       }, force);
     }
@@ -231,6 +235,33 @@
       }, force);
     }
 
+    // PR B: every player's position and current NFL club (public MFL players export). Only { id: { pos, club } } is kept; names and every other field are dropped
+    // here. Asked for once and reused; it feeds the position pools of the ranks.
+    function loadPlayers(force) {
+      return cached("players", 6 * 60 * 60 * 1000, function () {
+        return settle(get(urls.players, "players and positions")).then(function (r) {
+          if (r.state !== "ok") return r;
+          var rows = r.data && r.data.players && r.data.players.player;
+          rows = Array.isArray(rows) ? rows : rows ? [rows] : [];
+          if (!rows.length) return { state: "error", data: null, error: "Unexpected answer" };
+          var map = {};
+          rows.forEach(function (p) { if (p && p.id != null && /^\d+$/.test(String(p.id))) map[String(p.id)] = { pos: String(p.position || ""), club: String(p.team || "") }; });
+          return { state: "ok", data: { byId: map }, at: Date.now() };
+        });
+      }, force);
+    }
+    // PR B: one week of the NFL schedule, parsed to games right away (two clubs, seconds remaining, whether both have a score).
+    function loadSchedule(week, parse, force) {
+      return cached("sched:" + week, 2 * 60 * 1000, function () {
+        return settle(get(urls.schedule(week), "NFL schedule, week " + week)).then(function (r) {
+          if (r.state !== "ok") return r;
+          var games = parse(r.data);
+          if (!games) return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: { week: Number(week), games: games }, at: Date.now() };
+        });
+      }, force);
+    }
+
     function loadPenalty() {
       return settle(get(urls.penalty, "contract calculations")).then(function (r) {
         if (r.state !== "ok") return r;
@@ -251,7 +282,7 @@
       return by;
     }
 
-    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
+    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
   }
 
   return { RULES: RULES, check: check, createLoader: createLoader };

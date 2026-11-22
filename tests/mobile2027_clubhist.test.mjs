@@ -214,7 +214,7 @@ const malformed = {
   "cur is not a string": (h) => { h.teamHistory = { p1: { seg: [["AAA", 1, 5]], cur: 7 } }; },
   "missing list is not an array": (h) => { h.teamHistoryMissing = "p1"; }, "conflict list has a number": (h) => { h.teamHistoryConflict = [7]; },
   "through is 0": (h) => { h.teamHistoryThrough = 0; }, "through is a string": (h) => { h.teamHistoryThrough = "10"; }, "through is null while ok": (h) => { h.teamHistoryThrough = null; },
-  "through beyond the latest final week": (h) => { h.teamHistoryThrough = 11; }, "state is unknown": (h) => { h.teamHistoryState = "maybe"; },
+  "through more than one week beyond the latest final week": (h) => { h.teamHistoryThrough = 13; }, "state is unknown": (h) => { h.teamHistoryState = "maybe"; },
   "teamHistoryFirst absent": (h) => { delete h.teamHistoryFirst; }, "teamHistoryFirst null": (h) => { h.teamHistoryFirst = null; }, "teamHistoryFirst is an array": (h) => { h.teamHistoryFirst = [3]; },
   "teamHistoryFirst week 0": (h) => { h.teamHistoryFirst = { p1: 0 }; }, "teamHistoryFirst beyond through": (h) => { h.teamHistoryFirst = { p1: 11 }; },
   "teamHistoryFirst not an integer": (h) => { h.teamHistoryFirst = { p1: 2.5 }; }, "teamHistoryFirst string week": (h) => { h.teamHistoryFirst = { p1: "3" }; },
