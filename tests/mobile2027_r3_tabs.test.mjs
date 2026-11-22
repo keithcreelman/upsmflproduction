@@ -68,16 +68,19 @@ test("P1/P5: Cap & picks says it is not in this preview and nothing in it, or in
 test("P3: Contracts labels, group headings and sort chips follow the season; the salary columns are as many as the longest contract; no year is written in the view code", () => {
   const S = state(), tm = teamPlayers(S), ny = Math.max(...tm.map((p) => p.years || 0)), html = body(V.app(S));
   t.ok(ny >= 2, "the fixture team has multi-year contracts");
-  t.match(html, new RegExp("Salary " + S.model.season + "<")); t.match(html, new RegExp("Salary " + (S.model.season + 1) + "<"));
+  // PR A revision: the salary years are chips under the Salary sort ("2026", "2027", "2028", from the season), each named "<year> salary"
+  const sal = body(V.app(state({ ct: { f: "all", s: "sal", open: {} } })));
+  [0, 1, 2].forEach((i) => { t.match(sal, new RegExp('data-act="cty" data-v="' + i + '" aria-pressed="' + (i === 0) + '" aria-label="' + (S.model.season + i) + ' salary">' + (S.model.season + i) + "<")); });
   t.equal((html.match(/<div class="thead /g) || []).length, 1); t.match(html, new RegExp('<div class="thead g' + (ny + 1) + '"'));
   t.equal((html.match(/<div class="trow t\d+">/g) || []).length, 1); t.match(html, new RegExp('<div class="trow t' + ny + '">'));
-  // headings: "Ends after {season + years left - 1}"
-  const heads = [...html.matchAll(/Ends after <b>(\d{4})<\/b>/g)].map((m) => +m[1]);
+  // headings: "Expiration date {season + years left - 1}"
+  const heads = [...html.matchAll(/Expiration date <b>(\d{4})<\/b>/g)].map((m) => +m[1]);
   t.ok(heads.length >= 2); t.deepEqual(heads, heads.slice().sort((a, b) => a - b), "soonest first");
   heads.forEach((h) => t.ok(tm.some((p) => S.model.season + p.years - 1 === h), "a group exists only for a real end year"));
   // a 2027 season: every label moves, and no 2026 appears anywhere in the Contracts body
   const S27 = state({ model: model(2027) }), h27 = body(V.app(S27));
-  t.match(h27, /Salary 2027</); t.match(h27, /Salary 2028</); t.match(h27, /Ends after <b>2027<\/b>/); t.doesNotMatch(h27, /2026/);
+  const s27 = body(V.app({ ...S27, ct: { f: "all", s: "sal", open: {} } }));
+  t.match(s27, /aria-label="2027 salary">2027</); t.match(s27, /aria-label="2028 salary">2028</); t.match(h27, /Expiration date <b>2027<\/b>/); t.doesNotMatch(h27, /2026/); t.doesNotMatch(s27, /2026/);
   // and the view code itself holds no year literal (comments aside)
   ["tabviews.js", "views.js"].forEach((f) => {
     const code = fs.readFileSync(path.join(SRC, "lib", f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
@@ -85,7 +88,7 @@ test("P3: Contracts labels, group headings and sort chips follow the season; the
   });
 });
 
-test("P4: default order is ends-after soonest, then current-season salary; filters and sorts work; '—' means the contract ended; no points per game or rank anywhere", () => {
+test("P4: default order is expiration soonest, then current-season salary; filters and sorts work; '—' means the contract ended; no points per game or rank anywhere", () => {
   const S = state(), html = body(V.app(S)), tm = teamPlayers(S);
   // within each group, higher current-season salary first
   const groups = html.split('<div class="gh2">').slice(1);
@@ -96,16 +99,16 @@ test("P4: default order is ends-after soonest, then current-season salary; filte
   });
   // filters
   ["active", "ir", "taxi"].forEach((f) => {
-    const n = (body(V.app(state({ ct: { f, s: "end", open: {} } }))).match(/data-act="ctx"/g) || []).length;
+    const n = (body(V.app(state({ ct: { f, s: "exp", open: {} } }))).match(/data-act="ctx"/g) || []).length;
     t.equal(n, tm.filter((p) => p.status === f).length, "filter " + f);
   });
-  // sort by salary this season / next season / name
-  ["y0", "y1", "name"].forEach((s) => t.ok((body(V.app(state({ ct: { f: "all", s, open: {} } }))).match(/data-act="ctx"/g) || []).length === tm.length, "sort " + s + " lists everyone"));
+  // sort by salary (each year) / expiration / name
+  [["sal", 0], ["sal", 1], ["sal", 2], ["exp", 0], ["name", 0]].forEach(([s, y]) => t.ok((body(V.app(state({ ct: { f: "all", s, y, open: {} } }))).match(/data-act="ctx"/g) || []).length === tm.length, "sort " + s + " " + y + " lists everyone"));
   // a contract that has ended shows a dash in that year's column
   const one = tm.find((p) => p.years === 1);
   t.match(body(V.app(state({ ct: { f: "all", s: "name", open: {} } }))).split('data-v="' + one.id + '"')[1].split("</button>")[0], /<span><span class="mu">—<\/span><\/span>/);
   // no points per game and no rank, collapsed or expanded
-  const open = body(V.app(state({ ct: { f: "all", s: "end", open: allOpen(S) } })));
+  const open = body(V.app(state({ ct: { f: "all", s: "exp", open: allOpen(S) } })));
   [html, open].forEach((h) => { t.doesNotMatch(text(h), /\bPPG\b|points per game|per game|\brank(ed|ing)?\b|\bpts\b|season (avg|average)/i); t.doesNotMatch(h, /data-act="pf/); });
 });
 
@@ -118,10 +121,11 @@ test("P5: the summary says 'Recorded salary, not cap space', says what is not pa
 });
 
 // ───────────────────────── P6: the Guarantee left column ─────────────────────────
-const GUAR = /^(Loading…|\$[\d,]+|\$0 fully earned|Not tracked|Under review|Unavailable)$/;
+// PR A revision (wording only): the column is "Remaining guarantee"; a calculated zero is "$0" with a second line "Fully earned"; "Not tracked" is "Not applicable"
+const GUAR = /^(Loading…|\$[\d,]+|\$0 Fully earned|Not applicable|Under review|Unavailable)$/;
 const guarCells = (html) => [...html.matchAll(/<span class="g">(.*?)<\/span><span/g)].map((m) => text(m[1]).trim());
 
-test("P6: the table renders before the guarantee read resolves; the column holds only guarantee values: Loading…, an amount, $0 fully earned, Not tracked, Under review, Unavailable", () => {
+test("P6: the table renders before the guarantee read resolves; the column holds only guarantee values: Loading…, an amount, $0 Fully earned, Not applicable, Under review, Unavailable", () => {
   const loading = body(V.app(state({ penalty: { state: "loading" } })));
   t.ok(loading.includes("Recorded salary, not cap space") && loading.includes('data-act="ctx"'), "the table is drawn with the guarantee read still out");
   guarCells(loading).forEach((c) => t.equal(c, "Loading…"));
@@ -129,7 +133,7 @@ test("P6: the table renders before the guarantee read resolves; the column holds
   const ok = body(V.app(state()));
   const cells = guarCells(ok); t.equal(cells.length, teamPlayers(state()).length);
   cells.forEach((c) => t.match(c, GUAR, "a guarantee value: " + c));
-  ["Not tracked", "Unavailable"].forEach((w) => t.ok(cells.includes(w), "the fixture has a row that is " + w));
+  ["Not applicable", "Unavailable"].forEach((w) => t.ok(cells.includes(w), "the fixture has a row that is " + w));
   t.ok(cells.some((c) => /^\$[\d,]+$/.test(c)), "and amounts");
 });
 
@@ -140,10 +144,10 @@ test("P6: remaining guarantee is not a cut charge: a cut amount never appears in
   const ww = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && r.earned_rule === "ww_earned_na"; });
   const amt = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && !r.earned_rule && r.penalty > 0 && Number.isFinite(r.guaranteed) && Number.isFinite(r.earned); });
   [flat, flat0, ww, amt].forEach((p) => t.ok(p, "the fixture has each kind of contract"));
-  const open = body(V.app(state({ ct: { f: "all", s: "end", open: allOpen(S) } })));
+  const open = body(V.app(state({ ct: { f: "all", s: "exp", open: allOpen(S) } })));
   const rowOf = (p) => open.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
   const gcell = (p) => text(rowOf(p).match(/<span class="g">(.*?)<\/span><span/)[1]).trim();
-  t.equal(gcell(flat), "Not tracked"); t.equal(gcell(flat0), "Not tracked"); t.equal(gcell(ww), "Not tracked");
+  t.equal(gcell(flat), "Not applicable"); t.equal(gcell(flat0), "Not applicable"); t.equal(gcell(ww), "Not applicable");
   // the cut charge, in its own place, with the reason in owner language
   const cutOf = (p) => text(rowOf(p).split("<b>If cut now</b>")[1].split("</span>")[0]);
   t.match(cutOf(flat), new RegExp("\\$" + String(FX.cap_penalty.players[flat.id].penalty).replace(/\B(?=(\d{3})+$)/g, ",") + " · Flat rule: a contract paying the same small amount every year costs a fixed amount to cut\\."));
@@ -156,25 +160,25 @@ test("P6: remaining guarantee is not a cut charge: a cut amount never appears in
   guarCells(open).forEach((c) => t.match(c, GUAR));
 });
 
-test("P6: '$0 fully earned' only from a calculated zero; a failed read, a missing row and a row under review never draw $0", () => {
+test("P6: '$0 Fully earned' only from a calculated zero; a failed read, a missing row and a row under review never draw $0", () => {
   const S0 = state(), tm = teamPlayers(S0), p = tm.find((x) => { const r = FX.cap_penalty.players[x.id]; return r && !r.earned_rule && Number.isFinite(r.guaranteed) && Number.isFinite(r.earned) && r.guaranteed - r.earned > 0; });
   const players = clone(FX.cap_penalty.players);
   players[p.id].earned = players[p.id].guaranteed; // a calculated zero
-  const zero = body(V.app(state({ penalty: penalty(players), ct: { f: "all", s: "end", open: { [p.id]: true } } })));
-  t.ok(guarCells(zero).includes("$0 fully earned"), "a calculated zero reads $0 fully earned");
-  t.match(text(zero.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0]), /\$0, fully earned of \$[\d,]+ guaranteed/);
+  const zero = body(V.app(state({ penalty: penalty(players), ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
+  t.ok(guarCells(zero).includes("$0 Fully earned"), "a calculated zero reads $0 with a second line, Fully earned");
+  t.match(text(zero.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0]), /Remaining guarantee \$0 Guaranteed portion fully earned \$[\d,]+ guaranteed, \$[\d,]+ earned through Week 10/);
   // failed read
-  const failed = body(V.app(state({ penalty: { state: "error", error: "HTTP 500" }, ct: { f: "all", s: "end", open: allOpen(S0) } })));
-  guarCells(failed).forEach((c) => t.equal(c, "Unavailable")); t.doesNotMatch(failed, /\$0 fully earned|<b>\$0<\/b>/);
+  const failed = body(V.app(state({ penalty: { state: "error", error: "HTTP 500" }, ct: { f: "all", s: "exp", open: allOpen(S0) } })));
+  guarCells(failed).forEach((c) => t.equal(c, "Unavailable")); t.doesNotMatch(failed, /Fully earned|<b>\$0<\/b>/);
   t.match(text(failed), /If cut now Unavailable/); t.match(failed, /data-act="retrypen"/);
   // a row the worker did not send
   const missing = clone(FX.cap_penalty.players); delete missing[p.id];
-  const mh = body(V.app(state({ penalty: penalty(missing), ct: { f: "all", s: "end", open: { [p.id]: true } } })));
+  const mh = body(V.app(state({ penalty: penalty(missing), ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   const mrow = mh.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
-  t.match(text(mrow.match(/<span class="g">(.*?)<\/span><span/)[1]), /^\s*Unavailable\s*$/); t.doesNotMatch(mrow, /\$0 fully earned|<b>\$0<\/b>/); t.match(text(mrow), /If cut now Unavailable/);
+  t.match(text(mrow.match(/<span class="g">(.*?)<\/span><span/)[1]), /^\s*Unavailable\s*$/); t.doesNotMatch(mrow, /Fully earned|<b>\$0<\/b>/); t.match(text(mrow), /If cut now Unavailable/);
   // under review, with the worker's reason
   const rev = clone(FX.cap_penalty.players); rev[p.id].needs_review = true; rev[p.id].review_reason = "Contract text needs review";
-  const rh = body(V.app(state({ penalty: penalty(rev), ct: { f: "all", s: "end", open: { [p.id]: true } } })));
+  const rh = body(V.app(state({ penalty: penalty(rev), ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   const rrow = rh.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
   t.match(text(rrow.match(/<span class="g">(.*?)<\/span><span/)[1]), /^\s*Under review\s*$/); t.match(text(rrow), /Under review\. Contract text needs review/); t.doesNotMatch(rrow, /<b>\$0<\/b>/);
 });
@@ -182,7 +186,7 @@ test("P6: '$0 fully earned' only from a calculated zero; a failed read, a missin
 test("P6/P3: a salary the worker or MFL did not record is n/r, not $0, in the table and in the totals", () => {
   const S = state(), tm = teamPlayers(S), p = tm.find((x) => x.years >= 2);
   p.salary = null; p.salaryUnresolved = true;
-  const html = body(V.app(state({ model: S.model, ct: { f: "all", s: "end", open: { [p.id]: true } } })));
+  const html = body(V.app(state({ model: S.model, ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   const row = html.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
   t.match(row, /<span class="wn">n\/r<\/span>/); t.doesNotMatch(row, /<span>\$0<\/span>/); t.match(html, /A year with no recorded amount is left out of its total/);
 });

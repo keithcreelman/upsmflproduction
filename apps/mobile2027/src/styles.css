@@ -223,6 +223,20 @@ button.btnrow{cursor:pointer}
 .rw{border-bottom:1px solid var(--bd)}
 .rw:last-child{border-bottom:0}
 .rb{display:flex;flex-direction:column;gap:2px;width:100%;min-height:44px;border:0;background:transparent;text-align:left;padding:8px 2px;color:var(--tx)}
+/* PR A (Team › Contracts): the name opens the profile (its own 44 px control); the rest of the row opens the details */
+.nmb{display:block;width:100%;min-height:44px;border:0;background:transparent;text-align:left;padding:8px 2px 0;color:var(--tx)}
+.nmb .l1{font-weight:700;font-size:14px;overflow-wrap:anywhere;text-decoration:underline;text-decoration-color:var(--bs);text-underline-offset:3px}
+.rw .rb{padding-top:0}
+.rb .chv{white-space:nowrap;color:var(--ac);font-weight:600}
+.cells .g small{display:block;font-size:12px}
+.kv span small{display:block;color:var(--mu);font-size:12px;font-weight:400}
+.big{font-size:28px;font-weight:800;line-height:1.1;font-variant-numeric:tabular-nums}
+.capfig{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.capa{min-width:0;flex:1 1 auto}
+.capt{flex:0 0 auto;text-align:right;font-variant-numeric:tabular-nums}
+.capt b{display:block;font-size:16px}
+.cl .who{display:flex;flex-direction:column;min-width:0;overflow-wrap:anywhere}
+.seg button[aria-pressed="true"] span{font-size:12px}
 .rb .l1{font-weight:600;font-size:14px;overflow-wrap:anywhere}
 .rb .l2{font-size:12.5px;color:var(--mu);overflow-wrap:anywhere}
 .cells{font-size:13px;margin-top:2px}
