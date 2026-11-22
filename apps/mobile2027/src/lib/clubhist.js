@@ -284,6 +284,7 @@
         else if (rawBad(wn, id)) cell = { week: wn, kind: "unreadable", score: null, loaded: true };   // a recorded value that is not a number: shown as unreadable, never as "no score"
         else if (H.ok && wk[wn] && wk[wn].opp === "b" && wk[wn].identity === "known") cell = { week: wn, kind: "bye", score: null, loaded: true };
         else cell = { week: wn, kind: "none", score: null, loaded: true };
+        if (cell.kind !== "unreadable" && rawBad(wn, id)) cell.bad = true;   // an unreadable score in a newer week is flagged too, whatever the cell's kind
         if (cell.kind === "none" && H.ok && wk[wn] && wk[wn].byeByCandidates) cell.byeByCandidates = true;   // a bye by candidate agreement: counted nowhere, drawn as a dash
         return cell;
       }
@@ -366,7 +367,7 @@
     if (!isInt(L) || from < 1 || to < from) return [];
     o.logWeeks = [from, to];
     var r = evaluate(o).rows[id];
-    return r && r.log ? r.log.map(function (c) { return { week: c.week, kind: c.loaded ? c.kind : "unloaded", score: c.score, byeKnown: c.kind === "bye", recorded: c.score !== null }; }) : [];
+    return r && r.log ? r.log.map(function (c) { var o = { week: c.week, kind: c.loaded ? c.kind : "unloaded", score: c.score, byeKnown: c.kind === "bye", recorded: c.score !== null }; if (c.bad) o.bad = true; return o; }) : [];
   }
 
   // The weeks of scores the caller must load: the Performance strip, and the full-season profile log.

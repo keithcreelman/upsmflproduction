@@ -25,6 +25,7 @@ const require = createRequire(import.meta.url);
 const OLD_REV = "88946ba0";
 const TF = path.join(HERE, "fixtures/mobile2027");
 const FX = JSON.parse(fs.readFileSync(path.join(TF, "public_reads.json"), "utf8")), FX3 = JSON.parse(fs.readFileSync(path.join(TF, "r3_reads.json"), "utf8")), FX4 = JSON.parse(fs.readFileSync(path.join(TF, "r4_reads.json"), "utf8"));
+const CAL = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/calendar_2026.json"), "utf8"));
 const CFG = { workerBase: "https://upsmflproduction.keith-creelman.workers.dev", leagueId: "74598", season: "2026" };
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const text = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
@@ -56,11 +57,15 @@ async function renderNew(histThrough) {
     if (u.pathname === "/api/lineup-matchups") return ok(Object.assign({}, lm, { week: Number(w) }));
     if (ty === "playerScores") return ok({ playerScores: { playerScore: FX4.scores[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) } });
     if (ty === "players") return ok({ players: { player: FX4.players } });
+    if (ty === "nflByeWeeks") return ok(CAL.byes);
+    if (ty === "nflSchedule" && w === "ALL") return ok(CAL.full);
     if (ty === "nflSchedule") return ok(w === "10" ? FX4.schedule10 : w === "11" ? FX4.schedule11 : { nflSchedule: { matchup: [] } });
     return ok({}); };
   const L = D.createLoader(CFG, fake), intel = { status: null, mu: { 11: rec(await L.loadMatchups(11)) }, wk: {}, scores: {}, sched: {}, players: rec(await L.loadPlayers()) };
   for (const w of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) intel.scores[w] = rec(await L.loadScores(w));
   for (const w of [10, 11]) intel.sched[w] = rec(await L.loadSchedule(w, X.parseSchedule));
+  if (L.loadCalendar) intel.cal = rec(await L.loadCalendar(X.parseCalendar));
+  Object.keys(intel.scores).forEach((k) => { intel.scores[k].at += 1000; });   // the scores are read after the schedules, as the app does
   return { season: lm.season, html: body(V.app(baseState(M, intel))) };
 }
 const summary = (r) => { const tx = text(r.html); return { latestFinalWeek: r.season.latestFinalWeek, lastCompleteWeek: r.season.lastCompleteWeek, banner: (tx.match(/Comparison through Week \d+/) || [null])[0], weeks: [...new Set([...tx.matchAll(/through Week (\d+)/g)].map((m) => m[1]))] }; };

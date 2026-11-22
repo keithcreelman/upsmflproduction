@@ -15,6 +15,8 @@ const M = require(path.join(SRC, "lib/model.js")), D = require(path.join(SRC, "l
 const FX = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/public_reads.json"), "utf8"));
 const FX3 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r3_reads.json"), "utf8"));
 const FX4 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r4_reads.json"), "utf8"));
+const CAL = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/calendar_2026.json"), "utf8"));
+const TV = require(path.join(SRC, "lib/tabviews.js"));
 const CFG = { workerBase: "https://upsmflproduction.keith-creelman.workers.dev", leagueId: "74598", season: "2026" };
 const text = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
 const clone = (x) => JSON.parse(JSON.stringify(x));
@@ -28,7 +30,9 @@ async function intel(over) {
     const u = new URL(url), ty = u.searchParams.get("TYPE"), w = u.searchParams.get("W");
     if (u.pathname === "/api/lineup-matchups") return ok(Object.assign({}, lm, { week: Number(w) }));
     if (ty === "playerScores") return ok({ playerScores: { playerScore: (over.scores || FX4.scores)[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) } });
-    if (ty === "players") return over.noPlayers ? { ok: false, status: 502, text: async () => "x" } : ok({ players: { player: FX4.players } });
+    if (ty === "players") return over.noPlayers ? { ok: false, status: 502, text: async () => "x" } : ok({ players: { player: over.players || FX4.players } });
+    if (ty === "nflByeWeeks") return over.failCal ? { ok: false, status: 502, text: async () => "x" } : ok(CAL.byes);
+    if (ty === "nflSchedule" && w === "ALL") return over.failCal ? { ok: false, status: 502, text: async () => "x" } : ok(over.calFull || CAL.full);
     if (ty === "nflSchedule") { if (over.failSched === w) return { ok: false, status: 502, text: async () => "x" }; return ok(w === "10" ? (over.schedule10 || FX4.schedule10) : w === "11" ? (over.schedule11 || FX4.schedule11) : { nflSchedule: { matchup: [] } }); }
     return ok({});
   };
@@ -37,6 +41,8 @@ async function intel(over) {
   const out = { status: null, mu: { 11: rec(await L.loadMatchups(11)) }, wk: {}, scores: {}, sched: {}, players: rec(await L.loadPlayers()) };
   for (const w of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) out.scores[w] = rec(await L.loadScores(w));
   for (const w of [10, 11]) out.sched[w] = rec(await L.loadSchedule(w, X.parseSchedule));
+  if (L.loadCalendar) out.cal = rec(await L.loadCalendar(X.parseCalendar));
+  Object.keys(out.scores).forEach((k) => { out.scores[k].at += 1000; });   // the scores are read after the schedules, as the app does
   return out;
 }
 const state = (over) => ({ model: M.build(FX.roster_workbench, FX.league, FX.weekly_results, 11, 2026), load: { core: "ok", coreNotes: [] }, penalty: { state: "idle" }, ns: { state: "idle" }, teamId: "0010", tab: "team", sub: "performance", view: "lineup",
@@ -244,6 +250,98 @@ test("schedule coverage: every known club plays or is on its bye; a truncated, r
   t.deepEqual(X.cutoffWeek(10, { 10: g10 }, null, 11, c10), { state: "ok", week: 10 }, "Week 9 is never asked for when Week 10 is complete");
   const u = X.cutoffWeek(10, { 10: cut }, null, 11, c10); t.deepEqual([u.state, u.need], ["unavailable", 9]);
   const c = X.cutoffWeek(10, { 10: cut, 9: [] }, null, 11, c10); t.deepEqual([c.state, c.why, c.week], ["conflict", "schedule_truncated", 10], "both checked weeks fail: nothing is drawn, and the reason is the missing games");
+});
+
+// ---- round 4: the authoritative calendar, every week verified, position reliability, unreadable-score details, stale live scores
+const calFull = (edit) => { const c = clone(CAL.full); if (edit) edit(c.fullNflSchedule.nflSchedule); return c; };
+const wkOf = (l, w) => l.find((e) => String(e.week) === String(w));
+
+test("calendar: MFL's own list of all 32 clubs and the whole season's schedule: every regular-season week accounts for every club; Weeks 1 to 10 are verified complete", () => {
+  const cal = X.parseCalendar(CAL.byes, CAL.full);
+  t.equal(cal.clubs.length, 32); t.equal(Object.keys(cal.byeOf).length, 32);
+  for (let w = 1; w <= 18; w++) t.equal(X.coverage(cal.weeks[w], { clubs: cal.clubs, byeOf: cal.byeOf, week: w }).state, "ok", "Week " + w + " plays or byes all 32 clubs");
+  t.deepEqual(X.verifyWeeks(cal, 10), [], "Weeks 1 to 10 are complete"); t.deepEqual(X.verifyWeeks(cal, 11).map((p) => [p.week, p.state]), [[11, "not_final"]], "Week 11 is under way");
+  t.equal(X.parseCalendar({ nflByeWeeks: { team: [] } }, CAL.full), null); t.equal(X.parseCalendar(CAL.byes, { fullNflSchedule: {} }), null); t.equal(X.parseCalendar(null, null), null);
+  const dupBye = clone(CAL.byes); dupBye.nflByeWeeks.team.push(dupBye.nflByeWeeks.team[0]); t.equal(X.parseCalendar(dupBye, CAL.full), null, "a club listed twice is not a club list");
+});
+
+test("older incomplete games: an unfinished game, a truncated week, an unreadable week and a failed calendar each remove the 'completed games' claim and say why; a clean calendar keeps it", async () => {
+  const claim = /Season through Week 10 · completed games/;
+  t.match(text(await perf()), claim);
+  const nf = text(await perf({ calFull: calFull((l) => { wkOf(l, 5).matchup[0].gameSecondsRemaining = "900"; }) }));
+  t.match(nf, /Season through Week 10/); t.doesNotMatch(nf, /completed games/); t.match(nf, /Week 5 has a game that is not final \(\w+ and \w+\)\. Figures include what MFL has recorded and may change when it is played/);
+  const cancelled = text(await perf({ calFull: calFull((l) => { const g = wkOf(l, 7).matchup[1]; g.gameSecondsRemaining = "3600"; g.team.forEach((x) => { x.score = ""; }); }) })); t.doesNotMatch(cancelled, /completed games/); t.match(cancelled, /Week 7 has a game that is not final/, "a postponed or cancelled game is not final");
+  const tr = text(await perf({ calFull: calFull((l) => { wkOf(l, 3).matchup.shift(); }) })); t.doesNotMatch(tr, /completed games/); t.match(tr, /Week 3's NFL schedule does not account for every club/);
+  const gone = text(await perf({ calFull: calFull((l) => { wkOf(l, 4).matchup = []; }) })); t.doesNotMatch(gone, /completed games/); t.match(gone, /Week 4's NFL schedule could not be read/);
+  const many = text(await perf({ calFull: calFull((l) => { [2, 3, 4, 5, 6].forEach((w) => { wkOf(l, w).matchup[0].gameSecondsRemaining = "60"; }); }) })); t.match(many, /Week 2 has a game/); t.match(many, /Week 4 has a game/); t.match(many, /2 more weeks are not confirmed complete/);
+  const f = text(await perf({ failCal: true })); t.doesNotMatch(f, /completed games/); t.match(f, /could not be read, so weeks 1 to 9 were not checked against them/);
+  const I = await intel(); delete I.cal; t.doesNotMatch(text(body(V.app(state({ intel: I })))), /completed games/, "no calendar asked for: no claim");
+  const I2 = await intel(); I2.cal = { state: "loading" }; const h2 = text(body(V.app(state({ intel: I2 })))); t.match(h2, /Checking which games are final|checking earlier weeks/, "while the calendar is read nothing is claimed");
+});
+
+test("authoritative coverage: a missing game between two clubs that no roster has is detected; the roster-derived list could not see it", () => {
+  const cal = X.parseCalendar(CAL.byes, CAL.full), clubs = cal.clubs.concat(["ZZA", "ZZB"]), byeOf = Object.assign({}, cal.byeOf, { ZZA: 18, ZZB: 18 });
+  const cv = X.coverage(cal.weeks[10], { clubs, byeOf, week: 10 }); t.equal(cv.state, "truncated"); t.deepEqual(cv.truncated.slice().sort(), ["ZZA", "ZZB"]);
+  t.equal(X.weekComplete(cal.weeks[10], null, { clubs, byeOf, week: 10 }), false);
+  t.equal(X.coverage(cal.weeks[10], coverOf(10)).state, "ok", "the roster-derived list says ok: the gap the authoritative list closes");
+  const S0 = state({ intel: { cal: { state: "ok", data: cal } } }), c = TV.coverFor(S0, 10); t.equal(c.authoritative, true); t.equal(c.clubs.length, 32);
+  t.equal(TV.coverFor(state({ intel: {} }), 10).authoritative, false, "without the calendar the weaker roster-derived list is used, and the claim is withheld");
+});
+
+test("lineup week: a club the Worker lists that is in no scheduled game means a game is missing, so the week is not complete", async () => {
+  const g11 = X.parseSchedule(FX4.schedule11, 11); g11.forEach((g) => { g.final = true; g.secondsRemaining = 0; g.scored = true; });
+  const st = {}; g11.forEach((g) => { st[g.clubs[0]] = "final"; st[g.clubs[1]] = "final"; });
+  t.equal(X.weekComplete(g11, st), true);
+  t.equal(X.weekComplete(g11.slice(1), st), false, "the Worker lists the clubs of a game that the schedule does not have");
+});
+
+test("a week's scores read before the schedule that shows it final are not used for a completed-games figure until they are read again", async () => {
+  const done = clone(FX4.schedule11); done.nflSchedule.matchup.forEach((m) => { m.gameSecondsRemaining = "0"; m.team[0].score = "21"; m.team[1].score = "14"; });
+  const scores = clone(FX4.scores); scores["11"] = [{ id: "1", score: "0" }, { id: ID.purdy, score: "28.44" }];
+  const caught = LM(); Object.keys(caught.matchups).forEach((c) => { caught.matchups[c].status = "final"; }); caught.season.lastCompleteWeek = 11;
+  const I = await intel({ schedule11: done, scores, lm: caught }), S1 = state({ intel: I });
+  t.match(text(row(body(V.app(S1)), ID.purdy)), /Season points\s+298\.4/, "read after the schedule: used");
+  t.equal(TV.staleScores(S1, 11), false);
+  I.scores[11] = Object.assign({}, I.scores[11], { at: I.sched[11].at - 5 }); t.equal(TV.staleScores(S1, 11), true);
+  const stale = text(row(body(V.app(S1)), ID.purdy)); t.match(stale, /Season points\s+—/, "read before it: no figure is drawn from it"); t.doesNotMatch(stale, /298\.4/);
+  I.scores[11] = Object.assign({}, I.scores[11], { at: I.sched[11].at + 5 }); t.match(text(row(body(V.app(S1)), ID.purdy)), /Season points\s+298\.4/);
+});
+
+test("position reliability: a scorer whose players-read position disagrees with his roster position is unplaced: no rank for him, wider ranks for every group, and a reason on his row", async () => {
+  const pl = FX4.players.map((p) => (p.id === ID.purdy ? Object.assign({}, p, { position: "WR" }) : p));
+  const html = await perf({ players: pl }), p = text(row(html, ID.purdy)), s = text(row(html, ID.shaheed));
+  t.match(p, /Season points\s+270\.0\s+Position not confirmed/); t.match(p, /Per scored game\s+30\.0\s+Position not confirmed/); t.doesNotMatch(p, /QB \d|WR \d/);
+  t.match(s, /Season points\s+66\.7\s+WR 66–67 of 240–241/, "he could be in any group, so every group widens"); t.match(s, /Per scored game\s+8\.3\s+WR 63–67 of 169–210/);
+  t.match(text(row(await perf(), ID.purdy)), /Season points\s+270\.0\s+QB 3 of 73/, "with agreeing positions nothing changes");
+  const I = await intel(), S1 = state({ intel: I }), RD = TV.rankData(S1, TV.perfInput(S1, S1.model.byId ? Object.keys(S1.model.byId) : []));
+  const conflicts = []; S1.model.teams.forEach((tm) => tm.players.forEach((q) => { if (RD.sf.totals[q.id] && !RD.groupOf(q.id)) conflicts.push(q.id); })); t.deepEqual(conflicts, [], "on the recorded data every rostered scorer's position agrees between the two sources");
+});
+
+test("unreadable scores: one definition (anything but a plain decimal with at most two places), flagged in a newer week too, Range withheld, and the note does not depend on the rank reads", async () => {
+  const L = D.createLoader(CFG, async () => okAns({ playerScores: { playerScore: [{ id: "a", score: "12.345" }, { id: "b", score: true }, { id: "c", score: "0x10" }, { id: "d", score: "1e3" }, { id: "e", score: [] }, { id: "f", score: "7.50" }, { id: "g", score: 7.5 }, { id: "h", score: "-0.5" }, { id: "i", score: "" }, { id: "j", score: null }, { id: "k", score: 3 }, { id: "k", score: "N/A" }, { id: "k", score: 4 }] } })), r = await L.loadScores(3);
+  ["a", "b", "c", "d", "e"].forEach((k) => t.equal(typeof r.data.scores[k], "string", k + " is kept as text, never a number")); t.equal(r.data.scores.f, 7.5); t.equal(r.data.scores.g, 7.5); t.equal(r.data.scores.h, -0.5);
+  t.equal(r.data.scores.i, undefined, "blank: no score"); t.equal(r.data.scores.j, undefined, "null: no score"); t.equal(r.data.scores.k, "N/A", "an id listed twice stays unreadable if either row is");
+  const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "12.345" } : x));
+  const html = await perf({ scores: sc }), p = row(html, ID.purdy), tx = text(p);
+  t.match(tx, /Season points\s+—\s+Unverified/); t.match(tx, /1 score could not be read, so his season figures and ranks are not shown/);
+  const scR = clone(FX4.scores); scR["10"] = scR["10"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "N/A" } : x));
+  const open = text(row(await perf({ scores: scR }, { pf: { f: "all", s: "pos", open: { [ID.purdy]: true }, res: {} } }), ID.purdy)); t.match(open, /Range\s+Not shown: a score could not be read/); t.match(open, /Last 3 team games · .*a score could not be read/);
+  // the note and the Unverified marks come from the score reads themselves, so they show even when the players read failed
+  const noPl = text(row(await perf({ scores: sc, noPlayers: true }), ID.purdy)); t.match(noPl, /Season points\s+—\s+Unverified/); t.match(noPl, /1 score could not be read, so his season figures and ranks are not shown/);
+  // a newer-week unreadable score is flagged in the strip and the log
+  const lm = LM(); lm.teamHistoryThrough = 9; const sc10 = clone(FX4.scores); sc10["10"] = sc10["10"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "N/A" } : x));
+  const I = await intel({ lm, scores: sc10 }), S2 = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
+  t.match(V.app(S2).split('<div class="card tbl">')[1].split("</table>")[0], /<td>10<\/td><td class="n"><span class="mu">unreadable<\/span>/, "Week 10 reads unreadable in the log, not a dash"); t.match(text(V.app(S2)), /1 score could not be read, so his season figures are not shown/);
+});
+
+test("season and weekly pool bounds count only competitors who could be in the group: an unreadable RB widens RB ranks, not QB ranks", () => {
+  const g = (id) => ({ a: "QB", b: "QB", r: "RB", z: "" }[id] || "");
+  const s = K.seasonFrom({ 1: { a: 10, b: 20, r: "N/A", z: 50 } }, 1, g), ra = K.totalRank(s.entries, "a", s.unplaced);
+  t.deepEqual([ra.best, ra.worst, ra.poolLo, ra.poolHi], [2, 3, 2, 3], "the RB is in no QB bound; only z (no position) is");
+  const rr = K.totalRank([{ id: "r2", group: "RB", value: 100 }], "r2", s.unplaced); t.deepEqual([rr.best, rr.worst, rr.poolLo, rr.poolHi], [1, 3, 1, 3], "for an RB: the unreadable RB and z");
+  const pg = K.perGameRank([E("me", "QB", 3000, 10, "eligible")], "me", [{ id: "x", group: "RB", usable: false }, { id: "y", group: "", total: 9000, n: 3, usable: true }]); t.deepEqual([pg.worst, pg.poolHi, pg.unknownPosN], [2, 2, 1]);
+  t.match(K.rankDetail(pg), /1 player with no known position is included/);
+  const known = K.perGameRank([E("me", "QB", 3000, 10, "eligible")], "me", [{ id: "q", group: "QB", usable: false }]); t.equal(known.unknownPosN, 0); t.equal(known.unplacedN, 1); t.doesNotMatch(K.rankDetail(known), /no known position/, "a known position is not described as unknown");
 });
 
 run("mobile2027_performance_prb");

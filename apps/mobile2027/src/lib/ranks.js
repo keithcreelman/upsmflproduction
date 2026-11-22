@@ -63,7 +63,7 @@
     var me = null, i, seen = {};
     for (i = 0; i < entries.length; i++) { if (entries[i].id === id) me = entries[i]; seen[entries[i].id] = true; }
     if (!me || me.status !== "eligible") return null;
-    var best = 1, worst = 0, lo = 0, hi = 0, up = 0;
+    var best = 1, worst = 0, lo = 0, hi = 0, up = 0, upos = 0;
     for (i = 0; i < entries.length; i++) {
       var e = entries[i];
       if (e.group !== me.group) continue;
@@ -77,10 +77,10 @@
       seen[u.id] = true;
       if (u.group && u.group !== me.group) continue;                 // his position is known and is not this group
       if (u.usable !== false && !(u.n > 0)) continue;                // a readable figure with no scores is not a competitor
-      hi++; up++;
+      hi++; up++; if (!u.group) upos++;
       if (u.usable === false || cmpPPG(u, me) > 0) worst++;
     }
-    return { group: me.group, best: best, worst: best + worst, poolLo: lo, poolHi: lo + hi, exact: worst === 0, unplacedN: up };
+    return { group: me.group, best: best, worst: best + worst, poolLo: lo, poolHi: lo + hi, exact: worst === 0, unplacedN: up, unknownPosN: upos };
   }
 
   // ---------- season and weekly ranks (no minimum-game rule) ----------
@@ -95,8 +95,9 @@
       if (e.group !== me.group) continue;
       pool++; if (e.id !== me.id && e.value > me.value) best++;
     }
-    for (i = 0; i < un.length; i++) { if (un[i].group && un[i].group !== me.group) continue; if (typeof un[i].value === "number" ? un[i].value > me.value : true) up++; } // an unplaced competitor with no usable value could be ahead; one whose position is known counts only in his own group
-    return { group: me.group, best: best, worst: best + up, poolLo: pool, poolHi: pool + un.length, exact: up === 0 };
+    var inPool = 0;
+    for (i = 0; i < un.length; i++) { if (un[i].group && un[i].group !== me.group) continue; inPool++; if (typeof un[i].value === "number" ? un[i].value > me.value : true) up++; } // an unplaced competitor with no usable value could be ahead; one whose position is known counts only in his own group, in the pool and in the worst case alike
+    return { group: me.group, best: best, worst: best + up, poolLo: pool, poolHi: pool + inPool, exact: up === 0 };
   }
 
   // ---------- season totals from weekly reads ----------
@@ -151,7 +152,7 @@
     var who = season ? "without a position group or with an unreadable score" : "with unsettled eligibility", set = season ? "placed" : "settled";
     var head = r.exact ? (r.best + " is exact" + (unsettled ? ": no " + r.group + " " + who + " could rank ahead" : "")) : ("Best " + r.best + ", worst " + r.worst + ": " + (r.best - 1) + " " + set + " " + r.group + (r.best - 1 === 1 ? " is" : "s are") + " ahead, and up to " + (r.worst - r.best) + " " + who + " could also be. The worst case is a bound, not a result");
     return head + ". " + r.poolLo + " " + r.group + (r.poolLo === 1 ? " is" : "s are") + " " + set + (unsettled ? "; up to " + unsettled + " more are " + (season ? "not placed" : "unsettled") : "") + "." +
-      (r.unplacedN ? " " + r.unplacedN + (r.unplacedN === 1 ? " player with no known position is" : " players with no known position are") + " included in the bounds." : "");
+      (r.unknownPosN ? " " + r.unknownPosN + (r.unknownPosN === 1 ? " player with no known position is" : " players with no known position are") + " included in the bounds." : "");
   }
 
   return { toCents: toCents, fmtCents: fmtCents, cmpPPG: cmpPPG, eligibility: eligibility, perGameRank: perGameRank, totalRank: totalRank, seasonFrom: seasonFrom, weekFrom: weekFrom, rankText: rankText, rankDetail: rankDetail, isInt: isInt };

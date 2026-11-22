@@ -327,7 +327,7 @@
       var r = scoresOf(S)[w];
       if (!r || r.state === "loading") loading = true; else if (r.state === "ok") scores[w] = r.data.scores; else failed = true;
     });
-    for (var aw = 1; aw <= L; aw++) { var ra = scoresOf(S)[aw]; if (!ra || ra.state === "loading") { allWeeks = false; loading = true; } else if (ra.state !== "ok") { allWeeks = false; failed = true; } }
+    for (var aw = 1; aw <= L; aw++) { var ra = scoresOf(S)[aw]; if (!ra || ra.state === "loading") { allWeeks = false; loading = true; } else if (ra.state !== "ok") { allWeeks = false; failed = true; } else if (staleScores(S, aw)) { allWeeks = false; loading = true; } }
     Object.keys(scoresOf(S)).forEach(function (w) { var r = scoresOf(S)[w]; if (r && r.state === "ok") scores[w] = r.data.scores; });
     var through = d.hist && typeof d.hist.teamHistoryThrough === "number" ? d.hist.teamHistoryThrough : null;
     // The season totals count a player-game only when his game is FINAL. A newer-week score is in the total when that week is over (the lineup
@@ -343,17 +343,50 @@
       var sf = K.seasonFrom(wm, L, function () { return "x"; });
       ids.forEach(function (id) { var tt = sf.totals[id]; if (tt && !sf.invalid[id]) season[id] = { total: tt.total / 100, games: tt.n }; });
     }
-    return { read: "ok", mu: d, weeks: weeks, loading: loading, failed: failed, completion: C0,
+    var badMap = {};   // per player: how many recorded scores are not readable (independent of the rank reads)
+    if (allWeeks) for (var bw = 1; bw <= L; bw++) { var m1 = scoresOf(S)[bw].data.scores; ids.forEach(function (bid) { if (Object.prototype.hasOwnProperty.call(m1, bid) && typeof m1[bid] === "string") badMap[bid] = (badMap[bid] || 0) + 1; }); }
+    return { read: "ok", bad: badMap, mu: d, weeks: weeks, loading: loading, failed: failed, completion: C0,
       input: { through: through, latestFinal: L, hist: d.hist, clubs: clubs, byeOf: CH.clubByeMap(byePlayers), season: season, scores: scores, ids: ids, newerFinal: newerFinal } };
   }
   // PR B: the Worker's per-team game statuses for the lineup week, by club (upper case).
   function statusMap(d) { var m = {}; Object.keys(d.games || {}).forEach(function (c) { m[c.toUpperCase()] = d.games[c].status; }); return m; }
-  // The clubs the league's rosters know, and their byes: what a week's schedule must account for (every known club plays or is on its bye).
+  // Scores of a week read BEFORE the schedule read that shows it final may have been read mid-game: they are not used for a "completed games" figure.
+  function staleScores(S, w) {
+    var s = scoresOf(S)[w], sc = S.intel && S.intel.sched && S.intel.sched[w];
+    return !!(s && s.state === "ok" && sc && sc.state === "ok" && s.at != null && sc.at != null && s.at < sc.at);
+  }
+  // The clubs a week's schedule must account for (every one plays or is on its bye) and their byes. MFL's own list (nflByeWeeks: all 32 clubs, the whole season) when it
+  // has been read; only if that read failed, the clubs and byes of the league's rostered players (weaker: a club nobody has rostered is not checked), and then the
+  // verification below says it could not be confirmed.
   function coverFor(S, w) {
+    var cal = S.intel && S.intel.cal;
+    if (cal && cal.state === "ok") return { clubs: cal.data.clubs, byeOf: cal.data.byeOf, week: w, authoritative: true };
     var clubs = {}, byePlayers = [];
     S.model.teams.forEach(function (t) { t.players.forEach(function (p) { var c = String(p.nflTeam || "").trim().toUpperCase(); if (c && c !== "FA") clubs[c] = true; byePlayers.push({ club: p.nflTeam, bye: p.bye }); }); });
     var list = Object.keys(clubs);
-    return list.length ? { clubs: list, byeOf: CH.clubByeMap(byePlayers), week: w } : null;
+    return list.length ? { clubs: list, byeOf: CH.clubByeMap(byePlayers), week: w, authoritative: false } : null;
+  }
+  // Is every week from 1 to N-1 complete by the schedule (week N is the cutoff's own check)? "ok" | "checking" | "unverified" (the calendar was not read) | "problems".
+  function verification(S, N) {
+    var cal = S.intel && S.intel.cal;
+    if (cal && cal.state === "loading") return { state: "checking" };
+    if (!cal || cal.state !== "ok") return { state: "unverified" };
+    var problems = X.verifyWeeks(cal.data, N - 1);
+    return problems.length ? { state: "problems", problems: problems } : { state: "ok" };
+  }
+  function verifyNote(vr, N) {
+    if (vr.state === "ok" || vr.state === "checking") return "";
+    var lines = [];
+    if (vr.state === "unverified") lines.push("The NFL club list and the schedule of earlier weeks could not be read, so weeks 1 to " + (N - 1) + " were not checked against them. Figures include everything MFL has recorded. " + '<button class="link" data-act="retryperf">Try again</button>');
+    else {
+      vr.problems.slice(0, 3).forEach(function (p) {
+        lines.push(p.state === "not_final" ? "Week " + p.week + " has a game that is not final (" + esc(p.clubs[0]) + " and " + esc(p.clubs[1]) + "). Figures include what MFL has recorded and may change when it is played."
+          : p.state === "unavailable" ? "Week " + p.week + "'s NFL schedule could not be read, so that week is not confirmed complete."
+          : "Week " + p.week + "'s NFL schedule does not account for every club, so that week is not confirmed complete.");
+      });
+      if (vr.problems.length > 3) lines.push(plural(vr.problems.length - 3, "more week is", "more weeks are") + " not confirmed complete.");
+    }
+    return '<div class="ex wn">' + lines.join('</div><div class="ex wn">') + "</div>";
   }
   // The cutoff week: { state: "loading" | "error" | "none" | "unavailable" | "conflict" | "ok", week }. Needs the Worker's lastCompleteWeek and the schedule of that week
   // (and the one before it if that week is not complete by the schedule).
@@ -364,6 +397,7 @@
     var d = mu.data, lc = d.lastComplete;
     if (lc == null) return { state: "unavailable" };
     if (!(lc >= 1)) return { state: "none" };
+    var cal0 = S.intel && S.intel.cal; if (cal0 && cal0.state === "loading") return { state: "loading" };   // the authoritative club list and byes decide coverage: wait for them
     var sch = {}, sched = (S.intel && S.intel.sched) || {};
     [lc, lc - 1].forEach(function (x) {
       if (x < 1) return;
@@ -392,7 +426,15 @@
     if (RANK_MEMO && RANK_MEMO.d === ctx.mu && RANK_MEMO.pl === pl.data && RANK_MEMO.L === L && RANK_MEMO.n === nScores) return RANK_MEMO.v;
     var wm = {}, w, byId = pl.data.byId;
     for (w = 1; w <= L; w++) wm[w] = scoresOf(S)[w].data.scores;
-    function groupOf(id) { var p = byId[id]; if (!p) return ""; var g = F.posGroup(p.pos); return RANK_GROUPS[g] ? posLabel(g) : ""; }
+    // A position is used only when it is reliable: the players read names a rank group AND, for a rostered player, the roster says the same group. If the two
+    // disagree (or the players read does not have him), he is unplaced: he could be in any group, so he widens every group's ranks and gets no rank himself.
+    function groupOf(id) {
+      var p = byId[id]; if (!p) return "";
+      var g = F.posGroup(p.pos); if (!RANK_GROUPS[g]) return "";
+      var mp = S.model && S.model.byId && S.model.byId[id];
+      if (mp && mp.pos && F.posGroup(mp.pos) !== g) return "";
+      return posLabel(g);
+    }
     var sf = K.seasonFrom(wm, L, groupOf), ids = Object.keys(sf.totals), clubs = {}, season = {};
     ids.forEach(function (id) { clubs[id] = byId[id] ? byId[id].club : ""; if (!sf.invalid[id]) season[id] = { total: sf.totals[id].total / 100, games: sf.totals[id].n }; });
     var inp = {}, k; for (k in ctx.input) if (Object.prototype.hasOwnProperty.call(ctx.input, k)) inp[k] = ctx.input[k];
@@ -425,10 +467,11 @@
   }
   // Season points, per scored game, scored games and both ranks for one player, as text. Never a figure from a partial set.
   function statFigures(S, id, RD) {
-    var o = { total: null, ppg: null, n: null, bad: 0, seasonRank: "", gameRank: "", gameWhy: "", detail: [] };
+    var o = { total: null, ppg: null, n: null, bad: 0, noPos: false, seasonRank: "", gameRank: "", gameWhy: "", detail: [] };
     if (!RD || RD.state !== "ok") return o;
     var t = RD.sf.totals[id];
     o.bad = (RD.bad && RD.bad[id]) || 0;
+    o.noPos = !RD.groupOf(id);
     if (!t || RD.sf.invalid[id]) return o;
     o.total = t.total / 100; o.n = t.n; o.ppg = t.total / 100 / t.n;
     var sr = K.totalRank(RD.seasonEntries, id, RD.sf.unplaced);
@@ -461,7 +504,7 @@
   function scoresOf(S) { return (S.intel && S.intel.scores) || {}; }
   function cellHtml(c, S) {
     var wk = '<i>W' + c.week + "</i>";
-    if (c.kind === "unreadable") return '<span class="cell" title="This score could not be read">' + wk + '<b class="mu">?</b></span>';
+    if (c.kind === "unreadable" || c.bad) return '<span class="cell" title="This score could not be read">' + wk + '<b class="mu">?</b></span>';
     if (c.kind === "bye") return '<span class="cell by">' + wk + "<b>BYE</b></span>";
     if (c.kind === "live") return '<span class="cell newer" title="Game not final">' + wk + '<b>' + (c.score == null ? DASH : f1(c.score)) + "</b><u>live</u></span>";
     if (c.kind === "newer") return '<span class="cell newer" title="Newer than the comparison cutoff">' + wk + '<b>' + (c.score == null ? DASH : f1(c.score)) + '</b><u>newer</u></span>';
@@ -498,13 +541,16 @@
     var total = f.total != null ? f.total : se ? se.total : null, n = f.n != null ? f.n : se ? se.games : null, ppg = f.ppg != null ? f.ppg : (se && se.games > 0 ? se.total / se.games : null);
     var rs = ctx.rank && ctx.rank.state === "loading" ? "Loading ranks…" : ctx.rank && ctx.rank.state !== "ok" ? "" : f.seasonRank;
     var gr = f.gameRank || f.gameWhy || (ctx.rank && ctx.rank.state === "loading" ? "…" : "");
-    if (f.bad) { rs = "Unverified"; gr = "Unverified"; }
+    var nbad = (ctx.bad && ctx.bad[p.id]) || f.bad;
+    if (nbad) { rs = "Unverified"; gr = "Unverified"; }
+    else if (f.noPos && f.total != null) { rs = "Position not confirmed"; gr = "Position not confirmed"; }
     return '<div class="stat3"><div><span>Season points</span><b>' + (total == null ? DASH : f1(total)) + "</b><em>" + esc(rs) + "</em></div><div><span>Per scored game</span><b>" + (ppg == null ? DASH : f1(ppg)) + "</b><em" + (f.gameRank ? "" : ' class="no"') + ">" + esc(gr) + "</em></div><div><span>Scored games</span><b>" + (n == null ? DASH : n) + "</b></div></div>" +
-      (f.bad ? '<div class="ex wn">' + plural(f.bad, "score", "scores") + " could not be read, so his season figures and ranks are not shown.</div>" : "");
+      (nbad ? '<div class="ex wn">' + plural(nbad, "score", "scores") + " could not be read, so his season figures and ranks are not shown.</div>" : "");
   }
   function perfRow(S, p, row, ctx) {
     var open = !!pfState(S).open[p.id], cmp = row.cmp, banner = ctx.ev.banner, shown = cmp.state === "shown";
-    var lab = "Last 3 team games" + (row.window && typeof row.window.scoredCount === "number" ? " · " + row.window.scoredCount + " of 3 scored" : "");
+    var hasBad = row.strip.some(function (c) { return c.kind === "unreadable" || c.bad; });
+    var lab = "Last 3 team games" + (row.window && typeof row.window.scoredCount === "number" ? " · " + row.window.scoredCount + " of 3 scored" : "") + (hasBad ? " · a score could not be read" : "");
     var g3 = '<span><i>Recent</i><b>' + (shown ? f1(row.recent) : DASH) + "</b></span><span><i>Earlier</i><b>" + (shown ? f1(row.earlier) + " <small>(" + row.earlierN + ")</small>" : DASH) + "</b></span><span><i>Difference</i><b>" + (shown ? signed(row.difference) : DASH) + "</b></span>";
     var cells = row.strip.map(function (c) { return cellHtml(c, S); }).join(""), lc = liveChip(S, p, ctx);
     var h = '<div class="rw"><button class="rb" data-act="pfx" data-v="' + esc(p.id) + '" aria-expanded="' + open + '"><div class="in"><div class="l1">' + esc(p.name) + " " + pcx(p.pos) + '</div><div class="l2">' + esc(F.commonCode(p.nflTeam) || "No NFL team") + '</div><div class="fl">' + startingTag(p) + injuryChip(S, p) + lc.html + "</div>" + statGrid(S, p, ctx) + '<div class="cells4">' + cells + "</div>" +
@@ -514,7 +560,7 @@
       var zero = row.strip.some(function (c) { return c.kind === "score" && c.score === 0; }), newer = row.strip.filter(function (c) { return c.kind === "newer" && c.score != null; });
       h += '<div class="det"><div class="kv"><b>Season</b><span>' + f1(row.seasonAvg) + " · " + esc(row.teamGames && row.teamGames.text ? row.teamGames.text : "") + (row.seasonThrough != null ? " · through Week " + row.seasonThrough : "") + "</span>" +
         "<b>Recent</b><span>" + (shown ? f1(row.recent) + " over " + row.recentN + " of 3 scored" : "Not available") + "</span><b>Earlier</b><span>" + (shown ? f1(row.earlier) + " over " + plural(row.earlierN, "scored game", "scored games") : "Not available") + "</span>" +
-        "<b>Range</b><span>" + (row.range ? f1(row.range.lo) + " to " + f1(row.range.hi) + " (Weeks " + row.range.fromWeek + " to " + row.range.toWeek + ")" : DASH) +
+        "<b>Range</b><span>" + (hasBad ? "Not shown: a score could not be read" : row.range ? f1(row.range.lo) + " to " + f1(row.range.hi) + " (Weeks " + row.range.fromWeek + " to " + row.range.toWeek + ")" : DASH) +
         statFigures(S, p.id, ctx.rank).detail.map(function (d) { return "</span><b>" + esc(d[0]) + "</b><span>" + esc(d[1]); }).join("") + "</span></div>" +
         (row.teamGames && row.teamGames.of == null && (row.coverage || []).length ? helpHtml(row) : "") +
         '<div class="sec2">Next three weeks</div><div class="nx">' + nextText(S, p, ctx.mu) + "</div>" +
@@ -543,7 +589,8 @@
     var ev = CH.evaluate(ctx.input);
     ctx.ev = ev; // ctx.mu is the matchup read's data (its horizon gives the next three weeks)
     ctx.rank = rankData(S, ctx);
-    out += '<div class="card"><b>Season through Week ' + ctx.input.latestFinal + " · completed games</b></div>";
+    var vr = verification(S, ctx.input.latestFinal), claim = vr.state === "ok" ? " · completed games" : vr.state === "checking" ? " · checking earlier weeks" : "";   // the claim is made only when every week is confirmed
+    out += '<div class="card"><b>Season through Week ' + ctx.input.latestFinal + claim + "</b>" + verifyNote(vr, ctx.input.latestFinal) + "</div>";
     ctx.cutoffNote = ev.cutoff != null && ev.cutoff !== ev.latestFinal;
     // banner
     var b = ev.banner, why;
@@ -603,15 +650,15 @@
       more = pend ? '<div class="ex">Loading earlier weeks… (' + pend + " to go)</div>" : bad ? '<div class="ex wn">' + plural(bad, "earlier week", "earlier weeks") + ' could not be read and show n/a. <button class="link" data-act="retrylog">Try again</button></div>' : '<div class="ex">Showing Weeks 1 to ' + L + ". <button class=\"link\" data-act=\"logless\">Show fewer</button></div>";
     }
     var rows = log.map(function (r) {
-      var cell = r.kind === "score" ? "<b>" + f1(r.score) + "</b>" : r.kind === "newer" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">newer</span>') : r.kind === "bye" ? '<span class="mu">BYE</span>' : r.kind === "live" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">live</span>') : r.kind === "unreadable" ? '<span class="mu">unreadable</span>' : r.kind === "unloaded" ? '<span class="mu">' + (scoresOf(S)[r.week] && scoresOf(S)[r.week].state === "error" ? "n/a" : "…") + "</span>" : '<span class="mu">' + DASH + "</span>";
+      var cell = (r.kind === "unreadable" || r.bad) ? '<span class="mu">unreadable</span>' : r.kind === "score" ? "<b>" + f1(r.score) + "</b>" : r.kind === "newer" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">newer</span>') : r.kind === "bye" ? '<span class="mu">BYE</span>' : r.kind === "live" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">live</span>') : r.kind === "unreadable" ? '<span class="mu">unreadable</span>' : r.kind === "unloaded" ? '<span class="mu">' + (scoresOf(S)[r.week] && scoresOf(S)[r.week].state === "error" ? "n/a" : "…") + "</span>" : '<span class="mu">' + DASH + "</span>";
       return "<tr><td>" + r.week + '</td><td class="n">' + cell + "</td></tr>";
     }).join("");
     // the same season figures, through the same week, as Team › Performance (the evidence rules decide which week they run through)
     var row = CH.evaluate(ctx.input).rows[p.id] || {};
     return '<div class="k3"><div><b>' + f1(row.seasonAvg) + "</b><small>Season average</small></div><div><b>" + (row.scoredGames == null ? DASH : row.scoredGames) + "</b><small>Scored games</small></div><div><b>" + (row.seasonThrough == null ? DASH : row.seasonThrough) + "</b><small>Through week</small></div></div>" +
-      '<div class="card tbl"><table><tr><th>Wk</th><th class="n">Pts</th></tr>' + rows + "</table></div>" +
+      '<div class="card tbl"><table><tr><th>Wk</th><th class="n">Pts</th></tr>' + rows + "</table></div>" + (((ctx.bad && ctx.bad[p.id]) || 0) ? '<div class="ex wn">' + plural(ctx.bad[p.id], "score", "scores") + " could not be read, so his season figures are not shown.</div>" : "") +
       more + '<div class="ex">' + (all ? "The full season, newest first. " : "The latest four weeks. ") + '0.0 is a score MFL recorded; ' + DASH + " is no score recorded. BYE appears only where the club is known. Opponents, snaps and lineup status are not in this preview.</div>";
   }
 
-  return { rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, yearsCard: yearsCard, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor };
+  return { rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, yearsCard: yearsCard, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores };
 });

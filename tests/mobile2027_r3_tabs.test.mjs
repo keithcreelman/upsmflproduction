@@ -26,6 +26,7 @@ const penalty = (players) => ({ state: "ok", data: players || FX.cap_penalty.pla
 
 // the Performance reads exactly as the loader keeps them (matchup read with team history; four weeks of scores)
 const FX4 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r4_reads.json"), "utf8")); // PR B: the whole league, Weeks 1 to 10
+const CAL = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/calendar_2026.json"), "utf8"));
 const XC = require(path.join(SRC, "lib/complete.js"));
 async function intelFor(over) {
   over = over || {};
@@ -35,6 +36,8 @@ async function intelFor(over) {
     if (u.pathname === "/api/lineup-matchups") body = Object.assign({}, lm, { week: Number(w) });
     else if (ty === "playerScores") body = { playerScores: { playerScore: (over.scores || FX4.scores)[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) } };
     else if (ty === "players") body = { players: { player: FX4.players } };
+    else if (ty === "nflByeWeeks") body = CAL.byes;
+    else if (ty === "nflSchedule" && w === "ALL") body = over.calFull || CAL.full;
     else if (ty === "nflSchedule") body = w === "10" ? (over.schedule10 || FX4.schedule10) : w === "11" ? (over.schedule11 || FX4.schedule11) : { nflSchedule: { matchup: [] } };
     return { ok: true, status: 200, text: async () => JSON.stringify(body) };
   };
@@ -42,6 +45,8 @@ async function intelFor(over) {
   const out = { status: null, mu: { 11: rec(await L.loadMatchups(11)) }, wk: {}, scores: {}, sched: {}, players: rec(await L.loadPlayers()) };
   for (const w of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) out.scores[w] = rec(await L.loadScores(w));
   for (const w of [10, 11]) out.sched[w] = rec(await L.loadSchedule(w, XC.parseSchedule));
+  if (L.loadCalendar) out.cal = rec(await L.loadCalendar(XC.parseCalendar));
+  Object.keys(out.scores).forEach((k) => { out.scores[k].at += 1000; });   // the scores are read after the schedules, as the app does
   return out;
 }
 const state = (over) => ({

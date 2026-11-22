@@ -21,6 +21,8 @@ const FX4 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r4_r
 const BUILD = await import(pathToFileURL(path.join(HERE, "..", "apps", "mobile2027", "scripts", "build.mjs")).href);
 const FIXSH = path.join(HERE, "fixtures/mobile2027/shared");
 const INJURY_PURE = BUILD.derivedBytes(BUILD.DERIVED[0], FIXSH).toString("utf8");
+const CAL = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/calendar_2026.json"), "utf8"));
+const isCalCall = (c) => c.type === "nflByeWeeks" || (c.type === "nflSchedule" && new URL(c.url).searchParams.get("W") === "ALL");
 const read = (rel) => fs.readFileSync(path.join(SRC, rel), "utf8");
 const tick = async (n = 12) => { for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0)); };
 // PR A: next season's ledger as the Worker returns it (the shape is read from worker/src/index.js, GET /api/cap-adjustments/next-season)
@@ -28,11 +30,11 @@ const NEXT_LEDGER = { ok: true, season: "2026", next_season: 2027, league_id: "7
   { player_id: "12801", player: "Name In Text", franchise_id: "0010", amount: 1000, applies_to_season: 2027, dropped_at_iso: "2026-09-01T00:00:00Z", kind: "Drop (next season)", in_mfl: false },
   { player_id: null, player: "Missed nomination", franchise_id: "0010", amount: 3000, applies_to_season: 2027, dropped_at_iso: "2026-07-28", kind: "RULE 2 fine (next season)", in_mfl: false }] };
 
-function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false, failStatus = 0, failWeek10 = 0, clock = null, holdIntel = false, r3 = false, failScores = 0, failNext = 0, lmEdit = null, sched11 = null, sched10 = null } = {}) {
+function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false, failStatus = 0, failWeek10 = 0, clock = null, holdIntel = false, r3 = false, failScores = 0, failNext = 0, lmEdit = null, sched11 = null, sched10 = null, calEdit = null, failCal = 0 } = {}) {
   const calls = [];
   let releasePen = () => {}; const penGate = holdPen ? new Promise((r) => { releasePen = r; }) : null;
   let release = () => {}; const gate = hold ? new Promise((r) => { release = r; }) : null; // holds the roster read open until release()
-  const state = { failRoster, failPenalty, failStatus, failWeek10, failScores, failNext };
+  const state = { failRoster, failPenalty, failStatus, failWeek10, failScores, failNext, failCal };
   let releaseIntel = () => {}; const intelGate = holdIntel ? new Promise((r) => { releaseIntel = r; }) : null; // holds the Team › Roster adds open until releaseIntel()
   const body = (u) => {
     if (u.pathname === "/roster-workbench") return FX.roster_workbench;
@@ -44,6 +46,8 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     if (u.searchParams.get("TYPE") === "league") return FX.league;
     // PR B: the whole-league reads the Performance screen needs (weekly scores Weeks 1 to 10, positions, the NFL schedules of Weeks 10 and 11)
     if (u.searchParams.get("TYPE") === "players") return { players: { player: FX4.players } };
+    if (u.searchParams.get("TYPE") === "nflByeWeeks") return CAL.byes;
+    if (u.searchParams.get("TYPE") === "nflSchedule" && u.searchParams.get("W") === "ALL") return calEdit ? calEdit(JSON.parse(JSON.stringify(CAL.full))) : CAL.full;
     if (u.searchParams.get("TYPE") === "nflSchedule") return u.searchParams.get("W") === "10" ? (sched10 || FX4.schedule10) : u.searchParams.get("W") === "11" ? (sched11 || FX4.schedule11) : { nflSchedule: { matchup: [] } };
     if (u.searchParams.get("TYPE") === "playerScores") { const w = u.searchParams.get("W"); return { playerScores: { playerScore: (r3 ? FX4.scores[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) : FX3.scores[w]) || [] } }; }
     return u.searchParams.get("W") === "10" ? FX2.weekly_results_w10 : FX.weekly_results;
@@ -55,6 +59,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     if (penGate && u.pathname === "/api/cap-penalty/preview") await penGate;
     if (u.pathname === "/roster-workbench" && state.failRoster > 0) { state.failRoster--; return { ok: false, status: 503, text: async () => "down" }; }
     if (u.pathname === "/api/cap-penalty/preview" && state.failPenalty > 0) { state.failPenalty--; return { ok: false, status: 500, text: async () => "x" }; }
+    if (u.pathname === "/api/mfl-export" && (u.searchParams.get("TYPE") === "nflByeWeeks" || (u.searchParams.get("TYPE") === "nflSchedule" && u.searchParams.get("W") === "ALL")) && state.failCal > 0) { state.failCal--; return { ok: false, status: 502, text: async () => "x" }; }
     if (u.pathname === "/api/cap-adjustments/next-season" && state.failNext > 0) { state.failNext--; return { ok: false, status: 500, text: async () => "x" }; }
     if (intelGate && (u.pathname === "/api/player-status" || u.pathname === "/api/lineup-matchups")) await intelGate;
     if (u.pathname === "/api/player-status" && state.failStatus > 0) { state.failStatus--; return { ok: false, status: 502, text: async () => "x" }; }
@@ -396,12 +401,13 @@ test("PR B: Team › Performance asks for the two NFL schedules, the players and
   const a = boot({ r3: true }); await tick(40); const n = a.calls.length;
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(40);
   t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "every week of the season through the last all-final week (10), and the live Week 11");
-  t.equal(a.calls.slice(n).filter((c) => c.type === "nflSchedule").length, 2, "the schedules of Week 10 (the cutoff) and Week 11 (the lineup week)"); t.equal(a.calls.slice(n).filter((c) => c.type === "players").length, 1);
-  t.equal(a.calls.length - n, 14, "nothing else was asked (the injury and matchup reads were already in memory)");
-  a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.ok(["playerScores", "nflSchedule", "players"].includes(c.type)); });
+  t.equal(a.calls.slice(n).filter((c) => c.type === "nflSchedule" && new URL(c.url).searchParams.get("W") !== "ALL").length, 2, "the schedules of Week 10 (the cutoff) and Week 11 (the lineup week)"); t.equal(a.calls.slice(n).filter((c) => c.type === "players").length, 1);
+  t.equal(a.calls.slice(n).filter(isCalCall).length, 2, "and MFL's club list with byes and the whole season's schedule, one read each");
+  t.equal(a.calls.length - n, 16, "nothing else was asked (the injury and matchup reads were already in memory)");
+  a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.ok(["playerScores", "nflSchedule", "players", "nflByeWeeks"].includes(c.type)); });
   t.match(a.html(), /Comparison through Week 10/); t.match(a.html(), /Season through Week 10 · completed games/); t.match(a.html(), /QB 2 of 35–54/); t.match(a.html(), /WR 63–66 of 169–209/);
   await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pff", "data-v": "starters" }); await a.click({ "data-act": "pfs", "data-v": "diff" }); await tick(10);
-  t.equal(a.calls.length - n, 14, "tabs, filters and sorts ask nothing");
+  t.equal(a.calls.length - n, 16, "tabs, filters and sorts ask nothing");
 });
 
 test("R3 ruling 2: the profile game log shows the latest four weeks, then 'Show earlier weeks' loads the rest on demand, once each, and reuses what is in memory", async () => {
@@ -557,8 +563,28 @@ test("PR B: a truncated NFL schedule is never presented as a complete week: the 
 test("PR B: only the schedules of the last two weeks are read; older weeks never block the cutoff", async () => {
   const a = boot({ r3: true }); await tick(30);
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(80);
-  t.deepEqual(a.calls.filter((c) => c.type === "nflSchedule").map((c) => new URL(c.url).searchParams.get("W")).sort(), ["10", "11"], "Week 10 (the last complete week) and Week 11 (the lineup week) only");
+  t.deepEqual(a.calls.filter((c) => c.type === "nflSchedule").map((c) => new URL(c.url).searchParams.get("W")).filter((w) => w !== "ALL").sort(), ["10", "11"], "per-week schedules: Week 10 (the last complete week) and Week 11 (the lineup week) only; every older week is confirmed from the one calendar read");
   t.match(a.html(), /Season through Week 10 · completed games/);
+});
+
+test("PR B round 4: the club list, byes and the whole season's schedule are read once each (bare GETs); every earlier week is confirmed, so the heading claims completed games", async () => {
+  const a = boot({ r3: true }); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
+  t.deepEqual(a.calls.filter(isCalCall).map((c) => c.type + ":" + (new URL(c.url).searchParams.get("W") || "")).sort(), ["nflByeWeeks:", "nflSchedule:ALL"], "one read of each");
+  a.calls.filter(isCalCall).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.deepEqual([...new URL(c.url).searchParams.keys()].sort(), c.type === "nflByeWeeks" ? ["JSON", "L", "TYPE", "YEAR"] : ["JSON", "L", "TYPE", "W", "YEAR"]); });
+  t.match(a.html(), /Season through Week 10 · completed games/);
+});
+test("PR B round 4: an older game that is not final (Week 5) keeps the figures but removes the claim and names the week", async () => {
+  const a = boot({ r3: true, calEdit: (l) => { l.fullNflSchedule.nflSchedule.find((e) => e.week === "5").matchup[0].gameSecondsRemaining = "900"; return l; } }); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
+  t.match(a.html(), /Season through Week 10/); t.doesNotMatch(a.html(), /completed games/); t.match(a.html(), /Week 5 has a game that is not final/); t.match(a.html(), /<span>Season points<\/span><b>\d/, "the figures still show");
+});
+test("PR B round 4: if the club list and schedule cannot be read, the figures show without the claim and with Try again; Try again confirms the weeks", async () => {
+  const a = boot({ r3: true, failCal: 2 }); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
+  t.doesNotMatch(a.html(), /completed games/); t.match(a.html(), /could not be read, so weeks 1 to 9 were not checked/); t.match(a.html(), /data-act="retryperf"/);
+  await a.click({ "data-act": "retryperf" }); await tick(100);
+  t.match(a.html(), /Season through Week 10 · completed games/); t.doesNotMatch(a.html(), /were not checked/);
 });
 
 run("mobile2027_controller");

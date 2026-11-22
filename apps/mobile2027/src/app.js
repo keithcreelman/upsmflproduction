@@ -90,7 +90,7 @@
       else if (r.weekly.state !== "ok") notes.push("MFL’s submitted lineups could not be read (" + r.weekly.error + ").");
       S.model = U.model.build(rw, r.league.state === "ok" ? r.league.data : null, r.weekly.state === "ok" ? r.weekly.data : null, r.week, parseInt(cfg.season, 10));
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
-      S.intel = { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null }; S.wk = null; S.ns = { state: "idle" }; S.live = null;
+      S.intel = { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null, cal: null, reread: {} }; S.wk = null; S.ns = { state: "idle" }; S.live = null;
       if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
@@ -155,9 +155,20 @@
     intelRead(S.intel.sched, w, function (f) { return loader.loadSchedule(w, U.complete.parseSchedule, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
   }
   function ensureWeekScores(w, force) {
-    var rec = S.intel.scores[w];
+    var rec = S.intel.scores[w], sc = S.intel.sched[w];
+    // scores read while the week was still being played (the lineup week, read for its Live chip) are read again once the schedule shows the week final
+    if (rec && rec.state === "ok" && sc && sc.state === "ok" && rec.at != null && sc.at != null && rec.at < sc.at && S.intel.reread[w] !== sc.at) {
+      S.intel.reread[w] = sc.at;
+      intelRead(S.intel.scores, w, function () { return loader.loadScores(w, true); }, true, function () { ensurePerformance(false); });
+      return;
+    }
     if (rec && !(force && rec.state === "error")) return;
     intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
+  }
+  function ensureCalendar(force) {
+    var rec = S.intel.cal;
+    if (rec && !(force && rec.state === "error")) return;
+    intelRead(S.intel, "cal", function (f) { return loader.loadCalendar(U.complete.parseCalendar, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
   }
   function ensurePlayers(force) {
     var rec = S.intel.players;
@@ -174,6 +185,7 @@
     }
     var lc = rec.data.lastComplete;
     if (!(lc >= 1)) return;
+    ensureCalendar(force);   // MFL's club list, byes and the whole season's schedule: what every week is checked against
     ensureSched(lc, force);
     if (cur !== lc) ensureSched(cur, force);
     var C0 = U.tabviews.completion(S);
@@ -187,11 +199,12 @@
     }
   }
   // Retry. When a read failed, only the reads that failed are asked again. When nothing failed (a "Final · not yet in season totals" chip has nothing to
-  // re-ask), the answers the display waits on (the matchup, the schedule and the scores of the lineup week) are asked again.
+  // re-ask), the answers the display waits on (the matchup, the schedule of the lineup week and the calendar) are asked again; the lineup week's scores are then
+  // read again once, after the new schedule (ensureWeekScores), never in parallel with it.
   function anyFailedRead() {
     var any = false;
     [S.intel.mu, S.intel.sched, S.intel.scores].forEach(function (h) { Object.keys(h || {}).forEach(function (k) { if (h[k] && h[k].state === "error") any = true; }); });
-    return any || !!(S.intel.players && S.intel.players.state === "error");
+    return any || !!(S.intel.players && S.intel.players.state === "error") || !!(S.intel.cal && S.intel.cal.state === "error");
   }
   function refreshPerformance() {
     if (S.sample.on || !S.model || !S.model.week) return;
@@ -199,7 +212,7 @@
     var cur = S.model.week, after = function () { ensurePerformance(false); };
     intelRead(S.intel.mu, cur, function () { return loader.loadMatchups(cur, true); }, true, after);
     intelRead(S.intel.sched, cur, function () { return loader.loadSchedule(cur, U.complete.parseSchedule, true); }, true, after);
-    intelRead(S.intel.scores, cur, function () { return loader.loadScores(cur, true); }, true, after);
+    intelRead(S.intel, "cal", function () { return loader.loadCalendar(U.complete.parseCalendar, true); }, true, after);   // an unfinished older game may have been played since
     ensurePerformance(true);
   }
   function ensureIntel(force) {

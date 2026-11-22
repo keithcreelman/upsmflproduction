@@ -17,7 +17,7 @@
   var RULES = [
     { path: "/roster-workbench", query: ["L", "YEAR"] },
     // R3: playerScores (every player's recorded score for one week; public MFL scoring, no owner text) feeds Team › Performance
-    { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults", "playerScores", "players", "nflSchedule"] },
+    { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults", "playerScores", "players", "nflSchedule", "nflByeWeeks"] },
     { path: "/api/current-lineup-week", query: ["L", "YEAR"] },
     { path: "/api/cap-penalty/preview", query: ["L", "YEAR"] },
     // stage R2 (Team › Roster): injury status for every player, and this week's NFL games (opponent, home or away, kickoff)
@@ -68,7 +68,9 @@
       matchups: function (w) { return base + "/api/lineup-matchups?" + q({ YEAR: Y, W: w }); },
       nextSeason: base + "/api/cap-adjustments/next-season?" + q({ L: L, YEAR: Y }),
       players: base + "/api/mfl-export?" + q({ TYPE: "players", L: L, YEAR: Y, JSON: 1 }),
-      schedule: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: w }); }
+      schedule: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: w }); },
+      byes: base + "/api/mfl-export?" + q({ TYPE: "nflByeWeeks", L: L, YEAR: Y, JSON: 1 }),
+      fullSchedule: base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: "ALL" })
     };
 
     function get(url, label) {
@@ -192,10 +194,13 @@
           var map = {};
           rows.forEach(function (e) {
             if (!e || e.id == null) return;
-            var sc = e.score;
-            if (sc == null || (typeof sc === "string" && sc.trim() === "") || typeof sc === "boolean") return;
-            var n = Number(sc);
-            map[String(e.id)] = isFinite(n) ? n : String(sc).trim();   // a non-numeric score is kept as text so it shows as unverified, never silently dropped
+            var sc = e.score, pid = String(e.id);
+            if (sc == null || (typeof sc === "string" && sc.trim() === "")) return;   // nothing recorded
+            var n = typeof sc === "number" ? sc : typeof sc === "string" && /^-?\d+(?:\.\d+)?$/.test(sc.trim()) ? Number(sc.trim()) : NaN;
+            // a recorded value that is not a plain decimal with at most two places (text, a boolean, an object, hex, an exponent, 12.345) is kept as text: unreadable,
+            // never turned into a number and never silently dropped; an id listed twice stays unreadable if either row is
+            var unreadable = !isFinite(n) || Math.abs(n * 100 - Math.round(n * 100)) > 1e-6;
+            if (unreadable) map[pid] = typeof sc === "string" ? sc.trim() : "unreadable"; else if (typeof map[pid] !== "string") map[pid] = n;
           });
           return { state: "ok", data: { week: Number(week), scores: map }, at: Date.now() };
         });
@@ -251,6 +256,19 @@
       }, force);
     }
     // PR B: one week of the NFL schedule, parsed to games right away (two clubs, seconds remaining, whether both have a score).
+    // MFL's own list of every NFL club with its bye week, and the whole season's schedule (one read, parsed at once and reduced to what the preview uses). Used to
+    // confirm that every week's schedule accounts for every club and that older weeks are complete. Asked once and kept for 10 minutes.
+    function loadCalendar(parse, force) {
+      return cached("cal", 10 * 60 * 1000, function () {
+        return Promise.all([settle(get(urls.byes, "NFL bye weeks")), settle(get(urls.fullSchedule, "NFL schedule, all weeks"))]).then(function (rs) {
+          if (rs[0].state !== "ok") return rs[0];
+          if (rs[1].state !== "ok") return rs[1];
+          var cal = null; try { cal = parse(rs[0].data, rs[1].data); } catch (e) { cal = null; }
+          if (!cal) return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: cal, at: Date.now() };
+        });
+      }, force);
+    }
     function loadSchedule(week, parse, force) {
       return cached("sched:" + week, 2 * 60 * 1000, function () {
         return settle(get(urls.schedule(week), "NFL schedule, week " + week)).then(function (r) {
@@ -282,7 +300,7 @@
       return by;
     }
 
-    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
+    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadCalendar: loadCalendar, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
   }
 
   return { RULES: RULES, check: check, createLoader: createLoader };

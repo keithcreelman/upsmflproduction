@@ -79,6 +79,10 @@
   function weekComplete(games, statusByClub, cover) {
     if (!Array.isArray(games) || !games.length) return false;
     if (cover && coverage(games, cover).state !== "ok") return false;   // a schedule that does not account for every club is not a complete week
+    if (statusByClub) {   // the lineup week: every club the Worker lists must be in a scheduled game (a missing game is not a final one)
+      var inGame = {}, sk; games.forEach(function (g) { inGame[g.clubs[0]] = true; inGame[g.clubs[1]] = true; });
+      for (sk in statusByClub) if (Object.prototype.hasOwnProperty.call(statusByClub, sk) && !inGame[sk]) return false;
+    }
     for (var i = 0; i < games.length; i++) {
       var g = games[i], a = statusByClub ? statusOf(statusByClub, g.clubs[0]) : null, b = statusByClub ? statusOf(statusByClub, g.clubs[1]) : null;
       if (gameState(g, a) !== "final" || gameState(g, b) !== "final") return false;
@@ -133,5 +137,35 @@
   // Is an answer usable for the handoff? It must be from the current load and read after the preview first saw the game (or week) final.
   function answerFresh(a) { return !!a && a.gen === a.currentGen && isInt(a.readAt) && isInt(a.firstSeenFinalAt) && a.readAt >= a.firstSeenFinalAt; }
 
-  return { coverage: coverage, parseSchedule: parseSchedule, gameState: gameState, gameOf: gameOf, weekComplete: weekComplete, cutoffWeek: cutoffWeek, handoff: handoff, answerFresh: answerFresh, QUIET_MS: QUIET_MS };
+  // The authoritative calendar from MFL: nflByeWeeks (every NFL club and its bye week) and nflSchedule with W=ALL (every week). -> { clubs: [id], byeOf: { id: week },
+  // weeks: { week: games | null (that week's entry is malformed) } } or null when either answer is not the expected shape. Nothing is taken from rosters.
+  function parseCalendar(byesJson, fullJson) {
+    var bw = byesJson && byesJson.nflByeWeeks, teams = bw ? asArray(bw.team) : [], clubs = [], byeOf = {}, i;
+    if (!teams.length) return null;
+    for (i = 0; i < teams.length; i++) {
+      var t = teams[i], b = t ? Number(t.bye_week) : NaN, id = t && t.id != null ? String(t.id).trim().toUpperCase() : "";
+      if (!id || !isInt(b) || b < 1 || b > 22 || Object.prototype.hasOwnProperty.call(byeOf, id)) return null;
+      clubs.push(id); byeOf[id] = b;
+    }
+    var fs = fullJson && fullJson.fullNflSchedule, list = fs ? asArray(fs.nflSchedule) : [], weeks = {};
+    if (!list.length) return null;
+    list.forEach(function (e) { var w = e ? Number(e.week) : NaN; if (isInt(w) && w >= 1) weeks[w] = parseSchedule({ nflSchedule: e }, w); });
+    return { clubs: clubs, byeOf: byeOf, weeks: weeks };
+  }
+  // Is every week 1..upTo complete by the schedule, with every club accounted for? -> the weeks that are not: [{ week, state: "not_final" (clubs: [a, b] of one
+  // game that is not final) | "schedule_truncated" | "schedule_unverified" | "schedule_inconsistent" | "unavailable" (no usable schedule for that week) }].
+  // This is what makes "completed games" true of the whole season figure, not only of the newest weeks.
+  function verifyWeeks(cal, upTo) {
+    var out = [], w, g, cs, bad;
+    for (w = 1; w <= upTo; w++) {
+      g = cal && cal.weeks ? cal.weeks[w] : null;
+      if (!Array.isArray(g) || !g.length) { out.push({ week: w, state: "unavailable" }); continue; }
+      cs = coverage(g, { clubs: cal.clubs, byeOf: cal.byeOf, week: w }).state;
+      if (cs !== "ok") { out.push({ week: w, state: "schedule_" + cs }); continue; }
+      bad = null; g.forEach(function (x) { if (!bad && !x.final) bad = x; });
+      if (bad) out.push({ week: w, state: "not_final", clubs: bad.clubs.slice() });
+    }
+    return out;
+  }
+  return { parseCalendar: parseCalendar, verifyWeeks: verifyWeeks, coverage: coverage, parseSchedule: parseSchedule, gameState: gameState, gameOf: gameOf, weekComplete: weekComplete, cutoffWeek: cutoffWeek, handoff: handoff, answerFresh: answerFresh, QUIET_MS: QUIET_MS };
 });
