@@ -1,0 +1,254 @@
+{
+ "note": "The reviewed inventory of 31 add/drop cut-penalty charges from issue #1502 (backlog session), season 2026. Compared row for row with lib/reviewed_names.js.",
+ "source": "https://github.com/keithcreelman/upsmflproduction/issues/1502",
+ "rows": [
+  {
+   "token": "adddrop2025_114.1",
+   "team": "0010",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "13713",
+   "name": "Fitzpatrick, Minkah"
+  },
+  {
+   "token": "adddrop2025_129.1",
+   "team": "0009",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "13668",
+   "name": "Chark, D.J."
+  },
+  {
+   "token": "adddrop2025_141.2",
+   "team": "0007",
+   "season": 2026,
+   "amount": 3500,
+   "playerId": "16152",
+   "name": "Richardson, Anthony"
+  },
+  {
+   "token": "adddrop2025_192.2",
+   "team": "0006",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "16693",
+   "name": "Sweat, T'Vondre"
+  },
+  {
+   "token": "adddrop2025_231.2",
+   "team": "0001",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "14210",
+   "name": "Pratt, Germaine"
+  },
+  {
+   "token": "adddrop2025_266.2",
+   "team": "0001",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "17097",
+   "name": "Felton, Tai"
+  },
+  {
+   "token": "adddrop2025_276.2",
+   "team": "0002",
+   "season": 2026,
+   "amount": 4000,
+   "playerId": "14322",
+   "name": "Edwards, T.J."
+  },
+  {
+   "token": "adddrop2025_298.2",
+   "team": "0010",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "17105",
+   "name": "Helm, Gunnar"
+  },
+  {
+   "token": "adddrop2025_333.2",
+   "team": "0006",
+   "season": 2026,
+   "amount": 2500,
+   "playerId": "17054",
+   "name": "Martinez, Damien"
+  },
+  {
+   "token": "adddrop2025_336.1",
+   "team": "0001",
+   "season": 2026,
+   "amount": 6300,
+   "playerId": "14358",
+   "name": "Browning, Jake"
+  },
+  {
+   "token": "adddrop2025_364.2",
+   "team": "0007",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "14303",
+   "name": "Elliss, Kaden"
+  },
+  {
+   "token": "adddrop2025_369.2",
+   "team": "0008",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "15337",
+   "name": "Gray, Noah"
+  },
+  {
+   "token": "adddrop2025_370.2",
+   "team": "0008",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "13737",
+   "name": "Bates, Jessie"
+  },
+  {
+   "token": "adddrop2025_371.2",
+   "team": "0008",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "14153",
+   "name": "Allen, Zach"
+  },
+  {
+   "token": "adddrop2025_380.1",
+   "team": "0007",
+   "season": 2026,
+   "amount": 4000,
+   "playerId": "16262",
+   "name": "White, Keion"
+  },
+  {
+   "token": "adddrop2025_382.1",
+   "team": "0003",
+   "season": 2026,
+   "amount": 2000,
+   "playerId": "16688",
+   "name": "Guerendo, Isaac"
+  },
+  {
+   "token": "adddrop2025_391.2",
+   "team": "0003",
+   "season": 2026,
+   "amount": 2000,
+   "playerId": "16643",
+   "name": "Sanders, Ja'Tavion"
+  },
+  {
+   "token": "adddrop2025_399.2",
+   "team": "0005",
+   "season": 2026,
+   "amount": 2500,
+   "playerId": "13837",
+   "name": "Franklin, Zaire"
+  },
+  {
+   "token": "adddrop2025_425.2",
+   "team": "0001",
+   "season": 2026,
+   "amount": 750,
+   "playerId": "13681",
+   "name": "Chubb, Bradley"
+  },
+  {
+   "token": "adddrop2025_426.2",
+   "team": "0010",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "17269",
+   "name": "Chism, Efton"
+  },
+  {
+   "token": "adddrop2025_427.2",
+   "team": "0010",
+   "season": 2026,
+   "amount": 2000,
+   "playerId": "15806",
+   "name": "Thibodeaux, Kayvon"
+  },
+  {
+   "token": "adddrop2025_490.1",
+   "team": "0012",
+   "season": 2026,
+   "amount": 3000,
+   "playerId": "12187",
+   "name": "Lockett, Tyler"
+  },
+  {
+   "token": "adddrop2025_549.2",
+   "team": "0004",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "16679",
+   "name": "Nubin, Tyler"
+  },
+  {
+   "token": "adddrop2025_594.1",
+   "team": "0005",
+   "season": 2026,
+   "amount": 3250,
+   "playerId": "15254",
+   "name": "Harris, Najee"
+  },
+  {
+   "token": "adddrop2025_595.1",
+   "team": "0001",
+   "season": 2026,
+   "amount": 2500,
+   "playerId": "13189",
+   "name": "Engram, Evan"
+  },
+  {
+   "token": "adddrop2025_596.2",
+   "team": "0005",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "14909",
+   "name": "Winfield, Antoine"
+  },
+  {
+   "token": "adddrop2025_634.1",
+   "team": "0012",
+   "season": 2026,
+   "amount": 3500,
+   "playerId": "12140",
+   "name": "Winston, Jameis"
+  },
+  {
+   "token": "adddrop2025_651.2",
+   "team": "0001",
+   "season": 2026,
+   "amount": 1000,
+   "playerId": "14882",
+   "name": "Greenard, Jonathan"
+  },
+  {
+   "token": "adddrop2025_657.2",
+   "team": "0008",
+   "season": 2026,
+   "amount": 2450,
+   "playerId": "16215",
+   "name": "Musgrave, Luke"
+  },
+  {
+   "token": "adddrop2025_692.2",
+   "team": "0005",
+   "season": 2026,
+   "amount": 2800,
+   "playerId": "13189",
+   "name": "Engram, Evan"
+  },
+  {
+   "token": "adddrop2025_698.1",
+   "team": "0011",
+   "season": 2026,
+   "amount": 2100,
+   "playerId": "15240",
+   "name": "Lance, Trey"
+  }
+ ]
+}

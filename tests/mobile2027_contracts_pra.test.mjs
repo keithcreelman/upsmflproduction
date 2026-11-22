@@ -45,7 +45,8 @@ test("Breakdown: salary lines add to the cap hits, the five categories show only
 
 test("itemized detail: player (only for cut penalties), season, signed amount; Player Unknown without an authoritative id; no source text, ids or dates", () => {
   const cat = { y26: 1 }; const s = state({ ct: { f: "all", s: "end", open: {}, bd: true, cat: { "y26Cut Penalty": true, "y26Traded Salary": true }, ns: false } }), html = V.app(s), tx = text(html);
-  t.equal((tx.match(/Player Unknown · 2026/g) || []).length, 4, "Blake's four cut penalties carry an add/drop id, not a player id");
+  t.equal((tx.match(/Player Unknown · 2026/g) || []).length, 0, "Blake's four cut penalties carry an add/drop id and are on the reviewed list: named");
+  ["Fitzpatrick, Minkah · 2026 \\+\\$1,000", "Helm, Gunnar · 2026 \\+\\$1,000", "Chism, Efton · 2026 \\+\\$1,000", "Thibodeaux, Kayvon · 2026 \\+\\$2,000"].forEach((s) => t.match(tx, new RegExp(s), s));
   t.match(tx, /Traded Salary ▾ −\$32,000/); t.match(tx, /— · 2026 −\$5,000/); t.match(tx, /— · 2026 \+\$12,000/, "a credit and a charge in the same category keep their signs");
   ["UPS drop penalty", "settlement", "adddrop", "trade_2026", "3-way", "id:", "explanation", "timestamp"].forEach((w) => t.doesNotMatch(html, new RegExp(w, "i"), w));
 });
@@ -89,7 +90,7 @@ test("2027 gap: Help names three separate statements (completeness, reconciliati
 test("one Help control per Team screen, with text for the tab; taxi eligibility and the assumptions live there", () => {
   ["roster", "contracts", "performance"].forEach((sub) => { const html = V.app(state({ sub })); t.equal((html.match(/data-act="help"/g) || []).length, 1, sub + ": exactly one help control"); t.match(html, /aria-label="Help for this screen"/); });
   const h = text(V.app(state({ sheet: "help" })));
-  t.match(h, /Planning assumption for later years/); t.match(h, /No injury relief is projected/); t.match(h, /taxi-eligible player can be released with a \$0 cut charge/); t.match(h, /“Player Unknown” means no authoritative player ID/);
+  t.match(h, /Planning assumption for later years/); t.match(h, /No injury relief is projected/); t.match(h, /taxi-eligible player can be released with a \$0 cut charge/); t.match(h, /A player’s name appears only when the charge’s own player ID names him or the charge is on UPS’s reviewed list\. Otherwise it reads “Player Unknown”/);
   const r = text(V.app(state({ sheet: "help", sub: "roster" }))); t.match(r, /Can’t check/); t.match(r, /Recorded starters/); t.match(r, /Doubtful/);
 });
 

@@ -1,0 +1,89 @@
+// UPS 2027 beta (PR A): the frozen reviewed list of 31 cut-penalty names (Keith's display ruling 2026-11-22, recorded on #1502).
+//   node tests/mobile2027_reviewed_names.test.mjs
+// The bundle (lib/reviewed_names.js) is compared row for row with the reviewed inventory kept as a separate fixture (reviewed_names_31.json, taken from the
+// #1502 inventory; the bundle was generated from the build session's own MFL verification, and the two had to agree). A reviewed mapping is kept apart from
+// direct resolution: items carry nameSource "direct" or "reviewed_mapping".
+import fs from "node:fs";
+import path from "node:path";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { t, test, run } from "./fixtures/mini_test.mjs";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const SRC = path.join(HERE, "..", "apps", "mobile2027", "src");
+const require = createRequire(import.meta.url);
+const R = require(path.join(SRC, "lib/reviewed_names.js")), A = require(path.join(SRC, "lib/adjust.js")), M = require(path.join(SRC, "lib/model.js")), V = require(path.join(SRC, "lib/views.js"));
+const FIX = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/reviewed_names_31.json"), "utf8"));
+const FX = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/adjust_2026_wk10.json"), "utf8"));
+const FXP = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/public_reads.json"), "utf8"));
+const text = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+const asObjects = () => R.rows().map(([token, team, season, amount, playerId, name]) => ({ token, team, season, amount, playerId, name }));
+const byToken = (a, b) => (a.token < b.token ? -1 : 1);
+
+test("the bundle equals the reviewed inventory row for row (31 rows: token, team, season, amount, player id, name)", () => {
+  t.equal(R.COUNT, 31); t.equal(FIX.rows.length, 31); t.equal(new Set(FIX.rows.map((r) => r.token)).size, 31, "31 distinct tokens");
+  t.deepEqual(asObjects().sort(byToken), FIX.rows.slice().sort(byToken));
+  FIX.rows.forEach((r) => t.deepEqual(R.lookup(r.token, r.team, r.season, r.amount), { id: r.playerId, name: r.name }, r.token));
+});
+
+test("all four parts must match: another team, season or amount, or an unknown token, never inherits a name", () => {
+  FIX.rows.forEach((r) => {
+    const other = r.team === "0001" ? "0002" : "0001";
+    t.equal(R.lookup(r.token, other, r.season, r.amount), null, r.token + " on another team");
+    t.equal(R.lookup(r.token, r.team, r.season + 1, r.amount), null, r.token + " in another season");
+    t.equal(R.lookup(r.token, r.team, r.season - 1, r.amount), null, r.token + " in another season");
+    t.equal(R.lookup(r.token, r.team, r.season, r.amount + 1), null, r.token + " with another amount");
+  });
+  ["adddrop2025_999.1", "adddrop2026_114.1", "adddrop2025_114.2", "", null, undefined, "__proto__", "constructor"].forEach((k) => t.equal(R.lookup(k, "0010", 2026, 1000), null, String(k)));
+});
+
+test("team 0010: the pair where a mix-up would put the wrong name on an amount (Chism $1,000, Thibodeaux $2,000) and the other two rows", () => {
+  t.deepEqual(R.lookup("adddrop2025_426.2", "0010", 2026, 1000), { id: "17269", name: "Chism, Efton" });
+  t.deepEqual(R.lookup("adddrop2025_427.2", "0010", 2026, 2000), { id: "15806", name: "Thibodeaux, Kayvon" });
+  t.equal(R.lookup("adddrop2025_426.2", "0010", 2026, 2000), null, "Chism's token with Thibodeaux's amount is nobody");
+  t.equal(R.lookup("adddrop2025_427.2", "0010", 2026, 1000), null, "Thibodeaux's token with Chism's amount is nobody");
+  t.deepEqual(R.lookup("adddrop2025_114.1", "0010", 2026, 1000), { id: "13713", name: "Fitzpatrick, Minkah" });
+  t.deepEqual(R.lookup("adddrop2025_298.2", "0010", 2026, 1000), { id: "17105", name: "Helm, Gunnar" });
+  const rows = FX.teams.find((x) => x.franchise_id === "0010").summary.salary_adjustment_raw_rows;
+  const r = A.parseTeamRows(rows, { fid: "0010", season: 2026, total: -27000 }).items.filter((i) => i.category === "Cut Penalty");
+  const pairs = r.map((i) => i.playerName + " $" + i.amount).sort();
+  t.deepEqual(pairs, ["Chism, Efton $1000", "Fitzpatrick, Minkah $1000", "Helm, Gunnar $1000", "Thibodeaux, Kayvon $2000"]);
+});
+
+test("on the recorded read: 4 direct + 31 reviewed mapping = 35 named, 6 stay Player Unknown (their player is on no roster and they are not on the list); sources stay apart", () => {
+  const model = M.build(FXP.roster_workbench, FXP.league, FXP.weekly_results, 11, 2026), resolve = A.nameResolver(model, null);
+  const items = []; FX.teams.forEach((tm) => A.parseTeamRows(tm.summary.salary_adjustment_raw_rows, { fid: tm.franchise_id, season: 2026, total: tm.summary.salary_adjustment_total_dollars, resolveName: resolve }).items.forEach((i) => { if (i.category === "Cut Penalty") items.push(i); }));
+  t.equal(items.length, 41);
+  const by = (s) => items.filter((i) => i.nameSource === s).length;
+  t.equal(by("direct"), 4); t.equal(by("reviewed_mapping"), 31); t.equal(items.filter((i) => i.playerName).length, 35); t.equal(items.filter((i) => !i.playerName).length, 6);
+  t.ok(items.filter((i) => i.nameSource === "reviewed_mapping").every((i) => FIX.rows.some((r) => r.playerId === i.playerId && r.name === i.playerName)), "a mapped name is always a row of the list");
+  t.ok(items.filter((i) => !i.playerName).every((i) => i.nameSource === null && i.playerId === null), "no source, no name");
+  t.equal(A.parseTeamRows(FX.teams[0].summary.salary_adjustment_raw_rows, { fid: FX.teams[0].franchise_id, season: 2026, total: 0 }).items.filter((i) => i.category !== "Cut Penalty" && i.playerName).length, 0, "the list is never applied to another category");
+  // a new charge (a token not on the list) and a row whose text names someone: Player Unknown
+  const row = (explanation) => [{ amount: 1000, franchise_id: "0010", explanation }];
+  t.equal(A.parseTeamRows(row("UPS drop penalty Someone Famous 1000 id:adddrop2025_9999.1"), { fid: "0010", season: 2026, total: 1000 }).items[0].playerName, null);
+  t.equal(A.parseTeamRows(row("UPS drop penalty Chism, Efton 1000 id:adddrop2025_9999.1"), { fid: "0010", season: 2026, total: 1000 }).items[0].playerName, null, "a name in the text is never used");
+  t.equal(A.parseTeamRows(row("UPS drop penalty Chism, Efton 1000 id:adddrop2025_426.2"), { fid: "0010", season: 2027, total: 1000 }).items[0].playerName, null, "another season");
+});
+
+test("the provenance and evidence are kept with the bundle", () => {
+  const p = R.PROVENANCE;
+  t.match(p.list, /#1502/); t.match(p.approved, /Keith 2026-11-22/); t.equal(p.verifiedOn, "2026-11-22"); t.equal(p.checks.length, 4);
+  t.match(p.checks.join(" "), /E1/); t.match(p.checks.join(" "), /E2/); t.match(p.checks.join(" "), /E3/); t.match(p.checks.join(" "), /never identity/); t.match(p.key, /token \+ team \+ season \+ posted amount/); t.match(p.limits, /0010/);
+});
+
+const rosterRead = () => ({ ok: true, generated_at: "2026-11-21T14:00:00Z", teams: FX.teams.map((tm) => ({ franchise_id: tm.franchise_id, franchise_name: "Team " + tm.franchise_id, summary: JSON.parse(JSON.stringify(tm.summary)),
+  players: tm.players.map((p) => ({ id: p.id, name: "Player, " + p.id, position: "WR", nfl_team: "KCC", salary: p.salary_unresolved ? 0 : p.salary, salary_unresolved: p.salary_unresolved === true, years: p.years, type: "Veteran", special: p.special, status: p.status })) })) });
+const state = (team) => ({ model: M.build(rosterRead(), null, null, 10, 2026), load: { core: "ok", coreNotes: [] }, penalty: { state: "idle" }, ns: { state: "idle" }, teamId: team, tab: "team", sub: "contracts", view: "lineup",
+  open: {}, flags: {}, profile: null, sheet: null, skin: "system", vib: "1", build: "test", requestLog: [], gdef: "needs", wk: null, intel: { mu: {}, wk: {}, scores: {} }, ct: { f: "all", s: "end", open: {}, bd: true, cat: { "y26Cut Penalty": true }, ns: false },
+  requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 } });
+
+test("on screen: team 0010's four cut penalties show their reviewed names with the right amounts; no token reaches the page", () => {
+  const tx = text(V.app(state("0010")));
+  ["Fitzpatrick, Minkah · 2026 +$1,000", "Helm, Gunnar · 2026 +$1,000", "Chism, Efton · 2026 +$1,000", "Thibodeaux, Kayvon · 2026 +$2,000"].forEach((s) => t.match(tx, new RegExp(s.replace(/[$+]/g, "\\$&")), s));
+  t.doesNotMatch(tx, /Player Unknown/, "all four are named");
+  t.doesNotMatch(V.app(state("0010")), /adddrop|id:/, "the source token is never drawn");
+  const other = text(V.app(state("0009"))); t.match(other, /Player Unknown|Chark, D\.J\./, "another team renders its own rows");
+});
+
+run("mobile2027_reviewed_names");

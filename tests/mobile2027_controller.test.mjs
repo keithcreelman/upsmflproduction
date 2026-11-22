@@ -82,7 +82,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/tabviews.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/tabviews.js", "lib/views.js", "app.js"]) vm.runInContext(read(f), ctx, { filename: f });
   const click = async (attrs) => {
     const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) };
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));

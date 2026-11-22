@@ -1,7 +1,8 @@
 /* UPS 2027 beta (PR A): cap adjustments. Pure functions: no network, no storage, no DOM.
 
-   What an owner may see about an adjustment is four things: the player (only when an authoritative player id resolves, otherwise
-   "Player Unknown"), the season, the signed amount and the category. Everything else a source sends (descriptions, notes, dates, other
+   What an owner may see about an adjustment is four things: the player (only when an authoritative player id resolves, or the charge is on UPS's frozen
+   reviewed list (lib/reviewed_names.js, kept apart from direct resolution; Keith's ruling 2026-11-22), otherwise "Player Unknown"), the season, the signed
+   amount and the category. Everything else a source sends (descriptions, notes, dates, other
    teams) is read here, used to decide those four things, and discarded: this file never returns a source string.
 
    Categories (owner ruling 2026-11-21): Cut Penalty, Traded Salary, FA Auction Fine, Rounding, Other.
@@ -11,14 +12,16 @@
      "unverified": it is counted, kept out of every category and total, and never treated as $0 or as Other.
    - The season is the year of the read that carried the row. It is never taken from text: 31 of 41 recorded cut penalties carry a 2025
      add/drop id yet are 2026 charges.
-   - A player is named only from a player id: the first part of the ledger key (<player id>_<10-digit time>), accepted only in exactly that
-     form and only when the id resolves to a name through `resolveName`. An add/drop id (adddrop2025_...) carries no player id: Player Unknown. */
+   - A player is named in exactly two ways, never from description text. DIRECT: the first part of the ledger key (<player id>_<10-digit time>),
+     accepted only in exactly that form and only when the id resolves to a name through `resolveName` (item.nameSource "direct"). REVIEWED MAPPING: an
+     add/drop id (adddrop2025_...) carries no player id; if its token, team, season and posted amount all match a row of the reviewed list, that row names
+     him (item.nameSource "reviewed_mapping"). Anything else: Player Unknown. */
 (function (root, factory) {
   var req = typeof require === "function";
-  var api = factory(req ? require("./format.js") : root.UPS2027.format, req ? require("./contract.js") : root.UPS2027.contract);
+  var api = factory(req ? require("./format.js") : root.UPS2027.format, req ? require("./contract.js") : root.UPS2027.contract, req ? require("./reviewed_names.js") : root.UPS2027.reviewedNames);
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.adjust = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C) {
+})(typeof self !== "undefined" ? self : this, function (F, C, N) {
   "use strict";
 
   var CATEGORIES = ["Cut Penalty", "Traded Salary", "FA Auction Fine", "Rounding", "Other"];
@@ -87,10 +90,13 @@
         if (seen[k]) { res.duplicates++; return; }
         seen[k] = true;
       }
-      var cl = classify(text), item = { category: cl ? cl.category : "Other", amount: amt, season: o.season, playerId: null, playerName: null };
+      var cl = classify(text), item = { category: cl ? cl.category : "Other", amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null };
       if (cl && cl.idForm === "player" && typeof o.resolveName === "function") {
         var nm = o.resolveName(cl.playerId);
-        if (nm) { item.playerId = cl.playerId; item.playerName = nm; }
+        if (nm) { item.playerId = cl.playerId; item.playerName = nm; item.nameSource = "direct"; }
+      } else if (cl && cl.idForm === "adddrop" && tok && N) { // the reviewed list: token, team, season and posted amount must all match
+        var rv = N.lookup(tok[1], fid, o.season, amt);
+        if (rv) { item.playerId = rv.id; item.playerName = rv.name; item.nameSource = "reviewed_mapping"; }
       }
       res.items.push(item);
     });
