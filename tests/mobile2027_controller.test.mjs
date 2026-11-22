@@ -30,11 +30,13 @@ const NEXT_LEDGER = { ok: true, season: "2026", next_season: 2027, league_id: "7
   { player_id: "12801", player: "Name In Text", franchise_id: "0010", amount: 1000, applies_to_season: 2027, dropped_at_iso: "2026-09-01T00:00:00Z", kind: "Drop (next season)", in_mfl: false },
   { player_id: null, player: "Missed nomination", franchise_id: "0010", amount: 3000, applies_to_season: 2027, dropped_at_iso: "2026-07-28", kind: "RULE 2 fine (next season)", in_mfl: false }] };
 
+// Week 11 as it reads once every game is over (the Thursday fixture has 1 of 13 final)
+const week11Final = () => { const s = JSON.parse(JSON.stringify(FX4.schedule11)); s.nflSchedule.matchup.forEach((m) => { m.gameSecondsRemaining = "0"; m.team[0].score = "21"; m.team[1].score = "14"; }); return s; };
 function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = false, holdPen = false, failStatus = 0, failWeek10 = 0, clock = null, holdIntel = false, r3 = false, failScores = 0, failNext = 0, lmEdit = null, sched11 = null, sched10 = null, calEdit = null, failCal = 0 } = {}) {
   const calls = [];
   let releasePen = () => {}; const penGate = holdPen ? new Promise((r) => { releasePen = r; }) : null;
   let release = () => {}; const gate = hold ? new Promise((r) => { release = r; }) : null; // holds the roster read open until release()
-  const state = { failRoster, failPenalty, failStatus, failWeek10, failScores, failNext, failCal };
+  const state = { failRoster, failPenalty, failStatus, failWeek10, failScores, failNext, failCal, w11: false, fail11: 0 };   // w11: the league has since finished Week 11; fail11: how many Week 11 score reads fail
   let releaseIntel = () => {}; const intelGate = holdIntel ? new Promise((r) => { releaseIntel = r; }) : null; // holds the Team › Roster adds open until releaseIntel()
   const body = (u) => {
     if (u.pathname === "/roster-workbench") return FX.roster_workbench;
@@ -42,14 +44,16 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     if (u.pathname === "/api/cap-penalty/preview") return FX.cap_penalty;
     if (u.pathname === "/api/cap-adjustments/next-season") return NEXT_LEDGER;
     if (u.pathname === "/api/player-status") return FX2.player_status;
-    if (u.pathname === "/api/lineup-matchups") { const b = Object.assign({}, r3 ? FX3.lineup_matchups_w11 : FX2.lineup_matchups_w11, r3 ? FX4.hist : {}, { week: Number(u.searchParams.get("W")) }); return lmEdit ? lmEdit(b) : b; }
+    if (u.pathname === "/api/lineup-matchups") { let b = Object.assign({}, r3 ? FX3.lineup_matchups_w11 : FX2.lineup_matchups_w11, r3 ? FX4.hist : {}, { week: Number(u.searchParams.get("W")) });
+      if (state.w11) { b = JSON.parse(JSON.stringify(b)); Object.keys(b.matchups).forEach((c) => { b.matchups[c].status = "final"; }); b.season.lastCompleteWeek = 11; }
+      return lmEdit ? lmEdit(b) : b; }
     if (u.searchParams.get("TYPE") === "league") return FX.league;
     // PR B: the whole-league reads the Performance screen needs (weekly scores Weeks 1 to 10, positions, the NFL schedules of Weeks 10 and 11)
     if (u.searchParams.get("TYPE") === "players") return { players: { player: FX4.players } };
     if (u.searchParams.get("TYPE") === "nflByeWeeks") return CAL.byes;
     if (u.searchParams.get("TYPE") === "nflSchedule" && u.searchParams.get("W") === "ALL") return calEdit ? calEdit(JSON.parse(JSON.stringify(CAL.full))) : CAL.full;
-    if (u.searchParams.get("TYPE") === "nflSchedule") return u.searchParams.get("W") === "10" ? (sched10 || FX4.schedule10) : u.searchParams.get("W") === "11" ? (sched11 || FX4.schedule11) : { nflSchedule: { matchup: [] } };
-    if (u.searchParams.get("TYPE") === "playerScores") { const w = u.searchParams.get("W"); return { playerScores: { playerScore: (r3 ? FX4.scores[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) : FX3.scores[w]) || [] } }; }
+    if (u.searchParams.get("TYPE") === "nflSchedule") return u.searchParams.get("W") === "10" ? (sched10 || FX4.schedule10) : u.searchParams.get("W") === "11" ? (state.w11 ? week11Final() : (sched11 || FX4.schedule11)) : { nflSchedule: { matchup: [] } };
+    if (u.searchParams.get("TYPE") === "playerScores") { const w = u.searchParams.get("W"); return { playerScores: { playerScore: (r3 ? FX4.scores[w] || (w === "11" ? (state.w11 ? [{ id: "1", score: "0" }, { id: "15698", score: "28.44" }] : [{ id: "1", score: "0" }]) : []) : FX3.scores[w]) || [] } }; }
     return u.searchParams.get("W") === "10" ? FX2.weekly_results_w10 : FX.weekly_results;
   };
   const fetchFake = async (url, opts) => {
@@ -63,6 +67,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     if (u.pathname === "/api/cap-adjustments/next-season" && state.failNext > 0) { state.failNext--; return { ok: false, status: 500, text: async () => "x" }; }
     if (intelGate && (u.pathname === "/api/player-status" || u.pathname === "/api/lineup-matchups")) await intelGate;
     if (u.pathname === "/api/player-status" && state.failStatus > 0) { state.failStatus--; return { ok: false, status: 502, text: async () => "x" }; }
+    if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "playerScores" && u.searchParams.get("W") === "11" && state.fail11 > 0) { state.fail11--; return { ok: false, status: 502, text: async () => "x" }; }
     if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "playerScores" && state.failScores > 0) { state.failScores--; return { ok: false, status: 502, text: async () => "x" }; }
     if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "weeklyResults" && u.searchParams.get("W") === "10" && state.failWeek10 > 0) { state.failWeek10--; return { ok: false, status: 502, text: async () => "x" }; }
     return { ok: true, status: 200, text: async () => JSON.stringify(body(u)) };
@@ -97,7 +102,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));
     await tick();
   };
-  return { setFailScores: (n) => { state.failScores = n; }, appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, release: () => release(), releasePen: () => releasePen(), releaseIntel: () => releaseIntel(), html: () => appEl.innerHTML };
+  return { setWeek11Final: (fail) => { state.w11 = true; state.fail11 = fail || 0; }, setFailScores: (n) => { state.failScores = n; }, appEl, calls, storage, pushes, replaces, docAttrs, history, location, click, winL, listeners, release: () => release(), releasePen: () => releasePen(), releaseIntel: () => releaseIntel(), html: () => appEl.innerHTML };
 }
 
 test("boot: loads the roster, shows the first team with starters above the bench, and every request is a bare GET", async () => {
@@ -582,9 +587,40 @@ test("PR B round 4: an older game that is not final (Week 5) keeps the figures b
 test("PR B round 4: if the club list and schedule cannot be read, the figures show without the claim and with Try again; Try again confirms the weeks", async () => {
   const a = boot({ r3: true, failCal: 2 }); await tick(30);
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
-  t.doesNotMatch(a.html(), /completed games/); t.match(a.html(), /could not be read, so weeks 1 to 9 were not checked/); t.match(a.html(), /data-act="retryperf"/);
+  t.doesNotMatch(a.html(), /completed games/); t.match(a.html(), /Game completion unverified/); t.match(a.html(), /could not be read, so weeks 1 to 9 were not checked/); t.match(a.html(), /data-act="retryperf"/);
   await a.click({ "data-act": "retryperf" }); await tick(100);
-  t.match(a.html(), /Season through Week 10 · completed games/); t.doesNotMatch(a.html(), /were not checked/);
+  t.match(a.html(), /Season through Week 10 · completed games/); t.doesNotMatch(a.html(), /were not checked|Game completion unverified/);
+});
+
+// Stale lineup-week scores in the running app. Thursday: Week 11's scores are read mid-game (cutoff Week 10). Later the league finishes Week 11; Retry reads the new schedule, which shows
+// it final, so the older scores are read again automatically, once. These tests drive that second read to a failure and to a success.
+const flat = (h) => h.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+const thursday = async (clock) => { const a = boot({ r3: true, clock }); await tick(30); await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100); return a; };
+test("PR B stale scores: the automatic re-read fails; the figures stay withheld; no automatic request follows; Retry asks the failed read once and a good answer restores the figures", async () => {
+  const clock = FakeClock(), a = await thursday(clock);
+  t.match(a.html(), /Season through Week 10 · completed games/); t.equal(wkCalls(a, isSc(11)), 1, "Thursday: the lineup week's scores were read once, mid-game");
+  a.setWeek11Final(1); clock.t += 3 * 60 * 1000;
+  await a.click({ "data-act": "retryperf" }); await tick(120);
+  t.equal(wkCalls(a, isSc(11)), 2, "the new schedule shows Week 11 final, so the older scores are read again automatically: once, and it fails");
+  t.doesNotMatch(a.html(), /<span>Season points<\/span><b>\d/, "no figure is drawn from the stale scores or from a partial set of weeks");
+  t.match(a.html(), /Some weeks of scores could not be read/); t.match(a.html(), /data-act="retryperf"/);
+  const n = a.calls.length; await tick(200); clock.t += 60 * 1000; await tick(50);
+  await a.click({ "data-act": "sub", "data-v": "cap" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
+  t.equal(a.calls.length, n, "after the failure nothing is asked again on its own: not over time, not by leaving and returning to Performance");
+  await a.click({ "data-act": "retryperf" }); await tick(100);
+  t.equal(a.calls.length - n, 1, "Retry asked for exactly one thing"); t.ok(isSc(11)(a.calls[a.calls.length - 1]), "the failed Week 11 score read");
+  t.match(a.html(), /Season through Week 11 · completed games/); t.match(flat(a.html()), /Season points\s+298\.4/, "the figures are back, with Week 11 included"); t.doesNotMatch(a.html(), /Some weeks of scores could not be read/);
+  const m = a.calls.length; await tick(150); t.equal(a.calls.length, m, "and it stays quiet");
+  a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
+});
+test("PR B stale scores: when the automatic re-read succeeds it is one request, the figures include the finished week, and nothing repeats", async () => {
+  const clock = FakeClock(), a = await thursday(clock);
+  a.setWeek11Final(0); clock.t += 3 * 60 * 1000;
+  await a.click({ "data-act": "retryperf" }); await tick(120);
+  t.equal(wkCalls(a, isSc(11)), 2, "one automatic re-read");
+  t.match(a.html(), /Season through Week 11 · completed games/); t.match(flat(a.html()), /Season points\s+298\.4/);
+  const n = a.calls.length; await tick(200); await a.click({ "data-act": "sub", "data-v": "cap" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
+  t.equal(a.calls.length, n, "no repeated automatic requests");
 });
 
 run("mobile2027_controller");

@@ -274,7 +274,7 @@ test("older incomplete games: an unfinished game, a truncated week, an unreadabl
   const tr = text(await perf({ calFull: calFull((l) => { wkOf(l, 3).matchup.shift(); }) })); t.doesNotMatch(tr, /completed games/); t.match(tr, /Week 3's NFL schedule does not account for every club/);
   const gone = text(await perf({ calFull: calFull((l) => { wkOf(l, 4).matchup = []; }) })); t.doesNotMatch(gone, /completed games/); t.match(gone, /Week 4's NFL schedule could not be read/);
   const many = text(await perf({ calFull: calFull((l) => { [2, 3, 4, 5, 6].forEach((w) => { wkOf(l, w).matchup[0].gameSecondsRemaining = "60"; }); }) })); t.match(many, /Week 2 has a game/); t.match(many, /Week 4 has a game/); t.match(many, /2 more weeks are not confirmed complete/);
-  const f = text(await perf({ failCal: true })); t.doesNotMatch(f, /completed games/); t.match(f, /could not be read, so weeks 1 to 9 were not checked against them/);
+  const f = text(await perf({ failCal: true })); t.doesNotMatch(f, /completed games/); t.match(f, /Game completion unverified/); t.match(f, /could not be read, so weeks 1 to 9 were not checked against them/);
   const I = await intel(); delete I.cal; t.doesNotMatch(text(body(V.app(state({ intel: I })))), /completed games/, "no calendar asked for: no claim");
   const I2 = await intel(); I2.cal = { state: "loading" }; const h2 = text(body(V.app(state({ intel: I2 })))); t.match(h2, /Checking which games are final|checking earlier weeks/, "while the calendar is read nothing is claimed");
 });
@@ -332,6 +332,13 @@ test("unreadable scores: one definition (anything but a plain decimal with at mo
   const lm = LM(); lm.teamHistoryThrough = 9; const sc10 = clone(FX4.scores); sc10["10"] = sc10["10"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "N/A" } : x));
   const I = await intel({ lm, scores: sc10 }), S2 = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
   t.match(V.app(S2).split('<div class="card tbl">')[1].split("</table>")[0], /<td>10<\/td><td class="n"><span class="mu">unreadable<\/span>/, "Week 10 reads unreadable in the log, not a dash"); t.match(text(V.app(S2)), /1 score could not be read, so his season figures are not shown/);
+});
+
+test("failed calendar read: available totals stay, the screen says 'Game completion unverified' with no completed-games claim, and an unreadable score still withholds that player's figures", async () => {
+  const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "12.345" } : x));
+  const html = await perf({ failCal: true, scores: sc }), tx = text(html);
+  t.match(tx, /Game completion unverified/); t.doesNotMatch(tx, /completed games/); t.match(tx, /Season through Week 10/);
+  t.match(text(row(html, ID.purdy)), /Season points\s+—\s+Unverified/, "the unreadable score withholds his figures"); t.match(text(row(html, ID.shaheed)), /Season points\s+66\.7/, "another player's available totals stay");
 });
 
 test("season and weekly pool bounds count only competitors who could be in the group: an unreadable RB widens RB ranks, not QB ranks", () => {

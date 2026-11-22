@@ -377,7 +377,7 @@
   function verifyNote(vr, N) {
     if (vr.state === "ok" || vr.state === "checking") return "";
     var lines = [];
-    if (vr.state === "unverified") lines.push("The NFL club list and the schedule of earlier weeks could not be read, so weeks 1 to " + (N - 1) + " were not checked against them. Figures include everything MFL has recorded. " + '<button class="link" data-act="retryperf">Try again</button>');
+    if (vr.state === "unverified") lines.push("Game completion unverified: the NFL club list and the schedule of earlier weeks could not be read, so weeks 1 to " + (N - 1) + " were not checked against them. Figures include everything MFL has recorded. " + '<button class="link" data-act="retryperf">Try again</button>');
     else {
       vr.problems.slice(0, 3).forEach(function (p) {
         lines.push(p.state === "not_final" ? "Week " + p.week + " has a game that is not final (" + esc(p.clubs[0]) + " and " + esc(p.clubs[1]) + "). Figures include what MFL has recorded and may change when it is played."
