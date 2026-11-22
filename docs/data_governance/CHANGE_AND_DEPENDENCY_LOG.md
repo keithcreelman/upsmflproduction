@@ -6,6 +6,8 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · correction** · The #1399 bot comment reports 13 safe-suite failures on `main` `bc607887`. A clean local run at `52338bf9` (the same code plus docs) passed 275 with 0 failures. · The bot-cutover job likely runs in the stale, dirty Mac checkout (inferred). · Local run log. · The trade-bot valuation snapshot delivery that the cutover job gates. · Open; tied to P0-5.
+
 **2026-11-21 · finding** · J3 roster anomaly check red on false positives since 11-19 (17 flags, sampled 4, all explained by `BBID_WAIVER` drops in the same snapshot). · Its departure-type list omits blind-bid waivers. · `pipelines/etl/scripts/check_roster_anomalies.py:314`; runs 44590405939, 44788768764, 44927399437. · Every consumer that trusts "J3 green" as proof of no silent roster/contract change (contract integrity, FO, mobile beta parity). · Open; fix proposed (P0-1).
 
 **2026-11-21 · finding** · R2 daily snapshot can be partial or hold MFL error bodies yet be marked complete. · `_snapshot_meta.json` is written regardless of part failures and the hourly retry checks only that file. · `worker/src/index.js:494-559, 8655-8676`. · Drop-penalty pricing (`cap.penalty_quote`, drop tracker), waiver card. · Open (P1-7, needs go for a worker change).
