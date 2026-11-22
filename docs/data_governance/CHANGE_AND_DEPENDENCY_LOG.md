@@ -6,6 +6,8 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · change (draft)** · J3 fix proposed in draft PR #1501 (head `2d7d4a79`): `BBID_WAIVER` counts as a legitimate departure, and its drop is read from the third segment. On the committed 11-19 to 11-21 snapshots the flags go from 13/3/1 to 0/0/0, and a synthetic unexplained drop still flags. · Closes the P0-1 false-positive finding once merged. · PR #1501 diff and its offline test. · Same consumers as the J3 finding below. · Awaiting CI and Keith's merge decision.
+
 **2026-11-22 · correction** · The #1399 bot comment reports 13 safe-suite failures on `main` `bc607887`. A clean local run at `52338bf9` (the same code plus docs) passed 275 with 0 failures. · The bot-cutover job likely runs in the stale, dirty Mac checkout (inferred). · Local run log. · The trade-bot valuation snapshot delivery that the cutover job gates. · Open; tied to P0-5.
 
 **2026-11-21 · finding** · J3 roster anomaly check red on false positives since 11-19 (17 flags, sampled 4, all explained by `BBID_WAIVER` drops in the same snapshot). · Its departure-type list omits blind-bid waivers. · `pipelines/etl/scripts/check_roster_anomalies.py:314`; runs 44590405939, 44788768764, 44927399437. · Every consumer that trusts "J3 green" as proof of no silent roster/contract change (contract integrity, FO, mobile beta parity). · Open; fix proposed (P0-1).
