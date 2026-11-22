@@ -6,6 +6,14 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · change (draft, on Keith's go in chat)** · The J3 snapshot backtest goes back into the safe suite as a **separate change** on its own draft PR #1504 (stacked on #1501). #1501 stays the BBID fix only.
+- **What the 10% limit means:** a day is one pair of consecutive committed snapshots. The test fails when more than 10% of days flag any drop. It is an alert-noise budget. It is not a data check, and passing does not mean no anomaly happened.
+- **The 4 flagged days (1.9% of 212), verified against the committed snapshots:**
+  - 04-24 and 05-22: commissioner bulk `LOAD_ROSTERS` imports (1 and 27 players). Flagged by design.
+  - 07-17 and 07-19: 7 auction winners rostered for 1-2 days, then gone with no drop transaction. Documented in code as the FAA test-residue purge; genuinely unexplained by MFL's log.
+- **Behavior:** the test now labels each known day and prints NEW for any other.
+- **Not certified by it:** the backtest does not certify contracts, salaries or 2026 cut-penalty charges. Those stay unverified until each posted charge is matched to a complete pricing snapshot and the worker's calculation (see the Mobile Build entry below). · Branch `claude/j3-backtest-reenable`. · Safe suite on every PR now runs the backtest. · Draft.
+
 **2026-11-22 · dependency (Mobile Build)** · The mobile beta confirmed that `/api/cap-penalty/preview` uses live MFL rosters, so "If cut now" figures are unaffected by the R2 snapshot. Its 2027 cut penalties come from `/api/cap-adjustments/next-season`, which reads posted `ups_drop_events` and so inherits the R2 snapshot risk. Mobile will not call them verified until this session says the posted-charge path is sound. · Mobile Build message. · Mobile beta Contracts (#1475/#1497). · **Not certified.** It needs either: (a) the R2 completeness fix (baseline P1-7); or (b) a check that every 2026 posted charge's pre-drop snapshot parts were all present, plus the posted amounts reconciled to the worker's pricing. Partial evidence only: the backlog session reconciled all 31 2026 cut charges to the expected amounts under the sub-$5K rule (#1502, R).
 
 **2026-11-22 · dependency (reported by the AI session)** · The Mac jobs that write `src_final_standings` and current-season `src_*` run from two checkouts: `~/Code/MFL/upsmflproduction` and the UPS Center auto-builder's cached repo. Both currently get their MFL key from the copy that draft #1489 removes. If #1489 merges before both checkouts have their runtime key file, those jobs would run without a key and the tables would go stale **with no alert** (no job alerting; baseline §4 #2). · Not re-checked here; no key values read. · #1489 merge gate; standings, history and AI desk standings/history tools. · Needs a per-checkout key check plus a freshness stamp before or with the #1489 merge.
