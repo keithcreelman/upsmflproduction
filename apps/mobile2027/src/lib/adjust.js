@@ -52,8 +52,8 @@
     var m = P_CUT.exec(s);
     if (m) { // a cut penalty only with one of the two machine-written id forms; any other id means the text is not the exact pattern
       var key = m[2], pm = K_PLAYER.exec(key);
-      if (pm) return { category: "Cut Penalty", idForm: "player", playerId: pm[1] };
-      if (K_ADDDROP.test(key)) return { category: "Cut Penalty", idForm: "adddrop", playerId: null };
+      if (pm) return { category: "Cut Penalty", idForm: "player", playerId: pm[1], key: key };
+      if (K_ADDDROP.test(key)) return { category: "Cut Penalty", idForm: "adddrop", playerId: null, key: key };
     }
     return null;
   }
@@ -84,18 +84,18 @@
       if (!fid || fid !== o.fid) return addUnverified(res, "team");
       if (!(o.season >= 2000)) return addUnverified(res, "season");
       var text = typeof (r && r.explanation) === "string" ? r.explanation.trim() : "";
-      var tok = / id:(\S+)/.exec(text);
+      var cl = classify(text), tok = cl && cl.key ? cl.key : ((/ id:(\S+)/.exec(text) || [])[1] || null);   // the id classify validated, not just the first " id:" in the text
       if (tok) { // the same machine-written id with the same amount is the same record; rows without an id are never merged
-        var k = tok[1] + "|" + amt;
+        var k = tok + "|" + amt;
         if (seen[k]) { res.duplicates++; return; }
         seen[k] = true;
       }
-      var cl = classify(text), item = { category: cl ? cl.category : "Other", amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null };
+      var item = { category: cl ? cl.category : "Other", amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null };
       if (cl && cl.idForm === "player" && typeof o.resolveName === "function") {
         var nm = o.resolveName(cl.playerId);
         if (nm) { item.playerId = cl.playerId; item.playerName = nm; item.nameSource = "direct"; }
       } else if (cl && cl.idForm === "adddrop" && tok && N) { // the reviewed list: token, team, season and posted amount must all match
-        var rv = N.lookup(tok[1], fid, o.season, amt);
+        var rv = N.lookup(cl.key, fid, o.season, amt);
         if (rv) { item.playerId = rv.id; item.playerName = rv.name; item.nameSource = "reviewed_mapping"; }
       }
       res.items.push(item);

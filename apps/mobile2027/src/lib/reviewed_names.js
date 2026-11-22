@@ -25,7 +25,9 @@
       "Corroboration only, never identity: the name in each MFL adjustment row equals the MFL name for the id"
     ],
     key: "source token + team + season + posted amount; all four must match",
-    limits: "identity for 12 rows rests on the ledger because the same team made another drop within 2 minutes; the team 0010 pair (Chism, Thibodeaux) is asserted by test"
+    evidence: "docs/evidence/bl_m01_mfl_verification_2026-11-22.md (the method, the 31 rows as checked, and the script to re-run)",
+    limits: "identity for 12 rows rests on the ledger because the same team made another drop within 2 minutes; the team 0010 pair (Chism, Thibodeaux) is asserted by test",
+    testNote: "the offline test compares this file with a second copy of the same reviewed table: it checks transcription and consistency, not identity; identity is the MFL verification in the evidence file and on issue #1502"
   };
 
   // [source token, team, season, posted amount, player id, MFL name]
@@ -68,7 +70,8 @@
 
   // -> { id, name } or null. All four parts must match a reviewed row exactly.
   function lookup(token, fid, season, amount) {
-    var k = String(token) + "|" + String(fid) + "|" + Number(season) + "|" + Number(amount);
+    if (typeof token !== "string" || typeof fid !== "string" || typeof season !== "number" || typeof amount !== "number") return null;   // no coercion: "2026" and [1000] are not 2026 and 1000
+    var k = token + "|" + fid + "|" + season + "|" + amount;
     return Object.prototype.hasOwnProperty.call(BY, k) ? { id: BY[k].id, name: BY[k].name } : null;
   }
   function rows() { return ROWS.map(function (r) { return r.slice(); }); }
