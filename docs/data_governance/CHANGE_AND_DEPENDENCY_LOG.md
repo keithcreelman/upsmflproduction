@@ -6,6 +6,15 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · change (Mac + merge, on Keith's direct go in chat)** · Trade-bot snapshot cutover (#1399, BL-A12/BL-I01).
+- **Cause:** under the launchd PATH, `python3` was Apple 3.9.6 (`/opt/homebrew/bin/python3` does not exist), and the job's temp worktree path has a space. 11 + 3 test failures, the "13 failures on main" alert; `main` itself passes.
+- **Changes:**
+  - plist PATH now starts with `~/.local/share/mise/shims`. Backup `…cutover.plist.BACKUP-2026-11-22`, sha256 `aa1a7e62…`. Reloaded 03:47:35Z.
+  - #1508 merged as `4bd2b0b3` (3 tests made space-safe; CI passed; no deploy triggered).
+  - #1506 closed as a duplicate of #1504; its one unique fact (52 of 212 pre-fix days) was carried over.
+- **Trades since 11-18:** 0 held or missed (MFL export 03:36Z 11-22). 1793273314 stays on human review.
+- **Blocker stays open** until a real cutover run succeeds. · #1399, #1503, #1508. · Trade grading around the 11-25 deadline. · Awaiting the ~04:17Z run.
+
 **2026-11-22 · change (draft #1504, head `20608580`)** · On Keith's recommendation, the backtest is now two checks:
 - **(a) Reviewed baseline:** flagged days must equal `KNOWN_FLAGGED_DAYS` exactly, with drop counts 1/27/5/2. An unlisted day fails. A listed day that stops flagging or changes count also fails; that half is this session's addition.
 - **(b) Noise limit:** the separate 10% limit.
