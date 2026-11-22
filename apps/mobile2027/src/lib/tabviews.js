@@ -274,10 +274,10 @@
   // list (S.intel.players). While that list is loading the name is a quiet "…"; if it failed, "Name unavailable"; "Player Unknown" only when the list loaded
   // and does not hold the id, or when the row has no id and no reviewed-list match. A row with no player (a fine, a rounding, a settlement) never comes here.
   function playerLabel(S, it) {
-    if (it.playerName) return { text: it.playerName, cls: "" };
+    if (it.playerName) return { text: F.flipName(it.playerName), cls: "" };   // one display order everywhere: "First Last" (MFL's list and UPS's reviewed list write "Last, First")
     if (!it.playerId) return { text: A.UNKNOWN_PLAYER, cls: "" };
     var pl = S.intel && S.intel.players;
-    if (pl && pl.state === "ok" && pl.data && pl.data.byId) { var e = pl.data.byId[it.playerId]; return e && e.name ? { text: e.name, cls: "" } : { text: A.UNKNOWN_PLAYER, cls: "" }; }
+    if (pl && pl.state === "ok" && pl.data && pl.data.byId) { var e = pl.data.byId[it.playerId]; return e && e.name ? { text: F.flipName(e.name), cls: "" } : { text: A.UNKNOWN_PLAYER, cls: "" }; }
     if (pl && pl.state === "error") return { text: "Name unavailable", cls: "wn" };
     return { text: "…", cls: "mu" };
   }

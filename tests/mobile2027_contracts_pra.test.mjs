@@ -101,7 +101,7 @@ test("one card for this season and the later years: no second 2026 row, no 'Cap 
 
 test("itemized detail: a cut penalty shows the player, the full cut date and the charge season; a settlement shows its category and the season, never a player", () => {
   const s = bd({ ct: { ...CT0(), bd: true, cat: { "y26Cut Penalty": true, "y26Traded Salary": true } } }), html = V.app(s), tx = text(html);
-  ["Fitzpatrick, Minkah Cut Aug 13, 2025 · Charged to 2026 \\+\\$1,000", "Helm, Gunnar Cut Oct 4, 2025 · Charged to 2026 \\+\\$1,000", "Chism, Efton Cut Oct 25, 2025 · Charged to 2026 \\+\\$1,000", "Thibodeaux, Kayvon Cut Oct 25, 2025 · Charged to 2026 \\+\\$2,000"].forEach((x) => t.match(tx, new RegExp(x), x));
+  ["Minkah Fitzpatrick Cut Aug 13, 2025 · Charged to 2026 \\+\\$1,000", "Gunnar Helm Cut Oct 4, 2025 · Charged to 2026 \\+\\$1,000", "Efton Chism Cut Oct 25, 2025 · Charged to 2026 \\+\\$1,000", "Kayvon Thibodeaux Cut Oct 25, 2025 · Charged to 2026 \\+\\$2,000"].forEach((x) => t.match(tx, new RegExp(x), x));
   t.match(tx, /Traded Salary ▾ −\$32,000/); t.match(tx, /Traded Salary Charged to 2026 −\$5,000/); t.match(tx, /Traded Salary Charged to 2026 \+\$12,000/, "a credit and a charge in the same category keep their signs");
   t.doesNotMatch(tx, /Player Unknown/); t.doesNotMatch(tx, /Traded Salary Cut /, "a settlement has no cut date");
   ["UPS drop penalty", "settlement", "adddrop", "trade_2026", "3-way", "id:", "explanation", "timestamp"].forEach((w) => t.doesNotMatch(html, new RegExp(w, "i"), w));
@@ -115,17 +115,17 @@ test("names: a player who is on no roster (Dyami Brown, id 15292, team 0009) is 
   const tm = nine().model.teams.find((x) => x.id === "0009"), dy = tm.adjust.items.find((i) => i.playerId === "15292");
   t.ok(dy && dy.playerName === null && dy.nameSource === null, "no roster in this read holds him, so the roster read cannot name him"); t.equal(dy.cutDate, "2026-05-22");
   t.equal(nine().model.byId["15292"], undefined);
-  t.match(text(V.app(nine())), /Brown, Dyami Cut May 22, 2026 · Charged to 2026 \+\$1,000/, "named by id from the list, whatever roster he is on");
+  t.match(text(V.app(nine())), /Dyami Brown Cut May 22, 2026 · Charged to 2026 \+\$1,000/, "named by id from the list, whatever roster he is on");
   // while the list loads: a quiet placeholder; if it failed: 'Name unavailable'; never Player Unknown for a player the list has not been asked about yet
   const loading = text(V.app(nine({ intel: { mu: {}, wk: {}, scores: {}, players: { state: "loading" } } }))), never = text(V.app(nine({ intel: { mu: {}, wk: {}, scores: {} } })));
-  [loading, never].forEach((x) => { t.match(x, /… Cut May 22, 2026 · Charged to 2026 \+\$1,000/); t.doesNotMatch(x, /Brown, Dyami/); t.doesNotMatch(x, /Player Unknown|Name unavailable/); });
+  [loading, never].forEach((x) => { t.match(x, /… Cut May 22, 2026 · Charged to 2026 \+\$1,000/); t.doesNotMatch(x, /Dyami Brown/); t.doesNotMatch(x, /Player Unknown|Name unavailable/); });
   const failed = text(V.app(nine({ intel: { mu: {}, wk: {}, scores: {}, players: { state: "error", error: "x" } } })));
   t.match(failed, /Name unavailable Cut May 22, 2026 · Charged to 2026 \+\$1,000/); t.doesNotMatch(failed, /Player Unknown/);
   // Player Unknown only when the list loaded and does not hold the id
   const lacks = text(V.app(nine({ intel: { mu: {}, wk: {}, scores: {}, players: listOf("15292") } })));
-  t.match(lacks, /Player Unknown Cut May 22, 2026 · Charged to 2026 \+\$1,000/); t.doesNotMatch(lacks, /Brown, Dyami/);
+  t.match(lacks, /Player Unknown Cut May 22, 2026 · Charged to 2026 \+\$1,000/); t.doesNotMatch(lacks, /Dyami Brown/);
   // the reviewed list still names an add/drop row by its own mapping, and a roster-resolved name is not replaced by the list
-  t.match(text(V.app(nine())), /Chark, D\.J\. Cut Aug 17, 2025 · Charged to 2026 \+\$1,000/);
+  t.match(text(V.app(nine())), /D\.J\. Chark Cut Aug 17, 2025 · Charged to 2026 \+\$1,000/);
   const withRoster = state({ teamId: "0009", ct: open, intel: { mu: {}, wk: {}, scores: {}, players: listOf() } }); const pid = "15292";
   withRoster.model.teams.find((x) => x.id === "0009").adjust.items.forEach((i) => { if (i.playerId === pid) { i.playerName = "Roster Name"; i.nameSource = "direct"; } });
   t.match(text(V.app(withRoster)), /Roster Name Cut May 22, 2026/);
@@ -136,7 +136,7 @@ test("Player Unknown: a cut row with neither a player id nor a reviewed-list mat
   const s = state({ ct: { ...CT0(), bd: true, cat: { "y26Cut Penalty": true } } }, edit), html = V.app(s), tx = text(html);
   t.ok(s.model.teams.find((x) => x.id === "0010").adjust.reconciled, "the extra rows are verified rows");
   t.match(tx, /Player Unknown Cut date not recorded · Charged to 2026 \+\$1,000/, "no id, no reviewed match: Player Unknown, and no date");
-  t.match(tx, /Brown, Dyami Cut date not recorded · Charged to 2026 \+\$500/, "his id is in the list; the time in the key is not a plausible date, so none is shown");
+  t.match(tx, /Dyami Brown Cut date not recorded · Charged to 2026 \+\$500/, "his id is in the list; the time in the key is not a plausible date, so none is shown");
   t.doesNotMatch(html, /1111111111|adddrop2025_9999/);
 });
 
@@ -181,9 +181,9 @@ test("2027 cut dates: dropped_at_iso (UTC) is shown as the Eastern Time date, on
     { player_id: "15292", franchise_id: "0010", amount: 1000, applies_to_season: 2027, dropped_at_iso: "2026-08-09T01:30:00.000Z", kind: "Drop (next season)", in_mfl: false },
     { player_id: "99999", franchise_id: "0010", amount: 1000, applies_to_season: 2027, dropped_at_iso: "2026-08-08T13:26:53.000Z", kind: "Drop (next season)", in_mfl: false }] };
   const h = text(V.app(withNext(state({ ct: { ...CT0(), cat: { "y27Cut Penalty": true }, ns: true } }), ledger)));
-  t.match(h, /Brown, Dyami Cut Aug 8, 2026 · Charged to 2027 \+\$1,000/, "01:30 UTC on Aug 9 is 9:30 PM ET on Aug 8; he is on no roster, so the list names him"); t.match(h, /Player Unknown Cut Aug 8, 2026 · Charged to 2027 \+\$1,000/);
+  t.match(h, /Dyami Brown Cut Aug 8, 2026 · Charged to 2027 \+\$1,000/, "01:30 UTC on Aug 9 is 9:30 PM ET on Aug 8; he is on no roster, so the list names him"); t.match(h, /Player Unknown Cut Aug 8, 2026 · Charged to 2027 \+\$1,000/);
   const loading = text(V.app(withNext(state({ ct: { ...CT0(), cat: { "y27Cut Penalty": true }, ns: true }, intel: { mu: {}, wk: {}, scores: {}, players: { state: "loading" } } }), ledger)));
-  t.match(loading, /… Cut Aug 8, 2026 · Charged to 2027 \+\$1,000/); t.doesNotMatch(loading, /Player Unknown|Brown, Dyami/, "no 'Player Unknown' while the list is out (the placeholder is quiet), and no name until it arrives");
+  t.match(loading, /… Cut Aug 8, 2026 · Charged to 2027 \+\$1,000/); t.doesNotMatch(loading, /Player Unknown|Dyami Brown/, "no 'Player Unknown' while the list is out (the placeholder is quiet), and no name until it arrives");
 });
 
 test("2027 gap: Help names three separate statements (completeness, reconciliation, calculation) and never says an amount is wrong", () => {

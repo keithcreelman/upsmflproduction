@@ -486,7 +486,7 @@ test("PR A: Contracts reads nothing for next season until the next-season row is
   t.equal(ns(a).length, 1); t.equal(ns(a)[0].opts.method, "GET"); t.equal(ns(a)[0].opts.credentials, "omit"); t.equal(ns(a)[0].opts.headers, undefined);
   t.deepEqual([...new URL(ns(a)[0].url).searchParams.keys()].sort(), ["L", "YEAR"]);
   t.match(a.html(), /UPS ledger amounts, not yet on MFL/); t.match(a.html(), /adjustments \+\$4,000/);
-  await a.click({ "data-act": "ctcat", "data-v": "y27Cut Penalty" }); t.match(a.html(), /Hill, Tyreek/, "named by his id from MFL's complete player list"); t.match(a.html(), /Cut Aug 31, 2026 · Charged to 2027/, "2026-09-01T00:00:00Z is 8:00 PM ET on Aug 31"); t.doesNotMatch(a.html(), /Player Unknown|Name In Text|Missed nomination/);
+  await a.click({ "data-act": "ctcat", "data-v": "y27Cut Penalty" }); t.match(a.html(), /Tyreek Hill/, "named by his id from MFL's complete player list"); t.match(a.html(), /Cut Aug 31, 2026 · Charged to 2027/, "2026-09-01T00:00:00Z is 8:00 PM ET on Aug 31"); t.doesNotMatch(a.html(), /Player Unknown|Name In Text|Missed nomination/);
   await a.click({ "data-act": "nsx" }); await a.click({ "data-act": "nsx" }); await tick(10);
   t.equal(ns(a).length, 1, "closing and reopening the row reuses the answer");
   const b = boot({ failNext: 1 }); await tick(30);
@@ -527,7 +527,7 @@ test("PR A revision: Contracts asks for MFL's complete player list once (a bare 
   await a.click({ "data-act": "cts", "data-v": "sal" }); await a.click({ "data-act": "cty", "data-v": "1" }); await a.click({ "data-act": "ctbd" }); await a.click({ "data-act": "nsx" }); await tick(30); await a.click({ "data-act": "ctcat", "data-v": "y27Cut Penalty" });
   t.equal(pl(a).length, 1, "coming back, sorting and opening a row ask for the list no more");
   t.equal(a.calls.filter((c) => c.path === "/api/cap-adjustments/next-season").length, 1, "the 2027 row still makes its one read, when it is opened");
-  t.match(a.html().replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /Hill, Tyreek Cut Aug 31, 2026 · Charged to 2027/, "no tap needed to name him: the list was already in memory");
+  t.match(a.html().replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /Tyreek Hill Cut Aug 31, 2026 · Charged to 2027/, "no tap needed to name him: the list was already in memory");
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 

@@ -92,10 +92,10 @@ const state = (team) => ({ model: M.build(rosterRead(), null, null, 10, 2026), l
 
 test("on screen: team 0010's four cut penalties show their reviewed names with the right amounts; no token reaches the page", () => {
   const tx = text(V.app(state("0010")));
-  ["Fitzpatrick, Minkah Cut Aug 13, 2025 · Charged to 2026 +$1,000", "Helm, Gunnar Cut Oct 4, 2025 · Charged to 2026 +$1,000", "Chism, Efton Cut Oct 25, 2025 · Charged to 2026 +$1,000", "Thibodeaux, Kayvon Cut Oct 25, 2025 · Charged to 2026 +$2,000"].forEach((s) => t.match(tx, new RegExp(s.replace(/[$+]/g, "\\$&")), s));
+  ["Minkah Fitzpatrick Cut Aug 13, 2025 · Charged to 2026 +$1,000", "Gunnar Helm Cut Oct 4, 2025 · Charged to 2026 +$1,000", "Efton Chism Cut Oct 25, 2025 · Charged to 2026 +$1,000", "Kayvon Thibodeaux Cut Oct 25, 2025 · Charged to 2026 +$2,000"].forEach((s) => t.match(tx, new RegExp(s.replace(/[$+]/g, "\\$&")), s));
   t.doesNotMatch(tx, /Player Unknown/, "all four are named");
   t.doesNotMatch(V.app(state("0010")), /adddrop|id:/, "the source token is never drawn");
-  const other = text(V.app(state("0009"))); t.match(other, /Player Unknown|Chark, D\.J\./, "another team renders its own rows");
+  const other = text(V.app(state("0009"))); t.match(other, /Player Unknown|D\.J\. Chark/, "another team renders its own rows");
 });
 
 test("the separate MFL verification is kept in the repository and names every token; the provenance points to it and states the limit of this test", () => {
