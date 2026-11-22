@@ -3,6 +3,7 @@
 Working records for UPS data infrastructure: what data exists, where it comes from, what depends on it, which controls protect it, and what to fix first.
 
 - [`BASELINE_2026-11-21.md`](BASELINE_2026-11-21.md): current-state map, asset inventory, UPS 2.0 gaps, top risks, control plan, decisions needed.
+- [`AI_DATA_DEPENDENCIES.md`](AI_DATA_DEPENDENCIES.md): what each AI feature reads, transforms, assumes and produces, with lineage, confidence, freshness, controls and open conflicts with the AI session.
 - [`CHANGE_AND_DEPENDENCY_LOG.md`](CHANGE_AND_DEPENDENCY_LOG.md): data changes, findings and decisions that affect other work.
 - [`evidence/`](evidence/): file:line evidence behind the baseline (D1 tables, jobs, assets and consumers, controls).
 
