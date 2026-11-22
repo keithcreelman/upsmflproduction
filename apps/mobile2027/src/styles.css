@@ -53,6 +53,7 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border-radius:10px;border:1.5px solid var(--bs);background:transparent;font-weight:600;font-size:13px}
 .btn.pri{background:var(--ac);border-color:var(--ac);color:var(--on)}
 .btn.blk{display:flex;width:100%;margin-top:8px}
+.btn:disabled,.btn[aria-disabled="true"]{opacity:.5;cursor:not-allowed;border-style:dashed}
 [data-vib="1"] .btn.pri{background:linear-gradient(135deg,var(--ac),var(--g2));border-color:transparent}
 .link{border:0;background:transparent;color:var(--ac);min-height:44px;padding:0 4px;font-size:12px;font-weight:600;letter-spacing:0;text-transform:none}
 

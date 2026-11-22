@@ -153,6 +153,7 @@
   function ensureIntel(force) {
     if (S.sample.on || !S.model || S.tab !== "team") return;
     if (S.sub === "contracts") { // the table paints first; the guarantee column loads second; a failed read is asked again only on Try again
+      if (S.ct && S.ct.ns && S.ns.state === "idle") loadNext(false); // the row is open and nothing is in flight (a reload or Sample mode dropped the answer)
       if (S.penalty.state === "idle") loadPenalty(false); else if (force && S.penalty.state === "error") loadPenalty(true);
       return;
     }
@@ -245,8 +246,18 @@
   }
   // Sample mode: turning it on drops anything in flight and closes an open profile (no league data is drawn);
   // turning it off reloads whatever the real screens still need, so nothing is left loading or empty.
+  // A read that Sample mode dropped leaves its holder at "loading" with nothing in flight: forget those records so the screen asks again.
+  function dropLoading() {
+    Object.keys(S.intel || {}).forEach(function (k) {
+      var v = S.intel[k];
+      if (v && v.state === "loading") S.intel[k] = null;
+      else if (v && typeof v === "object" && !v.state) Object.keys(v).forEach(function (w) { if (v[w] && v[w].state === "loading") delete v[w]; });
+    });
+    if (S.ns && S.ns.state === "loading") S.ns = { state: "idle" };
+  }
   function toggleSample() {
     gen++;
+    dropLoading();
     S.sample.toggle();
     if (S.sample.on) {
       S.profile = null;

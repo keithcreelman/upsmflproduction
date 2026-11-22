@@ -24,7 +24,7 @@
   var CATEGORIES = ["Cut Penalty", "Traded Salary", "FA Auction Fine", "Rounding", "Other"];
   var UNKNOWN_PLAYER = "Player Unknown";
 
-  function pad4(v) { var d = String(v == null ? "" : v).replace(/\D/g, ""); return d ? ("0000" + d).slice(-4) : ""; }
+  function pad4(v) { var d = String(v == null ? "" : v).trim(); return /^\d{1,4}$/.test(d) ? ("0000" + d).slice(-4) : ""; }
   // A signed amount: a finite number, or a string that is exactly a signed decimal. Anything else (blank, text, null, boolean) is unknown.
   function amountOf(v) {
     if (typeof v === "number") return isFinite(v) ? v : null;
@@ -37,9 +37,9 @@
   var P_ROUND = /^UPS drop penalty rounding (.+) -?\d+(?:\.\d+)? id:ups_drop_rounding_\d{4}_\d{4}$/;
   var P_RULE2 = /^UPS RULE 2 missed nomination \d{4}-\d{2}-\d{2} offense \d+(?: id:\S+)?$/;
   var P_CUT = /^UPS drop penalty (.+) -?\d+(?:\.\d+)? id:(\S+)$/;
-  var K_PLAYER = /^(\d{1,9})_(\d{9,11})$/, K_ADDDROP = /^adddrop\d{4}_\d+\.\d+$/;
+  var K_PLAYER = /^(\d{1,9})_(\d{10})$/, K_ADDDROP = /^adddrop\d{4}_\d+\.\d+$/;
 
-  // text -> { category, idForm: "player" | "adddrop" | "other" | null, playerId } or null when no exact pattern matches. The text is not returned.
+  // text -> { category, idForm: "player" | "adddrop" | null, playerId } or null when no exact pattern matches. The text is not returned.
   function classify(text) {
     var s = typeof text === "string" ? text.trim() : "";
     if (!s) return null;
@@ -47,9 +47,10 @@
     if (P_ROUND.test(s)) return { category: "Rounding", idForm: null, playerId: null };
     if (P_RULE2.test(s)) return { category: "FA Auction Fine", idForm: null, playerId: null };
     var m = P_CUT.exec(s);
-    if (m) {
+    if (m) { // a cut penalty only with one of the two machine-written id forms; any other id means the text is not the exact pattern
       var key = m[2], pm = K_PLAYER.exec(key);
-      return { category: "Cut Penalty", idForm: pm ? "player" : K_ADDDROP.test(key) ? "adddrop" : "other", playerId: pm ? pm[1] : null };
+      if (pm) return { category: "Cut Penalty", idForm: "player", playerId: pm[1] };
+      if (K_ADDDROP.test(key)) return { category: "Cut Penalty", idForm: "adddrop", playerId: null };
     }
     return null;
   }
@@ -173,6 +174,7 @@
       team.players.forEach(function (p) {
         if (p.status === "gone") return;
         var sch = C.schedule(p, season);
+        if (!sch.rows.length) { unknown++; return; } // no contract years recorded: his amounts are unknown, never an ended contract
         if (k >= sch.rows.length) return; // that contract has ended
         var amt = sch.rows[k].amount;
         if (amt == null) { unknown++; return; }

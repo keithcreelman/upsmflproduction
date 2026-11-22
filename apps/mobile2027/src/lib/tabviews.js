@@ -267,7 +267,8 @@
     var adj0 = t.adjust && t.adjust.reconciled && t.cap && Math.abs(t.adjust.total - t.cap.adjTotal) < 0.5 ? { known: true, total: t.cap.adjTotal, state: "ok" } : { known: false, total: null, state: "unavailable" };
     var adj1 = nextAdj(S, t), ys = A.commitments(t, season, adj0, adj1, 3), out = '<div class="card"><h2>Cap commitments by year</h2>';
     ys.forEach(function (y, i) {
-      var head = '<div class="cl"><span>' + y.year + "</span><b>" + (y.total != null ? money(y.total) : DASH) + "</b></div>";
+      var tot = i === 0 && (!b || b.capCharge == null) ? null : y.total;
+      var head = '<div class="cl"><span>' + y.year + "</span><b>" + (tot != null ? money(tot) : DASH) + "</b></div>";
       var sub = "Cap hits " + (y.hitsIncomplete ? "incomplete (" + plural(y.unknownCount, "year amount", "year amounts") + " not recorded)" : money(y.hits));
       if (i === 0) sub += " · adjustments " + (adj0.known ? smoney(adj0.total) : "unavailable");
       else if (i === 1) {
@@ -289,13 +290,17 @@
     var p = ns.by && ns.by[t.id];
     if (!p) return '<div class="det"><div class="ex">No ' + season + " adjustments are recorded for this team.</div></div>";
     var out = '<div class="det">';
-    if (!p.items.length) out += '<div class="ex">No ' + season + " adjustments recorded yet.</div>";
-    else out += categoryLines(S, p, "y27") + '<div class="cl"><b>Total</b><b>' + smoney(p.total) + "</b></div>";
+    if (p.reconciled) {
+      if (!p.items.length) out += '<div class="ex">No ' + season + " adjustments recorded yet.</div>";
+      else out += categoryLines(S, p, "y27") + '<div class="cl"><b>Total</b><b>' + smoney(p.total) + "</b></div>";
+    }
     out += '<div class="ex">Recorded in the UPS ledger, not yet on MFL.</div>';
     if (p.waiting) out += '<div class="ex wn">' + plural(p.waiting, "cut is", "cuts are") + " waiting for a price and not counted.</div>";
     if (p.review) out += '<div class="ex wn">' + plural(p.review, "cut needs", "cuts need") + " review and not counted.</div>";
-    if (p.unverified) out += '<div class="ex wn">' + plural(p.unverified, "record", "records") + " could not be verified and not counted.</div>";
-    if (!p.reconciled) out += '<div class="ex wn">Detail unavailable: ' + esc(p.mismatch || "the items do not add up") + ".</div>";
+    var onMfl = (p.unverifiedWhy && p.unverifiedWhy.already_on_mfl) || 0, unv = (p.unverified || 0) - onMfl;
+    if (onMfl) out += '<div class="ex wn">' + plural(onMfl, "record is", "records are") + " already on MFL and not counted here.</div>";
+    if (unv > 0) out += '<div class="ex wn">' + plural(unv, "record", "records") + " could not be verified and not counted.</div>";
+    if (!p.reconciled) out += '<div class="ex wn">Detail unavailable: ' + esc(onMfl && unv <= 0 ? "records already on MFL are not counted, so the total cannot be checked" : p.mismatch || "the items do not add up") + ".</div>";
     return out + '<div class="ex">What is and isn’t verified yet is in Help.</div></div>';
   }
 

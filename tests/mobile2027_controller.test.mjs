@@ -501,4 +501,12 @@ test("PR A: the disabled Report bug placeholder does nothing: no request, no cha
   t.equal((a.html().match(/Report bug/g) || []).length, 1); t.doesNotMatch(a.html(), /data-act="report/);
 });
 
-await run("mobile2027_controller");
+await test("PR A review: an open next-season row is asked again after Sample mode drops its read; it never sits on Loading… with nothing in flight", async () => {
+  const a = boot(); await tick(30);
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(15);
+  const opened = a.click({ "data-act": "nsx" }); // the read starts and is still in flight when Sample mode is switched on and off
+  await a.click({ "data-act": "sample" }); await a.click({ "data-act": "sample" }); await opened; await tick(40);
+  t.match(a.html(), /adjustments \+\$4,000/); t.doesNotMatch(a.html(), /Loading…/);
+});
+
+run("mobile2027_controller");
