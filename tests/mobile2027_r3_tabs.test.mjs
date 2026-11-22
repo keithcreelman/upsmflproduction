@@ -111,7 +111,7 @@ test("P4: default order is ends-after soonest, then current-season salary; filte
 
 test("P5: the summary says 'Recorded salary, not cap space', says what is not part of this preview, and has no link to Cap & picks", () => {
   const S = state(), html = body(V.app(S));
-  t.match(html, /<h2>Recorded salary, not cap space<\/h2>/); t.match(text(html), /Cap space, adjustments and penalties are not part of this preview, so these totals are not cap space/);
+  t.match(html, /<h2>Recorded salary, not cap space<\/h2>/); t.match(text(html), /\d+ players? shown/); t.doesNotMatch(text(html), /Cap space, adjustments and penalties are not part of this preview/);
   // the totals are sums of recorded amounts only
   const tm = teamPlayers(S), tot0 = tm.reduce((a, p) => a + (C.schedule(p, S.model.season).rows[0].amount || 0), 0);
   t.match(html, new RegExp('<div class="trow t\\d"><b>' + TV.kmoney(tot0).replace("$", "\\$").replace(".", "\\.") + "</b>"));

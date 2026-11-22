@@ -46,7 +46,7 @@ test("the two routes: exact path, exact query names, the worker only; anything e
   t.equal(u.status, WORKER + "/api/player-status?season=2026&L=74598");
   t.equal(u.matchups(11), WORKER + "/api/lineup-matchups?YEAR=2026&W=11");
   [u.status, u.matchups(11), u.matchups(3)].forEach((x) => t.ok(D.check(x, WORKER).ok, "allowed: " + x));
-  t.equal(D.RULES.length, 6, "six allowed paths in all");
+  t.equal(D.RULES.length, 7, "seven allowed paths in all");
   const bad = [
     [`${WORKER}/api/player-status?season=2026&L=74598&MFL_USER_ID=x`, "a session id"],
     [`${WORKER}/api/player-status?season=2026&L=74598&refresh=1`, "a query name not on the list"],

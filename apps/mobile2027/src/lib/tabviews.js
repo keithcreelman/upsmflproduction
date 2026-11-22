@@ -15,11 +15,12 @@
     req ? require("./format.js") : root.UPS2027.format,
     req ? require("./contract.js") : root.UPS2027.contract,
     req ? require("./roster.js") : root.UPS2027.roster,
-    req ? require("./clubhist.js") : root.UPS2027.clubhist
+    req ? require("./clubhist.js") : root.UPS2027.clubhist,
+    req ? require("./adjust.js") : root.UPS2027.adjust
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.tabviews = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C, R, CH) {
+})(typeof self !== "undefined" ? self : this, function (F, C, R, CH, A) {
   "use strict";
 
   var esc = F.esc, money = F.money;
@@ -86,7 +87,7 @@
   function guaranteeWords(S, p, g) {
     var wk = S.penalty && S.penalty.meta ? S.penalty.meta.earnedThroughWeek : null;
     if (g.kind === "loading") return "Loading…";
-    if (g.kind === "unavailable") return g.noFigure ? "Unavailable: the worker gave no remaining-guarantee figure for this contract." : "Unavailable: the worker’s calculation for this contract could not be read.";
+    if (g.kind === "unavailable") return g.noFigure ? "No remaining-guarantee figure for this contract." : "Couldn’t load this.";
     if (g.kind === "review") return "Under review." + (g.why ? " " + esc(g.why) + "." : "");
     if (g.kind === "untracked") return g.rule === "na" ? "Not tracked. A one-year waiver pickup of $4K or less has no weekly guarantee." : "Not tracked. A contract paying the same small amount every year has no weekly guarantee (the full-year rule).";
     var of = isFinite(g.row.guaranteed) ? " of " + money(g.row.guaranteed) + " guaranteed" : "";
@@ -128,9 +129,10 @@
     for (k = 0; k < ny; k++) { tot.push(0); cnt.push(0); missing.push(0); }
     list.forEach(function (p) { for (var i = 0; i < ny; i++) { var v = sal(p, i); if (v === undefined) continue; if (v == null) missing[i]++; else { tot[i] += v; cnt[i]++; } } });
     var cols = "g" + (ny + 1), tcols = "t" + ny;
+    out += capCard(S, t) + yearsCard(S, t);
     out += '<div class="card"><h2>Recorded salary, not cap space</h2><div class="trow ' + tcols + '">' + tot.map(function (v, i) { return "<b>" + (cnt[i] ? kmoney(v) : DASH) + "</b>"; }).join("") + "</div>" +
       '<div class="trow ' + tcols + ' mu">' + tot.map(function (v, i) { return "<span>" + (season + i) + "</span>"; }).join("") + "</div>" +
-      '<div class="ex mt4">' + plural(list.length, "player", "players") + ". Cap space, adjustments and penalties are not part of this preview, so these totals are not cap space." +
+      '<div class="ex mt4">' + plural(list.length, "player", "players") + " shown." +
       (missing.some(function (n) { return n > 0; }) ? " A year with no recorded amount is left out of its total." : "") + "</div></div>";
 
     out += '<div class="lbl">Show</div><div class="chs" role="group" aria-label="Show">' + CT_FILTERS.map(function (o) { return '<button class="ch" data-act="ctf" data-v="' + o[0] + '" aria-pressed="' + (c.f === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
@@ -151,7 +153,7 @@
         if (sch.option) rows += "<span>" + sch.option.year + "</span><span>option year</span><span>" + money(sch.option.amount) + "</span>";
         var gtd = g.row && isFinite(g.row.guaranteed) ? money(g.row.guaranteed) : sch.parsed.gtd != null ? money(sch.parsed.gtd) + " (as recorded)" : "Not recorded";
         h += '<div class="det"><div class="sec2 first">Salary by year</div><div class="yrl">' + (rows || '<span class="mu">No remaining years recorded</span>') + "</div>" +
-          '<div class="kv"><b>Type</b><span>' + esc(p.type || "Not recorded") + "</span><b>Guaranteed</b><span>" + gtd + "</span><b>Guarantee left</b><span>" + guaranteeWords(S, p, g) + "</span><b>If cut now</b><span>" + cutWords(S, p) + "</span></div>" +
+          taxiLine(S, p) + '<div class="kv"><b>Type</b><span>' + esc(p.type || "Not recorded") + "</span><b>Recorded guarantee</b><span>" + gtd + "</span><b>Remaining guarantee</b><span>" + guaranteeWords(S, p, g) + "</span><b>If cut now</b><span>" + cutWords(S, p) + "</span></div>" +
           '<button class="link" data-act="card" data-pid="' + esc(p.id) + '">Open ' + esc(p.name) + "’s profile</button></div>";
       }
       return h + "</div>";
@@ -169,9 +171,132 @@
     } else out += '<div class="card rows">' + list.map(rowHtml).join("") + "</div>";
 
     var st = S.penalty ? S.penalty.state : "idle";
-    out += '<div class="ex pad">Contract text as recorded on MFL, read by the Front Office. Guarantee left is the worker’s calculation' + (st === "ok" && S.penalty.meta && S.penalty.meta.earnedThroughWeek != null ? " through Week " + S.penalty.meta.earnedThroughWeek : "") + "; while it loads the column says Loading, and a failed or missing calculation says Unavailable, never $0. “" + DASH + "” means the contract has ended; “n/r” means no amount is recorded.</div>";
-    if (st === "error") out += '<div class="ex wn pad">The worker’s calculation could not be read (' + esc(S.penalty.error || "") + '). <button class="link" data-act="retrypen">Try again</button></div>';
+    // What the symbols mean and where the figures come from live in the Help control (one per Team screen), not under the table.
+    if (st === "error") out += failCard("retrypen");
     return out;
+  }
+
+  // The one pattern for a technical failure: a plain sentence, Retry, and a visibly disabled Report bug placeholder. The placeholder has no
+  // handler of any kind: it copies nothing, sends nothing, notifies no one and logs nothing.
+  function failCard(retryAct, retryV) {
+    return '<div class="card warnc"><div class="big2"><b>Couldn’t load this</b></div><div><button class="btn" data-act="' + esc(retryAct) + '"' + (retryV ? ' data-v="' + esc(retryV) + '"' : "") + '>Retry</button> <button class="btn" disabled aria-disabled="true">Report bug</button></div></div>';
+  }
+  function smoney(n) { return n == null || !isFinite(n) ? DASH : (n > 0 ? "+" : n < 0 ? MINUS : "") + money(Math.abs(n)); }
+  // "Taxi-eligible · $0 cut charge", once per player, only when both facts are known (the sentence that explains it is in Help).
+  function taxiLine(S, p) {
+    var row = penaltyOf(S, p.id), cut = row && !row.needs_review ? C.cutNow(row) : null;
+    if (p.taxi && p.taxi.eligible === true) return '<div class="ex"><b class="ok">Taxi-eligible' + (cut && cut.kind === "amount" && cut.amount === 0 ? " · $0 cut charge" : "") + "</b></div>";
+    return "";
+  }
+
+  // ---- Help: one control per Team screen; this is its text for each tab ----
+  function screenHelp(S) {
+    var sub = S.sub, m = S.model, wk = S.penalty && S.penalty.meta ? S.penalty.meta.earnedThroughWeek : null, asOf = m ? F.etStamp(m.asOf) : "";
+    var G = A.NEXT_SEASON_GAP;
+    function h(title, text) { return "<h4>" + esc(title) + "</h4><p>" + text + "</p>"; }
+    if (sub === "contracts") {
+      return h("Cap charge", "What counts against the cap this season. Not cap room.") +
+        h("Commitments by year", "This season gives injured-reserve players half relief and taxi players $0. <b>Planning assumption for later years:</b> players now on taxi stay on taxi ($0) and injured-reserve players count at full scheduled salary. No injury relief is projected. Adjustments are the ones recorded for that year; “not recorded” is not $0.") +
+        h("Taxi", "A taxi-eligible player can be released with a $0 cut charge while taxi eligibility applies. Releasing ends eligibility.") +
+        h("Where the numbers come from", "Contracts as recorded on MFL" + (asOf ? " (as of " + esc(asOf) + ")" : "") + ". Earned, guarantee and cut charge: the UPS cap calculation" + (wk != null ? " through Week " + esc(wk) : "") + ".") +
+        h("Symbols", esc(DASH) + " contract ended · n/r no amount recorded.") +
+        h("Adjustments", "Cut Penalty, Traded Salary (including three-team settlements), FA Auction Fine, Rounding. Other is a posted adjustment that fits none of them; its reason is not guessed. “Player Unknown” means no authoritative player ID is available for that charge.") +
+        h("Next-season adjustments", esc(G.completeness) + " " + esc(G.reconciliation) + " " + esc(G.calculation));
+    }
+    if (sub === "performance") {
+      return h("Season", "Figures are as MFL recorded them. 0.0 is a score MFL recorded. " + esc(DASH) + " is no score recorded.") +
+        h("Recent scoring", "Compares the last 3 completed team games with the player’s earlier scored games. It needs team history; without it the comparison says so.");
+    }
+    if (sub === "cap") return h("Cap & picks", "Not in this preview.");
+    return h("Recorded starters", "A past week shows the starters and scores MFL recorded. Slots, positions, bench, injured reserve, taxi, injuries and contracts are shown for the current week only.") +
+      h("Can’t check", "MFL lists this player as a starter but he is not in the roster that loaded. His position, slot and status are unknown, so nothing is checked for him. Everyone else is still checked.") +
+      h("Doubtful", "A decision may be needed. It does not mean the player is out.") +
+      h("Kickoff", "Shown on a row only when it is not Sunday 1:00 PM ET.");
+  }
+
+  // ---- PR A: the cap charge, its Breakdown, and cap commitments by year ----
+  function itemRows(items, withPlayer) {
+    return items.map(function (it) {
+      var who = withPlayer ? (it.playerName ? esc(it.playerName) : esc(A.UNKNOWN_PLAYER)) : DASH;
+      return '<div class="cl"><span>' + who + " · " + it.season + "</span><b>" + smoney(it.amount) + "</b></div>";
+    }).join("");
+  }
+  function categoryLines(S, adj, cat) {
+    var out = "";
+    A.CATEGORIES.forEach(function (cname) {
+      var rows = adj.items.filter(function (it) { return it.category === cname; });
+      if (!rows.length) return;
+      var open = !!(S.ct && S.ct.cat && S.ct.cat[cat + cname]);
+      out += '<div class="cl"><button class="link" data-act="ctcat" data-v="' + esc(cat + cname) + '" aria-expanded="' + open + '">' + esc(cname) + " " + (open ? "▾" : "▸") + "</button><b>" + smoney(adj.byCategory[cname]) + "</b></div>";
+      if (open) out += '<div class="det">' + itemRows(rows, cname === "Cut Penalty") + '<div class="cl"><span class="mu">Total</span><b>' + smoney(adj.byCategory[cname]) + "</b></div></div>";
+    });
+    return out;
+  }
+  function capCard(S, t) {
+    var season = S.model.season, b = t.cap ? A.capBreakdown(t, t.cap) : null;
+    if (!b || b.capCharge == null) return '<div class="card"><h2>Cap charge · ' + season + ' season</h2><div class="ex">Unavailable: this roster read did not include the team’s cap total.</div></div>';
+    var open = !!(S.ct && S.ct.bd), out = '<div class="card"><h2>Cap charge · ' + season + ' season</h2><div class="big">' + money(b.capCharge) + '</div><div class="ex">Counts against the cap. Not cap room.</div>' +
+      '<div><button class="link" data-act="ctbd" aria-expanded="' + open + '">Breakdown ' + (open ? "▾" : "▸") + "</button></div>";
+    if (open) {
+      var adj = t.adjust, lines = "";
+      if (!b.ok) lines = '<div class="ex wn">The salary lines don’t add up to the cap total, so only the total is shown.</div>';
+      else {
+        lines = '<div class="cl"><span>Recorded salaries, ' + plural(b.recordedN, "player", "players") + "</span><b>" + money(b.recorded) + "</b></div>" +
+          (b.taxiN ? '<div class="cl mu"><span>Taxi squad, ' + plural(b.taxiN, "player", "players") + "</span><b>" + MINUS + money(b.taxi) + "</b></div>" : "") +
+          (b.irN ? '<div class="cl mu"><span>Injured reserve, ' + plural(b.irN, "player", "players") + " (half counts)</span><b>" + MINUS + money(b.irRelief) + "</b></div>" : "") +
+          '<div class="cl"><b>Cap hits</b><b>' + money(b.capHits) + "</b></div>";
+        if (adj && adj.reconciled && Math.abs(adj.total - t.cap.adjTotal) < 0.5) lines += categoryLines(S, adj, "y26");
+        else if (t.cap.adjTotal) lines += '<div class="cl"><span>Adjustments</span><b>' + smoney(t.cap.adjTotal) + '</b></div><div class="ex wn">Detail unavailable: ' + esc(adj && adj.mismatch ? adj.mismatch : "the adjustments could not be itemized") + ".</div>";
+        lines += '<div class="cl"><b>Cap charge</b><b>' + money(b.capCharge) + "</b></div>";
+      }
+      out += '<div class="det">' + lines + "</div>";
+    }
+    return out + "</div>";
+  }
+  function nextAdj(S, t) {
+    var ns = S.ns || { state: "idle" };
+    if (ns.state === "ok") {
+      var p = ns.by && ns.by[t.id];
+      if (!p) return { known: false, total: null, state: "unsupported" };
+      return p.reconciled && p.complete ? { known: true, total: p.total, state: "ok", parsed: p } : { known: false, total: null, state: "incomplete", parsed: p };
+    }
+    return { known: false, total: null, state: ns.state };
+  }
+  function yearsCard(S, t) {
+    var season = S.model.season, b = t.cap ? A.capBreakdown(t, t.cap) : null;
+    var adj0 = t.adjust && t.adjust.reconciled && t.cap && Math.abs(t.adjust.total - t.cap.adjTotal) < 0.5 ? { known: true, total: t.cap.adjTotal, state: "ok" } : { known: false, total: null, state: "unavailable" };
+    var adj1 = nextAdj(S, t), ys = A.commitments(t, season, adj0, adj1, 3), out = '<div class="card"><h2>Cap commitments by year</h2>';
+    ys.forEach(function (y, i) {
+      var head = '<div class="cl"><span>' + y.year + "</span><b>" + (y.total != null ? money(y.total) : DASH) + "</b></div>";
+      var sub = "Cap hits " + (y.hitsIncomplete ? "incomplete (" + plural(y.unknownCount, "year amount", "year amounts") + " not recorded)" : money(y.hits));
+      if (i === 0) sub += " · adjustments " + (adj0.known ? smoney(adj0.total) : "unavailable");
+      else if (i === 1) {
+        var ns = S.ns && S.ns.state;
+        sub += " · adjustments " + (adj1.known ? smoney(adj1.total) : ns === "loading" ? "loading…" : ns === "error" ? "couldn’t load" : adj1.state === "incomplete" ? "incomplete" : "not loaded");
+      } else sub += " · adjustments not recorded";
+      if (i === 1) {
+        var open = !!(S.ct && S.ct.ns);
+        out += '<button class="link blk" data-act="nsx" aria-expanded="' + open + '">' + head + '<span class="ex">' + sub + " " + (open ? "▾" : "▸") + "</span></button>";
+        if (open) out += nextDetail(S, t);
+      } else out += head + '<div class="ex">' + sub + "</div>";
+    });
+    return out + '<div class="ex">Future years: taxi players stay on taxi ($0) and injured reserve counts at full salary. See Help.</div></div>';
+  }
+  function nextDetail(S, t) {
+    var ns = S.ns || { state: "idle" }, season = S.model.season + 1;
+    if (ns.state === "idle" || ns.state === "loading") return '<div class="det"><div class="ex mu">Loading…</div></div>';
+    if (ns.state === "error") return '<div class="det">' + failCard("retryns") + "</div>";
+    var p = ns.by && ns.by[t.id];
+    if (!p) return '<div class="det"><div class="ex">No ' + season + " adjustments are recorded for this team.</div></div>";
+    var out = '<div class="det">';
+    if (!p.items.length) out += '<div class="ex">No ' + season + " adjustments recorded yet.</div>";
+    else out += categoryLines(S, p, "y27") + '<div class="cl"><b>Total</b><b>' + smoney(p.total) + "</b></div>";
+    out += '<div class="ex">Recorded in the UPS ledger, not yet on MFL.</div>';
+    if (p.waiting) out += '<div class="ex wn">' + plural(p.waiting, "cut is", "cuts are") + " waiting for a price and not counted.</div>";
+    if (p.review) out += '<div class="ex wn">' + plural(p.review, "cut needs", "cuts need") + " review and not counted.</div>";
+    if (p.unverified) out += '<div class="ex wn">' + plural(p.unverified, "record", "records") + " could not be verified and not counted.</div>";
+    if (!p.reconciled) out += '<div class="ex wn">Detail unavailable: ' + esc(p.mismatch || "the items do not add up") + ".</div>";
+    return out + '<div class="ex">What is and isn’t verified yet is in Help.</div></div>';
   }
 
   // ============================== Performance ==============================
@@ -341,5 +466,5 @@
       more + '<div class="ex">' + (all ? "The full season, newest first. " : "The latest four weeks. ") + '0.0 is a score MFL recorded; ' + DASH + " is no score recorded. BYE appears only where the club is known. Opponents, snaps and lineup status are not in this preview.</div>";
   }
 
-  return { contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney };
+  return { contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, yearsCard: yearsCard, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney };
 });

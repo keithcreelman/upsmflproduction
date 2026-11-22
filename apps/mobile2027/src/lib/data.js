@@ -22,7 +22,9 @@
     { path: "/api/cap-penalty/preview", query: ["L", "YEAR"] },
     // stage R2 (Team › Roster): injury status for every player, and this week's NFL games (opponent, home or away, kickoff)
     { path: "/api/player-status", query: ["season", "L"] },
-    { path: "/api/lineup-matchups", query: ["YEAR", "W"] }
+    { path: "/api/lineup-matchups", query: ["YEAR", "W"] },
+    // PR A: next season's recorded drop penalties and missed-nomination fines (the UPS ledger, not yet on MFL); asked for only when the next-season row is opened
+    { path: "/api/cap-adjustments/next-season", query: ["L", "YEAR"] }
   ];
   var SECRET_NAME = /mfl_user_id|apikey|api_key|key|token|session|cookie|password|auth/i;
 
@@ -63,7 +65,8 @@
       scores: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "playerScores", L: L, YEAR: Y, JSON: 1, W: w }); },
       penalty: base + "/api/cap-penalty/preview?" + q({ L: L, YEAR: Y }),
       status: base + "/api/player-status?" + q({ season: Y, L: L }),
-      matchups: function (w) { return base + "/api/lineup-matchups?" + q({ YEAR: Y, W: w }); }
+      matchups: function (w) { return base + "/api/lineup-matchups?" + q({ YEAR: Y, W: w }); },
+      nextSeason: base + "/api/cap-adjustments/next-season?" + q({ L: L, YEAR: Y })
     };
 
     function get(url, label) {
@@ -216,6 +219,18 @@
       });
     }
 
+    // PR A: next season's ledger of recorded cut charges and fines. Kept in memory by its exact address and reused (the answer is never stored
+    // on the phone); asked again only on Try again. The caller parses it right away and keeps only the allowlisted fields.
+    function loadNextSeason(force) {
+      return cached("ns", 10 * 60 * 1000, function () {
+        return settle(get(urls.nextSeason, "next-season adjustments")).then(function (r) {
+          if (r.state !== "ok") return r;
+          if (!r.data || typeof r.data !== "object") return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: r.data, at: Date.now() };
+        });
+      }, force);
+    }
+
     function loadPenalty() {
       return settle(get(urls.penalty, "contract calculations")).then(function (r) {
         if (r.state !== "ok") return r;
@@ -236,7 +251,7 @@
       return by;
     }
 
-    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
+    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
   }
 
   return { RULES: RULES, check: check, createLoader: createLoader };

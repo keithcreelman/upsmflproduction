@@ -22,7 +22,8 @@
     teamId: pref("team", ""), tab: "team", sub: "roster", view: "lineup", open: {}, flags: {},
     wk: null, // the week on screen; null means the current lineup week. Only a past week ever changes it (view-only)
     intel: { status: null, mu: {}, wk: {}, scores: {} }, // reads added in R2/R3, by their own address: injury status, NFL games and season figures, weekly lineups, weekly player scores
-    ct: { f: "all", s: "end", open: {} }, // Team › Contracts: which group, sort, and which rows are open
+    ct: { f: "all", s: "end", open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group, sort, which rows are open; the cap-charge Breakdown, an open adjustment category, the next-season row
+    ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
     pf: { f: "all", s: "pos", open: {}, res: {} }, // Team › Performance: the same
     gdef: pref("gdef", "needs"),
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
@@ -88,7 +89,7 @@
       else if (r.weekly.state !== "ok") notes.push("MFL’s submitted lineups could not be read (" + r.weekly.error + ").");
       S.model = U.model.build(rw, r.league.state === "ok" ? r.league.data : null, r.weekly.state === "ok" ? r.weekly.data : null, r.week, parseInt(cfg.season, 10));
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
-      S.intel = { status: null, mu: {}, wk: {}, scores: {} }; S.wk = null;
+      S.intel = { status: null, mu: {}, wk: {}, scores: {} }; S.wk = null; S.ns = { state: "idle" };
       if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
@@ -181,6 +182,26 @@
     });
   }
 
+  // Next season's ledger: parsed the moment it arrives, for every team, keeping only the allowlisted fields (category, signed amount, season, and a
+  // player only when his id resolves). The answer itself is dropped; nothing from it is stored on the phone.
+  function loadNext(force) {
+    if (S.sample.on || !S.model) return;
+    if (!force && (S.ns.state === "loading" || S.ns.state === "ok")) return;
+    S.ns = { state: "loading" }; render(true);
+    var mine = gen;
+    loader.loadNextSeason(!!force).then(function (r) {
+      if (mine !== gen || S.sample.on) { if (S.ns.state === "loading") S.ns = { state: "idle" }; return; }
+      if (r.state !== "ok") { S.ns = { state: "error", why: "read" }; return render(true); }
+      var season = S.model.season + 1, resolveName = U.adjust.nameResolver(S.model, null), by = {}, bad = false;
+      S.model.teams.forEach(function (t) {
+        var p = U.adjust.parseNextSeason(r.data, { fid: t.id, season: season, resolveName: resolveName });
+        if (p.state !== "ok") bad = p.why || "unexpected"; else by[t.id] = p;
+      });
+      S.ns = bad ? { state: "error", why: bad } : { state: "ok", at: r.at, by: by };
+      render(true);
+    });
+  }
+
   // ---- routing: the address only records the open profile, so Back closes it ----
   function hashState() {
     var o = { p: "", t: "" };
@@ -250,6 +271,11 @@
     else if (act === "ctf") { S.ct.f = v; render(true); }
     else if (act === "cts") { S.ct.s = v; render(true); }
     else if (act === "ctx") { S.ct.open[v] = !S.ct.open[v]; render(true); }
+    else if (act === "ctbd") { S.ct.bd = !S.ct.bd; render(true); }
+    else if (act === "ctcat") { S.ct.cat[v] = !S.ct.cat[v]; render(true); }
+    else if (act === "nsx") { S.ct.ns = !S.ct.ns; render(true); if (S.ct.ns) loadNext(false); }
+    else if (act === "retryns") { loadNext(true); }
+    else if (act === "help") { S.sheet = "help"; render(); }
     else if (act === "pff") { S.pf.f = v; render(true); }
     else if (act === "pfs") { S.pf.s = v; render(true); }
     else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; render(true); }

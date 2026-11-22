@@ -182,7 +182,7 @@ test("a past week shows only that week's facts; every current fact is left out o
   t.match(tx, /Injury status, rosters and contracts are as of now, so none of them is drawn here/);
   t.match(tx, /Go to Week 11 \(current\)/);
   t.match(html, /class="wsel past"/); t.match(tx, /Played · as MFL recorded it/);
-  t.match(tx, /Week 10 starters · \d+ of 18/);
+  t.match(tx, /Recorded starters · Week 10 · \d+ of 18/);
   t.match(html, /<b[^>]*>[\d.]+<\/b><span class="mu sm">Wk 10<\/span>/, "each starter shows that week's points, labeled with the week");
   // current facts are absent: injury chips, cap notes, the bench, injured reserve and taxi blocks
   t.doesNotMatch(html, /▲ Questionable|■ OUT|■ IR|class="chip (wn|cr)">[^<]*(Questionable|Doubtful|OUT)/);
@@ -339,7 +339,7 @@ test("MAT-2 (Codex, 4951dfce): a past week lists the recorded starters in the re
   const recordedIds = FX2.weekly_results_w10.weeklyResults.matchup.flatMap((x) => x.franchise).filter((f) => f.id === TEAM)[0].player.filter((p) => p.status === "starter").map((p) => p.id);
   t.deepEqual(rec.starters.map((p) => p.id), recordedIds, "the starters are the recorded ones, in the recorded order");
   const base = V.rosterBody(state(intel, { wk: 10 }));
-  t.match(text(base), /Week 10 starters · 18 of 18/); t.doesNotMatch(base, /Empty|class="tag sl">[A-Z]/, "no empty slot and no slot tag");
+  t.match(text(base), /Recorded starters · Week 10 · 18 of 18/); t.doesNotMatch(base, /Empty|class="tag sl">[A-Z]/, "no empty slot and no slot tag");
   const rows = (html) => (html.match(/aria-label="Recorded starter number (\d+)"/g) || []).length;
   t.equal(rows(base), 18, "eighteen recorded rows, numbered in the recorded order");
   // Codex's reproduction: the current slots are all filled; change ONLY one starter's current position (DB -> LB)
@@ -362,8 +362,8 @@ test("MAT-2 (Codex, 4951dfce): a past week lists the recorded starters in the re
     if (n < 18) starters.slice(n).forEach((p) => { p.status = "nonstarter"; }); else others.slice(0, n - 18).forEach((p) => { p.status = "starter"; }); });
     return state({ ...intel, wk: { ...intel.wk, 10: { state: "ok", data: w, at: Date.now() } } }, { wk: 10 }); };
   const h17 = V.rosterBody(withCount(17)), h19 = V.rosterBody(withCount(19));
-  t.match(text(h17), /Week 10 starters · 17 of 18/); t.equal(rows(h17), 17); t.doesNotMatch(h17, /Empty/);
-  t.match(text(h19), /Week 10 starters · 19 of 18/); t.equal(rows(h19), 19); t.doesNotMatch(h19, /Empty/);
+  t.match(text(h17), /Recorded starters · Week 10 · 17 of 18/); t.equal(rows(h17), 17); t.doesNotMatch(h17, /Empty/);
+  t.match(text(h19), /Recorded starters · Week 10 · 19 of 18/); t.equal(rows(h19), 19); t.doesNotMatch(h19, /Empty/);
   // the note says what is not shown; no recorded starters reads as no starters recorded
   t.match(text(base), /Listed in the order MFL recorded them\. Slots and positions are not shown for a past week/);
   // the current week is unchanged: slots, empty slots and the filled count are still built from today's positions

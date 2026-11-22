@@ -75,7 +75,7 @@ test("P1/P2: Byes is always 'as of now', whatever week was chosen; Lineup keeps 
     t.doesNotMatch(tx, /Week 10|Week 3\b|Played · as MFL recorded it/);
   });
   // the week-aware view still shows the chosen week
-  t.match(text(V.rosterBody(state(intel, { view: "lineup", wk: 10 }))), /Week 10 starters · 18 of 18/);
+  t.match(text(V.rosterBody(state(intel, { view: "lineup", wk: 10 }))), /Recorded starters · Week 10 · 18 of 18/);
   t.match(V.rosterBody(state(intel, { view: "lineup", wk: 10 })), /class="wsel past"/);
   t.doesNotMatch(V.rosterBody(state(intel, { view: "byes", wk: 10 })), /class="wsel/);
 });
@@ -131,7 +131,7 @@ test("P3: the card lists each slot that needs attention once: OUT, an MFL design
   // no write control: no Replace, no Swap, no button that is not a profile or navigation
   t.doesNotMatch(tx, /\b(Replace|Swap|Start him|Sit him|Make the move)\b/i);
   const acts = [...html.matchAll(/data-act="([a-z]+)"/g)].map((m2) => m2[1]);
-  t.ok(acts.every((x) => ["card", "view", "pickweek", "weeks", "grp", "expall", "teams", "nav", "sub"].includes(x)), "only read-only controls: " + [...new Set(acts)].join(","));
+  t.ok(acts.every((x) => ["card", "view", "pickweek", "weeks", "grp", "expall", "teams", "nav", "sub", "help"].includes(x)), "only read-only controls: " + [...new Set(acts)].join(","));
   t.match(tx, /Read only: nothing here can change the lineup\./);
 });
 
@@ -241,7 +241,7 @@ test("P5: the roster views carry no link to a Contracts destination; Team › Co
   }));
   // Team › Contracts is a real tab now (R3): it says what it is, carries no jump into Cap & picks, and the only way to Cap & picks is its own tab
   const ph = V.app(state(intel, { sub: "contracts" })), tx = text(ph);
-  t.match(tx, /Recorded salary, not cap space/); t.match(tx, /Cap space, adjustments and penalties are not part of this preview/);
+  t.match(tx, /Recorded salary, not cap space/); t.doesNotMatch(tx, /Cap space, adjustments and penalties are not part of this preview/);
   t.doesNotMatch(ph, /gotoview/); t.equal((ph.match(/data-v="cap"/g) || []).length, 1, "only the tab itself points at Cap & picks");
 });
 
