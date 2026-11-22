@@ -29,6 +29,8 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 
 .envbar{flex:0 0 auto;display:flex;align-items:center;min-height:calc(26px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));background:var(--s2);color:var(--mu);border-bottom:1px solid var(--bd);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .envbar.sample{background:var(--wn);color:var(--on);border-bottom-color:var(--wn)}
+.envbar span{padding:4px 0;line-height:1.25}
+.envbar.rec{font-size:11px;letter-spacing:.02em;text-transform:none}
 .hd{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px max(8px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
 .hd h1{margin:0;flex:1;font-size:19px;letter-spacing:-.01em}
 .asof{flex:0 0 auto;padding:2px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));font-size:12px;color:var(--mu);min-height:16px}
@@ -178,9 +180,11 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .k2 small,.k3 small{display:block;font-size:12px;color:var(--mu)}
 .sec2{margin:10px 0 2px;font-size:12px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--mu)}
 .sec2.first{margin-top:0}
+.stat3{display:grid;grid-template-columns:1.2fr 1.3fr .8fr;gap:6px;margin:6px 0;font-size:13px}.stat3 span{display:block;color:var(--mu);font-size:12px}.stat3 b{font-size:18px;font-variant-numeric:tabular-nums}.stat3 em{display:block;font-style:normal;font-size:12px;color:var(--mu)}.stat3 em.no{color:var(--wn)}
+.live{display:inline-block;border:1.5px dashed var(--wn);color:var(--wn);border-radius:8px;padding:1px 8px;font-size:12.5px;font-weight:700}
 .tprow{display:flex;gap:8px;align-items:stretch}.tprow .tp{flex:1;min-width:0}.tprow .ib{flex:0 0 44px;min-height:44px}
 .helpb h4{margin:12px 0 2px;font-size:13px}.helpb p{margin:2px 0;font-size:13px}
-.cl{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px}.cl b{font-variant-numeric:tabular-nums}.cl .link{text-align:left}
+.cl{display:flex;justify-content:space-between;gap:8px;padding:3px 0;font-size:13px}.cl b{font-variant-numeric:tabular-nums;white-space:nowrap;flex:0 0 auto}.cl .link{text-align:left}
 .link.blk{display:block;width:100%;text-align:left;padding:6px 0}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
 .kv b{font-weight:600;color:var(--mu)}
@@ -249,12 +253,16 @@ button.btnrow{cursor:pointer}
 .rb .fl{display:flex;flex-wrap:wrap;gap:4px}
 .cells4{display:flex;gap:4px;margin-top:2px}
 .cell{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;border:1px solid var(--bd);border-radius:8px;padding:3px 2px;background:var(--s2)}
-.cell i{font-style:normal;font-size:12px;color:var(--mu)}
-.cell b{font-size:14px}
+/* A weekly cell is three lines: Week / Points / position rank (or a label such as live or newer). Every line has a fixed height and the third is always present
+   (empty when there is nothing to show), so every cell has the same height whatever it holds. */
+.cell i{font-style:normal;font-size:12px;line-height:16px;color:var(--mu)}
+.cell b{font-size:14px;line-height:18px}
 .cell.by b{color:var(--mu);font-weight:600}
 .cell.by{border-style:dashed}
 .cell.newer{border-style:dashed;border-color:var(--wn)}
-.cell u{text-decoration:none;font-size:12px;color:var(--wn)}
+.cell u,.cell em.wr{display:block;max-width:100%;min-height:16px;line-height:16px;text-decoration:none;font-style:normal;font-size:12px;white-space:nowrap;overflow:hidden}
+.cell u{color:var(--wn)}
+.cell em.wr{color:var(--mu);font-variant-numeric:tabular-nums}
 .cmpl{font-size:12px;color:var(--mu);margin-top:4px}
 .rb .rcn{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
 .rb .rcn span{display:flex;flex-direction:column}

@@ -4,10 +4,23 @@
   "use strict";
   var U = window.UPS2027, cfg = window.UPS2027_CONFIG;
   var appEl = document.getElementById("app");
+  // Recorded-data mode (config.js: data "recorded", the committed default): every read is answered from the snapshot bundled with the page
+  // (recorded_data.js), by lib/recorded.js, and nothing is requested. `recordedInfo` carries the snapshot's time for the marker at the top.
+  var recordedFeed = null, recordedInfo = null;
+  if (cfg.data === "recorded") {
+    var bundle = window.UPS2027_RECORDED;
+    recordedFeed = U.recorded ? U.recorded.createFetch(bundle) : null;
+    var recAt = bundle && bundle.meta ? bundle.meta.recordedAt : "";
+    recordedInfo = { at: String(recAt || ""), label: U.format.etRecorded(recAt) || "at a time that could not be read" };
+  }
   // The page's one fetch. It is the loader's only way out, and it refuses outright while Sample mode is on (a third guard,
-  // behind the two in loadCore/loadPenalty). The build scan allows exactly this line and no other reference to fetch.
+  // behind the two in loadCore/loadPenalty). In recorded mode it answers from the snapshot and NEVER reaches the network, even when the snapshot
+  // is missing (the read then fails like any other failed read). Any data mode but the two known ones is refused. The build scan allows exactly the one
+  // network line below and no other reference to fetch.
   function guardedFetch(url, opts) {
     if (S.sample.on) return Promise.reject(new Error("Sample mode: no requests are made"));
+    if (cfg.data === "recorded") return recordedFeed ? recordedFeed(url, opts) : Promise.reject(new Error("The recorded data did not load"));
+    if (cfg.data !== "live") return Promise.reject(new Error("Unknown data mode: no request is made"));
     return window.fetch(url, opts);
   }
   var loader = U.data.createLoader(cfg, guardedFetch);
@@ -21,13 +34,14 @@
     model: null, load: { core: "loading", coreNotes: [], error: "" }, penalty: { state: "idle" },
     teamId: pref("team", ""), tab: "team", sub: "roster", view: "lineup", open: {}, flags: {},
     wk: null, // the week on screen; null means the current lineup week. Only a past week ever changes it (view-only)
-    intel: { status: null, mu: {}, wk: {}, scores: {}, players: null }, // reads added in R2/R3, by their own address: injury status, NFL games and season figures, weekly lineups, weekly player scores, MFL's complete player list (PR A)
+    intel: { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null }, // reads added in R2/R3/PR B, by their own address: injury status, NFL games and team history, weekly lineups, weekly player scores, NFL schedules, MFL’s complete player list (positions, clubs and names)
+    live: null, // PR B: when every game of the lineup week was first seen final (starts the quiet period of the Final · updating chip)
     ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the sort (exp | sal | name), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
-    pf: { f: "all", s: "pos", open: {}, res: {} }, // Team › Performance: the same
+    pf: { s: "pos", open: {}, res: {} }, // Team › Performance: the sort (pos | diff | avg), which rows are open, which reserve groups are open
     gdef: pref("gdef", "needs"),
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
-    requestLog: loader.log, requestSummary: loader.summary(),
+    requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
   };
 
@@ -89,7 +103,7 @@
       else if (r.weekly.state !== "ok") notes.push("MFL’s submitted lineups could not be read (" + r.weekly.error + ").");
       S.model = U.model.build(rw, r.league.state === "ok" ? r.league.data : null, r.weekly.state === "ok" ? r.weekly.data : null, r.week, parseInt(cfg.season, 10));
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
-      S.intel = { status: null, mu: {}, wk: {}, scores: {}, players: null }; S.wk = null; S.ns = { state: "idle" };
+      S.intel = { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null, cal: null, reread: {} }; S.wk = null; S.ns = { state: "idle" }; S.live = null;
       if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
@@ -127,21 +141,6 @@
       S.intel.status = next; render(true);
     });
   }
-  // MFL's complete player list (PR A): names the player on a cap adjustment by id, whatever roster he is on. Asked once when Team › Contracts is opened and
-  // kept (six hours); a failed read is asked again, at most once a minute, the next time the screen is opened.
-  function ensurePlayers(force) {
-    if (S.sample.on || !S.model) return;
-    var cur = S.intel.players;
-    if (cur && (cur.state === "ok" || cur.state === "loading") && !force) return;
-    if (!cur) S.intel.players = { state: "loading" };
-    var mine = gen;
-    loader.loadPlayers(!!force).then(function (r) {
-      if (mine !== gen || S.sample.on) return;
-      var next = r.state === "ok" ? { state: "ok", data: r.data, at: r.at } : { state: "error", error: r.error || "" };
-      if (same(S.intel.players, next)) return;
-      S.intel.players = next; render(true);
-    });
-  }
   // Team › Performance (and a profile's game log): the current week's matchup read (season totals, latest final week, team history, next three
   // weeks), then the weekly scores of the latest final week and the three before it, at most four reads.
   function ensureScores(L, through, force) {
@@ -153,24 +152,93 @@
   // The full-season game log reads the weeks the screen did not need, on demand ("Show earlier weeks"), and reuses every read already in memory.
   function ensureLog(force) {
     if (S.sample.on || !S.model || !S.model.week || !U.tabviews) return;
-    var mu = S.intel.mu[S.model.week]; if (!mu || mu.state !== "ok") return;
-    var L = mu.data.latestFinal; if (!(L >= 1)) return;
+    var C0 = U.tabviews.completion(S); if (C0.state !== "ok") return;   // the log runs through the last all-final week, never the Worker's latestFinalWeek
+    var L = C0.week; if (!(L >= 1)) return;
     U.tabviews.logWeeks(L).forEach(function (w) {
       intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && S.intel.scores[w] && S.intel.scores[w].state === "error");
     });
   }
+  // PR B: Team › Performance needs, in order: the matchup read (the Worker's lastCompleteWeek and the team history), the NFL schedule of that week (and of the
+  // lineup week) to establish per game which week is complete, then the weekly scores Weeks 1..N for the season totals and the players read for the position
+  // pools. Each step asks for its read once (the loader reuses it), and the next step starts when the one before it has arrived. A failed read is asked again
+  // only on Retry.
+  function ensureSched(w, force) {
+    var rec = S.intel.sched[w];
+    if (rec && !(force && rec.state === "error")) return; // asked once; the loader keeps the answer. Only Retry asks again after a failure
+    intelRead(S.intel.sched, w, function (f) { return loader.loadSchedule(w, U.complete.parseSchedule, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
+  }
+  function ensureWeekScores(w, force) {
+    var rec = S.intel.scores[w], sc = S.intel.sched[w];
+    // scores read while the week was still being played (the lineup week, read for its Live chip) are read again once the schedule shows the week final
+    if (rec && rec.state === "ok" && sc && sc.state === "ok" && rec.at != null && sc.at != null && rec.at < sc.at && S.intel.reread[w] !== sc.at) {
+      S.intel.reread[w] = sc.at;
+      intelRead(S.intel.scores, w, function () { return loader.loadScores(w, true); }, true, function () { ensurePerformance(false); });
+      return;
+    }
+    if (rec && !(force && rec.state === "error")) return;
+    intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
+  }
+  function ensureCalendar(force) {
+    var rec = S.intel.cal;
+    if (rec && !(force && rec.state === "error")) return;
+    intelRead(S.intel, "cal", function (f) { return loader.loadCalendar(U.complete.parseCalendar, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
+  }
+  // MFL's complete player list: names the player on a cap adjustment (Team › Contracts, PR A) and gives the position pools of the ranks (Team › Performance, PR B).
+  // One shared read, kept six hours. A failed read is asked again only on Retry (Performance) or, at most once a minute (the loader's own limit), the next time
+  // Contracts is opened (`again`).
+  function ensurePlayers(force, again) {
+    if (S.sample.on || !S.model) return;
+    var rec = S.intel.players;
+    if (rec && rec.state !== "error") return;
+    if (rec && !force && !again) return;
+    intelRead(S.intel, "players", function (f) { return loader.loadPlayers(f); }, !!force && !!rec, null);
+  }
   function ensurePerformance(force) {
     if (S.sample.on || !S.model || !S.model.week) return;
     var cur = S.model.week, rec = S.intel.mu[cur];
-    intelRead(S.intel.mu, cur, function (f) { return loader.loadMatchups(cur, f); }, force && rec && rec.state === "error", function (next) { if (next && next.state === "ok") ensureScores(next.data.latestFinal, U.tabviews.throughOf(next.data), force); });
-    // (the follow-up above runs once whether the matchup read was already in memory or arrives later, so it is not repeated here)
+    if (!rec || rec.state !== "ok") {
+      // (a read another caller already started is joined, not repeated: the loader shares it, and this follow-up still runs when it arrives)
+      intelRead(S.intel.mu, cur, function (f) { return loader.loadMatchups(cur, f); }, force && rec && rec.state === "error", function (next) { if (next && next.state === "ok") ensurePerformance(false); });
+      return;
+    }
+    var lc = rec.data.lastComplete;
+    if (!(lc >= 1)) return;
+    ensureCalendar(force);   // MFL's club list, byes and the whole season's schedule: what every week is checked against
+    ensureSched(lc, force);
+    if (cur !== lc) ensureSched(cur, force);
+    var C0 = U.tabviews.completion(S);
+    if (C0.state === "loading" && C0.need) ensureSched(C0.need, force);   // the week before is read only when the cutoff has to step back (the schedule and the Worker's statuses together say so)
+    if (C0.state === "ok") {
+      for (var w = 1; w <= C0.week; w++) ensureWeekScores(w, force);
+      if (cur > C0.week) ensureWeekScores(cur, force);
+      ensurePlayers(force);
+      var sc = S.intel.sched[cur];
+      if (sc && sc.state === "ok" && U.complete.weekComplete(sc.data.games, null, U.tabviews.coverFor(S, cur)) && !(S.live && S.live.allFinalAt != null)) S.live = { allFinalAt: Date.now() }; // the first time every game of the lineup week is seen final (the quiet period starts here)
+    }
+  }
+  // Retry. When a read failed, only the reads that failed are asked again. When nothing failed (a "Final · not yet in season totals" chip has nothing to
+  // re-ask), the answers the display waits on (the matchup, the schedule of the lineup week and the calendar) are asked again; the lineup week's scores are then
+  // read again once, after the new schedule (ensureWeekScores), never in parallel with it.
+  function anyFailedRead() {
+    var any = false;
+    [S.intel.mu, S.intel.sched, S.intel.scores].forEach(function (h) { Object.keys(h || {}).forEach(function (k) { if (h[k] && h[k].state === "error") any = true; }); });
+    return any || !!(S.intel.players && S.intel.players.state === "error") || !!(S.intel.cal && S.intel.cal.state === "error");
+  }
+  function refreshPerformance() {
+    if (S.sample.on || !S.model || !S.model.week) return;
+    if (anyFailedRead()) { ensurePerformance(true); return; }
+    var cur = S.model.week, after = function () { ensurePerformance(false); };
+    intelRead(S.intel.mu, cur, function () { return loader.loadMatchups(cur, true); }, true, after);
+    intelRead(S.intel.sched, cur, function () { return loader.loadSchedule(cur, U.complete.parseSchedule, true); }, true, after);
+    intelRead(S.intel, "cal", function () { return loader.loadCalendar(U.complete.parseCalendar, true); }, true, after);   // an unfinished older game may have been played since
+    ensurePerformance(true);
   }
   function ensureIntel(force) {
     if (S.sample.on || !S.model || S.tab !== "team") return;
     if (S.sub === "contracts") { // the table paints first; the guarantee column loads second; a failed read is asked again only on Try again
       if (S.ct && S.ct.ns && S.ns.state === "idle") loadNext(false); // the row is open and nothing is in flight (a reload or Sample mode dropped the answer)
       if (S.penalty.state === "idle") loadPenalty(false); else if (force && S.penalty.state === "error") loadPenalty(true);
-      ensurePlayers(false);
+      ensurePlayers(false, true);
       return;
     }
     if (S.sub === "performance") { ensureStatus(force); ensurePerformance(force); return; }
@@ -304,11 +372,10 @@
     else if (act === "nsx") { S.ct.ns = !S.ct.ns; render(true); if (S.ct.ns) loadNext(false); }
     else if (act === "retryns") { loadNext(true); }
     else if (act === "help") { S.sheet = "help"; render(); }
-    else if (act === "pff") { S.pf.f = v; render(true); }
     else if (act === "pfs") { S.pf.s = v; render(true); }
     else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; render(true); }
     else if (act === "pfres") { S.pf.res[v] = !S.pf.res[v]; render(true); }
-    else if (act === "retryperf") { ensurePerformance(true); }
+    else if (act === "retryperf") { refreshPerformance(); }
     else if (act === "logmore") { if (S.profile) { S.profile.all = true; render(true); ensurePerformance(); ensureLog(); } }
     else if (act === "logless") { if (S.profile) { S.profile.all = false; render(true); } }
     else if (act === "retrylog") { ensureLog(true); }

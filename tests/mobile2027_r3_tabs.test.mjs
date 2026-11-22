@@ -25,18 +25,28 @@ const model = (season) => M.build(FX.roster_workbench, FX.league, FX.weekly_resu
 const penalty = (players) => ({ state: "ok", data: players || FX.cap_penalty.players, meta: { calculatedAt: FX.cap_penalty.calculated_at, earnedThroughWeek: 10 } });
 
 // the Performance reads exactly as the loader keeps them (matchup read with team history; four weeks of scores)
+const FX4 = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r4_reads.json"), "utf8")); // PR B: the whole league, Weeks 1 to 10
+const CAL = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/calendar_2026.json"), "utf8"));
+const XC = require(path.join(SRC, "lib/complete.js"));
 async function intelFor(over) {
   over = over || {};
-  const lm = over.lm || FX3.lineup_matchups_w11;
+  const lm = over.lm || Object.assign({}, FX3.lineup_matchups_w11, FX4.hist);
   const fake = async (url) => {
-    const u = new URL(url); let body = {};
-    if (u.pathname === "/api/lineup-matchups") body = Object.assign({}, lm, { week: Number(u.searchParams.get("W")) });
-    else if (u.searchParams.get("TYPE") === "playerScores") body = { playerScores: { playerScore: (over.scores || FX3.scores)[u.searchParams.get("W")] || [] } };
+    const u = new URL(url); let body = {}; const ty = u.searchParams.get("TYPE"), w = u.searchParams.get("W");
+    if (u.pathname === "/api/lineup-matchups") body = Object.assign({}, lm, { week: Number(w) });
+    else if (ty === "playerScores") body = { playerScores: { playerScore: (over.scores || FX4.scores)[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) } };
+    else if (ty === "players") body = { players: { player: FX4.players } };
+    else if (ty === "nflByeWeeks") body = CAL.byes;
+    else if (ty === "nflSchedule" && w === "ALL") body = over.calFull || CAL.full;
+    else if (ty === "nflSchedule") body = w === "10" ? (over.schedule10 || FX4.schedule10) : w === "11" ? (over.schedule11 || FX4.schedule11) : { nflSchedule: { matchup: [] } };
     return { ok: true, status: 200, text: async () => JSON.stringify(body) };
   };
   const L = D.createLoader(CFG, fake), rec = (r) => ({ state: r.state, data: r.data, error: r.error, at: Date.now() });
-  const out = { status: null, mu: { 11: rec(await L.loadMatchups(11)) }, wk: {}, scores: {} };
+  const out = { status: null, mu: { 11: rec(await L.loadMatchups(11)) }, wk: {}, scores: {}, sched: {}, players: rec(await L.loadPlayers()) };
   for (const w of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]) out.scores[w] = rec(await L.loadScores(w));
+  for (const w of [10, 11]) out.sched[w] = rec(await L.loadSchedule(w, XC.parseSchedule));
+  if (L.loadCalendar) out.cal = rec(await L.loadCalendar(XC.parseCalendar));
+  Object.keys(out.scores).forEach((k) => { out.scores[k].at += 1000; });   // the scores are read after the schedules, as the app does
   return out;
 }
 const state = (over) => ({
@@ -209,30 +219,38 @@ test("P7: Last 3 team games, Recent, Earlier and Difference are labeled numbers 
   t.match(text(html), /Not enough recent scores|Not enough earlier|Team history|club|not loaded/i);
 });
 
-test("P8: with team history absent (W1 not live) scores, season average, scored games and range still show; BYE cells are dashes; only the comparison is withheld, with its reason", async () => {
+test("P8: with team history absent (W1 not live) scores, season average, scored games and range still show; BYE cells are dashes; only the comparison is withheld, said once at the top", async () => {
+  // revised (Keith's Performance decisions): the comparison block is not drawn at all without team history (it used to draw Recent / Earlier / Difference as dashes
+  // with 'Team history unavailable' on every player); one line at the top says the per-game rank and the recent comparison are not available yet
   const S = state({ sub: "performance", intel: await intelFor({ lm: noHist() }) });
-  S.pf = { f: "all", s: "pos", open: allOpen(S), res: {} };
+  S.pf = { s: "pos", open: allOpen(S), res: {} };
   const html = body(V.app(S));
-  t.match(html, /Team history unavailable/); t.doesNotMatch(html, /Comparison through Week/);
+  t.equal((text(html).match(/Per-game rank and the recent comparison aren’t available yet\./g) || []).length, 1, "one notice"); t.doesNotMatch(text(html), /Team history/); t.doesNotMatch(html, /Comparison through Week/);
   t.doesNotMatch(html, /<b>BYE<\/b>/, "no BYE label without club identity");
-  rcns(html).forEach((x) => t.match(x, /^Recent — Earlier — Difference —$/));
+  t.equal(rcns(html).length, 0, "no Recent / Earlier / Difference block on any row"); t.doesNotMatch(text(html), /Last 3 team games|Not available/);
   t.match(html, /class="cell"><i>W10<\/i><b>\d+\.\d<\/b>/, "recorded scores show"); t.match(html, /<b>Range<\/b><span>\d+\.\d to \d+\.\d \(Weeks \d+ to \d+\)<\/span>/);
   t.match(html, /<b>Season<\/b><span>\d+\.\d · /);
 });
 
-test("P9 (U1): a banner says 'Comparison through Week N'; a newer score is a dashed cell, named in the row help, and changes no comparison figure", async () => {
-  const html = await perf();
-  t.match(html, /Comparison through Week 10/); t.match(html, /class="cell newer"[^>]*title="Newer than the comparison cutoff"/);
-  // change every Week 11 score (and the season totals that hold it, as the worker would): the comparison figures cannot move
-  const moved = clone(FX3.scores), lm = clone(FX3.lineup_matchups_w11);
-  moved["11"] = moved["11"].map((r) => { const w = lm.playerWindow[r.id]; if (w) w.total = Math.round((w.total + 5) * 10) / 10; return { id: r.id, score: String(Number(r.score) + 5) }; });
+// the Worker's team history as it would be one week earlier (coverage through Week 9) or two (Week 8)
+const historyThrough = (n) => {
+  const lm = clone(Object.assign({}, FX3.lineup_matchups_w11, FX4.hist)); lm.teamHistoryThrough = n;
+  Object.keys(lm.teamHistoryFirst).forEach((id) => { if (lm.teamHistoryFirst[id] > n) delete lm.teamHistoryFirst[id]; });
+  Object.keys(lm.teamHistory).forEach((id) => { const e = lm.teamHistory[id]; e.seg = e.seg.filter((s) => s[1] <= n).map((s) => [s[0], s[1], Math.min(s[2], n)]); if (!e.seg.length) delete lm.teamHistory[id]; });
+  return lm;
+};
+test("P9 (U1): a banner says 'Comparison through Week N'; a score newer than the history is a dashed cell, named in the row help, and changes no comparison figure", async () => {
+  // PR B: the last all-final week is 10 (Week 11 is a partial week and is not in any figure). With history one week behind (through 9), Week 10 is the newer week.
+  const lm = historyThrough(9), html = await perf({ lm });
+  t.match(html, /Comparison through Week 9/); t.match(html, /class="cell newer"[^>]*title="Newer than the comparison cutoff"/);
+  t.match(html, /Season through Week 10 · completed games/, "the season figures and the heading still run through the last all-final week");
+  // change every Week 10 score: the comparison figures cannot move (they run through Week 9)
+  const moved = clone(FX4.scores); moved["10"] = moved["10"].map((r) => ({ id: r.id, score: String(Number(r.score) + 5) }));
   const h2 = await perf({ scores: moved, lm });
-  t.deepEqual(rcns(h2), rcns(html), "Week 11 scores change no Recent, Earlier or Difference");
-  // the row help names the newer score
-  const S = state({ sub: "performance", intel: await intelFor() }), withNewer = FX3.scores["11"][0].id;
-  const p = teamPlayers(S).find((x) => FX3.scores["11"].some((r) => r.id === x.id) && x.status === "active");
-  if (p) { S.pf = { f: "all", s: "pos", open: { [p.id]: true }, res: {} }; t.match(body(V.app(S)), /Newer score: Week 11 [\d.]+\. Shown, but not in any figure here until team history covers Week 11\./); }
-  t.ok(withNewer);
+  t.deepEqual(rcns(h2), rcns(html), "Week 10 scores change no Recent, Earlier or Difference");
+  const S = state({ sub: "performance", intel: await intelFor({ lm }) });
+  const p = teamPlayers(S).find((x) => FX4.scores["10"].some((r) => r.id === x.id) && x.status === "active");
+  t.ok(p); S.pf = { f: "all", s: "pos", open: { [p.id]: true }, res: {} }; t.match(body(V.app(S)), /Newer score: Week 10 [\d.]+\. Shown, but not in any figure here until team history covers Week 10\./);
 });
 
 test("P9 (U2): no invented 'of N': a player whose first weekly row is after Week 1 shows the scored-game count only, with identity and opportunity explained separately", async () => {
@@ -249,12 +267,11 @@ test("P9 (U2): no invented 'of N': a player whose first weekly row is after Week
 });
 
 test("P9: a stale history (two or more weeks behind) withholds every comparison with a banner; scores and season figures still show", async () => {
-  // the worker's answer as it would be one week earlier: coverage through Week 9, nothing recorded after it
-  const lm = clone(FX3.lineup_matchups_w11); lm.teamHistoryThrough = 9;
-  Object.keys(lm.teamHistoryFirst).forEach((id) => { if (lm.teamHistoryFirst[id] > 9) delete lm.teamHistoryFirst[id]; });
-  Object.keys(lm.teamHistory).forEach((id) => { const e = lm.teamHistory[id]; e.seg = e.seg.filter((s) => s[1] <= 9).map((s) => [s[0], s[1], Math.min(s[2], 9)]); });
+  // the Worker's answer two weeks behind the last all-final week (10): coverage through Week 8, nothing recorded after it
+  const lm = historyThrough(8);
   const html = await perf({ lm });
-  t.match(html, /Team history is 2 weeks behind/); rcns(html).forEach((x) => t.match(x, /^Recent — Earlier — Difference —$/));
+  // revised: the stale-history reason is one line in the header card, and no row draws a dashed comparison block
+  t.equal((text(html).match(/Team history is 2 weeks behind/g) || []).length, 1); t.equal(rcns(html).length, 0);
   t.match(html, /class="cell"><i>W10<\/i><b>\d+\.\d<\/b>/);
 });
 
@@ -265,13 +282,15 @@ test("P7 review: every needed week is read (a bye in the look-back no longer wit
   const S = state({ sub: "performance", intel: await intelFor() }), games = FX3.lineup_matchups_w11.matchups;
   const p = teamPlayers(S).find((x) => x.status === "active" && games[x.nflTeam] && games[x.nflTeam].status !== "final" && FX3.scores["10"].some((r) => r.id === x.id) && !FX3.lineup_matchups_w11.teamHistory[x.id] && !FX3.lineup_matchups_w11.teamHistoryMissing.includes(x.id));
   t.ok(p, "an active player whose club's game is not final");
+  // PR B: Week 11 is not complete, so it is in no figure; his club's game is in progress by the schedule (and not final by the status), so a score recorded
+  // for it is drawn as "Live · 9.9" on the row and counted nowhere
+  const live = clone(FX4.schedule11); live.nflSchedule.matchup.forEach((m) => { if (m.team.some((x) => x.id.toUpperCase() === p.nflTeam.toUpperCase())) { m.gameSecondsRemaining = "1800"; m.team[0].score = "7"; m.team[1].score = "3"; } });
   const run = async (extra) => {
-    const lm = clone(FX3.lineup_matchups_w11); lm.teamHistoryThrough = 11;
-    const scores = clone(FX3.scores); if (extra) scores["11"].push({ id: p.id, score: "9.9" });
-    return body(V.app(state({ sub: "performance", intel: await intelFor({ lm, scores }) }))).split('data-act="pfx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
+    const scores = clone(FX4.scores); scores["11"] = [{ id: "1", score: "0" }]; if (extra) scores["11"].push({ id: p.id, score: "9.9" });
+    return body(V.app(state({ sub: "performance", intel: await intelFor({ scores, schedule11: live }) }))).split('data-act="pfx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
   };
   const withLive = await run(true), without = await run(false);
-  t.match(withLive, /<u>live<\/u>/); t.doesNotMatch(without, /<u>live<\/u>/);
+  t.match(text(withLive), /Live · 9\.9/); t.doesNotMatch(text(without), /Live · 9\.9/); t.match(text(without), /Live/, "a game in progress still says Live, with no score to show");
   const rcn = (h) => text(h.match(/<div class="rcn">(.*?)<\/div>/)[1]).trim();
   t.equal(rcn(withLive), rcn(without), "a live score changes no Recent, Earlier or Difference");
 });

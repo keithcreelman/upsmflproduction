@@ -84,7 +84,7 @@
     if (st === "unavailable") return HIST_REASONS.indexOf(rs) >= 0 ? { ok: false, reason: rs } : bad;
     if (st !== "ok" || rs !== null) return bad;
     var through = hist.teamHistoryThrough;
-    if (!isInt(through) || through < 1 || through > L) return bad;
+    if (!isInt(through) || through < 1 || through > L + 1) return bad;   // PR B: the history may run one week past the last all-final week (a partial week); it is clamped to L below
     var th = hist.teamHistory, out = { ok: true, through: through, th: {}, missing: {}, conflict: {}, first: {} };
     if (th == null || typeof th !== "object" || Array.isArray(th)) return bad;
     var fi = hist.teamHistoryFirst;                                       // required: the phone ships only with the W1 that sends it
@@ -163,7 +163,7 @@
       conflict: "Records conflict: club unknown", none: "No club evidence"
     }[g.grade];
     return { grade: g.grade, identity: known ? "known" : { candidates: "one_of_two_clubs", before_first: "unknown_before_first_record", conflict: "conflict" }[g.grade] || "no_evidence",
-             opp: opp, note: note, byeByCandidates: g.grade === "candidates" && opp === "b" };
+             opp: opp, note: note, byeByCandidates: g.grade === "candidates" && opp === "b", cands: g.clubs.slice() };
   }
 
   function groupCoverage(weeks, cutoff) {
@@ -193,7 +193,7 @@
     if (H.ok && input.through != null && input.through !== H.through) H = { ok: false, reason: "malformed" };   // two answers to one question
     var banner = { text: "", kind: "through" };
     if (H.ok) {
-      gap = L - H.through; cutoff = H.through;
+      cutoff = Math.min(H.through, L); gap = L - cutoff;   // never past the last all-final week, whatever the history covers
       if (gap >= 2) { H = { ok: false, reason: "stale" }; state = "unavailable"; reason = "stale"; banner = { text: "Team history is " + gap + " weeks behind", kind: "stale" }; }
       else banner.text = "Comparison through Week " + cutoff;
     } else {
@@ -208,6 +208,7 @@
       if (o == null || typeof o !== "object") return undefined;
       return own(o, id) && isNum(o[id]) ? o[id] : null;
     }
+    function rawBad(wk, id) { var o = scores[wk]; return o != null && typeof o === "object" && own(o, id) && typeof o[id] === "string"; }   // recorded, but not a number
     for (i = 0; i < ids.length; i++) rows[ids[i]] = buildRow(ids[i]);
     return { state: state, reason: reason, cutoff: cutoff, latestFinal: L, gap: gap, stripWeeks: stripWeeks, banner: banner, rows: rows };
 
@@ -244,7 +245,7 @@
       else if (own(H.missing, id)) cls = "missing";
       else if (own(H.th, id)) { cls = "changed"; e = H.th[id]; }
       else cls = hasScores && cur ? "nochange" : "none";                // F1: "no change seen" needs MFL scores and a current club
-      var wk = null, of = null, win = null, blocked = null, unknown = 0, games = 0;
+      var wk = null, of = null, win = null, blocked = null, unknown = 0, games = 0, uw = [];
       var mk = function (c) {
         var arr = [], x;
         for (x = 1; x <= cutoff; x++) arr[x] = weekInfo(c, x, e, cur, byeOf, cutoff, first);
@@ -254,7 +255,7 @@
         wk = mk(cls);
         // a recorded score in a loaded week where the determined club had a bye is a conflict (shown once, nothing hidden)
         for (k = 1; k <= cutoff; k++) if (wk[k].opp === "b" && typeof scoreOf(k, id) === "number") { cls = "conflict"; wk = mk(cls); break; }
-        for (k = 1; k <= cutoff; k++) { if (wk[k].opp === "u") unknown++; else if (wk[k].opp === "g") games++; }
+        for (k = 1; k <= cutoff; k++) { if (wk[k].opp === "u") { unknown++; uw.push({ week: k, clubs: wk[k].cands }); } else if (wk[k].opp === "g") games++; }
         if (!unknown) of = games;
         if (cutoff >= L && wk[L].opp === "g" && of !== null) { if (gstat === "live") of -= 1; else if (gstat === "unknown") of = null; }   // a live game is not a completed team game
         if (of !== null && sCut && !unsettled && !unsettledL && sCut.games > of) { cls = "conflict"; wk = mk(cls); of = null; unknown = cutoff; }   // more scores than team games
@@ -280,8 +281,10 @@
         else if (v === undefined) cell = { week: wn, kind: "unloaded", score: null, loaded: false };
         else if (lv) cell = { week: wn, kind: "live", score: v, loaded: true };                    // an unfinished game: shown, counted nowhere
         else if (v !== null) cell = { week: wn, kind: "score", score: v, loaded: true };
+        else if (rawBad(wn, id)) cell = { week: wn, kind: "unreadable", score: null, loaded: true };   // a recorded value that is not a number: shown as unreadable, never as "no score"
         else if (H.ok && wk[wn] && wk[wn].opp === "b" && wk[wn].identity === "known") cell = { week: wn, kind: "bye", score: null, loaded: true };
         else cell = { week: wn, kind: "none", score: null, loaded: true };
+        if (cell.kind !== "unreadable" && rawBad(wn, id)) cell.bad = true;   // an unreadable score in a newer week is flagged too, whatever the cell's kind
         if (cell.kind === "none" && H.ok && wk[wn] && wk[wn].byeByCandidates) cell.byeByCandidates = true;   // a bye by candidate agreement: counted nowhere, drawn as a dash
         return cell;
       }
@@ -341,7 +344,11 @@
       // numbers only when shown; Recent survives the two Earlier-only withholdings (unavailable season, unsettled NEWER score)
       if (cmp.state !== "shown") { if (unsettledL || (cmp.reason !== "newer_score_unseparable" && cmp.reason !== "season_unavailable")) recent = null; earlier = null; }
 
+      // PR B: what the per-game eligibility needs. `games` = weeks of a known club that had a game (supported team games); `unknownWeeks` = weeks the
+      // history does not settle (they widen the upper bound, never the supported count); `hist` says why there is no evidence at all.
+      var eligIn = usable ? { hist: "ok", games: games, unknownWeeks: uw } : { hist: !H.ok ? "unavailable" : cls === "conflict" ? "conflict" : "missing", games: null, unknownWeeks: [] };
       return {
+        elig: eligIn,
         seasonAvg: sCut && sCut.games > 0 ? sCut.total / sCut.games : null, scoredGames: known, seasonThrough: sCut ? seasonTh : null, mixedBase: mixed,
         strip: strip, range: range, teamGames: teamGames, coverage: H.ok ? groupCoverage(wk, cutoff) : [],
         window: win && win.length ? { weeks: win, scoredCount: scoredCount } : null,
@@ -360,7 +367,7 @@
     if (!isInt(L) || from < 1 || to < from) return [];
     o.logWeeks = [from, to];
     var r = evaluate(o).rows[id];
-    return r && r.log ? r.log.map(function (c) { return { week: c.week, kind: c.loaded ? c.kind : "unloaded", score: c.score, byeKnown: c.kind === "bye", recorded: c.score !== null }; }) : [];
+    return r && r.log ? r.log.map(function (c) { var o = { week: c.week, kind: c.loaded ? c.kind : "unloaded", score: c.score, byeKnown: c.kind === "bye", recorded: c.score !== null }; if (c.bad) o.bad = true; return o; }) : [];
   }
 
   // The weeks of scores the caller must load: the Performance strip, and the full-season profile log.

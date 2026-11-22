@@ -1,0 +1,244 @@
+{
+ "retrieved_by": "scripts: one-time GETs of public Worker routes",
+ "worker": "https://upsmflproduction.keith-creelman.workers.dev",
+ "items": [
+  {
+   "key": "roster",
+   "path": "/roster-workbench?L=74598&YEAR=2026",
+   "status": 200,
+   "bytes": 610683,
+   "retrieved_at": "2026-11-22T15:22:25Z"
+  },
+  {
+   "key": "league",
+   "path": "/api/mfl-export?TYPE=league&L=74598&YEAR=2026&JSON=1",
+   "status": 200,
+   "bytes": 7672,
+   "retrieved_at": "2026-11-22T15:22:25Z"
+  },
+  {
+   "key": "week",
+   "path": "/api/current-lineup-week?L=74598&YEAR=2026",
+   "status": 200,
+   "bytes": 45,
+   "retrieved_at": "2026-11-22T15:22:26Z"
+  },
+  {
+   "key": "penalty",
+   "path": "/api/cap-penalty/preview?L=74598&YEAR=2026",
+   "status": 200,
+   "bytes": 196919,
+   "retrieved_at": "2026-11-22T15:22:28Z"
+  },
+  {
+   "key": "status",
+   "path": "/api/player-status?season=2026&L=74598",
+   "status": 200,
+   "bytes": 113915,
+   "retrieved_at": "2026-11-22T15:22:29Z"
+  },
+  {
+   "key": "matchups_11",
+   "path": "/api/lineup-matchups?YEAR=2026&W=11",
+   "status": 200,
+   "bytes": 107152,
+   "retrieved_at": "2026-11-22T15:22:30Z"
+  },
+  {
+   "key": "nextSeason",
+   "path": "/api/cap-adjustments/next-season?L=74598&YEAR=2026",
+   "status": 200,
+   "bytes": 14318,
+   "retrieved_at": "2026-11-22T15:22:31Z"
+  },
+  {
+   "key": "players",
+   "path": "/api/mfl-export?TYPE=players&L=74598&YEAR=2026&JSON=1",
+   "status": 200,
+   "bytes": 190625,
+   "retrieved_at": "2026-11-22T15:22:32Z"
+  },
+  {
+   "key": "byes",
+   "path": "/api/mfl-export?TYPE=nflByeWeeks&L=74598&YEAR=2026&JSON=1",
+   "status": 200,
+   "bytes": 987,
+   "retrieved_at": "2026-11-22T15:22:33Z"
+  },
+  {
+   "key": "schedule_ALL",
+   "path": "/api/mfl-export?TYPE=nflSchedule&L=74598&YEAR=2026&JSON=1&W=ALL",
+   "status": 200,
+   "bytes": 115562,
+   "retrieved_at": "2026-11-22T15:22:33Z"
+  },
+  {
+   "key": "weekly_1",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=1",
+   "status": 200,
+   "bytes": 58089,
+   "retrieved_at": "2026-11-22T15:22:34Z"
+  },
+  {
+   "key": "scores_1",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=1",
+   "status": 200,
+   "bytes": 70353,
+   "retrieved_at": "2026-11-22T15:22:35Z"
+  },
+  {
+   "key": "weekly_2",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=2",
+   "status": 200,
+   "bytes": 86501,
+   "retrieved_at": "2026-11-22T15:22:35Z"
+  },
+  {
+   "key": "scores_2",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=2",
+   "status": 200,
+   "bytes": 70694,
+   "retrieved_at": "2026-11-22T15:22:36Z"
+  },
+  {
+   "key": "weekly_3",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=3",
+   "status": 200,
+   "bytes": 87065,
+   "retrieved_at": "2026-11-22T15:22:37Z"
+  },
+  {
+   "key": "scores_3",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=3",
+   "status": 200,
+   "bytes": 70484,
+   "retrieved_at": "2026-11-22T15:22:38Z"
+  },
+  {
+   "key": "weekly_4",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=4",
+   "status": 200,
+   "bytes": 58117,
+   "retrieved_at": "2026-11-22T15:22:38Z"
+  },
+  {
+   "key": "scores_4",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=4",
+   "status": 200,
+   "bytes": 69962,
+   "retrieved_at": "2026-11-22T15:22:39Z"
+  },
+  {
+   "key": "weekly_5",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=5",
+   "status": 200,
+   "bytes": 86279,
+   "retrieved_at": "2026-11-22T15:22:40Z"
+  },
+  {
+   "key": "scores_5",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=5",
+   "status": 200,
+   "bytes": 66187,
+   "retrieved_at": "2026-11-22T15:22:41Z"
+  },
+  {
+   "key": "weekly_6",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=6",
+   "status": 200,
+   "bytes": 85238,
+   "retrieved_at": "2026-11-22T15:22:42Z"
+  },
+  {
+   "key": "scores_6",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=6",
+   "status": 200,
+   "bytes": 61341,
+   "retrieved_at": "2026-11-22T15:22:43Z"
+  },
+  {
+   "key": "weekly_7",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=7",
+   "status": 200,
+   "bytes": 85175,
+   "retrieved_at": "2026-11-22T15:22:43Z"
+  },
+  {
+   "key": "scores_7",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=7",
+   "status": 200,
+   "bytes": 61617,
+   "retrieved_at": "2026-11-22T15:22:44Z"
+  },
+  {
+   "key": "weekly_8",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=8",
+   "status": 200,
+   "bytes": 56849,
+   "retrieved_at": "2026-11-22T15:22:44Z"
+  },
+  {
+   "key": "scores_8",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=8",
+   "status": 200,
+   "bytes": 62222,
+   "retrieved_at": "2026-11-22T15:22:45Z"
+  },
+  {
+   "key": "weekly_9",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=9",
+   "status": 200,
+   "bytes": 85529,
+   "retrieved_at": "2026-11-22T15:22:46Z"
+  },
+  {
+   "key": "scores_9",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=9",
+   "status": 200,
+   "bytes": 66128,
+   "retrieved_at": "2026-11-22T15:22:47Z"
+  },
+  {
+   "key": "weekly_10",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=10",
+   "status": 200,
+   "bytes": 85131,
+   "retrieved_at": "2026-11-22T15:22:47Z"
+  },
+  {
+   "key": "scores_10",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=10",
+   "status": 200,
+   "bytes": 63221,
+   "retrieved_at": "2026-11-22T15:22:48Z"
+  },
+  {
+   "key": "weekly_11",
+   "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=11",
+   "status": 200,
+   "bytes": 32244,
+   "retrieved_at": "2026-11-22T15:22:49Z"
+  },
+  {
+   "key": "scores_11",
+   "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=11",
+   "status": 200,
+   "bytes": 4516,
+   "retrieved_at": "2026-11-22T15:22:49Z"
+  },
+  {
+   "key": "schedule_10",
+   "path": "/api/mfl-export?TYPE=nflSchedule&L=74598&YEAR=2026&JSON=1&W=10",
+   "status": 200,
+   "bytes": 6009,
+   "retrieved_at": "2026-11-22T15:22:50Z"
+  },
+  {
+   "key": "schedule_11",
+   "path": "/api/mfl-export?TYPE=nflSchedule&L=74598&YEAR=2026&JSON=1&W=11",
+   "status": 200,
+   "bytes": 5576,
+   "retrieved_at": "2026-11-22T15:22:50Z"
+  }
+ ]
+}
