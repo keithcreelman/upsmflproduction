@@ -6,6 +6,8 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · audit record** · Keith's verbatim approval for the cutover plist change, the #1508 merge and the #1506 closure is posted with the clock order on #1399 (comment 7077605181) and #1503 (comment 7077605341). It is this session's own evidence; the message was typed into this session's chat. Its arrival is bounded between 03:41:35Z and 03:46:35Z; the exact time is not available. It is not retroactive approval from another session. #1501 and #1504 are not merged by this session; the backlog fork will relay the merge go. · Audit trail. · #1508, #1506.
+
 **2026-11-22 · verified** · First real cutover after the fix **succeeded** at 04:20Z (launchd exit 0).
 - CI passed 275/0 on `4bd2b0b3`.
 - Pull `55ba66be → 4bd2b0b3`, with 208 runtime files unchanged.
