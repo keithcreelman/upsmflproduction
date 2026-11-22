@@ -6,7 +6,8 @@
 //   node tests/pts_agst_window_no_leakage.test.mjs
 import { spawnSync } from "node:child_process";
 import assert from "node:assert";
-const r = spawnSync("python3", ["pipelines/analysis/pts_agst_window/leak_test_synthetic.py"], { encoding: "utf8", cwd: new URL("..", import.meta.url).pathname });
+import { fileURLToPath } from "node:url";
+const r = spawnSync("python3", ["pipelines/analysis/pts_agst_window/leak_test_synthetic.py"], { encoding: "utf8", cwd: fileURLToPath(new URL("..", import.meta.url)) });
 let fails = 0;
 const check = (n, fn) => { try { fn(); console.log("  ok   " + n); } catch (e) { fails++; console.log("  FAIL " + n + "\n         " + e.message); } };
 check("python3 ran the synthetic leakage test", () => assert.strictEqual(r.error, undefined, String(r.error)));
