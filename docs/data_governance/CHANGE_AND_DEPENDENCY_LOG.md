@@ -6,6 +6,14 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-22 · verified** · First real cutover after the fix **succeeded** at 04:20Z (launchd exit 0).
+- CI passed 275/0 on `4bd2b0b3`.
+- Pull `55ba66be → 4bd2b0b3`, with 208 runtime files unchanged.
+- Bot restarted as pid 77983, on the snapshot as of 2026-11-18, Week 10.
+- 0 held trades retried or posted. 1793273314 still needs a person.
+
+The job closed #1399. The shared main checkout is now even with `origin/main`, which also addresses BL-I01's "35 commits behind". **Open:** Week 11 snapshot delivery before the 11-25 deadline (unverified until it happens). · #1399 comment 7074125588. · Trade grading. · Watch the next delivery.
+
 **2026-11-22 · change (Mac + merge, on Keith's direct go in chat)** · Trade-bot snapshot cutover (#1399, BL-A12/BL-I01).
 - **Cause:** under the launchd PATH, `python3` was Apple 3.9.6 (`/opt/homebrew/bin/python3` does not exist), and the job's temp worktree path has a space. 11 + 3 test failures, the "13 failures on main" alert; `main` itself passes.
 - **Changes:**
