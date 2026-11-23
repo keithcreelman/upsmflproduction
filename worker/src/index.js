@@ -20313,11 +20313,11 @@ export default {
             at(r.week).team_totals = e ? { team: r.team, ...e } : null;
           }
           // Red zone (r6 draft): an absent nfl_player_redzone row is ZERO only in an nflverse box week
-          // (pos_group set; a PFR-only row is not a game) whose team-game the PBP run provably loaded: the
+          // (team set; a team-less PFR-only row is not a game) whose team-game the PBP run provably loaded: the
           // same fetch_nflverse_pbp.py run writes nfl_team_weekly.rz_pass_att (0 included) for every team-game
           // it loaded (0169) and a player row for any carry, dropback or target. Otherwise it stays null.
           // His teams' rows by idx_team_weekly_team (team, season): about one per week per team.
-          const rzGap = boxRows.filter((r) => r.pos_group != null && r.team != null && !(weeks[r.week] && weeks[r.week].redzone));
+          const rzGap = boxRows.filter((r) => r.team != null &&!(weeks[r.week] && weeks[r.week].redzone));
           if (rzGap.length) {
             const tms = [...new Set(rzGap.map((r) => String(r.team)))].slice(0, 8);
             let marks = null;

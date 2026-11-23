@@ -18,14 +18,14 @@
 // with a value, given only when it is fewer than his box weeks. An absent _ext row contributes nothing
 // (not a zero) to the ext sums; their cov says how many weeks had one.
 //
-// Box week (a game): an nfl_player_weekly row the nflverse weekly writer wrote, proven by pos_group IS NOT
-// NULL (fetch_nflverse_weekly.py sets it on every row, pos_group_of() never returns None; no other writer
-// sets it). `source` cannot prove it: its column DEFAULT is 'nflverse' (migration 0006), so a row INSERTed
-// by the PFR advanced-stats upsert (fetch_pfr_advstats.py _dual_write_d1) reads 'nflverse' too. A
-// PFR-only row (pos_group NULL) is not a game: it adds nothing to games, sums, cov or team totals, and
-// his ext / red-zone rows for that week are not read. Two PBP-proven exceptions: a PN row with `punts`
-// (the weekly payload has no punters; fetch_nflverse_pbp.py writes punt rows) and a PK row with an FG
-// distance bucket (same writer). Excluded rows are counted in `non_box_rows`.
+// Box week (a game): an nfl_player_weekly row with team IS NOT NULL. Only the nflverse weekly writer sets
+// team (with opponent, position, pos_group); the rows the PFR advanced-stats upsert INSERTs
+// (fetch_pfr_advstats.py _dual_write_d1) leave all four NULL. `source` cannot prove it: its column DEFAULT
+// is 'nflverse' (migration 0006), so those PFR rows read 'nflverse' too. A team-less row is not a game: it
+// adds nothing to games, sums, cov or team totals, and his ext / red-zone rows for that week are not read;
+// a player with only such rows is not in the pool. Two PBP-proven exceptions: a PN row with `punts` (the
+// weekly payload has no punters; fetch_nflverse_pbp.py inserts team-less punt rows) and a PK row with an
+// FG distance bucket (same writer). Excluded rows are counted in `non_box_rows`.
 //
 // Red zone: an absent nfl_player_redzone row is ZERO only for a box week whose (week, team) has the PBP
 // load marker nfl_team_weekly.rz_pass_att IS NOT NULL: the same fetch_nflverse_pbp.py run writes that team
@@ -81,7 +81,7 @@ const FG_PBP = ["fg_att_0_39", "fg_att_40_49", "fg_att_50_59", "fg_att_60plus"];
 
 // Which writer's evidence a box row carries (see the header): "nflverse", "pbp_punt", "pbp_fg" or "other".
 export function rowKind(r) {
-  if (r.pos_group != null) return "nflverse";
+  if (r.team != null) return "nflverse";
   if (r.punts != null) return "pbp_punt";
   if (FG_PBP.some((c) => r[c] != null)) return "pbp_fg";
   return "other";
@@ -89,7 +89,7 @@ export function rowKind(r) {
 const isBoxWeek = (kind, group) => kind === "nflverse" || (group === "PN" && kind === "pbp_punt") || (group === "PK" && kind === "pbp_fg");
 
 export const SQL = {
-  box: "SELECT gsis_id, week, team, pos_group, " + BOX_COLS.join(", ") + " FROM nfl_player_weekly WHERE season = ? AND week BETWEEN 1 AND ?",
+  box: "SELECT gsis_id, week, team, " + BOX_COLS.join(", ") + " FROM nfl_player_weekly WHERE season = ? AND week BETWEEN 1 AND ?",
   ext: "SELECT gsis_id, week, " + EXT_COLS.join(", ") + " FROM nfl_player_weekly_ext WHERE season = ? AND week BETWEEN 1 AND ?",
   rz: "SELECT gsis_id, week, " + RZ_COLS.join(", ") + " FROM nfl_player_redzone WHERE season = ? AND week BETWEEN 1 AND ?",
   snaps: "SELECT pfr_id, week, team, off_snaps, off_snap_pct, def_snaps, def_snap_pct, st_snaps FROM nfl_player_snaps WHERE season = ? AND week BETWEEN 1 AND ?",
@@ -122,7 +122,7 @@ export function buildGroups({ box, ext, rz, snaps, map, rzMarks = null }, season
   // team-week totals from every nflverse box row of the window (all positions), and team snaps from every snap row
   const team = {};
   for (const r of box || []) {
-    if (r.team == null || rowKind(r) !== "nflverse") continue;
+    if (r.team == null) continue;   // = rowKind(r) === "nflverse"
     const k = r.week + "|" + r.team, t = (team[k] = team[k] || {});
     for (const [out, c] of [["team_targets", "targets"], ["team_rush_att", "rush_att"], ["team_receptions", "receptions"], ["team_rec_air_yards", "receiving_air_yards"]]) {
       const v = num(r[c]); if (v != null) t[out] = (t[out] || 0) + v;

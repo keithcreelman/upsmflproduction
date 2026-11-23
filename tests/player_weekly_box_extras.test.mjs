@@ -258,8 +258,8 @@ test("position season stats: sums, team denominators, coverage, pool; one fill s
   t.ok(lb.sql.every((s) => !/FROM (nfl_player_weekly|nfl_player_weekly_ext|nfl_player_redzone|nfl_player_snaps|player_id_map)\b/.test(s)), lb.sql.join("\n"));
   t.deepEqual(lb.json.players.map((p) => [p.mfl_id, p.s.def_tackles_solo, p.s.def_tackles_with_assist, p.s.def_targets, p.s.def_snaps, p.s.team_def_snaps]), [["2005", 10, 1, 6, 136, 136]]);
   const db = await get(d1, "/api/position-season-stats?season=2026&through=3&group=DB", { cache });
-  t.deepEqual(db.json.players.map((p) => [p.mfl_id, p.s.def_tackles_solo, p.s.team_targets]), [["2006", 3, undefined]]);   // CB → DB; team-less row: no denominator
-  t.equal((db.json.players[0].cov || {}).team_targets, undefined);
+  // CB 2006's only row is team-less: not a box week (r7c: only the nflverse writer sets team), so he is not in the pool
+  t.deepEqual(db.json.players, []); t.equal(db.json.non_box_rows, 1);
   // through=1 is its own window; a stamp change refills
   const w1 = await get(d1, "/api/position-season-stats?season=2026&through=1&group=WR", { cache });
   t.equal(w1.json.players[0].s.targets, 9); t.equal(w1.json.players.length, 1);
@@ -324,9 +324,23 @@ test("red zone: absent row + PBP marker for his (week, team) = 0 and complete; n
   const rz2 = [{ gsis_id: "00-1", week: 1, ...RZ0, targets_i20: 2 }, { gsis_id: "00-1", week: 2, ...RZ0, targets_i20: 3, pass_cmp_i20: null }];
   p = wrOf(PS.buildGroups({ box: box.slice(0, 2), ext: [], rz: rz2, snaps: [], map: MAP1, rzMarks: [{ week: 1, team: "BUF" }, { week: 2, team: "BUF" }] }, 2026, 2));
   t.equal(p.s.targets_i20, 5); t.equal(p.cov.pass_cmp_i20, 1); t.equal((p.cov || {}).targets_i20, undefined);
-  // a team-less box week is never zero-filled
-  p = wrOf(PS.buildGroups({ box: [nv(1, { team: null })], ext: [], rz: [], snaps: [], map: MAP1, rzMarks: [{ week: 1, team: "BUF" }] }, 2026, 1));
-  t.equal(p.s.targets_i20, undefined);
+  // a team-less row is not a box week, so it is never zero-filled (and alone it puts no one in the pool)
+  t.equal(wrOf(PS.buildGroups({ box: [nv(1, { team: null })], ext: [], rz: [], snaps: [], map: MAP1, rzMarks: [{ week: 1, team: "BUF" }] }, 2026, 1)), undefined);
+});
+
+test("a player with ONLY blank (team-less) rows drops out of the pool, not 'missing'; others' snaps are unchanged", () => {
+  const map = [{ mfl_id: "7", gsis_id: "00-7", pfr_id: "Lb7", mfl_position: "LB" }, { mfl_id: "8", gsis_id: "00-8", pfr_id: "Lb8", mfl_position: "LB" }];
+  const g = PS.buildGroups({
+    box: [{ gsis_id: "00-7", week: 1, team: null, pos_group: null, def_pressures: 2 }, { gsis_id: "00-7", week: 2, team: null, pos_group: null, def_yards_allowed: 9 },
+      { gsis_id: "00-8", week: 1, team: "BUF", pos_group: "LB", def_tackles_solo: 4 }, { gsis_id: "00-8", week: 2, team: null, pos_group: null, def_pressures: 1 }],
+    ext: [{ gsis_id: "00-7", week: 1, def_targets: 3 }], rz: [],
+    snaps: [{ pfr_id: "Lb7", week: 1, team: "BUF", def_snaps: 20, def_snap_pct: 0.3 }, { pfr_id: "Lb8", week: 1, team: "BUF", def_snaps: 66, def_snap_pct: 1 },
+      { pfr_id: "Lb8", week: 2, team: "BUF", def_snaps: 60, def_snap_pct: 1 }],
+    map }, 2026, 2);
+  t.deepEqual(g.LB.players.map((p) => p.mfl_id), ["8"]);
+  const p = g.LB.players[0];
+  t.equal(p.games, 1); t.equal(p.snap_games, 2); t.equal(p.s.def_snaps, 126); t.equal(p.s.def_pressures, undefined);
+  t.equal(g.LB.non_box_rows, 3);
 });
 
 test("route: position stats read the PBP marker by its primary key; weekly box zero-fills only proven, nflverse weeks", async () => {
@@ -356,7 +370,7 @@ test("route: position stats read the PBP marker by its primary key; weekly box z
   t.equal(jw.games, 3); t.equal(jw.s.targets_i20, 3); t.equal(jw.s.receiving_air_yards, 220);
   t.equal((jw.cov || {}).targets_i20, undefined);                                // wk 1 row, wk 2 proven 0, wk 3 row: complete (was cov 2)
   t.equal(jw.cov.targets_ez, 2);                                                 // wk 3's stored NULL stays missing
-  t.equal(wr.json.non_box_rows, 1); t.equal(wr.json.rz_proven_team_weeks, 3);
+  t.equal(wr.json.non_box_rows, 2); t.equal(wr.json.rz_proven_team_weeks, 3);   // his week 4 + the team-less CB row (all mapped groups)
   // a failed marker read: no zero fill, every absent week missing
   d1.raw.exec("DROP TABLE nfl_team_weekly");
   const v2 = await box(d1, P.wr[0]);
