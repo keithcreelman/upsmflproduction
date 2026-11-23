@@ -6,6 +6,14 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-23 · dependency (Mobile Build R8; owner Infrastructure)** · Two new data dependencies, both open, nothing built.
+- **D4, traded-salary link:** 17 of 17 2026 Traded Salary adjustments carry only the franchise, the amount and the explanation text. Text pairing is ruled out by Keith.
+  - The code shows that `ups_trade_settlement_sweep` (0167) already stores `ref`, `traded_at_unix`, `mfl_trade_id`, payer and payee, and that `ups_trade_executions` (0160) records War Room trades.
+  - Next: one measured read-only match of the 17 refs against both tables, which needs Keith's go. A read-only route follows only if coverage is complete.
+- **D5, game-day club:** `fpa_engine.js:265-270` uses the nflverse weekly team and falls back to today's MFL club. That team comes from `nfl_player_weekly.team`, so the 812 team-NULL rows (D1) count as unconfirmed. D5 therefore follows #1518. Measure the 40–60k cold-build estimate locally before any route.
+
+· #1503 comments 7102289344 and 7102311876. · Mobile beta Traded salary, Opponent context. · Open.
+
 **2026-11-23 · change (draft #1518, head `7a5a8fbe`)** · Writer prevention, extended after Mobile Build's review.
 - **`require_parent` option:** `nfl_player_weekly_ext` is written only on keys with a team-set box row (no orphans), in the PFR def-ext write and two manual backfills.
 - **Update-only:** now also covers the two manual `nfl_player_weekly` backfills.
