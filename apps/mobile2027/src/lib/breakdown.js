@@ -223,7 +223,7 @@
     if (!OC || !o || o.state !== "ok" || !o.index) return null;
     var grp = OC.group(p.pos);
     if (!grp) return null;
-    return { head: '<th title="Opponent: UPS fantasy points allowed per game to this position, before this game (1 = fewest)">' + esc(OC.label ? OC.label(grp) : "Opp") + "</th>",
+    return { head: '<th title="Opponent: UPS fantasy points allowed per game to this position, before this game (1 = fewest)">' + esc("Opp vs " + (OC.label ? OC.label(grp) : grp)) + "</th>",
       cell: function (r) {
         if (r.bye || !r.game) return "<td>" + DASH + "</td>";
         var k = OC.rankFor(o.index, { pos: p.pos, oppClub: r.game.opp, week: r.week });
