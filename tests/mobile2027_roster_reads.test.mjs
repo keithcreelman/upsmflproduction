@@ -46,7 +46,10 @@ test("the two routes: exact path, exact query names, the worker only; anything e
   t.equal(u.status, WORKER + "/api/player-status?season=2026&L=74598");
   t.equal(u.matchups(11), WORKER + "/api/lineup-matchups?YEAR=2026&W=11");
   [u.status, u.matchups(11), u.matchups(3)].forEach((x) => t.ok(D.check(x, WORKER).ok, "allowed: " + x));
-  t.equal(D.RULES.length, 7, "seven allowed paths in all");
+  t.equal(D.RULES.length, 8, "eight allowed paths in all (R6 added /api/player-weekly-box)");
+  // R6 (Keith, 2026-11-22: the weekly-box read is authorized): allowed with exactly season, mfl_id and L, nothing else
+  t.ok(D.check(`${WORKER}/api/player-weekly-box?season=2026&mfl_id=1&L=74598`, WORKER).ok, "allowed with exactly season, mfl_id and L");
+  t.deepEqual(D.RULES.find((r) => r.path === "/api/player-weekly-box").query, ["season", "mfl_id", "L"]);
   const bad = [
     [`${WORKER}/api/player-status?season=2026&L=74598&MFL_USER_ID=x`, "a session id"],
     [`${WORKER}/api/player-status?season=2026&L=74598&refresh=1`, "a query name not on the list"],
@@ -57,7 +60,8 @@ test("the two routes: exact path, exact query names, the worker only; anything e
     [`${WORKER}/api/player-status/x?season=2026&L=74598`, "path not exact"],
     [`http://upsmflproduction.keith-creelman.workers.dev/api/player-status?season=2026&L=74598`, "not https"],
     [`https://example.com/api/lineup-matchups?YEAR=2026&W=11`, "other host"],
-    [`${WORKER}/api/player-weekly-box?season=2026&mfl_id=1`, "a neighboring route that was not approved"],
+    [`${WORKER}/api/player-weekly-box?season=2026&mfl_id=1&L=74598&W=1`, "a query name the weekly-box route does not take"],
+    [`${WORKER}/api/player-weekly-box?season=2026&mfl_id=1&L=74598&token=x`, "a token on the weekly-box route"],
     [`${WORKER}/api/fantasy-sos?season=2026`, "a neighboring route that was not approved"],
   ];
   bad.forEach(([x, why]) => t.equal(D.check(x, WORKER).ok, false, "refused (" + why + "): " + x));
