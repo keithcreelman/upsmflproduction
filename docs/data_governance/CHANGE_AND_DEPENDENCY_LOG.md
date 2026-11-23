@@ -6,6 +6,16 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-23 · finding (D6 writer, confirmed with Mobile Build's read-only rows)** · Three `Ext:` loss points; one is still live.
+- **Live:** the owner-extension preview recompute (`index.js` ~48740, since `13e4f300`) submits the `Ext:` list without the extending team. Seen on Cook 663, Hurts 666 and Love 669.
+- **Fixed earlier:**
+  - London 665 came through the pre-War-Room pre-trade path, which wrote no `Ext:`. The path in use since `371b4483` (09-27) appends the team.
+  - The FO v2 restructure dropped `Ext:` until `4c442d56` (#947, 08-22). The same-day backfill restored the pre-restructure token, which already lacked the extending team.
+- **Eligibility reads `Ext:`:** RULE-EXT-003 in the desktop and mobile Front Office, and the Worker acquisition candidates (~27249).
+- **Canon has no "extension appends the extender" or "once per franchise" sentence.** The order is canon wording (Keith), then the draft writer fix, then the 4 token corrections, each separately under §0.
+
+· #1503 comments 7105753972 and 7105788269. · Contract text, extension eligibility. · Open; NEEDS-KEITH.
+
 **2026-11-23 · finding (data discrepancy, reported by Mobile Build; owner Infrastructure for the writer)** · D6: the `Ext:` lineage in the contract text misses some 2026 extenders.
 - **Cases:** Cook, Love and Hurts have explicit 2026 owner extension records, but the token still names an older team. London's July 2026 "Restructure" added a year.
 - **Code (hypothesis, not verified against submission rows):** the pre-trade path appends the extender (`extension_pricing.js:305`, `lineageWithExtender`). The owner-extension recompute (`index.js` ~48740, since `13e4f300`, 2026-06-28) passes the live lineage with no extender.
