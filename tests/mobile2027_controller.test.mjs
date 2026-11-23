@@ -405,8 +405,8 @@ const scoreReads = (a) => a.calls.filter((c) => c.type === "playerScores").map((
 test("R3: Team › Contracts paints the table first and says Loading… for the guarantee column; the answer then fills it; nothing is $0 while it is out", async () => {
   const a = boot({ holdPen: true }); await tick(40); const n = a.calls.length;
   await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(5);
-  t.match(a.html(), /Cap space · 2026 season/); t.match(a.html(), /Remaining guarantee/); t.match(a.html(), /Loading…/, "the guarantee column says Loading");
-  t.doesNotMatch(a.html(), /Fully earned|Not applicable/); t.doesNotMatch(a.html(), /<b>\$0<\/b>/);
+  t.match(a.html(), /Cap space · 2026 season/); t.match(a.html(), /<span>If cut now<\/span>/); t.match(a.html(), /Loading…/, "the If cut now column says Loading (R8: it replaced the guarantee column)");
+  t.doesNotMatch(a.html(), /Fully earned|Not applicable|No guarantee|\$1K rule/); t.doesNotMatch(a.html(), /<b>\$0<\/b>/);
   t.deepEqual(a.calls.slice(n).map((c) => c.path + (c.type ? ":" + c.type : "")), ["/api/cap-penalty/preview", "/api/mfl-export:players"], "the extra reads are the guarantee calculation, asked after the table was drawn, and MFL's player list (PR A)");
   a.releasePen(); await tick(30);
   t.doesNotMatch(a.html(), /Loading…/); t.match(a.html(), /\$[\d,]+<\/b>|Fully earned|Not applicable|Under review|Unavailable/, "the column now holds guarantee values");

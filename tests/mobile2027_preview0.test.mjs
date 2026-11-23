@@ -361,8 +361,9 @@ test("the Player profile Contract tab: salary, years left, earned, remaining gua
   t.match(html, /Where these numbers come from/);
   t.match(html, /data-chain="\[&quot;https:\/\/a\.espncdn\.com\/i\/headshots\/nfl\/players\/full\/\d+\.png&quot;,&quot;https:\/\/www48\.myfantasyleague\.com\/player_photos_2014\/\d+_thumb\.jpg&quot;\]"/);
   const opened = V.app(state({ profile: { pid: p.id, tab: "contract" }, flags: { rules: true, earned: true, cut: true, raw: true } }));
-  t.match(opened, /Total value<\/b><span>\$70,000/); t.match(opened, /Guaranteed<\/b><span>\$52,500/); t.match(opened, /AAV \(as recorded\)<\/b><span>\$30,000/);
-  t.match(opened, /\$14,000 from played years \+ \$588 this season/); t.match(opened, /Guarantee \$52,500 minus earned \$14,588/);
+  t.match(opened, /Total value<\/b><span>\$70,000/); t.match(opened, /Guarantee<\/b><span>\$52,500<small>\$14,588 earned through Week 10<\/small>/); t.match(opened, /AAV \(as recorded\)<\/b><span>\$30,000/);
+  t.match(opened, /\$14,000 from played years \+ \$588 this season/); t.match(opened, /If cut now<\/b><span><b>\$37,912<\/b><small>Guarantee rule: the guaranteed amount not yet earned\.<\/small>/);
+  t.doesNotMatch(opened, /minus earned|Remaining guarantee|Vet-FAA|Rookie-Draft|>Type</, "R8: no arithmetic under If cut now, no duplicate guarantee, no internal type code");
   t.doesNotMatch(opened, /CL 3\| TCV 70K/); t.match(opened, /Nothing can be cut from here/);
 });
 
@@ -400,7 +401,7 @@ test("nothing is drawn as $0 when the worker's answer is missing, loading, faile
 test("the worker's own zero is shown as $0 (exempt cut), and the earned rules read as the Front Office words them", () => {
   const ex = Object.entries(FX.cap_penalty.players).find(([id, r]) => r.exempt && r.penalty === 0 && !r.needs_review);
   const html = V.app(state({ profile: { pid: ex[0], tab: "contract" }, flags: { cut: true } }));
-  t.match(html, /<b>\$0<\/b>/); t.match(html, new RegExp(ex[1].exempt_reason.slice(0, 20).replace(/[$.()§]/g, ".")));
+  t.match(html, /<b>\$0<\/b>/); const rw = C.cutRule(ex[1]); t.notEqual(rw.rule, "unknown", "the fixture's exempt basis is a known rule"); t.ok(html.includes(rw.words.replace(/’/g, "’")), "R8: the rule sentence, not the worker's exempt text");
   const full = Object.entries(FX.cap_penalty.players).find(([id, r]) => r.earned_rule === "full_year_sub_5k");
   t.match(V.app(state({ profile: { pid: full[0], tab: "contract" } })), /Full-year rule/);
   const wwna = Object.entries(FX.cap_penalty.players).find(([id, r]) => r.earned_rule === "ww_earned_na");

@@ -128,54 +128,54 @@ test("R6 P5: the separate 'Recorded salary, not cap space' card is gone; the one
   t.doesNotMatch(text(html), /Cap space, adjustments and penalties are not part of this preview/); t.doesNotMatch(html, /gotoview/);
 });
 
-// ───────────────────────── P6: the Guarantee left column ─────────────────────────
-// PR A revision (wording only): the column is "Remaining guarantee"; a calculated zero is "$0" with a second line "Fully earned"; "Not tracked" is "Not applicable"
-const GUAR = /^(Loading…|\$[\d,]+|\$0 Fully earned|Not applicable|Under review|Unavailable)$/;
+// ───────────────────────── P6 → R8: the If cut now column ─────────────────────────
+// R8 (Keith, 2026-11-23): the first column is "If cut now", the Worker's cut charge under the rule its basis names; the exceptions carry a short label.
+const GUAR = /^(Loading…|\$[\d,]+(?: Fully earned| No guarantee| \$1K rule| Taxi)?|Under review|Unavailable)$/;
 const guarCells = (html) => [...html.matchAll(/<span class="g">(.*?)<\/span><span/g)].map((m) => text(m[1]).trim());
+const usd = (n) => "$" + String(n).replace(/\B(?=(\d{3})+$)/g, ",");
 
-test("P6: the table renders before the guarantee read resolves; the column holds only guarantee values: Loading…, an amount, $0 Fully earned, Not applicable, Under review, Unavailable", () => {
+test("P6/R8: the table renders before the cut read resolves; the column holds only: Loading…, an amount (with its rule label for the exceptions), Under review, Unavailable", () => {
   const loading = body(V.app(state({ penalty: { state: "loading" } })));
-  t.ok(loading.includes("Cap space · ") && loading.includes('data-act="ctx"'), "the table is drawn with the guarantee read still out");
+  t.ok(loading.includes("Cap space · ") && loading.includes('data-act="ctx"'), "the table is drawn with the cut read still out");
   guarCells(loading).forEach((c) => t.equal(c, "Loading…"));
   const idle = body(V.app(state({ penalty: { state: "idle" } }))); guarCells(idle).forEach((c) => t.equal(c, "Loading…"));
   const ok = body(V.app(state()));
   const cells = guarCells(ok); t.equal(cells.length, teamPlayers(state()).length);
-  cells.forEach((c) => t.match(c, GUAR, "a guarantee value: " + c));
-  ["Not applicable", "Unavailable"].forEach((w) => t.ok(cells.includes(w), "the fixture has a row that is " + w));
+  cells.forEach((c) => t.match(c, GUAR, "a cut value: " + c));
+  t.ok(cells.some((c) => / (No guarantee|\$1K rule|Taxi|Fully earned)$/.test(c)), "the fixture has a rule-labeled row");
   t.ok(cells.some((c) => /^\$[\d,]+$/.test(c)), "and amounts");
 });
 
-test("P6: remaining guarantee is not a cut charge: a cut amount never appears in the Guarantee left column, only under 'If cut now' with its reason", () => {
+test("R8: the column is the Worker's cut charge, never the remaining guarantee; Details name the rule in one sentence, with no arithmetic", () => {
   const S = state(), tm = teamPlayers(S);
   const flat = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && r.earned_rule === "full_year_sub_5k" && r.penalty > 0; });
   const flat0 = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && r.earned_rule === "full_year_sub_5k" && r.penalty === 0; });
   const ww = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && r.earned_rule === "ww_earned_na"; });
-  const amt = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && !r.earned_rule && r.penalty > 0 && Number.isFinite(r.guaranteed) && Number.isFinite(r.earned); });
+  const amt = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && !r.earned_rule && r.penalty > 0 && Number.isFinite(r.guaranteed) && Number.isFinite(r.earned) && Math.max(0, r.guaranteed - r.earned) !== r.penalty; })
+    || tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && !r.earned_rule && r.penalty > 0; });
   [flat, flat0, ww, amt].forEach((p) => t.ok(p, "the fixture has each kind of contract"));
   const open = body(V.app(state({ ct: { f: "all", s: "exp", open: allOpen(S) } })));
   const rowOf = (p) => open.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
   const gcell = (p) => text(rowOf(p).match(/<span class="g">(.*?)<\/span><span/)[1]).trim();
-  t.equal(gcell(flat), "Not applicable"); t.equal(gcell(flat0), "Not applicable"); t.equal(gcell(ww), "Not applicable");
-  // the cut charge, in its own place, with the reason in owner language
-  const cutOf = (p) => text(rowOf(p).split("<b>If cut now</b>")[1].split("</span>")[0]);
-  t.match(cutOf(flat), new RegExp("\\$" + String(FX.cap_penalty.players[flat.id].penalty).replace(/\B(?=(\d{3})+$)/g, ",") + " · Flat rule: a contract paying the same small amount every year costs a fixed amount to cut\\."));
-  t.match(cutOf(flat0), /\$0 · No charge: /);
-  t.match(cutOf(ww), /\$0 · Waiver pickup of \$4K or less, in its final year/); t.doesNotMatch(cutOf(ww), /\.\)\.|\.\.|\.\s*\)/, "R6 integration: no doubled punctuation");
-  [flat, flat0, amt].forEach((p) => t.doesNotMatch(cutOf(p), /\.\)\.|\.\./, "no doubled punctuation"));
-  t.match(cutOf(amt), new RegExp("\\$" + String(FX.cap_penalty.players[amt.id].penalty).replace(/\B(?=(\d{3})+$)/g, ",")));
-  // the column never carries a cut amount: for the amount row, the column shows the remaining guarantee, which is not the penalty
-  const r = FX.cap_penalty.players[amt.id], rg = Math.max(0, r.guaranteed - r.earned);
-  t.equal(gcell(amt), "$" + String(Math.round(rg)).replace(/\B(?=(\d{3})+$)/g, ",")); t.ok(r.penalty !== rg || true);
+  const cutOf = (p) => text(rowOf(p).split("<b>If cut now</b>")[1].split("</span>")[0]).trim();
+  [flat, flat0, ww, amt].forEach((p) => {
+    const r = FX.cap_penalty.players[p.id], rule = C.cutRule(r);
+    t.equal(gcell(p), usd(r.penalty) + (rule.tag ? " " + rule.tag : ""), p.name + ": the cell is the worker's penalty and its rule label");
+    t.equal(cutOf(p), usd(r.penalty) + " " + rule.words, p.name + ": one sentence names the rule");
+    t.doesNotMatch(cutOf(p), /minus|\.\)\.|\.\.|§/, "no arithmetic, doubled punctuation or section codes");
+  });
   guarCells(open).forEach((c) => t.match(c, GUAR));
 });
 
-test("P6: '$0 Fully earned' only from a calculated zero; a failed read, a missing row and a row under review never draw $0", () => {
+test("P6/R8: '$0 Fully earned' only from the Worker's own $0 under the guarantee rule; a failed read, a missing row and a row under review never draw $0", () => {
   const S0 = state(), tm = teamPlayers(S0), p = tm.find((x) => { const r = FX.cap_penalty.players[x.id]; return r && !r.earned_rule && Number.isFinite(r.guaranteed) && Number.isFinite(r.earned) && r.guaranteed - r.earned > 0; });
   const players = clone(FX.cap_penalty.players);
-  players[p.id].earned = players[p.id].guaranteed; // a calculated zero
+  players[p.id].earned = players[p.id].guaranteed; players[p.id].penalty = 0; players[p.id].basis = "no_penalty_zero"; // the worker's calculated zero
   const zero = body(V.app(state({ penalty: penalty(players), ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   t.ok(guarCells(zero).includes("$0 Fully earned"), "a calculated zero reads $0 with a second line, Fully earned");
-  t.match(text(zero.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0]), /Remaining guarantee \$0 Guaranteed portion fully earned \$[\d,]+ guaranteed, \$[\d,]+ earned through Week 10/);
+  t.match(text(zero.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0]), /If cut now \$0 Guarantee rule: the guaranteed amount is fully earned, so nothing is owed\. Guarantee \$[\d,]+ \$[\d,]+ earned through Week 10/);
+  const kept = clone(FX.cap_penalty.players); kept[p.id].earned = kept[p.id].guaranteed;   // earned changed but the worker's penalty did not: the penalty is shown, never recomputed
+  t.ok(guarCells(body(V.app(state({ penalty: penalty(kept) })))).includes(usd(kept[p.id].penalty)));
   // failed read
   const failed = body(V.app(state({ penalty: { state: "error", error: "HTTP 500" }, ct: { f: "all", s: "exp", open: allOpen(S0) } })));
   guarCells(failed).forEach((c) => t.equal(c, "Unavailable")); t.doesNotMatch(failed, /Fully earned|<b>\$0<\/b>/);
@@ -189,7 +189,7 @@ test("P6: '$0 Fully earned' only from a calculated zero; a failed read, a missin
   const rev = clone(FX.cap_penalty.players); rev[p.id].needs_review = true; rev[p.id].review_reason = "Contract text needs review";
   const rh = body(V.app(state({ penalty: penalty(rev), ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   const rrow = rh.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
-  t.match(text(rrow.match(/<span class="g">(.*?)<\/span><span/)[1]), /^\s*Under review\s*$/); t.match(text(rrow), /Under review\. Contract text needs review/); t.doesNotMatch(rrow, /<b>\$0<\/b>/);
+  t.match(text(rrow.match(/<span class="g">(.*?)<\/span><span/)[1]), /^\s*Under review\s*$/); t.match(text(rrow), /If cut now Under review: Contract text needs review/); t.doesNotMatch(rrow, /<b>\$0<\/b>/);
 });
 
 test("P6/P3: a salary the worker or MFL did not record is n/r, not $0, in the table and in the totals", () => {

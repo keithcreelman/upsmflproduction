@@ -57,7 +57,7 @@ test("no extension: a 3-year deal from 2024 shows 2024, 2025 and 2026 (its own y
   t.deepEqual(yrs(h), [[2024, 5000, "done"], [2025, 5000, "done"], [2026, 5000, "now"]]); t.equal(h.start, 2024); t.equal(h.length, 3); t.ok(h.complete);
   t.equal(C.extension(p, 2026, TEAMS), null, "not an extension contract"); t.equal(C.extensionLine(null), "");
   // a real one from the recording: Javon Bullard (Rookie-Draft, CL 3)
-  t.match(detailsOf("Javon Bullard"), /Salary schedule 2024 Completed \$1,000 2025 Completed \$1,000 2026 This season \$1,000 Contract 3 years, 2024–2026/);
+  t.match(detailsOf("Javon Bullard"), /Salary schedule 2024 Completed \$1,000 2025 Completed \$1,000 2026 This season \$1,000 Term 2024–2026 \(3 years\) · Final year/);
   t.doesNotMatch(detailsOf("Javon Bullard"), /Extended/);
 });
 
@@ -74,7 +74,7 @@ test("extended in 2026 for two more years: the current contract is 2026/2027/202
   const er = P("CL 1|TCV 12K|AAV 12K|Y1-12K|Ext: Cash|GTD: 9K", 1, 12000, { type: "Vet-Ext1", franchiseId: "0011" });
   t.equal(C.extension(er, 2026, TEAMS).year, 2026);
   // recorded: Rico Dowdle extended in 2025 (CL 2, 1 left): 2025 is the extension's first year, so it stays in the current contract
-  t.match(detailsOf("Rico Dowdle"), /Salary schedule Extended by Blake Bombers · 2025 2025 Completed \$1,000 2026 This season \$11,000 Contract 2 years, 2025–2026/);
+  t.match(detailsOf("Rico Dowdle"), /Salary schedule Extended by Blake Bombers · 2025 2025 Completed \$1,000 2026 This season \$11,000 Term 2025–2026 \(2 years\) · Final year/);
 });
 
 test("a length that does not fit the extension type gives no extension year (no guess)", () => {
@@ -134,13 +134,13 @@ test("restructure: the re-based terms (canon §C5.1) start at the restructure; t
   t.deepEqual(yrs(hn), [[2026, 19000, "now"], [2027, 75000, "left"]]);
   const dn = detailsOf("Nico Collins");
   t.match(dn, /Salary schedule Extended by CBP 2026 This season \$19,000 2027 Remaining \$75,000 Restructured in 2026\. Years before the restructure are not in the recorded terms\./);
-  t.match(dn, /Contract Start not recorded, ends 2027/);
+  t.match(dn, /Term Start not recorded, ends 2027 · 2 years left/);
   // a re-based 2025 restructure keeps its recorded 2025 year (Chris Olave): listed, start still unknown
   t.deepEqual(yrs(C.history(player("Chris Olave"), 2026)), [[2025, 51000, "done"], [2026, 11000, "now"]]);
   // an auction contract restructured later: the auction year is its start; the year before the restructure is Not recorded (Terry McLaurin)
   const tm = C.history(player("Terry McLaurin"), 2026);
   t.equal(tm.start, 2025); t.equal(tm.startWhy, "auction"); t.deepEqual(yrs(tm), [[2025, null, "done"], [2026, 8000, "now"], [2027, 30000, "left"]]); t.equal(tm.earlier, "partial");
-  t.match(detailsOf("Terry McLaurin"), /2025 Completed Not recorded 2026 This season \$8,000 2027 Remaining \$30,000 Restructured in 2026\. Salaries before the restructure are not in the recorded terms\. .*Contract 3 years, 2025–2027/);
+  t.match(detailsOf("Terry McLaurin"), /2025 Completed Not recorded 2026 This season \$8,000 2027 Remaining \$30,000 Restructured in 2026\. Salaries before the restructure are not in the recorded terms\. .*Term 2025–2027 \(3 years\) · 2 years left .*Later changes Restructured 2026 Salary structure Back-loaded/);
   // a restructure token that is not the first recorded year (not re-based): the terms are read as they are
   const nr = C.history(P("CL 3| Y1-4K, Y2-5K, Y3-6K| Restructured 2025", 1, 6000), 2026); t.equal(nr.start, 2024); t.equal(nr.earlier, "recorded");
   t.equal(C.restructureYear("CL 2| restructure: 2025"), 2025); t.equal(C.restructureYear("Restructured 2026"), 2026); t.equal(C.restructureYear("CL 2"), null);
