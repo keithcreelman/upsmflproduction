@@ -325,6 +325,7 @@ button.btnrow{cursor:pointer}
 .cl.fy{padding:6px 0;min-height:32px;align-items:center}
 .link.fy .cl{padding:0;font-size:13px;color:var(--tx);font-weight:400}
 .link.fy .dtw{color:var(--ac);font-weight:600;font-size:12.5px;margin-left:6px}
+.rw .det .ext{font-size:13px;color:var(--mu);margin:-2px 0 2px;overflow-wrap:anywhere}
 /* ===== end R6 CONTRACTS ===== */
 /* (spacer 6) */
 /* (spacer 7) */
