@@ -272,4 +272,21 @@ t("pure ES5: no network, storage, DOM or clock", () => {
     assert.ok(!bad.test(code), "forbidden: " + bad);
 });
 
+// ── 7 wiring into the Fantasy game log (lib/breakdown.js fantasyColumns) ──
+t("the Fantasy log keeps Result without a supported matchup source, and swaps in 'Opp vs QB' when one is loaded", () => {
+  const BD = require(path.join(APP, "src", "lib", "breakdown.js"));
+  const p = { id: "qa", pos: "QB" };
+  const heads = (cols) => cols.map((c) => c.head.replace(/<[^>]*>/g, ""));
+  // no source (the recording): Result stays, no matchup column, nothing invented
+  assert.deepEqual(heads(BD.fantasyColumns({ intel: {} }, p)), ["Pts", "Rank", "Result"]);
+  assert.deepEqual(heads(BD.fantasyColumns({ intel: { opp: { state: "error" } } }, p)), ["Pts", "Rank", "Result"]);
+  // a supported index: the third column becomes the matchup column with the pregame rank
+  const S = { intel: { opp: { state: "ok", index: O.build(std()) } } };
+  const cols = BD.fantasyColumns(S, p);
+  assert.deepEqual(heads(cols), ["Pts", "Rank", "Opp vs QB"]);
+  assert.equal(cols[2].cell({ week: 3, game: { opp: "CCC" } }).replace(/<[^>]*>/g, ""), "1st");
+  assert.equal(cols[2].cell({ week: 3, bye: true }).replace(/<[^>]*>/g, ""), "—", "a bye has no matchup");
+  assert.equal(cols[2].cell({ week: 1, game: { opp: "AAA" } }).replace(/<[^>]*>/g, ""), "—", "Week 1 has no prior games");
+});
+
 console.log("mobile2027_r8_oppctx: " + n + " passed");

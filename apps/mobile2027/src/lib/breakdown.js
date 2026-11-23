@@ -11,11 +11,12 @@
     req ? require("./boxlog.js") : root.UPS2027.boxlog,
     req ? require("./tabviews.js") : root.UPS2027.tabviews,
     req ? require("./clubhist.js") : root.UPS2027.clubhist,
-    req ? require("./statranks.js") : root.UPS2027.statranks
+    req ? require("./statranks.js") : root.UPS2027.statranks,
+    req ? require("./oppctx.js") : root.UPS2027.oppctx
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.breakdown = api; }
-})(typeof self !== "undefined" ? self : this, function (F, BL, TV, CH, SR) {
+})(typeof self !== "undefined" ? self : this, function (F, BL, TV, CH, SR, OC) {
   "use strict";
   var esc = F.esc, DASH = "—", ENDASH = "–";
 
@@ -214,8 +215,24 @@
 
   // The Fantasy view's columns after the pinned Game column, through ONE function so a column can be swapped in one place (R8 seam: the
   // integrator replaces Result with the opponent-matchup column; the NFL result stays in each game's detail line). [{ head, cell(r) }]
-  function fantasyColumns() {
-    return [
+  // R8 item 10: the opponent matchup column ("Opp vs QB: 24th", lib/oppctx.js) replaces Result ONLY when a supported matchup source is loaded
+  // (S.intel.opp: { state: "ok", index } built by oppctx.build from a weekly points-against answer). Without one (this recording has none: no
+  // game-day club per scorer per week), the log keeps its Result column and nothing is invented; the NFL result is also in each game's detail.
+  function oppColumn(S, p) {
+    var o = S && S.intel && S.intel.opp;
+    if (!OC || !o || o.state !== "ok" || !o.index) return null;
+    var grp = OC.group(p.pos);
+    if (!grp) return null;
+    return { head: '<th title="Opponent: UPS fantasy points allowed per game to this position, before this game (1 = fewest)">' + esc(OC.label ? OC.label(grp) : "Opp") + "</th>",
+      cell: function (r) {
+        if (r.bye || !r.game) return "<td>" + DASH + "</td>";
+        var k = OC.rankFor(o.index, { pos: p.pos, oppClub: r.game.opp, week: r.week });
+        return k && k.state === "ok" ? "<td>" + esc(OC.ordinal(k.rank)) + "</td>" : '<td class="mu">' + DASH + "</td>";
+      } };
+  }
+  function fantasyColumns(S, p) {
+    var opp = S && p ? oppColumn(S, p) : null;
+    var cols = [
       { head: '<th class="n">Pts</th>', cell: function (r) { var ps = ptsText(r); return '<td class="n">' + (r.ptsKind === "score" ? "<b>" + esc(ps) + "</b>" : '<span class="mu"' + (r.ptsKind === "unreadable" ? ' title="This score could not be read"' : "") + ">" + esc(ps) + "</span>") + "</td>"; } },
       { head: '<th class="n" title="Rank among players at his position that week (exact only)">Rank</th>', cell: function (r) { return cell(r.rank || null); } },
       { head: "<th>Result</th>", cell: function (r) {
@@ -224,13 +241,15 @@
         return "<td>" + esc(res || DASH) + (pt && pt !== "Bye" ? "<small>" + esc(pt) + "</small>" : "") + "</td>";
       } }
     ];
+    if (opp) cols[2] = opp;   // the matchup column replaces Result; the result stays in the game's detail line
+    return cols;
   }
 
   // The Game log tab: the view control (Fantasy / Stats / Usage / Red zone, or the position's alternatives), the weekly table, each game's detail.
   function logHtml(S, p, rs, inp, boxRec, views, v, st) {
     var pid = String(p.id), out = "";
     if (views.length > 1) out += '<div class="seg' + (views.length === 4 ? " seg4" : "") + '" role="group" aria-label="Game log view">' + views.map(function (x) { return '<button data-act="bdv" data-v="' + x[0] + '" data-pid="' + esc(pid) + '" aria-pressed="' + (v === x[0]) + '">' + x[1] + "</button>"; }).join("") + "</div>";
-    var fan = v === "fan" ? fantasyColumns() : null, cols = fan ? [] : BL.columns(p.pos, v);
+    var fan = v === "fan" ? fantasyColumns(S, p) : null, cols = fan ? [] : BL.columns(p.pos, v);
     var heads = fan ? fan.map(function (c) { return c.head; }) : cols.map(function (c) { return '<th class="n" title="' + esc(c.t) + '">' + esc(c.h) + "</th>"; });
     var ncol = heads.length + 1, openW = st.g[pid];
     out += '<div class="bdw"><table class="bdt"><thead><tr><th class="pin">Game</th>' + heads.join("") + "</tr></thead><tbody>";
