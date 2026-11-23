@@ -537,6 +537,24 @@
     }).join("") + "</div>";
   }
 
+  // The ONE known-issues list of the recorded test build (R7b final): shown in About, reached from the marker's "Known issues" button. Screens say
+  // "Not available" or "—" where a figure is missing and Rank details say why; they do not repeat these notes.
+  var KNOWN_ISSUES = [
+    "Test build: not reviewed or accepted yet. Figures are a recording and will not change.",
+    "Many season stat ranks show — while some players’ figures are incomplete. The stat values still show; Rank details under the season stats say why. Two data problems cause most of these and are being fixed: red-zone rows not yet proven complete, and blank defensive stat rows added by a second stats feed.",
+    "Kicking distance bands: a kicker’s attempts from a distance are incomplete when he missed a kick, because missed-kick distances are not in the stats feed, so those band ranks show —.",
+    "Points-per-game rank shows — for everyone: team history is not in this recording.",
+    "Pass rate over expected, punter inside-20 distance bands, sack fumbles, missed-kick distances, longest plays and yards after catch are not in this recording.",
+    "xFP and Over Expectations are Not Available everywhere.",
+    "Minimum attempts, carries, targets or snaps for rate ranks are proposals, not approved yet.",
+    "Game stats were recorded for 117 players (three full teams plus examples); other players show their fantasy log only.",
+    "Projections cover Week 11 only and were recorded for 342 of 486 rostered players.",
+    "Nine extensions show the extending team without a year, because a later restructure hid it.",
+    "The top bar wraps to three lines on a 320-pixel-wide screen.",
+    "Not checked on a real iPhone in Safari, or signed in to MFL."
+  ];
+  function knownIssuesCard() { return '<div class="card" id="known-issues"><h2>Known issues in this test build</h2><ul class="pl">' + KNOWN_ISSUES.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>"; }
+
   function aboutSheet(S) {
     var log = S.requestLog || [], sum = S.requestSummary || { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 };
     var rows = log.map(function (e) {
@@ -545,6 +563,7 @@
       return '<div class="lg"><span class="lgw">' + esc(e.label || "") + "<small>" + esc(what) + '</small></span><span class="lgr">' + esc(e.method) + " " + esc(res) + (e.bytes != null ? "<small>" + Math.round(e.bytes / 1024) + " KB · " + (e.ms || 0) + " ms</small>" : "") + "</span></div>";
     }).join("");
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="About Preview 0" tabindex="-1"><div class="grab"></div><div class="top"><h3>About Preview 0</h3><button class="btn" data-act="close">Close</button></div>' +
+      (S.recorded ? knownIssuesCard() : "") +
       '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of redesigned screens: Team (Roster with Lineup and Byes and a week selector, Contracts, Performance) and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
       '<div class="card"><h2>Data</h2><div class="ex">' + (S.recorded ? "This preview uses a recorded snapshot taken " + esc(S.recorded.label) + ", not the live league. The figures will not move." + (S.recorded.later ? " Game stats, season totals and projections were recorded later that day, " + esc(S.recorded.later) + "." : "") : "Read from the league when this page opened" + (S.model ? " (" + esc(F.etStamp(S.model.asOf) || "just now") + ")" : "") + ". Each answer is kept for up to a minute.") + "</div>" + (sampleOn(S) ? '<div class="ex">Reloading is paused while Sample mode is on.</div>' : '<button class="btn blk" data-act="retry">' + (S.recorded ? "Reload the recorded data" : "Reload the data") + "</button>") + "</div>" +
       '<div class="card"><h2>Display</h2>' + chipRow("skin", [["system", "Match my phone"], ["light", "Light"], ["dark", "Dark"], ["hc", "High contrast"]], S.skin, "Skin") + chipRow("vib", [["1", "Vibrant"], ["0", "Plain"]], S.vib, "Position colors") + "</div>" +
@@ -559,7 +578,7 @@
   function sampleOn(S) { return !!(S.sample && S.sample.on); }
   function envBar(S) {
     var on = sampleOn(S), rec = !on && S.recorded ? S.recorded.label + (S.recorded.later ? "; game stats " + S.recorded.later : "") : "";
-    return '<div class="envbar' + (on ? " sample" : rec ? " rec" : "") + '"><span>' + esc(SM.envText(on, rec)) + "</span></div>";
+    return '<div class="envbar' + (on ? " sample" : rec ? " rec" : "") + '"><span>' + esc(SM.envText(on, rec)) + "</span>" + (rec ? ' <button class="link" data-act="about">Known issues</button>' : "") + "</div>";
   }
   function sampleScreen() {
     return header("Sample mode", "") + '<div id="screen"><div class="card hl"><h2>Sample mode</h2><div class="big2"><b>Nothing here is real, and nothing is sent.</b></div>' +
@@ -579,5 +598,5 @@
     return envBar(S) + screen + nav(S) + layer;
   }
 
-  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS };
+  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS };
 });

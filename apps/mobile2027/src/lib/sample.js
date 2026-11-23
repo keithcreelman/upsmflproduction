@@ -32,7 +32,7 @@
   // says the page shows a recording, so nobody takes a figure for a live one. Sample mode keeps its own label.
   function envText(on, recorded) {
     if (on) return LABEL;
-    return recorded ? "PREVIEW · RECORDED DATA · recorded " + recorded + " · VIEW ONLY" : PREVIEW;
+    return recorded ? "TEST BUILD · RECORDED DATA · recorded " + recorded + " · VIEW ONLY" : PREVIEW;
   }
 
   return { LABEL: LABEL, PREVIEW: PREVIEW, create: create, envText: envText };

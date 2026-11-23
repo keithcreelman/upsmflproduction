@@ -283,7 +283,8 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   const ok = (where) => { t.doesNotMatch(a.html(), TROUBLE, where + ": no failure text"); t.deepEqual(a.misses(), [], where + ": nothing was asked that is not in the recording"); t.deepEqual(a.net, [], where + ": no network attempt"); };
   // boot: the first team, the marker, the data-as-of line, the Roster lineup
   t.match(a.html(), /Starting lineup · /); t.match(a.html(), new RegExp(FIRST.franchise_name)); t.equal(FIRST.franchise_name, "Blake Bombers");
-  t.match(a.html(), /<div class="envbar rec"><span>PREVIEW · RECORDED DATA · recorded Sun Nov 22, 2026, 10:22 AM ET; game stats 10:11–10:14 PM ET · VIEW ONLY<\/span><\/div>/, "the marker says it is a recording, and both capture times (R7)");
+  t.match(a.html(), /<div class="envbar rec"><span>TEST BUILD · RECORDED DATA · recorded Sun Nov 22, 2026, 10:22 AM ET; game stats 10:11–10:14 PM ET · VIEW ONLY<\/span> <button class="link" data-act="about">Known issues<\/button><\/div>/, "the marker says it is a test build and a recording, both capture times, and opens the one known-issues list (R7b final)");
+  t.equal((a.html().match(/Known issues/g) || []).length, 1, "the known-issues list is not repeated on the screens");
   t.doesNotMatch(a.html(), /Preview: view only/);
   t.match(a.html(), /Data as of Sun 10:22 AM ET · Week 11/, "the Data as of line is the roster read's own generated_at");
   t.match(a.html(), /▲ Questionable|Questionable/, "injury chips drawn from the recorded status read");

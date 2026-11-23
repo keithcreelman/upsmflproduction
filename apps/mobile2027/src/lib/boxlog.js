@@ -277,17 +277,18 @@
       secs.push({ h: "Usage", items: snapItems.concat([D("Special-teams snaps", function (r) { return snapsOf(r, "st"); }, null, settled.filter(function (r) { return !!r.snaps; }), "st_snaps")]) });
     } else if (g.kind === "k") {
       // made/attempted over the weeks where both are recorded; 0/0 is a real answer (no attempt from that distance), a week with neither is not counted
-      // key: the made/attempted row of all field goals ranks on field goals made (volume); a distance band or extra points rank on the make rate
-      var ma = function (m, a, key, rate) {
+      // key: the made/attempted row of all field goals ranks on field goals made (volume); a distance band ranks on ATTEMPTS from that distance
+      // (volume, R7b final: not accuracy); extra points rank on the make rate. how: "made" | "att" | "rate" (the raw figure the rank checks)
+      var ma = function (m, a, key, how) {
         var both = withBox.filter(function (r) { return bx(r, m) != null && bx(r, a) != null; }), mv = sumOf(both, b(m)).v, av = sumOf(both, b(a)).v;
-        return { label: null, value: both.length ? int(mv) + "/" + int(av) : null, n: both.length, of: withBox.length, key: key, raw: !both.length ? null : rate ? (av > 0 ? mv / av : null) : mv };
+        return { label: null, value: both.length ? int(mv) + "/" + int(av) : null, n: both.length, of: withBox.length, key: key, raw: !both.length ? null : how === "rate" ? (av > 0 ? mv / av : null) : how === "att" ? av : mv };
       };
-      var fg = ma("fg_made", "fg_att", "fg_made"); fg.label = "Field goals made/attempted";
-      var b1 = ma("fg_made_0_39", "fg_att_0_39", "fg_pct_0_39", true); b1.label = "0 to 39 yards";
-      var b2 = ma("fg_made_40_49", "fg_att_40_49", "fg_pct_40_49", true); b2.label = "40 to 49 yards";
-      var b3 = ma("fg_made_50_59", "fg_att_50_59", "fg_pct_50_59", true); b3.label = "50 to 59 yards";
-      var b4 = ma("fg_made_60plus", "fg_att_60plus", "fg_pct_60plus", true); b4.label = "60 yards or more";
-      var xp = ma("xp_made", "xp_att", "xp_pct", true); xp.label = "Extra points made/attempted";
+      var fg = ma("fg_made", "fg_att", "fg_made", "made"); fg.label = "Field goals made/attempted";
+      var b1 = ma("fg_made_0_39", "fg_att_0_39", "fg_att_0_39", "att"); b1.label = "0 to 39 yards";
+      var b2 = ma("fg_made_40_49", "fg_att_40_49", "fg_att_40_49", "att"); b2.label = "40 to 49 yards";
+      var b3 = ma("fg_made_50_59", "fg_att_50_59", "fg_att_50_59", "att"); b3.label = "50 to 59 yards";
+      var b4 = ma("fg_made_60plus", "fg_att_60plus", "fg_att_60plus", "att"); b4.label = "60 yards or more";
+      var xp = ma("xp_made", "xp_att", "xp_pct", "rate"); xp.label = "Extra points made/attempted";
       secs.push({ h: "Kicking", items: [fg, R("Field goal rate", b("fg_made"), b("fg_att"), pct, null, "fg_pct"), b1, b2, b3, b4, xp, longest("fg_long")].filter(Boolean) });
     } else if (g.kind === "p") {
       secs.push({ h: "Punting", items: [S("Punts", "punts"), R("Gross average", b("punt_yds"), b("punts"), function (v) { return v.toFixed(1); }, null, "gross"), S("Inside 20", "punt_inside20"), R("Inside 20 rate", b("punt_inside20"), b("punts"), pct, null, "i20_pct")] });
