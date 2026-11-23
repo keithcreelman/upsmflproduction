@@ -1,6 +1,12 @@
 # Design note: play-by-play load record (#1503 D2)
 
-**Status:** proposal for review (2026-11-23). Nothing is built, migrated or deployed. A migration needs Keith's go. The reader side is coordinated with Mobile Build (#1515) and is not settled until that session agrees.
+**Status:** proposal (2026-11-23). Mobile Build agreed to the design, with the notes below; that is not approval of any migration, backfill or merge, which each need Keith's own go.
+
+**Mobile Build's notes, adopted:**
+- #1515 consults the load row only for a team-set box week, keyed on that row's team.
+- It summarizes only weeks where every game is final.
+- "0, verified" also needs `plays_loaded > 0`.
+- Coverage is labeled "inferred" (the `rz_pass_att` marker) or "verified" (a load row). Nothing is built, migrated or deployed. A migration needs Keith's go. The reader side is coordinated with Mobile Build (#1515) and is not settled until that session agrees.
 
 ## Problem
 `pipelines/etl/scripts/fetch_nflverse_pbp.py` loads a season's nflverse play-by-play (`nflreadpy.load_pbp`) and writes per-player-week red-zone rows (`nfl_player_redzone`) and per-team-week rows (`nfl_team_weekly`). Nothing records which **games** that run contained.
@@ -29,7 +35,8 @@ CREATE TABLE IF NOT EXISTS nfl_pbp_load_team_weeks (
 - **Writer:** `fetch_nflverse_pbp.py`, in the same run, after its red-zone and team-weekly writes succeed. It uses `D1Writer` with `pk_cols=(season, week, team)` and `change_ignore_cols=["loaded_at_utc"]`, so an unchanged team-week writes 0 rows.
 - **No write on failure:** a run that fails before this step writes no load row. That is the point: a missing load row means **unknown**.
 - **Reader rule (the zero-row test):** for a player-week whose team is known from `nfl_player_weekly.team`:
-  - load row present, `game_final = 1`, no red-zone row → **0, verified**;
+  - load row present, `game_final = 1`, `plays_loaded > 0`, no red-zone row → **0, verified**;
+  - load row present with `plays_loaded = 0` → **unknown** (the file had the game but no plays);
   - load row present, `game_final = 0` → **in progress, not final**;
   - no load row → **unknown, not zero**.
 - **Why team-week, not game:** the reader already has (season, week, team), so the lookup is one primary-key read. It needs no game join and no extra index. A bye week simply has no row.

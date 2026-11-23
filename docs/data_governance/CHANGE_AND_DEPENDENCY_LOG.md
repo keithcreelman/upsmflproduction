@@ -6,6 +6,17 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-23 · change (draft #1518, head `7a5a8fbe`)** · Writer prevention, extended after Mobile Build's review.
+- **`require_parent` option:** `nfl_player_weekly_ext` is written only on keys with a team-set box row (no orphans), in the PFR def-ext write and two manual backfills.
+- **Update-only:** now also covers the two manual `nfl_player_weekly` backfills.
+- **PBP kicking/punting writer:** deliberately unchanged, because punters have no box row. Follow-up: set its team.
+- **Measured scope:** 812 team-NULL rows (2024: 351, 2025: 308, 2026 W1–10: 153) plus 153 `_ext` rows.
+- **Verify on the first scheduled refresh** with Mobile Build's read-only counts; that is the gate before cleanup.
+- **D2 design:** Mobile Build agreed (notes adopted: `plays_loaded > 0`, final weeks only, "inferred" vs "verified" labels).
+- **Keith's four workstreams stay separate:** writer prevention, cleanup, Worker interpretation, re-recording.
+
+· #1518, #1503 comments 7100047786 and 7100091145. · Mobile beta Performance, Stats. · Draft.
+
 **2026-11-23 · change (drafts)** · #1503 D1/D2.
 - **D1:** draft #1518 (head `94e8d23c`, local 278/0) adds an opt-in `update_only` mode to `D1Writer`/`build_insert`, used only for `nfl_player_weekly` in `fetch_pfr_advstats.py`, so PFR never creates rows. Mobile Build measured 153 blank rows (131 players, Weeks 1–10, all from the defense payload), read-only, 35,090 rows read; 137 → 152 → 153 is consistent with new rows on each refresh. Existing rows are untouched; cleanup needs Keith's go.
 - **D2:** design note `designs/PBP_LOAD_RECORD.md`, a per-team-week load record with an explicit unknown/zero/in-progress rule. It is for review with Mobile Build (#1515); a migration and backfill would each need Keith's go.
