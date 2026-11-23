@@ -84,7 +84,7 @@ test("the route is allowed with exactly season, mfl_id and L; anything else is r
     ["https://example.com/api/player-weekly-box?season=2026&mfl_id=1&L=74598", "other host"]].forEach(([u, why]) => t.equal(D.check(u, WORKER).ok, false, "refused: " + why));
 });
 
-test("one bare GET per player and season, reused across views, tabs and reopening; a failure is not kept past a minute; recorded mode asks nothing", async () => {
+test("one bare GET per player and season, reused across views, tabs and reopening; a failure is not kept past a minute; recorded mode asks only the recording", async () => {
   const calls = []; let now = 1_800_000_000_000, fail = 1; const real = Date.now; Date.now = () => now;
   try {
     const L = D.createLoader(CFG, async (url, opts) => { calls.push({ url, opts }); if (fail-- > 0) return { ok: false, status: 503, text: async () => "" }; return ok(FXB.box[new URL(url).searchParams.get("mfl_id")]); });
@@ -95,8 +95,10 @@ test("one bare GET per player and season, reused across views, tabs and reopenin
     now += 59 * 60 * 1000; await L.loadWeeklyBox("16185"); t.equal(calls.length, 3, "kept for an hour");
     calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.equal(c.opts.headers, undefined); t.equal(c.opts.body, undefined); });
     const bad = await L.loadWeeklyBox("16185&L=1"); t.equal(bad.state, "error"); t.equal(calls.length, 3, "an id that is not a plain MFL id is refused before the network");
-    const recCalls = []; const R = D.createLoader(Object.assign({ data: "recorded" }, CFG), async (u) => { recCalls.push(u); return ok({}); });
-    const a = await R.loadWeeklyBox("16185"); t.equal(a.state, "absent"); t.equal(recCalls.length, 0, "recorded mode: no request, no fallback"); t.equal(R.log.length, 0, "and nothing in the request log");
+    // R7 (recorded preview with game stats): in recorded mode the read goes to the recorded answer function (the page's only request function then,
+    // which never touches the network); a player who was not recorded gets its 404-like miss, which the loader reports as "absent", once
+    const recCalls = []; const R = D.createLoader(Object.assign({}, CFG, { data: "recorded" }), async (u) => { recCalls.push(u); return { ok: false, status: 404, text: async () => "" }; });
+    const a = await R.loadWeeklyBox("16185"); t.equal(a.state, "absent"); t.equal(recCalls.length, 1, "recorded mode: one read of the recording"); await R.loadWeeklyBox("16185"); t.equal(recCalls.length, 1, "absent is kept, not asked again");
   } finally { Date.now = real; }
 });
 

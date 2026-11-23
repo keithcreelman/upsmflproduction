@@ -28,9 +28,30 @@
     { path: "/api/cap-adjustments/next-season", query: ["L", "YEAR"] },
     // R6: one player's NFL game stats for one season (public nflverse box score, red zone and snaps, matched to the MFL id by the Worker); asked for once per player
     // when his Breakdown is shown, kept in memory and reused across views, tabs and reopening the profile
-    { path: "/api/player-weekly-box", query: ["season", "mfl_id", "L"] }
+    { path: "/api/player-weekly-box", query: ["season", "mfl_id", "L"] },
+    // R7 (Keith, 2026-11-23): two reads of the DRAFT Worker #1515, not deployed. Live, they answer 404 today, which the loader reports as "not available"
+    // (asked once per freshness window, never retried in a loop). The captured MFL projection per player for one week, with its capture times:
+    { path: "/api/player-projections", query: ["season", "week", "ids"] },
+    // and one position group's league-wide season sums through a week (the pool for season stat ranks):
+    { path: "/api/position-season-stats", query: ["season", "through", "group"] }
   ];
   var SECRET_NAME = /mfl_user_id|apikey|api_key|key|token|session|cookie|password|auth/i;
+  // R7: the draft routes' own limits (worker/src/player_projections.js MAX_IDS; worker/src/position_season_stats.js POSITION_GROUPS)
+  var PROJECTION_IDS = 80;
+  var POSITION_GROUPS = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
+  // [ids] unique and ascending, or null when any id is not a plain MFL id (nothing is asked for then)
+  function normIds(ids) {
+    var raw = Array.isArray(ids) ? ids : String(ids == null ? "" : ids).split(","), seen = {}, out = [];
+    for (var i = 0; i < raw.length; i++) {
+      var id = String(raw[i] == null ? "" : raw[i]).trim();
+      if (!id && !Array.isArray(ids)) continue;
+      if (!/^\d{1,7}$/.test(id)) return null;
+      if (!seen[id]) { seen[id] = 1; out.push(id); }
+    }
+    return out.sort(function (a, b) { return Number(a) - Number(b); });
+  }
+  function numOrNull(v) { return typeof v === "number" && isFinite(v) ? v : null; }
+  function strOrNull(v) { return typeof v === "string" && v ? v : null; }
 
   // { ok:true, rule } or { ok:false, reason }. `rules` is only passed by tests, to prove each layer refuses on its own:
   // the credential-name layer must refuse even if the query-name allowlist were widened by mistake.
@@ -75,7 +96,10 @@
       schedule: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: w }); },
       byes: base + "/api/mfl-export?" + q({ TYPE: "nflByeWeeks", L: L, YEAR: Y, JSON: 1 }),
       fullSchedule: base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: "ALL" }),
-      box: function (id) { return base + "/api/player-weekly-box?" + q({ season: Y, mfl_id: id, L: L }); }
+      box: function (id) { return base + "/api/player-weekly-box?" + q({ season: Y, mfl_id: id, L: L }); },
+      // ids: a comma-separated list, already unique, ascending and at most PROJECTION_IDS long (projections() makes it)
+      projections: function (season, week, ids) { return base + "/api/player-projections?" + q({ season: season, week: week, ids: ids }); },
+      positionStats: function (season, through, group) { return base + "/api/position-season-stats?" + q({ season: season, through: through, group: group }); }
     };
 
     function get(url, label) {
@@ -114,12 +138,13 @@
     // Each added read is kept in memory by its exact address and reused (switching views, weeks or teams never asks again).
     // It is asked again only on an explicit reload, or when its freshness limit has passed and the screen is used again.
     var memo = {};
-    var LIMIT = { status: 4 * 60 * 1000 + 30 * 1000, matchups: 5 * 60 * 1000, weekly: 60 * 60 * 1000, scores: 10 * 60 * 1000, players: 6 * 60 * 60 * 1000, box: 60 * 60 * 1000 };
+    var LIMIT = { status: 4 * 60 * 1000 + 30 * 1000, matchups: 5 * 60 * 1000, weekly: 60 * 60 * 1000, scores: 10 * 60 * 1000, players: 6 * 60 * 60 * 1000, box: 60 * 60 * 1000, projections: 5 * 60 * 1000, positionStats: 60 * 60 * 1000 };
     function cached(key, limit, run, force) {
       var m = memo[key], now = Date.now();
       if (!force && m) {
         if (m.state === "loading") return m.promise;
-        if (m.state === "ok" && now - m.at <= limit) return m.promise;
+        // R7: "absent" (not deployed, or not recorded) is kept like an answer: it is asked again only after the freshness limit, never in a loop
+        if ((m.state === "ok" || m.state === "absent") && now - m.at <= limit) return m.promise;
         if (m.state === "error" && now - m.at <= 60 * 1000) return m.promise;
       }
       var rec = { state: "loading", at: now, promise: null };
@@ -297,14 +322,23 @@
       });
       return out;
     }
-    // R6: one player's NFL game stats for the season. In recorded-data mode the recording has no such answer, so nothing is asked for: the answer is
-    // "absent" at once, with no request and no fallback. An id that is not a plain MFL id is refused before the network.
+    // R7: a read settled with its HTTP status kept (get() pushes its log entry before it returns, so the last entry is this read's).
+    function settleStatus(url, label) {
+      var p = get(url, label), entry = log[log.length - 1];
+      return settle(p).then(function (r) { r.status = entry ? entry.status : null; return r; });
+    }
+    // "not available": a draft route that is not deployed answers 404; in recorded mode a route that is not in the recording answers 404 too (and is
+    // counted as a miss by lib/recorded.js). Either way the screen says Not available; it is not an error and it is not asked again in a loop.
+    function absentIf404(r) { return r.state === "error" && r.status === 404 ? { state: "absent", data: null, error: "Not available" } : r; }
+    // R6: one player's NFL game stats for the season. R7: in recorded-data mode the read goes to the recording like every other read (no network): a player
+    // whose game stats were recorded gets them; any other player's read is a counted miss and comes back "absent". An id that is not a plain MFL id is refused
+    // before any request.
     function loadWeeklyBox(id, force) {
       var pid = String(id == null ? "" : id).trim();
       if (!/^\d{1,7}$/.test(pid)) return Promise.resolve({ state: "error", data: null, error: "Unexpected player id" });
-      if (cfg.data === "recorded") return Promise.resolve({ state: "absent", data: null, error: "" });
       return cached("box:" + pid, LIMIT.box, function () {
-        return settle(get(urls.box(pid), "game stats, player " + pid)).then(function (r) {
+        return settleStatus(urls.box(pid), "game stats, player " + pid).then(function (r) {
+          if (cfg.data === "recorded") r = absentIf404(r);
           if (r.state !== "ok") return r;
           var j = r.data;
           if (!j || j.ok !== true || !Array.isArray(j.weeks)) return { state: "error", data: null, error: "Unexpected answer" };
@@ -312,6 +346,63 @@
         });
       }, force);
     }
+
+    // R7: the captured MFL projections of some players for one week (draft #1515 /api/player-projections). `ids`: an array or a comma-separated text of MFL ids.
+    // The ids are made unique and ascending and asked in groups of at most PROJECTION_IDS (the route's own limit), each group once per freshness window.
+    // -> { state: "ok", data: { season, week, provider, projections: { id: { projected_score, captured_at, first_projected, first_captured_at, capture_count } | null } } },
+    //    { state: "absent" } (the route is not deployed, or not in the recording), or { state: "error" }. A player with no stored row is null, never 0.
+    // This read does not decide "pregame": the caller compares captured_at (or first_captured_at) with the kickoff of the game he played (lib/data.js gameDays).
+    function projections(season, week, ids, force) {
+      var s = String(season == null ? "" : season).trim(), w = Number(week);
+      if (!/^\d{4}$/.test(s) || !(Math.floor(w) === w && w >= 1 && w <= 22)) return Promise.resolve({ state: "error", data: null, error: "Unexpected season or week" });
+      var list = normIds(ids);
+      if (!list) return Promise.resolve({ state: "error", data: null, error: "Unexpected player id" });
+      if (!list.length) return Promise.resolve({ state: "ok", data: { season: Number(s), week: w, provider: "", projections: {} } });
+      var groups = [];
+      for (var i = 0; i < list.length; i += PROJECTION_IDS) groups.push(list.slice(i, i + PROJECTION_IDS));
+      return Promise.all(groups.map(function (g) {
+        var url = urls.projections(s, w, g.join(","));
+        return cached("proj:" + url, LIMIT.projections, function () {
+          return settleStatus(url, "projections, week " + w).then(function (r) {
+            r = absentIf404(r);
+            if (r.state !== "ok") return r;
+            var j = r.data;
+            if (!j || j.ok !== true || Number(j.season) !== Number(s) || Number(j.week) !== w || !j.projections || typeof j.projections !== "object" || Array.isArray(j.projections)) return { state: "error", data: null, error: "Unexpected answer" };
+            var out = {};
+            for (var k = 0; k < g.length; k++) {
+              var e = Object.prototype.hasOwnProperty.call(j.projections, g[k]) ? j.projections[g[k]] : undefined;
+              if (e === undefined) return { state: "error", data: null, error: "Unexpected answer" };   // every asked id is answered (null when there is no row)
+              if (e !== null && (typeof e !== "object" || Array.isArray(e))) return { state: "error", data: null, error: "Unexpected answer" };
+              out[g[k]] = e === null ? null : { projected_score: numOrNull(e.projected_score), captured_at: strOrNull(e.captured_at), first_projected: numOrNull(e.first_projected), first_captured_at: strOrNull(e.first_captured_at), capture_count: numOrNull(e.capture_count) };
+            }
+            return { state: "ok", data: { provider: String(j.provider || ""), projections: out }, at: Date.now() };
+          });
+        }, force);
+      })).then(function (rs) {
+        for (var a = 0; a < rs.length; a++) if (rs[a].state === "error") return { state: "error", data: null, error: rs[a].error };
+        for (var b = 0; b < rs.length; b++) if (rs[b].state !== "ok") return { state: "absent", data: null, error: "Not available" };
+        var merged = {}, provider = "";
+        rs.forEach(function (r) { provider = provider || r.data.provider; Object.keys(r.data.projections).forEach(function (id) { merged[id] = r.data.projections[id]; }); });
+        return { state: "ok", data: { season: Number(s), week: w, provider: provider, projections: merged } };
+      });
+    }
+    // R7: one position group's league-wide season sums through a week (draft #1515 /api/position-season-stats): the answer as sent (players[] with mfl_id,
+    // games, snap_games, s: sums, cov: coverage when a field is missing in some weeks), or { state: "absent" } / { state: "error" }. Ranks are the caller's.
+    function positionSeasonStats(season, through, group, force) {
+      var s = String(season == null ? "" : season).trim(), t = Number(through), g = String(group == null ? "" : group).trim().toUpperCase();
+      if (!/^\d{4}$/.test(s) || !(Math.floor(t) === t && t >= 1 && t <= 18) || POSITION_GROUPS.indexOf(g) < 0) return Promise.resolve({ state: "error", data: null, error: "Unexpected season, week or group" });
+      var url = urls.positionStats(s, t, g);
+      return cached("pss:" + url, LIMIT.positionStats, function () {
+        return settleStatus(url, "season totals, " + g + " through week " + t).then(function (r) {
+          r = absentIf404(r);
+          if (r.state !== "ok") return r;
+          var j = r.data;
+          if (!j || j.ok !== true || Number(j.season) !== Number(s) || Number(j.through) !== t || j.group !== g || !Array.isArray(j.players)) return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: j, at: Date.now() };
+        });
+      }, force);
+    }
+
     function loadSchedule(week, parse, force) {
       return cached("sched:" + week, 2 * 60 * 1000, function () {
         return settle(get(urls.schedule(week), "NFL schedule, week " + week)).then(function (r) {
@@ -343,8 +434,8 @@
       return by;
     }
 
-    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadCalendar: loadCalendar, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, loadWeeklyBox: loadWeeklyBox, clearErrors: clearErrors, summary: summary };
+    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadCalendar: loadCalendar, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, loadWeeklyBox: loadWeeklyBox, projections: projections, positionSeasonStats: positionSeasonStats, clearErrors: clearErrors, summary: summary };
   }
 
-  return { RULES: RULES, check: check, createLoader: createLoader };
+  return { RULES: RULES, check: check, createLoader: createLoader, PROJECTION_IDS: PROJECTION_IDS, POSITION_GROUPS: POSITION_GROUPS, normIds: normIds };
 });
