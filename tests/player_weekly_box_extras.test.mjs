@@ -378,4 +378,58 @@ test("route: position stats read the PBP marker by its primary key; weekly box z
   t.equal(net.length, 0);
 });
 
+// ── r7c-2: appearance = team-set row; zero-stat appearances; K/P validity ──
+const MAPZ = [["10", "00-10", "WR"], ["11", "00-11", "LB"], ["12", "00-12", "PK"], ["13", "00-13", "PN"], ["14", "00-14", "LB"]]
+  .map(([mfl_id, gsis_id, mfl_position]) => ({ mfl_id, gsis_id, pfr_id: null, mfl_position }));
+const zeros = (cols) => Object.fromEntries(cols.map((c) => [c, 0]));
+const OFF_NV = ["pass_att", "pass_cmp", "pass_yds", "pass_tds", "pass_ints", "pass_sacks", "pass_sack_yds", "rush_att", "rush_yds", "rush_tds",
+  "rush_fumbles_lost", "targets", "receptions", "rec_yds", "rec_tds", "rec_fumbles_lost"];
+const IDP_NV = ["def_tackles_solo", "def_tackles_ast", "def_tackles_total", "def_tfl", "def_qb_hits", "def_sacks", "def_sack_yds", "def_ff",
+  "def_fr", "def_ints", "def_pass_def", "def_tds"];
+const K_NV = ["fg_att", "fg_made", "xp_att", "xp_made"];
+const P_PBP = ["punts", "punt_yds", "punt_inside20", "punt_tb", "punt_net_yds_sum", "punt_inside5", "punt_inside10", "punt_inside15", "punt_inside20_pbp"];
+const one = (g, grp, mfl) => g[grp].players.find((p) => p.mfl_id === mfl);
+
+test("zero-stat appearances (team set, every stat 0) are games with 0 values and complete coverage: offense, IDP, K with 0 attempts, P", () => {
+  const g = PS.buildGroups({ box: [
+    { gsis_id: "00-10", week: 1, team: "ATL", pos_group: "WR", ...zeros(OFF_NV) },
+    { gsis_id: "00-10", week: 2, team: "ATL", pos_group: "WR", ...zeros(OFF_NV), targets: 3, receptions: 2 },
+    { gsis_id: "00-11", week: 1, team: "NE", pos_group: "LB", ...zeros(IDP_NV) },
+    { gsis_id: "00-12", week: 1, team: "HOU", pos_group: "PK", ...zeros(K_NV) },
+    { gsis_id: "00-13", week: 1, team: "NYG", pos_group: "PN", ...zeros(P_PBP) },
+  ], ext: [], rz: [], snaps: [], map: MAPZ, rzMarks: [{ week: 1, team: "ATL" }] }, 2026, 2);
+  const wr = one(g, "WR", "10"), lb = one(g, "LB", "11"), k = one(g, "PK", "12"), p = one(g, "PN", "13");
+  t.equal(wr.games, 2); t.equal(wr.s.targets, 3); t.equal(wr.s.pass_att, 0); t.equal(wr.s.rush_yds, 0);
+  for (const c of OFF_NV) t.equal((wr.cov || {})[c], undefined, "WR " + c);
+  // red zone on a zero-stat appearance with a marker: 0 (week 1 ATL marked); week 2 unmarked → partial
+  t.equal(wr.s.targets_i20, 0); t.equal(wr.cov.targets_i20, 1);
+  t.equal(lb.games, 1); for (const c of IDP_NV) { t.equal(lb.s[c], 0, "LB " + c); t.equal((lb.cov || {})[c], undefined); }
+  t.equal(k.games, 1); for (const c of K_NV) { t.equal(k.s[c], 0, "K " + c); t.equal((k.cov || {})[c], undefined); }
+  t.equal(k.s.fg_att_0_39, undefined);   // 0 attempts: PBP writes no FG-bucket row, so the bands are missing, not 0
+  t.equal(p.games, 1); for (const c of P_PBP) { t.equal(p.s[c], 0, "P " + c); t.equal((p.cov || {})[c], undefined); }
+  t.equal(g.WR.non_box_rows, 0);
+});
+
+test("team-NULL rows: a PFR-def row and its ext row are ignored; a K/P row counts only for PK/PN with PBP kick/punt fields", () => {
+  const g = PS.buildGroups({ box: [
+    { gsis_id: "00-14", week: 1, team: "BUF", pos_group: "LB", ...zeros(IDP_NV), def_tackles_solo: 5, def_pressures: 1 },
+    { gsis_id: "00-14", week: 2, team: null, pos_group: null, def_pressures: 3, def_completions_allowed: 2, def_yards_allowed: 14 },   // PFR-def payload
+    { gsis_id: "00-11", week: 1, team: null, pos_group: null, fg_att_0_39: 1, punts: 2 },          // K/P fields on an LB: ignored
+    { gsis_id: "00-12", week: 1, team: null, pos_group: null, fg_att_40_49: 1, fg_made_40_49: 1 }, // PBP FG upsert (:556), no nflverse row
+    { gsis_id: "00-12", week: 2, team: null, pos_group: null, def_pressures: 1 },                  // team-less, no FG bucket: ignored
+    { gsis_id: "00-13", week: 1, team: null, pos_group: null, punts: 4, punt_yds: 180 },           // PBP punt upsert (:619)
+    { gsis_id: "00-13", week: 2, team: null, pos_group: null, fg_att_0_39: 1 },                    // FG bucket on a punter: ignored
+  ], ext: [{ gsis_id: "00-14", week: 1, def_targets: 2 }, { gsis_id: "00-14", week: 2, def_targets: 6, def_tackles_with_assist: 1 }],
+  rz: [], snaps: [], map: MAPZ }, 2026, 2);
+  const lb = one(g, "LB", "14");
+  t.equal(lb.games, 1); t.equal(lb.s.def_pressures, 1); t.equal(lb.s.def_yards_allowed, undefined);
+  t.equal(lb.s.def_targets, 2); t.equal(lb.s.def_tackles_with_assist, undefined);   // the week-2 ext row (on the blank row) is not read
+  t.equal(one(g, "LB", "11"), undefined);
+  const k = one(g, "PK", "12");
+  t.deepEqual([k.games, k.s.fg_att_40_49, k.s.fg_made_40_49, k.s.fg_att], [1, 1, 1, undefined]);   // nflverse totals missing, not 0
+  const p = one(g, "PN", "13");
+  t.deepEqual([p.games, p.s.punts, p.s.punt_yds], [1, 4, 180]);
+  t.equal(g.LB.non_box_rows, 4);
+});
+
 await run("player_weekly_box_extras");

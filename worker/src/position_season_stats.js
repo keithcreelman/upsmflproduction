@@ -23,9 +23,14 @@
 // (fetch_pfr_advstats.py _dual_write_d1) leave all four NULL. `source` cannot prove it: its column DEFAULT
 // is 'nflverse' (migration 0006), so those PFR rows read 'nflverse' too. A team-less row is not a game: it
 // adds nothing to games, sums, cov or team totals, and his ext / red-zone rows for that week are not read;
-// a player with only such rows is not in the pool. Two PBP-proven exceptions: a PN row with `punts` (the
-// weekly payload has no punters; fetch_nflverse_pbp.py inserts team-less punt rows) and a PK row with an
-// FG distance bucket (same writer). Excluded rows are counted in `non_box_rows`.
+// a player with only such rows is not in the pool. A team-set row whose stats are all 0 IS an appearance
+// (the nflverse writer fills 0, not NULL): a game with 0 values and complete coverage.
+// Two narrow PBP exceptions, for the MFL group only: a PN row with `punts` and a PK row with an FG distance
+// bucket. fetch_nflverse_pbp.py's D1 writes are upserts (D1Writer INSERT … ON CONFLICT): FG :556 and punts
+// :619 (local stub INSERT :604) can create a team-less row for a kicker / punter whose nflverse row is
+// missing (e.g. the nflverse_weekly step failed before nflverse_pbp ran), and a PBP kick or punt by him
+// is direct evidence that he played. Production D1 had none in 2012-2026 (2026-11-23). Excluded rows are
+// counted in `non_box_rows`.
 //
 // Red zone: an absent nfl_player_redzone row is ZERO only for a box week whose (week, team) has the PBP
 // load marker nfl_team_weekly.rz_pass_att IS NOT NULL: the same fetch_nflverse_pbp.py run writes that team
