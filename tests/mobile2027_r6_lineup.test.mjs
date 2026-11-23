@@ -54,7 +54,7 @@ const state = (intel, over) => ({
 });
 const text = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
 const team = (S) => S.model.teams.find((x) => x.id === S.teamId);
-const badgeOf = (html, pid) => { const r = html.split('<div class="rx').find((x) => x.includes('data-pid="' + pid + '"') && /^[^>]*><span class="tag /.test(x)); return r ? (/<span class="(tag [^"]*)"[^>]*>(.*?)<\/span>(?=<div class="in">)/.exec(r) || [])[0] || "" : ""; };
+const badgeOf = (html, pid) => { const r = html.split('<div class="rx').find((x) => x.includes('data-pid="' + pid + '"') && /^[^>]*><(?:span|button) class="tag /.test(x)); return r ? (/<(?:span|button) class="(tag [^"]*)"[^>]*>(.*?)<\/(?:span|button)>(?=<div class="in">)/.exec(r) || [])[0] || "" : ""; };
 
 test("slot badges: numbered labels, OFX/SFX/DFX, the occupying player's position color, and the position as text on a flex badge", async () => {
   const intel = await intelFor(), S = state(intel), lu = R.lineupFor(S, team(S), 11), html = V.rosterBody(S);
@@ -63,9 +63,9 @@ test("slot badges: numbered labels, OFX/SFX/DFX, the occupying player's position
   lu.slots.forEach((x) => {
     const b = badgeOf(html, x.player.id);
     t.ok(b, x.slot.tag + ": badge drawn");
-    t.match(b, new RegExp('class="tag sl ps ' + x.player.pos + (x.slot.flex ? " fx" : "") + '"'), x.slot.tag + " carries " + x.player.pos + "'s color class");
+    t.match(b, new RegExp('class="tag sl ps ' + x.player.pos + (x.slot.flex ? " fx" : "") + ' pbt"'), x.slot.tag + " carries " + x.player.pos + "'s color class");
     t.ok(b.includes(">" + x.slot.tag + "<"), x.slot.tag + ": the text label stays");
-    if (x.slot.flex) { t.match(b, new RegExp("<i>" + x.player.pos + "</i>"), x.slot.tag + ": the position is printed too"); t.match(b, /role="img" aria-label="[A-Z0-9]+, [A-Za-z ]+, [A-Z]{2}"/); }
+    if (x.slot.flex) { t.match(b, new RegExp("<i>" + x.player.pos + "</i>"), x.slot.tag + ": the position is printed too"); t.match(b, /aria-label="[A-Z0-9]+, [A-Za-z ]+, [A-Z]{2}\. Plan a change for this slot"/); }   // R12: the current-week badge is the planner's button; same label
   });
   // a QB in SFX uses the QB color: put the team's bench QB (or any other QB) into the superflex spot
   const m = model(), tm = m.teams.find((x) => x.id === TEAM), sfx = R.lineupFor(state(intel, { model: m }), tm, 11).slots.find((x) => x.slot.tag === "SFX").player;
@@ -75,14 +75,14 @@ test("slot badges: numbered labels, OFX/SFX/DFX, the occupying player's position
   const S2 = state(intel, { model: m }), slot = R.lineupFor(S2, tm, 11).slots.find((x) => x.slot.tag === "SFX");
   t.equal(slot.player.id, otherQB.id, "the second QB fills SFX");
   const b2 = badgeOf(V.rosterBody(S2), otherQB.id);
-  t.match(b2, /class="tag sl ps QB fx"/); t.match(b2, /<b>SFX<\/b><i>QB<\/i>/);
+  t.match(b2, /class="tag sl ps QB fx pbt"/); t.match(b2, /<b>SFX<\/b><i>QB<\/i>/);
   // the CSS gives .ps.QB the existing QB color variables (vibrant skin); plain skin stays neutral
   t.match(CSS, /\[data-vib="1"\] \.tag\.sl\.ps\.QB\{background:var\(--pq\);color:var\(--pqt\);border-color:var\(--pq\)\}/);
   ["RB", "WR", "TE"].forEach((p) => t.match(CSS, new RegExp("\\.tag\\.sl\\.ps\\." + p + "\\{")));
   t.match(CSS, /\.tag\.sl\.ps\.DL,\[data-vib="1"\] \.tag\.sl\.ps\.LB,\[data-vib="1"\] \.tag\.sl\.ps\.DB\{/);
   // an empty slot is neutral and keeps its label; a past week's rows are recorded order numbers, never a slot or a color
   const short = V.rosterBody(state(intel, { teamId: SHORT }));
-  t.match(short, /<span class="tag sl fx" role="img" aria-label="DFX, Defensive flex, empty"><b>DFX<\/b><\/span><div class="in"><b>Empty<\/b>/);
+  t.match(short, /<button class="tag sl fx pbt" data-act="plan" data-v="DFX" aria-label="DFX, Defensive flex, empty\. Plan a change for this slot"><b>DFX<\/b><\/button><div class="in"><b>Empty<\/b>/);
   t.doesNotMatch(V.rosterBody(state(intel, { wk: 10 })), /class="tag sl ps|class="tag sl fx/);
   // bench, IR and taxi rows keep the existing colored position badge
   const html3 = V.rosterBody(S);
@@ -129,7 +129,7 @@ test("kickoffs: every matchup in Eastern Time, Sunday 1:00 PM included; the form
   const active = team(S).players.filter((p) => p.status === "active");
   let shown = 0, sun1 = 0;
   active.forEach((p) => {
-    const k = R.kickoffInfo(S, p, 11), row = html.split('<div class="rx').find((x) => x.includes('data-pid="' + p.id + '"') && /^[^>]*><span class="tag /.test(x));
+    const k = R.kickoffInfo(S, p, 11), row = html.split('<div class="rx').find((x) => x.includes('data-pid="' + p.id + '"') && /^[^>]*><(?:span|button) class="tag /.test(x));
     if (!row || R.onBye(p, 11)) return;
     if (k.state === "known") { t.ok(text(row).includes(k.text), p.name + ": " + k.text); shown++; if (k.text === "Sun 1:00 PM ET") sun1++; }
     if (k.state === "unknown") t.match(text(row), /Kickoff unavailable/);
@@ -156,7 +156,7 @@ test("Bench, IR and Taxi: one card each, open with the full list, collapsible, b
   // every listed name opens the profile; the only controls are read-only ones
   [...html.matchAll(/data-act="card" data-pid="(\d+)" aria-label="([^"]+), open player profile"/g)].forEach((m) => t.ok(S.model.byId[m[1]], m[2]));
   const acts = new Set([...html.matchAll(/data-act="([a-z]+)"/g)].map((m) => m[1]));
-  [...acts].forEach((a) => t.ok(["card", "grp", "weeks", "view", "teams", "help"].includes(a), "read-only control: " + a));
+  [...acts].forEach((a) => t.ok(["card", "grp", "weeks", "view", "teams", "help", "plan"].includes(a), "read-only control: " + a));
   t.doesNotMatch(text(html), /\b(Swap|Replace|Start|Sit|Move|Promote|Activate|Call up)\b/);
   // collapsing: the heading flips, the players disappear, the count stays
   const shut = V.rosterBody(state(intel, { open: { bench: false, ir: false, taxi: false } }));

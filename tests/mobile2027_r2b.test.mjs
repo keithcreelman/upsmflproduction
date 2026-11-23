@@ -57,7 +57,7 @@ const state = (intel, over) => ({
 });
 const text = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
 // one player's roster row (not his entry in the starting-decisions card, which has no slot or position tag), cut off before whatever follows it
-const rowOf = (html, pid) => { const r = html.split('<div class="rx').find((x) => x.includes('data-pid="' + pid + '"') && /^[^>]*>(<span class="tag )/.test(x)); return r && r.split(/<div class="(?:ex|grp|card|lbl|chs)/)[0]; };
+const rowOf = (html, pid) => { const r = html.split('<div class="rx').find((x) => x.includes('data-pid="' + pid + '"') && /^[^>]*>(<(?:span|button) class="tag )/.test(x)); return r && r.split(/<div class="(?:ex|grp|card|lbl|chs)/)[0]; };
 const starterOf = (S, i) => R.lineupFor(S, S.model.teams.find((x) => x.id === TEAM), 11).slots[i].player;
 // R6 (Keith, 2026-11-22): Lineup draws "▲ n need(s) attention" in its warning card, only when there is an issue; Byes keeps one summary line
 // "Starting lineup · 18/18 · n need attention". (Changed deliberately from R2b's "18 of 18 starters · ..." card and line.)
@@ -140,7 +140,7 @@ test("P3: the card lists each slot that needs attention once: OUT, an MFL design
   // no write control: no Replace, no Swap, no button that is not a profile or navigation
   t.doesNotMatch(tx, /\b(Replace|Swap|Start him|Sit him|Make the move)\b/i);
   const acts = [...html.matchAll(/data-act="([a-z]+)"/g)].map((m2) => m2[1]);
-  t.ok(acts.every((x) => ["card", "view", "pickweek", "weeks", "grp", "expall", "teams", "nav", "sub", "help"].includes(x)), "only read-only controls: " + [...new Set(acts)].join(","));
+  t.ok(acts.every((x) => ["card", "view", "pickweek", "weeks", "grp", "expall", "teams", "nav", "sub", "help", "plan"].includes(x)), "only read-only controls: " + [...new Set(acts)].join(","));
   // R6: the repeated read-only explanations above and below the lineup are removed (the controls themselves are read-only, pinned above)
   t.doesNotMatch(tx, /Read only: nothing here can change the lineup|Nothing here can change it/);
 });

@@ -110,6 +110,16 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .tag.pp{border:0;background:transparent}
 /* R2 (Team › Roster): the demo's slot tag, flag row, problem and empty rows, the four-way view switch, the week bar and the summary line */
 .tag.sl{border:1.5px solid var(--bs);background:var(--s2);align-self:flex-start;margin-top:4px}
+/* R12: the Lineup planner. A slot badge is the control (44 px target); "Planned" / "Was starting" chips; the plan card; the team-sheet mark */
+.tag.sl.pbt{flex-basis:44px;width:44px;height:44px;padding:0;font:inherit;font-size:12px;font-weight:700;color:inherit;cursor:pointer;margin-top:2px;box-shadow:inset 0 -3px 0 var(--ac)}
+.tag.sl.pbt:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+.chip.pl{color:var(--ac);border-color:var(--ac)}
+.planc{border:1.5px solid var(--ac)}
+.planc .plt{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.planc .plt .btn{min-height:44px}
+.ex.plh{padding-top:2px}
+.sheet .so small.plm{color:var(--ac);font-weight:600}
+.sheet .so small.wn{color:var(--wn)}
 .rx.prob{box-shadow:inset 4px 0 0 var(--wn);padding-left:8px;margin-left:-4px}
 .rx.empty .in b{color:var(--wn)}
 .rx .fl{display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
