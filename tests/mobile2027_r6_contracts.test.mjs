@@ -151,7 +151,7 @@ test("recorded league: 475 of 486 current contracts have a fully supported sched
   t.deepEqual(n, { full: 475, partial: 1, none: 0, restructured: 10 }); t.equal(oneYr, 171); t.equal(past, 163); t.equal(pastFull, 162);
 });
 
-test("Details (R8): the schedule, then one Term line, Contract Type, Contract Source, Later changes, Salary structure, If cut now with its rule; the guarantee line only under the guarantee rule; no section codes, no internal codes", () => {
+test("Details (R8): the schedule, then one Term line, Contract Type, Contract Source, Later changes, Loading classification (R10 label), If cut now with its rule; the guarantee line only under the guarantee rule; no section codes, no internal codes", () => {
   const tm = MODEL.teams.find((x) => x.id === "0012"), open = {}; tm.players.forEach((p) => { open[p.id] = true; });
   const html = body(V.app(state({ teamId: "0012", ct: { ...CT0(), open } })));
   const rowOf = (name) => text(html.split('aria-label="Open ' + name + ' profile"')[1].split('<div class="rw">')[0]);
@@ -163,7 +163,7 @@ test("Details (R8): the schedule, then one Term line, Contract Type, Contract So
   t.match(jb, /If cut now \$0 \$1K drop rule: a contract worth under \$5K costs \$1K to cut while two or more years remain, and nothing in its final year\./); t.doesNotMatch(jb, /Guarantee \$/);
   const tx = text(html);
   t.doesNotMatch(tx, /§/, "no rulebook section code on the screen"); t.doesNotMatch(tx, /Vet-|Rookie-(?:Draft|WW|MYM|FAA)|Remaining guarantee|Recorded guarantee|Weekly guarantee|Years remaining|minus earned|Contract Loaded/);
-  const order = ["Salary schedule", "Term ", "Contract Type", "Contract Source", "Later changes", "Salary structure", "If cut now", "Guarantee $"].map((w) => kw.indexOf(w)); t.ok(order.every((x, i) => x >= 0 && (i === 0 || x > order[i - 1])), "the facts in order, the cut charge then the guarantee");
+  const order = ["Salary schedule", "Term ", "Contract Type", "Contract Source", "Later changes", "Loading classification", "If cut now", "Guarantee $"].map((w) => kw.indexOf(w)); t.ok(order.every((x, i) => x >= 0 && (i === 0 || x > order[i - 1])), "the facts in order, the cut charge then the guarantee");
 });
 
 // ───────────────────────── R8: Contract Type / Source / later changes / structure ─────────────────────────

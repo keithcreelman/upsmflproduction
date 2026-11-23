@@ -139,9 +139,12 @@ test("the nickname table is the worker's own (worker/src/index.js EXT_OWNER_BY_N
 test("restructure: the re-based terms (canon §C5.1) start at the restructure; the start is claimed only from evidence", () => {
   // an Ext1 restructured in 2026 with exactly one year after it: the restructure came in the extension's own first season (§C4 + §C5) -> start 2026
   const hurts = player("Jalen Hurts"), hh = C.history(hurts, 2026), eh = C.extension(hurts, 2026, TEAMS);
-  t.equal(hh.restructured, 2026); t.equal(hh.start, 2026); t.equal(hh.startWhy, "extension"); t.equal(eh.year, 2026); t.equal(eh.by.id, "0005");
-  // R9 (evidence 2026-11-23): a restructure-bound year does not verify the last Ext: name as the extender in force (Hurts: The Long Haulers filed the 2026 extension)
-  t.equal(eh.verified, false); t.equal(eh.traded, false); t.equal(C.extensionLine(eh), "Extended · 2026 · extending team not verified");
+  t.equal(hh.restructured, 2026); t.equal(hh.start, 2026); t.equal(hh.startWhy, "extension"); t.equal(eh.year, 2026);
+  // R10: Hurts's exact current contract is a reviewed row (The Long Haulers filed the 2026 extension; D1 extension id 666)
+  t.equal(eh.by.id, "0006"); t.equal(eh.reviewed, true); t.equal(eh.verified, true); t.equal(eh.traded, false); t.equal(C.extensionLine(eh), "Extended by The Long Haulers · 2026");
+  // R9 (evidence 2026-11-23): without a reviewed row a restructure-bound year does not verify the last Ext: name as the extender in force
+  const hx = { ...hurts, special: hurts.special + " " }, ex = C.extension(hx, 2026, TEAMS);
+  t.equal(ex.by.id, "0005"); t.equal(ex.verified, false); t.equal(ex.reviewed, false); t.equal(ex.traded, false); t.equal(C.extensionLine(ex), "Extended · 2026 · extending team not verified");
   // an Ext2 restructured with one year after it: extended that season or the one before -> unknown, no start, no length, no year
   const nc = player("Nico Collins"), hn = C.history(nc, 2026), en = C.extension(nc, 2026, TEAMS);
   t.equal(hn.earlier, "restructured"); t.equal(hn.start, null); t.equal(hn.length, null); t.equal(hn.complete, false); t.equal(en.year, null); t.equal(C.extensionLine(en), "Extended by CBP");
@@ -154,7 +157,7 @@ test("restructure: the re-based terms (canon §C5.1) start at the restructure; t
   // an auction contract restructured later: the auction year is its start; the year before the restructure is Not recorded (Terry McLaurin)
   const tm = C.history(player("Terry McLaurin"), 2026);
   t.equal(tm.start, 2025); t.equal(tm.startWhy, "auction"); t.deepEqual(yrs(tm), [[2025, null, "done"], [2026, 8000, "now"], [2027, 30000, "left"]]); t.equal(tm.earlier, "partial");
-  t.match(detailsOf("Terry McLaurin"), /2025 Completed Not recorded 2026 This season \$8,000 2027 Remaining \$30,000 Restructured in 2026\. Salaries before the restructure are not in the recorded terms\. .*Term 2025–2027 \(3 years\) · 2 years left .*Later changes Restructured 2026 Salary structure Back-loaded/);
+  t.match(detailsOf("Terry McLaurin"), /2025 Completed Not recorded 2026 This season \$8,000 2027 Remaining \$30,000 Restructured in 2026\. Salaries before the restructure are not in the recorded terms\. .*Term 2025–2027 \(3 years\) · 2 years left .*Later changes Restructured 2026 Loading classification Back-loaded/);
   // a restructure token that is not the first recorded year (not re-based): the terms are read as they are
   const nr = C.history(P("CL 3| Y1-4K, Y2-5K, Y3-6K| Restructured 2025", 1, 6000), 2026); t.equal(nr.start, 2024); t.equal(nr.earlier, "recorded");
   t.equal(C.restructureYear("CL 2| restructure: 2025"), 2025); t.equal(C.restructureYear("Restructured 2026"), 2026); t.equal(C.restructureYear("CL 2"), null);
@@ -171,14 +174,14 @@ test("never copied backward: a completed or pre-restructure year with no recorde
 });
 
 // ───────────────────────── the recorded league, counted ─────────────────────────
-test("recorded league: 45 extension contracts, extending team named for 45, extension year for 36 (9 unknown after a restructure), 16 extended then traded (R9: 10 restructure-bound attributions unverified, was 23); 21 restructured, 10 with an unknown start", () => {
-  let ext = 0, team = 0, year = 0, traded = 0, rs = 0, rsUnknown = 0, unverified = 0;
+test("recorded league: 45 extension contracts, extending team named for 45, extension year for 36 (9 unknown after a restructure), 20 extended then traded (R10: all 10 restructure-bound attributions reviewed; R9 had them unverified and 16); 21 restructured, 10 with an unknown start", () => {
+  let ext = 0, team = 0, year = 0, traded = 0, rs = 0, rsUnknown = 0, unverified = 0, reviewed = 0;
   TEAMS.forEach((tm) => tm.players.forEach((p) => {
     const e = C.extension(p, 2026, TEAMS), h = C.history(p, 2026);
-    if (e) { ext++; if (e.by) team++; if (e.year != null) year++; if (e.traded) traded++; if (e.verified === false) { unverified++; t.equal(e.yearWhy, "restructure_bound"); } t.ok(!e.by || e.by.id !== p.franchiseId || !e.traded); }
+    if (e) { ext++; if (e.by) team++; if (e.year != null) year++; if (e.traded) traded++; if (e.reviewed) { reviewed++; t.equal(e.yearWhy, "restructure_bound"); } if (e.verified === false) unverified++; t.ok(!e.by || e.by.id !== p.franchiseId || !e.traded); }
     if (h.restructured != null) { rs++; if (h.earlier === "restructured") rsUnknown++; }
   }));
-  t.deepEqual([ext, team, year, traded, rs, rsUnknown, unverified], [45, 45, 36, 16, 21, 10, 10]);
+  t.deepEqual([ext, team, year, traded, rs, rsUnknown, unverified, reviewed], [45, 45, 36, 20, 21, 10, 0, 10]);
 });
 
 run("mobile2027_r7_contracts");

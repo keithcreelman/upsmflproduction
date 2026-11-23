@@ -96,6 +96,29 @@ test("AAV: recorded tiers labeled by year; single, dual mapped (an extension mad
   t.deepEqual([mapped, dual], [486, 12], "recording: every AAV maps; the 12 dual tiers are all extensions made in 2026");
 });
 
+test("R10 AAV: a later year gets an amount only with support (structure + the recorded TCV); otherwise only this season, the later years 'not mapped'", () => {
+  // no extension, TCV agrees (AAV × CL): every remaining year
+  const ok = C.aavYears(P("CL 3|TCV 12K|AAV 4K|Y1-4K, Y2-4K, Y3-4K", 3, 4000), 2026, TEAMS);
+  t.deepEqual([ok.basis, ok.check, ok.lines, ok.unmapped], ["fixed_at_signing", "pass", [{ from: 2026, to: 2028, amount: 4000 }], []]);
+  // no extension, the token disagrees with TCV (e.g. overwritten with a salary): this season only
+  const bad = C.aavYears(P("CL 3|TCV 30K|AAV 4K|Y1-10K, Y2-10K, Y3-10K", 3, 10000), 2026, TEAMS);
+  t.deepEqual([bad.state, bad.check, bad.lines, bad.unmapped], ["mapped", "fail", [{ from: 2026, to: 2026, amount: 4000 }], [2027, 2028]]);
+  t.equal(TV.contractFacts(C.history(P("CL 3|TCV 30K|AAV 4K|Y1-10K, Y2-10K, Y3-10K", 3, 10000), 2026), C.describe({ type: "Vet-FAA" }), { aav: bad }).match(/<b>AAV<\/b><span>(.*?)<\/span>/)[1], "2026 · $4K<small>2027–2028 · not mapped</small>");
+  // no TCV or CL to check: this season only
+  const none = C.aavYears(P("Y1-5K, Y2-5K|AAV 5K", 2, 5000), 2026, TEAMS); t.deepEqual([none.check, none.lines.length, none.unmapped], ["missing", 1, [2027]]);
+  // extension, all remaining years are added years: check TCV = N × AAV (CL = N)
+  const e2 = C.aavYears(P("CL 2|TCV 50K|AAV 25K|Y1-10K, Y2-40K|Ext: PG", 2, 10000, { type: "Vet-Ext2-BL" }), 2026, TEAMS); t.deepEqual([e2.basis, e2.check, e2.lines], ["added_years", "pass", [{ from: 2026, to: 2027, amount: 25000 }]]);
+  const e2b = C.aavYears(P("CL 2|TCV 50K|AAV 10K|Y1-10K, Y2-40K|Ext: PG", 2, 10000, { type: "Vet-Ext2-BL" }), 2026, TEAMS); t.deepEqual([e2b.check, e2b.lines, e2b.unmapped], ["fail", [{ from: 2026, to: 2026, amount: 10000 }], [2027]]);
+  // a restructured extension: TCV is re-based and the AAV kept verbatim (§C5.1), so the structure alone places the years
+  const rs = C.aavYears(P("CL 2|TCV 94K|AAV 42K|Y1-19K, Y2-75K|Ext: PG|Restructured 2026", 2, 19000, { type: "Vet-Ext2-BL" }), 2026, TEAMS); t.deepEqual([rs.check, rs.lines], ["na", [{ from: 2026, to: 2027, amount: 42000 }]]);
+  // extension made this season, two tiers: check TCV = Y1 + N × tier 2
+  const a2 = C.aavYears(player("Will Anderson"), 2026, TEAMS); t.deepEqual([a2.basis, a2.check], ["extension_this_season", "pass"]);
+  const a2b = C.aavYears(P("CL 2|TCV 50K|AAV 1K, 4K|Y1-1K, Y2-4K|Ext: Bomb", 2, 1000, { type: "Vet-Ext1" }), 2026, TEAMS); t.deepEqual([a2b.lines, a2b.unmapped], [[{ from: 2026, to: 2026, amount: 1000 }], [2027]]);
+  // the recording: every year assignment is supported (no contract changes from R9; S/r7notes/r10b_aav.json)
+  const n = { pass: 0, na: 0, fail: 0, missing: 0 }, um = []; TEAMS.forEach((tm) => tm.players.forEach((p) => { const a = C.aavYears(p, 2026, TEAMS); if (a.state === "mapped") n[a.check]++; if (a.unmapped.length) um.push(p.name); }));
+  t.deepEqual(n, { pass: 467, na: 19, fail: 0, missing: 0 }, "467 checked against TCV; 19 restructured extensions placed by structure"); t.deepEqual(um, []);
+});
+
 // ───────────────────────── source, acquisition, history ─────────────────────────
 test("Contract source: Extension (years added), the extending team and year once; Acquired kept separate", () => {
   const d = text(details("Rico Dowdle"));
@@ -121,7 +144,9 @@ test("Contract history: collapsed by default, below the current contract; chrono
   const mc = C.contractHistory(player("Terry McLaurin"), 2026, TEAMS); t.deepEqual(mc.events.map((e) => [e.year, e.kind]), [[2025, "acquired"], [2026, "restructure"]]); t.deepEqual(mc.extTeams, []); t.ok(mc.complete);
   t.deepEqual(C.contractHistory(player("Rico Dowdle"), 2026, TEAMS).extTeams.map((x) => x.name), ["Blake Bombers"], "the trade adds no team");
   // every Ext: name is listed (Higgins: Mafia, LH, C-Town)
-  const hig = C.contractHistory(player("Tee Higgins"), 2026, TEAMS); t.equal(hig.events.filter((e) => e.kind === "extension" && e.words.indexOf("current contract") < 0).length, 3);
+  // R10: Higgins's contract is a reviewed row whose team is the last name (C-Town), so that name is the current extension
+  const hig = C.contractHistory(player("Tee Higgins"), 2026, TEAMS); t.equal(hig.events.filter((e) => e.kind === "extension" && e.words.indexOf("current contract") < 0).length, 2);
+  t.equal(hig.events.filter((e) => e.kind === "extension" && e.words === "Extended by C-Town Chivalry (current contract, 1 year added)" && e.year === 2025 && e.why === "reviewed").length, 1);
   t.deepEqual(hig.extTeams.map((x) => x.name), ["The Long Haulers", "C-Town Chivalry"], "Mafia is not a current team");
   // profile toggle
   const p = player("Rico Dowdle"); t.match(V.app(state({ profile: { pid: p.id, tab: "contract" } })), /data-act="tog" data-v="hist" aria-expanded="false"/);
@@ -129,36 +154,68 @@ test("Contract history: collapsed by default, below the current contract; chrono
 });
 
 // ───────────────────────── evidence check: restructure-bound attributions ─────────────────────────
-test("restructure-bound extension years (London, Cook, Love, Hurts shapes): the last Ext: name is not presented as the extender in force", () => {
+// R10: with no reviewed row (here: the same contracts with one character of the text changed) the R9 behavior is unchanged
+const withText = (name, special, fn) => { const p = player(name), keep = p.special; p.special = special; try { return fn(p); } finally { p.special = keep; } };
+test("restructure-bound extension years (London, Cook, Love, Hurts shapes) WITHOUT a reviewed row: the last Ext: name is not presented as the extender in force", () => {
   for (const [name, recorded] of [["Drake London", ["Pure Greatness"]], ["James Cook", ["CBP"]], ["Jordan Love", ["Pure Greatness"]], ["Jalen Hurts", ["Gride", "HammerTime"]]]) {
-    const p = player(name), e = C.extension(p, 2026, TEAMS);
-    t.equal(e.yearWhy, "restructure_bound", name); t.equal(e.verified, false); t.equal(e.year, 2026);
-    t.equal(C.extensionLine(e), "Extended · 2026 · extending team not verified", name);
-    const tx = text(details(name, true));
-    t.doesNotMatch(tx, /Extended by [^·(]*· 2026/, name + ": no team paired with the 2026 year");
-    t.equal((tx.match(/extending team not verified/g) || []).length, 2, name + ": once on the schedule line, once as the history's current-contract event");
-    t.match(tx, /2026 Extended · extending team not verified \(current contract, 1 year added\) Season from the restructured terms/);
-    recorded.forEach((r) => t.match(tx, new RegExp("— Extended by " + r + "[^(]*\\(in the extension record\\)"), name + ": the record's " + r + " is listed, undated"));
-    t.match(tx, /Incomplete: .*the record may not name the team that made the current extension/);
-    const h = C.contractHistory(p, 2026, TEAMS); t.equal(h.extTeamsComplete, false); t.equal(h.complete, false);
+    withText(name, player(name).special.replace("GTD:", "GTD :"), (p) => {
+      const e = C.extension(p, 2026, TEAMS);
+      t.equal(e.yearWhy, "restructure_bound", name); t.equal(e.verified, false); t.equal(e.reviewed, false); t.equal(e.year, 2026);
+      t.equal(C.extensionLine(e), "Extended · 2026 · extending team not verified", name);
+      const tx = text(details(name, true));
+      t.doesNotMatch(tx, /Extended by [^·(]*· 2026/, name + ": no team paired with the 2026 year");
+      t.equal((tx.match(/extending team not verified/g) || []).length, 2, name + ": once on the schedule line, once as the history's current-contract event");
+      t.match(tx, /2026 Extended · extending team not verified \(current contract, 1 year added\) Season from the restructured terms/);
+      recorded.forEach((r) => t.match(tx, new RegExp("— Extended by " + r + "[^(]*\\(in the extension record\\)"), name + ": the record's " + r + " is listed, undated"));
+      t.match(tx, /Incomplete: .*the record may not name the team that made the current extension/);
+      const h = C.contractHistory(p, 2026, TEAMS); t.equal(h.extTeamsComplete, false); t.equal(h.complete, false);
+    });
   }
   // a terms-bound extension is unchanged (Dowdle; Derrick Henry still names The Long Haulers, now with the Bombers)
   t.equal(C.extension(player("Rico Dowdle"), 2026, TEAMS).verified, true); t.equal(C.extensionLine(C.extension(player("Derrick Henry"), 2026, TEAMS)), "Extended by The Long Haulers · 2025");
-  let changed = []; TEAMS.forEach((tm) => tm.players.forEach((p) => { const e = C.extension(p, 2026, TEAMS); if (e && e.verified === false) changed.push(p.name); }));
-  t.deepEqual(changed.sort(), ["Courtland Sutton", "Drake London", "Jalen Hurts", "James Cook", "Jaxon Smith-Njigba", "Jordan Love", "Jordan Mason", "Kenneth Walker III", "Sam Darnold", "Tee Higgins"], "10 contracts change: every restructure-bound year");
 });
 
-// ───────────────────────── Salary structure ─────────────────────────
-test("Salary structure filter reads the rule classification only; a Flat extension with uneven salaries keeps Flat and says so factually", () => {
+test("R10 reviewed attributions on the recording: all 10 restructure-bound contracts read 'Extended by <team> · <season>'; the record's other names stay undated", () => {
+  const want = { "Drake London": "C-Town Chivalry · 2026", "James Cook": "C-Town Chivalry · 2026", "Jordan Love": "CBP · 2026", "Jalen Hurts": "The Long Haulers · 2026", "Sam Darnold": "Gride · 2026",
+    "Jaxon Smith-Njigba": "C-Town Chivalry · 2025", "Tee Higgins": "C-Town Chivalry · 2025", "Jordan Mason": "The Long Haulers · 2025", "Kenneth Walker III": "Real Deal Creel · 2026", "Courtland Sutton": "L.A. Looks · 2025" };
+  Object.entries(want).forEach(([name, line]) => {
+    const e = C.extension(player(name), 2026, TEAMS); t.equal(e.reviewed, true, name); t.equal(e.verified, true, name);
+    t.equal(C.extensionLine(e), "Extended by " + line, name);
+    const tx = text(details(name, true));
+    t.doesNotMatch(tx, /not verified/, name); t.equal((tx.match(new RegExp("Extended by " + line.replace(/[.$]/g, "\\$&"))) || []).length, 1, name + ": the schedule line");
+    t.doesNotMatch(tx, /the record may not name the team/, name);
+  });
+  // London: the token's Pure Greatness stays a record-only, undated event; the current extension is C-Town Chivalry's, its own dated event
+  const tl = text(details("Drake London", true));
+  t.match(tl, /2026 Extended by C-Town Chivalry \(current contract, 1 year added\) Team and season from UPS’s reviewed list/);
+  t.match(tl, /— Extended by Pure Greatness \(in the extension record\)/);
+  t.deepEqual(C.contractHistory(player("Drake London"), 2026, TEAMS).extTeams.map((x) => x.id), ["0004", "0009"]);
+  // Hurts: Gride and HammerTime stay record-only; The Long Haulers is the current extension
+  const th = text(details("Jalen Hurts", true)); t.match(th, /2026 Extended by The Long Haulers \(current contract, 1 year added\)/); t.match(th, /— Extended by Gride \(in the extension record\)/);
+  // the profile carries it under the source
+  t.match(text(V.app(state({ profile: { pid: player("James Cook").id, tab: "contract" }, flags: { rules: true } }))), /Contract Source Extension 1 year added · Extended by C-Town Chivalry · 2026/);
+  let unverified = []; TEAMS.forEach((tm) => tm.players.forEach((p) => { const e = C.extension(p, 2026, TEAMS); if (e && e.verified === false) unverified.push(p.name); }));
+  t.deepEqual(unverified, [], "no recorded contract is left unverified");
+});
+
+// ───────────────────────── Loading classification (R10; R9 "Salary structure") ─────────────────────────
+test("Loading filter reads the rule classification only; 'Loading classification: Flat (one-year extension)' for a plain Ext1; no note about the salaries", () => {
   const all = TEAMS.flatMap((tm) => tm.players), cnt = (v) => all.filter((p) => C.describe(p).structure === v).length;
   t.deepEqual([cnt("Flat"), cnt("Front-loaded"), cnt("Back-loaded")], [447, 18, 21]);
+  t.equal(all.filter((p) => C.describe(p).structureWhy === "one_year_extension").length, 18, "18 plain one-year extensions");
   const tm = TEAMS.find((x) => x.id === "0010"), h = (l) => screen(tm.players[0], { l });
+  t.match(h("all"), /<div class="lbl">Loading<\/div><div class="chs ldc" role="group" aria-label="Loading">/); t.doesNotMatch(h("all"), /Salary structure/);
   t.deepEqual([...h("all").matchAll(/data-act="ctl" data-v="(\w+)" aria-pressed="(true|false)">([^<]+)</g)].map((m) => m[3] + ":" + m[2]), ["All:true", "Flat:false", "Front-loaded:false", "Back-loaded:false"]);
   [["flat", "Flat"], ["fl", "Front-loaded"], ["bl", "Back-loaded"]].forEach(([k, v]) => t.equal(idsOf(h(k)).length, tm.players.filter((p) => C.describe(p).structure === v).length, v));
+  t.ok(idsOf(h("flat")).includes(player("Rico Dowdle").id), "a plain Ext1 is in the Flat group");
   t.equal(idsOf(h("bogus")).length, tm.players.length, "an unknown value is All");
-  const dd = text(details("Rico Dowdle")); t.match(dd, /Salary structure Flat Rule classification; the yearly salaries differ\./);
-  t.doesNotMatch(text(details("Javon Bullard")), /yearly salaries differ/, "equal salaries: no note");
-  t.doesNotMatch(text(details("Terry McLaurin")), /Rule classification/, "a loaded contract has no note");
+  const dd = text(details("Rico Dowdle")); t.match(dd, /Loading classification Flat \(one-year extension\) AAV/);
+  t.doesNotMatch(dd, /Rule classification|yearly salaries differ|Salary structure/, "the R9 note is gone");
+  t.match(text(details("Tee Higgins")), /Loading classification Flat \(one-year extension\)/, "equal salaries: the same rule label");
+  t.match(text(details("Javon Bullard")), /Loading classification Flat AAV/);
+  t.match(text(details("Terry McLaurin")), /Loading classification Back-loaded AAV/);
+  t.match(text(details("Drake London")), /Loading classification Front-loaded AAV/);
+  t.match(text(V.app(state({ profile: { pid: player("Rico Dowdle").id, tab: "contract" }, flags: { rules: true } }))), /Loading classification Flat \(one-year extension\)/);
 });
 
 run("mobile2027_r9_contracts");

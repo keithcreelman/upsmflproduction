@@ -8,10 +8,11 @@
 
    A missing fact is shown as "Not recorded" or "Not available". It is never shown as $0. */
 (function (root, factory) {
-  var api = factory(typeof require === "function" ? require("./format.js") : root.UPS2027.format);
+  var node = typeof require === "function";
+  var api = factory(node ? require("./format.js") : root.UPS2027.format, node ? require("./reviewed_extensions.js") : root.UPS2027.reviewedExtensions);
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.contract = api; }
-})(typeof self !== "undefined" ? self : this, function (F) {
+})(typeof self !== "undefined" ? self : this, function (F, RX) {
   "use strict";
 
   // "13.5K" -> 13500, "$1,000" -> 1000, "2M" -> 2000000. Not a number -> null.
@@ -215,11 +216,18 @@
     // R9 (evidence check 2026-11-23, S/r7notes/r9d_evidence.md): when the extension year is only bound through restructured terms, the last Ext: name is
     // NOT reliably the extender of the contract in force (4 of 10 recorded cases were extended in 2026 by a later owner whose name was never appended).
     // verified: false then; the attribution is not presented, the lineage is shown only as the contract record's extension history.
-    var verified = why !== "restructure_bound";
-    return { years: n, year: year, yearWhy: why, by: t ? { id: t.id, name: t.name } : null, byName: last || null, verified: verified, traded: !!(verified && t && player.franchiseId && t.id !== player.franchiseId), lineage: lin };
+    var verified = why !== "restructure_bound", reviewed = false;
+    // R10 (Keith, 2026-11-23): a reviewed attribution (lib/reviewed_extensions.js) names the team and season of the extension in force, but only when the
+    // player id, type and full contract text equal the reviewed row exactly, the team is one of today's teams, and the season agrees with the year the
+    // terms bind (when they bind one). Otherwise nothing changes.
+    var rx = RX && RX.lookup ? RX.lookup(player.id, player.type, player.special) : null;   // the raw values: no trimming, no coercion
+    var rt = rx ? (teams || []).filter(function (x) { return x.id === rx.fid; })[0] : null;
+    if (rx && rt && (year == null || year === rx.season)) { t = rt; if (year == null) why = "reviewed"; year = rx.season; verified = true; reviewed = true; }
+    return { years: n, year: year, yearWhy: why, by: t ? { id: t.id, name: t.name } : null, byName: last || null, verified: verified, reviewed: reviewed, traded: !!(verified && t && player.franchiseId && t.id !== player.franchiseId), lineage: lin };
   }
   // "Extended by The Long Haulers · 2025" | "Extended · 2026" | "Extended by Pure Greatness" | "Extended"
   // R9: an unverified attribution (restructure-bound year) reads "Extended · 2026 · extending team not verified"; the Ext: names are in the history only
+  // R10: a reviewed attribution reads like a verified one ("Extended by C-Town Chivalry · 2025")
   function extensionLine(e) {
     if (!e) return "";
     if (e.verified === false) return "Extended" + (e.year != null ? " · " + e.year : "") + " · extending team not verified";
@@ -235,18 +243,50 @@
   //   two tiers: only an extension made this season (its year is known and the term is this season plus the N added years): tier 1 -> this
   //              season, tier 2 -> the added years.
   // Anything else is "unmapped" (the amounts are shown with "years not mapped"). AAV is never computed (never TCV ÷ years).
-  // -> { state: "mapped" | "unmapped" | "none", amounts: [..], lines: [{ from, to, amount }] }
+  //
+  // R10 (Keith, 2026-11-23: "Show AAV only for supported applicable years. Do not extend a current-year amount across future years without
+  // evidence."): each YEAR needs its own support. The first tier is this season's by the roll rule. A LATER year gets a tier only when the structure
+  // says one stretch covers it AND the recorded TCV agrees with that tier (the check a clobbered token, e.g. one overwritten with a year's salary, fails):
+  //   no extension, one tier: canon §C5.1 (AAV changes only at an extension) -> every remaining year; check TCV = AAV × CL (each AAV rounded to $1K).
+  //   extension, one tier, years left <= N added years: every remaining year is an added year, all at the new AAV (§C4); check (not restructured)
+  //     TCV = N × AAV (CL = N) or Y1 + N × AAV (CL = N + 1: the frozen year at its own salary; TCV is forward-looking). A restructure re-bases TCV
+  //     and keeps the AAV verbatim (§C5.1), so the check does not apply ("na") and the structure alone places the years.
+  //   extension made this season, two tiers: tier 1 this season, tier 2 the added years; check (not restructured) TCV = Y1 + N × tier 2.
+  // A failed check, or no TCV/CL to check, leaves the later years unplaced: only this season is shown, and the later years are listed as not mapped.
+  // -> { state: "mapped" | "unmapped" | "none", amounts, lines: [{ from, to, amount }], unmapped: [years with no AAV], basis, check: "pass"|"fail"|"na" }
   function aavYears(player, season, teams) {
     var c = parseSpecial(player && player.special), a = c.aav, y = Math.max(0, parseInt(player && player.years, 10) || 0);
-    var out = { state: "none", amounts: a.slice(), lines: [] };
+    var out = { state: "none", amounts: a.slice(), lines: [], unmapped: [], basis: "none", check: "na" };
     if (!a.length) return out;
     out.state = "unmapped";
-    if (!y) return out;
-    var end = season + y - 1, n = extYears(player.type), e = n ? extension(player, season, teams) : null;
-    var extNow = !!(e && e.year === season && y === n + 1);
-    if (a.length === 1 && !extNow) out.lines = [{ from: season, to: end, amount: a[0] }];
-    else if (a.length === 2 && extNow) out.lines = [{ from: season, to: season, amount: a[0] }, { from: season + 1, to: end, amount: a[1] }];
-    if (out.lines.length) out.state = "mapped";
+    if (!y) { out.basis = "no_years_left"; return out; }
+    var end = season + y - 1, n = extYears(player.type), e = n ? extension(player, season, teams) : null, rs = restructureYear(c.raw) != null;
+    var near = function (x, v, tol) { return x != null && v != null && Math.abs(x - v) <= tol; };
+    var later = null;   // the tier for season+1..end when the structure places one
+    if (!n) {
+      if (a.length !== 1) { out.basis = "tiers_without_extension"; return out; }
+      out.basis = "fixed_at_signing"; later = a[0];
+      out.check = c.cl && c.tcv != null ? (near(a[0] * c.cl, c.tcv, 500 * c.cl) ? "pass" : "fail") : "missing";
+      out.lines = [{ from: season, to: season, amount: a[0] }];
+    } else {
+      var extNow = !!(e && (e.year === season || e.year == null) && y === n + 1);
+      if (a.length === 1 && y <= n) {
+        out.basis = "added_years"; later = a[0];
+        out.check = rs ? "na" : c.cl === n ? (near(n * a[0], c.tcv, 500 * n) ? "pass" : "fail") : c.cl === n + 1 && c.y[1] != null ? (near(c.y[1] + n * a[0], c.tcv, 500 * n) ? "pass" : "fail") : "missing";
+        out.lines = [{ from: season, to: season, amount: a[0] }];
+      } else if (a.length === 2 && extNow && e.year === season) {
+        out.basis = "extension_this_season"; later = a[1];
+        out.check = rs ? "na" : c.cl === n + 1 && c.y[1] != null ? (near(c.y[1] + n * a[1], c.tcv, 500 * n) ? "pass" : "fail") : "missing";
+        out.lines = [{ from: season, to: season, amount: a[0] }];
+      } else { out.basis = a.length === 1 && extNow ? "one_tier_extension_this_season" : "tiers_not_placeable"; return out; }
+    }
+    out.state = "mapped";
+    if (end > season) {
+      if (out.check === "pass" || out.check === "na") {
+        if (later === out.lines[0].amount && out.basis !== "extension_this_season") out.lines[0].to = end;
+        else out.lines.push({ from: season + 1, to: end, amount: later });
+      } else for (var yr = season + 1; yr <= end; yr++) out.unmapped.push(yr);
+    }
     return out;
   }
 
@@ -288,15 +328,19 @@
       ev.push({ kind: acq.kind === "trade" ? "trade" : "acquired", words: acq.kind === "trade" ? "Acquired by trade" : acq.words, year: ay, why: aw });
     }
     var lin = extLineage(player && player.special), added = n ? " (current contract, " + n + (n === 1 ? " year added)" : " years added)") : "";
-    var verified = !!(ext && ext.verified !== false);
+    var verified = !!(ext && ext.verified !== false), rv = !!(ext && ext.reviewed);
+    // R10: a reviewed attribution whose team is not the last Ext: name (the record was never appended) is its own current event; the names stay record-only
+    var lastT = lin.length ? teamForName(lin[lin.length - 1], teams) : null, rvApart = rv && !(lastT && ext.by && lastT.id === ext.by.id);
+    var curWhy = !ext || ext.year == null ? null : rv && ext.yearWhy !== "terms" ? "reviewed" : "terms";
     // every Ext: name is an extension in the record; only a VERIFIED attribution ties the last one to the contract in force (a restructure-bound year
     // does not: the current extension is then its own event, "team not verified", and the names stay record-only, undated)
     lin.forEach(function (name, i) {
-      var t = teamForName(name, teams), cur = verified && i === lin.length - 1;
-      ev.push({ kind: "extension", words: "Extended" + (t ? " by " + t.name : " · team not identified") + (cur ? added : n && !verified ? " (in the extension record)" : ""),
-        year: cur ? ext.year : null, why: cur && ext.year != null ? "terms" : null, team: t ? { id: t.id, name: t.name } : null });
+      var t = teamForName(name, teams), cur = verified && !rvApart && i === lin.length - 1;
+      ev.push({ kind: "extension", words: "Extended" + (t ? " by " + t.name : " · team not identified") + (cur ? added : n && (!verified || rvApart) ? " (in the extension record)" : ""),
+        year: cur ? ext.year : null, why: cur ? curWhy : null, team: t ? { id: t.id, name: t.name } : null });
     });
-    if (n && (!lin.length || !verified)) ev.push({ kind: "extension", words: "Extended · " + (lin.length ? "extending team not verified" : "team not recorded") + added, year: ext ? ext.year : null, why: ext && ext.year != null ? (ext.yearWhy === "restructure_bound" ? "restructure" : "terms") : null, team: null, current: true });
+    if (rvApart) ev.push({ kind: "extension", words: "Extended by " + ext.by.name + added, year: ext.year, why: curWhy, team: { id: ext.by.id, name: ext.by.name }, current: true });
+    else if (n && (!lin.length || !verified)) ev.push({ kind: "extension", words: "Extended · " + (lin.length ? "extending team not verified" : "team not recorded") + added, year: ext ? ext.year : null, why: ext && ext.year != null ? (ext.yearWhy === "restructure_bound" ? "restructure" : "terms") : null, team: null, current: true });
     var re = /restructur(?:ed|e)\s*:?\s*(\d{4})/gi, m, seen = {};
     while ((m = re.exec(F.str(player && player.special)))) { if (!seen[m[1]]) { seen[m[1]] = 1; ev.push({ kind: "restructure", words: "Restructured", year: parseInt(m[1], 10), why: "recorded" }); } }
     if (up[0] === "TAG") ev.push({ kind: "tag", words: "Tagged", year: h.start != null && h.startWhy === "terms" ? h.start : null, why: h.start != null && h.startWhy === "terms" ? "terms" : null });
@@ -307,6 +351,7 @@
     // extTeams: the extending teams the record supports (Ext: names matched to a team); extTeamsComplete is false when the contract in force is an
     // unverified (restructure-bound) extension, whose extender may be missing from the record
     var extTeams = lin.map(function (nm) { return teamForName(nm, teams); }).filter(Boolean).map(function (t) { return { id: t.id, name: t.name }; });
+    if (rvApart) extTeams.push({ id: ext.by.id, name: ext.by.name });   // R10: the reviewed extender of the contract in force, last
     return { events: dated.concat(undated), complete: !undated.length && acq.kind !== "none" && acq.kind !== "other" && acq.kind !== "trade" && (!n || verified),
       extTeams: extTeams, extTeamsComplete: !n || verified, eligibility: "not_shown" };
   }
@@ -379,7 +424,7 @@
   function describe(player) {
     var type = F.str(player && player.type), parts = type.split("-"), up = parts.map(function (x) { return x.toUpperCase(); });
     var acq = F.str(player && player.acquisition).trim();
-    var out = { type: null, source: null, sourceNote: null, changes: [], structure: null };
+    var out = { type: null, source: null, sourceNote: null, changes: [], structure: null, structureWhy: null };
     out.type = up[0] === "VET" ? "Veteran" : up[0] === "ROOKIE" ? "Rookie" : null;
     // the source: the type's own acquisition token, else the roster read's acquisition when it names the path that began this contract
     for (var i = 1; i < up.length; i++) if (SOURCE_TOKENS[up[i]]) { out.source = SOURCE_TOKENS[up[i]]; break; }
@@ -410,6 +455,8 @@
         var a = ys.length >= 2 && c.cl != null && ys.length === c.cl ? ys.slice(-2) : null;
         out.structure = !a ? null : a[0] === a[1] ? "Flat" : a[0] > a[1] ? "Front-loaded" : "Back-loaded";
       } else if (ys.length && c.cl != null && ys.length === c.cl && ys.every(function (v) { return v === ys[0]; })) out.structure = "Flat";
+      // R10 (Keith, 2026-11-23): a plain (unsuffixed) one-year extension is Flat by rule; the screen reads "Flat (one-year extension)"
+      if (n === 1 && out.structure === "Flat") out.structureWhy = "one_year_extension";
     }
     return out;
   }
