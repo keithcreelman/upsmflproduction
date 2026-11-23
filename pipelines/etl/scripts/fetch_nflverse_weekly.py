@@ -74,6 +74,7 @@ EXT_COLS = {
     "punt_return_yards",
     # punt_return_tds intentionally absent — owned by backfill_td_distance.py
     "special_teams_tds",
+    "rec_yac",  # migration 0182
 }
 
 # Mapping: dict of { our_col: nflverse_col_candidates }
@@ -133,6 +134,11 @@ PLAYERSTATS_MAP = {
     # (COALESCE(NULL, existing)) and the column sat empty in D1. The weekly
     # fetcher is the real owner; feeds AY-share / WOPR / RACR on the workbench.
     "receiving_air_yards":       ["receiving_air_yards"],
+    # Receiving YAC (migration 0182, _ext). nflverse ships it natively; it equals
+    # the PBP sum of yards_after_catch on his receptions in 2,232 of 2,242 2026
+    # receiver-weeks (Weeks 1-11); the other 10 are weeks with a lateral to him,
+    # which nflverse folds into his receiving numbers.
+    "rec_yac":                   ["receiving_yards_after_catch"],
 
     # ── FIRST DOWNS — UPS `FD 1-999 = *0.2`, ALL positions, continuous since
     # 2011 (the 2021 `1C`→`FD` rename was cosmetic). These were never mapped,
@@ -627,6 +633,11 @@ def ensure_tables(db: sqlite3.Connection) -> None:
         )
     """)
     db.execute("CREATE INDEX IF NOT EXISTS idx_nflweekly_ext_player ON nfl_player_weekly_ext (gsis_id, season)")
+    # Migration 0182 column on an older local copy.
+    try:
+        db.execute("ALTER TABLE nfl_player_weekly_ext ADD COLUMN rec_yac INTEGER")
+    except sqlite3.OperationalError:
+        pass  # column already exists
     db.execute("""
         CREATE TABLE IF NOT EXISTS nfl_player_snaps (
           season INTEGER NOT NULL, week INTEGER NOT NULL, pfr_id TEXT NOT NULL,

@@ -41,6 +41,7 @@ LOCAL_DB = Path(os.environ.get("MFL_DB_PATH") or _DEFAULT_DB)
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from lib.d1_io import D1Writer  # noqa: E402
 from lib.nflverse_seasons import available_seasons  # noqa: E402
+from lib import pbp_derived  # noqa: E402
 
 
 def _d1_write(table: str, pk_cols: list[str], cols: list[str],
@@ -104,11 +105,70 @@ def ensure_table(db: sqlite3.Connection) -> None:
     db.commit()
 
 
+def ensure_derived_tables(db: sqlite3.Connection) -> None:
+    """Mirror of migration 0182 for the local SQLite copy."""
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS nfl_team_proe_weekly (
+          season INTEGER NOT NULL, filter TEXT NOT NULL, week INTEGER NOT NULL, team TEXT NOT NULL,
+          plays INTEGER NOT NULL, dropbacks INTEGER NOT NULL, xpass_sum REAL NOT NULL,
+          pass_oe_sum REAL NOT NULL, proe_def INTEGER NOT NULL,
+          updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (season, filter, week, team)
+        )
+    """)
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS nfl_player_weekly_ext (
+          season INTEGER NOT NULL, week INTEGER NOT NULL, gsis_id TEXT NOT NULL,
+          PRIMARY KEY (season, week, gsis_id)
+        )
+    """)
+    for col in pbp_derived.EXT_COLS:
+        typ = "TEXT" if col.endswith("_dists") else "INTEGER"
+        try:
+            db.execute(f"ALTER TABLE nfl_player_weekly_ext ADD COLUMN {col} {typ}")
+        except sqlite3.OperationalError:
+            pass  # column already exists
+
+
+def write_derived(db, season: int, rows: list, args) -> dict:
+    """Team PROE sums -> nfl_team_proe_weekly; PBP player-week columns ->
+    nfl_player_weekly_ext (migration 0182). Both upserts list only their own
+    columns, so the weekly fetcher's _ext columns are never touched, and the
+    changed-only D1 upsert skips rows whose values did not change."""
+    proe = pbp_derived.proe_team_week(rows, season)
+    proe_rows = pbp_derived.proe_rows(proe)
+    warn = lambda m: print(f"  [derived {season}] WARNING: {m}", file=sys.stderr)  # noqa: E731
+    ext = pbp_derived.player_week_ext(rows, season, warn=warn)
+    ext_cols = ["season", "week", "gsis_id"] + pbp_derived.EXT_COLS
+    ext_rows = [pbp_derived.ext_row(k, a) for k, a in sorted(ext.items())]
+
+    if not args.skip_local and db is not None:
+        try:
+            ensure_derived_tables(db)
+            pc = pbp_derived.PROE_COLS
+            db.executemany(
+                f"INSERT INTO nfl_team_proe_weekly ({', '.join(pc)}) VALUES ({','.join('?' * len(pc))}) "
+                "ON CONFLICT(season, filter, week, team) DO UPDATE SET "
+                + ", ".join(f"{c} = excluded.{c}" for c in pc[4:]), proe_rows)
+            db.executemany(
+                f"INSERT INTO nfl_player_weekly_ext ({', '.join(ext_cols)}) VALUES ({','.join('?' * len(ext_cols))}) "
+                "ON CONFLICT(season, week, gsis_id) DO UPDATE SET "
+                + ", ".join(f"{c} = excluded.{c}" for c in pbp_derived.EXT_COLS), ext_rows)
+        except sqlite3.OperationalError as e:
+            print(f"  [derived {season}] local: FAILED ({e})", file=sys.stderr)
+    _d1_write("nfl_team_proe_weekly", ["season", "filter", "week", "team"], pbp_derived.PROE_COLS,
+              proe_rows, args.skip_d1, label=f"proe {season}")
+    _d1_write("nfl_player_weekly_ext", ["season", "week", "gsis_id"], ext_cols,
+              ext_rows, args.skip_d1, label=f"pbp-ext {season}")
+    return {"proe": len(proe_rows), "pbp_ext": len(ext_rows)}
+
+
 def process_season(db: sqlite3.Connection, season: int, args,
                    do_redzone: bool = True,
                    do_fg: bool = True,
                    do_punts: bool = True,
-                   do_team: bool = True) -> dict:
+                   do_team: bool = True,
+                   do_derived: bool = True) -> dict:
     try:
         import nflreadpy as nfl
     except Exception as e:
@@ -124,6 +184,14 @@ def process_season(db: sqlite3.Connection, season: int, args,
     if "season_type" in df.columns:
         df = df[df["season_type"].isin(["REG", "POST"])]
 
+    # Team PROE sums + PBP player-week columns (migration 0182) need the
+    # unfiltered play list (kneel carries are dropped by the domain filter
+    # below). They are WRITTEN last, after the existing domains, so a D1 that
+    # lacks migration 0182 fails this step loudly without blocking the
+    # red-zone / FG / punt writes that already succeeded.
+    derived_input = df.to_dict(orient="records") if do_derived else None
+    derived_counts = {}
+
     # We want: run/pass (redzone + team 4th-down go), field_goal (FG
     # buckets + team 4th-down fg), punt (punter totals + team stall-punt
     # + team 4th-down punt). Team-level 4th-down aggregator needs ALL
@@ -135,7 +203,11 @@ def process_season(db: sqlite3.Connection, season: int, args,
     if do_team:    want_types.update(["run", "pass", "field_goal", "punt"])
     if not want_types:
         print("  (no domains enabled — skipping season)", file=sys.stderr)
-        return {"redzone": 0, "fg": 0, "punt": 0, "team": 0}
+        if derived_input is not None:
+            derived_counts = write_derived(db, season, derived_input, args)
+            if not args.skip_local and db is not None:
+                db.commit()
+        return {"redzone": 0, "fg": 0, "punt": 0, "team": 0, **derived_counts}
     df = df[df["play_type"].isin(list(want_types))]
 
     # No "plays with him at QB" count: the play-by-play doesn't name the QB on
@@ -439,7 +511,7 @@ def process_season(db: sqlite3.Connection, season: int, args,
                 if yl <= 5:  br["targets_i5"]  += 1
                 if is_ez:    br["targets_ez"]  += 1
 
-    counts = {"redzone": 0, "fg": 0, "punt": 0, "team": 0}
+    counts = {"redzone": 0, "fg": 0, "punt": 0, "team": 0, **derived_counts}
 
     # ---- Redzone upsert ----
     if do_redzone and rz_agg:
@@ -668,12 +740,16 @@ def process_season(db: sqlite3.Connection, season: int, args,
         )
         counts["team"] = len(tw_rows)
 
+    if derived_input is not None:
+        counts.update(write_derived(db, season, derived_input, args))
+
     if not args.skip_local:
         try:
             db.commit()
         except sqlite3.OperationalError as e:
             print(f"  [{season}] local commit FAILED ({e})", file=sys.stderr)
-    print(f"  {season}: redzone={counts['redzone']} fg={counts['fg']} punt={counts['punt']} team={counts['team']}", file=sys.stderr)
+    print(f"  {season}: redzone={counts['redzone']} fg={counts['fg']} punt={counts['punt']} team={counts['team']}"
+          f" proe={counts.get('proe', 0)} pbp_ext={counts.get('pbp_ext', 0)}", file=sys.stderr)
     return counts
 
 
@@ -726,6 +802,8 @@ def main() -> None:
                     help="Skip punter volume/distance (nfl_player_weekly)")
     ap.add_argument("--skip-team", action="store_true",
                     help="Skip team-level 4th-down + stall-punt (nfl_team_weekly)")
+    ap.add_argument("--skip-derived", action="store_true",
+                    help="Skip team PROE sums + PBP player-week _ext columns (migration 0182)")
     ap.add_argument("--skip-local", action="store_true",
                     help="Skip the local SQLite UPSERT — useful when iCloud is holding the DB lock")
     ap.add_argument("--skip-d1", action="store_true",
@@ -764,7 +842,7 @@ def main() -> None:
         sys.exit(0)
     print(f"Target seasons: {seasons}", file=sys.stderr)
 
-    totals = {"redzone": 0, "fg": 0, "punt": 0, "team": 0}
+    totals = {"redzone": 0, "fg": 0, "punt": 0, "team": 0, "proe": 0, "pbp_ext": 0}
     for s in seasons:
         c = process_season(
             db, s, args,
@@ -772,12 +850,13 @@ def main() -> None:
             do_fg=not args.skip_fg,
             do_punts=not args.skip_punts,
             do_team=not args.skip_team,
+            do_derived=not args.skip_derived,
         )
         for k in totals: totals[k] += c.get(k, 0)
     local_status = "skipped" if args.skip_local else "ok"
     d1_status = "skipped" if args.skip_d1 else "ok"
     print(f"DONE: redzone={totals['redzone']} fg={totals['fg']} punt={totals['punt']} "
-          f"team={totals['team']} rows across {len(seasons)} seasons "
+          f"team={totals['team']} proe={totals['proe']} pbp_ext={totals['pbp_ext']} rows across {len(seasons)} seasons "
           f"(local={local_status}, d1={d1_status})", file=sys.stderr)
 
 
