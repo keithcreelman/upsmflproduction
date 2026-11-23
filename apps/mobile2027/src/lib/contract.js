@@ -212,12 +212,103 @@
     } else if (h.start != null && h.startWhy === "extension") { year = h.start; why = "restructure_bound"; }
     var lin = extLineage(player.special), last = lin.length ? lin[lin.length - 1] : "";
     var t = last ? teamForName(last, teams) : null;
-    return { years: n, year: year, yearWhy: why, by: t ? { id: t.id, name: t.name } : null, byName: last || null, traded: !!(t && player.franchiseId && t.id !== player.franchiseId), lineage: lin };
+    // R9 (evidence check 2026-11-23, S/r7notes/r9d_evidence.md): when the extension year is only bound through restructured terms, the last Ext: name is
+    // NOT reliably the extender of the contract in force (4 of 10 recorded cases were extended in 2026 by a later owner whose name was never appended).
+    // verified: false then; the attribution is not presented, the lineage is shown only as the contract record's extension history.
+    var verified = why !== "restructure_bound";
+    return { years: n, year: year, yearWhy: why, by: t ? { id: t.id, name: t.name } : null, byName: last || null, verified: verified, traded: !!(verified && t && player.franchiseId && t.id !== player.franchiseId), lineage: lin };
   }
   // "Extended by The Long Haulers · 2025" | "Extended · 2026" | "Extended by Pure Greatness" | "Extended"
+  // R9: an unverified attribution (restructure-bound year) reads "Extended · 2026 · extending team not verified"; the Ext: names are in the history only
   function extensionLine(e) {
     if (!e) return "";
+    if (e.verified === false) return "Extended" + (e.year != null ? " · " + e.year : "") + " · extending team not verified";
     return "Extended" + (e.by ? " by " + e.by.name : "") + (e.year != null ? " · " + e.year : "");
+  }
+
+  // ---- R9 (Keith, 2026-11-23): recorded AAV, labeled by the years it applies to ----
+  // The contract text's AAV is a forward-looking list, one tier per remaining stretch, this season first, and it ROLLS: once a tier's year is
+  // played it drops off ("AAV 4, 24" -> "AAV 24"; Keith 2026-07-22). Canon §C4: an extension keeps this season at the old AAV and gives the added
+  // years the new one. So the mapping is supported only where those rules pin it down:
+  //   one tier:  this season through the last year (the whole remaining term). Not for an extension made THIS season, whose current year and added
+  //              years must differ (§C4): one tier there cannot be placed.
+  //   two tiers: only an extension made this season (its year is known and the term is this season plus the N added years): tier 1 -> this
+  //              season, tier 2 -> the added years.
+  // Anything else is "unmapped" (the amounts are shown with "years not mapped"). AAV is never computed (never TCV ÷ years).
+  // -> { state: "mapped" | "unmapped" | "none", amounts: [..], lines: [{ from, to, amount }] }
+  function aavYears(player, season, teams) {
+    var c = parseSpecial(player && player.special), a = c.aav, y = Math.max(0, parseInt(player && player.years, 10) || 0);
+    var out = { state: "none", amounts: a.slice(), lines: [] };
+    if (!a.length) return out;
+    out.state = "unmapped";
+    if (!y) return out;
+    var end = season + y - 1, n = extYears(player.type), e = n ? extension(player, season, teams) : null;
+    var extNow = !!(e && e.year === season && y === n + 1);
+    if (a.length === 1 && !extNow) out.lines = [{ from: season, to: end, amount: a[0] }];
+    else if (a.length === 2 && extNow) out.lines = [{ from: season, to: season, amount: a[0] }, { from: season + 1, to: end, amount: a[1] }];
+    if (out.lines.length) out.state = "mapped";
+    return out;
+  }
+
+  // ---- R9: how this team acquired the player, from the roster read's acquisition text (kept separate from how the current contract began) ----
+  // "1.05 (2025)" a Rookie Draft pick · "Auction $19,000 (2025)" · "BB $9,000" a waiver claim · "FCFS" · "Trade (2025)". The year is the one the
+  // roster read states (a season, never a date); without one, no year is given. Anything else -> { kind: "other" } and is not described.
+  function acquisitionOf(text) {
+    var s = F.str(text).trim(), m, yr = null, ym = s.match(/\((\d{4})\)\s*$/);
+    if (ym) yr = parseInt(ym[1], 10);
+    if (!s) return { kind: "none", words: "", year: null };
+    if ((m = s.match(/^(\d{1,2}\.\d{2})(?:\s*\(\d{4}\))?$/))) return { kind: "draft", words: "Rookie Draft, pick " + m[1], year: yr };
+    if ((m = s.match(/^Auction\s+(\$[\d,]+)(?:\s*\(\d{4}\))?$/i))) return { kind: "auction", words: "Auction, " + m[1], year: yr };
+    if ((m = s.match(/^BB\s+(\$[\d,]+)(?:\s*\(\d{4}\))?$/i))) return { kind: "waiver", words: "Waiver claim, " + m[1], year: yr };
+    if (/^FCFS$/i.test(s)) return { kind: "waiver", words: "Waiver pickup (FCFS)", year: null };
+    if (/^Trade(?:\s*\(\d{4}\))?$/i.test(s)) return { kind: "trade", words: "Trade", year: yr };
+    return { kind: "other", words: "", year: null };
+  }
+
+  // ---- R9: Contract history, from the contract text and the roster read only ----
+  // Events: how the current contract began (its type's source token, with the season its recorded terms start), how this team acquired him (roster
+  // read), every extension in the contract's Ext: record (oldest first; only the extension in force now can carry a season, from extension()), each
+  // restructure year written in the text, a tag. A trade or a restructure never adds an extending team (only Ext: names do). Nothing is dated
+  // finer than a season, and a season worked out from the contract terms is marked as such (why: "terms" | "restructure"), separate from a season
+  // the record states (why: "recorded"). Events with no season are listed after the dated ones, in record order.
+  // -> { events: [{ kind, words, year, why, team }], complete, eligibility: "not_shown" }
+  //    complete: every event has a season, the acquisition is recorded and is not a trade (a trade means earlier owners' events are not here)
+  function contractHistory(player, season, teams) {
+    var type = F.str(player && player.type), up = type.toUpperCase().split("-"), ev = [], k;
+    var h = history(player, season), n = extYears(type), ext = n ? extension(player, season, teams) : null, acq = acquisitionOf(player && player.acquisition);
+    var src = null;
+    for (k = 1; k < up.length; k++) if (SOURCE_TOKENS[up[k]]) { src = SOURCE_TOKENS[up[k]]; break; }
+    var startYear = h.start != null && (h.startWhy === "terms" || h.startWhy === "auction") ? h.start : null;
+    // the contract's origin, when the type names it; folded into the acquisition when that is the same event (an auction or draft by this team)
+    var sameAsAcq = src && ((src === "FA Auction" || src === "Expired Rookie Auction") && acq.kind === "auction" || src === "Rookie Draft" && acq.kind === "draft" || src === "Waiver Wire" && acq.kind === "waiver");
+    if (src && !sameAsAcq && !n) ev.push({ kind: "origin", words: src + " contract", year: startYear, why: startYear != null ? (h.startWhy === "auction" ? "recorded" : "terms") : null });
+    if (acq.kind !== "none" && acq.kind !== "other") {
+      var ay = acq.year, aw = ay != null ? "recorded" : null;
+      if (ay == null && sameAsAcq && startYear != null) { ay = startYear; aw = h.startWhy === "auction" ? "recorded" : "terms"; }
+      ev.push({ kind: acq.kind === "trade" ? "trade" : "acquired", words: acq.kind === "trade" ? "Acquired by trade" : acq.words, year: ay, why: aw });
+    }
+    var lin = extLineage(player && player.special), added = n ? " (current contract, " + n + (n === 1 ? " year added)" : " years added)") : "";
+    var verified = !!(ext && ext.verified !== false);
+    // every Ext: name is an extension in the record; only a VERIFIED attribution ties the last one to the contract in force (a restructure-bound year
+    // does not: the current extension is then its own event, "team not verified", and the names stay record-only, undated)
+    lin.forEach(function (name, i) {
+      var t = teamForName(name, teams), cur = verified && i === lin.length - 1;
+      ev.push({ kind: "extension", words: "Extended" + (t ? " by " + t.name : " · team not identified") + (cur ? added : n && !verified ? " (in the extension record)" : ""),
+        year: cur ? ext.year : null, why: cur && ext.year != null ? "terms" : null, team: t ? { id: t.id, name: t.name } : null });
+    });
+    if (n && (!lin.length || !verified)) ev.push({ kind: "extension", words: "Extended · " + (lin.length ? "extending team not verified" : "team not recorded") + added, year: ext ? ext.year : null, why: ext && ext.year != null ? (ext.yearWhy === "restructure_bound" ? "restructure" : "terms") : null, team: null, current: true });
+    var re = /restructur(?:ed|e)\s*:?\s*(\d{4})/gi, m, seen = {};
+    while ((m = re.exec(F.str(player && player.special)))) { if (!seen[m[1]]) { seen[m[1]] = 1; ev.push({ kind: "restructure", words: "Restructured", year: parseInt(m[1], 10), why: "recorded" }); } }
+    if (up[0] === "TAG") ev.push({ kind: "tag", words: "Tagged", year: h.start != null && h.startWhy === "terms" ? h.start : null, why: h.start != null && h.startWhy === "terms" ? "terms" : null });
+    if (up.indexOf("MYM") >= 0) ev.push({ kind: "mym", words: "Mid-Year Multi", year: null, why: null });
+    // dated events by season (ties keep record order), then the undated ones in record order
+    var dated = ev.map(function (e, i) { return { e: e, i: i }; }).filter(function (x) { return x.e.year != null; }).sort(function (a, b) { return (a.e.year - b.e.year) || (a.i - b.i); }).map(function (x) { return x.e; });
+    var undated = ev.filter(function (e) { return e.year == null; });
+    // extTeams: the extending teams the record supports (Ext: names matched to a team); extTeamsComplete is false when the contract in force is an
+    // unverified (restructure-bound) extension, whose extender may be missing from the record
+    var extTeams = lin.map(function (nm) { return teamForName(nm, teams); }).filter(Boolean).map(function (t) { return { id: t.id, name: t.name }; });
+    return { events: dated.concat(undated), complete: !undated.length && acq.kind !== "none" && acq.kind !== "other" && acq.kind !== "trade" && (!n || verified),
+      extTeams: extTeams, extTeamsComplete: !n || verified, eligibility: "not_shown" };
   }
 
   // ---- the worker's answer (one row of /api/cap-penalty/preview .players[pid]) ----
@@ -296,10 +387,13 @@
     if (!out.source) out.source = draft ? "Rookie Draft" : bb || fcfs ? "Waiver Wire" : auction ? "Auction" : null;
     if (out.source === "Waiver Wire" && fcfs) out.source = "Waiver Wire (FCFS)";
     if (!out.source && /^Trade\b/i.test(acq)) out.sourceNote = "Acquired by trade";
+    // R9 (Keith, 2026-11-23): an extension begins the current contract, so its source is "Extension" (how many years it added is `extended`); how
+    // this team acquired the player stays a separate fact (acquisitionOf), never folded into the source
+    var n = extYears(type);
+    out.extended = n || null;
+    if (n) { out.source = "Extension"; out.sourceNote = null; }
     // later changes, each only from its own token
     if (up.indexOf("MYM") >= 0) out.changes.push("Mid-Year Multi");
-    var n = extYears(type);
-    if (n) out.changes.push("Extended " + n + (n === 1 ? " year" : " years"));
     var rs = restructureYear(player && player.special);
     if (rs != null) out.changes.push("Restructured " + rs);
     if (up[0] === "TAG") out.changes.push("Tag");
@@ -321,6 +415,6 @@
   }
 
   return { moneyToken: moneyToken, parseSpecial: parseSpecial, schedule: schedule, history: history, restructureYear: restructureYear, extYears: extYears,
-    extLineage: extLineage, teamForName: teamForName, extension: extension, extensionLine: extensionLine, LEGACY_EXT_NAMES: LEGACY_EXT_NAMES, earned: earned, remainingGuarantee: remainingGuarantee, cutNow: cutNow,
+    extLineage: extLineage, teamForName: teamForName, extension: extension, extensionLine: extensionLine, aavYears: aavYears, acquisitionOf: acquisitionOf, contractHistory: contractHistory, LEGACY_EXT_NAMES: LEGACY_EXT_NAMES, earned: earned, remainingGuarantee: remainingGuarantee, cutNow: cutNow,
     cutRule: cutRule, CUT_RULES: CUT_RULES, describe: describe };
 });

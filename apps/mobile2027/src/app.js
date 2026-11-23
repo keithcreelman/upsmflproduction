@@ -45,7 +45,7 @@
     wk: null, // the week on screen; null means the current lineup week. Only a past week ever changes it (view-only)
     intel: { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null }, // reads added in R2/R3/PR B, by their own address: injury status, NFL games and team history, weekly lineups, weekly player scores, NFL schedules, MFL’s complete player list (positions, clubs and names)
     live: null, // PR B: when every game of the lineup week was first seen final (starts the quiet period of the Final · updating chip)
-    ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the sort (exp | sal | name), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
+    ct: { f: "all", l: "all", s: "exp", y: 0, d: 1, open: {}, hist: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the salary structure filter (R9); the sort (exp | sal | pos | name), which Contract histories are open (R9), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
     pf: { s: "pos", open: {}, res: {}, q: "" }, // Team › Performance: the sort (pos | diff | avg), which rows are open, which reserve groups are open, the name search (R8)
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
@@ -481,6 +481,8 @@
     else if (act === "cts") { var nx = U.tabviews.ctNextSort(S.ct, v); S.ct.s = nx.s; S.ct.d = nx.d; render(true); }   // a new sort starts in its own direction; the same sort again reverses it
     else if (act === "cty") { var yy = parseInt(v, 10); if (yy >= 0 && yy <= 2) { S.ct.y = yy; render(true); } }
     else if (act === "ctx") { S.ct.open[v] = !S.ct.open[v]; render(true); }
+    else if (act === "ctl") { if (v === "all" || v === "flat" || v === "fl" || v === "bl") { S.ct.l = v; render(true); } }   // R9: Salary structure filter
+    else if (act === "cth") { S.ct.hist = S.ct.hist || {}; S.ct.hist[v] = !S.ct.hist[v]; render(true); }   // R9: a player's Contract history (collapsed by default)
     else if (act === "ctbd") { S.ct.bd = !S.ct.bd; render(true); }
     else if (act === "ctcat") { S.ct.cat[v] = !S.ct.cat[v]; render(true); }
     else if (act === "nsx") { S.ct.ns = !S.ct.ns; render(true); if (S.ct.ns) loadNext(false); }

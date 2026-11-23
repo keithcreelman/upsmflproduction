@@ -111,7 +111,7 @@ test("player rows: a colored position badge, the name opens the profile, a separ
   });
   t.match(html, /<div class="thead g4"><span>If cut now<\/span><span>2026<\/span><span>2027<\/span><span>2028<\/span><\/div>/, "this season's and the future annual salary columns");
   t.match(text(html), /Expires 2026 · \d+ players/); t.doesNotMatch(text(html), /Expiration date/);
-  t.match(html, /<button data-act="cts" data-v="sal" aria-pressed="false" aria-label="Sort by salary">Salary<\/button><button data-act="cts" data-v="exp" aria-pressed="true" aria-label="Sorted by contract expiration, soonest first\. Tap to reverse\.">Contract exp\. <span aria-hidden="true">▲<\/span><\/button><button data-act="cts" data-v="name" aria-pressed="false" aria-label="Sort by name">Name<\/button>/);
+  t.match(html, /<button data-act="cts" data-v="exp" aria-pressed="true" aria-label="Sorted by contract expiration, soonest first\. Tap to reverse\.">Contract exp\. <span aria-hidden="true">▲<\/span><\/button><button data-act="cts" data-v="sal" aria-pressed="false" aria-label="Sort by salary">Salary<\/button><button data-act="cts" data-v="pos" aria-pressed="false" aria-label="Sort by position">Position<\/button><button data-act="cts" data-v="name" aria-pressed="false" aria-label="Sort by name">Name<\/button>/);
 });
 
 // ───────────────────────── Details: the full schedule of the current contract ─────────────────────────
@@ -177,11 +177,12 @@ test("R8 describe(): every token maps only to what it states; unknown is null (N
     ["Rookie-WW", "CL 1| TCV 3K", "BB $3,000", { type: "Rookie", source: "Waiver Wire", changes: [], structure: "Flat" }],
     ["Vet-MYM", "CL 2| Y1-1K, Y2-1K", "BB $1,000", { type: "Veteran", source: "Waiver Wire", changes: ["Mid-Year Multi"], structure: "Flat" }],
     ["Vet-MYM", "CL 2| Y1-26K, Y2-26K", "Auction $26,000", { type: "Veteran", source: "Auction", changes: ["Mid-Year Multi"], structure: "Flat" }],
-    ["Vet-Ext1", "CL 2| Y1-1K, Y2-11K| Ext: Blake", "Trade (2025)", { type: "Veteran", source: null, sourceNote: "Acquired by trade", changes: ["Extended 1 year"], structure: "Flat" }],
-    ["Vet-Ext2", "CL 3| Y1-9K, Y2-29K, Y3-29K| Ext: PG", "2.04 (2023)", { type: "Veteran", source: "Rookie Draft", changes: ["Extended 2 years"], structure: "Flat" }],
-    ["Vet-Ext2", "CL 3| Y1-9K, Y2-20K, Y3-30K", "Trade", { type: "Veteran", source: null, changes: ["Extended 2 years"], structure: "Back-loaded" }],
-    ["Vet-Ext2", "CL 3| Y1-9K", "Trade", { type: "Veteran", source: null, changes: ["Extended 2 years"], structure: null }],
-    ["Vet-Ext1-BL", "CL 2|Y1-14K, Y2-50K|Ext: CBP|Restructured 2026", "Trade (2024)", { type: "Veteran", source: null, changes: ["Extended 1 year", "Restructured 2026"], structure: "Back-loaded" }],
+    // R9 (Keith 2026-11-23): an extension begins the current contract, so its source is Extension (years added in `extended`); the acquisition is separate
+    ["Vet-Ext1", "CL 2| Y1-1K, Y2-11K| Ext: Blake", "Trade (2025)", { type: "Veteran", source: "Extension", sourceNote: null, extended: 1, changes: [], structure: "Flat" }],
+    ["Vet-Ext2", "CL 3| Y1-9K, Y2-29K, Y3-29K| Ext: PG", "2.04 (2023)", { type: "Veteran", source: "Extension", extended: 2, changes: [], structure: "Flat" }],
+    ["Vet-Ext2", "CL 3| Y1-9K, Y2-20K, Y3-30K", "Trade", { type: "Veteran", source: "Extension", changes: [], structure: "Back-loaded" }],
+    ["Vet-Ext2", "CL 3| Y1-9K", "Trade", { type: "Veteran", source: "Extension", changes: [], structure: null }],
+    ["Vet-Ext1-BL", "CL 2|Y1-14K, Y2-50K|Ext: CBP|Restructured 2026", "Trade (2024)", { type: "Veteran", source: "Extension", changes: ["Restructured 2026"], structure: "Back-loaded" }],
     ["Tag", "CL 1| TCV 51K| AAV 51K| Tag| Tier 1", "Trade", { type: null, source: null, changes: ["Tag"], structure: "Flat" }],
     ["", "", "", { type: null, source: null, changes: [], structure: null }],
     ["Vet-FAA", "CL 3| Y1-5K, Y2-6K, Y3-6K", "Auction $5,000", { type: "Veteran", source: "FA Auction", changes: [], structure: null }]
