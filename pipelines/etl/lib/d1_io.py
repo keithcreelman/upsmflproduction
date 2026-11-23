@@ -80,6 +80,7 @@ def build_insert(
     coalesce_cols: list[str] | None = None,
     changed_only: bool | None = None,
     change_ignore_cols: list[str] | None = None,
+    update_only: bool = False,
 ) -> str:
     """Build an INSERT (or UPSERT) statement for a batch of rows.
 
@@ -96,7 +97,17 @@ def build_insert(
     90% of a day's D1 writes). New rows still insert and changed rows still
     update. `change_ignore_cols` (e.g. a run timestamp) are still SET when a
     row changes, but don't by themselves count as a change.
+
+    `update_only` (requires `pk_cols`) never creates a row: the batch is read
+    through `SELECT … FROM (VALUES …) WHERE EXISTS (<row with that key>)`, so a
+    row whose key is not already in the table is dropped and the rest update
+    exactly as above. For augmenting writers whose rows only make sense on top
+    of another source's row (fetch_pfr_advstats.py on nfl_player_weekly, whose
+    inserts produced rows with no team, opponent or position, #1503 D1).
     """
+    if update_only and (not pk_cols or not [c for c in cols if c not in pk_cols]):
+        # Without a key and something to update, every fallback below would INSERT.
+        raise ValueError(f"build_insert {table}: update_only needs pk_cols and at least one non-key column")
     col_list = ", ".join(cols)
     value_tuples = []
     for row in rows:
@@ -127,6 +138,16 @@ def build_insert(
                 ]
                 if terms:
                     where = f" WHERE {_balanced_or(terms)}"
+            if update_only:
+                # VALUES columns are column1..columnN in cols order; the EXISTS probe uses the PK index.
+                pos = {c: i + 1 for i, c in enumerate(cols)}
+                probe = " AND ".join(f"cur.{c} = v.column{pos[c]}" for c in pk_cols)
+                return (
+                    f"INSERT INTO {table} ({col_list})\n"
+                    f"SELECT * FROM (VALUES\n{values_sql}\n) AS v\n"
+                    f"WHERE EXISTS (SELECT 1 FROM {table} AS cur WHERE {probe})\n"
+                    f"ON CONFLICT ({pk_list}) DO UPDATE SET {set_clause}{where};\n"
+                )
             return (
                 f"INSERT INTO {table} ({col_list}) VALUES\n{values_sql}\n"
                 f"ON CONFLICT ({pk_list}) DO UPDATE SET {set_clause}{where};\n"
@@ -262,7 +283,9 @@ class D1Writer:
         max_rows_per_file: int | None = None,
         coalesce_cols: list[str] | None = None,
         change_ignore_cols: list[str] | None = None,
+        update_only: bool = False,
     ):
+        self.update_only = update_only
         self.table = table
         self.cols = cols
         self.pk_cols = pk_cols
@@ -346,7 +369,7 @@ class D1Writer:
 
     def _build_statements(self, rows: list[tuple]) -> list[tuple[str, int, int]]:
         sql = build_insert(self.table, self.cols, rows, pk_cols=self.pk_cols, coalesce_cols=self.coalesce_cols,
-                           change_ignore_cols=self.change_ignore_cols)
+                           change_ignore_cols=self.change_ignore_cols, update_only=self.update_only)
         size = len(sql.encode("utf-8"))
         if size < STATEMENT_BYTE_LIMIT:
             return [(sql, len(rows), size)]
