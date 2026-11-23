@@ -9,7 +9,7 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 **2026-11-23 · change (draft #1518, head `7a5a8fbe`)** · Writer prevention, extended after Mobile Build's review.
 - **`require_parent` option:** `nfl_player_weekly_ext` is written only on keys with a team-set box row (no orphans), in the PFR def-ext write and two manual backfills.
 - **Update-only:** now also covers the two manual `nfl_player_weekly` backfills.
-- **PBP kicking/punting writer:** deliberately unchanged, because punters have no box row. Follow-up: set its team.
+- **PBP kicking/punting writer:** unchanged in #1518. **Corrected 2026-11-23:** production has K/P box rows, all team-set (2026 W1–10: 297 PN, 303 PK; 0 team-less K/P rows 2012–2026, per Mobile Build). The "no punter rows" comment is stale. Follow-up guard: update-only or team from `posteam`, for the weekly-lag or id-mismatch case.
 - **Measured scope:** 812 team-NULL rows (2024: 351, 2025: 308, 2026 W1–10: 153) plus 153 `_ext` rows.
 - **Verify on the first scheduled refresh** with Mobile Build's read-only counts; that is the gate before cleanup.
 - **D2 design:** Mobile Build agreed (notes adopted: `plays_loaded > 0`, final weeks only, "inferred" vs "verified" labels).
