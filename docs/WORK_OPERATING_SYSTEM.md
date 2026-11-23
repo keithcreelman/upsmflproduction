@@ -40,6 +40,30 @@ If no safe interactive preview exists, say so before seeking sign-off and give a
 
 Continue the current session while working on the same outcome and files. Start a new session for an independent project, an unrelated bug, or after the old context becomes unreliable. Before switching, update the issue/PR with current commit, completed work, evidence, open decisions, and the next action. A new session first verifies those facts. Dispatch can carry a phone message to the desktop, but the issue/PR is the durable record.
 
+## Cross-workstream coordination
+
+The program has four workstreams: **Mobile** (the 2027 beta, `docs/ups_v2/`), **AI/History/Valuation** (the commissioner desk, League Record, contract history), **Infrastructure** (data governance, jobs, security) and **Shared**. Sessions stay focused on one workstream; decisions, dependencies and status connect through **backlog index issue #1503**, which is the one backlog. The linked issues and PRs stay authoritative; the index points to them and authorizes nothing.
+
+- **Gaps.** Record a cross-workstream gap once in #1503, as a new row or a child of an existing item, with links from the affected workstreams. Do not keep a second tracker.
+- **Writer.** The #1503 header names the single writer and the owner of the scheduled refreshes. Other sessions hand row text to that session; they do not edit the dashboard concurrently. A refresh must keep manual rulings, the audit trail and the handoff register unchanged.
+- **Handoff register.** #1503 lists, per session or workstream: scope, latest handoff location, date and custodian. A public row may name a restricted artifact and its custodian only. Content and retrieval instructions for private handoffs live in Keith's private GitHub Project, because a path on one Mac is not a retrieval route.
+- **Settled decisions.** Carry earlier approvals forward within their stated scope. Link to the ruling (issue or PR comment, or the #1503 audit trail); do not re-ask it and do not reintroduce a rejected feature. A reply on a phone is a note until its meaning is recorded.
+- **Overlap.** Before changing a shared file or interface, check the shared-interface list in #1503 and `gh pr list` and `git worktree list` for work touching it. Inventory and reconciliation of open PRs and worktrees is its own backlog item; never close a PR, delete a worktree or discard changes as a side effect of other work.
+
+### Stages are separate facts
+
+Record each stage with a date, the evidence and the commit it applies to. One stage never proves another.
+
+| Stage | Means | Record |
+| --- | --- | --- |
+| Design approved | Keith approved a design or scope | date, where he said it, the scope limits |
+| Implemented | The change exists on a branch or PR | PR, head commit, draft or ready |
+| Verified | Named checks passed | what ran, at which commit, what it covers and does not (unit tests, CI on the merge result, Codex verdict, real browser, test league) |
+| Preview deployed | A working HTTPS preview on safe data exists | link type, data used, date, commit |
+| Released | Merged, deployed and checked on the real surface | merge commit, deployed version, check date, rollback note |
+
+Approval is not implementation, green CI is not a release, and a preview is not proof of authenticated owner behavior.
+
 ## AI sprints and tests
 
 When Claude builds and Codex reviews, follow `docs/AI_SPRINT_PROTOCOL.md`: roles, the status line, the two-round limit, stop states and approval gates. Codex reads the same rules through `AGENTS.md`. Run the test suite only with `node scripts/safe_tests/run.mjs` (`docs/SAFE_TESTS.md`); the **Safe offline tests** check runs it on every pull request.

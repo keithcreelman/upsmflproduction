@@ -8,6 +8,13 @@ This public repository is the UPS platform source. Do not store private chat, cr
 - Write a short definition of done and a phone-review plan before building a UI change. Continue routine work without repeatedly asking Keith to approve implementation details.
 - Use parallel agents for independent evidence or reviews. Give each a bounded task and one integrator; avoid simultaneous edits to shared files.
 
+## Coordinate across workstreams
+- **One index.** Backlog index issue #1503 is the shared project index for Mobile, AI/History/Valuation, Infrastructure and Shared work (the whole program is also called MFL2.0 / UPS_V2). Read its dashboard, handoff register and shared-interface list before starting. Record a cross-workstream gap once there (a new row, or a child of an existing item) and link it from the affected workstream. Only the writer named in the #1503 header edits it; everyone else hands row text to that session through the handoff register.
+- **Stages are separate.** Track design approved, implemented, verified, preview deployed and released as different facts, each with a date and a commit (`docs/WORK_OPERATING_SYSTEM.md`). A draft PR, a green CI run or a preview never implies a release. An approval covers its stated scope only.
+- **Shared files and interfaces.** Before changing a worker route, `site/m/`, canon or rules data, a D1 migration or worker auth, check the shared-interface list in #1503 and the open PRs and worktrees touching it.
+- **Authority.** This repository's `main` is the authority for code. Project status lives in #1503 and the linked issues and PRs. League rules are `docs/league_context_v1.md` and Keith's recorded rulings.
+- **Private handoffs stay private.** A public entry may name a restricted artifact and its custodian, never its content. Retrieval instructions go in Keith's private GitHub Project, not here.
+
 ## Verification and release
 - Fix: reproduce, change the smallest safe path, test the actual behavior, show before/after evidence.
 - Enhancement: explain the owner need, compare viable designs, build one focused draft, then provide an interactive preview Keith can open on a phone.
