@@ -6,6 +6,12 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-23 · change (drafts)** · #1503 D1/D2.
+- **D1:** draft #1518 (head `94e8d23c`, local 278/0) adds an opt-in `update_only` mode to `D1Writer`/`build_insert`, used only for `nfl_player_weekly` in `fetch_pfr_advstats.py`, so PFR never creates rows. Mobile Build measured 153 blank rows (131 players, Weeks 1–10, all from the defense payload), read-only, 35,090 rows read; 137 → 152 → 153 is consistent with new rows on each refresh. Existing rows are untouched; cleanup needs Keith's go.
+- **D2:** design note `designs/PBP_LOAD_RECORD.md`, a per-team-week load record with an explicit unknown/zero/in-progress rule. It is for review with Mobile Build (#1515); a migration and backfill would each need Keith's go.
+
+· #1518, #1503 comments 7099174096 and 7099742471. · Mobile beta Performance, Stats. · Draft.
+
 **2026-11-23 · finding (reported by Mobile Build; mechanism verified)** · `fetch_pfr_advstats.py` inserts `nfl_player_weekly` rows into D1 where nflverse wrote none (`INSERT … ON CONFLICT DO UPDATE` via `D1Writer`; the local path is update-only).
 - Those rows have NULL team, opponent and position, and the default `source = 'nflverse'`, so `source` cannot identify them.
 - **Recurs** on every `nflverse-stats-refresh` run.
