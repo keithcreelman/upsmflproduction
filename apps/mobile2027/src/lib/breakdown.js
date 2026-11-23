@@ -3,7 +3,7 @@
 
    What it uses from the state: the player's game-stats read (S.intel.box[id], one per player and season), MFL's weekly scores (S.intel.scores, the reads
    Team > Performance already makes), the whole-season schedule (S.intel.cal.data.days, with kickoffs) and the clubs' byes, and the season cutoff W*
-   (tabviews.seasonCutoff when it exists; until then the completed-week check, tabviews.completion). Nothing here asks for anything: lib/data.js does. */
+   (tabviews.seasonCutoff, shared with the main card). Nothing here asks for anything: lib/data.js does. */
 (function (root, factory) {
   var req = typeof require === "function";
   var api = factory(
@@ -18,15 +18,13 @@
   "use strict";
   var esc = F.esc, DASH = "—", ENDASH = "–";
 
-  // The one season cutoff (W*): Team > Performance's shared week when it is available, else the completed-week check. -> { state, week }
+  // The one season cutoff W*: Team > Performance's shared week (tabviews.seasonCutoff), the same week as the main card's figures and ranks.
+  // -> { state, week, allFinal, reason }. Weeks after W* (a newer all-final week, the lineup week) are drawn in the log as newer, outside the summary.
   function cutoffOf(S) {
-    if (TV && typeof TV.seasonCutoff === "function") {
-      var c = TV.seasonCutoff(S);
-      if (typeof c === "number") return c >= 1 ? { state: "ok", week: c } : { state: "none" };
-      if (c && typeof c === "object") return c.state ? c : typeof c.week === "number" ? { state: "ok", week: c.week } : { state: "loading" };
-      return { state: "loading" };
-    }
-    return TV && TV.completion ? TV.completion(S) : { state: "error" };
+    var c = TV.seasonCutoff(S);
+    if (!c || !c.state) return { state: "loading" };
+    if (c.state === "ok" && !(c.week >= 1)) return { state: "none" };
+    return c;
   }
   function boxOf(S, pid) { var h = S.intel && S.intel.box; return h && h[pid] ? h[pid] : null; }
   function bdState(S) { return S.bd || { v: {}, g: {} }; }
@@ -147,9 +145,9 @@
     // the settled fantasy season, from the same weekly reads and the same cutoff as Team > Performance
     var settled = rs.filter(function (r) { return !r.newer; }), tot = 0, nsc = 0, nLoad = 0, nErr = 0, nBad = 0;
     settled.forEach(function (r) { if (r.ptsKind === "score") { tot += Math.round(r.pts * 100); nsc++; } else if (r.ptsKind === "loading") nLoad++; else if (r.ptsKind === "error") nErr++; else if (r.ptsKind === "unreadable") nBad++; });
-    var nBadAll = rs.filter(function (r) { return r.ptsKind === "unreadable"; }).length;
+    // an unreadable score after W* is outside the season figures: its row shows "?" and the figures stand
     if (opts.summary !== false) out += '<div class="bdsum"><b>Through Week ' + C.week + "</b> · " + (nBad || nErr || nLoad ? '<span class="mu">' + (nLoad ? "points still loading" : "season points not shown") + "</span>" : esc(BL.f1(tot / 100)) + " pts · " + nsc + (nsc === 1 ? " scored game" : " scored games")) + "</div>";
-    if (nBadAll) out += '<div class="ex wn">' + (nBadAll === 1 ? "1 score" : nBadAll + " scores") + " could not be read, so his season figures are not shown.</div>";
+    if (nBad && opts.summary !== false) out += '<div class="ex wn">' + (nBad === 1 ? "1 score" : nBad + " scores") + " could not be read, so his season figures are not shown.</div>";
     if (nErr) out += '<div class="ex wn">' + (nErr === 1 ? "1 week" : nErr + " weeks") + ' of scores could not be read and show n/a. <button class="link" data-act="retrylog">Try again</button></div>';
     // the game-stats read: one line when it is not there
     if (!boxRec || boxRec.state === "loading") out += '<div class="ex">Loading game stats…</div>';

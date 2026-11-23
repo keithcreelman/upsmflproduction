@@ -26,6 +26,8 @@ const text = (html) => html.replace(/<[^>]*>/g, " ").replace(/&amp;/g, "&").repl
 const clone = (x) => JSON.parse(JSON.stringify(x));
 const ok = (b) => ({ ok: true, status: 200, text: async () => JSON.stringify(b) });
 const named = (p) => (p.name ? p : Object.assign({ name: "Player, " + p.id }, p));
+// team history cut at Week T (the same helper as the Performance tests): a history one week behind the all-final week
+const histAt = (T) => { const h = clone(FX4.hist); h.teamHistoryThrough = T; Object.keys(h.teamHistory).forEach((id) => { const e = h.teamHistory[id]; e.seg = e.seg.filter((s) => s[1] <= T).map((s) => [s[0], s[1], Math.min(s[2], T)]); if (!e.seg.length) delete h.teamHistory[id]; }); Object.keys(h.teamHistoryFirst).forEach((id) => { if (h.teamHistoryFirst[id] > T) delete h.teamHistoryFirst[id]; }); return h; };
 const POS = Object.fromEntries(FX4.players.map((p) => [p.id, p]));
 const P = (id, pos, club) => ({ id, pos: pos || POS[id].position, nflTeam: club || POS[id].team });
 
@@ -36,7 +38,7 @@ async function intel(ids, over) {
   const calls = [];
   const fake = async (url) => {
     const u = new URL(url), ty = u.searchParams.get("TYPE"), w = u.searchParams.get("W"); calls.push(u.pathname + "?" + u.searchParams.toString());
-    if (u.pathname === "/api/lineup-matchups") return ok(Object.assign({}, clone(FX3.lineup_matchups_w11), clone(FX4.hist), { week: Number(w) }));
+    if (u.pathname === "/api/lineup-matchups") return ok(Object.assign({}, clone(FX3.lineup_matchups_w11), over.hist || clone(FX4.hist), { week: Number(w) }));
     if (u.pathname === "/api/player-weekly-box") { const a = FXB.box[u.searchParams.get("mfl_id")]; return a ? ok(a) : { ok: false, status: 404, text: async () => "" }; }
     if (ty === "playerScores") return ok({ playerScores: { playerScore: (over.scores || FX4.scores)[w] || (w === "11" ? [{ id: "17149", score: "2.0" }] : []) } });
     if (ty === "players") return ok({ players: { player: FX4.players.map(named) } });
@@ -261,16 +263,42 @@ test("newer weeks: a score after the cutoff is shown with its status, outside th
   t.match(h, /<tr class="newer"><th class="pin"><button data-act="bdg" data-v="11"/); t.match(text(h), /L 3–26 · not in season figures/);
 });
 
-test("the cutoff: Team › Performance's shared week (tabviews.seasonCutoff) wins when it exists; one week back moves the rollup and the log together", async () => {
-  const { intel: I } = await intel(["16185"]), p = P("16185");
-  TV.seasonCutoff = () => 9;
-  try {
-    const h = text(BD.panel(state(I), p));
-    t.match(h, /Through Week 9 · 260\.9 pts · 9 scored games/); t.match(h, /Season stats · Weeks 1–9/); t.match(h, /Targets 99 —/);
-    t.match(h, /W 21–13 · not in season figures/, "Week 10 is shown as newer");
-    TV.seasonCutoff = () => ({ state: "loading" }); t.match(BD.panel(state(I), p), /Loading the breakdown/);
-  } finally { delete TV.seasonCutoff; }
-  t.match(text(BD.panel(state(I), p)), /Through Week 10/, "without it, the completed-week check (Week 10)");
+test("the cutoff: the Breakdown runs on Team › Performance's shared week W* (tabviews.seasonCutoff); history one week behind moves the rollup and the log together, and the newer all-final week stays in the log with its status", async () => {
+  const p = P("16185");
+  const { intel: I } = await intel(["16185"]);
+  const c = TV.seasonCutoff(state(I)); t.equal(c.state, "ok"); t.equal(c.week, 10, "complete history: W* = the all-final week");
+  t.match(text(BD.panel(state(I), p)), /Through Week 10/);
+  // R6 integration: the real shared cutoff with team history through Week 9 (scores final through Week 10)
+  const { intel: I9 } = await intel(["16185"], { hist: histAt(9) });
+  const c9 = TV.seasonCutoff(state(I9)); t.equal(c9.week, 9); t.equal(c9.allFinal, 10); t.equal(c9.reason, "history_behind");
+  const raw = BD.panel(state(I9), p), h = text(raw);
+  t.match(h, /Through Week 9 · 260\.9 pts · 9 scored games/); t.match(h, /Season stats · Weeks 1–9/); t.match(h, /Targets 99 —/);
+  t.match(h, /W 21–13 · not in season figures/, "Week 10 (all final) is in the log as newer");
+  t.match(raw, /<tr class="newer"><th class="pin"><button data-act="bdg" data-v="10"/);
+  const fig = TV.perfFigures(state(I9), "16185"); t.equal(fig.n, 9, "the main card counts the same 9 games"); t.ok(Math.abs(fig.total - 260.9) < 1e-9, "and the same points");
+  // an unreadable score in the newer week: its row says so; the settled figures stand
+  const sc = clone(FX4.scores); sc["10"] = sc["10"].map((x) => (x.id === "16185" ? { id: x.id, score: "N/A" } : x));
+  const { intel: Ib } = await intel(["16185"], { hist: histAt(9), scores: sc }), hb = BD.panel(state(Ib), p);
+  t.match((hb.split('data-act="bdg" data-v="10"')[1] || "").split("</tr>")[0], /title="This score could not be read">\?</, "Week 10 reads as unreadable in the log, not a dash");
+  t.match(text(hb), /Through Week 9 · 260\.9 pts · 9 scored games/); t.doesNotMatch(text(hb), /could not be read, so his season figures are not shown/);
+  const real = TV.seasonCutoff;
+  TV.seasonCutoff = () => ({ state: "loading", week: null });
+  try { t.match(BD.panel(state(I), p), /Loading the breakdown/); } finally { TV.seasonCutoff = real; }
+});
+
+test("R6 integration: the main card's Breakdown control opens this Breakdown in place (same detail flow), without the summary the card already shows", async () => {
+  const { intel: I } = await intel(["16185"]);
+  const tm = state(I).model.teams.find((x) => x.players.some((q) => q.id === "16185"));
+  const S1 = state(I, { teamId: tm.id, pf: { s: "pos", open: { 16185: true }, res: {} } });
+  const html = TV.performanceBody(S1), seg = (html.split('data-act="card" data-pid="16185"')[1] || "").split('<div class="rw pfc">')[0], tx = text(seg);
+  t.match(seg, /<div class="det pfbd">/); t.match(seg, /data-bdpid="16185"/, "app.js asks for his game-stats read from this marker");
+  t.match(tx, /Season stats · Weeks 1–10/); t.match(tx, /Game log/); t.equal((seg.match(/data-act="bdv" data-v="\w+" data-pid="16185"/g) || []).length, 4, "the four weekly views");
+  t.doesNotMatch(seg, /class="bdsum"/, "no summary line"); t.doesNotMatch(tx, /Through Week|scored games? ·|pts · /, "no repeated cutoff, points or game count");
+  t.equal((tx.match(/scored games/g) || []).length, 1, "the game count once, on the card");
+  t.equal((tx.match(/Tot\. Pts\.\s+[\d,]+\.\d/g) || []).length, 1, "Tot. Pts. once, on the card");
+  t.doesNotMatch(tx, /xFP PPG\s+(?!Not Available)\S|Over Expectations\s+(?!Not Available)\S/, "model slots stay Not Available");
+  const closed = TV.performanceBody(state(I, { teamId: tm.id })), segc = (closed.split('data-act="card" data-pid="16185"')[1] || "").split('<div class="rw pfc">')[0];
+  t.doesNotMatch(segc, /data-bdpid|class="det/, "closed: no Breakdown and no read marker");
 });
 
 test("missing is not zero: no stat line, an unread week, an unreadable score and a failed read each say so", async () => {
