@@ -259,7 +259,7 @@ function boot({ data, bundle, fetchImpl, hash = "" } = {}) {
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
-  const files = ["config.js", "recorded_data.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "app.js"];
+  const files = ["config.js", "recorded_data.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "app.js"];
   for (const f of files) {
     if (f === "recorded_data.js") { if (bundle === undefined) vm.runInContext(read(f), ctx, { filename: f }); else if (bundle !== null) ctx.UPS2027_RECORDED = bundle; continue; }
     vm.runInContext(read(f), ctx, { filename: f });
@@ -283,7 +283,7 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   const ok = (where) => { t.doesNotMatch(a.html(), TROUBLE, where + ": no failure text"); t.deepEqual(a.misses(), [], where + ": nothing was asked that is not in the recording"); t.deepEqual(a.net, [], where + ": no network attempt"); };
   // boot: the first team, the marker, the data-as-of line, the Roster lineup
   t.match(a.html(), /Starting lineup · /); t.match(a.html(), new RegExp(FIRST.franchise_name)); t.equal(FIRST.franchise_name, "Blake Bombers");
-  t.match(a.html(), /<div class="envbar rec"><span>PREVIEW · RECORDED DATA · recorded Sun Nov 22, 2026, 10:22 AM ET · VIEW ONLY<\/span><\/div>/, "the marker says it is a recording, and when");
+  t.match(a.html(), /<div class="envbar rec"><span>PREVIEW · RECORDED DATA · recorded Sun Nov 22, 2026, 10:22 AM ET; game stats 10:11–10:14 PM ET · VIEW ONLY<\/span><\/div>/, "the marker says it is a recording, and both capture times (R7)");
   t.doesNotMatch(a.html(), /Preview: view only/);
   t.match(a.html(), /Data as of Sun 10:22 AM ET · Week 11/, "the Data as of line is the roster read's own generated_at");
   t.match(a.html(), /▲ Questionable|Questionable/, "injury chips drawn from the recorded status read");
@@ -342,7 +342,10 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   t.ok(views.length >= 2, "his views: " + views.join(", "));
   for (const v of views) { await a.click({ "data-act": "bdv", "data-v": v, "data-pid": pid }, 20); t.match(a.html(), new RegExp('data-act="bdv" data-v="' + v + '" data-pid="' + pid + '" aria-pressed="true"'), "view " + v); ok("breakdown view " + v); }
   await a.click({ "data-act": "bdg", "data-v": "10", "data-pid": pid }, 30); t.match(a.html(), /<tr class="bdd">/); ok("breakdown game detail");
-  t.match(a.html(), /Proj\./, "the projection slot is drawn"); t.doesNotMatch(a.html(), /<span>xFP PPG<\/span><b>(?!<span class="na">Not Available)/, "xFP stays Not Available in the profile");
+  // R7 wiring: the detail names the capture window, the season rollup ranks from the recorded Week-10 pool, the projection comes from the recording
+  t.match(a.html(), /Game stats through Week \d+, recorded Sun 10:13–10:14 PM ET/, "the game detail shows the capture time, not the serve time");
+  t.match(a.html(), /<td class="n rk"[^>]*>(QB|RB|WR|TE|K|P|DL|LB|DB)\d+(–\d+)?<\/td>/, "a season stat rank from the recorded pool");
+  t.match(a.html(), /Week 11 Proj\./, "the projection slot is drawn"); t.match(a.html(), /MFL projection, captured [A-Z][a-z]{2} \d{1,2}:\d\d [AP]M ET, before his kickoff|Not Available · |Not Available/, "with its capture time or its reason"); t.doesNotMatch(a.html(), /<span>xFP PPG<\/span><b>(?!<span class="na">Not Available)/, "xFP stays Not Available in the profile");
   await a.click({ "data-act": "ptab", "data-v": "more" }); await a.click({ "data-act": "ptab", "data-v": "sched" }); await a.click({ "data-act": "ptab", "data-v": "contract" });
   await a.click({ "data-act": "tog", "data-v": "cut" }); ok("profile tabs");
   await a.click({ "data-act": "close" });
@@ -353,7 +356,7 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
     t.match(a.html(), /This preview uses a recorded snapshot taken Sun Nov 22, 2026, 10:22 AM ET, so the figures will not move\./, "Help says so on " + s); await a.click({ "data-act": "close" });
   }
   await a.click({ "data-act": "about" });
-  t.match(a.html(), /This preview uses a recorded snapshot taken Sun Nov 22, 2026, 10:22 AM ET, not the live league\. The figures will not move\./);
+  t.match(a.html(), /This preview uses a recorded snapshot taken Sun Nov 22, 2026, 10:22 AM ET, not the live league\. The figures will not move\. Game stats, season totals and projections were recorded later that day, 10:11–10:14 PM ET\./);
   t.match(a.html(), /Reload the recorded data/); t.match(a.html(), /answered from the snapshot that ships with the page/);
   t.match(a.html(), /<b>\d+<\/b> data requests: <b>\d+<\/b> succeeded, <b>0<\/b> failed, <b>0<\/b> refused/, "the page's own log: every read succeeded, none failed");
   await a.click({ "data-act": "skin", "data-v": "dark" }); await a.click({ "data-act": "close" });

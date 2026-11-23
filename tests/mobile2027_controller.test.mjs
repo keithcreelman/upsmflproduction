@@ -79,6 +79,8 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
     if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "playerScores" && u.searchParams.get("W") === "11" && state.fail11 > 0) { state.fail11--; return { ok: false, status: 502, text: async () => "x" }; }
     if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "playerScores" && state.failScores > 0) { state.failScores--; return { ok: false, status: 502, text: async () => "x" }; }
     if (u.pathname === "/api/mfl-export" && u.searchParams.get("TYPE") === "weeklyResults" && u.searchParams.get("W") === "10" && state.failWeek10 > 0) { state.failWeek10--; return { ok: false, status: 502, text: async () => "x" }; }
+    // R7: the two draft #1515 routes are not on the deployed Worker, which answers 404 ("absent": Not Available, never asked again in a loop)
+    if (u.pathname === "/api/player-projections" || u.pathname === "/api/position-season-stats") return { ok: false, status: 404, text: async () => "" };
     return { ok: true, status: 200, text: async () => JSON.stringify(body(u)) };
   };
   const listeners = {}, winL = {}, docAttrs = {}, storage = { ...stored }, pushes = [], replaces = [];
@@ -106,7 +108,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
   // These tests run the page in LIVE mode against their own fake fetch (the committed default is recorded-data mode, which is tested in mobile2027_recorded.test.mjs).
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "app.js"]) {
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "app.js"]) {
     vm.runInContext(read(f), ctx, { filename: f });
     if (f === "config.js") ctx.UPS2027_CONFIG.data = "live";
   }
@@ -426,11 +428,14 @@ test("PR B: Team › Performance asks for the two NFL schedules, the players and
   t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "every week of the season through the last all-final week (10), and the live Week 11");
   t.equal(a.calls.slice(n).filter((c) => c.type === "nflSchedule" && new URL(c.url).searchParams.get("W") !== "ALL").length, 2, "the schedules of Week 10 (the cutoff) and Week 11 (the lineup week)"); t.equal(a.calls.slice(n).filter((c) => c.type === "players").length, 1);
   t.equal(a.calls.slice(n).filter(isCalCall).length, 2, "and MFL's club list with byes and the whole season's schedule, one read each");
-  t.equal(a.calls.length - n, 16, "nothing else was asked (the injury and matchup reads were already in memory)");
-  a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.ok(["playerScores", "nflSchedule", "players", "nflByeWeeks"].includes(c.type)); });
+  // R7: plus ONE week-labeled projection read for this team (lineup week 11, at most 80 ids)
+  const pj = a.calls.slice(n).filter((c) => c.path === "/api/player-projections");
+  t.equal(pj.length, 1, "one projection read for the team view"); t.equal(new URL(pj[0].url).searchParams.get("week"), "11"); t.ok(new URL(pj[0].url).searchParams.get("ids").split(",").length <= 80);
+  t.equal(a.calls.length - n, 17, "nothing else was asked (the injury and matchup reads were already in memory)");
+  a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.ok(c.path === "/api/player-projections" || ["playerScores", "nflSchedule", "players", "nflByeWeeks"].includes(c.type)); });
   t.match(a.html(), settled(10)); t.match(a.html(), /<em aria-label="Actual PPG rank QB2">QB2<\/em>/); t.match(a.html(), />WR63–66<\/em>/);   // R6: compact ranks on the card (the comparison and the "of N" pools left the main card)
   await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pfs", "data-v": "tot" }); await a.click({ "data-act": "pfs", "data-v": "ppg" }); await tick(10);   // revised: the Starters / Bench filter is gone, so only the sorts are tapped
-  t.equal(a.calls.length - n, 16, "tabs and sorts ask nothing");
+  t.equal(a.calls.length - n, 17, "tabs and sorts ask nothing");
 });
 
 test("revised: on Team › Performance the name opens the profile and the separate details control expands the breakdown; the filter is gone; no new Performance read (R6: only his one game-stats read for the Breakdown)", async () => {
