@@ -39,7 +39,6 @@
     ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the sort (exp | sal | name), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
     pf: { s: "pos", open: {}, res: {} }, // Team › Performance: the sort (pos | diff | avg), which rows are open, which reserve groups are open
-    gdef: pref("gdef", "needs"),
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
@@ -323,10 +322,10 @@
   });
 
   // ---- taps ----
+  // R6: the Lineup view's three section cards (Bench, Injured reserve, Taxi squad), each collapsed or expanded by its own heading
   function groupKeys() {
     var t = S.model && S.model.teams.filter(function (x) { return x.id === S.teamId; })[0];
-    if (!t) return [];
-    return U.model.benchGroups(t).map(function (g) { return "b" + g.pos; }).concat(["ir", "taxi"]);
+    return t ? ["bench", "ir", "taxi"] : [];
   }
   // Sample mode: turning it on drops anything in flight and closes an open profile (no league data is drawn);
   // turning it off reloads whatever the real screens still need, so nothing is left loading or empty.
@@ -383,7 +382,6 @@
       var n = parseInt(v, 10), wi0 = U.roster.weekInfo(S);
       if (isFinite(n) && wi0.cur && n >= 1 && n <= wi0.cur) { var again = n === wi0.sel; S.wk = n === wi0.cur ? null : n; S.sheet = null; render(); ensureIntel(again); }
     }
-    else if (act === "gdef") { S.gdef = v === "all" ? "all" : "needs"; setPref("gdef", S.gdef); S.open = {}; render(true); }
     else if (act === "grp") { var g = el.getAttribute("data-g"); S.open[g] = !U.views.isOpen(S, g); render(true); }
     else if (act === "expall") { var keys = groupKeys(), all = keys.every(function (k) { return U.views.isOpen(S, k); }); keys.forEach(function (k) { S.open[k] = !all; }); render(true); }
     else if (act === "card") openProfile(el.getAttribute("data-pid"), false);

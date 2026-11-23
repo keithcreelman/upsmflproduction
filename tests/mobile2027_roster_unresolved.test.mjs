@@ -83,7 +83,7 @@ test("a failed lineup read is an error state, never an empty lineup: no empty-sl
 test("a valid empty lineup (read succeeded, team entry present, zero starters) is not a data gap: every slot is empty and warns", () => {
   const m = withIds([]), tm = team(m), s = state(m), lu = R.lineupFor(s, tm, 11), a = R.attention(s, lu, 11);
   t.ok(R.lineupCoherence(s, tm).ok); t.equal(lu.count, 0); t.equal(lu.unresolved.length, 0); t.equal(a.empties.length, 18); t.equal(a.n, 18);
-  const tx = text(V.app(s)); t.match(tx, /0 of 18 starters/); t.match(tx, /QB1 · Empty/); t.doesNotMatch(tx, /Not in this roster read/);
+  const tx = text(V.app(s)); t.match(tx, /Starting lineup · 0\/18/); t.match(tx, /QB1 · Empty/); t.doesNotMatch(tx, /Not in this roster read/);
   // a team that is absent from a successful lineup read is unknown, not empty
   const wr = JSON.parse(JSON.stringify(FX.weekly_results)); const mm = M.build(FX.roster_workbench, FX.league, wr, 11, 2026);
   t.ok(team(mm).lineup.state === "ok");
