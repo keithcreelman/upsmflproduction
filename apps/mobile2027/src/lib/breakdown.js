@@ -177,7 +177,7 @@
       var row = '<tr class="' + cls.trim() + '"><th class="pin"><button data-act="bdg" data-v="' + r.week + '" data-pid="' + esc(pid) + '" aria-expanded="' + open + '" aria-label="Week ' + r.week + ' game details">' + pinHtml(r) + "</button></th>";
       if (v === "fan") {
         var ps = ptsText(r), res = r.bye ? "Bye" : resultText(r.game), pt = partShort(r);
-        if (r.newer && !r.bye) res = (res ? res + " · " : "") + "not in season figures";
+        if (r.newer && !r.bye && r.ptsKind === "score") res =(res ? res + " · " : "") + "not in season figures";
         row += '<td class="n">' + (r.ptsKind === "score" ? "<b>" + esc(ps) + "</b>" : '<span class="mu"' + (r.ptsKind === "unreadable" ? ' title="This score could not be read"' : "") + ">" + esc(ps) + "</span>") + "</td>" + cell(r.rank || null) +
           "<td>" + esc(res || DASH) + (pt && pt !== "Bye" ? '<small>' + esc(pt) + "</small>" : "") + "</td>";
       } else {
