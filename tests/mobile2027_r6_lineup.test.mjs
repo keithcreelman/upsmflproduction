@@ -86,8 +86,8 @@ test("slot badges: numbered labels, OFX/SFX/DFX, the occupying player's position
   t.doesNotMatch(V.rosterBody(state(intel, { wk: 10 })), /class="tag sl ps|class="tag sl fx/);
   // bench, IR and taxi rows keep the existing colored position badge
   const html3 = V.rosterBody(S);
-  M.benchGroups(team(S)).forEach((g) => g.players.forEach((p) => t.match(html3, new RegExp('<span class="tag pp"><span class="pc ' + p.pos + '">' + p.pos + '</span></span><div class="in"><button class="nm" data-act="card" data-pid="' + p.id + '"'))));
-  M.reserve(team(S), "ir").concat(M.reserve(team(S), "taxi")).forEach((p) => t.match(html3, new RegExp('<span class="pc ' + p.pos + '">' + p.pos + '</span></span><div class="in"><button class="nm" data-act="card" data-pid="' + p.id + '"')));
+  M.benchGroups(team(S)).forEach((g) => g.players.forEach((p) => t.match(html3, new RegExp('<span class="tag pp"><span class="pc ' + p.pos + '">' + ({ PK: "K", PN: "P" }[p.pos] || p.pos) + '</span></span><div class="in"><button class="nm" data-act="card" data-pid="' + p.id + '"'))));
+  M.reserve(team(S), "ir").concat(M.reserve(team(S), "taxi")).forEach((p) => t.match(html3, new RegExp('<span class="pc ' + p.pos + '">' + ({ PK: "K", PN: "P" }[p.pos] || p.pos) + '</span></span><div class="in"><button class="nm" data-act="card" data-pid="' + p.id + '"')));
 });
 
 test("one count: 'Starting lineup · N/18' from the slot model, MFL's own count agrees, and a mismatch is said", async () => {
@@ -145,7 +145,7 @@ test("Bench, IR and Taxi: one card each, open with the full list, collapsible, b
   t.match(text(html), new RegExp("Injured reserve · " + ir.length + " of 15")); t.match(text(html), new RegExp("Taxi squad · " + tx.length + " of 10"));
   // each section is ONE card; the bench lists every bench player, grouped under position labels in the league's order
   const benchCard = html.split('data-g="bench"')[1].split('data-g="ir"')[0];
-  t.deepEqual([...benchCard.matchAll(/<div class="lps">([A-Z]+) · (\d+)<\/div>/g)].map((m) => m[1] + m[2]), bench.map((g) => g.pos + g.players.length));
+  t.deepEqual([...benchCard.matchAll(/<div class="lps">([A-Z]+) · (\d+)<\/div>/g)].map((m) => m[1] + m[2]), bench.map((g) => ({ PK: "K", PN: "P" }[g.pos] || g.pos) + g.players.length), "R9: K and P labels");
   bench.forEach((g) => g.players.forEach((p) => t.ok(benchCard.includes('data-pid="' + p.id + '"'), p.name + " listed")));
   t.equal((benchCard.match(/class="card/g) || []).length, 1, "the bench is one card (the next card is IR's)");
   // IR: no repeated return line; taxi: call-ups on every row

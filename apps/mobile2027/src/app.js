@@ -47,7 +47,7 @@
     live: null, // PR B: when every game of the lineup week was first seen final (starts the quiet period of the Final · updating chip)
     ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the sort (exp | sal | name), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
-    pf: { s: "pos", open: {}, res: {}, q: "" }, // Team › Performance: the sort (pos | diff | avg), which rows are open, which reserve groups are open, the name search (R8)
+    pf: { s: "pos", open: {}, res: {}, q: "", pos: "all", xt: false }, // Team › Performance: the sort (pos | tot | ppg), which rows are open, which reserve groups are open, the name search (R8), the position filter and "Search other teams" (R9)
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
@@ -96,6 +96,7 @@
     if (sheet2) { if (hadSheet) sheet2.scrollTop = sheetTop; if (!keepFocus || !hadSheet) sheet2.focus({ preventScroll: true }); }
     if (again) { var f = appEl.querySelector(again); if (f && f.focus) f.focus({ preventScroll: true }); }
     if (typing && !sheet2) restoreCaret(typing);
+    if (S.rev) revealAgain();
     Array.prototype.forEach.call(appEl.querySelectorAll("img[data-chain]"), function (img) {
       var urls = []; try { urls = JSON.parse(img.getAttribute("data-chain")) || []; } catch (e) { urls = []; }
       U.photo.attach(img, urls, function (src) { S.photoSource = S.photoSource || {}; S.photoSource[img.getAttribute("data-chain")] = src; }, known);
@@ -105,6 +106,44 @@
     ensureProjections(false);
     ensureStatPools();
   }
+
+  // ---- R9: bring newly opened Breakdown content into view, keeping the player in view ----
+  // kind: "pfx" (a card's Breakdown), "bdt" (Season stats | Game log), "bdg" (one game's detail). After the redraw the opened content is scrolled
+  // up only as far as needed to show it, and never so far that its anchor (the player's card, else the tapped game row) passes under the sticky
+  // tabs. Works in #scroll (Team › Performance) and in the profile sheet. A read that lands within 2 s (the content grows) applies it again,
+  // unless the owner has scrolled since.
+  function idSel(v) { return /^[A-Za-z0-9_-]+$/.test(String(v == null ? "" : v)) ? String(v) : null; }
+  function revealTargets(r) {
+    var pid = idSel(r.pid); if (!pid) return null;
+    var root = appEl.querySelector(".sheet") || document.getElementById("scroll");
+    if (!root) return null;
+    if (r.kind === "pfx") { var b = root.querySelector('[data-act="pfx"][data-v="' + pid + '"]'), card = b && b.closest(".rw"); return card ? { box: root, anchors: [card], content: card.querySelector(".pfbd") } : null; }
+    var bdx = root.querySelector('.bdx[data-bdpid="' + pid + '"]'); if (!bdx) return null;
+    var card2 = bdx.closest(".rw"), anchors = [card2 || bdx];
+    if (r.kind === "bdt") return { box: root, anchors: anchors, content: bdx };
+    var w = idSel(r.v), gb = w && bdx.querySelector('[data-act="bdg"][data-v="' + w + '"]'), tr = gb && gb.closest("tr"), det = tr && tr.nextElementSibling;
+    if (!det || !/\bbdd\b/.test(det.className)) return null;
+    return { box: root, anchors: anchors.concat([tr]), content: det };
+  }
+  function revealNow(r) {
+    var t = revealTargets(r); if (!t || !t.content) return;
+    var box = t.box, br = box.getBoundingClientRect(), stick = box.querySelector(box.id === "scroll" ? ".tabs.stk" : ".ptabs");
+    var top = br.top + (stick ? stick.getBoundingClientRect().height : 0) + 8, bottom = Math.min(br.bottom, window.innerHeight || br.bottom) - 8;
+    var need = t.content.getBoundingClientRect().bottom - bottom, dy = 0;
+    if (need > 0) {
+      for (var i = 0; i < t.anchors.length; i++) { var room = t.anchors[i].getBoundingClientRect().top - top; dy = Math.max(0, Math.min(need, room)); if (room >= need) break; }
+      if (dy > 0) box.scrollTop += dy;
+    }
+    r.top = box.scrollTop;
+  }
+  function revealAgain() {
+    var r = S.rev;
+    if (!r || Date.now() - r.at > 2000) { S.rev = null; return; }
+    var t = revealTargets(r); if (!t) return;
+    if (r.top != null && Math.abs(t.box.scrollTop - r.top) > 2) { S.rev = null; return; }   // the owner scrolled: leave the page where it is
+    revealNow(r);
+  }
+  function openAndReveal(kind, pid, v) { S.rev = null; render(true); S.rev = { kind: kind, pid: pid, v: v, at: Date.now(), top: null }; revealNow(S.rev); }
 
   // ---- R7: the position pool behind the Breakdown's season stat ranks (draft #1515 /api/position-season-stats) ----
   // A drawn season rollup names the pool it needs in data-pss ("2026|10|WR": season, W*, the OPENED player's group). Each pool is asked for once and
@@ -407,12 +446,16 @@
     try { var sp = new URLSearchParams(location.hash.replace(/^#/, "")); o.p = (sp.get("p") || "").replace(/\D/g, ""); o.t = (sp.get("t") || "").replace(/\D/g, ""); } catch (e) { /* ignore */ }
     return o;
   }
-  function openProfile(pid, fromAddress) {
-    var p = S.model && S.model.byId[pid];
+  // R9: a profile opened from the page remembers where it was opened (the selected team and the scroll offset of #scroll); closing it puts both back.
+  // A player from "Search other teams" (keepTeam) opens WITHOUT switching the selected team, so the search, position filter and sort under the
+  // profile stay exactly as they were (they live in S.pf, which the profile never changes).
+  function openProfile(pid, fromAddress, keepTeam) {
+    var p = S.model && S.model.byId[pid], scr = document.getElementById("scroll");
     S.lastFocusPid = pid;
+    S.ret = fromAddress ? null : { teamId: S.teamId, top: scr ? scr.scrollTop : 0 };
     S.profile = { pid: String(pid), tab: "contract" };
     S.flags = {};
-    if (p && p.franchiseId) { S.teamId = p.franchiseId; }
+    if (p && p.franchiseId && !keepTeam) { S.teamId = p.franchiseId; }
     if (!fromAddress) { try { history.pushState({ p: pid }, "", "#p=" + encodeURIComponent(pid)); } catch (e) { /* ignore */ } }
     render();
     loadPenalty(false);
@@ -420,10 +463,16 @@
   function closeLayer() {
     var wasProfile = !!S.profile;
     S.profile = null; S.sheet = null;
-    render(); // draw now; the popstate that history.back() causes only has to find nothing left to close
+    if (wasProfile) returnFromProfile(); else render(); // draw now; the popstate that history.back() causes only has to find nothing left to close
     restoreFocus();
     if (wasProfile && history.state && history.state.p) { history.back(); return; }
     if (wasProfile) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* ignore */ } }
+  }
+  function returnFromProfile() {
+    var r = S.ret; S.ret = null;
+    if (r && r.teamId && S.model && S.model.teams.some(function (t) { return t.id === r.teamId; })) S.teamId = r.teamId;
+    render();
+    var scr = document.getElementById("scroll"); if (r && scr) scr.scrollTop = r.top;
   }
   function restoreFocus() {
     if (!S.lastFocusPid) return;
@@ -433,7 +482,7 @@
   window.addEventListener("popstate", function () {
     var h = hashState();
     if (h.p) { if (!S.profile || S.profile.pid !== h.p) { S.profile = { pid: h.p, tab: "contract" }; S.flags = {}; render(); loadPenalty(false); } }
-    else { var open = !!(S.profile || S.sheet); S.profile = null; S.sheet = null; if (open) { render(); restoreFocus(); } }
+    else { var open = !!(S.profile || S.sheet), wasP = !!S.profile; S.profile = null; S.sheet = null; if (open) { if (wasP) returnFromProfile(); else render(); restoreFocus(); } }
   });
 
   // ---- taps ----
@@ -487,15 +536,17 @@
     else if (act === "retryns") { loadNext(true); }
     else if (act === "help") { S.sheet = "help"; render(); }
     else if (act === "pfs") { S.pf.s = v; render(true); }
-    else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; render(true); }
+    else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; if (S.pf.open[v]) openAndReveal("pfx", v); else render(true); }
+    else if (act === "pfpos") { if (U.tabviews.pfPosOk(v)) { S.pf.pos = v; render(true); } }   // R9: the position filter (All or one position)
+    else if (act === "pfxt") { if (S.pf.q && S.pf.q.trim()) { S.pf.xt = true; render(true); } }   // R9: "Search other teams", only on this tap
     else if (act === "pfres") { S.pf.res[v] = !S.pf.res[v]; render(true); }
     else if (act === "retryperf") { refreshPerformance(); }
     else if (act === "logmore") { if (S.profile) { S.profile.all = true; render(true); ensurePerformance(); ensureLog(); } }
     else if (act === "logless") { if (S.profile) { S.profile.all = false; render(true); } }
     else if (act === "retrylog") { ensureLog(true); }
-    else if (act === "bdv") { var bp = el.getAttribute("data-pid"); S.bd = S.bd || { v: {}, g: {} }; if (bp && /^[a-z]+$/.test(v || "")) { S.bd.v[bp] = v; render(true); } }   // R6: a Breakdown view
-    else if (act === "bdt") { var tp = el.getAttribute("data-pid"); S.bd = S.bd || { v: {}, g: {} }; S.bd.t = S.bd.t || {}; if (tp && (v === "season" || v === "log")) { S.bd.t[tp] = v; render(true); } }   // R8: Breakdown section (Season stats | Game log)
-    else if (act === "bdg") { var gp = el.getAttribute("data-pid"), gw = parseInt(v, 10); S.bd = S.bd || { v: {}, g: {} }; if (gp && gw >= 1) { S.bd.g[gp] = S.bd.g[gp] === gw ? null : gw; render(true); } }   // R6: one game's detail opens or closes
+    else if (act === "bdv") { var bp = el.getAttribute("data-pid"); S.bd = S.bd || { v: {}, g: {} }; if (bp && /^[a-z]+$/.test(v || "")) { if (S.bd.v[bp] !== v) S.bd.g[bp] = null; S.bd.v[bp] = v; render(true); } }   // R6: a Breakdown view; R9: changing the view closes an open game's detail, so the weeks line up for comparison
+    else if (act === "bdt") { var tp = el.getAttribute("data-pid"); S.bd = S.bd || { v: {}, g: {} }; S.bd.t = S.bd.t || {}; if (tp && (v === "season" || v === "log")) { var was = S.bd.t[tp] || "season"; S.bd.t[tp] = v; if (was !== v) openAndReveal("bdt", tp); else render(true); } }   // R8: Breakdown section (Season stats | Game log)
+    else if (act === "bdg") { var gp = el.getAttribute("data-pid"), gw = parseInt(v, 10); S.bd = S.bd || { v: {}, g: {} }; if (gp && gw >= 1) { S.bd.g[gp] = S.bd.g[gp] === gw ? null : gw; if (S.bd.g[gp]) openAndReveal("bdg", gp, gw); else render(true); } }   // R6: one game's detail opens or closes
     else if (act === "retrybox") { ensureBox(el.getAttribute("data-pid"), true); }
     else if (act === "pickweek") {
       var n = parseInt(v, 10), wi0 = U.roster.weekInfo(S);
@@ -503,7 +554,7 @@
     }
     else if (act === "grp") { var g = el.getAttribute("data-g"); S.open[g] = !U.views.isOpen(S, g); render(true); }
     else if (act === "expall") { var keys = groupKeys(), all = keys.every(function (k) { return U.views.isOpen(S, k); }); keys.forEach(function (k) { S.open[k] = !all; }); render(true); }
-    else if (act === "card") openProfile(el.getAttribute("data-pid"), false);
+    else if (act === "card") openProfile(el.getAttribute("data-pid"), false, el.getAttribute("data-x") === "1");
     else if (act === "close") closeLayer();
     else if (act === "teams") { S.sheet = "teams"; render(); }
     else if (act === "pickteam") { S.teamId = el.getAttribute("data-fid"); setPref("team", S.teamId); S.open = {}; S.sheet = null; render(); }
@@ -522,6 +573,7 @@
     var el = ev.target;
     if (!el || el.id !== "pfq") return;
     S.pf.q = String(el.value || "").slice(0, 40);
+    if (!S.pf.q.trim()) S.pf.xt = false;   // R9: clearing the search ends "Search other teams"; a new search starts on this team again
     var box = document.getElementById("pflist"), html = box ? U.tabviews.performanceList(S) : null;
     if (box && html != null) box.innerHTML = html; else render(true);
   });

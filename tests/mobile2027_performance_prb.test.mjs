@@ -426,7 +426,7 @@ const NOTICE = /PPG ranks aren’t available yet\./g;
 
 test("revised: no All / Starters / Bench filter; every player of the team is listed, grouped by position, each with his own starter indicator", async () => {
   const html = await perf({}, { pf: { f: "starters", s: "pos", open: {}, res: {} } });   // a leftover filter value changes nothing: the control and its handler are gone
-  t.doesNotMatch(html, /data-act="pff"/); t.doesNotMatch(html, />Starters</); t.doesNotMatch(html, />All</); t.doesNotMatch(html, /class="lbl">Show</);
+  t.doesNotMatch(html, /data-act="pff"/); t.doesNotMatch(html, />Starters</); t.doesNotMatch(html, /data-act="pff"[^>]*>All</, "R9: the only All is the position filter's"); t.doesNotMatch(html, /class="lbl">Show</);
   t.equal(count(html, /data-act="pfx"/g), actives().length, "every active player is listed, starter or not");
   t.equal(count(html, /<div class="rw pfc">/g), actives().length, "one card each");
   t.match(text(html), /Starting/); t.match(text(html), /Bench/, "the starter indicator is per player");

@@ -33,7 +33,8 @@
   var DASH = "—", MINUS = "−";
 
   function chip(cls, text) { return '<span class="chip ' + cls + '">' + text + "</span>"; }
-  function pcx(pos) { return '<span class="pc ' + esc(pos) + '">' + esc(pos) + "</span>"; }
+  // R9: the badge reads K and P (MFL's PK and PN stay as the color class only), the same labels as the headings and ranks
+  function pcx(pos) { return '<span class="pc ' + esc(pos) + '">' + esc(pos === "PK" ? "K" : pos === "PN" ? "P" : pos) + "</span>"; }
   function nw(text) { return '<span class="nw">' + esc(text) + "</span>"; }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   function teamOf(S) { return S.model && (S.model.teams.filter(function (t) { return t.id === S.teamId; })[0] || S.model.teams[0]) || null; }
@@ -261,7 +262,8 @@
         h("Tot. Pts., Actual PPG, scored games", "Tot. Pts. is the player’s official MFL scores added up. Actual PPG is Tot. Pts. divided by scored games, the games with a recorded score (0.0 and negative scores count; a game with no recorded score does not). A 0.0 is a score MFL recorded; it is not proof that he played.") +
         h("Ranks", "QB2 is the player’s place among players at his position (tied players share a place). QB2–4 means some players cannot be placed yet (no position on file, a score that could not be read, or a PPG eligibility that is not settled), so he could be anywhere from 2nd to 4th. Ranges can narrow as weeks complete. " + esc(DASH) + " means no supported rank. The PPG rank needs scores in at least half of the team’s games and needs team history; until that is available it is " + esc(DASH) + " for everyone. For a range, the Breakdown says why and how large the group could be. The game log’s Rank column is the player’s exact place at his position that week (WR3), shown only for completed weeks and only when it is exact; otherwise " + esc(DASH) + ".") +
         h("xFP PPG and Over Expectations", "Not Available until the expected-points model is approved.") +
-        h("Projection", "Provider: MFL. The card’s “Proj.” is MFL’s projection for the lineup week, the last one captured before the player’s own game kicked off; a capture after kickoff is never used. Not Available when there is none (for example a bye, or no capture before kickoff).") +
+        h("Projection", "Provider: MFL. “Week N Proj.” is MFL’s last projection for the lineup week captured before the player’s game kicked off. Not Available when there is none (for example a bye).") +
+        h("Position, Search players and Sort", "Position shows one position (All shows everyone). Search players finds this team’s players by name, within that position. Sort orders what is shown; By position groups it. When no one on this team matches, Search other teams lists rostered players on the other league teams with their team; free agents are not searched. Closing a profile returns to the same team, search, position, sort and place in the list.") +
         (SR && SR.helpText ? h("Season stat ranks", esc(SR.helpText())) : "");
     }
     if (sub === "cap") return h("Cap & picks", "Not in this preview.");
@@ -431,7 +433,16 @@
   // All / Starters / Bench filter). Every season figure runs through ONE week (seasonCutoff), said once at the top.
   var PF_SORTS = [["pos", "By position"], ["tot", "Tot. Pts."], ["ppg", "Actual PPG"]];
   var NOT_AVAILABLE = "Not Available";
-  function pfState(S) { var c = S.pf || {}, s = c.s === "avg" ? "ppg" : c.s; return { s: s === "tot" || s === "ppg" ? s : "pos", open: c.open || {}, res: c.res || {} }; }
+  // R9: the position filter (All, QB, RB, WR, TE, K, P, DL, LB, DB: the chips the UPS mobile site uses), composed with Search players and the sort.
+  // "By position" is a sort (grouping); the filter narrows the list. pos: "all" or an MFL group id (PK, PN for K, P). xt: the owner asked to
+  // search the other teams (only offered when nothing on this team matches the typed name).
+  var PF_POS = [["all", "All"]].concat(GROUPS);
+  function pfPosOk(v) { return PF_POS.some(function (o) { return o[0] === v; }); }
+  function pfState(S) {
+    var c = S.pf || {}, s = c.s === "avg" ? "ppg" : c.s;
+    return { s: s === "tot" || s === "ppg" ? s : "pos", open: c.open || {}, res: c.res || {}, pos: pfPosOk(c.pos) ? c.pos : "all", xt: !!c.xt };
+  }
+  function posWord(g) { var o = GROUPS.filter(function (x) { return x[0] === g; })[0]; return o ? o[1] : g; }
 
   // The shared season cutoff W* (section 6): { state: "ok", week, allFinal, reason, historyThrough } once the last all-final week is established, else
   // { state, week: null } (the completion state: loading, error, none, unavailable, conflict). The Breakdown and game log use this same week.
@@ -788,8 +799,10 @@
       (hl ? '<div class="ex' + (hl.warn ? " wn" : "") + '">' + esc(hl.text) + "</div>" : "") + (lag ? '<div class="ex wn">' + esc(lag) + "</div>" : "") +
       (ctx.failed ? '<div class="ex wn mt4">Some weeks of scores could not be read. <button class="link" data-act="retryperf">Try again</button></div>' : ctx.loading ? '<div class="ex mt4">Loading the latest weeks…</div>' : "") + "</div>";
 
-    // R8: "Search players" narrows THIS team's list by name (no network, no other team, no free agents); the sort and grouping apply to what matches.
-    out += pfSearchBox(S) + '<div class="lbl">Sort</div><div class="chs" role="group" aria-label="Sort">' + PF_SORTS.map(function (o) { return '<button class="ch" data-act="pfs" data-v="' + o[0] + '" aria-pressed="' + (c.s === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
+    // R8: "Search players" narrows THIS team's list by name (no network, no free agents); the sort and grouping apply to what matches.
+    // R9: the position filter sits under the search; other teams are searched only on the owner's explicit "Search other teams".
+    out += pfSearchBox(S) + '<div class="lbl">Position</div><div class="chs pfpos" role="group" aria-label="Position">' + PF_POS.map(function (o) { return '<button class="ch" data-act="pfpos" data-v="' + o[0] + '" aria-pressed="' + (c.pos === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
+      '<div class="lbl">Sort</div><div class="chs" role="group" aria-label="Sort">' + PF_SORTS.map(function (o) { return '<button class="ch" data-act="pfs" data-v="' + o[0] + '" aria-pressed="' + (c.s === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
     return out + '<div id="pflist" class="pflist">' + perfList(S, t, c, ctx) + "</div>";
   }
   // The search box. Its value is drawn back from S.pf.q (escaped); app.js keeps focus and the cursor across redraws.
@@ -816,12 +829,43 @@
     if (ctx.read !== "ok" || !ctx.input.latestFinal) return null;
     return perfList(S, t, pfState(S), ctx);
   }
+  // R9: the position filter, then the name search, over THIS team (pfPool); the other teams only through crossList, on request.
+  function pfPool(players, c, match) {
+    var base = c.pos === "all" ? players : players.filter(function (p) { return p.pos === c.pos; });
+    return match ? base.filter(match) : base;
+  }
+  // R9: "Search other teams": the players on the league's OTHER teams, from the roster read already in memory (S.model.teams: every team's roster;
+  // no read, no free agents, no route). Same name rule and position filter; each row names his UPS team and opens the same player profile.
+  var XT_MAX = 25;
+  function crossHits(S, t, c, match) {
+    var hits = [];
+    (S.model && S.model.teams || []).forEach(function (o) { if (o.id === t.id) return; pfPool(o.players, c, match).forEach(function (p) { hits.push({ p: p, team: o }); }); });
+    return hits.sort(function (a, b) { return a.p.name.localeCompare(b.p.name) || a.team.name.localeCompare(b.team.name); });
+  }
+  function crossList(S, t, c, match) {
+    var hits = crossHits(S, t, c, match), scope = (c.pos === "all" ? "" : posWord(c.pos) + " · ") + "rostered players only";
+    var out = '<div class="gh2 xth"><span>Other teams · ' + esc(scope) + '</span><span role="status">' + hits.length + "</span></div>";
+    if (!hits.length) return out + '<div class="card"><div class="ex">No rostered player on another team matches either. Free agents are not searched.</div></div>';
+    out += '<div class="card rows">' + hits.slice(0, XT_MAX).map(function (h) {
+      var p = h.p, nm = esc(p.name), res = p.status === "ir" ? " · IR" : p.status === "taxi" ? " · Taxi" : "";
+      return '<div class="rw xtr"><button class="nmb" data-act="card" data-pid="' + esc(p.id) + '" data-x="1" aria-label="Open ' + nm + " profile, " + esc(h.team.name) + '"><span class="l1">' + nm + " " + pcx(p.pos) + "</span></button>" +
+        '<div class="pfm">' + esc(F.commonCode(p.nflTeam) || "No NFL team") + esc(res) + ' · <b class="xtt">' + esc(h.team.name) + "</b></div></div>";
+    }).join("") + "</div>";
+    if (hits.length > XT_MAX) out += '<div class="ex">Showing ' + XT_MAX + " of " + hits.length + ". Type more of the name to narrow it.</div>";
+    return out;
+  }
   function perfList(S, t, c, ctx) {
-    var out = "", match = pfMatcher(pfQuery(S)), pool = match ? t.players.filter(match) : t.players;
+    var out = "", q = pfQuery(S).trim(), match = pfMatcher(q), pool = pfPool(t.players, c, match);
     var act = pool.filter(function (p) { return p.status === "active"; });
     function rowOf(p) { return perfRow(S, p, ctx); }
     function val(p, key) { var g = figs(S, p, ctx), v = key === "tot" ? g.total : g.ppg; return v == null ? -1e9 : v; }
-    if (match && !pool.length) return '<div class="card"><div class="big2"><b>No players match</b></div><div class="ex">No player on ' + esc(t.name) + " has a name containing “" + esc(pfQuery(S).trim()) + "”. The search covers this team only.</div></div>";
+    var who = c.pos === "all" ? "player" : posWord(c.pos);
+    if (match && !pool.length) {
+      out = '<div class="card"><div class="big2"><b>No players match</b></div><div class="ex">No ' + esc(who) + " on " + esc(t.name) + " has a name containing “" + esc(q) + "”.</div>" +
+        (c.xt ? "" : '<button class="btn xtb" data-act="pfxt" aria-controls="pflist">Search other teams</button>') + "</div>";
+      return c.xt ? out + crossList(S, t, c, match) : out;
+    }
+    if (!pool.length) return '<div class="card"><div class="ex">No ' + esc(who) + " on " + esc(t.name) + ".</div></div>";
     if (match) out += '<div class="mu sm" role="status">' + plural(pool.length, "player matches", "players match") + "</div>";
     if (!act.length) { /* only reserve players match: their groups follow */ }
     else if (c.s === "pos") {
@@ -873,6 +917,6 @@
   }
 
   function mixApi(a, b) { for (var key in b) if (Object.prototype.hasOwnProperty.call(b, key) && !Object.prototype.hasOwnProperty.call(a, key)) a[key] = b[key]; return a; }
-  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, performanceList: performanceList, pfMatcher: pfMatcher, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, cutCharge: cutCharge, cutWords: cutWords, guaranteeFacts: guaranteeFacts, contractFacts: contractFacts, termWords: termWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
+  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, performanceList: performanceList, pfMatcher: pfMatcher, pfPosOk: pfPosOk, PF_POS: PF_POS, crossHits: crossHits, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, cutCharge: cutCharge, cutWords: cutWords, guaranteeFacts: guaranteeFacts, contractFacts: contractFacts, termWords: termWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
   return API;
 });

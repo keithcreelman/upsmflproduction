@@ -122,7 +122,7 @@ test("search: narrows THIS team's Performance list by name, keeps the sort, says
     t.ok(body(V.app(S)).includes('<div id="pflist" class="pflist">' + TV.performanceList(S) + "</div>"), s + ": the list app.js redraws alone is the same list");
   }
   const none = body(V.app(state({ sub: "performance", intel: I, pf: { s: "pos", open: {}, res: {}, q: "zzqx" } })));
-  t.match(none, /No players match/); t.equal(cards(none).length, 0); t.match(none, /The search covers this team only/);
+  t.match(none, /No players match/); t.equal(cards(none).length, 0); t.match(none, /Search other teams/, "R9: an explicit action, never automatic"); t.doesNotMatch(none, /Other teams ·/);
   const evil = body(V.app(state({ sub: "performance", intel: I, pf: { s: "pos", open: {}, res: {}, q: '"><b>x' } })));
   t.doesNotMatch(evil, /"><b>x/, "the typed text is escaped in the value and in the empty state"); t.match(evil, /value="&quot;&gt;&lt;b&gt;x"/);
   // a reserve player who matches is shown, not hidden in a closed group
@@ -136,7 +136,7 @@ test("search: phone rules (16px text, 44px target), no request, and app.js keeps
   const handler = appJs.split('appEl.addEventListener("input"')[1].split("appEl.addEventListener(")[0];
   t.doesNotMatch(handler, /fetch|loader\.|ensure|load[A-Z]/, "typing starts no read");
   t.match(appJs, /function searchCaret\(\)[\s\S]*selectionStart[\s\S]*function restoreCaret\(c\)[\s\S]*setSelectionRange/, "a full redraw restores focus and the cursor");
-  t.match(appJs, /pf: \{ s: "pos", open: \{\}, res: \{\}, q: "" \}/);
+  t.match(appJs, /pf: \{ s: "pos", open: \{\}, res: \{\}, q: "", pos: "all", xt: false \}/);
 });
 
 run("mobile2027_r8_header_search");
