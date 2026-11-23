@@ -70,7 +70,8 @@
   var POS_LABEL = { PK: "K", PN: "P" };
   var CT_DIR = { exp: 1, sal: -1, pos: 1, name: 1 };
   function isSort(s) { return s === "sal" || s === "exp" || s === "pos" || s === "name"; }
-  // R9: the Salary structure filter reads the rule classification (lib/contract.js describe().structure) only; it is separate from Contract Type
+  // R9: the Loading filter (R10 label; it was "Salary structure") reads the rule classification (lib/contract.js describe().structure) only; it is
+  // separate from Contract Type. A plain one-year extension is Flat and is in the Flat group.
   var CT_LOADS = [["all", "All", null], ["flat", "Flat", "Flat"], ["fl", "Front-loaded", "Front-loaded"], ["bl", "Back-loaded", "Back-loaded"]];
   function loadOf(v) { var r = CT_LOADS.filter(function (o) { return o[0] === v; })[0]; return r ? r : CT_LOADS[0]; }
   function ctState(S) {
@@ -173,9 +174,10 @@
       '<button class="rb dtl hsb" data-act="cth" data-v="' + esc(p.id) + '" aria-expanded="' + hopen + '" aria-label="' + (hopen ? "Hide" : "Show") + " contract history for " + esc(p.name) + '">Contract history <span aria-hidden="true">' + (hopen ? "▾" : "▸") + "</span></button>" +
       (hopen ? historyHtml(S, p) : "") + "</div>";
   }
-  // R8: Term, Contract Type, Contract Source (its acquisition note when the source is not recorded), Later changes, Salary structure. Shared with the profile.
+  // R8: Term, Contract Type, Contract Source (its acquisition note when the source is not recorded), Later changes, Loading classification (R10 label;
+  // R8/R9 "Salary structure"). Shared with the profile.
   // R9 adds (x, from contractFactsFor): the extension line under Source "Extension", Acquired (how this team got him, kept separate from the
-  // contract's source), the rule classification's factual note when a Flat contract's salaries differ, and the recorded AAV by year.
+  // contract's source) and the recorded AAV by year. R10 removed R9's "Rule classification; the yearly salaries differ." note.
   function contractFacts(h, d, x) {
     x = x || {};
     var srcNote = d.source === "Extension" ? (d.extended ? d.extended + (d.extended === 1 ? " year added" : " years added") : "") + (x.extLine ? " · " + x.extLine : "") : d.sourceNote || "";
@@ -183,27 +185,34 @@
     if (acq && d.source !== "Extension") srcNote = "";   // "Acquired by trade" is then the Acquired line itself, not repeated under the source
     return "<b>Term</b><span>" + esc(termWords(h)) + "</span><b>Contract Type</b><span>" + esc(d.type || NR) + "</span><b>Contract Source</b><span>" + esc(d.source || NR) + (srcNote ? "<small>" + esc(srcNote) + "</small>" : "") + "</span>" +
       (acq ? "<b>Acquired</b><span>" + esc(acq) + "</span>" : "") +
-      "<b>Later changes</b><span>" + esc(d.changes.length ? d.changes.join(" · ") : "None recorded") + "</span><b>Salary structure</b><span>" + esc(d.structure || NR) + (x.uneven && d.structure === "Flat" ? "<small>Rule classification; the yearly salaries differ.</small>" : "") + "</span>" +
+      "<b>Later changes</b><span>" + esc(d.changes.length ? d.changes.join(" · ") : "None recorded") + "</span><b>Loading classification</b><span>" + esc(loadingWords(d)) + "</span>" +
       (x.aav ? "<b>AAV</b><span>" + aavWords(x.aav) + "</span>" : "");
   }
+  // R10 (Keith, 2026-11-23): "Loading classification: Flat (one-year extension)" for a plain one-year extension (Flat by rule, §C2); otherwise the
+  // classification alone (Flat / Front-loaded / Back-loaded) or Not recorded. No note about the yearly salaries.
+  function loadingWords(d) {
+    if (!d.structure) return NR;
+    return d.structure + (d.structureWhy === "one_year_extension" ? " (one-year extension)" : "");
+  }
   // "2026 · $15K" / "2027–2028 · $25K", one per line; unmapped tiers: "Recorded: $4K, $24K · years not mapped"; none: Not recorded
+  // R10: when only this season is supported, the later years follow as "2027–2028 · not mapped"
   function aavWords(a) {
     if (a.state === "none") return esc(NR);
     if (a.state === "unmapped") return esc("Recorded: " + a.amounts.map(kmoney).join(", ") + " · years not mapped");
-    return a.lines.map(function (l) { return esc((l.from === l.to ? String(l.from) : l.from + "–" + l.to) + " · " + kmoney(l.amount)); }).join("<br>");
+    var span = function (f, t) { return f === t ? String(f) : f + "–" + t; }, um = a.unmapped || [];
+    return a.lines.map(function (l) { return esc(span(l.from, l.to) + " · " + kmoney(l.amount)); }).join("<br>") +
+      (um.length ? "<small>" + esc(span(um[0], um[um.length - 1]) + " · not mapped") + "</small>" : "");
   }
   // inDetails: Team › Contracts Details already print the extension line above the schedule, so the source says only how many years were added
   // (the attribution appears once); the profile, which has no such line, carries it under the source
   function contractFactsFor(S, p, h, inDetails) {
     var season = S.model.season, teams = S.model.teams;
     h = h || C.history(p, season);
-    var amts = h.rows.filter(function (r) { return r.amount != null; }).map(function (r) { return r.amount; });
-    return contractFacts(h, C.describe(p), { extLine: inDetails ? "" : C.extensionLine(C.extension(p, season, teams)), acq: C.acquisitionOf(p.acquisition), aav: C.aavYears(p, season, teams),
-      uneven: amts.some(function (v) { return v !== amts[0]; }) });
+    return contractFacts(h, C.describe(p), { extLine: inDetails ? "" : C.extensionLine(C.extension(p, season, teams)), acq: C.acquisitionOf(p.acquisition), aav: C.aavYears(p, season, teams) });
   }
   // R9: Contract history (collapsed by default): dated events by season, then the ones with no season; a season worked out from the contract terms
   // says so. One line says when the history is incomplete; eligibility is not judged here (the app has no extension-eligibility rules).
-  var HWHY = { terms: "Season from the contract terms", restructure: "Season from the restructured terms" };
+  var HWHY = { terms: "Season from the contract terms", restructure: "Season from the restructured terms", reviewed: "Team and season from UPS’s reviewed list" };
   function historyHtml(S, p) {
     var hh = C.contractHistory(p, S.model.season, S.model.teams);
     var li = hh.events.map(function (e) {
@@ -235,7 +244,7 @@
     out += capCard(S, t);
 
     out += '<div class="lbl">Show</div><div class="chs" role="group" aria-label="Show">' + CT_FILTERS.map(function (o) { return '<button class="ch" data-act="ctf" data-v="' + o[0] + '" aria-pressed="' + (c.f === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
-    out += '<div class="lbl">Salary structure</div><div class="chs ldc" role="group" aria-label="Salary structure">' + CT_LOADS.map(function (o) { return '<button class="ch" data-act="ctl" data-v="' + o[0] + '" aria-pressed="' + (c.l === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
+    out += '<div class="lbl">Loading</div><div class="chs ldc" role="group" aria-label="Loading">' + CT_LOADS.map(function (o) { return '<button class="ch" data-act="ctl" data-v="' + o[0] + '" aria-pressed="' + (c.l === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
     // ONE sort control: Contract exp. | Salary | Position | Name. The active segment shows its direction (▲ ascending, ▼ descending) and says it in words; tapping it again reverses.
     var DIRW = { sal: ["lowest first", "highest first"], exp: ["soonest first", "latest first"], pos: ["QB first", "DB first"], name: ["A to Z", "Z to A"] };   // [ascending, descending]
     out += '<div class="lbl">Sort</div><div class="seg seg4" role="group" aria-label="Sort">' + CT_SORTS.map(function (o) {
@@ -320,7 +329,7 @@
         h("Cap charge", "Total committed cap plus or minus the adjustments (Cut penalties, Traded salary, Other, Rounding). It is what counts against the cap, so Available cap space is Total cap minus Cap charge.") +
         h("Later years", "Each later year shows its Total committed cap. This season gives injured reserve players half relief and taxi players $0. <b>Planning assumption for later years:</b> players now on taxi stay on taxi ($0) and injured reserve players count at full scheduled salary. No injury relief is projected. A year’s Details list the adjustments recorded for it; next season’s come from the UPS ledger, and no source records adjustments for the years after that, so none are shown (that is not $0).") +
         h("Salary schedule", "A player’s Details list every year of his current contract as MFL records it, completed years included. A year with no recorded amount says “Not recorded”. Salaries from an earlier contract are never added.") +
-        h("Extensions", "An extension starts a new current contract in the season it is made: it keeps that season’s salary and adds one or two years, so a player extended this season for two years shows this season and the next two. “Extended by” names the team that made that extension, from the contract’s own extension record, even if he has changed teams since. When the record does not name a current team, no team is shown. When the extension’s season is known only from restructured terms, the record’s last name may not be the team that made it, so it reads “extending team not verified” and the names appear only in the Contract history. A restructure keeps the contract but MFL then records only the years from the restructure on, so earlier years can be missing.") +
+        h("Extensions", "An extension starts a new current contract in the season it is made: it keeps that season’s salary and adds one or two years, so a player extended this season for two years shows this season and the next two. “Extended by” names the team that made that extension, from the contract’s own extension record, even if he has changed teams since. When the record does not name a current team, no team is shown. When the extension’s season is known only from restructured terms, the record’s last name may not be the team that made it, so it reads “extending team not verified” and the names appear only in the Contract history, unless UPS’s reviewed list confirms the team and season for that exact contract. A restructure keeps the contract but MFL then records only the years from the restructure on, so earlier years can be missing.") +
         h("Taxi", "A taxi-eligible player can be released with a $0 cut charge while taxi eligibility applies. Releasing ends eligibility.") +
         h("Where the numbers come from", "Contracts as recorded on MFL" + (asOf ? " (as of " + esc(asOf) + ")" : "") + ". Earned, guarantee and cut charge: the UPS cap calculation" + (wk != null ? " through Week " + esc(wk) : "") + ".") +
         h("Symbols", esc(DASH) + " contract ended · n/r no amount recorded.") +
@@ -328,8 +337,8 @@
         h("Player names", "A name comes from the player ID on the charge, looked up in MFL’s complete player list (so it works whether or not he is on a roster now), or, for older add/drop records that carry no player ID, from UPS’s reviewed list. If neither names him it reads “Player Unknown”. A fine, rounding or settlement has no player.") +
         h("Cut dates", "Dates are Eastern Time and shown only when verified: the date comes from the drop time recorded on the charge, from UPS’s reviewed list, or, for next season, from the ledger’s drop time. Otherwise the row says “Cut date not recorded”. Waiver drops process at 9:00 AM ET, so only the date is shown.") +
         h("If cut now", "What cutting the player today would charge against the cap, from the UPS cap calculation. Most contracts use the guarantee rule: the guaranteed amount (75% of the contract’s total value) not yet earned; “Fully earned” means nothing is owed. Small contracts use their own rule instead: <b>No guarantee</b> (a one-year original contract under $5K, or a waiver pickup of $4K or less in its final year, is cut free), <b>$1K rule</b> (a contract worth under $5K costs $1K while two or more years remain and nothing in its final year), or <b>Taxi</b> (a taxi-eligible player is cut free). A player’s Details name the rule, and show the guarantee and what is earned of it only under the guarantee rule.") +
-        h("Contract Type and Source", "Contract Type is Veteran or Rookie. Contract Source is how the current contract began (Rookie Draft, FA Auction, Expired Rookie Auction, Waiver Wire, including FCFS, or Extension, with the team that extended him and the season when the record supports it). Acquired is how his current team got him, kept separate. Later changes (Mid-Year Multi, a restructure, a tag) are listed separately. Salary structure is the league’s rule classification, Flat, Front-loaded or Back-loaded; a one-year extension is Flat by rule even when its yearly salaries differ. A fact the contract record does not state reads “Not recorded”.") +
-        h("AAV", "The average annual value as MFL records it, labeled with the years it applies to. After an extension the current season keeps its old AAV and the added years carry the new one. When the record does not show which years an amount belongs to, it says “years not mapped”. AAV is never worked out from the total value.") +
+        h("Contract Type and Source", "Contract Type is Veteran or Rookie. Contract Source is how the current contract began (Rookie Draft, FA Auction, Expired Rookie Auction, Waiver Wire, including FCFS, or Extension, with the team that extended him and the season when the record supports it). Acquired is how his current team got him, kept separate. Later changes (Mid-Year Multi, a restructure, a tag) are listed separately. Loading classification is the league’s rule classification, Flat, Front-loaded or Back-loaded; a one-year extension is Flat by rule. A fact the contract record does not state reads “Not recorded”.") +
+        h("AAV", "The average annual value as MFL records it, labeled with the years it applies to. After an extension the current season keeps its old AAV and the added years carry the new one. A later year is shown only when the contract’s rules and its recorded total value support it; otherwise only this season is shown and the later years say “not mapped”. When the record does not show which years an amount belongs to, it says “years not mapped”. AAV is never worked out from the total value.") +
         h("Contract history", "Inside a player’s Details: how the contract began, how his team acquired him, every extension in the contract’s extension record (oldest first), restructures and tags, by season. Seasons only, no dates; a season worked out from the contract terms says so. Earlier events never add years to the salary schedule. Extension eligibility is not shown.") +
         h("Next-season adjustments", esc(G.completeness) + " " + esc(G.reconciliation) + " " + esc(G.calculation));
     }
