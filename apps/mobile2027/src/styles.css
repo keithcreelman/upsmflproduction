@@ -346,7 +346,8 @@ button.btnrow{cursor:pointer}
 /* R9: ONE list container; the column heads and the group headings sit inside it on the rows' inset (12px card padding + the cells' 2px) */
 .ctl{padding-top:0}
 .ctl .thead{margin:0 -12px;padding:6px 14px;background:var(--sf);border-radius:11px 11px 0 0}
-.gh3{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;margin:0 -12px;padding:4px 14px;background:var(--s2);border-bottom:1px solid var(--bd);font-size:13px}
+.gh3{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;margin:0 -12px;padding:4px 14px;background:var(--bg);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);font-size:13px}
+.ldc .ch{padding:0 10px}
 .gh3 span:last-child{color:var(--mu);font-size:12px;white-space:nowrap}
 .gh3 .pc{vertical-align:1px}
 /* R9: opened Details are a subtle inset band (one tint and a divider, no nested box) */
