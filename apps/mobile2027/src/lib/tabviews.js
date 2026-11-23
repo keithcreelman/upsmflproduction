@@ -148,7 +148,7 @@
     var why;
     // R6: a $0 cut under a small-contract rule points at the rule already named on the Weekly guarantee line (no worker shorthand such as "Sub-5K TCV")
     if (e.kind === "rule") why = cut.amount > 0 ? "Flat rule: a contract paying the same small amount every year costs a fixed amount to cut." : "No charge: the small-contract rule above applies";
-    else if (e.kind === "na") why = "Waiver pickup of $4K or less, in its final year" + (cut.why ? " (" + cut.why + ")" : "");
+    else if (e.kind === "na") why = "Waiver pickup of $4K or less, in its final year" + (cut.why ? " (" + String(cut.why).replace(/[.\s]+$/, "") + ")" : "");   // no ".)." from the worker's own period
     else why = cut.why ? cut.why : "The remaining guarantee";
     why = why.replace(/\s*\(§[^)]*\)/g, "").replace(/[.\s]+$/, "") + ".";   // R6: no rulebook section codes on the screen
     return "<b>" + money(cut.amount) + "</b> · " + esc(why);
@@ -284,7 +284,7 @@
     return h("Recorded starters", "A past week shows the starters and scores MFL recorded. Slots, positions, bench, injured reserve, taxi, injuries and contracts are shown for the current week only.") +
       h("Can’t check", "MFL lists this player as a starter but he is not in the roster that loaded. His position, slot and status are unknown, so nothing is checked for him. Everyone else is still checked.") +
       h("Doubtful", "A decision may be needed. It does not mean the player is out.") +
-      h("Kickoff", "Shown on a row only when it is not Sunday 1:00 PM ET.");
+      h("Kickoff", "Every matchup shows its kickoff in Eastern Time.");
   }
 
   // ---- PR A: the cap charge, its Breakdown, and cap commitments by year ----

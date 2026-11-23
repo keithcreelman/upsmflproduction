@@ -160,7 +160,8 @@ test("P6: remaining guarantee is not a cut charge: a cut amount never appears in
   const cutOf = (p) => text(rowOf(p).split("<b>If cut now</b>")[1].split("</span>")[0]);
   t.match(cutOf(flat), new RegExp("\\$" + String(FX.cap_penalty.players[flat.id].penalty).replace(/\B(?=(\d{3})+$)/g, ",") + " · Flat rule: a contract paying the same small amount every year costs a fixed amount to cut\\."));
   t.match(cutOf(flat0), /\$0 · No charge: /);
-  t.match(cutOf(ww), /\$0 · Waiver pickup of \$4K or less, in its final year/);
+  t.match(cutOf(ww), /\$0 · Waiver pickup of \$4K or less, in its final year/); t.doesNotMatch(cutOf(ww), /\.\)\.|\.\.|\.\s*\)/, "R6 integration: no doubled punctuation");
+  [flat, flat0, amt].forEach((p) => t.doesNotMatch(cutOf(p), /\.\)\.|\.\./, "no doubled punctuation"));
   t.match(cutOf(amt), new RegExp("\\$" + String(FX.cap_penalty.players[amt.id].penalty).replace(/\B(?=(\d{3})+$)/g, ",")));
   // the column never carries a cut amount: for the amount row, the column shows the remaining guarantee, which is not the penalty
   const r = FX.cap_penalty.players[amt.id], rg = Math.max(0, r.guaranteed - r.earned);
