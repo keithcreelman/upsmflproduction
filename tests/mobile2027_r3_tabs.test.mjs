@@ -280,8 +280,8 @@ test("P9: a stale history (two or more weeks behind) withholds every comparison 
   const html = await perf({ lm });
   // revised: the stale-history reason is one line in the header card, and no row draws a dashed comparison block
   t.equal((text(html).match(/Team history is 2 weeks behind/g) || []).length, 1); t.equal(rcns(html).length, 0);
-  // R6: a broadly stale feed withholds only the PPG rank; the season figures still run through the all-final week
-  t.match(html, /<b>Through Week 10<\/b>/); t.match(html, /<span>Tot\. Pts\.<\/span><b>\d+\.\d<\/b>/);
+  // R7 (Keith, decision 2): a history two or more weeks behind holds EVERY figure at its week (W* = 8); the figures still show, at Week 8
+  t.match(html, /<b>Through Week 8<\/b>/); t.doesNotMatch(html, /Through Week 10/); t.match(html, /<span>Tot\. Pts\.<\/span><b>\d+\.\d<\/b>/);
 });
 
 test("P7 review: every needed week is read (a bye in the look-back no longer withholds), and a live score from an unfinished game is drawn as 'live' and enters no figure", async () => {
