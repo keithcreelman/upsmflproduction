@@ -274,4 +274,94 @@ test("position season stats: a gsis on two MFL ids is excluded and counted, not 
   t.equal(g.WR.players.length, 0); t.equal(g.WR.ambiguous_ids, 1);
 });
 
+// ── r7c: box weeks are nflverse rows; red-zone zero only where the PBP load is proven ──
+const RZ0 = Object.fromEntries(PS.PLAYER_RZ_COUNT_COLS.map((c) => [c, 0]));
+const MAP1 = [{ mfl_id: "1", gsis_id: "00-1", pfr_id: null, mfl_position: "WR" }, { mfl_id: "2", gsis_id: "00-2", pfr_id: null, mfl_position: "PN" },
+  { mfl_id: "3", gsis_id: "00-3", pfr_id: null, mfl_position: "PK" }];
+const nv = (week, o = {}) => ({ gsis_id: "00-1", week, team: "BUF", pos_group: "WR", targets: 4, receptions: 3, ...o });
+const wrOf = (g) => g.WR.players.find((p) => p.mfl_id === "1");
+
+test("PFR-only box row (pos_group NULL): not a game, not in sums, cov or team totals; its ext/rz rows are not read", () => {
+  const pfrOnly = { gsis_id: "00-1", week: 2, team: null, pos_group: null, receiving_air_yards: 30, passing_times_pressured: 1 };
+  const g = PS.buildGroups({ box: [nv(1, { receiving_air_yards: 50 }), pfrOnly], ext: [{ gsis_id: "00-1", week: 2, rec_first_downs: 1 }],
+    rz: [{ gsis_id: "00-1", week: 2, ...RZ0, targets_i20: 9 }], snaps: [], map: MAP1, rzMarks: [] }, 2026, 2);
+  const p = wrOf(g);
+  t.equal(p.games, 1); t.equal(p.s.targets, 4); t.equal(p.s.receiving_air_yards, 50);
+  t.equal(p.cov, undefined);                                     // complete over his ONE game, not "1 of 2"
+  t.equal(p.s.rec_first_downs, undefined); t.equal(p.s.targets_i20, undefined);   // week-2 ext / rz not read; week 1 no marker
+  t.equal(g.WR.non_box_rows, 1); t.equal(g.WR.data_max_week, 1);
+  // a PFR-only row of an unmapped gsis is not an unmapped box player
+  t.equal(PS.buildGroups({ box: [{ ...pfrOnly, gsis_id: "00-9" }], ext: [], rz: [], snaps: [], map: MAP1 }, 2026, 2).WR.unmapped_box_players, 0);
+  t.equal(PS.rowKind({ pos_group: null, punts: null, fg_att_0_39: null }), "other");
+});
+
+test("PBP-only rows: a PN punt row and a PK FG-bucket row count as games; a PFR-only row for them does not", () => {
+  const g = PS.buildGroups({ box: [
+    { gsis_id: "00-2", week: 1, team: null, pos_group: null, punts: 5, punt_yds: 230 },
+    { gsis_id: "00-2", week: 2, team: null, pos_group: null },
+    { gsis_id: "00-3", week: 1, team: "BUF", pos_group: "PK", fg_att: 2, fg_made: 2 },
+    { gsis_id: "00-3", week: 2, team: null, pos_group: null, fg_att_40_49: 1, fg_made_40_49: 1 },
+  ], ext: [], rz: [], snaps: [], map: MAP1 }, 2026, 2);
+  t.deepEqual(g.PN.players.map((p) => [p.games, p.s.punts]), [[1, 5]]);
+  t.deepEqual(g.PK.players.map((p) => [p.games, p.s.fg_att, (p.cov || {}).fg_att]), [[2, 2, 1]]);
+});
+
+test("red zone: absent row + PBP marker for his (week, team) = 0 and complete; no marker = missing; a present row is unchanged", () => {
+  const box = [nv(1), nv(2), nv(3, { team: "MIA" })];
+  const rz = [{ gsis_id: "00-1", week: 1, ...RZ0, targets_i20: 2, targets_ez: 1 }];
+  // markers for every game: weeks 2 and 3 are proven zero
+  let p = wrOf(PS.buildGroups({ box, ext: [], rz, snaps: [], map: MAP1, rzMarks: [{ week: 1, team: "BUF" }, { week: 2, team: "BUF" }, { week: 3, team: "MIA" }] }, 2026, 3));
+  t.equal(p.s.targets_i20, 2); t.equal(p.s.targets_ez, 1); t.equal(p.s.rush_att_i20, 0);
+  t.equal((p.cov || {}).targets_i20, undefined);
+  // week 3 MIA has no marker (BUF does: not his club that week): week 3 stays missing → partial
+  const g = PS.buildGroups({ box, ext: [], rz, snaps: [], map: MAP1, rzMarks: [{ week: 2, team: "BUF" }, { week: 3, team: "BUF" }] }, 2026, 3);
+  p = wrOf(g);
+  t.equal(p.s.targets_i20, 2); t.equal(p.cov.targets_i20, 2); t.equal(g.WR.rz_proven_team_weeks, 2);
+  // the marker read failed (null): nothing is zero-filled
+  const gn = PS.buildGroups({ box, ext: [], rz, snaps: [], map: MAP1, rzMarks: null }, 2026, 3);
+  t.equal(wrOf(gn).cov.targets_i20, 1); t.equal(gn.WR.rz_proven_team_weeks, null);
+  // present rows: summed as stored, a NULL in a present row stays missing even with a marker
+  const rz2 = [{ gsis_id: "00-1", week: 1, ...RZ0, targets_i20: 2 }, { gsis_id: "00-1", week: 2, ...RZ0, targets_i20: 3, pass_cmp_i20: null }];
+  p = wrOf(PS.buildGroups({ box: box.slice(0, 2), ext: [], rz: rz2, snaps: [], map: MAP1, rzMarks: [{ week: 1, team: "BUF" }, { week: 2, team: "BUF" }] }, 2026, 2));
+  t.equal(p.s.targets_i20, 5); t.equal(p.cov.pass_cmp_i20, 1); t.equal((p.cov || {}).targets_i20, undefined);
+  // a team-less box week is never zero-filled
+  p = wrOf(PS.buildGroups({ box: [nv(1, { team: null })], ext: [], rz: [], snaps: [], map: MAP1, rzMarks: [{ week: 1, team: "BUF" }] }, 2026, 1));
+  t.equal(p.s.targets_i20, undefined);
+});
+
+test("route: position stats read the PBP marker by its primary key; weekly box zero-fills only proven, nflverse weeks", async () => {
+  const db = new DatabaseSync(":memory:"); db.exec(SCHEMA);
+  t.match(plan(db, PS.SQL.rzMarks, [2026, 10]), /USING (COVERING )?INDEX sqlite_autoindex_nfl_team_weekly_1 \(season=\? AND week>\? AND week<\?\)/);
+  const wbSql = SRC.match(/"(SELECT week, team FROM nfl_team_weekly WHERE season = \? AND team IN \()"/)[1] + "?,?) AND rz_pass_att IS NOT NULL";
+  const pw = plan(db, wbSql, [2026, "BUF", "MIA"]);
+  t.match(pw, /idx_team_weekly_team \(team=\? AND season=\?\)/, pw); t.doesNotMatch(pw, /SCAN/, pw);
+
+  const d1 = world();
+  // WR 2002: box weeks 1 BUF (rz row), 2 MIA (no rz row), 3 MIA (rz row); add a PFR-only week 4 row
+  d1.raw.exec("INSERT INTO nfl_player_weekly (season, week, gsis_id, receiving_air_yards) VALUES (2026, 4, '00-0000102', 25)");
+  d1.raw.exec("INSERT INTO nfl_team_weekly (season, week, team, rz_pass_att) VALUES (2026, 1, 'BUF', 3), (2026, 2, 'MIA', 0), (2026, 4, 'MIA', 1), (2026, 2, 'BUF', NULL)");
+  const v = await box(d1, P.wr[0]);
+  t.equal(v.status, 200);
+  const byW = Object.fromEntries(v.json.weeks.map((w) => [w.week, w.redzone]));
+  t.deepEqual(byW[2], { season: 2026, week: 2, gsis_id: P.wr[1], ...RZ0, proven_zero: true });
+  t.equal(byW[1].targets_i20, 2); t.equal(byW[1].proven_zero, undefined);      // a stored row is returned as stored
+  t.equal(byW[4], null);                                                         // PFR-only week: never zero-filled
+  // RB 2004 week 2 BUF: no rz row and no marker (rz_pass_att NULL) → stays null
+  const rb = await box(d1, P.rb[0]);
+  t.equal(rb.json.weeks.find((w) => w.week === 2).redzone, null);
+  t.deepEqual(rb.json.weeks.find((w) => w.week === 1).redzone, { season: 2026, week: 1, gsis_id: P.rb[1], ...RZ0, proven_zero: true });
+  // the pool: WR 2002 through 4 has 3 games (the PFR-only week is not one), and week 2 counts as a red-zone zero
+  const wr = await get(d1, "/api/position-season-stats?season=2026&through=4&group=WR");
+  const jw = wr.json.players.find((p) => p.mfl_id === "2002");
+  t.equal(jw.games, 3); t.equal(jw.s.targets_i20, 3); t.equal(jw.s.receiving_air_yards, 220);
+  t.equal((jw.cov || {}).targets_i20, undefined);                                // wk 1 row, wk 2 proven 0, wk 3 row: complete (was cov 2)
+  t.equal(jw.cov.targets_ez, 2);                                                 // wk 3's stored NULL stays missing
+  t.equal(wr.json.non_box_rows, 1); t.equal(wr.json.rz_proven_team_weeks, 3);
+  // a failed marker read: no zero fill, every absent week missing
+  d1.raw.exec("DROP TABLE nfl_team_weekly");
+  const v2 = await box(d1, P.wr[0]);
+  t.equal(v2.status, 200); t.equal(Object.fromEntries(v2.json.weeks.map((w) => [w.week, w.redzone]))[2], null);
+  t.equal(net.length, 0);
+});
+
 await run("player_weekly_box_extras");

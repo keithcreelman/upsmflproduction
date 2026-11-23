@@ -76,7 +76,7 @@ import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
 import { loadPlayerStatus } from "./player_status.js";
 import { seasonTeamSnaps, coversPlayer } from "./team_snaps_season.js";
 import { seasonTeamTotals, coversTeams, totalsMap, TEAM_TOTALS_JOIN_SQL } from "./team_totals_season.js";
-import { positionSeasonStats, POSITION_GROUPS } from "./position_season_stats.js";
+import { positionSeasonStats, POSITION_GROUPS, PLAYER_RZ_COUNT_COLS } from "./position_season_stats.js";
 import { readProjections, parseIds as parsePlayerIds, MAX_IDS as MAX_PROJECTION_IDS } from "./player_projections.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
@@ -20311,6 +20311,28 @@ export default {
           for (const r of boxRows) {
             const e = r.team != null ? totals[r.week + "|" + r.team] : null;
             at(r.week).team_totals = e ? { team: r.team, ...e } : null;
+          }
+          // Red zone (r6 draft): an absent nfl_player_redzone row is ZERO only in an nflverse box week
+          // (pos_group set; a PFR-only row is not a game) whose team-game the PBP run provably loaded: the
+          // same fetch_nflverse_pbp.py run writes nfl_team_weekly.rz_pass_att (0 included) for every team-game
+          // it loaded (0169) and a player row for any carry, dropback or target. Otherwise it stays null.
+          // His teams' rows by idx_team_weekly_team (team, season): about one per week per team.
+          const rzGap = boxRows.filter((r) => r.pos_group != null && r.team != null && !(weeks[r.week] && weeks[r.week].redzone));
+          if (rzGap.length) {
+            const tms = [...new Set(rzGap.map((r) => String(r.team)))].slice(0, 8);
+            let marks = null;
+            try {
+              marks = (((await db.prepare("SELECT week, team FROM nfl_team_weekly WHERE season = ? AND team IN (" + tms.map(() => "?").join(",") +
+                ") AND rz_pass_att IS NOT NULL").bind(season, ...tms).all()) || {}).results || []);
+            } catch (_) { marks = null; }   // pre-0169 or a failed read: red zone stays null (unknown), never zeros
+            const mk = new Set((marks || []).map((m) => Number(m.week) + "|" + m.team));
+            for (const r of rzGap) {
+              if (!mk.has(Number(r.week) + "|" + r.team)) continue;
+              const z = { season, week: Number(r.week), gsis_id: gsis };
+              for (const c of PLAYER_RZ_COUNT_COLS) z[c] = 0;
+              z.proven_zero = true;
+              at(r.week).redzone = z;
+            }
           }
           return statOk({ ...base, weeks: Object.values(weeks).sort((a, b) => a.week - b.week) });
         } catch (e) {

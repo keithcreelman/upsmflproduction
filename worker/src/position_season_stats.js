@@ -18,16 +18,34 @@
 // with a value, given only when it is fewer than his box weeks. An absent _ext row contributes nothing
 // (not a zero) to the ext sums; their cov says how many weeks had one.
 //
+// Box week (a game): an nfl_player_weekly row the nflverse weekly writer wrote, proven by pos_group IS NOT
+// NULL (fetch_nflverse_weekly.py sets it on every row, pos_group_of() never returns None; no other writer
+// sets it). `source` cannot prove it: its column DEFAULT is 'nflverse' (migration 0006), so a row INSERTed
+// by the PFR advanced-stats upsert (fetch_pfr_advstats.py _dual_write_d1) reads 'nflverse' too. A
+// PFR-only row (pos_group NULL) is not a game: it adds nothing to games, sums, cov or team totals, and
+// his ext / red-zone rows for that week are not read. Two PBP-proven exceptions: a PN row with `punts`
+// (the weekly payload has no punters; fetch_nflverse_pbp.py writes punt rows) and a PK row with an FG
+// distance bucket (same writer). Excluded rows are counted in `non_box_rows`.
+//
+// Red zone: an absent nfl_player_redzone row is ZERO only for a box week whose (week, team) has the PBP
+// load marker nfl_team_weekly.rz_pass_att IS NOT NULL: the same fetch_nflverse_pbp.py run writes that team
+// total (0 included) for every team-game it loaded, after the player rows (migration 0169), and creates a
+// player row for anyone with a carry, dropback or target anywhere on the field. Without the marker the
+// week stays missing (partial cov). `rz_proven_team_weeks` = marked (week, team) pairs; null when that
+// read failed (then nothing is zero-filled).
+//
 // Cost per cache fill (all nine groups at once; each group is stored under its own key):
 //   nfl_player_weekly, nfl_player_weekly_ext, nfl_player_redzone, nfl_player_snaps: one primary-key
 //   range search each, (season, week 1..through): about one row per player-week of the season
 //   (10,589 box rows for 2026 Weeks 1-10, measured 2026-11-23), plus a scan of player_id_map (2,295 rows).
 //   Roughly 30-45k rows per fill at Week 10 (ext / red-zone / snap row counts not measured).
+//   nfl_team_weekly (rz marker): primary-key range (season, week 1..through), about 32 rows per week
+//   (~300 at Week 10; estimated, unmeasured).
 //   A cache hit reads 4 rows (etl_runs stamps). Fills: one per data center per (season, through)
 //   per stamp change, at most one per POSITION_STATS_TTL_S otherwise.
 
 export const POSITION_STATS_TTL_S = 21600;
-const QUERY_VERSION = "1";
+const QUERY_VERSION = "2";
 
 export const POSITION_GROUPS = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
 const GROUP_OF = { QB: "QB", RB: "RB", WR: "WR", TE: "TE", PK: "PK", PN: "PN", DE: "DL", DT: "DL", LB: "LB", CB: "DB", S: "DB" };
@@ -45,6 +63,10 @@ const EXT_COLS = ["pass_first_downs", "rush_first_downs", "rec_first_downs", "de
 const RZ_COLS = ["targets_i20", "targets_i10", "targets_i5", "targets_ez", "rec_i20", "rec_tds_i20", "rush_att_i20", "rush_att_i10",
   "rush_att_i5", "rush_tds_i20", "pass_att_i20", "pass_cmp_i20", "pass_tds_i20", "pass_att_ez"];
 
+// Every counter fetch_nflverse_pbp.py rz_bucket() initializes to 0 (0007 + 0169): a proven-zero week is 0 in each.
+export const PLAYER_RZ_COUNT_COLS = ["rush_att_i20", "rush_att_i10", "rush_att_i5", "rush_yds_i20", "rush_tds_i20", "targets_i20", "targets_i10",
+  "targets_i5", "targets_ez", "rec_i20", "rec_tds_i20", "pass_att_i20", "pass_tds_i20", "pass_att_ez", "pass_cmp_i20", "sacks_i20"];
+
 const OFF = { box: [...PASS, ...RUSH, ...REC], ext: ["pass_first_downs", "rush_first_downs", "rec_first_downs"], rz: RZ_COLS };
 const FIELDS = {
   QB: OFF, RB: OFF, WR: OFF, TE: OFF,
@@ -55,12 +77,24 @@ const FIELDS = {
   DB: { box: IDP, ext: ["def_tackles_with_assist", "def_targets"], rz: [] },
 };
 
+const FG_PBP = ["fg_att_0_39", "fg_att_40_49", "fg_att_50_59", "fg_att_60plus"];
+
+// Which writer's evidence a box row carries (see the header): "nflverse", "pbp_punt", "pbp_fg" or "other".
+export function rowKind(r) {
+  if (r.pos_group != null) return "nflverse";
+  if (r.punts != null) return "pbp_punt";
+  if (FG_PBP.some((c) => r[c] != null)) return "pbp_fg";
+  return "other";
+}
+const isBoxWeek = (kind, group) => kind === "nflverse" || (group === "PN" && kind === "pbp_punt") || (group === "PK" && kind === "pbp_fg");
+
 export const SQL = {
-  box: "SELECT gsis_id, week, team, " + BOX_COLS.join(", ") + " FROM nfl_player_weekly WHERE season = ? AND week BETWEEN 1 AND ?",
+  box: "SELECT gsis_id, week, team, pos_group, " + BOX_COLS.join(", ") + " FROM nfl_player_weekly WHERE season = ? AND week BETWEEN 1 AND ?",
   ext: "SELECT gsis_id, week, " + EXT_COLS.join(", ") + " FROM nfl_player_weekly_ext WHERE season = ? AND week BETWEEN 1 AND ?",
   rz: "SELECT gsis_id, week, " + RZ_COLS.join(", ") + " FROM nfl_player_redzone WHERE season = ? AND week BETWEEN 1 AND ?",
   snaps: "SELECT pfr_id, week, team, off_snaps, off_snap_pct, def_snaps, def_snap_pct, st_snaps FROM nfl_player_snaps WHERE season = ? AND week BETWEEN 1 AND ?",
   map: "SELECT mfl_id, gsis_id, pfr_id, mfl_position FROM player_id_map WHERE accepted = 1",
+  rzMarks: "SELECT week, team FROM nfl_team_weekly WHERE season = ? AND week BETWEEN 1 AND ? AND rz_pass_att IS NOT NULL",
   stamps: "SELECT source, last_run_utc FROM etl_runs WHERE source IN ('nflverse_weekly', 'nflverse_snaps', 'nflverse_pbp', 'pfr_advstats')",
 };
 
@@ -74,8 +108,9 @@ function addInto(acc, cov, cols, row) {
   }
 }
 
-// Pure: the nine group payloads from the five result sets (exported for tests).
-export function buildGroups({ box, ext, rz, snaps, map }, season, through) {
+// Pure: the nine group payloads from the result sets (exported for tests). rzMarks: the nfl_team_weekly
+// marker rows, or null when that read failed (then no red-zone week is zero-filled).
+export function buildGroups({ box, ext, rz, snaps, map, rzMarks = null }, season, through) {
   const byGsis = {}, pfrToGsis = {}, unmappedBox = new Set();
   for (const m of map || []) {
     const g = GROUP_OF[String(m.mfl_position || "").toUpperCase()];
@@ -84,10 +119,10 @@ export function buildGroups({ box, ext, rz, snaps, map }, season, through) {
     byGsis[m.gsis_id] = { mfl_id: String(m.mfl_id), group: g, pfr: m.pfr_id || null };
     if (m.pfr_id) pfrToGsis[m.pfr_id] = m.gsis_id;
   }
-  // team-week totals from every box row of the window (all positions), and team snaps from every snap row
+  // team-week totals from every nflverse box row of the window (all positions), and team snaps from every snap row
   const team = {};
   for (const r of box || []) {
-    if (r.team == null) continue;
+    if (r.team == null || rowKind(r) !== "nflverse") continue;
     const k = r.week + "|" + r.team, t = (team[k] = team[k] || {});
     for (const [out, c] of [["team_targets", "targets"], ["team_rush_att", "rush_att"], ["team_receptions", "receptions"], ["team_rec_air_yards", "receiving_air_yards"]]) {
       const v = num(r[c]); if (v != null) t[out] = (t[out] || 0) + v;
@@ -110,18 +145,44 @@ export function buildGroups({ box, ext, rz, snaps, map }, season, through) {
   const P = (gsis) => {
     const id = byGsis[gsis];
     if (!id || id.ambiguous) return null;
-    return (players[gsis] = players[gsis] || { mfl_id: id.mfl_id, gsis_id: gsis, group: id.group, games: 0, snap_games: 0, s: {}, cov: {}, last_week: 0 });
+    return (players[gsis] = players[gsis] || { mfl_id: id.mfl_id, gsis_id: gsis, group: id.group, games: 0, snap_games: 0, s: {}, cov: {}, last_week: 0, weeks: new Map() });
   };
+  let maxWeek = 0, nonBox = 0;
   for (const r of box || []) {
+    const kind = rowKind(r), id = byGsis[r.gsis_id];
+    if (kind !== "other") maxWeek = Math.max(maxWeek, Number(r.week) || 0);
+    if (!id) { if (kind !== "other") unmappedBox.add(r.gsis_id); continue; }
+    if (!isBoxWeek(kind, id.group)) { nonBox += 1; continue; }   // e.g. a PFR-only row: not a game, not a zero
     const p = P(r.gsis_id);
-    if (!p) { if (!byGsis[r.gsis_id]) unmappedBox.add(r.gsis_id); continue; }
+    if (!p) continue;
     p.games += 1; p.last_week = Math.max(p.last_week, Number(r.week));
+    p.weeks.set(Number(r.week), r.team != null ? r.team : null);
     addInto(p.s, p.cov, FIELDS[p.group].box, r);
     const t = r.team != null ? team[r.week + "|" + r.team] : null;
     addInto(p.s, p.cov, ["team_targets", "team_rush_att", "team_receptions", "team_rec_air_yards"], t || {});
   }
-  for (const r of ext || []) { const p = players[r.gsis_id]; if (p) addInto(p.s, p.cov, FIELDS[p.group].ext, r); }
-  for (const r of rz || []) { const p = players[r.gsis_id]; if (p) addInto(p.s, p.cov, FIELDS[p.group].rz, r); }
+  // ext and red-zone rows count only in his box weeks
+  const inBoxWeek = (r) => { const p = players[r.gsis_id]; return p && p.weeks.has(Number(r.week)) ? p : null; };
+  for (const r of ext || []) { const p = inBoxWeek(r); if (p) addInto(p.s, p.cov, FIELDS[p.group].ext, r); }
+  const rzSeen = new Set();
+  for (const r of rz || []) {
+    const p = inBoxWeek(r);
+    if (!p) continue;
+    rzSeen.add(r.gsis_id + "|" + Number(r.week));
+    addInto(p.s, p.cov, FIELDS[p.group].rz, r);
+  }
+  // absent red-zone row in a box week whose team-game the PBP run provably loaded: zero for every field
+  const marked = rzMarks ? new Set(rzMarks.filter((m) => m && m.team != null).map((m) => Number(m.week) + "|" + m.team)) : null;
+  if (marked) {
+    for (const p of Object.values(players)) {
+      const cols = FIELDS[p.group].rz;
+      if (!cols.length) continue;
+      for (const [w, tm] of p.weeks) {
+        if (tm == null || rzSeen.has(p.gsis_id + "|" + w) || !marked.has(w + "|" + tm)) continue;
+        addInto(p.s, p.cov, cols, Object.fromEntries(cols.map((c) => [c, 0])));
+      }
+    }
+  }
   for (const s of snaps || []) {
     const p = players[pfrToGsis[s.pfr_id]];
     if (!p) continue;
@@ -134,7 +195,6 @@ export function buildGroups({ box, ext, rz, snaps, map }, season, through) {
   }
   const groups = {};
   for (const g of POSITION_GROUPS) groups[g] = { players: [] };
-  const maxWeek = (box || []).reduce((m, r) => Math.max(m, Number(r.week) || 0), 0);
   for (const p of Object.values(players)) {
     const cov = {};
     // cov only where a field is missing in some of the weeks it is counted over
@@ -148,6 +208,7 @@ export function buildGroups({ box, ext, rz, snaps, map }, season, through) {
     groups[g].players.sort((a, b) => (a.mfl_id < b.mfl_id ? -1 : 1));
     groups[g] = { ok: true, season, through, group: g, data_max_week: maxWeek || null, unmapped_box_players: unmappedBox.size,
       ambiguous_ids: Object.values(byGsis).filter((x) => x.ambiguous).length,
+      non_box_rows: nonBox, rz_proven_team_weeks: marked ? marked.size : null,
       fields: [...FIELDS[g].box, ...FIELDS[g].ext, ...FIELDS[g].rz], players: groups[g].players };
   }
   return groups;
@@ -173,14 +234,17 @@ export async function positionSeasonStats(db, { season, through, group }, ctx, c
     try { const hit = await cache.match(keyOf(group)); if (hit) return { status: 200, body: await hit.json() }; } catch (_) { /* recompute */ }
   }
   const all = async (sql, ...args) => (((await db.prepare(sql).bind(...args).all()) || {}).results || []);
-  const [box, ext, rz, snaps, map] = await Promise.all([
+  // A failed red-zone read must not become zeros: then the markers are dropped too (all red-zone missing).
+  let rzOk = true;
+  const [box, ext, rz, snaps, map, marks] = await Promise.all([
     all(SQL.box, season, through),
     all(SQL.ext, season, through).catch(() => []),
-    all(SQL.rz, season, through).catch(() => []),
+    all(SQL.rz, season, through).catch(() => { rzOk = false; return []; }),
     all(SQL.snaps, season, through).catch(() => []),
     all(SQL.map),
+    all(SQL.rzMarks, season, through).catch(() => null),
   ]);
-  const groups = buildGroups({ box, ext, rz, snaps, map }, season, through);
+  const groups = buildGroups({ box, ext, rz, snaps, map, rzMarks: rzOk ? marks : null }, season, through);
   if (cache) {
     const puts = POSITION_GROUPS.map((g) => cache.put(keyOf(g), new Response(JSON.stringify(groups[g]), {
       headers: { "content-type": "application/json", "Cache-Control": `public, max-age=${POSITION_STATS_TTL_S}` } })));

@@ -2,7 +2,24 @@
 -- sqlite_master read, 2026-10-22) does not hold. Built FROM THE MIGRATIONS, not read from production:
 --   nfl_player_weekly_ext = 0114 (table, PK, index) + 0117 + 0119 + 0169 (added columns)
 --   ups_player_projections = 0123 (whose header says it matches production sqlite_master, 2026-08-05)
+--   nfl_team_weekly = 0016 (table, PK, index) + 0169 (team red-zone columns)
 -- Confirm against production sqlite_master before release.
+
+CREATE TABLE nfl_team_weekly (
+  season              INTEGER NOT NULL,
+  week                INTEGER NOT NULL,
+  team                TEXT    NOT NULL,
+  fourth_down_total   INTEGER,
+  fourth_down_go      INTEGER,
+  fourth_down_punt    INTEGER,
+  fourth_down_fg      INTEGER,
+  stall_punts         INTEGER,
+  team_punts          INTEGER,
+  rz_pass_att INTEGER, rz_pass_cmp INTEGER, rz_sacks INTEGER, rz_carries INTEGER, rz_scrambles INTEGER,
+  i5_carries INTEGER, rz_targets INTEGER, ez_targets INTEGER, ez_targets_i20 INTEGER, rz_rec INTEGER,
+  PRIMARY KEY (season, week, team)
+);
+CREATE INDEX idx_team_weekly_team ON nfl_team_weekly (team, season);
 
 CREATE TABLE nfl_player_weekly_ext (
   season  INTEGER NOT NULL,
