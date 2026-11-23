@@ -80,6 +80,30 @@
     });
     document.title = S.profile && S.model && S.model.byId[S.profile.pid] ? S.model.byId[S.profile.pid].name + " · UPS Preview 0" : "UPS 2027 Preview 0";
     ensureBreakdowns();
+    ensureProjections(false);
+  }
+
+  // ---- R7: the week-labeled projection (draft #1515 /api/player-projections) ----
+  // Asked once per team view: the lineup week and this team's ids (tabviews.projectionRequest; the loader splits them into groups of at most 80 and keeps
+  // each group's answer for its freshness window). Kept as S.intel.proj[week] = { state, data, at } for tabviews.projectionSlot, which alone decides the
+  // value (latest capture before HIS kickoff). Only Team › Performance and a profile's Performance tab draw it. In recorded mode the read is answered
+  // from the recording; a route that is not deployed or not recorded comes back "absent" and every card says Not Available.
+  function ensureProjections(force) {
+    if (S.sample.on || !S.model || !U.tabviews || !U.tabviews.projectionRequest) return;
+    if (!((S.tab === "team" && S.sub === "performance") || (S.profile && S.profile.tab === "perf"))) return;
+    var q = U.tabviews.projectionRequest(S);
+    if (!q || !q.ids.length) return;
+    S.intel.proj = S.intel.proj || {};
+    var tag = S.teamId + "|" + q.season + "|" + q.week, rec = S.intel.proj[q.week];
+    if (rec && S.intel.projTag === tag && !(force && rec.state === "error")) return;
+    S.intel.projTag = tag; S.intel.proj[q.week] = { state: "loading" };
+    var mine = gen;
+    loader.projections(q.season, q.week, q.ids, !!force).then(function (r) {
+      if (mine !== gen || S.sample.on || S.intel.projTag !== tag || !S.intel.proj) return;
+      S.intel.proj[q.week] = r.state === "ok" ? { state: "ok", data: { ok: true, season: r.data.season, week: r.data.week, provider: r.data.provider, projections: r.data.projections }, at: Date.now() }
+        : r.state === "absent" ? { state: "absent" } : { state: "error", error: r.error || "" };
+      render(true);
+    });
   }
 
   // ---- R6: the Breakdown's game-stats read (one per player and season) ----
@@ -259,6 +283,7 @@
   }
   function refreshPerformance() {
     if (S.sample.on || !S.model || !S.model.week) return;
+    ensureProjections(true);   // only a failed projection read is asked again
     if (anyFailedRead()) { ensurePerformance(true); return; }
     var cur = S.model.week, after = function () { ensurePerformance(false); };
     intelRead(S.intel.mu, cur, function () { return loader.loadMatchups(cur, true); }, true, after);
