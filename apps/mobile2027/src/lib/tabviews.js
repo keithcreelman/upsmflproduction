@@ -5,8 +5,9 @@
    - Contracts: labels and sorts follow the season the roster read reports (no year is written in this file); the salary columns are as many as
      the longest contract left; no points per game and no position rank anywhere; no link into Cap & picks. R6 (Keith, 2026-11-22/23): ONE cap card
      (Available cap space, Total cap, a closed Breakdown, the later years' Total committed cap); the separate recorded-salary card is gone.
-   - The Remaining guarantee column holds ONLY guarantee values (Loading, an amount, $0 with "Fully earned" from a calculated zero, Not applicable,
-     Under review, Unavailable). A cut charge is drawn only under "If cut now". A missing or failed read never draws $0.
+   - R8 (Keith, 2026-11-23): the first column is "If cut now", the Worker's cut charge under the rule its basis names (guarantee, no guarantee,
+     $1K drop rule, taxi), with a short rule label for the exceptions; there is no separate Remaining guarantee column. A missing or failed read
+     never draws $0 (Loading, Under review, Unavailable).
    - Performance: a figure is withheld only when the evidence it needs is missing (lib/clubhist.js decides); scores, the season average and the
      scored-game count never wait on team history. A scored game is a recorded score, 0.0 included; the label never says "games played".
      No arrows, no matchup rating, no "allowed per game" line. */
@@ -86,77 +87,53 @@
 
   function penaltyOf(S, id) { var d = S.penalty && S.penalty.state === "ok" ? S.penalty.data : null; return d ? d[id] || null : null; }
 
-  // The Remaining guarantee cell: guarantee values only. { kind, text } with kind in loading | amount | zero | untracked | review | unavailable.
-  // Presentation only: how the Worker's numbers and rules are worded. No figure is recomputed and no source record changes.
-  function guarantee(S, p) {
+  // R8 (Keith, 2026-11-23): ONE primary amount, "If cut now": the Worker's cut charge (/api/cap-penalty/preview .penalty) under the rule the Worker
+  // names in its basis (lib/contract.js cutRule: guarantee, no guarantee, $1K drop rule, taxi). Presentation only: no figure is recomputed.
+  // -> { kind: loading | amount | review | unavailable, text, tag (a short rule label or ""), row, rule }. A missing or failed read is never $0.
+  function cutCharge(S, p) {
     var st = S.penalty ? S.penalty.state : "idle";
     if (st === "idle" || st === "loading") return { kind: "loading", text: "Loading…" };
     if (st !== "ok") return { kind: "unavailable", text: "Unavailable" };
     var row = penaltyOf(S, p.id);
     if (!row) return { kind: "unavailable", text: "Unavailable" };
     if (row.needs_review) return { kind: "review", text: "Under review", why: F.str(row.review_reason) };
-    var e = C.earned(row);
-    if (e.kind === "rule" || e.kind === "na") return { kind: "untracked", text: "Not applicable", rule: e.kind, basis: F.str(row.basis) };
-    var rg = C.remainingGuarantee(row);
-    if (rg == null) return { kind: "unavailable", text: "Unavailable", noFigure: true }; // the read worked but gave no remaining-guarantee figure for this contract
-    return rg === 0 ? { kind: "zero", text: "$0", sub: "Fully earned", rg: 0, row: row, earned: e.amount } : { kind: "amount", text: money(rg), rg: rg, row: row, earned: e.amount };
+    var cut = C.cutNow(row);
+    if (cut.kind !== "amount") return { kind: "unavailable", text: "Unavailable", noFigure: true };   // the read worked but gave no cut charge for this contract
+    var r = C.cutRule(row);
+    return { kind: "amount", text: money(cut.amount), amount: cut.amount, tag: r.tag, rule: r, row: row };
   }
   function gcell(g) {
     if (g.kind === "loading") return '<span class="mu">' + esc(g.text) + "</span>";
     if (g.kind === "unavailable" || g.kind === "review") return '<span class="wn">' + esc(g.text) + "</span>";
-    if (g.kind === "untracked") return '<span class="mu">' + esc(g.text) + "</span>";
-    return "<b>" + esc(g.text) + "</b>" + (g.sub ? '<small class="mu">' + esc(g.sub) + "</small>" : "");
+    return "<b>" + esc(g.text) + "</b>" + (g.tag ? '<small class="mu">' + esc(g.tag) + "</small>" : "");
+  }
+  // The Details line for "If cut now": the amount and one sentence naming the rule (no arithmetic; the guarantee facts are their own line).
+  function cutWords(g) {
+    if (g.kind === "loading") return "Loading…";
+    if (g.kind === "review") return "Under review" + (g.why ? ": " + esc(g.why) : "");
+    if (g.kind !== "amount") return g.noFigure ? "Unavailable<small>No cut charge in the cap calculation for this contract.</small>" : "Unavailable";
+    return "<b>" + esc(g.text) + "</b><small>" + esc(g.rule.words) + "</small>";
+  }
+  // The original guarantee and what is earned of it, only under the guarantee rule and only when the Worker gave both figures.
+  function guaranteeFacts(S, g) {
+    if (g.kind !== "amount" || g.rule.rule !== "guarantee") return "";
+    var row = g.row, wk = S.penalty && S.penalty.meta ? S.penalty.meta.earnedThroughWeek : null;
+    if (!(typeof row.guaranteed === "number" && isFinite(row.guaranteed))) return "";
+    var e = C.earned(row);
+    return "<b>Guarantee</b><span>" + money(row.guaranteed) + (e.kind === "amount" ? "<small>" + esc(money(e.amount) + " earned" + (wk != null ? " through Week " + wk : "")) + "</small>" : "") + "</span>";
   }
 
-  // Why a contract has no weekly guarantee, in plain words, chosen from the Worker's own basis for that row (the small-contract rules it reports).
-  // A basis this file does not know gets the general sentence: no rule is invented.
-  var RULE_WORDS = {
-    ww_under_5k_earned_na: "A waiver pickup of $4K or less in its final year has no weekly guarantee.",
-    ww_under_5k_exempt: "A waiver pickup of $4K or less in its final year has no weekly guarantee.",
-    one_year_under_5k_exempt: "A one-year original contract under $5K has no weekly guarantee.",
-    full_year_1k_contract: "A contract paying the same small amount every year has no weekly guarantee (the full-year rule).",
-    tcv_under_5k_final_year_exempt: "A contract with a total value under $5K, in its final year or a one-year deal, has no weekly guarantee."
-  };
-  function ruleWords(g) {
-    var b = g && g.basis;
-    return b && Object.prototype.hasOwnProperty.call(RULE_WORDS, b) ? RULE_WORDS[b] : "Not applicable under the league’s small-contract rules.";
+  // R8: "2025–2027 (3 years) · 2 years left", the contract's dates and years remaining on one line
+  function termWords(h) {
+    var left = !h.yearsLeft ? "" : h.yearsLeft === 1 ? "Final year" : h.yearsLeft + " years left";
+    if (h.length) return h.start + (h.end !== h.start ? "–" + h.end : "") + " (" + plural(h.length, "year", "years") + ")" + (left ? " · " + left : "");
+    if (h.end) return "Start not recorded, ends " + h.end + (left ? " · " + left : "");
+    return "Not recorded";
   }
+  var NR = "Not recorded";
 
-  // The expanded line for the guarantee: { label, html } (label is "Remaining guarantee", or "Weekly guarantee" when the small-contract rules apply).
-  function guaranteeWords(S, p, g) {
-    var wk = S.penalty && S.penalty.meta ? S.penalty.meta.earnedThroughWeek : null, label = "Remaining guarantee";
-    if (g.kind === "loading") return { label: label, html: "Loading…" };
-    if (g.kind === "unavailable") return { label: label, html: g.noFigure ? "No remaining-guarantee figure for this contract." : "Couldn’t load this." };
-    if (g.kind === "review") return { label: label, html: "Under review." + (g.why ? " " + esc(g.why) + "." : "") };
-    if (g.kind === "untracked") return { label: "Weekly guarantee", html: "Not applicable<small>" + esc(ruleWords(g)) + "</small>" };
-    var of = isFinite(g.row.guaranteed) ? " of " + money(g.row.guaranteed) + " guaranteed" : "";
-    var earned = isFinite(g.earned) ? ", " + money(g.earned) + " earned" + (wk != null ? " through Week " + wk : "") : "";
-    if (g.kind === "zero") {
-      var facts = (isFinite(g.row.guaranteed) ? money(g.row.guaranteed) + " guaranteed" : "") + (isFinite(g.earned) ? (isFinite(g.row.guaranteed) ? ", " : "") + money(g.earned) + " earned" + (wk != null ? " through Week " + wk : "") : "");
-      return { label: label, html: "$0<small>Guaranteed portion fully earned</small>" + (facts ? "<small>" + esc(facts) + "</small>" : "") };
-    }
-    return { label: label, html: money(g.rg) + of + earned };
-  }
-  // The cut charge, with its reason in owner language. Never $0 unless the worker calculated $0.
-  function cutWords(S, p) {
-    var st = S.penalty ? S.penalty.state : "idle";
-    if (st === "idle" || st === "loading") return "Loading…";
-    var row = st === "ok" ? penaltyOf(S, p.id) : null;
-    if (!row) return "Unavailable";
-    if (row.needs_review) return "Under review" + (F.str(row.review_reason) ? ": " + esc(F.str(row.review_reason)) : "");
-    var cut = C.cutNow(row), e = C.earned(row);
-    if (cut.kind !== "amount") return "Unavailable";
-    var why;
-    // R6: a $0 cut under a small-contract rule points at the rule already named on the Weekly guarantee line (no worker shorthand such as "Sub-5K TCV")
-    if (e.kind === "rule") why = cut.amount > 0 ? "Flat rule: a contract paying the same small amount every year costs a fixed amount to cut." : "No charge: the small-contract rule above applies";
-    else if (e.kind === "na") why = "Waiver pickup of $4K or less, in its final year" + (cut.why ? " (" + String(cut.why).replace(/[.\s]+$/, "") + ")" : "");   // no ".)." from the worker's own period
-    else why = cut.why ? cut.why : "The remaining guarantee";
-    why = why.replace(/\s*\(§[^)]*\)/g, "").replace(/[.\s]+$/, "") + ".";   // R6: no rulebook section codes on the screen
-    return "<b>" + money(cut.amount) + "</b> · " + esc(why);
-  }
-
-  // R6 Details: the full salary schedule of the CURRENT contract (completed years included, lib/contract.js history), then the contract length, years
-  // remaining, the guarantee and the cut cost, each on its own line, so salary, remaining guarantee and cut cost are never mixed. A year with no
+  // R6 Details: the full salary schedule of the CURRENT contract (completed years included, lib/contract.js history), then (R8) the term on one line,
+  // Contract Type, Contract Source, later changes, salary structure, If cut now and, under the guarantee rule only, the guarantee. A year with no
   // recorded amount says "Not recorded"; nothing is borrowed from an earlier contract.
   var PHASE = { done: "Completed", now: "This season", left: "Remaining" };
   function detailsHtml(S, p, g) {
@@ -168,12 +145,14 @@
       h.restructured != null && h.startWhy === "auction" ? "Restructured in " + h.restructured + ". Salaries before the restructure are not in the recorded terms." : "";
     // R7: who made the extension in force now, from the contract's own Ext: record (lib/contract.js extension); never the current owner by default
     var ext = C.extension(p, season, S.model.teams), extLine = C.extensionLine(ext);
-    var len = h.length ? plural(h.length, "year", "years") + ", " + h.start + (h.end !== h.start ? "–" + h.end : "") : h.earlier === "restructured" && h.end ? "Start not recorded, ends " + h.end : "Not recorded";
-    var left = h.yearsLeft ? h.yearsLeft + " (through " + h.end + ")" : "Not recorded";
-    var sch = C.schedule(p, season), gtd = g.row && isFinite(g.row.guaranteed) ? money(g.row.guaranteed) : sch.parsed.gtd != null ? money(sch.parsed.gtd) : "Not recorded";
-    var gw = guaranteeWords(S, p, g);
+    var d = C.describe(p);
     return '<div class="det"><div class="sec2 first">Salary schedule</div>' + (extLine ? '<div class="ext">' + esc(extLine) + "</div>" : "") + '<div class="yrl">' + (rows || '<span class="mu">No years recorded</span>') + "</div>" + (note ? '<div class="ex">' + esc(note) + "</div>" : "") +
-      taxiLine(S, p) + '<div class="kv"><b>Contract</b><span>' + esc(len) + "</span><b>Years remaining</b><span>" + esc(left) + "</span><b>Type</b><span>" + esc(p.type || "Not recorded") + "</span><b>Recorded guarantee</b><span>" + gtd + "</span><b>" + gw.label + "</b><span>" + gw.html + "</span><b>If cut now</b><span>" + cutWords(S, p) + "</span></div></div>";
+      taxiLine(S, p) + '<div class="kv">' + contractFacts(h, d) + "<b>If cut now</b><span>" + cutWords(g) + "</span>" + guaranteeFacts(S, g) + "</div></div>";
+  }
+  // R8: Term, Contract Type, Contract Source (its acquisition note when the source is not recorded), Later changes, Salary structure. Shared with the profile.
+  function contractFacts(h, d) {
+    return "<b>Term</b><span>" + esc(termWords(h)) + "</span><b>Contract Type</b><span>" + esc(d.type || NR) + "</span><b>Contract Source</b><span>" + esc(d.source || NR) + (d.sourceNote ? "<small>" + esc(d.sourceNote) + "</small>" : "") + "</span>" +
+      "<b>Later changes</b><span>" + esc(d.changes.length ? d.changes.join(" · ") : "None recorded") + "</span><b>Salary structure</b><span>" + esc(d.structure || NR) + "</span>";
   }
 
   function contractsBody(S) {
@@ -204,10 +183,10 @@
     }).join("") + "</div>";
     if (c.s === "sal") out += '<div class="chs" role="group" aria-label="Salary year">' + [0, 1, 2].map(function (i) { return '<button class="ch" data-act="cty" data-v="' + i + '" aria-pressed="' + (c.y === i) + '" aria-label="' + (season + i) + ' salary">' + (season + i) + "</button>"; }).join("") + "</div>";
 
-    out += '<div class="thead ' + cols + '"><span>Remaining guarantee</span>' + yrs.map(function (y) { return "<span>" + y + "</span>"; }).join("") + "</div>";
+    out += '<div class="thead ' + cols + '"><span>If cut now</span>' + yrs.map(function (y) { return "<span>" + y + "</span>"; }).join("") + "</div>";
 
     function rowHtml(p) {
-      var open = !!c.open[p.id], g = guarantee(S, p);
+      var open = !!c.open[p.id], g = cutCharge(S, p);
       var exp = p.years > 0 ? "Expires " + (season + p.years - 1) : "Expiration not recorded";
       var meta = esc(F.commonCode(p.nflTeam) || "No NFL team") + " · " + esc(exp);
       var cells = '<span class="g">' + gcell(g) + "</span>";
@@ -245,11 +224,9 @@
     return '<div class="card warnc"><div class="big2"><b>Couldn’t load this</b></div><div><button class="btn" data-act="' + esc(retryAct) + '"' + (retryV ? ' data-v="' + esc(retryV) + '"' : "") + '>Retry</button> <button class="btn" disabled aria-disabled="true">Report bug</button></div></div>';
   }
   function smoney(n) { return n == null || !isFinite(n) ? DASH : (n > 0 ? "+" : n < 0 ? MINUS : "") + money(Math.abs(n)); }
-  // "Taxi-eligible · $0 cut charge", once per player, only when both facts are known (the sentence that explains it is in Help).
+  // "Taxi-eligible", once per player (R8: the cut charge itself is on the If cut now line, not repeated here; the sentence that explains it is in Help).
   function taxiLine(S, p) {
-    var row = penaltyOf(S, p.id), cut = row && !row.needs_review ? C.cutNow(row) : null;
-    if (p.taxi && p.taxi.eligible === true) return '<div class="ex"><b class="ok">Taxi-eligible' + (cut && cut.kind === "amount" && cut.amount === 0 ? " · $0 cut charge" : "") + "</b></div>";
-    return "";
+    return p.taxi && p.taxi.eligible === true ? '<div class="ex"><b class="ok">Taxi-eligible</b></div>' : "";
   }
 
   // ---- Help: one control per Team screen; this is its text for each tab ----
@@ -272,11 +249,11 @@
         h("Taxi", "A taxi-eligible player can be released with a $0 cut charge while taxi eligibility applies. Releasing ends eligibility.") +
         h("Where the numbers come from", "Contracts as recorded on MFL" + (asOf ? " (as of " + esc(asOf) + ")" : "") + ". Earned, guarantee and cut charge: the UPS cap calculation" + (wk != null ? " through Week " + esc(wk) : "") + ".") +
         h("Symbols", esc(DASH) + " contract ended · n/r no amount recorded.") +
-        h("Adjustments", "Cut penalties, Traded salary (including three-team trades), Other, Rounding. Other holds every fine, FA auction fines included, each named in its row, and any posted adjustment that fits no category; its reason is not guessed. Adjustments are charged to the season in the heading (the charge season); a cut date can be in an earlier season.") +
+        h("Adjustments", "Cut penalties, Traded salary (including three-team trades), Other, Rounding. Other holds every fine, FA auction fines included, each named in its row, and any posted adjustment that fits no category; its reason is not guessed. Adjustments are charged to the season in the heading (the charge season); a cut date can be in an earlier season. A traded-salary entry names the other team and the trade date only when a trade record links them; this preview has no trade records, so each says “Trade details not recorded”.") +
         h("Player names", "A name comes from the player ID on the charge, looked up in MFL’s complete player list (so it works whether or not he is on a roster now), or, for older add/drop records that carry no player ID, from UPS’s reviewed list. If neither names him it reads “Player Unknown”. A fine, rounding or settlement has no player.") +
         h("Cut dates", "Dates are Eastern Time and shown only when verified: the date comes from the drop time recorded on the charge, from UPS’s reviewed list, or, for next season, from the ledger’s drop time. Otherwise the row says “Cut date not recorded”. Waiver drops process at 9:00 AM ET, so only the date is shown.") +
-        h("Remaining guarantee", "The guaranteed part of a contract that has not been earned yet. $0 with “Fully earned” means the whole guaranteed portion has been earned, so nothing remains.") +
-        h("Weekly guarantee: Not applicable", "Small contracts have no weekly guarantee: a waiver pickup of $4K or less in its final year, a one-year original contract under $5K, a contract with a total value under $5K in its final year, and a contract paying the same small amount every year (the full-year rule). The expanded row says which one applies.") +
+        h("If cut now", "What cutting the player today would charge against the cap, from the UPS cap calculation. Most contracts use the guarantee rule: the guaranteed amount (75% of the contract’s total value) not yet earned; “Fully earned” means nothing is owed. Small contracts use their own rule instead: <b>No guarantee</b> (a one-year original contract under $5K, or a waiver pickup of $4K or less in its final year, is cut free), <b>$1K rule</b> (a contract worth under $5K costs $1K while two or more years remain and nothing in its final year), or <b>Taxi</b> (a taxi-eligible player is cut free). A player’s Details name the rule, and show the guarantee and what is earned of it only under the guarantee rule.") +
+        h("Contract Type and Source", "Contract Type is Veteran or Rookie. Contract Source is how the contract began (Rookie Draft, FA Auction, Expired Rookie Auction, Waiver Wire, including FCFS). Later changes (Mid-Year Multi, an extension, a restructure, a tag) are listed separately. Salary structure is Flat, Front-loaded or Back-loaded. A fact the contract record does not state reads “Not recorded”.") +
         h("Next-season adjustments", esc(G.completeness) + " " + esc(G.reconciliation) + " " + esc(G.calculation));
     }
     if (sub === "performance") {
@@ -310,6 +287,9 @@
   // under Other; the internal categories (lib/adjust.js) are unchanged. [state key, label, internal categories]
   var ADJ_GROUPS = [["cut", "Cut penalties", ["Cut Penalty"]], ["trade", "Traded salary", ["Traded Salary"]], ["other", "Other", ["FA Auction Fine", "Other"]], ["round", "Rounding", ["Rounding"]]];
   var ORD = ["th", "st", "nd", "rd"];
+  // R8: a trade date in full ("November 12, 2026"), from a valid YYYY-MM-DD only (F.dateLabel validates it); anything else is ""
+  var FULL_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  function fullDate(ymd) { return F.dateLabel(ymd) ? FULL_MONTHS[Number(ymd.slice(5, 7)) - 1] + " " + Number(ymd.slice(8, 10)) + ", " + ymd.slice(0, 4) : ""; }
   function ordinal(n) { var v = n % 100; return n + (v >= 11 && v <= 13 ? "th" : ORD[n % 10] || "th"); }
   // One adjustment entry. The season is in the section heading, so no row repeats it. A cut penalty: the player, the full cut date (ET), the amount.
   // A fine: which fine it is. A trade: a trade or a three-team trade. Anything else: "Other adjustment" (its reason is not guessed).
@@ -320,7 +300,13 @@
         var pn = playerLabel(S, it);
         who = pn.cls ? '<span class="' + pn.cls + '">' + esc(pn.text) + "</span>" : esc(pn.text);
         sub = it.cutDate && F.dateLabel(it.cutDate) ? "Cut " + F.dateLabel(it.cutDate) : "Cut date not recorded";
-      } else if (it.category === "Traded Salary") who = it.detail && it.detail.kind === "three_team" ? "Three-team trade" : "Trade";
+      } else if (it.category === "Traded Salary") {
+        // R8: the opposing UPS team(s) and the trade date only from a trade transaction linked to this adjustment. No read in this preview carries
+        // one (the app's routes exclude MFL transactions), and the settlement text alone is not evidence, so every entry says so.
+        var tr = it.trade && it.trade.linked === true && it.trade.teams && it.trade.teams.length && fullDate(it.trade.date) ? it.trade : null;
+        who = tr ? "Trade with " + esc(tr.teams.join(" and ")) : it.detail && it.detail.kind === "three_team" ? "Three-team trade" : "Trade";
+        sub = tr ? fullDate(tr.date) : "Trade details not recorded";
+      }
       else if (it.category === "FA Auction Fine") {
         who = "FA auction fine"; var d = it.detail || {};
         sub = d.kind === "rule2_missed_nomination" ? "Rule 2, missed nomination" + (F.dateLabel(d.date) ? ", " + F.dateLabel(d.date) : "") + (d.nth > 0 ? " (" + ordinal(d.nth) + " offense)" : "") : d.kind === "rule2" ? "Rule 2" : "";
@@ -890,6 +876,6 @@
   }
 
   function mixApi(a, b) { for (var key in b) if (Object.prototype.hasOwnProperty.call(b, key) && !Object.prototype.hasOwnProperty.call(a, key)) a[key] = b[key]; return a; }
-  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, performanceList: performanceList, pfMatcher: pfMatcher,gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
+  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, performanceList: performanceList, pfMatcher: pfMatcher, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, cutCharge: cutCharge, cutWords: cutWords, guaranteeFacts: guaranteeFacts, contractFacts: contractFacts, termWords: termWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
   return API;
 });

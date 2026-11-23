@@ -197,6 +197,7 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
 .kv b{font-weight:600;color:var(--mu)}
 .kv span{min-width:0;overflow-wrap:anywhere}
+.kv span b{color:inherit}
 .xt{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;border:1px solid var(--bd);border-radius:10px;background:var(--sf);padding:0 10px;font-size:13px;font-weight:600;text-align:left;margin-top:6px}
 .xt .go{margin-left:auto}
 .xb{border:1px solid var(--bd);border-top:0;border-radius:0 0 10px 10px;padding:8px 10px;font-size:13px;margin-top:-1px}

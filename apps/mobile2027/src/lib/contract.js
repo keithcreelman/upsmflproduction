@@ -252,6 +252,75 @@
     return { kind: "amount", amount: row.penalty, why: why };
   }
 
+  // ---- R8 (Keith, 2026-11-23): which cut rule the Worker applied, from its own `basis` (never recomputed here) ----
+  // -> { rule: "guarantee" | "none" | "onek" | "taxi" | "unknown", tag: the short column label or "", words: one owner sentence }
+  //   guarantee: §D1 (TCV × 75%) − earned (basis guarantee_minus_earned; no_penalty_zero when earned has reached the guarantee)
+  //   none:      §D2 no guarantee: a 1-year original contract under $5K, or a waiver pickup of $4K or less in its final year
+  //   onek:      §D1 sub-$5K TCV rule: $1K while two or more years remain, $0 in the final year (full_year_1k_contract is its $1K-every-year class)
+  //   taxi:      §D2 taxi-eligible cut, cap-free
+  // A basis this file does not know is "unknown": the Worker's amount is still shown, and no rule is named for it.
+  var CUT_RULES = {
+    guarantee_minus_earned: ["guarantee", "", "Guarantee rule: the guaranteed amount not yet earned."],
+    no_penalty_zero: ["guarantee", "Fully earned", "Guarantee rule: the guaranteed amount is fully earned, so nothing is owed."],
+    one_year_under_5k_exempt: ["none", "No guarantee", "No-guarantee rule: a one-year original contract under $5K is cut free."],
+    ww_under_5k_exempt: ["none", "No guarantee", "No-guarantee rule: a waiver pickup of $4K or less in its final year is cut free."],
+    ww_under_5k_earned_na: ["none", "No guarantee", "No-guarantee rule: a waiver pickup of $4K or less in its final year is cut free."],
+    full_year_1k_contract: ["onek", "$1K rule", "$1K drop rule: a contract worth under $5K costs $1K to cut while two or more years remain, and nothing in its final year."],
+    tcv_under_5k_flat: ["onek", "$1K rule", "$1K drop rule: a contract worth under $5K costs $1K to cut while two or more years remain, and nothing in its final year."],
+    tcv_under_5k_final_year_exempt: ["onek", "$1K rule", "$1K drop rule: a contract worth under $5K costs $1K to cut while two or more years remain, and nothing in its final year."],
+    taxi_exempt: ["taxi", "Taxi", "Taxi rule: a taxi-eligible player is cut cap-free."],
+    taxi_callup_exempt: ["taxi", "Taxi", "Taxi rule: a taxi-eligible player is cut cap-free."],
+    taxi_eligible_exempt: ["taxi", "Taxi", "Taxi rule: a taxi-eligible player is cut cap-free."]
+  };
+  function cutRule(row) {
+    var b = row && typeof row.basis === "string" ? row.basis : "";
+    var r = Object.prototype.hasOwnProperty.call(CUT_RULES, b) ? CUT_RULES[b] : null;
+    if (!r) return { rule: "unknown", tag: "", words: "The cap calculation names a rule this preview does not know." };
+    // a guarantee-rule charge of $0 that is not no_penalty_zero still reads as fully earned
+    var tag = r[0] === "guarantee" && finite(row.penalty) && row.penalty === 0 ? "Fully earned" : r[1];
+    return { rule: r[0], tag: tag, words: r[2] };
+  }
+
+  // ---- R8: Contract Type, Contract Source, later changes and salary structure, from the recorded type and contract text only ----
+  // The MFL contract type is a UPS string ("Vet-FAA-FL", "Rookie-Draft", "Vet-Ext2-BL", "Tag", ...; canon §A3.1, §C). Each part is read only when the
+  // data states it; anything else is null (the screen says "Not recorded"). Nothing is guessed from a player's history.
+  var SOURCE_TOKENS = { DRAFT: "Rookie Draft", FAA: "FA Auction", ERA: "Expired Rookie Auction", WW: "Waiver Wire" };
+  function describe(player) {
+    var type = F.str(player && player.type), parts = type.split("-"), up = parts.map(function (x) { return x.toUpperCase(); });
+    var acq = F.str(player && player.acquisition).trim();
+    var out = { type: null, source: null, sourceNote: null, changes: [], structure: null };
+    out.type = up[0] === "VET" ? "Veteran" : up[0] === "ROOKIE" ? "Rookie" : null;
+    // the source: the type's own acquisition token, else the roster read's acquisition when it names the path that began this contract
+    for (var i = 1; i < up.length; i++) if (SOURCE_TOKENS[up[i]]) { out.source = SOURCE_TOKENS[up[i]]; break; }
+    var fcfs = /^FCFS$/i.test(acq), bb = /^BB\s+\$[\d,]+(?:\s*\(\d{4}\))?$/i.test(acq), draft = /^\d{1,2}\.\d{2}(?:\s*\(\d{4}\))?$/.test(acq), auction = /^Auction\s+\$[\d,]+(?:\s*\(\d{4}\))?$/i.test(acq);
+    if (!out.source) out.source = draft ? "Rookie Draft" : bb || fcfs ? "Waiver Wire" : auction ? "Auction" : null;
+    if (out.source === "Waiver Wire" && fcfs) out.source = "Waiver Wire (FCFS)";
+    if (!out.source && /^Trade\b/i.test(acq)) out.sourceNote = "Acquired by trade";
+    // later changes, each only from its own token
+    if (up.indexOf("MYM") >= 0) out.changes.push("Mid-Year Multi");
+    var n = extYears(type);
+    if (n) out.changes.push("Extended " + n + (n === 1 ? " year" : " years"));
+    var rs = restructureYear(player && player.special);
+    if (rs != null) out.changes.push("Restructured " + rs);
+    if (up[0] === "TAG") out.changes.push("Tag");
+    // salary structure: the FL/BL suffix; without one, Flat only where the recorded terms or canon make it so
+    var last = up[up.length - 1], c = parseSpecial(player && player.special);
+    if (last === "FL") out.structure = "Front-loaded";
+    else if (last === "BL") out.structure = "Back-loaded";
+    else {
+      var ys = [], k;
+      for (k = 1; c.y[k] != null; k++) ys.push(c.y[k]);
+      if (c.cl === 1 || up.indexOf("MYM") >= 0) out.structure = "Flat";            // §C: a 1-year deal and a MYM are never loaded
+      else if (n === 1) out.structure = "Flat";                                       // §C2 (2026-09-29): a plain Ext1 has one new year
+      else if (n === 2) {                                                             // §C4: a plain Ext2 compares its own two new years
+        var a = ys.length >= 2 && c.cl != null && ys.length === c.cl ? ys.slice(-2) : null;
+        out.structure = !a ? null : a[0] === a[1] ? "Flat" : a[0] > a[1] ? "Front-loaded" : "Back-loaded";
+      } else if (ys.length && c.cl != null && ys.length === c.cl && ys.every(function (v) { return v === ys[0]; })) out.structure = "Flat";
+    }
+    return out;
+  }
+
   return { moneyToken: moneyToken, parseSpecial: parseSpecial, schedule: schedule, history: history, restructureYear: restructureYear, extYears: extYears,
-    extLineage: extLineage, teamForName: teamForName, extension: extension, extensionLine: extensionLine, LEGACY_EXT_NAMES: LEGACY_EXT_NAMES, earned: earned, remainingGuarantee: remainingGuarantee, cutNow: cutNow };
+    extLineage: extLineage, teamForName: teamForName, extension: extension, extensionLine: extensionLine, LEGACY_EXT_NAMES: LEGACY_EXT_NAMES, earned: earned, remainingGuarantee: remainingGuarantee, cutNow: cutNow,
+    cutRule: cutRule, CUT_RULES: CUT_RULES, describe: describe };
 });

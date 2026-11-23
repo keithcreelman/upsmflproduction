@@ -398,21 +398,22 @@
     var pstate = S.penalty ? S.penalty.state : "idle";
     var row = penaltyRow(S, p.id);
     var ok = pstate === "ok";
-    var e = C.earned(row), rg = C.remainingGuarantee(row), cut = C.cutNow(row);
+    var e = C.earned(row), g = TV.cutCharge(S, p);
     var wk = ok && S.penalty.meta ? S.penalty.meta.earnedThroughWeek : null;
     var out = "";
 
     var salary = p.salary == null ? '<b class="wn">Not recorded</b>' : "<b>" + money(p.salary) + "</b>";
     var left = !p.years ? "—" : p.years === 1 ? "1 (final)" : String(p.years);
-    var earnedCell, guarCell;
-    if (pstate === "loading" || pstate === "idle") { earnedCell = guarCell = '<b class="mu">Loading…</b>'; }
-    else if (pstate === "error") { earnedCell = guarCell = '<b class="wn">Not available</b>'; }
+    var earnedCell, cutCell;
+    if (pstate === "loading" || pstate === "idle") { earnedCell = cutCell = '<b class="mu">Loading…</b>'; }
+    else if (pstate === "error") { earnedCell = cutCell = '<b class="wn">Not available</b>'; }
     else {
       earnedCell = e.kind === "amount" ? "<b>" + money(e.amount) + "</b>" : e.kind === "rule" || e.kind === "na" ? "<b>" + esc(e.label) + "</b>" : '<b class="wn">Not available</b>';
-      guarCell = rg == null ? (e.kind === "unavailable" ? '<b class="wn">Not available</b>' : "<b>—</b>") : "<b>" + money(rg) + "</b>";
+      // R8: the one primary amount is the cut charge (the Worker's, under its own rule); there is no Remaining guarantee tile
+      cutCell = g.kind === "amount" ? "<b>" + esc(g.text) + "</b>" : g.kind === "review" ? '<b class="wn">Under review</b>' : '<b class="wn">Not available</b>';
     }
     var blank = p.salaryUnresolved ? '<div class="ex wn mt4">MFL has no salary recorded for this player, so none is shown.</div>' : "";
-    out += blank + '<div class="k2"><div>' + salary + "<small>Salary " + season + "</small></div><div><b>" + esc(left) + "</b><small>Years left</small></div><div>" + earnedCell + "<small>Earned to date</small></div><div>" + guarCell + "<small>Remaining guarantee</small></div></div>";
+    out += blank + '<div class="k2"><div>' + salary + "<small>Salary " + season + "</small></div><div><b>" + esc(left) + "</b><small>Years left</small></div><div>" + cutCell + "<small>If cut now" + (g.tag ? " · " + esc(g.tag) : "") + "</small></div><div>" + earnedCell + "<small>Earned to date</small></div></div>";
     if (ok && wk != null) out += '<div class="ex mt4">Earned counts through Week ' + wk + ".</div>";
     if (pstate === "error") out += TV.failCard("retrypen");
     if (ok && e.kind === "unavailable") out += '<div class="ex mt4 wn">' + esc(e.why) + ".</div>";
@@ -430,18 +431,14 @@
     if (sched.notes.indexOf("current_year_token_differs") >= 0) out += '<div class="ex wn mt6">The recorded year amount differs from this season’s salary. The salary on the roster is shown.</div>';
 
     // rules and totals
-    var tcv = sched.parsed.tcv, gtd = ok && row && isFinite(row.guaranteed) && !row.needs_review ? row.guaranteed : null;
+    // R8: the contract's facts in owner words (Term, Contract Type, Contract Source, Later changes, Salary structure; shared with Team › Contracts), then
+    // the totals. The raw contract type code is not shown.
+    var tcv = sched.parsed.tcv;
     var aav = sched.parsed.aav.length ? sched.parsed.aav.map(money).join(" · ") : "Not recorded";
     out += tog(S, "rules", "Rules and totals");
     if (S.flags && S.flags.rules) {
-      out += '<div class="xb">' + kv([
-        ["Type", esc(p.type || "Not recorded")],
-        ["Total value", tcv == null ? "Not recorded" : money(tcv)],
-        ["Guaranteed", gtd != null ? money(gtd) : pstate === "ok" ? "Not available" : sched.parsed.gtd != null ? money(sched.parsed.gtd) + " (as recorded)" : "Not recorded"],
-        ["AAV (as recorded)", esc(aav)],
-        ["Contract length", sched.cl ? sched.cl + (sched.cl === 1 ? " year" : " years") : "Not recorded"],
-        ["Years played", sched.yearsPlayed == null ? "Not recorded" : String(sched.yearsPlayed)]
-      ]) + "</div>";
+      out += '<div class="xb"><div class="kv">' + TV.contractFacts(C.history(p, season), C.describe(p)) +
+        "<b>Total value</b><span>" + (tcv == null ? "Not recorded" : money(tcv)) + "</span><b>AAV (as recorded)</b><span>" + esc(aav) + "</span></div></div>";
     }
     // earned breakdown
     out += tog(S, "earned", "How earned is counted");
@@ -457,10 +454,10 @@
     // cut cost
     out += tog(S, "cut", "If cut now");
     if (S.flags && S.flags.cut) {
+      // R8: the amount and the rule in one sentence (no arithmetic); the guarantee and what is earned of it only under the guarantee rule
       var cb;
       if (!ok) cb = "<b>Not available</b> until the UPS cap calculation loads.";
-      else if (cut.kind === "amount") cb = "<b>" + money(cut.amount) + "</b>" + (cut.why ? '<div class="ex">' + esc(cut.why) + "</div>" : "");
-      else cb = '<b>Not available</b><div class="ex">' + esc(cut.why) + "</div>";
+      else cb = '<div class="kv"><b>Cut charge</b><span>' + TV.cutWords(g) + "</span>" + TV.guaranteeFacts(S, g) + "</div>";
       out += '<div class="xb">' + cb + '<div class="ex mt6">A read-only figure from the UPS cap calculation. Nothing can be cut from here.</div></div>';
     }
     // (the raw contract text is not shown on any owner screen: its diagnostic destination is deferred, #1496 D6)

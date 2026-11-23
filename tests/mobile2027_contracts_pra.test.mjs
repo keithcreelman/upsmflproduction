@@ -104,7 +104,8 @@ test("R6 one card for this season and the later years: no recorded-salary card, 
 test("itemized detail: a cut penalty shows the player, the full cut date and the charge season; a settlement shows its category and the season, never a player", () => {
   const s = bd({ ct: { ...CT0(), bd: true, cat: { "y26cut": true, "y26trade": true } } }), html = V.app(s), tx = text(html);
   ["Minkah Fitzpatrick Cut Aug 13, 2025 \\+\\$1,000", "Gunnar Helm Cut Oct 4, 2025 \\+\\$1,000", "Efton Chism Cut Oct 25, 2025 \\+\\$1,000", "Kayvon Thibodeaux Cut Oct 25, 2025 \\+\\$2,000"].forEach((x) => t.match(tx, new RegExp(x), x));
-  t.match(tx, /Traded salary ▾ −\$32,000/); t.match(tx, /Trade −\$5,000/); t.match(tx, /Trade \+\$12,000/, "a credit and a charge in the same category keep their signs"); t.match(tx, /Three-team trade −\$19,000/);
+  t.match(tx, /Traded salary ▾ −\$32,000/); t.match(tx, /Trade Trade details not recorded −\$5,000/); t.match(tx, /Trade Trade details not recorded \+\$12,000/, "a credit and a charge in the same category keep their signs"); t.match(tx, /Three-team trade Trade details not recorded −\$19,000/);
+  t.doesNotMatch(tx, /Trade with/, "R8: no counterparty without a linked trade transaction (the settlement text is not evidence)");
   t.match(tx, /2026 adjustments Cut penalties ▾/, "the season once, in the heading"); t.doesNotMatch(tx, /Charged to/);
   t.doesNotMatch(tx, /Player Unknown/); t.doesNotMatch(tx, /Trade Cut /, "a settlement has no cut date");
   ["UPS drop penalty", "settlement", "adddrop", "trade_2026", "3-way", "id:", "explanation", "timestamp"].forEach((w) => t.doesNotMatch(html, new RegExp(w, "i"), w));
@@ -146,7 +147,7 @@ test("Player Unknown: a cut row with neither a player id nor a reviewed-list mat
 test("a charge that is not a cut penalty never shows a player: a settlement, a fine or an 'Other' adjustment never reads Player Unknown or a name, with the list loaded or not", () => {
   [state().intel, { mu: {}, wk: {}, scores: {}, players: { state: "loading" } }, { mu: {}, wk: {}, scores: {}, players: { state: "error" } }].forEach((intel, i) => {
     const s = state({ intel, ct: { ...CT0(), bd: true, cat: { "y26trade": true, "y26other": true } } }, (r) => { const sm = r.teams.find((x) => x.franchise_id === "0010").summary; sm.salary_adjustment_raw_rows.push({ franchise_id: "0010", amount: 700, explanation: "Commissioner adjustment, see forum" }); sm.salary_adjustment_total_dollars += 700; });
-    const tx = text(V.app(s)); t.match(tx, /Other ▾ \+\$700 Other adjustment \+\$700/, "state " + i); t.match(tx, /Trade −\$5,000/); t.doesNotMatch(tx.split("Traded salary ▾")[1].split("Cap charge")[0], /Player Unknown|Name unavailable|(^|\s)…(\s|$)/, "state " + i);
+    const tx = text(V.app(s)); t.match(tx, /Other ▾ \+\$700 Other adjustment \+\$700/, "state " + i); t.match(tx, /Trade Trade details not recorded −\$5,000/); t.doesNotMatch(tx.split("Traded salary ▾")[1].split("Cap charge")[0], /Player Unknown|Name unavailable|(^|\s)…(\s|$)/, "state " + i);
   });
 });
 
@@ -204,7 +205,9 @@ test("one Help control per Team screen, with text for the tab: the cap terms, na
   t.match(h, /Planning assumption for later years/); t.match(h, /No injury relief is projected/); t.match(h, /taxi-eligible player can be released with a \$0 cut charge/);
   t.match(h, /A name comes from the player ID on the charge, looked up in MFL’s complete player list/); t.match(h, /UPS’s reviewed list/); t.match(h, /Otherwise it reads|If neither names him it reads “Player Unknown”/);
   t.match(h, /Dates are Eastern Time and shown only when verified/); t.match(h, /Cut date not recorded/); t.match(h, /Waiver drops process at 9:00 AM ET/); t.match(h, /charge season/i);
-  t.match(h, /Remaining guarantee The guaranteed part of a contract that has not been earned yet\. \$0 with “Fully earned”/); t.match(h, /Weekly guarantee: Not applicable Small contracts have no weekly guarantee/); t.match(h, /full-year rule/);
+  t.match(h, /If cut now What cutting the player today would charge against the cap/); t.match(h, /No guarantee \(a one-year original contract under \$5K, or a waiver pickup of \$4K or less in its final year, is cut free\)/); t.match(h, /\$1K rule \(a contract worth under \$5K costs \$1K while two or more years remain and nothing in its final year\)/);
+  t.match(h, /Contract Type and Source Contract Type is Veteran or Rookie/); t.match(h, /this preview has no trade records, so each says “Trade details not recorded”/);
+  t.doesNotMatch(h, /Remaining guarantee|Weekly guarantee/, "R8: the Remaining guarantee entries are gone");
   const r = text(V.app(state({ sheet: "help", sub: "roster" }))); t.match(r, /Can’t check/); t.match(r, /Recorded starters/); t.match(r, /Doubtful/);
 });
 
@@ -217,45 +220,57 @@ test("copy: owner-facing text never says worker, contract text or caching, on an
   t.doesNotMatch(text(V.app(states[7])), /Recorded contract text/);
 });
 
-test("taxi wording: 'Taxi-eligible · $0 cut charge' once per player, only when both facts are known; the sentence is in Help", () => {
+test("taxi wording (R8): 'Taxi-eligible' once per player; the $0 is the If cut now line under the Taxi rule, not repeated; the sentence is in Help", () => {
   const s = state({ ct: CT0() }), blake = s.model.teams.find((x) => x.id === "0010"), tp = blake.players.find((p) => p.status === "taxi");
   tp.taxi = { used: 0, max: 3, eligible: true, text: "" }; s.ct.open[tp.id] = true; s.penalty = { state: "ok", data: { [tp.id]: { penalty: 0, guaranteed: 2000, earned: 0, basis: "taxi_exempt", exempt_reason: "taxi" } }, meta: {} };
-  const tx = text(V.app(s)); t.equal((tx.match(/Taxi-eligible · \$0 cut charge/g) || []).length, 1); t.match(tx, /Recorded guarantee/); t.match(tx, /Remaining guarantee/);
-  s.penalty = { state: "idle" }; const tx2 = text(V.app(s)); t.match(tx2, /Taxi-eligible/); t.doesNotMatch(tx2, /\$0 cut charge/, "no cut-charge claim until the calculation loads");
+  const tx = text(V.app(s)); t.equal((tx.match(/Taxi-eligible/g) || []).length, 1); t.match(tx, /If cut now \$0 Taxi rule: a taxi-eligible player is cut cap-free\./);
+  t.doesNotMatch(tx, /\$0 cut charge|Recorded guarantee|Remaining guarantee|Guarantee \$2,000/, "no repeated charge, and no guarantee line under a non-guarantee rule");
+  s.penalty = { state: "idle" }; const tx2 = text(V.app(s)); t.match(tx2, /Taxi-eligible/); t.doesNotMatch(tx2, /\$0/, "no cut-charge claim until the calculation loads");
 });
 
-// ───────────────────────── Remaining guarantee wording (presentation only) ─────────────────────────
+// ───────────────────────── R8: If cut now, one amount under the Worker's rule ─────────────────────────
 const SMALL = { penalty: 0, guaranteed: 0, earned: null, exempt_reason: "" };
+// [key, worker row, the cell, the Details rule sentence]
 const GROWS = [
-  ["ww_na", { ...SMALL, basis: "ww_under_5k_earned_na", earned_rule: "ww_earned_na", exempt_reason: "WW pickup salary ≤ $4K, final year (§D2)." }, "A waiver pickup of \\$4K or less in its final year has no weekly guarantee\\."],
-  ["ww_ex", { ...SMALL, basis: "ww_under_5k_exempt", earned_rule: "full_year_sub_5k", exempt_reason: "WW pickup salary ≤ $4K, final year (§D2)." }, "A waiver pickup of \\$4K or less in its final year has no weekly guarantee\\."],
-  ["one_yr", { ...SMALL, basis: "one_year_under_5k_exempt", earned_rule: "full_year_sub_5k", exempt_reason: "1-year original contract under $5K (§D2)." }, "A one-year original contract under \\$5K has no weekly guarantee\\."],
-  ["flat1k", { ...SMALL, basis: "full_year_1k_contract", earned_rule: "full_year_sub_5k", penalty: 1000 }, "A contract paying the same small amount every year has no weekly guarantee \\(the full-year rule\\)\\."],
-  ["tcv", { ...SMALL, basis: "tcv_under_5k_final_year_exempt", earned_rule: "full_year_sub_5k", exempt_reason: "Sub-5K TCV in its final year (or a 1-year deal) — cap-free (§D2)." }, "A contract with a total value under \\$5K, in its final year or a one-year deal, has no weekly guarantee\\."],
-  ["new", { ...SMALL, basis: "a_rule_the_preview_has_never_seen", earned_rule: "full_year_sub_5k" }, "Not applicable under the league’s small-contract rules\\."],
-  ["none", { ...SMALL, earned_rule: "ww_earned_na" }, "Not applicable under the league’s small-contract rules\\."],
-  ["zero", { basis: "no_penalty_zero", guaranteed: 129000, earned: 145647, penalty: 0, exempt_reason: "Earned ≥ guaranteed (no penalty)." }, null],
-  ["amt", { basis: "guarantee_minus_earned", guaranteed: 20000, earned: 5000, penalty: 15000 }, null]
+  ["ww_na", { ...SMALL, basis: "ww_under_5k_earned_na", earned_rule: "ww_earned_na", exempt_reason: "WW pickup salary ≤ $4K, final year (§D2)." }, "$0 No guarantee", "No-guarantee rule: a waiver pickup of \\$4K or less in its final year is cut free\\."],
+  ["ww_ex", { ...SMALL, basis: "ww_under_5k_exempt", earned_rule: "full_year_sub_5k", exempt_reason: "WW pickup salary ≤ $4K, final year (§D2)." }, "$0 No guarantee", "No-guarantee rule: a waiver pickup of \\$4K or less in its final year is cut free\\."],
+  ["one_yr", { ...SMALL, basis: "one_year_under_5k_exempt", earned_rule: "full_year_sub_5k", exempt_reason: "1-year original contract under $5K (§D2)." }, "$0 No guarantee", "No-guarantee rule: a one-year original contract under \\$5K is cut free\\."],
+  ["flat1k", { ...SMALL, basis: "full_year_1k_contract", earned_rule: "full_year_sub_5k", penalty: 1000 }, "$1,000 $1K rule", "\\$1K drop rule: a contract worth under \\$5K costs \\$1K to cut while two or more years remain, and nothing in its final year\\."],
+  ["flat", { ...SMALL, basis: "tcv_under_5k_flat", penalty: 1000 }, "$1,000 $1K rule", "\\$1K drop rule"],
+  ["tcv", { ...SMALL, basis: "tcv_under_5k_final_year_exempt", earned_rule: "full_year_sub_5k", exempt_reason: "Sub-5K TCV in its final year (or a 1-year deal) — cap-free (§D2)." }, "$0 $1K rule", "\\$1K drop rule: a contract worth under \\$5K costs \\$1K to cut while two or more years remain, and nothing in its final year\\."],
+  ["new", { ...SMALL, basis: "a_rule_the_preview_has_never_seen", earned_rule: "full_year_sub_5k" }, "$0", "The cap calculation names a rule this preview does not know\\."],
+  ["zero", { basis: "no_penalty_zero", guaranteed: 129000, earned: 145647, penalty: 0, exempt_reason: "Earned ≥ guaranteed (no penalty)." }, "$0 Fully earned", "Guarantee rule: the guaranteed amount is fully earned, so nothing is owed\\."],
+  ["amt", { basis: "guarantee_minus_earned", guaranteed: 20000, earned: 5000, penalty: 15000 }, "$15,000", "Guarantee rule: the guaranteed amount not yet earned\\."],
+  ["nofig", { basis: "guarantee_minus_earned", guaranteed: 20000, earned: 5000, penalty: null }, "Unavailable", "Unavailable No cut charge in the cap calculation for this contract\\."]
 ];
 
-test("Remaining guarantee: the column header, a calculated $0 reads '$0 Fully earned', and 'Not applicable' replaces 'Not tracked'; the expanded rows say the rule for each basis", () => {
+test("R8 If cut now: the column header; one amount per contract from the Worker's penalty under its own rule; Details name the rule without arithmetic; the guarantee line only under the guarantee rule", () => {
   const s0 = state(), ps = s0.model.teams.find((x) => x.id === "0010").players.slice(0, GROWS.length), data = {}, open = {};
   ps.forEach((p, i) => { data[p.id] = GROWS[i][1]; open[p.id] = true; });
   const s = state({ penalty: { state: "ok", data, meta: { calculatedAt: "x", earnedThroughWeek: 10 } }, ct: { ...CT0(), open } }), html = body(V.app(s));
-  t.match(html, /<span>Remaining guarantee<\/span><span>2026<\/span>/); t.doesNotMatch(text(html), /Guarantee left|Not tracked|\$0 fully earned|\$0, fully earned/);
+  t.match(html, /<span>If cut now<\/span><span>2026<\/span>/); t.doesNotMatch(text(html), /Remaining guarantee|Recorded guarantee|Weekly guarantee|Guarantee left|Not tracked|minus earned/);
   ps.forEach((p, i) => {
-    const [key, row, words] = GROWS[i], r = text(rowOf(html, p.id));
-    if (key === "zero") {
-      t.equal(gcellOf(html, p.id), "$0 Fully earned", "the cell: $0 with a second line"); t.match(rowOf(html, p.id), /<span class="g"><b>\$0<\/b><small class="mu">Fully earned<\/small><\/span>/);
-      t.match(r, /Remaining guarantee \$0 Guaranteed portion fully earned \$129,000 guaranteed, \$145,647 earned through Week 10/, "CeeDee Lamb's case: 75% of $172,000 is $129,000 and he has earned $145,647, so $0 remains");
-    } else if (key === "amt") { t.equal(gcellOf(html, p.id), "$15,000"); t.match(r, /Remaining guarantee \$15,000 of \$20,000 guaranteed, \$5,000 earned through Week 10/); t.doesNotMatch(r, /Fully earned/); }
-    else { t.equal(gcellOf(html, p.id), "Not applicable", key); t.match(r, new RegExp("Weekly guarantee Not applicable " + words), key); t.doesNotMatch(r, /Remaining guarantee/, key + ": the label is Weekly guarantee"); }
+    const [key, row, cell, words] = GROWS[i], r = text(rowOf(html, p.id));
+    t.equal(gcellOf(html, p.id), cell, key + ": the cell");
+    t.match(r, new RegExp("If cut now " + (row.penalty != null && key !== "nofig" ? "\\$[\\d,]+ " : "") + words), key + ": the rule sentence");
+    const guar = key === "zero" || key === "amt";
+    if (guar) t.match(r, key === "zero" ? /Guarantee \$129,000 \$145,647 earned through Week 10/ : /Guarantee \$20,000 \$5,000 earned through Week 10/, key + ": the original guarantee and earned through the week");
+    else t.doesNotMatch(r, /Guarantee \$/, key + ": no guarantee line outside the guarantee rule");
   });
-  // nothing in the calculation or the source records changed: the same worker rows give the same figures through the same functions
-  t.equal(C.remainingGuarantee(GROWS[7][1]), 0); t.equal(C.remainingGuarantee(GROWS[8][1]), 15000);
+  // the amount is the Worker's penalty, never recomputed: a guarantee row whose penalty disagrees with guaranteed − earned still shows the penalty
+  const odd = state({ penalty: { state: "ok", data: { [ps[0].id]: { basis: "guarantee_minus_earned", guaranteed: 20000, earned: 5000, penalty: 14999 } }, meta: {} }, ct: CT0() });
+  t.equal(gcellOf(body(V.app(odd)), ps[0].id), "$14,999");
   // a failed or missing read is never $0 or 'Fully earned'
   const failed = body(V.app(state({ penalty: { state: "error", error: "x" }, ct: { ...CT0(), open } })));
-  t.doesNotMatch(text(failed), /Fully earned|Not applicable/); t.match(failed, /<span class="g"><span class="wn">Unavailable<\/span><\/span>/);
+  t.doesNotMatch(text(failed), /Fully earned|No guarantee|\$1K rule/); t.match(failed, /<span class="g"><span class="wn">Unavailable<\/span><\/span>/);
+  t.match(body(V.app(state({ penalty: { state: "ok", data: { [ps[0].id]: { ...GROWS[8][1], needs_review: true, review_reason: "Held" } }, meta: {} }, ct: CT0() }))), /<span class="g"><span class="wn">Under review<\/span><\/span>/);
+});
+
+test("R8 cutRule: every basis in the recording maps to one of the four rules; an unknown basis is 'unknown' and names no rule", () => {
+  const seen = { guarantee: ["guarantee_minus_earned", "no_penalty_zero"], none: ["one_year_under_5k_exempt", "ww_under_5k_exempt", "ww_under_5k_earned_na"], onek: ["full_year_1k_contract", "tcv_under_5k_flat", "tcv_under_5k_final_year_exempt"], taxi: ["taxi_exempt", "taxi_callup_exempt", "taxi_eligible_exempt"] };
+  Object.keys(seen).forEach((rule) => seen[rule].forEach((b) => t.equal(C.cutRule({ basis: b, penalty: 0 }).rule, rule, b)));
+  t.equal(C.cutRule({ basis: "guarantee_minus_earned", penalty: 0 }).tag, "Fully earned"); t.equal(C.cutRule({ basis: "guarantee_minus_earned", penalty: 5 }).tag, "");
+  t.equal(C.cutRule({ basis: "zzz" }).rule, "unknown"); t.equal(C.cutRule(null).rule, "unknown"); t.equal(C.cutRule({ basis: "toString" }).rule, "unknown", "no prototype key is a rule");
 });
 
 // ───────────────────────── labels, the sort control and opening a profile ─────────────────────────
@@ -265,7 +280,7 @@ const chipsOf = (html) => [...html.matchAll(/<button class="ch" data-act="cty" d
 const sorted = (s, ct) => body(V.app({ ...s, ct: { ...CT0(), ...ct } }));
 const salOf = (p, k) => { const r = C.schedule(p, 2026).rows; return k < r.length ? r[k].amount || 0 : 0; };
 
-test("labels: 'Expires 2026 · N players' replaces 'Ends after'; '2026 salary' (year first, from the season) replaces 'Salary 2026'; the column is 'Remaining guarantee'", () => {
+test("labels: 'Expires 2026 · N players' replaces 'Ends after'; '2026 salary' (year first, from the season) replaces 'Salary 2026'", () => {
   const s = state(), html = body(V.app(s)), tx = text(html);
   t.match(tx, /Expires 2026 · \d+ players?/); t.match(tx, /\$[\d.]+K 2026 salary/, "the group total names its salary year"); t.doesNotMatch(tx, /Ends after|Salary 202\d|Guarantee left/);
   const heads = [...html.matchAll(/Expires <b>(\d{4})<\/b>/g)].map((m) => +m[1]); t.ok(heads.length >= 2); t.deepEqual(heads, heads.slice().sort((a, b) => a - b), "soonest first by default");
