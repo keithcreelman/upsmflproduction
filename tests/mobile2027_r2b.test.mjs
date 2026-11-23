@@ -95,7 +95,7 @@ test("P1: a past week's number never leaks into an as-of-now screen: a bye or an
   }));
   // and on the Byes screen the groups are built from the current week: Week 10's bye is 'already played', Week 11's is 'this week'
   const byes = text(V.rosterBody(state(intel, { view: "byes", wk: 10, model: m })));
-  t.match(byes, /This week · Week 11 · 1 current starter on bye: RB1/); t.doesNotMatch(byes, /Week 10 · 1 current starter/);
+  t.match(byes, /This week · Week 11 · 1 starter on bye: RB1/); t.doesNotMatch(byes, /Week 10 · 1 starter/);
   const g = R.byeGroups(state(intel, { model: m }), m.teams.find((x) => x.id === TEAM), 11, R.lineupFor(state(intel, { model: m }), m.teams.find((x) => x.id === TEAM), 11));
   t.ok(g.past.some((x) => x.id === p.id), "the Week 10 bye is in the played group"); t.ok(!g.groups.some((x) => x.week === 10));
 });
@@ -210,7 +210,9 @@ test("P3: one injury chip, the same chip, on both roster views (and a profile-fr
   const S0 = state(await intelFor()), out = starterOf(S0, 4), q = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17].map((i) => starterOf(S0, i)).find((p) => p.name === "Brock Bowers");
   t.ok(q, "the recorded Questionable starter");
   const intel = await intelFor({ status: statusWith({ [out.id]: { mfl: { status: "Out", week: 11, details: "Knee" } } }) });
-  const chipsOf = (view, pid) => { const r = rowOf(V.rosterBody(state(intel, { view, open: { bwpast: true, bwnone: true } })), pid); t.ok(r, view + ": the player's row is on the screen"); return [...r.matchAll(/<span class="chip (?:wn|cr)">([^<]*)<\/span>/g)].map((x) => x[1]).filter((x) => !/Bye|Final year/.test(x)); };
+  // R8: every bye group starts collapsed, so all of them are opened here
+  const allOpen = { bwpast: true, bwnone: true }; for (let w = 1; w <= 18; w++) allOpen["bw" + w] = true;
+  const chipsOf = (view, pid) => { const r = rowOf(V.rosterBody(state(intel, { view, open: allOpen })), pid); t.ok(r, view + ": the player's row is on the screen"); return [...r.matchAll(/<span class="chip (?:wn|cr)">([^<]*)<\/span>/g)].map((x) => x[1]).filter((x) => !/Bye|Final year/.test(x)); };
   const outChips = VIEWS.map((v) => chipsOf(v, out.id)), qChips = VIEWS.map((v) => chipsOf(v, q.id));
   outChips.forEach((c, i) => { t.equal(c.length, 1, VIEWS[i] + ": exactly one injury chip for the Out starter"); t.match(c[0], /OUT/); });
   qChips.forEach((c, i) => { t.equal(c.length, 1, VIEWS[i] + ": exactly one injury chip for the Questionable starter"); t.match(c[0], /Questionable/); });
@@ -220,7 +222,7 @@ test("P3: one injury chip, the same chip, on both roster views (and a profile-fr
   // the bye chip is for starters on the Lineup view; Byes uses words
   const m = model(); m.byId[out.id].bye = 11;
   t.match(rowOf(V.rosterBody(state(intel, { view: "lineup", model: m })), out.id), /▲ Bye week/);
-  t.doesNotMatch(rowOf(V.rosterBody(state(intel, { view: "byes", model: m })), out.id), /▲ Bye week/);
+  t.doesNotMatch(rowOf(V.rosterBody(state(intel, { view: "byes", model: m, open: allOpen })), out.id), /▲ Bye week/);
 });
 
 // ───────────────────────── P4: Performance ─────────────────────────
@@ -267,24 +269,26 @@ test("P6: Byes groups are chronological, name today's slots only, collapse the p
   const tag = (t2) => lu.slots.find((x) => x.slot.tag === t2).player;
   ["QB1", "SFX", "WR1", "DFX", "DB1"].forEach((t2) => { m.byId[tag(t2).id].bye = 12; });
   const html = V.rosterBody(state(intel, { view: "byes", model: m })), tx = text(html);
-  t.match(tx, /Week 12 · 5 current starters on bye: QB1, WR1, SFX, DB1, DFX/, "the authorized wording: week, count, slot tags in today's lineup order");
-  t.match(tx, /Next byes: Week 11 · 0 current starters · Week 12 · 5 current starters/);
+  t.match(tx, /Week 12 · 5 starters on bye: QB1, WR1, SFX, DB1, DFX/, "the authorized wording: week, count, slot tags in today's lineup order");
+  t.match(tx, /Week 11 lineup · Next byes: Week 11 · 0 starters · Week 12 · 5 starters/, "R8: the 'Week 11 lineup' heading says whose starters these are");
   // a bench player on the same bye week sits in the group but is not a starter and takes no slot tag
-  t.doesNotMatch(tx, /Week 12 · 6 current starters/);
-  // groups are in week order on the page, played weeks last and closed
+  t.doesNotMatch(tx, /Week 12 · 6 starters/);
+  // groups are in week order on the page, played weeks last; R8: EVERY group starts collapsed
   const keys = [...html.matchAll(/data-g="(bw[\dp][a-z\d]*)"/g)].map((x) => x[1]);
   t.ok(keys.indexOf("bw11") < keys.indexOf("bw12") && keys.indexOf("bw12") < keys.indexOf("bwpast"), "order: " + keys.join(","));
-  t.match(html, /data-g="bwpast" aria-expanded="false"/);
-  // the note: today's slots, not a prediction
-  t.match(tx, /Slots are today’s lineup \(Week 11\)\. The lineup for a later week is not set, so these players may not fill the same slots then\./);
+  keys.forEach((k) => t.match(html, new RegExp('data-g="' + k + '" aria-expanded="false"'), k + " starts collapsed"));
+  t.doesNotMatch(html, /data-act="card"/, "R8: no player row until a group is opened");
+  // the slots are today's, not a prediction: the group that names slots says they come from the Week 11 lineup (R8 removed the long paragraph)
+  t.match(tx, /Week 12 · 5 starters on bye: QB1, WR1, SFX, DB1, DFX\s*\d+ players · slots from the Week 11 lineup/);
+  t.doesNotMatch(tx, /Slots are today’s lineup|The lineup for a later week is not set/, "R8: the paragraph is gone");
   t.doesNotMatch(tx, /Week 12 lineup|Week 12 starters|will start|will fill|projected/i);
   // no lineup read → no slot is claimed at all
   const nolu = state(intel, { view: "byes", model: (() => { const m3 = model(); m3.teams.find((x) => x.id === TEAM).lineup.ids = []; return m3; })() });
-  t.doesNotMatch(text(V.rosterBody(nolu)), /current starters? on bye: [A-Z]/);
+  t.doesNotMatch(text(V.rosterBody(nolu)), /starters? on bye: [A-Z]|slots from the/);
   // a played bye never shows as 'next'
-  t.doesNotMatch(tx.split("Already played")[0].split("Next byes:")[1].split("Slots are")[0], /Week (?:[1-9]|10) ·/);
+  t.doesNotMatch(tx.split("Already played")[0].split("Next byes:")[1].split(/[▸▾]/)[0], /Week (?:[1-9]|10) ·/);
   // with the injury read out, Byes still works (a bye is a schedule fact)
-  t.match(text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }, { view: "byes", model: m }))), /Week 12 · 5 current starters on bye: QB1, WR1, SFX, DB1, DFX/);
+  t.match(text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }, { view: "byes", model: m }))), /Week 12 · 5 starters on bye: QB1, WR1, SFX, DB1, DFX/);
 });
 
 // ───────────────────────── P3 / Codex MAT-1: an EXPIRED injury read is not "checked" ─────────────────────────

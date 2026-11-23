@@ -270,7 +270,9 @@ function boot({ data, bundle, fetchImpl, hash = "" } = {}) {
     (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } }));
     await tick(n);
   };
-  return { ctx, net, click, html: () => appEl.innerHTML, misses: () => Array.from(ctx.UPS2027.recorded.misses), location };   // Array.from: the page's arrays belong to another realm, which a strict deepEqual would refuse
+  // R8: typing in Team › Performance "Search players" (the stub page has no #pflist, so the page takes its full-redraw path)
+  const type = async (value, n = 20) => { (listeners.input || []).forEach((fn) => fn({ target: { id: "pfq", value } })); await tick(n); };
+  return { ctx, net, click, type, html: () => appEl.innerHTML, misses: () => Array.from(ctx.UPS2027.recorded.misses), location };   // Array.from: the page's arrays belong to another realm, which a strict deepEqual would refuse
 }
 const TROUBLE = /Couldn’t load this|Couldn’t read the league data|could not be read|couldn’t be loaded|couldn’t load|Not in the recorded/;
 const FIRST = BUNDLE.routes[ROSTER_ROUTE].teams[0];
@@ -283,7 +285,8 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   const ok = (where) => { t.doesNotMatch(a.html(), TROUBLE, where + ": no failure text"); t.deepEqual(a.misses(), [], where + ": nothing was asked that is not in the recording"); t.deepEqual(a.net, [], where + ": no network attempt"); };
   // boot: the first team, the marker, the data-as-of line, the Roster lineup
   t.match(a.html(), /Starting lineup · /); t.match(a.html(), new RegExp(FIRST.franchise_name)); t.equal(FIRST.franchise_name, "Blake Bombers");
-  t.match(a.html(), /<div class="envbar rec"><span>TEST BUILD · RECORDED DATA · recorded Sun Nov 22, 2026, 10:22 AM ET; game stats 10:11–10:14 PM ET · VIEW ONLY<\/span> <button class="link" data-act="about">Known issues<\/button><\/div>/, "the marker says it is a test build and a recording, both capture times, and opens the one known-issues list (R7b final)");
+  t.match(a.html(), /<div class="envbar rec"><span>Test · Recorded data<\/span> <button class="link" data-act="about">Known issues<\/button><\/div>/, "R8: the compact marker says test build and recording, and opens the one known-issues list");
+  t.doesNotMatch(a.html().split("</div>")[0], /10:22|10:11|PM ET|AM ET/, "R8: the capture times are not in the marker (they are in About)");
   t.equal((a.html().match(/Known issues/g) || []).length, 1, "the known-issues list is not repeated on the screens");
   t.doesNotMatch(a.html(), /Preview: view only/);
   t.match(a.html(), /Data as of Sun 10:22 AM ET · Week 11/, "the Data as of line is the roster read's own generated_at");
@@ -331,6 +334,16 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   t.doesNotMatch(a.html(), /<span>xFP PPG<\/span><b>(?!<span class="na">Not Available)/, "no xFP value anywhere"); t.doesNotMatch(a.html(), /<span>Over Expectations<\/span><b>(?!<span class="na">Not Available)/, "no Over Expectations value anywhere");
   t.ok(cards > 5, "performance cards drawn (" + cards + ")");
   ok("performance sorts and rows");
+  // R8: Search players narrows THIS team's cards by name, with no request; a miss says "No players match"; clearing it restores every card
+  t.match(a.html(), /<label class="lbl" for="pfq">Search players<\/label><input id="pfq" class="pfq" type="search"/, "the labeled search box");
+  const first = /data-act="card" data-pid="\d+" aria-label="Open ([A-Za-z]+)[^"]* profile"/.exec(a.html()), frag = first[1].slice(0, 4).toLowerCase();
+  await a.type(frag);
+  const hits = a.html().split('data-act="pfx"').length - 1;
+  t.ok(hits >= 1 && hits < cards, "'" + frag + "' leaves " + hits + " of " + cards + " cards"); t.match(a.html(), new RegExp('aria-label="Open ' + first[1])); t.match(a.html(), new RegExp('id="pfq"[^>]*value="' + frag + '"'));
+  for (const s of ["tot", "pos"]) { await a.click({ "data-act": "pfs", "data-v": s }); t.equal(a.html().split('data-act="pfx"').length - 1, hits, "the search holds under the " + s + " sort"); }
+  await a.type("zzqq"); t.match(a.html(), /No players match/); t.equal(a.html().split('data-act="pfx"').length - 1, 0);
+  await a.type(""); t.equal(a.html().split('data-act="pfx"').length - 1, cards, "cleared: every card is back"); t.doesNotMatch(a.html(), /No players match/);
+  ok("performance search");
   // a profile and its tabs, including the game log and the earlier weeks
   const pid = FIRST.players[0].id;
   await a.click({ "data-act": "card", "data-pid": pid }, 60); t.match(a.html(), /role="dialog"/); t.match(a.html(), /Player profile/);
@@ -358,6 +371,7 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   }
   await a.click({ "data-act": "about" });
   t.match(a.html(), /This preview uses a recorded snapshot taken Sun Nov 22, 2026, 10:22 AM ET, not the live league\. The figures will not move\. Game stats, season totals and projections were recorded later that day, 10:11–10:14 PM ET\./);
+  t.ok(a.html().indexOf('id="known-issues"') >= 0 && a.html().indexOf('id="known-issues"') < a.html().indexOf("<h2>Data</h2>"), "R8: the Data card with both capture times follows the known issues in About");
   t.match(a.html(), /Reload the recorded data/); t.match(a.html(), /answered from the snapshot that ships with the page/);
   t.match(a.html(), /<b>\d+<\/b> data requests: <b>\d+<\/b> succeeded, <b>0<\/b> failed, <b>0<\/b> refused/, "the page's own log: every read succeeded, none failed");
   await a.click({ "data-act": "skin", "data-v": "dark" }); await a.click({ "data-act": "close" });
@@ -365,8 +379,8 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   // Sample mode on and off: no request while on, the recording again when it ends
   const before = a.ctx.UPS2027.recorded.misses.length;
   await a.click({ "data-act": "about" }); await a.click({ "data-act": "sample" }); t.match(a.html(), /Sample data · nothing is real and nothing is sent/);
-  t.doesNotMatch(a.html(), /RECORDED DATA/, "Sample mode keeps its own label");
-  await a.click({ "data-act": "sample" }, 80); t.match(a.html(), /RECORDED DATA/); t.match(a.html(), /C-Town Chivalry|Starting lineup · /);
+  t.doesNotMatch(a.html(), /Recorded data/, "Sample mode keeps its own label");
+  await a.click({ "data-act": "sample" }, 80); t.match(a.html(), /Test · Recorded data/); t.match(a.html(), /C-Town Chivalry|Starting lineup · /);
   t.equal(a.misses().length, before); ok("sample mode");
   // a reload re-reads the recording
   await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "about" }); await a.click({ "data-act": "retry" }, 80); t.match(a.html(), /Starting lineup · /); ok("reload");
@@ -390,7 +404,7 @@ test("recorded mode never falls back to the network: a missing or empty bundle, 
   for (const [label, bundle] of [["missing", null], ["empty routes", { meta: BUNDLE.meta, routes: {} }], ["not a route table", { meta: BUNDLE.meta, routes: [] }]]) {
     const a = boot({ bundle }); await tick(30);
     t.match(a.html(), /Couldn’t read the league data/, label + ": the existing failure screen"); t.match(a.html(), /HTTP 404/, label + ": a 404-like answer from the recording");
-    t.doesNotMatch(a.html(), /Starting lineup · /); t.match(a.html(), /RECORDED DATA/, label + ": the marker still says recorded");
+    t.doesNotMatch(a.html(), /Starting lineup · /); t.match(a.html(), /Test · Recorded data/, label + ": the marker still says recorded");
     t.ok(a.misses().length >= 1, label + ": the miss is counted"); t.deepEqual(a.net, [], label + ": and nothing reached the network");
   }
   // one route missing: that read fails the way any failed read does, the rest of the screens are unaffected

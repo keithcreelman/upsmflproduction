@@ -917,7 +917,7 @@ test("Sample mode: client-only, labeled, off at every start, and it keeps the pa
 test("the Preview marker and the Sample banner: colors that read in every skin, and the helmet placeholder styled as the demo styles it", () => {
   const css = read("styles.css");
   t.match(css, /\.envbar\{[^}]*min-height:calc\(26px \+ env\(safe-area-inset-top/, "the marker clears the phone's top inset itself");
-  t.match(css, /\.hd\{[^}]*padding:8px max\(8px/, "so the header no longer adds the inset a second time");
+  t.match(css, /\.hd\{[^}]*padding:0 max\(8px/, "so the header no longer adds the inset a second time (R8: no top padding either, it scrolls under the marker)");
   t.match(css, /\.envbar\.sample\{background:var\(--wn\);color:var\(--on\)/);
   t.match(css, /\.pfw\{position:relative;flex:0 0 auto;width:clamp\(76px,26vw,100px\)\}/);
   t.match(css, /\.hm\.ph\{width:clamp\(52px,16vw,60px\);padding:0;border-style:dashed;border-color:#0b0f18;color:#0b0f18;/, "the dashed placeholder, exactly the demo's rule");

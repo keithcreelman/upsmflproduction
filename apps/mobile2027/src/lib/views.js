@@ -40,8 +40,10 @@
     return s;
   }
 
+  // R8: the heading and the freshness line are the first thing INSIDE the scrolling area (#scroll), so they scroll away; the Team tabs that follow
+  // them stick to its top (.tabs.stk), and the marker above it stays one line.
   function header(title, asof) {
-    return '<div class="hd"><h1>' + esc(title) + '</h1><button class="ib" data-act="about" aria-label="About this preview and display settings">ⓘ</button></div><div class="asof">' + asof + "</div>";
+    return '<div class="hdw"><div class="hd"><h1>' + esc(title) + '</h1><button class="ib" data-act="about" aria-label="About this preview and display settings">ⓘ</button></div>' + (asof ? '<div class="asof">' + asof + "</div>" : "") + "</div>";
   }
 
   function asOfLine(S) {
@@ -108,7 +110,7 @@
     var view = past ? "past" : S.view;
     if (view === "byes") {
       // a row inside a bye group: the group already says which week, so the row says who he is to today's lineup
-      small = nw(team) + " · " + (o.tag ? "current starter" : statusWord(p)) + (p.bye && wi.cur && p.bye < wi.cur ? " · bye was Week " + p.bye : "");
+      small = nw(team) + " · " + (o.tag ? (wi.cur ? "Week " + wi.cur + " starter" : "current starter") : statusWord(p)) + (p.bye && wi.cur && p.bye < wi.cur ? " · bye was Week " + p.bye : "");
     } else {
       var parts = [esc(team)];
       var inPlay = past || p.status === "active";
@@ -175,10 +177,10 @@
   }
 
   // R6: Bench, Injured reserve and Taxi squad are one card each ("bench", "ir", "taxi"), open by default so the full list shows; the heading
-  // collapses or expands it. Bye groups (Byes view) from this week on are open; only the already-played one starts closed.
+  // collapses or expands it. R8: every bye group of the Byes view (bw<week>, bwpast, bwnone) starts collapsed; its heading already says the week and
+  // which starters it leaves out.
   function groupDefault(S, key) {
-    if (key === "bwpast") return false;
-    return true;
+    return !/^bw/.test(key);
   }
   function isOpen(S, key) { return S.open && S.open[key] !== undefined ? !!S.open[key] : groupDefault(S, key); }
 
@@ -259,17 +261,20 @@
   function byeGroupHead(S, key, label, count, open, sub) {
     return '<button class="gh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + '</span><span class="t"><b>' + esc(label) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></button>";
   }
+  // R8 copy: "starters" always means the starters in the lineup MFL has for the current week, named once as the "Week N lineup" heading of the summary
+  // and on each group that names slots. A later week's lineup is not set, so no group says who will start then; it says whose bye it is.
   function byesBody(S, t, wi, lineup) {
-    var cur = wi.cur, g = R.byeGroups(S, t, cur, lineup), out = "";
-    var next = g.groups.slice(0, 4).map(function (x) { return "Week " + x.week + " · " + (g.haveLineup ? x.starters.length + " current starter" + (x.starters.length === 1 ? "" : "s") : x.players.length + " players"); });
-    out += sumCard("<b>Next byes:</b> " + (next.length ? esc(next.join("  ·  ")) : "none recorded"));
-    out += '<div class="ex pad">' + (g.haveLineup ? "Slots are today’s lineup (Week " + cur + "). The lineup for a later week is not set, so these players may not fill the same slots then." : "Today’s lineup could not be read, so starters are not marked.") + "</div>";
+    var cur = wi.cur, g = R.byeGroups(S, t, cur, lineup), out = "", luName = cur ? "Week " + cur + " lineup" : "Current lineup";
+    function nStarters(n) { return n + " starter" + (n === 1 ? "" : "s"); }
+    var next = g.groups.slice(0, 4).map(function (x) { return "Week " + x.week + " · " + (g.haveLineup ? nStarters(x.starters.length) : x.players.length + " players"); });
+    out += sumCard((g.haveLineup ? "<b>" + esc(luName) + "</b> · Next byes: " : "<b>Next byes:</b> ") + (next.length ? esc(next.join("  ·  ")) : "none recorded"));
+    if (!g.haveLineup) out += '<div class="ex pad">The ' + esc(cur ? "Week " + cur : "current") + " lineup could not be read, so starters are not marked.</div>";
     g.groups.forEach(function (x) {
-      var key = "bw" + x.week, open = isOpen(S, key), who;
+      var key = "bw" + x.week, open = isOpen(S, key), who, sub = x.players.length + " player" + (x.players.length === 1 ? "" : "s");
       if (!g.haveLineup) who = x.players.length + " player" + (x.players.length === 1 ? "" : "s") + " on bye";
-      else if (!x.starters.length) who = "no current starters on bye";
-      else who = x.starters.length + " current starter" + (x.starters.length === 1 ? "" : "s") + " on bye: " + x.starters.map(function (s) { return s.tag; }).join(", ");
-      out += byeGroupHead(S, key, (x.week === cur ? "This week · Week " : "Week ") + x.week + " · " + who, x.players.length, open, x.players.length + " player" + (x.players.length === 1 ? "" : "s"));
+      else if (!x.starters.length) who = "no starters on bye";
+      else { who = nStarters(x.starters.length) + " on bye: " + x.starters.map(function (s) { return s.tag; }).join(", "); sub += " · slots from the " + luName; }
+      out += byeGroupHead(S, key, (x.week === cur ? "This week · Week " : "Week ") + x.week + " · " + who, x.players.length, open, sub);
       if (open) out += '<div class="card rows">' + x.players.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
     });
     if (g.past.length) {
@@ -346,7 +351,7 @@
 
   function teamScreen(S) {
     var body;
-    var tabs = '<div class="tabs tabs4" role="tablist">' + [["roster", "Roster"], ["contracts", "Contracts"], ["performance", "Performance"], ["cap", "Cap & picks"]].map(function (o) {
+    var tabs = '<div class="tabs tabs4 stk" role="tablist">' + [["roster", "Roster"], ["contracts", "Contracts"], ["performance", "Performance"], ["cap", "Cap & picks"]].map(function (o) {
       return '<button role="tab" data-act="sub" data-v="' + o[0] + '" aria-selected="' + (S.sub === o[0]) + '">' + esc(o[1]) + "</button>";
     }).join("") + "</div>";
     if (S.load.core === "loading") body = '<div class="card rows" aria-busy="true">' + skeletonRows(7) + '</div><div class="mu ctr sm">Loading the league…</div>';
@@ -356,12 +361,14 @@
     else if (S.sub === "performance") body = teamPicker(team(S)) + countsLine(team(S), S.model.limits) + TV.performanceBody(S);
     else if (S.sub === "cap") body = later("Cap & picks", "Not in this preview. Cap space is left out on purpose until it can be checked against the Front Office number.");
     else body = rosterBody(S);
-    return header("Team", asOfLine(S)) + tabs + '<div id="screen">' + body + "</div>";
+    return scroller(header("Team", asOfLine(S)) + tabs, body);
   }
+  // R8: one scrolling area (#scroll) holds the heading, the sticky tabs and the screen body (#screen), so the heading scrolls away under the marker.
+  function scroller(top, body) { return '<div id="scroll" class="scroll">' + top + '<div id="screen">' + body + "</div></div>"; }
 
   function placeholderScreen(id) {
     var name = NAVS.filter(function (n) { return n[0] === id; })[0][1];
-    return header(name, "") + '<div id="screen">' + later(name, LATER[id]) + "</div>";
+    return scroller(header(name, ""), later(name, LATER[id]));
   }
 
   function nav(S) {
@@ -550,7 +557,6 @@
     "Game stats were recorded for 117 players (three full teams plus examples); other players show their fantasy log only.",
     "Projections cover Week 11 only and were recorded for 342 of 486 rostered players.",
     "Nine extensions show the extending team without a year, because a later restructure hid it.",
-    "The top bar wraps to three lines on a 320-pixel-wide screen.",
     "Not checked on a real iPhone in Safari, or signed in to MFL."
   ];
   function knownIssuesCard() { return '<div class="card" id="known-issues"><h2>Known issues in this test build</h2><ul class="pl">' + KNOWN_ISSUES.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>"; }
@@ -563,9 +569,10 @@
       return '<div class="lg"><span class="lgw">' + esc(e.label || "") + "<small>" + esc(what) + '</small></span><span class="lgr">' + esc(e.method) + " " + esc(res) + (e.bytes != null ? "<small>" + Math.round(e.bytes / 1024) + " KB · " + (e.ms || 0) + " ms</small>" : "") + "</span></div>";
     }).join("");
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="About Preview 0" tabindex="-1"><div class="grab"></div><div class="top"><h3>About Preview 0</h3><button class="btn" data-act="close">Close</button></div>' +
+      // R8: the marker no longer prints the capture times, so the Data card (both times) follows the known issues directly
       (S.recorded ? knownIssuesCard() : "") +
-      '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of redesigned screens: Team (Roster with Lineup and Byes and a week selector, Contracts, Performance) and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
       '<div class="card"><h2>Data</h2><div class="ex">' + (S.recorded ? "This preview uses a recorded snapshot taken " + esc(S.recorded.label) + ", not the live league. The figures will not move." + (S.recorded.later ? " Game stats, season totals and projections were recorded later that day, " + esc(S.recorded.later) + "." : "") : "Read from the league when this page opened" + (S.model ? " (" + esc(F.etStamp(S.model.asOf) || "just now") + ")" : "") + ". Each answer is kept for up to a minute.") + "</div>" + (sampleOn(S) ? '<div class="ex">Reloading is paused while Sample mode is on.</div>' : '<button class="btn blk" data-act="retry">' + (S.recorded ? "Reload the recorded data" : "Reload the data") + "</button>") + "</div>" +
+      '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of redesigned screens: Team (Roster with Lineup and Byes and a week selector, Contracts, Performance) and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
       '<div class="card"><h2>Display</h2>' + chipRow("skin", [["system", "Match my phone"], ["light", "Light"], ["dark", "Dark"], ["hc", "High contrast"]], S.skin, "Skin") + chipRow("vib", [["1", "Vibrant"], ["0", "Plain"]], S.vib, "Position colors") + "</div>" +
       '<div class="card"><h2>Sample mode</h2><div class="ex">For trying screens without league data. Labeled, local to this phone, never remembered, and it starts no new request (data or photos) while it is on.</div><button class="btn blk" data-act="sample" data-v="about">' + (sampleOn(S) ? "Turn Sample mode off" : "Turn Sample mode on") + "</button></div>" +
       '<div class="card"><h2>Requests this page made</h2><div class="ex"><b>' + sum.requests + "</b> data requests: <b>" + sum.ok + "</b> succeeded, <b>" + sum.failed + "</b> failed, <b>" + sum.refused + "</b> refused. Methods other than GET: <b>" + sum.nonGet + '</b>. No cookie, session or key is ever sent.' + (S.recorded ? " In recorded-data mode these reads are answered from the snapshot that ships with the page, so none of them leaves it." : "") + "</div>" + rows +
@@ -576,14 +583,15 @@
 
   // The marker at the top of every screen: "Preview: view only", or the Sample label while Sample mode is on.
   function sampleOn(S) { return !!(S.sample && S.sample.on); }
+  // R8: in recorded mode the marker is one short line, "Test · Recorded data", with the "Known issues" button; the two capture times are in About.
   function envBar(S) {
-    var on = sampleOn(S), rec = !on && S.recorded ? S.recorded.label + (S.recorded.later ? "; game stats " + S.recorded.later : "") : "";
+    var on = sampleOn(S), rec = !on && !!S.recorded;
     return '<div class="envbar' + (on ? " sample" : rec ? " rec" : "") + '"><span>' + esc(SM.envText(on, rec)) + "</span>" + (rec ? ' <button class="link" data-act="about">Known issues</button>' : "") + "</div>";
   }
   function sampleScreen() {
-    return header("Sample mode", "") + '<div id="screen"><div class="card hl"><h2>Sample mode</h2><div class="big2"><b>Nothing here is real, and nothing is sent.</b></div>' +
+    return '<div id="scroll" class="scroll">' + header("Sample mode", "") + '<div id="screen"><div class="card hl"><h2>Sample mode</h2><div class="big2"><b>Nothing here is real, and nothing is sent.</b></div>' +
       '<div class="ex">Sample scenarios let a screen be tried without any league data. They live on this phone only, and this page starts no new request, for data or for photos, while Sample mode is on. A request already on its way when you turn it on is not recalled; its answer is thrown away. No scenario is installed yet: they arrive with the screens that use them.</div>' +
-      '<button class="btn pri blk" data-act="sample" data-v="screen">Turn Sample mode off</button></div></div>';
+      '<button class="btn pri blk" data-act="sample" data-v="screen">Turn Sample mode off</button></div></div></div>';
   }
 
   function app(S) {
