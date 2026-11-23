@@ -547,10 +547,12 @@
   // "Not available" or "—" where a figure is missing and Rank details say why; they do not repeat these notes.
   var KNOWN_ISSUES = [
     "Test build: not reviewed or accepted yet. Figures are a recording and will not change.",
-    "Many season stat ranks show — while some players’ figures are incomplete. The stat values still show; Rank details under the season stats say why. Two data problems cause most of these and are being fixed: red-zone rows not yet proven complete, and blank defensive stat rows added by a second stats feed.",
+    "Many season stat ranks show — while some players’ figures are incomplete. The stat values still show; Rank details under the season stats say why. Two data problems cause most of these: blank defensive stat rows added by a second stats feed, and red-zone records the recorded answers could not prove complete. Fixes are drafted but not released, and this recording was made before them.",
     "Kicking distance bands: a kicker’s attempts from a distance are incomplete when he missed a kick, because missed-kick distances are not in the stats feed, so those band ranks show —.",
     "Points-per-game rank shows — for everyone: team history is not in this recording.",
-    "Pass rate over expected, punter inside-20 distance bands, sack fumbles, missed-kick distances, longest plays and yards after catch are not in this recording.",
+    "Pass rate over expected, punter inside-20 distance bands, missed-kick distances, longest plays and yards after catch are not in this recording.",
+    "The opponent matchup column (points the opponent allowed to this position before the game) is not shown yet: the recording does not have every player’s club for each week. The game log keeps the game result until it does.",
+    "Traded salary entries show the amount without the other team and date: the recording has no trade records to link them to.",
     "xFP PPG and Over Expectations are Not Available everywhere.",
     "Minimum attempts, carries, targets or snaps for rate ranks are proposals, not approved yet.",
     "Game stats were recorded for 117 players (three full teams plus examples); other players show their fantasy log only.",
