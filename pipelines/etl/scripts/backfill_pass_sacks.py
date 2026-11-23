@@ -188,6 +188,8 @@ def main() -> None:
                       "pass_sacks", "pass_sack_yds", "def_fr",
                       "passing_air_yards", "passing_yards_after_catch"],
                 pk_cols=["season", "week", "gsis_id"],
+                # update_only: never create a box row (#1503 D1).
+                update_only=True,
             ) as w:
                 for r in rows:
                     w.add(r)
