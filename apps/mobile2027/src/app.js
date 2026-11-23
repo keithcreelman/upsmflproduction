@@ -81,6 +81,32 @@
     document.title = S.profile && S.model && S.model.byId[S.profile.pid] ? S.model.byId[S.profile.pid].name + " · UPS Preview 0" : "UPS 2027 Preview 0";
     ensureBreakdowns();
     ensureProjections(false);
+    ensureStatPools();
+  }
+
+  // ---- R7: the position pool behind the Breakdown's season stat ranks (draft #1515 /api/position-season-stats) ----
+  // A drawn season rollup names the pool it needs in data-pss ("2026|10|WR": season, W*, the OPENED player's group). Each pool is asked for once and
+  // kept in S.intel.pss[key] = { state, data, at } (the loader keeps it an hour); competitors are never read one by one. A failed pool is asked again
+  // only on Try again (Retry). In recorded mode only the Week-10 pools exist; any other is "absent" and the Rank cells read "—".
+  function ensureStatPools(force) {
+    if (S.sample.on || !S.model || !U.statranks) return;
+    var keys = {};
+    Array.prototype.forEach.call(appEl.querySelectorAll("[data-pss]") || [], function (el) { var k = el.getAttribute("data-pss"); if (k) keys[k] = true; });
+    Object.keys(keys).forEach(function (k) { ensureStatPool(k, force); });
+  }
+  function ensureStatPool(key, force) {
+    var m = /^(\d{4})\|(\d{1,2})\|([A-Z]{2})$/.exec(key);
+    if (!m) return;
+    S.intel.pss = S.intel.pss || {};
+    var rec = S.intel.pss[key];
+    if (rec && !(force && rec.state === "error")) return;
+    S.intel.pss[key] = { state: "loading" };
+    var mine = gen;
+    loader.positionSeasonStats(m[1], parseInt(m[2], 10), m[3], !!force).then(function (r) {
+      if (mine !== gen || S.sample.on || !S.intel.pss) return;
+      S.intel.pss[key] = r.state === "ok" ? { state: "ok", data: r.data, at: r.at || Date.now() } : r.state === "absent" ? { state: "absent" } : { state: "error", error: r.error || "" };
+      render(true);
+    });
   }
 
   // ---- R7: the week-labeled projection (draft #1515 /api/player-projections) ----
@@ -283,7 +309,7 @@
   }
   function refreshPerformance() {
     if (S.sample.on || !S.model || !S.model.week) return;
-    ensureProjections(true);   // only a failed projection read is asked again
+    ensureProjections(true); ensureStatPools(true);   // only a failed projection read or pool is asked again
     if (anyFailedRead()) { ensurePerformance(true); return; }
     var cur = S.model.week, after = function () { ensurePerformance(false); };
     intelRead(S.intel.mu, cur, function () { return loader.loadMatchups(cur, true); }, true, after);

@@ -19,11 +19,12 @@
     req ? require("./clubhist.js") : root.UPS2027.clubhist,
     req ? require("./adjust.js") : root.UPS2027.adjust,
     req ? require("./ranks.js") : root.UPS2027.ranks,
-    req ? require("./complete.js") : root.UPS2027.complete
+    req ? require("./complete.js") : root.UPS2027.complete,
+    req ? require("./statranks.js") : root.UPS2027.statranks
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.tabviews = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C, R, CH, A, K, X) {
+})(typeof self !== "undefined" ? self : this, function (F, C, R, CH, A, K, X, SR) {
   "use strict";
 
   var esc = F.esc, money = F.money;
@@ -283,7 +284,8 @@
         h("Tot. Pts., Actual PPG, scored games", "Tot. Pts. is the player’s official MFL scores added up. Actual PPG is Tot. Pts. divided by scored games, the games with a recorded score (0.0 and negative scores count; a game with no recorded score does not). A 0.0 is a score MFL recorded; it is not proof that he played.") +
         h("Ranks", "QB2 is the player’s place among players at his position (tied players share a place). QB2–4 means some players cannot be placed yet (no position on file, a score that could not be read, or a PPG eligibility that is not settled), so he could be anywhere from 2nd to 4th. Ranges can narrow as weeks complete. " + esc(DASH) + " means no supported rank. The PPG rank needs scores in at least half of the team’s games and needs team history; until that is available it is " + esc(DASH) + " for everyone. For a range, the Breakdown says why and how large the group could be. The game log’s Rank column is the player’s exact place at his position that week (WR3), shown only for completed weeks and only when it is exact; otherwise " + esc(DASH) + ".") +
         h("xFP PPG and Over Expectations", "Not Available until the expected-points model is approved.") +
-        h("Projection", "MFL’s projection for the lineup week, as last captured before the player’s own kickoff; it is frozen at kickoff, and a capture after kickoff is never used. Not Available when there is none. The Breakdown shows when it was captured.");
+        h("Projection", "MFL’s projection for the lineup week, as last captured before the player’s own kickoff; it is frozen at kickoff, and a capture after kickoff is never used. Not Available when there is none. The Breakdown shows when it was captured.") +
+        (SR && SR.helpText ? h("Season stat ranks", esc(SR.helpText())) : "");
     }
     if (sub === "cap") return h("Cap & picks", "Not in this preview.");
     return h("Recorded starters", "A past week shows the starters and scores MFL recorded. Slots, positions, bench, injured reserve, taxi, injuries and contracts are shown for the current week only.") +
