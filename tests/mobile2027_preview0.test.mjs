@@ -230,7 +230,7 @@ test("the source holds no write verb, credential name or second transport; fetch
   t.match(read("app.js"), /createLoader\(cfg, guardedFetch\)/); // the loader is handed only the guarded one
   t.match(read("app.js"), /if \(S\.sample\.on\) return Promise\.reject/, "and the guarded one refuses while Sample mode is on");
   files.filter((f) => f !== "app.js").forEach((f) => t.doesNotMatch(read(f), /localStorage|sessionStorage/, f + " does not store anything"));
-  t.deepEqual([...read("app.js").matchAll(/setPref\("([a-z]+)"/g)].map((m) => m[1]).sort().filter((x, i, a) => a.indexOf(x) === i), ["gdef", "skin", "team", "vib"]); // three display choices and the last team viewed
+  t.deepEqual([...read("app.js").matchAll(/setPref\("([a-z]+)"/g)].map((m) => m[1]).sort().filter((x, i, a) => a.indexOf(x) === i), ["skin", "team", "vib"]); // two display choices and the last team viewed (R6 retired the "Bench groups" choice)
 });
 
 // ───────────────────────── 3. the model ─────────────────────────
@@ -267,16 +267,17 @@ test("no submitted lineup means 'lineup not available', never an empty lineup", 
 test("the Team screen: starters above bench, groups, reserve counts, and only read-only controls", () => {
   const S = state();
   const html = V.app(S);
-  t.match(html, /Week 11 starters/); t.match(html, /Blake Bombers/); t.match(html, /Active \d+ of 30/); t.match(html, /Taxi \d+ of 10/); t.match(html, /IR \d+ of 15/);
-  t.ok(html.indexOf("Week 11 starters") < html.indexOf("Bench ·"), "starters above bench");
+  t.match(html, /Starting lineup · /); t.match(html, /Blake Bombers/); t.match(html, /Active \d+ of 30/); t.match(html, /Taxi \d+ of 10/); t.match(html, /IR \d+ of 15/);
+  t.ok(html.indexOf("Starting lineup · ") < html.indexOf("Bench ·"), "starters above bench");
   t.ok(html.indexOf("Bench ·") < html.indexOf("Injured reserve"), "bench above reserve");
   const acts = [...html.matchAll(/data-act="([a-z]+)"/g)].map((m) => m[1]);
   acts.forEach((a) => t.ok(ALLOWED_ACTS.includes(a), "allowed control: " + a));
   t.doesNotMatch(html, /\b(Swap|Start in lineup|Drop|Extend|Restructure|Submit|Save|Bid|Propose|Accept|Reject)\b/, "no transaction wording on the roster screen");
   t.equal((html.match(/<form/g) || []).length, 0); t.equal((html.match(/<input|<textarea|<select/g) || []).length, 0);
   t.doesNotMatch(html, /\sstyle=/); t.doesNotMatch(html, /\son[a-z]+=/i); t.doesNotMatch(html, /<script/i);
-  const open = V.app(state({ open: { bQB: true, bRB: true, bWR: true, bTE: true, ir: true, taxi: true } }));
-  t.ok((open.match(/data-act="card"/g) || []).length > (html.match(/data-act="card"/g) || []).length, "expanding groups lists more players");
+  // R6: the Bench, Injured reserve and Taxi squad cards are open by default; collapsing them lists fewer players
+  const shut = V.app(state({ open: { bench: false, ir: false, taxi: false } }));
+  t.ok((shut.match(/data-act="card"/g) || []).length < (html.match(/data-act="card"/g) || []).length, "collapsing the section cards lists fewer players");
 });
 
 test("Team › Contracts shows recorded salary and years; a missing salary is 'n/r' in the table and 'Not recorded' in its row, never $0", () => {
@@ -336,7 +337,7 @@ test("a blank or unresolved salary stays unknown from the raw read to the roster
 test("when the lineup cannot be read the screen says so, and the bye chip shows only in the bye week", () => {
   const S = state({ model: M.build(FX.roster_workbench, FX.league, null, 11, 2026) });
   const html = V.app(S);
-  t.match(html, /Lineup not available/); t.doesNotMatch(html, /Week 11 starters/);
+  t.match(html, /Lineup not available/); t.doesNotMatch(html, /Starting lineup · /);
   const S2 = state(); const b = S2.model.teams.find((x) => x.id === "0010").players.find((p) => p.starter); b.bye = 11;
   t.match(V.app(S2), /Bye week/);
   b.bye = 9; t.doesNotMatch(V.app(S2), /▲ Bye week/);
@@ -901,7 +902,7 @@ test("Sample mode: client-only, labeled, off at every start, and it keeps the pa
   const off = V.app(state()), on = V.app(state({ sample: { on: true } }));
   t.match(off, /<div class="envbar"><span>Preview: view only<\/span>/); t.doesNotMatch(off, /Sample data/);
   t.match(on, /<div class="envbar sample"><span>Sample data · nothing is real and nothing is sent<\/span>/);
-  t.match(on, /Nothing here is real, and nothing is sent\./); t.doesNotMatch(on, /Week 11 starters|class="rx"/, "no league data is drawn in Sample mode");
+  t.match(on, /Nothing here is real, and nothing is sent\./); t.doesNotMatch(on, /Starting lineup · |class="rx"/, "no league data is drawn in Sample mode");
   t.equal((on.match(/data-act="sample"/g) || []).length, 1, "one control, to turn it off"); t.match(on, /data-act="sample" data-v="screen"/);
   const aboutOn = V.app(state({ sheet: "about", sample: { on: true } })); t.match(aboutOn, /data-act="sample" data-v="about"/, "the two Sample buttons are told apart, so focus returns to the right one"); t.doesNotMatch(aboutOn, /Reload the data/, "Reload is hidden while Sample mode is on"); t.match(V.app(state({ sheet: "about" })), /Reload the data/);
   const withProfile = V.app(state({ sample: { on: true }, profile: { pid: allPlayers()[0].id, tab: "contract" } })); t.doesNotMatch(withProfile, /role="dialog"/, "a profile is not drawn in Sample mode");

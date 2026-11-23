@@ -282,6 +282,27 @@ button.btnrow{cursor:pointer}
 .mt6{margin-top:6px}
 
 /* ===== R6 LINEUP REVISIONS: lineup rules go between this line and the matching end line ===== */
+/* slot badges take the occupying player's position color (the existing .pc palette; K and P stay neutral); the label text always stays */
+[data-vib="1"] .tag.sl.ps.QB{background:var(--pq);color:var(--pqt);border-color:var(--pq)}
+[data-vib="1"] .tag.sl.ps.RB{background:var(--pr);color:var(--prt);border-color:var(--pr)}
+[data-vib="1"] .tag.sl.ps.WR{background:var(--pw);color:var(--pwt);border-color:var(--pw)}
+[data-vib="1"] .tag.sl.ps.TE{background:var(--pt);color:var(--ptt);border-color:var(--pt)}
+[data-vib="1"] .tag.sl.ps.DL,[data-vib="1"] .tag.sl.ps.LB,[data-vib="1"] .tag.sl.ps.DB{background:var(--pd);color:var(--pdt);border-color:var(--pd)}
+.tag.sl.fx{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1}
+.tag.sl.fx b{font-size:12px;font-weight:800}
+.tag.sl.fx i{font-style:normal;font-size:12px;font-weight:600;opacity:.9}
+/* one card per section: a heading row (a collapse button for Bench, IR and Taxi), the bench grouped by position under small labels */
+.lsec{padding-top:0;padding-bottom:0}
+.lsh{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:4px 0;border:0;background:transparent;text-align:left;font-size:13px;color:var(--tx)}
+.lsh .t{flex:1;min-width:0}
+.lsh .chev{flex:0 0 auto;color:var(--mu);font-size:14px;padding:0 2px}
+.lps{border-top:1px solid var(--bd);padding:6px 0 0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
+.lps+.rx{border-top:0}
+.lsr{padding:0 0 8px}
+/* the lineup warning: only drawn for an actual issue; one short line per issue */
+.lwarn{padding:8px 12px 6px}
+.lwh{font-size:13px}
+.rx.lw{min-height:44px;padding:2px 0}
 /* ===== end R6 LINEUP ===== */
 /* (spacer 1: keeps the three R6 sections in separate merge hunks) */
 /* (spacer 2) */

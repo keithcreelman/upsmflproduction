@@ -5,7 +5,8 @@
 //   P1/P2  Contracts and Byes never show today's roster under a past week's heading; they are "as of now" whatever week was chosen,
 //          Lineup and Performance keep the chosen week, and returning to them finds the same week.
 //   P3     the read-only starting-decisions card: one entry per slot, no double counting, "Doubtful" is a decision not an absence,
-//          kickoff only when it is not the ordinary Sunday 1:00 PM slate, Unavailable stays Unavailable, one injury chip on all four views.
+//          Unavailable stays Unavailable, one injury chip on all four views. (R6 replaced the card with a warning drawn only for a real
+//          issue, and reversed the kickoff rule: every matchup now shows its kickoff in Eastern Time, Sunday 1:00 PM included.)
 //   P4     Performance: the prominent number is the labeled score of the last completed week; states for a score that is loading,
 //          failed or not recorded; no projection column; narrow-screen tokens do not wrap.
 //   P5     Contracts: no link to a destination that does not exist; the placeholder says where contracts are, with a working jump.
@@ -58,6 +59,9 @@ const text = (html) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
 // one player's roster row (not his entry in the starting-decisions card, which has no slot or position tag), cut off before whatever follows it
 const rowOf = (html, pid) => { const r = html.split('<div class="rx').find((x) => x.includes('data-pid="' + pid + '"') && /^[^>]*>(<span class="tag )/.test(x)); return r && r.split(/<div class="(?:ex|grp|card|lbl|chs)/)[0]; };
 const starterOf = (S, i) => R.lineupFor(S, S.model.teams.find((x) => x.id === TEAM), 11).slots[i].player;
+// R6 (Keith, 2026-11-22): Lineup draws "▲ n need(s) attention" in its warning card, only when there is an issue; Byes keeps one summary line
+// "Starting lineup · 18/18 · n need attention". (Changed deliberately from R2b's "18 of 18 starters · ..." card and line.)
+const attn = (view, what, n = 18) => view === "byes" ? new RegExp("Starting lineup · " + n + "/18 · " + what) : new RegExp("▲ " + what);
 const statusWith = (ids) => { const s = clone(FX2.player_status); Object.entries(ids).forEach(([id, v]) => { s.players[id] = v; }); return s; };
 
 // ───────────────────────── P1 and P2: one week context ─────────────────────────
@@ -87,7 +91,7 @@ test("P1: a past week's number never leaks into an as-of-now screen: a bye or an
   const m = model(); m.byId[p.id].bye = 10; m.byId[q.id].bye = 11;
   [null, 10, 5].forEach((wk) => ["byes"].forEach((view) => {
     const tx = text(V.rosterBody(state(intel, { view, wk, model: m })));
-    t.match(tx, /18 of 18 starters · 1 needs attention/, view + " with week " + wk + " chosen: exactly the current week's one bye");
+    t.match(tx, /Starting lineup · 18\/18 · 1 needs attention/, view + " with week " + wk + " chosen: exactly the current week's one bye");
   }));
   // and on the Byes screen the groups are built from the current week: Week 10's bye is 'already played', Week 11's is 'this week'
   const byes = text(V.rosterBody(state(intel, { view: "byes", wk: 10, model: m })));
@@ -104,7 +108,8 @@ test("P3: the card lists each slot that needs attention once: OUT, an MFL design
   // control: the recorded week has only Questionable starters, so nothing needs attention
   const a0 = R.attention(S0, R.lineupFor(S0, S0.model.teams.find((x) => x.id === TEAM), 11), 11);
   t.equal(a0.n, 0, "Questionable does not count"); t.equal(a0.items.length, 0); t.equal(a0.injuriesChecked, true);
-  t.match(text(V.rosterBody(S0)), /18 of 18 starters · nothing needs attention/); t.match(V.rosterBody(S0), /class="card okc"/);
+  // R6: no success box and no "nothing needs attention" wording; the lineup card just carries the count
+  t.match(text(V.rosterBody(S0)), /Starting lineup · 18\/18/); t.doesNotMatch(V.rosterBody(S0), /class="card okc"|lwarn|need(s)? attention/);
   const st = statusWith({
     [a.id]: { mfl: { status: "Out", week: 11, details: "Knee" } },
     [b.id]: { mfl: { status: "Doubtful", week: 11, details: "Ankle" } },
@@ -118,21 +123,23 @@ test("P3: the card lists each slot that needs attention once: OUT, an MFL design
   t.deepEqual(byId[a.id], ["out", "bye"], "OUT and bye on the same slot are ONE entry carrying both reasons");
   t.deepEqual(byId[b.id], ["doubtful"]); t.deepEqual(byId[c.id], ["designation"]); t.deepEqual(byId[d.id], ["bye"]);
   const html = V.rosterBody(S), tx = text(html);
-  t.match(tx, /18 of 18 starters · 4 need attention/);
-  t.equal((html.match(/class="card warnc"/g) || []).length, 1, "one card");
-  // each entry: slot, player, the issue, position, opponent (kickoff when not a bye)
-  t.match(tx, new RegExp("QB1 · " + a.name + " Out · Bye week · " + a.pos + " (?!·)"), "Out plus Bye: one line, no opponent or kickoff for a bye");
-  t.match(tx, new RegExp(b.name + " Doubtful: a decision may be needed · " + b.pos + " · (vs|@) \\w+ · Kickoff "));
-  t.match(tx, new RegExp(c.name + " MFL designation: IR · " + c.pos + " · (vs|@) \\w+ · Kickoff "));
-  t.match(tx, new RegExp(d.name + " Bye week · " + d.pos + " (?!·)"));
-  // Doubtful means a decision may be needed, not that the player is out: the wording says so, and nowhere calls him out
-  t.match(tx, /“Doubtful” means a decision may be needed, not that a player is out\./);
+  t.match(tx, /▲ 4 need attention/); t.match(tx, /Starting lineup · 18\/18/);
+  t.equal((html.match(/class="card warnc lwarn"/g) || []).length, 1, "one card");
+  // R6: each entry is one short line: slot, player, the issue, then the opponent and kickoff (ET) when not a bye; the position is on the slot badge
+  const KO = "(Sun|Mon|Tue|Wed|Thu|Fri|Sat) \\d{1,2}:\\d{2} [AP]M ET";
+  t.match(tx, new RegExp("QB1 · " + a.name + " Out · Bye week (?!·)"), "Out plus Bye: one line, no opponent or kickoff for a bye");
+  t.match(tx, new RegExp(b.name + " Doubtful · (vs|@) \\w+ · " + KO));
+  t.match(tx, new RegExp(c.name + " MFL designation: IR · (vs|@) \\w+ · " + KO));
+  t.match(tx, new RegExp(d.name + " Bye week (?!·)"));
+  // R6: the Doubtful explanation is removed from the card (it said a decision may be needed); nothing calls a Doubtful player out
+  t.doesNotMatch(tx, /means a decision may be needed/);
   t.doesNotMatch(tx, new RegExp(b.name + " Out\\b"));
   // no write control: no Replace, no Swap, no button that is not a profile or navigation
   t.doesNotMatch(tx, /\b(Replace|Swap|Start him|Sit him|Make the move)\b/i);
   const acts = [...html.matchAll(/data-act="([a-z]+)"/g)].map((m2) => m2[1]);
   t.ok(acts.every((x) => ["card", "view", "pickweek", "weeks", "grp", "expall", "teams", "nav", "sub", "help"].includes(x)), "only read-only controls: " + [...new Set(acts)].join(","));
-  t.match(tx, /Read only: nothing here can change the lineup\./);
+  // R6: the repeated read-only explanations above and below the lineup are removed (the controls themselves are read-only, pinned above)
+  t.doesNotMatch(tx, /Read only: nothing here can change the lineup|Nothing here can change it/);
 });
 
 test("P3: empty slots are genuine ones only; a starter that fits no slot is reported as that, never as an empty slot as well", async () => {
@@ -141,7 +148,7 @@ test("P3: empty slots are genuine ones only; a starter that fits no slot is repo
   const m = model(), tm = m.teams.find((x) => x.id === TEAM); tm.lineup.ids = tm.lineup.ids.slice(0, 16);
   const S = state(intel, { model: m }), at = R.attention(S, R.lineupFor(S, tm, 11), 11);
   t.equal(at.empties.length, 2); t.equal(at.extras.length, 0); t.equal(at.n, 2);
-  const tx = text(V.rosterBody(S)); t.match(tx, /16 of 18 starters · 2 need attention/);
+  const tx = text(V.rosterBody(S)); t.match(tx, /▲ 2 need attention/); t.match(tx, /Starting lineup · 16\/18/);
   t.equal((tx.match(/· Empty No starter is set for this slot/g) || []).length, 2);
   // a third QB cannot take any slot (QB1 and the Superflex are full): he is the leftover, and the slot he left is NOT also reported empty
   const m2 = model(), tm2 = m2.teams.find((x) => x.id === TEAM), S2 = state(intel, { model: m2 });
@@ -157,25 +164,31 @@ test("P3: the injury read missing is said, not hidden: 'injuries not checked', n
   const intel = await intelFor();
   ["loading", "error"].forEach((st) => VIEWS.forEach((view) => {
     const html = V.rosterBody(state({ ...intel, status: { state: st, error: "x" } }, { view })), tx = text(html);
-    t.match(tx, /18 of 18 starters · injuries not checked/, view + " / " + st); t.doesNotMatch(tx, /nothing needs attention/);
+    // R6: Byes says "injuries not checked" on its summary line; Lineup draws no warning card for it, and the resolver's one line says why
+    if (view === "byes") t.match(tx, /Starting lineup · 18\/18 · injuries not checked/, view + " / " + st);
+    else { t.match(tx, st === "loading" ? /Checking injury status…/ : /Injury status couldn’t be loaded, so no injury tags are shown/, view + " / " + st); t.doesNotMatch(html, /lwarn/); }
+    t.doesNotMatch(tx, /nothing needs attention/);
   }));
-  t.match(text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }))), /Injury status is not available yet, so injuries are not counted here\./);
   // a bye is a schedule fact, not an injury: it still counts without an injury read
   const m = model(), S0 = state(intel); m.byId[starterOf(S0, 2).id].bye = 11;
-  t.match(text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }, { model: m }))), /18 of 18 starters · 1 needs attention/);
+  t.match(text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }, { model: m }))), /▲ 1 needs attention/);
 });
 
-test("P3: a kickoff shows on a row only when it is not Sunday 1:00 PM Eastern; an unknown time reads 'Kickoff unavailable', never a guess", async () => {
+test("R6 (was R2b P3): every matchup shows its kickoff in Eastern Time, Sunday 1:00 PM included; an unknown time reads 'Kickoff unavailable', never a guess", async () => {
   const intel = await intelFor(), S = state(intel), lu = R.lineupFor(S, S.model.teams.find((x) => x.id === TEAM), 11);
   const info = lu.slots.map((x) => ({ p: x.player, k: R.kickoffInfo(S, x.player, 11) }));
-  const ordinary = info.filter((x) => x.k.ordinary), notable = info.filter((x) => x.k.state === "known" && !x.k.ordinary);
-  t.ok(ordinary.length >= 3 && notable.length >= 3, "the recorded week has both kinds of starter");
-  t.equal(R.ORDINARY_SLATE, "Sun 1:00 PM");
+  const sun1 = info.filter((x) => x.k.text === "Sun 1:00 PM ET"), other = info.filter((x) => x.k.state === "known" && x.k.text !== "Sun 1:00 PM ET");
+  t.ok(sun1.length >= 3 && other.length >= 3, "the recorded week has Sunday 1:00 PM starters and starters at other times");
+  t.ok(info.every((x) => x.k.state !== "known" || / ET$/.test(x.k.text)), "every known kickoff is labeled ET");
   const html = V.rosterBody(S);
-  ordinary.forEach((x) => t.doesNotMatch(text(rowOf(html, x.p.id)), /\d{1,2}:\d{2} [AP]M|Kickoff/, x.p.name + ": ordinary slate, no kickoff"));
-  notable.forEach((x) => t.match(text(rowOf(html, x.p.id)), new RegExp((x.k.text + "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), x.p.name + ": " + x.k.text));
-  // Eastern, and said once for the whole list rather than on every row
-  t.match(text(html), /A kickoff time is shown on a row only when it is not Sunday 1:00 PM \(Eastern\)\./);
+  // R6 deliberately reverses R2b: the Sunday 1:00 PM rows now show their time too
+  info.filter((x) => x.k.state === "known" && !R.onBye(x.p, 11)).forEach((x) => t.match(text(rowOf(html, x.p.id)), new RegExp((x.k.text + "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), x.p.name + ": " + x.k.text));
+  // the bench rows show their matchup's kickoff as well (the same rule on every matchup of the view)
+  const bench = M.benchGroups(S.model.teams.find((x) => x.id === TEAM))[0].players[0], bk = R.kickoffInfo(S, bench, 11);
+  if (bk.state === "known") t.match(text(rowOf(html, bench.id)), new RegExp(bk.text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  // R6: the paragraph that explained the omitted times is removed
+  t.doesNotMatch(text(html), /A kickoff time is shown on a row only when/);
+  const notable = other;
   // a game whose time is not known: Unavailable, and the opponent still shows
   const u = notable[0].p, mu = clone(intel.mu[11].data); mu.games[u.nflTeam].kickoff = null;
   const r1 = text(rowOf(V.rosterBody(state({ ...intel, mu: { ...intel.mu, 11: { state: "ok", data: mu, at: Date.now() } } })), u.id));
@@ -219,8 +232,8 @@ test("P4: narrow screens (320 px): the opponent, kickoff and week tokens cannot 
   const opps = [...html.matchAll(/<span class="nw">((?:vs|@) [A-Z]{2,3})<\/span>/g)].map((m) => m[1]);
   t.ok(opps.length >= 15, "opponent tokens are wrapped: " + opps.length);
   // kickoff tokens too
-  const kicks = [...lhtml.matchAll(/<span class="nw">((?:Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d{1,2}:\d{2} [AP]M)<\/span>/g)].map((m) => m[1]);
-  t.ok(kicks.length >= 3, "kickoff tokens are wrapped: " + kicks.length);
+  const kicks = [...lhtml.matchAll(/<span class="nw">((?:Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d{1,2}:\d{2} [AP]M ET)<\/span>/g)].map((m) => m[1]);
+  t.ok(kicks.length >= 15, "kickoff tokens (every matchup, R6) are wrapped: " + kicks.length);
   // a past week's rows: "BUF now" and "Opponent unavailable" are single units too, so a narrow screen breaks between them, not inside them
   const past = V.rosterBody(state(intel, { wk: 10 }));
   t.match(past, /<span class="nw">[A-Z]{2,3} now<\/span> · <span class="nw">Opponent unavailable<\/span>/);
@@ -249,12 +262,12 @@ test("P5: the roster views carry no link to a Contracts destination; Team › Co
 
 test("P6: Byes groups are chronological, name today's slots only, collapse the played weeks, and invent nothing", async () => {
   const intel = await intelFor(), S = state(intel, { view: "byes" });
-  // a team with a Week 12 bye: five current starters (the owner's example: "Week 12 · 5 current starters on bye: QB1, SF, WR1, DF, DB1")
+  // a team with a Week 12 bye: five current starters (the owner's example, with the R6 flex labels SFX and DFX)
   const m = model(), tm = m.teams.find((x) => x.id === TEAM), lu = R.lineupFor(S, tm, 11);
   const tag = (t2) => lu.slots.find((x) => x.slot.tag === t2).player;
-  ["QB1", "SF", "WR1", "DF", "DB1"].forEach((t2) => { m.byId[tag(t2).id].bye = 12; });
+  ["QB1", "SFX", "WR1", "DFX", "DB1"].forEach((t2) => { m.byId[tag(t2).id].bye = 12; });
   const html = V.rosterBody(state(intel, { view: "byes", model: m })), tx = text(html);
-  t.match(tx, /Week 12 · 5 current starters on bye: QB1, WR1, SF, DB1, DF/, "the authorized wording: week, count, slot tags in today's lineup order");
+  t.match(tx, /Week 12 · 5 current starters on bye: QB1, WR1, SFX, DB1, DFX/, "the authorized wording: week, count, slot tags in today's lineup order");
   t.match(tx, /Next byes: Week 11 · 0 current starters · Week 12 · 5 current starters/);
   // a bench player on the same bye week sits in the group but is not a starter and takes no slot tag
   t.doesNotMatch(tx, /Week 12 · 6 current starters/);
@@ -271,7 +284,7 @@ test("P6: Byes groups are chronological, name today's slots only, collapse the p
   // a played bye never shows as 'next'
   t.doesNotMatch(tx.split("Already played")[0].split("Next byes:")[1].split("Slots are")[0], /Week (?:[1-9]|10) ·/);
   // with the injury read out, Byes still works (a bye is a schedule fact)
-  t.match(text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }, { view: "byes", model: m }))), /Week 12 · 5 current starters on bye: QB1, WR1, SF, DB1, DF/);
+  t.match(text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }, { view: "byes", model: m }))), /Week 12 · 5 current starters on bye: QB1, WR1, SFX, DB1, DFX/);
 });
 
 // ───────────────────────── P3 / Codex MAT-1: an EXPIRED injury read is not "checked" ─────────────────────────
@@ -291,7 +304,7 @@ test("MAT-1: an expired injury read is never an all-clear; the TTL boundary, kno
     const s = S(at(T0), now), x = R.attention(s, lu(s), 11);
     t.equal(R.injuryFresh(s), true, "fresh at +" + (now - T0)); t.equal(x.injuriesChecked, true); t.equal(x.injuryState, "ok");
     t.equal(x.n, 2, "OUT and bye are two slots"); t.ok(R.injuryChip(s, a), "the resolver draws the chip");
-    t.match(text(V.rosterBody(s)), /18 of 18 starters · 2 need attention/); t.doesNotMatch(text(V.rosterBody(s)), /injuries not checked|not available yet/);
+    t.match(text(V.rosterBody(s)), /▲ 2 need attention/); t.doesNotMatch(text(V.rosterBody(s)), /injuries not checked|not available yet|Checking injury status/);
   });
 
   // one millisecond past the limit, SAME data and SAME state, only the clock moved (the screen idled): the resolver draws nothing and the card says so
@@ -302,8 +315,8 @@ test("MAT-1: an expired injury read is never an all-clear; the TTL boundary, kno
   t.equal(xo.n, 1, "the known bye is still reported; the OUT starter is not invented from an expired read");
   VIEWS.forEach((view) => {
     const tx = text(V.rosterBody(S(at(T0), T0 + TTL + 1, { view })));
-    t.match(tx, /18 of 18 starters · 1 needs attention/, view + ": the bye still counts"); t.doesNotMatch(tx, /nothing needs attention/, view);
-    if (view === "lineup") t.match(tx, /Injury status is not available yet, so injuries are not counted here\./);
+    t.match(tx, attn(view, "1 needs attention"), view + ": the bye still counts"); t.doesNotMatch(tx, /nothing needs attention/, view);
+    if (view === "lineup") t.match(tx, /Checking injury status…/, "the resolver's own line says the injuries are not checked");
   });
   // without any known issue, an expired read says "injuries not checked", on all four views, never "nothing needs attention"
   const clean = await intelFor(), atC = (when) => ({ ...clean, status: { state: "ok", data: clean.status.data, at: when } });
@@ -311,7 +324,7 @@ test("MAT-1: an expired injury read is never an all-clear; the TTL boundary, kno
   t.equal(R.attention(s0, lu(s0), 11).n, 0);
   VIEWS.forEach((view) => {
     const tx = text(V.rosterBody(plain(T0 + TTL + 60000, view)));
-    t.match(tx, /18 of 18 starters · injuries not checked/, view); t.doesNotMatch(tx, /nothing needs attention/, view);
+    t.match(tx, view === "byes" ? /Starting lineup · 18\/18 · injuries not checked/ : /Checking injury status…/, view); t.doesNotMatch(tx, /nothing needs attention/, view);
     t.doesNotMatch(V.rosterBody(plain(T0 + TTL + 60000, view)), /class="card okc"/, view + ": no green all-clear card");
   });
 
@@ -321,13 +334,14 @@ test("MAT-1: an expired injury read is never an all-clear; the TTL boundary, kno
   // recovery: a fresh successful read (a later `at`) restores the injury items and the count, same screen, same clock
   const rec = S(at(T0 + TTL + 1), T0 + TTL + 1), xr = R.attention(rec, lu(rec), 11);
   t.equal(R.injuryFresh(rec), true); t.equal(xr.injuriesChecked, true); t.equal(xr.n, 2); t.ok(R.injuryChip(rec, a));
-  t.match(text(V.rosterBody(rec)), /18 of 18 starters · 2 need attention/); t.doesNotMatch(text(V.rosterBody(rec)), /injuries not checked/);
-  // and the plain case recovers to the green card
-  t.match(text(V.rosterBody(state(atC(T0 + 5 * TTL), { model: m0, nowMs: T0 + 5 * TTL }))), /18 of 18 starters · nothing needs attention/);
+  t.match(text(V.rosterBody(rec)), /▲ 2 need attention/); t.doesNotMatch(text(V.rosterBody(rec)), /injuries not checked|Checking injury status/);
+  // and the plain case recovers to a quiet screen (R6: no green card; no warning and no "not checked" line)
+  const quiet = V.rosterBody(state(atC(T0 + 5 * TTL), { model: m0, nowMs: T0 + 5 * TTL }));
+  t.match(text(quiet), /Starting lineup · 18\/18/); t.doesNotMatch(quiet, /lwarn|okc|injuries not checked|Checking injury status/);
 
   // a read with no timestamp is not fresh (the resolver treats a missing `at` as the epoch): never an all-clear either
   const noAt = state({ ...clean, status: { state: "ok", data: clean.status.data } }, { model: m0, nowMs: T0 });
-  t.equal(R.injuryFresh(noAt), false); t.match(text(V.rosterBody(noAt)), /injuries not checked/);
+  t.equal(R.injuryFresh(noAt), false); t.match(text(V.rosterBody(noAt)), /Checking injury status…/); t.match(text(V.rosterBody(state({ ...clean, status: { state: "ok", data: clean.status.data } }, { model: m0, nowMs: T0, view: "byes" }))), /injuries not checked/);
 });
 
 await run("mobile2027_r2b");

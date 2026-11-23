@@ -193,7 +193,7 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   await tick(80);
   const ok = (where) => { t.doesNotMatch(a.html(), TROUBLE, where + ": no failure text"); t.deepEqual(a.misses(), [], where + ": nothing was asked that is not in the recording"); t.deepEqual(a.net, [], where + ": no network attempt"); };
   // boot: the first team, the marker, the data-as-of line, the Roster lineup
-  t.match(a.html(), /Week 11 starters/); t.match(a.html(), new RegExp(FIRST.franchise_name)); t.equal(FIRST.franchise_name, "Blake Bombers");
+  t.match(a.html(), /Starting lineup · /); t.match(a.html(), new RegExp(FIRST.franchise_name)); t.equal(FIRST.franchise_name, "Blake Bombers");
   t.match(a.html(), /<div class="envbar rec"><span>PREVIEW · RECORDED DATA · recorded Sun Nov 22, 2026, 10:22 AM ET · VIEW ONLY<\/span><\/div>/, "the marker says it is a recording, and when");
   t.doesNotMatch(a.html(), /Preview: view only/);
   t.match(a.html(), /Data as of Sun 10:22 AM ET · Week 11/, "the Data as of line is the roster read's own generated_at");
@@ -205,7 +205,7 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   await a.click({ "data-act": "weeks" }); t.match(a.html(), /aria-label="Choose a week"/);
   await a.click({ "data-act": "pickweek", "data-v": "10" }); t.match(a.html(), /Recorded starters · Week 10/); ok("past week 10");
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "1" }); t.match(a.html(), /Recorded starters · Week 1\b/); ok("past week 1");
-  await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "11" }); t.match(a.html(), /Week 11 starters/);
+  await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "11" }); t.match(a.html(), /Starting lineup · /);
   // Contracts: the cap card with its figures, the Breakdown, a category, the 2027 row, every sort and year, a row opened
   await a.click({ "data-act": "sub", "data-v": "contracts" }, 60);
   t.match(a.html(), /Cap space · 2026 season/); t.match(a.html(), /Available cap space/); t.match(a.html(), /<div class="capa"><div class="big[^"]*">[-−]?\$[\d,]+<\/div>/, "an available cap space figure"); t.match(a.html(), /<div class="capt"><b>\$300,000<\/b><div class="ex">Total cap<\/div>/, "the total cap, from the roster read");
@@ -258,10 +258,10 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   const before = a.ctx.UPS2027.recorded.misses.length;
   await a.click({ "data-act": "about" }); await a.click({ "data-act": "sample" }); t.match(a.html(), /Sample data · nothing is real and nothing is sent/);
   t.doesNotMatch(a.html(), /RECORDED DATA/, "Sample mode keeps its own label");
-  await a.click({ "data-act": "sample" }, 80); t.match(a.html(), /RECORDED DATA/); t.match(a.html(), /C-Town Chivalry|Week 11 starters/);
+  await a.click({ "data-act": "sample" }, 80); t.match(a.html(), /RECORDED DATA/); t.match(a.html(), /C-Town Chivalry|Starting lineup · /);
   t.equal(a.misses().length, before); ok("sample mode");
   // a reload re-reads the recording
-  await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "about" }); await a.click({ "data-act": "retry" }, 80); t.match(a.html(), /Week 11 starters/); ok("reload");
+  await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "about" }); await a.click({ "data-act": "retry" }, 80); t.match(a.html(), /Starting lineup · /); ok("reload");
   t.equal(a.net.length, 0);
 });
 
@@ -269,13 +269,13 @@ test("recorded mode never falls back to the network: a missing or empty bundle, 
   for (const [label, bundle] of [["missing", null], ["empty routes", { meta: BUNDLE.meta, routes: {} }], ["not a route table", { meta: BUNDLE.meta, routes: [] }]]) {
     const a = boot({ bundle }); await tick(30);
     t.match(a.html(), /Couldn’t read the league data/, label + ": the existing failure screen"); t.match(a.html(), /HTTP 404/, label + ": a 404-like answer from the recording");
-    t.doesNotMatch(a.html(), /Week 11 starters/); t.match(a.html(), /RECORDED DATA/, label + ": the marker still says recorded");
+    t.doesNotMatch(a.html(), /Starting lineup · /); t.match(a.html(), /RECORDED DATA/, label + ": the marker still says recorded");
     t.ok(a.misses().length >= 1, label + ": the miss is counted"); t.deepEqual(a.net, [], label + ": and nothing reached the network");
   }
   // one route missing: that read fails the way any failed read does, the rest of the screens are unaffected
   const noScores5 = JSON.parse(JSON.stringify(BUNDLE)); delete noScores5.routes[R.canonical(D.createLoader(CFG, async () => null).urls.scores(5))];
   const b = boot({ bundle: noScores5 }); await tick(60);
-  t.match(b.html(), /Week 11 starters/, "the roster still draws");
+  t.match(b.html(), /Starting lineup · /, "the roster still draws");
   await b.click({ "data-act": "sub", "data-v": "performance" }, 150);
   t.match(b.html(), /Some weeks of scores could not be read/, "Performance names the week it could not read"); t.match(b.html(), /data-act="retryperf"/);
   t.deepEqual(b.misses(), [R.canonical(D.createLoader(CFG, async () => null).urls.scores(5))], "exactly the unrecorded route is counted");
@@ -291,7 +291,7 @@ test("the config switch: live uses the supplied fetch and never the recording; a
   const a = boot({ data: "live", fetchImpl: fake }); await tick(80);
   t.ok(calls.length >= 4, "the page made its reads through the supplied fetch (" + calls.length + ")");
   calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.match(c.url, /^https:\/\/upsmflproduction\.keith-creelman\.workers\.dev\//); });
-  t.match(a.html(), /Week 11 starters/); t.match(a.html(), /<div class="envbar"><span>Preview: view only<\/span><\/div>/); t.doesNotMatch(a.html(), /RECORDED/);
+  t.match(a.html(), /Starting lineup · /); t.match(a.html(), /<div class="envbar"><span>Preview: view only<\/span><\/div>/); t.doesNotMatch(a.html(), /RECORDED/);
   t.deepEqual(a.misses(), [], "the recording was not consulted"); t.equal(a.ctx.UPS2027.recorded.misses.length, 0);
   await a.click({ "data-act": "about" }); t.match(a.html(), /Read from the league when this page opened/); t.match(a.html(), /Reload the data/); t.doesNotMatch(a.html(), /recorded snapshot/);
   await a.click({ "data-act": "close" }); await a.click({ "data-act": "help" }); t.doesNotMatch(a.html(), /Recorded data/, "no recorded-data text in live Help");

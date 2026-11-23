@@ -120,7 +120,7 @@ test("boot: loads the roster, shows the first team with starters above the bench
   const a = boot();
   t.match(a.html(), /aria-busy="true"/, "a loading state is drawn first");
   await tick(30);
-  t.match(a.html(), /Week 11 starters/); t.match(a.html(), /Blake Bombers/); t.match(a.html(), /Data as of/);
+  t.match(a.html(), /Starting lineup · /); t.match(a.html(), /Blake Bombers/); t.match(a.html(), /Data as of/);
   // the four core reads, then the two Team › Roster adds (injury status and this week's NFL games), each once
   t.deepEqual(a.calls.map((c) => c.path).sort(), ["/api/current-lineup-week", "/api/lineup-matchups", "/api/mfl-export", "/api/mfl-export", "/api/player-status", "/roster-workbench"]);
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.equal(c.opts.headers, undefined); });
@@ -129,17 +129,21 @@ test("boot: loads the roster, shows the first team with starters above the bench
 
 test("taps: expand and collapse all, open Team › Contracts, open the placeholder tabs, come back", async () => {
   const a = boot(); await tick(30);
+  // R6: Bench, Injured reserve and Taxi squad are one card each, open by default (the full list); each heading collapses its card
   const before = (a.html().match(/data-act="card"/g) || []).length;
+  t.match(a.html(), /data-g="bench" aria-expanded="true"/);
+  await a.click({ "data-act": "grp", "data-g": "bench" });
+  t.match(a.html(), /data-g="bench" aria-expanded="false"/); t.ok((a.html().match(/data-act="card"/g) || []).length < before, "the bench card closed");
+  await a.click({ "data-act": "grp", "data-g": "bench" });
+  t.equal((a.html().match(/data-act="card"/g) || []).length, before, "and opened again");
   await a.click({ "data-act": "expall" });
-  t.ok((a.html().match(/data-act="card"/g) || []).length > before, "groups opened");
+  t.ok((a.html().match(/data-act="card"/g) || []).length < before, "the (unused) expall handler still closes all three sections");
   await a.click({ "data-act": "expall" });
-  t.equal((a.html().match(/data-act="card"/g) || []).length, before, "groups closed again");
-  await a.click({ "data-act": "grp", "data-g": "bWR" });
-  t.match(a.html(), /data-g="bWR" aria-expanded="true"/);
+  t.equal((a.html().match(/data-act="card"/g) || []).length, before);
   await a.click({ "data-act": "sub", "data-v": "contracts" });
   t.match(a.html(), /Recorded salary, not cap space/); t.match(a.html(), /yrs? left/);
   await a.click({ "data-act": "sub", "data-v": "cap" }); t.match(a.html(), /Cap space is left out on purpose/);
-  await a.click({ "data-act": "nav", "data-v": "market" }); t.match(a.html(), /not in Preview 0/i); t.doesNotMatch(a.html(), /Week 11 starters/);
+  await a.click({ "data-act": "nav", "data-v": "market" }); t.match(a.html(), /not in Preview 0/i); t.doesNotMatch(a.html(), /Starting lineup · /);
   await a.click({ "data-act": "nav", "data-v": "team" }); t.match(a.html(), /Cap space is left out on purpose/, "the Team tab keeps its sub-tab");
 });
 
@@ -192,9 +196,9 @@ test("what is stored on the phone: skin, position colors and the last team, and 
 
 test("a failed read shows a retry that works; a failed calculation shows 'Not available' and a retry that works", async () => {
   const a = boot({ failRoster: 1 }); await tick(30);
-  t.match(a.html(), /Couldn’t read the league data/); t.match(a.html(), /HTTP 503/); t.doesNotMatch(a.html(), /Week 11 starters/);
+  t.match(a.html(), /Couldn’t read the league data/); t.match(a.html(), /HTTP 503/); t.doesNotMatch(a.html(), /Starting lineup · /);
   await a.click({ "data-act": "retry" }); await tick(30);
-  t.match(a.html(), /Week 11 starters/);
+  t.match(a.html(), /Starting lineup · /);
   const b = boot({ failPenalty: 1 }); await tick(30);
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await b.click({ "data-act": "card", "data-pid": pid }); await tick(20);
@@ -230,7 +234,7 @@ test("Sample mode: while it is on the page starts no new request (not a read, no
   t.match(a.html(), /Sample data · nothing is real and nothing is sent/); t.match(a.html(), /Turn Sample mode off/);
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await a.click({ "data-act": "close" });
-  t.match(a.html(), /Nothing here is real, and nothing is sent\./); t.doesNotMatch(a.html(), /Week 11 starters/);
+  t.match(a.html(), /Nothing here is real, and nothing is sent\./); t.doesNotMatch(a.html(), /Starting lineup · /);
   await a.click({ "data-act": "card", "data-pid": pid }); await tick(20);
   await a.click({ "data-act": "retry" }); await a.click({ "data-act": "retrypen" }); await tick(20);
   await a.click({ "data-act": "nav", "data-v": "market" }); await a.click({ "data-act": "nav", "data-v": "team" }); await tick(20);
@@ -243,7 +247,7 @@ test("Sample mode: while it is on the page starts no new request (not a read, no
   t.doesNotMatch(JSON.stringify(a.storage), /sample/i, "nothing about Sample mode is stored on the phone");
   // turning it off brings the real screens back
   await a.click({ "data-act": "sample" });
-  t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Preview: view only/); t.match(a.html(), /Week 11 starters/);
+  t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Preview: view only/); t.match(a.html(), /Starting lineup · /);
   // it is never remembered: a fresh page starts with it off
   const b = boot(); await tick(30); t.doesNotMatch(b.html(), /Sample data/); t.match(b.html(), /Preview: view only/);
 });
@@ -254,16 +258,16 @@ test("Sample mode switched on while the first read is out, or with a profile ope
   await a.click({ "data-act": "about" }); await a.click({ "data-act": "sample" });
   const atOn = a.calls.length; a.release(); await tick(30);
   t.equal(a.calls.length, atOn, "no request left the page after Sample mode went on, not even the rest of the load");
-  t.match(a.html(), /Sample data · nothing is real and nothing is sent/); t.doesNotMatch(a.html(), /Week 11 starters/, "the late answer was dropped, not drawn");
+  t.match(a.html(), /Sample data · nothing is real and nothing is sent/); t.doesNotMatch(a.html(), /Starting lineup · /, "the late answer was dropped, not drawn");
   t.doesNotMatch(a.html(), /Reload the data/, "Reload is paused while Sample mode is on");
   await a.click({ "data-act": "sample" }); await tick(40);
-  t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Week 11 starters/, "turning it off read the league again instead of leaving a spinner or an error");
+  t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Starting lineup · /, "turning it off read the league again instead of leaving a spinner or an error");
   // a profile that is open when Sample mode goes on is closed, and is not left stuck on the way back
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await a.click({ "data-act": "close" }); t.doesNotMatch(a.html(), /role="dialog"/, "the About sheet is closed");
   await a.click({ "data-act": "card", "data-pid": pid }); await tick(20); t.match(a.html(), /role="dialog"/);
   await a.click({ "data-act": "sample" }); t.doesNotMatch(a.html(), /role="dialog"/, "no profile is drawn in Sample mode"); t.match(a.html(), /Nothing here is real/);
-  await a.click({ "data-act": "sample" }); await tick(20); t.doesNotMatch(a.html(), /role="dialog"/); t.match(a.html(), /Week 11 starters/);
+  await a.click({ "data-act": "sample" }); await tick(20); t.doesNotMatch(a.html(), /role="dialog"/); t.match(a.html(), /Starting lineup · /);
 });
 
 test("a calculation that finishes after Sample mode went on is dropped, and the profile reads it again afterward", async () => {
@@ -300,7 +304,7 @@ test("R2: switching views, weeks and teams never asks for a read again; each add
   await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
   t.equal(a.calls.length, n0 + 2, "revisiting past weeks asks nothing");
   await a.click({ "data-act": "pickweek", "data-v": "11" }); await tick(10);
-  t.match(a.html(), /Week 11 starters/); t.equal(a.calls.length, n0 + 2, "back to the current week: nothing");
+  t.match(a.html(), /Starting lineup · /); t.equal(a.calls.length, n0 + 2, "back to the current week: nothing");
   await a.click({ "data-act": "pickweek", "data-v": "12" }); t.doesNotMatch(a.html(), /Week 12 starters/, "a later week cannot be chosen"); t.equal(a.calls.length, n0 + 2);
   const keys = asked(a); t.equal(new Set(keys).size, keys.length, "no address was asked twice in the whole visit");
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
@@ -321,7 +325,7 @@ test("R2: the injury read is asked again only when it has gone stale and the scr
 test("R2: a failed injury read says so, shows no guessed tags, and Try again recovers; a failed past week offers its own retry", async () => {
   const a = boot({ failStatus: 1, failWeek10: 1 }); await tick(40);
   t.match(a.html(), /Injury status couldn’t be loaded, so no injury tags are shown/); t.doesNotMatch(a.html(), /▲ Questionable/);
-  t.match(a.html(), /Week 11 starters/, "the roster still shows");
+  t.match(a.html(), /Starting lineup · /, "the roster still shows");
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
   t.match(a.html(), /That week’s lineup could not be read \(HTTP 502\)/); t.match(a.html(), /data-act="pickweek" data-v="10"/);
   await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(30);
@@ -344,7 +348,7 @@ test("R2: Sample mode starts no Team › Roster read either, drops one already o
   t.equal(a.calls.length, before, "tapping around in Sample mode starts nothing");
   await a.click({ "data-act": "about" }); t.match(a.html(), new RegExp("<b>" + logged + "</b> data requests"), "the loader was not even asked: its log did not grow, so the page's own guard held without the fetch guard"); await a.click({ "data-act": "close" });
   await a.click({ "data-act": "sample" }); await tick(40);
-  t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Week 11 starters/);
+  t.doesNotMatch(a.html(), /Sample data/); t.match(a.html(), /Starting lineup · /);
   t.match(a.html(), /▲ Questionable/, "the answers that arrived while Sample mode was on were kept in memory (not drawn then), so they show now");
   t.deepEqual(asked(a).slice(before).filter((k) => !/mfl-export#(8|9|10|11)/.test(k)), [], "and the held reads were not asked again; only Team › Performance, which the owner chose meanwhile, needs the four weeks of scores");
   // a read that never finished is asked for again, not waited for
@@ -354,14 +358,15 @@ test("R2: Sample mode starts no Team › Roster read either, drops one already o
   b.releaseIntel(); await tick(40); t.match(b.html(), /▲ Questionable/);
 });
 
-test("R2: the About sheet carries the bench-group setting, which is kept on the phone and changes what opens by default", async () => {
+// R6 (changed deliberately): the R2 "Bench groups" setting is retired. The three section cards are open by default, so there is no
+// "only what needs you" default left to choose; a stored old choice changes nothing, and the owner's own tap is what collapses a card.
+test("R6: the bench-group setting is retired; sections open by default; a stored old choice changes nothing; a tap collapses", async () => {
   const a = boot(); await tick(40);
-  t.match(a.html(), /data-g="bRB" aria-expanded="false"/);
-  await a.click({ "data-act": "about" }); t.match(a.html(), /Bench groups/); await a.click({ "data-act": "gdef", "data-v": "all" });
-  t.equal(a.storage["ups2027-p0-gdef"], "all"); await a.click({ "data-act": "close" });
-  t.match(a.html(), /data-g="bRB" aria-expanded="true"/);
-  const b = boot({ stored: { "ups2027-p0-gdef": "all" } }); await tick(40); t.match(b.html(), /data-g="bRB" aria-expanded="true"/, "a fresh page remembers it");
-  await a.click({ "data-act": "grp", "data-g": "bRB" }); t.match(a.html(), /data-g="bRB" aria-expanded="false"/, "an owner's own tap still wins over the default");
+  t.match(a.html(), /data-g="bench" aria-expanded="true"/);
+  await a.click({ "data-act": "about" }); t.doesNotMatch(a.html(), /Bench groups|data-act="gdef"/); await a.click({ "data-act": "close" });
+  const b = boot({ stored: { "ups2027-p0-gdef": "all" } }); await tick(40); t.equal(b.html().replace(/Build [^<]*/, ""), a.html().replace(/Build [^<]*/, ""), "an old stored choice draws the same page");
+  await a.click({ "data-act": "grp", "data-g": "taxi" }); t.match(a.html(), /data-g="taxi" aria-expanded="false"/, "an owner's own tap collapses a card");
+  t.equal(a.storage["ups2027-p0-gdef"], undefined, "nothing about it is stored");
 });
 
 // ───────────────────────── stage R2b: one week context, in the running page ─────────────────────────
@@ -385,8 +390,8 @@ test("R2b: a chosen past week is kept across Byes, which always shows today; goi
   t.equal(a.calls.length, n, "switching between the past and the present views asks for nothing");
   // choosing the current week again returns every view to the present
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "11" }); await tick(5);
-  t.match(a.html(), /Week 11 starters/); t.doesNotMatch(a.html(), /class="wsel past"/);
-  await a.click({ "data-act": "view", "data-v": "lineup" }); t.match(a.html(), /Week 11 starters/);
+  t.match(a.html(), /Starting lineup · /); t.doesNotMatch(a.html(), /class="wsel past"/);
+  await a.click({ "data-act": "view", "data-v": "lineup" }); t.match(a.html(), /Starting lineup · /);
   t.equal(a.calls.length, n); a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 
