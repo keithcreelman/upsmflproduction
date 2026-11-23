@@ -167,7 +167,10 @@ test("an ambiguous week changes only that player's eligibility bounds; other pla
 test("xFP gate: no source file reads a modeled value; xFP PPG and Over Expectations render exactly 'Not Available' on every card, whatever the state carries; exports carry no value", async () => {
   const files = ["app.js", ...fs.readdirSync(path.join(SRC, "lib")).map((f) => "lib/" + f)].filter((f) => f.endsWith(".js"));
   files.forEach((f) => { const src = fs.readFileSync(path.join(SRC, f), "utf8"); const hits = (src.match(/xfp/gi) || []).length, labels = (src.match(/xFP PPG/g) || []).length; t.equal(hits, labels, f + ": every 'xfp' is the label 'xFP PPG' (no identifier, field, route or file)"); t.doesNotMatch(src, /expected_?points|overExpect[a-z]*\s*[:=]\s*(?!null\b)[^\s]|xfp_20|wire\/data/i, f + ": no model field or file"); });
-  const dataSrc = fs.readFileSync(path.join(SRC, "lib/data.js"), "utf8"); t.doesNotMatch(dataSrc, /projectedScores|projection|xfp/i, "no projection or model read on the allowlist");
+  // R7 (Keith, 2026-11-23, decision 5: integrate the stored-projection read): the one projection read allowed is the stored, kickoff-frozen
+  // /api/player-projections; MFL's live projectedScores export and every model (xFP) read stay off the allowlist
+  const dataSrc = fs.readFileSync(path.join(SRC, "lib/data.js"), "utf8"); t.doesNotMatch(dataSrc, /projectedScores|xfp/i, "no live projection or model read on the allowlist");
+  t.deepEqual(D.RULES.map((r) => r.path).filter((p) => /proj|xfp|expect|model/i.test(p)), ["/api/player-projections"], "the stored-projection route is the only projection path");
   const I = await intel(); I.xfp = { state: "ok", data: { [ID.purdy]: 987.65 } }; I.model = { [ID.purdy]: { xfp: 987.65, overExpectations: 876.54 } };
   const S = state({ intel: I, xfp: { [ID.purdy]: 987.65 } }); S.model.byId[ID.purdy].xfp = 987.65; S.model.byId[ID.purdy].xfpPpg = 987.65; S.model.byId[ID.purdy].overExpectations = 876.54; S.model.byId[ID.purdy].projected = 765.43;
   S.pf = { s: "pos", open: Object.fromEntries(actives(S).map((p) => [p.id, true])), res: {} };

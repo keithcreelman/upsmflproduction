@@ -40,6 +40,34 @@
   // Every unrecorded route any answer function made, in order (a test reads it; an empty list means nothing was missing).
   var misses = [];
 
+  // R7: the projection read names its players in its address (ids=a,b,c), and which players a screen asks for is the screen's choice, so the recording keeps
+  // the answers by canonical route (groups of at most 80 ids, ascending, as the route takes them) and a request for any set of RECORDED ids of the same
+  // season and week is answered with exactly those ids' recorded entries (in the order asked). If even one asked id was not recorded, the whole read is a
+  // miss: nothing is made up for a player who was not recorded (the route's own "null" means "no stored projection", which the recording cannot claim for him).
+  var PROJ = "/api/player-projections";
+  function queryOf(key) {
+    var q = key.indexOf("?"), o = {};
+    (q < 0 ? "" : key.slice(q + 1)).split("&").forEach(function (p) { if (!p) return; var e = p.indexOf("="); o[dec(e < 0 ? p : p.slice(0, e))] = dec(e < 0 ? "" : p.slice(e + 1)); });
+    return o;
+  }
+  function projectionSubset(routes, key) {
+    if (key.slice(0, PROJ.length + 1) !== PROJ + "?") return null;
+    var want = queryOf(key), ids = String(want.ids || "").split(",");
+    if (!want.season || !want.week || !ids.length || ids.some(function (x) { return !/^\d+$/.test(x); })) return null;
+    var have = {}, provider = null, sample = null;
+    Object.keys(routes).forEach(function (k) {
+      if (k.slice(0, PROJ.length + 1) !== PROJ + "?") return;
+      var q = queryOf(k), r = routes[k];
+      if (q.season !== want.season || q.week !== want.week || !r || r.ok !== true || !r.projections) return;
+      sample = r; if (provider === null) provider = r.provider;
+      Object.keys(r.projections).forEach(function (id) { have[id] = r.projections[id]; });
+    });
+    if (!sample) return null;
+    var out = {};
+    for (var i = 0; i < ids.length; i++) { if (!Object.prototype.hasOwnProperty.call(have, ids[i])) return null; out[ids[i]] = have[ids[i]]; }
+    return { ok: true, season: sample.season, week: sample.week, provider: provider, projections: out };
+  }
+
   function createFetch(bundle) {
     var routes = bundle && typeof bundle === "object" && bundle.routes && typeof bundle.routes === "object" && !Array.isArray(bundle.routes) ? bundle.routes : null;
     var texts = {};
@@ -50,6 +78,14 @@
       var verb = opts && opts.method != null ? String(opts.method).toUpperCase() : "GET";
       var key = canonical(url);
       if (verb !== "GET") { miss(verb + " " + key); return Promise.reject(new Error("Recorded data answers GET only")); }
+      if (routes && !Object.prototype.hasOwnProperty.call(routes, key)) {
+        var sub = projectionSubset(routes, key);
+        if (sub) {
+          served.push(key);
+          var subText = JSON.stringify(sub);
+          return Promise.resolve({ ok: true, status: 200, text: function () { return Promise.resolve(subText); }, json: function () { return Promise.resolve(JSON.parse(subText)); } });
+        }
+      }
       if (!routes || !Object.prototype.hasOwnProperty.call(routes, key)) {
         miss(key);
         return Promise.resolve({ ok: false, status: 404, text: function () { return Promise.resolve(""); }, json: function () { return Promise.reject(new Error("Not in the recorded snapshot")); } });
@@ -65,5 +101,5 @@
     return answer;
   }
 
-  return { canonical: canonical, createFetch: createFetch, misses: misses };
+  return { canonical: canonical, createFetch: createFetch, misses: misses, projectionSubset: projectionSubset };
 });

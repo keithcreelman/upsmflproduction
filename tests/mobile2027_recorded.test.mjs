@@ -46,7 +46,7 @@ const ROSTER_ROUTE = R.canonical("/roster-workbench?L=74598&YEAR=2026");
 // ───────────────────────── (a) the bundle ─────────────────────────
 test("the committed bundle: meta, canonical keys, the recording's routes, and a size under the cap", () => {
   t.deepEqual(Object.keys(BUNDLE).sort(), ["meta", "routes"]);
-  t.deepEqual(Object.keys(BUNDLE.meta).sort(), ["league", "note", "recordedAt", "routeCount", "season", "source"]);
+  t.deepEqual(Object.keys(BUNDLE.meta).sort(), ["league", "note", "parts", "recordedAt", "routeCount", "season", "source"]);
   const earliest = MANIFEST.items.map((i) => Date.parse(i.retrieved_at)).sort((a, b) => a - b)[0];
   t.equal(BUNDLE.meta.recordedAt, new Date(earliest).toISOString().replace(/\.\d{3}Z$/, "Z"), "recordedAt is the earliest retrieved_at, in UTC");
   t.equal(BUNDLE.meta.recordedAt, "2026-11-22T15:22:25Z");
@@ -67,8 +67,97 @@ test("the committed bundle: meta, canonical keys, the recording's routes, and a 
   const asked = [u.roster, u.league, u.week, u.players, u.penalty, u.status, u.matchups(11), u.nextSeason, u.byes, u.fullSchedule, u.schedule(10), u.schedule(11)];
   for (let w = 1; w <= 11; w++) asked.push(u.weekly(w), u.scores(w));
   asked.forEach((a) => t.ok(Object.prototype.hasOwnProperty.call(BUNDLE.routes, R.canonical(a)), "recorded: " + a.replace(/^https:\/\/[^/]+/, "")));
+  // R7: game stats for every bundled player, one position-season answer per group through the recording's settled week (10), and Week 11 projections
+  BOX_IDS.forEach((id) => t.ok(Object.prototype.hasOwnProperty.call(BUNDLE.routes, R.canonical(u.box(id))), "recorded: game stats " + id));
+  D.POSITION_GROUPS.forEach((g) => t.ok(Object.prototype.hasOwnProperty.call(BUNDLE.routes, R.canonical(u.positionStats("2026", 10, g))), "recorded: season totals " + g));
   t.ok(Buffer.byteLength(BUNDLE_TEXT) < SIZE_CAP, "the bundle is under " + SIZE_CAP + " bytes (" + Buffer.byteLength(BUNDLE_TEXT) + ")");
   t.equal(GEN.render(BUNDLE), BUNDLE_TEXT, "the file is exactly what the generator writes for its own content (deterministic, and not edited by hand)");
+});
+
+// ───────────────────────── R7: the added captures ─────────────────────────
+const BOX_IDS = MANIFEST.items.filter((i) => i.path.startsWith("/api/player-weekly-box?")).map((i) => new URL("http://x" + i.path).searchParams.get("mfl_id"));
+const REPRESENTATIVE = ["16185", "14782", "16162", "16641", "17556", "16719", "13214", "13832", "14985", "10700", "14182", "17149"];
+const DRAFT_SHA = "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030";
+test("R7 manifest matches the bundle: each part with its own capture time and source, the draft answers name draft #1515 and its commit, rows_read recorded", () => {
+  const parts = BUNDLE.meta.parts;
+  t.deepEqual(parts.map((p) => p.label), ["league data", "game stats", "position season totals", "projections"]);
+  t.deepEqual(parts.map((p) => p.routes), [34, 117, 9, 7]);
+  t.equal(parts[0].from, "2026-11-22T15:22:25Z", "the base recording keeps its own time"); t.equal(parts[0].source, "public read-only routes of the UPS Worker");
+  t.match(parts[1].source, /deployed UPS Worker's public \/api\/player-weekly-box/); t.ok(parts[1].from >= "2026-11-23T03:00:00Z" && parts[1].to <= "2026-11-23T04:00:00Z", "game stats captured on their own, later");
+  [parts[2], parts[3]].forEach((p) => t.equal(p.source, "draft #1515 SQL run read-only"));
+  const byKind = (k) => MANIFEST.items.filter((i) => GEN.kindOfRoute(R.canonical(i.path)) === k);
+  t.equal(byKind("box").length, 117); t.equal(byKind("positionStats").length, 9); t.equal(byKind("projections").length, 7);
+  byKind("box").forEach((i) => { t.equal(i.origin, "worker-get"); t.equal(i.status, 200); });
+  byKind("positionStats").concat(byKind("projections")).forEach((i) => { t.equal(i.origin, "draft-sql", i.key); t.equal(i.draft_sha, DRAFT_SHA, i.key); t.match(i.source, /^draft #1515 SQL run read-only on 2026-11-23T03:1\dZ?/, i.key); });
+  REPRESENTATIVE.forEach((id) => t.ok(BOX_IDS.includes(id), "a representative case is bundled: " + id));
+  const team = (fid) => BUNDLE.routes[ROSTER_ROUTE].teams.find((x) => x.franchise_id === fid).players.map((p) => String(p.id)).filter((x) => /^\d+$/.test(x));
+  ["0010", "0009", "0008"].forEach((fid) => team(fid).forEach((id) => t.ok(BOX_IDS.includes(id), "every rostered player of " + fid + ": " + id)));
+  const add = MANIFEST.r7_additions;
+  t.equal(add.draft_routes.commit, DRAFT_SHA); t.equal(add.draft_routes.pr, 1515);
+  t.equal(add.draft_routes.total_rows_read, add.draft_routes.runs.reduce((a, r) => a + r.rows_read, 0)); t.ok(add.draft_routes.total_rows_read <= 120000, "within the 120k rows_read budget (" + add.draft_routes.total_rows_read + ")");
+  add.draft_routes.runs.forEach((r) => t.equal(r.rows_written, 0, r.query + ": nothing written"));
+  add.draft_routes.explain.forEach((e) => t.ok(e.plan.every((d) => /^SEARCH .* USING (COVERING )?INDEX|^SCAN player_id_map$/.test(d)), e.query + ": indexed (or the small id-map scan the draft does): " + e.plan.join("; ")));
+  t.equal(add.game_stats.requests, 117); t.equal(add.game_stats.answered_200, 117); t.match(add.game_stats.worker.version_id, /^[0-9a-f-]{36}$/);
+  t.doesNotMatch(JSON.stringify(MANIFEST), /@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/, "no e-mail address in the manifest");
+});
+
+test("R7 trimming: game stats keep exactly the fields lib/boxlog.js reads for the player's own position; season totals keep only the fields named, no gsis id", () => {
+  // the generator's field lists are lib/boxlog.js's own (read from its source)
+  const src = read("lib/boxlog.js"), list = (name) => JSON.parse("[" + new RegExp("var " + name + " = \\[([^\\]]*)\\]").exec(src)[1] + "]");
+  t.deepEqual(GEN.BOX_NUM, list("BOX_NUM")); t.deepEqual(GEN.RZ_NUM, list("RZ_NUM")); t.deepEqual(GEN.SNAP_NUM, list("SNAP_NUM"));
+  const PL = GEN.positionsOf(BUNDLE.routes[R.canonical("/api/mfl-export?TYPE=players&L=74598&YEAR=2026&JSON=1")]);
+  BOX_IDS.forEach((id) => {
+    const k = R.canonical("/api/player-weekly-box?season=2026&mfl_id=" + id + "&L=74598"), b = BUNDLE.routes[k], g = GEN.GROUP_FIELDS[GEN.groupFor(PL[id])];
+    t.ok(g, id + " has a known position (" + PL[id] + ")");
+    t.deepEqual(GEN.sanitizeRoute(k, b, { positions: PL }), b, id + ": re-running the allowlist removes nothing");
+    b.weeks.forEach((w) => { if (w.box) t.deepEqual(Object.keys(w.box).filter((f) => !g.box.includes(f) && !["team", "opponent", "position"].includes(f)), [], id + " W" + w.week + ": no field of another position"); });
+  });
+  D.POSITION_GROUPS.forEach((grp) => {
+    const a = BUNDLE.routes[R.canonical("/api/position-season-stats?season=2026&through=10&group=" + grp)], g = GEN.GROUP_FIELDS[GEN.groupFor(grp)];
+    t.equal(a.ok, true); t.equal(a.group, grp); t.equal(a.through, 10); t.equal(a.season, 2026); t.ok(a.players.length > 30, grp + ": a league-wide pool (" + a.players.length + ")");
+    t.deepEqual(a.fields.filter((f) => !g.season.includes(f)), [], grp + ": fields trimmed");
+    a.players.forEach((p) => { t.equal(p.gsis_id, undefined); t.deepEqual(Object.keys(p.s).filter((f) => !g.season.includes(f)), []); });
+  });
+  const pr = Object.keys(BUNDLE.routes).filter((k) => k.startsWith("/api/player-projections?")).map((k) => BUNDLE.routes[k]);
+  pr.forEach((a) => { t.equal(a.week, 11); t.equal(a.provider, "MFL projectedScores (captured)"); Object.values(a.projections).forEach((e) => { if (e) { t.ok(typeof e.captured_at === "string" && typeof e.first_captured_at === "string", "capture times kept"); } }); });
+  t.equal(pr.reduce((n, a) => n + Object.keys(a.projections).length, 0), 486, "every rostered player has an answer (null when no row is stored)");
+});
+
+test("R7 loaders in recorded mode: game stats, Week 11 projections (any recorded subset) and season totals come from the recording; an unrecorded player is a counted miss; never the network", async () => {
+  const net = [], rf = R.createFetch(BUNDLE);
+  const L = D.createLoader(Object.assign({}, CFG, { data: "recorded" }), (u, o) => rf(u, o));
+  const bx = await L.loadWeeklyBox("16185"); t.equal(bx.state, "ok"); t.equal(bx.data.mfl_id, "16185"); t.equal(bx.data.box_through_week, 10);
+  const pj = await L.projections("2026", 11, ["16185", "10700", "14782"]); t.equal(pj.state, "ok"); t.deepEqual(Object.keys(pj.data.projections), ["10700", "14782", "16185"], "ascending");
+  const one = BUNDLE.routes[Object.keys(BUNDLE.routes).find((k) => k.startsWith("/api/player-projections?") && BUNDLE.routes[k].projections["10700"] !== undefined)].projections["10700"];
+  t.deepEqual(pj.data.projections["10700"], one, "exactly the recorded entry");
+  const ps = await L.positionSeasonStats("2026", 10, "WR"); t.equal(ps.state, "ok"); t.ok(ps.data.players.some((p) => p.mfl_id === "16185"), "Smith-Njigba is in the WR pool");
+  t.deepEqual(rf.misses, [], "nothing missing so far");
+  // a player outside the recorded set: his game-stats read and a projection read naming him are misses (404-like, counted) and come back "absent"
+  const outside = BUNDLE.routes[ROSTER_ROUTE].teams.find((x) => x.franchise_id === "0001").players.map((p) => String(p.id)).find((id) => /^\d+$/.test(id) && !BOX_IDS.includes(id));
+  t.equal((await L.loadWeeklyBox(outside)).state, "absent"); t.equal(rf.misses.length, 1, "counted");
+  t.equal((await L.projections("2026", 11, ["16185", "99999"])).state, "absent", "an id that was not recorded is never answered as 'no projection'"); t.equal(rf.misses.length, 2);
+  t.equal((await L.positionSeasonStats("2026", 9, "WR")).state, "absent", "another cutoff week was not recorded"); t.equal(rf.misses.length, 3);
+  t.equal((await L.loadWeeklyBox(outside)).state, "absent"); t.equal(rf.misses.length, 3, "an absent read is kept, not asked again in a loop");
+  t.deepEqual(net, []);
+});
+
+test("R7 loaders in live mode: the two draft routes answer 404 until #1515 is deployed; that is 'absent', asked once per freshness window, never an error storm", async () => {
+  const calls = []; let now = 1_800_000_000_000; const real = Date.now; Date.now = () => now;
+  try {
+    const L = D.createLoader(Object.assign({}, CFG, { data: "live" }), async (url, opts) => { calls.push({ url, opts }); return { ok: false, status: 404, text: async () => "" }; });
+    for (let i = 0; i < 5; i++) { t.equal((await L.projections("2026", 11, ["16185"])).state, "absent"); t.equal((await L.positionSeasonStats("2026", 10, "WR")).state, "absent"); }
+    t.equal(calls.length, 2, "one request per address, then kept");
+    now += 61 * 60 * 1000; await L.projections("2026", 11, ["16185"]); await L.positionSeasonStats("2026", 10, "WR"); t.equal(calls.length, 4, "asked again only after the freshness limit");
+    calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.equal(c.opts.headers, undefined); t.equal(c.opts.body, undefined); t.ok(D.check(c.url, CFG.workerBase).ok, c.url); });
+    t.equal(L.summary().refused, 0);
+    // more than 80 ids go in groups of at most 80 (the route's limit), each a valid address
+    const many = Array.from({ length: 170 }, (_, i) => String(10000 + i)); calls.length = 0;
+    await L.projections("2026", 11, many); t.equal(calls.length, 3); calls.forEach((c) => t.ok(new URL(c.url).searchParams.get("ids").split(",").length <= D.PROJECTION_IDS));
+    // refused before any request
+    const n = calls.length;
+    t.equal((await L.projections("2026", 11, ["1&L=2"])).state, "error"); t.equal((await L.positionSeasonStats("2026", 10, "XX")).state, "error"); t.equal((await L.positionSeasonStats("2026", 19, "WR")).state, "error");
+    t.equal(calls.length, n, "nothing asked for a bad id, group or week");
+  } finally { Date.now = real; }
 });
 
 test("the bundle holds only allowlisted fields, nothing heavy the app never reads, and nothing that looks like a secret or private text", () => {
@@ -232,16 +321,28 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   for (const s of ["tot", "ppg", "pos"]) await a.click({ "data-act": "pfs", "data-v": s });
   const pf = /data-act="pfx" data-v="(\d+)"/.exec(a.html()); t.ok(pf, "performance rows");
   await a.click({ "data-act": "pfx", "data-v": pf[1] }, 150); t.match(a.html(), /data-act="pfx" data-v="\d+" aria-expanded="true"/);
-  t.match(a.html(), /data-bdpid="\d+"/, "the main card's Breakdown opens the game log"); t.match(a.html(), /Game stats aren’t in this recording/, "recorded mode: no game-stats read, said once");
+  t.match(a.html(), /data-bdpid="\d+"/, "the main card's Breakdown opens the game log");
+  // R7: the default team's players have recorded game stats: the Breakdown draws its views from the recording (no "not in this recording" line)
+  t.doesNotMatch(a.html(), /Game stats aren’t in this recording/, "R7: recorded game stats are shown"); t.match(a.html(), /data-act="bdv"/, "the Breakdown's views");
+  // xFP and Over Expectations stay Not Available on every card (the lock), and the projection slot is week-labeled
+  const cards = a.html().split('data-act="pfx"').length - 1;
+  t.equal((a.html().match(/<span>xFP PPG<\/span><b><span class="na">Not Available<\/span><\/b>/g) || []).length >= 1, true, "xFP PPG Not Available");
+  t.doesNotMatch(a.html(), /<span>xFP PPG<\/span><b>(?!<span class="na">Not Available)/, "no xFP value anywhere"); t.doesNotMatch(a.html(), /<span>Over Expectations<\/span><b>(?!<span class="na">Not Available)/, "no Over Expectations value anywhere");
+  t.ok(cards > 5, "performance cards drawn (" + cards + ")");
   ok("performance sorts and rows");
   // a profile and its tabs, including the game log and the earlier weeks
   const pid = FIRST.players[0].id;
   await a.click({ "data-act": "card", "data-pid": pid }, 60); t.match(a.html(), /role="dialog"/); t.match(a.html(), /Player profile/);
   t.match(a.html(), /Earned to date/); ok("profile");
   await a.click({ "data-act": "ptab", "data-v": "perf" }, 100); t.match(a.html(), /Game log/); ok("profile performance");
-  // R6: the Breakdown in recorded mode: the fantasy history through Week 10 and one line; the game-stats read is answered "absent" with no request and no miss
-  t.match(a.html(), /Game stats aren’t in this recording/); t.match(a.html(), /<b>W10<\/b>/); t.match(a.html(), /<b>W1<\/b>/); t.doesNotMatch(a.html(), /data-act="bdv"/);
+  // R7: the Breakdown in recorded mode draws the recorded game stats: every view, then one game's detail, all from the recording (no miss, no network)
+  t.ok(BOX_IDS.includes(String(pid)), "the default team's first player has recorded game stats");
+  t.doesNotMatch(a.html(), /Game stats aren’t in this recording/); t.match(a.html(), /<b>W10<\/b>/); t.match(a.html(), /<b>W1<\/b>/);
+  const views = [...new Set([...a.html().matchAll(new RegExp('data-act="bdv" data-v="([a-z]+)" data-pid="' + pid + '"', "g"))].map((m) => m[1]))];
+  t.ok(views.length >= 2, "his views: " + views.join(", "));
+  for (const v of views) { await a.click({ "data-act": "bdv", "data-v": v, "data-pid": pid }, 20); t.match(a.html(), new RegExp('data-act="bdv" data-v="' + v + '" data-pid="' + pid + '" aria-pressed="true"'), "view " + v); ok("breakdown view " + v); }
   await a.click({ "data-act": "bdg", "data-v": "10", "data-pid": pid }, 30); t.match(a.html(), /<tr class="bdd">/); ok("breakdown game detail");
+  t.match(a.html(), /Proj\./, "the projection slot is drawn"); t.doesNotMatch(a.html(), /<span>xFP PPG<\/span><b>(?!<span class="na">Not Available)/, "xFP stays Not Available in the profile");
   await a.click({ "data-act": "ptab", "data-v": "more" }); await a.click({ "data-act": "ptab", "data-v": "sched" }); await a.click({ "data-act": "ptab", "data-v": "contract" });
   await a.click({ "data-act": "tog", "data-v": "cut" }); ok("profile tabs");
   await a.click({ "data-act": "close" });
@@ -266,6 +367,19 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   // a reload re-reads the recording
   await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "about" }); await a.click({ "data-act": "retry" }, 80); t.match(a.html(), /Starting lineup · /); ok("reload");
   t.equal(a.net.length, 0);
+});
+
+test("R7: a player whose game stats were not recorded: his Breakdown says so once, his read is a counted miss, and nothing reaches the network", async () => {
+  const a = boot();
+  await tick(80);
+  const team = BUNDLE.routes[ROSTER_ROUTE].teams.find((x) => x.franchise_id === "0001");
+  await a.click({ "data-act": "teams" }); await a.click({ "data-act": "pickteam", "data-fid": "0001" }, 40);
+  const pid = team.players.map((p) => String(p.id)).find((id) => /^\d+$/.test(id) && !BOX_IDS.includes(id));
+  await a.click({ "data-act": "card", "data-pid": pid }, 60); await a.click({ "data-act": "ptab", "data-v": "perf" }, 100);
+  t.match(a.html(), /Game stats aren’t in this recording; the log shows fantasy points only\./);
+  t.equal((a.html().match(/Game stats aren’t in this recording/g) || []).length, 1, "said once");
+  t.deepEqual(a.misses(), [R.canonical("/api/player-weekly-box?season=2026&mfl_id=" + pid + "&L=74598")], "the one unrecorded read, counted");
+  t.deepEqual(a.net, [], "no network attempt");
 });
 
 test("recorded mode never falls back to the network: a missing or empty bundle, or one without a route, shows the normal failure", async () => {
