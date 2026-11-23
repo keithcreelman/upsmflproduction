@@ -379,5 +379,25 @@
     return { strip: strip, log: log };
   }
 
-  return { evaluate: evaluate, logFor: logFor, weeksNeeded: weeksNeeded, clubByeMap: clubByeMap, roundHalfUp1: roundHalfUp1 };
+  // R6 (Keith 2026-11-23, section 6): the ONE supported week W* that Tot. Pts., Actual PPG, both ranks and the season rollups run through.
+  //   L = the last week in which every NFL game is final (lib/complete.js). The history the per-game eligibility needs must be settled through W* too.
+  //   - history through >= L ("complete")                 -> W* = L
+  //   - history one week behind, through = L - 1           -> W* = L - 1 ("history_behind"): every figure waits; nothing mixes Week L figures with a Week L-1 rank.
+  //     This is the expected refresh lag (#1494 W1-F); with one week for everything, n, S and U share a base and the one-week-behind conflict cannot arise.
+  //   - history unavailable (not served yet, malformed, or a reason the Worker names) -> W* = L ("history_unavailable"): no eligibility exists for anyone,
+  //     so the PPG rank is "—" for all and nothing else waits on it (the recorded preview: W1/#1498 is not deployed).
+  //   - history two or more weeks behind ("history_stale") -> W* = L and the history is treated as unavailable, as before: a broadly stale feed does not drag
+  //     every figure back; it withholds only the PPG rank. (Interpretation for Keith to confirm.)
+  // -> { week, allFinal: L, reason, historyThrough } ; week null when L is not a week.
+  function seasonCutoff(L, hist) {
+    if (!isInt(L) || L < 1) return { week: null, allFinal: L, reason: "no_complete_week", historyThrough: null };
+    var H = checkHist(hist, L);
+    if (!H.ok) return { week: L, allFinal: L, reason: "history_unavailable", historyThrough: null, history: H.reason };
+    var gap = L - Math.min(H.through, L);
+    if (gap === 0) return { week: L, allFinal: L, reason: "complete", historyThrough: H.through };
+    if (gap === 1) return { week: L - 1, allFinal: L, reason: "history_behind", historyThrough: H.through };
+    return { week: L, allFinal: L, reason: "history_stale", historyThrough: H.through };
+  }
+
+  return { evaluate: evaluate, logFor: logFor, weeksNeeded: weeksNeeded, clubByeMap: clubByeMap, roundHalfUp1: roundHalfUp1, seasonCutoff: seasonCutoff };
 });
