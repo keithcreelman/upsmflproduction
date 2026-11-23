@@ -141,7 +141,7 @@ test("taps: expand and collapse all, open Team › Contracts, open the placehold
   await a.click({ "data-act": "expall" });
   t.equal((a.html().match(/data-act="card"/g) || []).length, before);
   await a.click({ "data-act": "sub", "data-v": "contracts" });
-  t.match(a.html(), /Recorded salary, not cap space/); t.match(a.html(), /yrs? left/);
+  t.match(a.html(), /Cap space · 2026 season/); t.match(a.html(), /Expires 20\d\d/);
   await a.click({ "data-act": "sub", "data-v": "cap" }); t.match(a.html(), /Cap space is left out on purpose/);
   await a.click({ "data-act": "nav", "data-v": "market" }); t.match(a.html(), /not in Preview 0/i); t.doesNotMatch(a.html(), /Starting lineup · /);
   await a.click({ "data-act": "nav", "data-v": "team" }); t.match(a.html(), /Cap space is left out on purpose/, "the Team tab keeps its sub-tab");
@@ -401,7 +401,7 @@ const scoreReads = (a) => a.calls.filter((c) => c.type === "playerScores").map((
 test("R3: Team › Contracts paints the table first and says Loading… for the guarantee column; the answer then fills it; nothing is $0 while it is out", async () => {
   const a = boot({ holdPen: true }); await tick(40); const n = a.calls.length;
   await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(5);
-  t.match(a.html(), /Recorded salary, not cap space/); t.match(a.html(), /Remaining guarantee/); t.match(a.html(), /Loading…/, "the guarantee column says Loading");
+  t.match(a.html(), /Cap space · 2026 season/); t.match(a.html(), /Remaining guarantee/); t.match(a.html(), /Loading…/, "the guarantee column says Loading");
   t.doesNotMatch(a.html(), /Fully earned|Not applicable/); t.doesNotMatch(a.html(), /<b>\$0<\/b>/);
   t.deepEqual(a.calls.slice(n).map((c) => c.path + (c.type ? ":" + c.type : "")), ["/api/cap-penalty/preview", "/api/mfl-export:players"], "the extra reads are the guarantee calculation, asked after the table was drawn, and MFL's player list (PR A)");
   a.releasePen(); await tick(30);
@@ -524,16 +524,16 @@ test("PR A: Contracts reads nothing for next season until the next-season row is
   await a.click({ "data-act": "nsx" }); await tick(20);
   t.equal(ns(a).length, 1); t.equal(ns(a)[0].opts.method, "GET"); t.equal(ns(a)[0].opts.credentials, "omit"); t.equal(ns(a)[0].opts.headers, undefined);
   t.deepEqual([...new URL(ns(a)[0].url).searchParams.keys()].sort(), ["L", "YEAR"]);
-  t.match(a.html(), /UPS ledger amounts, not yet on MFL/); t.match(a.html(), /adjustments \+\$4,000/);
-  await a.click({ "data-act": "ctcat", "data-v": "y27Cut Penalty" }); t.match(a.html(), /Tyreek Hill/, "named by his id from MFL's complete player list"); t.match(a.html(), /Cut Aug 31, 2026 · Charged to 2027/, "2026-09-01T00:00:00Z is 8:00 PM ET on Aug 31"); t.doesNotMatch(a.html(), /Player Unknown|Name In Text|Missed nomination/);
+  t.match(a.html(), /Recorded by UPS; on MFL after the rollover/); t.match(a.html(), /Total adjustments<\/b><b>\+\$4,000/);
+  await a.click({ "data-act": "ctcat", "data-v": "y27cut" }); t.match(a.html(), /Tyreek Hill/, "named by his id from MFL's complete player list"); t.match(a.html(), /Cut Aug 31, 2026/, "2026-09-01T00:00:00Z is 8:00 PM ET on Aug 31"); t.doesNotMatch(a.html(), /Player Unknown|Name In Text|Missed nomination/);
   await a.click({ "data-act": "nsx" }); await a.click({ "data-act": "nsx" }); await tick(10);
   t.equal(ns(a).length, 1, "closing and reopening the row reuses the answer");
   const b = boot({ failNext: 1 }); await tick(30);
   await b.click({ "data-act": "sub", "data-v": "contracts" }); await b.click({ "data-act": "nsx" }); await tick(20);
   t.match(b.html(), /Couldn’t load this/); t.match(b.html(), /data-act="retryns"/); t.match(b.html(), /<button class="btn" disabled aria-disabled="true">Report bug<\/button>/);
-  t.doesNotMatch(b.html(), /adjustments \+\$/, "a failed read shows no amount");
+  t.doesNotMatch(b.html(), /Total adjustments<\/b><b>\+\$/, "a failed read shows no amount");
   await b.click({ "data-act": "retryns" }); await tick(20);
-  t.equal(ns(b).length, 2); t.match(b.html(), /adjustments \+\$4,000/); t.doesNotMatch(b.html(), /Couldn’t load this/);
+  t.equal(ns(b).length, 2); t.match(b.html(), /Total adjustments<\/b><b>\+\$4,000/); t.doesNotMatch(b.html(), /Couldn’t load this/);
   b.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 
@@ -551,7 +551,7 @@ await test("PR A review: an open next-season row is asked again after Sample mod
   await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(15);
   const opened = a.click({ "data-act": "nsx" }); // the read starts and is still in flight when Sample mode is switched on and off
   await a.click({ "data-act": "sample" }); await a.click({ "data-act": "sample" }); await opened; await tick(40);
-  t.match(a.html(), /adjustments \+\$4,000/); t.doesNotMatch(a.html(), /Loading…/);
+  t.match(a.html(), /Total adjustments<\/b><b>\+\$4,000/); t.doesNotMatch(a.html(), /Loading…/);
 });
 
 // ---- PR B: fixes from the independent code review of 62bc56bd
@@ -661,29 +661,29 @@ test("PR A revision: Contracts asks for MFL's complete player list once (a bare 
   t.deepEqual([...new URL(pl(a)[0].url).searchParams.keys()].sort(), ["JSON", "L", "TYPE", "YEAR"]); t.equal(new URL(pl(a)[0].url).searchParams.get("TYPE"), "players");
   t.deepEqual(a.calls.slice(n).map((c) => c.path + (c.type ? ":" + c.type : "")).sort(), ["/api/cap-penalty/preview", "/api/mfl-export:players"], "the guarantee calculation and the player list: nothing else");
   await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "sub", "data-v": "contracts" }); await a.click({ "data-act": "nav", "data-v": "market" }); await a.click({ "data-act": "nav", "data-v": "team" }); await tick(20);
-  await a.click({ "data-act": "cts", "data-v": "sal" }); await a.click({ "data-act": "cty", "data-v": "1" }); await a.click({ "data-act": "ctbd" }); await a.click({ "data-act": "nsx" }); await tick(30); await a.click({ "data-act": "ctcat", "data-v": "y27Cut Penalty" });
+  await a.click({ "data-act": "cts", "data-v": "sal" }); await a.click({ "data-act": "cty", "data-v": "1" }); await a.click({ "data-act": "ctbd" }); await a.click({ "data-act": "nsx" }); await tick(30); await a.click({ "data-act": "ctcat", "data-v": "y27cut" });
   t.equal(pl(a).length, 1, "coming back, sorting and opening a row ask for the list no more");
   t.equal(a.calls.filter((c) => c.path === "/api/cap-adjustments/next-season").length, 1, "the 2027 row still makes its one read, when it is opened");
-  t.match(a.html().replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /Tyreek Hill Cut Aug 31, 2026 · Charged to 2027/, "no tap needed to name him: the list was already in memory");
+  t.match(a.html().replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /Tyreek Hill Cut Aug 31, 2026/, "no tap needed to name him: the list was already in memory");
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 
 test("PR A revision: while the player list is out a name is a quiet '…'; if it fails the row says 'Name unavailable' (never Player Unknown), and the screen is not blocked", async () => {
   const a = boot({ failPlayers: 1 }); await tick(30);
-  await a.click({ "data-act": "sub", "data-v": "contracts" }); await a.click({ "data-act": "nsx" }); await tick(30); await a.click({ "data-act": "ctcat", "data-v": "y27Cut Penalty" }); await tick(5);
+  await a.click({ "data-act": "sub", "data-v": "contracts" }); await a.click({ "data-act": "nsx" }); await tick(30); await a.click({ "data-act": "ctcat", "data-v": "y27cut" }); await tick(5);
   t.doesNotMatch(a.html(), /Player Unknown/);
-  t.match(a.html().replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /Name unavailable Cut Aug 31, 2026 · Charged to 2027 \+\$1,000/);
-  t.match(a.html(), /Recorded salary, not cap space/, "the rest of the screen works");
+  t.match(a.html().replace(/<[^>]*>/g, " ").replace(/\s+/g, " "), /Name unavailable Cut Aug 31, 2026 \+\$1,000/);
+  t.match(a.html(), /Cap space · 2026 season/, "the rest of the screen works");
   t.equal(a.calls.filter((c) => c.type === "players").length, 1, "a failed list is not asked again on every tap");
 });
 
 test("PR A revision: the sort segments work in the real app: Salary shows the year chips, tapping the active sort reverses it, Expiration reverses its groups; no request is made", async () => {
   const a = boot(); await tick(30); await a.click({ "data-act": "sub", "data-v": "contracts" }); await tick(30); const n = a.calls.length;
-  const heads = () => [...a.html().matchAll(/Expiration date <b>(\d{4})<\/b>/g)].map((m) => +m[1]);
+  const heads = () => [...a.html().matchAll(/Expires <b>(\d{4})<\/b>/g)].map((m) => +m[1]);
   t.doesNotMatch(a.html(), /data-act="cty"/); const asc = heads(); t.ok(asc.length >= 2);
-  await a.click({ "data-act": "cts", "data-v": "exp" }); t.deepEqual(heads(), asc.slice().reverse(), "tapping the active Expiration reverses the groups"); t.match(a.html(), /aria-label="Sorted by expiration, latest first\. Tap to reverse\."/);
+  await a.click({ "data-act": "cts", "data-v": "exp" }); t.deepEqual(heads(), asc.slice().reverse(), "tapping the active Expiration reverses the groups"); t.match(a.html(), /aria-label="Sorted by contract expiration, latest first\. Tap to reverse\."/);
   await a.click({ "data-act": "cts", "data-v": "exp" }); t.deepEqual(heads(), asc, "and again");
-  await a.click({ "data-act": "cts", "data-v": "sal" }); t.match(a.html(), /data-act="cty" data-v="0" aria-pressed="true"/); t.match(a.html(), /aria-label="Sorted by salary, highest first/); t.doesNotMatch(a.html(), /Expiration date/);
+  await a.click({ "data-act": "cts", "data-v": "sal" }); t.match(a.html(), /data-act="cty" data-v="0" aria-pressed="true"/); t.match(a.html(), /aria-label="Sorted by salary, highest first/); t.doesNotMatch(a.html(), /Expires <b>/);
   await a.click({ "data-act": "cty", "data-v": "1" }); t.match(a.html(), /data-act="cty" data-v="1" aria-pressed="true"/); t.match(a.html(), /data-act="cty" data-v="0" aria-pressed="false"/);
   await a.click({ "data-act": "cts", "data-v": "sal" }); t.match(a.html(), /aria-label="Sorted by salary, lowest first/); t.match(a.html(), /data-act="cty" data-v="1" aria-pressed="true"/, "reversing keeps the year");
   await a.click({ "data-act": "cts", "data-v": "name" }); t.doesNotMatch(a.html(), /data-act="cty"/, "the year chips leave with Salary"); t.match(a.html(), /Sorted by name, A to Z/);

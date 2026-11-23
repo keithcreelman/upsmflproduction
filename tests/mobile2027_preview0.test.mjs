@@ -283,7 +283,7 @@ test("the Team screen: starters above bench, groups, reserve counts, and only re
 test("Team › Contracts shows recorded salary and years; a missing salary is 'n/r' in the table and 'Not recorded' in its row, never $0", () => {
   const S = state({ sub: "contracts" });
   const html = V.app(S);
-  t.match(html, /\$\d+(\.\d+)?K/); t.match(html, /yrs? left/);
+  t.match(html, /\$\d+(\.\d+)?K/); t.match(html, /Expires 20\d\d/);
   const S2 = state({ sub: "contracts" }); const p = M.starters(S2.model.teams.find((x) => x.id === "0010"))[0]; p.salary = null;
   t.match(V.app(S2), /<span class="wn">n\/r<\/span>/);
 });
@@ -317,7 +317,7 @@ test("a blank or unresolved salary stays unknown from the raw read to the roster
     const mine = roster.slice(at), nextRow = mine.indexOf('<div class="rw">');
     const row = nextRow > 0 ? mine.slice(0, nextRow) : mine;
     t.match(row, /<span class="wn">n\/r<\/span>/, name + ": the table cell says n/r (no amount recorded)");
-    t.match(row, /<span>Not recorded<\/span>/, name + ": the opened row says Not recorded for this season");
+    t.match(row, /<span class="wn">Not recorded<\/span>/, name + ": the opened row says Not recorded for this season");
     t.doesNotMatch(row, /\$0(?![,\d])/, name + ": the row is not $0");
     const html = V.app(state({ model, profile: { pid: String(target.id), tab: "contract" } }));
     t.match(html, /<b class="wn">Not recorded<\/b><small>Salary 2026<\/small>/, name + ": the salary tile says Not recorded");
@@ -416,7 +416,7 @@ test("other tabs and states: placeholders say what is not here; taxi details; un
   const miss = V.app(state({ profile: { pid: "99999999", tab: "contract" } }));
   t.match(miss, /Player not found/);
   ["home", "market", "league"].forEach((id) => t.match(V.app(state({ tab: id })), /not in Preview 0/i));
-  t.match(V.app(state({ sub: "contracts" })), /Recorded salary, not cap space/); t.doesNotMatch(V.app(state({ sub: "contracts" })), /gotoview/);
+  t.match(V.app(state({ sub: "contracts" })), /Cap space · 2026 season/); t.doesNotMatch(V.app(state({ sub: "contracts" })), /gotoview/);
   const cap = V.app(state({ sub: "cap" })); t.match(cap, /Not in this preview\. Cap space is left out on purpose/); t.doesNotMatch(cap, /data-act="(?!nav|sub|about)/, "nothing on Cap & picks links anywhere");
 });
 

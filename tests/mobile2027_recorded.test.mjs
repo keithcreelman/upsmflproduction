@@ -214,8 +214,8 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   await a.click({ "data-act": "ctbd" }); t.match(a.html(), /Total committed cap/); t.match(a.html(), /<b>Cap charge<\/b><b>\$[\d,]+<\/b>/, "a cap charge"); t.match(a.html(), /<b>Available cap space<\/b>/); ok("breakdown");
   const cat = /data-act="ctcat" data-v="(y26[^"]+)"/.exec(a.html());
   t.ok(cat, "the Blake Bombers have a 2026 adjustment category to open");
-  await a.click({ "data-act": "ctcat", "data-v": cat[1] }); t.match(a.html(), /Total<\/span><b>/, "a category opens its rows"); ok("category");
-  await a.click({ "data-act": "nsx" }, 60); t.match(a.html(), /UPS ledger amounts, not yet on MFL/, "the 2027 row opens to the recorded ledger"); ok("2027 row");
+  await a.click({ "data-act": "ctcat", "data-v": cat[1] }); t.match(a.html(), /<div class="det adj">/, "a category opens its rows"); ok("category");
+  await a.click({ "data-act": "nsx" }, 60); t.match(a.html(), /Recorded by UPS; on MFL after the rollover/, "the 2027 row opens to the recorded ledger"); ok("2027 row");
   const cat27 = /data-act="ctcat" data-v="(y27[^"]+)"/.exec(a.html());
   t.ok(cat27, "and a 2027 category");
   await a.click({ "data-act": "ctcat", "data-v": cat27[1] }); t.match(a.html(), /Cut [A-Z][a-z]{2} \d{1,2}, 202\d|Cut date not recorded/); t.doesNotMatch(a.html(), /Name unavailable/); ok("2027 category");

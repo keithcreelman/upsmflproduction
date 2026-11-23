@@ -73,6 +73,33 @@
     return out;
   }
 
+  // R6: the full salary schedule of the CURRENT contract, completed years included, from that contract's own recorded terms only: CL is its length
+  // in years and Y<k> the salary of its k-th year. This season is year CL - (years remaining) + 1, so the completed years are Y1 .. that year - 1.
+  // Nothing comes from an earlier contract or from a later snapshot: a completed year with no Y token is null ("Not recorded"); when the length is
+  // not recorded (or is shorter than the years remaining) the earlier years are unknown and none is listed; when this season's token disagrees with
+  // the salary MFL charges now, the completed-year tokens are not trusted and are null. The later years are the same as schedule() (the columns).
+  // -> { length, start, end, yearsLeft, rows: [{ year, amount, phase: "done" | "now" | "left" }], option, earlier, missing, complete }
+  //    earlier: "none" (no completed years) | "recorded" | "partial" | "conflict" | "unknown"
+  function history(player, season) {
+    var sch = schedule(player, season), c = sch.parsed, years = sch.yearsLeft, cl = sch.cl;
+    var out = { length: null, start: null, end: sch.through, yearsLeft: years, rows: [], option: sch.option, earlier: "unknown", missing: 0, complete: false };
+    if (!years) return out;
+    var idx0 = cl && cl >= years ? cl - years + 1 : null, conflict = sch.notes.indexOf("current_year_token_differs") >= 0, gap = 0;
+    if (idx0 != null) {
+      out.length = cl; out.start = season - (idx0 - 1);
+      for (var i = 1; i < idx0; i++) {
+        var a = !conflict && c.y[i] != null ? c.y[i] : null;
+        if (a == null) gap++;
+        out.rows.push({ year: out.start + i - 1, amount: a, phase: "done" });
+      }
+      out.earlier = idx0 === 1 ? "none" : conflict ? "conflict" : gap ? "partial" : "recorded";
+    }
+    sch.rows.forEach(function (r, k) { out.rows.push({ year: r.year, amount: r.amount, phase: k === 0 ? "now" : "left" }); });
+    out.missing = out.rows.filter(function (r) { return r.amount == null; }).length;
+    out.complete = out.earlier !== "unknown" && out.missing === 0;
+    return out;
+  }
+
   // ---- the worker's answer (one row of /api/cap-penalty/preview .players[pid]) ----
   function finite(n) { return typeof n === "number" && isFinite(n); }
 
@@ -105,5 +132,5 @@
     return { kind: "amount", amount: row.penalty, why: why };
   }
 
-  return { moneyToken: moneyToken, parseSpecial: parseSpecial, schedule: schedule, earned: earned, remainingGuarantee: remainingGuarantee, cutNow: cutNow };
+  return { moneyToken: moneyToken, parseSpecial: parseSpecial, schedule: schedule, history: history, earned: earned, remainingGuarantee: remainingGuarantee, cutNow: cutNow };
 });
