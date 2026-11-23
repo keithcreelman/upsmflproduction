@@ -6,6 +6,16 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-23 · finding (reported by Mobile Build; mechanism verified)** · `fetch_pfr_advstats.py` inserts `nfl_player_weekly` rows into D1 where nflverse wrote none (`INSERT … ON CONFLICT DO UPDATE` via `D1Writer`; the local path is update-only).
+- Those rows have NULL team, opponent and position, and the default `source = 'nflverse'`, so `source` cannot identify them.
+- **Recurs** on every `nflverse-stats-refresh` run.
+- **Reported scope:** 152 rows, 130 players through Week 10 (not verified; needs a production read).
+- **Impact:** inflated game counts, "Played" shown instead of "no stat line", and withheld stat ranks. MFL points are unaffected.
+- **Plan:** a draft update-only D1 mode for this writer; cleanup only on Keith's go.
+- **D2 (no per-game play-by-play ingest record):** accepted; design note first.
+
+· #1503 comment 7099174096. · Mobile beta Performance, Stats, AI stats tools. · Open.
+
 **2026-11-22 · verified (BL-I33)** · The first scheduled `roster-anomaly-check` after the #1501 merge was **green**: run 45049329915 at 17:25Z on `a1d846a4`, with 0 roster drops, 0 unexplained moves and 0 contract regressions.
 - **The fix was exercised:** the day's window held 7 `BBID_WAIVER` transactions, 6 of them with a drop side. Before #1501 those would have been false alarms.
 - **The #1509 alert step ran:** "success, nothing open". Discord is off (`ALERT_DISCORD_ENABLED=0`), and no target value was printed.
