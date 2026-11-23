@@ -86,7 +86,19 @@ Status words: **In force** (built or to be built as stated), **Proposed** (a num
   - In the Contract history, the token's other names stay undated "(in the extension record)" events. A changed contract, or any restructure-derived contract without a row, still reads "extending team not verified". **This is display only: the contract data is unchanged.** The Ext: tokens that omit the 2026 extenders of London, Cook, Love and Hurts await Keith's decision on a correction. Adding or changing a row needs a new evidence check and Keith's go (test: `tests/mobile2027_reviewed_extensions.test.mjs` against `tests/fixtures/mobile2027/reviewed_extensions.json`).
 
 ## Team › Performance and Breakdown
-- **Shared settled-week cutoff W\*** applies to every season figure and rank (R7, in force).
+- **Team history is not a global PPG-rank requirement (R11, Keith, revised closeout 2026-11-23, in force).**
+  - **One cutoff:** every season figure and rank runs through the last all-final NFL week, whatever the team history covers. Missing or lagging history holds nothing back.
+  - **Eligibility basis (half of team games, ties shared, zero and negative scores count):**
+    - history through the cutoff: the club(s) the history shows, as before;
+    - history behind (through T below the cutoff): a player the history shows with no club change uses his current club's schedule through the cutoff (provisional); a player with a known change, a missing or a conflicting record is unresolved on his own (his known clubs are never replaced by the current one);
+    - no history: every player uses his current club's schedule (every week is a team game except his club's bye; provisional).
+  - **Unresolved on his own (no PPG rank, reason in his Breakdown, points and PPG still shown):** a score in his current club's bye week, more scores than his club has played, no current club, no known bye, or a recorded club change that history does not cover. An unresolved player neither takes a place from anyone nor widens anyone else's rank.
+  - **Disclosure:** said once in Help ("PPG rank without team history") and in the Known issues list; each Breakdown's rank details label the basis "Provisional". No history line in the header. Fallback eligibility is not presented as independently verified.
+  - **Bounded:** no new historical roster table, migration, backend deployment or identity research.
+  - *Supersedes:* R6/R7 "history behind: every figure waits at the history's week" and "no history: the PPG rank is — for everyone".
+- **Wording and order (R11, in force).** The visible "Actual PPG" is "PPG" (calculation unchanged). Team tabs read Roster | Performance | Contracts | Cap & picks. Contracts filters: "Roster status" (All | Active | IR | Taxi) and "Salary structure" (All | Flat | Loaded; Loaded = supported Front-loaded plus Back-loaded). Player Details keep "Loading classification". *Supersedes:* "Show", "Loading", and the separate Front-loaded / Back-loaded filter choices.
+- **Lineup projection (R11, in force).** Each active lineup row shows the selected week's "Proj. 19.7" from the existing projection read and its pregame validity rule; "Proj. —" when there is none, never a guess. No new provider or route (the lineup view now asks the same read Performance already used).
+- **Shared settled-week cutoff W\*** applies to every season figure and rank (R7, in force; R11: always the last all-final week).
 - **The scored-game PPG denominator** is the approved one (in force, settled).
 - **Weekly Fantasy ranks** are exact only (R7, in force).
 - **Search players (R8 + R9 + R10, in force).**

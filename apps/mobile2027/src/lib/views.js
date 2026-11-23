@@ -147,6 +147,11 @@
         right = '<div class="rt"><b>' + (rd === "loading" ? "…" : R.pts(sc)) + '</b><span class="mu sm">' + esc(rd === "error" ? "Unavailable" : "Wk " + wk) + "</span></div>";
       }
       small = parts.join(" · ");
+      // R11: the lineup week's projection on each lineup row (existing source and pregame rule; "Proj. —" when there is none, never a guess)
+      if (!past && S.view === "lineup" && p.status === "active" && TV.projectionSlot) {
+        var pj = TV.projectionSlot(S, p);
+        right = '<div class="rt pjr"><span class="mu sm">Proj. ' + (pj.value == null ? '<b class="na" aria-label="Projection not available">—</b>' : "<b>" + esc(pj.text) + "</b>") + "</span></div>";
+      }
     }
     if (!past) {
       // the same chips on both views (current information); a bye chip only for a starter on the Lineup view
@@ -445,7 +450,7 @@
 
   function teamScreen(S) {
     var body;
-    var tabs = '<div class="tabs tabs4 stk" role="tablist">' + [["roster", "Roster"], ["contracts", "Contracts"], ["performance", "Performance"], ["cap", "Cap & picks"]].map(function (o) {
+    var tabs = '<div class="tabs tabs4 stk" role="tablist">' + [["roster", "Roster"], ["performance", "Performance"], ["contracts", "Contracts"], ["cap", "Cap & picks"]].map(function (o) {
       return '<button role="tab" data-act="sub" data-v="' + o[0] + '" aria-selected="' + (S.sub === o[0]) + '">' + esc(o[1]) + "</button>";
     }).join("") + "</div>";
     if (S.load.core === "loading") body = '<div class="card rows" aria-busy="true">' + skeletonRows(7) + '</div><div class="mu ctr sm">Loading the league…</div>';
@@ -645,7 +650,7 @@
     "Test build: not reviewed or accepted yet. Figures are a recording and will not change.",
     "Many season stat ranks show — while some players’ figures are incomplete. The stat values still show; Rank details under the season stats say why. Two data problems cause most of these: blank defensive stat rows added by a second stats feed, and red-zone records the recorded answers could not prove complete. Fixes are drafted but not released, and this recording was made before them.",
     "Kicking distance bands: a kicker’s attempts from a distance are incomplete when he missed a kick, because missed-kick distances are not in the stats feed, so those band ranks show —.",
-    "Points-per-game rank shows — for everyone: team history is not in this recording.",
+    "Team history is not in this recording, so the PPG rank counts each player against his current NFL club’s games (provisional). A few players whose records contradict that have no PPG rank; Help explains.",
     "Pass rate over expected, punter inside-20 distance bands, missed-kick distances, longest plays and yards after catch are not in this recording.",
     "The opponent matchup column (points the opponent allowed to this position before the game) is not shown yet: the recording does not have every player’s club for each week. The game log keeps the game result until it does.",
     "Traded salary entries show the amount without the other team and date: the recording has no trade records to link them to.",

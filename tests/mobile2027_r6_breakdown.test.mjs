@@ -291,19 +291,19 @@ test("the cutoff: the Breakdown runs on Team › Performance's shared week W* (t
   const { intel: I } = await intel(["16185"]);
   const c = TV.seasonCutoff(state(I)); t.equal(c.state, "ok"); t.equal(c.week, 10, "complete history: W* = the all-final week");
   t.match(text(BD.panel(state(I), p)), /Through Week 10/);
-  // R6 integration: the real shared cutoff with team history through Week 9 (scores final through Week 10)
+  // R11: with team history through Week 9 the shared cutoff is STILL the all-final week (10): the rollup and the log run through Week 10, exactly as with complete history
   const { intel: I9 } = await intel(["16185"], { hist: histAt(9) });
-  const c9 = TV.seasonCutoff(state(I9)); t.equal(c9.week, 9); t.equal(c9.allFinal, 10); t.equal(c9.reason, "history_behind");
-  const h = text(BD.panel(state(I9), p)), raw = BD.panel(logState(I9), p);
-  t.match(h, /Through Week 9 · 260\.9 pts · 9 scored games/); t.match(h, /Weeks 1–9/); t.match(h, /Targets 99 —/);
-  t.match(text(raw), /W 21–13 · not in season figures/, "Week 10 (all final) is in the log as newer");
-  t.match(raw, /<tr class="newer"><th class="pin"><button data-act="bdg" data-v="10"/);
-  const fig = TV.perfFigures(state(I9), "16185"); t.equal(fig.n, 9, "the main card counts the same 9 games"); t.ok(Math.abs(fig.total - 260.9) < 1e-9, "and the same points");
-  // an unreadable score in the newer week: its row says so; the settled figures stand
+  const c9 = TV.seasonCutoff(state(I9)); t.equal(c9.week, 10); t.equal(c9.allFinal, 10); t.equal(c9.reason, "history_behind"); t.equal(c9.historyThrough, 9);
+  const h = text(BD.panel(state(I9), p)), raw = BD.panel(logState(I9), p), hFull = text(BD.panel(state(I), p));
+  const tot10 = [...Array(10).keys()].map((i) => (FX4.scores[String(i + 1)].find((x) => x.id === "16185") || {}).score).filter((s) => s != null).map(Number), sum10 = tot10.reduce((a, b) => a + b, 0);
+  t.match(h, new RegExp("Through Week 10 · " + sum10.toFixed(1).replace(".", "\\.") + " pts · " + tot10.length + " scored games")); t.match(h, /Weeks 1–10/); t.equal(h, hFull, "the same Breakdown as with complete history");
+  t.doesNotMatch(raw, /<tr class="newer"><th class="pin"><button data-act="bdg" data-v="10"/, "Week 10 is a settled row now"); t.doesNotMatch(text(raw), /W 21–13 · not in season figures/);
+  const fig = TV.perfFigures(state(I9), "16185"); t.equal(fig.n, tot10.length, "the main card counts the same games"); t.ok(Math.abs(fig.total - sum10) < 1e-9, "and the same points");
+  // an unreadable Week 10 score: through Week 10 it is inside the figures, so they read exactly as with complete history, and its row says so
   const sc = clone(FX4.scores); sc["10"] = sc["10"].map((x) => (x.id === "16185" ? { id: x.id, score: "N/A" } : x));
-  const { intel: Ib } = await intel(["16185"], { hist: histAt(9), scores: sc }), hb = BD.panel(logState(Ib), p);
+  const { intel: Ib } = await intel(["16185"], { hist: histAt(9), scores: sc }), hb = BD.panel(logState(Ib), p), { intel: Ic } = await intel(["16185"], { scores: sc });
   t.match((hb.split('data-act="bdg" data-v="10"')[1] || "").split("</tr>")[0], /title="This score could not be read">\?</, "Week 10 reads as unreadable in the log, not a dash");
-  t.match(text(hb), /Through Week 9 · 260\.9 pts · 9 scored games/); t.doesNotMatch(text(hb), /could not be read, so his season figures are not shown/);
+  t.equal(text(hb), text(BD.panel(logState(Ic), p)), "the same Breakdown as with complete history");
   const real = TV.seasonCutoff;
   TV.seasonCutoff = () => ({ state: "loading", week: null });
   try { t.match(BD.panel(state(I), p), /Loading the breakdown/); } finally { TV.seasonCutoff = real; }

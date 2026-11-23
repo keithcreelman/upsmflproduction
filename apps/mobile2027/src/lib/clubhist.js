@@ -379,25 +379,28 @@
     return { strip: strip, log: log };
   }
 
-  // R6 (Keith 2026-11-23, section 6): the ONE supported week W* that Tot. Pts., Actual PPG, both ranks and the season rollups run through.
+  // R6 (Keith 2026-11-23, section 6): the ONE supported week W* that Tot. Pts., PPG, both ranks and the season rollups run through.
   //   L = the last week in which every NFL game is final (lib/complete.js). The history the per-game eligibility needs must be settled through W* too.
   //   - history through >= L ("complete")                 -> W* = L
-  //   - history behind by ANY number of weeks, through = T < L -> W* = T ("history_behind", gap = L - T): every figure waits (Tot. Pts., Actual PPG, the
+  //   - history behind by ANY number of weeks, through = T < L -> W* = T ("history_behind", gap = L - T): every figure waits (Tot. Pts., PPG, the
   //     scored games, both ranks, the rollups); nothing mixes Week L figures with a Week T rank. R7 (Keith, decision 2): this holds for a gap of two or more
   //     weeks too; the R6 "keep the figures, withhold only the PPG rank" branch is gone. Newer final weeks are drawn in the game log, outside the summary.
   //   - history unavailable as a whole (not served yet, malformed, or a reason the Worker names) -> W* = L ("history_unavailable"). This is the recorded
-  //     preview (W1/#1498 is not deployed). There is no history week to wait for, so "supported week" means: Tot. Pts., Actual PPG, the scored games and the
+  //     preview (W1/#1498 is not deployed). There is no history week to wait for, so "supported week" means: Tot. Pts., PPG, the scored games and the
   //     Tot. Pts. rank (none of which needs team history) run through L, and the PPG rank, which cannot be supported at ANY week, is "—" for everyone (said
   //     once in the header). No figure is shown at a different week from another. A gap localized to one player (his identity or a week of his history)
   //     never moves W*: it stays with that player's own PPG rank.
   // -> { week, allFinal: L, reason, historyThrough, gap } ; week null when L is not a week.
+  // R11 (Keith, revised closeout 2026-11-23): the week is ALWAYS the last all-final NFL week L, whatever the team history covers. Missing or lagging history
+  // no longer holds any figure back: it only decides how a player's per-game eligibility is settled (see tabviews.rankData: history where it exists, his current
+  // club's schedule as a provisional fallback, unresolved cases handled one player at a time). `reason` and `gap` still say what the history covers.
   function seasonCutoff(L, hist) {
     if (!isInt(L) || L < 1) return { week: null, allFinal: L, reason: "no_complete_week", historyThrough: null, gap: null };
     var H = checkHist(hist, L);
     if (!H.ok) return { week: L, allFinal: L, reason: "history_unavailable", historyThrough: null, gap: null, history: H.reason };
     var T = Math.min(H.through, L), gap = L - T;
     if (gap === 0) return { week: L, allFinal: L, reason: "complete", historyThrough: H.through, gap: 0 };
-    return { week: T, allFinal: L, reason: "history_behind", historyThrough: H.through, gap: gap };
+    return { week: L, allFinal: L, reason: "history_behind", historyThrough: T, gap: gap };
   }
 
   return { evaluate: evaluate, logFor: logFor, weeksNeeded: weeksNeeded, clubByeMap: clubByeMap, roundHalfUp1: roundHalfUp1, seasonCutoff: seasonCutoff };

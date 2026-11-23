@@ -95,7 +95,7 @@ test("R6 one card for this season and the later years: no recorded-salary card, 
   t.equal((html.match(/<h2>/g) || []).length, 1, "one card: the cap card (the recorded-salary card is gone)"); t.equal((html.match(/<h2>Cap space/g) || []).length, 1);
   t.doesNotMatch(tx, /Recorded salary, not cap space|players? shown|Cap commitments by year|Counts against the cap|Not cap room|adjustments not recorded|adjustments not loaded|Adjustments pending|adjustments unavailable|Later years assume/);
   t.doesNotMatch(tx, /2026 \$298,000|2026 —/, "this season is the one figure above");
-  const card = html.split('<div class="lbl">Show')[0];
+  const card = html.split('<div class="lbl">Roster status')[0];
   t.match(text(card), /Total committed cap, later years 2027 Details ▸ \$199,000 2028 \$40,000 $/);
   t.equal((card.match(/data-act="nsx"/g) || []).length, 1, "only 2027 opens"); const nsx = card.match(/<button class="link blk fy" data-act="nsx"[^>]*>([^]*?)<\/button>/)[1]; t.match(text(nsx), /2027/); t.doesNotMatch(text(nsx), /2028/, "2028 is not inside the 2027 control");
   t.doesNotMatch(tx, /What is and isn’t verified yet is in Help|Recorded in the UPS ledger/);

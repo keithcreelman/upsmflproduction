@@ -67,62 +67,83 @@ test("compact rank: exact 'QB2', bounded 'QB2–4' (never the best alone), unsup
 });
 
 // ---------------- the shared cutoff W* ----------------
-test("seasonCutoff (R7 decision 2): complete history -> L; behind by ANY number of weeks -> the history's week; unavailable as a whole -> L (PPG rank '—' for all)", () => {
+test("seasonCutoff (R11): the week is ALWAYS the last all-final week L, whatever the team history covers; behind keeps reason, gap and historyThrough = min(through, L); unavailable -> L too", () => {
   const h = (T) => histAt(T);
   t.deepEqual(CH.seasonCutoff(10, h(10)), { week: 10, allFinal: 10, reason: "complete", historyThrough: 10, gap: 0 });
-  t.deepEqual(CH.seasonCutoff(10, h(9)), { week: 9, allFinal: 10, reason: "history_behind", historyThrough: 9, gap: 1 });
+  t.deepEqual(CH.seasonCutoff(10, h(9)), { week: 10, allFinal: 10, reason: "history_behind", historyThrough: 9, gap: 1 });
   const p = clone(FX4.hist); p.teamHistoryThrough = 11; t.deepEqual(CH.seasonCutoff(10, p), { week: 10, allFinal: 10, reason: "complete", historyThrough: 11, gap: 0 }, "a partial week ahead never moves W* past L");
   t.equal(CH.seasonCutoff(10, null).week, 10); t.equal(CH.seasonCutoff(10, null).reason, "history_unavailable"); t.equal(CH.seasonCutoff(10, null).history, "absent");
   t.equal(CH.seasonCutoff(10, { teamHistoryState: "unavailable", teamHistoryReason: "no_history" }).history, "no_history");
-  t.deepEqual(CH.seasonCutoff(10, h(8)), { week: 8, allFinal: 10, reason: "history_behind", historyThrough: 8, gap: 2 }, "two weeks behind: every figure waits at Week 8 (the R6 'keep figures, withhold the PPG rank' branch is gone)");
-  t.deepEqual(CH.seasonCutoff(10, h(5)), { week: 5, allFinal: 10, reason: "history_behind", historyThrough: 5, gap: 5 });
+  t.deepEqual(CH.seasonCutoff(10, h(8)), { week: 10, allFinal: 10, reason: "history_behind", historyThrough: 8, gap: 2 }, "two weeks behind: no figure waits; the week is still L");
+  t.deepEqual(CH.seasonCutoff(10, h(5)), { week: 10, allFinal: 10, reason: "history_behind", historyThrough: 5, gap: 5 });
   t.equal(CH.seasonCutoff(0, h(1)).week, null); t.equal(CH.seasonCutoff(null, null).week, null);
   t.doesNotMatch(fs.readFileSync(path.join(SRC, "lib/clubhist.js"), "utf8").split("function seasonCutoff")[1], /history_stale/, "no stale branch left in seasonCutoff");
 });
 
-test("R7: history two weeks behind: Tot. Pts., Actual PPG, scored games and BOTH ranks all run through Week 8; one header line says so; Weeks 9 and 10 are newer rows in the Breakdown", async () => {
+test("R11: history two weeks behind: Tot. Pts., PPG, scored games and BOTH ranks run through Week 10 (L); a no-change player is ranked on his current club's schedule; Weeks 9 and 10 are settled rows, not newer rows", async () => {
   const S8 = state({ intel: await intel({ lm: LM(8) }) }), h8 = body(V.app(S8)), tx = text(h8);
-  t.equal((tx.match(/Through Week \d+/g) || []).join("|"), "Through Week 8");
-  t.equal((tx.match(/Team history is 2 weeks behind, so every figure waits at Week 8\./g) || []).length, 1, "one concise line");
-  t.deepEqual(TV.seasonCutoff(S8), { state: "ok", week: 8, allFinal: 10, reason: "history_behind", historyThrough: 8, gap: 2 });
+  t.equal((tx.match(/Through Week \d+/g) || []).join("|"), "Through Week 10");
+  t.deepEqual(TV.seasonCutoff(S8), { state: "ok", week: 10, allFinal: 10, reason: "history_behind", historyThrough: 8, gap: 2 });
   const sum = (to) => { let s = 0, n = 0; for (let w = 1; w <= to; w++) { const x = FX4.scores[String(w)].find((y) => y.id === ID.purdy); if (x) { s += Number(x.score); n++; } } return { s, n }; };
-  const a8 = sum(8), c = text(card(h8, ID.purdy));
-  t.match(c, new RegExp("Tot\\. Pts\\.\\s+" + a8.s.toFixed(1).replace(".", "\\.") + "\\s+QB\\d")); t.match(c, new RegExp(a8.n + " scored games"));
-  t.match(c, /Actual PPG\s+\d+\.\d\s+QB\d/, "the PPG rank is supported at Week 8, not withheld");
-  const f = TV.perfFigures(S8, ID.purdy), ctx = TV.perfCtx(S8, [ID.purdy]);
-  t.equal(f.n, a8.n); t.equal(ctx.rank.cutoff, 8, "both ranks on Week 8"); t.equal(ctx.input.latestFinal, 8); t.equal(ctx.input.allFinal, 10);
-  t.equal(ctx.rank.weekRank(9, ID.purdy), "", "no weekly rank inside the settled summary past W*");
-  // the Breakdown: the same Week 8 summary; Weeks 9 and 10 are drawn as newer rows outside it
+  const a10 = sum(10), c = text(card(h8, ID.purdy));
+  t.match(c, new RegExp("Tot\\. Pts\\.\\s+" + a10.s.toFixed(1).replace(".", "\\.") + "\\s+QB\\d")); t.match(c, new RegExp(a10.n + " scored games"));
+  t.match(c, /PPG\s+30\.0\s+QB2\b/, "Purdy shows no club change: his PPG rank is the same QB2 as with complete history");
+  const f = TV.perfFigures(S8, ID.purdy), ctx = TV.perfCtx(S8, [ID.purdy]), full = TV.perfCtx(state({ intel: await intel() }), [ID.purdy]);
+  t.equal(f.n, a10.n); t.equal(ctx.rank.cutoff, 10, "both ranks on Week 10"); t.equal(ctx.input.latestFinal, 10); t.equal(ctx.input.allFinal, 10);
+  t.equal(ctx.rank.fb.mode, "lag"); t.equal(ctx.rank.elig[ID.purdy].provisional, true, "judged on his current club's schedule, provisional");
+  t.equal(ctx.rank.weekRank(9, ID.purdy), full.rank.weekRank(9, ID.purdy), "Week 9 is inside the settled summary: the same weekly rank as with complete history");
+  // the Breakdown: Weeks 9 and 10 are ordinary settled rows
   S8.pf = { s: "pos", open: { [ID.purdy]: true }, res: {} }; S8.bd = { v: {}, g: {}, t: { [ID.purdy]: "log" } };   // R8: the Game log tab
   const bd = body(V.app(S8)).split('data-act="card" data-pid="' + ID.purdy + '"')[1].split('<div class="rw pfc">')[0];
-  t.match(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="10"/); t.match(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="9"/);
-  t.doesNotMatch(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="8"/, "Week 8 is settled");
-  // one week behind is the expected lag: no line
-  const t9 = text(body(V.app(state({ intel: await intel({ lm: LM(9) }) }))));
-  t.doesNotMatch(t9, /weeks behind/);
+  t.doesNotMatch(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="10"/, "Week 10 is settled"); t.doesNotMatch(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="9"/, "Week 9 is settled");
+  t.match(bd, /<th class="pin"><button data-act="bdg" data-v="10"/);
+  t.doesNotMatch(text(body(V.app(state({ intel: await intel({ lm: LM(9) }) })))), /weeks? behind/);
 });
 
-test("R7: the recorded case (no team history at all): Tot. Pts., Actual PPG, scored games and the Tot. Pts. rank through the last all-final week (10); the PPG rank '—' for everyone, said once", async () => {
+test("R11: no team-history notice is printed at any gap (the header card says only 'Through Week N')", async () => {
+  for (const [name, lm] of [["none", noHist()], ["1 behind", LM(9)], ["2 behind", LM(8)], ["5 behind", LM(5)], ["complete", LM()]]) {
+    const tx = text(body(V.app(state({ intel: await intel({ lm }) }))));
+    t.doesNotMatch(tx, /Team history|PPG ranks aren’t available|weeks? behind|waits at Week/, name + ": no team-history notice");
+    t.equal((tx.match(/Through Week \d+/g) || []).join("|"), "Through Week 10", name);
+  }
+});
+
+test("R11: the recorded case (no team history at all): Tot. Pts., PPG, scored games and BOTH ranks through the last all-final week (10); every eligible player has a (provisional) PPG rank; no notice", async () => {
   const Sn = state({ intel: await intel({ lm: noHist() }) }), hn = body(V.app(Sn)), c = text(card(hn, ID.purdy));
   t.deepEqual([TV.seasonCutoff(Sn).week, TV.seasonCutoff(Sn).reason], [10, "history_unavailable"]);
-  t.match(c, /Tot\. Pts\.\s+270\.0\s+QB3\b/, "Tot. Pts. and its rank need no history"); t.match(c, /Actual PPG\s+30\.0\s+—/); t.match(c, /9 scored games/);
-  t.equal((text(hn).match(/PPG ranks aren’t available yet\./g) || []).length, 1);
-  actives(Sn).forEach((p) => t.match(text(card(hn, p.id)), /Actual PPG\s+(\d+\.\d|—)\s+—/, p.name + ": PPG rank —"));
+  t.match(c, /Tot\. Pts\.\s+270\.0\s+QB3\b/, "Tot. Pts. and its rank need no history"); t.match(c, /PPG\s+30\.0\s+QB2\b/, "the PPG rank is shown, judged on his current club's schedule"); t.match(c, /9 scored games/);
+  t.doesNotMatch(text(hn), /PPG ranks aren’t available|Team history/, "no notice anywhere on the screen");
+  // independent expectation: his current club's calendar through Week 10 (every week a game except its bye); Reading A needs scores in half of them, rounded up
+  const ctx = TV.perfCtx(Sn, actives(Sn).map((p) => p.id)), byeOf = ctx.input.byeOf; let ranked = 0, dashed = 0;
+  t.equal(ctx.rank.fb.mode, "none");
+  actives(Sn).forEach((p) => {
+    const n = ctx.rank.sf.totals[p.id].n, b = byeOf[String(p.nflTeam).toUpperCase()], games = 10 - (b <= 10 ? 1 : 0), want = n >= Math.ceil(games / 2), m = text(card(hn, p.id)).match(/PPG\s+\d+\.\d\s+(\S+)/);
+    t.ok(m, p.name + ": PPG shows");
+    if (want) { ranked++; t.match(m[1], /^[A-Z]+\d+(–\d+)?$/, p.name + ": has a PPG rank (" + n + " scores of " + games + " games)"); } else { dashed++; t.equal(m[1], "—", p.name + ": below the minimum, no rank"); }
+  });
+  t.ok(ranked >= 25 && dashed >= 1, "the fixture has both kinds: " + ranked + " ranked, " + dashed + " not");
+  // league-wide: 1,606 scorers judged on the current club; 28 unresolved on their own (15 with no current club, 13 with a score in the club's bye week)
+  t.deepEqual([ctx.rank.fb.scorers, ctx.rank.fb.fallback, ctx.rank.fb.unresolved, ctx.rank.fb.reasons], [1634, 1606, 28, { no_club: 15, bye_score: 13 }]);
+  // the Breakdown says the basis once, per player: Provisional
+  Sn.pf = { s: "pos", open: { [ID.purdy]: true }, res: {} };
+  t.match(text(body(V.app(Sn)).split('data-act="card" data-pid="' + ID.purdy + '"')[1].split('<div class="rw pfc">')[0]), /PPG rank basis Provisional Counted against his current NFL club’s games/);
+  const f = TV.statFigures(Sn, ID.purdy, ctx.rank, true); t.deepEqual(f.detail.filter((d) => d[0] === "PPG rank basis").map((d) => d[1]), ["Provisional"]);
 });
 
-test("screen: 'Through Week N' once; with history one week behind every figure and both ranks wait at Week 9; caught up, Week 10; no history, Week 10 with PPG ranks '—'", async () => {
+test("screen: 'Through Week N' once, always Week 10 (L): history one week behind, caught up, or absent; every figure and both ranks run through it", async () => {
   const S9 = state({ intel: await intel({ lm: LM(9) }) }), h9 = body(V.app(S9)), S10 = state({ intel: await intel() }), h10 = body(V.app(S10)), Sn = state({ intel: await intel({ lm: noHist() }) }), hn = body(V.app(Sn));
-  t.equal((text(h9).match(/Through Week \d+/g) || []).join("|"), "Through Week 9"); t.equal((text(h10).match(/Through Week \d+/g) || []).join("|"), "Through Week 10"); t.equal((text(hn).match(/Through Week \d+/g) || []).join("|"), "Through Week 10");
-  t.deepEqual(TV.seasonCutoff(S9), { state: "ok", week: 9, allFinal: 10, reason: "history_behind", historyThrough: 9, gap: 1 }, "the Breakdown reads the same week");
+  t.equal((text(h9).match(/Through Week \d+/g) || []).join("|"), "Through Week 10"); t.equal((text(h10).match(/Through Week \d+/g) || []).join("|"), "Through Week 10"); t.equal((text(hn).match(/Through Week \d+/g) || []).join("|"), "Through Week 10");
+  t.deepEqual(TV.seasonCutoff(S9), { state: "ok", week: 10, allFinal: 10, reason: "history_behind", historyThrough: 9, gap: 1 }, "the Breakdown reads the same week");
   t.equal(TV.seasonCutoff(S10).week, 10); t.equal(TV.seasonCutoff(Sn).reason, "history_unavailable");
-  // Purdy's Weeks 1..9 total, from the recorded file (independent of the code under test)
+  // Purdy's Weeks 1..10 total, from the recorded file (independent of the code under test)
   const sum = (to) => { let s = 0, n = 0; for (let w = 1; w <= to; w++) { const x = FX4.scores[String(w)].find((y) => y.id === ID.purdy); if (x) { s += Number(x.score); n++; } } return { s, n }; };
-  const a9 = sum(9), a10 = sum(10);
-  t.match(text(card(h9, ID.purdy)), new RegExp("Tot\\. Pts\\.\\s+" + a9.s.toFixed(1).replace(".", "\\.") + "\\s+QB\\d")); t.match(text(card(h9, ID.purdy)), new RegExp(a9.n + " scored games"));
-  t.match(text(card(h10, ID.purdy)), new RegExp("Tot\\. Pts\\.\\s+" + a10.s.toFixed(1).replace(".", "\\.") + "\\s+QB3\\b"));
-  t.match(text(card(h9, ID.purdy)), /Actual PPG\s+\d+\.\d\s+QB\d/, "the PPG rank is supported at Week 9 (no false conflict)");
-  t.match(text(card(hn, ID.purdy)), /Actual PPG\s+30\.0\s+—/); t.match(text(hn), /PPG ranks aren’t available yet\./);
-  const f9 = TV.perfFigures(S9, ID.purdy), f10 = TV.perfFigures(S10, ID.purdy); t.equal(f9.n, a9.n); t.equal(f10.n, a10.n);
+  const a10 = sum(10);
+  [h9, h10, hn].forEach((h, i) => {
+    t.match(text(card(h, ID.purdy)), new RegExp("Tot\\. Pts\\.\\s+" + a10.s.toFixed(1).replace(".", "\\.") + "\\s+QB3\\b"), ["one week behind", "complete", "no history"][i]); t.match(text(card(h, ID.purdy)), new RegExp(a10.n + " scored games"));
+    t.match(text(card(h, ID.purdy)), /PPG\s+30\.0\s+QB2\b/, "the PPG rank is shown in every case (no false conflict, no waiting)");
+    t.doesNotMatch(text(h), /PPG ranks aren’t available|Team history/);
+  });
+  const f9 = TV.perfFigures(S9, ID.purdy), f10 = TV.perfFigures(S10, ID.purdy); t.equal(f9.n, a10.n); t.equal(f10.n, a10.n);
 });
 
 // ---------------- the one-week-behind defect (v4 fx1 setup) ----------------
@@ -138,17 +159,45 @@ function fx1(through, Lpassed) {
   const ctx = { mu: { tag: "fx1-" + through + "-" + Lpassed + "-" + Math.random() }, failed: false, loading: false, input: { through, latestFinal: Lpassed, hist, clubs: {}, byeOf, season: {}, scores: weeks, ids, newerFinal: { complete: true, clubs: {} } } };
   return { S, RD: TV.rankData(S, ctx), ids };
 }
-test("one-week-behind fix: history through 9 with the all-final week 10 passed in (the old mismatched input) no longer reads 'Team history conflict'; n, S and U share Week 9", () => {
-  const lag = fx1(9, 10), cur = fx1(10, 10), lag9 = fx1(9, 9);
-  t.equal(lag.RD.cutoff, 9, "rankData re-derives W* = 9"); t.equal(cur.RD.cutoff, 10);
-  lag.ids.forEach((id) => { t.doesNotMatch(lag.RD.elig[id].why || "", /conflict/i, id + ": no false conflict"); t.equal(lag.RD.elig[id].status, "eligible", id); });
-  t.deepEqual(lag.ids.map((id) => lag.RD.sf.totals[id].n), [9, 8, 8, 9, 8], "n counted through Week 9: all-weeks 9, bye 8, 9-of-10 (missing W3) 8, missing W10 9, bye-5 8");
-  t.deepEqual(lag.ids.map((id) => lag.RD.ev.rows[id].elig.games), [9, 8, 9, 9, 8], "S through Week 9 (byes are not team games)");
-  t.deepEqual(lag.ids.map((id) => K.compactRank(K.perGameRank(lag.RD.entries, id, lag.RD.unplacedGame))), lag9.ids.map((id) => K.compactRank(K.perGameRank(lag9.RD.entries, id, lag9.RD.unplacedGame))), "identical to passing W* directly");
+test("R11 one-week-behind: history through 9 with the all-final week 10 passed in no longer reads 'Team history conflict' and no longer waits at Week 9; n counts through Week 10, and no-change players are ranked on their current club's schedule", () => {
+  const lag = fx1(9, 10), cur = fx1(10, 10);
+  t.equal(lag.RD.cutoff, 10, "rankData's week is L, not the history's week"); t.equal(cur.RD.cutoff, 10); t.equal(lag.RD.fb.mode, "lag"); t.equal(cur.RD.fb.mode, "full");
+  lag.ids.forEach((id) => { t.doesNotMatch(lag.RD.elig[id].why || "", /conflict/i, id + ": no false conflict"); t.equal(lag.RD.elig[id].status, "eligible", id); t.equal(lag.RD.elig[id].provisional, true, id + ": judged on his current club's schedule"); t.equal(cur.RD.elig[id].provisional, undefined, id + ": full history is not provisional"); });
+  t.deepEqual(lag.ids.map((id) => lag.RD.sf.totals[id].n), [10, 9, 9, 9, 9], "n counted through Week 10 (L): all-weeks 10, bye 9, 9-of-10 (missing W3) 9, missing W10 9, bye-5 9");
+  t.deepEqual(lag.ids.map((id) => lag.RD.sf.totals[id].n), cur.ids.map((id) => cur.RD.sf.totals[id].n), "the same counts as with complete history");
+  t.deepEqual(lag.ids.map((id) => lag.RD.ev.rows[id].elig.games), [9, 8, 9, 9, 8], "the history itself is evaluated through Week 9 only (byes are not team games)");
+  t.deepEqual([lag.RD.fb.fallback, lag.RD.fb.unresolved], [5, 0]);
+  t.deepEqual(lag.ids.map((id) => K.compactRank(K.perGameRank(lag.RD.entries, id, lag.RD.unplacedGame))), cur.ids.map((id) => K.compactRank(K.perGameRank(cur.RD.entries, id, cur.RD.unplacedGame))), "the same PPG ranks as with complete history (each club's calendar gives the same games)");
   lag.ids.forEach((id) => { const r = K.perGameRank(lag.RD.entries, id, lag.RD.unplacedGame); t.equal(r.exact, true, id + " exact"); t.equal(r.poolHi, 5); });
   cur.ids.forEach((id) => { t.equal(cur.RD.elig[id].status, "eligible"); t.equal(K.perGameRank(cur.RD.entries, id, cur.RD.unplacedGame).exact, true); });
-  t.deepEqual(cur.ids.map((id) => cur.RD.sf.totals[id].n), [10, 9, 9, 9, 9], "complete history: Weeks 1..10");
-  t.equal(lag.RD.weekRank(10, "A_all10"), "", "Week 10 is outside the settled summary");
+  t.equal(lag.RD.weekRank(10, "A_all10"), cur.RD.weekRank(10, "A_all10"), "Week 10 is inside the settled summary, as with complete history");
+});
+
+test("R11 constructed: in a one-week-behind history, a player the history shows with a club change, one with a missing record and one with a conflict are unresolved on their own; a no-change player is still ranked; a score in his club's bye week or a missing bye is unresolved on his own", () => {
+  const L = 10, byeOf = { DAL: 14, BUF: 14, SEA: 7 }, mk = (noHistory) => {
+    const P = { A: { pos: "QB", club: "DAL" }, B: { pos: "QB", club: "DAL" }, CHG: { pos: "QB", club: "BUF" }, MIS: { pos: "QB", club: "DAL" }, CON: { pos: "QB", club: "DAL" }, BYS: { pos: "QB", club: "SEA" }, NOB: { pos: "QB", club: "XXX" }, FA: { pos: "QB", club: "FA" } };
+    const weeks = {}; for (let w = 1; w <= L; w++) { const m = {}; Object.keys(P).forEach((id, i) => { m[id] = 10 + i + w * 0.5; }); weeks[w] = m; }   // every player scores every week (BYS even in SEA's bye week 7)
+    const scores = {}; Object.keys(weeks).forEach((w) => (scores[w] = { state: "ok", at: 1, data: { week: +w, scores: weeks[w] } }));
+    const byId = {}; Object.keys(P).forEach((id) => (byId[id] = { pos: P[id].pos, club: P[id].club }));
+    const ids = Object.keys(P), first = {}; ids.forEach((id) => (first[id] = 1));
+    const hist = noHistory ? {} : { teamHistoryState: "ok", teamHistoryReason: null, teamHistoryThrough: 9, teamHistory: { CHG: { seg: [["DAL", 1, 4], ["BUF", 5, 9]], cur: null } }, teamHistoryFirst: first, teamHistoryMissing: ["MIS"], teamHistoryConflict: ["CON"] };
+    const S = { model: { byId: {}, teams: [], week: 11 }, intel: { players: { state: "ok", data: { byId } }, scores } };
+    return { S, ids, RD: TV.rankData(S, { mu: { k: Math.random() }, failed: false, loading: false, input: { through: 9, latestFinal: L, hist, clubs: {}, byeOf, season: {}, scores: weeks, ids, newerFinal: { complete: true, clubs: {} } } }) };
+  };
+  const { RD } = mk();
+  t.equal(RD.cutoff, 10);
+  t.deepEqual(["A", "B"].map((id) => RD.elig[id].status + (RD.elig[id].provisional ? "/provisional" : "")), ["eligible/provisional", "eligible/provisional"], "no change: judged on the current club");
+  t.deepEqual(["CHG", "MIS", "CON"].map((id) => RD.elig[id].local), ["lag_changed", "lag_missing", "lag_conflict"]);
+  ["CHG", "MIS", "CON"].forEach((id) => { t.equal(RD.elig[id].status, "unsettled", id); t.equal(K.compactRank(K.perGameRank(RD.entries, id, RD.unplacedGame)), "—", id + ": no PPG rank"); t.ok(RD.sf.totals[id].n === 10 && RD.sf.totals[id].total > 0, id + ": points and games still counted through Week 10"); });
+  t.match(RD.elig.CHG.why, /club changed this season and team history runs only through Week 9/);
+  t.equal(RD.elig.NOB.local, "no_bye"); t.equal(RD.elig.FA.local, "no_club"); t.equal(RD.elig.BYS.local, "lag_conflict", "with a history, a score in his club's bye week is a conflict the history itself finds");
+  t.ok(K.compactRank(K.perGameRank(RD.entries, "A", RD.unplacedGame)) !== "—", "a no-change player is ranked among the eligible");
+  t.deepEqual([RD.fb.mode, RD.fb.fallback, RD.fb.unresolved], ["lag", 2, 6]);
+  // no history at all: everyone is judged on the current club; the club change cannot be known, so CHG is provisional too; the evidence checks still apply
+  const N = mk(true).RD;
+  t.equal(N.fb.mode, "none"); t.deepEqual(["A", "B", "CHG", "MIS", "CON"].map((id) => N.elig[id].status + (N.elig[id].provisional ? "/provisional" : "")), Array(5).fill("eligible/provisional"));
+  t.deepEqual(["BYS", "NOB", "FA"].map((id) => N.elig[id].local), ["bye_score", "no_bye", "no_club"]); t.match(N.elig.BYS.why, /bye week/);
+  t.deepEqual([N.fb.fallback, N.fb.unresolved], [5, 3]);
 });
 
 test("Reading A is unchanged: scores in at least half (rounded up) of the supported team games; unknown weeks widen only the upper bound", () => {
@@ -161,12 +210,20 @@ test("Reading A is unchanged: scores in at least half (rounded up) of the suppor
 
 // (On the full recorded snapshot, 486 rostered ids, the same comparison measured 179 rostered PPG ranks with the old code at through 9, 401 now, 400 with complete
 // history: see the R6 notes. This fixture's roster is the older test roster.)
-test("recorded scores, history one week behind: the screen shows as many PPG ranks at Week 9 as with complete history at Week 10, and no conflict from the lag", async () => {
-  const run = async (lm) => { const I = await intel({ lm }), S = state({ intel: I }), ids = []; S.model.teams.forEach((tm) => tm.players.forEach((p) => ids.push(p.id))); const ctx = TV.perfCtx(S, ids); let shown = 0, conflict = 0; ids.forEach((id) => { const f = TV.statFigures(S, id, ctx.rank, false); if (f.gameRank !== "—") shown++; if (/conflict/i.test(f.gameWhy)) conflict++; }); return { shown, conflict, W: ctx.input.latestFinal, all: Object.values(ctx.rank.elig).filter((e) => e.status === "eligible").length }; };
+test("recorded scores, history one week behind: every figure runs through Week 10; the screen shows one PPG rank fewer than with complete history (the one rostered player whose club changed), and no conflict from the lag", async () => {
+  const run = async (lm) => { const I = await intel({ lm }), S = state({ intel: I }), ids = []; S.model.teams.forEach((tm) => tm.players.forEach((p) => ids.push(p.id))); const ctx = TV.perfCtx(S, ids); const ranked = [], f = {}; let conflict = 0; ids.forEach((id) => { f[id] = TV.statFigures(S, id, ctx.rank, false); if (f[id].gameRank !== "—") ranked.push(id); if (/conflict/i.test(f[id].gameWhy)) conflict++; }); return { S, ctx, f, ranked, shown: ranked.length, conflict, W: ctx.input.latestFinal, all: Object.values(ctx.rank.elig).filter((e) => e.status === "eligible").length }; };
   const lag = await run(LM(9)), cur = await run(LM());
-  t.equal(lag.W, 9); t.equal(cur.W, 10);
-  t.equal(lag.shown, 117, "rostered PPG ranks at W* = 9"); t.equal(cur.shown, 117, "rostered PPG ranks with complete history");
-  t.equal(lag.conflict, 0); t.equal(cur.conflict, 0, "no conflict on a rostered row from the lag"); t.equal(lag.all, 1238, "eligible scorers league-wide at Week 9"); t.equal(cur.all, 1237);
+  t.equal(lag.W, 10); t.equal(cur.W, 10, "both through Week 10");
+  t.equal(lag.shown, 116, "rostered PPG ranks with history through Week 9"); t.equal(cur.shown, 117, "rostered PPG ranks with complete history");
+  t.deepEqual(cur.ranked.filter((id) => !lag.ranked.includes(id)), ["17478"], "the one difference is Kaytron Allen (WAS to MIA in Week 8): his club changed and the history stops at Week 9"); t.deepEqual(lag.ranked.filter((id) => !cur.ranked.includes(id)), []);
+  t.equal(lag.conflict, 0); t.equal(cur.conflict, 0, "no conflict on a rostered row from the lag"); t.equal(lag.all, 1205, "eligible scorers league-wide, history through Week 9 (provisional for no-change players)"); t.equal(cur.all, 1237);
+  t.deepEqual([lag.ctx.rank.fb.mode, lag.ctx.rank.fb.fallback, lag.ctx.rank.fb.unresolved, lag.ctx.rank.fb.reasons], ["lag", 1500, 134, { lag_changed: 58, lag_missing: 69, no_club: 2, lag_conflict: 5 }]);
+  // the unresolved player keeps his points and PPG, with the reason in his own Breakdown (rank '—'); the same player has a rank under complete history
+  const k = lag.f["17478"], kc = cur.f["17478"];
+  t.deepEqual([k.total, k.n, k.gameRank], [12.2, 8, "—"]); t.equal(k.ppg, 12.2 / 8); t.match(k.gameWhy, /club changed this season and team history runs only through Week 9/);
+  t.ok(k.detail.some((d) => d[0] === "PPG rank" && d[1] === "—" && /^Not shown: His club changed/.test(d[2])), "the reason is in his Breakdown");
+  t.deepEqual([kc.total, kc.n], [12.2, 8]); t.notEqual(kc.gameRank, "—", "with complete history he is ranked");
+  const fl = lag.f["9064"]; t.equal(fl.gameRank, "—"); t.match(fl.gameWhy, /Team history incomplete/);
 });
 
 // ---------------- identity / multi-team ambiguity stays local ----------------
@@ -218,7 +275,7 @@ test("xFP gate: no source file reads a modeled value; xFP PPG and Over Expectati
 test("projection slot: 'Week 11 Proj.' (the lineup week), smaller and after the main figures, 'Not Available' with no projection read in the state", async () => {
   const S = state({ intel: await intel() }), html = body(V.app(S)), c = card(html, ID.purdy);
   t.match(c, /<span class="pfp">Week 11 Proj\. <b class="na">Not Available<\/b><\/span>/);
-  t.ok(c.indexOf("Week 11 Proj.") > c.indexOf("Over Expectations") && c.indexOf("Over Expectations") > c.indexOf("Actual PPG") && c.indexOf("Actual PPG") > c.indexOf("Tot. Pts."), "hierarchy: Tot. Pts., Actual PPG; then xFP PPG, Over Expectations; then the projection");
+  t.ok(c.indexOf("Week 11 Proj.") > c.indexOf("Over Expectations") && c.indexOf("Over Expectations") > c.indexOf("PPG") && c.indexOf("PPG") > c.indexOf("Tot. Pts."), "hierarchy: Tot. Pts., PPG; then xFP PPG, Over Expectations; then the projection");
   const g = TV.projectionSlot(S, S.model.byId[ID.purdy]); t.deepEqual([g.label, g.value, g.text, g.why], ["Week 11 Proj.", null, "Not Available", "no_read"]);
 });
 
@@ -305,7 +362,7 @@ test("projection rule on the recorded evidence: the latest capture strictly befo
 });
 
 // ---------------- removals ----------------
-test("wording removals: no pool or 'rank is exact' on the card, no All/Starters/Bench, no team-level Actual PPG, no comparison block, no footer explanations", async () => {
+test("wording removals: no pool or 'rank is exact' on the card, no All/Starters/Bench, no team-level PPG, no comparison block, no footer explanations", async () => {
   const S = state({ intel: await intel() }), html = body(V.app(S)), tx = text(html);
   t.doesNotMatch(tx, /of 73|of 240|\d+ of \d+–\d+|rank is exact|is exact|pool/i);
   t.doesNotMatch(html, /data-act="pff"|>Starters</); t.doesNotMatch(html.replace(/<div class="chs pfpos"[\s\S]*?<\/div>/, ""), />All</, "R9: the only All is the position filter's");

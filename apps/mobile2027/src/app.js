@@ -182,7 +182,8 @@
   // from the recording; a route that is not deployed or not recorded comes back "absent" and every card says Not Available.
   function ensureProjections(force) {
     if (S.sample.on || !S.model || !U.tabviews || !U.tabviews.projectionRequest) return;
-    if (!((S.tab === "team" && S.sub === "performance") || (S.profile && S.profile.tab === "perf"))) return;
+    // R11: the Lineup view's rows show the same selected-week projection ("Proj. 19.7"), from this same read.
+    if (!((S.tab === "team" && S.sub === "performance") || (S.tab === "team" && S.sub === "roster" && S.view === "lineup") || (S.profile && S.profile.tab === "perf"))) return;
     var q = U.tabviews.projectionRequest(S);
     if (!q || !q.ids.length) return;
     S.intel.proj = S.intel.proj || {};
@@ -560,7 +561,7 @@
     else if (act === "cts") { var nx = U.tabviews.ctNextSort(S.ct, v); S.ct.s = nx.s; S.ct.d = nx.d; render(true); }   // a new sort starts in its own direction; the same sort again reverses it
     else if (act === "cty") { var yy = parseInt(v, 10); if (yy >= 0 && yy <= 2) { S.ct.y = yy; render(true); } }
     else if (act === "ctx") { S.ct.open[v] = !S.ct.open[v]; render(true); }
-    else if (act === "ctl") { if (v === "all" || v === "flat" || v === "fl" || v === "bl") { S.ct.l = v; render(true); } }   // R9: Salary structure filter
+    else if (act === "ctl") { if (v === "all" || v === "flat" || v === "ld") { S.ct.l = v; render(true); } }   // R9: Salary structure filter
     else if (act === "cth") { S.ct.hist = S.ct.hist || {}; S.ct.hist[v] = !S.ct.hist[v]; render(true); }   // R9: a player's Contract history (collapsed by default)
     else if (act === "ctbd") { S.ct.bd = !S.ct.bd; render(true); }
     else if (act === "ctcat") { S.ct.cat[v] = !S.ct.cat[v]; render(true); }

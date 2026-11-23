@@ -83,7 +83,7 @@ test("cut entries: name, amount and full cut date (ET), in cut-date order; the s
 test("later rows show only the year and Total committed cap; next season's Details keep its supported adjustments; the year after has no Details; no removed commentary", () => {
   const tm = MODEL.teams.find((x) => x.id === "0012"), ys = A.commitments(tm, 2026, null, null, 3);
   const closed = text(body(V.app(state({ teamId: "0012" }))));
-  t.match(closed, re("Total committed cap, later years 2027 Details ▸ " + money(ys[1].hits) + " 2028 " + money(ys[2].hits) + " Show"));
+  t.match(closed, re("Total committed cap, later years 2027 Details ▸ " + money(ys[1].hits) + " 2028 " + money(ys[2].hits) + " Roster status"));
   ["Adjustments pending", "adjustments unavailable", "adjustments not recorded", "adjustments not loaded", "Later years assume", "Counts against the cap", "Not cap room", "Recorded salary, not cap space", "players shown", "cap hit", "Cap hits"].forEach((w) => t.doesNotMatch(closed, new RegExp(w, "i"), w));
   const open = text(body(V.app(state({ teamId: "0012", ns: nsBy(), ct: { ...CT0(), ns: true, cat: { y27other: true } } }))));
   const p = nsBy().by["0012"]; t.ok(p.reconciled && p.complete);

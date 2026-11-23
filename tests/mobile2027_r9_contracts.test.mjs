@@ -204,9 +204,18 @@ test("Loading filter reads the rule classification only; 'Loading classification
   t.deepEqual([cnt("Flat"), cnt("Front-loaded"), cnt("Back-loaded")], [447, 18, 21]);
   t.equal(all.filter((p) => C.describe(p).structureWhy === "one_year_extension").length, 18, "18 plain one-year extensions");
   const tm = TEAMS.find((x) => x.id === "0010"), h = (l) => screen(tm.players[0], { l });
-  t.match(h("all"), /<div class="lbl">Loading<\/div><div class="chs ldc" role="group" aria-label="Loading">/); t.doesNotMatch(h("all"), /Salary structure/);
-  t.deepEqual([...h("all").matchAll(/data-act="ctl" data-v="(\w+)" aria-pressed="(true|false)">([^<]+)</g)].map((m) => m[3] + ":" + m[2]), ["All:true", "Flat:false", "Front-loaded:false", "Back-loaded:false"]);
-  [["flat", "Flat"], ["fl", "Front-loaded"], ["bl", "Back-loaded"]].forEach(([k, v]) => t.equal(idsOf(h(k)).length, tm.players.filter((p) => C.describe(p).structure === v).length, v));
+  t.match(h("all"), /<div class="lbl">Salary structure<\/div><div class="chs ldc" role="group" aria-label="Salary structure">/); t.doesNotMatch(h("all"), /<div class="lbl">Loading<\/div>/);
+  t.deepEqual([...h("all").matchAll(/data-act="ctl" data-v="(\w+)" aria-pressed="(true|false)">([^<]+)</g)].map((m) => m[3] + ":" + m[2]), ["All:true", "Flat:false", "Loaded:false"]);
+  t.deepEqual([...h("all").matchAll(/data-act="ctl" data-v="(\w+)"/g)].map((m) => m[1]), ["all", "flat", "ld"], "the old fl / bl values are gone");
+  t.doesNotMatch(h("all"), /Front-loaded<\/button>|Back-loaded<\/button>/, "no separate Front-loaded or Back-loaded choice");
+  t.equal(idsOf(h("flat")).length, tm.players.filter((p) => C.describe(p).structure === "Flat").length, "Flat");
+  const isLd = (p) => ["Front-loaded", "Back-loaded"].includes(C.describe(p).structure), ld = idsOf(h("ld"));
+  t.equal(ld.length, tm.players.filter(isLd).length, "Loaded = Front-loaded + Back-loaded");
+  t.deepEqual([...ld].sort(), [...tm.players.filter(isLd).map((p) => p.id)].sort(), "exactly the loaded players, no Flat player");   // (spread: the recorded arrays come from another realm)
+  t.ok(tm.players.some((p) => C.describe(p).structure === "Front-loaded") && tm.players.some((p) => C.describe(p).structure === "Back-loaded"), "this team has both kinds");
+  t.ok(ld.includes("15698") && ld.includes("16013"), "a Front-loaded player (15698) and a Back-loaded player (16013) both stay under Loaded"); t.ok(!ld.includes("16223"), "a Flat player drops out");
+  t.equal(idsOf(h("fl")).length, tm.players.length, "the retired 'fl' value is treated as All");
+  t.equal(idsOf(h("bl")).length, tm.players.length, "the retired 'bl' value is treated as All");
   t.ok(idsOf(h("flat")).includes(player("Rico Dowdle").id), "a plain Ext1 is in the Flat group");
   t.equal(idsOf(h("bogus")).length, tm.players.length, "an unknown value is All");
   const dd = text(details("Rico Dowdle")); t.match(dd, /Loading classification Flat \(one-year extension\) AAV/);

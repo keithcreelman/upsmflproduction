@@ -72,7 +72,9 @@
   function isSort(s) { return s === "sal" || s === "exp" || s === "pos" || s === "name"; }
   // R9: the Loading filter (R10 label; it was "Salary structure") reads the rule classification (lib/contract.js describe().structure) only; it is
   // separate from Contract Type. A plain one-year extension is Flat and is in the Flat group.
-  var CT_LOADS = [["all", "All", null], ["flat", "Flat", "Flat"], ["fl", "Front-loaded", "Front-loaded"], ["bl", "Back-loaded", "Back-loaded"]];
+  // R11 (Keith): the filter heading is "Salary structure" and the choices are All | Flat | Loaded; Loaded combines the supported Front-loaded and
+  // Back-loaded classifications. The player's Details keep the detailed "Loading classification" wording.
+  var CT_LOADS = [["all", "All", null], ["flat", "Flat", ["Flat"]], ["ld", "Loaded", ["Front-loaded", "Back-loaded"]]];
   function loadOf(v) { var r = CT_LOADS.filter(function (o) { return o[0] === v; })[0]; return r ? r : CT_LOADS[0]; }
   function ctState(S) {
     var c = S.ct || {}, s = isSort(c.s) ? c.s : "exp";
@@ -226,7 +228,7 @@
     var t = teamOf(S), m = S.model, season = m.season, c = ctState(S), out = "";
     var ny = Math.max(1, longest(t));
     var want = loadOf(c.l)[2];
-    var list = t.players.filter(function (p) { return (c.f === "all" || p.status === c.f) && (!want || C.describe(p).structure === want); });
+    var list = t.players.filter(function (p) { return (c.f === "all" || p.status === c.f) && (!want || want.indexOf(C.describe(p).structure) >= 0); });
     function sal(p, k) { var v = salaryAt(p, season, k); return v; }
     // Each sort is written in its own starting direction (Expiration soonest first, Salary highest first, Position QB to DB, Name A to Z by surname); the
     // direction multiplies the whole comparison, so a reversed list is the exact reverse of the first (groups and the order inside them).
@@ -243,8 +245,8 @@
     for (var k = 0; k < ny; k++) yrs.push(season + k);
     out += capCard(S, t);
 
-    out += '<div class="lbl">Show</div><div class="chs" role="group" aria-label="Show">' + CT_FILTERS.map(function (o) { return '<button class="ch" data-act="ctf" data-v="' + o[0] + '" aria-pressed="' + (c.f === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
-    out += '<div class="lbl">Loading</div><div class="chs ldc" role="group" aria-label="Loading">' + CT_LOADS.map(function (o) { return '<button class="ch" data-act="ctl" data-v="' + o[0] + '" aria-pressed="' + (c.l === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
+    out += '<div class="lbl">Roster status</div><div class="chs" role="group" aria-label="Roster status">' + CT_FILTERS.map(function (o) { return '<button class="ch" data-act="ctf" data-v="' + o[0] + '" aria-pressed="' + (c.f === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
+    out += '<div class="lbl">Salary structure</div><div class="chs ldc" role="group" aria-label="Salary structure">' + CT_LOADS.map(function (o) { return '<button class="ch" data-act="ctl" data-v="' + o[0] + '" aria-pressed="' + (c.l === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
     // ONE sort control: Contract exp. | Salary | Position | Name. The active segment shows its direction (▲ ascending, ▼ descending) and says it in words; tapping it again reverses.
     var DIRW = { sal: ["lowest first", "highest first"], exp: ["soonest first", "latest first"], pos: ["QB first", "DB first"], name: ["A to Z", "Z to A"] };   // [ascending, descending]
     out += '<div class="lbl">Sort</div><div class="seg seg4" role="group" aria-label="Sort">' + CT_SORTS.map(function (o) {
@@ -343,9 +345,10 @@
         h("Next-season adjustments", esc(G.completeness) + " " + esc(G.reconciliation) + " " + esc(G.calculation));
     }
     if (sub === "performance") {
-      return h("Through Week", "Every season figure and both ranks run through one week: the last week in which every NFL game is final and the team history the PPG rank needs is settled. If the scores are complete through Week 10 but the history only through Week 9 (or an earlier week), everything shows that week until the history catches up; newer scores appear in each player’s game log. When no team history is available at all, the figures that do not need it (Tot. Pts., Actual PPG, scored games, the Tot. Pts. rank) run through the last all-final week and the PPG rank is " + esc(DASH) + " for everyone.") +
-        h("Tot. Pts., Actual PPG, scored games", "Tot. Pts. is the player’s official MFL scores added up. Actual PPG is Tot. Pts. divided by scored games, the games with a recorded score (0.0 and negative scores count; a game with no recorded score does not). A 0.0 is a score MFL recorded; it is not proof that he played.") +
-        h("Ranks", "QB2 is the player’s place among players at his position (tied players share a place). QB2–4 means some players cannot be placed yet (no position on file, a score that could not be read, or a PPG eligibility that is not settled), so he could be anywhere from 2nd to 4th. Ranges can narrow as weeks complete. " + esc(DASH) + " means no supported rank. The PPG rank needs scores in at least half of the team’s games and needs team history; until that is available it is " + esc(DASH) + " for everyone. For a range, the Breakdown says why and how large the group could be. The game log’s Rank column is the player’s exact place at his position that week (WR3), shown only for completed weeks and only when it is exact; otherwise " + esc(DASH) + ".") +
+      return h("Through Week", "Every season figure and both ranks run through one week for everyone: the last week in which every NFL game is final. Newer scores appear in each player’s game log, outside the season figures. Missing or late team history does not hold any figure back.") +
+        h("Tot. Pts., PPG, scored games", "Tot. Pts. is the player’s official MFL scores added up. PPG is Tot. Pts. divided by scored games, the games with a recorded score (0.0 and negative scores count; a game with no recorded score does not). A 0.0 is a score MFL recorded; it is not proof that he played.") +
+        h("Ranks", "QB2 is the player’s place among players at his position (tied players share a place). QB2–4 means some players cannot be placed yet (no position on file, a score that could not be read, or a PPG eligibility that is not settled), so he could be anywhere from 2nd to 4th. Ranges can narrow as weeks complete. " + esc(DASH) + " means no supported rank. The PPG rank needs scores in at least half of the team’s games. For a range, the Breakdown says why and how large the group could be. The game log’s Rank column is the player’s exact place at his position that week (WR3), shown only for completed weeks and only when it is exact; otherwise " + esc(DASH) + ".") +
+        h("PPG rank without team history", "Where a player’s NFL team history is available, the half-of-team-games rule uses the games of the club or clubs he was with. Where it is not (this recording has none), his current NFL club’s schedule is used instead: every week through the season cutoff is a team game except his club’s bye. That is a provisional basis, not independently verified, and a player’s Breakdown says so. A known earlier club is never replaced by the current one. A player whose evidence contradicts it (a score in his current club’s bye week, more scores than his club has played, no current club or bye on file, or a recorded club change that history does not yet cover) has no PPG rank, with the reason in his Breakdown; his points and PPG still show, and no one else is affected.") +
         h("xFP PPG and Over Expectations", "Not Available until the expected-points model is approved.") +
         h("Projection", "Provider: MFL. “Week N Proj.” is MFL’s last projection for the lineup week captured before the player’s game kicked off. Not Available when there is none (for example a bye).") +
         h("Position, Search players and Sort", "Position shows one position (All shows everyone); only positions on this team are offered. Search players finds this team’s players by name, within that position. Sort orders what is shown; By position groups it. When no one on this team matches, Search other teams lists rostered players on the other league teams with their team, with its own Position choice covering every position among them; free agents are not searched. Closing a profile returns to the same team, search, position, sort and place in the list.") +
@@ -513,10 +516,10 @@
 
   // ============================== Performance ==============================
   // R6 main screen (Keith 2026-11-23, sections 5, 6, 11, 12). One card per player: identity (the name opens the profile), the scored-game count once,
-  // Tot. Pts. and Actual PPG with their own compact positional ranks, xFP PPG and Over Expectations beneath (both "Not Available": the hard gate below),
+  // Tot. Pts. and PPG with their own compact positional ranks, xFP PPG and Over Expectations beneath (both "Not Available": the hard gate below),
   // the week-labeled projection (secondary), and a quiet "Breakdown" text control. Every player of the team is listed, grouped by position (no
   // All / Starters / Bench filter). Every season figure runs through ONE week (seasonCutoff), said once at the top.
-  var PF_SORTS = [["pos", "By position"], ["tot", "Tot. Pts."], ["ppg", "Actual PPG"]];
+  var PF_SORTS = [["pos", "By position"], ["tot", "Tot. Pts."], ["ppg", "PPG"]];
   var NOT_AVAILABLE = "Not Available";
   // R9: the position filter (All, QB, RB, WR, TE, K, P, DL, LB, DB: the chips the UPS mobile site uses), composed with Search players and the sort.
   // "By position" is a sort (grouping); the filter narrows the list. pos: "all" or an MFL group id (PK, PN for K, P). xt: the owner asked to
@@ -680,13 +683,42 @@
     var inp = {}, k; for (k in ctx.input) if (Object.prototype.hasOwnProperty.call(ctx.input, k)) inp[k] = ctx.input[k];
     inp.ids = ids; inp.clubs = clubs; inp.season = season; inp.scores = wm; inp.latestFinal = L;
     if (L < L0) inp.newerFinal = { complete: true, clubs: {} };   // the weeks after W* are all-final weeks
+    // R11 (Keith, revised closeout 2026-11-23): missing or lagging team history never blanks every PPG rank. Three modes, by what the history covers:
+    //   full  (history through W*): per-game eligibility from the history, as before;
+    //   lag   (history through T < W*): a player the history shows with NO club change ("nochange") is judged on his current club's schedule through W*
+    //         (provisional); a player with a known change (or a missing or conflicting record) is unresolved ON HIS OWN, since his known clubs are never replaced
+    //         by the current one, and the history is evaluated through T only;
+    //   none  (no history at all): every player is judged on his current club's schedule through W* (provisional).
+    // A fallback player whose evidence contradicts the schedule (a score in his current club's bye week, more scores than his club has played, no current club,
+    // no known bye) is unresolved on his own too. Points, PPG and every other rank stay visible for every player.
+    var hmode = SC.reason === "complete" ? "full" : SC.reason === "history_behind" ? "lag" : "none", hT = hmode === "lag" ? SC.historyThrough : L;
+    if (hmode === "lag") {
+      var sfT = K.seasonFrom(wm, hT, groupOf), seasonT = {};
+      Object.keys(sfT.totals).forEach(function (id) { if (!sfT.invalid[id]) seasonT[id] = { total: sfT.totals[id].total / 100, games: sfT.totals[id].n }; });
+      inp.season = seasonT; inp.latestFinal = hT; inp.newerFinal = { complete: true, clubs: {} };
+    }
     var ev = CH.evaluate(inp), byeOf = ctx.input.byeOf, entries = [], elig = {};
-    var sameBase = ev.state !== "ok" || ev.cutoff === L;   // by construction; if it ever failed, no eligibility would be built on two bases
+    var cal = S.intel && S.intel.cal, byeAll = cal && cal.state === "ok" && cal.data && cal.data.byeOf ? cal.data.byeOf : byeOf;
+    var fb = { mode: hmode, through: hmode === "full" ? L : hmode === "lag" ? hT : null, scorers: 0, fallback: 0, unresolved: 0, reasons: {} };
+    function unresolved(key, why) { fb.unresolved++; fb.reasons[key] = (fb.reasons[key] || 0) + 1; return { status: "unsettled", need: null, why: why, local: key }; }
+    function fallbackElig(id, n) {   // his CURRENT club's calendar through W*: every week is a game except his bye
+      var cur = String(clubs[id] || "").trim().toUpperCase();
+      if (!cur || cur === "FA") return unresolved("no_club", "No current NFL club on file");
+      var b = Object.prototype.hasOwnProperty.call(byeAll || {}, cur) ? byeAll[cur] : null;
+      if (!(typeof b === "number" && b >= 1 && b <= 18)) return unresolved("no_bye", "His club’s bye week is not known");
+      if (b <= L && wm[b] && Object.prototype.hasOwnProperty.call(wm[b], id) && K.toCents(wm[b][id]) != null) return unresolved("bye_score", "A score is recorded in his current club’s bye week, so his club may have changed");
+      var games = L - (b <= L ? 1 : 0);
+      if (n > games) return unresolved("more_scores", "More scored games than his current club has played");
+      fb.fallback++;
+      var fe = K.eligibility(n, games, games, "ok"); fe.provisional = true; return fe;
+    }
     ids.forEach(function (id) {
       var g = groupOf(id), n = sf.totals[id].n, row = ev.rows[id], e;
+      fb.scorers++;
       if (!row || sf.invalid[id]) e = K.eligibility(n, null, null, "missing");
-      else if (row.elig.hist !== "ok") e = K.eligibility(n, null, null, row.elig.hist);
-      else if (!sameBase) e = K.eligibility(n, null, null, "incomplete");
+      else if (hmode === "none" || (hmode === "lag" && (row.cls === "nochange" || row.cls === "none"))) e = fallbackElig(id, n);
+      else if (row.elig.hist !== "ok") e = hmode === "lag" ? unresolved("lag_" + row.elig.hist, row.elig.hist === "conflict" ? "Team history conflict" : "Team history incomplete") : K.eligibility(n, null, null, row.elig.hist);
+      else if (hmode === "lag") e = unresolved("lag_changed", "His club changed this season and team history runs only through Week " + hT);
       else {
         var Sg = row.elig.games, cur = String(clubs[id] || "").trim().toUpperCase(), U = Sg;
         row.elig.unknownWeeks.forEach(function (u) {   // an unknown week is a possible game unless EVERY club he could have been with (the history's candidates and his current club) had its bye
@@ -697,7 +729,9 @@
         e = K.eligibility(n, Sg, U, "ok");
       }
       elig[id] = e;
-      if (g) entries.push({ id: id, group: g, total: sf.totals[id].total, n: n, status: e.status, usable: !sf.invalid[id] });
+      // R11: a player left unresolved by the fallback (e.local) is handled on his own: no rank for him, and he neither takes a place from anyone nor widens
+      // anyone else's rank into a range ("Unresolved cases do not contaminate otherwise supported players"). Status "local" matches no branch in K.perGameRank.
+      if (g) entries.push({ id: id, group: g, total: sf.totals[id].total, n: n, status: e.local ? "local" : e.status, usable: !sf.invalid[id] });
     });
     var seasonEntries = sf.entries.map(function (x) { return { id: x.id, group: x.group, value: x.value }; });
     // competitors who cannot be placed (no position group, not in the players read) or whose scores are not all readable: they widen the per-game bounds too
@@ -712,7 +746,7 @@
       var m = weekly[week] || (weekly[week] = K.weekFrom(wm[week] || {}, groupOf)), r = K.totalRank(m.entries, id, m.unplaced);
       return r && r.exact ? r.group + r.best : "";   // R7 (decision 3): "WR3", exact only; no pool count
     }
-    var v = { state: "ok", cutoff: L, sf: sf, ev: ev, entries: entries, elig: elig, seasonEntries: seasonEntries, groupOf: groupOf, unplacedGame: unplacedGame, bad: bad, weekRank: weekRank };
+    var v = { state: "ok", cutoff: L, sf: sf, ev: ev, entries: entries, elig: elig, seasonEntries: seasonEntries, groupOf: groupOf, unplacedGame: unplacedGame, bad: bad, weekRank: weekRank, fb: fb };
     RANK_MEMO = { d: ctx.mu, pl: pl.data, L: L, n: nScores, v: v };
     return v;
   }
@@ -741,10 +775,13 @@
     var sr = K.totalRank(RD.seasonEntries, id, RD.sf.unplaced);
     if (sr) { o.seasonRank = K.compactRank(sr); o.seasonRankLong = K.rankText(sr); o.detail.push(rankLine("Tot. Pts. rank", sr, "tot")); if (!sr.exact) o.range = true; }
     var pg = K.perGameRank(RD.entries, id, RD.unplacedGame), e = RD.elig[id];
-    if (pg) { o.gameRank = K.compactRank(pg); o.gameRankLong = K.rankText(pg); o.detail.push(rankLine("Actual PPG rank", pg, "ppg")); if (!pg.exact) o.range = true; }
+    if (pg) {
+      o.gameRank = K.compactRank(pg); o.gameRankLong = K.rankText(pg); o.detail.push(rankLine("PPG rank", pg, "ppg")); if (!pg.exact) o.range = true;
+      if (e && e.provisional) o.detail.push(["PPG rank basis", "Provisional", "Counted against his current NFL club’s games, because his team history is not available. See Help."]);   // inside the opened Breakdown only; said once in Help
+    }
     else if (e) {
       var why = histOff && /^Team history/.test(e.why || "") ? "" : e.why;   // a reason about this player goes to his Breakdown; "no team history" is said once, at the top
-      o.gameWhy = why; if (why) o.detail.push(["Actual PPG rank", DASH, "Not shown: " + why + "."]);
+      o.gameWhy = why; if (why) o.detail.push(["PPG rank", DASH, "Not shown: " + why + "."]);
     }
     return o;
   }
@@ -788,7 +825,11 @@
   function kickoffOf(S, week, club) {
     var cal = S.intel && S.intel.cal, days = cal && cal.state === "ok" && cal.data ? cal.data.days : null, list = days && Array.isArray(days[week]) ? days[week] : null;
     var c = String(club || "").trim().toUpperCase(), hit = [], byeOf = cal && cal.state === "ok" && cal.data ? cal.data.byeOf : null;
-    if (!list || !c || c === "FA") return { ko: null, why: "no_kickoff" };
+    if (!c || c === "FA") return { ko: null, why: "no_kickoff" };
+    if (!list) {   // R11: the Lineup view does not read the whole-season calendar; his club's game in the lineup week, from the matchups read it already has (Unix seconds)
+      var mu = S.intel && S.intel.mu && S.intel.mu[week], g = mu && mu.state === "ok" && mu.data && mu.data.games ? mu.data.games[c] : null, k0 = g ? Number(g.kickoff) : NaN;
+      return isFinite(k0) && k0 > 0 ? { ko: k0, why: "" } : { ko: null, why: "no_kickoff" };
+    }
     list.forEach(function (m) { var t = m && Array.isArray(m.teams) ? m.teams : []; if (t.length === 2 && (String(t[0].id || "").toUpperCase() === c || String(t[1].id || "").toUpperCase() === c)) hit.push(m); });
     if (hit.length === 1) { var ko = Number(hit[0].kickoff); return isFinite(ko) && ko > 0 ? { ko: ko, why: "" } : { ko: null, why: "no_kickoff" }; }
     if (!hit.length && byeOf && byeOf[c] === week) return { ko: null, why: "bye" };
@@ -853,7 +894,7 @@
     if (g.n != null) meta.push(plural(g.n, "scored game", "scored games"));
     var h = '<div class="rw pfc"><button class="nmb" data-act="card" data-pid="' + esc(p.id) + '" aria-label="Open ' + nm + ' profile"><span class="l1">' + nm + " " + pcx(p.pos) + "</span></button>" +
       '<div class="pfm">' + meta.join(" · ") + (startingTag(p) + injuryChip(S, p) + lc.html ? ' <span class="fl">' + startingTag(p) + injuryChip(S, p) + lc.html + "</span>" : "") + "</div>" +
-      '<div class="pf1">' + metric("Tot. Pts.", f1(g.total), g.totRank, "pfv") + metric("Actual PPG", f1(g.ppg), g.ppgRank, "pfv") + "</div>" +
+      '<div class="pf1">' + metric("Tot. Pts.", f1(g.total), g.totRank, "pfv") + metric("PPG", f1(g.ppg), g.ppgRank, "pfv") + "</div>" +
       '<div class="pf2">' + metric("xFP PPG", '<span class="na">' + esc(g.model.text) + "</span>", null, "pfv") + metric("Over Expectations", '<span class="na">' + esc(g.model.text) + "</span>", null, "pfv") + "</div>" +
       '<div class="pf3"><span class="pfp">' + esc(g.proj.label) + ' <b' + (g.proj.value == null ? ' class="na"' : "") + ">" + esc(g.proj.text) + "</b></span>" +
       '<button class="link pfb" data-act="pfx" data-v="' + esc(p.id) + '" aria-expanded="' + open + '" aria-label="' + (open ? "Hide" : "Show") + " breakdown for " + nm + '">Breakdown ' + (open ? "▾" : "▸") + "</button></div>" +
@@ -868,7 +909,7 @@
     var ctx = perfInput(S, ids);
     if (ctx.read !== "ok" || !ctx.input.latestFinal) return ctx;
     ctx.ev = CH.evaluate(ctx.input);
-    ctx.histOff = ctx.ev.state !== "ok";   // no team history for the whole screen: the PPG rank is "—" for everyone, said ONCE in the header card
+    ctx.histOff = false;   // R11: missing or lagging team history no longer blanks the PPG rank for everyone (rankData settles each player); each player's own reason is shown
     ctx.rank = rankData(S, ctx);
     return ctx;
   }
@@ -890,7 +931,7 @@
     var W = ctx.input.latestFinal, vr = verification(S, W), hl = histLine(ev), SC = ctx.cutoff || {};
     // R7 (decision 2): history two or more weeks behind holds EVERY figure at its week; that is a real feed issue, said once. One week behind is the
     // expected refresh lag (Help explains it), so it gets no line.
-    var lag = SC.reason === "history_behind" && SC.gap >= 2 ? "Team history is " + SC.gap + " weeks behind, so every figure waits at Week " + W + ". Newer scores are in each Breakdown." : "";
+    var lag = "";   // R11: no history notice at any gap; every figure runs through the last all-final week and Help explains how eligibility is settled
     var warn = !!(hl && hl.warn) || !!lag || vr.state === "unverified" || vr.state === "problems" || ctx.failed;
     out += '<div class="card pfh' + (warn ? " warnc" : "") + '"><b>Through Week ' + W + "</b>" + verifyNote(vr, W) +
       (hl ? '<div class="ex' + (hl.warn ? " wn" : "") + '">' + esc(hl.text) + "</div>" : "") + (lag ? '<div class="ex wn">' + esc(lag) + "</div>" : "") +
@@ -983,7 +1024,7 @@
       });
     } else {
       act.sort(function (a, b) { return (val(b, c.s) - val(a, c.s)) || a.name.localeCompare(b.name); });
-      out += '<div class="gh2"><span>' + (c.s === "tot" ? "Tot. Pts., highest first" : "Actual PPG, highest first") + "</span><span>" + act.length + '</span></div><div class="card rows">' + act.map(rowOf).join("") + "</div>";
+      out += '<div class="gh2"><span>' + (c.s === "tot" ? "Tot. Pts., highest first" : "PPG, highest first") + "</span><span>" + act.length + '</span></div><div class="card rows">' + act.map(rowOf).join("") + "</div>";
     }
     [["ir", "Injured reserve"], ["taxi", "Taxi squad"]].forEach(function (o) {
       var grp = pool.filter(function (p) { return p.status === o[0]; });
@@ -999,10 +1040,8 @@
   // once, here. It never says or implies that a player's own data is missing or wrong.
   var HIST_WHY = { malformed: "the answer was not in the expected form", past_season: "it is not for this season", context_failed: "it could not be built", no_history: "none is recorded", crosswalk_failed: "player records could not be matched", crosswalk_suspect: "player records did not match cleanly" };
   function histLine(ev) {
-    if (ev.state === "ok") return null;
-    if (ev.reason === "absent") return { text: "PPG ranks aren’t available yet.", warn: false };
-    if (ev.reason === "stale") return { text: ev.banner.text + ", so PPG ranks are not shown.", warn: true };
-    return { text: "Team history unavailable" + (HIST_WHY[ev.reason] ? ": " + HIST_WHY[ev.reason] : "") + ". PPG ranks are not shown.", warn: true };
+    // R11: no history line. Missing or lagging team history does not stop any figure or rank; how eligibility is settled without it is said once in Help.
+    return null;
   }
   // The exports the Breakdown and the tests read (merged into this file's API below).
   var PERF_API = { seasonCutoff: seasonCutoff, statFigures: statFigures, projectionRequest: projectionRequest, kickoffOf: kickoffOf, perfCtx: perfCtx, perfFigures: function (S, id) { var p = S.model && S.model.byId[id], ctx = p ? perfCtx(S, [id]) : null; return ctx && ctx.read === "ok" && ctx.input.latestFinal ? figs(S, p, ctx) : null; }, modelSlots: modelSlots, projectionSlot: projectionSlot, projectionReason: projectionReason, breakdown: breakdown };

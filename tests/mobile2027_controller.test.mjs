@@ -125,8 +125,8 @@ test("boot: loads the roster, shows the first team with starters above the bench
   t.match(a.html(), /aria-busy="true"/, "a loading state is drawn first");
   await tick(30);
   t.match(a.html(), /Starting lineup · /); t.match(a.html(), /Blake Bombers/); t.match(a.html(), /Data as of/);
-  // the four core reads, then the two Team › Roster adds (injury status and this week's NFL games), each once
-  t.deepEqual(a.calls.map((c) => c.path).sort(), ["/api/current-lineup-week", "/api/lineup-matchups", "/api/mfl-export", "/api/mfl-export", "/api/player-status", "/roster-workbench"]);
+  // the four core reads, then the Team › Roster adds (injury status, this week's NFL games, and the one stored-projection read the Lineup view shows as "Proj."), each once
+  t.deepEqual(a.calls.map((c) => c.path).sort(), ["/api/current-lineup-week", "/api/lineup-matchups", "/api/mfl-export", "/api/mfl-export", "/api/player-projections", "/api/player-status", "/roster-workbench"]);
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.equal(c.opts.headers, undefined); });
   t.equal(a.docAttrs["data-skin"], "light"); t.equal(a.docAttrs["data-vib"], "1");
 });
@@ -291,26 +291,31 @@ const FakeClock = () => { const c = { t: Date.now() }; c.Date = class extends Da
 
 test("R2: switching views, weeks and teams never asks for a read again; each added address is asked for once", async () => {
   const a = boot(); await tick(40);
-  t.deepEqual(asked(a).sort(), ["current-lineup-week", "lineup-matchups#11", "mfl-export", "mfl-export#11", "player-status", "roster-workbench"].sort(), "boot: the four core reads, injury status and this week's games");
+  t.deepEqual(asked(a).sort(), ["current-lineup-week", "lineup-matchups#11", "mfl-export", "mfl-export#11", "player-projections", "player-status", "roster-workbench"].sort(), "boot: the four core reads, injury status, this week's games and the one projection read for the Lineup view");
   const n0 = a.calls.length;
   await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await tick(10);
   t.equal(a.calls.length, n0, "going back and forth between the two views asks nothing");
   await a.click({ "data-act": "pickteam", "data-fid": "0009" }); await a.click({ "data-act": "pickteam", "data-fid": "0010" }); await tick(10);
-  t.equal(a.calls.length, n0, "changing teams asks nothing (the reads cover the whole league)");
+  // R11: the Lineup view's one projection read is per team (its own ids): the first visit to another team asks for it once, and going back asks nothing
+  const pj = a.calls.slice(n0); t.deepEqual(pj.map((c) => c.path), ["/api/player-projections"], "changing teams asks only for that team's one projection read (the other reads cover the whole league)");
+  t.equal(new URL(pj[0].url).searchParams.get("week"), "11"); t.notEqual(pj[0].url, a.calls.find((c) => c.path === "/api/player-projections").url, "for the other team's ids");
+  const n1 = a.calls.length;
+  await a.click({ "data-act": "pickteam", "data-fid": "0009" }); await a.click({ "data-act": "pickteam", "data-fid": "0010" }); await tick(10);
+  t.equal(a.calls.length, n1, "visiting teams again asks nothing");
   // a past week: its lineup and its games, once; the week before is already in memory
   await a.click({ "data-act": "weeks" }); t.match(a.html(), /aria-label="Choose a week"/);
   await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(40);
-  t.deepEqual(asked(a).slice(n0), ["mfl-export#10"], "Week 10's lineups and scores: one request, and a past week asks for no NFL games (MAT-1)");
+  t.deepEqual(asked(a).slice(n1), ["mfl-export#10"], "Week 10's lineups and scores: one request, and a past week asks for no NFL games (MAT-1) and no projection");
   t.match(a.html(), /Week 10 · played/); t.doesNotMatch(a.html(), /Bench · /);
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "9" }); await tick(40);
-  t.deepEqual(asked(a).slice(n0 + 1), ["mfl-export#9"], "Week 9, first visit: one request (its lineups and scores)");
+  t.deepEqual(asked(a).slice(n1 + 1), ["mfl-export#9"], "Week 9, first visit: one request (its lineups and scores)");
   await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
   await a.click({ "data-act": "view", "data-v": "byes" }); await a.click({ "data-act": "view", "data-v": "lineup" }); await a.click({ "data-act": "weeks" }); await a.click({ "data-act": "pickweek", "data-v": "10" }); await tick(10);
-  t.equal(a.calls.length, n0 + 2, "revisiting past weeks asks nothing");
+  t.equal(a.calls.length, n1 + 2, "revisiting past weeks asks nothing");
   await a.click({ "data-act": "pickweek", "data-v": "11" }); await tick(10);
-  t.match(a.html(), /Starting lineup · /); t.equal(a.calls.length, n0 + 2, "back to the current week: nothing");
-  await a.click({ "data-act": "pickweek", "data-v": "12" }); t.doesNotMatch(a.html(), /Week 12 starters/, "a later week cannot be chosen"); t.equal(a.calls.length, n0 + 2);
-  const keys = asked(a); t.equal(new Set(keys).size, keys.length, "no address was asked twice in the whole visit");
+  t.match(a.html(), /Starting lineup · /); t.equal(a.calls.length, n1 + 2, "back to the current week: nothing");
+  await a.click({ "data-act": "pickweek", "data-v": "12" }); t.doesNotMatch(a.html(), /Week 12 starters/, "a later week cannot be chosen"); t.equal(a.calls.length, n1 + 2);
+  const keys = a.calls.map((c) => c.url); t.equal(new Set(keys).size, keys.length, "no address was asked twice in the whole visit");
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
   t.doesNotMatch(JSON.stringify(a.storage), /wk|week|intel|status/i, "no week or read is stored on the phone");
 });
@@ -428,14 +433,14 @@ test("PR B: Team › Performance asks for the two NFL schedules, the players and
   t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "every week of the season through the last all-final week (10), and the live Week 11");
   t.equal(a.calls.slice(n).filter((c) => c.type === "nflSchedule" && new URL(c.url).searchParams.get("W") !== "ALL").length, 2, "the schedules of Week 10 (the cutoff) and Week 11 (the lineup week)"); t.equal(a.calls.slice(n).filter((c) => c.type === "players").length, 1);
   t.equal(a.calls.slice(n).filter(isCalCall).length, 2, "and MFL's club list with byes and the whole season's schedule, one read each");
-  // R7: plus ONE week-labeled projection read for this team (lineup week 11, at most 80 ids)
-  const pj = a.calls.slice(n).filter((c) => c.path === "/api/player-projections");
-  t.equal(pj.length, 1, "one projection read for the team view"); t.equal(new URL(pj[0].url).searchParams.get("week"), "11"); t.ok(new URL(pj[0].url).searchParams.get("ids").split(",").length <= 80);
-  t.equal(a.calls.length - n, 17, "nothing else was asked (the injury and matchup reads were already in memory)");
+  // R7/R11: ONE week-labeled projection read for this team (lineup week 11, at most 80 ids); the Lineup view asks for it on boot, so Performance asks for it no more
+  const pj = a.calls.filter((c) => c.path === "/api/player-projections");
+  t.equal(pj.length, 1, "one projection read for the team view, in all"); t.equal(a.calls.slice(n).filter((c) => c.path === "/api/player-projections").length, 0, "already in memory from the Lineup view: Performance asks for none"); t.equal(new URL(pj[0].url).searchParams.get("week"), "11"); t.ok(new URL(pj[0].url).searchParams.get("ids").split(",").length <= 80);
+  t.equal(a.calls.length - n, 16, "nothing else was asked (the injury, matchup and projection reads were already in memory)");
   a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.ok(c.path === "/api/player-projections" || ["playerScores", "nflSchedule", "players", "nflByeWeeks"].includes(c.type)); });
-  t.match(a.html(), settled(10)); t.match(a.html(), /<em aria-label="Actual PPG rank QB2">QB2<\/em>/); t.match(a.html(), />WR63–66<\/em>/);   // R6: compact ranks on the card (the comparison and the "of N" pools left the main card)
+  t.match(a.html(), settled(10)); t.match(a.html(), /<em aria-label="PPG rank QB2">QB2<\/em>/); t.match(a.html(), />WR63–66<\/em>/);   // R6: compact ranks on the card (the comparison and the "of N" pools left the main card)
   await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pfs", "data-v": "tot" }); await a.click({ "data-act": "pfs", "data-v": "ppg" }); await tick(10);   // revised: the Starters / Bench filter is gone, so only the sorts are tapped
-  t.equal(a.calls.length - n, 17, "tabs and sorts ask nothing");
+  t.equal(a.calls.length - n, 16, "tabs and sorts ask nothing");
 });
 
 test("revised: on Team › Performance the name opens the profile and the separate details control expands the breakdown; the filter is gone; no new Performance read (R6: only his one game-stats read for the Breakdown)", async () => {
@@ -531,7 +536,8 @@ test("R6: the profile's Performance tab is the Breakdown, drawn from the same re
   t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   await a.click({ "data-act": "bdt", "data-v": "log", "data-pid": pid }); await tick(10);   // R8: Season stats | Game log
   t.match(a.html(), /Breakdown/); t.match(a.html(), /Game log/); t.match(a.html(), /<th class="pin">Game<\/th><th class="n">Pts<\/th><th class="n"[^>]*>Rank<\/th><th>Result<\/th>/);
-  t.doesNotMatch(a.html(), /xFP|Projection|projected/i, "no expected-points or projection value");
+  // R11: the Lineup view behind the profile now shows each active player's stored "Proj." (the existing projection route); that is not a model value and not the profile's Performance tab, so those rows are set aside
+  t.doesNotMatch(a.html().replace(/<div class="rt pjr">[\s\S]*?<\/div>/g, ""), /xFP|Projection|projected/i, "no expected-points or projection value");
 });
 
 test("PR A: Contracts reads nothing for next season until the next-season row is opened; then one bare GET, reused; a failure offers Retry and a disabled Report bug", async () => {
