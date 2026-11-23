@@ -683,9 +683,9 @@
   function metric(label, value, rank, cls) {
     return '<div class="' + cls + '"><span>' + esc(label) + "</span><b>" + value + "</b>" + (rank == null ? "" : '<em aria-label="' + esc(label) + " rank " + esc(rank === DASH ? "not available" : rank) + '">' + esc(rank) + "</em>") + "</div>";
   }
-  // The main card's Breakdown, opened in place: the rank detail the card abbreviates (the pool, a range, or why a rank is not shown), then the Breakdown
-  // itself (lib/breakdown.js: season stats, the weekly game log, each game's detail) WITHOUT its summary line, because the card above already shows
-  // Tot. Pts. and the scored games. Same cutoff W* as the card (the Breakdown reads seasonCutoff).
+  // The main card's Breakdown, opened in place: the rank detail the card abbreviates (r6p: the pool and bounds, or why a rank is not shown), then the
+  // Breakdown itself (lib/breakdown.js: season stats, the weekly game log, each game's detail) WITHOUT its summary line, because the card above already
+  // shows Tot. Pts. and the scored games. Same cutoff W* as the card (the Breakdown reads seasonCutoff).
   function breakdown(S, id, ctx) {
     ctx = ctx || perfCtx(S, [id]);
     var p = S.model && S.model.byId[id];

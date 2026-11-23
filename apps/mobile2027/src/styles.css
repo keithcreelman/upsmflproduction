@@ -379,4 +379,6 @@ button.btnrow{cursor:pointer}
 .bdt .bdin .kv{grid-template-columns:auto minmax(0,1fr)}
 .bdt .bdin .kv.bdk{grid-template-columns:minmax(0,1fr) auto;gap:2px 12px}
 .bdt .bdin .kv.bdk span{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* --- r6i: the Breakdown opened inside a main card: no card-in-a-card around the season stats (the card already frames it) --- */
+.pfbd .bdr{border:0;background:transparent;padding:0 0 2px;border-radius:0}
 /* ===== end R6 PERFORMANCE ===== */
