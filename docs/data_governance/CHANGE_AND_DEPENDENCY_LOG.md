@@ -6,6 +6,14 @@ Format: **date · type** (finding / change / decision / dependency) · what · w
 
 ---
 
+**2026-11-23 · finding (data discrepancy, reported by Mobile Build; owner Infrastructure for the writer)** · D6: the `Ext:` lineage in the contract text misses some 2026 extenders.
+- **Cases:** Cook, Love and Hurts have explicit 2026 owner extension records, but the token still names an older team. London's July 2026 "Restructure" added a year.
+- **Code (hypothesis, not verified against submission rows):** the pre-trade path appends the extender (`extension_pricing.js:305`, `lineageWithExtender`). The owner-extension recompute (`index.js` ~48740, since `13e4f300`, 2026-06-28) passes the live lineage with no extender.
+- **Effect:** the extender list feeds extension eligibility (`index.js` ~27249), so a team missing from it can be listed as eligible again.
+- **Next:** a measured read-only `ups_extension_submissions` check, which needs Keith's go. Any writer fix is a §0 contract change, draft only. Token corrections and the London classification are Keith's rulings (canon :553 keeps `Ext:` verbatim on a restructure).
+
+· #1503 comments 7103800621 and 7103829438. · Contract text, extension eligibility, mobile contract card. · Open.
+
 **2026-11-23 · dependency (Mobile Build R8; owner Infrastructure)** · Two new data dependencies, both open, nothing built.
 - **D4, traded-salary link:** 17 of 17 2026 Traded Salary adjustments carry only the franchise, the amount and the explanation text. Text pairing is ruled out by Keith.
   - The code shows that `ups_trade_settlement_sweep` (0167) already stores `ref`, `traded_at_unix`, `mfl_trade_id`, payer and payee, and that `ups_trade_executions` (0160) records War Room trades.
