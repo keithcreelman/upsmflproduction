@@ -67,21 +67,53 @@ test("compact rank: exact 'QB2', bounded 'QB2–4' (never the best alone), unsup
 });
 
 // ---------------- the shared cutoff W* ----------------
-test("seasonCutoff: complete history -> L; one week behind -> L-1; unavailable -> L (PPG rank '—' for all); two or more behind -> L, history treated as stale", () => {
+test("seasonCutoff (R7 decision 2): complete history -> L; behind by ANY number of weeks -> the history's week; unavailable as a whole -> L (PPG rank '—' for all)", () => {
   const h = (T) => histAt(T);
-  t.deepEqual(CH.seasonCutoff(10, h(10)), { week: 10, allFinal: 10, reason: "complete", historyThrough: 10 });
-  t.deepEqual(CH.seasonCutoff(10, h(9)), { week: 9, allFinal: 10, reason: "history_behind", historyThrough: 9 });
-  const p = clone(FX4.hist); p.teamHistoryThrough = 11; t.deepEqual(CH.seasonCutoff(10, p), { week: 10, allFinal: 10, reason: "complete", historyThrough: 11 }, "a partial week ahead never moves W* past L");
+  t.deepEqual(CH.seasonCutoff(10, h(10)), { week: 10, allFinal: 10, reason: "complete", historyThrough: 10, gap: 0 });
+  t.deepEqual(CH.seasonCutoff(10, h(9)), { week: 9, allFinal: 10, reason: "history_behind", historyThrough: 9, gap: 1 });
+  const p = clone(FX4.hist); p.teamHistoryThrough = 11; t.deepEqual(CH.seasonCutoff(10, p), { week: 10, allFinal: 10, reason: "complete", historyThrough: 11, gap: 0 }, "a partial week ahead never moves W* past L");
   t.equal(CH.seasonCutoff(10, null).week, 10); t.equal(CH.seasonCutoff(10, null).reason, "history_unavailable"); t.equal(CH.seasonCutoff(10, null).history, "absent");
   t.equal(CH.seasonCutoff(10, { teamHistoryState: "unavailable", teamHistoryReason: "no_history" }).history, "no_history");
-  t.deepEqual(CH.seasonCutoff(10, h(8)), { week: 10, allFinal: 10, reason: "history_stale", historyThrough: 8 });
+  t.deepEqual(CH.seasonCutoff(10, h(8)), { week: 8, allFinal: 10, reason: "history_behind", historyThrough: 8, gap: 2 }, "two weeks behind: every figure waits at Week 8 (the R6 'keep figures, withhold the PPG rank' branch is gone)");
+  t.deepEqual(CH.seasonCutoff(10, h(5)), { week: 5, allFinal: 10, reason: "history_behind", historyThrough: 5, gap: 5 });
   t.equal(CH.seasonCutoff(0, h(1)).week, null); t.equal(CH.seasonCutoff(null, null).week, null);
+  t.doesNotMatch(fs.readFileSync(path.join(SRC, "lib/clubhist.js"), "utf8").split("function seasonCutoff")[1], /history_stale/, "no stale branch left in seasonCutoff");
+});
+
+test("R7: history two weeks behind: Tot. Pts., Actual PPG, scored games and BOTH ranks all run through Week 8; one header line says so; Weeks 9 and 10 are newer rows in the Breakdown", async () => {
+  const S8 = state({ intel: await intel({ lm: LM(8) }) }), h8 = body(V.app(S8)), tx = text(h8);
+  t.equal((tx.match(/Through Week \d+/g) || []).join("|"), "Through Week 8");
+  t.equal((tx.match(/Team history is 2 weeks behind, so every figure waits at Week 8\./g) || []).length, 1, "one concise line");
+  t.deepEqual(TV.seasonCutoff(S8), { state: "ok", week: 8, allFinal: 10, reason: "history_behind", historyThrough: 8, gap: 2 });
+  const sum = (to) => { let s = 0, n = 0; for (let w = 1; w <= to; w++) { const x = FX4.scores[String(w)].find((y) => y.id === ID.purdy); if (x) { s += Number(x.score); n++; } } return { s, n }; };
+  const a8 = sum(8), c = text(card(h8, ID.purdy));
+  t.match(c, new RegExp("Tot\\. Pts\\.\\s+" + a8.s.toFixed(1).replace(".", "\\.") + "\\s+QB\\d")); t.match(c, new RegExp(a8.n + " scored games"));
+  t.match(c, /Actual PPG\s+\d+\.\d\s+QB\d/, "the PPG rank is supported at Week 8, not withheld");
+  const f = TV.perfFigures(S8, ID.purdy), ctx = TV.perfCtx(S8, [ID.purdy]);
+  t.equal(f.n, a8.n); t.equal(ctx.rank.cutoff, 8, "both ranks on Week 8"); t.equal(ctx.input.latestFinal, 8); t.equal(ctx.input.allFinal, 10);
+  t.equal(ctx.rank.weekRank(9, ID.purdy), "", "no weekly rank inside the settled summary past W*");
+  // the Breakdown: the same Week 8 summary; Weeks 9 and 10 are drawn as newer rows outside it
+  S8.pf = { s: "pos", open: { [ID.purdy]: true }, res: {} };
+  const bd = body(V.app(S8)).split('data-act="card" data-pid="' + ID.purdy + '"')[1].split('<div class="rw pfc">')[0];
+  t.match(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="10"/); t.match(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="9"/);
+  t.doesNotMatch(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="8"/, "Week 8 is settled");
+  // one week behind is the expected lag: no line
+  const t9 = text(body(V.app(state({ intel: await intel({ lm: LM(9) }) }))));
+  t.doesNotMatch(t9, /weeks behind/);
+});
+
+test("R7: the recorded case (no team history at all): Tot. Pts., Actual PPG, scored games and the Tot. Pts. rank through the last all-final week (10); the PPG rank '—' for everyone, said once", async () => {
+  const Sn = state({ intel: await intel({ lm: noHist() }) }), hn = body(V.app(Sn)), c = text(card(hn, ID.purdy));
+  t.deepEqual([TV.seasonCutoff(Sn).week, TV.seasonCutoff(Sn).reason], [10, "history_unavailable"]);
+  t.match(c, /Tot\. Pts\.\s+270\.0\s+QB3\b/, "Tot. Pts. and its rank need no history"); t.match(c, /Actual PPG\s+30\.0\s+—/); t.match(c, /9 scored games/);
+  t.equal((text(hn).match(/PPG ranks aren’t available yet\./g) || []).length, 1);
+  actives(Sn).forEach((p) => t.match(text(card(hn, p.id)), /Actual PPG\s+(\d+\.\d|—)\s+—/, p.name + ": PPG rank —"));
 });
 
 test("screen: 'Through Week N' once; with history one week behind every figure and both ranks wait at Week 9; caught up, Week 10; no history, Week 10 with PPG ranks '—'", async () => {
   const S9 = state({ intel: await intel({ lm: LM(9) }) }), h9 = body(V.app(S9)), S10 = state({ intel: await intel() }), h10 = body(V.app(S10)), Sn = state({ intel: await intel({ lm: noHist() }) }), hn = body(V.app(Sn));
   t.equal((text(h9).match(/Through Week \d+/g) || []).join("|"), "Through Week 9"); t.equal((text(h10).match(/Through Week \d+/g) || []).join("|"), "Through Week 10"); t.equal((text(hn).match(/Through Week \d+/g) || []).join("|"), "Through Week 10");
-  t.deepEqual(TV.seasonCutoff(S9), { state: "ok", week: 9, allFinal: 10, reason: "history_behind", historyThrough: 9 }, "the Breakdown reads the same week");
+  t.deepEqual(TV.seasonCutoff(S9), { state: "ok", week: 9, allFinal: 10, reason: "history_behind", historyThrough: 9, gap: 1 }, "the Breakdown reads the same week");
   t.equal(TV.seasonCutoff(S10).week, 10); t.equal(TV.seasonCutoff(Sn).reason, "history_unavailable");
   // Purdy's Weeks 1..9 total, from the recorded file (independent of the code under test)
   const sum = (to) => { let s = 0, n = 0; for (let w = 1; w <= to; w++) { const x = FX4.scores[String(w)].find((y) => y.id === ID.purdy); if (x) { s += Number(x.score); n++; } } return { s, n }; };
@@ -167,7 +199,8 @@ test("an ambiguous week changes only that player's eligibility bounds; other pla
 test("xFP gate: no source file reads a modeled value; xFP PPG and Over Expectations render exactly 'Not Available' on every card, whatever the state carries; exports carry no value", async () => {
   const files = ["app.js", ...fs.readdirSync(path.join(SRC, "lib")).map((f) => "lib/" + f)].filter((f) => f.endsWith(".js"));
   files.forEach((f) => { const src = fs.readFileSync(path.join(SRC, f), "utf8"); const hits = (src.match(/xfp/gi) || []).length, labels = (src.match(/xFP PPG/g) || []).length; t.equal(hits, labels, f + ": every 'xfp' is the label 'xFP PPG' (no identifier, field, route or file)"); t.doesNotMatch(src, /expected_?points|overExpect[a-z]*\s*[:=]\s*(?!null\b)[^\s]|xfp_20|wire\/data/i, f + ": no model field or file"); });
-  const dataSrc = fs.readFileSync(path.join(SRC, "lib/data.js"), "utf8"); t.doesNotMatch(dataSrc, /projectedScores|projection|xfp/i, "no projection or model read on the allowlist");
+  // R7: the stored-projection read (#1515 /api/player-projections) may be on the allowlist; MFL's live projectedScores export and any model read may not
+  const dataSrc = fs.readFileSync(path.join(SRC, "lib/data.js"), "utf8"); t.doesNotMatch(dataSrc, /projectedScores|xfp/i, "no live projection export or model read on the allowlist");
   const I = await intel(); I.xfp = { state: "ok", data: { [ID.purdy]: 987.65 } }; I.model = { [ID.purdy]: { xfp: 987.65, overExpectations: 876.54 } };
   const S = state({ intel: I, xfp: { [ID.purdy]: 987.65 } }); S.model.byId[ID.purdy].xfp = 987.65; S.model.byId[ID.purdy].xfpPpg = 987.65; S.model.byId[ID.purdy].overExpectations = 876.54; S.model.byId[ID.purdy].projected = 765.43;
   S.pf = { s: "pos", open: Object.fromEntries(actives(S).map((p) => [p.id, true])), res: {} };
@@ -180,11 +213,73 @@ test("xFP gate: no source file reads a modeled value; xFP PPG and Over Expectati
 });
 
 // ---------------- projection: week label now, selection rule tested, no read ----------------
-test("projection slot: 'Week 11 Proj.' (the lineup week), smaller and after the main figures, 'Not Available' (no projection read is authorized)", async () => {
+test("projection slot: 'Week 11 Proj.' (the lineup week), smaller and after the main figures, 'Not Available' with no projection read in the state", async () => {
   const S = state({ intel: await intel() }), html = body(V.app(S)), c = card(html, ID.purdy);
   t.match(c, /<span class="pfp">Week 11 Proj\. <b class="na">Not Available<\/b><\/span>/);
   t.ok(c.indexOf("Week 11 Proj.") > c.indexOf("Over Expectations") && c.indexOf("Over Expectations") > c.indexOf("Actual PPG") && c.indexOf("Actual PPG") > c.indexOf("Tot. Pts."), "hierarchy: Tot. Pts., Actual PPG; then xFP PPG, Over Expectations; then the projection");
-  t.deepEqual(TV.projectionSlot(S, S.model.byId[ID.purdy]), { label: "Week 11 Proj.", value: null, text: "Not Available" });
+  const g = TV.projectionSlot(S, S.model.byId[ID.purdy]); t.deepEqual([g.label, g.value, g.text, g.why], ["Week 11 Proj.", null, "Not Available", "no_read"]);
+});
+
+// R7 (decision 5): the stored-projection read, as D.projections(season, week, ids) answers it (the #1515 route shape, claude/perf-data-backend
+// worker/src/player_projections.js). STUB: the answers below are constructed around the recorded Week 11 kickoffs; nothing is read from the network.
+// calendar_2026.json carries no kickoffs; MFL's recorded whole-season schedule WITH kickoffs is in r6_box.json (the Breakdown's fixture).
+const FXB = JSON.parse(fs.readFileSync(path.join(HERE, "fixtures/mobile2027/r6_box.json"), "utf8"));
+const DAYS = (() => { const out = {}; FXB.schedule.fullNflSchedule.nflSchedule.forEach((e) => { out[e.week] = e.matchup.map((m) => ({ kickoff: m.kickoff, secs: m.gameSecondsRemaining, teams: m.team.map((x) => ({ id: x.id, isHome: x.isHome, score: x.score })) })); }); return out; })();
+const withKickoffs = (I) => { I.cal = Object.assign({}, I.cal, { data: Object.assign({}, I.cal.data, { days: DAYS }) }); return I; };
+const projAnswer = (rows, over) => Object.assign({ ok: true, season: 2026, week: 11, provider: "MFL projectedScores (captured)", projections: rows }, over || {});
+const isoAt = (sec) => new Date(sec * 1000).toISOString();
+test("R7 projection: the latest capture strictly before HIS kickoff, frozen at kickoff; the first capture is used when the latest is after kickoff; otherwise Not Available", async () => {
+  const I = withKickoffs(await intel()), S = state({ intel: I }), p = S.model.byId[ID.purdy], k = TV.kickoffOf(S, 11, p.nflTeam);
+  t.equal(TV.kickoffOf(state({ intel: await intel() }), 11, p.nflTeam).ko, null, "a schedule without kickoffs gives none (never a guess)");
+  t.ok(k.ko > 1.7e9, "his Week 11 kickoff comes from the recorded season schedule (" + k.ko + ")");
+  const row = (latestOff, firstOff, v1, v2) => ({ projected_score: v1, captured_at: isoAt(k.ko + latestOff), first_projected: v2, first_captured_at: isoAt(k.ko + firstOff), capture_count: 4 });
+  const slot = (ans, st) => { S.intel.proj = { 11: { state: st || "ok", data: ans, at: 1 } }; return TV.projectionSlot(S, p); };
+  let g = slot(projAnswer({ [ID.purdy]: row(-3600, -86400, 21.4, 19.9) }));
+  t.deepEqual([g.label, g.value, g.text, g.provider], ["Week 11 Proj.", 21.4, "21.4", "MFL"], "the latest pregame capture"); t.equal(g.capturedAt, (k.ko - 3600) * 1000);
+  g = slot(projAnswer({ [ID.purdy]: row(600, -86400, 25.0, 19.9) })); t.equal(g.value, 19.9, "latest capture after kickoff: the earlier pregame capture stands (frozen at kickoff)");
+  g = slot(projAnswer({ [ID.purdy]: row(0, 60, 25.0, 19.9) })); t.deepEqual([g.value, g.text, g.why], [null, "Not Available", "after_kickoff"], "a capture AT kickoff is not before it");
+  g = slot(projAnswer({ [ID.purdy]: row(-60, -120, 0, 0) })); t.deepEqual([g.value, g.text], [0, "0.0"], "a real 0 is a projection");
+  g = slot(projAnswer({ [ID.purdy]: row(-60, -120, null, null) })); t.equal(g.text, "Not Available", "a null value is never 0");
+  t.equal(slot(projAnswer({ [ID.purdy]: null })).why, "no_row", "no row: Not Available");
+  t.equal(slot(projAnswer({})).why, "no_row");
+  t.equal(slot(projAnswer({ [ID.purdy]: row(-3600, -86400, 21.4, 19.9) }, { week: 10 })).why, "other_week", "an answer for another week is refused");
+  t.equal(slot(projAnswer({ [ID.purdy]: row(-3600, -86400, 21.4, 19.9) }, { season: 2025 })).why, "other_week");
+  t.equal(slot(projAnswer({ [ID.purdy]: row(-3600, -86400, 21.4, 19.9) }, { ok: false })).why, "failed");
+  t.equal(slot(null, "error").why, "failed"); t.equal(slot(null, "loading").why, "loading"); t.equal(slot(null, "absent").why, "absent", "the recorded preview has no projection answer");
+  // his club unknown or on a bye: no kickoff, no projection
+  const moved = Object.assign({}, p, { nflTeam: "FA" }); S.intel.proj = { 11: { state: "ok", data: projAnswer({ [ID.purdy]: row(-3600, -86400, 21.4, 19.9) }), at: 1 } };
+  t.equal(TV.projectionSlot(S, moved).why, "no_kickoff");
+  const byeClub = Object.keys(S.intel.cal.data.byeOf).find((c) => S.intel.cal.data.byeOf[c] === 11);
+  if (byeClub) t.equal(TV.projectionSlot(S, Object.assign({}, p, { nflTeam: byeClub })).why, "bye");
+  t.deepEqual(TV.projectionRequest(S), { season: 2026, week: 11, ids: S.model.teams.find((x) => x.id === "0010").players.map((q) => String(q.id)) }, "what app.js asks D.projections for: the lineup week and this team's ids");
+  t.ok(TV.projectionRequest(S).ids.length <= 80, "within the route's 80-id limit");
+});
+
+test("R7 projection on screen: the card line 'Week 11 Proj. 21.4' (secondary), the Breakdown names the provider and capture time; Not Available otherwise", async () => {
+  const I = withKickoffs(await intel()), S = state({ intel: I }), p = S.model.byId[ID.purdy], k = TV.kickoffOf(S, 11, p.nflTeam);
+  S.intel.proj = { 11: { state: "ok", at: 1, data: projAnswer({ [ID.purdy]: { projected_score: 21.4, captured_at: isoAt(k.ko - 3600), first_projected: 19.9, first_captured_at: isoAt(k.ko - 86400), capture_count: 4 }, [ID.shaheed]: null }) } };
+  let html = body(V.app(S));
+  t.match(card(html, ID.purdy), /<span class="pfp">Week 11 Proj\. <b>21\.4<\/b><\/span>/); t.match(card(html, ID.shaheed), /<span class="pfp">Week 11 Proj\. <b class="na">Not Available<\/b><\/span>/);
+  t.doesNotMatch(card(html, ID.purdy), /MFL|captured/i, "provider and capture time are not on the card");
+  S.pf = { s: "pos", open: { [ID.purdy]: true, [ID.shaheed]: true }, res: {} }; html = body(V.app(S));
+  const rowOf = (id) => text(html.split('data-act="card" data-pid="' + id + '"')[1].split('<div class="rw pfc">')[0]);
+  t.match(rowOf(ID.purdy), /Week 11 Proj\. 21\.4 MFL projection, captured [^.]+ ET, before his kickoff \([^)]+ ET\)\. Frozen at kickoff\./);
+  t.match(rowOf(ID.shaheed), /Week 11 Proj\. Not Available No projection captured for him\./);
+});
+
+test("R7 weekly Rank column (Fantasy log): exact only ('QB4', no space, no pool), '—' otherwise, settled weeks only", async () => {
+  const S = state({ intel: await intel() }); S.pf = { s: "pos", open: { [ID.purdy]: true, [ID.shaheed]: true }, res: {} };
+  const html = body(V.app(S));
+  [ID.purdy, ID.shaheed].forEach((id) => {
+    const seg = html.split('data-act="card" data-pid="' + id + '"')[1].split('<div class="rw pfc">')[0], tb = seg.split('<table class="bdt">')[1].split("</table>")[0];
+    t.match(tb, /<th class="n" title="[^"]*">Rank<\/th>/);
+    const rows = [...tb.matchAll(/<tr class="([^"]*)"><th class="pin">.*?data-v="(\d+)".*?<\/th>(.*?)<\/tr>/g)];
+    t.ok(rows.length >= 9, id + ": a row per week");
+    rows.forEach((m) => { const cells = [...m[3].matchAll(/<td[^>]*>(.*?)<\/td>/g)].map((x) => text(x[1]).trim()); const rk = cells[1];
+      t.match(rk, /^([A-Z]{1,2}\d+|—)$/, id + " W" + m[2] + ": '" + rk + "'"); t.doesNotMatch(rk, / of |–/);
+      if (Number(m[2]) > 10) t.equal(rk, "—", "Week " + m[2] + " is not a completed week"); });
+  });
+  const ctx = TV.perfCtx(S, [ID.purdy]); t.equal(ctx.rank.weekRank(10, ID.purdy), "QB4");
 });
 
 test("projection rule on the recorded evidence: the latest capture strictly before HIS kickoff; a post-kickoff capture is never pregame (Week 5: 382 pregame / 641 after; Week 8: 980 / 3)", () => {

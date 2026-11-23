@@ -72,8 +72,9 @@ test("R6 main card: Tot. Pts. and Actual PPG, each with its own compact position
   t.match(s, /Tot\. Pts\.\s+66\.7\s+WR66\b/); t.match(s, /Actual PPG\s+8\.3\s+WR63–66/); t.match(s, /8 scored games/);
   t.doesNotMatch(p + s, /\d+ of \d+|of 73|of 240|is exact|rank is exact/, "no pool on the card");
   const open = text(row(await perf({}, { pf: { s: "pos", open: { [ID.shaheed]: true, [ID.purdy]: true }, res: {} } }), ID.shaheed));
-  // the pool belongs to the Breakdown, never the card
-  t.match(open, /Actual PPG rank WR 63–66 of 169–209/); t.match(open, /Tot\. Pts\. rank WR 66 of 240/);
+  // R7 (decision 4): the Breakdown reads like the card ("WR66", "WR63–66"); the group size appears only in a RANGE's reasoning, never as "of N"
+  t.match(open, /Actual PPG rank WR63–66 A range: 3 players who could rank ahead of him can’t be placed yet[^.]*\. WR group: 169–209 players\./); t.match(open, /Tot\. Pts\. rank WR66(?![–\d])/);
+  t.doesNotMatch(open, /[A-Z]{1,2} ?\d+(–\d+)? of \d+|of 240/, "no 'of N' pool anywhere in the Breakdown's rank lines");
   t.doesNotMatch(open, /is exact|are placed|is placed|are settled|Best 63|worst 66|worst case|a bound|unsettled|unplaced|without a position group/i, "no explanation of how a rank is bounded on a row");
 });
 
@@ -238,10 +239,10 @@ test("on screen: an unplaceable scorer (not in the players read) widens the per-
   const open = { pf: { s: "pos", open: { [ID.purdy]: true, [ID.shaheed]: true }, res: {} } };
   const hi = await perf({ scores: withScores(() => ({ id: "99999", score: "40" })) }, open), p = text(card(hi, ID.purdy)), s = text(card(hi, ID.shaheed));
   t.match(p, /Tot\. Pts\.\s+270\.0\s+QB3–4/); t.match(p, /Actual PPG\s+30\.0\s+QB2–3/);
-  t.match(text(row(hi, ID.purdy)), /QB 3–4 of 73–74/); t.match(text(row(hi, ID.purdy)), /QB 2–3 of 35–55/, "one unplaceable scorer adds one to the pool, not ten (Breakdown)");
+  t.match(text(row(hi, ID.purdy)), /Tot\. Pts\. rank QB3–4 A range: 1 player [^.]*\. QB group: 73–74 players\./); t.match(text(row(hi, ID.purdy)), /Actual PPG rank QB2–3 A range: 1 player [^.]*\. QB group: 35–55 players\./, "one unplaceable scorer adds one to the group, not ten (Breakdown reasoning)");
   t.match(s, /Tot\. Pts\.\s+66\.7\s+WR66–67/); t.match(s, /Actual PPG\s+8\.3\s+WR63–67/, "he could be a WR too");
   const loH = await perf({ scores: withScores(() => ({ id: "99999", score: "1" })) }, open), lo = text(card(loH, ID.purdy));
-  t.match(lo, /Tot\. Pts\.\s+270\.0\s+QB3(?!–)/); t.match(lo, /Actual PPG\s+30\.0\s+QB2(?!–)/); t.match(text(row(loH, ID.purdy)), /QB 2 of 35–55/, "below him: only the pool grows");
+  t.match(lo, /Tot\. Pts\.\s+270\.0\s+QB3(?!–)/); t.match(lo, /Actual PPG\s+30\.0\s+QB2(?!–)/); t.match(text(row(loH, ID.purdy)), /Actual PPG rank QB2 (?!A range)/, "below him: the rank stays exact, and an exact rank carries no group size"); t.doesNotMatch(text(row(loH, ID.purdy)), / of 35/);
   t.match(text(card(await perf(), ID.purdy)), /Actual PPG\s+30\.0\s+QB2(?!–)/, "with no such scorer nothing changes");
 });
 
@@ -449,7 +450,8 @@ test("R6 sort: By position, Tot. Pts., Actual PPG, always the same three; a stor
 test("R6 wording: compact ranks only on the card; no pool, no methodology, no comparison block, no footer explanations; Help carries the definitions", async () => {
   const html = await perf({}, allOpen()), tx = text(html);
   actives().forEach((p) => { const c = text(card(html, p.id)); t.doesNotMatch(c, /[A-Z]{1,2} ?\d+(–\d+)? of \d+/, p.name + ": no pool on the card"); });
-  t.match(text(row(html, ID.purdy)), /Tot\. Pts\. rank QB 3 of 73/); t.match(text(row(html, ID.purdy)), /Actual PPG rank QB 2 of 35–54/, "the pool is in the Breakdown");
+  t.match(text(row(html, ID.purdy)), /Tot\. Pts\. rank QB3 (?!A range)/); t.match(text(row(html, ID.purdy)), /Actual PPG rank QB2 (?!A range)/, "R7: exact ranks read 'QB2' in the Breakdown too, with no group size");
+  t.doesNotMatch(text(row(html, ID.purdy)), /QB ?\d+ of \d+/);
   t.doesNotMatch(tx, /is exact|are placed|is placed|are settled|Best \d+, worst|worst case|a bound, not|unsettled|unplaced|eligib|without a position group/i);
   t.doesNotMatch(tx, /Season points|Per scored game|Season average|Last 3 team games|Recent|Earlier|Difference|Ranges can narrow|Final games only|Comparison through|completed games/, "superseded wording is gone");
   t.equal(count(html, /class="rcn"|class="cmpl"|class="cells4"|class="stat3"/g), 0, "no comparison block, weekly strip or old stat grid on the main card");
@@ -483,7 +485,7 @@ function weeklyRankOf(scoresByWeek, players, rosterPos, week, id, over) {
   if (!mine || me == null || !g) return "";
   let better = 0, uncertain = 0;
   rows.forEach((r) => { if (r.id === id) return; const c = cents(r.score), gg = groupOf(r.id); if (c == null || !gg) { if (c == null || c > me) uncertain++; } else if (gg === g && c > me) better++; });
-  return uncertain ? "" : g + " " + (better + 1);
+  return uncertain ? "" : g + (better + 1);   // R7: "QB4", no space, no pool
 }
 const rdOf = async (over) => { const I = await intel(over), S1 = state({ intel: I }); return TV.rankData(S1, TV.perfInput(S1, Object.keys(S1.model.byId))); };
 
@@ -492,7 +494,7 @@ test("weekly position rank (kept for the game log): equals an independent comput
   let compared = 0, ranked = 0;
   actives().forEach((p) => { for (let w = 1; w <= 10; w++) { const want = weeklyRankOf(FX4.scores, FX4.players, rosterPos, w, p.id); compared++; if (want) ranked++; t.equal(RD.weekRank(w, p.id), want, p.name + " W" + w); } });
   t.ok(compared >= 150 && ranked >= 100, "enough real weeks were compared (" + compared + ", " + ranked + " ranked)");
-  t.equal(RD.weekRank(10, ID.purdy), "QB 4"); t.equal(RD.weekRank(11, ID.purdy), "", "never past W*");
+  t.equal(RD.weekRank(10, ID.purdy), "QB4"); t.equal(RD.weekRank(11, ID.purdy), "", "never past W*");
   const big = clone(FX4.scores); Object.keys(big).forEach((w) => { if (Number(w) <= 10) big[w] = big[w].concat([{ id: "99999", score: "199.5" }]); });
   const RB = await rdOf({ scores: big }); actives().forEach((p) => { for (let w = 1; w <= 10; w++) t.equal(RB.weekRank(w, p.id), "", "an unplaceable scorer above everyone: nothing is exact"); });
 });

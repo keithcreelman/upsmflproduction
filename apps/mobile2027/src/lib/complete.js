@@ -169,8 +169,8 @@
     }
     return out;
   }
-  // R6 (section 11): which projection may be shown as a player's PREGAME projection for a week. Pure; the app has NO projection read today (none is on the
-  // lib/data.js allowlist), so the card says "Not Available"; this is the rule a future, approved read must go through.
+  // R6 (section 11): which projection may be shown as a player's PREGAME projection for a week. Pure. R7: the stored-projection read (#1515,
+  // /api/player-projections) goes through this rule in tabviews.projectionSlot; nothing else may choose a projection.
   //   captures: [{ projected_score, captured_at }] for ONE player and ONE week (captured_at: ISO-8601 UTC text or epoch milliseconds);
   //   kickoff: that player's own game kickoff, epoch SECONDS (MFL nflSchedule "kickoff") or a Date.
   // The latest capture with captured_at strictly before kickoff wins (frozen at kickoff); a capture at or after kickoff is never pregame; a capture with an
