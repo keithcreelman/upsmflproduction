@@ -296,4 +296,21 @@ button.btnrow{cursor:pointer}
 /* (spacer 9) */
 /* (spacer 10) */
 /* ===== R6 PERFORMANCE REVISIONS: performance rules go between this line and the matching end line ===== */
+/* r6p: the main player card (header line, primary pair, model pair, projection + quiet Breakdown). r6g appends breakdown rules at the bottom. */
+.pfh b{font-size:14px}
+.pfc{padding:0 2px 8px}
+.pfm{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:12px;color:var(--mu);margin:0 0 4px}
+.pfm .fl{display:inline-flex;flex-wrap:wrap;gap:4px}
+.pf1,.pf2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pfv{min-width:0}
+.pfv span{display:block;color:var(--mu);font-size:12px;line-height:16px}
+.pfv b{display:inline;font-variant-numeric:tabular-nums}
+.pfv em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--mu);font-size:13px;margin-left:6px;white-space:nowrap}
+.pf1 .pfv b{font-size:20px;line-height:26px}
+.pf2{margin-top:4px}
+.pf2 .pfv b{font-size:15px;line-height:20px}
+.pfv .na,.pf3 .na{color:var(--mu);font-weight:600;font-size:13px}
+.pf3{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;font-size:12px;color:var(--mu)}
+.pfp{min-width:0}
+.pfb{min-height:44px;padding:0 2px;font-size:13px;white-space:nowrap}
 /* ===== end R6 PERFORMANCE ===== */

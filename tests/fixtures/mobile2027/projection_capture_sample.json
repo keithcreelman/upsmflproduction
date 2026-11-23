@@ -1,0 +1,168 @@
+{
+ "note": "Trimmed from site/wire/data/projection_evidence_2026_wk05/wk08.json (captures.players: player_id, projected_score, captured_at = D1 updated_at) and the recorded MFL nflSchedule ALL (kickoff, epoch seconds). club = the recorded players read (current club; an approximation for movers). Public data only.",
+ "weeks": {
+  "5": {
+   "counts": {
+    "pregame": 382,
+    "after_kickoff": 641,
+    "club_unknown": 12
+   },
+   "kickoff": {
+    "SFO": 1791750300,
+    "LAC": 1791749100,
+    "LAR": 1791850500,
+    "PIT": 1791738000,
+    "DAL": 1791504900,
+    "NOS": 1791738000,
+    "GBP": 1791738000,
+    "MIN": 1791738000
+   },
+   "captures": [
+    {
+     "player_id": "11222",
+     "projected_score": 7.4,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "SFO"
+    },
+    {
+     "player_id": "11327",
+     "projected_score": 3.7,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "LAC"
+    },
+    {
+     "player_id": "11671",
+     "projected_score": 7.3,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "SFO"
+    },
+    {
+     "player_id": "11675",
+     "projected_score": 17.4,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "LAR"
+    },
+    {
+     "player_id": "11721",
+     "projected_score": 4.9,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "LAC"
+    },
+    {
+     "player_id": "11757",
+     "projected_score": 6.2,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "LAR"
+    },
+    {
+     "player_id": "10266",
+     "projected_score": 5.8,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "PIT"
+    },
+    {
+     "player_id": "10267",
+     "projected_score": 1.7,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "DAL"
+    },
+    {
+     "player_id": "10292",
+     "projected_score": 5.6,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "NOS"
+    },
+    {
+     "player_id": "10413",
+     "projected_score": 1.5,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "GBP"
+    },
+    {
+     "player_id": "10700",
+     "projected_score": 14.8,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "MIN"
+    },
+    {
+     "player_id": "10783",
+     "projected_score": 11.1,
+     "captured_at": "2026-10-11T19:18:31Z",
+     "club": "MIN"
+    }
+   ]
+  },
+  "8": {
+   "counts": {
+    "pregame": 980,
+    "after_kickoff": 3,
+    "club_unknown": 12
+   },
+   "kickoff": {
+    "PIT": 1793556000,
+    "DAL": 1793556000,
+    "GBP": 1793319300,
+    "MIN": 1793556000,
+    "JAC": 1793556000,
+    "CLE": 1793556000,
+    "DET": 1793556000
+   },
+   "captures": [
+    {
+     "player_id": "10266",
+     "projected_score": 6.5,
+     "captured_at": "2026-11-01T17:03:49Z",
+     "club": "PIT"
+    },
+    {
+     "player_id": "10267",
+     "projected_score": 1.6,
+     "captured_at": "2026-11-01T17:03:49Z",
+     "club": "DAL"
+    },
+    {
+     "player_id": "10413",
+     "projected_score": 0.8,
+     "captured_at": "2026-10-29T23:47:47Z",
+     "club": "GBP"
+    },
+    {
+     "player_id": "10700",
+     "projected_score": 15.0,
+     "captured_at": "2026-11-01T17:03:49Z",
+     "club": "MIN"
+    },
+    {
+     "player_id": "10783",
+     "projected_score": 9.4,
+     "captured_at": "2026-11-01T17:03:49Z",
+     "club": "MIN"
+    },
+    {
+     "player_id": "10814",
+     "projected_score": 4.8,
+     "captured_at": "2026-11-01T17:03:49Z",
+     "club": "DAL"
+    },
+    {
+     "player_id": "15817",
+     "projected_score": 4.9,
+     "captured_at": "2026-11-01T19:20:17Z",
+     "club": "JAC"
+    },
+    {
+     "player_id": "17818",
+     "projected_score": 1.8,
+     "captured_at": "2026-11-01T19:20:17Z",
+     "club": "CLE"
+    },
+    {
+     "player_id": "15449",
+     "projected_score": 0.4,
+     "captured_at": "2026-11-01T19:20:17Z",
+     "club": "DET"
+    }
+   ]
+  }
+ }
+}
