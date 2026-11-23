@@ -58,6 +58,12 @@ PROE_PLAYS = [
     play("pass", 1, 0.5, score_differential=-10),           # all, a, b (not c: margin 10)
     play("run", 0, 0.5, week=2),                            # week 2, all filters
     play("pass", 1, 0.5, posteam=NAN),                      # no team: never counted
+    # week 3: overtime and aborted snaps are in `all`, out of every neutral filter (Keith R7)
+    play("pass", 1, 0.5, week=3, qtr=5),                    # all only (overtime; neutral_a otherwise passes)
+    play("run", 0, 0.5, week=3, aborted_play=1),            # all only (aborted snap)
+    play("run", 0, 0.3, week=3, aborted_play=NAN),          # missing aborted_play = not aborted: all filters
+    play("pass", 1, 0.6, week=3, qtr=4, aborted_play=0),    # all, a, b (not c: 4th quarter)
+    play("pass", 1, 0.5, week=3, qtr=NAN),                  # all only (no quarter: not shown to be regulation)
 ]
 agg = D.proe_team_week(PROE_PLAYS, 2026)
 w1 = {f: agg.get((2026, f, 1, "AAA")) for f in D.PROE_FILTERS}
@@ -67,6 +73,21 @@ check("dropbacks counted from `pass` (all, week 1)", w1["all"]["dropbacks"], 4)
 check("xpass sum (all, week 1)", approx(w1["all"]["xpass_sum"], 0.6 + 0.3 + 0.5 + 0.4 + 0.7 + 0.2 + 0.5), True)
 check("pass_oe_sum == 100 * (dropbacks - xpass_sum)",
       approx(w1["all"]["pass_oe_sum"], 100 * (w1["all"]["dropbacks"] - w1["all"]["xpass_sum"]), 1e-3), True)
+w3 = {f: agg.get((2026, f, 3, "AAA")) for f in D.PROE_FILTERS}
+check("PROE plays per filter (week 3: overtime, aborted, missing qtr/aborted)",
+      {f: (v or {}).get("plays") for f, v in w3.items()},
+      {"all": 5, "neutral_a": 2, "neutral_b": 2, "neutral_c": 1})
+check("overtime and aborted snaps kept in all (dropbacks, week 3)", w3["all"]["dropbacks"], 3)
+check("neutral_a week 3 = the not-aborted regulation plays only",
+      (w3["neutral_a"]["dropbacks"], approx(w3["neutral_a"]["xpass_sum"], 0.3 + 0.6)), (1, True))
+ot = play("pass", 1, 0.5, qtr=5)
+ab = play("run", 0, 0.5, aborted_play=1)
+check("an overtime play fails every neutral filter, passes all",
+      {f: pred(ot) for f, (_l, pred) in D.PROE_FILTERS.items()},
+      {"all": True, "neutral_a": False, "neutral_b": False, "neutral_c": False})
+check("an aborted snap fails every neutral filter, passes all",
+      {f: pred(ab) for f, (_l, pred) in D.PROE_FILTERS.items()},
+      {"all": True, "neutral_a": False, "neutral_b": False, "neutral_c": False})
 check("no team / no_play / 2-pt / kneel / no-xpass rows form no key", sorted({k[3] for k in agg}), ["AAA"])
 # play-weighted over weeks 1-2: (sum pass_oe) / plays, not the mean of the weekly values
 rows12 = [agg[(2026, "all", 1, "AAA")], agg[(2026, "all", 2, "AAA")]]

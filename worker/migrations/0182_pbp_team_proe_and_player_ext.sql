@@ -18,10 +18,14 @@
 -- Definitions live in pbp_derived.PROE_FILTERS:
 --   all        every qualifying play: play_type pass/run, no two-point tries,
 --              xpass and pass_oe present. EXCLUDES no_play (penalty-nullified
---              snaps), kneels, spikes and all special-teams plays.
---   neutral_a  all + win probability 0.20-0.80, downs 1-3, > 120 s left in the half
+--              snaps), kneels, spikes and all special-teams plays. Overtime
+--              and aborted snaps stay IN.
+--   neutral_a  all + win probability 0.20-0.80, downs 1-3, > 120 s left in the
+--              half, quarters 1-4 (no overtime), aborted_play != 1
 --   neutral_b  neutral_a, downs 1-2 only
---   neutral_c  all + wp 0.20-0.80, downs 1-2, quarters 1-3, |score margin| <= 8
+--   neutral_c  all + wp 0.20-0.80, downs 1-2, quarters 1-3, |score margin| <= 8,
+--              aborted_play != 1
+-- Every neutral filter drops overtime and aborted snaps (Keith, R7).
 -- team is the offense on that play (nflverse posteam), so a QB traded midseason
 -- is shown his team in each game, not his current team.
 --

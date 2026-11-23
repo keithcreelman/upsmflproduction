@@ -31,6 +31,9 @@ import math
 
 # Bump when a definition below changes, so readers can refuse to mix rows
 # built under different rules (the nfl_player_epa.epa_def pattern, 0169).
+# The rule applies from the first stored row: migration 0182 has not been
+# applied anywhere, so no version-1 row exists yet and the R7 neutral change
+# (overtime and aborted snaps out of neutral_*) is part of version 1.
 PROE_DEF_VERSION = 1
 
 
@@ -92,6 +95,19 @@ def _team(v):
 # minus expected dropback rate. The game-weighted mean of weekly PROE is a
 # different number and is NOT what these rows reproduce.
 
+#
+# `all` keeps overtime and aborted snaps (they are qualifying plays). Every
+# neutral filter drops both (Keith, R7, 2026-11-23): overtime is a different
+# game state (sudden death, its own clock), and an aborted snap (bad snap or
+# fumbled exchange, nflverse aborted_play = 1) is not a play-call choice.
+#   * regulation: qtr present and qtr <= 4 (nflverse qtr 5 = overtime). A
+#     missing qtr fails the test (not counted as neutral);
+#   * not aborted: aborted_play != 1. A missing aborted_play counts as 0
+#     (not aborted). nflverse fills it 0/1 on every 2026 row (0 missing; 44
+#     aborted qualifying plays through Week 11), so the rule decides nothing
+#     today; it keeps a gap in a future file from silently emptying a filter.
+#     2026 also has 0 missing qtr values on a qualifying play.
+
 def _in_wp_band(r) -> bool:
     wp = _num(r.get("wp"))
     return wp is not None and 0.2 <= wp <= 0.8
@@ -102,9 +118,19 @@ def _down_in(r, downs) -> bool:
     return d is not None and d in downs
 
 
+def _qtr_at_most(r, last) -> bool:
+    q = _int(r.get("qtr"))
+    return q is not None and q <= last
+
+
+def _neutral_common(r) -> bool:
+    """Shared by every neutral filter: wp 0.20-0.80 inclusive, regulation, not aborted."""
+    return _in_wp_band(r) and _qtr_at_most(r, 4) and not _flag(r.get("aborted_play"))
+
+
 def _f_neutral_a(r) -> bool:
     hs = _num(r.get("half_seconds_remaining"))
-    return _in_wp_band(r) and _down_in(r, (1, 2, 3)) and hs is not None and hs > 120
+    return _neutral_common(r) and _down_in(r, (1, 2, 3)) and hs is not None and hs > 120
 
 
 def _f_neutral_b(r) -> bool:
@@ -112,20 +138,19 @@ def _f_neutral_b(r) -> bool:
 
 
 def _f_neutral_c(r) -> bool:
-    q = _int(r.get("qtr"))
     sd = _num(r.get("score_differential"))
-    return (_in_wp_band(r) and _down_in(r, (1, 2)) and q is not None and q <= 3
+    return (_neutral_common(r) and _down_in(r, (1, 2)) and _qtr_at_most(r, 3)
             and sd is not None and abs(sd) <= 8)
 
 
 # Named filters. Keep the names stable: they are stored in the table.
 PROE_FILTERS = {
-    "all": ("Every qualifying play", lambda r: True),
-    "neutral_a": ("Win probability 20-80%, downs 1-3, more than 2:00 left in the half",
-                  _f_neutral_a),
+    "all": ("Every qualifying play (overtime and aborted snaps included)", lambda r: True),
+    "neutral_a": ("Win probability 20-80%, downs 1-3, more than 2:00 left in the half, "
+                  "quarters 1-4, no aborted snaps", _f_neutral_a),
     "neutral_b": ("As neutral_a, downs 1-2 only", _f_neutral_b),
-    "neutral_c": ("Win probability 20-80%, downs 1-2, quarters 1-3, score within 8",
-                  _f_neutral_c),
+    "neutral_c": ("Win probability 20-80%, downs 1-2, quarters 1-3, score within 8, "
+                  "no aborted snaps", _f_neutral_c),
 }
 
 
