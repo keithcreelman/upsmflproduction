@@ -278,6 +278,7 @@
     else bits.push("Full lineup " + cv.filled + "/" + cv.total);
     if (cv.dependencyText) bits.push(esc(cv.dependencyText));
     if (cv.absent.length) bits.push(esc(cv.absent.length + " out or designated"));
+    if (cv.uncertain && cv.uncertain.length) bits.push(esc(cv.uncertain.length + " not confirmed"));
     if (!cv.injuriesChecked) bits.push("injuries not checked");
     return bits.join(" · ");
   }
@@ -344,8 +345,13 @@
     if (cv.absent.length) {
       body += '<div class="lps">Not counted · out or designated · ' + cv.absent.length + "</div>" + cv.absent.map(function (a) { return row(a.player, S, { starter: slotOf[a.player.id] !== undefined, wk: cur }); }).join("");
     }
-    if (x && x.players.length) body += (cv.short.length || cv.absent.length ? '<div class="lps">On bye · ' + x.players.length + "</div>" : "") + byPositionRows(S, x.players, cur, slotOf);
-    else if (!cv.absent.length && !cv.short.length) body += '<div class="rx"><div class="in"><small>No one is on bye this week.</small></div></div>';
+    var unc = cv.uncertain || [];
+    if (unc.length) {
+      // a later week: an MFL designation with no verified duration. Not counted as available, not a confirmed absence.
+      body += '<div class="lps">Not counted · availability not confirmed · ' + unc.length + "</div>" + unc.map(function (a) { return row(a.player, S, { starter: slotOf[a.player.id] !== undefined, wk: cur }); }).join("");
+    }
+    if (x && x.players.length) body += (cv.short.length || cv.absent.length || unc.length ? '<div class="lps">On bye · ' + x.players.length + "</div>" : "") + byPositionRows(S, x.players, cur, slotOf);
+    else if (!cv.absent.length && !unc.length && !cv.short.length) body += '<div class="rx"><div class="in"><small>No one is on bye this week.</small></div></div>';
     return '<div class="card rows lsec cvc">' + body + "</div>";
   }
   function byesBody(S, t, wi, lineup) {

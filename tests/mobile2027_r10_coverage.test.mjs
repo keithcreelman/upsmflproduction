@@ -49,19 +49,35 @@ function stateOf(team, at) {
     intel: { status: { state: "ok", data: { ok: true, report_feed: { ok: true, current: true, week: 11, teams_mfl: ["AAA"] }, roster_feed: { ok: true }, mfl_feed: { ok: true }, mapped_mfl_ids: team.players.map((p) => p.id), players: {} }, at: at != null ? at : NOW }, mu: {}, wk: {}, scores: {}, sched: {} } };
 }
 const roster = (chip, extra) => ({ roster: Object.assign({ chip, label: chip, detail: "Knee" }, extra || {}) });
+// the module's "A or B" order: by position, then name (both TEs here)
+const nameList2 = (names) => names.slice().sort((a, b) => a.localeCompare(b)).join(" or ");
 
-test("6: a standing MFL designation removes the player from later weeks too; Out only this week; Questionable, Doubtful and Holdout never", () => {
+test("6 (fix): a designation is a confirmed absence in the CURRENT week only; in a later week availability is not confirmed and the note names him", () => {
   const ps = full(), te = ps[5], tm = teamOf(ps), S = stateOf(tm), st = S.intel.status.data.players;
   t.equal(COV.week(S, tm, 13).filled, 18, "baseline: a full lineup in Week 13");
   st[te.id] = roster("IR");
-  for (const w of [11, 13, 14]) {
-    const cv = COV.week(S, tm, w, CUT);
-    t.deepEqual(cv.short.map((s) => s.key + " " + s.available + "/" + s.required), ["TE 0/1"], "Week " + w + ": the only TE is on IR");
-    t.ok(cv.absent.some((a) => a.player.id === te.id && a.text === "MFL designation: IR"), "listed as not counted, Week " + w);
-    t.equal(cv.dependency, null, "plain IR carries no return in the data: no dependency note");
-    t.equal(cv.dependencyText, "");
+  // current week: confirmed absence, plain IR carries no return in the data, so no note
+  let cv = COV.week(S, tm, 11, CUT);
+  t.deepEqual(cv.short.map((s) => s.key + " " + s.available + "/" + s.required), ["TE 0/1"]);
+  t.ok(cv.absent.some((a) => a.player.id === te.id && a.text === "MFL designation: IR"), "current week: confirmed absent");
+  t.equal(cv.dependency, null); t.equal(cv.dependencyText, "");
+  // later weeks: not counted as available, not a confirmed absence; the week is short only pending his return, and says so
+  for (const w of [13, 14]) {
+    cv = COV.week(S, tm, w, CUT);
+    t.equal(cv.filled, 17, "Week " + w + ": never counted as available");
+    t.equal(cv.absent.length, 0, "Week " + w + ": not a confirmed absence (no verified duration)");
+    t.ok(cv.uncertain.some((a) => a.player.id === te.id && /availability not confirmed/.test(a.text)), "Week " + w + ": listed as availability not confirmed");
+    t.equal(cv.dependencyText, "Covered only if " + te.name + " returns from IR", "Week " + w + ": dependency note, never a definite shortage");
   }
-  for (const code of ["SUSP", "RET", "NFI", "PUP"]) { st[te.id] = roster(code); t.equal(COV.week(S, tm, 14).filled, 17, code + " is a confirmed absence in a later week"); }
+  for (const code of ["SUSP", "NFI", "PUP", "IR-R"]) {
+    st[te.id] = roster(code); cv = COV.week(S, tm, 14, CUT);
+    t.equal(cv.filled, 17, code + " is never counted as available"); t.equal(cv.absent.length, 0, code + ": not confirmed absent in a later week");
+    t.ok(cv.dependencyText.indexOf("Covered only if " + te.name + " returns from ") === 0, code + ": dependency note");
+  }
+  st[te.id] = roster("SUSP"); t.equal(COV.week(S, tm, 14, CUT).dependencyText, "Covered only if " + te.name + " returns from a suspension");
+  // RET is permanent: a confirmed absence in every later week, no note
+  st[te.id] = roster("RET"); cv = COV.week(S, tm, 14, CUT);
+  t.equal(cv.filled, 17); t.ok(cv.absent.some((a) => a.player.id === te.id)); t.equal(cv.dependency, null, "RET is never a return");
   st[te.id] = { mfl: { status: "Out", details: "Knee" }, report: { status: "Out", injury: "Knee", practice: "Did Not Participate In Practice" } };
   t.equal(COV.week(S, tm, 11).filled, 17, "Out: absent this week"); t.equal(COV.week(S, tm, 13).filled, 18, "Out is a game status for this week only: not carried to Week 13");
   for (const v of [{ mfl: { status: "Questionable" } }, { mfl: { status: "Doubtful" } }, roster("HOLD")]) {
@@ -72,6 +88,31 @@ test("6: a standing MFL designation removes the player from later weeks too; Out
   const old = stateOf(tm, NOW - 60 * 60 * 1000); old.intel.status.data.players = st;
   const w13 = COV.week(old, tm, 13); t.equal(w13.filled, 18); t.equal(w13.injuriesChecked, false);
   t.equal(COV.week(S, tm, 13).injuriesChecked, true);
+});
+
+test("6 (fix, Keith's reproduction): Week 14 full 18/18; plain IR on the only TE → 17/18 with a dependency note; SUSP returning 2026-11-29 → still not confirmed in Week 14", () => {
+  const ps = full(), te = ps[5], tm = teamOf(ps), S = stateOf(tm), st = S.intel.status.data.players;
+  let cv = COV.week(S, tm, 14, CUT);
+  t.equal(cv.filled, 18); t.equal(cv.short.length, 0, "baseline: full Week 14 lineup");
+  st[te.id] = roster("IR");
+  cv = COV.week(S, tm, 14, CUT);
+  t.equal(cv.filled, 17, "17/18: the IR TE is not counted as available");
+  t.deepEqual(cv.short.map((s) => s.key), ["TE"]);
+  t.equal(cv.dependencyText, "Covered only if " + te.name + " returns from IR", "a dependency, not a definite shortage");
+  t.equal(cv.absent.length, 0);
+  // an expected-return date is evidence of uncertainty, not clearance: still not counted in Week 14, still a dependency
+  st[te.id] = roster("SUSP", { exp_return: "2026-11-29" });
+  cv = COV.week(S, tm, 14, CUT);
+  t.equal(cv.filled, 17, "SUSP with an expected return before Week 14 is still not counted as available");
+  t.equal(cv.absent.length, 0, "and not a confirmed absence");
+  t.ok(cv.uncertain.some((a) => a.player.id === te.id));
+  t.ok(/^Covered only if .* returns from /.test(cv.dependencyText), cv.dependencyText);
+  // the Byes view says it, never "Full lineup", and lists him under availability not confirmed
+  te.bye = 16; const spare = P("LB", { bye: 14 }); ps.push(spare); tm.players = ps; S.model.byId[spare.id] = spare; tm.counts.active = ps.length;
+  st[te.id] = roster("IR");
+  const open = text(V.rosterBody(Object.assign({}, S, { open: { bw14: true } })));
+  t.match(open, /Not counted · availability not confirmed · 1/);
+  t.match(open, new RegExp("Covered only if " + te.name + " returns from IR"));
 });
 
 test("6: an uncertain return is never counted; a lineup only he would complete gets a dependency note and stays short", () => {
@@ -87,14 +128,21 @@ test("6: an uncertain return is never counted; a lineup only he would complete g
   const irTe = P("TE", { status: "ir", name: "Return Candidate" }); ps.push(irTe);
   const tm2 = teamOf(ps), S2 = stateOf(tm2); S2.intel.status.data.players = st;
   st[te.id] = roster("IR"); st[irTe.id] = roster("IR-R");
-  cv = COV.week(S2, tm2, 13, CUT); t.equal(cv.filled, 17); t.equal(cv.dependencyText, "Covered only if Return Candidate returns from IR");
-  irTe.bye = 13; t.equal(COV.week(S2, tm2, 13, CUT).dependency, null, "a candidate on bye that week is no help");
+  // current week: the active TE's plain IR is a confirmed absence, so only the UPS IR player's designated return is named
+  cv = COV.week(S2, tm2, 11, CUT); t.equal(cv.filled, 17); t.equal(cv.dependencyText, "Covered only if Return Candidate returns from IR");
+  // a later week: the active TE's availability is not confirmed either (R10 fix), so either return would complete the lineup
+  cv = COV.week(S2, tm2, 13, CUT); t.equal(cv.filled, 17); t.equal(cv.dependencyText, "Covered only if " + nameList2(["Return Candidate", te.name]) + " returns");
+  irTe.bye = 13; t.equal(COV.week(S2, tm2, 13, CUT).dependencyText, "Covered only if " + te.name + " returns from IR", "a candidate on bye that week is no help; the active TE still is");
+  irTe.bye = 11; t.equal(COV.week(S2, tm2, 11, CUT).dependency, null, "current week, IR candidate on bye: no return would complete it");
   // two needed together: both starting RBs designated to return, and the spare RB alone cannot fill RB2 and an OFX
   const ps3 = full(), r1 = ps3[1], r2 = ps3[2], tm3 = teamOf(ps3), S3 = stateOf(tm3), st3 = S3.intel.status.data.players;
   st3[r1.id] = roster("IR-R"); st3[r2.id] = roster("IR-R");
   cv = COV.week(S3, tm3, 13, CUT); t.equal(cv.filled, 16);
   t.equal(cv.dependencyText, "Covered only if " + [r1, r2].sort((a, b) => a.name.localeCompare(b.name)).map((p) => p.name).join(" and ") + " return");
-  st3[r2.id] = roster("IR"); t.equal(COV.week(S3, tm3, 13, CUT).dependency, null, "no return would complete the lineup: no note, the shortage stands");
+  // a later-week plain IR is a candidate too (availability not confirmed), so both are still named
+  st3[r2.id] = roster("IR"); t.ok(/ and .* return$/.test(COV.week(S3, tm3, 13, CUT).dependencyText), "later week: plain IR is a candidate as well");
+  // RET is permanent: no return would complete the lineup, so no note and the shortage stands
+  st3[r2.id] = roster("RET"); t.equal(COV.week(S3, tm3, 13, CUT).dependency, null, "no return would complete the lineup: no note, the shortage stands");
   // a full lineup never carries a note
   const ps4 = full().concat([P("TE")]), tm4 = teamOf(ps4), S4 = stateOf(tm4); S4.intel.status.data.players[ps4[5].id] = roster("IR-R");
   t.equal(COV.week(S4, tm4, 13, CUT).short.length, 0); t.equal(COV.week(S4, tm4, 13, CUT).dependency, null);
@@ -176,12 +224,24 @@ test("the recording: W* = 10 from the same reads Performance uses; real taxi sco
   const lh = COV.week(S, team("0006"), 13, cut);
   const faulk = lh.taxi.options.find((o) => /Faulk/.test(o.player.name));
   t.equal(faulk.points.map((x) => "W" + x.week + " " + x.text).join(" · "), "W8 3.0 · W9 — · W10 1.0");
-  // Dontayvion Wicks (active, MFL IR designation) is now not counted in Weeks 13 and 14 either
+  // Dontayvion Wicks (active, MFL IR designation): confirmed absent in the current week; in Week 13 not counted, availability not confirmed (R10 fix)
   const wicks = team("0006").players.find((p) => p.name === "Dontayvion Wicks");
-  for (const w of [11, 13]) t.ok(COV.week(S, team("0006"), w, cut).absent.some((a) => a.player.id === wicks.id), "Wicks not counted, Week " + w);
-  // the recording has no short week that an uncertain return would complete
-  const deps = []; S.model.teams.forEach((tm) => COV.weeks(Object.assign({}, S, { teamId: tm.id }), tm, cut).forEach((w) => { if (w.dependency) deps.push(tm.id + ":" + w.week); }));
-  t.deepEqual(deps, [], "no dependency note in the recording (the case is proven by the synthetic tests above)");
+  t.ok(COV.week(S, team("0006"), 11, cut).absent.some((a) => a.player.id === wicks.id), "Wicks confirmed absent, Week 11");
+  const w13 = COV.week(S, team("0006"), 13, cut);
+  t.ok(!w13.absent.some((a) => a.player.id === wicks.id), "Wicks is not a confirmed absence in Week 13");
+  t.ok(w13.uncertain.some((a) => a.player.id === wicks.id), "Wicks: availability not confirmed in Week 13");
+  // R10 fix: every dependency note in the recording names only players whose availability that week is not confirmed (a later-week
+  // designation) or who can return (a returnable designation); none is a current-week plain IR and none is counted as available
+  const deps = [];
+  S.model.teams.forEach((tm) => COV.weeks(Object.assign({}, S, { teamId: tm.id }), tm, cut).forEach((w) => {
+    if (!w.dependency) return;
+    deps.push(tm.id + ":W" + w.week + " " + w.dependencyText);
+    t.ok(w.short.length > 0, "a dependency week is still short (" + tm.id + " W" + w.week + ")");
+    const named = (w.dependency.any || w.dependency.all).map((c) => c.player.id);
+    const ok = new Set(w.uncertain.map((a) => a.player.id).concat(w.absent.filter((a) => a.back).map((a) => a.player.id)));
+    named.forEach((id) => { if (!ok.has(id)) { const p = tm.players.find((x) => x.id === id); t.ok(p && p.status === "ir", "named " + id + " is uncertain, returnable or a UPS IR candidate"); } });
+  }));
+  console.log("  recorded dependency notes:", deps.join("; ") || "none");
 });
 
 test("app.js: Byes establishes W* from the shared reads, asks only the three weeks, and never starts Performance's reads", () => {

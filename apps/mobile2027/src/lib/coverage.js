@@ -6,10 +6,11 @@
    - Filling is a bipartite assignment (one player per slot, one slot per player), solved exactly by augmenting paths: the required position slots
      are taken first, then the flex slots by eligibility. The result is the largest number of slots that can be filled at once, so a shortage is
      reported only when no assignment fills every slot.
-   - A player is left out of a week only for a CONFIRMED absence: a bye that week (MFL's bye week for his club); an MFL roster designation (IR,
-     PUP, NFI, SUSP, RET), which stands until MFL changes it, in the current week and every later week (R10); or an Out game status, in the
-     current week only. Questionable, Doubtful and Holdout never remove anyone. An uncertain return (IR-R, PUP, NFI) is never counted as
-     available; a short week he alone would complete gets a dependency note ("Covered only if … returns from IR"), never "covered".
+   - A player counts as available unless his absence is CONFIRMED (a bye that week; an Out game status or an MFL roster designation in the
+     current week; RET in any week) or his availability is NOT CONFIRMED (an MFL designation IR, IR-R, PUP, NFI or SUSP in a later week: the
+     data gives no duration, and an expected-return date is uncertainty, not clearance). Questionable, Doubtful and Holdout never remove anyone.
+     Neither group is counted as available; a short week that a not-confirmed or returnable player would complete gets a dependency note
+     ("Covered only if … returns from IR"), never "covered".
    - Taxi and IR players are OPTIONS, kept apart from the active-roster count, and are listed only for a week that is short. Taxi facts come from
      the roster read (the Worker's shared taxi rule: eligibility text, call-ups used and allowed); an IR player is a possible return only with
      supporting evidence in the current week's official NFL report (a game status other than Out and practice participation). Recent points
@@ -88,14 +89,28 @@
     if (ro.exp_return && code !== "RET" && code !== "HOLD") return { from: code === "SUSP" ? "a suspension" : code, code: code };
     return null;
   }
-  // A confirmed absence for week wk, or null.
+  // How a designation is named in a dependency note ("returns from IR", "returns from a suspension").
+  function returnLabel(S, p, code) { var b = returnable(S, p); return b ? b.from : code === "SUSP" ? "a suspension" : code; }
+  // Week wk's state for an active player: null (available), or
+  //   { kind: "bye" }                  his club's bye that week (confirmed);
+  //   { kind: "out" }                  an Out game status, current week only (confirmed);
+  //   { kind: "designation", back }    an MFL roster designation in the CURRENT week, or RET (retired) in any week (confirmed);
+  //   { kind: "uncertain", from }      an MFL roster designation (IR, IR-R, PUP, NFI, SUSP) in a LATER week.
+  // R10 fix (Keith, 2026-11-23, against decision 6): a designation has no verified duration in the data (MFL's export carries no week and no end
+  // date; an expected-return date is evidence of uncertainty, not of clearance), so it is not carried forward as a confirmed absence. In a later
+  // week the player is neither counted as available nor confirmed absent: his availability is not confirmed, and a lineup he would complete
+  // gets the dependency note. Only RET, a permanent status, is confirmed for later weeks.
   function absence(S, p, wk) {
     if (R.onBye(p, wk)) return { kind: "bye", text: "Bye week" };
     var cur = curWeek(S);
     if (!(wk >= cur)) return null;
     var c = R.injuryChip(S, p);
     if (c && c.kind === "out" && wk === cur) return { kind: "out", text: "Out" };
-    if (c && c.kind === "res") return { kind: "designation", code: c.code, text: "MFL designation: " + c.code, back: returnable(S, p) };
+    if (c && c.kind === "res") {
+      var code = String(c.code || "").toUpperCase();
+      if (wk === cur || code === "RET") return { kind: "designation", code: c.code, text: "MFL designation: " + c.code, back: code === "RET" ? null : returnable(S, p) };
+      return { kind: "uncertain", code: c.code, text: "MFL designation: " + c.code + " · availability not confirmed", from: returnLabel(S, p, code) };
+    }
     return null;
   }
 
@@ -214,17 +229,22 @@
   // cut: the shared settled-week cutoff (tabviews.seasonCutoff), for the recent points of the options only.
   function week(S, team, wk, cut) {
     var cur = curWeek(S), slots = R.SLOTS, active = team.players.filter(function (p) { return p.status === "active"; });
-    var pool = [], byes = [], absent = [], cands = [];
+    var pool = [], byes = [], absent = [], uncertain = [], cands = [];
     active.forEach(function (p) {
       var a = absence(S, p, wk);
-      if (!a) pool.push(p); else if (a.kind === "bye") byes.push(p); else {
+      if (!a) pool.push(p); else if (a.kind === "bye") byes.push(p);
+      else if (a.kind === "uncertain") { uncertain.push({ player: p, text: a.text, from: a.from }); cands.push({ player: p, from: a.from }); }
+      else {
         absent.push({ player: p, text: a.text, back: a.back || null });
         if (a.back) cands.push({ player: p, from: a.back.from });
       }
     });
     team.players.forEach(function (p) {
       if (p.status !== "ir" || R.onBye(p, wk)) return;
-      var b = returnable(S, p); if (b) cands.push({ player: p, from: b.from, ir: true });
+      var b = returnable(S, p); if (b) { cands.push({ player: p, from: b.from, ir: true }); return; }
+      // a later week: a UPS IR player with any MFL designation but RET might be back (no verified duration), so he is a dependency candidate too
+      var ro = wk > cur ? rosterEntry(S, p) : null, code = ro ? String(ro.chip || "").toUpperCase() : "";
+      if (code && code !== "RET" && code !== "HOLD") cands.push({ player: p, from: code === "SUSP" ? "a suspension" : code, ir: true });
     });
     cands.sort(function (a, b) { return byPos(a.player, b.player); });
     var fit = assign(slots, pool), groups = slotGroups(slots), openBy = {};
@@ -236,7 +256,7 @@
     });
     // R10: the injury read now decides later weeks too (standing designations), so every week is "checked" only while that read is usable.
     var out = { week: wk, current: wk === cur, injuriesChecked: R.injuryFresh(S), filled: fit.filled, total: fit.total, short: short,
-      byes: byes.sort(byPos), absent: absent.sort(function (a, b) { return byPos(a.player, b.player); }), pool: pool.length, taxi: null, ir: null, dependency: null, dependencyText: "" };
+      byes: byes.sort(byPos), absent: absent.sort(function (a, b) { return byPos(a.player, b.player); }), uncertain: uncertain.sort(function (a, b) { return byPos(a.player, b.player); }), pool: pool.length, taxi: null, ir: null, dependency: null, dependencyText: "" };
     if (!short.length) return out;
     out.dependency = dependency(slots, pool, cands);
     out.dependencyText = dependencyText(out.dependency);
