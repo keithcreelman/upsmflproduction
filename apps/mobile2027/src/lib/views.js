@@ -430,10 +430,8 @@
     var aav = sched.parsed.aav.length ? sched.parsed.aav.map(money).join(" · ") : "Not recorded";
     out += tog(S, "rules", "Rules and totals");
     if (S.flags && S.flags.rules) {
-      out += '<div class="xb"><div class="kv">' + TV.contractFacts(C.history(p, season), C.describe(p)) + "</div>" + kv([
-        ["Total value", tcv == null ? "Not recorded" : money(tcv)],
-        ["AAV (as recorded)", esc(aav)]
-      ]) + "</div>";
+      out += '<div class="xb"><div class="kv">' + TV.contractFacts(C.history(p, season), C.describe(p)) +
+        "<b>Total value</b><span>" + (tcv == null ? "Not recorded" : money(tcv)) + "</span><b>AAV (as recorded)</b><span>" + esc(aav) + "</span></div></div>";
     }
     // earned breakdown
     out += tog(S, "earned", "How earned is counted");
@@ -452,7 +450,7 @@
       // R8: the amount and the rule in one sentence (no arithmetic); the guarantee and what is earned of it only under the guarantee rule
       var cb;
       if (!ok) cb = "<b>Not available</b> until the UPS cap calculation loads.";
-      else cb = '<div class="kv"><b>If cut now</b><span>' + TV.cutWords(g) + "</span>" + TV.guaranteeFacts(S, g) + "</div>";
+      else cb = '<div class="kv"><b>Cut charge</b><span>' + TV.cutWords(g) + "</span>" + TV.guaranteeFacts(S, g) + "</div>";
       out += '<div class="xb">' + cb + '<div class="ex mt6">A read-only figure from the UPS cap calculation. Nothing can be cut from here.</div></div>';
     }
     // (the raw contract text is not shown on any owner screen: its diagnostic destination is deferred, #1496 D6)

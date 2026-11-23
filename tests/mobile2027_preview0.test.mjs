@@ -362,7 +362,7 @@ test("the Player profile Contract tab: salary, years left, earned, remaining gua
   t.match(html, /data-chain="\[&quot;https:\/\/a\.espncdn\.com\/i\/headshots\/nfl\/players\/full\/\d+\.png&quot;,&quot;https:\/\/www48\.myfantasyleague\.com\/player_photos_2014\/\d+_thumb\.jpg&quot;\]"/);
   const opened = V.app(state({ profile: { pid: p.id, tab: "contract" }, flags: { rules: true, earned: true, cut: true, raw: true } }));
   t.match(opened, /Total value<\/b><span>\$70,000/); t.match(opened, /Guarantee<\/b><span>\$52,500<small>\$14,588 earned through Week 10<\/small>/); t.match(opened, /AAV \(as recorded\)<\/b><span>\$30,000/);
-  t.match(opened, /\$14,000 from played years \+ \$588 this season/); t.match(opened, /If cut now<\/b><span><b>\$37,912<\/b><small>Guarantee rule: the guaranteed amount not yet earned\.<\/small>/);
+  t.match(opened, /\$14,000 from played years \+ \$588 this season/); t.match(opened, /Cut charge<\/b><span><b>\$37,912<\/b><small>Guarantee rule: the guaranteed amount not yet earned\.<\/small>/);
   t.doesNotMatch(opened, /minus earned|Remaining guarantee|Vet-FAA|Rookie-Draft|>Type</, "R8: no arithmetic under If cut now, no duplicate guarantee, no internal type code");
   t.doesNotMatch(opened, /CL 3\| TCV 70K/); t.match(opened, /Nothing can be cut from here/);
 });
