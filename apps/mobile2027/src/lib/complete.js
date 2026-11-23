@@ -169,5 +169,29 @@
     }
     return out;
   }
-  return { parseCalendar: parseCalendar, verifyWeeks: verifyWeeks, coverage: coverage, parseSchedule: parseSchedule, gameState: gameState, gameOf: gameOf, weekComplete: weekComplete, cutoffWeek: cutoffWeek, handoff: handoff, answerFresh: answerFresh, QUIET_MS: QUIET_MS };
+  // R6 (section 11): which projection may be shown as a player's PREGAME projection for a week. Pure; the app has NO projection read today (none is on the
+  // lib/data.js allowlist), so the card says "Not Available"; this is the rule a future, approved read must go through.
+  //   captures: [{ projected_score, captured_at }] for ONE player and ONE week (captured_at: ISO-8601 UTC text or epoch milliseconds);
+  //   kickoff: that player's own game kickoff, epoch SECONDS (MFL nflSchedule "kickoff") or a Date.
+  // The latest capture with captured_at strictly before kickoff wins (frozen at kickoff); a capture at or after kickoff is never pregame; a capture with an
+  // unreadable time or a value that is not a number is skipped (never zero). -> { state: "ok", value, capturedAt (ms) } | { state: "none", why }.
+  function timeMs(v) {
+    if (typeof v === "number" && isFinite(v)) return v;
+    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/.test(v.trim())) { var t = Date.parse(v.trim()); return isFinite(t) ? t : null; }
+    return null;
+  }
+  function pregameProjection(captures, kickoff) {
+    var ko = kickoff instanceof Date ? kickoff.getTime() : typeof kickoff === "number" && isFinite(kickoff) && kickoff > 0 ? kickoff * 1000 : typeof kickoff === "string" && /^\d+$/.test(kickoff.trim()) ? Number(kickoff.trim()) * 1000 : null;
+    if (ko == null || !isFinite(ko)) return { state: "none", why: "no_kickoff" };
+    var list = Array.isArray(captures) ? captures : [], best = null, late = 0;
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i], at = c ? timeMs(c.captured_at) : null, v = c ? plain(c.projected_score) : NaN;
+      if (at == null || !isFinite(v)) continue;
+      if (at >= ko) { late++; continue; }
+      if (!best || at > best.capturedAt) best = { state: "ok", value: v, capturedAt: at };
+    }
+    return best || { state: "none", why: late ? "after_kickoff" : "no_capture" };
+  }
+
+  return { pregameProjection: pregameProjection, parseCalendar: parseCalendar, verifyWeeks: verifyWeeks, coverage: coverage, parseSchedule: parseSchedule, gameState: gameState, gameOf: gameOf, weekComplete: weekComplete, cutoffWeek: cutoffWeek, handoff: handoff, answerFresh: answerFresh, QUIET_MS: QUIET_MS };
 });

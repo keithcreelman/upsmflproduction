@@ -150,5 +150,12 @@
   }
   // (How a rank is bounded, and what an unsettled or unplaced competitor is, is explained once in Team › Performance Help. A row shows only the compact rank text above.)
 
-  return { toCents: toCents, fmtCents: fmtCents, cmpPPG: cmpPPG, eligibility: eligibility, perGameRank: perGameRank, totalRank: totalRank, seasonFrom: seasonFrom, weekFrom: weekFrom, rankText: rankText, isInt: isInt };
+  // R6 (Keith 2026-11-23): the main-card rank. Exact "QB2"; bounded "QB2–4" (best to worst, never the best alone); unsupported "—". No pool on the card.
+  // Ties keep the shared rank (best = 1 + strictly higher), so three players tied for 61st all read "QB61".
+  function compactRank(r) {
+    if (!r || !r.group || !isInt(r.best) || !isInt(r.worst) || r.worst < r.best) return "—";
+    return r.group + (r.exact && r.best === r.worst ? String(r.best) : r.best + "–" + r.worst);
+  }
+
+  return { toCents: toCents, fmtCents: fmtCents, cmpPPG: cmpPPG, eligibility: eligibility, perGameRank: perGameRank, totalRank: totalRank, seasonFrom: seasonFrom, weekFrom: weekFrom, rankText: rankText, compactRank: compactRank, isInt: isInt };
 });
