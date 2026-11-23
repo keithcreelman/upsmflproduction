@@ -280,3 +280,20 @@ button.btnrow{cursor:pointer}
 .tbl th.n{text-align:right}
 .mt4{margin-top:4px}
 .mt6{margin-top:6px}
+
+/* ===== R6 LINEUP REVISIONS: lineup rules go between this line and the matching end line ===== */
+/* ===== end R6 LINEUP ===== */
+/* (spacer 1: keeps the three R6 sections in separate merge hunks) */
+/* (spacer 2) */
+/* (spacer 3) */
+/* (spacer 4) */
+/* (spacer 5) */
+/* ===== R6 CONTRACTS REVISIONS: contracts rules go between this line and the matching end line ===== */
+/* ===== end R6 CONTRACTS ===== */
+/* (spacer 6) */
+/* (spacer 7) */
+/* (spacer 8) */
+/* (spacer 9) */
+/* (spacer 10) */
+/* ===== R6 PERFORMANCE REVISIONS: performance rules go between this line and the matching end line ===== */
+/* ===== end R6 PERFORMANCE ===== */
