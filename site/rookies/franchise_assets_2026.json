@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at_utc": "2026-11-22T17:23:37.097084+00:00",
+    "generated_at_utc": "2026-11-23T21:40:08.570278+00:00",
     "league_id": "74598",
     "year": "2026",
     "n_franchises": 12
@@ -1953,6 +1953,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_10816",
+          "display": "Demario Davis",
+          "player_id": "10816",
+          "position": "LB",
+          "nfl_team": "NYJ",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16342",
           "display": "Demario Douglas",
           "player_id": "16342",
@@ -2009,18 +2021,6 @@
           "salary": 1000,
           "contract_year": 1,
           "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_10816",
-          "display": "Demario Davis",
-          "player_id": "10816",
-          "position": "LB",
-          "nfl_team": "NYJ",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -4628,18 +4628,6 @@
           "taxi": false
         },
         {
-          "asset_id": "P_15890",
-          "display": "Micah McFadden",
-          "player_id": "15890",
-          "position": "LB",
-          "nfl_team": "NYG",
-          "salary": 2000,
-          "contract_year": 1,
-          "contract_status": "Vet-WW",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
           "asset_id": "P_15787",
           "display": "Tyquan Thornton",
           "player_id": "15787",
@@ -4696,6 +4684,18 @@
           "salary": 1000,
           "contract_year": 3,
           "contract_status": "Vet-FAA",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
+          "asset_id": "P_13189",
+          "display": "Evan Engram",
+          "player_id": "13189",
+          "position": "TE",
+          "nfl_team": "DEN",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
           "roster_status": "ROSTER",
           "taxi": false
         },
@@ -5202,6 +5202,18 @@
           "taxi": false
         },
         {
+          "asset_id": "P_12842",
+          "display": "Riley Dixon",
+          "player_id": "12842",
+          "position": "PN",
+          "nfl_team": "TBB",
+          "salary": 1000,
+          "contract_year": 1,
+          "contract_status": "Vet-WW",
+          "roster_status": "ROSTER",
+          "taxi": false
+        },
+        {
           "asset_id": "P_16896",
           "display": "Spencer Shrader",
           "player_id": "16896",
@@ -5246,18 +5258,6 @@
           "salary": 1000,
           "contract_year": 2,
           "contract_status": "Rookie-MYM",
-          "roster_status": "ROSTER",
-          "taxi": false
-        },
-        {
-          "asset_id": "P_12842",
-          "display": "Riley Dixon",
-          "player_id": "12842",
-          "position": "PN",
-          "nfl_team": "TBB",
-          "salary": 0,
-          "contract_year": 0,
-          "contract_status": "",
           "roster_status": "ROSTER",
           "taxi": false
         },
