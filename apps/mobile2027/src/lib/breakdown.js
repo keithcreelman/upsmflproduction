@@ -110,15 +110,18 @@
     if (!R) return "";
     if (!R.to) return '<div class="ex">No settled week has game stats yet.</div>';
     var out = '<div class="sec2">Season stats · ' + (R.to > 1 ? "Weeks 1" + ENDASH + R.to : "Week 1") + '</div><div class="card bdr"' + (pssKey ? ' data-pss="' + esc(pssKey) + '"' : "") + '><table><tr><th>Stat</th><th class="n">Season</th><th class="n rk">Rank</th></tr>';
+    var why = {}, whyOrder = [];   // Rank details: each reason once, with the stats it applies to
     R.sections.forEach(function (sec) {
       out += '<tr class="bdh"><th colspan="3">' + esc(sec.h) + "</th></tr>";
       sec.items.forEach(function (it) {
         var part = it.value != null && it.of != null && it.n != null && it.n < it.of ? "<small>" + it.n + " of " + it.of + " games</small>" : "";
         var rk = it.value == null || !ranker ? null : ranker(it);
+        if (rk && rk.text === DASH && rk.why) { if (!why[rk.why]) { why[rk.why] = []; whyOrder.push(rk.why); } why[rk.why].push(it.label); }
         out += "<tr><td>" + esc(it.label) + '</td><td class="n">' + (it.value == null ? '<span class="mu">Not available</span>' : "<b>" + esc(it.value) + "</b>" + part) + "</td>" + rankCell(rk) + "</tr>";
       });
     });
     out += "</table></div>";
+    if (whyOrder.length) out += '<details class="bdwhy"><summary>Rank details</summary><ul>' + whyOrder.map(function (w) { return "<li><b>" + esc(why[w].join(", ")) + ":</b> " + esc(w) + "</li>"; }).join("") + "</ul></details>";
     out += '<div class="ex">' + (R.games === 1 ? "1 game" : R.games + " games") + " with a stat line." + (notes.length ? " " + notes.map(esc).join(" ") : "") + "</div>";
     return out;
   }
@@ -216,5 +219,5 @@
     return out + "</div>";
   }
 
-  return { panel: panel, cutoffOf: cutoffOf, inputFor: inputFor, statKey: statKey, statRanker: statRanker };
+  return { panel: panel, cutoffOf: cutoffOf, inputFor: inputFor, statKey: statKey, statRanker: statRanker, rollupHtml: rollupHtml };
 });

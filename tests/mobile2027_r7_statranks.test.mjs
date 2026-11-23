@@ -22,6 +22,10 @@ const BYE = Object.fromEntries(CAL.byes.nflByeWeeks.team.map((x) => [x.id, Numbe
 const pool = (group, players, over) => Object.assign({ ok: true, season: 2026, through: 10, group, data_max_week: 10, unmapped_box_players: 0, ambiguous_ids: 0, fields: [], players }, over || {});
 const E = (id, s, extra) => Object.assign({ mfl_id: String(id), gsis_id: "00-" + id, games: 9, snap_games: 9, s }, extra || {});
 const rank = (j, id, key, ctx) => SR.rankOf(SR.checkPool(j, 2026, 10, j.group), id, key, Object.assign({ group: j.group, G: 9 }, ctx || {}));
+// The small pools below test one rule each; the minimum number of qualifiers (R7b) is tested on its own, so it is set to 1 here and restored there.
+const MINQ = SR.RATE_BARS.minQualifiers;
+SR.RATE_BARS.minQualifiers = 1;
+const withMinQ = (fn) => { SR.RATE_BARS.minQualifiers = MINQ; try { fn(); } finally { SR.RATE_BARS.minQualifiers = 1; } };
 
 test("the threshold table is ONE config object, marked proposed, and every bar names its denominator", () => {
   t.equal(SR.RATE_BARS.status, "proposed, pending Keith's approval");
@@ -67,8 +71,12 @@ test("thresholds: metric-specific denominators, scaled by the fewest team games 
   // the same pool at G = 10 moves the bar to 30 targets
   t.equal(rank(j, 2, "catch_rate", { G: 10 }).text, "—");
   // K bands: attempts in THAT band
-  const k = pool("PK", [E(1, { fg_made_50_59: 2, fg_att_50_59: 3, fg_made: 10, fg_att: 12 }), E(2, { fg_made_50_59: 1, fg_att_50_59: 2, fg_made: 15, fg_att: 15 })]);
-  t.equal(rank(k, 1, "fg_pct_50_59").text, "K1"); t.equal(rank(k, 2, "fg_pct_50_59").text, "—", "2 attempts is under 0.3 x 9 = 2.7");
+  const k = pool("PK", [E(1, { fg_made_50_59: 4, fg_att_50_59: 5, fg_made: 10, fg_att: 12 }), E(2, { fg_made_50_59: 4, fg_att_50_59: 4, fg_made: 15, fg_att: 15 })]);
+  t.equal(rank(k, 1, "fg_pct_50_59").text, "K1");
+  const k2 = rank(k, 2, "fg_pct_50_59"); t.equal(k2.text, "—", "4 attempts is under the floor of 5 (0.3 x 9 = 2.7 alone would admit him)"); t.ok(/Ranked at 5 attempts from 50 to 59 yards or more; he has 4/.test(k2.why), k2.why);
+  // floors: the bar is max(per game x G, floor); WR carries floor 8, TE 5, FG 60+ 3
+  t.equal(SR.barOf("ypc", "WR", 9), 8); t.equal(SR.barOf("ypc", "TE", 9), 5); t.equal(SR.barOf("ypc", "RB", 9), 45);
+  t.equal(SR.barOf("fg_pct_60plus", "PK", 9), 3); t.equal(SR.barOf("fg_pct_0_39", "PK", 9), 5); t.equal(SR.barOf("fg_pct_0_39", "PK", 12), 6, "per game wins when larger");
   // team games: from the schedule (fewest games any club played through W*), else from byes
   const G10 = SR.teamGames(SCHED_DAYS, null, 10), Gb = SR.teamGames(null, BYE, 10);
   t.equal(G10, 9, "a club with its bye by Week 10 has played 9"); t.equal(Gb, 9);
@@ -108,13 +116,54 @@ test("unplaced competitors make a range only where they could be ahead", () => {
   // rates: a competitor with a partial denominator under the bar might reach it -> unplaced; a full one under the bar is out
   const c = pool("WR", [E(1, { receptions: 30, targets: 40 }), E(2, { receptions: 20, targets: 20 }, { cov: { targets: 6, receptions: 6 } }), E(3, { receptions: 20, targets: 20 })]);
   t.equal(rank(c, 1, "catch_rate").text, "WR1–2");
-  // more than half the group unplaced (e.g. pressures with thin PFR coverage): withheld, not "LB1–194"
+  // R7b: a range of more than 4 places (e.g. pressures with thin PFR coverage) is withheld, not "LB1–194"
   const pz = pool("LB", [E(1, { def_pressures: 8 }), E(2, {}), E(3, {}), E(4, { def_pressures: 2 })]);
   t.equal(rank(pz, 1, "def_pressures").text, "LB1–3", "2 of 4 unplaced: a range");
-  const pw = pool("LB", [E(1, { def_pressures: 8 }), E(2, {}), E(3, {}), E(4, {})]);
-  const rw = rank(pw, 1, "def_pressures"); t.equal(rw.text, "—"); t.ok(/Too many/.test(rw.why));
+  const pw = pool("LB", [E(1, { def_pressures: 8 }), E(2, {}), E(3, {}), E(4, {}), E(5, {})]);
+  const rw = rank(pw, 1, "def_pressures"); t.equal(rw.text, "—"); t.ok(/could rank anywhere from LB1 to LB5/.test(rw.why), rw.why); t.equal(rw.coverage, true);
   // his own figure incomplete: no rank
   const o = rank(pool("WR", [E(1, { targets: 80 }, { cov: { targets: 9 } })]), 1, "targets"); t.equal(o.text, "—"); t.ok(/missing some games/.test(o.why));
+});
+
+test("R7b: a range of more than 4 places is withheld (bounds kept for Rank details); missing figures are never counted as zero", () => {
+  t.equal(SR.RATE_BARS.maxSpan, 3);
+  // 1 ahead, 3 unplaced -> WR2–5 (span 3, 4 places): shown
+  const ok = pool("WR", [E(1, { targets: 80 }), E(2, {}), E(3, {}), E(6, {}), E(4, { targets: 90 }), E(5, { targets: 10 })]);
+  t.equal(rank(ok, 1, "targets").text, "WR2–5");
+  // 4 unplaced -> WR2–6 (span 4): withheld, with the bounds
+  const wide = pool("WR", [E(1, { targets_i20: 8 }), E(2, {}), E(3, {}), E(4, {}), E(8, {}), E(5, { targets_i20: 9 }), E(6, { targets_i20: 1 }), E(7, { targets_i20: 0 }), E(9, { targets_i20: 0 })]);
+  const r = rank(wide, 1, "targets_i20"); t.equal(r.text, "—"); t.equal(r.lo, 2); t.equal(r.hi, 6); t.ok(/4 players' figures are incomplete, so he could rank anywhere from WR2 to WR6/.test(r.why), r.why);
+  // the absent figures were not treated as 0: had they been, he would be WR2 outright
+  t.ok(r.text !== "WR2");
+});
+
+test("R7b: a rate rank among fewer than 5 qualifiers is withheld; at 5 it shows, ties shared", () => {
+  withMinQ(() => {
+    t.equal(SR.RATE_BARS.minQualifiers, 5);
+    // FG 60+ at Week 10: five kickers attempted one, at most 4 attempts; with the floor of 3 only one qualifies -> withheld
+    const k = pool("PK", [E(1, { fg_made_60plus: 1, fg_att_60plus: 4 }), E(2, { fg_made_60plus: 1, fg_att_60plus: 2 }), E(3, { fg_made_60plus: 1, fg_att_60plus: 1 }), E(4, { fg_made_60plus: 0, fg_att_60plus: 1 })]);
+    const a = rank(k, 1, "fg_pct_60plus"); t.equal(a.text, "—"); t.ok(/Only 1 player reaches the minimum of 3 attempts from 60 yards or more, too few to rank/.test(a.why), a.why);
+    t.ok(/Ranked at 3 /.test(rank(k, 2, "fg_pct_60plus").why), "under the floor: his own reason first");
+    // WR yards per carry: 4 over 8 carries -> withheld; a 5th makes it rankable
+    const w4 = [E(1, { rush_yds: 156, rush_att: 12 }), E(2, { rush_yds: 43, rush_att: 11 }), E(3, { rush_yds: 38, rush_att: 9 }), E(4, { rush_yds: 44, rush_att: 8 }), E(5, { rush_yds: 51, rush_att: 6 })];
+    t.equal(rank(pool("WR", w4), 1, "ypc").text, "—");
+    t.equal(rank(pool("WR", w4.concat([E(6, { rush_yds: 28, rush_att: 9 })])), 1, "ypc").text, "WR1");
+    t.equal(rank(pool("WR", w4), 5, "ypc").text, "—", "6 carries is under the floor of 8");
+    // five kickers all at 100%: shared K1
+    const all = pool("PK", [1, 2, 3, 4, 5].map((i) => E(i, { xp_made: 20 + i, xp_att: 20 + i })));
+    [1, 2, 3, 4, 5].forEach((i) => t.equal(rank(all, i, "xp_pct").text, "K1"));
+    // totals are not affected by the qualifier minimum
+    t.equal(rank(pool("WR", [E(1, { targets: 10 })]), 1, "targets").text, "WR1");
+  });
+});
+
+test("R7b: the Breakdown lists each withheld rank's reason once under Rank details", () => {
+  const html = BD.rollupHtml({ to: 10, games: 9, sections: [{ h: "Receiving", items: [{ label: "Targets", value: "50", key: "targets" }, { label: "Targets inside 20", value: "8", key: "targets_i20" }, { label: "Rec. inside 20", value: "5", key: "rec_i20" }] }] }, [],
+    (it) => it.key === "targets" ? { text: "WR3" } : { text: "—", why: "3 players' figures are incomplete, so he could rank anywhere from WR2 to WR5." }, "");
+  t.ok(/<details class="bdwhy"><summary>Rank details<\/summary>/.test(html), "a Details block");
+  t.ok(/<b>Targets inside 20, Rec\. inside 20:<\/b> 3 players/.test(html), "one reason, both stats");
+  const none = BD.rollupHtml({ to: 10, games: 9, sections: [{ h: "Receiving", items: [{ label: "Targets", value: "50", key: "targets" }] }] }, [], () => ({ text: "WR3" }), "");
+  t.ok(!/Rank details/.test(none), "no withheld rank, no Details block");
 });
 
 test("the pool must be the right answer; his figure must match the season table", () => {

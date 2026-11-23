@@ -36,6 +36,20 @@ const detailsOf = (name) => {
 };
 const yrs = (h) => h.rows.map((r) => [r.year, r.amount, r.phase]);
 
+// ───────────────────────── R7b decision 3: the nine extensions with no supported year ─────────────────────────
+test("R7b: every recorded extension whose year the terms cannot show reads 'Extended by [team]' with no year (never a guess); exactly 9 in the recording", () => {
+  const noYear = [];
+  for (const tm of TEAMS) for (const p of tm.players) {
+    const e = C.extension(p, 2026, TEAMS);
+    if (!e || e.year != null) continue;
+    noYear.push(p.name);
+    t.ok(e.by, p.name + ": the extending team is still named");
+    t.equal(C.extensionLine(e), "Extended by " + e.by.name, p.name + ": team only, no year");
+    t.doesNotMatch(detailsOf(p.name), /Extended by [^·]*· \d{4}/, p.name + ": no year in Details");
+  }
+  t.equal(noYear.length, 9, "the nine: " + noYear.join("; "));
+});
+
 // ───────────────────────── the schedule of the contract in force ─────────────────────────
 test("no extension: a 3-year deal from 2024 shows 2024, 2025 and 2026 (its own year tokens), and no extension line", () => {
   const p = P("CL 3| TCV 15K| AAV 5K| Y1-5K, Y2-5K, Y3-5K| GTD: 11.3K", 1, 5000, { type: "Vet-FAA", acquisition: "Auction $5,000 (2024)" });

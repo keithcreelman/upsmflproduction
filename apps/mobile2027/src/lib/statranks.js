@@ -27,9 +27,14 @@
   // ---------- THE threshold table (one place). Proposed, pending Keith's approval. ----------
   // perGame: the bar per team game, per position group. The bar at W* = perGame x the fewest games any NFL club has played through W*
   // (the pool answer does not carry each player's club, so every player of a group gets the same bar). Week 10 evidence: r7r_thresholds.md.
+  // min: an absolute floor per group (R7b: sparse kicking bands and WR/TE carries), so the bar is max(perGame x G, min).
+  // minQualifiers: a rate (or fewer-is-better) rank among fewer qualifying players than this is withheld (the value still shows).
+  // maxSpan: a range rank ("WR3–5") is shown only when hi - lo <= maxSpan; a wider one is too broad to inform and shows "—" (R7b item 1).
   var RATE_BARS = {
     status: "proposed, pending Keith's approval",
     teamGames: "fewest games any NFL club has played through W* (all final), from the MFL schedule",
+    minQualifiers: 5,
+    maxSpan: 3,
     bars: {
       cmp_pct: { den: "pass attempts", perGame: { QB: 15 } },
       ypa: { den: "pass attempts", perGame: { QB: 15 } },
@@ -38,7 +43,7 @@
       sacks_taken: { den: "pass attempts + sacks (dropbacks without scrambles; scrambles are not stored)", perGame: { QB: 17 } },
       sack_yds: { den: "pass attempts + sacks", perGame: { QB: 17 } },
       fl_qb: { den: "pass attempts + sacks + carries", perGame: { QB: 20 } },
-      ypc: { den: "carries", perGame: { RB: 5, WR: 0.5, TE: 0.3 } },
+      ypc: { den: "carries", perGame: { RB: 5, WR: 0.5, TE: 0.3 }, min: { WR: 8, TE: 5 } },
       catch_rate: { den: "targets", perGame: { RB: 1.5, WR: 3, TE: 2 } },
       y_rec: { den: "receptions", perGame: { RB: 1, WR: 2, TE: 1.5 } },
       y_tgt: { den: "targets", perGame: { RB: 1.5, WR: 3, TE: 2 } },
@@ -49,10 +54,10 @@
       tackles_per_snap: { den: "defensive snaps", perGame: { DL: 25, LB: 25, DB: 25 } },
       pressure_rate: { den: null, perGame: null, withheld: "No pass-rush snap count exists (snap counts are offense, defense and special teams only; the PFR ingest stores pressures only), so pressure rate is not ranked." },
       fg_pct: { den: "field goal attempts", perGame: { PK: 1 } },
-      fg_pct_0_39: { den: "attempts from 0 to 39 yards", perGame: { PK: 0.5 } },
-      fg_pct_40_49: { den: "attempts from 40 to 49 yards", perGame: { PK: 0.4 } },
-      fg_pct_50_59: { den: "attempts from 50 to 59 yards", perGame: { PK: 0.3 } },
-      fg_pct_60plus: { den: "attempts from 60 yards or more", perGame: { PK: 0.1 } },
+      fg_pct_0_39: { den: "attempts from 0 to 39 yards", perGame: { PK: 0.5 }, min: { PK: 5 } },
+      fg_pct_40_49: { den: "attempts from 40 to 49 yards", perGame: { PK: 0.4 }, min: { PK: 5 } },
+      fg_pct_50_59: { den: "attempts from 50 to 59 yards", perGame: { PK: 0.3 }, min: { PK: 5 } },
+      fg_pct_60plus: { den: "attempts from 60 yards or more", perGame: { PK: 0.1 }, min: { PK: 3 } },
       xp_pct: { den: "extra point attempts", perGame: { PK: 1 } },
       gross: { den: "punts", perGame: { PN: 2 } },
       i20_pct: { den: "punts", perGame: { PN: 2 } }
@@ -170,7 +175,8 @@
   function barOf(id, group, G) {
     var b = RATE_BARS.bars[id];
     if (!b || !b.perGame || b.perGame[group] == null || !(G >= 1)) return null;
-    return b.perGame[group] * G;
+    var floor = b.min && b.min[group] != null ? b.min[group] : 0;
+    return Math.max(b.perGame[group] * G, floor);
   }
   function f1(x) { return String(Math.round(x * 10) / 10); }
 
@@ -200,7 +206,7 @@
       if (mv.q < bar - 1e-9 && mv.qst === "partial") return { text: DASH, why: "His " + RATE_BARS.bars[id].den + " are missing some games." };
       if (mv.q < bar - 1e-9) return { text: DASH, why: "Ranked at " + f1(bar) + " " + RATE_BARS.bars[id].den + " or more; he has " + f1(mv.q) + "." };
     }
-    var ahead = 0, unplaced = 0;
+    var ahead = 0, unplaced = 0, qualified = 1;   // qualified: players over the bar with a value, him included
     pool.players.forEach(function (e) {
       if (e === me) return;
       var v = valueOf(m, e);
@@ -209,6 +215,7 @@
         if (v.qst === "missing") { unplaced++; return; }
         if (v.q < bar - 1e-9) { if (v.qst === "partial") unplaced++; return; }
       }
+      if (v.st !== "missing" && v.st !== "nodiv") qualified++;
       if (v.st === "missing" || v.st === "nodiv") { if (v.st === "missing") unplaced++; return; }
       if (v.st === "partial") {
         // totals only grow: a partial total already ahead (more-is-better) is ahead; a partial total already behind a fewer-is-better leader stays behind
@@ -218,20 +225,23 @@
       }
       if (better(m, v, mv)) ahead++;
     });
-    // a range wider than half the group says nothing: withheld instead (proposed with the bars)
-    if (unplaced * 2 > pool.players.length) return { text: DASH, why: "Too many players' figures are incomplete to place him." };
+    // too few qualifiers: a rank among them says little (sparse kicking bands, WR/TE carries); the value still shows
+    if (m.kind !== "count" && qualified < RATE_BARS.minQualifiers) return { text: DASH, why: "Only " + qualified + (qualified === 1 ? " player reaches" : " players reach") + " the minimum of " + f1(bar) + " " + RATE_BARS.bars[id].den + ", too few to rank." };
     var lo = 1 + ahead, hi = lo + unplaced;
+    // a range wider than maxSpan is too broad to inform: withheld, with the bounds kept for Details (a missing figure is never counted as zero)
+    if (hi - lo > RATE_BARS.maxSpan) return { text: DASH, why: unplaced + (unplaced === 1 ? " player's figure is" : " players' figures are") + " incomplete, so he could rank anywhere from " + P + lo + " to " + P + hi + ".", lo: lo, hi: hi, coverage: true };
     return { text: P + lo + (hi > lo ? ENDASH + hi : ""), what: m.what, lo: lo, hi: hi };
   }
 
   // Help text for the season-stats ranks (to be placed in the screen's Help).
   function helpText() {
     return "Season stat ranks compare him with every player at his MFL position group (QB, RB, WR, TE, K, P, DL, LB, DB) through the same week as the season figures. " +
-      "Tied players share a rank. WR3" + ENDASH + "5 means some players' figures are incomplete, so he could be anywhere from 3rd to 5th. " +
+      "Tied players share a rank. WR3" + ENDASH + "5 means some players' figures are incomplete, so he could be anywhere from 3rd to 5th; when he could be in more than 4 places, the rank shows " + DASH + " and Rank details say why. " +
+      "An incomplete figure is never counted as zero. " +
       "Ranks on totals (yards, targets, snaps, tackles), shares and depth (air yards per attempt or target) describe volume or role, not quality. " +
       "Fewer is better for interceptions, sacks taken, sack yards lost and fumbles lost. " +
       "Rates (and the fewer-is-better totals) rank only players with enough attempts, carries, targets, receptions, punts or snaps of their own, " +
-      "a minimum per team game (proposed, pending approval); below it the value shows and the rank is " + DASH + ". " +
+      "a minimum per team game, with a fixed floor for kicking distance bands and wide receiver and tight end carries, and only when at least " + RATE_BARS.minQualifiers + " players qualify (proposed, pending approval); below it the value shows and the rank is " + DASH + ". " +
       "Pressure rate is not ranked: no pass-rush snap count exists.";
   }
 
