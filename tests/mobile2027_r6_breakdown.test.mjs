@@ -164,7 +164,8 @@ test("the sourced example drawn: the Breakdown, every view, the pinned game iden
   for (const v of ["st", "use", "rz"]) {
     const h = BD.panel(logState(I, { bd: { v: { 16185: v }, g: {} } }), p);
     t.match(h, /<th class="pin">Game<\/th>/, v + ": pinned column"); t.match(h, /<b>W10<\/b> <span class="nw">@ LV<\/span><small>Sun 11\/15<\/small>/, v + ": week, opponent and date pinned");
-    t.equal((h.match(/data-act="bdg"/g) || []).length, 11, v + ": Weeks 1 to 10 and the newer Week 11");
+    t.equal((h.match(/data-act="bdg"/g) || []).length, 10, v + ": Weeks 1 to 10 have a detail control; the newer Week 11 (SEA's bye) is plain text (R8)");
+    t.match(h, /<span class="pinx" data-week="11">/, v + ": the bye row is still in the log");
   }
   const st = BD.panel(logState(I, { bd: { v: { 16185: "st" }, g: {} } }), p);
   t.match(st, /<th class="n" title="Targets">Tgt<\/th><th class="n" title="Receptions">Rec<\/th><th class="n" title="Receiving yards">Yds<\/th><th class="n" title="Receiving TD">TD<\/th>/);
@@ -377,6 +378,21 @@ test("R8: a game's identity line is Date · Matchup · Status; kickoff time only
   // the historical club: Cousins played Week 10 for MIN at GB after nine LV weeks, and his Week 6 for LV at BUF (MIN's bye week)
   const c = pure("10700");
   t.match(BD.identityLine(c.wk(10)), /^\w{3} \d{1,2}\/\d{1,2} · MIN @ GB · Final [WLT] \d+–\d+$/); t.match(BD.identityLine(c.wk(6)), /^\w{3} \d{1,2}\/\d{1,2} · LV (@|vs) BUF · Final [WLT] \d+–\d+$/);
+});
+
+test("R8 (item 4): a verified BYE row is plain text (no detail control, no empty detail panel) and stays in the log; an unverified week keeps its control", async () => {
+  const { intel: I } = await intel(["16162", "16641", "16185"]);
+  // Gibbs: DET's Week 6 bye (between two DET rows, the club's bye from the schedule), even when state says Week 6 is open
+  const h = BD.panel(logState(I, { bd: { v: {}, g: { 16162: 6 } } }), P("16162"));
+  const w6 = (h.split('data-week="6"')[1] || "").split("</tr>")[0];
+  t.match(h, /<tr class="bye"><th class="pin"><span class="pinx" data-week="6"><b>W6<\/b> <span class="nw">BYE<\/span><small>Bye week<\/small><\/span><\/th>/, "the bye row stays, as plain text");
+  t.ok(w6.length > 0); t.doesNotMatch(h, /data-act="bdg" data-v="6"/, "no detail control"); t.doesNotMatch(h, /<tr class="bdd">/, "no detail panel, even when asked for");
+  t.equal((h.match(/data-act="bdg"/g) || []).length, 10, "every other week (1-5, 7-11) keeps its control");
+  // JSN: Week 11 is SEA's bye (his current club, the lineup week): a newer bye row, plain text too
+  t.match(BD.panel(logState(I), P("16185")), /<tr class="newer bye"><th class="pin"><span class="pinx" data-week="11">/);
+  // Bowers: Weeks 1-2 have no club evidence, so they are NOT verified byes: their detail control stays
+  const b = BD.panel(logState(I, { bd: { v: {}, g: { 16641: 1 } } }), P("16641"));
+  t.match(b, /data-act="bdg" data-v="1" data-pid="16641" aria-expanded="true"/); t.match(b, /<tr class="bdd">/);
 });
 
 test("R8: a rate with recorded zero attempts reads — (no rate), a missing one Not available; the Fantasy columns come from one function (the matchup-column seam)", () => {

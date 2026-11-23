@@ -380,6 +380,7 @@ button.btnrow{cursor:pointer}
 .bdt thead .pin{z-index:2;padding:4px 8px}
 .bdt .pin button{display:block;width:100%;min-height:44px;border:0;background:transparent;text-align:left;padding:4px 8px;font-size:13px;font-weight:400;color:var(--tx)}
 .bdt .pin button b{font-weight:700}
+.bdt .pin .pinx{display:block;min-height:44px;padding:4px 8px;font-size:13px;color:var(--tx)}.bdt .pin .pinx b{font-weight:700}
 .bdt .pin small{display:block;font-size:12px;color:var(--mu)}
 .bdt tr.newer td,.bdt tr.newer th{background:var(--s2)}
 .bdt tr.newer .pin{border-left:3px dashed var(--wn)}

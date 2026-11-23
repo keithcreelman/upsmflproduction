@@ -238,8 +238,11 @@
     rs.slice().reverse().forEach(function (r) {
       if (r.newer && r.ptsKind !== "score" && !r.game && !r.box && !r.bye) return;   // a newer week with nothing to show yet is left out
       drew = true;
-      var open = openW === r.week, cls = (r.newer ? "newer" : "") + (open ? " open" : "");
-      var row = '<tr class="' + cls.trim() + '"><th class="pin"><button data-act="bdg" data-v="' + r.week + '" data-pid="' + esc(pid) + '" aria-expanded="' + open + '" aria-label="Week ' + r.week + ' game details">' + pinHtml(r) + "</button></th>";
+      // R8 (item 4): a verified bye (his club's bye from the schedule, or team history) has no game to detail: plain text, no control, no detail row.
+      // A week whose club is unknown is not a verified bye and keeps its detail control.
+      var open = !r.bye && openW === r.week, cls = (r.newer ? "newer" : "") + (open ? " open" : "") + (r.bye ? " bye" : "");
+      var row = '<tr class="' + cls.trim() + '"><th class="pin">' + (r.bye ? '<span class="pinx" data-week="' + r.week + '">' + pinHtml(r) + "</span>" :
+        '<button data-act="bdg" data-v="' + r.week + '" data-pid="' + esc(pid) + '" aria-expanded="' + open + '" aria-label="Week ' + r.week + ' game details">' + pinHtml(r) + "</button>") + "</th>";
       // a missing value is "—" in the cell (never 0); Help explains it once
       row += fan ? fan.map(function (c) { return c.cell(r); }).join("") : cols.map(function (c) { return cell(r.box || r.rz || r.snaps ? c.get(r) : null); }).join("");
       row += "</tr>";

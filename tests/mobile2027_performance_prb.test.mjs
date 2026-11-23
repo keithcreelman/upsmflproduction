@@ -155,7 +155,7 @@ test("the profile game log runs through the cutoff, never the Worker's latestFin
   const I = await intel(), S = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true }, bd: { v: {}, g: {}, t: { [ID.purdy]: "log" } } });
   // R6: the log is the Breakdown: the settled weeks run 10 to 1; a newer Week 11 may show, marked newer and outside the season line
   const html = V.app(S), log = (html.split('<table class="bdt">')[1] || "").split("</table>")[0];
-  const rows = [...log.matchAll(/<tr( class="[^"]*")?><th class="pin"><button data-act="bdg" data-v="(\d+)"/g)].map((m) => [+m[2], /newer/.test(m[1] || "")]);
+  const rows = [...log.matchAll(/<tr( class="[^"]*")?><th class="pin">(?:<button data-act="bdg" data-v|<span class="pinx" data-week)="(\d+)"/g)].map((m) => [+m[2], /newer/.test(m[1] || "")]);
   t.deepEqual(rows.filter((r) => !r[1]).map((r) => r[0]), [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]); t.ok(rows.filter((r) => r[1]).every((r) => r[0] > 10), "only a week after the cutoff is newer");
   t.match(text(html), /Through Week 10 ·/); t.doesNotMatch(text(html), /Through Week 11/);
 });

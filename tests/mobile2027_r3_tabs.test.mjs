@@ -322,7 +322,7 @@ test("P10: Performance carries no matchup rating, color, 'allowed per game' line
 // R6: the profile game log is the Breakdown (lib/breakdown.js). These keep the R3 rules on its Fantasy view: 0.0 and no score look different, an opponent or a BYE
 // only where his club that week is established (here there is no game-stats read, so only the team history can establish it), and the same season figures.
 const logOf = (html) => (html.split('<table class="bdt">')[1] || "").split("</table>")[0];
-const weekRow = (log, w) => (log.split('data-act="bdg" data-v="' + w + '"')[1] || "").split("</tr>")[0];
+const weekRow = (log, w) => (log.split(new RegExp('(?:data-act="bdg" data-v|class="pinx" data-week)="' + w + '"'))[1] || "").split("</tr>")[0];   // R8: a verified bye row is plain text
 test("P11 (R6): the profile log keeps 0.0 and no score apart, and names no opponent where his club that week is not established", async () => {
   const intel = await intelFor(), S0 = state(), act = teamPlayers(S0).filter((p) => p.status === "active");
   const has0 = act.find((p) => ["8", "9", "10"].some((w) => FX3.scores[w].some((r) => r.id === p.id && Number(r.score) === 0)));

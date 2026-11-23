@@ -466,7 +466,8 @@ test("R6: the profile's Breakdown shows every settled week, newest first, from t
   t.match(a.html(), new RegExp('data-act="bdt" data-v="season" data-pid="' + pid + '" aria-pressed="true"')); t.doesNotMatch(a.html(), /data-act="bdg"/, "Season stats by default: the game log is not stacked under it");
   const nTab = a.calls.length; await a.click({ "data-act": "bdt", "data-v": "log", "data-pid": pid }); await tick(10);
   t.equal(a.calls.length, nTab, "switching to Game log makes no read"); t.match(a.html(), new RegExp('data-act="bdt" data-v="log" data-pid="' + pid + '" aria-pressed="true"'));
-  const weeks = () => [...a.html().matchAll(/data-act="bdg" data-v="(\d+)"/g)].map((m) => +m[1]).filter((w) => w <= 10);
+  // R8: a verified bye row (here his Week 8) is plain text with data-week, still in the log
+  const weeks = () => [...a.html().matchAll(/(?:data-act="bdg" data-v|class="pinx" data-week)="(\d+)"/g)].map((m) => +m[1]).filter((w) => w <= 10);
   t.deepEqual(weeks(), [10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "every settled week, newest first: there is no 'Show earlier weeks' step");
   const box = () => a.calls.filter((c) => c.path === "/api/player-weekly-box");
   t.equal(box().length, 1, "one game-stats read"); t.match(box()[0].url, new RegExp("/api/player-weekly-box\\?season=2026&mfl_id=" + pid + "&L=74598$"));
