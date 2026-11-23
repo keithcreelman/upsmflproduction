@@ -218,6 +218,7 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .pfpos{gap:6px 5px}
 .pfpos .ch{min-width:44px;padding:0 9px}
 .xtb{margin-top:8px}
+.xtp{margin:6px 0 8px}
 .xtr{padding:0 2px 6px}
 .xtr .xtt{color:var(--tx);font-weight:600}
 .ch{min-height:44px;padding:0 12px;border-radius:99px;border:1.5px solid var(--bs);background:transparent;font-size:13px;color:var(--tx)}

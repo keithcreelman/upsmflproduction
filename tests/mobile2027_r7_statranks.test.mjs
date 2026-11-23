@@ -59,7 +59,7 @@ test("direction (R8): a lower INT rate ranks higher, only among QBs over the att
   t.equal(rank(j, 6, "int_rate").text, "—"); t.equal(rank(j, 6, "int_rate").why, "No attempts, so no rate.");
   t.equal(rank(j, 1, "int_rate", { raw: 2 / 200 }).text, "QB1", "his figure matches the season table's");
   t.equal(rank(j, 1, "pass_ints").text, "—", "the INT count itself is not ranked"); t.equal(SR.METRICS.pass_ints, undefined);
-  t.deepEqual(SR.RATE_BARS.bars.int_rate, { den: "pass attempts", perGame: { QB: 15 } }, "proposed: the pass-attempt bar Completion % uses"); t.equal(SR.barOf("int_rate", "QB", 9), 135);
+  t.deepEqual(SR.RATE_BARS.bars.int_rate, { den: "pass attempts", perGame: { QB: 15 }, own: true }, "the pass-attempt bar Completion % uses; R10: his own club games once the answer carries them"); t.equal(SR.barOf("int_rate", "QB", 9), 135);
   t.equal(SR.RATE_BARS.bars.fl, undefined); t.equal(SR.RATE_BARS.bars.fl_qb, undefined); t.equal(SR.METRICS.fl, undefined, "R8: no fumbles-lost metric"); t.doesNotMatch(SR.helpText(), /fumble/i);
   t.equal(rank(j, 2, "pass_att").text, "QB1", "attempts rank as a count");
   t.equal(rank(j, 2, "pass_yds").text, "QB1"); t.equal(rank(j, 3, "pass_yds").text, "QB5");
