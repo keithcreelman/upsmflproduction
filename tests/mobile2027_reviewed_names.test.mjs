@@ -87,12 +87,12 @@ test("the provenance and evidence are kept with the bundle", () => {
 const rosterRead = () => ({ ok: true, generated_at: "2026-11-21T14:00:00Z", teams: FX.teams.map((tm) => ({ franchise_id: tm.franchise_id, franchise_name: "Team " + tm.franchise_id, summary: JSON.parse(JSON.stringify(tm.summary)),
   players: tm.players.map((p) => ({ id: p.id, name: "Player, " + p.id, position: "WR", nfl_team: "KCC", salary: p.salary_unresolved ? 0 : p.salary, salary_unresolved: p.salary_unresolved === true, years: p.years, type: "Veteran", special: p.special, status: p.status })) })) });
 const state = (team) => ({ model: M.build(rosterRead(), null, null, 10, 2026), load: { core: "ok", coreNotes: [] }, penalty: { state: "idle" }, ns: { state: "idle" }, teamId: team, tab: "team", sub: "contracts", view: "lineup",
-  open: {}, flags: {}, profile: null, sheet: null, skin: "system", vib: "1", build: "test", requestLog: [], gdef: "needs", wk: null, intel: { mu: {}, wk: {}, scores: {} }, ct: { f: "all", s: "end", open: {}, bd: true, cat: { "y26Cut Penalty": true }, ns: false },
+  open: {}, flags: {}, profile: null, sheet: null, skin: "system", vib: "1", build: "test", requestLog: [], gdef: "needs", wk: null, intel: { mu: {}, wk: {}, scores: {} }, ct: { f: "all", s: "end", open: {}, bd: true, cat: { "y26cut": true }, ns: false },
   requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 } });
 
 test("on screen: team 0010's four cut penalties show their reviewed names with the right amounts; no token reaches the page", () => {
   const tx = text(V.app(state("0010")));
-  ["Minkah Fitzpatrick Cut Aug 13, 2025 · Charged to 2026 +$1,000", "Gunnar Helm Cut Oct 4, 2025 · Charged to 2026 +$1,000", "Efton Chism Cut Oct 25, 2025 · Charged to 2026 +$1,000", "Kayvon Thibodeaux Cut Oct 25, 2025 · Charged to 2026 +$2,000"].forEach((s) => t.match(tx, new RegExp(s.replace(/[$+]/g, "\\$&")), s));
+  ["Minkah Fitzpatrick Cut Aug 13, 2025 +$1,000", "Gunnar Helm Cut Oct 4, 2025 +$1,000", "Efton Chism Cut Oct 25, 2025 +$1,000", "Kayvon Thibodeaux Cut Oct 25, 2025 +$2,000"].forEach((s) => t.match(tx, new RegExp(s.replace(/[$+]/g, "\\$&")), s));
   t.doesNotMatch(tx, /Player Unknown/, "all four are named");
   t.doesNotMatch(V.app(state("0010")), /adddrop|id:/, "the source token is never drawn");
   const other = text(V.app(state("0009"))); t.match(other, /Player Unknown|D\.J\. Chark/, "another team renders its own rows");

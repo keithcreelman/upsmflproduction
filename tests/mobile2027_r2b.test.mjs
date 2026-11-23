@@ -241,7 +241,7 @@ test("P5: the roster views carry no link to a Contracts destination; Team › Co
   }));
   // Team › Contracts is a real tab now (R3): it says what it is, carries no jump into Cap & picks, and the only way to Cap & picks is its own tab
   const ph = V.app(state(intel, { sub: "contracts" })), tx = text(ph);
-  t.match(tx, /Recorded salary, not cap space/); t.doesNotMatch(tx, /Cap space, adjustments and penalties are not part of this preview/);
+  t.match(tx, /Cap space · 2026 season/); t.doesNotMatch(tx, /Cap space, adjustments and penalties are not part of this preview/);
   t.doesNotMatch(ph, /gotoview/); t.equal((ph.match(/data-v="cap"/g) || []).length, 1, "only the tab itself points at Cap & picks");
 });
 

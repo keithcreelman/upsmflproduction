@@ -82,15 +82,15 @@ test("P3: Contracts labels, group headings and sort chips follow the season; the
   const sal = body(V.app(state({ ct: { f: "all", s: "sal", open: {} } })));
   [0, 1, 2].forEach((i) => { t.match(sal, new RegExp('data-act="cty" data-v="' + i + '" aria-pressed="' + (i === 0) + '" aria-label="' + (S.model.season + i) + ' salary">' + (S.model.season + i) + "<")); });
   t.equal((html.match(/<div class="thead /g) || []).length, 1); t.match(html, new RegExp('<div class="thead g' + (ny + 1) + '"'));
-  t.equal((html.match(/<div class="trow t\d+">/g) || []).length, 1); t.match(html, new RegExp('<div class="trow t' + ny + '">'));
+  t.equal((html.match(/<div class="trow/g) || []).length, 0, "R6: no separate recorded-salary totals row");
   // headings: "Expiration date {season + years left - 1}"
-  const heads = [...html.matchAll(/Expiration date <b>(\d{4})<\/b>/g)].map((m) => +m[1]);
+  const heads = [...html.matchAll(/Expires <b>(\d{4})<\/b>/g)].map((m) => +m[1]);
   t.ok(heads.length >= 2); t.deepEqual(heads, heads.slice().sort((a, b) => a - b), "soonest first");
   heads.forEach((h) => t.ok(tm.some((p) => S.model.season + p.years - 1 === h), "a group exists only for a real end year"));
   // a 2027 season: every label moves, and no 2026 appears anywhere in the Contracts body
   const S27 = state({ model: model(2027) }), h27 = body(V.app(S27));
   const s27 = body(V.app({ ...S27, ct: { f: "all", s: "sal", open: {} } }));
-  t.match(s27, /aria-label="2027 salary">2027</); t.match(s27, /aria-label="2028 salary">2028</); t.match(h27, /Expiration date <b>2027<\/b>/); t.doesNotMatch(h27, /2026/); t.doesNotMatch(s27, /2026/);
+  t.match(s27, /aria-label="2027 salary">2027</); t.match(s27, /aria-label="2028 salary">2028</); t.match(h27, /Expires <b>2027<\/b>/); t.doesNotMatch(h27, /2026/); t.doesNotMatch(s27, /2026/);
   // and the view code itself holds no year literal (comments aside)
   ["tabviews.js", "views.js"].forEach((f) => {
     const code = fs.readFileSync(path.join(SRC, "lib", f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
@@ -116,18 +116,16 @@ test("P4: default order is expiration soonest, then current-season salary; filte
   [["sal", 0], ["sal", 1], ["sal", 2], ["exp", 0], ["name", 0]].forEach(([s, y]) => t.ok((body(V.app(state({ ct: { f: "all", s, y, open: {} } }))).match(/data-act="ctx"/g) || []).length === tm.length, "sort " + s + " " + y + " lists everyone"));
   // a contract that has ended shows a dash in that year's column
   const one = tm.find((p) => p.years === 1);
-  t.match(body(V.app(state({ ct: { f: "all", s: "name", open: {} } }))).split('data-v="' + one.id + '"')[1].split("</button>")[0], /<span><span class="mu">—<\/span><\/span>/);
+  t.match(body(V.app(state({ ct: { f: "all", s: "name", open: {} } }))).split('data-v="' + one.id + '"')[1].split('<div class="rw">')[0], /<span><span class="mu">—<\/span><\/span>/);
   // no points per game and no rank, collapsed or expanded
   const open = body(V.app(state({ ct: { f: "all", s: "exp", open: allOpen(S) } })));
   [html, open].forEach((h) => { t.doesNotMatch(text(h), /\bPPG\b|points per game|per game|\brank(ed|ing)?\b|\bpts\b|season (avg|average)/i); t.doesNotMatch(h, /data-act="pf/); });
 });
 
-test("P5: the summary says 'Recorded salary, not cap space', says what is not part of this preview, and has no link to Cap & picks", () => {
+test("R6 P5: the separate 'Recorded salary, not cap space' card is gone; the one cap card has no link to Cap & picks", () => {
   const S = state(), html = body(V.app(S));
-  t.match(html, /<h2>Recorded salary, not cap space<\/h2>/); t.match(text(html), /\d+ players? shown/); t.doesNotMatch(text(html), /Cap space, adjustments and penalties are not part of this preview/);
-  // the totals are sums of recorded amounts only
-  const tm = teamPlayers(S), tot0 = tm.reduce((a, p) => a + (C.schedule(p, S.model.season).rows[0].amount || 0), 0);
-  t.match(html, new RegExp('<div class="trow t\\d"><b>' + TV.kmoney(tot0).replace("$", "\\$").replace(".", "\\.") + "</b>"));
+  t.doesNotMatch(html, /Recorded salary, not cap space|players? shown/); t.equal((html.match(/<h2>/g) || []).length, 1); t.match(html, /<h2>Cap space · /);
+  t.doesNotMatch(text(html), /Cap space, adjustments and penalties are not part of this preview/); t.doesNotMatch(html, /gotoview/);
 });
 
 // ───────────────────────── P6: the Guarantee left column ─────────────────────────
@@ -137,7 +135,7 @@ const guarCells = (html) => [...html.matchAll(/<span class="g">(.*?)<\/span><spa
 
 test("P6: the table renders before the guarantee read resolves; the column holds only guarantee values: Loading…, an amount, $0 Fully earned, Not applicable, Under review, Unavailable", () => {
   const loading = body(V.app(state({ penalty: { state: "loading" } })));
-  t.ok(loading.includes("Recorded salary, not cap space") && loading.includes('data-act="ctx"'), "the table is drawn with the guarantee read still out");
+  t.ok(loading.includes("Cap space · ") && loading.includes('data-act="ctx"'), "the table is drawn with the guarantee read still out");
   guarCells(loading).forEach((c) => t.equal(c, "Loading…"));
   const idle = body(V.app(state({ penalty: { state: "idle" } }))); guarCells(idle).forEach((c) => t.equal(c, "Loading…"));
   const ok = body(V.app(state()));
@@ -198,7 +196,7 @@ test("P6/P3: a salary the worker or MFL did not record is n/r, not $0, in the ta
   p.salary = null; p.salaryUnresolved = true;
   const html = body(V.app(state({ model: S.model, ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   const row = html.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
-  t.match(row, /<span class="wn">n\/r<\/span>/); t.doesNotMatch(row, /<span>\$0<\/span>/); t.match(html, /A year with no recorded amount is left out of its total/);
+  t.match(row, /<span class="wn">n\/r<\/span>/); t.doesNotMatch(row, /<span>\$0<\/span>/); t.match(row, /This season<\/span><span><span class="wn">Not recorded<\/span>/, "R6: the schedule says Not recorded for this season");
 });
 
 // ───────────────────────── P7 to P11: Performance and the game log ─────────────────────────
