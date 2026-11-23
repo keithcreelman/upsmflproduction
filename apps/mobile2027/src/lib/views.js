@@ -545,7 +545,7 @@
     "Kicking distance bands: a kicker’s attempts from a distance are incomplete when he missed a kick, because missed-kick distances are not in the stats feed, so those band ranks show —.",
     "Points-per-game rank shows — for everyone: team history is not in this recording.",
     "Pass rate over expected, punter inside-20 distance bands, sack fumbles, missed-kick distances, longest plays and yards after catch are not in this recording.",
-    "xFP and Over Expectations are Not Available everywhere.",
+    "xFP PPG and Over Expectations are Not Available everywhere.",
     "Minimum attempts, carries, targets or snaps for rate ranks are proposals, not approved yet.",
     "Game stats were recorded for 117 players (three full teams plus examples); other players show their fantasy log only.",
     "Projections cover Week 11 only and were recorded for 342 of 486 rostered players.",
