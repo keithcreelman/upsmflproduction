@@ -93,7 +93,7 @@ test("R7: history two weeks behind: Tot. Pts., Actual PPG, scored games and BOTH
   t.equal(f.n, a8.n); t.equal(ctx.rank.cutoff, 8, "both ranks on Week 8"); t.equal(ctx.input.latestFinal, 8); t.equal(ctx.input.allFinal, 10);
   t.equal(ctx.rank.weekRank(9, ID.purdy), "", "no weekly rank inside the settled summary past W*");
   // the Breakdown: the same Week 8 summary; Weeks 9 and 10 are drawn as newer rows outside it
-  S8.pf = { s: "pos", open: { [ID.purdy]: true }, res: {} };
+  S8.pf = { s: "pos", open: { [ID.purdy]: true }, res: {} }; S8.bd = { v: {}, g: {}, t: { [ID.purdy]: "log" } };   // R8: the Game log tab
   const bd = body(V.app(S8)).split('data-act="card" data-pid="' + ID.purdy + '"')[1].split('<div class="rw pfc">')[0];
   t.match(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="10"/); t.match(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="9"/);
   t.doesNotMatch(bd, /<tr class="newer[^"]*"><th class="pin"><button data-act="bdg" data-v="8"/, "Week 8 is settled");
@@ -257,7 +257,7 @@ test("R7 projection: the latest capture strictly before HIS kickoff, frozen at k
   t.ok(TV.projectionRequest(S).ids.length <= 80, "within the route's 80-id limit");
 });
 
-test("R7 projection on screen: the card line 'Week 11 Proj. 21.4' (secondary), the Breakdown names the provider and capture time; Not Available otherwise", async () => {
+test("R8 projection on screen: only the card line 'Week 11 Proj. 21.4' (secondary); the Breakdown does not repeat it or explain the capture; the pregame evidence stays in the slot; Not Available otherwise", async () => {
   const I = withKickoffs(await intel()), S = state({ intel: I }), p = S.model.byId[ID.purdy], k = TV.kickoffOf(S, 11, p.nflTeam);
   S.intel.proj = { 11: { state: "ok", at: 1, data: projAnswer({ [ID.purdy]: { projected_score: 21.4, captured_at: isoAt(k.ko - 3600), first_projected: 19.9, first_captured_at: isoAt(k.ko - 86400), capture_count: 4 }, [ID.shaheed]: null }) } };
   let html = body(V.app(S));
@@ -265,13 +265,16 @@ test("R7 projection on screen: the card line 'Week 11 Proj. 21.4' (secondary), t
   t.doesNotMatch(card(html, ID.purdy), /MFL|captured/i, "provider and capture time are not on the card");
   S.pf = { s: "pos", open: { [ID.purdy]: true, [ID.shaheed]: true }, res: {} }; html = body(V.app(S));
   const rowOf = (id) => text(html.split('data-act="card" data-pid="' + id + '"')[1].split('<div class="rw pfc">')[0]);
-  t.match(rowOf(ID.purdy), /Week 11 Proj\. 21\.4 MFL projection, captured [^.]+ ET, before his kickoff \([^)]+ ET\)\. Frozen at kickoff\./);
-  t.match(rowOf(ID.shaheed), /Week 11 Proj\. Not Available His club has a bye\./, "Shaheed's club is on its Week 11 bye: the reason is the bye, not a missing row");
+  t.equal((rowOf(ID.purdy).match(/Proj\./g) || []).length, 1, "the projection once, on the card"); t.doesNotMatch(rowOf(ID.purdy), /captured|kickoff|Frozen|MFL projection/i, "no capture or freeze explanation on screen");
+  const g = TV.projectionSlot(S, p); t.equal(g.capturedAt, Date.parse(isoAt(k.ko - 3600)), "the capture time is kept internally"); t.equal(g.kickoff, k.ko * 1000, "and the kickoff it was checked against");
+  t.doesNotMatch(rowOf(ID.shaheed), /His club has a bye/); t.equal(TV.projectionSlot(S, S.model.byId[ID.shaheed]).why, "bye", "Shaheed's club is on its Week 11 bye: the reason is the bye, not a missing row");
+  t.equal(TV.projectionReason(TV.projectionSlot(S, S.model.byId[ID.shaheed])), "His club has a bye"); t.equal(TV.projectionReason(g), "");
+  t.match(text(TV.screenHelp(S)), /Projection Provider: MFL\./, "the provider stays in Help"); t.doesNotMatch(text(TV.screenHelp(S)), /Breakdown shows when it was captured/);
   t.equal(TV.projectionSlot(S, Object.assign({}, p, { id: "99999" })).why, "no_row", "a player with a game and no captured row");
 });
 
 test("R7 weekly Rank column (Fantasy log): exact only ('QB4', no space, no pool), '—' otherwise, settled weeks only", async () => {
-  const S = state({ intel: await intel() }); S.pf = { s: "pos", open: { [ID.purdy]: true, [ID.shaheed]: true }, res: {} };
+  const S = state({ intel: await intel() }); S.pf = { s: "pos", open: { [ID.purdy]: true, [ID.shaheed]: true }, res: {} }; S.bd = { v: {}, g: {}, t: { [ID.purdy]: "log", [ID.shaheed]: "log" } };
   const html = body(V.app(S));
   [ID.purdy, ID.shaheed].forEach((id) => {
     const seg = html.split('data-act="card" data-pid="' + id + '"')[1].split('<div class="rw pfc">')[0], tb = seg.split('<table class="bdt">')[1].split("</table>")[0];

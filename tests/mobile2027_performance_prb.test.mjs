@@ -73,7 +73,7 @@ test("R6 main card: Tot. Pts. and Actual PPG, each with its own compact position
   t.doesNotMatch(p + s, /\d+ of \d+|of 73|of 240|is exact|rank is exact/, "no pool on the card");
   const open = text(row(await perf({}, { pf: { s: "pos", open: { [ID.shaheed]: true, [ID.purdy]: true }, res: {} } }), ID.shaheed));
   // R7 (decision 4): the Breakdown reads like the card ("WR66", "WR63–66"); the group size appears only in a RANGE's reasoning, never as "of N"
-  t.match(open, /Actual PPG rank WR63–66 A range: 3 players who could rank ahead of him can’t be placed yet[^.]*\. WR group: 169–209 players\./); t.match(open, /Tot\. Pts\. rank WR66(?![–\d])/);
+  t.match(open, /Actual PPG rank WR63–66 A range: 3 players who could rank ahead of him can’t be placed yet[^.]*\. WR group: 169–209 players\./); t.doesNotMatch(open, /Tot\. Pts\. rank/, "R8: an exact Tot. Pts. rank is on the card only, never repeated in the Breakdown");
   t.doesNotMatch(open, /[A-Z]{1,2} ?\d+(–\d+)? of \d+|of 240/, "no 'of N' pool anywhere in the Breakdown's rank lines");
   t.doesNotMatch(open, /is exact|are placed|is placed|are settled|Best 63|worst 66|worst case|a bound|unsettled|unplaced|without a position group/i, "no explanation of how a rank is bounded on a row");
 });
@@ -152,10 +152,10 @@ test("delayed handoff: every game of the lineup week is final but the season fig
 });
 
 test("the profile game log runs through the cutoff, never the Worker's latestFinalWeek", async () => {
-  const I = await intel(), S = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
+  const I = await intel(), S = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true }, bd: { v: {}, g: {}, t: { [ID.purdy]: "log" } } });
   // R6: the log is the Breakdown: the settled weeks run 10 to 1; a newer Week 11 may show, marked newer and outside the season line
   const html = V.app(S), log = (html.split('<table class="bdt">')[1] || "").split("</table>")[0];
-  const rows = [...log.matchAll(/<tr( class="[^"]*")?><th class="pin"><button data-act="bdg" data-v="(\d+)"/g)].map((m) => [+m[2], /newer/.test(m[1] || "")]);
+  const rows = [...log.matchAll(/<tr( class="[^"]*")?><th class="pin">(?:<button data-act="bdg" data-v|<span class="pinx" data-week)="(\d+)"/g)].map((m) => [+m[2], /newer/.test(m[1] || "")]);
   t.deepEqual(rows.filter((r) => !r[1]).map((r) => r[0]), [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]); t.ok(rows.filter((r) => r[1]).every((r) => r[0] > 10), "only a week after the cutoff is newer");
   t.match(text(html), /Through Week 10 ·/); t.doesNotMatch(text(html), /Through Week 11/);
 });
@@ -242,7 +242,7 @@ test("on screen: an unplaceable scorer (not in the players read) widens the per-
   t.match(text(row(hi, ID.purdy)), /Tot\. Pts\. rank QB3–4 A range: 1 player [^.]*\. QB group: 73–74 players\./); t.match(text(row(hi, ID.purdy)), /Actual PPG rank QB2–3 A range: 1 player [^.]*\. QB group: 35–55 players\./, "one unplaceable scorer adds one to the group, not ten (Breakdown reasoning)");
   t.match(s, /Tot\. Pts\.\s+66\.7\s+WR66–67/); t.match(s, /Actual PPG\s+8\.3\s+WR63–67/, "he could be a WR too");
   const loH = await perf({ scores: withScores(() => ({ id: "99999", score: "1" })) }, open), lo = text(card(loH, ID.purdy));
-  t.match(lo, /Tot\. Pts\.\s+270\.0\s+QB3(?!–)/); t.match(lo, /Actual PPG\s+30\.0\s+QB2(?!–)/); t.match(text(row(loH, ID.purdy)), /Actual PPG rank QB2 (?!A range)/, "below him: the rank stays exact, and an exact rank carries no group size"); t.doesNotMatch(text(row(loH, ID.purdy)), / of 35/);
+  t.match(lo, /Tot\. Pts\.\s+270\.0\s+QB3(?!–)/); t.match(lo, /Actual PPG\s+30\.0\s+QB2(?!–)/); t.doesNotMatch(text(row(loH, ID.purdy)), /Actual PPG rank|A range/, "below him: the rank stays exact, so the Breakdown repeats nothing (R8)"); t.doesNotMatch(text(row(loH, ID.purdy)), / of 35/);
   t.match(text(card(await perf(), ID.purdy)), /Actual PPG\s+30\.0\s+QB2(?!–)/, "with no such scorer nothing changes");
 });
 
@@ -253,7 +253,7 @@ test("unreadable scores: kept as text by the loader, shown as unverified (figure
   const html = await perf({ scores: sc }), p = text(card(html, ID.purdy));
   t.match(p, /Tot\. Pts\.\s+—\s+—/); t.match(p, /Actual PPG\s+—\s+—/); t.match(p, /1 score could not be read, so his season figures are not shown\./); t.doesNotMatch(p, /QB\d/, "no season or per-game rank");
   t.match(text(card(html, ID.shaheed)), /WR66\b/, "his position is known: another position's rank is not widened by him");
-  const I = await intel({ scores: sc }), S2 = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
+  const I = await intel({ scores: sc }), S2 = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true }, bd: { v: {}, g: {}, t: { [ID.purdy]: "log" } } });
   t.match((V.app(S2).split('data-act="bdg" data-v="3"')[1] || "").split("</tr>")[0], /<td class="n"><span class="mu" title="This score could not be read">\?<\/span><\/td>/, "the game log says the score could not be read, not a dash");
 });
 
@@ -450,7 +450,7 @@ test("R6 sort: By position, Tot. Pts., Actual PPG, always the same three; a stor
 test("R6 wording: compact ranks only on the card; no pool, no methodology, no comparison block, no footer explanations; Help carries the definitions", async () => {
   const html = await perf({}, allOpen()), tx = text(html);
   actives().forEach((p) => { const c = text(card(html, p.id)); t.doesNotMatch(c, /[A-Z]{1,2} ?\d+(–\d+)? of \d+/, p.name + ": no pool on the card"); });
-  t.match(text(row(html, ID.purdy)), /Tot\. Pts\. rank QB3 (?!A range)/); t.match(text(row(html, ID.purdy)), /Actual PPG rank QB2 (?!A range)/, "R7: exact ranks read 'QB2' in the Breakdown too, with no group size");
+  t.doesNotMatch(text(row(html, ID.purdy)), /Tot\. Pts\. rank|Actual PPG rank/, "R8: exact ranks are on the card only; the Breakdown does not repeat them");
   t.doesNotMatch(text(row(html, ID.purdy)), /QB ?\d+ of \d+/);
   t.doesNotMatch(tx, /is exact|are placed|is placed|are settled|Best \d+, worst|worst case|a bound, not|unsettled|unplaced|eligib|without a position group/i);
   t.doesNotMatch(tx, /Season points|Per scored game|Season average|Last 3 team games|Recent|Earlier|Difference|Ranges can narrow|Final games only|Comparison through|completed games/, "superseded wording is gone");

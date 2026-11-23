@@ -327,7 +327,8 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   await a.click({ "data-act": "pfx", "data-v": pf[1] }, 150); t.match(a.html(), /data-act="pfx" data-v="\d+" aria-expanded="true"/);
   t.match(a.html(), /data-bdpid="\d+"/, "the main card's Breakdown opens the game log");
   // R7: the default team's players have recorded game stats: the Breakdown draws its views from the recording (no "not in this recording" line)
-  t.doesNotMatch(a.html(), /Game stats aren’t in this recording/, "R7: recorded game stats are shown"); t.match(a.html(), /data-act="bdv"/, "the Breakdown's views");
+  t.doesNotMatch(a.html(), /Game stats aren’t in this recording/, "R7: recorded game stats are shown");
+  await a.click({ "data-act": "bdt", "data-v": "log", "data-pid": pf[1] }, 20); t.match(a.html(), /data-act="bdv"/, "the Breakdown's views (Game log tab, R8)");
   // xFP and Over Expectations stay Not Available on every card (the lock), and the projection slot is week-labeled
   const cards = a.html().split('data-act="pfx"').length - 1;
   t.equal((a.html().match(/<span>xFP PPG<\/span><b><span class="na">Not Available<\/span><\/b>/g) || []).length >= 1, true, "xFP PPG Not Available");
@@ -351,6 +352,10 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   await a.click({ "data-act": "ptab", "data-v": "perf" }, 100); t.match(a.html(), /Game log/); ok("profile performance");
   // R7: the Breakdown in recorded mode draws the recorded game stats: every view, then one game's detail, all from the recording (no miss, no network)
   t.ok(BOX_IDS.includes(String(pid)), "the default team's first player has recorded game stats");
+  // R8: Season stats (with its recorded-pool ranks), then the Game log tab (the tab is remembered per player, so Season stats is chosen explicitly)
+  await a.click({ "data-act": "bdt", "data-v": "season", "data-pid": pid }, 20);
+  t.match(a.html(), /<td class="n rk"[^>]*>(QB|RB|WR|TE|K|P|DL|LB|DB)\d+<\/td>/, "a season stat rank from the recorded pool"); ok("breakdown season stats");
+  await a.click({ "data-act": "bdt", "data-v": "log", "data-pid": pid }, 20); ok("breakdown game log tab");
   t.doesNotMatch(a.html(), /Game stats aren’t in this recording/); t.match(a.html(), /<b>W10<\/b>/); t.match(a.html(), /<b>W1<\/b>/);
   const views = [...new Set([...a.html().matchAll(new RegExp('data-act="bdv" data-v="([a-z]+)" data-pid="' + pid + '"', "g"))].map((m) => m[1]))];
   t.ok(views.length >= 2, "his views: " + views.join(", "));
@@ -358,8 +363,7 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   await a.click({ "data-act": "bdg", "data-v": "10", "data-pid": pid }, 30); t.match(a.html(), /<tr class="bdd">/); ok("breakdown game detail");
   // R7 wiring: the detail names the capture window, the season rollup ranks from the recorded Week-10 pool, the projection comes from the recording
   t.match(a.html(), /Game stats through Week \d+, recorded Sun 10:13–10:14 PM ET/, "the game detail shows the capture time, not the serve time");
-  t.match(a.html(), /<td class="n rk"[^>]*>(QB|RB|WR|TE|K|P|DL|LB|DB)\d+(–\d+)?<\/td>/, "a season stat rank from the recorded pool");
-  t.match(a.html(), /Week 11 Proj\./, "the projection slot is drawn"); t.match(a.html(), /MFL projection, captured [A-Z][a-z]{2} \d{1,2}:\d\d [AP]M ET, before his kickoff|Not Available · |Not Available/, "with its capture time or its reason"); t.doesNotMatch(a.html(), /<span>xFP PPG<\/span><b>(?!<span class="na">Not Available)/, "xFP stays Not Available in the profile");
+  t.match(a.html(), /Week 11 Proj\./, "the projection slot is drawn"); t.doesNotMatch(a.html(), /MFL projection, captured|Frozen at kickoff/, "R8: no capture explanation on screen"); t.doesNotMatch(a.html(), /<span>xFP PPG<\/span><b>(?!<span class="na">Not Available)/, "xFP stays Not Available in the profile");
   await a.click({ "data-act": "ptab", "data-v": "more" }); await a.click({ "data-act": "ptab", "data-v": "sched" }); await a.click({ "data-act": "ptab", "data-v": "contract" });
   await a.click({ "data-act": "tog", "data-v": "cut" }); ok("profile tabs");
   await a.click({ "data-act": "close" });
@@ -394,7 +398,7 @@ test("R7: a player whose game stats were not recorded: his Breakdown says so onc
   await a.click({ "data-act": "teams" }); await a.click({ "data-act": "pickteam", "data-fid": "0001" }, 40);
   const pid = team.players.map((p) => String(p.id)).find((id) => /^\d+$/.test(id) && !BOX_IDS.includes(id));
   await a.click({ "data-act": "card", "data-pid": pid }, 60); await a.click({ "data-act": "ptab", "data-v": "perf" }, 100);
-  t.match(a.html(), /Game stats aren’t in this recording; the log shows fantasy points only\./);
+  t.match(a.html(), /Game stats aren’t in this recording; the game log shows fantasy points only\./);
   t.equal((a.html().match(/Game stats aren’t in this recording/g) || []).length, 1, "said once");
   t.deepEqual(a.misses(), [R.canonical("/api/player-weekly-box?season=2026&mfl_id=" + pid + "&L=74598")], "the one unrecorded read, counted");
   t.deepEqual(a.net, [], "no network attempt");

@@ -261,7 +261,7 @@
         h("Tot. Pts., Actual PPG, scored games", "Tot. Pts. is the player’s official MFL scores added up. Actual PPG is Tot. Pts. divided by scored games, the games with a recorded score (0.0 and negative scores count; a game with no recorded score does not). A 0.0 is a score MFL recorded; it is not proof that he played.") +
         h("Ranks", "QB2 is the player’s place among players at his position (tied players share a place). QB2–4 means some players cannot be placed yet (no position on file, a score that could not be read, or a PPG eligibility that is not settled), so he could be anywhere from 2nd to 4th. Ranges can narrow as weeks complete. " + esc(DASH) + " means no supported rank. The PPG rank needs scores in at least half of the team’s games and needs team history; until that is available it is " + esc(DASH) + " for everyone. For a range, the Breakdown says why and how large the group could be. The game log’s Rank column is the player’s exact place at his position that week (WR3), shown only for completed weeks and only when it is exact; otherwise " + esc(DASH) + ".") +
         h("xFP PPG and Over Expectations", "Not Available until the expected-points model is approved.") +
-        h("Projection", "MFL’s projection for the lineup week, as last captured before the player’s own kickoff; it is frozen at kickoff, and a capture after kickoff is never used. Not Available when there is none. The Breakdown shows when it was captured.") +
+        h("Projection", "Provider: MFL. The card’s “Proj.” is MFL’s projection for the lineup week, the last one captured before the player’s own game kicked off; a capture after kickoff is never used. Not Available when there is none (for example a bye, or no capture before kickoff).") +
         (SR && SR.helpText ? h("Season stat ranks", esc(SR.helpText())) : "");
     }
     if (sub === "cap") return h("Cap & picks", "Not in this preview.");
@@ -710,11 +710,10 @@
     if (!t || !S.model.week) return null;
     return { season: Number(S.model.season), week: S.model.week, ids: t.players.map(function (p) { return String(p.id); }) };
   }
-  // The Breakdown's projection line: provider and capture time (ET), or why it is Not Available.
-  function projectionDetail(g) {
-    if (g.value == null) return [g.label, NOT_AVAILABLE, PROJ_WHY[g.why] ? PROJ_WHY[g.why] + "." : ""];
-    return [g.label, g.text, "MFL projection, captured " + F.etStamp(new Date(g.capturedAt).toISOString()) + ", before his kickoff (" + F.etStamp(new Date(g.kickoff).toISOString()) + "). Frozen at kickoff."];
-  }
+  // R8: the Breakdown no longer repeats the projection. The card shows only "Week 11 Proj. 4.6"; the capture time and kickoff stay in the slot
+  // (capturedAt, kickoff: the pregame rule's evidence) and a Not Available slot keeps its reason code (why); the provider is named in Help.
+  // projectionReason: the plain reason for a Not Available slot ("" otherwise), for tests and any later Details line.
+  function projectionReason(g) { return g && g.value == null && PROJ_WHY[g.why] ? PROJ_WHY[g.why] : ""; }
 
   // One player's main-card figures (also what the Breakdown reads, so the two never disagree): { total, n, ppg, totRank, ppgRank, why, nbad, noPos, model, proj }.
   function figs(S, p, ctx) {
@@ -730,17 +729,15 @@
   function metric(label, value, rank, cls) {
     return '<div class="' + cls + '"><span>' + esc(label) + "</span><b>" + value + "</b>" + (rank == null ? "" : '<em aria-label="' + esc(label) + " rank " + esc(rank === DASH ? "not available" : rank) + '">' + esc(rank) + "</em>") + "</div>";
   }
-  // The main card's Breakdown, opened in place: the rank detail the card abbreviates (r6p: the pool and bounds, or why a rank is not shown), then the
-  // Breakdown itself (lib/breakdown.js: season stats, the weekly game log, each game's detail) WITHOUT its summary line, because the card above already
-  // shows Tot. Pts. and the scored games. Same cutoff W* as the card (the Breakdown reads seasonCutoff).
+  // The main card's Breakdown, opened in place (lib/breakdown.js: Season stats | Game log) WITHOUT its summary line. R8: nothing the card already
+  // shows is repeated: no Tot. Pts. or exact rank, no projection. A rank line is kept only when it needs explaining (a range, or why it is not
+  // shown), drawn under Season stats. Same cutoff W* as the card (the Breakdown reads seasonCutoff).
   function breakdown(S, id, ctx) {
     ctx = ctx || perfCtx(S, [id]);
     var p = S.model && S.model.byId[id];
     var f = ctx && ctx.read === "ok" ? statFigures(S, id, ctx.rank, !!ctx.histOff) : null;
-    var lines = (f ? f.detail : []).slice();
-    if (p) lines.push(projectionDetail(projectionSlot(S, p)));   // R7: provider and capture time live here, not on the card
-    return '<div class="det pfbd">' + (lines.length ? '<div class="kv">' + lines.map(function (d) { return "<b>" + esc(d[0]) + "</b><span>" + esc(d[1]) + (d[2] ? '<small class="mu">' + esc(d[2]) + "</small>" : "") + "</span>"; }).join("") + "</div>" : "") +
-      (p ? gameLog(S, p, { summary: false }) : "") + "</div>";
+    var lines = (f ? f.detail : []).filter(function (d) { return !!d[2]; });   // an exact rank is already on the card; a range or a withheld rank says why
+    return '<div class="det pfbd">' + (p ? gameLog(S, p, { summary: false, rankLines: lines }) : "") + "</div>";
   }
   function perfRow(S, p, ctx) {
     var open = !!pfState(S).open[p.id], nm = esc(p.name), g = figs(S, p, ctx), lc = liveChip(S, p, ctx);
@@ -858,7 +855,7 @@
     return { text: "Team history unavailable" + (HIST_WHY[ev.reason] ? ": " + HIST_WHY[ev.reason] : "") + ". PPG ranks are not shown.", warn: true };
   }
   // The exports the Breakdown and the tests read (merged into this file's API below).
-  var PERF_API = { seasonCutoff: seasonCutoff, statFigures: statFigures, projectionRequest: projectionRequest, kickoffOf: kickoffOf, perfCtx: perfCtx, perfFigures: function (S, id) { var p = S.model && S.model.byId[id], ctx = p ? perfCtx(S, [id]) : null; return ctx && ctx.read === "ok" && ctx.input.latestFinal ? figs(S, p, ctx) : null; }, modelSlots: modelSlots, projectionSlot: projectionSlot, breakdown: breakdown };
+  var PERF_API = { seasonCutoff: seasonCutoff, statFigures: statFigures, projectionRequest: projectionRequest, kickoffOf: kickoffOf, perfCtx: perfCtx, perfFigures: function (S, id) { var p = S.model && S.model.byId[id], ctx = p ? perfCtx(S, [id]) : null; return ctx && ctx.read === "ok" && ctx.input.latestFinal ? figs(S, p, ctx) : null; }, modelSlots: modelSlots, projectionSlot: projectionSlot, projectionReason: projectionReason, breakdown: breakdown };
 
   // ============================== profile game log ==============================
   // R6: the game log is the Breakdown (lib/breakdown.js): the season stats, the weekly log in position-specific views and each game's detail.

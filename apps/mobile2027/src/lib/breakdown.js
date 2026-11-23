@@ -28,7 +28,8 @@
     return c;
   }
   function boxOf(S, pid) { var h = S.intel && S.intel.box; return h && h[pid] ? h[pid] : null; }
-  function bdState(S) { return S.bd || { v: {}, g: {} }; }
+  // per player: v = game-log view, g = the open game's week, t = the section ("season" | "log"; R8)
+  function bdState(S) { return S.bd || { v: {}, g: {}, t: {} }; }
 
   // The exact weekly position rank from the same weekly score read ("WR1"), or "" (not exact, no position, no score). One rank calculation, shared with Team > Performance.
   function weekRanker(S, pid) {
@@ -106,10 +107,12 @@
   }
 
   // ---------- the season rollup ----------
+  // R8: drawn under the Breakdown's "Season stats" tab, so its heading names only the weeks. A rate whose denominator is recorded and zero (no
+  // attempts) reads "—" (no rate); a figure that is not recorded reads "Not available". Neither is ever shown as 0.
   function rollupHtml(R, notes, ranker, pssKey) {
     if (!R) return "";
     if (!R.to) return '<div class="ex">No settled week has game stats yet.</div>';
-    var out = '<div class="sec2">Season stats · ' + (R.to > 1 ? "Weeks 1" + ENDASH + R.to : "Week 1") + '</div><div class="card bdr"' + (pssKey ? ' data-pss="' + esc(pssKey) + '"' : "") + '><table><tr><th>Stat</th><th class="n">Season</th><th class="n rk">Rank</th></tr>';
+    var out = '<div class="sec2">' + (R.to > 1 ? "Weeks 1" + ENDASH + R.to : "Week 1") + '</div><div class="card bdr"' + (pssKey ? ' data-pss="' + esc(pssKey) + '"' : "") + '><table><tr><th>Stat</th><th class="n">Season</th><th class="n rk">Rank</th></tr>';
     var why = {}, whyOrder = [];   // Rank details: each reason once, with the stats it applies to
     R.sections.forEach(function (sec) {
       out += '<tr class="bdh"><th colspan="3">' + esc(sec.h) + "</th></tr>";
@@ -117,7 +120,7 @@
         var part = it.value != null && it.of != null && it.n != null && it.n < it.of ? "<small>" + it.n + " of " + it.of + " games</small>" : "";
         var rk = it.value == null || !ranker ? null : ranker(it);
         if (rk && rk.text === DASH && rk.why) { if (!why[rk.why]) { why[rk.why] = []; whyOrder.push(rk.why); } why[rk.why].push(it.label); }
-        out += "<tr><td>" + esc(it.label) + '</td><td class="n">' + (it.value == null ? '<span class="mu">Not available</span>' : "<b>" + esc(it.value) + "</b>" + part) + "</td>" + rankCell(rk) + "</tr>";
+        out += "<tr><td>" + esc(it.label) + '</td><td class="n">' + (it.value == null ? '<span class="mu">' + (it.nodiv ? DASH : "Not available") + "</span>" : "<b>" + esc(it.value) + "</b>" + part) + "</td>" + rankCell(rk) + "</tr>";
       });
     });
     out += "</table></div>";
@@ -128,35 +131,45 @@
 
   // ---------- one game's detail ----------
   var HOW = { row: "", between: " (between his games for this club)", current: " (his current club)", carried: " (his latest club)" };
+  // R8: the game's identity in one compact line, Date · Matchup · Status ("Sun 11/15 · SEA @ LV · Final W 21–13"). The week is already on the row.
+  // Date in Eastern Time; the matchup uses the club he played for THAT week (his own stat or snap row), never his current club unless it is the lineup
+  // week; a completed game shows no kickoff time, an upcoming or live one keeps it.
+  function identityLine(r) {
+    var g = r.game, club = r.club ? F.commonCode(r.club) : "";
+    if (r.bye) return "Bye week" + (club ? " · " + club : "");
+    var date = g && g.kickoff ? BL.shortDate(g.kickoff) : "Date not available";
+    if (!g) return date === "Date not available" ? (club ? club + " · Game not found in the schedule" : "Game not established") : date;
+    var site = g.neutral ? " vs " : g.home === false ? " @ " : " vs ", matchup = (club || F.commonCode(g.club)) + site + F.commonCode(g.opp) + (g.neutral ? " (neutral site)" : "");
+    var t = g.kickoff ? BL.timeET(g.kickoff) : "", status;
+    if (g.status === "final") status = "Final " + resultText(g);
+    else if (g.status === "live") status = "In progress" + (t ? " · kicked off " + t : "");
+    else if (g.status === "scheduled") status = t || "Scheduled";
+    else status = "Status unknown";
+    return date + " · " + matchup + " · " + status;
+  }
   function detailHtml(S, p, r, inp, boxRec) {
-    var g = r.game, kv = [];
+    var kv = [];
     function add(k, v) { kv.push("<b>" + esc(k) + "</b><span>" + v + "</span>"); }
-    add("Season and week", esc(S.model.season) + " · NFL Week " + r.week + " (MFL Week " + r.week + ")");
-    add("Kickoff", g && g.kickoff ? esc(BL.longDate(g.kickoff)) : r.bye ? "Bye week" : "Not available");
-    add("Team that week", r.club ? esc(F.commonCode(r.club)) + esc(HOW[r.clubHow] || "") : r.clubHow === "conflict" ? "Records conflict" : r.clubHow === "history" ? "Known from team history (his club’s bye)" : "Not established");
-    if (g) {
-      add("Opponent", esc(F.commonCode(g.opp)));
-      add("Site", g.neutral ? "Neutral site" : g.home === true ? "Home" : g.home === false ? "Away" : "Not available");
-      add("Game", esc(g.status === "final" ? "Final · " + resultText(g) : resultText(g)));
-    }
+    // the club line only when it adds something: how the club was established, or why it was not (a row of his own is shown in the matchup)
+    if (!r.club || r.clubHow !== "row") add("Team that week", r.club ? esc(F.commonCode(r.club)) + esc(HOW[r.clubHow] || "") : r.clubHow === "conflict" ? "Records conflict" : r.clubHow === "history" ? "Known from team history (his club’s bye)" : "Not established");
     add("Participation", esc(r.part || "Not available"));
     add("MFL points", esc(ptsText(r)) + (r.rank ? " · " + esc(r.rank) + " that week" : "") + (r.newer ? " · not in the season figures yet" : ""));
     var haveStats = !!(boxRec && boxRec.state === "ok" && (r.box || r.snaps || r.rz)), stats = haveStats ? BL.detailStats(p.pos, r) : [];
     var g0 = BL.groupOf(p.pos);
-    var out = '<div class="kv">' + kv.join("") + "</div>";
+    var out = '<div class="bdid">' + esc(identityLine(r)) + '</div><div class="kv mt6">' + kv.join("") + "</div>";
     if (stats.length) out += '<div class="kv bdk mt6">' + stats.map(function (s) { return "<b>" + esc(s[0]) + "</b><span>" + (s[1] == null ? '<span class="mu">' + DASH + "</span>" : esc(s[1])) + "</span>"; }).join("") + (g0.kind === "p" ? '<b>Blocked punts</b><span class="mu">Not available</span>' : "") + "</div>";
     else if (boxRec && boxRec.state === "ok") out += '<div class="ex mt6">' + (r.statsIn ? "No stat line for this game." : "Game stats for this week are not in yet.") + "</div>";
     var asof = [];
     if (boxRec && boxRec.state === "ok") asof.push("Game stats through Week " + (boxRec.data.through == null ? "unknown" : boxRec.data.through) + (S.recorded ? (S.recorded.box ? ", recorded " + S.recorded.box : "") : boxRec.at ? ", read " + F.etStamp(new Date(boxRec.at).toISOString()) : ""));   // recorded mode: the capture window, not the time the page served it
     asof.push("Points: MFL");
     if (g0.kind === "k") asof.push("Missed-kick distances are not in the stats feed");
-    if (g0.pos === "QB") asof.push("Fumbles lost do not include fumbles on sacks");
     out += '<div class="ex mt6">' + esc(asof.join(". ")) + ".</div>";
     return out;
   }
 
   // ---------- the panel ----------
   // opts.summary === false leaves out the "Through Week N · points · scored games" line (for a call site whose card already shows those figures).
+  // opts.rankLines: [label, value, reason] lines the Season stats tab shows first (Team > Performance's rank detail).
   function panel(S, p, opts) {
     if (!S.model || !p) return "";
     opts = opts || {};
@@ -176,48 +189,70 @@
     if (opts.summary !== false) out += '<div class="bdsum"><b>Through Week ' + C.week + "</b> · " + (nBad || nErr || nLoad ? '<span class="mu">' + (nLoad ? "points still loading" : "season points not shown") + "</span>" : esc(BL.f1(tot / 100)) + " pts · " + nsc + (nsc === 1 ? " scored game" : " scored games")) + "</div>";
     if (nBad && opts.summary !== false) out += '<div class="ex wn">' + (nBad === 1 ? "1 score" : nBad + " scores") + " could not be read, so his season figures are not shown.</div>";
     if (nErr) out += '<div class="ex wn">' + (nErr === 1 ? "1 week" : nErr + " weeks") + ' of scores could not be read and show n/a. <button class="link" data-act="retrylog">Try again</button></div>';
+    // R8: Season stats | Game log, one at a time (Season stats by default). The choice lives in the same per-player Breakdown state as the
+    // game-log view (S.bd.t[pid], beside S.bd.v[pid]); switching replaces the content below the control.
+    var tab = st.t && st.t[pid] === "log" ? "log" : "season";
+    out += '<div class="seg bdtab" role="group" aria-label="Breakdown section">' + [["season", "Season stats"], ["log", "Game log"]].map(function (x) { return '<button data-act="bdt" data-v="' + x[0] + '" data-pid="' + esc(pid) + '" aria-pressed="' + (tab === x[0]) + '">' + x[1] + "</button>"; }).join("") + "</div>";
+    if (tab === "season") return out + seasonHtml(S, p, C, R, g, boxRec, opts) + "</div>";
+    return out + logHtml(S, p, rs, inp, boxRec, views, v, st) + "</div>";
+  }
+
+  // The Season stats tab: the rank detail the card abbreviates (opts.rankLines: only lines that explain something), then the season table.
+  function seasonHtml(S, p, C, R, g, boxRec, opts) {
+    var pid = String(p.id), out = "", lines = opts.rankLines || [];
+    if (lines.length) out += '<div class="kv">' + lines.map(function (d) { return "<b>" + esc(d[0]) + "</b><span>" + esc(d[1]) + (d[2] ? '<small class="mu">' + esc(d[2]) + "</small>" : "") + "</span>"; }).join("") + "</div>";
     // the game-stats read: one line when it is not there
-    if (!boxRec || boxRec.state === "loading") out += '<div class="ex">Loading game stats…</div>';
-    else if (boxRec.state === "absent") out += '<div class="ex">Game stats aren’t in this recording; the log shows fantasy points only.</div>';
-    else if (boxRec.state === "error") out += '<div class="ex wn">Game stats didn’t load' + (boxRec.error ? " (" + esc(boxRec.error) + ")" : "") + '. <button class="link" data-act="retrybox" data-pid="' + esc(pid) + '">Try again</button></div>';
-    else {
-      var notes = [];
-      if (boxRec.data.through != null && boxRec.data.through < C.week) notes.push("Game stats are in through Week " + boxRec.data.through + ".");
-      if (g.kind === "k") notes.push("Missed-kick distances are not in the stats feed.");
-      var sg = SR ? SR.groupOf(p.pos) : "";
-      out += rollupHtml(R, notes, statRanker(S, p, C, R), sg ? statKey(S, C, sg) : "");
-    }
-    // the weekly log
-    out += '<div class="sec2">Game log</div>';
+    if (!boxRec || boxRec.state === "loading") return out + '<div class="ex">Loading game stats…</div>';
+    if (boxRec.state === "absent") return out + '<div class="ex">Game stats aren’t in this recording; the game log shows fantasy points only.</div>';
+    if (boxRec.state === "error") return out + '<div class="ex wn">Game stats didn’t load' + (boxRec.error ? " (" + esc(boxRec.error) + ")" : "") + '. <button class="link" data-act="retrybox" data-pid="' + esc(pid) + '">Try again</button></div>';
+    var notes = [];
+    if (boxRec.data.through != null && boxRec.data.through < C.week) notes.push("Game stats are in through Week " + boxRec.data.through + ".");
+    if (g.kind === "k") notes.push("Missed-kick distances are not in the stats feed.");
+    var sg = SR ? SR.groupOf(p.pos) : "";
+    return out + rollupHtml(R, notes, statRanker(S, p, C, R), sg ? statKey(S, C, sg) : "");
+  }
+
+  // The Fantasy view's columns after the pinned Game column, through ONE function so a column can be swapped in one place (R8 seam: the
+  // integrator replaces Result with the opponent-matchup column; the NFL result stays in each game's detail line). [{ head, cell(r) }]
+  function fantasyColumns() {
+    return [
+      { head: '<th class="n">Pts</th>', cell: function (r) { var ps = ptsText(r); return '<td class="n">' + (r.ptsKind === "score" ? "<b>" + esc(ps) + "</b>" : '<span class="mu"' + (r.ptsKind === "unreadable" ? ' title="This score could not be read"' : "") + ">" + esc(ps) + "</span>") + "</td>"; } },
+      { head: '<th class="n" title="Rank among players at his position that week (exact only)">Rank</th>', cell: function (r) { return cell(r.rank || null); } },
+      { head: "<th>Result</th>", cell: function (r) {
+        var res = r.bye ? "Bye" : resultText(r.game), pt = partShort(r);
+        if (r.newer && !r.bye && r.ptsKind === "score") res = (res ? res + " · " : "") + "not in season figures";
+        return "<td>" + esc(res || DASH) + (pt && pt !== "Bye" ? "<small>" + esc(pt) + "</small>" : "") + "</td>";
+      } }
+    ];
+  }
+
+  // The Game log tab: the view control (Fantasy / Stats / Usage / Red zone, or the position's alternatives), the weekly table, each game's detail.
+  function logHtml(S, p, rs, inp, boxRec, views, v, st) {
+    var pid = String(p.id), out = "";
     if (views.length > 1) out += '<div class="seg' + (views.length === 4 ? " seg4" : "") + '" role="group" aria-label="Game log view">' + views.map(function (x) { return '<button data-act="bdv" data-v="' + x[0] + '" data-pid="' + esc(pid) + '" aria-pressed="' + (v === x[0]) + '">' + x[1] + "</button>"; }).join("") + "</div>";
-    var cols = v === "fan" ? [] : BL.columns(p.pos, v), heads;
-    if (v === "fan") heads = ['<th class="n">Pts</th>', '<th class="n" title="Rank among players at his position that week (exact only)">Rank</th>', "<th>Result</th>"];
-    else heads = cols.map(function (c) { return '<th class="n" title="' + esc(c.t) + '">' + esc(c.h) + "</th>"; });
+    var fan = v === "fan" ? fantasyColumns() : null, cols = fan ? [] : BL.columns(p.pos, v);
+    var heads = fan ? fan.map(function (c) { return c.head; }) : cols.map(function (c) { return '<th class="n" title="' + esc(c.t) + '">' + esc(c.h) + "</th>"; });
     var ncol = heads.length + 1, openW = st.g[pid];
     out += '<div class="bdw"><table class="bdt"><thead><tr><th class="pin">Game</th>' + heads.join("") + "</tr></thead><tbody>";
-    var shown = rs.slice().reverse(), drew = false;
-    shown.forEach(function (r) {
+    var drew = false;
+    rs.slice().reverse().forEach(function (r) {
       if (r.newer && r.ptsKind !== "score" && !r.game && !r.box && !r.bye) return;   // a newer week with nothing to show yet is left out
       drew = true;
-      var open = openW === r.week, cls = (r.newer ? "newer" : "") + (open ? " open" : "");
-      var row = '<tr class="' + cls.trim() + '"><th class="pin"><button data-act="bdg" data-v="' + r.week + '" data-pid="' + esc(pid) + '" aria-expanded="' + open + '" aria-label="Week ' + r.week + ' game details">' + pinHtml(r) + "</button></th>";
-      if (v === "fan") {
-        var ps = ptsText(r), res = r.bye ? "Bye" : resultText(r.game), pt = partShort(r);
-        if (r.newer && !r.bye && r.ptsKind === "score") res =(res ? res + " · " : "") + "not in season figures";
-        row += '<td class="n">' + (r.ptsKind === "score" ? "<b>" + esc(ps) + "</b>" : '<span class="mu"' + (r.ptsKind === "unreadable" ? ' title="This score could not be read"' : "") + ">" + esc(ps) + "</span>") + "</td>" + cell(r.rank || null) +
-          "<td>" + esc(res || DASH) + (pt && pt !== "Bye" ? '<small>' + esc(pt) + "</small>" : "") + "</td>";
-      } else {
-        row += cols.map(function (c) { return cell(r.box || r.rz || r.snaps ? c.get(r) : null); }).join("");
-      }
+      // R8 (item 4): a verified bye (his club's bye from the schedule, or team history) has no game to detail: plain text, no control, no detail row.
+      // A week whose club is unknown is not a verified bye and keeps its detail control.
+      var open = !r.bye && openW === r.week, cls = (r.newer ? "newer" : "") + (open ? " open" : "") + (r.bye ? " bye" : "");
+      var row = '<tr class="' + cls.trim() + '"><th class="pin">' + (r.bye ? '<span class="pinx" data-week="' + r.week + '">' + pinHtml(r) + "</span>" :
+        '<button data-act="bdg" data-v="' + r.week + '" data-pid="' + esc(pid) + '" aria-expanded="' + open + '" aria-label="Week ' + r.week + ' game details">' + pinHtml(r) + "</button>") + "</th>";
+      // a missing value is "—" in the cell (never 0); Help explains it once
+      row += fan ? fan.map(function (c) { return c.cell(r); }).join("") : cols.map(function (c) { return cell(r.box || r.rz || r.snaps ? c.get(r) : null); }).join("");
       row += "</tr>";
       if (open) row += '<tr class="bdd"><td colspan="' + ncol + '"><div class="bdin">' + detailHtml(S, p, r, inp, boxRec) + "</div></td></tr>";
       out += row;
     });
     out += "</tbody></table></div>";
     if (!drew) out += '<div class="ex">No games yet.</div>';
-    out += '<div class="ex">' + DASH + " is not recorded, never a zero. Tap a game for its details.</div>";
-    return out + "</div>";
+    return out;
   }
 
-  return { panel: panel, cutoffOf: cutoffOf, inputFor: inputFor, statKey: statKey, statRanker: statRanker, rollupHtml: rollupHtml };
+  return { panel: panel, cutoffOf: cutoffOf, inputFor: inputFor, statKey: statKey, statRanker: statRanker, rollupHtml: rollupHtml, fantasyColumns: fantasyColumns, identityLine: identityLine };
 });

@@ -50,11 +50,19 @@ test("ties share a rank (1 + strictly better): kickers at 100% are all K1, the n
   t.equal(rank(w, 1, "targets").text, "WR2"); t.equal(rank(w, 2, "targets").text, "WR2"); t.equal(rank(w, 3, "targets").text, "WR1");
 });
 
-test("direction: fewer interceptions rank higher, only among QBs over the attempts bar; more yards rank higher", () => {
-  const j = pool("QB", [E(1, { pass_ints: 2, pass_att: 200, pass_yds: 1500 }), E(2, { pass_ints: 5, pass_att: 300, pass_yds: 2500 }), E(3, { pass_ints: 0, pass_att: 50, pass_yds: 300 })]);
-  t.equal(rank(j, 1, "pass_ints").text, "QB1"); t.equal(rank(j, 2, "pass_ints").text, "QB2");
-  const r3 = rank(j, 3, "pass_ints"); t.equal(r3.text, "—"); t.ok(/135 pass attempts or more; he has 50/.test(r3.why), r3.why);
-  t.equal(rank(j, 2, "pass_yds").text, "QB1"); t.equal(rank(j, 3, "pass_yds").text, "QB3");
+test("direction (R8): a lower INT rate ranks higher, only among QBs over the attempts bar; the INT count has no rank; more yards rank higher", () => {
+  const j = pool("QB", [E(1, { pass_ints: 2, pass_att: 200, pass_yds: 1500 }), E(2, { pass_ints: 5, pass_att: 300, pass_yds: 2500 }), E(3, { pass_ints: 0, pass_att: 50, pass_yds: 300 }),
+    E(4, { pass_ints: 3, pass_att: 300, pass_yds: 2000 }), E(5, { pass_ints: 6, pass_att: 200, pass_yds: 1400 }), E(6, { pass_ints: 0, pass_att: 0, pass_yds: 0 })]);
+  t.equal(rank(j, 1, "int_rate").text, "QB1"); t.equal(rank(j, 4, "int_rate").text, "QB1", "2/200 and 3/300 are the same rate (compared exactly): tied");
+  t.equal(rank(j, 2, "int_rate").text, "QB3"); t.equal(rank(j, 5, "int_rate").text, "QB4", "fewer per attempt is better, not fewer in total");
+  const r3 = rank(j, 3, "int_rate"); t.equal(r3.text, "—"); t.ok(/135 pass attempts or more; he has 50/.test(r3.why), "below the bar (15 x 9 team games): no rank, and 0 INT in 50 attempts never outranks the qualifiers: " + r3.why);
+  t.equal(rank(j, 6, "int_rate").text, "—"); t.equal(rank(j, 6, "int_rate").why, "No attempts, so no rate.");
+  t.equal(rank(j, 1, "int_rate", { raw: 2 / 200 }).text, "QB1", "his figure matches the season table's");
+  t.equal(rank(j, 1, "pass_ints").text, "—", "the INT count itself is not ranked"); t.equal(SR.METRICS.pass_ints, undefined);
+  t.deepEqual(SR.RATE_BARS.bars.int_rate, { den: "pass attempts", perGame: { QB: 15 } }, "proposed: the pass-attempt bar Completion % uses"); t.equal(SR.barOf("int_rate", "QB", 9), 135);
+  t.equal(SR.RATE_BARS.bars.fl, undefined); t.equal(SR.RATE_BARS.bars.fl_qb, undefined); t.equal(SR.METRICS.fl, undefined, "R8: no fumbles-lost metric"); t.doesNotMatch(SR.helpText(), /fumble/i);
+  t.equal(rank(j, 2, "pass_att").text, "QB1", "attempts rank as a count");
+  t.equal(rank(j, 2, "pass_yds").text, "QB1"); t.equal(rank(j, 3, "pass_yds").text, "QB5");
   // sacks taken: fewer is better on pass attempts + sacks (17 per team game)
   const s = pool("QB", [E(1, { pass_sacks: 10, pass_att: 150, pass_sack_yds: -70 }), E(2, { pass_sacks: 20, pass_att: 300, pass_sack_yds: -130 })]);
   t.equal(rank(s, 1, "sacks_taken").text, "QB1"); t.equal(rank(s, 1, "sack_yds").text, "QB1"); t.equal(rank(s, 2, "sack_yds").text, "QB2");
@@ -115,10 +123,10 @@ test("R7b final: a counting stat is exact or —; rates may show a narrow range;
   const kb = pool("PK", [E(1, { fg_made_50_59: 4, fg_att_50_59: 6 }), E(2, { fg_made_50_59: 3, fg_att_50_59: 3 }), E(3, { fg_made_50_59: 1, fg_att_50_59: 6 })]);
   t.equal(rank(kb, 1, "fg_att_50_59").text, "K1"); t.equal(rank(kb, 3, "fg_att_50_59").text, "K1"); t.equal(rank(kb, 2, "fg_att_50_59").text, "K3", "3/3 is not ranked on accuracy");
   // fewer-is-better total: a partial count already above his stays behind; one below could catch up -> narrow range kept
-  const f = pool("RB", [E(1, { rush_fumbles_lost: 1, rec_fumbles_lost: 0, rush_att: 100, receptions: 20 }),
-    E(2, { rush_fumbles_lost: 3, rec_fumbles_lost: 0, rush_att: 100, receptions: 20 }, { cov: { rush_fumbles_lost: 8 } }),
-    E(3, { rush_fumbles_lost: 0, rec_fumbles_lost: 0, rush_att: 100, receptions: 20 }, { cov: { rush_fumbles_lost: 8 } })]);
-  const rf = rank(f, 1, "fl"); t.equal(rf.text, "—", "no range for a fewer-is-better total either"); t.equal(rf.lo, 1); t.equal(rf.hi, 2); t.deepEqual(rf.cause, { missing: 0, partial: 1, eligibility: 0 });
+  const f = pool("QB", [E(1, { pass_sacks: 10, pass_att: 300 }),
+    E(2, { pass_sacks: 30, pass_att: 300 }, { cov: { pass_sacks: 8 } }),
+    E(3, { pass_sacks: 5, pass_att: 300 }, { cov: { pass_sacks: 8 } })]);
+  const rf = rank(f, 1, "sacks_taken"); t.equal(rf.text, "—", "no range for a fewer-is-better total either"); t.equal(rf.lo, 1); t.equal(rf.hi, 2); t.deepEqual(rf.cause, { missing: 0, partial: 1, eligibility: 0 });
   // rates: no range either (the four-place rule is retired); the cause says whether the doubt is a competitor's eligibility
   const c = pool("WR", [E(1, { receptions: 30, targets: 40 }), E(2, { receptions: 20, targets: 20 }, { cov: { targets: 6, receptions: 6 } }), E(3, { receptions: 20, targets: 20 })]);
   const rc = rank(c, 1, "catch_rate"); t.equal(rc.text, "—"); t.deepEqual(rc.cause, { missing: 0, partial: 0, eligibility: 1 });

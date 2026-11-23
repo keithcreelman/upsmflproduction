@@ -58,6 +58,9 @@ async function intel(ids, over) {
 }
 const state = (I, over) => ({ model: M.build(FX.roster_workbench, FX.league, FX.weekly_results, 11, 2026), load: { core: "ok", coreNotes: [] }, penalty: { state: "idle" }, teamId: "0010", tab: "team", sub: "performance",
   view: "lineup", open: {}, flags: {}, profile: null, sheet: null, skin: "system", vib: "1", build: "test", requestLog: [], wk: null, live: null, pf: { s: "pos", open: {}, res: {} }, intel: I, ...(over || {}) });
+// R8: the Breakdown opens on Season stats; logState puts every player's Breakdown on its Game log tab (S.bd.t), keeping any view/open-game choice
+const allLog = () => new Proxy({}, { get: (o, k) => (k in o ? o[k] : "log") });
+const logState = (I, over) => { const o = over || {}; return state(I, Object.assign({}, o, { bd: Object.assign({ v: {}, g: {} }, o.bd, { t: allLog() }) })); };
 // boxlog inputs straight from the fixture (no state), for the pure tests
 const SCHED_DAYS = (() => { const out = {}; FXB.schedule.fullNflSchedule.nflSchedule.forEach((e) => { out[e.week] = e.matchup.map((m) => ({ kickoff: m.kickoff, secs: m.gameSecondsRemaining, teams: m.team.map((x) => ({ id: x.id, isHome: x.isHome, score: x.score })) })); }); return out; })();
 const BYE = Object.fromEntries(CAL.byes.nflByeWeeks.team.map((x) => [x.id, Number(x.bye_week)]));
@@ -141,44 +144,61 @@ test("the sourced example drawn: the Breakdown, every view, the pinned game iden
   const { intel: I } = await intel(["16185"]), p = P("16185");
   const S = state(I), html0 = BD.panel(S, p), tx0 = text(html0);
   t.match(tx0, /Through Week 10 · 297\.2 pts · 10 scored games/);
-  t.match(tx0, /Season stats · Weeks 1–10/); t.match(tx0, /Targets 109 —/); t.match(tx0, /Snap share 83\.3% —/); t.match(tx0, /End-zone targets \(any distance\) 8 —/); t.match(tx0, /Routes Not available —/);
+  // R8: Season stats | Game log, Season stats by default; the two are never stacked
+  t.match(html0, /<div class="seg bdtab" role="group" aria-label="Breakdown section"><button data-act="bdt" data-v="season" data-pid="16185" aria-pressed="true">Season stats<\/button><button data-act="bdt" data-v="log" data-pid="16185" aria-pressed="false">Game log<\/button><\/div>/);
+  t.doesNotMatch(html0, /class="bdt"|data-act="bdg"|data-act="bdv"/, "Season stats tab: no game log under it");
+  t.match(tx0, /Weeks 1–10/); t.match(tx0, /Targets 109 —/); t.match(tx0, /Snap share 83\.3% —/); t.match(tx0, /End-zone targets \(any distance\) 8 —/); t.match(tx0, /Routes Not available —/);
   t.match(tx0, /10 games with a stat line\./);
   // the rendered weekly-rank example: a Rank column in the Fantasy view, exact only, from the same weekly score read (independent check below)
   const groupOf = (id) => { const x = POS[id]; const g = x && F.posGroup(x.position); return { QB: 1, RB: 1, WR: 1, TE: 1, PK: 1, PN: 1, DL: 1, LB: 1, DB: 1 }[g] ? (g === "PK" ? "K" : g === "PN" ? "P" : g) : ""; };
   const m10 = {}; FX4.scores["10"].forEach((r) => (m10[r.id] = Number(r.score))); const wf = K.weekFrom(m10, groupOf), r10 = K.totalRank(wf.entries, "16185", wf.unplaced);
   t.ok(r10 && r10.exact, "his Week 10 rank is exact"); const rk = "WR" + r10.best;
-  t.match(html0, new RegExp('<b>W10</b> <span class="nw">@ LV</span><small>Sun 11/15</small></button></th><td class="n"><b>36\\.3</b></td><td class="n">' + rk + "</td><td>W 21–13</td>"));
-  t.match(html0, /<b>W1<\/b> <span class="nw">vs NE<\/span><small>Wed 9\/9<\/small>/);
-  t.match(html0, /<th class="n" title="Rank among players at his position that week \(exact only\)">Rank<\/th>/);
+  const htmlL = BD.panel(logState(I), p);
+  t.match(htmlL, /data-act="bdt" data-v="log" data-pid="16185" aria-pressed="true"/); t.doesNotMatch(htmlL, /class="card bdr"/, "Game log tab: the season table is replaced, not stacked");
+  t.doesNotMatch(text(htmlL), /Tap a game|never a zero|not recorded/, "no instructional copy");
+  t.match(htmlL, new RegExp('<b>W10</b> <span class="nw">@ LV</span><small>Sun 11/15</small></button></th><td class="n"><b>36\\.3</b></td><td class="n">' + rk + "</td><td>W 21–13</td>"));
+  t.match(htmlL, /<b>W1<\/b> <span class="nw">vs NE<\/span><small>Wed 9\/9<\/small>/);
+  t.match(htmlL, /<th class="n" title="Rank among players at his position that week \(exact only\)">Rank<\/th>/);
   // each view keeps the game identity pinned; the views are the offense set
-  t.deepEqual([...html0.matchAll(/data-act="bdv" data-v="(\w+)"/g)].map((m) => m[1]), ["fan", "st", "use", "rz"]);
+  t.deepEqual([...htmlL.matchAll(/data-act="bdv" data-v="(\w+)"/g)].map((m) => m[1]), ["fan", "st", "use", "rz"]);
   for (const v of ["st", "use", "rz"]) {
-    const h = BD.panel(state(I, { bd: { v: { 16185: v }, g: {} } }), p);
+    const h = BD.panel(logState(I, { bd: { v: { 16185: v }, g: {} } }), p);
     t.match(h, /<th class="pin">Game<\/th>/, v + ": pinned column"); t.match(h, /<b>W10<\/b> <span class="nw">@ LV<\/span><small>Sun 11\/15<\/small>/, v + ": week, opponent and date pinned");
-    t.equal((h.match(/data-act="bdg"/g) || []).length, 11, v + ": Weeks 1 to 10 and the newer Week 11");
+    t.equal((h.match(/data-act="bdg"/g) || []).length, 10, v + ": Weeks 1 to 10 have a detail control; the newer Week 11 (SEA's bye) is plain text (R8)");
+    t.match(h, /<span class="pinx" data-week="11">/, v + ": the bye row is still in the log");
   }
-  const st = BD.panel(state(I, { bd: { v: { 16185: "st" }, g: {} } }), p);
+  const st = BD.panel(logState(I, { bd: { v: { 16185: "st" }, g: {} } }), p);
   t.match(st, /<th class="n" title="Targets">Tgt<\/th><th class="n" title="Receptions">Rec<\/th><th class="n" title="Receiving yards">Yds<\/th><th class="n" title="Receiving TD">TD<\/th>/);
   t.match(st, /Sun 11\/15<\/small><\/button><\/th><td class="n">10<\/td><td class="n">8<\/td><td class="n">171<\/td><td class="n">1<\/td>/);
-  const rz = BD.panel(state(I, { bd: { v: { 16185: "rz" }, g: {} } }), p);
+  const rz = BD.panel(logState(I, { bd: { v: { 16185: "rz" }, g: {} } }), p);
   t.match(rz, /Wed 9\/9<\/small><\/button><\/th><td class="n">3<\/td><td class="n">2<\/td><td class="n">0<\/td><td class="n">0<\/td><td class="n">0<\/td><td class="n">1<\/td>/, "Week 1: 3 red-zone targets, 2 inside the 10, 0 inside the 5, 1 end-zone target (a separate column)");
   // Week 10 opened
-  const det = text(BD.panel(state(I, { bd: { v: {}, g: { 16185: 10 } } }), p).split('<tr class="bdd">')[1].split("</tr>")[0]);
-  ["Season and week 2026 · NFL Week 10 (MFL Week 10)", "Kickoff Sun Nov 15, 2026, 4:05 PM ET", "Team that week SEA", "Opponent LV", "Site Away", "Game Final · W 21–13", "Participation Played", "MFL points 36.3 · " + rk + " that week",
+  const detH = BD.panel(logState(I, { bd: { v: {}, g: { 16185: 10 } } }), p).split('<tr class="bdd">')[1].split("</tr>")[0], det = text(detH);
+  // R8: one compact identity line, Date · Matchup · Status, from his club THAT week; a completed game shows no kickoff time; no season/week line
+  t.match(detH, /<div class="bdid">Sun 11\/15 · SEA @ LV · Final W 21–13<\/div>/);
+  t.doesNotMatch(det, /Kickoff|4:05|Season and week|NFL Week|MFL Week|Team that week|Opponent|Site /, "no kickoff time, week or repeated team/opponent rows for a completed game");
+  ["Participation Played", "MFL points 36.3 · " + rk + " that week",
     "Targets 10", "Receptions 8", "Receiving yards 171", "Receiving TD 1", "Carries 0", "Snaps 43", "Share of team snaps 75%", "Air yards 132", "Red-zone targets 0", "End-zone targets (any distance) 0", "Game stats through Week 10"].forEach((s) => t.ok(det.includes(s), "detail: " + s));
+  t.doesNotMatch(det, /Fumbles lost|\bFL\b/, "R8: no fumbles lost in a game's detail");
   // no expected-points or projection value anywhere
-  [html0, st, rz].forEach((h) => t.doesNotMatch(text(h), /xFP|expected|projection|Proj\.|Over Expectations/i));
+  [html0, htmlL, st, rz].forEach((h) => t.doesNotMatch(text(h), /xFP|expected|projection|Proj\.|Over Expectations/i));
 });
 
 // ───────────────────────── coverage, by position ─────────────────────────
-test("QB (Love): passing rollup from sums, sacks taken and yards lost, red zone apart from end-zone attempts; fumbles lost say they exclude sack fumbles", () => {
+test("QB (Love): passing rollup from sums (completions and attempts apart, INT rate), sacks taken and yards lost, red zone apart from end-zone attempts; no fumbles lost (R8)", () => {
   const { R } = pure("14782");
-  const want = { "Completions/attempts": "232/368", "Completion rate": "63.0%", "Passing yards": "2,838", "Yards per attempt": "7.71", "Passing TD": "20", Interceptions: "7", "Air yards": "3,467", "Air yards per attempt": "9.42",
-    "Sacks taken": "25", "Sack yards lost": "160", Carries: "13", "Rushing yards": "23", "Rushing TD": "2", "Fumbles lost (not on sacks)": "0",
+  const want = { Completions: "232", Attempts: "368", "Completion %": "63.0%", "Passing yards": "2,838", "Yards per attempt": "7.71", "Passing TD": "20", Interceptions: "7", "INT rate": "1.9%", "Air yards": "3,467", "Air yards per attempt": "9.42",
+    "Sacks taken": "25", "Sack yards lost": "160", Carries: "13", "Rushing yards": "23", "Rushing TD": "2",
     "Red-zone attempts": "52", "Red-zone completions": "32", "Red-zone passing TD": "13", "End-zone attempts (any distance)": "33" };
   Object.entries(want).forEach(([k, v]) => t.equal(val(R, k), v, k));
+  // R8: each of completions and attempts has its own (volume) rank key; Completion % and INT rate are rates; the interception count has no rank
+  t.deepEqual(["Completions", "Attempts", "Completion %", "Interceptions", "INT rate"].map((l) => item(R, l).key), ["pass_cmp", "pass_att", "cmp_pct", null, "int_rate"]);
+  t.ok(Math.abs(item(R, "INT rate").raw - 7 / 368) < 1e-12, "INT rate = interceptions / attempts from the season sums");
+  t.equal(item(R, "Completions/attempts"), null, "the combined row is gone");
+  R.sections.forEach((s) => s.items.forEach((i) => t.doesNotMatch(i.label, /fumble/i, "R8: no fumbles-lost row")));
   t.equal(val(R, "Team PROE"), null, "Team PROE is not computed: Not available (the hook), never an illustrative value");
-  t.deepEqual(BL.columns("QB", "st").map((c) => c.h), ["C/A", "Yds", "TD", "INT", "Sk", "Car", "RuYd", "RuTD", "FL"]);
+  t.deepEqual(BL.columns("QB", "st").map((c) => c.h), ["C/A", "Yds", "TD", "INT", "Sk", "Car", "RuYd", "RuTD"]);
+  ["RB", "WR", "TE"].forEach((pos) => t.ok(!BL.columns(pos, "st").some((c) => c.h === "FL" || /fumble/i.test(c.t)), pos + ": no FL column"));
   t.deepEqual(BL.viewsFor("QB").map((v) => v[1]), ["Fantasy", "Stats", "Usage", "Red zone"]);
 });
 
@@ -188,7 +208,8 @@ test("RB (Gibbs): the Week 6 bye is a bye (his club's, between two DET rows), no
   t.equal(val(R, "Carries"), "199"); t.equal(val(R, "Rushing yards"), "1,000"); t.equal(val(R, "Rushing TD"), "11"); t.equal(val(R, "Receiving TD"), "2");
   t.equal(val(R, "Total TD (rushing + receiving)"), "13", "11 + 2; the 9 red-zone rushing TD are part of the 11, never added");
   t.equal(val(R, "Red-zone carries"), "47"); t.equal(val(R, "Carries inside the 10"), "22"); t.equal(val(R, "Carries inside the 5"), "16"); t.equal(val(R, "Red-zone rushing TD"), "9");
-  t.equal(val(R, "Fumbles lost"), "2"); t.equal(R.games, 9);
+  t.equal(item(R, "Fumbles lost"), null, "R8: no fumbles-lost row (his 2 lost fumbles still count in MFL's points)"); t.equal(R.games, 9);
+  t.equal(R.sections.find((s) => s.h === "Totals").items.length, 1, "Totals: Total TD only");
   t.equal(wk(10).game.neutral, true, "DET vs NE in Munich: neutral site"); t.equal(wk(10).game.home, true, "MFL's designated home is kept internally");
 });
 
@@ -232,7 +253,7 @@ test("P (Mann): Punts, Gross average, Inside 20 and Inside 20% only; blocked pun
   t.deepEqual(BL.punterBands(), { state: "not_reconciled" }, "the bands are a hook only, never drawn");
   t.equal(wk(10).bye, true, "PHI's Week 10 bye: his latest club, which is also his current club");
   const { intel: I } = await intel(["14985"]), p = P("14985", "PN", "PHI");
-  const all = BD.panel(state(I), p) + BD.panel(state(I, { bd: { v: { 14985: "punt" }, g: { 14985: 1 } } }), p);
+  const all = BD.panel(state(I), p) + BD.panel(logState(I, { bd: { v: { 14985: "punt" }, g: { 14985: 1 } } }), p);
   t.doesNotMatch(text(all), /\bNet\b|net average|Touchback|Longest|Inside 5|Inside 10/i);
   t.match(text(all), /Blocked punts Not available/);
 });
@@ -261,7 +282,7 @@ test("newer weeks: a score after the cutoff is shown with its status, outside th
   const tu = pure("17149", { scores: sc11 });
   t.equal(tu.wk(11).newer, true); t.equal(tu.wk(11).pts, 2.0); t.equal(tu.wk(11).part, "Stats not in yet"); t.equal(tu.wk(11).rank, "");
   t.equal(tu.R.to, 10, "the rollup stops at the cutoff");
-  const { intel: I } = await intel(["17149"]); const h = BD.panel(state(I), P("17149", "DE", "IND"));
+  const { intel: I } = await intel(["17149"]); const h = BD.panel(logState(I), P("17149", "DE", "IND"));
   t.match(h, /<tr class="newer"><th class="pin"><button data-act="bdg" data-v="11"/); t.match(text(h), /L 3–26 · not in season figures/);
 });
 
@@ -273,14 +294,14 @@ test("the cutoff: the Breakdown runs on Team › Performance's shared week W* (t
   // R6 integration: the real shared cutoff with team history through Week 9 (scores final through Week 10)
   const { intel: I9 } = await intel(["16185"], { hist: histAt(9) });
   const c9 = TV.seasonCutoff(state(I9)); t.equal(c9.week, 9); t.equal(c9.allFinal, 10); t.equal(c9.reason, "history_behind");
-  const raw = BD.panel(state(I9), p), h = text(raw);
-  t.match(h, /Through Week 9 · 260\.9 pts · 9 scored games/); t.match(h, /Season stats · Weeks 1–9/); t.match(h, /Targets 99 —/);
-  t.match(h, /W 21–13 · not in season figures/, "Week 10 (all final) is in the log as newer");
+  const h = text(BD.panel(state(I9), p)), raw = BD.panel(logState(I9), p);
+  t.match(h, /Through Week 9 · 260\.9 pts · 9 scored games/); t.match(h, /Weeks 1–9/); t.match(h, /Targets 99 —/);
+  t.match(text(raw), /W 21–13 · not in season figures/, "Week 10 (all final) is in the log as newer");
   t.match(raw, /<tr class="newer"><th class="pin"><button data-act="bdg" data-v="10"/);
   const fig = TV.perfFigures(state(I9), "16185"); t.equal(fig.n, 9, "the main card counts the same 9 games"); t.ok(Math.abs(fig.total - 260.9) < 1e-9, "and the same points");
   // an unreadable score in the newer week: its row says so; the settled figures stand
   const sc = clone(FX4.scores); sc["10"] = sc["10"].map((x) => (x.id === "16185" ? { id: x.id, score: "N/A" } : x));
-  const { intel: Ib } = await intel(["16185"], { hist: histAt(9), scores: sc }), hb = BD.panel(state(Ib), p);
+  const { intel: Ib } = await intel(["16185"], { hist: histAt(9), scores: sc }), hb = BD.panel(logState(Ib), p);
   t.match((hb.split('data-act="bdg" data-v="10"')[1] || "").split("</tr>")[0], /title="This score could not be read">\?</, "Week 10 reads as unreadable in the log, not a dash");
   t.match(text(hb), /Through Week 9 · 260\.9 pts · 9 scored games/); t.doesNotMatch(text(hb), /could not be read, so his season figures are not shown/);
   const real = TV.seasonCutoff;
@@ -294,7 +315,11 @@ test("R6 integration: the main card's Breakdown control opens this Breakdown in 
   const S1 = state(I, { teamId: tm.id, pf: { s: "pos", open: { 16185: true }, res: {} } });
   const html = TV.performanceBody(S1), seg = (html.split('data-act="card" data-pid="16185"')[1] || "").split('<div class="rw pfc">')[0], tx = text(seg);
   t.match(seg, /<div class="det pfbd">/); t.match(seg, /data-bdpid="16185"/, "app.js asks for his game-stats read from this marker");
-  t.match(tx, /Season stats · Weeks 1–10/); t.match(tx, /Game log/); t.equal((seg.match(/data-act="bdv" data-v="\w+" data-pid="16185"/g) || []).length, 4, "the four weekly views");
+  t.match(tx, /Season stats Game log Weeks 1–10/, "R8: the section control comes first, then Season stats"); t.equal((seg.match(/data-act="bdv"/g) || []).length, 0, "the game log is its own tab");
+  t.doesNotMatch(tx, /Proj\.\s+[\d.]+\s.*Proj\./, "the projection is not repeated in the Breakdown"); t.equal((tx.match(/Proj\./g) || []).length, 1, "Proj. once, on the card");
+  t.doesNotMatch(tx, /Tot\. Pts\. rank|captured|kickoff|Frozen/i, "no repeated total-points rank, no capture or kickoff explanation");
+  const segL = (TV.performanceBody(logState(I, { teamId: tm.id, pf: { s: "pos", open: { 16185: true }, res: {} } })).split('data-act="card" data-pid="16185"')[1] || "").split('<div class="rw pfc">')[0];
+  t.equal((segL.match(/data-act="bdv" data-v="\w+" data-pid="16185"/g) || []).length, 4, "Game log tab: the four weekly views"); t.doesNotMatch(segL, /class="card bdr"/);
   t.doesNotMatch(seg, /class="bdsum"/, "no summary line"); t.doesNotMatch(tx, /Through Week|scored games? ·|pts · /, "no repeated cutoff, points or game count");
   t.equal((tx.match(/scored games/g) || []).length, 1, "the game count once, on the card");
   t.equal((tx.match(/Tot\. Pts\.\s+[\d,]+\.\d/g) || []).length, 1, "Tot. Pts. once, on the card");
@@ -305,34 +330,78 @@ test("R6 integration: the main card's Breakdown control opens this Breakdown in 
 
 test("missing is not zero: no stat line, an unread week, an unreadable score and a failed read each say so", async () => {
   const { intel: I } = await intel(["16641", "16185"]);
-  const bo = BD.panel(state(I), P("16641"));
+  const bo = BD.panel(logState(I), P("16641"));
   t.match(bo, /<b>W1<\/b> <span class="nw">—<\/span><small><\/small><\/button><\/th><td class="n"><span class="mu">—<\/span><\/td><td class="n mu">—<\/td><td>—<small>Club not established<\/small><\/td>/);
   const S2 = state(clone(I)); S2.intel.scores[4] = { state: "error", error: "HTTP 503" };
   const h2 = BD.panel(S2, P("16185")); t.match(text(h2), /1 week of scores could not be read and show n\/a\. Try again/); t.match(h2, /data-act="retrylog"/); t.match(text(h2), /season points not shown/);
   const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === "16185" ? { id: x.id, score: "N/A" } : x));
-  const { intel: I3 } = await intel(["16185"], { scores: sc }); const h3 = BD.panel(state(I3), P("16185"));
-  t.match(text(h3), /1 score could not be read, so his season figures are not shown\./); t.match(h3, /<span class="mu" title="This score could not be read">\?<\/span>/);
+  const { intel: I3 } = await intel(["16185"], { scores: sc }); const h3 = BD.panel(state(I3), P("16185")), h3L = BD.panel(logState(I3), P("16185"));
+  t.match(text(h3), /1 score could not be read, so his season figures are not shown\./); t.match(h3L, /<span class="mu" title="This score could not be read">\?<\/span>/);
   const S4 = state(clone(I)); S4.intel.box["16185"] = { state: "error", error: "HTTP 503" };
-  const h4 = BD.panel(S4, P("16185")); t.match(text(h4), /Game stats didn’t load \(HTTP 503\)\. Try again/); t.match(h4, /data-act="retrybox" data-pid="16185"/); t.doesNotMatch(h4, /data-act="bdv"/, "only the fantasy view without the stats");
+  const h4 = BD.panel(S4, P("16185")); t.match(text(h4), /Game stats didn’t load \(HTTP 503\)\. Try again/); t.match(h4, /data-act="retrybox" data-pid="16185"/);
+  const S4L = logState(clone(I)); S4L.intel.box["16185"] = { state: "error", error: "HTTP 503" }; t.doesNotMatch(BD.panel(S4L, P("16185")), /data-act="bdv"/, "only the fantasy view without the stats");
 });
 
 test("recorded preview: no game-stats answer in the recording, so the Breakdown shows the fantasy history and one line", async () => {
   const { intel: I } = await intel([]); const S = state(I, { recorded: { at: "x", label: "x" } }); S.intel.box["16185"] = { state: "absent" };
   const h = BD.panel(S, P("16185")), tx = text(h);
-  t.match(tx, /Game stats aren’t in this recording; the log shows fantasy points only\./); t.equal((tx.match(/aren’t in this recording/g) || []).length, 1, "said once");
-  t.doesNotMatch(h, /data-act="bdv"/); t.doesNotMatch(tx, /Season stats/); t.match(h, /<td class="n"><b>36\.3<\/b><\/td>/);
+  t.match(tx, /Game stats aren’t in this recording; the game log shows fantasy points only\./); t.equal((tx.match(/aren’t in this recording/g) || []).length, 1, "said once");
+  t.doesNotMatch(h, /class="card bdr"/, "no season table");
+  const SL = logState(I, { recorded: { at: "x", label: "x" } }); SL.intel.box["16185"] = { state: "absent" }; const hL = BD.panel(SL, P("16185"));
+  t.doesNotMatch(hL, /data-act="bdv"/); t.match(hL, /<td class="n"><b>36\.3<\/b><\/td>/);
 });
 
 test("the Breakdown draws no inline style, script, form field or write control, and every control is a known one", async () => {
   const { intel: I } = await intel(["16185", "14782", "17556", "13832", "14985"]);
   for (const [id, pos, club] of [["16185"], ["14782"], ["17556"], ["13832", "PK", "NYJ"], ["14985", "PN", "PHI"]]) {
     const views = BL.viewsFor(pos || POS[id].position).map((v) => v[0]);
-    for (const v of views) {
-      const h = BD.panel(state(I, { bd: { v: { [id]: v }, g: { [id]: 3 } } }), P(id, pos, club));
+    for (const v of views) for (const tab of ["season", "log"]) {
+      const h = BD.panel(state(I, { bd: { v: { [id]: v }, g: { [id]: 3 }, t: { [id]: tab } } }), P(id, pos, club));
       t.doesNotMatch(h, /<script|\sstyle=|<form|<input|<textarea|<select|\son[a-z]+\s*=|\shref=|\ssrc=/i);
-      [...h.matchAll(/data-act="([a-z]+)"/g)].forEach((m) => t.ok(["bdv", "bdg", "retrybox", "retrylog", "retryperf"].includes(m[1]), "control " + m[1]));
+      [...h.matchAll(/data-act="([a-z]+)"/g)].forEach((m) => t.ok(["bdt", "bdv", "bdg", "retrybox", "retrylog", "retryperf"].includes(m[1]), "control " + m[1]));
+      t.doesNotMatch(text(h), /fumbles lost|sack fumbles|\bFL\b|Tap a game|never a zero/i, "R8: no fumbles-lost display and no instructional copy");
     }
   }
+});
+
+test("R8: a game's identity line is Date · Matchup · Status; kickoff time only for an upcoming or live game; his club that week, Eastern Time", () => {
+  const ko = Date.UTC(2026, 10, 29, 21, 25) / 1000;   // Sun 11/29, 4:25 PM ET
+  const g = (o) => Object.assign({ week: 12, club: "MIN", opp: "GBP", home: false, neutral: false, kickoff: ko, score: null, oppScore: null, status: "scheduled" }, o);
+  const row = (o, r) => Object.assign({ week: 12, club: "MIN", clubHow: "row", bye: false, game: g(o) }, r || {});
+  t.equal(BD.identityLine(row({})), "Sun 11/29 · MIN @ GB · 4:25 PM ET", "upcoming: the kickoff time stays");
+  t.equal(BD.identityLine(row({ status: "live" })), "Sun 11/29 · MIN @ GB · In progress · kicked off 4:25 PM ET");
+  t.equal(BD.identityLine(row({ status: "final", score: 24, oppScore: 17 })), "Sun 11/29 · MIN @ GB · Final W 24–17", "completed: no kickoff time");
+  t.equal(BD.identityLine(row({ status: "final", score: 24, oppScore: 17, home: true, neutral: true })), "Sun 11/29 · MIN vs GB (neutral site) · Final W 24–17");
+  t.equal(BD.identityLine(row({ kickoff: null })), "Date not available · MIN @ GB · Scheduled", "no kickoff: never a guessed date or time");
+  t.equal(BD.identityLine({ week: 6, club: "DET", clubHow: "between", bye: true, game: null }), "Bye week · DET");
+  t.equal(BD.identityLine({ week: 1, club: "", clubHow: "unknown", bye: false, game: null }), "Game not established");
+  // the historical club: Cousins played Week 10 for MIN at GB after nine LV weeks, and his Week 6 for LV at BUF (MIN's bye week)
+  const c = pure("10700");
+  t.match(BD.identityLine(c.wk(10)), /^\w{3} \d{1,2}\/\d{1,2} · MIN @ GB · Final [WLT] \d+–\d+$/); t.match(BD.identityLine(c.wk(6)), /^\w{3} \d{1,2}\/\d{1,2} · LV (@|vs) BUF · Final [WLT] \d+–\d+$/);
+});
+
+test("R8 (item 4): a verified BYE row is plain text (no detail control, no empty detail panel) and stays in the log; an unverified week keeps its control", async () => {
+  const { intel: I } = await intel(["16162", "16641", "16185"]);
+  // Gibbs: DET's Week 6 bye (between two DET rows, the club's bye from the schedule), even when state says Week 6 is open
+  const h = BD.panel(logState(I, { bd: { v: {}, g: { 16162: 6 } } }), P("16162"));
+  const w6 = (h.split('data-week="6"')[1] || "").split("</tr>")[0];
+  t.match(h, /<tr class="bye"><th class="pin"><span class="pinx" data-week="6"><b>W6<\/b> <span class="nw">BYE<\/span><small>Bye week<\/small><\/span><\/th>/, "the bye row stays, as plain text");
+  t.ok(w6.length > 0); t.doesNotMatch(h, /data-act="bdg" data-v="6"/, "no detail control"); t.doesNotMatch(h, /<tr class="bdd">/, "no detail panel, even when asked for");
+  t.equal((h.match(/data-act="bdg"/g) || []).length, 10, "every other week (1-5, 7-11) keeps its control");
+  // JSN: Week 11 is SEA's bye (his current club, the lineup week): a newer bye row, plain text too
+  t.match(BD.panel(logState(I), P("16185")), /<tr class="newer bye"><th class="pin"><span class="pinx" data-week="11">/);
+  // Bowers: Weeks 1-2 have no club evidence, so they are NOT verified byes: their detail control stays
+  const b = BD.panel(logState(I, { bd: { v: {}, g: { 16641: 1 } } }), P("16641"));
+  t.match(b, /data-act="bdg" data-v="1" data-pid="16641" aria-expanded="true"/); t.match(b, /<tr class="bdd">/);
+});
+
+test("R8: a rate with recorded zero attempts reads — (no rate), a missing one Not available; the Fantasy columns come from one function (the matchup-column seam)", () => {
+  const z = pure("14782", { box: (() => { const b = BL.parseBox(FXB.box["14782"], "14782", 2026); Object.values(b.weeks).forEach((w) => { if (w.box) { w.box.pass_att = 0; w.box.pass_cmp = 0; w.box.pass_ints = 0; } }); return b; })() });
+  const it = item(z.R, "INT rate"); t.equal(it.value, null); t.equal(it.nodiv, true, "0 attempts: no rate");
+  const h = BD.rollupHtml(z.R, [], null, ""); t.match(text(h), /INT rate — —/); t.match(text(h), /Completion % — —/); t.match(text(h), /Attempts 0 /, "a recorded 0 count stays 0");
+  t.match(text(h), /Team PROE Not available/, "a figure that is not recorded says Not available");
+  const cols = BD.fantasyColumns(); t.deepEqual(cols.map((c) => c.head.replace(/<[^>]*>/g, "")), ["Pts", "Rank", "Result"]);
+  t.equal(cols[2].cell({ bye: false, game: { status: "final", score: 21, oppScore: 13 }, part: "Played", newer: false, ptsKind: "score" }), "<td>W 21–13</td>");
 });
 
 await run("mobile2027_r6_breakdown");
