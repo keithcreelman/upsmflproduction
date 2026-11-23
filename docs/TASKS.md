@@ -1,5 +1,7 @@
 # PROJECT STATE — UPS MFL Production
 
+> **Superseded; not a task list (2026-11-22).** This file is a byte-for-byte copy of `docs/PROJECT_STATE.md` (February 2026) and has never listed tasks. Open work is tracked in backlog index #1503 and the issues and PRs it links. Read the banner in `docs/PROJECT_STATE.md` for what remains applicable ("Non-Negotiables", "Active Development Model") and for which source is authoritative for code, project status and league rules.
+
 ## Source of Truth
 Primary repository: upsmflproduction  
 This is the ONLY canonical source.  

@@ -1,5 +1,9 @@
 # Current Work Handoff — for resuming via Dispatch / fresh Claude session
 
+> **Superseded as status (2026-11-22). This is a 2026-05-09 snapshot of the cap-penalty cycle backfill.** Its status sections ("One-line status", "Where each piece is", "Current Pass 2 stats", "Stage timeline", "Next 3 actions", "Open questions", "Recent commits") are historical; verify against `main` and GitHub before relying on them. Current work is tracked in backlog index #1503 and the issues and PRs it links.
+> **Still applicable, within the cap-penalty backfill scope:** "Three rule eras" and "Critical context decisions made (don't re-litigate)". Check each against `docs/league_context_v1.md`, which governs league rules, before reusing it in other work.
+> **Authority:** code is what is on `main`; project status is #1503; league rules are canon and Keith's recorded rulings.
+
 **Last updated:** 2026-05-09 (during active work; update as we go)
 
 **One-line status:** ✅ Pass 2 cycle backfill written to D1 (10,497 cycles, 2011-2024). Next is Pass 3 — financial enrichment from MFL contract_info (TCV, contract_type, GF flag, weeks_active).
