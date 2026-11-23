@@ -116,7 +116,7 @@ test("parseBox keeps only this player's answer: another id, another season, no v
 // ───────────────────────── the sourced example ─────────────────────────
 test("Jaxon Smith-Njigba through Week 10 reproduces research v1 section 3: season stats, every weekly row, dates, opponents and results", () => {
   const { R, rows, wk } = pure("16185");
-  const want = { Targets: "109", Receptions: "79", "Receiving yards": "1207", "Receiving TD": "10", "Catch rate": "72.5%", "Yards per reception": "15.3", "Yards per target": "11.1", "Air yards": "1130", "Air yards per target": "10.4",
+  const want = { Targets: "109", Receptions: "79", "Receiving yards": "1,207", "Receiving TD": "10", "Catch rate": "72.5%", "Yards per reception": "15.3", "Yards per target": "11.1", "Air yards": "1,130", "Air yards per target": "10.4",
     Carries: "3", "Rushing yards": "29", "Rushing TD": "0", Snaps: "542", "Snap share": "83.3%", "Red-zone targets": "13", "Targets inside the 10": "7", "Targets inside the 5": "2", "Red-zone receptions": "6", "Red-zone receiving TD": "5", "End-zone targets (any distance)": "8",
     "Total TD (rushing + receiving)": "10" };
   Object.entries(want).forEach(([k, v]) => t.equal(val(R, k), v, k));
@@ -169,7 +169,7 @@ test("the sourced example drawn: the Breakdown, every view, the pinned game iden
 // ───────────────────────── coverage, by position ─────────────────────────
 test("QB (Love): passing rollup from sums, sacks taken and yards lost, red zone apart from end-zone attempts; fumbles lost say they exclude sack fumbles", () => {
   const { R } = pure("14782");
-  const want = { "Completions/attempts": "232/368", "Completion rate": "63.0%", "Passing yards": "2838", "Yards per attempt": "7.71", "Passing TD": "20", Interceptions: "7", "Air yards": "3467", "Air yards per attempt": "9.42",
+  const want = { "Completions/attempts": "232/368", "Completion rate": "63.0%", "Passing yards": "2,838", "Yards per attempt": "7.71", "Passing TD": "20", Interceptions: "7", "Air yards": "3,467", "Air yards per attempt": "9.42",
     "Sacks taken": "25", "Sack yards lost": "160", Carries: "13", "Rushing yards": "23", "Rushing TD": "2", "Fumbles lost (not on sacks)": "0",
     "Red-zone attempts": "52", "Red-zone completions": "32", "Red-zone passing TD": "13", "End-zone attempts (any distance)": "33" };
   Object.entries(want).forEach(([k, v]) => t.equal(val(R, k), v, k));
@@ -181,7 +181,7 @@ test("QB (Love): passing rollup from sums, sacks taken and yards lost, red zone 
 test("RB (Gibbs): the Week 6 bye is a bye (his club's, between two DET rows), not a missing game; rushing, receiving and total TD do not double count", () => {
   const { R, wk } = pure("16162");
   t.equal(wk(6).bye, true); t.equal(wk(6).part, "Bye"); t.equal(wk(6).clubHow, "between"); t.equal(wk(6).pts, null); t.equal(wk(6).ptsKind, "none");
-  t.equal(val(R, "Carries"), "199"); t.equal(val(R, "Rushing yards"), "1000"); t.equal(val(R, "Rushing TD"), "11"); t.equal(val(R, "Receiving TD"), "2");
+  t.equal(val(R, "Carries"), "199"); t.equal(val(R, "Rushing yards"), "1,000"); t.equal(val(R, "Rushing TD"), "11"); t.equal(val(R, "Receiving TD"), "2");
   t.equal(val(R, "Total TD (rushing + receiving)"), "13", "11 + 2; the 9 red-zone rushing TD are part of the 11, never added");
   t.equal(val(R, "Red-zone carries"), "47"); t.equal(val(R, "Carries inside the 10"), "22"); t.equal(val(R, "Carries inside the 5"), "16"); t.equal(val(R, "Red-zone rushing TD"), "9");
   t.equal(val(R, "Fumbles lost"), "2"); t.equal(R.games, 9);
@@ -276,7 +276,7 @@ test("the cutoff: Team › Performance's shared week (tabviews.seasonCutoff) win
 test("missing is not zero: no stat line, an unread week, an unreadable score and a failed read each say so", async () => {
   const { intel: I } = await intel(["16641", "16185"]);
   const bo = BD.panel(state(I), P("16641"));
-  t.match(bo, /<b>W1<\/b> <span class="nw">—<\/span><small>Date not available<\/small><\/button><\/th><td class="n"><span class="mu">—<\/span><\/td><td class="n mu">—<\/td><td>—<small>Club not established<\/small><\/td>/);
+  t.match(bo, /<b>W1<\/b> <span class="nw">—<\/span><small><\/small><\/button><\/th><td class="n"><span class="mu">—<\/span><\/td><td class="n mu">—<\/td><td>—<small>Club not established<\/small><\/td>/);
   const S2 = state(clone(I)); S2.intel.scores[4] = { state: "error", error: "HTTP 503" };
   const h2 = BD.panel(S2, P("16185")); t.match(text(h2), /1 week of scores could not be read and show n\/a\. Try again/); t.match(h2, /data-act="retrylog"/); t.match(text(h2), /season points not shown/);
   const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === "16185" ? { id: x.id, score: "N/A" } : x));

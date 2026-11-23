@@ -324,4 +324,6 @@ button.btnrow{cursor:pointer}
 .bdt tr.bdd td{white-space:normal;padding:0;background:var(--s2)}
 .bdt .bdin{position:sticky;left:0;width:min(calc(100vw - 64px),376px);padding:8px 10px;font-size:13px}
 .bdt .bdin .kv{grid-template-columns:auto minmax(0,1fr)}
+.bdt .bdin .kv.bdk{grid-template-columns:minmax(0,1fr) auto;gap:2px 12px}
+.bdt .bdin .kv.bdk span{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 /* ===== end R6 PERFORMANCE ===== */

@@ -79,7 +79,7 @@
   // the game identity, pinned in the first column of every view: week and opponent, then the game's date in Eastern Time
   function pinHtml(r) {
     var g = r.game, opp = r.bye ? "BYE" : g ? oppText(g) : DASH, d = g && g.kickoff ? BL.shortDate(g.kickoff) : "";
-    return "<b>W" + r.week + '</b> <span class="nw">' + esc(opp) + "</span><small>" + esc(d || (r.bye ? "Bye week" : "Date not available")) + "</small>";
+    return "<b>W" + r.week + '</b> <span class="nw">' + esc(opp) + "</span><small>" + esc(d || (r.bye ? "Bye week" : "")) + "</small>";   // no date: the line stays empty (the detail says Not available)
   }
   function cell(v) { return v == null ? '<td class="n mu">' + DASH + "</td>" : '<td class="n">' + esc(v) + "</td>"; }
   function partShort(r) { return r.part && r.part !== "Played" ? r.part : ""; }
@@ -119,7 +119,7 @@
     var haveStats = !!(boxRec && boxRec.state === "ok" && (r.box || r.snaps || r.rz)), stats = haveStats ? BL.detailStats(p.pos, r) : [];
     var g0 = BL.groupOf(p.pos);
     var out = '<div class="kv">' + kv.join("") + "</div>";
-    if (stats.length) out += '<div class="kv mt6">' + stats.map(function (s) { return "<b>" + esc(s[0]) + "</b><span>" + (s[1] == null ? '<span class="mu">' + DASH + "</span>" : esc(s[1])) + "</span>"; }).join("") + (g0.kind === "p" ? '<b>Blocked punts</b><span class="mu">Not available</span>' : "") + "</div>";
+    if (stats.length) out += '<div class="kv bdk mt6">' + stats.map(function (s) { return "<b>" + esc(s[0]) + "</b><span>" + (s[1] == null ? '<span class="mu">' + DASH + "</span>" : esc(s[1])) + "</span>"; }).join("") + (g0.kind === "p" ? '<b>Blocked punts</b><span class="mu">Not available</span>' : "") + "</div>";
     else if (boxRec && boxRec.state === "ok") out += '<div class="ex mt6">' + (r.statsIn ? "No stat line for this game." : "Game stats for this week are not in yet.") + "</div>";
     var asof = [];
     if (boxRec && boxRec.state === "ok") asof.push("Game stats through Week " + (boxRec.data.through == null ? "unknown" : boxRec.data.through) + (boxRec.at ? ", read " + F.etStamp(new Date(boxRec.at).toISOString()) : ""));
@@ -177,7 +177,7 @@
       var row = '<tr class="' + cls.trim() + '"><th class="pin"><button data-act="bdg" data-v="' + r.week + '" data-pid="' + esc(pid) + '" aria-expanded="' + open + '" aria-label="Week ' + r.week + ' game details">' + pinHtml(r) + "</button></th>";
       if (v === "fan") {
         var ps = ptsText(r), res = r.bye ? "Bye" : resultText(r.game), pt = partShort(r);
-        if (r.newer) res = (res ? res + " · " : "") + "not in season figures";
+        if (r.newer && !r.bye) res = (res ? res + " · " : "") + "not in season figures";
         row += '<td class="n">' + (r.ptsKind === "score" ? "<b>" + esc(ps) + "</b>" : '<span class="mu"' + (r.ptsKind === "unreadable" ? ' title="This score could not be read"' : "") + ">" + esc(ps) + "</span>") + "</td>" + cell(r.rank || null) +
           "<td>" + esc(res || DASH) + (pt && pt !== "Bye" ? '<small>' + esc(pt) + "</small>" : "") + "</td>";
       } else {

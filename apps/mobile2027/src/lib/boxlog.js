@@ -222,7 +222,7 @@
   }
   function f1(v) { return v == null ? null : (Math.round(v * 10 + 1e-9) / 10).toFixed(1); }
   function pct(v) { return v == null ? null : (Math.round(v * 1000 + 1e-9) / 10).toFixed(1) + "%"; }
-  function int(v) { return v == null ? null : String(Math.round(v)); }
+  function int(v) { return v == null ? null : String(Math.round(v)).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }   // 1,207
 
   function rollup(inp, rs) {
     var g = groupOf(inp.pos), box = inp.box && inp.box.state === "ok" ? inp.box : null;
