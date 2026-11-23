@@ -89,9 +89,14 @@
   // kept in S.intel.pss[key] = { state, data, at } (the loader keeps it an hour); competitors are never read one by one. A failed pool is asked again
   // only on Try again (Retry). In recorded mode only the Week-10 pools exist; any other is "absent" and the Rank cells read "—".
   function ensureStatPools(force) {
-    if (S.sample.on || !S.model || !U.statranks) return;
-    var keys = {};
-    Array.prototype.forEach.call(appEl.querySelectorAll("[data-pss]") || [], function (el) { var k = el.getAttribute("data-pss"); if (k) keys[k] = true; });
+    if (S.sample.on || !S.model || !U.statranks || !U.breakdown) return;
+    var keys = {}, C = U.breakdown.cutoffOf(S);
+    // the open Breakdowns whose game stats are in (only those draw a season rollup), by the same state ensureBreakdowns reads
+    if (C && C.state === "ok" && C.week >= 1) Object.keys(breakdownPids()).forEach(function (pid) {
+      var p = S.model.byId[pid], b = S.intel.box && S.intel.box[pid], g = p ? U.statranks.groupOf(p.pos) : "";
+      if (g && b && b.state === "ok") keys[U.breakdown.statKey(S, C, g)] = true;
+    });
+    Array.prototype.forEach.call(appEl.querySelectorAll("[data-pss]") || [], function (el) { var k = el.getAttribute("data-pss"); if (k) keys[k] = true; });   // any other call site
     Object.keys(keys).forEach(function (k) { ensureStatPool(k, force); });
   }
   function ensureStatPool(key, force) {
@@ -137,11 +142,14 @@
   // tabs and reopening the profile. A failed read is asked again only on Try again. In recorded-data mode the loader answers "absent" with no request.
   function ensureBreakdowns() {
     if (S.sample.on || !S.model) return;
+    Object.keys(breakdownPids()).forEach(function (pid) { ensureBox(pid, false); });
+  }
+  function breakdownPids() {
     var ids = {};
     if (S.profile && S.profile.tab === "perf" && S.profile.pid) ids[S.profile.pid] = true;   // the profile's Performance tab is a Breakdown
     if (S.tab === "team" && S.sub === "performance" && S.pf && S.pf.open) Object.keys(S.pf.open).forEach(function (pid) { if (S.pf.open[pid]) ids[pid] = true; });   // an open Breakdown on a Team › Performance card
     Array.prototype.forEach.call(appEl.querySelectorAll("[data-bdpid]") || [], function (el) { var v = el.getAttribute("data-bdpid"); if (v) ids[v] = true; });   // any other call site
-    Object.keys(ids).forEach(function (pid) { ensureBox(pid, false); });
+    return ids;
   }
   function ensureBox(pid, force) {
     if (S.sample.on || !S.model || !U.boxlog || !pid) return;
