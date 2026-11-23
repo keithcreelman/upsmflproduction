@@ -428,18 +428,22 @@ test("PR B: Team › Performance asks for the two NFL schedules, the players and
   t.equal(a.calls.slice(n).filter(isCalCall).length, 2, "and MFL's club list with byes and the whole season's schedule, one read each");
   t.equal(a.calls.length - n, 16, "nothing else was asked (the injury and matchup reads were already in memory)");
   a.calls.slice(n).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.ok(["playerScores", "nflSchedule", "players", "nflByeWeeks"].includes(c.type)); });
-  t.match(a.html(), /Comparison through Week 10/); t.match(a.html(), /Season through Week 10 · completed games/); t.match(a.html(), /QB 2 of 35–54/); t.match(a.html(), /WR 63–66 of 169–209/);
-  await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pfs", "data-v": "diff" }); await a.click({ "data-act": "pfs", "data-v": "avg" }); await tick(10);   // revised: the Starters / Bench filter is gone, so only the sorts are tapped
+  t.match(a.html(), settled(10)); t.match(a.html(), /<em aria-label="Actual PPG rank QB2">QB2<\/em>/); t.match(a.html(), />WR63–66<\/em>/);   // R6: compact ranks on the card (the comparison and the "of N" pools left the main card)
+  await a.click({ "data-act": "sub", "data-v": "roster" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await a.click({ "data-act": "pfs", "data-v": "tot" }); await a.click({ "data-act": "pfs", "data-v": "ppg" }); await tick(10);   // revised: the Starters / Bench filter is gone, so only the sorts are tapped
   t.equal(a.calls.length - n, 16, "tabs and sorts ask nothing");
 });
 
-test("revised: on Team › Performance the name opens the profile and the separate details control expands the breakdown; the filter is gone; no new read of any kind", async () => {
+test("revised: on Team › Performance the name opens the profile and the separate details control expands the breakdown; the filter is gone; no new Performance read (R6: only his one game-stats read for the Breakdown)", async () => {
   const a = boot({ r3: true }); await tick(40);
-  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100); const n = a.calls.length;
+  await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100); let n = a.calls.length;
   t.doesNotMatch(a.html(), /data-act="pff"/); t.match(a.html(), /data-act="pfx" data-v="15698" aria-expanded="false"/);
-  await a.click({ "data-act": "pfx", "data-v": "15698" });
-  t.match(a.html(), /data-act="pfx" data-v="15698" aria-expanded="true"/, "the details control expands the breakdown"); t.doesNotMatch(a.html(), /Player profile<\/span>/, "and does not open the profile"); t.equal(a.calls.length, n, "expanding asks for nothing");
+  await a.click({ "data-act": "pfx", "data-v": "15698" }); await tick(20);
+  t.match(a.html(), /data-act="pfx" data-v="15698" aria-expanded="true"/, "the details control expands the breakdown"); t.doesNotMatch(a.html(), /Player profile<\/span>/, "and does not open the profile");
+  // R6 integration: the Breakdown holds his game log, so expanding asks for his one game-stats read (a bare GET) and nothing else; reopening reuses it
+  t.deepEqual(a.calls.slice(n).map((c) => c.path), ["/api/player-weekly-box"], "expanding asks only for his game-stats read");
   await a.click({ "data-act": "pfx", "data-v": "15698" }); t.match(a.html(), /data-act="pfx" data-v="15698" aria-expanded="false"/, "and collapses it");
+  await a.click({ "data-act": "pfx", "data-v": "15698" }); await a.click({ "data-act": "pfx", "data-v": "15698" }); await tick(20);
+  t.equal(a.calls.slice(n).length, 1, "reopening asks nothing more"); n = a.calls.length;
   await a.click({ "data-act": "card", "data-pid": "15698" }); await tick(30);
   t.match(a.html(), /Player profile/, "the name opens the profile"); t.doesNotMatch(a.html(), /data-act="pfx" data-v="15698" aria-expanded="true"/);
   t.deepEqual(a.calls.slice(n).map((c) => c.path + (c.type ? ":" + c.type : "")), ["/api/cap-penalty/preview"], "opening a profile makes its one read of the guarantee calculation and nothing else (no new Performance read)");
@@ -500,9 +504,9 @@ test("R3 review: a failed guarantee read is asked again only on Try again, not o
 test("R3: a failed weekly score read shows n/a in those cells and a retry; scores that did load stay; nothing is 0.0", async () => {
   const a = boot({ r3: true, failScores: 1 }); await tick(40);
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(40);
-  t.match(a.html(), /Some weeks of scores could not be read/); t.match(a.html(), /data-act="retryperf"/); t.doesNotMatch(a.html(), /<span>Season points<\/span><b>\d/, "no season figure is drawn from a partial set of weeks");
+  t.match(a.html(), /Some weeks of scores could not be read/); t.match(a.html(), /data-act="retryperf"/); t.doesNotMatch(a.html(), /<span>Tot\. Pts\.<\/span><b>\d/, "no season figure is drawn from a partial set of weeks");
   await a.click({ "data-act": "retryperf" }); await tick(40);
-  t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /<span>Season points<\/span><b>\d/); t.equal(scoreReads(a).length, 12, "only the failed week was asked again");
+  t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /<span>Tot\. Pts\.<\/span><b>\d/); t.equal(scoreReads(a).length, 12, "only the failed week was asked again");
 });
 
 test("R6: the profile's Performance tab is the Breakdown, drawn from the same reads as Team › Performance (weeks, points, the exact weekly rank, the result)", async () => {
@@ -555,6 +559,9 @@ await test("PR A review: an open next-season row is asked again after Sample mod
   t.match(a.html(), /Total adjustments<\/b><b>\+\$4,000/); t.doesNotMatch(a.html(), /Loading…/);
 });
 
+// R6: the Performance header is one "Through Week N" (the old "Season through Week N · completed games"). The completed-games claim is now the header with
+// no warning line under it (an unverified or not-final week adds a warning and the warnc class).
+function settled(n) { return new RegExp('<div class="card pfh"><b>Through Week ' + n + "</b>(?!<div class=\"ex wn)"); }
 // ---- PR B: fixes from the independent code review of 62bc56bd
 const clone2 = (x) => JSON.parse(JSON.stringify(x));
 const allFinalSched = () => { const s = clone2(FX4.schedule11); s.nflSchedule.matchup.forEach((m) => { m.gameSecondsRemaining = "0"; m.team[0].score = "21"; m.team[1].score = "14"; }); return s; };
@@ -568,14 +575,14 @@ test("PR B review: the Worker calls the lineup week complete and the schedule sa
   const a = boot({ r3: true, sched11: allFinalSched(), lmEdit: lastCompleteIsLineupWeek }); await tick(30);
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(80);
   t.equal(wkCalls(a, isSch(10)) >= 1, true, "the Week 10 schedule was asked for");
-  t.match(a.html(), /Season through Week 10 · completed games/); t.doesNotMatch(a.html(), /Checking which games are final/);
+  t.match(a.html(), settled(10)); t.doesNotMatch(a.html(), /Checking which games are final/);
 });
 
 test("PR B review: Sample mode switched on and off while the Performance reads are in flight: the reads are asked again and the screen draws", async () => {
   const a = boot({ r3: true }); await tick(30);
   const opened = a.click({ "data-act": "sub", "data-v": "performance" });
   await a.click({ "data-act": "sample" }); await a.click({ "data-act": "sample" }); await opened; await tick(120);
-  t.match(a.html(), /Season through Week 10 · completed games/); t.doesNotMatch(a.html(), /Checking which games are final|Loading ranks/);
+  t.match(a.html(), settled(10)); t.doesNotMatch(a.html(), /Checking which games are final|Loading ranks/);
 });
 
 test("PR B review: Retry asks the matchup, schedule and score reads of the lineup week again, not only the ones that failed", async () => {
@@ -584,7 +591,7 @@ test("PR B review: Retry asks the matchup, schedule and score reads of the lineu
   const n = () => [wkCalls(a, isLm), wkCalls(a, isSch(11)), wkCalls(a, isSc(11))], before = n();
   await a.click({ "data-act": "retryperf" }); await tick(60);
   t.deepEqual(n(), before.map((x) => x + 1), "one more of each");
-  t.match(a.html(), /Season through Week 10 · completed games/);
+  t.match(a.html(), settled(10));
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 
@@ -592,14 +599,14 @@ test("PR B: a truncated NFL schedule is never presented as a complete week: the 
   const s10 = clone2(FX4.schedule10); s10.nflSchedule.matchup.shift(); // one game of Week 10 is missing from the answer
   const a = boot({ r3: true, sched10: s10 }); await tick(30);
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
-  t.match(a.html(), /does not account for every club/); t.doesNotMatch(a.html(), /Season through Week/); t.match(a.html(), /data-act="retryperf"/);
+  t.match(a.html(), /does not account for every club/); t.doesNotMatch(a.html(), /Through Week/); t.match(a.html(), /data-act="retryperf"/);
 });
 
 test("PR B: only the schedules of the last two weeks are read; older weeks never block the cutoff", async () => {
   const a = boot({ r3: true }); await tick(30);
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(80);
   t.deepEqual(a.calls.filter((c) => c.type === "nflSchedule").map((c) => new URL(c.url).searchParams.get("W")).filter((w) => w !== "ALL").sort(), ["10", "11"], "per-week schedules: Week 10 (the last complete week) and Week 11 (the lineup week) only; every older week is confirmed from the one calendar read");
-  t.match(a.html(), /Season through Week 10 · completed games/);
+  t.match(a.html(), settled(10));
 });
 
 test("PR B round 4: the club list, byes and the whole season's schedule are read once each (bare GETs); every earlier week is confirmed, so the heading claims completed games", async () => {
@@ -607,39 +614,41 @@ test("PR B round 4: the club list, byes and the whole season's schedule are read
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
   t.deepEqual(a.calls.filter(isCalCall).map((c) => c.type + ":" + (new URL(c.url).searchParams.get("W") || "")).sort(), ["nflByeWeeks:", "nflSchedule:ALL"], "one read of each");
   a.calls.filter(isCalCall).forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); t.deepEqual([...new URL(c.url).searchParams.keys()].sort(), c.type === "nflByeWeeks" ? ["JSON", "L", "TYPE", "YEAR"] : ["JSON", "L", "TYPE", "W", "YEAR"]); });
-  t.match(a.html(), /Season through Week 10 · completed games/);
+  t.match(a.html(), settled(10));
 });
 test("PR B round 4: an older game that is not final (Week 5) keeps the figures but removes the claim and names the week", async () => {
   const a = boot({ r3: true, calEdit: (l) => { l.fullNflSchedule.nflSchedule.find((e) => e.week === "5").matchup[0].gameSecondsRemaining = "900"; return l; } }); await tick(30);
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
-  t.match(a.html(), /Season through Week 10/); t.doesNotMatch(a.html(), /completed games/); t.match(a.html(), /Week 5 has a game that is not final/); t.match(a.html(), /<span>Season points<\/span><b>\d/, "the figures still show");
+  t.match(a.html(), /Through Week 10<\/b>/); t.doesNotMatch(a.html(), settled(10)); t.match(a.html(), /class="card pfh warnc"/); t.match(a.html(), /Week 5 has a game that is not final/); t.match(a.html(), /<span>Tot\. Pts\.<\/span><b>\d/, "the figures still show");
 });
 test("PR B round 4: if the club list and schedule cannot be read, the figures show without the claim and with Try again; Try again confirms the weeks", async () => {
   const a = boot({ r3: true, failCal: 2 }); await tick(30);
   await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
-  t.doesNotMatch(a.html(), /completed games/); t.match(a.html(), /Game completion unverified/); t.match(a.html(), /could not be read, so weeks 1 to 9 were not checked/); t.match(a.html(), /data-act="retryperf"/);
+  t.doesNotMatch(a.html(), settled(10)); t.match(a.html(), /Game completion unverified/); t.match(a.html(), /could not be read, so weeks 1 to 9 were not checked/); t.match(a.html(), /data-act="retryperf"/);
   await a.click({ "data-act": "retryperf" }); await tick(100);
-  t.match(a.html(), /Season through Week 10 · completed games/); t.doesNotMatch(a.html(), /were not checked|Game completion unverified/);
+  t.match(a.html(), settled(10)); t.doesNotMatch(a.html(), /were not checked|Game completion unverified/);
 });
 
 // Stale lineup-week scores in the running app. Thursday: Week 11's scores are read mid-game (cutoff Week 10). Later the league finishes Week 11; Retry reads the new schedule, which shows
 // it final, so the older scores are read again automatically, once. These tests drive that second read to a failure and to a success.
 const flat = (h) => h.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
-const thursday = async (clock) => { const a = boot({ r3: true, clock }); await tick(30); await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100); return a; };
+// R6: W* waits for team history, so the history here already runs through Week 11 (allowed one week past the all-final week, clamped to it on Thursday)
+const histThrough11 = (b) => Object.assign(b, { teamHistoryThrough: 11 });
+const thursday = async (clock) => { const a = boot({ r3: true, clock, lmEdit: histThrough11 }); await tick(30); await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100); return a; };
 test("PR B stale scores: the automatic re-read fails; the figures stay withheld; no automatic request follows; Retry asks the failed read once and a good answer restores the figures", async () => {
   const clock = FakeClock(), a = await thursday(clock);
-  t.match(a.html(), /Season through Week 10 · completed games/); t.equal(wkCalls(a, isSc(11)), 1, "Thursday: the lineup week's scores were read once, mid-game");
+  t.match(a.html(), settled(10)); t.equal(wkCalls(a, isSc(11)), 1, "Thursday: the lineup week's scores were read once, mid-game");
   a.setWeek11Final(1); clock.t += 3 * 60 * 1000;
   await a.click({ "data-act": "retryperf" }); await tick(120);
   t.equal(wkCalls(a, isSc(11)), 2, "the new schedule shows Week 11 final, so the older scores are read again automatically: once, and it fails");
-  t.doesNotMatch(a.html(), /<span>Season points<\/span><b>\d/, "no figure is drawn from the stale scores or from a partial set of weeks");
+  t.doesNotMatch(a.html(), /<span>Tot\. Pts\.<\/span><b>\d/, "no figure is drawn from the stale scores or from a partial set of weeks");
   t.match(a.html(), /Some weeks of scores could not be read/); t.match(a.html(), /data-act="retryperf"/);
   const n = a.calls.length; await tick(200); clock.t += 60 * 1000; await tick(50);
   await a.click({ "data-act": "sub", "data-v": "cap" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
   t.equal(a.calls.length, n, "after the failure nothing is asked again on its own: not over time, not by leaving and returning to Performance");
   await a.click({ "data-act": "retryperf" }); await tick(100);
   t.equal(a.calls.length - n, 1, "Retry asked for exactly one thing"); t.ok(isSc(11)(a.calls[a.calls.length - 1]), "the failed Week 11 score read");
-  t.match(a.html(), /Season through Week 11 · completed games/); t.match(flat(a.html()), /Season points\s+298\.4/, "the figures are back, with Week 11 included"); t.doesNotMatch(a.html(), /Some weeks of scores could not be read/);
+  t.match(a.html(), settled(11)); t.match(flat(a.html()), /Tot\. Pts\.\s+298\.4/, "the figures are back, with Week 11 included"); t.doesNotMatch(a.html(), /Some weeks of scores could not be read/);
   const m = a.calls.length; await tick(150); t.equal(a.calls.length, m, "and it stays quiet");
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
@@ -648,7 +657,7 @@ test("PR B stale scores: when the automatic re-read succeeds it is one request, 
   a.setWeek11Final(0); clock.t += 3 * 60 * 1000;
   await a.click({ "data-act": "retryperf" }); await tick(120);
   t.equal(wkCalls(a, isSc(11)), 2, "one automatic re-read");
-  t.match(a.html(), /Season through Week 11 · completed games/); t.match(flat(a.html()), /Season points\s+298\.4/);
+  t.match(a.html(), settled(11)); t.match(flat(a.html()), /Tot\. Pts\.\s+298\.4/);
   const n = a.calls.length; await tick(200); await a.click({ "data-act": "sub", "data-v": "cap" }); await a.click({ "data-act": "sub", "data-v": "performance" }); await tick(100);
   t.equal(a.calls.length, n, "no repeated automatic requests");
 });

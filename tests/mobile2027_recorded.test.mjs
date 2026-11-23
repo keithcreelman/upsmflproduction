@@ -227,11 +227,12 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   ok("contract sorts and rows");
   // Performance
   await a.click({ "data-act": "sub", "data-v": "performance" }, 150);
-  t.match(a.html(), /Season through Week 10 · completed games/); t.match(a.html(), /<span>Season points<\/span><b>\d/, "season figures draw from the recorded weekly scores");
+  t.match(a.html(), /<div class="card pfh[^"]*"><b>Through Week 10<\/b>/); t.match(a.html(), /<span>Tot\. Pts\.<\/span><b>\d/, "season figures draw from the recorded weekly scores");
   ok("performance");
-  for (const s of ["diff", "avg", "pos"]) await a.click({ "data-act": "pfs", "data-v": s });
+  for (const s of ["tot", "ppg", "pos"]) await a.click({ "data-act": "pfs", "data-v": s });
   const pf = /data-act="pfx" data-v="(\d+)"/.exec(a.html()); t.ok(pf, "performance rows");
-  await a.click({ "data-act": "pfx", "data-v": pf[1] }); t.match(a.html(), /data-act="pfx" data-v="\d+" aria-expanded="true"/);
+  await a.click({ "data-act": "pfx", "data-v": pf[1] }, 150); t.match(a.html(), /data-act="pfx" data-v="\d+" aria-expanded="true"/);
+  t.match(a.html(), /data-bdpid="\d+"/, "the main card's Breakdown opens the game log"); t.match(a.html(), /Game stats aren’t in this recording/, "recorded mode: no game-stats read, said once");
   ok("performance sorts and rows");
   // a profile and its tabs, including the game log and the earlier weeks
   const pid = FIRST.players[0].id;
