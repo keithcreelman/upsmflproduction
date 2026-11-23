@@ -162,12 +162,16 @@
     var season = S.model.season, h = C.history(p, season), rows = "";
     h.rows.forEach(function (r) { rows += "<span>" + r.year + '</span><span class="mu">' + PHASE[r.phase] + "</span><span>" + (r.amount == null ? '<span class="wn">Not recorded</span>' : money(r.amount)) + "</span>"; });
     if (h.option) rows += "<span>" + h.option.year + '</span><span class="mu">Option year</span><span>' + money(h.option.amount) + "</span>";
-    var note = h.yearsLeft && h.earlier === "unknown" ? "Earlier years of this contract are not recorded." : h.earlier === "conflict" ? "Earlier years are not shown: the recorded terms do not match this season’s salary." : "";
-    var len = h.length ? plural(h.length, "year", "years") + ", " + h.start + (h.end !== h.start ? "–" + h.end : "") : "Not recorded";
+    var note = h.yearsLeft && h.earlier === "unknown" ? "Earlier years of this contract are not recorded." : h.earlier === "conflict" ? "Earlier years are not shown: the recorded terms do not match this season’s salary." :
+      h.earlier === "restructured" ? "Restructured in " + h.restructured + ". Years before the restructure are not in the recorded terms." :
+      h.restructured != null && h.startWhy === "auction" ? "Restructured in " + h.restructured + ". Salaries before the restructure are not in the recorded terms." : "";
+    // R7: who made the extension in force now, from the contract's own Ext: record (lib/contract.js extension); never the current owner by default
+    var ext = C.extension(p, season, S.model.teams), extLine = C.extensionLine(ext);
+    var len = h.length ? plural(h.length, "year", "years") + ", " + h.start + (h.end !== h.start ? "–" + h.end : "") : h.earlier === "restructured" && h.end ? "Start not recorded, ends " + h.end : "Not recorded";
     var left = h.yearsLeft ? h.yearsLeft + " (through " + h.end + ")" : "Not recorded";
     var sch = C.schedule(p, season), gtd = g.row && isFinite(g.row.guaranteed) ? money(g.row.guaranteed) : sch.parsed.gtd != null ? money(sch.parsed.gtd) : "Not recorded";
     var gw = guaranteeWords(S, p, g);
-    return '<div class="det"><div class="sec2 first">Salary schedule</div><div class="yrl">' + (rows || '<span class="mu">No years recorded</span>') + "</div>" + (note ? '<div class="ex">' + esc(note) + "</div>" : "") +
+    return '<div class="det"><div class="sec2 first">Salary schedule</div>' + (extLine ? '<div class="ext">' + esc(extLine) + "</div>" : "") + '<div class="yrl">' + (rows || '<span class="mu">No years recorded</span>') + "</div>" + (note ? '<div class="ex">' + esc(note) + "</div>" : "") +
       taxiLine(S, p) + '<div class="kv"><b>Contract</b><span>' + esc(len) + "</span><b>Years remaining</b><span>" + esc(left) + "</span><b>Type</b><span>" + esc(p.type || "Not recorded") + "</span><b>Recorded guarantee</b><span>" + gtd + "</span><b>" + gw.label + "</b><span>" + gw.html + "</span><b>If cut now</b><span>" + cutWords(S, p) + "</span></div></div>";
   }
 
@@ -263,6 +267,7 @@
         h("Cap charge", "Total committed cap plus or minus the adjustments (Cut penalties, Traded salary, Other, Rounding). It is what counts against the cap, so Available cap space is Total cap minus Cap charge.") +
         h("Later years", "Each later year shows its Total committed cap. This season gives injured reserve players half relief and taxi players $0. <b>Planning assumption for later years:</b> players now on taxi stay on taxi ($0) and injured reserve players count at full scheduled salary. No injury relief is projected. A year’s Details list the adjustments recorded for it; next season’s come from the UPS ledger, and no source records adjustments for the years after that, so none are shown (that is not $0).") +
         h("Salary schedule", "A player’s Details list every year of his current contract as MFL records it, completed years included. A year with no recorded amount says “Not recorded”. Salaries from an earlier contract are never added.") +
+        h("Extensions", "An extension starts a new current contract in the season it is made: it keeps that season’s salary and adds one or two years, so a player extended this season for two years shows this season and the next two. “Extended by” names the team that made that extension, from the contract’s own extension record, even if he has changed teams since. When the record does not name a current team, no team is shown. A restructure keeps the contract but MFL then records only the years from the restructure on, so earlier years can be missing.") +
         h("Taxi", "A taxi-eligible player can be released with a $0 cut charge while taxi eligibility applies. Releasing ends eligibility.") +
         h("Where the numbers come from", "Contracts as recorded on MFL" + (asOf ? " (as of " + esc(asOf) + ")" : "") + ". Earned, guarantee and cut charge: the UPS cap calculation" + (wk != null ? " through Week " + esc(wk) : "") + ".") +
         h("Symbols", esc(DASH) + " contract ended · n/r no amount recorded.") +

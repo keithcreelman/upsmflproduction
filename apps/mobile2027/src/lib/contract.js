@@ -80,24 +80,144 @@
   // the salary MFL charges now, the completed-year tokens are not trusted and are null. The later years are the same as schedule() (the columns).
   // -> { length, start, end, yearsLeft, rows: [{ year, amount, phase: "done" | "now" | "left" }], option, earlier, missing, complete }
   //    earlier: "none" (no completed years) | "recorded" | "partial" | "conflict" | "unknown"
+  //
+  // R7 (Keith, 2026-11-23): the schedule is the contract IN FORCE NOW. An extension starts the current contract (canon §C4: the extension keeps the
+  // current year's salary as its Y1 and adds one or two years, and its TCV is forward-looking only), so an extended contract's first year is the
+  // season the extension was made in: extended in 2026 for two more years -> 2026/2027/2028; the years before belong to the earlier contract and
+  // are never stitched in. A restructure is NOT a new contract, but it RE-BASES the recorded length to the remaining years (canon §C5.1), so after
+  // one the text no longer holds the contract's earlier years. When the restructure year is the first recorded year, the start of the contract is
+  // established only by evidence (restructure() below); otherwise the earlier years are "unknown" ("restructured"): no start, no length, nothing
+  // filled in.
+  //    earlier adds: "restructured" (the recorded terms begin at a restructure and nothing shows the contract's real start)
+  //    restructured: the restructure year or null; startWhy: "terms" | "extension" | "auction" | null
   function history(player, season) {
     var sch = schedule(player, season), c = sch.parsed, years = sch.yearsLeft, cl = sch.cl;
-    var out = { length: null, start: null, end: sch.through, yearsLeft: years, rows: [], option: sch.option, earlier: "unknown", missing: 0, complete: false };
+    var out = { length: null, start: null, end: sch.through, yearsLeft: years, rows: [], option: sch.option, earlier: "unknown", missing: 0, complete: false, restructured: restructureYear(c.raw), startWhy: null };
     if (!years) return out;
     var idx0 = cl && cl >= years ? cl - years + 1 : null, conflict = sch.notes.indexOf("current_year_token_differs") >= 0, gap = 0;
     if (idx0 != null) {
-      out.length = cl; out.start = season - (idx0 - 1);
+      var first = season - (idx0 - 1), rs = out.restructured;
+      if (rs != null && rs === first) {
+        // the recorded terms begin at the restructure (§C5.1 re-base); find the contract's real start from evidence, or leave it unknown
+        var ev = restructuredStart(player, season, first, out.end);
+        if (ev == null) {
+          // the years from the restructure on are recorded and are listed; what came before is unknown, so no start and no length are claimed
+          out.earlier = "restructured";
+          for (var j = 1; j < idx0; j++) out.rows.push({ year: first + j - 1, amount: !conflict && c.y[j] != null ? c.y[j] : null, phase: "done" });
+          sch.rows.forEach(function (r, k) { out.rows.push({ year: r.year, amount: r.amount, phase: k === 0 ? "now" : "left" }); });
+          out.missing = out.rows.filter(function (r) { return r.amount == null; }).length;
+          return out;   // complete stays false: the contract's start is not known
+        }
+        out.start = ev.start; out.startWhy = ev.why; out.length = out.end - ev.start + 1;
+        // years between the evidenced start and the restructure are not in the re-based terms: listed, and Not recorded (never copied from today's salary)
+        for (var yb = ev.start; yb < first; yb++) { gap++; out.rows.push({ year: yb, amount: null, phase: "done" }); }
+      } else {
+        out.length = cl; out.start = first; out.startWhy = "terms";
+      }
       for (var i = 1; i < idx0; i++) {
         var a = !conflict && c.y[i] != null ? c.y[i] : null;
         if (a == null) gap++;
-        out.rows.push({ year: out.start + i - 1, amount: a, phase: "done" });
+        out.rows.push({ year: first + i - 1, amount: a, phase: "done" });
       }
-      out.earlier = idx0 === 1 ? "none" : conflict ? "conflict" : gap ? "partial" : "recorded";
+      out.earlier = out.start === season ? "none" : conflict ? "conflict" : gap ? "partial" : "recorded";
     }
     sch.rows.forEach(function (r, k) { out.rows.push({ year: r.year, amount: r.amount, phase: k === 0 ? "now" : "left" }); });
     out.missing = out.rows.filter(function (r) { return r.amount == null; }).length;
     out.complete = out.earlier !== "unknown" && out.missing === 0;
     return out;
+  }
+
+  // "Restructured 2026" (the current writers) or "restructure: 2025" (older text) -> 2026 / 2025; none -> null. The latest one wins.
+  function restructureYear(text) {
+    var re = /restructur(?:ed|e)\s*:?\s*(\d{4})/gi, m, y = null;
+    while ((m = re.exec(F.str(text)))) { var v = parseInt(m[1], 10); if (y == null || v > y) y = v; }
+    return y;
+  }
+
+  // How many years an extension added: "Vet-Ext1", "Rookie-Ext2-BL" -> 1 / 2. Not an extension -> null. (EXT3 is legacy per canon and is not read.)
+  function extYears(type) {
+    var m = F.str(type).match(/(?:^|-)Ext([12])(?:-|$)/i);
+    return m ? parseInt(m[1], 10) : null;
+  }
+
+  // The real start of a contract whose recorded terms begin at a restructure (first === the restructure year), from evidence only. -> { start, why } | null
+  //  - an extension contract: canon §C4 lets a player be extended only in his final year (the contract is then that year plus N added years) or as an
+  //    expired rookie (then just the N added years); §C5 lets a contract be restructured only with 2+ years left. So when the recorded terms run exactly
+  //    N years past the restructure year, the restructure came in the extension's own first season, and that season is the start. Anything else is
+  //    ambiguous (an Ext2 restructured with one year after it: extended that season or the season before) and stays unknown.
+  //  - a contract won at auction and not extended since: the roster read's acquisition "Auction $X (YYYY)" is the year that contract began.
+  function restructuredStart(player, season, first, end) {
+    var n = extYears(player.type);
+    if (n) return end != null && end - first === n ? { start: first, why: "extension" } : null;
+    var acq = F.str(player.acquisition).match(/^Auction\b[^()]*\((\d{4})\)\s*$/i);
+    if (acq && /(?:^|-)(?:FAA|ERA)(?:-|$)/i.test(F.str(player.type))) {
+      var y = parseInt(acq[1], 10);
+      if (y <= first && y <= season) return { start: y, why: "auction" };
+    }
+    return null;
+  }
+
+  // ---- R7: "Extended by [UPS team] · [year]", from evidence only ----
+  // The evidence is the contract text MFL holds now. Its "Ext:" segment lists the franchises that granted extensions on this player, oldest first; each
+  // new extension APPENDS its franchise and a restructure adds none (worker/src/extension_pricing.js lineageWithExtender; canon §C5.1 keeps the token
+  // verbatim). So for a contract whose type is an extension, the LAST name is the franchise that made the extension in force now — whoever owns the
+  // player today. A name is matched to a team only through (1) a current team's own abbreviation or name in the same roster read, (2) the same text
+  // as MFL's Latin-1 rendering of it (an emoji abbreviation reaches the text as "ð¨ â°"), or (3) the worker's table of older nicknames
+  // (LEGACY_EXT_NAMES, a copy of worker/src/index.js EXT_OWNER_BY_NICKNAME pinned by tests/mobile2027_r7_contracts.test.mjs). A name that matches no
+  // team, or two different teams, is "unknown": the line then reads "Extended · 2026" with no team. It is never the current owner by default.
+  var LEGACY_EXT_NAMES = { uw: "0001", lh: "0006", cbp: "0002", cleon: "0011", sex: "0007", gride: "0003", hammer: "0005", bb: "0010", ctown: "0009", chivalry: "0009", pg: "0004", creel: "0008", hawks: "0012", hood: "0099", mafia: "0099", blake: "0010" };
+  function asciiKey(s) { return F.str(s).toLowerCase().replace(/[^a-z0-9]/g, ""); }
+  // keeps every printable character (accented letters included) but drops spaces and the control characters MFL strips from Latin-1 text
+  function looseKey(s) { return F.str(s).toLowerCase().replace(/[\s\x00-\x1f\x80-\x9f]+/g, ""); }
+  // the UTF-8 bytes of s read as Latin-1 characters (what MFL shows for text it stored from a UTF-8 page)
+  function latin1Of(s) {
+    var out = "", t = F.str(s);
+    for (var i = 0; i < t.length; i++) {
+      var cp = t.charCodeAt(i), lo = i + 1 < t.length ? t.charCodeAt(i + 1) : 0;
+      if (cp >= 0xd800 && cp <= 0xdbff && lo >= 0xdc00 && lo <= 0xdfff) { cp = 0x10000 + ((cp - 0xd800) << 10) + (lo - 0xdc00); i++; }
+      var b = cp < 0x80 ? [cp] : cp < 0x800 ? [0xc0 | (cp >> 6), 0x80 | (cp & 63)] : cp < 0x10000 ? [0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63)] : [0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63)];
+      for (var j = 0; j < b.length; j++) out += String.fromCharCode(b[j]);
+    }
+    return out;
+  }
+  function extLineage(text) {
+    var m = F.str(text).match(/(?:^|\|)\s*Ext\s*:\s*([^|]*)/i);
+    if (!m) return [];
+    return m[1].split(",").map(function (x) { return x.replace(/\s{2,}/g, " ").trim(); }).filter(Boolean);
+  }
+  // one Ext: name -> the fid of the one current team it names, or null
+  function teamForName(name, teams) {
+    var hits = {}, a = asciiKey(name), l = looseKey(name);
+    (teams || []).forEach(function (t) {
+      [t.abbrev, t.name].forEach(function (v) {
+        if (!F.str(v)) return;
+        if ((a && asciiKey(v) === a) || (l && (looseKey(v) === l || looseKey(latin1Of(v)) === l))) hits[t.id] = true;
+      });
+    });
+    if (a && Object.prototype.hasOwnProperty.call(LEGACY_EXT_NAMES, a)) hits[LEGACY_EXT_NAMES[a]] = true;
+    var ids = Object.keys(hits);
+    if (ids.length !== 1) return null;
+    var cur = (teams || []).filter(function (t) { return t.id === ids[0]; })[0];
+    return cur ? cur : null;   // a franchise that is not one of today's teams ("Mafia", "Hood") is not a UPS team to name
+  }
+  // -> null (the current contract is not an extension) | { years: 1|2, year, yearWhy, by: { id, name } | null, byName, traded, lineage }
+  //    year: the season the extension was made (its first contract year), or null when the recorded terms cannot show it
+  function extension(player, season, teams) {
+    var n = extYears(player.type);
+    if (!n) return null;
+    var h = history(player, season), year = null, why = null;
+    if (h.start != null && h.startWhy === "terms") {
+      var cl = h.length;   // an extension contract is N added years (expired rookie) or this year plus N (final-year extension): anything else is not one we can read
+      if (cl === n || cl === n + 1) { year = h.start; why = "terms"; }
+    } else if (h.start != null && h.startWhy === "extension") { year = h.start; why = "restructure_bound"; }
+    var lin = extLineage(player.special), last = lin.length ? lin[lin.length - 1] : "";
+    var t = last ? teamForName(last, teams) : null;
+    return { years: n, year: year, yearWhy: why, by: t ? { id: t.id, name: t.name } : null, byName: last || null, traded: !!(t && player.franchiseId && t.id !== player.franchiseId), lineage: lin };
+  }
+  // "Extended by The Long Haulers · 2025" | "Extended · 2026" | "Extended by Pure Greatness" | "Extended"
+  function extensionLine(e) {
+    if (!e) return "";
+    return "Extended" + (e.by ? " by " + e.by.name : "") + (e.year != null ? " · " + e.year : "");
   }
 
   // ---- the worker's answer (one row of /api/cap-penalty/preview .players[pid]) ----
@@ -132,5 +252,6 @@
     return { kind: "amount", amount: row.penalty, why: why };
   }
 
-  return { moneyToken: moneyToken, parseSpecial: parseSpecial, schedule: schedule, history: history, earned: earned, remainingGuarantee: remainingGuarantee, cutNow: cutNow };
+  return { moneyToken: moneyToken, parseSpecial: parseSpecial, schedule: schedule, history: history, restructureYear: restructureYear, extYears: extYears,
+    extLineage: extLineage, teamForName: teamForName, extension: extension, extensionLine: extensionLine, LEGACY_EXT_NAMES: LEGACY_EXT_NAMES, earned: earned, remainingGuarantee: remainingGuarantee, cutNow: cutNow };
 });

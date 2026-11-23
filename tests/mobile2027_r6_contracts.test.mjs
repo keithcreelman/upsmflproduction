@@ -138,15 +138,17 @@ test("history(): missing terms stay missing: a missing completed-year token is n
   t.match(h, /Earlier years of this contract are not recorded\./); t.match(h, /Contract Not recorded Years remaining/);
 });
 
-test("recorded league: every current contract's full schedule is supported (486 of 486: 171 one-year, 315 with every year token); 162 have completed years, all recorded; none partial, none unsupported", () => {
-  const n = { full: 0, partial: 0, none: 0 }; let past = 0, pastFull = 0, oneYr = 0;
+// R7 (restructure re-base, canon §C5.1): 10 restructured contracts whose recorded terms begin at the restructure no longer claim a start or a
+// length, and McLaurin's auction year (2025) is listed as a completed, Not recorded year; the other 475 schedules are unchanged.
+test("recorded league: 475 of 486 current contracts have a fully supported schedule (171 one-year); 1 partial (a restructured auction contract's pre-restructure year is Not recorded); 10 restructured with an unknown start; 163 have completed years, 162 all recorded", () => {
+  const n = { full: 0, partial: 0, none: 0, restructured: 0 }; let past = 0, pastFull = 0, oneYr = 0;
   MODEL.teams.forEach((tm) => tm.players.forEach((p) => {
     const h = C.history(p, 2026);
-    if (h.complete) n.full++; else if (h.earlier === "unknown" || !h.rows.length) n.none++; else n.partial++;
+    if (h.complete) n.full++; else if (h.earlier === "restructured") n.restructured++; else if (h.earlier === "unknown" || !h.rows.length) n.none++; else n.partial++;
     if (h.length === 1) oneYr++;
     if (h.rows.some((r) => r.phase === "done")) { past++; if (h.rows.filter((r) => r.phase === "done").every((r) => r.amount != null)) pastFull++; }
   }));
-  t.deepEqual(n, { full: 486, partial: 0, none: 0 }); t.equal(oneYr, 171); t.equal(past, 162); t.equal(pastFull, 162);
+  t.deepEqual(n, { full: 475, partial: 1, none: 0, restructured: 10 }); t.equal(oneYr, 171); t.equal(past, 163); t.equal(pastFull, 162);
 });
 
 test("Details: the schedule, contract length, years remaining, then guarantee and cut cost kept apart; '$0' remaining guarantee says 'Guaranteed portion fully earned'; a rule-exempt contract says 'Weekly guarantee: Not applicable' with its reason; no section codes", () => {
@@ -154,7 +156,7 @@ test("Details: the schedule, contract length, years remaining, then guarantee an
   const html = body(V.app(state({ teamId: "0012", ct: { ...CT0(), open } })));
   const rowOf = (name) => text(html.split('aria-label="Open ' + name + ' profile"')[1].split('<div class="rw">')[0]);
   const kw = rowOf("Kyren Williams");
-  t.match(kw, /Salary schedule 2025 Completed \$22,000 2026 This season \$22,000 Contract 2 years, 2025–2026 Years remaining 1 \(through 2026\)/);
+  t.match(kw, /Salary schedule Extended by Hawks · 2025 2025 Completed \$22,000 2026 This season \$22,000 Contract 2 years, 2025–2026 Years remaining 1 \(through 2026\)/);
   t.match(kw, /Remaining guarantee \$0 Guaranteed portion fully earned/); t.match(kw, /If cut now \$0/);
   const jb = rowOf("Javon Bullard");
   t.match(jb, /Salary schedule 2024 Completed \$1,000 2025 Completed \$1,000 2026 This season \$1,000 Contract 3 years, 2024–2026/);
