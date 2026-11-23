@@ -19,6 +19,7 @@ Public API:
 from __future__ import annotations
 
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -81,6 +82,8 @@ def build_insert(
     changed_only: bool | None = None,
     change_ignore_cols: list[str] | None = None,
     update_only: bool = False,
+    require_parent: str | None = None,
+    require_parent_where: str | None = None,
 ) -> str:
     """Build an INSERT (or UPSERT) statement for a batch of rows.
 
@@ -104,10 +107,23 @@ def build_insert(
     exactly as above. For augmenting writers whose rows only make sense on top
     of another source's row (fetch_pfr_advstats.py on nfl_player_weekly, whose
     inserts produced rows with no team, opponent or position, #1503 D1).
+
+    `require_parent` (a table sharing this table's key columns) writes a row only
+    when that table has a row with the same key, optionally also matching
+    `require_parent_where` (SQL on alias `p`, e.g. "p.team IS NOT NULL"). Rows
+    may still be inserted here. For sparse companion tables such as
+    nfl_player_weekly_ext, whose rows mean nothing without a real box row.
+    `update_only` is the same probe against this table itself.
     """
-    if update_only and (not pk_cols or not [c for c in cols if c not in pk_cols]):
-        # Without a key and something to update, every fallback below would INSERT.
-        raise ValueError(f"build_insert {table}: update_only needs pk_cols and at least one non-key column")
+    if update_only and require_parent:
+        raise ValueError(f"build_insert {table}: use update_only or require_parent, not both")
+    if require_parent_where and not require_parent:
+        raise ValueError(f"build_insert {table}: require_parent_where needs require_parent")
+    if (update_only or require_parent) and (not pk_cols or not [c for c in cols if c not in pk_cols]):
+        # Without a key and something to update, every fallback below would write unconditionally.
+        raise ValueError(f"build_insert {table}: update_only/require_parent need pk_cols and a non-key column")
+    if require_parent and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", require_parent):
+        raise ValueError(f"build_insert {table}: require_parent must be a plain table name")
     col_list = ", ".join(cols)
     value_tuples = []
     for row in rows:
@@ -138,14 +154,17 @@ def build_insert(
                 ]
                 if terms:
                     where = f" WHERE {_balanced_or(terms)}"
-            if update_only:
+            if update_only or require_parent:
                 # VALUES columns are column1..columnN in cols order; the EXISTS probe uses the PK index.
+                parent = table if update_only else require_parent
                 pos = {c: i + 1 for i, c in enumerate(cols)}
-                probe = " AND ".join(f"cur.{c} = v.column{pos[c]}" for c in pk_cols)
+                probe = " AND ".join(f"p.{c} = v.column{pos[c]}" for c in pk_cols)
+                if require_parent_where:
+                    probe += f" AND ({require_parent_where})"
                 return (
                     f"INSERT INTO {table} ({col_list})\n"
                     f"SELECT * FROM (VALUES\n{values_sql}\n) AS v\n"
-                    f"WHERE EXISTS (SELECT 1 FROM {table} AS cur WHERE {probe})\n"
+                    f"WHERE EXISTS (SELECT 1 FROM {parent} AS p WHERE {probe})\n"
                     f"ON CONFLICT ({pk_list}) DO UPDATE SET {set_clause}{where};\n"
                 )
             return (
@@ -284,8 +303,12 @@ class D1Writer:
         coalesce_cols: list[str] | None = None,
         change_ignore_cols: list[str] | None = None,
         update_only: bool = False,
+        require_parent: str | None = None,
+        require_parent_where: str | None = None,
     ):
         self.update_only = update_only
+        self.require_parent = require_parent
+        self.require_parent_where = require_parent_where
         self.table = table
         self.cols = cols
         self.pk_cols = pk_cols
@@ -369,7 +392,8 @@ class D1Writer:
 
     def _build_statements(self, rows: list[tuple]) -> list[tuple[str, int, int]]:
         sql = build_insert(self.table, self.cols, rows, pk_cols=self.pk_cols, coalesce_cols=self.coalesce_cols,
-                           change_ignore_cols=self.change_ignore_cols, update_only=self.update_only)
+                           change_ignore_cols=self.change_ignore_cols, update_only=self.update_only,
+                           require_parent=self.require_parent, require_parent_where=self.require_parent_where)
         size = len(sql.encode("utf-8"))
         if size < STATEMENT_BYTE_LIMIT:
             return [(sql, len(rows), size)]

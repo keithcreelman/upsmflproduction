@@ -210,9 +210,11 @@ def main() -> None:
                           chunk_size=CHUNK, update_only=True) as w:
                 for r in main_rows:
                     w.add(r)
+        # Only on keys with a real box row (#1503 D1): an ext row without one is an orphan.
         with D1Writer(table="nfl_player_weekly_ext", cols=EXT_COLS,
                       pk_cols=["season", "week", "gsis_id"],
-                      chunk_size=CHUNK) as w:
+                      chunk_size=CHUNK, require_parent="nfl_player_weekly",
+                      require_parent_where="p.team IS NOT NULL") as w:
             for r in ext_rows:
                 w.add(r)
         grand_main += len(main_rows)

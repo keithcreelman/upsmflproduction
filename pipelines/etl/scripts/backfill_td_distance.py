@@ -221,8 +221,10 @@ def main() -> None:
               file=sys.stderr, flush=True)
         if args.dry_run:
             continue
+        # Only on keys with a real box row (#1503 D1): an ext row without one is an orphan.
         with D1Writer(table="nfl_player_weekly_ext", cols=COLS,
-                      pk_cols=["season", "week", "gsis_id"], chunk_size=CHUNK) as wtr:
+                      pk_cols=["season", "week", "gsis_id"], chunk_size=CHUNK,
+                      require_parent="nfl_player_weekly", require_parent_where="p.team IS NOT NULL") as wtr:
             for r in rows:
                 wtr.add(r)
         grand += len(rows)

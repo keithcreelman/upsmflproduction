@@ -52,6 +52,9 @@ from lib.nflverse_seasons import available_seasons  # noqa: E402
 
 # Tables whose rows another source creates; PFR only fills columns on existing rows.
 UPDATE_ONLY_TABLES = frozenset({"nfl_player_weekly"})
+# Companion tables PFR may insert into, only where a real box row exists.
+BOX_ROW = ("nfl_player_weekly", "p.team IS NOT NULL")
+PARENT_REQUIRED = {"nfl_player_weekly_ext": BOX_ROW}
 
 
 def _dual_write_d1(table: str, pk_cols: list[str], augment_cols: list[str],
@@ -68,20 +71,24 @@ def _dual_write_d1(table: str, pk_cols: list[str], augment_cols: list[str],
     pk_n = len(pk_cols)
     aug_n = len(augment_cols)
     d1_rows = [tuple(list(r[aug_n:aug_n+pk_n]) + list(r[:aug_n])) for r in rows]
-    print(f"  [{label}] D1: sending {len(d1_rows)} rows"
-          f"{' (update-only: rows with no existing nflverse row are skipped)' if table in UPDATE_ONLY_TABLES else ''} ...",
-          file=sys.stderr)
+    mode = (" (update-only: rows with no existing nflverse row are skipped)" if table in UPDATE_ONLY_TABLES
+            else " (only on keys with a team-set nfl_player_weekly row)" if table in PARENT_REQUIRED else "")
+    print(f"  [{label}] D1: sending {len(d1_rows)} rows{mode} ...", file=sys.stderr)
     # COALESCE, same as every local UPDATE above: PFR returns NULL for columns
     # it doesn't carry (it has no air yards at all), and a plain upsert erased
     # nflverse_weekly's values -- 4,517 of 2025's rows lost receiving_air_yards.
     # UPDATE-ONLY on nfl_player_weekly, like the local path: PFR augments a row
     # nflverse wrote and must never create one. The old upsert inserted rows with
     # no team, opponent or position whose `source` read 'nflverse' by default
-    # (#1503 D1: 152 rows through 2026 Week 10). nfl_player_weekly_ext is a
-    # sparse table this script fills itself, so it keeps the upsert.
+    # (#1503 D1, measured read-only 2026-11-23: 812 rows in 2024-2026, 153 of them
+    # in 2026 Weeks 1-10). nfl_player_weekly_ext is a sparse table this script
+    # fills itself, so it may insert, but only on a key with a real box row
+    # (a team-set nfl_player_weekly row); otherwise it made orphans (the 153 2026
+    # ext rows on those keys).
     update_only = table in UPDATE_ONLY_TABLES
+    parent, parent_where = PARENT_REQUIRED.get(table, (None, None))
     with D1Writer(table=table, cols=d1_cols, pk_cols=pk_cols, coalesce_cols=list(augment_cols),
-                  update_only=update_only) as w:
+                  update_only=update_only, require_parent=parent, require_parent_where=parent_where) as w:
         for r in d1_rows:
             w.add(r)
     return True

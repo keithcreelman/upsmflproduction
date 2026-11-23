@@ -13,8 +13,9 @@ Proves:
   3. a 100-column table builds and runs within the depth limit;
   4. update_only without a key or without update columns refuses instead of falling back to INSERT;
   5. the default (update_only=False) still inserts, so other writers are unchanged;
-  6. fetch_pfr_advstats.py sends nfl_player_weekly update-only and keeps nfl_player_weekly_ext as an
-     upsert (a sparse table it fills itself).
+  6. require_parent: nfl_player_weekly_ext may insert, but only on a key with a team-set
+     nfl_player_weekly row (no orphans); misuse refuses;
+  7. fetch_pfr_advstats.py sends nfl_player_weekly update-only and nfl_player_weekly_ext with that parent rule.
 
 Offline: no D1, no wrangler, no network.
   python3 pipelines/etl/scripts/test_d1_io_update_only.py
@@ -109,6 +110,40 @@ class UpdateOnly(unittest.TestCase):
         self.assertEqual(c.execute("SELECT COUNT(*) FROM nfl_player_weekly").fetchone()[0], 3)
 
 
+EXT_SCHEMA = SCHEMA + """
+CREATE TABLE nfl_player_weekly_ext (season INTEGER, week INTEGER, gsis_id TEXT, def_targets INTEGER,
+  PRIMARY KEY (season, week, gsis_id));
+INSERT INTO nfl_player_weekly (season, week, gsis_id) VALUES (2026, 10, 'NOTEAM');  -- a team-less row
+INSERT INTO nfl_player_weekly_ext VALUES (2026, 10, 'A', 1);
+"""
+EXT_COLS = ["season", "week", "gsis_id", "def_targets"]
+
+
+class RequireParent(unittest.TestCase):
+    def ext_sql(self, rows):
+        return build_insert("nfl_player_weekly_ext", EXT_COLS, rows, pk_cols=PK, coalesce_cols=["def_targets"],
+                            require_parent="nfl_player_weekly", require_parent_where="p.team IS NOT NULL")
+
+    def test_ext_only_on_team_set_box_rows(self):
+        c = db(EXT_SCHEMA)
+        written = run(c, self.ext_sql([
+            (2026, 10, "A", 4),         # parent with team, ext exists -> update 1 -> 4
+            (2026, 10, "B", 7),         # parent with team, no ext -> INSERT (allowed)
+            (2026, 10, "NOTEAM", 9),    # parent has no team -> dropped
+            (2026, 10, "Z", 9)]))       # no parent -> dropped
+        self.assertEqual(written, 2)
+        got = dict(c.execute("SELECT gsis_id, def_targets FROM nfl_player_weekly_ext"))
+        self.assertEqual(got, {"A": 4, "B": 7})
+
+    def test_refusals(self):
+        with self.assertRaises(ValueError):
+            build_insert("t", COLS, [(1, 1, "A", 1, 1)], pk_cols=PK, update_only=True, require_parent="nfl_player_weekly")
+        with self.assertRaises(ValueError):
+            build_insert("t", COLS, [(1, 1, "A", 1, 1)], pk_cols=PK, require_parent_where="p.team IS NOT NULL")
+        with self.assertRaises(ValueError):
+            build_insert("t", COLS, [(1, 1, "A", 1, 1)], pk_cols=PK, require_parent="x; DROP TABLE t")
+
+
 class FetcherWiring(unittest.TestCase):
     def test_pfr_sends_weekly_update_only_and_ext_as_upsert(self):
         spec = importlib.util.spec_from_file_location("fetch_pfr_advstats", HERE / "fetch_pfr_advstats.py")
@@ -117,8 +152,10 @@ class FetcherWiring(unittest.TestCase):
         seen = {}
 
         class Capture:
-            def __init__(self, table, cols, pk_cols=None, coalesce_cols=None, update_only=False, **kw):
-                seen[table] = {"update_only": update_only, "cols": cols}
+            def __init__(self, table, cols, pk_cols=None, coalesce_cols=None, update_only=False,
+                         require_parent=None, require_parent_where=None, **kw):
+                seen[table] = {"update_only": update_only, "cols": cols, "parent": require_parent,
+                               "parent_where": require_parent_where}
 
             def __enter__(self):
                 return self
@@ -134,7 +171,10 @@ class FetcherWiring(unittest.TestCase):
         mod._dual_write_d1("nfl_player_weekly_ext", PK, ["def_targets"], [(3, 2026, 10, "A")], skip_d1=False,
                            label="t")
         self.assertTrue(seen["nfl_player_weekly"]["update_only"])
+        self.assertIsNone(seen["nfl_player_weekly"]["parent"])
         self.assertFalse(seen["nfl_player_weekly_ext"]["update_only"])
+        self.assertEqual((seen["nfl_player_weekly_ext"]["parent"], seen["nfl_player_weekly_ext"]["parent_where"]),
+                         ("nfl_player_weekly", "p.team IS NOT NULL"))
         self.assertEqual(seen["nfl_player_weekly"]["cols"], PK + AUG)
 
 
