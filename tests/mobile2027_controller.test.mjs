@@ -445,10 +445,12 @@ test("revised: on Team › Performance the name opens the profile and the separa
   await a.click({ "data-act": "pfx", "data-v": "15698" }); await tick(20);
   t.match(a.html(), /data-act="pfx" data-v="15698" aria-expanded="true"/, "the details control expands the breakdown"); t.doesNotMatch(a.html(), /Player profile<\/span>/, "and does not open the profile");
   // R6 integration: the Breakdown holds his game log, so expanding asks for his one game-stats read (a bare GET) and nothing else; reopening reuses it
-  t.deepEqual(a.calls.slice(n).map((c) => c.path), ["/api/player-weekly-box"], "expanding asks only for his game-stats read");
+  // R7: plus, once his game stats are in, the ONE position pool of his group through W* for the season stat ranks (never a competitor's read)
+  t.deepEqual(a.calls.slice(n).map((c) => c.path), ["/api/player-weekly-box", "/api/position-season-stats"], "expanding asks only for his game-stats read and his group's pool");
+  const ps = new URL(a.calls[a.calls.length - 1].url).searchParams; t.equal(ps.get("through"), "10"); t.equal(ps.get("season"), "2026");
   await a.click({ "data-act": "pfx", "data-v": "15698" }); t.match(a.html(), /data-act="pfx" data-v="15698" aria-expanded="false"/, "and collapses it");
   await a.click({ "data-act": "pfx", "data-v": "15698" }); await a.click({ "data-act": "pfx", "data-v": "15698" }); await tick(20);
-  t.equal(a.calls.slice(n).length, 1, "reopening asks nothing more"); n = a.calls.length;
+  t.equal(a.calls.slice(n).length, 2, "reopening asks nothing more"); n = a.calls.length;
   await a.click({ "data-act": "card", "data-pid": "15698" }); await tick(30);
   t.match(a.html(), /Player profile/, "the name opens the profile"); t.doesNotMatch(a.html(), /data-act="pfx" data-v="15698" aria-expanded="true"/);
   t.deepEqual(a.calls.slice(n).map((c) => c.path + (c.type ? ":" + c.type : "")), ["/api/cap-penalty/preview"], "opening a profile makes its one read of the guarantee calculation and nothing else (no new Performance read)");
