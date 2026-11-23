@@ -12,9 +12,9 @@
      - a rate (and a fewer-is-better total) ranks only players whose OWN denominator reaches the bar in RATE_BARS: per team game x the fewest
        games any NFL club has played through W*. A rate rank is withheld only when his denominator is missing or below the bar, never
        because of ties;
-     - a competitor whose figure is missing or incomplete, and who could be ahead of him, is "unplaced": the rank becomes a range
-       ("WR3–5"); a competitor whose incomplete total is already ahead (totals only grow) is counted as ahead;
-     - when more than half of the group is unplaced the range says nothing, so the rank is withheld;
+     - a competitor whose figure is missing or incomplete, and who could be ahead of him (or, for a rate, might reach the minimum), is
+       "unplaced": the rank is then "—" and Rank details give the bounds and the cause; no range is ever displayed (R7b final). A competitor
+       whose incomplete total is already ahead (totals only grow) is counted as ahead;
      - his own figure in the answer must equal the figure the season table shows, else the rank is withheld (the two reads disagree). */
 (function (root, factory) {
   var api = factory();
@@ -22,19 +22,18 @@
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.statranks = api; }
 })(typeof self !== "undefined" ? self : this, function () {
   "use strict";
-  var DASH = "—", ENDASH = "–";
+  var DASH = "—";
 
   // ---------- THE threshold table (one place). Proposed, pending Keith's approval. ----------
   // perGame: the bar per team game, per position group. The bar at W* = perGame x the fewest games any NFL club has played through W*
   // (the pool answer does not carry each player's club, so every player of a group gets the same bar). Week 10 evidence: r7r_thresholds.md.
   // min: an absolute floor per group (WR/TE carries), so the bar is max(perGame x G, min). Exact minimums are proposals pending evidence review.
-  // maxSpan (rates and fewer-is-better totals only): a range rank ("WR3–5") is shown only when hi - lo <= maxSpan, wider shows "—".
-  // Counting stats (R7b final) never show a range: exact when every competitor's figure is complete, else "—" with the bounds in Rank details.
+  // No range is ever displayed (R7b final: "missing underlying stats: show — for affected ranks"; the four-place range rule is retired for every
+  // stat). A rank is exact when no incomplete competitor could change his place, else "—" with the bounds and the cause in Rank details.
   // No minimum number of qualifiers: a small qualifying group alone never withholds a valid rank (R7b final).
   var RATE_BARS = {
     status: "proposed, pending Keith's approval",
     teamGames: "fewest games any NFL club has played through W* (all final), from the MFL schedule",
-    maxSpan: 3,
     bars: {
       cmp_pct: { den: "pass attempts", perGame: { QB: 15 } },
       ypa: { den: "pass attempts", perGame: { QB: 15 } },
@@ -176,7 +175,7 @@
   function f1(x) { return String(Math.round(x * 10) / 10); }
 
   // One rank. pool = checkPool(...) result; ctx = { group, G (team games for the bar), raw (the figure the season table shows, optional) }.
-  // -> { text: "WR3" | "WR3–5" | "—", why, what }
+  // -> { text: "WR3" | "—", why, what, lo, hi, cause: { missing, partial, eligibility } when competitors are unplaced }
   function rankOf(pool, mflId, id, ctx) {
     var m = M[id], group = ctx.group, P = PREFIX[group] || group;
     var bar0 = RATE_BARS.bars[id];
@@ -201,36 +200,39 @@
       if (mv.q < bar - 1e-9 && mv.qst === "partial") return { text: DASH, why: "His " + RATE_BARS.bars[id].den + " are missing some games." };
       if (mv.q < bar - 1e-9) return { text: DASH, why: "Ranked at " + f1(bar) + " " + RATE_BARS.bars[id].den + " or more; he has " + f1(mv.q) + "." };
     }
-    var ahead = 0, unplaced = 0;
+    // unplaced competitors, by cause: missing (no figure at all), partial (a figure missing some games, he qualifies), eligibility (his denominator is
+    // missing or incomplete and under the bar, so whether he qualifies at all is unknown). Every cause is missing underlying stats; "eligibility" is
+    // the subset where the missing stats also decide whether he is in the rate's group.
+    var ahead = 0, unplaced = 0, cause = { missing: 0, partial: 0, eligibility: 0 };
     pool.players.forEach(function (e) {
       if (e === me) return;
       var v = valueOf(m, e);
       if (m.kind !== "count") {
         // over the bar? A denominator only grows, so a partial one already over the bar qualifies; a missing or partial one under it might.
-        if (v.qst === "missing") { unplaced++; return; }
-        if (v.q < bar - 1e-9) { if (v.qst === "partial") unplaced++; return; }
+        if (v.qst === "missing") { unplaced++; cause.eligibility++; return; }
+        if (v.q < bar - 1e-9) { if (v.qst === "partial") { unplaced++; cause.eligibility++; } return; }
       }
-      if (v.st === "missing" || v.st === "nodiv") { if (v.st === "missing") unplaced++; return; }
+      if (v.st === "missing" || v.st === "nodiv") { if (v.st === "missing") { unplaced++; cause.missing++; } return; }
       if (v.st === "partial") {
         // totals only grow: a partial total already ahead (more-is-better) is ahead; a partial total already behind a fewer-is-better leader stays behind
         if (m.kind === "count" && better(m, v, mv)) { ahead++; return; }
         if (m.kind === "low" && (better(m, mv, v) || same(m, mv, v))) return;
-        unplaced++; return;
+        unplaced++; cause.partial++; return;
       }
       if (better(m, v, mv)) ahead++;
     });
     var lo = 1 + ahead, hi = lo + unplaced;
-    // a counting stat is exact or "—": any incomplete competitor who could be ahead makes it unsupported (bounds kept for Rank details).
-    // A rate keeps a narrow range; one wider than maxSpan is withheld. A missing figure is never counted as zero.
-    if (hi > lo && (m.kind === "count" || hi - lo > RATE_BARS.maxSpan)) return { text: DASH, why: unplaced + (unplaced === 1 ? " player's figure is" : " players' figures are") + " incomplete, so he could rank anywhere from " + P + lo + " to " + P + hi + ".", lo: lo, hi: hi, coverage: true };
-    return { text: P + lo + (hi > lo ? ENDASH + hi : ""), what: m.what, lo: lo, hi: hi };
+    // exact or "—": any incomplete competitor who could be ahead (or, for a rate, might reach the minimum) makes the rank unsupported; the bounds
+    // and the cause go to Rank details. A missing figure is never counted as zero.
+    if (hi > lo) return { text: DASH, why: unplaced + (unplaced === 1 ? " player's figure is" : " players' figures are") + " incomplete, so he could rank anywhere from " + P + lo + " to " + P + hi + "." + (cause.eligibility ? " For " + cause.eligibility + " of them it is also unknown whether they reach the minimum." : ""), lo: lo, hi: hi, coverage: true, cause: cause };
+    return { text: P + lo, what: m.what, lo: lo, hi: hi };
   }
 
   // Help text for the season-stats ranks (to be placed in the screen's Help).
   function helpText() {
     return "Season stat ranks compare him with every player at his MFL position group (QB, RB, WR, TE, K, P, DL, LB, DB) through the same week as the season figures. " +
-      "Tied players share a rank. A total (yards, targets, snaps, tackles, attempts) shows an exact rank only when every player's figure is complete; " +
-      "when an incomplete figure could change his place, the rank is " + DASH + " and Rank details say why. A rate may show a narrow range (WR3" + ENDASH + "5) when a few figures are incomplete. " +
+      "Tied players share a rank. A rank shows only when no player's incomplete figure could change his place; " +
+      "otherwise it is " + DASH + " and Rank details say why, including when it is unknown whether a player with incomplete figures reaches a rate's minimum. " +
       "An incomplete figure is never counted as zero. Kicking distance bands rank on attempts from that distance, not accuracy. " +
       "Ranks on totals (yards, targets, snaps, tackles), shares and depth (air yards per attempt or target) describe volume or role, not quality. " +
       "Fewer is better for interceptions, sacks taken, sack yards lost and fumbles lost. " +

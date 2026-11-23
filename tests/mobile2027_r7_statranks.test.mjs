@@ -118,11 +118,14 @@ test("R7b final: a counting stat is exact or —; rates may show a narrow range;
   const f = pool("RB", [E(1, { rush_fumbles_lost: 1, rec_fumbles_lost: 0, rush_att: 100, receptions: 20 }),
     E(2, { rush_fumbles_lost: 3, rec_fumbles_lost: 0, rush_att: 100, receptions: 20 }, { cov: { rush_fumbles_lost: 8 } }),
     E(3, { rush_fumbles_lost: 0, rec_fumbles_lost: 0, rush_att: 100, receptions: 20 }, { cov: { rush_fumbles_lost: 8 } })]);
-  t.equal(rank(f, 1, "fl").text, "RB1–2");
-  // rates: a narrow range is kept; wider than 4 places is withheld
+  const rf = rank(f, 1, "fl"); t.equal(rf.text, "—", "no range for a fewer-is-better total either"); t.equal(rf.lo, 1); t.equal(rf.hi, 2); t.deepEqual(rf.cause, { missing: 0, partial: 1, eligibility: 0 });
+  // rates: no range either (the four-place rule is retired); the cause says whether the doubt is a competitor's eligibility
   const c = pool("WR", [E(1, { receptions: 30, targets: 40 }), E(2, { receptions: 20, targets: 20 }, { cov: { targets: 6, receptions: 6 } }), E(3, { receptions: 20, targets: 20 })]);
-  t.equal(rank(c, 1, "catch_rate").text, "WR1–2");
-  t.equal(SR.RATE_BARS.maxSpan, 3);
+  const rc = rank(c, 1, "catch_rate"); t.equal(rc.text, "—"); t.deepEqual(rc.cause, { missing: 0, partial: 0, eligibility: 1 });
+  t.ok(/For 1 of them it is also unknown whether they reach the minimum/.test(rc.why), rc.why);
+  t.equal(SR.RATE_BARS.maxSpan, undefined, "no range-display rule remains");
+  // exact rate with complete data is unchanged
+  t.equal(rank(pool("WR", [E(1, { receptions: 30, targets: 40 }), E(3, { receptions: 20, targets: 30 })]), 1, "catch_rate").text, "WR1");
   // his own figure incomplete: no rank
   const o = rank(pool("WR", [E(1, { targets: 80 }, { cov: { targets: 9 } })]), 1, "targets"); t.equal(o.text, "—"); t.ok(/missing some games/.test(o.why));
 });
