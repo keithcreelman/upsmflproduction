@@ -170,7 +170,7 @@ function boot({ data, bundle, fetchImpl, hash = "" } = {}) {
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
-  const files = ["config.js", "recorded_data.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/tabviews.js", "lib/views.js", "app.js"];
+  const files = ["config.js", "recorded_data.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "app.js"];
   for (const f of files) {
     if (f === "recorded_data.js") { if (bundle === undefined) vm.runInContext(read(f), ctx, { filename: f }); else if (bundle !== null) ctx.UPS2027_RECORDED = bundle; continue; }
     vm.runInContext(read(f), ctx, { filename: f });
@@ -238,7 +238,9 @@ test("ZERO NETWORK: every screen of the real app is tapped through with fetch, X
   await a.click({ "data-act": "card", "data-pid": pid }, 60); t.match(a.html(), /role="dialog"/); t.match(a.html(), /Player profile/);
   t.match(a.html(), /Earned to date/); ok("profile");
   await a.click({ "data-act": "ptab", "data-v": "perf" }, 100); t.match(a.html(), /Game log/); ok("profile performance");
-  await a.click({ "data-act": "logmore" }, 100); t.match(a.html(), /Showing Weeks 1 to 10/); await a.click({ "data-act": "logless" });
+  // R6: the Breakdown in recorded mode: the fantasy history through Week 10 and one line; the game-stats read is answered "absent" with no request and no miss
+  t.match(a.html(), /Game stats aren’t in this recording/); t.match(a.html(), /<b>W10<\/b>/); t.match(a.html(), /<b>W1<\/b>/); t.doesNotMatch(a.html(), /data-act="bdv"/);
+  await a.click({ "data-act": "bdg", "data-v": "10", "data-pid": pid }, 30); t.match(a.html(), /<tr class="bdd">/); ok("breakdown game detail");
   await a.click({ "data-act": "ptab", "data-v": "more" }); await a.click({ "data-act": "ptab", "data-v": "sched" }); await a.click({ "data-act": "ptab", "data-v": "contract" });
   await a.click({ "data-act": "tog", "data-v": "cut" }); ok("profile tabs");
   await a.click({ "data-act": "close" });

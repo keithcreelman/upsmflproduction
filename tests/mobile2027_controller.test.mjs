@@ -54,6 +54,8 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
       if (state.w11) { b = JSON.parse(JSON.stringify(b)); Object.keys(b.matchups).forEach((c) => { b.matchups[c].status = "final"; }); b.season.lastCompleteWeek = 11; }
       return lmEdit ? lmEdit(b) : b; }
     if (u.searchParams.get("TYPE") === "league") return FX.league;
+    // R6: the game-stats read of one player (no weeks here: the Breakdown's own tests, mobile2027_r6_breakdown, use real captured answers)
+    if (u.pathname === "/api/player-weekly-box") return { ok: true, season: 2026, mfl_id: u.searchParams.get("mfl_id"), gsis_id: "00-0000000", id_source: "test", box_through_week: 10, weeks: [] };
     // PR B: the whole-league reads the Performance screen needs (weekly scores Weeks 1 to 10, positions, the NFL schedules of Weeks 10 and 11)
     if (u.searchParams.get("TYPE") === "players") return r3 ? PLAYERS_ALL : PLAYERS;
     if (u.searchParams.get("TYPE") === "nflByeWeeks") return CAL.byes;
@@ -104,7 +106,7 @@ function boot({ hash = "", stored = {}, failRoster = 0, failPenalty = 0, hold = 
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
   // These tests run the page in LIVE mode against their own fake fetch (the committed default is recorded-data mode, which is tested in mobile2027_recorded.test.mjs).
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/tabviews.js", "lib/views.js", "app.js"]) {
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "app.js"]) {
     vm.runInContext(read(f), ctx, { filename: f });
     if (f === "config.js") ctx.UPS2027_CONFIG.data = "live";
   }
@@ -439,34 +441,32 @@ test("revised: on Team › Performance the name opens the profile and the separa
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 
-test("R3 ruling 2: the profile game log shows the latest four weeks, then 'Show earlier weeks' loads the rest on demand, once each, and reuses what is in memory", async () => {
+test("R6: the profile's Breakdown shows every settled week, newest first, from the reads Performance already made; one game-stats read per player, reused on reopening", async () => {
   const a = boot({ r3: true }); await tick(40);
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
-  const rowsOf = () => (a.html().split('<div class="card tbl">')[1] || "").split("</table>")[0].split("<tr>").length - 2;
-  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "opening the log asked for the season through Week 10 and the live Week 11, once each");
-  t.equal(rowsOf(), 4, "the latest four weeks"); t.match(a.html(), /data-act="logmore">Show earlier weeks</); t.match(a.html(), /The latest four weeks/);
+  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "the season through Week 10 and the live Week 11, once each");
+  const weeks = () => [...a.html().matchAll(/data-act="bdg" data-v="(\d+)"/g)].map((m) => +m[1]).filter((w) => w <= 10);
+  t.deepEqual(weeks(), [10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "every settled week, newest first: there is no 'Show earlier weeks' step");
+  const box = () => a.calls.filter((c) => c.path === "/api/player-weekly-box");
+  t.equal(box().length, 1, "one game-stats read"); t.match(box()[0].url, new RegExp("/api/player-weekly-box\\?season=2026&mfl_id=" + pid + "&L=74598$"));
   const n0 = a.calls.length;
-  await a.click({ "data-act": "logmore" }); await tick(60);
-  t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "every week was already read for the season figures: nothing more is asked");
-  t.equal(a.calls.length - n0, 0, "no more reads, none repeated");
-  t.equal(rowsOf(), 10, "the full season through Week 10"); t.match(a.html(), /Showing Weeks 1 to 10/); t.match(a.html(), /The full season, newest first/);
-  const weeks = [...(a.html().split('<div class="card tbl">')[1].split("</table>")[0]).matchAll(/<tr><td>(\d+)<\/td>/g)].map((m) => +m[1]);
-  t.deepEqual(weeks, [10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "newest first");
-  await a.click({ "data-act": "logless" }); await a.click({ "data-act": "logmore" }); await tick(30);
-  t.equal(a.calls.length - n0, 0, "showing fewer and more again asks nothing");
-  t.doesNotMatch(a.html(), /<th[^>]*>(Opponent|Snaps|Lineup)/);
+  await a.click({ "data-act": "bdg", "data-v": "10", "data-pid": pid }); t.match(a.html(), /<tr class="bdd">/, "a game opens its detail");
+  await a.click({ "data-act": "bdg", "data-v": "10", "data-pid": pid }); t.doesNotMatch(a.html(), /<tr class="bdd">/, "and closes it");
+  await a.click({ "data-act": "ptab", "data-v": "contract" }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(20);
+  await a.click({ "data-act": "close" }); await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(30);
+  t.equal(box().length, 1, "changing tabs and reopening the profile ask nothing again"); t.deepEqual(a.calls.slice(n0).filter((c) => c.type === "playerScores"), [], "and no score is asked again");
+  t.doesNotMatch(a.html(), /data-act="logmore"/);
   a.calls.forEach((c) => { t.equal(c.opts.method, "GET"); t.equal(c.opts.credentials, "omit"); });
 });
 
-test("R3 ruling 2: an earlier week that cannot be read shows n/a with a retry; the weeks that loaded stay", async () => {
+test("R6: a week of scores that cannot be read shows n/a with a retry in the Breakdown; the weeks that loaded stay; nothing is 0.0", async () => {
   const a = boot({ r3: true, failScores: 1 }); await tick(40); // the first score read (Week 1) fails; the season figures are withheld, never a partial sum
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
-  await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
-  await a.click({ "data-act": "logmore" }); await tick(60);
-  t.match(a.html(), /could not be read and show n\/a/); t.match(a.html(), /data-act="retrylog"/);
+  await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(60);
+  t.match(a.html(), /could not be read and show n\/a/); t.match(a.html(), /data-act="retrylog"/); t.match(a.html(), /season points not shown/);
   await a.click({ "data-act": "retrylog" }); await tick(60);
-  t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /Showing Weeks 1 to 10/);
+  t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /Through Week 10<\/b> · \d+\.\d pts · \d+ scored games?/);
 });
 
 test("R3 review MAT-1: opening Performance while the boot matchup read is still out still asks for the weekly scores once it arrives (and so does a profile's Performance tab)", async () => {
@@ -500,15 +500,16 @@ test("R3: a failed weekly score read shows n/a in those cells and a retry; score
   t.doesNotMatch(a.html(), /could not be read/); t.match(a.html(), /<span>Season points<\/span><b>\d/); t.equal(scoreReads(a).length, 12, "only the failed week was asked again");
 });
 
-test("R3: the profile's Performance tab shows the game log from the same reads (Week and Points; BYE only where the club is known)", async () => {
+test("R6: the profile's Performance tab is the Breakdown, drawn from the same reads as Team › Performance (weeks, points, the exact weekly rank, the result)", async () => {
   const a = boot({ r3: true }); await tick(40);
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await a.click({ "data-act": "card", "data-pid": pid }); await tick(10);
   const n = scoreReads(a).length; t.equal(n, 0, "opening a profile asks for no scores until its Performance tab is used");
+  t.equal(a.calls.filter((c) => c.path === "/api/player-weekly-box").length, 0, "and no game stats either");
   await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
   t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-  t.match(a.html(), /Game log/); t.match(a.html(), /<th>Wk<\/th><th class="n">Pts<\/th>/); t.doesNotMatch(a.html(), /<th[^>]*>(Opponent|Snaps|Lineup)/, "no opponent, snaps or lineup column");
-  t.match(a.html(), /Opponents, snaps and lineup status are not in this preview/);
+  t.match(a.html(), /Breakdown/); t.match(a.html(), /Game log/); t.match(a.html(), /<th class="pin">Game<\/th><th class="n">Pts<\/th><th class="n"[^>]*>Rank<\/th><th>Result<\/th>/);
+  t.doesNotMatch(a.html(), /xFP|Projection|projected/i, "no expected-points or projection value");
 });
 
 test("PR A: Contracts reads nothing for next season until the next-season row is opened; then one bare GET, reused; a failure offers Retry and a disabled Report bug", async () => {

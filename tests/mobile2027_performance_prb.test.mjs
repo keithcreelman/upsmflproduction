@@ -143,8 +143,11 @@ test("delayed handoff: every game of the lineup week is final but the season fig
 
 test("the profile game log runs through the cutoff, never the Worker's latestFinalWeek", async () => {
   const I = await intel(), S = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
-  const html = V.app(S), weeks = [...(html.split('<div class="card tbl">')[1] || "").split("</table>")[0].matchAll(/<tr><td>(\d+)<\/td>/g)].map((m) => +m[1]);
-  t.deepEqual(weeks, [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]); t.match(text(html), /Showing Weeks 1 to 10/);
+  // R6: the log is the Breakdown: the settled weeks run 10 to 1; a newer Week 11 may show, marked newer and outside the season line
+  const html = V.app(S), log = (html.split('<table class="bdt">')[1] || "").split("</table>")[0];
+  const rows = [...log.matchAll(/<tr( class="[^"]*")?><th class="pin"><button data-act="bdg" data-v="(\d+)"/g)].map((m) => [+m[2], /newer/.test(m[1] || "")]);
+  t.deepEqual(rows.filter((r) => !r[1]).map((r) => r[0]), [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]); t.ok(rows.filter((r) => r[1]).every((r) => r[0] > 10), "only a week after the cutoff is newer");
+  t.match(text(html), /Through Week 10 ·/); t.doesNotMatch(text(html), /Through Week 11/);
 });
 
 // ---- fixes from the independent code review of 62bc56bd
@@ -239,7 +242,7 @@ test("unreadable scores: kept as text by the loader, shown as unverified (figure
   t.match(p, /Season points\s+—\s+Unverified/); t.match(p, /Per scored game\s+—\s+Unverified/); t.match(p, /1 score could not be read, so his season figures and ranks are not shown\./); t.doesNotMatch(p, /QB \d+(–\d+)? of/, "no season or per-game rank (the weekly position rank of a week he has a readable score for is a different, exact fact and stays)");
   t.match(text(row(html, ID.shaheed)), /WR 66 of 240/, "his position is known: another position's rank is not widened by him");
   const I = await intel({ scores: sc }), S2 = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
-  t.match(V.app(S2).split('<div class="card tbl">')[1].split("</table>")[0], /<td>3<\/td><td class="n"><span class="mu">unreadable<\/span>/, "the game log says unreadable, not a dash");
+  t.match((V.app(S2).split('data-act="bdg" data-v="3"')[1] || "").split("</tr>")[0], /<td class="n"><span class="mu" title="This score could not be read">\?<\/span><\/td>/, "the game log says the score could not be read, not a dash");
 });
 
 const coverOf = (w) => { const S0 = state(), byeP = [], clubs = {}; S0.model.teams.forEach((tm) => tm.players.forEach((p) => { const c = String(p.nflTeam || "").trim().toUpperCase(); if (c && c !== "FA") clubs[c] = 1; byeP.push({ club: p.nflTeam, bye: p.bye }); })); return { clubs: Object.keys(clubs), byeOf: CHm.clubByeMap(byeP), week: w }; };
@@ -338,7 +341,7 @@ test("unreadable scores: one definition (anything but a plain decimal with at mo
   // a newer-week unreadable score is flagged in the strip and the log
   const lm = LM(); lm.teamHistoryThrough = 9; const sc10 = clone(FX4.scores); sc10["10"] = sc10["10"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "N/A" } : x));
   const I = await intel({ lm, scores: sc10 }), S2 = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
-  t.match(V.app(S2).split('<div class="card tbl">')[1].split("</table>")[0], /<td>10<\/td><td class="n"><span class="mu">unreadable<\/span>/, "Week 10 reads unreadable in the log, not a dash"); t.match(text(V.app(S2)), /1 score could not be read, so his season figures are not shown/);
+  t.match((V.app(S2).split('data-act="bdg" data-v="10"')[1] || "").split("</tr>")[0], /title="This score could not be read">\?</, "Week 10 reads as unreadable in the log, not a dash"); t.match(text(V.app(S2)), /1 score could not be read, so his season figures are not shown/);
 });
 
 test("failed calendar read: available totals stay, the screen says 'Game completion unverified' with no completed-games claim, and an unreadable score still withholds that player's figures", async () => {
