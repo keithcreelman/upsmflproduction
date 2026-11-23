@@ -31,7 +31,9 @@
     league: "Standings, scores and schedule. Not in Preview 0."
   };
 
-  function pcx(pos) { return '<span class="pc ' + esc(pos) + '">' + esc(pos) + "</span>"; }
+  // R9: K and P on every badge, heading and label (MFL's PK and PN remain the color class only)
+  function posText(pos) { return pos === "PK" ? "K" : pos === "PN" ? "P" : pos; }
+  function pcx(pos) { return '<span class="pc ' + esc(pos) + '">' + esc(posText(pos)) + "</span>"; }
   function chip(cls, text) { return '<span class="chip ' + cls + '">' + text + "</span>"; }
   function team(S) { return S.model && S.model.teams.filter(function (t) { return t.id === S.teamId; })[0] || (S.model && S.model.teams[0]) || null; }
 
@@ -166,7 +168,7 @@
     var pos = p && POS_CLS.test(p.pos) ? p.pos : "";
     var cls = "tag sl" + (pos ? " ps " + pos : "") + (slot.flex ? " fx" : "");
     if (!slot.flex) return '<span class="' + cls + '">' + esc(slot.tag) + "</span>";
-    return '<span class="' + cls + '" role="img" aria-label="' + esc(slot.tag + ", " + slot.label + (p ? ", " + (pos || "position unknown") : ", empty")) + '"><b>' + esc(slot.tag) + "</b>" + (pos ? "<i>" + esc(pos) + "</i>" : "") + "</span>";
+    return '<span class="' + cls + '" role="img" aria-label="' + esc(slot.tag + ", " + slot.label + (p ? ", " + (posText(pos) || "position unknown") : ", empty")) + '"><b>' + esc(slot.tag) + "</b>" + (pos ? "<i>" + esc(posText(pos)) + "</i>" : "") + "</span>";
   }
   function emptyRow(slot, current) {
     return '<div class="rx empty' + (current ? " prob" : "") + '">' + slotTag(slot, null) + '<div class="in"><b>Empty</b></div></div>';
@@ -198,7 +200,7 @@
     var head = '<button class="lsh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="t">' + label + '</span><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + "</span></button>";
     if (!open) return '<div class="card rows lsec">' + head + "</div>";
     var body = groups.map(function (g) {
-      return (g.pos ? '<div class="lps">' + esc(g.pos) + " · " + g.players.length + "</div>" : "") + g.players.map(function (p) { return row(p, S, {}); }).join("");
+      return (g.pos ? '<div class="lps">' + esc(posText(g.pos)) + " · " + g.players.length + "</div>" : "") + g.players.map(function (p) { return row(p, S, {}); }).join("");
     }).join("");
     return '<div class="card rows lsec">' + head + body + reasons.map(function (r) { return '<div class="ex lsr">' + esc(r) + ".</div>"; }).join("") + "</div>";
   }
@@ -596,9 +598,9 @@
     var np = nameParts(p.name), urls = require_photo(p);
     return '<div class="hero' + teamCls(p.nflTeam) + '"><div class="grab"></div>' +
       '<div class="top"><span class="hlb">Player profile</span><button class="hx" data-act="close" aria-label="Close player profile"><span>Close</span></button></div>' +
-      '<div class="hrow"><div class="pfw"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(p.pos) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' + helmetPlaceholder() + "</div>" +
+      '<div class="hrow"><div class="pfw"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(posText(p.pos)) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' + helmetPlaceholder() + "</div>" +
       '<div class="htx"><h3 class="hnm">' + (np[0] ? '<span class="hfn">' + esc(np[0]) + "</span> " : "") + '<span class="hln">' + esc(np[1]) + "</span></h3>" +
-      '<div class="hsub"><b>' + esc(commonCode(p.nflTeam) || "No NFL team") + "</b><span>" + esc(p.pos) + "</span><span>" + esc(heroType(p)) + "</span></div></div></div>" +
+      '<div class="hsub"><b>' + esc(commonCode(p.nflTeam) || "No NFL team") + "</b><span>" + esc(posText(p.pos)) + "</span><span>" + esc(heroType(p)) + "</span></div></div></div>" +
       (pills ? '<div class="hpills">' + pills + "</div>" : "") + '<div class="hbar"></div></div>';
   }
 

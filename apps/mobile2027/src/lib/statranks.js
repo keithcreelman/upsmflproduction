@@ -40,6 +40,8 @@
       air_per_att: { den: "pass attempts", perGame: { QB: 15 } },
       // R8: interceptions rank as a RATE (INT rate = interceptions / pass attempts x 100, fewer is better); the raw count is shown without a rank.
       // Week 10 evidence (r8c.md): bar 135 attempts, 31 of 66 QBs with an attempt qualify, the same on the recorded pool and on nflverse.
+      // R9 (Keith: keep 15 per team game provisionally). G is the FEWEST games any club has played (9 at Week 10), not the player's own club's
+      // games (9 or 10): the pool answer carries no club. Snapshot check (r9c.md): 14/g 126 -> 31 QBs, 15/g 135 -> 31, 20/g 180 -> 27, fixed 150 -> 30.
       int_rate: { den: "pass attempts", perGame: { QB: 15 } },
       sacks_taken: { den: "pass attempts + sacks (dropbacks without scrambles; scrambles are not stored)", perGame: { QB: 17 } },
       sack_yds: { den: "pass attempts + sacks", perGame: { QB: 17 } },
@@ -236,8 +238,9 @@
       "An incomplete figure is never counted as zero; in the Breakdown, " + DASH + " for a stat means it is not recorded (or, for a rate, that there were no attempts), never a zero. Kicking distance bands rank on attempts from that distance, not accuracy. " +
       "Ranks on totals (yards, targets, snaps, tackles), shares and depth (air yards per attempt or target) describe volume or role, not quality. " +
       "Fewer is better for INT rate (interceptions per 100 pass attempts), sacks taken and sack yards lost; the interception count itself is not ranked. " +
-      "Rates (and the fewer-is-better totals) rank only players with enough attempts, carries, targets, receptions, punts or snaps of their own, " +
-      "a minimum per team game, with a fixed floor for wide receiver and tight end carries (proposed, pending approval); below it the value shows and the rank is " + DASH + ". " +
+      "INT rate shows two decimals; the rank uses the exact rate, so only identical rates share a rank. " +
+      "Rates (and the fewer-is-better totals) rank only players with enough attempts, carries, targets, receptions, punts or snaps of their own: " +
+      "a minimum per team game times the fewest games any NFL club has played through that week (for example 15 pass attempts × 9 games = 135), with a fixed floor for wide receiver and tight end carries (proposed, pending approval); below it the value shows and the rank is " + DASH + ". " +
       "Pressure rate is not ranked: no pass-rush snap count exists.";
   }
 

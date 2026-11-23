@@ -187,7 +187,7 @@ test("the sourced example drawn: the Breakdown, every view, the pinned game iden
 // ───────────────────────── coverage, by position ─────────────────────────
 test("QB (Love): passing rollup from sums (completions and attempts apart, INT rate), sacks taken and yards lost, red zone apart from end-zone attempts; no fumbles lost (R8)", () => {
   const { R } = pure("14782");
-  const want = { Completions: "232", Attempts: "368", "Completion %": "63.0%", "Passing yards": "2,838", "Yards per attempt": "7.71", "Passing TD": "20", Interceptions: "7", "INT rate": "1.9%", "Air yards": "3,467", "Air yards per attempt": "9.42",
+  const want = { Completions: "232", Attempts: "368", "Completion %": "63.0%", "Passing yards": "2,838", "Yards per attempt": "7.71", "Passing TD": "20", Interceptions: "7", "INT rate": "1.90%", "Air yards": "3,467", "Air yards per attempt": "9.42",
     "Sacks taken": "25", "Sack yards lost": "160", Carries: "13", "Rushing yards": "23", "Rushing TD": "2",
     "Red-zone attempts": "52", "Red-zone completions": "32", "Red-zone passing TD": "13", "End-zone attempts (any distance)": "33" };
   Object.entries(want).forEach(([k, v]) => t.equal(val(R, k), v, k));
@@ -197,7 +197,7 @@ test("QB (Love): passing rollup from sums (completions and attempts apart, INT r
   t.equal(item(R, "Completions/attempts"), null, "the combined row is gone");
   R.sections.forEach((s) => s.items.forEach((i) => t.doesNotMatch(i.label, /fumble/i, "R8: no fumbles-lost row")));
   t.equal(val(R, "Team PROE"), null, "Team PROE is not computed: Not available (the hook), never an illustrative value");
-  t.deepEqual(BL.columns("QB", "st").map((c) => c.h), ["C/A", "Yds", "TD", "INT", "Sk", "Car", "RuYd", "RuTD"]);
+  t.deepEqual(BL.columns("QB", "st").map((c) => c.h), ["C/A", "Yds", "TD", "INT", "Sk", "SkYd", "Car", "RuYd", "RuTD"]);
   ["RB", "WR", "TE"].forEach((pos) => t.ok(!BL.columns(pos, "st").some((c) => c.h === "FL" || /fumble/i.test(c.t)), pos + ": no FL column"));
   t.deepEqual(BL.viewsFor("QB").map((v) => v[1]), ["Fantasy", "Stats", "Usage", "Red zone"]);
 });

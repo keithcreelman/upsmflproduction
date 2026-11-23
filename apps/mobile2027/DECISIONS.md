@@ -16,6 +16,19 @@ Status words: **In force** (built or to be built as stated), **Proposed** (a num
 
 ## Team › Roster
 - **Byes (R8, in force).** The Byes section starts collapsed. A verified individual BYE row has no expandable game-detail panel. Use a concise "Week N lineup" heading where context is needed. *Supersedes:* the paragraph "Slots are today's lineup (Week 11). The lineup for a later week is not set, so these players may not fill the same slots then."
+- **Bye coverage (R9, in force).**
+  - Bye players are grouped by their own position, not their lineup or flex slot.
+  - Each week shows whether the full legal starting lineup can be filled: an exact assignment, mandatory slots then OFX/SFX/DFX by eligibility, never one player in two slots. Slots come from roster.js SLOTS (canon §B4).
+  - A shortage is shown only when no assignment fills every slot.
+  - Questionable, Doubtful and Holdout never reduce coverage. Confirmed absences (bye; this week only, Out or an MFL designation) are listed apart.
+  - *Supersedes:* the R8 bye groups labeled by today's slots ("RB2, TE1").
+- **Taxi options and Possible IR returns (R9, in force).**
+  - Both are kept separate from confirmed coverage and start collapsed.
+  - Taxi: every position-eligible taxi player, whatever his points, with call-up eligibility from the Worker's taxi rule, call-ups left (or "Not recorded"), and his last three weeks of points.
+  - Team-wide obstacles (e.g. a full active roster) sit above the list; player-specific obstacles sit beside the player.
+  - An IR player is a "possible return" only with supporting evidence (this week's NFL report lists him as practicing and not Out); IR eligibility alone is not enough.
+  - No activation, call-up or lineup controls. Cap room is not checked.
+- **IR badge (R9, in force).** The same red badge with a small medical icon everywhere, keeping the "IR" text.
 
 ## Team › Contracts and player Contract tab
 - **One primary amount: If cut now (R8, in force).** It is calculated under the applicable rule: guarantee-based charge, no-guarantee rule, or the $1K-drop rule. The rule comes from the existing Worker cut-charge answer, never a new formula. *Supersedes:* the separate Remaining guarantee column and paragraph, and the arithmetic shown under If cut now.
@@ -29,13 +42,39 @@ Status words: **In force** (built or to be built as stated), **Proposed** (a num
   - *Supersedes:* internal codes such as "Vet-FAA-FL", and any "Contract Loaded: Yes/No".
 - **Extension schedule and attribution (R7, in force).** The schedule follows the current contract from the extension's first season. "Extended by [team] · [year]" comes from the contract's own Ext record, never the current owner. Nine contracts have no supported year: they show the team without a year, and the dates are backlogged on #1503.
 - **Traded salary (R8, in force).** Each entry shows the verified opposing UPS team, the full trade date and the signed amount, linked from transaction evidence. Multi-team trades show only supported counterparties. An adjustment that can't be linked shows its amount with "Trade details not recorded", and is reported on #1503. In the 2026-11-22 recording all 17 are unlinked, because no trade transactions were recorded; the settlement text is not used.
-- **Salary structure for a plain one-year extension with uneven salaries** (e.g. $1K then $11K) reads "Flat", per the §C2 ruling of 2026-09-29. Flagged for Keith in case owners read it as wrong; not changed.
+- **Salary structure for a plain one-year extension with uneven salaries** (e.g. $1K then $11K) reads "Flat", per the §C2 ruling of 2026-09-29. R9 adds the line "Rule classification; the yearly salaries differ." to the 16 affected contracts (option A, proposed). Options B and C await Keith's choice.
+- **Contracts sorting and layout (R9, in force).**
+  - The sorts are Contract exp. | Salary | Position | Name, with Contract exp. as the default.
+  - Position draws grouped sections in league order.
+  - Name sorts by surname, then given name, using MFL's "Last, First" field; suffixes are ignored for ordering and multi-word surnames stay whole.
+  - "If cut now" and the salary-year headings sit inside the list container, aligned with the amounts.
+  - Expanded details get a light inset band, not a nested box.
+  - A Salary structure filter (All / Flat / Front-loaded / Back-loaded) is keyed on the league's rule classification, separate from Contract Type.
+- **AAV (R9, in force).** Recorded AAV is shown by year. AAV amounts roll forward (Keith 2026-07-22, canon §C4): the current year keeps the old AAV and the added years get the new one. AAV is never total value ÷ years. A mapping the rules don't settle reads "Recorded: … · years not mapped".
+- **Contract source and history (R9, in force).**
+  - An extension that begins the current contract reads "Contract source: Extension". The prior acquisition shows separately as "Acquired".
+  - **Contract history** is collapsed and sits below the schedule and facts. It lists acquisition, the teams in the extension record, restructures and tags, by season only. Derived seasons say so, and incomplete history is marked once.
+  - Trades and restructures never add an extending team. Extension eligibility is not shown (no shared eligibility logic in the app).
+  - *Supersedes:* the R8 "Later changes: Extended 1 year" line.
+- **Restructure-derived extension years (R9, in force).** For the 10 contracts whose extension year is worked out from restructured terms, the app shows "Extended · year · extending team not verified". It never asserts the last name in the extension record as the extender of the contract in force: original records show that name is wrong for London, Cook, Love and Hurts (#1503 D6). *Supersedes, for these 10:* the R7 "Extended by [last Ext team] · [year]".
 
 ## Team › Performance and Breakdown
 - **Shared settled-week cutoff W\*** applies to every season figure and rank (R7, in force).
 - **The scored-game PPG denominator** is the approved one (in force, settled).
 - **Weekly Fantasy ranks** are exact only (R7, in force).
-- **Search players (R8, in force).** It filters the selected team by name, works with the position filters, and has no league-wide scope.
+- **Search players (R8 + R9, in force).**
+  - It filters the selected team by name and works with the position filters and sort.
+  - When nothing on the team matches, a "Search other teams" action searches the other league teams' rostered players only, from the roster read already in memory: no free agents and no new read. Each result shows its UPS team.
+  - Opening a result uses the existing player profile. Returning restores the team, query, position filter, sort and scroll offset.
+- **Position filters (R9, in force).**
+  - All, QB, RB, WR, TE, K, P, DL, LB, DB. They work with search and sort. "By position" stays a sort.
+  - They were never built on the 2027 Performance screen before R9; the mobile site's chips were the convention used.
+  - Open for Keith: show all ten, or only the positions the team has.
+- **Breakdown behavior (R9, in force).**
+  - Opened content scrolls into view without hiding the player's card under the sticky tabs.
+  - A game detail collapses when the log view changes.
+  - Game details carry no duplicate fields (attempts appear only in completions/attempts), and sacks taken and sack yards lost are separate.
+  - K and P are used in every badge, heading and rank.
 - **Breakdown tabs (R8, in force).** **Season stats | Game log**, defaulting to Season stats; switching replaces the content. The Game log keeps Fantasy / Stats / Usage / Red zone and the position-specific alternatives. The Breakdown does not repeat the card's total points, total-points rank or projection, and drops instructional copy ("Tap a game for details", "Not recorded, never zero"). *Supersedes:* the stacked season-stats-plus-log expansion (R6/R7).
 - **Season stat ranks (R7b final + R7c, in force).**
   - Exact, ties shared, or "—" when any incomplete figure could change the place. No range is displayed for any stat.
@@ -49,7 +88,9 @@ Status words: **In force** (built or to be built as stated), **Proposed** (a num
   - Completions and Attempts are separate rows with their own ranks.
   - Completion % is a rate with an attempt minimum.
   - INT shows the count only, with no rank.
-  - **INT rate** = INT ÷ attempts × 100 is ranked, lower is better, with a pass-attempt minimum (**Proposed**). Below the minimum the rate shows and the rank is "—". With 0 attempts the rate is "—".
+  - **INT rate** = INT ÷ attempts × 100 is ranked, lower is better, with a pass-attempt minimum. Below the minimum the rate shows and the rank is "—". With 0 attempts the rate is "—".
+  - R9 (in force): it shows two decimals; ranks use the unrounded rate, and identical rates share a rank.
+  - The minimum is provisionally 15 attempts per team game × the fewest games any NFL club has played through W\* (135 at Week 10). Open for Keith: "per team game" could also mean each player's own club's games, which would need the Worker to send each player's club.
   - *Supersedes:* the combined Completions/attempts row and the ranked INT count.
 - **Fumbles lost (R8, in force).** Not displayed in season stats or game displays. This is a display decision; official MFL points still include fumbles. *Supersedes:* the "excluding sack fumbles" rows and caveats.
 - **Individual game (R8, in force).** The identity line is **Date · Matchup · Status**. A completed game omits kickoff time; an upcoming or live game keeps it. Season and week are not repeated where already visible.

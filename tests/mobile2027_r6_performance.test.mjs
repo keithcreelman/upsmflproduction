@@ -308,7 +308,7 @@ test("projection rule on the recorded evidence: the latest capture strictly befo
 test("wording removals: no pool or 'rank is exact' on the card, no All/Starters/Bench, no team-level Actual PPG, no comparison block, no footer explanations", async () => {
   const S = state({ intel: await intel() }), html = body(V.app(S)), tx = text(html);
   t.doesNotMatch(tx, /of 73|of 240|\d+ of \d+–\d+|rank is exact|is exact|pool/i);
-  t.doesNotMatch(html, /data-act="pff"|>Starters<|>All</);
+  t.doesNotMatch(html, /data-act="pff"|>Starters</); t.doesNotMatch(html.replace(/<div class="chs pfpos"[\s\S]*?<\/div>/, ""), />All</, "R9: the only All is the position filter's");
   t.doesNotMatch(tx, /team (actual )?ppg|average per game for the team/i);
   t.doesNotMatch(tx, /Last 3 team games|Recent|Earlier|Difference|Final games only|Ranges can narrow|Season points|Per scored game|completed games/);
   t.equal((tx.match(/Through Week/g) || []).length, 1);
