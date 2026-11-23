@@ -702,9 +702,10 @@
     if (rec.state === "absent") return none("absent");
     if (rec.state !== "ok" || !rec.data || rec.data.ok !== true || !rec.data.projections || typeof rec.data.projections !== "object") return none("failed");
     if (Number(rec.data.week) !== Number(wk) || (season && Number(rec.data.season) !== season)) return none("other_week");
+    var k = kickoffOf(S, wk, p.nflTeam);
+    if (k.why === "bye") return none("bye");   // a bye explains the missing row; said before "no row"
     var row = Object.prototype.hasOwnProperty.call(rec.data.projections, p.id) ? rec.data.projections[p.id] : null;
     if (!row || typeof row !== "object") return none("no_row");
-    var k = kickoffOf(S, wk, p.nflTeam);
     if (k.ko == null) return none(k.why);
     var pick = X.pregameProjection([{ projected_score: row.projected_score, captured_at: row.captured_at }, { projected_score: row.first_projected, captured_at: row.first_captured_at }], k.ko);
     if (pick.state !== "ok") return none(pick.why);

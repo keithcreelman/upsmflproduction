@@ -264,7 +264,8 @@ test("R7 projection on screen: the card line 'Week 11 Proj. 21.4' (secondary), t
   S.pf = { s: "pos", open: { [ID.purdy]: true, [ID.shaheed]: true }, res: {} }; html = body(V.app(S));
   const rowOf = (id) => text(html.split('data-act="card" data-pid="' + id + '"')[1].split('<div class="rw pfc">')[0]);
   t.match(rowOf(ID.purdy), /Week 11 Proj\. 21\.4 MFL projection, captured [^.]+ ET, before his kickoff \([^)]+ ET\)\. Frozen at kickoff\./);
-  t.match(rowOf(ID.shaheed), /Week 11 Proj\. Not Available No projection captured for him\./);
+  t.match(rowOf(ID.shaheed), /Week 11 Proj\. Not Available His club has a bye\./, "Shaheed's club is on its Week 11 bye: the reason is the bye, not a missing row");
+  t.equal(TV.projectionSlot(S, Object.assign({}, p, { id: "99999" })).why, "no_row", "a player with a game and no captured row");
 });
 
 test("R7 weekly Rank column (Fantasy log): exact only ('QB4', no space, no pool), '—' otherwise, settled weeks only", async () => {
