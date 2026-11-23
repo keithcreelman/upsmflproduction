@@ -79,6 +79,39 @@
       U.photo.attach(img, urls, function (src) { S.photoSource = S.photoSource || {}; S.photoSource[img.getAttribute("data-chain")] = src; }, known);
     });
     document.title = S.profile && S.model && S.model.byId[S.profile.pid] ? S.model.byId[S.profile.pid].name + " · UPS Preview 0" : "UPS 2027 Preview 0";
+    ensureBreakdowns();
+  }
+
+  // ---- R6: the Breakdown's game-stats read (one per player and season) ----
+  // Every Breakdown on the screen carries data-bdpid; its player's read is asked for once, kept by the loader and in S.intel.box, and reused across views,
+  // tabs and reopening the profile. A failed read is asked again only on Try again. In recorded-data mode the loader answers "absent" with no request.
+  function ensureBreakdowns() {
+    if (S.sample.on || !S.model) return;
+    var ids = {};
+    if (S.profile && S.profile.tab === "perf" && S.profile.pid) ids[S.profile.pid] = true;   // the profile's Performance tab is a Breakdown
+    Array.prototype.forEach.call(appEl.querySelectorAll("[data-bdpid]") || [], function (el) { var v = el.getAttribute("data-bdpid"); if (v) ids[v] = true; });   // any other call site
+    Object.keys(ids).forEach(function (pid) { ensureBox(pid, false); });
+  }
+  function ensureBox(pid, force) {
+    if (S.sample.on || !S.model || !U.boxlog || !pid) return;
+    S.intel.box = S.intel.box || {};
+    var rec = S.intel.box[pid];
+    if (rec && !(force && rec.state === "error")) return;
+    S.intel.box[pid] = { state: "loading" };
+    var mine = gen;
+    loader.loadWeeklyBox(pid, !!force).then(function (r) {
+      if (mine !== gen || S.sample.on) return;
+      var next;
+      if (r.state === "absent") next = { state: "absent" };
+      else if (r.state !== "ok") next = { state: "error", error: r.error || "" };
+      else {
+        var pb = U.boxlog.parseBox(r.data, pid, parseInt(cfg.season, 10));
+        next = pb.state === "ok" ? { state: "ok", data: pb, at: r.at || Date.now() } : { state: "error", error: pb.why || "" };
+      }
+      S.intel.box = S.intel.box || {};
+      S.intel.box[pid] = next;
+      render(true);
+    });
   }
 
   // ---- loading ----
@@ -378,6 +411,9 @@
     else if (act === "logmore") { if (S.profile) { S.profile.all = true; render(true); ensurePerformance(); ensureLog(); } }
     else if (act === "logless") { if (S.profile) { S.profile.all = false; render(true); } }
     else if (act === "retrylog") { ensureLog(true); }
+    else if (act === "bdv") { var bp = el.getAttribute("data-pid"); S.bd = S.bd || { v: {}, g: {} }; if (bp && /^[a-z]+$/.test(v || "")) { S.bd.v[bp] = v; render(true); } }   // R6: a Breakdown view
+    else if (act === "bdg") { var gp = el.getAttribute("data-pid"), gw = parseInt(v, 10); S.bd = S.bd || { v: {}, g: {} }; if (gp && gw >= 1) { S.bd.g[gp] = S.bd.g[gp] === gw ? null : gw; render(true); } }   // R6: one game's detail opens or closes
+    else if (act === "retrybox") { ensureBox(el.getAttribute("data-pid"), true); }
     else if (act === "pickweek") {
       var n = parseInt(v, 10), wi0 = U.roster.weekInfo(S);
       if (isFinite(n) && wi0.cur && n >= 1 && n <= wi0.cur) { var again = n === wi0.sel; S.wk = n === wi0.cur ? null : n; S.sheet = null; render(); ensureIntel(again); }

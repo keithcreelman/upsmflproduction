@@ -152,8 +152,11 @@ test("delayed handoff: every game of the lineup week is final but the season fig
 
 test("the profile game log runs through the cutoff, never the Worker's latestFinalWeek", async () => {
   const I = await intel(), S = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
-  const html = V.app(S), weeks = [...(html.split('<div class="card tbl">')[1] || "").split("</table>")[0].matchAll(/<tr><td>(\d+)<\/td>/g)].map((m) => +m[1]);
-  t.deepEqual(weeks, [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]); t.match(text(html), /Showing Weeks 1 to 10/);
+  // R6: the log is the Breakdown: the settled weeks run 10 to 1; a newer Week 11 may show, marked newer and outside the season line
+  const html = V.app(S), log = (html.split('<table class="bdt">')[1] || "").split("</table>")[0];
+  const rows = [...log.matchAll(/<tr( class="[^"]*")?><th class="pin"><button data-act="bdg" data-v="(\d+)"/g)].map((m) => [+m[2], /newer/.test(m[1] || "")]);
+  t.deepEqual(rows.filter((r) => !r[1]).map((r) => r[0]), [10, 9, 8, 7, 6, 5, 4, 3, 2, 1]); t.ok(rows.filter((r) => r[1]).every((r) => r[0] > 10), "only a week after the cutoff is newer");
+  t.match(text(html), /Through Week 10 ·/); t.doesNotMatch(text(html), /Through Week 11/);
 });
 
 // ---- fixes from the independent code review of 62bc56bd
@@ -250,7 +253,7 @@ test("unreadable scores: kept as text by the loader, shown as unverified (figure
   t.match(p, /Tot\. Pts\.\s+—\s+—/); t.match(p, /Actual PPG\s+—\s+—/); t.match(p, /1 score could not be read, so his season figures are not shown\./); t.doesNotMatch(p, /QB\d/, "no season or per-game rank");
   t.match(text(card(html, ID.shaheed)), /WR66\b/, "his position is known: another position's rank is not widened by him");
   const I = await intel({ scores: sc }), S2 = state({ intel: I, sub: "contracts", profile: { pid: ID.purdy, tab: "perf", all: true } });
-  t.match(V.app(S2).split('<div class="card tbl">')[1].split("</table>")[0], /<td>3<\/td><td class="n"><span class="mu">unreadable<\/span>/, "the game log says unreadable, not a dash");
+  t.match((V.app(S2).split('data-act="bdg" data-v="3"')[1] || "").split("</tr>")[0], /<td class="n"><span class="mu" title="This score could not be read">\?<\/span><\/td>/, "the game log says the score could not be read, not a dash");
 });
 
 const coverOf = (w) => { const S0 = state(), byeP = [], clubs = {}; S0.model.teams.forEach((tm) => tm.players.forEach((p) => { const c = String(p.nflTeam || "").trim().toUpperCase(); if (c && c !== "FA") clubs[c] = 1; byeP.push({ club: p.nflTeam, bye: p.bye }); })); return { clubs: Object.keys(clubs), byeOf: CHm.clubByeMap(byeP), week: w }; };

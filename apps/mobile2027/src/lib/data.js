@@ -2,7 +2,7 @@
 
    Read-only by construction:
    - every request is a plain GET with credentials omitted and no custom headers;
-   - the address must be the UPS worker, one of six allowed paths, and only the query names listed below;
+   - the address must be the UPS worker, one of the allowed paths (RULES), and only the query names listed below;
    - an MFL export may only be of a TYPE on the allowlist (no transactions, trade bait or other owner text);
    - a session id, API key or cookie can never be sent: no such query name is allowed and nothing here reads one.
    Anything else is refused before the network is touched, and the refusal is recorded in the request log shown
@@ -25,7 +25,10 @@
     { path: "/api/player-status", query: ["season", "L"] },
     { path: "/api/lineup-matchups", query: ["YEAR", "W"] },
     // PR A: next season's recorded drop penalties and missed-nomination fines (the UPS ledger, not yet on MFL); asked for only when the next-season row is opened
-    { path: "/api/cap-adjustments/next-season", query: ["L", "YEAR"] }
+    { path: "/api/cap-adjustments/next-season", query: ["L", "YEAR"] },
+    // R6: one player's NFL game stats for one season (public nflverse box score, red zone and snaps, matched to the MFL id by the Worker); asked for once per player
+    // when his Breakdown is shown, kept in memory and reused across views, tabs and reopening the profile
+    { path: "/api/player-weekly-box", query: ["season", "mfl_id", "L"] }
   ];
   var SECRET_NAME = /mfl_user_id|apikey|api_key|key|token|session|cookie|password|auth/i;
 
@@ -71,7 +74,8 @@
       nextSeason: base + "/api/cap-adjustments/next-season?" + q({ L: L, YEAR: Y }),
       schedule: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: w }); },
       byes: base + "/api/mfl-export?" + q({ TYPE: "nflByeWeeks", L: L, YEAR: Y, JSON: 1 }),
-      fullSchedule: base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: "ALL" })
+      fullSchedule: base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: "ALL" }),
+      box: function (id) { return base + "/api/player-weekly-box?" + q({ season: Y, mfl_id: id, L: L }); }
     };
 
     function get(url, label) {
@@ -110,7 +114,7 @@
     // Each added read is kept in memory by its exact address and reused (switching views, weeks or teams never asks again).
     // It is asked again only on an explicit reload, or when its freshness limit has passed and the screen is used again.
     var memo = {};
-    var LIMIT = { status: 4 * 60 * 1000 + 30 * 1000, matchups: 5 * 60 * 1000, weekly: 60 * 60 * 1000, scores: 10 * 60 * 1000, players: 6 * 60 * 60 * 1000 };
+    var LIMIT = { status: 4 * 60 * 1000 + 30 * 1000, matchups: 5 * 60 * 1000, weekly: 60 * 60 * 1000, scores: 10 * 60 * 1000, players: 6 * 60 * 60 * 1000, box: 60 * 60 * 1000 };
     function cached(key, limit, run, force) {
       var m = memo[key], now = Date.now();
       if (!force && m) {
@@ -272,7 +276,39 @@
           if (rs[1].state !== "ok") return rs[1];
           var cal = null; try { cal = parse(rs[0].data, rs[1].data); } catch (e) { cal = null; }
           if (!cal) return { state: "error", data: null, error: "Unexpected answer" };
+          cal.days = gameDays(rs[1].data);   // R6: each game's kickoff, home flag and score, for the game log (kept apart from what completion uses)
           return { state: "ok", data: cal, at: Date.now() };
+        });
+      }, force);
+    }
+    // R6: from the whole-season schedule, only what a game log shows: per week, each game's kickoff (Unix seconds), seconds remaining, and per club its id,
+    // home flag and score, exactly as MFL sent them (lib/boxlog.js reads them; a missing field stays missing).
+    function gameDays(j) {
+      var out = {}, fs = j && j.fullNflSchedule, list = fs ? fs.nflSchedule : null;
+      list = Array.isArray(list) ? list : list ? [list] : [];
+      list.forEach(function (e) {
+        if (!e || e.week == null) return;
+        var ms = Array.isArray(e.matchup) ? e.matchup : e.matchup ? [e.matchup] : [];
+        out[String(e.week).trim()] = ms.map(function (m) {
+          var tm = m && Array.isArray(m.team) ? m.team : [];
+          return { kickoff: m && m.kickoff != null ? String(m.kickoff) : null, secs: m && m.gameSecondsRemaining != null ? String(m.gameSecondsRemaining) : null,
+            teams: tm.map(function (t) { return { id: String(t && t.id || ""), isHome: t && t.isHome != null ? String(t.isHome) : null, score: t && t.score != null ? String(t.score) : null }; }) };
+        });
+      });
+      return out;
+    }
+    // R6: one player's NFL game stats for the season. In recorded-data mode the recording has no such answer, so nothing is asked for: the answer is
+    // "absent" at once, with no request and no fallback. An id that is not a plain MFL id is refused before the network.
+    function loadWeeklyBox(id, force) {
+      var pid = String(id == null ? "" : id).trim();
+      if (!/^\d{1,7}$/.test(pid)) return Promise.resolve({ state: "error", data: null, error: "Unexpected player id" });
+      if (cfg.data === "recorded") return Promise.resolve({ state: "absent", data: null, error: "" });
+      return cached("box:" + pid, LIMIT.box, function () {
+        return settle(get(urls.box(pid), "game stats, player " + pid)).then(function (r) {
+          if (r.state !== "ok") return r;
+          var j = r.data;
+          if (!j || j.ok !== true || !Array.isArray(j.weeks)) return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: j, at: Date.now() };
         });
       }, force);
     }
@@ -307,7 +343,7 @@
       return by;
     }
 
-    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadCalendar: loadCalendar, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, clearErrors: clearErrors, summary: summary };
+    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadCalendar: loadCalendar, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, loadWeeklyBox: loadWeeklyBox, clearErrors: clearErrors, summary: summary };
   }
 
   return { RULES: RULES, check: check, createLoader: createLoader };

@@ -299,45 +299,49 @@ test("P10: Performance carries no matchup rating, color, 'allowed per game' line
   ["tabviews.js", "clubhist.js"].forEach((f) => t.doesNotMatch(fs.readFileSync(path.join(SRC, "lib", f), "utf8"), /defRatings|ppgRank|rushDefRank|passDefRank|muTier/));
 });
 
-test("P11: the profile game log is Week and Points only; 0.0 and a missing score look different; BYE only where the club is known", async () => {
+// R6: the profile game log is the Breakdown (lib/breakdown.js). These keep the R3 rules on its Fantasy view: 0.0 and no score look different, an opponent or a BYE
+// only where his club that week is established (here there is no game-stats read, so only the team history can establish it), and the same season figures.
+const logOf = (html) => (html.split('<table class="bdt">')[1] || "").split("</table>")[0];
+const weekRow = (log, w) => (log.split('data-act="bdg" data-v="' + w + '"')[1] || "").split("</tr>")[0];
+test("P11 (R6): the profile log keeps 0.0 and no score apart, and names no opponent where his club that week is not established", async () => {
   const intel = await intelFor(), S0 = state(), act = teamPlayers(S0).filter((p) => p.status === "active");
   const has0 = act.find((p) => ["8", "9", "10"].some((w) => FX3.scores[w].some((r) => r.id === p.id && Number(r.score) === 0)));
   const none = act.find((p) => ["8", "9", "10"].every((w) => !FX3.scores[w].some((r) => r.id === p.id)));
-  const logOf = (p) => V.app(state({ intel, profile: { pid: p.id, tab: "perf" } })).split('<div class="card tbl">')[1].split("</table>")[0];
-  t.ok(none, "the fixture has a player with no scores in the loaded weeks"); t.match(logOf(none), /<td class="n"><span class="mu">—<\/span><\/td>/);
-  if (has0) t.match(logOf(has0), /<b>0\.0<\/b>/);
-  const html = V.app(state({ intel, profile: { pid: none.id, tab: "perf" } }));
-  t.match(html, /<th>Wk<\/th><th class="n">Pts<\/th>/); t.doesNotMatch(html, /<th[^>]*>(Opponent|Snaps|Lineup)/);
-  t.match(text(html), /Opponents, snaps and lineup status are not in this preview/);
+  const html = (p) => V.app(state({ intel, profile: { pid: p.id, tab: "perf" } }));
+  t.ok(none, "the fixture has a player with no scores in the loaded weeks");
+  t.match(weekRow(logOf(html(none)), "8"), /<td class="n"><span class="mu">—<\/span><\/td>/, "no score: a dash, never 0.0");
+  if (has0) { const w0 = ["8", "9", "10"].find((w) => FX3.scores[w].some((r) => r.id === has0.id && Number(r.score) === 0)); t.match(weekRow(logOf(html(has0)), w0), /<td class="n"><b>0\.0<\/b><\/td>/, "a recorded 0.0 stays 0.0"); }
+  for (let w = 1; w <= 10; w++) t.doesNotMatch(weekRow(logOf(html(none)), w), /class="nw">(vs|@) /, "Week " + w + ": no opponent without his club that week");
+  t.match(html(none), /<th class="pin">Game<\/th><th class="n">Pts<\/th>/);
 });
 
-test("R3 ruling 2: the full-season log keeps 0.0, no score, a bye and a live score apart, and draws a BYE only where the club is known", async () => {
+test("R3 ruling 2 (R6): the full-season log keeps 0.0, no score and a bye apart, and draws a BYE only where the club is known", async () => {
   const S0 = state({ sub: "performance", intel: await intelFor() });
   const late = FX3.lineup_matchups_w11.teamHistoryFirst, hist = FX3.lineup_matchups_w11;
   const known = teamPlayers(S0).find((x) => x.status === "active" && x.bye && x.bye <= 10 && late[x.id] == null && !hist.teamHistory[x.id] && !hist.teamHistoryMissing.includes(x.id) && !hist.teamHistoryConflict.includes(x.id));
   const unknownClub = teamPlayers(S0).find((x) => x.status === "active" && x.bye && x.bye <= 10 && hist.teamHistoryMissing.includes(x.id));
   t.ok(known, "a player with a known club and a bye already played");
-  const full = async (p) => V.app(state({ intel: await intelFor(), profile: { pid: p.id, tab: "perf", all: true } })).split('<div class="card tbl">')[1].split("</table>")[0];
+  const full = async (p) => logOf(V.app(state({ intel: await intelFor(), profile: { pid: p.id, tab: "perf" } })));
+  const settledByes = (log) => { let n = 0; for (let w = 1; w <= 10; w++) if (/class="nw">BYE</.test(weekRow(log, w))) n++; return n; };
   const k = await full(known);
-  t.match(k, new RegExp("<tr><td>" + known.bye + '</td><td class="n"><span class="mu">BYE</span>'), "his bye week reads BYE");
-  t.ok((k.match(/BYE/g) || []).length === 1, "exactly one bye");
+  t.match(weekRow(k, known.bye), /class="nw">BYE<\/span>/, "his bye week reads BYE"); t.equal(settledByes(k), 1, "exactly one bye");
   const zero = teamPlayers(S0).find((x) => x.status === "active" && FX3.scores["5"].some((r) => r.id === x.id && Number(r.score) === 0));
-  if (zero) t.match(await full(zero), /<td class="n"><b>0\.0<\/b>/, "a recorded 0.0 stays 0.0");
-  if (unknownClub) t.doesNotMatch(await full(unknownClub), /BYE/, "no BYE where the club is unknown");
-  // weeks before a first record never carry a BYE even for a late player
+  if (zero) t.match(weekRow(await full(zero), 5), /<td class="n"><b>0\.0<\/b>/, "a recorded 0.0 stays 0.0");
+  if (unknownClub) t.equal(settledByes(await full(unknownClub)), 0, "no BYE where the club is unknown");
   const lateP = teamPlayers(S0).find((x) => x.status === "active" && late[x.id] >= 3 && x.bye && x.bye < late[x.id]);
-  if (lateP) t.doesNotMatch(await full(lateP), /BYE/, "a bye before his first record is not drawn");
-  t.doesNotMatch(k, /Opponent|vs |@ /);
+  if (lateP) t.equal(settledByes(await full(lateP)), 0, "a bye before his first record is not drawn");
 });
 
-test("the profile's season tiles say the same thing as Team › Performance: the same average, the same scored games, through the same week", async () => {
+test("the profile's season line says the same thing as Team › Performance: the same average, the same scored games, through the same week", async () => {
   const intel = await intelFor(), S = state({ sub: "performance", intel }), p = teamPlayers(S).find((x) => x.status === "active");
   S.pf = { f: "all", s: "pos", open: { [p.id]: true }, res: {} };
   const row = body(V.app(S)).split('data-act="pfx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
   const m = text(row).match(/Season (\d+\.\d) · (\d+) of \d+ team games · through Week (\d+)/) || text(row).match(/Season (\d+\.\d) · (\d+) scored games? · through Week (\d+)/);
   t.ok(m, "the Performance row states its season figures and the week they run through");
-  const tiles = text(V.app(state({ intel, profile: { pid: p.id, tab: "perf" } })).split('<div class="k3">')[1].split("</div></div>")[0] + "</div>");
-  t.match(tiles, new RegExp(m[1].replace(".", "\\.") + " Season average"), "same average"); t.match(tiles, new RegExp(m[2] + " Scored games"), "same scored games"); t.match(tiles, new RegExp(m[3] + " Through week"), "same week");
+  const line = text(V.app(state({ intel, profile: { pid: p.id, tab: "perf" } }))).match(/Through Week (\d+) · (\d+\.\d) pts · (\d+) scored games?/);
+  t.ok(line, "the profile states the season line");
+  t.equal(line[1], m[3], "same week"); t.equal(line[3], m[2], "same scored games");
+  t.ok(Math.abs(Number(line[2]) / Number(line[3]) - Number(m[1])) <= 0.05 + 1e-9, "same average (" + line[2] + " / " + line[3] + " = " + m[1] + ")");
 });
 
 // ───────────────────────── escaping and read-only controls ─────────────────────────
