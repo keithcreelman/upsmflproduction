@@ -131,18 +131,16 @@ test("Byes view (R2b P6): grouped by upcoming bye week in order; each group says
   t.ok(g.groups.length >= 2, "the team has players on at least two upcoming byes");
   t.deepEqual(g.groups.map((x) => x.week), g.groups.map((x) => x.week).slice().sort((a, b) => a - b), "chronological");
   t.ok(g.groups.every((x) => x.week >= 11), "no played week among the upcoming groups"); t.ok(g.past.length > 0 && g.past.every((p) => p.bye < 11));
-  // each group header: the week, how many CURRENT starters it leaves out, and their slot tags (today's lineup)
+  // R9: each group header: the week, how many players are on bye, and the coverage result (never today's slot tags)
   g.groups.forEach((grp) => {
-    const n = grp.starters.length, label = n ? "Week " + grp.week + " · " + n + " starter" + (n === 1 ? "" : "s") + " on bye: " + grp.starters.map((x) => x.tag).join(", ") : "Week " + grp.week + " · no starters on bye";
+    const label = (grp.week === 11 ? "This week · Week " : "Week ") + grp.week + " · " + grp.players.length + " on bye";
     t.ok(tx.includes(label), "group header: " + label);
   });
-  t.match(tx, /Week 11 lineup · Next byes: Week 11 · 0 starters · Week 13 · 2 starters · Week 14 · 2 starters/);
-  t.match(tx, /This week · Week 11 · no starters on bye/);
-  t.match(tx, /Week 13 · 2 starters on bye: RB2, TE1/); t.match(tx, /Week 14 · 2 starters on bye: DB1, DF/);
+  t.match(tx, /Lineup coverage · /); t.doesNotMatch(tx, /starters? on bye: [A-Z]|slots from the|Next byes/);
+  t.match(tx, /Week 13 · \d+ on bye (Full lineup 18\/18|▲ Short)/);
   // the groups come out in week order on the page
   t.deepEqual([...html.matchAll(/data-g="bw(\d+|past)"/g)].map((m) => m[1]), [...g.groups.map((x) => String(x.week)), "past"], "upcoming groups in week order, then the played ones");
-  // slots are TODAY's: the page says so, and invents no past or future assignment
-  t.match(tx, /slots from the Week 11 lineup/); t.doesNotMatch(tx, /Slots are today’s lineup/, "R8: the long paragraph is gone");
+  t.doesNotMatch(tx, /Slots are today’s lineup/, "R8: the long paragraph is gone");
   t.doesNotMatch(tx, /will start|will be your|projected lineup for Week 1[2-9]/i);
   // played byes are collapsed by default and say so; opening them lists the players
   t.match(html, /data-g="bwpast" aria-expanded="false"/); t.match(tx, /Already played · \d+ players/);
@@ -229,7 +227,8 @@ test("'Needs you' on the Bench card: a player still on the active roster with an
   t.match(on, /data-g="bench" aria-expanded="true"/, "the Bench card is open by default: the full list, no 'View all' step");
   t.match(on, /data-g="ir" aria-expanded="true"/); t.match(on, /data-g="taxi" aria-expanded="true"/);
   t.doesNotMatch(on, /View all|data-g="b(QB|RB|WR|TE|DL|LB|DB)"/);
-  t.match(on, /■ IR/, "his row carries the IR chip");
+  t.match(on, /<span class="chip irb"><svg class="irx"[^>]*aria-hidden="true"[^>]*><path[^>]*\/><\/svg>IR<\/span>/, "R9: his row carries the one IR badge (red, medical cross, the text IR)");
+  t.doesNotMatch(on, /■ IR/, "R9: the old square IR chip is gone");
   t.equal(V.isOpen(state(intel, { open: { bench: false } }), "bench"), false, "a section the owner closed stays closed");
   t.doesNotMatch(V.rosterBody(state(intel, { open: { bench: false } })), new RegExp('data-pid="' + bench.id + '"'), "a closed Bench card lists nobody");
   // a Questionable bench player does not 'need you' (it is not an action)

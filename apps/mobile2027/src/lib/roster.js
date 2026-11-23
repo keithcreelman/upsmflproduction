@@ -203,6 +203,13 @@
     var text = c.t === "OUT" ? "■ OUT" : c.t === "D" ? "▲ Doubtful" : c.t === "Q" ? "▲ Questionable" : (kind === "res" ? "■ " : "▲ ") + c.t;
     return { cls: kind === "warn" ? "wn" : "cr", text: text, code: c.t, kind: kind };
   }
+  // R9 (Keith, 2026-11-23): the ONE IR badge, wherever IR is drawn (a roster row's IR designation, the Byes and coverage rows, the Contracts row,
+  // the profile header). Red, with a small medical cross, and it always keeps the text "IR": color is never the only cue. The cross is a plain
+  // SVG path (no image request, no inline style); `extra` adds a size class (the profile header's pill size).
+  var IR_ICON = '<svg class="irx" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M3.5 0h3v3.5H10v3H6.5V10h-3V6.5H0v-3h3.5z"/></svg>';
+  function irBadge(label, extra) {
+    return '<span class="chip irb' + (extra ? " " + F.esc(extra) : "") + '">' + IR_ICON + F.esc(label || "IR") + "</span>";
+  }
   // The one line the screen shows only when the injury read is not usable (the resolver's own wording).
   function injuryNote(S) {
     var IS = G.UPSInjuryStatus, st = S.intel && S.intel.status;
@@ -310,7 +317,7 @@
 
   return {
     SLOTS: SLOTS, slotByTag: slotByTag, lineupCoherence: lineupCoherence, assignSlots: assignSlots, weeklyIndex: weeklyIndex, weekInfo: weekInfo, weekChoices: weekChoices, lineupFor: lineupFor,
-    gameState: gameState, oppText: oppText, kickoffText: kickoffText, injuryChip: injuryChip, injuryFresh: injuryFresh, injuryNote: injuryNote, onBye: onBye,
+    gameState: gameState, oppText: oppText, kickoffText: kickoffText, injuryChip: injuryChip, irBadge: irBadge, injuryFresh: injuryFresh, injuryNote: injuryNote, onBye: onBye,
     scoreOf: scoreOf, scoreRead: scoreRead, teamScoreOf: teamScoreOf, scoreWeek: scoreWeek, avgOf: avgOf, pts: pts, attention: attention, groupReasons: groupReasons,
     endingAfterSeason: endingAfterSeason, byeGroups: byeGroups, relWeek: relWeek, capNote: capNote, viewWeek: viewWeek, kickoffInfo: kickoffInfo
   };

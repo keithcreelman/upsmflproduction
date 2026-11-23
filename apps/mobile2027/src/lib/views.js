@@ -10,11 +10,12 @@
     req ? require("./photo.js") : root.UPS2027.photo,
     req ? require("./sample.js") : root.UPS2027.sample,
     req ? require("./roster.js") : root.UPS2027.roster,
-    req ? require("./tabviews.js") : root.UPS2027.tabviews
+    req ? require("./tabviews.js") : root.UPS2027.tabviews,
+    req ? require("./coverage.js") : root.UPS2027.coverage
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.views = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R, TV) {
+})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R, TV, COV) {
   "use strict";
 
   var esc = F.esc, money = F.money, commonCode = F.commonCode;
@@ -109,8 +110,10 @@
     var small = "", right = "", chips = [];
     var view = past ? "past" : S.view;
     if (view === "byes") {
-      // a row inside a bye group: the group already says which week, so the row says who he is to today's lineup
-      small = nw(team) + " · " + (o.tag ? (wi.cur ? "Week " + wi.cur + " starter" : "current starter") : statusWord(p)) + (p.bye && wi.cur && p.bye < wi.cur ? " · bye was Week " + p.bye : "");
+      // a row inside a bye group: the group already says which week, so the row says who he is to today's lineup. R9: the row carries his
+      // position badge (the group is by position), never a lineup slot
+      small = nw(team) + " · " + (o.starter ? (wi.cur ? "Week " + wi.cur + " starter" : "current starter") : statusWord(p)) + (p.bye && wi.cur && p.bye < wi.cur ? " · bye was Week " + p.bye : "");
+      if (p.status === "ir") chips.push(R.irBadge());
     } else {
       var parts = [esc(team)];
       var inPlay = past || p.status === "active";
@@ -147,7 +150,7 @@
       // the same chips on both views (current information); a bye chip only for a starter on the Lineup view
       if (R.onBye(p, wk) && o.tag && S.view === "lineup") chips.push(chip("wn", "▲ Bye week"));
       var ic = R.injuryChip(S, p);
-      if (ic) chips.push(chip(ic.cls, esc(ic.text)));
+      if (ic) chips.push(ic.code === "IR" ? R.irBadge() : chip(ic.cls, esc(ic.text)));
     }
     // a past week's rows carry the recorded order (1, 2, 3 ...), never a slot or a position: neither is recorded for that week
     var sl = o.tag ? R.slotByTag(o.tag) : null;
@@ -256,36 +259,105 @@
     return '<div class="card rows lsec"><div class="lsh"><span class="t"><b>' + esc(lineupCount(lineup)) + "</b></span></div>" + rows + "</div>";
   }
 
-  // R2b, P6: the Byes view. Players grouped by bye week in week order from this week on; each group says how many of TODAY's starters it leaves
-  // out and which slots, without claiming those players will fill those slots in that week; already-played byes are collapsed.
-  function byeGroupHead(S, key, label, count, open, sub) {
-    return '<button class="gh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + '</span><span class="t"><b>' + esc(label) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></button>";
+  // R2b, P6: the Byes view. Players grouped by bye week in week order from this week on; already-played byes are collapsed.
+  // `subHtml` is HTML the caller has already escaped.
+  function byeGroupHead(S, key, label, count, open, sub, subHtml) {
+    return '<button class="gh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + '</span><span class="t"><b>' + esc(label) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + (subHtml ? "<small>" + subHtml + "</small>" : "") + "</span></button>";
   }
-  // R8 copy: "starters" always means the starters in the lineup MFL has for the current week, named once as the "Week N lineup" heading of the summary
-  // and on each group that names slots. A later week's lineup is not set, so no group says who will start then; it says whose bye it is.
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+  // R9 (Keith, 2026-11-23): lineup coverage. Each week says whether the WHOLE legal lineup can still be filled from the active roster
+  // (lib/coverage.js: an exact assignment, required slots first, then OFX/SFX/DFX by eligibility, never one player in two slots). Only a bye, or in
+  // the current week an Out or an MFL designation, removes a player; Questionable and Doubtful never do. Taxi and IR players are options, kept apart.
+  function shortLine(s) { return s.key + (s.flex ? " (" + s.acc.join("/") + ")" : "") + " · " + s.available + " available / " + s.required + " required"; }
+  function coverageSub(cv) {
+    var bits = [];
+    if (cv.short.length) bits.push('<b class="wn">▲ Short ' + (cv.total - cv.filled) + ": " + esc(cv.short.map(function (s) { return s.key + " " + s.available + "/" + s.required; }).join(", ")) + "</b>");
+    else bits.push("Full lineup " + cv.filled + "/" + cv.total);
+    if (cv.absent.length) bits.push(esc(cv.absent.length + " out or designated"));
+    if (!cv.injuriesChecked) bits.push("injuries not checked");
+    return bits.join(" · ");
+  }
+  function pointsText(o) {
+    return o.points.length ? "Recent: " + o.points.map(function (x) { return "Wk " + x.week + " " + x.text; }).join(" · ") : "Recent points not available";
+  }
+  // A taxi or IR option: who he is, the verified facts, and the obstacles that are his alone (chips beside him). No control changes anything.
+  function optionRow(p, facts, obstacles, pointsLine) {
+    var chips = obstacles.map(function (x) { return chip("wn", "▲ " + esc(x.text)); });
+    return '<div class="rx"><span class="tag pp">' + pcx(p.pos) + '</span><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + facts + "</small><small>" + esc(pointsLine) + "</small></button>" +
+      (chips.length ? '<div class="fl">' + chips.join("") + "</div>" : "") + "</div></div>";
+  }
+  function teamObstacleLines(list) { return list.map(function (x) { return '<div class="ex wn cvo">▲ ' + esc(x.text) + "</div>"; }).join(""); }
+  function optionToggle(S, key, label) {
+    var open = isOpen(S, key);
+    return { open: open, html: '<button class="lsh cvt" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="t"><b>' + esc(label) + '</b></span><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + "</span></button>" };
+  }
+  function taxiBlock(S, cv) {
+    var tx = cv.taxi, tg = optionToggle(S, "bwtx" + cv.week, "Taxi options · " + plural(tx.eligible, "eligible", "eligible") + (tx.options.length > tx.eligible ? " of " + tx.options.length : ""));
+    if (!tx.options.length) return '<div class="lsh cvt"><span class="t"><b>Taxi options · none</b><small>No taxi player fits the open slots.</small></span></div>';
+    if (!tg.open) return tg.html;
+    var head = tx.team.length ? teamObstacleLines(tx.team) : '<div class="ex cvo">An active roster spot is open. Cap room is not checked here.</div>';
+    return tg.html + head + tx.options.map(function (o) {
+      var facts = esc(F.commonCode(o.player.nflTeam) || "No NFL team") + " · " + esc(o.eligibility) + (o.eligible ? " · " + esc(o.leftText) : "");
+      return optionRow(o.player, facts, o.obstacles, pointsText(o));
+    }).join("");
+  }
+  function irBlock(S, cv, cur) {
+    var ir = cv.ir;
+    if (!ir.options.length) {
+      var why = cv.week !== cur ? "The NFL injury report covers Week " + cur + " only." : !ir.checked ? "Injury status isn’t available right now." : "No IR player who fits has return evidence this week.";
+      return '<div class="lsh cvt"><span class="t"><b>Possible IR returns · none</b><small>' + esc(why) + "</small></span></div>";
+    }
+    var tg = optionToggle(S, "bwir" + cv.week, "Possible IR returns · " + ir.options.length);
+    if (!tg.open) return tg.html;
+    return tg.html + teamObstacleLines(ir.team) + '<div class="ex cvo">Possible, not confirmed: the evidence is this week’s NFL report.</div>' + ir.options.map(function (o) {
+      return optionRow(o.player, R.irBadge() + " " + esc(o.evidence), o.obstacles, pointsText(o));
+    }).join("");
+  }
+  // The bye players of one week, grouped by their own position (never by a lineup or flex slot).
+  function byPositionRows(S, players, cur, slotOf) {
+    var groups = {};
+    players.forEach(function (p) { (groups[p.pos] = groups[p.pos] || []).push(p); });
+    var order = F.POS_ORDER.concat(Object.keys(groups).filter(function (k) { return F.POS_ORDER.indexOf(k) < 0; }));
+    return order.filter(function (k) { return groups[k]; }).map(function (k) {
+      return '<div class="lps">' + esc(k) + " · " + groups[k].length + "</div>" + groups[k].map(function (p) { return row(p, S, { starter: slotOf[p.id] !== undefined, wk: cur }); }).join("");
+    }).join("");
+  }
+  function weekCard(S, cv, x, cur, slotOf) {
+    var body = "";
+    if (cv.short.length) {
+      body += '<div class="cvs">' + cv.short.map(function (s) { return '<div class="cvl"><b class="wn">' + esc(shortLine(s)) + "</b></div>"; }).join("") + "</div>";
+      body += taxiBlock(S, cv) + irBlock(S, cv, cur);
+    }
+    if (cv.absent.length) {
+      body += '<div class="lps">Not counted · out or designated · ' + cv.absent.length + "</div>" + cv.absent.map(function (a) { return row(a.player, S, { starter: slotOf[a.player.id] !== undefined, wk: cur }); }).join("");
+    }
+    if (x && x.players.length) body += (cv.short.length || cv.absent.length ? '<div class="lps">On bye · ' + x.players.length + "</div>" : "") + byPositionRows(S, x.players, cur, slotOf);
+    else if (!cv.absent.length && !cv.short.length) body += '<div class="rx"><div class="in"><small>No one is on bye this week.</small></div></div>';
+    return '<div class="card rows lsec cvc">' + body + "</div>";
+  }
   function byesBody(S, t, wi, lineup) {
-    var cur = wi.cur, g = R.byeGroups(S, t, cur, lineup), out = "", luName = cur ? "Week " + cur + " lineup" : "Current lineup";
-    function nStarters(n) { return n + " starter" + (n === 1 ? "" : "s"); }
-    var next = g.groups.slice(0, 4).map(function (x) { return "Week " + x.week + " · " + (g.haveLineup ? nStarters(x.starters.length) : x.players.length + " players"); });
-    out += sumCard((g.haveLineup ? "<b>" + esc(luName) + "</b> · Next byes: " : "<b>Next byes:</b> ") + (next.length ? esc(next.join("  ·  ")) : "none recorded"));
-    if (!g.haveLineup) out += '<div class="ex pad">The ' + esc(cur ? "Week " + cur : "current") + " lineup could not be read, so starters are not marked.</div>";
-    g.groups.forEach(function (x) {
-      var key = "bw" + x.week, open = isOpen(S, key), who, sub = x.players.length + " player" + (x.players.length === 1 ? "" : "s");
-      if (!g.haveLineup) who = x.players.length + " player" + (x.players.length === 1 ? "" : "s") + " on bye";
-      else if (!x.starters.length) who = "no starters on bye";
-      else { who = nStarters(x.starters.length) + " on bye: " + x.starters.map(function (s) { return s.tag; }).join(", "); sub += " · slots from the " + luName; }
-      out += byeGroupHead(S, key, (x.week === cur ? "This week · Week " : "Week ") + x.week + " · " + who, x.players.length, open, sub);
-      if (open) out += '<div class="card rows">' + x.players.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
+    var cur = wi.cur, g = R.byeGroups(S, t, cur, lineup), out = "";
+    var byWeek = {}; g.groups.forEach(function (x) { byWeek[x.week] = x; });
+    var wks = Object.keys(byWeek).map(Number); if (cur && !byWeek[cur]) wks.push(cur);
+    wks.sort(function (a, b) { return a - b; });
+    var covs = wks.map(function (w) { return COV.week(S, t, w); });
+    var shortWks = covs.filter(function (c) { return c.short.length; });
+    out += sumCard("<b>Lineup coverage</b> · " + (shortWks.length ? '<span class="wn">▲ Short in ' + esc(shortWks.map(function (c) { return "Week " + c.week + " (" + c.short.map(function (s) { return s.key; }).join(", ") + ")"; }).join(" · ")) + "</span>" : "A full lineup can be set in every week below") +
+      (covs.some(function (c) { return !c.injuriesChecked; }) ? " · injuries not checked" : ""));
+    covs.forEach(function (cv) {
+      var x = byWeek[cv.week], n = x ? x.players.length : 0, key = "bw" + cv.week, open = isOpen(S, key);
+      out += byeGroupHead(S, key, (cv.week === cur ? "This week · Week " : "Week ") + cv.week + " · " + (n ? n + " on bye" : "no byes"), n, open, "", coverageSub(cv));
+      if (open) out += weekCard(S, cv, x, cur, g.slotOf);
     });
     if (g.past.length) {
       var open2 = isOpen(S, "bwpast");
       out += byeGroupHead(S, "bwpast", "Already played · " + g.past.length + " player" + (g.past.length === 1 ? "" : "s"), g.past.length, open2, "their bye week has passed");
-      if (open2) out += '<div class="card rows">' + g.past.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
+      if (open2) out += '<div class="card rows">' + g.past.map(function (p) { return row(p, S, { starter: g.slotOf[p.id] !== undefined, wk: cur }); }).join("") + "</div>";
     }
     if (g.none.length) {
       var open3 = isOpen(S, "bwnone");
       out += byeGroupHead(S, "bwnone", "Bye week unavailable · " + g.none.length + " player" + (g.none.length === 1 ? "" : "s"), g.none.length, open3, "no bye week on file");
-      if (open3) out += '<div class="card rows">' + g.none.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
+      if (open3) out += '<div class="card rows">' + g.none.map(function (p) { return row(p, S, { starter: g.slotOf[p.id] !== undefined, wk: cur }); }).join("") + "</div>";
     }
     return out;
   }
@@ -488,7 +560,7 @@
       return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="Player profile" tabindex="-1"><div class="grab"></div><div class="top"><h3>Player not found</h3></div><div class="ex">This player is not on a roster in the data that loaded.</div><button class="btn blk" data-act="close">Close</button></div></div>';
     }
     var tab = S.profile.tab || "contract";
-    var pills = (p.status === "ir" ? pill("IR") : p.status === "taxi" ? pill("Taxi") : "") + (p.bye && p.bye === S.model.week ? pill("▲ Bye week") : "");
+    var pills = (p.status === "ir" ? R.irBadge("IR", "hpb") : p.status === "taxi" ? pill("Taxi") : "") + (p.bye && p.bye === S.model.week ? pill("▲ Bye week") : "");
     var tabs = [["perf", "Performance"], ["sched", "Schedule"], ["contract", "Contract"], ["more", "More"]];
     var body = tab === "perf" ? performanceTab(S, p) : tab === "sched" ? scheduleTab() : tab === "more" ? moreTab(S, p) : contractTab(S, p);
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full phero" role="dialog" aria-modal="true" aria-label="Player profile: ' + esc(p.name) + '" tabindex="-1">' +

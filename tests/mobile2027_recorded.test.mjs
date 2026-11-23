@@ -259,7 +259,7 @@ function boot({ data, bundle, fetchImpl, hash = "" } = {}) {
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = (type, fn) => { winL[type] = fn; };
   vm.runInContext(INJURY_PURE, ctx, { filename: "shared/injury_status.pure.js" });
-  const files = ["config.js", "recorded_data.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "app.js"];
+  const files = ["config.js", "recorded_data.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/coverage.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "app.js"];
   for (const f of files) {
     if (f === "recorded_data.js") { if (bundle === undefined) vm.runInContext(read(f), ctx, { filename: f }); else if (bundle !== null) ctx.UPS2027_RECORDED = bundle; continue; }
     vm.runInContext(read(f), ctx, { filename: f });
