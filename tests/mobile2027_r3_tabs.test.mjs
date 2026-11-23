@@ -49,8 +49,10 @@ async function intelFor(over) {
   Object.keys(out.scores).forEach((k) => { out.scores[k].at += 1000; });   // the scores are read after the schedules, as the app does
   return out;
 }
+// R8: the Breakdown opens on Season stats; these tests read its Game log, so every player's Breakdown is on the Game log tab here
+const logTab = () => ({ v: {}, g: {}, t: new Proxy({}, { get: (o, k) => (k in o ? o[k] : "log") }) });
 const state = (over) => ({
-  model: model(), load: { core: "ok", coreNotes: [] }, penalty: penalty(), teamId: TEAM, tab: "team", sub: "contracts", view: "lineup",
+  model: model(), load: { core: "ok", coreNotes: [] }, penalty: penalty(), teamId: TEAM, tab: "team", sub: "contracts", view: "lineup", bd: logTab(),
   open: {}, flags: {}, profile: null, sheet: null, skin: "system", vib: "1", build: "test", requestLog: [], gdef: "needs", wk: null,
   requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
 });

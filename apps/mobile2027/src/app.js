@@ -481,6 +481,7 @@
     else if (act === "logless") { if (S.profile) { S.profile.all = false; render(true); } }
     else if (act === "retrylog") { ensureLog(true); }
     else if (act === "bdv") { var bp = el.getAttribute("data-pid"); S.bd = S.bd || { v: {}, g: {} }; if (bp && /^[a-z]+$/.test(v || "")) { S.bd.v[bp] = v; render(true); } }   // R6: a Breakdown view
+    else if (act === "bdt") { var tp = el.getAttribute("data-pid"); S.bd = S.bd || { v: {}, g: {} }; S.bd.t = S.bd.t || {}; if (tp && (v === "season" || v === "log")) { S.bd.t[tp] = v; render(true); } }   // R8: Breakdown section (Season stats | Game log)
     else if (act === "bdg") { var gp = el.getAttribute("data-pid"), gw = parseInt(v, 10); S.bd = S.bd || { v: {}, g: {} }; if (gp && gw >= 1) { S.bd.g[gp] = S.bd.g[gp] === gw ? null : gw; render(true); } }   // R6: one game's detail opens or closes
     else if (act === "retrybox") { ensureBox(el.getAttribute("data-pid"), true); }
     else if (act === "pickweek") {

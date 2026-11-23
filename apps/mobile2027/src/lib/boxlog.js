@@ -114,6 +114,12 @@
     var m = etParts(unix, { weekday: "short", month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
     return m ? m.weekday + " " + m.month + " " + m.day + ", " + m.year + ", " + m.hour + ":" + m.minute + " " + (m.dayPeriod || "") + " ET" : "";
   }
+  // "4:05 PM ET" (the kickoff time alone, Eastern Time), or "" when there is no kickoff. R8: shown only for an upcoming or live game.
+  function timeET(unix) {
+    if (!(unix > 0)) return "";
+    var m = etParts(unix, { hour: "numeric", minute: "2-digit" });
+    return m ? m.hour + ":" + m.minute + " " + (m.dayPeriod || "") + " ET" : "";
+  }
 
   // ---------- position groups and views ----------
   var OFF = { QB: 1, RB: 1, WR: 1, TE: 1 }, IDP = { DE: "DL", DT: "DL", DL: "DL", LB: "LB", CB: "DB", S: "DB", DB: "DB" };
@@ -146,7 +152,6 @@
     return w >= 0 ? w : null;
   }
   function scoredTackles(b) { var w = withAssist(b); return w == null ? null : b.def_tackles_solo + w; }
-  function fumblesLost(b) { return b ? add(b.rush_fumbles_lost, b.rec_fumbles_lost) : null; }
   function snapsOf(r, side) { var s = r && r.snaps; if (!s) return null; return side === "def" ? s.def : side === "st" ? s.st : s.off; }
   function teamSnaps(r, side) { var s = r && r.snaps; if (!s) return null; return side === "def" ? s.team_def : side === "st" ? null : s.team_off; }
   function sideOf(kind) { return kind === "idp" ? "def" : kind === "k" || kind === "p" ? "st" : "off"; }
@@ -238,7 +243,8 @@
     }
     function S(label, k, from) { var list = from || withBox, s = sumOf(list, function (r) { return from === withRz ? rz(r, k) : bx(r, k); }); s.of = list.length; return item(label, s, null, k); }
     function D(label, get, fmt, from, key) { var list = from || withBox, s = sumOf(list, get); s.of = list.length; return item(label, s, fmt, key); }
-    function R(label, top, bot, fmt, from, key) { var list = from || withBox, r = ratioOf(list, top, bot); return { label: label, value: r.v == null ? null : fmt(r.v), n: r.n, of: list.length, key: key || null, raw: r.v }; }
+    // nodiv: the denominator is recorded and zero (no attempts): the rate is "—", which is not the same as a missing figure
+    function R(label, top, bot, fmt, from, key) { var list = from || withBox, r = ratioOf(list, top, bot); return { label: label, value: r.v == null ? null : fmt(r.v), n: r.n, of: list.length, key: key || null, raw: r.v, nodiv: r.v == null && r.n > 0 && r.bot === 0 }; }
     function plain(label, value) { return { label: label, value: value, n: null, of: null, key: null, raw: null }; }
     function b(k) { return function (r) { return bx(r, k); }; }
     function z(k) { return function (r) { return rz(r, k); }; }
@@ -250,11 +256,13 @@
     var longest = function (k) { var m = maxOf(withBox, b(k)); return m == null ? null : plain("Longest", int(m)); };
     if (g.kind === "off" && g.pos === "QB") {
       secs.push({ h: "Passing", items: [
-        (function () { var both = withBox.filter(function (r) { return bx(r, "pass_cmp") != null && bx(r, "pass_att") != null; }), cm = sumOf(both, b("pass_cmp")).v; return { label: "Completions/attempts", value: both.length ? int(cm) + "/" + int(sumOf(both, b("pass_att")).v) : null, n: both.length, of: withBox.length, key: "pass_cmp", raw: both.length ? cm : null }; })(),
-        R("Completion rate", b("pass_cmp"), b("pass_att"), pct, null, "cmp_pct"), S("Passing yards", "pass_yds"), R("Yards per attempt", b("pass_yds"), b("pass_att"), function (v) { return v.toFixed(2); }, null, "ypa"),
-        S("Passing TD", "pass_tds"), D("Interceptions", b("pass_ints"), null, null, "pass_ints"), S("Air yards", "passing_air_yards"), R("Air yards per attempt", b("passing_air_yards"), b("pass_att"), function (v) { return v.toFixed(2); }, null, "air_per_att"),
+        // R8: completions and attempts are separate rows, each with its own (volume) rank; Completion % is the rate (pass-attempt minimum);
+        // the interception count has no rank, INT rate (interceptions per 100 attempts, fewer is better) is ranked with the same minimum
+        S("Completions", "pass_cmp"), S("Attempts", "pass_att"), R("Completion %", b("pass_cmp"), b("pass_att"), pct, null, "cmp_pct"),
+        S("Passing yards", "pass_yds"), R("Yards per attempt", b("pass_yds"), b("pass_att"), function (v) { return v.toFixed(2); }, null, "ypa"),
+        S("Passing TD", "pass_tds"), D("Interceptions", b("pass_ints")), R("INT rate", b("pass_ints"), b("pass_att"), pct, null, "int_rate"), S("Air yards", "passing_air_yards"), R("Air yards per attempt", b("passing_air_yards"), b("pass_att"), function (v) { return v.toFixed(2); }, null, "air_per_att"),
         D("Sacks taken", b("pass_sacks"), null, null, "sacks_taken"), D("Sack yards lost", function (r) { var v = bx(r, "pass_sack_yds"); return v == null ? null : Math.abs(v); }, null, null, "sack_yds"), longest("pass_long")].filter(Boolean) });
-      secs.push({ h: "Rushing", items: [S("Carries", "rush_att"), S("Rushing yards", "rush_yds"), S("Rushing TD", "rush_tds"), D("Fumbles lost (not on sacks)", function (r) { return fumblesLost(r.box); }, null, null, "fl_qb")] });
+      secs.push({ h: "Rushing", items: [S("Carries", "rush_att"), S("Rushing yards", "rush_yds"), S("Rushing TD", "rush_tds")] });   // R8: no fumbles-lost row (display decision; MFL points still count them)
       secs.push({ h: "Usage", items: snapItems.concat([plain("Team PROE", null)]) });
       secs.push({ h: "Red zone", items: [S("Red-zone attempts", "pass_att_i20", withRz), S("Red-zone completions", "pass_cmp_i20", withRz), S("Red-zone passing TD", "pass_tds_i20", withRz), S("End-zone attempts (any distance)", "pass_att_ez", withRz), S("Red-zone carries", "rush_att_i20", withRz), S("Red-zone rushing TD", "rush_tds_i20", withRz)] });
     } else if (g.kind === "off") {
@@ -262,7 +270,7 @@
       var rec = [S("Targets", "targets"), S("Receptions", "receptions"), S("Receiving yards", "rec_yds"), S("Receiving TD", "rec_tds"), R("Catch rate", b("receptions"), b("targets"), pct, null, "catch_rate"),
         R("Yards per reception", b("rec_yds"), b("receptions"), function (v) { return v.toFixed(1); }, null, "y_rec"), R("Yards per target", b("rec_yds"), b("targets"), function (v) { return v.toFixed(1); }, null, "y_tgt"),
         S("Air yards", "receiving_air_yards"), R("Air yards per target", b("receiving_air_yards"), b("targets"), function (v) { return v.toFixed(1); }, null, "adot"), longest("rec_long")].filter(Boolean);
-      var tot = { h: "Totals", items: [D("Total TD (rushing + receiving)", function (r) { return add(bx(r, "rush_tds"), bx(r, "rec_tds")); }, null, null, "total_td"), D("Fumbles lost", function (r) { return fumblesLost(r.box); }, null, null, "fl")] };
+      var tot = { h: "Totals", items: [D("Total TD (rushing + receiving)", function (r) { return add(bx(r, "rush_tds"), bx(r, "rec_tds")); }, null, null, "total_td")] };
       if (g.pos === "RB") { secs.push({ h: "Rushing", items: rush }); secs.push({ h: "Receiving", items: rec }); }
       else { secs.push({ h: "Receiving", items: rec }); secs.push({ h: "Rushing", items: rush }); }
       secs.push(tot);
@@ -307,13 +315,13 @@
   function n(k) { return function (r) { var v = bx(r, k); return v == null ? null : String(v); }; }
   function zr(k) { return function (r) { var v = rz(r, k); return v == null ? null : String(v); }; }
   function columns(pos, view) {
-    var g = groupOf(pos), side = sideOf(g.kind), FL = c("FL", function (r) { var v = fumblesLost(r.box); return v == null ? null : String(v); }, "Fumbles lost");
+    var g = groupOf(pos), side = sideOf(g.kind);   // R8: no fumbles-lost column (display decision)
     var snapsC = c(side === "def" ? "Def snaps" : side === "st" ? "ST snaps" : "Snaps", function (r) { var v = snapsOf(r, side); return v == null ? null : String(v); });
     var shareC = c(side === "def" ? "Def %" : "Snap %", function (r) { return share(r, side); }, "Share of team snaps");
     if (view === "st" && g.kind === "off" && g.pos === "QB") return [c("C/A", function (r) { return ma2(r, "pass_cmp", "pass_att"); }, "Completions/attempts"), c("Yds", n("pass_yds"), "Passing yards"), c("TD", n("pass_tds"), "Passing TD"), c("INT", n("pass_ints"), "Interceptions"),
-      c("Sk", function (r) { var s = bx(r, "pass_sacks"), y = bx(r, "pass_sack_yds"); return s == null ? null : y == null ? String(s) : s + "-" + Math.abs(y); }, "Sacks taken and yards lost"), c("Car", n("rush_att"), "Carries"), c("RuYd", n("rush_yds"), "Rushing yards"), c("RuTD", n("rush_tds"), "Rushing TD"), FL];
-    if (view === "st" && g.kind === "off" && g.pos === "RB") return [c("Car", n("rush_att"), "Carries"), c("Yds", n("rush_yds"), "Rushing yards"), c("TD", n("rush_tds"), "Rushing TD"), c("Tgt", n("targets"), "Targets"), c("Rec", n("receptions"), "Receptions"), c("ReYd", n("rec_yds"), "Receiving yards"), c("ReTD", n("rec_tds"), "Receiving TD"), FL];
-    if (view === "st" && g.kind === "off") return [c("Tgt", n("targets"), "Targets"), c("Rec", n("receptions"), "Receptions"), c("Yds", n("rec_yds"), "Receiving yards"), c("TD", n("rec_tds"), "Receiving TD"), c("Car", n("rush_att"), "Carries"), c("RuYd", n("rush_yds"), "Rushing yards"), c("RuTD", n("rush_tds"), "Rushing TD"), FL];
+      c("Sk", function (r) { var s = bx(r, "pass_sacks"), y = bx(r, "pass_sack_yds"); return s == null ? null : y == null ? String(s) : s + "-" + Math.abs(y); }, "Sacks taken and yards lost"), c("Car", n("rush_att"), "Carries"), c("RuYd", n("rush_yds"), "Rushing yards"), c("RuTD", n("rush_tds"), "Rushing TD")];
+    if (view === "st" && g.kind === "off" && g.pos === "RB") return [c("Car", n("rush_att"), "Carries"), c("Yds", n("rush_yds"), "Rushing yards"), c("TD", n("rush_tds"), "Rushing TD"), c("Tgt", n("targets"), "Targets"), c("Rec", n("receptions"), "Receptions"), c("ReYd", n("rec_yds"), "Receiving yards"), c("ReTD", n("rec_tds"), "Receiving TD")];
+    if (view === "st" && g.kind === "off") return [c("Tgt", n("targets"), "Targets"), c("Rec", n("receptions"), "Receptions"), c("Yds", n("rec_yds"), "Receiving yards"), c("TD", n("rec_tds"), "Receiving TD"), c("Car", n("rush_att"), "Carries"), c("RuYd", n("rush_yds"), "Rushing yards"), c("RuTD", n("rush_tds"), "Rushing TD")];
     if (view === "use" && g.kind === "off" && g.pos === "QB") return [snapsC, shareC, c("Att", n("pass_att"), "Pass attempts"), c("Air", n("passing_air_yards"), "Air yards")];
     if (view === "use" && g.kind === "off" && g.pos === "RB") return [snapsC, shareC, c("Car", n("rush_att"), "Carries"), c("Tgt", n("targets"), "Targets")];
     if (view === "use" && g.kind === "off") return [snapsC, shareC, c("Tgt", n("targets"), "Targets"), c("Air", n("receiving_air_yards"), "Air yards"), c("aDOT", function (r) { var a = bx(r, "receiving_air_yards"), t = bx(r, "targets"); return a == null || !(t > 0) ? null : (a / t).toFixed(1); }, "Air yards per target")];
@@ -339,6 +347,6 @@
     return out.filter(function (p) { if (seen[p[0]]) return false; seen[p[0]] = 1; return true; });
   }
 
-  return { NFLV_TO_MFL: NFLV_TO_MFL, toMfl: toMfl, NEUTRAL: NEUTRAL, parseBox: parseBox, gameIndex: gameIndex, shortDate: shortDate, longDate: longDate, groupOf: groupOf, viewsFor: viewsFor,
+  return { NFLV_TO_MFL: NFLV_TO_MFL, toMfl: toMfl, NEUTRAL: NEUTRAL, parseBox: parseBox, gameIndex: gameIndex, shortDate: shortDate, longDate: longDate, timeET: timeET, groupOf: groupOf, viewsFor: viewsFor,
     rows: rows, rollup: rollup, columns: columns, detailStats: detailStats, withAssist: withAssist, scoredTackles: scoredTackles, punterBands: punterBands, f1: f1, pct: pct };
 });

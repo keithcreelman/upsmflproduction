@@ -7,7 +7,7 @@
 
    Rules:
      - a rank is 1 + the number of players strictly better, so tied players share a rank ("K1" for every kicker at 100%);
-     - direction per stat (fewer is better for interceptions, sacks taken, sack yards and fumbles lost);
+     - direction per stat (fewer is better for INT rate, sacks taken and sack yards);
      - totals and shares rank as descriptions of volume or role, not quality (Help says so);
      - a rate (and a fewer-is-better total) ranks only players whose OWN denominator reaches the bar in RATE_BARS: per team game x the fewest
        games any NFL club has played through W*. A rate rank is withheld only when his denominator is missing or below the bar, never
@@ -38,16 +38,16 @@
       cmp_pct: { den: "pass attempts", perGame: { QB: 15 } },
       ypa: { den: "pass attempts", perGame: { QB: 15 } },
       air_per_att: { den: "pass attempts", perGame: { QB: 15 } },
-      pass_ints: { den: "pass attempts", perGame: { QB: 15 } },
+      // R8: interceptions rank as a RATE (INT rate = interceptions / pass attempts x 100, fewer is better); the raw count is shown without a rank.
+      // Week 10 evidence (r8c.md): bar 135 attempts, 31 of 66 QBs with an attempt qualify, the same on the recorded pool and on nflverse.
+      int_rate: { den: "pass attempts", perGame: { QB: 15 } },
       sacks_taken: { den: "pass attempts + sacks (dropbacks without scrambles; scrambles are not stored)", perGame: { QB: 17 } },
       sack_yds: { den: "pass attempts + sacks", perGame: { QB: 17 } },
-      fl_qb: { den: "pass attempts + sacks + carries", perGame: { QB: 20 } },
       ypc: { den: "carries", perGame: { RB: 5, WR: 0.5, TE: 0.3 }, min: { WR: 8, TE: 5 } },
       catch_rate: { den: "targets", perGame: { RB: 1.5, WR: 3, TE: 2 } },
       y_rec: { den: "receptions", perGame: { RB: 1, WR: 2, TE: 1.5 } },
       y_tgt: { den: "targets", perGame: { RB: 1.5, WR: 3, TE: 2 } },
       adot: { den: "targets", perGame: { RB: 1.5, WR: 3, TE: 2 } },
-      fl: { den: "touches (carries + receptions)", perGame: { RB: 6, WR: 3, TE: 2 } },
       snap_share: { den: "games with a snap row (the share is his snaps over his club's snaps in those games)", perGame: { QB: 0.5, RB: 0.5, WR: 0.5, TE: 0.5 } },
       def_share: { den: "games with a snap row (his defensive snaps over his club's in those games)", perGame: { DL: 0.5, LB: 0.5, DB: 0.5 } },
       tackles_per_snap: { den: "defensive snaps", perGame: { DL: 25, LB: 25, DB: 25 } },
@@ -75,20 +75,20 @@
   function rt(id, what, a, b, q) { def(id, "rate", what, [a, b], function (s) { return [s[a], s[b]]; }, q ? q.fn : function (e) { return e.s[b]; }, q ? q.f : [b]); }
   function qOf(fields, fn) { return { f: fields, fn: fn }; }
   // counts (volume), as the season table names them
-  ["pass_cmp", "pass_yds", "pass_tds", "passing_air_yards", "rush_att", "rush_yds", "rush_tds", "targets", "receptions", "rec_yds", "rec_tds", "receiving_air_yards",
+  ["pass_cmp", "pass_att", "pass_yds", "pass_tds", "passing_air_yards", "rush_att", "rush_yds", "rush_tds", "targets", "receptions", "rec_yds", "rec_tds", "receiving_air_yards",
     "pass_att_i20", "pass_cmp_i20", "pass_tds_i20", "pass_att_ez", "rush_att_i20", "rush_att_i10", "rush_att_i5", "rush_tds_i20", "targets_i20", "targets_i10", "targets_i5", "rec_i20", "rec_tds_i20", "targets_ez",
     "def_tackles_solo", "def_tackles_ast", "def_tfl", "def_sacks", "def_sack_yds", "def_qb_hits", "def_pressures", "def_ints", "def_pass_def", "def_ff", "def_fr", "def_tds",
     "off_snaps", "def_snaps", "st_snaps", "fg_made", "fg_att_0_39", "fg_att_40_49", "fg_att_50_59", "fg_att_60plus", "punts", "punt_inside20"].forEach(function (k) { cnt(k, k); });
   def("total_td", "count", "volume", ["rush_tds", "rec_tds"], sum2("rush_tds", "rec_tds"));
   def("tackles_mfl", "count", "volume", ["def_tackles_total", "def_tackles_ast"], function (s) { var v = s.def_tackles_total - s.def_tackles_ast; return v >= 0 ? v : null; });
   // fewer is better: totals ranked among players over the bar
-  def("pass_ints", "low", "quality", ["pass_ints"], fld("pass_ints"), function (e) { return e.s.pass_att; }, ["pass_att"]);
   def("sacks_taken", "low", "quality", ["pass_sacks"], fld("pass_sacks"), function (e) { return add(e.s.pass_att, e.s.pass_sacks); }, ["pass_att", "pass_sacks"]);
   def("sack_yds", "low", "quality", ["pass_sack_yds"], function (s) { return Math.abs(s.pass_sack_yds); }, function (e) { return add(e.s.pass_att, e.s.pass_sacks); }, ["pass_att", "pass_sacks"]);
-  def("fl_qb", "low", "quality", ["rush_fumbles_lost", "rec_fumbles_lost"], sum2("rush_fumbles_lost", "rec_fumbles_lost"), function (e) { return add(add(e.s.pass_att, e.s.pass_sacks), e.s.rush_att); }, ["pass_att", "pass_sacks", "rush_att"]);
-  def("fl", "low", "quality", ["rush_fumbles_lost", "rec_fumbles_lost"], sum2("rush_fumbles_lost", "rec_fumbles_lost"), function (e) { return add(e.s.rush_att, e.s.receptions); }, ["rush_att", "receptions"]);
+  // R8: fumbles lost are no longer displayed (Keith, display decision only: MFL points still count them), so they have no rank metric or bar here.
   // rates
-  rt("cmp_pct", "quality", "pass_cmp", "pass_att"); rt("ypa", "quality", "pass_yds", "pass_att"); rt("air_per_att", "role", "passing_air_yards", "pass_att");
+  rt("cmp_pct", "quality", "pass_cmp", "pass_att");
+  rt("int_rate", "quality", "pass_ints", "pass_att"); M.int_rate.low = true;   // INT rate: fewer is better
+  rt("ypa", "quality", "pass_yds", "pass_att"); rt("air_per_att", "role", "passing_air_yards", "pass_att");
   rt("ypc", "quality", "rush_yds", "rush_att"); rt("catch_rate", "quality", "receptions", "targets"); rt("y_rec", "quality", "rec_yds", "receptions");
   rt("y_tgt", "quality", "rec_yds", "targets"); rt("adot", "role", "receiving_air_yards", "targets");
   rt("snap_share", "role", "off_snaps", "team_off_snaps", qOf([], function (e) { return e.snap_games; }));
@@ -141,7 +141,7 @@
   }
   // a is strictly better than b (exact: rates are compared by cross-multiplying the sums)
   function better(m, a, b) {
-    if (m.kind === "rate") return a.n * b.d > b.n * a.d;
+    if (m.kind === "rate") return m.low ? a.n * b.d < b.n * a.d : a.n * b.d > b.n * a.d;
     return m.kind === "low" ? a.v < b.v : a.v > b.v;
   }
   function same(m, a, b) { return m.kind === "rate" ? a.n * b.d === b.n * a.d : a.v === b.v; }
@@ -233,9 +233,9 @@
     return "Season stat ranks compare him with every player at his MFL position group (QB, RB, WR, TE, K, P, DL, LB, DB) through the same week as the season figures. " +
       "Tied players share a rank. A rank shows only when no player's incomplete figure could change his place; " +
       "otherwise it is " + DASH + " and Rank details say why, including when it is unknown whether a player with incomplete figures reaches a rate's minimum. " +
-      "An incomplete figure is never counted as zero. Kicking distance bands rank on attempts from that distance, not accuracy. " +
+      "An incomplete figure is never counted as zero; in the Breakdown, " + DASH + " for a stat means it is not recorded (or, for a rate, that there were no attempts), never a zero. Kicking distance bands rank on attempts from that distance, not accuracy. " +
       "Ranks on totals (yards, targets, snaps, tackles), shares and depth (air yards per attempt or target) describe volume or role, not quality. " +
-      "Fewer is better for interceptions, sacks taken, sack yards lost and fumbles lost. " +
+      "Fewer is better for INT rate (interceptions per 100 pass attempts), sacks taken and sack yards lost; the interception count itself is not ranked. " +
       "Rates (and the fewer-is-better totals) rank only players with enough attempts, carries, targets, receptions, punts or snaps of their own, " +
       "a minimum per team game, with a fixed floor for wide receiver and tight end carries (proposed, pending approval); below it the value shows and the rank is " + DASH + ". " +
       "Pressure rate is not ranked: no pass-rush snap count exists.";

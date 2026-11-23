@@ -354,6 +354,8 @@ button.btnrow{cursor:pointer}
 /* --- r6g: the Breakdown (season stats, game log, game detail); main-card rules are above this line --- */
 .bdx{display:flex;flex-direction:column;gap:6px}
 .bdsum{font-size:13px;color:var(--mu)}.bdsum b{color:var(--tx)}
+.bdtab button{font-size:14px}
+.bdid{font-size:13px;font-weight:600;color:var(--tx);overflow-wrap:anywhere}
 .bdr{padding:4px 10px}
 .bdr table{width:100%;border-collapse:collapse;font-size:13px}
 .bdr th{font-size:12px;text-align:left;color:var(--mu);font-weight:600;padding:4px 2px}

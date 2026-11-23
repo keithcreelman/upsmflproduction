@@ -462,6 +462,10 @@ test("R6: the profile's Breakdown shows every settled week, newest first, from t
   const pid = FX.roster_workbench.teams.find((x) => x.franchise_id === "0010").players[0].id;
   await a.click({ "data-act": "card", "data-pid": pid }); await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
   t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], "the season through Week 10 and the live Week 11, once each");
+  // R8: the Breakdown opens on Season stats; the Game log is its other tab (no score or stats read of its own)
+  t.match(a.html(), new RegExp('data-act="bdt" data-v="season" data-pid="' + pid + '" aria-pressed="true"')); t.doesNotMatch(a.html(), /data-act="bdg"/, "Season stats by default: the game log is not stacked under it");
+  const nTab = a.calls.length; await a.click({ "data-act": "bdt", "data-v": "log", "data-pid": pid }); await tick(10);
+  t.equal(a.calls.length, nTab, "switching to Game log makes no read"); t.match(a.html(), new RegExp('data-act="bdt" data-v="log" data-pid="' + pid + '" aria-pressed="true"'));
   const weeks = () => [...a.html().matchAll(/data-act="bdg" data-v="(\d+)"/g)].map((m) => +m[1]).filter((w) => w <= 10);
   t.deepEqual(weeks(), [10, 9, 8, 7, 6, 5, 4, 3, 2, 1], "every settled week, newest first: there is no 'Show earlier weeks' step");
   const box = () => a.calls.filter((c) => c.path === "/api/player-weekly-box");
@@ -524,6 +528,7 @@ test("R6: the profile's Performance tab is the Breakdown, drawn from the same re
   t.equal(a.calls.filter((c) => c.path === "/api/player-weekly-box").length, 0, "and no game stats either");
   await a.click({ "data-act": "ptab", "data-v": "perf" }); await tick(40);
   t.deepEqual(scoreReads(a).sort((x, y) => x - y), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  await a.click({ "data-act": "bdt", "data-v": "log", "data-pid": pid }); await tick(10);   // R8: Season stats | Game log
   t.match(a.html(), /Breakdown/); t.match(a.html(), /Game log/); t.match(a.html(), /<th class="pin">Game<\/th><th class="n">Pts<\/th><th class="n"[^>]*>Rank<\/th><th>Result<\/th>/);
   t.doesNotMatch(a.html(), /xFP|Projection|projected/i, "no expected-points or projection value");
 });
