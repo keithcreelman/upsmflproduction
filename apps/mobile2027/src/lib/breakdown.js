@@ -10,11 +10,12 @@
     req ? require("./format.js") : root.UPS2027.format,
     req ? require("./boxlog.js") : root.UPS2027.boxlog,
     req ? require("./tabviews.js") : root.UPS2027.tabviews,
-    req ? require("./clubhist.js") : root.UPS2027.clubhist
+    req ? require("./clubhist.js") : root.UPS2027.clubhist,
+    req ? require("./statranks.js") : root.UPS2027.statranks
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.breakdown = api; }
-})(typeof self !== "undefined" ? self : this, function (F, BL, TV, CH) {
+})(typeof self !== "undefined" ? self : this, function (F, BL, TV, CH, SR) {
   "use strict";
   var esc = F.esc, DASH = "—", ENDASH = "–";
 
@@ -82,16 +83,39 @@
   function cell(v) { return v == null ? '<td class="n mu">' + DASH + "</td>" : '<td class="n">' + esc(v) + "</td>"; }
   function partShort(r) { return r.part && r.part !== "Played" ? r.part : ""; }
 
+  // ---------- season stat ranks (lib/statranks.js) ----------
+  // The position pool is the Worker's /api/position-season-stats answer for (season, W*, group), kept by app.js in S.intel.pss under
+  // statKey(...) ("2026|10|WR"); the panel names the key it needs in data-pss. -> function (item) -> { text, why } or null (no rank column values).
+  function statKey(S, C, group) { return S.model.season + "|" + C.week + "|" + group; }
+  function statRanker(S, p, C, R) {
+    var group = SR ? SR.groupOf(p.pos) : "";
+    if (!group || !R || !R.to) return null;
+    var rec = S.intel && S.intel.pss ? S.intel.pss[statKey(S, C, group)] : null;
+    if (!rec) return function () { return null; };
+    if (rec.state === "loading") return function () { return { text: "…", why: "Position ranks are loading." }; };
+    if (rec.state !== "ok") return function () { return { text: DASH, why: rec.state === "absent" ? "Position ranks are not in this recording." : "Position ranks did not load." }; };
+    var pool = SR.checkPool(rec.data, S.model.season, C.week, group);
+    if (pool.ok && pool.dataMaxWeek != null && Math.min(C.week, pool.dataMaxWeek) !== R.to) pool = { ok: false, why: "for other weeks" };
+    var cal = S.intel.cal && S.intel.cal.state === "ok" ? S.intel.cal.data : null;
+    var G = SR.teamGames(cal ? cal.days : null, cal ? cal.byeOf : null, C.week);
+    return function (it) { return it.key ? SR.rankOf(pool, p.id, it.key, { group: group, G: G, raw: it.raw }) : null; };
+  }
+  function rankCell(rk) {
+    if (!rk || rk.text === DASH) return '<td class="n rk mu"' + (rk && rk.why ? ' title="' + esc(rk.why) + '"' : "") + ">" + DASH + "</td>";
+    return '<td class="n rk' + (rk.text === "…" ? " mu" : "") + '"' + (rk.why ? ' title="' + esc(rk.why) + '"' : "") + ">" + esc(rk.text) + "</td>";
+  }
+
   // ---------- the season rollup ----------
-  function rollupHtml(R, notes) {
+  function rollupHtml(R, notes, ranker, pssKey) {
     if (!R) return "";
     if (!R.to) return '<div class="ex">No settled week has game stats yet.</div>';
-    var out = '<div class="sec2">Season stats · ' + (R.to > 1 ? "Weeks 1" + ENDASH + R.to : "Week 1") + '</div><div class="card bdr"><table><tr><th>Stat</th><th class="n">Season</th><th class="n">Rank</th></tr>';
+    var out = '<div class="sec2">Season stats · ' + (R.to > 1 ? "Weeks 1" + ENDASH + R.to : "Week 1") + '</div><div class="card bdr"' + (pssKey ? ' data-pss="' + esc(pssKey) + '"' : "") + '><table><tr><th>Stat</th><th class="n">Season</th><th class="n rk">Rank</th></tr>';
     R.sections.forEach(function (sec) {
       out += '<tr class="bdh"><th colspan="3">' + esc(sec.h) + "</th></tr>";
       sec.items.forEach(function (it) {
         var part = it.value != null && it.of != null && it.n != null && it.n < it.of ? "<small>" + it.n + " of " + it.of + " games</small>" : "";
-        out += "<tr><td>" + esc(it.label) + '</td><td class="n">' + (it.value == null ? '<span class="mu">Not available</span>' : "<b>" + esc(it.value) + "</b>" + part) + '</td><td class="n mu">' + DASH + "</td></tr>";
+        var rk = it.value == null || !ranker ? null : ranker(it);
+        out += "<tr><td>" + esc(it.label) + '</td><td class="n">' + (it.value == null ? '<span class="mu">Not available</span>' : "<b>" + esc(it.value) + "</b>" + part) + "</td>" + rankCell(rk) + "</tr>";
       });
     });
     out += "</table></div>";
@@ -157,7 +181,8 @@
       var notes = [];
       if (boxRec.data.through != null && boxRec.data.through < C.week) notes.push("Game stats are in through Week " + boxRec.data.through + ".");
       if (g.kind === "k") notes.push("Missed-kick distances are not in the stats feed.");
-      out += rollupHtml(R, notes);
+      var sg = SR ? SR.groupOf(p.pos) : "";
+      out += rollupHtml(R, notes, statRanker(S, p, C, R), sg ? statKey(S, C, sg) : "");
     }
     // the weekly log
     out += '<div class="sec2">Game log</div>';
@@ -191,5 +216,5 @@
     return out + "</div>";
   }
 
-  return { panel: panel, cutoffOf: cutoffOf, inputFor: inputFor };
+  return { panel: panel, cutoffOf: cutoffOf, inputFor: inputFor, statKey: statKey, statRanker: statRanker };
 });

@@ -232,36 +232,37 @@
     var withBox = settled.filter(function (r) { return !!r.box; }), withRz = settled.filter(function (r) { return !!r.rz; });
     var side = sideOf(g.kind), withSnap = settled.filter(function (r) { var s = snapsOf(r, side); return s != null && s > 0; });
     var nb = withBox.length;
-    function item(label, s, fmt) {   // s: { v, n } from sumOf, over `rowsOf` rows
-      return { label: label, value: s.v == null ? null : fmt ? fmt(s.v) : int(s.v), n: s.n, of: s.of };
+    // key: the stat's id in lib/statranks.js (its position rank), raw: the unformatted season figure (the rank checks the pool's figure against it)
+    function item(label, s, fmt, key) {   // s: { v, n } from sumOf, over `rowsOf` rows
+      return { label: label, value: s.v == null ? null : fmt ? fmt(s.v) : int(s.v), n: s.n, of: s.of, key: key || null, raw: s.v };
     }
-    function S(label, k, from) { var list = from || withBox, s = sumOf(list, function (r) { return from === withRz ? rz(r, k) : bx(r, k); }); s.of = list.length; return item(label, s); }
-    function D(label, get, fmt, from) { var list = from || withBox, s = sumOf(list, get); s.of = list.length; return item(label, s, fmt); }
-    function R(label, top, bot, fmt, from) { var list = from || withBox, r = ratioOf(list, top, bot); return { label: label, value: r.v == null ? null : fmt(r.v), n: r.n, of: list.length }; }
-    function plain(label, value) { return { label: label, value: value, n: null, of: null }; }
+    function S(label, k, from) { var list = from || withBox, s = sumOf(list, function (r) { return from === withRz ? rz(r, k) : bx(r, k); }); s.of = list.length; return item(label, s, null, k); }
+    function D(label, get, fmt, from, key) { var list = from || withBox, s = sumOf(list, get); s.of = list.length; return item(label, s, fmt, key); }
+    function R(label, top, bot, fmt, from, key) { var list = from || withBox, r = ratioOf(list, top, bot); return { label: label, value: r.v == null ? null : fmt(r.v), n: r.n, of: list.length, key: key || null, raw: r.v }; }
+    function plain(label, value) { return { label: label, value: value, n: null, of: null, key: null, raw: null }; }
     function b(k) { return function (r) { return bx(r, k); }; }
     function z(k) { return function (r) { return rz(r, k); }; }
     var snapItems = [
-      D("Snaps", function (r) { return snapsOf(r, side); }, null, withSnap),
-      side === "st" ? null : R("Snap share", function (r) { return snapsOf(r, side); }, function (r) { return teamSnaps(r, side); }, pct, withSnap)
+      D("Snaps", function (r) { return snapsOf(r, side); }, null, withSnap, side + "_snaps"),
+      side === "st" ? null : R("Snap share", function (r) { return snapsOf(r, side); }, function (r) { return teamSnaps(r, side); }, pct, withSnap, side === "def" ? "def_share" : "snap_share")
     ].filter(Boolean);
     var secs = [];
     var longest = function (k) { var m = maxOf(withBox, b(k)); return m == null ? null : plain("Longest", int(m)); };
     if (g.kind === "off" && g.pos === "QB") {
       secs.push({ h: "Passing", items: [
-        (function () { var both = withBox.filter(function (r) { return bx(r, "pass_cmp") != null && bx(r, "pass_att") != null; }); return { label: "Completions/attempts", value: both.length ? int(sumOf(both, b("pass_cmp")).v) + "/" + int(sumOf(both, b("pass_att")).v) : null, n: both.length, of: withBox.length }; })(),
-        R("Completion rate", b("pass_cmp"), b("pass_att"), pct), S("Passing yards", "pass_yds"), R("Yards per attempt", b("pass_yds"), b("pass_att"), function (v) { return v.toFixed(2); }),
-        S("Passing TD", "pass_tds"), S("Interceptions", "pass_ints"), S("Air yards", "passing_air_yards"), R("Air yards per attempt", b("passing_air_yards"), b("pass_att"), function (v) { return v.toFixed(2); }),
-        D("Sacks taken", b("pass_sacks")), D("Sack yards lost", function (r) { var v = bx(r, "pass_sack_yds"); return v == null ? null : Math.abs(v); }), longest("pass_long")].filter(Boolean) });
-      secs.push({ h: "Rushing", items: [S("Carries", "rush_att"), S("Rushing yards", "rush_yds"), S("Rushing TD", "rush_tds"), D("Fumbles lost (not on sacks)", function (r) { return fumblesLost(r.box); })] });
+        (function () { var both = withBox.filter(function (r) { return bx(r, "pass_cmp") != null && bx(r, "pass_att") != null; }), cm = sumOf(both, b("pass_cmp")).v; return { label: "Completions/attempts", value: both.length ? int(cm) + "/" + int(sumOf(both, b("pass_att")).v) : null, n: both.length, of: withBox.length, key: "pass_cmp", raw: both.length ? cm : null }; })(),
+        R("Completion rate", b("pass_cmp"), b("pass_att"), pct, null, "cmp_pct"), S("Passing yards", "pass_yds"), R("Yards per attempt", b("pass_yds"), b("pass_att"), function (v) { return v.toFixed(2); }, null, "ypa"),
+        S("Passing TD", "pass_tds"), D("Interceptions", b("pass_ints"), null, null, "pass_ints"), S("Air yards", "passing_air_yards"), R("Air yards per attempt", b("passing_air_yards"), b("pass_att"), function (v) { return v.toFixed(2); }, null, "air_per_att"),
+        D("Sacks taken", b("pass_sacks"), null, null, "sacks_taken"), D("Sack yards lost", function (r) { var v = bx(r, "pass_sack_yds"); return v == null ? null : Math.abs(v); }, null, null, "sack_yds"), longest("pass_long")].filter(Boolean) });
+      secs.push({ h: "Rushing", items: [S("Carries", "rush_att"), S("Rushing yards", "rush_yds"), S("Rushing TD", "rush_tds"), D("Fumbles lost (not on sacks)", function (r) { return fumblesLost(r.box); }, null, null, "fl_qb")] });
       secs.push({ h: "Usage", items: snapItems.concat([plain("Team PROE", null)]) });
       secs.push({ h: "Red zone", items: [S("Red-zone attempts", "pass_att_i20", withRz), S("Red-zone completions", "pass_cmp_i20", withRz), S("Red-zone passing TD", "pass_tds_i20", withRz), S("End-zone attempts (any distance)", "pass_att_ez", withRz), S("Red-zone carries", "rush_att_i20", withRz), S("Red-zone rushing TD", "rush_tds_i20", withRz)] });
     } else if (g.kind === "off") {
-      var rush = [S("Carries", "rush_att"), S("Rushing yards", "rush_yds"), R("Yards per carry", b("rush_yds"), b("rush_att"), function (v) { return v.toFixed(1); }), S("Rushing TD", "rush_tds"), longest("rush_long")].filter(Boolean);
-      var rec = [S("Targets", "targets"), S("Receptions", "receptions"), S("Receiving yards", "rec_yds"), S("Receiving TD", "rec_tds"), R("Catch rate", b("receptions"), b("targets"), pct),
-        R("Yards per reception", b("rec_yds"), b("receptions"), function (v) { return v.toFixed(1); }), R("Yards per target", b("rec_yds"), b("targets"), function (v) { return v.toFixed(1); }),
-        S("Air yards", "receiving_air_yards"), R("Air yards per target", b("receiving_air_yards"), b("targets"), function (v) { return v.toFixed(1); }), longest("rec_long")].filter(Boolean);
-      var tot = { h: "Totals", items: [D("Total TD (rushing + receiving)", function (r) { return add(bx(r, "rush_tds"), bx(r, "rec_tds")); }), D("Fumbles lost", function (r) { return fumblesLost(r.box); })] };
+      var rush = [S("Carries", "rush_att"), S("Rushing yards", "rush_yds"), R("Yards per carry", b("rush_yds"), b("rush_att"), function (v) { return v.toFixed(1); }, null, "ypc"), S("Rushing TD", "rush_tds"), longest("rush_long")].filter(Boolean);
+      var rec = [S("Targets", "targets"), S("Receptions", "receptions"), S("Receiving yards", "rec_yds"), S("Receiving TD", "rec_tds"), R("Catch rate", b("receptions"), b("targets"), pct, null, "catch_rate"),
+        R("Yards per reception", b("rec_yds"), b("receptions"), function (v) { return v.toFixed(1); }, null, "y_rec"), R("Yards per target", b("rec_yds"), b("targets"), function (v) { return v.toFixed(1); }, null, "y_tgt"),
+        S("Air yards", "receiving_air_yards"), R("Air yards per target", b("receiving_air_yards"), b("targets"), function (v) { return v.toFixed(1); }, null, "adot"), longest("rec_long")].filter(Boolean);
+      var tot = { h: "Totals", items: [D("Total TD (rushing + receiving)", function (r) { return add(bx(r, "rush_tds"), bx(r, "rec_tds")); }, null, null, "total_td"), D("Fumbles lost", function (r) { return fumblesLost(r.box); }, null, null, "fl")] };
       if (g.pos === "RB") { secs.push({ h: "Rushing", items: rush }); secs.push({ h: "Receiving", items: rec }); }
       else { secs.push({ h: "Receiving", items: rec }); secs.push({ h: "Rushing", items: rush }); }
       secs.push(tot);
@@ -270,25 +271,26 @@
         [S("Red-zone carries", "rush_att_i20", withRz), S("Carries inside the 10", "rush_att_i10", withRz), S("Carries inside the 5", "rush_att_i5", withRz), S("Red-zone rushing TD", "rush_tds_i20", withRz), S("Red-zone targets", "targets_i20", withRz), S("Red-zone receiving TD", "rec_tds_i20", withRz)] :
         [S("Red-zone targets", "targets_i20", withRz), S("Targets inside the 10", "targets_i10", withRz), S("Targets inside the 5", "targets_i5", withRz), S("Red-zone receptions", "rec_i20", withRz), S("Red-zone receiving TD", "rec_tds_i20", withRz), S("End-zone targets (any distance)", "targets_ez", withRz)] });
     } else if (g.kind === "idp") {
-      secs.push({ h: "Tackles", items: [S("Solo tackles", "def_tackles_solo"), S("Assists", "def_tackles_ast"), D("Tackles as MFL scores them", function (r) { return scoredTackles(r.box); }), S("Tackles for loss", "def_tfl")] });
+      secs.push({ h: "Tackles", items: [S("Solo tackles", "def_tackles_solo"), S("Assists", "def_tackles_ast"), D("Tackles as MFL scores them", function (r) { return scoredTackles(r.box); }, null, null, "tackles_mfl"), S("Tackles for loss", "def_tfl")] });
       secs.push({ h: "Pass rush", items: [S("Sacks", "def_sacks"), S("Sack yards", "def_sack_yds"), S("QB hits", "def_qb_hits"), S("Pressures", "def_pressures")] });
       secs.push({ h: "Takeaways and passes", items: [S("Interceptions", "def_ints"), S("Passes defended", "def_pass_def"), S("Forced fumbles", "def_ff"), S("Fumble recoveries", "def_fr"), S("Defensive TD", "def_tds")] });
-      secs.push({ h: "Usage", items: snapItems.concat([D("Special-teams snaps", function (r) { return snapsOf(r, "st"); }, null, settled.filter(function (r) { return !!r.snaps; }))]) });
+      secs.push({ h: "Usage", items: snapItems.concat([D("Special-teams snaps", function (r) { return snapsOf(r, "st"); }, null, settled.filter(function (r) { return !!r.snaps; }), "st_snaps")]) });
     } else if (g.kind === "k") {
       // made/attempted over the weeks where both are recorded; 0/0 is a real answer (no attempt from that distance), a week with neither is not counted
-      var ma = function (m, a) {
-        var both = withBox.filter(function (r) { return bx(r, m) != null && bx(r, a) != null; });
-        return { label: null, value: both.length ? int(sumOf(both, b(m)).v) + "/" + int(sumOf(both, b(a)).v) : null, n: both.length, of: withBox.length };
+      // key: the made/attempted row of all field goals ranks on field goals made (volume); a distance band or extra points rank on the make rate
+      var ma = function (m, a, key, rate) {
+        var both = withBox.filter(function (r) { return bx(r, m) != null && bx(r, a) != null; }), mv = sumOf(both, b(m)).v, av = sumOf(both, b(a)).v;
+        return { label: null, value: both.length ? int(mv) + "/" + int(av) : null, n: both.length, of: withBox.length, key: key, raw: !both.length ? null : rate ? (av > 0 ? mv / av : null) : mv };
       };
-      var fg = ma("fg_made", "fg_att"); fg.label = "Field goals made/attempted";
-      var b1 = ma("fg_made_0_39", "fg_att_0_39"); b1.label = "0 to 39 yards";
-      var b2 = ma("fg_made_40_49", "fg_att_40_49"); b2.label = "40 to 49 yards";
-      var b3 = ma("fg_made_50_59", "fg_att_50_59"); b3.label = "50 to 59 yards";
-      var b4 = ma("fg_made_60plus", "fg_att_60plus"); b4.label = "60 yards or more";
-      var xp = ma("xp_made", "xp_att"); xp.label = "Extra points made/attempted";
-      secs.push({ h: "Kicking", items: [fg, R("Field goal rate", b("fg_made"), b("fg_att"), pct), b1, b2, b3, b4, xp, longest("fg_long")].filter(Boolean) });
+      var fg = ma("fg_made", "fg_att", "fg_made"); fg.label = "Field goals made/attempted";
+      var b1 = ma("fg_made_0_39", "fg_att_0_39", "fg_pct_0_39", true); b1.label = "0 to 39 yards";
+      var b2 = ma("fg_made_40_49", "fg_att_40_49", "fg_pct_40_49", true); b2.label = "40 to 49 yards";
+      var b3 = ma("fg_made_50_59", "fg_att_50_59", "fg_pct_50_59", true); b3.label = "50 to 59 yards";
+      var b4 = ma("fg_made_60plus", "fg_att_60plus", "fg_pct_60plus", true); b4.label = "60 yards or more";
+      var xp = ma("xp_made", "xp_att", "xp_pct", true); xp.label = "Extra points made/attempted";
+      secs.push({ h: "Kicking", items: [fg, R("Field goal rate", b("fg_made"), b("fg_att"), pct, null, "fg_pct"), b1, b2, b3, b4, xp, longest("fg_long")].filter(Boolean) });
     } else if (g.kind === "p") {
-      secs.push({ h: "Punting", items: [S("Punts", "punts"), R("Gross average", b("punt_yds"), b("punts"), function (v) { return v.toFixed(1); }), S("Inside 20", "punt_inside20"), R("Inside 20 rate", b("punt_inside20"), b("punts"), pct)] });
+      secs.push({ h: "Punting", items: [S("Punts", "punts"), R("Gross average", b("punt_yds"), b("punts"), function (v) { return v.toFixed(1); }, null, "gross"), S("Inside 20", "punt_inside20"), R("Inside 20 rate", b("punt_inside20"), b("punts"), pct, null, "i20_pct")] });
     }
     return { from: 1, to: upTo, games: nb, settledWeeks: settled.length, sections: secs, through: box.through };
   }
