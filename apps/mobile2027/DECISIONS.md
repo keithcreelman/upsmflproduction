@@ -37,26 +37,40 @@ Status words: **In force** (built or to be built as stated), **Proposed** (a num
   - **Contract Type:** Veteran / Rookie.
   - **Contract Source:** a readable acquisition source, e.g. Rookie Draft, FA Auction, Expired Rookie Auction, Waiver Wire (including FCFS).
   - Extensions and tags are identified separately; the original acquisition is preserved.
-  - **Salary structure:** Flat / Front-loaded / Back-loaded.
+  - **Loading classification** (R10 label; R8/R9 "Salary structure"): Flat / Front-loaded / Back-loaded.
   - Missing metadata reads "Not recorded".
   - *Supersedes:* internal codes such as "Vet-FAA-FL", and any "Contract Loaded: Yes/No".
 - **Extension schedule and attribution (R7, in force).** The schedule follows the current contract from the extension's first season. "Extended by [team] · [year]" comes from the contract's own Ext record, never the current owner. Nine contracts have no supported year: they show the team without a year, and the dates are backlogged on #1503.
 - **Traded salary (R8, in force).** Each entry shows the verified opposing UPS team, the full trade date and the signed amount, linked from transaction evidence. Multi-team trades show only supported counterparties. An adjustment that can't be linked shows its amount with "Trade details not recorded", and is reported on #1503. In the 2026-11-22 recording all 17 are unlinked, because no trade transactions were recorded; the settlement text is not used.
-- **Salary structure for a plain one-year extension with uneven salaries** (e.g. $1K then $11K) reads "Flat", per the §C2 ruling of 2026-09-29. R9 adds the line "Rule classification; the yearly salaries differ." to the 16 affected contracts (option A, proposed). Options B and C await Keith's choice.
+- **Loading classification for a plain one-year extension (R10, Keith 2026-11-23, in force).** Every plain (unsuffixed) Ext1 reads "Loading classification: Flat (one-year extension)", per the §C2 ruling of 2026-09-29 (18 contracts in the recording, Rico Dowdle among them). Every other contract reads the classification alone. There is no note about unequal salaries. *Supersedes:* the R9 line "Rule classification; the yearly salaries differ." (option A) and options B/C.
 - **Contracts sorting and layout (R9, in force).**
   - The sorts are Contract exp. | Salary | Position | Name, with Contract exp. as the default.
   - Position draws grouped sections in league order.
   - Name sorts by surname, then given name, using MFL's "Last, First" field; suffixes are ignored for ordering and multi-word surnames stay whole.
   - "If cut now" and the salary-year headings sit inside the list container, aligned with the amounts.
   - Expanded details get a light inset band, not a nested box.
-  - A Salary structure filter (All / Flat / Front-loaded / Back-loaded) is keyed on the league's rule classification, separate from Contract Type.
-- **AAV (R9, in force).** Recorded AAV is shown by year. AAV amounts roll forward (Keith 2026-07-22, canon §C4): the current year keeps the old AAV and the added years get the new one. AAV is never total value ÷ years. A mapping the rules don't settle reads "Recorded: … · years not mapped".
+  - A Loading filter (R10 label; R9 "Salary structure") with All / Flat / Front-loaded / Back-loaded is keyed on the league's rule classification, separate from Contract Type. A plain Ext1 is in Flat.
+- **AAV (R9, in force; year support tightened in R10).** Recorded AAV is shown by year. AAV amounts roll forward (Keith 2026-07-22, canon §C4): the current year keeps the old AAV and the added years get the new one. AAV is never total value ÷ years. A mapping the rules don't settle reads "Recorded: … · years not mapped".
+  - **R10 (Keith 2026-11-23): a year gets an AAV only when supported.** The first tier is this season's. A later year is shown only when the structure places it (no extension: the AAV is fixed at signing; an extension: the remaining years are its added years, or it was made this season with two tiers) **and** the recorded TCV agrees (AAV × CL; N × AAV; or Y1 + N × AAV). A restructured extension is placed by structure alone, because a restructure re-bases TCV and keeps the AAV verbatim (§C5.1). Without that support only this season shows, and the later years read "YYYY · not mapped".
+  - Verified over all 486 recorded contracts: 0 changed from R9. 467 pass the TCV check and 19 restructured extensions are placed by structure; nothing is left current-year-only. Two value oddities are reported, not changed: Tee Higgins (AAV $47K against $24K/$24K) and Courtland Sutton (AAV $20K against $15K/$15K).
 - **Contract source and history (R9, in force).**
   - An extension that begins the current contract reads "Contract source: Extension". The prior acquisition shows separately as "Acquired".
   - **Contract history** is collapsed and sits below the schedule and facts. It lists acquisition, the teams in the extension record, restructures and tags, by season only. Derived seasons say so, and incomplete history is marked once.
   - Trades and restructures never add an extending team. Extension eligibility is not shown (no shared eligibility logic in the app).
   - *Supersedes:* the R8 "Later changes: Extended 1 year" line.
-- **Restructure-derived extension years (R9, in force).** For the 10 contracts whose extension year is worked out from restructured terms, the app shows "Extended · year · extending team not verified". It never asserts the last name in the extension record as the extender of the contract in force: original records show that name is wrong for London, Cook, Love and Hurts (#1503 D6). *Supersedes, for these 10:* the R7 "Extended by [last Ext team] · [year]".
+- **Restructure-derived extension years (R9, in force as the fallback; for the 10 recorded contracts superseded by the R10 reviewed rows below).** For the 10 contracts whose extension year is worked out from restructured terms, the app shows "Extended · year · extending team not verified". It never asserts the last name in the extension record as the extender of the contract in force: original records show that name is wrong for London, Cook, Love and Hurts (#1503 D6). *Supersedes, for these 10:* the R7 "Extended by [last Ext team] · [year]".
+  - **R10 reviewed attributions (Keith 2026-11-23, in force).** `lib/reviewed_extensions.js` is a frozen list of 10 rows, checked against original records (D1 extension, restructure and three-way-trade rows by id; MFL season exports). It applies only when the player id, contract type and full contract text exactly equal the current contract. The line then reads "Extended by <team> · <season>":
+    - London: C-Town Chivalry · 2026 (pre-trade extension)
+    - Cook: C-Town Chivalry · 2026
+    - Love: CBP · 2026
+    - Hurts: The Long Haulers · 2026
+    - Darnold: Gride · 2026
+    - Smith-Njigba: C-Town Chivalry · 2025
+    - Higgins: C-Town Chivalry · 2025
+    - Mason: The Long Haulers · 2025
+    - Walker III: Real Deal Creel · 2026
+    - Sutton: L.A. Looks · 2025
+  - In the Contract history, the token's other names stay undated "(in the extension record)" events. A changed contract, or any restructure-derived contract without a row, still reads "extending team not verified". **This is display only: the contract data is unchanged.** The Ext: tokens that omit the 2026 extenders of London, Cook, Love and Hurts await Keith's decision on a correction. Adding or changing a row needs a new evidence check and Keith's go (test: `tests/mobile2027_reviewed_extensions.test.mjs` against `tests/fixtures/mobile2027/reviewed_extensions.json`).
 
 ## Team › Performance and Breakdown
 - **Shared settled-week cutoff W\*** applies to every season figure and rank (R7, in force).
