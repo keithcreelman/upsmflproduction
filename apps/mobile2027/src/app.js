@@ -48,6 +48,7 @@
     ct: { f: "all", l: "all", s: "exp", y: 0, d: 1, open: {}, hist: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the salary structure filter (R9); the sort (exp | sal | pos | name), which Contract histories are open (R9), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
     pf: { s: "pos", open: {}, res: {}, q: "", pos: "all", xt: false, xpos: "all", note: null }, // Team › Performance: the sort (pos | tot | ppg), which rows are open, which reserve groups are open, the name search (R8), the position filter and "Search other teams" (R9)
+    plans: {}, planPick: null, // R12: Lineup planner plans by team ({ week, base, draft }), in this page's memory only: never stored, never sent; the slot whose choices are open
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
@@ -499,6 +500,24 @@
     var t = S.model && S.model.teams.filter(function (x) { return x.id === S.teamId; })[0], r = U.tabviews.pfTeamSwitch(S, t);
     S.pf.pos = r.pos; S.pf.note = r.note;
   }
+  // ---- R12: the Lineup planner (plan only: nothing here reads, writes, stores or sends anything) ----
+  function curTeam() { return S.model ? S.model.teams.filter(function (x) { return x.id === S.teamId; })[0] || S.model.teams[0] : null; }
+  function planOpen(slotId) {
+    var t = curTeam(), P = U.planner;
+    if (!t || !P || !P.slotById(slotId) || S.view !== "lineup" || S.wk != null) return;   // current week, Lineup view only
+    S.planPick = slotId; S.sheet = "plan"; render();
+  }
+  function planPick(pid) {
+    var t = curTeam(), P = U.planner, slotId = S.planPick;
+    if (!t || !P || !slotId) return;
+    var D = P.draftOf(S, t); if (!D.ok) return;
+    var O = P.options(S, t, D.draft, slotId), c = O.blocked ? null : O.choices.filter(function (x) { return String(x.p.id) === String(pid) && x.ok; })[0];
+    if (!c) return;                                                         // only a listed, allowed choice is ever applied
+    var next = P.apply(D.draft, slotId, String(pid));
+    if (P.sig(next) === P.sig(D.base)) delete S.plans[t.id];               // back to the recorded lineup: no plan left
+    else S.plans[t.id] = { week: S.model.week, base: P.sig(D.base), draft: next };
+    S.planPick = null; S.sheet = null; render(true);
+  }
   function returnFromProfile() {
     var r = S.ret; S.ret = null;
     if (r && r.teamId && S.model && S.model.teams.some(function (t) { return t.id === r.teamId; })) S.teamId = r.teamId;
@@ -590,6 +609,9 @@
     else if (act === "expall") { var keys = groupKeys(), all = keys.every(function (k) { return U.views.isOpen(S, k); }); keys.forEach(function (k) { S.open[k] = !all; }); render(true); }
     else if (act === "card") openProfile(el.getAttribute("data-pid"), false, el.getAttribute("data-x") === "1");
     else if (act === "close") closeLayer();
+    else if (act === "plan") planOpen(v);
+    else if (act === "planpick") planPick(v);
+    else if (act === "planreset") { var tr = curTeam(); if (tr && S.plans) delete S.plans[tr.id]; render(true); }
     else if (act === "teams") { S.sheet = "teams"; render(); }
     else if (act === "pickteam") { S.teamId = el.getAttribute("data-fid"); setPref("team", S.teamId); S.open = {}; S.sheet = null; pfOnTeam(); render(); }
     else if (act === "about") { S.sheet = "about"; render(); }

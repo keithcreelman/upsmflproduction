@@ -355,7 +355,8 @@
         (SR && SR.helpText ? h("Season stat ranks", esc(SR.helpText())) : "");
     }
     if (sub === "cap") return h("Cap & picks", "Not in this preview.");
-    return h("Recorded starters", "A past week shows the starters and scores MFL recorded. Slots, positions, bench, injured reserve, taxi, injuries and contracts are shown for the current week only.") +
+    return h("Lineup planner", "Plan only, never submitted. On this week’s Lineup, tap a position badge to see who can play that slot and try a change: a bench player swaps in, or two starters trade slots when each fits the other’s slot (Flex, Superflex and Defensive flex included). The rules are the current app’s: a slot takes only its own positions, a player on injured reserve, taxi or a bye can’t start, and once a player’s game has started he can’t be moved in or out. One player is never in two slots. Reset returns to the lineup MFL has. The plan stays on this page (across teams, tabs and profiles) until you reset it, reload or close the page. Nothing is saved or sent to MFL; to change your real lineup, use MFL or the current app.") +
+      h("Recorded starters", "A past week shows the starters and scores MFL recorded. Slots, positions, bench, injured reserve, taxi, injuries and contracts are shown for the current week only.") +
       h("Can’t check", "MFL lists this player as a starter but he is not in the roster that loaded. His position, slot and status are unknown, so nothing is checked for him. Everyone else is still checked.") +
       h("Doubtful", "A decision may be needed. It does not mean the player is out.") +
       h("Kickoff", "Every matchup shows its kickoff in Eastern Time.");

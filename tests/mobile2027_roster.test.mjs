@@ -86,7 +86,7 @@ test("Lineup view, current week: slot tags, opponent and kickoff (ET) on every r
   const S = state(intel), html = V.rosterBody(S);
   t.match(html, /Starting lineup · 18\/18/);
   // R6: each badge keeps its text label; a flex badge prints its label in <b> with the occupying player's position under it
-  const tags = [...html.matchAll(/<span class="tag sl[^"]*"(?: role="img" aria-label="[^"]*")?>(?:<b>)?([A-Z0-9]+)(?:<\/b>|<\/span>)/g)].map((m) => m[1]);
+  const tags = [...html.matchAll(/<(?:span|button) class="tag sl[^"]*"(?: role="img")?(?: data-act="plan" data-v="[^"]*")?(?: aria-label="[^"]*")?>(?:<b>)?([A-Z0-9]+)(?:<\/b>|<\/span>|<\/button>)/g)].map((m) => m[1]);
   t.deepEqual(tags, R.SLOTS.map((s) => s.tag), "all 18 slots, in order");
   const qb = R.lineupFor(S, S.model.teams.find((x) => x.id === TEAM), 11).slots[0].player;
   const first = text(html).match(new RegExp(qb.name + " " + qb.nflTeam + " · (vs|@) \\w+ · \\w{3} \\d{1,2}:\\d{2} [AP]M ET"));
@@ -376,7 +376,7 @@ test("MAT-2 (Codex, 4951dfce): a past week lists the recorded starters in the re
   t.match(text(base), /Listed in the order MFL recorded them\. Slots and positions are not shown for a past week/);
   // the current week is unchanged: slots, empty slots and the filled count are still built from today's positions
   const curBase = V.rosterBody(state(intel));
-  t.match(curBase, /class="tag sl ps QB">QB1</); t.match(text(curBase), /Starting lineup · 18\/18/);
+  t.match(curBase, /class="tag sl ps QB pbt" data-act="plan" data-v="QB1"[^>]*>QB1</); t.match(text(curBase), /Starting lineup · 18\/18/);
   const dbNow = cur.slots.map((x) => x.player).find((p) => p.pos === "DB");
   t.notEqual(V.rosterBody(state(intel, { model: mv(dbNow.id, "LB") })), curBase, "the current week still follows today's positions");
 });

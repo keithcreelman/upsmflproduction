@@ -32,7 +32,7 @@ export const MODE = "preview";
 
 export const FILES = [
   "index.html", "styles.css", "team-colors.css", "config.js", "recorded_data.js", "app.js", "_headers",
-  "lib/format.js", "lib/reviewed_extensions.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/coverage.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/oppctx.js", "lib/breakdown.js", "lib/views.js",
+  "lib/format.js", "lib/reviewed_extensions.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/planner.js", "lib/coverage.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/oppctx.js", "lib/breakdown.js", "lib/views.js",
 ];
 
 // Shared modules taken from site/shared/ unchanged: the contract-window rules and the taxi rule, which the next stages need.

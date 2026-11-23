@@ -54,7 +54,7 @@ function state(over) {
     requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
   };
 }
-const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "ctl", "cts", "cty", "ctx", "cth", "pfs", "pfx", "pfres", "retryperf", "help", "ctbd", "ctcat", "nsx", "retryns", "bdv", "bdg", "retrybox", "retrylog"];
+const ALLOWED_ACTS = ["plan", "planpick", "planreset", "nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "ctl", "cts", "cty", "ctx", "cth", "pfs", "pfx", "pfres", "retryperf", "help", "ctbd", "ctcat", "nsx", "retryns", "bdv", "bdg", "retrybox", "retrylog"];
 const findPlayer = (pred) => allPlayers().find(pred);
 
 // ───────────────────────── 1. contract text and schedule ─────────────────────────
