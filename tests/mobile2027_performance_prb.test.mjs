@@ -393,7 +393,9 @@ test("exponent and hexadecimal score text end to end: the player's totals, per-g
     const total = sum - w3 + (bad === "1e3" ? 1000 : 16), perGame = total / mine.length;
     [total, perGame].forEach((n) => { const a = n.toFixed(1), b = n.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 }); t.ok(!p.includes(a) && !p.includes(b), bad + ": the value " + a + " is not shown in his row"); if (bad === "1e3") t.ok(!tx.includes(a) && !tx.includes(b), bad + ": the value " + a + " appears nowhere on the screen"); });
     t.match(p, /Tot\. Pts\.\s+—\s+—/, bad + ": season points withheld"); t.match(p, /Actual PPG\s+—\s+—/, bad + ": per-game withheld"); t.match(p, /1 score could not be read/);
-    t.doesNotMatch(p, /QB ?\d+(–\d+)?/, bad + ": no season or per-game rank for him");
+    // R6 integration: the opened Breakdown now holds the weekly game log, whose exact weekly rank of a week with a readable score is a different fact and stays
+    t.doesNotMatch(text(row(html, ID.purdy).split('<div class="bdx"')[0]), /QB ?\d+(–\d+)?/, bad + ": no season or per-game rank for him");
+    t.doesNotMatch(text(row(html, ID.purdy)), /QB ?\d+ of|QB ?\d+–\d+/, bad + ": no season or per-game rank (with a pool or a range) anywhere in his card or Breakdown");
   }
   // his competitors: he is an unplaced competitor who could be ahead of every QB (not a definite 1,227-point season, and not ignored)
   const sc = clone(FX4.scores); sc["3"] = sc["3"].map((x) => (x.id === ID.purdy ? { id: x.id, score: "1e3" } : x));

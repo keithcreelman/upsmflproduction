@@ -89,6 +89,7 @@
     if (S.sample.on || !S.model) return;
     var ids = {};
     if (S.profile && S.profile.tab === "perf" && S.profile.pid) ids[S.profile.pid] = true;   // the profile's Performance tab is a Breakdown
+    if (S.tab === "team" && S.sub === "performance" && S.pf && S.pf.open) Object.keys(S.pf.open).forEach(function (pid) { if (S.pf.open[pid]) ids[pid] = true; });   // an open Breakdown on a Team › Performance card
     Array.prototype.forEach.call(appEl.querySelectorAll("[data-bdpid]") || [], function (el) { var v = el.getAttribute("data-bdpid"); if (v) ids[v] = true; });   // any other call site
     Object.keys(ids).forEach(function (pid) { ensureBox(pid, false); });
   }

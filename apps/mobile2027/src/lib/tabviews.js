@@ -683,12 +683,16 @@
   function metric(label, value, rank, cls) {
     return '<div class="' + cls + '"><span>' + esc(label) + "</span><b>" + value + "</b>" + (rank == null ? "" : '<em aria-label="' + esc(label) + " rank " + esc(rank === DASH ? "not available" : rank) + '">' + esc(rank) + "</em>") + "</div>";
   }
-  // The Breakdown (r6g builds it in its own module and sets tabviews.breakdown). Until then this stub shows the long rank text; it never repeats the card's figures.
-  function breakdownStub(S, id, ctx) {
+  // The main card's Breakdown, opened in place: the rank detail the card abbreviates (the pool, a range, or why a rank is not shown), then the Breakdown
+  // itself (lib/breakdown.js: season stats, the weekly game log, each game's detail) WITHOUT its summary line, because the card above already shows
+  // Tot. Pts. and the scored games. Same cutoff W* as the card (the Breakdown reads seasonCutoff).
+  function breakdown(S, id, ctx) {
     ctx = ctx || perfCtx(S, [id]);
+    var p = S.model && S.model.byId[id];
     var f = ctx && ctx.read === "ok" ? statFigures(S, id, ctx.rank, !!ctx.histOff) : null;
     var lines = f ? f.detail : [];
-    return '<div class="det pfbd">' + (lines.length ? '<div class="kv">' + lines.map(function (d) { return "<b>" + esc(d[0]) + "</b><span>" + esc(d[1]) + "</span>"; }).join("") + "</div>" : '<div class="ex mu">No breakdown yet.</div>') + "</div>";
+    return '<div class="det pfbd">' + (lines.length ? '<div class="kv">' + lines.map(function (d) { return "<b>" + esc(d[0]) + "</b><span>" + esc(d[1]) + "</span>"; }).join("") + "</div>" : "") +
+      (p ? gameLog(S, p, { summary: false }) : "") + "</div>";
   }
   function perfRow(S, p, ctx) {
     var open = !!pfState(S).open[p.id], nm = esc(p.name), g = figs(S, p, ctx), lc = liveChip(S, p, ctx);
@@ -768,13 +772,13 @@
     if (ev.reason === "stale") return { text: ev.banner.text + ", so PPG ranks are not shown.", warn: true };
     return { text: "Team history unavailable" + (HIST_WHY[ev.reason] ? ": " + HIST_WHY[ev.reason] : "") + ". PPG ranks are not shown.", warn: true };
   }
-  // The exports the Breakdown and the tests read (merged into this file's API below). `breakdown` is the call site's only dependency on r6g.
-  var PERF_API = { seasonCutoff: seasonCutoff, statFigures: statFigures, perfCtx: perfCtx, perfFigures: function (S, id) { var p = S.model && S.model.byId[id], ctx = p ? perfCtx(S, [id]) : null; return ctx && ctx.read === "ok" && ctx.input.latestFinal ? figs(S, p, ctx) : null; }, modelSlots: modelSlots, projectionSlot: projectionSlot, breakdown: breakdownStub };
+  // The exports the Breakdown and the tests read (merged into this file's API below).
+  var PERF_API = { seasonCutoff: seasonCutoff, statFigures: statFigures, perfCtx: perfCtx, perfFigures: function (S, id) { var p = S.model && S.model.byId[id], ctx = p ? perfCtx(S, [id]) : null; return ctx && ctx.read === "ok" && ctx.input.latestFinal ? figs(S, p, ctx) : null; }, modelSlots: modelSlots, projectionSlot: projectionSlot, breakdown: breakdown };
 
   // ============================== profile game log ==============================
   // R6: the game log is the Breakdown (lib/breakdown.js): the season stats, the weekly log in position-specific views and each game's detail.
   // breakdown.js is loaded after this file and depends on it, so it is found when the log is drawn (CommonJS in tests, the page's UPS2027 namespace otherwise).
-  // A call site in this file (the main card's Breakdown control) can use gameLog(S, p, { summary: false }).
+  // The main card's Breakdown control (breakdown above) calls gameLog(S, p, { summary: false }).
   // The weeks the season needs (Week 1 to the cutoff): every one is a Performance read already, so the log adds no score read of its own.
   function logWeeks(L) { var w = []; for (var i = 1; i <= L; i++) w.push(i); return w; }
   function breakdownApi() {
