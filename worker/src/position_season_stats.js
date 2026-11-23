@@ -50,7 +50,7 @@
 //   per stamp change, at most one per POSITION_STATS_TTL_S otherwise.
 
 export const POSITION_STATS_TTL_S = 21600;
-const QUERY_VERSION = "2";
+const QUERY_VERSION = "3";
 
 export const POSITION_GROUPS = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"];
 const GROUP_OF = { QB: "QB", RB: "RB", WR: "WR", TE: "TE", PK: "PK", PN: "PN", DE: "DL", DT: "DL", LB: "LB", CB: "DB", S: "DB" };
@@ -71,6 +71,10 @@ const RZ_COLS = ["targets_i20", "targets_i10", "targets_i5", "targets_ez", "rec_
 // Every counter fetch_nflverse_pbp.py rz_bucket() initializes to 0 (0007 + 0169): a proven-zero week is 0 in each.
 export const PLAYER_RZ_COUNT_COLS = ["rush_att_i20", "rush_att_i10", "rush_att_i5", "rush_yds_i20", "rush_tds_i20", "targets_i20", "targets_i10",
   "targets_i5", "targets_ez", "rec_i20", "rec_tds_i20", "pass_att_i20", "pass_tds_i20", "pass_att_ez", "pass_cmp_i20", "sacks_i20"];
+
+// Red-zone coverage basis while proof comes from the nfl_team_weekly marker (PR #1500 design: "inferred").
+export const RZ_BASIS = "inferred";
+export const RZ_MARKER_SOURCE = "nfl_team_weekly.rz_pass_att";
 
 const OFF = { box: [...PASS, ...RUSH, ...REC], ext: ["pass_first_downs", "rush_first_downs", "rec_first_downs"], rz: RZ_COLS };
 const FIELDS = {
@@ -214,6 +218,10 @@ export function buildGroups({ box, ext, rz, snaps, map, rzMarks = null }, season
     groups[g] = { ok: true, season, through, group: g, data_max_week: maxWeek || null, unmapped_box_players: unmappedBox.size,
       ambiguous_ids: Object.values(byGsis).filter((x) => x.ambiguous).length,
       non_box_rows: nonBox, rz_proven_team_weeks: marked ? marked.size : null,
+      // How red-zone zeros were proven. "inferred" = from the nfl_team_weekly side-effect marker; becomes
+      // "verified" once the PBP load record (PBP_LOAD_RECORD.md, PR #1500) exists. "unavailable" = the
+      // marker or red-zone read failed, so nothing was zero-filled.
+      rz_coverage: { basis: marked ? RZ_BASIS : "unavailable", source: RZ_MARKER_SOURCE, team_weeks: marked ? marked.size : null },
       fields: [...FIELDS[g].box, ...FIELDS[g].ext, ...FIELDS[g].rz], players: groups[g].players };
   }
   return groups;

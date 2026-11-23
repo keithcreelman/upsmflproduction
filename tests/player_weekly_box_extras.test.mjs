@@ -357,13 +357,13 @@ test("route: position stats read the PBP marker by its primary key; weekly box z
   const v = await box(d1, P.wr[0]);
   t.equal(v.status, 200);
   const byW = Object.fromEntries(v.json.weeks.map((w) => [w.week, w.redzone]));
-  t.deepEqual(byW[2], { season: 2026, week: 2, gsis_id: P.wr[1], ...RZ0, proven_zero: true });
+  t.deepEqual(byW[2], { season: 2026, week: 2, gsis_id: P.wr[1], ...RZ0, proven_zero: true, rz_basis: "inferred" });
   t.equal(byW[1].targets_i20, 2); t.equal(byW[1].proven_zero, undefined);      // a stored row is returned as stored
   t.equal(byW[4], null);                                                         // PFR-only week: never zero-filled
   // RB 2004 week 2 BUF: no rz row and no marker (rz_pass_att NULL) → stays null
   const rb = await box(d1, P.rb[0]);
   t.equal(rb.json.weeks.find((w) => w.week === 2).redzone, null);
-  t.deepEqual(rb.json.weeks.find((w) => w.week === 1).redzone, { season: 2026, week: 1, gsis_id: P.rb[1], ...RZ0, proven_zero: true });
+  t.deepEqual(rb.json.weeks.find((w) => w.week === 1).redzone, { season: 2026, week: 1, gsis_id: P.rb[1], ...RZ0, proven_zero: true, rz_basis: "inferred" });
   // the pool: WR 2002 through 4 has 3 games (the PFR-only week is not one), and week 2 counts as a red-zone zero
   const wr = await get(d1, "/api/position-season-stats?season=2026&through=4&group=WR");
   const jw = wr.json.players.find((p) => p.mfl_id === "2002");
@@ -371,6 +371,13 @@ test("route: position stats read the PBP marker by its primary key; weekly box z
   t.equal((jw.cov || {}).targets_i20, undefined);                                // wk 1 row, wk 2 proven 0, wk 3 row: complete (was cov 2)
   t.equal(jw.cov.targets_ez, 2);                                                 // wk 3's stored NULL stays missing
   t.equal(wr.json.non_box_rows, 2); t.equal(wr.json.rz_proven_team_weeks, 3);   // his week 4 + the team-less CB row (all mapped groups)
+  // coverage basis label (PR #1500 design): the marker is "inferred" until the PBP load record exists
+  t.deepEqual(wr.json.rz_coverage, { basis: "inferred", source: "nfl_team_weekly.rz_pass_att", team_weeks: 3 });
+  d1.raw.exec("ALTER TABLE nfl_team_weekly RENAME TO ntw_hidden");
+  const wrNo = await get(d1, "/api/position-season-stats?season=2026&through=4&group=WR");
+  t.deepEqual(wrNo.json.rz_coverage, { basis: "unavailable", source: "nfl_team_weekly.rz_pass_att", team_weeks: null });
+  t.equal(wrNo.json.players.find((p) => p.mfl_id === "2002").cov.targets_i20, 2);   // no marker read → week 2 missing again
+  d1.raw.exec("ALTER TABLE ntw_hidden RENAME TO nfl_team_weekly");
   // a failed marker read: no zero fill, every absent week missing
   d1.raw.exec("DROP TABLE nfl_team_weekly");
   const v2 = await box(d1, P.wr[0]);

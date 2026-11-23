@@ -76,7 +76,7 @@ import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
 import { loadPlayerStatus } from "./player_status.js";
 import { seasonTeamSnaps, coversPlayer } from "./team_snaps_season.js";
 import { seasonTeamTotals, coversTeams, totalsMap, TEAM_TOTALS_JOIN_SQL } from "./team_totals_season.js";
-import { positionSeasonStats, POSITION_GROUPS, PLAYER_RZ_COUNT_COLS } from "./position_season_stats.js";
+import { positionSeasonStats, POSITION_GROUPS, PLAYER_RZ_COUNT_COLS, RZ_BASIS } from "./position_season_stats.js";
 import { readProjections, parseIds as parsePlayerIds, MAX_IDS as MAX_PROJECTION_IDS } from "./player_projections.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
@@ -20331,6 +20331,7 @@ export default {
               const z = { season, week: Number(r.week), gsis_id: gsis };
               for (const c of PLAYER_RZ_COUNT_COLS) z[c] = 0;
               z.proven_zero = true;
+              z.rz_basis = RZ_BASIS;   // "inferred" (nfl_team_weekly marker) until the PBP load record exists
               at(r.week).redzone = z;
             }
           }
