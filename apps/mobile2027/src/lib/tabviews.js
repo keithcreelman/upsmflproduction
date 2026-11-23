@@ -758,33 +758,18 @@
   }
 
   // ============================== profile game log ==============================
-  // The profile's last four weeks: Week and Points, with a BYE only where the club is known. No opponent: the preview loads no past schedule.
-  // The weeks the full-season game log needs: every week from Week 1 to the latest final week (the four newest are the Performance reads).
+  // R6: the game log is the Breakdown (lib/breakdown.js): the season stats, the weekly log in position-specific views and each game's detail.
+  // breakdown.js is loaded after this file and depends on it, so it is found when the log is drawn (CommonJS in tests, the page's UPS2027 namespace otherwise).
+  // A call site in this file (the main card's Breakdown control) can use gameLog(S, p, { summary: false }).
+  // The weeks the season needs (Week 1 to the cutoff): every one is a Performance read already, so the log adds no score read of its own.
   function logWeeks(L) { var w = []; for (var i = 1; i <= L; i++) w.push(i); return w; }
-  function gameLog(S, p) {
-    var mu = S.intel && S.intel.mu && S.intel.mu[S.model.week];
-    if (!mu || mu.state === "loading") return '<div class="ex">Loading the game log…</div>';
-    if (mu.state !== "ok") return '<div class="ex wn">The game log could not be read (' + esc(mu.error || "") + '). <button class="link" data-act="retryperf">Try again</button></div>';
-    var ctx = perfInput(S, [p.id]);
-    if (ctx.read === "completion") return ctx.completion.state === "loading" ? '<div class="ex">Loading the game log…</div>' : ctx.completion.state === "none" ? '<div class="ex">No week has been completed yet.</div>' : failCard("retryperf");
-    if (!ctx.input.latestFinal) return '<div class="ex">No week has been completed yet.</div>';
-    var L = ctx.input.latestFinal, all = !!(S.profile && S.profile.all), from = all ? 1 : Math.max(1, L - 3);
-    var log = CH.logFor(ctx.input, p.id, { fromWeek: from, toWeek: L }).slice().reverse(); // newest first
-    var more = "";
-    if (L > 4 && !all) more = '<button class="btn blk" data-act="logmore">Show earlier weeks</button>';
-    else if (all) {
-      var pend = 0, bad = 0; logWeeks(L - 4).forEach(function (w) { var r = scoresOf(S)[w]; if (!r || r.state === "loading") pend++; else if (r.state !== "ok") bad++; });
-      more = pend ? '<div class="ex">Loading earlier weeks… (' + pend + " to go)</div>" : bad ? '<div class="ex wn">' + plural(bad, "earlier week", "earlier weeks") + ' could not be read and show n/a. <button class="link" data-act="retrylog">Try again</button></div>' : '<div class="ex">Showing Weeks 1 to ' + L + ". <button class=\"link\" data-act=\"logless\">Show fewer</button></div>";
-    }
-    var rows = log.map(function (r) {
-      var cell = (r.kind === "unreadable" || r.bad) ? '<span class="mu">unreadable</span>' : r.kind === "score" ? "<b>" + f1(r.score) + "</b>" : r.kind === "newer" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">newer</span>') : r.kind === "bye" ? '<span class="mu">BYE</span>' : r.kind === "live" ? (r.score == null ? '<span class="mu">' + DASH + "</span>" : "<b>" + f1(r.score) + '</b> <span class="mu sm">live</span>') : r.kind === "unreadable" ? '<span class="mu">unreadable</span>' : r.kind === "unloaded" ? '<span class="mu">' + (scoresOf(S)[r.week] && scoresOf(S)[r.week].state === "error" ? "n/a" : "…") + "</span>" : '<span class="mu">' + DASH + "</span>";
-      return "<tr><td>" + r.week + '</td><td class="n">' + cell + "</td></tr>";
-    }).join("");
-    // the same season figures, through the same week, as Team › Performance (the evidence rules decide which week they run through)
-    var row = CH.evaluate(ctx.input).rows[p.id] || {};
-    return '<div class="k3"><div><b>' + f1(row.seasonAvg) + "</b><small>Season average</small></div><div><b>" + (row.scoredGames == null ? DASH : row.scoredGames) + "</b><small>Scored games</small></div><div><b>" + (row.seasonThrough == null ? DASH : row.seasonThrough) + "</b><small>Through week</small></div></div>" +
-      '<div class="card tbl"><table><tr><th>Wk</th><th class="n">Pts</th></tr>' + rows + "</table></div>" + (((ctx.bad && ctx.bad[p.id]) || 0) ? '<div class="ex wn">' + plural(ctx.bad[p.id], "score", "scores") + " could not be read, so his season figures are not shown.</div>" : "") +
-      more + '<div class="ex">' + (all ? "The full season, newest first. " : "The latest four weeks. ") + '0.0 is a score MFL recorded; ' + DASH + " is no score recorded. BYE appears only where the club is known. Opponents, snaps and lineup status are not in this preview.</div>";
+  function breakdownApi() {
+    if (typeof require === "function") { try { return require("./breakdown.js"); } catch (e) { return null; } }
+    return typeof UPS2027 !== "undefined" && UPS2027 && UPS2027.breakdown ? UPS2027.breakdown : null;
+  }
+  function gameLog(S, p, opts) {
+    var BD = breakdownApi();
+    return BD ? BD.panel(S, p, opts) : '<div class="ex">The breakdown is not available in this build.</div>';
   }
 
   return { rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores };

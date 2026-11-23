@@ -440,10 +440,10 @@
     return out;
   }
 
+  // R6: the profile's Performance tab is the Breakdown: the settled season line, the season stats, and the weekly game log with each game's detail.
+  // Points are MFL's; the stats are the NFL box score. No projection or expected-points figure is drawn here.
   function performanceTab(S, p) {
-    return '<div class="k2"><div><b>' + (p.points == null ? "Not available" : p.points.toFixed(1)) + "</b><small>Season points so far</small></div><div><b>" + (p.starter ? "Starting" : p.status === "active" ? "Bench" : p.status === "ir" ? "IR" : "Taxi") + "</b><small>Week " + S.model.week + "</small></div></div>" +
-      '<div class="sec2">Game log</div>' + TV.gameLog(S, p) +
-      '<div class="ex mt6">Points are MFL’s league-scored total. Start / Boom / Bust percentages and projections are not in this preview.</div>';
+    return '<div class="sec2 first">Breakdown</div>' + TV.gameLog(S, p);
   }
   function scheduleTab() { return '<div class="ex">The schedule and matchup view is not in Preview 0.</div>'; }
   function moreTab(S, p) {

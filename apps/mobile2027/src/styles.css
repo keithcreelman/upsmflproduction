@@ -296,4 +296,32 @@ button.btnrow{cursor:pointer}
 /* (spacer 9) */
 /* (spacer 10) */
 /* ===== R6 PERFORMANCE REVISIONS: performance rules go between this line and the matching end line ===== */
+/* --- r6g: the Breakdown (season stats, game log, game detail); main-card rules are above this line --- */
+.bdx{display:flex;flex-direction:column;gap:6px}
+.bdsum{font-size:13px;color:var(--mu)}.bdsum b{color:var(--tx)}
+.bdr{padding:4px 10px}
+.bdr table{width:100%;border-collapse:collapse;font-size:13px}
+.bdr th{font-size:12px;text-align:left;color:var(--mu);font-weight:600;padding:4px 2px}
+.bdr td{padding:5px 2px;border-top:1px solid var(--bd);vertical-align:top}
+.bdr .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bdr td.n small{display:block;font-size:12px;color:var(--mu);font-weight:400}
+.bdr tr.bdh th{padding-top:10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.bdw{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--bd);border-radius:12px;background:var(--sf);max-width:100%}
+.bdt{border-collapse:separate;border-spacing:0;font-size:13px;min-width:100%}
+.bdt th,.bdt td{padding:4px 8px;border-bottom:1px solid var(--bd);white-space:nowrap;font-variant-numeric:tabular-nums;background:var(--sf)}
+.bdt thead th{font-size:12px;color:var(--mu);font-weight:700;text-align:right;position:sticky;top:0}
+.bdt thead th.pin{text-align:left}
+.bdt td.n{text-align:right;min-width:40px}
+.bdt td small{display:block;font-size:12px;color:var(--mu)}
+.bdt .pin{position:sticky;left:0;z-index:1;text-align:left;border-right:1px solid var(--bd);min-width:96px;max-width:112px;padding:0}
+.bdt thead .pin{z-index:2;padding:4px 8px}
+.bdt .pin button{display:block;width:100%;min-height:44px;border:0;background:transparent;text-align:left;padding:4px 8px;font-size:13px;font-weight:400;color:var(--tx)}
+.bdt .pin button b{font-weight:700}
+.bdt .pin small{display:block;font-size:12px;color:var(--mu)}
+.bdt tr.newer td,.bdt tr.newer th{background:var(--s2)}
+.bdt tr.newer .pin{border-left:3px dashed var(--wn)}
+.bdt tr.open .pin button{box-shadow:inset 3px 0 0 var(--ac)}
+.bdt tr.bdd td{white-space:normal;padding:0;background:var(--s2)}
+.bdt .bdin{position:sticky;left:0;width:min(calc(100vw - 64px),376px);padding:8px 10px;font-size:13px}
+.bdt .bdin .kv{grid-template-columns:auto minmax(0,1fr)}
 /* ===== end R6 PERFORMANCE ===== */
