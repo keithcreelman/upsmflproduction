@@ -271,10 +271,12 @@
   // (lib/coverage.js: an exact assignment, required slots first, then OFX/SFX/DFX by eligibility, never one player in two slots). Only a bye, an MFL
   // designation (every week, R10) or an Out (current week only) removes a player; Questionable and Doubtful never do. Taxi and IR players are options,
   // kept apart; a short week only an uncertain return would complete carries a dependency note (R10).
-  function shortLine(s) { return s.key + (s.flex ? " (" + s.acc.join("/") + ")" : "") + " · " + s.available + " available / " + s.required + " required"; }
+  // R9 (K and P everywhere): MFL's PK / PN read as K / P in every Byes heading and coverage line
+  function posLbl(k) { return k === "PK" ? "K" : k === "PN" ? "P" : k; }
+  function shortLine(s) { return posLbl(s.key) + (s.flex ? " (" + s.acc.map(posLbl).join("/") + ")" : "") + " · " + s.available + " available / " + s.required + " required"; }
   function coverageSub(cv) {
     var bits = [];
-    if (cv.short.length) bits.push('<b class="wn">▲ Short ' + (cv.total - cv.filled) + ": " + esc(cv.short.map(function (s) { return s.key + " " + s.available + "/" + s.required; }).join(", ")) + "</b>");
+    if (cv.short.length) bits.push('<b class="wn">▲ Short ' + (cv.total - cv.filled) + ": " + esc(cv.short.map(function (s) { return posLbl(s.key) + " " + s.available + "/" + s.required; }).join(", ")) + "</b>");
     else bits.push("Full lineup " + cv.filled + "/" + cv.total);
     if (cv.dependencyText) bits.push(esc(cv.dependencyText));
     if (cv.absent.length) bits.push(esc(cv.absent.length + " out or designated"));
@@ -331,7 +333,7 @@
     players.forEach(function (p) { (groups[p.pos] = groups[p.pos] || []).push(p); });
     var order = F.POS_ORDER.concat(Object.keys(groups).filter(function (k) { return F.POS_ORDER.indexOf(k) < 0; }));
     return order.filter(function (k) { return groups[k]; }).map(function (k) {
-      return '<div class="lps">' + esc(k) + " · " + groups[k].length + "</div>" + groups[k].map(function (p) { return row(p, S, { starter: slotOf[p.id] !== undefined, wk: cur }); }).join("");
+      return '<div class="lps">' + esc(posLbl(k)) + " · " + groups[k].length + "</div>" + groups[k].map(function (p) { return row(p, S, { starter: slotOf[p.id] !== undefined, wk: cur }); }).join("");
     }).join("");
   }
   function weekCard(S, cv, x, cur, slotOf) {
@@ -362,7 +364,7 @@
     var cut = TV.seasonCutoff(S);   // R10: the shared settled-week cutoff W*, for the options' recent points
     var covs = wks.map(function (w) { return COV.week(S, t, w, cut); });
     var shortWks = covs.filter(function (c) { return c.short.length; });
-    out += sumCard("<b>Lineup coverage</b> · " + (shortWks.length ? '<span class="wn">▲ Short in ' + esc(shortWks.map(function (c) { return "Week " + c.week + " (" + c.short.map(function (s) { return s.key; }).join(", ") + (c.dependency ? ", depends on a return" : "") + ")"; }).join(" · ")) + "</span>" : "A full lineup can be set in every week below") +
+    out += sumCard("<b>Lineup coverage</b> · " + (shortWks.length ? '<span class="wn">▲ Short in ' + esc(shortWks.map(function (c) { return "Week " + c.week + " (" + c.short.map(function (s) { return posLbl(s.key); }).join(", ") + (c.dependency ? ", depends on a return" : "") + ")"; }).join(" · ")) + "</span>" : "A full lineup can be set in every week below") +
       (covs.some(function (c) { return !c.injuriesChecked; }) ? " · injuries not checked" : ""));
     covs.forEach(function (cv) {
       var x = byWeek[cv.week], n = x ? x.players.length : 0, key = "bw" + cv.week, open = isOpen(S, key);

@@ -112,6 +112,11 @@ test("6 (fix, Keith's reproduction): Week 14 full 18/18; plain IR on the only TE
   st[te.id] = roster("IR");
   const open = text(V.rosterBody(Object.assign({}, S, { open: { bw14: true } })));
   t.match(open, /Not counted · availability not confirmed · 1/);
+  // K and P everywhere: a kicker on bye is grouped under "K", never "PK"; a kicker shortage reads "K"
+  const kps = full(); kps[6].bye = 13; const ktm = teamOf(kps), KS = stateOf(ktm);
+  const kopen = text(V.rosterBody(Object.assign({}, KS, { open: { bw13: true } })));
+  t.match(kopen, /K · 1/); t.doesNotMatch(kopen, /PK · |PK 0\/1|\(PK|PN · /, "no PK/PN text on the Byes screen");
+  t.match(kopen, /Short in Week 13 \(K\)/);
   t.match(open, new RegExp("Covered only if " + te.name + " returns from IR"));
 });
 
