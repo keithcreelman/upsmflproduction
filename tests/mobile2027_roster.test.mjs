@@ -133,23 +133,25 @@ test("Byes view (R2b P6): grouped by upcoming bye week in order; each group says
   t.ok(g.groups.every((x) => x.week >= 11), "no played week among the upcoming groups"); t.ok(g.past.length > 0 && g.past.every((p) => p.bye < 11));
   // each group header: the week, how many CURRENT starters it leaves out, and their slot tags (today's lineup)
   g.groups.forEach((grp) => {
-    const n = grp.starters.length, label = n ? "Week " + grp.week + " · " + n + " current starter" + (n === 1 ? "" : "s") + " on bye: " + grp.starters.map((x) => x.tag).join(", ") : "Week " + grp.week + " · no current starters on bye";
+    const n = grp.starters.length, label = n ? "Week " + grp.week + " · " + n + " starter" + (n === 1 ? "" : "s") + " on bye: " + grp.starters.map((x) => x.tag).join(", ") : "Week " + grp.week + " · no starters on bye";
     t.ok(tx.includes(label), "group header: " + label);
   });
-  t.match(tx, /Next byes: Week 11 · 0 current starters · Week 13 · 2 current starters · Week 14 · 2 current starters/);
-  t.match(tx, /This week · Week 11 · no current starters on bye/);
-  t.match(tx, /Week 13 · 2 current starters on bye: RB2, TE1/); t.match(tx, /Week 14 · 2 current starters on bye: DB1, DF/);
+  t.match(tx, /Week 11 lineup · Next byes: Week 11 · 0 starters · Week 13 · 2 starters · Week 14 · 2 starters/);
+  t.match(tx, /This week · Week 11 · no starters on bye/);
+  t.match(tx, /Week 13 · 2 starters on bye: RB2, TE1/); t.match(tx, /Week 14 · 2 starters on bye: DB1, DF/);
   // the groups come out in week order on the page
   t.deepEqual([...html.matchAll(/data-g="bw(\d+|past)"/g)].map((m) => m[1]), [...g.groups.map((x) => String(x.week)), "past"], "upcoming groups in week order, then the played ones");
   // slots are TODAY's: the page says so, and invents no past or future assignment
-  t.match(tx, /Slots are today’s lineup \(Week 11\)\. The lineup for a later week is not set, so these players may not fill the same slots then\./);
+  t.match(tx, /slots from the Week 11 lineup/); t.doesNotMatch(tx, /Slots are today’s lineup/, "R8: the long paragraph is gone");
   t.doesNotMatch(tx, /will start|will be your|projected lineup for Week 1[2-9]/i);
   // played byes are collapsed by default and say so; opening them lists the players
   t.match(html, /data-g="bwpast" aria-expanded="false"/); t.match(tx, /Already played · \d+ players/);
   t.match(V.rosterBody(state(intel, { view: "byes", open: { bwpast: true } })), /data-g="bwpast" aria-expanded="true"/);
-  t.match(html, /data-g="bw13" aria-expanded="true"/, "upcoming groups are open");
-  // a starter row says "current starter", a bench player "bench"; a played bye reads "bye was Week N"
-  t.match(tx, /Breece Hall NYJ · current starter/); t.match(tx, /Isaiah Davis NYJ · bench/);
+  t.match(html, /data-g="bw13" aria-expanded="false"/, "R8: upcoming groups start collapsed too");
+  // a starter row says "Week 11 starter" (R8), a bench player "bench"; a played bye reads "bye was Week N"
+  const allOpen = {}; for (let w = 1; w <= 18; w++) allOpen["bw" + w] = true;
+  const tx13 = text(V.rosterBody(state(intel, { view: "byes", open: allOpen })));
+  t.match(tx13, /Breece Hall NYJ · Week 11 starter/); t.match(tx13, /Isaiah Davis NYJ · bench/);
   t.match(text(V.rosterBody(state(intel, { view: "byes", open: { bwpast: true } }))), /· bye was Week \d+/);
   // a player MFL gave no bye week for is grouped apart as unavailable, not week 0
   const m2 = model(); const p = M.starters(m2.teams.find((x) => x.id === TEAM))[0]; m2.byId[p.id].bye = null;

@@ -805,11 +805,43 @@
       (hl ? '<div class="ex' + (hl.warn ? " wn" : "") + '">' + esc(hl.text) + "</div>" : "") + (lag ? '<div class="ex wn">' + esc(lag) + "</div>" : "") +
       (ctx.failed ? '<div class="ex wn mt4">Some weeks of scores could not be read. <button class="link" data-act="retryperf">Try again</button></div>' : ctx.loading ? '<div class="ex mt4">Loading the latest weeks…</div>' : "") + "</div>";
 
-    var act = t.players.filter(function (p) { return p.status === "active"; });
+    // R8: "Search players" narrows THIS team's list by name (no network, no other team, no free agents); the sort and grouping apply to what matches.
+    out += pfSearchBox(S) + '<div class="lbl">Sort</div><div class="chs" role="group" aria-label="Sort">' + PF_SORTS.map(function (o) { return '<button class="ch" data-act="pfs" data-v="' + o[0] + '" aria-pressed="' + (c.s === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
+    return out + '<div id="pflist" class="pflist">' + perfList(S, t, c, ctx) + "</div>";
+  }
+  // The search box. Its value is drawn back from S.pf.q (escaped); app.js keeps focus and the cursor across redraws.
+  function pfSearchBox(S) {
+    var q = pfQuery(S);
+    return '<div class="pfs"><label class="lbl" for="pfq">Search players</label><input id="pfq" class="pfq" type="search" data-inp="pfq" value="' + esc(q) + '" placeholder="Player name" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search" maxlength="40" aria-controls="pflist"></div>';
+  }
+  function pfQuery(S) { var q = S.pf && typeof S.pf.q === "string" ? S.pf.q : ""; return q.slice(0, 40); }
+  // Name matching: case- and accent-insensitive, every typed word must appear in the name ("ja ch" finds Ja'Marr Chase); punctuation is ignored.
+  function foldName(s) {
+    var x = String(s == null ? "" : s).toLowerCase();
+    if (x.normalize) x = x.normalize("NFD").replace(/[̀-ͯ]/g, "");
+    return x.replace(/[^a-z0-9 ]+/g, "");
+  }
+  function pfMatcher(q) {
+    var words = foldName(q).split(/\s+/).filter(Boolean);
+    if (!words.length) return null;
+    return function (p) { var n = foldName(p.name); return words.every(function (w) { return n.indexOf(w) >= 0; }); };
+  }
+  // The list under the controls (also redrawn alone by app.js while the owner types). null when the screen is not in its list state.
+  function performanceList(S) {
+    var t = teamOf(S); if (!t) return null;
+    var ctx = perfCtx(S, t.players.map(function (p) { return p.id; }));
+    if (ctx.read !== "ok" || !ctx.input.latestFinal) return null;
+    return perfList(S, t, pfState(S), ctx);
+  }
+  function perfList(S, t, c, ctx) {
+    var out = "", match = pfMatcher(pfQuery(S)), pool = match ? t.players.filter(match) : t.players;
+    var act = pool.filter(function (p) { return p.status === "active"; });
     function rowOf(p) { return perfRow(S, p, ctx); }
     function val(p, key) { var g = figs(S, p, ctx), v = key === "tot" ? g.total : g.ppg; return v == null ? -1e9 : v; }
-    out += '<div class="lbl">Sort</div><div class="chs" role="group" aria-label="Sort">' + PF_SORTS.map(function (o) { return '<button class="ch" data-act="pfs" data-v="' + o[0] + '" aria-pressed="' + (c.s === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
-    if (c.s === "pos") {
+    if (match && !pool.length) return '<div class="card"><div class="big2"><b>No players match</b></div><div class="ex">No player on ' + esc(t.name) + " has a name containing “" + esc(pfQuery(S).trim()) + "”. The search covers this team only.</div></div>";
+    if (match) out += '<div class="mu sm" role="status">' + plural(pool.length, "player matches", "players match") + "</div>";
+    if (!act.length) { /* only reserve players match: their groups follow */ }
+    else if (c.s === "pos") {
       GROUPS.forEach(function (g) {
         var grp = act.filter(function (p) { return p.pos === g[0]; });
         if (!grp.length) return;
@@ -821,8 +853,10 @@
       out += '<div class="gh2"><span>' + (c.s === "tot" ? "Tot. Pts., highest first" : "Actual PPG, highest first") + "</span><span>" + act.length + '</span></div><div class="card rows">' + act.map(rowOf).join("") + "</div>";
     }
     [["ir", "Injured reserve"], ["taxi", "Taxi squad"]].forEach(function (o) {
-      var grp = t.players.filter(function (p) { return p.status === o[0]; });
+      var grp = pool.filter(function (p) { return p.status === o[0]; });
       if (!grp.length) return;
+      // while searching, a matching reserve player is shown, not hidden in a closed group
+      if (match) { out += '<div class="gh2"><span>' + esc(o[1]) + " · " + plural(grp.length, "player", "players") + '</span></div><div class="card rows">' + grp.map(rowOf).join("") + "</div>"; return; }
       var op = !!c.res[o[0]];
       out += '<button class="gh2 btnrow" data-act="pfres" data-v="' + o[0] + '" aria-expanded="' + op + '"><span>' + esc(o[1]) + " · " + plural(grp.length, "player", "players") + "</span><span>" + (op ? "▾" : "▸") + "</span></button>" + (op ? '<div class="card rows">' + grp.map(rowOf).join("") + "</div>" : "");
     });
@@ -856,6 +890,6 @@
   }
 
   function mixApi(a, b) { for (var key in b) if (Object.prototype.hasOwnProperty.call(b, key) && !Object.prototype.hasOwnProperty.call(a, key)) a[key] = b[key]; return a; }
-  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
+  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, performanceList: performanceList, pfMatcher: pfMatcher,gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, guarantee: guarantee, cutWords: cutWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
   return API;
 });

@@ -47,7 +47,7 @@
     live: null, // PR B: when every game of the lineup week was first seen final (starts the quiet period of the Final · updating chip)
     ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the sort (exp | sal | name), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
-    pf: { s: "pos", open: {}, res: {} }, // Team › Performance: the sort (pos | diff | avg), which rows are open, which reserve groups are open
+    pf: { s: "pos", open: {}, res: {}, q: "" }, // Team › Performance: the sort (pos | diff | avg), which rows are open, which reserve groups are open, the name search (R8)
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
@@ -73,16 +73,29 @@
     ["data-v", "data-g", "data-pid", "data-fid"].forEach(function (k) { var v = a.getAttribute(k); if (v != null) sel += "[" + k + '="' + v + '"]'; });
     return sel;
   }
+  function searchCaret() {
+    var a = document.activeElement;
+    if (!a || a.id !== "pfq" || !appEl.contains(a)) return null;
+    var s = null, e = null; try { s = a.selectionStart; e = a.selectionEnd; } catch (x) { s = e = null; }
+    return { s: s, e: e };
+  }
+  function restoreCaret(c) {
+    var i = document.getElementById("pfq"); if (!i || !i.focus) return;
+    i.focus({ preventScroll: true });
+    if (c.s != null) { try { i.setSelectionRange(c.s, c.e == null ? c.s : c.e); } catch (x) { /* type=search may refuse a range on some engines */ } }
+  }
   function render(keepFocus) {
-    var scr = document.getElementById("screen"), sheet = appEl.querySelector(".sheet");
+    var scr = document.getElementById("scroll"), sheet = appEl.querySelector(".sheet");   // R8: #scroll is the scrolling area (heading, tabs, #screen)
     var scrTop = scr ? scr.scrollTop : 0, sheetTop = sheet ? sheet.scrollTop : 0, hadSheet = !!sheet;
     var again = keepFocus ? focusKey() : null; // a toggle or tab that was just tapped keeps keyboard focus after the redraw
+    var typing = searchCaret(); // R8: a redraw while the owner is in "Search players" (data arriving, a sort tapped) keeps the box focused, cursor in place
     S.requestSummary = loader.summary();
     appEl.innerHTML = U.views.app(S);
-    var scr2 = document.getElementById("screen"); if (scr2) scr2.scrollTop = scrTop;
+    var scr2 = document.getElementById("scroll"); if (scr2) scr2.scrollTop = scrTop;
     var sheet2 = appEl.querySelector(".sheet");
     if (sheet2) { if (hadSheet) sheet2.scrollTop = sheetTop; if (!keepFocus || !hadSheet) sheet2.focus({ preventScroll: true }); }
     if (again) { var f = appEl.querySelector(again); if (f && f.focus) f.focus({ preventScroll: true }); }
+    if (typing && !sheet2) restoreCaret(typing);
     Array.prototype.forEach.call(appEl.querySelectorAll("img[data-chain]"), function (img) {
       var urls = []; try { urls = JSON.parse(img.getAttribute("data-chain")) || []; } catch (e) { urls = []; }
       U.photo.attach(img, urls, function (src) { S.photoSource = S.photoSource || {}; S.photoSource[img.getAttribute("data-chain")] = src; }, known);
@@ -501,6 +514,15 @@
     else if (act === "ptab") { if (S.profile) { S.profile.tab = v; render(true); if (v === "perf") ensurePerformance(); } }
     else if (act === "retry") { S.sheet = null; S.penalty = { state: "idle" }; loadCore(); }
     else if (act === "retrypen") loadPenalty(true);
+  });
+  // R8: Team › Performance "Search players". Only the list under the box is redrawn while typing, so the box itself (focus, cursor, the phone's
+  // keyboard) is never replaced; anything else falls back to a full redraw, which keeps focus and cursor too (render). No request is made.
+  appEl.addEventListener("input", function (ev) {
+    var el = ev.target;
+    if (!el || el.id !== "pfq") return;
+    S.pf.q = String(el.value || "").slice(0, 40);
+    var box = document.getElementById("pflist"), html = box ? U.tabviews.performanceList(S) : null;
+    if (box && html != null) box.innerHTML = html; else render(true);
   });
   appEl.addEventListener("keydown", function (ev) {
     if (ev.key === "Escape" && (S.profile || S.sheet)) closeLayer();
