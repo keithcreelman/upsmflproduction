@@ -11,7 +11,16 @@
     var bundle = window.UPS2027_RECORDED;
     recordedFeed = U.recorded ? U.recorded.createFetch(bundle) : null;
     var recAt = bundle && bundle.meta ? bundle.meta.recordedAt : "";
-    recordedInfo = { at: String(recAt || ""), label: U.format.etRecorded(recAt) || "at a time that could not be read" };
+    recordedInfo = { at: String(recAt || ""), label: U.format.etRecorded(recAt) || "at a time that could not be read", later: "", box: "" };
+    // R7: the parts recorded after the league data (game stats, season totals, projections) and their own capture window, from meta.parts
+    var parts = bundle && bundle.meta && Array.isArray(bundle.meta.parts) ? bundle.meta.parts.slice(1) : [];
+    var lo = null, hi = null;
+    parts.forEach(function (pt) {
+      if (pt && pt.from && (lo === null || Date.parse(pt.from) < Date.parse(lo))) lo = pt.from;
+      if (pt && pt.to && (hi === null || Date.parse(pt.to) > Date.parse(hi))) hi = pt.to;
+      if (pt && pt.label === "game stats") recordedInfo.box = U.format.etRange(pt.from, pt.to, true);
+    });
+    if (lo && hi) recordedInfo.later = U.format.etRange(lo, hi, false);
   }
   // The page's one fetch. It is the loader's only way out, and it refuses outright while Sample mode is on (a third guard,
   // behind the two in loadCore/loadPenalty). In recorded mode it answers from the snapshot and NEVER reaches the network, even when the snapshot

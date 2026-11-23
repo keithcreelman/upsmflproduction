@@ -144,7 +144,7 @@
     if (stats.length) out += '<div class="kv bdk mt6">' + stats.map(function (s) { return "<b>" + esc(s[0]) + "</b><span>" + (s[1] == null ? '<span class="mu">' + DASH + "</span>" : esc(s[1])) + "</span>"; }).join("") + (g0.kind === "p" ? '<b>Blocked punts</b><span class="mu">Not available</span>' : "") + "</div>";
     else if (boxRec && boxRec.state === "ok") out += '<div class="ex mt6">' + (r.statsIn ? "No stat line for this game." : "Game stats for this week are not in yet.") + "</div>";
     var asof = [];
-    if (boxRec && boxRec.state === "ok") asof.push("Game stats through Week " + (boxRec.data.through == null ? "unknown" : boxRec.data.through) + (boxRec.at ? ", read " + F.etStamp(new Date(boxRec.at).toISOString()) : ""));
+    if (boxRec && boxRec.state === "ok") asof.push("Game stats through Week " + (boxRec.data.through == null ? "unknown" : boxRec.data.through) + (S.recorded ? (S.recorded.box ? ", recorded " + S.recorded.box : "") : boxRec.at ? ", read " + F.etStamp(new Date(boxRec.at).toISOString()) : ""));   // recorded mode: the capture window, not the time the page served it
     asof.push("Points: MFL");
     if (g0.kind === "k") asof.push("Missed-kick distances are not in the stats feed");
     if (g0.pos === "QB") asof.push("Fumbles lost do not include fumbles on sacks");

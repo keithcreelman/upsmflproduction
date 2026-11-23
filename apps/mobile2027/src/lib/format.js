@@ -61,6 +61,21 @@
     } catch (e) { return ""; }
   }
 
+  // R7: a capture window in the league's time zone, "10:11–10:14 PM ET" ("Sun 10:13–10:14 PM ET" with the weekday), or "" if either time cannot be read.
+  function etRange(fromIso, toIso, weekday) {
+    var a = Date.parse(fromIso), b = Date.parse(toIso);
+    if (!isFinite(a) || !isFinite(b)) return "";
+    try {
+      var fmt = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "2-digit" });
+      var pa = {}, pb = {};
+      fmt.formatToParts(new Date(Math.min(a, b))).forEach(function (p) { pa[p.type] = p.value; });
+      fmt.formatToParts(new Date(Math.max(a, b))).forEach(function (p) { pb[p.type] = p.value; });
+      var x = pa.hour + ":" + pa.minute, y = pb.hour + ":" + pb.minute, d = weekday ? pa.weekday + " " : "";
+      if (x === y && pa.dayPeriod === pb.dayPeriod) return d + x + " " + (pa.dayPeriod || "") + " ET";
+      return d + x + (pa.dayPeriod !== pb.dayPeriod ? " " + (pa.dayPeriod || "") : "") + "–" + y + " " + (pb.dayPeriod || "") + " ET";
+    } catch (e) { return ""; }
+  }
+
   // "Sun 1:00 PM" in the league's time zone, from a Unix time in seconds, or "" if it cannot be read.
   function etKickoff(unix) {
     var n = Number(unix);
@@ -91,5 +106,5 @@
     return COMMON[c] || c;
   }
 
-  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp, etRecorded: etRecorded, etKickoff: etKickoff, dateLabel: dateLabel, commonCode: commonCode };
+  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp, etRecorded: etRecorded, etRange: etRange, etKickoff: etKickoff, dateLabel: dateLabel, commonCode: commonCode };
 });

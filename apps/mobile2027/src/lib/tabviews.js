@@ -254,7 +254,7 @@
 
   // ---- Help: one control per Team screen; this is its text for each tab ----
   function screenHelp(S) {
-    var rec = S && S.recorded ? "<h4>Recorded data</h4><p>This preview uses a recorded snapshot taken " + esc(S.recorded.label) + ", so the figures will not move.</p>" : "";
+    var rec = S && S.recorded ? "<h4>Recorded data</h4><p>This preview uses a recorded snapshot taken " + esc(S.recorded.label) + ", so the figures will not move." + (S.recorded.later ? " Game stats, season totals and projections were recorded later that day, " + esc(S.recorded.later) + "." : "") + "</p>" : "";
     return rec + screenHelpBody(S);
   }
   function screenHelpBody(S) {
