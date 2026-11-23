@@ -136,7 +136,7 @@ test("search: phone rules (16px text, 44px target), no request, and app.js keeps
   const handler = appJs.split('appEl.addEventListener("input"')[1].split("appEl.addEventListener(")[0];
   t.doesNotMatch(handler, /fetch|loader\.|ensure|load[A-Z]/, "typing starts no read");
   t.match(appJs, /function searchCaret\(\)[\s\S]*selectionStart[\s\S]*function restoreCaret\(c\)[\s\S]*setSelectionRange/, "a full redraw restores focus and the cursor");
-  t.match(appJs, /pf: \{ s: "pos", open: \{\}, res: \{\}, q: "", pos: "all", xt: false \}/);
+  t.match(appJs, /pf: \{ s: "pos", open: \{\}, res: \{\}, q: "", pos: "all", xt: false, xpos: "all", note: null \}/);
 });
 
 run("mobile2027_r8_header_search");

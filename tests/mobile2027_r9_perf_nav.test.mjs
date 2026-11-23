@@ -51,17 +51,18 @@ const cards = (html) => [...html.matchAll(/data-act="card" data-pid="(\d+)"( dat
 const LABEL = { PK: "K", PN: "P" };
 
 // ---------------- 4. position filter, composed with search and sort ----------------
-test("position filter: All · QB · RB · WR · TE · K · P · DL · LB · DB chips (not the By position sort), All by default", async () => {
-  const I = await intel(), h = body(V.app(state({ intel: I })));
+test("position filter: All + this team's positions in league order (R10; not the By position sort), All by default", async () => {
+  const I = await intel(), h = body(V.app(state({ intel: I }))), tm = state({ intel: I }).model.teams.find((x) => x.id === TEAM);
   const chips = [...h.matchAll(/data-act="pfpos" data-v="([A-Z]+|all)" aria-pressed="(true|false)">([^<]+)</g)];
-  t.deepEqual(chips.map((m) => m[3]), ["All", "QB", "RB", "WR", "TE", "K", "P", "DL", "LB", "DB"]);
-  t.deepEqual(chips.map((m) => m[1]), ["all", "QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"]);
+  const ORDER = ["QB", "RB", "WR", "TE", "PK", "PN", "DL", "LB", "DB"], has = ORDER.filter((g) => tm.players.some((p) => p.pos === g));
+  t.deepEqual(chips.map((m) => m[1]), ["all"].concat(has), "All + the positions on " + tm.name);
+  t.deepEqual(chips.map((m) => m[3]), ["All"].concat(has.map((g) => LABEL[g] || g)), "K and P labels");
   t.deepEqual(chips.filter((m) => m[2] === "true").map((m) => m[1]), ["all"], "All is pressed by default");
   t.match(h, /<div class="lbl">Position<\/div><div class="chs pfpos" role="group" aria-label="Position">/);
   t.ok(h.indexOf('id="pfq"') < h.indexOf('data-act="pfpos"') && h.indexOf('data-act="pfpos"') < h.indexOf('data-act="pfs"'), "search, then position, then sort");
   t.match(h, /data-act="pfs" data-v="pos"[^>]*>By position</, "By position is still a sort");
   t.ok(TV.pfPosOk("PK") && TV.pfPosOk("all") && !TV.pfPosOk("K") && !TV.pfPosOk("<x>"), "only known values");
-  t.match(appJs, /act === "pfpos"\) \{ if \(U\.tabviews\.pfPosOk\(v\)\) \{ S\.pf\.pos = v; render\(true\); \} \}/, "the tap validates the value");
+  t.match(appJs, /act === "pfpos"\) \{ if \(U\.tabviews\.pfPosOk\(v\)\) \{ S\.pf\.pos = v; S\.pf\.note = null; render\(true\); \} \}/, "the tap validates the value");
   t.match(css, /\.pfpos \.ch\{min-width:44px;padding:0 9px\}/, "44px targets");
 });
 
@@ -114,11 +115,10 @@ test("Search other teams: offered only when nothing on this team matches; on tap
   const all = S0.model.teams.filter((o) => o.id !== TEAM).flatMap((o) => o.players).filter(TV.pfMatcher(hit.q));
   t.equal(hits.length, all.length, "every matching rostered player on the other " + (S0.model.teams.length - 1) + " teams");
   t.ok(S0.model.teams.length === 12, "the roster read holds all 12 teams");
-  // composed with the position filter: another position gives none of his position
-  const pos2 = TV.PF_POS.map((o) => o[0]).find((g) => g !== "all" && g !== hit.p.pos);
-  const h2 = body(V.app(state({ intel: I, pf: PF({ q: hit.q, xt: true, pos: pos2 }) })));
-  t.ok(cards(h2).every((c) => S0.model.byId[c.id].pos === pos2), "the position filter applies to the other teams too");
-  t.match(h2, new RegExp("Other teams · " + (LABEL[pos2] || pos2) + " · rostered players only"));
+  // R10: the other teams have their own position control (xpos); his position narrows the list to it
+  const h2 = body(V.app(state({ intel: I, pf: PF({ q: hit.q, xt: true, xpos: hit.p.pos }) })));
+  t.ok(cards(h2).length >= 1 && cards(h2).every((c) => S0.model.byId[c.id].pos === hit.p.pos), "the other-teams position control applies to the other teams");
+  t.match(h2, new RegExp("Other teams · " + (LABEL[hit.p.pos] || hit.p.pos) + " · rostered players only"));
   // a name that also matches this team: local results only, no other-teams action
   const local = team.players[0].name.split(/[ ,]+/)[0];
   const h3 = body(V.app(state({ intel: I, pf: PF({ q: local, xt: true }) })));
@@ -129,7 +129,7 @@ test("Search other teams: offered only when nothing on this team matches; on tap
 });
 
 test("Search other teams: the tap is explicit, makes no read; clearing the search ends it; the profile opens without switching team and closing restores team and scroll", () => {
-  t.match(appJs, /act === "pfxt"\) \{ if \(S\.pf\.q && S\.pf\.q\.trim\(\)\) \{ S\.pf\.xt = true; render\(true\); \} \}/);
+  t.match(appJs, /act === "pfxt"\) \{ if \(S\.pf\.q && S\.pf\.q\.trim\(\)\) \{ S\.pf\.xt = true; S\.pf\.xpos = S\.pf\.pos; S\.pf\.note = null; render\(true\); \} \}/);
   t.match(appJs, /if \(!S\.pf\.q\.trim\(\)\) S\.pf\.xt = false;/);
   t.match(appJs, /act === "card"\) openProfile\(el\.getAttribute\("data-pid"\), false, el\.getAttribute\("data-x"\) === "1"\)/);
   const op = appJs.split("function openProfile(")[1].split("\n  }\n")[0];
@@ -228,7 +228,7 @@ test("INT rate: two decimals on screen; ranked on the exact rate with shared tie
 test("Help: compact, week-labeled projection; the position filter, search and Search other teams explained once; xFP stays Not Available", async () => {
   const I = await intel(), h = V.app(state({ intel: I, sheet: "help" }));
   t.match(text(h), /Provider: MFL\. “Week N Proj\.” is MFL’s last projection for the lineup week captured before the player’s game kicked off\. Not Available when there is none \(for example a bye\)\./);
-  t.match(text(h), /Search other teams lists rostered players on the other league teams with their team; free agents are not searched\./);
+  t.match(text(h), /Search other teams lists rostered players on the other league teams with their team, with its own Position choice covering every position among them; free agents are not searched\./);
   const p = body(V.app(state({ intel: I })));
   t.match(p, /Week 11 Proj\./);
   const xf = [...p.matchAll(/<span>xFP PPG<\/span><b><span class="na">([^<]+)<\/span>/g)].map((m) => m[1]);

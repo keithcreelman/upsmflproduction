@@ -339,7 +339,7 @@
         h("Ranks", "QB2 is the player’s place among players at his position (tied players share a place). QB2–4 means some players cannot be placed yet (no position on file, a score that could not be read, or a PPG eligibility that is not settled), so he could be anywhere from 2nd to 4th. Ranges can narrow as weeks complete. " + esc(DASH) + " means no supported rank. The PPG rank needs scores in at least half of the team’s games and needs team history; until that is available it is " + esc(DASH) + " for everyone. For a range, the Breakdown says why and how large the group could be. The game log’s Rank column is the player’s exact place at his position that week (WR3), shown only for completed weeks and only when it is exact; otherwise " + esc(DASH) + ".") +
         h("xFP PPG and Over Expectations", "Not Available until the expected-points model is approved.") +
         h("Projection", "Provider: MFL. “Week N Proj.” is MFL’s last projection for the lineup week captured before the player’s game kicked off. Not Available when there is none (for example a bye).") +
-        h("Position, Search players and Sort", "Position shows one position (All shows everyone). Search players finds this team’s players by name, within that position. Sort orders what is shown; By position groups it. When no one on this team matches, Search other teams lists rostered players on the other league teams with their team; free agents are not searched. Closing a profile returns to the same team, search, position, sort and place in the list.") +
+        h("Position, Search players and Sort", "Position shows one position (All shows everyone); only positions on this team are offered. Search players finds this team’s players by name, within that position. Sort orders what is shown; By position groups it. When no one on this team matches, Search other teams lists rostered players on the other league teams with their team, with its own Position choice covering every position among them; free agents are not searched. Closing a profile returns to the same team, search, position, sort and place in the list.") +
         (SR && SR.helpText ? h("Season stat ranks", esc(SR.helpText())) : "");
     }
     if (sub === "cap") return h("Cap & picks", "Not in this preview.");
@@ -516,7 +516,19 @@
   function pfPosOk(v) { return PF_POS.some(function (o) { return o[0] === v; }); }
   function pfState(S) {
     var c = S.pf || {}, s = c.s === "avg" ? "ppg" : c.s;
-    return { s: s === "tot" || s === "ppg" ? s : "pos", open: c.open || {}, res: c.res || {}, pos: pfPosOk(c.pos) ? c.pos : "all", xt: !!c.xt };
+    return { s: s === "tot" || s === "ppg" ? s : "pos", open: c.open || {}, res: c.res || {}, pos: pfPosOk(c.pos) ? c.pos : "all", xt: !!c.xt, xpos: pfPosOk(c.xpos) ? c.xpos : "all" };
+  }
+  // R10 (Keith: "Show All plus positions represented on the selected team"): the chips are All + the positions on this team's roster (IR and
+  // Taxi included), in league order. A filter for a position the team does not have shows everyone (app.js resets it on a team switch and says so once).
+  function posOf(players) { return GROUPS.filter(function (g) { return players.some(function (p) { return p.pos === g[0]; }); }); }
+  function teamPos(t, pos) { return pos !== "all" && posOf(t.players).some(function (g) { return g[0] === pos; }) ? pos : "all"; }
+  function pfStateFor(S, t) { var c = pfState(S); c.pos = teamPos(t, c.pos); return c; }
+  function posChips(act, list, on) { return list.map(function (o) { return '<button class="ch" data-act="' + act + '" data-v="' + o[0] + '" aria-pressed="' + (on === o[0]) + '">' + o[1] + "</button>"; }).join(""); }
+  // R10: switching to team t keeps the filter when t has that position; otherwise it goes back to All, said once. -> { pos, note } for app.js.
+  function pfTeamSwitch(S, t) {
+    var pos = pfState(S).pos;
+    if (!t || pos === "all" || teamPos(t, pos) === pos) return { pos: pos, note: null };
+    return { pos: "all", note: "No " + posWord(pos) + " on " + t.name + ", so Position is back to All." };
   }
   function posWord(g) { var o = GROUPS.filter(function (x) { return x[0] === g; })[0]; return o ? o[1] : g; }
 
@@ -852,7 +864,7 @@
     return ctx;
   }
   function performanceBody(S) {
-    var t = teamOf(S), c = pfState(S), out = "";
+    var t = teamOf(S), c = pfStateFor(S, t), out = "";
     var ids = t.players.map(function (p) { return p.id; }), ctx = perfCtx(S, ids);
     if (ctx.read === "loading") return '<div class="card rows" aria-busy="true">' + skeleton(6) + '</div><div class="mu ctr sm">Loading scores…</div>';
     if (ctx.read === "completion") {
@@ -877,7 +889,9 @@
 
     // R8: "Search players" narrows THIS team's list by name (no network, no free agents); the sort and grouping apply to what matches.
     // R9: the position filter sits under the search; other teams are searched only on the owner's explicit "Search other teams".
-    out += pfSearchBox(S) + '<div class="lbl">Position</div><div class="chs pfpos" role="group" aria-label="Position">' + PF_POS.map(function (o) { return '<button class="ch" data-act="pfpos" data-v="' + o[0] + '" aria-pressed="' + (c.pos === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>" +
+    // R10: All + the positions on THIS team; a filter reset by a team switch is said once (S.pf.note, set and cleared by app.js)
+    var note = S.pf && S.pf.note ? '<div class="ex" role="status">' + esc(S.pf.note) + "</div>" : "";
+    out += pfSearchBox(S) + '<div class="lbl">Position</div><div class="chs pfpos" role="group" aria-label="Position">' + posChips("pfpos", [["all", "All"]].concat(posOf(t.players)), c.pos) + "</div>" + note +
       '<div class="lbl">Sort</div><div class="chs" role="group" aria-label="Sort">' + PF_SORTS.map(function (o) { return '<button class="ch" data-act="pfs" data-v="' + o[0] + '" aria-pressed="' + (c.s === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
     return out + '<div id="pflist" class="pflist">' + perfList(S, t, c, ctx) + "</div>";
   }
@@ -903,7 +917,7 @@
     var t = teamOf(S); if (!t) return null;
     var ctx = perfCtx(S, t.players.map(function (p) { return p.id; }));
     if (ctx.read !== "ok" || !ctx.input.latestFinal) return null;
-    return perfList(S, t, pfState(S), ctx);
+    return perfList(S, t, pfStateFor(S, t), ctx);
   }
   // R9: the position filter, then the name search, over THIS team (pfPool); the other teams only through crossList, on request.
   function pfPool(players, c, match) {
@@ -918,10 +932,17 @@
     (S.model && S.model.teams || []).forEach(function (o) { if (o.id === t.id) return; pfPool(o.players, c, match).forEach(function (p) { hits.push({ p: p, team: o }); }); });
     return hits.sort(function (a, b) { return a.p.name.localeCompare(b.p.name) || a.team.name.localeCompare(b.team.name); });
   }
+  // R10 (Keith: "Cross-team search must allow all relevant positions"): the other-teams list has its OWN position control (xpos), whose chips
+  // are All + every position among the other teams' players matching the name. It starts at this team's filter (app.js, on the tap); when no
+  // matching player has that position, every position is shown and a line says so (never an empty list for a position nobody there has).
   function crossList(S, t, c, match) {
-    var hits = crossHits(S, t, c, match), scope = (c.pos === "all" ? "" : posWord(c.pos) + " · ") + "rostered players only";
+    var any = crossHits(S, t, { pos: "all" }, match), present = posOf(any.map(function (h) { return h.p; }));
+    var xp = c.xpos !== "all" && present.some(function (g) { return g[0] === c.xpos; }) ? c.xpos : "all";
+    var hits = xp === "all" ? any : any.filter(function (h) { return h.p.pos === xp; }), scope = (xp === "all" ? "" : posWord(xp) + " · ") + "rostered players only";
     var out = '<div class="gh2 xth"><span>Other teams · ' + esc(scope) + '</span><span role="status">' + hits.length + "</span></div>";
-    if (!hits.length) return out + '<div class="card"><div class="ex">No rostered player on another team matches either. Free agents are not searched.</div></div>';
+    if (!any.length) return out + '<div class="card"><div class="ex">No rostered player on another team matches either. Free agents are not searched.</div></div>';
+    if (c.xpos !== "all" && xp === "all") out += '<div class="ex" role="status">No ' + esc(posWord(c.xpos)) + " on another team has a name containing “" + esc(pfQuery(S).trim()) + "”, so every position is shown.</div>";
+    out += '<div class="chs pfpos xtp" role="group" aria-label="Position, other teams">' + posChips("pfxpos", [["all", "All"]].concat(present), xp) + "</div>";
     out += '<div class="card rows">' + hits.slice(0, XT_MAX).map(function (h) {
       var p = h.p, nm = esc(p.name), res = p.status === "ir" ? " · IR" : p.status === "taxi" ? " · Taxi" : "";
       return '<div class="rw xtr"><button class="nmb" data-act="card" data-pid="' + esc(p.id) + '" data-x="1" aria-label="Open ' + nm + " profile, " + esc(h.team.name) + '"><span class="l1">' + nm + " " + pcx(p.pos) + "</span></button>" +
@@ -993,6 +1014,6 @@
   }
 
   function mixApi(a, b) { for (var key in b) if (Object.prototype.hasOwnProperty.call(b, key) && !Object.prototype.hasOwnProperty.call(a, key)) a[key] = b[key]; return a; }
-  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, performanceList: performanceList, pfMatcher: pfMatcher, pfPosOk: pfPosOk, PF_POS: PF_POS, crossHits: crossHits, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, cutCharge: cutCharge, cutWords: cutWords, guaranteeFacts: guaranteeFacts, contractFacts: contractFacts, contractFactsFor: contractFactsFor, historyHtml: historyHtml, nameParts: nameParts, byName: byName, termWords: termWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
+  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, performanceList: performanceList, pfMatcher: pfMatcher, pfPosOk: pfPosOk, PF_POS: PF_POS, crossHits: crossHits, pfTeamSwitch: pfTeamSwitch, posOf: posOf, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, cutCharge: cutCharge, cutWords: cutWords, guaranteeFacts: guaranteeFacts, contractFacts: contractFacts, contractFactsFor: contractFactsFor, historyHtml: historyHtml, nameParts: nameParts, byName: byName, termWords: termWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
   return API;
 });

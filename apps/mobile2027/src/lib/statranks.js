@@ -10,7 +10,8 @@
      - direction per stat (fewer is better for INT rate, sacks taken and sack yards);
      - totals and shares rank as descriptions of volume or role, not quality (Help says so);
      - a rate (and a fewer-is-better total) ranks only players whose OWN denominator reaches the bar in RATE_BARS: per team game x the fewest
-       games any NFL club has played through W*. A rate rank is withheld only when his denominator is missing or below the bar, never
+       games any NFL club has played through W* (R10: INT rate uses each player's own club games instead, once the answer carries
+       team_games for every player). A rate rank is withheld only when his denominator is missing or below the bar, never
        because of ties;
      - a competitor whose figure is missing or incomplete, and who could be ahead of him (or, for a rate, might reach the minimum), is
        "unplaced": the rank is then "—" and Rank details give the bounds and the cause; no range is ever displayed (R7b final). A competitor
@@ -42,7 +43,11 @@
       // Week 10 evidence (r8c.md): bar 135 attempts, 31 of 66 QBs with an attempt qualify, the same on the recorded pool and on nflverse.
       // R9 (Keith: keep 15 per team game provisionally). G is the FEWEST games any club has played (9 at Week 10), not the player's own club's
       // games (9 or 10): the pool answer carries no club. Snapshot check (r9c.md): 14/g 126 -> 31 QBs, 15/g 135 -> 31, 20/g 180 -> 27, fixed 150 -> 30.
-      int_rate: { den: "pass attempts", perGame: { QB: 15 } },
+      // R10 (Keith: "Replace the league-minimum-games denominator with each player's supported historical NFL team games through the shared
+      // cutoff only after verification and an impact comparison"). own: the bar is 15 x HIS club games (team_games in the pool answer: games his
+      // NFL club(s) played through W* while he was on them) when EVERY player of the answer carries a supported team_games; otherwise the
+      // fewest-games bar above, for everyone. The recorded answer has no team_games (r10c.md), so the fewest-games bar is what shows today.
+      int_rate: { den: "pass attempts", perGame: { QB: 15 }, own: true },
       sacks_taken: { den: "pass attempts + sacks (dropbacks without scrambles; scrambles are not stored)", perGame: { QB: 17 } },
       sack_yds: { den: "pass attempts + sacks", perGame: { QB: 17 } },
       ypc: { den: "carries", perGame: { RB: 5, WR: 0.5, TE: 0.3 }, min: { WR: 8, TE: 5 } },
@@ -107,15 +112,17 @@
   function checkPool(j, season, through, group) {
     if (!j || typeof j !== "object" || j.ok !== true || !Array.isArray(j.players)) return { ok: false, why: "unexpected answer" };
     if (Number(j.season) !== Number(season) || Number(j.through) !== Number(through) || String(j.group) !== String(group)) return { ok: false, why: "answer for other weeks or another group" };
-    var byId = {};
+    var byId = {}, own = j.players.length > 0;
     for (var i = 0; i < j.players.length; i++) {
       var e = j.players[i];
       if (!e || e.mfl_id == null || !e.s || typeof e.s !== "object") return { ok: false, why: "unexpected answer" };
       var id = String(e.mfl_id);
       if (byId[id]) return { ok: false, why: "a player listed twice" };
       byId[id] = e;
+      // R10: his own club games through W* (whole number, 1..W*); one player without it and NO player's own bar is used (one rule per pool)
+      if (!(isNum(e.team_games) && e.team_games >= 1 && e.team_games <= Number(through) && Math.floor(e.team_games) === e.team_games)) own = false;
     }
-    return { ok: true, players: j.players, byId: byId, dataMaxWeek: isNum(j.data_max_week) ? j.data_max_week : null };
+    return { ok: true, players: j.players, byId: byId, dataMaxWeek: isNum(j.data_max_week) ? j.data_max_week : null, ownGames: own };
   }
 
   // a field of one entry: "full" | "partial" (missing in some of his weeks) | "missing"
@@ -194,13 +201,15 @@
       var mine = m.kind === "rate" ? mv.n / mv.d : mv.v;
       if (Math.abs(mine - ctx.raw) > 1e-6 * Math.max(1, Math.abs(mine))) return { text: DASH, why: "The position figures and his game stats disagree." };
     }
-    var bar = null;
+    var bar = null, own = !!(bar0 && bar0.own && pool.ownGames);
+    // R10: each player's bar: his own club games when the whole pool carries them (own), else the one fewest-games bar for everyone
+    var barFor = function (e) { return own ? barOf(id, group, e.team_games) : bar; };
     if (m.kind !== "count") {
-      bar = barOf(id, group, ctx.G);
-      if (bar == null) return { text: DASH, why: ctx.G >= 1 ? "No minimum is set for this stat." : "Team games through this week are not known." };
+      bar = barOf(id, group, own ? me.team_games : ctx.G);
+      if (bar == null) return { text: DASH, why: own || ctx.G >= 1 ? "No minimum is set for this stat." : "Team games through this week are not known." };
       if (mv.qst === "missing") return { text: DASH, why: "His " + RATE_BARS.bars[id].den + " are missing." };
       if (mv.q < bar - 1e-9 && mv.qst === "partial") return { text: DASH, why: "His " + RATE_BARS.bars[id].den + " are missing some games." };
-      if (mv.q < bar - 1e-9) return { text: DASH, why: "Ranked at " + f1(bar) + " " + RATE_BARS.bars[id].den + " or more; he has " + f1(mv.q) + "." };
+      if (mv.q < bar - 1e-9) return { text: DASH, why: "Ranked at " + f1(bar) + " " + RATE_BARS.bars[id].den + " or more" + (own ? " (" + bar0.perGame[group] + " for each of his club's " + me.team_games + " games)" : "") + "; he has " + f1(mv.q) + "." };
     }
     // unplaced competitors, by cause: missing (no figure at all), partial (a figure missing some games, he qualifies), eligibility (his denominator is
     // missing or incomplete and under the bar, so whether he qualifies at all is unknown). Every cause is missing underlying stats; "eligibility" is
@@ -212,7 +221,7 @@
       if (m.kind !== "count") {
         // over the bar? A denominator only grows, so a partial one already over the bar qualifies; a missing or partial one under it might.
         if (v.qst === "missing") { unplaced++; cause.eligibility++; return; }
-        if (v.q < bar - 1e-9) { if (v.qst === "partial") { unplaced++; cause.eligibility++; } return; }
+        if (v.q < barFor(e) - 1e-9) { if (v.qst === "partial") { unplaced++; cause.eligibility++; } return; }
       }
       if (v.st === "missing" || v.st === "nodiv") { if (v.st === "missing") { unplaced++; cause.missing++; } return; }
       if (v.st === "partial") {
@@ -241,6 +250,7 @@
       "INT rate shows two decimals; the rank uses the exact rate, so only identical rates share a rank. " +
       "Rates (and the fewer-is-better totals) rank only players with enough attempts, carries, targets, receptions, punts or snaps of their own: " +
       "a minimum per team game times the fewest games any NFL club has played through that week (for example 15 pass attempts × 9 games = 135), with a fixed floor for wide receiver and tight end carries (proposed, pending approval); below it the value shows and the rank is " + DASH + ". " +
+      "For INT rate, once the position figures give every quarterback's own club games, the minimum becomes 15 × the games his NFL club played while he was on it (Rank details then say so); until then it is the bar above. " +
       "Pressure rate is not ranked: no pass-rush snap count exists.";
   }
 

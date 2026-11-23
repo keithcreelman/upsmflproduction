@@ -47,7 +47,7 @@
     live: null, // PR B: when every game of the lineup week was first seen final (starts the quiet period of the Final · updating chip)
     ct: { f: "all", l: "all", s: "exp", y: 0, d: 1, open: {}, hist: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the salary structure filter (R9); the sort (exp | sal | pos | name), which Contract histories are open (R9), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
-    pf: { s: "pos", open: {}, res: {}, q: "", pos: "all", xt: false }, // Team › Performance: the sort (pos | tot | ppg), which rows are open, which reserve groups are open, the name search (R8), the position filter and "Search other teams" (R9)
+    pf: { s: "pos", open: {}, res: {}, q: "", pos: "all", xt: false, xpos: "all", note: null }, // Team › Performance: the sort (pos | tot | ppg), which rows are open, which reserve groups are open, the name search (R8), the position filter and "Search other teams" (R9)
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
@@ -479,6 +479,12 @@
     if (wasProfile && history.state && history.state.p) { history.back(); return; }
     if (wasProfile) { try { history.replaceState(null, "", location.pathname + location.search); } catch (e) { /* ignore */ } }
   }
+  // R10: after the owner picks another team, the Performance filter stays when that team has the position; otherwise it goes back to All and
+  // one line says so (S.pf.note, cleared by the next filter, sort, search or team action). Search, sort and cross-team state are kept.
+  function pfOnTeam() {
+    var t = S.model && S.model.teams.filter(function (x) { return x.id === S.teamId; })[0], r = U.tabviews.pfTeamSwitch(S, t);
+    S.pf.pos = r.pos; S.pf.note = r.note;
+  }
   function returnFromProfile() {
     var r = S.ret; S.ret = null;
     if (r && r.teamId && S.model && S.model.teams.some(function (t) { return t.id === r.teamId; })) S.teamId = r.teamId;
@@ -548,10 +554,11 @@
     else if (act === "nsx") { S.ct.ns = !S.ct.ns; render(true); if (S.ct.ns) loadNext(false); }
     else if (act === "retryns") { loadNext(true); }
     else if (act === "help") { S.sheet = "help"; render(); }
-    else if (act === "pfs") { S.pf.s = v; render(true); }
+    else if (act === "pfs") { S.pf.s = v; S.pf.note = null; render(true); }
     else if (act === "pfx") { S.pf.open[v] = !S.pf.open[v]; if (S.pf.open[v]) openAndReveal("pfx", v); else render(true); }
-    else if (act === "pfpos") { if (U.tabviews.pfPosOk(v)) { S.pf.pos = v; render(true); } }   // R9: the position filter (All or one position)
-    else if (act === "pfxt") { if (S.pf.q && S.pf.q.trim()) { S.pf.xt = true; render(true); } }   // R9: "Search other teams", only on this tap
+    else if (act === "pfpos") { if (U.tabviews.pfPosOk(v)) { S.pf.pos = v; S.pf.note = null; render(true); } }   // R9: the position filter (All or one position)
+    else if (act === "pfxt") { if (S.pf.q && S.pf.q.trim()) { S.pf.xt = true; S.pf.xpos = S.pf.pos; S.pf.note = null; render(true); } }   // R9: "Search other teams", only on this tap; R10: its own position control starts at this team's filter
+    else if (act === "pfxpos") { if (U.tabviews.pfPosOk(v)) { S.pf.xpos = v; render(true); } }   // R10: the other-teams position control (every position among the matches)
     else if (act === "pfres") { S.pf.res[v] = !S.pf.res[v]; render(true); }
     else if (act === "retryperf") { refreshPerformance(); }
     else if (act === "logmore") { if (S.profile) { S.profile.all = true; render(true); ensurePerformance(); ensureLog(); } }
@@ -570,7 +577,7 @@
     else if (act === "card") openProfile(el.getAttribute("data-pid"), false, el.getAttribute("data-x") === "1");
     else if (act === "close") closeLayer();
     else if (act === "teams") { S.sheet = "teams"; render(); }
-    else if (act === "pickteam") { S.teamId = el.getAttribute("data-fid"); setPref("team", S.teamId); S.open = {}; S.sheet = null; render(); }
+    else if (act === "pickteam") { S.teamId = el.getAttribute("data-fid"); setPref("team", S.teamId); S.open = {}; S.sheet = null; pfOnTeam(); render(); }
     else if (act === "about") { S.sheet = "about"; render(); }
     else if (act === "sample") { toggleSample(); }
     else if (act === "skin") { S.skin = v; setPref("skin", v); applySkin(); render(true); }
@@ -585,7 +592,7 @@
   appEl.addEventListener("input", function (ev) {
     var el = ev.target;
     if (!el || el.id !== "pfq") return;
-    S.pf.q = String(el.value || "").slice(0, 40);
+    S.pf.q = String(el.value || "").slice(0, 40); S.pf.note = null;
     if (!S.pf.q.trim()) S.pf.xt = false;   // R9: clearing the search ends "Search other teams"; a new search starts on this team again
     var box = document.getElementById("pflist"), html = box ? U.tabviews.performanceList(S) : null;
     if (box && html != null) box.innerHTML = html; else render(true);
