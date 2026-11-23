@@ -3,7 +3,8 @@
 
    Rules this file keeps (owner rulings, 2026-11-21; scope record on #1475):
    - Contracts: labels and sorts follow the season the roster read reports (no year is written in this file); the salary columns are as many as
-     the longest contract left; no points per game and no position rank anywhere; "Recorded salary, not cap space" and no link into Cap & picks.
+     the longest contract left; no points per game and no position rank anywhere; no link into Cap & picks. R6 (Keith, 2026-11-22/23): ONE cap card
+     (Available cap space, Total cap, a closed Breakdown, the later years' Total committed cap); the separate recorded-salary card is gone.
    - The Remaining guarantee column holds ONLY guarantee values (Loading, an amount, $0 with "Fully earned" from a calculated zero, Not applicable,
      Under review, Unavailable). A cut charge is drawn only under "If cut now". A missing or failed read never draws $0.
    - Performance: a figure is withheld only when the evidence it needs is missing (lib/clubhist.js decides); scores, the season average and the
@@ -59,9 +60,10 @@
 
   // ============================== Contracts ==============================
   var CT_FILTERS = [["all", "All"], ["active", "Active"], ["ir", "IR"], ["taxi", "Taxi"]];
-  // The sort: one control with three segments (Salary, Expiration, Name). Each starts in its own direction (1 = ascending, -1 = descending); tapping the
+  // The sort: one control with three segments (Salary | Contract exp. | Name). Each starts in its own direction (1 = ascending, -1 = descending); tapping the
   // sort that is already active reverses it. The salary year (0 = this season to 2) matters only while Salary is the sort.
-  var CT_SORTS = [["sal", "Salary"], ["exp", "Expiration"], ["name", "Name"]];
+  var CT_SORTS = [["sal", "Salary", "salary"], ["exp", "Contract exp.", "contract expiration"], ["name", "Name", "name"]];
+  var POS_LABEL = { PK: "K", PN: "P" };
   var CT_DIR = { exp: 1, sal: -1, name: 1 };
   function isSort(s) { return s === "sal" || s === "exp" || s === "name"; }
   function ctState(S) {
@@ -144,11 +146,29 @@
     var cut = C.cutNow(row), e = C.earned(row);
     if (cut.kind !== "amount") return "Unavailable";
     var why;
-    if (e.kind === "rule") why = cut.amount > 0 ? "Flat rule: a contract paying the same small amount every year costs a fixed amount to cut." : "No charge: " + (cut.why ? cut.why : "exempt under the flat rule");
+    // R6: a $0 cut under a small-contract rule points at the rule already named on the Weekly guarantee line (no worker shorthand such as "Sub-5K TCV")
+    if (e.kind === "rule") why = cut.amount > 0 ? "Flat rule: a contract paying the same small amount every year costs a fixed amount to cut." : "No charge: the small-contract rule above applies";
     else if (e.kind === "na") why = "Waiver pickup of $4K or less, in its final year" + (cut.why ? " (" + cut.why + ")" : "");
     else why = cut.why ? cut.why : "The remaining guarantee";
-    why = why.replace(/[.\s]+$/, "") + ".";
+    why = why.replace(/\s*\(§[^)]*\)/g, "").replace(/[.\s]+$/, "") + ".";   // R6: no rulebook section codes on the screen
     return "<b>" + money(cut.amount) + "</b> · " + esc(why);
+  }
+
+  // R6 Details: the full salary schedule of the CURRENT contract (completed years included, lib/contract.js history), then the contract length, years
+  // remaining, the guarantee and the cut cost, each on its own line, so salary, remaining guarantee and cut cost are never mixed. A year with no
+  // recorded amount says "Not recorded"; nothing is borrowed from an earlier contract.
+  var PHASE = { done: "Completed", now: "This season", left: "Remaining" };
+  function detailsHtml(S, p, g) {
+    var season = S.model.season, h = C.history(p, season), rows = "";
+    h.rows.forEach(function (r) { rows += "<span>" + r.year + '</span><span class="mu">' + PHASE[r.phase] + "</span><span>" + (r.amount == null ? '<span class="wn">Not recorded</span>' : money(r.amount)) + "</span>"; });
+    if (h.option) rows += "<span>" + h.option.year + '</span><span class="mu">Option year</span><span>' + money(h.option.amount) + "</span>";
+    var note = h.yearsLeft && h.earlier === "unknown" ? "Earlier years of this contract are not recorded." : h.earlier === "conflict" ? "Earlier years are not shown: the recorded terms do not match this season’s salary." : "";
+    var len = h.length ? plural(h.length, "year", "years") + ", " + h.start + (h.end !== h.start ? "–" + h.end : "") : "Not recorded";
+    var left = h.yearsLeft ? h.yearsLeft + " (through " + h.end + ")" : "Not recorded";
+    var sch = C.schedule(p, season), gtd = g.row && isFinite(g.row.guaranteed) ? money(g.row.guaranteed) : sch.parsed.gtd != null ? money(sch.parsed.gtd) : "Not recorded";
+    var gw = guaranteeWords(S, p, g);
+    return '<div class="det"><div class="sec2 first">Salary schedule</div><div class="yrl">' + (rows || '<span class="mu">No years recorded</span>') + "</div>" + (note ? '<div class="ex">' + esc(note) + "</div>" : "") +
+      taxiLine(S, p) + '<div class="kv"><b>Contract</b><span>' + esc(len) + "</span><b>Years remaining</b><span>" + esc(left) + "</span><b>Type</b><span>" + esc(p.type || "Not recorded") + "</span><b>Recorded guarantee</b><span>" + gtd + "</span><b>" + gw.label + "</b><span>" + gw.html + "</span><b>If cut now</b><span>" + cutWords(S, p) + "</span></div></div>";
   }
 
   function contractsBody(S) {
@@ -165,45 +185,33 @@
     }[c.s], dir = c.d * CT_DIR[c.s];   // CT_DIR[s] is the sort's own starting direction; c.d is the direction now in use
     list = list.slice().sort(function (a, b) { return dir * base(a, b); });
 
-    // the totals card: recorded salary only
-    var tot = [], cnt = [], missing = [], k;
-    for (k = 0; k < ny; k++) { tot.push(0); cnt.push(0); missing.push(0); }
-    list.forEach(function (p) { for (var i = 0; i < ny; i++) { var v = sal(p, i); if (v === undefined) continue; if (v == null) missing[i]++; else { tot[i] += v; cnt[i]++; } } });
-    var cols = "g" + (ny + 1), tcols = "t" + ny;
+    // R6: ONE cap card (the separate recorded-salary summary card is gone; Total committed cap by year is inside the cap card)
+    var cols = "g" + (ny + 1), yrs = [];
+    for (var k = 0; k < ny; k++) yrs.push(season + k);
     out += capCard(S, t);
-    out += '<div class="card"><h2>Recorded salary, not cap space</h2><div class="trow ' + tcols + '">' + tot.map(function (v, i) { return "<b>" + (cnt[i] ? kmoney(v) : DASH) + "</b>"; }).join("") + "</div>" +
-      '<div class="trow ' + tcols + ' mu">' + tot.map(function (v, i) { return "<span>" + (season + i) + "</span>"; }).join("") + "</div>" +
-      '<div class="ex mt4">' + plural(list.length, "player", "players") + " shown." +
-      (missing.some(function (n) { return n > 0; }) ? " A year with no recorded amount is left out of its total." : "") + "</div></div>";
 
     out += '<div class="lbl">Show</div><div class="chs" role="group" aria-label="Show">' + CT_FILTERS.map(function (o) { return '<button class="ch" data-act="ctf" data-v="' + o[0] + '" aria-pressed="' + (c.f === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
-    // ONE sort control: Salary | Expiration | Name. The active segment shows its direction (▲ ascending, ▼ descending) and says it in words; tapping it again reverses.
+    // ONE sort control: Salary | Contract exp. | Name. The active segment shows its direction (▲ ascending, ▼ descending) and says it in words; tapping it again reverses.
     var DIRW = { sal: ["lowest first", "highest first"], exp: ["soonest first", "latest first"], name: ["A to Z", "Z to A"] };   // [ascending, descending]
     out += '<div class="lbl">Sort</div><div class="seg" role="group" aria-label="Sort">' + CT_SORTS.map(function (o) {
       var on = c.s === o[0], shown = on ? DIRW[o[0]][c.d === 1 ? 0 : 1] : "";
-      return '<button data-act="cts" data-v="' + o[0] + '" aria-pressed="' + on + '" aria-label="' + (on ? "Sorted by " + o[1].toLowerCase() + ", " + shown + ". Tap to reverse." : "Sort by " + o[1].toLowerCase()) + '">' + o[1] + (on ? ' <span aria-hidden="true">' + (c.d === 1 ? "▲" : "▼") + "</span>" : "") + "</button>";
+      return '<button data-act="cts" data-v="' + o[0] + '" aria-pressed="' + on + '" aria-label="' + (on ? "Sorted by " + o[2] + ", " + shown + ". Tap to reverse." : "Sort by " + o[2]) + '">' + o[1] + (on ? ' <span aria-hidden="true">' + (c.d === 1 ? "▲" : "▼") + "</span>" : "") + "</button>";
     }).join("") + "</div>";
     if (c.s === "sal") out += '<div class="chs" role="group" aria-label="Salary year">' + [0, 1, 2].map(function (i) { return '<button class="ch" data-act="cty" data-v="' + i + '" aria-pressed="' + (c.y === i) + '" aria-label="' + (season + i) + ' salary">' + (season + i) + "</button>"; }).join("") + "</div>";
 
-    out += '<div class="thead ' + cols + '"><span>Remaining guarantee</span>' + tot.map(function (v, i) { return "<span>" + (season + i) + "</span>"; }).join("") + "</div>";
+    out += '<div class="thead ' + cols + '"><span>Remaining guarantee</span>' + yrs.map(function (y) { return "<span>" + y + "</span>"; }).join("") + "</div>";
 
     function rowHtml(p) {
-      var open = !!c.open[p.id], g = guarantee(S, p), sch = C.schedule(p, season);
-      var meta = [esc(p.pos), esc(F.commonCode(p.nflTeam) || "No NFL team"), esc(p.type || "Type not recorded"), p.years ? plural(p.years, "yr left", "yrs left") : "no years recorded"].join(" · ") + esc(R.capNote(p));
+      var open = !!c.open[p.id], g = guarantee(S, p);
+      var exp = p.years > 0 ? "Expires " + (season + p.years - 1) : "Expiration not recorded";
+      var meta = esc(F.commonCode(p.nflTeam) || "No NFL team") + " · " + esc(exp);
       var cells = '<span class="g">' + gcell(g) + "</span>";
       for (var i = 0; i < ny; i++) { var v = sal(p, i); cells += "<span>" + (v === undefined ? '<span class="mu">' + DASH + "</span>" : v == null ? '<span class="wn">n/r</span>' : kmoney(v)) + "</span>"; }
-      // Two separate controls: the player's NAME opens his profile; the rest of the row (contract facts, the figures and a chevron) opens or closes the contract details.
-      var h = '<div class="rw"><button class="nmb" data-act="card" data-pid="' + esc(p.id) + '" aria-label="Open ' + esc(p.name) + ' profile"><span class="l1">' + esc(p.name) + (p.status === "ir" ? " " + chip("", "IR") : p.status === "taxi" ? " " + chip("", "Taxi") : "") + '</span></button>' +
-        '<button class="rb" data-act="ctx" data-v="' + esc(p.id) + '" aria-expanded="' + open + '" aria-label="' + (open ? "Hide" : "Show") + " contract details for " + esc(p.name) + '"><span class="l2">' + meta + ' <span class="chv" aria-hidden="true">Details ' + (open ? "▾" : "▸") + '</span></span><span class="cells ' + cols + '">' + cells + "</span></button>";
-      if (open) {
-        var rows = "";
-        for (var j = 0; j < sch.rows.length; j++) rows += "<span>" + sch.rows[j].year + "</span><span>" + (j === 0 ? "this season" : "future") + "</span><span>" + (sch.rows[j].amount == null ? "Not recorded" : money(sch.rows[j].amount)) + "</span>";
-        if (sch.option) rows += "<span>" + sch.option.year + "</span><span>option year</span><span>" + money(sch.option.amount) + "</span>";
-        var gtd = g.row && isFinite(g.row.guaranteed) ? money(g.row.guaranteed) : sch.parsed.gtd != null ? money(sch.parsed.gtd) + " (as recorded)" : "Not recorded";
-        var gw = guaranteeWords(S, p, g);
-        h += '<div class="det"><div class="sec2 first">Salary by year</div><div class="yrl">' + (rows || '<span class="mu">No remaining years recorded</span>') + "</div>" +
-          taxiLine(S, p) + '<div class="kv"><b>Type</b><span>' + esc(p.type || "Not recorded") + "</span><b>Recorded guarantee</b><span>" + gtd + "</span><b>" + gw.label + "</b><span>" + gw.html + "</span><b>If cut now</b><span>" + cutWords(S, p) + "</span></div></div>";
-      }
+      // Two separate controls: the player's NAME (with his position badge) opens his profile; a quiet "Details" control opens or closes the contract details.
+      var h = '<div class="rw"><div class="rwh"><button class="nmb" data-act="card" data-pid="' + esc(p.id) + '" aria-label="Open ' + esc(p.name) + ' profile"><span class="l1">' + pcx(POS_LABEL[p.pos] || p.pos) + ' <span class="nmt">' + esc(p.name) + "</span>" + (p.status === "ir" ? " " + chip("", "IR") : p.status === "taxi" ? " " + chip("", "Taxi") : "") + '</span></button>' +
+        '<button class="rb dtl" data-act="ctx" data-v="' + esc(p.id) + '" aria-expanded="' + open + '" aria-label="' + (open ? "Hide" : "Show") + " contract details for " + esc(p.name) + '">Details <span aria-hidden="true">' + (open ? "▾" : "▸") + "</span></button></div>" +
+        '<div class="l2">' + meta + '</div><div class="cells ' + cols + '">' + cells + "</div>";
+      if (open) h += detailsHtml(S, p, g);
       return h + "</div>";
     }
     if (!list.length) out += '<div class="ex pad">No players in this group.</div>';
@@ -214,10 +222,10 @@
         var grp = list.filter(function (p) { return (p.years || 0) === yl; });
         if (!grp.length) continue;
         var sum = 0, any = false; grp.forEach(function (p) { var v = sal(p, 0); if (v != null) { sum += v; any = true; } });
-        out += '<div class="gh2"><span>Expiration date <b>' + (season + yl - 1) + "</b> · " + plural(grp.length, "player", "players") + "</span><span>" + (any ? kmoney(sum) + " " + season + " salary" : DASH) + '</span></div><div class="card rows">' + grp.map(rowHtml).join("") + "</div>";
+        out += '<div class="gh2"><span>Expires <b>' + (season + yl - 1) + "</b> · " + plural(grp.length, "player", "players") + "</span><span>" + (any ? kmoney(sum) + " " + season + " salary" : DASH) + '</span></div><div class="card rows">' + grp.map(rowHtml).join("") + "</div>";
       }
       var none = list.filter(function (p) { return !(p.years > 0); });
-      if (none.length) out += '<div class="gh2"><span>No years recorded · ' + plural(none.length, "player", "players") + '</span><span></span></div><div class="card rows">' + none.map(rowHtml).join("") + "</div>";
+      if (none.length) out += '<div class="gh2"><span>Expiration not recorded · ' + plural(none.length, "player", "players") + '</span><span></span></div><div class="card rows">' + none.map(rowHtml).join("") + "</div>";
     } else out += '<div class="card rows">' + list.map(rowHtml).join("") + "</div>";
 
     var st = S.penalty ? S.penalty.state : "idle";
@@ -251,13 +259,14 @@
     if (sub === "contracts") {
       return h("Available cap space", "Total cap minus Cap charge. A negative number means the team is over the cap.") +
         h("Total cap", "The salary cap for the season, as the league’s roster read reports it. If it is not reported, no available figure is shown.") +
-        h("Total committed cap", "Recorded salaries, less taxi squad players (they count $0) and half of each injured reserve player’s salary. Adjustments are not part of it.") +
-        h("Cap charge", "Total committed cap plus or minus the adjustments (Cut Penalty, Traded Salary, FA Auction Fine, Rounding, Other). It is what counts against the cap, so Available cap space is Total cap minus Cap charge.") +
-        h("Later years", "This season gives injured reserve players half relief and taxi players $0. <b>Planning assumption for later years:</b> players now on taxi stay on taxi ($0) and injured reserve players count at full scheduled salary. No injury relief is projected. Adjustments are the ones recorded for that year; “not recorded” is not $0.") +
+        h("Total committed cap", "Salaries, less taxi relief (taxi squad players count $0) and injured reserve relief (half of each injured reserve player’s salary). Adjustments are not part of it.") +
+        h("Cap charge", "Total committed cap plus or minus the adjustments (Cut penalties, Traded salary, Other, Rounding). It is what counts against the cap, so Available cap space is Total cap minus Cap charge.") +
+        h("Later years", "Each later year shows its Total committed cap. This season gives injured reserve players half relief and taxi players $0. <b>Planning assumption for later years:</b> players now on taxi stay on taxi ($0) and injured reserve players count at full scheduled salary. No injury relief is projected. A year’s Details list the adjustments recorded for it; next season’s come from the UPS ledger, and no source records adjustments for the years after that, so none are shown (that is not $0).") +
+        h("Salary schedule", "A player’s Details list every year of his current contract as MFL records it, completed years included. A year with no recorded amount says “Not recorded”. Salaries from an earlier contract are never added.") +
         h("Taxi", "A taxi-eligible player can be released with a $0 cut charge while taxi eligibility applies. Releasing ends eligibility.") +
         h("Where the numbers come from", "Contracts as recorded on MFL" + (asOf ? " (as of " + esc(asOf) + ")" : "") + ". Earned, guarantee and cut charge: the UPS cap calculation" + (wk != null ? " through Week " + esc(wk) : "") + ".") +
         h("Symbols", esc(DASH) + " contract ended · n/r no amount recorded.") +
-        h("Adjustments", "Cut Penalty, Traded Salary (including three-team settlements), FA Auction Fine, Rounding. Other is a posted adjustment that fits none of them; its reason is not guessed. The charge season is the season whose cap is charged; it can differ from the cut date.") +
+        h("Adjustments", "Cut penalties, Traded salary (including three-team trades), Other, Rounding. Other holds every fine, FA auction fines included, each named in its row, and any posted adjustment that fits no category; its reason is not guessed. Adjustments are charged to the season in the heading (the charge season); a cut date can be in an earlier season.") +
         h("Player names", "A name comes from the player ID on the charge, looked up in MFL’s complete player list (so it works whether or not he is on a roster now), or, for older add/drop records that carry no player ID, from UPS’s reviewed list. If neither names him it reads “Player Unknown”. A fine, rounding or settlement has no player.") +
         h("Cut dates", "Dates are Eastern Time and shown only when verified: the date comes from the drop time recorded on the charge, from UPS’s reviewed list, or, for next season, from the ledger’s drop time. Otherwise the row says “Cut date not recorded”. Waiver drops process at 9:00 AM ET, so only the date is shown.") +
         h("Remaining guarantee", "The guaranteed part of a contract that has not been earned yet. $0 with “Fully earned” means the whole guaranteed portion has been earned, so nothing remains.") +
@@ -289,29 +298,47 @@
     if (pl && pl.state === "error") return { text: "Name unavailable", cls: "wn" };
     return { text: "…", cls: "mu" };
   }
-  // One adjustment row: who (or the category), what season it is charged to, and for a cut penalty the full cut date, which is a different fact.
-  function itemRows(S, items, cname) {
+  // R6: the four parent rows of the adjustment Breakdown, in this order. Every fine (FA auction fines included) and any unclassified adjustment sits
+  // under Other; the internal categories (lib/adjust.js) are unchanged. [state key, label, internal categories]
+  var ADJ_GROUPS = [["cut", "Cut penalties", ["Cut Penalty"]], ["trade", "Traded salary", ["Traded Salary"]], ["other", "Other", ["FA Auction Fine", "Other"]], ["round", "Rounding", ["Rounding"]]];
+  var ORD = ["th", "st", "nd", "rd"];
+  function ordinal(n) { var v = n % 100; return n + (v >= 11 && v <= 13 ? "th" : ORD[n % 10] || "th"); }
+  // One adjustment entry. The season is in the section heading, so no row repeats it. A cut penalty: the player, the full cut date (ET), the amount.
+  // A fine: which fine it is. A trade: a trade or a three-team trade. Anything else: "Other adjustment" (its reason is not guessed).
+  function itemRows(S, items) {
     return items.map(function (it) {
-      var cut = cname === "Cut Penalty", who, sub = "Charged to " + it.season;
-      if (cut) {
+      var who, sub = "";
+      if (it.category === "Cut Penalty") {
         var pn = playerLabel(S, it);
         who = pn.cls ? '<span class="' + pn.cls + '">' + esc(pn.text) + "</span>" : esc(pn.text);
-        sub = (it.cutDate && F.dateLabel(it.cutDate) ? "Cut " + F.dateLabel(it.cutDate) : "Cut date not recorded") + " · " + sub;
-      } else who = esc(cname);
-      return '<div class="cl"><span class="who">' + who + '<span class="ex">' + esc(sub) + "</span></span><b>" + smoney(it.amount) + "</b></div>";
+        sub = it.cutDate && F.dateLabel(it.cutDate) ? "Cut " + F.dateLabel(it.cutDate) : "Cut date not recorded";
+      } else if (it.category === "Traded Salary") who = it.detail && it.detail.kind === "three_team" ? "Three-team trade" : "Trade";
+      else if (it.category === "FA Auction Fine") {
+        who = "FA auction fine"; var d = it.detail || {};
+        sub = d.kind === "rule2_missed_nomination" ? "Rule 2, missed nomination" + (F.dateLabel(d.date) ? ", " + F.dateLabel(d.date) : "") + (d.nth > 0 ? " (" + ordinal(d.nth) + " offense)" : "") : d.kind === "rule2" ? "Rule 2" : "";
+      } else who = "Other adjustment";
+      return '<div class="cl"><span class="who">' + who + (sub ? '<span class="ex">' + esc(sub) + "</span>" : "") + "</span><b>" + smoney(it.amount) + "</b></div>";
     }).join("");
   }
-  function categoryLines(S, adj, cat) {
+  // cut penalties in cut-date order (earliest first; an unrecorded date last); everything else keeps the source order
+  function byCutDate(rows) {
+    return rows.map(function (it, i) { return { it: it, i: i }; }).sort(function (a, b) {
+      var x = a.it.cutDate || "", y = b.it.cutDate || "";
+      return x && y ? (x < y ? -1 : x > y ? 1 : a.i - b.i) : x ? -1 : y ? 1 : a.i - b.i;
+    }).map(function (o) { return o.it; });
+  }
+  // The four parent rows with signed totals (a reconciled list, so an empty category is a real $0), Rounding as a plain amount, then Total adjustments.
+  function categoryLines(S, adj, pre) {
     var out = "";
-    A.CATEGORIES.forEach(function (cname) {
-      var rows = adj.items.filter(function (it) { return it.category === cname; });
-      if (!rows.length) return;
-      if (cname === "Rounding") { out += '<div class="cl"><span>Rounding</span><b>' + smoney(adj.byCategory[cname]) + "</b></div>"; return; }   // a plain line item: nothing to open
-      var open = !!(S.ct && S.ct.cat && S.ct.cat[cat + cname]);
-      out += '<div class="cl"><button class="link" data-act="ctcat" data-v="' + esc(cat + cname) + '" aria-expanded="' + open + '">' + esc(cname) + " " + (open ? "▾" : "▸") + "</button><b>" + smoney(adj.byCategory[cname]) + "</b></div>";
-      if (open) out += '<div class="det">' + itemRows(S, rows, cname) + '<div class="cl"><span class="mu">Total</span><b>' + smoney(adj.byCategory[cname]) + "</b></div></div>";
+    ADJ_GROUPS.forEach(function (g) {
+      var rows = adj.items.filter(function (it) { return g[2].indexOf(it.category) >= 0; }), sum = 0;
+      rows.forEach(function (it) { sum += it.amount; });
+      if (g[0] === "round" || !rows.length) { out += '<div class="cl"><span>' + g[1] + "</span><b>" + smoney(sum) + "</b></div>"; return; }   // nothing to open
+      var open = !!(S.ct && S.ct.cat && S.ct.cat[pre + g[0]]);
+      out += '<div class="cl pr"><button class="link" data-act="ctcat" data-v="' + esc(pre + g[0]) + '" aria-expanded="' + open + '">' + g[1] + " " + (open ? "▾" : "▸") + "</button><b>" + smoney(sum) + "</b></div>";
+      if (open) out += '<div class="det adj">' + itemRows(S, g[0] === "cut" ? byCutDate(rows) : rows) + "</div>";
     });
-    return out;
+    return out + '<div class="cl"><b>Total adjustments</b><b>' + smoney(adj.total) + "</b></div>";
   }
   // A signed dollar figure with a real minus sign for a negative ("−$5,000"); a positive one is plain.
   function negmoney(n) { return n < 0 ? MINUS + money(Math.abs(n)) : money(n); }
@@ -332,11 +359,11 @@
         if (!b.ok) lines = '<div class="ex wn">The salary lines don’t add up to the cap total, so only the total is shown.</div>';
         else {
           // salaries, less the two reliefs, make Total committed cap; the adjustments move it to Cap charge; Cap charge against Total cap gives Available cap space
-          lines = '<div class="cl"><span>Recorded salaries, ' + plural(b.recordedN, "player", "players") + "</span><b>" + money(b.recorded) + "</b></div>" +
-            (b.taxiN ? '<div class="cl mu"><span>Taxi squad, ' + plural(b.taxiN, "player", "players") + "</span><b>" + MINUS + money(b.taxi) + "</b></div>" : "") +
+          lines = '<div class="cl"><span>Salaries, ' + plural(b.recordedN, "player", "players") + "</span><b>" + money(b.recorded) + "</b></div>" +
+            (b.taxiN ? '<div class="cl mu"><span>Taxi relief, ' + plural(b.taxiN, "player", "players") + "</span><b>" + MINUS + money(b.taxi) + "</b></div>" : "") +
             (b.irN ? '<div class="cl mu"><span>Injured reserve (50%), ' + plural(b.irN, "player", "players") + "</span><b>" + MINUS + money(b.irRelief) + "</b></div>" : "") +
             '<div class="cl"><b>Total committed cap</b><b>' + money(b.capHits) + "</b></div>";
-          if (adj && adj.reconciled && Math.abs(adj.total - t.cap.adjTotal) < 0.5) lines += categoryLines(S, adj, "y26");
+          if (adj && adj.reconciled && Math.abs(adj.total - t.cap.adjTotal) < 0.5) lines += '<div class="sec2">' + season + " adjustments</div>" + categoryLines(S, adj, "y26");
           else if (t.cap.adjTotal) lines += '<div class="cl"><span>Adjustments</span><b>' + smoney(t.cap.adjTotal) + '</b></div><div class="ex wn">Detail unavailable: ' + esc(adj && adj.mismatch ? adj.mismatch : "the adjustments could not be itemized") + ".</div>";
           lines += '<div class="cl"><b>Cap charge</b><b>' + money(charge) + "</b></div>";
           if (limit != null) lines += '<div class="cl"><span>Total cap</span><b>' + money(limit) + '</b></div><div class="cl"><b>Available cap space</b><b' + (over ? ' class="wn"' : "") + ">" + negmoney(avail) + "</b></div>";
@@ -356,29 +383,27 @@
     }
     return { known: false, total: null, state: ns.state };
   }
-  // The later years, inside the cap card: committed cap per year (cap hits plus or minus that year's adjustments). 2027 opens to its ledger detail
-  // (one read, made when it is first opened and then reused); 2028 has no adjustment source, so it says "not recorded", never $0.
+  // R6: the later years, inside the cap card: one compact row per year with its Total committed cap (the planning assumption is in Help). Next season
+  // opens to its supported adjustments (the UPS ledger: one read, made when the row is first opened and then reused). The year after has no adjustment
+  // source, so it has no Details and no adjustment figure (never $0). A year with an unrecorded salary shows no total: an incomplete figure is not
+  // drawn as complete.
   function laterYears(S, t) {
     var season = S.model.season;
     var adj0 = t.adjust && t.adjust.reconciled && t.cap && Math.abs(t.adjust.total - t.cap.adjTotal) < 0.5 ? { known: true, total: t.cap.adjTotal, state: "ok" } : { known: false, total: null, state: "unavailable" };
-    var adj1 = nextAdj(S, t), ys = A.commitments(t, season, adj0, adj1, 3), out = '<div class="sec2">Later years</div>';
+    var adj1 = nextAdj(S, t), ys = A.commitments(t, season, adj0, adj1, 3), out = '<div class="sec2">Total committed cap, later years</div>';
     ys.forEach(function (y, i) {
       if (i === 0) return;   // this season is the figure above
-      var head = '<div class="cl"><span>' + y.year + "</span><b>" + (y.total != null ? money(y.total) : DASH) + "</b></div>";
-      var sub = "Total committed cap " + (y.hitsIncomplete ? "incomplete (" + plural(y.unknownCount, "year amount", "year amounts") + " not recorded)" : money(y.hits));
-      if (i === 1) {
-        var ns = S.ns && S.ns.state;
-        sub += " · adjustments " + (adj1.known ? smoney(adj1.total) : ns === "loading" ? "loading…" : ns === "error" ? "couldn’t load" : adj1.state === "incomplete" ? "incomplete" : "not loaded");
-      } else sub += " · adjustments not recorded";
+      var fig = y.hitsIncomplete ? DASH : money(y.hits);
+      var miss = y.hitsIncomplete ? '<div class="ex wn">' + plural(y.unknownCount, "salary", "salaries") + " not recorded</div>" : "";
       if (i === 1) {
         var open = !!(S.ct && S.ct.ns);
-        out += '<button class="link blk" data-act="nsx" aria-expanded="' + open + '">' + head + '<span class="ex">' + sub + " " + (open ? "▾" : "▸") + "</span></button>";
-        if (open) out += nextDetail(S, t);
-      } else out += head + '<div class="ex">' + sub + "</div>";
+        out += '<button class="link blk fy" data-act="nsx" aria-expanded="' + open + '"><span class="cl"><span>' + y.year + ' <span class="dtw">Details ' + (open ? "▾" : "▸") + "</span></span><b>" + fig + "</b></span></button>" + miss;
+        if (open) out += nextDetail(S, t, y);
+      } else out += '<div class="cl fy"><span>' + y.year + "</span><b>" + fig + "</b></div>" + miss;
     });
-    return out + '<div class="ex">Later years assume taxi players stay on taxi and injured reserve counts in full. See Help.</div>';
+    return out;
   }
-  function nextDetail(S, t) {
+  function nextDetail(S, t, y) {
     var ns = S.ns || { state: "idle" }, season = S.model.season + 1;
     if (ns.state === "idle" || ns.state === "loading") return '<div class="det"><div class="ex mu">Loading…</div></div>';
     if (ns.state === "error") return '<div class="det">' + failCard("retryns") + "</div>";
@@ -387,9 +412,15 @@
     var out = '<div class="det">';
     if (p.reconciled) {
       if (!p.items.length) out += '<div class="ex">No ' + season + " adjustments recorded yet.</div>";
-      else out += categoryLines(S, p, "y27") + '<div class="cl"><b>Total</b><b>' + smoney(p.total) + "</b></div>";
+      else {
+        // the same order as this season: Total committed cap, the adjustments, then the year's Cap charge, the last only when every part is known
+        // (all salaries recorded and the adjustments complete)
+        var whole = y && y.total != null;
+        out += (whole ? '<div class="cl"><span>Total committed cap</span><b>' + money(y.hits) + "</b></div>" : "") + '<div class="sec2' + (whole ? "" : " first") + '">' + season + " adjustments</div>" + categoryLines(S, p, "y27");
+        if (whole) out += '<div class="cl"><b>Cap charge</b><b>' + money(y.total) + "</b></div>";
+      }
     }
-    out += '<div class="ex">UPS ledger amounts, not yet on MFL.</div>';
+    out += '<div class="ex">Recorded by UPS; on MFL after the rollover.</div>';
     if (p.waiting) out += '<div class="ex wn">' + plural(p.waiting, "cut is", "cuts are") + " waiting for a price and not counted.</div>";
     if (p.review) out += '<div class="ex wn">' + plural(p.review, "cut needs", "cuts need") + " review and not counted.</div>";
     var onMfl = (p.unverifiedWhy && p.unverifiedWhy.already_on_mfl) || 0, unv = (p.unverified || 0) - onMfl;

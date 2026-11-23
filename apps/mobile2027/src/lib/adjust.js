@@ -60,6 +60,18 @@
     return null;
   }
 
+  // R6: which fine or which kind of settlement a row is, as structured facts taken from the SAME exact patterns (never free text):
+  //   FA Auction Fine (2026 MFL row) -> { kind: "rule2_missed_nomination", date: "YYYY-MM-DD" (the date the pattern carries), nth: the offense number }
+  //   Traded Salary -> { kind: "three_team" } for a three-team settlement ("3-way <id>"), else { kind: "trade" }
+  // Anything else -> null. The description itself is never returned.
+  var D_RULE2 = /^UPS RULE 2 missed nomination (\d{4}-\d{2}-\d{2}) offense (\d+)(?: id:\S+)?$/;
+  function detailOf(text, category) {
+    var s = typeof text === "string" ? text.trim() : "", m;
+    if (category === "FA Auction Fine" && (m = D_RULE2.exec(s))) return { kind: "rule2_missed_nomination", date: m[1], nth: Number(m[2]) };
+    if (category === "Traded Salary" && (m = P_TRADE.exec(s))) return { kind: /^3-way /.test(m[1]) ? "three_team" : "trade" };
+    return null;
+  }
+
   // ---- cut dates (Eastern Time) ----
   // A Unix time (seconds, or milliseconds) -> the Eastern Time calendar date "YYYY-MM-DD", or null when it is not a plausible whole-number time
   // (seconds between 1,500,000,000 and 2,000,000,000). A date is never guessed: anything else is null and the screen says "Cut date not recorded".
@@ -112,7 +124,7 @@
         if (seen[k]) { res.duplicates++; return; }
         seen[k] = true;
       }
-      var item = { category: cl ? cl.category : "Other", amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null, cutDate: null };
+      var item = { category: cl ? cl.category : "Other", amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null, cutDate: null, detail: cl ? detailOf(text, cl.category) : null };
       if (cl && cl.idForm === "player") {
         // the row's own player id is always kept (the screen can name him later from the complete player list); a roster-resolved name is "direct"
         item.playerId = cl.playerId;
@@ -150,7 +162,8 @@
       var pid = r && /^\d{1,9}$/.test(String(r.player_id == null ? "" : r.player_id)) ? String(r.player_id) : null;
       var key = category + "|" + String(r && (r.player_id || r.dropped_at_iso || "")) + "|" + amt;
       if (pid && r.dropped_at_iso) { if (seen[key + "|" + r.dropped_at_iso]) { res.duplicates++; return; } seen[key + "|" + r.dropped_at_iso] = true; }
-      var item = { category: category, amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null, cutDate: null };
+      // a next-season fine is identified by its ledger kind only ("RULE 2 fine"); its date field is not used, because the ledger names it a drop time
+      var item = { category: category, amount: amt, season: o.season, playerId: null, playerName: null, nameSource: null, cutDate: null, detail: category === "FA Auction Fine" ? { kind: "rule2" } : null };
       if (category === "Cut Penalty") {   // only a drop has a player and a cut date; a fine or any other row never does
         if (pid) {
           item.playerId = pid;   // always kept, so the screen can name him from the complete player list
@@ -233,7 +246,7 @@
 
   return {
     CATEGORIES: CATEGORIES, UNKNOWN_PLAYER: UNKNOWN_PLAYER, NEXT_SEASON_GAP: NEXT_SEASON_GAP,
-    etDate: etDate, etDateFromIso: etDateFromIso, classify: classify, amountOf: amountOf, parseTeamRows: parseTeamRows, parseNextSeason: parseNextSeason,
+    etDate: etDate, etDateFromIso: etDateFromIso, classify: classify, detailOf: detailOf, amountOf: amountOf, parseTeamRows: parseTeamRows, parseNextSeason: parseNextSeason,
     capBreakdown: capBreakdown, commitments: commitments, nameResolver: nameResolver
   };
 });
