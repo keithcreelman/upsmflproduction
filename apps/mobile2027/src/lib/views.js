@@ -516,13 +516,15 @@
     return '<div class="hm ph" role="img" aria-label="Team helmet placeholder: verified team art is not available"><span>Helmet</span><span>TBD</span></div>';
   }
   function pill(text) { return '<span class="hp">' + esc(text) + "</span>"; }
+  // R8: the readable Contract Type (Veteran / Rookie) from contract.describe, never the internal code ("Rookie-Draft", "Vet-FAA-FL")
+  function heroType(p) { var d = null; try { d = C.describe(p); } catch (e) { d = null; } return d && d.type ? d.type : "Contract type not recorded"; }
   function hero(p, pills) {
     var np = nameParts(p.name), urls = require_photo(p);
     return '<div class="hero' + teamCls(p.nflTeam) + '"><div class="grab"></div>' +
       '<div class="top"><span class="hlb">Player profile</span><button class="hx" data-act="close" aria-label="Close player profile"><span>Close</span></button></div>' +
       '<div class="hrow"><div class="pfw"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(p.pos) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' + helmetPlaceholder() + "</div>" +
       '<div class="htx"><h3 class="hnm">' + (np[0] ? '<span class="hfn">' + esc(np[0]) + "</span> " : "") + '<span class="hln">' + esc(np[1]) + "</span></h3>" +
-      '<div class="hsub"><b>' + esc(commonCode(p.nflTeam) || "No NFL team") + "</b><span>" + esc(p.pos) + "</span><span>" + esc(p.type || "Type not recorded") + "</span></div></div></div>" +
+      '<div class="hsub"><b>' + esc(commonCode(p.nflTeam) || "No NFL team") + "</b><span>" + esc(p.pos) + "</span><span>" + esc(heroType(p)) + "</span></div></div></div>" +
       (pills ? '<div class="hpills">' + pills + "</div>" : "") + '<div class="hbar"></div></div>';
   }
 

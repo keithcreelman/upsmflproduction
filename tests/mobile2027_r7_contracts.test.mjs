@@ -36,6 +36,18 @@ const detailsOf = (name) => {
 };
 const yrs = (h) => h.rows.map((r) => [r.year, r.amount, r.phase]);
 
+// ───────────────────────── R8: the profile header shows the readable Contract Type, never the internal code ─────────────────────────
+test("R8: the player profile header reads Veteran / Rookie (contract.describe), not codes like Rookie-Draft or Vet-FAA-FL", () => {
+  for (const name of ["Javon Bullard", "Rico Dowdle", "Derrick Henry"]) {
+    const p = player(name), html = V.app(state({ teamId: p.franchiseId, profile: { pid: p.id, tab: "contract" } }));
+    const sub = (html.match(/<div class="hsub">([\s\S]*?)<\/div>/) || [])[1] || "";
+    const d = C.describe(p);
+    t.ok(d && /^(Veteran|Rookie)$/.test(d.type), name + ": describe gives a readable type");
+    t.match(sub, new RegExp("<span>" + d.type + "</span>"), name + ": header shows " + d.type);
+    t.doesNotMatch(sub, /Rookie-Draft|Vet-|FAA|Ext\d/, name + ": no internal code in the header");
+  }
+});
+
 // ───────────────────────── R7b decision 3: the nine extensions with no supported year ─────────────────────────
 test("R7b: every recorded extension whose year the terms cannot show reads 'Extended by [team]' with no year (never a guess); exactly 9 in the recording", () => {
   const noYear = [];
