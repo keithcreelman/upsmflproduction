@@ -168,6 +168,34 @@ test("6. opening and closing a profile keeps the plan; a team switch keeps it an
   t.match(appJs, /if \(!t \|\| !P \|\| !P\.slotById\(slotId\) \|\| S\.view !== "lineup" \|\| S\.wk != null\) return;/, "the planner opens only on the current week's Lineup");
 });
 
+test("review fix (b8aee0b1): a starter on a bye is never offered for another slot; a bye-week occupant still leaves through a bench player", async () => {
+  // constructed: Cam Ward (SFX) on a bye this week
+  const S = await fresh(), tm = teamOf(S), wk = S.model.week, ward = tm.players.find((p) => p.name === "Cam Ward");
+  ward.bye = wk;
+  let Dr = PL.draftOf(S, tm), c = PL.options(S, tm, Dr.draft, "QB1").choices.find((x) => x.p.name === "Cam Ward");
+  t.ok(c && !c.ok, "the SFX quarterback on a bye is not an enabled choice for QB1"); t.equal(c.why, "Bye week");
+  t.equal(pick(S, "QB1", "Cam Ward"), false, "never applied");
+  // every enabled choice of every slot: never more bye-week starters than before, and the bye-week player never moves to another starting slot
+  const byeStarters = (d) => Object.values(d).filter((pid) => R.onBye(S.model.byId[pid], wk)).length;
+  PL.SLOTS.forEach((s) => PL.options(S, tm, Dr.draft, s.id).choices.filter((x) => x.ok).forEach((x) => {
+    const next = PL.apply(Dr.draft, s.id, String(x.p.id)), at = PL.slotOfPid(next, String(ward.id));
+    t.ok(byeStarters(next) <= byeStarters(Dr.draft) && (at === null || at === "SFX"), s.id + " · " + x.p.name);
+  }));
+  // the bye-week occupant leaves SFX through a bench player, and the bye error goes away
+  const before = PL.validate(S, tm, Dr.draft); t.ok(before.errors.some((e) => /Cam Ward \([A-Z]+\) is on a bye/.test(e)), "the recorded lineup now starts a bye-week player");
+  const repl = PL.options(S, tm, Dr.draft, "SFX").choices.find((x) => x.ok && !x.from);
+  t.ok(repl, "a bench player can replace him (" + (repl && repl.p.name) + ")");
+  t.ok(pick(S, "SFX", repl.p.name)); Dr = PL.draftOf(S, tm);
+  t.ok(!PL.validate(S, tm, Dr.draft).errors.some((e) => /on a bye/.test(e)), "no bye-week starter after the replacement");
+  t.equal(PL.slotOfPid(Dr.draft, String(ward.id)), null, "Cam Ward is on the bench");
+  // constructed: Fernando Mendoza (QB1) on a bye; a swap with SFX would keep him starting, so it is refused with the reason; a bench QB replaces him
+  const S2 = await fresh(), tm2 = teamOf(S2); tm2.players.find((p) => p.name === "Fernando Mendoza").bye = S2.model.week;
+  const O2 = PL.options(S2, tm2, PL.draftOf(S2, tm2).draft, "QB1"), sw = O2.choices.find((x) => x.p.name === "Cam Ward"), mj = O2.choices.find((x) => x.p.name === "Mac Jones");
+  t.ok(sw && !sw.ok && /Fernando Mendoza is on a bye/.test(sw.why), "the SFX swap is refused: it would keep the bye-week QB starting");
+  t.ok(mj && mj.ok, "a bench quarterback can replace him");
+  t.ok(pick(S2, "QB1", "Mac Jones")); t.ok(!PL.validate(S2, tm2, PL.draftOf(S2, tm2).draft).errors.some((e) => /on a bye/.test(e)), "no bye-week starter");
+});
+
 test("nothing is saved, stored or sent: the planner is pure and the app keeps plans in memory only", () => {
   t.doesNotMatch(plannerJs, /fetch|XMLHttpRequest|localStorage|sessionStorage|indexedDB|document\.|sendBeacon/);
   const fns = ["function planOpen(", "function planPick("].map((f) => appJs.split(f)[1].split("\n  }\n")[0]);

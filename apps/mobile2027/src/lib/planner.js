@@ -100,9 +100,12 @@
       if (!accepts(slot, p.pos)) return;                                   // not a position this slot takes: never offered
       var from = slotOfPid(draft, pid), c = { p: p, from: from, ok: true, why: "" };
       if (from) {
-        var fs = slotById(from), l2 = lockOf(S, p, wk);
-        if (l2.locked) { c.ok = false; c.why = l2.why; }
+        // R12 review fix: a starter moving into this slot must be able to start here (startable: active, not on a bye, not locked), and the occupant
+        // moving into his old slot must too, so a swap never leaves a bye-week player starting. A bye-week occupant still leaves through a bench player.
+        var fs = slotById(from), st2 = startable(S, p, wk);
+        if (!st2.ok) { c.ok = false; c.why = st2.why; }
         else if (occ && !accepts(fs, occ.pos)) { c.ok = false; c.why = occ.name + " can’t play " + fs.tag; }
+        else if (occ && R.onBye(occ, wk)) { c.ok = false; c.why = occ.name + " is on a bye: move him to the bench with a bench player instead"; }
       } else {
         var st = startable(S, p, wk);
         if (!st.ok) { c.ok = false; c.why = st.why; }
