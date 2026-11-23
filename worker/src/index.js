@@ -75,6 +75,9 @@ import { adminAuthority, adminDenial, bearerKey } from "./admin_authority.js";
 import { loadStarterRates, fetchMflByeWeeks } from "./starter_rates.js";
 import { loadPlayerStatus } from "./player_status.js";
 import { seasonTeamSnaps, coversPlayer } from "./team_snaps_season.js";
+import { seasonTeamTotals, coversTeams, totalsMap, TEAM_TOTALS_JOIN_SQL } from "./team_totals_season.js";
+import { positionSeasonStats, POSITION_GROUPS } from "./position_season_stats.js";
+import { readProjections, parseIds as parsePlayerIds, MAX_IDS as MAX_PROJECTION_IDS } from "./player_projections.js";
 import { currentCapHit as sharedCurrentCapHit, parseCapDollars } from "./cap_math.js";
 import { buildWaiverRunPlan, buildWaiverReportPlan, buildMissReportPlan, parseWaiverMisses, parsePlayerCell, humanizeDropBasis, explainPenalty, capYearNote } from "./lib/waiver_run_post.js";
 import { planFcfsStamp, verifyFcfsWrite, canonicalFcfsContract, applyFullYearRule, classifyFcfsContract, planUnstampedFcfsDropRepair, REPRICE_COLUMNS, FCFS_OUTCOME, FCFS_RULE_VERSION, FCFS_SALARY,
@@ -19887,6 +19890,7 @@ export default {
         "/api/sos-adjusted-points", "/api/player-consistency", "/api/player-epa",
         "/api/player-routes", "/api/player-ngs", "/api/player-ftn",
         "/api/player-splits", "/api/team-pace", "/api/nfl-current-teams",
+        "/api/player-projections",   // r6 draft: 5-minute edge cache; rows read <= ids per miss
       ]);
       let statCacheKey = null;
       if (request.method === "GET" && STAT_CACHE_PATHS.has(path)) {
@@ -20176,6 +20180,45 @@ export default {
         }
       }
 
+      // ── GET /api/player-projections?season=YYYY&week=W&ids=a,b (r6 draft; ./player_projections.js) ──
+      // Captured MFL projections with their capture times; the caller applies the kickoff freeze.
+      if (path === "/api/player-projections" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const season = parseInt(safeStr(url.searchParams.get("season")).replace(/\D/g, ""), 10);
+          const week = parseInt(safeStr(url.searchParams.get("week")).replace(/\D/g, ""), 10);
+          if (!(season >= 2000 && season <= 2100) || !(week >= 1 && week <= 22)) return jsonOut(400, { ok: false, error: "season and week required" });
+          const ids = parsePlayerIds(url.searchParams.get("ids"));
+          if (!ids.length) return jsonOut(400, { ok: false, error: "ids required (comma-separated MFL player ids)" });
+          if (ids.length > MAX_PROJECTION_IDS) return jsonOut(400, { ok: false, error: `at most ${MAX_PROJECTION_IDS} ids` });
+          const projections = await readProjections(db, season, week, ids);
+          return statOk({ ok: true, season, week, provider: "MFL projectedScores (captured)", projections });
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
+      // ── GET /api/position-season-stats?season=YYYY&through=W&group=G (r6 draft; ./position_season_stats.js) ──
+      // League-wide season sums per MFL position group, edge-cached on the nflverse refresh stamps, for
+      // positional stat ranks. NO_CACHE is deliberately not honored: an uncached fill reads ~30-45k rows.
+      if (path === "/api/position-season-stats" && request.method === "GET") {
+        try {
+          const db = env.UPS_MFL_DB;
+          if (!db) return jsonOut(503, { ok: false, reason: "D1 not bound" });
+          const season = parseInt(safeStr(url.searchParams.get("season")).replace(/\D/g, ""), 10);
+          const through = parseInt(safeStr(url.searchParams.get("through")).replace(/\D/g, ""), 10);
+          const group = safeStr(url.searchParams.get("group")).toUpperCase();
+          if (!(season >= 2000 && season <= 2100) || !(through >= 1 && through <= 18) || !POSITION_GROUPS.includes(group))
+            return jsonOut(400, { ok: false, error: "season, through (1-18) and group (" + POSITION_GROUPS.join("|") + ") required" });
+          const cache = typeof caches !== "undefined" ? caches.default : null;
+          const out = await positionSeasonStats(db, { season, through, group }, ctx, cache);
+          return jsonOut(out.status, out.body);
+        } catch (e) {
+          return jsonOut(500, { ok: false, error: String(e && e.message || e) });
+        }
+      }
+
       // ── GET /api/player-weekly-box?season=YYYY&mfl_id=N ──
       // One player's weeks for the mobile game log: the nflverse box score,
       // snap counts (did he play) and red-zone detail, resolved through the
@@ -20213,12 +20256,18 @@ export default {
           // the (gsis_id|pfr_id, season) player indexes (~4 rows each). The weeks
           // are keyed and sorted below, so row order never mattered.
           const edge = safeStr(url.searchParams.get("NO_CACHE")) !== "1" && typeof caches !== "undefined" ? caches.default : null;
-          const [box, rz, sn, seasonSnaps] = await Promise.all([
+          // Additive (r6 draft): first downs, tackles made with an assist and coverage targets from
+          // nfl_player_weekly_ext (the main table is at D1's 100-column cap), by its (gsis_id, season)
+          // index; a pre-0114 database has no ext table and every week's ext stays null.
+          const [box, rz, sn, seasonSnaps, ext, seasonTotals] = await Promise.all([
             db.prepare("SELECT * FROM nfl_player_weekly WHERE season = ? AND gsis_id = ?").bind(season, gsis).all(),
             db.prepare("SELECT * FROM nfl_player_redzone WHERE season = ? AND gsis_id = ?").bind(season, gsis).all(),
             pfr ? db.prepare("SELECT week, team, off_snaps, def_snaps, st_snaps FROM nfl_player_snaps WHERE season = ? AND pfr_id = ?").bind(season, pfr).all()
                 : Promise.resolve({ results: [] }),
             pfr ? seasonTeamSnaps(db, season, ctx, edge) : Promise.resolve(null),
+            db.prepare("SELECT week, pass_first_downs, rush_first_downs, rec_first_downs, def_tackles_with_assist, def_targets FROM nfl_player_weekly_ext WHERE season = ? AND gsis_id = ?")
+              .bind(season, gsis).all().catch(() => null),
+            seasonTeamTotals(db, season, ctx, edge),
           ]);
           // His team's offensive / defensive snaps in each of his games: the
           // season table (./team_snaps_season.js) when it covers every one of
@@ -20235,13 +20284,33 @@ export default {
           const teamSnaps = seasonOk ? seasonSnaps : {};
           for (const r of (tsn && tsn.results) || []) teamSnaps[r.week + "|" + r.team] = r;
           const weeks = {};
-          const at = (w) => (weeks[w] = weeks[w] || { week: Number(w), box: null, redzone: null, snaps: null });
+          const at = (w) => (weeks[w] = weeks[w] || { week: Number(w), box: null, redzone: null, snaps: null, ext: null, team_totals: null });
           for (const r of (box && box.results) || []) at(r.week).box = r;
           for (const r of (rz && rz.results) || []) at(r.week).redzone = r;
           for (const r of (sn && sn.results) || []) {
             const tt = teamSnaps[r.week + "|" + r.team] || {};
             at(r.week).snaps = { team: r.team, off: r.off_snaps, def: r.def_snaps, st: r.st_snaps,
                                  team_off: tt.team_off != null ? tt.team_off : null, team_def: tt.team_def != null ? tt.team_def : null };
+          }
+          // Additive (r6 draft). ext: the stored row, or null when there is none (an absent row is
+          // NOT turned into zeros here; see team_totals_season.js / the PR for the 0118 contract).
+          // team_totals: his team's box totals that game (team = the box row's team, the club he
+          // played for), from the season table when it covers every one of his games, else the
+          // per-player join; null when the week has no box row or no team.
+          const boxRows = (box && box.results) || [];
+          const totalsOk = !!seasonTotals && coversTeams(seasonTotals, boxRows);
+          let totals = totalsOk ? seasonTotals : {};
+          if (!totalsOk && boxRows.some((r) => r.team != null)) {
+            try { totals = totalsMap(((await db.prepare(TEAM_TOTALS_JOIN_SQL).bind(season, gsis, season).all()) || {}).results); }
+            catch (_) { totals = {}; }   // a failed read leaves team_totals null (unknown), never zeros
+          }
+          for (const r of (ext && ext.results) || []) {
+            const { week: _w, ...vals } = r;
+            at(r.week).ext = vals;
+          }
+          for (const r of boxRows) {
+            const e = r.team != null ? totals[r.week + "|" + r.team] : null;
+            at(r.week).team_totals = e ? { team: r.team, ...e } : null;
           }
           return statOk({ ...base, weeks: Object.values(weeks).sort((a, b) => a.week - b.week) });
         } catch (e) {
