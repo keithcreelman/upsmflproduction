@@ -62,16 +62,36 @@
 
   // ============================== Contracts ==============================
   var CT_FILTERS = [["all", "All"], ["active", "Active"], ["ir", "IR"], ["taxi", "Taxi"]];
-  // The sort: one control with three segments (Salary | Contract exp. | Name). Each starts in its own direction (1 = ascending, -1 = descending); tapping the
-  // sort that is already active reverses it. The salary year (0 = this season to 2) matters only while Salary is the sort.
-  var CT_SORTS = [["sal", "Salary", "salary"], ["exp", "Contract exp.", "contract expiration"], ["name", "Name", "name"]];
+  // The sort: one control with four segments (R9, Keith 2026-11-23: Contract exp. | Salary | Position | Name; Contract exp. stays the default). Each starts
+  // in its own direction (1 = ascending, -1 = descending); tapping the sort that is already active reverses it. The salary year (0 = this season to 2)
+  // matters only while Salary is the sort. Contract exp. and Position draw grouped sections.
+  var CT_SORTS = [["exp", "Contract exp.", "contract expiration"], ["sal", "Salary", "salary"], ["pos", "Position", "position"], ["name", "Name", "name"]];
   var POS_LABEL = { PK: "K", PN: "P" };
-  var CT_DIR = { exp: 1, sal: -1, name: 1 };
-  function isSort(s) { return s === "sal" || s === "exp" || s === "name"; }
+  var CT_DIR = { exp: 1, sal: -1, pos: 1, name: 1 };
+  function isSort(s) { return s === "sal" || s === "exp" || s === "pos" || s === "name"; }
+  // R9: the Salary structure filter reads the rule classification (lib/contract.js describe().structure) only; it is separate from Contract Type
+  var CT_LOADS = [["all", "All", null], ["flat", "Flat", "Flat"], ["fl", "Front-loaded", "Front-loaded"], ["bl", "Back-loaded", "Back-loaded"]];
+  function loadOf(v) { var r = CT_LOADS.filter(function (o) { return o[0] === v; })[0]; return r ? r : CT_LOADS[0]; }
   function ctState(S) {
     var c = S.ct || {}, s = isSort(c.s) ? c.s : "exp";
-    return { f: c.f || "all", s: s, y: c.y === 1 || c.y === 2 ? c.y : 0, d: c.d === 1 || c.d === -1 ? c.d : CT_DIR[s], open: c.open || {} };
+    return { f: c.f || "all", l: loadOf(c.l)[0], s: s, y: c.y === 1 || c.y === 2 ? c.y : 0, d: c.d === 1 || c.d === -1 ? c.d : CT_DIR[s], open: c.open || {}, hist: c.hist || {} };
   }
+  // R9: surname order from MFL's own "Last, First" name (rawName), never the last displayed word: "Cooper Jr., Omar" is Cooper / Omar / Jr.,
+  // "St. Brown, Amon-Ra" is St. Brown, "Van Ginkel, Andrew" is Van Ginkel. A name without that structure sorts by its whole displayed name.
+  var SUFFIX = /^(.*\S)\s+(Jr\.?|Sr\.?|II|III|IV|V)$/i;
+  function nameParts(p) {
+    var raw = F.str(p && p.rawName), i = raw.indexOf(",");
+    if (i < 0) return { last: F.str(p && p.name), first: "", suffix: "" };
+    var last = raw.slice(0, i).trim(), first = raw.slice(i + 1).trim(), suffix = "", m = last.match(SUFFIX);
+    if (m) { last = m[1]; suffix = m[2]; }
+    return { last: last, first: first, suffix: suffix };
+  }
+  function cmpText(a, b) { return a.localeCompare(b, undefined, { sensitivity: "base" }); }
+  function byName(a, b) {
+    var x = nameParts(a), y = nameParts(b);
+    return cmpText(x.last, y.last) || cmpText(x.first, y.first) || cmpText(x.suffix, y.suffix) || (String(a.id) < String(b.id) ? -1 : String(a.id) > String(b.id) ? 1 : 0);
+  }
+  function posIndex(p) { for (var i = 0; i < GROUPS.length; i++) if (GROUPS[i][0] === p.pos) return i; return GROUPS.length; }
   // What a tap on a sort segment does: { s, d }. A different sort starts in its own direction; the same sort again flips the direction.
   function ctNextSort(ct, v) {
     var cur = ctState({ ct: ct }), s = isSort(v) ? v : cur.s;
@@ -145,27 +165,66 @@
       h.restructured != null && h.startWhy === "auction" ? "Restructured in " + h.restructured + ". Salaries before the restructure are not in the recorded terms." : "";
     // R7: who made the extension in force now, from the contract's own Ext: record (lib/contract.js extension); never the current owner by default
     var ext = C.extension(p, season, S.model.teams), extLine = C.extensionLine(ext);
-    var d = C.describe(p);
+    var hopen = !!ctState(S).hist[p.id];
+    // R9: the current contract's schedule and facts come first; the Contract history is below them, collapsed by default
     return '<div class="det"><div class="sec2 first">Salary schedule</div>' + (extLine ? '<div class="ext">' + esc(extLine) + "</div>" : "") + '<div class="yrl">' + (rows || '<span class="mu">No years recorded</span>') + "</div>" + (note ? '<div class="ex">' + esc(note) + "</div>" : "") +
-      taxiLine(S, p) + '<div class="kv">' + contractFacts(h, d) + "<b>If cut now</b><span>" + cutWords(g) + "</span>" + guaranteeFacts(S, g) + "</div></div>";
+      taxiLine(S, p) + '<div class="kv">' + contractFactsFor(S, p, h, true) + "<b>If cut now</b><span>" + cutWords(g) + "</span>" + guaranteeFacts(S, g) + "</div>" +
+      '<button class="rb dtl hsb" data-act="cth" data-v="' + esc(p.id) + '" aria-expanded="' + hopen + '" aria-label="' + (hopen ? "Hide" : "Show") + " contract history for " + esc(p.name) + '">Contract history <span aria-hidden="true">' + (hopen ? "▾" : "▸") + "</span></button>" +
+      (hopen ? historyHtml(S, p) : "") + "</div>";
   }
   // R8: Term, Contract Type, Contract Source (its acquisition note when the source is not recorded), Later changes, Salary structure. Shared with the profile.
-  function contractFacts(h, d) {
-    return "<b>Term</b><span>" + esc(termWords(h)) + "</span><b>Contract Type</b><span>" + esc(d.type || NR) + "</span><b>Contract Source</b><span>" + esc(d.source || NR) + (d.sourceNote ? "<small>" + esc(d.sourceNote) + "</small>" : "") + "</span>" +
-      "<b>Later changes</b><span>" + esc(d.changes.length ? d.changes.join(" · ") : "None recorded") + "</span><b>Salary structure</b><span>" + esc(d.structure || NR) + "</span>";
+  // R9 adds (x, from contractFactsFor): the extension line under Source "Extension", Acquired (how this team got him, kept separate from the
+  // contract's source), the rule classification's factual note when a Flat contract's salaries differ, and the recorded AAV by year.
+  function contractFacts(h, d, x) {
+    x = x || {};
+    var srcNote = d.source === "Extension" ? (d.extended ? d.extended + (d.extended === 1 ? " year added" : " years added") : "") + (x.extLine ? " · " + x.extLine : "") : d.sourceNote || "";
+    var acq = x.acq && x.acq.words ? x.acq.words + (x.acq.year != null ? " · " + x.acq.year : "") : "";
+    if (acq && d.source !== "Extension") srcNote = "";   // "Acquired by trade" is then the Acquired line itself, not repeated under the source
+    return "<b>Term</b><span>" + esc(termWords(h)) + "</span><b>Contract Type</b><span>" + esc(d.type || NR) + "</span><b>Contract Source</b><span>" + esc(d.source || NR) + (srcNote ? "<small>" + esc(srcNote) + "</small>" : "") + "</span>" +
+      (acq ? "<b>Acquired</b><span>" + esc(acq) + "</span>" : "") +
+      "<b>Later changes</b><span>" + esc(d.changes.length ? d.changes.join(" · ") : "None recorded") + "</span><b>Salary structure</b><span>" + esc(d.structure || NR) + (x.uneven && d.structure === "Flat" ? "<small>Rule classification; the yearly salaries differ.</small>" : "") + "</span>" +
+      (x.aav ? "<b>AAV</b><span>" + aavWords(x.aav) + "</span>" : "");
+  }
+  // "2026 · $15K" / "2027–2028 · $25K", one per line; unmapped tiers: "Recorded: $4K, $24K · years not mapped"; none: Not recorded
+  function aavWords(a) {
+    if (a.state === "none") return esc(NR);
+    if (a.state === "unmapped") return esc("Recorded: " + a.amounts.map(kmoney).join(", ") + " · years not mapped");
+    return a.lines.map(function (l) { return esc((l.from === l.to ? String(l.from) : l.from + "–" + l.to) + " · " + kmoney(l.amount)); }).join("<br>");
+  }
+  // inDetails: Team › Contracts Details already print the extension line above the schedule, so the source says only how many years were added
+  // (the attribution appears once); the profile, which has no such line, carries it under the source
+  function contractFactsFor(S, p, h, inDetails) {
+    var season = S.model.season, teams = S.model.teams;
+    h = h || C.history(p, season);
+    var amts = h.rows.filter(function (r) { return r.amount != null; }).map(function (r) { return r.amount; });
+    return contractFacts(h, C.describe(p), { extLine: inDetails ? "" : C.extensionLine(C.extension(p, season, teams)), acq: C.acquisitionOf(p.acquisition), aav: C.aavYears(p, season, teams),
+      uneven: amts.some(function (v) { return v !== amts[0]; }) });
+  }
+  // R9: Contract history (collapsed by default): dated events by season, then the ones with no season; a season worked out from the contract terms
+  // says so. One line says when the history is incomplete; eligibility is not judged here (the app has no extension-eligibility rules).
+  var HWHY = { terms: "Season from the contract terms", restructure: "Season from the restructured terms" };
+  function historyHtml(S, p) {
+    var hh = C.contractHistory(p, S.model.season, S.model.teams);
+    var li = hh.events.map(function (e) {
+      return "<li><b>" + (e.year != null ? esc(e.year) : DASH) + "</b><span>" + esc(e.words) + (HWHY[e.why] ? "<small>" + esc(HWHY[e.why]) + "</small>" : "") + "</span></li>";
+    }).join("");
+    return '<div class="hist">' + (hh.complete ? "" : '<div class="ex">Incomplete: only what the contract record and roster show' + (hh.extTeamsComplete ? "" : ", and the record may not name the team that made the current extension") + (hh.events.some(function (e) { return e.year == null; }) ? "; " + DASH + " season not recorded" : "") + ".</div>") +
+      (li ? '<ol class="hil">' + li + "</ol>" : '<div class="ex">No events recorded.</div>') + '<div class="ex">Seasons only, no dates. Extension eligibility is not shown.</div></div>';
   }
 
   function contractsBody(S) {
     var t = teamOf(S), m = S.model, season = m.season, c = ctState(S), out = "";
     var ny = Math.max(1, longest(t));
-    var list = t.players.filter(function (p) { return c.f === "all" || p.status === c.f; });
+    var want = loadOf(c.l)[2];
+    var list = t.players.filter(function (p) { return (c.f === "all" || p.status === c.f) && (!want || C.describe(p).structure === want); });
     function sal(p, k) { var v = salaryAt(p, season, k); return v; }
-    // Each sort is written in its own starting direction (Expiration soonest first, Salary highest first, Name A to Z); the direction multiplies the
-    // whole comparison, so a reversed list is the exact reverse of the first (groups and the order inside them).
+    // Each sort is written in its own starting direction (Expiration soonest first, Salary highest first, Position QB to DB, Name A to Z by surname); the
+    // direction multiplies the whole comparison, so a reversed list is the exact reverse of the first (groups and the order inside them).
     var base = {
-      exp: function (a, b) { return ((a.years || 0) - (b.years || 0)) || ((sal(b, 0) || 0) - (sal(a, 0) || 0)) || a.name.localeCompare(b.name); },
-      sal: function (a, b) { return ((sal(b, c.y) || 0) - (sal(a, c.y) || 0)) || ((sal(b, 0) || 0) - (sal(a, 0) || 0)) || a.name.localeCompare(b.name); },
-      name: function (a, b) { return a.name.localeCompare(b.name); }
+      exp: function (a, b) { return ((a.years || 0) - (b.years || 0)) || ((sal(b, 0) || 0) - (sal(a, 0) || 0)) || byName(a, b); },
+      sal: function (a, b) { return ((sal(b, c.y) || 0) - (sal(a, c.y) || 0)) || ((sal(b, 0) || 0) - (sal(a, 0) || 0)) || byName(a, b); },
+      pos: function (a, b) { return (posIndex(a) - posIndex(b)) || ((sal(b, 0) || 0) - (sal(a, 0) || 0)) || byName(a, b); },
+      name: byName
     }[c.s], dir = c.d * CT_DIR[c.s];   // CT_DIR[s] is the sort's own starting direction; c.d is the direction now in use
     list = list.slice().sort(function (a, b) { return dir * base(a, b); });
 
@@ -175,15 +234,21 @@
     out += capCard(S, t);
 
     out += '<div class="lbl">Show</div><div class="chs" role="group" aria-label="Show">' + CT_FILTERS.map(function (o) { return '<button class="ch" data-act="ctf" data-v="' + o[0] + '" aria-pressed="' + (c.f === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
-    // ONE sort control: Salary | Contract exp. | Name. The active segment shows its direction (▲ ascending, ▼ descending) and says it in words; tapping it again reverses.
-    var DIRW = { sal: ["lowest first", "highest first"], exp: ["soonest first", "latest first"], name: ["A to Z", "Z to A"] };   // [ascending, descending]
-    out += '<div class="lbl">Sort</div><div class="seg" role="group" aria-label="Sort">' + CT_SORTS.map(function (o) {
+    out += '<div class="lbl">Salary structure</div><div class="chs ldc" role="group" aria-label="Salary structure">' + CT_LOADS.map(function (o) { return '<button class="ch" data-act="ctl" data-v="' + o[0] + '" aria-pressed="' + (c.l === o[0]) + '">' + o[1] + "</button>"; }).join("") + "</div>";
+    // ONE sort control: Contract exp. | Salary | Position | Name. The active segment shows its direction (▲ ascending, ▼ descending) and says it in words; tapping it again reverses.
+    var DIRW = { sal: ["lowest first", "highest first"], exp: ["soonest first", "latest first"], pos: ["QB first", "DB first"], name: ["A to Z", "Z to A"] };   // [ascending, descending]
+    out += '<div class="lbl">Sort</div><div class="seg seg4" role="group" aria-label="Sort">' + CT_SORTS.map(function (o) {
       var on = c.s === o[0], shown = on ? DIRW[o[0]][c.d === 1 ? 0 : 1] : "";
       return '<button data-act="cts" data-v="' + o[0] + '" aria-pressed="' + on + '" aria-label="' + (on ? "Sorted by " + o[2] + ", " + shown + ". Tap to reverse." : "Sort by " + o[2]) + '">' + o[1] + (on ? ' <span aria-hidden="true">' + (c.d === 1 ? "▲" : "▼") + "</span>" : "") + "</button>";
     }).join("") + "</div>";
     if (c.s === "sal") out += '<div class="chs" role="group" aria-label="Salary year">' + [0, 1, 2].map(function (i) { return '<button class="ch" data-act="cty" data-v="' + i + '" aria-pressed="' + (c.y === i) + '" aria-label="' + (season + i) + ' salary">' + (season + i) + "</button>"; }).join("") + "</div>";
 
-    out += '<div class="thead ' + cols + '"><span>If cut now</span>' + yrs.map(function (y) { return "<span>" + y + "</span>"; }).join("") + "</div>";
+    // R9: the column heads sit INSIDE the list container, on the same grid and inset as the row amounts
+    var thead = '<div class="thead ' + cols + '"><span>If cut now</span>' + yrs.map(function (y) { return "<span>" + y + "</span>"; }).join("") + "</div>";
+    function groupHead(label, grp) {
+      var sum = 0, any = false; grp.forEach(function (p) { var v = sal(p, 0); if (v != null) { sum += v; any = true; } });
+      return '<div class="gh3"><span>' + label + " · " + plural(grp.length, "player", "players") + "</span><span>" + (any ? kmoney(sum) + " " + season + " salary" : DASH) + "</span></div>";
+    }
 
     function rowHtml(p) {
       var open = !!c.open[p.id], g = cutCharge(S, p);
@@ -199,18 +264,27 @@
       return h + "</div>";
     }
     if (!list.length) out += '<div class="ex pad">No players in this group.</div>';
-    else if (c.s === "exp") {
-      // the groups follow the direction too: soonest expiring first, or latest first when reversed (the players inside each group are already in the reversed order)
-      for (var gi = 1; gi <= ny; gi++) {
-        var yl = c.d === 1 ? gi : ny + 1 - gi;
-        var grp = list.filter(function (p) { return (p.years || 0) === yl; });
-        if (!grp.length) continue;
-        var sum = 0, any = false; grp.forEach(function (p) { var v = sal(p, 0); if (v != null) { sum += v; any = true; } });
-        out += '<div class="gh2"><span>Expires <b>' + (season + yl - 1) + "</b> · " + plural(grp.length, "player", "players") + "</span><span>" + (any ? kmoney(sum) + " " + season + " salary" : DASH) + '</span></div><div class="card rows">' + grp.map(rowHtml).join("") + "</div>";
-      }
-      var none = list.filter(function (p) { return !(p.years > 0); });
-      if (none.length) out += '<div class="gh2"><span>Expiration not recorded · ' + plural(none.length, "player", "players") + '</span><span></span></div><div class="card rows">' + none.map(rowHtml).join("") + "</div>";
-    } else out += '<div class="card rows">' + list.map(rowHtml).join("") + "</div>";
+    else {
+      var body = "";
+      if (c.s === "exp") {
+        // the groups follow the direction too: soonest expiring first, or latest first when reversed (the players inside each group are already in the reversed order)
+        for (var gi = 1; gi <= ny; gi++) {
+          var yl = c.d === 1 ? gi : ny + 1 - gi;
+          var grp = list.filter(function (p) { return (p.years || 0) === yl; });
+          if (grp.length) body += groupHead("Expires <b>" + (season + yl - 1) + "</b>", grp) + grp.map(rowHtml).join("");
+        }
+        var none = list.filter(function (p) { return !(p.years > 0); });
+        if (none.length) body += groupHead("Expiration not recorded", none) + none.map(rowHtml).join("");
+      } else if (c.s === "pos") {
+        // R9: Position draws grouped sections like Contract exp., in the league's position order (reversed with the direction)
+        for (var pi = 0; pi <= GROUPS.length; pi++) {
+          var ix = c.d === 1 ? pi : GROUPS.length - pi;
+          var pg = list.filter(function (p) { return posIndex(p) === ix; });
+          if (pg.length) body += groupHead(ix < GROUPS.length ? pcx(GROUPS[ix][1]) : "Position not recorded", pg) + pg.map(rowHtml).join("");
+        }
+      } else body = list.map(rowHtml).join("");
+      out += '<div class="card rows ctl">' + thead + body + "</div>";
+    }
 
     var st = S.penalty ? S.penalty.state : "idle";
     // What the symbols mean and where the figures come from live in the Help control (one per Team screen), not under the table.
@@ -245,7 +319,7 @@
         h("Cap charge", "Total committed cap plus or minus the adjustments (Cut penalties, Traded salary, Other, Rounding). It is what counts against the cap, so Available cap space is Total cap minus Cap charge.") +
         h("Later years", "Each later year shows its Total committed cap. This season gives injured reserve players half relief and taxi players $0. <b>Planning assumption for later years:</b> players now on taxi stay on taxi ($0) and injured reserve players count at full scheduled salary. No injury relief is projected. A year’s Details list the adjustments recorded for it; next season’s come from the UPS ledger, and no source records adjustments for the years after that, so none are shown (that is not $0).") +
         h("Salary schedule", "A player’s Details list every year of his current contract as MFL records it, completed years included. A year with no recorded amount says “Not recorded”. Salaries from an earlier contract are never added.") +
-        h("Extensions", "An extension starts a new current contract in the season it is made: it keeps that season’s salary and adds one or two years, so a player extended this season for two years shows this season and the next two. “Extended by” names the team that made that extension, from the contract’s own extension record, even if he has changed teams since. When the record does not name a current team, no team is shown. A restructure keeps the contract but MFL then records only the years from the restructure on, so earlier years can be missing.") +
+        h("Extensions", "An extension starts a new current contract in the season it is made: it keeps that season’s salary and adds one or two years, so a player extended this season for two years shows this season and the next two. “Extended by” names the team that made that extension, from the contract’s own extension record, even if he has changed teams since. When the record does not name a current team, no team is shown. When the extension’s season is known only from restructured terms, the record’s last name may not be the team that made it, so it reads “extending team not verified” and the names appear only in the Contract history. A restructure keeps the contract but MFL then records only the years from the restructure on, so earlier years can be missing.") +
         h("Taxi", "A taxi-eligible player can be released with a $0 cut charge while taxi eligibility applies. Releasing ends eligibility.") +
         h("Where the numbers come from", "Contracts as recorded on MFL" + (asOf ? " (as of " + esc(asOf) + ")" : "") + ". Earned, guarantee and cut charge: the UPS cap calculation" + (wk != null ? " through Week " + esc(wk) : "") + ".") +
         h("Symbols", esc(DASH) + " contract ended · n/r no amount recorded.") +
@@ -253,7 +327,9 @@
         h("Player names", "A name comes from the player ID on the charge, looked up in MFL’s complete player list (so it works whether or not he is on a roster now), or, for older add/drop records that carry no player ID, from UPS’s reviewed list. If neither names him it reads “Player Unknown”. A fine, rounding or settlement has no player.") +
         h("Cut dates", "Dates are Eastern Time and shown only when verified: the date comes from the drop time recorded on the charge, from UPS’s reviewed list, or, for next season, from the ledger’s drop time. Otherwise the row says “Cut date not recorded”. Waiver drops process at 9:00 AM ET, so only the date is shown.") +
         h("If cut now", "What cutting the player today would charge against the cap, from the UPS cap calculation. Most contracts use the guarantee rule: the guaranteed amount (75% of the contract’s total value) not yet earned; “Fully earned” means nothing is owed. Small contracts use their own rule instead: <b>No guarantee</b> (a one-year original contract under $5K, or a waiver pickup of $4K or less in its final year, is cut free), <b>$1K rule</b> (a contract worth under $5K costs $1K while two or more years remain and nothing in its final year), or <b>Taxi</b> (a taxi-eligible player is cut free). A player’s Details name the rule, and show the guarantee and what is earned of it only under the guarantee rule.") +
-        h("Contract Type and Source", "Contract Type is Veteran or Rookie. Contract Source is how the contract began (Rookie Draft, FA Auction, Expired Rookie Auction, Waiver Wire, including FCFS). Later changes (Mid-Year Multi, an extension, a restructure, a tag) are listed separately. Salary structure is Flat, Front-loaded or Back-loaded. A fact the contract record does not state reads “Not recorded”.") +
+        h("Contract Type and Source", "Contract Type is Veteran or Rookie. Contract Source is how the current contract began (Rookie Draft, FA Auction, Expired Rookie Auction, Waiver Wire, including FCFS, or Extension, with the team that extended him and the season when the record supports it). Acquired is how his current team got him, kept separate. Later changes (Mid-Year Multi, a restructure, a tag) are listed separately. Salary structure is the league’s rule classification, Flat, Front-loaded or Back-loaded; a one-year extension is Flat by rule even when its yearly salaries differ. A fact the contract record does not state reads “Not recorded”.") +
+        h("AAV", "The average annual value as MFL records it, labeled with the years it applies to. After an extension the current season keeps its old AAV and the added years carry the new one. When the record does not show which years an amount belongs to, it says “years not mapped”. AAV is never worked out from the total value.") +
+        h("Contract history", "Inside a player’s Details: how the contract began, how his team acquired him, every extension in the contract’s extension record (oldest first), restructures and tags, by season. Seasons only, no dates; a season worked out from the contract terms says so. Earlier events never add years to the salary schedule. Extension eligibility is not shown.") +
         h("Next-season adjustments", esc(G.completeness) + " " + esc(G.reconciliation) + " " + esc(G.calculation));
     }
     if (sub === "performance") {
@@ -873,6 +949,6 @@
   }
 
   function mixApi(a, b) { for (var key in b) if (Object.prototype.hasOwnProperty.call(b, key) && !Object.prototype.hasOwnProperty.call(a, key)) a[key] = b[key]; return a; }
-  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, performanceList: performanceList, pfMatcher: pfMatcher, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, cutCharge: cutCharge, cutWords: cutWords, guaranteeFacts: guaranteeFacts, contractFacts: contractFacts, termWords: termWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
+  var API = mixApi({ rankData: rankData, completion: completion, contractsBody: contractsBody, performanceBody: performanceBody, performanceList: performanceList, pfMatcher: pfMatcher, gameLog: gameLog, screenHelp: screenHelp, failCard: failCard, capCard: capCard, ctNextSort: ctNextSort, cutCharge: cutCharge, cutWords: cutWords, guaranteeFacts: guaranteeFacts, contractFacts: contractFacts, contractFactsFor: contractFactsFor, historyHtml: historyHtml, nameParts: nameParts, byName: byName, termWords: termWords, perfInput: perfInput, weeksFor: weeksFor, logWeeks: logWeeks, throughOf: throughOf, kmoney: kmoney, coverFor: coverFor, verification: verification, staleScores: staleScores }, PERF_API);
   return API;
 });

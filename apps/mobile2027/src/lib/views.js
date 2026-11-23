@@ -505,13 +505,15 @@
     // rules and totals
     // R8: the contract's facts in owner words (Term, Contract Type, Contract Source, Later changes, Salary structure; shared with Team › Contracts), then
     // the totals. The raw contract type code is not shown.
+    // R9: the AAV is one of the facts, labeled by the years it applies to (lib/contract.js aavYears); the Contract history follows, collapsed
     var tcv = sched.parsed.tcv;
-    var aav = sched.parsed.aav.length ? sched.parsed.aav.map(money).join(" · ") : "Not recorded";
     out += tog(S, "rules", "Rules and totals");
     if (S.flags && S.flags.rules) {
-      out += '<div class="xb"><div class="kv">' + TV.contractFacts(C.history(p, season), C.describe(p)) +
-        "<b>Total value</b><span>" + (tcv == null ? "Not recorded" : money(tcv)) + "</span><b>AAV (as recorded)</b><span>" + esc(aav) + "</span></div></div>";
+      out += '<div class="xb"><div class="kv">' + TV.contractFactsFor(S, p) +
+        "<b>Total value</b><span>" + (tcv == null ? "Not recorded" : money(tcv)) + "</span></div></div>";
     }
+    out += tog(S, "hist", "Contract history");
+    if (S.flags && S.flags.hist) out += '<div class="xb">' + TV.historyHtml(S, p) + "</div>";
     // earned breakdown
     out += tog(S, "earned", "How earned is counted");
     if (S.flags && S.flags.earned) {

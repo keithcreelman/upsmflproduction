@@ -287,9 +287,9 @@ test("labels: 'Expires 2026 · N players' replaces 'Ends after'; '2026 salary' (
   const s27 = state({ model: M.build(rosterRead(), null, null, 10, 2027) }), h27 = body(V.app({ ...s27, ct: { ...CT0(), s: "sal" } })); t.deepEqual(chipsOf(h27).map((c) => c.text), ["2027", "2028", "2029"], "the years follow the season");
 });
 
-test("sort control: one three-segment control Salary | Expiration | Name; defaults Expiration ascending (▲), Salary descending (▼), Name ascending (▲); year chips only under Salary", () => {
+test("sort control (R9): one four-segment control Contract exp. | Salary | Position | Name; defaults Expiration ascending (▲), Salary descending (▼), Name ascending (▲); year chips only under Salary", () => {
   const s = state(), exp = sorted(s, {}), sal = sorted(s, { s: "sal", d: -1 }), nm = sorted(s, { s: "name" });
-  [exp, sal, nm].forEach((h) => { t.deepEqual(segOf(h).map((x) => x.text), ["Salary", "Contract exp.", "Name"], "one control, three segments"); t.equal((h.match(/data-act="cts"/g) || []).length, 3); t.doesNotMatch(h, /data-v="end"|data-v="y[01]"/, "the old row of sort buttons is gone"); });
+  [exp, sal, nm].forEach((h) => { t.deepEqual(segOf(h).map((x) => x.text), ["Contract exp.", "Salary", "Position", "Name"], "one control, four segments"); t.equal((h.match(/data-act="cts"/g) || []).length, 4); t.doesNotMatch(h, /data-v="end"|data-v="y[01]"/, "the old row of sort buttons is gone"); });
   t.deepEqual(segOf(exp).filter((x) => x.on).map((x) => [x.v, x.arrow]), [["exp", "▲"]]); t.equal(chipsOf(exp).length, 0, "no year chips unless Salary is the sort"); t.doesNotMatch(exp, /data-act="cty"/);
   t.deepEqual(segOf(sal).filter((x) => x.on).map((x) => [x.v, x.arrow]), [["sal", "▼"]]); t.deepEqual(chipsOf(sal).map((c) => c.text), ["2026", "2027", "2028"], "2026 | 2027 | 2028, from the season");
   t.deepEqual(segOf(nm).filter((x) => x.on).map((x) => [x.v, x.arrow]), [["name", "▲"]]); t.equal(chipsOf(nm).length, 0);
@@ -315,7 +315,7 @@ test("sort: tapping a different sort starts in its own direction; tapping the ac
     t.equal(chipsOf(sorted(s, { s: "sal", y, d: -1 })).find((c) => c.on).y, y);
   });
   t.ok(idsOf(sorted(s, { s: "sal", y: 0, d: -1 })).join() !== idsOf(sorted(s, { s: "sal", y: 1, d: -1 })).join(), "the year changes the order");
-  const nameAsc = idsOf(sorted(s, { s: "name", d: 1 })), names = nameAsc.map((id) => tm.find((p) => p.id === id).name); t.deepEqual(names, names.slice().sort((a, b) => a.localeCompare(b)), "A to Z");
+  const nameAsc = idsOf(sorted(s, { s: "name", d: 1 })), names = nameAsc.map((id) => tm.find((p) => p.id === id)); t.deepEqual(names, names.slice().sort(TV.byName), "A to Z by surname (R9)");
   t.deepEqual(idsOf(sorted(s, { s: "name", d: -1 })), nameAsc.slice().reverse()); t.match(sorted(s, { s: "name", d: -1 }), /Sorted by name, Z to A/); t.deepEqual(segOf(sorted(s, { s: "name", d: -1 })).filter((x) => x.on).map((x) => x.arrow), ["▼"]);
   t.match(segOf(sorted(s, { s: "sal", d: 1 })).find((x) => x.on).label, /Sorted by salary, lowest first/); t.deepEqual(segOf(sorted(s, { s: "sal", d: 1 })).filter((x) => x.on).map((x) => x.arrow), ["▲"]);
 });
@@ -327,7 +327,7 @@ test("Expiration keeps its grouped layout; reversing reverses the group order an
   const withYears = (h) => idsOf(h).filter((id) => tm.find((p) => p.id === id).years > 0);
   t.deepEqual(withYears(desc), withYears(asc).slice().reverse(), "and so does every list inside them");
   t.equal(idsOf(asc).length, tm.length); t.equal(idsOf(desc).length, tm.length);
-  t.equal((asc.match(/<div class="gh2">/g) || []).length, (desc.match(/<div class="gh2">/g) || []).length, "the same groups");
+  t.ok((asc.match(/<div class="gh3">/g) || []).length >= 2); t.equal((asc.match(/<div class="gh3">/g) || []).length, (desc.match(/<div class="gh3">/g) || []).length, "the same groups");
 });
 
 test("the player's name opens the profile and a separate, labeled control opens the details; both are real buttons at least 44 px tall", () => {
