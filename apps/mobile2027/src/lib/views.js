@@ -284,7 +284,7 @@
   function optionRow(p, facts, obstacles, pointsLine) {
     var chips = obstacles.map(function (x) { return chip("wn", "▲ " + esc(x.text)); });
     return '<div class="rx"><span class="tag pp">' + pcx(p.pos) + '</span><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + facts + "</small><small>" + esc(pointsLine) + "</small></button>" +
-      (chips.length ? '<div class="fl">' + chips.join("") + "</div>" : "") + "</div></div>";
+      (chips.length ? '<div class="fl">' + chips.join("") + "</div>" : "") + '</div><span class="go" aria-hidden="true">›</span></div>';
   }
   function teamObstacleLines(list) { return list.map(function (x) { return '<div class="ex wn cvo">▲ ' + esc(x.text) + "</div>"; }).join(""); }
   function optionToggle(S, key, label) {
