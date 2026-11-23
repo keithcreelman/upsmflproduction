@@ -14,6 +14,7 @@
        because of ties;
      - a competitor whose figure is missing or incomplete, and who could be ahead of him, is "unplaced": the rank becomes a range
        ("WR3–5"); a competitor whose incomplete total is already ahead (totals only grow) is counted as ahead;
+     - when more than half of the group is unplaced the range says nothing, so the rank is withheld;
      - his own figure in the answer must equal the figure the season table shows, else the rank is withheld (the two reads disagree). */
 (function (root, factory) {
   var api = factory();
@@ -217,6 +218,8 @@
       }
       if (better(m, v, mv)) ahead++;
     });
+    // a range wider than half the group says nothing: withheld instead (proposed with the bars)
+    if (unplaced * 2 > pool.players.length) return { text: DASH, why: "Too many players' figures are incomplete to place him." };
     var lo = 1 + ahead, hi = lo + unplaced;
     return { text: P + lo + (hi > lo ? ENDASH + hi : ""), what: m.what, lo: lo, hi: hi };
   }

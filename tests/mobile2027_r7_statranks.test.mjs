@@ -108,6 +108,11 @@ test("unplaced competitors make a range only where they could be ahead", () => {
   // rates: a competitor with a partial denominator under the bar might reach it -> unplaced; a full one under the bar is out
   const c = pool("WR", [E(1, { receptions: 30, targets: 40 }), E(2, { receptions: 20, targets: 20 }, { cov: { targets: 6, receptions: 6 } }), E(3, { receptions: 20, targets: 20 })]);
   t.equal(rank(c, 1, "catch_rate").text, "WR1–2");
+  // more than half the group unplaced (e.g. pressures with thin PFR coverage): withheld, not "LB1–194"
+  const pz = pool("LB", [E(1, { def_pressures: 8 }), E(2, {}), E(3, {}), E(4, { def_pressures: 2 })]);
+  t.equal(rank(pz, 1, "def_pressures").text, "LB1–3", "2 of 4 unplaced: a range");
+  const pw = pool("LB", [E(1, { def_pressures: 8 }), E(2, {}), E(3, {}), E(4, {})]);
+  const rw = rank(pw, 1, "def_pressures"); t.equal(rw.text, "—"); t.ok(/Too many/.test(rw.why));
   // his own figure incomplete: no rank
   const o = rank(pool("WR", [E(1, { targets: 80 }, { cov: { targets: 9 } })]), 1, "targets"); t.equal(o.text, "—"); t.ok(/missing some games/.test(o.why));
 });
