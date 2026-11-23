@@ -90,11 +90,11 @@ test("Byes: every group starts collapsed, the long paragraph is gone, 'Week 11 l
   t.ok(keys.length >= 2); keys.forEach((k) => t.equal(k[2], "false", k[1] + " starts collapsed"));
   t.equal(V.isOpen(S, "bw13"), false); t.equal(V.isOpen(S, "bwnone"), false); t.equal(V.isOpen(S, "bench"), true, "Bench keeps its open default");
   t.doesNotMatch(tx, /Slots are today|later week is not set|may not fill the same slots/);
-  t.match(tx, /Week 11 lineup · Next byes: Week 11 · 0 starters/);
+  t.match(tx, /Lineup coverage · /, "R9: the summary is the coverage line");
   t.doesNotMatch(tx, /Week 1[2-8] lineup|will start|projected/i, "no claim about a later week's lineup");
   const open = {}; for (let w = 1; w <= 18; w++) open["bw" + w] = true;
   const tx2 = text(V.rosterBody(state({ view: "byes", intel: S.intel, open })));
-  t.match(tx2, / · Week 11 starter/); t.match(tx2, /slots from the Week 11 lineup/);
+  t.match(tx2, / · Week 11 starter/); t.doesNotMatch(tx2, /slots from the Week 11 lineup/, "R9: no slot tags, so no slot provenance line");
 });
 
 // ---------------- 5. Performance search ----------------

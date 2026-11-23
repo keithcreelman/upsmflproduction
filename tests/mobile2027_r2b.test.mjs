@@ -95,7 +95,10 @@ test("P1: a past week's number never leaks into an as-of-now screen: a bye or an
   }));
   // and on the Byes screen the groups are built from the current week: Week 10's bye is 'already played', Week 11's is 'this week'
   const byes = text(V.rosterBody(state(intel, { view: "byes", wk: 10, model: m })));
-  t.match(byes, /This week · Week 11 · 1 starter on bye: RB1/); t.doesNotMatch(byes, /Week 10 · 1 starter/);
+  // R9: a group counts the players on bye (grouped by position inside), not today's slots
+  t.match(byes, /This week · Week 11 · \d+ on bye/); t.doesNotMatch(byes, /Week 10 · \d+ on bye/);
+  const open11 = text(V.rosterBody(state(intel, { view: "byes", wk: 10, model: m, open: { bw11: true } })));
+  t.ok(open11.split("This week · Week 11")[1].split(/▸ Week|Already played/)[0].indexOf(q.name) >= 0, "q (Week 11 bye) is in this week's group");
   const g = R.byeGroups(state(intel, { model: m }), m.teams.find((x) => x.id === TEAM), 11, R.lineupFor(state(intel, { model: m }), m.teams.find((x) => x.id === TEAM), 11));
   t.ok(g.past.some((x) => x.id === p.id), "the Week 10 bye is in the played group"); t.ok(!g.groups.some((x) => x.week === 10));
 });
@@ -262,33 +265,39 @@ test("P5: the roster views carry no link to a Contracts destination; Team › Co
 
 // ───────────────────────── P6: Byes ─────────────────────────
 
-test("P6: Byes groups are chronological, name today's slots only, collapse the played weeks, and invent nothing", async () => {
+test("P6 (R9): Byes groups are chronological, group players by their own position, collapse every group, and invent nothing", async () => {
   const intel = await intelFor(), S = state(intel, { view: "byes" });
-  // a team with a Week 12 bye: five current starters (the owner's example, with the R6 flex labels SFX and DFX)
+  // a team with a Week 12 bye: five current starters (the owner's example: QB1, SFX, WR1, DFX, DB1)
   const m = model(), tm = m.teams.find((x) => x.id === TEAM), lu = R.lineupFor(S, tm, 11);
   const tag = (t2) => lu.slots.find((x) => x.slot.tag === t2).player;
-  ["QB1", "SFX", "WR1", "DFX", "DB1"].forEach((t2) => { m.byId[tag(t2).id].bye = 12; });
+  const five = ["QB1", "SFX", "WR1", "DFX", "DB1"].map(tag);
+  five.forEach((p) => { m.byId[p.id].bye = 12; });
   const html = V.rosterBody(state(intel, { view: "byes", model: m })), tx = text(html);
-  t.match(tx, /Week 12 · 5 starters on bye: QB1, WR1, SFX, DB1, DFX/, "the authorized wording: week, count, slot tags in today's lineup order");
-  t.match(tx, /Week 11 lineup · Next byes: Week 11 · 0 starters · Week 12 · 5 starters/, "R8: the 'Week 11 lineup' heading says whose starters these are");
-  // a bench player on the same bye week sits in the group but is not a starter and takes no slot tag
-  t.doesNotMatch(tx, /Week 12 · 6 starters/);
+  const n12 = tm.players.filter((p) => m.byId[p.id].bye === 12).length;
+  t.match(tx, new RegExp("Week 12 · " + n12 + " on bye"), "the group counts every player on bye that week");
+  t.doesNotMatch(tx, /starters? on bye: [A-Z]|slots from the/, "R9: no slot tags in a group heading");
+  t.match(tx, /Lineup coverage · /, "the summary is the coverage line");
   // groups are in week order on the page, played weeks last; R8: EVERY group starts collapsed
   const keys = [...html.matchAll(/data-g="(bw[\dp][a-z\d]*)"/g)].map((x) => x[1]);
   t.ok(keys.indexOf("bw11") < keys.indexOf("bw12") && keys.indexOf("bw12") < keys.indexOf("bwpast"), "order: " + keys.join(","));
   keys.forEach((k) => t.match(html, new RegExp('data-g="' + k + '" aria-expanded="false"'), k + " starts collapsed"));
   t.doesNotMatch(html, /data-act="card"/, "R8: no player row until a group is opened");
-  // the slots are today's, not a prediction: the group that names slots says they come from the Week 11 lineup (R8 removed the long paragraph)
-  t.match(tx, /Week 12 · 5 starters on bye: QB1, WR1, SFX, DB1, DFX\s*\d+ players · slots from the Week 11 lineup/);
+  // opened: the players sit under their own position labels with a position badge, never a slot badge (a QB in SFX is under QB)
+  const op = V.rosterBody(state(intel, { view: "byes", model: m, open: { bw12: true } }));
+  const g12 = op.split('data-g="bw12"')[1].split('data-g="bw')[0];
+  t.match(g12, /<div class="lps">QB · \d+<\/div>/); t.match(g12, /<div class="lps">DB · \d+<\/div>/);
+  t.doesNotMatch(g12, /class="tag sl/, "no slot badge inside a bye group");
+  five.forEach((p) => t.match(text(g12), new RegExp(p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[^▸]*?Week 11 starter")));
   t.doesNotMatch(tx, /Slots are today’s lineup|The lineup for a later week is not set/, "R8: the paragraph is gone");
   t.doesNotMatch(tx, /Week 12 lineup|Week 12 starters|will start|will fill|projected/i);
-  // no lineup read → no slot is claimed at all
-  const nolu = state(intel, { view: "byes", model: (() => { const m3 = model(); m3.teams.find((x) => x.id === TEAM).lineup.ids = []; return m3; })() });
-  t.doesNotMatch(text(V.rosterBody(nolu)), /starters? on bye: [A-Z]|slots from the/);
-  // a played bye never shows as 'next'
-  t.doesNotMatch(tx.split("Already played")[0].split("Next byes:")[1].split(/[▸▾]/)[0], /Week (?:[1-9]|10) ·/);
-  // with the injury read out, Byes still works (a bye is a schedule fact)
-  t.match(text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }, { view: "byes", model: m }))), /Week 12 · 5 starters on bye: QB1, WR1, SFX, DB1, DFX/);
+  // no lineup read → nobody is called a starter, coverage still works
+  const nolu = state(intel, { view: "byes", open: { bw12: true }, model: (() => { const m3 = model(); five.forEach((p) => { m3.byId[p.id].bye = 12; }); m3.teams.find((x) => x.id === TEAM).lineup.ids = []; return m3; })() });
+  const nt = text(V.rosterBody(nolu)); t.doesNotMatch(nt, /Week 11 starter/); t.match(nt, /Week 12 · \d+ on bye/);
+  // a played bye never shows as a coming week
+  t.doesNotMatch(tx.split("Already played")[0], /▸ Week (?:[1-9]|10) ·/);
+  // with the injury read out, Byes still works (a bye is a schedule fact) and says injuries were not checked
+  const off = text(V.rosterBody(state({ ...intel, status: { state: "error", error: "x" } }, { view: "byes", model: m })));
+  t.match(off, new RegExp("Week 12 · " + n12 + " on bye")); t.match(off, /injuries not checked/);
 });
 
 // ───────────────────────── P3 / Codex MAT-1: an EXPIRED injury read is not "checked" ─────────────────────────

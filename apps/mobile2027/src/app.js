@@ -367,7 +367,18 @@
     }
     // current information: injury status and this week's games
     ensureStatus(force);
-    intelRead(S.intel.mu, wi.cur, function (f) { return loader.loadMatchups(wi.cur, f); }, force && S.intel.mu[wi.cur] && S.intel.mu[wi.cur].state === "error");
+    intelRead(S.intel.mu, wi.cur, function (f) { return loader.loadMatchups(wi.cur, f); }, force && S.intel.mu[wi.cur] && S.intel.mu[wi.cur].state === "error", function () { ensureByeScores(force); });
+    ensureByeScores(force);
+  }
+  // R9: Byes lists taxi and IR options with their recent weekly points: the three most recent all-final weeks (coverage.recentWeeks, from the
+  // matchup read's lastCompleteWeek), the same playerScores reads Performance uses, each asked once and reused.
+  function ensureByeScores(force) {
+    if (S.sample.on || !S.model || S.view !== "byes" || !U.coverage) return;
+    U.coverage.recentWeeks(S).forEach(function (w) {
+      var rec = S.intel.scores[w];
+      if (rec && !(force && rec.state === "error")) return;
+      intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && rec && rec.state === "error");
+    });
   }
 
   function loadPenalty(force) {

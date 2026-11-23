@@ -58,7 +58,7 @@
     return out.join(", ");
   }
   function startingTag(p) { return p.status === "active" ? (p.starter ? chip("ok", "Starting") : chip("", "Bench")) : ""; }
-  function injuryChip(S, p) { var c = R.injuryChip(S, p); return c ? chip(c.cls, esc(c.text)) : ""; }
+  function injuryChip(S, p) { var c = R.injuryChip(S, p); return c ? (c.code === "IR" ? R.irBadge() : chip(c.cls, esc(c.text))) : ""; } // R9: the one IR badge
 
   // ============================== Contracts ==============================
   var CT_FILTERS = [["all", "All"], ["active", "Active"], ["ir", "IR"], ["taxi", "Taxi"]];
@@ -192,7 +192,7 @@
       var cells = '<span class="g">' + gcell(g) + "</span>";
       for (var i = 0; i < ny; i++) { var v = sal(p, i); cells += "<span>" + (v === undefined ? '<span class="mu">' + DASH + "</span>" : v == null ? '<span class="wn">n/r</span>' : kmoney(v)) + "</span>"; }
       // Two separate controls: the player's NAME (with his position badge) opens his profile; a quiet "Details" control opens or closes the contract details.
-      var h = '<div class="rw"><div class="rwh"><button class="nmb" data-act="card" data-pid="' + esc(p.id) + '" aria-label="Open ' + esc(p.name) + ' profile"><span class="l1">' + pcx(POS_LABEL[p.pos] || p.pos) + ' <span class="nmt">' + esc(p.name) + "</span>" + (p.status === "ir" ? " " + chip("", "IR") : p.status === "taxi" ? " " + chip("", "Taxi") : "") + '</span></button>' +
+      var h = '<div class="rw"><div class="rwh"><button class="nmb" data-act="card" data-pid="' + esc(p.id) + '" aria-label="Open ' + esc(p.name) + ' profile"><span class="l1">' + pcx(POS_LABEL[p.pos] || p.pos) + ' <span class="nmt">' + esc(p.name) + "</span>" + (p.status === "ir" ? " " + R.irBadge() : p.status === "taxi" ? " " + chip("", "Taxi") : "") + '</span></button>' +
         '<button class="rb dtl" data-act="ctx" data-v="' + esc(p.id) + '" aria-expanded="' + open + '" aria-label="' + (open ? "Hide" : "Show") + " contract details for " + esc(p.name) + '">Details <span aria-hidden="true">' + (open ? "▾" : "▸") + "</span></button></div>" +
         '<div class="l2">' + meta + '</div><div class="cells ' + cols + '">' + cells + "</div>";
       if (open) h += detailsHtml(S, p, g);
