@@ -62,14 +62,17 @@ Status words: **In force** (built or to be built as stated), **Proposed** (a num
 - **Shared settled-week cutoff W\*** applies to every season figure and rank (R7, in force).
 - **The scored-game PPG denominator** is the approved one (in force, settled).
 - **Weekly Fantasy ranks** are exact only (R7, in force).
-- **Search players (R8 + R9, in force).**
+- **Search players (R8 + R9 + R10, in force).**
   - It filters the selected team by name and works with the position filters and sort.
   - When nothing on the team matches, a "Search other teams" action searches the other league teams' rostered players only, from the roster read already in memory: no free agents and no new read. Each result shows its UPS team.
-  - Opening a result uses the existing player profile. Returning restores the team, query, position filter, sort and scroll offset.
-- **Position filters (R9, in force).**
-  - All, QB, RB, WR, TE, K, P, DL, LB, DB. They work with search and sort. "By position" stays a sort.
-  - They were never built on the 2027 Performance screen before R9; the mobile site's chips were the convention used.
-  - Open for Keith: show all ten, or only the positions the team has.
+  - R10 (Keith: "Cross-team search must allow all relevant positions"): the other-teams list has its own position chips, All plus every position among the matching players, not limited to the selected team's positions. It starts at the selected team's filter. If none of the matches has that position, every position is shown and one line says so, so the list is never silently empty.
+  - Opening a result uses the existing player profile. Returning restores the team, query, position filter, other-teams position, sort and scroll offset.
+  - *Supersedes (R10):* the selected team's position filter also narrowing the other-teams list (R9).
+- **Position filters (R9 + R10, in force).**
+  - R10 (Keith: "Show All plus positions represented on the selected team"): All plus only the positions on the selected team's roster (IR and Taxi included), in league order, with K and P labels. They work with search and sort. "By position" stays a sort.
+  - Team switch: the filter stays if the new team has that position. Otherwise it resets to All and one line says so ("No K on …, so Position is back to All."); the next filter, sort or search action clears the line. Search, sort and other-teams state are kept.
+  - In the recorded data every team has all nine positions, so the reset path is covered by unit tests, not by the recorded preview.
+  - *Supersedes (R10):* all ten chips always (R9) and the open question on which chips to show.
 - **Breakdown behavior (R9, in force).**
   - Opened content scrolls into view without hiding the player's card under the sticky tabs.
   - A game detail collapses when the log view changes.
@@ -90,7 +93,14 @@ Status words: **In force** (built or to be built as stated), **Proposed** (a num
   - INT shows the count only, with no rank.
   - **INT rate** = INT ÷ attempts × 100 is ranked, lower is better, with a pass-attempt minimum. Below the minimum the rate shows and the rank is "—". With 0 attempts the rate is "—".
   - R9 (in force): it shows two decimals; ranks use the unrounded rate, and identical rates share a rank.
-  - The minimum is provisionally 15 attempts per team game × the fewest games any NFL club has played through W\* (135 at Week 10). Open for Keith: "per team game" could also mean each player's own club's games, which would need the Worker to send each player's club.
+  - R10 (Keith: "Retain the 15-attempts-per-team-game INT-rate minimum. Replace the league-minimum-games denominator with each player's supported historical NFL team games through the shared cutoff only after verification and an impact comparison. Below-minimum players retain their count and rate, without a rank."):
+    - The 15-per-team-game minimum is retained.
+    - The app uses each QB's own club games (15 × the games his NFL club(s) played through W\* while he was on them) only when the position answer carries a supported `team_games` for **every** QB in the pool. Otherwise every QB keeps the fewest-games bar (15 × 9 = 135 at Week 10). Rank details name the bar used.
+    - Today the answer has no per-player club games: the recorded answer has none, and nothing in the app can derive them. **The fewest-games bar is what shows.**
+    - Week 10 impact comparison on public nflverse data: the same 31 qualifiers and identical ranks under both bars. The QBs near the bar all play for 9-game clubs (S/r7notes/r10c.md).
+    - The Worker field is a proposal on #1515's branch and is **not built**: `team_games`, from box-row clubs plus a club source for weeks without a row.
+    - Below the minimum, the count and rate still show and the rank is "—" (tested under both bars).
+  - *Supersedes (R10):* the open question on "per team game" meaning.
   - *Supersedes:* the combined Completions/attempts row and the ranked INT count.
 - **Fumbles lost (R8, in force).** Not displayed in season stats or game displays. This is a display decision; official MFL points still include fumbles. *Supersedes:* the "excluding sack fumbles" rows and caveats.
 - **Individual game (R8, in force).** The identity line is **Date · Matchup · Status**. A completed game omits kickoff time; an upcoming or live game keeps it. Season and week are not repeated where already visible.
