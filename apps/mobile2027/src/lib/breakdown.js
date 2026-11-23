@@ -101,15 +101,15 @@
     return function (it) { return it.key ? SR.rankOf(pool, p.id, it.key, { group: group, G: G, raw: it.raw }) : null; };
   }
   function rankCell(rk) {
-    if (!rk || rk.text === DASH) return '<td class="n mu"' + (rk && rk.why ? ' title="' + esc(rk.why) + '"' : "") + ">" + DASH + "</td>";
-    return '<td class="n' + (rk.text === "…" ? " mu" : "") + '"' + (rk.why ? ' title="' + esc(rk.why) + '"' : "") + ">" + esc(rk.text) + "</td>";
+    if (!rk || rk.text === DASH) return '<td class="n rk mu"' + (rk && rk.why ? ' title="' + esc(rk.why) + '"' : "") + ">" + DASH + "</td>";
+    return '<td class="n rk' + (rk.text === "…" ? " mu" : "") + '"' + (rk.why ? ' title="' + esc(rk.why) + '"' : "") + ">" + esc(rk.text) + "</td>";
   }
 
   // ---------- the season rollup ----------
   function rollupHtml(R, notes, ranker, pssKey) {
     if (!R) return "";
     if (!R.to) return '<div class="ex">No settled week has game stats yet.</div>';
-    var out = '<div class="sec2">Season stats · ' + (R.to > 1 ? "Weeks 1" + ENDASH + R.to : "Week 1") + '</div><div class="card bdr"' + (pssKey ? ' data-pss="' + esc(pssKey) + '"' : "") + '><table><tr><th>Stat</th><th class="n">Season</th><th class="n">Rank</th></tr>';
+    var out = '<div class="sec2">Season stats · ' + (R.to > 1 ? "Weeks 1" + ENDASH + R.to : "Week 1") + '</div><div class="card bdr"' + (pssKey ? ' data-pss="' + esc(pssKey) + '"' : "") + '><table><tr><th>Stat</th><th class="n">Season</th><th class="n rk">Rank</th></tr>';
     R.sections.forEach(function (sec) {
       out += '<tr class="bdh"><th colspan="3">' + esc(sec.h) + "</th></tr>";
       sec.items.forEach(function (it) {
