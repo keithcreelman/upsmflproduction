@@ -75,7 +75,8 @@ test("coverage per week: byes and confirmed absences remove a player; Questionab
   st[q.id] = { roster: { chip: "HOLD", label: "Holdout" } }; t.ok(COV.week(S, tm, 11).pool === ps.length - 1, "a Holdout chip is not a confirmed absence");
   st[q.id] = { roster: { chip: "PUP", label: "Physically unable to perform" } };
   w11 = COV.week(S, tm, 11); t.ok(w11.absent.some((a) => a.player.id === q.id && /PUP/.test(a.text)), "an MFL designation is a confirmed absence");
-  // Week 13: only the bye counts; this week's Out and PUP are not carried forward
+  // Week 13: this week's Out is not carried forward (R10: an MFL designation is, see mobile2027_r10_coverage); with two Outs and no designation only the bye counts
+  st[q.id] = { mfl: { status: "Out" } };
   const w13 = COV.week(S, tm, 13);
   t.deepEqual(w13.byes.map((p) => p.id), [rb.id]); t.equal(w13.absent.length, 0); t.equal(w13.filled, 17);
   t.deepEqual(w13.short.map((s) => s.key), ["OFX"]);
@@ -112,7 +113,7 @@ function shortTeam(active) {
 
 test("taxi options: every fitting taxi player, low scores included; eligibility, call-ups left or Not recorded, recent points; obstacles in their place", () => {
   const { S, tm, lowTaxi, lastTaxi, noTaxi, unrec, kTaxi } = shortTeam(30);
-  const w = COV.week(S, tm, 11);
+  const w = COV.week(S, tm, 11, { state: "ok", week: 10 });   // R10: recent weeks run through the shared cutoff W* (here 10)
   t.deepEqual(w.short.map((s) => s.key), ["OFX"]);
   const names = w.taxi.options.map((o) => o.player.name);
   [lowTaxi, lastTaxi, noTaxi, unrec].forEach((p) => t.ok(names.includes(p.name), p.name + " is listed"));
@@ -145,7 +146,7 @@ test("the Byes view: coverage in each heading, option sections collapsed, team o
   const { S, tm } = shortTeam(30);
   tm.lineup = { state: "ok", count: 0, ids: [] };
   const html = V.rosterBody(S), tx = text(html);
-  t.match(tx, /Lineup coverage · ▲ Short in Week 11 \(OFX\)/);
+  t.match(tx, /Lineup coverage · ▲ Short in Week 11 \(OFX, depends on a return\)/, "R10: an IR-R player on the team's IR would complete it (dependency note)");
   t.match(tx, /This week · Week 11 · no byes ▲ Short 1: OFX 1\/2/);
   const open = V.rosterBody(Object.assign({}, S, { open: { bw11: true } })), ot = text(open);
   t.match(ot, /OFX \(RB\/WR\/TE\) · 1 available \/ 2 required/);
@@ -155,7 +156,7 @@ test("the Byes view: coverage in each heading, option sections collapsed, team o
   const both = V.rosterBody(Object.assign({}, S, { open: { bw11: true, bwtx11: true, bwir11: true } })), bt = text(both);
   const tx1 = bt.split("Taxi options")[1].split("Possible IR returns")[0];
   t.ok(tx1.indexOf("Active roster is full (30 of 30)") >= 0 && tx1.indexOf("Active roster is full") < tx1.indexOf("Low Scorer"), "the team-wide obstacle is above the candidates");
-  t.match(tx1, /Low Scorer [^▲]*Call-up eligible · 3 of 3 call-ups left/); t.match(tx1, /Recent: Wk 8 0\.4 · Wk 9 — · Wk 10 Unavailable/);
+  t.match(tx1, /Low Scorer [^▲]*Call-up eligible · 3 of 3 call-ups left/); t.match(tx1, /Recent points: checking which weeks are settled…/, "R10: no schedule read yet, so W* is not established and no week is guessed");
   t.match(tx1, /Last Callup[^]*?▲ No temporary call-ups left: another call-up is permanent/);
   t.match(tx1, /Unrecorded Count[^]*?Call-ups left: Not recorded/);
   t.match(bt.split("Possible IR returns")[1], /Possible, not confirmed[^]*Practicing Back IR NFL report Week 11: Questionable · full practice/);

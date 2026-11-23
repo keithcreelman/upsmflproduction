@@ -20,11 +20,23 @@ Status words: **In force** (built or to be built as stated), **Proposed** (a num
   - Bye players are grouped by their own position, not their lineup or flex slot.
   - Each week shows whether the full legal starting lineup can be filled: an exact assignment, mandatory slots then OFX/SFX/DFX by eligibility, never one player in two slots. Slots come from roster.js SLOTS (canon §B4).
   - A shortage is shown only when no assignment fills every slot.
-  - Questionable, Doubtful and Holdout never reduce coverage. Confirmed absences (bye; this week only, Out or an MFL designation) are listed apart.
+  - Questionable, Doubtful and Holdout never reduce coverage. Confirmed absences are listed apart as "Not counted".
   - *Supersedes:* the R8 bye groups labeled by today's slots ("RB2, TE1").
+- **Confirmed absences in later weeks (R10, in force; Keith 2026-11-23: "Confirmed absences reduce future coverage. Questionable does not.").**
+  - A bye removes a player in its week.
+  - An MFL roster designation (IR, PUP, NFI, SUSP, RET, from MFL's injuries export) has no week attached and stands until MFL changes it, so it removes the player from the current week and every later week checked.
+  - Out is a game status for the current week only (MFL's export keeps no week on it); it is never carried to a later week.
+  - Questionable, Doubtful and Holdout never remove anyone. With the injury read expired or missing nobody is removed for injury and every week says "injuries not checked".
+  - *Supersedes:* the R9 "this week only" scope for MFL designations ("Later weeks count byes only").
+- **Uncertain returns and the dependency note (R10, in force; Keith 2026-11-23: "Keep uncertain IR/PUP returns separate; when coverage depends on one, show a concise dependency note rather than declaring the lineup covered.").**
+  - An uncertain return is an active player, or a UPS IR player, whose MFL designation can end with a return: IR-R (designated to return), PUP, NFI, or any designation with an MFL expected-return date. He is never counted as available.
+  - A short week that one such player would complete reads "Covered only if [Name] returns from IR" (or PUP / NFI); several together, "Covered only if A and B return". The week stays short, and the summary says "depends on a return".
+  - Plain IR, SUSP and RET carry no return in the data: no note. *Open for Keith:* whether plain IR (could still be designated to return) or SUSP (a suspension ends) should also produce the note.
+  - The 2026-11-22 recording has no such week; the note is proven by tests and a constructed screenshot only.
 - **Taxi options and Possible IR returns (R9, in force).**
   - Both are kept separate from confirmed coverage and start collapsed.
-  - Taxi: every position-eligible taxi player, whatever his points, with call-up eligibility from the Worker's taxi rule, call-ups left (or "Not recorded"), and his last three weeks of points.
+  - Taxi: every position-eligible taxi player, whatever his points, with call-up eligibility from the Worker's taxi rule, call-ups left (or "Not recorded"), and his recent points (R10 below). Taxi players are never counted as coverage ("Not counted in coverage").
+  - **Recent points (R10, in force; Keith 2026-11-23, decision 7).** The last three settled weeks through Performance's shared cutoff W\* (tabviews.seasonCutoff), each labeled: "W8 3.0 · W9 — · W10 −1.5". Zero and negative scores show as numbers; "—" means no MFL score entry that week; "Unreadable" an entry that is not a number; "Unavailable" a failed read. Reuses Performance's reads (matchup, calendar, schedule, playerScores); no new route. *Supersedes:* the R9 weeks from the Worker's lastCompleteWeek and the "Wk 8" labels.
   - Team-wide obstacles (e.g. a full active roster) sit above the list; player-specific obstacles sit beside the player.
   - An IR player is a "possible return" only with supporting evidence (this week's NFL report lists him as practicing and not Out); IR eligibility alone is not enough.
   - No activation, call-up or lineup controls. Cap room is not checked.

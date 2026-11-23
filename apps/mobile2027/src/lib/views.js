@@ -268,19 +268,28 @@
   }
   function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
   // R9 (Keith, 2026-11-23): lineup coverage. Each week says whether the WHOLE legal lineup can still be filled from the active roster
-  // (lib/coverage.js: an exact assignment, required slots first, then OFX/SFX/DFX by eligibility, never one player in two slots). Only a bye, or in
-  // the current week an Out or an MFL designation, removes a player; Questionable and Doubtful never do. Taxi and IR players are options, kept apart.
+  // (lib/coverage.js: an exact assignment, required slots first, then OFX/SFX/DFX by eligibility, never one player in two slots). Only a bye, an MFL
+  // designation (every week, R10) or an Out (current week only) removes a player; Questionable and Doubtful never do. Taxi and IR players are options,
+  // kept apart; a short week only an uncertain return would complete carries a dependency note (R10).
   function shortLine(s) { return s.key + (s.flex ? " (" + s.acc.join("/") + ")" : "") + " · " + s.available + " available / " + s.required + " required"; }
   function coverageSub(cv) {
     var bits = [];
     if (cv.short.length) bits.push('<b class="wn">▲ Short ' + (cv.total - cv.filled) + ": " + esc(cv.short.map(function (s) { return s.key + " " + s.available + "/" + s.required; }).join(", ")) + "</b>");
     else bits.push("Full lineup " + cv.filled + "/" + cv.total);
+    if (cv.dependencyText) bits.push(esc(cv.dependencyText));
     if (cv.absent.length) bits.push(esc(cv.absent.length + " out or designated"));
     if (!cv.injuriesChecked) bits.push("injuries not checked");
     return bits.join(" · ");
   }
-  function pointsText(o) {
-    return o.points.length ? "Recent: " + o.points.map(function (x) { return "Wk " + x.week + " " + x.text; }).join(" · ") : "Recent points not available";
+  // R10 (decision 7): each recent week labeled, "W8 3.0 · W9 — · W10 −1.5": zero and negative scores as numbers, "—" only for no score entry.
+  function pointsText(o, cut) {
+    if (o.points.length) return "Recent: " + o.points.map(function (x) { return "W" + x.week + " " + x.text; }).join(" · ");
+    return cut && cut.state === "loading" ? "Recent points: checking which weeks are settled…" : "Recent points not available";
+  }
+  // One line above the taxi list: taxi players are never counted in coverage, and what the recent weeks are.
+  function pointsKey(tx) {
+    var w = tx.weeks || [];
+    return '<div class="ex cvo">Not counted in coverage.' + (w.length ? " Recent: the last three settled weeks, as on Performance (through W" + w[w.length - 1] + "). — = no MFL score entry." : "") + "</div>";
   }
   // A taxi or IR option: who he is, the verified facts, and the obstacles that are his alone (chips beside him). No control changes anything.
   function optionRow(p, facts, obstacles, pointsLine) {
@@ -298,9 +307,9 @@
     if (!tx.options.length) return '<div class="lsh cvt"><span class="t"><b>Taxi options · none</b><small>No taxi player fits the open slots.</small></span></div>';
     if (!tg.open) return tg.html;
     var head = tx.team.length ? teamObstacleLines(tx.team) : '<div class="ex cvo">An active roster spot is open. Cap room is not checked here.</div>';
-    return tg.html + head + tx.options.map(function (o) {
+    return tg.html + head + pointsKey(tx) + tx.options.map(function (o) {
       var facts = esc(F.commonCode(o.player.nflTeam) || "No NFL team") + " · " + esc(o.eligibility) + (o.eligible ? " · " + esc(o.leftText) : "");
-      return optionRow(o.player, facts, o.obstacles, pointsText(o));
+      return optionRow(o.player, facts, o.obstacles, pointsText(o, tx.cut));
     }).join("");
   }
   function irBlock(S, cv, cur) {
@@ -312,7 +321,7 @@
     var tg = optionToggle(S, "bwir" + cv.week, "Possible IR returns · " + ir.options.length);
     if (!tg.open) return tg.html;
     return tg.html + teamObstacleLines(ir.team) + '<div class="ex cvo">Possible, not confirmed: the evidence is this week’s NFL report.</div>' + ir.options.map(function (o) {
-      return optionRow(o.player, R.irBadge() + " " + esc(o.evidence), o.obstacles, pointsText(o));
+      return optionRow(o.player, R.irBadge() + " " + esc(o.evidence), o.obstacles, pointsText(o, cv.taxi && cv.taxi.cut));
     }).join("");
   }
   // The bye players of one week, grouped by their own position (never by a lineup or flex slot).
@@ -327,7 +336,9 @@
   function weekCard(S, cv, x, cur, slotOf) {
     var body = "";
     if (cv.short.length) {
-      body += '<div class="cvs">' + cv.short.map(function (s) { return '<div class="cvl"><b class="wn">' + esc(shortLine(s)) + "</b></div>"; }).join("") + "</div>";
+      body += '<div class="cvs">' + cv.short.map(function (s) { return '<div class="cvl"><b class="wn">' + esc(shortLine(s)) + "</b></div>"; }).join("") +
+        // R10: a lineup only an uncertain return would complete: said once, and the week stays short
+        (cv.dependencyText ? '<div class="cvl cvd">' + esc(cv.dependencyText) + ". Not counted as available.</div>" : "") + "</div>";
       body += taxiBlock(S, cv) + irBlock(S, cv, cur);
     }
     if (cv.absent.length) {
@@ -342,9 +353,10 @@
     var byWeek = {}; g.groups.forEach(function (x) { byWeek[x.week] = x; });
     var wks = Object.keys(byWeek).map(Number); if (cur && !byWeek[cur]) wks.push(cur);
     wks.sort(function (a, b) { return a - b; });
-    var covs = wks.map(function (w) { return COV.week(S, t, w); });
+    var cut = TV.seasonCutoff(S);   // R10: the shared settled-week cutoff W*, for the options' recent points
+    var covs = wks.map(function (w) { return COV.week(S, t, w, cut); });
     var shortWks = covs.filter(function (c) { return c.short.length; });
-    out += sumCard("<b>Lineup coverage</b> · " + (shortWks.length ? '<span class="wn">▲ Short in ' + esc(shortWks.map(function (c) { return "Week " + c.week + " (" + c.short.map(function (s) { return s.key; }).join(", ") + ")"; }).join(" · ")) + "</span>" : "A full lineup can be set in every week below") +
+    out += sumCard("<b>Lineup coverage</b> · " + (shortWks.length ? '<span class="wn">▲ Short in ' + esc(shortWks.map(function (c) { return "Week " + c.week + " (" + c.short.map(function (s) { return s.key; }).join(", ") + (c.dependency ? ", depends on a return" : "") + ")"; }).join(" · ")) + "</span>" : "A full lineup can be set in every week below") +
       (covs.some(function (c) { return !c.injuriesChecked; }) ? " · injuries not checked" : ""));
     covs.forEach(function (cv) {
       var x = byWeek[cv.week], n = x ? x.players.length : 0, key = "bw" + cv.week, open = isOpen(S, key);

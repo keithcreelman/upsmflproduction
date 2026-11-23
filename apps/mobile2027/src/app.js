@@ -314,10 +314,13 @@
   // lineup week) to establish per game which week is complete, then the weekly scores Weeks 1..N for the season totals and the players read for the position
   // pools. Each step asks for its read once (the loader reuses it), and the next step starts when the one before it has arrived. A failed read is asked again
   // only on Retry.
-  function ensureSched(w, force) {
+  // `next` (R10): Byes passes its own step, so a Byes visit never starts Performance's reads. If the owner has left Byes by the time the read
+  // arrives, Performance's step runs as before (a read is asked once, so its follow-up must not be lost).
+  function timingNext(next) { return function () { if (next && S.view === "byes" && S.sub === "roster" && !S.profile) next(false); else ensurePerformance(false); }; }
+  function ensureSched(w, force, next) {
     var rec = S.intel.sched[w];
     if (rec && !(force && rec.state === "error")) return; // asked once; the loader keeps the answer. Only Retry asks again after a failure
-    intelRead(S.intel.sched, w, function (f) { return loader.loadSchedule(w, U.complete.parseSchedule, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
+    intelRead(S.intel.sched, w, function (f) { return loader.loadSchedule(w, U.complete.parseSchedule, f); }, force && rec && rec.state === "error", timingNext(next));
   }
   function ensureWeekScores(w, force) {
     var rec = S.intel.scores[w], sc = S.intel.sched[w];
@@ -330,10 +333,10 @@
     if (rec && !(force && rec.state === "error")) return;
     intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
   }
-  function ensureCalendar(force) {
+  function ensureCalendar(force, next) {
     var rec = S.intel.cal;
     if (rec && !(force && rec.state === "error")) return;
-    intelRead(S.intel, "cal", function (f) { return loader.loadCalendar(U.complete.parseCalendar, f); }, force && rec && rec.state === "error", function () { ensurePerformance(false); });
+    intelRead(S.intel, "cal", function (f) { return loader.loadCalendar(U.complete.parseCalendar, f); }, force && rec && rec.state === "error", timingNext(next));
   }
   // MFL's complete player list: names the player on a cap adjustment (Team › Contracts, PR A) and gives the position pools of the ranks (Team › Performance, PR B).
   // One shared read, kept six hours. A failed read is asked again only on Retry (Performance) or, at most once a minute (the loader's own limit), the next time
@@ -409,11 +412,21 @@
     intelRead(S.intel.mu, wi.cur, function (f) { return loader.loadMatchups(wi.cur, f); }, force && S.intel.mu[wi.cur] && S.intel.mu[wi.cur].state === "error", function () { ensureByeScores(force); });
     ensureByeScores(force);
   }
-  // R9: Byes lists taxi and IR options with their recent weekly points: the three most recent all-final weeks (coverage.recentWeeks, from the
-  // matchup read's lastCompleteWeek), the same playerScores reads Performance uses, each asked once and reused.
+  // R9: Byes lists taxi and IR options with their recent weekly points. R10 (Keith, 2026-11-23, decision 7): the weeks are the last three settled
+  // weeks through Performance's shared cutoff W* (tabviews.seasonCutoff), established from the same reads Performance uses (the matchup read, MFL's
+  // calendar and the schedule of the last complete week, and the week before it only when the cutoff must step back); then the same playerScores
+  // reads, each asked once and reused. No new route.
   function ensureByeScores(force) {
-    if (S.sample.on || !S.model || S.view !== "byes" || !U.coverage) return;
-    U.coverage.recentWeeks(S).forEach(function (w) {
+    if (S.sample.on || !S.model || !S.model.week || S.view !== "byes" || !U.coverage || !U.tabviews) return;
+    var mu = S.intel.mu[S.model.week];
+    if (!mu || mu.state !== "ok") return;   // ensureIntel asks for it and calls back here
+    var lc = mu.data.lastComplete;
+    if (!(lc >= 1)) return;
+    ensureCalendar(force, ensureByeScores);
+    ensureSched(lc, force, ensureByeScores);
+    var C0 = U.tabviews.completion(S);
+    if (C0.state === "loading" && C0.need) ensureSched(C0.need, force, ensureByeScores);
+    U.coverage.recentWeeks(U.tabviews.seasonCutoff(S)).forEach(function (w) {
       var rec = S.intel.scores[w];
       if (rec && !(force && rec.state === "error")) return;
       intelRead(S.intel.scores, w, function (f) { return loader.loadScores(w, f); }, force && rec && rec.state === "error");
