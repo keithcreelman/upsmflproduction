@@ -44,7 +44,7 @@ function setup(storedOffers) {
   const env = makeWorkerEnv();
   const mfl = makeMfl();
   mfl.install();
-  mfl.st.pending.push({ trade_id: "2001", offeringteam: FROM, offeredto: TO, will_give_up: GIVE, will_receive: RECEIVE, comments: "Willing to take Devito instead of MHj", timestamp: String(Math.floor(Date.now() / 1000)) });
+  mfl.st.pending.push({ trade_id: "2001", offeringteam: FROM, offeredto: TO, will_give_up: GIVE, will_receive: RECEIVE, comments: "Test offer note", timestamp: String(Math.floor(Date.now() / 1000)) });
   // Serve the stored-offers doc (the worker reads it from GitHub Pages when no PAT is set).
   const delegate = globalThis.fetch;
   globalThis.fetch = async (input, init) => {
@@ -70,7 +70,7 @@ test("WORKER: a live offer is NEVER matched by team pair to a stored offer that 
     t.equal(o.trade_id, "2001");
     t.equal(o.payload, undefined, "the May offer's payload (Goedert/Irving/Olave) must not ride on this offer");
     t.equal(o.id, "MFL-2001", "nor its id");
-    t.equal(o.message, "Willing to take Devito instead of MHj", "the live MFL comment, not the stored one");
+    t.equal(o.message, "Test offer note", "the live MFL comment, not the stored one");
     t.equal(o.summary, null);
     t.equal(o.will_give_up, GIVE, "the assets are MFL's own, as before");
     t.equal(mfl.st.imports.length, 0);
