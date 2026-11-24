@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""Forecast-only draft PR (Keith 2026-11-10): the week's season_sim forecast, on its own, ahead of the UPS Center package.
+
+Standings (Playoff % / Bye %, the Forecast tab, the draft order) read site/wire/data/season_sim_<y>_live_wkNN.json from
+`main`. That file used to ship only with the weekly package, which can wait days on editor items (Kenny picks, Elias), so
+Standings showed no percentages ("the Week N forecast isn't published yet"). After the forecast is built and checked, the
+job now also keeps ONE small DRAFT PR on `wire/auto/<season>-wkNN-forecast` that adds exactly that one file.
+
+What does not change: nothing here publishes. The PR is a draft; Keith marks it ready and merges it, week by week. This
+module has no merge / ready / close call (ups_center_pr._gh refuses them), enables no auto-merge and dispatches no workflow.
+The branch is written with git plumbing (a temporary index and `git commit-tree` on origin/main), so the package build's
+work tree and branch are never touched. When the file is already on main, or the PR is on a branch someone else owns, it
+does nothing.
+
+sync_forecast(run, season, week, workdir, final_at=None, dry=False) -> {action, pr, problems}
+  actions: no-file | refused | already-published | would-create | created | noop | updated | would-update |
+           editor-owned | stop-duplicate
+"""
+import hashlib
+import json
+import os
+import re
+import sys
+import tempfile
+from datetime import datetime
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import ups_center_pr as PR          # noqa: E402
+
+MARK = "ups-center-forecast"
+
+
+def branch_for(season, week):
+    return "wire/auto/%d-wk%02d-forecast" % (season, week)
+
+
+def sim_rel(season, week):
+    return "site/wire/data/season_sim_%d_live_wk%02d.json" % (season, week)
+
+
+def marker(season, week, digest):
+    return "<!-- %s id=%d-wk%02d sha=%s -->" % (MARK, season, week, digest)
+
+
+def read_marker(text):
+    m = re.search(r"<!-- %s id=\S+ sha=(\S+) -->" % MARK, text or "")
+    return m.group(1) if m else None
+
+
+def _utc(s):
+    return datetime.fromisoformat(str(s).replace("Z", "+00:00"))
+
+
+def problems_with(raw, season, week, final_at=None):
+    """Why this forecast must not be offered for publication (empty = fine). The same things Standings checks before it
+    trusts a forecast: it is this season's, covers exactly this week, has every team's odds, and (from Week 7) the
+    place / runner-up counts; and it was run after the week went final."""
+    out = []
+    try:
+        d = json.loads(raw)
+    except ValueError as e:
+        return ["not valid JSON: %s" % e]
+    if not isinstance(d, dict):
+        return ["not a forecast object"]
+    if d.get("season") != season:
+        out.append("season is %r, not %d" % (d.get("season"), season))
+    if d.get("throughWeek") != week:
+        out.append("covers through week %r, not %d" % (d.get("throughWeek"), week))
+    teams = d.get("teams")
+    if not isinstance(teams, list) or len(teams) < 8:
+        out.append("teams missing or too few")
+    else:
+        for t in teams:
+            for k in ("currentPlayoffOdds", "currentByeOdds"):
+                v = t.get(k) if isinstance(t, dict) else None
+                if not isinstance(v, (int, float)) or isinstance(v, bool) or not 0 <= v <= 1:
+                    out.append("team %s has no valid %s" % (t.get("franchiseId") if isinstance(t, dict) else "?", k))
+                    break
+    if week >= 7 and not isinstance(d.get("standingsForecast"), dict):
+        out.append("no standingsForecast block (places, runner-up and Hawk Tuah counts)")
+    try:
+        gen = _utc(d.get("generatedAtUtc"))
+        if final_at is not None and gen < _utc(final_at):
+            out.append("generated %s, before Week %d went final (%s)" % (d.get("generatedAtUtc"), week, final_at))
+    except (TypeError, ValueError):
+        out.append("no generatedAtUtc")
+    return out
+
+
+def body(season, week, d, digest):
+    return ("## Week %d forecast: data only\n\n"
+            "One file: `%s`. Generated %s (%s simulated seasons), after Week %d went final and the standings in D1 matched MFL.\n\n"
+            "**Why:** Standings' Playoff %% and Bye %%, the Forecast tab and the projected draft order read this file from `main`. "
+            "It otherwise ships with the UPS Center package, which can wait on the editor, so Standings shows no percentages "
+            "until then.\n\n"
+            "**Draft on purpose.** Nothing here merges itself: Keith marks it ready and merges it for this week. It does not "
+            "publish the UPS Center issue, post to Discord or change any code. When the package is later published, its own copy of "
+            "this file is rebuilt from `main`, so the two never conflict. A later run that produces different numbers (for example "
+            "after an Elias change) updates this PR with a comment.\n\n%s\n\n"
+            "🤖 Generated by ups_center_forecast_pr.py\n" % (
+                week, sim_rel(season, week), d.get("generatedAtUtc"), d.get("runs"), week, marker(season, week, digest)))
+
+
+def _write_branch(run, season, week, raw, workdir):
+    """Commit origin/main + this one file on the automation branch without touching the work tree, index or branch."""
+    rel = sim_rel(season, week)
+    tmp = tempfile.mkdtemp(prefix="forecast_pr_")
+    src, idx = os.path.join(tmp, "file.json"), os.path.join(tmp, "index")
+    with open(src, "w") as f:
+        f.write(raw)
+    env = ["env", "GIT_INDEX_FILE=" + idx]
+    for cmd in (env + ["git", "read-tree", "origin/main"],):
+        rc, out = run(cmd, workdir)
+        if rc != 0:
+            raise RuntimeError("git read-tree failed: %s" % out[:300])
+    rc, blob = run(["git", "hash-object", "-w", src], workdir)
+    if rc != 0:
+        raise RuntimeError("git hash-object failed: %s" % blob[:300])
+    rc, out = run(env + ["git", "update-index", "--add", "--cacheinfo", "100644,%s,%s" % (blob.strip(), rel)], workdir)
+    if rc != 0:
+        raise RuntimeError("git update-index failed: %s" % out[:300])
+    rc, tree = run(env + ["git", "write-tree"], workdir)
+    if rc != 0:
+        raise RuntimeError("git write-tree failed: %s" % tree[:300])
+    msg = ("wire(auto): Week %d forecast, data only\n\nOne file, built after Week %d went final. Publication stays with Keith.\n\n%s: forecast-only"
+           % (week, week, PR.TRAILER))
+    rc, commit = run(["git", "commit-tree", tree.strip(), "-p", "origin/main", "-m", msg], workdir)
+    if rc != 0:
+        raise RuntimeError("git commit-tree failed: %s" % commit[:300])
+    rc, out = run(["git", "push", "-q", "-f", "origin", "%s:refs/heads/%s" % (commit.strip(), branch_for(season, week))], workdir)
+    if rc != 0:
+        raise RuntimeError("git push failed: %s" % out[:300])
+
+
+def sync_forecast(run, season, week, workdir, final_at=None, dry=False):
+    rel = sim_rel(season, week)
+    path = os.path.join(workdir, rel)
+    if not os.path.exists(path):
+        return {"action": "no-file", "pr": None, "problems": []}
+    raw = open(path).read()
+    problems = problems_with(raw, season, week, final_at)
+    if problems:
+        return {"action": "refused", "pr": None, "problems": problems}
+    rc, on_main = run(["git", "show", "origin/main:" + rel], workdir)
+    if rc == 0 and on_main == raw:
+        return {"action": "already-published", "pr": None, "problems": []}
+    digest = hashlib.sha256(raw.encode()).hexdigest()[:12]
+    d = json.loads(raw)
+    br = branch_for(season, week)
+    rc, out = PR._gh(run, ["pr", "list", "--state", "open", "--head", br, "--json", "number,headRefName,isDraft,body"], workdir)
+    if rc != 0:
+        raise RuntimeError("gh pr list failed: %s" % out[:300])
+    prs = [p for p in json.loads(out or "[]") if p.get("headRefName") == br]
+    if len(prs) > 1:
+        return {"action": "stop-duplicate", "pr": [p["number"] for p in prs], "problems": []}
+    if not prs:
+        if dry:
+            return {"action": "would-create", "pr": None, "problems": []}
+        _write_branch(run, season, week, raw, workdir)
+        rc, out = PR._gh(run, ["pr", "create", "--draft", "--base", "main", "--head", br,
+                               "--title", "wire: Week %d forecast ahead of the UPS Center package (data only)" % week,
+                               "--body", body(season, week, d, digest)], workdir)
+        if rc != 0:
+            raise RuntimeError("gh pr create failed: %s" % out[:300])
+        return {"action": "created", "pr": out.strip().split("/")[-1], "problems": []}
+    pr = prs[0]
+    # Ours only if every commit on the branch carries the automation trailer; otherwise a person is working on it.
+    rc, log = run(["git", "log", "--format=%H|%(trailers:key=" + PR.TRAILER + ",valueonly,separator=%x2C)", "origin/main..origin/" + br], workdir)
+    commits = [x for x in (log or "").splitlines() if "|" in x]
+    if rc != 0 or not commits or any(not x.split("|", 1)[1].strip() for x in commits):
+        return {"action": "editor-owned", "pr": pr["number"], "problems": []}
+    if read_marker(pr.get("body")) == digest:
+        return {"action": "noop", "pr": pr["number"], "problems": []}
+    if dry:
+        return {"action": "would-update", "pr": pr["number"], "problems": []}
+    _write_branch(run, season, week, raw, workdir)
+    PR._gh(run, ["pr", "edit", str(pr["number"]), "--body", body(season, week, d, digest)], workdir)
+    PR._gh(run, ["pr", "comment", str(pr["number"]), "--body",
+                 "Forecast rebuilt: generated %s (was `%s`, now `%s`)." % (d.get("generatedAtUtc"), read_marker(pr.get("body")), digest)], workdir)
+    return {"action": "updated", "pr": pr["number"], "problems": []}
