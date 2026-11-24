@@ -14,27 +14,32 @@ export function makeD1(opts) {
   const db = new DatabaseSync(":memory:");
   const log = [];
   const wrap = (sql, args) => ({
+    sql,   // (read by tests that gate or inspect a batch)
     first: async () => { log.push({ sql, args }); if (opts.beforeRun) opts.beforeRun(sql, args, db); return db.prepare(sql).get(...args) || null; },
     all: async () => { log.push({ sql, args }); if (opts.beforeRun) opts.beforeRun(sql, args, db); return { results: db.prepare(sql).all(...args) }; },
-    run: async () => {
-      log.push({ sql, args });
-      if (opts.failWrites && /^\s*(UPDATE|INSERT|DELETE)/i.test(sql)) throw new Error("D1_ERROR: simulated write failure");
-      if (opts.beforeRun) opts.beforeRun(sql, args, db);
-      const r = db.prepare(sql).run(...args);
-      // D1 reports both; the worker reads last_row_id to learn an INSERT's id.
-      return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
-    },
+    run: async () => runSync(sql, args),
+    _sync: () => runSync(sql, args),   // used by batch(): runs with no await, so nothing else can interleave
   });
+  const runSync = (sql, args) => {
+    log.push({ sql, args });
+    if (opts.failWrites && /^\s*(UPDATE|INSERT|DELETE)/i.test(sql)) throw new Error("D1_ERROR: simulated write failure");
+    if (opts.beforeRun) opts.beforeRun(sql, args, db);
+    const r = db.prepare(sql).run(...args);
+    // D1 reports both; the worker reads last_row_id to learn an INSERT's id.
+    return { success: true, meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) } };
+  };
   const d1 = {
     raw: db, log, opts,   // (a test can set d1.opts.beforeRun / failWrites at any time — e.g. make D1 fail AFTER MFL succeeded)
     // D1's exec(): run raw SQL (the worker lazily creates tables this way).
     async exec(sql) { if (opts.failWrites && /^\s*(CREATE|INSERT|UPDATE|DELETE)/i.test(sql)) throw new Error("D1_ERROR: simulated write failure"); db.exec(sql); return { count: 1 }; },
     prepare(sql) { return { bind: (...args) => wrap(sql, args), ...wrap(sql, []) }; },
-    // D1 batch(): statements run in order inside ONE transaction; any failure rolls all back.
+    // D1 batch(): statements run in order inside ONE transaction; any failure rolls all back. It also runs to
+    // completion before anything else touches the database (D1 serializes queries per database), so it is
+    // executed with no await between statements: concurrent requests cannot interleave inside it.
     async batch(stmts) {
       const out = [];
       db.exec("BEGIN");
-      try { for (const st of stmts) out.push(await st.run()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
+      try { for (const st of stmts) out.push(st._sync ? st._sync() : await st.run()); db.exec("COMMIT"); } catch (e) { db.exec("ROLLBACK"); throw e; }
       return out;
     },
   };
