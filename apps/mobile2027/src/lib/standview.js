@@ -325,9 +325,10 @@
         if (!a.reconciles || a.status !== "ok") { h += '<div class="lgpl"><b>Week ' + w + "</b><span>Not counted: " + esc(!a.reconciles ? "the starters’ points don’t add up to the official score" : a.why) + "</span></div>"; continue; }
         var ps = g.pick(a), sum = 0, miss = false; ps.forEach(function (p) { if (p.s.score == null) miss = true; else sum += p.s.score; });
         var wk = k + ":" + w, wo = on(S, wk);
-        h += '<button class="lgtg sm" data-act="lgt" data-v="' + esc(wk) + '" aria-expanded="' + wo + '"><span>Week ' + w + " · " + t1(sum) + '</span><span class="go">' + (wo ? "Hide" : "Show") + "</span></button>";
+        h += tog(S, wk, "Week " + w + " · " + t1(sum), "sm");
         if (wo) {
-          h += ps.map(function (p) { return '<div class="lgpl"><b>' + esc(playerName(S, p.s.id)) + "</b><span>" + (p.slot ? esc(p.slot) + " · " : "") + esc(posLabel(p.s.pos)) + " · " + (p.s.score == null ? "—" : t1(p.s.score)) + "</span></div>"; }).join("") || '<div class="lgpl"><span>No starter here this week.</span></div>';
+          // the slot is named only when it differs from the position (SFX, OFX, DFX), never "RB · RB"
+          h += ps.map(function (p) { return '<div class="lgpl"><b>' + esc(playerName(S, p.s.id)) + "</b><span>" + (p.slot && p.slot !== posLabel(p.s.pos) ? esc(p.slot) + " · " : "") + esc(posLabel(p.s.pos)) + " · " + (p.s.score == null ? "—" : t1(p.s.score)) + "</span></div>"; }).join("") || '<div class="lgpl"><span>No starter here this week.</span></div>';
           if (miss) h += '<p class="lgn">— MFL lists this player as a starter with no score; nothing is added to the total. It isn’t a recorded zero.</p>';
         }
       }

@@ -256,6 +256,8 @@ test("screens: one decimal with separators, overall record (never H2H record), A
   t.match(h, /<tr class="lgcut lgbye"><td colspan="5">Bye line<\/td><\/tr>/); t.ok(h.indexOf("Bye line") < h.indexOf("Blake Bombers"), "the bye line sits between seed 2 and seed 3");
   t.match(h, /<tr class="lgme" aria-current="true"><td class="rk">6<\/td>/, "the selected team (Hawks) is highlighted");
   t.doesNotMatch(h, />(Show|Hide)</, "chevrons, not Show/Hide words");
+  { const S2 = { lg: { team: "0012", brk: "slot", open: { "b:s:RB": true, "b:s:RB:1": true } }, lgd: { model: M }, intel: { players: null } }, b = SV.brkSheet(S2);
+    t.doesNotMatch(b, />(Show|Hide)</, "breakdown rows and week rows: chevrons only"); t.doesNotMatch(b, /RB · RB/, "no repeated slot/position"); t.match(b, /RB ×2/); }
   S.lg.sub = "scoring";
   S.lg.per = "week"; S.lg.wk = 10; h = SV.body(S); t.match(h, /All-Play/); t.match(h, /H2H/);
   const ns = M.contrib.noScore[0]; S.lg.team = ns.fid; S.lg.brk = "pos";
