@@ -94,6 +94,19 @@ def fetch(season, week):
     return doc
 
 
+def box_fallback(season, week, doc=None):
+    """{mfl_id: {"gsis", "team", "matchedBy"}} for the players THIS week's xFP pull could only match by
+    name + position + NFL team (no gsis_id in player_id_crosswalk -- 2026 rookies). wire_data.nfl_box_lines
+    uses it to find the same player's box score; nothing else is matched a second, looser way."""
+    doc = doc if doc is not None else load(season, week)
+    out = {}
+    for g, p in ((doc or {}).get("players") or {}).items():
+        if p.get("mfl") and p.get("matchedBy") == "name+position+team":
+            out[str(p["mfl"])] = {"gsis": str(p.get("gsis") or g), "team": p.get("team") or "",
+                                  "matchedBy": "xFP name+position+team match (player_id_crosswalk has no gsis_id)"}
+    return out
+
+
 def load(season, week):
     path = os.path.join(D.REPO, _rel(season, week))
     if not os.path.exists(path):

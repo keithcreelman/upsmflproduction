@@ -1777,12 +1777,20 @@ def _quoted(ids):
     return ", ".join("'%s'" % str(x).replace("'", "''") for x in ids)
 
 
-def nfl_box_lines(season, week, player_ids):
+def nfl_box_lines(season, week, player_ids, fallback=None):
     """nfl_box_line for many players in ONE query.
 
     The rebuilt game deck wants a play card per matchup, which is a box lookup
     per card. One round trip each turned a build into a minute of waiting for
     D1; this is the same data in a single call.
+
+    fallback: {mfl_player_id: {"gsis": ..., "team": ...}} for players whose
+    player_id_crosswalk row has no gsis_id (2026 rookies: the crosswalk was last
+    refreshed before they had NFL ids, so Jonah Coleman's Week 11 box line came
+    back empty and the build crashed, 2026-11-24). Only the week's xFP match is
+    accepted here (wire_xfp.box_fallback: name + position + NFL team, exactly one
+    MFL player), and only when the stat row's own team equals the team that match
+    was made on. A row used this way carries "matchedBy" so the source is visible.
     """
     ids = [p for p in dict.fromkeys(player_ids) if p]
     if not ids:
@@ -1796,11 +1804,28 @@ def nfl_box_lines(season, week, player_ids):
         "WHERE w.season = %d AND w.week = %d AND x.mfl_player_id IN (%s)"
         % (", ".join("w." + c for c in cols), ", ".join("e." + c for c in _BOX_50PLUS_COLS),
            int(season), int(week), _quoted(ids)))
+    want = dict((str(p), (fallback or {}).get(str(p))) for p in ids
+                if str(p) not in set(str(r["pid"]) for r in rows) and (fallback or {}).get(str(p)))
+    if want:
+        by_gsis = dict((v["gsis"], (pid, v)) for pid, v in want.items())
+        for r in d1(
+                "SELECT w.gsis_id AS gsis, %s, %s, w.team, w.opponent FROM nfl_player_weekly w "
+                "LEFT JOIN nfl_player_weekly_ext e ON e.season = w.season AND e.week = w.week "
+                "AND e.gsis_id = w.gsis_id "
+                "WHERE w.season = %d AND w.week = %d AND w.gsis_id IN (%s)"
+                % (", ".join("w." + c for c in cols), ", ".join("e." + c for c in _BOX_50PLUS_COLS),
+                   int(season), int(week), _quoted(list(by_gsis)))):
+            pid, v = by_gsis[str(r["gsis"])]
+            if (r.get("team") or "") != (v.get("team") or ""):
+                continue                      # a different team than the match was made on: not his line
+            rows.append(dict(r, pid=pid, matchedBy=v.get("matchedBy") or "fallback", gsis=r["gsis"]))
     out = {}
     for r in rows:
         d = dict((k, r[k]) for k in cols + _BOX_50PLUS_COLS if r.get(k) not in (None, 0))
         if r.get("team"):
             d["matchup"] = "%s vs %s" % (r["team"], r.get("opponent") or "")
+        if r.get("matchedBy"):
+            d["matchedBy"], d["gsis"] = r["matchedBy"], r["gsis"]
         out[str(r["pid"])] = d
     return out
 

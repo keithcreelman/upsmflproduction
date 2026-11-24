@@ -1381,5 +1381,68 @@ print("S17. the report's checkedClaims holds only counts, so the draft PR body c
 import ups_center_pr as PRM
 check("a draft with a printed trade has integer-only checkedClaims and the PR body renders", all(isinstance(x, int) for x in vtd["checkedClaims"].values()) and bool(PRM.body("x", rtd, vtd, [], "p")), vtd["checkedClaims"])
 
+print("S18. a play card with no NFL box score (2026-11-24: Jonah Coleman, a rookie player_id_crosswalk could not map, "
+      "had boxLine None and the Week 11 build crashed in tidy_box)")
+
+
+def no_box(pack):
+    p = copy.deepcopy(pack)
+    # exactly what the Week 11 pack held: no box line, and the matchup reduced to his NFL team ("DEN")
+    p["playcards"][0]["boxLine"] = None
+    p["playcards"][0]["nflMatchup"] = (p["playcards"][0]["nflMatchup"] or "").split(" vs ")[0]
+    return p, p["playcards"][0]["player"]
+
+
+for label, base, ctx_, fmt_ in (("legacy", PACK, CTX, "legacy"), ("story", PACK8, CTX8, "story")):
+    pnb, who_ = no_box(base)
+    try:
+        rnb = ISSUE.render(pnb, copy.deepcopy(ctx_), generated_at=T0, local_candidates=False, fmt=fmt_)
+        err_ = None
+    except Exception as exc_:          # the regression: TypeError from re.sub(None)
+        rnb, err_ = None, exc_
+    check("%s: the draft still renders when a card has no box line" % label, err_ is None, repr(err_))
+    if rnb:
+        check("%s: it does not fall back to the legacy template because of it" % label,
+              fmt_ == "legacy" or rnb.get("format") == "story", rnb.get("formatFallback"))
+        check("%s: the missing line is an EDITOR REVIEW box (blocks publication), never an invented line" % label,
+              any(g["id"] == "plays:box:" + who_ for g in rnb["gaps"]) and "box:" + who_ not in rnb["claims"],
+              ([g["id"] for g in rnb["gaps"]], [k for k in rnb["claims"] if k.startswith("box:")]))
+        vnb = VAL.validate(rnb, copy.deepcopy(ctx_), pnb)
+        check("%s: and the draft is not publishable while that box stands" % label, not vnb["publishable"], vnb.get("publishable"))
+
+print("S19. the box-line fallback uses only the week's xFP unique match, and only for the same NFL team")
+import wire_data as WD          # noqa: E402
+import wire_xfp as WXF          # noqa: E402
+xdoc = {"players": {
+    "00-0041496": {"gsis": "00-0041496", "mfl": "17477", "matchedBy": "name+position+team", "team": "DEN", "name": "Jonah Coleman"},
+    "00-0039901": {"gsis": "00-0039901", "mfl": "16617", "matchedBy": "crosswalk", "team": "BUF", "name": "Keon Coleman"},
+    "00-0099999": {"gsis": "00-0099999", "mfl": None, "matchedBy": None, "team": "NYJ", "name": "Unmatched"}}}
+fb = WXF.box_fallback(2026, 11, xdoc)
+check("only name+position+team matches with an MFL id are offered as a fallback", sorted(fb) == ["17477"] and fb["17477"]["gsis"] == "00-0041496", fb)
+calls = []
+
+
+def fake_d1(sql, team="DEN"):
+    calls.append(sql)
+    if "JOIN player_id_crosswalk" in sql:
+        return []                                  # the crosswalk has no gsis for him
+    return [{"gsis": "00-0041496", "rush_att": 24, "rush_yds": 111, "rush_tds": 3, "receptions": 4, "targets": 5,
+             "rec_yds": 18, "team": team, "opponent": "LV"}]
+
+
+real_d1 = WD.d1
+try:
+    WD.d1 = fake_d1
+    got = WD.nfl_box_lines(2026, 11, ["17477"], fallback=fb)
+    check("the fallback finds his row and says how it was matched", got.get("17477", {}).get("rush_yds") == 111
+          and got["17477"].get("matchedBy", "").startswith("xFP name+position+team") and got["17477"]["matchup"] == "DEN vs LV", got)
+    WD.d1 = lambda sql: fake_d1(sql, team="KC")
+    check("a stat row for a different team than the match was made on is refused", WD.nfl_box_lines(2026, 11, ["17477"], fallback=fb) == {})
+    calls.clear()
+    WD.d1 = fake_d1
+    check("without a fallback nothing is guessed (one query, empty result)", WD.nfl_box_lines(2026, 11, ["17477"]) == {} and len(calls) == 1, calls)
+finally:
+    WD.d1 = real_d1
+
 print("\n" + ("ALL PASS" if not fails else "%d FAILURE(S)" % fails))
 sys.exit(1 if fails else 0)

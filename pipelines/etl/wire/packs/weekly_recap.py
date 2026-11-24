@@ -1000,6 +1000,9 @@ def build(pack_id):
     # UPS scoring, from nflverse's ffopportunity model (wire_xfp). None until the week's
     # pull exists (python3 wire_xfp.py fetch).
     xv = WX.starters_vs_expected(season, week) if int(season) >= 2026 else None
+    # Box lines for players the crosswalk cannot map (2026 rookies) come through the SAME unique match the xFP pull
+    # already made -- never a new, looser one (Jonah Coleman, Week 11: empty box line crashed the build, 2026-11-24).
+    box_fallback = WX.box_fallback(season, week, (xv or {}).get("doc")) if xv is not None else {}
     if int(season) >= 2026 and xv is None:
         pack.warn("No xFP pull for week %d (site/wire/data/xfp_%d_wk%02d.json) -- run wire_xfp.py fetch; "
                   "the expected-points tables are left out." % (week, season, week))
@@ -1659,7 +1662,7 @@ def build(pack_id):
         cands = [p for p in perfs if str(p["fid"] or "").zfill(4) in (g["a"], g["b"])]
         if cands:
             game_star["g.%d" % i] = cands[0]
-    star_boxes = D.nfl_box_lines(season, week, [p["player_id"] for p in game_star.values()])
+    star_boxes = D.nfl_box_lines(season, week, [p["player_id"] for p in game_star.values()], fallback=box_fallback)
     star_forms = D.players_prior_form(season, week, [p["player_id"] for p in game_star.values()])
 
     # Quotes belong to the matchup they are ABOUT. Assigned biggest game first,
@@ -1696,6 +1699,12 @@ def build(pack_id):
                 nfl_team=star.get("nfl_team"),
                 position=star.get("position") or star.get("pos_group") or "",
                 cache=video_cache)
+            if pbox and pbox.get("matchedBy"):
+                pack.warn("%s's box line was matched through the week's %s (gsis %s)"
+                          % (star["player_name"], pbox["matchedBy"], pbox["gsis"]))
+            elif not pbox:
+                pack.warn("%s has no NFL box score in nfl_player_weekly for week %d (player_id_crosswalk and the "
+                          "xFP match both missed him); his play card has no box line" % (star["player_name"], week))
             photo = D.player_photo(star["player_id"], star["player_name"])
             if photo["note"]:
                 pack.warn("%s's card uses MFL's archive photo, not ESPN's: %s"
@@ -2036,7 +2045,7 @@ def build(pack_id):
             billing, basis = _billing(key)
             star_ids = [p["player_id"] for p in pot_perfs[:1]]
             card = make_card(pot_perfs[0] if pot_perfs else None,
-                             D.nfl_box_lines(season, week, star_ids) if star_ids else {},
+                             D.nfl_box_lines(season, week, star_ids, fallback=box_fallback) if star_ids else {},
                              D.players_prior_form(season, week, star_ids) if star_ids else {})
             # Registered at the END of the build: several team facts a pot page
             # needs (record, season points rank, own-week rank) are created below.
