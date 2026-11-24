@@ -179,8 +179,20 @@
     // tag isn't written in prod, so twb_meta is null) — hence include_payload=1 on
     // the list fetch. Surface them so BOTH owners see the extension that's part of
     // the deal; each is applied by the franchise giving that player up.
+    // Only extensions for players actually IN this offer (the live MFL asset lists above) are
+    // shown -- a stale or mismatched stored payload must never display an extension for a player
+    // who isn't being traded (production incident 2026-11-24; the worker now also refuses to
+    // attach a payload that doesn't bind to MFL, this is the client-side backstop).
+    var inOffer = {};
+    (myAssetsCsv + "," + theirAssetsCsv).split(",").forEach(function (tok) {
+      var id = String(tok).replace(/^P_/i, "").trim();
+      if (/^\d+$/.test(id)) inOffer[id] = true;
+    });
     var exts = (offer.payload && Array.isArray(offer.payload.extension_requests))
-      ? offer.payload.extension_requests : [];
+      ? offer.payload.extension_requests.filter(function (e) {
+          return inOffer[String(e && e.player_id).replace(/\D/g, "")];
+        })
+      : [];
     var extHtml = "";
     if (exts.length) {
       extHtml = '<div class="ups-m-trade-ext"><span class="lbl">' +

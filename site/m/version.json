@@ -1,4 +1,4 @@
 {
-  "build": "2026.11.14.2",
-  "label": "Expected return date moved into the player popup and the IR page."
+  "build": "2026.11.24.1",
+  "label": "Trade offers no longer show pre-trade extensions for players who aren't part of the offer."
 }
