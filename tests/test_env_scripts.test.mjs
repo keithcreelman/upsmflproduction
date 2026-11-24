@@ -3,6 +3,10 @@
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { evaluateProposal, PROPOSAL } from "../scripts/test_env/first_adddrop_preflight.mjs";
 import { diffSnapshots, indexMfl, scopeWhere, D1_TABLES } from "../scripts/test_env/prod_untouched_check.mjs";
+import { build as buildTestSite, PROD_WORKER } from "../scripts/test_env/build_test_site.mjs";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 // A recorded-shape fixture of the TEST league as it read on 2026-11-24 (trimmed to the fields used).
 function testLeagueData({ faStatus = "unlocked", rosterExtra = 0, dropSalary = "1000", dropStatus = "WW", dropCy = "1" } = {}) {
@@ -136,6 +140,29 @@ test("production check: the D1 scope query names only the markers' players, fran
   t.match(w, /player_id IN \('13348','17509'\)/); t.match(w, /franchise_id IN \('0003'\)/); t.match(w, /league_id = '25625'/); t.match(w, /added_players/);
   t.equal(scopeWhere(["rowid", "event", "date"], MARKERS), null, "no scope column");
   t.doesNotMatch(scopeWhere(["player_id"], { player_ids: ["1'); DROP TABLE x;--"] }) || "", /DROP/, "non-numeric ids are ignored");
+});
+
+test("test site build: allowlist only, test worker and 25625 everywhere, connect-src limited to the test worker", () => {
+  const TEST = "https://ups-test.keith-creelman.workers.dev";
+  t.throws(() => buildTestSite(path.join(os.tmpdir(), "x-never"), PROD_WORKER), /not production/, "refuses the production worker");
+  t.throws(() => buildTestSite(path.join(os.tmpdir(), "x-never"), "https://evil.example.com"), /workers\.dev/, "refuses a non-workers.dev address");
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "ups-test-site-"));
+  const r = buildTestSite(out, TEST);
+  const all = [];
+  (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else all.push(path.relative(out, p).split(path.sep).join("/")); } })(out);
+  t.ok(all.every((f) => f === "_headers" || f === "index.html" || f.startsWith("m/") || f.startsWith("shared/")), "only site/m, the shared files the page loads, the root redirect and _headers");
+  t.ok(!all.some((f) => /trades\/|reports\/|wire\/|rosters\//.test(f)), "no other site/ folder is published");
+  t.equal(all.filter((f) => f.startsWith("shared/")).length, r.shared.length);
+  for (const f of all) { const txt = fs.readFileSync(path.join(out, f), "latin1"); t.ok(!txt.includes("upsmflproduction.keith-creelman") && !txt.includes("74598"), `${f}: no production worker, no 74598`); }
+  const app = fs.readFileSync(path.join(out, "m", "app.js"), "utf8");
+  t.match(app, /WORKER_BASE_DEFAULT = "https:\/\/ups-test\.keith-creelman\.workers\.dev"/); t.match(app, /LEAGUE_ID_DEFAULT = "25625"/);
+  const h = fs.readFileSync(path.join(out, "_headers"), "utf8");
+  t.match(h, new RegExp(`connect-src 'self' ${TEST.replace(/[.]/g, "\\.")};`), "the page may fetch only itself and the test worker");
+  t.match(h, /script-src 'self' 'sha256-[A-Za-z0-9+/=]+'/, "the one inline boot script is allowed by hash");
+  t.match(h, /X-Robots-Tag: noindex/);
+  t.match(fs.readFileSync(path.join(out, "m", "index.html"), "utf8"), /<title>UPS TEST · /);
+  t.throws(() => buildTestSite(out, TEST), /not empty/, "refuses a non-empty output folder");
+  fs.rmSync(out, { recursive: true, force: true });
 });
 
 await run("test_env_scripts");

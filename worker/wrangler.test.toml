@@ -1,6 +1,7 @@
 # UPS TEST deployment (#1475): league 25625 only, its own D1, test credentials only, no jobs.
 #
-# NOT DEPLOYED. Creating the D1 database, setting secrets and deploying each need Keith's go.
+# Test resources only (Keith's go 2026-11-24): deploy with `npx wrangler deploy --config wrangler.test.toml`.
+# Never deploy this file's code with wrangler.toml, and never add a production binding or secret here.
 # Runbook and verification steps: docs/test_env/TEST_ENVIRONMENT.md.
 #
 # What this file deliberately does NOT have, compared with wrangler.toml:
@@ -76,18 +77,18 @@ directory = "./fpa_store"
 binding = "FPA_STORE"
 run_worker_first = true
 
-# Both names the worker code uses point at the TEST database. Replace the id after Keith approves
-# `wrangler d1 create ups-test-db` (until then a deploy fails, which is the intended state).
+# Both names the worker code uses point at the TEST database (created 2026-11-24, id below; production is
+# ups-mfl-db 8cfe1ddd-..., which this file never names).
 [[d1_databases]]
 binding = "UPS_MFL_DB"
 database_name = "ups-test-db"
-database_id = "REPLACE-WITH-ups-test-db-ID-AFTER-APPROVED-CREATE"
+database_id = "45ae1b65-f2c8-41c5-9e8c-20d4fa2b7340"
 migrations_dir = "migrations"
 
 [[d1_databases]]
 binding = "TWB_OUTBOX_DB"
 database_name = "ups-test-db"
-database_id = "REPLACE-WITH-ups-test-db-ID-AFTER-APPROVED-CREATE"
+database_id = "45ae1b65-f2c8-41c5-9e8c-20d4fa2b7340"
 
 [[rules]]
 type = "Text"
