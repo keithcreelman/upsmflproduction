@@ -588,6 +588,41 @@ test("operation identity: worker code retrying an MFL write after an uncertain a
   t.equal(r.headers.get("x-ups-ledger-state"), "uncertain");
 }));
 
+test("operation identity: the same MFL write is sent at most once per request, even after a known success (salaryAdj POST then GET retry)", withMfl(async (mfl) => {
+  const env = testEnv();
+  const calls = scriptedMfl(mfl, (url) => (/\/import/.test(url) ? new Response(JSON.stringify({ status: "OK" }), { status: 200, headers: { "content-type": "application/json" } }) : null));
+  const DATA = encodeURIComponent('<salary_adjustments><salary_adjustment franchise_id="0003" amount="1000" explanation="t"/></salary_adjustments>');
+  // exactly as postMflImportForm builds them: salaryAdj is a commissioner-cookie import, so the POST goes to the bare
+  // import URL with TYPE/L/DATA in the body; the GET retry (applySalaryAdjFromPayload after a verification miss) puts
+  // the probe query, APIKEY, JSON and the same fields in the URL.
+  const post = { url: "https://www48.myfantasyleague.com/2026/import", init: { method: "POST", body: `TYPE=salaryAdj&L=25625&DATA=${DATA}` } };
+  const getRetry = { url: `https://www48.myfantasyleague.com/2026/import?TYPE=salaryAdj&L=25625&APIKEY=test-key-redacted&JSON=1&DATA=${DATA}` };
+  // and a POST whose URL repeats TYPE/L next to the same form fields is still the same write
+  const postDupPairs = { url: "https://api.myfantasyleague.com/2026/import?TYPE=salaryAdj&L=25625&JSON=1", init: { method: "POST", body: `TYPE=salaryAdj&L=25625&DATA=${DATA}` } };
+  t.equal(G.mflWriteIdentity({ url: post.url, bodyText: post.init.body }), G.mflWriteIdentity({ url: getRetry.url, bodyText: "" }), "POST and its GET retry share one identity");
+  t.equal(G.mflWriteIdentity({ url: postDupPairs.url, bodyText: postDupPairs.init.body }), G.mflWriteIdentity({ url: post.url, bodyText: post.init.body }), "a field repeated in query and body counts once");
+  const r = await viaRuntime(env, fakeApp(() => [post, getRetry, postDupPairs]), "POST", "/trade-offers/action", { body: { action: "accept", offer_id: "x" }, headers: { "Idempotency-Key": "dup-in-req-0001" } });
+  t.equal(r.status, 200, r.text);
+  t.equal(r.json.steps[0].status, 200);
+  t.equal(r.json.steps[1].refused, true, "second send of the same write refused"); t.equal(r.json.steps[1].reason, "mfl_write_duplicate_in_request");
+  t.equal(r.json.steps[2].reason, "mfl_write_duplicate_in_request", "third (query+body) send refused too");
+  t.equal(importCalls(calls).length, 1, "MFL saw the write once");
+  t.equal(r.headers.get("x-ups-ledger-state"), "responded", "a known outcome; the refusal is recorded, not uncertain");
+  const led = env.UPS_MFL_DB.raw.prepare("SELECT egress_json FROM ups_test_write_ledger WHERE idempotency_key = 'dup-in-req-0001'").get();
+  t.ok(/mfl_write_duplicate_in_request/.test(led.egress_json), "the refused retry is in the ledger's outbound record");
+  t.equal(env.UPS_MFL_DB.raw.prepare("SELECT count(*) AS n FROM ups_test_open_mfl_writes").get().n, 0, "a known outcome releases the write lock");
+  // a 4xx answer is also known: still no second send in the same request
+  const env2 = testEnv();
+  const calls2 = scriptedMfl(mfl, (url) => (/\/import/.test(url) ? new Response("bad", { status: 400 }) : null));
+  const r2 = await viaRuntime(env2, fakeApp(() => [IMPORT_FOR("13348"), IMPORT_FOR("13348")]), "POST", "/api/waivers/fcfs", { body: { add_pid: "13348" }, headers: { "Idempotency-Key": "dup-in-req-0002" } });
+  t.equal(r2.json.steps[1].reason, "mfl_write_duplicate_in_request"); t.equal(importCalls(calls2).length, 1);
+  // different writes in one request are still allowed (add/drop then a separate salary import)
+  const env3 = testEnv();
+  const calls3 = scriptedMfl(mfl, (url) => (/\/import/.test(url) ? new Response(JSON.stringify({ status: "OK" }), { status: 200, headers: { "content-type": "application/json" } }) : null));
+  const r3 = await viaRuntime(env3, fakeApp(() => [IMPORT_FOR("13348"), post]), "POST", "/api/waivers/fcfs", { body: { add_pid: "13348" }, headers: { "Idempotency-Key": "dup-in-req-0003" } });
+  t.equal(r3.json.steps[1].status, 200); t.equal(importCalls(calls3).length, 2);
+}));
+
 test("background work: a waitUntil MFL write is attributed to its request, and the ledger is final only after it finishes", withMfl(async (mfl) => {
   const env = testEnv();
   const calls = scriptedMfl(mfl);

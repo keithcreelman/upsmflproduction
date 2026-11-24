@@ -419,7 +419,11 @@ export function operationIdentity({ method, url, bodyText, credentialHashes }) {
 export function mflWriteIdentity({ url, bodyText }) {
   const u = new URL(url);
   const pairs = [...u.searchParams.entries(), ...formEntries(bodyText)].filter(([k]) => !/^json$/i.test(k));
-  return JSON.stringify(["mfl", u.pathname.toLowerCase().replace(/\/+$/, ""), sortedPairs(pairs)]);
+  // A field sent in both the query and the body (TYPE=…&L=… on a POST's URL and form) is one MFL field: identical
+  // pairs count once, so a POST and its GET retry of the same fields share one identity (review round 3).
+  const seen = new Set();
+  const uniq = sortedPairs(pairs).filter((p) => { const k = JSON.stringify(p); if (seen.has(k)) return false; seen.add(k); return true; });
+  return JSON.stringify(["mfl", u.pathname.toLowerCase().replace(/\/+$/, ""), uniq]);
 }
 
 // ---------------------------------------------------------------------------------------------

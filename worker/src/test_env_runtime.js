@@ -225,13 +225,17 @@ export function ensureEgressGuard(cfg) {
           ev.write = sha; writeSha = sha;
           const mine = rc.writeAttempts[sha];
           if (mine === "uncertain") return refuse("mfl_write_retry_after_uncertain");
-          if (mine) { writeOpened = true; } else try {
+          // Review round 3: the same MFL write may be sent at most once per request, whatever the first answer was. Worker
+          // retries (e.g. trade post-processing re-sending a salaryAdj/salaries import as GET after a verification miss)
+          // would otherwise re-apply an APPENDING import after a known success. Redirect hops of one call don't reach here.
+          if (mine) return refuse("mfl_write_duplicate_in_request");
+          try {
             await rc.db.prepare("INSERT INTO ups_test_open_mfl_writes (write_sha256, idempotency_key, env, url_redacted, opened_at) VALUES (?, ?, 'test', ?, ?)").bind(sha, rc.key, ev.url, nowIso()).run();
           } catch (_) {
             const holder = await rc.db.prepare("SELECT idempotency_key FROM ups_test_open_mfl_writes WHERE write_sha256 = ?").bind(sha).first().catch(() => null);
             return refuse(holder ? `mfl_write_unresolved:${holder.idempotency_key}` : "mfl_write_lock_unavailable");
           }
-          if (!mine) { rc.openWrites.push(sha); rc.writeAttempts[sha] = "sent"; }
+          rc.openWrites.push(sha); rc.writeAttempts[sha] = "sent";
           writeOpened = true;
         }
       }

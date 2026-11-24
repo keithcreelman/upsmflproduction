@@ -96,9 +96,15 @@ Code: `worker/src/entry.js` (production), `worker/src/entry_test_env.js` (test),
      second send of the same operation is refused (`operation_unresolved`) under ANY key while the
      first is running or unknown.
    - **MFL-write lock.** The same lock one level down: each MFL write's identity (path and all fields,
-     credentials left out) goes in `ups_test_open_mfl_writes` before it is sent. A different route or
-     body that produces the same MFL write is refused while it is unresolved, and the worker code
-     can't retry a write inside one request after an uncertain answer.
+     credentials left out, a field repeated in query and body counted once, method ignored) goes in
+     `ups_test_open_mfl_writes` before it is sent. A different route or body that produces the same
+     MFL write is refused while it is unresolved.
+   - **Once per request.** One request sends a given MFL write at most once, whatever the first answer
+     was (`mfl_write_duplicate_in_request`; after an uncertain answer, `mfl_write_retry_after_uncertain`).
+     This is reachable: on `POST /trade-offers/action`, `runTradePostProcessing` → `applySalaryAdjFromPayload`
+     re-sends the same salaryAdj import as a GET when verification misses, and `applyExtensionsFromPayload`
+     does the same for salaries. Both imports append, so a resend after a 200 would apply twice. In the
+     test environment the retry is refused and recorded, and the route reports the verification failure.
    - **Release.** A known outcome (any answer below 500, no lost calls) releases both locks. A lost,
      5xx or timed-out answer marks the row `uncertain` and keeps both locks until someone reads 25625
      in MFL and records the outcome with `POST /__test-env/ledger/resolve`. That call changes the row
