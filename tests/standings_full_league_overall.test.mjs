@@ -384,7 +384,7 @@ test("Scoring: Seed order is the worker's; sortable by every points column", asy
 
 // ═══ Playoff % (Phase 1): the Forecast's odds, plus the existing X / Y clinch checks ═══
 // the shared policy with no verified outcome (site/shared/odds_display.js): never 100% or 0%
-const odds = (p) => (p >= 0.995 ? ">99%" : p < 0.005 ? "<1%" : Math.round(p * 100) + "%");
+const odds = (p) => (p > 0.99 ? ">99%" : p < 0.01 ? "<1%" : Math.round(p * 100) + "%");
 const simBy = Object.fromEntries(SIM6.teams.map((x) => [x.franchiseId, x]));
 const clinch = (byFid) => (m) => ({ ...m, byFid: { ...m.byFid, ...Object.fromEntries(Object.entries(byFid).map(([f, v]) => [f, { ...(m.byFid[f] || {}), ...v }])) } });
 test("Playoff % = the Forecast tab's own odds for every team (playoff % with the bye % beneath); a rounded near-100% is '>99%', never a clinch", async () => {

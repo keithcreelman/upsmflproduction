@@ -26,7 +26,7 @@ const DET6 = json("../site/wire/data/standings_forecast_2026_wk06.json");
 const plain = (html) => html.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 const text = (html) => plain(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
 // the shared policy with no verified outcome (site/shared/odds_display.js): never 100% or 0%
-const pct = (p) => (p >= 0.995 ? ">99%" : p < 0.005 ? "<1%" : Math.round(p * 100) + "%");
+const pct = (p) => (p > 0.99 ? ">99%" : p < 0.01 ? "<1%" : Math.round(p * 100) + "%");
 
 const season6 = () => { const s = recorded2026(REC); return { ...s, weeklyScores: s.weeklyScores.concat(WK6.weekly_scores), games: s.games.concat(WK6.games) }; };
 const ENV6 = loadSeason(makeWorkerEnv({}), season6());
@@ -206,13 +206,14 @@ const flags = (byFid) => (res) => {
   return out;
 };
 const ids = SIM6.teams.map((x) => x.franchiseId);
-const [A, B, C, Dd, E, G] = ids;
+const [A, B, C, Dd, E, G, H] = ids;
 // the simulation answers certainty for A (1.000 everywhere) and B (0.000 everywhere); nothing is verified
 const EXTREME = JSON.parse(JSON.stringify(SIM6));
 for (const x of EXTREME.teams) {
   if (x.franchiseId === A) Object.assign(x, { currentPlayoffOdds: 1, currentByeOdds: 1, currentDivisionOdds: 1 });
   if (x.franchiseId === B) Object.assign(x, { currentPlayoffOdds: 0, currentByeOdds: 0, currentDivisionOdds: 0, currentTitleOdds: 0 });
-  if (x.franchiseId === G) Object.assign(x, { currentPlayoffOdds: 0.9949, currentByeOdds: 0.0049, currentDivisionOdds: 0.005 });
+  if (x.franchiseId === G) Object.assign(x, { currentPlayoffOdds: 0.9949, currentByeOdds: 0.0099, currentDivisionOdds: 0.005 });
+  if (x.franchiseId === H) Object.assign(x, { currentPlayoffOdds: 0.99, currentByeOdds: 0.01, currentDivisionOdds: 0.9901 });
 }
 const EXTREME_FILES = { ...PUBLISHED, "season_sim_2026_live_wk06.json": EXTREME };
 const outlookCells = (h, fid) => {
@@ -229,7 +230,8 @@ test("a simulated 1.000 or 0.000 is >99% / <1% until the clinch rules verify it,
   const { h } = await page("view=forecast&year=2026", EXTREME_FILES);
   t.deepEqual(OUT(h, A), { po: ">99%", bye: ">99%", div: ">99%", title: pct(teams6[A].currentTitleOdds) }, "unclinched team whose simulation returns 100%");
   t.deepEqual(OUT(h, B), { po: "<1%", bye: "<1%", div: "<1%", title: "<1%" }, "non-eliminated team whose simulation returns 0%");
-  t.deepEqual(OUT(h, G), { po: "99%", bye: "<1%", div: "1%", title: pct(teams6[G].currentTitleOdds) }, "0.9949 → 99%, 0.0049 → <1%, 0.005 → 1%");
+  t.deepEqual(OUT(h, G), { po: ">99%", bye: "<1%", div: "<1%", title: pct(teams6[G].currentTitleOdds) }, "0.9949 → >99%, 0.0099 → <1%, 0.005 → <1%");
+  t.deepEqual(OUT(h, H), { po: "99%", bye: "1%", div: ">99%", title: pct(teams6[H].currentTitleOdds) }, "exactly 0.99 → 99%, exactly 0.01 → 1%, 0.9901 → >99%");
   const body = tx(h.slice(h.indexOf('<div class="fc-tiles">')));
   t.ok(!CERTAIN.test(body), "no 100% or 0% anywhere on the Forecast tab");
   const L = (await page("view=league&year=2026", EXTREME_FILES)).h;
@@ -251,7 +253,7 @@ test("verified outcomes show 100% / 0%, and playoffs, division and bye are each 
   t.equal(e.div, "0%"); t.equal(e.bye, "0%", "no division, no bye");
   t.equal(e.po, pct(teams6[E].currentPlayoffOdds), "out of the division race but alive for a wild card: its playoff % is never 0% from that");
   const g = OUT(h, G);
-  t.equal(g.bye, "0%"); t.equal(g.po, "99%"); t.equal(g.div, "1%");
+  t.equal(g.bye, "0%"); t.equal(g.po, ">99%"); t.equal(g.div, "<1%");
   const mv = (await page("view=forecast&year=2026&fc=movement", EXTREME_FILES, { clinch: cl })).h;
   t.match(tx(mv), new RegExp(nameOf[B].replace(/[$]/g, "\\$") + " 0% "), "Movement uses the same verdicts");
 });
@@ -263,12 +265,21 @@ test("verdicts from newer standings are never laid over an older forecast", asyn
   t.equal(OUT(h, A).po, pct(five[A].currentPlayoffOdds), "the Week 5 forecast's own number, not a Week 6 verdict");
   t.ok(!CERTAIN.test(tx(h.slice(h.indexOf("Projected final standings")))), "no 100% or 0% on a stale forecast");
 });
-test("Every place: no cell reads 100 or 0 (no place is verified)", async () => {
+test("Every place: cells follow the shared policy (no 100 or 0; <1 and >99 at the ends), labels and legend agree", async () => {
   const { h } = await page("view=forecast&year=2026&fc=places");
-  const cells = [...h.matchAll(/<span class="fp-cell[^"]*"[^>]*>([^<]*)<\/span>/g)].map((m) => m[1]);
-  t.equal(cells.length, 144);
-  t.ok(cells.every((x) => /^(·|>99|[1-9]\d?)$/.test(x)), "cells: " + [...new Set(cells)].join(" "));
-  t.match(text(h), /· = under 1%, including never in the simulation; >99 = over 99%/);
+  // each cell: its spoken label's percentage and its shown text (split on the cell tag: labels may hold "<" or ">")
+  const full = h.split('<span class="fp-cell').slice(1).map((piece) => {
+    const a = piece.indexOf('aria-label="') + 12, label = piece.slice(a, piece.indexOf('"', a)).split(": ")[1];
+    const seg = piece.slice(0, piece.indexOf("</span>")), shown = seg.slice(seg.lastIndexOf(">") + 1);
+    return [label, plain(shown)];
+  });
+  t.equal(full.length, 144);
+  const cells = full.map((x) => x[1]);
+  t.ok(cells.every((x) => /^(<1|>99|[1-9]\d?)$/.test(x)), "cells: " + [...new Set(cells)].join(" "));
+  t.ok(cells.includes("<1"), "the grid has cells under 1%");
+  const off = full.filter(([label, shown]) => shown + "%" !== label);
+  t.equal(off.length, 0, "every cell's text is its label's percentage without the % sign: " + JSON.stringify(off.slice(0, 5)));
+  t.match(tx(h), /<1 = under 1%, including never in the simulation; >99 = over 99%/);
 });
 test("the About text states the simulation's actual seeding rules", async () => {
   const { h } = await page("view=forecast&year=2026");

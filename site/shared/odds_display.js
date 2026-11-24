@@ -4,13 +4,15 @@
    THE CERTAINTY RULE
      100%  only when the outcome is VERIFIED clinched by the clinch rules (standings_clinch.js);
      0%    only when the outcome is VERIFIED impossible by the same rules.
-     Otherwise a forecast at or above 0.995 shows ">99%", one below 0.005 shows "<1%" (a simulated 1.000 or 0.000
-     included), and anything between rounds to a whole percent from 1% to 99%. Rounding never implies certainty.
+     Otherwise a forecast above 99% shows ">99%" and one below 1% shows "<1%" (a simulated 1.000 or 0.000 included);
+     exactly 99% is "99%" and exactly 1% is "1%"; anything between rounds to a whole percent from 1% to 99%.
+     Rounding never implies certainty.
      A simulation that returns 1.0 or 0.0 is not proof; with no verdict available, certainty is never shown.
    Playoffs, division title and first-round bye are verified SEPARATELY: a playoff clinch says nothing about the
    division or the bye, and being out of the wild-card race says nothing about the division title.
 
    pct(p, verdict)          -> "100%" | "0%" | ">99%" | "<1%" | "N%" | "—"     verdict: "clinched" | "impossible" | null
+   compact(p, verdict)      -> the same text without the % sign ("100", "0", ">99", "<1", "N", "—"), for tight grids
    describe(p, verdict)     -> { text, raw, verdict, conflict }   conflict: the verdict and the forecast disagree
                                (a clinched outcome the simulation sometimes misses, or an impossible one it reaches)
    verdicts(clinchRow)      -> { playoffs, division, bye }        each "clinched" | "impossible" | null
@@ -33,11 +35,13 @@
     if (verdict === IMPOSSIBLE) return '0%';
     var x = num(p);
     if (x == null) return '—';
-    if (x >= 0.995) return '>99%';
-    if (x < 0.005) return '<1%';
+    if (x > 0.99) return '>99%';
+    if (x < 0.01) return '<1%';
     var r = Math.round(x * 100);
     return Math.min(99, Math.max(1, r)) + '%';
   }
+
+  function compact(p, verdict) { return pct(p, verdict).replace('%', ''); }
 
   function describe(p, verdict) {
     var x = num(p), v = verdict === CLINCHED || verdict === IMPOSSIBLE ? verdict : null;
@@ -62,7 +66,7 @@
     return out;
   }
 
-  var api = { pct: pct, describe: describe, verdicts: verdicts, CLINCHED: CLINCHED, IMPOSSIBLE: IMPOSSIBLE };
+  var api = { pct: pct, compact: compact, describe: describe, verdicts: verdicts, CLINCHED: CLINCHED, IMPOSSIBLE: IMPOSSIBLE };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   global.UPS_ODDS_DISPLAY = api;
 })(typeof window !== 'undefined' ? window : this);

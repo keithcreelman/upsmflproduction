@@ -9,12 +9,15 @@ const require = createRequire(import.meta.url);
 const P = require("../site/shared/odds_display.js");
 const { analyze } = require("../site/shared/standings_clinch.js");
 
-test("boundaries with no verdict: rounding never reaches 100% or 0%", () => {
+test("boundaries with no verdict: above 99% is >99%, below 1% is <1%, exactly 99% / 1% stay; never 100% or 0%", () => {
   const cases = [
-    [1, ">99%"], [0.99999, ">99%"], [0.9999, ">99%"], [0.995, ">99%"], [0.9949, "99%"], [0.99, "99%"],
-    [0.5, "50%"], [0.015, "2%"], [0.0149, "1%"], [0.005, "1%"], [0.0049, "<1%"], [0.0001, "<1%"], [0, "<1%"],
+    [1, ">99%"], [0.99999, ">99%"], [0.9999, ">99%"], [0.995, ">99%"], [0.9949, ">99%"], [0.9901, ">99%"], [0.99, "99%"],
+    [0.9899, "99%"], [0.5, "50%"], [0.015, "2%"], [0.0149, "1%"], [0.0101, "1%"], [0.01, "1%"],
+    [0.0099, "<1%"], [0.005, "<1%"], [0.0049, "<1%"], [0.0001, "<1%"], [0, "<1%"],
   ];
   for (const [p, want] of cases) t.equal(P.pct(p, null), want, String(p));
+  for (const [p, want] of cases) t.equal(P.compact(p, null), want.replace("%", ""), "compact " + p);
+  t.equal(P.compact(0.3, "clinched"), "100"); t.equal(P.compact(0.3, "impossible"), "0"); t.equal(P.compact(null, null), "—");
   for (let i = 0; i <= 100000; i++) {
     const s = P.pct(i / 100000, null);
     if (s === "100%" || s === "0%") { t.ok(false, "p=" + i / 100000 + " showed " + s); break; }
