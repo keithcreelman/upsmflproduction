@@ -33,8 +33,9 @@
     2026: { total: 18, min: { QB: 1, RB: 2, WR: 2, TE: 1, PK: 1, PN: 1, DL: 2, LB: 2, DB: 2 }, max: { QB: 2, RB: 5, WR: 5, TE: 4, PK: 1, PN: 1, DL: 3, LB: 3, DB: 3 },
       slots: ["QB", "RB1", "RB2", "WR1", "WR2", "TE", "SFX", "OFX1", "OFX2", "DL1", "DL2", "LB1", "LB2", "DB1", "DB2", "DFX", "PK", "PN"] }
   };
-  var SLOT_GROUPS = [["QB", ["QB"], "QB"], ["RB", ["RB1", "RB2"], "RB (2)"], ["WR", ["WR1", "WR2"], "WR (2)"], ["TE", ["TE"], "TE"], ["SFX", ["SFX"], "SFX"], ["OFX", ["OFX1", "OFX2"], "OFX (2)"],
-    ["DL", ["DL1", "DL2"], "DL (2)"], ["LB", ["LB1", "LB2"], "LB (2)"], ["DB", ["DB1", "DB2"], "DB (2)"], ["DFX", ["DFX"], "DFX"], ["PK", ["PK"], "K"], ["PN", ["PN"], "P"]];
+  // a "×2" group is two slots shown together: its points are the two slots' combined production (the calculation is per slot, unchanged)
+  var SLOT_GROUPS = [["QB", ["QB"], "QB"], ["RB", ["RB1", "RB2"], "RB ×2"], ["WR", ["WR1", "WR2"], "WR ×2"], ["TE", ["TE"], "TE"], ["SFX", ["SFX"], "SFX"], ["OFX", ["OFX1", "OFX2"], "OFX ×2"],
+    ["DL", ["DL1", "DL2"], "DL ×2"], ["LB", ["LB1", "LB2"], "LB ×2"], ["DB", ["DB1", "DB2"], "DB ×2"], ["DFX", ["DFX"], "DFX"], ["PK", ["PK"], "K"], ["PN", ["PN"], "P"]];
   var CONTRIB = [["off", "Offense", ["QB", "RB", "WR", "TE"]], ["idp", "IDP", ["DL", "LB", "DB"]], ["kp", "Kicking & Punting", ["PK", "PN"]]];
 
   // A starter's recorded score: a number, or null when MFL lists him as a starter with no score (shown "—", adds nothing, never a recorded zero).
@@ -95,6 +96,62 @@
     return out;
   }
 
+  // ---- MAT-3: a division lead the rules do not settle. MFL's standingsSort orders a division by win % (PCT), then division win % (DIVPCT), then
+  // the games between the tied teams (H2H). For THREE or more teams level on both, how the games-between step works is not defined (the approved
+  // Option B case), whatever their All-Play % or Points For. -> [{ division, fids }]
+  function divisionTies(rows) {
+    var byDiv = {}, out = [];
+    rows.forEach(function (r) { var rs = r.regular_season || {}; if (rs.record && rs.division) (byDiv[String(r.division)] = byDiv[String(r.division)] || []).push(r); });
+    Object.keys(byDiv).forEach(function (d) {
+      var g = byDiv[d];
+      function v(x) { var p = share(x).split("/"); return Number(p[1]) ? Number(p[0]) / Number(p[1]) : -1; }
+      var top = Math.max.apply(null, g.map(function (r) { return v(r.regular_season.record); }));
+      var lead = g.filter(function (r) { return v(r.regular_season.record) === top; });   // equal reduced fractions give identical numbers
+      var topD = Math.max.apply(null, lead.map(function (r) { return v(r.regular_season.division); }));
+      var lead2 = lead.filter(function (r) { return v(r.regular_season.division) === topD; });
+      if (lead2.length >= 3) out.push({ division: d, fids: lead2.map(function (r) { return r.franchise_id; }) });
+    });
+    return out;
+  }
+
+  // ---- MAT-2: the forecast must start where these standings are. A port of the desktop page's forecastReconcile
+  // (site/standings/mfl_hpm_standings_v2.html, #1521): the forecast's teams are this season's teams; every week through its week is complete;
+  // every team's All-Play W-L-T from the weekly scores equals the forecast's; for the current week, the standings' own All-Play records equal them
+  // too (here the ladder's regular_season.all_play; the desktop reads the D1 row's allplay_w/l/t); and that week's head-to-head results under the
+  // forecast's scores are the standings' results. -> { hard: [...], corrections: [...] }; any hard difference refuses the probabilities.
+  // A test runs the desktop's own function on the same inputs and requires the same verdict.
+  function pad4(v) { return String(v == null ? "" : v).padStart(4, "0"); }
+  function forecastReconcile(sim, P) {
+    var W = Number(sim.throughWeek), by = {}, out = [], corr = [], rowsBy = {};
+    (P.rows || []).forEach(function (r) { rowsBy[pad4(r.franchise_id)] = r; });
+    var fids = arr(sim.teams).map(function (t) { return pad4(t.franchiseId); });
+    function hard(msg) { return { hard: [msg], corrections: [] }; }
+    function rec3(w, l, t) { return w + "–" + l + (t ? "–" + t : ""); }
+    if (!fids.length || fids.length !== (P.rows || []).length || fids.some(function (f) { return !rowsBy[f]; })) return hard("the forecast’s teams aren’t this season’s teams");
+    if (!Array.isArray(P.weeklyScores) || !Array.isArray(P.weekly)) return hard("the weekly scores couldn’t be read");
+    P.weeklyScores.forEach(function (s) { if (s && Number(s.po) === 0 && Number(s.w) >= 1 && Number(s.w) <= W) (by[s.w] = by[s.w] || {})[pad4(s.fid)] = Number(s.ts); });
+    for (var w = 1; w <= W; w++) if (!by[w] || fids.some(function (f) { return !(by[w][f] >= 0); })) return hard("Week " + w + "’s scores are incomplete");
+    var simScore = {}; arr(sim.teams).forEach(function (t) { simScore[pad4(t.franchiseId)] = Number(t.weekScore); });
+    var current = W === Number((P.regular_season || {}).through_week);
+    arr(sim.teams).forEach(function (t) {
+      var f = pad4(t.franchiseId), aw = 0, al = 0, at = 0;
+      for (var k = 1; k <= W; k++) fids.forEach(function (g) { if (g === f) return; if (by[k][f] > by[k][g]) aw++; else if (by[k][f] < by[k][g]) al++; else at++; });
+      var name = rowsBy[f].franchise_name || f;
+      if (aw !== t.currentApWins || al !== t.currentApLosses || at !== t.currentApTies) out.push(name + ": All-Play " + rec3(aw, al, at) + " here, " + rec3(t.currentApWins, t.currentApLosses, t.currentApTies) + " in the forecast");
+      if (Math.abs(by[W][f] - simScore[f]) > 0.051) corr.push(name + " Week " + W + ": " + (isFinite(simScore[f]) ? simScore[f].toFixed(1) : "—") + " → " + by[W][f].toFixed(1));
+      var ap = rowsBy[f].regular_season && rowsBy[f].regular_season.all_play;
+      if (current && (!ap || ap.w !== aw || ap.l !== al || (ap.t || 0) !== at)) out.push(name + ": standings All-Play " + (ap ? rec3(ap.w, ap.l, ap.t || 0) : "missing") + ", weekly scores " + rec3(aw, al, at));
+    });
+    P.weekly.forEach(function (g) {
+      if (!g || Number(g.w) !== W || Number(g.po) !== 0) return;
+      var a = pad4(g.fid), b = pad4(g.opp);
+      if (!(a in simScore) || !(b in simScore)) return;
+      var here = Math.sign(Number(g.ts) - Number(g.os)), there = Math.sign(simScore[a] - simScore[b]);
+      if (here !== there && a < b) out.push((rowsBy[a].franchise_name || a) + " v " + (rowsBy[b].franchise_name || b) + ", Week " + W + ": the result differs");
+    });
+    return { hard: out, corrections: out.length ? [] : corr };
+  }
+
   function build(I) {
     var M = { state: "error", why: "", problems: [] };
     var st = I.standings, Rm = I.mods && I.mods.race, CLm = I.mods && I.mods.clinch, OD = I.mods && I.mods.odds;
@@ -120,9 +177,12 @@
       h2hGames: h2hGames, apGamesLeft: (rows.length - 1) * (lastReg - through), byes: 2, wildCards: 2 }) : { status: "unavailable", byFid: {} };
     M.clinch = cl.byFid || {}; M.clinchStatus = cl.status;
     // forecast: only when it was run after the same week as the standings (else "—" with the reason)
-    var fcx = I.forecast, fresh = !!(fcx && Number(fcx.throughWeek) === through);
-    M.forecast = { fresh: fresh, throughWeek: fcx ? Number(fcx.throughWeek) : null, at: fcx ? fcx.generatedAtUtc : null, runs: fcx ? fcx.runs : null, by: {},
-      why: !fcx ? "No forecast is available in this mode." : fresh ? "" : "The forecast was run after Week " + fcx.throughWeek + ", not Week " + through + ", so it is not shown." };
+    var fcx = I.forecast, sameWeek = !!(fcx && Number(fcx.throughWeek) === through);
+    var rc = sameWeek ? forecastReconcile(fcx, payload) : null, fresh = !!(rc && rc.hard.length === 0);
+    M.forecast = { fresh: fresh, throughWeek: fcx ? Number(fcx.throughWeek) : null, at: fcx ? fcx.generatedAtUtc : null, runs: fcx ? fcx.runs : null, by: {}, reconcile: rc,
+      why: !fcx ? "No forecast is available in this mode." : !sameWeek ? "The forecast was run after Week " + fcx.throughWeek + ", not Week " + through + ", so it is not shown."
+        : !fresh ? "The forecast doesn’t start from these standings (" + rc.hard[0] + (rc.hard.length > 1 ? ", and " + (rc.hard.length - 1) + " more" : "") + "), so its probabilities are not shown. Verified clinches still show."
+        : rc.corrections.length ? "A score changed after the forecast ran without changing any result (" + rc.corrections[0] + ")." : "" };
     FIDS.forEach(function (f) {
       var t = fcx && arr(fcx.teams).filter(function (x) { return x.franchiseId === f; })[0], v = OD.verdicts(M.clinch[f] || null);
       M.forecast.by[f] = { verdicts: v, playoffs: fresh && t ? OD.pct(t.playoffs, v.playoffs) : (v.playoffs ? OD.pct(null, v.playoffs) : "—"), bye: fresh && t ? OD.pct(t.bye, v.bye) : "—", division: fresh && t ? OD.pct(t.division, v.division) : "—" };
@@ -135,7 +195,14 @@
       g.forEach(function (x) { wFids[x.fid] = true; if (x.pos <= 6) wSeeds[x.pos] = true; });
       var ps = g.map(function (x) { return x.pos; }); if (Math.min.apply(null, ps) <= 6 && Math.max.apply(null, ps) >= 7) cutHidden = true;
     });
-    M.withheld = { seeds: wSeeds, fids: wFids, cutHidden: cutHidden, groups: ties, any: Object.keys(wFids).length > 0 };
+    // MAT-3: an unsettled division lead decides which team is a division winner, and division winners shape the whole field (byes go to division
+    // winners; the others compete for wild cards). So no seed, tag or cutoff line is supported for anyone, and no magic number (division and wild-card
+    // races both depend on it); the tied teams' Playoff % is withheld too (the forecast does not model this step). Records and verified clinches stay.
+    var dt = divisionTies(rows), divAll = dt.length > 0, byeHidden = false;
+    if (divAll) { for (var s = 1; s <= 6; s++) wSeeds[s] = true; cutHidden = true; byeHidden = true; FIDS.forEach(function (f) { wFids[f] = true; }); }
+    var pctHeld = {}; ties.forEach(function (g) { g.forEach(function (x) { if (wFids[x.fid]) pctHeld[x.fid] = true; }); }); dt.forEach(function (g) { g.fids.forEach(function (f) { pctHeld[f] = true; }); });
+    if (!byeHidden) { var bp = []; ties.forEach(function (g) { if (g.some(function (x) { return wFids[x.fid]; })) bp = bp.concat(g.map(function (x) { return x.pos; })); }); byeHidden = bp.length > 0 && Math.min.apply(null, bp) <= 2 && Math.max.apply(null, bp) >= 3; }
+    M.withheld = { seeds: wSeeds, fids: wFids, cutHidden: cutHidden, byeHidden: byeHidden, groups: ties, divisionTies: dt, magicHidden: divAll, pctHeld: pctHeld, any: Object.keys(wFids).length > 0 };
 
     // ---- scoring
     M.sf = Rm.scoredFaced(payload);
@@ -190,18 +257,30 @@
     }
     C.noScore = noScore; C.problems = problems; C.missing = missingWeeks;
     if (missingWeeks.length) { C.why = "Some weeks' lineups did not load, so contributions are not shown."; return C; }
-    C.state = problems.length ? "partial" : "ok";
-    C.why = problems.length ? problems.length + " team-weeks do not reconcile or could not be allocated; they are listed in Help and left out of slot totals." : "";
+    // MAT-1 quarantine: a team with ANY team-week that does not reconcile or cannot be allocated has NO supported season contribution (its points
+    // cannot enter a total, and dropping the week would divide the rest by the wrong number of weeks). Its figures are withheld (null), and league
+    // RANKS are withheld for every team, because each team's rank depends on the withheld team's value. Official team scores are untouched.
+    var bad = {}; problems.forEach(function (p) { (bad[p.fid] = bad[p.fid] || []).indexOf(p.w) < 0 && bad[p.fid].push(p.w); });
+    var anyBad = Object.keys(bad).length > 0;
+    C.quarantined = bad; C.ranksWithheld = anyBad;
+    C.state = anyBad ? "partial" : "ok";
+    C.why = anyBad ? Object.keys(bad).map(function (f) { return (M.names[f] || f) + " (Week " + bad[f].join(", ") + ")"; }).join("; ") + ": the starters’ points do not add up to the official score, or could not be allocated. That team’s contributions are not shown, and no league ranks are shown, since every rank would depend on it." : "";
     // groups, positions, slots: season totals, per week, and league rank (1 + teams strictly higher, compared at the tenth)
     function rank(vals) { var o = {}; Object.keys(vals).forEach(function (f) { var me = tenths(vals[f]); o[f] = 1 + Object.keys(vals).filter(function (g) { return tenths(vals[g]) > me; }).length; }); return o; }
     function shared(o, f) { var n = 0; Object.keys(o).forEach(function (g) { if (o[g] === o[f]) n++; }); return n > 1; }
-    function pack(getter) { var vals = {}; FIDS.forEach(function (f) { vals[f] = getter(f); }); var rk = rank(vals), out = {}; FIDS.forEach(function (f) { out[f] = { pts: vals[f], pw: vals[f] / through, rank: rk[f], tie: shared(rk, f) }; }); return out; }
+    function pack(getter) {
+      var vals = {}; FIDS.forEach(function (f) { vals[f] = bad[f] ? null : getter(f); });
+      var rk = anyBad ? null : rank(vals), out = {};
+      FIDS.forEach(function (f) { out[f] = { pts: vals[f], pw: vals[f] == null ? null : vals[f] / through, rank: rk ? rk[f] : null, tie: rk ? shared(rk, f) : false }; });
+      return out;
+    }
     C.groups = {}; CONTRIB.forEach(function (g) { C.groups[g[0]] = pack(function (f) { return g[2].reduce(function (s, p) { return s + byPos[f][p]; }, 0); }); });
     C.byPos = {}; POS.forEach(function (p) { C.byPos[p] = pack(function (f) { return byPos[f][p]; }); });
     C.bySlot = {}; SLOT_GROUPS.forEach(function (g) { C.bySlot[g[0]] = pack(function (f) { return g[1].reduce(function (s, x) { return s + bySlot[f][x]; }, 0); }); });
     C.audit = audit;
     C.recon = FIDS.map(function (f) {
       var tot = payload.weeklyScores.filter(function (r) { return r.fid === f && Number(r.w) <= through; }).reduce(function (s, r) { return s + Number(r.ts); }, 0);
+      if (bad[f]) return { fid: f, team: tot, groups: null, slots: null, ok: false, quarantined: bad[f] };
       var g = 0; CONTRIB.forEach(function (x) { g += C.groups[x[0]][f].pts; });
       var sl = 0; SLOT_GROUPS.forEach(function (x) { sl += C.bySlot[x[0]][f].pts; });
       return { fid: f, team: tot, groups: g, slots: sl, ok: tenths(tot) === tenths(g) && tenths(tot) === tenths(sl) };
@@ -209,5 +288,5 @@
     return C;
   }
 
-  return { build: build, allocate: allocate, unresolvedTies: unresolvedTies, share: share, RULES: RULES, POS: POS, SLOT_GROUPS: SLOT_GROUPS, CONTRIB: CONTRIB, GROUP: GROUP, cmpP: cmpP };
+  return { build: build, allocate: allocate, unresolvedTies: unresolvedTies, divisionTies: divisionTies, forecastReconcile: forecastReconcile, share: share, RULES: RULES, POS: POS, SLOT_GROUPS: SLOT_GROUPS, CONTRIB: CONTRIB, GROUP: GROUP, cmpP: cmpP };
 });

@@ -514,3 +514,52 @@ button.btnrow{cursor:pointer}
 .lgpl{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0 3px 10px;color:var(--mu)}
 .lgpl b{color:var(--tx);font-weight:400}
 .lgnw{white-space:nowrap}
+
+/* Standings presentation pass (#1503, review of ff3dc709) */
+.lgtn{overflow-wrap:normal;word-break:normal}
+@media (max-width:360px){.lgwide{display:none}.lgnarrow{display:block}}
+/* the selected team (Team's chosen team) */
+.lgt tr.lgme td,.lgcr.lgme{background:var(--s2)}
+.lgt tr.lgme td:first-child,.lgcr.lgme{box-shadow:inset 3px 0 0 var(--ac)}
+/* the bye line after seed 2: same family as the playoff line, quieter */
+.lgt tr.lgcut.lgbye td{border-bottom:1px dashed var(--ac);font-weight:600}
+/* chevrons instead of Show/Hide: the whole row is the button; the chevron turns when open */
+.lgchev{flex:0 0 auto;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;color:var(--ac);border-left:1px solid var(--bd);margin-left:8px;padding-left:6px;box-sizing:content-box}
+.lgchev::before{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
+[aria-expanded="true"]>.lgchev::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.lgchev::before{transition:none}}
+.lgbrow{grid-template-columns:1fr 64px 48px 36px}
+.lgbrow .lgchev{justify-self:end}
+/* Scoring controls: one full-width row each */
+.lgctl{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.seg.lgfull{width:100%}
+.seg.lgfull button{flex:1 1 auto;white-space:nowrap;padding:0 6px}
+.seg.lgsmseg button{min-height:40px;font-size:12px}
+.seg.lgfull button[aria-disabled="true"]{opacity:.5;cursor:default}
+@media (max-width:360px){.seg.lgviews button{font-size:12px;padding:0 4px}}
+/* Contributions rows: value leads, rank subordinate; at 320 px the name has its own line */
+.lgcg{display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.lgcr{display:grid;grid-template-columns:minmax(0,1fr) 64px 56px 56px 44px;align-items:center;column-gap:4px;min-height:52px;border-bottom:1px solid var(--bd);padding:4px 2px}
+.lgcr.h{min-height:28px;font-size:12px;color:var(--mu);font-weight:600}
+.lgcr>span{text-align:right}
+.lgcr>span.t{text-align:left;min-width:0}
+.lgcr .lgv{display:block;font-size:14px;font-weight:600}
+.lgcr .lgrk{display:block;font-size:12px;color:var(--mu)}
+@media (max-width:360px){.lgcr{grid-template-columns:1fr 1fr 1fr 44px;row-gap:2px}.lgcr>span.t{grid-column:1/-1}.lgcr.h>span.t{display:none}.lgcr>span:not(.t){text-align:left}.lgcr>span:last-child{text-align:right}}
+.lgtot{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:13px;padding:6px 8px 8px;background:var(--s2);border-bottom:1px solid var(--bd);font-variant-numeric:tabular-nums}
+.lgtot>span:first-child{grid-column:1/-1;font-size:12px;color:var(--mu);font-weight:600}
+.lgtot .lgtv{text-align:right;font-weight:600}
+/* Team detail: one subtle full-row divider per row, not a line under every cell */
+.lgkv{gap:0}
+.lgkv>div{border-bottom:1px solid var(--bd);border-bottom-color:color-mix(in srgb,var(--bd) 55%,transparent)}
+.lgkv>div.n{padding-left:12px}
+/* Divisions head-to-head: team | record | team | chevron, names wrap at spaces */
+.lgpair{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-height:44px;border:0;border-bottom:1px solid var(--bd);background:transparent;padding:4px 0;font-size:13px;text-align:left}
+.lgpair .lgpb{text-align:right}
+.lgpair .lgprec{font-variant-numeric:tabular-nums;font-size:14px;padding:0 4px}
+.lgser .lgsr{display:grid;grid-template-columns:1fr 56px 12px 56px;gap:4px;font-variant-numeric:tabular-nums}
+.lgser .lgsr .n,.lgser .lgsr span:last-child{text-align:right}
+.lgser .lgsr span:nth-child(3){text-align:center}
+/* sheets: sections keep their height (the breakdown switch was squeezed away) */
+.sheet.lgsh>*{flex-shrink:0}
+.sheet.lgsh .seg{margin:2px 0}

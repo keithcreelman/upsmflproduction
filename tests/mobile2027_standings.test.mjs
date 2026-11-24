@@ -133,12 +133,115 @@ test("live mode has no dated position list or forecast: no contributions (never 
   t.equal(stale.forecast.fresh, false); t.match(stale.forecast.why, /Week 9, not Week 10/);
 });
 
-test("corrections: a completed week whose lineups no longer add up to the standings is flagged for that week only, and left out of slot totals", () => {
-  const w = clone(WEEKS); const f = w[4].weeklyResults.matchup[0].franchise[0]; const p = f.player.find((x) => x.status === "starter" && x.score);
-  p.score = String(Number(p.score) + 5);
-  const M = ST.build(input({ weeks: w }));
-  t.equal(M.contrib.state, "partial"); t.equal(M.contrib.problems.length, 1); t.equal(M.contrib.problems[0].w, 4); t.equal(M.contrib.problems[0].fid, f.id);
-  t.equal(M.contrib.recon.find((r) => r.fid === f.id).ok, false, "never forced to look complete");
+// ───────────── MAT-1..MAT-4 (ChatGPT review of ff3dc709). Each fails on ff3dc709's lib files. ─────────────
+const BASE = ST.build(input());
+function bumpQB(fid, wk, by) {   // ChatGPT's reproduction: +5 to franchise 0003's starting QB in Week 4
+  const w = clone(WEEKS); let hit = null;
+  for (const m of w[wk].weeklyResults.matchup) for (const f of m.franchise) if (f.id === fid) {
+    const p = f.player.find((x) => x.status === "starter" && ST.GROUP[RECD.static.positions.positions[x.id]] === "QB" && x.score);
+    p.score = String(Math.round((Number(p.score) + by) * 10) / 10); hit = p.id;
+  }
+  return { w, hit };
+}
+test("MAT-1: mismatched points never enter a displayed contribution or slot total, and no rank they would support is shown", () => {
+  t.equal(BASE.contrib.groups.off["0003"].rank, 10, "baseline: 0003 is 10th on Offense");
+  const { w, hit } = bumpQB("0003", 4, 5); t.ok(hit, "a Week 4 starting QB of 0003");
+  const M = ST.build(input({ weeks: w })), C = M.contrib;
+  t.equal(C.recon.find((r) => r.fid === "0003").ok, false, "reconciliation fails");
+  // the displayed figures first (ff3dc709 fails here: Offense rose by 5.0 and the rank moved 10 -> 9)
+  t.equal(C.groups.off["0003"].pts, null, "0003's Offense total is withheld, not " + (BASE.contrib.groups.off["0003"].pts + 5).toFixed(1));
+  t.equal(C.groups.off["0003"].rank, null, "and no rank (ff3dc709 showed 9)");
+  t.deepEqual(C.quarantined, { "0003": [4] }, "the affected team and week are identified");
+  for (const tbl of [C.groups.off, C.groups.idp, C.groups.kp].concat(Object.values(C.byPos), Object.values(C.bySlot))) {
+    t.equal(tbl["0003"].pts, null); t.equal(tbl["0003"].pw, null);
+    for (const f of M.fids) t.equal(tbl[f].rank, null, "no rank for " + f + " (each would depend on 0003)");
+  }
+  for (const f of M.fids.filter((x) => x !== "0003")) t.equal(C.groups.off[f].pts, BASE.contrib.groups.off[f].pts, f + ": other teams' supported values unchanged");
+  t.doesNotMatch(C.why, /excluded|left out of slot totals/, "the warning does not claim a week was excluded from a total");
+  const S = { lg: { sub: "scoring", per: "season", cset: "grp", open: { "ct:0003": true }, team: "0003", brk: "pos" }, lgd: { model: M }, intel: { players: null } };
+  let h = SV.body(S);
+  t.doesNotMatch(h, /class="lgrk"/, "no rank is drawn"); t.doesNotMatch(h, new RegExp(BASE.contrib.groups.off["0003"].pts.toFixed(1)), "0003's old total is not drawn");
+  t.match(h, /<span class="lgtl">Offense<\/span><span class="lgtv">—<\/span>/, "0003's season totals read —");
+  S.lg.open["b:p:QB"] = true; S.lg.open["b:p:QB:4"] = true; h = SV.brkSheet(S);
+  t.match(h, /Week 4<\/b><span>Not counted: the starters’ points don’t add up/, "the bad week shows no sum and no players' points");
+  t.doesNotMatch(h, /Week 4 · /, "no Week 4 sum line");
+  t.equal(ST.build(input({ weeks: bumpQB("0003", 4, 0).w })).contrib.state, "ok", "control: an unchanged score reconciles");
+});
+
+// the desktop page's own forecastReconcile (#1521), extracted from the HTML and run on the same inputs (parity)
+const DESKTOP = fs.readFileSync(path.join(REPO, "site/standings/mfl_hpm_standings_v2.html"), "utf8");
+const dsrc = DESKTOP.slice(DESKTOP.indexOf("  function forecastReconcile(sim, resp) {"), DESKTOP.indexOf("  // One display policy for every forecast probability"));
+const deskReconcile = new Function("pad4", "rowsByFid", "nameOf", "rec", dsrc + "\nreturn forecastReconcile;")(
+  (v) => String(v).padStart(4, "0"), (rows) => Object.fromEntries(rows.map((r) => [String(r.franchise_id).padStart(4, "0"), r])), (r) => r.franchise_name, (w, l, t2) => w + "–" + l + (t2 ? "–" + t2 : ""));
+const deskResp = (st) => Object.assign({}, st, { rows: st.rows.map((r) => Object.assign({}, r, { allplay_w: r.regular_season.all_play.w, allplay_l: r.regular_season.all_play.l, allplay_t: r.regular_season.all_play.t || 0 })) });
+test("MAT-2: a same-week forecast is shown only when it starts from these standings (teams, All-Play records, the week's results); same verdict as the desktop check", () => {
+  t.ok(dsrc.length > 500, "the desktop function was found");
+  const fc = RECD.static.forecast;
+  ["weekScore", "currentApWins", "currentApLosses", "currentApTies"].forEach((k) => t.ok(fc.teams.every((x) => x[k] != null), "the recording keeps " + k));
+  const cases = {
+    changedRecord: (() => { const x = clone(fc); x.teams[3].currentApWins += 1; x.teams[3].currentApLosses -= 1; return x; })(),
+    wrongTeams: (() => { const x = clone(fc); x.teams[0].franchiseId = "0099"; return x; })(),
+    changedResult: (() => {   // flip one Week-10 game in the forecast's scores; All-Play records untouched
+      const x = clone(fc), g = STAND.weekly.find((r) => r.w === 10 && r.po === 0 && r.fid < r.opp && Math.abs(r.ts - r.os) > 1);
+      const A = x.teams.find((q) => q.franchiseId === g.fid), B = x.teams.find((q) => q.franchiseId === g.opp); const s = A.weekScore; A.weekScore = B.weekScore; B.weekScore = s; return x; })(),
+    valid: clone(fc),
+  };
+  for (const [k, sim] of Object.entries(cases)) {
+    const M = ST.build(input({ forecast: sim })), desk = deskReconcile(sim, deskResp(clone(STAND)));
+    // what is displayed first (ff3dc709 fails here: it showed simulated probabilities for every same-week forecast)
+    t.equal(M.forecast.fresh, k === "valid", k + ": probabilities shown only for the valid forecast");
+    t.equal(desk.hard.length === 0, k === "valid", k + ": the desktop check agrees (" + desk.hard[0] + ")");
+    const mine = ST.forecastReconcile(sim, clone(STAND));
+    t.equal(mine.hard.length === 0, desk.hard.length === 0, k + ": same verdict as the desktop check (" + mine.hard[0] + " / " + desk.hard[0] + ")");
+    if (k !== "valid") { M.fids.forEach((f) => t.ok(["—", "100%", "0%"].includes(M.forecast.by[f].playoffs), k + " " + f + ": no simulated probability")); t.match(M.forecast.why, /doesn’t start from these standings/); }
+  }
+  t.equal(ST.build(input()).forecast.by[BASE.rows[5].franchise_id].playoffs, "38%", "valid: Hawks 38%");
+  // a verified clinch still shows when the forecast is refused
+  const M2 = ST.build(input({ forecast: cases.wrongTeams })); M2.fids.forEach((f) => { const v = M2.forecast.by[f].verdicts; if (v.playoffs) t.ok(/^(100|0)%$/.test(M2.forecast.by[f].playoffs)); });
+});
+
+test("MAT-3: three teams level on win % and division win % (different All-Play and Points For) withhold seeds, tags, both cutoff lines, magic numbers and their Playoff %", () => {
+  const s = clone(STAND); const d = s.rows[0].division; const g = s.rows.filter((r) => r.division === d);
+  t.equal(g.length, 3);
+  g.forEach((r) => { r.regular_season.record = { w: 18, l: 9, t: 0 }; r.regular_season.division = { w: 3, l: 3, t: 0 }; });
+  t.ok(new Set(g.map((r) => ST.share(r.regular_season.all_play) + "|" + Math.round(r.regular_season.points_for * 10))).size === 3, "their All-Play and Points For all differ");
+  t.deepEqual(ST.unresolvedTies(s.rows, s.weekly), [], "the seeding-tie detector alone would not catch this");
+  const M = ST.build(input({ standings: s })), W = M.withheld;
+  const S = { lg: { sub: "race", open: { rd: true } }, lgd: { model: M } };
+  const h = SV.body(S);
+  // what is displayed first (ff3dc709 fails here: it drew seeds, tags and the Playoff line as if the lead were settled)
+  t.doesNotMatch(h, /Bye line|Playoff line/, "no cutoff line"); t.doesNotMatch(h, /<span class="lgtag">/, "no current-position tag");
+  t.equal((h.match(/<td class="rk">—<\/td>/g) || []).length, 6, "seeds 1-6 read —");
+  t.equal(W.divisionTies.length, 1); t.deepEqual(W.divisionTies[0].fids.slice().sort(), g.map((r) => r.franchise_id).sort());
+  t.match(h, /Magic numbers are not shown while a division lead is unsettled/);
+  g.forEach((r) => t.equal(W.pctHeld[r.franchise_id], true));
+  t.ok(M.fids.some((f) => !W.pctHeld[f] && M.forecast.by[f].playoffs !== "—"), "other teams keep their Playoff %");
+  t.match(h, /24–3|18–9/, "records still shown"); t.equal((h.match(/The rules don’t say how the games between three or more teams settle it/g) || []).length, 1, "explained once");
+  const dv = SV.body({ lg: { sub: "div", open: {} }, lgd: { model: M } });
+  t.match(dv, /3 teams are level on win % and division win %/); t.doesNotMatch(dv, /MFL’s division rules|MFL’s own order/);
+  t.equal(ST.build(input()).withheld.divisionTies.length, 0, "control: the recorded season has no unsettled division lead");
+});
+
+test("MAT-4 + divisions: a deciding head-to-head step shows both teams' actual series and the meetings; a division tiebreak line opens to its figures", () => {
+  const s = clone(STAND); const met = s.weekly.find((g) => g.po === 0 && g.ts !== g.os && s.rows.findIndex((r) => r.franchise_id === g.fid) >= 6 && s.rows.findIndex((r) => r.franchise_id === g.opp) >= 6);
+  const a = met.ts > met.os ? met.fid : met.opp, b = a === met.fid ? met.opp : met.fid;
+  const games = s.weekly.filter((g) => g.po === 0 && g.fid === a && g.opp === b);
+  const aw = games.filter((g) => g.ts > g.os).length, al = games.filter((g) => g.ts < g.os).length, at = games.length - aw - al;
+  const A = s.rows.find((r) => r.franchise_id === a), B = s.rows.find((r) => r.franchise_id === b);
+  B.regular_season.all_play = clone(A.regular_season.all_play); B.regular_season.record = clone(A.regular_season.record); B.regular_season.points_for = A.regular_season.points_for;
+  B.seed_reason = { basis: "ladder", step: "head_to_head", position: "behind", rival_franchise_id: a, vs_above: { franchise_id: a, step: "head_to_head" } };
+  const M = ST.build(input({ standings: s })), S = { lg: { sub: "race", open: {} }, lgd: { model: M } };
+  if (aw === al) { t.ok(true, "split series: Option B covers it"); return; }
+  S.lg.open["tie:" + a + ":" + b] = true;
+  const h = SV.body(S), rec = (w, l, tt) => w + "–" + l + (tt ? "–" + tt : "");
+  t.match(h, new RegExp("Games between them</td><td>" + rec(aw, al, at) + "</td><td>" + rec(al, aw, at) + "</td><td><b>decides</b>"), "both teams' series records");
+  games.forEach((g) => t.match(h, new RegExp("Week " + g.w + "</span><span class=\"n\">" + SV.t1(g.ts).replace(".", "\\.") + "</span><span>–</span><span>" + SV.t1(g.os).replace(".", "\\."))), "each meeting");
+  // a division tiebreak line (Div step) opens to the figures
+  const s2 = clone(STAND); const r2 = s2.rows.find((r) => r.division_reason && r.division_reason.vs_above);
+  r2.division_reason.vs_above.step = "DIVPCT";
+  const M2 = ST.build(input({ standings: s2 })), k = "dtie:" + r2.franchise_id + ":" + r2.division_reason.vs_above.franchise_id;
+  const dv = SV.body({ lg: { sub: "div", open: { [k]: true } }, lgd: { model: M2 } });
+  t.match(dv, /Behind .* on division record ▾/); t.match(dv, /<td class="t">Division<\/td><td>\d+–\d+/); t.match(dv, /<b>decides<\/b>/);
 });
 
 test("screens: one decimal with separators, overall record (never H2H record), All-Play vs H2H, '—' for a missing score, xFP absent", () => {
@@ -147,7 +250,13 @@ test("screens: one decimal with separators, overall record (never H2H record), A
   let h = SV.body(S);
   t.match(h, /Ahead of CBP on overall record/); t.doesNotMatch(h, /H2H record/); t.match(h, /Playoff line/);
   S.lg.sub = "scoring"; h = SV.body(S); t.match(h, /2,732\.0/); t.match(h, /273\.2/);
-  S.lg.cset = "grp"; h = SV.body(S); t.match(h, /197\.0<span class="lgsub">#1<\/span>/);
+  S.lg.cset = "grp"; h = SV.body(S); t.match(h, /<b class="lgv">197\.0<\/b><span class="lgrk">#1<\/span>/, "the value leads; the rank is the smaller, muted line under it");
+  S.lg.open["ct:" + M.fids[0]] = true; h = SV.body(S); t.match(h, /<span class="lgtl">Offense<\/span><span class="lgtv">1,970\.0<\/span>/, "season totals as aligned group/value rows");
+  S.lg.sub = "race"; S.teamId = "0012"; h = SV.body(S);
+  t.match(h, /<tr class="lgcut lgbye"><td colspan="5">Bye line<\/td><\/tr>/); t.ok(h.indexOf("Bye line") < h.indexOf("Blake Bombers"), "the bye line sits between seed 2 and seed 3");
+  t.match(h, /<tr class="lgme" aria-current="true"><td class="rk">6<\/td>/, "the selected team (Hawks) is highlighted");
+  t.doesNotMatch(h, />(Show|Hide)</, "chevrons, not Show/Hide words");
+  S.lg.sub = "scoring";
   S.lg.per = "week"; S.lg.wk = 10; h = SV.body(S); t.match(h, /All-Play/); t.match(h, /H2H/);
   const ns = M.contrib.noScore[0]; S.lg.team = ns.fid; S.lg.brk = "pos";
   const pos = ST.GROUP[RECD.static.positions.positions[ns.id]];
@@ -159,7 +268,7 @@ test("screens: one decimal with separators, overall record (never H2H record), A
 test("every Standings state draws no inline style, script, form field, link or event handler, and only the read-only Standings controls; data text is escaped", () => {
   const M = ST.build(input()); const evil = '"><img src=x onerror=alert(1)><script>x</script>';
   const M2 = ST.build(input()); M2.names[M2.fids[0]] = evil;
-  const ALLOWED = ["lgsub", "lgper", "lgset", "lgwk", "lgt", "lgteam", "lgbrk", "lgbv", "lgretry", "help", "close"];
+  const ALLOWED = ["lgsub", "lgper", "lgset", "lgwk", "lgt", "lgteam", "lgbrk", "lgbv", "lgretry", "help", "close", "about"];
   const open = {}; M.fids.forEach((f) => { open["ct:" + f] = true; open["wg:10:" + f] = true; }); open.rd = true; open.tst = true; open.twk = true;
   ["QB", "RB", "WR", "TE", "DL", "LB", "DB", "PK", "PN"].forEach((p) => { open["b:p:" + p] = true; for (let w = 1; w <= 10; w++) open["b:p:" + p + ":" + w] = true; });
   ST.SLOT_GROUPS.forEach((g) => { open["b:s:" + g[0]] = true; for (let w = 1; w <= 10; w++) open["b:s:" + g[0] + ":" + w] = true; });

@@ -46,8 +46,9 @@
 
   // R8: the heading and the freshness line are the first thing INSIDE the scrolling area (#scroll), so they scroll away; the Team tabs that follow
   // them stick to its top (.tabs.stk), and the marker above it stays one line.
-  function header(title, asof) {
-    return '<div class="hdw"><div class="hd"><h1>' + esc(title) + '</h1><button class="ib" data-act="about" aria-label="About this preview and display settings">ⓘ</button></div>' + (asof ? '<div class="asof">' + asof + "</div>" : "") + "</div>";
+  // `help` (Standings): the heading's ⓘ opens that screen's Help, which links on to About
+  function header(title, asof, help) {
+    return '<div class="hdw"><div class="hd"><h1>' + esc(title) + "</h1>" + (help ? '<button class="ib" data-act="help" aria-label="Help: what these mean, and About this preview">ⓘ</button>' : '<button class="ib" data-act="about" aria-label="About this preview and display settings">ⓘ</button>') + "</div>" + (asof ? '<div class="asof">' + asof + "</div>" : "") + "</div>";
   }
 
   function asOfLine(S) {
@@ -469,7 +470,7 @@
   // League › Standings (#1503): Race, Divisions and Scoring (lib/standview.js draws them from the model in S.lgd.model)
   function leagueScreen(S) {
     if (S.load.core === "error" || (!S.model && S.load.core !== "loading")) return placeholderScreen("league");
-    return scroller(header("Standings", SV.asOf(S)) + SV.tabs(S), '<div class="lghelp"><button class="lglink" data-act="help">What these mean</button></div>' + SV.body(S));
+    return scroller(header("Standings", SV.asOf(S), true) + SV.tabs(S), SV.body(S));
   }
 
   function placeholderScreen(id) {
