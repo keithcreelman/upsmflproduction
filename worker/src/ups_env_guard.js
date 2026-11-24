@@ -96,7 +96,15 @@ export function classifyBinding(v) {
   if (v == null) return "unset";
   if (typeof v === "string") return "var";
   if (typeof v !== "object" && typeof v !== "function") return "var";
-  const has = (k) => typeof v[k] === "function";
+  const has = (k) => { try { return typeof v[k] === "function"; } catch (_) { return false; } };
+  // On the Workers runtime a Fetcher (service binding, static assets) is an RPC stub: ANY property name reads as a
+  // function, so duck typing would call it a D1 database (seen on the first deploy, 2026-11-24). Detect stubs first
+  // with a member no real binding has; a stub is a fetcher only when the runtime tags it as one, else it is refused.
+  if (has("__ups_probe_no_such_member__")) {
+    let tag = "";
+    try { tag = Object.prototype.toString.call(v); } catch (_) { tag = ""; }
+    return tag === "[object Fetcher]" ? "fetcher" : "rpc_stub";
+  }
   if (has("prepare") && has("batch") && has("exec")) return "d1";
   if (has("put") && has("get") && has("list") && has("head") && has("createMultipartUpload")) return "r2";
   if (has("get") && has("put") && has("list") && has("getWithMetadata")) return "kv";

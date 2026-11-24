@@ -208,6 +208,28 @@ test("bindings: only D1 and the static asset binding; R2, KV, queues, Durable Ob
   t.ok(!G.inspectBindings({ X: "1" }).ok, "no D1 at all is refused");
 });
 
+// What the Workers runtime actually hands the worker (measured in workerd 2026-11-24): a Fetcher is an RPC stub that
+// answers ANY property name with a function and is tagged [object Fetcher]; a D1Database answers only its own methods.
+function rpcStub(tag) {
+  const target = {}; Object.defineProperty(target, Symbol.toStringTag, { value: tag });
+  return new Proxy(target, { get: (o, k) => (k === Symbol.toStringTag ? tag : typeof k === "symbol" ? undefined : function () {}) });
+}
+test("bindings on the real runtime: a Fetcher stub (every member reads as a function) is a fetcher, never a D1; other stubs are refused", () => {
+  const d1 = testDb();
+  const fetcher = rpcStub("Fetcher");
+  t.equal(typeof fetcher.prepare, "function", "the stub really does look like a D1 to duck typing");
+  t.equal(G.classifyBinding(fetcher), "fetcher");
+  const inv = G.inspectBindings({ UPS_MFL_DB: d1, TWB_OUTBOX_DB: d1, FPA_STORE: fetcher });
+  t.ok(inv.ok, JSON.stringify(inv.problems)); t.deepEqual(inv.d1, ["UPS_MFL_DB", "TWB_OUTBOX_DB"], "only the real databases get a marker check");
+  t.equal(inv.bindings.FPA_STORE, "fetcher");
+  const self = G.inspectBindings({ UPS_MFL_DB: d1, SELF: fetcher });
+  t.ok(!self.ok, "a service binding under any other name is still refused");
+  const other = rpcStub("DurableObject");
+  t.equal(G.classifyBinding(other), "rpc_stub");
+  t.ok(!G.inspectBindings({ UPS_MFL_DB: d1, FPA_STORE: other }).ok, "an untagged or other stub is refused even under the allowed name");
+  t.equal(G.classifyBinding(d1), "d1", "a real D1 (no catch-all members) is still a D1");
+});
+
 test("database marker: every D1 binding must be the test database for this league", () => {
   t.ok(G.markerVerdict([{ env: "test", league_id: TEST_LEAGUE }], TEST_LEAGUE).ok);
   t.equal(G.markerVerdict([], TEST_LEAGUE).reason, "marker_missing");
