@@ -1,0 +1,796 @@
+// Owner bug reports (private D1, behind BUG_REPORT_ENABLED) -- the REAL worker under Node,
+// real SQLite (the real migration), a stubbed MFL at the network edge.   node tests/bug_reports.test.mjs
+//
+// What this proves, in the order a reviewer would ask:
+//   flag off -> nothing runs; identity -> a signed-in owner only, every failed-sign-in state is
+//   explained; fields -> an allowlist; redaction -> secrets never reach the database; duplicates ->
+//   a retry or the same problem never makes a second row; rate limit -> per team, with a
+//   retry-after; privacy -> an owner sees only their own, only the commissioner sees all;
+//   outbound calls -> exactly one MFL identity read per request, nothing to Discord or GitHub;
+//   D1 -> every query uses an index.
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { t, test, run } from "./fixtures/mini_test.mjs";
+import { makeWorkerEnv, makeMfl, callWorker, quiet, ADMIN_KEY } from "./fixtures/worker_harness.mjs";
+import { THREE_WAY_MIGRATIONS } from "./fixtures/d1_sqlite.mjs";
+import { handleBugReportRequest, makeMemoryStore } from "../worker/src/bug_reports.js";
+
+const restoreConsole = quiet();
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// The migration number is provisional (renumbered at merge), so find it by name.
+const MIGRATION = fs.readdirSync(path.join(ROOT, "worker", "migrations")).filter((f) => /^\d{4}_bug_reports\.sql$/.test(f));
+if (MIGRATION.length !== 1) throw new Error("expected exactly one *_bug_reports.sql migration, found " + MIGRATION.length);
+
+const Q = "?L=74598&YEAR=2026";
+const OWNER_A = "tok-C";      // franchise 0002
+const OWNER_B = "tok-O";      // franchise 0003
+const COMMISH = "tok-A";      // franchise 0008 (commissioner)
+let rid = 0;
+const newId = () => "req-" + String(++rid).padStart(6, "0");
+
+function fresh(over) {
+  const env = makeWorkerEnv({ BUG_REPORT_ENABLED: "1", __migrations: [...THREE_WAY_MIGRATIONS, MIGRATION[0]], ...(over && over.env) });
+  const mfl = makeMfl(over && over.mfl);
+  mfl.install();
+  return { env, mfl, db: env.UPS_MFL_DB };
+}
+const report = (over) => ({
+  client_request_id: newId(), mfl_user_id: OWNER_A,
+  summary: "Waiver window won't load", note: "I tapped Market, then Bids.",
+  screen: "Market › Find players", build: "2026.11.19.1", client_time: "2026-11-19T15:00:00Z",
+  viewport: { w: 375, h: 812 }, online: true,
+  error: { name: "TypeError", message: "Cannot read properties of undefined (reading 'window')", endpoint: "/api/waivers/window", status: 500 },
+  ...(over || {}),
+});
+const post = (env, p, body, extra) => callWorker(env, "POST", p + (extra === undefined ? Q : extra), { body });
+const submit = (env, over, extra) => post(env, "/api/bug-reports", report(over), extra);
+const rows = (db) => db.raw.prepare("SELECT * FROM ups_bug_reports ORDER BY id").all();
+const events = (db) => db.raw.prepare("SELECT * FROM ups_bug_report_events ORDER BY id").all();
+const everything = (db) => JSON.stringify({ r: rows(db), e: events(db) });
+const withClock = async (startMs, fn) => {
+  const real = Date.now; let now = startMs;
+  Date.now = () => now;
+  try { await fn({ advance: (s) => { now += s * 1000; }, now: () => now }); } finally { Date.now = real; }
+};
+
+// ------------------------------------------------------------------ flag
+test("flag off (the default): 404 before any MFL call or database read", async () => {
+  const { env, mfl, db } = fresh({ env: { BUG_REPORT_ENABLED: "0" } });
+  const before = db.log.length;
+  const r = await submit(env);
+  t.equal(r.status, 404);
+  t.equal(r.json.code, "disabled");
+  t.equal(mfl.st.exports.length, 0, "no MFL identity read when the flag is off");
+  t.ok(!db.log.slice(before).some((q) => /ups_bug_report/.test(q.sql)), "the report tables are never touched");
+  for (const p of ["/api/bug-reports/mine", "/api/bug-reports/commish/list", "/api/bug-reports/commish/get"]) t.equal((await post(env, p, { mfl_user_id: COMMISH })).status, 404, p);
+});
+
+test("flag off: the endpoint makes NO D1 call at all (not even to read the settings table), on every route", async () => {
+  const { env, mfl, db } = fresh({ env: { BUG_REPORT_ENABLED: "0" } });
+  const calls = []; let execs = 0; let batches = 0;
+  const rawPrepare = db.prepare.bind(db); const rawExec = db.exec.bind(db); const rawBatch = db.batch.bind(db);
+  db.prepare = (sql) => { calls.push(sql); return rawPrepare(sql); };
+  db.exec = (sql) => { execs++; calls.push(sql); return rawExec(sql); };
+  db.batch = (st) => { batches++; return rawBatch(st); };
+  const before = db.log.length;
+  for (const p of ["/api/bug-reports", "/api/bug-reports/mine", "/api/bug-reports/commish/list", "/api/bug-reports/commish/get"]) {
+    const r = await post(env, p, report({ mfl_user_id: COMMISH }));
+    t.equal(r.status, 404, p);
+    t.equal(r.json.code, "disabled", p);
+  }
+  t.equal(calls.length, 0, "no prepare() or exec() on the database: " + calls.join(" | ").slice(0, 200));
+  t.equal(execs + batches, 0, "no exec() or batch()");
+  t.equal(db.log.length, before, "no statement run, including against ups_settings");
+  t.ok(!calls.some((q) => /ups_settings/.test(q)), "ups_settings is never created or read while the feature is off");
+  t.equal(mfl.st.exports.length, 0, "and no MFL read");
+  // Unreadable or odd values are off too, with no database call.
+  for (const v of ["", "0", "true", "yes", " 0 "]) {
+    const e2 = fresh({ env: { BUG_REPORT_ENABLED: v } });
+    const n = e2.db.log.length;
+    t.equal((await submit(e2.env)).status, 404, JSON.stringify(v));
+    t.equal(e2.db.log.length, n, "no D1 call for " + JSON.stringify(v));
+  }
+});
+
+test("the flag is a wrangler var that ships off", () => {
+  const toml = fs.readFileSync(path.join(ROOT, "worker", "wrangler.toml"), "utf8");
+  t.match(toml, /^BUG_REPORT_ENABLED\s*=\s*"0"\s*$/m);
+});
+
+test("a flag that cannot be read counts as off", async () => {
+  const calls = [];
+  const res = await handleBugReportRequest({
+    request: new Request("https://x/api/bug-reports", { method: "POST", body: "{}" }), url: new URL("https://x/api/bug-reports"), path: "/api/bug-reports", env: {},
+    deps: { isEnabled: async () => { throw new Error("D1 down"); }, detectFranchise: async () => { calls.push("mfl"); }, commishFids: () => [], store: () => { calls.push("store"); } },
+  });
+  t.equal(res.status, 404);
+  t.equal(calls.length, 0);
+});
+
+test("only POST; other paths fall through to the rest of the worker", async () => {
+  const { env } = fresh();
+  t.equal((await callWorker(env, "GET", "/api/bug-reports" + Q)).status, 405);
+  const noRoute = await handleBugReportRequest({ request: new Request("https://x/api/other", { method: "POST" }), url: new URL("https://x/api/other"), path: "/api/other", env: {}, deps: {} });
+  t.equal(noRoute, null);
+});
+
+// ------------------------------------------------------------------ identity
+test("a signed-in owner files a report: stored against the PROVEN team, one MFL read, token never stored", async () => {
+  const { env, mfl, db } = fresh();
+  const r = await submit(env);
+  t.equal(r.status, 201);
+  t.equal(r.json.report.code, "TEST-001");
+  t.equal(r.json.report.status, "open");
+  const [row] = rows(db);
+  t.equal(row.franchise_id, "0002", "franchise comes from the MFL session");
+  t.equal(row.env, "test");
+  t.equal(row.screen, "Market › Find players");
+  t.equal(row.err_endpoint, "/api/waivers/window");
+  t.equal(row.viewport, "375x812");
+  t.equal(mfl.st.exports.filter((e) => e.type === "myleagues").length, 1, "exactly one MFL identity read per submit");
+  t.equal(mfl.st.exports.length, 1, "and no other MFL read");
+  t.ok(!everything(db).includes(OWNER_A), "the sign-in token is not in the database");
+  t.ok(!JSON.stringify(r.json).includes(OWNER_A), "and not echoed");
+  t.equal(events(db).length, 1);
+  t.equal(events(db)[0].kind, "submitted");
+});
+
+test("a franchise id in the body is a refused field, never identity", async () => {
+  const { env, db } = fresh();
+  const r = await submit(env, { franchise_id: "0008" });
+  t.equal(r.status, 400);
+  t.equal(r.json.code, "unknown_field");
+  t.deepEqual(r.json.fields, ["franchise_id"]);
+  t.equal(rows(db).length, 0);
+});
+
+const SIGNIN_CASES = [
+  { name: "no sign-in at all", over: { mfl_user_id: "" }, status: 401, code: "unauthenticated", state: "signin" },
+  { name: "an expired or invalid MFL session", over: { mfl_user_id: "tok-expired" }, status: 401, code: "session_expired", state: "signin" },
+  { name: "an MFL login that is not in this league", over: { mfl_user_id: "tok-x" }, status: 403, code: "forbidden", state: "signin" },
+];
+for (const c of SIGNIN_CASES) {
+  test("failed sign-in is explained: " + c.name, async () => {
+    const { env, db } = fresh();
+    const r = await submit(env, c.over);
+    t.equal(r.status, c.status);
+    t.equal(r.json.code, c.code);
+    t.equal(r.json.state, c.state);
+    t.ok(r.json.title && r.json.title.length > 8, "has a title the sheet can show");
+    t.match(r.json.message, /Nothing was sent/, "says nothing was sent");
+    t.equal(rows(db).length, 0, "nothing stored");
+  });
+}
+test("failed sign-in is explained: MFL does not answer", async () => {
+  const { env, db } = fresh({ mfl: { myleaguesDown: true } });
+  const r = await submit(env);
+  t.equal(r.status, 503);
+  t.equal(r.json.code, "identity_unavailable");
+  t.equal(r.json.state, "retry");
+  t.match(r.json.message, /Try again/);
+  t.match(r.json.message, /note is still here/);
+  t.equal(rows(db).length, 0);
+});
+
+test("a slow MFL is cut off at the timeout, not held open", async () => {
+  const store = makeMemoryStore();
+  const res = await handleBugReportRequest({
+    request: new Request("https://x/api/bug-reports?L=74598&YEAR=2026", { method: "POST", body: JSON.stringify(report()) }),
+    url: new URL("https://x/api/bug-reports?L=74598&YEAR=2026"), path: "/api/bug-reports", env: {}, identityTimeoutMs: 30,
+    defaultLeagueId: "74598", defaultSeason: "2026",
+    deps: { isEnabled: async () => true, detectFranchise: () => new Promise(() => {}), commishFids: () => [], store: () => store },
+  });
+  t.equal(res.status, 503);
+  t.equal((await res.json()).code, "identity_unavailable");
+  t.equal(store._reports.length, 0);
+});
+
+test("the admin key never files a report, and a stray APIKEY beside an owner session is ignored", async () => {
+  const { env, db } = fresh();
+  const asAdmin = await callWorker(env, "POST", "/api/bug-reports" + Q, { body: report({ mfl_user_id: "" }), headers: { Authorization: "Bearer " + ADMIN_KEY } });
+  t.equal(asAdmin.status, 401, "the commissioner key alone is not a report author");
+  const stray = await submit(env, {}, Q + "&APIKEY=not-the-key");
+  t.equal(stray.status, 201, "a foreign APIKEY beside a real owner session is not an error");
+  t.equal(rows(db).length, 1);
+});
+
+// ------------------------------------------------------------------ fields
+test("every field is on the allowlist; extras anywhere are refused by name", async () => {
+  const { env, db } = fresh();
+  const a = await submit(env, { stack: "…" });
+  t.equal(a.json.code, "unknown_field");
+  const b = await submit(env, { error: { name: "X", message: "m", cookie: "c" } });
+  t.equal(b.json.code, "unknown_field");
+  t.deepEqual(b.json.fields, ["error.cookie"]);
+  t.equal(rows(db).length, 0);
+});
+
+test("required fields and length caps", async () => {
+  const { env, db } = fresh();
+  t.equal((await submit(env, { summary: "  " })).json.code, "summary_required");
+  t.equal((await submit(env, { client_request_id: "x" })).json.code, "bad_request");
+  t.equal((await submit(env, { screen: "" })).json.code, "bad_request");
+  const long = await submit(env, { summary: "ab ".repeat(200), note: "note text ".repeat(300), error: { message: "err ".repeat(300) } });
+  t.equal(long.status, 201);
+  const row = rows(db)[0];
+  t.equal(row.summary.length, 120);
+  t.equal(row.note.length, 1000);
+  t.equal(row.err_message.length, 500);
+});
+
+test("a body over 8 KB is refused before anything else", async () => {
+  const { env, mfl } = fresh();
+  const r = await post(env, "/api/bug-reports", { ...report(), note: "x ".repeat(6000) });
+  t.equal(r.status, 413);
+  t.equal(r.json.code, "too_large");
+  t.equal(mfl.st.exports.length, 0, "no MFL call for an oversized body");
+});
+
+// ------------------------------------------------------------------ redaction
+test("server-side redaction: secrets never reach the database", async () => {
+  const { env, db } = fresh();
+  const SECRETS = ["S3cr3tK3y123", "tok-A-session-9999", "AbCdEf0123456789AbCdEf0123456789xyz", "hunter2pass", "owner@example.com", "hook-token-abc", "cookie-value-77"];
+  const r = await submit(env, {
+    summary: "Fetch failed APIKEY=S3cr3tK3y123 for owner@example.com",
+    note: "My MFL_USER_ID=tok-A-session-9999 and password: hunter2pass. Cookie: cookie-value-77. https://discord.com/api/webhooks/1/hook-token-abc",
+    error: {
+      name: "FetchError",
+      message: "GET https://api.myfantasyleague.com/2026/export?TYPE=rosters&APIKEY=S3cr3tK3y123 failed; Authorization: Bearer AbCdEf0123456789AbCdEf0123456789xyz",
+      endpoint: "https://worker.example.dev/api/roster?MFL_USER_ID=tok-A-session-9999#frag", status: 401,
+    },
+  });
+  t.equal(r.status, 201);
+  t.ok(r.json.redactions >= 6, "reports how many items were removed: " + r.json.redactions);
+  const dump = everything(db);
+  for (const s of SECRETS) t.ok(!dump.includes(s), "stored data must not contain " + s);
+  const row = rows(db)[0];
+  t.equal(row.err_endpoint, "/api/roster", "endpoint is path only");
+  t.equal(row.redactions, r.json.redactions);
+  t.match(row.err_message, /export \b/, "the useful words survive");
+  t.ok(!JSON.stringify(r.json).includes("S3cr3tK3y123"));
+});
+
+// ------------------------------------------------------------------ duplicates
+test("a retry (same request id) replays the first report and never makes another", async () => {
+  const { env, db } = fresh();
+  const body = report();
+  const a = await post(env, "/api/bug-reports", body);
+  const b = await post(env, "/api/bug-reports", body);
+  t.equal(a.status, 201);
+  t.equal(b.status, 200);
+  t.equal(b.json.replay, true);
+  t.equal(b.json.report.code, a.json.report.code);
+  t.equal(rows(db).length, 1);
+  t.equal(rows(db)[0].dup_count, 0, "a retry is not a duplicate");
+});
+
+test("the same problem from the same team is added to the open report, not a second one", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    const a = await submit(env);
+    advance(120);
+    const b = await submit(env, { note: "Happened again just now.", error: { name: "TypeError", message: "Cannot read properties of undefined (reading 'window')", endpoint: "/api/waivers/window", status: 500 } });
+    t.equal(b.status, 200);
+    t.equal(b.json.duplicate, true);
+    t.equal(b.json.report.code, a.json.report.code);
+    t.match(b.json.message, /already reported this \(TEST-001\)/);
+    t.equal(b.json.report.times_reported, 2);
+    t.equal(rows(db).length, 1);
+    t.equal(rows(db)[0].dup_count, 1);
+    t.deepEqual(events(db).map((e) => e.kind), ["submitted", "duplicate"]);
+    t.equal(events(db)[1].detail, "Happened again just now.");
+  });
+});
+
+test("digits and case in an error do not hide a duplicate; a different problem is a new report", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    await submit(env, { error: { name: "HTTPError", message: "Request 1234 failed with Status 500", endpoint: "/api/a", status: 500 } });
+    advance(60);
+    const same = await submit(env, { error: { name: "httperror", message: "request 98765 FAILED with status 500", endpoint: "/api/a", status: 500 } });
+    t.equal(same.json.duplicate, true);
+    advance(60);
+    const other = await submit(env, { error: { name: "HTTPError", message: "Request 1 failed with Status 500", endpoint: "/api/b", status: 500 } });
+    t.equal(other.status, 201, "a different endpoint is a different problem");
+    t.equal(rows(db).length, 2);
+  });
+});
+
+test("another team reporting the same problem gets its own report", async () => {
+  const { env, db } = fresh();
+  await submit(env);
+  const b = await submit(env, { mfl_user_id: OWNER_B });
+  t.equal(b.status, 201);
+  t.deepEqual(rows(db).map((r) => r.franchise_id), ["0002", "0003"]);
+});
+
+test("duplicates are capped: the 11th is refused", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    await submit(env);
+    for (let i = 0; i < 10; i++) { advance(30); t.equal((await submit(env)).json.duplicate, true); }
+    advance(30);
+    const r = await submit(env);
+    t.equal(r.status, 429);
+    t.equal(r.json.code, "duplicate_limit");
+    t.equal(rows(db)[0].dup_count, 10);
+  });
+});
+
+// ------------------------------------------------------------------ rate limit
+test("rate limit: 20 seconds between new reports, 5 per team per 24 hours, with a retry-after", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    const distinct = (i) => ({ screen: "Screen " + String.fromCharCode(65 + i), error: { name: "E" + String.fromCharCode(65 + i), message: "boom " + String.fromCharCode(65 + i), endpoint: "/api/x" + String.fromCharCode(97 + i), status: 500 } });
+    t.equal((await submit(env, distinct(0))).status, 201);
+    advance(5);
+    const fast = await submit(env, distinct(1));
+    t.equal(fast.status, 429);
+    t.equal(fast.json.code, "too_fast");
+    t.equal(fast.json.retry_after_seconds, 15);
+    t.equal(fast.headers.get("retry-after"), "15");
+    for (let i = 1; i < 5; i++) { advance(21); t.equal((await submit(env, distinct(i))).status, 201, "report " + (i + 1)); }
+    advance(21);
+    const sixth = await submit(env, distinct(5));
+    t.equal(sixth.status, 429);
+    t.equal(sixth.json.code, "daily_limit");
+    t.ok(sixth.json.retry_after_seconds > 86000 && sixth.json.retry_after_seconds <= 86400, "retry after ~24h: " + sixth.json.retry_after_seconds);
+    t.equal(rows(db).length, 5);
+    const other = await submit(env, { ...distinct(5), mfl_user_id: OWNER_B });
+    t.equal(other.status, 201, "the limit is per team");
+    advance(sixth.json.retry_after_seconds + 1);
+    t.equal((await submit(env, distinct(5))).status, 201, "allowed again once the oldest leaves the window");
+  });
+});
+
+test("a retry or a duplicate does not use up the daily allowance", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    const body = report();
+    await post(env, "/api/bug-reports", body);
+    for (let i = 0; i < 4; i++) { advance(25); await post(env, "/api/bug-reports", body); }
+    for (let i = 0; i < 3; i++) { advance(25); await submit(env); }
+    t.equal(rows(db).length, 1);
+    advance(25);
+    t.equal((await submit(env, { screen: "Some other screen" })).status, 201);
+  });
+});
+
+// Worst-case interleaving, made deterministic: hold every request at the moment it is about to WRITE a report until all
+// `n` of them have arrived. By then each has already done every read it was going to do, so all `n` decided on the same
+// earlier state. Code that checks the limits with a read and then inserts lets all `n` through; an atomic reservation
+// lets only the allowed ones through. (Released after 1 s even if fewer than n arrive, so a regression fails instead of hanging.)
+function holdInsertsUntil(db, n) { return holdBatchesUntil(db, n, /^\s*INSERT INTO ups_bug_reports\b/i); }
+// Same barrier, for any batch whose first matching statement is `re` (e.g. the duplicate counter's event insert).
+function holdBatchesUntil(db, n, re) {
+  const rawBatch = db.batch.bind(db);
+  let arrived = 0; let release; const gate = new Promise((r) => { release = r; });
+  const timer = setTimeout(release, 1000);
+  db.batch = async (stmts) => {
+    if (stmts.some((st) => re.test(st.sql || ""))) {
+      if (++arrived >= n) release();
+      await gate;
+    }
+    return rawBatch(stmts);
+  };
+  return { arrived: () => arrived, done: () => { clearTimeout(timer); db.batch = rawBatch; } };
+}
+
+// A submit makes several awaits before it inserts (MFL identity read, replay lookup, duplicate lookup). Firing N at once
+// makes every one of them read the table BEFORE any one inserts. Nothing here is sequential.
+const distinctReport = (i, over) => ({
+  screen: "Screen " + String.fromCharCode(65 + i), summary: "Problem number " + (i + 1),
+  error: { name: "E" + String.fromCharCode(65 + i), message: "boom " + String.fromCharCode(65 + i), endpoint: "/api/x" + String.fromCharCode(97 + i), status: 500 },
+  ...(over || {}),
+});
+
+test("concurrent submissions: the 20-second gap holds (one wins, the rest are refused, one row)", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+    const hold = holdInsertsUntil(db, 8);
+    const res = await Promise.all([0, 1, 2, 3, 4, 5, 6, 7].map((i) => submit(env, distinctReport(i))));
+    t.equal(hold.arrived(), 8, "all 8 requests reached the write together (so each decided on the same earlier state)"); hold.done();
+    const ok = res.filter((r) => r.status === 201); const slow = res.filter((r) => r.status === 429);
+    t.equal(ok.length, 1, "exactly one new report: " + res.map((r) => r.status).join(","));
+    t.equal(slow.length, 7);
+    for (const r of slow) { t.equal(r.json.code, "too_fast"); t.ok(r.json.retry_after_seconds >= 1 && r.json.retry_after_seconds <= 20); t.ok(r.headers.get("retry-after")); }
+    t.equal(rows(db).length, 1, "one report row");
+    t.equal(events(db).length, 1, "one event row: a refused attempt writes nothing");
+  });
+});
+
+test("concurrent submissions: the 5-per-24-hours cap holds even when every request sees the same earlier state", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    // Four reports already, each 21 s apart (all valid), so the gap is clear and exactly ONE slot is left.
+    for (let i = 0; i < 4; i++) { t.equal((await submit(env, distinctReport(i))).status, 201); advance(21); }
+    const hold = holdInsertsUntil(db, 6);
+    const res = await Promise.all([4, 5, 6, 7, 8, 9].map((i) => submit(env, distinctReport(i))));
+    t.equal(hold.arrived(), 6, "all 6 requests reached the write together"); hold.done();
+    const ok = res.filter((r) => r.status === 201);
+    t.equal(ok.length, 1, "one slot left, one winner: " + res.map((r) => r.status + ":" + (r.json.code || "ok")).join(","));
+    t.equal(rows(db).length, 5, "never more than 5 in the window");
+    // A burst after the cap is hit: all refused, none stored. (Advance past the gap so only the daily cap can refuse.)
+    advance(21);
+    const hold2 = holdInsertsUntil(db, 4);
+    const after = await Promise.all([10, 11, 12, 13].map((i) => submit(env, distinctReport(i))));
+    hold2.done();
+    t.ok(after.every((r) => r.status === 429 && r.json.code === "daily_limit"), "daily_limit for all: " + after.map((r) => r.json.code).join(","));
+    t.equal(rows(db).length, 5);
+    t.equal(events(db).length, 5);
+  });
+});
+
+test("concurrent submissions: the cap is per team, so a burst from one team does not block another", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+    const hold = holdInsertsUntil(db, 6);
+    const res = await Promise.all([
+      ...[0, 1, 2].map((i) => submit(env, distinctReport(i, { mfl_user_id: OWNER_A }))),
+      ...[0, 1, 2].map((i) => submit(env, distinctReport(i, { mfl_user_id: OWNER_B }))),
+    ]);
+    hold.done();
+    t.equal(res.filter((r) => r.status === 201).length, 2, "one winner per team");
+    t.equal(rows(db).filter((r) => r.franchise_id === "0002").length, 1);
+    t.equal(rows(db).filter((r) => r.franchise_id === "0003").length, 1);
+  });
+});
+
+test("concurrent identical requests (a double tap): one report, every caller gets it, no limit error", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+    const body = report();
+    const hold = holdInsertsUntil(db, 5);
+    const res = await Promise.all([1, 2, 3, 4, 5].map(() => post(env, "/api/bug-reports", body)));
+    hold.done();
+    t.ok(res.every((r) => r.status === 200 || r.status === 201), "no refusal: " + res.map((r) => r.status).join(","));
+    t.equal(res.filter((r) => r.status === 201).length, 1);
+    t.equal(rows(db).length, 1);
+    t.equal(events(db).length, 1);
+  });
+});
+
+test("a double tap that lands after the original was saved is a replay, not a 'duplicate' of itself", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+    const body = report();
+    const res = await Promise.all([1, 2, 3].map(() => post(env, "/api/bug-reports", body)));   // no barrier: the natural interleaving
+    t.ok(res.every((r) => r.status === 200 || r.status === 201), res.map((r) => r.status).join(","));
+    t.ok(res.every((r) => r.json.duplicate === false), "none is called a duplicate: " + res.map((r) => r.json.duplicate).join(","));
+    t.equal(rows(db).length, 1);
+    t.equal(rows(db)[0].dup_count, 0, "times reported stays 1");
+    t.equal(events(db).length, 1);
+  });
+});
+
+test("MAT-3: simultaneous reports of the SAME problem (different request ids): one report, the rest recorded as duplicates with their notes, no rate-limit refusal", async () => {
+  for (const n of [2, 4]) {
+    const { env, db } = fresh();
+    await withClock(Date.parse("2026-11-19T15:00:00Z"), async () => {
+      // Identical problem details (page, error, endpoint, status), but each tap has its own request id and its own words.
+      const same = (i) => report({ client_request_id: "req-mat3-" + n + "-" + i, note: "My note number " + i + " about the same failure." });
+      const hold = holdInsertsUntil(db, n);   // every request has passed the duplicate lookup (all found nothing) before any is saved
+      const res = await Promise.all(Array.from({ length: n }, (_, i) => post(env, "/api/bug-reports", same(i + 1))));
+      t.equal(hold.arrived(), n, "all " + n + " requests passed the duplicate lookup together"); hold.done();
+      t.equal(res.filter((r) => r.status === 429).length, 0, "no spurious rate-limit refusal: " + res.map((r) => r.status + ":" + (r.json.code || "ok")).join(","));
+      t.equal(res.filter((r) => r.status === 201).length, 1, "exactly one new report");
+      const dups = res.filter((r) => r.status === 200 && r.json.duplicate === true);
+      t.equal(dups.length, n - 1, "the rest are recorded as duplicates");
+      t.ok(dups.every((r) => /already reported/.test(r.json.message) && r.json.report.code === "TEST-001"), "pointed at the one open report");
+      t.equal(rows(db).length, 1, "one report row");
+      t.equal(rows(db)[0].dup_count, n - 1, "counted");
+      t.equal(events(db).filter((e) => e.kind === "duplicate").length, n - 1, "one duplicate event each");
+      // Every owner's words are kept: the winner's in the report row, the others in duplicate events.
+      const kept = everything(db);
+      for (let i = 1; i <= n; i++) t.ok(kept.includes("My note number " + i + " about"), "note " + i + " retained");
+    });
+  }
+});
+
+test("MAT-3: a same-problem loser is a duplicate even when the daily cap is already used up (a duplicate never spends allowance)", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    for (let i = 0; i < 4; i++) { t.equal((await submit(env, distinctReport(i))).status, 201); advance(21); }
+    const hold = holdInsertsUntil(db, 2);
+    const mk = (i) => report({ ...distinctReport(4), client_request_id: "req-mat3cap-" + i, note: "cap note " + i });
+    const res = await Promise.all([1, 2].map((i) => post(env, "/api/bug-reports", mk(i))));
+    hold.done();
+    t.equal(res.filter((r) => r.status === 201).length, 1);
+    t.equal(res.filter((r) => r.status === 200 && r.json.duplicate === true).length, 1);
+    t.equal(res.filter((r) => r.status === 429).length, 0);
+    t.equal(rows(db).length, 5);
+    t.ok(everything(db).includes("cap note 1") && everything(db).includes("cap note 2"));
+  });
+});
+
+const DUP_EVENT_INSERT = /^\s*INSERT INTO ups_bug_report_events\b/i;
+const dupEvents = (db) => events(db).filter((e) => e.kind === "duplicate");
+
+test("MAT-4: more than 10 simultaneous same-problem reports (distinct request ids) stop at the cap: 10 recorded, the rest get duplicate_limit", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    const same = (i) => report({ client_request_id: "req-mat4-a-" + String(i).padStart(2, "0"), note: "Dup note " + i + " same failure." });
+    t.equal((await post(env, "/api/bug-reports", same(0))).status, 201, "the original");
+    advance(30);
+    const N = 14;
+    const hold = holdBatchesUntil(db, N, DUP_EVENT_INSERT);   // every request has read dup_count = 0 before any counts
+    const res = await Promise.all(Array.from({ length: N }, (_, i) => post(env, "/api/bug-reports", same(i + 1))));
+    t.equal(hold.arrived(), N, "all " + N + " requests passed the stale cap check together"); hold.done();
+    const okDup = res.filter((r) => r.status === 200 && r.json.duplicate === true);
+    const limited = res.filter((r) => r.status === 429 && r.json.code === "duplicate_limit");
+    t.equal(okDup.length, 10, "exactly 10 recorded: " + res.map((r) => r.status).join(","));
+    t.equal(limited.length, N - 10, "the rest are refused with duplicate_limit");
+    t.equal(res.length, okDup.length + limited.length, "no other outcome (no 500, no new report)");
+    t.equal(rows(db).length, 1, "still one report");
+    t.equal(rows(db)[0].dup_count, 10, "the counter stops at 10");
+    t.equal(dupEvents(db).length, 10, "and so do the duplicate events");
+    t.equal(events(db).length, 11, "plus the original's 'submitted' event");
+    t.ok(limited.every((r) => r.json.report && r.json.report.times_reported === 11), "a refused caller is told the report's current count (1 + 10)");
+    // The seen counts are a set: ten distinct notes were kept, and the refused ones were not stored.
+    const kept = dupEvents(db).map((e) => e.detail);
+    t.equal(new Set(kept).size, 10, "ten distinct duplicate notes kept");
+    // Cost: the cap query is an index lookup on the report's events.
+    const ins = db.log.find((q) => /INSERT INTO ups_bug_report_events/i.test(q.sql) && /COUNT\(\*\)/i.test(q.sql));
+    t.ok(ins, "the cap is checked inside the event insert");
+    const plan = db.raw.prepare("EXPLAIN QUERY PLAN " + ins.sql).all(...ins.args).map((p) => p.detail).join(" | ");
+    t.match(plan, /idx_ups_bug_report_events_report/, plan);
+    t.doesNotMatch(plan, /SCAN ups_bug_report_events(?! USING)/, "no full scan of the events table: " + plan);
+  });
+});
+
+test("MAT-4: with 8 duplicates already recorded, 5 simultaneous more fill exactly the last 2 slots", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    const same = (tag, i) => report({ client_request_id: "req-mat4-" + tag + "-" + String(i).padStart(2, "0"), note: "Note " + tag + i + " same failure." });
+    await post(env, "/api/bug-reports", same("s", 0));
+    for (let i = 1; i <= 8; i++) { advance(30); t.equal((await post(env, "/api/bug-reports", same("s", i))).json.duplicate, true); }
+    t.equal(rows(db)[0].dup_count, 8);
+    advance(30);
+    const hold = holdBatchesUntil(db, 5, DUP_EVENT_INSERT);
+    const res = await Promise.all([1, 2, 3, 4, 5].map((i) => post(env, "/api/bug-reports", same("c", i))));
+    hold.done();
+    t.equal(res.filter((r) => r.status === 200 && r.json.duplicate === true).length, 2, "two slots left: " + res.map((r) => r.status).join(","));
+    t.equal(res.filter((r) => r.status === 429 && r.json.code === "duplicate_limit").length, 3);
+    t.equal(rows(db)[0].dup_count, 10);
+    t.equal(dupEvents(db).length, 10);
+  });
+});
+
+test("MAT-4: a refused duplicate writes nothing (no event, no counter, no timestamp change)", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    const same = (i) => report({ client_request_id: "req-mat4-w-" + String(i).padStart(2, "0"), note: "w" + i });
+    await post(env, "/api/bug-reports", same(0));
+    for (let i = 1; i <= 10; i++) { advance(30); await post(env, "/api/bug-reports", same(i)); }
+    advance(30);
+    // Drive the store directly so the early cap check cannot answer first: this is the atomic path itself.
+    const store = (await import("../worker/src/bug_reports.js")).makeD1Store(db);
+    const before = JSON.stringify({ r: rows(db), e: events(db) });
+    const w0 = db.raw.prepare("SELECT total_changes() AS n").get().n;
+    const out = await store.bumpDuplicate(1, { at: "2026-11-19T16:00:00.000Z", actor: "owner:0002", kind: "duplicate", detail: "late" }, 10);
+    t.equal(out.ok, false);
+    t.equal(db.raw.prepare("SELECT total_changes() AS n").get().n - w0, 0, "zero rows changed");
+    t.equal(JSON.stringify({ r: rows(db), e: events(db) }), before);
+  });
+});
+
+test("MAT-4: memory store (preview) enforces the same cap", async () => {
+  const store = makeMemoryStore();
+  await store.reserveReport({ franchise_id: "0002", client_request_id: "req-mem-0000", created_at: "2026-11-19T15:00:00.000Z", status: "open", dup_count: 0 }, { at: "x", actor: "a", kind: "submitted" }, { gapCutoffIso: "0", windowStartIso: "0", dailyMax: 5 });
+  const res = await Promise.all(Array.from({ length: 14 }, (_, i) => store.bumpDuplicate(1, { at: "x", actor: "a", kind: "duplicate", detail: "n" + i }, 10)));
+  t.equal(res.filter((r) => r.ok).length, 10);
+  t.equal(store._reports[0].dup_count, 10);
+});
+
+test("the reservation is one statement: the gap and the cap are checked in the same INSERT that stores the report", async () => {
+  const { env, db } = fresh();
+  db.log.length = 0;
+  await submit(env);
+  const ins = db.log.filter((q) => /^\s*INSERT INTO ups_bug_reports\b/i.test(q.sql));
+  t.equal(ins.length, 1);
+  t.match(ins[0].sql, /WHERE NOT EXISTS \(SELECT 1 FROM ups_bug_reports WHERE franchise_id=\? AND created_at>\?\)/, "gap check inside the insert");
+  t.match(ins[0].sql, /SELECT COUNT\(\*\) FROM \(SELECT 1 FROM ups_bug_reports WHERE franchise_id=\? AND created_at>=\? LIMIT \?\)\) < \?/, "cap check inside the insert");
+  // No separate read of the recent reports on the happy path: nothing for a concurrent request to be stale against.
+  t.ok(!db.log.some((q) => /^\s*SELECT created_at FROM ups_bug_reports/i.test(q.sql)), "no separate rate read before the insert");
+  // Both subqueries are index lookups on the (team, time) index.
+  const sub = db.raw.prepare("EXPLAIN QUERY PLAN " + ins[0].sql).all(...ins[0].args).map((p) => p.detail).join(" | ");
+  t.match(sub, /idx_ups_bug_reports_team_time/, sub);
+  t.doesNotMatch(sub, /SCAN ups_bug_reports(?! USING)/, "no full scan: " + sub);
+});
+
+test("a refused reservation writes nothing (no report row, no event row, no counter)", async () => {
+  const { env, db } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    await submit(env, distinctReport(0));
+    advance(5);
+    const before = JSON.stringify({ r: rows(db), e: events(db) });
+    const total = (d) => d.raw.prepare("SELECT total_changes() AS n").get().n;
+    const w0 = total(db);
+    const r = await submit(env, distinctReport(1));
+    t.equal(r.status, 429);
+    t.equal(total(db) - w0, 0, "zero rows changed by the refused attempt");
+    t.equal(JSON.stringify({ r: rows(db), e: events(db) }), before);
+  });
+});
+
+test("memory store (preview) enforces the same reservation", async () => {
+  const store = makeMemoryStore();
+  const lim = { gapCutoffIso: "2026-11-19T14:59:40.000Z", windowStartIso: "2026-11-18T15:00:00.000Z", dailyMax: 5 };
+  const mk = (n, at) => ({ franchise_id: "0002", client_request_id: "req-mem-" + n, created_at: at, status: "open", dup_count: 0 });
+  const ev = { at: "x", actor: "owner:0002", kind: "submitted", detail: "" };
+  const res = await Promise.all([0, 1, 2].map((n) => store.reserveReport(mk(n, "2026-11-19T15:00:00.000Z"), ev, lim)));
+  t.equal(res.filter((r) => r.inserted).length, 1);
+  t.equal(store._reports.length, 1);
+});
+
+// ------------------------------------------------------------------ privacy and access
+test("an owner sees only their own reports, in a minimal view", async () => {
+  const { env } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    await submit(env);                                         // team 0002
+    advance(30);
+    await submit(env, { mfl_user_id: OWNER_B, summary: "Other owner's problem", note: "PRIVATE-NOTE-B" });
+    const a = await post(env, "/api/bug-reports/mine", { mfl_user_id: OWNER_A });
+    t.equal(a.status, 200);
+    t.equal(a.json.reports.length, 1);
+    t.deepEqual(Object.keys(a.json.reports[0]).sort(), ["code", "created_at", "status", "summary", "times_reported", "updated_at"]);
+    t.ok(!a.text.includes("PRIVATE-NOTE-B") && !a.text.includes("Other owner"), "never another team's data");
+    t.ok(!/franchise|note|err|0002|0003/.test(a.text), "no team ids, notes or error fields in an owner's own list");
+    t.equal((await post(env, "/api/bug-reports/mine", { mfl_user_id: "" })).status, 401);
+  });
+});
+
+test("only the commissioner reads reports: a signed-in owner, a stranger and a wrong key are all refused", async () => {
+  const { env } = fresh();
+  await submit(env);
+  for (const p of ["/api/bug-reports/commish/list", "/api/bug-reports/commish/get"]) {
+    t.equal((await post(env, p, { mfl_user_id: OWNER_A, id: 1 })).status, 403, "owner on " + p);
+    t.equal((await post(env, p, { mfl_user_id: OWNER_B, id: 1 })).status, 403, "other owner on " + p);
+    t.equal((await post(env, p, { mfl_user_id: "", id: 1 })).status, 401, "nobody on " + p);
+    t.equal((await callWorker(env, "POST", p + Q, { body: { id: 1 }, headers: { Authorization: "Bearer wrong" } })).status, 403, "wrong key on " + p);
+  }
+});
+
+test("the commissioner (session or admin key) sees everything, including private fields and events", async () => {
+  const { env } = fresh();
+  await withClock(Date.parse("2026-11-19T15:00:00Z"), async ({ advance }) => {
+    await submit(env, { note: "owner note A" });
+    advance(30);
+    await submit(env, { mfl_user_id: OWNER_B, note: "owner note B", screen: "Roster" });
+    for (const [label, body, headers] of [["session", { mfl_user_id: COMMISH }, {}], ["admin key", {}, { Authorization: "Bearer " + ADMIN_KEY }]]) {
+      const call = (p, b) => callWorker(env, "POST", p + Q, { body: b, headers });
+      const l = await call("/api/bug-reports/commish/list", body);
+      t.equal(l.status, 200, label);
+      t.equal(l.json.reports.length, 2, label);
+      const first = l.json.reports.find((x) => x.franchise_id === "0002");
+      t.equal(first.note, "owner note A", label);
+      t.equal(first.error.endpoint, "/api/waivers/window", label);
+      t.ok(!l.text.includes(OWNER_A) && !l.text.includes(COMMISH), "no tokens in the commissioner view either");
+      const g = await call("/api/bug-reports/commish/get", { ...body, id: first.id });
+      t.equal(g.status, 200, label);
+      t.equal(g.json.events[0].kind, "submitted", label);
+      t.equal((await call("/api/bug-reports/commish/get", { ...body, id: 999 })).status, 404, label);
+    }
+  });
+});
+
+test("the commissioner key is accepted ONLY in the Authorization header", async () => {
+  const { env } = fresh();
+  await submit(env);
+  const ROUTES = ["/api/bug-reports/commish/list", "/api/bug-reports/commish/get"];
+  for (const route of ROUTES) {
+    const ok = await callWorker(env, "POST", route + Q, { body: { id: 1 }, headers: { Authorization: "Bearer " + ADMIN_KEY } });
+    t.equal(ok.status, 200, "Bearer works on " + route);
+    // A valid key in the address is refused outright, before anything is read, and never repeated.
+    for (const name of ["APIKEY", "apikey", "key", "token"]) {
+      const r = await callWorker(env, "POST", route + Q + "&" + name + "=" + encodeURIComponent(ADMIN_KEY), { body: { id: 1 } });
+      t.equal(r.status, 400, name + " in the address is refused on " + route);
+      t.equal(r.json.code, "key_in_address");
+      t.ok(!r.text.includes(ADMIN_KEY), "the refusal never repeats the key");
+      t.ok(!JSON.stringify([...r.headers]).includes(ADMIN_KEY), "nor puts it in a header");
+      t.ok(!("reports" in r.json) && !("report" in r.json), "no report data came back");
+    }
+    // Refused even beside a valid header and a valid commissioner session.
+    const both = await callWorker(env, "POST", route + Q + "&APIKEY=" + encodeURIComponent(ADMIN_KEY), { body: { id: 1, mfl_user_id: COMMISH }, headers: { Authorization: "Bearer " + ADMIN_KEY } });
+    t.equal(both.status, 400, "a key in the address is refused even beside a valid header and session");
+    // A wrong key in the address is refused the same way (it is the address that is refused, not the key).
+    t.equal((await callWorker(env, "POST", route + Q + "&APIKEY=wrong", { body: { id: 1 } })).json.code, "key_in_address");
+  }
+  // The commissioner SESSION in the body still works, and the owner routes still ignore a stray page key.
+  t.equal((await post(env, "/api/bug-reports/commish/list", { mfl_user_id: COMMISH })).status, 200);
+  t.equal((await post(env, "/api/bug-reports/mine", { mfl_user_id: OWNER_A }, Q + "&APIKEY=not-a-credential")).status, 200);
+  const src = fs.readFileSync(path.join(ROOT, "worker", "src", "bug_reports.js"), "utf8");
+  t.match(src, /keyInAddress\(ctx\.url\)/, "the guard is in the entry point");
+});
+
+test("the commissioner routes are not under /admin (no address-borne session, no second MFL read)", () => {
+  const src = fs.readFileSync(path.join(ROOT, "worker", "src", "bug_reports.js"), "utf8");
+  t.doesNotMatch(src, /["']\/admin\/bug-reports/);
+});
+
+test("every response is private: no-store, including refusals", async () => {
+  const { env } = fresh();
+  const responses = [
+    await submit(env), await submit(env, { mfl_user_id: "" }), await submit(env, { stack: "x" }),
+    await post(env, "/api/bug-reports/mine", { mfl_user_id: OWNER_A }), await post(env, "/api/bug-reports/commish/list", { mfl_user_id: OWNER_A }),
+  ];
+  for (const r of responses) t.match(r.headers.get("cache-control"), /no-store/);
+});
+
+// ------------------------------------------------------------------ outbound calls and D1 cost
+test("the route's only outbound calls are the MFL identity read and D1: nothing to Discord or GitHub", async () => {
+  const { env, mfl } = fresh();
+  await submit(env);
+  await post(env, "/api/bug-reports/mine", { mfl_user_id: OWNER_A });
+  await post(env, "/api/bug-reports/commish/list", { mfl_user_id: COMMISH });
+  t.equal(mfl.st.discord.length, 0, "no Discord call or DM");
+  t.ok(mfl.st.exports.every((e) => e.type === "myleagues"), "only the myleagues identity read");
+  t.equal(mfl.st.exports.length, 3, "one identity read per request");
+  const src = ["bug_reports.js", "bug_report_core.js"].map((f) => fs.readFileSync(path.join(ROOT, "worker", "src", f), "utf8")).join("\n");
+  t.doesNotMatch(src, /\bfetch\s*\(/, "the module never calls fetch itself");
+  t.doesNotMatch(src, /discord\.com|api\.github\.com|api\.anthropic\.com/i, "no Discord, GitHub or Anthropic address in either module");
+});
+
+test("D1 cost: every query uses an index, and a submit touches a handful of rows", async () => {
+  const { env, db } = fresh();
+  db.log.length = 0;
+  await submit(env);
+  await post(env, "/api/bug-reports/mine", { mfl_user_id: OWNER_A });
+  await post(env, "/api/bug-reports/commish/list", { mfl_user_id: COMMISH });
+  await post(env, "/api/bug-reports/commish/list", { mfl_user_id: COMMISH, status: "open" });
+  await post(env, "/api/bug-reports/commish/get", { mfl_user_id: COMMISH, id: 1 });
+  const seen = new Map();
+  for (const q of db.log) if (/ups_bug_report/.test(q.sql)) seen.set(q.sql, q.args);
+  t.ok(seen.size >= 9, "exercised every store query, saw " + seen.size);
+  for (const [sql, args] of seen) {
+    if (!/^\s*SELECT/i.test(sql)) continue;
+    const plan = db.raw.prepare("EXPLAIN QUERY PLAN " + sql).all(...args.map((a) => (a === undefined ? null : a))).map((p) => p.detail).join(" | ");
+    const indexed = /USING (COVERING )?INDEX|USING INTEGER PRIMARY KEY|PRIMARY KEY/.test(plan);
+    const rowidOrder = /ORDER BY id DESC LIMIT/.test(sql);   // commissioner list, newest first by row id, LIMIT 100
+    t.ok(indexed || rowidOrder, "indexed: " + sql.slice(0, 70) + " -> " + plan);
+    if (!rowidOrder) t.doesNotMatch(plan, /SCAN ups_bug_reports(?! USING)/, "no full scan: " + sql.slice(0, 70));
+  }
+  const dupSql = [...seen.keys()].find((q) => /fingerprint=\?/.test(q));
+  const dupPlan = db.raw.prepare("EXPLAIN QUERY PLAN " + dupSql).all(...seen.get(dupSql)).map((p) => p.detail).join(" | ");
+  t.match(dupPlan, /idx_ups_bug_reports_team_fp/, "the duplicate lookup is pinned to the team+fingerprint index: " + dupPlan);
+  const writes = db.log.filter((q) => /^\s*(INSERT|UPDATE)/i.test(q.sql) && /ups_bug_report/.test(q.sql));
+  t.equal(writes.length, 2, "a new report is two inserts (report + event)");
+});
+
+// ------------------------------------------------------------------ failure safety
+test("a database failure on save answers 500, stores nothing and does not log the report text", async () => {
+  const { env, db } = fresh();
+  const logged = [];
+  const orig = console.error; console.error = (...a) => logged.push(a.join(" "));
+  db.opts.failWrites = true;
+  try {
+    const r = await submit(env, { summary: "SECRET-SUMMARY-TEXT" });
+    t.equal(r.status, 500);
+    t.equal(r.json.code, "server_error");
+    t.match(r.json.message, /wasn't saved/);
+  } finally { console.error = orig; db.opts.failWrites = false; }
+  t.equal(rows(db).length, 0);
+  t.ok(!logged.join("\n").includes("SECRET-SUMMARY-TEXT"), "report text is never logged");
+});
+
+test("two identical requests racing: the unique index lets one through, the loser is answered as a replay", async () => {
+  const store = makeMemoryStore();
+  const base = { path: "/api/bug-reports", env: {}, defaultLeagueId: "74598", defaultSeason: "2026" };
+  const call = (st, body) => handleBugReportRequest({
+    ...base, request: new Request("https://x/api/bug-reports?L=74598&YEAR=2026", { method: "POST", body: JSON.stringify(body) }), url: new URL("https://x/api/bug-reports?L=74598&YEAR=2026"),
+    deps: { isEnabled: async () => true, detectFranchise: async () => ({ franchise_id: "0002" }), commishFids: () => [], store: () => st },
+  });
+  const body = report();
+  t.equal((await call(store, body)).status, 201);
+  // The second request read the table BEFORE the first one committed: every pre-check came back empty.
+  let looked = 0;
+  const stale = { ...store, findByRequestId: async (f, r) => (looked++ === 0 ? null : store.findByRequestId(f, r)), findOpenByFingerprint: async () => null, recentByFranchise: async () => [] };
+  const loser = await call(stale, body);
+  t.equal(loser.status, 200);
+  t.equal((await loser.json()).replay, true);
+  t.equal(store._reports.length, 1);
+});
+
+restoreConsole();
+await run("bug_reports");
