@@ -101,6 +101,9 @@
     if (again) { var f = appEl.querySelector(again); if (f && f.focus) f.focus({ preventScroll: true }); }
     if (typing && !sheet2) restoreCaret(typing);
     if (S.rev) revealAgain();
+    // Standings › Week: the selected week's chip is brought into view in its sideways strip (Week 10 is off-screen at 320 px otherwise)
+    var lwk = appEl.querySelector(".lgwkc [aria-pressed=\"true\"]");
+    if (lwk && lwk.parentNode && lwk.parentNode.scrollWidth > lwk.parentNode.clientWidth) lwk.parentNode.scrollLeft = Math.max(0, lwk.offsetLeft - lwk.parentNode.clientWidth / 2);
     Array.prototype.forEach.call(appEl.querySelectorAll("img[data-chain]"), function (img) {
       var urls = []; try { urls = JSON.parse(img.getAttribute("data-chain")) || []; } catch (e) { urls = []; }
       U.photo.attach(img, urls, function (src) { S.photoSource = S.photoSource || {}; S.photoSource[img.getAttribute("data-chain")] = src; }, known);
