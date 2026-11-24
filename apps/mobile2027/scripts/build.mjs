@@ -31,8 +31,8 @@ export const LOCK = path.join(ROOT, "shared.lock.json");
 export const MODE = "preview";
 
 export const FILES = [
-  "index.html", "styles.css", "team-colors.css", "config.js", "recorded_data.js", "app.js", "_headers",
-  "lib/format.js", "lib/reviewed_extensions.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/coverage.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/oppctx.js", "lib/breakdown.js", "lib/views.js",
+  "index.html", "styles.css", "team-colors.css", "config.js", "recorded_data.js", "recorded_standings.js", "app.js", "_headers",
+  "lib/format.js", "lib/reviewed_extensions.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/coverage.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/oppctx.js", "lib/breakdown.js", "lib/standings.js", "lib/standview.js", "lib/views.js",
 ];
 
 // Shared modules taken from site/shared/ unchanged: the contract-window rules and the taxi rule, which the next stages need.
@@ -41,7 +41,9 @@ export const FILES = [
 //   site/shared/injury_status.js  carries a loader (createLoader) that calls fetch, a second network path. It is taken as a DERIVED
 //                                 copy instead (below): the same file with exactly that loader cut out.
 export const SHARED_DIR = path.join(REPO, "site", "shared");
-export const SHARED = ["contract_windows.js", "taxi_rule.js"];
+// Standings (#1503): the race module, the clinch engine and the odds display policy, byte for byte. standings_clinch.js and odds_display.js are the
+// reviewed #1521 head (b5b02799), merged into this draft branch as an explicit dependency: this build cannot reach main before #1521 does.
+export const SHARED = ["contract_windows.js", "taxi_rule.js", "standings_race.js", "standings_clinch.js", "odds_display.js"];
 export const sharedOut = (name) => "shared/" + name;
 
 // DERIVED copies (stage R2). The injury resolver is one classic file that mixes ~200 lines of pure rules with a small loader that calls

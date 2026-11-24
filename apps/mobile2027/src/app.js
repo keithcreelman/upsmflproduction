@@ -50,7 +50,11 @@
     pf: { s: "pos", open: {}, res: {}, q: "", pos: "all", xt: false, xpos: "all", note: null }, // Team › Performance: the sort (pos | tot | ppg), which rows are open, which reserve groups are open, the name search (R8), the position filter and "Search other teams" (R9)
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
-    sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
+    sample: U.sample.create(), // Sample mode: client-only, labeled, off at every start (it is never stored)
+    // League › Standings (#1503): what is on screen (sub-tab, Season | Week, the Season view, the week, which rows are open, the team of an open detail,
+    // the breakdown view) and its reads + model (S.lgd: the standings and the league schedule by holder, the model built from them, weeks re-read once)
+    lg: { sub: "race", per: "season", cset: "pts", wk: null, open: {}, team: null, brk: "pos" },
+    lgd: { st: null, fs: null, model: null, sig: "", reread: {} }
   };
 
   // ---- display choices ----
@@ -257,6 +261,7 @@
       S.model = U.model.build(rw, r.league.state === "ok" ? r.league.data : null, r.weekly.state === "ok" ? r.weekly.data : null, r.week, parseInt(cfg.season, 10));
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
       S.intel = { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null, cal: null, reread: {} }; S.wk = null; S.ns = { state: "idle" }; S.live = null;
+      S.lgd = { st: null, fs: null, model: null, sig: "", reread: {} };
       if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
@@ -264,6 +269,7 @@
       if (ids.indexOf(S.teamId) < 0) S.teamId = ids[0];
       if (h.p) openProfile(h.p, true); else render();
       ensureIntel();
+      ensureLeague();
     });
   }
 
@@ -434,6 +440,46 @@
     });
   }
 
+  // ---- League › Standings (#1503) ----
+  // Reads, each asked once and reused (switching Race, Divisions, Scoring, Season | Week, weeks or teams asks nothing): the standings (kept 10 minutes),
+  // the league's schedule (6 hours), then that season's weekly lineups and scores, Weeks 1..through (the same per-week reads Team › Roster uses, S.intel.wk,
+  // kept an hour). Corrections: the standings answer carries every team's weekly score, so it is the change detector. When a completed week's lineups no
+  // longer add up to it, that week alone is read again, once per detected change; a week that still disagrees is shown as not reconciled, never forced.
+  // The forecast and the frozen position list exist only in the recorded preview (recorded_standings.js); live mode shows "—" and no contributions.
+  function leagueStatic() { var R = cfg.data === "recorded" ? window.UPS2027_RECORDED : null; return R && R.static ? R.static : null; }
+  function ensureLeague(force) {
+    if (S.sample.on || !S.model || S.tab !== "league" || !U.standings) return;
+    var L = S.lgd;
+    if (!L.st || (force && L.st.state === "error")) intelRead(L, "st", function (f) { return loader.loadStandings(f); }, !!force, function () { buildLeague(); ensureLeague(false); });
+    if (!L.fs || (force && L.fs.state === "error")) intelRead(L, "fs", function (f) { return loader.loadFantasySchedule(f); }, !!force, function () { buildLeague(); });
+    var thr = L.st && L.st.state === "ok" && L.st.data.regular_season ? Number(L.st.data.regular_season.through_week) : 0;
+    for (var w = 1; w <= thr; w++) (function (wk) {
+      var rec = S.intel.wk[wk];
+      if (rec && !(force && rec.state === "error")) return;
+      intelRead(S.intel.wk, wk, function (f) { return loader.loadWeekly(wk, f); }, !!(force && rec), function () { buildLeague(); });
+    })(w);
+    if (S.sheet === "lbrk") ensurePlayers(false);
+  }
+  function buildLeague() {
+    var L = S.lgd;
+    if (!L.st || L.st.state === "loading" || !L.fs || L.fs.state === "loading") return;
+    if (L.st.state !== "ok") { L.model = null; render(true); return; }
+    var thr = Number(L.st.data.regular_season && L.st.data.regular_season.through_week) || 0, weeks = {}, wstate = "ok", sig = [L.st.at, L.fs.at];
+    for (var w = 1; w <= thr; w++) { var r = S.intel.wk[w]; if (!r || r.state === "loading") { wstate = wstate === "error" ? "error" : "loading"; } else if (r.state !== "ok") wstate = "error"; else weeks[w] = r.data; sig.push(r ? r.state + r.at : "-"); }
+    var key = sig.join("|"); if (key === L.sig && L.model) return; L.sig = key;
+    var st = leagueStatic();
+    L.model = U.standings.build({ standings: L.st.data, schedule: L.fs.state === "ok" ? L.fs.data : null, weeks: wstate === "ok" ? weeks : null, weeksState: wstate,
+      positions: st ? st.positions : null, forecast: st ? st.forecast : null, season: parseInt(cfg.season, 10),
+      mods: { race: window.UPS_STANDINGS_RACE, clinch: window.UPS_STANDINGS_CLINCH, odds: window.UPS_ODDS_DISPLAY } });
+    // a completed week whose lineups no longer add up to the standings: read it again, once for this answer
+    var C = L.model && L.model.contrib;
+    if (C && C.problems) C.problems.forEach(function (p) {
+      var tag = p.w + "@" + L.st.at;
+      if (/vs standings/.test(p.why) && !L.reread[tag]) { L.reread[tag] = true; intelRead(S.intel.wk, p.w, function () { return loader.loadWeekly(p.w, true); }, true, function () { buildLeague(); }); }
+    });
+    render(true);
+  }
+
   function loadPenalty(force) {
     if (S.sample.on) return;
     if (!force && (S.penalty.state === "loading" || S.penalty.state === "ok")) return;
@@ -546,14 +592,27 @@
     }
     loader.clearErrors();
     if (!S.model || S.load.core === "loading" || S.load.core === "error") { loadCore(); return; }
+    if (S.lgd.st && S.lgd.st.state === "loading") S.lgd.st = null;
+    if (S.lgd.fs && S.lgd.fs.state === "loading") S.lgd.fs = null;
     render(true);
     ensureIntel();
+    ensureLeague();
   }
   appEl.addEventListener("click", function (ev) {
     var el = ev.target.closest ? ev.target.closest("[data-act]") : null;
     if (!el || !appEl.contains(el)) return;
     var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
-    if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); }
+    if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); ensureLeague(); }
+    // League › Standings (#1503): taps change only what is drawn; none asks for data except Try again
+    else if (act === "lgsub") { if (v === "race" || v === "div" || v === "scoring") { S.lg.sub = v; render(true); } }
+    else if (act === "lgper") { if (v === "season" || v === "week") { S.lg.per = v; render(true); } }
+    else if (act === "lgset") { if (v === "pts" || v === "fin" || v === "grp") { S.lg.cset = v; render(true); } }
+    else if (act === "lgwk") { var lw = parseInt(v, 10), LM = S.lgd.model; if (el.getAttribute("aria-disabled") !== "true" && LM && lw >= 1 && lw <= LM.through) { S.lg.wk = lw; render(true); } }
+    else if (act === "lgt") { if (v && /^[a-z0-9:]+$/i.test(v)) { S.lg.open[v] = !S.lg.open[v]; render(true); } }
+    else if (act === "lgteam") { var tf = el.getAttribute("data-fid"); if (tf && /^\d{4}$/.test(tf)) { S.lg.team = tf; S.sheet = "lteam"; render(); } }
+    else if (act === "lgbrk") { var bf = el.getAttribute("data-fid"); if (bf && /^\d{4}$/.test(bf)) { S.lg.team = bf; S.sheet = "lbrk"; render(); ensurePlayers(false); } }
+    else if (act === "lgbv") { if (v === "pos" || v === "slot") { S.lg.brk = v; render(true); } }
+    else if (act === "lgretry") { ensureLeague(true); }
     else if (act === "sub") { S.sub = v; render(); ensureIntel(); }
     else if (act === "view") { if (v === "lineup" || v === "byes") { S.view = v; S.sheet = null; render(); ensureIntel(); } }
     else if (act === "weeks") { S.sheet = "weeks"; render(); }

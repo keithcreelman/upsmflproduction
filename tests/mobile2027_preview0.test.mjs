@@ -54,7 +54,9 @@ function state(over) {
     requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
   };
 }
-const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "ctl", "cts", "cty", "ctx", "cth", "pfs", "pfx", "pfres", "retryperf", "help", "ctbd", "ctcat", "nsx", "retryns", "bdv", "bdg", "retrybox", "retrylog"];
+const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "ctl", "cts", "cty", "ctx", "cth", "pfs", "pfx", "pfres", "retryperf", "help", "ctbd", "ctcat", "nsx", "retryns", "bdv", "bdg", "retrybox", "retrylog",
+  // Standings (#1503): display controls only (a tab, a period, a view, a week, a row opened or closed, a team's detail, a breakdown view, Try again)
+  "lgsub", "lgper", "lgset", "lgwk", "lgt", "lgteam", "lgbrk", "lgbv", "lgretry"];
 const findPlayer = (pred) => allPlayers().find(pred);
 
 // ───────────────────────── 1. contract text and schedule ─────────────────────────
@@ -416,7 +418,8 @@ test("other tabs and states: placeholders say what is not here; taxi details; un
   t.match(V.app(state({ profile: { pid: tx.id, tab: "perf" } })), /Breakdown/);   // R6: the profile's Performance tab is the Breakdown
   const miss = V.app(state({ profile: { pid: "99999999", tab: "contract" } }));
   t.match(miss, /Player not found/);
-  ["home", "market", "league"].forEach((id) => t.match(V.app(state({ tab: id })), /not in Preview 0/i));
+  ["home", "market"].forEach((id) => t.match(V.app(state({ tab: id })), /not in Preview 0/i));
+  t.match(V.app(state({ tab: "league" })), /<h1>Standings<\/h1>[\s\S]*Loading the standings/, "Standings (#1503): League draws Standings; tests/mobile2027_standings.test.mjs covers it");
   t.match(V.app(state({ sub: "contracts" })), /Cap space · 2026 season/); t.doesNotMatch(V.app(state({ sub: "contracts" })), /gotoview/);
   const cap = V.app(state({ sub: "cap" })); t.match(cap, /Not in this preview\. Cap space is left out on purpose/); t.doesNotMatch(cap, /data-act="(?!nav|sub|about)/, "nothing on Cap & picks links anywhere");
 });
@@ -757,7 +760,7 @@ test("shared modules: taken byte for byte, pinned by SHA-256, loadable in the pa
   const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
   const { createHash } = await import("node:crypto");
   const sha = (b) => createHash("sha256").update(b).digest("hex");
-  t.deepEqual(B.SHARED, ["contract_windows.js", "taxi_rule.js"], "the first intake is exactly the two pure modules the next stages need");
+  t.deepEqual(B.SHARED, ["contract_windows.js", "taxi_rule.js", "standings_race.js", "standings_clinch.js", "odds_display.js"], "the two pure modules of the first intake, then Standings (#1503): the race module and #1521's clinch engine and odds display policy");
   // the committed lock is well formed (whether it matches the LIVE classic files is check_shared.mjs's job, not the suite's)
   const committed = B.readLock(); t.ok(committed && committed.files);
   t.deepEqual(Object.keys(committed.files).sort(), B.SHARED.slice().sort(), "the committed lock pins exactly the shared list");
@@ -772,6 +775,7 @@ test("shared modules: taken byte for byte, pinned by SHA-256, loadable in the pa
   B.SHARED.forEach((n) => vm.runInContext(fs.readFileSync(path.join(FIXSH, n), "utf8"), sandbox, { filename: n }));
   t.ok(sandbox.UPS_CONTRACT_WINDOWS && typeof sandbox.UPS_CONTRACT_WINDOWS === "object", "contract windows attach UPS_CONTRACT_WINDOWS");
   t.ok(sandbox.UPS_TAXI_RULE && typeof sandbox.UPS_TAXI_RULE === "object", "the taxi rule attaches UPS_TAXI_RULE");
+  ["UPS_STANDINGS_RACE", "UPS_STANDINGS_CLINCH", "UPS_ODDS_DISPLAY"].forEach((g) => t.ok(sandbox[g] && typeof sandbox[g] === "object", "Standings: attaches " + g));
   t.equal(calls.length, 0, "loading them makes no request");
   // the page loads them, before the app's own files
   const scripts = [...read("index.html").matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);

@@ -11,11 +11,12 @@
     req ? require("./sample.js") : root.UPS2027.sample,
     req ? require("./roster.js") : root.UPS2027.roster,
     req ? require("./tabviews.js") : root.UPS2027.tabviews,
-    req ? require("./coverage.js") : root.UPS2027.coverage
+    req ? require("./coverage.js") : root.UPS2027.coverage,
+    req ? require("./standview.js") : root.UPS2027.standview
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.views = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R, TV, COV) {
+})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R, TV, COV, SV) {
   "use strict";
 
   var esc = F.esc, money = F.money, commonCode = F.commonCode;
@@ -465,6 +466,12 @@
   // R8: one scrolling area (#scroll) holds the heading, the sticky tabs and the screen body (#screen), so the heading scrolls away under the marker.
   function scroller(top, body) { return '<div id="scroll" class="scroll">' + top + '<div id="screen">' + body + "</div></div>"; }
 
+  // League › Standings (#1503): Race, Divisions and Scoring (lib/standview.js draws them from the model in S.lgd.model)
+  function leagueScreen(S) {
+    if (S.load.core === "error" || (!S.model && S.load.core !== "loading")) return placeholderScreen("league");
+    return scroller(header("Standings", SV.asOf(S)) + SV.tabs(S), '<div class="lghelp"><button class="lglink" data-act="help">What these mean</button></div>' + SV.body(S));
+  }
+
   function placeholderScreen(id) {
     var name = NAVS.filter(function (n) { return n[0] === id; })[0][1];
     return scroller(header(name, ""), later(name, LATER[id]));
@@ -698,10 +705,13 @@
 
   function app(S) {
     var on = sampleOn(S);
-    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : placeholderScreen(S.tab);
+    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : S.tab === "league" && SV ? leagueScreen(S) : placeholderScreen(S.tab);
     var layer = "";
     if (S.sheet === "about") layer = aboutSheet(S);
     else if (!on && S.profile && S.model) layer = profile(S);
+    else if (!on && S.tab === "league" && SV && S.sheet === "lteam") layer = SV.teamSheet(S);
+    else if (!on && S.tab === "league" && SV && S.sheet === "lbrk") layer = SV.brkSheet(S);
+    else if (!on && S.tab === "league" && SV && S.sheet === "help") layer = SV.helpSheet(S);
     else if (!on && S.sheet === "teams" && S.model) layer = teamSheet(S);
     else if (!on && S.sheet === "weeks" && S.model) layer = weekSheet(S);
     else if (!on && S.sheet === "help" && S.model) layer = helpSheet(S);

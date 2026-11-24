@@ -46,7 +46,8 @@ test("the two routes: exact path, exact query names, the worker only; anything e
   t.equal(u.status, WORKER + "/api/player-status?season=2026&L=74598");
   t.equal(u.matchups(11), WORKER + "/api/lineup-matchups?YEAR=2026&W=11");
   [u.status, u.matchups(11), u.matchups(3)].forEach((x) => t.ok(D.check(x, WORKER).ok, "allowed: " + x));
-  t.equal(D.RULES.length, 10, "ten allowed paths in all (R6 added /api/player-weekly-box; R7 the two draft #1515 reads)");
+  t.equal(D.RULES.length, 11, "eleven allowed paths in all (R6 added /api/player-weekly-box; R7 the two draft #1515 reads; Standings #1503 /api/standings)");
+  t.deepEqual(D.RULES.find((r) => r.path === "/api/standings").query, ["year"], "Standings: the year only");
   // R7 (Keith, 2026-11-23: the stored-projection read and the league-wide season totals): exactly these query names, nothing else
   t.deepEqual(D.RULES.find((r) => r.path === "/api/player-projections").query, ["season", "week", "ids"]);
   t.deepEqual(D.RULES.find((r) => r.path === "/api/position-season-stats").query, ["season", "through", "group"]);
