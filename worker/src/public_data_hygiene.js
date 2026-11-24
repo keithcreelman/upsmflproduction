@@ -27,7 +27,10 @@ function blankDeep(v, keys = OFFER_TEXT) {
 /** A copy of a stored trade-offer row with its free-text fields emptied, at the top level and inside `payload`.
  *  The input is never mutated (the caller still needs the text in memory, e.g. for the day-one trade DM). */
 export function blankOfferText(row) {
-  return row && typeof row === "object" ? blankDeep(row) : row;
+  if (!row || typeof row !== "object") return row;
+  const out = blankDeep(row);
+  if (isObj(row.payload)) out.payload = offerPayloadForFile(row.payload);
+  return out;
 }
 
 // ── account identifiers ───────────────────────────────────────────────────────────────────────────────────────────
@@ -163,6 +166,40 @@ export function outboxPayloadForFile(pj) {
     ui: pickScalars(pj.ui, ["left_team_id", "right_team_id"]),
     validation: pickScalars(pj.validation, ["status"]),
   };
+}
+
+// ── trade offers (the offers file) ───────────────────────────────────────────────────────────────────────────────────
+// The stored offer's `payload` is what the inbox card and the workbench hydrate from. Same method as the outbox: rebuilt from
+// an allowlist, scalars only. It adds the display fields the cards show (team names, the salary tables); it leaves out the
+// builder's own UI state (`filters`, which holds the search box), `validation.issues`, the raw `assets` lists (the client rebuilds
+// those from the offer's token lists), and every key not named here, at any level.
+const OFFER_PAYLOAD_TOP = [...PAYLOAD_TOP, "generated_at", "source"];
+const OFFER_TEAM_KEYS = [...TEAM_KEYS, "franchise_name", "traded_salary_adjustment_dollars", "traded_salary_adjustment_max_k", "selected_non_taxi_salary_dollars"];
+const SALARY_SIDE_KEYS = ["franchise_id", "franchise_name", "salary_cap_dollars", "starting_salary_dollars", "salary_adjustment_total_dollars", "outgoing_dollars",
+  "incoming_dollars", "salary_trade_adjustment_dollars", "net_salary_adjustment_dollars", "new_salary_dollars", "trade_salary_adjustment_k",
+  "trade_salary_adjustment_max_k", "net_trade_salary_k", "net_cap_change_dollars", "available_salary_before_dollars", "available_salary_after_dollars", "over_cap_dollars"];
+const IMPACT_ROW_KEYS = ["season", "left_before_dollars", "left_after_dollars", "left_change_dollars", "right_before_dollars", "right_after_dollars", "right_change_dollars"];
+
+/** The stored-offer version of the payload allowlist. Returns null for a non-object. */
+export function offerPayloadForFile(pj) {
+  if (!isObj(pj)) return null;
+  const arr = (v) => (Array.isArray(v) ? v : []);
+  const out = {
+    ...pickScalars(pj, OFFER_PAYLOAD_TOP),
+    teams: arr(pj.teams).filter(isObj).map((tm) => ({ ...pickScalars(tm, OFFER_TEAM_KEYS), selected_assets: arr(tm.selected_assets).filter(isObj).map((a) => pickScalars(a, ASSET_KEYS)) })),
+    extension_requests: arr(pj.extension_requests).filter(isObj).map((r) => pickScalars(r, EXT_KEYS)),
+    ui: pickScalars(pj.ui, ["left_team_id", "right_team_id"]),
+    validation: pickScalars(pj.validation, ["status"]),
+  };
+  if (isObj(pj.salary_reconciliation)) {
+    const sr = pj.salary_reconciliation;
+    out.salary_reconciliation = { ...pickScalars(sr, ["has_over_cap"]), left: pickScalars(sr.left, SALARY_SIDE_KEYS), right: pickScalars(sr.right, SALARY_SIDE_KEYS) };
+  }
+  if (isObj(pj.multi_year_salary_impact)) {
+    const my = pj.multi_year_salary_impact;
+    out.multi_year_salary_impact = { ...pickScalars(my, ["current_season", "left_franchise_name", "right_franchise_name"]), rows: arr(my.rows).filter(isObj).map((r) => pickScalars(r, IMPACT_ROW_KEYS)) };
+  }
+  return out;
 }
 
 /** A copy of an outbox row that is safe to commit to the public repository: allowlisted fields only, `payload_json` rebuilt from an allowlist, and the MFL response excerpts (which can echo the note) emptied. Never mutates its input. */
