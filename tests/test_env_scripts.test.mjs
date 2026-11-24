@@ -165,4 +165,32 @@ test("test site build: allowlist only, test worker and 25625 everywhere, connect
   fs.rmSync(out, { recursive: true, force: true });
 });
 
+test("test site build: refuses symlinks and sources outside site/m and the selected shared files", () => {
+  const TEST = "https://ups-test.keith-creelman.workers.dev";
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ups-test-site-src-"));
+  const priv = path.join(root, "private.json"); fs.writeFileSync(priv, '{"owner_note":"x"}');
+  const fakeSite = (name) => {
+    const site = path.join(root, name);
+    fs.mkdirSync(path.join(site, "m"), { recursive: true }); fs.mkdirSync(path.join(site, "shared"), { recursive: true });
+    fs.writeFileSync(path.join(site, "m", "index.html"), '<title>UPS</title><script src="../shared/a.js"></script><script>boot()</script>');
+    fs.writeFileSync(path.join(site, "m", "app.js"), "var x=1;");
+    fs.writeFileSync(path.join(site, "shared", "a.js"), "var a=1;");
+    fs.writeFileSync(path.join(site, "shared", "b.js"), "var b=1;");
+    return site;
+  };
+  const outDir = () => fs.mkdtempSync(path.join(os.tmpdir(), "ups-test-site-out-"));
+  const ok = fakeSite("ok");
+  const r = buildTestSite(outDir(), TEST, ok);
+  t.deepEqual(r.shared, ["a.js"], "a plain fake site builds, with only the referenced shared file");
+  const s1 = fakeSite("file_link"); fs.symlinkSync(priv, path.join(s1, "m", "data.json"));
+  t.throws(() => buildTestSite(outDir(), TEST, s1), /symlink: site\/m\/data\.json/, "a symlinked file inside site/m is refused");
+  const s2 = fakeSite("dir_link"); fs.symlinkSync(root, path.join(s2, "m", "more"));
+  t.throws(() => buildTestSite(outDir(), TEST, s2), /symlink: site\/m\/more/, "a symlinked folder inside site/m is refused");
+  const s3 = fakeSite("shared_link"); fs.rmSync(path.join(s3, "shared", "a.js")); fs.symlinkSync(priv, path.join(s3, "shared", "a.js"));
+  t.throws(() => buildTestSite(outDir(), TEST, s3), /symlink: site\/shared\/a\.js/, "a selected shared file that is a symlink is refused");
+  const s4 = fakeSite("m_link"); fs.rmSync(path.join(s4, "m"), { recursive: true }); fs.symlinkSync(path.join(ok, "m"), path.join(s4, "m"));
+  t.throws(() => buildTestSite(outDir(), TEST, s4), /symlink: site\/m/, "site/m itself as a symlink is refused");
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 await run("test_env_scripts");

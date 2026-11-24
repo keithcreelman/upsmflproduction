@@ -11,6 +11,7 @@
 //   - adds _headers: a content security policy whose connect-src is the page itself and the test worker only (a
 //     missed production address can't be fetched), noindex, and no referrer
 //   - marks the page title "UPS TEST"
+//   - refuses any symlink in the source, and any source whose real path is outside site/m or the selected shared files
 //   - refuses to finish if any output file still names the production worker, league 74598, or a file outside the allowlist
 // It deploys nothing. Publishing is `wrangler pages deploy <outDir> --project-name ups-test-25625 --branch main`.
 import crypto from "node:crypto";
@@ -55,18 +56,36 @@ export function rewrite(text, worker) {
 export function build(outDir, worker, site = SITE) {
   if (!/^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/.test(worker) || worker === PROD_WORKER) throw new Error("--worker must be the test worker's https://<name>.<account>.workers.dev address, not production's");
   if (fs.existsSync(outDir) && fs.readdirSync(outDir).length) throw new Error(`${outDir} is not empty`);
+  // Review round 4: a symlink inside site/m (or a shared file that is one) could point at a private file elsewhere and be
+  // copied into an allowed output path. Every source must be a plain file or folder, and its real path must stay inside
+  // site/m or be one of the selected shared files.
+  const realSite = fs.realpathSync(site);
+  const plain = (rel) => {
+    const st = fs.lstatSync(path.join(site, rel));
+    if (st.isSymbolicLink()) throw new Error(`test site build refused a symlink: site/${rel.split(path.sep).join("/")}`);
+    return st;
+  };
+  plain("m"); plain("shared");
   const index = fs.readFileSync(path.join(site, "m", "index.html"), "utf8");
   const shared = sharedRefs(index);
   const files = [];
   (function walk(rel) {
     for (const e of fs.readdirSync(path.join(site, rel), { withFileTypes: true })) {
       const r = path.join(rel, e.name);
-      if (e.isDirectory()) walk(r); else files.push(r);
+      const st = plain(r);
+      if (st.isDirectory()) walk(r); else if (st.isFile()) files.push(r);
+      else throw new Error(`test site build refused a non-regular file: site/${r.split(path.sep).join("/")}`);
     }
   })("m");
-  for (const f of shared) files.push(path.join("shared", f));
+  for (const f of shared) { const r = path.join("shared", f); if (!plain(r).isFile()) throw new Error(`test site build: site/shared/${f} is not a regular file`); files.push(r); }
+  const allowedReal = (rel) => {
+    const real = fs.realpathSync(path.join(site, rel));
+    const m = path.join(realSite, "m") + path.sep;
+    return real.startsWith(m) || shared.some((f) => real === path.join(realSite, "shared", f));
+  };
   const out = [];
   for (const rel of files) {
+    if (!allowedReal(rel)) throw new Error(`test site build refused a source outside the allowlist: site/${rel.split(path.sep).join("/")}`);
     const src = path.join(site, rel), dst = path.join(outDir, rel);
     fs.mkdirSync(path.dirname(dst), { recursive: true });
     if (/\.(js|html|json|css|webmanifest)$/.test(rel)) {

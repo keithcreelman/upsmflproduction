@@ -623,6 +623,13 @@ test("operation identity: the same MFL write is sent at most once per request, e
   const postDupPairs = { url: "https://api.myfantasyleague.com/2026/import?TYPE=salaryAdj&L=25625&JSON=1", init: { method: "POST", body: `TYPE=salaryAdj&L=25625&DATA=${DATA}` } };
   t.equal(G.mflWriteIdentity({ url: post.url, bodyText: post.init.body }), G.mflWriteIdentity({ url: getRetry.url, bodyText: "" }), "POST and its GET retry share one identity");
   t.equal(G.mflWriteIdentity({ url: postDupPairs.url, bodyText: postDupPairs.init.body }), G.mflWriteIdentity({ url: post.url, bodyText: post.init.body }), "a field repeated in query and body counts once");
+  // review round 4: only the query/body overlap is removed; a field repeated within one source keeps its count
+  const imp = "https://www48.myfantasyleague.com/2026/import";
+  const once = G.mflWriteIdentity({ url: imp, bodyText: "TYPE=salaryAdj&L=25625&DATA=A" });
+  t.ok(G.mflWriteIdentity({ url: imp, bodyText: "TYPE=salaryAdj&L=25625&DATA=A&DATA=A" }) !== once, "DATA=A twice in one body is a different write from DATA=A once");
+  t.ok(G.mflWriteIdentity({ url: `${imp}?TYPE=salaryAdj&L=25625&DATA=A&DATA=A` }) !== G.mflWriteIdentity({ url: `${imp}?TYPE=salaryAdj&L=25625&DATA=A` }), "the same holds within one query");
+  t.equal(G.mflWriteIdentity({ url: `${imp}?DATA=A`, bodyText: "TYPE=salaryAdj&L=25625&DATA=A&DATA=A" }), G.mflWriteIdentity({ url: imp, bodyText: "TYPE=salaryAdj&L=25625&DATA=A&DATA=A" }), "overlap counts up to the larger source, not the sum");
+  t.equal(G.mflWriteIdentity({ url: `${imp}?TYPE=salaryAdj&L=25625`, bodyText: "TYPE=salaryAdj&L=25625&DATA=A" }), once, "query+body overlap still counts once");
   const r = await viaRuntime(env, fakeApp(() => [post, getRetry, postDupPairs]), "POST", "/trade-offers/action", { body: { action: "accept", offer_id: "x" }, headers: { "Idempotency-Key": "dup-in-req-0001" } });
   t.equal(r.status, 200, r.text);
   t.equal(r.json.steps[0].status, 200);

@@ -426,12 +426,18 @@ export function operationIdentity({ method, url, bodyText, credentialHashes }) {
 // merged and sorted, credentials and output-format switches left out.
 export function mflWriteIdentity({ url, bodyText }) {
   const u = new URL(url);
-  const pairs = [...u.searchParams.entries(), ...formEntries(bodyText)].filter(([k]) => !/^json$/i.test(k));
-  // A field sent in both the query and the body (TYPE=…&L=… on a POST's URL and form) is one MFL field: identical
-  // pairs count once, so a POST and its GET retry of the same fields share one identity (review round 3).
-  const seen = new Set();
-  const uniq = sortedPairs(pairs).filter((p) => { const k = JSON.stringify(p); if (seen.has(k)) return false; seen.add(k); return true; });
-  return JSON.stringify(["mfl", u.pathname.toLowerCase().replace(/\/+$/, ""), uniq]);
+  const noJson = ([k]) => !/^json$/i.test(k);
+  const query = sortedPairs([...u.searchParams.entries()].filter(noJson));
+  const body = sortedPairs(formEntries(bodyText).filter(noJson));
+  // A field sent in both the query and the body (TYPE=…&L=… on a POST's URL and form) is one MFL field, so a POST and
+  // its GET retry of the same fields share one identity (review round 3). Only that cross-source overlap is removed:
+  // each pair appears as many times as the source that repeats it most, so DATA=A twice in one body stays different
+  // from DATA=A once (review round 4).
+  const count = (list) => list.reduce((m, p) => { const k = JSON.stringify(p); m.set(k, (m.get(k) || 0) + 1); return m; }, new Map());
+  const q = count(query), b = count(body);
+  const merged = [];
+  for (const k of new Set([...q.keys(), ...b.keys()])) for (let i = Math.max(q.get(k) || 0, b.get(k) || 0); i > 0; i--) merged.push(JSON.parse(k));
+  return JSON.stringify(["mfl", u.pathname.toLowerCase().replace(/\/+$/, ""), sortedPairs(merged)]);
 }
 
 // ---------------------------------------------------------------------------------------------
