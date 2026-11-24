@@ -187,6 +187,35 @@ wrangler.test.toml   Total Upload 3990.40 KiB / gzip 923.96 KiB   (compatibility
    The test `UPS_ENV=production: entry.js hands the same request, env and ctx to index.js` asserts this
    locally; the deployed check is a before/after of a few read routes.
 
+## 6a. Deployed state (2026-11-24, Keith's go to provision the test D1, Worker and website)
+
+| Item | Value |
+|---|---|
+| Test Worker | `ups-test`, https://ups-test.keith-creelman.workers.dev, version `7de460d1-0596-41f7-9c5e-fb66d5a4b859`, from commit `626fccc6` with `wrangler.test.toml` |
+| Test D1 | `ups-test-db`, id `45ae1b65-f2c8-41c5-9e8c-20d4fa2b7340`; loaded with `test_env/ups_test_db_setup.sql` only (marker `test / 25625`, ledger, locks, egress log) |
+| Test website | Pages project `ups-test-25625`, https://ups-test-25625.pages.dev/m/, built by `scripts/test_env/build_test_site.mjs` from the mobile app at `84d8a6a3` (main) |
+| Secrets | `TEST_ADMIN_API_KEY` only (generated; kept outside the repo). `MFLTEST_COMMISHCOOKIE` is **not set** |
+| Schedules | none (Cloudflare API); production keeps its five |
+
+- **Current behavior: fail-closed.** With no test MFL session, every request (status included) gets
+  `503 test_env_misconfigured`. Setting the dedicated test account's session is Keith's step.
+- **Verified on the deployed runtime** (18:35:53Z to 18:41:28Z, with a temporary placeholder session
+  that is not a credential, then deleted): status, both D1 markers, bindings, cache namespace;
+  74598 refused at query, `LEAGUE_ID`, path, JSON body, nested JSON, form body and body/query mixes;
+  conflicting and other leagues refused; admin routes need the key; all six outbound probes refused;
+  a 25625 MFL read through MFL's api to www48 redirect returned 200; no ledger rows were written.
+- **Found only on the deployed runtime:** the static-assets binding is an RPC stub that answers every
+  property name, so it was classified as a D1 database and the worker refused everything. Fixed in
+  `626fccc6` (stubs are detected first; a test reproduces the runtime's shape).
+- **Website:** its content security policy lets the page fetch only itself and the test worker; from
+  the page, the production worker and MFL are blocked and the test worker answers. Only `site/m` and
+  the 12 shared files the page loads are published.
+- **Not loaded:** the worker's 163 migrations. 61 of them insert or change rows (505
+  `ups_extension_master` rows; 16 name 74598), so loading them would copy production-shaped data.
+  Until the app schema is decided, D1-backed routes on the test worker fail.
+- **Not verified on the deployed runtime:** background (`waitUntil`) tracking and the redirect
+  refusal paths (no write was sent; no controllable redirecting host), and the two-way cache probe.
+
 ## 7. First connected test: one FCFS add/drop (proposal, not approved)
 
 **Resolved from MFL's public exports today (2026-11-24, no login, no writes):**
