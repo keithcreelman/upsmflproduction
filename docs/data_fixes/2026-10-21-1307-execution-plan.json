@@ -1,0 +1,330 @@
+{
+ "issue": 1307,
+ "dry_run_pr": 1363,
+ "plan_version": 5,
+ "scope": "authoritative score rows only; ranks held for the rank-definition review",
+ "daily_ceiling": 90000,
+ "reset": "00:00 UTC daily (Cloudflare D1 pricing page); account-wide",
+ "guard": "used_today + forecast_rest_of_day + forward_writes + rollback_reserve <= 90,000",
+ "window_utc": "start 22:05-23:30",
+ "read_guard": {
+  "ceiling": 4500000,
+  "limit": 5000000,
+  "source": "exact account counter: GraphQL d1AnalyticsAdaptiveGroups, every D1 database, sampleInterval = 1 required (else STOP); never d1 insights / d1QueriesAdaptiveGroups",
+  "rule": "UTC billing day (resets 00:00 UTC): reads_used_today + reads_forecast_rest_of_day (per-hour max of the last 7 complete UTC days) + read reserve <= 4,500,000, checked before the first D1 read; rolling 24 h (GraphQL vs `wrangler d1 info`) is diagnostic only"
+ },
+ "attempt_lock": {
+  "ledger": "~/.ups_jobs/1307_src_weekly/attempts/ (fixed path)",
+  "rule": "one apply attempt per approval, consumed before the first production read and never released (preflight STOP, failure, automatic rollback and crash included); a later attempt needs a newer approval comment; rollback approvals are single-use and never reuse an apply approval; verify stays read-only"
+ },
+ "batches": [
+  {
+   "batch": "1A",
+   "status": "ready",
+   "phases": [
+    "B"
+   ],
+   "season": 2025,
+   "weeks": [
+    15,
+    16,
+    17
+   ],
+   "what": "insert every 2025 playoff-week player MFL scored but src_weekly lacks (free agent / taxi / IR, status proven by MFL); pos_rank / overall_rank NULL",
+   "rows_inserted": 2664,
+   "rows_updated": 0,
+   "billed_writes": 10656,
+   "rollback_reserve": 10656,
+   "statements": 34,
+   "statement_file": "out_ranks_null/statements/B_2025.json",
+   "statement_file_sha256": "f499e9d2b3caf50cc5fb595c393053b39eac20e3c53cae5414bb18ce9fb8253c",
+   "calibration": {
+    "first_statement_rows": 80,
+    "first_statement_billed": 320,
+    "its_rollback_reserve": 320
+   },
+   "reads": {
+    "preflight_d1": 19604,
+    "during_writes_worst_case": 2664,
+    "apply_verify_d1": 24932,
+    "runbook_verify_d1": 24932,
+    "rollback_worst_case": 9061,
+    "panel_check_reserve": 40000,
+    "reserve_total": 121193,
+    "mfl_gets": 6,
+    "panel_check_d1_bundle_gets": 8,
+    "bundle_read_reserve_each": 5000
+   },
+   "preimage": {
+    "rows": 1071,
+    "sha256": "42e1ed4dcd50121febdd4dd11ea2d4541991600370ac68c264623d91b9acdff5"
+   },
+   "after": {
+    "rows": 3735,
+    "sha256": "489b6dbe9166f6c5b38adae543e3786653036b3752900c8d7ff6b8d4b1608f83",
+    "null_weekly_ranks": 2664,
+    "null_status": 0
+   },
+   "reconciliation": {
+    "season_weeks": 17,
+    "before": {
+     "pts_showable": 671,
+     "pts_sha256": "e893ec38564c4fe2795f533bd33e153499ecd5468e69ff385c1a658c161fc5f9",
+     "ppg_showable": 384,
+     "ppg_sha256": "8516f9a5fcf95bfc4c7047c1ad2618570b8e1c206e729f49d4f08ee8f26da928"
+    },
+    "after": {
+     "pts_showable": 1730,
+     "pts_sha256": "90eb89a69a852a4a0bc6e2824c2ded0ceb99bff8fe3ecd6259fb616d6d74ae1d",
+     "ppg_showable": 1203,
+     "ppg_sha256": "1c081781656fc1c58045e097d640703dbc26e06e0bb020f79796e76ca2d4e147"
+    },
+    "hidden_after": [
+     "12772",
+     "13688",
+     "13714",
+     "13813",
+     "14896",
+     "15914",
+     "16280",
+     "16288",
+     "17059",
+     "17137",
+     "17200",
+     "17430"
+    ]
+   },
+   "panel_examples": [
+    {
+     "player_id": "12620",
+     "name": "Prescott, Dak",
+     "after": [
+      409.3,
+      16
+     ],
+     "before": [
+      409.3,
+      16
+     ],
+     "rank_basis": [
+      409.3,
+      16
+     ],
+     "stored_rank": [
+      4,
+      5
+     ],
+     "shows_after": true,
+     "rank_pending_fields": []
+    },
+    {
+     "player_id": "12616",
+     "name": "Brissett, Jacoby",
+     "after": [
+      259.9,
+      13
+     ],
+     "before": [
+      259.9,
+      13
+     ],
+     "rank_basis": [
+      259.9,
+      13
+     ],
+     "stored_rank": [
+      17,
+      17
+     ],
+     "shows_after": true,
+     "rank_pending_fields": []
+    },
+    {
+     "player_id": "17039",
+     "name": "Shough, Tyler",
+     "after": [
+      162.6,
+      10
+     ],
+     "before": [
+      91.6,
+      7
+     ],
+     "rank_basis": [
+      162.6,
+      10
+     ],
+     "stored_rank": [
+      28,
+      29
+     ],
+     "shows_after": true,
+     "rank_pending_fields": []
+    },
+    {
+     "player_id": "17424",
+     "name": "Smyth, Charlie",
+     "after": [
+      60.5,
+      5
+     ],
+     "before": [
+      11.6,
+      2
+     ],
+     "rank_basis": [
+      60.5,
+      5
+     ],
+     "stored_rank": [
+      31,
+      3
+     ],
+     "shows_after": true,
+     "rank_pending_fields": []
+    },
+    {
+     "player_id": "14252",
+     "name": "Jackson, Michael",
+     "after": [
+      132.3,
+      16
+     ],
+     "before": [
+      91.6,
+      13
+     ],
+     "rank_basis": [
+      132.3,
+      16
+     ],
+     "stored_rank": [
+      21,
+      38
+     ],
+     "shows_after": true,
+     "rank_pending_fields": [
+      "pos_ppg_rank"
+     ]
+    },
+    {
+     "player_id": "13307",
+     "name": "Milano, Matt",
+     "after": [
+      74.0,
+      12
+     ],
+     "before": [
+      36.5,
+      9
+     ],
+     "rank_basis": [
+      74.0,
+      12
+     ],
+     "stored_rank": [
+      46,
+      45
+     ],
+     "shows_after": true,
+     "rank_pending_fields": [
+      "pos_ppg_rank"
+     ]
+    },
+    {
+     "player_id": "16224",
+     "name": "Murphy, Myles",
+     "after": [
+      87.0,
+      16
+     ],
+     "before": [
+      50.0,
+      13
+     ],
+     "rank_basis": [
+      87.0,
+      16
+     ],
+     "stored_rank": [
+      41,
+      64
+     ],
+     "shows_after": true,
+     "rank_pending_fields": []
+    },
+    {
+     "player_id": "12772",
+     "name": "Murray, Eric",
+     "after": [
+      77.0,
+      11
+     ],
+     "before": [
+      52.8,
+      8
+     ],
+     "rank_basis": [
+      78.3,
+      11
+     ],
+     "stored_rank": [
+      108,
+      72
+     ],
+     "shows_after": false,
+     "rank_pending_fields": []
+    }
+   ],
+   "rank_pending_safeguard": {
+    "pr": 1372,
+    "pos_rank": 253,
+    "pos_ppg_rank": 448,
+    "pos_rank_sha256": "2fc3796db118dbcfa64395c93fbccaafe0d24d8d4c4e90f811614a22e8af5742",
+    "pos_ppg_rank_sha256": "d72d02ec711a186e48a80d62952221faffb0e5555c5d470e33a40bc5649382f3"
+   },
+   "rollback": "delete exactly the inserted keys (statement file 'rollback'); restore is checked against the preimage hash",
+   "local_replay": {
+    "miniflare": {
+     "forward_rows_written": 10656,
+     "forward_rows_read": 0,
+     "rerun_rows_written": 0,
+     "rerun_rows_read": 2664,
+     "rollback_rows_written": 2664,
+     "rollback_rows_read": 7990
+    },
+    "before": {
+     "rows": 1071,
+     "sha256": "5286c7e35125e815071155349fdc611396f81e3e6bd646cf06e0b2675f4798cb"
+    },
+    "after_forward": {
+     "rows": 3735,
+     "sha256": "b0ca72888ff39620d8c0ccc5482eb7324c998974f35c53d112582eb401c9856a"
+    },
+    "after_rollback": {
+     "rows": 1071,
+     "sha256": "5286c7e35125e815071155349fdc611396f81e3e6bd646cf06e0b2675f4798cb"
+    }
+   }
+  }
+ ],
+ "held": [
+  {
+   "batch": "1C",
+   "status": "held",
+   "phases": [
+    "C"
+   ],
+   "season": 2025,
+   "rows_updated": 630,
+   "billed_writes": 630,
+   "reason": "weekly rank tie convention is part of the rank-definition review: 625 of the 630 changes only re-order tied scores by player id"
+  }
+ ],
+ "pending": {
+  "status": "pending; no executable SQL in this plan; to be regenerated after the rank-definition review",
+  "phase_B_2021_2024_rows": 10728,
+  "phase_A_2011_2020_rows": 34900,
+  "phase_C_2021_2024_rows": 2433
+ }
+}
