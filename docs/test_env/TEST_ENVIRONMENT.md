@@ -191,7 +191,7 @@ wrangler.test.toml   Total Upload 3990.40 KiB / gzip 923.96 KiB   (compatibility
 
 | Item | Value |
 |---|---|
-| Test Worker | `ups-test`, https://ups-test.keith-creelman.workers.dev, version `7de460d1-0596-41f7-9c5e-fb66d5a4b859`, from commit `626fccc6` with `wrangler.test.toml` |
+| Test Worker | `ups-test`, https://ups-test.keith-creelman.workers.dev, version `7ba550d3-5486-4b15-8e3d-90d81624a1ea` (19:57Z), from commit `08edd22d` with `wrangler.test.toml`; the checks below ran on `7de460d1` (`626fccc6`) |
 | Test D1 | `ups-test-db`, id `45ae1b65-f2c8-41c5-9e8c-20d4fa2b7340`; loaded with `test_env/ups_test_db_setup.sql` only (marker `test / 25625`, ledger, locks, egress log) |
 | Test website | Pages project `ups-test-25625`, https://ups-test-25625.pages.dev/m/, built by `scripts/test_env/build_test_site.mjs` from the mobile app at `84d8a6a3` (main) |
 | Secrets | `TEST_ADMIN_API_KEY` only (generated; kept outside the repo). `MFLTEST_COMMISHCOOKIE` is **not set** |
