@@ -32234,7 +32234,15 @@ const mflToSleeper = {};
           return storedIndexes.byTradeId.get(tradeId);
         }
         const pairKey = [padFranchiseId(row?.from_franchise_id), padFranchiseId(row?.to_franchise_id)].join("|");
-        const candidates = storedIndexes.byPair.get(pairKey) || [];
+        // A stored offer that already carries its OWN, different MFL trade id is a different
+        // offer (an older or replaced one between the same two teams) -- never this one. Only a
+        // stored offer with no trade id yet (still mid-post) may be matched by team pair.
+        // Production incident 2026-11-24: a live Real Deal Creel -> Pure Greatness offer showed
+        // another offer's (trade 1284, May) pre-trade extensions for players not in the trade.
+        const candidates = (storedIndexes.byPair.get(pairKey) || []).filter((c) => {
+          const cid = String(c?.mfl_trade_id || c?.trade_id || "").replace(/\D/g, "");
+          return !tradeId || !cid || cid === tradeId;
+        });
         if (!candidates.length) return null;
         if (candidates.length === 1) return candidates[0];
 
@@ -32321,8 +32329,20 @@ const mflToSleeper = {};
           source: safeStr(stored.source || "mfl_pendingTrades"),
           summary: stored && typeof stored.summary === "object" ? stored.summary : null,
         };
+        // The stored payload (and its pre-trade extension_requests) is shown to BOTH owners as
+        // part of the deal, so it must provably describe THIS offer: attach it only when its
+        // assets bind to what MFL holds -- the same check the accept path applies before it
+        // will honor a stored copy. A payload that doesn't bind is omitted, never shown.
         if (includePayload && stored && stored.payload && typeof stored.payload === "object") {
-          out.payload = stored.payload;
+          let payloadBinds = false;
+          try {
+            payloadBinds = bindPayloadToMfl({
+              lists: buildTradeProposalAssetLists(stored.payload),
+              from: fromId, to: toId,
+              mflGiveCsv: safeStr(row?.will_give_up), mflReceiveCsv: safeStr(row?.will_receive),
+            }).ok;
+          } catch (_) { payloadBinds = false; }
+          if (payloadBinds) out.payload = stored.payload;
         }
         return out;
       };
