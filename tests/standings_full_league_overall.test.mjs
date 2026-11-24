@@ -383,7 +383,8 @@ test("Scoring: Seed order is the worker's; sortable by every points column", asy
 });
 
 // ═══ Playoff % (Phase 1): the Forecast's odds, plus the existing X / Y clinch checks ═══
-const odds = (p) => (p >= 0.995 ? ">99%" : p > 0 && p < 0.005 ? "<1%" : Math.round(p * 100) + "%");
+// the shared policy with no verified outcome (site/shared/odds_display.js): never 100% or 0%
+const odds = (p) => (p > 0.99 ? ">99%" : p < 0.01 ? "<1%" : Math.round(p * 100) + "%");
 const simBy = Object.fromEntries(SIM6.teams.map((x) => [x.franchiseId, x]));
 const clinch = (byFid) => (m) => ({ ...m, byFid: { ...m.byFid, ...Object.fromEntries(Object.entries(byFid).map(([f, v]) => [f, { ...(m.byFid[f] || {}), ...v }])) } });
 test("Playoff % = the Forecast tab's own odds for every team (playoff % with the bye % beneath); a rounded near-100% is '>99%', never a clinch", async () => {
@@ -393,11 +394,12 @@ test("Playoff % = the Forecast tab's own odds for every team (playoff % with the
   for (const r of R) {
     const x = simBy[r.franchise_id], cell = L.raw(r.franchise_id, "Playoff %");
     t.equal(text(cell).split(" ")[0], odds(x.currentPlayoffOdds), nameOf[r.franchise_id] + " playoff %");
-    t.equal(x.currentByeOdds > 0 ? plain(/po-sub">([^<]*)</.exec(cell)[1]) : null, x.currentByeOdds > 0 ? odds(x.currentByeOdds) + " Bye" : null, nameOf[r.franchise_id] + " bye %");
+    t.equal(plain(/po-sub">([^<]*)</.exec(cell)[1]), odds(x.currentByeOdds) + " Bye", nameOf[r.franchise_id] + " bye %");
     t.ok(!/po-badge/.test(cell), "no designation without a mathematical clinch: " + nameOf[r.franchise_id]);
   }
   t.equal(L.cell("0009", "Playoff %"), ">99% 94% Bye", "C-Town: 99.8% is not 100% and not a clinch");
-  t.equal(L.cell("0003", "Playoff %"), "2%", "no bye line when the bye odds are 0");
+  t.equal(L.cell("0003", "Playoff %"), "2% <1% Bye", "a bye the simulation never gave is <1%, not 0%: the clinch rules haven't ruled it out");
+  t.ok(R.every((r) => !/(^|[^\d.>])(100|0)%/.test(L.cell(r.franchise_id, "Playoff %"))), "no 100% or 0% anywhere without a verified outcome");
   // the very numbers the Forecast tab shows
   const fc = await league("view=forecast&year=2026");
   t.ok(fc.text.includes("Through Week 6") && SIM6.teams.length === 12);
@@ -439,6 +441,13 @@ test("every designation: the highest one shows (locked seed > Z > Y > X), E alon
   const base = table((await league("view=league&year=2026")).raw);
   t.deepEqual(L.order, base.order);
   for (const r of R) t.equal(L.cell(r.franchise_id, "Seed"), base.cell(r.franchise_id, "Seed"));
+});
+test("a bye the clinch rules rule out leaves the bye line off (never a guessed 0%); the playoff % is untouched", async () => {
+  const p = await league("view=league&year=2026", { clinch: letters({ "0003": { byeOut: true }, "0012": { divOut: true } }) });
+  const L = table(p.raw);
+  t.equal(L.cell("0003", "Playoff %"), "2%");
+  t.equal(L.cell("0012", "Playoff %"), odds(simBy["0012"].currentPlayoffOdds), "out of the division race: no bye line, no letter");
+  t.match(p.text, /A forecast is never shown as 100% or 0%: >99% and <1% mark the ends\./);
 });
 test("a locked seed shows the moment the engine proves it, in any week (no waiting for the last week)", async () => {
   const p = await league("view=league&year=2026", { clinch: letters({ "0002": { lock: 5 } }) });
