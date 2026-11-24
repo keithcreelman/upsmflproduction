@@ -4,8 +4,10 @@ raw stats using the league scoring rules (export?TYPE=rules) and compare to
 MFL's official weeklyResults, per player + per team. Set WEEK/YEAR below.
 
 Findings (W8 2025): offense+IDP+kicking align tightly; 3 gaps to close for
-exact parity — (1) punters need gross punt yds (D1 punt aggregates), (2) kicker
-"ANY" bonus is longest-FG-once not per-FG, (3) TD length 50+yd=7 needs PBP.
+exact parity — (1) punters need gross punt yds (D1 punt aggregates), (2) "ANY"
+is the punter's per-game average yards per punt tier (45-49.99=1, 50-59.99=3,
+60+=5, on the gross average), not a kicker FG bonus (corrected 2026-11-23 from
+the MFL rules export), (3) TD length 50+yd=7 needs PBP.
 See memory project_scoring_rules_alignment. Deps: nflreadpy, pandas, pyarrow.
 """
 

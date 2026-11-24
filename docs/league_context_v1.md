@@ -1590,31 +1590,46 @@ A franchise may have **no H2H opponent** in a given week. When that happens:
 
 This separation means **all-play continues to count even when H2H doesn't**. Any consumer that wants "weeks with a real matchup only" should filter on `EXISTS (SELECT 1 FROM src_schedule …)`.
 
-## D.0 🟡 Current scoring values (ADDED 2026-08-15, PROVISIONAL)
+## D.0 Current scoring values (ADDED 2026-08-15; CORRECTED 2026-11-23 against the MFL rules export)
 
-Canon has carried no standing scoring section — only the year-by-year change list in §4.
-The values below are reconstructed from that change list and are **provisional**: the live
-MFL scoring settings remain authoritative for what actually scored in any given week.
+Source: MFL `export?TYPE=rules&L=74598` for **2026** (public read, 2026-11-23 01:05 UTC),
+and the archived **2025** export (`metadata_rawrules`). The two are identical (78 rules each).
+Earlier seasons come from the `metadata_rawrules` history in §4; the "Seasons" column says
+which seasons each value covers. MFL's export is authoritative for what scored in a given
+season. DL = DT/DE, DB = CB/S.
 
-| Item | Value |
-|---|---|
-| Reception — WR / QB | 1.0 |
-| Reception — RB | 0.8 |
-| Reception — TE | 1.5 (TE premium, 2025+) |
-| First down (all positions, incl. rushing and QB) | 0.2 |
-| Field goal | 0.1 per yard |
-| Missed FG from 45+ yards | no penalty |
-| Tackle — DL / DB | 1.5 |
-| Pass defensed (all positions) | 1.5 |
-| Tackles counted per game | capped at 25 |
-| Single-game 60-point bonus | +5 |
-| Def / ST return TD of 50+ yards | 7 |
-| Gross punting yardage | does not score |
+| Item | MFL code | 2026 value | Seasons with this value |
+|---|---|---|---|
+| Reception — WR / QB | `CC` | 1.0 | 2011–2026 |
+| Reception — RB | `CC` | 0.8 | 2018–2026 (0.75 in 2011–2017) |
+| Reception — TE | `CC` | 1.5 (TE premium) | 2025–2026 (1.0 before) |
+| First down (all positions, incl. rushing and QB) | `FD` | 0.2 | 2011–2026 (code `1C`, range 1–50, in 2011–2020) |
+| Field goal | `FG` | 0.1 per yard | 2016–2026 |
+| Missed FG from 45+ yards | `MG 45-99` | no penalty | 2016–2026 |
+| Missed FG of 44 yards or less | `MG 0-44` | setting `.1/1`; 2026 scores match −0.1 × (45 − distance) | 2016–2026 (setting) |
+| Tackle (solo or with assist) | `TK` | DL 1.5 · LB 1.0 · DB 1.3 | 2018–2026 (1.0 all, 2011–2017) |
+| Assisted tackle | `AS` | DL 0.5 · LB 0.5 · DB 0.8 | 2018–2026 (0.5 all, 2011–2017) |
+| Tackle for a loss (added on top of TK/AS) | `TKL` | DL 1.5 · LB 1.0 · DB 1.5 | 2018–2026; 1.0 all positions 2012–2017; not scored 2011 |
+| Pass defensed (all positions) | `PD` | 1.5 | 2018–2026 |
+| Average yards per punt (per game, gross) | `ANY` | 0–44.99: 0 · 45–49.99: 1 · 50–59.99: 3 · 60–100: 5 | 2012–2026 |
+| Punt inside the 20 | `PI` | +4 each | 2012–2026 (+2 in 2011) |
+| Punt blocked (punter charged) | `HBP` | −2 each | 2011–2026 |
+| Def / ST return TD of 50+ yards | `PR`/`KO`/`IR`/`DR`/`FR`/`MF` | 7 | 2025–2026 (ranges differed earlier; §4 2025) |
+| Gross punting yardage | `PNY` | does not score | 2012–2026 (2011: 0.1 per 2 yards) |
 
-**Open in this table (do not treat as settled):**
-- **LB tackle rate.** The 2018 rebalance raised DL and DB to 1.5; whether LB stayed at 1.0
-  is not recorded anywhere in canon.
-- **Missed FG inside 45 yards.** Canon records that a penalty applies but never its value.
+Notes:
+- **`TKL` is tackles for a loss, not a tackle cap.** Its range `0-25` is the window of TFL
+  counts the rule pays over (the same shape as `SK 0-25`); it never limits TK or AS. An earlier
+  version of this table read it as "tackles counted per game: capped at 25". That was wrong.
+- **`ANY` is the punter's average yards per punt in the game, not a 60-point game bonus.**
+  An earlier version of this table called it a "single-game 60-point bonus". That was wrong.
+  2026 punter scores reproduce on the gross average (280 of 290 punter-weeks; in the 143 weeks
+  where gross and net tiers differ, gross matches 133 and net 0). So gross average drives the
+  tier even though gross yardage (`PNY`) itself no longer scores.
+- **LB tackle rate** (previously listed as open): the export shows LB at TK 1.0, AS 0.5,
+  TKL 1.0 for 2018–2026, the base rate DL/DB were raised from.
+- **Missed FG inside 45 yards:** the setting is `MG 0-44 = .1/1`. The −0.1 × (45 − distance)
+  reading is reconstructed from 2026 scores (285 of 292 kicker-weeks exact), not stated by MFL.
 
 ## D.1 All-play metrics (regular season / playoff / full)
 
@@ -1822,13 +1837,13 @@ Eras are NOT mutually exclusive — Superflex and TE Premium are concurrent (bot
 ### 2012 — CONFIRMED via MFL `metadata_rawrules` (66 rule changes 2011→2012)
 - **First rookie draft** (introduced this year — dynasty cap needed it once contracts persisted).
 - **4-owner dispersal draft.** Original results in Forumotion.
-- **MAJOR punter scoring overhaul:** **`PNY` (gross punt yards) entirely REMOVED.** Pre-2012 punters scored on `PNY 0-999 = .1/2` (0.1 pts per 2 yards of gross punting) — that's why they scored obscene amounts in 2011. 2012 onwards: PNY abolished; punters score on the new ANY/big-game tier + KY/UY return yards.
-- **Big-game / ANY bonus added** for ALL positions: `ANY 60-100 = 5` (5 pts if any single-game position score reaches 60+).
-- **Tackles added (TKL):** `TKL 0-25 = *1` for all positions — 1 pt per tackle, capped at 25.
+- **MAJOR punter scoring overhaul:** **`PNY` (gross punt yards) entirely REMOVED.** Pre-2012 punters scored on `PNY 0-999 = .1/2` (0.1 pts per 2 yards of gross punting) — that's why they scored obscene amounts in 2011. 2012 onwards: PNY abolished; punters score on the new `ANY` average-yards-per-punt tier, `PI` punts inside the 20 (doubled, below) and `HBP` blocked punts (−2, unchanged since 2011). (KY/UY below are return yards for any returner, not punting.)
+- **Average yards per punt (`ANY`) tier added** for ALL positions (whoever punts): `ANY 0.00-44.99 = 0`, `45.00-49.99 = 1`, `50.00-59.99 = 3`, `60.00-100.00 = 5`, on the game's average yards per punt. Unchanged 2012–2026; 2026 scores match the **gross** average. *(Corrected 2026-11-23: this line previously called `ANY 60-100 = 5` a "big-game bonus" for any single-game score of 60+. MFL defines `ANY` as average yards per punt.)*
+- **Tackles for a loss added (`TKL`):** `TKL 0-25 = *1` for all positions, 1 pt per tackle for a loss, on top of TK/AS. The `0-25` range is the TFL count window the rule pays over, not a cap on tackles. 2018 raised DL and DB to 1.5. *(Corrected 2026-11-23: this line previously read TKL as "1 pt per tackle, capped at 25".)*
 - **Return-yardage scoring added:**
   - `KY -50 to 999 = .025/yd` (kickoff return yards: 1 pt per 40 yds)
   - `UY -50 to 999 = .05/yd` (punt return yards: 1 pt per 20 yds)
-- **Pass interference DOUBLED:** `PI 0-20 = *2` → `PI 0-20 = *4`.
+- **Punts inside the 20 DOUBLED:** `PI 0-20 = *2` → `PI 0-20 = *4` (+4 per punt inside the 20, unchanged through 2026). *(Corrected 2026-11-23: `PI` was mislabeled "pass interference".)*
 - **Taxi squad introduced at size 5.**
 
 ### 2013 — NO scoring changes (verified)
@@ -1863,7 +1878,7 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 
 ### 2016 — CONFIRMED via MFL `metadata_rawrules` (22 rule changes)
 - **FG scoring overhaul: per-yard.**
-  - **OLD (2011-2015):** `FG 60-99 = 8` (flat 8 pts for ANY FG 60+; below 60 yds default 3 pts).
+  - **OLD (2011-2015):** `FG 0-44 = 3`, `FG 45-59 = 6`, `FG 60-99 = 8` (flat tiers). Misses: `MG 0-29 = -3`, `MG 30-99 = 0`. *(Corrected 2026-11-23 from `metadata_rawrules`: this line previously omitted the 45-59 = 6 tier.)*
   - **NEW (2016+):** `FG 0-99 = .1/yd` (0.1 pts per yard — 30-yarder = 3 pts; 50-yarder = 5 pts).
 - **Missed FG (MG) range narrowed:** `MG 30-99 = 0` → `MG 45-99 = 0` (penalty-free range pulled in from 30+ to 45+; misses 30-44 yds now incur penalty).
 
@@ -2010,10 +2025,10 @@ Inaugural Winter Meetings agenda. Several items here became 2016+ rules. Capture
 
 ✅ **CONFIRMED v15** via MFL `metadata_rawrules` year-over-year diff (PRIMARY SOURCE — every scoring change 2011-2025 is now in the doc with exact old → new values):
 - 2012 punter overhaul: PNY (`0-999=.1/2`) entirely REMOVED
-- 2012 tackles added: TKL (`0-25=*1`) for all positions
+- 2012 tackles for a loss added: TKL (`0-25=*1`) for all positions
 - 2012 return-yardage: KY (`.025/yd`), UY (`.05/yd`)
-- 2012 PI doubled: `*2 → *4`
-- 2012 ANY/big-game bonus added (60-100=5)
+- 2012 PI (punts inside the 20) doubled: `*2 → *4`
+- 2012 ANY (average yards per punt) tiers added: 45-49.99=1, 50-59.99=3, 60-100=5
 - 2016 FG per-yard: `60-99=8` → `0-99=*.1`
 - 2016 missed FG range: `30-99=0` → `45-99=0`
 - **RB PPR transitions: 1.0 (2010) → 0.75 (2011) → 0.80 (2018)** — confirmed via `metadata_rawrules` 2010, 2011, 2018 snapshots
