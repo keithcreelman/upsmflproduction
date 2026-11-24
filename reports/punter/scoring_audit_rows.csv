@@ -1,0 +1,514 @@
+Season,Week,Player,MFL UPS points,Reconstructed points,Difference,Reason
+2012,2,Brandon Fields,21.0,19.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2012,2,Bryan Anger,16.0,15.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,2,Pat McAfee,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,2,Tim Masthay,20.1,13.0,7.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,3,Bryan Anger,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,3,Kevin Huber,11.9,12.0,-0.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,3,Matt Bosher,8.5,8.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,3,Reggie Hodges,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,4,Donnie Jones,17.0,16.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,4,Johnny Hekker,10.1,4.0,6.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,4,Robert Malone,6.5,6.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,4,Sam Koch,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,5,Brandon Fields,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,5,Brett Kern,12.5,12.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,5,Jon Ryan,6.2,8.0,-1.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,5,Matt Bosher,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,6,Dave Zastudil,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,6,Michael Koenen,-1.0,5.0,-6.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -6)
+2012,7,Pat McAfee,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,8,Dave Zastudil,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,8,Johnny Hekker,4.1,5.0,-0.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,8,Matt Bosher,1.5,1.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,8,Michael Koenen,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,9,Adam Podlesh,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,9,Dave Zastudil,17.0,16.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,9,Pat McAfee,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,9,Shane Lechler,7.2,7.0,0.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,9,Steve Weatherford,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,10,Chris Kluwe,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,10,Johnny Hekker,5.6,4.0,1.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,10,Sam Koch,13.7,7.0,6.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,10,Shane Lechler,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,10,Steve Weatherford,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,11,Bryan Anger,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,11,Pat McAfee,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,11,Saverio Rocca,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,12,Adam Podlesh,10.0,8.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2012,12,Michael Koenen,3.5,3.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,13,Brett Kern,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,13,Matt Bosher,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,14,Donnie Jones,5.5,5.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,14,Nick Harris,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,14,Robert Malone,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,14,Sam Koch,11.5,11.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2012,14,Thomas Morstead,5.0,3.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2012,15,Britton Colquitt,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,15,Robert Malone,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,15,Sam Koch,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,15,Tim Masthay,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,16,Reggie Hodges,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2012,16,Robert Malone,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,1,Tim Masthay,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,3,Spencer Lanning,16.4,9.0,7.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2013,3,Thomas Morstead,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,3,Tim Masthay,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,4,Adam Podlesh,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,4,Dustin Colquitt,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,4,Mike Scifres,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,4,Shane Lechler,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,5,Matt Bosher,1.0,-1.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2013,5,Shawn Powell,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,6,Donnie Jones,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,7,Brad Nortman,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,7,Pat McAfee,26.0,25.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,7,Sam Martin,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,7,Tim Masthay,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,8,Marquette King,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,9,Chris Jones,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,9,Marquette King,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,9,Matt Bosher,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,9,Michael Koenen,3.0,0.0,3.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +3)
+2013,9,Pat McAfee,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,9,Shane Lechler,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,10,Johnny Hekker,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,10,Matt Bosher,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,11,Brandon Fields,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,11,Sam Martin,1.3,3.0,-1.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2013,11,Spencer Lanning,-1.0,-2.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,11,Tim Masthay,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,12,Brandon Fields,18.0,17.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,12,Bryan Anger,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,12,Ryan Quigley,16.0,15.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,12,Saverio Rocca,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,13,Spencer Lanning,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,14,Mat McBriar,0.0,-1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,14,Pat McAfee,18.0,17.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,14,Thomas Morstead,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,15,Brandon Fields,7.0,9.0,-2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -2)
+2013,15,Spencer Lanning,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,16,Mat McBriar,13.2,12.0,1.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2013,16,Pat McAfee,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2013,16,Ryan Allen,18.0,17.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,2,Brad Wing,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,2,Matt Bosher,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,2,Pat O'Donnell,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,3,Brandon Fields,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,3,Shane Lechler,5.4,5.0,0.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,3,Thomas Morstead,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,4,Matt Bosher,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,4,Thomas Morstead,3.8,4.0,-0.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,4,Tress Way,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,5,Colton Schmidt,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,5,Jon Ryan,20.5,20.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,5,Steve Weatherford,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,6,Tress Way,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,7,Johnny Hekker,7.7,7.0,0.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,7,Matt Bosher,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,7,Pat McAfee,9.5,9.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,8,Chris Jones,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,8,Dustin Colquitt,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,9,Brad Wing,2.0,0.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2014,9,Drew Butler,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,9,Steve Weatherford,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,10,Pat O'Donnell,-1.2,0.0,-1.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,10,Sam Martin,6.1,5.0,1.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,12,Johnny Hekker,8.8,8.0,0.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,12,Marquette King,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,13,Colton Schmidt,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,14,Johnny Hekker,14.0,12.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2014,14,Jon Ryan,10.0,12.0,-2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -2)
+2014,14,Matt Bosher,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,14,Pat McAfee,11.0,9.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2014,14,Tress Way,1.2,1.0,0.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,15,Britton Colquitt,0.5,0.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,15,Bryan Anger,5.8,5.0,0.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2014,15,Matt Bosher,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,15,Thomas Morstead,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2014,16,Dustin Colquitt,5.2,5.0,0.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2015,1,Bryan Anger,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,1,Jake Schum,1.0,0.0,1.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,2,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,2,Matt Bosher,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,2,Ryan Allen,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,2,Sam Koch,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,2,Tim Masthay,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,3,Jake Schum,12.0,0.0,12.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,3,Pat McAfee,6.8,5.0,1.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2015,4,Sam Koch,2.9,3.0,-0.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2015,5,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,5,Johnny Hekker,5.8,5.0,0.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2015,5,Jon Ryan,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,7,Bryan Anger,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,7,Jeff Locke,4.4,5.0,-0.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2015,7,Johnny Hekker,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,7,Jordan Berry,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,8,Brad Wing,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,8,Jake Schum,8.0,0.0,8.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,8,Pat McAfee,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,9,Bradley Pinion,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,9,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,9,Kevin Huber,3.0,2.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,9,Ryan Quigley,24.0,20.0,4.0,inside-20 count differs by 1 between nflverse and MFL's stat feed
+2015,9,Tim Masthay,8.5,8.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2015,10,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,10,Jon Ryan,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,10,Sam Martin,16.5,16.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2015,10,Thomas Morstead,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,10,Tim Masthay,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,11,Brad Nortman,6.9,7.0,-0.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2015,11,Jake Schum,8.0,0.0,8.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,11,Matt Bosher,16.0,15.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,11,Matt Darr,21.0,20.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,12,Jake Schum,1.0,0.0,1.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,13,Chris Jones,11.0,8.0,3.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +3)
+2015,13,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,13,Tress Way,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,14,Colton Schmidt,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,14,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,14,Johnny Hekker,18.0,17.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,14,Mike Scifres,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,15,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2015,15,Sam Koch,8.7,8.0,0.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2015,16,Bradley Pinion,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,16,Pat O'Donnell,7.0,6.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,16,Sam Martin,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2015,16,Tim Masthay,8.7,9.0,-0.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,1,Jake Schum,1.0,0.0,1.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,1,Shane Lechler,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,2,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,2,Marquette King,16.0,15.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,3,Drew Butler,-1.5,4.0,-5.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,3,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,3,Tress Way,2.2,1.0,1.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,4,Chris Jones,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,4,Sam Koch,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,4,Thomas Morstead,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,5,Jordan Berry,12.7,13.0,-0.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,5,Matt Darr,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,6,Andy Lee,18.0,17.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,6,Jake Schum,5.0,0.0,5.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,7,Jake Schum,1.0,0.0,1.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,7,Lachlan Edwards,6.0,12.0,-6.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -6)
+2016,7,Marquette King,21.7,19.0,2.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,7,Ryan Quigley,11.0,10.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,8,Bryan Anger,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,8,Chris Jones,7.0,4.0,3.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +3)
+2016,8,Colton Schmidt,5.6,4.0,1.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,8,Jake Schum,3.0,0.0,3.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,9,Brad Nortman,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,9,Jake Schum,9.0,0.0,9.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,10,Chris Jones,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,10,Jake Schum,7.0,0.0,7.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,10,Matt Bosher,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,10,Ryan Quigley,3.0,0.0,3.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +3)
+2016,11,Drew Butler,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,11,Jake Schum,5.0,0.0,5.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,11,Jeff Locke,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,12,Jake Schum,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,12,Pat McAfee,2.4,1.0,1.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,12,Sam Koch,13.7,16.0,-2.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,13,Brad Wing,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,13,Colton Schmidt,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,13,Jake Schum,12.0,0.0,12.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,13,Lachlan Edwards,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,13,Matt Bosher,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,13,Michael Palardy,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,13,Shane Lechler,8.5,8.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,14,Colton Schmidt,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,14,Drew Kaser,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,14,Jake Schum,12.0,0.0,12.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,14,Matt Bosher,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,14,Riley Dixon,8.6,8.0,0.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,15,Bradley Pinion,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,15,Jeff Locke,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2016,15,Jon Ryan,10.6,8.0,2.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,16,Chris Jones,5.5,5.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,16,Jake Schum,8.0,0.0,8.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2016,16,Matt Bosher,5.5,4.0,1.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2016,16,Matt Darr,12.5,12.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,1,,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,1,Kasey Redfern,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,2,,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,2,Johnny Hekker,6.1,5.0,1.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,2,Shane Lechler,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,3,,10.0,0.0,10.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,3,Matt Haack,3.0,5.0,-2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -2)
+2017,3,Riley Dixon,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,4,,5.0,0.0,5.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,4,Lachlan Edwards,13.2,12.0,1.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,4,Marquette King,11.7,11.0,0.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,5,,5.0,0.0,5.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,5,Dustin Colquitt,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,5,Pat O'Donnell,15.5,8.0,7.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,6,,16.0,0.0,16.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,6,Matt Bosher,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,6,Rigoberto Sanchez,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,7,,5.0,0.0,5.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,7,Marquette King,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,7,Riley Dixon,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,8,Kevin Huber,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,8,Rigoberto Sanchez,0.0,-1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,9,,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,9,Brad Wing,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,9,Matt Bosher,9.5,9.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,9,Sam Koch,9.6,9.0,0.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,9,Shane Lechler,21.5,21.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,10,,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,10,Johnny Hekker,4.2,3.0,1.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,10,Lachlan Edwards,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,10,Pat O'Donnell,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,11,,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,11,Jon Ryan,-0.2,0.0,-0.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,11,Matt Bosher,4.5,4.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,12,,1.0,0.0,1.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,12,Bryan Anger,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,12,Drew Kaser,-1.0,0.0,-1.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,12,Johnny Hekker,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,12,Sam Koch,23.9,23.0,0.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,13,,1.0,0.0,1.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,13,Brad Nortman,9.2,8.0,1.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,13,Lachlan Edwards,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,13,Marquette King,9.9,11.0,-1.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,14,,5.0,0.0,5.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,14,Jon Ryan,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,15,,8.0,0.0,8.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2017,15,Chris Jones,2.4,0.0,2.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,15,Johnny Hekker,8.5,8.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2017,15,Pat O'Donnell,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2017,16,,4.0,0.0,4.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2018,1,Sam Martin,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,2,Andy Lee,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,2,Bryan Anger,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,2,Johnny Hekker,10.0,7.0,3.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +3)
+2018,4,Bradley Pinion,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,4,Brett Kern,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,4,Matt Bosher,0.5,0.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,8,Johnny Hekker,13.5,13.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,8,Michael Dickson,9.9,9.0,0.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,8,Ryan Allen,0.5,0.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,8,Tress Way,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,9,Johnny Hekker,1.3,1.0,0.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,10,Johnny Townsend,11.2,7.0,4.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,10,Logan Cooke,9.2,9.0,0.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,10,Rigoberto Sanchez,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,10,Riley Dixon,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,11,Cam Johnston,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,11,Colby Wadman,8.5,8.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,11,Sam Koch,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,12,Chris Jones,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,12,Matt Bosher,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,13,Bryan Anger,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,13,Riley Dixon,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,13,Sam Koch,5.8,5.0,0.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,14,Johnny Hekker,6.3,5.0,1.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,14,Matt Bosher,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,15,J.K. Scott,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,15,Matt Darr,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,15,Riley Dixon,9.4,8.0,1.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2018,16,J.K. Scott,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,16,Matt Bosher,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2018,16,Matt Haack,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,1,Cam Johnston,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,1,Johnny Hekker,0.0,-1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,1,Ty Long,16.0,9.0,7.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +7)
+2019,2,Michael Palardy,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,2,Sam Koch,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,2,Ty Long,6.9,3.0,3.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,3,Andy Lee,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,3,Cam Johnston,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,3,Pat O'Donnell,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,3,Ty Long,18.7,9.0,9.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,4,Sam Martin,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,4,Ty Long,17.0,0.0,17.0,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2019,5,Tress Way,20.0,19.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,6,Mitch Wishnowsky,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,6,Tress Way,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,7,Brett Kern,8.4,8.0,0.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,7,Bryan Anger,3.5,4.0,-0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,7,Colby Wadman,3.3,4.0,-0.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,7,Johnny Hekker,4.9,4.0,0.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,7,Lachlan Edwards,9.5,9.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,7,Matt Haack,1.2,1.0,0.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,8,Bradley Pinion,8.5,8.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,8,Mitch Wishnowsky,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,9,Cam Johnston,5.5,5.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,9,Jake Bailey,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,9,Jamie Gillan,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,9,Logan Cooke,5.1,7.0,-1.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,9,Riley Dixon,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,10,Andy Lee,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,10,Johnny Hekker,7.0,9.0,-2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -2)
+2019,11,Sam Koch,-0.1,0.0,-0.1,MFL scored a player with no nflverse punt (ID crosswalk gap or non-punt event)
+2019,12,A.J. Cole,18.0,17.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,13,Matt Haack,6.0,0.0,6.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +6)
+2019,14,Jordan Berry,2.2,5.0,-2.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,14,Logan Cooke,5.4,5.0,0.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,15,Johnny Hekker,19.2,19.0,0.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,15,Matt Haack,8.5,8.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,16,Lachlan Edwards,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2019,16,Logan Cooke,7.3,7.0,0.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2019,16,Michael Palardy,3.5,3.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2020,1,Jack Fox,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,1,Jamie Gillan,2.8,5.0,-2.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2020,1,Mitch Wishnowsky,11.0,10.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,1,Ty Long,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,2,Jake Bailey,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,2,Logan Cooke,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,2,Mitch Wishnowsky,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,4,Braden Mann,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,4,Bradley Pinion,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,4,Sam Koch,13.6,13.0,0.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2020,5,Corey Bojorquez,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,6,Braden Mann,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,6,Mitch Wishnowsky,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,8,Braden Mann,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,8,Tommy Townsend,4.5,4.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2020,9,Joseph Charlton,1.1,0.0,1.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2020,9,Riley Dixon,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,9,Ty Long,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,10,Joseph Charlton,10.5,11.0,-0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2020,11,Ty Long,-1.8,1.0,-2.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2020,13,Bryan Anger,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,13,Jake Bailey,13.5,13.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2020,13,Riley Dixon,4.0,2.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2020,13,Ty Long,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,14,Riley Dixon,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,14,Tress Way,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,15,Andy Lee,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,15,Braden Mann,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2020,15,Mitch Wishnowsky,5.5,5.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2020,16,Riley Dixon,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,2,Johnny Hekker,-2.0,4.0,-6.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -6)
+2021,3,Logan Cooke,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,4,Blake Gillikin,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,4,Johnny Townsend,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,4,Mitch Wishnowsky,12.6,12.0,0.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2021,5,Joseph Charlton,11.0,10.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,6,Riley Dixon,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,6,Tress Way,13.0,11.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2021,7,Jack Fox,0.9,0.0,0.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2021,7,Pat O'Donnell,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,7,Rigoberto Sanchez,9.5,9.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2021,8,Jamie Gillan,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,9,Jamie Gillan,4.5,4.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2021,9,Mitch Wishnowsky,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,10,A.J. Cole,10.0,7.0,3.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +3)
+2021,10,Johnny Hekker,0.1,0.0,0.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2021,10,Pressley Harvin,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,10,Tommy Townsend,0.8,0.0,0.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2021,12,Jamie Gillan,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,12,Mitch Wishnowsky,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,14,Corey Bojorquez,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,15,Logan Cooke,5.5,5.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2021,16,Braden Mann,7.4,7.0,0.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2021,16,Jack Fox,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2021,17,Rigoberto Sanchez,6.0,4.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2021,17,Sterling Hofrichter,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,2,Arryn Siposs,9.0,8.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,2,Braden Mann,9.9,9.0,0.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,3,Jake Bailey,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,3,Jamie Gillan,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,4,Jack Fox,1.4,1.0,0.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,4,Jake Camarda,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,4,Riley Dixon,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,4,Ryan Wright,8.7,8.0,0.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,5,Jake Bailey,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,5,Jake Camarda,1.5,1.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,5,Jamie Gillan,2.7,3.0,-0.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,5,Michael Dickson,8.2,9.0,-0.8,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,5,Riley Dixon,6.7,6.0,0.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,5,Thomas Morstead,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,6,Arryn Siposs,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,6,Michael Dickson,-2.0,5.0,-7.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -7)
+2022,6,Thomas Morstead,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,9,Jack Fox,5.5,5.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,9,Jake Camarda,21.0,19.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2022,9,Matt Haack,7.0,6.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,9,Riley Dixon,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,11,Mitch Wishnowsky,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,11,Ryan Stonehouse,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,12,Riley Dixon,9.4,9.0,0.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,12,Thomas Morstead,2.5,1.0,1.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,13,Jake Camarda,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,14,Ryan Stonehouse,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,15,Matt Haack,13.0,12.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,15,Riley Dixon,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2022,16,Andy Lee,17.4,17.0,0.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2022,17,Jake Camarda,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,4,Bryan Anger,13.0,11.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2023,5,Blake Gillikin,3.5,3.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,5,Jordan Stout,11.0,10.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,6,Blake Gillikin,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,6,Bryan Anger,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,6,Johnny Hekker,5.3,5.0,0.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,6,Riley Dixon,4.5,4.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,6,Ryan Stonehouse,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,7,Logan Cooke,16.7,16.0,0.7,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,10,Jordan Stout,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,11,Thomas Morstead,5.9,5.0,0.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,12,Blake Gillikin,2.2,1.0,1.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,13,Ryan Stonehouse,1.9,5.0,-3.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,14,Braden Mann,1.3,0.0,1.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,14,Jack Fox,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,14,Johnny Hekker,-7.1,0.0,-7.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,15,Jamie Gillan,9.0,5.0,4.0,inside-20 count differs by 1 between nflverse and MFL's stat feed
+2023,16,Bryce Baringer,14.0,13.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,16,Tommy Townsend,4.6,4.0,0.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2023,17,Brad Robbins,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,17,Jake Camarda,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2023,17,Trenton Gill,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,2,Jack Fox,8.9,8.0,0.9,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2024,2,Jamie Gillan,3.0,4.0,-1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -1)
+2024,3,Michael Dickson,2.0,1.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,3,Mitch Wishnowsky,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,4,Logan Cooke,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,5,Jake Bailey,0.0,2.0,-2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -2)
+2024,5,Mitch Wishnowsky,2.6,0.0,2.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2024,6,Blake Gillikin,8.0,7.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,7,Riley Dixon,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,8,Riley Dixon,11.1,11.0,0.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2024,9,Bradley Pinion,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,9,Jake Bailey,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,9,Matthew Hayball,5.3,4.0,1.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2024,9,Riley Dixon,1.5,1.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2024,10,Bryan Anger,12.0,11.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,10,Riley Dixon,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,10,Trenton Gill,9.5,9.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2024,11,Bryan Anger,4.2,4.0,0.2,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2024,11,Corey Bojorquez,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2024,12,A.J. Cole,10.6,9.0,1.6,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2024,13,J.K. Scott,9.1,9.0,0.1,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2024,13,Matt Araiza,10.0,8.0,2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +2)
+2024,15,Johnny Hekker,1.5,1.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2025,1,Bradley Pinion,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,1,Johnny Hekker,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,3,Jamie Gillan,7.0,8.0,-1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -1)
+2025,3,Jeremy Crawshaw,13.5,13.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2025,4,Braden Mann,7.6,11.0,-3.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2025,4,Sam Martin,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,4,Tory Taylor,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,6,Ethan Evans,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,6,Jack Fox,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,8,Jamie Gillan,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,8,Johnny Hekker,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,9,Jack Fox,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,9,Jordan Stout,20.0,19.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,12,A.J. Cole,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,13,Jamie Gillan,-0.3,1.0,-1.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2025,13,Logan Cooke,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,15,Johnny Hekker,5.5,5.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2025,16,Johnny Hekker,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2025,17,Austin McNamara,9.3,9.0,0.3,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2025,17,Jake Bailey,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2026,2,Bradley Pinion,1.0,0.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2026,2,Jake Bailey,7.5,7.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2026,3,Ethan Evans,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2026,4,Blake Gillikin,5.0,4.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2026,4,Matt Araiza,22.4,21.0,1.4,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2026,5,Blake Gillikin,1.5,1.0,0.5,fractional: a non-punting event (rush/pass/tackle/fumble/return yards) that play-by-play punt rows do not carry
+2026,5,Corey Bojorquez,5.0,7.0,-2.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff -2)
+2026,5,Ethan Evans,6.0,5.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2026,6,Ethan Evans,4.0,3.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
+2026,6,Jeremy Crawshaw,10.0,9.0,1.0,average-yards tier boundary or blocked-punt handling differs between feeds (diff +1)
