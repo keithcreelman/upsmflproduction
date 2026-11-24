@@ -1,5 +1,5 @@
 name = "upsmflproduction"
-main = "src/index.js"
+main = "src/entry.js"   # #1475: entry.js passes straight to src/index.js when UPS_ENV = "production"
 compatibility_date = "2026-02-02"
 
 # NOTE 2026-07-26: attempted an explicit [limits] cpu_ms=30000 block here to
@@ -21,6 +21,9 @@ compatibility_date = "2026-02-02"
 # (1059111651846131833) because DISCORD_DROPS_CHANNEL_ID is unset — re-add that
 # secret if a different channel is wanted.
 [vars]
+# #1475: which environment this deployment is. entry.js refuses every request and cron run unless this is
+# exactly "production" or "test"; production runs index.js unchanged. Never remove or rename it.
+UPS_ENV = "production"
 # Rule Proposals v2 (2026-07-15). LIVE ships OFF — dark-launch: publishes DM
 # only the commish + run in the test channel until he flips it in Kill Switches.
 RULE_PROPOSALS_ENABLED = "1"
