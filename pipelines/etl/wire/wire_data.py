@@ -531,9 +531,10 @@ def owner_map(season):
 
 
 # Mid-season ownership changes the commish ruled on: the owner who ran the
-# auction is credited with the season. The worker hardcodes these at
-# worker/src/index.js:14600 and pipelines/etl/config/owner_tenure_overrides.json
-# encodes the same ruling. MFL itself reports END-OF-SEASON ownership, so any
+# auction is credited with the season. The worker hardcodes these in
+# /api/standings (TAKEOVERS_ALL, worker/src/index.js), and src_franchises carries
+# the same ruling, which is why rebuild_franchise_career_stats.py reads owners
+# from it directly. MFL itself reports END-OF-SEASON ownership, so any
 # independent derivation risks disagreeing on exactly these cells.
 ATTRIBUTION_FIXTURES = [
     (2017, "0002", "Derrick Whitman"),
