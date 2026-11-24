@@ -143,6 +143,16 @@ test("MOBILE: a worker 5xx / network failure / malformed answer → an explicit 
   }
 });
 
+test("MOBILE: the worker can't verify the MFL sign-in (503 identity_unavailable) → a load error with Try again, never '0 offers' or 'sign in'", async () => {
+  const env = makeWorkerEnv(); const mfl = makeMfl({ myleaguesDown: true }); mfl.install();
+  const w = { env, mfl, log: [] }; const f = clientFetch(w);
+  const offers = await mobileFetchTradeOffers({ token: "tok-B", fetchImpl: f })("0001");
+  t.equal(w.log[0].status, 503); t.equal(offers.status, "error");
+  const c = loadTradeView({ token: "tok-B", fid: "0001", tradeOffers: offers, fetchImpl: f });
+  await c.show();
+  t.ok(errorCard(c.m)); t.equal(showsZeroOffers(c.m), false); t.equal(signInCard(c.m), false);
+});
+
 test("MOBILE: 'Try again' reloads and then shows the truth (a real empty inbox is then '0 offers')", async () => {
   const w = world(); let down = true;
   const f = clientFetch(w, async (u) => (down && /\/api\/trades\/proposals/.test(u) ? resp(503, { ok: false }) : null));
@@ -244,6 +254,17 @@ test("DESKTOP: a worker failure or a malformed answer → an explicit load error
     t.match(d.offeredKinds(), /error,retry-offers/, name);
     t.doesNotMatch(d.offeredList(), /HTTP \d|[{<]|boom|Failed to fetch/i, `${name}: no raw server text reaches the owner`);
   }
+});
+
+test("DESKTOP: the worker can't verify the MFL sign-in (503 identity_unavailable) → a load error, never 'No pending trades' or 'sign in'", async () => {
+  const env = makeWorkerEnv(); const mfl = makeMfl({ myleaguesDown: true }); mfl.install();
+  const w = { env, mfl, log: [] };
+  const d = await bootDesktop(w, { token: "tok-B", fid: "0001" });
+  const offerReads = w.log.filter((r) => /\/trade-offers$/.test(r.path) && r.method === "GET");
+  t.ok(offerReads.length >= 1 && offerReads.every((r) => r.status === 503), "the inbox read answered 503");
+  t.equal(d.api.state.offers.errorKind, "error");
+  t.equal(d.offeredCount(), "–"); t.doesNotMatch(d.offeredList(), /No pending trades|Sign in to view trades/);
+  t.match(d.offeredKinds(), /error,retry-offers/);
 });
 
 test("DESKTOP: Try again re-fetches, and a real empty inbox then reads 0 / 'No pending trades'", async () => {
