@@ -208,6 +208,22 @@ test("CREATE: body initiator must be the authenticated franchise; nonparticipant
   t.equal(count(), 0);
 });
 
+// P0 S3: the §A6 cap-money check is never skipped because MFL's rosters export is down.
+test("CREATE (fail closed): cap money + rosters export down → 503 cap_money_check_unavailable, no row, no DM; without cap money the same outage still creates (201)", async () => {
+  const { env, mfl } = fresh(); env.UPS_MFL_DB.raw.exec("DELETE FROM ups_3way_trades");
+  const count = () => env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_3way_trades").get().n;
+  const dms = () => mfl.st.discord.filter((d) => /\/messages$/.test(d.url)).length;
+  mfl.st.exportFail = { rosters: 502 };
+  const withCap = CREATE("0008"); withCap.movements[2].cap_k = 1;
+  const r = await callWorker(env, "POST", `/api/trades/3way?MFL_USER_ID=tok-A`, { body: withCap });
+  t.equal(r.status, 503, r.text.slice(0, 200)); t.equal(r.json.code, "cap_money_check_unavailable");
+  t.match(r.json.message, /Couldn't verify this trade with MFL right now, so it wasn't sent/);
+  t.equal(count(), 0, "nothing stored"); t.equal(dms(), 0, "nobody was messaged");
+  const noCap = await callWorker(env, "POST", `/api/trades/3way?MFL_USER_ID=tok-A`, { body: CREATE("0008") });
+  t.equal(noCap.status, 201, noCap.text.slice(0, 200)); t.equal(count(), 1, "cap_k = 0 is unaffected by the outage");
+  t.equal(mfl.writes().length, 0);
+});
+
 // ── the global guard is not a fail-open path ──
 test("GUARD: look-alike and sibling paths are still stopped by the global no-L guard (400 Missing L param) — the exemption is exact", async () => {
   const { env } = fresh();

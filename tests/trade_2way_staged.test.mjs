@@ -5,12 +5,16 @@
 // every acceptance and before execution; a satisfied conditional-drop selection means
 // "awaiting review," never permission for an automatic MFL write.
 //
-// installDiscordRecorder() below THROWS on any fetch() that isn't to discord.com — since
-// TRADE_2WAY_STAGING_EXECUTE is never set to "1" anywhere in this file, execute2Way always
-// takes the DRY-RUN branch and never reaches executeCommishTwoPartyTrade's real
-// myfantasyleague.com fetch() at all. Any test that somehow DID reach a real MFL call would
+// installDiscordRecorder() below THROWS on any fetch() that isn't to discord.com (apart from three
+// read-only MFL exports — rosters, futureDraftPicks, draftResults — that the asset-integrity gate
+// reads; any MFL import, i.e. a write, still throws) — outside the
+// UNCLEAR ACCEPT section at the end, TRADE_2WAY_STAGING_EXECUTE is never set to "1" in this
+// file, so execute2Way takes the DRY-RUN branch and never reaches executeCommishTwoPartyTrade's
+// real myfantasyleague.com fetch() at all. Any test that somehow DID reach a real MFL call would
 // crash immediately with "unexpected network call in test" -- this is the zero-MFL-writes
-// guarantee, enforced structurally, not just asserted after the fact.
+// guarantee, enforced structurally, not just asserted after the fact. The UNCLEAR ACCEPT tests
+// alone run live execution, against worker_harness.mjs's stateful fake MFL, installed for that
+// one test and removed again in `finally`.
 //
 // Run: node tests/trade_2way_staged.test.mjs
 import { t, test, run } from "./fixtures/mini_test.mjs";
@@ -19,6 +23,7 @@ import { installDiscordRecorder, quietConsole, viewer, commishViewer, NAMES } fr
 await import("./fixtures/register_md_loader.mjs");
 const { createStaged2WayTrade, get2WayTrade, accept2WayTrade, cancel2WayTrade, select2WayLoadedContractDrops, execute2Way } = await import("../worker/src/trade_2way.js");
 const { handle2WayStagedHttp } = await import("../worker/src/trade_2way_http.js");
+const { makeMfl } = await import("./fixtures/worker_harness.mjs");
 
 const restoreConsole = quietConsole();
 const discord = installDiscordRecorder();
@@ -304,6 +309,125 @@ test("HTTP: only the proven viewer can create as their own team -- a proven sess
   const j = await resp.json();
   t.equal(j.code, "forbidden");
 });
+
+// ═══════════════════════ P0 S3 + S4: fail closed on create; asset integrity at accept ═══════════════════════
+const postCreate = async (env, body) => {
+  const url = new URL("https://worker.test/api/trades/2way?MFL_USER_ID=tok-A");
+  const request = new Request(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const ctx = ctxWait();
+  const resp = await handle2WayStagedHttp({
+    request, url, path: url.pathname, env, ctx, corsHeaders: {},
+    defaultLeagueId: "74598", defaultSeason: "2026", browserMflUserId: "tok-A", cookieMflUserId: "",
+    deps: { detectFranchise: async (tok) => (tok === "tok-A" ? { franchise_id: FR.A, franchise_name: "Real Deal Creel" } : { error: "HTTP 401" }), commishFids: () => [] },
+  });
+  await ctx.flush();
+  return { status: resp.status, json: await resp.json() };
+};
+const stagedCount = (env) => env.UPS_MFL_DB.raw.prepare("SELECT COUNT(*) AS n FROM ups_2way_trades").get().n;
+
+test("CREATE (fail closed): cap money + rosters export down → 503 cap_money_check_unavailable, nothing staged, no DM; without cap money the same outage still stages (201)", async () => {
+  const env = makeEnv();
+  discord.resetMfl({ fail: { rosters: 502 } }); discord.reset();
+  try {
+    const withCap = await postCreate(env, { from: { fid: FR.A }, to: { fid: FR.B }, movements: [{ from: FR.A, to: FR.B, asset_tokens: ["P_16614"], cap_k: 1 }] });
+    t.equal(withCap.status, 503, JSON.stringify(withCap.json)); t.equal(withCap.json.code, "cap_money_check_unavailable");
+    t.equal(stagedCount(env), 0); t.equal(discord.messages().length, 0);
+    const noCap = await postCreate(env, { from: { fid: FR.A }, to: { fid: FR.B }, movements: [{ from: FR.A, to: FR.B, asset_tokens: ["P_16614"], cap_k: 0 }] });
+    t.equal(noCap.status, 201, JSON.stringify(noCap.json)); t.equal(stagedCount(env), 1);
+  } finally { discord.resetMfl(); }
+});
+
+test("CREATE: a round-6 pick, or a pick beyond the current year + 1, is refused (409 pick_not_tradeable) and nothing is staged", async () => {
+  const env = makeEnv();
+  for (const tok of ["FP_2027_6_0008", "FP_0008_2028_1", "DP_2026_6_3"]) {
+    const r = await postCreate(env, { from: { fid: FR.A }, to: { fid: FR.B }, movements: [{ from: FR.A, to: FR.B, asset_tokens: ["P_16614", tok], cap_k: 0 }] });
+    t.equal(r.status, 409, `${tok}: ${JSON.stringify(r.json)}`); t.equal(r.json.code, "pick_not_tradeable");
+  }
+  t.equal(stagedCount(env), 0);
+});
+
+test("ACCEPT: an asset no longer with its sender is refused BEFORE consent is recorded (409 asset_ownership_mismatch); nothing moves", async () => {
+  const env = makeEnv();
+  const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+  discord.resetMfl({ rosters: { "0008": [{ id: "16193", salary: 5000 }], "0001": [{ id: "16614", salary: 5000 }] } });   // 16614 has since moved to 0001
+  try {
+    const x = await accept2WayTrade(env, ctxWait(), created.id, viewer(FR.B, { leagueId: "74598", season: "2026" }), {});
+    t.equal(x.ok, false); t.equal(x.http, 409); t.equal(x.code, "asset_ownership_mismatch"); t.match(x.message, /wasn't recorded/);
+    const row = env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_2way_trades WHERE id=?").get(created.id);
+    t.equal(row.to_state, "pending", "consent not recorded"); t.equal(row.status, "collecting");
+  } finally { discord.resetMfl(); }
+});
+
+test("ACCEPT: rosters export down is not a verdict — the accept is recorded and the trade is HELD as unavailable (never executes)", async () => {
+  const env = makeEnv();
+  const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+  discord.resetMfl({ fail: { rosters: 502 } });
+  try {
+    const x = await accept2WayTrade(env, ctxWait(), created.id, viewer(FR.B, { leagueId: "74598", season: "2026" }), {});
+    t.equal(x.ok, true); t.equal(x.accepted, true); t.equal(x.executing, false); t.equal(x.held, true); t.equal(x.kind, "unavailable");
+    t.equal(env.UPS_MFL_DB.raw.prepare("SELECT status FROM ups_2way_trades WHERE id=?").get(created.id).status, "collecting");
+  } finally { discord.resetMfl(); }
+});
+
+// ═══════════════════════ UNCLEAR ACCEPT (live execution, fake MFL): ask MFL, never re-send ═══════════════════════
+// The accept's answer is unclear (it threw, or came back an error). executed in MFL's ledger → completed; provably still pending →
+// not_executed (retryable); neither → UNCONFIRMED: the ledger stays `executing` so nothing can send it again.
+async function liveStaged(prep) {
+  const mfl = makeMfl(); mfl.install();
+  try {
+    const env = makeEnv({ env: { TRADE_2WAY_STAGING_EXECUTE: "1" } });
+    const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+    const inner = globalThis.fetch;
+    globalThis.fetch = async (u, i) => {          // `prep.onAccept(offer)` runs as MFL handles the accept, before its (possibly lost) answer returns
+      const k = String(u) + " " + String((i && i.body) || "");
+      if (!/TYPE=tradeResponse/.test(k) || !/RESPONSE=accept/i.test(k) || !prep.onAccept) return inner(u, i);
+      const offer = mfl.st.pending.find((p) => p.trade_id === (/TRADE_ID=(\d+)/.exec(k) || [])[1]) || null;
+      try { return await inner(u, i); } finally { if (offer) prep.onAccept(mfl, offer); }
+    };
+    if (prep.before) prep.before(mfl);
+    const ctx = ctxWait();
+    const x = await accept2WayTrade(env, ctx, created.id, viewer(FR.B, { leagueId: "74598", season: "2026" }), {});
+    await ctx.flush();
+    const row = () => env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_2way_trades WHERE id=?").get(created.id);
+    const led = () => env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_trade_executions WHERE exec_key=?").get(created.id);
+    const dms = (re) => mfl.st.discord.filter((d) => /\/messages$/.test(d.url) && re.test(JSON.stringify(d.body || ""))).length;
+    const accepts = () => mfl.writes("tradeResponse").length;
+    // what a later execute would do (the row put back to `executing`, exactly as recheck/queue execute would before calling execute2Way)
+    const reExecute = async () => { env.UPS_MFL_DB.raw.prepare("UPDATE ups_2way_trades SET status='executing' WHERE id=?").run(created.id); return execute2Way(env, created.id); };
+    return await prep.check({ env, mfl, x, row, led, dms, accepts, reExecute });
+  } finally { mfl.restore(); }
+}
+
+test("UNCLEAR ACCEPT (staged): the accept throws and MFL can't be read (transactions 502, pendingTrades 502) → UNCONFIRMED, the ledger stays `executing`, one DM, and a later execute cannot send it again", () => liveStaged({
+  before: (mfl) => { mfl.st.loseResponseNext = "timeout"; },
+  onAccept: (mfl) => { mfl.st.exportFail = { transactions: 502, pendingTrades: 502 }; },
+  check: async ({ x, row, led, dms, accepts, reExecute }) => {
+    t.ok(x.ok && x.executing, JSON.stringify(x));
+    t.equal(row().status, "failed"); t.match(row().failure_reason, /^UNCONFIRMED_trade/); t.equal(row().mfl_trade_id, null);
+    t.equal(led().state, "executing", "the lock stays — never released to not_executed");
+    t.equal(dms(/couldn't confirm whether it went through/), 2, "one DM to each side"); t.equal(dms(/failed before anything moved/), 0);
+    const again = await reExecute();
+    t.equal(again.skipped, "execution_not_acquirable"); t.equal(accepts(), 1, "MFL was asked to accept exactly once, ever");
+  },
+}));
+test("UNCLEAR ACCEPT (staged): the accept throws but MFL's transactions export lists the trade → it continues as executed and completes", () => liveStaged({
+  before: (mfl) => { mfl.st.loseResponseNext = "timeout"; },
+  onAccept: (mfl, o) => { mfl.st.transactions = [{ type: "TRADE", franchise: o.offeringteam, franchise1_gave_up: o.will_give_up, franchise2: o.offeredto, franchise2_gave_up: o.will_receive, timestamp: String(Math.floor(Date.now() / 1000)) }]; },
+  check: async ({ row, led, dms, accepts }) => {
+    t.equal(row().status, "completed"); t.ok(row().mfl_trade_id); t.equal(led().state, "completed");
+    t.equal(dms(/went through on MFL/), 2); t.equal(accepts(), 1);
+  },
+}));
+test("UNCLEAR ACCEPT (staged): the accept returns an error, MFL's transactions export doesn't list it and the offer is still pending → not_executed, and a later execute is allowed and runs once", () => liveStaged({
+  before: (mfl) => { mfl.st.failNext = { type: "tradeResponse", status: 500 }; },
+  check: async ({ mfl, row, led, dms, accepts, reExecute }) => {
+    t.equal(row().status, "failed"); t.match(row().failure_reason, /^accept: /); t.equal(led().state, "not_executed", "provably not executed → released");
+    t.equal(dms(/failed before anything moved/), 2); t.equal(mfl.st.done.length, 0);
+    const again = await reExecute();
+    t.equal(again.ok, true, JSON.stringify(again)); t.equal(led().state, "completed"); t.equal(mfl.st.done.filter((d) => d.response === "accept").length, 1);
+    t.equal(accepts(), 2, "the refused accept + the one that executed");
+  },
+}));
 
 await run("trade_2way_staged");
 restoreConsole();

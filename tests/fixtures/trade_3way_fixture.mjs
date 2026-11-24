@@ -78,12 +78,46 @@ export const goodDeps = {
 export const viewer = (fid, extra) => ({ fid, sessionFid: fid, isCommish: false, leagueId: "74598", season: "2026", via: "session", ...(extra || {}) });
 export const commishViewer = (over) => ({ fid: "0000", sessionFid: "0000", isCommish: true, leagueId: "74598", season: "2026", via: "session", ...(over || {}) });
 
-// Records every Discord REST call the engine makes (dmAll -> openDmChannel + sendDm).
-export function installDiscordRecorder() {
+// The read-only MFL picture the engine's asset-integrity gate reads (rosters, futureDraftPicks, draftResults — P0 S4):
+// every asset in REAL_LEGS is with its sender, and Chase Brown's salary covers the 16K of cap money sent with him.
+// A test replaces any part through `installDiscordRecorder({ mfl })` or mutates `recorder.mfl` (`fail[type] = status`
+// makes that export answer an error).
+export function defaultMflWorld() {
+  return {
+    rosters: {
+      "0008": [{ id: "16614", salary: 5000 }, { id: "16193", salary: 5000 }],
+      "0001": [{ id: "16181", salary: 40000 }, { id: "16650", salary: 5000 }],
+      "0012": [{ id: "90012", salary: 5000 }],
+    },
+    futurePicks: { "0008": [{ year: 2027, round: 1, orig: "0005" }], "0012": [{ year: 2027, round: 1 }] },
+    draftPicks: [],
+    fail: {},
+  };
+}
+const asJson = (obj, status) => ({ ok: (status || 200) < 400, status: status || 200, json: async () => obj, text: async () => JSON.stringify(obj) });
+function serveMflExport(world, type) {
+  if (world.fail && world.fail[type]) return asJson({ error: "MFL boom" }, world.fail[type]);
+  if (type === "rosters") return asJson({ rosters: { franchise: Object.entries(world.rosters || {}).map(([id, ps]) => ({ id, player: ps.map((p) => ({ id: String(p.id), salary: String(p.salary == null ? 5000 : p.salary), status: p.status || "ROSTER" })) })) } });
+  if (type === "futureDraftPicks") return asJson({ futureDraftPicks: { franchise: Object.entries(world.futurePicks || {}).map(([id, ps]) => ({ id, futureDraftPick: ps.map((p) => ({ year: String(p.year), round: String(p.round), originalPickFor: p.orig || id })) })) } });
+  if (type === "draftResults") return asJson({ draftResults: { draftUnit: { draftPick: world.draftPicks || [] } } });
+  return null;
+}
+
+// Records every Discord REST call the engine makes (dmAll -> openDmChannel + sendDm). MFL is reachable for exactly
+// three READ-only exports (above), recorded separately in `mflReads`; every other network call — any MFL import (a
+// write) or any other export — still throws, so a test that reaches an MFL write crashes.
+export function installDiscordRecorder(opts) {
   const realFetch = globalThis.fetch;
   const calls = [];
+  const mflReads = [];
+  const world = { ...defaultMflWorld(), ...((opts && opts.mfl) || {}) };
   globalThis.fetch = async (u, init) => {
     const url = String(u);
+    if (/^https:\/\/(www\d+|api)\.myfantasyleague\.com\/\d{4}\/export\?/.test(url) && (!init || !init.method || String(init.method).toUpperCase() === "GET")) {
+      const type = new URL(url).searchParams.get("TYPE");
+      const res = serveMflExport(world, type);
+      if (res) { mflReads.push({ url, type }); return res; }
+    }
     if (!url.startsWith("https://discord.com/api/")) throw new Error(`unexpected network call in test: ${url}`);
     const body = init && init.body ? JSON.parse(init.body) : null;
     calls.push({ url, method: init && init.method, body });
@@ -92,6 +126,9 @@ export function installDiscordRecorder() {
   };
   return {
     calls,
+    mflReads,
+    mfl: world,
+    resetMfl: (over) => { for (const k of Object.keys(world)) delete world[k]; Object.assign(world, defaultMflWorld(), over || {}); mflReads.length = 0; },
     messages: () => calls.filter((c) => /\/channels\/dm-[^/]+\/messages$/.test(c.url)),
     to: (userId) => calls.filter((c) => c.url.includes(`/channels/dm-${userId}/messages`)),
     reset: () => { calls.length = 0; },
