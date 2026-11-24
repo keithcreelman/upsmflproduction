@@ -18,8 +18,11 @@
 #     The worker refuses to run if any production secret name is present (ups_env_guard.js
 #     FORBIDDEN_TEST_SECRETS: MFL_COOKIE, COMMISH_API_KEY, GITHUB_PAT, DISCORD_BOT_TOKEN, ...).
 name = "ups-test"
-main = "src/entry.js"
+main = "src/entry_test.js"
 compatibility_date = "2026-02-02"
+# AsyncLocalStorage, so each request's outbound calls (including ctx.waitUntil work) are attributed to it.
+# Test deployment only; production (wrangler.toml / entry.js) does not use or need it.
+compatibility_flags = ["nodejs_als"]
 workers_dev = true
 
 [vars]

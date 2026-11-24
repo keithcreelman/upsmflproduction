@@ -8,8 +8,9 @@ import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, makeMfl, callWorker, quiet } from "./fixtures/worker_harness.mjs";
 import { makeD1, applyMigrations, THREE_WAY_MIGRATIONS } from "./fixtures/d1_sqlite.mjs";
 import * as G from "../worker/src/ups_env_guard.js";
-import { handleTestFetch, __resetTestRuntime, __egressEvents } from "../worker/src/test_env_runtime.js";
+import { handleTestFetch, __resetTestRuntime, __setBackgroundTimeoutMs } from "../worker/src/test_env_runtime.js";
 const entry = (await import("../worker/src/entry.js")).default;
+const entryTest = (await import("../worker/src/entry_test.js")).default;
 const indexWorker = (await import("../worker/src/index.js")).default;
 
 const TEST_LEAGUE = "25625";
@@ -53,7 +54,8 @@ const ctx = () => { const waits = []; return { waits, waitUntil: (p) => waits.pu
 async function viaEntry(env, method, pathAndQuery, { body, headers } = {}) {
   const c = ctx();
   const h = { ...(body !== undefined ? { "Content-Type": "application/json" } : {}), ...(headers || {}) };
-  const res = await entry.fetch(new Request("https://ups-test.example" + pathAndQuery, { method, headers: h, body: body === undefined ? undefined : (typeof body === "string" ? body : JSON.stringify(body)) }), env, c);
+  const ep = env && env.UPS_ENV === "test" ? entryTest : entry;
+  const res = await ep.fetch(new Request("https://ups-test.example" + pathAndQuery, { method, headers: h, body: body === undefined ? undefined : (typeof body === "string" ? body : JSON.stringify(body)) }), env, c);
   await Promise.allSettled(c.waits);
   const text = await res.text();
   let json = null; try { json = JSON.parse(text); } catch (_) { json = null; }
@@ -63,11 +65,13 @@ async function viaEntry(env, method, pathAndQuery, { body, headers } = {}) {
 // A stand-in for the worker (handleTestFetch takes the app as a parameter), used where the test needs
 // precise control over what the "worker" sends: an MFL write, a Discord post, a GitHub dispatch.
 function fakeApp(plan) {
-  return { fetch: async (request, env) => {
+  return { fetch: async (request, env, ctx) => {
     const out = [];
-    for (const step of plan(request, env)) {
-      const r = await fetch(step.url, step.init || {});
-      out.push({ url: step.url, status: r.status, refused: r.headers && r.headers.get && r.headers.get("x-ups-egress") === "refused" });
+    for (const step of plan(request, env, ctx)) {
+      let r;
+      try { r = await fetch(step.url, step.init || {}); }
+      catch (e) { if (step.rethrow) throw e; out.push({ url: step.url, error: String(e && e.message || e) }); continue; }
+      out.push({ url: step.url, status: r.status, refused: r.headers && r.headers.get && r.headers.get("x-ups-egress") === "refused", reason: r.headers && r.headers.get && r.headers.get("x-ups-egress") === "refused" ? (await r.clone().json()).reason : undefined });
     }
     return new Response(JSON.stringify({ ok: true, steps: out, league_seen: new URL(request.url).searchParams.get("L"), mfl_cookie_seen: env.MFL_COOKIE, discord_channel_seen: env.DISCORD_DROPS_CHANNEL_ID }), { headers: { "content-type": "application/json" } });
   } };
@@ -293,13 +297,16 @@ test("UPS_ENV=production: entry.js hands the same request, env and ctx to index.
   const toml = fs.readFileSync(new URL("../worker/wrangler.toml", import.meta.url), "utf8");
   t.equal([...toml.matchAll(/^UPS_ENV\s*=\s*"production"\s*$/gm)].length, 1, "wrangler.toml pins UPS_ENV = \"production\" exactly once");
   t.match(toml, /^main = "src\/entry\.js"/m, "production deploys through entry.js");
+  t.doesNotMatch(toml, /nodejs_als|compatibility_flags/, "production config gains no compatibility flag");
+  t.doesNotMatch(src, /test_env_runtime|async_hooks/, "the production entry never loads the test runtime");
 });
 
 test("wrangler.test.toml: no jobs, no service/R2 bindings, both D1 names on the test database, no production ids or secrets", () => {
   const toml = fs.readFileSync(new URL("../worker/wrangler.test.toml", import.meta.url), "utf8");
   const code = toml.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
   t.match(code, /^name = "ups-test"$/m);
-  t.match(code, /^main = "src\/entry\.js"$/m);
+  t.match(code, /^main = "src\/entry_test\.js"$/m);
+  t.match(code, /^compatibility_flags = \["nodejs_als"\]$/m, "AsyncLocalStorage for per-request attribution (test deployment only)");
   t.match(code, /^UPS_ENV = "test"$/m);
   t.match(code, /^LEAGUE_ID = "25625"$/m);
   t.match(code, /^WRITE_LEAGUES = "25625"$/m);
@@ -382,7 +389,7 @@ test("no scheduled job runs in a test deployment; Discord interactions are refus
   const env = testEnv();
   const reads = [];
   const spyEnv = new Proxy(env, { get(o, k) { reads.push(String(k)); return o[k]; } });
-  await entry.scheduled({ cron: "*/5 * * * *", scheduledTime: Date.now() }, spyEnv, ctx());
+  await entryTest.scheduled({ cron: "*/5 * * * *", scheduledTime: Date.now() }, spyEnv, ctx());
   t.ok(reads.every((k) => k === "UPS_ENV" || k === "LEAGUE_ID"), "the scheduled path reads only UPS_ENV and LEAGUE_ID: " + [...new Set(reads)].join(","));
   t.equal(mflCalls(mfl), 0);
   const r = await viaEntry(env, "POST", "/discord/interactions", { body: { type: 1 } });
@@ -418,7 +425,7 @@ test("ledger: a lost MFL answer is 'uncertain'; the same key is blocked until MF
   const env = testEnv();
   const inner = globalThis.fetch;
   globalThis.fetch = async (u, i) => { if (/\/import/.test(String(u))) { mfl.st.imports.push({ type: "fcfsWaiver", fields: { L: TEST_LEAGUE } }); throw new Error("network reset (response lost)"); } return inner(u, i); };
-  const app = fakeApp(() => [IMPORT]);
+  const app = fakeApp(() => [{ ...IMPORT, rethrow: true }]);
   const h = { "Idempotency-Key": "adddrop-lost-0001" };
   let r;
   try { r = await viaRuntime(env, app, "POST", "/api/waivers/fcfs", { body: { add_pid: "17222" }, headers: h }); }
@@ -488,6 +495,210 @@ test("status and verify: status shows configuration and never a secret; verify n
   t.ok(v.json.egress_probes.length >= 5 && v.json.egress_probes.every((p) => p.refused), JSON.stringify(v.json.egress_probes));
   t.equal(v.json.commissioner_session.ok, true);
   for (const secret of [COMMISH_TOK, ADMIN, "abcDEF_ghi-JKL"]) t.ok(!v.text.includes(secret), "verify never shows a secret value");
+}));
+
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+// 8. Review round 1 regressions (4339823b): entries, operation identity, background attribution, redirects
+// ─────────────────────────────────────────────────────────────────────────────────────────────
+test("entries: the production entry refuses a test env; the test entry refuses everything but a test env; setup SQL matches the runtime tables", withMfl(async (mfl) => {
+  const a = await entry.fetch(new Request("https://x.test/api/a"), testEnv(), ctx());
+  t.equal(a.status, 503); t.equal((await a.json()).error, "ups_env_wrong_entry");
+  for (const v of ["production", undefined, "prod"]) {
+    const r = await entryTest.fetch(new Request("https://x.test/api/a"), makeWorkerEnv({ UPS_ENV: v }), ctx());
+    t.equal(r.status, 503, String(v));
+  }
+  t.equal(mflCalls(mfl), 0);
+  const src = fs.readFileSync(new URL("../worker/src/test_env_runtime.js", import.meta.url), "utf8");
+  const ddl = [...src.match(/const LEDGER_DDL = \[([\s\S]*?)\n\];/)[1].matchAll(/`([\s\S]*?)`/g)].map((x) => x[1].replace(/\s+/g, " ").trim());
+  const sql = SETUP_SQL.replace(/\s+/g, " ");
+  t.equal(ddl.length, 4);
+  for (const d of ddl) t.ok(sql.includes(d), "setup SQL carries: " + d.slice(0, 60));
+}));
+
+// An MFL whose import answers can be held, lost or failed on demand; every call recorded.
+function scriptedMfl(mfl, script) {
+  const base = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (u, i) => {
+    const url = String(u); const init = i || {};
+    calls.push({ url, method: init.method || "GET", body: init.body, redirect: init.redirect, cookie: new Headers(init.headers || {}).get("cookie"), authorization: new Headers(init.headers || {}).get("authorization") });
+    const s = script && script(url, init, calls.length);
+    if (s) return s;
+    return base(u, i);
+  };
+  return calls;
+}
+const IMPORT_FOR = (add) => ({ url: "https://www48.myfantasyleague.com/2026/import?TYPE=fcfsWaiver&L=25625&JSON=1", init: { method: "POST", body: `ADD=${add}&DROP=17509` } });
+const importCalls = (calls) => calls.filter((c) => /\/import/.test(c.url));
+
+test("operation identity: an unresolved operation can't reach MFL again under a new key, a reordered body, or another route", withMfl(async (mfl) => {
+  const env = testEnv();
+  const calls = scriptedMfl(mfl, (url) => (/\/import/.test(url) ? (() => { throw new Error("network reset (response lost)"); })() : null));
+  const app = fakeApp(() => [IMPORT_FOR("13348")]);
+  const body = { add_pid: "13348", drop_pids: ["17509"], ts: 1 };
+  const a = await viaRuntime(env, app, "POST", "/api/waivers/fcfs", { body, headers: { "Idempotency-Key": "op-key-A-0001" } });
+  t.equal(a.headers.get("x-ups-ledger-state"), "uncertain", a.text);
+  t.equal(importCalls(calls).length, 1);
+  const b = await viaRuntime(env, app, "POST", "/api/waivers/fcfs", { body, headers: { "Idempotency-Key": "op-key-B-0001" } });
+  t.equal(b.status, 409, b.text); t.equal(b.json.error, "operation_unresolved"); t.equal(b.json.held_by, "op-key-A-0001");
+  const c = await viaRuntime(env, app, "POST", "/api/waivers/fcfs", { body: { ts: 99, drop_pids: ["17509"], add_pid: "13348" }, headers: { "Idempotency-Key": "op-key-C-0001" } });
+  t.equal(c.status, 409, "same intent, keys reordered and a volatile field changed"); t.equal(c.json.error, "operation_unresolved");
+  // a different inbound operation that produces the SAME MFL write
+  const other = await viaRuntime(env, fakeApp(() => [IMPORT_FOR("13348")]), "POST", "/roster-workbench/action", { body: { action: "fcfs", note: "different route" }, headers: { "Idempotency-Key": "op-key-D-0001" } });
+  t.equal(other.status, 200, other.text);
+  t.equal(other.json.steps[0].refused, true); t.equal(other.json.steps[0].reason, "mfl_write_unresolved:op-key-A-0001");
+  t.equal(importCalls(calls).length, 1, "MFL saw exactly one attempt");
+  const ops = env.UPS_MFL_DB.raw.prepare("SELECT idempotency_key FROM ups_test_open_operations").all().map((r) => r.idempotency_key);
+  t.deepEqual(ops, ["op-key-A-0001"], "only the unresolved operation holds a lock (the others released theirs)");
+  // resolving it as NOT applied releases both locks; the same operation may then be sent again
+  const res = await viaRuntime(env, app, "POST", "/__test-env/ledger/resolve", { body: { idempotency_key: "op-key-A-0001", outcome: "not_applied", evidence: "25625 transactions: no FREE_AGENT 0003 since 14:00Z; 13348 still a free agent" }, headers: { "x-ups-test-admin-key": ADMIN } });
+  t.equal(res.status, 200, res.text);
+  t.equal(env.UPS_MFL_DB.raw.prepare("SELECT count(*) AS n FROM ups_test_open_operations").get().n, 0);
+  t.equal(env.UPS_MFL_DB.raw.prepare("SELECT count(*) AS n FROM ups_test_open_mfl_writes").get().n, 0);
+  const e = await viaRuntime(env, app, "POST", "/api/waivers/fcfs", { body, headers: { "Idempotency-Key": "op-key-E-0001" } });
+  t.equal(e.status, 200, e.text); t.equal(e.headers.get("x-ups-ledger-state"), "uncertain", "allowed again (and, still failing here, uncertain again)");
+  t.equal(importCalls(calls).length, 2);
+}));
+
+test("operation identity: two concurrent sends of the same operation under different keys reach MFL once", withMfl(async (mfl) => {
+  const env = testEnv();
+  let release; const gate = new Promise((r) => { release = r; });
+  const calls = scriptedMfl(mfl, (url) => (/\/import/.test(url) ? gate.then(() => new Response(JSON.stringify({ status: "OK" }), { status: 200, headers: { "content-type": "application/json" } })) : null));
+  const app = fakeApp(() => [IMPORT_FOR("13348")]);
+  const body = { add_pid: "13348", drop_pids: ["17509"] };
+  const p1 = viaRuntime(env, app, "POST", "/api/waivers/fcfs", { body, headers: { "Idempotency-Key": "conc-key-1-0001" } });
+  await new Promise((r) => setTimeout(r, 30));
+  const r2 = await viaRuntime(env, app, "POST", "/api/waivers/fcfs", { body, headers: { "Idempotency-Key": "conc-key-2-0001" } });
+  t.equal(r2.status, 409, r2.text); t.equal(r2.json.error, "operation_unresolved"); t.equal(r2.json.held_by, "conc-key-1-0001");
+  release();
+  const r1 = await p1;
+  t.equal(r1.status, 200, r1.text); t.equal(r1.headers.get("x-ups-ledger-state"), "responded");
+  t.equal(importCalls(calls).length, 1);
+  t.equal(env.UPS_MFL_DB.raw.prepare("SELECT count(*) AS n FROM ups_test_open_operations").get().n, 0, "a known outcome releases the lock");
+  const r3 = await viaRuntime(env, app, "POST", "/api/waivers/fcfs", { body, headers: { "Idempotency-Key": "conc-key-3-0001" } });
+  t.equal(r3.status, 200, "after a known outcome the same operation is a new, allowed request");
+}));
+
+test("operation identity: worker code retrying an MFL write after an uncertain answer, inside one request, is refused", withMfl(async (mfl) => {
+  const env = testEnv();
+  const calls = scriptedMfl(mfl, (url) => (/\/import/.test(url) ? new Response("gateway timeout", { status: 504 }) : null));
+  const r = await viaRuntime(env, fakeApp(() => [IMPORT_FOR("13348"), IMPORT_FOR("13348")]), "POST", "/api/waivers/fcfs", { body: { add_pid: "13348" }, headers: { "Idempotency-Key": "retry-in-req-0001" } });
+  t.equal(r.json.steps[0].status, 504); t.equal(r.json.steps[1].refused, true); t.equal(r.json.steps[1].reason, "mfl_write_retry_after_uncertain");
+  t.equal(importCalls(calls).length, 1);
+  t.equal(r.headers.get("x-ups-ledger-state"), "uncertain");
+}));
+
+test("background work: a waitUntil MFL write is attributed to its request, and the ledger is final only after it finishes", withMfl(async (mfl) => {
+  const env = testEnv();
+  const calls = scriptedMfl(mfl);
+  const app = { fetch: async (request, env2, c) => {
+    c.waitUntil((async () => { await new Promise((r) => setTimeout(r, 40)); await fetch(IMPORT_FOR("13348").url, IMPORT_FOR("13348").init); })());
+    return new Response(JSON.stringify({ ok: true, queued: true }), { headers: { "content-type": "application/json" } });
+  } };
+  const c1 = ctx();
+  const res = await handleTestFetch(new Request("https://ups-test.example/api/waivers/fcfs", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": "bg-key-0001" }, body: "{}" }), env, c1, app);
+  t.equal(res.status, 200); t.equal(res.headers.get("x-ups-ledger-state"), "background");
+  const mid = env.UPS_MFL_DB.raw.prepare("SELECT state FROM ups_test_write_ledger WHERE idempotency_key = 'bg-key-0001'").get();
+  t.equal(mid.state, "background", "not final while its waitUntil work runs");
+  const again = await viaRuntime(env, app, "POST", "/api/waivers/fcfs", { body: {}, headers: { "Idempotency-Key": "bg-key-0001" } });
+  t.equal(again.status, 409); t.equal(again.json.ledger_state, "background");
+  await Promise.allSettled(c1.waits);
+  const row = env.UPS_MFL_DB.raw.prepare("SELECT state, background_tasks, egress_json FROM ups_test_write_ledger WHERE idempotency_key = 'bg-key-0001'").get();
+  t.equal(row.state, "responded"); t.equal(row.background_tasks, 1);
+  const eg = JSON.parse(row.egress_json);
+  t.ok(eg.some((e) => e.kind === "mfl_write" && e.phase === "background"), "the background import is in THIS request's ledger: " + row.egress_json);
+  const logged = env.UPS_MFL_DB.raw.prepare("SELECT count(*) AS n FROM ups_test_egress_log WHERE idempotency_key = 'bg-key-0001' AND kind = 'mfl_write' AND phase = 'background'").get();
+  t.equal(logged.n, 1);
+  t.equal(importCalls(calls).length, 1);
+}));
+
+test("background work: a failed background write leaves the outcome uncertain; one that outlives the ledger can't call out", withMfl(async (mfl) => {
+  const env = testEnv();
+  const calls = scriptedMfl(mfl, (url) => (/\/import/.test(url) ? new Response("bad gateway", { status: 502 }) : null));
+  const bgApp = (delay) => ({ fetch: async (request, env2, c) => {
+    c.waitUntil((async () => { await new Promise((r) => setTimeout(r, delay)); await fetch(IMPORT_FOR("13348").url, IMPORT_FOR("13348").init); })());
+    return new Response("{}", { headers: { "content-type": "application/json" } });
+  } });
+  const c1 = ctx();
+  await handleTestFetch(new Request("https://ups-test.example/api/x", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": "bg-5xx-0001" }, body: "{}" }), env, c1, bgApp(5));
+  await Promise.allSettled(c1.waits);
+  t.equal(env.UPS_MFL_DB.raw.prepare("SELECT state FROM ups_test_write_ledger WHERE idempotency_key = 'bg-5xx-0001'").get().state, "uncertain");
+  t.equal(env.UPS_MFL_DB.raw.prepare("SELECT count(*) AS n FROM ups_test_open_operations WHERE idempotency_key = 'bg-5xx-0001'").get().n, 1, "still locked");
+  __setBackgroundTimeoutMs(30);
+  const c2 = ctx();
+  await handleTestFetch(new Request("https://ups-test.example/api/y", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": "bg-late-0001" }, body: "{\"x\":2}" }), env, c2, bgApp(120));
+  await Promise.allSettled(c2.waits);
+  const row = env.UPS_MFL_DB.raw.prepare("SELECT state, background_timed_out FROM ups_test_write_ledger WHERE idempotency_key = 'bg-late-0001'").get();
+  t.equal(row.state, "uncertain", "timed-out background work is an unknown outcome"); t.equal(row.background_timed_out, 1);
+  await new Promise((r) => setTimeout(r, 150));
+  const late = env.UPS_MFL_DB.raw.prepare("SELECT reason, phase FROM ups_test_egress_log WHERE idempotency_key = 'bg-late-0001'").all();
+  t.ok(late.some((e) => e.reason === "request_context_finalized" && e.phase === "after_finalize"), JSON.stringify(late));
+  t.equal(importCalls(calls).length, 1, "the late write never reached MFL");
+}));
+
+test("attribution is per request: interleaved writes each land in their own ledger; MFL writes outside a ledgered request are refused", withMfl(async (mfl) => {
+  const env = testEnv();
+  scriptedMfl(mfl);
+  const slow = { fetch: async () => { await new Promise((r) => setTimeout(r, 40)); const s = IMPORT_FOR("11111"); await fetch(s.url, s.init); return new Response("{}"); } };
+  const fast = { fetch: async () => { const s = IMPORT_FOR("22222"); await fetch(s.url, s.init); return new Response("{}"); } };
+  const pX = viaRuntime(env, slow, "POST", "/api/x", { body: { n: 1 }, headers: { "Idempotency-Key": "attr-X-0001" } });
+  await new Promise((r) => setTimeout(r, 5));
+  await viaRuntime(env, fast, "POST", "/api/y", { body: { n: 2 }, headers: { "Idempotency-Key": "attr-Y-0001" } });
+  await pX;
+  const eg = (k) => JSON.parse(env.UPS_MFL_DB.raw.prepare("SELECT egress_json FROM ups_test_write_ledger WHERE idempotency_key = ?").get(k).egress_json).filter((e) => e.kind === "mfl_write");
+  t.equal(eg("attr-X-0001").length, 1); t.equal(eg("attr-Y-0001").length, 1, "no cross-attribution");
+  // a read that tries an MFL write, and a write from no request at all
+  const readApp = fakeApp(() => [IMPORT_FOR("33333")]);
+  const r = await viaRuntime(env, readApp, "GET", "/api/z", {});
+  t.equal(r.json.steps[0].reason, "mfl_write_outside_ledgered_request");
+  const bare = await fetch(IMPORT_FOR("44444").url, IMPORT_FOR("44444").init);
+  t.equal(bare.headers.get("x-ups-egress"), "refused");
+  t.equal(mfl.st.imports.filter((i) => ["33333", "44444"].includes(i.fields.ADD)).length, 0);
+}));
+
+test("redirects: every hop is decided again; method, body and credentials follow the fetch rules; the guard always asks for manual redirects", withMfl(async (mfl) => {
+  const env = testEnv();
+  const redirect = (status, location) => new Response("", { status, headers: { location } });
+  const calls = scriptedMfl(mfl, (url) => {
+    if (url.includes("/r/to-prod")) return redirect(302, "https://www48.myfantasyleague.com/2026/export?TYPE=rosters&L=74598&JSON=1");
+    if (url.includes("TYPE=hopdiscord")) return redirect(307, "https://discord.com/api/v10/channels/1059111651846131833/messages");
+    if (url.startsWith("https://api.myfantasyleague.com/2026/import")) return redirect(302, "https://www48.myfantasyleague.com/2026/import?TYPE=fcfsWaiver&L=25625&JSON=1&X=1");
+    if (url.includes("/r/leave-mfl")) return redirect(302, "https://api.sleeper.app/v1/state/nfl");
+    if (url.includes("/r/plain")) return redirect(301, "http://api.sleeper.app/v1/x");
+    if (url.includes("/r/loop")) return redirect(302, url.replace(/n=(\d+)/, (m0, n) => `n=${Number(n) + 1}`));
+    if (url.startsWith("https://api.sleeper.app/")) return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    if (url.includes("www48.myfantasyleague.com/2026/import")) return new Response("{\"status\":\"OK\"}", { status: 200 });
+    return null;
+  });
+  const steps = [
+    { url: "https://www48.myfantasyleague.com/r/to-prod?L=25625", init: {} },
+    { url: "https://www48.myfantasyleague.com/2026/import?TYPE=hopdiscord&L=25625", init: { method: "POST", body: "A=1" } },
+    { url: "https://api.myfantasyleague.com/2026/import?TYPE=fcfsWaiver&L=25625&JSON=1", init: { method: "POST", body: "ADD=13348&DROP=17509", headers: { Cookie: "MFL_USER_ID=tok-test-owner", "Content-Type": "application/x-www-form-urlencoded" } } },
+    { url: "https://www48.myfantasyleague.com/r/leave-mfl?L=25625", init: { headers: { Cookie: "MFL_USER_ID=tok-test-owner", Authorization: "Bearer x" } } },
+    { url: "https://www48.myfantasyleague.com/r/plain?L=25625", init: {} },
+    { url: "https://www48.myfantasyleague.com/r/loop?L=25625&n=0", init: {} },
+    { url: "https://www48.myfantasyleague.com/r/to-prod?L=25625", init: { redirect: "manual" } },
+    { url: "https://www48.myfantasyleague.com/r/to-prod?L=25625", init: { redirect: "error" } },
+  ];
+  const r = await viaRuntime(env, fakeApp(() => steps), "POST", "/api/redirects", { body: {}, headers: { "Idempotency-Key": "redir-0001" } });
+  const s = r.json.steps;
+  t.equal(s[0].reason, "production_league_named", "a redirect into league 74598 is refused at that hop");
+  t.ok(!calls.some((c) => c.url.includes("L=74598")), "the 74598 hop never left the worker");
+  t.equal(s[1].reason, "discord_refused", "an MFL write redirected to Discord is refused at the hop");
+  t.ok(!calls.some((c) => c.url.includes("discord.com")));
+  t.equal(s[2].status, 200, "api -> www48 shard redirect followed");
+  const hop2 = calls.find((c) => c.url.includes("&X=1"));
+  t.equal(hop2.method, "GET", "302 after POST continues as GET (fetch standard)"); t.equal(hop2.body, undefined, "without the body");
+  t.equal(hop2.cookie, "MFL_USER_ID=tok-test-owner", "an MFL session may follow an MFL-to-MFL redirect");
+  const left = calls.find((c) => c.url.startsWith("https://api.sleeper.app/v1/state"));
+  t.equal(s[3].status, 200); t.equal(left.cookie, null, "the MFL session never leaves MFL"); t.equal(left.authorization, null, "Authorization dropped cross-origin");
+  t.equal(s[4].reason, "redirect_not_https");
+  t.equal(s[5].reason, "too_many_redirects");
+  t.equal(s[6].status, 302, "redirect: manual hands the 3xx to the caller");
+  t.match(s[7].error, /redirect refused/, "redirect: error throws");
+  t.ok(calls.filter((c) => !/myleagues/.test(c.url)).every((c) => c.redirect === "manual"), "every outbound call the guard made asked for manual redirects");
+  const logged = env.UPS_MFL_DB.raw.prepare("SELECT hop, reason FROM ups_test_egress_log WHERE idempotency_key = 'redir-0001' AND decision = 'refuse' ORDER BY id").all();
+  t.ok(logged.some((x) => x.hop === 1 && x.reason === "production_league_named"), JSON.stringify(logged));
 }));
 
 await run("ups_env_guard");

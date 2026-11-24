@@ -1,19 +1,24 @@
-// UPS test deployment runtime (#1475). Runs ONLY when UPS_ENV is exactly "test" (entry.js).
-// Production never loads any of this into its request path.
+// UPS test deployment runtime (#1475). Loaded ONLY by entry_test.js (wrangler.test.toml), and run only
+// when UPS_ENV is exactly "test". The production entry (entry.js) never imports this file.
 //
 // Per request, in order (any failure refuses the request before the worker code runs):
 //   1. configuration      testConfig(): test league only, no production credential names present
 //   2. bindings           only D1 (each proven to be the test database by its marker row) and the
 //                         static asset binding; no R2, KV, queues, Durable Objects or service bindings
-//   3. outbound guard     the global fetch is wrapped: MFL only for the test league, no Discord
-//                         except the configured test webhook, no GitHub/AI/other writes, no workers.dev
+//   3. outbound guard     the global fetch is wrapped: every hop of every call (redirects included) is
+//                         decided again; MFL only for the test league and MFL writes only inside a
+//                         ledgered request; no Discord except the test webhook; no other writes
 //   4. cache namespace    caches.default keys moved under this deployment's own prefix
 //   5. inbound league     a request naming league 74598 anywhere, or any other league, is refused;
 //                         the worker sees L pinned to the test league
 //   6. credentials        write requests: the forwarded owner session and the test commissioner
 //                         session must belong to the test league and NOT to league 74598 (MFL myleagues)
-//   7. write ledger       write requests need an Idempotency-Key; intent is recorded before the worker
-//                         runs, the outcome after; a repeat replays, an unknown outcome blocks retries
+//   7. write ledger       write requests need an Idempotency-Key. Each request runs in its OWN context
+//                         (AsyncLocalStorage), so every outbound call, including ones made later from
+//                         ctx.waitUntil, is attributed to exactly one request. The ledger is final only
+//                         after that request's background work has finished. An operation (and each MFL
+//                         write) whose outcome is unknown stays locked, under any key, until resolved.
+import { AsyncLocalStorage } from "node:async_hooks";
 import * as G from "./ups_env_guard.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
 
@@ -21,28 +26,52 @@ const LEDGER_DDL = [
   `CREATE TABLE IF NOT EXISTS ups_test_write_ledger (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      idempotency_key TEXT NOT NULL UNIQUE,
+     operation_sha256 TEXT NOT NULL,
      env TEXT NOT NULL DEFAULT 'test' CHECK (env = 'test'),
      league_id TEXT NOT NULL,
      method TEXT NOT NULL,
      path TEXT NOT NULL,
      query_redacted TEXT,
      request_sha256 TEXT NOT NULL,
-     state TEXT NOT NULL CHECK (state IN ('pending','responded','uncertain','failed','resolved_applied','resolved_not_applied')),
+     state TEXT NOT NULL CHECK (state IN ('pending','background','responded','uncertain','failed','resolved_applied','resolved_not_applied')),
      http_status INTEGER,
      response_sha256 TEXT,
      response_body TEXT,
      response_content_type TEXT,
      egress_json TEXT,
+     background_tasks INTEGER,
+     background_timed_out INTEGER,
      started_at TEXT NOT NULL,
+     responded_at TEXT,
      finished_at TEXT,
      resolution_note TEXT,
      resolved_at TEXT
+   )`,
+  // One row per operation whose outcome is not yet known. The PRIMARY KEY is the atomic lock: a second
+  // send of the same operation, under any idempotency key, can't insert it and is refused.
+  `CREATE TABLE IF NOT EXISTS ups_test_open_operations (
+     operation_sha256 TEXT PRIMARY KEY,
+     idempotency_key TEXT NOT NULL,
+     env TEXT NOT NULL DEFAULT 'test' CHECK (env = 'test'),
+     opened_at TEXT NOT NULL
+   )`,
+  // The same lock one level down, per MFL write as MFL would see it, so a different route or body
+  // that produces the same MFL write is refused too.
+  `CREATE TABLE IF NOT EXISTS ups_test_open_mfl_writes (
+     write_sha256 TEXT PRIMARY KEY,
+     idempotency_key TEXT NOT NULL,
+     env TEXT NOT NULL DEFAULT 'test' CHECK (env = 'test'),
+     url_redacted TEXT,
+     opened_at TEXT NOT NULL
    )`,
   `CREATE TABLE IF NOT EXISTS ups_test_egress_log (
      id INTEGER PRIMARY KEY AUTOINCREMENT,
      env TEXT NOT NULL DEFAULT 'test' CHECK (env = 'test'),
      ts TEXT NOT NULL,
      idempotency_key TEXT,
+     request_id TEXT,
+     phase TEXT,
+     hop INTEGER,
      method TEXT,
      url_redacted TEXT,
      host TEXT,
@@ -58,25 +87,29 @@ const RESPONSE_BODY_CAP = 64 * 1024;
 const MARKER_TTL_MS = 5 * 60 * 1000;
 const CREDENTIAL_TTL_MS = 10 * 60 * 1000;
 const KEY_RE = /^[A-Za-z0-9._:-]{8,128}$/;
+let BACKGROUND_TIMEOUT_MS = 20 * 1000;   // below the platform's waitUntil limit; past it the outcome is "uncertain"
+
+const als = new AsyncLocalStorage();
 
 const state = {
   cfg: null,
-  egress: [],                 // recent outbound decisions (redacted), newest last
-  inflight: new Set(),        // idempotency keys of ledgered requests now running in this isolate
+  recent: [],                 // last outbound decisions in this isolate (redacted), for status/debugging only
   markerOkUntil: 0,
   ledgerReady: false,
   credentials: new Map(),     // sha256(value) -> { until, verdict }
 };
 
-// Tests only: forget isolate state and unwrap fetch.
+// Tests only.
 export function __resetTestRuntime() {
   const f = globalThis.fetch;
   if (f && f.__upsTestGuard) globalThis.fetch = f.__upsInner;
-  state.cfg = null; state.egress = []; state.inflight = new Set(); state.markerOkUntil = 0; state.ledgerReady = false; state.credentials = new Map();
+  state.cfg = null; state.recent = []; state.markerOkUntil = 0; state.ledgerReady = false; state.credentials = new Map();
+  BACKGROUND_TIMEOUT_MS = 20 * 1000;
 }
-export function __egressEvents() { return state.egress.slice(); }
+export function __setBackgroundTimeoutMs(ms) { BACKGROUND_TIMEOUT_MS = ms; }
 
 const nowIso = () => new Date().toISOString();
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function sha256hex(text) {
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(text))));
@@ -108,38 +141,125 @@ function stamp(res, cfg, extra) {
   return out;
 }
 
-function record(ev) {
-  state.egress.push(ev);
-  if (state.egress.length > 500) state.egress.splice(0, state.egress.length - 500);
+function refusedResponse(reason) {
+  return new Response(JSON.stringify({ ok: false, error: "ups_test_egress_refused", reason }), { status: 403, headers: { "content-type": "application/json", "x-ups-egress": "refused" } });
+}
+
+// ── request context ─────────────────────────────────────────────────────────────────────────────
+function newContext(kind, cfg, db, key) {
+  return { id: crypto.randomUUID(), kind, cfg, db, key: key || null, events: [], background: [], finalized: false, phase: "response", openWrites: [], writeAttempts: {} };
+}
+
+// The ctx the worker code sees: every waitUntil promise is tracked for its request.
+function trackingCtx(ctx, rc) {
+  return {
+    waitUntil(p) { const pp = Promise.resolve(p); rc.background.push(pp); if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(pp.catch(() => {})); },
+    passThroughOnException() { if (ctx && typeof ctx.passThroughOnException === "function") ctx.passThroughOnException(); },
+    props: ctx && ctx.props,
+  };
+}
+
+// Wait for a request's background work, including work that background work itself schedules.
+async function settleBackground(rc) {
+  const deadline = Date.now() + BACKGROUND_TIMEOUT_MS;
+  let seen = 0;
+  rc.phase = "background";
+  while (seen < rc.background.length) {
+    const batch = rc.background.slice(seen);
+    seen = rc.background.length;
+    const left = deadline - Date.now();
+    const done = await Promise.race([Promise.allSettled(batch).then(() => true), sleep(Math.max(0, left)).then(() => false)]);
+    if (!done) { rc.timedOut = true; break; }
+  }
+  rc.finalized = true;   // from here on this request's context may make no outbound call
+}
+
+function record(rc, ev) {
+  if (rc) rc.events.push(ev);
+  state.recent.push(ev);
+  if (state.recent.length > 200) state.recent.splice(0, state.recent.length - 200);
 }
 
 // ── 3. outbound guard ───────────────────────────────────────────────────────────────────────────
+async function normalizeFetch(input, init) {
+  const isReq = typeof Request !== "undefined" && input instanceof Request;
+  const url = typeof input === "string" ? input : (input instanceof URL ? input.toString() : String((input && input.url) || input));
+  const method = String((init && init.method) || (isReq ? input.method : "GET")).toUpperCase();
+  const headers = new Headers(isReq ? input.headers : undefined);
+  if (init && init.headers) for (const [k, v] of new Headers(init.headers)) headers.set(k, v);
+  const bodyText = await G.bodyTextOf(input, init);
+  let body;
+  if (init && Object.prototype.hasOwnProperty.call(init, "body") && init.body != null) body = init.body;
+  else if (isReq && input.body) body = bodyText;
+  const redirect = String((init && init.redirect) || (isReq ? input.redirect : "") || "follow");
+  return { url, method, headers, body, bodyText, redirect, signal: init && init.signal };
+}
+
 export function ensureEgressGuard(cfg) {
   state.cfg = cfg;
   const cur = globalThis.fetch;
   if (cur && cur.__upsTestGuard) return true;
   const inner = cur;
   const guarded = async function upsTestGuardedFetch(input, init) {
-    const url = typeof input === "string" ? input : (input instanceof URL ? input.toString() : String((input && input.url) || input));
-    const method = String((init && init.method) || (input && typeof input === "object" && input.method) || "GET").toUpperCase();
-    const bodyText = await G.bodyTextOf(input, init);
-    const d = G.egressDecision({ url, method, bodyText }, state.cfg || cfg);
-    const ev = { ts: Date.now(), method, url: G.redactUrl(url), host: d.host || "", decision: d.allow ? "allow" : "refuse", kind: d.kind || "", reason: d.reason || "", requests: [...state.inflight] };
-    record(ev);
-    if (!d.allow) {
-      console.log(`[ups-env=test] outbound REFUSED ${method} ${ev.url} (${d.reason})`);
-      return new Response(JSON.stringify({ ok: false, error: "ups_test_egress_refused", reason: d.reason }), { status: 403, headers: { "content-type": "application/json", "x-ups-egress": "refused" } });
-    }
-    try {
-      const r = await inner(input, init);
+    const rc = als.getStore() || null;
+    const n = await normalizeFetch(input, init);
+    let { url, method, headers, body, bodyText } = n;
+    let writeOpened = false, writeSha = null;
+    for (let hop = 0; hop <= G.MAX_REDIRECT_HOPS; hop++) {
+      const d = G.egressDecision({ url, method, bodyText: body === undefined ? "" : bodyText }, state.cfg || cfg);
+      const ev = { ts: Date.now(), request_id: rc ? rc.id : null, phase: rc ? rc.phase : "none", hop, method, url: G.redactUrl(url), host: d.host || "", decision: d.allow ? "allow" : "refuse", kind: d.kind || "", reason: d.reason || "" };
+      const refuse = (reason) => { ev.decision = "refuse"; ev.reason = reason; record(rc, ev); console.log(`[ups-env=test] outbound REFUSED ${method} ${ev.url} (${reason})`); return refusedResponse(reason); };
+      if (!d.allow) return refuse(d.reason);
+      if (rc && rc.finalized) {
+        // Work that outlived its request's ledger (a timed-out waitUntil) may not call out. The refusal is
+        // logged directly, since that request's ledger row is already final.
+        const resp = refuse("request_context_finalized");
+        if (rc.db) await writeEgressRows(rc.db, rc.key, [{ ...ev, phase: "after_finalize" }]).catch(() => {});
+        return resp;
+      }
+      if (d.kind === "mfl_write") {
+        if (!rc || rc.kind !== "ledgered") return refuse("mfl_write_outside_ledgered_request");
+        if (!writeOpened) {
+          // One open-write lock per MFL write; a second identical write while this one is unresolved is refused.
+          const sha = await sha256hex(G.mflWriteIdentity({ url, bodyText }));
+          ev.write = sha; writeSha = sha;
+          const mine = rc.writeAttempts[sha];
+          if (mine === "uncertain") return refuse("mfl_write_retry_after_uncertain");
+          if (mine) { writeOpened = true; } else try {
+            await rc.db.prepare("INSERT INTO ups_test_open_mfl_writes (write_sha256, idempotency_key, env, url_redacted, opened_at) VALUES (?, ?, 'test', ?, ?)").bind(sha, rc.key, ev.url, nowIso()).run();
+          } catch (_) {
+            const holder = await rc.db.prepare("SELECT idempotency_key FROM ups_test_open_mfl_writes WHERE write_sha256 = ?").bind(sha).first().catch(() => null);
+            return refuse(holder ? `mfl_write_unresolved:${holder.idempotency_key}` : "mfl_write_lock_unavailable");
+          }
+          if (!mine) { rc.openWrites.push(sha); rc.writeAttempts[sha] = "sent"; }
+          writeOpened = true;
+        }
+      }
+      if (writeSha) ev.write = writeSha;
+      record(rc, ev);
+      let r;
+      try {
+        r = await inner(url, { method, headers, body: body === undefined ? undefined : body, redirect: "manual", signal: n.signal });
+      } catch (e) {
+        ev.error = String((e && e.message) || e).slice(0, 200);
+        if (d.kind === "mfl_write") { ev.uncertain = true; if (ev.write) rc.writeAttempts[ev.write] = "uncertain"; }   // lost answer: MFL may have applied it
+        throw e;
+      }
       ev.status = r && r.status;
-      if (d.kind === "mfl_write" && r && r.status >= 500) ev.uncertain = true;   // MFL may have applied it
-      return r;
-    } catch (e) {
-      ev.error = String((e && e.message) || e).slice(0, 200);
-      if (d.kind === "mfl_write") ev.uncertain = true;                           // lost answer: outcome unknown
-      throw e;
+      const loc = r && r.status >= 300 && r.status < 400 && r.headers && r.headers.get ? r.headers.get("location") : null;
+      if (!loc) {
+        if (d.kind === "mfl_write" && r && r.status >= 500) { ev.uncertain = true; if (ev.write) rc.writeAttempts[ev.write] = "uncertain"; }
+        return r;
+      }
+      if (n.redirect === "manual") return r;   // the caller sees the 3xx; its next fetch is checked again
+      if (n.redirect === "error") throw new TypeError(`redirect refused (redirect: "error") from ${ev.url}`);
+      const nx = G.redirectHop({ url, method, status: r.status, location: loc, headers });
+      if (nx.error) return refuse(nx.error);
+      if (nx.keepBody && body !== undefined && bodyText == null) return refuse("redirect_body_not_replayable");
+      url = nx.url; method = nx.method; headers = nx.headers;
+      if (!nx.keepBody) { body = undefined; bodyText = ""; }
     }
+    return (() => { const ev = { ts: Date.now(), request_id: rc ? rc.id : null, method, url: G.redactUrl(url), decision: "refuse", reason: "too_many_redirects" }; record(rc, ev); return refusedResponse("too_many_redirects"); })();
   };
   guarded.__upsTestGuard = true;
   guarded.__upsInner = inner;
@@ -206,15 +326,37 @@ async function ensureLedger(db) {
 }
 
 async function writeEgressRows(db, key, events) {
-  const rows = events.filter((e) => key ? (e.requests || []).includes(key) : e.decision === "refuse");
-  if (!rows.length) return;
-  const stmts = rows.slice(0, 50).map((e) => db.prepare(
-    "INSERT INTO ups_test_egress_log (env, ts, idempotency_key, method, url_redacted, host, decision, kind, reason, status, error) VALUES ('test', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).bind(new Date(e.ts).toISOString(), key || null, e.method, e.url, e.host, e.decision, e.kind, e.reason, e.status == null ? null : e.status, e.error || null));
-  await db.batch(stmts);
+  if (!events.length) return;
+  for (let i = 0; i < events.length; i += 50) {
+    await db.batch(events.slice(i, i + 50).map((e) => db.prepare(
+      "INSERT INTO ups_test_egress_log (env, ts, idempotency_key, request_id, phase, hop, method, url_redacted, host, decision, kind, reason, status, error) VALUES ('test', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(new Date(e.ts).toISOString(), key || null, e.request_id || null, e.phase || null, e.hop == null ? null : e.hop, e.method, e.url, e.host || "", e.decision, e.kind || "", e.reason || "", e.status == null ? null : e.status, e.error || null)));
+  }
 }
 
-async function runLedgered({ request, pinnedUrl, bodyBuf, bodyText, env, ctx, app, cfg, inv, autoKey }) {
+const OPEN_STATES = new Set(["pending", "background", "uncertain"]);
+
+async function finalizeLedger(db, rc, res, bodyOut, ctype, threw) {
+  const events = rc.events;
+  const mflWrites = events.filter((e) => e.kind === "mfl_write" && e.decision === "allow");
+  const uncertain = events.some((e) => e.uncertain) || (!!threw && mflWrites.length > 0) || (!!rc.timedOut);
+  const finalState = uncertain ? "uncertain" : (threw ? "failed" : "responded");
+  const egressSummary = events.map((e) => ({ phase: e.phase, hop: e.hop, method: e.method, url: e.url, decision: e.decision, kind: e.kind, reason: e.reason, status: e.status, error: e.error, uncertain: !!e.uncertain }));
+  await db.prepare(`UPDATE ups_test_write_ledger SET state = ?, http_status = ?, response_sha256 = ?, response_body = ?, response_content_type = ?, egress_json = ?,
+                    background_tasks = ?, background_timed_out = ?, finished_at = ? WHERE idempotency_key = ?`)
+    .bind(finalState, res ? res.status : null, await sha256hex(bodyOut), bodyOut.length <= RESPONSE_BODY_CAP ? bodyOut : null, ctype,
+      JSON.stringify(egressSummary).slice(0, RESPONSE_BODY_CAP), rc.background.length, rc.timedOut ? 1 : 0, nowIso(), rc.key).run();
+  await writeEgressRows(db, rc.key, events);
+  if (!uncertain) {
+    // A known outcome releases the operation and its MFL writes; an unknown one keeps both locked.
+    const stmts = [db.prepare("DELETE FROM ups_test_open_operations WHERE idempotency_key = ?").bind(rc.key)];
+    for (const sha of rc.openWrites) stmts.push(db.prepare("DELETE FROM ups_test_open_mfl_writes WHERE write_sha256 = ? AND idempotency_key = ?").bind(sha, rc.key));
+    await db.batch(stmts);
+  }
+  return finalState;
+}
+
+async function runLedgered({ request, pinnedUrl, bodyBuf, bodyText, env, ctx, app, cfg, inv, autoKey, credentialHashes }) {
   const db = ledgerDb(env, inv);
   const u = new URL(pinnedUrl);
   let key = String(request.headers.get("Idempotency-Key") || "").trim();
@@ -224,6 +366,7 @@ async function runLedgered({ request, pinnedUrl, bodyBuf, bodyText, env, ctx, ap
   }
   if (!KEY_RE.test(key)) return json(400, { ok: false, error: "idempotency_key_invalid" }, cfg);
   const reqHash = await sha256hex(`${request.method}\n${u.pathname}\n${u.search}\n${bodyText}`);
+  const opHash = await sha256hex(G.operationIdentity({ method: request.method, url: pinnedUrl, bodyText, credentialHashes }));
   try { await ensureLedger(db); } catch (_) { return json(503, { ok: false, error: "ledger_unavailable" }, cfg); }
 
   const prior = await db.prepare("SELECT * FROM ups_test_write_ledger WHERE idempotency_key = ?").bind(key).first().catch(() => undefined);
@@ -237,48 +380,64 @@ async function runLedgered({ request, pinnedUrl, bodyBuf, bodyText, env, ctx, ap
     }
     const why = {
       pending: "a request with this key is still running or never finished; its outcome is unknown",
+      background: "the request answered but its background work has not finished; its outcome is not final",
       uncertain: "the previous attempt's MFL answer was lost or failed; MFL may have applied it",
       failed: "the previous attempt failed before any MFL write; send a new Idempotency-Key to try again",
       resolved_applied: "the previous attempt was confirmed applied in MFL; nothing to retry",
       resolved_not_applied: "the previous attempt was confirmed NOT applied in MFL; send a new Idempotency-Key to try again",
     }[prior.state] || "unknown ledger state";
     return json(409, { ok: false, error: "prior_attempt_not_retryable", ledger_state: prior.state, detail: why,
-      next_step: (prior.state === "pending" || prior.state === "uncertain") ? `read league ${cfg.league}'s MFL transactions and rosters, then POST /__test-env/ledger/resolve` : undefined,
+      next_step: OPEN_STATES.has(prior.state) ? `read league ${cfg.league}'s MFL transactions and rosters, then POST /__test-env/ledger/resolve` : undefined,
       idempotency_key: key }, cfg);
   }
+  // Atomic: the ledger row and the operation lock are written together, or neither is.
   try {
-    await db.prepare(`INSERT INTO ups_test_write_ledger (idempotency_key, env, league_id, method, path, query_redacted, request_sha256, state, started_at)
-                      VALUES (?, 'test', ?, ?, ?, ?, ?, 'pending', ?)`)
-      .bind(key, cfg.league, request.method, u.pathname, G.redactUrl(pinnedUrl).replace(/^[^?]*/, ""), reqHash, nowIso()).run();
+    await db.batch([
+      db.prepare(`INSERT INTO ups_test_write_ledger (idempotency_key, operation_sha256, env, league_id, method, path, query_redacted, request_sha256, state, started_at)
+                  VALUES (?, ?, 'test', ?, ?, ?, ?, ?, 'pending', ?)`)
+        .bind(key, opHash, cfg.league, request.method, u.pathname, G.redactUrl(pinnedUrl).replace(/^[^?]*/, ""), reqHash, nowIso()),
+      db.prepare("INSERT INTO ups_test_open_operations (operation_sha256, idempotency_key, env, opened_at) VALUES (?, ?, 'test', ?)").bind(opHash, key, nowIso()),
+    ]);
   } catch (_) {
+    const holder = await db.prepare("SELECT idempotency_key FROM ups_test_open_operations WHERE operation_sha256 = ?").bind(opHash).first().catch(() => null);
+    if (holder && holder.idempotency_key !== key) {
+      return json(409, { ok: false, error: "operation_unresolved", detail: "the same operation is already running or its outcome is unknown; it stays locked under every key until it is resolved",
+        held_by: holder.idempotency_key, next_step: `read league ${cfg.league}'s MFL transactions and rosters, then POST /__test-env/ledger/resolve for ${holder.idempotency_key}` }, cfg);
+    }
     return json(409, { ok: false, error: "prior_attempt_not_retryable", ledger_state: "pending", detail: "another request with this key started first", idempotency_key: key }, cfg);
   }
 
-  state.inflight.add(key);
+  const rc = newContext("ledgered", cfg, db, key);
   let res = null, threw = null;
   try {
     const req = new Request(pinnedUrl, { method: request.method, headers: request.headers, body: bodyBuf && bodyBuf.byteLength ? bodyBuf : undefined, redirect: "manual" });
-    res = await app.fetch(req, G.deriveTestEnv(env, cfg), ctx);
+    res = await als.run(rc, () => app.fetch(req, G.deriveTestEnv(env, cfg), trackingCtx(ctx, rc)));
   } catch (e) { threw = e; }
-  state.inflight.delete(key);
-
-  const events = state.egress.filter((e) => (e.requests || []).includes(key));
-  const mflWrites = events.filter((e) => e.kind === "mfl_write");
-  const uncertain = events.some((e) => e.uncertain) || (!!threw && mflWrites.length > 0);
   let bodyOut = "", ctype = "";
   if (res) { ctype = res.headers.get("content-type") || ""; try { bodyOut = await res.clone().text(); } catch (_) { bodyOut = ""; } }
-  const finalState = uncertain ? "uncertain" : (threw ? "failed" : "responded");
-  const egressSummary = events.map((e) => ({ method: e.method, url: e.url, decision: e.decision, kind: e.kind, reason: e.reason, status: e.status, error: e.error, uncertain: !!e.uncertain }));
+
+  const respond = (finalState, recorded) => {
+    const extra = { "x-ups-idempotency-key": key, "x-ups-ledger-state": finalState, ...(recorded ? {} : { "x-ups-ledger": "unrecorded" }) };
+    if (!res) return json(finalState === "uncertain" ? 502 : 500, { ok: false, error: finalState === "uncertain" ? "outcome_unknown_check_mfl" : "worker_error", ledger_state: finalState, idempotency_key: key }, cfg, extra);
+    return stamp(new Response(bodyOut, res), cfg, extra);
+  };
+
+  if (!rc.background.length) {
+    rc.finalized = true;
+    let finalState = "uncertain", recorded = true;
+    try { finalState = await finalizeLedger(db, rc, res, bodyOut, ctype, threw); } catch (_) { recorded = false; }
+    return respond(finalState, recorded);
+  }
+  // Background work outstanding: answer now, record the answer, and finish the ledger only after every
+  // waitUntil promise of THIS request has settled (or timed out, which leaves the outcome uncertain).
   let recorded = true;
   try {
-    await db.prepare(`UPDATE ups_test_write_ledger SET state = ?, http_status = ?, response_sha256 = ?, response_body = ?, response_content_type = ?, egress_json = ?, finished_at = ?
-                      WHERE idempotency_key = ?`)
-      .bind(finalState, res ? res.status : null, await sha256hex(bodyOut), bodyOut.length <= RESPONSE_BODY_CAP ? bodyOut : null, ctype, JSON.stringify(egressSummary).slice(0, RESPONSE_BODY_CAP), nowIso(), key).run();
-    await writeEgressRows(db, key, events);
+    await db.prepare("UPDATE ups_test_write_ledger SET state = 'background', http_status = ?, response_body = ?, response_content_type = ?, responded_at = ? WHERE idempotency_key = ?")
+      .bind(res ? res.status : null, bodyOut.length <= RESPONSE_BODY_CAP ? bodyOut : null, ctype, nowIso(), key).run();
   } catch (_) { recorded = false; }
-  const extra = { "x-ups-idempotency-key": key, "x-ups-ledger-state": finalState, ...(recorded ? {} : { "x-ups-ledger": "unrecorded" }) };
-  if (!res) return json(uncertain ? 502 : 500, { ok: false, error: uncertain ? "outcome_unknown_check_mfl" : "worker_error", ledger_state: finalState, idempotency_key: key }, cfg, extra);
-  return stamp(new Response(bodyOut, res), cfg, extra);
+  const finishing = settleBackground(rc).then(() => finalizeLedger(db, rc, res, bodyOut, ctype, threw)).catch((e) => console.log(`[ups-env=test] ledger finalize FAILED for ${key}: ${String((e && e.message) || e)}`));
+  if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(finishing);
+  return respond("background", recorded);
 }
 
 // ── internal routes ─────────────────────────────────────────────────────────────────────────────
@@ -286,8 +445,8 @@ function adminOk(request, env) {
   return timingSafeEqual(request.headers.get("x-ups-test-admin-key"), env.TEST_ADMIN_API_KEY);
 }
 
-async function ownerContacts(cfg) {
-  const header = mflCookieHeader(state.envCommish || "");
+async function ownerContacts(cfg, commishRaw) {
+  const header = mflCookieHeader(commishRaw || "");
   if (!header) return { ok: false, reason: "no commissioner session" };
   try {
     const r = await globalThis.fetch(`https://www48.myfantasyleague.com/${cfg.season}/export?TYPE=league&L=${cfg.league}&JSON=1`, { headers: { Cookie: header, "User-Agent": "ups-test-env-guard" } });
@@ -308,14 +467,14 @@ async function ownerContacts(cfg) {
 }
 
 async function internalRoute(path, request, env, cfg, inv) {
+  const nsName = () => (typeof caches !== "undefined" && caches && caches.default && caches.default.__upsNs) || "no cache API";
   if (path === "/__test-env/status") {
     const marker = await verifyMarkers(env, inv, cfg, false);
     return json(200, {
       ok: true, env: "test", league: cfg.league, write_leagues: cfg.writeLeagues, guard_version: G.GUARD_VERSION,
       release_sha: String(env.UPS_RELEASE_SHA || ""), bindings: inv.bindings, database_marker: marker.ok ? "ok" : marker.reason,
-      egress_guard: !!(globalThis.fetch && globalThis.fetch.__upsTestGuard), cache_namespace: (typeof caches !== "undefined" && caches && caches.default && caches.default.__upsNs) || "no cache API",
+      egress_guard: !!(globalThis.fetch && globalThis.fetch.__upsTestGuard), cache_namespace: nsName(),
       discord: cfg.testWebhookUrl ? "test webhook only" : "refused (no test webhook configured)",
-      forbidden_credentials_present: [],   // testConfig refused the request otherwise
     }, cfg);
   }
   if (!adminOk(request, env)) return json(403, { ok: false, error: "test_admin_key_required" }, cfg);
@@ -327,18 +486,18 @@ async function internalRoute(path, request, env, cfg, inv) {
       ["discord bot API", "https://discord.com/api/v10/channels/1059111651846131833/messages", { method: "POST", body: "{}" }],
       ["production league read", `https://api.myfantasyleague.com/${cfg.season}/export?TYPE=rosters&L=${G.PRODUCTION_LEAGUE_ID}&JSON=1`, {}],
       ["production league import", `https://www48.myfantasyleague.com/${cfg.season}/import?TYPE=fcfsWaiver&JSON=1`, { method: "POST", body: `L=${G.PRODUCTION_LEAGUE_ID}&ADD=1` }],
+      ["test league import outside a ledgered request", `https://www48.myfantasyleague.com/${cfg.season}/import?TYPE=fcfsWaiver&L=${cfg.league}&JSON=1`, { method: "POST", body: "ADD=1" }],
       ["GitHub dispatch", "https://api.github.com/repos/keithcreelman/upsmflproduction/dispatches", { method: "POST", body: "{}" }],
       ["production worker", "https://upsmflproduction.keith-creelman.workers.dev/api/health", {}],
     ]) {
       const r = await globalThis.fetch(url, init);
       probes.push({ probe: label, refused: r.headers.get("x-ups-egress") === "refused", status: r.status });
     }
-    const contacts = new URL(request.url).searchParams.get("owner_contacts") === "1" ? await (async () => { state.envCommish = env.MFLTEST_COMMISHCOOKIE; const c = await ownerContacts(cfg); state.envCommish = ""; return c; })() : undefined;
+    const contacts = new URL(request.url).searchParams.get("owner_contacts") === "1" ? await ownerContacts(cfg, env.MFLTEST_COMMISHCOOKIE) : undefined;
     return json(200, {
       ok: marker.ok && commish.ok && probes.every((p) => p.refused),
       league: cfg.league, database_marker: marker, commissioner_session: commish, egress_probes: probes,
-      bindings: inv.bindings, cache_namespace: (typeof caches !== "undefined" && caches && caches.default && caches.default.__upsNs) || "no cache API",
-      ...(contacts ? { owner_contacts: contacts } : {}),
+      bindings: inv.bindings, cache_namespace: nsName(), ...(contacts ? { owner_contacts: contacts } : {}),
     }, cfg);
   }
   if (path === "/__test-env/ledger" && request.method === "GET") {
@@ -351,12 +510,19 @@ async function internalRoute(path, request, env, cfg, inv) {
     let b = {}; try { b = await request.json(); } catch (_) { b = {}; }
     const outcome = b.outcome === "applied" ? "resolved_applied" : (b.outcome === "not_applied" ? "resolved_not_applied" : "");
     const evidence = String(b.evidence || "").trim();
-    if (!outcome || !KEY_RE.test(String(b.idempotency_key || "")) || evidence.length < 10) return json(400, { ok: false, error: "need idempotency_key, outcome (applied|not_applied) and evidence (what was read from MFL)" }, cfg);
+    const key = String(b.idempotency_key || "");
+    if (!outcome || !KEY_RE.test(key) || evidence.length < 10) return json(400, { ok: false, error: "need idempotency_key, outcome (applied|not_applied) and evidence (what was read from MFL)" }, cfg);
     const db = ledgerDb(env, inv); await ensureLedger(db);
-    const r = await db.prepare("UPDATE ups_test_write_ledger SET state = ?, resolution_note = ?, resolved_at = ? WHERE idempotency_key = ? AND state IN ('pending','uncertain')")
-      .bind(outcome, evidence.slice(0, 2000), nowIso(), b.idempotency_key).run();
-    const changed = Number((r && r.meta && r.meta.changes) || 0);
-    return json(changed ? 200 : 409, { ok: !!changed, state: changed ? outcome : undefined, error: changed ? undefined : "not_pending_or_uncertain" }, cfg);
+    // Only an unknown outcome is resolved, and only once the request's background work has finished
+    // ('background' rows are still running). The row and both locks change together.
+    const row = await db.prepare("SELECT state FROM ups_test_write_ledger WHERE idempotency_key = ?").bind(key).first();
+    if (!row || !(row.state === "pending" || row.state === "uncertain")) return json(409, { ok: false, error: "not_pending_or_uncertain", state: row ? row.state : null }, cfg);
+    await db.batch([
+      db.prepare("UPDATE ups_test_write_ledger SET state = ?, resolution_note = ?, resolved_at = ? WHERE idempotency_key = ? AND state IN ('pending','uncertain')").bind(outcome, evidence.slice(0, 2000), nowIso(), key),
+      db.prepare("DELETE FROM ups_test_open_operations WHERE idempotency_key = ?").bind(key),
+      db.prepare("DELETE FROM ups_test_open_mfl_writes WHERE idempotency_key = ?").bind(key),
+    ]);
+    return json(200, { ok: true, state: outcome }, cfg);
   }
   return json(404, { ok: false, error: "unknown_test_env_route" }, cfg);
 }
@@ -377,7 +543,6 @@ export async function handleTestFetch(request, env, ctx, app) {
   if (!marker.ok) return json(503, { ok: false, error: "test_database_unverified", binding: marker.binding, reason: marker.reason }, cfg);
 
   const url = new URL(request.url);
-  if (request.method === "OPTIONS") return app.fetch(request, G.deriveTestEnv(env, cfg), ctx).then((r) => stamp(r, cfg));
   if (url.pathname.startsWith("/__test-env/")) return internalRoute(url.pathname, request, env, cfg, inv);
   if (url.pathname.startsWith("/discord/")) return json(403, { ok: false, error: "discord_interactions_disabled_in_test" }, cfg);
 
@@ -394,25 +559,33 @@ export async function handleTestFetch(request, env, ctx, app) {
 
   const ledgered = write || url.pathname.startsWith("/admin/");
   if (ledgered) {
-    for (const cred of G.viewerCredentials(request, request.url, bodyText)) {
+    const creds = G.viewerCredentials(request, request.url, bodyText);
+    const credentialHashes = [];
+    for (const cred of creds) {
       const v = await checkCredential(cred, cfg);
       if (!v.ok) return json(403, { ok: false, error: v.reason, detail: "the forwarded MFL session must be a test-league account that is not a member of the production league" }, cfg);
+      credentialHashes.push(await sha256hex(mflCookieHeader(cred)));
     }
     const commish = await checkCredential(env.MFLTEST_COMMISHCOOKIE, cfg);
     if (!commish.ok) return json(503, { ok: false, error: `commissioner_${commish.reason}`, detail: "MFLTEST_COMMISHCOOKIE must be the dedicated test account's session" }, cfg);
-    const res = await runLedgered({ request, pinnedUrl: dec.url, bodyBuf, bodyText, env, ctx, app, cfg, inv, autoKey: !write });
+    const res = await runLedgered({ request, pinnedUrl: dec.url, bodyBuf, bodyText, env, ctx, app, cfg, inv, autoKey: !write, credentialHashes });
     console.log(`[ups-env=test league=${cfg.league}] ${request.method} ${url.pathname} -> ${res.status} ledger=${res.headers.get("x-ups-ledger-state") || "-"}`);
     return res;
   }
 
+  // Reads run in their own context too: their outbound calls are attributed to them, an MFL write
+  // from a read is refused, and their refusals are logged once their background work has finished.
+  const db = ledgerDb(env, inv);
+  const rc = newContext("read", cfg, db, null);
   const req = new Request(dec.url, { method: request.method, headers: request.headers, redirect: "manual" });
-  const before = state.egress.length;
-  const res = await app.fetch(req, G.deriveTestEnv(env, cfg), ctx);
-  const refusedNow = state.egress.slice(before).filter((e) => e.decision === "refuse");
-  if (refusedNow.length && ctx && typeof ctx.waitUntil === "function") {
-    const db = ledgerDb(env, inv);
-    ctx.waitUntil(ensureLedger(db).then(() => writeEgressRows(db, null, refusedNow)).catch(() => {}));
-  }
+  const res = await als.run(rc, () => app.fetch(req, G.deriveTestEnv(env, cfg), trackingCtx(ctx, rc)));
+  const logRefusals = async () => {
+    if (rc.background.length) await settleBackground(rc); else rc.finalized = true;
+    const refused = rc.events.filter((e) => e.decision === "refuse");
+    if (refused.length) { await ensureLedger(db); await writeEgressRows(db, null, refused); }
+  };
+  const p = logRefusals().catch(() => {});
+  if (ctx && typeof ctx.waitUntil === "function") ctx.waitUntil(p); else await p;
   console.log(`[ups-env=test league=${cfg.league}] ${request.method} ${url.pathname} -> ${res.status}`);
   return stamp(res, cfg);
 }

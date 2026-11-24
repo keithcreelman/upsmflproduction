@@ -11,7 +11,7 @@
 // must never be configured, asked or tricked into using.
 
 export const PRODUCTION_LEAGUE_ID = "74598";
-export const GUARD_VERSION = "1";
+export const GUARD_VERSION = "2";
 
 // A league id appearing as a standalone number anywhere in a URL, query or body.
 // (Digits on both sides would make it part of a longer number, e.g. a timestamp.)
@@ -374,4 +374,77 @@ export function namespacedCacheKey(key, prefix) {
   if (!u.hostname.startsWith(prefix + ".")) u.hostname = `${prefix}.${u.hostname}`;
   if (typeof Request !== "undefined" && key instanceof Request) return new Request(u.toString(), key);
   return u.toString();
+}
+
+// ---------------------------------------------------------------------------------------------
+// Operation identity (review fix 1): the same write must not reach MFL twice while its outcome
+// is unknown, whatever idempotency key it is sent under.
+// ---------------------------------------------------------------------------------------------
+
+// Fields that change between two sends of the same intent and so must not change its identity.
+const VOLATILE_KEY_RE = /^(_|t|ts|cb|nonce|timestamp|client_ts|clientts|request_id|requestid|cache_bust|cachebust|dry_run_token)$/i;
+
+export function canonicalJson(value) {
+  if (Array.isArray(value)) return value.map(canonicalJson);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const k of Object.keys(value).sort()) if (!VOLATILE_KEY_RE.test(k)) out[k] = canonicalJson(value[k]);
+    return out;
+  }
+  return value == null ? null : String(value);
+}
+
+function sortedPairs(entries) {
+  return entries.filter(([k]) => !VOLATILE_KEY_RE.test(k) && !SECRET_PARAM_RE.test(k)).map(([k, v]) => [k, s(v)])
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
+}
+
+function formEntries(text) {
+  return s(text).split("&").filter(Boolean).map((part) => { const i = part.indexOf("="); return [safeDecode(i < 0 ? part : part.slice(0, i)), safeDecode(i < 0 ? "" : part.slice(i + 1))]; });
+}
+
+// The identity of an inbound write: method, path, query and body (key order and volatile fields
+// ignored) and who sent it (hashes of the forwarded sessions). Two requests with the same identity
+// are the same operation, whatever Idempotency-Key they carry.
+export function operationIdentity({ method, url, bodyText, credentialHashes }) {
+  const u = new URL(url);
+  let body;
+  const t = s(bodyText).trim();
+  try { body = t ? ["json", canonicalJson(JSON.parse(t))] : ["empty"]; } catch (_) { body = ["form", sortedPairs(formEntries(t))]; }
+  return JSON.stringify(["op", s(method).toUpperCase(), u.pathname, sortedPairs([...u.searchParams.entries()]), body, [...(credentialHashes || [])].sort()]);
+}
+
+// The identity of one MFL write as MFL would see it: path (any MFL host), query and form fields
+// merged and sorted, credentials and output-format switches left out.
+export function mflWriteIdentity({ url, bodyText }) {
+  const u = new URL(url);
+  const pairs = [...u.searchParams.entries(), ...formEntries(bodyText)].filter(([k]) => !/^json$/i.test(k));
+  return JSON.stringify(["mfl", u.pathname.toLowerCase().replace(/\/+$/, ""), sortedPairs(pairs)]);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Redirects (review fix 4): every hop is decided again; method, body and credentials follow the
+// fetch standard, and credentials never leave MFL.
+// ---------------------------------------------------------------------------------------------
+export const MAX_REDIRECT_HOPS = 5;
+export function isMflHost(host) { return MFL_HOST_RE.test(s(host)); }
+
+// -> { url, method, keepBody, headers } for the next hop, or { error } when it can't be followed.
+export function redirectHop({ url, method, status, location, headers }) {
+  let next;
+  try { next = new URL(s(location), url); } catch (_) { return { error: "redirect_location_unparseable" }; }
+  if (next.protocol !== "https:") return { error: "redirect_not_https" };
+  const from = new URL(url);
+  let m = s(method).toUpperCase();
+  let keepBody = true;
+  if (status === 303 && m !== "HEAD") { m = "GET"; keepBody = false; }
+  if ((status === 301 || status === 302) && m === "POST") { m = "GET"; keepBody = false; }
+  const h = new Headers(headers || {});
+  if (!keepBody) for (const k of ["content-type", "content-length", "content-encoding", "content-language", "content-location"]) h.delete(k);
+  if (from.origin !== next.origin) {
+    h.delete("authorization");
+    // An MFL session may follow MFL's own shard redirects (api -> www48); it never leaves MFL.
+    if (!(isMflHost(from.hostname) && isMflHost(next.hostname))) { h.delete("cookie"); h.delete("x-api-key"); }
+  }
+  return { url: next.toString(), method: m, keepBody, headers: h };
 }

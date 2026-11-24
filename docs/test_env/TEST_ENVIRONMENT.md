@@ -19,7 +19,8 @@ file hands every request straight to the existing worker code.
 | | Production | Test (this design) |
 |---|---|---|
 | Worker | `upsmflproduction` (`wrangler.toml`), auto-deploys from `main`, 5 crons | `ups-test` (`wrangler.test.toml`), manual deploy only, **no crons** |
-| Entry | `src/entry.js` → `src/index.js` unchanged | `src/entry.js` → `src/test_env_runtime.js` → `src/index.js` |
+| Entry | `src/entry.js` → `src/index.js` unchanged (refuses `UPS_ENV=test`; never loads the test runtime) | `src/entry_test.js` → `src/test_env_runtime.js` → `src/index.js` (refuses anything but `UPS_ENV=test`) |
+| Compatibility flags | none added | `nodejs_als` (AsyncLocalStorage, for per-request attribution) |
 | `UPS_ENV` | `"production"` | `"test"` |
 | League | 74598 | 25625 only (`LEAGUE_ID` = `WRITE_LEAGUES` = 25625) |
 | D1 | `ups-mfl-db` as `UPS_MFL_DB` and `TWB_OUTBOX_DB` | `ups-test-db` as **both** names; must carry the `ups_env_marker` row |
@@ -35,7 +36,7 @@ file hands every request straight to the existing worker code.
 
 ## 3. How isolation works (each layer fails closed)
 
-Code: `worker/src/entry.js`, `worker/src/ups_env_guard.js` (pure policy), `worker/src/test_env_runtime.js`.
+Code: `worker/src/entry.js` (production), `worker/src/entry_test.js` (test), `worker/src/ups_env_guard.js` (pure policy), `worker/src/test_env_runtime.js`.
 
 1. **Environment.** `UPS_ENV` must be exactly `production` or `test`. Unset, empty, `prod`, `TEST`,
    `" test"`: every request returns 503 `ups_env_unconfigured` and no cron job runs (`entry.js`).
@@ -56,8 +57,16 @@ Code: `worker/src/entry.js`, `worker/src/ups_env_guard.js` (pure policy), `worke
    74598; any MFL write (non-GET, or an `/import` URL) that names no league, another league, or whose
    body can't be read; Discord except the exact test webhook; every non-GET to any other host (GitHub
    contents and dispatch, Anthropic, ...); any `*.workers.dev` or `*.pages.dev` host (so the production
-   worker can't be reached over HTTP). Refusals return a synthetic 403 without touching the network and
-   are written to `ups_test_egress_log` in the test database.
+   worker can't be reached over HTTP). An MFL write is also refused when it comes from a read request
+   or from no request at all, and when its request's ledger is already final.
+   - **Redirects:** every outbound call is sent with `redirect: "manual"`, and each hop is decided again
+     before it is followed (at most 5 hops, `https` only). Method and body follow the fetch standard:
+     a 303, or a 301/302 after a POST, continues as GET without the body; a 307/308 keeps both. On a
+     cross-origin hop `Authorization` is dropped, and the MFL session cookie is kept only from one MFL
+     host to another (api to www48). A caller that asked for `manual` gets the 3xx; `error` throws.
+   - Refusals return a synthetic 403 without touching the network and are written to
+     `ups_test_egress_log` in the test database, with the hop and the phase (response, background,
+     after_finalize).
 6. **Edge cache namespace.** `caches.default` is shared by every worker on
    `keith-creelman.workers.dev`, and this worker's keys use fixed fake hosts (proven 2026-10-11). Every
    `match`, `put` and `delete` key is moved under `ups-test-25625.`; if that can't be installed the
@@ -74,9 +83,26 @@ Code: `worker/src/entry.js`, `worker/src/ups_env_guard.js` (pure policy), `worke
    refused (it is a 74598 member). Results are cached for 10 minutes per isolate.
 9. **Write ledger** (`ups_test_write_ledger` in the test database). A write needs an `Idempotency-Key`
    header. The intent row is written before the worker code runs; the outcome, response and outbound
-   calls after. The same key replays the first answer and never calls MFL twice. A lost or 5xx MFL
-   answer marks the row `uncertain`, and that key is then refused until someone reads 25625 in MFL and
-   records the outcome with `POST /__test-env/ledger/resolve`.
+   calls after. The same key replays the first answer and never calls MFL twice.
+   - **Per-request context.** Each request runs in its own AsyncLocalStorage context, so every outbound
+     call is attributed to exactly one request, including calls made later from `ctx.waitUntil`.
+     The worker code gets a ctx whose `waitUntil` promises are tracked. The ledger answers with state
+     `background` and becomes final only after all of that request's background work has settled.
+     Work still running after 20 seconds makes the outcome `uncertain`; any call it makes after that
+     is refused and logged.
+   - **Operation lock.** Every write has an operation identity: method, path, query and body, with key
+     order and volatile fields ignored, plus the sender's session hash. The ledger row and a row in
+     `ups_test_open_operations` (primary key = the identity) are inserted in one transaction, so a
+     second send of the same operation is refused (`operation_unresolved`) under ANY key while the
+     first is running or unknown.
+   - **MFL-write lock.** The same lock one level down: each MFL write's identity (path and all fields,
+     credentials left out) goes in `ups_test_open_mfl_writes` before it is sent. A different route or
+     body that produces the same MFL write is refused while it is unresolved, and the worker code
+     can't retry a write inside one request after an uncertain answer.
+   - **Release.** A known outcome (any answer below 500, no lost calls) releases both locks. A lost,
+     5xx or timed-out answer marks the row `uncertain` and keeps both locks until someone reads 25625
+     in MFL and records the outcome with `POST /__test-env/ledger/resolve`. That call changes the row
+     and releases both locks together.
 10. **Labels.** Every response carries `x-ups-env: test` and `x-ups-league: 25625`; every log line
    starts `[ups-env=test league=25625]`; every ledger and egress row has `env = 'test'` (a `CHECK`).
 
@@ -94,6 +120,9 @@ The outbound guard covers HTTP only. Database writes, bindings, jobs and caches 
 | Queues, KV, Durable Objects | None configured today | Refused if ever bound |
 | Cron jobs (5 schedules: drop tracker cap penalties, settlements, lineup rulings, auctions, Hall) | Run on `env.LEAGUE_ID` | `crons = []` in `wrangler.test.toml`, and `entry.js` refuses every scheduled run in test |
 | Retries driven by jobs (trade DM reminders, settlement sweeps, drop-penalty posting) | Cron-driven | No crons; a pending row in the test database is never retried automatically |
+| Retries inside a request, and resends under a new key | Worker code can retry; a client can resend | Operation lock and MFL-write lock (layer 9) until the outcome is known or resolved |
+| Background work (`ctx.waitUntil`: announcements, DMs, logs, follow-up writes) | Runs after the response | Tracked per request; the ledger waits for it; calls after finalization refused |
+| Redirects | Followed by the runtime | Manual redirects only; every hop re-decided (layer 5) |
 | Edge cache | Shared `caches.default`; fixed fake hosts | Key namespace (layer 6) |
 | MFL writes (imports, form posts) | Client `L` chooses the league (`index.js:9054`); one account commissions both leagues | Inbound pin plus outbound league check plus a test-only account |
 | Manual admin routes (`/admin/*`) | `COMMISH_API_KEY`; `/admin/test-sync/prod-rosters` (`index.js:55857`) reads 74598 with `MFL_COOKIE` | `TEST_ADMIN_API_KEY` only; admin calls are ledgered and credential-checked; any 74598 read or write refused, so test-sync can't run here |
@@ -119,10 +148,10 @@ npx wrangler secret put TEST_DISCORD_WEBHOOK_URL --config wrangler.test.toml  # 
 Local bundle check (no deploy), run 2026-11-24 with wrangler 4.87.0:
 
 ```text
-wrangler.toml        Total Upload 3977.88 KiB / gzip 920.75 KiB
+wrangler.toml        Total Upload 3940.26 KiB / gzip 910.29 KiB   (no AsyncLocalStorage, no test runtime in the bundle)
   env.UPS_MFL_DB (ups-mfl-db)  env.TWB_OUTBOX_DB (ups-mfl-db)  env.UPS_MFL_BACKUPS (ups-mfl-backups)
   env.SELF (upsmflproduction)  env.FPA_STORE  env.UPS_ENV ("production")  env.LEAGUE_ID ("74598")
-wrangler.test.toml   Total Upload 3977.88 KiB / gzip 920.75 KiB
+wrangler.test.toml   Total Upload 3990.40 KiB / gzip 923.96 KiB   (compatibility_flags = ["nodejs_als"])
   env.UPS_MFL_DB (ups-test-db)  env.TWB_OUTBOX_DB (ups-test-db)  env.FPA_STORE
   env.UPS_ENV ("test")  env.LEAGUE_ID ("25625")  env.WRITE_LEAGUES ("25625")
 ```
@@ -143,7 +172,8 @@ wrangler.test.toml   Total Upload 3977.88 KiB / gzip 920.75 KiB
 5. **Credential separation and outbound proof:** `GET /__test-env/verify` with header
    `x-ups-test-admin-key`. Expect `commissioner_session.ok: true`: MFL says the test account is in 25625
    and **not** in 74598. Expect every `egress_probes` entry `refused: true`: Discord bot API, a 74598
-   read, a 74598 import, a GitHub dispatch, the production worker. Add `?owner_contacts=1` to list, per
+   read, a 74598 import, a test-league import made outside a ledgered request, a GitHub dispatch, the
+   production worker. Add `?owner_contacts=1` to list, per
    franchise, whether an email is on file (a count and an 8-character hash, never the address).
 6. **Cache, both directions:** repeat the 2026-10-11 probe with a never-used key on a cached stats path.
    The test worker's response must not appear on production, and the reverse.
@@ -199,25 +229,41 @@ Today the preflight passes every check except the two that should fail before Su
 - P4: Keith approves this exact transaction.
 
 **Run order:**
-1. `prod_untouched_check.mjs snapshot --out before.json`. Add `--prod-d1` only if approved.
+1. `prod_untouched_check.mjs snapshot --out before.json --markers markers.json --prod-d1`. The D1 part
+   is a set of production reads that needs its own go; without it the comparison can only report
+   `incomplete_evidence`.
 2. Preflight, then the route's dry run, with the same idempotency key prefix.
 3. One live send.
 4. On an uncertain answer, a timeout or a 5xx: read 25625 `transactions` and `rosters` before anything
-   else. The ledger refuses a blind retry of the same key. Record the outcome with
-   `/__test-env/ledger/resolve`.
+   else. The ledger refuses a retry of the same operation under any key, and the same MFL write from
+   any route, until the outcome is recorded with `/__test-env/ledger/resolve`.
 5. Verify:
    - a fresh 25625 rosters read shows 13348 on 0003 and 17509 gone;
    - the 25625 `transactions` export shows the `FREE_AGENT 0003 13348,|17509,` row;
    - the test ledger row is `responded`, and its outbound log shows exactly one `mfl_write` to `L=25625`
      and no allowed Discord or GitHub call.
-6. `snapshot --out after.json`, then
+6. `snapshot --out after.json --markers markers.json --prod-d1 --before before.json`, then
    `compare before.json after.json --markers markers.json`.
    - The markers are the window, player ids 13348 and 17509, franchise 0003, the key and league 25625.
-   - The script compares record contents: transactions, every roster and salary row, GitHub commits
-     and runs, and the D1 rows above the BEFORE rowid plus the global settings.
-   - Anything that mentions a test player, the key, the test league or a test label is reported as
-     **associated**. Real owners' activity in the window is listed separately.
-   - Discord is checked by eye for the window.
+   - **MFL 74598:** every transaction, roster and salary row, by content. Transactions are compared only
+     over the range both 7-day exports cover, so one aging out is not a deletion.
+   - **GitHub:** commits and workflow runs. A `repository_dispatch` in the window needs review.
+   - **Production D1, per table:**
+     - a fingerprint (count, max rowid, rowid total), which finds deletions and replaced rows anywhere;
+     - every row in scope of the markers (a test player, franchise id 0003 or league 25625; the whole
+       table when it has no such column and is under 5,000 rows), compared by content, so an UPDATE
+       to an existing row is found;
+     - every row added since BEFORE, by content;
+     - the full global `ups_settings` and `ups_runtime_flags`.
+   - **Verdicts:** `associated_activity_found` (a change mentions a test player, the key, league 25625 or
+     a test label), `review_required` (a relevant change or a deletion that can't be attributed
+     automatically), `incomplete_evidence` (any source not compared, unreadable, truncated or without a
+     scope), and `untouched` only when every automated source was compared in full. Real owners'
+     activity is listed separately. Exit code 0 only for `untouched`.
+   - **Discord** is always listed as a manual check: production channels by eye for the window, plus
+     the test worker's `ups_test_egress_log`.
+   - **Cost:** the fingerprint and unindexed scopes read each listed table in full, twice. Measure it
+     once (`rows_read` is printed) before relying on it.
 
 **What success means, in three separate steps:**
 1. **Roster-only success (this test).**
@@ -275,9 +321,9 @@ Today the preflight passes every check except the two that should fail before Su
   sentinel battery, auction simulator).
 - **MFL email** to whoever owns franchises in 25625 is outside the code (P3).
 - **Cloudflare account limits are shared**: D1 rows read and written, Worker requests.
-- **Concurrent writes inside one isolate**: the ledger attributes an outbound call to every ledgered
-  request running at that moment. With one tester this is exact; with several it can over-attribute,
-  never under-attribute.
+- **Operation identity is by request content.** Two different requests that mean the same thing to
+  MFL are caught at the MFL-write lock. A write MFL would treat as different (another player, another
+  franchise) is a different operation by design.
 - **The test D1 starts empty** apart from migrations. Contract history the routes read from D1 (tag,
   extension, restructure history) is absent until a refresh exists. Routes that need it answer from
   MFL or refuse.
