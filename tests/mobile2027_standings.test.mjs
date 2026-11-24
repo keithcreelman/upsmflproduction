@@ -200,7 +200,7 @@ test("MAT-2: a same-week forecast is shown only when it starts from these standi
   const M2 = ST.build(input({ forecast: cases.wrongTeams })); M2.fids.forEach((f) => { const v = M2.forecast.by[f].verdicts; if (v.playoffs) t.ok(/^(100|0)%$/.test(M2.forecast.by[f].playoffs)); });
 });
 
-test("MAT-3: three teams level on win % and division win % (different All-Play and Points For) withhold seeds, tags, both cutoff lines, magic numbers and their Playoff %", () => {
+test("MAT-3: three teams level on win % and division win % (different All-Play and Points For) withhold seeds, tags, both cutoff lines, magic numbers and every team's simulated Playoff %; verified clinches and eliminations stay", () => {
   const s = clone(STAND); const d = s.rows[0].division; const g = s.rows.filter((r) => r.division === d);
   t.equal(g.length, 3);
   g.forEach((r) => { r.regular_season.record = { w: 18, l: 9, t: 0 }; r.regular_season.division = { w: 3, l: 3, t: 0 }; });
@@ -214,9 +214,21 @@ test("MAT-3: three teams level on win % and division win % (different All-Play a
   t.equal((h.match(/<td class="rk">—<\/td>/g) || []).length, 6, "seeds 1-6 read —");
   t.equal(W.divisionTies.length, 1); t.deepEqual(W.divisionTies[0].fids.slice().sort(), g.map((r) => r.franchise_id).sort());
   t.match(h, /Magic numbers are not shown while a division lead is unsettled/);
-  g.forEach((r) => t.equal(W.pctHeld[r.franchise_id], true));
-  t.ok(M.fids.some((f) => !W.pctHeld[f] && M.forecast.by[f].playoffs !== "—"), "other teams keep their Playoff %");
+  // re-review of 18d45312: ANY team's wild-card chance can depend on which tied team takes the division, so no simulated percentage is shown for anyone
+  M.fids.forEach((f) => t.equal(W.pctHeld[f], true, f + ": Playoff % withheld"));
+  const pcts = [...h.matchAll(/<\/td><td>([^<]*)<\/td><\/tr>/g)].map((m) => m[1]).filter((x) => /%|—/.test(x));
+  t.equal(pcts.length, 12, "a Playoff % cell per team"); pcts.forEach((x) => t.equal(x, "—", "no simulated percentage (was e.g. CBP 53%, Real Deal Creel 97%)"));
   t.match(h, /24–3|18–9/, "records still shown"); t.equal((h.match(/The rules don’t say how the games between three or more teams settle it/g) || []).length, 1, "explained once");
+  t.match(h, /simulated Playoff % are shown for any team/, "the notice says so");
+  // verified outcomes stay: with a clinch and an elimination proven by the clinch engine, those two show 100% / 0% while everything simulated stays withheld
+  const ins = s.rows.find((r) => !g.includes(r)).franchise_id, out = s.rows.slice().reverse().find((r) => !g.includes(r) && r.franchise_id !== ins).franchise_id;
+  const clinchMod = { analyze: (x) => { const res = MODS.clinch.analyze(x); res.byFid[ins] = Object.assign({}, res.byFid[ins], { x: true }); res.byFid[out] = Object.assign({}, res.byFid[out], { e: true }); return res; } };
+  const MV = ST.build(input({ standings: s, mods: Object.assign({}, MODS, { clinch: clinchMod }) }));
+  const hv = SV.body({ lg: { sub: "race", open: {} }, lgd: { model: MV } });
+  t.equal(MV.forecast.by[ins].verified, "100%"); t.equal(MV.forecast.by[out].verified, "0%");
+  t.match(hv, new RegExp('data-fid="' + ins + '"[\\s\\S]*?<td>100%</td></tr>'), "verified clinch still shows 100%");
+  t.match(hv, new RegExp('data-fid="' + out + '"[\\s\\S]*?<td>0%</td></tr>'), "verified elimination still shows 0%");
+  t.match(hv, /lgtag cl">Clinched playoffs</, "the verified clinch tag stays");
   const dv = SV.body({ lg: { sub: "div", open: {} }, lgd: { model: M } });
   t.match(dv, /3 teams are level on win % and division win %/); t.doesNotMatch(dv, /MFL’s division rules|MFL’s own order/);
   t.equal(ST.build(input()).withheld.divisionTies.length, 0, "control: the recorded season has no unsettled division lead");

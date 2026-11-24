@@ -185,7 +185,8 @@
         : rc.corrections.length ? "A score changed after the forecast ran without changing any result (" + rc.corrections[0] + ")." : "" };
     FIDS.forEach(function (f) {
       var t = fcx && arr(fcx.teams).filter(function (x) { return x.franchiseId === f; })[0], v = OD.verdicts(M.clinch[f] || null);
-      M.forecast.by[f] = { verdicts: v, playoffs: fresh && t ? OD.pct(t.playoffs, v.playoffs) : (v.playoffs ? OD.pct(null, v.playoffs) : "—"), bye: fresh && t ? OD.pct(t.bye, v.bye) : "—", division: fresh && t ? OD.pct(t.division, v.division) : "—" };
+      // verified: the clinch rules' own outcome (100% / 0%), independent of any simulation; kept wherever simulated percentages are withheld
+      M.forecast.by[f] = { verdicts: v, verified: v.playoffs ? OD.pct(null, v.playoffs) : null, playoffs: fresh && t ? OD.pct(t.playoffs, v.playoffs) : (v.playoffs ? OD.pct(null, v.playoffs) : "—"), bye: fresh && t ? OD.pct(t.bye, v.bye) : "—", division: fresh && t ? OD.pct(t.division, v.division) : "—" };
     });
     // Option B
     var ties = unresolvedTies(rows, payload.weekly), wSeeds = {}, wFids = {}, cutHidden = false;
@@ -197,10 +198,12 @@
     });
     // MAT-3: an unsettled division lead decides which team is a division winner, and division winners shape the whole field (byes go to division
     // winners; the others compete for wild cards). So no seed, tag or cutoff line is supported for anyone, and no magic number (division and wild-card
-    // races both depend on it); the tied teams' Playoff % is withheld too (the forecast does not model this step). Records and verified clinches stay.
+    // races both depend on it). Simulated Playoff % is withheld for EVERY team (re-review of 18d45312): any team's wild-card chance can depend on
+    // which tied team takes the division berth, and nothing shows it doesn't. Records, verified clinch/elimination outcomes and locked seeds stay.
     var dt = divisionTies(rows), divAll = dt.length > 0, byeHidden = false;
     if (divAll) { for (var s = 1; s <= 6; s++) wSeeds[s] = true; cutHidden = true; byeHidden = true; FIDS.forEach(function (f) { wFids[f] = true; }); }
-    var pctHeld = {}; ties.forEach(function (g) { g.forEach(function (x) { if (wFids[x.fid]) pctHeld[x.fid] = true; }); }); dt.forEach(function (g) { g.fids.forEach(function (f) { pctHeld[f] = true; }); });
+    var pctHeld = {}; ties.forEach(function (g) { g.forEach(function (x) { if (wFids[x.fid]) pctHeld[x.fid] = true; }); });
+    if (divAll) FIDS.forEach(function (f) { pctHeld[f] = true; });
     if (!byeHidden) { var bp = []; ties.forEach(function (g) { if (g.some(function (x) { return wFids[x.fid]; })) bp = bp.concat(g.map(function (x) { return x.pos; })); }); byeHidden = bp.length > 0 && Math.min.apply(null, bp) <= 2 && Math.max.apply(null, bp) >= 3; }
     M.withheld = { seeds: wSeeds, fids: wFids, cutHidden: cutHidden, byeHidden: byeHidden, groups: ties, divisionTies: dt, magicHidden: divAll, pctHeld: pctHeld, any: Object.keys(wFids).length > 0 };
 
