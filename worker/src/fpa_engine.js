@@ -706,6 +706,44 @@ export async function fpaSeasonContextCached(env, ctx, yr, past) {
   }
 }
 
+// ── Identity evidence for the beta's team history (W1, #1494). ADDITIVE: fpaLoadSeasonContext, fpaSeasonContextCached and every calculation that
+// reads their output are unchanged, and the classic routes never call these two functions. The extra statement runs only for the beta route
+// (GET /api/lineup-matchups, current season), once per 6 hours per isolate/edge cache, and reads the same two tables the context already joins.
+// Per MFL id with weekly rows: the nflverse id he is joined through (g), how many MFL ids the crosswalk gives that same nflverse id (dup),
+// the crosswalk's own name and position (fname, fpos), and the position(s) nflverse recorded for that nflverse id this season (wpos, wposn).
+// A shared nflverse id, a different position family or a different name each mean the join may be to the wrong person.
+export async function fpaLoadIdentity(queryAll, season) {
+  const s = parseInt(season, 10);
+  const rows = await queryAll(
+    "SELECT f.mfl_id AS m, f.gsis_id AS g, f.name AS fname, f.position AS fpos," +
+    " MIN(w.position) AS wpos, MAX(w.position) AS wposx, COUNT(DISTINCT w.position) AS wposn," +
+    " (SELECT COUNT(*) FROM ff_player_ids f2 WHERE f2.gsis_id = f.gsis_id) AS dup" +
+    " FROM nfl_player_weekly w JOIN ff_player_ids f ON f.gsis_id = w.gsis_id" +
+    " WHERE w.season = ?1 AND w.week BETWEEN 1 AND 18 AND f.mfl_id IS NOT NULL AND f.gsis_id NOT IN ('', 'NA')" +
+    " GROUP BY f.mfl_id", s);
+  const byMfl = {};
+  for (const r of rows) {
+    const m = str(r.m); if (!m) continue;
+    byMfl[m] = { g: str(r.g), name: str(r.fname), fpos: str(r.fpos).toUpperCase(), wpos: str(r.wpos).toUpperCase(), wposx: str(r.wposx).toUpperCase(), wposn: Number(r.wposn) || 0, dup: Number(r.dup) || 0 };
+  }
+  return { season: String(s), byMfl };
+}
+export async function fpaIdentityCached(env, ctx, yr) {
+  const db = env && env.UPS_MFL_DB;
+  if (!db) return { identity: null, state: "none" };
+  const key = FPA_CACHE_HOST + "/ident?season=" + yr + "&v=" + FPA_ENGINE_VERSION;
+  const hit = await fpaCacheMatch(key);
+  if (hit) { try { return { identity: await hit.json(), state: "ok" }; } catch (_) {} }
+  try {
+    const queryAll = async (sql, ...b) => { const r = await db.prepare(sql).bind(...b).all(); return (r && r.results) || []; };
+    const c = await fpaLoadIdentity(queryAll, yr);
+    fpaCachePut(ctx, key, JSON.stringify(c), 6 * 3600);
+    return { identity: c, state: "ok" };
+  } catch (e) {
+    return { identity: null, state: "error" };
+  }
+}
+
 // Stored seasons opened in this isolate (a list and its drills share one parse).
 // Only usable copies are kept; files change only with a deploy (a new isolate).
 const fpaStoreMemo = new Map();

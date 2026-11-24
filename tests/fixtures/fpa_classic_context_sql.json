@@ -1,0 +1,31 @@
+{
+ "note": "fpaLoadSeasonContext on origin/main bc607887's engine: the exact statements it runs",
+ "statements": [
+  {
+   "sql": "WITH pw AS (  SELECT f.mfl_id AS m, w.week AS wk, w.team AS t    FROM nfl_player_weekly w JOIN ff_player_ids f ON f.gsis_id = w.gsis_id   WHERE w.season = ?1 AND w.week BETWEEN 1 AND 18 AND w.team IS NOT NULL AND w.team <> ''     AND f.mfl_id IS NOT NULL AND f.gsis_id NOT IN ('', 'NA')), agg AS (SELECT m, MIN(t) AS t, MIN(wk) AS lo, MAX(wk) AS hi, COUNT(DISTINCT t) AS n FROM pw GROUP BY m) SELECT m, t, lo, hi, NULL AS wk FROM agg WHERE n = 1 UNION ALL SELECT pw.m, pw.t, NULL, NULL, pw.wk FROM pw JOIN agg ON agg.m = pw.m WHERE agg.n > 1",
+   "binds": [
+    2026
+   ]
+  },
+  {
+   "sql": "SELECT week, team, SUM(COALESCE(rush_att,0)+COALESCE(pass_att,0)+COALESCE(pass_sacks,0)) AS plays FROM nfl_player_weekly WHERE season = ?1 AND week BETWEEN 1 AND 18 GROUP BY week, team",
+   "binds": [
+    2026
+   ]
+  },
+  {
+   "sql": "SELECT team, off_plays_pg, def_plays_pg FROM nfl_team_pace WHERE season = ?1",
+   "binds": [
+    2026
+   ]
+  }
+ ],
+ "emptyContextKeys": [
+  "season",
+  "one",
+  "multi",
+  "plays",
+  "pace",
+  "through"
+ ]
+}
