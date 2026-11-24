@@ -12,7 +12,7 @@ function refused(mode) {
   return new Response(JSON.stringify({
     ok: false,
     error: mode === "production" ? "ups_env_wrong_entry" : "ups_env_unconfigured",
-    detail: "entry_test.js serves only UPS_ENV = \"test\"; this deployment refuses every request",
+    detail: "entry_test_env.js serves only UPS_ENV = \"test\"; this deployment refuses every request",
   }), { status: 503, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" } });
 }
 
@@ -24,6 +24,6 @@ export default {
   },
   async scheduled(event, env, ctx) {
     if (resolveUpsEnv(env) === "test") return handleTestScheduled(event, env, ctx);
-    console.log("[ups-env] scheduled run REFUSED: entry_test.js serves only UPS_ENV = \"test\"");
+    console.log("[ups-env] scheduled run REFUSED: entry_test_env.js serves only UPS_ENV = \"test\"");
   },
 };

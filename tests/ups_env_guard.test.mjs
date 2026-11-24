@@ -10,7 +10,7 @@ import { makeD1, applyMigrations, THREE_WAY_MIGRATIONS } from "./fixtures/d1_sql
 import * as G from "../worker/src/ups_env_guard.js";
 import { handleTestFetch, __resetTestRuntime, __setBackgroundTimeoutMs } from "../worker/src/test_env_runtime.js";
 const entry = (await import("../worker/src/entry.js")).default;
-const entryTest = (await import("../worker/src/entry_test.js")).default;
+const entryTest = (await import("../worker/src/entry_test_env.js")).default;
 const indexWorker = (await import("../worker/src/index.js")).default;
 
 const TEST_LEAGUE = "25625";
@@ -305,7 +305,7 @@ test("wrangler.test.toml: no jobs, no service/R2 bindings, both D1 names on the 
   const toml = fs.readFileSync(new URL("../worker/wrangler.test.toml", import.meta.url), "utf8");
   const code = toml.split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
   t.match(code, /^name = "ups-test"$/m);
-  t.match(code, /^main = "src\/entry_test\.js"$/m);
+  t.match(code, /^main = "src\/entry_test_env\.js"$/m);
   t.match(code, /^compatibility_flags = \["nodejs_als"\]$/m, "AsyncLocalStorage for per-request attribution (test deployment only)");
   t.match(code, /^UPS_ENV = "test"$/m);
   t.match(code, /^LEAGUE_ID = "25625"$/m);

@@ -19,7 +19,7 @@ file hands every request straight to the existing worker code.
 | | Production | Test (this design) |
 |---|---|---|
 | Worker | `upsmflproduction` (`wrangler.toml`), auto-deploys from `main`, 5 crons | `ups-test` (`wrangler.test.toml`), manual deploy only, **no crons** |
-| Entry | `src/entry.js` → `src/index.js` unchanged (refuses `UPS_ENV=test`; never loads the test runtime) | `src/entry_test.js` → `src/test_env_runtime.js` → `src/index.js` (refuses anything but `UPS_ENV=test`) |
+| Entry | `src/entry.js` → `src/index.js` unchanged (refuses `UPS_ENV=test`; never loads the test runtime) | `src/entry_test_env.js` → `src/test_env_runtime.js` → `src/index.js` (refuses anything but `UPS_ENV=test`) |
 | Compatibility flags | none added | `nodejs_als` (AsyncLocalStorage, for per-request attribution) |
 | `UPS_ENV` | `"production"` | `"test"` |
 | League | 74598 | 25625 only (`LEAGUE_ID` = `WRITE_LEAGUES` = 25625) |
@@ -36,7 +36,7 @@ file hands every request straight to the existing worker code.
 
 ## 3. How isolation works (each layer fails closed)
 
-Code: `worker/src/entry.js` (production), `worker/src/entry_test.js` (test), `worker/src/ups_env_guard.js` (pure policy), `worker/src/test_env_runtime.js`.
+Code: `worker/src/entry.js` (production), `worker/src/entry_test_env.js` (test), `worker/src/ups_env_guard.js` (pure policy), `worker/src/test_env_runtime.js`.
 
 1. **Environment.** `UPS_ENV` must be exactly `production` or `test`. Unset, empty, `prod`, `TEST`,
    `" test"`: every request returns 503 `ups_env_unconfigured` and no cron job runs (`entry.js`).

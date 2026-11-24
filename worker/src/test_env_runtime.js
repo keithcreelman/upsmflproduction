@@ -1,4 +1,4 @@
-// UPS test deployment runtime (#1475). Loaded ONLY by entry_test.js (wrangler.test.toml), and run only
+// UPS test deployment runtime (#1475). Loaded ONLY by entry_test_env.js (wrangler.test.toml), and run only
 // when UPS_ENV is exactly "test". The production entry (entry.js) never imports this file.
 //
 // Per request, in order (any failure refuses the request before the worker code runs):
