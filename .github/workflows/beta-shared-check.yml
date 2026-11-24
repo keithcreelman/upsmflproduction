@@ -1,0 +1,57 @@
+name: 2027 beta shared-code check
+
+# Compares the 2027 beta's pins of the classic app's shared code (apps/mobile2027/shared.lock.json) with the real files in
+# site/shared/. It exists so the classic app's releases never wait on the beta:
+#   * a pull request that changes a shared file but NOT the beta only gets a warning annotation (this job stays green);
+#   * a pull request that changes the beta must leave its pins matching the classic files, so this job can fail there.
+# Either way the beta's own build and deploy script refuse a stale pin, so nothing out of date can be published.
+#
+# Offline and read-only: it references no secrets, makes no request, writes nothing, and deploys nothing. Trigger:
+# pull_request only (never pull_request_target), with a read-only token, the safe combination for a public repo.
+# Actions are pinned to full commit SHAs (tag in the trailing comment), as in safe-tests.yml.
+
+on:
+  pull_request:
+    paths:
+      - "site/shared/contract_windows.js"
+      - "site/shared/taxi_rule.js"
+      - "site/shared/cap_math.js"
+      - "apps/mobile2027/**"
+      - "tests/mobile2027_*"
+      - "tests/fixtures/mobile2027/**"
+      - ".github/workflows/beta-shared-check.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beta-shared-check-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  beta-shared-check:
+    name: 2027 beta shared-code check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # the step below diffs against the base commit
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Compare the beta's pins with the classic files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -eu
+          if git diff --name-only "$BASE_SHA" HEAD | grep -Eq '^(apps/mobile2027/|tests/mobile2027_|tests/fixtures/mobile2027/)'; then
+            echo "This pull request changes the beta: its pins must match the classic files."
+            node apps/mobile2027/scripts/check_shared.mjs
+          else
+            echo "This pull request changes shared classic code only: notice, not a failure."
+            node apps/mobile2027/scripts/check_shared.mjs --notice
+          fi
