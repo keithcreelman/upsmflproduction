@@ -85,6 +85,12 @@ REPORTED_ABSENCES = {2026: {
                         "sprain, MRI-confirmed 2026-09-10; NFL Network (Rapoport, via ESPN) reports at least four "
                         "weeks, other reports three to six. Weeks 2-4 only are held out. Not in MFL's injury feed "
                         "as of 2026-09-11 12:01 UTC."},
+    "7836": {"weeks": [12], "status": "Reported inactive", "details": "Coaching decision (not an injury)",
+             "source": "Aaron Rodgers: the Steelers announced late Tue 2026-11-24 (after 11:00 PM ET; Pro Football Talk "
+                       "11:27 PM, ESPN 11:36 PM, CBS 11:49 PM ET) that Mason Rudolph starts Week 12 (Fri 2026-11-27 vs "
+                       "Denver) and Rodgers is inactive. Week 12 ONLY: nothing has been said about later weeks, so no "
+                       "benching or return is assumed beyond it. Not in MFL's injury feed (a coaching decision) and MFL "
+                       "still projected him 14.5 for Week 12 on 2026-11-25 13:45 UTC. Remove after Week 12."},
 }}
 
 # Calibration targets, measured on prod D1 2026-09-11 (regular season only):
