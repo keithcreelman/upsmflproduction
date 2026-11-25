@@ -1570,6 +1570,7 @@
 
 <script src="../shared/standings_race.js"></script>
 <script src="../shared/standings_clinch.js"></script>
+<script src="../shared/odds_display.js"></script>
 <script>
 (function () {
   "use strict";
@@ -2979,14 +2980,9 @@
     });
     return { hard: out, corrections: out.length ? [] : corr };
   }
-  function fcPct(p) {
-    if (p == null || isNaN(p)) return "—";
-    if (p >= 1) return "100%";
-    if (p >= 0.995) return ">99%";
-    if (p <= 0) return "0%";
-    if (p < 0.005) return "<1%";
-    return Math.round(p * 100) + "%";
-  }
+  // One display policy for every forecast probability (site/shared/odds_display.js, Keith 2026-11-24): 100% / 0% only
+  // for an outcome the clinch rules verify (v = "clinched" / "impossible"); otherwise >99% and <1% at the ends.
+  function fcPct(p, v) { return window.UPS_ODDS_DISPLAY.pct(p, v); }
   // Change in percentage points, with words for screen readers.
   function fcDelta(now, before) {
     if (now == null || before == null) return '<span class="fc-delta">—</span>';
@@ -3019,7 +3015,7 @@
   var FC_ABOUT = [
     ["Source", "The UPS Wire’s season simulation, the same run the UPS Center prints. No separate model."],
     ["Played weeks", "Weeks already played are the real scores. Each later week is simulated from current rosters and projections, with every team’s projected edge cut by 30% toward the league average."],
-    ["Seeding", "The Standings rules: division winners by MFL’s division order; the two with the best All-Play % get byes; wild cards and seeds 3–6 by All-Play %, then Points For. H1–H6 keep their own order: All-Play %, H2H record, Points For."],
+    ["Seeding", "Division winners by MFL’s division tiebreaks (win %, division win %, head-to-head, points, All-Play %). The two division winners with the best All-Play % get the byes; the two wild cards go by All-Play %, then Points For, then head-to-head; seeds 3–6 by All-Play %, then Points For. Overall record is not a playoff seeding tiebreaker. H1–H6 keep their own order: All-Play %, H2H record, Points For."],
     ["Open ties", "Not every tie has a league rule yet (for example, two division winners on the same All-Play %). When a simulated season ends in one, the forecast gives each tied team an equal chance at that place. That is a forecast assumption Keith approved on 2026-11-25, not a league tiebreak; the league’s rule for these ties is still pending."],
     ["Brackets", "Round 1: 3 v 6 and 4 v 5. Round 2: the top seed plays the lowest seed left. Final in Week 17. The Hawk Tuah Bowl (H1–H6) is played the same way."],
     ["Expected order", "Teams in order of their average finishing place, 1–12 (seeds 1–6, then H1–H6)."],
@@ -3056,13 +3052,23 @@
       var W = Number(rs.through_week);
       return newestForecast(state.year, W).then(function (cur) {
         if (!cur) { host.innerHTML = '<div class="err-box" role="status"><b>No UPS Wire forecast has been published for ' + state.year + ' yet.</b><span class="psub">It’s published with each week’s UPS Center.</span></div>'; return; }
-        return Promise.all([newestForecast(state.year, Number(cur.throughWeek) - 1), forecastDetail(cur)]).then(function (got) {
-          drawForecast(host, resp, cur, got[0], got[1]);
+        return Promise.all([newestForecast(state.year, Number(cur.throughWeek) - 1), forecastDetail(cur), forecastClinch(resp, cur)]).then(function (got) {
+          drawForecast(host, resp, cur, got[0], got[1], got[2]);
         });
       }, function () { showFailure(host, "the UPS Wire forecast"); });
     }, function () { showFailure(host, "the " + state.year + " standings"); }).catch(drawFailed(host));
   }
-  function forecastModel(resp, cur, prev, det) {
+  // The clinch rules' verdicts for the Forecast tab (the same engine and MFL schedule read as Full League's letters).
+  // Only for a forecast of the standings' own week: verdicts from newer standings are never laid over an older forecast.
+  // → the clinch result, or null (then no outcome is shown as 100% or 0%).
+  function forecastClinch(resp, cur) {
+    var W = Number((resp.regular_season || {}).through_week);
+    if (Number(cur.throughWeek) !== W || !magicSeasonOf(resp)) return Promise.resolve(null);
+    return scheduleFor(state.year).then(function (j) {
+      try { return clinchOf(resp, j && j.slow ? null : j); } catch (e) { return null; }
+    }, function () { return null; });
+  }
+  function forecastModel(resp, cur, prev, det, cl) {
     var rowsBy = rowsByFid(resp.rows), prevBy = {};
     ((prev && prev.teams) || []).forEach(function (t) { prevBy[pad4(t.franchiseId)] = t; });
     var D = det.detail;
@@ -3075,7 +3081,8 @@
         po: t.currentPlayoffOdds, bye: t.currentByeOdds, div: t.currentDivisionOdds, title: t.currentTitleOdds,
         projAp: t.projectedEndingApPct, curAp: t.currentApPct, apP10: t.apP10, apP90: t.apP90,
         runner: d ? d.runnerUpOdds : null, hawk: d ? d.hawkTitleOdds : null, hawkRunner: d ? d.hawkRunnerUpOdds : null,
-        place: d ? d.place : null, exp: d ? d.expectedPlace : null, mode: mode, prev: prevBy[f] || null
+        place: d ? d.place : null, exp: d ? d.expectedPlace : null, mode: mode, prev: prevBy[f] || null,
+        v: window.UPS_ODDS_DISPLAY.verdicts(cl && cl.byFid ? cl.byFid[f] : null)
       };
     });
     // Expected order: average finishing place (the Wire's projected All-Play breaks a tie). Without place counts the
@@ -3137,13 +3144,13 @@
     if (m.hasDetail) tiles.push(fcBracketTile("Hawk Tuah Bowl", " hawk", top("hawk"), "most likely Hawk Tuah Bowl champion (pick 1.01)", top("hawkRunner"), m.finals.hawk));
     var byes = topBy(T, "bye", 2);
     tiles.push('<div class="fc-tile"><h3>First-round byes</h3>' + byes.map(function (t) {
-      return '<div class="fc-line">' + fcName(t) + ' <span class="fc-pct">' + fcPct(t.bye) + '</span></div>';
+      return '<div class="fc-line">' + fcName(t) + ' <span class="fc-pct">' + fcPct(t.bye, t.v.bye) + '</span></div>';
     }).join("") + '<div class="fc-sub">the two most likely</div></div>');
     var divs = {};
     T.forEach(function (t) { (divs[t.division] = divs[t.division] || []).push(t); });
     tiles.push('<div class="fc-tile"><h3>Division winners</h3>' + Object.keys(divs).sort().map(function (d) {
       var w = topBy(divs[d], "div", 1)[0];
-      return '<div class="fc-line"><span class="fc-div">' + escapeHtml(w.divName) + '</span> ' + fcName(w) + ' <span class="fc-pct">' + fcPct(w.div) + '</span></div>';
+      return '<div class="fc-line"><span class="fc-div">' + escapeHtml(w.divName) + '</span> ' + fcName(w) + ' <span class="fc-pct">' + fcPct(w.div, w.v.division) + '</span></div>';
     }).join("") + '</div>');
     return '<div class="fc-tiles">' + tiles.join("") + '</div>';
   }
@@ -3156,9 +3163,9 @@
       return '<tr' + line + ' data-fid="' + t.fid + '"><td class="num">' + (i + 1) + '</td>'
         + '<td>' + escapeHtml(t.name) + '<span class="owner-sub">' + escapeHtml(t.divName) + '</span>'
         + (m.hasDetail ? '<span class="fc-likely-sub">Most likely ' + likely + '</span></td><td class="fc-likely">' + likely + '</td>' : '</td>')
-        + '<td class="num"><b>' + fcPct(t.po) + '</b></td>'
-        + '<td class="num fc-wide">' + fcPct(t.bye) + '</td>'
-        + '<td class="num fc-wide">' + fcPct(t.div) + '</td>'
+        + '<td class="num"><b>' + fcPct(t.po, t.v.playoffs) + '</b></td>'
+        + '<td class="num fc-wide">' + fcPct(t.bye, t.v.bye) + '</td>'
+        + '<td class="num fc-wide">' + fcPct(t.div, t.v.division) + '</td>'
         + '<td class="num">' + fcPct(t.title) + '</td>'
         + '<td class="num">' + (t.prev ? fcDelta(t.po, t.prev.currentPlayoffOdds) : '—') + '</td></tr>';
     }).join("");
@@ -3176,12 +3183,12 @@
           var a = p > 0 ? 0.1 + 0.8 * Math.min(1, p / 0.6) : 0;
           var bg = !a ? "" : ' style="background:' + (i < 6 ? "rgba(231,190,89," : "rgba(255,138,101,") + a.toFixed(2) + ")" + (a > 0.55 ? ";color:#061a3a" : "") + '"';
           return '<span class="fp-cell' + (i === t.mode ? " mode" : "") + (p > 0 ? "" : " zero") + '" role="cell" aria-label="' + escapeHtml(placeLabel(i)) + ': ' + fcPct(p) + '"' + bg + '>'
-            + (p > 0 ? (p < 0.005 ? "·" : Math.round(p * 100)) : "0") + '</span>';
+            + escapeHtml(window.UPS_ODDS_DISPLAY.compact(p)) + '</span>';
         }).join("") + '</div>';
     }).join("");
     return '<h3 class="sec-h">Every finish, every team <span class="h-sub">· % of simulated seasons</span></h3>'
       + '<div class="fp-grid" role="table" aria-label="Chance of each finishing place">' + head + rows + '</div>'
-      + '<div class="note">1–6 are playoff seeds (1–2 byes); H1–H6 are the Hawk Tuah Bowl seeds. Each row and each column adds to 100 (· = under 1%; 0 = never). The outlined cell is the most likely finish.</div>';
+      + '<div class="note">1–6 are playoff seeds (1–2 byes); H1–H6 are the Hawk Tuah Bowl seeds. Each row and each column adds to 100 (&lt;1 = under 1%, including never in the simulation; &gt;99 = over 99%). The outlined cell is the most likely finish.</div>';
   }
   function fcFinalsHtml(m) {
     function table(title, champKey, runKey, champLabel) {
@@ -3208,17 +3215,17 @@
     var rows = m.teams.slice().sort(function (a, b) {
       return ((b.po - b.prev.currentPlayoffOdds) - (a.po - a.prev.currentPlayoffOdds)) || a.fid.localeCompare(b.fid);
     });
-    function cell(now, before) { return '<td class="num">' + fcPct(now) + ' ' + fcDelta(now, before) + '</td>'; }
+    function cell(now, before, v) { return '<td class="num">' + fcPct(now, v) + ' ' + fcDelta(now, before) + '</td>'; }
     return '<h3 class="sec-h">Since the Week ' + m.prevWeek + ' forecast</h3>'
       + '<table class="data-table fc-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th></tr></thead><tbody>'
       + rows.map(function (t) {
         var p = t.prev;
-        return '<tr><td>' + escapeHtml(t.name) + '</td>' + cell(t.po, p.currentPlayoffOdds) + '<td class="num fc-wide">' + fcPct(t.bye) + ' ' + fcDelta(t.bye, p.currentByeOdds) + '</td><td class="num fc-wide">' + fcPct(t.div) + ' ' + fcDelta(t.div, p.currentDivisionOdds) + '</td>' + cell(t.title, p.currentTitleOdds) + '</tr>';
+        return '<tr><td>' + escapeHtml(t.name) + '</td>' + cell(t.po, p.currentPlayoffOdds, t.v.playoffs) + '<td class="num fc-wide">' + fcPct(t.bye, t.v.bye) + ' ' + fcDelta(t.bye, p.currentByeOdds) + '</td><td class="num fc-wide">' + fcPct(t.div, t.v.division) + ' ' + fcDelta(t.div, p.currentDivisionOdds) + '</td>' + cell(t.title, p.currentTitleOdds) + '</tr>';
       }).join("") + '</tbody></table>'
       + '<div class="note">Sorted by the change in playoff odds. ▲▼ = percentage points since Week ' + m.prevWeek + '.'
       + (m.prevHasDetail ? '' : ' The Week ' + m.prevWeek + ' forecast didn’t record finish places, runners-up or the Hawk Tuah Bowl, so those have no movement yet.') + '</div>';
   }
-  function drawForecast(host, resp, cur, prev, det) {
+  function drawForecast(host, resp, cur, prev, det, cl) {
     var W = Number((resp.regular_season || {}).through_week);
     var recon = forecastReconcile(cur, resp), bad = recon.hard;
     if (bad.length) {
@@ -3226,7 +3233,7 @@
         + '<span class="psub">' + escapeHtml(bad.slice(0, 3).join(" · ") + (bad.length > 3 ? " · and " + (bad.length - 3) + " more" : "")) + '</span></div>';
       return;
     }
-    var m = forecastModel(resp, cur, prev, det);
+    var m = forecastModel(resp, cur, prev, det, cl);
     var view = state.fcview;
     if (!m.hasDetail && (view === "places" || view === "finals")) view = "outlook";
     var stale = Number(cur.throughWeek) < W
@@ -3243,7 +3250,7 @@
     host.innerHTML = fcFreshHtml(cur, prev) + fcBarHtml(cur, fcNavHtml()) + stale + missing + body + '<div class="note fc-recon">' + escapeHtml(reconNote) + '</div>';
     host.querySelectorAll("[data-fcview]").forEach(function (b) {
       b.disabled = !m.hasDetail && (b.getAttribute("data-fcview") === "places" || b.getAttribute("data-fcview") === "finals");
-      b.addEventListener("click", function () { state.fcview = b.getAttribute("data-fcview"); pushQs(); drawForecast(host, resp, cur, prev, det); notifyHeight(); });
+      b.addEventListener("click", function () { state.fcview = b.getAttribute("data-fcview"); pushQs(); drawForecast(host, resp, cur, prev, det, cl); notifyHeight(); });
     });
   }
 
@@ -3376,7 +3383,7 @@
       return { key: state.year + "|" + W, sim: g[1].sim, why: g[1].why, mg: g[0].mg, cl: g[0].cl, mgWhy: g[0].mgWhy };
     });
   }
-  function odds(p) { return p == null ? "—" : p >= 0.995 ? ">99%" : (p > 0 && p < 0.005) ? "<1%" : Math.round(p * 100) + "%"; }
+  function odds(p, v) { return window.UPS_ODDS_DISPLAY.pct(p, v); }
   // Highest applicable designation only: locked seed > Z > Y > X; E stands alone. Each holds in every possible finish.
   var PO_TIP = {
     X: "Clinched a playoff spot.",
@@ -3389,15 +3396,16 @@
     var L = r._poClinch, lock = L && /^[1-6]$/.test(L);
     var main = L
       ? '<span class="po-badge po-' + (lock ? "lock" : L.toLowerCase()) + '" title="' + escapeHtml(poTip(L)) + '">' + (lock ? "#" + L : L) + '</span>'
-      : escapeHtml(odds(r._poP));
-    // Bye % stays beneath while a bye is still open: a plain percentage, X, or Y.
+      : escapeHtml(odds(r._poP, r._poV.playoffs));
+    // Bye % stays beneath while a bye is still open: a plain percentage, X, or Y. A bye the clinch rules rule out is
+    // left off (never a guessed 0%); one the simulation never gave is "<1%".
     var open = !L || L === "X" || L === "Y";
-    var sub = (open && r._poBye != null && r._poBye > 0) ? '<span class="owner-sub po-sub">' + escapeHtml(odds(r._poBye)) + ' Bye</span>' : "";
+    var sub = (open && r._poBye != null && r._poV.bye !== "impossible") ? '<span class="owner-sub po-sub">' + escapeHtml(odds(r._poBye, r._poV.bye)) + ' Bye</span>' : "";
     return main + sub;
   }
   function poNoteHtml(po, resp) {
     var bits = [];
-    if (po.sim) bits.push('<strong>Playoff %</strong> = the UPS Wire forecast’s chance of making the playoffs (through Week ' + escapeHtml(po.sim.throughWeek) + ', generated ' + escapeHtml(fcWhen(po.sim)) + '), with the chance of a first-round bye beneath.');
+    if (po.sim) bits.push('<strong>Playoff %</strong> = the UPS Wire forecast’s chance of making the playoffs (through Week ' + escapeHtml(po.sim.throughWeek) + ', generated ' + escapeHtml(fcWhen(po.sim)) + '), with the chance of a first-round bye beneath. A forecast is never shown as 100% or 0%: &gt;99% and &lt;1% mark the ends.');
     else bits.push('<strong>Playoff %</strong> shows no percentage because ' + escapeHtml(po.why || "the forecast isn’t available") + '.');
     if (po.cl || po.mg) {
       bits.push('Only the highest applies: <strong>#1–#6</strong> = that exact seed is locked · <strong>Z</strong> = clinched a first-round bye · <strong>Y</strong> = clinched the division (a bye is not guaranteed yet: the byes go to the two best division winners by All-Play %) · <strong>X</strong> = clinched a playoff spot. <strong>E</strong> = eliminated from every playoff path (no division title, no wild card). Each is true in every possible finish, ties counted against the team; a percentage is never a clinch, so a letter can come late but never wrong.');
@@ -3609,6 +3617,7 @@
       var pcl = po && po.cl ? po.cl.byFid[fid] : null;
       r._poClinch = pcl ? pcl.label : (pe ? (pe.clinchedDivision ? "Y" : pe.clinchedSpot ? "X" : null) : null);
       r._poP = px ? px.currentPlayoffOdds : null; r._poBye = px ? px.currentByeOdds : null;
+      r._poV = window.UPS_ODDS_DISPLAY.verdicts(pcl);   // playoffs / division / bye, each verified separately (or null)
       r._poSort = !r._poClinch ? r._poP : r._poClinch === "E" ? -1 : r._poClinch === "X" ? 2 : r._poClinch === "Y" ? 3 : r._poClinch === "Z" ? 4 : 11 - Number(r._poClinch);
       r._hist = histRanks ? histRanks[fid] : null; r._histRank = r._hist ? r._hist.rank : null;
       if (scoped) { r._pf = r.pf_total; r._pfw = r.pf; r._pag = r.pa; }
