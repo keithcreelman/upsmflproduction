@@ -1789,6 +1789,7 @@ Four separate rules: division winners, wild cards, seeds 3–6, and seeds 1–2 
 ### F.1.4a The Hawk Tuah side (H1–H6): not audited
 - §F.1 and the 2026-11-25 rulings cover the playoff field only. No league source for the order of the six teams outside it was audited, and nothing here changes it.
 - **The site keeps its earlier order:** All-Play %, then the overall regular-season record, then Points For, then the games among the teams still level. The overall-record step here is that earlier practice, not a §F.1 ladder and not a rule. Which teams are in it follows the corrected qualification (§F.1.2).
+- **Known difference, documented and not fixed (Keith, 2026-11-25):** when Hawk Tuah teams are level on All-Play %, record **and** Points For, the Worker (the Standings pages) orders them by the games between them, then name, then franchise id; the forecast simulation by franchise id only. The two can then show those teams' H1–H6 places in different orders. They are not claimed to match in that case.
 - **PENDING KEITH,** only if he wants the consolation order reviewed.
 
 ### F.1.5 Ties in playoff games
@@ -1816,7 +1817,7 @@ Four separate rules: division winners, wild cards, seeds 3–6, and seeds 1–2 
 
 **Schema note: `h2h_pct` is the Overall record.** In `src_standings` the columns `h2h_w / h2h_l / h2h_pct` hold each team's overall regular-season record, not pairwise head-to-head. No playoff ladder reads them.
 
-**Code is not a source for these rules.** It follows them: `worker/src/seeding.js` (the three ladders and the unresolved ties), `worker/src/standings_truth.js` (regular-season inputs), `pipelines/etl/wire/season_sim.py` (the forecast). How a forecast treats a simulated tie that no rule settles yet is a modeling choice, not a league rule. It is **PENDING KEITH** (PR #1529). Until he rules, the draft draws such a tie evenly, counts it in `model.pendingTies`, and says so on the forecast.
+**Code is not a source for these rules.** It follows them: `worker/src/seeding.js` (the three ladders and the unresolved ties), `worker/src/standings_truth.js` (regular-season inputs), `pipelines/etl/wire/season_sim.py` (the forecast). How a forecast treats a simulated tie that no rule settles yet is a modeling choice, not a league rule. **Keith, 2026-11-25 (PR #1529, option A):** such a tie gets equal chances, and the forecast discloses the assumption and how many simulated seasons it touched (`model.pendingTies`, `model.pendingTieSeasons`). The league's tiebreak for those ties stays **PENDING KEITH**; the forecast assumption does not settle it.
 
 **Bot guidance:**
 - **"Who wins division X":** apply that season's MFL `standingsSort`.
