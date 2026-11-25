@@ -154,7 +154,7 @@ def load_forecast(season, week, data_dir):
     if os.path.exists(sim_p):
         s = json.load(open(sim_p, encoding="utf-8"))
         out["sim"] = {"throughWeek": s.get("throughWeek"), "runs": s.get("runs"), "seed": s.get("seed"),
-                      "generatedAtUtc": s.get("generatedAtUtc"),
+                      "generatedAtUtc": s.get("generatedAtUtc"), "seedingRule": (s.get("model") or {}).get("seedingRule"),
                       "teams": {t["franchiseId"]: {"po": t["currentPlayoffOdds"], "bye": t["currentByeOdds"],
                                                    "div": t["currentDivisionOdds"], "title": t["currentTitleOdds"],
                                                    "division": t["division"], "prePo": t.get("preseasonPlayoffOdds"),

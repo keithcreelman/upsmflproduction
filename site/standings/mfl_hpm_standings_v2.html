@@ -2929,6 +2929,10 @@
       return validDetail(c.standingsForecast, sim) ? { detail: c.standingsForecast } : { detail: null, why: "they’re incomplete in this forecast" };
     }, function () { return { detail: null, why: "their file couldn’t be loaded" }; });
   }
+  // The seeding rule a forecast must have been simulated under (pipelines/etl/wire/season_sim.py SEEDING_RULE, written to its
+  // model.seedingRule; canon §F.1, Keith 2026-11-25). A forecast without it used the overall-record step the league never had,
+  // so its seeds, byes and odds contradict these standings: it is refused like any other forecast that doesn't start here.
+  var SEEDING_RULE = "canon-F1-2026-11-25: wild cards AP>PF>H2H; seeds 3-6 AP>PF; byes = top-2 division winners by AP";
   // The forecast must start where the standings are, from the same weekly scores Full League and Weekly use: every
   // team's All-Play W-L-T through its last week (for the current week, also the Full League totals) and every H2H
   // result of that week. → { hard: [...], corrections: [...] }. Any hard difference refuses the forecast. A score that
@@ -2938,6 +2942,7 @@
     var rowsBy = rowsByFid(resp.rows);
     var fids = sim.teams.map(function (t) { return pad4(t.franchiseId); });
     function hard(msg) { return { hard: [msg], corrections: [] }; }
+    if (!sim.model || sim.model.seedingRule !== SEEDING_RULE) return { hard: ["it was simulated under the earlier seeding rules (corrected 2026-11-25)"], corrections: [], oldRule: true };
     if (fids.length !== (resp.rows || []).length || fids.some(function (f) { return !rowsBy[f]; })) return hard("the forecast’s teams aren’t this season’s teams");
     if (!Array.isArray(resp.weeklyScores) || !Array.isArray(resp.weekly)) return hard("the weekly scores couldn’t be read");
     resp.weeklyScores.forEach(function (s) {
@@ -3215,7 +3220,7 @@
     var W = Number((resp.regular_season || {}).through_week);
     var recon = forecastReconcile(cur, resp), bad = recon.hard;
     if (bad.length) {
-      host.innerHTML = fcFreshHtml(cur, prev) + fcBarHtml(cur, "") + '<div class="err-box" role="alert"><b>The Week ' + cur.throughWeek + ' forecast doesn’t start from these standings, so it isn’t shown.</b>'
+      host.innerHTML = fcFreshHtml(cur, prev) + fcBarHtml(cur, "") + '<div class="err-box" role="alert"><b>The Week ' + cur.throughWeek + (recon.oldRule ? ' forecast was simulated under the earlier seeding rules, so it isn’t shown. The next forecast uses the corrected rules.' : ' forecast doesn’t start from these standings, so it isn’t shown.') + '</b>'
         + '<span class="psub">' + escapeHtml(bad.slice(0, 3).join(" · ") + (bad.length > 3 ? " · and " + (bad.length - 3) + " more" : "")) + '</span></div>';
       return;
     }
@@ -3362,7 +3367,7 @@
       if (!sim) return { sim: null, why: "no forecast has been published for " + state.year + " yet" };
       if (Number(sim.throughWeek) !== W) return { sim: null, why: "the Week " + W + " forecast isn’t published yet (the newest is Week " + sim.throughWeek + ")" };
       var rc = forecastReconcile(sim, resp);
-      if (rc.hard.length) return { sim: null, why: "the Week " + W + " forecast doesn’t start from these standings" };
+      if (rc.hard.length) return { sim: null, why: rc.oldRule ? "the Week " + W + " forecast was simulated under the earlier seeding rules" : "the Week " + W + " forecast doesn’t start from these standings" };
       return { sim: sim, why: null };
     }, function () { return { sim: null, why: "the forecast couldn’t be loaded" }; });
     return Promise.all([sched, fc]).then(function (g) {

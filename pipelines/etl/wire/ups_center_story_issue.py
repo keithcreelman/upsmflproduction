@@ -79,7 +79,7 @@ class StoryIssue(TSEG.TrackerSegments, I.Issue):
 
     def odds_fresh(self):
         return bool((self.ctx.get("forecast") or {}).get("sim")) and not any(
-            g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in self.forecast_problems())
+            g in ("odds:missing", "odds:stale", "odds:rule", "odds:inconsistent") for g, _ in self.forecast_problems())
 
     def odds_text(self):
         """(sim, source, {fid: shown}) once for the whole issue."""
