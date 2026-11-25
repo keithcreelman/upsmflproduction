@@ -1736,40 +1736,85 @@ The local DB tables `franchises`, `schedule`, `weeklyresults`, `weeklyresults_su
 
 Follow-up: port the legacy fetcher into `pipelines/etl/scripts/` so this repo becomes the single source of truth. See `pipelines/etl/README.md` "External fetchers (not yet ported)".
 
-## F.1 Playoff seeding rule (added 2026-05-15)
+## F.1 Playoff qualification and seeding (audited against the original league sources 2026-11-24; Keith's rulings 2026-11-25, PR #1526)
 
-**Seeding is by All-Play %, NOT by head-to-head wins or "regular-season record".**
+Four separate rules: division winners, wild cards, seeds 3–6, and seeds 1–2 with byes. Never apply one rule's tiebreakers to another. Every line cites an original league source or the league's own record (MFL settings, MFL playoff brackets, rulebooks, commissioner posts). This canon, the code and generated documents are not sources. Items marked **PENDING KEITH** have no rule yet: nothing may fill them, by analogy (to the waiver tiebreak or anything else) or otherwise.
 
-- **4 division winners** receive automatic playoff bids.
-- **Top 2 seeds (1, 2) are RESERVED for division winners** — a non-division-winner cannot earn a top-2 seed no matter how high their AP%.
-- **Seeds 3–6 (or wherever the bracket ends)** rank by All-Play %, including the remaining 2 division winners alongside wild-card teams.
-- A division winner can be the **6th seed** (or lowest playoff seed) if they have the worst AP% among the qualifiers.
-- **Tiebreaker ladder (when AP% ties):** Overall → Points For → H2H (same ladder used for waivers, see §A4).
+**Eras.** 2011–2013: two conferences, each with 2 division winners and 1 wild card, seeded within the conference. 2014–2016: conferences still exist in MFL, but the bracket is seeded league-wide. 2017 onward: no conferences, 4 division winners and 2 wild cards. 2010 has not been audited.
 
-Implications for narrative / analytics code:
+**All-Play and Points For mean regular-season figures** (Weeks 1–13 through 2020, Weeks 1–14 from 2021), not MFL's season figures, which run through Week 17. Source: Keith, Slack 2021-12-15, correcting the 2021 seeds: *"that always continues through Week 17"*. Regular-season All-Play reproduces every MFL bracket seed from 2014 to 2025. Code computes them from the weekly results, regular-season weeks only (`worker/src/standings_truth.js`), never from a stored season total.
 
-- **Never derive a seed from H2H W-L** ("overall_w/l" in standings JSON includes playoff games and is not a seed proxy).
-- **Never describe a team's seed using regular-season wins.** Use `all_play_pct` from `src_standings` plus the "must win division for top 2" rule.
-- For the "Who was the #N seed in season Y?" question: rank `src_standings` rows by (is_div_winner DESC for top 2, then all_play_pct DESC). Top 2 picks are the two division winners with the highest AP%; seeds 3..N then rank purely by AP% with division-winner status only ensuring playoff entry, not seed position.
+### F.1.1 Division winners
+- **Qualify automatically.** Bylaws V2014.1 ch. 8 §1: "Divisional Champs … (2 Per Conference)". All four division winners were in the bracket every season from 2011 to 2025 (MFL `playoffBracket`; for 2011–2013 the second conference's teams come from the archived Week 14 games).
+- **Tiebreakers = MFL `standingsSort` for that season** (MFL `TYPE=league`). It matches the written bylaws:
+  - **2011:** `PCT,DIVPCT,PTS,H2H,PWR`. The By-Laws §2.7 order, quoted on the 2011 board (2011-12-01), was Pct, Div Pct, PF, H2H, All-Play, PWR, coin flip ("That is the order of relevance", Commissioner).
+  - **2012–2026:** `PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR`. Bylaws V2014.1 ch. 8 §1 lists the same order and ends with a coin flip.
+- **Applied:** 2012, division 00. Blake Bombers and The Baster were both 13-13 and both 4-4 in the division. Blake won head-to-head 3-1 and took the division (bracket #2), although The Baster had more Points For (2004.6 vs 1993.8) and a higher All-Play. So H2H came before PF.
+- **Not established:**
+  - how H2H counts when three or more teams are tied;
+  - no record reaches PWR or the coin flip.
 
-## F.2 Division-champ tiebreaker vs UPS playoff-seeding tiebreaker — DO NOT CONFLATE (Keith, 2026-05-16 review session)
+### F.1.2 Wild cards (Keith ruling 2026-11-25)
+- **Who:** the non-division-winners with the best regular-season All-Play %. 2011–2016: one per conference (Bylaws V2014.1 ch. 8 §2). In 2014–2016, per conference and league-wide pick the same teams. From 2017: two, league-wide.
+  - 2011 practice: the Commissioner tracked the wild-card race by All-Play alone, e.g. "11 games back of Pure G for the Wild Card Spot" (2011-11-05).
+- **Ladder: regular-season All-Play % → total regular-season Points For → head-to-head → Power Rank (PWR) → coin flip.** Bylaws V2014.1 ch. 8 §2: "a. All-Play Record b. Most Points For (PF) c. Head-to-Head Record d. Power Rank (PWR) e. Coin Flip". There is no overall-record step.
+- **Applied: 2017,** the only All-Play tie in any wild-card race from 2011 to 2025. Three teams were at 78-65:
+  - White Power: 14-12, PF 2121.3.
+  - Ulterior Warrior: 12-14, PF 2098.5.
+  - Gride: 13-13, PF 2083.1.
 
-There are **three distinct ranking sites** in UPS standings code. Owner-facing narration and code review must keep them straight.
+  MFL's bracket has White Power #4 and Ulterior Warrior #5; Gride is not in it. That is Points For order (an overall-record step would have put Gride in).
+- **Not established:** how head-to-head counts when three or more teams are still tied. PWR is not in any export the site reads, and a coin flip is the commissioner's, so code reports a tie that reaches either step instead of deciding it.
+- **History of the error:** the 2026-05-15 text of this section put Overall record between All-Play and Points For, citing "same ladder used for waivers". The waiver ladder (2024 Rule Book §7.2) applies only to identical waiver bids, and no league source supports the step. A quotation dated 2026-10-08 in `worker/src/seeding.js` ("Our Phase I rule is All-Play % → Overall → PF → H2H") matched that text; its original source has not been found, and it is not a ruling.
 
-| Concept | Where the rule lives | What it ranks | Tiebreaker chain |
-|---|---|---|---|
-| **Division-champ tiebreaker** | **MFL setting** (`lg.standingsSort` from `TYPE=league` API) — changes year-to-year | Teams **within a division** — picks the division winner | Year-specific. Example: 2011 = `PCT,DIVPCT,PTS,H2H,PWR`; 2014+ = `PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR`. Authoritative source = current MFL settings, not this doc. |
-| **UPS playoff-seeding tiebreaker** | **UPS canon** — §F.1 above | Wild-card pool + seeds 3–6 across the league | AP% → Overall → Points For → H2H (UPS-custom, stable across years) |
-| **Standings-page visual sort** | **UPS canon** — same as playoff seeding (Keith 2026-05-17, Option A approved) | Full league standings page | AP% → Overall → Points For (pairwise H2H not computable here) |
+### F.1.3 Seeds 3–6 (Keith ruling 2026-11-25)
+- **Who:** the two division winners not seeded 1–2 plus the two wild cards, **ordered by regular-season All-Play %**. Being a division winner gives no priority here. For example, in 2016 wild card Ulterior Warrior was #3 and division winner Pure Greatness was #6.
+- **Ladder: All-Play % → total regular-season Points For.**
+  - 2020: #BLM (PF 2675.7, 17-9) #3; C-Town Chivalry (PF 2637.0, 22-4) #4.
+  - 2021: Ulterior Warrior (PF 3010.3, 23-14) #3; The Bash Bros (PF 2931.7, 25-12) #4. Keith, Slack 2021-12-14: "3. Bash via Wild Card Total Points Tie Breaker". Corrected 2021-12-15, after the Week 14 points were fixed, to "Warrior = 3 Seed".
+- **Source:** practice, MFL brackets 2014–2025, and the ruling above. No written rule describes it: the 2014 bylaws describe the conference format, and the 2024 Rule Book says only "Playoff seeding is determined by regular-season performance, with division winners guaranteed a top seed."
+- **PENDING KEITH:** the steps after Points For. No record reaches them. Until Keith rules, a tie on All-Play and Points For inside seeds 3–6 is reported as unresolved; head-to-head, the wild-card ladder and record do not decide it.
 
-**Code separation in the worker** (`worker/src/index.js`):
-- Fetches `lg.standingsSort` from MFL `TYPE=league` and stores on the league record.
-- `sortFnFromStandingsSort()` parses MFL `standingsSort` and applies it to **division-leader selection only**.
-- Wild-card pool sort and the full standings-page `ORDER BY` both use canon §F.1: `AP% → Overall → PF`.
+### F.1.4 Seeds 1–2 and byes
+- **2011–2013, per conference:** "#1 Seed is the highest ranked Divisional winner for each conference. Earns 1st round bye. #2 Seed will be the lower ranked of the 2 division winners. #3 Seed will be the Wild Card Winner from the Conference." (Bylaws V2014.1 ch. 9 §1; 2011 bracket post 2011-12-06.)
+  - **1 vs 2 criteria:** in 2011, division record came first (Competition Committee post, 2011-12-04); the 2014 text is Pct, H2H, All-Play, PF, PWR, coin flip.
+  - No 2011–2013 record separates these.
+- **2014 onward (historical practice, documented 2026-11-25):** the two division winners with the highest regular-season All-Play % are #1 and #2 and get the byes, the higher one #1. A wild card never gets a bye, whatever its All-Play.
+  - 2016: wild card Ulterior Warrior (.727) got no bye; division winner Good in Da Hood (.664) did.
+  - **Source:** practice, MFL brackets 2014–2025, 12 of 12 seasons. Ranking division winners by record would have changed the byes in 2015, 2019, 2020, 2023, 2024 and 2025. For example, in 2015 Ulterior Warrior (19-7) got no bye; Crystal Blue Persuasion and Good in Da Hood (both 17-9) did.
+  - This differs from the 2014 written text (conference-based, Pct first). No written amendment has been found.
+- **PENDING KEITH:** division winners level on All-Play, whether for seed 2 (one gets a bye, one doesn't) or for the order of seeds 1 and 2. It has never happened. Until Keith rules, code reports the tie as unresolved; nothing (Points For, record, the seeds 3–6 or wild-card ladder) decides it.
 
-**Schema note — `h2h_pct` is the Overall record.** In `src_standings` the columns `h2h_w / h2h_l / h2h_pct` represent each team's overall regular-season record, NOT pairwise head-to-head. The "h2h" prefix predates the §F.1 Overall/H2H split. The pairwise H2H step in §F.1's chain isn't computable from `src_standings` alone (needs schedule data) and is dropped from in-memory comparators in favor of the franchise-name fallback.
+### F.1.5 Ties in playoff games
+- **The higher seed advances.**
+  - Commissioner, Forumotion t19, 2012-06-28: "For the playoffs, the higher seed moves on".
+  - The 2025 vote, posted by ups_commish on Discord 2025-09-13: "Playoff Tiebreaker - Higher Seed Moves on by virtue of 8-4 Vote".
+  - The bench-player tiebreaker that ran in between was removed before 2025; the exact season is unresolved.
 
-**Bot guidance:** when asked "who wins division X tiebreaker", read MFL `standingsSort` for the year in question and apply that chain. When asked "who gets the #N seed" or "who's #N on the standings page", apply §F.1 (UPS canon).
+### F.1.6 Looking up a past seed
+- Read MFL's bracket for that season (`TYPE=playoffBracket&BRACKET_ID=1`, with that season's league id). Do not recompute it, and do not re-seed a recorded season with these ladders.
+- Do not use the archive's `regular_season_finish`: it swaps 2023's seeds 4 and 5, and for 2011–2013 it is an All-Play rank, not a seed.
+- Do not use a full-season All-Play %.
+- Never derive a seed from H2H wins or the regular-season record.
+
+## F.2 Division-champ tiebreaker vs playoff wild-card and seeding tiebreakers — DO NOT CONFLATE
+
+| Ladder | Source | Order |
+|---|---|---|
+| **Division winner** | MFL `standingsSort` for the season; matches the written bylaws (§F.1.1) | 2011: PCT, DIVPCT, PTS, H2H, PWR. 2012–2026: PCT, DIVPCT, H2H, PTS, ALL_PLAY_PCT, PWR, then coin flip (Bylaws V2014.1) |
+| **Wild card** | Bylaws V2014.1 ch. 8 §2; 2017 bracket; Keith 2026-11-25 (§F.1.2) | All-Play % → total PF → H2H → PWR → coin flip |
+| **Seeds 3–6** | MFL brackets 2014–2025; Keith 2026-11-25 (§F.1.3) | All-Play % → total PF → PENDING KEITH |
+| **Seeds 1–2 / byes** | MFL brackets 2014–2025, documented 2026-11-25 (§F.1.4) | The two division winners with the highest All-Play % → PENDING KEITH on a tie |
+| **Standings-page order (current season)** | Display, not a league rule | The worker's seed order: seeds 1–6, then the other teams in the wild-card order. It replaces the 2026-05-17 "Option A" sort (All-Play % → Overall → PF), which copied the unsupported step |
+
+**Schema note: `h2h_pct` is the Overall record.** In `src_standings` the columns `h2h_w / h2h_l / h2h_pct` hold each team's overall regular-season record, not pairwise head-to-head. No playoff ladder reads them.
+
+**Code is not a source for these rules.** It follows them: `worker/src/seeding.js` (the three ladders and the unresolved ties), `worker/src/standings_truth.js` (regular-season inputs), `pipelines/etl/wire/season_sim.py` (the forecast; a tie with no rule is drawn evenly and counted in `model.pendingTies`).
+
+**Bot guidance:**
+- **"Who wins division X":** apply that season's MFL `standingsSort`.
+- **"Who got the #N seed in season Y":** read MFL's bracket for Y.
+- **"Who would get it now":** apply §F.1.2–§F.1.4, and say when a place depends on a tie that is PENDING KEITH.
 
 ## G. STILL-OPEN ITEMS for Section 3.5
 

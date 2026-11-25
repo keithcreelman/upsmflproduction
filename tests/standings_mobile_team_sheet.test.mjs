@@ -44,7 +44,7 @@ async function openSheet(fid) {
 test("Real Deal Creel's sheet: seed sentence, Scored, Faced (schedule, not skill), luck and week by week", async () => {
   const { body, head } = await openSheet("0008");
   t.match(head, /Real Deal Creel/);
-  t.match(body, /Seed 4: behind HammerTime.* on All-Play %\. Ahead of CBP on H2H record \(same All-Play %\)\./);
+  t.match(body, /Seed 4: behind HammerTime.* on All-Play %\. Ahead of CBP on season Points For \(same All-Play %\)\./);
   t.match(body, /H2H record 9-4 \(\.692\)/);
   t.match(body, /All-Play 32-23 \(\.582\)/);
   t.match(body, /Points For 1145\.8 5th/);                 // 5th of 12: C-Town, Blake, HammerTime, Pure Greatness ahead

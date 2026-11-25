@@ -488,8 +488,9 @@ check('divisionRace: groups by division without hardcoding team count, computes 
 });
 
 // ── 7. Seed explanations ─────────────────────────────────────────────
-// Words only, from the WORKER's seed_reason (worker/src/seeding.js seedLadderSteps — canon §F.1: All-Play % → Overall
-// → season Points For → head-to-head). The module has no comparator of its own (Keith 2026-10-09, port decision 1).
+// Words only, from the WORKER's seed_reason (worker/src/seeding.js playoffLadders — canon §F.1.2–§F.1.4: wild cards
+// All-Play % → season Points For → head-to-head; seeds 3–6 All-Play % → season Points For; byes by All-Play % among
+// division winners; no overall-record step). The module has no comparator of its own (Keith 2026-10-09, port decision 1).
 // SEASON_2020's seed_reasons are shaped exactly as /api/standings sends them for a CURRENT season; the fixture's real
 // 2020 season is a recorded one, covered separately below.
 function withReasons(rows) {
@@ -498,7 +499,8 @@ function withReasons(rows) {
     rival_name: R[rivalFid].franchise_name, rival_seed: R[rivalFid].playoff_seed });
   const set = {
     '0010': reason('bye', 'all_play', 'ahead', '0007'), '0007': reason('bye', 'all_play', 'behind', '0010'),
-    '0008': reason('seeds3to6', 'overall', 'ahead', '0009'), '0009': reason('seeds3to6', 'all_play', 'ahead', '0006'),
+    // 2020: #BLM over C-Town Chivalry, both 91-52 All-Play, on season Points For (2675.7 vs 2637.0; MFL's bracket)
+    '0008': reason('seeds3to6', 'points_for', 'ahead', '0009'), '0009': reason('seeds3to6', 'all_play', 'ahead', '0006'),
     '0006': reason('seeds3to6', 'all_play', 'ahead', '0001'), '0001': reason('seeds3to6', 'all_play', 'behind', '0006'),
   };
   return rows.map((r) => Object.assign({}, r, { seed_reason: set[r.franchise_id] || reason('outside', 'all_play', 'behind', '0006') }));
@@ -507,19 +509,27 @@ const S20 = withReasons(SEASON_2020);
 check('seed explanation: the module has NO comparator of its own — compareSeedPair and its ladder are gone', () => {
   assert.strictEqual(RACE.compareSeedPair, undefined);
   assert.ok(!/function\s+compareSeedPair\s*\(/.test(SRC) && !/CRITERION_LABEL/.test(SRC));
-  assert.ok(!/AP% → Total PF|Total regular-season PF/.test(SRC), 'no trace of the reversed AP → PF → Overall order');
+  assert.ok(!/overall:\s*'H2H record'/.test(SRC), 'no overall-record seeding step is worded (canon §F.1, 2026-11-25)');
 });
 check('seed explanation: seeded rows say the WORKER\'s step, pool and neighbor — each step worded', () => {
   const why = (fid) => RACE.whySeedForRow(byFid(S20, fid), S20);
   assert.strictEqual(why('0010').text, 'Seed 1: in the bye pool (the two best division winners); ranked ahead of Sex Manther on All-Play %.');
   assert.strictEqual(why('0007').text, 'Seed 2: in the bye pool (the two best division winners); behind Blake Bombers on All-Play %.');
-  assert.strictEqual(why('0008').text, 'Seed 3: in the seeds 3–6 pool; ranked ahead of C-Town Chivalry on H2H record.');
-  assert.strictEqual(why('0008').decidingCriterion, 'overall');
+  assert.strictEqual(why('0008').text, 'Seed 3: in the seeds 3–6 pool; ranked ahead of C-Town Chivalry on season Points For.');
+  assert.strictEqual(why('0008').decidingCriterion, 'points_for');
   assert.strictEqual(why('0008').basis, 'ladder');
-  for (const [step, words] of [['points_for', 'season Points For'], ['head_to_head', 'the H2H games between them'], ['overall', 'H2H record'], ['all_play', 'All-Play %']]) {
+  for (const [step, words] of [['points_for', 'season Points For'], ['head_to_head', 'the H2H games between them'], ['all_play', 'All-Play %']]) {
     const r = Object.assign({}, byFid(S20, '0006'), { seed_reason: Object.assign({}, byFid(S20, '0006').seed_reason, { step }) });
     assert.ok(RACE.whySeedForRow(r, S20).text.endsWith('on ' + words + '.'), step);
   }
+});
+check('seed explanation: a tie no approved step settles says the order is not final, and what would come next', () => {
+  const r = (pending) => Object.assign({}, byFid(S20, '0006'), { seed_reason: Object.assign({}, byFid(S20, '0006').seed_reason, { step: 'unresolved', pending }) });
+  const a = RACE.whySeedForRow(r('pending_ruling'), S20).text;
+  assert.ok(/level with .* on every settled tiebreak, so this order is not final \(the next tiebreak for this place has not been ruled on yet\)\./.test(a), a);
+  assert.ok(/Power Rank, then a coin flip/.test(RACE.whySeedForRow(r('power_rank_coin_flip'), S20).text));
+  const up = Object.assign({}, byFid(S20, '0009'), { seed_reason: Object.assign({}, byFid(S20, '0009').seed_reason, { vs_above: { franchise_id: '0008', name: '#BLM', step: 'unresolved', pending: 'pending_ruling' } }) });
+  assert.ok(/behind #BLM for now: the two are level on every settled tiebreak, so this order is not final/.test(RACE.whySeedForRow(up, S20).text));
 });
 check('seed explanation: the name/id fallback is disclaimed; a head-to-head tie without games says so', () => {
   const r = (step) => Object.assign({}, byFid(S20, '0006'), { seed_reason: Object.assign({}, byFid(S20, '0006').seed_reason, { step }) });
@@ -574,7 +584,7 @@ check('race(): end-to-end composition on the 2020 fixture — status / apGB / wh
   const blm = out.byFranchise['0008'];
   assert.strictEqual(blm.status, 'WC');
   assert.strictEqual(blm.apGB, 0);
-  assert.strictEqual(blm.whySeed.decidingCriterion, 'overall', 'straight from the worker\'s seed_reason');
+  assert.strictEqual(blm.whySeed.decidingCriterion, 'points_for', 'straight from the worker\'s seed_reason');
   const hawks = out.byFranchise['0012'];
   assert.strictEqual(hawks.status, null);
   assert.strictEqual(hawks.apGB, 35);

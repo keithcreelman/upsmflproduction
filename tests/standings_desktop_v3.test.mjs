@@ -147,7 +147,9 @@ test("Playoff Picture (?view=picture): its seeds are the worker's: 0009, 0010, 0
   t.match(p.html, /<b>Next out:<\/b> Hawks, 2 All-Play wins behind Pure Greatness \(the last wild card\)\./);
   t.match(p.text, /Next team out Hawks/);
   t.match(p.html, /<b>If the season ended today, byes:<\/b> C-Town Chivalry and Blake Bombers\./);
-  t.match(p.html, /<b>Tiebreak:<\/b> Real Deal Creel over CBP: same All-Play, a better H2H record \(9-4 vs 7-6\)\./);
+  // canon §F.1.3 (2026-11-25): seeds 3-6 level on All-Play go to season Points For; H2H record is not a step
+  t.match(p.html, /<b>Tiebreak:<\/b> Real Deal Creel over CBP: same All-Play, more Points For \(1145\.8 vs 1106\.2\)\./);
+  t.ok(!/Not final:/.test(p.html), "no unresolved tie in this recording");
   // in the hunt: positions 7-12 in the worker's order, each with its Back (ap_back) and ▲▼ (order_change)
   const hunt = [...p.raw.matchAll(/<tr class="hunt-row[^"]*"[^>]*data-toggle="(\d{4})">([\s\S]*?)<\/tr>/g)].map((m) => [m[1], [...m[2].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => text(c[1]).trim())]);
   const outside = RESP_2026.rows.filter((r) => r.playoff_seed == null);
@@ -170,8 +172,8 @@ test("Picture: projected chips, the bye line after seed 2 and the playoff line a
   const card8 = /<li class="seed-card[^"]*" data-fid="0008">([\s\S]*?)<div class="seed-detail"/.exec(p.html)[1];
   const why = /<div class="seed-why">([^<]*)<\/div>/.exec(card8)[1];
   t.match(why, /CBP/, "Real Deal Creel's reason names CBP");
-  t.match(why, /H2H record/, "...and the H2H-record tiebreak (canon's Overall step)");
-  t.equal(why, "Seed 4: behind HammerTime on All-Play %. Ahead of CBP on H2H record (same All-Play %).");
+  t.match(why, /season Points For/, "...and the Points For tiebreak (canon §F.1.3), not the H2H record");
+  t.equal(why, "Seed 4: behind HammerTime on All-Play %. Ahead of CBP on season Points For (same All-Play %).");
   t.match(card8, /9-4 · All-Play 32-23 \(58\.2%\)/, "record and All-Play from the worker's regular_season");
   t.match(p.text, /Through Week 5 of 14 · final scores/, "freshness: through which week");
   // Keith 2026-10-22: the bracket leads (today's seeds, labeled; the Forecast's projection behind its own button), every

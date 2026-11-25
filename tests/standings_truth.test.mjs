@@ -8,7 +8,7 @@
 import fs from "node:fs";
 import { test, t, run } from "./fixtures/mini_test.mjs";
 import { playoffFlag, regularSeasonTotals, divisionOrder, seedCurrentSeason } from "../worker/src/standings_truth.js";
-import { seedLadderSteps, modernField } from "../worker/src/seeding.js";
+import { playoffLadders, playoffField } from "../worker/src/seeding.js";
 import { weeklySeason } from "./fixtures/standings_d1.mjs";
 
 const REC = JSON.parse(fs.readFileSync(new URL("./fixtures/standings_2026_wk5.json", import.meta.url), "utf8"));
@@ -21,7 +21,7 @@ const totals = (over) => regularSeasonTotals({
 });
 
 // The seed field from totals, exactly as the route builds it: division winners by MFL standingsSort,
-// then the §F.1 ladder.
+// then the §F.1.2-§F.1.4 ladders (one per pool).
 function field(tot) {
   const rows = FIDS.map((f) => ({
     franchise_id: f, franchise_name: NAME[f], division: DIV[f],
@@ -33,9 +33,9 @@ function field(tot) {
     winners.add(divisionOrder(rows.filter((r) => r.division === d), tot.games, REC.standingsSort).order[0].franchise_id);
   }
   const games = tot.games.map((g) => ({ franchise_id: g.a, opponent_franchise_id: g.b, team_score: g.ts, opponent_score: g.os }));
-  const ladder = seedLadderSteps(rows, games);
-  const f = modernField(rows, winners, ladder.cmp);
-  return { seeds: [...f.byes, ...f.seeds3to6].map((r) => r.franchise_id), outside: f.outside.map((r) => r.franchise_id), ladder, rows };
+  const ladder = playoffLadders(rows, games);
+  const f = playoffField(rows, winners, ladder);
+  return { seeds: [...f.byes, ...f.seeds3to6].map((r) => r.franchise_id), outside: f.outside.map((r) => r.franchise_id), ladder, rows, unresolved: f.unresolved };
 }
 
 test("playoff flags: only 0/'0'/false and 1/'1'/true are recognized", () => {
@@ -62,9 +62,11 @@ test("recorded 2026 Week 5: the seeds, recomputed independently of the route", (
   t.deepEqual(f.seeds, ["0009", "0010", "0005", "0008", "0002", "0004"]);
   t.equal(f.outside[0], "0012");                                  // Hawks: next team out
   const byId = Object.fromEntries(f.rows.map((r) => [r.franchise_id, r]));
-  // Creel and CBP tie at 32-23 All-Play; Overall (9-4 vs 7-6) separates them.
-  t.equal(f.ladder.decidingStep(byId["0008"], byId["0002"]), "overall");
-  t.equal(f.ladder.decidingStep(byId["0004"], byId["0012"]), "all_play");
+  // Creel and CBP tie at 32-23 All-Play; season Points For (1145.8 vs 1106.2) separates them in seeds 3-6 (canon
+  // §F.1.3). Creel's better record (9-4 vs 7-6) is not a step; before 2026-11-25 it decided this pair.
+  t.equal(f.ladder.seeds3to6.decidingStep(byId["0008"], byId["0002"]), "points_for");
+  t.equal(f.ladder.wild_card.decidingStep(byId["0004"], byId["0012"]), "all_play");
+  t.deepEqual(f.unresolved, []);
 });
 
 test("bug: sorting by record or per-game PF instead of seed gives a different order", () => {
@@ -187,7 +189,7 @@ const DIVS = { "0001": "A", "0002": "A", "0003": "A", "0004": "B", "0005": "B", 
 const scores = (over) => Object.fromEntries(Object.keys(DIVS).map((f) => [f, (over && over[f]) ?? 100 + 10 * Number(f)]));
 function gen(weeks) {
   const s = weeklySeason({ weeks, divisions: DIVS });
-  return seedCurrentSeason({ franchises: s.franchises, weeklyScores: s.weeklyScores, games: s.games, lastRegularSeasonWeek: 14, standingsSort: "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR", ladder: { seedLadderSteps, modernField } });
+  return seedCurrentSeason({ franchises: s.franchises, weeklyScores: s.weeklyScores, games: s.games, lastRegularSeasonWeek: 14, standingsSort: "PCT,DIVPCT,H2H,PTS,ALL_PLAY_PCT,PWR", ladder: { playoffLadders, playoffField } });
 }
 
 test("seedCurrentSeason: head-to-head decides a tie on All-Play, record and points (generated season)", () => {
@@ -232,29 +234,32 @@ test("seedCurrentSeason: points for decides when All-Play and record tie and the
 test("seedCurrentSeason: incomplete data gives no seeds, no leaders, no order claim", () => {
   const s = weeklySeason({ weeks: [{ week: 1, scores: scores(), games: [["0001", "0002"]] }], divisions: DIVS });
   s.weeklyScores[3].is_playoff = "x";
-  const f = seedCurrentSeason({ franchises: s.franchises, weeklyScores: s.weeklyScores, games: s.games, lastRegularSeasonWeek: 14, standingsSort: "PCT,DIVPCT,H2H,PTS", ladder: { seedLadderSteps, modernField } });
+  const f = seedCurrentSeason({ franchises: s.franchises, weeklyScores: s.weeklyScores, games: s.games, lastRegularSeasonWeek: 14, standingsSort: "PCT,DIVPCT,H2H,PTS", ladder: { playoffLadders, playoffField } });
   t.equal(f.status, "incomplete");
   t.deepEqual(f.teams, {});
   t.ok(f.problems.some((p) => p.code === "malformed_playoff_flag"));
 });
 
 test("recorded 2026 Week 5 through seedCurrentSeason: the verified field, games back and reasons", () => {
-  const f = seedCurrentSeason({ franchises: REC.franchises, weeklyScores: REC.weekly_scores, games: REC.games, lastRegularSeasonWeek: 14, standingsSort: REC.standingsSort, ladder: { seedLadderSteps, modernField } });
+  const f = seedCurrentSeason({ franchises: REC.franchises, weeklyScores: REC.weekly_scores, games: REC.games, lastRegularSeasonWeek: 14, standingsSort: REC.standingsSort, ladder: { playoffLadders, playoffField } });
   t.deepEqual(f.order.slice(0, 7), ["0009", "0010", "0005", "0008", "0002", "0004", "0012"]);
   t.equal(f.next_out, "0012");
   t.equal(f.teams["0012"].ap_back, 2);                       // Hawks 29 All-Play wins, Pure Greatness 31
-  t.equal(f.teams["0002"].seed_reason.vs_above.step, "overall");   // CBP below Real Deal Creel: same All-Play, worse record
+  t.equal(f.teams["0002"].seed_reason.vs_above.step, "points_for");   // CBP below Real Deal Creel: same All-Play, fewer points
   t.equal(f.teams["0012"].division_games_back, 5);             // Hawks 6-7 vs C-Town 11-2
   t.deepEqual([f.teams["0012"].division_reason.vs_above.franchise_id, f.teams["0012"].division_reason.vs_above.step], ["0011", "DIVPCT"]);   // Hawks below Cleon: both 6-7, division 0-4 vs 4-0
   t.equal(f.teams["0011"].division_reason.vs_above.step, "PCT");
   t.equal(f.complete, false); t.equal(f.throughWeek, 5);
 });
 
-test("seed history: the order after Week 4 is the one published after Week 4 (#1197), and movement is relative to it", () => {
-  const f = seedCurrentSeason({ franchises: REC.franchises, weeklyScores: REC.weekly_scores, games: REC.games, lastRegularSeasonWeek: 14, standingsSort: REC.standingsSort, ladder: { seedLadderSteps, modernField } });
-  // #1197's Week 4 (Elias-final) table: Bear Dunn, Eric Martel, Shawn Blake, Derrick Whitman, Chris Klingenberg,
-  // Keith Creelman, Eric Mannila, Brian Cutting, ... = C-Town, HammerTime, Blake, CBP, Hawks, Creel, Cleon, Pure Greatness.
-  t.deepEqual(f.seed_by_week[4].slice(0, 8), ["0009", "0005", "0010", "0002", "0012", "0008", "0011", "0004"]);
+test("seed history: every past week is re-seeded by the same (corrected) ladders, and movement is relative to it", () => {
+  const f = seedCurrentSeason({ franchises: REC.franchises, weeklyScores: REC.weekly_scores, games: REC.games, lastRegularSeasonWeek: 14, standingsSort: REC.standingsSort, ladder: { playoffLadders, playoffField } });
+  // #1197's Week 4 (Elias-final) table, published under the old overall-record step: Bear Dunn, Eric Martel, Shawn
+  // Blake, Derrick Whitman, Chris Klingenberg, Keith Creelman, Eric Mannila, Brian Cutting, ... = C-Town, HammerTime,
+  // Blake, CBP, Hawks, Creel, Cleon, Pure Greatness. Pure Greatness and Cleon were both 22-22 All-Play, outside the
+  // field; Pure Greatness scored more (882.6 vs 879.0), so the wild-card order (canon §F.1.2) now puts it first.
+  // Seeds 1-6 are the published ones; only that outside pair moves.
+  t.deepEqual(f.seed_by_week[4].slice(0, 8), ["0009", "0005", "0010", "0002", "0012", "0008", "0004", "0011"]);
   t.deepEqual(f.seed_by_week[5], f.order);
   t.equal(f.teams["0008"].order_change, 2);     // Real Deal Creel 6th -> 4th
   t.equal(f.teams["0012"].order_change, -2);    // Hawks 5th -> 7th

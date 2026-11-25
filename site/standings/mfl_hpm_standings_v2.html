@@ -2149,7 +2149,7 @@
     ["H2H record", "Head-to-head wins and losses against your scheduled opponents. A week can hold two or three games (37 in 14 weeks)."],
     ["PF per week", "Points For divided by weeks played: one score a week."],
     ["PA per game", "Opponents’ points per head-to-head game; a week with two or three games counts each game."],
-    ["Seeds (ladder)", "Division winners make the field and the two best get byes. Order: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams. Regular-season weeks only."],
+    ["Seeds (ladder)", "Division winners make the field; the two with the best All-Play % get byes. Wild cards: All-Play %, then Points For, then the H2H games between the tied teams. Seeds 3–6: All-Play %, then Points For. H2H record is not a seeding tiebreak. Regular-season weeks only."],
     ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
     ["Division GB · WC GB", "Division GB: H2H games behind your division leader (the leader shows —). WC GB: All-Play wins behind the last wild card, with the four division winners protected; — means you hold a playoff spot. Seeds are decided by All-Play, so the wild-card race is counted in All-Play too."],
     ["Div W-L", "Your H2H record against the other teams in your own division (five games against each rival)."],
@@ -2313,13 +2313,20 @@
   // ────────────────────────────────────────────────────────────────────────
   var STEP_WORDS = {
     all_play: "a better All-Play %",
-    overall: "a better H2H record",
     points_for: "more Points For",
     head_to_head: "the H2H games between them",
     name: "a tie on every step (listed alphabetically)",
     franchise_id: "a tie on every step",
     bye_requires_division_title: "a first-round bye needs a division title",
-    division_winner_in_field: "division winners are in the field"
+    division_winner_in_field: "division winners are in the field",
+    unresolved: "no settled tiebreak decides it yet, so this order is not final"
+  };
+  // A tie the worker could not settle (regular_season.unresolved[].pool), in words.
+  var UNRESOLVED_POOL_WORDS = {
+    bye: "a first-round bye (division winners level on All-Play)",
+    seed_1_2_order: "the order of seeds 1 and 2 (division winners level on All-Play)",
+    wild_card: "the last wild card (level on All-Play, Points For and the H2H games between them)",
+    seeds3to6: "the order inside seeds 3–6 (level on All-Play and Points For)"
   };
   var DIV_STEP_WORDS = {
     PCT: "a better H2H record", DIVPCT: "a better division record", H2H: "the H2H games between them",
@@ -2363,16 +2370,20 @@
     var ties = [];
     rows.forEach(function (r) {
       var va = r.seed_reason && r.seed_reason.vs_above;
-      if (!va || !va.step || va.step === "all_play") return;
+      if (!va || !va.step || va.step === "all_play" || va.step === "unresolved") return;   // unresolved: the "Not final" line
       var up = by[pad4(va.franchise_id)];
       if (!up) return;
       var a = regOf(up), b = regOf(r), detail = "";
-      if (va.step === "overall" && a && b) detail = " (" + recStr(a.record) + " vs " + recStr(b.record) + ")";
       if (va.step === "points_for" && a && b) detail = " (" + fmtPts(a.points_for) + " vs " + fmtPts(b.points_for) + ")";
-      var same = (va.step === "overall" || va.step === "points_for" || va.step === "head_to_head") ? "same All-Play, " : "";
+      var same = (va.step === "points_for" || va.step === "head_to_head") ? "same All-Play, " : "";
       ties.push(escapeHtml(nameOf(up) + " over " + nameOf(r) + ": " + same + (STEP_WORDS[va.step] || va.step) + detail + "."));
     });
     if (ties.length) lines.push('<b>Tiebreak' + (ties.length > 1 ? "s" : "") + ':</b> ' + ties.slice(0, 3).join(" "));
+    var open = (Array.isArray(rs.unresolved) ? rs.unresolved : []).map(function (u) {
+      var names = (u.franchise_ids || []).map(function (f) { return by[pad4(f)] ? nameOf(by[pad4(f)]) : null; }).filter(Boolean);
+      return names.length && UNRESOLVED_POOL_WORDS[u.pool] ? names.join(" and ") + " — " + UNRESOLVED_POOL_WORDS[u.pool] : null;
+    }).filter(Boolean);
+    if (open.length && !final) lines.push('<b>Not final:</b> ' + escapeHtml(open.join("; ") + ". No settled tiebreak decides it yet."));
     return '<div class="summary-card" role="status">' + lines.map(function (l) { return '<div class="line">' + l + '</div>'; }).join("") + '</div>';
   }
   function seedCardHtml(resp, race, sf, r, projected, magic) {
@@ -2995,7 +3006,7 @@
   var FC_ABOUT = [
     ["Source", "The UPS Wire’s season simulation, the same run the UPS Center prints. No separate model."],
     ["Played weeks", "Weeks already played are the real scores. Each later week is simulated from current rosters and projections, with every team’s projected edge cut by 30% toward the league average."],
-    ["Seeding", "The Standings rules: division winners by MFL’s division order, the two best get byes, then All-Play %, H2H record and Points For."],
+    ["Seeding", "The Standings rules: division winners by MFL’s division order; the two with the best All-Play % get byes; wild cards and seeds 3–6 by All-Play %, then Points For."],
     ["Brackets", "Round 1: 3 v 6 and 4 v 5. Round 2: the top seed plays the lowest seed left. Final in Week 17. The Hawk Tuah Bowl (H1–H6) is played the same way."],
     ["Expected order", "Teams in order of their average finishing place, 1–12 (seeds 1–6, then H1–H6)."],
     ["Movement", "Change in percentage points since the previous published forecast."],
@@ -3653,7 +3664,7 @@
     var seedNote = recordedSeeds
       ? ' Seeds: the recorded final standings.' + (finsError ? ' (Not shown: ' + finsError + '.)' : '')
       : (resp.standings_basis === "unavailable" ? ' ' + (seedGateText(raceData) || 'Seeds unavailable.')
-        : ' Seeds: All-Play % → H2H record → season Points For → H2H between the tied teams (league rule §F.1).'
+        : ' Seeds: byes to the two division winners with the best All-Play %; wild cards All-Play % → season Points For → H2H between the tied teams; seeds 3–6 All-Play % → season Points For (league rule §F.1).'
           + (showRace && raceData.projected && !resp.preseason ? ' Seeds and BYE / DIV / WC are projected (if the season ended today) until the regular season ends.' : ''));
     if (scoped) noteBits.push('<div class="note"><strong>' + scopeLabel() + '</strong> — weeks ' + rng[0] + '–' + rng[1] + ' (computed from weekly results; expected wins and luck cover the whole regular season and are hidden here). Seeds are the full-season ones. Click any header to sort.</div>');
     else noteBits.push('<div class="note">' + (meta.last_regular_season_week ? 'Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + ').' : '') + seedNote + '</div>');

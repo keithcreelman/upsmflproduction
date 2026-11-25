@@ -392,6 +392,9 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     ctx["site"]["standings"] = [{"franchise_id": r["franchise_id"], "owner_name": r["owner_name"],
                                  "is_division_leader": bool(r.get("is_division_leader")),
                                  "playoff_seed": r.get("playoff_seed")} for r in api.get("rows", [])]
+    _rs = api.get("regular_season") or {}
+    ctx["site"]["regular_season"] = {"through_week": _rs.get("through_week"), "last_regular_season_week": _rs.get("last_regular_season_week"),
+                                     "unresolved": _rs.get("unresolved") or []}
     # clinched / eliminated, from the league's deterministic engine (site/shared/standings_clinch.js). {} flags = it could not say, and
     # then no probability prints as 100% or 0% (ups_center_prob). Full build only: the probe gather skips it.
     if history:

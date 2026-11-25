@@ -4,7 +4,7 @@ import { applyRankPending } from "./rank_pending.js";
 import { handleFpaRequest } from "./fpa_engine.js";
 import { handleLineupMatchups } from "./lineup_matchups.js";
 import { mflCookieHeader } from "./mfl_cookie.js";
-import { seedLadderSteps, modernField, legacyStandingsTiebreak } from "./seeding.js";
+import { playoffLadders, playoffField, modernField, legacyStandingsTiebreak } from "./seeding.js";
 import { seedCurrentSeason } from "./standings_truth.js";
 import { blankOfferText, scrubBugLabel, withoutAccountIds, storableBugRow, outboxFileRow } from "./public_data_hygiene.js";
 import { handleDiscordInteraction } from "./discord_bot.js";
@@ -21093,7 +21093,7 @@ export default {
               ? seedCurrentSeason({
                   franchises: rows.map((r) => ({ franchise_id: r.franchise_id, franchise_name: r.franchise_name, division: r.division })),
                   weeklyScores: weeklyScoresRaw, games: weeklyRaw, lastRegularSeasonWeek: lastRegWeek,
-                  standingsSort: leagueMeta.standingsSort, ladder: { seedLadderSteps, modernField },
+                  standingsSort: leagueMeta.standingsSort, ladder: { playoffLadders, playoffField },
                 })
               : { status: "incomplete", problems: [{ code: "weekly_unreadable", errors: weeklyErrors }], problem_count: 1, throughWeek: null, lastRegularSeasonWeek: lastRegWeek, complete: false, order: [], teams: {} };
             // Season rows exist but no weekly rows: contradictory, never "preseason".
@@ -21138,6 +21138,7 @@ export default {
               status: current.status, through_week: current.throughWeek,
               last_regular_season_week: current.lastRegularSeasonWeek, complete: current.complete,
               next_out: current.next_out || null, problems: current.problems, problem_count: current.problem_count,
+              unresolved: current.unresolved || [],
               seed_by_week: current.seed_by_week || null,
             } : null,
             rows,
@@ -21154,14 +21155,13 @@ export default {
       // ── GET /api/playoff-bracket?year=YYYY ──
       // Returns playoff matchup rows + properly-seeded 12-team bracket.
       //
-      // UPS seeding rule (per legacy site/standings/mfl_hpm_standings.html):
-      //   1. Each of 4 divisions has a winner (overall_pct → div_pct →
-      //      H2H within tied cluster → PF → AP%).
-      //   2. Top 2 division winners (by AP%) get seeds 1 & 2 (BYE).
-      //   3. Wild cards = top 2 non-division-winners by AP% → PF → overall_pct.
-      //   4. Seeds 3-6 = remaining 2 div winners + 2 wild cards, sorted AP%.
-      //   5. Seeds 7-12 (Hawktuah / Toilet) = the 6 non-playoff teams,
-      //      sorted by AP% → PF.
+      // UPS seeding rule (canon §F.1; the current season via standings_truth.js seedCurrentSeason):
+      //   1. Each of 4 divisions has a winner (MFL's standingsSort for the season).
+      //   2. Seeds 1 & 2 (BYE) = the two division winners with the best All-Play % (an All-Play tie: pending ruling).
+      //   3. Wild cards = the two best non-division-winners: All-Play % → Points For → H2H (then Power Rank, coin flip).
+      //   4. Seeds 3-6 = the other 2 division winners + 2 wild cards: All-Play % → Points For (later steps pending).
+      //   5. Seeds 7-12 (Hawktuah / Toilet) = the 6 non-playoff teams, in the wild-card ladder's order.
+      //   Recorded seasons keep their recorded seeds.
       //
       // Each seed in the returned array carries `seed`, `path`
       // ("DIV" | "WC" | "HAWK"), `is_division_leader`, and `bye` flags.
@@ -21408,7 +21408,7 @@ export default {
                   franchises: rawRows.map((r) => ({ franchise_id: r.franchise_id, franchise_name: r.franchise_name, division: r.division })),
                   weeklyScores: weeklyScoresRaw, games: gamesRaw,
                   lastRegularSeasonWeek: metaRow && metaRow.last_regular_season_week,
-                  standingsSort: leagueMeta.standingsSort, ladder: { seedLadderSteps, modernField },
+                  standingsSort: leagueMeta.standingsSort, ladder: { playoffLadders, playoffField },
                 })
               : { status: "incomplete", problems: [{ code: "weekly_unreadable" }], problem_count: 1, order: [], teams: {} };
             if (current.status === "preseason" && rawRows.length) current = { ...current, status: "incomplete", problems: [{ code: "standings_without_weekly_rows" }], problem_count: 1 };
@@ -21506,6 +21506,7 @@ export default {
             season_complete: seasonComplete,
             seeding_status: canonicalFinish ? "recorded_final_standings" : (current ? (current.status === "ok" ? "regular_season_ladder" : "unavailable") : "computed"),
             ...(current && current.status !== "ok" ? { seeding_problems: current.problems } : {}),
+            ...(current && current.status === "ok" ? { seeding_unresolved: current.unresolved || [] } : {}),
             standings_sort: leagueMeta.standingsSort,
             conferences: leagueMeta.conferences,
             has_conferences: leagueMeta.hasConferences,

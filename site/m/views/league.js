@@ -889,7 +889,7 @@
     return '<div class="ups-m-card ups-m-hawk-intro"><div class="ups-m-card-title">Hawk Tuah Bowl <span class="sub">· the toilet bowl</span></div>' +
       '<div class="line">' + (oldFormat
         ? 'The recorded Hawk Tuah Bowl seeds. ' + U.escapeHtml(y) + '’s toilet bracket used an older format than today’s, so its games are listed by week below.'
-        : (recorded ? 'The recorded Hawk Tuah Bowl seeds.' : 'The six teams outside the playoff field, seeded H1–H6 (7th–12th) in standings order: All-Play %, then H2H record, then Points For.') +
+        : (recorded ? 'The recorded Hawk Tuah Bowl seeds.' : 'The six teams outside the playoff field, seeded H1–H6 (7th–12th) in standings order: All-Play %, then Points For, then the H2H games between the tied teams.') +
           ' H1 and H2 get a first-round bye. The winner finishes 7th and picks 1.01 in the ' + (Number(y) + 1) + ' rookie draft.') + '</div>' +
       (lis ? '<ol class="ups-m-hawk-seeds">' + lis + '</ol>' : '') + '</div>';
   }
@@ -1030,13 +1030,13 @@
   }
   var STEP_WORDS = {
     all_play: "a better All-Play %",
-    overall: "a better H2H record",
     points_for: "more Points For",
     head_to_head: "the H2H games between them",
     name: "a tie on every step (listed alphabetically)",
     franchise_id: "a tie on every step",
     bye_requires_division_title: "a first-round bye needs a division title",
-    division_winner_in_field: "division winners are in the field"
+    division_winner_in_field: "division winners are in the field",
+    unresolved: "no settled tiebreak decides it yet, so this order is not final"
   };
   var DIV_STEP_WORDS = {
     PCT: "a better H2H record", DIVPCT: "a better division record", H2H: "the H2H games between them",
@@ -1139,9 +1139,9 @@
   function howSeedingHtml() {
     return '<ol class="ups-m-drawer-list">' +
       '<li>The four division winners make the playoffs. A division is won on H2H record, then division record, then the H2H games between the tied teams (MFL’s order).</li>' +
-      '<li>The two best division winners are seeds 1 and 2 and get a first-round bye.</li>' +
-      '<li>Seeds 3–6 are the other two division winners and the two best other teams (wild cards), in ladder order.</li>' +
-      '<li>Ladder: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams. Only regular-season weeks count.</li>' +
+      '<li>The two division winners with the best All-Play % are seeds 1 and 2 and get a first-round bye.</li>' +
+      '<li>Wild cards: the two best other teams by All-Play %, then Points For, then the H2H games between the tied teams.</li>' +
+      '<li>Seeds 3–6 are the other two division winners and the two wild cards, by All-Play %, then Points For. H2H record is not a seeding tiebreak. Only regular-season weeks count.</li>' +
       '<li>The other six teams play the Hawk Tuah Bowl (the toilet bowl), seeded H1–H6 in standings order. H1 and H2 get a first-round bye.</li>' +
       '</ol>' +
       '<div class="ups-m-drawer-p"><b>Draft order comes from the final finish.</b> Hawk Tuah Bowl champion (7th) 1.01 · 8th 1.02 · 9th 1.03 · 10th 1.04 · 11th 1.05 · 12th 1.06 · 5th-place game winner (5th) 1.07 · its loser (6th) 1.08 · 4th 1.09 · 3rd 1.10 · runner-up 1.11 · champion 1.12.</div>' +
@@ -1164,7 +1164,7 @@
     var lines = [];
     var seeded = rows.filter(function (r) { return r.playoff_seed != null; }).sort(function (a, b) { return a.playoff_seed - b.playoff_seed; });
     var final = seasonState(resp) !== "in_season";
-    if (seeded.length >= 2) lines.push('<b>' + (final ? "Byes:" : "Byes if the season ended today:") + '</b> ' + U.escapeHtml(seeded.filter(function (r) { return r.playoff_seed <= 2; }).map(nm).join(" and ")) + ' (the two best division winners).');
+    if (seeded.length >= 2) lines.push('<b>' + (final ? "Byes:" : "Byes if the season ended today:") + '</b> ' + U.escapeHtml(seeded.filter(function (r) { return r.playoff_seed <= 2; }).map(nm).join(" and ")) + ' (the two division winners with the best All-Play %).');
     var rs = resp.regular_season || {};
     var out = rs.next_out ? by[U.pad4(rs.next_out)] : null;
     // Next out chases the last wild card, never a division winner (the worker's ap_back measures the same gap, #1329).
@@ -1175,16 +1175,22 @@
     var ties = [];
     rows.forEach(function (r) {
       var va = r.seed_reason && r.seed_reason.vs_above;
-      if (!va || !va.step || va.step === "all_play") return;
+      if (!va || !va.step || va.step === "all_play" || va.step === "unresolved") return;   // unresolved: the "Not final" line
       var up = by[U.pad4(va.franchise_id)];
       if (!up) return;
       var rr = regRec(r), ru = regRec(up), detail = "";
-      if (va.step === "overall" && rr && ru) detail = "(" + recStr(ru.record) + " vs " + recStr(rr.record) + ")";
       if (va.step === "points_for" && rr && ru) detail = "(" + fmtPts(ru.points_for) + " vs " + fmtPts(rr.points_for) + ")";
-      var same = va.step === "overall" || va.step === "points_for" || va.step === "head_to_head" ? "same All-Play, " : "";
+      var same = va.step === "points_for" || va.step === "head_to_head" ? "same All-Play, " : "";
       ties.push('<li>' + U.escapeHtml(nm(up)) + " over " + U.escapeHtml(nm(r)) + ": " + same + U.escapeHtml(STEP_WORDS[va.step] || va.step) + (detail ? " " + U.escapeHtml(detail) : "") + '.</li>');
     });
     lines.push(ties.length ? '<b>Decided by a tiebreak:</b><ul class="ups-m-drawer-list">' + ties.join("") + '</ul>' : '<b>Tiebreaks:</b> none — every place is decided by All-Play %.');
+    // Ties no approved step settles (the worker's regular_season.unresolved): named, never shown as decided.
+    var open = (Array.isArray(rs.unresolved) ? rs.unresolved : []).map(function (u) {
+      var names = (u.franchise_ids || []).map(function (f) { return by[U.pad4(f)] ? nm(by[U.pad4(f)]) : null; }).filter(Boolean);
+      var seeds = (u.seeds || []).length ? " (seed" + (u.seeds.length > 1 ? "s " + u.seeds[0] + "–" + u.seeds[u.seeds.length - 1] : " " + u.seeds[0]) + ")" : "";
+      return names.length ? names.join(" and ") + seeds : null;
+    }).filter(Boolean);
+    if (open.length && !final) lines.push('<b>Not final:</b> ' + U.escapeHtml(open.join("; ") + ": level on every settled tiebreak, so the order shown can change."));
     return lines.map(function (l) { return '<div class="ups-m-drawer-p">' + l + '</div>'; }).join("");
   }
 

@@ -1348,7 +1348,7 @@
       "today": [
         "Some weeks are double or triple headers. You face two or three opponents at once and get a separate result against each. A bad week costs you three times.",
         "All-Play is the number this league actually runs on. Every week your score is compared against all eleven other teams and each comparison is logged as a win, a loss or a tie. That record sets your playoff seed and decides who gets to be a Division Captain.",
-        "All four division winners are in automatically. The top two seeds are reserved for division winners and skip the first round, and seeds three through six are ranked on All-Play % alone, which means a division winner with the worst All-Play of the qualifiers lands at the six seed, plays the first round, and hears about it all week.",
+        "All four division winners are in automatically. The two division winners with the best All-Play % are seeds one and two and skip the first round, and seeds three through six are ranked on All-Play %, which means a division winner with the worst All-Play of the qualifiers lands at the six seed, plays the first round, and hears about it all week.",
         "The playoffs run Weeks 15 through 17 and NFL Week 18 isn't used. Both brackets run the same three weeks, so nobody's season ends in Week 14 and nobody spends December with nothing to play for.",
         "Both brackets also set next year's rookie draft order through Round 5, which is the entire reason the Hawktuah Bowl is worth winning.",
         "Divisions get redrawn every three years, next in 2029. The top four teams by All-Play % become Division Captains and draft their own divisions live at the Rookie Draft, snake order, 1-2-3-4 then 4-3-2-1. You have to have been in the league for the whole preceding three-year window to be Captain-eligible, and the draft happens with everyone in the room on purpose."
@@ -1382,7 +1382,7 @@
       "gotchas": [
         "Seeding is All-Play %, not wins. A 9-5 team can legitimately be seeded below a 7-7 team, and that is not a mistake.",
         "Winning your division guarantees a spot, not a good one. A division winner can be the 6 seed.",
-        "Two different tiebreakers exist and people mix them up. Who wins a division is settled by MFL's own standings sort. Who gets which seed is settled by All-Play, then overall, then points for, then head-to-head.",
+        "Different tiebreakers exist and people mix them up. Who wins a division is settled by MFL's own standings sort. A wild card is settled by All-Play, then points for, then head-to-head. Seeds three through six go by All-Play, then points for. Your overall record is not a playoff tiebreaker.",
         "A bye week does not pause your All-Play. Your score is still compared to all 11 other teams.",
         "Waivers are blind-bid, so there is no waiver priority order. All-Play only breaks a tie between identical bids.",
         "Splitting the pot is only recognized in an actual tie. A pre-agreed split before a final is not."
@@ -1390,7 +1390,7 @@
       "open_questions": [
         "The 2026 division alignment is drafted at the Rookie Draft and is not recorded in canon yet.",
         "The exact chain MFL uses to pick a division winner changes year to year. Check the live settings.",
-        "Canon reserves the top two seeds for division winners but never states the first-round bye outright.",
+        "Two division winners tied on All-Play for a bye, and seeds three through six still tied after points for, have no rule yet. The commissioner will rule.",
         "The championship bracket has no official name yet. Only the Toilet Bowl side is named.",
         "Canon does not record the scheduling pattern behind double and triple headers."
       ],
