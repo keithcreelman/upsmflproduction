@@ -656,21 +656,26 @@ def _fix_encoding(text: str) -> str:
 
 def build_trade_roast_context(trade_txn: dict,
                                extension_years: int = 0,
-                               extension_player_id: str = "") -> dict:
+                               extension_player_id: str = "",
+                               *, analysis: "TradeAnalysis | None" = None,
+                               recent_posts: list | None = None) -> dict:
     """Build the complete roast context for a trade.
 
     Returns a dict with everything Claude needs to write a savage roast.
+
+    analysis: an analysis already graded on as-of-trade inputs (the held-trade
+    catch-up path, held_trade_catchup.py). When given, the trade is NOT
+    re-graded on today's MFL data. recent_posts: the anti-repetition list to use
+    instead of reading Discord (None = read Discord, as the live bot does).
     """
     # Load all data
-    franchises = load_franchises()
-    players_map = load_players_map()
-    rosters = load_rosters()
     tv_full = load_trade_value_model_full()
     career_stats = load_career_stats()
     discord_users = load_discord_users()
 
     # Run core analysis. NO GRADE stops here: no context means no model call.
-    analysis = analyze_trade(trade_txn, players_map, franchises, rosters)
+    if analysis is None:
+        analysis = analyze_trade(trade_txn, load_players_map(), load_franchises(), load_rosters())
     if analysis.no_grade:
         raise NoGradeError(no_grade_report(analysis))
 
@@ -810,7 +815,7 @@ def build_trade_roast_context(trade_txn: dict,
         # clap-back context) — same builder, per the D1/data-layer rule.
         "owner_dossier_text": format_owner_dossier(
             [a.franchise_id, b.franchise_id]),
-        "recent_bot_posts_text": format_recent_bot_posts_section(),
+        "recent_bot_posts_text": format_recent_bot_posts_section(recent_posts),
     }
 
     # Add effective cost note if BB was traded

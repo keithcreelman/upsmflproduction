@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Valuation inputs refresh (2026-11-25): every 3 hours, if a rostered player is missing from the
+       valuation registry on origin/main, refresh the inputs from the league databases on this Mac and
+       deliver them (a PR by default; "push" only if config.json says so), so #1357's snapshot rebuild
+       never stalls on a waiver pickup. See pipelines/etl/scripts/valuation_inputs_refresh.py.
+       Most runs find nothing missing and write nothing. One run at a time (file lock).
+       Config: ~/Library/Application Support/ups-valuation-refresh/config.json (local database copies,
+       never iCloud paths). NOT INSTALLED by anything; loading it needs Keith's go. -->
+  <key>Label</key>
+  <string>com.keith.mfl.valuation-inputs-refresh</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/keithcreelman/.venvs/ups-roast-bot/bin/python3</string>
+    <string>/Users/keithcreelman/Code/MFL/upsmflproduction/pipelines/etl/scripts/valuation_inputs_refresh.py</string>
+    <string>run</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>/Users/keithcreelman/Code/MFL/upsmflproduction/pipelines/etl/scripts</string>
+
+  <key>StartInterval</key>
+  <integer>10800</integer>
+
+  <key>RunAtLoad</key>
+  <false/>
+
+  <!-- git and gh for a launchd job's minimal PATH. No secrets here: gh uses its own keychain login. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>/tmp/valuation_inputs_refresh.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/valuation_inputs_refresh.err.log</string>
+</dict>
+</plist>

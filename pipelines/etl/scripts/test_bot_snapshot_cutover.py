@@ -721,7 +721,10 @@ class HeldTrades(unittest.TestCase):
         file missing, or the snapshot's own stale checks, may be retried automatically."""
         import test_valuation_snapshot as T
         expect = {"stale in season": "snapshot_stale", "stale offseason": "snapshot_stale",
-                  "missing the latest week": "snapshot_stale"}
+                  "missing the latest week": "snapshot_stale",
+                  # recorded as its own cause (2026-11-25), still not retried automatically
+                  "round 1 pick without standings": "standings_lag"}
+        self.assertNotIn("standings_lag", held_trades.RETRY_CAUSES)
         for name, (mutate, overrides, _needle) in T.SNAPSHOT_MUTATIONS.items():
             with self.subTest(name):
                 snap = T.snapshot()
@@ -813,10 +816,15 @@ class BotHook(unittest.TestCase):
 
     def test_retry_validates_then_matches_by_full_key_then_marks_then_posts(self):
         fn = self.fn("retry_held_trades")
-        self.assertLess(self.first(fn, "_in_executor"), self.first(fn, "mark_started"))
+        names = [c for _, c in self.calls(fn)]
+        self.assertLess(self.first(fn, "_in_executor"), self.first(fn, "find_trade"))   # freshness first
+        self.assertLess(self.first(fn, "find_trade"), self.first(fn, "post_bundle"))
         self.assertLess(self.first(fn, "find_trade"), self.first(fn, "mark_started"))
-        self.assertLess(self.first(fn, "mark_started"), self.first(fn, "analyze_and_post"))
         self.assertLess(self.first(fn, "mark_started"), self.first(fn, "analyze_and_post_multiway"))
+        # A 2-party held trade is never re-graded on today's data: only the as-of bundle is posted.
+        self.assertNotIn("analyze_and_post", names)
+        self.assertNotIn("analyze_trade", names)
+        self.assertIn("approved_bundle", names)
         src = ast.unparse(fn)
         for banned in ("save_last_trade_ts", "get_last_trade_ts", "LAST_TRADE_FILE", "by_ts"):
             self.assertNotIn(banned, src)
