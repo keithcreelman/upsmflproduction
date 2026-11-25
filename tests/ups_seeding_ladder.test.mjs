@@ -25,7 +25,7 @@ const game = (a, b, as, bs) => [
   { franchise_id: a, opponent_franchise_id: b, team_score: as, opponent_score: bs },
   { franchise_id: b, opponent_franchise_id: a, team_score: bs, opponent_score: as }];
 const ids = (rows) => rows.map((r) => r.franchise_id);
-const fieldOf = (rows, dwIds, games = []) => playoffField(rows, new Set(dwIds), playoffLadders(rows, games));
+const fieldOf = (rows, dwIds, games = []) => playoffField(rows, new Set(dwIds), playoffLadders(rows, games, new Set(dwIds)));
 const seedsOf = (f) => [...f.byes, ...f.seeds3to6].map((r) => r.franchise_id);
 
 // ── 1. the ladders, one rule at a time ──────────────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ test("wild card: level on All-Play -> season Points For decides; the better over
   const f = fieldOf(rows, ["0001", "0002"]);
   t.deepEqual(ids(f.wildCards), ["0005", "0004"], "C on All-Play, then B on 0.1 Points For");
   t.deepEqual(ids(f.outside), ["0003"]);
-  t.equal(playoffLadders(rows, []).wild_card.decidingStep(rows[3], rows[2]), "points_for");
+  t.equal(playoffLadders(rows, [], new Set(["0001", "0002"])).wild_card.decidingStep(rows[3], rows[2]), "points_for");
   t.deepEqual(ids(oldField(rows, new Set(["0001", "0002"])).wildCards), ["0005", "0003"], "the old ladder took A on overall record");
   t.deepEqual(f.unresolved, []);
 });
@@ -107,6 +107,56 @@ test("byes: the top two division winners level on All-Play -> the order of seeds
   t.deepEqual(f.unresolved, [{ pool: "seed_1_2_order", franchise_ids: ["0001", "0002"], seeds: [1, 2], why: "pending_ruling" }]);
 });
 
+// ── 1b. pools stay apart: the Worker and the simulator read the same cases ───────────────────────────────────────
+// ChatGPT's review of #1529 (item 1): head-to-head groups used to be formed over ALL teams, so a division winner level on
+// All-Play and Points For with two wild-card teams made their two-team tie look like three ("head_to_head_3plus") and the
+// name order picked E, although F beat E. Changing only that division winner's Points For then picked F.
+const AGREE = JSON.parse(fs.readFileSync(new URL("./fixtures/seeding_agreement_cases.json", import.meta.url), "utf8")).cases;
+const caseRows = (c) => c.teams.map(([id, name, ap, pf, ovr]) => ({ franchise_id: id, franchise_name: name, allplay_pct: ap, pf_total: pf, overall_pct: ovr, h2h_pct: ovr }));
+const caseGames = (c) => c.games.flatMap(([a, b, as, bs]) => game(a, b, as, bs));
+for (const c of AGREE) {
+  test("agreement case: " + c.name, () => {
+    const rows = caseRows(c), dw = new Set(c.dw);
+    const f = playoffField(rows, dw, playoffLadders(rows, caseGames(c), dw));
+    const ex = c.expect;
+    t.deepEqual([...new Set(f.unresolved.map((u) => u.pool))].sort(), ex.unresolved.slice().sort(), "open pools");
+    const seeds = seedsOf(f);
+    ex.seeds.forEach((want, i) => { if (want != null) t.equal(seeds[i], want, "seed " + (i + 1)); });
+    // every seed left open is one the unresolved list names
+    const open = new Set(f.unresolved.flatMap((u) => u.seeds));
+    ex.seeds.forEach((want, i) => { if (want == null) t.ok(open.has(i + 1), "seed " + (i + 1) + " is reported open"); });
+    if (ex.wildCards) t.deepEqual(ids(f.wildCards).sort(), ex.wildCards.slice().sort(), "wild cards");
+    if (ex.hawk) t.deepEqual(ids(f.outside), ex.hawk, "H1-H6");
+    if (ex.nextOut) t.equal(f.wildCardRace[0].franchise_id, ex.nextOut, "next in line for the last wild card");
+  });
+}
+
+test("a division winner's numbers never touch the wild-card head-to-head (the reproduced case)", () => {
+  const [base, moved] = AGREE;
+  for (const c of [base, moved]) {
+    const rows = caseRows(c), dw = new Set(c.dw);
+    const L = playoffLadders(rows, caseGames(c), dw);
+    const f = playoffField(rows, dw, L);
+    t.deepEqual(ids(f.wildCards), ["0005", "0007"], c.name + ": F beat E");
+    t.ok(!f.unresolved.some((u) => u.pool === "wild_card"), "no wild-card tie: E and F are two, not three");
+    const R = Object.fromEntries(rows.map((r) => [r.franchise_id, r]));
+    t.equal(L.wild_card.decidingStep(R["0007"], R["0006"]), "head_to_head");
+    t.equal(L.wild_card.decidingStep(R["0004"], R["0006"]), c === base ? "unresolved" : "points_for",
+      "a division winner is never in a head-to-head group (level with E, no head-to-head step applies)");
+  }
+  t.equal(JSON.stringify(caseRows(base).filter((r) => r.franchise_id !== "0004")), JSON.stringify(caseRows(moved).filter((r) => r.franchise_id !== "0004")), "only DW Four differs");
+});
+
+test("ladders built for other division winners are refused (fail closed)", () => {
+  const c = AGREE[0], rows = caseRows(c);
+  let msg = "";
+  try { playoffLadders(rows, caseGames(c)); } catch (e) { msg = e.message; }
+  t.ok(/divisionWinnerIds/.test(msg), "playoffLadders needs the division winners");
+  msg = "";
+  try { playoffField(rows, new Set(c.dw), playoffLadders(rows, caseGames(c), new Set(["0001", "0002", "0003", "0005"]))); } catch (e) { msg = e.message; }
+  t.ok(/different division winners/.test(msg), "playoffField checks they match");
+});
+
 // ── 2. history: the corrected ladders reproduce MFL's own brackets ────────────────────────────────────────────────
 const H = JSON.parse(fs.readFileSync(new URL("./fixtures/playoff_ladder_history.json", import.meta.url), "utf8"));
 function season(y) {
@@ -141,7 +191,7 @@ for (const y of ["2017", "2020", "2021"]) {
   });
   test(y + ": the corrected ladders give MFL's bracket seeds 1-6 exactly", () => {
     const s = season(y);
-    const f = playoffField(s.rows, s.dw, playoffLadders(s.rows, s.ladderGames));
+    const f = playoffField(s.rows, s.dw, playoffLadders(s.rows, s.ladderGames, s.dw));
     t.deepEqual(seedsOf(f), s.bracket);
     t.deepEqual(f.unresolved, []);
   });
@@ -152,9 +202,9 @@ test("2017: three-way All-Play tie for two wild cards (78-65) goes on Points For
   for (const n of ["White Power", "Ulterior Warrior", "Gride"]) t.equal(`${s.by[n].ap.w}-${s.by[n].ap.l}-${s.by[n].ap.t}`, "78-65-0", n);
   t.deepEqual([s.by["White Power"].pf_total, s.by["Ulterior Warrior"].pf_total, s.by["Gride"].pf_total].map((x) => Math.round(x * 10) / 10), [2121.3, 2098.5, 2083.1]);
   t.deepEqual(["White Power", "Ulterior Warrior", "Gride"].map((n) => `${s.by[n].rec.w}-${s.by[n].rec.l}`), ["14-12", "12-14", "13-13"]);
-  const f = playoffField(s.rows, s.dw, playoffLadders(s.rows, s.ladderGames));
+  const f = playoffField(s.rows, s.dw, playoffLadders(s.rows, s.ladderGames, s.dw));
   t.deepEqual(f.wildCards.map((r) => r.franchise_name), ["White Power", "Ulterior Warrior"]);
-  t.equal(f.outside[0].franchise_name, "Gride");
+  t.equal(f.wildCardRace[0].franchise_name, "Gride", "first in line for the last wild card");
   const old = oldField(s.rows, s.dw);
   t.deepEqual(old.wildCards.map((r) => r.franchise_name), ["White Power", "Gride"], "the overall-record step would have put Gride in");
 });
@@ -162,7 +212,7 @@ test("2017: three-way All-Play tie for two wild cards (78-65) goes on Points For
 test("2020: #BLM (2675.7 PF, 17-9) seed 3 over C-Town Chivalry (2637.0, 22-4), both 91-52 All-Play", () => {
   const s = season("2020");
   t.equal(`${s.by["#BLM"].ap.w}-${s.by["#BLM"].ap.l}`, "91-52"); t.equal(`${s.by["C-Town Chivalry"].ap.w}-${s.by["C-Town Chivalry"].ap.l}`, "91-52");
-  const f = playoffField(s.rows, s.dw, playoffLadders(s.rows, s.ladderGames));
+  const f = playoffField(s.rows, s.dw, playoffLadders(s.rows, s.ladderGames, s.dw));
   t.deepEqual(f.seeds3to6.slice(0, 2).map((r) => r.franchise_name), ["#BLM", "C-Town Chivalry"]);
   t.deepEqual(ids(f.byes), s.bracket.slice(0, 2), "byes unchanged");
   t.deepEqual(oldField(s.rows, s.dw).seeds3to6.slice(0, 2).map((r) => r.franchise_name), ["C-Town Chivalry", "#BLM"], "the old ladder swapped 3 and 4");
@@ -171,7 +221,7 @@ test("2020: #BLM (2675.7 PF, 17-9) seed 3 over C-Town Chivalry (2637.0, 22-4), b
 test("2021: Ulterior Warrior (3010.3 PF, 23-14) seed 3 over The Bash Bros (2931.7, 25-12), both 97-57 All-Play", () => {
   const s = season("2021");
   t.equal(`${s.by["Ulterior Warrior"].ap.w}-${s.by["Ulterior Warrior"].ap.l}`, "97-57"); t.equal(`${s.by["The Bash Bros"].ap.w}-${s.by["The Bash Bros"].ap.l}`, "97-57");
-  const f = playoffField(s.rows, s.dw, playoffLadders(s.rows, s.ladderGames));
+  const f = playoffField(s.rows, s.dw, playoffLadders(s.rows, s.ladderGames, s.dw));
   t.deepEqual(f.seeds3to6.slice(0, 2).map((r) => r.franchise_name), ["Ulterior Warrior", "The Bash Bros"]);
   t.deepEqual(oldField(s.rows, s.dw).seeds3to6.slice(0, 2).map((r) => r.franchise_name), ["The Bash Bros", "Ulterior Warrior"], "the old ladder swapped 3 and 4");
 });

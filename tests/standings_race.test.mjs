@@ -509,7 +509,22 @@ const S20 = withReasons(SEASON_2020);
 check('seed explanation: the module has NO comparator of its own — compareSeedPair and its ladder are gone', () => {
   assert.strictEqual(RACE.compareSeedPair, undefined);
   assert.ok(!/function\s+compareSeedPair\s*\(/.test(SRC) && !/CRITERION_LABEL/.test(SRC));
-  assert.ok(!/overall:\s*'H2H record'/.test(SRC), 'no overall-record seeding step is worded (canon §F.1, 2026-11-25)');
+  // canon §F.1 (2026-11-25): no playoff seeding step is the overall record. The word exists only for the Hawk Tuah side's order
+  // (vs_above.pool "hawk_tuah"), which the correction left unchanged (ChatGPT's review of #1529, item 3).
+  const playoffSame = SRC.slice(SRC.indexOf('var SAME_BEFORE = {'), SRC.indexOf('var SAME_BEFORE_HAWK = {'));
+  assert.ok(playoffSame.length > 50 && !/overall/.test(playoffSame), 'the playoff ladders\' "same ..." words never name the overall record');
+  assert.ok(/The Hawk Tuah side only[^]*overall: 'H2H record'/.test(SRC), 'the overall-record label is the Hawk Tuah side\'s only');
+});
+check('seed explanation: a Hawk Tuah neighbor is explained in the Hawk Tuah order, never as a playoff step', () => {
+  const rows = [
+    { franchise_id: '0011', franchise_name: 'Cleon', playoff_seed: null, seed_reason: { basis: 'ladder', pool: 'outside', step: 'all_play', rival_franchise_id: '0004', rival_name: 'Last WC' } },
+    { franchise_id: '0004', franchise_name: 'Pure Greatness', playoff_seed: null,
+      seed_reason: { basis: 'ladder', pool: 'outside', step: 'all_play', rival_franchise_id: '0009', rival_name: 'Last WC',
+        vs_above: { franchise_id: '0011', name: 'Cleon', pool: 'hawk_tuah', step: 'overall' } } },
+  ];
+  const w = RACE.whySeedForRow(rows[1], rows);
+  assert.ok(/Directly behind Cleon in the Hawk Tuah order on H2H record \(same All-Play %\)\./.test(w.text), w.text);
+  assert.strictEqual(w.vsAbove.pool, 'hawk_tuah');
 });
 check('seed explanation: seeded rows say the WORKER\'s step, pool and neighbor — each step worded', () => {
   const why = (fid) => RACE.whySeedForRow(byFid(S20, fid), S20);

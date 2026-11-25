@@ -104,7 +104,8 @@ check('mobile keeps the WORKER\'s seed order in-season — no second ladder (it 
   const seedsFn = MOBILE_LEAGUE.slice(MOBILE_LEAGUE.indexOf('function renderSeedsMode('), MOBILE_LEAGUE.indexOf('// ── Final standings'));
   assert.ok(seedsFn.length > 500 && !/\.sort\(/.test(seedsFn), 'the Seeds view renders the worker rows in the order sent');
   assert.ok(/Wild cards: the two best other teams by All-Play %, then Points For, then the H2H games between the tied teams/.test(MOBILE_LEAGUE));
-  assert.ok(/H2H record is not a seeding tiebreak/.test(MOBILE_LEAGUE));
+  assert.ok(/H2H record is not a playoff seeding tiebreak/.test(MOBILE_LEAGUE));
+  assert.ok(/The Hawk Tuah side \(H1–H6\) keeps its own order: All-Play %, then H2H record, then Points For/.test(MOBILE_LEAGUE + DESKTOP));
   assert.ok(!/AP% → Total PF|Seeds derived AP % → Overall PCT → PF/.test(MOBILE_LEAGUE + DESKTOP), 'no reversed or stale ladder text on either page');
 });
 check('desktop dividers key off playoff_seed (2 / 6), not row index, and only render under canonical seed sort', () => {

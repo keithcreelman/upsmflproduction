@@ -392,7 +392,8 @@ class Issue:
     def canon_order(self):
         """canon §F.1.2-§F.1.4 (Keith 2026-11-25; worker/src/seeding.js): places 1-2 = the two division leaders with the
         best All-Play %; wild cards = the two best others by All-Play %, then season PF (then head-to-head); places 3-6
-        by All-Play %, then season PF; everyone else in the wild-card order. No overall-record step. Returns the order,
+        by All-Play %, then season PF; everyone else (H1-H6) in the Hawk Tuah order, unchanged by the correction: All-Play %,
+        overall record, PF (seeding.js hawkTuahLadder). No overall-record step in the playoff field. Returns the order,
         the leaders, and the ties no applied step settles (each one a gap: the order there is not final)."""
         st = self.ctx["mfl"]["standings"]
 
@@ -414,7 +415,21 @@ class Issue:
             open_ties.append("the second wild card (level on all-play and points for: head-to-head next)")
         if any(key(a) == key(b) for a, b in zip(mid, mid[1:])):
             open_ties.append("the order of places 3-6 (level on all-play and points for)")
-        return L[:2] + mid + pool[2:], set(leaders), open_ties
+        def ovr(f):
+            w, l = st[f]["h2hw"], st[f]["h2hl"]
+            return round(w / (w + l), 6) if (w + l) else 0.0
+        hawk = sorted(pool[2:], key=lambda f: (-ap(f), -ovr(f), -round(st[f]["pf"], 1), self.owner[f]))
+        return L[:2] + mid + hawk, set(leaders), open_ties
+
+    def open_tie_note(self, sim):
+        """The forecast's own count of simulated seasons where teams were level on every settled seeding tiebreak, and
+        how it treated them (season_sim.py PENDING_TIE_HANDLING: a modeling choice pending a ruling, never a league rule)."""
+        n = int(sim.get("pendingTieSeasons") or 0)
+        if not n:
+            return ""
+        cnt = self.L.put("odds:pendingTieSeasons", n, "season_sim.py model.pendingTieSeasons", "{:,}".format(n))
+        return (' In %s of the simulated seasons, teams were level on every seeding tiebreak the league has settled; '
+                'the forecast split those places evenly. That is a modeling choice pending a ruling, not a league rule.' % cnt)
 
     def seg_landscape(self, bare=False):
         st = self.ctx["mfl"]["standings"]
@@ -613,8 +628,8 @@ class Issue:
                  '<p class="caption">Probabilities updated after Week %d (%s), %s simulated seasons. One team wins each division '
                  'in every simulated season; division odds and the league&rsquo;s title odds are rounded so each group '
                  'still adds up to the whole. A probability prints as certain only when the outcome is clinched or eliminated; a '
-                 'figure that would round to certain prints to two decimals, or as &lt;%s%%.</p>'
-                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs, floor))
+                 'figure that would round to certain prints to two decimals, or as &lt;%s%%.%s</p>'
+                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs, floor, self.open_tie_note(sim)))
         extra = "".join(self.gap(g, "odds", why) for g, why in problems)      # preview problems only, at this point
         return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; updated after Week %d</small>"
                             % self.week, self.desk(lead, mb=True) + extra + table)

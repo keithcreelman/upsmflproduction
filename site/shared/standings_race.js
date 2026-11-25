@@ -795,7 +795,7 @@
   // ── 7. Seed explanation ─────────────────────────────────────────────
   // Words only: the WORKER decided the seed and says which step of its
   // ladder separated this team from its neighbor (row.seed_reason —
-  // worker/src/seeding.js seedLadderSteps). Nothing here compares two teams.
+  // worker/src/seeding.js playoffLadders / hawkTuahLadder). Nothing here compares two teams.
   var STEP_LABEL = {
     all_play: 'All-Play %',
     points_for: 'season Points For',
@@ -803,6 +803,9 @@
     name: 'the name-order fallback after every league step tied — not a league rule',
     franchise_id: 'the franchise-id fallback after every league step tied — not a league rule',
     head_to_head_unavailable: 'a tie that reached head-to-head, which can’t be shown because the regular-season games couldn’t be read',
+    // The Hawk Tuah side only (vs_above.pool "hawk_tuah"): its order still uses the overall record, which the screens
+    // call "H2H record" (#1329). It is not a playoff seeding step.
+    overall: 'H2H record',
     unresolved: 'nothing yet: level on every tiebreak the league has settled for this place, so the order shown is not final'
   };
   // What would decide an unresolved tie (seed_reason.pending / vs_above.pending, worker/src/seeding.js LADDERS).
@@ -822,9 +825,16 @@
     points_for: 'same All-Play %',
     head_to_head: 'same All-Play % and season Points For'
   };
-  function stepPhrase(step) {
+  // The Hawk Tuah side's order (H1–H6, unchanged by the 2026-11-25 correction): All-Play %, H2H record, Points For.
+  var SAME_BEFORE_HAWK = {
+    overall: 'same All-Play %',
+    points_for: 'same All-Play % and H2H record',
+    head_to_head: 'same All-Play %, H2H record and season Points For'
+  };
+  function stepPhrase(step, pool) {
     var label = STEP_LABEL[step] || step;
-    return label + (SAME_BEFORE[step] ? ' (' + SAME_BEFORE[step] + ')' : '');
+    var same = (pool === 'hawk_tuah' ? SAME_BEFORE_HAWK : SAME_BEFORE)[step];
+    return label + (same ? ' (' + same + ')' : '');
   }
   // Plain words for the worker's regular_season.problems codes (worker/src/standings_truth.js), for
   // "Seeds unavailable: <reason>".
@@ -886,7 +896,7 @@
     var above = (reason.vs_above && typeof reason.vs_above === 'object' && hasId(reason.vs_above.franchise_id)) ? reason.vs_above : null;
     var aboveFid = above ? pad4(above.franchise_id) : null;
     var aboveName = above ? (above.name || 'Franchise ' + aboveFid) : null;
-    var vsAbove = above ? { franchise_id: aboveFid, name: aboveName, step: above.step || null, pending: above.pending || null } : null;
+    var vsAbove = above ? { franchise_id: aboveFid, name: aboveName, step: above.step || null, pending: above.pending || null, pool: above.pool || null } : null;
     // why this team is BELOW the team directly above it, in the worker's own step
     function belowSentence(lead) {
       if (above.step === 'bye_requires_division_title') return lead + aboveName + '. A first-round bye needs a division title.';
@@ -894,7 +904,7 @@
       if (!above.step) return lead + aboveName + '.';
       if (above.step === 'unresolved') return lead + aboveName + ' for now: the two are level on every settled tiebreak, so this order is not final' +
         (PENDING_WORDS[above.pending] ? ' (' + PENDING_WORDS[above.pending] + ').' : '.');
-      return lead + aboveName + ' on ' + stepPhrase(above.step) + '.';
+      return lead + aboveName + (above.pool === 'hawk_tuah' ? ' in the Hawk Tuah order' : '') + ' on ' + stepPhrase(above.step, above.pool) + '.';
     }
     if (!seeded) {
       var list = (Array.isArray(rows) ? rows : []).filter(Boolean);

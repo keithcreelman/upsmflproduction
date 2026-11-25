@@ -889,7 +889,7 @@
     return '<div class="ups-m-card ups-m-hawk-intro"><div class="ups-m-card-title">Hawk Tuah Bowl <span class="sub">· the toilet bowl</span></div>' +
       '<div class="line">' + (oldFormat
         ? 'The recorded Hawk Tuah Bowl seeds. ' + U.escapeHtml(y) + '’s toilet bracket used an older format than today’s, so its games are listed by week below.'
-        : (recorded ? 'The recorded Hawk Tuah Bowl seeds.' : 'The six teams outside the playoff field, seeded H1–H6 (7th–12th) in standings order: All-Play %, then Points For, then the H2H games between the tied teams.') +
+        : (recorded ? 'The recorded Hawk Tuah Bowl seeds.' : 'The six teams outside the playoff field, seeded H1–H6 (7th–12th) in standings order: All-Play %, then H2H record, then Points For.') +
           ' H1 and H2 get a first-round bye. The winner finishes 7th and picks 1.01 in the ' + (Number(y) + 1) + ' rookie draft.') + '</div>' +
       (lis ? '<ol class="ups-m-hawk-seeds">' + lis + '</ol>' : '') + '</div>';
   }
@@ -1036,7 +1036,8 @@
     franchise_id: "a tie on every step",
     bye_requires_division_title: "a first-round bye needs a division title",
     division_winner_in_field: "division winners are in the field",
-    unresolved: "no settled tiebreak decides it yet, so this order is not final"
+    unresolved: "no settled tiebreak decides it yet, so this order is not final",
+    overall: "a better H2H record"   // the Hawk Tuah order only (vs_above.pool "hawk_tuah"), unchanged by the 2026-11-25 correction
   };
   var DIV_STEP_WORDS = {
     PCT: "a better H2H record", DIVPCT: "a better division record", H2H: "the H2H games between them",
@@ -1141,7 +1142,8 @@
       '<li>The four division winners make the playoffs. A division is won on H2H record, then division record, then the H2H games between the tied teams (MFL’s order).</li>' +
       '<li>The two division winners with the best All-Play % are seeds 1 and 2 and get a first-round bye.</li>' +
       '<li>Wild cards: the two best other teams by All-Play %, then Points For, then the H2H games between the tied teams.</li>' +
-      '<li>Seeds 3–6 are the other two division winners and the two wild cards, by All-Play %, then Points For. H2H record is not a seeding tiebreak. Only regular-season weeks count.</li>' +
+      '<li>Seeds 3–6 are the other two division winners and the two wild cards, by All-Play %, then Points For. H2H record is not a playoff seeding tiebreak. Only regular-season weeks count.</li>' +
+      '<li>The Hawk Tuah side (H1–H6) keeps its own order: All-Play %, then H2H record, then Points For.</li>' +
       '<li>The other six teams play the Hawk Tuah Bowl (the toilet bowl), seeded H1–H6 in standings order. H1 and H2 get a first-round bye.</li>' +
       '</ol>' +
       '<div class="ups-m-drawer-p"><b>Draft order comes from the final finish.</b> Hawk Tuah Bowl champion (7th) 1.01 · 8th 1.02 · 9th 1.03 · 10th 1.04 · 11th 1.05 · 12th 1.06 · 5th-place game winner (5th) 1.07 · its loser (6th) 1.08 · 4th 1.09 · 3rd 1.10 · runner-up 1.11 · champion 1.12.</div>' +
@@ -1180,7 +1182,8 @@
       if (!up) return;
       var rr = regRec(r), ru = regRec(up), detail = "";
       if (va.step === "points_for" && rr && ru) detail = "(" + fmtPts(ru.points_for) + " vs " + fmtPts(rr.points_for) + ")";
-      var same = va.step === "points_for" || va.step === "head_to_head" ? "same All-Play, " : "";
+      if (va.step === "overall" && rr && ru) detail = "(" + recStr(ru.record) + " vs " + recStr(rr.record) + ")";
+      var same = va.step === "overall" || va.step === "points_for" || va.step === "head_to_head" ? "same All-Play, " : "";
       ties.push('<li>' + U.escapeHtml(nm(up)) + " over " + U.escapeHtml(nm(r)) + ": " + same + U.escapeHtml(STEP_WORDS[va.step] || va.step) + (detail ? " " + U.escapeHtml(detail) : "") + '.</li>');
     });
     lines.push(ties.length ? '<b>Decided by a tiebreak:</b><ul class="ups-m-drawer-list">' + ties.join("") + '</ul>' : '<b>Tiebreaks:</b> none — every place is decided by All-Play %.');

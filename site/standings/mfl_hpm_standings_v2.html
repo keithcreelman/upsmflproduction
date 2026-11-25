@@ -2149,7 +2149,7 @@
     ["H2H record", "Head-to-head wins and losses against your scheduled opponents. A week can hold two or three games (37 in 14 weeks)."],
     ["PF per week", "Points For divided by weeks played: one score a week."],
     ["PA per game", "Opponents’ points per head-to-head game; a week with two or three games counts each game."],
-    ["Seeds (ladder)", "Division winners make the field; the two with the best All-Play % get byes. Wild cards: All-Play %, then Points For, then the H2H games between the tied teams. Seeds 3–6: All-Play %, then Points For. H2H record is not a seeding tiebreak. Regular-season weeks only."],
+    ["Seeds (ladder)", "Division winners make the field; the two with the best All-Play % get byes. Wild cards: All-Play %, then Points For, then the H2H games between the tied teams. Seeds 3–6: All-Play %, then Points For. H2H record is not a playoff seeding tiebreak. The Hawk Tuah side (H1–H6) keeps its own order: All-Play %, then H2H record, then Points For. Regular-season weeks only."],
     ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
     ["Division GB · WC GB", "Division GB: H2H games behind your division leader (the leader shows —). WC GB: All-Play wins behind the last wild card, with the four division winners protected; — means you hold a playoff spot. Seeds are decided by All-Play, so the wild-card race is counted in All-Play too."],
     ["Div W-L", "Your H2H record against the other teams in your own division (five games against each rival)."],
@@ -2319,7 +2319,8 @@
     franchise_id: "a tie on every step",
     bye_requires_division_title: "a first-round bye needs a division title",
     division_winner_in_field: "division winners are in the field",
-    unresolved: "no settled tiebreak decides it yet, so this order is not final"
+    unresolved: "no settled tiebreak decides it yet, so this order is not final",
+    overall: "a better H2H record"   // the Hawk Tuah order only (vs_above.pool "hawk_tuah"), unchanged by the 2026-11-25 correction
   };
   // A tie the worker could not settle (regular_season.unresolved[].pool), in words.
   var UNRESOLVED_POOL_WORDS = {
@@ -2375,7 +2376,8 @@
       if (!up) return;
       var a = regOf(up), b = regOf(r), detail = "";
       if (va.step === "points_for" && a && b) detail = " (" + fmtPts(a.points_for) + " vs " + fmtPts(b.points_for) + ")";
-      var same = (va.step === "points_for" || va.step === "head_to_head") ? "same All-Play, " : "";
+      if (va.step === "overall" && a && b) detail = " (" + recStr(a.record) + " vs " + recStr(b.record) + ")";
+      var same = (va.step === "overall" || va.step === "points_for" || va.step === "head_to_head") ? "same All-Play, " : "";
       ties.push(escapeHtml(nameOf(up) + " over " + nameOf(r) + ": " + same + (STEP_WORDS[va.step] || va.step) + detail + "."));
     });
     if (ties.length) lines.push('<b>Tiebreak' + (ties.length > 1 ? "s" : "") + ':</b> ' + ties.slice(0, 3).join(" "));
@@ -2998,6 +3000,12 @@
       return new Date(sim.generatedAtUtc).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
     } catch (e) { return String(sim.generatedAtUtc); }
   }
+  // model.pendingTieSeasons (season_sim.py): simulated seasons that ended in a tie no league rule settles yet.
+  function fcOpenTieText(sim) {
+    var n = sim && sim.model ? Number(sim.model.pendingTieSeasons) : NaN;
+    if (!(n >= 0)) return "";
+    return " · " + n.toLocaleString("en-US") + " of " + Number(sim.runs).toLocaleString("en-US") + " seasons had an open tie, split evenly";
+  }
   function fcRunText(sim) {
     return "Through Week " + sim.throughWeek + " · " + Number(sim.runs).toLocaleString("en-US") + " simulated seasons · run " + fcWhen(sim);
   }
@@ -3011,14 +3019,15 @@
   var FC_ABOUT = [
     ["Source", "The UPS Wire’s season simulation, the same run the UPS Center prints. No separate model."],
     ["Played weeks", "Weeks already played are the real scores. Each later week is simulated from current rosters and projections, with every team’s projected edge cut by 30% toward the league average."],
-    ["Seeding", "The Standings rules: division winners by MFL’s division order; the two with the best All-Play % get byes; wild cards and seeds 3–6 by All-Play %, then Points For."],
+    ["Seeding", "The Standings rules: division winners by MFL’s division order; the two with the best All-Play % get byes; wild cards and seeds 3–6 by All-Play %, then Points For. H1–H6 keep their own order: All-Play %, H2H record, Points For."],
+    ["Open ties", "Not every tie has a league rule yet (for example, two division winners on the same All-Play %). When a simulated season ends in one, the forecast splits that place evenly between the tied teams. That is a modeling choice pending Keith’s decision, not a league rule."],
     ["Brackets", "Round 1: 3 v 6 and 4 v 5. Round 2: the top seed plays the lowest seed left. Final in Week 17. The Hawk Tuah Bowl (H1–H6) is played the same way."],
     ["Expected order", "Teams in order of their average finishing place, 1–12 (seeds 1–6, then H1–H6)."],
     ["Movement", "Change in percentage points since the previous published forecast."],
     ["Can’t see", "Future trades, waiver moves and owners’ lineup choices."]
   ];
   function fcBarHtml(sim, controls) {
-    var dl = FC_ABOUT.concat([["This run", fcRunText(sim) + " · random seed " + sim.seed]]);
+    var dl = FC_ABOUT.concat([["This run", fcRunText(sim) + " · random seed " + sim.seed + fcOpenTieText(sim)]]);
     return '<div class="view-bar">' + (controls || '')
       + '<details class="about"><summary>How the forecast works</summary><dl>'
       + dl.map(function (it) { return '<dt>' + escapeHtml(it[0]) + '</dt><dd>' + escapeHtml(it[1]) + '</dd>'; }).join("")
