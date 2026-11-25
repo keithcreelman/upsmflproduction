@@ -30,13 +30,30 @@ Each eligible held trade is retried exactly once, after the snapshot validates a
     timestamp alone; a multi-team trade is keyed by its group id.
 The cursor file is never read or written here.
 
+The as-of catch-up (Keith 2026-11-25; held_trade_catchup.py, trade_asof_inputs.py) changes what a
+retry grades on and when a retry counts as used:
+  - a retry grades on the inputs committed before the trade, never on today's standings;
+  - standings_lag (the bot read MFL standings more than 6 hours after the trade, e.g. it was
+    down) is recorded as its own cause; it is NOT retried automatically (the 2026-10-22 ruling
+    stands) and can be posted as an approved bundle;
+  - each posting step is journaled durably as it happens (announcement, thread, roast, GIF ids),
+    and every message carries a reference marker, so an interrupted post RESUMES (finding its own
+    messages first) instead of posting twice or needing a person. A retry is used up only when
+    "posted" is recorded, or by a final no-grade ("held_again"), or after MAX_ATTEMPTS failures;
+  - a trade a person holds for review (cause held_for_keith_review) is posted only from a bundle
+    whose exact sha256 has an approval record; its journal is the "catchup" section.
+Every read-modify-write of the file holds an exclusive lock (<file>.lock), so the bot and a person
+running a command at the same time cannot lose each other's writes.
+
   python3 held_trades.py init     # create the empty file (once, during the supervised cutover)
   python3 held_trades.py status   # pending / unfinished / finished entries
 """
+import fcntl
 import json
 import os
 import re
 import sys
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -46,8 +63,15 @@ HELD_TRADES_FILE = SCRIPT_DIR.parent / "data" / "held_trades_no_grade.json"
 # The only causes retried automatically. valuation_snapshot.load_snapshot / validate_snapshot
 # word these reasons; test_bot_snapshot_cutover pins the exact strings they produce.
 RETRY_CAUSES = ("snapshot_missing", "snapshot_stale")
+# standings_lag (the bot read MFL's standings more than 6 hours after the trade, e.g. it was down) is
+# recorded as its own cause. The as-of path can grade it, but Keith's 2026-10-22 ruling retries only a
+# missing or stale snapshot automatically, so it stays a person's decision until he rules otherwise.
+REVIEW_CAUSE = "held_for_keith_review"     # posted only from an approved catch-up bundle
+MAX_ATTEMPTS = 3                           # failed posting attempts before a person is needed
 _MISSING = re.compile(r"valuation snapshot \([^()]+\): file is missing")      # load_snapshot
 _STALE = "valuation snapshot: stale: "                                          # validate_snapshot
+# trade_grader.load_season_state, read more than STANDINGS_MAX_LAG_SECONDS after the trade
+_LAG = re.compile(r".*standings were read \d+h after the trade and may include later weeks.*")
 
 
 class HeldStateError(RuntimeError):
@@ -60,6 +84,19 @@ def _now() -> str:
 
 def _path(path) -> Path:
     return Path(path) if path is not None else HELD_TRADES_FILE
+
+
+@contextmanager
+def locked(path: Path = None):
+    """Exclusive lock for a read-modify-write of the held file (blocks until free)."""
+    path = _path(path)
+    fd = os.open(str(path) + ".lock", os.O_RDWR | os.O_CREAT, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
 
 
 def load(path: Path = None) -> list:
@@ -124,6 +161,8 @@ def classify(reasons) -> str:
         return "snapshot_missing"
     if reasons and all(r.startswith(_STALE) for r in reasons):
         return "snapshot_stale"
+    if reasons and all(_LAG.fullmatch(r) for r in reasons):
+        return "standings_lag"
     return "other"
 
 
@@ -131,18 +170,19 @@ def record_hold(trade_txn: dict, report: str, path: Path = None, *, cause: str) 
     """Durably hold a trade (or record that it was held again) with its cause (classify()).
     Raises HeldStateError if the hold could not be recorded: the caller must then NOT advance
     its cursor. A trade held again keeps the cause of its first hold; each hold logs its own."""
-    entries = load(path)
-    for e in entries:
-        if key(e) == key(trade_txn):
-            e.setdefault("holds", []).append({"held_at": _now(), "report": report, "cause": cause})
-            e["report"] = report
-            break
-    else:
-        e = {"timestamp": trade_txn.get("timestamp"), "franchise": trade_txn.get("franchise"),
-             "franchise2": trade_txn.get("franchise2"), "held_at": _now(), "cause": cause,
-             "report": report}
-        entries.append(e)
-    save(entries, path)
+    with locked(path):
+        entries = load(path)
+        for e in entries:
+            if key(e) == key(trade_txn):
+                e.setdefault("holds", []).append({"held_at": _now(), "report": report, "cause": cause})
+                e["report"] = report
+                break
+        else:
+            e = {"timestamp": trade_txn.get("timestamp"), "franchise": trade_txn.get("franchise"),
+                 "franchise2": trade_txn.get("franchise2"), "held_at": _now(), "cause": cause,
+                 "report": report}
+            entries.append(e)
+        save(entries, path)
     if not any(key(x) == key(trade_txn) for x in load(path)):
         raise HeldStateError(f"trade {key(trade_txn)} is not in {_path(path).name} after writing it")
     return e
@@ -153,20 +193,33 @@ def pending(entries: list) -> list:
     return [e for e in entries if "retry" not in e]
 
 
+def resumable(entry: dict, section: str = "retry") -> bool:
+    """A journaled attempt that has not finished and has attempts left: safe to resume (its
+    messages are found by marker before anything is sent again)."""
+    rec = entry.get(section) or {}
+    return (bool(rec.get("journaled")) and "outcome" not in rec
+            and len(rec.get("attempts") or []) < MAX_ATTEMPTS)
+
+
 def eligible(entries: list) -> list:
-    """Never-retried entries held because the snapshot was missing or stale: the only ones the
-    bot retries automatically."""
-    return [e for e in pending(entries) if e.get("cause") in RETRY_CAUSES]
+    """Entries the bot retries automatically: held because the snapshot was missing or stale, and
+    either never retried or mid-way through a journaled retry (resumable)."""
+    return [e for e in entries if e.get("cause") in RETRY_CAUSES
+            and ("retry" not in e or resumable(e, "retry"))]
 
 
 def not_eligible(entries: list) -> list:
-    """Never-retried entries held for any other cause (or none recorded): they wait for a person."""
-    return [e for e in pending(entries) if e.get("cause") not in RETRY_CAUSES]
+    """Never-retried entries held for any other cause (or none recorded): they wait for a person
+    (posted only from an approved bundle)."""
+    return [e for e in pending(entries) if e.get("cause") not in RETRY_CAUSES
+            and ((e.get("catchup") or {}).get("outcome") != "posted")]
 
 
 def unfinished(entries: list) -> list:
-    """Entries whose one retry started but never recorded an outcome (a crash mid-retry)."""
-    return [e for e in entries if "retry" in e and "outcome" not in (e.get("retry") or {})]
+    """Entries whose retry started but never recorded an outcome and cannot resume by itself: an
+    old-style (unjournaled) crash mid-retry, or a journaled one out of attempts. Need a person."""
+    return [e for e in entries if "retry" in e and "outcome" not in (e.get("retry") or {})
+            and not resumable(e, "retry")]
 
 
 def find_trade(entry: dict, trades: list, groups: dict | None = None):
@@ -178,15 +231,34 @@ def find_trade(entry: dict, trades: list, groups: dict | None = None):
     return hits[0] if len(hits) == 1 else None
 
 
-def _update(entry: dict, path: Path, **retry) -> dict:
-    """Reload, update this trade's retry record, save (keeps a hold written during the retry)."""
-    entries = load(path)
-    for e in entries:
-        if key(e) == key(entry):
-            e.setdefault("retry", {}).update(retry)
-            save(entries, path)
-            return e
+def _update(entry: dict, path: Path, section: str = "retry", **fields) -> dict:
+    """Under the lock: reload, update this trade's retry (or catchup) record, save, read back.
+    Keeps anything written meanwhile (a new hold). An "attempt" field is appended to attempts."""
+    with locked(path):
+        entries = load(path)
+        for e in entries:
+            if key(e) == key(entry):
+                rec = e.setdefault(section, {})
+                attempt = fields.pop("attempt", None)
+                rec.update(fields)
+                if attempt is not None:
+                    rec.setdefault("attempts", []).append(attempt)
+                save(entries, path)
+                return e
     raise HeldStateError(f"held trade {key(entry)} is no longer in {_path(path).name}")
+
+
+def journal(entry: dict, path: Path = None, section: str = "retry", **fields) -> dict:
+    """Durably record one posting step (started, a message id, an attempt's failure, the
+    outcome) BEFORE moving on. Raises HeldStateError if it could not be recorded."""
+    return _update(entry, path, section, journaled=True, **fields)
+
+
+def get(entry: dict, path: Path = None):
+    for e in load(path):
+        if key(e) == key(entry):
+            return e
+    return None
 
 
 def mark_started(entry: dict, path: Path = None) -> dict:
@@ -194,8 +266,8 @@ def mark_started(entry: dict, path: Path = None) -> dict:
     return _update(entry, path, started_at=_now())
 
 
-def mark_finished(entry: dict, outcome: str, path: Path = None) -> dict:
-    return _update(entry, path, finished_at=_now(), outcome=outcome)
+def mark_finished(entry: dict, outcome: str, path: Path = None, section: str = "retry") -> dict:
+    return _update(entry, path, section, finished_at=_now(), outcome=outcome)
 
 
 def retry_pending(*, validate, trades: list, grade_and_post, groups: dict | None = None,

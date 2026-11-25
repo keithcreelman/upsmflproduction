@@ -1337,7 +1337,8 @@ def no_grade_report(analysis: "TradeAnalysis") -> str:
 
 
 def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict, rosters: dict,
-                  *, season_state=None, snapshot=None, now: float | None = None) -> TradeAnalysis:
+                  *, season_state=None, snapshot=None, now: float | None = None,
+                  snapshot_repo=None, salary_adjustments=None) -> TradeAnalysis:
     """Full analysis of a single trade transaction, or NO GRADE.
 
     Grades only on the validated valuation snapshot (decision 3). Any failed
@@ -1347,7 +1348,10 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict, rosters:
 
     season_state: this season's standings as of the trade (read from MFL now
     when omitted). snapshot: an already-loaded snapshot (replays and tests); it
-    is validated all the same. now: grading time (freshness).
+    is validated all the same. now: grading time (freshness). snapshot_repo: the tree
+    the snapshot's inputs are checked in (the as-of catch-up path's tree of inputs as
+    committed before the trade; default the repo). salary_adjustments: {franchise_id:
+    signed total} as of the trade (display only; default MFL's live export).
     """
     import time as _time
     now = _time.time() if now is None else now
@@ -1368,7 +1372,7 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict, rosters:
                                                   live_weeks_completed=live_weeks)
     else:
         failures = _vs.validate_snapshot(snapshot, now=now, league_season=LEAGUE_SEASON,
-                                         live_weeks_completed=live_weeks)
+                                         live_weeks_completed=live_weeks, repo=snapshot_repo)
         if failures:
             from pick_valuation import clear_valuation
             clear_valuation()
@@ -1407,7 +1411,7 @@ def analyze_trade(trade_txn: dict, players_map: dict, franchises: dict, rosters:
     notes += [n for pk in a_gave_picks + b_gave_picks if pk.projection is not None for n in pk.projection.notes]
     # Cap context (display): MFL salary adjustments so cap space matches MFL's
     # league cap report (Keith 2026-05-22). A failed read is said, not zeroed.
-    adjustments = load_salary_adjustments()
+    adjustments = load_salary_adjustments() if salary_adjustments is None else salary_adjustments
     if adjustments is None:
         notes.append("Cap space excludes salary adjustments: MFL salaryAdjustments could not be read.")
         adjustments = {}

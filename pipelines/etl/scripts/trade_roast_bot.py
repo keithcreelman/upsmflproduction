@@ -31,7 +31,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from trade_grader import (
     fetch_trades, load_franchises, analyze_trade,
     load_players_map, load_rosters, no_grade_report,
-    load_season_state, LEAGUE_SEASON,
+    load_season_state, LEAGUE_SEASON, mfl_fetch,
     # 3-way support: nav / production value for the net-value read, contract
     # parsing for the salary schedule, and the MFL "Last, First" formatter.
     _parse_contract, display_name,
@@ -55,6 +55,8 @@ from content_engine import (
     log_value_signal, log_data_error, save_to_archive,
 )
 import held_trades  # noqa: E402
+import held_trade_catchup  # noqa: E402
+import trade_asof_inputs as _asof  # noqa: E402
 import valuation_snapshot as _vs  # noqa: E402
 
 # ── Config ─────────────────────────────────────────────────────────────────
@@ -621,11 +623,134 @@ def _snapshot_failures_now() -> list:
     return failures
 
 
+class DiscordSender(held_trade_catchup.Sender):
+    """held_trade_catchup's Discord operations on the trade channel. Finds only the bot's own messages."""
+
+    def __init__(self, channel):
+        self.channel = channel
+
+    def _mine(self, msg) -> bool:
+        return bool(bot.user) and msg.author.id == bot.user.id
+
+    async def find_announcement(self, marker: str):
+        async for msg in self.channel.history(limit=200):
+            if self._mine(msg) and any(e.footer and marker in (e.footer.text or "") for e in msg.embeds):
+                thread = getattr(msg, "thread", None)
+                if thread is None and getattr(self.channel, "guild", None):
+                    thread = self.channel.guild.get_thread(msg.id)
+                return msg.id, (thread.id if thread else None)
+        return None
+
+    async def send_announcement(self, embed: dict) -> int:
+        msg = await self.channel.send(embed=discord.Embed.from_dict(embed),
+                                      allowed_mentions=discord.AllowedMentions.none())
+        return msg.id
+
+    async def create_thread(self, message_id: int, name: str) -> int:
+        msg = await self.channel.fetch_message(message_id)
+        thread = await msg.create_thread(name=name, auto_archive_duration=1440)
+        return thread.id
+
+    async def _thread(self, thread_id: int):
+        guild = getattr(self.channel, "guild", None)
+        return (guild.get_thread(thread_id) if guild else None) or await bot.fetch_channel(thread_id)
+
+    async def find_in_thread(self, thread_id: int, marker: str, title):
+        thread = await self._thread(thread_id)
+        async for msg in thread.history(limit=50):
+            if not self._mine(msg):
+                continue
+            for e in msg.embeds:
+                if e.footer and marker in (e.footer.text or "") and (e.title or None) == (title or None):
+                    return msg.id
+        return None
+
+    async def send_in_thread(self, thread_id: int, embed: dict, reply_button: bool = False) -> int:
+        thread = await self._thread(thread_id)
+        msg = await thread.send(embed=discord.Embed.from_dict(embed), allowed_mentions=discord.AllowedMentions.none())
+        if reply_button:
+            try:
+                await msg.edit(view=ReplyView(msg.id))
+            except Exception as e:
+                print(f"[{datetime.now()}] failed to attach Reply view: {e}")
+        return msg.id
+
+
+async def _record_catchup_post(bundle: dict, ids: dict) -> None:
+    """Track a catch-up post exactly like a live one: reply tracking, the worker's row, the archive.
+    Idempotent: the archive gets at most one entry per trade."""
+    payload = {"context_text": bundle["context_text"], "thread_id": ids["thread_id"],
+               "channel_id": ROAST_CHANNEL_ID, "announcement_msg_id": ids["announcement_id"],
+               "roast_msg_id": ids["roast_id"], "timestamp": time.time()}
+    ROAST_TRACKER[ids["announcement_id"]] = payload
+    ROAST_TRACKER[ids["roast_id"]] = payload
+    _save_tracker()
+    fa, fb = bundle["ctx_franchises"]
+    await _track_roast_async({
+        "roast_message_id": str(ids["roast_id"]), "thread_id": str(ids["thread_id"]),
+        "channel_id": str(ROAST_CHANNEL_ID), "announcement_message_id": str(ids["announcement_id"]),
+        "context_text": bundle["context_text"][:16384], "roast_text": bundle["roast"]["text"][:8000],
+        "trade_id": str(bundle["trade"].get("timestamp", "")), "trade_franchises": f"{fa},{fb}",
+        "posted_at": int(time.time()),
+    })
+    from content_engine import load_archive
+    arch_id = f"trade-{bundle['trade'].get('timestamp', '')}"
+    if any(r.get("id") == arch_id for r in load_archive()):
+        return
+    save_to_archive({
+        "id": arch_id, "type": "trade_roast", "timestamp": datetime.now(timezone.utc).isoformat(),
+        "teams": [fa, fb], "discord_announcement_msg_id": ids["announcement_id"],
+        "discord_thread_id": ids["thread_id"], "discord_roast_msg_id": ids["roast_id"],
+        "channel_id": ROAST_CHANNEL_ID, "env": ROAST_BOT_ENV, "delayed_post": True,
+        "content": {"roast": bundle["roast"]["text"], "gif_query": bundle["roast"].get("gif_query", ""),
+                    "gif_url": bundle["roast"].get("gif_url", ""),
+                    "grades": {fid: g["grade"] for fid, g in bundle["grades"].items()},
+                    "roast_source": bundle["roast"].get("source", "")},
+        "replies": [],
+    })
+
+
+def _auto_catchup_bundle(entry: dict, trade: dict) -> dict:
+    """Grade a held trade on its as-of inputs and write its roast (sync: MFL reads, git, the roast
+    model; run off-loop). Saved on first build and reused, so a resumed post posts the same text."""
+    saved = held_trade_catchup.BUNDLES / f"auto-{held_trade_catchup._slug(entry)}.json"
+    if saved.exists():
+        b = json.loads(saved.read_text())
+        if b.get("status") == "ready" and b.get("roast") and held_trade_catchup.bundle_sha(b) == b.get("bundle_sha256"):
+            return b
+    try:
+        subprocess.run(["git", "-C", str(SCRIPT_DIR), "fetch", "--quiet", "origin", "main"], timeout=60)
+    except Exception as exc:                      # origin/main as last fetched; the checks still apply
+        print(f"[{datetime.now()}] as-of catch-up: git fetch failed ({exc.__class__.__name__})")
+    txns = mfl_fetch("transactions")["transactions"]["transaction"]
+    adj = mfl_fetch("salaryAdjustments").get("salaryAdjustments", {}).get("salaryAdjustment", [])
+    asof = _asof.resolve(trade, repo=SCRIPT_DIR.parents[2], ref="origin/main",
+                         live_standings=mfl_fetch("leagueStandings"), live_read_at=time.time(),
+                         salary_adjustment_rows=adj if isinstance(adj, list) else [adj],
+                         later_transactions=txns if isinstance(txns, list) else [txns])
+    try:
+        bundle = held_trade_catchup.build_bundle(trade, asof, load_players_map(), roast_text=None, roast_source="",
+                                                 recent_posts=None)
+    finally:
+        asof.cleanup()
+    if bundle["status"] != "ready":
+        return bundle
+    roast_clean, gif_query = _extract_gif_query(generate_trade_roast(bundle["context_text"]))
+    held_trade_catchup.set_roast(bundle, roast_clean, "bot roast model (content_engine)", gif_query,
+                                 _fetch_gif_via_worker(gif_query))
+    held_trade_catchup.BUNDLES.mkdir(parents=True, exist_ok=True)
+    saved.write_text(json.dumps(bundle, indent=1, ensure_ascii=False))
+    return bundle
+
+
 async def retry_held_trades(channel, trades: list) -> list:
-    """Retry each held NO GRADE trade whose cause was a missing or stale snapshot exactly once,
-    after the snapshot validates again (the weekly cutover). Trades held for any other cause are
-    never attempted (hold_no_grade alerted when it held them). Never reads or moves the cursor;
-    marks each entry started before its one attempt (held_trades.py)."""
+    """Post held trades (held_trade_catchup.py), never touching the cursor:
+      - automatic: each trade held because the snapshot was missing or stale, once the snapshot validates: graded on the inputs committed BEFORE the
+        trade (trade_asof_inputs.py), posted as a labeled delayed post. Its retry is used up only when
+        "posted" (or a final no-grade) is recorded; an interrupted post resumes and never posts twice;
+      - approved: any other held trade (held for review, standings read too late, a retry already used
+        on stale data, ...) is posted only from a bundle a person approved by sha256, verbatim.
+    Trades held for any other cause are never attempted (hold_no_grade alerted when it held them)."""
     try:
         entries = held_trades.load(HELD_TRADES_FILE)
     except held_trades.HeldStateError as exc:
@@ -633,41 +758,74 @@ async def retry_held_trades(channel, trades: list) -> list:
         return []
     stuck = held_trades.unfinished(entries)
     if stuck:
-        _ops_alert("held-review", f"{len(stuck)} held trade retry(ies) started but never finished "
-                                  f"(a crash mid-retry): {[held_trades.key(e) for e in stuck]}. "
-                                  f"Never retried automatically; check whether each was posted.")
-    todo = held_trades.eligible(entries)             # snapshot missing/stale holds only
-    if not todo:
+        _ops_alert("held-review", f"{len(stuck)} held trade retry(ies) started but cannot resume by themselves: "
+                                  f"{[held_trades.key(e) for e in stuck]}. Check whether each was posted.")
+    todo = held_trades.eligible(entries)
+    auto = {held_trades.key(e) for e in todo}
+    approved = [(e, b) for e in entries                 # never both paths for one trade
+                if held_trades.key(e) not in auto and (e.get("retry") or {}).get("outcome") != "posted"
+                and (e.get("catchup") or {}).get("outcome") is None
+                for b in [held_trade_catchup.approved_bundle(e)] if b]
+    if not todo and not approved:
         return []
-    failures = await _in_executor("held-trade freshness check", 60, _snapshot_failures_now)
-    if failures:
-        print(f"[{datetime.now()}] {len(todo)} held trade(s) wait: the valuation snapshot does not "
-              f"validate yet ({'; '.join(str(f) for f in failures)[:300]})")
-        return []
+    if todo:
+        failures = await _in_executor("held-trade freshness check", 60, _snapshot_failures_now)
+        if failures:
+            print(f"[{datetime.now()}] {len(todo)} held trade(s) wait: the valuation snapshot does not "
+                  f"validate yet ({'; '.join(str(f) for f in failures)[:300]})")
+            todo = []
+    sender = DiscordSender(channel)
     groups = group_multiway_legs(trades)
     done = []
     try:
         for entry in todo:
-            multiway = entry.get("franchise") == "multiway"
             found = held_trades.find_trade(entry, trades, groups)    # full key, never timestamp alone
             if not found:
                 continue                               # not (uniquely) in MFL's list: stays pending
-            held_trades.mark_started(entry, HELD_TRADES_FILE)     # BEFORE the attempt: at most once
-            try:
-                if multiway:
+            if entry.get("franchise") == "multiway":   # no as-of path for 3-way deals yet: the old single retry
+                held_trades.mark_started(entry, HELD_TRADES_FILE)
+                try:
                     result = await analyze_and_post_multiway(channel, found, entry.get("franchise2"))
-                else:
-                    result = await analyze_and_post(channel, found)
-                outcome = "posted" if result else "held_again"
-            except held_trades.HeldStateError:
-                raise
-            except Exception as exc:
-                outcome = f"error: {exc.__class__.__name__}"
-            held_trades.mark_finished(entry, outcome, HELD_TRADES_FILE)
-            print(f"[{datetime.now()}] held trade {held_trades.key(entry)} retried once: {outcome}")
+                    outcome = "posted" if result else "held_again"
+                except held_trades.HeldStateError:
+                    raise
+                except Exception as exc:
+                    outcome = f"error: {exc.__class__.__name__}"
+                held_trades.mark_finished(entry, outcome, HELD_TRADES_FILE)
+                done.append((held_trades.key(entry), outcome))
+                continue
+            try:
+                bundle = await _in_executor("as-of catch-up bundle", 420, _auto_catchup_bundle, entry, found)
+            except Exception as exc:                   # nothing was sent: journal the failed attempt, retry later
+                e2 = held_trades.journal(entry, HELD_TRADES_FILE, "retry", attempt={
+                    "at": datetime.now(timezone.utc).isoformat(), "stage": "prepare",
+                    "error": f"{exc.__class__.__name__}: {str(exc)[:200]}"},
+                    **({} if (entry.get("retry") or {}).get("started_at") else
+                       {"started_at": datetime.now(timezone.utc).isoformat()}))
+                if not held_trades.resumable(e2, "retry"):
+                    held_trades.mark_finished(entry, f"error: {exc.__class__.__name__} at prepare", HELD_TRADES_FILE)
+                done.append((held_trades.key(entry), "retry_later"))
+                continue
+            if bundle["status"] != "ready":            # as-of inputs cannot grade it reliably: held again
+                report = held_trades.key(entry), "; ".join(bundle.get("reasons") or [])[:600]
+                print(f"[{datetime.now()}] held trade {report[0]} cannot be graded on as-of inputs: {report[1]}")
+                held_trades.journal(entry, HELD_TRADES_FILE, "retry", asof_reasons=bundle.get("reasons") or [])
+                held_trades.mark_finished(entry, "held_again", HELD_TRADES_FILE)
+                _ops_alert("held-review", f"held trade {report[0]} cannot be graded on the inputs available at the "
+                                          f"trade; it needs a person. {report[1][:300]}")
+                done.append((held_trades.key(entry), "held_again"))
+                continue
+            outcome = await held_trade_catchup.post_bundle(entry, bundle, sender, section="retry",
+                                                           path=HELD_TRADES_FILE, on_posted=_record_catchup_post)
+            print(f"[{datetime.now()}] held trade {held_trades.key(entry)} automatic catch-up: {outcome}")
+            done.append((held_trades.key(entry), outcome))
+        for entry, bundle in approved:
+            outcome = await held_trade_catchup.post_bundle(entry, bundle, sender, section="catchup",
+                                                           path=HELD_TRADES_FILE, on_posted=_record_catchup_post)
+            print(f"[{datetime.now()}] held trade {held_trades.key(entry)} approved catch-up: {outcome}")
             done.append((held_trades.key(entry), outcome))
     except held_trades.HeldStateError as exc:
-        _ops_alert("held-state", f"a held-trade retry could not be recorded: {exc}. No further retries "
+        _ops_alert("held-state", f"a held-trade post could not be recorded: {exc}. No further held posts "
                                  f"until the file is fixed; each started entry needs review.")
     return done
 
