@@ -1764,6 +1764,7 @@ Four separate rules: division winners, wild cards, seeds 3–6, and seeds 1–2 
   - Gride: 13-13, PF 2083.1.
 
   MFL's bracket has White Power #4 and Ulterior Warrior #5; Gride is not in it. That is Points For order (an overall-record step would have put Gride in).
+- **Head-to-head is among wild-card-eligible teams only.** It applies to two non-division-winners level on All-Play % and Points For for a wild-card place. A division winner is never part of that tie, whatever its numbers.
 - **Not established:** how head-to-head counts when three or more teams are still tied. PWR is not in any export the site reads, and a coin flip is the commissioner's, so code reports a tie that reaches either step instead of deciding it.
 - **History of the error:** the 2026-05-15 text of this section put Overall record between All-Play and Points For, citing "same ladder used for waivers". The waiver ladder (2024 Rule Book §7.2) applies only to identical waiver bids, and no league source supports the step. A quotation dated 2026-10-08 in `worker/src/seeding.js` ("Our Phase I rule is All-Play % → Overall → PF → H2H") matched that text; its original source has not been found, and it is not a ruling.
 
@@ -1785,6 +1786,11 @@ Four separate rules: division winners, wild cards, seeds 3–6, and seeds 1–2 
   - This differs from the 2014 written text (conference-based, Pct first). No written amendment has been found.
 - **PENDING KEITH:** division winners level on All-Play, whether for seed 2 (one gets a bye, one doesn't) or for the order of seeds 1 and 2. It has never happened. Until Keith rules, code reports the tie as unresolved; nothing (Points For, record, the seeds 3–6 or wild-card ladder) decides it.
 
+### F.1.4a The Hawk Tuah side (H1–H6): not audited
+- §F.1 and the 2026-11-25 rulings cover the playoff field only. No league source for the order of the six teams outside it was audited, and nothing here changes it.
+- **The site keeps its earlier order:** All-Play %, then the overall regular-season record, then Points For, then the games among the teams still level. The overall-record step here is that earlier practice, not a §F.1 ladder and not a rule. Which teams are in it follows the corrected qualification (§F.1.2).
+- **PENDING KEITH,** only if he wants the consolation order reviewed.
+
 ### F.1.5 Ties in playoff games
 - **The higher seed advances.**
   - Commissioner, Forumotion t19, 2012-06-28: "For the playoffs, the higher seed moves on".
@@ -1805,11 +1811,12 @@ Four separate rules: division winners, wild cards, seeds 3–6, and seeds 1–2 
 | **Wild card** | Bylaws V2014.1 ch. 8 §2; 2017 bracket; Keith 2026-11-25 (§F.1.2) | All-Play % → total PF → H2H → PWR → coin flip |
 | **Seeds 3–6** | MFL brackets 2014–2025; Keith 2026-11-25 (§F.1.3) | All-Play % → total PF → PENDING KEITH |
 | **Seeds 1–2 / byes** | MFL brackets 2014–2025, documented 2026-11-25 (§F.1.4) | The two division winners with the highest All-Play % → PENDING KEITH on a tie |
-| **Standings-page order (current season)** | Display, not a league rule | The worker's seed order: seeds 1–6, then the other teams in the wild-card order. It replaces the 2026-05-17 "Option A" sort (All-Play % → Overall → PF), which copied the unsupported step |
+| **Hawk Tuah side (H1–H6)** | Not audited; the site's earlier order, unchanged (§F.1.4a) | All-Play % → overall record → PF → H2H among them |
+| **Standings-page order (current season)** | Display, not a league rule | The worker's seed order: seeds 1–6, then H1–H6 in the Hawk Tuah order. It replaces the 2026-05-17 "Option A" sort (All-Play % → Overall → PF), which copied the unsupported step |
 
 **Schema note: `h2h_pct` is the Overall record.** In `src_standings` the columns `h2h_w / h2h_l / h2h_pct` hold each team's overall regular-season record, not pairwise head-to-head. No playoff ladder reads them.
 
-**Code is not a source for these rules.** It follows them: `worker/src/seeding.js` (the three ladders and the unresolved ties), `worker/src/standings_truth.js` (regular-season inputs), `pipelines/etl/wire/season_sim.py` (the forecast; a tie with no rule is drawn evenly and counted in `model.pendingTies`).
+**Code is not a source for these rules.** It follows them: `worker/src/seeding.js` (the three ladders and the unresolved ties), `worker/src/standings_truth.js` (regular-season inputs), `pipelines/etl/wire/season_sim.py` (the forecast). How a forecast treats a simulated tie that no rule settles yet is a modeling choice, not a league rule. It is **PENDING KEITH** (PR #1529). Until he rules, the draft draws such a tie evenly, counts it in `model.pendingTies`, and says so on the forecast.
 
 **Bot guidance:**
 - **"Who wins division X":** apply that season's MFL `standingsSort`.
