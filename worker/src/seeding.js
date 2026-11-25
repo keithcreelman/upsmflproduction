@@ -1,26 +1,22 @@
-// UPS playoff seeding: the tiebreak ladder and the modern 4+2 field.
+// UPS playoff seeding: the wild-card, seeds 3-6 and bye ladders, and the modern 4+2 field.
 //
-// docs/league_context_v1.md §F.1 / §F.2: seeds rank by ALL-PLAY %, then OVERALL
-// record, then POINTS FOR, then HEAD-TO-HEAD (Keith 2026-10-08: "Our Phase I
-// rule is All-Play % → Overall → PF → H2H"). The full standings page uses the
-// same ladder. Division WINNERS are picked separately, by MFL's year-specific
-// standingsSort (§F.2 -- do not conflate the two).
+// docs/league_context_v1.md §F.1 (audited against the original league sources 2026-11-24; Keith's rulings
+// 2026-11-25, PR #1526). Four separate rules, never one ladder for all of them:
+//   - Division winners: MFL's season-specific standingsSort (standings_truth.js divisionOrder). Not here.
+//   - Wild cards (§F.1.2): regular-season All-Play %, then regular-season Points For, then head-to-head.
+//     The written rule continues with Power Rank, then a coin flip; this site has neither, so a tie that gets
+//     that far is reported as unresolved, never decided here.
+//   - Seeds 3-6 (§F.1.3): All-Play %, then Points For. Later steps are pending Keith's ruling: unresolved.
+//   - Seeds 1-2 and byes (§F.1.4, 2014-2025 practice): the two division winners with the highest All-Play %.
+//     A tie among them (for a bye, or for the order of seeds 1 and 2) is pending Keith's ruling: unresolved.
+// There is no overall-record step in any of them. The 2026-05-15 canon text had one, by analogy to the waiver
+// tiebreak; it has no league source and the 2017, 2020 and 2021 MFL brackets contradict it (canon §F.1.2-3).
 //
-// WHY THIS MODULE (2026-10-08). The two endpoints had drifted apart and neither
-// followed the ladder end to end: /api/standings broke all-play ties on a
-// per-game PF AVERAGE before Overall, and /api/playoff-bracket ranked division
-// winners, seeds 3-6 and the non-playoff teams on all-play then PF, skipping
-// Overall. With Week 4 of 2026 that showed Brian Cutting (4-6) above Eric
-// Mannila (6-4) at 22-22. Both endpoints now take their order from here.
-//
-// Rows: { franchise_id, franchise_name, allplay_pct, h2h_pct, pf_total }.
-//   h2h_pct  -- src_standings' OVERALL regular-season record; the column's "h2h"
-//               prefix predates §F.1's Overall/H2H split.
-//   pf_total -- season Points For (src_standings.pf), NOT /api/standings' per-game
-//               average `pf`.
-// Games: regular-season, played src_schedule rows { franchise_id,
-//   opponent_franchise_id, team_score, opponent_score }. Each game appears once
-//   from each side, so a team's own rows give its record against an opponent.
+// Rows: { franchise_id, franchise_name, allplay_pct, pf_total } -- REGULAR-SEASON values only. The current
+//   season's come from standings_truth.js regularSeasonTotals (weekly rows, regular-season weeks only), never
+//   from a stored season total that may include playoff weeks.
+// Games: regular-season, played rows { franchise_id, opponent_franchise_id, team_score, opponent_score }, each
+//   game once from each side.
 
 const pad4 = (v) => String(v == null ? "" : v).padStart(4, "0");
 // Compare on fixed precision so float noise never decides a seed: percentages
@@ -28,18 +24,27 @@ const pad4 = (v) => String(v == null ? "" : v).padStart(4, "0");
 const pctKey = (v) => Math.round(Number(v || 0) * 1e6);
 const pfKey = (v) => Math.round(Number(v || 0) * 10);
 
-// The ladder's steps, in order, by name. A response says which one separated two teams (seed_reason), so no page ever
-// re-derives the ladder to explain a seed (Keith 2026-10-09: "Current-season seeds get an authoritative worker seed
-// reason"). "name" and "franchise_id" are the deterministic fallback, not a league rule.
-export const SEED_STEPS = ["all_play", "overall", "points_for", "head_to_head", "name", "franchise_id"];
+// Every value a seed_reason.step can take. "unresolved" = every approved step of that pool's ladder is level; the
+// order shown is a display fallback (name, then franchise id), not a league rule, and the field reports the tie.
+export const SEED_STEPS = ["all_play", "points_for", "head_to_head", "unresolved"];
 
-// { cmp, decidingStep }: cmp orders two rows by the ladder; decidingStep(a, b) names the FIRST step that separates them
-// (one of SEED_STEPS), or null when nothing does. Both read the same steps, so an explanation can never disagree with
-// the order it explains.
-export function seedLadderSteps(rows, games) {
-  const tieKey = (r) => pctKey(r.allplay_pct) + "|" + pctKey(r.h2h_pct) + "|" + pfKey(r.pf_total);
+// What comes after the approved steps (field.unresolved[].why):
+//   pending_ruling        -- no league rule yet (seeds 3-6 after Points For; division winners tied on All-Play)
+//   power_rank_coin_flip  -- the written wild-card rule continues with Power Rank, then a coin flip
+//   head_to_head_3plus    -- three or more teams reached head-to-head; how that step counts is not established
+export const LADDERS = {
+  wild_card: { steps: ["all_play", "points_for", "head_to_head"], after: "power_rank_coin_flip" },
+  seeds3to6: { steps: ["all_play", "points_for"], after: "pending_ruling" },
+  bye: { steps: ["all_play"], after: "pending_ruling" },
+};
 
-  // Pairwise head-to-head results, from each team's own schedule rows.
+// { wild_card, seeds3to6, bye }: each { cmp, strict, decidingStep, why }.
+//   cmp(a, b)          -- orders two rows by that pool's ladder (display fallback after it: name, franchise id)
+//   strict(a, b)       -- the approved steps only: 0 when they leave the pair level (a stable sort keeps the input order)
+//   decidingStep(a, b) -- the first approved step that separates them, or "unresolved"
+//   why(a, b)          -- for an unresolved pair, what the next step would be (see LADDERS)
+export function playoffLadders(rows, games) {
+  // Pairwise results, from each team's own schedule rows.
   const vs = new Map();
   for (const g of games || []) {
     const ts = Number(g.team_score), os = Number(g.opponent_score);
@@ -49,71 +54,107 @@ export function seedLadderSteps(rows, games) {
     if (ts > os) rec.w++; else if (ts < os) rec.l++; else rec.t++;
     vs.set(k, rec);
   }
-
-  // Step 4 only ever runs inside a group tied on all three earlier steps, so it
-  // is resolved per group: each team's record against the OTHER teams of its
-  // group (a 3-way tie is ranked on games among those three, which pairwise
-  // comparison alone could leave circular). No games among them -> even (.500).
+  // Head-to-head (wild cards only) runs inside a group level on All-Play % AND Points For. Two teams: their games
+  // against each other. Three or more: not established, so it decides nothing (h2h3 marks the group).
   const groups = new Map();
   for (const r of rows || []) {
-    const k = tieKey(r);
+    const k = pctKey(r.allplay_pct) + "|" + pfKey(r.pf_total);
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(pad4(r.franchise_id));
   }
-  const h2hPct = new Map();
+  const h2hPct = new Map(), h2h3 = new Set();
   for (const ids of groups.values()) {
     if (ids.length < 2) continue;
-    for (const a of ids) {
-      let w = 0, l = 0, t = 0;
-      for (const b of ids) {
-        if (a === b) continue;
-        const rec = vs.get(a + "|" + b);
-        if (rec) { w += rec.w; l += rec.l; t += rec.t; }
-      }
-      const n = w + l + t;
-      h2hPct.set(a, n ? (w + 0.5 * t) / n : 0.5);
+    if (ids.length > 2) { ids.forEach((f) => h2h3.add(f)); continue; }
+    const [a, b] = ids;
+    for (const [x, y] of [[a, b], [b, a]]) {
+      const rec = vs.get(x + "|" + y);
+      const n = rec ? rec.w + rec.l + rec.t : 0;
+      h2hPct.set(x, n ? (rec.w + 0.5 * rec.t) / n : 0.5);
     }
   }
   const h2h = (r) => (h2hPct.has(pad4(r.franchise_id)) ? h2hPct.get(pad4(r.franchise_id)) : 0.5);
-
-  const steps = [
-    (a, b) => pctKey(b.allplay_pct) - pctKey(a.allplay_pct),   // 1. All-Play %
-    (a, b) => pctKey(b.h2h_pct) - pctKey(a.h2h_pct),           // 2. Overall record
-    (a, b) => pfKey(b.pf_total) - pfKey(a.pf_total),           // 3. Points For (season)
-    (a, b) => h2h(b) - h2h(a),                                 // 4. head-to-head within the tie
-    (a, b) => String(a.franchise_name || "").localeCompare(String(b.franchise_name || "")),
-    (a, b) => pad4(a.franchise_id).localeCompare(pad4(b.franchise_id)),
-  ];
-  const cmp = (a, b) => {
-    for (const step of steps) { const d = step(a, b); if (d) return d; }
-    return 0;
+  const STEP = {
+    all_play: (a, b) => pctKey(b.allplay_pct) - pctKey(a.allplay_pct),
+    points_for: (a, b) => pfKey(b.pf_total) - pfKey(a.pf_total),
+    head_to_head: (a, b) => h2h(b) - h2h(a),
   };
-  const decidingStep = (a, b) => {
-    for (let i = 0; i < steps.length; i++) if (steps[i](a, b)) return SEED_STEPS[i];
-    return null;
+  const fallback = (a, b) => String(a.franchise_name || "").localeCompare(String(b.franchise_name || "")) ||
+    pad4(a.franchise_id).localeCompare(pad4(b.franchise_id));
+  const make = (name) => {
+    const { steps, after } = LADDERS[name];
+    const decidingStep = (a, b) => { for (const s of steps) if (STEP[s](a, b)) return s; return "unresolved"; };
+    const strict = (a, b) => { for (const s of steps) { const d = STEP[s](a, b); if (d) return d; } return 0; };
+    const cmp = (a, b) => strict(a, b) || fallback(a, b);
+    const why = (a, b) => (decidingStep(a, b) !== "unresolved" ? null
+      : name === "wild_card" && (h2h3.has(pad4(a.franchise_id)) || h2h3.has(pad4(b.franchise_id))) ? "head_to_head_3plus" : after);
+    return { cmp, strict, decidingStep, why };
   };
-  return { cmp, decidingStep };
+  return { wild_card: make("wild_card"), seeds3to6: make("seeds3to6"), bye: make("bye") };
 }
 
-export function seedLadder(rows, games) {
-  return seedLadderSteps(rows, games).cmp;
+// The modern field (4 division winners + 2 wild cards; §F.1.2-§F.1.4):
+//   byes       -- the two division winners with the highest All-Play % (seeds 1-2)
+//   wildCards  -- the two best non-winners by the wild-card ladder
+//   seeds3to6  -- the other two division winners and the two wild cards, by the seeds 3-6 ladder
+//   outside    -- everyone else, by the wild-card ladder (the order of the race for the last wild card)
+//   unresolved -- every tie the approved steps leave open AND that changes a seed or who qualifies:
+//                 [{ pool: "bye" | "seed_1_2_order" | "wild_card" | "seeds3to6", franchise_ids, seeds, why }]
+//                 seeds = the seed numbers whose holder depends on it. The lists still carry a display order.
+export function playoffField(rows, divisionWinnerIds, L) {
+  const isDW = (r) => divisionWinnerIds.has(String(r.franchise_id));
+  const winners = rows.filter(isDW).slice().sort(L.bye.cmp);
+  const pool = rows.filter((r) => !isDW(r)).slice().sort(L.wild_card.cmp);
+  const wildCards = pool.slice(0, 2);
+  const byes = winners.slice(0, 2);
+  // Stable on the approved steps only: a pair they leave level keeps the order it came in (the division winners in bye
+  // order, then the wild cards in wild-card order), so the last wild card in the list is the one the wild-card race
+  // put there. That order is a display order, and the tie is reported below.
+  const seeds3to6 = winners.slice(2).concat(wildCards).sort(L.seeds3to6.strict);
+  const seedOf = new Map();
+  byes.forEach((r, i) => seedOf.set(pad4(r.franchise_id), i + 1));
+  seeds3to6.forEach((r, i) => seedOf.set(pad4(r.franchise_id), i + 3));
+  const ids = (list) => list.map((r) => pad4(r.franchise_id));
+  const tiedWith = (list, i, lad) => list.filter((r) => lad.decidingStep(r, list[i]) === "unresolved");
+  const unresolved = [];
+  // A bye: the 2nd and 3rd division winners level on All-Play. Which one drops to seeds 3-6 also moves the seeds
+  // there, so every seed from the first tied place down to 6 depends on it.
+  if (winners.length > 2 && L.bye.decidingStep(winners[1], winners[2]) === "unresolved") {
+    const g = tiedWith(winners, 1, L.bye);
+    const first = Math.min(...g.map((r) => winners.indexOf(r))) + 1;
+    unresolved.push({ pool: "bye", franchise_ids: ids(g), seeds: [1, 2, 3, 4, 5, 6].filter((s) => s >= first), why: L.bye.why(winners[1], winners[2]) });
+  } else if (winners.length > 1 && L.bye.decidingStep(winners[0], winners[1]) === "unresolved") {
+    unresolved.push({ pool: "seed_1_2_order", franchise_ids: ids(winners.slice(0, 2)), seeds: [1, 2], why: L.bye.why(winners[0], winners[1]) });
+  }
+  // The second wild card: the 2nd and 3rd non-winners level through every step the site can apply.
+  if (pool.length > 2 && L.wild_card.decidingStep(pool[1], pool[2]) === "unresolved") {
+    const g = tiedWith(pool, 1, L.wild_card);
+    const seeds = g.map((r) => seedOf.get(pad4(r.franchise_id))).filter((s) => s != null);
+    unresolved.push({ pool: "wild_card", franchise_ids: ids(g), seeds: [...new Set(seeds)].sort((a, b) => a - b), why: L.wild_card.why(pool[1], pool[2]) });
+  }
+  // The order of seeds 3-6.
+  for (let i = 0; i + 1 < seeds3to6.length; i++) {
+    if (L.seeds3to6.decidingStep(seeds3to6[i], seeds3to6[i + 1]) !== "unresolved") continue;
+    const g = [seeds3to6[i], seeds3to6[i + 1]];
+    unresolved.push({ pool: "seeds3to6", franchise_ids: ids(g), seeds: [i + 3, i + 4], why: L.seeds3to6.why(g[0], g[1]) });
+  }
+  return { byes, seeds3to6, wildCards, outside: pool.slice(2), unresolved };
 }
 
 // The order /api/standings used before 2026-10-08 (AP%, per-game PF average,
 // Overall, name), kept ONLY for seasons with recorded final standings: Keith
 // 2026-10-08, "Keep any proposed changes to historical seed records separate
-// from this Week 4 release." Applying the ladder to 2010-2025 would move 2013's
-// seeds 3/4 and 2022's seeds 1/2; that is a separate proposal.
+// from this Week 4 release." Recorded seasons are not re-seeded by any ladder;
+// the season's MFL bracket is the record of its seeds (canon §F.1.6).
 export function legacyStandingsTiebreak(a, b) {
   const desc = (x, y) => Number(y || 0) - Number(x || 0);
   return desc(a.allplay_pct, b.allplay_pct) || desc(a.pf, b.pf) || desc(a.h2h_pct, b.h2h_pct) ||
     String(a.franchise_name || "").localeCompare(String(b.franchise_name || ""));
 }
 
-// The modern field (4 division winners + 2 wild cards; §F.1): seeds 1-2 are the
-// two best division winners; seeds 3-6 are the other division winners and the
-// two best non-winners, interleaved; everyone else is outside the field. Every
-// list is ordered by the ladder.
+// Recorded seasons only (2010-2025, with legacyStandingsTiebreak): the same 4+2 shape with ONE comparator, as
+// /api/standings has always shown them. Unchanged so no historical display moves; a past seed is read from
+// MFL's bracket (canon §F.1.6), never recomputed. The current season uses playoffField.
 export function modernField(rows, divisionWinnerIds, cmp) {
   const isDW = (r) => divisionWinnerIds.has(String(r.franchise_id));
   const winners = rows.filter(isDW).slice().sort(cmp);

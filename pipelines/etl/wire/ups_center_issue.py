@@ -390,33 +390,44 @@ class Issue:
 
     # ------------------------------------------------------------ 6. landscape
     def canon_order(self):
-        """§F.1: division leaders take places 1-2, the rest of the field interleaves, then everyone else --
-        all on All-Play %, Overall, season PF (worker/src/seeding.js). H2H only if needed (gap if so)."""
+        """canon §F.1.2-§F.1.4 (Keith 2026-11-25; worker/src/seeding.js): places 1-2 = the two division leaders with the
+        best All-Play %; wild cards = the two best others by All-Play %, then season PF (then head-to-head); places 3-6
+        by All-Play %, then season PF; everyone else in the wild-card order. No overall-record step. Returns the order,
+        the leaders, and the ties no applied step settles (each one a gap: the order there is not final)."""
         st = self.ctx["mfl"]["standings"]
 
-        def pct(w, l):
-            return round(w / (w + l), 6) if (w + l) else 0.0
-
-        def key(f):
+        def ap(f):
             aw, al = (int(x) for x in st[f]["allplay"].split("-")[:2])
-            return (-pct(aw, al), -pct(st[f]["h2hw"], st[f]["h2hl"]), -round(st[f]["pf"], 1), self.owner[f])
+            return round(aw / (aw + al), 6) if (aw + al) else 0.0
+        bye_key = lambda f: (-ap(f),)
+        key = lambda f: (-ap(f), -round(st[f]["pf"], 1))
         leaders = [r["franchise_id"] for r in self.ctx["site"]["standings"] if r["is_division_leader"]]
-        tie = {}
-        for f in st:
-            tie.setdefault(key(f)[:3], []).append(f)
-        h2h_needed = [v for v in tie.values() if len(v) > 1]
-        L = sorted(leaders, key=key)
-        pool = sorted([f for f in st if f not in leaders], key=key)
-        return L[:2] + sorted(L[2:] + pool[:2], key=key) + pool[2:], set(leaders), h2h_needed
+        L = sorted(leaders, key=lambda f: (bye_key(f), self.owner[f]))
+        pool = sorted([f for f in st if f not in leaders], key=lambda f: (key(f), self.owner[f]))
+        mid = sorted(L[2:] + pool[:2], key=lambda f: (key(f), self.owner[f]))
+        open_ties = []
+        if len(L) > 2 and bye_key(L[1]) == bye_key(L[2]):
+            open_ties.append("a first-round bye (division leaders level on all-play)")
+        elif len(L) > 1 and bye_key(L[0]) == bye_key(L[1]):
+            open_ties.append("the order of places 1 and 2 (division leaders level on all-play)")
+        if len(pool) > 2 and key(pool[1]) == key(pool[2]):
+            open_ties.append("the second wild card (level on all-play and points for: head-to-head next)")
+        if any(key(a) == key(b) for a, b in zip(mid, mid[1:])):
+            open_ties.append("the order of places 3-6 (level on all-play and points for)")
+        return L[:2] + mid + pool[2:], set(leaders), open_ties
 
     def seg_landscape(self, bare=False):
         st = self.ctx["mfl"]["standings"]
-        order, leaders, h2h_needed = self.canon_order()
+        order, leaders, open_ties = self.canon_order()
         site = [r["franchise_id"] for r in self.ctx["site"]["standings"]]
         body = ""
-        if h2h_needed:
-            body += self.gap("landscape:h2h", "landscape", "Teams tied on all-play, overall and points for need the "
-                             "head-to-head step; check the order by hand.")
+        rs = self.ctx["site"].get("regular_season") or {}
+        if rs.get("last_regular_season_week") and self.week > int(rs["last_regular_season_week"]):
+            body += self.gap("landscape:scope", "landscape", "MFL&rsquo;s season totals now include playoff weeks; seeds are a "
+                             "regular-season ranking, so this table&rsquo;s order check does not apply.")
+        if open_ties:
+            body += self.gap("landscape:h2h", "landscape", "No settled tiebreak decides %s; the order there is not final. "
+                             "Check it by hand." % e("; ".join(open_ties)))
         if site != order:
             body += self.gap("landscape:site-order", "landscape", "The league standings page currently shows a different "
                              "order (%s) from the league&rsquo;s seeding rule used here (%s). Do not publish until they match."
@@ -439,8 +450,9 @@ class Issue:
         table = ('<div class="tablebox"><table><thead><tr><th>Franchise</th><th>Division</th><th>Record</th>'
                  '<th>Week %d all-play</th><th>All-play</th><th>Points for</th></tr></thead><tbody>%s</tbody></table></div>'
                  '<p class="caption">In the same order as the league standings page: the current playoff field first '
-                 '(division leaders take the top two places), then everyone else; every place goes by all-play percentage, '
-                 'then overall record, then points for, then head-to-head.</p>' % (self.week, "".join(rows)))
+                 '(the two division leaders with the best all-play percentage take the top two places), then everyone else. '
+                 'Wild cards go by all-play percentage, then points for, then head-to-head; places 3&ndash;6 by all-play '
+                 'percentage, then points for. Overall record is not a seeding tiebreaker.</p>' % (self.week, "".join(rows)))
         if bare:                                  # story format: (gap boxes, tables); no audit box when no preview was published
             return body, table + (self.prior_preview_audit() if self.T.get("t.grade.games") else "")
         audit = self.prior_preview_audit()

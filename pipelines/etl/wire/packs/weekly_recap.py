@@ -2358,8 +2358,9 @@ def build(pack_id):
 
     pack.table("t.standings", "Where everyone stands",
                std_cols, [_std_row(f) for f in ap_order],
-               note=("Division winners get in and take the top two seeds; every other seed goes by "
-                     "all-play percentage. Neither the Record column nor this order is the seeding order."))
+               note=("Division winners get in, and the two with the best all-play percentage take the top two "
+                     "seeds; wild cards and seeds 3-6 go by all-play percentage, then points for. Neither the "
+                     "Record column nor this order is the seeding order."))
 
     if is_season_finale and final_place:
         pack.table("t.final", "Final standings",
