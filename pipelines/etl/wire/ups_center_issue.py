@@ -421,6 +421,12 @@ class Issue:
         hawk = sorted(pool[2:], key=lambda f: (-ap(f), -ovr(f), -round(st[f]["pf"], 1), self.owner[f]))
         return L[:2] + mid + hawk, set(leaders), open_ties
 
+    def movement_note(self):
+        """Movement is measured only against a forecast simulated under the same seeding rules (Keith 2026-11-25, release
+        plan 3a). When last week's was not (ups_center_sources.load_forecast drops it), say so instead of a change."""
+        why = (self.ctx.get("forecast") or {}).get("movementWhy")
+        return (" No change since last week is given: %s, so the two aren&rsquo;t comparable." % e(why)) if why else ""
+
     def open_tie_note(self, sim):
         """The forecast's own count of simulated seasons where teams were level on every settled seeding tiebreak, and
         how it treated them (season_sim.py PENDING_TIE_HANDLING: equal chances, a forecast assumption Keith approved 2026-11-25;
@@ -630,8 +636,9 @@ class Issue:
                  '<p class="caption">Probabilities updated after Week %d (%s), %s simulated seasons. One team wins each division '
                  'in every simulated season; division odds and the league&rsquo;s title odds are rounded so each group '
                  'still adds up to the whole. A probability prints as certain only when the outcome is clinched or eliminated; a '
-                 'figure that would round to certain prints to two decimals, or as &lt;%s%%.%s</p>'
-                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs, floor, self.open_tie_note(sim)))
+                 'figure that would round to certain prints to two decimals, or as &lt;%s%%.%s%s</p>'
+                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs, floor, self.open_tie_note(sim),
+                    self.movement_note()))
         extra = "".join(self.gap(g, "odds", why) for g, why in problems)      # preview problems only, at this point
         return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; updated after Week %d</small>"
                             % self.week, self.desk(lead, mb=True) + extra + table)

@@ -422,6 +422,43 @@ check("open simulated ties -> the caption counts them and calls equal chances a 
       "In 63 of the simulated seasons" in _rt["html"] and "equal chances. That is a forecast assumption, not a league tiebreak" in _rt["html"]
       and "rule for these ties is still pending" in _rt["html"]
       and _rt["claims"].get("odds:pendingTieSeasons", {}).get("value") == 63, _rt["claims"].get("odds:pendingTieSeasons"))
+
+# Movement only between forecasts simulated under the same seeding rules (Keith 2026-11-25, release plan 3a):
+# ups_center_sources.load_forecast keeps last week's odds and the preseason odds as a baseline only under the same rule.
+import ups_center_sources as SRCS                                         # noqa: E402
+def _simfile(week, rule, pre_rule="__same__"):
+    m = {} if rule is None else {"seedingRule": rule}
+    if rule is not None and pre_rule is not None:
+        m["preseasonSeedingRule"] = rule if pre_rule == "__same__" else pre_rule
+    return {"throughWeek": week, "runs": 10, "seed": 1, "generatedAtUtc": "2026-11-25T00:00:00Z", "model": m,
+            "teams": [{"franchiseId": "0001", "currentPlayoffOdds": 0.6, "currentByeOdds": 0.1, "currentDivisionOdds": 0.3,
+                       "currentTitleOdds": 0.05, "division": "00", "preseasonPlayoffOdds": 0.4, "preseasonTitleOdds": 0.02}]}
+def _load(cur, prev):
+    d = tempfile.mkdtemp()
+    json.dump(cur, open(os.path.join(d, "season_sim_2026_live_wk11.json"), "w"))
+    if prev is not None:
+        json.dump(prev, open(os.path.join(d, "season_sim_2026_live_wk10.json"), "w"))
+    return SRCS.load_forecast(2026, 11, d)
+_R = SS.SEEDING_RULE
+_same = _load(_simfile(11, _R), _simfile(10, _R))
+check("movement baseline, same rule: last week's odds and the preseason odds are kept",
+      (_same["prevSim"] or {}).get("teams", {}).get("0001", {}).get("po") == 0.6 and _same["movementWhy"] is None
+      and _same["sim"]["teams"]["0001"]["prePo"] == 0.4, (_same["prevSim"], _same["movementWhy"]))
+_old = _load(_simfile(11, _R, pre_rule=None), _simfile(10, None))
+check("movement baseline, earlier rule (no model.seedingRule last week; preseason run without a rule): both dropped, and why",
+      _old["prevSim"] is None and _old["movementWhy"] == "the Week 10 forecast was simulated under the earlier seeding rules"
+      and _old["sim"]["teams"]["0001"]["prePo"] is None and _old["sim"]["teams"]["0001"]["preTitle"] is None, (_old["prevSim"], _old["movementWhy"]))
+_diff = _load(_simfile(11, _R, pre_rule="other"), _simfile(10, "other"))
+check("movement baseline, a different rule: dropped, and why",
+      _diff["prevSim"] is None and _diff["movementWhy"] == "the Week 10 forecast was simulated under different seeding rules"
+      and _diff["sim"]["teams"]["0001"]["prePo"] is None, _diff["movementWhy"])
+_none = _load(_simfile(11, _R), None)
+check("movement baseline, no earlier forecast: no baseline and nothing to explain", _none["prevSim"] is None and _none["movementWhy"] is None)
+_mv = forecast(); _mv["movementWhy"] = "the Week 3 forecast was simulated under the earlier seeding rules"
+_rm, _vm, _ = build(with_fc(_mv))
+check("the odds caption says why no change since last week is given (rule mismatch)",
+      "No change since last week is given: the Week 3 forecast was simulated under the earlier seeding rules, so the two aren&rsquo;t comparable." in _rm["html"])
+check("...and says nothing when the baseline is comparable", "No change since last week" not in r1["html"])
 odds_claims = {k: x for k, x in r1["claims"].items() if k.startswith("odds:")}
 check("a fresh forecast renders the Playoff Picture: 12 teams x playoffs, bye, division, title, all validated",
       v1["ok"] and not any(g["id"].startswith("odds:") for g in r1["gaps"]) and len(odds_claims) == 50, (v1["errors"], len(odds_claims)))
