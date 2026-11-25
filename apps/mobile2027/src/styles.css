@@ -445,3 +445,122 @@ button.btnrow{cursor:pointer}
 /* --- r6i: the Breakdown opened inside a main card: no card-in-a-card around the season stats (the card already frames it) --- */
 .pfbd .bdr{border:0;background:transparent;padding:0 0 2px;border-radius:0}
 /* ===== end R6 PERFORMANCE ===== */
+
+/* League › Standings (#1503). Same tokens as every other screen; numbers are right-aligned tabular figures; nothing smaller than 12px. */
+.lghelp{display:flex;justify-content:flex-end;margin:-4px 0 -4px}
+.lglink{border:0;background:transparent;color:var(--ac);font-size:13px;min-height:44px;padding:0;text-align:left}
+.lgtw{overflow-x:auto;margin:0 -4px}
+.lgt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.lgt th{font-size:12px;font-weight:600;color:var(--mu);text-align:right;padding:4px 4px 6px;border-bottom:1px solid var(--bd);white-space:nowrap}
+.lgt td{padding:6px 4px;min-height:44px;height:44px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap;font-size:13px;vertical-align:middle}
+.lgt tbody tr:last-child td{border-bottom:0}
+.lgt th.t,.lgt td.t{text-align:left}
+.lgt td.t{white-space:normal;line-height:1.25;width:100%}
+.lgt td.rk{color:var(--mu);font-size:12px;text-align:left}
+.lgtn{border:0;background:transparent;color:var(--tx);font-weight:600;padding:0;text-align:left;min-height:32px;overflow-wrap:anywhere}
+.lgsub{display:block;font-weight:400;color:var(--mu);font-size:12px}
+.lgtag{display:inline-block;font-size:12px;border:1px solid var(--bd);border-radius:6px;padding:0 5px;color:var(--mu);font-weight:400}
+.lgtag.cl{background:var(--ok);border-color:var(--ok);color:var(--on)}
+.lgt tr.lgcut td{height:auto;min-height:0;padding:4px;border-bottom:2px dashed var(--ac);font-size:12px;color:var(--ac);text-align:left;font-weight:600}
+.lgwhy{display:block;border:0;background:transparent;color:var(--ac);font-size:12px;padding:2px 0;text-align:left;min-height:32px}
+.lgt tr.lgsubrow td{height:auto;min-height:0;padding:2px 4px 8px;text-align:left;white-space:normal;font-size:12px;color:var(--mu)}
+.lgt tr.lgsubrow b{color:var(--tx)}
+.lgwhyx{background:var(--s2);border-radius:8px;padding:6px 8px}
+.lgtie{width:100%;border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabular-nums}
+.lgtie th,.lgtie td{font-size:12px;padding:3px 2px;border-bottom:1px solid var(--bd);white-space:normal;overflow-wrap:anywhere;text-align:right;color:var(--tx)}
+.lgtie th{color:var(--mu);font-weight:600}
+.lgtie th.t,.lgtie td.t{text-align:left;width:32%}
+.lgnote{font-size:12px;border-left:3px solid var(--wn);padding:4px 8px;background:var(--s2);border-radius:4px;margin-top:6px}
+.lgn{font-size:12px;color:var(--mu);margin:6px 0 0}
+.lgtg{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;min-height:44px;border:0;border-top:1px solid var(--bd);background:transparent;padding:0;font-weight:600;font-size:14px;text-align:left}
+.lgtg.sm{font-weight:400;font-size:13px;border-top:0;min-height:40px}
+.lgtg .go,.lgbrow .go{font-size:12px;color:var(--ac);font-weight:400;flex:0 0 auto}
+.lgxb{display:flex;flex-direction:column;gap:6px;font-size:13px;padding:2px 0 6px}
+.lgl{font-size:13px}
+.lgser{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--mu);padding-left:8px}
+.lgrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.lgseg{min-width:0}
+.lgseg button{min-width:72px}
+.lgseg button[aria-disabled="true"]{opacity:.5;cursor:default}
+.lgseg.sm button{min-width:0;font-size:12px;min-height:40px}
+.lgscope{font-size:12px;color:var(--mu);margin:6px 0 2px}
+.lgx{min-width:40px;min-height:40px;border:1px solid var(--bd);border-radius:8px;background:transparent;color:var(--ac);font-size:16px;line-height:1;padding:0}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.lgwkc{display:flex;gap:6px;overflow-x:auto;padding:6px 0 4px;align-items:center}
+.lgwkc button{flex:0 0 auto;min-width:40px;min-height:40px;border:1px solid var(--bd);background:var(--sf);border-radius:8px;font-size:13px}
+.lgwkc button[aria-pressed="true"]{background:var(--ac);color:var(--on);border-color:var(--ac);font-weight:700}
+.lgwkc button[aria-disabled="true"]{color:var(--mu);opacity:.5;cursor:default}
+.lglab{flex:0 0 auto;font-size:12px;color:var(--mu);padding:0 2px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+.lgsum{font-size:13px;display:flex;flex-direction:column;gap:2px;margin:4px 0}
+.lgnarrow{display:none}
+@media (max-width:360px){.lgwt .lgwide{display:none}.lgnarrow{display:block}}
+.lgkv{display:grid;grid-template-columns:1fr auto auto;gap:0 12px;font-size:13px;font-variant-numeric:tabular-nums;align-items:center}
+.lgkv>div{min-height:36px;display:flex;align-items:center;border-bottom:1px solid var(--bd)}
+.lgkv>div.h{font-size:12px;color:var(--mu);font-weight:600;min-height:28px}
+.lgkv>div.n{justify-content:flex-end}
+.lgcounts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.lgcounts div{flex:1 1 0;min-width:84px;background:var(--s2);border-radius:10px;padding:8px;text-align:center}
+.lgcounts b{display:block;font-size:20px}
+.lgcounts span{font-size:12px;color:var(--mu)}
+.lgbar{display:flex;align-items:center;gap:6px;font-size:12px;font-variant-numeric:tabular-nums;min-height:28px}
+.lgbw{flex:0 0 40px}
+.lgb{display:block;height:8px;border-radius:4px;background:var(--ac);flex:0 0 auto}
+.lgbv{margin-left:auto;text-align:right}
+.lgb.w1{width:2%}.lgb.w2{width:4%}.lgb.w3{width:6%}.lgb.w4{width:8%}.lgb.w5{width:10%}.lgb.w6{width:12%}.lgb.w7{width:14%}.lgb.w8{width:16%}.lgb.w9{width:18%}.lgb.w10{width:20%}
+.lgb.w11{width:22%}.lgb.w12{width:24%}.lgb.w13{width:26%}.lgb.w14{width:28%}.lgb.w15{width:30%}.lgb.w16{width:32%}.lgb.w17{width:34%}.lgb.w18{width:36%}.lgb.w19{width:38%}.lgb.w20{width:40%}
+.lgbrow{display:grid;grid-template-columns:1fr 64px 48px 40px;align-items:center;width:100%;min-height:44px;font-variant-numeric:tabular-nums;font-size:14px;border:0;border-bottom:1px solid var(--bd);background:transparent;padding:0;text-align:left}
+.lgbrow.h{font-size:12px;color:var(--mu);font-weight:600;min-height:28px}
+.lgbrow .n{text-align:right}
+.lgpl{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0 3px 10px;color:var(--mu)}
+.lgpl b{color:var(--tx);font-weight:400}
+.lgnw{white-space:nowrap}
+
+/* Standings presentation pass (#1503, review of ff3dc709) */
+.lgtn{overflow-wrap:normal;word-break:normal}
+@media (max-width:360px){.lgwide{display:none}.lgnarrow{display:block}}
+/* the selected team (Team's chosen team) */
+.lgt tr.lgme td,.lgcr.lgme{background:var(--s2)}
+.lgt tr.lgme td:first-child,.lgcr.lgme{box-shadow:inset 3px 0 0 var(--ac)}
+/* the bye line after seed 2: same family as the playoff line, quieter */
+.lgt tr.lgcut.lgbye td{border-bottom:1px dashed var(--ac);font-weight:600}
+/* chevrons instead of Show/Hide: the whole row is the button; the chevron turns when open */
+.lgchev{flex:0 0 auto;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;color:var(--ac);border-left:1px solid var(--bd);margin-left:8px;padding-left:6px;box-sizing:content-box}
+.lgchev::before{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
+[aria-expanded="true"]>.lgchev::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.lgchev::before{transition:none}}
+.lgbrow{grid-template-columns:1fr 64px 48px 36px}
+.lgbrow .lgchev{justify-self:end}
+/* Scoring controls: one full-width row each */
+.lgctl{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.seg.lgfull{width:100%}
+.seg.lgfull button{flex:1 1 auto;white-space:nowrap;padding:0 6px}
+.seg.lgsmseg button{min-height:40px;font-size:12px}
+.seg.lgfull button[aria-disabled="true"]{opacity:.5;cursor:default}
+@media (max-width:360px){.seg.lgviews button{font-size:12px;padding:0 4px}}
+/* Contributions rows: value leads, rank subordinate; at 320 px the name has its own line */
+.lgcg{display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.lgcr{display:grid;grid-template-columns:minmax(0,1fr) 64px 56px 56px 44px;align-items:center;column-gap:4px;min-height:52px;border-bottom:1px solid var(--bd);padding:4px 2px}
+.lgcr.h{min-height:28px;font-size:12px;color:var(--mu);font-weight:600}
+.lgcr>span{text-align:right}
+.lgcr>span.t{text-align:left;min-width:0}
+.lgcr .lgv{display:block;font-size:14px;font-weight:600}
+.lgcr .lgrk{display:block;font-size:12px;color:var(--mu)}
+@media (max-width:360px){.lgcr{grid-template-columns:1fr 1fr 1fr 44px;row-gap:2px}.lgcr>span.t{grid-column:1/-1}.lgcr.h>span.t{display:none}.lgcr>span:not(.t){text-align:left}.lgcr>span:last-child{text-align:right}}
+/* Contributions: the last cell opens the team's points by position or lineup slot (a bordered 44 px target, not a bare "+") */
+.lgcgo{display:inline-flex;align-items:center;justify-content:center;width:40px;min-height:44px;padding:0;border:1px solid var(--bd);border-radius:8px;background:transparent;color:var(--ac)}
+.lgcgo .lgchev{border-left:0;margin-left:0;padding-left:0}
+.lggo{color:var(--ac)}
+/* Team detail: one subtle full-row divider per row, not a line under every cell */
+.lgkv{gap:0}
+.lgkv>div{border-bottom:1px solid var(--bd);border-bottom-color:color-mix(in srgb,var(--bd) 55%,transparent)}
+.lgkv>div.n{padding-left:12px}
+/* Divisions head-to-head: team | record | team | chevron, names wrap at spaces */
+.lgpair{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-height:44px;border:0;border-bottom:1px solid var(--bd);background:transparent;padding:4px 0;font-size:13px;text-align:left}
+.lgpair .lgpb{text-align:right}
+.lgpair .lgprec{font-variant-numeric:tabular-nums;font-size:14px;padding:0 4px}
+.lgser .lgsr{display:grid;grid-template-columns:1fr 56px 12px 56px;gap:4px;font-variant-numeric:tabular-nums}
+.lgser .lgsr .n,.lgser .lgsr span:last-child{text-align:right}
+.lgser .lgsr span:nth-child(3){text-align:center}
+/* sheets: sections keep their height (the breakdown switch was squeezed away) */
+.sheet.lgsh>*{flex-shrink:0}
+.sheet.lgsh .seg{margin:2px 0}

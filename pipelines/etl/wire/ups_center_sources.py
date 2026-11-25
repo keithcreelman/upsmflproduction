@@ -154,17 +154,34 @@ def load_forecast(season, week, data_dir):
     if os.path.exists(sim_p):
         s = json.load(open(sim_p, encoding="utf-8"))
         out["sim"] = {"throughWeek": s.get("throughWeek"), "runs": s.get("runs"), "seed": s.get("seed"),
-                      "generatedAtUtc": s.get("generatedAtUtc"),
+                      "generatedAtUtc": s.get("generatedAtUtc"), "seedingRule": (s.get("model") or {}).get("seedingRule"),
+                      "pendingTieSeasons": (s.get("model") or {}).get("pendingTieSeasons"),
+                      "preseasonSeedingRule": (s.get("model") or {}).get("preseasonSeedingRule"),
                       "teams": {t["franchiseId"]: {"po": t["currentPlayoffOdds"], "bye": t["currentByeOdds"],
                                                    "div": t["currentDivisionOdds"], "title": t["currentTitleOdds"],
                                                    "division": t["division"], "prePo": t.get("preseasonPlayoffOdds"),
                                                    "preTitle": t.get("preseasonTitleOdds"),
                                                    "slot": (((s.get("standingsForecast") or {}).get("teams") or {}).get(t["franchiseId"]) or {}).get("slot")}
                                            for t in s["teams"]}}
+    # Movement only between forecasts simulated under the same seeding rules (Keith 2026-11-25, release plan 3a): last
+    # week's odds and the preseason odds are a baseline only when their model.seedingRule equals this forecast's. Otherwise
+    # they are dropped and out["movementWhy"] says why (the odds caption prints it), so no "moved N points" crosses a rule change.
+    rule = (out["sim"] or {}).get("seedingRule")
+    if out["sim"] and not (rule and out["sim"].get("preseasonSeedingRule") == rule):
+        for t in out["sim"]["teams"].values():
+            t["prePo"] = None
+            t["preTitle"] = None
     prev_sim = os.path.join(data_dir, "season_sim_%d_live_wk%02d.json" % (season, week - 1))
     out["prevSim"] = None
-    if week > 1 and os.path.exists(prev_sim):
-        q0 = json.load(open(prev_sim, encoding="utf-8"))
+    out["movementWhy"] = None
+    q0 = json.load(open(prev_sim, encoding="utf-8")) if week > 1 and os.path.exists(prev_sim) else None
+    if q0 is not None:
+        prev_rule = (q0.get("model") or {}).get("seedingRule")
+        if not (rule and prev_rule == rule):
+            out["movementWhy"] = ("the Week %d forecast was simulated under %s seeding rules"
+                                  % (week - 1, "the earlier" if not prev_rule else "different"))
+            q0 = None
+    if q0 is not None:
         out["prevSim"] = {"throughWeek": q0.get("throughWeek"), "teams": {t["franchiseId"]: {"po": t["currentPlayoffOdds"], "title": t["currentTitleOdds"]}
                                                                       for t in q0["teams"]}}
     if os.path.exists(prev_p):
@@ -392,6 +409,9 @@ def gather(season, week, now=None, chat_since=None, pack=None, data_dir=None, hi
     ctx["site"]["standings"] = [{"franchise_id": r["franchise_id"], "owner_name": r["owner_name"],
                                  "is_division_leader": bool(r.get("is_division_leader")),
                                  "playoff_seed": r.get("playoff_seed")} for r in api.get("rows", [])]
+    _rs = api.get("regular_season") or {}
+    ctx["site"]["regular_season"] = {"through_week": _rs.get("through_week"), "last_regular_season_week": _rs.get("last_regular_season_week"),
+                                     "unresolved": _rs.get("unresolved") or []}
     # clinched / eliminated, from the league's deterministic engine (site/shared/standings_clinch.js). {} flags = it could not say, and
     # then no probability prints as 100% or 0% (ups_center_prob). Full build only: the probe gather skips it.
     if history:

@@ -1,4 +1,4 @@
 {
-  "build": "2026.11.14.2",
-  "label": "Expected return date moved into the player popup and the IR page."
+  "build": "2026.11.25.1",
+  "label": "Standings: playoff seeds follow the corrected tiebreakers (wild cards and seeds 3–6 by All-Play %, then Points For)."
 }

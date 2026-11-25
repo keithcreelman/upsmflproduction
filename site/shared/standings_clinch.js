@@ -23,8 +23,12 @@
    agree. The walk gives the exact-seed locks, and refuses (no lock) when the state is too open to finish within
    `maxVisits`.
 
-   analyze(input) -> { status, reason, byFid: { <fid>: { x, y, z, e, lock, label } }, walk: { complete, visits },
-                       disagreements: [...] }
+   analyze(input) -> { status, reason, byFid: { <fid>: { x, y, z, e, lock, label, divOut, byeOut } },
+                       walk: { complete, visits }, disagreements: [...] }
+     divOut  the division title is out of reach in every finish (needs the schedule, like Y)
+     byeOut  no first-round bye in any finish (it can't win its division, or `byes` other divisions are sure to
+             produce a winner strictly ahead of it on All-Play). Neither is a letter; they let odds_display.js show
+             0% for that one outcome. Being out of the wild-card race alone sets neither, and never E.
    input: {
      teams:      [{ fid, division, h2h: {w,l,t}, ap: {w,l,t} }]   current records (regular season)
      h2hGames:   { <fid>: regular-season H2H games in the season } | null    (null = no schedule: no division claims)
@@ -88,7 +92,7 @@
 
     // ── fast path (closed forms) ──
     var fast = T.map(function (t, i) {
-      var A = i, f = { x: false, y: false, z: false, e: false };
+      var A = i, f = { x: false, y: false, z: false, e: false, divOut: false, byeOut: false };
       f.y = surelyWins[A];
       // z: a division winner, and at most (byes-1) other divisions could produce a winner at or above A's All-Play
       var threats = 0;
@@ -118,12 +122,22 @@
         });
         f.e = lb >= wcN;
       }
+      // divOut / byeOut. These closed forms are exact against the walk below: a team can be placed right after the
+      // teams surely ahead of it, so it misses every bye only when it can't win its division or `byes` other divisions
+      // have every candidate winner surely ahead.
+      f.divOut = !canWin[A];
+      var winnersAhead = 0;
+      divs.forEach(function (members, d) {
+        if (d === t.div || !cand[d].length) return;
+        if (cand[d].every(function (j) { return apAhead(j, A); })) winnersAhead++;
+      });
+      f.byeOut = f.divOut || winnersAhead >= byes;
       return f;
     });
 
     // ── walk: every winner assignment x every All-Play order the intervals allow ──
     var dom = T.map(function (_t, i) { return T.map(function (_u, j) { return i !== j && apAhead(i, j); }); });
-    var seen = T.map(function () { return { mask: 0, dwAlways: true, alive: true }; });
+    var seen = T.map(function () { return { mask: 0, dwAlways: true, dwEver: false, alive: true }; });
     var OUT = 1 << 7, BYE_BITS = 0;
     for (var by = 1; by <= byes; by++) BYE_BITS |= 1 << by;
     var assigns = [[]];
@@ -156,7 +170,7 @@
         for (var m = 0; m < n; m++) {
           var sd = seen[m];
           sd.mask |= seedOf[m] ? (1 << seedOf[m]) : OUT;
-          if (!isDW[m]) sd.dwAlways = false;
+          if (!isDW[m]) sd.dwAlways = false; else sd.dwEver = true;
           if (sd.alive) {
             var bits = sd.mask, nb = 0;
             for (var b = 0; b < 8; b++) if (bits & (1 << b)) nb++;
@@ -211,8 +225,19 @@
         });
         r.lock = wv.lock;
       }
+      // divOut / byeOut come from the closed forms; when the walk saw EVERY finish (it ran, wasn't cut off by its
+      // budget and didn't stop early once no letter could hold), it must agree, or nothing is claimed
+      r.divOut = f.divOut; r.byeOut = f.byeOut;
+      if (w && !done) {
+        var wo = { divOut: !sd.dwEver, byeOut: !(sd.mask & BYE_BITS) };
+        ['divOut', 'byeOut'].forEach(function (k) {
+          if (f[k] !== wo[k]) out.disagreements.push({ fid: t.fid, letter: k, fast: f[k], walk: wo[k] });
+          r[k] = f[k] && wo[k];
+        });
+      }
       // implications keep the hierarchy honest
       if (r.lock) { r.x = true; }
+      if (r.e) { r.divOut = true; r.byeOut = true; }
       r.label = r.lock ? String(r.lock) : r.z ? 'Z' : r.y ? 'Y' : r.x ? 'X' : r.e ? 'E' : null;
       out.byFid[t.fid] = r;
     });

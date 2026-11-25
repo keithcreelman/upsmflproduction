@@ -11,11 +11,12 @@
     req ? require("./sample.js") : root.UPS2027.sample,
     req ? require("./roster.js") : root.UPS2027.roster,
     req ? require("./tabviews.js") : root.UPS2027.tabviews,
-    req ? require("./coverage.js") : root.UPS2027.coverage
+    req ? require("./coverage.js") : root.UPS2027.coverage,
+    req ? require("./standview.js") : root.UPS2027.standview
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.views = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R, TV, COV) {
+})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R, TV, COV, SV) {
   "use strict";
 
   var esc = F.esc, money = F.money, commonCode = F.commonCode;
@@ -45,8 +46,9 @@
 
   // R8: the heading and the freshness line are the first thing INSIDE the scrolling area (#scroll), so they scroll away; the Team tabs that follow
   // them stick to its top (.tabs.stk), and the marker above it stays one line.
-  function header(title, asof) {
-    return '<div class="hdw"><div class="hd"><h1>' + esc(title) + '</h1><button class="ib" data-act="about" aria-label="About this preview and display settings">ⓘ</button></div>' + (asof ? '<div class="asof">' + asof + "</div>" : "") + "</div>";
+  // `help` (Standings): the heading's ⓘ opens that screen's Help, which links on to About
+  function header(title, asof, help) {
+    return '<div class="hdw"><div class="hd"><h1>' + esc(title) + "</h1>" + (help ? '<button class="ib" data-act="help" aria-label="Help: what these mean, and About this preview">ⓘ</button>' : '<button class="ib" data-act="about" aria-label="About this preview and display settings">ⓘ</button>') + "</div>" + (asof ? '<div class="asof">' + asof + "</div>" : "") + "</div>";
   }
 
   function asOfLine(S) {
@@ -465,6 +467,12 @@
   // R8: one scrolling area (#scroll) holds the heading, the sticky tabs and the screen body (#screen), so the heading scrolls away under the marker.
   function scroller(top, body) { return '<div id="scroll" class="scroll">' + top + '<div id="screen">' + body + "</div></div>"; }
 
+  // League › Standings (#1503): Race, Divisions and Scoring (lib/standview.js draws them from the model in S.lgd.model)
+  function leagueScreen(S) {
+    if (S.load.core === "error" || (!S.model && S.load.core !== "loading")) return placeholderScreen("league");
+    return scroller(header("Standings", SV.asOf(S), true) + SV.tabs(S), SV.body(S));
+  }
+
   function placeholderScreen(id) {
     var name = NAVS.filter(function (n) { return n[0] === id; })[0][1];
     return scroller(header(name, ""), later(name, LATER[id]));
@@ -698,10 +706,13 @@
 
   function app(S) {
     var on = sampleOn(S);
-    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : placeholderScreen(S.tab);
+    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : S.tab === "league" && SV ? leagueScreen(S) : placeholderScreen(S.tab);
     var layer = "";
     if (S.sheet === "about") layer = aboutSheet(S);
     else if (!on && S.profile && S.model) layer = profile(S);
+    else if (!on && S.tab === "league" && SV && S.sheet === "lteam") layer = SV.teamSheet(S);
+    else if (!on && S.tab === "league" && SV && S.sheet === "lbrk") layer = SV.brkSheet(S);
+    else if (!on && S.tab === "league" && SV && S.sheet === "help") layer = SV.helpSheet(S);
     else if (!on && S.sheet === "teams" && S.model) layer = teamSheet(S);
     else if (!on && S.sheet === "weeks" && S.model) layer = weekSheet(S);
     else if (!on && S.sheet === "help" && S.model) layer = helpSheet(S);

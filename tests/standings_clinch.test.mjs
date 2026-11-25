@@ -99,6 +99,35 @@ test("E needs BOTH: no division title possible and two non-winners already surel
   t.ok(!r.byFid[f(9)].e, "can still win its division: never E, however low its All-Play");
 });
 
+test("divOut / byeOut: a team out of its division race has no bye and no division chance, but is NOT eliminated while a wild card is open", () => {
+  const over = {};
+  for (let i = 1; i <= 12; i++) over[i] = { ap: { w: 66, l: 77, t: 0 }, h2h: { w: 13, l: 13, t: 0 } };
+  over[1].h2h = { w: 22, l: 4, t: 0 };                                   // division A: team 1 clinched (team 5 can reach 15 at most)
+  over[5] = { ap: { w: 100, l: 43, t: 0 }, h2h: { w: 13, l: 13, t: 0 } }; // team 5: best All-Play in the league, division gone
+  const r = analyze(league(over)), d5 = r.byFid[f(5)];
+  t.ok(d5.divOut && d5.byeOut, "team 5 can't win division A, so no title and no bye");
+  t.ok(!d5.e, "but it can still take a wild card: not E");
+  t.ok(!r.byFid[f(1)].divOut && !r.byFid[f(1)].byeOut, "team 1 has the division and its bye is open");
+  for (const i of [2, 3, 4, 6, 7, 8, 9, 10, 11, 12]) t.ok(!r.byFid[f(i)].byeOut || r.byFid[f(i)].divOut, "a bye is out only through the division or two winners surely ahead: team " + i);
+});
+
+test("byeOut through All-Play alone: two other divisions whose every possible winner is surely ahead", () => {
+  const over = {};
+  for (let i = 1; i <= 12; i++) over[i] = { ap: { w: 60, l: 83, t: 0 }, h2h: { w: 13, l: 13, t: 0 } };
+  for (const i of [2, 6, 10, 3, 7, 11]) over[i].ap = { w: 110, l: 33, t: 0 };   // divisions B and C: everyone far ahead of team 1
+  const r = analyze(league(over));
+  t.ok(r.byFid[f(1)].byeOut && !r.byFid[f(1)].divOut, "team 1 can still win division A, but two winners will finish ahead of it");
+  over[11].ap = { w: 60, l: 83, t: 0 };                                          // division C may now produce a winner level with team 1
+  t.ok(!analyze(league(over)).byFid[f(1)].byeOut, "one division sure to be ahead is not enough");
+});
+
+test("without a schedule no division claim: divOut is never set", () => {
+  const over = {};
+  for (let i = 1; i <= 12; i++) over[i] = { ap: spaced(i), h2h: i <= 4 ? { w: 24, l: 2, t: 0 } : { w: 6, l: 20, t: 0 } };
+  const r = analyze({ ...league(over), h2hGames: null });
+  for (let i = 1; i <= 12; i++) t.ok(!r.byFid[f(i)].divOut, "team " + i);
+});
+
 test("a division winner can be the 6th seed; wild cards cannot take byes", () => {
   const over = {};
   for (let i = 1; i <= 12; i++) over[i] = { ap: spaced(i), h2h: { w: 13, l: 13, t: 0 } };
@@ -176,7 +205,7 @@ const FORMATS = {
 };
 function fuzz(F, seed, trials, weeksLeftN, levels) {
   const R = rng(seed);
-  const tally = { states: 0, contradicted: 0, disagreements: 0, truth: { x: 0, y: 0, z: 0, e: 0, lock: 0 }, got: { x: 0, y: 0, z: 0, e: 0, lock: 0 } };
+  const tally = { states: 0, contradicted: 0, disagreements: 0, truth: { x: 0, y: 0, z: 0, e: 0, lock: 0, divOut: 0, byeOut: 0 }, got: { x: 0, y: 0, z: 0, e: 0, lock: 0, divOut: 0, byeOut: 0 } };
   for (let s = 0; s < trials; s++) {
     const past = 3 + Math.floor(R() * 8);
     const weeks = []; for (let w = 0; w < past + weeksLeftN; w++) weeks.push({ games: schedule(F, R) });
@@ -190,8 +219,9 @@ function fuzz(F, seed, trials, weeksLeftN, levels) {
       const r = res.byFid[String(tm)], seeds = [...reach[tm].seeds];
       const truth = { x: !reach[tm].seeds.has(OUT), y: reach[tm].dw.size === 1 && reach[tm].dw.has(true),
         z: !reach[tm].seeds.has(OUT) && seeds.every((v) => v >= 1 && v <= F.byes), e: seeds.length === 1 && seeds[0] === OUT,
-        lock: seeds.length === 1 && seeds[0] !== OUT ? seeds[0] : null };
-      for (const k of ["x", "y", "z", "e"]) { if (truth[k]) tally.truth[k]++; if (r[k]) tally.got[k]++; if (r[k] && !truth[k]) tally.contradicted++; }
+        lock: seeds.length === 1 && seeds[0] !== OUT ? seeds[0] : null,
+        divOut: reach[tm].dw.size === 1 && reach[tm].dw.has(false), byeOut: seeds.every((v) => !(v >= 1 && v <= F.byes)) };
+      for (const k of ["x", "y", "z", "e", "divOut", "byeOut"]) { if (truth[k]) tally.truth[k]++; if (r[k]) tally.got[k]++; if (r[k] && !truth[k]) tally.contradicted++; }
       if (truth.lock) tally.truth.lock++;
       if (r.lock) { tally.got.lock++; if (r.lock !== truth.lock) tally.contradicted++; }
     }
@@ -205,7 +235,8 @@ for (const [name, F] of Object.entries(FORMATS)) {
     t.equal(r.contradicted, 0, JSON.stringify(r));
     t.equal(r.disagreements, 0, "the closed forms and the walk agree");
     t.ok(r.got.x > 0 && r.got.y > 0 && r.got.e > 0 && r.got.z > 0 && r.got.lock > 0, "the run exercised every letter: " + JSON.stringify(r.got));
-    for (const k of ["x", "y", "z", "e", "lock"]) t.ok(r.got[k] <= r.truth[k], k + " published " + r.got[k] + " of " + r.truth[k] + " possible");
+    t.ok(r.got.divOut > 0 && r.got.byeOut > 0, "and both impossibility flags: " + JSON.stringify(r.got));
+    for (const k of ["x", "y", "z", "e", "lock", "divOut", "byeOut"]) t.ok(r.got[k] <= r.truth[k], k + " published " + r.got[k] + " of " + r.truth[k] + " possible");
   });
 }
 test("oracle, two weeks left (three score levels): 6 teams, 3 divisions of 2", () => {

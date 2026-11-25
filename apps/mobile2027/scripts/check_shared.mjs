@@ -23,7 +23,9 @@ import { DERIVED, LOCK, REPO, SHARED, SHARED_DIR, SRC, derivedOut, readLock, sca
 import { compareResolvers, loadResolver } from "./injury_equivalence.mjs";
 
 const require = createRequire(import.meta.url);
-const GLOBALS = { "contract_windows.js": "UPS_CONTRACT_WINDOWS", "taxi_rule.js": "UPS_TAXI_RULE" };
+const GLOBALS = { "contract_windows.js": "UPS_CONTRACT_WINDOWS", "taxi_rule.js": "UPS_TAXI_RULE",
+  // Standings (#1503); standings_clinch.js and odds_display.js are #1521's reviewed head (b5b02799)
+  "standings_race.js": "UPS_STANDINGS_RACE", "standings_clinch.js": "UPS_STANDINGS_CLINCH", "odds_display.js": "UPS_ODDS_DISPLAY" };
 
 // `opts` ({ sharedDir, lockPath, capMath, recording }) is only passed by tests, to stand in for the repository.
 export function checkShared(opts = {}) {

@@ -1,5 +1,7 @@
 # Q8 — Standings Page Sort: Recommendation & Decision-Needed
 
+> **Superseded 2026-11-25 (PR #1526 audit, Keith's ruling):** the seeding order quoted below (All-Play % → Overall → PF → H2H) had no league source. The playoff rules are now canon §F.1.2–§F.1.4: wild cards All-Play % → Points For → H2H; seeds 3–6 All-Play % → Points For; byes to the two division winners with the best All-Play %. This note is kept as a record.
+
 **Status:** ⏳ Awaiting Keith's call.
 **Tracker:** `docs/AUDIT_FOLLOWUP_TRACKERS.md` Q8 (added in PR #212).
 **Canon:** `docs/league_context_v1.md` §F.1 (playoff seeding rule) + §F.2 (DO NOT CONFLATE — division tiebreaker vs UPS playoff seeding).

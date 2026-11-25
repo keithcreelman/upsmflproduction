@@ -49,8 +49,10 @@
 
    SEEDING: this module never ranks, re-ranks or explains a seed by its
    own comparator. The worker seeds (worker/src/seeding.js — canon §F.1:
-   All-Play % → Overall → season Points For → head-to-head, Keith
-   2026-10-08) and says which step decided each team (row.seed_reason,
+   wild cards by All-Play % → season Points For → head-to-head; seeds 3–6
+   by All-Play % → season Points For; the byes to the two division winners
+   with the best All-Play %; no overall-record step anywhere, Keith
+   2026-11-25) and says which step decided each team (row.seed_reason,
    Keith 2026-10-09: "the client never recreates the ladder"). Seasons
    with recorded final standings (2010–2025) are labeled as recorded
    and make no ladder claim.
@@ -378,8 +380,8 @@
   // A SIGNED distance to the wild-card line, in All-Play wins (ties count half), for EVERY team -- division
   // winners included, so a seed won on a division title never hides how close the team is to the wild-card line.
   //   The question for team X: "if X had to earn a wild card, where would it stand?" The pool is every team
-  //   that isn't a division winner, plus X. Two wild cards qualify, ranked by the league ladder (canon F.1:
-  //   All-Play %, then overall win %, then Points For; head-to-head is not used here).
+  //   that isn't a division winner, plus X. Two wild cards qualify, ranked by the wild-card ladder (canon F.1.2:
+  //   All-Play %, then season Points For; head-to-head is not used here, so a tie that reaches it reads as level).
   //     X qualifies   -> margin = -(X's AP wins - the best team left out)       (negative: ahead by that many)
   //     X misses      ->  margin = (the last qualifier's AP wins - X's AP wins) (positive: behind by that many)
   //     0 = level on All-Play wins with the team at the line; side says which side of it the ladder puts X.
@@ -393,14 +395,13 @@
       var w = ap ? strictNum(ap.w) : NaN, t = ap ? strictNum(ap.t) : NaN, n = ap ? strictNum(ap.w) + strictNum(ap.l) + strictNum(ap.t) : NaN;
       var ok = isFiniteNum(w) && isFiniteNum(t) && isFiniteNum(n) && n > 0;
       return ok ? { fid: pad4(r.franchise_id), dw: !!r.is_division_leader, apw: w + 0.5 * t, appct: (w + 0.5 * t) / n,
-        ovr: recd && isFiniteNum(strictNum(recd.pct)) ? strictNum(recd.pct) : 0,
         pf: isFiniteNum(strictNum(rs.points_for)) ? strictNum(rs.points_for) : 0 } : null;
     });
     if (!list.length || info.some(function (x) { return !x; })) {
       list.forEach(function (r) { out[pad4(r.franchise_id)] = null; });
       return out;
     }
-    function ladder(a, b) { return (b.appct - a.appct) || (b.ovr - a.ovr) || (b.pf - a.pf) || (a.fid < b.fid ? -1 : 1); }
+    function ladder(a, b) { return (b.appct - a.appct) || (Math.round(b.pf * 10) - Math.round(a.pf * 10)) || (a.fid < b.fid ? -1 : 1); }
     var nonDw = info.filter(function (x) { return !x.dw; });
     info.forEach(function (x) {
       var pool = nonDw.filter(function (y) { return y.fid !== x.fid; }).concat([x]).sort(ladder);
@@ -794,32 +795,46 @@
   // ── 7. Seed explanation ─────────────────────────────────────────────
   // Words only: the WORKER decided the seed and says which step of its
   // ladder separated this team from its neighbor (row.seed_reason —
-  // worker/src/seeding.js seedLadderSteps). Nothing here compares two teams.
+  // worker/src/seeding.js playoffLadders / hawkTuahLadder). Nothing here compares two teams.
   var STEP_LABEL = {
     all_play: 'All-Play %',
-    // Owner-facing words (#1329): canon §F.1 calls the second step "Overall"; the screens call that record "H2H".
-    overall: 'H2H record',
     points_for: 'season Points For',
     head_to_head: 'the H2H games between them',
     name: 'the name-order fallback after every league step tied — not a league rule',
     franchise_id: 'the franchise-id fallback after every league step tied — not a league rule',
-    head_to_head_unavailable: 'a tie that reached head-to-head, which can’t be shown because the regular-season games couldn’t be read'
+    head_to_head_unavailable: 'a tie that reached head-to-head, which can’t be shown because the regular-season games couldn’t be read',
+    // The Hawk Tuah side only (vs_above.pool "hawk_tuah"): its order still uses the overall record, which the screens
+    // call "H2H record" (#1329). It is not a playoff seeding step.
+    overall: 'H2H record',
+    unresolved: 'nothing yet: level on every tiebreak the league has settled for this place, so the order shown is not final'
+  };
+  // What would decide an unresolved tie (seed_reason.pending / vs_above.pending, worker/src/seeding.js LADDERS).
+  var PENDING_WORDS = {
+    pending_ruling: 'the next tiebreak for this place has not been ruled on yet',
+    power_rank_coin_flip: 'the league’s next steps are Power Rank, then a coin flip, which this site can’t apply',
+    head_to_head_3plus: 'head-to-head among three or more tied teams has no settled method'
   };
   var POOL_LABEL = {
     bye: 'the bye pool (the two best division winners)',
     seeds3to6: 'the seeds 3–6 pool',
     outside: 'the race for the last wild card'
   };
-  // The ladder steps that came BEFORE a deciding step were level — said in brackets so "behind on Overall record"
-  // isn't read as "worse on All-Play %" (canon §F.1 order: All-Play % → Overall → Points For → head-to-head).
+  // The ladder steps that came BEFORE a deciding step were level — said in brackets so "behind on season Points
+  // For" isn't read as "worse on All-Play %" (canon §F.1.2-3: All-Play % → season Points For → head-to-head).
   var SAME_BEFORE = {
+    points_for: 'same All-Play %',
+    head_to_head: 'same All-Play % and season Points For'
+  };
+  // The Hawk Tuah side's order (H1–H6, unchanged by the 2026-11-25 correction): All-Play %, H2H record, Points For.
+  var SAME_BEFORE_HAWK = {
     overall: 'same All-Play %',
     points_for: 'same All-Play % and H2H record',
     head_to_head: 'same All-Play %, H2H record and season Points For'
   };
-  function stepPhrase(step) {
+  function stepPhrase(step, pool) {
     var label = STEP_LABEL[step] || step;
-    return label + (SAME_BEFORE[step] ? ' (' + SAME_BEFORE[step] + ')' : '');
+    var same = (pool === 'hawk_tuah' ? SAME_BEFORE_HAWK : SAME_BEFORE)[step];
+    return label + (same ? ' (' + same + ')' : '');
   }
   // Plain words for the worker's regular_season.problems codes (worker/src/standings_truth.js), for
   // "Seeds unavailable: <reason>".
@@ -881,13 +896,16 @@
     var above = (reason.vs_above && typeof reason.vs_above === 'object' && hasId(reason.vs_above.franchise_id)) ? reason.vs_above : null;
     var aboveFid = above ? pad4(above.franchise_id) : null;
     var aboveName = above ? (above.name || 'Franchise ' + aboveFid) : null;
-    var vsAbove = above ? { franchise_id: aboveFid, name: aboveName, step: above.step || null } : null;
+    var vsAbove = above ? { franchise_id: aboveFid, name: aboveName, step: above.step || null, pending: above.pending || null, pool: above.pool || null } : null;
     // why this team is BELOW the team directly above it, in the worker's own step
     function belowSentence(lead) {
       if (above.step === 'bye_requires_division_title') return lead + aboveName + '. A first-round bye needs a division title.';
       if (above.step === 'division_winner_in_field') return lead + aboveName + '. ' + aboveName + ' is in the field as a division winner.';
       if (!above.step) return lead + aboveName + '.';
-      return lead + aboveName + ' on ' + stepPhrase(above.step) + '.';
+      if (above.step === 'unresolved') return lead + aboveName + ' for now: the two are level on every settled tiebreak, so this order is not final' +
+        (PENDING_WORDS[above.pending] ? ' (' + PENDING_WORDS[above.pending] + ').' : '.');
+      // a Hawk Tuah tiebreak (not plain All-Play) is named as that side's own order, never as a playoff step
+      return lead + aboveName + (above.pool === 'hawk_tuah' && above.step !== 'all_play' ? ' in the Hawk Tuah order' : '') + ' on ' + stepPhrase(above.step, above.pool) + '.';
     }
     if (!seeded) {
       var list = (Array.isArray(rows) ? rows : []).filter(Boolean);
@@ -895,7 +913,10 @@
       // gb is All-Play wins behind the last wild card (named next); never negative, never against a division winner.
       var lead = (gb == null || gb < 0) ? 'Outside the top six — AP games back unavailable'
         : 'Outside the top six — ' + gb + ' AP win' + (gb === 1 ? '' : 's') + ' back';
-      var text = lead + (rival && stepText ? '; behind ' + rival + ' (the last wild card) on ' + stepText : '') + '.';
+      var text = lead + (rival && reason.step === 'unresolved'
+        ? '; level with ' + rival + ' (the last wild card) on every settled tiebreak, so who holds it is not final' +
+          (PENDING_WORDS[reason.pending] ? ' (' + PENDING_WORDS[reason.pending] + ')' : '')
+        : rival && stepText ? '; behind ' + rival + ' (the last wild card) on ' + stepText : '') + '.';
       // The team directly above, when it isn't the last wild card already named: a division winner in the field
       // ahead of a better team is structural; another team outside the field is the next one to pass.
       if (above && aboveFid !== pad4(reason.rival_franchise_id)) {
@@ -913,7 +934,7 @@
       // ...and, when a TIEBREAK (not plain All-Play) put it ahead of the team below, say that too: it answers
       // "why is he ahead of a team with the same All-Play %?"
       var aheadTie = reason.position === 'ahead' && rival && reason.step && reason.step !== 'all_play' &&
-        reason.step !== 'name' && reason.step !== 'franchise_id' && STEP_LABEL[reason.step];
+        reason.step !== 'unresolved' && reason.step !== 'name' && reason.step !== 'franchise_id' && STEP_LABEL[reason.step];
       return {
         blocked: false, basis: 'ladder', pool: reason.pool || null, decidingCriterion: above.step || null, vsAbove: vsAbove,
         aheadOf: aheadTie ? { franchise_id: pad4(reason.rival_franchise_id), name: rival, step: reason.step } : null,
@@ -927,7 +948,10 @@
     }
     return {
       blocked: false, basis: 'ladder', pool: reason.pool || null, decidingCriterion: reason.step, vsAbove: null,
-      text: 'Seed ' + seed + ': in ' + poolLabel + '; ' + (reason.position === 'ahead' ? 'ranked ahead of ' : 'behind ') + rival + ' on ' + stepText + '.'
+      text: reason.step === 'unresolved'
+        ? 'Seed ' + seed + ': in ' + poolLabel + '; level with ' + rival + ' on every settled tiebreak, so this order is not final' +
+          (PENDING_WORDS[reason.pending] ? ' (' + PENDING_WORDS[reason.pending] + ').' : '.')
+        : 'Seed ' + seed + ': in ' + poolLabel + '; ' + (reason.position === 'ahead' ? 'ranked ahead of ' : 'behind ') + rival + ' on ' + stepText + '.'
     };
   }
 

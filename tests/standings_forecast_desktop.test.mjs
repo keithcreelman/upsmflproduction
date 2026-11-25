@@ -20,12 +20,18 @@ const json = (rel) => JSON.parse(fs.readFileSync(new URL(rel, import.meta.url), 
 const REC = json("./fixtures/standings_2026_wk5.json");
 const WK6 = json("./fixtures/standings_2026_wk6_week.json");
 mfl.st.league = { standingsSort: REC.standingsSort };
-const SIM6 = json("./fixtures/wire_season_sim_2026_live_wk06.json");
-const SIM5 = json("../site/wire/data/season_sim_2026_live_wk05.json");
+// The published Week 5/6 forecasts were simulated before the playoff-ladder correction (canon §F.1, Keith 2026-11-25) and
+// the page refuses them as published (model.seedingRule missing). These tests check the page's handling of a forecast, so
+// they serve the files marked as a corrected run, with the rule string from the simulator itself; the refusal is tested too.
+const SEEDING_RULE = fs.readFileSync(new URL("../pipelines/etl/wire/season_sim.py", import.meta.url), "utf8").match(/^SEEDING_RULE = "(.*)"$/m)[1];
+const asCorrectedRun = (sim) => ({ ...sim, model: { ...(sim.model || {}), seedingRule: SEEDING_RULE } });
+const SIM6_AS_PUBLISHED = json("./fixtures/wire_season_sim_2026_live_wk06.json"), SIM6 = asCorrectedRun(SIM6_AS_PUBLISHED);
+const SIM5 = asCorrectedRun(json("../site/wire/data/season_sim_2026_live_wk05.json"));
 const DET6 = json("../site/wire/data/standings_forecast_2026_wk06.json");
 const plain = (html) => html.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 const text = (html) => plain(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ");
-const pct = (p) => (p >= 1 ? "100%" : p >= 0.995 ? ">99%" : p <= 0 ? "0%" : p < 0.005 ? "<1%" : Math.round(p * 100) + "%");
+// the shared policy with no verified outcome (site/shared/odds_display.js): never 100% or 0%
+const pct = (p) => (p > 0.99 ? ">99%" : p < 0.01 ? "<1%" : Math.round(p * 100) + "%");
 
 const season6 = () => { const s = recorded2026(REC); return { ...s, weeklyScores: s.weeklyScores.concat(WK6.weekly_scores), games: s.games.concat(WK6.games) }; };
 const ENV6 = loadSeason(makeWorkerEnv({}), season6());
@@ -49,9 +55,11 @@ function fetchWith(files) {
   return f;
 }
 const PUBLISHED = { "season_sim_2026_live_wk05.json": SIM5, "season_sim_2026_live_wk06.json": SIM6, "standings_forecast_2026_wk06.json": DET6 };
-async function page(query, files = PUBLISHED) {
+async function page(query, files = PUBLISHED, opts = {}) {
   const fetch = fetchWith(files);
   const p = loadStandingsPage({ query, fetch });
+  // clinch: edit what the validated engine returns, to reach states the Week 6 standings can't yet
+  if (opts.clinch) { const C = p.ctx.window.UPS_STANDINGS_CLINCH, orig = C.analyze; C.analyze = (i) => opts.clinch(orig(i)); }
   await new Promise((r) => setTimeout(r, 2700));   // in-season magic numbers wait up to 2.5 s for MFL's schedule
   await settle();
   return { h: plain(p.html()), reads: fetch.reads };
@@ -190,9 +198,103 @@ test("Every place: 12 × 12 cells from the place counts; Finals: UPS and Hawk Tu
   t.deepEqual(first, [nameOf[top], pct(D[top].hawkTitleOdds), pct(D[top].hawkRunnerUpOdds), pct(D[top].hawkTitleOdds + D[top].hawkRunnerUpOdds)]);
 });
 
+// ═══ the certainty rule (Keith 2026-11-24): 100% / 0% only for an outcome the clinch rules verify ═══
+const flags = (byFid) => (res) => {
+  if (!res) return res;
+  const out = { ...res, byFid: { ...res.byFid } };
+  for (const [fid, v] of Object.entries(byFid)) {
+    const d = { x: false, y: false, z: false, e: false, lock: null, divOut: false, byeOut: false, ...v };
+    if (d.lock) d.x = true;
+    d.label = d.lock ? String(d.lock) : d.z ? "Z" : d.y ? "Y" : d.x ? "X" : d.e ? "E" : null;
+    out.byFid[fid] = d;
+  }
+  return out;
+};
+const ids = SIM6.teams.map((x) => x.franchiseId);
+const [A, B, C, Dd, E, G, H] = ids;
+// the simulation answers certainty for A (1.000 everywhere) and B (0.000 everywhere); nothing is verified
+const EXTREME = JSON.parse(JSON.stringify(SIM6));
+for (const x of EXTREME.teams) {
+  if (x.franchiseId === A) Object.assign(x, { currentPlayoffOdds: 1, currentByeOdds: 1, currentDivisionOdds: 1 });
+  if (x.franchiseId === B) Object.assign(x, { currentPlayoffOdds: 0, currentByeOdds: 0, currentDivisionOdds: 0, currentTitleOdds: 0 });
+  if (x.franchiseId === G) Object.assign(x, { currentPlayoffOdds: 0.9949, currentByeOdds: 0.0099, currentDivisionOdds: 0.005 });
+  if (x.franchiseId === H) Object.assign(x, { currentPlayoffOdds: 0.99, currentByeOdds: 0.01, currentDivisionOdds: 0.9901 });
+}
+const EXTREME_FILES = { ...PUBLISHED, "season_sim_2026_live_wk06.json": EXTREME };
+const outlookCells = (h, fid) => {
+  const m = new RegExp('<tr[^>]*data-fid="' + fid + '"[^>]*>([\\s\\S]*?)</tr>').exec(h);
+  return [...m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => tx(c[1]));
+};
+// text that only strips real tags: the Forecast tab writes "<1%" as is (a browser shows it as text), which text() would eat
+const tx = (html) => plain(html.replace(/<\/?[a-z][^>]*>/gi, " ")).replace(/\s+/g, " ").trim();
+// Outlook columns without place counts: Proj, Team, Playoffs, Bye, Div, Title, Δ (EXTREME's odds don't match the Week 6
+// place-count file, so its place counts are refused and the Outlook falls back to these columns)
+const OUT = (h, fid) => { const c = outlookCells(h, fid); return { po: c[2], bye: c[3], div: c[4], title: c[5] }; };
+const CERTAIN = /(^|[^\d.>])(100|0)%/;
+test("a simulated 1.000 or 0.000 is >99% / <1% until the clinch rules verify it, in every outcome; rounding boundaries hold", async () => {
+  const { h } = await page("view=forecast&year=2026", EXTREME_FILES);
+  t.deepEqual(OUT(h, A), { po: ">99%", bye: ">99%", div: ">99%", title: pct(teams6[A].currentTitleOdds) }, "unclinched team whose simulation returns 100%");
+  t.deepEqual(OUT(h, B), { po: "<1%", bye: "<1%", div: "<1%", title: "<1%" }, "non-eliminated team whose simulation returns 0%");
+  t.deepEqual(OUT(h, G), { po: ">99%", bye: "<1%", div: "<1%", title: pct(teams6[G].currentTitleOdds) }, "0.9949 → >99%, 0.0099 → <1%, 0.005 → <1%");
+  t.deepEqual(OUT(h, H), { po: "99%", bye: "1%", div: ">99%", title: pct(teams6[H].currentTitleOdds) }, "exactly 0.99 → 99%, exactly 0.01 → 1%, 0.9901 → >99%");
+  const body = tx(h.slice(h.indexOf('<div class="fc-tiles">')));
+  t.ok(!CERTAIN.test(body), "no 100% or 0% anywhere on the Forecast tab");
+  const L = (await page("view=league&year=2026", EXTREME_FILES)).h;
+  const cellsPo = [...L.matchAll(/<td[^>]*>((?:<span class="po-badge[^>]*>[^<]*<\/span>)?[^<]*(?:<span class="owner-sub po-sub">[^<]*<\/span>)?)<\/td>/g)]
+    .map((m) => tx(m[1])).filter((x) => /%|^[XYZE#]/.test(x));
+  t.ok(cellsPo.length >= 12, "Playoff % cells found: " + cellsPo.length);
+  t.ok(cellsPo.every((x) => !CERTAIN.test(x)), "nor in Full League's Playoff %: " + cellsPo.join(" | "));
+});
+test("verified outcomes show 100% / 0%, and playoffs, division and bye are each verified on their own", async () => {
+  const cl = flags({ [A]: { x: true }, [B]: { e: true }, [C]: { x: true, y: true }, [Dd]: { lock: 1, z: true, y: true }, [E]: { divOut: true }, [G]: { byeOut: true } });
+  const { h } = await page("view=forecast&year=2026", EXTREME_FILES, { clinch: cl });
+  t.deepEqual(OUT(h, A), { po: "100%", bye: ">99%", div: ">99%", title: pct(teams6[A].currentTitleOdds) }, "a playoff clinch alone: the bye and division stay unverified");
+  t.deepEqual(OUT(h, B), { po: "0%", bye: "0%", div: "0%", title: "<1%" }, "eliminated: every path closed; the title has no verdict of its own and the simulation's 0 is still <1%");
+  const c = OUT(h, C);
+  t.equal(c.po, "100%"); t.equal(c.div, "100%"); t.equal(c.bye, pct(teams6[C].currentByeOdds), "a division title is not a bye");
+  const d = OUT(h, Dd);
+  t.equal(d.po, "100%"); t.equal(d.div, "100%"); t.equal(d.bye, "100%");
+  const e = OUT(h, E);
+  t.equal(e.div, "0%"); t.equal(e.bye, "0%", "no division, no bye");
+  t.equal(e.po, pct(teams6[E].currentPlayoffOdds), "out of the division race but alive for a wild card: its playoff % is never 0% from that");
+  const g = OUT(h, G);
+  t.equal(g.bye, "0%"); t.equal(g.po, ">99%"); t.equal(g.div, "<1%");
+  const mv = (await page("view=forecast&year=2026&fc=movement", EXTREME_FILES, { clinch: cl })).h;
+  t.match(tx(mv), new RegExp(nameOf[B].replace(/[$]/g, "\\$") + " 0% "), "Movement uses the same verdicts");
+});
+test("verdicts from newer standings are never laid over an older forecast", async () => {
+  const cl = flags({ [A]: { x: true }, [B]: { e: true } });
+  const { h } = await page("view=forecast&year=2026", { "season_sim_2026_live_wk05.json": SIM5 }, { clinch: cl });
+  t.match(text(h), /This is the Week 5 forecast; Week 6 is final\./);
+  const five = Object.fromEntries(SIM5.teams.map((x) => [x.franchiseId, x]));
+  t.equal(OUT(h, A).po, pct(five[A].currentPlayoffOdds), "the Week 5 forecast's own number, not a Week 6 verdict");
+  t.ok(!CERTAIN.test(tx(h.slice(h.indexOf("Projected final standings")))), "no 100% or 0% on a stale forecast");
+});
+test("Every place: cells follow the shared policy (no 100 or 0; <1 and >99 at the ends), labels and legend agree", async () => {
+  const { h } = await page("view=forecast&year=2026&fc=places");
+  // each cell: its spoken label's percentage and its shown text (split on the cell tag: labels may hold "<" or ">")
+  const full = h.split('<span class="fp-cell').slice(1).map((piece) => {
+    const a = piece.indexOf('aria-label="') + 12, label = piece.slice(a, piece.indexOf('"', a)).split(": ")[1];
+    const seg = piece.slice(0, piece.indexOf("</span>")), shown = seg.slice(seg.lastIndexOf(">") + 1);
+    return [label, plain(shown)];
+  });
+  t.equal(full.length, 144);
+  const cells = full.map((x) => x[1]);
+  t.ok(cells.every((x) => /^(<1|>99|[1-9]\d?)$/.test(x)), "cells: " + [...new Set(cells)].join(" "));
+  t.ok(cells.includes("<1"), "the grid has cells under 1%");
+  const off = full.filter(([label, shown]) => shown + "%" !== label);
+  t.equal(off.length, 0, "every cell's text is its label's percentage without the % sign: " + JSON.stringify(off.slice(0, 5)));
+  t.match(tx(h), /<1 = under 1%, including never in the simulation; >99 = over 99%/);
+});
+test("the About text states the simulation's actual seeding rules (canon §F.1, corrected 2026-11-25; only a forecast simulated under them is shown)", async () => {
+  const { h } = await page("view=forecast&year=2026");
+  t.match(text(h), /Division winners by MFL’s division tiebreaks \(win %, division win %, head-to-head, points, All-Play %\)\. The two division winners with the best All-Play % get the byes; the two wild cards go by All-Play %, then Points For, then head-to-head; seeds 3–6 by All-Play %, then Points For\. Overall record is not a playoff seeding tiebreaker\. H1–H6 keep their own order: All-Play %, H2H record, Points For\./);
+  t.doesNotMatch(text(h), /then overall record/);
+});
+
 // ═══ before the Week 6 Wire forecast is published (#1367 not merged) ═══
 test("no Week 6 Wire file yet: the Week 5 forecast, labeled stale; its pre-correction scores are listed, not hidden; no place counts", async () => {
-  const { h } = await page("view=forecast&year=2026", { "season_sim_2026_live_wk05.json": SIM5, "season_sim_2026_live_wk02.json": json("../site/wire/data/season_sim_2026_live_wk02.json") });
+  const { h } = await page("view=forecast&year=2026", { "season_sim_2026_live_wk05.json": SIM5, "season_sim_2026_live_wk02.json": asCorrectedRun(json("../site/wire/data/season_sim_2026_live_wk02.json")) });
   t.match(text(h), /This is the Week 5 forecast; Week 6 is final\./);
   t.match(text(h), /Finish places, runners-up and the Hawk Tuah Bowl aren’t available for this forecast/);
   t.match(text(h), /Δ = playoff odds since the Week 2 forecast\./, "movement against the newest earlier file");
@@ -205,6 +307,59 @@ test("no Week 6 Wire file yet: the Week 5 forecast, labeled stale; its pre-corre
 });
 
 // ═══ fails closed ═══
+test("How the forecast works: an open simulated tie gets equal chances, a forecast assumption Keith approved; the league rule stays pending", async () => {
+  const { h } = await page("view=forecast&year=2026");
+  t.match(text(h), /Open ties Not every tie has a league rule yet .* the forecast gives each tied team an equal chance at that place\. That is a forecast assumption Keith approved on 2026-11-25, not a league tiebreak; the league’s rule for these ties is still pending\./);
+  t.ok(!/seasons had an open tie/.test(text(h)), "a run that doesn't count them says nothing about a count");
+  const counted = { ...SIM6, model: { ...SIM6.model, pendingTieSeasons: 63 } };
+  const r = await page("view=forecast&year=2026", { ...PUBLISHED, "season_sim_2026_live_wk06.json": counted });
+  t.match(text(r.h), /random seed \d+ · 63 of 10,000 seasons had an open tie \(equal chances\)/);
+});
+
+// Movement compares forecasts simulated under the same seeding rules (Keith 2026-11-25, release plan 3a). Four cases: the same rule
+// (movement shown), the earlier rule (the Week 5 file as published, no model.seedingRule), a different rule, and no earlier forecast.
+const SIM5_AS_PUBLISHED = json("../site/wire/data/season_sim_2026_live_wk05.json");
+const deltasOf = (h) => [...h.matchAll(/<span class="fc-delta[^"]*"[^>]*>([^<]*)<\/span>/g)].map((m) => m[1]);
+test("Movement, same seeding rule: Δ, the Movement view and the header compare with the Week 5 forecast", async () => {
+  const o = await page("view=forecast&year=2026");
+  t.match(text(o.h), /Movement vs the Week 5 forecast \(generated /);
+  t.match(text(o.h), /Δ = playoff odds since the Week 5 forecast\./);
+  t.ok(deltasOf(o.h).some((d) => /^[▲▼]\d+$/.test(d)), "real changes are drawn");
+  const mv = await page("view=forecast&year=2026&fc=movement");
+  t.match(text(mv.h), /Since the Week 5 forecast/); t.doesNotMatch(text(mv.h), /Movement shows —/);
+});
+for (const [label, prev, why] of [
+  ["the earlier seeding rules (the Week 5 file as published, no model.seedingRule)", SIM5_AS_PUBLISHED,
+    "the Week 5 forecast was simulated under the earlier seeding rules (corrected 2026-11-25), so it isn’t comparable"],
+  ["a different seeding rule", { ...SIM5_AS_PUBLISHED, model: { ...(SIM5_AS_PUBLISHED.model || {}), seedingRule: "some-other-rule" } },
+    "the Week 5 forecast was simulated under different seeding rules, so it isn’t comparable"],
+  ["no earlier forecast at all", null, "there is no earlier published forecast to compare with"],
+]) {
+  test("Movement against " + label + ": every change reads —, and the page says why", async () => {
+    const files = { ...PUBLISHED }; if (prev) files["season_sim_2026_live_wk05.json"] = prev; else delete files["season_sim_2026_live_wk05.json"];
+    const esc = why.replace(/[()]/g, "\\$&");
+    const o = await page("view=forecast&year=2026", files);
+    t.match(text(o.h), new RegExp("Movement: — \\(" + esc + "\\)"), "the header");
+    t.match(text(o.h), new RegExp("Δ shows —: " + esc + "\\."), "the Outlook note");
+    const od = deltasOf(o.h); t.equal(od.length, 12); t.ok(od.every((d) => d === "—"), "Outlook Δ: " + od.join(","));
+    const mv = await page("view=forecast&year=2026&fc=movement", files);
+    t.match(text(mv.h), new RegExp("Movement shows —: " + esc + "\\. Movement is only measured against a forecast simulated under the same seeding rules\\."));
+    const md = deltasOf(mv.h); t.equal(md.length, 48, "12 teams × 4 columns"); t.ok(md.every((d) => d === "—"));
+    t.doesNotMatch(text(mv.h), /Since the Week 5 forecast|▲|▼/);
+    t.match(text(mv.h), /Playoffs Bye Div Title/, "today's odds still show");
+  });
+}
+
+test("refuses a forecast simulated under the earlier seeding rules: the Week 6 file as published (no model.seedingRule)", async () => {
+  t.equal((SIM6_AS_PUBLISHED.model || {}).seedingRule, undefined, "the published file predates the correction");
+  const { h } = await page("view=forecast&year=2026", { ...PUBLISHED, "season_sim_2026_live_wk06.json": SIM6_AS_PUBLISHED });
+  t.match(text(h), /The Week 6 forecast was simulated under the earlier seeding rules, so it isn’t shown\. The next forecast uses the corrected rules\./);
+  t.ok(!/fc-tiles|Projected final standings/.test(h), "no odds at all");
+  const wrong = { ...SIM6, model: { ...SIM6.model, seedingRule: "AP > Overall > PF" } };
+  t.match(text((await page("view=forecast&year=2026", { ...PUBLISHED, "season_sim_2026_live_wk06.json": wrong })).h), /earlier seeding rules/, "any other rule string is refused too");
+  const html = fs.readFileSync(new URL("../site/standings/mfl_hpm_standings_v2.html", import.meta.url), "utf8");
+  t.equal(html.match(/var SEEDING_RULE = "([^"]*)"/)[1], SEEDING_RULE, "the page and the simulator name the same rule");
+});
 test("refuses a forecast whose All-Play differs from the standings, or whose Week 6 scores flip an H2H result", async () => {
   const ap = JSON.parse(JSON.stringify(SIM6)); ap.teams[0].currentApWins += 1;
   let { h } = await page("view=forecast&year=2026", { ...PUBLISHED, "season_sim_2026_live_wk06.json": ap });

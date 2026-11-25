@@ -1,0 +1,166 @@
+{
+ "_about": "The Week 10 forecast REPLAYED offline under the corrected playoff ladders (canon §F.1.2-§F.1.4, Keith 2026-11-25): pipelines/etl/wire/season_sim.py --season 2026 --through-week 10 --runs 10000 --seed 20260911 --reuse-cache on the Week 10 inputs the UPS Center automation recorded (49 cached MFL responses, combined SHA-256 prefix cc2b5a3327401752). The same replay with the previous simulator reproduced the published site/wire/data/season_sim_2026_live_wk10.json (SHA-256 prefix 69a3c84231480b27) exactly: every playoff, bye, division and title probability equal. That published file is not changed. Only the fields the Standings recording reads are kept. model.pendingTieSeasons / pendingTieHandling: the simulated seasons that ended level on every settled tiebreak, split evenly -- a modeling choice pending Keith's decision (PR #1529), not a league rule.",
+ "replayOf": "site/wire/data/season_sim_2026_live_wk10.json",
+ "schema": 2,
+ "season": 2026,
+ "throughWeek": 10,
+ "generatedAtUtc": "2026-11-25T13:12:21Z",
+ "runs": 10000,
+ "seed": 20260911,
+ "model": {
+  "seedingRule": "canon-F1-2026-11-25: wild cards AP>PF>H2H; seeds 3-6 AP>PF; byes = top-2 division winners by AP",
+  "pendingTies": {
+   "bye": 60,
+   "seed_1_2_order": 1,
+   "seeds3to6": 2
+  },
+  "pendingTieSeasons": 63,
+  "pendingTieHandling": "even_draw (proposed; pending Keith's decision, PR #1529)"
+ },
+ "teams": [
+  {
+   "franchiseId": "0009",
+   "team": "C-Town Chivalry",
+   "weekScore": 308.9,
+   "currentApWins": 99,
+   "currentApLosses": 11,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 1.0,
+   "currentByeOdds": 1.0,
+   "currentDivisionOdds": 1.0,
+   "currentTitleOdds": 0.5314
+  },
+  {
+   "franchiseId": "0005",
+   "team": "HammerTime 🔨 ⏰",
+   "weekScore": 193.3,
+   "currentApWins": 81,
+   "currentApLosses": 29,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 1.0,
+   "currentByeOdds": 0.9744,
+   "currentDivisionOdds": 0.9929,
+   "currentTitleOdds": 0.2295
+  },
+  {
+   "franchiseId": "0004",
+   "team": "Pure Greatness",
+   "weekScore": 224.9,
+   "currentApWins": 66,
+   "currentApLosses": 44,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.997,
+   "currentByeOdds": 0.0058,
+   "currentDivisionOdds": 0.0071,
+   "currentTitleOdds": 0.1273
+  },
+  {
+   "franchiseId": "0010",
+   "team": "Blake Bombers",
+   "weekScore": 266.0,
+   "currentApWins": 69,
+   "currentApLosses": 41,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.9939,
+   "currentByeOdds": 0.0195,
+   "currentDivisionOdds": 0.9407,
+   "currentTitleOdds": 0.063
+  },
+  {
+   "franchiseId": "0008",
+   "team": "Real Deal Creel",
+   "weekScore": 250.8,
+   "currentApWins": 59,
+   "currentApLosses": 51,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.9668,
+   "currentByeOdds": 0.0003,
+   "currentDivisionOdds": 0.9552,
+   "currentTitleOdds": 0.0375
+  },
+  {
+   "franchiseId": "0002",
+   "team": "CBP",
+   "weekScore": 181.1,
+   "currentApWins": 57,
+   "currentApLosses": 53,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.5575,
+   "currentByeOdds": 0.0,
+   "currentDivisionOdds": 0.0593,
+   "currentTitleOdds": 0.0087
+  },
+  {
+   "franchiseId": "0012",
+   "team": "Hawks",
+   "weekScore": 174.5,
+   "currentApWins": 57,
+   "currentApLosses": 53,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.3485,
+   "currentByeOdds": 0.0,
+   "currentDivisionOdds": 0.0,
+   "currentTitleOdds": 0.0021
+  },
+  {
+   "franchiseId": "0011",
+   "team": "Cleon Ca$h",
+   "weekScore": 158.5,
+   "currentApWins": 49,
+   "currentApLosses": 61,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.0859,
+   "currentByeOdds": 0.0,
+   "currentDivisionOdds": 0.0,
+   "currentTitleOdds": 0.0002
+  },
+  {
+   "franchiseId": "0001",
+   "team": "L.A. Looks",
+   "weekScore": 232.5,
+   "currentApWins": 40,
+   "currentApLosses": 70,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.0503,
+   "currentByeOdds": 0.0,
+   "currentDivisionOdds": 0.0447,
+   "currentTitleOdds": 0.0003
+  },
+  {
+   "franchiseId": "0003",
+   "team": "Gride",
+   "weekScore": 240.7,
+   "currentApWins": 32,
+   "currentApLosses": 78,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.0,
+   "currentByeOdds": 0.0,
+   "currentDivisionOdds": 0.0,
+   "currentTitleOdds": 0.0
+  },
+  {
+   "franchiseId": "0007",
+   "team": "Sex Manther",
+   "weekScore": 135.0,
+   "currentApWins": 24,
+   "currentApLosses": 86,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.0001,
+   "currentByeOdds": 0.0,
+   "currentDivisionOdds": 0.0001,
+   "currentTitleOdds": 0.0
+  },
+  {
+   "franchiseId": "0006",
+   "team": "The Long Haulers",
+   "weekScore": 204.6,
+   "currentApWins": 27,
+   "currentApLosses": 83,
+   "currentApTies": 0,
+   "currentPlayoffOdds": 0.0,
+   "currentByeOdds": 0.0,
+   "currentDivisionOdds": 0.0,
+   "currentTitleOdds": 0.0
+  }
+ ]
+}

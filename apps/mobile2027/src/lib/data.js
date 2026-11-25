@@ -18,7 +18,13 @@
     { path: "/roster-workbench", query: ["L", "YEAR"] },
     // R3: playerScores (every player's recorded score for one week; public MFL scoring, no owner text) feeds Team › Performance
     // PR A: players (MFL's complete player list: id, name, position, club; public data) names the player on a cap adjustment by id, whether or not he is on a roster, and gives the position pools of the ranks (PR B)
-    { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults", "playerScores", "players", "nflSchedule", "nflByeWeeks"] },
+    // Standings (#1503): `schedule` is the league's own fantasy schedule (who plays whom each week; public, no owner text). It gives each team's
+    // remaining head-to-head games for the clinch rules and the magic numbers.
+    { path: "/api/mfl-export", query: ["TYPE", "L", "YEAR", "JSON", "W"], types: ["league", "weeklyResults", "playerScores", "players", "nflSchedule", "nflByeWeeks", "schedule"] },
+    // Standings (#1503): the Worker's season standings (seeds from its regular-season ladder, every team's weekly scores and games). Public.
+    // In the recorded preview this answer is GENERATED OFFLINE by the Worker's own seedCurrentSeason from committed files (recorded_standings.js says so);
+    // the live route reads D1 and is not used until a live read is approved.
+    { path: "/api/standings", query: ["year"] },
     { path: "/api/current-lineup-week", query: ["L", "YEAR"] },
     { path: "/api/cap-penalty/preview", query: ["L", "YEAR"] },
     // stage R2 (Team › Roster): injury status for every player, and this week's NFL games (opponent, home or away, kickoff)
@@ -95,6 +101,8 @@
       nextSeason: base + "/api/cap-adjustments/next-season?" + q({ L: L, YEAR: Y }),
       schedule: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: w }); },
       byes: base + "/api/mfl-export?" + q({ TYPE: "nflByeWeeks", L: L, YEAR: Y, JSON: 1 }),
+      standings: base + "/api/standings?" + q({ year: Y }),
+      fantasySchedule: base + "/api/mfl-export?" + q({ TYPE: "schedule", L: L, YEAR: Y, JSON: 1 }),
       fullSchedule: base + "/api/mfl-export?" + q({ TYPE: "nflSchedule", L: L, YEAR: Y, JSON: 1, W: "ALL" }),
       box: function (id) { return base + "/api/player-weekly-box?" + q({ season: Y, mfl_id: id, L: L }); },
       // ids: a comma-separated list, already unique, ascending and at most PROJECTION_IDS long (projections() makes it)
@@ -403,6 +411,39 @@
       }, force);
     }
 
+    // Standings (#1503). The Worker's season standings: kept as sent (lib/standings.js validates every field it uses and fails closed). Asked once and
+    // kept 10 minutes; changing between Race, Divisions and Scoring never asks again.
+    function loadStandings(force) {
+      return cached("standings", 10 * 60 * 1000, function () {
+        return settle(get(urls.standings, "standings")).then(function (r) {
+          if (r.state !== "ok") return r;
+          var j = r.data;
+          if (!j || j.ok !== true || !Array.isArray(j.rows)) return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: j, at: Date.now() };
+        });
+      }, force);
+    }
+    // The league's fantasy schedule (all weeks): reduced at once to { week: [[fidA, fidB], ...] }. Kept six hours (it changes only if the commissioner edits it).
+    function loadFantasySchedule(force) {
+      return cached("fsched", 6 * 60 * 60 * 1000, function () {
+        return settle(get(urls.fantasySchedule, "league schedule")).then(function (r) {
+          if (r.state !== "ok") return r;
+          var ws = r.data && r.data.schedule && r.data.schedule.weeklySchedule;
+          ws = Array.isArray(ws) ? ws : ws ? [ws] : [];
+          if (!ws.length) return { state: "error", data: null, error: "Unexpected answer" };
+          var byWeek = {}, bad = false;
+          ws.forEach(function (e) {
+            var w = parseInt(e && e.week, 10); if (!(w >= 1)) { bad = true; return; }
+            var ms = Array.isArray(e.matchup) ? e.matchup : e.matchup ? [e.matchup] : [];
+            byWeek[w] = ms.map(function (m) { var f = m && Array.isArray(m.franchise) ? m.franchise : []; return f.length === 2 ? [String(f[0].id), String(f[1].id)] : null; });
+            if (byWeek[w].some(function (p) { return !p; })) bad = true;
+          });
+          if (bad) return { state: "error", data: null, error: "Unexpected answer" };
+          return { state: "ok", data: { byWeek: byWeek, raw: r.data }, at: Date.now() };
+        });
+      }, force);
+    }
+
     function loadSchedule(week, parse, force) {
       return cached("sched:" + week, 2 * 60 * 1000, function () {
         return settle(get(urls.schedule(week), "NFL schedule, week " + week)).then(function (r) {
@@ -434,7 +475,7 @@
       return by;
     }
 
-    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadCalendar: loadCalendar, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, loadWeeklyBox: loadWeeklyBox, projections: projections, positionSeasonStats: positionSeasonStats, clearErrors: clearErrors, summary: summary };
+    return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadCalendar: loadCalendar, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, loadStandings: loadStandings, loadFantasySchedule: loadFantasySchedule, loadWeeklyBox: loadWeeklyBox, projections: projections, positionSeasonStats: positionSeasonStats, clearErrors: clearErrors, summary: summary };
   }
 
   return { RULES: RULES, check: check, createLoader: createLoader, PROJECTION_IDS: PROJECTION_IDS, POSITION_GROUPS: POSITION_GROUPS, normIds: normIds };

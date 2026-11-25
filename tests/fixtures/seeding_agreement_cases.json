@@ -1,0 +1,885 @@
+{
+ "_about": "Hand-built seeding cases read by BOTH the Worker (tests/ups_seeding_ladder.test.mjs, worker/src/seeding.js playoffField) and the simulator (pipelines/etl/wire/test_season_sim_seeding_agreement.py, season_sim.py playoff_seeds + hawk_tuah_order), so the two must agree. teams: [franchise_id, name, all-play %, points for, overall %]. games: [a, b, a_score, b_score], regular season. expect.seeds: seeds 1-6, null where an unresolved tie decides the holder. expect.unresolved: the pools left open (Worker regular_season.unresolved[].pool = simulator model.pendingTies keys). expect.hawk: H1-H6, or null when the field itself is open. No real league data. KNOWN DIFFERENCE, documented, not a parity claim (Keith 2026-11-25): when two or more Hawk Tuah teams are level on All-Play %, overall record AND Points For, the Worker orders them by head-to-head among them, then name, then franchise id (worker/src/seeding.js hawkTuahLadder); the simulator by franchise id only (season_sim.py hawk_tuah_order). Cases with expect.hawkDiffers pin each side's order as it is today.",
+ "cases": [
+  {
+   "name": "a division winner level with two wild-card teams cannot join their head-to-head (ChatGPT #1529 item 1)",
+   "teams": [
+    [
+     "0001",
+     "DW One",
+     0.8,
+     2000.0,
+     0.8
+    ],
+    [
+     "0002",
+     "DW Two",
+     0.75,
+     1950.0,
+     0.75
+    ],
+    [
+     "0003",
+     "DW Three",
+     0.7,
+     1900.0,
+     0.7
+    ],
+    [
+     "0004",
+     "DW Four",
+     0.5,
+     1700.0,
+     0.55
+    ],
+    [
+     "0005",
+     "X Team",
+     0.6,
+     1800.0,
+     0.6
+    ],
+    [
+     "0006",
+     "E Team",
+     0.5,
+     1700.0,
+     0.5
+    ],
+    [
+     "0007",
+     "F Team",
+     0.5,
+     1700.0,
+     0.45
+    ],
+    [
+     "0008",
+     "G Team",
+     0.45,
+     1650.0,
+     0.6
+    ],
+    [
+     "0009",
+     "H Team",
+     0.45,
+     1660.0,
+     0.4
+    ],
+    [
+     "0010",
+     "I Team",
+     0.4,
+     1600.0,
+     0.4
+    ],
+    [
+     "0011",
+     "J Team",
+     0.35,
+     1550.0,
+     0.35
+    ],
+    [
+     "0012",
+     "K Team",
+     0.3,
+     1500.0,
+     0.3
+    ]
+   ],
+   "dw": [
+    "0001",
+    "0002",
+    "0003",
+    "0004"
+   ],
+   "games": [
+    [
+     "0007",
+     "0006",
+     120.0,
+     110.0
+    ]
+   ],
+   "expect": {
+    "wildCards": [
+     "0005",
+     "0007"
+    ],
+    "seeds": [
+     "0001",
+     "0002",
+     "0003",
+     "0005",
+     null,
+     null
+    ],
+    "unresolved": [
+     "seeds3to6"
+    ],
+    "hawk": [
+     "0006",
+     "0008",
+     "0009",
+     "0010",
+     "0011",
+     "0012"
+    ]
+   }
+  },
+  {
+   "name": "the same, with only that division winner's Points For changed: the wild cards do not move",
+   "teams": [
+    [
+     "0001",
+     "DW One",
+     0.8,
+     2000.0,
+     0.8
+    ],
+    [
+     "0002",
+     "DW Two",
+     0.75,
+     1950.0,
+     0.75
+    ],
+    [
+     "0003",
+     "DW Three",
+     0.7,
+     1900.0,
+     0.7
+    ],
+    [
+     "0004",
+     "DW Four",
+     0.5,
+     1710.0,
+     0.55
+    ],
+    [
+     "0005",
+     "X Team",
+     0.6,
+     1800.0,
+     0.6
+    ],
+    [
+     "0006",
+     "E Team",
+     0.5,
+     1700.0,
+     0.5
+    ],
+    [
+     "0007",
+     "F Team",
+     0.5,
+     1700.0,
+     0.45
+    ],
+    [
+     "0008",
+     "G Team",
+     0.45,
+     1650.0,
+     0.6
+    ],
+    [
+     "0009",
+     "H Team",
+     0.45,
+     1660.0,
+     0.4
+    ],
+    [
+     "0010",
+     "I Team",
+     0.4,
+     1600.0,
+     0.4
+    ],
+    [
+     "0011",
+     "J Team",
+     0.35,
+     1550.0,
+     0.35
+    ],
+    [
+     "0012",
+     "K Team",
+     0.3,
+     1500.0,
+     0.3
+    ]
+   ],
+   "dw": [
+    "0001",
+    "0002",
+    "0003",
+    "0004"
+   ],
+   "games": [
+    [
+     "0007",
+     "0006",
+     120.0,
+     110.0
+    ]
+   ],
+   "expect": {
+    "wildCards": [
+     "0005",
+     "0007"
+    ],
+    "seeds": [
+     "0001",
+     "0002",
+     "0003",
+     "0005",
+     "0004",
+     "0007"
+    ],
+    "unresolved": [],
+    "hawk": [
+     "0006",
+     "0008",
+     "0009",
+     "0010",
+     "0011",
+     "0012"
+    ]
+   }
+  },
+  {
+   "name": "three non-winners level for the last wild card: head-to-head among three is not established (unresolved)",
+   "teams": [
+    [
+     "0001",
+     "DW One",
+     0.8,
+     2000.0,
+     0.8
+    ],
+    [
+     "0002",
+     "DW Two",
+     0.75,
+     1950.0,
+     0.75
+    ],
+    [
+     "0003",
+     "DW Three",
+     0.7,
+     1900.0,
+     0.7
+    ],
+    [
+     "0004",
+     "DW Four",
+     0.65,
+     1850.0,
+     0.65
+    ],
+    [
+     "0005",
+     "X Team",
+     0.6,
+     1800.0,
+     0.6
+    ],
+    [
+     "0006",
+     "E Team",
+     0.5,
+     1700.0,
+     0.5
+    ],
+    [
+     "0007",
+     "F Team",
+     0.5,
+     1700.0,
+     0.45
+    ],
+    [
+     "0008",
+     "G Team",
+     0.5,
+     1700.0,
+     0.6
+    ],
+    [
+     "0009",
+     "H Team",
+     0.45,
+     1660.0,
+     0.4
+    ],
+    [
+     "0010",
+     "I Team",
+     0.4,
+     1600.0,
+     0.4
+    ],
+    [
+     "0011",
+     "J Team",
+     0.35,
+     1550.0,
+     0.35
+    ],
+    [
+     "0012",
+     "K Team",
+     0.3,
+     1500.0,
+     0.3
+    ]
+   ],
+   "dw": [
+    "0001",
+    "0002",
+    "0003",
+    "0004"
+   ],
+   "games": [
+    [
+     "0007",
+     "0006",
+     120.0,
+     110.0
+    ]
+   ],
+   "expect": {
+    "wildCards": null,
+    "seeds": [
+     "0001",
+     "0002",
+     "0003",
+     "0004",
+     "0005",
+     null
+    ],
+    "unresolved": [
+     "wild_card"
+    ],
+    "hawk": null
+   }
+  },
+  {
+   "name": "two division winners level on All-Play for the second bye: unresolved, whatever their Points For",
+   "teams": [
+    [
+     "0001",
+     "DW One",
+     0.8,
+     2000.0,
+     0.8
+    ],
+    [
+     "0002",
+     "DW Two",
+     0.7,
+     1950.0,
+     0.75
+    ],
+    [
+     "0003",
+     "DW Three",
+     0.7,
+     1900.0,
+     0.9
+    ],
+    [
+     "0004",
+     "DW Four",
+     0.5,
+     1850.0,
+     0.65
+    ],
+    [
+     "0005",
+     "X Team",
+     0.6,
+     1800.0,
+     0.6
+    ],
+    [
+     "0006",
+     "E Team",
+     0.55,
+     1700.0,
+     0.5
+    ],
+    [
+     "0007",
+     "F Team",
+     0.48,
+     1700.0,
+     0.45
+    ],
+    [
+     "0008",
+     "G Team",
+     0.45,
+     1700.0,
+     0.6
+    ],
+    [
+     "0009",
+     "H Team",
+     0.44,
+     1660.0,
+     0.4
+    ],
+    [
+     "0010",
+     "I Team",
+     0.4,
+     1600.0,
+     0.4
+    ],
+    [
+     "0011",
+     "J Team",
+     0.35,
+     1550.0,
+     0.35
+    ],
+    [
+     "0012",
+     "K Team",
+     0.3,
+     1500.0,
+     0.3
+    ]
+   ],
+   "dw": [
+    "0001",
+    "0002",
+    "0003",
+    "0004"
+   ],
+   "games": [],
+   "expect": {
+    "wildCards": [
+     "0005",
+     "0006"
+    ],
+    "seeds": [
+     "0001",
+     null,
+     null,
+     null,
+     null,
+     null
+    ],
+    "unresolved": [
+     "bye"
+    ],
+    "hawk": [
+     "0007",
+     "0008",
+     "0009",
+     "0010",
+     "0011",
+     "0012"
+    ]
+   }
+  },
+  {
+   "name": "Hawk Tuah side keeps its own order: level on All-Play, the better overall record is H1 though it scored less",
+   "teams": [
+    [
+     "0001",
+     "DW One",
+     0.8,
+     2000.0,
+     0.8
+    ],
+    [
+     "0002",
+     "DW Two",
+     0.75,
+     1950.0,
+     0.75
+    ],
+    [
+     "0003",
+     "DW Three",
+     0.7,
+     1900.0,
+     0.7
+    ],
+    [
+     "0004",
+     "DW Four",
+     0.65,
+     1850.0,
+     0.65
+    ],
+    [
+     "0005",
+     "X Team",
+     0.6,
+     1800.0,
+     0.6
+    ],
+    [
+     "0006",
+     "E Team",
+     0.55,
+     1700.0,
+     0.5
+    ],
+    [
+     "0007",
+     "F Team",
+     0.45,
+     1720.0,
+     0.4
+    ],
+    [
+     "0008",
+     "G Team",
+     0.45,
+     1690.0,
+     0.65
+    ],
+    [
+     "0009",
+     "H Team",
+     0.44,
+     1660.0,
+     0.4
+    ],
+    [
+     "0010",
+     "I Team",
+     0.4,
+     1600.0,
+     0.4
+    ],
+    [
+     "0011",
+     "J Team",
+     0.35,
+     1550.0,
+     0.35
+    ],
+    [
+     "0012",
+     "K Team",
+     0.3,
+     1500.0,
+     0.3
+    ]
+   ],
+   "dw": [
+    "0001",
+    "0002",
+    "0003",
+    "0004"
+   ],
+   "games": [],
+   "expect": {
+    "wildCards": [
+     "0005",
+     "0006"
+    ],
+    "seeds": [
+     "0001",
+     "0002",
+     "0003",
+     "0004",
+     "0005",
+     "0006"
+    ],
+    "unresolved": [],
+    "hawk": [
+     "0008",
+     "0007",
+     "0009",
+     "0010",
+     "0011",
+     "0012"
+    ],
+    "nextOut": "0007"
+   }
+  },
+  {
+   "name": "KNOWN DIFFERENCE: two Hawk Tuah teams level on All-Play, record and Points For; 0007 beat 0006 (Worker: head-to-head; simulator: franchise id)",
+   "teams": [
+    [
+     "0001",
+     "DW One",
+     0.8,
+     2000.0,
+     0.8
+    ],
+    [
+     "0002",
+     "DW Two",
+     0.75,
+     1950.0,
+     0.75
+    ],
+    [
+     "0003",
+     "DW Three",
+     0.7,
+     1900.0,
+     0.7
+    ],
+    [
+     "0004",
+     "DW Four",
+     0.65,
+     1850.0,
+     0.65
+    ],
+    [
+     "0005",
+     "X Team",
+     0.6,
+     1800.0,
+     0.6
+    ],
+    [
+     "0008",
+     "E Team",
+     0.55,
+     1750.0,
+     0.5
+    ],
+    [
+     "0006",
+     "Zed Team",
+     0.45,
+     1700.0,
+     0.4
+    ],
+    [
+     "0007",
+     "Able Team",
+     0.45,
+     1700.0,
+     0.4
+    ],
+    [
+     "0009",
+     "H Team",
+     0.4,
+     1660.0,
+     0.4
+    ],
+    [
+     "0010",
+     "I Team",
+     0.38,
+     1600.0,
+     0.4
+    ],
+    [
+     "0011",
+     "J Team",
+     0.35,
+     1550.0,
+     0.35
+    ],
+    [
+     "0012",
+     "K Team",
+     0.3,
+     1500.0,
+     0.3
+    ]
+   ],
+   "dw": [
+    "0001",
+    "0002",
+    "0003",
+    "0004"
+   ],
+   "games": [
+    [
+     "0007",
+     "0006",
+     120.0,
+     110.0
+    ]
+   ],
+   "expect": {
+    "wildCards": [
+     "0005",
+     "0008"
+    ],
+    "seeds": [
+     "0001",
+     "0002",
+     "0003",
+     "0004",
+     "0005",
+     "0008"
+    ],
+    "unresolved": [],
+    "hawk": null,
+    "hawkDiffers": {
+     "worker": [
+      "0007",
+      "0006",
+      "0009",
+      "0010",
+      "0011",
+      "0012"
+     ],
+     "simulator": [
+      "0006",
+      "0007",
+      "0009",
+      "0010",
+      "0011",
+      "0012"
+     ]
+    }
+   }
+  },
+  {
+   "name": "KNOWN DIFFERENCE: the same two teams with no games between them (Worker: name, Able before Zed; simulator: franchise id)",
+   "teams": [
+    [
+     "0001",
+     "DW One",
+     0.8,
+     2000.0,
+     0.8
+    ],
+    [
+     "0002",
+     "DW Two",
+     0.75,
+     1950.0,
+     0.75
+    ],
+    [
+     "0003",
+     "DW Three",
+     0.7,
+     1900.0,
+     0.7
+    ],
+    [
+     "0004",
+     "DW Four",
+     0.65,
+     1850.0,
+     0.65
+    ],
+    [
+     "0005",
+     "X Team",
+     0.6,
+     1800.0,
+     0.6
+    ],
+    [
+     "0008",
+     "E Team",
+     0.55,
+     1750.0,
+     0.5
+    ],
+    [
+     "0006",
+     "Zed Team",
+     0.45,
+     1700.0,
+     0.4
+    ],
+    [
+     "0007",
+     "Able Team",
+     0.45,
+     1700.0,
+     0.4
+    ],
+    [
+     "0009",
+     "H Team",
+     0.4,
+     1660.0,
+     0.4
+    ],
+    [
+     "0010",
+     "I Team",
+     0.38,
+     1600.0,
+     0.4
+    ],
+    [
+     "0011",
+     "J Team",
+     0.35,
+     1550.0,
+     0.35
+    ],
+    [
+     "0012",
+     "K Team",
+     0.3,
+     1500.0,
+     0.3
+    ]
+   ],
+   "dw": [
+    "0001",
+    "0002",
+    "0003",
+    "0004"
+   ],
+   "games": [],
+   "expect": {
+    "wildCards": [
+     "0005",
+     "0008"
+    ],
+    "seeds": [
+     "0001",
+     "0002",
+     "0003",
+     "0004",
+     "0005",
+     "0008"
+    ],
+    "unresolved": [],
+    "hawk": null,
+    "hawkDiffers": {
+     "worker": [
+      "0007",
+      "0006",
+      "0009",
+      "0010",
+      "0011",
+      "0012"
+     ],
+     "simulator": [
+      "0006",
+      "0007",
+      "0009",
+      "0010",
+      "0011",
+      "0012"
+     ]
+    }
+   }
+  }
+ ]
+}
