@@ -363,11 +363,11 @@ test("Contributions: › opens the team's points by position (or slot) directly,
   }
 });
 
-test("Help: the forecast's open ties are split evenly, called a modeling choice pending Keith's decision, and counted (63 of 10,000)", () => {
+test("Help: the forecast's open ties get equal chances, an approved forecast assumption (not a league tiebreak), and are counted (63 of 10,000)", () => {
   const M = ST.build(input());
   t.equal(M.forecast.openTies, 63);
   const hs = SV.helpSheet({ lg: { open: {} }, lgd: { model: M }, intel: { players: null } });
-  t.match(hs, /<h4>Open ties in the forecast<\/h4><p>Not every tie has a league rule yet .* the forecast splits that place evenly between the tied teams\. That is a modeling choice pending Keith’s decision, not a league rule\. This forecast: 63 of 10,000 seasons\.<\/p>/);
+  t.match(hs, /<h4>Open ties in the forecast<\/h4><p>Not every tie has a league rule yet .* the forecast gives each tied team an equal chance at that place\. That is a forecast assumption Keith approved on 2026-11-25, not a league tiebreak; the league’s rule for these ties is still pending\. This forecast: 63 of 10,000 seasons\.<\/p>/);
   t.match(hs, /<h4>No tie list<\/h4>/);
 });
 

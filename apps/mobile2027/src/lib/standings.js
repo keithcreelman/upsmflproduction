@@ -176,8 +176,8 @@
     var fcx = I.forecast, sameWeek = !!(fcx && Number(fcx.throughWeek) === through), ruleOk = !!(fcx && fcx.model && fcx.model.seedingRule === SEEDING_RULE);
     var rc = sameWeek && ruleOk ? forecastReconcile(fcx, payload) : null, fresh = !!(rc && rc.hard.length === 0);
     M.forecast = { fresh: fresh, throughWeek: fcx ? Number(fcx.throughWeek) : null, at: fcx ? fcx.generatedAtUtc : null, runs: fcx ? fcx.runs : null, replay: !!(fcx && fcx.replayOf), by: {}, reconcile: rc,
-      // season_sim.py model.pendingTieSeasons: simulated seasons that ended level on every settled tiebreak, split evenly (a modeling choice pending
-      // Keith's decision, not a league rule; ChatGPT's review of #1529, item 4). null = the run doesn't count them.
+      // season_sim.py model.pendingTieSeasons: simulated seasons that ended level on every settled tiebreak, given equal chances (a forecast
+      // assumption Keith approved 2026-11-25, option A; not a league tiebreak, which stays pending). null = the run doesn't count them.
       openTies: fcx && fcx.model && Number(fcx.model.pendingTieSeasons) >= 0 ? Number(fcx.model.pendingTieSeasons) : null,
       why: !fcx ? "No forecast is available in this mode." : !sameWeek ? "The forecast was run after Week " + fcx.throughWeek + ", not Week " + through + ", so it is not shown."
         : !ruleOk ? "The forecast was made under earlier seeding rules, so its probabilities are not shown. Verified clinches still show."
