@@ -96,7 +96,7 @@ test("UPS Playoffs, projected: rounds stacked top to bottom, byes, seeds, advanc
 test("Hawk Tuah Bowl, projected: H1-H6 seeds with the order and tiebreak, byes, and what each game decides", async () => {
   const b = await boot();
   const p = plain(await b.show({ mode: "playoffs", side: "hawk", year: 2026 }));
-  t.match(p, /Hawk Tuah Bowl · the toilet bowl The six teams outside the playoff field, seeded H1–H6 \(7th–12th\) in standings order: All-Play %, then Points For, then the H2H games between the tied teams\. H1 and H2 get a first-round bye\. The winner finishes 7th and picks 1\.01 in the 2027 rookie draft\./);
+  t.match(p, /Hawk Tuah Bowl · the toilet bowl The six teams outside the playoff field, seeded H1–H6 \(7th–12th\) in standings order: All-Play %, then H2H record, then Points For\. H1 and H2 get a first-round bye\. The winner finishes 7th and picks 1\.01 in the 2027 rookie draft\./);
   t.match(p, /H1 Hawks 29-26 AP H2 Cleon Ca\$h 23-32 AP H3 L\.A\. Looks 20-35 AP H4 Gride 16-39 AP H5 The Long Haulers 14-41 AP H6 Sex Manther 11-44 AP/);
   t.match(p, /If the season ended today\./);
   t.match(p, /Round 1 Projected H3 L\.A\. Looks advances \(proj\.\) H6 Sex Manther/);

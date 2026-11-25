@@ -207,7 +207,8 @@ test("mobile Seeds: rows in the WORKER's seed order, chips marked projected, the
   t.ok(!/Ladder: All-Play %|say where a team would be/.test(html), "no explanatory paragraphs on the page itself");
   const D = lastMobile.leagueView.standingsDrawers;
   t.match(plain(D.how()), /Wild cards: the two best other teams by All-Play %, then Points For, then the H2H games between the tied teams\./);
-  t.match(plain(D.how()), /Seeds 3–6 are the other two division winners and the two wild cards, by All-Play %, then Points For\. H2H record is not a seeding tiebreak\. Only regular-season weeks count\./);
+  t.match(plain(D.how()), /Seeds 3–6 are the other two division winners and the two wild cards, by All-Play %, then Points For\. H2H record is not a playoff seeding tiebreak\. Only regular-season weeks count\./);
+  t.match(plain(D.how()), /The Hawk Tuah side \(H1–H6\) keeps its own order: All-Play %, then H2H record, then Points For\./);
   t.match(plain(D.how()), /Hawk Tuah Bowl champion \(7th\) 1\.01 .* 5th-place game winner \(5th\) 1\.07 · its loser \(6th\) 1\.08/);
   t.match(plain(D.about(false)), /“proj” = where a team would be if the season ended today\./);
   const why = plain(D.why(await standings(makeLadderSeason())));
