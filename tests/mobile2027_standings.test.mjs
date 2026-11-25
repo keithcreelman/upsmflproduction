@@ -57,16 +57,31 @@ test("recording: recorded_standings.js is the generator's exact output from comm
   t.ok(BUILD.FILES.includes("recorded_standings.js") && BUILD.SHARED.includes("standings_clinch.js") && BUILD.SHARED.includes("odds_display.js"), "the build ships the standings files and the #1521 shared modules by its allowlist");
 });
 
-test("seeding comes from the Worker's own ladder: order, seeds and the Hawks/CBP overall-record step", () => {
+test("seeding comes from the Worker's own ladders: Week 10 Hawks and CBP (both 57-53 All-Play) are separated on total Points For, not overall record", () => {
+  // canon §F.1.2 (Keith 2026-11-25): wild cards All-Play % → total Points For → head-to-head. Before the correction the Worker's overall-record
+  // step put Hawks (15-12) in at seed 6 over CBP (13-14); CBP scored more (2,097.4 vs 2,026.3), so CBP holds the last wild card.
   const M = ST.build(input());
   t.equal(M.state, "ok"); t.equal(M.through, 10); t.equal(M.lastReg, 14);
   t.deepEqual(M.rows.map((r) => r.playoff_seed), [1, 2, 3, 4, 5, 6, null, null, null, null, null, null]);
   const hawks = M.byFid[name(M, "Hawks")], cbp = M.byFid[name(M, "CBP")];
-  t.equal(hawks.playoff_seed, 6); t.equal(cbp.playoff_seed, null);
+  t.equal(cbp.playoff_seed, 6); t.equal(cbp.playoff_status, "wild_card"); t.equal(hawks.playoff_seed, null);
   t.equal(ST.share(hawks.regular_season.all_play), ST.share(cbp.regular_season.all_play), "level on exact All-Play");
-  t.equal(cbp.seed_reason.step, "overall", "the Worker separated CBP from Hawks on overall record (step 2)"); t.equal(cbp.seed_reason.rival_franchise_id, hawks.franchise_id);
-  t.equal(M.forecast.fresh, true); t.equal(M.forecast.by[hawks.franchise_id].playoffs, "38%"); t.equal(M.forecast.by[cbp.franchise_id].playoffs, "53%");
-  t.equal(M.withheld.any, false, "no unresolved tie in the recorded season");
+  const wl = (r) => r.w + "–" + r.l; t.equal(wl(hawks.regular_season.record), "15–12"); t.equal(wl(cbp.regular_season.record), "13–14");
+  t.equal(SV.t1(cbp.regular_season.points_for), "2,097.4"); t.equal(SV.t1(hawks.regular_season.points_for), "2,026.3");
+  t.equal(hawks.seed_reason.step, "points_for", "the Worker separated them on total Points For"); t.equal(hawks.seed_reason.rival_franchise_id, cbp.franchise_id);
+  t.equal(hawks.seed_reason.pool, "outside");
+  t.equal(M.why[hawks.franchise_id].text, "Outside the top six — 0 AP wins back; behind CBP (the last wild card) on season Points For.");
+  // the forecast is the Week 10 replay under the same rules (its own seeding rule says so)
+  t.equal(RECD.static.forecast.seedingRule, ST.SEEDING_RULE);
+  t.equal(M.forecast.fresh, true); t.equal(M.forecast.by[cbp.franchise_id].playoffs, "56%"); t.equal(M.forecast.by[hawks.franchise_id].playoffs, "35%");
+  t.equal(M.withheld.any, false, "no unresolved tie in the recorded season"); t.equal(JSON.stringify(STAND.regular_season.unresolved), "[]");
+  // the deciding line opens to the wild-card steps: All-Play level, Points For decides, the games between them not needed
+  const S = { lg: { sub: "race", open: { ["tie:" + hawks.franchise_id + ":" + cbp.franchise_id]: true } }, lgd: { model: M } }, h = SV.body(S);
+  t.match(h, /Behind CBP on total Points For ▾/); t.match(h, /Ahead of Hawks on total Points For/);
+  t.match(h, /<td class="t">All-Play<\/td><td>57–53 \(51\.8%\)<\/td><td>57–53 \(51\.8%\)<\/td><td>level<\/td>/);
+  t.match(h, /<td class="t">Points For<\/td><td>2,026\.3<\/td><td>2,097\.4<\/td><td><b>decides<\/b><\/td>/);
+  t.match(h, /<td class="t">Games between them<\/td><td><\/td><td><\/td><td>not needed<\/td>/);
+  t.doesNotMatch(h, /overall record|Overall record/, "overall record is not a seeding step");
 });
 
 test("contributions reconcile exactly: groups and derived slots equal each team's official total for every team; 18 starters; 13 missing scores never zeroed", () => {
@@ -105,24 +120,32 @@ test("derived slot allocation rules, weekly, with a stable tie rule; zero and ne
   t.equal(ST.allocate(u, R).status, "unknown_position");
 });
 
-test("Option B: a group level after total Points For that the rules do not order withholds the seeds, tags, cutoff line and Playoff % it spans; a decided pair stays explained", () => {
-  // three teams at positions 5-7 made level on All-Play, overall record and Points For
-  const s = clone(STAND); const tgt = s.rows[4].regular_season;
-  for (const i of [5, 6]) { const rs = s.rows[i].regular_season; rs.all_play = clone(tgt.all_play); rs.record = clone(tgt.record); rs.points_for = tgt.points_for; }
+test("Option B: a tie the Worker reports as unresolved withholds the seeds it affects, the tied teams' tags and Playoff %, and the line it spans", () => {
+  const cbp = STAND.rows[5].franchise_id, hawks = STAND.rows[6].franchise_id;
+  // the last wild card level through every step the site can apply (the next steps are Power Rank, then a coin flip)
+  const s = clone(STAND); s.regular_season.unresolved = [{ pool: "wild_card", franchise_ids: [cbp, hawks], seeds: [6], why: "power_rank_coin_flip" }];
   let M = ST.build(input({ standings: s }));
-  t.equal(M.withheld.any, true); t.deepEqual(Object.keys(M.withheld.seeds).sort(), ["5", "6"]); t.equal(M.withheld.cutHidden, true);
-  const S = { lg: { sub: "race", open: {} }, lgd: { model: M } };
-  const html = SV.body(S);
-  t.doesNotMatch(html, /Playoff line/, "the cutoff line the group spans is not drawn");
-  t.match(html, /the rules don’t say how to order them/); t.equal((html.match(/rules don’t say/g) || []).length, 1, "explained once");
-  M.rows.slice(4, 7).forEach((r) => t.equal(M.withheld.fids[r.franchise_id], true));
-  // two level teams that met with a clear record between them: ordered by those games, not withheld
-  const two = clone(STAND); const a = two.rows[6], b = two.rows[7];
-  b.regular_season.all_play = clone(a.regular_season.all_play); b.regular_season.record = clone(a.regular_season.record); b.regular_season.points_for = a.regular_season.points_for;
-  const met = two.weekly.filter((g) => g.fid === a.franchise_id && g.opp === b.franchise_id);
-  M = ST.build(input({ standings: two }));
-  const aw = met.filter((g) => g.ts > g.os).length, bw = met.length - aw;
-  t.equal(M.withheld.groups.length, met.length && aw !== bw ? 0 : 1, met.length + " game(s) between them, " + aw + "-" + bw);
+  t.equal(M.withheld.any, true); t.deepEqual(Object.keys(M.withheld.seeds), ["6"]); t.equal(M.withheld.cutHidden, true); t.equal(M.withheld.byeHidden, false);
+  t.equal(M.withheld.pctHeld[cbp], true); t.equal(M.withheld.pctHeld[hawks], true); t.ok(!M.withheld.pctHeld[STAND.rows[0].franchise_id], "others keep their Playoff %");
+  let html = SV.body({ lg: { sub: "race", open: {} }, lgd: { model: M } });
+  t.doesNotMatch(html, /Playoff line/, "the cutoff line the tie spans is not drawn"); t.match(html, /Bye line/);
+  t.match(html, /CBP and Hawks are level on All-Play %, total Points For and the games between them for the last wild card\. No settled tiebreak orders them yet/);
+  t.equal((html.match(/No settled tiebreak orders them yet/g) || []).length, 1, "explained once");
+  t.doesNotMatch(html, new RegExp('data-fid="' + cbp + '">CBP</button> <span class="lgtag">'), "the tied wild card's tag is withheld");
+  t.match(html, /<td class="rk">—<\/td><td class="t"><button class="lgtn" data-act="lgteam" data-fid="[0-9]+">CBP/, "and its seed reads —");
+  // division winners level on All-Play for the second bye: seeds 2-6 move with it, and the bye line is not drawn
+  const b = clone(STAND); b.regular_season.unresolved = [{ pool: "bye", franchise_ids: [STAND.rows[1].franchise_id, STAND.rows[2].franchise_id], seeds: [2, 3, 4, 5, 6], why: "pending_ruling" }];
+  M = ST.build(input({ standings: b }));
+  t.deepEqual(Object.keys(M.withheld.seeds).sort(), ["2", "3", "4", "5", "6"]); t.equal(M.withheld.byeHidden, true);
+  html = SV.body({ lg: { sub: "race", open: {} }, lgd: { model: M } });
+  t.doesNotMatch(html, /Bye line/); t.match(html, /level on All-Play % for a first-round bye/);
+  // a Worker answer with no unresolved list cannot say which ties are open: fail closed on any All-Play + Points For tie that reaches the field
+  const n = clone(STAND); delete n.regular_season.unresolved; n.rows[6].regular_season.points_for = n.rows[5].regular_season.points_for;
+  M = ST.build(input({ standings: n }));
+  t.equal(M.withheld.any, true); t.equal(M.withheld.fids[cbp], true); t.equal(M.withheld.fids[hawks], true); t.equal(M.withheld.cutHidden, true);
+  const n2 = clone(STAND); delete n2.regular_season.unresolved;
+  t.equal(ST.build(input({ standings: n2 })).withheld.any, false, "no level pair, nothing withheld");
+  t.equal(ST.unresolvedTies(STAND.rows, STAND.regular_season).length, 0, "the recorded season: none");
 });
 
 test("live mode has no dated position list or forecast: no contributions (never today's positions), Playoff % only where verified", () => {
@@ -195,7 +218,12 @@ test("MAT-2: a same-week forecast is shown only when it starts from these standi
     t.equal(mine.hard.length === 0, desk.hard.length === 0, k + ": same verdict as the desktop check (" + mine.hard[0] + " / " + desk.hard[0] + ")");
     if (k !== "valid") { M.fids.forEach((f) => t.ok(["—", "100%", "0%"].includes(M.forecast.by[f].playoffs), k + " " + f + ": no simulated probability")); t.match(M.forecast.why, /doesn’t start from these standings/); }
   }
-  t.equal(ST.build(input()).forecast.by[BASE.rows[5].franchise_id].playoffs, "38%", "valid: Hawks 38%");
+  t.equal(ST.build(input()).forecast.by[BASE.rows[5].franchise_id].playoffs, "56%", "valid: CBP 56%");
+  // a forecast simulated under the earlier seeding rules (the published Week 10 file: overall-record step) is refused, whatever its week
+  const old = clone(fc); delete old.seedingRule;
+  const Mo = ST.build(input({ forecast: old }));
+  t.equal(Mo.forecast.fresh, false); t.match(Mo.forecast.why, /made under earlier seeding rules/);
+  Mo.fids.forEach((f) => t.ok(["—", "100%", "0%"].includes(Mo.forecast.by[f].playoffs), "old rules " + f + ": no simulated probability"));
   // a verified clinch still shows when the forecast is refused
   const M2 = ST.build(input({ forecast: cases.wrongTeams })); M2.fids.forEach((f) => { const v = M2.forecast.by[f].verdicts; if (v.playoffs) t.ok(/^(100|0)%$/.test(M2.forecast.by[f].playoffs)); });
 });
@@ -205,7 +233,7 @@ test("MAT-3: three teams level on win % and division win % (different All-Play a
   t.equal(g.length, 3);
   g.forEach((r) => { r.regular_season.record = { w: 18, l: 9, t: 0 }; r.regular_season.division = { w: 3, l: 3, t: 0 }; });
   t.ok(new Set(g.map((r) => ST.share(r.regular_season.all_play) + "|" + Math.round(r.regular_season.points_for * 10))).size === 3, "their All-Play and Points For all differ");
-  t.deepEqual(ST.unresolvedTies(s.rows, s.weekly), [], "the seeding-tie detector alone would not catch this");
+  t.deepEqual(ST.unresolvedTies(s.rows, s.regular_season), [], "the seeding-tie list alone would not catch this");
   const M = ST.build(input({ standings: s })), W = M.withheld;
   const S = { lg: { sub: "race", open: { rd: true } }, lgd: { model: M } };
   const h = SV.body(S);
@@ -241,7 +269,7 @@ test("MAT-4 + divisions: a deciding head-to-head step shows both teams' actual s
   const aw = games.filter((g) => g.ts > g.os).length, al = games.filter((g) => g.ts < g.os).length, at = games.length - aw - al;
   const A = s.rows.find((r) => r.franchise_id === a), B = s.rows.find((r) => r.franchise_id === b);
   B.regular_season.all_play = clone(A.regular_season.all_play); B.regular_season.record = clone(A.regular_season.record); B.regular_season.points_for = A.regular_season.points_for;
-  B.seed_reason = { basis: "ladder", step: "head_to_head", position: "behind", rival_franchise_id: a, vs_above: { franchise_id: a, step: "head_to_head" } };
+  B.seed_reason = { basis: "ladder", pool: "outside", step: "head_to_head", position: "behind", rival_franchise_id: a, vs_above: { franchise_id: a, step: "head_to_head" } };
   const M = ST.build(input({ standings: s })), S = { lg: { sub: "race", open: {} }, lgd: { model: M } };
   if (aw === al) { t.ok(true, "split series: Option B covers it"); return; }
   S.lg.open["tie:" + a + ":" + b] = true;
@@ -256,17 +284,18 @@ test("MAT-4 + divisions: a deciding head-to-head step shows both teams' actual s
   t.match(dv, /Behind .* on division record ▾/); t.match(dv, /<td class="t">Division<\/td><td>\d+–\d+/); t.match(dv, /<b>decides<\/b>/);
 });
 
-test("screens: one decimal with separators, overall record (never H2H record), All-Play vs H2H, '—' for a missing score, xFP absent", () => {
+test("screens: one decimal with separators, Points For (never overall or H2H record) as the deciding line, All-Play vs H2H, '—' for a missing score, xFP absent", () => {
   const M = ST.build(input());
   const S = { lg: { sub: "race", per: "season", cset: "pts", open: {}, team: null, brk: "pos" }, lgd: { model: M }, intel: { players: null } };
   let h = SV.body(S);
-  t.match(h, /Ahead of CBP on overall record/); t.doesNotMatch(h, /H2H record/); t.match(h, /Playoff line/);
+  t.match(h, /Ahead of Hawks on total Points For/); t.doesNotMatch(h, /H2H record|overall record/); t.match(h, /Playoff line/);
   S.lg.sub = "scoring"; h = SV.body(S); t.match(h, /2,732\.0/); t.match(h, /273\.2/);
   S.lg.cset = "grp"; h = SV.body(S); t.match(h, /<b class="lgv">197\.0<\/b><span class="lgrk">#1<\/span>/, "the value leads; the rank is the smaller, muted line under it");
   S.lg.open["ct:" + M.fids[0]] = true; h = SV.body(S); t.match(h, /<span class="lgtl">Offense<\/span><span class="lgtv">1,970\.0<\/span>/, "season totals as aligned group/value rows");
   S.lg.sub = "race"; S.teamId = "0012"; h = SV.body(S);
   t.match(h, /<tr class="lgcut lgbye"><td colspan="5">Bye line<\/td><\/tr>/); t.ok(h.indexOf("Bye line") < h.indexOf("Blake Bombers"), "the bye line sits between seed 2 and seed 3");
-  t.match(h, /<tr class="lgme" aria-current="true"><td class="rk">6<\/td>/, "the selected team (Hawks) is highlighted");
+  t.match(h, /<tr class="lgme" aria-current="true"><td class="rk"><\/td><td class="t"><button class="lgtn" data-act="lgteam" data-fid="0012">Hawks</, "the selected team (Hawks, first team out) is highlighted");
+  t.ok(h.indexOf("Playoff line") < h.indexOf('aria-current="true"'), "Hawks sit below the playoff line");
   t.doesNotMatch(h, />(Show|Hide)</, "chevrons, not Show/Hide words");
   { const S2 = { lg: { team: "0012", brk: "slot", open: { "b:s:RB": true, "b:s:RB:1": true } }, lgd: { model: M }, intel: { players: null } }, b = SV.brkSheet(S2);
     t.doesNotMatch(b, />(Show|Hide)</, "breakdown rows and week rows: chevrons only"); t.doesNotMatch(b, /RB · RB/, "no repeated slot/position"); t.match(b, /RB ×2/); }
@@ -326,7 +355,7 @@ test("ZERO NETWORK: League › Standings tapped through every view; nothing unre
   const ok = (where) => { t.deepEqual(a.net, [], where + ": no network attempt"); t.deepEqual(a.misses(), [], where + ": nothing asked that is not recorded"); };
   t.match(a.html(), /Starting lineup · /, "the accepted Team › Roster is unchanged at boot"); ok("boot");
   await a.click({ "data-act": "nav", "data-v": "league" }, 120);
-  t.match(a.html(), /Standings/); t.match(a.html(), /Ahead of CBP on overall record/); t.match(a.html(), /through Week 10 of 14/); ok("race");
+  t.match(a.html(), /Standings/); t.match(a.html(), /Ahead of Hawks on total Points For/); t.match(a.html(), /through Week 10 of 14/); ok("race");
   const steps = [["lgt", "rd"], ["lgsub", "div"], ["lgsub", "scoring"], ["lgset", "fin"], ["lgset", "grp"], ["lgper", "week"], ["lgwk", "3"]];
   for (const [act, v] of steps) { await a.click({ "data-act": act, "data-v": v }); ok(act + " " + v); }
   t.match(a.html(), /Week 3 · Regular season/);

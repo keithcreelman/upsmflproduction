@@ -3,7 +3,8 @@
    Every seeding number comes from code that already exists: the Worker's season standings (its regular-season ladder), and the shared
    site/shared/standings_race.js (why lines, magic numbers, weekly tables, scored/faced, weekly leaders), standings_clinch.js (verified letters)
    and odds_display.js (the one display policy for forecast probabilities). This module adds only:
-     - the unresolved-tie treatment (Option B): a group still level after total Points For that the rules do not order withholds the seeds it spans;
+     - the unresolved-tie treatment (Option B): a tie the Worker reports as unresolved (regular_season.unresolved: no approved step of canon
+       §F.1.2-§F.1.4 separates it) withholds the seeds it affects;
      - contributions: official MFL points credited to each franchise's actual starters that week, grouped by the player's position from a FROZEN,
        VERSIONED list (never today's position), and allocated to derived lineup slots each week, then added up; reconciled to the team's official total.
 
@@ -21,6 +22,8 @@
   "use strict";
 
   function arr(x) { return Array.isArray(x) ? x : x ? [x] : []; }
+  // the seeding rule a forecast must have been simulated under (pipelines/etl/wire/season_sim.py SEEDING_RULE; canon §F.1, Keith 2026-11-25)
+  var SEEDING_RULE = "canon-F1-2026-11-25: wild cards AP>PF>H2H; seeds 3-6 AP>PF; byes = top-2 division winners by AP";
   function tenths(x) { return Math.round(Number(x) * 10); }
   function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { var t = b; b = a % b; a = t; } return a || 1; }
   // an exact win share as a reduced fraction "num/den" (ties count half: 2w + t over 2n), so "equal" never comes from a rounded percentage
@@ -73,27 +76,27 @@
     return a;
   }
 
-  // ---- Option B: groups still level after the third step (All-Play %, overall record, total Points For) that the rules do not order.
-  // Two teams that met with a clear record between them are ordered by those games (step 4) and stay explained; anything else is unresolved.
-  function unresolvedTies(rows, weekly) {
+  // ---- Option B: the ties no approved step separates (canon §F.1.2-§F.1.4, Keith 2026-11-25). The Worker reports them
+  // (regular_season.unresolved: { pool, franchise_ids, seeds, why }); this module never re-derives the ladder. -> [{ pool, seeds, why, fids:
+  // [{ fid, pos }] }], pos = the team's place in the Worker's order. A Worker answer without the field cannot say which ties are open, so it
+  // fails closed: every group level on All-Play % and total Points For that reaches the field or the first team out counts as open.
+  function unresolvedTies(rows, rs) {
+    var at = {}; rows.forEach(function (r, i) { at[r.franchise_id] = i + 1; });
+    if (rs && Array.isArray(rs.unresolved)) {
+      return rs.unresolved.map(function (u) {
+        return { pool: u.pool, seeds: arr(u.seeds).map(Number), why: u.why || null, fids: arr(u.franchise_ids).filter(function (f) { return at[f]; }).map(function (f) { return { fid: f, pos: at[f] }; }) };
+      }).filter(function (g) { return g.fids.length > 1; });
+    }
     var groups = {};
     rows.forEach(function (r, i) {
-      var rs = r.regular_season || {};
-      if (!rs.all_play || !rs.record) return;
-      var k = share(rs.all_play) + "|" + share(rs.record) + "|" + tenths(rs.points_for);
+      var x = r.regular_season || {};
+      if (!x.all_play) return;
+      var k = share(x.all_play) + "|" + tenths(x.points_for);
       (groups[k] = groups[k] || []).push({ fid: r.franchise_id, pos: i + 1 });
     });
-    var out = [];
-    Object.keys(groups).forEach(function (k) {
-      var g = groups[k]; if (g.length < 2) return;
-      if (g.length === 2) {
-        var a = g[0].fid, b = g[1].fid, wa = 0, wb = 0;
-        arr(weekly).forEach(function (x) { if (x.po === 0 && x.fid === a && x.opp === b) { if (x.ts > x.os) wa++; else if (x.ts < x.os) wb++; } });
-        if (wa !== wb) return;   // decided by the games between them (step 4): explained, not withheld
-      }
-      out.push(g);
-    });
-    return out;
+    return Object.keys(groups).map(function (k) { return groups[k]; }).filter(function (g) { return g.length > 1 && g.some(function (x) { return x.pos <= 7; }); })
+      .map(function (g) { var ps = g.map(function (x) { return x.pos; }); return { pool: "unknown", why: "no_worker_report", fids: g,
+        seeds: [1, 2, 3, 4, 5, 6].filter(function (s) { return s >= Math.min.apply(null, ps) && s <= Math.max.apply(null, ps); }) }; });
   }
 
   // ---- MAT-3: a division lead the rules do not settle. MFL's standingsSort orders a division by win % (PCT), then division win % (DIVPCT), then
@@ -177,10 +180,13 @@
       h2hGames: h2hGames, apGamesLeft: (rows.length - 1) * (lastReg - through), byes: 2, wildCards: 2 }) : { status: "unavailable", byFid: {} };
     M.clinch = cl.byFid || {}; M.clinchStatus = cl.status;
     // forecast: only when it was run after the same week as the standings (else "—" with the reason)
-    var fcx = I.forecast, sameWeek = !!(fcx && Number(fcx.throughWeek) === through);
-    var rc = sameWeek ? forecastReconcile(fcx, payload) : null, fresh = !!(rc && rc.hard.length === 0);
+    // ...and only when it seeded its simulated seasons by the approved playoff rules (model.seedingRule; a forecast made before the
+    // 2026-11-25 correction used the overall-record step and is refused, whatever its week)
+    var fcx = I.forecast, sameWeek = !!(fcx && Number(fcx.throughWeek) === through), ruleOk = !!(fcx && fcx.seedingRule === SEEDING_RULE);
+    var rc = sameWeek && ruleOk ? forecastReconcile(fcx, payload) : null, fresh = !!(rc && rc.hard.length === 0);
     M.forecast = { fresh: fresh, throughWeek: fcx ? Number(fcx.throughWeek) : null, at: fcx ? fcx.generatedAtUtc : null, runs: fcx ? fcx.runs : null, by: {}, reconcile: rc,
       why: !fcx ? "No forecast is available in this mode." : !sameWeek ? "The forecast was run after Week " + fcx.throughWeek + ", not Week " + through + ", so it is not shown."
+        : !ruleOk ? "The forecast was made under earlier seeding rules, so its probabilities are not shown. Verified clinches still show."
         : !fresh ? "The forecast doesn’t start from these standings (" + rc.hard[0] + (rc.hard.length > 1 ? ", and " + (rc.hard.length - 1) + " more" : "") + "), so its probabilities are not shown. Verified clinches still show."
         : rc.corrections.length ? "A score changed after the forecast ran without changing any result (" + rc.corrections[0] + ")." : "" };
     FIDS.forEach(function (f) {
@@ -188,13 +194,15 @@
       // verified: the clinch rules' own outcome (100% / 0%), independent of any simulation; kept wherever simulated percentages are withheld
       M.forecast.by[f] = { verdicts: v, verified: v.playoffs ? OD.pct(null, v.playoffs) : null, playoffs: fresh && t ? OD.pct(t.playoffs, v.playoffs) : (v.playoffs ? OD.pct(null, v.playoffs) : "—"), bye: fresh && t ? OD.pct(t.bye, v.bye) : "—", division: fresh && t ? OD.pct(t.division, v.division) : "—" };
     });
-    // Option B
-    var ties = unresolvedTies(rows, payload.weekly), wSeeds = {}, wFids = {}, cutHidden = false;
+    // Option B: each open tie withholds the seeds it affects (the Worker's list: a bye tie moves seeds 2-6, a tie for the last wild card the
+    // seed that wild card holds), the tied teams' tags and simulated Playoff %, and the cutoff line it spans
+    var ties = unresolvedTies(rows, rsx), wSeeds = {}, wFids = {}, cutHidden = false, byeTie = false;
     ties.forEach(function (g) {
-      var inField = g.some(function (x) { return x.pos <= 7; });   // a group that reaches the field or the first team out
-      if (!inField) return;
-      g.forEach(function (x) { wFids[x.fid] = true; if (x.pos <= 6) wSeeds[x.pos] = true; });
-      var ps = g.map(function (x) { return x.pos; }); if (Math.min.apply(null, ps) <= 6 && Math.max.apply(null, ps) >= 7) cutHidden = true;
+      g.fids.forEach(function (x) { wFids[x.fid] = true; });
+      g.seeds.forEach(function (s) { wSeeds[s] = true; });
+      var ps = g.fids.map(function (x) { return x.pos; });
+      if (g.pool === "wild_card" || (Math.min.apply(null, ps) <= 6 && Math.max.apply(null, ps) >= 7)) cutHidden = true;
+      if (g.pool === "bye" || (Math.min.apply(null, ps) <= 2 && Math.max.apply(null, ps) >= 3)) byeTie = true;
     });
     // MAT-3: an unsettled division lead decides which team is a division winner, and division winners shape the whole field (byes go to division
     // winners; the others compete for wild cards). So no seed, tag or cutoff line is supported for anyone, and no magic number (division and wild-card
@@ -202,9 +210,9 @@
     // which tied team takes the division berth, and nothing shows it doesn't. Records, verified clinch/elimination outcomes and locked seeds stay.
     var dt = divisionTies(rows), divAll = dt.length > 0, byeHidden = false;
     if (divAll) { for (var s = 1; s <= 6; s++) wSeeds[s] = true; cutHidden = true; byeHidden = true; FIDS.forEach(function (f) { wFids[f] = true; }); }
-    var pctHeld = {}; ties.forEach(function (g) { g.forEach(function (x) { if (wFids[x.fid]) pctHeld[x.fid] = true; }); });
+    var pctHeld = {}; ties.forEach(function (g) { g.fids.forEach(function (x) { pctHeld[x.fid] = true; }); });
     if (divAll) FIDS.forEach(function (f) { pctHeld[f] = true; });
-    if (!byeHidden) { var bp = []; ties.forEach(function (g) { if (g.some(function (x) { return wFids[x.fid]; })) bp = bp.concat(g.map(function (x) { return x.pos; })); }); byeHidden = bp.length > 0 && Math.min.apply(null, bp) <= 2 && Math.max.apply(null, bp) >= 3; }
+    if (byeTie) byeHidden = true;
     M.withheld = { seeds: wSeeds, fids: wFids, cutHidden: cutHidden, byeHidden: byeHidden, groups: ties, divisionTies: dt, magicHidden: divAll, pctHeld: pctHeld, any: Object.keys(wFids).length > 0 };
 
     // ---- scoring
@@ -291,5 +299,5 @@
     return C;
   }
 
-  return { build: build, allocate: allocate, unresolvedTies: unresolvedTies, divisionTies: divisionTies, forecastReconcile: forecastReconcile, share: share, RULES: RULES, POS: POS, SLOT_GROUPS: SLOT_GROUPS, CONTRIB: CONTRIB, GROUP: GROUP, cmpP: cmpP };
+  return { build: build, allocate: allocate, unresolvedTies: unresolvedTies, SEEDING_RULE: SEEDING_RULE, divisionTies: divisionTies, forecastReconcile: forecastReconcile, share: share, RULES: RULES, POS: POS, SLOT_GROUPS: SLOT_GROUPS, CONTRIB: CONTRIB, GROUP: GROUP, cmpP: cmpP };
 });

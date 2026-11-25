@@ -51,18 +51,27 @@
   }
 
   // ---------- Race ----------
-  var LBL = { overall: "overall record", points_for: "total Points For", head_to_head: "the games between them" };
+  // canon §F.1.2-§F.1.4 (Keith 2026-11-25): each pool has its own steps; overall record is not one of them
+  var LBL = { points_for: "total Points For", head_to_head: "the games between them" };
+  var POOL_STEPS = { outside: ["all_play", "points_for", "head_to_head"], wild_card: ["all_play", "points_for", "head_to_head"], seeds3to6: ["all_play", "points_for"], bye: ["all_play"] };
+  // the boundary a vs_above step was decided on (worker/src/standings_truth.js): outside the field the wild-card race, seeds 1-2 the bye race,
+  // seed 3 under seed 2 the bye race for a division winner, otherwise seeds 3-6
+  function abovePool(M, r) {
+    var s = r.playoff_seed; if (s == null) return "outside"; if (s <= 2) return "bye";
+    var up = M.rows[M.rows.indexOf(r) - 1];
+    return s === 3 && up && up.playoff_seed === 2 && r.playoff_status !== "wild_card" ? "bye" : "seeds3to6";
+  }
   // the pairs the Worker separated on a step after All-Play % (seed_reason), each shown once on both teams' rows
   function tiePairs(M) {
     var out = {};
     M.rows.forEach(function (r) {
       var sr = r.seed_reason || {}, pairs = [];
-      if (sr.step && LBL[sr.step] && sr.rival_franchise_id) pairs.push({ rival: sr.rival_franchise_id, step: sr.step, ahead: sr.position === "ahead" });
-      if (sr.vs_above && LBL[sr.vs_above.step]) pairs.push({ rival: sr.vs_above.franchise_id, step: sr.vs_above.step, ahead: false });
+      if (sr.step && LBL[sr.step] && sr.rival_franchise_id) pairs.push({ rival: sr.rival_franchise_id, step: sr.step, ahead: sr.position === "ahead", pool: sr.pool });
+      if (sr.vs_above && LBL[sr.vs_above.step]) pairs.push({ rival: sr.vs_above.franchise_id, step: sr.vs_above.step, ahead: false, pool: abovePool(M, r) });
       pairs.forEach(function (p) {
         var a = r.franchise_id, b = p.rival; if (!b) return;
-        (out[a] = out[a] || {})[b] = { step: p.step, ahead: p.ahead };
-        (out[b] = out[b] || {})[a] = { step: p.step, ahead: !p.ahead };
+        (out[a] = out[a] || {})[b] = { step: p.step, ahead: p.ahead, pool: p.pool };
+        (out[b] = out[b] || {})[a] = { step: p.step, ahead: !p.ahead, pool: p.pool };
       });
     });
     return out;
@@ -76,17 +85,18 @@
   function meetings(M, a, b, s) {
     return '<div class="lgser">' + (s.games.length ? s.games.map(function (x) { return '<div class="lgsr"><span>Week ' + x.w + '</span><span class="n">' + t1(x.ts) + "</span><span>–</span><span>" + t1(x.os) + "</span></div>"; }).join("") : "<div>They have not played each other.</div>") + "</div>";
   }
-  function tieTable(M, a, b, step) {
-    var A = M.byFid[a].regular_season, B = M.byFid[b].regular_season, order = ["all_play", "overall", "points_for", "head_to_head"], si = order.indexOf(step);
+  function tieTable(M, a, b, step, pool) {
+    var A = M.byFid[a].regular_season, B = M.byFid[b].regular_season, order = POOL_STEPS[pool] && POOL_STEPS[pool].indexOf(step) >= 0 ? POOL_STEPS[pool] : POOL_STEPS.wild_card, si = order.indexOf(step);
     var s = series(M, a, b);
-    var cells = { all_play: [rec(A.all_play) + " (" + appct(A.all_play) + "%)", rec(B.all_play) + " (" + appct(B.all_play) + "%)"], overall: [rec(A.record), rec(B.record)], points_for: [t1(A.points_for), t1(B.points_for)], head_to_head: [rec(s.a), rec(s.b)] };
-    var names = { all_play: "All-Play", overall: "Overall record", points_for: "Points For", head_to_head: "Games between them" };
+    var cells = { all_play: [rec(A.all_play) + " (" + appct(A.all_play) + "%)", rec(B.all_play) + " (" + appct(B.all_play) + "%)"], points_for: [t1(A.points_for), t1(B.points_for)], head_to_head: [rec(s.a), rec(s.b)] };
+    var names = { all_play: "All-Play", points_for: "Points For", head_to_head: "Games between them" };
     var h = '<table class="lgtie"><thead><tr><th class="t">Step</th><th>' + esc(M.abbr[a] || M.names[a]) + "</th><th>" + esc(M.abbr[b] || M.names[b]) + "</th><th></th></tr></thead><tbody>";
     order.forEach(function (k, i) { h += '<tr><td class="t">' + names[k] + "</td><td>" + (i <= si ? cells[k][0] : "") + "</td><td>" + (i <= si ? cells[k][1] : "") + "</td><td>" + (i < si ? "level" : i === si ? "<b>decides</b>" : "not needed") + "</td></tr>"; });
     h += "</tbody></table>";
-    if (si === 3) h += '<div class="lgn"><b>' + esc(M.names[a]) + "</b> scores first in each meeting:</div>" + meetings(M, a, b, s);
+    if (step === "head_to_head") h += '<div class="lgn"><b>' + esc(M.names[a]) + "</b> scores first in each meeting:</div>" + meetings(M, a, b, s);
     return h + '<div class="ex mt4">Compared on exact records and Points For to the tenth, as MFL scores them, not on the rounded percentages.</div>';
   }
+  var TIEWORDS = { bye: "All-Play % for a first-round bye", seed_1_2_order: "All-Play % for seeds 1 and 2", wild_card: "All-Play %, total Points For and the games between them for the last wild card", seeds3to6: "All-Play % and total Points For inside seeds 3–6" };
   function race(S, M) {
     var TL = tiePairs(M), W = M.withheld, h = "", anyClinch = false;
     M.rows.forEach(function (r, i) {
@@ -103,7 +113,7 @@
       if (!held) Object.keys(TL[f] || {}).forEach(function (o) {
         var t = TL[f][o], k = "tie:" + f + ":" + o, op = on(S, k);
         lines += '<button class="lgwhy" data-act="lgt" data-v="' + esc(k) + '" aria-expanded="' + op + '">' + (t.ahead ? "Ahead of " : "Behind ") + nm(M, o) + " on " + LBL[t.step] + (op ? " ▾" : " ›") + "</button>";
-        if (op) panels += '<tr class="lgsubrow"><td colspan="5"><div class="lgwhyx">' + tieTable(M, f, o, t.step) + "</div></td></tr>";
+        if (op) panels += '<tr class="lgsubrow"><td colspan="5"><div class="lgwhyx">' + tieTable(M, f, o, t.step, t.pool) + "</div></td></tr>";
       });
       // at 320 px AP% and W–L move to a second line under the name (no mid-word wrapping, no smaller text)
       h += "<tr" + me(S, f) + '><td class="rk">' + esc(String(seed)) + '</td><td class="t">' + tn(M, f) + (clinched ? ' <span class="lgtag cl">' + clinched + "</span>" : tag ? ' <span class="lgtag">' + tag + "</span>" : "") +
@@ -112,7 +122,7 @@
     });
     var out = '<div class="card"><div class="lgtw"><table class="lgt"><thead><tr><th class="t">Seed</th><th class="t">Team</th><th class="lgwide">AP%</th><th class="lgwide">W–L</th><th>Playoff %</th></tr></thead><tbody>' + h + "</tbody></table></div>";
     if (W.divisionTies.length) out += '<div class="lgnote wn">' + W.divisionTies.map(function (g) { return g.fids.length + " teams lead " + esc(M.divisions[g.division] || "a division") + " on win % and division win % (" + g.fids.map(function (f) { return nm(M, f); }).join(", ") + ")"; }).join("; ") + ". The rules don’t say how the games between three or more teams settle it, so no seeds, tags, cutoff lines, magic numbers or simulated Playoff % are shown for any team. Records, verified clinches and eliminations, and locked seeds still show.</div>";
-    else if (W.any) out += '<div class="lgnote wn">Some teams are level on All-Play %, overall record and total Points For, and the rules don’t say how to order them. Their seeds, tags, Playoff % and magic numbers are not shown until they separate. Records and verified clinches still show.</div>';
+    else if (W.any) out += '<div class="lgnote wn">' + W.groups.map(function (g) { return g.fids.map(function (x) { return nm(M, x.fid); }).join(" and ") + " are level on " + (TIEWORDS[g.pool] || "every settled tiebreak"); }).join("; ") + ". No settled tiebreak orders them yet, so the seeds that depend on it, and their tags, Playoff % and magic numbers, are not shown until they separate. Records and verified clinches still show.</div>";
     out += '<p class="lgn">Through Week ' + M.through + " of " + M.lastReg + ". " + (M.forecast.fresh ? "Playoff % from the forecast run after Week " + M.forecast.throughWeek + "." : esc(M.forecast.why || "")) + (anyClinch ? "" : " No team has clinched yet, so every tag is a current position.") + "</p>";
     out += tog(S, "rd", "Race details") + (on(S, "rd") ? '<div class="lgxb">' + raceDetails(M) + "</div>" : "") + "</div>";
     return out;
@@ -130,7 +140,7 @@
     }
     var last = M.rows[5] && M.rows[5].franchise_id;
     d += '<div><b>Behind the last wild card</b><div class="lgn">All-Play wins behind ' + nm(M, last) + ". Ties count half.</div></div>";
-    M.rows.filter(function (r) { return r.playoff_seed == null && !W.fids[r.franchise_id]; }).forEach(function (r) { d += '<div class="lgl">' + nm(M, r.franchise_id) + " <b>" + esc(String(r.ap_back)) + "</b>" + (r.ap_back === 0 ? ' <span class="mu">level on All-Play; behind on overall record</span>' : "") + "</div>"; });
+    M.rows.filter(function (r) { return r.playoff_seed == null && !W.fids[r.franchise_id]; }).forEach(function (r) { d += '<div class="lgl">' + nm(M, r.franchise_id) + " <b>" + esc(String(r.ap_back)) + "</b>" + (r.ap_back === 0 && r.seed_reason && LBL[r.seed_reason.step] ? ' <span class="mu">level on All-Play; behind on ' + LBL[r.seed_reason.step] + "</span>" : "") + "</div>"; });
     var out = M.fids.filter(function (f) { var v = M.forecast.by[f].verdicts; return v && v.division === "impossible"; });
     if (out.length) d += '<div class="lgn">Can no longer win the division: ' + out.map(function (f) { return nm(M, f); }).join(", ") + ".</div>";
     return d;
@@ -350,8 +360,8 @@
     var rec0 = S.recorded ? h("Recorded data", "This preview uses recordings, so nothing moves. The weekly lineups and scores were recorded " + esc(S.recorded.label) + ". The standings are generated offline from committed files with the Worker’s own seeding code (not a live answer)" + (M && M.through ? ", through Week " + M.through : "") + "." + (fc && fc.at ? " The forecast was run " + esc(F.etStamp(fc.at) || fc.at) + "." : "")) : "";
     return rec0 +
       h("Seed", "Where a team stands if the season ended today. Seeds 1–2 are the two best division winners; seeds 3–6 are the other division winners and the two wild cards. A green tag is clinched; an outlined tag is only the current position.") +
-      h("Seeding order", "All-Play %, then overall record, then total Points For, then the games between the tied teams. Division winners are placed first, whatever their All-Play %. Exact records are compared, not the rounded percentages. A line under a team names the step that separated it from its neighbor; tap it for the figures.") +
-      h("Seeds not shown", "If teams are still level after total Points For and the rules don’t say how to order them (three or more teams, or two that haven’t met or split their games), the seeds they could hold show “—”, with their tags, Playoff % and magic numbers, until they separate. Records and verified clinches still show.") +
+      h("Seeding order", "Seeds 1 and 2 (the byes) are the two division winners with the best All-Play %. The two wild cards are the best other teams by All-Play %, then total Points For, then the games between the tied teams. Seeds 3–6 are the other two division winners and the wild cards, by All-Play %, then total Points For. Overall record is not a seeding tiebreaker. Exact records are compared, not the rounded percentages. A line under a team names the step that separated it from its neighbor; tap it for the figures.") +
+      h("Seeds not shown", "If teams are level on every tiebreak the league has settled for that place (division winners level on All-Play % for a bye or for seeds 1 and 2; seeds 3–6 level on All-Play % and total Points For; or a wild card still level after the games between them, where the next steps are Power Rank and a coin flip), the seeds that depend on it show “—”, with the tied teams’ tags, Playoff % and magic numbers, until they separate. Records and verified clinches still show.") +
       h("Division order", "The division tiebreak order in the league’s settings: win %, division win %, the games between the tied teams, Points For, then All-Play %. If three or more teams are level on win % and division win %, the rules don’t say how the games between them settle it; that division’s lead is then shown as unsettled, and no seeds, tags, cutoff lines, magic numbers or simulated Playoff % are shown for any team until it settles (verified clinches and eliminations still show). How MFL itself applies that step is not verified.") +
       h("Playoff %", "Share of " + (fc && fc.runs ? Number(fc.runs).toLocaleString("en-US") : "the") + " simulated seasons that reach the playoffs. 100% or 0% only when clinched or ruled out by the clinch rules; otherwise &gt;99% and &lt;1% mark the ends.") +
       h("Total Pts, Pts/Wk", "Points scored in completed regular-season weeks. Each week counts once, even in two- and three-game weeks. Pts/Wk describes past weeks, not a projection.") +

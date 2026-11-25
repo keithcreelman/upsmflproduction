@@ -28,7 +28,8 @@ const OUT = path.join(ROOT, "src", "recorded_standings.js");
 export const SEASON = "2026";
 export const THROUGH_WEEK = 10;
 export const SNAPSHOT = "2026-11-17";
-export const FORECAST = "site/wire/data/season_sim_2026_live_wk10.json";
+// the Week 10 forecast replayed under the corrected playoff ladders (#1526, Keith 2026-11-25); the published Week 10 file used the old ones
+export const FORECAST = "tests/fixtures/mobile2027/season_sim_2026_wk10_replay.json";
 export const POSITIONS = "tests/fixtures/mobile2027/standings_positions_2026_wk10_v1.json";
 const rd = (p) => JSON.parse(fs.readFileSync(path.join(REPO, p), "utf8"));
 const arr = (x) => (Array.isArray(x) ? x : x ? [x] : []);
@@ -64,7 +65,7 @@ export async function build() {
   const truth = await import(pathToFileURL(path.join(REPO, "worker/src/standings_truth.js")));
   const seeding = await import(pathToFileURL(path.join(REPO, "worker/src/seeding.js")));
   const cur = truth.seedCurrentSeason({ franchises, weeklyScores, games, lastRegularSeasonWeek: LAST_REG, standingsSort: league.standingsSort,
-    ladder: { seedLadderSteps: seeding.seedLadderSteps, modernField: seeding.modernField } });
+    ladder: { playoffLadders: seeding.playoffLadders, playoffField: seeding.playoffField } });
   if (cur.status !== "ok") throw new Error("seedCurrentSeason: " + cur.status + " " + JSON.stringify(cur.problems));
   // shaped like the live route (worker/src/index.js GET /api/standings): rows in the Worker's order, then weekly and weeklyScores
   const rows = cur.order.map((fid) => { const f = franchises.find((x) => x.franchise_id === fid); const t = { ...cur.teams[fid] }; delete t.order_index;
@@ -72,7 +73,7 @@ export async function build() {
   const standings = {
     ok: true, year: Number(SEASON), generated: "offline", generated_note: "Generated offline from committed files by the Worker's own seedCurrentSeason; not a live Worker answer.",
     standings_sort: league.standingsSort, standings_basis: "regular_season_ladder",
-    regular_season: { status: cur.status, through_week: cur.throughWeek, last_regular_season_week: LAST_REG, complete: cur.complete, next_out: cur.next_out || null, problems: cur.problems, problem_count: cur.problem_count, seed_by_week: cur.seed_by_week || null },
+    regular_season: { status: cur.status, through_week: cur.throughWeek, last_regular_season_week: LAST_REG, complete: cur.complete, next_out: cur.next_out || null, problems: cur.problems, problem_count: cur.problem_count, unresolved: cur.unresolved || [], seed_by_week: cur.seed_by_week || null },
     rows,
     weekly: games.map((g) => ({ w: g.week, fid: g.franchise_id, opp: g.opponent_franchise_id, ts: g.team_score, os: g.opponent_score, div: g.div, po: g.is_playoff })),
     weeklyScores: weeklyScores.map((r) => ({ w: r.week, fid: r.franchise_id, ts: r.team_score, po: r.is_playoff })),
@@ -84,6 +85,7 @@ export async function build() {
   // MAT-2: keeps what the reconciliation needs (the team ids, each team's All-Play W-L-T and its score in the forecast's last week), the odds, and
   // the run's identity; nothing else
   const forecast = { source: FORECAST, season: Number(sim.season), throughWeek: sim.throughWeek, generatedAtUtc: sim.generatedAtUtc, runs: Number(sim.runs) || null,
+    seedingRule: (sim.model && sim.model.seedingRule) || null, pendingTies: (sim.model && sim.model.pendingTies) || null,
     teams: sim.teams.map((t) => ({ franchiseId: String(t.franchiseId), weekScore: t.weekScore, currentApWins: t.currentApWins, currentApLosses: t.currentApLosses, currentApTies: t.currentApTies,
       playoffs: t.currentPlayoffOdds, bye: t.currentByeOdds, division: t.currentDivisionOdds })) };
   const posText = fs.readFileSync(path.join(REPO, POSITIONS), "utf8"), pos = JSON.parse(posText);
