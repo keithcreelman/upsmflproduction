@@ -182,7 +182,7 @@
     // forecast: only when it was run after the same week as the standings (else "—" with the reason)
     // ...and only when it seeded its simulated seasons by the approved playoff rules (model.seedingRule; a forecast made before the
     // 2026-11-25 correction used the overall-record step and is refused, whatever its week)
-    var fcx = I.forecast, sameWeek = !!(fcx && Number(fcx.throughWeek) === through), ruleOk = !!(fcx && fcx.seedingRule === SEEDING_RULE);
+    var fcx = I.forecast, sameWeek = !!(fcx && Number(fcx.throughWeek) === through), ruleOk = !!(fcx && fcx.model && fcx.model.seedingRule === SEEDING_RULE);
     var rc = sameWeek && ruleOk ? forecastReconcile(fcx, payload) : null, fresh = !!(rc && rc.hard.length === 0);
     M.forecast = { fresh: fresh, throughWeek: fcx ? Number(fcx.throughWeek) : null, at: fcx ? fcx.generatedAtUtc : null, runs: fcx ? fcx.runs : null, replay: !!(fcx && fcx.replayOf), by: {}, reconcile: rc,
       why: !fcx ? "No forecast is available in this mode." : !sameWeek ? "The forecast was run after Week " + fcx.throughWeek + ", not Week " + through + ", so it is not shown."

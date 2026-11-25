@@ -72,7 +72,7 @@ test("seeding comes from the Worker's own ladders: Week 10 Hawks and CBP (both 5
   t.equal(hawks.seed_reason.pool, "outside");
   t.equal(M.why[hawks.franchise_id].text, "Outside the top six — 0 AP wins back; behind CBP (the last wild card) on season Points For.");
   // the forecast is the Week 10 replay under the same rules (its own seeding rule says so)
-  t.equal(RECD.static.forecast.seedingRule, ST.SEEDING_RULE);
+  t.equal(RECD.static.forecast.model.seedingRule, ST.SEEDING_RULE);
   t.equal(fs.readFileSync(path.join(REPO, "pipelines/etl/wire/season_sim.py"), "utf8").match(/^SEEDING_RULE = "(.*)"$/m)[1], ST.SEEDING_RULE, "the beta and the simulator name the same rule");
   t.equal(M.forecast.fresh, true); t.equal(M.forecast.by[cbp.franchise_id].playoffs, "56%"); t.equal(M.forecast.by[hawks.franchise_id].playoffs, "35%");
   t.equal(M.withheld.any, false, "no unresolved tie in the recorded season"); t.equal(JSON.stringify(STAND.regular_season.unresolved), "[]");
@@ -200,8 +200,8 @@ test("MAT-1: mismatched points never enter a displayed contribution or slot tota
 // the desktop page's own forecastReconcile (#1521), extracted from the HTML and run on the same inputs (parity)
 const DESKTOP = fs.readFileSync(path.join(REPO, "site/standings/mfl_hpm_standings_v2.html"), "utf8");
 const dsrc = DESKTOP.slice(DESKTOP.indexOf("  function forecastReconcile(sim, resp) {"), DESKTOP.indexOf("  // One display policy for every forecast probability"));
-const deskReconcile = new Function("pad4", "rowsByFid", "nameOf", "rec", dsrc + "\nreturn forecastReconcile;")(
-  (v) => String(v).padStart(4, "0"), (rows) => Object.fromEntries(rows.map((r) => [String(r.franchise_id).padStart(4, "0"), r])), (r) => r.franchise_name, (w, l, t2) => w + "–" + l + (t2 ? "–" + t2 : ""));
+const deskReconcile = new Function("pad4", "rowsByFid", "nameOf", "rec", "SEEDING_RULE", dsrc + "\nreturn forecastReconcile;")(
+  (v) => String(v).padStart(4, "0"), (rows) => Object.fromEntries(rows.map((r) => [String(r.franchise_id).padStart(4, "0"), r])), (r) => r.franchise_name, (w, l, t2) => w + "–" + l + (t2 ? "–" + t2 : ""), DESKTOP.match(/var SEEDING_RULE = "([^"]*)"/)[1]);
 const deskResp = (st) => Object.assign({}, st, { rows: st.rows.map((r) => Object.assign({}, r, { allplay_w: r.regular_season.all_play.w, allplay_l: r.regular_season.all_play.l, allplay_t: r.regular_season.all_play.t || 0 })) });
 test("MAT-2: a same-week forecast is shown only when it starts from these standings (teams, All-Play records, the week's results); same verdict as the desktop check", () => {
   t.ok(dsrc.length > 500, "the desktop function was found");
@@ -226,7 +226,7 @@ test("MAT-2: a same-week forecast is shown only when it starts from these standi
   }
   t.equal(ST.build(input()).forecast.by[BASE.rows[5].franchise_id].playoffs, "56%", "valid: CBP 56%");
   // a forecast simulated under the earlier seeding rules (the published Week 10 file: overall-record step) is refused, whatever its week
-  const old = clone(fc); delete old.seedingRule;
+  const old = clone(fc); delete old.model.seedingRule;
   const Mo = ST.build(input({ forecast: old }));
   t.equal(Mo.forecast.fresh, false); t.match(Mo.forecast.why, /made under earlier seeding rules/);
   Mo.fids.forEach((f) => t.ok(["—", "100%", "0%"].includes(Mo.forecast.by[f].playoffs), "old rules " + f + ": no simulated probability"));
