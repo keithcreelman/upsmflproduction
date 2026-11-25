@@ -17,8 +17,9 @@ relax that guard. It replaces "live" with "as committed before the trade":
   valuation snapshot built by build_valuation_snapshot.py (today's generator, so today's rules)
                     from exactly those inputs, as of the folder's date, and validated by the
                     grader's own validate_snapshot against them, with the trade time as "now".
-  standings check   the standings must still be the trade's: the first MFL folder committed AFTER
-                    the trade (else a live read supplied by the caller) must show the same weeks
+  standings check   the standings must still be the trade's: the first standings committed AFTER the
+                    trade (a same-day re-pull or the next folder; else a live read supplied by the
+                    caller) must show the same weeks
                     completed. Identical rows = exact; same weeks but changed numbers = graded with
                     a note; a different week count = cannot be graded reliably (never guessed).
   salary adjustments MFL's export, rows timestamped at or before the trade (display only).
@@ -123,15 +124,28 @@ def folders_in(repo, commit: str) -> list:
     return sorted(d for d in out.split() if len(d) == 10 and d[4] == "-")
 
 
-def folder_added(repo, ref: str, folder: str):
-    """(commit, committer_ts) of the first first-parent commit on ref that has the folder's standings."""
-    out = _git(repo, "log", "--first-parent", "--diff-filter=A", "--format=%H %ct", ref, "--",
-               f"{FOLDERS}/{folder}/leagueStandings.json")
-    rows = [line.split() for line in out.splitlines() if line.strip()]
-    if not rows:
-        return None, None
-    sha, ct = rows[-1]
-    return sha, int(ct)
+def folder_version(repo, commit: str, folder: str):
+    """(commit, committer_ts) of the last first-parent commit at or before `commit` that wrote the folder's
+    standings: when the version read at `commit` became available (a folder can be re-pulled later the
+    same day, so this is not always its first pull)."""
+    out = _git(repo, "log", "-1", "--first-parent", "--format=%H %ct", commit, "--",
+               f"{FOLDERS}/{folder}/leagueStandings.json").split()
+    return (out[0], int(out[1])) if out else (None, None)
+
+
+def first_standings_after(repo, ref: str, trade_ts: int):
+    """(commit, ts, folder) of the first first-parent commit on ref after the trade that wrote ANY daily
+    folder's standings (a same-day re-pull or the next day's folder): the first reading after the trade."""
+    out = _git(repo, "log", "--first-parent", "--reverse", "--format=%H %ct", ref, "--",
+               f"{FOLDERS}/*/leagueStandings.json")
+    for line in out.splitlines():
+        sha, ct = line.split()
+        if int(ct) > trade_ts:
+            files = _git(repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "-m", "--first-parent", sha).split()
+            folders = sorted({f.split("/")[2] for f in files if f.startswith(FOLDERS + "/") and f.endswith("/leagueStandings.json")})
+            if folders:
+                return sha, int(ct), folders[-1]
+    return None, None, None
 
 
 def standings_rows(standings: dict) -> dict:
@@ -218,7 +232,7 @@ def resolve(trade_txn: dict, *, repo=REPO, ref: str = "origin/main", live_standi
     if not a.folder:
         a.blocking.append(f"no complete MFL daily folder in {a.commit[:8]} predates the trade")
         return a
-    a.folder_commit, a.folder_available_at = folder_added(repo, ref, a.folder)
+    a.folder_commit, a.folder_available_at = folder_version(repo, a.commit, a.folder)
     if not a.folder_available_at or a.folder_available_at >= trade_ts:
         a.blocking.append(f"MFL folder {a.folder} was not committed before the trade")
         return a
@@ -257,16 +271,12 @@ def resolve(trade_txn: dict, *, repo=REPO, ref: str = "origin/main", live_standi
                                  "note": f"last changed in {changed[0][:12]}" if changed else ""})
 
     # The standings must still be the trade's.
-    post = None
-    for f in [f for f in folders_in(repo, ref) if f > a.folder]:
-        sha, ct = folder_added(repo, ref, f)
-        if ct and ct > trade_ts:
-            post = (f, sha, ct)
-            break
+    sha, ct, f = first_standings_after(repo, ref, trade_ts)
+    post = (f, sha, ct) if sha else None
     post_standings = None
     if post:
         post_standings = json.loads(_git_bytes(repo, "show", f"{post[1]}:{FOLDERS}/{post[0]}/leagueStandings.json"))
-        post_label, post_at = f"MFL folder {post[0]} (committed {iso(post[2])})", post[2]
+        post_label, post_at = f"MFL folder {post[0]} as pulled {iso(post[2])} ({post[1][:8]})", post[2]
         if later_transactions is None:
             try:
                 later_transactions = json.loads(_git_bytes(

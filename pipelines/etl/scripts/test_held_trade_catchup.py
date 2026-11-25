@@ -211,6 +211,22 @@ class AsOfRepo(unittest.TestCase):
         self.assertIn("grades", sens["corrected"])
         self.assertIsInstance(sens["letters_same"], bool)
 
+    def test_a_same_day_repull_after_the_trade_is_the_first_reading(self):
+        """A folder re-pulled later the same day (2026-10-29 15:59Z, 2026-11-24 20:04Z) is the first
+        standings reading after the trade; the version read is the one committed BEFORE the trade."""
+        st = json.loads((self.folder_dir / "leagueStandings.json").read_text())
+        r = st["leagueStandings"]["franchise"][0]
+        r["pf"] = f"{float(r['pf']) + 1.25:.2f}"
+        (self.folder_dir / "leagueStandings.json").write_text(json.dumps(st))
+        (self.folder_dir / "transactions.json").write_text(json.dumps({"transactions": {"transaction": []}}))
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-qm", "daily pull again", ts=T0 + 2 * DAY + 3600)      # after the trade
+        a = self.resolve()
+        self.assertTrue(a.ok, a.blocking)
+        self.assertEqual(a.folder_available_at, T0 + DAY)                   # the pre-trade version
+        self.assertIsNotNone(a.alt_season_state)
+        self.assertTrue(any("as pulled" in n and FOLDER in n for n in a.notes), a.notes)
+
     def test_identical_standings_have_nothing_to_compare(self):
         self.later()
         a = self.resolve()
