@@ -3007,10 +3007,21 @@
   }
   // Freshness, up front on every Forecast view (#1370 gate 4): which week it's through, when it ran, and which earlier
   // forecast the movement compares with.
+  // Movement compares forecasts made under the SAME seeding rules (model.seedingRule; Keith 2026-11-25, release plan 3a):
+  // a forecast's odds move with its seeding rule, so a comparison across the 2026-11-25 correction would report the
+  // correction as movement. -> { ok, why }; when not ok every movement figure reads "—" and `why` says so.
+  function fcComparable(cur, prev) {
+    if (!prev) return { ok: false, why: "there is no earlier published forecast to compare with" };
+    var pr = prev.model && prev.model.seedingRule, cr = cur && cur.model && cur.model.seedingRule;
+    if (!pr) return { ok: false, why: "the Week " + prev.throughWeek + " forecast was simulated under the earlier seeding rules (corrected 2026-11-25), so it isn’t comparable" };
+    if (pr !== cr) return { ok: false, why: "the Week " + prev.throughWeek + " forecast was simulated under different seeding rules, so it isn’t comparable" };
+    return { ok: true, why: null };
+  }
   function fcFreshHtml(sim, prev) {
+    var c = fcComparable(sim, prev);
     return '<div class="fc-fresh" role="status"><b>Forecast through Week ' + escapeHtml(sim.throughWeek) + '</b>'
       + '<span>Generated ' + escapeHtml(fcWhen(sim)) + ' · ' + Number(sim.runs).toLocaleString("en-US") + ' simulated seasons</span>'
-      + '<span>' + (prev ? 'Movement vs the Week ' + escapeHtml(prev.throughWeek) + ' forecast (generated ' + escapeHtml(fcWhen(prev)) + ')' : 'No earlier forecast to measure movement against') + '</span></div>';
+      + '<span>' + (c.ok ? 'Movement vs the Week ' + escapeHtml(prev.throughWeek) + ' forecast (generated ' + escapeHtml(fcWhen(prev)) + ')' : 'Movement: — (' + escapeHtml(c.why) + ')') + '</span></div>';
   }
   var FC_ABOUT = [
     ["Source", "The UPS Wire’s season simulation, the same run the UPS Center prints. No separate model."],
@@ -3019,7 +3030,7 @@
     ["Open ties", "Not every tie has a league rule yet (for example, two division winners on the same All-Play %). When a simulated season ends in one, the forecast gives each tied team an equal chance at that place. That is a forecast assumption Keith approved on 2026-11-25, not a league tiebreak; the league’s rule for these ties is still pending."],
     ["Brackets", "Round 1: 3 v 6 and 4 v 5. Round 2: the top seed plays the lowest seed left. Final in Week 17. The Hawk Tuah Bowl (H1–H6) is played the same way."],
     ["Expected order", "Teams in order of their average finishing place, 1–12 (seeds 1–6, then H1–H6)."],
-    ["Movement", "Change in percentage points since the previous published forecast."],
+    ["Movement", "Change in percentage points since the previous published forecast, only when both were simulated under the same seeding rules; otherwise “—”."],
     ["Can’t see", "Future trades, waiver moves and owners’ lineup choices."]
   ];
   function fcBarHtml(sim, controls) {
@@ -3069,7 +3080,8 @@
     }, function () { return null; });
   }
   function forecastModel(resp, cur, prev, det, cl) {
-    var rowsBy = rowsByFid(resp.rows), prevBy = {};
+    var rowsBy = rowsByFid(resp.rows), prevBy = {}, cmp = fcComparable(cur, prev);
+    if (!cmp.ok) prev = null;    // never compare across seeding rules, or with nothing
     ((prev && prev.teams) || []).forEach(function (t) { prevBy[pad4(t.franchiseId)] = t; });
     var D = det.detail;
     var teams = cur.teams.map(function (t) {
@@ -3092,6 +3104,7 @@
       return (b.projAp - a.projAp) || a.fid.localeCompare(b.fid);
     });
     return { teams: teams, hasDetail: !!D, prevWeek: prev ? Number(prev.throughWeek) : null, prevHasDetail: !!(prev && prev.standingsForecast),
+      movementWhy: cmp.why,
       finals: D ? { ups: finalMatchups(D.finalPairs, "ups", teams), hawk: finalMatchups(D.finalPairs, "hawk", teams) } : { ups: null, hawk: null } };
   }
   // The simulation's (champion, runner-up) pair counts → matchups (both orders added), most common first, or null when
@@ -3167,9 +3180,9 @@
         + '<td class="num fc-wide">' + fcPct(t.bye, t.v.bye) + '</td>'
         + '<td class="num fc-wide">' + fcPct(t.div, t.v.division) + '</td>'
         + '<td class="num">' + fcPct(t.title) + '</td>'
-        + '<td class="num">' + (t.prev ? fcDelta(t.po, t.prev.currentPlayoffOdds) : '—') + '</td></tr>';
+        + '<td class="num">' + (t.prev ? fcDelta(t.po, t.prev.currentPlayoffOdds) : '<span class="fc-delta" aria-label="no comparable earlier forecast">—</span>') + '</td></tr>';
     }).join("");
-    var since = m.prevWeek ? "Δ = playoff odds since the Week " + m.prevWeek + " forecast." : "No earlier forecast to compare with.";
+    var since = m.prevWeek ? "Δ = playoff odds since the Week " + m.prevWeek + " forecast." : "Δ shows —: " + m.movementWhy + ".";
     return '<h3 class="sec-h">Projected final standings</h3>'
       + '<table class="data-table fc-table"><thead><tr><th class="num" scope="col" title="' + (m.hasDetail ? 'Expected place: the average finish over every simulated season' : 'Order of projected All-Play %') + '">Proj</th><th scope="col">Team</th>' + (m.hasDetail ? '<th class="fc-likely" scope="col" title="The single most likely finish">Most likely</th>' : '') + '<th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th><th class="num" scope="col" title="Change in playoff odds since the previous forecast, in percentage points">Δ</th></tr></thead><tbody>' + trs + '</tbody></table>'
       + '<div class="note">' + (m.hasDetail ? "Proj = order of average finish (1–6 seeds, then H1–H6); the line marks the top six. " : "Ordered by projected All-Play %. ") + escapeHtml(since) + '</div>';
@@ -3211,7 +3224,16 @@
       + '<div class="note">Final = reaches the Week 17 final (champion + runner-up). A matchup’s odds count both teams meeting in the final, either way. The Hawk Tuah Bowl champion picks 1.01.</div>';
   }
   function fcMovementHtml(m) {
-    if (!m.prevWeek) return '<div class="banner" role="status">No earlier forecast to compare with.</div>';
+    if (!m.prevWeek) {
+      // no comparable earlier forecast: today's odds with "—" for every change, and why
+      var dash = '<span class="fc-delta" aria-label="no comparable earlier forecast">—</span>';
+      return '<h3 class="sec-h">Movement</h3>'
+        + '<table class="data-table fc-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th></tr></thead><tbody>'
+        + m.teams.slice().sort(function (a, b) { return (b.po - a.po) || a.fid.localeCompare(b.fid); }).map(function (t) {
+          return '<tr><td>' + escapeHtml(t.name) + '</td><td class="num">' + fcPct(t.po, t.v.playoffs) + ' ' + dash + '</td><td class="num fc-wide">' + fcPct(t.bye, t.v.bye) + ' ' + dash + '</td><td class="num fc-wide">' + fcPct(t.div, t.v.division) + ' ' + dash + '</td><td class="num">' + fcPct(t.title) + ' ' + dash + '</td></tr>';
+        }).join("") + '</tbody></table>'
+        + '<div class="note">Movement shows —: ' + escapeHtml(m.movementWhy) + '. Movement is only measured against a forecast simulated under the same seeding rules. Sorted by playoff odds.</div>';
+    }
     var rows = m.teams.slice().sort(function (a, b) {
       return ((b.po - b.prev.currentPlayoffOdds) - (a.po - a.prev.currentPlayoffOdds)) || a.fid.localeCompare(b.fid);
     });

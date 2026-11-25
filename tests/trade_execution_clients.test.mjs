@@ -113,7 +113,8 @@ test("CALLERS: mobile and desktop route the accept + the re-check through the sh
   // greys out lineup-penalty forfeited picks in both builders (2026.10.12.8; unverified-restrictions warning 2026.10.12.9).
   // 2026-10-14: restamped 2026.10.14.1 with no content change — #1229 merged on 10-13 under a
   // 10-12 stamp, which scripts/check_mobile_build.py (correctly) flags as older than the file.
-  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.01.1", "2026.10.14.1"],
+  // 2026-11-24: views/trade.js stamped 2026.11.24.1 -- offer cards no longer list pre-trade extensions for players not in the offer.
+  t.deepEqual([stampOf("shared/trade_3way_view.js"), stampOf("views/trade.js")], ["2026.10.01.1", "2026.11.24.1"],
     "each script's stamp reflects its own last real change");
   t.equal(stampOf("app.js"), v, "app.js (the release identifier itself) always carries the current build");
   // Numeric, component-by-component comparison -- a lexicographic string compare (the

@@ -1318,6 +1318,10 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
                          "it is the prior this update reads and never overwrites" % pre_path)
     preseason = json.load(open(pre_path, encoding="utf-8"))
     pre_by_fid = dict((t["franchiseId"], t) for t in preseason["teams"])
+    # Movement only between forecasts simulated under the same seeding rules (Keith 2026-11-25, release plan 3a):
+    # the preseason odds are still copied (what that forecast said), but the change fields stay None across a rule change.
+    pre_rule = (preseason.get("model") or {}).get("seedingRule")
+    pre_comparable = pre_rule == SEEDING_RULE
 
     prep = prepare(season, cache_dir, injuries=True, ev_offense=ev_offense)
     teams, games = prep["teams"], prep["games"]
@@ -1400,8 +1404,8 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
             "startingAllPlayPct": pre.get("expAllPlayPct"), "startingPowerRank": pre.get("powerRank"),
             "preseasonTitleOdds": pre.get("pTitle"), "preseasonPlayoffOdds": pre.get("pPlayoffs"),
             "preseasonDivisionOdds": pre.get("pDivision"),
-            "titleOddsChange": (round(a["title"] / runs - pre["pTitle"], 4) if pre.get("pTitle") is not None else None),
-            "playoffOddsChange": (round(a["po"] / runs - pre["pPlayoffs"], 4) if pre.get("pPlayoffs") is not None else None),
+            "titleOddsChange": (round(a["title"] / runs - pre["pTitle"], 4) if pre_comparable and pre.get("pTitle") is not None else None),
+            "playoffOddsChange": (round(a["po"] / runs - pre["pPlayoffs"], 4) if pre_comparable and pre.get("pPlayoffs") is not None else None),
             # The single largest real, sourced absence dragging on this team's
             # outlook (None if nothing clears biggest_absences()'s materiality
             # bar) -- the preseason forecast never knew about it, by design.
@@ -1435,6 +1439,7 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
                   "seedingRule": SEEDING_RULE,
                   "pendingTies": dict(sorted((agg.get("_pendingTies") or {}).items())),
                   "pendingTieSeasons": int(agg.get("_pendingTieSeasons") or 0), "pendingTieHandling": PENDING_TIE_HANDLING,
+                  "preseasonSeedingRule": pre_rule,
                   "offenseProjections": ("expected value" if ev_offense else "MFL projectedScores"),
                   "evCoverage": prep.get("evCoverage"),
                   "official": "refresh-only: played weeks are fixed to actual results; every "
