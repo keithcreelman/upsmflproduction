@@ -127,6 +127,11 @@ for (const c of AGREE) {
     ex.seeds.forEach((want, i) => { if (want == null) t.ok(open.has(i + 1), "seed " + (i + 1) + " is reported open"); });
     if (ex.wildCards) t.deepEqual(ids(f.wildCards).sort(), ex.wildCards.slice().sort(), "wild cards");
     if (ex.hawk) t.deepEqual(ids(f.outside), ex.hawk, "H1-H6");
+    // documented, not a parity claim: fully level Hawk Tuah teams are ordered differently by the simulator (franchise id)
+    if (ex.hawkDiffers) {
+      t.deepEqual(ids(f.outside), ex.hawkDiffers.worker, "the Worker's own H1-H6");
+      t.ok(JSON.stringify(ex.hawkDiffers.worker) !== JSON.stringify(ex.hawkDiffers.simulator), "the case really differs");
+    }
     if (ex.nextOut) t.equal(f.wildCardRace[0].franchise_id, ex.nextOut, "next in line for the last wild card");
   });
 }

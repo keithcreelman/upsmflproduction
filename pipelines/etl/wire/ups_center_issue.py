@@ -423,13 +423,15 @@ class Issue:
 
     def open_tie_note(self, sim):
         """The forecast's own count of simulated seasons where teams were level on every settled seeding tiebreak, and
-        how it treated them (season_sim.py PENDING_TIE_HANDLING: a modeling choice pending a ruling, never a league rule)."""
+        how it treated them (season_sim.py PENDING_TIE_HANDLING: equal chances, a forecast assumption Keith approved 2026-11-25;
+        never a league rule, and the league's tiebreak for those ties is still pending)."""
         n = int(sim.get("pendingTieSeasons") or 0)
         if not n:
             return ""
         cnt = self.L.put("odds:pendingTieSeasons", n, "season_sim.py model.pendingTieSeasons", "{:,}".format(n))
         return (' In %s of the simulated seasons, teams were level on every seeding tiebreak the league has settled; '
-                'the forecast split those places evenly. That is a modeling choice pending a ruling, not a league rule.' % cnt)
+                'the forecast gave the tied teams equal chances. That is a forecast assumption, not a league tiebreak; the '
+                'league&rsquo;s rule for these ties is still pending.' % cnt)
 
     def seg_landscape(self, bare=False):
         st = self.ctx["mfl"]["standings"]

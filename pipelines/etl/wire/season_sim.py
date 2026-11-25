@@ -35,10 +35,11 @@ THE MODEL, and where every piece comes from:
     No overall-record step. A tie the approved steps leave open (division
     winners level on all-play for a bye or for seeds 1-2; seeds 3-6 level on
     all-play and points for; wild cards level through head-to-head) has no rule
-    to apply here. How the forecast treats such a tie is a MODELING CHOICE that
-    is pending Keith's decision (PR #1529), not a league rule: this draft
-    settles it by an even draw from its own random stream (TIE_SEED_OFFSET),
-    never by an invented tiebreak, and COUNTS it (model.pendingTies per pool,
+    to apply here. How the forecast treats such a tie is a MODELING CHOICE, not a
+    league rule: Keith approved equal chances on 2026-11-25 (PR #1529, option A),
+    and the league's tiebreak for those ties stays pending his ruling. So it is
+    settled by an even draw from its own random stream (TIE_SEED_OFFSET), never
+    by an invented tiebreak, and COUNTED (model.pendingTies per pool,
     model.pendingTieSeasons in all, model.pendingTieHandling names the choice)
     so every reader can say so. Weeks 15-17; single matchups.
 
@@ -414,8 +415,9 @@ CONS_SEED_OFFSET = 2
 TIE_SEED_OFFSET = 3
 # Which seeding rule produced a forecast (the Standings page refuses a forecast made under another one).
 SEEDING_RULE = "canon-F1-2026-11-25: wild cards AP>PF>H2H; seeds 3-6 AP>PF; byes = top-2 division winners by AP"
-# How a simulated tie no rule settles is treated (model.pendingTieHandling): a proposal awaiting Keith's decision.
-PENDING_TIE_HANDLING = "even_draw (proposed; pending Keith's decision, PR #1529)"
+# How a simulated tie no rule settles is treated (model.pendingTieHandling): equal chances, approved by Keith 2026-11-25
+# (PR #1529, option A) as a forecast assumption. The league's tiebreak for those ties is still pending his ruling.
+PENDING_TIE_HANDLING = "even_draw (forecast assumption approved by Keith 2026-11-25, PR #1529; league tiebreak still pending)"
 
 
 def bracket_full(side, play, cplay, reg_end, end):
@@ -483,7 +485,9 @@ def playoff_seeds(fids, dws, st, vs, rng_tie, pending):
 def hawk_tuah_order(teams, st):
     """The Hawk Tuah side, H1-H6: the six non-playoff teams in the order they had before the 2026-11-25 correction
     (all-play %, overall record, points for; fully level: franchise-id order). Canon F.1 covers the playoff field
-    only, so the consolation order is unchanged until Keith rules on it (worker/src/seeding.js hawkTuahLadder)."""
+    only, so the consolation order is unchanged until Keith rules on it (worker/src/seeding.js hawkTuahLadder).
+    NOT IN PARITY with the Worker when teams are level on all three (documented, not fixed; Keith 2026-11-25): the
+    Worker then uses head-to-head among them, then name, then franchise id; this uses franchise id only."""
     return sorted(sorted(teams), key=lambda f: (-st[f]["ap_pct"], -st[f]["pct"], -st[f]["pf"]))
 
 

@@ -210,13 +210,13 @@ test("no Week 6 Wire file yet: the Week 5 forecast, labeled stale; its pre-corre
 });
 
 // ═══ fails closed ═══
-test("How the forecast works: an open simulated tie is split evenly, and called a modeling choice pending Keith's decision", async () => {
+test("How the forecast works: an open simulated tie gets equal chances, a forecast assumption Keith approved; the league rule stays pending", async () => {
   const { h } = await page("view=forecast&year=2026");
-  t.match(text(h), /Open ties Not every tie has a league rule yet .* the forecast splits that place evenly between the tied teams\. That is a modeling choice pending Keith’s decision, not a league rule\./);
+  t.match(text(h), /Open ties Not every tie has a league rule yet .* the forecast gives each tied team an equal chance at that place\. That is a forecast assumption Keith approved on 2026-11-25, not a league tiebreak; the league’s rule for these ties is still pending\./);
   t.ok(!/seasons had an open tie/.test(text(h)), "a run that doesn't count them says nothing about a count");
   const counted = { ...SIM6, model: { ...SIM6.model, pendingTieSeasons: 63 } };
   const r = await page("view=forecast&year=2026", { ...PUBLISHED, "season_sim_2026_live_wk06.json": counted });
-  t.match(text(r.h), /random seed \d+ · 63 of 10,000 seasons had an open tie, split evenly/);
+  t.match(text(r.h), /random seed \d+ · 63 of 10,000 seasons had an open tie \(equal chances\)/);
 });
 
 test("refuses a forecast simulated under the earlier seeding rules: the Week 6 file as published (no model.seedingRule)", async () => {

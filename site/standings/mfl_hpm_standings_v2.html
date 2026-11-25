@@ -3004,7 +3004,7 @@
   function fcOpenTieText(sim) {
     var n = sim && sim.model ? Number(sim.model.pendingTieSeasons) : NaN;
     if (!(n >= 0)) return "";
-    return " · " + n.toLocaleString("en-US") + " of " + Number(sim.runs).toLocaleString("en-US") + " seasons had an open tie, split evenly";
+    return " · " + n.toLocaleString("en-US") + " of " + Number(sim.runs).toLocaleString("en-US") + " seasons had an open tie (equal chances)";
   }
   function fcRunText(sim) {
     return "Through Week " + sim.throughWeek + " · " + Number(sim.runs).toLocaleString("en-US") + " simulated seasons · run " + fcWhen(sim);
@@ -3020,7 +3020,7 @@
     ["Source", "The UPS Wire’s season simulation, the same run the UPS Center prints. No separate model."],
     ["Played weeks", "Weeks already played are the real scores. Each later week is simulated from current rosters and projections, with every team’s projected edge cut by 30% toward the league average."],
     ["Seeding", "The Standings rules: division winners by MFL’s division order; the two with the best All-Play % get byes; wild cards and seeds 3–6 by All-Play %, then Points For. H1–H6 keep their own order: All-Play %, H2H record, Points For."],
-    ["Open ties", "Not every tie has a league rule yet (for example, two division winners on the same All-Play %). When a simulated season ends in one, the forecast splits that place evenly between the tied teams. That is a modeling choice pending Keith’s decision, not a league rule."],
+    ["Open ties", "Not every tie has a league rule yet (for example, two division winners on the same All-Play %). When a simulated season ends in one, the forecast gives each tied team an equal chance at that place. That is a forecast assumption Keith approved on 2026-11-25, not a league tiebreak; the league’s rule for these ties is still pending."],
     ["Brackets", "Round 1: 3 v 6 and 4 v 5. Round 2: the top seed plays the lowest seed left. Final in Week 17. The Hawk Tuah Bowl (H1–H6) is played the same way."],
     ["Expected order", "Teams in order of their average finishing place, 1–12 (seeds 1–6, then H1–H6)."],
     ["Movement", "Change in percentage points since the previous published forecast."],
