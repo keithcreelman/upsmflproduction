@@ -1,12 +1,13 @@
-// /api/standings says WHY each current-season team is seeded where it is (seed_reason), from the worker's own ladder —
-// All-Play % → Overall → season Points For → head-to-head (canon §F.1, Keith 2026-10-08) — so no page re-derives it
+// /api/standings says WHY each current-season team is seeded where it is (seed_reason), from the worker's own ladders —
+// wild cards All-Play % → season Points For → head-to-head; seeds 3–6 All-Play % → season Points For; byes to the two
+// division winners with the best All-Play % (canon §F.1.2–§F.1.4, Keith 2026-11-25) — so no page re-derives it
 // (Keith 2026-10-09, Phase II port decision 1). Seasons with recorded final standings make no ladder claim (decision 2).
 //   node tests/standings_seed_reason.test.mjs
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { makeWorkerEnv, makeMfl, callWorker, quiet } from "./fixtures/worker_harness.mjs";
 import fs from "node:fs";
 import { makeLadderSeason as makeSeason, loadSeason, recorded2026 } from "./fixtures/standings_d1.mjs";
-import { seedLadder, seedLadderSteps, SEED_STEPS } from "../worker/src/seeding.js";
+import { playoffLadders, SEED_STEPS } from "../worker/src/seeding.js";
 import { LADDER_TEAMS } from "./fixtures/standings_d1.mjs";
 
 const restore = quiet();
@@ -17,19 +18,23 @@ const standings = async (env) => { const r = await callWorker(env, "GET", "/api/
 const byFid = (j) => Object.fromEntries(j.rows.map((r) => [r.franchise_id, r]));
 const brief = (r) => [r.playoff_seed, r.seed_reason.pool, r.seed_reason.step, r.seed_reason.position, r.seed_reason.rival_franchise_id];
 
-test("seedLadderSteps: the comparator is identical to seedLadder, and names the step that decided each pair", () => {
+test("playoffLadders: each pool names the step that decided a pair, and 'unresolved' where no approved step does", () => {
   const rows = LADDER_TEAMS.map(([fid, , ap, ov, pf]) => ({ franchise_id: fid, franchise_name: "Team " + fid, allplay_pct: ap, h2h_pct: ov, pf_total: pf }));
   const games = [{ franchise_id: "0004", opponent_franchise_id: "0002", team_score: 120, opponent_score: 100 }, { franchise_id: "0002", opponent_franchise_id: "0004", team_score: 100, opponent_score: 120 }];
-  const L = seedLadderSteps(rows, games), old = seedLadder(rows, games);
-  for (const a of rows) for (const b of rows) t.equal(Math.sign(L.cmp(a, b)), Math.sign(old(a, b)));
+  const L = playoffLadders(rows, games, new Set(["0001", "0003", "0005", "0007"]));   // the division winners
   const R = Object.fromEntries(rows.map((r) => [r.franchise_id, r]));
-  t.equal(L.decidingStep(R["0001"], R["0003"]), "overall");
-  t.equal(L.decidingStep(R["0004"], R["0002"]), "head_to_head");
-  t.equal(L.decidingStep(R["0007"], R["0005"]), "points_for");
-  t.equal(L.decidingStep(R["0002"], R["0007"]), "all_play");
-  t.equal(L.decidingStep(R["0001"], R["0001"]), null);
-  t.equal(L.decidingStep({ ...R["0006"], franchise_name: "A" }, { ...R["0006"], franchise_id: "0099", franchise_name: "B" }), "name", "the fallback is named as such");
-  t.deepEqual(SEED_STEPS, ["all_play", "overall", "points_for", "head_to_head", "name", "franchise_id"]);
+  // 0001/0003: division winners level on All-Play; 0001's better record is not a step (canon §F.1.4: pending ruling)
+  t.equal(L.bye.decidingStep(R["0001"], R["0003"]), "unresolved");
+  t.equal(L.bye.why(R["0001"], R["0003"]), "pending_ruling");
+  // 0004/0002: level on All-Play and Points For. For a wild card head-to-head decides; inside seeds 3-6 it is not a step.
+  t.equal(L.wild_card.decidingStep(R["0004"], R["0002"]), "head_to_head");
+  t.ok(L.wild_card.cmp(R["0004"], R["0002"]) < 0, "0004 won the game");
+  t.equal(L.seeds3to6.decidingStep(R["0004"], R["0002"]), "unresolved");
+  t.equal(L.seeds3to6.why(R["0004"], R["0002"]), "pending_ruling");
+  t.equal(L.seeds3to6.decidingStep(R["0007"], R["0005"]), "points_for");
+  t.equal(L.wild_card.decidingStep(R["0002"], R["0007"]), "all_play");
+  t.equal(L.wild_card.why(R["0002"], R["0007"]), null);
+  t.deepEqual(SEED_STEPS, ["all_play", "points_for", "head_to_head", "unresolved"]);
 });
 
 // The current season is seeded from its REGULAR-SEASON WEEKLY rows (worker/src/standings_truth.js, 2026-10-17), so the
@@ -54,10 +59,12 @@ test("current season: every row carries the step that seeded it, through the rea
   t.deepEqual(j.rows.map((r) => r.franchise_id), ["0009", "0010", "0005", "0008", "0002", "0004", "0012", "0011", "0001", "0003", "0006", "0007"]);
   t.deepEqual(brief(R["0009"]), [1, "bye", "all_play", "ahead", "0010"]);
   t.deepEqual(brief(R["0010"]), [2, "bye", "all_play", "behind", "0009"]);
-  t.deepEqual(brief(R["0008"]), [4, "seeds3to6", "overall", "ahead", "0002"], "Creel over CBP: both 32-23 All-Play, 9-4 vs 7-6");
+  t.deepEqual(brief(R["0008"]), [4, "seeds3to6", "points_for", "ahead", "0002"], "Creel over CBP: both 32-23 All-Play, 1145.8 vs 1106.2 Points For");
   t.deepEqual(brief(R["0004"]), [6, "seeds3to6", "all_play", "behind", "0002"]);
   t.deepEqual(brief(R["0012"]), [null, "outside", "all_play", "behind", "0004"], "outside: behind the last wild card");
-  t.deepEqual([R["0002"].seed_reason.vs_above.franchise_id, R["0002"].seed_reason.vs_above.step], ["0008", "overall"]);
+  t.deepEqual([R["0002"].seed_reason.vs_above.franchise_id, R["0002"].seed_reason.vs_above.step], ["0008", "points_for"]);
+  t.deepEqual(j.regular_season.unresolved, []);
+  t.ok(j.rows.every((r) => r.seed_unresolved === false));
   t.ok(j.rows.every((r) => r.seed_reason.basis === "ladder"));
   t.equal(R["0012"].ap_back, 2);
   t.equal(R["0002"].seed_reason.rival_seed, 6);
@@ -65,6 +72,7 @@ test("current season: every row carries the step that seeded it, through the rea
   const b = await callWorker(recordedEnv(), "GET", "/api/playoff-bracket?year=2026");
   t.equal(b.json.seeding_status, "regular_season_ladder");
   t.deepEqual(b.json.seeds.map((s) => s.franchise_id), j.rows.map((r) => r.franchise_id));
+  t.deepEqual(b.json.seeding_unresolved, []);
 });
 
 test("the regular-season games can't be read: no seeds at all, and the response says why", async () => {

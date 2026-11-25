@@ -1,5 +1,7 @@
 # 2026 Week 4 Elias correction: D1 repair (2026-10-08)
 
+> **Superseded 2026-11-25 (PR #1526 audit, Keith's ruling):** the seeding order quoted below (All-Play % → Overall → PF → H2H) had no league source. The playoff rules are now canon §F.1.2–§F.1.4: wild cards All-Play % → Points For → H2H; seeds 3–6 All-Play % → Points For; byes to the two division winners with the best All-Play %. This note is kept as a record.
+
 **Why.** Elias posted Week 4 stat changes Wed Oct 7 at 11:32:16 PM ET, and MFL applied them. D1 still held the Tue Oct 6 sync, so `/api/standings` and the standings pages showed Eric Martel at 35-9 and Shawn Blake at 31-13. MFL had 34-10 and 32-12. Root cause and fix: PR #1190.
 
 **Scope.** Week 4 only. Weeks 1–3 were verified identical to MFL beforehand: 48/48 weekly team scores, and 0 player-score or rank mismatches in Weeks 1–3.

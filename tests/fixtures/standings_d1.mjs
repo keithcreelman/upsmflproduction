@@ -49,10 +49,13 @@ export function makeEnv(flags) {
 //   weeks 1 and 3 (P1): 0001 200 > 0003 190 > 0004 170 > 0002 160 > 0007 150 > 0005 140 > 0006 110 > 0008 100
 //   weeks 2 and 4 (P2): 0003 200 > 0001 190 > 0002 170 > 0004 160 > 0005 148 > 0007 146 > 0006 110 > 0008 100
 // Division winners (on record): 0001 (4-0), 0003 (3-1), 0005 (2-2 v 1-3), 0007 (2-2 v 0-4).
-//   bye pool:   0001 vs 0003 — All-Play tied 26-2, 0001 ahead on Overall (4-0 v 3-1)
-//   seeds 3-6:  0004 v 0002 — tied All-Play (18-10), Overall (2-2) AND Points For (660); 0004 won 2 of 3 → head-to-head
+// Under canon §F.1.2-§F.1.4 (2026-11-25; no overall-record step):
+//   bye pool:   0001 vs 0003 — All-Play tied 26-2: the order of seeds 1 and 2 is UNRESOLVED (pending a ruling)
+//   wild cards: 0004 and 0002 — tied All-Play (18-10) and Points For (660); 0004 won 2 of 3, so the wild-card order is
+//               0004, 0002 (head-to-head). Inside seeds 3-6 they stay level (no H2H step there): UNRESOLVED, shown in
+//               the wild-card order
 //               0002 v 0007 — All-Play 18-10 v 10-18
-//               0007 v 0005 — tied All-Play (10-18) and Overall (2-2); Points For 592 v 576
+//               0007 v 0005 — tied All-Play (10-18); Points For 592 v 576
 //   outside:    0006, 0008 — behind the last wild card (0002) on All-Play
 export const LADDER_TEAMS = [
   ["0001", "A", 26 / 28, 1.00, 780], ["0002", "A", 18 / 28, 0.50, 660],

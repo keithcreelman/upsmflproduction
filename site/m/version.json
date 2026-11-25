@@ -1,4 +1,4 @@
 {
-  "build": "2026.11.24.1",
-  "label": "Trade offers no longer show pre-trade extensions for players who aren't part of the offer."
+  "build": "2026.11.25.1",
+  "label": "Standings: playoff seeds follow the corrected tiebreakers (wild cards and seeds 3–6 by All-Play %, then Points For)."
 }

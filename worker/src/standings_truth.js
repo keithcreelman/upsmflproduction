@@ -209,8 +209,10 @@ export function divisionOrder(rows, games, standingsSort) {
 //   franchises -- [{ franchise_id, franchise_name, division }]
 //   weeklyScores, games, lastRegularSeasonWeek -- as regularSeasonTotals
 //   standingsSort -- MFL's chain for the season (division order)
-//   ladder -- seeding.js { seedLadderSteps, modernField } (passed in to keep this module pure)
-// Returns { status, problems, throughWeek, lastRegularSeasonWeek, complete, order, teams }.
+//   ladder -- seeding.js { playoffLadders, playoffField } (passed in to keep this module pure)
+// Returns { status, problems, throughWeek, lastRegularSeasonWeek, complete, order, teams, unresolved }.
+//   unresolved -- playoffField's ties that the approved steps leave open (canon §F.1: pending rulings, or the
+//                 wild-card Power Rank / coin-flip steps this site cannot apply); a seed listed there is not final.
 // When status isn't "ok" there are NO seeds, no division leaders and no reasons:
 // a table that can't be trusted is not ranked at all.
 export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegularSeasonWeek, standingsSort, ladder, history = true }) {
@@ -223,7 +225,7 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
     throughWeek: tot.throughWeek, lastRegularSeasonWeek: lastReg,
     complete: tot.status === "ok" && lastReg != null && tot.throughWeek === lastReg,
   };
-  if (tot.status !== "ok") return { ...base, order: fr.map((f) => f.franchise_id), teams: {} };
+  if (tot.status !== "ok") return { ...base, order: fr.map((f) => f.franchise_id), teams: {}, unresolved: [] };
 
   const rows = fr.map((f) => {
     const t = tot.teams[f.franchise_id];
@@ -268,10 +270,11 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
     });
   }
 
-  // Seeds (§F.1 ladder on the regular-season values).
+  // Seeds (§F.1.2-§F.1.4 on the regular-season values): each pool has its own ladder.
   const ladderGames = tot.games.map((g) => ({ franchise_id: g.a, opponent_franchise_id: g.b, team_score: g.ts, opponent_score: g.os }));
-  const L = ladder.seedLadderSteps(rows, ladderGames);
-  const f = ladder.modernField(rows, winners, L.cmp);
+  const LL = ladder.playoffLadders(rows, ladderGames, winners);
+  const f = ladder.playoffField(rows, winners, LL);
+  const poolLadder = { bye: LL.bye, seeds3to6: LL.seeds3to6, outside: LL.wild_card };
   const wc = new Set(f.wildCards.map((r) => r.franchise_id));
   f.byes.forEach((r, i) => Object.assign(teams[r.franchise_id], { playoff_seed: i + 1, playoff_status: "bye", is_wild_card: false }));
   f.seeds3to6.forEach((r, i) => Object.assign(teams[r.franchise_id], { playoff_seed: i + 3, playoff_status: wc.has(r.franchise_id) ? "wild_card" : "division_winner", is_wild_card: wc.has(r.franchise_id) }));
@@ -279,12 +282,16 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
 
   // Why each team sits where it does (same steps the order used; pages never re-derive it).
   const seedOf = (r) => teams[r.franchise_id].playoff_seed;
-  const reasonVs = (team, rival, pool) => ({
-    basis: "ladder", pool, step: L.decidingStep(team, rival),
-    position: L.cmp(team, rival) < 0 ? "ahead" : "behind",
-    rival_franchise_id: rival.franchise_id, rival_name: rival.franchise_name || null,
-    rival_seed: seedOf(rival) == null ? null : seedOf(rival),
-  });
+  const at = new Map([...f.byes, ...f.seeds3to6, ...f.outside].map((r, i) => [r.franchise_id, i]));
+  const reasonVs = (team, rival, pool) => {
+    const L = poolLadder[pool], step = L.decidingStep(team, rival);
+    return {
+      basis: "ladder", pool, step, ...(step === "unresolved" ? { pending: L.why(team, rival) } : {}),
+      position: (pool === "outside" ? L.cmp(team, rival) < 0 : at.get(team.franchise_id) < at.get(rival.franchise_id)) ? "ahead" : "behind",
+      rival_franchise_id: rival.franchise_id, rival_name: rival.franchise_name || null,
+      rival_seed: seedOf(rival) == null ? null : seedOf(rival),
+    };
+  };
   // seed_reason compares with the next team in the pool (the last one: the one above); vs_above, when there is one,
   // names the step that kept the team BELOW its neighbor ("Why is CBP behind Real Deal Creel?").
   const ordered = [...f.byes, ...f.seeds3to6, ...f.outside];
@@ -292,15 +299,29 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
     const rival = i < list.length - 1 ? list[i + 1] : list[i - 1];
     teams[r.franchise_id].seed_reason = rival ? reasonVs(r, rival, pool) : { basis: "ladder", pool, step: null };
   });
-  // When the team above would LOSE the ladder comparison, the gap is structural: a bye needs a division title, and a
-  // division winner is in the field ahead of a better non-winner.
+  // The step that kept a team BELOW its neighbor, on the ladder of the boundary between them: inside the byes the
+  // bye ladder, inside seeds 3-6 (and from seed 2 to seed 3) the seeds 3-6 ladder, from seed 6 to H1 the wild-card
+  // ladder, and among the teams outside the field the Hawk Tuah order (vs_above.pool "hawk_tuah": its steps are
+  // seeding.js HAWK_TUAH_STEPS, which still include the overall record). When the team above would LOSE that comparison, the gap is structural: a
+  // bye needs a division title, and a division winner is in the field ahead of a better non-winner.
   const addAbove = () => ordered.forEach((r, i) => {
     if (i === 0) return;
     const up = ordered[i - 1];
-    const upSeed = teams[up.franchise_id].playoff_seed;
+    const upSeed = teams[up.franchise_id].playoff_seed, mySeed = teams[r.franchise_id].playoff_seed;
+    // Seed 3 under seed 2: a division winner there lost the bye race (bye ladder); a wild card there cannot take a
+    // bye at all, so only a lower All-Play % is a ladder reason (else the structural step below).
+    const dwBelowBye = mySeed === 3 && upSeed === 2 && winners.has(r.franchise_id);
+    if (mySeed == null && upSeed == null) {
+      teams[r.franchise_id].seed_reason.vs_above = { franchise_id: up.franchise_id, name: up.franchise_name || null,
+        pool: "hawk_tuah", step: f.hawkTuah.decidingStep(up, r) };
+      return;
+    }
+    const L = mySeed == null ? LL.wild_card : (mySeed <= 2 || dwBelowBye) ? LL.bye : LL.seeds3to6;
     let step = L.decidingStep(up, r);
-    if (L.cmp(up, r) > 0) step = upSeed != null && upSeed <= 2 ? "bye_requires_division_title" : "division_winner_in_field";
-    teams[r.franchise_id].seed_reason.vs_above = { franchise_id: up.franchise_id, name: up.franchise_name || null, step };
+    if (step !== "unresolved" && L.cmp(up, r) > 0) step = upSeed != null && upSeed <= 2 ? "bye_requires_division_title" : "division_winner_in_field";
+    else if (mySeed === 3 && upSeed === 2 && !dwBelowBye && step !== "all_play") step = "bye_requires_division_title";
+    teams[r.franchise_id].seed_reason.vs_above = { franchise_id: up.franchise_id, name: up.franchise_name || null, step,
+      ...(step === "unresolved" ? { pending: L.why(up, r) } : {}) };
   });
   poolReasons(f.byes, "bye");
   poolReasons(f.seeds3to6, "seeds3to6");
@@ -309,7 +330,7 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
   addAbove();
 
   // ap_back ("WC Back"): All-Play wins behind the LAST WILD CARD (ties count half), the race a team outside the field
-  // is actually in. The four division winners are protected (a better All-Play record never takes a division winner's
+  // is actually in (the wild-card ladder, §F.1.2). The four division winners are protected (a better All-Play record never takes a division winner's
   // place), so the 6th seed is the wrong yardstick whenever it is a division winner: 2026 Week 6 measured Hawks against
   // Real Deal Creel and showed -1 (#1329). Seeds 1-6 are null; no wild card, null. Every team outside is a non-winner
   // the ladder put behind the wild cards, so the figure is never negative.
@@ -318,7 +339,7 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
     const t = teams[r.franchise_id];
     t.ap_back = t.playoff_seed == null && cut ? Math.round((apWins(cut.franchise_id) - apWins(r.franchise_id)) * 10) / 10 : null;
   }
-  const order = [...f.byes, ...f.seeds3to6, ...f.outside].map((r) => r.franchise_id);   // outside is already in ladder order
+  const order = [...f.byes, ...f.seeds3to6, ...f.outside].map((r) => r.franchise_id);   // outside = H1-H6, the Hawk Tuah order
   order.forEach((fid, i) => { teams[fid].order_index = i; });
   // Seed order after every completed week (same computation on weeks 1..k), for "moved up since last week"
   // and the Trends chart. Pages never recompute it.
@@ -342,5 +363,8 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
       t.order_change = prev ? prev.indexOf(fid) - t.order_index : null;
     }
   }
-  return { ...base, order, teams, seed_by_week: seedByWeek, next_out: f.outside.length ? f.outside[0].franchise_id : null };
+  // A seed that depends on an unresolved tie says so on its own row too.
+  for (const u of f.unresolved) for (const fid of u.franchise_ids) teams[fid].seed_unresolved = true;
+  for (const r of rows) if (teams[r.franchise_id].seed_unresolved == null) teams[r.franchise_id].seed_unresolved = false;
+  return { ...base, order, teams, unresolved: f.unresolved, seed_by_week: seedByWeek, next_out: f.wildCardRace.length ? f.wildCardRace[0].franchise_id : null };
 }

@@ -2150,7 +2150,7 @@
     ["H2H record", "Head-to-head wins and losses against your scheduled opponents. A week can hold two or three games (37 in 14 weeks)."],
     ["PF per week", "Points For divided by weeks played: one score a week."],
     ["PA per game", "Opponents’ points per head-to-head game; a week with two or three games counts each game."],
-    ["Seeds (ladder)", "Division winners make the field and the two best get byes. Order: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams. Regular-season weeks only."],
+    ["Seeds (ladder)", "Division winners make the field; the two with the best All-Play % get byes. Wild cards: All-Play %, then Points For, then the H2H games between the tied teams. Seeds 3–6: All-Play %, then Points For. H2H record is not a playoff seeding tiebreak. The Hawk Tuah side (H1–H6) keeps its own order: All-Play %, then H2H record, then Points For. Regular-season weeks only."],
     ["Division order", "H2H record, then division record, then the H2H games between the tied teams (MFL’s rule)."],
     ["Division GB · WC GB", "Division GB: H2H games behind your division leader (the leader shows —). WC GB: All-Play wins behind the last wild card, with the four division winners protected; — means you hold a playoff spot. Seeds are decided by All-Play, so the wild-card race is counted in All-Play too."],
     ["Div W-L", "Your H2H record against the other teams in your own division (five games against each rival)."],
@@ -2314,13 +2314,21 @@
   // ────────────────────────────────────────────────────────────────────────
   var STEP_WORDS = {
     all_play: "a better All-Play %",
-    overall: "a better H2H record",
     points_for: "more Points For",
     head_to_head: "the H2H games between them",
     name: "a tie on every step (listed alphabetically)",
     franchise_id: "a tie on every step",
     bye_requires_division_title: "a first-round bye needs a division title",
-    division_winner_in_field: "division winners are in the field"
+    division_winner_in_field: "division winners are in the field",
+    unresolved: "no settled tiebreak decides it yet, so this order is not final",
+    overall: "a better H2H record"   // the Hawk Tuah order only (vs_above.pool "hawk_tuah"), unchanged by the 2026-11-25 correction
+  };
+  // A tie the worker could not settle (regular_season.unresolved[].pool), in words.
+  var UNRESOLVED_POOL_WORDS = {
+    bye: "a first-round bye (division winners level on All-Play)",
+    seed_1_2_order: "the order of seeds 1 and 2 (division winners level on All-Play)",
+    wild_card: "the last wild card (level on All-Play, Points For and the H2H games between them)",
+    seeds3to6: "the order inside seeds 3–6 (level on All-Play and Points For)"
   };
   var DIV_STEP_WORDS = {
     PCT: "a better H2H record", DIVPCT: "a better division record", H2H: "the H2H games between them",
@@ -2364,16 +2372,21 @@
     var ties = [];
     rows.forEach(function (r) {
       var va = r.seed_reason && r.seed_reason.vs_above;
-      if (!va || !va.step || va.step === "all_play") return;
+      if (!va || !va.step || va.step === "all_play" || va.step === "unresolved") return;   // unresolved: the "Not final" line
       var up = by[pad4(va.franchise_id)];
       if (!up) return;
       var a = regOf(up), b = regOf(r), detail = "";
-      if (va.step === "overall" && a && b) detail = " (" + recStr(a.record) + " vs " + recStr(b.record) + ")";
       if (va.step === "points_for" && a && b) detail = " (" + fmtPts(a.points_for) + " vs " + fmtPts(b.points_for) + ")";
+      if (va.step === "overall" && a && b) detail = " (" + recStr(a.record) + " vs " + recStr(b.record) + ")";
       var same = (va.step === "overall" || va.step === "points_for" || va.step === "head_to_head") ? "same All-Play, " : "";
       ties.push(escapeHtml(nameOf(up) + " over " + nameOf(r) + ": " + same + (STEP_WORDS[va.step] || va.step) + detail + "."));
     });
     if (ties.length) lines.push('<b>Tiebreak' + (ties.length > 1 ? "s" : "") + ':</b> ' + ties.slice(0, 3).join(" "));
+    var open = (Array.isArray(rs.unresolved) ? rs.unresolved : []).map(function (u) {
+      var names = (u.franchise_ids || []).map(function (f) { return by[pad4(f)] ? nameOf(by[pad4(f)]) : null; }).filter(Boolean);
+      return names.length && UNRESOLVED_POOL_WORDS[u.pool] ? names.join(" and ") + " — " + UNRESOLVED_POOL_WORDS[u.pool] : null;
+    }).filter(Boolean);
+    if (open.length && !final) lines.push('<b>Not final:</b> ' + escapeHtml(open.join("; ") + ". No settled tiebreak decides it yet."));
     return '<div class="summary-card" role="status">' + lines.map(function (l) { return '<div class="line">' + l + '</div>'; }).join("") + '</div>';
   }
   function seedCardHtml(resp, race, sf, r, projected, magic) {
@@ -2918,6 +2931,10 @@
       return validDetail(c.standingsForecast, sim) ? { detail: c.standingsForecast } : { detail: null, why: "they’re incomplete in this forecast" };
     }, function () { return { detail: null, why: "their file couldn’t be loaded" }; });
   }
+  // The seeding rule a forecast must have been simulated under (pipelines/etl/wire/season_sim.py SEEDING_RULE, written to its
+  // model.seedingRule; canon §F.1, Keith 2026-11-25). A forecast without it used the overall-record step the league never had,
+  // so its seeds, byes and odds contradict these standings: it is refused like any other forecast that doesn't start here.
+  var SEEDING_RULE = "canon-F1-2026-11-25: wild cards AP>PF>H2H; seeds 3-6 AP>PF; byes = top-2 division winners by AP";
   // The forecast must start where the standings are, from the same weekly scores Full League and Weekly use: every
   // team's All-Play W-L-T through its last week (for the current week, also the Full League totals) and every H2H
   // result of that week. → { hard: [...], corrections: [...] }. Any hard difference refuses the forecast. A score that
@@ -2927,6 +2944,7 @@
     var rowsBy = rowsByFid(resp.rows);
     var fids = sim.teams.map(function (t) { return pad4(t.franchiseId); });
     function hard(msg) { return { hard: [msg], corrections: [] }; }
+    if (!sim.model || sim.model.seedingRule !== SEEDING_RULE) return { hard: ["it was simulated under the earlier seeding rules (corrected 2026-11-25)"], corrections: [], oldRule: true };
     if (fids.length !== (resp.rows || []).length || fids.some(function (f) { return !rowsBy[f]; })) return hard("the forecast’s teams aren’t this season’s teams");
     if (!Array.isArray(resp.weeklyScores) || !Array.isArray(resp.weekly)) return hard("the weekly scores couldn’t be read");
     resp.weeklyScores.forEach(function (s) {
@@ -2978,27 +2996,45 @@
       return new Date(sim.generatedAtUtc).toLocaleString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) + " ET";
     } catch (e) { return String(sim.generatedAtUtc); }
   }
+  // model.pendingTieSeasons (season_sim.py): simulated seasons that ended in a tie no league rule settles yet.
+  function fcOpenTieText(sim) {
+    var n = sim && sim.model ? Number(sim.model.pendingTieSeasons) : NaN;
+    if (!(n >= 0)) return "";
+    return " · " + n.toLocaleString("en-US") + " of " + Number(sim.runs).toLocaleString("en-US") + " seasons had an open tie (equal chances)";
+  }
   function fcRunText(sim) {
     return "Through Week " + sim.throughWeek + " · " + Number(sim.runs).toLocaleString("en-US") + " simulated seasons · run " + fcWhen(sim);
   }
   // Freshness, up front on every Forecast view (#1370 gate 4): which week it's through, when it ran, and which earlier
   // forecast the movement compares with.
+  // Movement compares forecasts made under the SAME seeding rules (model.seedingRule; Keith 2026-11-25, release plan 3a):
+  // a forecast's odds move with its seeding rule, so a comparison across the 2026-11-25 correction would report the
+  // correction as movement. -> { ok, why }; when not ok every movement figure reads "—" and `why` says so.
+  function fcComparable(cur, prev) {
+    if (!prev) return { ok: false, why: "there is no earlier published forecast to compare with" };
+    var pr = prev.model && prev.model.seedingRule, cr = cur && cur.model && cur.model.seedingRule;
+    if (!pr) return { ok: false, why: "the Week " + prev.throughWeek + " forecast was simulated under the earlier seeding rules (corrected 2026-11-25), so it isn’t comparable" };
+    if (pr !== cr) return { ok: false, why: "the Week " + prev.throughWeek + " forecast was simulated under different seeding rules, so it isn’t comparable" };
+    return { ok: true, why: null };
+  }
   function fcFreshHtml(sim, prev) {
+    var c = fcComparable(sim, prev);
     return '<div class="fc-fresh" role="status"><b>Forecast through Week ' + escapeHtml(sim.throughWeek) + '</b>'
       + '<span>Generated ' + escapeHtml(fcWhen(sim)) + ' · ' + Number(sim.runs).toLocaleString("en-US") + ' simulated seasons</span>'
-      + '<span>' + (prev ? 'Movement vs the Week ' + escapeHtml(prev.throughWeek) + ' forecast (generated ' + escapeHtml(fcWhen(prev)) + ')' : 'No earlier forecast to measure movement against') + '</span></div>';
+      + '<span>' + (c.ok ? 'Movement vs the Week ' + escapeHtml(prev.throughWeek) + ' forecast (generated ' + escapeHtml(fcWhen(prev)) + ')' : 'Movement: — (' + escapeHtml(c.why) + ')') + '</span></div>';
   }
   var FC_ABOUT = [
     ["Source", "The UPS Wire’s season simulation, the same run the UPS Center prints. No separate model."],
     ["Played weeks", "Weeks already played are the real scores. Each later week is simulated from current rosters and projections, with every team’s projected edge cut by 30% toward the league average."],
-    ["Seeding", "Division winners by MFL’s division tiebreaks (win %, division win %, head-to-head, points, All-Play %). The two best division winners by All-Play % get the byes; the two wild cards and seeds 3–6 go by All-Play %, then overall record, then Points For. The rules’ last step, head-to-head, isn’t simulated: it could only matter if Points For were exactly equal."],
+    ["Seeding", "Division winners by MFL’s division tiebreaks (win %, division win %, head-to-head, points, All-Play %). The two division winners with the best All-Play % get the byes; the two wild cards go by All-Play %, then Points For, then head-to-head; seeds 3–6 by All-Play %, then Points For. Overall record is not a playoff seeding tiebreaker. H1–H6 keep their own order: All-Play %, H2H record, Points For."],
+    ["Open ties", "Not every tie has a league rule yet (for example, two division winners on the same All-Play %). When a simulated season ends in one, the forecast gives each tied team an equal chance at that place. That is a forecast assumption Keith approved on 2026-11-25, not a league tiebreak; the league’s rule for these ties is still pending."],
     ["Brackets", "Round 1: 3 v 6 and 4 v 5. Round 2: the top seed plays the lowest seed left. Final in Week 17. The Hawk Tuah Bowl (H1–H6) is played the same way."],
     ["Expected order", "Teams in order of their average finishing place, 1–12 (seeds 1–6, then H1–H6)."],
-    ["Movement", "Change in percentage points since the previous published forecast."],
+    ["Movement", "Change in percentage points since the previous published forecast, only when both were simulated under the same seeding rules; otherwise “—”."],
     ["Can’t see", "Future trades, waiver moves and owners’ lineup choices."]
   ];
   function fcBarHtml(sim, controls) {
-    var dl = FC_ABOUT.concat([["This run", fcRunText(sim) + " · random seed " + sim.seed]]);
+    var dl = FC_ABOUT.concat([["This run", fcRunText(sim) + " · random seed " + sim.seed + fcOpenTieText(sim)]]);
     return '<div class="view-bar">' + (controls || '')
       + '<details class="about"><summary>How the forecast works</summary><dl>'
       + dl.map(function (it) { return '<dt>' + escapeHtml(it[0]) + '</dt><dd>' + escapeHtml(it[1]) + '</dd>'; }).join("")
@@ -3044,7 +3080,8 @@
     }, function () { return null; });
   }
   function forecastModel(resp, cur, prev, det, cl) {
-    var rowsBy = rowsByFid(resp.rows), prevBy = {};
+    var rowsBy = rowsByFid(resp.rows), prevBy = {}, cmp = fcComparable(cur, prev);
+    if (!cmp.ok) prev = null;    // never compare across seeding rules, or with nothing
     ((prev && prev.teams) || []).forEach(function (t) { prevBy[pad4(t.franchiseId)] = t; });
     var D = det.detail;
     var teams = cur.teams.map(function (t) {
@@ -3067,6 +3104,7 @@
       return (b.projAp - a.projAp) || a.fid.localeCompare(b.fid);
     });
     return { teams: teams, hasDetail: !!D, prevWeek: prev ? Number(prev.throughWeek) : null, prevHasDetail: !!(prev && prev.standingsForecast),
+      movementWhy: cmp.why,
       finals: D ? { ups: finalMatchups(D.finalPairs, "ups", teams), hawk: finalMatchups(D.finalPairs, "hawk", teams) } : { ups: null, hawk: null } };
   }
   // The simulation's (champion, runner-up) pair counts → matchups (both orders added), most common first, or null when
@@ -3142,9 +3180,9 @@
         + '<td class="num fc-wide">' + fcPct(t.bye, t.v.bye) + '</td>'
         + '<td class="num fc-wide">' + fcPct(t.div, t.v.division) + '</td>'
         + '<td class="num">' + fcPct(t.title) + '</td>'
-        + '<td class="num">' + (t.prev ? fcDelta(t.po, t.prev.currentPlayoffOdds) : '—') + '</td></tr>';
+        + '<td class="num">' + (t.prev ? fcDelta(t.po, t.prev.currentPlayoffOdds) : '<span class="fc-delta" aria-label="no comparable earlier forecast">—</span>') + '</td></tr>';
     }).join("");
-    var since = m.prevWeek ? "Δ = playoff odds since the Week " + m.prevWeek + " forecast." : "No earlier forecast to compare with.";
+    var since = m.prevWeek ? "Δ = playoff odds since the Week " + m.prevWeek + " forecast." : "Δ shows —: " + m.movementWhy + ".";
     return '<h3 class="sec-h">Projected final standings</h3>'
       + '<table class="data-table fc-table"><thead><tr><th class="num" scope="col" title="' + (m.hasDetail ? 'Expected place: the average finish over every simulated season' : 'Order of projected All-Play %') + '">Proj</th><th scope="col">Team</th>' + (m.hasDetail ? '<th class="fc-likely" scope="col" title="The single most likely finish">Most likely</th>' : '') + '<th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th><th class="num" scope="col" title="Change in playoff odds since the previous forecast, in percentage points">Δ</th></tr></thead><tbody>' + trs + '</tbody></table>'
       + '<div class="note">' + (m.hasDetail ? "Proj = order of average finish (1–6 seeds, then H1–H6); the line marks the top six. " : "Ordered by projected All-Play %. ") + escapeHtml(since) + '</div>';
@@ -3186,7 +3224,16 @@
       + '<div class="note">Final = reaches the Week 17 final (champion + runner-up). A matchup’s odds count both teams meeting in the final, either way. The Hawk Tuah Bowl champion picks 1.01.</div>';
   }
   function fcMovementHtml(m) {
-    if (!m.prevWeek) return '<div class="banner" role="status">No earlier forecast to compare with.</div>';
+    if (!m.prevWeek) {
+      // no comparable earlier forecast: today's odds with "—" for every change, and why
+      var dash = '<span class="fc-delta" aria-label="no comparable earlier forecast">—</span>';
+      return '<h3 class="sec-h">Movement</h3>'
+        + '<table class="data-table fc-table"><thead><tr><th scope="col">Team</th><th class="num" scope="col">Playoffs</th><th class="num fc-wide" scope="col">Bye</th><th class="num fc-wide" scope="col">Div</th><th class="num" scope="col">Title</th></tr></thead><tbody>'
+        + m.teams.slice().sort(function (a, b) { return (b.po - a.po) || a.fid.localeCompare(b.fid); }).map(function (t) {
+          return '<tr><td>' + escapeHtml(t.name) + '</td><td class="num">' + fcPct(t.po, t.v.playoffs) + ' ' + dash + '</td><td class="num fc-wide">' + fcPct(t.bye, t.v.bye) + ' ' + dash + '</td><td class="num fc-wide">' + fcPct(t.div, t.v.division) + ' ' + dash + '</td><td class="num">' + fcPct(t.title) + ' ' + dash + '</td></tr>';
+        }).join("") + '</tbody></table>'
+        + '<div class="note">Movement shows —: ' + escapeHtml(m.movementWhy) + '. Movement is only measured against a forecast simulated under the same seeding rules. Sorted by playoff odds.</div>';
+    }
     var rows = m.teams.slice().sort(function (a, b) {
       return ((b.po - b.prev.currentPlayoffOdds) - (a.po - a.prev.currentPlayoffOdds)) || a.fid.localeCompare(b.fid);
     });
@@ -3204,7 +3251,7 @@
     var W = Number((resp.regular_season || {}).through_week);
     var recon = forecastReconcile(cur, resp), bad = recon.hard;
     if (bad.length) {
-      host.innerHTML = fcFreshHtml(cur, prev) + fcBarHtml(cur, "") + '<div class="err-box" role="alert"><b>The Week ' + cur.throughWeek + ' forecast doesn’t start from these standings, so it isn’t shown.</b>'
+      host.innerHTML = fcFreshHtml(cur, prev) + fcBarHtml(cur, "") + '<div class="err-box" role="alert"><b>The Week ' + cur.throughWeek + (recon.oldRule ? ' forecast was simulated under the earlier seeding rules, so it isn’t shown. The next forecast uses the corrected rules.' : ' forecast doesn’t start from these standings, so it isn’t shown.') + '</b>'
         + '<span class="psub">' + escapeHtml(bad.slice(0, 3).join(" · ") + (bad.length > 3 ? " · and " + (bad.length - 3) + " more" : "")) + '</span></div>';
       return;
     }
@@ -3351,7 +3398,7 @@
       if (!sim) return { sim: null, why: "no forecast has been published for " + state.year + " yet" };
       if (Number(sim.throughWeek) !== W) return { sim: null, why: "the Week " + W + " forecast isn’t published yet (the newest is Week " + sim.throughWeek + ")" };
       var rc = forecastReconcile(sim, resp);
-      if (rc.hard.length) return { sim: null, why: "the Week " + W + " forecast doesn’t start from these standings" };
+      if (rc.hard.length) return { sim: null, why: rc.oldRule ? "the Week " + W + " forecast was simulated under the earlier seeding rules" : "the Week " + W + " forecast doesn’t start from these standings" };
       return { sim: sim, why: null };
     }, function () { return { sim: null, why: "the forecast couldn’t be loaded" }; });
     return Promise.all([sched, fc]).then(function (g) {
@@ -3662,7 +3709,7 @@
     var seedNote = recordedSeeds
       ? ' Seeds: the recorded final standings.' + (finsError ? ' (Not shown: ' + finsError + '.)' : '')
       : (resp.standings_basis === "unavailable" ? ' ' + (seedGateText(raceData) || 'Seeds unavailable.')
-        : ' Seeds: All-Play % → H2H record → season Points For → H2H between the tied teams (league rule §F.1).'
+        : ' Seeds: byes to the two division winners with the best All-Play %; wild cards All-Play % → season Points For → H2H between the tied teams; seeds 3–6 All-Play % → season Points For (league rule §F.1).'
           + (showRace && raceData.projected && !resp.preseason ? ' Seeds and BYE / DIV / WC are projected (if the season ended today) until the regular season ends.' : ''));
     if (scoped) noteBits.push('<div class="note"><strong>' + scopeLabel() + '</strong> — weeks ' + rng[0] + '–' + rng[1] + ' (computed from weekly results; expected wins and luck cover the whole regular season and are hidden here). Seeds are the full-season ones. Click any header to sort.</div>');
     else noteBits.push('<div class="note">' + (meta.last_regular_season_week ? 'Regular season: weeks 1–' + meta.last_regular_season_week + ' (' + state.year + ').' : '') + seedNote + '</div>');
