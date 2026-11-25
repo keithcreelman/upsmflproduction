@@ -128,6 +128,26 @@ class Refresh(unittest.TestCase):
         self.assertEqual(len(self.worktrees()), 1)                                    # temp worktree removed
         self.assertEqual(sh(self.repo, "rev-parse", "main"), self.base)                # main untouched
 
+    def test_commits_with_no_git_identity_in_the_environment(self):
+        """CI and launchd have no user.name/user.email: the job must name author and committer itself."""
+        home = self.tmp / "home"
+        home.mkdir()
+        stripped = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+        stripped.update({"HOME": str(home), "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_COUNT": "1",
+                         "GIT_CONFIG_KEY_0": "user.useConfigOnly", "GIT_CONFIG_VALUE_0": "true"})
+        saved = dict(os.environ)
+        os.environ.clear()
+        os.environ.update(stripped)
+        try:
+            ops = FakeOps()
+            self.assertEqual(vr.run(self.cfg, ops), "pr_opened", ops.alerts)
+        finally:
+            os.environ.clear()
+            os.environ.update(saved)
+        head = ops.calls[-1][2]
+        self.assertEqual(sh(self.repo, "log", "-1", "--format=%an|%cn", head),
+                         "valuation-inputs-refresh|valuation-inputs-refresh")
+
     def test_push_only_when_configured(self):
         ops = FakeOps()
         self.assertEqual(vr.run({**self.cfg, "deliver": "push"}, ops), "pushed")

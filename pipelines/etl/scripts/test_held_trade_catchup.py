@@ -6,9 +6,10 @@
                  are never used, the standings check brackets the trade, a move of a traded asset after
                  the folder blocks the grade, and the grade equals analyze_trade on the same inputs.
   Posting        post_bundle against a fake Discord: one post end to end; an interruption at every step
-                 resumes without a second message; a message sent but not journaled is found by its
-                 marker; a retry is used up only by "posted" (or MAX_ATTEMPTS failures); the cursor and the
-                 Discord token are never read.
+                 (including after the thread was created) resumes without a second message; presence is
+                 established by an exhaustive search past the old 200/50-message windows; a search that
+                 cannot complete stops for a person; tracking failures resume without reposting; a retry
+                 is used up only by "posted" (or MAX_ATTEMPTS failures); never the cursor or a secret.
   Approvals      only a bundle whose exact sha256 was approved is posted; an edited bundle is refused.
   Held file      concurrent writers under the lock lose nothing; eligibility keeps the 2026-10-22 ruling.
 
@@ -92,7 +93,8 @@ class AsOfRepo(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def later(self, *, weeks_bump=0, change_inputs=True, folder="2026-11-25", ts=T0 + 3 * DAY, txns=None):
+    def later(self, *, weeks_bump=0, change_inputs=True, folder="2026-11-25", ts=T0 + 3 * DAY, txns=None,
+              correct_pf=False):
         if change_inputs:
             reg = self.repo / "pipelines/etl/inputs/valuation/player_registry.json"
             d = json.loads(reg.read_text())
@@ -106,6 +108,9 @@ class AsOfRepo(unittest.TestCase):
             for r in st["leagueStandings"]["franchise"]:
                 w, l, t = (int(x) for x in r["all_play_wlt"].split("-"))
                 r["all_play_wlt"] = f"{w + 11 * weeks_bump}-{l}-{t}"
+        if correct_pf:                                                       # a stat correction, same week
+            r = st["leagueStandings"]["franchise"][0]
+            r["pf"] = f"{float(r['pf']) + 3.5:.2f}"
         (dst / "leagueStandings.json").write_text(json.dumps(st))
         (dst / "transactions.json").write_text(json.dumps({"transactions": {"transaction": txns or []}}))
         git(self.repo, "add", "-A")
@@ -156,8 +161,11 @@ class AsOfRepo(unittest.TestCase):
         self.assertTrue(any("no standings after the trade" in b for b in a.blocking), a.blocking)
         live = json.loads((self.folder_dir / "leagueStandings.json").read_text())
         b = self.resolve(live_standings=live, live_read_at=T0 + 4 * DAY)
-        self.assertTrue(b.ok, b.blocking)
-        self.assertTrue(any("not checked" in n for n in b.notes), b.notes)     # said, not assumed
+        self.assertFalse(b.ok)                                                 # moves unchecked: never assumed none
+        self.assertTrue(any("could not be checked" in x for x in b.blocking), b.blocking)
+        c = self.resolve(live_standings=live, live_read_at=T0 + 4 * DAY, later_transactions=[])
+        self.assertTrue(c.ok, c.blocking)
+        self.assertTrue(any("no moves by either franchise" in n for n in c.notes), c.notes)
 
     def test_a_folder_committed_after_the_trade_is_never_used(self):
         t = dict(self.trade, timestamp=str(T0 + DAY // 2))                    # before the day-1 folder commit
@@ -166,66 +174,125 @@ class AsOfRepo(unittest.TestCase):
         self.assertFalse(a.ok)
         self.assertTrue(any("folder" in b for b in a.blocking), a.blocking)
 
-    def test_a_move_of_a_traded_asset_after_the_folder_blocks(self):
+    def test_any_move_by_either_team_after_the_folder_blocks(self):
         pid = self.trade["franchise1_gave_up"].strip(",")
         move = {"type": "FREE_AGENT", "franchise": self.trade["franchise"], "transaction": f"|{pid},",
                 "timestamp": str(T0 + DAY + 3600)}
-        other = {"type": "FREE_AGENT", "franchise": self.trade["franchise"], "transaction": "|99999,",
+        other = {"type": "FREE_AGENT", "franchise": self.trade["franchise2"], "transaction": "|99999,",
                  "timestamp": str(T0 + DAY + 7200)}
-        self.later(txns=[move, other])
+        third = {"type": "FREE_AGENT", "franchise": "0012", "transaction": "|88888,", "timestamp": str(T0 + DAY + 7300)}
+        for txns, n in (([move], 1), ([other], 1), ([third], 0)):
+            with self.subTest(txns[0]["franchise"]):
+                self.tearDown()
+                self.setUp()
+                self.later(txns=txns)
+                a = self.resolve()
+                self.assertEqual(len(a.blocking), n, a.blocking)                # a third team's move is irrelevant
+                if n:
+                    self.assertIn("not the trade's", a.blocking[0])
+        self.assertTrue(any(pid in b for b in self.resolve_with([move]).blocking))
+
+    def resolve_with(self, txns):
+        self.tearDown()
+        self.setUp()
+        self.later(txns=txns)
+        return self.resolve()
+
+    def test_a_stat_correction_grades_both_versions(self):
+        self.later(correct_pf=True)
         a = self.resolve()
-        self.assertFalse(a.ok)
-        self.assertTrue(any(pid in b for b in a.blocking), a.blocking)
-        self.assertTrue(any("no traded asset" in n for n in a.notes), a.notes)
+        self.assertTrue(a.ok, a.blocking)
+        self.assertIsNotNone(a.alt_season_state)
+        self.assertTrue(any("computed under both" in n for n in a.notes), a.notes)
+        players = {pid: {"name": r["name"], "position": r["pos"], "team": ""} for pid, r in a.snapshot["players"].items()}
+        sens = ta.sensitivity(self.trade, a, players)
+        self.assertEqual(set(sens), {"alt_source", "folder", "corrected", "letters_same"})
+        self.assertIn("grades", sens["folder"])
+        self.assertIn("grades", sens["corrected"])
+        self.assertIsInstance(sens["letters_same"], bool)
+
+    def test_identical_standings_have_nothing_to_compare(self):
+        self.later()
+        a = self.resolve()
+        self.assertIsNone(a.alt_season_state)
+        self.assertIsNone(ta.sensitivity(self.trade, a, {}))
 
 
 # ── posting ──────────────────────────────────────────────────────────────────
 
 class FakeDiscord(hc.Sender):
-    def __init__(self):
-        self.messages = []          # (id, where, embed)
-        self.threads = {}
-        self.fail = {}              # method -> exception to raise once (after acting if "after_")
+    """Messages carry a creation time; finds scan EVERYTHING after a time (like history(after=...)).
+    `window` simulates the old bug: a search limited to the latest N messages."""
 
-    def _id(self):
-        return 1000 + len(self.messages) + len(self.threads)
+    def __init__(self, window=None):
+        self.messages = []          # (id, where, embed, created_at)
+        self.threads = set()        # thread ids == starter message ids (as in Discord)
+        self.fail = {}              # step -> exception, raised once (after acting if "after_<step>")
+        self.window = window
+        self.incomplete = False     # searches cannot complete
+        self.clock = 1_800_000_000.0
+
+    def _tick(self):
+        self.clock += 1.0
+        return self.clock
 
     def _maybe(self, name, after=False):
         exc = self.fail.pop(("after_" if after else "") + name, None)
         if exc:
             raise exc
 
-    async def find_announcement(self, marker):
-        for mid, where, e in self.messages:
-            if where == "channel" and marker in e.get("footer", {}).get("text", ""):
-                return mid, next((t for t, m in self.threads.items() if m == mid), None)
+    def chatter(self, where, n):
+        """n messages by other people (or other bot posts) in a channel or thread."""
+        for _ in range(n):
+            self.messages.append((len(self.messages) + 5000, where, {"footer": {"text": "someone else"}}, self._tick()))
+
+    def _scan(self, where, after, match):
+        if self.incomplete:
+            raise hc.IncompleteSearch("history unreadable")
+        rows = [r for r in self.messages if r[1] == where]
+        if self.window is not None:
+            rows = rows[-self.window:]
+        for mid, _, e, at in rows:
+            if at > after and match(e):
+                return mid
         return None
+
+    async def find_announcement(self, marker, after):
+        return self._scan("channel", after, lambda e: marker in e.get("footer", {}).get("text", ""))
+
+    async def thread_of(self, message_id):
+        return message_id if message_id in self.threads else None
 
     async def send_announcement(self, embed):
         self._maybe("send_announcement")
-        mid = self._id()
-        self.messages.append((mid, "channel", embed))
+        mid = len(self.messages) + 1000
+        self.messages.append((mid, "channel", embed, self._tick()))
         self._maybe("send_announcement", after=True)
         return mid
 
     async def create_thread(self, message_id, name):
         self._maybe("create_thread")
-        tid = self._id()
-        self.threads[tid] = message_id
-        return tid
+        if message_id in self.threads:
+            raise RuntimeError("a thread already exists for this message (Discord 160004)")
+        self.threads.add(message_id)
+        self._maybe("create_thread", after=True)
+        return message_id
 
-    async def find_in_thread(self, thread_id, marker, title):
-        for mid, where, e in self.messages:
-            if where == thread_id and marker in e.get("footer", {}).get("text", "") and (e.get("title") or None) == (title or None):
-                return mid
-        return None
+    async def find_in_thread(self, thread_id, marker, title, after):
+        return self._scan(thread_id, after, lambda e: marker in e.get("footer", {}).get("text", "")
+                          and (e.get("title") or None) == (title or None))
 
     async def send_in_thread(self, thread_id, embed, reply_button=False):
         self._maybe("send_in_thread")
-        mid = self._id()
-        self.messages.append((mid, thread_id, embed))
+        mid = len(self.messages) + 1000
+        self.messages.append((mid, thread_id, embed, self._tick()))
         self._maybe("send_in_thread", after=True)
         return mid
+
+    def count(self, where=None, title="__any__"):
+        return sum(1 for _, w, e, _ in self.messages if "someone else" not in e.get("footer", {}).get("text", "")
+                   and (where is None or (w == "channel") == (where == "channel"))
+                   and (title == "__any__" or (e.get("title") or None) == title))
 
 
 def bundle_for(txn):
@@ -246,62 +313,140 @@ class Posting(unittest.TestCase):
         held_trades.record_hold(self.txn, "NO GRADE: stale", self.path, cause="snapshot_stale")
         self.entry = held_trades.load(self.path)[0]
         self.bundle = bundle_for(self.txn)
-        self.recorded = []
+        self.tracked = {"reply_tracker": [], "worker_row": [], "archive": []}
+        self.tracker_ok = {"reply_tracker": True, "worker_row": True, "archive": True}
         self.logs = []
+        self.saved_time = hc.time.time
 
     def tearDown(self):
+        hc.time.time = self.saved_time
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+    def trackers(self):
+        def make(name):
+            def fn(b, ids):
+                self.tracked[name].append(ids)
+                return self.tracker_ok[name]
+            return fn
+        return {n: make(n) for n in self.tracked}
+
     def post(self, d, section="retry"):
+        hc.time.time = lambda: d.clock + 0.5                               # the bot's clock follows Discord's
         entry = held_trades.get(self.entry, self.path)
         return asyncio.run(hc.post_bundle(entry, self.bundle, d, section=section, path=self.path,
-                                          on_posted=lambda b, ids: self.recorded.append(ids), log=self.logs.append))
+                                          trackers=self.trackers(), log=self.logs.append))
 
     def rec(self, section="retry"):
         return held_trades.get(self.entry, self.path)[section]
 
-    def test_one_post_end_to_end_journals_every_id(self):
+    def assertOnePost(self, d):
+        self.assertEqual(d.count("channel"), 1)
+        self.assertEqual(d.count("thread", "🔥 Roast"), 1)
+        self.assertLessEqual(d.count("thread", None), 1)                   # the GIF, at most once
+        self.assertEqual(len(d.threads), 1)
+
+    def test_one_post_end_to_end_journals_every_id_and_tracking_step(self):
         d = FakeDiscord()
         self.assertEqual(self.post(d), "posted")
-        self.assertEqual([w for _, w, _ in d.messages].count("channel"), 1)
-        self.assertEqual(len(d.messages), 3)                                   # announcement, roast, GIF
+        self.assertOnePost(d)
         r = self.rec()
-        for k in ("announcement_id", "thread_id", "roast_id", "gif_id", "started_at", "finished_at"):
+        for k in ("announcement_id", "thread_id", "roast_id", "gif_id", "started_at", "finished_at",
+                  "announcement_intent_at", "roast_intent_at", "tracked_reply_tracker", "tracked_worker_row",
+                  "tracked_archive"):
             self.assertIn(k, r)
         self.assertEqual(r["outcome"], "posted")
-        self.assertEqual(r["bundle_sha256"], self.bundle["bundle_sha256"])
-        self.assertEqual(len(self.recorded), 1)
+        self.assertEqual({k: len(v) for k, v in self.tracked.items()}, {"reply_tracker": 1, "worker_row": 1, "archive": 1})
         self.assertEqual(held_trades.eligible(held_trades.load(self.path)), [])
-        self.assertEqual(self.post(d), "posted")                               # again: nothing sent
-        self.assertEqual(len(d.messages), 3)
+        self.assertEqual(self.post(d), "posted")                            # again: nothing sent or tracked
+        self.assertOnePost(d)
+        self.assertEqual(len(self.tracked["archive"]), 1)
 
     def test_an_interruption_at_any_step_resumes_without_a_second_message(self):
-        for step in ("send_announcement", "after_send_announcement", "create_thread", "send_in_thread",
-                     "after_send_in_thread"):
+        steps = ("send_announcement", "after_send_announcement", "create_thread", "after_create_thread",
+                 "send_in_thread", "after_send_in_thread")
+        for step in steps:
             with self.subTest(step):
                 self.setUp()
                 d = FakeDiscord()
-                d.fail[step] = ConnectionError("discord hiccup")
+                d.fail[step] = ConnectionError("process stopped here")
                 self.assertEqual(self.post(d), "retry_later")
                 r = self.rec()
-                self.assertNotIn("outcome", r)                                 # the retry is NOT used up
+                self.assertNotIn("outcome", r)                                  # the retry is NOT used up
                 self.assertEqual(len(r["attempts"]), 1)
                 self.assertEqual([e["timestamp"] for e in held_trades.eligible(held_trades.load(self.path))],
-                                 [self.txn["timestamp"]])                       # still eligible: it resumes
-                self.assertEqual(held_trades.unfinished(held_trades.load(self.path)), [])
-                self.assertEqual(self.post(d), "posted")
-                self.assertEqual([w for _, w, _ in d.messages].count("channel"), 1, step)
-                roasts = [e for _, w, e in d.messages if w != "channel" and e.get("title") == "🔥 Roast"]
-                self.assertEqual(len(roasts), 1, step)
-                self.assertEqual(len(self.recorded), 1)
+                                 [self.txn["timestamp"]])
+                self.assertEqual(self.post(d), "posted", self.logs)
+                self.assertOnePost(d)
                 self.tearDown()
 
-    def test_a_sent_but_unjournaled_announcement_is_adopted_by_its_marker(self):
+    def test_a_thread_created_before_a_crash_is_recovered_not_recreated(self):
         d = FakeDiscord()
-        asyncio.run(d.send_announcement(self.bundle["announcement_embed"]))   # sent, then the bot died
+        d.fail["after_create_thread"] = ConnectionError("stopped after Discord created the thread")
+        self.assertEqual(self.post(d), "retry_later")
+        self.assertNotIn("thread_id", self.rec())                           # never saved
         self.assertEqual(self.post(d), "posted")
-        self.assertEqual([w for _, w, _ in d.messages].count("channel"), 1)
-        self.assertTrue(self.rec()["adopted_announcement"])
+        self.assertTrue(self.rec()["thread_adopted"])
+        self.assertEqual(len(d.threads), 1)
+
+    def test_presence_is_established_beyond_the_old_200_and_50_message_windows(self):
+        for stopped, where, chatter in (("after_send_announcement", "channel", 250),
+                                        ("after_send_in_thread", "thread", 60)):
+            with self.subTest(stopped):
+                self.setUp()
+                d = FakeDiscord()
+                d.fail[stopped] = ConnectionError("sent, then stopped before the id was saved")
+                self.assertEqual(self.post(d), "retry_later")
+                d.chatter("channel" if where == "channel" else self.rec()["thread_id"], chatter)
+                self.assertEqual(self.post(d), "posted")
+                self.assertOnePost(d)
+                self.assertTrue(self.rec()[f"{'announcement' if where == 'channel' else 'roast'}_adopted"])
+                # The old window search would have missed it and posted twice.
+                old = FakeDiscord(window=200 if where == "channel" else 50)
+                old.messages, old.threads = list(d.messages), set(d.threads)
+                mid = self.rec()["announcement_id" if where == "channel" else "roast_id"]
+                found = (asyncio.run(old.find_announcement(self.bundle["marker"], 0)) if where == "channel" else
+                         asyncio.run(old.find_in_thread(self.rec()["thread_id"], self.bundle["marker"], "🔥 Roast", 0)))
+                self.assertIsNone(found, "the windowed search should miss it (this is the bug being fixed)")
+                self.assertIsNotNone(mid)
+                self.tearDown()
+
+    def test_an_uncertain_send_fails_closed_for_a_person(self):
+        d = FakeDiscord()
+        d.fail["after_send_announcement"] = ConnectionError("sent? unknown")
+        self.assertEqual(self.post(d), "retry_later")
+        d.incomplete = True                                                 # Discord history cannot be read
+        self.assertEqual(self.post(d), "needs_reconcile")
+        self.assertTrue(self.rec()["outcome"].startswith("needs_reconcile"))
+        self.assertEqual(d.count("channel"), 1)                             # nothing resent
+        self.assertEqual(held_trades.eligible(held_trades.load(self.path)), [])
+        d.incomplete = False
+        self.assertEqual(self.post(d), "needs_person")                      # stays stopped until a person acts
+        self.assertEqual(d.count("channel"), 1)
+
+    def test_a_tracking_failure_resumes_tracking_without_reposting(self):
+        d = FakeDiscord()
+        self.tracker_ok["worker_row"] = False
+        self.assertEqual(self.post(d), "retry_later")
+        r = self.rec()
+        self.assertNotIn("outcome", r)                                      # not "posted" yet
+        self.assertTrue(r["tracked_reply_tracker"])
+        self.assertNotIn("tracked_worker_row", r)
+        self.assertEqual(r["attempts"][-1]["stage"], "tracking:worker_row")
+        self.tracker_ok["worker_row"] = True
+        self.assertEqual(self.post(d), "posted")
+        self.assertOnePost(d)                                               # no second message anywhere
+        self.assertEqual({k: len(v) for k, v in self.tracked.items()}, {"reply_tracker": 1, "worker_row": 2, "archive": 1})
+
+    def test_tracking_that_never_succeeds_stops_for_a_person_with_the_ids_kept(self):
+        d = FakeDiscord()
+        self.tracker_ok["archive"] = False
+        for _ in range(held_trades.MAX_ATTEMPTS):
+            out = self.post(d)
+        self.assertEqual(out, "needs_person")
+        r = self.rec()
+        self.assertIn("tracking:archive", r["outcome"])
+        self.assertTrue(r["announcement_id"] and r["roast_id"])            # enough to repair by hand
+        self.assertOnePost(d)
 
     def test_max_attempts_then_a_person(self):
         d = FakeDiscord()
@@ -311,21 +456,23 @@ class Posting(unittest.TestCase):
         self.assertEqual(out, "needs_person")
         self.assertTrue(self.rec()["outcome"].startswith("error:"))
         self.assertEqual(held_trades.eligible(held_trades.load(self.path)), [])
-        self.assertEqual(d.messages, [])
+        self.assertEqual(d.count(), 0)
 
-    def test_the_gif_is_optional_and_never_reposts(self):
+    def test_a_failed_gif_is_skipped_only_once_its_absence_is_established(self):
         d = FakeDiscord()
-        calls = {"n": 0}
         orig = d.send_in_thread
+        state = {"n": 0}
 
         async def flaky(tid, embed, reply_button=False):
-            calls["n"] += 1
-            if "image" in embed:
+            if "image" in embed and state["n"] == 0:
+                state["n"] += 1
                 raise ConnectionError("gif host down")
             return await orig(tid, embed, reply_button)
         d.send_in_thread = flaky
+        self.assertEqual(self.post(d), "retry_later")
         self.assertEqual(self.post(d), "posted")
         self.assertIn("gif_skipped", self.rec())
+        self.assertEqual(d.count("thread", None), 0)                        # never resent for an optional GIF
 
     def test_never_the_cursor_or_a_secret(self):
         for mod in ("held_trade_catchup.py", "trade_asof_inputs.py"):

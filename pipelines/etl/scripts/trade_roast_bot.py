@@ -623,8 +623,13 @@ def _snapshot_failures_now() -> list:
     return failures
 
 
+CATCHUP_SEARCH_MAX = 20000      # messages examined per search before it counts as incomplete
+
+
 class DiscordSender(held_trade_catchup.Sender):
-    """held_trade_catchup's Discord operations on the trade channel. Finds only the bot's own messages."""
+    """held_trade_catchup's Discord operations on the trade channel. Searches are exhaustive from a time:
+    Discord's history(after=...) pages through EVERY message since then (no 200/50 window). Any error, or
+    more messages than CATCHUP_SEARCH_MAX, is IncompleteSearch: the caller stops for a person."""
 
     def __init__(self, channel):
         self.channel = channel
@@ -632,14 +637,36 @@ class DiscordSender(held_trade_catchup.Sender):
     def _mine(self, msg) -> bool:
         return bool(bot.user) and msg.author.id == bot.user.id
 
-    async def find_announcement(self, marker: str):
-        async for msg in self.channel.history(limit=200):
-            if self._mine(msg) and any(e.footer and marker in (e.footer.text or "") for e in msg.embeds):
-                thread = getattr(msg, "thread", None)
-                if thread is None and getattr(self.channel, "guild", None):
-                    thread = self.channel.guild.get_thread(msg.id)
-                return msg.id, (thread.id if thread else None)
+    async def _search(self, where, after: float, match):
+        since = datetime.fromtimestamp(after, tz=timezone.utc)
+        seen = 0
+        try:
+            async for msg in where.history(limit=None, after=since, oldest_first=True):
+                seen += 1
+                if seen > CATCHUP_SEARCH_MAX:
+                    raise held_trade_catchup.IncompleteSearch(f"more than {CATCHUP_SEARCH_MAX} messages since {since}")
+                if self._mine(msg) and any(match(e) for e in msg.embeds):
+                    return msg.id
+        except held_trade_catchup.IncompleteSearch:
+            raise
+        except Exception as exc:
+            raise held_trade_catchup.IncompleteSearch(f"history read failed: {exc.__class__.__name__}")
         return None
+
+    async def find_announcement(self, marker: str, after: float):
+        return await self._search(self.channel, after, lambda e: bool(e.footer) and marker in (e.footer.text or ""))
+
+    async def thread_of(self, message_id: int):
+        """A thread started from a message has the message's id. Not found = no thread; anything else raises."""
+        guild = getattr(self.channel, "guild", None)
+        th = guild.get_thread(message_id) if guild else None
+        if th:
+            return th.id
+        try:
+            th = await bot.fetch_channel(message_id)
+            return th.id
+        except discord.NotFound:
+            return None
 
     async def send_announcement(self, embed: dict) -> int:
         msg = await self.channel.send(embed=discord.Embed.from_dict(embed),
@@ -655,15 +682,13 @@ class DiscordSender(held_trade_catchup.Sender):
         guild = getattr(self.channel, "guild", None)
         return (guild.get_thread(thread_id) if guild else None) or await bot.fetch_channel(thread_id)
 
-    async def find_in_thread(self, thread_id: int, marker: str, title):
-        thread = await self._thread(thread_id)
-        async for msg in thread.history(limit=50):
-            if not self._mine(msg):
-                continue
-            for e in msg.embeds:
-                if e.footer and marker in (e.footer.text or "") and (e.title or None) == (title or None):
-                    return msg.id
-        return None
+    async def find_in_thread(self, thread_id: int, marker: str, title, after: float):
+        try:
+            thread = await self._thread(thread_id)
+        except Exception as exc:
+            raise held_trade_catchup.IncompleteSearch(f"thread unreadable: {exc.__class__.__name__}")
+        return await self._search(thread, after, lambda e: bool(e.footer) and marker in (e.footer.text or "")
+                                  and (e.title or None) == (title or None))
 
     async def send_in_thread(self, thread_id: int, embed: dict, reply_button: bool = False) -> int:
         thread = await self._thread(thread_id)
@@ -676,38 +701,50 @@ class DiscordSender(held_trade_catchup.Sender):
         return msg.id
 
 
-async def _record_catchup_post(bundle: dict, ids: dict) -> None:
-    """Track a catch-up post exactly like a live one: reply tracking, the worker's row, the archive.
-    Idempotent: the archive gets at most one entry per trade."""
+def _track_reply(bundle: dict, ids: dict) -> bool:
+    """Reply tracking for both messages (persisted), exactly like a live post."""
     payload = {"context_text": bundle["context_text"], "thread_id": ids["thread_id"],
                "channel_id": ROAST_CHANNEL_ID, "announcement_msg_id": ids["announcement_id"],
                "roast_msg_id": ids["roast_id"], "timestamp": time.time()}
     ROAST_TRACKER[ids["announcement_id"]] = payload
     ROAST_TRACKER[ids["roast_id"]] = payload
     _save_tracker()
+    return str(ids["roast_id"]) in json.loads(TRACKER_FILE.read_text())     # written, not just in memory
+
+
+async def _track_worker(bundle: dict, ids: dict) -> bool:
+    """The worker's row for the Reply button (False = not recorded; retried on a later poll)."""
     fa, fb = bundle["ctx_franchises"]
-    await _track_roast_async({
+    return await _track_roast_async({
         "roast_message_id": str(ids["roast_id"]), "thread_id": str(ids["thread_id"]),
         "channel_id": str(ROAST_CHANNEL_ID), "announcement_message_id": str(ids["announcement_id"]),
         "context_text": bundle["context_text"][:16384], "roast_text": bundle["roast"]["text"][:8000],
         "trade_id": str(bundle["trade"].get("timestamp", "")), "trade_franchises": f"{fa},{fb}",
         "posted_at": int(time.time()),
     })
+
+
+def _track_archive(bundle: dict, ids: dict) -> bool:
+    """The content archive (anti-repetition source). At most one entry per trade."""
     from content_engine import load_archive
+    fa, fb = bundle["ctx_franchises"]
     arch_id = f"trade-{bundle['trade'].get('timestamp', '')}"
-    if any(r.get("id") == arch_id for r in load_archive()):
-        return
-    save_to_archive({
-        "id": arch_id, "type": "trade_roast", "timestamp": datetime.now(timezone.utc).isoformat(),
-        "teams": [fa, fb], "discord_announcement_msg_id": ids["announcement_id"],
-        "discord_thread_id": ids["thread_id"], "discord_roast_msg_id": ids["roast_id"],
-        "channel_id": ROAST_CHANNEL_ID, "env": ROAST_BOT_ENV, "delayed_post": True,
-        "content": {"roast": bundle["roast"]["text"], "gif_query": bundle["roast"].get("gif_query", ""),
-                    "gif_url": bundle["roast"].get("gif_url", ""),
-                    "grades": {fid: g["grade"] for fid, g in bundle["grades"].items()},
-                    "roast_source": bundle["roast"].get("source", "")},
-        "replies": [],
-    })
+    if not any(r.get("id") == arch_id for r in load_archive()):
+        save_to_archive({
+            "id": arch_id, "type": "trade_roast", "timestamp": datetime.now(timezone.utc).isoformat(),
+            "teams": [fa, fb], "discord_announcement_msg_id": ids["announcement_id"],
+            "discord_thread_id": ids["thread_id"], "discord_roast_msg_id": ids["roast_id"],
+            "channel_id": ROAST_CHANNEL_ID, "env": ROAST_BOT_ENV, "delayed_post": True,
+            "content": {"roast": bundle["roast"]["text"], "gif_query": bundle["roast"].get("gif_query", ""),
+                        "gif_url": bundle["roast"].get("gif_url", ""),
+                        "grades": {fid: g["grade"] for fid, g in bundle["grades"].items()},
+                        "roast_source": bundle["roast"].get("source", "")},
+            "replies": [],
+        })
+    return any(r.get("id") == arch_id for r in load_archive())
+
+
+CATCHUP_TRACKERS = {"reply_tracker": _track_reply, "worker_row": _track_worker, "archive": _track_archive}
 
 
 def _auto_catchup_bundle(entry: dict, trade: dict) -> dict:
@@ -816,13 +853,19 @@ async def retry_held_trades(channel, trades: list) -> list:
                 done.append((held_trades.key(entry), "held_again"))
                 continue
             outcome = await held_trade_catchup.post_bundle(entry, bundle, sender, section="retry",
-                                                           path=HELD_TRADES_FILE, on_posted=_record_catchup_post)
+                                                           path=HELD_TRADES_FILE, trackers=CATCHUP_TRACKERS)
             print(f"[{datetime.now()}] held trade {held_trades.key(entry)} automatic catch-up: {outcome}")
+            if outcome in ("needs_reconcile", "needs_person"):
+                _ops_alert("held-review", f"held trade {held_trades.key(entry)} catch-up stopped ({outcome}); check "
+                                          f"Discord for its messages (marker {bundle['marker']}) before anything else.")
             done.append((held_trades.key(entry), outcome))
         for entry, bundle in approved:
             outcome = await held_trade_catchup.post_bundle(entry, bundle, sender, section="catchup",
-                                                           path=HELD_TRADES_FILE, on_posted=_record_catchup_post)
+                                                           path=HELD_TRADES_FILE, trackers=CATCHUP_TRACKERS)
             print(f"[{datetime.now()}] held trade {held_trades.key(entry)} approved catch-up: {outcome}")
+            if outcome in ("needs_reconcile", "needs_person"):
+                _ops_alert("held-review", f"held trade {held_trades.key(entry)} approved post stopped ({outcome}); "
+                                          f"check Discord for its messages (marker {bundle['marker']}).")
             done.append((held_trades.key(entry), outcome))
     except held_trades.HeldStateError as exc:
         _ops_alert("held-state", f"a held-trade post could not be recorded: {exc}. No further held posts "

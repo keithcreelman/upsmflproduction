@@ -22,8 +22,12 @@ relax that guard. It replaces "live" with "as committed before the trade":
                     completed. Identical rows = exact; same weeks but changed numbers = graded with
                     a note; a different week count = cannot be graded reliably (never guessed).
   salary adjustments MFL's export, rows timestamped at or before the trade (display only).
-  transactions      moves by either franchise between the folder and the trade are listed; a move
-                    of a traded asset in that window makes the trade ungradable.
+  transactions      ANY move by either franchise between the folder and the trade makes the trade
+                    ungradable (the folder's rosters are then not the trade's; roster fit and cap can
+                    change even when the moved player is not traded). No transaction list = ungradable.
+  stat corrections  same weeks but different standings numbers after the trade: the trade-time
+                    standings are not pinned exactly, so the grade is also computed on the later
+                    version (sensitivity()); a letter that changes makes the trade ungradable.
 
 Nothing here posts, writes the held file, reads secrets or touches the cursor. Network: none (the
 caller passes any live MFL reads).
@@ -83,6 +87,8 @@ class AsOf:
     rosters: dict = field(default_factory=dict)
     franchises: dict = field(default_factory=dict)
     salary_adjustments: dict | None = None
+    alt_season_state: object = None   # the later standings, when a stat correction changed them
+    alt_source: str = ""
     provenance: list = field(default_factory=list)   # [{input, source, available_at, sha256, note}]
     blocking: list = field(default_factory=list)     # reasons it cannot be graded reliably
     notes: list = field(default_factory=list)        # graded, but worth saying
@@ -281,15 +287,20 @@ def resolve(trade_txn: dict, *, repo=REPO, ref: str = "origin/main", live_standi
                               f"({iso(a.folder_available_at)}) and {post_label}: the trade's own standings are not "
                               f"pinned, so it cannot be graded reliably")
         elif standings_rows(standings) != standings_rows(post_standings):
+            changed = sorted(f for f, v in standings_rows(standings).items()
+                             if standings_rows(post_standings).get(f) != v)
+            a.alt_season_state = season_state_from(post_standings, season, int(post_at))
+            a.alt_source = post_label
             a.notes.append(f"standings numbers changed between the folder and {post_label} without a new week "
-                           f"(a stat correction); graded on the folder's standings")
+                           f"(a stat correction; franchises {', '.join(changed)}). Which version was current at the "
+                           f"trade is not recorded, so the grade is computed under both (see sensitivity)")
         else:
             a.notes.append(f"standings identical in the folder ({iso(a.folder_available_at)}) and {post_label}, "
                            f"so they are exactly the standings at the trade")
 
     # Moves between the folder and the trade.
     if later_transactions is None:
-        a.notes.append("moves between the folder and the trade were not checked (no later transaction list)")
+        a.blocking.append("moves between the folder and the trade could not be checked (no later transaction list)")
     else:
         rows = later_transactions if isinstance(later_transactions, list) else [later_transactions]
         sides = {trade_txn.get("franchise"), trade_txn.get("franchise2")}
@@ -306,11 +317,10 @@ def resolve(trade_txn: dict, *, repo=REPO, ref: str = "origin/main", live_standi
             found += 1
             moved = _moved(t, assets)
             label = f"{t.get('type')} by {t.get('franchise')} at {iso(ts)}"
-            if moved:
-                a.blocking.append(f"{label} moved traded asset(s) {sorted(moved)} after the folder, so the "
-                                  f"folder's rosters are not the trade's")
-            else:
-                a.notes.append(f"{label} happened after the folder (no traded asset); cap space may differ slightly")
+            a.blocking.append(f"{label} happened after the folder"
+                              + (f" and moved traded asset(s) {sorted(moved)}" if moved else "")
+                              + ": the folder's rosters are not the trade's (roster fit and cap can differ), and "
+                                "this path does not reconstruct them")
         if not found:
             a.notes.append(f"no moves by either franchise between the folder ({iso(a.folder_available_at)}) and "
                            f"the trade ({len(rows)} MFL transactions checked)")
@@ -347,6 +357,25 @@ def resolve(trade_txn: dict, *, repo=REPO, ref: str = "origin/main", live_standi
     return a
 
 
+def sensitivity(trade_txn: dict, a: AsOf, players_map: dict) -> dict | None:
+    """The grade under the folder's standings and under the later, corrected standings. None when
+    the standings were identical (nothing to compare)."""
+    if a.alt_season_state is None:
+        return None
+    out = {"alt_source": a.alt_source}
+    for name, state in (("folder", a.season_state), ("corrected", a.alt_season_state)):
+        an = grade(trade_txn, a, players_map, season_state=state)
+        out[name] = {"no_grade": list(an.no_grade_reasons)} if an.no_grade else {
+            "grades": {s.franchise_id: {"grade": s.grade, "score": round(s.grade_score, 2)} for s in (an.side_a, an.side_b)},
+            "picks": [{"pick": f"{pk.year} R{pk.round} ({pk.original_owner})", "expected_points": round(pk.expected_points, 2),
+                       "estimated_value": pk.estimated_value, "odds": pk.odds_text}
+                      for s in (an.side_a, an.side_b) for pk in s.picks_given]}
+    f, c = out["folder"], out["corrected"]
+    out["letters_same"] = ("grades" in f and "grades" in c
+                           and all(f["grades"][k]["grade"] == c["grades"][k]["grade"] for k in f["grades"]))
+    return out
+
+
 def delayed_label(a: AsOf) -> str:
     """The fixed line every catch-up post carries (not model-written)."""
     from zoneinfo import ZoneInfo
@@ -356,11 +385,12 @@ def delayed_label(a: AsOf) -> str:
             f"(MFL data pulled {pulled}, through week {a.snapshot['season_state']['weeks_completed']}).")
 
 
-def grade(trade_txn: dict, a: AsOf, players_map: dict):
+def grade(trade_txn: dict, a: AsOf, players_map: dict, season_state=None):
     """trade_grader.analyze_trade on the as-of inputs, with the trade time as "now"."""
     import trade_grader as tg
     if not a.ok:
         raise ValueError("as-of inputs are not usable: " + "; ".join(a.blocking))
-    return tg.analyze_trade(trade_txn, players_map, a.franchises, a.rosters, season_state=a.season_state,
+    return tg.analyze_trade(trade_txn, players_map, a.franchises, a.rosters,
+                            season_state=season_state or a.season_state,
                             snapshot=a.snapshot, now=a.trade_ts, snapshot_repo=a.root,
                             salary_adjustments=a.salary_adjustments if a.salary_adjustments is not None else {})
