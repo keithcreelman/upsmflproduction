@@ -1014,7 +1014,7 @@
         "TCV is a sum, not AAV times years. After an extension the two stop matching.",
         "TCV is locked when the contract is created or extended. It does not drift at rollover. Only a restructure re-cuts it.",
         "An NFL rookie picked up in-season is a WW contract all season, then converted to Rookie status at year-end so he goes to the Expired Rookie Auction, not free agency.",
-        "Ext1 and Ext2 are not separate contract types. They are the same extension, recording whether you added one year or two."
+        "Extension is one contract type. Ext1 and Ext2 are its designations: the contract_type value says whether you added one year or two, and the contract string then carries the related status token (for example Vet-Ext1). An Ext1 is initially flat; only a later permitted restructure can add a suffix."
       ],
       "open_questions": [
         "Whether a 3-year MYM counts toward the 6-three-year-contract limit. Canon excludes only rookie deals and says nothing about MYM.",
