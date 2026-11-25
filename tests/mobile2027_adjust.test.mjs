@@ -90,7 +90,7 @@ test("player identity: a name only when an authoritative player id resolves; oth
 test("nothing from a source string survives: no description, note, id, date or other team in any result or in the model", () => {
   const r = A.parseTeamRows([row(1000, CUT_ADD), row(-5000, TRADE), row(500, ROUND), row(3000, FINE)], { fid: "0010", season: 2026, total: -500 });
   const s = JSON.stringify(r); ["UPS", "settlement", "adddrop", "ups_rule2", "trade_2026", "ups_drop_rounding", "offense", "explanation", "description", "timestamp"].forEach((w) => t.doesNotMatch(s, new RegExp(w, "i"), w));
-  r.items.forEach((i) => t.deepEqual(Object.keys(i).sort(), ["amount", "category", "cutDate", "nameSource", "playerId", "playerName", "season"]));   // cutDate: an Eastern Time calendar date or null, never a source string
+  r.items.forEach((i) => t.deepEqual(Object.keys(i).sort(), ["amount", "category", "cutDate", "detail", "nameSource", "playerId", "playerName", "season"]));   // cutDate: an Eastern Time calendar date or null, never a source string
   const ms = JSON.stringify(model()); t.doesNotMatch(ms, /UPS drop penalty|traded salary settlement|RULE 2|rawRows|explanation/);
 });
 
@@ -222,7 +222,16 @@ test("cut dates, 2027 ledger: dropped_at_iso (UTC) becomes the Eastern Time date
   t.equal(r.state, "ok"); t.deepEqual(r.items.map((i) => i.cutDate), ["2026-08-08", "2026-08-08", null, null]);
   t.deepEqual(r.items.map((i) => i.playerId), ["12801", "15292", "13713", null], "ids kept on every drop; a fine has none even if the row sent one");
   t.deepEqual(r.items.map((i) => i.playerName), ["Hill, Tyreek", null, null, null]); t.equal(r.items[0].nameSource, "direct"); t.equal(r.items[1].nameSource, null);
-  r.items.forEach((i) => t.deepEqual(Object.keys(i).sort(), ["amount", "category", "cutDate", "nameSource", "playerId", "playerName", "season"]));
+  r.items.forEach((i) => t.deepEqual(Object.keys(i).sort(), ["amount", "category", "cutDate", "detail", "nameSource", "playerId", "playerName", "season"]));
+});
+
+test("R6 detail: a fine names itself (Rule 2 missed nomination, its date and offense number) and a trade says whether it was three-team, from the exact patterns only; nothing else gets a detail", () => {
+  const r = A.parseTeamRows([row(1000, CUT_ADD), row(-5000, TRADE), row(-19000, "UPS traded salary settlement (3-way 72cea017): net -19K"), row(500, ROUND), row(3000, FINE), row(700, "Commissioner adjustment")], { fid: "0010", season: 2026, total: -18800 });
+  t.ok(r.reconciled); t.deepEqual(r.items.map((i) => i.detail), [null, { kind: "trade" }, { kind: "three_team" }, null, { kind: "rule2_missed_nomination", date: "2026-07-28", nth: 1 }, null]);
+  t.equal(A.detailOf("UPS RULE 2 missed nomination 2026-07-28 offense 1 trailing", "FA Auction Fine"), null, "not the exact pattern: no detail");
+  t.equal(A.detailOf(TRADE, "Cut Penalty"), null, "a detail only for its own category");
+  const n = A.parseNextSeason(LEDGER(), { fid: "0010", season: 2027, resolveName: () => null });
+  t.deepEqual(n.items.map((i) => i.detail), [null, { kind: "rule2" }], "a next-season fine is a Rule 2 fine by its ledger kind; its date field is not used");
 });
 
 run("mobile2027_adjust");

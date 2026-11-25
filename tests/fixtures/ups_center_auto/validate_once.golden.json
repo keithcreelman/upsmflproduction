@@ -28,7 +28,7 @@
   ],
   "ok": false,
   "publishable": false,
-  "sha256": "5b8a635aeef5018911088d55a61797c07484ede719c56ba717e347089bdb8f76",
+  "sha256": "47c918e9a8fe2f4e7856009acc5303c92edbc6aa480c17a45b146a0da0cb2a32",
   "warnings": [
    "unchecked claim kind box:Tetairoa McMillan",
    "unchecked claim kind box:Kenneth Walker III",
@@ -73,7 +73,7 @@
   "errors": [],
   "ok": true,
   "publishable": false,
-  "sha256": "4672bc706a0a8735ac2d7ffd56a34dcf7e787b443a1fd6902662c4f4ae80fbae",
+  "sha256": "6e5ba7359f142ee378854a3a7f38ba6788c2281a4c7382e33e6cc3ee8e913afd",
   "warnings": [
    "unchecked claim kind box:Tetairoa McMillan",
    "unchecked claim kind box:Kenneth Walker III",
@@ -115,7 +115,7 @@
   "errors": [],
   "ok": true,
   "publishable": false,
-  "sha256": "46fa6cc55b46b22623563f2fac58a62ab74d737fc7778461ca34188fea6b8ccd",
+  "sha256": "658762a07b0330247b816dcb9ca8bfdaa9f87aeaee4701e52b66cdea0abd8990",
   "warnings": [
    "unchecked claim kind box:Tetairoa McMillan",
    "unchecked claim kind box:Kenneth Walker III",

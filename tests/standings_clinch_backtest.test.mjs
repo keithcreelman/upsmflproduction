@@ -4,7 +4,8 @@
 // the games still to play), then held against how the season actually ended:
 //   X in the field | Y won the division | Z a first-round bye (seed 1-2) | E missed every path | a number = that exact seed.
 // The actual finish is rebuilt from the results by the league's rules (division winner by MFL's standingsSort PCT,
-// DIVPCT, H2H, PTS, ALL_PLAY_PCT; seeds by All-Play, Overall, Points For, H2H), and that rebuild is itself checked
+// DIVPCT, H2H, PTS, ALL_PLAY_PCT; byes by All-Play; wild cards by All-Play, Points For, H2H; seeds 3-6 by All-Play,
+// Points For -- canon §F.1, Keith 2026-11-25), and that rebuild is itself checked
 // against the week-15 playoff games MFL scheduled (seeds 3-6 are exactly the four teams in the two UPS round-1 games).
 // Phase 1's X and Y (standings_race.magicNumbers) are also held against the new module, week by week.
 // Fixture: tests/fixtures/clinch_backtest_2021_2025.json (MFL public exports). No network, no D1.
@@ -50,11 +51,14 @@ function season(y) {
     }
     if (c.length > 1) unresolved.push(c); dw.add(c[0]);
   }
-  const ladder = (a, b) => (apw(b) - apw(a)) || (pct(b) - pct(a)) || (fin[b].pf - fin[a].pf) || (h2hAmong(b, [a]) - h2hAmong(a, [b]));
-  const dws = fids.filter((f) => dw.has(f)).sort(ladder), rest = fids.filter((f) => !dw.has(f)).sort(ladder);
+  // canon §F.1.2-4: wild cards All-Play → PF → H2H; seeds 3-6 All-Play → PF; byes = the two best division winners by All-Play
+  const pf10 = (f) => Math.round(fin[f].pf * 10);
+  const ladder = (a, b) => (apw(b) - apw(a)) || (pf10(b) - pf10(a)) || (h2hAmong(b, [a]) - h2hAmong(a, [b]));
+  const byAp = (a, b) => apw(b) - apw(a);
+  const dws = fids.filter((f) => dw.has(f)).sort(byAp), rest = fids.filter((f) => !dw.has(f)).sort(ladder);
   const seed = {};
   dws.slice(0, 2).forEach((f, i) => { seed[f] = i + 1; });
-  dws.slice(2).concat(rest.slice(0, 2)).sort(ladder).forEach((f, i) => { seed[f] = i + 3; });
+  dws.slice(2).concat(rest.slice(0, 2)).sort((a, b) => (apw(b) - apw(a)) || (pf10(b) - pf10(a))).forEach((f, i) => { seed[f] = i + 3; });
   return { S, fids, divOf, n, total, stateAt, dw, seed, unresolved, ladder };
 }
 
@@ -91,7 +95,7 @@ for (const [y, s] of SEASONS) {
       }
       if (k < LAST) {   // while games remain, Phase 1's letters are the same as the new module's
         const ap2 = (f) => st[f].ap.w + st[f].ap.t / 2, pc2 = (f) => (st[f].h.w + st[f].h.t / 2) / s.total[f];
-        const lad = (a, b) => (ap2(b) - ap2(a)) || (pc2(b) - pc2(a)) || (st[b].pf - st[a].pf);
+        const lad = (a, b) => (ap2(b) - ap2(a)) || (st[b].pf - st[a].pf);
         const leaders = new Set();
         for (const dv of new Set(Object.values(s.divOf))) leaders.add(s.fids.filter((f) => s.divOf[f] === dv).sort((a, b) => (pc2(b) - pc2(a)) || lad(a, b))[0]);
         const lws = s.fids.filter((f) => leaders.has(f)).sort(lad), lrs = s.fids.filter((f) => !leaders.has(f)).sort(lad);

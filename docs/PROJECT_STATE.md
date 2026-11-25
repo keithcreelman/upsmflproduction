@@ -1,5 +1,9 @@
 # PROJECT STATE — UPS MFL Production
 
+> **Superseded as project status (2026-11-22). Dated February 2026.** Current status lives in GitHub: backlog index #1503 and the issues and PRs it links. "Current Focus", "Known Risks" and "Next Major Milestone" below describe the early-2026 consolidation and are historical.
+> **Still applicable:** "Non-Negotiables" and "Active Development Model" (and the instruction not to depend on `ups-league-data`).
+> **Authority:** this repository's `main` is the canonical source **of code** (not of project status, and not of league rules). Status: #1503. League rules: `docs/league_context_v1.md` and Keith's recorded rulings.
+
 ## Source of Truth
 Primary repository: upsmflproduction  
 This is the ONLY canonical source.  

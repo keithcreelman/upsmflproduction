@@ -53,18 +53,18 @@ const withNext = (s, ledger) => { const by = {}; s.model.teams.forEach((tm) => {
 test("2027 detail: figures only when the items add up to the ledger's own total; 'already on MFL' is not 'could not be verified'", () => {
   const row = (amount, over) => ({ player_id: "99999", franchise_id: "0010", amount, applies_to_season: 2027, dropped_at_iso: "2026-09-01", kind: "Drop (next season)", in_mfl: false, ...(over || {}) });
   const bad = text(V.app(withNext(state(), { ok: true, by_fid: { "0010": { total: 4000 } }, held_unpriced: [], needs_review: [], rows: [row(3000)] })));
-  t.doesNotMatch(bad, /Cut Penalty/, "no category line"); t.doesNotMatch(bad, /Total \+\$/, "no total"); t.match(bad, /Detail unavailable: the items do not add up/);
+  t.doesNotMatch(bad, /Cut penalties/, "no category line"); t.doesNotMatch(bad, /Total adjustments/, "no total"); t.match(bad, /Detail unavailable: the items do not add up/);
   const none = text(V.app(withNext(state(), { ok: true, by_fid: { "0010": { total: 4000 } }, held_unpriced: [], needs_review: [], rows: [] })));
   t.doesNotMatch(none, /No 2027 adjustments recorded yet/, "a ledger total of 4,000 with no rows is not 'none recorded'");
   const good = text(V.app(withNext(state(), { ok: true, by_fid: { "0010": { total: 1000 } }, held_unpriced: [], needs_review: [], rows: [row(1000)] })));
-  t.match(good, /Cut Penalty ▸ \+\$1,000/); t.match(good, /Total \+\$1,000/);
+  t.match(good, /Cut penalties ▸ \+\$1,000/); t.match(good, /Total adjustments \+\$1,000/);
   const onMfl = text(V.app(withNext(state(), { ok: true, by_fid: { "0010": { total: 1000 } }, held_unpriced: [], needs_review: [], rows: [row(1000), row(2000, { in_mfl: true, dropped_at_iso: "2026-08-01" })] })));
   t.match(onMfl, /1 record is already on MFL and not counted here\./); t.doesNotMatch(onMfl, /could not be verified/, "a record on MFL is not unverified");
 });
 
 test("the cap card shows no total and no available figure when the roster read has no cap total; the later years still show", () => {
   const s = state({ ct: { f: "all", s: "exp", y: 0, d: 1, open: {}, bd: false, cat: {}, ns: false } }), tm = s.model.teams.find((x) => x.id === "0010"); tm.cap = { capTotal: null, adjTotal: null, unresolved: true };
-  const tx = text(V.app(s)); t.match(tx, /Unavailable: this roster read did not include the team’s cap total/); t.match(tx, /Later years 2027 — Total committed cap/); t.doesNotMatch(tx, /2026 \$\d|Available cap space/, "no dollar total for this season");
+  const tx = text(V.app(s)); t.match(tx, /Unavailable: this roster read did not include the team’s cap total/); t.match(tx, /Total committed cap, later years 2027 Details ▸ \$[\d,]+/); t.doesNotMatch(tx, /2026 \$\d|Available cap space/, "no dollar total for this season");
 });
 
 test("a disabled button looks disabled", () => {

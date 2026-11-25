@@ -390,33 +390,67 @@ class Issue:
 
     # ------------------------------------------------------------ 6. landscape
     def canon_order(self):
-        """§F.1: division leaders take places 1-2, the rest of the field interleaves, then everyone else --
-        all on All-Play %, Overall, season PF (worker/src/seeding.js). H2H only if needed (gap if so)."""
+        """canon §F.1.2-§F.1.4 (Keith 2026-11-25; worker/src/seeding.js): places 1-2 = the two division leaders with the
+        best All-Play %; wild cards = the two best others by All-Play %, then season PF (then head-to-head); places 3-6
+        by All-Play %, then season PF; everyone else (H1-H6) in the Hawk Tuah order, unchanged by the correction: All-Play %,
+        overall record, PF (seeding.js hawkTuahLadder). No overall-record step in the playoff field. Returns the order,
+        the leaders, and the ties no applied step settles (each one a gap: the order there is not final)."""
         st = self.ctx["mfl"]["standings"]
 
-        def pct(w, l):
-            return round(w / (w + l), 6) if (w + l) else 0.0
-
-        def key(f):
+        def ap(f):
             aw, al = (int(x) for x in st[f]["allplay"].split("-")[:2])
-            return (-pct(aw, al), -pct(st[f]["h2hw"], st[f]["h2hl"]), -round(st[f]["pf"], 1), self.owner[f])
+            return round(aw / (aw + al), 6) if (aw + al) else 0.0
+        bye_key = lambda f: (-ap(f),)
+        key = lambda f: (-ap(f), -round(st[f]["pf"], 1))
         leaders = [r["franchise_id"] for r in self.ctx["site"]["standings"] if r["is_division_leader"]]
-        tie = {}
-        for f in st:
-            tie.setdefault(key(f)[:3], []).append(f)
-        h2h_needed = [v for v in tie.values() if len(v) > 1]
-        L = sorted(leaders, key=key)
-        pool = sorted([f for f in st if f not in leaders], key=key)
-        return L[:2] + sorted(L[2:] + pool[:2], key=key) + pool[2:], set(leaders), h2h_needed
+        L = sorted(leaders, key=lambda f: (bye_key(f), self.owner[f]))
+        pool = sorted([f for f in st if f not in leaders], key=lambda f: (key(f), self.owner[f]))
+        mid = sorted(L[2:] + pool[:2], key=lambda f: (key(f), self.owner[f]))
+        open_ties = []
+        if len(L) > 2 and bye_key(L[1]) == bye_key(L[2]):
+            open_ties.append("a first-round bye (division leaders level on all-play)")
+        elif len(L) > 1 and bye_key(L[0]) == bye_key(L[1]):
+            open_ties.append("the order of places 1 and 2 (division leaders level on all-play)")
+        if len(pool) > 2 and key(pool[1]) == key(pool[2]):
+            open_ties.append("the second wild card (level on all-play and points for: head-to-head next)")
+        if any(key(a) == key(b) for a, b in zip(mid, mid[1:])):
+            open_ties.append("the order of places 3-6 (level on all-play and points for)")
+        def ovr(f):
+            w, l = st[f]["h2hw"], st[f]["h2hl"]
+            return round(w / (w + l), 6) if (w + l) else 0.0
+        hawk = sorted(pool[2:], key=lambda f: (-ap(f), -ovr(f), -round(st[f]["pf"], 1), self.owner[f]))
+        return L[:2] + mid + hawk, set(leaders), open_ties
+
+    def movement_note(self):
+        """Movement is measured only against a forecast simulated under the same seeding rules (Keith 2026-11-25, release
+        plan 3a). When last week's was not (ups_center_sources.load_forecast drops it), say so instead of a change."""
+        why = (self.ctx.get("forecast") or {}).get("movementWhy")
+        return (" No change since last week is given: %s, so the two aren&rsquo;t comparable." % e(why)) if why else ""
+
+    def open_tie_note(self, sim):
+        """The forecast's own count of simulated seasons where teams were level on every settled seeding tiebreak, and
+        how it treated them (season_sim.py PENDING_TIE_HANDLING: equal chances, a forecast assumption Keith approved 2026-11-25;
+        never a league rule, and the league's tiebreak for those ties is still pending)."""
+        n = int(sim.get("pendingTieSeasons") or 0)
+        if not n:
+            return ""
+        cnt = self.L.put("odds:pendingTieSeasons", n, "season_sim.py model.pendingTieSeasons", "{:,}".format(n))
+        return (' In %s of the simulated seasons, teams were level on every seeding tiebreak the league has settled; '
+                'the forecast gave the tied teams equal chances. That is a forecast assumption, not a league tiebreak; the '
+                'league&rsquo;s rule for these ties is still pending.' % cnt)
 
     def seg_landscape(self, bare=False):
         st = self.ctx["mfl"]["standings"]
-        order, leaders, h2h_needed = self.canon_order()
+        order, leaders, open_ties = self.canon_order()
         site = [r["franchise_id"] for r in self.ctx["site"]["standings"]]
         body = ""
-        if h2h_needed:
-            body += self.gap("landscape:h2h", "landscape", "Teams tied on all-play, overall and points for need the "
-                             "head-to-head step; check the order by hand.")
+        rs = self.ctx["site"].get("regular_season") or {}
+        if rs.get("last_regular_season_week") and self.week > int(rs["last_regular_season_week"]):
+            body += self.gap("landscape:scope", "landscape", "MFL&rsquo;s season totals now include playoff weeks; seeds are a "
+                             "regular-season ranking, so this table&rsquo;s order check does not apply.")
+        if open_ties:
+            body += self.gap("landscape:h2h", "landscape", "No settled tiebreak decides %s; the order there is not final. "
+                             "Check it by hand." % e("; ".join(open_ties)))
         if site != order:
             body += self.gap("landscape:site-order", "landscape", "The league standings page currently shows a different "
                              "order (%s) from the league&rsquo;s seeding rule used here (%s). Do not publish until they match."
@@ -439,8 +473,9 @@ class Issue:
         table = ('<div class="tablebox"><table><thead><tr><th>Franchise</th><th>Division</th><th>Record</th>'
                  '<th>Week %d all-play</th><th>All-play</th><th>Points for</th></tr></thead><tbody>%s</tbody></table></div>'
                  '<p class="caption">In the same order as the league standings page: the current playoff field first '
-                 '(division leaders take the top two places), then everyone else; every place goes by all-play percentage, '
-                 'then overall record, then points for, then head-to-head.</p>' % (self.week, "".join(rows)))
+                 '(the two division leaders with the best all-play percentage take the top two places), then everyone else. '
+                 'Wild cards go by all-play percentage, then points for, then head-to-head; places 3&ndash;6 by all-play '
+                 'percentage, then points for. Overall record is not a seeding tiebreaker.</p>' % (self.week, "".join(rows)))
         if bare:                                  # story format: (gap boxes, tables); no audit box when no preview was published
             return body, table + (self.prior_preview_audit() if self.T.get("t.grade.games") else "")
         audit = self.prior_preview_audit()
@@ -530,6 +565,10 @@ class Issue:
         elif _utc(sim.get("generatedAtUtc")) < final_at:
             out.append(("odds:stale", "The playoff forecast was run at %s, before Week %d was final (%s). Re-run it." % (
                 et_clock(_utc(sim.get("generatedAtUtc"))), self.week, et_clock(final_at))))
+        elif sim.get("seedingRule") != season_sim.SEEDING_RULE:
+            # canon §F.1 (Keith 2026-11-25): a forecast simulated with the old overall-record step contradicts the standings
+            out.append(("odds:rule", "The playoff forecast was simulated under the earlier seeding rules, not the corrected ones "
+                        "(league_context F.1, 2026-11-25). Re-run season_sim.py --through-week for Week %d before publishing." % self.week))
         if sim and not out:
             bad = self.forecast_inconsistencies()
             if bad:
@@ -570,7 +609,7 @@ class Issue:
 
     def seg_odds(self):
         problems = self.forecast_problems()
-        if any(g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in problems):
+        if any(g in ("odds:missing", "odds:stale", "odds:rule", "odds:inconsistent") for g, _ in problems):
             return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; not yet available</small>",
                                 "".join(self.gap(g, "odds", why) for g, why in problems))
         sim = self.ctx["forecast"]["sim"]
@@ -597,8 +636,9 @@ class Issue:
                  '<p class="caption">Probabilities updated after Week %d (%s), %s simulated seasons. One team wins each division '
                  'in every simulated season; division odds and the league&rsquo;s title odds are rounded so each group '
                  'still adds up to the whole. A probability prints as certain only when the outcome is clinched or eliminated; a '
-                 'figure that would round to certain prints to two decimals, or as &lt;%s%%.</p>'
-                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs, floor))
+                 'figure that would round to certain prints to two decimals, or as &lt;%s%%.%s%s</p>'
+                 % ("".join(rows), self.week, et_clock(_utc(sim["generatedAtUtc"])), runs, floor, self.open_tie_note(sim),
+                    self.movement_note()))
         extra = "".join(self.gap(g, "odds", why) for g, why in problems)      # preview problems only, at this point
         return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; updated after Week %d</small>"
                             % self.week, self.desk(lead, mb=True) + extra + table)
@@ -694,7 +734,7 @@ class Issue:
         meta = dict(meta, lastWins=meta["lastWins"] or meta["firstWins"])      # no win-total history (a reconstructed week): shown as the first season
         src = "D1 weeks 1-%d of %d-%d + /api/playoff-bracket" % (self.week, meta["firstAp"], meta["lastAp"])
         fc = (self.ctx.get("forecast") or {}).get("sim")
-        fresh = fc and not any(g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in self.forecast_problems())
+        fresh = fc and not any(g in ("odds:missing", "odds:stale", "odds:rule", "odds:inconsistent") for g, _ in self.forecast_problems())
         odds_src = "season_sim live wk%02d (%s runs, %s)" % (self.week, fc["runs"], fc["generatedAtUtc"]) if fresh else ""
         def cat(p):
             return ("Contender" if p >= .90 else "In the field" if p >= .60 else "In the race" if p >= .25

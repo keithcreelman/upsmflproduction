@@ -333,6 +333,72 @@
   "id": 11,
   "nfl_season": "2026",
   "franchise_id": "0010",
+  "player_id": "15754",
+  "preview_ts": "2026-01-01 00:00:00",
+  "extension_term": "1YR",
+  "loaded_indicator": "NONE",
+  "success": 1,
+  "error_message": null,
+  "new_contract_status": "Vet-Ext1",
+  "new_contract_length": 2,
+  "new_TCV": 52000,
+  "new_aav_current": 31000,
+  "new_aav_future": 41000,
+  "new_contract_guarantee": 39000,
+  "preview_contract_info_string": "CL 2|TCV 52K|AAV 31K, 41K|Y1-11K, Y2-41K|Ext: Blake|GTD: 39K",
+  "franchise_name": "Blake Bombers",
+  "player_name": "Olave, Chris",
+  "position": "WR",
+  "committed": 0,
+  "committed_ts": null,
+  "committed_event_id": null,
+  "mfl_post_status": null,
+  "mfl_post_ts": null,
+  "mfl_post_error": null,
+  "reverted": 0,
+  "reverted_ts": null,
+  "reverted_event_id": null,
+  "mfl_revert_status": null,
+  "mfl_revert_ts": null,
+  "mfl_revert_error": null
+ },
+ {
+  "id": 12,
+  "nfl_season": "2026",
+  "franchise_id": "0010",
+  "player_id": "15754",
+  "preview_ts": "2026-01-01 00:00:00",
+  "extension_term": "2YR",
+  "loaded_indicator": "NONE",
+  "success": 1,
+  "error_message": null,
+  "new_contract_status": "Vet-Ext2",
+  "new_contract_length": 3,
+  "new_TCV": 113000,
+  "new_aav_current": 31000,
+  "new_aav_future": 51000,
+  "new_contract_guarantee": 84750,
+  "preview_contract_info_string": "CL 3|TCV 113K|AAV 31K, 51K|Y1-11K, Y2-51K, Y3-51K|Ext: Blake|GTD: 84.8K",
+  "franchise_name": "Blake Bombers",
+  "player_name": "Olave, Chris",
+  "position": "WR",
+  "committed": 0,
+  "committed_ts": null,
+  "committed_event_id": null,
+  "mfl_post_status": null,
+  "mfl_post_ts": null,
+  "mfl_post_error": null,
+  "reverted": 0,
+  "reverted_ts": null,
+  "reverted_event_id": null,
+  "mfl_revert_status": null,
+  "mfl_revert_ts": null,
+  "mfl_revert_error": null
+ },
+ {
+  "id": 13,
+  "nfl_season": "2026",
+  "franchise_id": "0010",
   "player_id": "16622",
   "preview_ts": "2026-01-01 00:00:00",
   "extension_term": "1YR",
@@ -363,7 +429,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 12,
+  "id": 14,
   "nfl_season": "2026",
   "franchise_id": "0010",
   "player_id": "16622",
@@ -396,7 +462,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 13,
+  "id": 15,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16581",
@@ -429,7 +495,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 14,
+  "id": 16,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16581",
@@ -462,7 +528,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 15,
+  "id": 17,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "15715",
@@ -495,7 +561,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 16,
+  "id": 18,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "15715",
@@ -528,7 +594,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 17,
+  "id": 19,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "14835",
@@ -561,7 +627,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 18,
+  "id": 20,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "14835",
@@ -594,7 +660,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 19,
+  "id": 21,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "15708",
@@ -627,7 +693,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 20,
+  "id": 22,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "15708",
@@ -660,7 +726,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 21,
+  "id": 23,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16214",
@@ -693,7 +759,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 22,
+  "id": 24,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16214",
@@ -726,7 +792,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 23,
+  "id": 25,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16641",
@@ -759,7 +825,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 24,
+  "id": 26,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16641",
@@ -792,7 +858,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 25,
+  "id": 27,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16244",
@@ -825,7 +891,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 26,
+  "id": 28,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16244",
@@ -858,7 +924,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 27,
+  "id": 29,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16747",
@@ -891,7 +957,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 28,
+  "id": 30,
   "nfl_season": "2026",
   "franchise_id": "0009",
   "player_id": "16747",
@@ -924,7 +990,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 29,
+  "id": 31,
   "nfl_season": "2026",
   "franchise_id": "0002",
   "player_id": "14782",
@@ -957,7 +1023,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 30,
+  "id": 32,
   "nfl_season": "2026",
   "franchise_id": "0002",
   "player_id": "14782",
@@ -990,7 +1056,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 31,
+  "id": 33,
   "nfl_season": "2026",
   "franchise_id": "0002",
   "player_id": "16586",
@@ -1023,7 +1089,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 32,
+  "id": 34,
   "nfl_season": "2026",
   "franchise_id": "0002",
   "player_id": "16586",
@@ -1056,7 +1122,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 33,
+  "id": 35,
   "nfl_season": "2026",
   "franchise_id": "0002",
   "player_id": "15753",
@@ -1089,7 +1155,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 34,
+  "id": 36,
   "nfl_season": "2026",
   "franchise_id": "0002",
   "player_id": "15753",
@@ -1122,7 +1188,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 35,
+  "id": 37,
   "nfl_season": "2026",
   "franchise_id": "0011",
   "player_id": "14833",
@@ -1155,7 +1221,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 36,
+  "id": 38,
   "nfl_season": "2026",
   "franchise_id": "0011",
   "player_id": "14833",
@@ -1188,7 +1254,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 37,
+  "id": 39,
   "nfl_season": "2026",
   "franchise_id": "0011",
   "player_id": "13696",
@@ -1221,7 +1287,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 38,
+  "id": 40,
   "nfl_season": "2026",
   "franchise_id": "0011",
   "player_id": "13696",
@@ -1254,7 +1320,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 39,
+  "id": 41,
   "nfl_season": "2026",
   "franchise_id": "0011",
   "player_id": "16584",
@@ -1287,7 +1353,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 40,
+  "id": 42,
   "nfl_season": "2026",
   "franchise_id": "0011",
   "player_id": "16584",
@@ -1320,7 +1386,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 41,
+  "id": 43,
   "nfl_season": "2026",
   "franchise_id": "0011",
   "player_id": "15815",
@@ -1353,7 +1419,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 42,
+  "id": 44,
   "nfl_season": "2026",
   "franchise_id": "0011",
   "player_id": "15815",
@@ -1372,72 +1438,6 @@
   "franchise_name": "Cleon Ca$h",
   "player_name": "Walker, Travon",
   "position": "DE",
-  "committed": 0,
-  "committed_ts": null,
-  "committed_event_id": null,
-  "mfl_post_status": null,
-  "mfl_post_ts": null,
-  "mfl_post_error": null,
-  "reverted": 0,
-  "reverted_ts": null,
-  "reverted_event_id": null,
-  "mfl_revert_status": null,
-  "mfl_revert_ts": null,
-  "mfl_revert_error": null
- },
- {
-  "id": 43,
-  "nfl_season": "2026",
-  "franchise_id": "0011",
-  "player_id": "16222",
-  "preview_ts": "2026-01-01 00:00:00",
-  "extension_term": "1YR",
-  "loaded_indicator": "NONE",
-  "success": 1,
-  "error_message": null,
-  "new_contract_status": "Vet-Ext1",
-  "new_contract_length": 2,
-  "new_TCV": 34000,
-  "new_aav_current": 12000,
-  "new_aav_future": 22000,
-  "new_contract_guarantee": 25500,
-  "preview_contract_info_string": "CL 2|TCV 34K|AAV 12K, 22K|Y1-12K, Y2-22K|Ext: Cash|GTD: 25.5K",
-  "franchise_name": "Cleon Ca$h",
-  "player_name": "Kraft, Tucker",
-  "position": "TE",
-  "committed": 0,
-  "committed_ts": null,
-  "committed_event_id": null,
-  "mfl_post_status": null,
-  "mfl_post_ts": null,
-  "mfl_post_error": null,
-  "reverted": 0,
-  "reverted_ts": null,
-  "reverted_event_id": null,
-  "mfl_revert_status": null,
-  "mfl_revert_ts": null,
-  "mfl_revert_error": null
- },
- {
-  "id": 44,
-  "nfl_season": "2026",
-  "franchise_id": "0011",
-  "player_id": "16222",
-  "preview_ts": "2026-01-01 00:00:00",
-  "extension_term": "2YR",
-  "loaded_indicator": "NONE",
-  "success": 1,
-  "error_message": null,
-  "new_contract_status": "Vet-Ext2",
-  "new_contract_length": 3,
-  "new_TCV": 76000,
-  "new_aav_current": 12000,
-  "new_aav_future": 32000,
-  "new_contract_guarantee": 57000,
-  "preview_contract_info_string": "CL 3|TCV 76K|AAV 12K, 32K|Y1-12K, Y2-32K, Y3-32K|Ext: Cash|GTD: 57K",
-  "franchise_name": "Cleon Ca$h",
-  "player_name": "Kraft, Tucker",
-  "position": "TE",
   "committed": 0,
   "committed_ts": null,
   "committed_event_id": null,
@@ -2775,72 +2775,6 @@
   "id": 85,
   "nfl_season": "2026",
   "franchise_id": "0012",
-  "player_id": "14800",
-  "preview_ts": "2026-01-01 00:00:00",
-  "extension_term": "1YR",
-  "loaded_indicator": "NONE",
-  "success": 1,
-  "error_message": null,
-  "new_contract_status": "Vet-Ext1",
-  "new_contract_length": 2,
-  "new_TCV": 28000,
-  "new_aav_current": 9000,
-  "new_aav_future": 19000,
-  "new_contract_guarantee": 21000,
-  "preview_contract_info_string": "CL 2|TCV 28K|AAV 9K, 19K|Y1-9K, Y2-19K|Ext: Hawk|GTD: 21K",
-  "franchise_name": "Hawks",
-  "player_name": "Dobbins, J.K.",
-  "position": "RB",
-  "committed": 0,
-  "committed_ts": null,
-  "committed_event_id": null,
-  "mfl_post_status": null,
-  "mfl_post_ts": null,
-  "mfl_post_error": null,
-  "reverted": 0,
-  "reverted_ts": null,
-  "reverted_event_id": null,
-  "mfl_revert_status": null,
-  "mfl_revert_ts": null,
-  "mfl_revert_error": null
- },
- {
-  "id": 86,
-  "nfl_season": "2026",
-  "franchise_id": "0012",
-  "player_id": "14800",
-  "preview_ts": "2026-01-01 00:00:00",
-  "extension_term": "2YR",
-  "loaded_indicator": "NONE",
-  "success": 1,
-  "error_message": null,
-  "new_contract_status": "Vet-Ext2",
-  "new_contract_length": 3,
-  "new_TCV": 67000,
-  "new_aav_current": 9000,
-  "new_aav_future": 29000,
-  "new_contract_guarantee": 50250,
-  "preview_contract_info_string": "CL 3|TCV 67K|AAV 9K, 29K|Y1-9K, Y2-29K, Y3-29K|Ext: Hawk|GTD: 50.3K",
-  "franchise_name": "Hawks",
-  "player_name": "Dobbins, J.K.",
-  "position": "RB",
-  "committed": 0,
-  "committed_ts": null,
-  "committed_event_id": null,
-  "mfl_post_status": null,
-  "mfl_post_ts": null,
-  "mfl_post_error": null,
-  "reverted": 0,
-  "reverted_ts": null,
-  "reverted_event_id": null,
-  "mfl_revert_status": null,
-  "mfl_revert_ts": null,
-  "mfl_revert_error": null
- },
- {
-  "id": 87,
-  "nfl_season": "2026",
-  "franchise_id": "0012",
   "player_id": "15351",
   "preview_ts": "2026-01-01 00:00:00",
   "extension_term": "1YR",
@@ -2871,7 +2805,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 88,
+  "id": 86,
   "nfl_season": "2026",
   "franchise_id": "0012",
   "player_id": "15351",
@@ -2904,7 +2838,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 89,
+  "id": 87,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "13630",
@@ -2937,7 +2871,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 90,
+  "id": 88,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "13630",
@@ -2970,7 +2904,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 91,
+  "id": 89,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16582",
@@ -3003,7 +2937,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 92,
+  "id": 90,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16582",
@@ -3036,7 +2970,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 93,
+  "id": 91,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16181",
@@ -3069,7 +3003,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 94,
+  "id": 92,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16181",
@@ -3102,7 +3036,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 95,
+  "id": 93,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16414",
@@ -3135,7 +3069,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 96,
+  "id": 94,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16414",
@@ -3168,7 +3102,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 97,
+  "id": 95,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "15799",
@@ -3201,7 +3135,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 98,
+  "id": 96,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "15799",
@@ -3234,7 +3168,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 99,
+  "id": 97,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "13592",
@@ -3267,7 +3201,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 100,
+  "id": 98,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "13592",
@@ -3300,7 +3234,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 101,
+  "id": 99,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16809",
@@ -3333,7 +3267,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 102,
+  "id": 100,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16809",
@@ -3366,7 +3300,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 103,
+  "id": 101,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16169",
@@ -3399,7 +3333,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 104,
+  "id": 102,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16169",
@@ -3432,7 +3366,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 105,
+  "id": 103,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "15768",
@@ -3465,7 +3399,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 106,
+  "id": 104,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "15768",
@@ -3498,7 +3432,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 107,
+  "id": 105,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16164",
@@ -3531,7 +3465,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 108,
+  "id": 106,
   "nfl_season": "2026",
   "franchise_id": "0001",
   "player_id": "16164",
@@ -3564,7 +3498,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 109,
+  "id": 107,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "16580",
@@ -3597,7 +3531,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 110,
+  "id": 108,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "16580",
@@ -3630,7 +3564,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 111,
+  "id": 109,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "16598",
@@ -3663,7 +3597,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 112,
+  "id": 110,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "16598",
@@ -3696,73 +3630,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 113,
-  "nfl_season": "2026",
-  "franchise_id": "0004",
-  "player_id": "15754",
-  "preview_ts": "2026-01-01 00:00:00",
-  "extension_term": "1YR",
-  "loaded_indicator": "NONE",
-  "success": 1,
-  "error_message": null,
-  "new_contract_status": "Vet-Ext1",
-  "new_contract_length": 2,
-  "new_TCV": 52000,
-  "new_aav_current": 31000,
-  "new_aav_future": 41000,
-  "new_contract_guarantee": 39000,
-  "preview_contract_info_string": "CL 2|TCV 52K|AAV 31K, 41K|Y1-11K, Y2-41K|Ext: Blake|GTD: 39K",
-  "franchise_name": "Pure Greatness",
-  "player_name": "Olave, Chris",
-  "position": "WR",
-  "committed": 0,
-  "committed_ts": null,
-  "committed_event_id": null,
-  "mfl_post_status": null,
-  "mfl_post_ts": null,
-  "mfl_post_error": null,
-  "reverted": 0,
-  "reverted_ts": null,
-  "reverted_event_id": null,
-  "mfl_revert_status": null,
-  "mfl_revert_ts": null,
-  "mfl_revert_error": null
- },
- {
-  "id": 114,
-  "nfl_season": "2026",
-  "franchise_id": "0004",
-  "player_id": "15754",
-  "preview_ts": "2026-01-01 00:00:00",
-  "extension_term": "2YR",
-  "loaded_indicator": "NONE",
-  "success": 1,
-  "error_message": null,
-  "new_contract_status": "Vet-Ext2",
-  "new_contract_length": 3,
-  "new_TCV": 113000,
-  "new_aav_current": 31000,
-  "new_aav_future": 51000,
-  "new_contract_guarantee": 84750,
-  "preview_contract_info_string": "CL 3|TCV 113K|AAV 31K, 51K|Y1-11K, Y2-51K, Y3-51K|Ext: Blake|GTD: 84.8K",
-  "franchise_name": "Pure Greatness",
-  "player_name": "Olave, Chris",
-  "position": "WR",
-  "committed": 0,
-  "committed_ts": null,
-  "committed_event_id": null,
-  "mfl_post_status": null,
-  "mfl_post_ts": null,
-  "mfl_post_error": null,
-  "reverted": 0,
-  "reverted_ts": null,
-  "reverted_event_id": null,
-  "mfl_revert_status": null,
-  "mfl_revert_ts": null,
-  "mfl_revert_error": null
- },
- {
-  "id": 115,
+  "id": 111,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "14836",
@@ -3795,7 +3663,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 116,
+  "id": 112,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "14836",
@@ -3828,7 +3696,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 117,
+  "id": 113,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "14836",
@@ -3861,7 +3729,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 118,
+  "id": 114,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "13772",
@@ -3894,7 +3762,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 119,
+  "id": 115,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "13772",
@@ -3927,7 +3795,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 120,
+  "id": 116,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "14147",
@@ -3960,7 +3828,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 121,
+  "id": 117,
   "nfl_season": "2026",
   "franchise_id": "0004",
   "player_id": "14147",
@@ -3979,6 +3847,138 @@
   "franchise_name": "Pure Greatness",
   "player_name": "Bosa, Nick",
   "position": "DE",
+  "committed": 0,
+  "committed_ts": null,
+  "committed_event_id": null,
+  "mfl_post_status": null,
+  "mfl_post_ts": null,
+  "mfl_post_error": null,
+  "reverted": 0,
+  "reverted_ts": null,
+  "reverted_event_id": null,
+  "mfl_revert_status": null,
+  "mfl_revert_ts": null,
+  "mfl_revert_error": null
+ },
+ {
+  "id": 118,
+  "nfl_season": "2026",
+  "franchise_id": "0004",
+  "player_id": "13674",
+  "preview_ts": "2026-01-01 00:00:00",
+  "extension_term": "1YR",
+  "loaded_indicator": "NONE",
+  "success": 1,
+  "error_message": null,
+  "new_contract_status": "Vet-Ext1",
+  "new_contract_length": 2,
+  "new_TCV": 24000,
+  "new_aav_current": 7000,
+  "new_aav_future": 17000,
+  "new_contract_guarantee": 18000,
+  "preview_contract_info_string": "CL 2|TCV 24K|AAV 7K, 17K|Y1-7K, Y2-17K|Ext: PG|GTD: 18K",
+  "franchise_name": "Pure Greatness",
+  "player_name": "Goedert, Dallas",
+  "position": "TE",
+  "committed": 0,
+  "committed_ts": null,
+  "committed_event_id": null,
+  "mfl_post_status": null,
+  "mfl_post_ts": null,
+  "mfl_post_error": null,
+  "reverted": 0,
+  "reverted_ts": null,
+  "reverted_event_id": null,
+  "mfl_revert_status": null,
+  "mfl_revert_ts": null,
+  "mfl_revert_error": null
+ },
+ {
+  "id": 119,
+  "nfl_season": "2026",
+  "franchise_id": "0004",
+  "player_id": "13674",
+  "preview_ts": "2026-01-01 00:00:00",
+  "extension_term": "2YR",
+  "loaded_indicator": "NONE",
+  "success": 1,
+  "error_message": null,
+  "new_contract_status": "Vet-Ext2",
+  "new_contract_length": 3,
+  "new_TCV": 61000,
+  "new_aav_current": 7000,
+  "new_aav_future": 27000,
+  "new_contract_guarantee": 45750,
+  "preview_contract_info_string": "CL 3|TCV 61K|AAV 7K, 27K|Y1-7K, Y2-27K, Y3-27K|Ext: PG|GTD: 45.8K",
+  "franchise_name": "Pure Greatness",
+  "player_name": "Goedert, Dallas",
+  "position": "TE",
+  "committed": 0,
+  "committed_ts": null,
+  "committed_event_id": null,
+  "mfl_post_status": null,
+  "mfl_post_ts": null,
+  "mfl_post_error": null,
+  "reverted": 0,
+  "reverted_ts": null,
+  "reverted_event_id": null,
+  "mfl_revert_status": null,
+  "mfl_revert_ts": null,
+  "mfl_revert_error": null
+ },
+ {
+  "id": 120,
+  "nfl_season": "2026",
+  "franchise_id": "0004",
+  "player_id": "16222",
+  "preview_ts": "2026-01-01 00:00:00",
+  "extension_term": "1YR",
+  "loaded_indicator": "NONE",
+  "success": 1,
+  "error_message": null,
+  "new_contract_status": "Vet-Ext1",
+  "new_contract_length": 2,
+  "new_TCV": 34000,
+  "new_aav_current": 12000,
+  "new_aav_future": 22000,
+  "new_contract_guarantee": 25500,
+  "preview_contract_info_string": "CL 2|TCV 34K|AAV 12K, 22K|Y1-12K, Y2-22K|Ext: Cash|GTD: 25.5K",
+  "franchise_name": "Pure Greatness",
+  "player_name": "Kraft, Tucker",
+  "position": "TE",
+  "committed": 0,
+  "committed_ts": null,
+  "committed_event_id": null,
+  "mfl_post_status": null,
+  "mfl_post_ts": null,
+  "mfl_post_error": null,
+  "reverted": 0,
+  "reverted_ts": null,
+  "reverted_event_id": null,
+  "mfl_revert_status": null,
+  "mfl_revert_ts": null,
+  "mfl_revert_error": null
+ },
+ {
+  "id": 121,
+  "nfl_season": "2026",
+  "franchise_id": "0004",
+  "player_id": "16222",
+  "preview_ts": "2026-01-01 00:00:00",
+  "extension_term": "2YR",
+  "loaded_indicator": "NONE",
+  "success": 1,
+  "error_message": null,
+  "new_contract_status": "Vet-Ext2",
+  "new_contract_length": 3,
+  "new_TCV": 76000,
+  "new_aav_current": 12000,
+  "new_aav_future": 32000,
+  "new_contract_guarantee": 57000,
+  "preview_contract_info_string": "CL 3|TCV 76K|AAV 12K, 32K|Y1-12K, Y2-32K, Y3-32K|Ext: Cash|GTD: 57K",
+  "franchise_name": "Pure Greatness",
+  "player_name": "Kraft, Tucker",
+  "position": "TE",
   "committed": 0,
   "committed_ts": null,
   "committed_event_id": null,
@@ -4062,72 +4062,6 @@
   "id": 124,
   "nfl_season": "2026",
   "franchise_id": "0008",
-  "player_id": "13674",
-  "preview_ts": "2026-01-01 00:00:00",
-  "extension_term": "1YR",
-  "loaded_indicator": "NONE",
-  "success": 1,
-  "error_message": null,
-  "new_contract_status": "Vet-Ext1",
-  "new_contract_length": 2,
-  "new_TCV": 24000,
-  "new_aav_current": 7000,
-  "new_aav_future": 17000,
-  "new_contract_guarantee": 18000,
-  "preview_contract_info_string": "CL 2|TCV 24K|AAV 7K, 17K|Y1-7K, Y2-17K|Ext: RealDeal|GTD: 18K",
-  "franchise_name": "Real Deal Creel",
-  "player_name": "Goedert, Dallas",
-  "position": "TE",
-  "committed": 0,
-  "committed_ts": null,
-  "committed_event_id": null,
-  "mfl_post_status": null,
-  "mfl_post_ts": null,
-  "mfl_post_error": null,
-  "reverted": 0,
-  "reverted_ts": null,
-  "reverted_event_id": null,
-  "mfl_revert_status": null,
-  "mfl_revert_ts": null,
-  "mfl_revert_error": null
- },
- {
-  "id": 125,
-  "nfl_season": "2026",
-  "franchise_id": "0008",
-  "player_id": "13674",
-  "preview_ts": "2026-01-01 00:00:00",
-  "extension_term": "2YR",
-  "loaded_indicator": "NONE",
-  "success": 1,
-  "error_message": null,
-  "new_contract_status": "Vet-Ext2",
-  "new_contract_length": 3,
-  "new_TCV": 61000,
-  "new_aav_current": 7000,
-  "new_aav_future": 27000,
-  "new_contract_guarantee": 45750,
-  "preview_contract_info_string": "CL 3|TCV 61K|AAV 7K, 27K|Y1-7K, Y2-27K, Y3-27K|Ext: RealDeal|GTD: 45.8K",
-  "franchise_name": "Real Deal Creel",
-  "player_name": "Goedert, Dallas",
-  "position": "TE",
-  "committed": 0,
-  "committed_ts": null,
-  "committed_event_id": null,
-  "mfl_post_status": null,
-  "mfl_post_ts": null,
-  "mfl_post_error": null,
-  "reverted": 0,
-  "reverted_ts": null,
-  "reverted_event_id": null,
-  "mfl_revert_status": null,
-  "mfl_revert_ts": null,
-  "mfl_revert_error": null
- },
- {
-  "id": 126,
-  "nfl_season": "2026",
-  "franchise_id": "0008",
   "player_id": "16161",
   "preview_ts": "2026-01-01 00:00:00",
   "extension_term": "1YR",
@@ -4158,7 +4092,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 127,
+  "id": 125,
   "nfl_season": "2026",
   "franchise_id": "0008",
   "player_id": "16161",
@@ -4191,7 +4125,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 128,
+  "id": 126,
   "nfl_season": "2026",
   "franchise_id": "0008",
   "player_id": "14832",
@@ -4224,7 +4158,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 129,
+  "id": 127,
   "nfl_season": "2026",
   "franchise_id": "0008",
   "player_id": "14832",
@@ -4257,7 +4191,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 130,
+  "id": 128,
   "nfl_season": "2026",
   "franchise_id": "0008",
   "player_id": "16211",
@@ -4290,7 +4224,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 131,
+  "id": 129,
   "nfl_season": "2026",
   "franchise_id": "0008",
   "player_id": "16211",
@@ -4323,7 +4257,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 132,
+  "id": 130,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16579",
@@ -4356,7 +4290,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 133,
+  "id": 131,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16579",
@@ -4389,7 +4323,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 134,
+  "id": 132,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16616",
@@ -4422,7 +4356,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 135,
+  "id": 133,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16616",
@@ -4455,7 +4389,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 136,
+  "id": 134,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16266",
@@ -4488,7 +4422,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 137,
+  "id": 135,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16266",
@@ -4521,7 +4455,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 138,
+  "id": 136,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "13590",
@@ -4554,7 +4488,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 139,
+  "id": 137,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "13590",
@@ -4587,7 +4521,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 140,
+  "id": 138,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16618",
@@ -4620,7 +4554,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 141,
+  "id": 139,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16618",
@@ -4653,7 +4587,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 142,
+  "id": 140,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16597",
@@ -4686,7 +4620,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 143,
+  "id": 141,
   "nfl_season": "2026",
   "franchise_id": "0007",
   "player_id": "16597",
@@ -4719,7 +4653,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 144,
+  "id": 142,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16241",
@@ -4752,7 +4686,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 145,
+  "id": 143,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16241",
@@ -4785,7 +4719,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 146,
+  "id": 144,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16187",
@@ -4818,7 +4752,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 147,
+  "id": 145,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16187",
@@ -4851,7 +4785,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 148,
+  "id": 146,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16188",
@@ -4884,7 +4818,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 149,
+  "id": 147,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16188",
@@ -4917,7 +4851,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 150,
+  "id": 148,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16245",
@@ -4950,7 +4884,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 151,
+  "id": 149,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16245",
@@ -4983,7 +4917,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 152,
+  "id": 150,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "13163",
@@ -5016,7 +4950,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 153,
+  "id": 151,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "13163",
@@ -5049,7 +4983,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 154,
+  "id": 152,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16186",
@@ -5082,7 +5016,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 155,
+  "id": 153,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16186",
@@ -5115,7 +5049,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 156,
+  "id": 154,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "14783",
@@ -5148,7 +5082,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 157,
+  "id": 155,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "14783",
@@ -5181,7 +5115,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 158,
+  "id": 156,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16184",
@@ -5214,7 +5148,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 159,
+  "id": 157,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16184",
@@ -5247,7 +5181,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 160,
+  "id": 158,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16165",
@@ -5280,7 +5214,7 @@
   "mfl_revert_error": null
  },
  {
-  "id": 161,
+  "id": 159,
   "nfl_season": "2026",
   "franchise_id": "0006",
   "player_id": "16165",

@@ -10,11 +10,13 @@
     req ? require("./photo.js") : root.UPS2027.photo,
     req ? require("./sample.js") : root.UPS2027.sample,
     req ? require("./roster.js") : root.UPS2027.roster,
-    req ? require("./tabviews.js") : root.UPS2027.tabviews
+    req ? require("./tabviews.js") : root.UPS2027.tabviews,
+    req ? require("./coverage.js") : root.UPS2027.coverage,
+    req ? require("./standview.js") : root.UPS2027.standview
   );
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.views = api; }
-})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R, TV) {
+})(typeof self !== "undefined" ? self : this, function (F, C, M, P, SM, R, TV, COV, SV) {
   "use strict";
 
   var esc = F.esc, money = F.money, commonCode = F.commonCode;
@@ -30,7 +32,9 @@
     league: "Standings, scores and schedule. Not in Preview 0."
   };
 
-  function pcx(pos) { return '<span class="pc ' + esc(pos) + '">' + esc(pos) + "</span>"; }
+  // R9: K and P on every badge, heading and label (MFL's PK and PN remain the color class only)
+  function posText(pos) { return pos === "PK" ? "K" : pos === "PN" ? "P" : pos; }
+  function pcx(pos) { return '<span class="pc ' + esc(pos) + '">' + esc(posText(pos)) + "</span>"; }
   function chip(cls, text) { return '<span class="chip ' + cls + '">' + text + "</span>"; }
   function team(S) { return S.model && S.model.teams.filter(function (t) { return t.id === S.teamId; })[0] || (S.model && S.model.teams[0]) || null; }
 
@@ -40,8 +44,11 @@
     return s;
   }
 
-  function header(title, asof) {
-    return '<div class="hd"><h1>' + esc(title) + '</h1><button class="ib" data-act="about" aria-label="About this preview and display settings">ⓘ</button></div><div class="asof">' + asof + "</div>";
+  // R8: the heading and the freshness line are the first thing INSIDE the scrolling area (#scroll), so they scroll away; the Team tabs that follow
+  // them stick to its top (.tabs.stk), and the marker above it stays one line.
+  // `help` (Standings): the heading's ⓘ opens that screen's Help, which links on to About
+  function header(title, asof, help) {
+    return '<div class="hdw"><div class="hd"><h1>' + esc(title) + "</h1>" + (help ? '<button class="ib" data-act="help" aria-label="Help: what these mean, and About this preview">ⓘ</button>' : '<button class="ib" data-act="about" aria-label="About this preview and display settings">ⓘ</button>') + "</div>" + (asof ? '<div class="asof">' + asof + "</div>" : "") + "</div>";
   }
 
   function asOfLine(S) {
@@ -79,8 +86,9 @@
     if (!wi.cur) return "";
     var past = wi.past;
     return '<button class="wsel' + (past ? " past" : "") + '" data-act="weeks" aria-label="Week ' + wi.sel + (past ? ", past" : ", current") + '. Change week"><span class="r1"><span class="w1">Week ' + wi.sel +
-      '</span><span class="w2">' + (past ? "past" : "current") + '</span><span class="go" aria-hidden="true">▾</span></span><span class="r2">' +
-      (past ? chip("", "Played · as MFL recorded it") : chip("ok", "✓ As MFL has it")) + "</span></button>";
+      '</span><span class="w2">' + (past ? "past" : "current") + '</span><span class="go" aria-hidden="true">▾</span></span>' +
+      // R6: the current week carries no "As MFL has it" provenance chip; a past week keeps its "Played" label (it changes what is drawn)
+      (past ? '<span class="r2">' + chip("", "Played · as MFL recorded it") + "</span>" : "") + "</button>";
   }
   function weekSheet(S) {
     var wi = R.weekInfo(S);
@@ -106,13 +114,17 @@
     var small = "", right = "", chips = [];
     var view = past ? "past" : S.view;
     if (view === "byes") {
-      // a row inside a bye group: the group already says which week, so the row says who he is to today's lineup
-      small = nw(team) + " · " + (o.tag ? "current starter" : statusWord(p)) + (p.bye && wi.cur && p.bye < wi.cur ? " · bye was Week " + p.bye : "");
+      // a row inside a bye group: the group already says which week, so the row says who he is to today's lineup. R9: the row carries his
+      // position badge (the group is by position), never a lineup slot
+      small = nw(team) + " · " + (o.starter ? (wi.cur ? "Week " + wi.cur + " starter" : "current starter") : statusWord(p)) + (p.bye && wi.cur && p.bye < wi.cur ? " · bye was Week " + p.bye : "");
+      if (p.status === "ir") chips.push(R.irBadge());
     } else {
       var parts = [esc(team)];
       var inPlay = past || p.status === "active";
       if (p.status === "gone") { inPlay = false; parts = []; }
-      if (!past && p.status === "ir") parts.push("Return: Unavailable"); // MFL's expected-return text is not shown (ruling 2026-11-20)
+      // An IR row carries no return line: MFL's expected-return text is not shown (ruling 2026-11-20), and R6 drops the repeated
+      // "Return: Unavailable" (return information is drawn only when a supported read gives it; none does yet).
+      if (!past && p.status === "ir") { /* the section heading already says injured reserve */ }
       else if (!past && p.status === "taxi") parts.push(p.taxi.used == null ? "Call-ups unavailable" : p.taxi.used + "/" + (p.taxi.max || 3) + " call-ups");
       else if (past) {
         // MAT-1 (Codex, review of dc5b35d7): none of the reads says which NFL club a player was with in a past week, and his club today
@@ -122,10 +134,10 @@
       } else if (inPlay) {
         var opp = R.oppText(S, p, wk);
         if (opp) parts.push(nw(opp));
-        if (S.view === "lineup" && o.tag) {
-          // R2b, P3: a kickoff is shown on a row only when it is NOT the ordinary Sunday 1:00 PM slate; an unknown time says so
+        if (S.view === "lineup") {
+          // R6: every matchup on the Lineup view shows its kickoff in Eastern Time, Sunday 1:00 PM included; an unknown time says so
           var ko = R.onBye(p, wk) ? { state: "none" } : R.kickoffInfo(S, p, wk); // a bye has no kickoff
-          if (ko.state === "known" && !ko.ordinary) parts.push(nw(ko.text)); else if (ko.state === "unknown") parts.push("Kickoff unavailable");
+          if (ko.state === "known") parts.push(nw(ko.text)); else if (ko.state === "unknown") parts.push("Kickoff unavailable");
         }
       }
       if (p.status === "gone") parts.push("No longer on a UPS roster");
@@ -137,20 +149,36 @@
         right = '<div class="rt"><b>' + (rd === "loading" ? "…" : R.pts(sc)) + '</b><span class="mu sm">' + esc(rd === "error" ? "Unavailable" : "Wk " + wk) + "</span></div>";
       }
       small = parts.join(" · ");
+      // R11: the lineup week's projection on each lineup row (existing source and pregame rule; "Proj. —" when there is none, never a guess)
+      if (!past && S.view === "lineup" && p.status === "active" && TV.projectionSlot) {
+        var pj = TV.projectionSlot(S, p);
+        right = '<div class="rt pjr"><span class="mu sm">Proj. ' + (pj.value == null ? '<b class="na" aria-label="Projection not available">—</b>' : "<b>" + esc(pj.text) + "</b>") + "</span></div>";
+      }
     }
     if (!past) {
       // the same chips on both views (current information); a bye chip only for a starter on the Lineup view
       if (R.onBye(p, wk) && o.tag && S.view === "lineup") chips.push(chip("wn", "▲ Bye week"));
       var ic = R.injuryChip(S, p);
-      if (ic) chips.push(chip(ic.cls, esc(ic.text)));
+      if (ic) chips.push(ic.code === "IR" ? R.irBadge() : chip(ic.cls, esc(ic.text)));
     }
     // a past week's rows carry the recorded order (1, 2, 3 ...), never a slot or a position: neither is recorded for that week
-    var tag = o.tag ? '<span class="tag sl">' + esc(o.tag) + "</span>" : o.ord ? '<span class="tag sl" role="img" aria-label="Recorded starter number ' + o.ord + '">' + esc(o.ord) + "</span>" : '<span class="tag pp">' + pcx(p.pos) + "</span>";
+    var sl = o.tag ? R.slotByTag(o.tag) : null;
+    var tag = o.tag ? slotTag(sl || { tag: o.tag }, p) : o.ord ? '<span class="tag sl" role="img" aria-label="Recorded starter number ' + o.ord + '">' + esc(o.ord) + "</span>" : '<span class="tag pp">' + pcx(p.pos) + "</span>";
     return '<div class="rx' + (o.problem ? " prob" : "") + '">' + tag + '<div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + small + "</small></button>" +
       (chips.length ? '<div class="fl">' + chips.join("") + "</div>" : "") + "</div>" + right + '<span class="go" aria-hidden="true">›</span></div>';
   }
+  // R6: a starting slot's badge. A filled badge takes the position color of the player in it (a QB in SFX is QB-colored; the colors are the
+  // existing ones, so K and P stay neutral); an empty one is neutral. The text label always stays, so color is never the only identifier, and
+  // a flex badge also prints the occupying player's position under its label.
+  var POS_CLS = /^(QB|RB|WR|TE|PK|PN|DL|LB|DB)$/;
+  function slotTag(slot, p) {
+    var pos = p && POS_CLS.test(p.pos) ? p.pos : "";
+    var cls = "tag sl" + (pos ? " ps " + pos : "") + (slot.flex ? " fx" : "");
+    if (!slot.flex) return '<span class="' + cls + '">' + esc(slot.tag) + "</span>";
+    return '<span class="' + cls + '" role="img" aria-label="' + esc(slot.tag + ", " + slot.label + (p ? ", " + (posText(pos) || "position unknown") : ", empty")) + '"><b>' + esc(slot.tag) + "</b>" + (pos ? "<i>" + esc(posText(pos)) + "</i>" : "") + "</span>";
+  }
   function emptyRow(slot, current) {
-    return '<div class="rx empty' + (current ? " prob" : "") + '"><span class="tag sl">' + esc(slot.tag) + '</span><div class="in"><b>Empty</b></div></div>';
+    return '<div class="rx empty' + (current ? " prob" : "") + '">' + slotTag(slot, null) + '<div class="in"><b>Empty</b></div></div>';
   }
   // A starter MFL names who is not in this roster read: no name, position, slot, bye or injury is claimed for him, and no lineup warning is drawn.
   function unresolvedRow(id) {
@@ -160,55 +188,68 @@
     return n ? '<div class="ex wn mt4">' + n + (n === 1 ? " starter couldn’t be matched" : " starters couldn’t be matched") + " to this roster read, so checks that need " + (n === 1 ? "him" : "them") + " are skipped. Everyone else is still checked.</div>" : "";
   }
 
+  // R6: Bench, Injured reserve and Taxi squad are one card each ("bench", "ir", "taxi"), open by default so the full list shows; the heading
+  // collapses or expands it. R8: every bye group of the Byes view (bw<week>, bwpast, bwnone) starts collapsed; its heading already says the week and
+  // which starters it leaves out.
   function groupDefault(S, key) {
-    if (key === "ir" || key === "taxi" || key === "bwpast") return false;
-    if (key.indexOf("bw") === 0) return true; // bye groups from this week on are open; only the already-played one starts closed
-    if (S.gdef === "all") return true;
-    var t = team(S), g = t ? M.benchGroups(t).filter(function (x) { return "b" + x.pos === key; })[0] : null;
-    return !!(g && R.groupReasons(S, g.players).length);
+    return !/^bw/.test(key);
   }
   function isOpen(S, key) { return S.open && S.open[key] !== undefined ? !!S.open[key] : groupDefault(S, key); }
 
-  function group(key, label, players, S, badge, extra) {
-    var open = isOpen(S, key), reasons = extra && extra.reasons || [];
-    return '<button class="gh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + "</span>" + badge + '<span class="t"><b>' + players.length + " " + esc(label) + "</b>" + (reasons.length ? " " + chip("wn", "Needs you") : "") + "</span></button>" +
-      (open ? '<div class="card rows">' + players.map(function (p) { return row(p, S, {}); }).join("") + "</div>" + reasons.map(function (r) { return '<div class="ex pad">' + esc(r) + ".</div>"; }).join("") : "");
+  // One section card. `groups` is [{ pos, players }] for the bench (grouped by position, each under a small position label) or one
+  // unlabeled group for injured reserve and taxi. An empty section is a heading only, with nothing to open.
+  function section(S, key, title, count, groups, reasons) {
+    reasons = reasons || [];
+    var label = "<b>" + esc(title) + " · " + count + "</b>" + (reasons.length ? " " + chip("wn", "Needs you") : "");
+    var n = groups.reduce(function (k, g) { return k + g.players.length; }, 0);
+    if (!n) return '<div class="card rows lsec"><div class="lsh"><span class="t">' + label + "</span></div></div>";
+    var open = isOpen(S, key);
+    var head = '<button class="lsh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="t">' + label + '</span><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + "</span></button>";
+    if (!open) return '<div class="card rows lsec">' + head + "</div>";
+    var body = groups.map(function (g) {
+      return (g.pos ? '<div class="lps">' + esc(posText(g.pos)) + " · " + g.players.length + "</div>" : "") + g.players.map(function (p) { return row(p, S, {}); }).join("");
+    }).join("");
+    return '<div class="card rows lsec">' + head + body + reasons.map(function (r) { return '<div class="ex lsr">' + esc(r) + ".</div>"; }).join("") + "</div>";
   }
 
   // ---------- summary lines ----------
   function sumCard(html) { return '<div class="card sumc">' + html + "</div>"; }
-  // the same wording everywhere: "n need attention", counted per starting slot (R.attention)
+  // "n need attention", counted per starting slot (R.attention). R6: no "nothing needs attention" success wording; an injury read that is
+  // not usable still says so, so a quiet line never claims injuries were checked.
   function attentionText(a) {
-    var base = a.n ? a.n + (a.n === 1 ? " needs" : " need") + " attention" : a.injuriesChecked ? "nothing needs attention" : "injuries not checked";
-    return a.unresolved && a.unresolved.length ? base + " · " + a.unresolved.length + " can’t be checked" : base;
+    var base = a.n ? a.n + (a.n === 1 ? " needs" : " need") + " attention" : a.injuriesChecked ? "" : "injuries not checked";
+    var un = a.unresolved && a.unresolved.length ? a.unresolved.length + " can’t be checked" : "";
+    return [base, un].filter(Boolean).join(" · ");
   }
+  // R6: the one starter count, "Starting lineup · 18/18": the starters MFL lists over the slots of the lineup model (R.SLOTS, canon §B4).
+  function slotCount() { return R.SLOTS.length; }
+  function lineupCount(lineup) { return "Starting lineup · " + lineup.count + "/" + slotCount(); }
   function statusLine(S, lineup, wi, view) {
-    var lim = S.model.limits.starters || 18, a = R.attention(S, lineup, wi.cur);
-    return sumCard("<b>" + lineup.count + " of " + lim + " starters</b> · " + attentionText(a) +
+    var a = R.attention(S, lineup, wi.cur), at = attentionText(a);
+    return sumCard("<b>" + lineupCount(lineup) + "</b>" + (at ? " · " + esc(at) : "") +
       (view !== "lineup" ? ' <button class="link" data-act="view" data-v="lineup">Open Lineup</button>' : ""));
   }
-  // R2b, P3: the read-only starting-decisions card (the demo's, without Replace or Swap). One entry per starting slot, with the player, his
-  // position, what the issue is, the opponent and the kickoff; Unavailable where a time or an opponent is not established.
-  function startingCard(S, wi, lineup) {
-    var cur = wi.cur, lim = S.model.limits.starters || 18, a = R.attention(S, lineup, cur), doubtful = false;
-    var head = '<div class="big2"><b>' + lineup.count + " of " + lim + " starters</b> · " + (a.n ? '<span class="wn">' + esc(attentionText(a)) + "</span>" : esc(attentionText(a))) + "</div>";
-    var body = a.items.map(function (it) {
+  // R6: the lineup warning, drawn ONLY when there is an actual lineup issue (an Out, designated, Doubtful or bye starter, an empty slot, a
+  // starter no slot takes, a starter not in the roster read, or MFL listing a different number of starting spots than the slot model). One
+  // short line per issue; the name opens the profile. No success box and no read-only explanation (R2b's card is withdrawn).
+  function lineupWarn(S, wi, lineup) {
+    var cur = wi.cur, a = R.attention(S, lineup, cur), lim = S.model.limits.starters;
+    var spots = lim != null && lim !== slotCount();
+    if (!a.n && !a.unresolved.length && !spots) return "";
+    var items = a.items.map(function (it) {
       var p = it.player, k = R.kickoffInfo(S, p, cur), isBye = it.issues.some(function (x) { return x.kind === "bye"; });
-      if (it.issues.some(function (x) { return x.kind === "doubtful"; })) doubtful = true;
       // a player on a bye has no opponent or kickoff to show: the issue already says "Bye week"
-      var rest = [esc(p.pos)];
-      if (!isBye) rest.push(nw(R.oppText(S, p, cur) || "Opponent unavailable"), k.state === "known" ? "Kickoff " + nw(k.text) : "Kickoff unavailable");
-      return '<div class="rx"><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(it.slot.tag) + " · " + esc(p.name) + "</span><small><b class=\"wn\">" +
-        esc(it.issues.map(function (x) { return x.text; }).join(" · ")) + "</b> · " + rest.join(" · ") + "</small></button></div></div>";
+      var rest = isBye ? [] : [nw(R.oppText(S, p, cur) || "Opponent unavailable"), k.state === "known" ? nw(k.text) : "Kickoff unavailable"];
+      return '<div class="rx lw"><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(it.slot.tag) + " · " + esc(p.name) + "</span><small><b class=\"wn\">" +
+        esc(it.issues.map(function (x) { return x.text; }).join(" · ")) + "</b>" + (rest.length ? " · " + rest.join(" · ") : "") + "</small></button></div></div>";
     }).join("") + a.empties.map(function (sl) {
-      return '<div class="rx"><div class="in"><b>' + esc(sl.tag) + ' · Empty</b><small>No starter is set for this slot</small></div></div>';
-    }).join("") + (a.emptyCount ? '<div class="rx"><div class="in"><b>' + a.emptyCount + (a.emptyCount === 1 ? " slot has" : " slots have") + ' no starter</b><small>Counted even if every unmatched starter fills a slot</small></div></div>' : "") + a.extras.map(function (p) {
-      return '<div class="rx"><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small><b class=\"wn\">Starter fits no lineup slot</b> · " + esc(p.pos) + "</small></button></div></div>";
+      return '<div class="rx lw"><div class="in"><b>' + esc(sl.tag) + ' · Empty</b><small>No starter is set for this slot</small></div></div>';
+    }).join("") + (a.emptyCount ? '<div class="rx lw"><div class="in"><b>' + a.emptyCount + (a.emptyCount === 1 ? " slot has" : " slots have") + ' no starter</b><small>Counted even if every unmatched starter fills a slot</small></div></div>' : "") + a.extras.map(function (p) {
+      return '<div class="rx lw"><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small><b class=\"wn\">Starter fits no lineup slot</b> · " + esc(p.pos) + "</small></button></div></div>";
     }).join("");
-    // the green "all clear" border only when injuries were actually checked (fresh read); an unchecked card is neutral
-    return '<div class="card' + (a.n ? " warnc" : a.injuriesChecked && !a.unresolved.length ? " okc" : "") + '">' + head + body + unresolvedNote(a.unresolved.length) +
-      (a.injuriesChecked ? "" : '<div class="ex wn mt4">Injury status is not available yet, so injuries are not counted here.</div>') +
-      '<div class="ex mt4">Read only: nothing here can change the lineup.' + (doubtful ? " “Doubtful” means a decision may be needed, not that a player is out." : "") + "</div></div>";
+    var at = attentionText(a);
+    return '<div class="card warnc lwarn" role="status"><div class="lwh"><b class="wn">▲ ' + esc(at || "Check the lineup") + "</b></div>" + items + unresolvedNote(a.unresolved.length) +
+      (spots ? '<div class="ex wn mt4">MFL lists ' + esc(lim) + " starting spots; this lineup has " + slotCount() + " slots.</div>" : "") + "</div>";
   }
 
   function lineupBlock(S, t, wi, lineup, past) {
@@ -224,36 +265,128 @@
       if (!x.player && held) return "";
       return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past);
     }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); }), (lineup.unresolved || []).map(unresolvedRow)).join("");
-    return '<div class="grp"><span>Week ' + wk + " starters · " + lineup.count + " of " + lim + '</span></div><div class="card rows">' + rows + "</div>";
+    return '<div class="card rows lsec"><div class="lsh"><span class="t"><b>' + esc(lineupCount(lineup)) + "</b></span></div>" + rows + "</div>";
   }
 
-  // R2b, P6: the Byes view. Players grouped by bye week in week order from this week on; each group says how many of TODAY's starters it leaves
-  // out and which slots, without claiming those players will fill those slots in that week; already-played byes are collapsed.
-  function byeGroupHead(S, key, label, count, open, sub) {
-    return '<button class="gh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + '</span><span class="t"><b>' + esc(label) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + "</span></button>";
+  // R2b, P6: the Byes view. Players grouped by bye week in week order from this week on; already-played byes are collapsed.
+  // `subHtml` is HTML the caller has already escaped.
+  function byeGroupHead(S, key, label, count, open, sub, subHtml) {
+    return '<button class="gh" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + '</span><span class="t"><b>' + esc(label) + "</b>" + (sub ? "<small>" + esc(sub) + "</small>" : "") + (subHtml ? "<small>" + subHtml + "</small>" : "") + "</span></button>";
+  }
+  function plural(n, one, many) { return n + " " + (n === 1 ? one : many); }
+  // R9 (Keith, 2026-11-23): lineup coverage. Each week says whether the WHOLE legal lineup can still be filled from the active roster
+  // (lib/coverage.js: an exact assignment, required slots first, then OFX/SFX/DFX by eligibility, never one player in two slots). Only a bye, an MFL
+  // designation (every week, R10) or an Out (current week only) removes a player; Questionable and Doubtful never do. Taxi and IR players are options,
+  // kept apart; a short week only an uncertain return would complete carries a dependency note (R10).
+  // R9 (K and P everywhere): MFL's PK / PN read as K / P in every Byes heading and coverage line
+  function posLbl(k) { return k === "PK" ? "K" : k === "PN" ? "P" : k; }
+  function shortLine(s) { return posLbl(s.key) + (s.flex ? " (" + s.acc.map(posLbl).join("/") + ")" : "") + " · " + s.available + " available / " + s.required + " required"; }
+  function coverageSub(cv) {
+    var bits = [];
+    if (cv.short.length) bits.push('<b class="wn">▲ Short ' + (cv.total - cv.filled) + ": " + esc(cv.short.map(function (s) { return posLbl(s.key) + " " + s.available + "/" + s.required; }).join(", ")) + "</b>");
+    else bits.push("Full lineup " + cv.filled + "/" + cv.total);
+    if (cv.dependencyText) bits.push(esc(cv.dependencyText));
+    if (cv.absent.length) bits.push(esc(cv.absent.length + " out or designated"));
+    if (cv.uncertain && cv.uncertain.length) bits.push(esc(cv.uncertain.length + " not confirmed"));
+    if (!cv.injuriesChecked) bits.push("injuries not checked");
+    return bits.join(" · ");
+  }
+  // R10 (decision 7): each recent week labeled, "W8 3.0 · W9 — · W10 −1.5": zero and negative scores as numbers, "—" only for no score entry.
+  function pointsText(o, cut) {
+    if (o.points.length) return "Recent: " + o.points.map(function (x) { return "W" + x.week + " " + x.text; }).join(" · ");
+    return cut && cut.state === "loading" ? "Recent points: checking which weeks are settled…" : "Recent points not available";
+  }
+  // One line above the taxi list: taxi players are never counted in coverage, and what the recent weeks are.
+  function pointsKey(tx) {
+    var w = tx.weeks || [];
+    return '<div class="ex cvo">Not counted in coverage.' + (w.length ? " Recent: the last three settled weeks, as on Performance (through W" + w[w.length - 1] + "). — = no MFL score entry." : "") + "</div>";
+  }
+  // A taxi or IR option: who he is, the verified facts, and the obstacles that are his alone (chips beside him). No control changes anything.
+  function optionRow(p, facts, obstacles, pointsLine) {
+    var chips = obstacles.map(function (x) { return chip("wn", "▲ " + esc(x.text)); });
+    return '<div class="rx"><span class="tag pp">' + pcx(p.pos) + '</span><div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + facts + "</small><small>" + esc(pointsLine) + "</small></button>" +
+      (chips.length ? '<div class="fl">' + chips.join("") + "</div>" : "") + '</div><span class="go" aria-hidden="true">›</span></div>';
+  }
+  function teamObstacleLines(list) { return list.map(function (x) { return '<div class="ex wn cvo">▲ ' + esc(x.text) + "</div>"; }).join(""); }
+  function optionToggle(S, key, label) {
+    var open = isOpen(S, key);
+    return { open: open, html: '<button class="lsh cvt" data-act="grp" data-g="' + esc(key) + '" aria-expanded="' + open + '"><span class="t"><b>' + esc(label) + '</b></span><span class="chev" aria-hidden="true">' + (open ? "▾" : "▸") + "</span></button>" };
+  }
+  function taxiBlock(S, cv) {
+    var tx = cv.taxi, tg = optionToggle(S, "bwtx" + cv.week, "Taxi options · " + plural(tx.eligible, "eligible", "eligible") + (tx.options.length > tx.eligible ? " of " + tx.options.length : ""));
+    if (!tx.options.length) return '<div class="lsh cvt"><span class="t"><b>Taxi options · none</b><small>No taxi player fits the open slots.</small></span></div>';
+    if (!tg.open) return tg.html;
+    var head = tx.team.length ? teamObstacleLines(tx.team) : '<div class="ex cvo">An active roster spot is open. Cap room is not checked here.</div>';
+    return tg.html + head + pointsKey(tx) + tx.options.map(function (o) {
+      var facts = esc(F.commonCode(o.player.nflTeam) || "No NFL team") + " · " + esc(o.eligibility) + (o.eligible ? " · " + esc(o.leftText) : "");
+      return optionRow(o.player, facts, o.obstacles, pointsText(o, tx.cut));
+    }).join("");
+  }
+  function irBlock(S, cv, cur) {
+    var ir = cv.ir;
+    if (!ir.options.length) {
+      var why = cv.week !== cur ? "The NFL injury report covers Week " + cur + " only." : !ir.checked ? "Injury status isn’t available right now." : "No IR player who fits has return evidence this week.";
+      return '<div class="lsh cvt"><span class="t"><b>Possible IR returns · none</b><small>' + esc(why) + "</small></span></div>";
+    }
+    var tg = optionToggle(S, "bwir" + cv.week, "Possible IR returns · " + ir.options.length);
+    if (!tg.open) return tg.html;
+    return tg.html + teamObstacleLines(ir.team) + '<div class="ex cvo">Possible, not confirmed: the evidence is this week’s NFL report.</div>' + ir.options.map(function (o) {
+      return optionRow(o.player, R.irBadge() + " " + esc(o.evidence), o.obstacles, pointsText(o, cv.taxi && cv.taxi.cut));
+    }).join("");
+  }
+  // The bye players of one week, grouped by their own position (never by a lineup or flex slot).
+  function byPositionRows(S, players, cur, slotOf) {
+    var groups = {};
+    players.forEach(function (p) { (groups[p.pos] = groups[p.pos] || []).push(p); });
+    var order = F.POS_ORDER.concat(Object.keys(groups).filter(function (k) { return F.POS_ORDER.indexOf(k) < 0; }));
+    return order.filter(function (k) { return groups[k]; }).map(function (k) {
+      return '<div class="lps">' + esc(posLbl(k)) + " · " + groups[k].length + "</div>" + groups[k].map(function (p) { return row(p, S, { starter: slotOf[p.id] !== undefined, wk: cur }); }).join("");
+    }).join("");
+  }
+  function weekCard(S, cv, x, cur, slotOf) {
+    var body = "";
+    if (cv.short.length) {
+      body += '<div class="cvs">' + cv.short.map(function (s) { return '<div class="cvl"><b class="wn">' + esc(shortLine(s)) + "</b></div>"; }).join("") +
+        // R10: a lineup only an uncertain return would complete: said once, and the week stays short
+        (cv.dependencyText ? '<div class="cvl cvd">' + esc(cv.dependencyText) + ". Not counted as available.</div>" : "") + "</div>";
+      body += taxiBlock(S, cv) + irBlock(S, cv, cur);
+    }
+    if (cv.absent.length) {
+      body += '<div class="lps">Not counted · out or designated · ' + cv.absent.length + "</div>" + cv.absent.map(function (a) { return row(a.player, S, { starter: slotOf[a.player.id] !== undefined, wk: cur }); }).join("");
+    }
+    var unc = cv.uncertain || [];
+    if (unc.length) {
+      // a later week: an MFL designation with no verified duration. Not counted as available, not a confirmed absence.
+      body += '<div class="lps">Not counted · availability not confirmed · ' + unc.length + "</div>" + unc.map(function (a) { return row(a.player, S, { starter: slotOf[a.player.id] !== undefined, wk: cur }); }).join("");
+    }
+    if (x && x.players.length) body += (cv.short.length || cv.absent.length || unc.length ? '<div class="lps">On bye · ' + x.players.length + "</div>" : "") + byPositionRows(S, x.players, cur, slotOf);
+    else if (!cv.absent.length && !unc.length && !cv.short.length) body += '<div class="rx"><div class="in"><small>No one is on bye this week.</small></div></div>';
+    return '<div class="card rows lsec cvc">' + body + "</div>";
   }
   function byesBody(S, t, wi, lineup) {
     var cur = wi.cur, g = R.byeGroups(S, t, cur, lineup), out = "";
-    var next = g.groups.slice(0, 4).map(function (x) { return "Week " + x.week + " · " + (g.haveLineup ? x.starters.length + " current starter" + (x.starters.length === 1 ? "" : "s") : x.players.length + " players"); });
-    out += sumCard("<b>Next byes:</b> " + (next.length ? esc(next.join("  ·  ")) : "none recorded"));
-    out += '<div class="ex pad">' + (g.haveLineup ? "Slots are today’s lineup (Week " + cur + "). The lineup for a later week is not set, so these players may not fill the same slots then." : "Today’s lineup could not be read, so starters are not marked.") + "</div>";
-    g.groups.forEach(function (x) {
-      var key = "bw" + x.week, open = isOpen(S, key), who;
-      if (!g.haveLineup) who = x.players.length + " player" + (x.players.length === 1 ? "" : "s") + " on bye";
-      else if (!x.starters.length) who = "no current starters on bye";
-      else who = x.starters.length + " current starter" + (x.starters.length === 1 ? "" : "s") + " on bye: " + x.starters.map(function (s) { return s.tag; }).join(", ");
-      out += byeGroupHead(S, key, (x.week === cur ? "This week · Week " : "Week ") + x.week + " · " + who, x.players.length, open, x.players.length + " player" + (x.players.length === 1 ? "" : "s"));
-      if (open) out += '<div class="card rows">' + x.players.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
+    var byWeek = {}; g.groups.forEach(function (x) { byWeek[x.week] = x; });
+    var wks = Object.keys(byWeek).map(Number); if (cur && !byWeek[cur]) wks.push(cur);
+    wks.sort(function (a, b) { return a - b; });
+    var cut = TV.seasonCutoff(S);   // R10: the shared settled-week cutoff W*, for the options' recent points
+    var covs = wks.map(function (w) { return COV.week(S, t, w, cut); });
+    var shortWks = covs.filter(function (c) { return c.short.length; });
+    out += sumCard("<b>Lineup coverage</b> · " + (shortWks.length ? '<span class="wn">▲ Short in ' + esc(shortWks.map(function (c) { return "Week " + c.week + " (" + c.short.map(function (s) { return posLbl(s.key); }).join(", ") + (c.dependency ? ", depends on a return" : "") + ")"; }).join(" · ")) + "</span>" : "A full lineup can be set in every week below") +
+      (covs.some(function (c) { return !c.injuriesChecked; }) ? " · injuries not checked" : ""));
+    covs.forEach(function (cv) {
+      var x = byWeek[cv.week], n = x ? x.players.length : 0, key = "bw" + cv.week, open = isOpen(S, key);
+      out += byeGroupHead(S, key, (cv.week === cur ? "This week · Week " : "Week ") + cv.week + " · " + (n ? n + " on bye" : "no byes"), n, open, "", coverageSub(cv));
+      if (open) out += weekCard(S, cv, x, cur, g.slotOf);
     });
     if (g.past.length) {
       var open2 = isOpen(S, "bwpast");
       out += byeGroupHead(S, "bwpast", "Already played · " + g.past.length + " player" + (g.past.length === 1 ? "" : "s"), g.past.length, open2, "their bye week has passed");
-      if (open2) out += '<div class="card rows">' + g.past.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
+      if (open2) out += '<div class="card rows">' + g.past.map(function (p) { return row(p, S, { starter: g.slotOf[p.id] !== undefined, wk: cur }); }).join("") + "</div>";
     }
     if (g.none.length) {
       var open3 = isOpen(S, "bwnone");
       out += byeGroupHead(S, "bwnone", "Bye week unavailable · " + g.none.length + " player" + (g.none.length === 1 ? "" : "s"), g.none.length, open3, "no bye week on file");
-      if (open3) out += '<div class="card rows">' + g.none.map(function (p) { return row(p, S, { tag: g.slotOf[p.id], wk: cur }); }).join("") + "</div>";
+      if (open3) out += '<div class="card rows">' + g.none.map(function (p) { return row(p, S, { starter: g.slotOf[p.id] !== undefined, wk: cur }); }).join("") + "</div>";
     }
     return out;
   }
@@ -293,28 +426,23 @@
     var cur = wi.cur, lineup = t.lineup.state === "ok" ? R.lineupFor(S, t, cur) : null;
     var inj = R.injuryNote(S);
     if (lineup && lineup.state === "ok") {
-      if (S.view === "lineup") out += startingCard(S, wi, lineup);
+      if (S.view === "lineup") out += lineupWarn(S, wi, lineup);
       else out += statusLine(S, lineup, wi, S.view);
       if (inj) out += '<div class="ex pad">' + esc(inj) + "</div>";
       if (S.view === "byes") return out + byesBody(S, t, wi, lineup);
       out += lineupBlock(S, t, wi, lineup, false);
-      if (S.view === "lineup") out += '<div class="ex pad">The lineup as MFL has it for Week ' + cur + ". Nothing here can change it. A kickoff time is shown on a row only when it is not Sunday 1:00 PM (Eastern).</div>";
     } else {
       out += '<div class="card warnc"><h2>Lineup not available</h2><div class="ex">MFL’s submitted lineup could not be read, so no starters are shown. Every active player is under Bench. This is not an empty lineup.</div></div>';
       if (S.view === "byes") return out + byesBody(S, t, wi, null);
     }
-    // bench
+    // R6: Bench, Injured reserve and Taxi squad, one compact card each; the bench grouped by position inside its card
     var groups = M.benchGroups(t);
     var benchN = groups.reduce(function (n, g) { return n + g.players.length; }, 0);
-    var allOpen = groups.every(function (g) { return isOpen(S, "b" + g.pos); }) && isOpen(S, "ir") && isOpen(S, "taxi");
-    out += '<div class="grp"><span>Bench · ' + benchN + '</span><button class="link" data-act="expall">' + (allOpen ? "Collapse all" : "Expand all") + "</button></div>";
-    out += groups.map(function (g) { return group("b" + g.pos, "on bench", g.players, S, pcx(g.pos), { reasons: R.groupReasons(S, g.players) }); }).join("");
-    // reserves
+    var reasons = groups.reduce(function (r, g) { return r.concat(R.groupReasons(S, g.players)); }, []);
+    out += section(S, "bench", "Bench", String(benchN), groups, reasons);
     var ir = M.reserve(t, "ir"), tx = M.reserve(t, "taxi");
-    out += '<div class="grp"><span>Injured reserve · ' + ir.length + (m.limits.ir ? " of " + m.limits.ir : "") + "</span></div>";
-    out += ir.length ? group("ir", ir.length === 1 ? "player" : "players", ir, S, '<span class="pc">IR</span>') : '<div class="ex pad">No one on injured reserve.</div>';
-    out += '<div class="grp"><span>Taxi squad · ' + tx.length + (m.limits.taxi ? " of " + m.limits.taxi : "") + "</span></div>";
-    out += tx.length ? group("taxi", tx.length === 1 ? "player" : "players", tx, S, '<span class="pc">TX</span>') : '<div class="ex pad">No one on the taxi squad.</div>';
+    out += section(S, "ir", "Injured reserve", ir.length + (m.limits.ir ? " of " + m.limits.ir : ""), [{ pos: "", players: ir }]);
+    out += section(S, "taxi", "Taxi squad", tx.length + (m.limits.taxi ? " of " + m.limits.taxi : ""), [{ pos: "", players: tx }]);
     return out;
   }
 
@@ -324,7 +452,7 @@
 
   function teamScreen(S) {
     var body;
-    var tabs = '<div class="tabs tabs4" role="tablist">' + [["roster", "Roster"], ["contracts", "Contracts"], ["performance", "Performance"], ["cap", "Cap & picks"]].map(function (o) {
+    var tabs = '<div class="tabs tabs4 stk" role="tablist">' + [["roster", "Roster"], ["performance", "Performance"], ["contracts", "Contracts"], ["cap", "Cap & picks"]].map(function (o) {
       return '<button role="tab" data-act="sub" data-v="' + o[0] + '" aria-selected="' + (S.sub === o[0]) + '">' + esc(o[1]) + "</button>";
     }).join("") + "</div>";
     if (S.load.core === "loading") body = '<div class="card rows" aria-busy="true">' + skeletonRows(7) + '</div><div class="mu ctr sm">Loading the league…</div>';
@@ -334,12 +462,20 @@
     else if (S.sub === "performance") body = teamPicker(team(S)) + countsLine(team(S), S.model.limits) + TV.performanceBody(S);
     else if (S.sub === "cap") body = later("Cap & picks", "Not in this preview. Cap space is left out on purpose until it can be checked against the Front Office number.");
     else body = rosterBody(S);
-    return header("Team", asOfLine(S)) + tabs + '<div id="screen">' + body + "</div>";
+    return scroller(header("Team", asOfLine(S)) + tabs, body);
+  }
+  // R8: one scrolling area (#scroll) holds the heading, the sticky tabs and the screen body (#screen), so the heading scrolls away under the marker.
+  function scroller(top, body) { return '<div id="scroll" class="scroll">' + top + '<div id="screen">' + body + "</div></div>"; }
+
+  // League › Standings (#1503): Race, Divisions and Scoring (lib/standview.js draws them from the model in S.lgd.model)
+  function leagueScreen(S) {
+    if (S.load.core === "error" || (!S.model && S.load.core !== "loading")) return placeholderScreen("league");
+    return scroller(header("Standings", SV.asOf(S), true) + SV.tabs(S), SV.body(S));
   }
 
   function placeholderScreen(id) {
     var name = NAVS.filter(function (n) { return n[0] === id; })[0][1];
-    return header(name, "") + '<div id="screen">' + later(name, LATER[id]) + "</div>";
+    return scroller(header(name, ""), later(name, LATER[id]));
   }
 
   function nav(S) {
@@ -369,21 +505,22 @@
     var pstate = S.penalty ? S.penalty.state : "idle";
     var row = penaltyRow(S, p.id);
     var ok = pstate === "ok";
-    var e = C.earned(row), rg = C.remainingGuarantee(row), cut = C.cutNow(row);
+    var e = C.earned(row), g = TV.cutCharge(S, p);
     var wk = ok && S.penalty.meta ? S.penalty.meta.earnedThroughWeek : null;
     var out = "";
 
     var salary = p.salary == null ? '<b class="wn">Not recorded</b>' : "<b>" + money(p.salary) + "</b>";
     var left = !p.years ? "—" : p.years === 1 ? "1 (final)" : String(p.years);
-    var earnedCell, guarCell;
-    if (pstate === "loading" || pstate === "idle") { earnedCell = guarCell = '<b class="mu">Loading…</b>'; }
-    else if (pstate === "error") { earnedCell = guarCell = '<b class="wn">Not available</b>'; }
+    var earnedCell, cutCell;
+    if (pstate === "loading" || pstate === "idle") { earnedCell = cutCell = '<b class="mu">Loading…</b>'; }
+    else if (pstate === "error") { earnedCell = cutCell = '<b class="wn">Not available</b>'; }
     else {
       earnedCell = e.kind === "amount" ? "<b>" + money(e.amount) + "</b>" : e.kind === "rule" || e.kind === "na" ? "<b>" + esc(e.label) + "</b>" : '<b class="wn">Not available</b>';
-      guarCell = rg == null ? (e.kind === "unavailable" ? '<b class="wn">Not available</b>' : "<b>—</b>") : "<b>" + money(rg) + "</b>";
+      // R8: the one primary amount is the cut charge (the Worker's, under its own rule); there is no Remaining guarantee tile
+      cutCell = g.kind === "amount" ? "<b>" + esc(g.text) + "</b>" : g.kind === "review" ? '<b class="wn">Under review</b>' : '<b class="wn">Not available</b>';
     }
     var blank = p.salaryUnresolved ? '<div class="ex wn mt4">MFL has no salary recorded for this player, so none is shown.</div>' : "";
-    out += blank + '<div class="k2"><div>' + salary + "<small>Salary " + season + "</small></div><div><b>" + esc(left) + "</b><small>Years left</small></div><div>" + earnedCell + "<small>Earned to date</small></div><div>" + guarCell + "<small>Remaining guarantee</small></div></div>";
+    out += blank + '<div class="k2"><div>' + salary + "<small>Salary " + season + "</small></div><div><b>" + esc(left) + "</b><small>Years left</small></div><div>" + cutCell + "<small>If cut now" + (g.tag ? " · " + esc(g.tag) : "") + "</small></div><div>" + earnedCell + "<small>Earned to date</small></div></div>";
     if (ok && wk != null) out += '<div class="ex mt4">Earned counts through Week ' + wk + ".</div>";
     if (pstate === "error") out += TV.failCard("retrypen");
     if (ok && e.kind === "unavailable") out += '<div class="ex mt4 wn">' + esc(e.why) + ".</div>";
@@ -401,19 +538,17 @@
     if (sched.notes.indexOf("current_year_token_differs") >= 0) out += '<div class="ex wn mt6">The recorded year amount differs from this season’s salary. The salary on the roster is shown.</div>';
 
     // rules and totals
-    var tcv = sched.parsed.tcv, gtd = ok && row && isFinite(row.guaranteed) && !row.needs_review ? row.guaranteed : null;
-    var aav = sched.parsed.aav.length ? sched.parsed.aav.map(money).join(" · ") : "Not recorded";
+    // R8: the contract's facts in owner words (Term, Contract Type, Contract Source, Later changes, Salary structure; shared with Team › Contracts), then
+    // the totals. The raw contract type code is not shown.
+    // R9: the AAV is one of the facts, labeled by the years it applies to (lib/contract.js aavYears); the Contract history follows, collapsed
+    var tcv = sched.parsed.tcv;
     out += tog(S, "rules", "Rules and totals");
     if (S.flags && S.flags.rules) {
-      out += '<div class="xb">' + kv([
-        ["Type", esc(p.type || "Not recorded")],
-        ["Total value", tcv == null ? "Not recorded" : money(tcv)],
-        ["Guaranteed", gtd != null ? money(gtd) : pstate === "ok" ? "Not available" : sched.parsed.gtd != null ? money(sched.parsed.gtd) + " (as recorded)" : "Not recorded"],
-        ["AAV (as recorded)", esc(aav)],
-        ["Contract length", sched.cl ? sched.cl + (sched.cl === 1 ? " year" : " years") : "Not recorded"],
-        ["Years played", sched.yearsPlayed == null ? "Not recorded" : String(sched.yearsPlayed)]
-      ]) + "</div>";
+      out += '<div class="xb"><div class="kv">' + TV.contractFactsFor(S, p) +
+        "<b>Total value</b><span>" + (tcv == null ? "Not recorded" : money(tcv)) + "</span></div></div>";
     }
+    out += tog(S, "hist", "Contract history");
+    if (S.flags && S.flags.hist) out += '<div class="xb">' + TV.historyHtml(S, p) + "</div>";
     // earned breakdown
     out += tog(S, "earned", "How earned is counted");
     if (S.flags && S.flags.earned) {
@@ -428,10 +563,10 @@
     // cut cost
     out += tog(S, "cut", "If cut now");
     if (S.flags && S.flags.cut) {
+      // R8: the amount and the rule in one sentence (no arithmetic); the guarantee and what is earned of it only under the guarantee rule
       var cb;
       if (!ok) cb = "<b>Not available</b> until the UPS cap calculation loads.";
-      else if (cut.kind === "amount") cb = "<b>" + money(cut.amount) + "</b>" + (cut.why ? '<div class="ex">' + esc(cut.why) + "</div>" : "");
-      else cb = '<b>Not available</b><div class="ex">' + esc(cut.why) + "</div>";
+      else cb = '<div class="kv"><b>Cut charge</b><span>' + TV.cutWords(g) + "</span>" + TV.guaranteeFacts(S, g) + "</div>";
       out += '<div class="xb">' + cb + '<div class="ex mt6">A read-only figure from the UPS cap calculation. Nothing can be cut from here.</div></div>';
     }
     // (the raw contract text is not shown on any owner screen: its diagnostic destination is deferred, #1496 D6)
@@ -440,10 +575,10 @@
     return out;
   }
 
+  // R6: the profile's Performance tab is the Breakdown: the settled season line, the season stats, and the weekly game log with each game's detail.
+  // Points are MFL's; the stats are the NFL box score. No projection or expected-points figure is drawn here.
   function performanceTab(S, p) {
-    return '<div class="k2"><div><b>' + (p.points == null ? "Not available" : p.points.toFixed(1)) + "</b><small>Season points so far</small></div><div><b>" + (p.starter ? "Starting" : p.status === "active" ? "Bench" : p.status === "ir" ? "IR" : "Taxi") + "</b><small>Week " + S.model.week + "</small></div></div>" +
-      '<div class="sec2">Game log</div>' + TV.gameLog(S, p) +
-      '<div class="ex mt6">Points are MFL’s league-scored total. Start / Boom / Bust percentages and projections are not in this preview.</div>';
+    return '<div class="sec2 first">Breakdown</div>' + TV.gameLog(S, p);
   }
   function scheduleTab() { return '<div class="ex">The schedule and matchup view is not in Preview 0.</div>'; }
   function moreTab(S, p) {
@@ -462,7 +597,7 @@
       return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="Player profile" tabindex="-1"><div class="grab"></div><div class="top"><h3>Player not found</h3></div><div class="ex">This player is not on a roster in the data that loaded.</div><button class="btn blk" data-act="close">Close</button></div></div>';
     }
     var tab = S.profile.tab || "contract";
-    var pills = (p.status === "ir" ? pill("IR") : p.status === "taxi" ? pill("Taxi") : "") + (p.bye && p.bye === S.model.week ? pill("▲ Bye week") : "");
+    var pills = (p.status === "ir" ? R.irBadge("IR", "hpb") : p.status === "taxi" ? pill("Taxi") : "") + (p.bye && p.bye === S.model.week ? pill("▲ Bye week") : "");
     var tabs = [["perf", "Performance"], ["sched", "Schedule"], ["contract", "Contract"], ["more", "More"]];
     var body = tab === "perf" ? performanceTab(S, p) : tab === "sched" ? scheduleTab() : tab === "more" ? moreTab(S, p) : contractTab(S, p);
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full phero" role="dialog" aria-modal="true" aria-label="Player profile: ' + esc(p.name) + '" tabindex="-1">' +
@@ -490,13 +625,15 @@
     return '<div class="hm ph" role="img" aria-label="Team helmet placeholder: verified team art is not available"><span>Helmet</span><span>TBD</span></div>';
   }
   function pill(text) { return '<span class="hp">' + esc(text) + "</span>"; }
+  // R8: the readable Contract Type (Veteran / Rookie) from contract.describe, never the internal code ("Rookie-Draft", "Vet-FAA-FL")
+  function heroType(p) { var d = null; try { d = C.describe(p); } catch (e) { d = null; } return d && d.type ? d.type : "Contract type not recorded"; }
   function hero(p, pills) {
     var np = nameParts(p.name), urls = require_photo(p);
     return '<div class="hero' + teamCls(p.nflTeam) + '"><div class="grab"></div>' +
       '<div class="top"><span class="hlb">Player profile</span><button class="hx" data-act="close" aria-label="Close player profile"><span>Close</span></button></div>' +
-      '<div class="hrow"><div class="pfw"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(p.pos) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' + helmetPlaceholder() + "</div>" +
+      '<div class="hrow"><div class="pfw"><div class="av2" aria-hidden="false"><span class="avpos">' + esc(posText(p.pos)) + '</span><img alt="' + esc(p.name) + ' headshot" data-chain="' + esc(JSON.stringify(urls)) + '" referrerpolicy="no-referrer" decoding="async"></div>' + helmetPlaceholder() + "</div>" +
       '<div class="htx"><h3 class="hnm">' + (np[0] ? '<span class="hfn">' + esc(np[0]) + "</span> " : "") + '<span class="hln">' + esc(np[1]) + "</span></h3>" +
-      '<div class="hsub"><b>' + esc(commonCode(p.nflTeam) || "No NFL team") + "</b><span>" + esc(p.pos) + "</span><span>" + esc(p.type || "Type not recorded") + "</span></div></div></div>" +
+      '<div class="hsub"><b>' + esc(commonCode(p.nflTeam) || "No NFL team") + "</b><span>" + esc(posText(p.pos)) + "</span><span>" + esc(heroType(p)) + "</span></div></div></div>" +
       (pills ? '<div class="hpills">' + pills + "</div>" : "") + '<div class="hbar"></div></div>';
   }
 
@@ -515,6 +652,25 @@
     }).join("") + "</div>";
   }
 
+  // The ONE known-issues list of the recorded test build (R7b final): shown in About, reached from the marker's "Known issues" button. Screens say
+  // "Not available" or "—" where a figure is missing and Rank details say why; they do not repeat these notes.
+  var KNOWN_ISSUES = [
+    "Test build: not reviewed or accepted yet. Figures are a recording and will not change.",
+    "Many season stat ranks show — while some players’ figures are incomplete. The stat values still show; Rank details under the season stats say why. Two data problems cause most of these: blank defensive stat rows added by a second stats feed, and red-zone records the recorded answers could not prove complete. Fixes are drafted but not released, and this recording was made before them.",
+    "Kicking distance bands: a kicker’s attempts from a distance are incomplete when he missed a kick, because missed-kick distances are not in the stats feed, so those band ranks show —.",
+    "Team history is not in this recording, so the PPG rank counts each player against his current NFL club’s games (provisional). A few players whose records contradict that have no PPG rank; Help explains.",
+    "Pass rate over expected, punter inside-20 distance bands, missed-kick distances, longest plays and yards after catch are not in this recording.",
+    "The opponent matchup column (points the opponent allowed to this position before the game) is not shown yet: the recording does not have every player’s club for each week. The game log keeps the game result until it does.",
+    "Traded salary entries show the amount without the other team and date: the recording has no trade records to link them to.",
+    "xFP PPG and Over Expectations are Not Available everywhere.",
+    "Minimum attempts, carries, targets or snaps for rate ranks are proposals, not approved yet.",
+    "Game stats were recorded for 117 players (three full teams plus examples); other players show their fantasy log only.",
+    "Projections cover Week 11 only and were recorded for 342 of 486 rostered players.",
+    "Nine extensions show the extending team without a year, because a later restructure hid it.",
+    "Not checked on a real iPhone in Safari, or signed in to MFL."
+  ];
+  function knownIssuesCard() { return '<div class="card" id="known-issues"><h2>Known issues in this test build</h2><ul class="pl">' + KNOWN_ISSUES.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>"; }
+
   function aboutSheet(S) {
     var log = S.requestLog || [], sum = S.requestSummary || { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 };
     var rows = log.map(function (e) {
@@ -523,39 +679,45 @@
       return '<div class="lg"><span class="lgw">' + esc(e.label || "") + "<small>" + esc(what) + '</small></span><span class="lgr">' + esc(e.method) + " " + esc(res) + (e.bytes != null ? "<small>" + Math.round(e.bytes / 1024) + " KB · " + (e.ms || 0) + " ms</small>" : "") + "</span></div>";
     }).join("");
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full" role="dialog" aria-modal="true" aria-label="About Preview 0" tabindex="-1"><div class="grab"></div><div class="top"><h3>About Preview 0</h3><button class="btn" data-act="close">Close</button></div>' +
+      // R8: the marker no longer prints the capture times, so the Data card (both times) follows the known issues directly
+      (S.recorded ? knownIssuesCard() : "") +
+      '<div class="card"><h2>Data</h2><div class="ex">' + (S.recorded ? "This preview uses a recorded snapshot taken " + esc(S.recorded.label) + ", not the live league. The figures will not move." + (S.recorded.later ? " Game stats, season totals and projections were recorded later that day, " + esc(S.recorded.later) + "." : "") : "Read from the league when this page opened" + (S.model ? " (" + esc(F.etStamp(S.model.asOf) || "just now") + ")" : "") + ". Each answer is kept for up to a minute.") + "</div>" + (sampleOn(S) ? '<div class="ex">Reloading is paused while Sample mode is on.</div>' : '<button class="btn blk" data-act="retry">' + (S.recorded ? "Reload the recorded data" : "Reload the data") + "</button>") + "</div>" +
       '<div class="card"><h2>What this is</h2><div class="ex">A read-only preview of redesigned screens: Team (Roster with Lineup and Byes and a week selector, Contracts, Performance) and Player profile. It shows real, public league data. It cannot sign in, save, drop, trade or change anything on MFL. The current app is untouched.</div></div>' +
-      '<div class="card"><h2>Data</h2><div class="ex">' + (S.recorded ? "This preview uses a recorded snapshot taken " + esc(S.recorded.label) + ", not the live league. The figures will not move." : "Read from the league when this page opened" + (S.model ? " (" + esc(F.etStamp(S.model.asOf) || "just now") + ")" : "") + ". Each answer is kept for up to a minute.") + "</div>" + (sampleOn(S) ? '<div class="ex">Reloading is paused while Sample mode is on.</div>' : '<button class="btn blk" data-act="retry">' + (S.recorded ? "Reload the recorded data" : "Reload the data") + "</button>") + "</div>" +
-      '<div class="card"><h2>Display</h2>' + chipRow("skin", [["system", "Match my phone"], ["light", "Light"], ["dark", "Dark"], ["hc", "High contrast"]], S.skin, "Skin") + chipRow("vib", [["1", "Vibrant"], ["0", "Plain"]], S.vib, "Position colors") + chipRow("gdef", [["needs", "Only what needs you"], ["all", "All groups open"]], S.gdef || "needs", "Bench groups") + "</div>" +
+      '<div class="card"><h2>Display</h2>' + chipRow("skin", [["system", "Match my phone"], ["light", "Light"], ["dark", "Dark"], ["hc", "High contrast"]], S.skin, "Skin") + chipRow("vib", [["1", "Vibrant"], ["0", "Plain"]], S.vib, "Position colors") + "</div>" +
       '<div class="card"><h2>Sample mode</h2><div class="ex">For trying screens without league data. Labeled, local to this phone, never remembered, and it starts no new request (data or photos) while it is on.</div><button class="btn blk" data-act="sample" data-v="about">' + (sampleOn(S) ? "Turn Sample mode off" : "Turn Sample mode on") + "</button></div>" +
       '<div class="card"><h2>Requests this page made</h2><div class="ex"><b>' + sum.requests + "</b> data requests: <b>" + sum.ok + "</b> succeeded, <b>" + sum.failed + "</b> failed, <b>" + sum.refused + "</b> refused. Methods other than GET: <b>" + sum.nonGet + '</b>. No cookie, session or key is ever sent.' + (S.recorded ? " In recorded-data mode these reads are answered from the snapshot that ships with the page, so none of them leaves it." : "") + "</div>" + rows +
       '<div class="ex mt6">Player photos load straight from ESPN, then MFL, as the current app does. They are images, not data requests. Injury status, NFL games and weekly scores are read once and reused when you change views or weeks.</div></div>' +
-      '<div class="card"><h2>Not in this preview</h2><ul class="pl"><li>Any action: lineup changes, drops, extensions, bids, trades</li><li>Cap space and Cap &amp; picks</li><li>Projections, opponents and snaps in the game log, schedule, news, bio</li><li>Return dates for injured players: MFL lists one, but what it means is not verified, so it shows Unavailable</li><li>A real team helmet (a labeled placeholder is shown)</li><li>Sign-in: you are not signed in as anyone</li></ul></div>' +
+      '<div class="card"><h2>Not in this preview</h2><ul class="pl"><li>Any action: lineup changes, drops, extensions, bids, trades</li><li>Cap space and Cap &amp; picks</li><li>Schedule, news, bio</li><li>Return dates for injured players: MFL lists one, but what it means is not verified, so none is shown</li><li>A real team helmet (a labeled placeholder is shown)</li><li>Sign-in: you are not signed in as anyone</li></ul></div>' +
       '<div class="ex">Build ' + esc(S.build || "") + "</div></div></div>";
   }
 
   // The marker at the top of every screen: "Preview: view only", or the Sample label while Sample mode is on.
   function sampleOn(S) { return !!(S.sample && S.sample.on); }
+  // R8: in recorded mode the marker is one short line, "Test · Recorded data", with the "Known issues" button; the two capture times are in About.
   function envBar(S) {
-    var on = sampleOn(S), rec = !on && S.recorded ? S.recorded.label : "";
-    return '<div class="envbar' + (on ? " sample" : rec ? " rec" : "") + '"><span>' + esc(SM.envText(on, rec)) + "</span></div>";
+    var on = sampleOn(S), rec = !on && !!S.recorded;
+    return '<div class="envbar' + (on ? " sample" : rec ? " rec" : "") + '"><span>' + esc(SM.envText(on, rec)) + "</span>" + (rec ? ' <button class="link" data-act="about">Known issues</button>' : "") + "</div>";
   }
   function sampleScreen() {
-    return header("Sample mode", "") + '<div id="screen"><div class="card hl"><h2>Sample mode</h2><div class="big2"><b>Nothing here is real, and nothing is sent.</b></div>' +
+    return '<div id="scroll" class="scroll">' + header("Sample mode", "") + '<div id="screen"><div class="card hl"><h2>Sample mode</h2><div class="big2"><b>Nothing here is real, and nothing is sent.</b></div>' +
       '<div class="ex">Sample scenarios let a screen be tried without any league data. They live on this phone only, and this page starts no new request, for data or for photos, while Sample mode is on. A request already on its way when you turn it on is not recalled; its answer is thrown away. No scenario is installed yet: they arrive with the screens that use them.</div>' +
-      '<button class="btn pri blk" data-act="sample" data-v="screen">Turn Sample mode off</button></div></div>';
+      '<button class="btn pri blk" data-act="sample" data-v="screen">Turn Sample mode off</button></div></div></div>';
   }
 
   function app(S) {
     var on = sampleOn(S);
-    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : placeholderScreen(S.tab);
+    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : S.tab === "league" && SV ? leagueScreen(S) : placeholderScreen(S.tab);
     var layer = "";
     if (S.sheet === "about") layer = aboutSheet(S);
     else if (!on && S.profile && S.model) layer = profile(S);
+    else if (!on && S.tab === "league" && SV && S.sheet === "lteam") layer = SV.teamSheet(S);
+    else if (!on && S.tab === "league" && SV && S.sheet === "lbrk") layer = SV.brkSheet(S);
+    else if (!on && S.tab === "league" && SV && S.sheet === "help") layer = SV.helpSheet(S);
     else if (!on && S.sheet === "teams" && S.model) layer = teamSheet(S);
     else if (!on && S.sheet === "weeks" && S.model) layer = weekSheet(S);
     else if (!on && S.sheet === "help" && S.model) layer = helpSheet(S);
     return envBar(S) + screen + nav(S) + layer;
   }
 
-  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS };
+  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS };
 });

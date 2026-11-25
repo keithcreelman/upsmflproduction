@@ -7,238 +7,1654 @@
    "path": "/roster-workbench?L=74598&YEAR=2026",
    "status": 200,
    "bytes": 610683,
-   "retrieved_at": "2026-11-22T15:22:25Z"
+   "retrieved_at": "2026-11-22T15:22:25Z",
+   "origin": "worker-get"
   },
   {
    "key": "league",
    "path": "/api/mfl-export?TYPE=league&L=74598&YEAR=2026&JSON=1",
    "status": 200,
    "bytes": 7672,
-   "retrieved_at": "2026-11-22T15:22:25Z"
+   "retrieved_at": "2026-11-22T15:22:25Z",
+   "origin": "worker-get"
   },
   {
    "key": "week",
    "path": "/api/current-lineup-week?L=74598&YEAR=2026",
    "status": 200,
    "bytes": 45,
-   "retrieved_at": "2026-11-22T15:22:26Z"
+   "retrieved_at": "2026-11-22T15:22:26Z",
+   "origin": "worker-get"
   },
   {
    "key": "penalty",
    "path": "/api/cap-penalty/preview?L=74598&YEAR=2026",
    "status": 200,
    "bytes": 196919,
-   "retrieved_at": "2026-11-22T15:22:28Z"
+   "retrieved_at": "2026-11-22T15:22:28Z",
+   "origin": "worker-get"
   },
   {
    "key": "status",
    "path": "/api/player-status?season=2026&L=74598",
    "status": 200,
    "bytes": 113915,
-   "retrieved_at": "2026-11-22T15:22:29Z"
+   "retrieved_at": "2026-11-22T15:22:29Z",
+   "origin": "worker-get"
   },
   {
    "key": "matchups_11",
    "path": "/api/lineup-matchups?YEAR=2026&W=11",
    "status": 200,
    "bytes": 107152,
-   "retrieved_at": "2026-11-22T15:22:30Z"
+   "retrieved_at": "2026-11-22T15:22:30Z",
+   "origin": "worker-get"
   },
   {
    "key": "nextSeason",
    "path": "/api/cap-adjustments/next-season?L=74598&YEAR=2026",
    "status": 200,
    "bytes": 14318,
-   "retrieved_at": "2026-11-22T15:22:31Z"
+   "retrieved_at": "2026-11-22T15:22:31Z",
+   "origin": "worker-get"
   },
   {
    "key": "players",
    "path": "/api/mfl-export?TYPE=players&L=74598&YEAR=2026&JSON=1",
    "status": 200,
    "bytes": 190625,
-   "retrieved_at": "2026-11-22T15:22:32Z"
+   "retrieved_at": "2026-11-22T15:22:32Z",
+   "origin": "worker-get"
   },
   {
    "key": "byes",
    "path": "/api/mfl-export?TYPE=nflByeWeeks&L=74598&YEAR=2026&JSON=1",
    "status": 200,
    "bytes": 987,
-   "retrieved_at": "2026-11-22T15:22:33Z"
+   "retrieved_at": "2026-11-22T15:22:33Z",
+   "origin": "worker-get"
   },
   {
    "key": "schedule_ALL",
    "path": "/api/mfl-export?TYPE=nflSchedule&L=74598&YEAR=2026&JSON=1&W=ALL",
    "status": 200,
    "bytes": 115562,
-   "retrieved_at": "2026-11-22T15:22:33Z"
+   "retrieved_at": "2026-11-22T15:22:33Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_1",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=1",
    "status": 200,
    "bytes": 58089,
-   "retrieved_at": "2026-11-22T15:22:34Z"
+   "retrieved_at": "2026-11-22T15:22:34Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_1",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=1",
    "status": 200,
    "bytes": 70353,
-   "retrieved_at": "2026-11-22T15:22:35Z"
+   "retrieved_at": "2026-11-22T15:22:35Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_2",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=2",
    "status": 200,
    "bytes": 86501,
-   "retrieved_at": "2026-11-22T15:22:35Z"
+   "retrieved_at": "2026-11-22T15:22:35Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_2",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=2",
    "status": 200,
    "bytes": 70694,
-   "retrieved_at": "2026-11-22T15:22:36Z"
+   "retrieved_at": "2026-11-22T15:22:36Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_3",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=3",
    "status": 200,
    "bytes": 87065,
-   "retrieved_at": "2026-11-22T15:22:37Z"
+   "retrieved_at": "2026-11-22T15:22:37Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_3",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=3",
    "status": 200,
    "bytes": 70484,
-   "retrieved_at": "2026-11-22T15:22:38Z"
+   "retrieved_at": "2026-11-22T15:22:38Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_4",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=4",
    "status": 200,
    "bytes": 58117,
-   "retrieved_at": "2026-11-22T15:22:38Z"
+   "retrieved_at": "2026-11-22T15:22:38Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_4",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=4",
    "status": 200,
    "bytes": 69962,
-   "retrieved_at": "2026-11-22T15:22:39Z"
+   "retrieved_at": "2026-11-22T15:22:39Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_5",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=5",
    "status": 200,
    "bytes": 86279,
-   "retrieved_at": "2026-11-22T15:22:40Z"
+   "retrieved_at": "2026-11-22T15:22:40Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_5",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=5",
    "status": 200,
    "bytes": 66187,
-   "retrieved_at": "2026-11-22T15:22:41Z"
+   "retrieved_at": "2026-11-22T15:22:41Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_6",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=6",
    "status": 200,
    "bytes": 85238,
-   "retrieved_at": "2026-11-22T15:22:42Z"
+   "retrieved_at": "2026-11-22T15:22:42Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_6",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=6",
    "status": 200,
    "bytes": 61341,
-   "retrieved_at": "2026-11-22T15:22:43Z"
+   "retrieved_at": "2026-11-22T15:22:43Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_7",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=7",
    "status": 200,
    "bytes": 85175,
-   "retrieved_at": "2026-11-22T15:22:43Z"
+   "retrieved_at": "2026-11-22T15:22:43Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_7",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=7",
    "status": 200,
    "bytes": 61617,
-   "retrieved_at": "2026-11-22T15:22:44Z"
+   "retrieved_at": "2026-11-22T15:22:44Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_8",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=8",
    "status": 200,
    "bytes": 56849,
-   "retrieved_at": "2026-11-22T15:22:44Z"
+   "retrieved_at": "2026-11-22T15:22:44Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_8",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=8",
    "status": 200,
    "bytes": 62222,
-   "retrieved_at": "2026-11-22T15:22:45Z"
+   "retrieved_at": "2026-11-22T15:22:45Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_9",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=9",
    "status": 200,
    "bytes": 85529,
-   "retrieved_at": "2026-11-22T15:22:46Z"
+   "retrieved_at": "2026-11-22T15:22:46Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_9",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=9",
    "status": 200,
    "bytes": 66128,
-   "retrieved_at": "2026-11-22T15:22:47Z"
+   "retrieved_at": "2026-11-22T15:22:47Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_10",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=10",
    "status": 200,
    "bytes": 85131,
-   "retrieved_at": "2026-11-22T15:22:47Z"
+   "retrieved_at": "2026-11-22T15:22:47Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_10",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=10",
    "status": 200,
    "bytes": 63221,
-   "retrieved_at": "2026-11-22T15:22:48Z"
+   "retrieved_at": "2026-11-22T15:22:48Z",
+   "origin": "worker-get"
   },
   {
    "key": "weekly_11",
    "path": "/api/mfl-export?TYPE=weeklyResults&L=74598&YEAR=2026&JSON=1&W=11",
    "status": 200,
    "bytes": 32244,
-   "retrieved_at": "2026-11-22T15:22:49Z"
+   "retrieved_at": "2026-11-22T15:22:49Z",
+   "origin": "worker-get"
   },
   {
    "key": "scores_11",
    "path": "/api/mfl-export?TYPE=playerScores&L=74598&YEAR=2026&JSON=1&W=11",
    "status": 200,
    "bytes": 4516,
-   "retrieved_at": "2026-11-22T15:22:49Z"
+   "retrieved_at": "2026-11-22T15:22:49Z",
+   "origin": "worker-get"
   },
   {
    "key": "schedule_10",
    "path": "/api/mfl-export?TYPE=nflSchedule&L=74598&YEAR=2026&JSON=1&W=10",
    "status": 200,
    "bytes": 6009,
-   "retrieved_at": "2026-11-22T15:22:50Z"
+   "retrieved_at": "2026-11-22T15:22:50Z",
+   "origin": "worker-get"
   },
   {
    "key": "schedule_11",
    "path": "/api/mfl-export?TYPE=nflSchedule&L=74598&YEAR=2026&JSON=1&W=11",
    "status": 200,
    "bytes": 5576,
-   "retrieved_at": "2026-11-22T15:22:50Z"
+   "retrieved_at": "2026-11-22T15:22:50Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16223",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16223&L=74598",
+   "status": 200,
+   "bytes": 18479,
+   "retrieved_at": "2026-11-23T03:13:39Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15698",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15698&L=74598",
+   "status": 200,
+   "bytes": 21181,
+   "retrieved_at": "2026-11-23T03:13:40Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16080",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16080&L=74598",
+   "status": 200,
+   "bytes": 18812,
+   "retrieved_at": "2026-11-23T03:13:40Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16723",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16723&L=74598",
+   "status": 200,
+   "bytes": 23467,
+   "retrieved_at": "2026-11-23T03:13:40Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17051",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17051&L=74598",
+   "status": 200,
+   "bytes": 21117,
+   "retrieved_at": "2026-11-23T03:13:41Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17131",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17131&L=74598",
+   "status": 200,
+   "bytes": 20515,
+   "retrieved_at": "2026-11-23T03:13:41Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14823",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14823&L=74598",
+   "status": 200,
+   "bytes": 14130,
+   "retrieved_at": "2026-11-23T03:13:42Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16269",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16269&L=74598",
+   "status": 200,
+   "bytes": 21174,
+   "retrieved_at": "2026-11-23T03:13:42Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17500",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17500&L=74598",
+   "status": 200,
+   "bytes": 23507,
+   "retrieved_at": "2026-11-23T03:13:43Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_13299",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=13299&L=74598",
+   "status": 200,
+   "bytes": 21152,
+   "retrieved_at": "2026-11-23T03:13:43Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15751",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15751&L=74598",
+   "status": 200,
+   "bytes": 23492,
+   "retrieved_at": "2026-11-23T03:13:43Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15282",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15282&L=74598",
+   "status": 200,
+   "bytes": 9496,
+   "retrieved_at": "2026-11-23T03:13:44Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_13589",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=13589&L=74598",
+   "status": 200,
+   "bytes": 21199,
+   "retrieved_at": "2026-11-23T03:13:44Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16013",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16013&L=74598",
+   "status": 200,
+   "bytes": 18446,
+   "retrieved_at": "2026-11-23T03:13:45Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15822",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15822&L=74598",
+   "status": 200,
+   "bytes": 16420,
+   "retrieved_at": "2026-11-23T03:13:45Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16276",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16276&L=74598",
+   "status": 200,
+   "bytes": 20486,
+   "retrieved_at": "2026-11-23T03:13:46Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16896",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16896&L=74598",
+   "status": 200,
+   "bytes": 20323,
+   "retrieved_at": "2026-11-23T03:13:46Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16788",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16788&L=74598",
+   "status": 200,
+   "bytes": 21150,
+   "retrieved_at": "2026-11-23T03:13:46Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_12626",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=12626&L=74598",
+   "status": 200,
+   "bytes": 23470,
+   "retrieved_at": "2026-11-23T03:13:47Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16295",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16295&L=74598",
+   "status": 200,
+   "bytes": 12348,
+   "retrieved_at": "2026-11-23T03:13:47Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17052",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17052&L=74598",
+   "status": 200,
+   "bytes": 21145,
+   "retrieved_at": "2026-11-23T03:13:48Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17145",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17145&L=74598",
+   "status": 200,
+   "bytes": 14389,
+   "retrieved_at": "2026-11-23T03:13:48Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14157",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14157&L=74598",
+   "status": 200,
+   "bytes": 20498,
+   "retrieved_at": "2026-11-23T03:13:48Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14896",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14896&L=74598",
+   "status": 200,
+   "bytes": 18464,
+   "retrieved_at": "2026-11-23T03:13:49Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16667",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16667&L=74598",
+   "status": 200,
+   "bytes": 16425,
+   "retrieved_at": "2026-11-23T03:13:49Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16593",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16593&L=74598",
+   "status": 200,
+   "bytes": 23426,
+   "retrieved_at": "2026-11-23T03:13:50Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17761",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17761&L=74598",
+   "status": 200,
+   "bytes": 14255,
+   "retrieved_at": "2026-11-23T03:13:50Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17360",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17360&L=74598",
+   "status": 200,
+   "bytes": 19987,
+   "retrieved_at": "2026-11-23T03:13:51Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17477",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17477&L=74598",
+   "status": 200,
+   "bytes": 11512,
+   "retrieved_at": "2026-11-23T03:13:51Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16014",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16014&L=74598",
+   "status": 200,
+   "bytes": 16570,
+   "retrieved_at": "2026-11-23T03:13:51Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16622",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16622&L=74598",
+   "status": 200,
+   "bytes": 155,
+   "retrieved_at": "2026-11-23T03:13:52Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14109",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14109&L=74598",
+   "status": 200,
+   "bytes": 11838,
+   "retrieved_at": "2026-11-23T03:13:52Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14789",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14789&L=74598",
+   "status": 200,
+   "bytes": 11833,
+   "retrieved_at": "2026-11-23T03:13:53Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17107",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17107&L=74598",
+   "status": 200,
+   "bytes": 7151,
+   "retrieved_at": "2026-11-23T03:13:53Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17082",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17082&L=74598",
+   "status": 200,
+   "bytes": 11819,
+   "retrieved_at": "2026-11-23T03:13:53Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17463",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17463&L=74598",
+   "status": 200,
+   "bytes": 155,
+   "retrieved_at": "2026-11-23T03:13:54Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17478",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17478&L=74598",
+   "status": 200,
+   "bytes": 14084,
+   "retrieved_at": "2026-11-23T03:13:54Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17634",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17634&L=74598",
+   "status": 200,
+   "bytes": 2312,
+   "retrieved_at": "2026-11-23T03:13:55Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16581",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16581&L=74598",
+   "status": 200,
+   "bytes": 16533,
+   "retrieved_at": "2026-11-23T03:13:55Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15715",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15715&L=74598",
+   "status": 200,
+   "bytes": 21124,
+   "retrieved_at": "2026-11-23T03:13:55Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16185",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16185&L=74598",
+   "status": 200,
+   "bytes": 23513,
+   "retrieved_at": "2026-11-23T03:13:56Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14835",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14835&L=74598",
+   "status": 200,
+   "bytes": 21184,
+   "retrieved_at": "2026-11-23T03:13:56Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16752",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16752&L=74598",
+   "status": 200,
+   "bytes": 19814,
+   "retrieved_at": "2026-11-23T03:13:57Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15708",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15708&L=74598",
+   "status": 200,
+   "bytes": 11804,
+   "retrieved_at": "2026-11-23T03:13:57Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16214",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16214&L=74598",
+   "status": 200,
+   "bytes": 21156,
+   "retrieved_at": "2026-11-23T03:13:57Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16641",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16641&L=74598",
+   "status": 200,
+   "bytes": 18819,
+   "retrieved_at": "2026-11-23T03:13:58Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17071",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17071&L=74598",
+   "status": 200,
+   "bytes": 21189,
+   "retrieved_at": "2026-11-23T03:13:58Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14251",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14251&L=74598",
+   "status": 200,
+   "bytes": 16428,
+   "retrieved_at": "2026-11-23T03:13:59Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14777",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14777&L=74598",
+   "status": 200,
+   "bytes": 21206,
+   "retrieved_at": "2026-11-23T03:13:59Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_10266",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=10266&L=74598",
+   "status": 200,
+   "bytes": 18495,
+   "retrieved_at": "2026-11-23T03:13:59Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_13130",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=13130&L=74598",
+   "status": 200,
+   "bytes": 21106,
+   "retrieved_at": "2026-11-23T03:14:00Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14877",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14877&L=74598",
+   "status": 200,
+   "bytes": 18468,
+   "retrieved_at": "2026-11-23T03:14:00Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_13251",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=13251&L=74598",
+   "status": 200,
+   "bytes": 20486,
+   "retrieved_at": "2026-11-23T03:14:01Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14412",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14412&L=74598",
+   "status": 200,
+   "bytes": 18455,
+   "retrieved_at": "2026-11-23T03:14:01Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_12141",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=12141&L=74598",
+   "status": 200,
+   "bytes": 7156,
+   "retrieved_at": "2026-11-23T03:14:02Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_9064",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=9064&L=74598",
+   "status": 200,
+   "bytes": 487,
+   "retrieved_at": "2026-11-23T03:14:02Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14256",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14256&L=74598",
+   "status": 200,
+   "bytes": 20294,
+   "retrieved_at": "2026-11-23T03:14:02Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16432",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16432&L=74598",
+   "status": 200,
+   "bytes": 16579,
+   "retrieved_at": "2026-11-23T03:14:03Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16719",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16719&L=74598",
+   "status": 200,
+   "bytes": 20506,
+   "retrieved_at": "2026-11-23T03:14:03Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17563",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17563&L=74598",
+   "status": 200,
+   "bytes": 20523,
+   "retrieved_at": "2026-11-23T03:14:04Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16778",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16778&L=74598",
+   "status": 200,
+   "bytes": 23503,
+   "retrieved_at": "2026-11-23T03:14:04Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16244",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16244&L=74598",
+   "status": 200,
+   "bytes": 8284,
+   "retrieved_at": "2026-11-23T03:14:04Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15287",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15287&L=74598",
+   "status": 200,
+   "bytes": 21172,
+   "retrieved_at": "2026-11-23T03:14:05Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16846",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16846&L=74598",
+   "status": 200,
+   "bytes": 18310,
+   "retrieved_at": "2026-11-23T03:14:05Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15890",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15890&L=74598",
+   "status": 200,
+   "bytes": 12626,
+   "retrieved_at": "2026-11-23T03:14:06Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17241",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17241&L=74598",
+   "status": 200,
+   "bytes": 18286,
+   "retrieved_at": "2026-11-23T03:14:06Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15787",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15787&L=74598",
+   "status": 200,
+   "bytes": 9485,
+   "retrieved_at": "2026-11-23T03:14:06Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16747",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16747&L=74598",
+   "status": 200,
+   "bytes": 16183,
+   "retrieved_at": "2026-11-23T03:14:07Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16603",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16603&L=74598",
+   "status": 200,
+   "bytes": 18614,
+   "retrieved_at": "2026-11-23T03:14:07Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16610",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16610&L=74598",
+   "status": 200,
+   "bytes": 16471,
+   "retrieved_at": "2026-11-23T03:14:08Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17033",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17033&L=74598",
+   "status": 200,
+   "bytes": 155,
+   "retrieved_at": "2026-11-23T03:14:08Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17073",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17073&L=74598",
+   "status": 200,
+   "bytes": 21171,
+   "retrieved_at": "2026-11-23T03:14:08Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17126",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17126&L=74598",
+   "status": 200,
+   "bytes": 16550,
+   "retrieved_at": "2026-11-23T03:14:09Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17571",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17571&L=74598",
+   "status": 200,
+   "bytes": 18532,
+   "retrieved_at": "2026-11-23T03:14:09Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_13674",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=13674&L=74598",
+   "status": 200,
+   "bytes": 16487,
+   "retrieved_at": "2026-11-23T03:14:10Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16212",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16212&L=74598",
+   "status": 200,
+   "bytes": 23472,
+   "retrieved_at": "2026-11-23T03:14:10Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16680",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16680&L=74598",
+   "status": 200,
+   "bytes": 18314,
+   "retrieved_at": "2026-11-23T03:14:11Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_12620",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=12620&L=74598",
+   "status": 200,
+   "bytes": 23538,
+   "retrieved_at": "2026-11-23T03:14:11Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16192",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16192&L=74598",
+   "status": 200,
+   "bytes": 21159,
+   "retrieved_at": "2026-11-23T03:14:11Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_12616",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=12616&L=74598",
+   "status": 200,
+   "bytes": 21201,
+   "retrieved_at": "2026-11-23T03:14:12Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15355",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15355&L=74598",
+   "status": 200,
+   "bytes": 18452,
+   "retrieved_at": "2026-11-23T03:14:12Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15889",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15889&L=74598",
+   "status": 200,
+   "bytes": 16498,
+   "retrieved_at": "2026-11-23T03:14:13Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_12186",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=12186&L=74598",
+   "status": 200,
+   "bytes": 18843,
+   "retrieved_at": "2026-11-23T03:14:13Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15346",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15346&L=74598",
+   "status": 200,
+   "bytes": 18460,
+   "retrieved_at": "2026-11-23T03:14:13Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15875",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15875&L=74598",
+   "status": 200,
+   "bytes": 20512,
+   "retrieved_at": "2026-11-23T03:14:14Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17124",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17124&L=74598",
+   "status": 200,
+   "bytes": 18463,
+   "retrieved_at": "2026-11-23T03:14:14Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14910",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14910&L=74598",
+   "status": 200,
+   "bytes": 16444,
+   "retrieved_at": "2026-11-23T03:14:15Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16604",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16604&L=74598",
+   "status": 200,
+   "bytes": 21081,
+   "retrieved_at": "2026-11-23T03:14:15Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15853",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15853&L=74598",
+   "status": 200,
+   "bytes": 18478,
+   "retrieved_at": "2026-11-23T03:14:15Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17557",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17557&L=74598",
+   "status": 200,
+   "bytes": 18465,
+   "retrieved_at": "2026-11-23T03:14:16Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16585",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16585&L=74598",
+   "status": 200,
+   "bytes": 2493,
+   "retrieved_at": "2026-11-23T03:14:16Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17115",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17115&L=74598",
+   "status": 200,
+   "bytes": 2301,
+   "retrieved_at": "2026-11-23T03:14:17Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_13404",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=13404&L=74598",
+   "status": 200,
+   "bytes": 14126,
+   "retrieved_at": "2026-11-23T03:14:17Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16161",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16161&L=74598",
+   "status": 200,
+   "bytes": 23456,
+   "retrieved_at": "2026-11-23T03:14:17Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14832",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14832&L=74598",
+   "status": 200,
+   "bytes": 23507,
+   "retrieved_at": "2026-11-23T03:14:18Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_10700",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=10700&L=74598",
+   "status": 200,
+   "bytes": 23525,
+   "retrieved_at": "2026-11-23T03:14:18Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_12678",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=12678&L=74598",
+   "status": 200,
+   "bytes": 21273,
+   "retrieved_at": "2026-11-23T03:14:19Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16201",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16201&L=74598",
+   "status": 200,
+   "bytes": 21154,
+   "retrieved_at": "2026-11-23T03:14:19Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15253",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15253&L=74598",
+   "status": 200,
+   "bytes": 9459,
+   "retrieved_at": "2026-11-23T03:14:19Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14985",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14985&L=74598",
+   "status": 200,
+   "bytes": 18291,
+   "retrieved_at": "2026-11-23T03:14:20Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17254",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17254&L=74598",
+   "status": 200,
+   "bytes": 21252,
+   "retrieved_at": "2026-11-23T03:14:20Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16168",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16168&L=74598",
+   "status": 200,
+   "bytes": 2478,
+   "retrieved_at": "2026-11-23T03:14:21Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15363",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15363&L=74598",
+   "status": 200,
+   "bytes": 10772,
+   "retrieved_at": "2026-11-23T03:14:21Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16601",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16601&L=74598",
+   "status": 200,
+   "bytes": 11790,
+   "retrieved_at": "2026-11-23T03:14:21Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16594",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16594&L=74598",
+   "status": 200,
+   "bytes": 155,
+   "retrieved_at": "2026-11-23T03:14:22Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_15716",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=15716&L=74598",
+   "status": 200,
+   "bytes": 14134,
+   "retrieved_at": "2026-11-23T03:14:22Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16211",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16211&L=74598",
+   "status": 200,
+   "bytes": 16473,
+   "retrieved_at": "2026-11-23T03:14:23Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17043",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17043&L=74598",
+   "status": 200,
+   "bytes": 14114,
+   "retrieved_at": "2026-11-23T03:14:23Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17514",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17514&L=74598",
+   "status": 200,
+   "bytes": 265,
+   "retrieved_at": "2026-11-23T03:14:23Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17588",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17588&L=74598",
+   "status": 200,
+   "bytes": 18741,
+   "retrieved_at": "2026-11-23T03:14:24Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14782",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14782&L=74598",
+   "status": 200,
+   "bytes": 23543,
+   "retrieved_at": "2026-11-23T03:14:24Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_16162",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=16162&L=74598",
+   "status": 200,
+   "bytes": 21130,
+   "retrieved_at": "2026-11-23T03:14:25Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17556",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17556&L=74598",
+   "status": 200,
+   "bytes": 18464,
+   "retrieved_at": "2026-11-23T03:14:25Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_13214",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=13214&L=74598",
+   "status": 200,
+   "bytes": 16550,
+   "retrieved_at": "2026-11-23T03:14:25Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_13832",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=13832&L=74598",
+   "status": 200,
+   "bytes": 20290,
+   "retrieved_at": "2026-11-23T03:14:26Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_14182",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=14182&L=74598",
+   "status": 200,
+   "bytes": 16428,
+   "retrieved_at": "2026-11-23T03:14:26Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "box_17149",
+   "path": "/api/player-weekly-box?season=2026&mfl_id=17149&L=74598",
+   "status": 200,
+   "bytes": 20525,
+   "retrieved_at": "2026-11-23T03:14:27Z",
+   "origin": "worker-get"
+  },
+  {
+   "key": "pss_QB",
+   "path": "/api/position-season-stats?season=2026&through=10&group=QB",
+   "status": 200,
+   "bytes": 60239,
+   "retrieved_at": "2026-11-23T03:11:41Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:41Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read_shared": 36714
+  },
+  {
+   "key": "pss_RB",
+   "path": "/api/position-season-stats?season=2026&through=10&group=RB",
+   "status": 200,
+   "bytes": 132709,
+   "retrieved_at": "2026-11-23T03:11:41Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:41Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read_shared": 36714
+  },
+  {
+   "key": "pss_WR",
+   "path": "/api/position-season-stats?season=2026&through=10&group=WR",
+   "status": 200,
+   "bytes": 205917,
+   "retrieved_at": "2026-11-23T03:11:41Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:41Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read_shared": 36714
+  },
+  {
+   "key": "pss_TE",
+   "path": "/api/position-season-stats?season=2026&through=10&group=TE",
+   "status": 200,
+   "bytes": 115649,
+   "retrieved_at": "2026-11-23T03:11:41Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:41Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read_shared": 36714
+  },
+  {
+   "key": "pss_PK",
+   "path": "/api/position-season-stats?season=2026&through=10&group=PK",
+   "status": 200,
+   "bytes": 21296,
+   "retrieved_at": "2026-11-23T03:11:41Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:41Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read_shared": 36714
+  },
+  {
+   "key": "pss_PN",
+   "path": "/api/position-season-stats?season=2026&through=10&group=PN",
+   "status": 200,
+   "bytes": 13952,
+   "retrieved_at": "2026-11-23T03:11:41Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:41Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read_shared": 36714
+  },
+  {
+   "key": "pss_DL",
+   "path": "/api/position-season-stats?season=2026&through=10&group=DL",
+   "status": 200,
+   "bytes": 221521,
+   "retrieved_at": "2026-11-23T03:11:41Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:41Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read_shared": 36714
+  },
+  {
+   "key": "pss_LB",
+   "path": "/api/position-season-stats?season=2026&through=10&group=LB",
+   "status": 200,
+   "bytes": 111782,
+   "retrieved_at": "2026-11-23T03:11:41Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:41Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read_shared": 36714
+  },
+  {
+   "key": "pss_DB",
+   "path": "/api/position-season-stats?season=2026&through=10&group=DB",
+   "status": 200,
+   "bytes": 214812,
+   "retrieved_at": "2026-11-23T03:11:41Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:41Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read_shared": 36714
+  },
+  {
+   "key": "proj_11_0",
+   "path": "/api/player-projections?season=2026&week=11&ids=7836,9051,9064,9431,10266,10700,10783,11150,11222,11244,11383,11671,11675,11936,12141,12186,12225,12263,12437,12611,12616,12620,12626,12676,12678,12688,12801,12860,13113,13116,13130,13132,13133,13146,13163,13192,13198,13208,13214,13251,13268,13299,13319,13322,13404,13447,13589,13590,13592,13593,13604,13630,13635,13671,13672,13674,13696,13713,13714,13737,13743,13772,13813,13832,13844,13848,14056,14057,14059,14067,14071,14073,14085,14086,14102,14104,14109,14127,14136,14138",
+   "status": 200,
+   "bytes": 10138,
+   "retrieved_at": "2026-11-23T03:11:47Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:47Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read": 141
+  },
+  {
+   "key": "proj_11_1",
+   "path": "/api/player-projections?season=2026&week=11&ids=14147,14153,14157,14163,14167,14170,14171,14180,14182,14225,14244,14247,14249,14251,14256,14303,14315,14405,14412,14434,14630,14717,14777,14779,14782,14783,14789,14797,14800,14802,14823,14832,14833,14835,14836,14840,14842,14861,14871,14877,14892,14893,14896,14908,14909,14910,14927,14957,14983,14985,15237,15241,15253,15255,15256,15259,15261,15281,15282,15284,15287,15290,15293,15329,15331,15346,15350,15351,15355,15363,15366,15404,15428,15452,15499,15681,15694,15698,15702,15708",
+   "status": 200,
+   "bytes": 10545,
+   "retrieved_at": "2026-11-23T03:11:48Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:48Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read": 144
+  },
+  {
+   "key": "proj_11_2",
+   "path": "/api/player-projections?season=2026&week=11&ids=15710,15711,15712,15715,15716,15721,15727,15742,15751,15753,15754,15756,15757,15761,15762,15768,15779,15787,15789,15794,15798,15799,15802,15805,15808,15815,15821,15822,15834,15835,15839,15846,15850,15853,15861,15864,15868,15869,15875,15884,15889,15890,15895,15911,15923,15972,15979,16013,16014,16036,16080,16145,16148,16150,16152,16161,16162,16164,16165,16167,16168,16169,16175,16178,16181,16184,16185,16186,16187,16188,16190,16192,16194,16195,16201,16204,16206,16211,16212,16213",
+   "status": 200,
+   "bytes": 9384,
+   "retrieved_at": "2026-11-23T03:11:49Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:49Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read": 136
+  },
+  {
+   "key": "proj_11_3",
+   "path": "/api/player-projections?season=2026&week=11&ids=16214,16216,16222,16223,16230,16233,16241,16244,16245,16262,16266,16269,16276,16283,16287,16295,16298,16303,16342,16414,16432,16441,16450,16579,16580,16581,16582,16583,16584,16585,16586,16593,16594,16595,16596,16597,16598,16601,16603,16604,16608,16610,16613,16614,16615,16616,16617,16618,16620,16622,16623,16626,16627,16628,16629,16636,16641,16642,16644,16645,16650,16655,16664,16667,16672,16675,16676,16677,16680,16681,16684,16689,16696,16704,16708,16716,16719,16723,16747,16752",
+   "status": 200,
+   "bytes": 8924,
+   "retrieved_at": "2026-11-23T03:11:49Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:49Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read": 133
+  },
+  {
+   "key": "proj_11_4",
+   "path": "/api/player-projections?season=2026&week=11&ids=16773,16778,16788,16809,16846,16896,17030,17031,17032,17033,17036,17037,17038,17039,17042,17043,17044,17045,17047,17048,17051,17052,17053,17055,17056,17059,17060,17061,17064,17066,17068,17069,17070,17071,17072,17073,17074,17075,17076,17078,17080,17081,17082,17083,17086,17087,17096,17098,17099,17102,17103,17104,17105,17106,17107,17108,17112,17113,17115,17120,17121,17122,17123,17124,17125,17126,17131,17132,17134,17144,17145,17147,17155,17157,17159,17163,17171,17184,17241,17254",
+   "status": 200,
+   "bytes": 8193,
+   "retrieved_at": "2026-11-23T03:11:50Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:50Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read": 128
+  },
+  {
+   "key": "proj_11_5",
+   "path": "/api/player-projections?season=2026&week=11&ids=17256,17269,17274,17339,17360,17361,17462,17463,17466,17467,17468,17469,17472,17473,17474,17475,17476,17477,17478,17481,17482,17485,17497,17498,17499,17500,17501,17502,17503,17505,17506,17507,17508,17509,17510,17511,17512,17514,17517,17518,17519,17520,17521,17527,17528,17543,17544,17547,17548,17549,17550,17551,17553,17556,17557,17558,17560,17562,17563,17567,17568,17571,17575,17576,17580,17584,17586,17587,17588,17589,17599,17601,17607,17634,17640,17645,17652,17654,17657,17664",
+   "status": 200,
+   "bytes": 9508,
+   "retrieved_at": "2026-11-23T03:11:51Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:51Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read": 137
+  },
+  {
+   "key": "proj_11_6",
+   "path": "/api/player-projections?season=2026&week=11&ids=17668,17685,17709,17722,17752,17761",
+   "status": 200,
+   "bytes": 614,
+   "retrieved_at": "2026-11-23T03:11:51Z",
+   "origin": "draft-sql",
+   "source": "draft #1515 SQL run read-only on 2026-11-23T03:11:51Z",
+   "draft_sha": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "rows_read": 9
   }
- ]
+ ],
+ "r7_additions": {
+  "note": "R7 (2026-11-23 UTC): added to the 2026-11-22 recording with their own capture times. Read-only; nothing was written anywhere. Bundled by apps/mobile2027/scripts/record_bundle.mjs.",
+  "game_stats": {
+   "route": "/api/player-weekly-box (deployed, GET, no credentials, requests >= 300 ms apart)",
+   "requests": 117,
+   "answered_200": 117,
+   "from": "2026-11-23T03:13:39Z",
+   "to": "2026-11-23T03:14:27Z",
+   "players": "every rostered player of franchises 0010 (the default team: first in the roster read), 0009 and 0008, plus 16185 14782 16162 16641 17556 16719 13214 13832 14985 10700 14182 17149",
+   "worker": {
+    "version_id": "93960454-f9c8-429a-a15d-755e0621159d",
+    "deployed_at": "2026-11-16T20:42:38Z",
+    "source_commit": "658531013f20b778dd8eb8a4a816de5041fc95b1",
+    "record": "GitHub deploy-worker.yml success for the merge of #1457; wrangler deployments list"
+   },
+   "earlier_captures": "the verification-pass answers for 16185, 14782, 10700 and 17149 are byte-identical to these new captures; every answer bundled here is from this capture"
+  },
+  "draft_routes": {
+   "pr": 1515,
+   "commit": "6ff03c8f1008b04a91e3480ced9d4cd69a8c7030",
+   "modules": [
+    "worker/src/position_season_stats.js (SQL, buildGroups)",
+    "worker/src/player_projections.js (SQL text, parseIds, readProjections)"
+   ],
+   "how": "each SQL statement of the draft module was run read-only with `wrangler d1 execute ups-mfl-db --remote --json` after its EXPLAIN QUERY PLAN; the route's JSON body was then assembled in node by the draft module's own code",
+   "explain": [
+    {
+     "query": "box",
+     "plan": [
+      "SEARCH nfl_player_weekly USING INDEX sqlite_autoindex_nfl_player_weekly_1 (season=? AND week>? AND week<?)"
+     ]
+    },
+    {
+     "query": "ext",
+     "plan": [
+      "SEARCH nfl_player_weekly_ext USING INDEX sqlite_autoindex_nfl_player_weekly_ext_1 (season=? AND week>? AND week<?)"
+     ]
+    },
+    {
+     "query": "rz",
+     "plan": [
+      "SEARCH nfl_player_redzone USING INDEX sqlite_autoindex_nfl_player_redzone_1 (season=? AND week>? AND week<?)"
+     ]
+    },
+    {
+     "query": "snaps",
+     "plan": [
+      "SEARCH nfl_player_snaps USING INDEX sqlite_autoindex_nfl_player_snaps_1 (season=? AND week>? AND week<?)"
+     ]
+    },
+    {
+     "query": "map",
+     "plan": [
+      "SCAN player_id_map"
+     ]
+    },
+    {
+     "query": "stamps",
+     "plan": [
+      "SEARCH etl_runs USING INDEX sqlite_autoindex_etl_runs_1 (source=?)"
+     ]
+    },
+    {
+     "query": "proj_0",
+     "plan": [
+      "SEARCH ups_player_projections USING INDEX sqlite_autoindex_ups_player_projections_1 (season=? AND week=? AND player_id=?)"
+     ]
+    },
+    {
+     "query": "proj_1",
+     "plan": [
+      "SEARCH ups_player_projections USING INDEX sqlite_autoindex_ups_player_projections_1 (season=? AND week=? AND player_id=?)"
+     ]
+    },
+    {
+     "query": "proj_2",
+     "plan": [
+      "SEARCH ups_player_projections USING INDEX sqlite_autoindex_ups_player_projections_1 (season=? AND week=? AND player_id=?)"
+     ]
+    },
+    {
+     "query": "proj_3",
+     "plan": [
+      "SEARCH ups_player_projections USING INDEX sqlite_autoindex_ups_player_projections_1 (season=? AND week=? AND player_id=?)"
+     ]
+    },
+    {
+     "query": "proj_4",
+     "plan": [
+      "SEARCH ups_player_projections USING INDEX sqlite_autoindex_ups_player_projections_1 (season=? AND week=? AND player_id=?)"
+     ]
+    },
+    {
+     "query": "proj_5",
+     "plan": [
+      "SEARCH ups_player_projections USING INDEX sqlite_autoindex_ups_player_projections_1 (season=? AND week=? AND player_id=?)"
+     ]
+    },
+    {
+     "query": "proj_6",
+     "plan": [
+      "SEARCH ups_player_projections USING INDEX sqlite_autoindex_ups_player_projections_1 (season=? AND week=? AND player_id=?)"
+     ]
+    }
+   ],
+   "runs": [
+    {
+     "query": "box",
+     "at": "2026-11-23T03:11:41.942Z",
+     "rows": 10589,
+     "rows_read": 10589,
+     "rows_written": 0
+    },
+    {
+     "query": "ext",
+     "at": "2026-11-23T03:11:43.651Z",
+     "rows": 6903,
+     "rows_read": 6903,
+     "rows_written": 0
+    },
+    {
+     "query": "rz",
+     "at": "2026-11-23T03:11:44.441Z",
+     "rows": 2923,
+     "rows_read": 2923,
+     "rows_written": 0
+    },
+    {
+     "query": "snaps",
+     "at": "2026-11-23T03:11:45.399Z",
+     "rows": 14004,
+     "rows_read": 14004,
+     "rows_written": 0
+    },
+    {
+     "query": "map",
+     "at": "2026-11-23T03:11:46.323Z",
+     "rows": 2274,
+     "rows_read": 2295,
+     "rows_written": 0
+    },
+    {
+     "query": "stamps",
+     "at": "2026-11-23T03:11:47.029Z",
+     "rows": 4,
+     "rows_read": 8,
+     "rows_written": 0
+    },
+    {
+     "query": "proj_0",
+     "at": "2026-11-23T03:11:47.711Z",
+     "rows": 61,
+     "rows_read": 141,
+     "rows_written": 0
+    },
+    {
+     "query": "proj_1",
+     "at": "2026-11-23T03:11:48.382Z",
+     "rows": 64,
+     "rows_read": 144,
+     "rows_written": 0
+    },
+    {
+     "query": "proj_2",
+     "at": "2026-11-23T03:11:49.045Z",
+     "rows": 56,
+     "rows_read": 136,
+     "rows_written": 0
+    },
+    {
+     "query": "proj_3",
+     "at": "2026-11-23T03:11:49.716Z",
+     "rows": 53,
+     "rows_read": 133,
+     "rows_written": 0
+    },
+    {
+     "query": "proj_4",
+     "at": "2026-11-23T03:11:50.525Z",
+     "rows": 48,
+     "rows_read": 128,
+     "rows_written": 0
+    },
+    {
+     "query": "proj_5",
+     "at": "2026-11-23T03:11:51.231Z",
+     "rows": 57,
+     "rows_read": 137,
+     "rows_written": 0
+    },
+    {
+     "query": "proj_6",
+     "at": "2026-11-23T03:11:51.944Z",
+     "rows": 3,
+     "rows_read": 9,
+     "rows_written": 0
+    }
+   ],
+   "total_rows_read": 37550,
+   "nflverse_refresh_stamps": [
+    {
+     "source": "nflverse_pbp",
+     "last_run_utc": "2026-11-18T19:15:10Z"
+    },
+    {
+     "source": "nflverse_snaps",
+     "last_run_utc": "2026-11-18T19:14:57Z"
+    },
+    {
+     "source": "nflverse_weekly",
+     "last_run_utc": "2026-11-18T19:14:51Z"
+    },
+    {
+     "source": "pfr_advstats",
+     "last_run_utc": "2026-11-18T19:15:35Z"
+    }
+   ],
+   "position_season_stats": {
+    "season": 2026,
+    "through": 10,
+    "groups": [
+     {
+      "group": "QB",
+      "players": 70
+     },
+     {
+      "group": "RB",
+      "players": 150
+     },
+     {
+      "group": "WR",
+      "players": 233
+     },
+     {
+      "group": "TE",
+      "players": 128
+     },
+     {
+      "group": "PK",
+      "players": 38
+     },
+     {
+      "group": "PN",
+      "players": 34
+     },
+     {
+      "group": "DL",
+      "players": 360
+     },
+     {
+      "group": "LB",
+      "players": 197
+     },
+     {
+      "group": "DB",
+      "players": 364
+     }
+    ],
+    "unmapped_box_players": 242,
+    "ambiguous_ids": 0
+   },
+   "projections": {
+    "season": 2026,
+    "week": 11,
+    "ids": 486,
+    "ids_with_a_stored_row": 342,
+    "players": "every rostered player in the 2026-11-22 roster read, ascending, in groups of at most 80 (the route's MAX_IDS)"
+   }
+  }
+ }
 }

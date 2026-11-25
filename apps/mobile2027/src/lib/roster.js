@@ -23,19 +23,21 @@
   }
   function pad4(v) { var d = String(v == null ? "" : v).replace(/\D/g, ""); return d ? ("0000" + d).slice(-4) : ""; }
 
-  // The 18 starting slots in the demo's order and with the demo's tags. Canon: docs/league_context_v1.md §B4 (QB 1, RB 2, WR 2, TE 1,
-  // Flex 2, SuperFlex 1, K 1, P 1, DL 2, LB 2, DB 2, Defensive Flex 1 = 18).
+  // The 18 starting slots in the demo's order. Canon: docs/league_context_v1.md §B4 (QB 1, RB 2, WR 2, TE 1, Flex 2, SuperFlex 1, K 1, P 1,
+  // DL 2, LB 2, DB 2, Defensive Flex 1 = 18). R6 (Keith, 2026-11-22): the flex slots are labeled OFX (offensive flex, numbered because there
+  // are two), SFX (superflex) and DFX (defensive flex); the other numbered labels stay.
   var SLOTS = [
     { id: "QB1", tag: "QB1", label: "QB", acc: ["QB"] }, { id: "RB1", tag: "RB1", label: "RB", acc: ["RB"] }, { id: "RB2", tag: "RB2", label: "RB", acc: ["RB"] },
     { id: "WR1", tag: "WR1", label: "WR", acc: ["WR"] }, { id: "WR2", tag: "WR2", label: "WR", acc: ["WR"] }, { id: "TE1", tag: "TE1", label: "TE", acc: ["TE"] },
-    { id: "FX1", tag: "FX1", label: "Flex", acc: ["RB", "WR", "TE"], flex: true }, { id: "FX2", tag: "FX2", label: "Flex", acc: ["RB", "WR", "TE"], flex: true },
-    { id: "SF", tag: "SF", label: "Superflex", acc: ["QB", "RB", "WR", "TE"], flex: true },
+    { id: "OFX1", tag: "OFX1", label: "Offensive flex", acc: ["RB", "WR", "TE"], flex: true }, { id: "OFX2", tag: "OFX2", label: "Offensive flex", acc: ["RB", "WR", "TE"], flex: true },
+    { id: "SFX", tag: "SFX", label: "Superflex", acc: ["QB", "RB", "WR", "TE"], flex: true },
     { id: "K", tag: "K", label: "Kicker", acc: ["PK"] }, { id: "P", tag: "P", label: "Punter", acc: ["PN"] },
     { id: "DL1", tag: "DL1", label: "DL", acc: ["DL"] }, { id: "DL2", tag: "DL2", label: "DL", acc: ["DL"] },
     { id: "LB1", tag: "LB1", label: "LB", acc: ["LB"] }, { id: "LB2", tag: "LB2", label: "LB", acc: ["LB"] },
     { id: "DB1", tag: "DB1", label: "DB", acc: ["DB"] }, { id: "DB2", tag: "DB2", label: "DB", acc: ["DB"] },
-    { id: "DF", tag: "DF", label: "Defensive flex", acc: ["DL", "LB", "DB"], flex: true }
+    { id: "DFX", tag: "DFX", label: "Defensive flex", acc: ["DL", "LB", "DB"], flex: true }
   ];
+  function slotByTag(tag) { for (var i = 0; i < SLOTS.length; i++) if (SLOTS[i].tag === tag) return SLOTS[i]; return null; }
 
   // Puts the week's starters (in MFL's order) into the slots: the fixed slots first, then the flex slots, each taking the first
   // starter it accepts, the same way the current app does. A starter no slot takes is returned in `extra` (never dropped).
@@ -166,16 +168,15 @@
     var g = gameOf(S, p.nflTeam, wk);
     return g && g.kickoff ? F.etKickoff(g.kickoff) : "";
   }
-  // A row shows a kickoff only when it is NOT the ordinary Sunday 1:00 PM slate (R2b, P3). "unknown": the game is known but its time is not
-  // (shown as "Kickoff unavailable", never guessed); "none": no game to speak of (a bye, or the games read is out or failed: the opponent
-  // text already says which).
-  var ORDINARY_SLATE = "Sun 1:00 PM";
+  // The kickoff of a player's game in Eastern Time ("Sun 1:00 PM ET"). R6 (Keith, 2026-11-22): every matchup shows its kickoff, the ordinary
+  // Sunday 1:00 PM games included (the R2b rule that left those out is withdrawn). "unknown": the game is known but its time is not (shown as
+  // "Kickoff unavailable", never guessed); "none": no game to speak of (a bye, or the games read is out or failed: the opponent text says which).
   function kickoffInfo(S, p, wk) {
     if (gameState(S, wk) !== "ok") return { state: "none", text: "" };
     var g = gameOf(S, p.nflTeam, wk);
     if (!g) return { state: "none", text: "" };
     var t = g.kickoff ? F.etKickoff(g.kickoff) : "";
-    return t ? { state: "known", text: t, ordinary: t === ORDINARY_SLATE } : { state: "unknown", text: "" };
+    return t ? { state: "known", text: t + " ET" } : { state: "unknown", text: "" };
   }
 
   // ---------- injury chips (CURRENT information: drawn only on the current week) ----------
@@ -201,6 +202,13 @@
     var kind = c.cls === "out" ? "out" : c.cls === "res" ? "res" : "warn";
     var text = c.t === "OUT" ? "■ OUT" : c.t === "D" ? "▲ Doubtful" : c.t === "Q" ? "▲ Questionable" : (kind === "res" ? "■ " : "▲ ") + c.t;
     return { cls: kind === "warn" ? "wn" : "cr", text: text, code: c.t, kind: kind };
+  }
+  // R9 (Keith, 2026-11-23): the ONE IR badge, wherever IR is drawn (a roster row's IR designation, the Byes and coverage rows, the Contracts row,
+  // the profile header). Red, with a small medical cross, and it always keeps the text "IR": color is never the only cue. The cross is a plain
+  // SVG path (no image request, no inline style); `extra` adds a size class (the profile header's pill size).
+  var IR_ICON = '<svg class="irx" viewBox="0 0 10 10" aria-hidden="true" focusable="false"><path d="M3.5 0h3v3.5H10v3H6.5V10h-3V6.5H0v-3h3.5z"/></svg>';
+  function irBadge(label, extra) {
+    return '<span class="chip irb' + (extra ? " " + F.esc(extra) : "") + '">' + IR_ICON + F.esc(label || "IR") + "</span>";
   }
   // The one line the screen shows only when the injury read is not usable (the resolver's own wording).
   function injuryNote(S) {
@@ -256,7 +264,7 @@
       var issues = [], c = injuryChip(S, p);
       if (c && c.kind === "out") issues.push({ kind: "out", text: "Out" });
       else if (c && c.kind === "res") issues.push({ kind: "designation", text: "MFL designation: " + c.code });
-      else if (c && c.code === "D") issues.push({ kind: "doubtful", text: "Doubtful: a decision may be needed" });
+      else if (c && c.code === "D") issues.push({ kind: "doubtful", text: "Doubtful" });
       if (onBye(p, cur)) issues.push({ kind: "bye", text: "Bye week" });
       if (issues.length) items.push({ slot: x.slot, player: p, issues: issues });
     });
@@ -308,9 +316,9 @@
   function capNote(p) { return p.status === "ir" ? " · cap hit 50%" : p.status === "taxi" ? " · taxi, $0 on cap" : ""; }
 
   return {
-    SLOTS: SLOTS, lineupCoherence: lineupCoherence, assignSlots: assignSlots, weeklyIndex: weeklyIndex, weekInfo: weekInfo, weekChoices: weekChoices, lineupFor: lineupFor,
-    gameState: gameState, oppText: oppText, kickoffText: kickoffText, injuryChip: injuryChip, injuryFresh: injuryFresh, injuryNote: injuryNote, onBye: onBye,
+    SLOTS: SLOTS, slotByTag: slotByTag, lineupCoherence: lineupCoherence, assignSlots: assignSlots, weeklyIndex: weeklyIndex, weekInfo: weekInfo, weekChoices: weekChoices, lineupFor: lineupFor,
+    gameState: gameState, oppText: oppText, kickoffText: kickoffText, injuryChip: injuryChip, irBadge: irBadge, injuryFresh: injuryFresh, injuryNote: injuryNote, onBye: onBye,
     scoreOf: scoreOf, scoreRead: scoreRead, teamScoreOf: teamScoreOf, scoreWeek: scoreWeek, avgOf: avgOf, pts: pts, attention: attention, groupReasons: groupReasons,
-    endingAfterSeason: endingAfterSeason, byeGroups: byeGroups, relWeek: relWeek, capNote: capNote, viewWeek: viewWeek, kickoffInfo: kickoffInfo, ORDINARY_SLATE: ORDINARY_SLATE
+    endingAfterSeason: endingAfterSeason, byeGroups: byeGroups, relWeek: relWeek, capNote: capNote, viewWeek: viewWeek, kickoffInfo: kickoffInfo
   };
 });

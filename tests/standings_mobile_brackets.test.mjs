@@ -130,7 +130,7 @@ test("a played game's Tale of the Tape: the result, and the numbers from before 
 test("Seeds option: 1-12 in order, each with the worker's seed explanation, and the playoff line", async () => {
   const b = await boot();
   const p = plain(await b.show({ mode: "playoffs", side: "seeds", year: 2026 }));
-  t.match(p, /Seeds and why 1 C-Town Chivalry Seed 1: .* 4 Real Deal Creel Seed 4: behind HammerTime on All-Play %\. Ahead of CBP on H2H record \(same All-Play %\)\./);
+  t.match(p, /Seeds and why 1 C-Town Chivalry Seed 1: .* 4 Real Deal Creel Seed 4: behind HammerTime on All-Play %\. Ahead of CBP on season Points For \(same All-Play %\)\./);
   t.match(p, /H2 Cleon Ca\$h Outside the top six — 8 AP wins back; .* Directly behind Hawks on All-Play %\./, "a Hawk Tuah seed says what put it there");
   t.match(p, /6 Pure Greatness .* Playoff line · H1–H6 play the Hawk Tuah Bowl H1 Hawks/);
 });

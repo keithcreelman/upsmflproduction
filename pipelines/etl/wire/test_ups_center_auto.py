@@ -55,8 +55,20 @@ check("every class of claim was checked (scores, margins, records, all-play, PF,
       rep["checkedClaims"])
 check("not publishable while editor items remain", not rep["publishable"] and res["gaps"])
 check("Coffee Shop jokes are an editor gap, with verbatim candidates", any(g["id"] == "coffee:kenny" for g in res["gaps"]))
-check("the site's order differs from the F.1 order in the recorded snapshot -> flagged, not hidden",
-      any(g["id"] == "landscape:site-order" for g in res["gaps"]))
+# canon §F.1 (Keith 2026-11-25): the recorded Week 4 site order has Cutting above Mannila (both 22-22, outside the field)
+# on points for. Outside the field the order is the Hawk Tuah side's, unchanged by the correction (all-play %, overall
+# record, points for: Mannila 6-4 first), so the recorded order is flagged. Bear Dunn and Eric Martel are division
+# leaders level on all-play (34-10), a tie no settled rule decides, so the order of places 1-2 is flagged too.
+check("the recorded Week 4 site order differs from the unchanged H1-H6 order -> flagged, not hidden",
+      any(g["id"] == "landscape:site-order" for g in res["gaps"]), [g["id"] for g in res["gaps"]])
+check("division leaders level on all-play for places 1-2 -> an editor gap (no rule decides it yet), not a silent order",
+      any(g["id"] == "landscape:h2h" and "places 1 and 2" in g["why"] for g in res["gaps"]), [g for g in res["gaps"] if g["id"].startswith("landscape")])
+_swapped = copy.deepcopy(CTX)
+_s = _swapped["site"]["standings"]
+_i = [r["owner_name"] for r in _s].index("Brian Cutting")
+_s[_i], _s[_i + 1] = _s[_i + 1], _s[_i]                  # the H1-H6 order: Mannila (6-4) above Cutting (4-6)
+check("the site order the corrected Worker serves (H1-H6 in the Hawk Tuah order) -> no site-order gap",
+      not any(g["id"] == "landscape:site-order" for g in build(ctx=_swapped)[0]["gaps"]), [g["id"] for g in build(ctx=_swapped)[0]["gaps"]])
 rows = re.findall(r"MFL proj\. ([^<]+?) ET &middot; kickoff ([^<]+?) ET", res["html"])
 check("every bust/bargain row prints its projection capture time and kickoff", len(rows) == 20, len(rows))
 check("deterministic: a second render has the same claims", ISSUE.render(copy.deepcopy(PACK), copy.deepcopy(CTX), generated_at=T0,
@@ -376,6 +388,7 @@ def forecast(through=4, gen=None, prev=True, prev_through=4, prev_inputs=None):
     """SYNTHETIC test forecast: the real Week 5 file's team odds, relabelled to cover the fixture's Week 4."""
     f = {"simFile": "season_sim_2026_live_wk04.json", "previewFile": "week_preview_2026_wk05.json",
          "sim": {"throughWeek": through, "runs": 10000, "seed": 20260911, "generatedAtUtc": _iso(gen or FINAL + 3600),
+                 "seedingRule": SS.SEEDING_RULE,
                  "teams": {r["franchiseId"]: {"po": r["currentPlayoffOdds"], "bye": r["currentByeOdds"],
                                               "div": r["currentDivisionOdds"], "title": r["currentTitleOdds"],
                                               "division": r["division"]} for r in _REAL["teams"]}},
@@ -397,7 +410,55 @@ r0, v0, _ = build()
 check("no forecast at all -> a Playoff Picture blocker (odds:missing) and the draft is not publishable",
       {"odds:missing", "odds:preview-missing"} <= {g["id"] for g in r0["gaps"]} and v0["ok"] and not v0["publishable"]
       and 'data-editor-gap="odds:missing"' in r0["html"], [g["id"] for g in r0["gaps"]])
+_oldrule = forecast(); _oldrule["sim"].pop("seedingRule")
+_ro, _vo, _ = build(with_fc(_oldrule))
+check("a forecast simulated under the earlier seeding rules -> an odds:rule blocker, no Playoff Picture odds",
+      "odds:rule" in [g["id"] for g in _ro["gaps"]] and not any(k.startswith("odds:po:") for k in _ro["claims"]), [g["id"] for g in _ro["gaps"]])
 r1, v1, c1 = build(with_fc(forecast()))
+check("no open simulated ties -> the caption says nothing about them", "equal chances" not in r1["html"])
+_ties = forecast(); _ties["sim"]["pendingTieSeasons"] = 63
+_rt, _vt, _ = build(with_fc(_ties))
+check("open simulated ties -> the caption counts them and calls equal chances a forecast assumption, not a league tiebreak",
+      "In 63 of the simulated seasons" in _rt["html"] and "equal chances. That is a forecast assumption, not a league tiebreak" in _rt["html"]
+      and "rule for these ties is still pending" in _rt["html"]
+      and _rt["claims"].get("odds:pendingTieSeasons", {}).get("value") == 63, _rt["claims"].get("odds:pendingTieSeasons"))
+
+# Movement only between forecasts simulated under the same seeding rules (Keith 2026-11-25, release plan 3a):
+# ups_center_sources.load_forecast keeps last week's odds and the preseason odds as a baseline only under the same rule.
+import ups_center_sources as SRCS                                         # noqa: E402
+def _simfile(week, rule, pre_rule="__same__"):
+    m = {} if rule is None else {"seedingRule": rule}
+    if rule is not None and pre_rule is not None:
+        m["preseasonSeedingRule"] = rule if pre_rule == "__same__" else pre_rule
+    return {"throughWeek": week, "runs": 10, "seed": 1, "generatedAtUtc": "2026-11-25T00:00:00Z", "model": m,
+            "teams": [{"franchiseId": "0001", "currentPlayoffOdds": 0.6, "currentByeOdds": 0.1, "currentDivisionOdds": 0.3,
+                       "currentTitleOdds": 0.05, "division": "00", "preseasonPlayoffOdds": 0.4, "preseasonTitleOdds": 0.02}]}
+def _load(cur, prev):
+    d = tempfile.mkdtemp()
+    json.dump(cur, open(os.path.join(d, "season_sim_2026_live_wk11.json"), "w"))
+    if prev is not None:
+        json.dump(prev, open(os.path.join(d, "season_sim_2026_live_wk10.json"), "w"))
+    return SRCS.load_forecast(2026, 11, d)
+_R = SS.SEEDING_RULE
+_same = _load(_simfile(11, _R), _simfile(10, _R))
+check("movement baseline, same rule: last week's odds and the preseason odds are kept",
+      (_same["prevSim"] or {}).get("teams", {}).get("0001", {}).get("po") == 0.6 and _same["movementWhy"] is None
+      and _same["sim"]["teams"]["0001"]["prePo"] == 0.4, (_same["prevSim"], _same["movementWhy"]))
+_old = _load(_simfile(11, _R, pre_rule=None), _simfile(10, None))
+check("movement baseline, earlier rule (no model.seedingRule last week; preseason run without a rule): both dropped, and why",
+      _old["prevSim"] is None and _old["movementWhy"] == "the Week 10 forecast was simulated under the earlier seeding rules"
+      and _old["sim"]["teams"]["0001"]["prePo"] is None and _old["sim"]["teams"]["0001"]["preTitle"] is None, (_old["prevSim"], _old["movementWhy"]))
+_diff = _load(_simfile(11, _R, pre_rule="other"), _simfile(10, "other"))
+check("movement baseline, a different rule: dropped, and why",
+      _diff["prevSim"] is None and _diff["movementWhy"] == "the Week 10 forecast was simulated under different seeding rules"
+      and _diff["sim"]["teams"]["0001"]["prePo"] is None, _diff["movementWhy"])
+_none = _load(_simfile(11, _R), None)
+check("movement baseline, no earlier forecast: no baseline and nothing to explain", _none["prevSim"] is None and _none["movementWhy"] is None)
+_mv = forecast(); _mv["movementWhy"] = "the Week 3 forecast was simulated under the earlier seeding rules"
+_rm, _vm, _ = build(with_fc(_mv))
+check("the odds caption says why no change since last week is given (rule mismatch)",
+      "No change since last week is given: the Week 3 forecast was simulated under the earlier seeding rules, so the two aren&rsquo;t comparable." in _rm["html"])
+check("...and says nothing when the baseline is comparable", "No change since last week" not in r1["html"])
 odds_claims = {k: x for k, x in r1["claims"].items() if k.startswith("odds:")}
 check("a fresh forecast renders the Playoff Picture: 12 teams x playoffs, bye, division, title, all validated",
       v1["ok"] and not any(g["id"].startswith("odds:") for g in r1["gaps"]) and len(odds_claims) == 50, (v1["errors"], len(odds_claims)))
@@ -531,7 +592,8 @@ open(os.path.join(inputs, "recorded.json"), "w").write("{}")
 def replay_sh(cmd, cwd=None, check=False, env=None):
     calls.append(list(cmd))
     if "season_sim.py" in " ".join(cmd):
-        sim = dict(_REAL, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
+        # stands in for the corrected simulator, which names its seeding rule (canon §F.1, 2026-11-25)
+        sim = dict(_REAL, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600), model=dict(_REAL.get("model") or {}, seedingRule=SS.SEEDING_RULE))
         json.dump(sim, open(os.path.join(cwd, cmd[cmd.index("--out") + 1]), "w"))
     elif "week_preview.py" in " ".join(cmd):
         q = dict(_REALQ, week=5, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
@@ -841,7 +903,15 @@ print("S. the story format (Keith 2026-11-05): the default template")
 import ups_center_story_data as SD            # noqa: E402
 import ups_center_story_issue as SI           # noqa: E402
 FX8 = os.path.join(HERE, "..", "..", "..", "tests", "fixtures", "ups_center_auto", "2026_wk08")
-CTX8 = json.load(open(os.path.join(FX8, "context.json")))
+CTX8_RECORDED = json.load(open(os.path.join(FX8, "context.json")))
+# The Week 8 recording's site order came from the Worker before the playoff-ladder correction (canon §F.1, Keith
+# 2026-11-25). The field is the same under the corrected ladders, and outside it Josh Martel and Brian Cross (both
+# 22-66 All-Play) keep the Hawk Tuah order (overall record: 6-15 over 5-16), so the recorded order is the corrected one.
+CTX8 = copy.deepcopy(CTX8_RECORDED)
+# ...and its forecast, run before the correction, is treated as a corrected run (the recorded one, with no seeding
+# rule, is a blocker: checked below)
+if (CTX8.get("forecast") or {}).get("sim"):
+    CTX8["forecast"]["sim"]["seedingRule"] = SS.SEEDING_RULE
 PACK8 = json.load(open(os.path.join(HERE, "..", "..", "..", "site", "wire", "packs", "2026", "2026-wk08-recap.pack.json")))
 
 
@@ -855,6 +925,12 @@ def build8(mut=None, local=True, fmt=None):
 
 
 r8, v8, _ = build8()
+_rec8 = ISSUE.render(copy.deepcopy(PACK8), copy.deepcopy(CTX8_RECORDED), generated_at=T0, local_candidates=True, fmt=None)
+check("the recorded (pre-correction) Week 8 site order equals the corrected order (same field; H1-H6 unchanged) -> no site-order gap",
+      "landscape:site-order" not in [g["id"] for g in _rec8["gaps"]], [g["id"] for g in _rec8["gaps"]])
+if (CTX8_RECORDED.get("forecast") or {}).get("sim"):
+    check("the recorded Week 8 forecast (no seeding rule: simulated before the correction) is an odds blocker, never printed",
+          "odds:rule" in [g["id"] for g in _rec8["gaps"]], [g["id"] for g in _rec8["gaps"]])
 ids8 = re.findall(r'<section class="wire-sec" id="([^"]+)"', r8["html"])
 check("the default output is the story format: six segments in order", r8["format"] == "story" and ids8 == SI.SEGMENTS, (r8.get("format"), ids8, r8.get("formatFallback")))
 check("Week 8 story draft validates against its sources", v8["ok"], v8["errors"])

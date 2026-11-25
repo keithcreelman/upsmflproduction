@@ -28,12 +28,13 @@
     return s;
   }
 
-  // The marker at the top of every screen. In recorded-data mode `recorded` is the snapshot's time ("Sun Nov 22, 2026, 10:22 AM ET"): the marker then
-  // says the page shows a recording, so nobody takes a figure for a live one. Sample mode keeps its own label.
+  // The marker at the top of every screen. In recorded-data mode (`recorded` truthy) it is the compact R8 line "Test · Recorded data", so nobody takes a
+  // figure for a live one; the capture times live in About (reached from the marker's "Known issues" button). Sample mode keeps its own label.
+  var RECORDED = "Test · Recorded data";
   function envText(on, recorded) {
     if (on) return LABEL;
-    return recorded ? "PREVIEW · RECORDED DATA · recorded " + recorded + " · VIEW ONLY" : PREVIEW;
+    return recorded ? RECORDED : PREVIEW;
   }
 
-  return { LABEL: LABEL, PREVIEW: PREVIEW, create: create, envText: envText };
+  return { LABEL: LABEL, PREVIEW: PREVIEW, RECORDED: RECORDED, create: create, envText: envText };
 });

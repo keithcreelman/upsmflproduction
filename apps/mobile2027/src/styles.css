@@ -30,16 +30,24 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .envbar{flex:0 0 auto;display:flex;align-items:center;min-height:calc(26px + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));background:var(--s2);color:var(--mu);border-bottom:1px solid var(--bd);font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .envbar.sample{background:var(--wn);color:var(--on);border-bottom-color:var(--wn)}
 .envbar span{padding:4px 0;line-height:1.25}
-.envbar.rec{font-size:11px;letter-spacing:.02em;text-transform:none}
-.hd{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px max(8px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
+.envbar.rec{font-size:12px;letter-spacing:.02em;text-transform:none;white-space:nowrap}
+.envbar .link{margin-left:auto;padding:0 0 0 10px;min-height:44px;font-size:12px;font-weight:600;white-space:nowrap}
+/* R8: the heading and the freshness line are inside the scrolling area (#scroll) and scroll away; only the marker, the Team tabs (sticky) and the
+   bottom bar stay on screen */
+.hdw{padding:2px 0 0}
+.hd{display:flex;align-items:center;gap:8px;padding:0 max(8px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
 .hd h1{margin:0;flex:1;font-size:19px;letter-spacing:-.01em}
-.asof{flex:0 0 auto;padding:2px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));font-size:12px;color:var(--mu);min-height:16px}
+.asof{margin-top:-6px;padding:0 max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px));font-size:12px;color:var(--mu);min-height:16px}
 .ib{min-width:44px;min-height:44px;border:0;background:transparent;color:var(--ac);font-size:20px;line-height:1;padding:0}
 .tabs{flex:0 0 auto;display:flex;gap:2px;border-bottom:1px solid var(--bd);padding-inline:max(12px,env(safe-area-inset-left,0px));margin-top:4px}
 .tabs button{border:0;background:transparent;min-height:44px;padding:0 10px;font-size:13px;color:var(--mu)}
 .tabs button[aria-selected="true"]{color:var(--tx);font-weight:700;box-shadow:inset 0 -3px 0 var(--ac)}
 [data-vib="1"] .tabs button[aria-selected="true"]{box-shadow:inset 0 -3px 0 var(--g2)}
-#screen{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;padding:8px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:8px}
+/* R8: #scroll is the one scrolling area (heading, tabs, #screen). The Team tabs stick to its top, full width and opaque, above the rows; a focused
+   control scrolls into view below them (scroll-padding-top). */
+.scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;scroll-padding-top:52px}
+.tabs.stk{position:sticky;top:0;z-index:4;background:var(--bg)}
+#screen{min-height:0;padding:8px max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:8px}
 
 .card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:10px 12px;min-width:0}
 [data-vib="1"] .card{border-width:1.5px}
@@ -85,6 +93,10 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 [data-vib="1"] .pc.DL,[data-vib="1"] .pc.LB,[data-vib="1"] .pc.DB{background:var(--pd);color:var(--pdt);border-color:var(--pd)}
 .chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;border:1.5px solid var(--bs);white-space:nowrap;background:transparent}
 .chip.ok{color:var(--ok);border-color:var(--ok)}.chip.wn{color:var(--wn);border-color:var(--wn)}.chip.cr{color:var(--cr);border-color:var(--cr)}
+/* R9: the one IR badge (red, a small medical cross, the text "IR" kept) */
+.chip.irb{background:var(--cr);border-color:var(--cr);color:var(--on);gap:3px}
+.chip.irb .irx{flex:0 0 9px;width:9px;height:9px;fill:currentColor}
+.chip.irb.hpb{min-height:26px;padding:2px 10px;font-size:12.5px;font-weight:700;border-color:var(--on)}
 
 .rows{padding:2px 12px}
 .rx{display:flex;gap:8px;align-items:center;padding:6px 0;border-top:1px solid var(--bd);min-height:56px;min-width:0}
@@ -189,12 +201,26 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}
 .kv b{font-weight:600;color:var(--mu)}
 .kv span{min-width:0;overflow-wrap:anywhere}
+.kv span b{color:inherit}
 .xt{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;border:1px solid var(--bd);border-radius:10px;background:var(--sf);padding:0 10px;font-size:13px;font-weight:600;text-align:left;margin-top:6px}
 .xt .go{margin-left:auto}
 .xb{border:1px solid var(--bd);border-top:0;border-radius:0 0 10px 10px;padding:8px 10px;font-size:13px;margin-top:-1px}
 .xb code{display:block;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere;white-space:pre-wrap}
 .lbl{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mu);margin:6px 0 2px}
 .chs{display:flex;flex-wrap:wrap;gap:6px}
+/* R8: Team › Performance "Search players": 16px text so iOS does not zoom on focus, a 44px target */
+.pfs .lbl{display:block}
+.pfq{display:block;width:100%;min-height:44px;padding:0 12px;border:1.5px solid var(--bs);border-radius:10px;background:var(--sf);color:var(--tx);font:16px/1.2 var(--fb);-webkit-appearance:none;appearance:none}
+.pfq::placeholder{color:var(--mu);opacity:1}
+.pfq:focus-visible{outline:3px solid var(--fc);outline-offset:1px}
+.pflist{display:flex;flex-direction:column;gap:8px}
+/* R9: the position filter chips (All · QB … DB), 44px targets, two rows at most on a 320px phone; "Search other teams" and its rows */
+.pfpos{gap:6px 5px}
+.pfpos .ch{min-width:44px;padding:0 9px}
+.xtb{margin-top:8px}
+.xtp{margin:6px 0 8px}
+.xtr{padding:0 2px 6px}
+.xtr .xtt{color:var(--tx);font-weight:600}
 .ch{min-height:44px;padding:0 12px;border-radius:99px;border:1.5px solid var(--bs);background:transparent;font-size:13px;color:var(--tx)}
 .ch[aria-pressed="true"]{background:var(--ac);color:var(--on);border-color:var(--ac);font-weight:700}
 .lg{display:flex;justify-content:space-between;gap:8px;border-top:1px solid var(--bd);padding:5px 0;font-size:12.5px}
@@ -218,6 +244,8 @@ nav.bar4 svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1
 .t4{grid-template-columns:repeat(4,minmax(0,1fr))}.t5{grid-template-columns:repeat(5,minmax(0,1fr))}.t6{grid-template-columns:repeat(6,minmax(0,1fr))}
 .thead,.cells{display:grid;gap:4px;align-items:center}
 .thead{position:sticky;top:0;z-index:2;background:var(--bg);padding:6px 12px;font-size:12px;font-weight:700;color:var(--mu);border-bottom:1px solid var(--bd)}
+/* R8: under the sticky Team tabs (45px tall) the table head sticks just below them, not behind them */
+.stk~#screen .thead{top:45px}
 .g2{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)}.g3{grid-template-columns:minmax(0,1.5fr) repeat(2,minmax(0,1fr))}
 .g4{grid-template-columns:minmax(0,1.5fr) repeat(3,minmax(0,1fr))}.g5{grid-template-columns:minmax(0,1.5fr) repeat(4,minmax(0,1fr))}
 .g6{grid-template-columns:minmax(0,1.5fr) repeat(5,minmax(0,1fr))}.g7{grid-template-columns:minmax(0,1.5fr) repeat(6,minmax(0,1fr))}
@@ -280,3 +308,259 @@ button.btnrow{cursor:pointer}
 .tbl th.n{text-align:right}
 .mt4{margin-top:4px}
 .mt6{margin-top:6px}
+
+/* ===== R6 LINEUP REVISIONS: lineup rules go between this line and the matching end line ===== */
+/* slot badges take the occupying player's position color (the existing .pc palette; K and P stay neutral); the label text always stays */
+[data-vib="1"] .tag.sl.ps.QB{background:var(--pq);color:var(--pqt);border-color:var(--pq)}
+[data-vib="1"] .tag.sl.ps.RB{background:var(--pr);color:var(--prt);border-color:var(--pr)}
+[data-vib="1"] .tag.sl.ps.WR{background:var(--pw);color:var(--pwt);border-color:var(--pw)}
+[data-vib="1"] .tag.sl.ps.TE{background:var(--pt);color:var(--ptt);border-color:var(--pt)}
+[data-vib="1"] .tag.sl.ps.DL,[data-vib="1"] .tag.sl.ps.LB,[data-vib="1"] .tag.sl.ps.DB{background:var(--pd);color:var(--pdt);border-color:var(--pd)}
+.tag.sl.fx{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;line-height:1}
+.tag.sl.fx b{font-size:12px;font-weight:800}
+.tag.sl.fx i{font-style:normal;font-size:12px;font-weight:600;opacity:.9}
+/* one card per section: a heading row (a collapse button for Bench, IR and Taxi), the bench grouped by position under small labels */
+.lsec{padding-top:0;padding-bottom:0}
+.lsh{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:4px 0;border:0;background:transparent;text-align:left;font-size:13px;color:var(--tx)}
+.lsh .t{flex:1;min-width:0}
+.lsh .chev{flex:0 0 auto;color:var(--mu);font-size:14px;padding:0 2px}
+.lps{border-top:1px solid var(--bd);padding:6px 0 0;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
+.lps+.rx{border-top:0}
+/* R9: Byes lineup coverage (shortage lines, the collapsed taxi / IR option toggles, team-wide obstacles above the candidates) */
+.cvc{padding-top:4px}
+.cvs{padding:4px 0 2px}
+.cvl{font-size:13px;padding:2px 0}
+.cvl.cvd{color:var(--mu);line-height:1.35}
+.cvt{border-top:1px solid var(--bd)}
+.cvt .t small{display:block;color:var(--mu);font-size:12px;font-weight:400;line-height:1.3}
+.cvo{padding:0 0 6px}
+.cvc>.lps:first-child,.cvc>.cvs:first-child{border-top:0}
+.lsr{padding:0 0 8px}
+/* the lineup warning: only drawn for an actual issue; one short line per issue */
+.lwarn{padding:8px 12px 6px}
+.lwh{font-size:13px}
+.rx.lw{min-height:44px;padding:2px 0}
+/* ===== end R6 LINEUP ===== */
+/* (spacer 1: keeps the three R6 sections in separate merge hunks) */
+/* (spacer 2) */
+/* (spacer 3) */
+/* (spacer 4) */
+/* (spacer 5) */
+/* ===== R6 CONTRACTS REVISIONS: contracts rules go between this line and the matching end line ===== */
+.rwh{display:flex;align-items:flex-start;gap:6px;min-width:0}
+.rwh .nmb{flex:1 1 auto;min-width:0}
+.rwh .nmb .l1{text-decoration:none}
+.rwh .nmb .nmt{text-decoration:underline;text-decoration-color:var(--bs);text-underline-offset:3px}
+.rwh .nmb .l1 .pc{vertical-align:1px;margin-right:2px}
+.cl.pr{align-items:center;padding:0}
+.cl.pr .link{padding-left:0}
+.rw .det .kv{grid-template-columns:minmax(0,8.5em) minmax(0,1fr)}
+.rb.dtl{flex:0 0 auto;width:auto;display:inline-flex;flex-direction:row;align-items:center;gap:4px;padding:8px 2px 0 8px;color:var(--ac);font-size:12.5px;font-weight:600;white-space:nowrap}
+.rw>.l2{font-size:12.5px;color:var(--mu);padding:0 2px;overflow-wrap:anywhere}
+.rw>.cells{padding:2px 2px 8px}
+.det.adj{padding:0 0 4px 10px;gap:2px;border-left:2px solid var(--bd);margin-left:2px}
+.cl.fy{padding:6px 0;min-height:32px;align-items:center}
+.link.fy .cl{padding:0;font-size:13px;color:var(--tx);font-weight:400}
+.link.fy .dtw{color:var(--ac);font-weight:600;font-size:12.5px;margin-left:6px}
+.rw .det .ext{font-size:13px;color:var(--mu);margin:-2px 0 2px;overflow-wrap:anywhere}
+/* R9: ONE list container; the column heads and the group headings sit inside it on the rows' inset (12px card padding + the cells' 2px) */
+.ctl{padding-top:0}
+.ctl .thead{margin:0 -12px;padding:6px 14px;background:var(--sf);border-radius:11px 11px 0 0}
+.gh3{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;margin:0 -12px;padding:4px 14px;background:var(--bg);border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);font-size:13px}
+.ldc .ch{padding:0 10px}
+.gh3 span:last-child{color:var(--mu);font-size:12px;white-space:nowrap}
+.gh3 .pc{vertical-align:1px}
+/* R9: opened Details are a subtle inset band (one tint and a divider, no nested box) */
+.ctl .rw>.det{margin:0 -12px;padding:8px 14px 10px;background:var(--s2);border-top:1px solid var(--bd)}
+.det .rb.hsb{align-self:flex-start;min-height:44px;padding:6px 0 0}
+.hist{display:flex;flex-direction:column;gap:4px}
+.hil{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.hil li{display:flex;gap:12px;min-width:0}
+.hil b{flex:0 0 2.8em;color:var(--mu);font-weight:600;font-variant-numeric:tabular-nums}
+.hil span{min-width:0;overflow-wrap:anywhere}
+.hil small{display:block;color:var(--mu);font-size:12px}
+/* ===== end R6 CONTRACTS ===== */
+/* (spacer 6) */
+/* (spacer 7) */
+/* (spacer 8) */
+/* (spacer 9) */
+/* (spacer 10) */
+/* ===== R6 PERFORMANCE REVISIONS: performance rules go between this line and the matching end line ===== */
+/* r6p: the main player card (header line, primary pair, model pair, projection + quiet Breakdown). r6g appends breakdown rules at the bottom. */
+.pfh b{font-size:14px}
+.pfc{padding:0 2px 8px}
+.pfm{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:12px;color:var(--mu);margin:0 0 4px}
+.pfm .fl{display:inline-flex;flex-wrap:wrap;gap:4px}
+.pf1,.pf2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pfv{min-width:0}
+.pfv span{display:block;color:var(--mu);font-size:12px;line-height:16px}
+.pfv b{display:inline;font-variant-numeric:tabular-nums}
+.pfv em{font-style:normal;font-variant-numeric:tabular-nums;color:var(--mu);font-size:13px;margin-left:6px;white-space:nowrap}
+.pf1 .pfv b{font-size:20px;line-height:26px}
+.pf2{margin-top:4px}
+.pf2 .pfv b{font-size:15px;line-height:20px}
+.pfv .na,.pf3 .na{color:var(--mu);font-weight:600;font-size:13px}
+.pf3{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;font-size:12px;color:var(--mu)}
+.pfp{min-width:0}
+.pfb{min-height:44px;padding:0 2px;font-size:13px;white-space:nowrap}
+/* --- r6g: the Breakdown (season stats, game log, game detail); main-card rules are above this line --- */
+.bdx{display:flex;flex-direction:column;gap:6px}
+.bdsum{font-size:13px;color:var(--mu)}.bdsum b{color:var(--tx)}
+.bdtab button{font-size:14px}
+.bdid{font-size:13px;font-weight:600;color:var(--tx);overflow-wrap:anywhere}
+.bdr{padding:4px 10px}
+.bdr table{width:100%;border-collapse:collapse;font-size:13px}
+.bdr th{font-size:12px;text-align:left;color:var(--mu);font-weight:600;padding:4px 2px}
+.bdr td{padding:5px 2px;border-top:1px solid var(--bd);vertical-align:top}
+.bdr .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bdr td.n small{display:block;font-size:12px;color:var(--mu);font-weight:400}
+.bdr tr.bdh th{padding-top:10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.bdr .rk{padding-left:12px;width:1%}
+.bdwhy{font-size:13px;color:var(--mu);margin:4px 0 2px}
+.bdwhy summary{min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;color:var(--tx);font-weight:600;list-style:none}
+.bdwhy summary::-webkit-details-marker{display:none}
+.bdwhy summary::after{content:"Show";font-weight:600;color:var(--ac)}.bdwhy[open] summary::after{content:"Hide"}
+.bdwhy ul{margin:0 0 4px;padding-left:18px}.bdwhy li{margin:4px 0}.bdwhy b{color:var(--tx);font-weight:600}
+.bdw{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--bd);border-radius:12px;background:var(--sf);max-width:100%}
+.bdt{border-collapse:separate;border-spacing:0;font-size:13px;min-width:100%}
+.bdt th,.bdt td{padding:4px 8px;border-bottom:1px solid var(--bd);white-space:nowrap;font-variant-numeric:tabular-nums;background:var(--sf)}
+.bdt thead th{font-size:12px;color:var(--mu);font-weight:700;text-align:right;position:sticky;top:0}
+.bdt thead th.pin{text-align:left}
+.bdt td.n{text-align:right;min-width:40px}
+.bdt td small{display:block;font-size:12px;color:var(--mu)}
+.bdt .pin{position:sticky;left:0;z-index:1;text-align:left;border-right:1px solid var(--bd);min-width:96px;max-width:112px;padding:0}
+.bdt thead .pin{z-index:2;padding:4px 8px}
+.bdt .pin button{display:block;width:100%;min-height:44px;border:0;background:transparent;text-align:left;padding:4px 8px;font-size:13px;font-weight:400;color:var(--tx)}
+.bdt .pin button b{font-weight:700}
+.bdt .pin .pinx{display:block;min-height:44px;padding:4px 8px;font-size:13px;font-weight:400;color:var(--tx)}.bdt .pin .pinx b{font-weight:700}
+.bdt .pin small{display:block;font-size:12px;color:var(--mu)}
+.bdt tr.newer td,.bdt tr.newer th{background:var(--s2)}
+.bdt tr.newer .pin{border-left:3px dashed var(--wn)}
+.bdt tr.open .pin button{box-shadow:inset 3px 0 0 var(--ac)}
+.bdt tr.bdd td{white-space:normal;padding:0;background:var(--s2)}
+.bdt .bdin{position:sticky;left:0;width:min(calc(100vw - 64px),376px);padding:8px 10px;font-size:13px}
+.bdt .bdin .kv{grid-template-columns:auto minmax(0,1fr)}
+.bdt .bdin .kv.bdk{grid-template-columns:minmax(0,1fr) auto;gap:2px 12px}
+.bdt .bdin .kv.bdk span{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+/* --- r6i: the Breakdown opened inside a main card: no card-in-a-card around the season stats (the card already frames it) --- */
+.pfbd .bdr{border:0;background:transparent;padding:0 0 2px;border-radius:0}
+/* ===== end R6 PERFORMANCE ===== */
+
+/* League › Standings (#1503). Same tokens as every other screen; numbers are right-aligned tabular figures; nothing smaller than 12px. */
+.lghelp{display:flex;justify-content:flex-end;margin:-4px 0 -4px}
+.lglink{border:0;background:transparent;color:var(--ac);font-size:13px;min-height:44px;padding:0;text-align:left}
+.lgtw{overflow-x:auto;margin:0 -4px}
+.lgt{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.lgt th{font-size:12px;font-weight:600;color:var(--mu);text-align:right;padding:4px 4px 6px;border-bottom:1px solid var(--bd);white-space:nowrap}
+.lgt td{padding:6px 4px;min-height:44px;height:44px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap;font-size:13px;vertical-align:middle}
+.lgt tbody tr:last-child td{border-bottom:0}
+.lgt th.t,.lgt td.t{text-align:left}
+.lgt td.t{white-space:normal;line-height:1.25;width:100%}
+.lgt td.rk{color:var(--mu);font-size:12px;text-align:left}
+.lgtn{border:0;background:transparent;color:var(--tx);font-weight:600;padding:0;text-align:left;min-height:32px;overflow-wrap:anywhere}
+.lgsub{display:block;font-weight:400;color:var(--mu);font-size:12px}
+.lgtag{display:inline-block;font-size:12px;border:1px solid var(--bd);border-radius:6px;padding:0 5px;color:var(--mu);font-weight:400}
+.lgtag.cl{background:var(--ok);border-color:var(--ok);color:var(--on)}
+.lgt tr.lgcut td{height:auto;min-height:0;padding:4px;border-bottom:2px dashed var(--ac);font-size:12px;color:var(--ac);text-align:left;font-weight:600}
+.lgwhy{display:block;border:0;background:transparent;color:var(--ac);font-size:12px;padding:2px 0;text-align:left;min-height:32px}
+.lgt tr.lgsubrow td{height:auto;min-height:0;padding:2px 4px 8px;text-align:left;white-space:normal;font-size:12px;color:var(--mu)}
+.lgt tr.lgsubrow b{color:var(--tx)}
+.lgwhyx{background:var(--s2);border-radius:8px;padding:6px 8px}
+.lgtie{width:100%;border-collapse:collapse;table-layout:fixed;font-variant-numeric:tabular-nums}
+.lgtie th,.lgtie td{font-size:12px;padding:3px 2px;border-bottom:1px solid var(--bd);white-space:normal;overflow-wrap:anywhere;text-align:right;color:var(--tx)}
+.lgtie th{color:var(--mu);font-weight:600}
+.lgtie th.t,.lgtie td.t{text-align:left;width:32%}
+.lgnote{font-size:12px;border-left:3px solid var(--wn);padding:4px 8px;background:var(--s2);border-radius:4px;margin-top:6px}
+.lgn{font-size:12px;color:var(--mu);margin:6px 0 0}
+.lgtg{display:flex;width:100%;align-items:center;justify-content:space-between;gap:8px;min-height:44px;border:0;border-top:1px solid var(--bd);background:transparent;padding:0;font-weight:600;font-size:14px;text-align:left}
+.lgtg.sm{font-weight:400;font-size:13px;border-top:0;min-height:40px}
+.lgtg .go,.lgbrow .go{font-size:12px;color:var(--ac);font-weight:400;flex:0 0 auto}
+.lgxb{display:flex;flex-direction:column;gap:6px;font-size:13px;padding:2px 0 6px}
+.lgl{font-size:13px}
+.lgser{display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--mu);padding-left:8px}
+.lgrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.lgseg{min-width:0}
+.lgseg button{min-width:72px}
+.lgseg button[aria-disabled="true"]{opacity:.5;cursor:default}
+.lgseg.sm button{min-width:0;font-size:12px;min-height:40px}
+.lgscope{font-size:12px;color:var(--mu);margin:6px 0 2px}
+.lgx{min-width:40px;min-height:40px;border:1px solid var(--bd);border-radius:8px;background:transparent;color:var(--ac);font-size:16px;line-height:1;padding:0}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.lgwkc{display:flex;gap:6px;overflow-x:auto;padding:6px 0 4px;align-items:center}
+.lgwkc button{flex:0 0 auto;min-width:40px;min-height:40px;border:1px solid var(--bd);background:var(--sf);border-radius:8px;font-size:13px}
+.lgwkc button[aria-pressed="true"]{background:var(--ac);color:var(--on);border-color:var(--ac);font-weight:700}
+.lgwkc button[aria-disabled="true"]{color:var(--mu);opacity:.5;cursor:default}
+.lglab{flex:0 0 auto;font-size:12px;color:var(--mu);padding:0 2px 0 6px;text-transform:uppercase;letter-spacing:.06em}
+.lgsum{font-size:13px;display:flex;flex-direction:column;gap:2px;margin:4px 0}
+.lgnarrow{display:none}
+@media (max-width:360px){.lgwt .lgwide{display:none}.lgnarrow{display:block}}
+.lgkv{display:grid;grid-template-columns:1fr auto auto;gap:0 12px;font-size:13px;font-variant-numeric:tabular-nums;align-items:center}
+.lgkv>div{min-height:36px;display:flex;align-items:center;border-bottom:1px solid var(--bd)}
+.lgkv>div.h{font-size:12px;color:var(--mu);font-weight:600;min-height:28px}
+.lgkv>div.n{justify-content:flex-end}
+.lgcounts{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.lgcounts div{flex:1 1 0;min-width:84px;background:var(--s2);border-radius:10px;padding:8px;text-align:center}
+.lgcounts b{display:block;font-size:20px}
+.lgcounts span{font-size:12px;color:var(--mu)}
+.lgbar{display:flex;align-items:center;gap:6px;font-size:12px;font-variant-numeric:tabular-nums;min-height:28px}
+.lgbw{flex:0 0 40px}
+.lgb{display:block;height:8px;border-radius:4px;background:var(--ac);flex:0 0 auto}
+.lgbv{margin-left:auto;text-align:right}
+.lgb.w1{width:2%}.lgb.w2{width:4%}.lgb.w3{width:6%}.lgb.w4{width:8%}.lgb.w5{width:10%}.lgb.w6{width:12%}.lgb.w7{width:14%}.lgb.w8{width:16%}.lgb.w9{width:18%}.lgb.w10{width:20%}
+.lgb.w11{width:22%}.lgb.w12{width:24%}.lgb.w13{width:26%}.lgb.w14{width:28%}.lgb.w15{width:30%}.lgb.w16{width:32%}.lgb.w17{width:34%}.lgb.w18{width:36%}.lgb.w19{width:38%}.lgb.w20{width:40%}
+.lgbrow{display:grid;grid-template-columns:1fr 64px 48px 40px;align-items:center;width:100%;min-height:44px;font-variant-numeric:tabular-nums;font-size:14px;border:0;border-bottom:1px solid var(--bd);background:transparent;padding:0;text-align:left}
+.lgbrow.h{font-size:12px;color:var(--mu);font-weight:600;min-height:28px}
+.lgbrow .n{text-align:right}
+.lgpl{display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:3px 0 3px 10px;color:var(--mu)}
+.lgpl b{color:var(--tx);font-weight:400}
+.lgnw{white-space:nowrap}
+
+/* Standings presentation pass (#1503, review of ff3dc709) */
+.lgtn{overflow-wrap:normal;word-break:normal}
+@media (max-width:360px){.lgwide{display:none}.lgnarrow{display:block}}
+/* the selected team (Team's chosen team) */
+.lgt tr.lgme td,.lgcr.lgme{background:var(--s2)}
+.lgt tr.lgme td:first-child,.lgcr.lgme{box-shadow:inset 3px 0 0 var(--ac)}
+/* the bye line after seed 2: same family as the playoff line, quieter */
+.lgt tr.lgcut.lgbye td{border-bottom:1px dashed var(--ac);font-weight:600}
+/* chevrons instead of Show/Hide: the whole row is the button; the chevron turns when open */
+.lgchev{flex:0 0 auto;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;color:var(--ac);border-left:1px solid var(--bd);margin-left:8px;padding-left:6px;box-sizing:content-box}
+.lgchev::before{content:"";width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);transition:transform .15s}
+[aria-expanded="true"]>.lgchev::before{transform:rotate(45deg)}
+@media (prefers-reduced-motion:reduce){.lgchev::before{transition:none}}
+.lgbrow{grid-template-columns:1fr 64px 48px 36px}
+.lgbrow .lgchev{justify-self:end}
+/* Scoring controls: one full-width row each */
+.lgctl{display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.seg.lgfull{width:100%}
+.seg.lgfull button{flex:1 1 auto;white-space:nowrap;padding:0 6px}
+.seg.lgsmseg button{min-height:40px;font-size:12px}
+.seg.lgfull button[aria-disabled="true"]{opacity:.5;cursor:default}
+@media (max-width:360px){.seg.lgviews button{font-size:12px;padding:0 4px}}
+/* Contributions rows: value leads, rank subordinate; at 320 px the name has its own line */
+.lgcg{display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.lgcr{display:grid;grid-template-columns:minmax(0,1fr) 64px 56px 56px 44px;align-items:center;column-gap:4px;min-height:52px;border-bottom:1px solid var(--bd);padding:4px 2px}
+.lgcr.h{min-height:28px;font-size:12px;color:var(--mu);font-weight:600}
+.lgcr>span{text-align:right}
+.lgcr>span.t{text-align:left;min-width:0}
+.lgcr .lgv{display:block;font-size:14px;font-weight:600}
+.lgcr .lgrk{display:block;font-size:12px;color:var(--mu)}
+@media (max-width:360px){.lgcr{grid-template-columns:1fr 1fr 1fr 44px;row-gap:2px}.lgcr>span.t{grid-column:1/-1}.lgcr.h>span.t{display:none}.lgcr>span:not(.t){text-align:left}.lgcr>span:last-child{text-align:right}}
+/* Contributions: the last cell opens the team's points by position or lineup slot (a bordered 44 px target, not a bare "+") */
+.lgcgo{display:inline-flex;align-items:center;justify-content:center;width:40px;min-height:44px;padding:0;border:1px solid var(--bd);border-radius:8px;background:transparent;color:var(--ac)}
+.lgcgo .lgchev{border-left:0;margin-left:0;padding-left:0}
+.lggo{color:var(--ac)}
+/* Team detail: one subtle full-row divider per row, not a line under every cell */
+.lgkv{gap:0}
+.lgkv>div{border-bottom:1px solid var(--bd);border-bottom-color:color-mix(in srgb,var(--bd) 55%,transparent)}
+.lgkv>div.n{padding-left:12px}
+/* Divisions head-to-head: team | record | team | chevron, names wrap at spaces */
+.lgpair{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto;align-items:center;gap:8px;width:100%;min-height:44px;border:0;border-bottom:1px solid var(--bd);background:transparent;padding:4px 0;font-size:13px;text-align:left}
+.lgpair .lgpb{text-align:right}
+.lgpair .lgprec{font-variant-numeric:tabular-nums;font-size:14px;padding:0 4px}
+.lgser .lgsr{display:grid;grid-template-columns:1fr 56px 12px 56px;gap:4px;font-variant-numeric:tabular-nums}
+.lgser .lgsr .n,.lgser .lgsr span:last-child{text-align:right}
+.lgser .lgsr span:nth-child(3){text-align:center}
+/* sheets: sections keep their height (the breakdown switch was squeezed away) */
+.sheet.lgsh>*{flex-shrink:0}
+.sheet.lgsh .seg{margin:2px 0}

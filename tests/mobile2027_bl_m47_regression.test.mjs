@@ -68,9 +68,10 @@ async function renderNew(histThrough) {
   Object.keys(intel.scores).forEach((k) => { intel.scores[k].at += 1000; });   // the scores are read after the schedules, as the app does
   return { season: lm.season, html: body(V.app(baseState(M, intel))) };
 }
-const summary = (r) => { const tx = text(r.html); return { latestFinalWeek: r.season.latestFinalWeek, lastCompleteWeek: r.season.lastCompleteWeek, banner: (tx.match(/Comparison through Week \d+/) || [null])[0], weeks: [...new Set([...tx.matchAll(/through Week (\d+)/g)].map((m) => m[1]))] }; };
+const summary = (r) => { const tx = text(r.html); return { latestFinalWeek: r.season.latestFinalWeek, lastCompleteWeek: r.season.lastCompleteWeek, banner: (tx.match(/Comparison through Week \d+|Through Week \d+/) || [null])[0], weeks: [...new Set([...tx.matchAll(/[Tt]hrough Week (\d+)/g)].map((m) => m[1]))] }; };
 // The one check: every figure and the banner run through Week 10, the last week in which every game is final (1 of 13 games of Week 11 are).
-const holds = (s) => s.lastCompleteWeek === 10 && s.banner === "Comparison through Week 10" && s.weeks.length === 1 && s.weeks[0] === "10";
+// R6: the banner is the header's single "Through Week N" (the old revision's banner was "Comparison through Week N"; the comparison left the main card).
+const holds = (s) => s.lastCompleteWeek === 10 && (s.banner === "Comparison through Week 10" || s.banner === "Through Week 10") && s.weeks.length === 1 && s.weeks[0] === "10";
 
 // The old revision, extracted from this checkout's history into a temporary folder; null when it is not there (shallow clone).
 function extractOld() {
@@ -89,7 +90,7 @@ test("the code under test: with 1 of 13 Week 11 games final, history through Wee
   const a = await renderNew(10), b = await renderNew(11), sa = summary(a), sb = summary(b);
   t.equal(sa.latestFinalWeek, 11, "the Worker says Week 11 has a final game"); t.equal(sa.lastCompleteWeek, 10);
   t.ok(holds(sa), "history through 10: " + JSON.stringify(sa)); t.ok(holds(sb), "history through 11 (a partial week): " + JSON.stringify(sb));
-  t.match(text(b.html), /Season through Week 10 · completed games/); t.doesNotMatch(text(b.html), /through Week 11/);
+  t.match(text(b.html), /Through Week 10/); t.doesNotMatch(text(b.html), /[Tt]hrough Week 11/);
 });
 
 test("the old revision 88946ba0 FAILS the same check: history through Week 11 on a partial Week 11 reads 'Comparison through Week 11'", async () => {

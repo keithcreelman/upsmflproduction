@@ -35,7 +35,7 @@ async function intelFor(over) {
     const u = new URL(url); let body = {}; const ty = u.searchParams.get("TYPE"), w = u.searchParams.get("W");
     if (u.pathname === "/api/lineup-matchups") body = Object.assign({}, lm, { week: Number(w) });
     else if (ty === "playerScores") body = { playerScores: { playerScore: (over.scores || FX4.scores)[w] || (w === "11" ? [{ id: "1", score: "0" }] : []) } };
-    else if (ty === "players") body = { players: { player: FX4.players } };
+    else if (ty === "players") body = { players: { player: over.named ? FX4.players.map((p) => (p.name ? p : Object.assign({ name: "Player, " + p.id }, p))) : FX4.players } };   // the recorded positions file has no names; the real export always does, and a row without a name is dropped, so ranks need `named`
     else if (ty === "nflByeWeeks") body = CAL.byes;
     else if (ty === "nflSchedule" && w === "ALL") body = over.calFull || CAL.full;
     else if (ty === "nflSchedule") body = w === "10" ? (over.schedule10 || FX4.schedule10) : w === "11" ? (over.schedule11 || FX4.schedule11) : { nflSchedule: { matchup: [] } };
@@ -49,8 +49,10 @@ async function intelFor(over) {
   Object.keys(out.scores).forEach((k) => { out.scores[k].at += 1000; });   // the scores are read after the schedules, as the app does
   return out;
 }
+// R8: the Breakdown opens on Season stats; these tests read its Game log, so every player's Breakdown is on the Game log tab here
+const logTab = () => ({ v: {}, g: {}, t: new Proxy({}, { get: (o, k) => (k in o ? o[k] : "log") }) });
 const state = (over) => ({
-  model: model(), load: { core: "ok", coreNotes: [] }, penalty: penalty(), teamId: TEAM, tab: "team", sub: "contracts", view: "lineup",
+  model: model(), load: { core: "ok", coreNotes: [] }, penalty: penalty(), teamId: TEAM, tab: "team", sub: "contracts", view: "lineup", bd: logTab(),
   open: {}, flags: {}, profile: null, sheet: null, skin: "system", vib: "1", build: "test", requestLog: [], gdef: "needs", wk: null,
   requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
 });
@@ -59,9 +61,9 @@ const teamPlayers = (S) => S.model.teams.find((x) => x.id === S.teamId).players;
 const allOpen = (S) => Object.fromEntries(teamPlayers(S).map((p) => [p.id, true]));
 
 // ───────────────────────── P1, P2: tabs and the Roster switch ─────────────────────────
-test("P1/P2: Team tabs read Roster · Contracts · Performance · Cap & picks; the Roster switch is Lineup · Byes only", () => {
+test("P1/P2: Team tabs read Roster · Performance · Contracts · Cap & picks; the Roster switch is Lineup · Byes only", () => {
   const html = V.app(state({ sub: "roster" }));
-  t.deepEqual([...html.matchAll(/data-act="sub" data-v="(\w+)"[^>]*>([^<]+)</g)].map((m) => m[2]), ["Roster", "Contracts", "Performance", "Cap &amp; picks"]);
+  t.deepEqual([...html.matchAll(/data-act="sub" data-v="(\w+)"[^>]*>([^<]+)</g)].map((m) => m[2]), ["Roster", "Performance", "Contracts", "Cap &amp; picks"]);
   t.deepEqual([...html.matchAll(/data-act="view" data-v="(\w+)"/g)].map((m) => m[1]), ["lineup", "byes"], "the old Contracts and Performance switches are gone");
   ["lineup", "byes"].forEach((view) => t.ok(V.app(state({ sub: "roster", view })).length > 1000));
   // a stale or invented view name never draws a third screen: the roster body falls back to the lineup view's rules
@@ -82,15 +84,15 @@ test("P3: Contracts labels, group headings and sort chips follow the season; the
   const sal = body(V.app(state({ ct: { f: "all", s: "sal", open: {} } })));
   [0, 1, 2].forEach((i) => { t.match(sal, new RegExp('data-act="cty" data-v="' + i + '" aria-pressed="' + (i === 0) + '" aria-label="' + (S.model.season + i) + ' salary">' + (S.model.season + i) + "<")); });
   t.equal((html.match(/<div class="thead /g) || []).length, 1); t.match(html, new RegExp('<div class="thead g' + (ny + 1) + '"'));
-  t.equal((html.match(/<div class="trow t\d+">/g) || []).length, 1); t.match(html, new RegExp('<div class="trow t' + ny + '">'));
+  t.equal((html.match(/<div class="trow/g) || []).length, 0, "R6: no separate recorded-salary totals row");
   // headings: "Expiration date {season + years left - 1}"
-  const heads = [...html.matchAll(/Expiration date <b>(\d{4})<\/b>/g)].map((m) => +m[1]);
+  const heads = [...html.matchAll(/Expires <b>(\d{4})<\/b>/g)].map((m) => +m[1]);
   t.ok(heads.length >= 2); t.deepEqual(heads, heads.slice().sort((a, b) => a - b), "soonest first");
   heads.forEach((h) => t.ok(tm.some((p) => S.model.season + p.years - 1 === h), "a group exists only for a real end year"));
   // a 2027 season: every label moves, and no 2026 appears anywhere in the Contracts body
   const S27 = state({ model: model(2027) }), h27 = body(V.app(S27));
   const s27 = body(V.app({ ...S27, ct: { f: "all", s: "sal", open: {} } }));
-  t.match(s27, /aria-label="2027 salary">2027</); t.match(s27, /aria-label="2028 salary">2028</); t.match(h27, /Expiration date <b>2027<\/b>/); t.doesNotMatch(h27, /2026/); t.doesNotMatch(s27, /2026/);
+  t.match(s27, /aria-label="2027 salary">2027</); t.match(s27, /aria-label="2028 salary">2028</); t.match(h27, /Expires <b>2027<\/b>/); t.doesNotMatch(h27, /2026/); t.doesNotMatch(s27, /2026/);
   // and the view code itself holds no year literal (comments aside)
   ["tabviews.js", "views.js"].forEach((f) => {
     const code = fs.readFileSync(path.join(SRC, "lib", f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:])\/\/.*$/gm, "$1");
@@ -116,67 +118,66 @@ test("P4: default order is expiration soonest, then current-season salary; filte
   [["sal", 0], ["sal", 1], ["sal", 2], ["exp", 0], ["name", 0]].forEach(([s, y]) => t.ok((body(V.app(state({ ct: { f: "all", s, y, open: {} } }))).match(/data-act="ctx"/g) || []).length === tm.length, "sort " + s + " " + y + " lists everyone"));
   // a contract that has ended shows a dash in that year's column
   const one = tm.find((p) => p.years === 1);
-  t.match(body(V.app(state({ ct: { f: "all", s: "name", open: {} } }))).split('data-v="' + one.id + '"')[1].split("</button>")[0], /<span><span class="mu">—<\/span><\/span>/);
+  t.match(body(V.app(state({ ct: { f: "all", s: "name", open: {} } }))).split('data-v="' + one.id + '"')[1].split('<div class="rw">')[0], /<span><span class="mu">—<\/span><\/span>/);
   // no points per game and no rank, collapsed or expanded
   const open = body(V.app(state({ ct: { f: "all", s: "exp", open: allOpen(S) } })));
   [html, open].forEach((h) => { t.doesNotMatch(text(h), /\bPPG\b|points per game|per game|\brank(ed|ing)?\b|\bpts\b|season (avg|average)/i); t.doesNotMatch(h, /data-act="pf/); });
 });
 
-test("P5: the summary says 'Recorded salary, not cap space', says what is not part of this preview, and has no link to Cap & picks", () => {
+test("R6 P5: the separate 'Recorded salary, not cap space' card is gone; the one cap card has no link to Cap & picks", () => {
   const S = state(), html = body(V.app(S));
-  t.match(html, /<h2>Recorded salary, not cap space<\/h2>/); t.match(text(html), /\d+ players? shown/); t.doesNotMatch(text(html), /Cap space, adjustments and penalties are not part of this preview/);
-  // the totals are sums of recorded amounts only
-  const tm = teamPlayers(S), tot0 = tm.reduce((a, p) => a + (C.schedule(p, S.model.season).rows[0].amount || 0), 0);
-  t.match(html, new RegExp('<div class="trow t\\d"><b>' + TV.kmoney(tot0).replace("$", "\\$").replace(".", "\\.") + "</b>"));
+  t.doesNotMatch(html, /Recorded salary, not cap space|players? shown/); t.equal((html.match(/<h2>/g) || []).length, 1); t.match(html, /<h2>Cap space · /);
+  t.doesNotMatch(text(html), /Cap space, adjustments and penalties are not part of this preview/); t.doesNotMatch(html, /gotoview/);
 });
 
-// ───────────────────────── P6: the Guarantee left column ─────────────────────────
-// PR A revision (wording only): the column is "Remaining guarantee"; a calculated zero is "$0" with a second line "Fully earned"; "Not tracked" is "Not applicable"
-const GUAR = /^(Loading…|\$[\d,]+|\$0 Fully earned|Not applicable|Under review|Unavailable)$/;
+// ───────────────────────── P6 → R8: the If cut now column ─────────────────────────
+// R8 (Keith, 2026-11-23): the first column is "If cut now", the Worker's cut charge under the rule its basis names; the exceptions carry a short label.
+const GUAR = /^(Loading…|\$[\d,]+(?: Fully earned| No guarantee| \$1K rule| Taxi)?|Under review|Unavailable)$/;
 const guarCells = (html) => [...html.matchAll(/<span class="g">(.*?)<\/span><span/g)].map((m) => text(m[1]).trim());
+const usd = (n) => "$" + String(n).replace(/\B(?=(\d{3})+$)/g, ",");
 
-test("P6: the table renders before the guarantee read resolves; the column holds only guarantee values: Loading…, an amount, $0 Fully earned, Not applicable, Under review, Unavailable", () => {
+test("P6/R8: the table renders before the cut read resolves; the column holds only: Loading…, an amount (with its rule label for the exceptions), Under review, Unavailable", () => {
   const loading = body(V.app(state({ penalty: { state: "loading" } })));
-  t.ok(loading.includes("Recorded salary, not cap space") && loading.includes('data-act="ctx"'), "the table is drawn with the guarantee read still out");
+  t.ok(loading.includes("Cap space · ") && loading.includes('data-act="ctx"'), "the table is drawn with the cut read still out");
   guarCells(loading).forEach((c) => t.equal(c, "Loading…"));
   const idle = body(V.app(state({ penalty: { state: "idle" } }))); guarCells(idle).forEach((c) => t.equal(c, "Loading…"));
   const ok = body(V.app(state()));
   const cells = guarCells(ok); t.equal(cells.length, teamPlayers(state()).length);
-  cells.forEach((c) => t.match(c, GUAR, "a guarantee value: " + c));
-  ["Not applicable", "Unavailable"].forEach((w) => t.ok(cells.includes(w), "the fixture has a row that is " + w));
+  cells.forEach((c) => t.match(c, GUAR, "a cut value: " + c));
+  t.ok(cells.some((c) => / (No guarantee|\$1K rule|Taxi|Fully earned)$/.test(c)), "the fixture has a rule-labeled row");
   t.ok(cells.some((c) => /^\$[\d,]+$/.test(c)), "and amounts");
 });
 
-test("P6: remaining guarantee is not a cut charge: a cut amount never appears in the Guarantee left column, only under 'If cut now' with its reason", () => {
+test("R8: the column is the Worker's cut charge, never the remaining guarantee; Details name the rule in one sentence, with no arithmetic", () => {
   const S = state(), tm = teamPlayers(S);
   const flat = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && r.earned_rule === "full_year_sub_5k" && r.penalty > 0; });
   const flat0 = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && r.earned_rule === "full_year_sub_5k" && r.penalty === 0; });
   const ww = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && r.earned_rule === "ww_earned_na"; });
-  const amt = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && !r.earned_rule && r.penalty > 0 && Number.isFinite(r.guaranteed) && Number.isFinite(r.earned); });
+  const amt = tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && !r.earned_rule && r.penalty > 0 && Number.isFinite(r.guaranteed) && Number.isFinite(r.earned) && Math.max(0, r.guaranteed - r.earned) !== r.penalty; })
+    || tm.find((p) => { const r = FX.cap_penalty.players[p.id]; return r && !r.earned_rule && r.penalty > 0; });
   [flat, flat0, ww, amt].forEach((p) => t.ok(p, "the fixture has each kind of contract"));
   const open = body(V.app(state({ ct: { f: "all", s: "exp", open: allOpen(S) } })));
   const rowOf = (p) => open.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
   const gcell = (p) => text(rowOf(p).match(/<span class="g">(.*?)<\/span><span/)[1]).trim();
-  t.equal(gcell(flat), "Not applicable"); t.equal(gcell(flat0), "Not applicable"); t.equal(gcell(ww), "Not applicable");
-  // the cut charge, in its own place, with the reason in owner language
-  const cutOf = (p) => text(rowOf(p).split("<b>If cut now</b>")[1].split("</span>")[0]);
-  t.match(cutOf(flat), new RegExp("\\$" + String(FX.cap_penalty.players[flat.id].penalty).replace(/\B(?=(\d{3})+$)/g, ",") + " · Flat rule: a contract paying the same small amount every year costs a fixed amount to cut\\."));
-  t.match(cutOf(flat0), /\$0 · No charge: /);
-  t.match(cutOf(ww), /\$0 · Waiver pickup of \$4K or less, in its final year/);
-  t.match(cutOf(amt), new RegExp("\\$" + String(FX.cap_penalty.players[amt.id].penalty).replace(/\B(?=(\d{3})+$)/g, ",")));
-  // the column never carries a cut amount: for the amount row, the column shows the remaining guarantee, which is not the penalty
-  const r = FX.cap_penalty.players[amt.id], rg = Math.max(0, r.guaranteed - r.earned);
-  t.equal(gcell(amt), "$" + String(Math.round(rg)).replace(/\B(?=(\d{3})+$)/g, ",")); t.ok(r.penalty !== rg || true);
+  const cutOf = (p) => text(rowOf(p).split("<b>If cut now</b>")[1].split("</span>")[0]).trim();
+  [flat, flat0, ww, amt].forEach((p) => {
+    const r = FX.cap_penalty.players[p.id], rule = C.cutRule(r);
+    t.equal(gcell(p), usd(r.penalty) + (rule.tag ? " " + rule.tag : ""), p.name + ": the cell is the worker's penalty and its rule label");
+    t.equal(cutOf(p), usd(r.penalty) + " " + rule.words, p.name + ": one sentence names the rule");
+    t.doesNotMatch(cutOf(p), /minus|\.\)\.|\.\.|§/, "no arithmetic, doubled punctuation or section codes");
+  });
   guarCells(open).forEach((c) => t.match(c, GUAR));
 });
 
-test("P6: '$0 Fully earned' only from a calculated zero; a failed read, a missing row and a row under review never draw $0", () => {
+test("P6/R8: '$0 Fully earned' only from the Worker's own $0 under the guarantee rule; a failed read, a missing row and a row under review never draw $0", () => {
   const S0 = state(), tm = teamPlayers(S0), p = tm.find((x) => { const r = FX.cap_penalty.players[x.id]; return r && !r.earned_rule && Number.isFinite(r.guaranteed) && Number.isFinite(r.earned) && r.guaranteed - r.earned > 0; });
   const players = clone(FX.cap_penalty.players);
-  players[p.id].earned = players[p.id].guaranteed; // a calculated zero
+  players[p.id].earned = players[p.id].guaranteed; players[p.id].penalty = 0; players[p.id].basis = "no_penalty_zero"; // the worker's calculated zero
   const zero = body(V.app(state({ penalty: penalty(players), ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   t.ok(guarCells(zero).includes("$0 Fully earned"), "a calculated zero reads $0 with a second line, Fully earned");
-  t.match(text(zero.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0]), /Remaining guarantee \$0 Guaranteed portion fully earned \$[\d,]+ guaranteed, \$[\d,]+ earned through Week 10/);
+  t.match(text(zero.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0]), /If cut now \$0 Guarantee rule: the guaranteed amount is fully earned, so nothing is owed\. Guarantee \$[\d,]+ \$[\d,]+ earned through Week 10/);
+  const kept = clone(FX.cap_penalty.players); kept[p.id].earned = kept[p.id].guaranteed;   // earned changed but the worker's penalty did not: the penalty is shown, never recomputed
+  t.ok(guarCells(body(V.app(state({ penalty: penalty(kept) })))).includes(usd(kept[p.id].penalty)));
   // failed read
   const failed = body(V.app(state({ penalty: { state: "error", error: "HTTP 500" }, ct: { f: "all", s: "exp", open: allOpen(S0) } })));
   guarCells(failed).forEach((c) => t.equal(c, "Unavailable")); t.doesNotMatch(failed, /Fully earned|<b>\$0<\/b>/);
@@ -190,7 +191,7 @@ test("P6: '$0 Fully earned' only from a calculated zero; a failed read, a missin
   const rev = clone(FX.cap_penalty.players); rev[p.id].needs_review = true; rev[p.id].review_reason = "Contract text needs review";
   const rh = body(V.app(state({ penalty: penalty(rev), ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   const rrow = rh.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
-  t.match(text(rrow.match(/<span class="g">(.*?)<\/span><span/)[1]), /^\s*Under review\s*$/); t.match(text(rrow), /Under review\. Contract text needs review/); t.doesNotMatch(rrow, /<b>\$0<\/b>/);
+  t.match(text(rrow.match(/<span class="g">(.*?)<\/span><span/)[1]), /^\s*Under review\s*$/); t.match(text(rrow), /If cut now Under review: Contract text needs review/); t.doesNotMatch(rrow, /<b>\$0<\/b>/);
 });
 
 test("P6/P3: a salary the worker or MFL did not record is n/r, not $0, in the table and in the totals", () => {
@@ -198,7 +199,7 @@ test("P6/P3: a salary the worker or MFL did not record is n/r, not $0, in the ta
   p.salary = null; p.salaryUnresolved = true;
   const html = body(V.app(state({ model: S.model, ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   const row = html.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
-  t.match(row, /<span class="wn">n\/r<\/span>/); t.doesNotMatch(row, /<span>\$0<\/span>/); t.match(html, /A year with no recorded amount is left out of its total/);
+  t.match(row, /<span class="wn">n\/r<\/span>/); t.doesNotMatch(row, /<span>\$0<\/span>/); t.match(row, /This season<\/span><span><span class="wn">Not recorded<\/span>/, "R6: the schedule says Not recorded for this season");
 });
 
 // ───────────────────────── P7 to P11: Performance and the game log ─────────────────────────
@@ -208,28 +209,39 @@ const perf = async (over, st) => body(V.app(state({ sub: "performance", intel: a
 const rcns = (html) => [...html.matchAll(/<div class="rcn">(.*?)<\/div>/g)].map((m) => text(m[1]).trim());
 const activeIds = () => teamPlayers(state()).filter((p) => p.status === "active").map((p) => p.id);
 
-test("P7: Last 3 team games, Recent, Earlier and Difference are labeled numbers with no arrows; a withheld figure keeps the player on screen with its reason", async () => {
+// R6 (Keith 2026-11-23, section 5): the main card has no weekly strip and no Recent / Earlier / Difference comparison (not in the approved card list); the rules
+// that still apply are kept: every active player is listed, labeled numbers with no arrows, scored games (never games played), and a withheld figure keeps
+// the player on screen with its reason (now in his Breakdown, the card shows "—").
+test("P7 (R6): labeled numbers with no arrows and no comparison block on the main card; a withheld figure keeps the player on screen with its reason", async () => {
   const html = await perf(), r = rcns(html);
   t.equal((html.match(/data-act="pfx"/g) || []).length, teamPlayers(state()).filter((p) => p.status === "active").length, "every active player is listed");
-  t.ok(r.length >= 25); r.forEach((x) => t.match(x, /^Recent (—|−?\d+\.\d) Earlier (—|\d+\.\d \(\d+\)) Difference (—|[+−]?\d+\.\d)$/));
-  t.ok(r.some((x) => /Difference [+−]\d/.test(x)), "some comparisons are shown"); t.ok(r.some((x) => /Difference —/.test(x)), "and some are withheld");
-  t.match(text(html), /Last 3 team games/); t.doesNotMatch(html, /[↑↓↗↘⬆⬇➚➘▲▼]\s*<\/b>|[↑↓↗↘⬆⬇]/, "no arrows");
+  t.equal(r.length, 0, "no Recent / Earlier / Difference block"); t.doesNotMatch(text(html), /Last 3 team games|Difference/);
+  t.doesNotMatch(html, /[↑↓↗↘⬆⬇➚➘▲▼]\s*<\/b>|[↑↓↗↘⬆⬇]/, "no arrows");
   t.doesNotMatch(text(html), /games played|\bGP\b/i, "scored games, never games played");
-  // a withheld row says why, in words
-  t.match(text(html), /Not enough recent scores|Not enough earlier|Team history|club|not loaded/i);
+  // a withheld figure keeps the player on screen with its reason, in words (here a recorded score that cannot be read)
+  const w = activeIds().find((id) => FX4.scores["3"].some((x) => x.id === id)), sc = clone(FX4.scores); sc["3"] = (sc["3"] || []).map((x) => (x.id === w ? { id: x.id, score: "N/A" } : x));
+  t.ok(FX4.scores["3"].some((x) => x.id === w), "he has a Week 3 score in the fixture");
+  const wh = await perf({ scores: sc }), card = wh.split('data-act="card" data-pid="' + w + '"')[1].split('<div class="rw pfc">')[0];
+  t.match(text(card), /Tot\. Pts\. — —/); t.match(card, /aria-label="Tot\. Pts\. rank not available">—<\/em>/); t.match(text(card), /1 score could not be read, so his season figures are not shown\./);
 });
 
-test("P8: with team history absent (W1 not live) scores, season average, scored games and range still show; BYE cells are dashes; only the comparison is withheld, said once at the top", async () => {
+test("P8 (R6): with team history absent (W1 not live) scores, season figures and scored games still show; no BYE without club identity; only the PPG rank is withheld, said once at the top", async () => {
   // revised (Keith's Performance decisions): the comparison block is not drawn at all without team history (it used to draw Recent / Earlier / Difference as dashes
   // with 'Team history unavailable' on every player); one line at the top says the per-game rank and the recent comparison are not available yet
-  const S = state({ sub: "performance", intel: await intelFor({ lm: noHist() }) });
+  const S = state({ sub: "performance", intel: await intelFor({ lm: noHist(), named: true }) });
   S.pf = { s: "pos", open: allOpen(S), res: {} };
   const html = body(V.app(S));
-  t.equal((text(html).match(/Per-game rank and the recent comparison aren’t available yet\./g) || []).length, 1, "one notice"); t.doesNotMatch(text(html), /Team history/); t.doesNotMatch(html, /Comparison through Week/);
-  t.doesNotMatch(html, /<b>BYE<\/b>/, "no BYE label without club identity");
-  t.equal(rcns(html).length, 0, "no Recent / Earlier / Difference block on any row"); t.doesNotMatch(text(html), /Last 3 team games|Not available/);
-  t.match(html, /class="cell"><i>W10<\/i><b>\d+\.\d<\/b>/, "recorded scores show"); t.match(html, /<b>Range<\/b><span>\d+\.\d to \d+\.\d \(Weeks \d+ to \d+\)<\/span>/);
-  t.match(html, /<b>Season<\/b><span>\d+\.\d · /);
+  // R11: no history notice at all (the header says only "Through Week 10"); the weekly scores are in each Breakdown's log
+  t.doesNotMatch(text(html), /PPG ranks aren’t available|Team history/, "no notice"); t.match(html, /<b>Through Week 10<\/b>/); t.doesNotMatch(html, /Comparison through Week/);
+  // (the lineup week, Week 11, is the one week his current club establishes; a BYE there is that club's bye)
+  t.doesNotMatch(html, /data-v="(10|[1-9])"[^>]*><b>W\d+<\/b> <span class="nw">BYE</, "no BYE label in a settled week without club identity");
+  t.equal(rcns(html).length, 0, "no Recent / Earlier / Difference block on any row"); t.doesNotMatch(text(html), /Last 3 team games/);
+  t.match(html, /data-act="bdg" data-v="10" [^>]*>[\s\S]*?<\/th><td class="n"><b>\d+\.\d<\/b>/, "recorded scores show in the log");
+  t.match(html, /<span>Tot\. Pts\.<\/span><b>\d+\.\d<\/b>/, "season figures show");
+  // R11: nothing waits: eligible players have a (provisional) PPG rank; only a player below the minimum scored games has '—' (DeVonta Smith, 15282, as with complete history)
+  const rk = (id) => text(html.split('data-act="card" data-pid="' + id + '"')[1].split('<div class="rw pfc">')[0]).match(/PPG\s+\d+\.\d\s+(\S+)/);
+  t.equal(rk("15698") && rk("15698")[1], "QB2", "Purdy: a PPG rank"); t.equal(rk("15282") && rk("15282")[1], "—", "too few scores for a rank, which is a rule and not a missing history");
+  t.ok(activeIds().filter((id) => rk(id) && /^[A-Z]+\d/.test(rk(id)[1])).length >= 25, "most of the team has a PPG rank without any team history");
 });
 
 // the Worker's team history as it would be one week earlier (coverage through Week 9) or two (Week 8)
@@ -239,40 +251,44 @@ const historyThrough = (n) => {
   Object.keys(lm.teamHistory).forEach((id) => { const e = lm.teamHistory[id]; e.seg = e.seg.filter((s) => s[1] <= n).map((s) => [s[0], s[1], Math.min(s[2], n)]); if (!e.seg.length) delete lm.teamHistory[id]; });
   return lm;
 };
-test("P9 (U1): a banner says 'Comparison through Week N'; a score newer than the history is a dashed cell, named in the row help, and changes no comparison figure", async () => {
-  // PR B: the last all-final week is 10 (Week 11 is a partial week and is not in any figure). With history one week behind (through 9), Week 10 is the newer week.
+test("P9 (U1, R11): history one week behind does not move the one cutoff 'Through Week N' (the last all-final week, 10); Week 10 is a settled row in the log and moves the figures", async () => {
+  // PR B: the last all-final week is 10 (Week 11 is a partial week and is not in any figure). R11: the history being one week behind (through 9) holds nothing back.
   const lm = historyThrough(9), html = await perf({ lm });
-  t.match(html, /Comparison through Week 9/); t.match(html, /class="cell newer"[^>]*title="Newer than the comparison cutoff"/);
-  t.match(html, /Season through Week 10 · completed games/, "the season figures and the heading still run through the last all-final week");
-  // change every Week 10 score: the comparison figures cannot move (they run through Week 9)
+  t.match(html, /<b>Through Week 10<\/b>/); t.doesNotMatch(text(html), /Through Week 9/); t.doesNotMatch(text(html), /Team history/);
+  t.equal(html, await perf(), "the same screen as with complete history (no player on this roster has a club change)");
+  // change every Week 10 score: the figures MOVE now (they run through Week 10)
   const moved = clone(FX4.scores); moved["10"] = moved["10"].map((r) => ({ id: r.id, score: String(Number(r.score) + 5) }));
   const h2 = await perf({ scores: moved, lm });
-  t.deepEqual(rcns(h2), rcns(html), "Week 10 scores change no Recent, Earlier or Difference");
+  t.notEqual(h2, html, "Week 10 scores are in the figures");
   const S = state({ sub: "performance", intel: await intelFor({ lm }) });
   const p = teamPlayers(S).find((x) => FX4.scores["10"].some((r) => r.id === x.id) && x.status === "active");
-  t.ok(p); S.pf = { f: "all", s: "pos", open: { [p.id]: true }, res: {} }; t.match(body(V.app(S)), /Newer score: Week 10 [\d.]+\. Shown, but not in any figure here until team history covers Week 10\./);
+  t.ok(p); S.pf = { s: "pos", open: { [p.id]: true }, res: {} };
+  const op = body(V.app(S));
+  t.doesNotMatch(op, /<tr class="newer"><th class="pin"><button data-act="bdg" data-v="10"/, "Week 10 is no longer a newer row in his log"); t.match(op, /<th class="pin"><button data-act="bdg" data-v="10"/, "it is a settled row");
 });
 
-test("P9 (U2): no invented 'of N': a player whose first weekly row is after Week 1 shows the scored-game count only, with identity and opportunity explained separately", async () => {
+// R6 (section 5): the card shows the game count once, as the approved scored-game count; the "of N team games" form and its explanation block left the card.
+test("P9 (U2, R6): no invented 'of N': a player whose first weekly row is after Week 1 shows the scored-game count only, and so does a player with a full record", async () => {
   const S = state({ sub: "performance", intel: await intelFor() }), late = FX3.lineup_matchups_w11.teamHistoryFirst;
   const p = teamPlayers(S).find((x) => x.status === "active" && late[x.id] >= 2);
   t.ok(p, "the fixture has an active player with a late first record");
-  S.pf = { f: "all", s: "pos", open: { [p.id]: true }, res: {} };
-  const row = body(V.app(S)).split('data-act="pfx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0], tx = text(row);
-  t.doesNotMatch(tx, /\d+ of \d+ team games/); t.match(tx, /\d+ scored games?/);
-  t.match(tx, /Why there is no “of N” for scored games/); t.match(tx, /Club identity: unknown \(before his first record\)/); t.match(tx, /Game opportunity: unknown/);
-  // and a player with a full record shows 'of N'
+  S.pf = { s: "pos", open: { [p.id]: true }, res: {} };
+  const row = body(V.app(S)).split('data-act="card" data-pid="' + p.id + '"')[1].split('<div class="rw pfc">')[0], tx = text(row);
+  t.doesNotMatch(tx, /\d+ of \d+ (team )?games/); t.equal((tx.match(/\d+ scored games?/g) || []).length, 1, "the count once");
   const full = teamPlayers(S).find((x) => x.status === "active" && late[x.id] == null && !FX3.lineup_matchups_w11.teamHistory[x.id] && !FX3.lineup_matchups_w11.teamHistoryMissing.includes(x.id));
-  t.match(text(body(V.app(state({ sub: "performance", intel: await intelFor() }))).split('data-v="' + full.id + '"')[1].split('<div class="rw">')[0]), /\d+ of \d+ team games/);
+  const fr = text(body(V.app(state({ sub: "performance", intel: await intelFor() }))).split('data-act="card" data-pid="' + full.id + '"')[1].split('<div class="rw pfc">')[0]);
+  t.doesNotMatch(fr, /\d+ of \d+ team games/); t.match(fr, /\d+ scored games?/);
 });
 
-test("P9: a stale history (two or more weeks behind) withholds every comparison with a banner; scores and season figures still show", async () => {
+test("P9 (R11): a stale history (two or more weeks behind) holds nothing back and prints no notice; scores and season figures show through Week 10", async () => {
   // the Worker's answer two weeks behind the last all-final week (10): coverage through Week 8, nothing recorded after it
   const lm = historyThrough(8);
-  const html = await perf({ lm });
-  // revised: the stale-history reason is one line in the header card, and no row draws a dashed comparison block
-  t.equal((text(html).match(/Team history is 2 weeks behind/g) || []).length, 1); t.equal(rcns(html).length, 0);
-  t.match(html, /class="cell"><i>W10<\/i><b>\d+\.\d<\/b>/);
+  const html = await perf({ lm, named: true });
+  t.equal(rcns(html).length, 0, "no row draws a comparison block");
+  t.match(html, /<b>Through Week 10<\/b>/); t.doesNotMatch(html, /Through Week 8/); t.match(html, /<span>Tot\. Pts\.<\/span><b>\d+\.\d<\/b>/);
+  t.match(text(html), /PPG \d+\.\d [A-Z]+\d+/, "a no-change player has a PPG rank");
+  // no notice of any kind about the history: this is the intended behavior; the header's old 'Team history is N weeks behind...' line is gone
+  t.doesNotMatch(text(html), /Team history|weeks? behind|waits at Week/, "no team-history notice");
 });
 
 test("P7 review: every needed week is read (a bye in the look-back no longer withholds), and a live score from an unfinished game is drawn as 'live' and enters no figure", async () => {
@@ -287,59 +303,71 @@ test("P7 review: every needed week is read (a bye in the look-back no longer wit
   const live = clone(FX4.schedule11); live.nflSchedule.matchup.forEach((m) => { if (m.team.some((x) => x.id.toUpperCase() === p.nflTeam.toUpperCase())) { m.gameSecondsRemaining = "1800"; m.team[0].score = "7"; m.team[1].score = "3"; } });
   const run = async (extra) => {
     const scores = clone(FX4.scores); scores["11"] = [{ id: "1", score: "0" }]; if (extra) scores["11"].push({ id: p.id, score: "9.9" });
-    return body(V.app(state({ sub: "performance", intel: await intelFor({ scores, schedule11: live }) }))).split('data-act="pfx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
+    // R6: the card (name to the Breakdown control) and, opened, his Breakdown
+    const h = body(V.app(state({ sub: "performance", intel: await intelFor({ scores, schedule11: live }), pf: { s: "pos", open: { [p.id]: true }, res: {} } })));
+    const seg = h.split('data-act="card" data-pid="' + p.id + '"')[1].split('<div class="rw pfc">')[0];
+    return { card: seg.split('<div class="det')[0], bd: seg.split('<div class="det')[1] || "" };
   };
   const withLive = await run(true), without = await run(false);
-  t.match(text(withLive), /Live · 9\.9/); t.doesNotMatch(text(without), /Live · 9\.9/); t.match(text(without), /Live/, "a game in progress still says Live, with no score to show");
-  const rcn = (h) => text(h.match(/<div class="rcn">(.*?)<\/div>/)[1]).trim();
-  t.equal(rcn(withLive), rcn(without), "a live score changes no Recent, Earlier or Difference");
+  t.match(text(withLive.card), /Live · 9\.9/); t.doesNotMatch(text(without.card), /Live · 9\.9/); t.match(text(without.card), /Live/, "a game in progress still says Live, with no score to show");
+  const noChip = (h) => h.replace(/<span class="live">[^<]*<\/span>/, "");
+  t.equal(noChip(withLive.card), noChip(without.card), "a live score changes no figure or rank on the card");
+  t.match((withLive.bd.split('data-act="bdg" data-v="11"')[1] || "").split("</tr>")[0], /<b>9\.9<\/b>/, "the live score is in his log");
+  t.match(withLive.bd, /<tr class="newer"><th class="pin"><button data-act="bdg" data-v="11"/, "marked newer: outside the season figures");
 });
 
 test("P10: Performance carries no matchup rating, color, 'allowed per game' line or defense rank, and the view code reads none of them", async () => {
   const html = await perf({}), open = await perf({}, { pf: { f: "all", s: "pos", open: allOpen(state()), res: {} } });
   [html, open].forEach((h) => t.doesNotMatch(text(h), /easy|hard|allowed per game|matchup rating|defense rank|vs\. defense/i));
-  ["tabviews.js", "clubhist.js"].forEach((f) => t.doesNotMatch(fs.readFileSync(path.join(SRC, "lib", f), "utf8"), /defRatings|ppgRank|rushDefRank|passDefRank|muTier/));
+  // R6: "ppgRank" is now also the name of the card's own PPG rank text (figs().ppgRank, a player's rank, not a defense's); that one field is set aside
+  const own = (s) => s.replace(/totRank, ppgRank, why|ppgRank: gr\b|g\.ppgRank\b/g, "");
+  ["tabviews.js", "clubhist.js", "breakdown.js", "boxlog.js"].forEach((f) => t.doesNotMatch(own(fs.readFileSync(path.join(SRC, "lib", f), "utf8")), /defRatings|ppgRank|rushDefRank|passDefRank|muTier/));
 });
 
-test("P11: the profile game log is Week and Points only; 0.0 and a missing score look different; BYE only where the club is known", async () => {
+// R6: the profile game log is the Breakdown (lib/breakdown.js). These keep the R3 rules on its Fantasy view: 0.0 and no score look different, an opponent or a BYE
+// only where his club that week is established (here there is no game-stats read, so only the team history can establish it), and the same season figures.
+const logOf = (html) => (html.split('<table class="bdt">')[1] || "").split("</table>")[0];
+const weekRow = (log, w) => (log.split(new RegExp('(?:data-act="bdg" data-v|class="pinx" data-week)="' + w + '"'))[1] || "").split("</tr>")[0];   // R8: a verified bye row is plain text
+test("P11 (R6): the profile log keeps 0.0 and no score apart, and names no opponent where his club that week is not established", async () => {
   const intel = await intelFor(), S0 = state(), act = teamPlayers(S0).filter((p) => p.status === "active");
   const has0 = act.find((p) => ["8", "9", "10"].some((w) => FX3.scores[w].some((r) => r.id === p.id && Number(r.score) === 0)));
   const none = act.find((p) => ["8", "9", "10"].every((w) => !FX3.scores[w].some((r) => r.id === p.id)));
-  const logOf = (p) => V.app(state({ intel, profile: { pid: p.id, tab: "perf" } })).split('<div class="card tbl">')[1].split("</table>")[0];
-  t.ok(none, "the fixture has a player with no scores in the loaded weeks"); t.match(logOf(none), /<td class="n"><span class="mu">—<\/span><\/td>/);
-  if (has0) t.match(logOf(has0), /<b>0\.0<\/b>/);
-  const html = V.app(state({ intel, profile: { pid: none.id, tab: "perf" } }));
-  t.match(html, /<th>Wk<\/th><th class="n">Pts<\/th>/); t.doesNotMatch(html, /<th[^>]*>(Opponent|Snaps|Lineup)/);
-  t.match(text(html), /Opponents, snaps and lineup status are not in this preview/);
+  const html = (p) => V.app(state({ intel, profile: { pid: p.id, tab: "perf" } }));
+  t.ok(none, "the fixture has a player with no scores in the loaded weeks");
+  t.match(weekRow(logOf(html(none)), "8"), /<td class="n"><span class="mu">—<\/span><\/td>/, "no score: a dash, never 0.0");
+  if (has0) { const w0 = ["8", "9", "10"].find((w) => FX3.scores[w].some((r) => r.id === has0.id && Number(r.score) === 0)); t.match(weekRow(logOf(html(has0)), w0), /<td class="n"><b>0\.0<\/b><\/td>/, "a recorded 0.0 stays 0.0"); }
+  for (let w = 1; w <= 10; w++) t.doesNotMatch(weekRow(logOf(html(none)), w), /class="nw">(vs|@) /, "Week " + w + ": no opponent without his club that week");
+  t.match(html(none), /<th class="pin">Game<\/th><th class="n">Pts<\/th>/);
 });
 
-test("R3 ruling 2: the full-season log keeps 0.0, no score, a bye and a live score apart, and draws a BYE only where the club is known", async () => {
+test("R3 ruling 2 (R6): the full-season log keeps 0.0, no score and a bye apart, and draws a BYE only where the club is known", async () => {
   const S0 = state({ sub: "performance", intel: await intelFor() });
   const late = FX3.lineup_matchups_w11.teamHistoryFirst, hist = FX3.lineup_matchups_w11;
   const known = teamPlayers(S0).find((x) => x.status === "active" && x.bye && x.bye <= 10 && late[x.id] == null && !hist.teamHistory[x.id] && !hist.teamHistoryMissing.includes(x.id) && !hist.teamHistoryConflict.includes(x.id));
   const unknownClub = teamPlayers(S0).find((x) => x.status === "active" && x.bye && x.bye <= 10 && hist.teamHistoryMissing.includes(x.id));
   t.ok(known, "a player with a known club and a bye already played");
-  const full = async (p) => V.app(state({ intel: await intelFor(), profile: { pid: p.id, tab: "perf", all: true } })).split('<div class="card tbl">')[1].split("</table>")[0];
+  const full = async (p) => logOf(V.app(state({ intel: await intelFor(), profile: { pid: p.id, tab: "perf" } })));
+  const settledByes = (log) => { let n = 0; for (let w = 1; w <= 10; w++) if (/class="nw">BYE</.test(weekRow(log, w))) n++; return n; };
   const k = await full(known);
-  t.match(k, new RegExp("<tr><td>" + known.bye + '</td><td class="n"><span class="mu">BYE</span>'), "his bye week reads BYE");
-  t.ok((k.match(/BYE/g) || []).length === 1, "exactly one bye");
+  t.match(weekRow(k, known.bye), /class="nw">BYE<\/span>/, "his bye week reads BYE"); t.equal(settledByes(k), 1, "exactly one bye");
   const zero = teamPlayers(S0).find((x) => x.status === "active" && FX3.scores["5"].some((r) => r.id === x.id && Number(r.score) === 0));
-  if (zero) t.match(await full(zero), /<td class="n"><b>0\.0<\/b>/, "a recorded 0.0 stays 0.0");
-  if (unknownClub) t.doesNotMatch(await full(unknownClub), /BYE/, "no BYE where the club is unknown");
-  // weeks before a first record never carry a BYE even for a late player
+  if (zero) t.match(weekRow(await full(zero), 5), /<td class="n"><b>0\.0<\/b>/, "a recorded 0.0 stays 0.0");
+  if (unknownClub) t.equal(settledByes(await full(unknownClub)), 0, "no BYE where the club is unknown");
   const lateP = teamPlayers(S0).find((x) => x.status === "active" && late[x.id] >= 3 && x.bye && x.bye < late[x.id]);
-  if (lateP) t.doesNotMatch(await full(lateP), /BYE/, "a bye before his first record is not drawn");
-  t.doesNotMatch(k, /Opponent|vs |@ /);
+  if (lateP) t.equal(settledByes(await full(lateP)), 0, "a bye before his first record is not drawn");
 });
 
-test("the profile's season tiles say the same thing as Team › Performance: the same average, the same scored games, through the same week", async () => {
+test("the profile's season line says the same thing as Team › Performance: the same average, the same scored games, through the same week", async () => {
   const intel = await intelFor(), S = state({ sub: "performance", intel }), p = teamPlayers(S).find((x) => x.status === "active");
-  S.pf = { f: "all", s: "pos", open: { [p.id]: true }, res: {} };
-  const row = body(V.app(S)).split('data-act="pfx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
-  const m = text(row).match(/Season (\d+\.\d) · (\d+) of \d+ team games · through Week (\d+)/) || text(row).match(/Season (\d+\.\d) · (\d+) scored games? · through Week (\d+)/);
-  t.ok(m, "the Performance row states its season figures and the week they run through");
-  const tiles = text(V.app(state({ intel, profile: { pid: p.id, tab: "perf" } })).split('<div class="k3">')[1].split("</div></div>")[0] + "</div>");
-  t.match(tiles, new RegExp(m[1].replace(".", "\\.") + " Season average"), "same average"); t.match(tiles, new RegExp(m[2] + " Scored games"), "same scored games"); t.match(tiles, new RegExp(m[3] + " Through week"), "same week");
+  // R6: the card states the scored games and PPG; the screen states its one cutoff "Through Week N" once, in the header
+  const html = body(V.app(S)), row = text(html.split('data-act="card" data-pid="' + p.id + '"')[1].split('<div class="rw pfc">')[0].split('<div class="det')[0]);
+  const c = row.match(/(\d+) scored games?[\s\S]*PPG (\d+\.\d)/), wk = text(html).match(/Through Week (\d+)/);
+  const m = c && wk ? [null, c[2], c[1], wk[1]] : null;
+  t.ok(m, "the Performance card states its season figures and the screen the week they run through");
+  const line = text(V.app(state({ intel, profile: { pid: p.id, tab: "perf" } }))).match(/Through Week (\d+) · (\d+\.\d) pts · (\d+) scored games?/);
+  t.ok(line, "the profile states the season line");
+  t.equal(line[1], m[3], "same week"); t.equal(line[3], m[2], "same scored games");
+  t.ok(Math.abs(Number(line[2]) / Number(line[3]) - Number(m[1])) <= 0.05 + 1e-9, "same average (" + line[2] + " / " + line[3] + " = " + m[1] + ")");
 });
 
 // ───────────────────────── escaping and read-only controls ─────────────────────────

@@ -47,7 +47,7 @@ test("an incoherent team shows one data-unavailable state on every Team screen: 
     t.match(tx, /Roster and lineup data don’t match/, id + " " + sub + "/" + view);
     t.match(tx, /MFL’s Week 11 lineup lists \d+ starters, but \d+ of them are not on this team’s roster/);
     t.doesNotMatch(tx, /Starter fits no lineup slot/); t.doesNotMatch(tx, /Player \d+/); t.doesNotMatch(tx, /need attention|needs attention/);
-    t.doesNotMatch(tx, /starters ·|Bench ·|Injured reserve ·|Recorded salary, not cap space/);
+    t.doesNotMatch(tx, /starters ·|Starting lineup ·|Bench ·|Injured reserve ·|Cap space · \d{4} season/);
     t.match(html, /role="alert"/); t.match(html, /data-act="retry"/);
     t.doesNotMatch(html, /class="rx/, "no player row is drawn from incomplete data");
   }));
@@ -58,12 +58,12 @@ test("an incoherent team shows one data-unavailable state on every Team screen: 
 test("a coherent team keeps everything, including genuine lineup warnings", () => {
   GOOD.forEach((id) => {
     const html = V.app(state({ teamId: id })), tx = text(html);
-    t.doesNotMatch(tx, /Roster and lineup data don’t match/); t.match(tx, /Week 11 starters/); t.match(html, /class="rx/);
+    t.doesNotMatch(tx, /Roster and lineup data don’t match/); t.match(tx, /Starting lineup · /); t.match(html, /class="rx/);
   });
-  // a genuine empty slot is still reported (team 0010 has 17 of 18 starters)
-  t.match(text(V.app(state({ teamId: "0010" }))), /17 of 18 starters · 1 needs attention/); t.match(text(V.app(state({ teamId: "0010" }))), /DF · Empty/);
+  // a genuine empty slot is still reported (team 0010 has 17 of 18 starters; R6 wording: the warning card and "Starting lineup · 17/18")
+  t.match(text(V.app(state({ teamId: "0010" }))), /▲ 1 needs attention/); t.match(text(V.app(state({ teamId: "0010" }))), /Starting lineup · 17\/18/); t.match(text(V.app(state({ teamId: "0010" }))), /DFX · Empty/);
   // Contracts and Performance for a coherent team are drawn
-  t.match(text(V.app(state({ teamId: "0010", sub: "contracts" }))), /Recorded salary, not cap space/);
+  t.match(text(V.app(state({ teamId: "0010", sub: "contracts" }))), /Cap space · 2026 season/);
 });
 
 test("the line between a real problem and a data problem: one or two starters dropped after the lineup was set keep their warnings; three, or a quarter of the lineup, is a data problem", () => {

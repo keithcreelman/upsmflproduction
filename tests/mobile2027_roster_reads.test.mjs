@@ -46,7 +46,22 @@ test("the two routes: exact path, exact query names, the worker only; anything e
   t.equal(u.status, WORKER + "/api/player-status?season=2026&L=74598");
   t.equal(u.matchups(11), WORKER + "/api/lineup-matchups?YEAR=2026&W=11");
   [u.status, u.matchups(11), u.matchups(3)].forEach((x) => t.ok(D.check(x, WORKER).ok, "allowed: " + x));
-  t.equal(D.RULES.length, 7, "seven allowed paths in all");
+  t.equal(D.RULES.length, 11, "eleven allowed paths in all (R6 added /api/player-weekly-box; R7 the two draft #1515 reads; Standings #1503 /api/standings)");
+  t.deepEqual(D.RULES.find((r) => r.path === "/api/standings").query, ["year"], "Standings: the year only");
+  // R7 (Keith, 2026-11-23: the stored-projection read and the league-wide season totals): exactly these query names, nothing else
+  t.deepEqual(D.RULES.find((r) => r.path === "/api/player-projections").query, ["season", "week", "ids"]);
+  t.deepEqual(D.RULES.find((r) => r.path === "/api/position-season-stats").query, ["season", "through", "group"]);
+  t.equal(u.projections("2026", 11, "10700,16185"), WORKER + "/api/player-projections?season=2026&week=11&ids=10700%2C16185");
+  t.equal(u.positionStats("2026", 10, "WR"), WORKER + "/api/position-season-stats?season=2026&through=10&group=WR");
+  [u.projections("2026", 11, "1"), u.positionStats("2026", 10, "QB")].forEach((x) => t.ok(D.check(x, WORKER).ok, "allowed: " + x));
+  [[`${WORKER}/api/player-projections?season=2026&week=11&ids=1&L=74598`, "L is not a name the projection route takes"],
+    [`${WORKER}/api/player-projections?season=2026&week=11&ids=1&apikey=x`, "a key"],
+    [`${WORKER}/api/position-season-stats?season=2026&through=10&group=WR&refresh=1`, "a name not on the list"],
+    [`${WORKER}/api/position-season-stats/x?season=2026&through=10&group=WR`, "path not exact"]].forEach(([x, why]) => t.equal(D.check(x, WORKER).ok, false, "refused (" + why + ")"));
+  t.equal(D.RULES.filter((r) => r.types).length, 1); t.equal(D.RULES.find((r) => r.types).types.indexOf("projectedScores"), -1, "MFL's live projections export stays off the allowlist");
+  // R6 (Keith, 2026-11-22: the weekly-box read is authorized): allowed with exactly season, mfl_id and L, nothing else
+  t.ok(D.check(`${WORKER}/api/player-weekly-box?season=2026&mfl_id=1&L=74598`, WORKER).ok, "allowed with exactly season, mfl_id and L");
+  t.deepEqual(D.RULES.find((r) => r.path === "/api/player-weekly-box").query, ["season", "mfl_id", "L"]);
   const bad = [
     [`${WORKER}/api/player-status?season=2026&L=74598&MFL_USER_ID=x`, "a session id"],
     [`${WORKER}/api/player-status?season=2026&L=74598&refresh=1`, "a query name not on the list"],
@@ -57,7 +72,8 @@ test("the two routes: exact path, exact query names, the worker only; anything e
     [`${WORKER}/api/player-status/x?season=2026&L=74598`, "path not exact"],
     [`http://upsmflproduction.keith-creelman.workers.dev/api/player-status?season=2026&L=74598`, "not https"],
     [`https://example.com/api/lineup-matchups?YEAR=2026&W=11`, "other host"],
-    [`${WORKER}/api/player-weekly-box?season=2026&mfl_id=1`, "a neighboring route that was not approved"],
+    [`${WORKER}/api/player-weekly-box?season=2026&mfl_id=1&L=74598&W=1`, "a query name the weekly-box route does not take"],
+    [`${WORKER}/api/player-weekly-box?season=2026&mfl_id=1&L=74598&token=x`, "a token on the weekly-box route"],
     [`${WORKER}/api/fantasy-sos?season=2026`, "a neighboring route that was not approved"],
   ];
   bad.forEach(([x, why]) => t.equal(D.check(x, WORKER).ok, false, "refused (" + why + "): " + x));

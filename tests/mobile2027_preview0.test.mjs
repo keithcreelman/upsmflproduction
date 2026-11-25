@@ -54,7 +54,9 @@ function state(over) {
     requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
   };
 }
-const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "cts", "cty", "ctx", "pfs", "pfx", "pfres", "retryperf", "help", "ctbd", "ctcat", "nsx", "retryns"];
+const ALLOWED_ACTS = ["nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "ctl", "cts", "cty", "ctx", "cth", "pfs", "pfx", "pfres", "retryperf", "help", "ctbd", "ctcat", "nsx", "retryns", "bdv", "bdg", "retrybox", "retrylog",
+  // Standings (#1503): display controls only (a tab, a period, a view, a week, a row opened or closed, a team's detail, a breakdown view, Try again)
+  "lgsub", "lgper", "lgset", "lgwk", "lgt", "lgteam", "lgbrk", "lgbv", "lgretry"];
 const findPlayer = (pred) => allPlayers().find(pred);
 
 // ───────────────────────── 1. contract text and schedule ─────────────────────────
@@ -221,7 +223,7 @@ test("a failed read is reported as failed, not as an empty league", async () => 
 
 test("the source holds no write verb, credential name or second transport; fetch lives in one file", async () => {
   const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
-  const files = ["app.js", "config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/views.js"];
+  const files = ["app.js", "config.js", "lib/format.js", "lib/contract.js", "lib/model.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/views.js", "lib/boxlog.js", "lib/breakdown.js"];
   const forbidden = [/XMLHttpRequest/, /sendBeacon/, /WebSocket/, /EventSource/, /document\.cookie/, /indexedDB/, /serviceWorker/, /importScripts/, /\beval\s*\(/, /new Function/,
     /\bPOST\b/, /\bPUT\b/, /\bDELETE\b/, /\bPATCH\b/, /MFL_USER_ID\s*[=:]/, /APIKEY\s*[=:]/i, /Authorization/, /method:\s*["'](?!GET)/];
   files.forEach((f) => { const s = read(f); forbidden.forEach((re) => t.doesNotMatch(s, re, f + " must not match " + re)); });
@@ -230,7 +232,7 @@ test("the source holds no write verb, credential name or second transport; fetch
   t.match(read("app.js"), /createLoader\(cfg, guardedFetch\)/); // the loader is handed only the guarded one
   t.match(read("app.js"), /if \(S\.sample\.on\) return Promise\.reject/, "and the guarded one refuses while Sample mode is on");
   files.filter((f) => f !== "app.js").forEach((f) => t.doesNotMatch(read(f), /localStorage|sessionStorage/, f + " does not store anything"));
-  t.deepEqual([...read("app.js").matchAll(/setPref\("([a-z]+)"/g)].map((m) => m[1]).sort().filter((x, i, a) => a.indexOf(x) === i), ["gdef", "skin", "team", "vib"]); // three display choices and the last team viewed
+  t.deepEqual([...read("app.js").matchAll(/setPref\("([a-z]+)"/g)].map((m) => m[1]).sort().filter((x, i, a) => a.indexOf(x) === i), ["skin", "team", "vib"]); // two display choices and the last team viewed (R6 retired the "Bench groups" choice)
 });
 
 // ───────────────────────── 3. the model ─────────────────────────
@@ -267,22 +269,23 @@ test("no submitted lineup means 'lineup not available', never an empty lineup", 
 test("the Team screen: starters above bench, groups, reserve counts, and only read-only controls", () => {
   const S = state();
   const html = V.app(S);
-  t.match(html, /Week 11 starters/); t.match(html, /Blake Bombers/); t.match(html, /Active \d+ of 30/); t.match(html, /Taxi \d+ of 10/); t.match(html, /IR \d+ of 15/);
-  t.ok(html.indexOf("Week 11 starters") < html.indexOf("Bench ·"), "starters above bench");
+  t.match(html, /Starting lineup · /); t.match(html, /Blake Bombers/); t.match(html, /Active \d+ of 30/); t.match(html, /Taxi \d+ of 10/); t.match(html, /IR \d+ of 15/);
+  t.ok(html.indexOf("Starting lineup · ") < html.indexOf("Bench ·"), "starters above bench");
   t.ok(html.indexOf("Bench ·") < html.indexOf("Injured reserve"), "bench above reserve");
   const acts = [...html.matchAll(/data-act="([a-z]+)"/g)].map((m) => m[1]);
   acts.forEach((a) => t.ok(ALLOWED_ACTS.includes(a), "allowed control: " + a));
   t.doesNotMatch(html, /\b(Swap|Start in lineup|Drop|Extend|Restructure|Submit|Save|Bid|Propose|Accept|Reject)\b/, "no transaction wording on the roster screen");
   t.equal((html.match(/<form/g) || []).length, 0); t.equal((html.match(/<input|<textarea|<select/g) || []).length, 0);
   t.doesNotMatch(html, /\sstyle=/); t.doesNotMatch(html, /\son[a-z]+=/i); t.doesNotMatch(html, /<script/i);
-  const open = V.app(state({ open: { bQB: true, bRB: true, bWR: true, bTE: true, ir: true, taxi: true } }));
-  t.ok((open.match(/data-act="card"/g) || []).length > (html.match(/data-act="card"/g) || []).length, "expanding groups lists more players");
+  // R6: the Bench, Injured reserve and Taxi squad cards are open by default; collapsing them lists fewer players
+  const shut = V.app(state({ open: { bench: false, ir: false, taxi: false } }));
+  t.ok((shut.match(/data-act="card"/g) || []).length < (html.match(/data-act="card"/g) || []).length, "collapsing the section cards lists fewer players");
 });
 
 test("Team › Contracts shows recorded salary and years; a missing salary is 'n/r' in the table and 'Not recorded' in its row, never $0", () => {
   const S = state({ sub: "contracts" });
   const html = V.app(S);
-  t.match(html, /\$\d+(\.\d+)?K/); t.match(html, /yrs? left/);
+  t.match(html, /\$\d+(\.\d+)?K/); t.match(html, /Expires 20\d\d/);
   const S2 = state({ sub: "contracts" }); const p = M.starters(S2.model.teams.find((x) => x.id === "0010"))[0]; p.salary = null;
   t.match(V.app(S2), /<span class="wn">n\/r<\/span>/);
 });
@@ -316,7 +319,7 @@ test("a blank or unresolved salary stays unknown from the raw read to the roster
     const mine = roster.slice(at), nextRow = mine.indexOf('<div class="rw">');
     const row = nextRow > 0 ? mine.slice(0, nextRow) : mine;
     t.match(row, /<span class="wn">n\/r<\/span>/, name + ": the table cell says n/r (no amount recorded)");
-    t.match(row, /<span>Not recorded<\/span>/, name + ": the opened row says Not recorded for this season");
+    t.match(row, /<span class="wn">Not recorded<\/span>/, name + ": the opened row says Not recorded for this season");
     t.doesNotMatch(row, /\$0(?![,\d])/, name + ": the row is not $0");
     const html = V.app(state({ model, profile: { pid: String(target.id), tab: "contract" } }));
     t.match(html, /<b class="wn">Not recorded<\/b><small>Salary 2026<\/small>/, name + ": the salary tile says Not recorded");
@@ -336,7 +339,7 @@ test("a blank or unresolved salary stays unknown from the raw read to the roster
 test("when the lineup cannot be read the screen says so, and the bye chip shows only in the bye week", () => {
   const S = state({ model: M.build(FX.roster_workbench, FX.league, null, 11, 2026) });
   const html = V.app(S);
-  t.match(html, /Lineup not available/); t.doesNotMatch(html, /Week 11 starters/);
+  t.match(html, /Lineup not available/); t.doesNotMatch(html, /Starting lineup · /);
   const S2 = state(); const b = S2.model.teams.find((x) => x.id === "0010").players.find((p) => p.starter); b.bye = 11;
   t.match(V.app(S2), /Bye week/);
   b.bye = 9; t.doesNotMatch(V.app(S2), /▲ Bye week/);
@@ -360,8 +363,9 @@ test("the Player profile Contract tab: salary, years left, earned, remaining gua
   t.match(html, /Where these numbers come from/);
   t.match(html, /data-chain="\[&quot;https:\/\/a\.espncdn\.com\/i\/headshots\/nfl\/players\/full\/\d+\.png&quot;,&quot;https:\/\/www48\.myfantasyleague\.com\/player_photos_2014\/\d+_thumb\.jpg&quot;\]"/);
   const opened = V.app(state({ profile: { pid: p.id, tab: "contract" }, flags: { rules: true, earned: true, cut: true, raw: true } }));
-  t.match(opened, /Total value<\/b><span>\$70,000/); t.match(opened, /Guaranteed<\/b><span>\$52,500/); t.match(opened, /AAV \(as recorded\)<\/b><span>\$30,000/);
-  t.match(opened, /\$14,000 from played years \+ \$588 this season/); t.match(opened, /Guarantee \$52,500 minus earned \$14,588/);
+  t.match(opened, /Total value<\/b><span>\$70,000/); t.match(opened, /Guarantee<\/b><span>\$52,500<small>\$14,588 earned through Week 10<\/small>/); t.match(opened, /AAV<\/b><span>2026–2027 · \$30K<\/span>/, "R9: the recorded AAV labeled by its years");
+  t.match(opened, /\$14,000 from played years \+ \$588 this season/); t.match(opened, /Cut charge<\/b><span><b>\$37,912<\/b><small>Guarantee rule: the guaranteed amount not yet earned\.<\/small>/);
+  t.doesNotMatch(opened, /minus earned|Remaining guarantee|Vet-FAA|Rookie-Draft|>Type</, "R8: no arithmetic under If cut now, no duplicate guarantee, no internal type code");
   t.doesNotMatch(opened, /CL 3\| TCV 70K/); t.match(opened, /Nothing can be cut from here/);
 });
 
@@ -399,7 +403,7 @@ test("nothing is drawn as $0 when the worker's answer is missing, loading, faile
 test("the worker's own zero is shown as $0 (exempt cut), and the earned rules read as the Front Office words them", () => {
   const ex = Object.entries(FX.cap_penalty.players).find(([id, r]) => r.exempt && r.penalty === 0 && !r.needs_review);
   const html = V.app(state({ profile: { pid: ex[0], tab: "contract" }, flags: { cut: true } }));
-  t.match(html, /<b>\$0<\/b>/); t.match(html, new RegExp(ex[1].exempt_reason.slice(0, 20).replace(/[$.()§]/g, ".")));
+  t.match(html, /<b>\$0<\/b>/); const rw = C.cutRule(ex[1]); t.notEqual(rw.rule, "unknown", "the fixture's exempt basis is a known rule"); t.ok(html.includes(rw.words.replace(/’/g, "’")), "R8: the rule sentence, not the worker's exempt text");
   const full = Object.entries(FX.cap_penalty.players).find(([id, r]) => r.earned_rule === "full_year_sub_5k");
   t.match(V.app(state({ profile: { pid: full[0], tab: "contract" } })), /Full-year rule/);
   const wwna = Object.entries(FX.cap_penalty.players).find(([id, r]) => r.earned_rule === "ww_earned_na");
@@ -411,11 +415,12 @@ test("other tabs and states: placeholders say what is not here; taxi details; un
   const html = V.app(state({ profile: { pid: tx.id, tab: "more" } }));
   t.match(html, /Taxi squad/); t.match(html, /Call-ups used/); t.match(html, /not in Preview 0/i);
   t.match(V.app(state({ profile: { pid: tx.id, tab: "sched" } })), /not in Preview 0/);
-  t.match(V.app(state({ profile: { pid: tx.id, tab: "perf" } })), /Season points/);
+  t.match(V.app(state({ profile: { pid: tx.id, tab: "perf" } })), /Breakdown/);   // R6: the profile's Performance tab is the Breakdown
   const miss = V.app(state({ profile: { pid: "99999999", tab: "contract" } }));
   t.match(miss, /Player not found/);
-  ["home", "market", "league"].forEach((id) => t.match(V.app(state({ tab: id })), /not in Preview 0/i));
-  t.match(V.app(state({ sub: "contracts" })), /Recorded salary, not cap space/); t.doesNotMatch(V.app(state({ sub: "contracts" })), /gotoview/);
+  ["home", "market"].forEach((id) => t.match(V.app(state({ tab: id })), /not in Preview 0/i));
+  t.match(V.app(state({ tab: "league" })), /<h1>Standings<\/h1>[\s\S]*Loading the standings/, "Standings (#1503): League draws Standings; tests/mobile2027_standings.test.mjs covers it");
+  t.match(V.app(state({ sub: "contracts" })), /Cap space · 2026 season/); t.doesNotMatch(V.app(state({ sub: "contracts" })), /gotoview/);
   const cap = V.app(state({ sub: "cap" })); t.match(cap, /Not in this preview\. Cap space is left out on purpose/); t.doesNotMatch(cap, /data-act="(?!nav|sub|about)/, "nothing on Cap & picks links anywhere");
 });
 
@@ -755,7 +760,7 @@ test("shared modules: taken byte for byte, pinned by SHA-256, loadable in the pa
   const B = await import(pathToFileURL(path.join(APP, "scripts/build.mjs")).href);
   const { createHash } = await import("node:crypto");
   const sha = (b) => createHash("sha256").update(b).digest("hex");
-  t.deepEqual(B.SHARED, ["contract_windows.js", "taxi_rule.js"], "the first intake is exactly the two pure modules the next stages need");
+  t.deepEqual(B.SHARED, ["contract_windows.js", "taxi_rule.js", "standings_race.js", "standings_clinch.js", "odds_display.js"], "the two pure modules of the first intake, then Standings (#1503): the race module and #1521's clinch engine and odds display policy");
   // the committed lock is well formed (whether it matches the LIVE classic files is check_shared.mjs's job, not the suite's)
   const committed = B.readLock(); t.ok(committed && committed.files);
   t.deepEqual(Object.keys(committed.files).sort(), B.SHARED.slice().sort(), "the committed lock pins exactly the shared list");
@@ -770,6 +775,7 @@ test("shared modules: taken byte for byte, pinned by SHA-256, loadable in the pa
   B.SHARED.forEach((n) => vm.runInContext(fs.readFileSync(path.join(FIXSH, n), "utf8"), sandbox, { filename: n }));
   t.ok(sandbox.UPS_CONTRACT_WINDOWS && typeof sandbox.UPS_CONTRACT_WINDOWS === "object", "contract windows attach UPS_CONTRACT_WINDOWS");
   t.ok(sandbox.UPS_TAXI_RULE && typeof sandbox.UPS_TAXI_RULE === "object", "the taxi rule attaches UPS_TAXI_RULE");
+  ["UPS_STANDINGS_RACE", "UPS_STANDINGS_CLINCH", "UPS_ODDS_DISPLAY"].forEach((g) => t.ok(sandbox[g] && typeof sandbox[g] === "object", "Standings: attaches " + g));
   t.equal(calls.length, 0, "loading them makes no request");
   // the page loads them, before the app's own files
   const scripts = [...read("index.html").matchAll(/<script src="([^"]+)"/g)].map((m) => m[1]);
@@ -901,7 +907,7 @@ test("Sample mode: client-only, labeled, off at every start, and it keeps the pa
   const off = V.app(state()), on = V.app(state({ sample: { on: true } }));
   t.match(off, /<div class="envbar"><span>Preview: view only<\/span>/); t.doesNotMatch(off, /Sample data/);
   t.match(on, /<div class="envbar sample"><span>Sample data · nothing is real and nothing is sent<\/span>/);
-  t.match(on, /Nothing here is real, and nothing is sent\./); t.doesNotMatch(on, /Week 11 starters|class="rx"/, "no league data is drawn in Sample mode");
+  t.match(on, /Nothing here is real, and nothing is sent\./); t.doesNotMatch(on, /Starting lineup · |class="rx"/, "no league data is drawn in Sample mode");
   t.equal((on.match(/data-act="sample"/g) || []).length, 1, "one control, to turn it off"); t.match(on, /data-act="sample" data-v="screen"/);
   const aboutOn = V.app(state({ sheet: "about", sample: { on: true } })); t.match(aboutOn, /data-act="sample" data-v="about"/, "the two Sample buttons are told apart, so focus returns to the right one"); t.doesNotMatch(aboutOn, /Reload the data/, "Reload is hidden while Sample mode is on"); t.match(V.app(state({ sheet: "about" })), /Reload the data/);
   const withProfile = V.app(state({ sample: { on: true }, profile: { pid: allPlayers()[0].id, tab: "contract" } })); t.doesNotMatch(withProfile, /role="dialog"/, "a profile is not drawn in Sample mode");
@@ -916,7 +922,7 @@ test("Sample mode: client-only, labeled, off at every start, and it keeps the pa
 test("the Preview marker and the Sample banner: colors that read in every skin, and the helmet placeholder styled as the demo styles it", () => {
   const css = read("styles.css");
   t.match(css, /\.envbar\{[^}]*min-height:calc\(26px \+ env\(safe-area-inset-top/, "the marker clears the phone's top inset itself");
-  t.match(css, /\.hd\{[^}]*padding:8px max\(8px/, "so the header no longer adds the inset a second time");
+  t.match(css, /\.hd\{[^}]*padding:0 max\(8px/, "so the header no longer adds the inset a second time (R8: no top padding either, it scrolls under the marker)");
   t.match(css, /\.envbar\.sample\{background:var\(--wn\);color:var\(--on\)/);
   t.match(css, /\.pfw\{position:relative;flex:0 0 auto;width:clamp\(76px,26vw,100px\)\}/);
   t.match(css, /\.hm\.ph\{width:clamp\(52px,16vw,60px\);padding:0;border-style:dashed;border-color:#0b0f18;color:#0b0f18;/, "the dashed placeholder, exactly the demo's rule");

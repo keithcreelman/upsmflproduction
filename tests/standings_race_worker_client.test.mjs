@@ -64,16 +64,23 @@ test("race(): seed explanations are the worker's seed_reason, word for word — 
   t.equal(out.weeklyUnreadable, false);
   t.equal(out.projected, true, "season_complete is false");
   const why = (fid) => out.byFranchise[fid].whySeed.text;
-  t.equal(why("0001"), "Seed 1: in the bye pool (the two best division winners); ranked ahead of Gride on H2H record.");
-  // below the team above (vs_above), and -- when a tiebreak, not All-Play, put it ahead of the team below -- that too
-  t.equal(why("0004"), "Seed 3: behind Gride on All-Play %. Ahead of CBP on the H2H games between them (same All-Play %, H2H record and season Points For).");
-  t.equal(why("0007"), "Seed 5: behind CBP on All-Play %. Ahead of HammerTime on season Points For (same All-Play % and H2H record).");
-  t.equal(why("0005"), "Seed 6: behind Sex Manther on season Points For (same All-Play % and H2H record).");
+  // canon §F.1.4: Gride and L.A. Looks are division winners level on All-Play (26-2); L.A. Looks' better record is not a
+  // step, so the order of seeds 1 and 2 is not final (pending a ruling). The list keeps a display order (name).
+  t.equal(why("0003"), "Seed 1: in the bye pool (the two best division winners); level with L.A. Looks on every settled tiebreak, so this order is not final (the next tiebreak for this place has not been ruled on yet).");
+  t.equal(why("0001"), "Seed 2: behind Gride for now: the two are level on every settled tiebreak, so this order is not final (the next tiebreak for this place has not been ruled on yet).");
+  // canon §F.1.3: Pure Greatness and CBP are level on All-Play and Points For inside seeds 3-6; head-to-head is a
+  // wild-card step only, so their order is not final either (Pure Greatness first: the wild-card order, which H2H set).
+  t.equal(why("0004"), "Seed 3: behind L.A. Looks on All-Play %.");
+  t.equal(why("0002"), "Seed 4: behind Pure Greatness for now: the two are level on every settled tiebreak, so this order is not final (the next tiebreak for this place has not been ruled on yet).");
+  t.equal(why("0007"), "Seed 5: behind CBP on All-Play %. Ahead of HammerTime on season Points For (same All-Play %).");
+  t.equal(why("0005"), "Seed 6: behind Sex Manther on season Points For (same All-Play %).");
+  t.deepEqual(j.regular_season.unresolved.map((u) => [u.pool, u.franchise_ids, u.seeds, u.why]),
+    [["seed_1_2_order", ["0003", "0001"], [1, 2], "pending_ruling"], ["seeds3to6", ["0004", "0002"], [3, 4], "pending_ruling"]]);
   // WC Back (#1329): 14 behind CBP, the last wild card it names (18 All-Play wins) — never the division-winner 6th seed
   // HammerTime (10), which used to give 6
   t.match(why("0006"), /^Outside the top six — 14 AP wins back; behind CBP \(the last wild card\) on All-Play %\.$/);
   t.equal(out.byFranchise["0004"].whySeed.decidingCriterion, "all_play");
-  t.equal(out.byFranchise["0004"].whySeed.aheadOf.step, "head_to_head");
+  t.equal(out.byFranchise["0004"].whySeed.aheadOf, null, "an unresolved pair is never called a tiebreak win");
 });
 test("race(): a FAILED weekly or weeklyScores query (worker sends null + weekly_errors) is unavailable — never preseason zeros", async () => {
   const RACE = raceModule();
@@ -118,7 +125,7 @@ test("A2 projectedPlayoffGroups on the real response: games back come from the w
   const RACE = raceModule();
   const okResp = await standings(makeLadderSeason());
   const ok = RACE.projectedPlayoffGroups(okResp.rows, okResp.weeklyScores);
-  t.deepEqual(ok.byes.map((e) => e.franchise_id), ["0001", "0003"]);
+  t.deepEqual(ok.byes.map((e) => e.franchise_id), ["0003", "0001"]);
   t.ok(ok.inTheHunt.every((e) => typeof e.apGB === "number"), "control: real games-back figures");
   // A failed weeklyScores query now means the worker seeds nobody (standings_basis 'unavailable')...
   const bad = await standings(makeLadderSeason({ failScores: true }));
@@ -146,10 +153,10 @@ test("desktop: projected status chips, the league ladder note, and the worker's 
   await settle();
   const html = plain(p.html());
   t.match(html, /<span class="status-chip bye projected"[^>]*>BYE<small> proj\.<\/small><\/span>/);
-  t.match(html, /Seeds: All-Play % → H2H record → season Points For → H2H between the tied teams \(league rule §F\.1\)/);
+  t.match(html, /Seeds: byes to the two division winners with the best All-Play %; wild cards All-Play % → season Points For → H2H between the tied teams; seeds 3–6 All-Play % → season Points For \(league rule §F\.1\)/);
   // v3: projected until the REGULAR season ends (race().seedsFinal), not the whole season
   t.match(html, /Seeds and BYE \/ DIV \/ WC are projected \(if the season ended today\) until the regular season ends\./);
-  t.match(html, /Seed 3: behind Gride on All-Play %\. Ahead of CBP on the H2H games between them/);
+  t.match(html, /Seed 4: behind Pure Greatness for now: the two are level on every settled tiebreak, so this order is not final/);
   t.ok(!/Seeds derived AP % → Overall PCT → PF/.test(html), "the old stale note is gone");
   // v3 (Standings desktop): "Avg PF / Avg PA" were per-GAME averages in multi-game weeks; they are now PF per week and
   // PA per game, labeled, and the games-back figure is the worker's ap_back ("Back").
@@ -183,7 +190,7 @@ test("desktop: a recorded season says 'Seeds: the recorded final standings.' and
 test("mobile Seeds: rows in the WORKER's seed order, chips marked projected, the cut line and the ladder explained", async () => {
   const html = await mobileStandings(makeLadderSeason());
   const order = [...html.matchAll(/<tr class="race-row[^"]*" data-fid="(\d{4})"/g)].map((m) => m[1]);
-  t.deepEqual(order, ["0001", "0003", "0004", "0002", "0007", "0005", "0006", "0008"], "seed order (worker), not division winners → H2H% → PF");
+  t.deepEqual(order, ["0003", "0001", "0004", "0002", "0007", "0005", "0006", "0008"], "seed order (worker), not division winners → H2H% → PF");
   t.match(html, /aria-label="Projected playoff status: Bye">BYE<small>proj<\/small>/);
   t.match(html, /<th class="num">AP%<\/th><th class="num">H2H<\/th><th class="num">Back<\/th>/, "H2H, not W-L or Games");
   t.match(html, /Playoff line · H1–H6 play the Hawk Tuah Bowl/);
@@ -199,11 +206,14 @@ test("mobile Seeds: rows in the WORKER's seed order, chips marked projected, the
   t.match(html, /data-fid="0004"[\s\S]*?<td class="num magic"><span class="ups-m-magic">\d+<\/span><\/td>/, "a wild-card row: its number");
   t.ok(!/Ladder: All-Play %|say where a team would be/.test(html), "no explanatory paragraphs on the page itself");
   const D = lastMobile.leagueView.standingsDrawers;
-  t.match(plain(D.how()), /Ladder: All-Play %, then H2H record, then Points For, then the H2H games between the tied teams\. Only regular-season weeks count\./);
+  t.match(plain(D.how()), /Wild cards: the two best other teams by All-Play %, then Points For, then the H2H games between the tied teams\./);
+  t.match(plain(D.how()), /Seeds 3–6 are the other two division winners and the two wild cards, by All-Play %, then Points For\. H2H record is not a playoff seeding tiebreak\. Only regular-season weeks count\./);
+  t.match(plain(D.how()), /The Hawk Tuah side \(H1–H6\) keeps its own order: All-Play %, then H2H record, then Points For\./);
   t.match(plain(D.how()), /Hawk Tuah Bowl champion \(7th\) 1\.01 .* 5th-place game winner \(5th\) 1\.07 · its loser \(6th\) 1\.08/);
   t.match(plain(D.about(false)), /“proj” = where a team would be if the season ended today\./);
   const why = plain(D.why(await standings(makeLadderSeason())));
-  t.match(why, /Decided by a tiebreak:<\/b>.*<li>L\.A\. Looks over Gride: same All-Play, a better H2H record \(4-0 vs 3-1\)\.<\/li><li>Pure Greatness over CBP: same All-Play, the H2H games between them\.<\/li>/, "the drawer names the tiebreaks that decided places");
+  t.match(why, /Decided by a tiebreak:<\/b><ul class="ups-m-drawer-list"><li>Sex Manther over HammerTime: same All-Play, more Points For \(592\.0 vs 576\.0\)\.<\/li><\/ul>/, "the drawer names the place a tiebreak decided");
+  t.match(why, /<b>Not final:<\/b> Gride and L\.A\. Looks \(seeds 1–2\); Pure Greatness and CBP \(seeds 3–4\): level on every settled tiebreak, so the order shown can change\./, "...and, apart, the two it could not");
   t.match(why, /<b>Next out:<\/b> Team 0006, 14 All-Play wins behind CBP \(the last wild card\)\./, "#1329: never the division-winner 6th seed (HammerTime)");
   const all = html + D.how() + D.about(false) + D.weekly();
   t.ok(!/\bGames\b/.test(all), "no 'Games' label");
