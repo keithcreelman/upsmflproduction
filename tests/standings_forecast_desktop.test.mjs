@@ -286,14 +286,15 @@ test("Every place: cells follow the shared policy (no 100 or 0; <1 and >99 at th
   t.equal(off.length, 0, "every cell's text is its label's percentage without the % sign: " + JSON.stringify(off.slice(0, 5)));
   t.match(tx(h), /<1 = under 1%, including never in the simulation; >99 = over 99%/);
 });
-test("the About text states the simulation's actual seeding rules", async () => {
+test("the About text states the simulation's actual seeding rules (canon §F.1, corrected 2026-11-25; only a forecast simulated under them is shown)", async () => {
   const { h } = await page("view=forecast&year=2026");
-  t.match(text(h), /Division winners by MFL’s division tiebreaks \(win %, division win %, head-to-head, points, All-Play %\)\. The two best division winners by All-Play % get the byes; the two wild cards and seeds 3–6 go by All-Play %, then overall record, then Points For\./);
+  t.match(text(h), /Division winners by MFL’s division tiebreaks \(win %, division win %, head-to-head, points, All-Play %\)\. The two division winners with the best All-Play % get the byes; the two wild cards go by All-Play %, then Points For, then head-to-head; seeds 3–6 by All-Play %, then Points For\. Overall record is not a seeding tiebreaker\. A tie no settled rule decides yet is drawn evenly in each simulated season, and counted\./);
+  t.doesNotMatch(text(h), /then overall record/);
 });
 
 // ═══ before the Week 6 Wire forecast is published (#1367 not merged) ═══
 test("no Week 6 Wire file yet: the Week 5 forecast, labeled stale; its pre-correction scores are listed, not hidden; no place counts", async () => {
-  const { h } = await page("view=forecast&year=2026", { "season_sim_2026_live_wk05.json": SIM5, "season_sim_2026_live_wk02.json": json("../site/wire/data/season_sim_2026_live_wk02.json") });
+  const { h } = await page("view=forecast&year=2026", { "season_sim_2026_live_wk05.json": SIM5, "season_sim_2026_live_wk02.json": asCorrectedRun(json("../site/wire/data/season_sim_2026_live_wk02.json")) });
   t.match(text(h), /This is the Week 5 forecast; Week 6 is final\./);
   t.match(text(h), /Finish places, runners-up and the Hawk Tuah Bowl aren’t available for this forecast/);
   t.match(text(h), /Δ = playoff odds since the Week 2 forecast\./, "movement against the newest earlier file");

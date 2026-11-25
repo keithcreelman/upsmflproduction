@@ -73,6 +73,7 @@ test("seeding comes from the Worker's own ladders: Week 10 Hawks and CBP (both 5
   t.equal(M.why[hawks.franchise_id].text, "Outside the top six — 0 AP wins back; behind CBP (the last wild card) on season Points For.");
   // the forecast is the Week 10 replay under the same rules (its own seeding rule says so)
   t.equal(RECD.static.forecast.seedingRule, ST.SEEDING_RULE);
+  t.equal(fs.readFileSync(path.join(REPO, "pipelines/etl/wire/season_sim.py"), "utf8").match(/^SEEDING_RULE = "(.*)"$/m)[1], ST.SEEDING_RULE, "the beta and the simulator name the same rule");
   t.equal(M.forecast.fresh, true); t.equal(M.forecast.by[cbp.franchise_id].playoffs, "56%"); t.equal(M.forecast.by[hawks.franchise_id].playoffs, "35%");
   t.equal(M.withheld.any, false, "no unresolved tie in the recorded season"); t.equal(JSON.stringify(STAND.regular_season.unresolved), "[]");
   // the deciding line opens to the wild-card steps: All-Play level, Points For decides, the games between them not needed
