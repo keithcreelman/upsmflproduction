@@ -35,9 +35,12 @@ THE MODEL, and where every piece comes from:
     No overall-record step. A tie the approved steps leave open (division
     winners level on all-play for a bye or for seeds 1-2; seeds 3-6 level on
     all-play and points for; wild cards level through head-to-head) has no rule
-    to apply here, so it is settled by an even draw from its own random stream
-    (TIE_SEED_OFFSET) and COUNTED in model.pendingTies -- never by an invented
-    tiebreak. Weeks 15-17; single matchups.
+    to apply here. How the forecast treats such a tie is a MODELING CHOICE that
+    is pending Keith's decision (PR #1529), not a league rule: this draft
+    settles it by an even draw from its own random stream (TIE_SEED_OFFSET),
+    never by an invented tiebreak, and COUNTS it (model.pendingTies per pool,
+    model.pendingTieSeasons in all, model.pendingTieHandling names the choice)
+    so every reader can say so. Weeks 15-17; single matchups.
 
 WHAT IT CANNOT SEE: trades and waiver moves after today, owners' real lineup
 choices (it starts the projected-best lineup every week). Division ties follow
@@ -411,6 +414,8 @@ CONS_SEED_OFFSET = 2
 TIE_SEED_OFFSET = 3
 # Which seeding rule produced a forecast (the Standings page refuses a forecast made under another one).
 SEEDING_RULE = "canon-F1-2026-11-25: wild cards AP>PF>H2H; seeds 3-6 AP>PF; byes = top-2 division winners by AP"
+# How a simulated tie no rule settles is treated (model.pendingTieHandling): a proposal awaiting Keith's decision.
+PENDING_TIE_HANDLING = "even_draw (proposed; pending Keith's decision, PR #1529)"
 
 
 def bracket_full(side, play, cplay, reg_end, end):
@@ -475,6 +480,13 @@ def playoff_seeds(fids, dws, st, vs, rng_tie, pending):
     return winners[:2] + seeds36, pool[2:]
 
 
+def hawk_tuah_order(teams, st):
+    """The Hawk Tuah side, H1-H6: the six non-playoff teams in the order they had before the 2026-11-25 correction
+    (all-play %, overall record, points for; fully level: franchise-id order). Canon F.1 covers the playoff field
+    only, so the consolation order is unchanged until Keith rules on it (worker/src/seeding.js hawkTuahLadder)."""
+    return sorted(sorted(teams), key=lambda f: (-st[f]["ap_pct"], -st[f]["pct"], -st[f]["pf"]))
+
+
 def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collect=True, hook=None,
              actual=None, posterior=None, rng_hawk=None, rng_cons=None, rng_tie=None):
     """`actual` ({week: {fid: real score}}) fixes already-played weeks instead of
@@ -493,6 +505,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         raise ValueError("season_sim: draft-slot counts need both sides' brackets (pass rng_hawk with rng_cons)")
     rng_tie = rng_tie or random.Random(TIE_SEED_OFFSET)
     pending = {}                                            # pool -> simulated seasons with an open seeding tie
+    tie_seasons = 0                                         # simulated seasons with at least one
     fids = sorted(teams)
     agg = {f: {"h2h_w": 0.0, "ap_pct": 0.0, "div": 0, "po": 0, "bye": 0, "title": 0, "runner": 0,
                "ap_rank": [0] * len(fids), "ap_samples": [],
@@ -565,7 +578,9 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         # Invariant, every simulated season: exactly one champion per division.
         if len(dws) != len(divs) or len({teams[f]["division"] for f in dws}) != len(divs):
             raise AssertionError("season_sim: division winners %r do not cover each division once" % dws)
+        before = sum(pending.values())
         seeds, hawk = playoff_seeds(fids, dws, st, vs, rng_tie, pending)
+        tie_seasons += sum(pending.values()) > before
 
         def player(r):
             def play(a, b, wk):
@@ -577,8 +592,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
             champ, runner, fin_ups = bracket_full(seeds, player(rng), player(rng_cons), reg_end, end)
         else:
             champ, runner = bracket(seeds, player(rng), reg_end, end)
-        # The Hawk Tuah side: H1-H6 = the six non-playoff teams in the wild-card order (all-play %, points for,
-        # head-to-head), the order of the race for the last wild card.
+        hawk = hawk_tuah_order(hawk, st)
         for i, f in enumerate(seeds + hawk):
             agg[f]["place"][i] += 1
         if rng_hawk is not None:
@@ -621,6 +635,7 @@ def simulate(teams, sched, wp, reg_end, end, runs, sigma_w, sigma_s, rng, collec
         agg[f]["ap_samples"].sort()
     agg["_finals"] = finals
     agg["_pendingTies"] = pending
+    agg["_pendingTieSeasons"] = tie_seasons
     agg["_shape"] = {"byFinish": [x / runs for x in shape_by_finish],
                      "champApRank": [x / runs for x in champ_ap_rank]}
     return agg, ap_var_sum / runs
@@ -1259,7 +1274,8 @@ def standings_forecast(agg, fids, runs, seed):
                   "seeds (1-2 byes), 7-12 are H1-H6, the Hawk Tuah Bowl side. Same seeding as the Standings page: "
                   "division winners by MFL's standingsSort; seeds 1-2 the two division winners with the best all-play %; "
                   "wild cards by all-play %, points for, head-to-head; seeds 3-6 by all-play %, points for; H1-H6 in the "
-                  "wild-card order (league_context F.1). Ties no rule settles yet: model.pendingTies.",
+                  "order they had before the 2026-11-25 correction: all-play %, overall record, points for (F.1 does not cover "
+                  "them). Ties no rule settles yet: model.pendingTies.",
         "bracket": "both sides: round 1 3v6 and 4v5 (week 15), the top seed meets the lowest seed left (week 16), "
                    "final week 17. Hawk Tuah games use random.Random(seed + %d)." % HAWK_SEED_OFFSET,
         "hawkSeed": seed + HAWK_SEED_OFFSET,
@@ -1414,6 +1430,7 @@ def run_live(season, through_week, runs, seed, cache_dir, out_path, k=REGRESS_DE
                   "regularSeasonWeeks": reg_end, "endWeek": end,
                   "seedingRule": SEEDING_RULE,
                   "pendingTies": dict(sorted((agg.get("_pendingTies") or {}).items())),
+                  "pendingTieSeasons": int(agg.get("_pendingTieSeasons") or 0), "pendingTieHandling": PENDING_TIE_HANDLING,
                   "offenseProjections": ("expected value" if ev_offense else "MFL projectedScores"),
                   "evCoverage": prep.get("evCoverage"),
                   "official": "refresh-only: played weeks are fixed to actual results; every "
@@ -1563,6 +1580,7 @@ def run(season, runs, seed, cache_dir, out_path, k=REGRESS_DEFAULT):
         "runs": runs, "seed": seed,
         "model": {"regress": k, "sigmaWeekly": round(sigma_w, 2), "sigmaSeason": round(sigma_s, 2),
                   "seedingRule": SEEDING_RULE, "pendingTies": dict(sorted((agg.get("_pendingTies") or {}).items())),
+                  "pendingTieSeasons": int(agg.get("_pendingTieSeasons") or 0), "pendingTieHandling": PENDING_TIE_HANDLING,
                   "projectionWithinVar": round(proj_var, 1), "targetWithinVar": TARGET_WITHIN_VAR,
                   "targetApVar": TARGET_AP_VAR, "simApVar": round(ap_var, 5),
                   "calibration": table, "regularSeasonWeeks": reg_end, "endWeek": end,

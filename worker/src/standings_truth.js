@@ -272,7 +272,7 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
 
   // Seeds (§F.1.2-§F.1.4 on the regular-season values): each pool has its own ladder.
   const ladderGames = tot.games.map((g) => ({ franchise_id: g.a, opponent_franchise_id: g.b, team_score: g.ts, opponent_score: g.os }));
-  const LL = ladder.playoffLadders(rows, ladderGames);
+  const LL = ladder.playoffLadders(rows, ladderGames, winners);
   const f = ladder.playoffField(rows, winners, LL);
   const poolLadder = { bye: LL.bye, seeds3to6: LL.seeds3to6, outside: LL.wild_card };
   const wc = new Set(f.wildCards.map((r) => r.franchise_id));
@@ -300,8 +300,9 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
     teams[r.franchise_id].seed_reason = rival ? reasonVs(r, rival, pool) : { basis: "ladder", pool, step: null };
   });
   // The step that kept a team BELOW its neighbor, on the ladder of the boundary between them: inside the byes the
-  // bye ladder, inside seeds 3-6 (and from seed 2 to seed 3) the seeds 3-6 ladder, from seed 6 down and among the
-  // teams outside the wild-card ladder. When the team above would LOSE that comparison, the gap is structural: a
+  // bye ladder, inside seeds 3-6 (and from seed 2 to seed 3) the seeds 3-6 ladder, from seed 6 to H1 the wild-card
+  // ladder, and among the teams outside the field the Hawk Tuah order (vs_above.pool "hawk_tuah": its steps are
+  // seeding.js HAWK_TUAH_STEPS, which still include the overall record). When the team above would LOSE that comparison, the gap is structural: a
   // bye needs a division title, and a division winner is in the field ahead of a better non-winner.
   const addAbove = () => ordered.forEach((r, i) => {
     if (i === 0) return;
@@ -310,6 +311,11 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
     // Seed 3 under seed 2: a division winner there lost the bye race (bye ladder); a wild card there cannot take a
     // bye at all, so only a lower All-Play % is a ladder reason (else the structural step below).
     const dwBelowBye = mySeed === 3 && upSeed === 2 && winners.has(r.franchise_id);
+    if (mySeed == null && upSeed == null) {
+      teams[r.franchise_id].seed_reason.vs_above = { franchise_id: up.franchise_id, name: up.franchise_name || null,
+        pool: "hawk_tuah", step: f.hawkTuah.decidingStep(up, r) };
+      return;
+    }
     const L = mySeed == null ? LL.wild_card : (mySeed <= 2 || dwBelowBye) ? LL.bye : LL.seeds3to6;
     let step = L.decidingStep(up, r);
     if (step !== "unresolved" && L.cmp(up, r) > 0) step = upSeed != null && upSeed <= 2 ? "bye_requires_division_title" : "division_winner_in_field";
@@ -333,7 +339,7 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
     const t = teams[r.franchise_id];
     t.ap_back = t.playoff_seed == null && cut ? Math.round((apWins(cut.franchise_id) - apWins(r.franchise_id)) * 10) / 10 : null;
   }
-  const order = [...f.byes, ...f.seeds3to6, ...f.outside].map((r) => r.franchise_id);   // outside is already in ladder order
+  const order = [...f.byes, ...f.seeds3to6, ...f.outside].map((r) => r.franchise_id);   // outside = H1-H6, the Hawk Tuah order
   order.forEach((fid, i) => { teams[fid].order_index = i; });
   // Seed order after every completed week (same computation on weeks 1..k), for "moved up since last week"
   // and the Trends chart. Pages never recompute it.
@@ -360,5 +366,5 @@ export function seedCurrentSeason({ franchises, weeklyScores, games, lastRegular
   // A seed that depends on an unresolved tie says so on its own row too.
   for (const u of f.unresolved) for (const fid of u.franchise_ids) teams[fid].seed_unresolved = true;
   for (const r of rows) if (teams[r.franchise_id].seed_unresolved == null) teams[r.franchise_id].seed_unresolved = false;
-  return { ...base, order, teams, unresolved: f.unresolved, seed_by_week: seedByWeek, next_out: f.outside.length ? f.outside[0].franchise_id : null };
+  return { ...base, order, teams, unresolved: f.unresolved, seed_by_week: seedByWeek, next_out: f.wildCardRace.length ? f.wildCardRace[0].franchise_id : null };
 }

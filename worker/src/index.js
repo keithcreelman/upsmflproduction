@@ -21160,7 +21160,8 @@ export default {
       //   2. Seeds 1 & 2 (BYE) = the two division winners with the best All-Play % (an All-Play tie: pending ruling).
       //   3. Wild cards = the two best non-division-winners: All-Play % → Points For → H2H (then Power Rank, coin flip).
       //   4. Seeds 3-6 = the other 2 division winners + 2 wild cards: All-Play % → Points For (later steps pending).
-      //   5. Seeds 7-12 (Hawktuah / Toilet) = the 6 non-playoff teams, in the wild-card ladder's order.
+      //   5. Seeds 7-12 (Hawktuah / Toilet) = the 6 non-playoff teams in their pre-2026-11-25 order (All-Play %,
+      //      overall record, Points For, H2H among them): §F.1 does not cover them (seeding.js hawkTuahLadder).
       //   Recorded seasons keep their recorded seeds.
       //
       // Each seed in the returned array carries `seed`, `path`

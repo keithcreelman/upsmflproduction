@@ -21,7 +21,7 @@ const brief = (r) => [r.playoff_seed, r.seed_reason.pool, r.seed_reason.step, r.
 test("playoffLadders: each pool names the step that decided a pair, and 'unresolved' where no approved step does", () => {
   const rows = LADDER_TEAMS.map(([fid, , ap, ov, pf]) => ({ franchise_id: fid, franchise_name: "Team " + fid, allplay_pct: ap, h2h_pct: ov, pf_total: pf }));
   const games = [{ franchise_id: "0004", opponent_franchise_id: "0002", team_score: 120, opponent_score: 100 }, { franchise_id: "0002", opponent_franchise_id: "0004", team_score: 100, opponent_score: 120 }];
-  const L = playoffLadders(rows, games);
+  const L = playoffLadders(rows, games, new Set(["0001", "0003", "0005", "0007"]));   // the division winners
   const R = Object.fromEntries(rows.map((r) => [r.franchise_id, r]));
   // 0001/0003: division winners level on All-Play; 0001's better record is not a step (canon §F.1.4: pending ruling)
   t.equal(L.bye.decidingStep(R["0001"], R["0003"]), "unresolved");

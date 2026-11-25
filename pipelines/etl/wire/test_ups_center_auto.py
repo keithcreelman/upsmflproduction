@@ -55,19 +55,20 @@ check("every class of claim was checked (scores, margins, records, all-play, PF,
       rep["checkedClaims"])
 check("not publishable while editor items remain", not rep["publishable"] and res["gaps"])
 check("Coffee Shop jokes are an editor gap, with verbatim candidates", any(g["id"] == "coffee:kenny" for g in res["gaps"]))
-# canon §F.1 (Keith 2026-11-25): the recorded Week 4 site order (Cutting above Mannila, both 22-22, on points for) IS
-# the corrected order, so no site-order gap; Bear Dunn and Eric Martel are division leaders level on all-play (34-10),
-# a tie no settled rule decides, so the order of places 1-2 is flagged instead.
-check("the recorded Week 4 site order equals the corrected F.1 order -> no site-order gap",
-      not any(g["id"] == "landscape:site-order" for g in res["gaps"]), [g["id"] for g in res["gaps"]])
+# canon §F.1 (Keith 2026-11-25): the recorded Week 4 site order has Cutting above Mannila (both 22-22, outside the field)
+# on points for. Outside the field the order is the Hawk Tuah side's, unchanged by the correction (all-play %, overall
+# record, points for: Mannila 6-4 first), so the recorded order is flagged. Bear Dunn and Eric Martel are division
+# leaders level on all-play (34-10), a tie no settled rule decides, so the order of places 1-2 is flagged too.
+check("the recorded Week 4 site order differs from the unchanged H1-H6 order -> flagged, not hidden",
+      any(g["id"] == "landscape:site-order" for g in res["gaps"]), [g["id"] for g in res["gaps"]])
 check("division leaders level on all-play for places 1-2 -> an editor gap (no rule decides it yet), not a silent order",
       any(g["id"] == "landscape:h2h" and "places 1 and 2" in g["why"] for g in res["gaps"]), [g for g in res["gaps"] if g["id"].startswith("landscape")])
 _swapped = copy.deepcopy(CTX)
 _s = _swapped["site"]["standings"]
 _i = [r["owner_name"] for r in _s].index("Brian Cutting")
-_s[_i], _s[_i + 1] = _s[_i + 1], _s[_i]                  # the old overall-record order: Mannila (6-4) above Cutting (4-6)
-check("a site order that differs from the F.1 order -> flagged, not hidden",
-      any(g["id"] == "landscape:site-order" for g in build(ctx=_swapped)[0]["gaps"]))
+_s[_i], _s[_i + 1] = _s[_i + 1], _s[_i]                  # the H1-H6 order: Mannila (6-4) above Cutting (4-6)
+check("the site order the corrected Worker serves (H1-H6 in the Hawk Tuah order) -> no site-order gap",
+      not any(g["id"] == "landscape:site-order" for g in build(ctx=_swapped)[0]["gaps"]), [g["id"] for g in build(ctx=_swapped)[0]["gaps"]])
 rows = re.findall(r"MFL proj\. ([^<]+?) ET &middot; kickoff ([^<]+?) ET", res["html"])
 check("every bust/bargain row prints its projection capture time and kickoff", len(rows) == 20, len(rows))
 check("deterministic: a second render has the same claims", ISSUE.render(copy.deepcopy(PACK), copy.deepcopy(CTX), generated_at=T0,
@@ -414,6 +415,12 @@ _ro, _vo, _ = build(with_fc(_oldrule))
 check("a forecast simulated under the earlier seeding rules -> an odds:rule blocker, no Playoff Picture odds",
       "odds:rule" in [g["id"] for g in _ro["gaps"]] and not any(k.startswith("odds:po:") for k in _ro["claims"]), [g["id"] for g in _ro["gaps"]])
 r1, v1, c1 = build(with_fc(forecast()))
+check("no open simulated ties -> the caption says nothing about them", "split those places evenly" not in r1["html"])
+_ties = forecast(); _ties["sim"]["pendingTieSeasons"] = 63
+_rt, _vt, _ = build(with_fc(_ties))
+check("open simulated ties -> the caption counts them and calls the even split a modeling choice, not a league rule",
+      "In 63 of the simulated seasons" in _rt["html"] and "modeling choice pending a ruling, not a league rule" in _rt["html"]
+      and _rt["claims"].get("odds:pendingTieSeasons", {}).get("value") == 63, _rt["claims"].get("odds:pendingTieSeasons"))
 odds_claims = {k: x for k, x in r1["claims"].items() if k.startswith("odds:")}
 check("a fresh forecast renders the Playoff Picture: 12 teams x playoffs, bye, division, title, all validated",
       v1["ok"] and not any(g["id"].startswith("odds:") for g in r1["gaps"]) and len(odds_claims) == 50, (v1["errors"], len(odds_claims)))
@@ -860,16 +867,11 @@ import ups_center_story_issue as SI           # noqa: E402
 FX8 = os.path.join(HERE, "..", "..", "..", "tests", "fixtures", "ups_center_auto", "2026_wk08")
 CTX8_RECORDED = json.load(open(os.path.join(FX8, "context.json")))
 # The Week 8 recording's site order came from the Worker before the playoff-ladder correction (canon §F.1, Keith
-# 2026-11-25): Josh Martel and Brian Cross, both 22-66 All-Play outside the field, were ordered on overall record
-# (6-15 over 5-16). The corrected wild-card order puts Brian Cross first on points for (1519.2 vs 1472.8). The tests
-# below use the order the corrected Worker serves; the recorded order is checked once, as a flagged difference.
+# 2026-11-25). The field is the same under the corrected ladders, and outside it Josh Martel and Brian Cross (both
+# 22-66 All-Play) keep the Hawk Tuah order (overall record: 6-15 over 5-16), so the recorded order is the corrected one.
 CTX8 = copy.deepcopy(CTX8_RECORDED)
-_s8 = CTX8["site"]["standings"]
-_j8 = [r["owner_name"] for r in _s8].index("Josh Martel")
-assert _s8[_j8 + 1]["owner_name"] == "Brian Cross"
-_s8[_j8], _s8[_j8 + 1] = _s8[_j8 + 1], _s8[_j8]
-# ...and its forecast, run before the correction, is treated as the corrected run the Worker's order goes with (the
-# recorded one, with no seeding rule, is a blocker: checked below)
+# ...and its forecast, run before the correction, is treated as a corrected run (the recorded one, with no seeding
+# rule, is a blocker: checked below)
 if (CTX8.get("forecast") or {}).get("sim"):
     CTX8["forecast"]["sim"]["seedingRule"] = SS.SEEDING_RULE
 PACK8 = json.load(open(os.path.join(HERE, "..", "..", "..", "site", "wire", "packs", "2026", "2026-wk08-recap.pack.json")))
@@ -886,8 +888,8 @@ def build8(mut=None, local=True, fmt=None):
 
 r8, v8, _ = build8()
 _rec8 = ISSUE.render(copy.deepcopy(PACK8), copy.deepcopy(CTX8_RECORDED), generated_at=T0, local_candidates=True, fmt=None)
-check("the recorded (pre-correction) Week 8 site order differs from the corrected F.1 order -> flagged, not hidden",
-      "landscape:site-order" in [g["id"] for g in _rec8["gaps"]], [g["id"] for g in _rec8["gaps"]])
+check("the recorded (pre-correction) Week 8 site order equals the corrected order (same field; H1-H6 unchanged) -> no site-order gap",
+      "landscape:site-order" not in [g["id"] for g in _rec8["gaps"]], [g["id"] for g in _rec8["gaps"]])
 if (CTX8_RECORDED.get("forecast") or {}).get("sim"):
     check("the recorded Week 8 forecast (no seeding rule: simulated before the correction) is an odds blocker, never printed",
           "odds:rule" in [g["id"] for g in _rec8["gaps"]], [g["id"] for g in _rec8["gaps"]])

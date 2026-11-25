@@ -33,7 +33,7 @@ function field(tot) {
     winners.add(divisionOrder(rows.filter((r) => r.division === d), tot.games, REC.standingsSort).order[0].franchise_id);
   }
   const games = tot.games.map((g) => ({ franchise_id: g.a, opponent_franchise_id: g.b, team_score: g.ts, opponent_score: g.os }));
-  const ladder = playoffLadders(rows, games);
+  const ladder = playoffLadders(rows, games, winners);
   const f = playoffField(rows, winners, ladder);
   return { seeds: [...f.byes, ...f.seeds3to6].map((r) => r.franchise_id), outside: f.outside.map((r) => r.franchise_id), ladder, rows, unresolved: f.unresolved };
 }
@@ -257,9 +257,14 @@ test("seed history: every past week is re-seeded by the same (corrected) ladders
   // #1197's Week 4 (Elias-final) table, published under the old overall-record step: Bear Dunn, Eric Martel, Shawn
   // Blake, Derrick Whitman, Chris Klingenberg, Keith Creelman, Eric Mannila, Brian Cutting, ... = C-Town, HammerTime,
   // Blake, CBP, Hawks, Creel, Cleon, Pure Greatness. Pure Greatness and Cleon were both 22-22 All-Play, outside the
-  // field; Pure Greatness scored more (882.6 vs 879.0), so the wild-card order (canon §F.1.2) now puts it first.
-  // Seeds 1-6 are the published ones; only that outside pair moves.
-  t.deepEqual(f.seed_by_week[4].slice(0, 8), ["0009", "0005", "0010", "0002", "0012", "0008", "0004", "0011"]);
+  // field. The Hawk Tuah order (H1-H6, unchanged by the correction: All-Play %, overall record, Points For) keeps
+  // Cleon (6-4) H1 over Pure Greatness (4-6), as published; the wild-card race (canon §F.1.2) has Pure Greatness
+  // first in line on Points For (882.6 vs 879.0). So the published table is unchanged.
+  t.deepEqual(f.seed_by_week[4].slice(0, 8), ["0009", "0005", "0010", "0002", "0012", "0008", "0011", "0004"]);
+  const w4 = seedCurrentSeason({ franchises: REC.franchises, weeklyScores: REC.weekly_scores.filter((r) => Number(r.week) <= 4), games: REC.games.filter((g) => Number(g.week) <= 4), lastRegularSeasonWeek: 14, standingsSort: REC.standingsSort, ladder: { playoffLadders, playoffField }, history: false });
+  t.deepEqual(w4.order, f.seed_by_week[4]);
+  t.equal(w4.next_out, "0004", "next in line for the last wild card: Pure Greatness, on Points For");
+  t.deepEqual([w4.teams["0004"].seed_reason.vs_above.franchise_id, w4.teams["0004"].seed_reason.vs_above.pool, w4.teams["0004"].seed_reason.vs_above.step], ["0011", "hawk_tuah", "overall"]);
   t.deepEqual(f.seed_by_week[5], f.order);
   t.equal(f.teams["0008"].order_change, 2);     // Real Deal Creel 6th -> 4th
   t.equal(f.teams["0012"].order_change, -2);    // Hawks 5th -> 7th
