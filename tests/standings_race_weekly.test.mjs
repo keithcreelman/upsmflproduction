@@ -446,7 +446,7 @@ test("PART 1 #4 whySeed: the worker's vs_above explains why a team is BELOW its 
     const why = (fid) => R.race(RESP).byFranchise[fid].whySeed;
     t.equal(why("0002").text, "Seed 5: behind Real Deal Creel on season Points For (same All-Play %).");
     t.equal(why("0002").decidingCriterion, "points_for");
-    t.deepEqual(why("0002").vsAbove, { franchise_id: "0008", name: "Real Deal Creel", step: "points_for", pending: null });
+    t.deepEqual(why("0002").vsAbove, { franchise_id: "0008", name: "Real Deal Creel", step: "points_for", pending: null, pool: null });
     t.equal(why("0005").text, "Seed 3: behind Blake Bombers on All-Play %.");
     t.equal(why("0012").text, "Outside the top six — 2 AP wins back; behind Pure Greatness (the last wild card) on All-Play %.");
     t.equal(why("0011").text, "Outside the top six — 8 AP wins back; behind Pure Greatness (the last wild card) on All-Play %. Directly behind Hawks on All-Play %.");

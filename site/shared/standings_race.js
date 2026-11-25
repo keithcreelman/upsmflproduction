@@ -904,7 +904,8 @@
       if (!above.step) return lead + aboveName + '.';
       if (above.step === 'unresolved') return lead + aboveName + ' for now: the two are level on every settled tiebreak, so this order is not final' +
         (PENDING_WORDS[above.pending] ? ' (' + PENDING_WORDS[above.pending] + ').' : '.');
-      return lead + aboveName + (above.pool === 'hawk_tuah' ? ' in the Hawk Tuah order' : '') + ' on ' + stepPhrase(above.step, above.pool) + '.';
+      // a Hawk Tuah tiebreak (not plain All-Play) is named as that side's own order, never as a playoff step
+      return lead + aboveName + (above.pool === 'hawk_tuah' && above.step !== 'all_play' ? ' in the Hawk Tuah order' : '') + ' on ' + stepPhrase(above.step, above.pool) + '.';
     }
     if (!seeded) {
       var list = (Array.isArray(rows) ? rows : []).filter(Boolean);
