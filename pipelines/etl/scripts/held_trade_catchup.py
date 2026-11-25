@@ -3,11 +3,12 @@
 
 Two ways a held trade gets posted, both through post_bundle() below:
 
-  automatic  a trade held because the valuation snapshot was missing or stale, or because the bot read
-             MFL's standings more than 6 hours after the trade (standings_lag): on the bot's first poll
-             with a valid snapshot it is graded on the inputs committed BEFORE the trade
-             (trade_asof_inputs.py), its roast is generated, and it is posted as a labeled delayed post.
-  approved   a trade held for review (cause held_for_keith_review): a person prepares a bundle
+  automatic  ONLY a trade held because the valuation snapshot was missing or stale (held_trades.RETRY_CAUSES,
+             Keith 2026-10-22): on the bot's first poll with a valid snapshot it is graded on the inputs
+             committed BEFORE the trade (trade_asof_inputs.py), its roast is generated, and it is posted as
+             a labeled delayed post. A trade seen more than 6 hours late (standings_lag) is recorded as its
+             own cause but is NOT retried automatically; it goes through the approved path.
+  approved   any other held trade (held for review, standings_lag, a retry already used): a person prepares a bundle
              (`prepare`), reviews the exact announcement, grades and roast, and approves that exact
              bundle by its sha256 (`approve`). The bot posts only a bundle whose sha256 matches its
              approval record, verbatim. Nothing is regenerated after approval.
