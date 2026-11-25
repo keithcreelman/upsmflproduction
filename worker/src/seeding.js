@@ -115,6 +115,9 @@ export function playoffLadders(rows, games, divisionWinnerIds) {
 // still level, then name and franchise id. Canon §F.1 covers the playoff field only; no league source for the
 // consolation order was audited, so it is kept as it was until Keith rules on it (ChatGPT review of #1529, item 3).
 // The one difference: head-to-head groups are formed among these six only, never with a team in the field.
+// NOT IN PARITY with the simulator, documented not fixed (Keith 2026-11-25): teams level on All-Play %, overall record AND
+// Points For are ordered here by head-to-head among them, then name, then franchise id; season_sim.py hawk_tuah_order uses
+// franchise id only (as each did before the correction). tests/fixtures/seeding_agreement_cases.json pins both orders.
 export const HAWK_TUAH_STEPS = ["all_play", "overall", "points_for", "head_to_head", "name", "franchise_id"];
 function hawkTuahLadder(sideRows, vs) {
   const ovrKey = (r) => pctKey(r.overall_pct != null ? r.overall_pct : r.h2h_pct);

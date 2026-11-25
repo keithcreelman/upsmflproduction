@@ -415,11 +415,12 @@ _ro, _vo, _ = build(with_fc(_oldrule))
 check("a forecast simulated under the earlier seeding rules -> an odds:rule blocker, no Playoff Picture odds",
       "odds:rule" in [g["id"] for g in _ro["gaps"]] and not any(k.startswith("odds:po:") for k in _ro["claims"]), [g["id"] for g in _ro["gaps"]])
 r1, v1, c1 = build(with_fc(forecast()))
-check("no open simulated ties -> the caption says nothing about them", "split those places evenly" not in r1["html"])
+check("no open simulated ties -> the caption says nothing about them", "equal chances" not in r1["html"])
 _ties = forecast(); _ties["sim"]["pendingTieSeasons"] = 63
 _rt, _vt, _ = build(with_fc(_ties))
-check("open simulated ties -> the caption counts them and calls the even split a modeling choice, not a league rule",
-      "In 63 of the simulated seasons" in _rt["html"] and "modeling choice pending a ruling, not a league rule" in _rt["html"]
+check("open simulated ties -> the caption counts them and calls equal chances a forecast assumption, not a league tiebreak",
+      "In 63 of the simulated seasons" in _rt["html"] and "equal chances. That is a forecast assumption, not a league tiebreak" in _rt["html"]
+      and "rule for these ties is still pending" in _rt["html"]
       and _rt["claims"].get("odds:pendingTieSeasons", {}).get("value") == 63, _rt["claims"].get("odds:pendingTieSeasons"))
 odds_claims = {k: x for k, x in r1["claims"].items() if k.startswith("odds:")}
 check("a fresh forecast renders the Playoff Picture: 12 teams x playoffs, bye, division, title, all validated",

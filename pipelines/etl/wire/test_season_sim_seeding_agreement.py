@@ -5,7 +5,9 @@ worker/src/seeding.js playoffField by tests/ups_seeding_ladder.test.mjs, so the 
   - who the wild cards are (a division winner is never part of a wild-card head-to-head tie);
   - every seed no open tie decides;
   - which pools are left open (Worker regular_season.unresolved = simulator pendingTies);
-  - the Hawk Tuah side, H1-H6, in its unchanged order.
+  - the Hawk Tuah side, H1-H6, in its unchanged order -- EXCEPT when Hawk Tuah teams are level on all-play %, overall
+    record and points for. That difference is documented, not fixed (Keith 2026-11-25): the Worker then uses head-to-head
+    among them, then name, then franchise id; the simulator franchise id only. Cases with expect.hawkDiffers pin both.
 
     python3 pipelines/etl/wire/test_season_sim_seeding_agreement.py
 """
@@ -59,6 +61,9 @@ for c in CASES:
                 break
         if ex["hawk"] is not None and S.hawk_tuah_order(outside, st) != ex["hawk"]:
             check("Hawk Tuah order (draw %d)" % draw, False, S.hawk_tuah_order(outside, st))
+            break
+        if ex.get("hawkDiffers") and S.hawk_tuah_order(outside, st) != ex["hawkDiffers"]["simulator"]:
+            check("documented difference: the simulator's own H1-H6 (draw %d)" % draw, False, S.hawk_tuah_order(outside, st))
             break
         if ex.get("nextOut") and outside[0] != ex["nextOut"]:
             check("next in line for the last wild card (draw %d)" % draw, False, outside[0])
