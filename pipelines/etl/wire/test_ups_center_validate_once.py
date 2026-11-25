@@ -33,6 +33,13 @@ PACK4 = json.load(open(os.path.join(FX4, "pack.json")))
 CTX4 = json.load(open(os.path.join(FX4, "context.json")))
 HIST4 = json.load(open(os.path.join(FX4, "history.json")))
 CTX8 = json.load(open(os.path.join(FX8, "context.json")))
+# These scenarios test validation, not the forecast gate: their recorded forecasts were simulated before the playoff-ladder
+# correction (canon §F.1, 2026-11-25), so mark them as the corrected run the builder now requires (else every scenario would
+# carry an odds:rule blocker instead of its Playoff Picture). test_ups_center_auto.py tests the blocker itself.
+import season_sim as _SS  # noqa: E402
+for _c in (CTX4, CTX8):
+    if (_c.get("forecast") or {}).get("sim"):
+        _c["forecast"]["sim"]["seedingRule"] = _SS.SEEDING_RULE
 PACK8 = json.load(open(os.path.join(ROOT, "site", "wire", "packs", "2026", "2026-wk08-recap.pack.json")))
 T0 = 1791475200
 

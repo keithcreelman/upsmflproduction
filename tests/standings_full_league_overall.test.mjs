@@ -19,8 +19,13 @@ const REC = json("./fixtures/standings_2026_wk5.json");
 const WK6 = json("./fixtures/standings_2026_wk6_week.json");
 const S2025 = fs.readFileSync(new URL("./fixtures/standings_2025_recorded.json", import.meta.url), "utf8");
 const HIST = json("../site/standings/allplay_history.json");
-const SIM6 = json("./fixtures/wire_season_sim_2026_live_wk06.json");
-const SIM5 = json("../site/wire/data/season_sim_2026_live_wk05.json");
+// The published Week 5/6 forecasts were simulated before the playoff-ladder correction (canon §F.1, Keith 2026-11-25) and
+// the page refuses them as published (model.seedingRule missing). These tests check the page's handling of a forecast, so
+// they serve the files marked as a corrected run, with the rule string from the simulator itself; the refusal is tested too.
+const SEEDING_RULE = fs.readFileSync(new URL("../pipelines/etl/wire/season_sim.py", import.meta.url), "utf8").match(/^SEEDING_RULE = "(.*)"$/m)[1];
+const asCorrectedRun = (sim) => ({ ...sim, model: { ...(sim.model || {}), seedingRule: SEEDING_RULE } });
+const SIM6_AS_PUBLISHED = json("./fixtures/wire_season_sim_2026_live_wk06.json"), SIM6 = asCorrectedRun(SIM6_AS_PUBLISHED);
+const SIM5 = asCorrectedRun(json("../site/wire/data/season_sim_2026_live_wk05.json"));
 const SCHED = fs.readFileSync(new URL("./fixtures/mfl_2026_schedule.json", import.meta.url), "utf8");
 const WIRE_URL = "https://keithcreelman.github.io/upsmflproduction/wire/data/";
 mfl.st.league = { standingsSort: REC.standingsSort };

@@ -542,6 +542,10 @@ class Issue:
         elif _utc(sim.get("generatedAtUtc")) < final_at:
             out.append(("odds:stale", "The playoff forecast was run at %s, before Week %d was final (%s). Re-run it." % (
                 et_clock(_utc(sim.get("generatedAtUtc"))), self.week, et_clock(final_at))))
+        elif sim.get("seedingRule") != season_sim.SEEDING_RULE:
+            # canon §F.1 (Keith 2026-11-25): a forecast simulated with the old overall-record step contradicts the standings
+            out.append(("odds:rule", "The playoff forecast was simulated under the earlier seeding rules, not the corrected ones "
+                        "(league_context F.1, 2026-11-25). Re-run season_sim.py --through-week for Week %d before publishing." % self.week))
         if sim and not out:
             bad = self.forecast_inconsistencies()
             if bad:
@@ -582,7 +586,7 @@ class Issue:
 
     def seg_odds(self):
         problems = self.forecast_problems()
-        if any(g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in problems):
+        if any(g in ("odds:missing", "odds:stale", "odds:rule", "odds:inconsistent") for g, _ in problems):
             return self.section("odds", "Playoff Picture", 7, "Playoff Picture <small>&mdash; not yet available</small>",
                                 "".join(self.gap(g, "odds", why) for g, why in problems))
         sim = self.ctx["forecast"]["sim"]
@@ -706,7 +710,7 @@ class Issue:
         meta = dict(meta, lastWins=meta["lastWins"] or meta["firstWins"])      # no win-total history (a reconstructed week): shown as the first season
         src = "D1 weeks 1-%d of %d-%d + /api/playoff-bracket" % (self.week, meta["firstAp"], meta["lastAp"])
         fc = (self.ctx.get("forecast") or {}).get("sim")
-        fresh = fc and not any(g in ("odds:missing", "odds:stale", "odds:inconsistent") for g, _ in self.forecast_problems())
+        fresh = fc and not any(g in ("odds:missing", "odds:stale", "odds:rule", "odds:inconsistent") for g, _ in self.forecast_problems())
         odds_src = "season_sim live wk%02d (%s runs, %s)" % (self.week, fc["runs"], fc["generatedAtUtc"]) if fresh else ""
         def cat(p):
             return ("Contender" if p >= .90 else "In the field" if p >= .60 else "In the race" if p >= .25

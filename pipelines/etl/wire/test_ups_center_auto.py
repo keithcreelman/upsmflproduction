@@ -387,6 +387,7 @@ def forecast(through=4, gen=None, prev=True, prev_through=4, prev_inputs=None):
     """SYNTHETIC test forecast: the real Week 5 file's team odds, relabelled to cover the fixture's Week 4."""
     f = {"simFile": "season_sim_2026_live_wk04.json", "previewFile": "week_preview_2026_wk05.json",
          "sim": {"throughWeek": through, "runs": 10000, "seed": 20260911, "generatedAtUtc": _iso(gen or FINAL + 3600),
+                 "seedingRule": SS.SEEDING_RULE,
                  "teams": {r["franchiseId"]: {"po": r["currentPlayoffOdds"], "bye": r["currentByeOdds"],
                                               "div": r["currentDivisionOdds"], "title": r["currentTitleOdds"],
                                               "division": r["division"]} for r in _REAL["teams"]}},
@@ -408,6 +409,10 @@ r0, v0, _ = build()
 check("no forecast at all -> a Playoff Picture blocker (odds:missing) and the draft is not publishable",
       {"odds:missing", "odds:preview-missing"} <= {g["id"] for g in r0["gaps"]} and v0["ok"] and not v0["publishable"]
       and 'data-editor-gap="odds:missing"' in r0["html"], [g["id"] for g in r0["gaps"]])
+_oldrule = forecast(); _oldrule["sim"].pop("seedingRule")
+_ro, _vo, _ = build(with_fc(_oldrule))
+check("a forecast simulated under the earlier seeding rules -> an odds:rule blocker, no Playoff Picture odds",
+      "odds:rule" in [g["id"] for g in _ro["gaps"]] and not any(k.startswith("odds:po:") for k in _ro["claims"]), [g["id"] for g in _ro["gaps"]])
 r1, v1, c1 = build(with_fc(forecast()))
 odds_claims = {k: x for k, x in r1["claims"].items() if k.startswith("odds:")}
 check("a fresh forecast renders the Playoff Picture: 12 teams x playoffs, bye, division, title, all validated",
@@ -542,7 +547,8 @@ open(os.path.join(inputs, "recorded.json"), "w").write("{}")
 def replay_sh(cmd, cwd=None, check=False, env=None):
     calls.append(list(cmd))
     if "season_sim.py" in " ".join(cmd):
-        sim = dict(_REAL, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
+        # stands in for the corrected simulator, which names its seeding rule (canon §F.1, 2026-11-25)
+        sim = dict(_REAL, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600), model=dict(_REAL.get("model") or {}, seedingRule=SS.SEEDING_RULE))
         json.dump(sim, open(os.path.join(cwd, cmd[cmd.index("--out") + 1]), "w"))
     elif "week_preview.py" in " ".join(cmd):
         q = dict(_REALQ, week=5, throughWeek=4, generatedAtUtc=_iso(FINAL + 3600))
@@ -862,6 +868,10 @@ _s8 = CTX8["site"]["standings"]
 _j8 = [r["owner_name"] for r in _s8].index("Josh Martel")
 assert _s8[_j8 + 1]["owner_name"] == "Brian Cross"
 _s8[_j8], _s8[_j8 + 1] = _s8[_j8 + 1], _s8[_j8]
+# ...and its forecast, run before the correction, is treated as the corrected run the Worker's order goes with (the
+# recorded one, with no seeding rule, is a blocker: checked below)
+if (CTX8.get("forecast") or {}).get("sim"):
+    CTX8["forecast"]["sim"]["seedingRule"] = SS.SEEDING_RULE
 PACK8 = json.load(open(os.path.join(HERE, "..", "..", "..", "site", "wire", "packs", "2026", "2026-wk08-recap.pack.json")))
 
 
@@ -878,6 +888,9 @@ r8, v8, _ = build8()
 _rec8 = ISSUE.render(copy.deepcopy(PACK8), copy.deepcopy(CTX8_RECORDED), generated_at=T0, local_candidates=True, fmt=None)
 check("the recorded (pre-correction) Week 8 site order differs from the corrected F.1 order -> flagged, not hidden",
       "landscape:site-order" in [g["id"] for g in _rec8["gaps"]], [g["id"] for g in _rec8["gaps"]])
+if (CTX8_RECORDED.get("forecast") or {}).get("sim"):
+    check("the recorded Week 8 forecast (no seeding rule: simulated before the correction) is an odds blocker, never printed",
+          "odds:rule" in [g["id"] for g in _rec8["gaps"]], [g["id"] for g in _rec8["gaps"]])
 ids8 = re.findall(r'<section class="wire-sec" id="([^"]+)"', r8["html"])
 check("the default output is the story format: six segments in order", r8["format"] == "story" and ids8 == SI.SEGMENTS, (r8.get("format"), ids8, r8.get("formatFallback")))
 check("Week 8 story draft validates against its sources", v8["ok"], v8["errors"])
