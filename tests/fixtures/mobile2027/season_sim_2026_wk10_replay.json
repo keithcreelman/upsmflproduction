@@ -1,10 +1,10 @@
 {
- "_about": "The Week 10 forecast REPLAYED offline under the corrected playoff ladders (canon §F.1.2-§F.1.4, Keith 2026-11-25): pipelines/etl/wire/season_sim.py --season 2026 --through-week 10 --runs 10000 --seed 20260911 --reuse-cache on the Week 10 inputs the UPS Center automation recorded (49 cached MFL responses, combined SHA-256 prefix cc2b5a3327401752). The same replay with the previous simulator reproduced the published site/wire/data/season_sim_2026_live_wk10.json (SHA-256 prefix 69a3c84231480b27) exactly: every playoff, bye, division and title probability equal. That published file is not changed. Only the fields the Standings recording reads are kept.",
+ "_about": "The Week 10 forecast REPLAYED offline under the corrected playoff ladders (canon §F.1.2-§F.1.4, Keith 2026-11-25): pipelines/etl/wire/season_sim.py --season 2026 --through-week 10 --runs 10000 --seed 20260911 --reuse-cache on the Week 10 inputs the UPS Center automation recorded (49 cached MFL responses, combined SHA-256 prefix cc2b5a3327401752). The same replay with the previous simulator reproduced the published site/wire/data/season_sim_2026_live_wk10.json (SHA-256 prefix 69a3c84231480b27) exactly: every playoff, bye, division and title probability equal. That published file is not changed. Only the fields the Standings recording reads are kept. model.pendingTieSeasons / pendingTieHandling: the simulated seasons that ended level on every settled tiebreak, split evenly -- a modeling choice pending Keith's decision (PR #1529), not a league rule.",
  "replayOf": "site/wire/data/season_sim_2026_live_wk10.json",
  "schema": 2,
  "season": 2026,
  "throughWeek": 10,
- "generatedAtUtc": "2026-11-25T03:35:22Z",
+ "generatedAtUtc": "2026-11-25T13:12:21Z",
  "runs": 10000,
  "seed": 20260911,
  "model": {
@@ -13,7 +13,9 @@
    "bye": 60,
    "seed_1_2_order": 1,
    "seeds3to6": 2
-  }
+  },
+  "pendingTieSeasons": 63,
+  "pendingTieHandling": "even_draw (proposed; pending Keith's decision, PR #1529)"
  },
  "teams": [
   {

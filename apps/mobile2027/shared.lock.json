@@ -4,7 +4,7 @@
   "files": {
     "contract_windows.js": "3b1d9486c03983e33ab04de706bc839e444353d5c76a9e6c18a3733424f27211",
     "taxi_rule.js": "17a5364feffd0280b154da9acadbc1b32cacdada456dbafa2022625a44a504a0",
-    "standings_race.js": "a09527512774042b2f112a356f420cae6380c46a461cdceed61561ae85b1aee1",
+    "standings_race.js": "400f887b5ccbb7272b68973d16eae5cbf023700ab9002cba5a4d2b84cffedfd4",
     "standings_clinch.js": "df9789bb900f4c900f79a5746308e00c2680b6ae4af4dcf6c54a3e54bfe4de4b",
     "odds_display.js": "67c75d683dda8efc6b603a4e205b9cb61d1e28a44ed06d86a3b95ab85b76bd93"
   },

@@ -121,7 +121,8 @@
         '</td><td class="lgwide">' + appct(rs.all_play) + '</td><td class="lgwide">' + rec(rs.record) + "</td><td>" + (W.pctHeld[f] ? esc(M.forecast.by[f].verified || "—") : esc(M.forecast.by[f].playoffs)) + "</td></tr>" + panels;
     });
     var out = '<div class="card"><div class="lgtw"><table class="lgt"><thead><tr><th class="t">Seed</th><th class="t">Team</th><th class="lgwide">AP%</th><th class="lgwide">W–L</th><th>Playoff %</th></tr></thead><tbody>' + h + "</tbody></table></div>";
-    if (W.divisionTies.length) out += '<div class="lgnote wn">' + W.divisionTies.map(function (g) { return g.fids.length + " teams lead " + esc(M.divisions[g.division] || "a division") + " on win % and division win % (" + g.fids.map(function (f) { return nm(M, f); }).join(", ") + ")"; }).join("; ") + ". The rules don’t say how the games between three or more teams settle it, so no seeds, tags, cutoff lines, magic numbers or simulated Playoff % are shown for any team. Records, verified clinches and eliminations, and locked seeds still show.</div>";
+    if (W.noReport) out += '<div class="lgnote wn">This standings answer doesn’t list the ties no settled tiebreak decides, so no seeds, tags, cutoff lines, magic numbers or simulated Playoff % are shown for any team. Records and verified clinches and eliminations still show.</div>';
+    else if (W.divisionTies.length) out += '<div class="lgnote wn">' + W.divisionTies.map(function (g) { return g.fids.length + " teams lead " + esc(M.divisions[g.division] || "a division") + " on win % and division win % (" + g.fids.map(function (f) { return nm(M, f); }).join(", ") + ")"; }).join("; ") + ". The rules don’t say how the games between three or more teams settle it, so no seeds, tags, cutoff lines, magic numbers or simulated Playoff % are shown for any team. Records, verified clinches and eliminations, and locked seeds still show.</div>";
     else if (W.any) out += '<div class="lgnote wn">' + W.groups.map(function (g) { return g.fids.map(function (x) { return nm(M, x.fid); }).join(" and ") + " are level on " + (TIEWORDS[g.pool] || "every settled tiebreak"); }).join("; ") + ". No settled tiebreak orders them yet, so the seeds that depend on it, and their tags, Playoff % and magic numbers, are not shown until they separate. Records and verified clinches still show.</div>";
     out += '<p class="lgn">Through Week ' + M.through + " of " + M.lastReg + ". " + (M.forecast.fresh ? "Playoff % from the forecast run after Week " + M.forecast.throughWeek + "." : esc(M.forecast.why || "")) + (anyClinch ? "" : " No team has clinched yet, so every tag is a current position.") + "</p>";
     out += tog(S, "rd", "Race details") + (on(S, "rd") ? '<div class="lgxb">' + raceDetails(M) + "</div>" : "") + "</div>";
@@ -129,6 +130,7 @@
   }
   function raceDetails(M) {
     var m = M.magic, W = M.withheld, d = "";
+    if (W.noReport) return '<div class="ex">Magic numbers are not shown: the standings answer doesn’t list which ties are still open.</div>';
     if (W.magicHidden) return '<div class="ex">Magic numbers are not shown while a division lead is unsettled: both the division and wild-card races depend on it.</div>';
     if (!m || m.status !== "ok") return '<div class="ex">Magic numbers are not available (' + esc(m && m.status || "no schedule") + ").</div>";
     d += '<div><b>Division magic numbers</b><div class="lgn">Wins by the leader plus losses by the closest rival that settle the division.</div></div>';
@@ -230,16 +232,16 @@
       var C = M.contrib;
       if (!C || (C.state !== "ok" && C.state !== "partial")) return h + '<div class="ex">' + esc(C && C.why || "Contributions are not available.") + "</div>";
       // rows, not a table: at 320 px the name takes its own line and the three values sit under it (no mid-word wrapping); the value leads, the rank is
-      // smaller and muted beneath it; + opens the season totals as aligned group/value rows
-      h += '<div class="lgscope">Pts/Wk and league rank · Regular season · Weeks 1–' + M.through + '</div><div class="lgcg" role="table" aria-label="Contributions"><div class="lgcr h" role="row"><span class="t" role="columnheader">Team</span><span role="columnheader">Offense</span><span role="columnheader">IDP</span><span role="columnheader">K &amp; P</span><span role="columnheader"><span class="vh">Season totals</span></span></div>';
+      // smaller and muted beneath it. The last cell is a labeled button straight to that team's points by position (lineup slot one tap away in the
+      // same sheet), in Pts/Wk throughout: no season-total rows here (Keith's presentation feedback, ChatGPT's review of #1526, item 5).
+      h += '<div class="lgscope">Pts/Wk and league rank · Regular season · Weeks 1–' + M.through + '</div><div class="lgcg" role="table" aria-label="Contributions"><div class="lgcr h" role="row"><span class="t" role="columnheader">Team</span><span role="columnheader">Offense</span><span role="columnheader">IDP</span><span role="columnheader">K &amp; P</span><span role="columnheader">Pos</span></div>';
       ids.forEach(function (f) {
-        var k = "ct:" + f;
         function cell(g, label) { var x = C.groups[g][f]; return '<span role="cell" aria-label="' + label + " " + t1(x.pw) + " per week, rank " + rk(x.rank, x.tie) + '"><b class="lgv">' + t1(x.pw) + "</b>" + (x.rank == null ? "" : '<span class="lgrk">#' + rk(x.rank, x.tie) + "</span>") + "</span>"; }
-        h += '<div class="lgcr' + (S.teamId === f ? " lgme" : "") + '" role="row"><span class="t" role="cell">' + tn(M, f) + "</span>" + cell("off", "Offense") + cell("idp", "IDP") + cell("kp", "Kicking and Punting") + '<span role="cell">' + plus(S, k, "Season totals for " + (M.names[f] || f)) + "</span></div>";
-        if (on(S, k)) h += '<div class="lgtot" role="row"><span role="cell">Season totals</span>' + [["Offense", C.groups.off[f].pts], ["IDP", C.groups.idp[f].pts], ["K & P", C.groups.kp[f].pts], ["Team", B[f].scored.pf]].map(function (r) { return '<span class="lgtl">' + esc(r[0]) + '</span><span class="lgtv">' + t1(r[1]) + "</span>"; }).join("") + "</div>";
+        h += '<div class="lgcr' + (S.teamId === f ? " lgme" : "") + '" role="row"><span class="t" role="cell">' + tn(M, f) + "</span>" + cell("off", "Offense") + cell("idp", "IDP") + cell("kp", "Kicking and Punting") +
+          '<span role="cell"><button class="lgcgo" data-act="lgbrk" data-fid="' + esc(f) + '" data-v="pos" aria-label="' + esc((M.names[f] || f) + ": points per week by position or lineup slot") + '"><span class="lgchev" aria-hidden="true"></span></button></span></div>';
       });
       h += "</div>" + (C.state === "partial" ? '<div class="lgnote wn">' + esc(C.why) + "</div>" : "") +
-        '<p class="lgn">Points per week, with league rank (#) underneath; + shows season totals. Offense is QB, RB, WR, TE; IDP is DL, LB, DB; K &amp; P is kicker and punter. The three add up to each team’s total.</p>';
+        '<p class="lgn">Points per week, with league rank (#) underneath. Tap › for a team’s points by position or lineup slot. Offense is QB, RB, WR, TE; IDP is DL, LB, DB; K &amp; P is kicker and punter. The three add up to each team’s Pts/Wk.</p>';
     }
     return h;
   }
@@ -286,8 +288,8 @@
     h += '<div class="card"><h2>Contributions</h2>';
     if (C && (C.state === "ok" || C.state === "partial")) {
       h += '<div class="lgkv"><div class="h">Group</div><div class="h n">Pts/Wk</div><div class="h n">Rank</div>' + CG.map(function (g) { var x = C.groups[g[0]][f]; return "<div>" + g[1] + '</div><div class="n">' + t1(x.pw) + '</div><div class="n">' + rk(x.rank, x.tie) + "</div>"; }).join("") + "</div>";
-      h += tog(S, "tst", "Season totals", "sm") + (on(S, "tst") ? '<div class="lgkv">' + CG.map(function (g) { return "<div>" + g[1] + '</div><div class="n">' + t1(C.groups[g[0]][f].pts) + '</div><div class="n"></div>'; }).join("") + '<div>Team</div><div class="n">' + t1(Sf.scored.pf) + '</div><div class="n"></div></div>' : "");
-      h += '<button class="lglink" data-act="lgbrk" data-fid="' + esc(f) + '">By position or lineup slot ›</button>';
+      // straight to the breakdown, by position or by lineup slot, in Pts/Wk (no season-total rows; Total Pts above stays: it is the playoff tiebreak)
+      h += [["pos", "By position"], ["slot", "By lineup slot"]].map(function (o) { return '<button class="lgtg lggo" data-act="lgbrk" data-fid="' + esc(f) + '" data-v="' + o[0] + '"><span>' + o[1] + '</span><span class="lgchev" aria-hidden="true"></span></button>'; }).join("");
     } else h += '<div class="ex">' + esc(C && C.why || "Not available.") + "</div>";
     h += "</div>";
     h += '<div class="card"><h2>Weekly scoring</h2><div class="lgcounts"><div><b>' + L.topWeeks + "</b><span>Top-score weeks</span></div><div><b>" + L.top3 + "</b><span>Top 3</span></div><div><b>" + L.bottom3 + "</b><span>Bottom 3</span></div></div>";
@@ -321,21 +323,22 @@
       : ST.SLOT_GROUPS.map(function (g) { return { k: g[0], label: g[2], aria: g[1].length > 1 ? g[2].replace(" ×2", "") + ", two slots combined" : g[2], tbl: C.bySlot[g[0]], pick: function (a) { return g[1].filter(function (s) { return a.slots[s]; }).map(function (s) { return { slot: s.replace(/[12]$/, ""), s: a.slots[s] }; }); } }; });
     var h = '<div class="ex">' + esc(M.names[f]) + "</div>";
     h += '<div class="seg" role="group" aria-label="Breakdown"><button data-act="lgbv" data-v="pos" aria-pressed="' + byPos + '">By position</button><button data-act="lgbv" data-v="slot" aria-pressed="' + !byPos + '">By lineup slot</button></div>';
-    h += '<div class="lgscope">Regular season · Weeks 1–' + M.through + " · starters only, points credited to this team</div>";
+    h += '<div class="lgscope">Pts/Wk · Regular season · Weeks 1–' + M.through + " · starters only, points credited to this team</div>";
+    h += '<p class="lgn">Tap a ' + (byPos ? "position" : "slot") + " for its points each week; tap a week for the players.</p>";
     h += '<div class="lgbrow h"><span>' + (byPos ? "Position" : "Slot") + '</span><span class="n">Pts/Wk</span><span class="n">Rank</span><span></span></div>';
     groups.forEach(function (g) {
       var x = g.tbl[f], k = "b:" + (byPos ? "p" : "s") + ":" + g.k, o = on(S, k);
       // the whole row is the button; a chevron shows its state; the accessible name says what the figures are (combined slots say so)
       h += '<button class="lgbrow" data-act="lgt" data-v="' + esc(k) + '" aria-expanded="' + o + '" aria-label="' + esc(g.aria + ": " + t1(x.pw) + " points per week, league rank " + rk(x.rank, x.tie) + ". Weeks and players") + '"><span>' + esc(g.label) + '</span><span class="n">' + t1(x.pw) + '</span><span class="n">' + rk(x.rank, x.tie) + '</span><span class="lgchev" aria-hidden="true"></span></button>';
       if (!o) return;
-      h += '<div class="lgxb"><div class="lgpl"><b>Season total</b><span>' + t1(x.pts) + "</span></div>";
+      h += '<div class="lgxb">';
       for (var w = 1; w <= M.through; w++) {
         var a = C.audit[f] && C.audit[f][w]; if (!a) continue;
         // MAT-1: a week that does not reconcile (or cannot be allocated) contributes nothing shown: no sum, no players' points
         if (!a.reconciles || a.status !== "ok") { h += '<div class="lgpl"><b>Week ' + w + "</b><span>Not counted: " + esc(!a.reconciles ? "the starters’ points don’t add up to the official score" : a.why) + "</span></div>"; continue; }
         var ps = g.pick(a), sum = 0, miss = false; ps.forEach(function (p) { if (p.s.score == null) miss = true; else sum += p.s.score; });
         var wk = k + ":" + w, wo = on(S, wk);
-        h += tog(S, wk, "Week " + w + " · " + t1(sum), "sm");
+        h += tog(S, wk, "Week " + w + " · " + t1(sum) + " pts", "sm");
         if (wo) {
           // the slot is named only when it differs from the position (SFX, OFX, DFX), never "RB · RB"
           h += ps.map(function (p) { return '<div class="lgpl"><b>' + esc(playerName(S, p.s.id)) + "</b><span>" + (p.slot && p.slot !== posLabel(p.s.pos) ? esc(p.slot) + " · " : "") + esc(posLabel(p.s.pos)) + " · " + (p.s.score == null ? "—" : t1(p.s.score)) + "</span></div>"; }).join("") || '<div class="lgpl"><span>No starter here this week.</span></div>';
@@ -362,12 +365,15 @@
       h("Seed", "Where a team stands if the season ended today. Seeds 1–2 are the two division winners with the best All-Play %; seeds 3–6 are the other division winners and the two wild cards. A green tag is clinched; an outlined tag is only the current position.") +
       h("Seeding order", "Seeds 1 and 2 (the byes) are the two division winners with the best All-Play %. The two wild cards are the best other teams by All-Play %, then total Points For, then the games between the tied teams. Seeds 3–6 are the other two division winners and the wild cards, by All-Play %, then total Points For. Overall record is not a seeding tiebreaker. Exact records are compared, not the rounded percentages. A line under a team names the step that separated it from its neighbor; tap it for the figures.") +
       h("Seeds not shown", "If teams are level on every tiebreak the league has settled for that place (division winners level on All-Play % for a bye or for seeds 1 and 2; seeds 3–6 level on All-Play % and total Points For; or a wild card still level after the games between them, where the next steps are Power Rank and a coin flip), the seeds that depend on it show “—”, with the tied teams’ tags, Playoff % and magic numbers, until they separate. Records and verified clinches still show.") +
+      h("No tie list", "Each standings answer lists the ties no settled tiebreak decides. If an answer arrives without that list, nothing shows which seeds are final, so no seeds, tags, cutoff lines, magic numbers or simulated Playoff % are shown for any team. Records and verified clinches still show.") +
       h("Division order", "The division tiebreak order in the league’s settings: win %, division win %, the games between the tied teams, Points For, then All-Play %. If three or more teams are level on win % and division win %, the rules don’t say how the games between them settle it; that division’s lead is then shown as unsettled, and no seeds, tags, cutoff lines, magic numbers or simulated Playoff % are shown for any team until it settles (verified clinches and eliminations still show). How MFL itself applies that step is not verified.") +
       h("Playoff %", "Share of " + (fc && fc.runs ? Number(fc.runs).toLocaleString("en-US") : "the") + " simulated seasons that reach the playoffs. 100% or 0% only when clinched or ruled out by the clinch rules; otherwise &gt;99% and &lt;1% mark the ends.") +
+      h("Open ties in the forecast", "Not every tie has a league rule yet (for example, two division winners on the same All-Play %). When a simulated season ends in one, the forecast splits that place evenly between the tied teams. That is a modeling choice pending Keith’s decision, not a league rule." +
+        (fc && fc.openTies != null && fc.runs ? " This forecast: " + fc.openTies.toLocaleString("en-US") + " of " + Number(fc.runs).toLocaleString("en-US") + " seasons." : "")) +
       h("Total Pts, Pts/Wk", "Points scored in completed regular-season weeks. Each week counts once, even in two- and three-game weeks. Pts/Wk describes past weeks, not a projection.") +
       h("Top / Top 3 / Bot 3, Avg rk", "Weeks with the league’s highest score, a top-3 score or a bottom-3 score. Avg rk is the average weekly score rank (1 = highest), shown to two decimals; ties come from the exact averages.") +
       h("All-Play and H2H", "All-Play: a week’s score against every other team’s that week (11 results). H2H: the week’s scheduled games combined, e.g. 2–1.") +
-      h("Offense, IDP, Kicking & Punting", "Official MFL points credited to each team’s actual starters that week, grouped by the player’s position. A return touchdown by a receiver stays with WR. The three add up to the team’s total.") +
+      h("Offense, IDP, Kicking & Punting", "Official MFL points credited to each team’s actual starters that week, grouped by the player’s position, shown per week. A return touchdown by a receiver stays with WR. The three add up to the team’s Pts/Wk. Tap › on Contributions, or By position or By lineup slot in a team’s detail, for each position’s or slot’s points per week, then each week’s players.") +
       h("By lineup slot", "MFL records which players started, not which slot each filled, so these slots are derived, not recorded owner choices. Each week, required positions are filled first with the highest scorers, then SFX (the second QB if two started, otherwise the best remaining RB, WR or TE), then OFX, then DFX; weeks are then added up. Equal scores go to the lower MFL player id. Zero and negative scores count. A ×2 row (RB, WR, OFX, DL, LB, DB) shows two slots together, so its Pts/Wk is their combined points.") +
       h("Bye line and Playoff line", "The Bye line falls after seed 2 (the two first-round byes); the Playoff line after seed 6. Your selected team (the one chosen on Team) is highlighted in every table.") +
       h("—", "At player level: MFL’s weekly results list the player as a starter but give no score. Nothing is added to the team’s total, and it isn’t a recorded zero. A real 0.0 shows as 0.0." + (C && C.noScore ? " This season: " + C.noScore.length + " such starters." : "")) +

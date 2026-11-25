@@ -546,9 +546,10 @@ button.btnrow{cursor:pointer}
 .lgcr .lgv{display:block;font-size:14px;font-weight:600}
 .lgcr .lgrk{display:block;font-size:12px;color:var(--mu)}
 @media (max-width:360px){.lgcr{grid-template-columns:1fr 1fr 1fr 44px;row-gap:2px}.lgcr>span.t{grid-column:1/-1}.lgcr.h>span.t{display:none}.lgcr>span:not(.t){text-align:left}.lgcr>span:last-child{text-align:right}}
-.lgtot{display:grid;grid-template-columns:1fr auto;gap:2px 12px;font-size:13px;padding:6px 8px 8px;background:var(--s2);border-bottom:1px solid var(--bd);font-variant-numeric:tabular-nums}
-.lgtot>span:first-child{grid-column:1/-1;font-size:12px;color:var(--mu);font-weight:600}
-.lgtot .lgtv{text-align:right;font-weight:600}
+/* Contributions: the last cell opens the team's points by position or lineup slot (a bordered 44 px target, not a bare "+") */
+.lgcgo{display:inline-flex;align-items:center;justify-content:center;width:40px;min-height:44px;padding:0;border:1px solid var(--bd);border-radius:8px;background:transparent;color:var(--ac)}
+.lgcgo .lgchev{border-left:0;margin-left:0;padding-left:0}
+.lggo{color:var(--ac)}
 /* Team detail: one subtle full-row divider per row, not a line under every cell */
 .lgkv{gap:0}
 .lgkv>div{border-bottom:1px solid var(--bd);border-bottom-color:color-mix(in srgb,var(--bd) 55%,transparent)}

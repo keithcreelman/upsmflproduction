@@ -613,7 +613,7 @@
     else if (act === "lgwk") { var lw = parseInt(v, 10), LM = S.lgd.model; if (el.getAttribute("aria-disabled") !== "true" && LM && lw >= 1 && lw <= LM.through) { S.lg.wk = lw; render(true); } }
     else if (act === "lgt") { if (v && /^[a-z0-9:]+$/i.test(v)) { S.lg.open[v] = !S.lg.open[v]; render(true); } }
     else if (act === "lgteam") { var tf = el.getAttribute("data-fid"); if (tf && /^\d{4}$/.test(tf)) { S.lg.team = tf; S.sheet = "lteam"; render(); } }
-    else if (act === "lgbrk") { var bf = el.getAttribute("data-fid"); if (bf && /^\d{4}$/.test(bf)) { S.lg.team = bf; S.sheet = "lbrk"; render(); ensurePlayers(false); } }
+    else if (act === "lgbrk") { var bf = el.getAttribute("data-fid"); if (bf && /^\d{4}$/.test(bf)) { if (v === "pos" || v === "slot") S.lg.brk = v; S.lg.team = bf; S.sheet = "lbrk"; render(); ensurePlayers(false); } }
     else if (act === "lgbv") { if (v === "pos" || v === "slot") { S.lg.brk = v; render(true); } }
     else if (act === "lgretry") { ensureLeague(true); }
     else if (act === "sub") { S.sub = v; render(); ensureIntel(); }

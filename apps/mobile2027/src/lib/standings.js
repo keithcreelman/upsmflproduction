@@ -78,25 +78,16 @@
 
   // ---- Option B: the ties no approved step separates (canon §F.1.2-§F.1.4, Keith 2026-11-25). The Worker reports them
   // (regular_season.unresolved: { pool, franchise_ids, seeds, why }); this module never re-derives the ladder. -> [{ pool, seeds, why, fids:
-  // [{ fid, pos }] }], pos = the team's place in the Worker's order. A Worker answer without the field cannot say which ties are open, so it
-  // fails closed: every group level on All-Play % and total Points For that reaches the field or the first team out counts as open.
+  // [{ fid, pos }] }], pos = the team's place in the Worker's order.
+  // The list is part of the response contract (ChatGPT's review of #1526, item 2). A Worker answer without it cannot say which ties are open --
+  // a bye can hang on two division winners level on All-Play % with different Points For, which no client-side check of the numbers would
+  // catch -- so this returns null and build() withholds every seed, tag, cutoff line, magic number and simulated Playoff %.
   function unresolvedTies(rows, rs) {
+    if (!(rs && Array.isArray(rs.unresolved))) return null;
     var at = {}; rows.forEach(function (r, i) { at[r.franchise_id] = i + 1; });
-    if (rs && Array.isArray(rs.unresolved)) {
-      return rs.unresolved.map(function (u) {
-        return { pool: u.pool, seeds: arr(u.seeds).map(Number), why: u.why || null, fids: arr(u.franchise_ids).filter(function (f) { return at[f]; }).map(function (f) { return { fid: f, pos: at[f] }; }) };
-      }).filter(function (g) { return g.fids.length > 1; });
-    }
-    var groups = {};
-    rows.forEach(function (r, i) {
-      var x = r.regular_season || {};
-      if (!x.all_play) return;
-      var k = share(x.all_play) + "|" + tenths(x.points_for);
-      (groups[k] = groups[k] || []).push({ fid: r.franchise_id, pos: i + 1 });
-    });
-    return Object.keys(groups).map(function (k) { return groups[k]; }).filter(function (g) { return g.length > 1 && g.some(function (x) { return x.pos <= 7; }); })
-      .map(function (g) { var ps = g.map(function (x) { return x.pos; }); return { pool: "unknown", why: "no_worker_report", fids: g,
-        seeds: [1, 2, 3, 4, 5, 6].filter(function (s) { return s >= Math.min.apply(null, ps) && s <= Math.max.apply(null, ps); }) }; });
+    return rs.unresolved.map(function (u) {
+      return { pool: u.pool, seeds: arr(u.seeds).map(Number), why: u.why || null, fids: arr(u.franchise_ids).filter(function (f) { return at[f]; }).map(function (f) { return { fid: f, pos: at[f] }; }) };
+    }).filter(function (g) { return g.fids.length > 1; });
   }
 
   // ---- MAT-3: a division lead the rules do not settle. MFL's standingsSort orders a division by win % (PCT), then division win % (DIVPCT), then
@@ -185,6 +176,9 @@
     var fcx = I.forecast, sameWeek = !!(fcx && Number(fcx.throughWeek) === through), ruleOk = !!(fcx && fcx.model && fcx.model.seedingRule === SEEDING_RULE);
     var rc = sameWeek && ruleOk ? forecastReconcile(fcx, payload) : null, fresh = !!(rc && rc.hard.length === 0);
     M.forecast = { fresh: fresh, throughWeek: fcx ? Number(fcx.throughWeek) : null, at: fcx ? fcx.generatedAtUtc : null, runs: fcx ? fcx.runs : null, replay: !!(fcx && fcx.replayOf), by: {}, reconcile: rc,
+      // season_sim.py model.pendingTieSeasons: simulated seasons that ended level on every settled tiebreak, split evenly (a modeling choice pending
+      // Keith's decision, not a league rule; ChatGPT's review of #1529, item 4). null = the run doesn't count them.
+      openTies: fcx && fcx.model && Number(fcx.model.pendingTieSeasons) >= 0 ? Number(fcx.model.pendingTieSeasons) : null,
       why: !fcx ? "No forecast is available in this mode." : !sameWeek ? "The forecast was run after Week " + fcx.throughWeek + ", not Week " + through + ", so it is not shown."
         : !ruleOk ? "The forecast was made under earlier seeding rules, so its probabilities are not shown. Verified clinches still show."
         : !fresh ? "The forecast doesn’t start from these standings (" + rc.hard[0] + (rc.hard.length > 1 ? ", and " + (rc.hard.length - 1) + " more" : "") + "), so its probabilities are not shown. Verified clinches still show."
@@ -196,7 +190,8 @@
     });
     // Option B: each open tie withholds the seeds it affects (the Worker's list: a bye tie moves seeds 2-6, a tie for the last wild card the
     // seed that wild card holds), the tied teams' tags and simulated Playoff %, and the cutoff line it spans
-    var ties = unresolvedTies(rows, rsx), wSeeds = {}, wFids = {}, cutHidden = false, byeTie = false;
+    var ties = unresolvedTies(rows, rsx), noReport = ties === null, wSeeds = {}, wFids = {}, cutHidden = false, byeTie = false;
+    if (noReport) ties = [];
     ties.forEach(function (g) {
       g.fids.forEach(function (x) { wFids[x.fid] = true; });
       g.seeds.forEach(function (s) { wSeeds[s] = true; });
@@ -208,12 +203,12 @@
     // winners; the others compete for wild cards). So no seed, tag or cutoff line is supported for anyone, and no magic number (division and wild-card
     // races both depend on it). Simulated Playoff % is withheld for EVERY team (re-review of 18d45312): any team's wild-card chance can depend on
     // which tied team takes the division berth, and nothing shows it doesn't. Records, verified clinch/elimination outcomes and locked seeds stay.
-    var dt = divisionTies(rows), divAll = dt.length > 0, byeHidden = false;
+    var dt = divisionTies(rows), divAll = dt.length > 0 || noReport, byeHidden = false;
     if (divAll) { for (var s = 1; s <= 6; s++) wSeeds[s] = true; cutHidden = true; byeHidden = true; FIDS.forEach(function (f) { wFids[f] = true; }); }
     var pctHeld = {}; ties.forEach(function (g) { g.fids.forEach(function (x) { pctHeld[x.fid] = true; }); });
     if (divAll) FIDS.forEach(function (f) { pctHeld[f] = true; });
     if (byeTie) byeHidden = true;
-    M.withheld = { seeds: wSeeds, fids: wFids, cutHidden: cutHidden, byeHidden: byeHidden, groups: ties, divisionTies: dt, magicHidden: divAll, pctHeld: pctHeld, any: Object.keys(wFids).length > 0 };
+    M.withheld = { seeds: wSeeds, fids: wFids, cutHidden: cutHidden, byeHidden: byeHidden, groups: ties, divisionTies: dt, noReport: noReport, magicHidden: divAll, pctHeld: pctHeld, any: Object.keys(wFids).length > 0 };
 
     // ---- scoring
     M.sf = Rm.scoredFaced(payload);

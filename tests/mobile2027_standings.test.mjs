@@ -145,13 +145,33 @@ test("Option B: a tie the Worker reports as unresolved withholds the seeds it af
   t.deepEqual(Object.keys(M.withheld.seeds).sort(), ["2", "3", "4", "5", "6"]); t.equal(M.withheld.byeHidden, true);
   html = SV.body({ lg: { sub: "race", open: {} }, lgd: { model: M } });
   t.doesNotMatch(html, /Bye line/); t.match(html, /level on All-Play % for a first-round bye/);
-  // a Worker answer with no unresolved list cannot say which ties are open: fail closed on any All-Play + Points For tie that reaches the field
-  const n = clone(STAND); delete n.regular_season.unresolved; n.rows[6].regular_season.points_for = n.rows[5].regular_season.points_for;
-  M = ST.build(input({ standings: n }));
-  t.equal(M.withheld.any, true); t.equal(M.withheld.fids[cbp], true); t.equal(M.withheld.fids[hawks], true); t.equal(M.withheld.cutHidden, true);
-  const n2 = clone(STAND); delete n2.regular_season.unresolved;
-  t.equal(ST.build(input({ standings: n2 })).withheld.any, false, "no level pair, nothing withheld");
   t.equal(ST.unresolvedTies(STAND.rows, STAND.regular_season).length, 0, "the recorded season: none");
+});
+
+// ChatGPT's review of #1526 (item 2): the Worker's unresolved list is part of the response contract. f1f531c1 fell back to its own check (equal
+// All-Play % AND Points For), so two division winners level on All-Play % with different Points For -- a bye still pending Keith's ruling -- showed
+// seeds as settled. Without the list nothing says which seeds are final, so every seed-dependent figure is withheld, for every team.
+test("a standings answer without the Worker's unresolved list: no seeds, tags, lines, magic numbers or simulated Playoff % for anyone (the bye case)", () => {
+  const n = clone(STAND); delete n.regular_season.unresolved;
+  const dw3 = n.rows.find((r) => r.playoff_status === "division_winner" && r.playoff_seed >= 3);
+  t.ok(dw3, "the recording has a division winner seeded 3-6");
+  dw3.regular_season.all_play = clone(n.rows[1].regular_season.all_play);          // level with seed 2 on All-Play %...
+  t.notEqual(dw3.regular_season.points_for, n.rows[1].regular_season.points_for);  // ...with different Points For
+  t.equal(ST.unresolvedTies(n.rows, n.regular_season), null, "no list: the answer can't say which ties are open");
+  const M = ST.build(input({ standings: n }));
+  t.equal(M.withheld.noReport, true);
+  t.deepEqual(Object.keys(M.withheld.seeds).sort(), ["1", "2", "3", "4", "5", "6"], "every seed is withheld (the bye decides seeds 2-6)");
+  t.equal(M.withheld.byeHidden, true); t.equal(M.withheld.cutHidden, true); t.equal(M.withheld.magicHidden, true);
+  M.fids.forEach((f) => { t.equal(M.withheld.fids[f], true, f + ": tag withheld"); t.equal(M.withheld.pctHeld[f], true, f + ": simulated Playoff % withheld"); });
+  const html = SV.body({ lg: { sub: "race", open: {} }, lgd: { model: M } });
+  t.doesNotMatch(html, /Bye line|Playoff line/, "neither cutoff line is drawn");
+  t.match(html, /This standings answer doesn’t list the ties no settled tiebreak decides, so no seeds, tags, cutoff lines, magic numbers or simulated Playoff % are shown for any team\./);
+  t.doesNotMatch(html, /<span class="lgtag">(Bye|Division|Wild card)<\/span>/, "no position tag");
+  const seedCells = [...html.matchAll(/<td class="rk">([^<]*)<\/td>/g)].map((m) => m[1]);
+  M.rows.slice(0, 6).forEach((r, i) => t.equal(seedCells[i], (M.clinch[r.franchise_id] || {}).lock ? String(M.clinch[r.franchise_id].lock) : "—", "position " + (i + 1) + ": only a locked seed shows"));
+  // a list, even an empty one, is trusted as the Worker's answer
+  t.equal(ST.build(input()).withheld.any, false, "the recorded answer (an empty list): nothing withheld");
+  t.equal(ST.build(input()).withheld.noReport, false);
 });
 
 test("live mode has no dated position list or forecast: no contributions (never today's positions), Playoff % only where verified", () => {
@@ -187,10 +207,9 @@ test("MAT-1: mismatched points never enter a displayed contribution or slot tota
   }
   for (const f of M.fids.filter((x) => x !== "0003")) t.equal(C.groups.off[f].pts, BASE.contrib.groups.off[f].pts, f + ": other teams' supported values unchanged");
   t.doesNotMatch(C.why, /excluded|left out of slot totals/, "the warning does not claim a week was excluded from a total");
-  const S = { lg: { sub: "scoring", per: "season", cset: "grp", open: { "ct:0003": true }, team: "0003", brk: "pos" }, lgd: { model: M }, intel: { players: null } };
+  const S = { lg: { sub: "scoring", per: "season", cset: "grp", open: {}, team: "0003", brk: "pos" }, lgd: { model: M }, intel: { players: null } };
   let h = SV.body(S);
   t.doesNotMatch(h, /class="lgrk"/, "no rank is drawn"); t.doesNotMatch(h, new RegExp(BASE.contrib.groups.off["0003"].pts.toFixed(1)), "0003's old total is not drawn");
-  t.match(h, /<span class="lgtl">Offense<\/span><span class="lgtv">—<\/span>/, "0003's season totals read —");
   S.lg.open["b:p:QB"] = true; S.lg.open["b:p:QB:4"] = true; h = SV.brkSheet(S);
   t.match(h, /Week 4<\/b><span>Not counted: the starters’ points don’t add up/, "the bad week shows no sum and no players' points");
   t.doesNotMatch(h, /Week 4 · /, "no Week 4 sum line");
@@ -297,7 +316,7 @@ test("screens: one decimal with separators, Points For (never overall or H2H rec
   t.match(h, /Ahead of Hawks on total Points For/); t.doesNotMatch(h, /H2H record|overall record/); t.match(h, /Playoff line/);
   S.lg.sub = "scoring"; h = SV.body(S); t.match(h, /2,732\.0/); t.match(h, /273\.2/);
   S.lg.cset = "grp"; h = SV.body(S); t.match(h, /<b class="lgv">197\.0<\/b><span class="lgrk">#1<\/span>/, "the value leads; the rank is the smaller, muted line under it");
-  S.lg.open["ct:" + M.fids[0]] = true; h = SV.body(S); t.match(h, /<span class="lgtl">Offense<\/span><span class="lgtv">1,970\.0<\/span>/, "season totals as aligned group/value rows");
+  t.doesNotMatch(h, /Season total|lgtot|1,970\.0/, "no season-total rows in Contributions: Pts/Wk throughout");
   S.lg.sub = "race"; S.teamId = "0012"; h = SV.body(S);
   t.match(h, /<tr class="lgcut lgbye"><td colspan="5">Bye line<\/td><\/tr>/); t.ok(h.indexOf("Bye line") < h.indexOf("Blake Bombers"), "the bye line sits between seed 2 and seed 3");
   t.match(h, /<tr class="lgme" aria-current="true"><td class="rk"><\/td><td class="t"><button class="lgtn" data-act="lgteam" data-fid="0012">Hawks</, "the selected team (Hawks, first team out) is highlighted");
@@ -312,6 +331,44 @@ test("screens: one decimal with separators, Points For (never overall or H2H rec
   S.lg.open["b:p:" + pos] = true; S.lg.open["b:p:" + pos + ":" + ns.w] = true;
   h = SV.brkSheet(S); t.match(h, /· —<\/span>/, "a missing score shows —"); t.match(h, /isn’t a recorded zero/);
   t.doesNotMatch(SV.body(S) + SV.helpSheet(S) + SV.teamSheet(Object.assign({}, S, { lg: Object.assign({}, S.lg, { team: M.fids[0] }) })), /xFP/);
+});
+
+// Keith's Standings presentation feedback, as ChatGPT's review of #1526 restated it (item 5): Contributions opens position and lineup-slot detail
+// directly, in Pts/Wk throughout, with controls that read as controls; regular-season total Points For stays where the playoff tiebreak uses it.
+test("Contributions: › opens the team's points by position (or slot) directly, in Pts/Wk throughout; no season-total rows; Total Pts stays", () => {
+  const M = ST.build(input()), f = M.fids[0];
+  const S = { lg: { sub: "scoring", per: "season", cset: "grp", open: {}, team: f, brk: "pos" }, lgd: { model: M }, intel: { players: null } };
+  const h = SV.body(S);
+  const go = [...h.matchAll(/<button class="lgcgo" data-act="lgbrk" data-fid="(\d{4})" data-v="pos" aria-label="([^"]+)">/g)];
+  t.equal(go.length, 12, "one direct control per team");
+  t.match(go[0][2], /: points per week by position or lineup slot$/);
+  t.doesNotMatch(h, /data-act="lgt" data-v="ct:/, "no + toggle for season totals"); t.doesNotMatch(h, /Season total/);
+  t.match(h, /Tap › for a team’s points by position or lineup slot\./); t.match(h, /add up to each team’s Pts\/Wk/);
+  t.match(h, /<span role="columnheader">Pos<\/span>/, "the column says what it opens");
+  // the click handler takes the view from the control (app.js), so › opens By position and the team sheet's buttons open their own view
+  t.match(read("app.js"), /act === "lgbrk"\) \{ var bf = el\.getAttribute\("data-fid"\); if \(bf && \/\^\\d\{4\}\$\/\.test\(bf\)\) \{ if \(v === "pos" \|\| v === "slot"\) S\.lg\.brk = v;/);
+  // team detail: two visible entries, no Season totals toggle; Total Pts (the playoff tiebreak's figure) is still there
+  const ts = SV.teamSheet(S);
+  t.match(ts, /data-act="lgbrk" data-fid="\d{4}" data-v="pos"><span>By position<\/span><span class="lgchev"/);
+  t.match(ts, /data-act="lgbrk" data-fid="\d{4}" data-v="slot"><span>By lineup slot<\/span><span class="lgchev"/);
+  t.doesNotMatch(ts, /Season totals|data-v="tst"/); t.match(ts, /<div>Total Pts<\/div>/);
+  // the breakdown: Pts/Wk rows, then each week's points, then the players; no season total inside
+  for (const brk of ["pos", "slot"]) {
+    const open = {}; ["QB", "RB"].forEach((k) => { open["b:" + brk[0] + ":" + k] = true; });
+    const b = SV.brkSheet({ lg: { team: f, brk, open }, lgd: { model: M }, intel: { players: null } });
+    t.match(b, /<div class="lgscope">Pts\/Wk · Regular season · Weeks 1–10/);
+    t.match(b, new RegExp("Tap a " + (brk === "pos" ? "position" : "slot") + " for its points each week; tap a week for the players\\."));
+    t.doesNotMatch(b, /Season total/, brk + ": no season total in the drilldown");
+    t.match(b, /<span>Week 1 · [0-9,]+\.\d pts<\/span><span class="lgchev"/, brk + ": each week is a labeled control with a chevron");
+  }
+});
+
+test("Help: the forecast's open ties are split evenly, called a modeling choice pending Keith's decision, and counted (63 of 10,000)", () => {
+  const M = ST.build(input());
+  t.equal(M.forecast.openTies, 63);
+  const hs = SV.helpSheet({ lg: { open: {} }, lgd: { model: M }, intel: { players: null } });
+  t.match(hs, /<h4>Open ties in the forecast<\/h4><p>Not every tie has a league rule yet .* the forecast splits that place evenly between the tied teams\. That is a modeling choice pending Keith’s decision, not a league rule\. This forecast: 63 of 10,000 seasons\.<\/p>/);
+  t.match(hs, /<h4>No tie list<\/h4>/);
 });
 
 test("every Standings state draws no inline style, script, form field, link or event handler, and only the read-only Standings controls; data text is escaped", () => {
