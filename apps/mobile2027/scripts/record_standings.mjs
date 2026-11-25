@@ -85,7 +85,7 @@ export async function build() {
   // MAT-2: keeps what the reconciliation needs (the team ids, each team's All-Play W-L-T and its score in the forecast's last week), the odds, and
   // the run's identity; nothing else
   const forecast = { source: FORECAST, season: Number(sim.season), throughWeek: sim.throughWeek, generatedAtUtc: sim.generatedAtUtc, runs: Number(sim.runs) || null,
-    seedingRule: (sim.model && sim.model.seedingRule) || null, pendingTies: (sim.model && sim.model.pendingTies) || null,
+    seedingRule: (sim.model && sim.model.seedingRule) || null, pendingTies: (sim.model && sim.model.pendingTies) || null, replayOf: sim.replayOf || null,
     teams: sim.teams.map((t) => ({ franchiseId: String(t.franchiseId), weekScore: t.weekScore, currentApWins: t.currentApWins, currentApLosses: t.currentApLosses, currentApTies: t.currentApTies,
       playoffs: t.currentPlayoffOdds, bye: t.currentByeOdds, division: t.currentDivisionOdds })) };
   const posText = fs.readFileSync(path.join(REPO, POSITIONS), "utf8"), pos = JSON.parse(posText);

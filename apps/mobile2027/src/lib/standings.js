@@ -184,7 +184,7 @@
     // 2026-11-25 correction used the overall-record step and is refused, whatever its week)
     var fcx = I.forecast, sameWeek = !!(fcx && Number(fcx.throughWeek) === through), ruleOk = !!(fcx && fcx.seedingRule === SEEDING_RULE);
     var rc = sameWeek && ruleOk ? forecastReconcile(fcx, payload) : null, fresh = !!(rc && rc.hard.length === 0);
-    M.forecast = { fresh: fresh, throughWeek: fcx ? Number(fcx.throughWeek) : null, at: fcx ? fcx.generatedAtUtc : null, runs: fcx ? fcx.runs : null, by: {}, reconcile: rc,
+    M.forecast = { fresh: fresh, throughWeek: fcx ? Number(fcx.throughWeek) : null, at: fcx ? fcx.generatedAtUtc : null, runs: fcx ? fcx.runs : null, replay: !!(fcx && fcx.replayOf), by: {}, reconcile: rc,
       why: !fcx ? "No forecast is available in this mode." : !sameWeek ? "The forecast was run after Week " + fcx.throughWeek + ", not Week " + through + ", so it is not shown."
         : !ruleOk ? "The forecast was made under earlier seeding rules, so its probabilities are not shown. Verified clinches still show."
         : !fresh ? "The forecast doesn’t start from these standings (" + rc.hard[0] + (rc.hard.length > 1 ? ", and " + (rc.hard.length - 1) + " more" : "") + "), so its probabilities are not shown. Verified clinches still show."

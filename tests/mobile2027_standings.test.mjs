@@ -82,6 +82,11 @@ test("seeding comes from the Worker's own ladders: Week 10 Hawks and CBP (both 5
   t.match(h, /<td class="t">Points For<\/td><td>2,026\.3<\/td><td>2,097\.4<\/td><td><b>decides<\/b><\/td>/);
   t.match(h, /<td class="t">Games between them<\/td><td><\/td><td><\/td><td>not needed<\/td>/);
   t.doesNotMatch(h, /overall record|Overall record/, "overall record is not a seeding step");
+  // Help: the byes by All-Play, the pool ladders, and the forecast named as the Week 10 replay under the corrected tiebreakers
+  const hs = SV.helpSheet(Object.assign({}, S, { recorded: { label: "Sun Nov 22, 2026, 10:22 AM ET" } }));
+  t.match(hs, /Seeds 1–2 are the two division winners with the best All-Play %/);
+  t.match(hs, /The two wild cards are the best other teams by All-Play %, then total Points For, then the games between the tied teams\. Seeds 3–6 are the other two division winners and the wild cards, by All-Play %, then total Points For\. Overall record is not a seeding tiebreaker\./);
+  t.match(hs, /The forecast is the Week 10 forecast re-run .* on its recorded inputs under the corrected playoff tiebreakers \(2026-11-25\)\./);
 });
 
 test("contributions reconcile exactly: groups and derived slots equal each team's official total for every team; 18 starters; 13 missing scores never zeroed", () => {
