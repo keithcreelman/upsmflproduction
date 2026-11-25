@@ -249,12 +249,6 @@
         "status": "IR"
       },
       {
-        "details": "Neck",
-        "exp_return": "Nov 26, 2026",
-        "id": "13604",
-        "status": "Questionable"
-      },
-      {
         "details": "Knee - Meniscus",
         "exp_return": "Dec 6, 2026",
         "id": "13633",
@@ -282,12 +276,6 @@
         "details": "Knee",
         "exp_return": "Dec 6, 2026",
         "id": "13652",
-        "status": "Questionable"
-      },
-      {
-        "details": "Shin",
-        "exp_return": "Nov 26, 2026",
-        "id": "13674",
         "status": "Questionable"
       },
       {
@@ -810,7 +798,7 @@
         "details": "Finger",
         "exp_return": "Nov 30, 2026",
         "id": "15076",
-        "status": "IR"
+        "status": "IR-R"
       },
       {
         "details": "Concussion",
@@ -852,6 +840,12 @@
         "details": "Foot",
         "exp_return": "Nov 29, 2026",
         "id": "15330",
+        "status": "Questionable"
+      },
+      {
+        "details": "Ribs",
+        "exp_return": "Nov 26, 2026",
+        "id": "15337",
         "status": "Questionable"
       },
       {
@@ -987,16 +981,10 @@
         "status": "IR"
       },
       {
-        "details": "Ribs",
-        "exp_return": "Nov 26, 2026",
-        "id": "15702",
-        "status": "Questionable"
-      },
-      {
         "details": "Groin",
-        "exp_return": "Nov 26, 2026",
+        "exp_return": "Dec 3, 2026",
         "id": "15711",
-        "status": "Questionable"
+        "status": "Out"
       },
       {
         "details": "Hamstring",
@@ -1674,7 +1662,7 @@
         "details": "Knee - PCL",
         "exp_return": "Nov 30, 2026",
         "id": "16628",
-        "status": "IR"
+        "status": "IR-R"
       },
       {
         "details": "Ribs",
@@ -1752,7 +1740,7 @@
         "details": "Knee",
         "exp_return": "Nov 29, 2026",
         "id": "16693",
-        "status": "IR"
+        "status": "IR-R"
       },
       {
         "details": "Achilles",
@@ -2080,9 +2068,9 @@
       },
       {
         "details": "Knee",
-        "exp_return": "Nov 26, 2026",
+        "exp_return": "Dec 3, 2026",
         "id": "17152",
-        "status": "Questionable"
+        "status": "Out"
       },
       {
         "details": "Hamstring",
@@ -2415,6 +2403,12 @@
         "status": "IR"
       },
       {
+        "details": "Neck",
+        "exp_return": "Nov 26, 2026",
+        "id": "17555",
+        "status": "Questionable"
+      },
+      {
         "details": "Personal",
         "exp_return": "Nov 29, 2026",
         "id": "17566",
@@ -2517,8 +2511,8 @@
         "status": "Out"
       },
       {
-        "details": "Undisclosed",
-        "exp_return": "Jan 3, 2027",
+        "details": "Wrist",
+        "exp_return": "Feb 15, 2027",
         "id": "17674",
         "status": "IR"
       },
@@ -2619,7 +2613,7 @@
         "status": "Questionable"
       }
     ],
-    "timestamp": "1795561263",
+    "timestamp": "1795626064",
     "week": "12"
   },
   "version": "1.0"
