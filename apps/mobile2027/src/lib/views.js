@@ -801,7 +801,8 @@
     if (p.status === "active") {
       var c = R.injuryChip(S, p), code = c && c.code ? String(c.code).toUpperCase() : "";
       if (/^(IR|SUSP|HOLD|PUP|NFI)/.test(code)) out.push({ act: "deactivate_ir", ok: active > ROSTER_MIN, why: active > ROSTER_MIN ? "" : "You’re at the " + ROSTER_MIN + "-player active minimum, so IR isn’t available." });
-      if (p.taxi && p.taxi.eligible) out.push({ act: "demote_taxi", ok: true, why: "" });
+      // taxi players are off the active roster too, so Move to taxi keeps the same 27-player active minimum (canon §B3, as IR and Drop do)
+      if (p.taxi && p.taxi.eligible) out.push({ act: "demote_taxi", ok: active > ROSTER_MIN, why: active > ROSTER_MIN ? "" : "You’re at the " + ROSTER_MIN + "-player active minimum, so Move to taxi isn’t available." });
     } else if (p.status === "ir") out.push({ act: "activate_ir", ok: !full, why: full ? "Your active roster is full (" + max + ")." : "" });
     else if (p.status === "taxi") out.push({ act: "promote_taxi", ok: !full, why: full ? "Your active roster is full (" + max + ")." : "" });
     if (p.status === "active" || p.status === "ir" || p.status === "taxi") { var dc = dropCheck(S, p); out.push({ act: "drop_player", ok: dc.ok, why: dc.ok ? "" : dc.why }); }

@@ -93,6 +93,8 @@ test("movesFor: only the owner's own player; Move to IR needs an MFL IR-type des
   });
   const elig = Object.assign({}, act, { taxi: Object.assign({}, act.taxi, { eligible: true }) }), notElig = Object.assign({}, act, { taxi: Object.assign({}, act.taxi, { eligible: false }) });
   t.ok(V.movesFor(S, elig).some((x) => x.act === "demote_taxi")); t.ok(!V.movesFor(S, notElig).some((x) => x.act === "demote_taxi"));
+  { const sv = tm.counts.active; tm.counts.active = 27; const d = V.movesFor(S, elig).find((x) => x.act === "demote_taxi"); t.equal(d.ok, false); t.match(d.why, /27-player active minimum/);
+    tm.counts.active = 28; t.equal(V.movesFor(S, elig).find((x) => x.act === "demote_taxi").ok, true); tm.counts.active = sv; }
   const irP = Object.assign({}, act, { status: "ir" }), txP = Object.assign({}, act, { status: "taxi", taxi: { used: 1, max: 3, eligible: false } });
   const acts = (q) => V.movesFor(S, q).map((x) => x.act).filter((a) => a !== "drop_player");   // Drop is tested on its own below
   t.deepEqual(acts(irP), ["activate_ir"]); t.deepEqual(acts(txP), ["promote_taxi"]);
