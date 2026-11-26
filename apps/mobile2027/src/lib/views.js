@@ -295,8 +295,8 @@
   // bye, over a range) can't be sent; a short lineup can, with one line saying so. The last submit's result stays until the next one.
   function submitBar(S, t, D) {
     var me = S.me || {}, own = !!(me.signedIn && me.fid === t.id), last = S.submit && S.submit.fid === t.id ? S.submit : null;
-    var res = !last ? "" : last.state === "sending" ? '<div class="card planc" role="status"><b>Submitting…</b></div>' :
-      '<div class="card ' + (last.state === "confirmed" ? "okc" : "warnc") + '" role="status"><b>' + esc(last.title) + '</b><div class="ex">' + esc(last.text) + "</div></div>";
+    // the result itself is the pop-up (resultSheet); the bar only says a submit is on its way
+    var res = last && last.state === "sending" ? '<div class="card planc" role="status"><b>Submitting…</b></div>' : "";
     // F10: another team, or nobody signed in, has no planner. Signed out says once how to sign in; another team says nothing.
     if (!D) return res + (S.me && S.me.state !== "loading" && !me.signedIn && S.view === "lineup" ? '<div class="ex pad plh">Sign in to change your lineup: open the UPS TEST app link on your league’s MFL home page.</div>' : "");
     if (!D.ok) return res + '<div class="ex pad">Lineup changes are off for this team: ' + esc(D.why) + ".</div>";
@@ -368,6 +368,26 @@
     return out + "</div></div>";
   }
 
+  // R13 F3 (Keith 2026-11-26: "a pop-up similar to what we have on the MFL app ... color-coded to match the theme"): the submit result, mirroring the
+  // classic app's lineup pop-up (site/shared/lineup_result_modal.js): a big ✓ / ✕ / !, a bold title, the message, the reason in a "Why:" box and a hint
+  // for a failure, and one OK. Green for submitted and confirmed, red for not submitted, amber when MFL took it but couldn't be shown to match.
+  // Like the classic one, only OK (or Escape) closes it; a tap on the dimmed background does not.
+  function resultHint(r) {
+    var why = String(r.reason || "");
+    if (/cookie|sign in|signed in|MFL_USER_ID|401|403/i.test(why)) return "Sign in with your own team’s MFL account, then submit again.";
+    if (/bye/i.test(why)) return "Bench the bye-week player and submit again.";
+    if (/lock|kick/i.test(why)) return "A player whose game has started can’t be moved. Change the others and submit again.";
+    return r.state === "refused" ? "Fix the issue and submit again." : r.state === "unconfirmed" ? "Check your lineup on MFL before submitting again." : "";
+  }
+  function resultSheet(S) {
+    var r = S.submit || {}, k = r.state === "confirmed" ? "ok" : r.state === "refused" ? "err" : "wn";
+    var title = r.state === "confirmed" ? "Lineup submitted" : r.state === "refused" ? "Lineup NOT submitted" : r.title || "Submitted, not confirmed", hint = resultHint(r);
+    return '<div class="layer ctrl"><div class="scrim"></div><div class="rm ' + k + '" role="alertdialog" aria-modal="true" aria-labelledby="rm-t" aria-describedby="rm-b" tabindex="-1">' +
+      '<div class="rm-ic" aria-hidden="true">' + (k === "ok" ? "✓" : k === "err" ? "✕" : "!") + "</div>" +
+      '<h2 id="rm-t">' + esc(title) + '</h2><p id="rm-b">' + esc(r.text || "") + "</p>" +
+      (r.reason ? '<div class="why"><b>Why:</b> ' + esc(r.reason) + "</div>" : "") + (hint ? '<div class="hint">' + esc(hint) + "</div>" : "") +
+      '<button class="rmok" data-act="resultok">OK</button></div></div>';
+  }
   // R13 F3: leaving the Lineup with changes not submitted (app.js leaveGuard holds the navigation)
   function leaveSheet(S) {
     return '<div class="layer"><div class="scrim" data-act="leavestay"></div><div class="sheet" role="alertdialog" aria-modal="true" aria-label="Lineup changes not submitted" tabindex="-1"><div class="grab"></div>' +
@@ -849,8 +869,9 @@
     else if (!on && S.sheet === "plan" && S.model) layer = planSheet(S);
     else if (!on && S.sheet === "planfor" && S.model) layer = planForSheet(S);
     else if (!on && S.sheet === "leave" && S.model) layer = leaveSheet(S);
+    else if (!on && S.sheet === "result" && S.model && S.submit) layer = resultSheet(S);
     return envBar(S) + screen + nav(S) + layer;
   }
 
-  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, planForSheet: planForSheet, leaveSheet: leaveSheet, submitBar: submitBar, PLAN_LABEL: PLAN_LABEL };
+  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, planForSheet: planForSheet, leaveSheet: leaveSheet, submitBar: submitBar, resultSheet: resultSheet, PLAN_LABEL: PLAN_LABEL };
 });

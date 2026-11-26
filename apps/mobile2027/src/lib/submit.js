@@ -72,7 +72,7 @@
   // The write. Resolves to { state, title, text, key, week, starters } where state is "confirmed", "different", "unconfirmed" or "refused".
   function lineup(cfg, fid, week, starters) {
     var t = token();
-    if (!t) return Promise.resolve({ state: "refused", title: "Not submitted", text: "Sign in first." });
+    if (!t) return Promise.resolve({ state: "refused", title: "Lineup NOT submitted", text: "Your lineup on MFL is unchanged.", reason: "Not signed in" });
     var key = newKey(), p = {}; p[SESSION] = t;
     var body = JSON.stringify({ franchiseId: fid, week: String(week), starters: starters.map(String) });
     return send(address(cfg, "/api/submit-lineup", p), {
@@ -82,7 +82,7 @@
       var b = r.body || {};
       if (!r.ok || !b.ok) {
         var why = b.error || (b.mfl_response && b.mfl_response.error && (b.mfl_response.error.$t || b.mfl_response.error)) || ("HTTP " + r.status);
-        return { state: "refused", title: "Not submitted", text: String(why) + ". Your lineup on MFL is unchanged.", key: key };
+        return { state: "refused", title: "Lineup NOT submitted", text: "Your lineup on MFL is unchanged.", reason: String(why), key: key };
       }
       var wk = String(b.week_used || week);
       return mflStarters(cfg, wk, fid).then(function (onMfl) {

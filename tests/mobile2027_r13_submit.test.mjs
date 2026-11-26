@@ -123,7 +123,7 @@ test("submit.js: MFL showing something else is 'different'; a refusal says why a
   t.equal(r2.state, "different"); t.deepEqual(r2.starters, ["16148"], "MFL's own lineup is what gets shown");
   const B3 = browser("https://x/m2/", { ups_mfl_user_id: "tok" }, () => ({ status: 403, body: { ok: false, error: "Cookie belongs to franchise 0001, cannot submit lineup for 0003" } }));
   const r3 = await B3.api.lineup(CFGT, "0003", 12, ["1"]);
-  t.equal(r3.state, "refused"); t.match(r3.text, /Cookie belongs to franchise 0001.*Your lineup on MFL is unchanged\./);
+  t.equal(r3.state, "refused"); t.match(r3.reason, /Cookie belongs to franchise 0001/); t.equal(r3.text, "Your lineup on MFL is unchanged.");
   t.equal(B3.calls.filter((c) => c.url && c.url.includes("weeklyResults")).length, 0, "no read-back after a refusal");
   const B4 = browser("https://x/m2/", {}, () => { throw new Error("must not be called"); });
   const r4 = await B4.api.lineup(CFGT, "0003", 12, ["1"]);
@@ -186,15 +186,26 @@ test("views: a lineup with a real problem can't be sent; an EMPTY one can't eith
   t.ok(V.submitBar(sending, tm, PL.draftOf(sending, tm)).includes('data-act="submit" disabled'), "not twice while sending");
 });
 
-test("views: the submit result stays on screen; the leave sheet offers Submit, Discard and Keep editing; the Preview build is unchanged", async () => {
-  const S = await own(); S.submit = { fid: "0006", state: "confirmed", title: "Lineup submitted", text: "MFL shows the same 18 starters for week 11." };
-  t.match(text(screen(V.app(S))), /Lineup submitted MFL shows the same 18 starters for week 11\./);
-  S.submit = { fid: "0006", state: "refused", title: "Not submitted", text: "x. Your lineup on MFL is unchanged." };
-  t.match(screen(V.app(S)), /class="card warnc" role="status"><b>Not submitted/);
+test("views: the result is a big pop-up like the classic app's (✓ green / ✕ red with Why and a hint / ! amber), closed only by OK; the leave sheet; the Preview build is unchanged", async () => {
+  const S = await own(); S.sheet = "result";
+  S.submit = { fid: "0006", state: "confirmed", title: "Lineup submitted", text: "MFL shows the same 18 starters for week 11." };
+  let h = V.app(S);
+  t.match(h, /<div class="rm ok" role="alertdialog"[^>]*><div class="rm-ic" aria-hidden="true">✓<\/div><h2 id="rm-t">Lineup submitted<\/h2><p id="rm-b">MFL shows the same 18 starters for week 11\.<\/p>/);
+  t.match(h, /<button class="rmok" data-act="resultok">OK<\/button>/); t.match(h, /<div class="scrim"><\/div>/, "the dimmed background has no action: only OK closes it");
+  S.submit = { fid: "0006", state: "refused", text: "Your lineup on MFL is unchanged.", reason: "Cookie belongs to franchise 0001, cannot submit lineup for 0006" };
+  h = V.app(S); t.match(h, /<div class="rm err"/); t.match(h, />✕</); t.match(text(h), /Lineup NOT submitted Your lineup on MFL is unchanged\. Why: Cookie belongs to franchise 0001/);
+  t.match(text(h), /Sign in with your own team’s MFL account, then submit again\./);
+  S.submit = { fid: "0006", state: "unconfirmed", title: "Submitted, not confirmed", text: "MFL accepted it; reading it back failed (x)." };
+  h = V.app(S); t.match(h, /<div class="rm wn"/); t.match(h, />!</); t.match(text(h), /Check your lineup on MFL before submitting again\./);
+  t.doesNotMatch(screen(V.app(Object.assign(S, { sheet: null }))), /card okc|Lineup submitted/, "no duplicate result card on the page itself");
   S.sheet = "leave"; const ls = V.app(S);
   t.match(ls, /data-act="leavesubmit">Submit Lineup/); t.match(ls, /data-act="leavediscard">Discard changes/); t.match(ls, /data-act="leavestay">Keep editing/);
   const P = await fresh(); planOne(P); const tx = text(screen(V.app(P)));
   t.match(tx, /Plan only · not submitted/); t.doesNotMatch(screen(V.app(P)), /data-act="submit"/, "the Preview build never shows Submit");
+  // the colors come from the skin tokens, as the classic pop-up's green/red
+  const css = fs.readFileSync(path.join(SRC, "styles.css"), "utf8");
+  t.match(css, /\.rm-ic\{[^}]*background:var\(--ok\);color:var\(--on\)\}/); t.match(css, /\.rm\.err \.rm-ic\{background:var\(--cr\)\}/); t.match(css, /\.rm\.wn \.rm-ic\{background:var\(--wn\)\}/);
+  t.match(appJs, /S\.sheet = "result"; render\(\);/); t.match(appJs, /else if \(act === "resultok"\) \{ var nx = S\.afterResult;/);
 });
 
 test("app.js: Submit goes only through doSubmit (own team, a real change, no problem, not already sending); leaving with changes is held", () => {

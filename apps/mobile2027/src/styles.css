@@ -461,3 +461,18 @@ button.btnrow{cursor:pointer}
 /* --- r6i: the Breakdown opened inside a main card: no card-in-a-card around the season stats (the card already frames it) --- */
 .pfbd .bdr{border:0;background:transparent;padding:0 0 2px;border-radius:0}
 /* ===== end R6 PERFORMANCE ===== */
+
+/* R13 F3: the lineup result pop-up, mirroring site/shared/lineup_result_modal.js in the skin's own colors (--ok green, --cr red, --wn amber) */
+.layer.ctrl{justify-content:center;align-items:center;padding:16px}
+.rm{position:relative;box-sizing:border-box;width:min(100%,480px);background:var(--sf);color:var(--tx);border:2px solid var(--ok);border-radius:18px;padding:28px 24px 22px;text-align:center;box-shadow:0 18px 60px rgba(0,0,0,.55)}
+.rm.err{border-color:var(--cr)}.rm.wn{border-color:var(--wn)}
+.rm-ic{width:76px;height:76px;margin:0 auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:46px;font-weight:800;line-height:1;background:var(--ok);color:var(--on)}
+.rm.err .rm-ic{background:var(--cr)}.rm.wn .rm-ic{background:var(--wn)}
+.rm h2{margin:0 0 8px;font-size:26px;line-height:1.2;font-weight:800}
+.rm p{margin:0 0 10px;font-size:17px;line-height:1.45}
+.rm .why{margin:6px 0 10px;padding:12px 14px;border-radius:10px;background:var(--s2);border:1px solid var(--cr);font-size:16px;font-weight:600;text-align:left;overflow-wrap:anywhere}
+.rm .hint{margin:0 0 14px;font-size:15px;color:var(--mu)}
+.rm .rmok{display:block;width:100%;min-height:54px;margin-top:8px;border:0;border-radius:12px;background:var(--ok);color:var(--on);font:inherit;font-size:20px;font-weight:800;cursor:pointer}
+.rm.err .rmok{background:var(--cr)}.rm.wn .rmok{background:var(--wn)}
+.rm .rmok:focus-visible{outline:3px solid var(--tx);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){.layer.ctrl .rm{animation:pop .16s ease-out}@keyframes pop{from{transform:scale(.96);opacity:.6}to{transform:none;opacity:1}}}

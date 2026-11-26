@@ -551,8 +551,8 @@
     U.submit.lineup(cfg, t.id, S.model.week, starters).then(function (r) {
       r.fid = t.id; S.submit = r;
       if (r.starters) { t.lineup = { state: "ok", count: r.starters.length, ids: r.starters.slice() }; delete S.plans[t.id]; }   // MFL's own answer is now the lineup shown
-      render(true);
-      if (then && r.state === "confirmed") then();
+      S.afterResult = then && r.state === "confirmed" ? then : null;
+      S.sheet = "result"; render();                                            // the big result pop-up; OK closes it
     });
   }
   // "Any time you want to navigate off the page without saving have a warning": leaving the signed-in team's Lineup with changes not submitted
@@ -654,6 +654,7 @@
   });
   function handle(act, v, el) {
     if (act === "submit") doSubmit();
+    else if (act === "resultok") { var nx = S.afterResult; S.afterResult = null; S.sheet = null; render(true); if (nx) nx(); }
     else if (act === "leavesubmit") { var L0 = S.leave; S.leave = null; S.sheet = null; render(); doSubmit(function () { S.leave = L0; replayLeave(false); }); }
     else if (act === "leavediscard") replayLeave(true);
     else if (act === "leavestay") { S.leave = null; S.sheet = null; render(); }
