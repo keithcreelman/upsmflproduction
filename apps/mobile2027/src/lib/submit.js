@@ -111,7 +111,8 @@
   // The worker checks the league rules it owns (IR eligibility from MFL's injury designations; the full taxi gate, failing closed), sends MFL's import
   // with the owner's own cookie, and reads the roster back (verification). Only these four moves exist here.
   var MOVES = { deactivate_ir: { ok: "Moved to IR", no: "Not moved to IR" }, activate_ir: { ok: "Activated from IR", no: "Not activated" },
-    demote_taxi: { ok: "Moved to the taxi squad", no: "Not moved to taxi" }, promote_taxi: { ok: "Promoted from taxi", no: "Not promoted" } };
+    demote_taxi: { ok: "Moved to the taxi squad", no: "Not moved to taxi" }, promote_taxi: { ok: "Promoted from taxi", no: "Not promoted" },
+    drop_player: { ok: "Player dropped", no: "Not dropped" } };   // Drop (Keith 2026-11-26)
   function rosterMove(cfg, fid, pid, action) {
     var M = MOVES[action];
     if (!M) return Promise.resolve({ state: "refused", noTitle: "Not moved", text: "Nothing changed on MFL.", reason: "Unknown move" });

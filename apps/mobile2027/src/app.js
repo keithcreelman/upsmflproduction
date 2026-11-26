@@ -594,7 +594,7 @@
     S.submit = { state: "sending", fid: p.franchiseId }; S.sheet = null; render(true);
     U.submit.rosterMove(cfg, p.franchiseId, p.id, mv.act).then(function (r) {
       r.fid = p.franchiseId; S.submit = r; S.move = null;
-      if (r.state === "confirmed") { S.profile = null; loadCore(); }
+      if (r.state === "confirmed") { S.profile = null; S.penalty = { state: "idle" }; loadCore(); }   // a drop changes the roster and the cut prices
       S.sheet = "result"; render();
     });
   }

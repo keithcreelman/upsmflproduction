@@ -776,7 +776,20 @@
   // designations; the full taxi gate); the app adds canon §B3 (docs/league_context_v1.md 420-421: IR players don't count toward the 27-player
   // minimum, so a team at exactly 27 active can't use IR) and the active-roster maximum for a player coming back.
   var ROSTER_MIN = 27;
-  var MOVE_LABEL = { deactivate_ir: "Move to IR", activate_ir: "Activate from IR", demote_taxi: "Move to taxi", promote_taxi: "Promote from taxi" };
+  var MOVE_LABEL = { deactivate_ir: "Move to IR", activate_ir: "Activate from IR", demote_taxi: "Move to taxi", promote_taxi: "Promote from taxi", drop_player: "Drop" };
+  // Drop (Keith 2026-11-26 "Drop"; rulings 2026-11-18): held ONLY when the worker's cut price is missing, unresolved or flagged for review, when the
+  // season it's charged to isn't confirmed, or when his game has kicked off this week (canon line 1489: no move after kickoff until the week ends).
+  function dropCheck(S, p) {
+    var pen = S.penalty || {}, row = pen.state === "ok" && pen.data ? pen.data[p.id] : null, ch = pen.meta && pen.meta.charge;
+    if (pen.state !== "ok") return { ok: false, why: pen.state === "loading" ? "Loading the cut price…" : "The cut price isn’t loaded, so Drop is held." };
+    if (!row) return { ok: false, why: "No cut price for him, so Drop is held." };
+    if (row.needs_review) return { ok: false, why: "Held: his cut price isn’t confirmed yet." + (row.review_reason ? " " + row.review_reason : "") };
+    var amt = Number(row.penalty);
+    if (row.penalty == null || !isFinite(amt) || amt < 0) return { ok: false, why: "Held: his cut price isn’t available." };
+    if (!ch || !ch.ok) return { ok: false, why: "Held: the season the penalty is charged to can’t be confirmed." };
+    if (p.status === "active" && PL.lockOf(S, p, S.model.week).locked) return { ok: false, why: "His game has started: he can’t be dropped until the week ends." };
+    return { ok: true, why: "", penalty: amt, season: ch.season, exempt: !!row.exempt, exemptWhy: String(row.exempt_reason || "") };
+  }
   function movesFor(S, p) {
     var me = S.me || {};
     if (!S.submitMode || !me.signedIn || !p || p.franchiseId !== me.fid || !S.model) return [];
@@ -788,6 +801,7 @@
       if (p.taxi && p.taxi.eligible) out.push({ act: "demote_taxi", ok: true, why: "" });
     } else if (p.status === "ir") out.push({ act: "activate_ir", ok: !full, why: full ? "Your active roster is full (" + max + ")." : "" });
     else if (p.status === "taxi") out.push({ act: "promote_taxi", ok: !full, why: full ? "Your active roster is full (" + max + ")." : "" });
+    if (p.status === "active" || p.status === "ir" || p.status === "taxi") { var dc = dropCheck(S, p); out.push({ act: "drop_player", ok: dc.ok, why: dc.ok ? "" : dc.why }); }
     return out;
   }
   function actionsBlock(S, p) {
@@ -801,7 +815,10 @@
     var mv = S.move || {}, p = S.model && S.model.byId[mv.pid];
     if (!p || !MOVE_LABEL[mv.act]) return "";
     var used = p.taxi && p.taxi.used, max = (p.taxi && p.taxi.max) || 3;
-    var what = mv.act === "deactivate_ir" ? "While on IR he counts 50% of his salary against the cap and is off your active roster. You can activate him any time." :
+    var dc = mv.act === "drop_player" ? dropCheck(S, p) : null;
+    if (dc && !dc.ok) return "";
+    var what = dc ? (dc.penalty > 0 ? "Cut penalty: " + F.money(dc.penalty) + ", charged to the " + dc.season + " cap. He leaves your roster." : "No cut penalty" + (dc.exemptWhy ? " (" + dc.exemptWhy.replace(/\.$/, "") + ")" : "") + ". He leaves your roster.") :
+      mv.act === "deactivate_ir" ? "While on IR he counts 50% of his salary against the cap and is off your active roster. You can activate him any time." :
       mv.act === "activate_ir" ? "His full salary counts against the cap again and he rejoins your active roster." :
       mv.act === "demote_taxi" ? "His salary stops counting against the cap while he’s on the taxi squad." :
       used == null ? "Call-ups used couldn’t be read. The 4th call-up makes a promotion permanent." :

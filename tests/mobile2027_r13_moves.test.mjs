@@ -94,7 +94,8 @@ test("movesFor: only the owner's own player; Move to IR needs an MFL IR-type des
   const elig = Object.assign({}, act, { taxi: Object.assign({}, act.taxi, { eligible: true }) }), notElig = Object.assign({}, act, { taxi: Object.assign({}, act.taxi, { eligible: false }) });
   t.ok(V.movesFor(S, elig).some((x) => x.act === "demote_taxi")); t.ok(!V.movesFor(S, notElig).some((x) => x.act === "demote_taxi"));
   const irP = Object.assign({}, act, { status: "ir" }), txP = Object.assign({}, act, { status: "taxi", taxi: { used: 1, max: 3, eligible: false } });
-  t.deepEqual(V.movesFor(S, irP).map((x) => x.act), ["activate_ir"]); t.deepEqual(V.movesFor(S, txP).map((x) => x.act), ["promote_taxi"]);
+  const acts = (q) => V.movesFor(S, q).map((x) => x.act).filter((a) => a !== "drop_player");   // Drop is tested on its own below
+  t.deepEqual(acts(irP), ["activate_ir"]); t.deepEqual(acts(txP), ["promote_taxi"]);
   const saved = tm.counts.active; tm.counts.active = S.model.limits.roster || 30;
   t.equal(V.movesFor(S, irP)[0].ok, false); t.match(V.movesFor(S, irP)[0].why, /active roster is full/); tm.counts.active = saved;
   // another team, signed out, or the Preview build: nothing
@@ -135,7 +136,43 @@ test("submit.js rosterMove: one POST to /roster-workbench/action with the owner 
 
 test("app.js: a move is sent only if the profile offers it (own team, rule-checked); a confirmed move reloads the roster", () => {
   t.match(appJs, /var offer = U\.views\.movesFor\(S, p\)\.filter\(function \(x\) \{ return x\.act === mv\.act && x\.ok; \}\)\[0\];\s*if \(!offer\) return;/);
-  t.match(appJs, /if \(r\.state === "confirmed"\) \{ S\.profile = null; loadCore\(\); \}/);
+  t.match(appJs, /if \(r\.state === "confirmed"\) \{ S\.profile = null; S\.penalty = \{ state: "idle" \}; loadCore\(\); \}/);
+});
+
+// ---------- Drop (Keith 2026-11-26 "Drop"; rulings 2026-11-18) ----------
+function penaltyState(S, pid, row, charge) { S.penalty = { state: "ok", data: { [String(pid)]: row }, meta: { calculatedAt: "", earnedThroughWeek: 11, charge } }; }
+test("Drop is held unless the worker priced the cut, confirmed it, named the season, and his game hasn't started; otherwise it shows the penalty and the season", async () => {
+  const S = own(await fresh(), "0006"), tm = teamOf(S), wk = S.model.week;
+  const free = tm.players.find((p) => p.status === "active" && !PL.lockOf(S, p, wk).locked);
+  const started = tm.players.find((p) => p.status === "active" && PL.lockOf(S, p, wk).locked);
+  const drop = (p) => V.movesFor(S, p).find((x) => x.act === "drop_player");
+  S.penalty = { state: "idle" }; t.equal(drop(free).ok, false); t.match(drop(free).why, /cut price isn’t loaded/);
+  penaltyState(S, free.id, { penalty: 23029, guaranteed: 42000, earned: 18971, needs_review: true, review_reason: "Taxi eligibility could not be confirmed." }, { ok: true, season: 2027 });
+  t.equal(drop(free).ok, false); t.match(drop(free).why, /isn’t confirmed yet/);
+  penaltyState(S, free.id, { penalty: 23029, needs_review: false }, { ok: false, reason: "auction_start_unresolved" });
+  t.equal(drop(free).ok, false); t.match(drop(free).why, /season the penalty is charged to can’t be confirmed/);
+  penaltyState(S, free.id, { penalty: null, needs_review: false }, { ok: true, season: 2027 }); t.equal(drop(free).ok, false);
+  penaltyState(S, free.id, { penalty: 23029, needs_review: false }, { ok: true, season: 2027 }); t.equal(drop(free).ok, true);
+  S.profile = { pid: String(free.id), tab: "contract" }; S.move = { pid: String(free.id), act: "drop_player" }; S.sheet = "move";
+  const tx = V.moveSheet(S).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
+  t.match(tx, /Drop\? .*Cut penalty: \$23,029, charged to the 2027 cap\. He leaves your roster\./);
+  penaltyState(S, free.id, { penalty: 0, exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2).", needs_review: false }, { ok: true, season: 2027 });
+  t.match(V.moveSheet(S).replace(/<[^>]*>/g, " "), /No cut penalty \(WW pickup salary ≤ \$4K, final year \(§D2\)\)\. He leaves your roster\./);
+  if (started) { penaltyState(S, started.id, { penalty: 1000, needs_review: false }, { ok: true, season: 2027 }); t.match(drop(started).why, /game has started/); t.equal(drop(started).ok, false); }
+  S.penalty = { state: "idle" }; t.equal(V.moveSheet(S), "", "a held drop has no confirm sheet");
+});
+
+test("rosterMove drop_player and the preview's charge season as the app keeps it", async () => {
+  const B1 = browser("https://x/m2/", { ups_mfl_user_id: "tok" }, () => ({ status: 200, body: { ok: true, message: "Dropped Brazzell II, Chris.", verification: { ok: true } } }));
+  const r = await B1.api.rosterMove(CFGT, "0003", "17509", "drop_player");
+  t.deepEqual(JSON.parse(B1.calls[0].opts.body), { action: "drop_player", league_id: "25625", season: "2026", franchise_id: "0003", player_id: "17509" });
+  t.equal(r.state, "confirmed"); t.equal(r.okTitle, "Player dropped");
+  const D = require(path.join(SRC, "lib/data.js"));
+  const load = (charge) => { const L = D.createLoader({ workerBase: "https://ups-test.keith-creelman.workers.dev", leagueId: "25625", season: "2026" }, () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ ok: true, players: { "1": { penalty: 0 } }, calculated_at: "x", earned_through_week: 11, charge }), text: () => Promise.resolve(JSON.stringify({ ok: true, players: { "1": { penalty: 0 } }, calculated_at: "x", earned_through_week: 11, charge })), headers: { get: () => "application/json" } })); return L.loadPenalty(); };
+  t.deepEqual((await load({ ok: true, applies_to_season: 2027, bucket: "post_auction_next_season" })).meta.charge, { ok: true, season: 2027 });
+  t.equal((await load({ ok: false, applies_to_season: null, reason: "auction_start_unresolved" })).meta.charge.ok, false);
+  t.equal((await load(undefined)).meta.charge, null, "an older worker without the field: unresolved");
+  t.equal((await load({ ok: true, applies_to_season: "2027x" })).meta.charge.ok, false, "a malformed season is not a season");
 });
 
 await run("mobile2027_r13_moves");

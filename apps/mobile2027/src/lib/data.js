@@ -443,12 +443,19 @@
       }, force);
     }
 
+    // The season a drop's penalty is charged to (Keith 2026-11-18 dependency; the worker's preview computes it with the drop tracker's own rule).
+    // Kept only in its exact shape; anything else is "unresolved" (null), so a drop is held rather than given a guessed year.
+    function chargeOf(c) {
+      if (!c || typeof c !== "object") return null;
+      var y = Number(c.applies_to_season);
+      return c.ok === true && Math.floor(y) === y && y > 2000 ? { ok: true, season: y } : { ok: false, reason: String(c.reason || "unresolved") };
+    }
     function loadPenalty() {
       return settle(get(urls.penalty, "contract calculations")).then(function (r) {
         if (r.state !== "ok") return r;
         var j = r.data;
         if (!j || j.ok !== true || !j.players || typeof j.players !== "object") return { state: "error", data: null, error: "Unexpected answer" };
-        return { state: "ok", data: j.players, meta: { calculatedAt: String(j.calculated_at || ""), earnedThroughWeek: j.earned_through_week == null ? null : Number(j.earned_through_week), season: String(j.season || "") } };
+        return { state: "ok", data: j.players, meta: { calculatedAt: String(j.calculated_at || ""), earnedThroughWeek: j.earned_through_week == null ? null : Number(j.earned_through_week), season: String(j.season || "") , charge: chargeOf(j.charge) } };
       });
     }
 
