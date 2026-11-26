@@ -326,6 +326,9 @@
     var out = head + '<div class="top"><h3>' + esc(sl.tag) + (sl.flex ? " · " + esc(sl.label) : "") + "</h3>" + '<button class="btn" data-act="close">Close</button></div>' +
       '<div class="ex"><b>' + esc(PLAN_LABEL) + ".</b> Takes " + esc(sl.acc.map(posText).join(", ")) + ". " + (occ ? "Now: " + esc(occ.name) + " (" + esc(posText(occ.pos)) + ")" + (where(occ) ? " · " + esc(where(occ)) : "") + "." : "Now: empty.") + "</div>";
     if (O.blocked) return out + '<div class="ex wn" role="status">' + esc(O.why) + "</div></div></div>";
+    // F9 (Keith 2026-11-26): a starter can come out without anyone replacing him (to leave room for a pickup, or just to sit him). Only an unlocked
+    // occupant (a locked one already returned above); the slot is left empty in the plan.
+    if (occ) out += '<div class="lbl">Bench</div><button class="so" data-act="planbench" aria-label="' + esc("Move " + occ.name + " to the bench; " + sl.tag + " is left empty") + '"><span class="in"><b>Move ' + esc(occ.name) + " to the bench</b><small>" + esc(sl.tag) + " is left empty</small></span></button>";
     // injured reserve and taxi players are one short line (they are not on the active roster); every other player who can't move here is listed with why
     var ok = O.choices.filter(function (c) { return c.ok; }), res = O.choices.filter(function (c) { return !c.ok && (c.p.status === "ir" || c.p.status === "taxi"); });
     var no = O.choices.filter(function (c) { return !c.ok && res.indexOf(c) < 0; });

@@ -107,4 +107,23 @@ test("F4: a bench player's badge lists exactly the slots the planner allows him,
   t.match(app, /function planForPick\(slotId\) \{\s*var pid = S\.planFor; S\.planFor = null;\s*if \(!pid \|\| !U\.planner \|\| !U\.planner\.slotById\(slotId\)\) return;\s*S\.planPick = slotId; planPick\(pid\);/, "the bench path goes through planPick, which applies only a listed, allowed choice");
 });
 
+test("F9: a starter can be moved to the bench with no replacement; a locked starter can't; the slot is left empty in the plan", async () => {
+  const S = await fresh(), tm = teamOf(S), Dr = PL.draftOf(S, tm);
+  const open = PL.SLOTS.find((s) => Dr.draft[s.id] && !PL.options(S, tm, Dr.draft, s.id).blocked);
+  const locked = PL.SLOTS.find((s) => Dr.draft[s.id] && PL.options(S, tm, Dr.draft, s.id).blocked);
+  const occ = S.model.byId[Dr.draft[open.id]];
+  S.sheet = "plan"; S.planPick = open.id;
+  const sh = V.planSheet(S);
+  t.match(sh, /data-act="planbench"/); t.match(text(sh), new RegExp("Bench Move " + occ.name + " to the bench " + open.tag + " is left empty"));
+  if (locked) { S.planPick = locked.id; t.doesNotMatch(V.planSheet(S), /data-act="planbench"/, "a locked starter has no bench choice"); }
+  // what app.js planBench does
+  const app = fs.readFileSync(path.join(SRC, "app.js"), "utf8");
+  t.match(app, /function planBench\(\) \{[\s\S]{0,400}var O = P\.options\(S, t, D\.draft, slotId\); if \(O\.blocked\) return;/, "planBench refuses a locked slot");
+  const next = {}; Object.keys(Dr.draft).forEach((k) => { if (k !== open.id && Dr.draft[k]) next[k] = Dr.draft[k]; });
+  S.plans[tm.id] = { week: S.model.week, base: PL.sig(Dr.base), draft: next }; S.sheet = null;
+  const h = screen(V.app(S)), tx = text(h);
+  t.match(tx, /Starting lineup · 17\/18/); t.match(tx, new RegExp(occ.name + "[^]*Was starting"), "he is on the bench, marked as the starter he was");
+  t.match(tx, /▲ 1 needs attention/, "a submitted week: the slot left empty is a real open slot");
+});
+
 await run("mobile2027_r13_lineup_fixes");

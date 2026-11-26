@@ -518,6 +518,17 @@
     if (!pid || !U.planner || !U.planner.slotById(slotId)) return;
     S.planPick = slotId; planPick(pid);
   }
+  // F9 (Keith 2026-11-26): bench the slot's starter with no replacement. Only when the planner lists the slot as open to changes (not locked).
+  function planBench() {
+    var t = curTeam(), P = U.planner, slotId = S.planPick;
+    if (!t || !P || !slotId) return;
+    var D = P.draftOf(S, t); if (!D.ok || !D.draft[slotId]) return;
+    var O = P.options(S, t, D.draft, slotId); if (O.blocked) return;           // a locked starter can't be moved
+    var next = {}; Object.keys(D.draft).forEach(function (k) { if (k !== slotId && D.draft[k]) next[k] = D.draft[k]; });
+    if (P.sig(next) === P.sig(D.base)) delete S.plans[t.id];
+    else S.plans[t.id] = { week: S.model.week, base: P.sig(D.base), draft: next };
+    S.planPick = null; S.sheet = null; render(true);
+  }
   function planPick(pid) {
     var t = curTeam(), P = U.planner, slotId = S.planPick;
     if (!t || !P || !slotId) return;
@@ -623,6 +634,7 @@
     else if (act === "plan") planOpen(v);
     else if (act === "planpick") planPick(v);
     else if (act === "planfor") planOpenFor(v);
+    else if (act === "planbench") planBench();
     else if (act === "planforpick") planForPick(v);
     else if (act === "planreset") { var tr = curTeam(); if (tr && S.plans) delete S.plans[tr.id]; render(true); }
     else if (act === "teams") { S.sheet = "teams"; render(); }
