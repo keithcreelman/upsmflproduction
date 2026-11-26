@@ -394,7 +394,7 @@
   }
   function resultSheet(S) {
     var r = S.submit || {}, k = r.state === "confirmed" ? "ok" : r.state === "refused" ? "err" : "wn";
-    var title = r.state === "confirmed" ? "Lineup submitted" : r.state === "refused" ? "Lineup NOT submitted" : r.title || "Submitted, not confirmed", hint = resultHint(r);
+    var title = r.state === "confirmed" ? r.okTitle || "Lineup submitted" : r.state === "refused" ? r.noTitle || "Lineup NOT submitted" : r.title || "Submitted, not confirmed", hint = resultHint(r);
     return '<div class="layer ctrl"><div class="scrim"></div><div class="rm ' + k + '" role="alertdialog" aria-modal="true" aria-labelledby="rm-t" aria-describedby="rm-b" tabindex="-1">' +
       '<div class="rm-ic" aria-hidden="true">' + (k === "ok" ? "✓" : k === "err" ? "✕" : "!") + "</div>" +
       '<h2 id="rm-t">' + esc(title) + '</h2><p id="rm-b">' + esc(r.text || "") + "</p>" +
@@ -767,9 +767,49 @@
     var tabs = [["perf", "Performance"], ["sched", "Schedule"], ["contract", "Contract"], ["more", "More"]];
     var body = tab === "perf" ? performanceTab(S, p) : tab === "sched" ? scheduleTab() : tab === "more" ? moreTab(S, p) : contractTab(S, p);
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full phero" role="dialog" aria-modal="true" aria-label="Player profile: ' + esc(p.name) + '" tabindex="-1">' +
-      hero(p, pills) +
+      hero(p, pills) + actionsBlock(S, p) +
       '<div class="ptabs" role="tablist">' + tabs.map(function (t) { return '<button role="tab" data-act="ptab" data-v="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] + "</button>"; }).join("") + "</div>" +
       '<div class="pbody">' + body + "</div></div></div>";
+  }
+  // ---------- R13 F8 (Keith 2026-11-26): roster moves on the owner's own player (Test target only) ----------
+  // Only the moves available now are listed (the approved profile rule). The worker owns the authoritative checks (IR eligibility from MFL's
+  // designations; the full taxi gate); the app adds canon §B3 (docs/league_context_v1.md 420-421: IR players don't count toward the 27-player
+  // minimum, so a team at exactly 27 active can't use IR) and the active-roster maximum for a player coming back.
+  var ROSTER_MIN = 27;
+  var MOVE_LABEL = { deactivate_ir: "Move to IR", activate_ir: "Activate from IR", demote_taxi: "Move to taxi", promote_taxi: "Promote from taxi" };
+  function movesFor(S, p) {
+    var me = S.me || {};
+    if (!S.submitMode || !me.signedIn || !p || p.franchiseId !== me.fid || !S.model) return [];
+    var t = S.model.teams.filter(function (x) { return x.id === p.franchiseId; })[0]; if (!t) return [];
+    var active = t.counts.active, max = S.model.limits.roster, full = max != null && active >= max, out = [];
+    if (p.status === "active") {
+      var c = R.injuryChip(S, p), code = c && c.code ? String(c.code).toUpperCase() : "";
+      if (/^(IR|SUSP|HOLD|PUP|NFI)/.test(code)) out.push({ act: "deactivate_ir", ok: active > ROSTER_MIN, why: active > ROSTER_MIN ? "" : "You’re at the " + ROSTER_MIN + "-player active minimum, so IR isn’t available." });
+      if (p.taxi && p.taxi.eligible) out.push({ act: "demote_taxi", ok: true, why: "" });
+    } else if (p.status === "ir") out.push({ act: "activate_ir", ok: !full, why: full ? "Your active roster is full (" + max + ")." : "" });
+    else if (p.status === "taxi") out.push({ act: "promote_taxi", ok: !full, why: full ? "Your active roster is full (" + max + ")." : "" });
+    return out;
+  }
+  function actionsBlock(S, p) {
+    var m = movesFor(S, p); if (!m.length) return "";
+    return '<div class="pact"><div class="lbl">Actions</div>' + m.map(function (x) {
+      return '<button class="btn blk" data-act="move" data-v="' + esc(x.act) + '"' + (x.ok ? "" : " disabled") + ">" + esc(MOVE_LABEL[x.act]) + "</button>" + (x.why ? '<div class="ex">' + esc(x.why) + "</div>" : "");
+    }).join("") + "</div>";
+  }
+  // The confirm step: what the move does, in a few words; Confirm sends it, Cancel goes back.
+  function moveSheet(S) {
+    var mv = S.move || {}, p = S.model && S.model.byId[mv.pid];
+    if (!p || !MOVE_LABEL[mv.act]) return "";
+    var used = p.taxi && p.taxi.used, max = (p.taxi && p.taxi.max) || 3;
+    var what = mv.act === "deactivate_ir" ? "While on IR he counts 50% of his salary against the cap and is off your active roster. You can activate him any time." :
+      mv.act === "activate_ir" ? "His full salary counts against the cap again and he rejoins your active roster." :
+      mv.act === "demote_taxi" ? "His salary stops counting against the cap while he’s on the taxi squad." :
+      used == null ? "Call-ups used couldn’t be read. The 4th call-up makes a promotion permanent." :
+      used >= max ? "This is his 4th call-up: he’s promoted for good and can never go back to the taxi squad." :
+      "Call-up " + (used + 1) + " of " + max + ". A call-up counts only if he’s active or on IR for a scoring week; the 4th is permanent.";
+    return '<div class="layer ctrl"><div class="scrim"></div><div class="rm wn" role="alertdialog" aria-modal="true" aria-labelledby="mv-t" tabindex="-1">' +
+      '<h2 id="mv-t">' + esc(MOVE_LABEL[mv.act]) + "?</h2><p>" + esc(p.name) + "</p><p>" + esc(what) + "</p>" +
+      '<button class="rmok" data-act="moveconfirm">' + esc(MOVE_LABEL[mv.act]) + '</button><button class="btn blk" data-act="movecancel">Cancel</button></div></div>';
   }
   function require_photo(p) { return P.chain(p.espnId, p.id); }
 
@@ -874,7 +914,9 @@
     var on = sampleOn(S);
     var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : placeholderScreen(S.tab);
     var layer = "";
-    if (S.sheet === "about") layer = aboutSheet(S);
+    if (!on && S.sheet === "move" && S.model && S.move) layer = moveSheet(S);
+    else if (!on && S.sheet === "result" && S.model && S.submit && S.submit.okTitle) layer = resultSheet(S);
+    else if (S.sheet === "about") layer = aboutSheet(S);
     else if (!on && S.profile && S.model) layer = profile(S);
     else if (!on && S.sheet === "teams" && S.model) layer = teamSheet(S);
     else if (!on && S.sheet === "weeks" && S.model) layer = weekSheet(S);
@@ -886,5 +928,5 @@
     return envBar(S) + screen + nav(S) + layer;
   }
 
-  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, planForSheet: planForSheet, leaveSheet: leaveSheet, submitBar: submitBar, resultSheet: resultSheet, PLAN_LABEL: PLAN_LABEL };
+  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, planForSheet: planForSheet, leaveSheet: leaveSheet, submitBar: submitBar, resultSheet: resultSheet, movesFor: movesFor, moveSheet: moveSheet, PLAN_LABEL: PLAN_LABEL };
 });

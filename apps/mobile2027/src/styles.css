@@ -476,3 +476,8 @@ button.btnrow{cursor:pointer}
 .rm.err .rmok{background:var(--cr)}.rm.wn .rmok{background:var(--wn)}
 .rm .rmok:focus-visible{outline:3px solid var(--tx);outline-offset:2px}
 @media (prefers-reduced-motion:no-preference){.layer.ctrl .rm{animation:pop .16s ease-out}@keyframes pop{from{transform:scale(.96);opacity:.6}to{transform:none;opacity:1}}}
+
+/* R13 F8: the profile's Actions (own player, Test target) */
+.pact{padding:10px 16px 4px;display:flex;flex-direction:column;gap:6px}
+.pact .btn{min-height:44px}
+.rm .btn.blk{margin-top:8px;min-height:48px}

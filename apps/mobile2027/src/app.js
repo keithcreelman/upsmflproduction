@@ -584,6 +584,20 @@
     else { S.plans[t.id] = { week: wk, base: P.sig(D.base), draft: next }; S.optNote = P.sig(next) === P.sig(D.draft) ? { fid: t.id, text: "This is already the best lineup by projected points." } : null; }
     render(true);
   }
+  // F8 (Keith 2026-11-26): a roster move on the owner's own player. Only a move the profile offered (views.movesFor, own team, rule-checked) is sent;
+  // the result is the big pop-up; a confirmed move reloads the roster from the worker.
+  function doMove() {
+    var mv = S.move, p = mv && S.model && S.model.byId[mv.pid];
+    if (!p || !U.submit || !S.submitMode || (S.submit && S.submit.state === "sending")) return;
+    var offer = U.views.movesFor(S, p).filter(function (x) { return x.act === mv.act && x.ok; })[0];
+    if (!offer) return;
+    S.submit = { state: "sending", fid: p.franchiseId }; S.sheet = null; render(true);
+    U.submit.rosterMove(cfg, p.franchiseId, p.id, mv.act).then(function (r) {
+      r.fid = p.franchiseId; S.submit = r; S.move = null;
+      if (r.state === "confirmed") { S.profile = null; loadCore(); }
+      S.sheet = "result"; render();
+    });
+  }
   // F9 (Keith 2026-11-26): bench the slot's starter with no replacement. Only when the planner lists the slot as open to changes (not locked).
   function planBench() {
     var t = curTeam(), P = U.planner, slotId = S.planPick;
@@ -666,6 +680,9 @@
   function handle(act, v, el) {
     if (act === "submit") doSubmit();
     else if (act === "optimal") doOptimal();
+    else if (act === "move") { if (S.profile && S.submitMode) { S.move = { pid: S.profile.pid, act: v }; S.sheet = "move"; render(); } }
+    else if (act === "movecancel") { S.move = null; S.sheet = null; render(true); }
+    else if (act === "moveconfirm") doMove();
     else if (act === "resultok") { var nx = S.afterResult; S.afterResult = null; S.sheet = null; render(true); if (nx) nx(); }
     else if (act === "leavesubmit") { var L0 = S.leave; S.leave = null; S.sheet = null; render(); doSubmit(function () { S.leave = L0; replayLeave(false); }); }
     else if (act === "leavediscard") replayLeave(true);

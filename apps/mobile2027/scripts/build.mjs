@@ -200,10 +200,10 @@ export function stripComments(text) {
 // The content policy of the page, exactly as reviewed. A different policy stops the build.
 export const EXPECTED_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src https://a.espncdn.com https://*.myfantasyleague.com data:; connect-src https://upsmflproduction.keith-creelman.workers.dev; base-uri 'none'; form-action 'none'";
 // The Test target's write module (lib/submit.js) is not allowed the Preview scan's "no write" rules, so it has its own, narrower one: exactly one
-// network line (root.fetch(url, opts)), exactly one write verb (a POST), only the three worker routes it needs, the Idempotency-Key header,
+// network line (root.fetch(url, opts)), exactly one write verb (a POST), only the worker routes it needs (two writes, two reads), the Idempotency-Key header,
 // credentials omitted, and every other Preview rule (no XHR, beacon, socket, eval, template literal, address rewrite, document write ...).
 export const SUBMIT_FETCH = "root.fetch(url, opts)";
-export const SUBMIT_ROUTES = ["/api/submit-lineup", "/api/me", "/api/mfl-export"];
+export const SUBMIT_ROUTES = ["/api/submit-lineup", "/roster-workbench/action", "/api/me", "/api/mfl-export"];   // F8 (Keith 2026-11-26): the roster-move route
 export function scanSubmit(name, text) {
   const hits = [], code = stripComments(text);
   const relaxed = new Set(["a write verb as a string", "a request method other than a literal GET"]);
@@ -216,7 +216,7 @@ export function scanSubmit(name, text) {
   if (code.split(SUBMIT_FETCH).length !== 2) hits.push(`${name}: exactly one network line (${SUBMIT_FETCH})`);
   if (/(?:^|[^A-Za-z0-9_$])fetch\b/.test(code.split(SUBMIT_FETCH).join(""))) hits.push(`${name}: a reference to fetch outside the one network line`);
   const routes = [...code.matchAll(/["'](\/[A-Za-z0-9_\/-]+)["']/g)].map((m) => m[1]);
-  for (const r of routes) if (!SUBMIT_ROUTES.includes(r)) hits.push(`${name}: a route outside the submit module's three: ${r}`);
+  for (const r of routes) if (!SUBMIT_ROUTES.includes(r)) hits.push(`${name}: a route outside the submit module's list: ${r}`);
   if (!code.includes('"/api/submit-lineup"') || !code.includes('"Idempotency-Key": key')) hits.push(`${name}: the POST must go to /api/submit-lineup with an Idempotency-Key`);
   return hits;
 }

@@ -69,16 +69,24 @@
     return "m27-" + Array.prototype.map.call(b, function (x) { return (x + 256).toString(16).slice(1); }).join("");
   }
 
-  // The write. Resolves to { state, title, text, key, week, starters } where state is "confirmed", "different", "unconfirmed" or "refused".
+  // The ONE write request (both writes use it): a POST of a JSON body to one of the two write routes, with a new Idempotency-Key each time.
+  var WRITES = ["/api/submit-lineup", "/roster-workbench/action"];
+  function post(cfg, route, bodyObj, key) {
+    var t = token();
+    if (WRITES.indexOf(route) < 0 || !t) return Promise.reject(new Error(!t ? "Not signed in" : "Unknown write"));
+    var p = {}; p[SESSION] = t;
+    return send(address(cfg, route, p), {
+      method: "POST", mode: "cors", credentials: "omit", cache: "no-store", redirect: "error",
+      headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body: JSON.stringify(bodyObj),
+    }).then(readJson);
+  }
+
+  // The lineup write. Resolves to { state, title, text, key, week, starters } where state is "confirmed", "different", "unconfirmed" or "refused".
   function lineup(cfg, fid, week, starters) {
     var t = token();
     if (!t) return Promise.resolve({ state: "refused", title: "Lineup NOT submitted", text: "Your lineup on MFL is unchanged.", reason: "Not signed in" });
-    var key = newKey(), p = {}; p[SESSION] = t;
-    var body = JSON.stringify({ franchiseId: fid, week: String(week), starters: starters.map(String) });
-    return send(address(cfg, "/api/submit-lineup", p), {
-      method: "POST", mode: "cors", credentials: "omit", cache: "no-store", redirect: "error",
-      headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body: body,
-    }).then(readJson).then(function (r) {
+    var key = newKey();
+    return post(cfg, "/api/submit-lineup", { franchiseId: fid, week: String(week), starters: starters.map(String) }, key).then(function (r) {
       var b = r.body || {};
       if (!r.ok || !b.ok) {
         var why = b.error || (b.mfl_response && b.mfl_response.error && (b.mfl_response.error.$t || b.mfl_response.error)) || ("HTTP " + r.status);
@@ -99,6 +107,24 @@
     });
   }
 
+  // F8 (Keith 2026-11-26): a roster move on the owner's own player, through the classic app's route (/roster-workbench/action, owner session).
+  // The worker checks the league rules it owns (IR eligibility from MFL's injury designations; the full taxi gate, failing closed), sends MFL's import
+  // with the owner's own cookie, and reads the roster back (verification). Only these four moves exist here.
+  var MOVES = { deactivate_ir: { ok: "Moved to IR", no: "Not moved to IR" }, activate_ir: { ok: "Activated from IR", no: "Not activated" },
+    demote_taxi: { ok: "Moved to the taxi squad", no: "Not moved to taxi" }, promote_taxi: { ok: "Promoted from taxi", no: "Not promoted" } };
+  function rosterMove(cfg, fid, pid, action) {
+    var M = MOVES[action];
+    if (!M) return Promise.resolve({ state: "refused", noTitle: "Not moved", text: "Nothing changed on MFL.", reason: "Unknown move" });
+    if (!token()) return Promise.resolve({ state: "refused", noTitle: M.no, text: "Nothing changed on MFL.", reason: "Not signed in" });
+    var key = newKey();
+    return post(cfg, "/roster-workbench/action", { action: action, league_id: String(cfg.leagueId), season: String(cfg.season), franchise_id: fid, player_id: String(pid) }, key).then(function (r) {
+      var b = r.body || {}, base = { key: key, okTitle: M.ok, noTitle: M.no, action: action };
+      if (r.ok && b.ok && b.verification && b.verification.ok) return Object.assign(base, { state: "confirmed", text: String(b.message || "MFL shows the move on your roster.") });
+      if (r.ok && (b.error_code === "MFL_WRITE_UNCONFIRMED" || (b.ok && !(b.verification && b.verification.ok)))) return Object.assign(base, { state: "unconfirmed", title: "Sent, not confirmed", text: "MFL got the move but the roster couldn’t be read back. Check MFL before trying again." });
+      return Object.assign(base, { state: "refused", text: "Nothing changed on MFL.", reason: String(b.error || b.message || b.code || b.error_code || ("HTTP " + r.status)) });
+    }, function (e) { return { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before trying again.", key: key, okTitle: M.ok, noTitle: M.no }; });
+  }
+
   root.UPS2027 = root.UPS2027 || {};
-  root.UPS2027.submit = { token: token, signOut: signOut, whoami: whoami, lineup: lineup, mflStarters: mflStarters };
+  root.UPS2027.submit = { token: token, signOut: signOut, whoami: whoami, lineup: lineup, rosterMove: rosterMove, mflStarters: mflStarters };
 })(window);
