@@ -94,7 +94,7 @@ test("F5: for every team, the optimal lineup is legal, keeps started games, uses
 
 test("F5: the button is on the owner's own lineup, waits for projections, and makes a plan to review (nothing is sent)", async () => {
   const S = await fresh(); S.me = { signedIn: true, fid: S.teamId };
-  t.match(screen(V.app(S)), /data-act="optimal" disabled>MFL Optimal Starters/); t.match(text(screen(V.app(S))), /Projections aren’t loaded yet\./);
+  t.match(screen(V.app(S)), /data-act="optimal" disabled>MFL Optimal Starters/); t.match(text(screen(V.app(S))), /Projections not loaded\./);
   withProj(S); t.match(screen(V.app(S)), /<button class="btn blk" data-act="optimal">MFL Optimal Starters<\/button>/);
   S.me = { signedIn: true, fid: "0001" }; t.doesNotMatch(screen(V.app(S)), /data-act="optimal"/, "another team: no button");
   t.match(appJs, /function doOptimal\(\) \{[\s\S]{0,260}if \(!t \|\| !P \|\| !mayPlan\(t\) \|\| !S\.submitMode \|\| !S\.intel\.proj/, "own team, test target, projections loaded");

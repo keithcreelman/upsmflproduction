@@ -307,12 +307,12 @@
     // the result itself is the pop-up (resultSheet); the bar only says a submit is on its way
     var res = last && last.state === "sending" ? '<div class="card planc" role="status"><b>Submitting…</b></div>' : "";
     // F10: another team, or nobody signed in, has no planner. Signed out says once how to sign in; another team says nothing.
-    if (!D) return res + (S.me && S.me.state !== "loading" && !me.signedIn && S.view === "lineup" ? '<div class="ex pad plh">Sign in to change your lineup: open the UPS TEST app link on your league’s MFL home page.</div>' : "");
+    if (!D) return res + (S.me && S.me.state !== "loading" && !me.signedIn && S.view === "lineup" ? '<div class="ex pad plh">Sign in to change your lineup.</div>' : "");
     if (!D.ok) return res + '<div class="ex pad">Lineup changes are off for this team: ' + esc(D.why) + ".</div>";
     var who = own ? "" : "You can submit only your own team’s lineup.";
     var projOk = !!(S.intel && S.intel.proj && S.model && S.intel.proj[S.model.week] && S.intel.proj[S.model.week].state === "ok");
     // F5 (Keith 2026-11-26): fills the best legal lineup by projected points as a plan to review; nothing is sent until Submit Lineup
-    var opt = own ? '<button class="btn blk" data-act="optimal"' + (projOk && !(last && last.state === "sending") ? "" : " disabled") + ">MFL Optimal Starters</button>" + (projOk ? "" : '<div class="ex">Projections aren’t loaded yet.</div>') : "";
+    var opt = own ? '<button class="btn blk" data-act="optimal"' + (projOk && !(last && last.state === "sending") ? "" : " disabled") + ">MFL Optimal Starters</button>" + (projOk ? "" : '<div class="ex">Projections not loaded.</div>') : "";
     var note = S.optNote && S.optNote.fid === t.id ? '<div class="ex" role="status">' + esc(S.optNote.text) + "</div>" : "";
     if (!D.planned) return res + '<div class="ex pad plh">' + esc(own ? "Tap a badge to change your lineup." : who) + "</div>" + note + opt;
     // Keith 2026-11-26 ("A"): MFL's lineup import requires at least one starter ("Missing Starters"), so an empty lineup can't be sent
@@ -387,10 +387,10 @@
   // Like the classic one, only OK (or Escape) closes it; a tap on the dimmed background does not.
   function resultHint(r) {
     var why = String(r.reason || "");
-    if (/cookie|sign in|signed in|MFL_USER_ID|401|403/i.test(why)) return "Sign in with your own team’s MFL account, then submit again.";
-    if (/bye/i.test(why)) return "Bench the bye-week player and submit again.";
-    if (/lock|kick/i.test(why)) return "A player whose game has started can’t be moved. Change the others and submit again.";
-    return r.state === "refused" ? "Fix the issue and submit again." : r.state === "unconfirmed" ? "Check your lineup on MFL before submitting again." : "";
+    if (/cookie|sign in|signed in|MFL_USER_ID|401|403/i.test(why)) return "Sign in with your own team.";
+    if (/bye/i.test(why)) return "Bench the bye-week player.";
+    if (/lock|kick/i.test(why)) return "His game has started.";
+    return r.state === "unconfirmed" ? "Check MFL before trying again." : "";
   }
   function resultSheet(S) {
     var r = S.submit || {}, k = r.state === "confirmed" ? "ok" : r.state === "refused" ? "err" : "wn";
@@ -404,7 +404,7 @@
   // R13 F3: leaving the Lineup with changes not submitted (app.js leaveGuard holds the navigation)
   function leaveSheet(S) {
     return '<div class="layer"><div class="scrim" data-act="leavestay"></div><div class="sheet" role="alertdialog" aria-modal="true" aria-label="Lineup changes not submitted" tabindex="-1"><div class="grab"></div>' +
-      '<div class="top"><h3>Lineup not submitted</h3></div><div class="ex">Your lineup changes haven’t been sent to MFL.</div>' +
+      '<div class="top"><h3>Lineup not submitted</h3></div><div class="ex">Changes not sent to MFL.</div>' +
       '<button class="btn pri blk" data-act="leavesubmit">Submit Lineup</button><button class="btn blk" data-act="leavediscard">Discard changes</button><button class="btn blk" data-act="leavestay">Keep editing</button></div></div>';
   }
   // F4 (Keith 2026-11-26): a bench player's choices, the reverse of planSheet: every slot he can fill now, with who is there. The same
@@ -781,16 +781,17 @@
   // season it's charged to isn't confirmed, or when his game has kicked off this week (canon line 1489: no move after kickoff until the week ends).
   function dropCheck(S, p) {
     var pen = S.penalty || {}, row = pen.state === "ok" && pen.data ? pen.data[p.id] : null, ch = pen.meta && pen.meta.charge;
-    if (pen.state !== "ok") return { ok: false, why: pen.state === "loading" ? "Loading the cut price…" : "The cut price isn’t loaded, so Drop is held." };
-    if (!row) return { ok: false, why: "No cut price for him, so Drop is held." };
-    if (row.needs_review) return { ok: false, why: "Held: his cut price isn’t confirmed yet." + (row.review_reason ? " " + row.review_reason : "") };
+    // Keith 2026-11-26: "WAYYYYY too much additional verbiage" (standing rule: one short line on screen); never the worker's review text
+    if (pen.state !== "ok") return { ok: false, why: pen.state === "loading" ? "Loading cut price…" : "Cut price not loaded." };
+    if (!row) return { ok: false, why: "No cut price yet." };
+    if (row.needs_review) return { ok: false, why: "Cut price not confirmed yet." };
     var amt = Number(row.penalty);
-    if (row.penalty == null || !isFinite(amt) || amt < 0) return { ok: false, why: "Held: his cut price isn’t available." };
-    if (!ch || !ch.ok) return { ok: false, why: "Held: the season the penalty is charged to can’t be confirmed." };
-    if (p.status === "active" && PL.lockOf(S, p, S.model.week).locked) return { ok: false, why: "His game has started: he can’t be dropped until the week ends." };
+    if (row.penalty == null || !isFinite(amt) || amt < 0) return { ok: false, why: "Cut price not available." };
+    if (!ch || !ch.ok) return { ok: false, why: "Charge season not confirmed." };
+    if (p.status === "active" && PL.lockOf(S, p, S.model.week).locked) return { ok: false, why: "Locked: his game has started." };
     // the 27-player active minimum (canon §B3; MFL refuses a drop below it: "Less Than Lower Limit of 27", 25625, 2026-10-07)
     var tm = S.model.teams.filter(function (x) { return x.id === p.franchiseId; })[0];
-    if (p.status === "active" && tm && tm.counts.active <= ROSTER_MIN) return { ok: false, why: "You’re at the " + ROSTER_MIN + "-player active minimum: add a player before dropping one." };
+    if (p.status === "active" && tm && tm.counts.active <= ROSTER_MIN) return { ok: false, why: "At the " + ROSTER_MIN + "-player minimum." };
     return { ok: true, why: "", penalty: amt, season: ch.season, exempt: !!row.exempt, exemptWhy: String(row.exempt_reason || "") };
   }
   function movesFor(S, p) {
@@ -800,11 +801,11 @@
     var active = t.counts.active, max = S.model.limits.roster, full = max != null && active >= max, out = [];
     if (p.status === "active") {
       var c = R.injuryChip(S, p), code = c && c.code ? String(c.code).toUpperCase() : "";
-      if (/^(IR|SUSP|HOLD|PUP|NFI)/.test(code)) out.push({ act: "deactivate_ir", ok: active > ROSTER_MIN, why: active > ROSTER_MIN ? "" : "You’re at the " + ROSTER_MIN + "-player active minimum, so IR isn’t available." });
+      if (/^(IR|SUSP|HOLD|PUP|NFI)/.test(code)) out.push({ act: "deactivate_ir", ok: active > ROSTER_MIN, why: active > ROSTER_MIN ? "" : "At the " + ROSTER_MIN + "-player minimum." });
       // taxi players are off the active roster too, so Move to taxi keeps the same 27-player active minimum (canon §B3, as IR and Drop do)
-      if (p.taxi && p.taxi.eligible) out.push({ act: "demote_taxi", ok: active > ROSTER_MIN, why: active > ROSTER_MIN ? "" : "You’re at the " + ROSTER_MIN + "-player active minimum, so Move to taxi isn’t available." });
-    } else if (p.status === "ir") out.push({ act: "activate_ir", ok: !full, why: full ? "Your active roster is full (" + max + ")." : "" });
-    else if (p.status === "taxi") out.push({ act: "promote_taxi", ok: !full, why: full ? "Your active roster is full (" + max + ")." : "" });
+      if (p.taxi && p.taxi.eligible) out.push({ act: "demote_taxi", ok: active > ROSTER_MIN, why: active > ROSTER_MIN ? "" : "At the " + ROSTER_MIN + "-player minimum." });
+    } else if (p.status === "ir") out.push({ act: "activate_ir", ok: !full, why: full ? "Active roster full." : "" });
+    else if (p.status === "taxi") out.push({ act: "promote_taxi", ok: !full, why: full ? "Active roster full." : "" });
     if (p.status === "active" || p.status === "ir" || p.status === "taxi") { var dc = dropCheck(S, p); out.push({ act: "drop_player", ok: dc.ok, why: dc.ok ? "" : dc.why }); }
     return out;
   }
@@ -821,13 +822,13 @@
     var used = p.taxi && p.taxi.used, max = (p.taxi && p.taxi.max) || 3;
     var dc = mv.act === "drop_player" ? dropCheck(S, p) : null;
     if (dc && !dc.ok) return "";
-    var what = dc ? (dc.penalty > 0 ? "Cut penalty: " + F.money(dc.penalty) + ", charged to the " + dc.season + " cap. He leaves your roster." : "No cut penalty" + (dc.exemptWhy ? " (" + dc.exemptWhy.replace(/\.$/, "") + ")" : "") + ". He leaves your roster.") :
-      mv.act === "deactivate_ir" ? "While on IR he counts 50% of his salary against the cap and is off your active roster. You can activate him any time." :
-      mv.act === "activate_ir" ? "His full salary counts against the cap again and he rejoins your active roster." :
-      mv.act === "demote_taxi" ? "His salary stops counting against the cap while he’s on the taxi squad." :
-      used == null ? "Call-ups used couldn’t be read. The 4th call-up makes a promotion permanent." :
-      used >= max ? "This is his 4th call-up: he’s promoted for good and can never go back to the taxi squad." :
-      "Call-up " + (used + 1) + " of " + max + ". A call-up counts only if he’s active or on IR for a scoring week; the 4th is permanent.";
+    var what = dc ? (dc.penalty > 0 ? "Cut penalty " + F.money(dc.penalty) + " · " + dc.season + " cap." : "No cut penalty.") :
+      mv.act === "deactivate_ir" ? "50% of his salary counts while on IR." :
+      mv.act === "activate_ir" ? "His full salary counts again." :
+      mv.act === "demote_taxi" ? "Off the cap while on taxi." :
+      used == null ? "Call-ups used unknown." :
+      used >= max ? "4th call-up: permanent." :
+      "Call-up " + (used + 1) + " of " + max + ".";
     return '<div class="layer ctrl"><div class="scrim"></div><div class="rm wn" role="alertdialog" aria-modal="true" aria-labelledby="mv-t" tabindex="-1">' +
       '<h2 id="mv-t">' + esc(MOVE_LABEL[mv.act]) + "?</h2><p>" + esc(p.name) + "</p><p>" + esc(what) + "</p>" +
       '<button class="rmok" data-act="moveconfirm">' + esc(MOVE_LABEL[mv.act]) + '</button><button class="btn blk" data-act="movecancel">Cancel</button></div></div>';

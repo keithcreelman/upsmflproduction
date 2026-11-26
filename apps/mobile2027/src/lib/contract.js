@@ -362,7 +362,7 @@
   // kind: amount | rule | na | unavailable
   function earned(row) {
     if (!row) return { kind: "unavailable", why: "The UPS cap calculation is not available" };
-    if (row.needs_review) return { kind: "unavailable", why: F.str(row.review_reason) || "This contract is flagged for review" };
+    if (row.needs_review) return { kind: "unavailable", why: "Not confirmed yet" };   // Keith 2026-11-26: one short line, never the worker's review explanation
     var rule = row.earned_rule;
     if (rule === "full_year_sub_5k") return { kind: "rule", label: "Full-year rule" };
     if (rule === "ww_earned_na") return { kind: "na", label: "Not applicable" };
@@ -379,7 +379,7 @@
 
   function cutNow(row) {
     if (!row) return { kind: "unavailable", why: "The cut-cost calculation is not available" };
-    if (row.needs_review) return { kind: "unavailable", why: F.str(row.review_reason) || "Needs review" };
+    if (row.needs_review) return { kind: "unavailable", why: "Not confirmed yet" };
     if (!finite(row.penalty)) return { kind: "unavailable", why: "No cut cost in the calculation" };
     var why = F.str(row.exempt_reason);
     if (!why && row.basis === "guarantee_minus_earned" && finite(row.guaranteed) && finite(row.earned)) {

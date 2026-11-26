@@ -85,7 +85,7 @@ test("movesFor: only the owner's own player; Move to IR needs an MFL IR-type des
     t.ok(ir, "an IR-designated active player can be offered IR");
     t.equal(ir.ok, tm.counts.active > 27, "allowed only above 27 active (" + tm.counts.active + " active)");
     const saved = tm.counts.active; tm.counts.active = 27;
-    const at27 = V.movesFor(S, act).find((x) => x.act === "deactivate_ir"); t.equal(at27.ok, false); t.match(at27.why, /27-player active minimum/);
+    const at27 = V.movesFor(S, act).find((x) => x.act === "deactivate_ir"); t.equal(at27.ok, false); t.equal(at27.why, "At the 27-player minimum.");
     tm.counts.active = 28; t.equal(V.movesFor(S, act).find((x) => x.act === "deactivate_ir").ok, true); tm.counts.active = saved;
     act.__chip = "Q"; t.ok(!V.movesFor(S, act).some((x) => x.act === "deactivate_ir"), "a Questionable tag is not IR-eligible");
     ["SUSP", "HOLD", "IR-R", "PUP", "NFI"].forEach((c) => { act.__chip = c; t.ok(V.movesFor(S, act).some((x) => x.act === "deactivate_ir"), c + " is IR-eligible"); });
@@ -93,13 +93,13 @@ test("movesFor: only the owner's own player; Move to IR needs an MFL IR-type des
   });
   const elig = Object.assign({}, act, { taxi: Object.assign({}, act.taxi, { eligible: true }) }), notElig = Object.assign({}, act, { taxi: Object.assign({}, act.taxi, { eligible: false }) });
   t.ok(V.movesFor(S, elig).some((x) => x.act === "demote_taxi")); t.ok(!V.movesFor(S, notElig).some((x) => x.act === "demote_taxi"));
-  { const sv = tm.counts.active; tm.counts.active = 27; const d = V.movesFor(S, elig).find((x) => x.act === "demote_taxi"); t.equal(d.ok, false); t.match(d.why, /27-player active minimum/);
+  { const sv = tm.counts.active; tm.counts.active = 27; const d = V.movesFor(S, elig).find((x) => x.act === "demote_taxi"); t.equal(d.ok, false); t.equal(d.why, "At the 27-player minimum.");
     tm.counts.active = 28; t.equal(V.movesFor(S, elig).find((x) => x.act === "demote_taxi").ok, true); tm.counts.active = sv; }
   const irP = Object.assign({}, act, { status: "ir" }), txP = Object.assign({}, act, { status: "taxi", taxi: { used: 1, max: 3, eligible: false } });
   const acts = (q) => V.movesFor(S, q).map((x) => x.act).filter((a) => a !== "drop_player");   // Drop is tested on its own below
   t.deepEqual(acts(irP), ["activate_ir"]); t.deepEqual(acts(txP), ["promote_taxi"]);
   const saved = tm.counts.active; tm.counts.active = S.model.limits.roster || 30;
-  t.equal(V.movesFor(S, irP)[0].ok, false); t.match(V.movesFor(S, irP)[0].why, /active roster is full/); tm.counts.active = saved;
+  t.equal(V.movesFor(S, irP)[0].ok, false); t.equal(V.movesFor(S, irP)[0].why, "Active roster full."); tm.counts.active = saved;
   // another team, signed out, or the Preview build: nothing
   t.deepEqual(V.movesFor(Object.assign({}, S, { me: { signedIn: true, fid: "0001" } }), irP), []);
   t.deepEqual(V.movesFor(Object.assign({}, S, { me: { signedIn: false } }), irP), []);
@@ -113,9 +113,9 @@ test("the profile shows Actions only for the owner's player; the confirm sheet s
   const txP = Object.assign(p, { status: "taxi", taxi: { used: 3, max: 3, eligible: false } });
   t.match(V.app(S), /<div class="pact"><div class="lbl">Actions<\/div><button class="btn blk" data-act="move" data-v="promote_taxi"/);
   S.move = { pid: String(p.id), act: "promote_taxi" }; S.sheet = "move";
-  t.match(tx(V.app(S)), /Promote from taxi\? .* This is his 4th call-up: he’s promoted for good and can never go back to the taxi squad\./);
+  t.match(tx(V.app(S)), /Promote from taxi\? .* 4th call-up: permanent\./);
   txP.taxi.used = 1; t.match(tx(V.moveSheet(S)), /Call-up 2 of 3\./);
-  S.move.act = "deactivate_ir"; t.match(tx(V.moveSheet(S)), /50% of his salary against the cap/);
+  S.move.act = "deactivate_ir"; t.match(tx(V.moveSheet(S)), /50% of his salary counts while on IR\./);
   S.me = { signedIn: true, fid: "0001" }; S.sheet = null; t.doesNotMatch(V.app(S), /data-act="move"/, "another team's player: no Actions");
 });
 
@@ -148,21 +148,21 @@ test("Drop is held unless the worker priced the cut, confirmed it, named the sea
   const free = tm.players.find((p) => p.status === "active" && !PL.lockOf(S, p, wk).locked);
   const started = tm.players.find((p) => p.status === "active" && PL.lockOf(S, p, wk).locked);
   const drop = (p) => V.movesFor(S, p).find((x) => x.act === "drop_player");
-  S.penalty = { state: "idle" }; t.equal(drop(free).ok, false); t.match(drop(free).why, /cut price isn’t loaded/);
+  S.penalty = { state: "idle" }; t.equal(drop(free).ok, false); t.equal(drop(free).why, "Cut price not loaded.");
   penaltyState(S, free.id, { penalty: 23029, guaranteed: 42000, earned: 18971, needs_review: true, review_reason: "Taxi eligibility could not be confirmed." }, { ok: true, season: 2027 });
-  t.equal(drop(free).ok, false); t.match(drop(free).why, /isn’t confirmed yet/);
+  t.equal(drop(free).ok, false); t.equal(drop(free).why, "Cut price not confirmed yet.", "one short line, never the worker's review text");
   penaltyState(S, free.id, { penalty: 23029, needs_review: false }, { ok: false, reason: "auction_start_unresolved" });
-  t.equal(drop(free).ok, false); t.match(drop(free).why, /season the penalty is charged to can’t be confirmed/);
+  t.equal(drop(free).ok, false); t.equal(drop(free).why, "Charge season not confirmed.");
   penaltyState(S, free.id, { penalty: null, needs_review: false }, { ok: true, season: 2027 }); t.equal(drop(free).ok, false);
   penaltyState(S, free.id, { penalty: 23029, needs_review: false }, { ok: true, season: 2027 });
-  const savedA = tm.counts.active; tm.counts.active = 27; t.equal(drop(free).ok, false); t.match(drop(free).why, /27-player active minimum: add a player before dropping one/);
+  const savedA = tm.counts.active; tm.counts.active = 27; t.equal(drop(free).ok, false); t.equal(drop(free).why, "At the 27-player minimum.");
   tm.counts.active = 28; t.equal(drop(free).ok, true); tm.counts.active = Math.max(savedA, 28);
   S.profile = { pid: String(free.id), tab: "contract" }; S.move = { pid: String(free.id), act: "drop_player" }; S.sheet = "move";
   const tx = V.moveSheet(S).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
-  t.match(tx, /Drop\? .*Cut penalty: \$23,029, charged to the 2027 cap\. He leaves your roster\./);
+  t.match(tx, /Drop\? .*Cut penalty \$23,029 · 2027 cap\./);
   penaltyState(S, free.id, { penalty: 0, exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2).", needs_review: false }, { ok: true, season: 2027 });
-  t.match(V.moveSheet(S).replace(/<[^>]*>/g, " "), /No cut penalty \(WW pickup salary ≤ \$4K, final year\)\. He leaves your roster\./); t.doesNotMatch(V.moveSheet(S), /§/);
-  if (started) { penaltyState(S, started.id, { penalty: 1000, needs_review: false }, { ok: true, season: 2027 }); t.match(drop(started).why, /game has started/); t.equal(drop(started).ok, false); }
+  t.match(V.moveSheet(S).replace(/<[^>]*>/g, " "), /No cut penalty\./); t.doesNotMatch(V.moveSheet(S), /§|WW pickup/);
+  if (started) { penaltyState(S, started.id, { penalty: 1000, needs_review: false }, { ok: true, season: 2027 }); t.equal(drop(started).why, "Locked: his game has started."); t.equal(drop(started).ok, false); }
   S.penalty = { state: "idle" }; t.equal(V.moveSheet(S), "", "a held drop has no confirm sheet");
 });
 
@@ -189,6 +189,8 @@ test("no rulebook references on screen (Keith 2026-11-26: 'Get rid of the B3 non
   const S = own(await fresh(), "0006"); S.sheet = "result";
   S.submit = { fid: "0006", state: "confirmed", okTitle: "Moved to IR", text: "Player placed on IR in MFL (§B3: 50% cap relief, off the active roster max)." };
   const h = V.app(S); t.doesNotMatch(h, /§/); t.match(h, /Player placed on IR in MFL \(50% cap relief, off the active roster max\)\./);
+  // and rosterMove no longer passes the worker's message through at all (Keith 2026-11-26: too much verbiage)
+  t.match(SUBMIT, /state: "confirmed", text: "Confirmed on MFL\."/);
 });
 
 await run("mobile2027_r13_moves");

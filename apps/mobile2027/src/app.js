@@ -580,8 +580,8 @@
     if (!t || !P || !mayPlan(t) || !S.submitMode || !S.intel.proj || !S.intel.proj[wk] || S.intel.proj[wk].state !== "ok") return;
     var D = P.draftOf(S, t); if (!D.ok) return;
     var next = P.optimal(S, t, D.draft, function (p) { var g = U.tabviews.projectionSlot(S, p); return g ? g.value : null; });
-    if (P.sig(next) === P.sig(D.base)) { delete S.plans[t.id]; S.optNote = { fid: t.id, text: "Your lineup on MFL is already the best by projected points." }; }
-    else { S.plans[t.id] = { week: wk, base: P.sig(D.base), draft: next }; S.optNote = P.sig(next) === P.sig(D.draft) ? { fid: t.id, text: "This is already the best lineup by projected points." } : null; }
+    if (P.sig(next) === P.sig(D.base)) { delete S.plans[t.id]; S.optNote = { fid: t.id, text: "Already your best lineup." }; }
+    else { S.plans[t.id] = { week: wk, base: P.sig(D.base), draft: next }; S.optNote = P.sig(next) === P.sig(D.draft) ? { fid: t.id, text: "Already your best lineup." } : null; }
     render(true);
   }
   // F8 (Keith 2026-11-26): a roster move on the owner's own player. Only a move the profile offered (views.movesFor, own team, rule-checked) is sent;

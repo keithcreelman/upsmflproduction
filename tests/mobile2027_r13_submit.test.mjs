@@ -113,7 +113,7 @@ test("submit.js: one POST to the test worker's /api/submit-lineup with an Idempo
   t.deepEqual(JSON.parse(post.opts.body), { franchiseId: "0003", week: "12", starters: ["16148", "15700"] });
   const rb = B1.calls.filter((c) => c.url && c.url.includes("TYPE=weeklyResults"));
   t.equal(rb.length, 1); t.ok(new URL(rb[0].url).searchParams.get("_"), "the read-back skips the worker's short cache"); t.equal(new URL(rb[0].url).searchParams.get("W"), "12");
-  t.equal(r.state, "confirmed"); t.deepEqual(r.starters, ["16148", "15700"]); t.match(r.text, /MFL shows the same 2 starters for week 12/);
+  t.equal(r.state, "confirmed"); t.deepEqual(r.starters, ["16148", "15700"]); t.equal(r.text, "Confirmed on MFL · week 12.");
   t.equal(B1.calls.filter((c) => c.opts && c.opts.method === "POST").length, 1, "exactly one write");
 });
 
@@ -194,9 +194,9 @@ test("views: the result is a big pop-up like the classic app's (✓ green / ✕ 
   t.match(h, /<button class="rmok" data-act="resultok">OK<\/button>/); t.match(h, /<div class="scrim"><\/div>/, "the dimmed background has no action: only OK closes it");
   S.submit = { fid: "0006", state: "refused", text: "Your lineup on MFL is unchanged.", reason: "Cookie belongs to franchise 0001, cannot submit lineup for 0006" };
   h = V.app(S); t.match(h, /<div class="rm err"/); t.match(h, />✕</); t.match(text(h), /Lineup NOT submitted Your lineup on MFL is unchanged\. Why: Cookie belongs to franchise 0001/);
-  t.match(text(h), /Sign in with your own team’s MFL account, then submit again\./);
+  t.match(text(h), /Sign in with your own team\./);
   S.submit = { fid: "0006", state: "unconfirmed", title: "Submitted, not confirmed", text: "MFL accepted it; reading it back failed (x)." };
-  h = V.app(S); t.match(h, /<div class="rm wn"/); t.match(h, />!</); t.match(text(h), /Check your lineup on MFL before submitting again\./);
+  h = V.app(S); t.match(h, /<div class="rm wn"/); t.match(h, />!</); t.match(text(h), /Check MFL before trying again\./);
   t.doesNotMatch(screen(V.app(Object.assign(S, { sheet: null }))), /card okc|Lineup submitted/, "no duplicate result card on the page itself");
   S.sheet = "leave"; const ls = V.app(S);
   t.match(ls, /data-act="leavesubmit">Submit Lineup/); t.match(ls, /data-act="leavediscard">Discard changes/); t.match(ls, /data-act="leavestay">Keep editing/);

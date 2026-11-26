@@ -393,7 +393,8 @@ test("nothing is drawn as $0 when the worker's answer is missing, loading, faile
     t.match(html, /Not available|Loading…/, name + ": says it is not available");
   });
   t.match(V.app(cases.failed), /data-act="retrypen"/);
-  t.match(V.app(cases.review), /Acquisition week unclear/);
+  // Keith 2026-11-26 ("WAYYYYY too much additional verbiage"): a row under review says one short line, never the worker's explanation
+  t.match(V.app(cases.review), /Not confirmed yet/); t.doesNotMatch(V.app(cases.review), /Acquisition week unclear/);
   const none = V.app(cases.absent);
   t.match(none, /The UPS cap calculation is not available/);
 });

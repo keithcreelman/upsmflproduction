@@ -120,7 +120,7 @@
     if (st !== "ok") return { kind: "unavailable", text: "Unavailable" };
     var row = penaltyOf(S, p.id);
     if (!row) return { kind: "unavailable", text: "Unavailable" };
-    if (row.needs_review) return { kind: "review", text: "Under review", why: F.str(row.review_reason) };
+    if (row.needs_review) return { kind: "review", text: "Under review", why: "" };   // Keith 2026-11-26: no worker explanation on screen
     var cut = C.cutNow(row);
     if (cut.kind !== "amount") return { kind: "unavailable", text: "Unavailable", noFigure: true };   // the read worked but gave no cut charge for this contract
     var r = C.cutRule(row);

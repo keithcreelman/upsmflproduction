@@ -99,8 +99,8 @@
         starters.forEach(function (x) { want[String(x)] = 1; });
         starters.forEach(function (x) { if (onMfl.indexOf(String(x)) < 0) miss.push(String(x)); });
         onMfl.forEach(function (x) { if (!want[x]) extra.push(x); });
-        if (!miss.length && !extra.length) return { state: "confirmed", title: "Lineup submitted", text: "MFL shows the same " + onMfl.length + " starter" + (onMfl.length === 1 ? "" : "s") + " for week " + wk + ".", key: key, week: wk, starters: onMfl };
-        return { state: "different", title: "Submitted, but MFL shows a different lineup", text: miss.length + " missing on MFL, " + extra.length + " extra on MFL. MFL’s lineup is shown.", key: key, week: wk, starters: onMfl };
+        if (!miss.length && !extra.length) return { state: "confirmed", title: "Lineup submitted", text: "Confirmed on MFL · week " + wk + ".", key: key, week: wk, starters: onMfl };
+        return { state: "different", title: "MFL shows a different lineup", text: "MFL’s lineup is shown.", key: key, week: wk, starters: onMfl };
       }, function (e) { return { state: "unconfirmed", title: "Submitted, not confirmed", text: "MFL accepted it; reading it back failed (" + (e && e.message || e) + ").", key: key, week: wk, starters: null }; });
     }, function (e) {
       return { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before submitting again.", key: key };
@@ -120,8 +120,8 @@
     var key = newKey();
     return post(cfg, "/roster-workbench/action", { action: action, league_id: String(cfg.leagueId), season: String(cfg.season), franchise_id: fid, player_id: String(pid) }, key).then(function (r) {
       var b = r.body || {}, base = { key: key, okTitle: M.ok, noTitle: M.no, action: action };
-      if (r.ok && b.ok && b.verification && b.verification.ok) return Object.assign(base, { state: "confirmed", text: String(b.message || "MFL shows the move on your roster.") });
-      if (r.ok && (b.error_code === "MFL_WRITE_UNCONFIRMED" || (b.ok && !(b.verification && b.verification.ok)))) return Object.assign(base, { state: "unconfirmed", title: "Sent, not confirmed", text: "MFL got the move but the roster couldn’t be read back. Check MFL before trying again." });
+      if (r.ok && b.ok && b.verification && b.verification.ok) return Object.assign(base, { state: "confirmed", text: "Confirmed on MFL." });   // Keith 2026-11-26: short; not the worker's message
+      if (r.ok && (b.error_code === "MFL_WRITE_UNCONFIRMED" || (b.ok && !(b.verification && b.verification.ok)))) return Object.assign(base, { state: "unconfirmed", title: "Sent, not confirmed", text: "Couldn’t read your roster back." });
       return Object.assign(base, { state: "refused", text: "Nothing changed on MFL.", reason: String(b.error || b.message || b.code || b.error_code || ("HTTP " + r.status)) });
     }, function (e) { return { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before trying again.", key: key, okTitle: M.ok, noTitle: M.no }; });
   }
