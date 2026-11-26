@@ -788,6 +788,9 @@
     if (row.penalty == null || !isFinite(amt) || amt < 0) return { ok: false, why: "Held: his cut price isn’t available." };
     if (!ch || !ch.ok) return { ok: false, why: "Held: the season the penalty is charged to can’t be confirmed." };
     if (p.status === "active" && PL.lockOf(S, p, S.model.week).locked) return { ok: false, why: "His game has started: he can’t be dropped until the week ends." };
+    // the 27-player active minimum (canon §B3; MFL refuses a drop below it: "Less Than Lower Limit of 27", 25625, 2026-10-07)
+    var tm = S.model.teams.filter(function (x) { return x.id === p.franchiseId; })[0];
+    if (p.status === "active" && tm && tm.counts.active <= ROSTER_MIN) return { ok: false, why: "You’re at the " + ROSTER_MIN + "-player active minimum: add a player before dropping one." };
     return { ok: true, why: "", penalty: amt, season: ch.season, exempt: !!row.exempt, exemptWhy: String(row.exempt_reason || "") };
   }
   function movesFor(S, p) {

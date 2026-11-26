@@ -152,7 +152,9 @@ test("Drop is held unless the worker priced the cut, confirmed it, named the sea
   penaltyState(S, free.id, { penalty: 23029, needs_review: false }, { ok: false, reason: "auction_start_unresolved" });
   t.equal(drop(free).ok, false); t.match(drop(free).why, /season the penalty is charged to can’t be confirmed/);
   penaltyState(S, free.id, { penalty: null, needs_review: false }, { ok: true, season: 2027 }); t.equal(drop(free).ok, false);
-  penaltyState(S, free.id, { penalty: 23029, needs_review: false }, { ok: true, season: 2027 }); t.equal(drop(free).ok, true);
+  penaltyState(S, free.id, { penalty: 23029, needs_review: false }, { ok: true, season: 2027 });
+  const savedA = tm.counts.active; tm.counts.active = 27; t.equal(drop(free).ok, false); t.match(drop(free).why, /27-player active minimum: add a player before dropping one/);
+  tm.counts.active = 28; t.equal(drop(free).ok, true); tm.counts.active = Math.max(savedA, 28);
   S.profile = { pid: String(free.id), tab: "contract" }; S.move = { pid: String(free.id), act: "drop_player" }; S.sheet = "move";
   const tx = V.moveSheet(S).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
   t.match(tx, /Drop\? .*Cut penalty: \$23,029, charged to the 2027 cap\. He leaves your roster\./);
