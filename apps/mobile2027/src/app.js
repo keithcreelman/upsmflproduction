@@ -573,6 +573,17 @@
   }
   window.addEventListener("beforeunload", function (ev) { if (ownPlan()) { ev.preventDefault(); ev.returnValue = ""; } });
 
+  // F5 (Keith 2026-11-26): MFL Optimal Starters. The best legal lineup by projected points (planner.optimal: started games stay, only startable
+  // players, MFL's ranges by the slot model) becomes the plan; the owner reviews it and submits. Own team only, projections loaded.
+  function doOptimal() {
+    var t = curTeam(), P = U.planner, wk = S.model && S.model.week;
+    if (!t || !P || !mayPlan(t) || !S.submitMode || !S.intel.proj || !S.intel.proj[wk] || S.intel.proj[wk].state !== "ok") return;
+    var D = P.draftOf(S, t); if (!D.ok) return;
+    var next = P.optimal(S, t, D.draft, function (p) { var g = U.tabviews.projectionSlot(S, p); return g ? g.value : null; });
+    if (P.sig(next) === P.sig(D.base)) { delete S.plans[t.id]; S.optNote = { fid: t.id, text: "Your lineup on MFL is already the best by projected points." }; }
+    else { S.plans[t.id] = { week: wk, base: P.sig(D.base), draft: next }; S.optNote = P.sig(next) === P.sig(D.draft) ? { fid: t.id, text: "This is already the best lineup by projected points." } : null; }
+    render(true);
+  }
   // F9 (Keith 2026-11-26): bench the slot's starter with no replacement. Only when the planner lists the slot as open to changes (not locked).
   function planBench() {
     var t = curTeam(), P = U.planner, slotId = S.planPick;
@@ -593,7 +604,7 @@
     var next = P.apply(D.draft, slotId, String(pid));
     if (P.sig(next) === P.sig(D.base)) delete S.plans[t.id];               // back to the recorded lineup: no plan left
     else S.plans[t.id] = { week: S.model.week, base: P.sig(D.base), draft: next };
-    S.planPick = null; S.sheet = null; render(true);
+    S.planPick = null; S.sheet = null; S.optNote = null; render(true);
   }
   function returnFromProfile() {
     var r = S.ret; S.ret = null;
@@ -654,6 +665,7 @@
   });
   function handle(act, v, el) {
     if (act === "submit") doSubmit();
+    else if (act === "optimal") doOptimal();
     else if (act === "resultok") { var nx = S.afterResult; S.afterResult = null; S.sheet = null; render(true); if (nx) nx(); }
     else if (act === "leavesubmit") { var L0 = S.leave; S.leave = null; S.sheet = null; render(); doSubmit(function () { S.leave = L0; replayLeave(false); }); }
     else if (act === "leavediscard") replayLeave(true);
@@ -701,7 +713,7 @@
     else if (act === "planfor") planOpenFor(v);
     else if (act === "planbench") planBench();
     else if (act === "planforpick") planForPick(v);
-    else if (act === "planreset") { var tr = curTeam(); if (tr && S.plans) delete S.plans[tr.id]; render(true); }
+    else if (act === "planreset") { var tr = curTeam(); if (tr && S.plans) delete S.plans[tr.id]; S.optNote = null; render(true); }
     else if (act === "teams") { S.sheet = "teams"; render(); }
     else if (act === "pickteam") { S.teamId = el.getAttribute("data-fid"); setPref("team", S.teamId); S.open = {}; S.sheet = null; pfOnTeam(); render(); }
     else if (act === "about") { S.sheet = "about"; render(); }

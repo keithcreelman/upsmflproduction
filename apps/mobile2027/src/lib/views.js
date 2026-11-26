@@ -267,6 +267,15 @@
       (spots ? '<div class="ex wn mt4">MFL lists ' + esc(lim) + " starting spots; this lineup has " + slotCount() + " slots.</div>" : "") + "</div>";
   }
 
+  // F7 (Keith 2026-11-26): the starting lineup's projected total in its header (" · Proj. 142.6"), from the same per-player numbers the rows show,
+  // updating with every change. Starters with no projection add nothing and are counted ("2 without"); no number at all, no total.
+  function projTotal(S, lineup) {
+    if (!TV.projectionSlot || !lineup || !lineup.slots) return "";
+    var sum = 0, have = 0, miss = 0;
+    lineup.slots.forEach(function (x) { if (!x.player) return; var g = TV.projectionSlot(S, x.player); if (g && g.value != null) { sum += g.value; have++; } else miss++; });
+    if (!have) return "";
+    return " · Proj. " + (Math.round(sum * 10) / 10).toFixed(1) + (miss ? " (" + miss + " without)" : "");
+  }
   function lineupBlock(S, t, wi, lineup, past, plan) {
     var lim = S.model.limits.starters || 18, wk = wi.sel;
     if (lineup.recorded) {
@@ -283,7 +292,7 @@
       var pl = !!plan && !past, ch = pl && plan.changed.indexOf(x.slot.id) >= 0;
       return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, plan: pl, planned: ch && !S.submitMode ? "Planned" : "", problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past, pl);
     }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); }), (lineup.unresolved || []).map(unresolvedRow)).join("");
-    return '<div class="card rows lsec"><div class="lsh"><span class="t"><b>' + esc(lineupCount(lineup)) + "</b></span></div>" + rows + "</div>";
+    return '<div class="card rows lsec"><div class="lsh"><span class="t"><b>' + esc(lineupCount(lineup)) + "</b>" + (past ? "" : esc(projTotal(S, lineup))) + "</span></div>" + rows + "</div>";
   }
 
   // ---------- R12: the Lineup planner (plan only, never submitted) ----------
@@ -301,13 +310,17 @@
     if (!D) return res + (S.me && S.me.state !== "loading" && !me.signedIn && S.view === "lineup" ? '<div class="ex pad plh">Sign in to change your lineup: open the UPS TEST app link on your league’s MFL home page.</div>' : "");
     if (!D.ok) return res + '<div class="ex pad">Lineup changes are off for this team: ' + esc(D.why) + ".</div>";
     var who = own ? "" : "You can submit only your own team’s lineup.";
-    if (!D.planned) return res + '<div class="ex pad plh">' + esc(own ? "Tap a badge to change your lineup." : who) + "</div>";
+    var projOk = !!(S.intel && S.intel.proj && S.model && S.intel.proj[S.model.week] && S.intel.proj[S.model.week].state === "ok");
+    // F5 (Keith 2026-11-26): fills the best legal lineup by projected points as a plan to review; nothing is sent until Submit Lineup
+    var opt = own ? '<button class="btn blk" data-act="optimal"' + (projOk && !(last && last.state === "sending") ? "" : " disabled") + ">MFL Optimal Starters</button>" + (projOk ? "" : '<div class="ex">Projections aren’t loaded yet.</div>') : "";
+    var note = S.optNote && S.optNote.fid === t.id ? '<div class="ex" role="status">' + esc(S.optNote.text) + "</div>" : "";
+    if (!D.planned) return res + '<div class="ex pad plh">' + esc(own ? "Tap a badge to change your lineup." : who) + "</div>" + note + opt;
     // Keith 2026-11-26 ("A"): MFL's lineup import requires at least one starter ("Missing Starters"), so an empty lineup can't be sent
     var v = PL.validate(S, t, D.draft), sending = !!(last && last.state === "sending"), empty = !v.filled, can = own && !v.problems && !sending && !empty;
     return res + '<div class="card planc" role="status"><div class="plt"><b>' + plural(D.changed.length, "change", "changes") + '</b><span class="plb"><button class="btn" data-act="planreset">Undo</button>' +
       '<button class="btn pri" data-act="submit"' + (can ? "" : " disabled") + ">" + (sending ? "Submitting…" : "Submit Lineup") + "</button></span></div>" +
       (v.problems ? '<div class="ex wn">' + esc(v.errors.join(" · ")) + "</div>" : empty ? '<div class="ex wn">MFL needs at least one starter.</div>' : v.filled < v.total ? '<div class="ex">Short lineup: ' + v.filled + " of " + v.total + " starters.</div>" : "") +
-      (who ? '<div class="ex">' + esc(who) + "</div>" : "") + "</div>";
+      (who ? '<div class="ex">' + esc(who) + "</div>" : "") + note + "</div>" + opt;
   }
   function planBar(S, t, D) {
     if (S.submitMode) return submitBar(S, t, D);
