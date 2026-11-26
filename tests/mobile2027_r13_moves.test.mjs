@@ -159,7 +159,7 @@ test("Drop is held unless the worker priced the cut, confirmed it, named the sea
   const tx = V.moveSheet(S).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
   t.match(tx, /Drop\? .*Cut penalty: \$23,029, charged to the 2027 cap\. He leaves your roster\./);
   penaltyState(S, free.id, { penalty: 0, exempt: true, exempt_reason: "WW pickup salary ≤ $4K, final year (§D2).", needs_review: false }, { ok: true, season: 2027 });
-  t.match(V.moveSheet(S).replace(/<[^>]*>/g, " "), /No cut penalty \(WW pickup salary ≤ \$4K, final year \(§D2\)\)\. He leaves your roster\./);
+  t.match(V.moveSheet(S).replace(/<[^>]*>/g, " "), /No cut penalty \(WW pickup salary ≤ \$4K, final year\)\. He leaves your roster\./); t.doesNotMatch(V.moveSheet(S), /§/);
   if (started) { penaltyState(S, started.id, { penalty: 1000, needs_review: false }, { ok: true, season: 2027 }); t.match(drop(started).why, /game has started/); t.equal(drop(started).ok, false); }
   S.penalty = { state: "idle" }; t.equal(V.moveSheet(S), "", "a held drop has no confirm sheet");
 });
@@ -175,6 +175,18 @@ test("rosterMove drop_player and the preview's charge season as the app keeps it
   t.equal((await load({ ok: false, applies_to_season: null, reason: "auction_start_unresolved" })).meta.charge.ok, false);
   t.equal((await load(undefined)).meta.charge, null, "an older worker without the field: unresolved");
   t.equal((await load({ ok: true, applies_to_season: "2027x" })).meta.charge.ok, false, "a malformed season is not a season");
+});
+
+test("no rulebook references on screen (Keith 2026-11-26: 'Get rid of the B3 nonsense across the entire app'): esc() drops them; other text is untouched", async () => {
+  const F = require(path.join(SRC, "lib/format.js"));
+  t.equal(F.esc("Player placed on IR in MFL (§B3: 50% cap relief, off the active roster max)."), "Player placed on IR in MFL (50% cap relief, off the active roster max).");
+  t.equal(F.esc("WW pickup salary ≤ $4K, final year (§D2)."), "WW pickup salary ≤ $4K, final year.");
+  t.equal(F.esc("cap-free (canon §B2/§D2/T5.2)."), "cap-free.");
+  t.equal(F.esc("cannot be cut until the FA Auction closes (league_context_v1.md §A3). The commissioner can"), "cannot be cut until the FA Auction closes. The commissioner can");
+  t.equal(F.esc(" · "), " · "); t.equal(F.esc("  a  b "), "  a  b "); t.equal(F.esc('<a href="x">'), "&lt;a href=&quot;x&quot;&gt;");
+  const S = own(await fresh(), "0006"); S.sheet = "result";
+  S.submit = { fid: "0006", state: "confirmed", okTitle: "Moved to IR", text: "Player placed on IR in MFL (§B3: 50% cap relief, off the active roster max)." };
+  const h = V.app(S); t.doesNotMatch(h, /§/); t.match(h, /Player placed on IR in MFL \(50% cap relief, off the active roster max\)\./);
 });
 
 await run("mobile2027_r13_moves");
