@@ -151,7 +151,7 @@ test("test site build: allowlist only, test worker and 25625 everywhere, connect
   const r = buildTestSite(out, TEST);
   const all = [];
   (function walk(d) { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) walk(p); else all.push(path.relative(out, p).split(path.sep).join("/")); } })(out);
-  t.ok(all.every((f) => f === "_headers" || f === "index.html" || f.startsWith("m/") || f.startsWith("shared/")), "only site/m, the shared files the page loads, the root redirect and _headers");
+  t.ok(all.every((f) => f === "_headers" || f === "index.html" || f.startsWith("m/") || f.startsWith("m2/") || f.startsWith("shared/")), "only site/m, apps/m2, the shared files the page loads, the root redirect and _headers");
   t.ok(!all.some((f) => /trades\/|reports\/|wire\/|rosters\//.test(f)), "no other site/ folder is published");
   t.equal(all.filter((f) => f.startsWith("shared/")).length, r.shared.length);
   for (const f of all) { const txt = fs.readFileSync(path.join(out, f), "latin1"); t.ok(!txt.includes("upsmflproduction.keith-creelman") && !txt.includes("74598"), `${f}: no production worker, no 74598`); }
@@ -216,6 +216,35 @@ test("test site idempotency shim: each write to the test worker gets its own key
   const before = window.fetch; vm.runInNewContext(idempotencyShim(WORKER), { window, Request, Headers, URL, Uint8Array });
   t.equal(window.fetch, before, "loading the shim twice doesn't wrap twice");
   t.throws(() => idempotencyShim("not a url"), /Invalid URL/);
+});
+
+test("MFL 2.0 (/m2/): published from apps/m2 with the test worker and 25625 filled in; no inline script; the only write is the lineup submit", () => {
+  const TEST = "https://ups-test.keith-creelman.workers.dev";
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), "ups-test-site-m2-"));
+  buildTestSite(out, TEST);
+  const files = fs.readdirSync(path.join(out, "m2")).sort();
+  t.deepEqual(files, fs.readdirSync(path.join("apps", "m2")).sort(), "every apps/m2 file, and only those, is published at /m2/");
+  const cfg = fs.readFileSync(path.join(out, "m2", "config.js"), "utf8");
+  t.match(cfg, /worker: "https:\/\/ups-test\.keith-creelman\.workers\.dev"/); t.match(cfg, /league: "25625"/);
+  for (const f of files) t.doesNotMatch(fs.readFileSync(path.join(out, "m2", f), "utf8"), /__UPS_[A-Z_]+__/, `${f}: every placeholder filled`);
+  const idx = fs.readFileSync(path.join(out, "m2", "index.html"), "utf8");
+  t.doesNotMatch(idx, /<script(?![^>]*\bsrc=)[^>]*>/i, "no inline script (the site policy allows only /m/'s boot script)");
+  t.match(idx, /app\.js\?v=\d{12}"/, "assets carry a build stamp");
+  // Read-only except the lineup: the app source has exactly one non-GET request, the POST to /api/submit-lineup.
+  const src = files.filter((f) => f.endsWith(".js")).map((f) => fs.readFileSync(path.join("apps", "m2", f), "utf8")).join("\n");
+  const methods = [...src.matchAll(/method:\s*"([A-Z]+)"/g)].map((m) => m[1]);
+  t.deepEqual(methods, ["POST"], "one explicit method in the whole app, and it is POST");
+  t.match(src, /fetch\(url\("\/api\/submit-lineup"[\s\S]{0,200}method: "POST"[\s\S]{0,200}"Idempotency-Key": key/, "that POST is the lineup submit, with an Idempotency-Key");
+  t.doesNotMatch(src, /74598|upsmflproduction\.keith-creelman|XMLHttpRequest|sendBeacon|navigator\.sendBeacon/, "no production league or worker, no other request APIs");
+  fs.rmSync(out, { recursive: true, force: true });
+  // apps/m2 safety: an inline script or a symlink is refused.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ups-m2-src-"));
+  const fake = (name) => { const d = path.join(root, name); fs.mkdirSync(d, { recursive: true }); fs.writeFileSync(path.join(d, "index.html"), '<script src="a.js"></script>'); fs.writeFileSync(path.join(d, "a.js"), "1"); return d; };
+  const inline = fake("inline"); fs.writeFileSync(path.join(inline, "x.html"), "<script>alert(1)</script>");
+  t.throws(() => buildTestSite(fs.mkdtempSync(path.join(os.tmpdir(), "o-")), TEST, undefined, inline), /inline script/);
+  const link = fake("link"); fs.writeFileSync(path.join(root, "secret.json"), "{}"); fs.symlinkSync(path.join(root, "secret.json"), path.join(link, "data.json"));
+  t.throws(() => buildTestSite(fs.mkdtempSync(path.join(os.tmpdir(), "o-")), TEST, undefined, link), /symlink: apps\/m2\/data\.json/);
+  fs.rmSync(root, { recursive: true, force: true });
 });
 
 await run("test_env_scripts");

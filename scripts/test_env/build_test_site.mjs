@@ -14,6 +14,9 @@
 //   - adds m/ups_test_idempotency.js, loaded before every other script: each write the page sends to the test
 //     worker gets its own Idempotency-Key, which the test worker's write ledger requires (the real app never
 //     sends one; this file exists only on the test site)
+//   - adds MFL 2.0 (apps/m2/**, Release 1; Keith 2026-11-26) at /m2/, with the same checks. apps/m2 is outside site/,
+//     so the public GitHub Pages workflow (site/ only) never publishes it. Its config.js placeholders
+//     __UPS_TEST_WORKER__ / __UPS_TEST_LEAGUE__ are filled here, and its pages may not carry inline scripts.
 //   - refuses any symlink in the source, and any source whose real path is outside site/m or the selected shared files
 //   - refuses to finish if any output file still names the production worker, league 74598, or a file outside the allowlist
 // It deploys nothing. Publishing is `wrangler pages deploy <outDir> --project-name ups-test-25625 --branch main`.
@@ -24,6 +27,7 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const SITE = path.join(ROOT, "site");
+const M2 = path.join(ROOT, "apps", "m2");
 export const PROD_WORKER = "https://upsmflproduction.keith-creelman.workers.dev";
 export const PROD_LEAGUE = "74598";
 export const TEST_LEAGUE = "25625";
@@ -95,7 +99,7 @@ export function rewrite(text, worker) {
   return text.split(PROD_WORKER).join(worker).split(PROD_LEAGUE).join(TEST_LEAGUE);
 }
 
-export function build(outDir, worker, site = SITE) {
+export function build(outDir, worker, site = SITE, m2 = site === SITE ? M2 : null) {
   if (!/^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/.test(worker) || worker === PROD_WORKER) throw new Error("--worker must be the test worker's https://<name>.<account>.workers.dev address, not production's");
   if (fs.existsSync(outDir) && fs.readdirSync(outDir).length) throw new Error(`${outDir} is not empty`);
   // Review round 4: a symlink inside site/m (or a shared file that is one) could point at a private file elsewhere and be
@@ -142,6 +146,30 @@ export function build(outDir, worker, site = SITE) {
       fs.writeFileSync(dst, t);
     } else fs.copyFileSync(src, dst);
     out.push(rel.split(path.sep).join("/"));
+  }
+  if (m2 && fs.existsSync(m2)) {
+    // MFL 2.0: every source a plain file or folder whose real path stays inside apps/m2.
+    if (fs.lstatSync(m2).isSymbolicLink()) throw new Error("test site build refused a symlink: apps/m2");
+    const realM2 = fs.realpathSync(m2) + path.sep;
+    const BUILD_STAMP = new Date().toISOString().replace(/[^0-9]/g, "").slice(0, 12);   // cache-buster for /m2/ assets
+    (function walk(rel) {
+      for (const e of fs.readdirSync(path.join(m2, rel), { withFileTypes: true })) {
+        const r = path.join(rel, e.name), src = path.join(m2, r);
+        const st = fs.lstatSync(src);
+        if (st.isSymbolicLink()) throw new Error(`test site build refused a symlink: apps/m2/${r.split(path.sep).join("/")}`);
+        if (st.isDirectory()) { walk(r); continue; }
+        if (!st.isFile()) throw new Error(`test site build refused a non-regular file: apps/m2/${r.split(path.sep).join("/")}`);
+        if (!fs.realpathSync(src).startsWith(realM2)) throw new Error(`test site build refused a source outside apps/m2: ${r}`);
+        const dst = path.join(outDir, "m2", r);
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
+        if (/\.(js|html|json|css|webmanifest)$/.test(r)) {
+          let t = rewrite(fs.readFileSync(src, "utf8"), worker).split("__UPS_TEST_WORKER__").join(worker).split("__UPS_TEST_LEAGUE__").join(TEST_LEAGUE).split("__UPS_BUILD__").join(BUILD_STAMP);
+          if (/\.html$/.test(r) && /<script(?![^>]*\bsrc=)[^>]*>/i.test(t)) throw new Error(`apps/m2/${r} has an inline script; the test site's policy allows only the /m/ boot script`);
+          fs.writeFileSync(dst, t);
+        } else fs.copyFileSync(src, dst);
+        out.push(["m2", ...r.split(path.sep)].join("/"));
+      }
+    })("");
   }
   fs.writeFileSync(path.join(outDir, "m", IDEMPOTENCY_SHIM), idempotencyShim(worker));
   out.push(`m/${IDEMPOTENCY_SHIM}`);
