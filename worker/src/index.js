@@ -55502,6 +55502,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // ?drop_date=YYYY-MM-DD and ?acquisition_week=W drive the per-week math.
           const pvDropIso = url.searchParams.get("drop_date") || new Date().toISOString();
           const pvAcqWhatIf = url.searchParams.get("acquisition_week");
+          // Keith 2026-11-18 (release dependency for any real Drop in the 2027 app, #1537): the preview names the cap season a drop's
+          // penalty is charged to, from the SAME rule and inputs the drop tracker posts with (_dropPenaltyCapSeason fed by
+          // _faaAuctionStartUnix(env, season), the scan's capYear). Fail-closed like the rule: ok:false (with its reason) when the season,
+          // the drop time or the auction start can't be resolved; the app then holds the drop rather than guess a year.
+          const pvAuctionStart = await _faaAuctionStartUnix(env, pvSeason);
+          const pvCharge = _dropPenaltyCapSeason({
+            season: Number(pvSeason) || 0, dropUnix: Math.floor(Date.parse(pvDropIso) / 1000) || 0, auctionStartUnix: pvAuctionStart && pvAuctionStart.unix,
+          });
+          const pvChargeOut = { ok: !!pvCharge.ok, applies_to_season: pvCharge.ok ? pvCharge.applies_to_season : null, bucket: pvCharge.bucket || "", reason: pvCharge.reason || "" };
           // Real Week-1 boundary from MFL's schedule (2026 opens Wednesday, so
           // the "Thursday after Labor Day" derivation is a day late). null →
           // _parseContractData falls back to that derivation.
@@ -55602,7 +55611,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,
               week_authority_source: pvWeekAuthority.source, acquisition_week_source: pvAcqSource,
               ...(pvAcqError ? { acquisition_week_error: pvAcqError } : {}), calculated_at: new Date().toISOString(),
-              ...penaltyFor(wf) });
+              charge: pvChargeOut, ...penaltyFor(wf) });
           }
 
           // BATCH
@@ -55620,7 +55629,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,
             week_authority_source: pvWeekAuthority.source, acquisition_week_source: pvAcqSource,
             ...(pvAcqError ? { acquisition_week_error: pvAcqError } : {}), calculated_at: new Date().toISOString(),
-            count: Object.keys(players).length, players });
+            charge: pvChargeOut, count: Object.keys(players).length, players });
         } catch (pvErr) {
           return jsonOut(500, { ok: false, error: safeStr(pvErr && pvErr.message ? pvErr.message : String(pvErr)) });
         }
