@@ -218,4 +218,31 @@ test("test site idempotency shim: each write to the test worker gets its own key
   t.throws(() => idempotencyShim("not a url"), /Invalid URL/);
 });
 
+test("test site build --m2: a built 2.0 app is published at /m2/ as built; symlinks, inline scripts, production names and a missing page are refused", () => {
+  const TEST = "https://ups-test.keith-creelman.workers.dev";
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "ups-m2-built-"));
+  const app = (name, extra) => {
+    const d = path.join(root, name); fs.mkdirSync(path.join(d, "lib"), { recursive: true });
+    fs.writeFileSync(path.join(d, "index.html"), '<!doctype html><title>UPS TEST</title><script src="config.js"></script><script src="lib/a.js"></script>');
+    fs.writeFileSync(path.join(d, "config.js"), 'window.C = { workerBase: "' + TEST + '", leagueId: "25625" };');
+    fs.writeFileSync(path.join(d, "lib", "a.js"), "var a = 1;");
+    fs.writeFileSync(path.join(d, "_headers"), "/*\n  X-Test: 1\n");
+    if (extra) extra(d);
+    return d;
+  };
+  const outDir = () => fs.mkdtempSync(path.join(os.tmpdir(), "ups-m2-out-"));
+  const o = outDir();
+  buildTestSite(o, TEST, undefined, app("ok"));
+  t.ok(fs.existsSync(path.join(o, "m2", "index.html")) && fs.existsSync(path.join(o, "m2", "lib", "a.js")), "the app is published under /m2/");
+  t.ok(!fs.existsSync(path.join(o, "m2", "_headers")), "its _headers file is left out (the site's own apply)");
+  t.equal(fs.readFileSync(path.join(o, "m2", "config.js"), "utf8"), fs.readFileSync(path.join(root, "ok", "config.js"), "utf8"), "copied as built, byte for byte");
+  t.throws(() => buildTestSite(outDir(), TEST, undefined, app("inline", (d) => fs.writeFileSync(path.join(d, "x.html"), "<script>go()</script>"))), /inline script/);
+  t.throws(() => buildTestSite(outDir(), TEST, undefined, app("link", (d) => { fs.writeFileSync(path.join(root, "secret.json"), "{}"); fs.symlinkSync(path.join(root, "secret.json"), path.join(d, "data.json")); })), /symlink: m2\/data\.json/);
+  t.throws(() => buildTestSite(outDir(), TEST, undefined, app("prod", (d) => fs.writeFileSync(path.join(d, "lib", "b.js"), 'var L = "74598";'))), /names league 74598: m2\/lib\/b\.js/);
+  t.throws(() => buildTestSite(outDir(), TEST, undefined, app("nopage", (d) => fs.rmSync(path.join(d, "index.html")))), /no page/);
+  const lk = path.join(root, "linked"); fs.symlinkSync(path.join(root, "ok"), lk);
+  t.throws(() => buildTestSite(outDir(), TEST, undefined, lk), /plain folder/);
+  fs.rmSync(root, { recursive: true, force: true });
+});
+
 await run("test_env_scripts");

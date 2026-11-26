@@ -14,6 +14,9 @@
 //   - adds m/ups_test_idempotency.js, loaded before every other script: each write the page sends to the test
 //     worker gets its own Idempotency-Key, which the test worker's write ledger requires (the real app never
 //     sends one; this file exists only on the test site)
+//   - with --m2 <dir>: publishes an already-built 2.0 app (apps/mobile2027's Test target, `build.mjs --test`) at /m2/
+//     (Keith 2026-11-26, #1454). Every file must be a plain file inside <dir>, no page may carry an inline script, its
+//     _headers file is left out (the site's own _headers apply), and the output checks below also cover it.
 //   - refuses any symlink in the source, and any source whose real path is outside site/m or the selected shared files
 //   - refuses to finish if any output file still names the production worker, league 74598, or a file outside the allowlist
 // It deploys nothing. Publishing is `wrangler pages deploy <outDir> --project-name ups-test-25625 --branch main`.
@@ -95,7 +98,7 @@ export function rewrite(text, worker) {
   return text.split(PROD_WORKER).join(worker).split(PROD_LEAGUE).join(TEST_LEAGUE);
 }
 
-export function build(outDir, worker, site = SITE) {
+export function build(outDir, worker, site = SITE, m2 = null) {
   if (!/^https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev$/.test(worker) || worker === PROD_WORKER) throw new Error("--worker must be the test worker's https://<name>.<account>.workers.dev address, not production's");
   if (fs.existsSync(outDir) && fs.readdirSync(outDir).length) throw new Error(`${outDir} is not empty`);
   // Review round 4: a symlink inside site/m (or a shared file that is one) could point at a private file elsewhere and be
@@ -143,6 +146,31 @@ export function build(outDir, worker, site = SITE) {
     } else fs.copyFileSync(src, dst);
     out.push(rel.split(path.sep).join("/"));
   }
+  if (m2) {
+    if (fs.lstatSync(m2).isSymbolicLink() || !fs.statSync(m2).isDirectory()) throw new Error("--m2 must be a plain folder (an already-built 2.0 app)");
+    const realM2 = fs.realpathSync(m2) + path.sep;
+    let pages = 0;
+    (function walk(rel) {
+      for (const e of fs.readdirSync(path.join(m2, rel), { withFileTypes: true })) {
+        const r = path.join(rel, e.name), src = path.join(m2, r), show = r.split(path.sep).join("/");
+        const st = fs.lstatSync(src);
+        if (st.isSymbolicLink()) throw new Error(`test site build refused a symlink: m2/${show}`);
+        if (st.isDirectory()) { walk(r); continue; }
+        if (!st.isFile()) throw new Error(`test site build refused a non-regular file: m2/${show}`);
+        if (!fs.realpathSync(src).startsWith(realM2)) throw new Error(`test site build refused a source outside the m2 folder: ${show}`);
+        if (show === "_headers") continue;   // the site's own _headers apply to /m2/
+        if (/\.html$/.test(r)) {
+          pages++;
+          if (/<script(?![^>]*\bsrc\s*=)[^>]*>/i.test(fs.readFileSync(src, "utf8"))) throw new Error(`m2/${show} has an inline script; the site's policy allows only the /m/ boot script`);
+        }
+        const dst = path.join(outDir, "m2", r);
+        fs.mkdirSync(path.dirname(dst), { recursive: true });
+        fs.copyFileSync(src, dst);   // copied as built: no rewriting (the 2.0 build already targets the test worker and 25625)
+        out.push("m2/" + show);
+      }
+    })("");
+    if (!pages) throw new Error("--m2 folder has no page (index.html)");
+  }
   fs.writeFileSync(path.join(outDir, "m", IDEMPOTENCY_SHIM), idempotencyShim(worker));
   out.push(`m/${IDEMPOTENCY_SHIM}`);
   fs.writeFileSync(path.join(outDir, "_headers"), headersFor(worker, inlineScriptHashes(fs.readFileSync(path.join(outDir, "m", "index.html"), "utf8"))));
@@ -168,9 +196,10 @@ export function build(outDir, worker, site = SITE) {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const a = process.argv.slice(2);
-  const i = a.indexOf("--worker");
-  if (a.length !== 3 || i < 0) { console.error("usage: build_test_site.mjs <outDir> --worker https://ups-test.<account>.workers.dev"); process.exit(2); }
-  const worker = a[i + 1], outDir = a.filter((_, j) => j !== i && j !== i + 1)[0];
-  try { const r = build(path.resolve(outDir), worker); console.log(JSON.stringify({ ok: true, ...r })); }
+  const i = a.indexOf("--worker"), k = a.indexOf("--m2");
+  const rest = a.filter((_, j) => j !== i && j !== i + 1 && (k < 0 || (j !== k && j !== k + 1)));
+  if (i < 0 || rest.length !== 1 || (k >= 0 && !a[k + 1])) { console.error("usage: build_test_site.mjs <outDir> --worker https://ups-test.<account>.workers.dev [--m2 <built 2.0 app folder>]"); process.exit(2); }
+  const worker = a[i + 1], outDir = rest[0], m2 = k >= 0 ? path.resolve(a[k + 1]) : null;
+  try { const r = build(path.resolve(outDir), worker, SITE, m2); console.log(JSON.stringify({ ok: true, ...r })); }
   catch (e) { console.error(e.message); process.exit(1); }
 }
