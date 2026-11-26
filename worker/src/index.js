@@ -19809,13 +19809,17 @@ export default {
         }
       }
 
+      // The league for the Pts Agst engine's routes: the request's L when it is a league id, else 74598 (was always 74598).
+      const _fpaLeague = () => (/^\d{4,6}$/.test(L) ? L : "74598");
       // ── GET /api/lineup-matchups?YEAR=&W=[&last=N] — Lineup matchup info ──
       // Mobile Lineup + Players picker and desktop Game Day. The defense numbers come
       // from the Pts Agst engine (./fpa_engine.js) through ./lineup_matchups.js, so
       // they match the Pts Agst board (review #1249).
       if (path === "/api/lineup-matchups" && request.method === "GET") {
         try {
-          return await handleLineupMatchups(request, env, ctx, { jsonOut, lid: "74598" });
+          // #1475 (Keith 2026-11-26): the league the request names (the test deployment pins L=25625); 74598 when none is
+          // given, so production, which never sends another league here, reads exactly what it did before.
+          return await handleLineupMatchups(request, env, ctx, { jsonOut, lid: _fpaLeague() });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -19832,7 +19836,7 @@ export default {
       // live weeks, current-team attribution, failures dropped, nflverse games.csv).
       if (path === "/api/fantasy-sos" && request.method === "GET") {
         try {
-          return await handleFpaRequest(request, env, ctx, { jsonOut, lid: "74598" });
+          return await handleFpaRequest(request, env, ctx, { jsonOut, lid: _fpaLeague() });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -19849,7 +19853,7 @@ export default {
       // /api/fantasy-sos (Stats → Sched) use it too.
       if ((path === "/api/fantasy-points-against" || path === "/api/fpa-detail") && request.method === "GET") {
         try {
-          return await handleFpaRequest(request, env, ctx, { jsonOut, lid: "74598" });
+          return await handleFpaRequest(request, env, ctx, { jsonOut, lid: _fpaLeague() });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
