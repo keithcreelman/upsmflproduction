@@ -192,9 +192,9 @@ wrangler.test.toml   Total Upload 3990.40 KiB / gzip 923.96 KiB   (compatibility
 | Item | Value |
 |---|---|
 | Test Worker | `ups-test`, https://ups-test.keith-creelman.workers.dev, version `345f4b2d-5a0f-4ad4-aa74-3f574d451146` (2026-11-26 12:32Z), from commit `33b0e5e3` with `wrangler.test.toml` (adds the CORS preflight that lets the test site send `Idempotency-Key`); the checks below ran on `7de460d1` (`626fccc6`) |
-| Test D1 | `ups-test-db`, id `45ae1b65-f2c8-41c5-9e8c-20d4fa2b7340`; loaded with `test_env/ups_test_db_setup.sql` only (marker `test / 25625`, ledger, locks, egress log) |
-| Test website | Pages project `ups-test-25625`, https://ups-test-25625.pages.dev/m/, built by `scripts/test_env/build_test_site.mjs` from the mobile app at `84d8a6a3` (main) |
-| Secrets | `TEST_ADMIN_API_KEY` only (generated; kept outside the repo). `MFLTEST_COMMISHCOOKIE` is **not set** |
+| Test D1 | `ups-test-db`, id `45ae1b65-f2c8-41c5-9e8c-20d4fa2b7340`; `test_env/ups_test_db_setup.sql` (marker `test / 25625`, ledger, locks, egress log), plus on 2026-11-26 the app's table STRUCTURE copied from production's `sqlite_master` with no rows (Keith's "A2"; 219 tables, 11 views, 332 indexes, 1 trigger). Its `d1_migrations` tracker is empty: never run `wrangler d1 migrations apply` on it |
+| Test website | Pages project `ups-test-25625`, https://ups-test-25625.pages.dev/m/, built by `scripts/test_env/build_test_site.mjs` from the mobile app at `84d8a6a3` (main); redeployed 2026-11-26 with the build's `m/ups_test_idempotency.js` (only `index.html` and that file changed) |
+| Secrets | `TEST_ADMIN_API_KEY` (generated; kept outside the repo) and `MFLTEST_COMMISHCOOKIE` (set by Keith 2026-11-25: a dedicated MFL account, co-commissioner of 25625, not in 74598; `/verify` commissioner check ok) |
 | Schedules | none (Cloudflare API); production keeps its five |
 
 - **Current behavior: fail-closed.** With no test MFL session, every request (status included) gets
