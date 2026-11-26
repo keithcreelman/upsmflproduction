@@ -2,11 +2,32 @@
   "meta": {
     "schema_version": 1,
     "season": 2026,
-    "updated_at": "2026-11-24T14:05:16.232Z",
-    "row_count": 5,
+    "updated_at": "2026-11-26T00:05:08.776Z",
+    "row_count": 6,
     "source": "worker-deadline-reminders"
   },
   "reminders": [
+    {
+      "season": 2026,
+      "league_id": "74598",
+      "reminder_key": "2026|trade_deadline|1_hour|primary|2026-11-25",
+      "event_key": "trade_deadline",
+      "event_title": "Trade Deadline",
+      "deadline_date_et": "2026-11-25",
+      "deadline_time_et": "20:00",
+      "trigger_date_et": "2026-11-25",
+      "trigger_time_et": "19:00",
+      "reminder_code": "1_hour",
+      "reminder_label": "1 Hour",
+      "delivery_target": "primary",
+      "test_flag": 0,
+      "discord_channel_id": "1057657441011109898",
+      "discord_message_id": "1575301346574467073",
+      "gif_query": "sports fan losing his mind",
+      "gif_url": "https://media1.giphy.com/media/ioDK8CvwIdC5BuNPIp/giphy.gif?cid=e4832a7abhgqjk18o7t7ifda2643jzdsjsg2vl7ks63sf30v&ep=v1_gifs_search&rid=giphy.gif&ct=g",
+      "posted_at_utc": "2026-11-26T00:05:08.776Z",
+      "source": "worker-deadline-reminders"
+    },
     {
       "season": 2026,
       "league_id": "74598",
