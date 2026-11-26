@@ -297,9 +297,10 @@
     var me = S.me || {}, own = !!(me.signedIn && me.fid === t.id), last = S.submit && S.submit.fid === t.id ? S.submit : null;
     var res = !last ? "" : last.state === "sending" ? '<div class="card planc" role="status"><b>Submitting…</b></div>' :
       '<div class="card ' + (last.state === "confirmed" ? "okc" : "warnc") + '" role="status"><b>' + esc(last.title) + '</b><div class="ex">' + esc(last.text) + "</div></div>";
-    if (!D) return res;
+    // F10: another team, or nobody signed in, has no planner. Signed out says once how to sign in; another team says nothing.
+    if (!D) return res + (S.me && S.me.state !== "loading" && !me.signedIn && S.view === "lineup" ? '<div class="ex pad plh">Sign in to change your lineup: open the UPS TEST app link on your league’s MFL home page.</div>' : "");
     if (!D.ok) return res + '<div class="ex pad">Lineup changes are off for this team: ' + esc(D.why) + ".</div>";
-    var who = !S.me || S.me.state === "loading" ? "Checking your sign-in…" : !me.signedIn ? "Sign in to submit: open the UPS TEST app link on your league’s MFL home page." : own ? "" : "You can submit only your own team’s lineup.";
+    var who = own ? "" : "You can submit only your own team’s lineup.";
     if (!D.planned) return res + '<div class="ex pad plh">' + esc(own ? "Tap a badge to change your lineup." : who) + "</div>";
     var v = PL.validate(S, t, D.draft), sending = !!(last && last.state === "sending"), can = own && !v.problems && !sending;
     return res + '<div class="card planc" role="status"><div class="plt"><b>' + plural(D.changed.length, "change", "changes") + '</b><span class="plb"><button class="btn" data-act="planreset">Undo</button>' +
@@ -555,7 +556,10 @@
     var inj = R.injuryNote(S);
     // R12: the Lineup planner (current week, Lineup view only). With a plan, the slots, the count, the warnings and the bench are drawn from the plan
     // through the same code that draws the recorded lineup; without one, exactly the recorded lineup. Byes always uses the recorded lineup.
-    var D = S.view === "lineup" && lineup && lineup.state === "ok" ? PL.draftOf(S, t) : null, planOn = !!(D && D.ok);
+    // F10 (Keith 2026-11-26): in the Test target only the signed-in owner's own team can be changed; any other team's lineup is shown as it is,
+    // with no planner controls at all (a tap on its badges does nothing).
+    var canPlan = !S.submitMode || !!(S.me && S.me.signedIn && S.me.fid === t.id);
+    var D = canPlan && S.view === "lineup" && lineup && lineup.state === "ok" ? PL.draftOf(S, t) : null, planOn = !!(D && D.ok);
     var shown = D && D.planned ? PL.lineupOf(S, t, D.draft) : lineup;
     if (lineup && lineup.state === "ok") {
       var unsub = noSubmission(lineup);   // F1: MFL holds no lineup for this week

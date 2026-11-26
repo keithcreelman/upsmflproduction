@@ -503,14 +503,18 @@
   }
   // ---- R12: the Lineup planner (plan only: nothing here reads, writes, stores or sends anything) ----
   function curTeam() { return S.model ? S.model.teams.filter(function (x) { return x.id === S.teamId; })[0] || S.model.teams[0] : null; }
+  // F10: in the Test target only the signed-in owner's own team can be changed (views draw no control for any other; this refuses one anyway)
+  function mayPlan(t) { return !S.submitMode || !!(t && S.me && S.me.signedIn && S.me.fid === t.id); }
   function planOpen(slotId) {
     var t = curTeam(), P = U.planner;
+    if (!mayPlan(t)) return;
     if (!t || !P || !P.slotById(slotId) || S.view !== "lineup" || S.wk != null) return;   // current week, Lineup view only
     S.planPick = slotId; S.sheet = "plan"; render();
   }
   // F4 (Keith 2026-11-26): a bench player's badge opens the slots he can fill; choosing one is the same move as choosing him from that slot.
   function planOpenFor(pid) {
     var t = curTeam(), P = U.planner;
+    if (!mayPlan(t)) return;
     if (!t || !P || S.view !== "lineup" || S.wk != null || !S.model || !S.model.byId[String(pid)]) return;
     S.planFor = String(pid); S.sheet = "planfor"; render();
   }
@@ -524,7 +528,12 @@
   function checkMe() {
     if (!S.submitMode) return;
     S.me = { state: "loading" };
-    U.submit.whoami(cfg).then(function (m) { S.me = m; render(true); });
+    U.submit.whoami(cfg).then(function (m) {
+      S.me = m;
+      // F11 (Keith 2026-11-26): signed in, the app opens on the owner's own team first
+      if (m.signedIn && S.model && S.model.teams.some(function (x) { return x.id === m.fid; }) && S.teamId !== m.fid) { S.teamId = m.fid; setPref("team", m.fid); S.open = {}; pfOnTeam(); }
+      render(true);
+    });
   }
   function ownPlan() {
     var P = U.planner;
@@ -566,7 +575,7 @@
   // F9 (Keith 2026-11-26): bench the slot's starter with no replacement. Only when the planner lists the slot as open to changes (not locked).
   function planBench() {
     var t = curTeam(), P = U.planner, slotId = S.planPick;
-    if (!t || !P || !slotId) return;
+    if (!t || !P || !slotId || !mayPlan(t)) return;
     var D = P.draftOf(S, t); if (!D.ok || !D.draft[slotId]) return;
     var O = P.options(S, t, D.draft, slotId); if (O.blocked) return;           // a locked starter can't be moved
     var next = {}; Object.keys(D.draft).forEach(function (k) { if (k !== slotId && D.draft[k]) next[k] = D.draft[k]; });
@@ -576,7 +585,7 @@
   }
   function planPick(pid) {
     var t = curTeam(), P = U.planner, slotId = S.planPick;
-    if (!t || !P || !slotId) return;
+    if (!t || !P || !slotId || !mayPlan(t)) return;
     var D = P.draftOf(S, t); if (!D.ok) return;
     var O = P.options(S, t, D.draft, slotId), c = O.blocked ? null : O.choices.filter(function (x) { return String(x.p.id) === String(pid) && x.ok; })[0];
     if (!c) return;                                                         // only a listed, allowed choice is ever applied

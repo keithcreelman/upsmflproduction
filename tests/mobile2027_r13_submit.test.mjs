@@ -151,11 +151,26 @@ test("views: a change on your own team shows one 'Submit Lineup' with Undo; no '
   S.sheet = "plan"; S.planPick = slot.id; t.doesNotMatch(text(V.planSheet(S)), /Plan only/);
 });
 
-test("views: Submit is offered only to the signed-in owner, and never for a lineup with a real problem", async () => {
+test("views F10: only the signed-in owner's own team can be changed; another team, or nobody signed in, has no planner controls at all", async () => {
+  // signed out: no badge is a control, no Submit, one line on how to sign in
   const S = await own(); S.me = { signedIn: false, why: "Not signed in" }; planOne(S);
-  let h = screen(V.app(S)); t.match(h, /data-act="submit" disabled/); t.match(text(h), /Sign in to submit/);
-  S.me = { signedIn: true, fid: "0001" }; h = screen(V.app(S)); t.match(h, /data-act="submit" disabled/); t.match(text(h), /You can submit only your own team’s lineup\./);
-  // a bye-week starter is a real problem: not sendable
+  let h = screen(V.app(S));
+  t.doesNotMatch(h, /data-act="(plan|planfor|submit|planreset)"/, "signed out: nothing to tap"); t.match(text(h), /Sign in to change your lineup/);
+  // another team: no controls and no message
+  S.me = { signedIn: true, fid: "0001" }; h = screen(V.app(S));
+  t.doesNotMatch(h, /data-act="(plan|planfor|submit|planreset)"/, "another team: nothing to tap"); t.doesNotMatch(text(h), /Sign in|own team/);
+  // his own team: the planner is there
+  S.me = { signedIn: true, fid: "0006" }; h = screen(V.app(S));
+  t.match(h, /data-act="plan" data-v="/); t.match(h, /data-act="submit"/);
+  // app.js refuses a planner action on any other team even if one were drawn
+  t.match(appJs, /function mayPlan\(t\) \{ return !S\.submitMode \|\| !!\(t && S\.me && S\.me\.signedIn && S\.me\.fid === t\.id\); \}/);
+  ["planOpen(slotId)", "planOpenFor(pid)"].forEach((f) => t.match(appJs, new RegExp("function " + f.replace(/[()]/g, "\\$&") + " \\{\\s*var t = curTeam\\(\\), P = U\\.planner;\\s*if \\(!mayPlan\\(t\\)\\) return;")));
+  t.match(appJs, /if \(!t \|\| !P \|\| !slotId \|\| !mayPlan\(t\)\) return;/);
+  // F11: signed in, the app opens on his team
+  t.match(appJs, /if \(m\.signedIn && S\.model && S\.model\.teams\.some\(function \(x\) \{ return x\.id === m\.fid; \}\) && S\.teamId !== m\.fid\) \{ S\.teamId = m\.fid;/);
+});
+
+test("views: a lineup with a real problem can't be sent; an EMPTY lineup can (Keith 2026-11-26: not against the rules)", async () => {
   const S2 = await own(), tm = teamOf(S2), Dr = PL.draftOf(S2, tm), wk = S2.model.week;
   const byeP = tm.players.find((p) => p.status === "active" && R.onBye(p, wk) && !PL.slotOfPid(Dr.draft, String(p.id)));
   if (byeP) {
@@ -163,7 +178,11 @@ test("views: Submit is offered only to the signed-in owner, and never for a line
     S2.plans[tm.id] = { week: wk, base: PL.sig(Dr.base), draft: d };
     const h2 = screen(V.app(S2)); t.match(h2, /data-act="submit" disabled/); t.match(text(h2), /on a bye/);
   }
-  t.equal(V.submitBar(Object.assign({}, S, { submit: { state: "sending", fid: "0006" }, me: { signedIn: true, fid: "0006" } }), teamOf(S), PL.draftOf(S, teamOf(S))).includes('data-act="submit" disabled'), true, "not twice while sending");
+  S2.plans[tm.id] = { week: wk, base: PL.sig(Dr.base), draft: {} };   // everyone benched
+  const h3 = screen(V.app(S2)); t.match(h3, /<button class="btn pri" data-act="submit">Submit Lineup<\/button>/, "an empty lineup is sendable"); t.match(text(h3), /Short lineup: 0 of 18 starters/);
+  t.equal(PL.validate(S2, tm, {}).problems, 0);
+  const sending = Object.assign({}, S2, { submit: { state: "sending", fid: tm.id } });
+  t.ok(V.submitBar(sending, tm, PL.draftOf(sending, tm)).includes('data-act="submit" disabled'), "not twice while sending");
 });
 
 test("views: the submit result stays on screen; the leave sheet offers Submit, Discard and Keep editing; the Preview build is unchanged", async () => {
