@@ -29898,19 +29898,29 @@ const mflToSleeper = {};
           : baseImportUrl;
 
         let targetImportUrl = probeUrl;
+        // Keith 2026-11-26 ("Go fix probe"): found with a READ (TYPE=league&L=…), never with the write itself; see
+        // resolveMflImportTargetUrlForCookie. The import then goes to the league's server once, with the same query as before.
+        const probeL = safeStr(probeQs.get("L"));
         try {
-          const probeRes = await fetch(probeUrl, {
-            method: "GET",
-            redirect: "manual",
-            headers: {
-              Cookie: cookieHeader,
-              "User-Agent": "upsmflproduction-worker",
-            },
-            cf: { cacheTtl: 0, cacheEverything: false },
-          });
-          const loc = probeRes.headers.get("Location") || probeRes.headers.get("location");
-          if (probeRes.status >= 300 && probeRes.status < 400 && loc) {
-            targetImportUrl = new URL(loc, probeUrl).toString();
+          if (probeL) {
+            const readUrl = `https://api.myfantasyleague.com/${encodeURIComponent(String(season || YEAR || new Date().getUTCFullYear()))}/export?TYPE=league&L=${encodeURIComponent(probeL)}&JSON=1`;
+            const probeRes = await fetch(readUrl, {
+              method: "GET",
+              redirect: "manual",
+              headers: {
+                Cookie: cookieHeader,
+                "User-Agent": "upsmflproduction-worker",
+              },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            const loc = probeRes.headers.get("Location") || probeRes.headers.get("location");
+            if (probeRes.status >= 300 && probeRes.status < 400 && loc) {
+              const host = new URL(loc, readUrl);
+              const t = new URL(baseImportUrl);
+              t.protocol = host.protocol; t.host = host.host;
+              t.search = probeQs.toString();
+              targetImportUrl = t.toString();
+            }
           }
         } catch (_) {
           // Fall back to default API shard URL.
@@ -30038,19 +30048,32 @@ const mflToSleeper = {};
         }
         const probeUrl = probeQs.toString() ? `${baseImportUrl}?${probeQs.toString()}` : baseImportUrl;
         let targetImportUrl = probeUrl;
+        // Keith 2026-11-26 ("Go fix probe"; #1475/#1537): the league's home server is found with a READ, never with the write itself.
+        // This probe used to be the full import as a GET (e.g. TYPE=ir&DEACTIVATE=…), so every owner write reached MFL twice: once at
+        // api.* (answered with a 302 today, so nothing happened) and once at the league's server. Had api.* ever processed it, the write
+        // would have been applied twice. Now: a league read on api.* (TYPE=league&L=…), whose 302 names the same server; the import goes
+        // there once, with the same query it always carried. No L, or no redirect: the api.* import URL, as before.
+        const probeL = safeStr(probeQs.get("L"));
         try {
-          const probeRes = await fetch(probeUrl, {
-            method: "GET",
-            redirect: "manual",
-            headers: {
-              Cookie: cookieHeaderOverride,
-              "User-Agent": "upsmflproduction-worker",
-            },
-            cf: { cacheTtl: 0, cacheEverything: false },
-          });
-          const loc = probeRes.headers.get("Location") || probeRes.headers.get("location");
-          if (probeRes.status >= 300 && probeRes.status < 400 && loc) {
-            targetImportUrl = new URL(loc, probeUrl).toString();
+          if (probeL) {
+            const readUrl = `https://api.myfantasyleague.com/${encodeURIComponent(String(season || YEAR || new Date().getUTCFullYear()))}/export?TYPE=league&L=${encodeURIComponent(probeL)}&JSON=1`;
+            const probeRes = await fetch(readUrl, {
+              method: "GET",
+              redirect: "manual",
+              headers: {
+                Cookie: cookieHeaderOverride,
+                "User-Agent": "upsmflproduction-worker",
+              },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            const loc = probeRes.headers.get("Location") || probeRes.headers.get("location");
+            if (probeRes.status >= 300 && probeRes.status < 400 && loc) {
+              const host = new URL(loc, readUrl);
+              const t = new URL(baseImportUrl);
+              t.protocol = host.protocol; t.host = host.host;
+              t.search = probeQs.toString();
+              targetImportUrl = t.toString();
+            }
           }
         } catch (_) {}
         return targetImportUrl;
