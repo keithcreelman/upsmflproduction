@@ -157,8 +157,9 @@
     }).join("");
     return h || '<div class="ex">No players or picks.</div>';
   }
-  function capRow(label, val, max, act) {
-    if (!max) return '<div class="ex">' + esc(label) + ": add a non-taxi player first.</div>";
+  function capRow(label, val, max, act, inv, ids) {
+    var sent = ((inv && inv.players) || []).some(function (p) { return ids["P_" + p.player_id] && !p.taxi; });
+    if (!max) return '<div class="ex">' + esc(label) + ": " + (sent ? "none (half the salary sent is under $1,000)." : "add a non-taxi player first.") + "</div>";
     return '<div class="trcap"><span class="in">' + esc(label) + " <b>" + money(val * 1000) + "</b><small>Max " + money(max * 1000) + '</small></span><button class="btn" data-act="' + act + '" data-v="-1" aria-label="Less"' + (val <= 0 ? " disabled" : "") + '>−</button><button class="btn" data-act="' + act + '" data-v="1" aria-label="More"' + (val >= max ? " disabled" : "") + ">+</button></div>";
   }
 
@@ -192,8 +193,8 @@
     }).join("") + "</div>";
     var B = build(S, me), mine = invOf(S, me), theirs = invOf(S, to), k = S.tr.chk;
     var h = '<div class="card trh2"><span class="in">With <b>' + esc(teamName(S, to)) + '</b></span><button class="btn" data-act="trto" data-v="">Change</button></div>';
-    h += '<div class="card"><h2>You give · ' + B.give.length + "</h2>" + assetRows(S, Object.assign({ fid: me }, mine), d.give, "trgive") + capRow("Cap money you give", B.capGive, maxCapK(mine, d.give), "trcapg") + "</div>";
-    h += '<div class="card"><h2>You get · ' + B.get.length + "</h2>" + assetRows(S, Object.assign({ fid: to }, theirs), d.get, "trget") + capRow("Cap money you get", B.capGet, maxCapK(theirs, d.get), "trcapt") + "</div>";
+    h += '<div class="card"><h2>You give · ' + B.give.length + "</h2>" + assetRows(S, Object.assign({ fid: me }, mine), d.give, "trgive") + capRow("Cap money you give", B.capGive, maxCapK(mine, d.give), "trcapg", mine, d.give) + "</div>";
+    h += '<div class="card"><h2>You get · ' + B.get.length + "</h2>" + assetRows(S, Object.assign({ fid: to }, theirs), d.get, "trget") + capRow("Cap money you get", B.capGet, maxCapK(theirs, d.get), "trcapt", theirs, d.get) + "</div>";
     h += '<div class="card"><label class="lbl" for="trnote">Note (optional)</label><textarea id="trnote" class="pfq trn" maxlength="2000" rows="2">' + esc(d.note || "") + "</textarea></div>";
     var fresh = k.sig === B.sig;
     h += '<div class="card"><h2>Check</h2>' + (!B.ready ? '<div class="ex">Pick at least one player or pick on each side.</div>' :
@@ -268,7 +269,7 @@
       var capOk = cap === "ok" || (cap === "blocked" && !!ack && !!ack.satisfied);
       var lcOk = !b.compliance.loaded_contracts || b.compliance.loaded_contracts.executable === true;
       return { state: "ok", data: { c: b.compliance, capAck: ack, canAccept: capOk && lcOk,
-        message: !lcOk ? "Over the loaded-contract limit." : cap === "blocked" && !capOk ? "Over the salary cap." : cap === "unavailable" ? "The salary cap couldn’t be checked." : "" } };
+        message: !lcOk ? (b.compliance.loaded_contracts.status === "blocked" ? "Over the loaded-contract limit." : "Loaded contracts couldn’t be confirmed.") : cap === "blocked" && !capOk ? "Over the salary cap." : cap === "unavailable" ? "The salary cap couldn’t be checked." : "" } };
     }
     return { state: "error", why: why(r, "Couldn’t check this trade.") };
   }

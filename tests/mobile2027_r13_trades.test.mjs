@@ -135,6 +135,12 @@ test("the builder: the classic app's offer body; cap money held to half the non-
   t.match(text(html), /Round 6 can’t be traded/); t.match(text(html), /Forfeited — lineup penalty/);
   t.match(text(html), /Cap money you give \$10,000 Max \$10,000/); t.match(html, /data-act="trsend" disabled/, "not checked yet: Send off");
   t.match(html, /data-act="trcheck">Check trade/);
+  S.tr.d.give = { ["P_" + mine[2].player_id]: true }; S.tr.d.capGive = 0;   // $3,000 sent: half is $1,500, so $1K max
+  t.match(text(V.app(S)), /Cap money you give \$0 Max \$1,000/);
+  S.tr.d.give = { ["P_" + mine[3].player_id]: true };   // only a taxi player
+  t.match(text(V.app(S)), /Cap money you give: add a non-taxi player first\./);
+  S.tr.inv[me].players[2].salary = 1000; S.tr.d.give = { ["P_" + mine[2].player_id]: true };
+  t.match(text(V.app(S)), /Cap money you give: none \(half the salary sent is under \$1,000\)\./);
 });
 
 test("Send: only after a check of THIS offer with the loaded-contract limit met, before the lock", async () => {
@@ -175,7 +181,8 @@ test("the accept review: the worker decides; Accept only when the cap is fine (o
   const over = JSON.parse(JSON.stringify(ok)); over.body.compliance.cap.status = "blocked"; over.body.cap_ack = { satisfied: false, per_franchise: [{ franchise_id: "0006", amount_over: 3000, status: "missing" }] };
   t.equal(T.review(over).data.canAccept, false); t.equal(T.review(over).data.message, "Over the salary cap.");
   over.body.cap_ack.satisfied = true; t.equal(T.review(over).data.canAccept, true, "an acknowledged overage");
-  const lc = JSON.parse(JSON.stringify(ok)); lc.body.compliance.loaded_contracts.executable = false; t.equal(T.review(lc).data.canAccept, false);
+  const lc = JSON.parse(JSON.stringify(ok)); lc.body.compliance.loaded_contracts.executable = false; t.equal(T.review(lc).data.canAccept, false); t.equal(T.review(lc).data.message, "Loaded contracts couldn’t be confirmed.");
+  lc.body.compliance.loaded_contracts.status = "blocked"; t.equal(T.review(lc).data.message, "Over the loaded-contract limit.");
   t.deepEqual(T.review({ ok: false, status: 409, body: { ok: false, error: "That trade is no longer pending." } }), { state: "error", why: "That trade is no longer pending." });
   const S = await fresh("0006");
   S.tr.lock = { state: "ok", data: LOCK_UP };
