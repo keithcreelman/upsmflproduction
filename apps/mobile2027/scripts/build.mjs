@@ -27,8 +27,42 @@ export const SRC = path.join(ROOT, "src");
 export const REPO = path.resolve(ROOT, "..", "..");
 export const LOCK = path.join(ROOT, "shared.lock.json");
 
-// The one build mode that exists. A Test build (write modules, league 25625) is a later, separately approved stage.
+// The Preview build mode (published to the beta preview by deploy_preview.mjs, which accepts only this mode).
 export const MODE = "preview";
+// The Test target (Keith 2026-11-26, recorded on #1454: the isolated test environment of #1475 is the 2.0 test environment and
+// 2.0 builds publish on its test website at /m2/). The SAME source and the SAME scans, with exactly four edits made by the build:
+// config.js names the TEST worker, league 25625, live data and mode "test"; the page's content policy lets it talk to the TEST
+// worker only; the recorded snapshot (production data) is left out. Each edit must match exactly once, and the result must not
+// name the production league or worker anywhere. deploy_preview.mjs refuses this mode, so a test build cannot reach the beta
+// preview; scripts/test_env/build_test_site.mjs (on the test-environment branch) is what publishes it.
+export const TEST_MODE = "test";
+export const PROD_WORKER = "https://upsmflproduction.keith-creelman.workers.dev";
+export const TEST_WORKER = "https://ups-test.keith-creelman.workers.dev";
+export const TEST_LEAGUE = "25625";
+export const TEST_OMIT = ["recorded_data.js"];
+export const TEST_EDITS = {
+  "config.js": [
+    ['workerBase: "' + PROD_WORKER + '"', 'workerBase: "' + TEST_WORKER + '"'],
+    ['leagueId: "74598"', 'leagueId: "' + TEST_LEAGUE + '"'],
+    ['\n  data: "recorded",', '\n  data: "live",'],
+    ['mode: "preview"', 'mode: "' + TEST_MODE + '"'],
+  ],
+  "index.html": [
+    ["connect-src " + PROD_WORKER + ";", "connect-src " + TEST_WORKER + ";"],
+    ['<script src="recorded_data.js"></script>\n', ""],
+    ["<title>UPS 2027 Preview 0</title>", "<title>UPS TEST · UPS 2027</title>"],
+  ],
+};
+export function applyTestEdits(name, text) {
+  const edits = TEST_EDITS[name] || [];
+  let out = text; const problems = [];
+  for (const [from, to] of edits) {
+    const n = out.split(from).length - 1;
+    if (n !== 1) { problems.push(name + ": test edit expected exactly one \"" + from.slice(0, 50) + "\", found " + n); continue; }
+    out = out.split(from).join(to);
+  }
+  return { text: out, problems };
+}
 
 export const FILES = [
   "index.html", "styles.css", "team-colors.css", "config.js", "recorded_data.js", "app.js", "_headers",
@@ -162,10 +196,12 @@ export function stripComments(text) {
 
 // The content policy of the page, exactly as reviewed. A different policy stops the build.
 export const EXPECTED_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src https://a.espncdn.com https://*.myfantasyleague.com data:; connect-src https://upsmflproduction.keith-creelman.workers.dev; base-uri 'none'; form-action 'none'";
+// The Test target's policy: identical except that the page may talk only to the TEST worker.
+export const TEST_CSP = EXPECTED_CSP.replace("connect-src " + PROD_WORKER + ";", "connect-src " + TEST_WORKER + ";");
 // The response headers the page may set (names, and the one content-policy value), exactly as reviewed.
 export const ALLOWED_HEADERS = ["cache-control", "x-content-type-options", "referrer-policy", "x-robots-tag", "x-frame-options", "content-security-policy", "permissions-policy"];
 
-function scanHtml(name, text) {
+function scanHtml(name, text, expectedCsp = EXPECTED_CSP) {
   const hits = []; const h = text.replace(/<!--[\s\S]*?-->/g, "");
   const bad = [
     [/<form\b/i, "a form"], [/<iframe\b/i, "an iframe"], [/<(?:object|embed|applet|frame|frameset)\b/i, "an embedded object"],
@@ -178,7 +214,7 @@ function scanHtml(name, text) {
   for (const [re, what] of bad) if (re.test(h)) hits.push(`${name}: page: ${what}`);
   const csp = /http-equiv\s*=\s*"Content-Security-Policy"\s+content\s*=\s*"([^"]*)"/i.exec(h);
   if (!csp) hits.push(`${name}: page: no content policy`);
-  else if (csp[1] !== EXPECTED_CSP) hits.push(`${name}: page: the content policy is not the reviewed one`);
+  else if (csp[1] !== expectedCsp) hits.push(`${name}: page: the content policy is not the reviewed one`);
   return hits;
 }
 function scanCss(name, text) {
@@ -197,10 +233,10 @@ function scanHeaders(name, text) {
   return hits;
 }
 
-export function scanWriteCode(name, text) {
+export function scanWriteCode(name, text, expectedCsp = EXPECTED_CSP) {
   const hits = [];
   if (/(?:^|[\/_.\-])(?:submit|write|post|put|delete|save|upload|send|xhr|beacon|form|sync)(?:[\/_.\-]|$)/i.test(name)) hits.push(`${name}: the file name says it writes or sends (a Preview file must not)`);
-  if (name.endsWith(".html")) return hits.concat(scanHtml(name, text));
+  if (name.endsWith(".html")) return hits.concat(scanHtml(name, text, expectedCsp));
   if (name.endsWith(".css")) return hits.concat(scanCss(name, text));
   if (name === "_headers") return hits.concat(scanHeaders(name, text));
   if (!name.endsWith(".js")) return hits;
@@ -266,15 +302,24 @@ export function build(outDir, srcDir = SRC, git = gitState, sharedDir = SHARED_D
   try { state = git(); } catch (e) { problems.push("could not read the git state, so the build cannot name its source commit: " + e.message); }
   if (state && !/^[0-9a-f]{40}$/.test(state.commit)) problems.push("the source commit is not a full 40-character git commit id");
   if (state && state.dirty && !opts.dev) problems.push("the git working tree has uncommitted changes: commit them first, so the build names the commit it came from");
+  const test = opts.target === TEST_MODE;
+  if (opts.target && !test) problems.push(`unknown build target "${opts.target}"`);
   const present = listSrc(srcDir);
   for (const f of FILES) if (!present.includes(f)) problems.push(`missing from src/: ${f}`);
   for (const f of present) if (!FILES.includes(f)) problems.push(`not on the allowlist (add it to FILES on purpose, or remove it): ${f}`);
   const files = [];
   for (const f of FILES) {
     if (!present.includes(f)) continue;
-    const buf = fs.readFileSync(path.join(srcDir, f));
-    const text = buf.toString("utf8");
-    problems.push(...scan(f, text), ...scanWriteCode(f, text));
+    if (test && TEST_OMIT.includes(f)) continue;
+    let buf = fs.readFileSync(path.join(srcDir, f));
+    let text = buf.toString("utf8");
+    if (test) {
+      const e = applyTestEdits(f, text);
+      problems.push(...e.problems);
+      text = e.text; buf = Buffer.from(text, "utf8");
+      if (text.includes("74598") || text.includes(PROD_WORKER)) problems.push(`${f}: the test build still names the production league or worker`);
+    }
+    problems.push(...scan(f, text), ...scanWriteCode(f, text, test ? TEST_CSP : EXPECTED_CSP));
     files.push({ path: f, bytes: buf.length, sha256: sha(buf), buf });
   }
   const lock = readLock(lockPath);
@@ -285,6 +330,7 @@ export function build(outDir, srcDir = SRC, git = gitState, sharedDir = SHARED_D
     const buf = fs.readFileSync(p);
     const text = buf.toString("utf8");
     problems.push(...scan(sharedOut(n), text), ...scanWriteCode(sharedOut(n), text));
+    if (test && (text.includes("74598") || text.includes(PROD_WORKER))) problems.push(`${sharedOut(n)}: the test build would publish a shared module that names the production league or worker`);
     if (lock && lock.files && lock.files[n] !== sha(buf)) problems.push(`shared module changed since it was pinned: site/shared/${n}. Review the change, then run build.mjs --write-lock.`);
     files.push({ path: sharedOut(n), bytes: buf.length, sha256: sha(buf), buf });
   }
@@ -308,10 +354,10 @@ export function build(outDir, srcDir = SRC, git = gitState, sharedDir = SHARED_D
   const cfg = files.find((x) => x.path === "config.js");
   const m = cfg ? /\bmode\s*:\s*"([a-z]+)"/.exec(cfg.buf.toString("utf8")) : null;
   if (!m) problems.push("config.js does not name a build mode");
-  else if (m[1] !== MODE) problems.push(`config.js says mode "${m[1]}", but this build only makes "${MODE}"`);
+  else if (m[1] !== (test ? TEST_MODE : MODE)) problems.push(`config.js says mode "${m[1]}", but this build only makes "${test ? TEST_MODE : MODE}"`);
   if (problems.length) return { ok: false, problems };
   const digest = digestOf(files);
-  const manifest = { build: "preview0", mode: MODE, source: { commit: state.commit }, digest, files: files.map(({ path: p, bytes, sha256 }) => ({ path: p, bytes, sha256 })) };
+  const manifest = { build: test ? "test" : "preview0", mode: test ? TEST_MODE : MODE, source: { commit: state.commit }, digest, files: files.map(({ path: p, bytes, sha256 }) => ({ path: p, bytes, sha256 })) };
   if (opts.dev) manifest.dev = true; // not accepted by deploy_preview.mjs
   fs.rmSync(outDir, { recursive: true, force: true });
   for (const x of files) {
@@ -329,8 +375,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     console.log("Pinned " + SHARED.length + " shared modules in " + path.relative(process.cwd(), LOCK));
   } else {
     const dev = process.argv.includes("--dev");
-    const out = path.resolve(process.argv.slice(2).find((a) => !a.startsWith("--")) || path.join(ROOT, dev ? "dist-dev" : "dist"));
-    const r = build(out, SRC, gitState, SHARED_DIR, LOCK, { dev });
+    const target = process.argv.includes("--test") ? TEST_MODE : undefined;   // --test: the Test target (see TEST_EDITS)
+    const out = path.resolve(process.argv.slice(2).find((a) => !a.startsWith("--")) || path.join(ROOT, target ? (dev ? "dist-test-dev" : "dist-test") : (dev ? "dist-dev" : "dist")));
+    const r = build(out, SRC, gitState, SHARED_DIR, LOCK, { dev, target });
     if (!r.ok) { console.error("Build refused:\n  " + r.problems.join("\n  ")); process.exit(1); }
     console.log(`Built ${r.manifest.files.length} files (mode ${r.manifest.mode}) into ${out}\nsource commit ${r.manifest.source.commit}\nartifact digest ${r.digest}`);
   }
