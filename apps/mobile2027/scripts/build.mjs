@@ -46,7 +46,7 @@ export const TEST_EDITS = {
   "config.js": [
     ['workerBase: "' + PROD_WORKER + '"', 'workerBase: "' + TEST_WORKER + '"'],
     ['leagueId: "74598"', 'leagueId: "' + TEST_LEAGUE + '"'],
-    ['\n  data: "recorded",', '\n  data: "live",'],
+    ['\n  data: "recorded",', '\n  data: "live",\n  projections: "mfl",'],   // F6 (Keith 2026-11-26 "A"): MFL's own weekly projections
     ['mode: "preview"', 'mode: "' + TEST_MODE + '"'],
   ],
   "index.html": [

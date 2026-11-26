@@ -194,7 +194,7 @@
     var mine = gen;
     loader.projections(q.season, q.week, q.ids, !!force).then(function (r) {
       if (mine !== gen || S.sample.on || S.intel.projTag !== tag || !S.intel.proj) return;
-      S.intel.proj[q.week] = r.state === "ok" ? { state: "ok", data: { ok: true, season: r.data.season, week: r.data.week, provider: r.data.provider, projections: r.data.projections }, at: Date.now() }
+      S.intel.proj[q.week] = r.state === "ok" ? { state: "ok", data: { ok: true, season: r.data.season, week: r.data.week, provider: r.data.provider, live: !!r.data.live, projections: r.data.projections }, at: Date.now() }
         : r.state === "absent" ? { state: "absent" } : { state: "error", error: r.error || "" };
       render(true);
     });

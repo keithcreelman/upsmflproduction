@@ -35,6 +35,13 @@
     // and one position group's league-wide season sums through a week (the pool for season stat ranks):
     { path: "/api/position-season-stats", query: ["season", "through", "group"] }
   ];
+  // F6 (Keith 2026-11-26: "A", then "a": always show MFL's number). The Test target ONLY (config projections: "mfl") may also read MFL's weekly
+  // projections export; for every other build the rule above stands (R7, Keith 2026-11-23, decision 5: the stored, kickoff-frozen read only).
+  var MFL_PROJ_TYPES = ["league", "weeklyResults", "playerScores", "players", "nflSchedule", "nflByeWeeks", "projectedScores"];
+  function rulesFor(cfg) {
+    if (!cfg || cfg.projections !== "mfl") return RULES;
+    return RULES.map(function (r) { return r.types ? { path: r.path, query: r.query, types: MFL_PROJ_TYPES } : r; });
+  }
   var SECRET_NAME = /mfl_user_id|apikey|api_key|key|token|session|cookie|password|auth/i;
   // R7: the draft routes' own limits (worker/src/player_projections.js MAX_IDS; worker/src/position_season_stats.js POSITION_GROUPS)
   var PROJECTION_IDS = 80;
@@ -87,6 +94,7 @@
       league: base + "/api/mfl-export?" + q({ TYPE: "league", L: L, YEAR: Y, JSON: 1 }),
       week: base + "/api/current-lineup-week?" + q({ L: L, YEAR: Y }),
       weekly: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "weeklyResults", L: L, YEAR: Y, JSON: 1, W: w }); },
+      mflProjections: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "projectedScores", L: L, YEAR: Y, JSON: 1, W: w }); },
       scores: function (w) { return base + "/api/mfl-export?" + q({ TYPE: "playerScores", L: L, YEAR: Y, JSON: 1, W: w }); },
       players: base + "/api/mfl-export?" + q({ TYPE: "players", L: L, YEAR: Y, JSON: 1 }),
       penalty: base + "/api/cap-penalty/preview?" + q({ L: L, YEAR: Y }),
@@ -105,7 +113,7 @@
     function get(url, label) {
       var entry = { label: label, method: "GET", at: Date.now(), path: "", type: "", status: null, bytes: null, ms: null, refused: "" };
       log.push(entry);
-      var chk = check(url, base);
+      var chk = check(url, base, rulesFor(cfg));
       try { var pu = new URL(url); entry.path = pu.pathname; entry.type = pu.searchParams.get("TYPE") || ""; } catch (e) { entry.path = String(url).slice(0, 60); }
       if (!chk.ok) { entry.refused = chk.reason; return Promise.reject(new Error("Request refused: " + chk.reason)); }
       var t0 = Date.now();
@@ -358,6 +366,7 @@
       var list = normIds(ids);
       if (!list) return Promise.resolve({ state: "error", data: null, error: "Unexpected player id" });
       if (!list.length) return Promise.resolve({ state: "ok", data: { season: Number(s), week: w, provider: "", projections: {} } });
+      if (cfg.projections === "mfl") return mflProjections(s, w, list, force);
       var groups = [];
       for (var i = 0; i < list.length; i += PROJECTION_IDS) groups.push(list.slice(i, i + PROJECTION_IDS));
       return Promise.all(groups.map(function (g) {
@@ -384,6 +393,26 @@
         var merged = {}, provider = "";
         rs.forEach(function (r) { provider = provider || r.data.provider; Object.keys(r.data.projections).forEach(function (id) { merged[id] = r.data.projections[id]; }); });
         return { state: "ok", data: { season: Number(s), week: w, provider: provider, projections: merged } };
+      });
+    }
+    // F6 (Keith 2026-11-26, "A" then "a"): the Test target's projections are MFL's own weekly projections for the league (the projected-scores export:
+    // league scoring, public), read through the same worker route as every other MFL read, in the shape projections() answers, marked live: MFL's current
+    // number is shown all week, before and after kickoff (no blanking). A score that is not a plain decimal is "no projection" (null).
+    function mflProjections(s, w, list, force) {
+      return cached("mproj:" + w, LIMIT.projections, function () {
+        return settle(get(urls.mflProjections(w), "MFL projections, week " + w)).then(function (r) {
+          if (r.state !== "ok") return r;
+          var ps = r.data && r.data.projectedScores;
+          if (!ps || Number(ps.week) !== w) return { state: "error", data: null, error: "Unexpected answer" };
+          var rows = ps.playerScore == null ? [] : Array.isArray(ps.playerScore) ? ps.playerScore : [ps.playerScore], all = {};
+          rows.forEach(function (x) { var v = String(x && x.score == null ? "" : x.score).trim(); if (x && /^\d+$/.test(String(x.id)) && /^-?\d+(\.\d{1,2})?$/.test(v)) all[String(x.id)] = Number(v); });
+          return { state: "ok", data: { all: all, at: new Date().toISOString() }, at: Date.now() };
+        });
+      }, force).then(function (r) {
+        if (r.state !== "ok") return r;
+        var out = {};
+        list.forEach(function (id) { var v = Object.prototype.hasOwnProperty.call(r.data.all, id) ? r.data.all[id] : null; out[id] = v == null ? null : { projected_score: v, captured_at: r.data.at, first_projected: null, first_captured_at: null, capture_count: 1 }; });
+        return { state: "ok", data: { season: Number(s), week: w, provider: "MFL", live: true, projections: out } };
       });
     }
     // R7: one position group's league-wide season sums through a week (draft #1515 /api/position-season-stats): the answer as sent (players[] with mfl_id,
@@ -437,5 +466,5 @@
     return { urls: urls, log: log, get: get, loadCore: loadCore, loadPenalty: loadPenalty, loadNextSeason: loadNextSeason, loadPlayers: loadPlayers, loadCalendar: loadCalendar, loadSchedule: loadSchedule, loadStatus: loadStatus, loadMatchups: loadMatchups, loadScores: loadScores, loadWeekly: loadWeekly, loadWeeklyBox: loadWeeklyBox, projections: projections, positionSeasonStats: positionSeasonStats, clearErrors: clearErrors, summary: summary };
   }
 
-  return { RULES: RULES, check: check, createLoader: createLoader, PROJECTION_IDS: PROJECTION_IDS, POSITION_GROUPS: POSITION_GROUPS, normIds: normIds };
+  return { RULES: RULES, rulesFor: rulesFor, check: check, createLoader: createLoader, PROJECTION_IDS: PROJECTION_IDS, POSITION_GROUPS: POSITION_GROUPS, normIds: normIds };
 });

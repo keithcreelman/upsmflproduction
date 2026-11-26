@@ -849,6 +849,8 @@
     if (k.why === "bye") return none("bye");   // a bye explains the missing row; said before "no row"
     var row = Object.prototype.hasOwnProperty.call(rec.data.projections, p.id) ? rec.data.projections[p.id] : null;
     if (!row || typeof row !== "object") return none("no_row");
+    // F6 (Keith 2026-11-26, "a"): the Test target's live MFL projection is shown as MFL gives it, all week (no pregame cut-off, no blanking)
+    if (rec.data.live === true) { var lv = row.projected_score; return typeof lv === "number" && isFinite(lv) ? { label: label, value: lv, text: f1(lv), why: "", provider: "MFL", capturedAt: row.captured_at, kickoff: k.ko == null ? null : k.ko * 1000 } : none("no_row"); }
     if (k.ko == null) return none(k.why);
     var pick = X.pregameProjection([{ projected_score: row.projected_score, captured_at: row.captured_at }, { projected_score: row.first_projected, captured_at: row.first_captured_at }], k.ko);
     if (pick.state !== "ok") return none(pick.why);

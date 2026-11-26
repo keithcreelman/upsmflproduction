@@ -126,4 +126,17 @@ test("F9: a starter can be moved to the bench with no replacement; a locked star
   t.match(tx, /▲ 1 needs attention/, "a submitted week: the slot left empty is a real open slot");
 });
 
+test("F6 'a' (Keith 2026-11-26): a live MFL projection shows all week, even after the player's kickoff; the stored (Preview) read keeps the kickoff rule", async () => {
+  const S = await fresh(), tm = teamOf(S), wk = S.model.week;
+  const TV = require(path.join(SRC, "lib/tabviews.js"));
+  const started = tm.players.find((p) => p.status === "active" && PL.lockOf(S, p, wk).locked);
+  t.ok(started, "a player whose game has started");
+  const after = new Date(Date.now() + 60000).toISOString();
+  const rec = (live) => ({ state: "ok", data: { ok: true, season: Number(S.model.season), week: wk, provider: "MFL", live, projections: { [String(started.id)]: { projected_score: 12.3, captured_at: after, first_projected: null, first_captured_at: null } } } });
+  S.intel.proj = { [wk]: rec(true) };
+  const a = TV.projectionSlot(S, started); t.equal(a.value, 12.3, "live: shown after kickoff"); t.equal(a.text, "12.3");
+  S.intel.proj = { [wk]: rec(false) };
+  t.equal(TV.projectionSlot(S, started).value, null, "stored, read after kickoff: the 11-23 kickoff rule still applies");
+});
+
 await run("mobile2027_r13_lineup_fixes");
