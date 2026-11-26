@@ -48,7 +48,7 @@
     ct: { f: "all", l: "all", s: "exp", y: 0, d: 1, open: {}, hist: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the salary structure filter (R9); the sort (exp | sal | pos | name), which Contract histories are open (R9), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
     pf: { s: "pos", open: {}, res: {}, q: "", pos: "all", xt: false, xpos: "all", note: null }, // Team › Performance: the sort (pos | tot | ppg), which rows are open, which reserve groups are open, the name search (R8), the position filter and "Search other teams" (R9)
-    plans: {}, planPick: null, planFor: null, // R12: Lineup planner plans by team ({ week, base, draft }), in this page's memory only: never stored, never sent; the slot whose choices are open
+    plans: {}, planPick: null, planFor: null, submitMode: !!(U.submit && cfg.data === "live"), me: null, submit: null, leave: null, // R13 F3: the Test target's lineup submit (lib/submit.js), the signed-in team, the last submit, a held navigation // R12: Lineup planner plans by team ({ week, base, draft }), in this page's memory only: never stored, never sent; the slot whose choices are open
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
@@ -259,6 +259,7 @@
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
       S.intel = { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null, cal: null, reread: {} }; S.wk = null; S.ns = { state: "idle" }; S.live = null;
       if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
+      if (S.submitMode && !S.me) checkMe();
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
       if (h.t && ids.indexOf(h.t) >= 0) S.teamId = h.t;
@@ -518,6 +519,50 @@
     if (!pid || !U.planner || !U.planner.slotById(slotId)) return;
     S.planPick = slotId; planPick(pid);
   }
+  // ---- R13 F3 (Keith 2026-11-26): Submit Lineup (Test target only: lib/submit.js) ----
+  // Whose team this device is signed in as (MFL's answer through the worker). Submit is offered only on that team.
+  function checkMe() {
+    if (!S.submitMode) return;
+    S.me = { state: "loading" };
+    U.submit.whoami(cfg).then(function (m) { S.me = m; render(true); });
+  }
+  function ownPlan() {
+    var P = U.planner;
+    if (!S.submitMode || !S.me || !S.me.signedIn || !S.model || !P) return null;
+    var t = S.model.teams.filter(function (x) { return x.id === S.me.fid; })[0]; if (!t) return null;
+    var D = P.draftOf(S, t); return D.ok && D.planned ? { t: t, D: D } : null;
+  }
+  function doSubmit(then) {
+    var P = U.planner, t = curTeam(), own = ownPlan();
+    if (!own || !t || own.t.id !== t.id || (S.submit && S.submit.state === "sending")) return;
+    var v = P.validate(S, t, own.D.draft); if (v.problems) return;              // a broken lineup (two slots, wrong slot, bye, over a range) is never sent
+    var starters = P.SLOTS.map(function (sl) { return own.D.draft[sl.id]; }).filter(Boolean);
+    S.submit = { state: "sending", fid: t.id }; render(true);
+    U.submit.lineup(cfg, t.id, S.model.week, starters).then(function (r) {
+      r.fid = t.id; S.submit = r;
+      if (r.starters) { t.lineup = { state: "ok", count: r.starters.length, ids: r.starters.slice() }; delete S.plans[t.id]; }   // MFL's own answer is now the lineup shown
+      render(true);
+      if (then && r.state === "confirmed") then();
+    });
+  }
+  // "Any time you want to navigate off the page without saving have a warning": leaving the signed-in team's Lineup with changes not submitted
+  // is held, and a sheet asks to submit, discard or keep editing. Closing or reloading the page asks through the browser.
+  var LEAVES = { nav: function (v) { return v !== "team"; }, sub: function (v) { return v !== "roster"; }, view: function (v) { return v === "byes"; },
+    pickteam: function (v, fid) { return fid !== S.teamId; }, pickweek: function (v) { var wi = S.model && U.roster.weekInfo ? U.roster.weekInfo(S) : null; return !wi || String(v) !== String(wi.cur); } };
+  function leaveGuard(act, v, el) {
+    if (!LEAVES[act] || !ownPlan() || S.teamId !== S.me.fid || S.tab !== "team" || S.sub !== "roster" || S.view !== "lineup") return false;
+    var fid = el && el.getAttribute ? el.getAttribute("data-fid") : null;
+    if (!LEAVES[act](v, fid)) return false;
+    S.leave = { act: act, v: v, fid: fid }; S.sheet = "leave"; render(); return true;
+  }
+  function replayLeave(discard) {
+    var L = S.leave, own = ownPlan(); S.leave = null; S.sheet = null;
+    if (discard && own) delete S.plans[own.t.id];
+    if (!L) return render();
+    handle(L.act, L.v, { getAttribute: function (k) { return k === "data-fid" ? L.fid : k === "data-v" ? L.v : k === "data-act" ? L.act : null; } });
+  }
+  window.addEventListener("beforeunload", function (ev) { if (ownPlan()) { ev.preventDefault(); ev.returnValue = ""; } });
+
   // F9 (Keith 2026-11-26): bench the slot's starter with no replacement. Only when the planner lists the slot as open to changes (not locked).
   function planBench() {
     var t = curTeam(), P = U.planner, slotId = S.planPick;
@@ -594,7 +639,16 @@
     var el = ev.target.closest ? ev.target.closest("[data-act]") : null;
     if (!el || !appEl.contains(el)) return;
     var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
-    if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); }
+    if (leaveGuard(act, v, el)) return;   // R13 F3: a navigation that would leave unsubmitted lineup changes is held first
+    handle(act, v, el);
+  });
+  function handle(act, v, el) {
+    if (act === "submit") doSubmit();
+    else if (act === "leavesubmit") { var L0 = S.leave; S.leave = null; S.sheet = null; render(); doSubmit(function () { S.leave = L0; replayLeave(false); }); }
+    else if (act === "leavediscard") replayLeave(true);
+    else if (act === "leavestay") { S.leave = null; S.sheet = null; render(); }
+    else if (act === "signout") { if (U.submit) U.submit.signOut(); S.me = { signedIn: false, why: "Signed out" }; render(true); }
+    else if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); }
     else if (act === "sub") { S.sub = v; render(); ensureIntel(); }
     else if (act === "view") { if (v === "lineup" || v === "byes") { S.view = v; S.sheet = null; render(); ensureIntel(); } }
     else if (act === "weeks") { S.sheet = "weeks"; render(); }
@@ -647,7 +701,7 @@
     else if (act === "ptab") { if (S.profile) { S.profile.tab = v; render(true); if (v === "perf") ensurePerformance(); } }
     else if (act === "retry") { S.sheet = null; S.penalty = { state: "idle" }; loadCore(); }
     else if (act === "retrypen") loadPenalty(true);
-  });
+  }
   // R8: Team › Performance "Search players". Only the list under the box is redrawn while typing, so the box itself (focus, cursor, the phone's
   // keyboard) is never replaced; anything else falls back to a full redraw, which keeps focus and cursor too (render). No request is made.
   appEl.addEventListener("input", function (ev) {

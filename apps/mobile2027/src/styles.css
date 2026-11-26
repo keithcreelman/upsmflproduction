@@ -120,6 +120,9 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 .planc{border:1.5px solid var(--ac)}
 .planc .plt{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .planc .plt .btn{min-height:44px}
+/* R13 F3: the Submit Lineup bar (Test target): Undo and Submit side by side; a disabled Submit reads as disabled */
+.planc .plb{display:flex;gap:8px;flex-wrap:wrap}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
 .ex.plh{padding-top:2px}
 .sheet .so small.plm{color:var(--ac);font-weight:600}
 .sheet .so small.wn{color:var(--wn)}

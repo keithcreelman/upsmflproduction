@@ -281,7 +281,7 @@
     var rows = lineup.slots.map(function (x) {
       if (!x.player && (held || unsub)) return "";
       var pl = !!plan && !past, ch = pl && plan.changed.indexOf(x.slot.id) >= 0;
-      return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, plan: pl, planned: ch ? "Planned" : "", problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past, pl);
+      return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, plan: pl, planned: ch && !S.submitMode ? "Planned" : "", problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past, pl);
     }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); }), (lineup.unresolved || []).map(unresolvedRow)).join("");
     return '<div class="card rows lsec"><div class="lsh"><span class="t"><b>' + esc(lineupCount(lineup)) + "</b></span></div>" + rows + "</div>";
   }
@@ -290,7 +290,25 @@
   // The one line above the lineup. Without a plan: how to start one. With a plan: "Plan only · not submitted", how many slots changed, Reset, and
   // where the plan lives (this page's memory: it survives a team switch, a profile, other tabs and views, and is gone on reload or close).
   var PLAN_LABEL = "Plan only · not submitted";
+  // R13 F3 (Keith 2026-11-26): in the Test target (S.submitMode, lib/submit.js loaded) a change shows ONE "Submit Lineup" button (with Undo),
+  // no "Plan only" wording and no "Planned" chips. Only the signed-in owner's team can submit; a lineup with a real problem (two slots, wrong slot,
+  // bye, over a range) can't be sent; a short lineup can, with one line saying so. The last submit's result stays until the next one.
+  function submitBar(S, t, D) {
+    var me = S.me || {}, own = !!(me.signedIn && me.fid === t.id), last = S.submit && S.submit.fid === t.id ? S.submit : null;
+    var res = !last ? "" : last.state === "sending" ? '<div class="card planc" role="status"><b>Submitting…</b></div>' :
+      '<div class="card ' + (last.state === "confirmed" ? "okc" : "warnc") + '" role="status"><b>' + esc(last.title) + '</b><div class="ex">' + esc(last.text) + "</div></div>";
+    if (!D) return res;
+    if (!D.ok) return res + '<div class="ex pad">Lineup changes are off for this team: ' + esc(D.why) + ".</div>";
+    var who = !S.me || S.me.state === "loading" ? "Checking your sign-in…" : !me.signedIn ? "Sign in to submit: open the UPS TEST app link on your league’s MFL home page." : own ? "" : "You can submit only your own team’s lineup.";
+    if (!D.planned) return res + '<div class="ex pad plh">' + esc(own ? "Tap a badge to change your lineup." : who) + "</div>";
+    var v = PL.validate(S, t, D.draft), sending = !!(last && last.state === "sending"), can = own && !v.problems && !sending;
+    return res + '<div class="card planc" role="status"><div class="plt"><b>' + plural(D.changed.length, "change", "changes") + '</b><span class="plb"><button class="btn" data-act="planreset">Undo</button>' +
+      '<button class="btn pri" data-act="submit"' + (can ? "" : " disabled") + ">" + (sending ? "Submitting…" : "Submit Lineup") + "</button></span></div>" +
+      (v.problems ? '<div class="ex wn">' + esc(v.errors.join(" · ")) + "</div>" : v.filled < v.total ? '<div class="ex">Short lineup: ' + v.filled + " of " + v.total + " starters.</div>" : "") +
+      (who ? '<div class="ex">' + esc(who) + "</div>" : "") + "</div>";
+  }
   function planBar(S, t, D) {
+    if (S.submitMode) return submitBar(S, t, D);
     if (!D) return "";
     if (!D.ok) return '<div class="ex pad">Lineup planner is off for this team: ' + esc(D.why) + ".</div>";
     if (!D.planned) return '<div class="ex pad plh">Tap a position badge to plan a change. ' + esc(PLAN_LABEL) + "." + (D.stale ? " An earlier plan was cleared because MFL’s lineup for this week is different now." : "") + "</div>";
@@ -324,7 +342,7 @@
     function proj(p) { var g = TV.projectionSlot ? TV.projectionSlot(S, p) : null; return g ? "Proj. " + (g.value == null ? "—" : g.text) : ""; }
     var occ = O.occupant;
     var out = head + '<div class="top"><h3>' + esc(sl.tag) + (sl.flex ? " · " + esc(sl.label) : "") + "</h3>" + '<button class="btn" data-act="close">Close</button></div>' +
-      '<div class="ex"><b>' + esc(PLAN_LABEL) + ".</b> Takes " + esc(sl.acc.map(posText).join(", ")) + ". " + (occ ? "Now: " + esc(occ.name) + " (" + esc(posText(occ.pos)) + ")" + (where(occ) ? " · " + esc(where(occ)) : "") + "." : "Now: empty.") + "</div>";
+      '<div class="ex">' + (S.submitMode ? "" : "<b>" + esc(PLAN_LABEL) + ".</b> ") + "Takes " + esc(sl.acc.map(posText).join(", ")) + ". " + (occ ? "Now: " + esc(occ.name) + " (" + esc(posText(occ.pos)) + ")" + (where(occ) ? " · " + esc(where(occ)) : "") + "." : "Now: empty.") + "</div>";
     if (O.blocked) return out + '<div class="ex wn" role="status">' + esc(O.why) + "</div></div></div>";
     // F9 (Keith 2026-11-26): a starter can come out without anyone replacing him (to leave room for a pickup, or just to sit him). Only an unlocked
     // occupant (a locked one already returned above); the slot is left empty in the plan.
@@ -348,6 +366,12 @@
     return out + "</div></div>";
   }
 
+  // R13 F3: leaving the Lineup with changes not submitted (app.js leaveGuard holds the navigation)
+  function leaveSheet(S) {
+    return '<div class="layer"><div class="scrim" data-act="leavestay"></div><div class="sheet" role="alertdialog" aria-modal="true" aria-label="Lineup changes not submitted" tabindex="-1"><div class="grab"></div>' +
+      '<div class="top"><h3>Lineup not submitted</h3></div><div class="ex">Your lineup changes haven’t been sent to MFL.</div>' +
+      '<button class="btn pri blk" data-act="leavesubmit">Submit Lineup</button><button class="btn blk" data-act="leavediscard">Discard changes</button><button class="btn blk" data-act="leavestay">Keep editing</button></div></div>';
+  }
   // F4 (Keith 2026-11-26): a bench player's choices, the reverse of planSheet: every slot he can fill now, with who is there. The same
   // planner.options rules decide each one, and choosing one applies the same swap a starter's slot badge would.
   function planForSheet(S) {
@@ -357,7 +381,7 @@
     var k = R.kickoffInfo(S, p, wk), o = R.oppText(S, p, wk), pj = TV.projectionSlot ? TV.projectionSlot(S, p) : null;
     var where = [o || "", k.state === "known" ? k.text : "", pj ? "Proj. " + (pj.value == null ? "—" : pj.text) : ""].filter(Boolean).join(" · ");
     var out = head + '<div class="top"><h3>' + esc(p.name) + " " + pcx(p.pos) + '</h3><button class="btn" data-act="close">Close</button></div>' +
-      '<div class="ex"><b>' + esc(PLAN_LABEL) + ".</b>" + (where ? " " + esc(where) : "") + "</div>";
+      '<div class="ex">' + (S.submitMode ? "" : "<b>" + esc(PLAN_LABEL) + ".</b>") + (where ? " " + esc(where) : "") + "</div>";
     var slots = [], why = "";
     PL.SLOTS.forEach(function (sl) {
       var O = PL.options(S, t, D.draft, sl.id); if (O.blocked) return;
@@ -549,7 +573,7 @@
     var benchN = groups.reduce(function (n, g) { return n + g.players.length; }, 0);
     var reasons = groups.reduce(function (r, g) { return r.concat(R.groupReasons(S, g.players)); }, []);
     var wasStart = {}; if (D && D.planned) Object.keys(D.base).forEach(function (k) { wasStart[D.base[k]] = true; });
-    out += section(S, "bench", "Bench", String(benchN), groups, reasons, planOn && S.view === "lineup" ? function (p) { var o = { planFor: p.status === "active" }; if (D.planned && wasStart[String(p.id)]) o.planned = "Was starting"; return o; } : null);
+    out += section(S, "bench", "Bench", String(benchN), groups, reasons, planOn && S.view === "lineup" ? function (p) { var o = { planFor: p.status === "active" }; if (D.planned && !S.submitMode && wasStart[String(p.id)]) o.planned = "Was starting"; return o; } : null);
     var ir = M.reserve(t, "ir"), tx = M.reserve(t, "taxi");
     out += section(S, "ir", "Injured reserve", ir.length + (m.limits.ir ? " of " + m.limits.ir : ""), [{ pos: "", players: ir }]);
     out += section(S, "taxi", "Taxi squad", tx.length + (m.limits.taxi ? " of " + m.limits.taxi : ""), [{ pos: "", players: tx }]);
@@ -819,8 +843,9 @@
     else if (!on && S.sheet === "help" && S.model) layer = helpSheet(S);
     else if (!on && S.sheet === "plan" && S.model) layer = planSheet(S);
     else if (!on && S.sheet === "planfor" && S.model) layer = planForSheet(S);
+    else if (!on && S.sheet === "leave" && S.model) layer = leaveSheet(S);
     return envBar(S) + screen + nav(S) + layer;
   }
 
-  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, planForSheet: planForSheet, PLAN_LABEL: PLAN_LABEL };
+  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, planForSheet: planForSheet, leaveSheet: leaveSheet, submitBar: submitBar, PLAN_LABEL: PLAN_LABEL };
 });

@@ -40,6 +40,8 @@ export const PROD_WORKER = "https://upsmflproduction.keith-creelman.workers.dev"
 export const TEST_WORKER = "https://ups-test.keith-creelman.workers.dev";
 export const TEST_LEAGUE = "25625";
 export const TEST_OMIT = ["recorded_data.js"];
+// Files ONLY the Test target carries (never the Preview build; deploy_preview.mjs's allowlist stays FILES). R13 F3 (Keith 2026-11-26): the lineup submit.
+export const TEST_FILES = ["lib/submit.js"];
 export const TEST_EDITS = {
   "config.js": [
     ['workerBase: "' + PROD_WORKER + '"', 'workerBase: "' + TEST_WORKER + '"'],
@@ -51,6 +53,7 @@ export const TEST_EDITS = {
     ["connect-src " + PROD_WORKER + ";", "connect-src " + TEST_WORKER + ";"],
     ['<script src="recorded_data.js"></script>\n', ""],
     ["<title>UPS 2027 Preview 0</title>", "<title>UPS TEST · UPS 2027</title>"],
+    ['<script src="app.js"></script>', '<script src="lib/submit.js"></script>\n<script src="app.js"></script>'],
   ],
 };
 export function applyTestEdits(name, text) {
@@ -196,6 +199,28 @@ export function stripComments(text) {
 
 // The content policy of the page, exactly as reviewed. A different policy stops the build.
 export const EXPECTED_CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src https://a.espncdn.com https://*.myfantasyleague.com data:; connect-src https://upsmflproduction.keith-creelman.workers.dev; base-uri 'none'; form-action 'none'";
+// The Test target's write module (lib/submit.js) is not allowed the Preview scan's "no write" rules, so it has its own, narrower one: exactly one
+// network line (root.fetch(url, opts)), exactly one write verb (a POST), only the three worker routes it needs, the Idempotency-Key header,
+// credentials omitted, and every other Preview rule (no XHR, beacon, socket, eval, template literal, address rewrite, document write ...).
+export const SUBMIT_FETCH = "root.fetch(url, opts)";
+export const SUBMIT_ROUTES = ["/api/submit-lineup", "/api/me", "/api/mfl-export"];
+export function scanSubmit(name, text) {
+  const hits = [], code = stripComments(text);
+  const relaxed = new Set(["a write verb as a string", "a request method other than a literal GET"]);
+  for (const [re, what] of WRITE_PATTERNS) if (!relaxed.has(what) && re.test(code)) hits.push(`${name}: write code: ${what}`);
+  if (/\.\s*(?:src|href|action|formAction|srcset)\s*=(?!=)/.test(code)) hits.push(`${name}: write code: assigning a loading property from script`);
+  const verbs = [...code.matchAll(/["'](POST|PUT|PATCH|DELETE)["']/gi)].map((m) => m[1].toUpperCase());
+  if (verbs.length !== 1 || verbs[0] !== "POST") hits.push(`${name}: the submit module must name exactly one write verb, a POST (found ${verbs.join(",") || "none"})`);
+  const methods = [...code.matchAll(/\bmethod\s*:\s*["']([A-Z]+)["']/g)].map((m) => m[1]);
+  if (methods.filter((x) => x !== "GET").join(",") !== "POST" || /\bmethod\s*[:=](?!=)\s*[^"'\s]/.test(code)) hits.push(`${name}: methods must be literal GETs and exactly one literal POST`);
+  if (code.split(SUBMIT_FETCH).length !== 2) hits.push(`${name}: exactly one network line (${SUBMIT_FETCH})`);
+  if (/(?:^|[^A-Za-z0-9_$])fetch\b/.test(code.split(SUBMIT_FETCH).join(""))) hits.push(`${name}: a reference to fetch outside the one network line`);
+  const routes = [...code.matchAll(/["'](\/[A-Za-z0-9_\/-]+)["']/g)].map((m) => m[1]);
+  for (const r of routes) if (!SUBMIT_ROUTES.includes(r)) hits.push(`${name}: a route outside the submit module's three: ${r}`);
+  if (!code.includes('"/api/submit-lineup"') || !code.includes('"Idempotency-Key": key')) hits.push(`${name}: the POST must go to /api/submit-lineup with an Idempotency-Key`);
+  return hits;
+}
+
 // The Test target's policy: identical except that the page may talk only to the TEST worker.
 export const TEST_CSP = EXPECTED_CSP.replace("connect-src " + PROD_WORKER + ";", "connect-src " + TEST_WORKER + ";");
 // The response headers the page may set (names, and the one content-policy value), exactly as reviewed.
@@ -306,7 +331,8 @@ export function build(outDir, srcDir = SRC, git = gitState, sharedDir = SHARED_D
   if (opts.target && !test) problems.push(`unknown build target "${opts.target}"`);
   const present = listSrc(srcDir);
   for (const f of FILES) if (!present.includes(f)) problems.push(`missing from src/: ${f}`);
-  for (const f of present) if (!FILES.includes(f)) problems.push(`not on the allowlist (add it to FILES on purpose, or remove it): ${f}`);
+  for (const f of present) if (!FILES.includes(f) && !TEST_FILES.includes(f)) problems.push(`not on the allowlist (add it to FILES on purpose, or remove it): ${f}`);
+  for (const f of TEST_FILES) if (!present.includes(f)) problems.push(`missing from src/: ${f}`);
   const files = [];
   for (const f of FILES) {
     if (!present.includes(f)) continue;
@@ -320,6 +346,13 @@ export function build(outDir, srcDir = SRC, git = gitState, sharedDir = SHARED_D
       if (text.includes("74598") || text.includes(PROD_WORKER)) problems.push(`${f}: the test build still names the production league or worker`);
     }
     problems.push(...scan(f, text), ...scanWriteCode(f, text, test ? TEST_CSP : EXPECTED_CSP));
+    files.push({ path: f, bytes: buf.length, sha256: sha(buf), buf });
+  }
+  if (test) for (const f of TEST_FILES) {
+    if (!present.includes(f)) continue;
+    const buf = fs.readFileSync(path.join(srcDir, f)), text = buf.toString("utf8");
+    if (text.includes("74598") || text.includes(PROD_WORKER)) problems.push(`${f}: the test build still names the production league or worker`);
+    problems.push(...scan(f, text), ...scanSubmit(f, text));
     files.push({ path: f, bytes: buf.length, sha256: sha(buf), buf });
   }
   const lock = readLock(lockPath);
