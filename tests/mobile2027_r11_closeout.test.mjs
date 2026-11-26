@@ -127,7 +127,9 @@ test("lineup rows show the selected week's projection, 'Proj. —' when none; IR
   const { S } = await fresh({ sub: "roster", view: "lineup" });
   S.intel.cal = null;   // the Lineup view does not read the whole-season calendar: the kickoff comes from the matchups read it already has
   const h = body(V.app(S)), tx = text(h);
-  const withVal = [...tx.matchAll(/Proj\. (\d+\.\d)/g)].length, noVal = [...tx.matchAll(/Proj\. —/g)].length;
+  // R13 F7 (Keith 2026-11-26): the Starting lineup header now carries the lineup's projected total (" · Proj. 142.6"); count the rows only
+  const rowsTx = tx.replace(/Starting lineup · \d+\/\d+ · Proj\. \d+\.\d( \(\d+ without\))?/g, "");
+  const withVal = [...rowsTx.matchAll(/Proj\. (\d+\.\d)/g)].length, noVal = [...rowsTx.matchAll(/Proj\. —/g)].length;
   t.ok(withVal >= 10, "projections shown on lineup rows (" + withVal + ")"); t.ok(noVal >= 0);
   const active = S.model.teams[0].players.filter((p) => p.status === "active").length;
   t.ok(withVal + noVal <= active, "only active players carry the line (" + (withVal + noVal) + " of " + active + ")");

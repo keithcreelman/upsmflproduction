@@ -151,7 +151,8 @@ test("5. Reset restores the recorded lineup exactly", async () => {
   t.notEqual(screen(V.app(S)), base);
   delete S.plans[S.teamId];   // what app.js "planreset" does
   t.equal(screen(V.app(S)), base, "byte-identical to the recorded lineup");
-  t.match(appJs, /act === "planreset"\) \{ var tr = curTeam\(\); if \(tr && S\.plans\) delete S\.plans\[tr\.id\]; render\(true\); \}/);
+  // R13 F5 (Keith 2026-11-26): Reset also clears the Optimal Starters note
+  t.match(appJs, /act === "planreset"\) \{ var tr = curTeam\(\); if \(tr && S\.plans\) delete S\.plans\[tr\.id\]; S\.optNote = null; render\(true\); \}/);
   // undoing a move by hand also leaves no plan
   const S2 = await fresh(); t.ok(pick(S2, "OFX1", "Chris Godwin")); t.ok(pick(S2, "OFX1", "Adonai Mitchell")); t.equal(S2.plans["0006"], undefined);
 });
