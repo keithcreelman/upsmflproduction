@@ -546,6 +546,7 @@
     if (!own || !t || own.t.id !== t.id || (S.submit && S.submit.state === "sending")) return;
     var v = P.validate(S, t, own.D.draft); if (v.problems) return;              // a broken lineup (two slots, wrong slot, bye, over a range) is never sent
     var starters = P.SLOTS.map(function (sl) { return own.D.draft[sl.id]; }).filter(Boolean);
+    if (!starters.length) return;                                              // MFL refuses an empty lineup ("Missing Starters"); Keith 2026-11-26: "A"
     S.submit = { state: "sending", fid: t.id }; render(true);
     U.submit.lineup(cfg, t.id, S.model.week, starters).then(function (r) {
       r.fid = t.id; S.submit = r;

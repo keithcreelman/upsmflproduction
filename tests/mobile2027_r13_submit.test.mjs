@@ -170,7 +170,7 @@ test("views F10: only the signed-in owner's own team can be changed; another tea
   t.match(appJs, /if \(m\.signedIn && S\.model && S\.model\.teams\.some\(function \(x\) \{ return x\.id === m\.fid; \}\) && S\.teamId !== m\.fid\) \{ S\.teamId = m\.fid;/);
 });
 
-test("views: a lineup with a real problem can't be sent; an EMPTY lineup can (Keith 2026-11-26: not against the rules)", async () => {
+test("views: a lineup with a real problem can't be sent; an EMPTY one can't either (MFL: 'Missing Starters'; Keith 2026-11-26 'A')", async () => {
   const S2 = await own(), tm = teamOf(S2), Dr = PL.draftOf(S2, tm), wk = S2.model.week;
   const byeP = tm.players.find((p) => p.status === "active" && R.onBye(p, wk) && !PL.slotOfPid(Dr.draft, String(p.id)));
   if (byeP) {
@@ -179,7 +179,8 @@ test("views: a lineup with a real problem can't be sent; an EMPTY lineup can (Ke
     const h2 = screen(V.app(S2)); t.match(h2, /data-act="submit" disabled/); t.match(text(h2), /on a bye/);
   }
   S2.plans[tm.id] = { week: wk, base: PL.sig(Dr.base), draft: {} };   // everyone benched
-  const h3 = screen(V.app(S2)); t.match(h3, /<button class="btn pri" data-act="submit">Submit Lineup<\/button>/, "an empty lineup is sendable"); t.match(text(h3), /Short lineup: 0 of 18 starters/);
+  const h3 = screen(V.app(S2)); t.match(h3, /data-act="submit" disabled/, "an empty lineup can't be sent"); t.match(text(h3), /MFL needs at least one starter\./); t.doesNotMatch(text(h3), /Short lineup: 0/);
+  t.match(appJs, /if \(!starters\.length\) return;/, "doSubmit refuses it too");
   t.equal(PL.validate(S2, tm, {}).problems, 0);
   const sending = Object.assign({}, S2, { submit: { state: "sending", fid: tm.id } });
   t.ok(V.submitBar(sending, tm, PL.draftOf(sending, tm)).includes('data-act="submit" disabled'), "not twice while sending");

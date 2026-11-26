@@ -302,10 +302,11 @@
     if (!D.ok) return res + '<div class="ex pad">Lineup changes are off for this team: ' + esc(D.why) + ".</div>";
     var who = own ? "" : "You can submit only your own team’s lineup.";
     if (!D.planned) return res + '<div class="ex pad plh">' + esc(own ? "Tap a badge to change your lineup." : who) + "</div>";
-    var v = PL.validate(S, t, D.draft), sending = !!(last && last.state === "sending"), can = own && !v.problems && !sending;
+    // Keith 2026-11-26 ("A"): MFL's lineup import requires at least one starter ("Missing Starters"), so an empty lineup can't be sent
+    var v = PL.validate(S, t, D.draft), sending = !!(last && last.state === "sending"), empty = !v.filled, can = own && !v.problems && !sending && !empty;
     return res + '<div class="card planc" role="status"><div class="plt"><b>' + plural(D.changed.length, "change", "changes") + '</b><span class="plb"><button class="btn" data-act="planreset">Undo</button>' +
       '<button class="btn pri" data-act="submit"' + (can ? "" : " disabled") + ">" + (sending ? "Submitting…" : "Submit Lineup") + "</button></span></div>" +
-      (v.problems ? '<div class="ex wn">' + esc(v.errors.join(" · ")) + "</div>" : v.filled < v.total ? '<div class="ex">Short lineup: ' + v.filled + " of " + v.total + " starters.</div>" : "") +
+      (v.problems ? '<div class="ex wn">' + esc(v.errors.join(" · ")) + "</div>" : empty ? '<div class="ex wn">MFL needs at least one starter.</div>' : v.filled < v.total ? '<div class="ex">Short lineup: ' + v.filled + " of " + v.total + " starters.</div>" : "") +
       (who ? '<div class="ex">' + esc(who) + "</div>" : "") + "</div>";
   }
   function planBar(S, t, D) {
