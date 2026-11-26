@@ -70,7 +70,9 @@
   }
 
   // The ONE write request (both writes use it): a POST of a JSON body to one of the two write routes, with a new Idempotency-Key each time.
-  var WRITES = ["/api/submit-lineup", "/roster-workbench/action"];
+  // Trades v1 (Keith 2026-11-26 "go trades v1"): the classic app's three trade POSTs. The compliance check and the accept review are POSTs that
+  // change nothing on MFL; the test worker ledgers every POST, so each carries its own key too.
+  var WRITES = ["/api/submit-lineup", "/roster-workbench/action", "/api/trades/proposals", "/api/trades/proposals/action", "/api/trades/compliance-preview"];
   function post(cfg, route, bodyObj, key) {
     var t = token();
     if (WRITES.indexOf(route) < 0 || !t) return Promise.reject(new Error(!t ? "Not signed in" : "Unknown write"));
@@ -126,6 +128,48 @@
     }, function (e) { return { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before trying again.", key: key, okTitle: M.ok, noTitle: M.no }; });
   }
 
+  // ---- Trades v1 (Keith 2026-11-26): the classic app's routes (site/m/views/trade.js), two-team offers only ----
+  function signed(p) { var o = p || {}; o[SESSION] = token(); return o; }
+  function keyed(r, key) { r.key = key; return r; }
+  // Offers this team sent or received: MFL's live pending trades through the worker (it needs the owner's own sign-in).
+  function tradeOffers(cfg, fid) {
+    if (!token()) return Promise.resolve({ ok: false, status: 401, body: null });
+    return getJson(address(cfg, "/api/trades/proposals", signed({ YEAR: cfg.season, franchise_id: fid, _: Date.now() })));
+  }
+  // One team's players and future picks (the trade builder's lists).
+  function tradeAssets(cfg, fid) { return getJson(address(cfg, "/api/franchise-assets", { YEAR: cfg.season, fid: fid })); }
+  // When MFL stops accepting trades (MFL's own calendar, read by the worker).
+  function tradeLock(cfg) { return getJson(address(cfg, "/api/league-events", { season: cfg.season })); }
+  // MFL's roster for one team now (past the worker's short cache): the accept's read-back.
+  function rosterIds(cfg, fid) {
+    var p = { TYPE: "rosters", YEAR: cfg.season, FRANCHISE: fid, JSON: 1 }; p._ = Date.now();
+    return getJson(address(cfg, "/api/mfl-export", p)).then(function (r) {
+      if (!r.ok || !r.body || !r.body.rosters) throw new Error("MFL’s roster couldn’t be read back");
+      var ids = [];
+      arr(r.body.rosters.franchise).forEach(function (f) { if (pad4(f.id) === fid) arr(f.player).forEach(function (x) { ids.push(String(x.id)); }); });
+      return ids;
+    });
+  }
+  // The worker's cap, roster and loaded-contract check for a trade (changes nothing).
+  function tradeCheck(cfg, fid, movements) {
+    var key = newKey();
+    return post(cfg, "/api/trades/compliance-preview", { league_id: String(cfg.leagueId), season: String(cfg.season), from_franchise_id: fid, movements: movements }, key).then(function (r) { return keyed(r, key); });
+  }
+  // accept | reject | revoke on MFL, or the read-only accept review (preview) and the cap acknowledgment (ack_cap).
+  var VERBS = ["accept", "reject", "revoke", "preview", "ack_cap"];
+  function tradeAction(cfg, fid, verb, tradeId, message) {
+    if (VERBS.indexOf(verb) < 0) return Promise.reject(new Error("Unknown trade action"));
+    var key = newKey();
+    return post(cfg, "/api/trades/proposals/action", { action: verb, trade_id: String(tradeId), league_id: String(cfg.leagueId), franchise_id: fid, acting_franchise_id: fid, year: String(cfg.season), message: String(message || "").slice(0, 2000) }, key).then(function (r) { return keyed(r, key); });
+  }
+  // A new two-team offer (the classic builder's body). capAck: the signature of an overage the sender acknowledged.
+  function tradeCreate(cfg, body, capAck) {
+    var key = newKey(), b = Object.assign({}, body);
+    if (capAck) b.cap_ack = { signature: String(capAck) };
+    return post(cfg, "/api/trades/proposals", b, key).then(function (r) { return keyed(r, key); });
+  }
+
   root.UPS2027 = root.UPS2027 || {};
-  root.UPS2027.submit = { token: token, signOut: signOut, whoami: whoami, lineup: lineup, rosterMove: rosterMove, mflStarters: mflStarters };
+  root.UPS2027.submit = { token: token, signOut: signOut, whoami: whoami, lineup: lineup, rosterMove: rosterMove, mflStarters: mflStarters,
+    trades: { offers: tradeOffers, assets: tradeAssets, lock: tradeLock, rosterIds: rosterIds, check: tradeCheck, action: tradeAction, create: tradeCreate } };
 })(window);

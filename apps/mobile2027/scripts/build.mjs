@@ -41,7 +41,8 @@ export const TEST_WORKER = "https://ups-test.keith-creelman.workers.dev";
 export const TEST_LEAGUE = "25625";
 export const TEST_OMIT = ["recorded_data.js"];
 // Files ONLY the Test target carries (never the Preview build; deploy_preview.mjs's allowlist stays FILES). R13 F3 (Keith 2026-11-26): the lineup submit.
-export const TEST_FILES = ["lib/submit.js"];
+export const TEST_FILES = ["lib/submit.js", "lib/trades.js"];   // Trades v1 (Keith 2026-11-26): lib/trades.js draws the trade screens; it has no network code and gets the Preview scan
+export const SUBMIT_FILE = "lib/submit.js";
 export const TEST_EDITS = {
   "config.js": [
     ['workerBase: "' + PROD_WORKER + '"', 'workerBase: "' + TEST_WORKER + '"'],
@@ -53,7 +54,7 @@ export const TEST_EDITS = {
     ["connect-src " + PROD_WORKER + ";", "connect-src " + TEST_WORKER + ";"],
     ['<script src="recorded_data.js"></script>\n', ""],
     ["<title>UPS 2027 Preview 0</title>", "<title>UPS TEST · UPS 2027</title>"],
-    ['<script src="app.js"></script>', '<script src="lib/submit.js"></script>\n<script src="app.js"></script>'],
+    ['<script src="app.js"></script>', '<script src="lib/submit.js"></script>\n<script src="lib/trades.js"></script>\n<script src="app.js"></script>'],
   ],
 };
 export function applyTestEdits(name, text) {
@@ -203,7 +204,8 @@ export const EXPECTED_CSP = "default-src 'none'; script-src 'self'; style-src 's
 // network line (root.fetch(url, opts)), exactly one write verb (a POST), only the worker routes it needs (two writes, two reads), the Idempotency-Key header,
 // credentials omitted, and every other Preview rule (no XHR, beacon, socket, eval, template literal, address rewrite, document write ...).
 export const SUBMIT_FETCH = "root.fetch(url, opts)";
-export const SUBMIT_ROUTES = ["/api/submit-lineup", "/roster-workbench/action", "/api/me", "/api/mfl-export"];   // F8 (Keith 2026-11-26): the roster-move route
+export const SUBMIT_ROUTES = ["/api/submit-lineup", "/roster-workbench/action", "/api/me", "/api/mfl-export",   // F8 (Keith 2026-11-26): the roster-move route
+  "/api/trades/proposals", "/api/trades/proposals/action", "/api/trades/compliance-preview", "/api/franchise-assets", "/api/league-events"];   // Trades v1 (Keith 2026-11-26)
 export function scanSubmit(name, text) {
   const hits = [], code = stripComments(text);
   const relaxed = new Set(["a write verb as a string", "a request method other than a literal GET"]);
@@ -352,7 +354,7 @@ export function build(outDir, srcDir = SRC, git = gitState, sharedDir = SHARED_D
     if (!present.includes(f)) continue;
     const buf = fs.readFileSync(path.join(srcDir, f)), text = buf.toString("utf8");
     if (text.includes("74598") || text.includes(PROD_WORKER)) problems.push(`${f}: the test build still names the production league or worker`);
-    problems.push(...scan(f, text), ...scanSubmit(f, text));
+    problems.push(...scan(f, text), ...(f === SUBMIT_FILE ? scanSubmit(f, text) : scanWriteCode(f, text, TEST_CSP)));
     files.push({ path: f, bytes: buf.length, sha256: sha(buf), buf });
   }
   const lock = readLock(lockPath);

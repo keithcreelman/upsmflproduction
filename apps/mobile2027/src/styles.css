@@ -481,3 +481,18 @@ button.btnrow{cursor:pointer}
 .pact{padding:10px 16px 4px;display:flex;flex-direction:column;gap:6px}
 .pact .btn{min-height:44px}
 .rm .btn.blk{margin-top:8px;min-height:48px}
+/* Trades v1 (Keith 2026-11-26): League › Trades on the Test target */
+.tro{display:flex;flex-direction:column;gap:8px}
+.trh,.trh2{display:flex;align-items:center;gap:8px}.trh b{flex:1;min-width:0}.trh small{font-size:12px}
+.trh2 .in{flex:1;min-width:0}
+.trc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.trl{margin:2px 0 0;padding:0 0 0 16px;font-size:13px;overflow-wrap:anywhere}.trl li{margin:2px 0}
+.trm{font-style:italic;overflow-wrap:anywhere}
+.trb{display:flex;gap:8px}.trb .btn{flex:1}
+.tro .so,.card .so{display:flex;gap:10px;align-items:center;min-height:52px;padding:8px 12px;margin-top:6px;border:1px solid var(--bs);border-radius:10px;background:var(--s2);color:var(--tx);width:100%;text-align:left;font-size:13px}
+.card .so .in{flex:1;min-width:0}.card .so small{display:block;color:var(--mu);font-size:12px;line-height:1.3}
+.card .so[aria-pressed="true"]{border-color:var(--ac);border-width:2px}.card .so.off{opacity:.6}
+.trk{flex:0 0 auto;font-size:18px;font-weight:800;color:var(--ac)}
+.trcap{display:flex;align-items:center;gap:8px;margin-top:8px}.trcap .in{flex:1;min-width:0;font-size:13px}.trcap small{display:block;color:var(--mu);font-size:12px}.trcap .btn{min-width:44px;padding:0}
+.trr{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px;font-size:13px}.trr span:first-child{min-width:0;overflow-wrap:anywhere}
+.trn{min-height:64px;padding:8px 12px;resize:vertical}

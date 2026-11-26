@@ -386,6 +386,7 @@
   // for a failure, and one OK. Green for submitted and confirmed, red for not submitted, amber when MFL took it but couldn't be shown to match.
   // Like the classic one, only OK (or Escape) closes it; a tap on the dimmed background does not.
   function resultHint(r) {
+    if (r.kind === "trade") return r.state === "unconfirmed" ? "Check MFL before trying again." : "";   // Trades v1: the lineup hints don't apply
     var why = String(r.reason || "");
     if (/cookie|sign in|signed in|MFL_USER_ID|401|403/i.test(why)) return "Sign in with your own team.";
     if (/bye/i.test(why)) return "Bench the bye-week player.";
@@ -934,10 +935,12 @@
 
   function app(S) {
     var on = sampleOn(S);
-    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : placeholderScreen(S.tab);
+    var TRUI = S.tradesUi && S.tr ? S.tradesUi : null;   // Trades v1: Test target only (lib/trades.js); the Preview build has no such module
+    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : S.tab === "league" && TRUI ? TRUI.screen(S, { header: header, scroller: scroller }) : placeholderScreen(S.tab);
     var layer = "";
     if (!on && S.sheet === "move" && S.model && S.move) layer = moveSheet(S);
     else if (!on && S.sheet === "result" && S.model && S.submit && S.submit.okTitle) layer = resultSheet(S);
+    else if (!on && TRUI && /^tr/.test(S.sheet || "") && S.model) layer = TRUI.layer(S);
     else if (S.sheet === "about") layer = aboutSheet(S);
     else if (!on && S.profile && S.model) layer = profile(S);
     else if (!on && S.sheet === "teams" && S.model) layer = teamSheet(S);

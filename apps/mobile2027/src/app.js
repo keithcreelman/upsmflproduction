@@ -53,6 +53,9 @@
     requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
   };
+  // Trades v1 (Keith 2026-11-26 "go trades v1"): League › Trades, Test target only (lib/trades.js draws it, lib/submit.js sends it)
+  S.tradesUi = S.submitMode && U.trades ? U.trades : null;
+  S.tr = S.tradesUi ? Object.assign(U.trades.fresh(), { league: String(cfg.leagueId), season: String(cfg.season) }) : null;
 
   // ---- display choices ----
   var mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
@@ -533,6 +536,7 @@
       // F11 (Keith 2026-11-26): signed in, the app opens on the owner's own team first
       if (m.signedIn && S.model && S.model.teams.some(function (x) { return x.id === m.fid; }) && S.teamId !== m.fid) { S.teamId = m.fid; setPref("team", m.fid); S.open = {}; pfOnTeam(); }
       render(true);
+      if (S.tab === "league") loadTrades(false);
     });
   }
   function ownPlan() {
@@ -620,6 +624,121 @@
     else S.plans[t.id] = { week: S.model.week, base: P.sig(D.base), draft: next };
     S.planPick = null; S.sheet = null; S.optNote = null; render(true);
   }
+  // ---- Trades v1 (Keith 2026-11-26): the classic app's trade flow on the test league. Every write is followed by a read-back from MFL. ----
+  var TT = function () { return U.submit && U.submit.trades; };
+  function trMe() { return S.tr && S.me && S.me.signedIn ? S.me.fid : ""; }
+  function loadTrades(force) {
+    var me = trMe(); if (!me || !TT()) { render(true); return; }
+    if (force || S.tr.offers.state !== "ok") readOffers(me);
+    if (force || S.tr.lock.state !== "ok") {
+      S.tr.lock = { state: "loading" };
+      TT().lock(cfg).then(function (r) { S.tr.lock = r.ok && r.body && r.body.trade_lock ? { state: "ok", data: r.body.trade_lock } : { state: "error" }; render(true); },
+        function () { S.tr.lock = { state: "error" }; render(true); });
+    }
+    loadInv(me, false);
+    render(true);
+  }
+  function readOffers(me) {
+    S.tr.offers = { state: "loading" }; render(true);
+    return TT().offers(cfg, me).then(function (r) {
+      S.tr.offers = r.ok && r.body && r.body.ok !== false ? { state: "ok", inc: r.body.incoming || [], out: r.body.outgoing || [], at: Date.now() } : { state: "error", why: U.trades.why(r, "Couldn’t read your offers.") };
+      render(true); return S.tr.offers;
+    }, function () { S.tr.offers = { state: "error", why: "Couldn’t reach the test worker." }; render(true); return S.tr.offers; });
+  }
+  function loadInv(fid, force) {
+    if (!fid || (!force && S.tr.inv[fid] && S.tr.inv[fid].state !== "error")) return;
+    S.tr.inv[fid] = { state: "loading" };
+    TT().assets(cfg, fid).then(function (r) {
+      S.tr.inv[fid] = r.ok && r.body && Array.isArray(r.body.players) ? { state: "ok", players: r.body.players, future_picks: r.body.future_picks || [] } : { state: "error", why: U.trades.why(r, "Couldn’t read this team.") };
+      render(true);
+    }, function () { S.tr.inv[fid] = { state: "error", why: "Couldn’t reach the test worker." }; render(true); });
+  }
+  function trDraftChanged() { var me = trMe(), d = S.tr.d, B = U.trades.build(S, me); d.capGive = B.capGive; d.capGet = B.capGet; render(true); }
+  function trCheck() {
+    var me = trMe(), B = me && U.trades.build(S, me);
+    if (!B || !B.ready) return;
+    S.tr.chk = { state: "loading", sig: B.sig }; render(true);
+    TT().check(cfg, me, B.movements).then(function (r) {
+      if (S.tr.chk.sig !== B.sig) return;   // the offer changed while it was being checked
+      S.tr.chk = r.ok && r.body && r.body.ok !== false && r.body.compliance ? { state: "ok", sig: B.sig, c: r.body.compliance } : { state: "error", sig: B.sig, why: U.trades.why(r, "Couldn’t check this trade.") };
+      render(true);
+    }, function () { if (S.tr.chk.sig === B.sig) { S.tr.chk = { state: "error", sig: B.sig, why: "Couldn’t reach the test worker." }; render(true); } });
+  }
+  function trResult(r) { r.kind = "trade"; S.submit = r; S.sheet = "result"; S.tr.busy = false; render(); }
+  function trSend(capAck) {
+    var me = trMe(), B = me && U.trades.build(S, me), G = U.trades.gate(S);
+    if (!B || !U.trades.canSend(S, B, G)) return;
+    var head = { okTitle: "Offer sent", noTitle: "Offer NOT sent" };
+    S.tr.busy = true; S.sheet = null; S.tr.ack = null; render(true);
+    TT().create(cfg, B.body, capAck).then(function (r) {
+      var b = r.body || {};
+      if (r.status === 409 && b.code === "cap_overage_ack_required" && b.cap_ack_needed && !capAck) { S.tr.busy = false; S.tr.ack = b.cap_ack_needed; S.sheet = "trackSend"; render(); return; }
+      if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing was sent to MFL.", reason: U.trades.why(r), key: r.key }));
+      return readOffers(me).then(function (O) {
+        var found = O.state === "ok" ? U.trades.findSent(O.out, B.body.to_franchise_id, B.expect) : null;
+        if (found) { S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; S.tr.sub = "offers"; }
+        trResult(Object.assign(head, found ? { state: "confirmed", text: "Confirmed on MFL.", key: r.key } : { state: "unconfirmed", title: "Sent, not confirmed", text: "MFL’s offer list doesn’t show it yet.", key: r.key }));
+      });
+    }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before sending again." })); });
+  }
+  function trOffer(tid) { var O = S.tr.offers; return O.state === "ok" ? (O.inc || []).concat(O.out || []).filter(function (o) { return String(o.trade_id || o.proposal_id || "").replace(/\D/g, "") === String(tid); })[0] || null : null; }
+  function trReview(tid) {
+    var me = trMe(), o = trOffer(tid); if (!me || !o) return;
+    var keep = S.tr.rv && S.tr.rv.tid === tid ? S.tr.rv.ackMsg : "";
+    S.tr.rv = { tid: tid, offer: o, state: "loading", ackMsg: keep }; S.sheet = "trreview"; render();
+    TT().action(cfg, me, "preview", tid, "").then(function (r) { if (S.tr.rv && S.tr.rv.tid === tid) { Object.assign(S.tr.rv, U.trades.review(r)); render(true); } },
+      function () { if (S.tr.rv && S.tr.rv.tid === tid) { S.tr.rv.state = "error"; S.tr.rv.why = "Couldn’t reach the test worker."; render(true); } });
+  }
+  function trAckCap() {
+    var me = trMe(), rv = S.tr.rv; if (!me || !rv || rv.ackBusy) return;
+    rv.ackBusy = true; render(true);
+    TT().action(cfg, me, "ack_cap", rv.tid, "").then(function (r) { rv.ackBusy = false; rv.ackMsg = r.ok && r.body && r.body.ok === true ? "Acknowledged." : U.trades.why(r, "Couldn’t acknowledge."); trReview(rv.tid); },
+      function () { rv.ackBusy = false; rv.ackMsg = "Couldn’t reach the test worker."; render(true); });
+  }
+  // accept | reject | revoke. A confirmed result needs MFL's own answer afterwards: the offer is gone from the pending list, and for an accept the players
+  // received are on the owner's MFL roster.
+  var TR_ACT = { accept: { ok: "Trade accepted", no: "Trade NOT accepted" }, reject: { ok: "Offer declined", no: "Offer NOT declined" }, revoke: { ok: "Offer cancelled", no: "Offer NOT cancelled" } };
+  function trAct(verb, tid, note) {
+    var me = trMe(), o = trOffer(tid), M = TR_ACT[verb]; if (!me || !o || !M || S.tr.busy) return;
+    if (verb === "accept" && !(S.tr.rv && S.tr.rv.data && S.tr.rv.data.canAccept && U.trades.gate(S).ok)) return;
+    var x = U.trades.offerSides(S, o, me), head = { okTitle: M.ok, noTitle: M.no };
+    S.tr.busy = true; S.sheet = null; render(true);
+    TT().action(cfg, me, verb, tid, note || "").then(function (r) {
+      var b = r.body || {};
+      if (b.code === "execution_unconfirmed" || b.code === "execution_in_progress") return trResult(Object.assign(head, { state: "unconfirmed", title: "Not confirmed", text: "Couldn’t confirm MFL processed it. It wasn’t sent again.", key: r.key }));
+      if ((!r.ok || b.ok === false) && b.code !== "already_executed") return trResult(Object.assign(head, { state: "refused", text: "Nothing changed on MFL.", reason: U.trades.why(r), key: r.key }));
+      var review = b.needs_review || b.execution_state === "executed_needs_review" ? " The commissioner finishes the contract step." : "";
+      var players = verb === "accept" ? x.get.filter(function (t) { return /^\d+$/.test(t); }) : [];
+      var rosterCheck = players.length ? TT().rosterIds(cfg, me).then(function (ids) { return players.every(function (p) { return ids.indexOf(p) >= 0; }); }, function () { return false; }) : Promise.resolve(true);
+      return Promise.all([readOffers(me), rosterCheck]).then(function (res) {
+        var gone = res[0].state === "ok" && !trOffer(tid), done = gone && res[1];
+        if (verb === "accept" && done) { S.profile = null; S.tr.inv = {}; S.penalty = { state: "idle" }; loadCore(); }
+        trResult(Object.assign(head, done ? { state: "confirmed", text: "Confirmed on MFL." + review, key: r.key } : { state: "unconfirmed", title: "Sent, not confirmed", text: verb === "accept" ? "Your MFL roster doesn’t show it yet." : "MFL still lists the offer.", key: r.key }));
+      });
+    }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before trying again." })); });
+  }
+  function trHandle(act, v) {
+    var d = S.tr && S.tr.d, me = trMe();
+    if (!S.tr) return;
+    if (act === "trsub") { if (v === "offers" || v === "new") { S.tr.sub = v; render(true); if (v === "new") loadInv(me, false); } }
+    else if (act === "trload") loadTrades(true);
+    else if (act === "trinv") { loadInv(me, true); if (d.to) loadInv(d.to, true); }
+    else if (act === "trto") { d.to = /^\d{4}$/.test(v || "") && v !== me ? v : ""; d.get = {}; d.capGet = 0; S.tr.chk = { state: "idle", sig: "" }; if (d.to) { loadInv(me, false); loadInv(d.to, false); } render(true); }
+    else if (act === "trgive" || act === "trget") { var ids = act === "trgive" ? d.give : d.get; if (ids[v]) delete ids[v]; else ids[v] = true; trDraftChanged(); }
+    else if (act === "trcapg" || act === "trcapt") { var k = act === "trcapg" ? "capGive" : "capGet"; d[k] = Math.max(0, (parseInt(d[k], 10) || 0) + (v === "1" ? 1 : -1)); trDraftChanged(); }
+    else if (act === "trcheck") trCheck();
+    else if (act === "trsend") trSend(null);
+    else if (act === "trsendack") { var sig = S.tr.ack && S.tr.ack.signature; if (sig) trSend(sig); }
+    else if (act === "trreview") trReview(v);
+    else if (act === "trretry") { if (S.tr.rv) trReview(S.tr.rv.tid); }
+    else if (act === "trackcap") trAckCap();
+    else if (act === "traccept") { if (S.tr.rv) trAct("accept", S.tr.rv.tid, ""); }
+    else if (act === "trdecline") { if (trOffer(v)) { S.tr.dec = { tid: v, note: "" }; S.sheet = "trdecline"; render(); } }
+    else if (act === "trdeclinego") { if (S.tr.dec) trAct("reject", S.tr.dec.tid, S.tr.dec.note); }
+    else if (act === "trcancel") { if (trOffer(v)) { S.tr.can = { tid: v }; S.sheet = "trcancel"; render(); } }
+    else if (act === "trcancelgo") { if (S.tr.can) trAct("revoke", S.tr.can.tid, ""); }
+    else if (act === "trclose") { S.sheet = null; S.tr.rv = null; S.tr.dec = null; S.tr.can = null; S.tr.ack = null; render(true); }
+  }
   function returnFromProfile() {
     var r = S.ret; S.ret = null;
     if (r && r.teamId && S.model && S.model.teams.some(function (t) { return t.id === r.teamId; })) S.teamId = r.teamId;
@@ -678,6 +797,7 @@
     handle(act, v, el);
   });
   function handle(act, v, el) {
+    if (/^tr[a-z]+$/.test(act || "")) { if (S.tr) trHandle(act, v); return; }   // Trades v1 (every trade tap starts "tr")
     if (act === "submit") doSubmit();
     else if (act === "optimal") doOptimal();
     else if (act === "move") { if (S.profile && S.submitMode) { S.move = { pid: S.profile.pid, act: v }; S.sheet = "move"; render(); } }
@@ -688,7 +808,7 @@
     else if (act === "leavediscard") replayLeave(true);
     else if (act === "leavestay") { S.leave = null; S.sheet = null; render(); }
     else if (act === "signout") { if (U.submit) U.submit.signOut(); S.me = { signedIn: false, why: "Signed out" }; render(true); }
-    else if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); }
+    else if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); if (v === "league" && S.tr) loadTrades(false); }
     else if (act === "sub") { S.sub = v; render(); ensureIntel(); }
     else if (act === "view") { if (v === "lineup" || v === "byes") { S.view = v; S.sheet = null; render(); ensureIntel(); } }
     else if (act === "weeks") { S.sheet = "weeks"; render(); }
@@ -746,6 +866,8 @@
   // keyboard) is never replaced; anything else falls back to a full redraw, which keeps focus and cursor too (render). No request is made.
   appEl.addEventListener("input", function (ev) {
     var el = ev.target;
+    if (el && S.tr && el.id === "trnote") { S.tr.d.note = String(el.value || "").slice(0, 2000); return; }                       // Trades v1: the offer's note (no redraw while typing)
+    if (el && S.tr && el.id === "trdeclnote" && S.tr.dec) { S.tr.dec.note = String(el.value || "").slice(0, 2000); return; }    // and a decline's note
     if (!el || el.id !== "pfq") return;
     S.pf.q = String(el.value || "").slice(0, 40); S.pf.note = null;
     if (!S.pf.q.trim()) S.pf.xt = false;   // R9: clearing the search ends "Search other teams"; a new search starts on this team again
