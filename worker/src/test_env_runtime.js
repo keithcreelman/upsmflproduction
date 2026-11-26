@@ -531,6 +531,27 @@ async function internalRoute(path, request, env, cfg, inv) {
   return json(404, { ok: false, error: "unknown_test_env_route" }, cfg);
 }
 
+// The browser sends a custom header (the test site's Idempotency-Key) only if the CORS preflight allows it, and the
+// worker's own preflight allows Content-Type alone. A test deployment answers preflights itself: Idempotency-Key is
+// allowed only for the test website's exact origin(s) in TEST_SITE_ORIGINS. A preflight carries no body and no
+// credentials, reaches no worker code and makes no outbound call. Found by Keith's first phone test, 2026-11-26.
+export function testSiteOrigins(env) {
+  return String((env && env.TEST_SITE_ORIGINS) || "").split(",").map((x) => x.trim()).filter((x) => /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(x));
+}
+function preflight(request, env, cfg) {
+  const origin = String(request.headers.get("Origin") || "");
+  const keyed = testSiteOrigins(env).includes(origin);
+  return new Response(null, { status: 204, headers: {
+    "access-control-allow-origin": "*",
+    "access-control-allow-methods": "GET,POST,OPTIONS",
+    "access-control-allow-headers": keyed ? "Content-Type, Idempotency-Key" : "Content-Type",
+    "access-control-max-age": "600",
+    "vary": "Origin",
+    "x-ups-env": "test",
+    "x-ups-league": cfg.league,
+  } });
+}
+
 // ── the request path ────────────────────────────────────────────────────────────────────────────
 export async function handleTestFetch(request, env, ctx, app) {
   const cfg = G.testConfig(env);
@@ -547,6 +568,7 @@ export async function handleTestFetch(request, env, ctx, app) {
   if (!marker.ok) return json(503, { ok: false, error: "test_database_unverified", binding: marker.binding, reason: marker.reason }, cfg);
 
   const url = new URL(request.url);
+  if (request.method === "OPTIONS") return preflight(request, env, cfg);
   if (url.pathname.startsWith("/__test-env/")) return internalRoute(url.pathname, request, env, cfg, inv);
   if (url.pathname.startsWith("/discord/")) return json(403, { ok: false, error: "discord_interactions_disabled_in_test" }, cfg);
 

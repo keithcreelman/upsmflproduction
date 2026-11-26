@@ -443,6 +443,27 @@ test("ledger: a write needs an Idempotency-Key; a repeat replays the first answe
   t.match(row.egress_json, /fcfsWaiver/); t.doesNotMatch(row.egress_json, /tok-test/, "no credential in the ledger");
 }));
 
+test("CORS preflight: only the test website's origin may send Idempotency-Key; no worker code, no MFL call", withMfl(async (mfl) => {
+  const SITE = "https://ups-test-25625.pages.dev";
+  const env = testEnv({ TEST_SITE_ORIGINS: SITE });
+  let reached = 0;
+  const app = { fetch: async () => { reached++; return new Response("app"); } };
+  const pre = (origin) => viaRuntime(env, app, "OPTIONS", "/api/submit-lineup?L=25625", { headers: { Origin: origin, "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "content-type,idempotency-key" } });
+  const ok = await pre(SITE);
+  t.equal(ok.status, 204); t.match(ok.headers.get("access-control-allow-headers"), /Idempotency-Key/);
+  t.equal(ok.headers.get("access-control-allow-origin"), "*"); t.match(ok.headers.get("access-control-allow-methods"), /POST/);
+  for (const other of ["https://evil.example", "https://ups-test-25625.pages.dev.evil.example", "https://abc123.ups-test-25625.pages.dev", "null", ""]) {
+    const r = await pre(other);
+    t.equal(r.status, 204); t.doesNotMatch(r.headers.get("access-control-allow-headers"), /Idempotency-Key/i, `origin ${JSON.stringify(other)} is not allowed the key header`);
+  }
+  const none = await viaRuntime(testEnv(), app, "OPTIONS", "/api/submit-lineup", { headers: { Origin: SITE } });
+  t.doesNotMatch(none.headers.get("access-control-allow-headers"), /Idempotency-Key/i, "no TEST_SITE_ORIGINS: no origin gets the key header");
+  t.equal(reached, 0, "a preflight never reaches the worker code"); t.equal(mflCalls(mfl), 0);
+  const unkeyed = await viaRuntime(env, app, "POST", "/api/submit-lineup", { body: { franchiseId: "0012" }, headers: { Origin: SITE } });
+  t.equal(unkeyed.status, 428, "the guard itself is unchanged: a write from the site without a key is still refused");
+  t.equal(reached, 0);
+}));
+
 test("ledger: a lost MFL answer is 'uncertain'; the same key is blocked until MFL is read and the outcome resolved", withMfl(async (mfl) => {
   const env = testEnv();
   const inner = globalThis.fetch;

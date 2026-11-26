@@ -3,7 +3,8 @@
 import { t, test, run } from "./fixtures/mini_test.mjs";
 import { evaluateProposal, PROPOSAL } from "../scripts/test_env/first_adddrop_preflight.mjs";
 import { diffSnapshots, indexMfl, scopeWhere, D1_TABLES } from "../scripts/test_env/prod_untouched_check.mjs";
-import { build as buildTestSite, PROD_WORKER } from "../scripts/test_env/build_test_site.mjs";
+import { build as buildTestSite, PROD_WORKER, idempotencyShim, IDEMPOTENCY_SHIM } from "../scripts/test_env/build_test_site.mjs";
+import vm from "node:vm";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -160,7 +161,10 @@ test("test site build: allowlist only, test worker and 25625 everywhere, connect
   t.match(h, new RegExp(`connect-src 'self' ${TEST.replace(/[.]/g, "\\.")};`), "the page may fetch only itself and the test worker");
   t.match(h, /script-src 'self' 'sha256-[A-Za-z0-9+/=]+'/, "the one inline boot script is allowed by hash");
   t.match(h, /X-Robots-Tag: noindex/);
-  t.match(fs.readFileSync(path.join(out, "m", "index.html"), "utf8"), /<title>UPS TEST · /);
+  const idx = fs.readFileSync(path.join(out, "m", "index.html"), "utf8");
+  t.match(idx, /<title>UPS TEST · /);
+  t.equal(idx.search(/<script\b/), idx.indexOf(`<script src="${IDEMPOTENCY_SHIM}">`), "the idempotency shim loads before every other script");
+  t.ok(all.includes(`m/${IDEMPOTENCY_SHIM}`), "the shim is published");
   t.throws(() => buildTestSite(out, TEST), /not empty/, "refuses a non-empty output folder");
   fs.rmSync(out, { recursive: true, force: true });
 });
@@ -191,6 +195,27 @@ test("test site build: refuses symlinks and sources outside site/m and the selec
   const s4 = fakeSite("m_link"); fs.rmSync(path.join(s4, "m"), { recursive: true }); fs.symlinkSync(path.join(ok, "m"), path.join(s4, "m"));
   t.throws(() => buildTestSite(outDir(), TEST, s4), /symlink: site\/m/, "site/m itself as a symlink is refused");
   fs.rmSync(root, { recursive: true, force: true });
+});
+
+test("test site idempotency shim: each write to the test worker gets its own key; reads, other hosts and a caller's key are untouched", async () => {
+  const WORKER = "https://ups-test.keith-creelman.workers.dev";
+  const seen = [];
+  const window = { location: { href: "https://ups-test-25625.pages.dev/m/" }, crypto: globalThis.crypto,
+    fetch: async (input, init) => { const h = new Headers((init && init.headers) || (input instanceof Request ? input.headers : undefined)); seen.push({ key: h.get("Idempotency-Key"), ct: h.get("Content-Type") }); return new Response("{}"); } };
+  vm.runInNewContext(idempotencyShim(WORKER), { window, Request, Headers, URL, Uint8Array });
+  const last = () => seen[seen.length - 1];
+  await window.fetch(WORKER + "/api/submit-lineup?L=25625", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+  const k1 = last().key; t.match(k1, /^ui-[0-9a-f-]{32,36}$/); t.equal(last().ct, "application/json", "the app's own headers are kept");
+  await window.fetch(WORKER + "/api/submit-lineup?L=25625", { method: "post", body: "{}" });
+  t.ok(last().key && last().key !== k1, "a second send gets a new key");
+  await window.fetch(WORKER + "/api/me?L=25625"); t.equal(last().key, null, "a read gets no key");
+  await window.fetch("https://api.myfantasyleague.com/2026/export", { method: "POST" }); t.equal(last().key, null, "another host gets no key");
+  await window.fetch(WORKER + "/x", { method: "POST", headers: { "Idempotency-Key": "caller-key-0001" } }); t.equal(last().key, "caller-key-0001", "a caller's key is kept");
+  await window.fetch(new Request(WORKER + "/y", { method: "POST", headers: { "Content-Type": "text/plain" }, body: "a" }));
+  t.match(last().key, /^ui-/); t.equal(last().ct, "text/plain", "a Request's own headers are kept");
+  const before = window.fetch; vm.runInNewContext(idempotencyShim(WORKER), { window, Request, Headers, URL, Uint8Array });
+  t.equal(window.fetch, before, "loading the shim twice doesn't wrap twice");
+  t.throws(() => idempotencyShim("not a url"), /Invalid URL/);
 });
 
 await run("test_env_scripts");

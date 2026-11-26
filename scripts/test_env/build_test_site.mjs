@@ -11,6 +11,9 @@
 //   - adds _headers: a content security policy whose connect-src is the page itself and the test worker only (a
 //     missed production address can't be fetched), noindex, and no referrer
 //   - marks the page title "UPS TEST"
+//   - adds m/ups_test_idempotency.js, loaded before every other script: each write the page sends to the test
+//     worker gets its own Idempotency-Key, which the test worker's write ledger requires (the real app never
+//     sends one; this file exists only on the test site)
 //   - refuses any symlink in the source, and any source whose real path is outside site/m or the selected shared files
 //   - refuses to finish if any output file still names the production worker, league 74598, or a file outside the allowlist
 // It deploys nothing. Publishing is `wrangler pages deploy <outDir> --project-name ups-test-25625 --branch main`.
@@ -49,6 +52,45 @@ export function headersFor(worker, scriptHashes = []) {
   return `/*\n  Content-Security-Policy: ${csp}\n  X-Robots-Tag: noindex, nofollow\n  Referrer-Policy: no-referrer\n  X-Content-Type-Options: nosniff\n`;
 }
 
+// The test worker refuses a write without an Idempotency-Key (428 idempotency_key_required). The real app has no
+// such header, so the TEST site wraps fetch: every POST/PUT/PATCH/DELETE to the test worker that carries no key
+// gets a new random one. One key per send: a retry by the app is a new attempt, and the ledger's operation
+// locks (not the key) are what stop the same MFL write going out twice. Reads, other hosts and a key the
+// caller set are left alone. Found by Keith's first phone test, 2026-11-26.
+export const IDEMPOTENCY_SHIM = "ups_test_idempotency.js";
+export function idempotencyShim(worker) {
+  return `// UPS TEST site only (built by scripts/test_env/build_test_site.mjs); never part of the real app.
+(function () {
+  var WORKER = ${JSON.stringify(new URL(worker).origin)};
+  var orig = window.fetch;
+  if (typeof orig !== "function" || orig.__upsTestKeyed) return;
+  function newKey() {
+    var c = window.crypto;
+    if (c && typeof c.randomUUID === "function") return "ui-" + c.randomUUID();
+    var b = new Uint8Array(16); c.getRandomValues(b);
+    return "ui-" + Array.prototype.map.call(b, function (x) { return (x + 256).toString(16).slice(1); }).join("");
+  }
+  var keyed = function (input, init) {
+    try {
+      var isReq = typeof Request === "function" && input instanceof Request;
+      var url = isReq ? input.url : String(input);
+      var method = String((init && init.method) || (isReq ? input.method : "GET")).toUpperCase();
+      if (/^(POST|PUT|PATCH|DELETE)$/.test(method) && new URL(url, window.location.href).origin === WORKER) {
+        var h = new Headers((init && init.headers) || (isReq ? input.headers : undefined));
+        if (!h.has("Idempotency-Key")) {
+          h.set("Idempotency-Key", newKey());
+          init = Object.assign({}, init || {}, { headers: h });
+        }
+      }
+    } catch (e) { /* leave the request as it was: the worker then refuses it (428), it never goes out unkeyed */ }
+    return orig.call(this, input, init);
+  };
+  keyed.__upsTestKeyed = true;
+  window.fetch = keyed;
+})();
+`;
+}
+
 export function rewrite(text, worker) {
   return text.split(PROD_WORKER).join(worker).split(PROD_LEAGUE).join(TEST_LEAGUE);
 }
@@ -68,6 +110,8 @@ export function build(outDir, worker, site = SITE) {
   plain("m"); plain("shared");
   const index = fs.readFileSync(path.join(site, "m", "index.html"), "utf8");
   const shared = sharedRefs(index);
+  if (fs.existsSync(path.join(site, "m", IDEMPOTENCY_SHIM))) throw new Error(`site/m/${IDEMPOTENCY_SHIM} already exists; the test build writes that file itself`);
+  if (!/<script\b/.test(index)) throw new Error("site/m/index.html loads no script; can't place the idempotency shim before them");
   const files = [];
   (function walk(rel) {
     for (const e of fs.readdirSync(path.join(site, rel), { withFileTypes: true })) {
@@ -90,11 +134,17 @@ export function build(outDir, worker, site = SITE) {
     fs.mkdirSync(path.dirname(dst), { recursive: true });
     if (/\.(js|html|json|css|webmanifest)$/.test(rel)) {
       let t = rewrite(fs.readFileSync(src, "utf8"), worker);
-      if (rel === path.join("m", "index.html")) t = t.replace(/<title>([^<]*)<\/title>/, (_, x) => `<title>UPS TEST · ${x}</title>`);
+      if (rel === path.join("m", "index.html")) {
+        t = t.replace(/<title>([^<]*)<\/title>/, (_, x) => `<title>UPS TEST · ${x}</title>`);
+        const at = t.search(/<script\b/);
+        t = t.slice(0, at) + `<script src="${IDEMPOTENCY_SHIM}"></script>\n  ` + t.slice(at);
+      }
       fs.writeFileSync(dst, t);
     } else fs.copyFileSync(src, dst);
     out.push(rel.split(path.sep).join("/"));
   }
+  fs.writeFileSync(path.join(outDir, "m", IDEMPOTENCY_SHIM), idempotencyShim(worker));
+  out.push(`m/${IDEMPOTENCY_SHIM}`);
   fs.writeFileSync(path.join(outDir, "_headers"), headersFor(worker, inlineScriptHashes(fs.readFileSync(path.join(outDir, "m", "index.html"), "utf8"))));
   // the root opens the app
   fs.writeFileSync(path.join(outDir, "index.html"), `<!doctype html><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=./m/"><title>UPS TEST</title><a href="./m/">UPS TEST (league ${TEST_LEAGUE})</a>\n`);

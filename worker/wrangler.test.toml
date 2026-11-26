@@ -30,6 +30,9 @@ workers_dev = true
 UPS_ENV = "test"
 LEAGUE_ID = "25625"
 WRITE_LEAGUES = "25625"
+# The test website (Pages project ups-test-25625). Only this origin may send the Idempotency-Key header the write
+# ledger requires (CORS preflight, test_env_runtime.js preflight()).
+TEST_SITE_ORIGINS = "https://ups-test-25625.pages.dev"
 YEAR = "2026"
 TEST_DISCORD_CHANNEL_ID = "1089538054236160010"
 # Every automation switch off. Flags read from the TEST database's ups_settings override these, and
