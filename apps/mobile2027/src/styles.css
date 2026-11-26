@@ -113,6 +113,9 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 /* R12: the Lineup planner. A slot badge is the control (44 px target); "Planned" / "Was starting" chips; the plan card; the team-sheet mark */
 .tag.sl.pbt{flex-basis:44px;width:44px;height:44px;padding:0;font:inherit;font-size:12px;font-weight:700;color:inherit;cursor:pointer;margin-top:2px;box-shadow:inset 0 -3px 0 var(--ac)}
 .tag.sl.pbt:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+/* F4: a bench player's badge is the planner control while planning (same 44px target and underline as a slot badge) */
+.tag.pp.pbt{flex-basis:44px;width:44px;height:44px;padding:0;border:1.5px solid var(--bs);background:var(--s2);font:inherit;font-size:12px;font-weight:700;color:inherit;cursor:pointer;border-radius:9px;box-shadow:inset 0 -3px 0 var(--ac)}
+.tag.pp.pbt:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 .chip.pl{color:var(--ac);border-color:var(--ac)}
 .planc{border:1.5px solid var(--ac)}
 .planc .plt{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}

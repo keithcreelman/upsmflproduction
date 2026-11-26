@@ -163,7 +163,10 @@
     }
     // a past week's rows carry the recorded order (1, 2, 3 ...), never a slot or a position: neither is recorded for that week
     var sl = o.tag ? R.slotByTag(o.tag) : null;
-    var tag = o.tag ? slotTag(sl || { tag: o.tag }, p, o.plan) : o.ord ? '<span class="tag sl" role="img" aria-label="Recorded starter number ' + o.ord + '">' + esc(o.ord) + "</span>" : '<span class="tag pp">' + pcx(p.pos) + "</span>";
+    var tag = o.tag ? slotTag(sl || { tag: o.tag }, p, o.plan) : o.ord ? '<span class="tag sl" role="img" aria-label="Recorded starter number ' + o.ord + '">' + esc(o.ord) + "</span>" :
+      // F4 (Keith 2026-11-26): while planning, a bench player's badge opens the slots he can fill, the same way a starter's slot badge does
+      o.planFor ? '<button class="tag pp pbt" data-act="planfor" data-v="' + esc(p.id) + '" aria-label="' + esc(p.name + ", " + posText(p.pos) + ". Plan a change: the slots he can fill") + '">' + pcx(p.pos) + "</button>" :
+      '<span class="tag pp">' + pcx(p.pos) + "</span>";
     return '<div class="rx' + (o.problem ? " prob" : "") + '">' + tag + '<div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + small + "</small></button>" +
       (chips.length ? '<div class="fl">' + chips.join("") + "</div>" : "") + "</div>" + right + '<span class="go" aria-hidden="true">›</span></div>';
   }
@@ -228,7 +231,10 @@
   // R6: the one starter count, "Starting lineup · 18/18": the starters MFL lists over the slots of the lineup model (R.SLOTS, canon §B4).
   function slotCount() { return R.SLOTS.length; }
   function lineupCount(lineup) { return "Starting lineup · " + lineup.count + "/" + slotCount(); }
+  // F1 (Keith 2026-11-26): lineups reset every week, so a week with no submission is one line, "No lineup set", never 18 empty slots.
+  function noSubmission(lineup) { return !!lineup && !lineup.recorded && !lineup.planned && lineup.count === 0 && !(lineup.unresolved && lineup.unresolved.length); }
   function statusLine(S, lineup, wi, view) {
+    if (noSubmission(lineup)) return sumCard("<b>Starting lineup</b> · No lineup set" + (view !== "lineup" ? ' <button class="link" data-act="view" data-v="lineup">Open Lineup</button>' : ""));
     var a = R.attention(S, lineup, wi.cur), at = attentionText(a);
     return sumCard("<b>" + lineupCount(lineup) + "</b>" + (at ? " · " + esc(at) : "") +
       (view !== "lineup" ? ' <button class="link" data-act="view" data-v="lineup">Open Lineup</button>' : ""));
@@ -236,9 +242,14 @@
   // R6: the lineup warning, drawn ONLY when there is an actual lineup issue (an Out, designated, Doubtful or bye starter, an empty slot, a
   // starter no slot takes, a starter not in the roster read, or MFL listing a different number of starting spots than the slot model). One
   // short line per issue; the name opens the profile. No success box and no read-only explanation (R2b's card is withdrawn).
-  function lineupWarn(S, wi, lineup) {
+  function lineupWarn(S, wi, lineup, unsubmitted) {
     var cur = wi.cur, a = R.attention(S, lineup, cur), lim = S.model.limits.starters;
     var spots = lim != null && lim !== slotCount();
+    if (unsubmitted) {
+      // F1: no lineup submitted this week (the plan may hold a few starters): the open slots are not "issues"; only a real starter problem is
+      var n = a.items.length + a.extras.length;
+      a = { n: n, items: a.items, empties: [], emptyCount: 0, extras: a.extras, unresolved: a.unresolved, injuriesChecked: a.injuriesChecked };
+    }
     if (!a.n && !a.unresolved.length && !spots) return "";
     var items = a.items.map(function (it) {
       var p = it.player, k = R.kickoffInfo(S, p, cur), isBye = it.issues.some(function (x) { return x.kind === "bye"; });
@@ -265,8 +276,10 @@
         '<div class="ex pad">Listed in the order MFL recorded them. Slots and positions are not shown for a past week: no read gives a player’s slot or position in that week.</div>';
     }
     var held = !!(lineup.unresolved && lineup.unresolved.length); // an empty slot cannot be named while unmatched starters may fill it
+    var unsub = !!(plan && plan.unsubmitted) || noSubmission(lineup);
+    if (unsub && !lineup.count) return '<div class="card rows lsec"><div class="lsh"><span class="t"><b>Starting lineup</b> · No lineup set</span></div></div>';
     var rows = lineup.slots.map(function (x) {
-      if (!x.player && held) return "";
+      if (!x.player && (held || unsub)) return "";
       var pl = !!plan && !past, ch = pl && plan.changed.indexOf(x.slot.id) >= 0;
       return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, plan: pl, planned: ch ? "Planned" : "", problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past, pl);
     }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); }), (lineup.unresolved || []).map(unresolvedRow)).join("");
@@ -317,17 +330,43 @@
     var ok = O.choices.filter(function (c) { return c.ok; }), res = O.choices.filter(function (c) { return !c.ok && (c.p.status === "ir" || c.p.status === "taxi"); });
     var no = O.choices.filter(function (c) { return !c.ok && res.indexOf(c) < 0; });
     function choice(c) {
+      // F2 (Keith 2026-11-26): keep it clean. The row is the player, his opponent, kickoff and projection; a starter from another slot
+      // also says which ("From SFX"). The full move stays in the button's accessible name.
       var p = c.p, act = !c.ok ? (c.from ? "In " + c.from : "On the bench") : c.from ? "Swap with " + c.from + (occ ? " · " + occ.name + " moves to " + c.from : "") : (occ ? "From the bench · " + occ.name + " goes to the bench" : "From the bench");
       var wh = where(p); if (!c.ok && wh === c.why) wh = "";   // "Bye week" is said once, as the reason
-      var ic = R.injuryChip(S, p), sub = [act, wh, proj(p)].filter(Boolean).join(" · ");
+      var ic = R.injuryChip(S, p), sub = [c.ok ? (c.from ? "From " + c.from : "") : act, wh, proj(p)].filter(Boolean).join(" · ");
       return '<button class="so' + (c.ok ? "" : " off") + '" data-act="planpick" data-v="' + esc(p.id) + '"' + (c.ok ? "" : " disabled") + ' aria-label="' + esc(p.name + ", " + posText(p.pos) + ". " + (c.ok ? act : "Not available: " + c.why)) + '">' +
         '<span class="in"><b>' + esc(p.name) + " " + pcx(p.pos) + "</b>" + (ic ? " " + chip(ic.cls, esc(ic.text)) : "") + "<small>" + esc(sub) + "</small>" + (c.ok ? "" : '<small class="wn">' + esc(c.why) + "</small>") + "</span></button>";
     }
     if (!ok.length && !no.length && !res.length) return out + '<div class="ex">No other player on this roster can play ' + esc(sl.tag) + ".</div></div></div>";
-    out += (ok.length ? '<div class="lbl">Can move here</div>' + ok.map(choice).join("") : '<div class="ex">No one can move here right now.</div>');
+    out += (ok.length ? '<div class="lbl">Swap</div>' + ok.map(choice).join("") : '<div class="ex">No one can move here right now.</div>');
     if (no.length) out += '<div class="lbl">Can’t move here now</div>' + no.map(choice).join("");
     if (res.length) out += '<div class="ex">Not on the active roster (injured reserve or taxi), so they can’t start: ' + esc(res.map(function (c) { return c.p.name; }).join(", ")) + ".</div>";
     return out + "</div></div>";
+  }
+
+  // F4 (Keith 2026-11-26): a bench player's choices, the reverse of planSheet: every slot he can fill now, with who is there. The same
+  // planner.options rules decide each one, and choosing one applies the same swap a starter's slot badge would.
+  function planForSheet(S) {
+    var t = team(S), pid = String(S.planFor || ""), D = PL.draftOf(S, t), wk = S.model.week, p = S.model.byId[pid];
+    var head = '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Plan a lineup change" tabindex="-1"><div class="grab"></div>';
+    if (!D.ok || !p) return head + '<div class="top"><h3>Lineup planner</h3><button class="btn" data-act="close">Close</button></div>' + (D.ok ? "" : '<div class="ex">Lineup planner is off for this team: ' + esc(D.why) + ".</div>") + "</div></div>";
+    var k = R.kickoffInfo(S, p, wk), o = R.oppText(S, p, wk), pj = TV.projectionSlot ? TV.projectionSlot(S, p) : null;
+    var where = [o || "", k.state === "known" ? k.text : "", pj ? "Proj. " + (pj.value == null ? "—" : pj.text) : ""].filter(Boolean).join(" · ");
+    var out = head + '<div class="top"><h3>' + esc(p.name) + " " + pcx(p.pos) + '</h3><button class="btn" data-act="close">Close</button></div>' +
+      '<div class="ex"><b>' + esc(PLAN_LABEL) + ".</b>" + (where ? " " + esc(where) : "") + "</div>";
+    var slots = [], why = "";
+    PL.SLOTS.forEach(function (sl) {
+      var O = PL.options(S, t, D.draft, sl.id); if (O.blocked) return;
+      var c = O.choices.filter(function (x) { return String(x.p.id) === pid; })[0]; if (!c) return;
+      if (c.ok) slots.push({ sl: sl, occ: O.occupant }); else if (!why) why = c.why;
+    });
+    if (!slots.length) return out + '<div class="ex wn" role="status">' + esc(why || "He can’t start in any open slot right now.") + "</div></div></div>";
+    return out + '<div class="lbl">Swap</div>' + slots.map(function (x) {
+      var occ = x.occ;
+      return '<button class="so" data-act="planforpick" data-v="' + esc(x.sl.id) + '" aria-label="' + esc(x.sl.tag + (x.sl.flex ? ", " + x.sl.label : "") + ". " + (occ ? p.name + " starts; " + occ.name + " goes to the bench" : p.name + " starts in an empty slot")) + '">' +
+        '<span class="in"><b>' + esc(x.sl.tag) + (x.sl.flex ? " · " + esc(x.sl.label) : "") + "</b><small>" + (occ ? esc(occ.name) : "Empty") + "</small></span></button>";
+    }).join("") + "</div></div>";
   }
 
   // R2b, P6: the Byes view. Players grouped by bye week in week order from this week on; already-played byes are collapsed.
@@ -492,11 +531,12 @@
     var D = S.view === "lineup" && lineup && lineup.state === "ok" ? PL.draftOf(S, t) : null, planOn = !!(D && D.ok);
     var shown = D && D.planned ? PL.lineupOf(S, t, D.draft) : lineup;
     if (lineup && lineup.state === "ok") {
-      if (S.view === "lineup") out += planBar(S, t, D) + lineupWarn(S, wi, shown);
+      var unsub = noSubmission(lineup);   // F1: MFL holds no lineup for this week
+      if (S.view === "lineup") out += planBar(S, t, D) + lineupWarn(S, wi, shown, unsub);
       else out += statusLine(S, lineup, wi, S.view);
       if (inj) out += '<div class="ex pad">' + esc(inj) + "</div>";
       if (S.view === "byes") return out + byesBody(S, t, wi, lineup);
-      out += lineupBlock(S, t, wi, shown, false, planOn ? { changed: D.changed } : null);
+      out += lineupBlock(S, t, wi, shown, false, planOn ? { changed: D.changed, unsubmitted: unsub } : null);
     } else {
       out += '<div class="card warnc"><h2>Lineup not available</h2><div class="ex">MFL’s submitted lineup could not be read, so no starters are shown. Every active player is under Bench. This is not an empty lineup.</div></div>';
       if (S.view === "byes") return out + byesBody(S, t, wi, null);
@@ -506,7 +546,7 @@
     var benchN = groups.reduce(function (n, g) { return n + g.players.length; }, 0);
     var reasons = groups.reduce(function (r, g) { return r.concat(R.groupReasons(S, g.players)); }, []);
     var wasStart = {}; if (D && D.planned) Object.keys(D.base).forEach(function (k) { wasStart[D.base[k]] = true; });
-    out += section(S, "bench", "Bench", String(benchN), groups, reasons, D && D.planned ? function (p) { return wasStart[String(p.id)] ? { planned: "Was starting" } : {}; } : null);
+    out += section(S, "bench", "Bench", String(benchN), groups, reasons, planOn && S.view === "lineup" ? function (p) { var o = { planFor: p.status === "active" }; if (D.planned && wasStart[String(p.id)]) o.planned = "Was starting"; return o; } : null);
     var ir = M.reserve(t, "ir"), tx = M.reserve(t, "taxi");
     out += section(S, "ir", "Injured reserve", ir.length + (m.limits.ir ? " of " + m.limits.ir : ""), [{ pos: "", players: ir }]);
     out += section(S, "taxi", "Taxi squad", tx.length + (m.limits.taxi ? " of " + m.limits.taxi : ""), [{ pos: "", players: tx }]);
@@ -775,8 +815,9 @@
     else if (!on && S.sheet === "weeks" && S.model) layer = weekSheet(S);
     else if (!on && S.sheet === "help" && S.model) layer = helpSheet(S);
     else if (!on && S.sheet === "plan" && S.model) layer = planSheet(S);
+    else if (!on && S.sheet === "planfor" && S.model) layer = planForSheet(S);
     return envBar(S) + screen + nav(S) + layer;
   }
 
-  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, PLAN_LABEL: PLAN_LABEL };
+  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, planForSheet: planForSheet, PLAN_LABEL: PLAN_LABEL };
 });

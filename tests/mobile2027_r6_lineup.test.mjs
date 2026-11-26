@@ -84,9 +84,11 @@ test("slot badges: numbered labels, OFX/SFX/DFX, the occupying player's position
   const short = V.rosterBody(state(intel, { teamId: SHORT }));
   t.match(short, /<button class="tag sl fx pbt" data-act="plan" data-v="DFX" aria-label="DFX, Defensive flex, empty\. Plan a change for this slot"><b>DFX<\/b><\/button><div class="in"><b>Empty<\/b>/);
   t.doesNotMatch(V.rosterBody(state(intel, { wk: 10 })), /class="tag sl ps|class="tag sl fx/);
-  // bench, IR and taxi rows keep the existing colored position badge
+  // bench, IR and taxi rows keep the existing colored position badge; F4 (Keith 2026-11-26): on the current week's Lineup the bench badge is the
+  // planner control (it opens the slots the player can fill); the name still opens the profile
   const html3 = V.rosterBody(S);
-  M.benchGroups(team(S)).forEach((g) => g.players.forEach((p) => t.match(html3, new RegExp('<span class="tag pp"><span class="pc ' + p.pos + '">' + ({ PK: "K", PN: "P" }[p.pos] || p.pos) + '</span></span><div class="in"><button class="nm" data-act="card" data-pid="' + p.id + '"'))));
+  M.benchGroups(team(S)).forEach((g) => g.players.forEach((p) => t.match(html3, new RegExp('<button class="tag pp pbt" data-act="planfor" data-v="' + p.id + '" aria-label="[^"]*">' + '<span class="pc ' + p.pos + '">' + ({ PK: "K", PN: "P" }[p.pos] || p.pos) + '</span></button><div class="in"><button class="nm" data-act="card" data-pid="' + p.id + '"'))));
+  t.doesNotMatch(V.rosterBody(state(intel, { view: "byes" })), /data-act="planfor"/, "the bench badge is a control only on the Lineup view");
   M.reserve(team(S), "ir").concat(M.reserve(team(S), "taxi")).forEach((p) => t.match(html3, new RegExp('<span class="pc ' + p.pos + '">' + ({ PK: "K", PN: "P" }[p.pos] || p.pos) + '</span></span><div class="in"><button class="nm" data-act="card" data-pid="' + p.id + '"')));
 });
 
@@ -156,7 +158,7 @@ test("Bench, IR and Taxi: one card each, open with the full list, collapsible, b
   // every listed name opens the profile; the only controls are read-only ones
   [...html.matchAll(/data-act="card" data-pid="(\d+)" aria-label="([^"]+), open player profile"/g)].forEach((m) => t.ok(S.model.byId[m[1]], m[2]));
   const acts = new Set([...html.matchAll(/data-act="([a-z]+)"/g)].map((m) => m[1]));
-  [...acts].forEach((a) => t.ok(["card", "grp", "weeks", "view", "teams", "help", "plan"].includes(a), "read-only control: " + a));
+  [...acts].forEach((a) => t.ok(["card", "grp", "weeks", "view", "teams", "help", "plan", "planfor"].includes(a), "read-only control: " + a));
   t.doesNotMatch(text(html), /\b(Swap|Replace|Start|Sit|Move|Promote|Activate|Call up)\b/);
   // collapsing: the heading flips, the players disappear, the count stays
   const shut = V.rosterBody(state(intel, { open: { bench: false, ir: false, taxi: false } }));

@@ -80,10 +80,12 @@ test("a failed lineup read is an error state, never an empty lineup: no empty-sl
   const noRead = M.build(FX.roster_workbench, FX.league, null, 11, 2026); t.equal(team(noRead).lineup.state, "unavailable", "a failed weekly read builds an unavailable lineup, not an empty one");
 });
 
-test("a valid empty lineup (read succeeded, team entry present, zero starters) is not a data gap: every slot is empty and warns", () => {
+test("a valid empty lineup (read succeeded, team entry present, zero starters) is not a data gap: it reads 'No lineup set' (F1, Keith 2026-11-26)", () => {
   const m = withIds([]), tm = team(m), s = state(m), lu = R.lineupFor(s, tm, 11), a = R.attention(s, lu, 11);
   t.ok(R.lineupCoherence(s, tm).ok); t.equal(lu.count, 0); t.equal(lu.unresolved.length, 0); t.equal(a.empties.length, 18); t.equal(a.n, 18);
-  const tx = text(V.app(s)); t.match(tx, /Starting lineup · 0\/18/); t.match(tx, /QB1 · Empty/); t.doesNotMatch(tx, /Not in this roster read/);
+  // F1 (Keith 2026-11-26): lineups reset every week, so a week with no submission is one line, not 18 empty slots and an "18 need attention" card
+  const tx = text(V.app(s)); t.match(tx, /Starting lineup · No lineup set/); t.doesNotMatch(tx, /QB1 · Empty|need attention|0\/18/); t.doesNotMatch(tx, /Not in this roster read/);
+  t.match(text(V.app(state(m, { view: "byes" }))), /Starting lineup · No lineup set/);
   // a team that is absent from a successful lineup read is unknown, not empty
   const wr = JSON.parse(JSON.stringify(FX.weekly_results)); const mm = M.build(FX.roster_workbench, FX.league, wr, 11, 2026);
   t.ok(team(mm).lineup.state === "ok");

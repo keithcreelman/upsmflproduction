@@ -140,7 +140,7 @@ test("P3: the card lists each slot that needs attention once: OUT, an MFL design
   // no write control: no Replace, no Swap, no button that is not a profile or navigation
   t.doesNotMatch(tx, /\b(Replace|Swap|Start him|Sit him|Make the move)\b/i);
   const acts = [...html.matchAll(/data-act="([a-z]+)"/g)].map((m2) => m2[1]);
-  t.ok(acts.every((x) => ["card", "view", "pickweek", "weeks", "grp", "expall", "teams", "nav", "sub", "help", "plan"].includes(x)), "only read-only controls: " + [...new Set(acts)].join(","));
+  t.ok(acts.every((x) => ["card", "view", "pickweek", "weeks", "grp", "expall", "teams", "nav", "sub", "help", "plan", "planfor"].includes(x)), "only read-only controls: " + [...new Set(acts)].join(","));
   // R6: the repeated read-only explanations above and below the lineup are removed (the controls themselves are read-only, pinned above)
   t.doesNotMatch(tx, /Read only: nothing here can change the lineup|Nothing here can change it/);
 });

@@ -95,7 +95,12 @@ test("1. a legal starter/bench swap: Chris Godwin (bench) into OFX1; Adonai Mitc
   t.equal((before.match(/data-act="plan" data-v="/g) || []).length, 18, "every slot badge is a control");
   t.match(before, /data-act="card" data-pid="\d+" aria-label="Adonai Mitchell, open player profile"/, "the name still opens the profile");
   S.sheet = "plan"; S.planPick = "OFX1";
-  const sheet = V.planSheet(S); t.match(text(sheet), /OFX1 · Offensive flex/); t.match(text(sheet), /Plan only · not submitted\./); t.match(text(sheet), /Chris Godwin WR .*From the bench · Adonai Mitchell goes to the bench/);
+  const sheet = V.planSheet(S); t.match(text(sheet), /OFX1 · Offensive flex/); t.match(text(sheet), /Plan only · not submitted\./);
+  // F2 (Keith 2026-11-26): the choices are headed "Swap", and a bench player's row is just him, his game and his projection; the full move stays in the
+  // button's accessible name
+  t.match(text(sheet), / Swap Cade Otton TE /); t.doesNotMatch(text(sheet), /Can move here|From the bench|goes to the bench/);
+  t.match(text(sheet), /Chris Godwin WR @ DET · Sun 1:00 PM ET · Proj\. —/);
+  t.match(sheet, /aria-label="Chris Godwin, [^"]*From the bench · Adonai Mitchell goes to the bench"/);
   t.ok(pick(S, "OFX1", "Chris Godwin")); S.sheet = null;
   const h = screen(V.app(S)), tx = text(h);
   t.equal(nameIn(S, "OFX1"), "Chris Godwin");
