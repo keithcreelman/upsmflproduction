@@ -100,6 +100,12 @@ export function makeMfl(opts) {
     if (/^(www\d+|api)\.myfantasyleague\.com$/.test(url.hostname)) {
       const type = params.get("TYPE");
       const isImport = /\/import$/.test(url.pathname);
+      // Real MFL (checked 2026-11-26): a league export on api.* also 302-redirects to the league's shard (TYPE=league&L=25625 -> www48).
+      // The worker now finds the shard with that read (never with the write itself), so a manual-redirect league read on api.* gets the 302.
+      if (!isImport && url.hostname === "api.myfantasyleague.com" && init.redirect === "manual" && params.get("L")) {
+        const loc = new URL(url); loc.hostname = "www48.myfantasyleague.com";
+        return { ok: false, status: 302, headers: new Headers({ location: loc.toString() }), text: async () => "" };
+      }
       if (!isImport) {
         st.exports.push({ type, cookie, params: Object.fromEntries(params) });
         if (type === "myleagues") {
