@@ -17274,7 +17274,9 @@ export default {
             ? body.starters.map((s) => String(s).trim()).filter(Boolean)
             : [];
           if (!fidReq) return jsonOut(400, { ok: false, error: "franchiseId required", ...weekDiag });
-          if (!starters.length) return jsonOut(400, { ok: false, error: "starters[] required", ...weekDiag });
+          // Keith 2026-11-26 (#1475/#1537): an EMPTY lineup is allowed (not against the rules; an owner may sit everyone, e.g. to make room for a
+          // pickup). The list itself must be sent; an empty one is posted to MFL as STARTERS= (MFL's own answer decides).
+          if (!Array.isArray(body.starters)) return jsonOut(400, { ok: false, error: "starters[] required", ...weekDiag });
           // Caller-franchise identity check via MFL_USER_ID cookie.
           const cookieHeader = request.headers.get("Cookie") || "";
           const cookieMatch = cookieHeader.match(/MFL_USER_ID=([^;]+)/i);
