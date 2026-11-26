@@ -1,11 +1,41 @@
 {
   "meta": {
-    "generated_at": "2026-11-11 00:14:11",
+    "generated_at": "2026-11-26 21:11:07",
     "source": "contract-activity-log",
-    "count": 163,
+    "count": 164,
     "season": 2026
   },
   "activities": [
+    {
+      "activity_id": "945ed9317b746f1ff61f8d7d",
+      "submission_id": "945ed9317b746f1ff61f8d7d",
+      "activity_scope": "contract_mutation",
+      "activity_type": "MYM",
+      "season": "2026",
+      "league_id": "74598",
+      "franchise_id": "0007",
+      "franchise_name": "Sex Manther",
+      "player_id": "17587",
+      "player_name": "Moore, Derrick",
+      "position": "DE",
+      "salary": 2000,
+      "contract_year": 3,
+      "contract_status": "Rookie-MYM",
+      "contract_info": "CL 3| TCV 6K| AAV 2K| Y1-2K, Y2-2K, Y3-2K| GTD: 4.5K",
+      "tcv": 6000,
+      "aav": 2000,
+      "guaranteed": 4500,
+      "submitted_at_utc": "2026-11-26T21:10:47.667Z",
+      "source": "worker-contract-activity",
+      "test_flag": 0,
+      "commish_override_flag": 0,
+      "override_as_of_date": "",
+      "delivery_target": "primary",
+      "discord_channel_id": "1059113303059730494",
+      "discord_message_id": "1575619866793218149",
+      "discord_pinned_flag": 0,
+      "notes": ""
+    },
     {
       "activity_id": "5af85bf7897b4f51080cd74f",
       "submission_id": "5af85bf7897b4f51080cd74f",
