@@ -78,7 +78,7 @@ export async function handle3WayHttp(a) {
   // body `franchise_id` is treated exactly like `acting_franchise_id`.
   const declared = padFid(url.searchParams.get("acting_franchise_id") || (body && (body.acting_franchise_id || (isCancel ? body.franchise_id : ""))) || "");
   const r = await resolveTradeCaller({
-    url, body, env, deps, declaredFid: declared,
+    request, url, body, env, deps, declaredFid: declared,
     defaultLeagueId: a.defaultLeagueId, defaultSeason: a.defaultSeason,
     queryToken: a.browserMflUserId, cookieToken: a.cookieMflUserId, allowCookieToken: true,
   });

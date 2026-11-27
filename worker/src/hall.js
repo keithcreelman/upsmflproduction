@@ -9,6 +9,7 @@
 
 import { fireTestSummary, refreshRoundDisplays } from "./discord_round.js";
 import { integrateApprovedRule } from "./rule_integrator.js";
+import { matchAdminSecret } from "./admin_secrets.js";
 
 const HALL_TYPES = new Set(["fyi", "sentiment", "vote"]);
 const HALL_PUBLIC_STATUSES = new Set(["open", "closed", "passed", "rejected"]);
@@ -52,11 +53,12 @@ function clientIpFromRequest(request) {
 }
 
 function checkAdmin(request, env) {
+  // Who may pass is decided in admin_secrets.js (site "hall_admin"): COMMISH_API_KEY from X-Internal-Auth, as before, plus
+  // UPS_ADMIN_KEY from a header only (Authorization: Bearer / X-UPS-ADMIN-KEY).
+  if (matchAdminSecret({ request, env, site: "hall_admin" }).ok) return { ok: true };
   const expected = safeStr(env.COMMISH_API_KEY || "");
   if (!expected) return { ok: false, reason: "Missing COMMISH_API_KEY worker secret" };
-  const provided = safeStr(request.headers.get("X-Internal-Auth") || "");
-  if (provided !== expected) return { ok: false, reason: "Valid COMMISH_API_KEY required" };
-  return { ok: true };
+  return { ok: false, reason: "Valid COMMISH_API_KEY required" };
 }
 
 function postDiscordMessage(env, channelId, content) {

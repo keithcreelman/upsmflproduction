@@ -11,7 +11,8 @@
 // still apply a stricter rule of its own after this door.
 //
 // Pure apart from the injected `fetchImpl` (MFL `myleagues` lookup).
-import { safeEqual } from "./trade_authz.js";
+import { matchAdminSecret, bearerKey } from "./admin_secrets.js";
+export { bearerKey };
 
 const s = (v) => String(v == null ? "" : v).trim();
 const pad4 = (v) => { const d = s(v).replace(/\D/g, ""); return d ? d.padStart(4, "0").slice(-4) : ""; };
@@ -22,11 +23,8 @@ export function commishFranchiseIds(env) {
 
 /** Every place a credential may arrive — nothing here is trusted until compared.
  *  `Authorization: Bearer <key>` (2026-10-11) is the form new callers use, so a
- *  key never has to sit in a URL (logs, shell history, job output). */
-export function bearerKey(request) {
-  const a = s(request.headers.get("authorization"));
-  return /^bearer\s+/i.test(a) ? a.replace(/^bearer\s+/i, "").trim() : "";
-}
+ *  key never has to sit in a URL (logs, shell history, job output).
+ *  (bearerKey lives in admin_secrets.js with the rest of the secret policy; re-exported above.) */
 export function presentedKeys(request, url) {
   const q = (k) => s(url.searchParams.get(k));
   const h = (k) => s(request.headers.get(k));
@@ -53,15 +51,17 @@ async function commishSession({ token, leagueId, year, env, fetchImpl }) {
  * @returns {{ok:true, via:'key'|'session'} | {ok:false, http:401|403|503, code:string}}
  */
 export async function adminAuthority({ request, url, env, leagueId, year, fetchImpl }) {
-  const secrets = [env && env.COMMISH_API_KEY, env && env.TEST_SYNC_API_KEY, env && env.MFL_APIKEY].map(s).filter(Boolean);
+  // Which secret may authorize which source is ONE table (admin_secrets.js, site "admin_authority"): the three legacy secrets from the
+  // six places above, plus UPS_ADMIN_KEY from a header only.
   const keys = presentedKeys(request, url);
-  for (const k of keys) for (const sec of secrets) if (safeEqual(k, sec)) return { ok: true, via: "key" };
+  const m = matchAdminSecret({ request, url, env, site: "admin_authority" });
+  if (m.ok) return { ok: true, via: "key" };
   const token = s(url.searchParams.get("MFL_USER_ID"));
   if (token) {
     const r = await commishSession({ token, leagueId: leagueId || "74598", year: year || String(new Date().getUTCFullYear()), env, fetchImpl });
     return r;                                            // ok, or 401 / 403 / 503 from MFL's own answer
   }
-  return keys.length ? { ok: false, http: 403, code: "forbidden" } : { ok: false, http: 401, code: "unauthenticated" };
+  return (keys.length || m.upsPresented) ? { ok: false, http: 403, code: "forbidden" } : { ok: false, http: 401, code: "unauthenticated" };
 }
 
 /** The uniform refusal: no route name, no state, no hint about what would have worked. */
