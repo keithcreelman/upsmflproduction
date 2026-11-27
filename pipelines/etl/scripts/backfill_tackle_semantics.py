@@ -203,14 +203,18 @@ def main() -> None:
         # ~50KB — comfortably under D1's 100KB per-statement cap and ~12x fewer
         # round trips.
         if not args.ext_only:
+            # update_only: these columns augment an nflverse box row and must never
+            # create one (#1503 D1: created rows had no team, opponent or position).
             with D1Writer(table="nfl_player_weekly", cols=MAIN_COLS,
                           pk_cols=["season", "week", "gsis_id"],
-                          chunk_size=CHUNK) as w:
+                          chunk_size=CHUNK, update_only=True) as w:
                 for r in main_rows:
                     w.add(r)
+        # Only on keys with a real box row (#1503 D1): an ext row without one is an orphan.
         with D1Writer(table="nfl_player_weekly_ext", cols=EXT_COLS,
                       pk_cols=["season", "week", "gsis_id"],
-                      chunk_size=CHUNK) as w:
+                      chunk_size=CHUNK, require_parent="nfl_player_weekly",
+                      require_parent_where="p.team IS NOT NULL") as w:
             for r in ext_rows:
                 w.add(r)
         grand_main += len(main_rows)
