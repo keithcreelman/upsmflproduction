@@ -54,6 +54,10 @@ jobs:
 
       # Offline: the missing-issue / unchecked-Elias detector and the duplicate
       # guard a catch-up publish runs first (ups_center_due.py).
+      # Offline: the weekly review email and the approval gate (fake gh/git, fake SMTP).
+      - name: UPS Center review email + approval gate
+        run: python pipelines/etl/wire/test_ups_center_review.py
+
       - name: UPS Center due + duplicate-guard logic
         run: python pipelines/etl/wire/test_ups_center_due.py
 
