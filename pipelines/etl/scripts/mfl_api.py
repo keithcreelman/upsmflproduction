@@ -22,11 +22,40 @@ logger = logging.getLogger(__name__)
 
 # --- CONFIG ---
 
-# API key: prefer environment variable `MFL_APIKEY`.
-# For convenience this repo keeps the original key as a fallback so
-# existing local runs continue to work. If you want to force explicit
-# key usage remove the fallback value and set `MFL_APIKEY` instead.
-APIKEY = os.environ.get("MFL_APIKEY", "aRBv1sCXvuWqx0CmP13EaDoeFbox")
+# API key: never in source (containment, 2026-11-21). Taken, in order, from
+#   1. the environment variable `MFL_APIKEY`;
+#   2. the `MFL_APIKEY=` line of a local, git-ignored config file:
+#      pipelines/etl/config/runtime.env.live, then runtime.env (see runtime.env.example);
+#   3. nothing: league-scoped calls then go out without a key, and a one-line warning
+#      (never the value) says so, instead of silently using a committed fallback.
+_CONFIG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "config")
+
+
+def _key_from_local_config(names=("runtime.env.live", "runtime.env")):
+    for name in names:
+        path = os.path.join(_CONFIG_DIR, name)
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for line in fh:
+                    m = re.match(r"\s*(?:export\s+)?MFL_APIKEY\s*=\s*(.*?)\s*$", line)
+                    if m:
+                        value = m.group(1).strip().strip("'\"")
+                        if value and not value.startswith("<"):
+                            return value
+        except OSError:
+            continue
+    return ""
+
+
+def resolve_apikey():
+    value = os.environ.get("MFL_APIKEY", "").strip() or _key_from_local_config()
+    if not value:
+        logger.warning("mfl_api: no MFL_APIKEY in the environment or in pipelines/etl/config/runtime.env(.live); "
+                       "league-scoped MFL calls will be made without a key")
+    return value
+
+
+APIKEY = resolve_apikey()
 
 # These are tuned by callers (e.g. loadplayers.apply_mode)
 REQUEST_DELAY = 2.5     # seconds to sleep before each request
