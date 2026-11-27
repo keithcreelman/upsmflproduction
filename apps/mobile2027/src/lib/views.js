@@ -163,7 +163,10 @@
     }
     // a past week's rows carry the recorded order (1, 2, 3 ...), never a slot or a position: neither is recorded for that week
     var sl = o.tag ? R.slotByTag(o.tag) : null;
-    var tag = o.tag ? slotTag(sl || { tag: o.tag }, p, o.plan) : o.ord ? '<span class="tag sl" role="img" aria-label="Recorded starter number ' + o.ord + '">' + esc(o.ord) + "</span>" : '<span class="tag pp">' + pcx(p.pos) + "</span>";
+    var tag = o.tag ? slotTag(sl || { tag: o.tag }, p, o.plan) : o.ord ? '<span class="tag sl" role="img" aria-label="Recorded starter number ' + o.ord + '">' + esc(o.ord) + "</span>" :
+      // F4 (Keith 2026-11-26): while planning, a bench player's badge opens the slots he can fill, the same way a starter's slot badge does
+      o.planFor ? '<button class="tag pp pbt" data-act="planfor" data-v="' + esc(p.id) + '" aria-label="' + esc(p.name + ", " + posText(p.pos) + ". Plan a change: the slots he can fill") + '">' + pcx(p.pos) + "</button>" :
+      '<span class="tag pp">' + pcx(p.pos) + "</span>";
     return '<div class="rx' + (o.problem ? " prob" : "") + '">' + tag + '<div class="in"><button class="nm" data-act="card" data-pid="' + esc(p.id) + '" aria-label="' + esc(p.name) + ', open player profile"><span class="n1">' + esc(p.name) + "</span><small>" + small + "</small></button>" +
       (chips.length ? '<div class="fl">' + chips.join("") + "</div>" : "") + "</div>" + right + '<span class="go" aria-hidden="true">›</span></div>';
   }
@@ -228,7 +231,10 @@
   // R6: the one starter count, "Starting lineup · 18/18": the starters MFL lists over the slots of the lineup model (R.SLOTS, canon §B4).
   function slotCount() { return R.SLOTS.length; }
   function lineupCount(lineup) { return "Starting lineup · " + lineup.count + "/" + slotCount(); }
+  // F1 (Keith 2026-11-26): lineups reset every week, so a week with no submission is one line, "No lineup set", never 18 empty slots.
+  function noSubmission(lineup) { return !!lineup && !lineup.recorded && !lineup.planned && lineup.count === 0 && !(lineup.unresolved && lineup.unresolved.length); }
   function statusLine(S, lineup, wi, view) {
+    if (noSubmission(lineup)) return sumCard("<b>Starting lineup</b> · No lineup set" + (view !== "lineup" ? ' <button class="link" data-act="view" data-v="lineup">Open Lineup</button>' : ""));
     var a = R.attention(S, lineup, wi.cur), at = attentionText(a);
     return sumCard("<b>" + lineupCount(lineup) + "</b>" + (at ? " · " + esc(at) : "") +
       (view !== "lineup" ? ' <button class="link" data-act="view" data-v="lineup">Open Lineup</button>' : ""));
@@ -236,9 +242,14 @@
   // R6: the lineup warning, drawn ONLY when there is an actual lineup issue (an Out, designated, Doubtful or bye starter, an empty slot, a
   // starter no slot takes, a starter not in the roster read, or MFL listing a different number of starting spots than the slot model). One
   // short line per issue; the name opens the profile. No success box and no read-only explanation (R2b's card is withdrawn).
-  function lineupWarn(S, wi, lineup) {
+  function lineupWarn(S, wi, lineup, unsubmitted) {
     var cur = wi.cur, a = R.attention(S, lineup, cur), lim = S.model.limits.starters;
     var spots = lim != null && lim !== slotCount();
+    if (unsubmitted) {
+      // F1: no lineup submitted this week (the plan may hold a few starters): the open slots are not "issues"; only a real starter problem is
+      var n = a.items.length + a.extras.length;
+      a = { n: n, items: a.items, empties: [], emptyCount: 0, extras: a.extras, unresolved: a.unresolved, injuriesChecked: a.injuriesChecked };
+    }
     if (!a.n && !a.unresolved.length && !spots) return "";
     var items = a.items.map(function (it) {
       var p = it.player, k = R.kickoffInfo(S, p, cur), isBye = it.issues.some(function (x) { return x.kind === "bye"; });
@@ -256,6 +267,15 @@
       (spots ? '<div class="ex wn mt4">MFL lists ' + esc(lim) + " starting spots; this lineup has " + slotCount() + " slots.</div>" : "") + "</div>";
   }
 
+  // F7 (Keith 2026-11-26): the starting lineup's projected total in its header (" · Proj. 142.6"), from the same per-player numbers the rows show,
+  // updating with every change. Starters with no projection add nothing and are counted ("2 without"); no number at all, no total.
+  function projTotal(S, lineup) {
+    if (!TV.projectionSlot || !lineup || !lineup.slots) return "";
+    var sum = 0, have = 0, miss = 0;
+    lineup.slots.forEach(function (x) { if (!x.player) return; var g = TV.projectionSlot(S, x.player); if (g && g.value != null) { sum += g.value; have++; } else miss++; });
+    if (!have) return "";
+    return " · Proj. " + (Math.round(sum * 10) / 10).toFixed(1) + (miss ? " (" + miss + " without)" : "");
+  }
   function lineupBlock(S, t, wi, lineup, past, plan) {
     var lim = S.model.limits.starters || 18, wk = wi.sel;
     if (lineup.recorded) {
@@ -265,19 +285,45 @@
         '<div class="ex pad">Listed in the order MFL recorded them. Slots and positions are not shown for a past week: no read gives a player’s slot or position in that week.</div>';
     }
     var held = !!(lineup.unresolved && lineup.unresolved.length); // an empty slot cannot be named while unmatched starters may fill it
+    var unsub = !!(plan && plan.unsubmitted) || noSubmission(lineup);
+    if (unsub && !lineup.count) return '<div class="card rows lsec"><div class="lsh"><span class="t"><b>Starting lineup</b> · No lineup set</span></div></div>';
     var rows = lineup.slots.map(function (x) {
-      if (!x.player && held) return "";
+      if (!x.player && (held || unsub)) return "";
       var pl = !!plan && !past, ch = pl && plan.changed.indexOf(x.slot.id) >= 0;
-      return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, plan: pl, planned: ch ? "Planned" : "", problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past, pl);
+      return x.player ? row(x.player, S, { tag: x.slot.tag, wk: wk, past: past, plan: pl, planned: ch && !S.submitMode ? "Planned" : "", problem: !past && (R.onBye(x.player, wk) || (function () { var c = R.injuryChip(S, x.player); return !!(c && (c.kind === "out" || c.kind === "res")); })()) }) : emptyRow(x.slot, !past, pl);
     }).concat(lineup.extra.map(function (p) { return row(p, S, { wk: wk, past: past }); }), (lineup.unresolved || []).map(unresolvedRow)).join("");
-    return '<div class="card rows lsec"><div class="lsh"><span class="t"><b>' + esc(lineupCount(lineup)) + "</b></span></div>" + rows + "</div>";
+    return '<div class="card rows lsec"><div class="lsh"><span class="t"><b>' + esc(lineupCount(lineup)) + "</b>" + (past ? "" : esc(projTotal(S, lineup))) + "</span></div>" + rows + "</div>";
   }
 
   // ---------- R12: the Lineup planner (plan only, never submitted) ----------
   // The one line above the lineup. Without a plan: how to start one. With a plan: "Plan only · not submitted", how many slots changed, Reset, and
   // where the plan lives (this page's memory: it survives a team switch, a profile, other tabs and views, and is gone on reload or close).
   var PLAN_LABEL = "Plan only · not submitted";
+  // R13 F3 (Keith 2026-11-26): in the Test target (S.submitMode, lib/submit.js loaded) a change shows ONE "Submit Lineup" button (with Undo),
+  // no "Plan only" wording and no "Planned" chips. Only the signed-in owner's team can submit; a lineup with a real problem (two slots, wrong slot,
+  // bye, over a range) can't be sent; a short lineup can, with one line saying so. The last submit's result stays until the next one.
+  function submitBar(S, t, D) {
+    var me = S.me || {}, own = !!(me.signedIn && me.fid === t.id), last = S.submit && S.submit.fid === t.id ? S.submit : null;
+    // the result itself is the pop-up (resultSheet); the bar only says a submit is on its way
+    var res = last && last.state === "sending" ? '<div class="card planc" role="status"><b>Submitting…</b></div>' : "";
+    // F10: another team, or nobody signed in, has no planner. Signed out says once how to sign in; another team says nothing.
+    if (!D) return res + (S.me && S.me.state !== "loading" && !me.signedIn && S.view === "lineup" ? '<div class="ex pad plh">Sign in to change your lineup.</div>' : "");
+    if (!D.ok) return res + '<div class="ex pad">Lineup changes are off for this team: ' + esc(D.why) + ".</div>";
+    var who = own ? "" : "You can submit only your own team’s lineup.";
+    var projOk = !!(S.intel && S.intel.proj && S.model && S.intel.proj[S.model.week] && S.intel.proj[S.model.week].state === "ok");
+    // F5 (Keith 2026-11-26): fills the best legal lineup by projected points as a plan to review; nothing is sent until Submit Lineup
+    var opt = own ? '<button class="btn blk" data-act="optimal"' + (projOk && !(last && last.state === "sending") ? "" : " disabled") + ">MFL Optimal Starters</button>" + (projOk ? "" : '<div class="ex">Projections not loaded.</div>') : "";
+    var note = S.optNote && S.optNote.fid === t.id ? '<div class="ex" role="status">' + esc(S.optNote.text) + "</div>" : "";
+    if (!D.planned) return res + '<div class="ex pad plh">' + esc(own ? "Tap a badge to change your lineup." : who) + "</div>" + note + opt;
+    // Keith 2026-11-26 ("A"): MFL's lineup import requires at least one starter ("Missing Starters"), so an empty lineup can't be sent
+    var v = PL.validate(S, t, D.draft), sending = !!(last && last.state === "sending"), empty = !v.filled, can = own && !v.problems && !sending && !empty;
+    return res + '<div class="card planc" role="status"><div class="plt"><b>' + plural(D.changed.length, "change", "changes") + '</b><span class="plb"><button class="btn" data-act="planreset">Undo</button>' +
+      '<button class="btn pri" data-act="submit"' + (can ? "" : " disabled") + ">" + (sending ? "Submitting…" : "Submit Lineup") + "</button></span></div>" +
+      (v.problems ? '<div class="ex wn">' + esc(v.errors.join(" · ")) + "</div>" : empty ? '<div class="ex wn">MFL needs at least one starter.</div>' : v.filled < v.total ? '<div class="ex">Short lineup: ' + v.filled + " of " + v.total + " starters.</div>" : "") +
+      (who ? '<div class="ex">' + esc(who) + "</div>" : "") + note + "</div>" + opt;
+  }
   function planBar(S, t, D) {
+    if (S.submitMode) return submitBar(S, t, D);
     if (!D) return "";
     if (!D.ok) return '<div class="ex pad">Lineup planner is off for this team: ' + esc(D.why) + ".</div>";
     if (!D.planned) return '<div class="ex pad plh">Tap a position badge to plan a change. ' + esc(PLAN_LABEL) + "." + (D.stale ? " An earlier plan was cleared because MFL’s lineup for this week is different now." : "") + "</div>";
@@ -311,23 +357,79 @@
     function proj(p) { var g = TV.projectionSlot ? TV.projectionSlot(S, p) : null; return g ? "Proj. " + (g.value == null ? "—" : g.text) : ""; }
     var occ = O.occupant;
     var out = head + '<div class="top"><h3>' + esc(sl.tag) + (sl.flex ? " · " + esc(sl.label) : "") + "</h3>" + '<button class="btn" data-act="close">Close</button></div>' +
-      '<div class="ex"><b>' + esc(PLAN_LABEL) + ".</b> Takes " + esc(sl.acc.map(posText).join(", ")) + ". " + (occ ? "Now: " + esc(occ.name) + " (" + esc(posText(occ.pos)) + ")" + (where(occ) ? " · " + esc(where(occ)) : "") + "." : "Now: empty.") + "</div>";
+      '<div class="ex">' + (S.submitMode ? "" : "<b>" + esc(PLAN_LABEL) + ".</b> ") + "Takes " + esc(sl.acc.map(posText).join(", ")) + ". " + (occ ? "Now: " + esc(occ.name) + " (" + esc(posText(occ.pos)) + ")" + (where(occ) ? " · " + esc(where(occ)) : "") + "." : "Now: empty.") + "</div>";
     if (O.blocked) return out + '<div class="ex wn" role="status">' + esc(O.why) + "</div></div></div>";
+    // F9 (Keith 2026-11-26): a starter can come out without anyone replacing him (to leave room for a pickup, or just to sit him). Only an unlocked
+    // occupant (a locked one already returned above); the slot is left empty in the plan.
+    if (occ) out += '<div class="lbl">Bench</div><button class="so" data-act="planbench" aria-label="' + esc("Move " + occ.name + " to the bench; " + sl.tag + " is left empty") + '"><span class="in"><b>Move ' + esc(occ.name) + " to the bench</b><small>" + esc(sl.tag) + " is left empty</small></span></button>";
     // injured reserve and taxi players are one short line (they are not on the active roster); every other player who can't move here is listed with why
     var ok = O.choices.filter(function (c) { return c.ok; }), res = O.choices.filter(function (c) { return !c.ok && (c.p.status === "ir" || c.p.status === "taxi"); });
     var no = O.choices.filter(function (c) { return !c.ok && res.indexOf(c) < 0; });
     function choice(c) {
+      // F2 (Keith 2026-11-26): keep it clean. The row is the player, his opponent, kickoff and projection; a starter from another slot
+      // also says which ("From SFX"). The full move stays in the button's accessible name.
       var p = c.p, act = !c.ok ? (c.from ? "In " + c.from : "On the bench") : c.from ? "Swap with " + c.from + (occ ? " · " + occ.name + " moves to " + c.from : "") : (occ ? "From the bench · " + occ.name + " goes to the bench" : "From the bench");
       var wh = where(p); if (!c.ok && wh === c.why) wh = "";   // "Bye week" is said once, as the reason
-      var ic = R.injuryChip(S, p), sub = [act, wh, proj(p)].filter(Boolean).join(" · ");
+      var ic = R.injuryChip(S, p), sub = [c.ok ? (c.from ? "From " + c.from : "") : act, wh, proj(p)].filter(Boolean).join(" · ");
       return '<button class="so' + (c.ok ? "" : " off") + '" data-act="planpick" data-v="' + esc(p.id) + '"' + (c.ok ? "" : " disabled") + ' aria-label="' + esc(p.name + ", " + posText(p.pos) + ". " + (c.ok ? act : "Not available: " + c.why)) + '">' +
         '<span class="in"><b>' + esc(p.name) + " " + pcx(p.pos) + "</b>" + (ic ? " " + chip(ic.cls, esc(ic.text)) : "") + "<small>" + esc(sub) + "</small>" + (c.ok ? "" : '<small class="wn">' + esc(c.why) + "</small>") + "</span></button>";
     }
     if (!ok.length && !no.length && !res.length) return out + '<div class="ex">No other player on this roster can play ' + esc(sl.tag) + ".</div></div></div>";
-    out += (ok.length ? '<div class="lbl">Can move here</div>' + ok.map(choice).join("") : '<div class="ex">No one can move here right now.</div>');
+    out += (ok.length ? '<div class="lbl">Swap</div>' + ok.map(choice).join("") : '<div class="ex">No one can move here right now.</div>');
     if (no.length) out += '<div class="lbl">Can’t move here now</div>' + no.map(choice).join("");
     if (res.length) out += '<div class="ex">Not on the active roster (injured reserve or taxi), so they can’t start: ' + esc(res.map(function (c) { return c.p.name; }).join(", ")) + ".</div>";
     return out + "</div></div>";
+  }
+
+  // R13 F3 (Keith 2026-11-26: "a pop-up similar to what we have on the MFL app ... color-coded to match the theme"): the submit result, mirroring the
+  // classic app's lineup pop-up (site/shared/lineup_result_modal.js): a big ✓ / ✕ / !, a bold title, the message, the reason in a "Why:" box and a hint
+  // for a failure, and one OK. Green for submitted and confirmed, red for not submitted, amber when MFL took it but couldn't be shown to match.
+  // Like the classic one, only OK (or Escape) closes it; a tap on the dimmed background does not.
+  function resultHint(r) {
+    if (r.kind === "trade") return r.state === "unconfirmed" ? "Check MFL before trying again." : "";   // Trades v1: the lineup hints don't apply
+    var why = String(r.reason || "");
+    if (/cookie|sign in|signed in|MFL_USER_ID|401|403/i.test(why)) return "Sign in with your own team.";
+    if (/bye/i.test(why)) return "Bench the bye-week player.";
+    if (/lock|kick/i.test(why)) return "His game has started.";
+    return r.state === "unconfirmed" ? "Check MFL before trying again." : "";
+  }
+  function resultSheet(S) {
+    var r = S.submit || {}, k = r.state === "confirmed" ? "ok" : r.state === "refused" ? "err" : "wn";
+    var title = r.state === "confirmed" ? r.okTitle || "Lineup submitted" : r.state === "refused" ? r.noTitle || "Lineup NOT submitted" : r.title || "Submitted, not confirmed", hint = resultHint(r);
+    return '<div class="layer ctrl"><div class="scrim"></div><div class="rm ' + k + '" role="alertdialog" aria-modal="true" aria-labelledby="rm-t" aria-describedby="rm-b" tabindex="-1">' +
+      '<div class="rm-ic" aria-hidden="true">' + (k === "ok" ? "✓" : k === "err" ? "✕" : "!") + "</div>" +
+      '<h2 id="rm-t">' + esc(title) + '</h2><p id="rm-b">' + esc(r.text || "") + "</p>" +
+      (r.reason ? '<div class="why"><b>Why:</b> ' + esc(r.reason) + "</div>" : "") + (hint ? '<div class="hint">' + esc(hint) + "</div>" : "") +
+      '<button class="rmok" data-act="resultok">OK</button></div></div>';
+  }
+  // R13 F3: leaving the Lineup with changes not submitted (app.js leaveGuard holds the navigation)
+  function leaveSheet(S) {
+    return '<div class="layer"><div class="scrim" data-act="leavestay"></div><div class="sheet" role="alertdialog" aria-modal="true" aria-label="Lineup changes not submitted" tabindex="-1"><div class="grab"></div>' +
+      '<div class="top"><h3>Lineup not submitted</h3></div><div class="ex">Changes not sent to MFL.</div>' +
+      '<button class="btn pri blk" data-act="leavesubmit">Submit Lineup</button><button class="btn blk" data-act="leavediscard">Discard changes</button><button class="btn blk" data-act="leavestay">Keep editing</button></div></div>';
+  }
+  // F4 (Keith 2026-11-26): a bench player's choices, the reverse of planSheet: every slot he can fill now, with who is there. The same
+  // planner.options rules decide each one, and choosing one applies the same swap a starter's slot badge would.
+  function planForSheet(S) {
+    var t = team(S), pid = String(S.planFor || ""), D = PL.draftOf(S, t), wk = S.model.week, p = S.model.byId[pid];
+    var head = '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet" role="dialog" aria-modal="true" aria-label="Plan a lineup change" tabindex="-1"><div class="grab"></div>';
+    if (!D.ok || !p) return head + '<div class="top"><h3>Lineup planner</h3><button class="btn" data-act="close">Close</button></div>' + (D.ok ? "" : '<div class="ex">Lineup planner is off for this team: ' + esc(D.why) + ".</div>") + "</div></div>";
+    var k = R.kickoffInfo(S, p, wk), o = R.oppText(S, p, wk), pj = TV.projectionSlot ? TV.projectionSlot(S, p) : null;
+    var where = [o || "", k.state === "known" ? k.text : "", pj ? "Proj. " + (pj.value == null ? "—" : pj.text) : ""].filter(Boolean).join(" · ");
+    var out = head + '<div class="top"><h3>' + esc(p.name) + " " + pcx(p.pos) + '</h3><button class="btn" data-act="close">Close</button></div>' +
+      '<div class="ex">' + (S.submitMode ? "" : "<b>" + esc(PLAN_LABEL) + ".</b>") + (where ? " " + esc(where) : "") + "</div>";
+    var slots = [], why = "";
+    PL.SLOTS.forEach(function (sl) {
+      var O = PL.options(S, t, D.draft, sl.id); if (O.blocked) return;
+      var c = O.choices.filter(function (x) { return String(x.p.id) === pid; })[0]; if (!c) return;
+      if (c.ok) slots.push({ sl: sl, occ: O.occupant }); else if (!why) why = c.why;
+    });
+    if (!slots.length) return out + '<div class="ex wn" role="status">' + esc(why || "He can’t start in any open slot right now.") + "</div></div></div>";
+    return out + '<div class="lbl">Swap</div>' + slots.map(function (x) {
+      var occ = x.occ;
+      return '<button class="so" data-act="planforpick" data-v="' + esc(x.sl.id) + '" aria-label="' + esc(x.sl.tag + (x.sl.flex ? ", " + x.sl.label : "") + ". " + (occ ? p.name + " starts; " + occ.name + " goes to the bench" : p.name + " starts in an empty slot")) + '">' +
+        '<span class="in"><b>' + esc(x.sl.tag) + (x.sl.flex ? " · " + esc(x.sl.label) : "") + "</b><small>" + (occ ? esc(occ.name) : "Empty") + "</small></span></button>";
+    }).join("") + "</div></div>";
   }
 
   // R2b, P6: the Byes view. Players grouped by bye week in week order from this week on; already-played byes are collapsed.
@@ -489,14 +591,18 @@
     var inj = R.injuryNote(S);
     // R12: the Lineup planner (current week, Lineup view only). With a plan, the slots, the count, the warnings and the bench are drawn from the plan
     // through the same code that draws the recorded lineup; without one, exactly the recorded lineup. Byes always uses the recorded lineup.
-    var D = S.view === "lineup" && lineup && lineup.state === "ok" ? PL.draftOf(S, t) : null, planOn = !!(D && D.ok);
+    // F10 (Keith 2026-11-26): in the Test target only the signed-in owner's own team can be changed; any other team's lineup is shown as it is,
+    // with no planner controls at all (a tap on its badges does nothing).
+    var canPlan = !S.submitMode || !!(S.me && S.me.signedIn && S.me.fid === t.id);
+    var D = canPlan && S.view === "lineup" && lineup && lineup.state === "ok" ? PL.draftOf(S, t) : null, planOn = !!(D && D.ok);
     var shown = D && D.planned ? PL.lineupOf(S, t, D.draft) : lineup;
     if (lineup && lineup.state === "ok") {
-      if (S.view === "lineup") out += planBar(S, t, D) + lineupWarn(S, wi, shown);
+      var unsub = noSubmission(lineup);   // F1: MFL holds no lineup for this week
+      if (S.view === "lineup") out += planBar(S, t, D) + lineupWarn(S, wi, shown, unsub);
       else out += statusLine(S, lineup, wi, S.view);
       if (inj) out += '<div class="ex pad">' + esc(inj) + "</div>";
       if (S.view === "byes") return out + byesBody(S, t, wi, lineup);
-      out += lineupBlock(S, t, wi, shown, false, planOn ? { changed: D.changed } : null);
+      out += lineupBlock(S, t, wi, shown, false, planOn ? { changed: D.changed, unsubmitted: unsub } : null);
     } else {
       out += '<div class="card warnc"><h2>Lineup not available</h2><div class="ex">MFL’s submitted lineup could not be read, so no starters are shown. Every active player is under Bench. This is not an empty lineup.</div></div>';
       if (S.view === "byes") return out + byesBody(S, t, wi, null);
@@ -506,7 +612,7 @@
     var benchN = groups.reduce(function (n, g) { return n + g.players.length; }, 0);
     var reasons = groups.reduce(function (r, g) { return r.concat(R.groupReasons(S, g.players)); }, []);
     var wasStart = {}; if (D && D.planned) Object.keys(D.base).forEach(function (k) { wasStart[D.base[k]] = true; });
-    out += section(S, "bench", "Bench", String(benchN), groups, reasons, D && D.planned ? function (p) { return wasStart[String(p.id)] ? { planned: "Was starting" } : {}; } : null);
+    out += section(S, "bench", "Bench", String(benchN), groups, reasons, planOn && S.view === "lineup" ? function (p) { var o = { planFor: p.status === "active" }; if (D.planned && !S.submitMode && wasStart[String(p.id)]) o.planned = "Was starting"; return o; } : null);
     var ir = M.reserve(t, "ir"), tx = M.reserve(t, "taxi");
     out += section(S, "ir", "Injured reserve", ir.length + (m.limits.ir ? " of " + m.limits.ir : ""), [{ pos: "", players: ir }]);
     out += section(S, "taxi", "Taxi squad", tx.length + (m.limits.taxi ? " of " + m.limits.taxi : ""), [{ pos: "", players: tx }]);
@@ -662,9 +768,71 @@
     var tabs = [["perf", "Performance"], ["sched", "Schedule"], ["contract", "Contract"], ["more", "More"]];
     var body = tab === "perf" ? performanceTab(S, p) : tab === "sched" ? scheduleTab() : tab === "more" ? moreTab(S, p) : contractTab(S, p);
     return '<div class="layer"><div class="scrim" data-act="close"></div><div class="sheet full phero" role="dialog" aria-modal="true" aria-label="Player profile: ' + esc(p.name) + '" tabindex="-1">' +
-      hero(p, pills) +
+      hero(p, pills) + actionsBlock(S, p) +
       '<div class="ptabs" role="tablist">' + tabs.map(function (t) { return '<button role="tab" data-act="ptab" data-v="' + t[0] + '" aria-selected="' + (tab === t[0]) + '">' + t[1] + "</button>"; }).join("") + "</div>" +
       '<div class="pbody">' + body + "</div></div></div>";
+  }
+  // ---------- R13 F8 (Keith 2026-11-26): roster moves on the owner's own player (Test target only) ----------
+  // Only the moves available now are listed (the approved profile rule). The worker owns the authoritative checks (IR eligibility from MFL's
+  // designations; the full taxi gate); the app adds canon §B3 (docs/league_context_v1.md 420-421: IR players don't count toward the 27-player
+  // minimum, so a team at exactly 27 active can't use IR) and the active-roster maximum for a player coming back.
+  var ROSTER_MIN = 27;
+  var MOVE_LABEL = { deactivate_ir: "Move to IR", activate_ir: "Activate from IR", demote_taxi: "Move to taxi", promote_taxi: "Promote from taxi", drop_player: "Drop" };
+  // Drop (Keith 2026-11-26 "Drop"; rulings 2026-11-18): held ONLY when the worker's cut price is missing, unresolved or flagged for review, when the
+  // season it's charged to isn't confirmed, or when his game has kicked off this week (canon line 1489: no move after kickoff until the week ends).
+  function dropCheck(S, p) {
+    var pen = S.penalty || {}, row = pen.state === "ok" && pen.data ? pen.data[p.id] : null, ch = pen.meta && pen.meta.charge;
+    // Keith 2026-11-26: "WAYYYYY too much additional verbiage" (standing rule: one short line on screen); never the worker's review text
+    if (pen.state !== "ok") return { ok: false, why: pen.state === "loading" ? "Loading cut price…" : "Cut price not loaded." };
+    if (!row) return { ok: false, why: "No cut price yet." };
+    if (row.needs_review) return { ok: false, why: "Cut price not confirmed yet." };
+    var amt = Number(row.penalty);
+    if (row.penalty == null || !isFinite(amt) || amt < 0) return { ok: false, why: "Cut price not available." };
+    if (!ch || !ch.ok) return { ok: false, why: "Charge season not confirmed." };
+    if (p.status === "active" && PL.lockOf(S, p, S.model.week).locked) return { ok: false, why: "Locked: his game has started." };
+    // the 27-player active minimum (canon §B3; MFL refuses a drop below it: "Less Than Lower Limit of 27", 25625, 2026-10-07)
+    var tm = S.model.teams.filter(function (x) { return x.id === p.franchiseId; })[0];
+    if (p.status === "active" && tm && tm.counts.active <= ROSTER_MIN) return { ok: false, why: "At the " + ROSTER_MIN + "-player minimum." };
+    return { ok: true, why: "", penalty: amt, season: ch.season, exempt: !!row.exempt, exemptWhy: String(row.exempt_reason || "") };
+  }
+  function movesFor(S, p) {
+    var me = S.me || {};
+    if (!S.submitMode || !me.signedIn || !p || p.franchiseId !== me.fid || !S.model) return [];
+    var t = S.model.teams.filter(function (x) { return x.id === p.franchiseId; })[0]; if (!t) return [];
+    var active = t.counts.active, max = S.model.limits.roster, full = max != null && active >= max, out = [];
+    if (p.status === "active") {
+      var c = R.injuryChip(S, p), code = c && c.code ? String(c.code).toUpperCase() : "";
+      if (/^(IR|SUSP|HOLD|PUP|NFI)/.test(code)) out.push({ act: "deactivate_ir", ok: active > ROSTER_MIN, why: active > ROSTER_MIN ? "" : "At the " + ROSTER_MIN + "-player minimum." });
+      // taxi players are off the active roster too, so Move to taxi keeps the same 27-player active minimum (canon §B3, as IR and Drop do)
+      if (p.taxi && p.taxi.eligible) out.push({ act: "demote_taxi", ok: active > ROSTER_MIN, why: active > ROSTER_MIN ? "" : "At the " + ROSTER_MIN + "-player minimum." });
+    } else if (p.status === "ir") out.push({ act: "activate_ir", ok: !full, why: full ? "Active roster full." : "" });
+    else if (p.status === "taxi") out.push({ act: "promote_taxi", ok: !full, why: full ? "Active roster full." : "" });
+    if (p.status === "active" || p.status === "ir" || p.status === "taxi") { var dc = dropCheck(S, p); out.push({ act: "drop_player", ok: dc.ok, why: dc.ok ? "" : dc.why }); }
+    return out;
+  }
+  function actionsBlock(S, p) {
+    var m = movesFor(S, p); if (!m.length) return "";
+    return '<div class="pact"><div class="lbl">Actions</div>' + m.map(function (x) {
+      return '<button class="btn blk" data-act="move" data-v="' + esc(x.act) + '"' + (x.ok ? "" : " disabled") + ">" + esc(MOVE_LABEL[x.act]) + "</button>" + (x.why ? '<div class="ex">' + esc(x.why) + "</div>" : "");
+    }).join("") + "</div>";
+  }
+  // The confirm step: what the move does, in a few words; Confirm sends it, Cancel goes back.
+  function moveSheet(S) {
+    var mv = S.move || {}, p = S.model && S.model.byId[mv.pid];
+    if (!p || !MOVE_LABEL[mv.act]) return "";
+    var used = p.taxi && p.taxi.used, max = (p.taxi && p.taxi.max) || 3;
+    var dc = mv.act === "drop_player" ? dropCheck(S, p) : null;
+    if (dc && !dc.ok) return "";
+    var what = dc ? (dc.penalty > 0 ? "Cut penalty " + F.money(dc.penalty) + " · " + dc.season + " cap." : "No cut penalty.") :
+      mv.act === "deactivate_ir" ? "50% of his salary counts while on IR." :
+      mv.act === "activate_ir" ? "His full salary counts again." :
+      mv.act === "demote_taxi" ? "Off the cap while on taxi." :
+      used == null ? "Call-ups used unknown." :
+      used >= max ? "4th call-up: permanent." :
+      "Call-up " + (used + 1) + " of " + max + ".";
+    return '<div class="layer ctrl"><div class="scrim"></div><div class="rm wn" role="alertdialog" aria-modal="true" aria-labelledby="mv-t" tabindex="-1">' +
+      '<h2 id="mv-t">' + esc(MOVE_LABEL[mv.act]) + "?</h2><p>" + esc(p.name) + "</p><p>" + esc(what) + "</p>" +
+      '<button class="rmok" data-act="moveconfirm">' + esc(MOVE_LABEL[mv.act]) + '</button><button class="btn blk" data-act="movecancel">Cancel</button></div></div>';
   }
   function require_photo(p) { return P.chain(p.espnId, p.id); }
 
@@ -757,7 +925,8 @@
   // R8: in recorded mode the marker is one short line, "Test · Recorded data", with the "Known issues" button; the two capture times are in About.
   function envBar(S) {
     var on = sampleOn(S), rec = !on && !!S.recorded;
-    return '<div class="envbar' + (on ? " sample" : rec ? " rec" : "") + '"><span>' + esc(SM.envText(on, rec)) + "</span>" + (rec ? ' <button class="link" data-act="about">Known issues</button>' : "") + "</div>";
+    var txt = !on && S.submitMode ? "Test league · real MFL moves" : SM.envText(on, rec);   // the Test target writes to league 25625
+    return '<div class="envbar' + (on ? " sample" : rec ? " rec" : "") + '"><span>' + esc(txt) + "</span>" + (rec ? ' <button class="link" data-act="about">Known issues</button>' : "") + "</div>";
   }
   function sampleScreen() {
     return '<div id="scroll" class="scroll">' + header("Sample mode", "") + '<div id="screen"><div class="card hl"><h2>Sample mode</h2><div class="big2"><b>Nothing here is real, and nothing is sent.</b></div>' +
@@ -767,16 +936,23 @@
 
   function app(S) {
     var on = sampleOn(S);
-    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : placeholderScreen(S.tab);
+    var TRUI = S.tradesUi && S.tr ? S.tradesUi : null;   // Trades v1: Test target only (lib/trades.js); the Preview build has no such module
+    var screen = on ? sampleScreen() : S.tab === "team" ? teamScreen(S) : S.tab === "league" && TRUI ? TRUI.screen(S, { header: header, scroller: scroller }) : placeholderScreen(S.tab);
     var layer = "";
-    if (S.sheet === "about") layer = aboutSheet(S);
+    if (!on && S.sheet === "move" && S.model && S.move) layer = moveSheet(S);
+    else if (!on && S.sheet === "result" && S.model && S.submit && S.submit.okTitle) layer = resultSheet(S);
+    else if (!on && TRUI && /^tr/.test(S.sheet || "") && S.model) layer = TRUI.layer(S);
+    else if (S.sheet === "about") layer = aboutSheet(S);
     else if (!on && S.profile && S.model) layer = profile(S);
     else if (!on && S.sheet === "teams" && S.model) layer = teamSheet(S);
     else if (!on && S.sheet === "weeks" && S.model) layer = weekSheet(S);
     else if (!on && S.sheet === "help" && S.model) layer = helpSheet(S);
     else if (!on && S.sheet === "plan" && S.model) layer = planSheet(S);
+    else if (!on && S.sheet === "planfor" && S.model) layer = planForSheet(S);
+    else if (!on && S.sheet === "leave" && S.model) layer = leaveSheet(S);
+    else if (!on && S.sheet === "result" && S.model && S.submit) layer = resultSheet(S);
     return envBar(S) + screen + nav(S) + layer;
   }
 
-  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, PLAN_LABEL: PLAN_LABEL };
+  return { app: app, teamScreen: teamScreen, profile: profile, contractTab: contractTab, aboutSheet: aboutSheet, KNOWN_ISSUES: KNOWN_ISSUES, teamSheet: teamSheet, weekSheet: weekSheet, rosterBody: rosterBody, isOpen: isOpen, NAVS: NAVS, planSheet: planSheet, planForSheet: planForSheet, leaveSheet: leaveSheet, submitBar: submitBar, resultSheet: resultSheet, movesFor: movesFor, moveSheet: moveSheet, PLAN_LABEL: PLAN_LABEL };
 });

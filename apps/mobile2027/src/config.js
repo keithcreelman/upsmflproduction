@@ -8,5 +8,5 @@ window.UPS2027_CONFIG = {
   season: "2026",
   build: "preview0.2",
   data: "recorded",
-  mode: "preview" // the one build mode that exists; the build refuses any other (a Test build is a later, separately approved stage)
+  mode: "preview" // the Preview build; "node apps/mobile2027/scripts/build.mjs --test" makes the Test target for the UPS TEST site (Keith 2026-11-26)
 };

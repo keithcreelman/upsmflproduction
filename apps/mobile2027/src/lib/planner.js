@@ -156,6 +156,43 @@
     return { ok: problems === 0 && filled === TOTAL, complete: filled === TOTAL, problems: problems, filled: filled, total: TOTAL, errors: errors };
   }
 
+  // F5 (Keith 2026-11-26): "MFL Optimal Starters", the best legal lineup by projected points, as a plan to review and submit. Pure.
+  //   - a starter whose game has started (or whose game is not known: treated as locked) stays in his slot: he can't be moved out;
+  //   - the candidates are the players who can be put into a slot now (startable: active, no bye, game not started);
+  //   - each one-position slot takes the best available player at that position (by exchange, the best at a position always belongs in its
+  //     fixed slot), then the flex slots (OFX, SFX, DFX) are filled by an exact search over the remaining candidates, because SFX can take a QB
+  //     and OFX can't;
+  //   - a player with no projection ranks below any number (worth 0 in the total); a slot no one can fill is left empty.
+  // The slot model itself keeps MFL's ranges (QB 1-2, RB 2-5 ...), so the result passes validate() whenever the roster can fill it.
+  function optimal(S, team, draft, projOf) {
+    var wk = S.model.week, byId = S.model.byId, out = {}, used = {};
+    SLOTS.forEach(function (s) {
+      var pid = draft[s.id], p = pid ? byId[pid] : null;
+      if (p && lockOf(S, p, wk).locked && !R.onBye(p, wk)) { out[s.id] = pid; used[pid] = 1; }
+    });
+    var val = function (x) { return x.v == null ? -0.001 : x.v; };
+    var pool = team.players.filter(function (p) { return !used[String(p.id)] && startable(S, p, wk).ok; })
+      .map(function (p) { var v = projOf(p); return { id: String(p.id), pos: p.pos, v: typeof v === "number" && isFinite(v) ? v : null }; })
+      .sort(function (a, b) { return val(b) - val(a) || (a.id < b.id ? -1 : 1); });
+    var open = SLOTS.filter(function (s) { return !out[s.id]; });
+    open.filter(function (s) { return s.acc.length === 1; }).forEach(function (s) {
+      for (var i = 0; i < pool.length; i++) if (!used[pool[i].id] && pool[i].pos === s.acc[0]) { out[s.id] = pool[i].id; used[pool[i].id] = 1; return; }
+    });
+    var flex = open.filter(function (s) { return s.acc.length > 1; });
+    var best = { total: -Infinity, pick: [] };
+    (function search(i, total, pick) {
+      if (i === flex.length) { if (total > best.total) best = { total: total, pick: pick.slice() }; return; }
+      var s = flex[i], tried = 0;
+      for (var j = 0; j < pool.length && tried < 6; j++) {
+        var x = pool[j]; if (used[x.id] || s.acc.indexOf(x.pos) < 0) continue;
+        tried++; used[x.id] = 1; pick.push(x.id); search(i + 1, total + val(x), pick); pick.pop(); used[x.id] = 0;
+      }
+      if (!tried) { pick.push(null); search(i + 1, total, pick); pick.pop(); }
+    })(0, 0, []);
+    flex.forEach(function (s, i) { if (best.pick[i]) out[s.id] = best.pick[i]; });
+    return out;
+  }
+
   // The plan in the shape the Lineup view already draws (roster.js lineupFor), so its warnings come from the same code (roster.js attention).
   function lineupOf(S, team, draft) {
     var byId = S.model.byId, slots = SLOTS.map(function (s) { return { slot: s, player: draft[s.id] ? byId[draft[s.id]] || null : null }; });
@@ -172,5 +209,5 @@
   }
 
   return { SLOTS: SLOTS, RANGES: RANGES, slotById: slotById, lockOf: lockOf, startable: startable, baseDraft: baseDraft, sig: sig, draftOf: draftOf, changedSlots: changedSlots,
-    options: options, apply: apply, validate: validate, lineupOf: lineupOf, benchOf: benchOf, slotOfPid: slotOfPid };
+    options: options, apply: apply, optimal: optimal, validate: validate, lineupOf: lineupOf, benchOf: benchOf, slotOfPid: slotOfPid };
 });

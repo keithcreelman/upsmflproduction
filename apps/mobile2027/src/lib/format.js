@@ -19,8 +19,21 @@
     return sign + "$" + s;
   }
 
+  // Keith 2026-11-26: "Get rid of the B3 nonsense across the entire app." No owner-facing text carries a rulebook reference: the worker's
+  // messages and reasons ("Player placed on IR in MFL (§B3: 50% cap relief …)", "… final year (§D2).", "(league_context_v1.md §A3)") are shown
+  // without them. Every piece of text the app draws goes through esc(), so it is done once, here.
+  function plain(s) {
+    var t = String(s == null ? "" : s);
+    if (t.indexOf("§") < 0 && !/league_context/i.test(t)) return t;   // anything without a reference is left exactly as it is
+    return t
+      .replace(/\s*\([^()]*league_context[^()]*\)/gi, "")                                  // "(league_context_v1.md §A3)"
+      .replace(/\s*\((?:canon\s+)?(?:§\s?[\w.]+(?:\/§?\s?[\w.]+)*[\s,;]*)+\)/gi, "")       // "(§D2)", "(canon §B2/§D2)", "(§D1, §D2)"
+      .replace(/\((?:canon\s+)?§\s?[\w.\/§]+\s*[:,—–-]\s*/gi, "(")                           // "(§B3: 50% cap relief" -> "(50% cap relief"
+      .replace(/(?:\bcanon\s+)?§\s?[\w.]+(?:\/§?\s?[\w.]+)*\s*[:,—–-]?\s*/gi, "")            // any other "§X" or "canon §X"
+      .replace(/\(\s*\)/g, "").replace(/[ \t]{2,}/g, " ").replace(/\s+([.,;:)])/g, "$1").trim();
+  }
   function esc(s) {
-    return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
+    return plain(s).replace(/[&<>"']/g, function (c) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
@@ -106,5 +119,5 @@
     return COMMON[c] || c;
   }
 
-  return { str: str, money: money, esc: esc, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp, etRecorded: etRecorded, etRange: etRange, etKickoff: etKickoff, dateLabel: dateLabel, commonCode: commonCode };
+  return { str: str, money: money, esc: esc, plain: plain, flipName: flipName, posGroup: posGroup, POS_ORDER: POS_ORDER, etStamp: etStamp, etRecorded: etRecorded, etRange: etRange, etKickoff: etKickoff, dateLabel: dateLabel, commonCode: commonCode };
 });

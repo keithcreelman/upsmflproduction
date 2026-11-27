@@ -191,7 +191,7 @@ test("P6/R8: '$0 Fully earned' only from the Worker's own $0 under the guarantee
   const rev = clone(FX.cap_penalty.players); rev[p.id].needs_review = true; rev[p.id].review_reason = "Contract text needs review";
   const rh = body(V.app(state({ penalty: penalty(rev), ct: { f: "all", s: "exp", open: { [p.id]: true } } })));
   const rrow = rh.split('data-act="ctx" data-v="' + p.id + '"')[1].split('<div class="rw">')[0];
-  t.match(text(rrow.match(/<span class="g">(.*?)<\/span><span/)[1]), /^\s*Under review\s*$/); t.match(text(rrow), /If cut now Under review: Contract text needs review/); t.doesNotMatch(rrow, /<b>\$0<\/b>/);
+  t.match(text(rrow.match(/<span class="g">(.*?)<\/span><span/)[1]), /^\s*Under review\s*$/); t.match(text(rrow), /If cut now Under review/); t.doesNotMatch(text(rrow), /Contract text needs review/);   // Keith 2026-11-26: no worker explanation on screen t.doesNotMatch(rrow, /<b>\$0<\/b>/);
 });
 
 test("P6/P3: a salary the worker or MFL did not record is n/r, not $0, in the table and in the totals", () => {

@@ -258,7 +258,13 @@ test("xFP gate: no source file reads a modeled value; xFP PPG and Over Expectati
   files.forEach((f) => { const src = fs.readFileSync(path.join(SRC, f), "utf8"); const hits = (src.match(/xfp/gi) || []).length, labels = (src.match(/xFP PPG/g) || []).length; t.equal(hits, labels, f + ": every 'xfp' is the label 'xFP PPG' (no identifier, field, route or file)"); t.doesNotMatch(src, /expected_?points|overExpect[a-z]*\s*[:=]\s*(?!null\b)[^\s]|xfp_20|wire\/data/i, f + ": no model field or file"); });
   // R7 (Keith, 2026-11-23, decision 5: integrate the stored-projection read): the one projection read allowed is the stored, kickoff-frozen
   // /api/player-projections; MFL's live projectedScores export and every model (xFP) read stay off the allowlist
-  const dataSrc = fs.readFileSync(path.join(SRC, "lib/data.js"), "utf8"); t.doesNotMatch(dataSrc, /projectedScores|xfp/i, "no live projection or model read on the allowlist");
+  // F6 (Keith 2026-11-26, "A" then "a") narrows that for the Test target only: MFL's projectedScores is allowed when config says projections: "mfl" (rulesFor),
+  // never on the shared RULES, and the Preview config never says it. No model (xFP) read anywhere.
+  const dataSrc = fs.readFileSync(path.join(SRC, "lib/data.js"), "utf8"); t.doesNotMatch(dataSrc, /xfp/i, "no model read on the allowlist");
+  const rulesSrc = dataSrc.slice(dataSrc.indexOf("var RULES = ["), dataSrc.indexOf("];", dataSrc.indexOf("var RULES = [")));
+  t.doesNotMatch(rulesSrc, /projectedScores/, "the shared allowlist has no live projection read");
+  t.match(dataSrc, /function rulesFor\(cfg\) \{\s*if \(!cfg \|\| cfg\.projections !== "mfl"\) return RULES;/, "only projections: \"mfl\" widens it");
+  t.doesNotMatch(fs.readFileSync(path.join(SRC, "config.js"), "utf8"), /projections\s*:/, "the Preview config never sets projections");
   t.deepEqual(D.RULES.map((r) => r.path).filter((p) => /proj|xfp|expect|model/i.test(p)), ["/api/player-projections"], "the stored-projection route is the only projection path");
   const I = await intel(); I.xfp = { state: "ok", data: { [ID.purdy]: 987.65 } }; I.model = { [ID.purdy]: { xfp: 987.65, overExpectations: 876.54 } };
   const S = state({ intel: I, xfp: { [ID.purdy]: 987.65 } }); S.model.byId[ID.purdy].xfp = 987.65; S.model.byId[ID.purdy].xfpPpg = 987.65; S.model.byId[ID.purdy].overExpectations = 876.54; S.model.byId[ID.purdy].projected = 765.43;

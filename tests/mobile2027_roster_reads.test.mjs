@@ -58,6 +58,12 @@ test("the two routes: exact path, exact query names, the worker only; anything e
     [`${WORKER}/api/position-season-stats?season=2026&through=10&group=WR&refresh=1`, "a name not on the list"],
     [`${WORKER}/api/position-season-stats/x?season=2026&through=10&group=WR`, "path not exact"]].forEach(([x, why]) => t.equal(D.check(x, WORKER).ok, false, "refused (" + why + ")"));
   t.equal(D.RULES.filter((r) => r.types).length, 1); t.equal(D.RULES.find((r) => r.types).types.indexOf("projectedScores"), -1, "MFL's live projections export stays off the allowlist");
+  // F6 (Keith 2026-11-26, "A" then "a"): ONLY a build configured with projections: "mfl" (the Test target) may read it; every other config keeps the list above
+  const live = `${WORKER}/api/mfl-export?TYPE=projectedScores&L=25625&YEAR=2026&JSON=1&W=12`;
+  t.equal(D.check(live, WORKER).ok, false, "the default rules refuse it");
+  t.equal(D.check(live, WORKER, D.rulesFor({ data: "live" })).ok, false, "a live build without projections: \"mfl\" refuses it");
+  t.equal(D.check(live, WORKER, D.rulesFor({ projections: "mfl" })).ok, true, "the Test target's rules allow it");
+  t.equal(D.rulesFor(undefined), D.RULES); t.equal(D.rulesFor({ projections: "stored" }), D.RULES);
   // R6 (Keith, 2026-11-22: the weekly-box read is authorized): allowed with exactly season, mfl_id and L, nothing else
   t.ok(D.check(`${WORKER}/api/player-weekly-box?season=2026&mfl_id=1&L=74598`, WORKER).ok, "allowed with exactly season, mfl_id and L");
   t.deepEqual(D.RULES.find((r) => r.path === "/api/player-weekly-box").query, ["season", "mfl_id", "L"]);

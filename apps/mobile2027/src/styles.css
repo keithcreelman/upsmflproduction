@@ -113,10 +113,16 @@ button:focus-visible,.sheet:focus-visible{outline:3px solid var(--fc);outline-of
 /* R12: the Lineup planner. A slot badge is the control (44 px target); "Planned" / "Was starting" chips; the plan card; the team-sheet mark */
 .tag.sl.pbt{flex-basis:44px;width:44px;height:44px;padding:0;font:inherit;font-size:12px;font-weight:700;color:inherit;cursor:pointer;margin-top:2px;box-shadow:inset 0 -3px 0 var(--ac)}
 .tag.sl.pbt:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+/* F4: a bench player's badge is the planner control while planning (same 44px target and underline as a slot badge) */
+.tag.pp.pbt{flex-basis:44px;width:44px;height:44px;padding:0;border:1.5px solid var(--bs);background:var(--s2);font:inherit;font-size:12px;font-weight:700;color:inherit;cursor:pointer;border-radius:9px;box-shadow:inset 0 -3px 0 var(--ac)}
+.tag.pp.pbt:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
 .chip.pl{color:var(--ac);border-color:var(--ac)}
 .planc{border:1.5px solid var(--ac)}
 .planc .plt{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .planc .plt .btn{min-height:44px}
+/* R13 F3: the Submit Lineup bar (Test target): Undo and Submit side by side; a disabled Submit reads as disabled */
+.planc .plb{display:flex;gap:8px;flex-wrap:wrap}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
 .ex.plh{padding-top:2px}
 .sheet .so small.plm{color:var(--ac);font-weight:600}
 .sheet .so small.wn{color:var(--wn)}
@@ -455,3 +461,90 @@ button.btnrow{cursor:pointer}
 /* --- r6i: the Breakdown opened inside a main card: no card-in-a-card around the season stats (the card already frames it) --- */
 .pfbd .bdr{border:0;background:transparent;padding:0 0 2px;border-radius:0}
 /* ===== end R6 PERFORMANCE ===== */
+
+/* R13 F3: the lineup result pop-up, mirroring site/shared/lineup_result_modal.js in the skin's own colors (--ok green, --cr red, --wn amber) */
+.layer.ctrl{justify-content:center;align-items:center;padding:16px}
+.rm{position:relative;box-sizing:border-box;width:min(100%,480px);background:var(--sf);color:var(--tx);border:2px solid var(--ok);border-radius:18px;padding:28px 24px 22px;text-align:center;box-shadow:0 18px 60px rgba(0,0,0,.55)}
+.rm.err{border-color:var(--cr)}.rm.wn{border-color:var(--wn)}
+.rm-ic{width:76px;height:76px;margin:0 auto 12px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:46px;font-weight:800;line-height:1;background:var(--ok);color:var(--on)}
+.rm.err .rm-ic{background:var(--cr)}.rm.wn .rm-ic{background:var(--wn)}
+.rm h2{margin:0 0 8px;font-size:26px;line-height:1.2;font-weight:800}
+.rm p{margin:0 0 10px;font-size:17px;line-height:1.45}
+.rm .why{margin:6px 0 10px;padding:12px 14px;border-radius:10px;background:var(--s2);border:1px solid var(--cr);font-size:16px;font-weight:600;text-align:left;overflow-wrap:anywhere}
+.rm .hint{margin:0 0 14px;font-size:15px;color:var(--mu)}
+.rm .rmok{display:block;width:100%;min-height:54px;margin-top:8px;border:0;border-radius:12px;background:var(--ok);color:var(--on);font:inherit;font-size:20px;font-weight:800;cursor:pointer}
+.rm.err .rmok{background:var(--cr)}.rm.wn .rmok{background:var(--wn)}
+.rm .rmok:focus-visible{outline:3px solid var(--tx);outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){.layer.ctrl .rm{animation:pop .16s ease-out}@keyframes pop{from{transform:scale(.96);opacity:.6}to{transform:none;opacity:1}}}
+
+/* R13 F8: the profile's Actions (own player, Test target) */
+.pact{padding:10px 16px 4px;display:flex;flex-direction:column;gap:6px}
+.pact .btn{min-height:44px}
+.rm .btn.blk{margin-top:8px;min-height:48px}
+/* Trades v1 (Keith 2026-11-26): League › Trades on the Test target */
+.tro{display:flex;flex-direction:column;gap:8px}
+.trh,.trh2{display:flex;align-items:center;gap:8px}.trh b{flex:1;min-width:0}.trh small{font-size:12px}
+.trh2 .in{flex:1;min-width:0}
+.trc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.trl{margin:2px 0 0;padding:0 0 0 16px;font-size:13px;overflow-wrap:anywhere}.trl li{margin:2px 0}
+.trm{font-style:italic;overflow-wrap:anywhere}
+.trb{display:flex;gap:8px}.trb .btn{flex:1}
+.tro .so,.card .so{display:flex;gap:10px;align-items:center;min-height:52px;padding:8px 12px;margin-top:6px;border:1px solid var(--bs);border-radius:10px;background:var(--s2);color:var(--tx);width:100%;text-align:left;font-size:13px}
+.card .so .in{flex:1;min-width:0}.card .so small{display:block;color:var(--mu);font-size:12px;line-height:1.3}
+.card .so[aria-pressed="true"]{border-color:var(--ac);border-width:2px}.card .so.off{opacity:.6}
+.trk{flex:0 0 auto;font-size:18px;font-weight:800;color:var(--ac)}
+.trcap{display:flex;align-items:center;gap:8px;margin-top:8px}.trcap .in{flex:1;min-width:0;font-size:13px}.trcap small{display:block;color:var(--mu);font-size:12px}.trcap .btn{min-width:44px;padding:0}.trcapbox{display:inline-flex;align-items:center;gap:2px;font-weight:700}.trcapin{width:3.6em;min-height:36px;padding:4px 6px;font:inherit;font-size:16px;font-weight:700;text-align:right;color:var(--tx);background:var(--sf);border:1px solid var(--bd);border-radius:8px}
+.plk{all:unset;cursor:pointer;font-weight:700;color:inherit;text-decoration:underline;text-decoration-color:var(--mu);text-underline-offset:3px;min-height:24px}.plk:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
+.trr{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px;font-size:13px}.trr span:first-child{min-width:0;overflow-wrap:anywhere}
+.trn{min-height:64px;padding:8px 12px;resize:vertical}
+/* Trades v2 (Keith 2026-11-26: concise) */
+.btn.sm{min-height:36px;padding:0 10px;font-size:12.5px}
+.trtop{display:flex;align-items:center;gap:8px;min-height:36px;padding:0 2px}.trtop .ex{flex:1;min-width:0}
+.trln{display:flex;gap:8px;font-size:13px;line-height:1.35}.trln>span:last-child{min-width:0;overflow-wrap:anywhere}
+.trk2{flex:0 0 auto;min-width:36px;color:var(--mu);font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;padding-top:1px}
+.tro{gap:4px}.tro .trb{margin-top:4px}.tro .trb .btn{flex:0 0 auto;min-width:88px}
+.trm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trwith{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.trwith .lbl{margin:0}
+.trtm{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trsel{display:flex;align-items:center;gap:6px;min-height:40px;border-bottom:1px solid var(--bd);font-size:13px}.trsel .in{flex:1;min-width:0;overflow-wrap:anywhere}
+.trad{margin-top:6px}
+.trdst{color:var(--ac)}
+.trnote{padding:2px 2px 6px}
+.trcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.trmode{margin:8px 0 2px}
+.sheet .trso{min-height:48px}
+/* Trades v3 (Keith 2026-11-26: one list + Propose, Review, Counter) */
+.trtap{display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;text-align:left;color:var(--tx);font:inherit;cursor:pointer}
+.trtap .trh{display:flex;align-items:center;gap:8px}.trtap .trh b{flex:1;min-width:0}
+.trnm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trst{font-size:12.5px;font-weight:600;color:var(--mu)}.trst.wn{color:var(--wn)}
+.trgo{align-self:flex-end;font-size:12.5px;font-weight:700;color:var(--ac)}
+.trprop{margin:4px 0 2px}
+.trback{display:flex;align-items:center;gap:10px;min-height:44px}.trbt{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
+.trtitle{display:flex;align-items:baseline;gap:8px;padding:2px 2px 0}.trtitle b{flex:1;min-width:0;font-size:17px;overflow-wrap:anywhere}
+.trd{display:flex;align-items:baseline;gap:8px;min-height:32px;border-bottom:1px solid var(--bd);font-size:13px}.trd:last-child{border-bottom:0}.trd .in{flex:1;min-width:0;overflow-wrap:anywhere}.trd .mu{flex:0 0 auto;font-size:12px}
+.trmsg{font-style:italic;overflow-wrap:anywhere}
+.trb3{display:flex;gap:8px;margin-top:6px}.trb3 .btn{flex:1;min-width:0}
+.trroom{float:right;text-transform:none;letter-spacing:0;font-weight:600}
+.trwith .trtm{display:flex;flex-direction:column;align-items:flex-start;gap:0;min-width:0;flex:1;text-align:left;padding:6px 10px;min-height:48px;justify-content:center}
+.trwith .trtm b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.trwith .trtm small{font-size:11.5px;color:var(--mu);font-weight:600}
+.trwith span.trtm{border:1.5px dashed var(--bd);border-radius:10px}
+.trr .trnm{flex:1}
+/* Trades: lineup impact (Keith 2026-11-26: top of class) */
+.up{color:var(--ok)}.dn{color:var(--cr)}.eq{color:var(--mu)}
+.trimp .impl{display:flex;align-items:baseline;gap:8px;min-height:30px;border-bottom:1px solid var(--bd);font-size:13.5px}.trimp .impl:last-of-type{border-bottom:0}
+.trimp .impl .trnm{flex:1}.impv{font-weight:800;font-variant-numeric:tabular-nums;font-size:15px}.impt{min-width:92px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+.imphero{display:flex;flex-direction:column;gap:4px;padding:14px 14px 12px}
+.impbig{font-size:40px;line-height:1;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.impbig small{font-size:15px;font-weight:700;letter-spacing:0;color:var(--mu)}
+.impsub{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mu);font-variant-numeric:tabular-nums}.impsub b{font-size:15px}
+.iwk{display:grid;grid-template-columns:44px 52px 52px minmax(0,1fr) 52px;align-items:center;gap:6px;min-height:34px;border-bottom:1px solid var(--bd);font-size:13px;font-variant-numeric:tabular-nums}
+.iwk:last-of-type{border-bottom:0}.iwk span:nth-child(2),.iwk span:nth-child(3),.iwk span:nth-child(5){text-align:right}.iwk span:nth-child(5){font-weight:800}.iwk small{color:var(--ac);font-size:10.5px;font-weight:700}
+.ihead{min-height:26px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mu)}
+.ibar{display:flex;height:12px;min-width:0}.ihalf{flex:1;display:flex;min-width:0}.ihalf.l{justify-content:flex-end;border-right:1.5px solid var(--bs)}
+.ifill{display:block;height:100%;border-radius:3px}.ifill.up{background:var(--ok)}.ifill.dn{background:var(--cr)}
+.ifill.w0{width:0}.ifill.w1{width:10%}.ifill.w2{width:20%}.ifill.w3{width:30%}.ifill.w4{width:40%}.ifill.w5{width:50%}.ifill.w6{width:60%}.ifill.w7{width:70%}.ifill.w8{width:80%}.ifill.w9{width:90%}.ifill.w10{width:100%}
+.itbl{display:flex;flex-direction:column}
+.irow{display:grid;grid-template-columns:minmax(0,1fr) 46px 40px 40px 46px;align-items:center;gap:6px;min-height:44px;border-bottom:1px solid var(--bd);font-size:12.5px;font-variant-numeric:tabular-nums}
+.irow:last-child{border-bottom:0}.irow span:not(.in){text-align:right}.irow .in{min-width:0;overflow-wrap:anywhere}.irow .in small{display:block;color:var(--mu);font-size:11px}
+.trcr{flex-wrap:wrap;padding:4px 0;border-bottom:1px solid var(--bd)}.trcr:last-of-type{border-bottom:0}.trcr .trnm{flex:1 1 100%;font-weight:600}.trcr .trcs{flex:1 1 100%;justify-content:flex-start;align-items:center;gap:6px}
+.irow.ihead span.in{text-align:left}

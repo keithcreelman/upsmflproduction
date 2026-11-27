@@ -48,11 +48,14 @@
     ct: { f: "all", l: "all", s: "exp", y: 0, d: 1, open: {}, hist: {}, bd: false, cat: {}, ns: false }, // Team › Contracts: which group; the salary structure filter (R9); the sort (exp | sal | pos | name), which Contract histories are open (R9), its salary year (0 to 2) and direction (1 or -1); which rows are open; the cap Breakdown, an open adjustment category, the next-season row
     ns: { state: "idle" }, // next season's recorded cut charges and fines (PR A): read only when the next-season row is opened
     pf: { s: "pos", open: {}, res: {}, q: "", pos: "all", xt: false, xpos: "all", note: null }, // Team › Performance: the sort (pos | tot | ppg), which rows are open, which reserve groups are open, the name search (R8), the position filter and "Search other teams" (R9)
-    plans: {}, planPick: null, // R12: Lineup planner plans by team ({ week, base, draft }), in this page's memory only: never stored, never sent; the slot whose choices are open
+    plans: {}, planPick: null, planFor: null, submitMode: !!(U.submit && cfg.data === "live"), me: null, submit: null, leave: null, // R13 F3: the Test target's lineup submit (lib/submit.js), the signed-in team, the last submit, a held navigation // R12: Lineup planner plans by team ({ week, base, draft }), in this page's memory only: never stored, never sent; the slot whose choices are open
     profile: null, sheet: null, skin: pref("skin", "system"), vib: pref("vib", "1"), build: cfg.build,
     requestLog: loader.log, requestSummary: loader.summary(), recorded: recordedInfo, // recorded: null in live mode, else { at, label } for the marker, Help and About
     sample: U.sample.create() // Sample mode: client-only, labeled, off at every start (it is never stored)
   };
+  // Trades v1 (Keith 2026-11-26 "go trades v1"): League › Trades, Test target only (lib/trades.js draws it, lib/submit.js sends it)
+  S.tradesUi = S.submitMode && U.trades ? U.trades : null;
+  S.tr = S.tradesUi ? Object.assign(U.trades.fresh(), { league: String(cfg.leagueId), season: String(cfg.season) }) : null;
 
   // ---- display choices ----
   var mq = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
@@ -194,7 +197,7 @@
     var mine = gen;
     loader.projections(q.season, q.week, q.ids, !!force).then(function (r) {
       if (mine !== gen || S.sample.on || S.intel.projTag !== tag || !S.intel.proj) return;
-      S.intel.proj[q.week] = r.state === "ok" ? { state: "ok", data: { ok: true, season: r.data.season, week: r.data.week, provider: r.data.provider, projections: r.data.projections }, at: Date.now() }
+      S.intel.proj[q.week] = r.state === "ok" ? { state: "ok", data: { ok: true, season: r.data.season, week: r.data.week, provider: r.data.provider, live: !!r.data.live, projections: r.data.projections }, at: Date.now() }
         : r.state === "absent" ? { state: "absent" } : { state: "error", error: r.error || "" };
       render(true);
     });
@@ -259,6 +262,7 @@
       S.load = { core: notes.length ? "partial" : "ok", coreNotes: notes, error: "" };
       S.intel = { status: null, mu: {}, wk: {}, scores: {}, sched: {}, players: null, cal: null, reread: {} }; S.wk = null; S.ns = { state: "idle" }; S.live = null;
       if (r.week && r.weekly.state === "ok") S.intel.wk[r.week] = { state: "ok", data: r.weekly.data, at: Date.now() };
+      if (S.submitMode && !S.me) checkMe();
       var h = hashState();
       var ids = S.model.teams.map(function (t) { return t.id; });
       if (h.t && ids.indexOf(h.t) >= 0) S.teamId = h.t;
@@ -502,21 +506,383 @@
   }
   // ---- R12: the Lineup planner (plan only: nothing here reads, writes, stores or sends anything) ----
   function curTeam() { return S.model ? S.model.teams.filter(function (x) { return x.id === S.teamId; })[0] || S.model.teams[0] : null; }
+  // F10: in the Test target only the signed-in owner's own team can be changed (views draw no control for any other; this refuses one anyway)
+  function mayPlan(t) { return !S.submitMode || !!(t && S.me && S.me.signedIn && S.me.fid === t.id); }
   function planOpen(slotId) {
     var t = curTeam(), P = U.planner;
+    if (!mayPlan(t)) return;
     if (!t || !P || !P.slotById(slotId) || S.view !== "lineup" || S.wk != null) return;   // current week, Lineup view only
     S.planPick = slotId; S.sheet = "plan"; render();
   }
+  // F4 (Keith 2026-11-26): a bench player's badge opens the slots he can fill; choosing one is the same move as choosing him from that slot.
+  function planOpenFor(pid) {
+    var t = curTeam(), P = U.planner;
+    if (!mayPlan(t)) return;
+    if (!t || !P || S.view !== "lineup" || S.wk != null || !S.model || !S.model.byId[String(pid)]) return;
+    S.planFor = String(pid); S.sheet = "planfor"; render();
+  }
+  function planForPick(slotId) {
+    var pid = S.planFor; S.planFor = null;
+    if (!pid || !U.planner || !U.planner.slotById(slotId)) return;
+    S.planPick = slotId; planPick(pid);
+  }
+  // ---- R13 F3 (Keith 2026-11-26): Submit Lineup (Test target only: lib/submit.js) ----
+  // Whose team this device is signed in as (MFL's answer through the worker). Submit is offered only on that team.
+  function checkMe() {
+    if (!S.submitMode) return;
+    S.me = { state: "loading" };
+    U.submit.whoami(cfg).then(function (m) {
+      S.me = m;
+      // F11 (Keith 2026-11-26): signed in, the app opens on the owner's own team first
+      if (m.signedIn && S.model && S.model.teams.some(function (x) { return x.id === m.fid; }) && S.teamId !== m.fid) { S.teamId = m.fid; setPref("team", m.fid); S.open = {}; pfOnTeam(); }
+      render(true);
+      if (S.tab === "league") loadTrades(false);
+    });
+  }
+  function ownPlan() {
+    var P = U.planner;
+    if (!S.submitMode || !S.me || !S.me.signedIn || !S.model || !P) return null;
+    var t = S.model.teams.filter(function (x) { return x.id === S.me.fid; })[0]; if (!t) return null;
+    var D = P.draftOf(S, t); return D.ok && D.planned ? { t: t, D: D } : null;
+  }
+  function doSubmit(then) {
+    var P = U.planner, t = curTeam(), own = ownPlan();
+    if (!own || !t || own.t.id !== t.id || (S.submit && S.submit.state === "sending")) return;
+    var v = P.validate(S, t, own.D.draft); if (v.problems) return;              // a broken lineup (two slots, wrong slot, bye, over a range) is never sent
+    var starters = P.SLOTS.map(function (sl) { return own.D.draft[sl.id]; }).filter(Boolean);
+    if (!starters.length) return;                                              // MFL refuses an empty lineup ("Missing Starters"); Keith 2026-11-26: "A"
+    S.submit = { state: "sending", fid: t.id }; render(true);
+    U.submit.lineup(cfg, t.id, S.model.week, starters).then(function (r) {
+      r.fid = t.id; S.submit = r;
+      if (r.starters) { t.lineup = { state: "ok", count: r.starters.length, ids: r.starters.slice() }; delete S.plans[t.id]; }   // MFL's own answer is now the lineup shown
+      S.afterResult = then && r.state === "confirmed" ? then : null;
+      S.sheet = "result"; render();                                            // the big result pop-up; OK closes it
+    });
+  }
+  // "Any time you want to navigate off the page without saving have a warning": leaving the signed-in team's Lineup with changes not submitted
+  // is held, and a sheet asks to submit, discard or keep editing. Closing or reloading the page asks through the browser.
+  var LEAVES = { nav: function (v) { return v !== "team"; }, sub: function (v) { return v !== "roster"; }, view: function (v) { return v === "byes"; },
+    pickteam: function (v, fid) { return fid !== S.teamId; }, pickweek: function (v) { var wi = S.model && U.roster.weekInfo ? U.roster.weekInfo(S) : null; return !wi || String(v) !== String(wi.cur); } };
+  function leaveGuard(act, v, el) {
+    if (!LEAVES[act] || !ownPlan() || S.teamId !== S.me.fid || S.tab !== "team" || S.sub !== "roster" || S.view !== "lineup") return false;
+    var fid = el && el.getAttribute ? el.getAttribute("data-fid") : null;
+    if (!LEAVES[act](v, fid)) return false;
+    S.leave = { act: act, v: v, fid: fid }; S.sheet = "leave"; render(); return true;
+  }
+  function replayLeave(discard) {
+    var L = S.leave, own = ownPlan(); S.leave = null; S.sheet = null;
+    if (discard && own) delete S.plans[own.t.id];
+    if (!L) return render();
+    handle(L.act, L.v, { getAttribute: function (k) { return k === "data-fid" ? L.fid : k === "data-v" ? L.v : k === "data-act" ? L.act : null; } });
+  }
+  window.addEventListener("beforeunload", function (ev) { if (ownPlan()) { ev.preventDefault(); ev.returnValue = ""; } });
+
+  // F5 (Keith 2026-11-26): MFL Optimal Starters. The best legal lineup by projected points (planner.optimal: started games stay, only startable
+  // players, MFL's ranges by the slot model) becomes the plan; the owner reviews it and submits. Own team only, projections loaded.
+  function doOptimal() {
+    var t = curTeam(), P = U.planner, wk = S.model && S.model.week;
+    if (!t || !P || !mayPlan(t) || !S.submitMode || !S.intel.proj || !S.intel.proj[wk] || S.intel.proj[wk].state !== "ok") return;
+    var D = P.draftOf(S, t); if (!D.ok) return;
+    var next = P.optimal(S, t, D.draft, function (p) { var g = U.tabviews.projectionSlot(S, p); return g ? g.value : null; });
+    if (P.sig(next) === P.sig(D.base)) { delete S.plans[t.id]; S.optNote = { fid: t.id, text: "Already your best lineup." }; }
+    else { S.plans[t.id] = { week: wk, base: P.sig(D.base), draft: next }; S.optNote = P.sig(next) === P.sig(D.draft) ? { fid: t.id, text: "Already your best lineup." } : null; }
+    render(true);
+  }
+  // F8 (Keith 2026-11-26): a roster move on the owner's own player. Only a move the profile offered (views.movesFor, own team, rule-checked) is sent;
+  // the result is the big pop-up; a confirmed move reloads the roster from the worker.
+  function doMove() {
+    var mv = S.move, p = mv && S.model && S.model.byId[mv.pid];
+    if (!p || !U.submit || !S.submitMode || (S.submit && S.submit.state === "sending")) return;
+    var offer = U.views.movesFor(S, p).filter(function (x) { return x.act === mv.act && x.ok; })[0];
+    if (!offer) return;
+    S.submit = { state: "sending", fid: p.franchiseId }; S.sheet = null; render(true);
+    U.submit.rosterMove(cfg, p.franchiseId, p.id, mv.act).then(function (r) {
+      r.fid = p.franchiseId; S.submit = r; S.move = null;
+      if (r.state === "confirmed") { S.profile = null; S.penalty = { state: "idle" }; loadCore(); }   // a drop changes the roster and the cut prices
+      S.sheet = "result"; render();
+    });
+  }
+  // F9 (Keith 2026-11-26): bench the slot's starter with no replacement. Only when the planner lists the slot as open to changes (not locked).
+  function planBench() {
+    var t = curTeam(), P = U.planner, slotId = S.planPick;
+    if (!t || !P || !slotId || !mayPlan(t)) return;
+    var D = P.draftOf(S, t); if (!D.ok || !D.draft[slotId]) return;
+    var O = P.options(S, t, D.draft, slotId); if (O.blocked) return;           // a locked starter can't be moved
+    var next = {}; Object.keys(D.draft).forEach(function (k) { if (k !== slotId && D.draft[k]) next[k] = D.draft[k]; });
+    if (P.sig(next) === P.sig(D.base)) delete S.plans[t.id];
+    else S.plans[t.id] = { week: S.model.week, base: P.sig(D.base), draft: next };
+    S.planPick = null; S.sheet = null; render(true);
+  }
   function planPick(pid) {
     var t = curTeam(), P = U.planner, slotId = S.planPick;
-    if (!t || !P || !slotId) return;
+    if (!t || !P || !slotId || !mayPlan(t)) return;
     var D = P.draftOf(S, t); if (!D.ok) return;
     var O = P.options(S, t, D.draft, slotId), c = O.blocked ? null : O.choices.filter(function (x) { return String(x.p.id) === String(pid) && x.ok; })[0];
     if (!c) return;                                                         // only a listed, allowed choice is ever applied
     var next = P.apply(D.draft, slotId, String(pid));
     if (P.sig(next) === P.sig(D.base)) delete S.plans[t.id];               // back to the recorded lineup: no plan left
     else S.plans[t.id] = { week: S.model.week, base: P.sig(D.base), draft: next };
-    S.planPick = null; S.sheet = null; render(true);
+    S.planPick = null; S.sheet = null; S.optNote = null; render(true);
+  }
+  // ---- Trades v1 (Keith 2026-11-26): the classic app's trade flow on the test league. Every write is followed by a read-back from MFL. ----
+  var TT = function () { return U.submit && U.submit.trades; };
+  function trMe() { return S.tr && S.me && S.me.signedIn ? S.me.fid : ""; }
+  function loadTrades(force) {
+    var me = trMe(); if (!me || !TT()) { render(true); return; }
+    if (force || S.tr.offers.state !== "ok") readOffers(me);
+    if (force || S.tr.three.state !== "ok") readThree(me);
+    if (force || S.tr.lock.state !== "ok") {
+      S.tr.lock = { state: "loading" };
+      TT().lock(cfg).then(function (r) { S.tr.lock = r.ok && r.body && r.body.trade_lock ? { state: "ok", data: r.body.trade_lock } : { state: "error" }; render(true); },
+        function () { S.tr.lock = { state: "error" }; render(true); });
+    }
+    loadInv(me, false);
+    render(true);
+  }
+  function readOffers(me) {
+    S.tr.offers = { state: "loading" }; render(true);
+    return TT().offers(cfg, me).then(function (r) {
+      S.tr.offers = r.ok && r.body && r.body.ok !== false ? { state: "ok", inc: r.body.incoming || [], out: r.body.outgoing || [], at: Date.now() } : { state: "error", why: U.trades.why(r, "Couldn’t read your offers.") };
+      render(true); return S.tr.offers;
+    }, function () { S.tr.offers = { state: "error", why: "Couldn’t reach the test worker." }; render(true); return S.tr.offers; });
+  }
+  function readThree(me) {
+    S.tr.three = { state: "loading" };
+    return TT().threeList(cfg, me).then(function (r) {
+      S.tr.three = r.ok && r.body && r.body.ok !== false ? { state: "ok", list: r.body.trades || r.body.three_way || [] } : { state: "error", why: U.trades.why(r) };
+      render(true); return S.tr.three;
+    }, function () { S.tr.three = { state: "error" }; render(true); return S.tr.three; });
+  }
+  function loadInv(fid, force) {
+    if (!fid || (!force && S.tr.inv[fid] && S.tr.inv[fid].state !== "error")) return;
+    S.tr.inv[fid] = { state: "loading" };
+    TT().assets(cfg, fid).then(function (r) {
+      S.tr.inv[fid] = r.ok && r.body && Array.isArray(r.body.players) ? { state: "ok", players: r.body.players, future_picks: r.body.future_picks || [] } : { state: "error", why: U.trades.why(r, "Couldn’t read this team.") };
+      render(true);
+    }, function () { S.tr.inv[fid] = { state: "error", why: "Couldn’t reach the test worker." }; render(true); });
+  }
+  function trDraftChanged() {
+    var me = trMe();
+    if (S.tr.mode === 3) {   // cap money per movement, held to its maximum
+      var d3 = S.tr.d3;
+      Object.keys(d3.cap).forEach(function (g) { var inv = S.tr.inv[g]; Object.keys(d3.cap[g]).forEach(function (to) { d3.cap[g][to] = Math.min(d3.cap[g][to], U.trades.maxCapK(inv, d3.give[g] || {}, to)); }); });
+    } else { var d = S.tr.d, B = U.trades.build(S, me); d.capGive = B.capGive; d.capGet = B.capGet; }
+    render(true);
+  }
+  function trBuild(me) { return S.tr.mode === 3 ? U.trades.build3(S, me) : U.trades.build(S, me); }
+  function trCheck() {
+    var me = trMe(), B = me && trBuild(me);
+    if (!B || !B.ready) return;
+    S.tr.chk = { state: "loading", sig: B.sig }; render(true);
+    TT().check(cfg, me, B.movements).then(function (r) {
+      if (S.tr.chk.sig !== B.sig) return;   // the offer changed while it was being checked
+      S.tr.chk = r.ok && r.body && r.body.ok !== false && r.body.compliance ? { state: "ok", sig: B.sig, c: r.body.compliance } : { state: "error", sig: B.sig, why: U.trades.why(r, "Couldn’t check this trade.") };
+      render(true);
+    }, function () { if (S.tr.chk.sig === B.sig) { S.tr.chk = { state: "error", sig: B.sig, why: "Couldn’t reach the test worker." }; render(true); } });
+  }
+  function trResult(r) { r.kind = "trade"; S.submit = r; S.sheet = "result"; S.tr.busy = false; if (r.state === "confirmed" && S.tr.view !== "build") S.tr.view = "list"; render(); }
+  // Keith 2026-11-27: a counter went through on MFL but the phone showed "No answer" (the worker answered OK after 13 s; the reply never reached the
+  // phone). So a lost reply is never the last word: the app reads MFL (or the worker's Ménage list) back and reports what is actually there.
+  function pad4s(x) { var t = String(x == null ? "" : x).trim(); return t ? ("0000" + t).slice(-4) : ""; }
+  function lostText(e) { return String((e && e.message) || e || "no reply"); }
+  function trId(o) { return String((o && (o.trade_id || o.proposal_id)) || "").replace(/\D/g, ""); }
+  function trOutIds() { var O = S.tr.offers; return O && O.state === "ok" ? (O.out || []).map(trId) : []; }
+  function threeIds() { var T = S.tr.three; return T && T.state === "ok" ? (T.list || []).map(function (t) { return String(t.id); }) : []; }
+  // Ménage: saved by the worker (it asks both teams); confirmed only when the worker's Ménage list for this team shows it.
+  function tr3Send() {
+    var me = trMe(), B = me && U.trades.build3(S, me), G = U.trades.gate(S);
+    if (!B || !U.trades.canSend(S, B, G)) return;
+    var head = { okTitle: "Ménage sent", noTitle: "Ménage NOT sent" }, before = threeIds(), team = [pad4s(S.tr.d3.b), pad4s(S.tr.d3.c)].sort().join();
+    S.tr.busy = true; render(true);
+    var check = function (id, key, lost) {
+      return readThree(me).then(function (L) {
+        var found = L.state === "ok" && (L.list || []).some(function (t) {
+          if (id) return String(t.id) === id;
+          var fids = (t.participants || []).map(function (p) { return pad4s(p.fid); }).filter(function (f) { return f !== me; }).sort().join();
+          return before.indexOf(String(t.id)) < 0 && fids === team;   // a lost reply: a new one with these two teams
+        });
+        if (found) { S.tr.d3 = U.trades.blankDraft3(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.view = "list"; }
+        trResult(Object.assign(head, found ? { state: "confirmed", text: "Waiting on both teams.", key: key } : lost ? { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + lost + ") and the Ménage list doesn’t show it. Check before sending again." } : { state: "unconfirmed", title: "Sent, not confirmed", text: "The trade list doesn’t show it yet.", key: key }));
+      });
+    };
+    TT().threeCreate(cfg, me, B.body).then(function (r) {
+      var b = r.body || {}, id = String((b.trade && b.trade.id) || b.id || "");
+      if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing was sent.", reason: U.trades.why(r), key: r.key }));
+      return check(id, r.key, "");
+    }, function (e) { return check("", "", lostText(e)); });
+  }
+  function tr3Act(kind, id) {
+    var me = trMe(); if (!me || S.tr.busy) return;
+    var head = kind === "cancel" ? { okTitle: "Ménage cancelled", noTitle: "Not cancelled" } : kind === "accept" ? { okTitle: "Accepted", noTitle: "NOT accepted" } :
+      kind === "decline" ? { okTitle: "Ménage declined", noTitle: "NOT declined" } : { okTitle: "Re-checked", noTitle: "Still held" };
+    S.tr.busy = true; S.sheet = null; render(true);
+    var check = function (b, key, lost) {
+      return readThree(me).then(function (L) {
+        var t = L.state === "ok" ? (L.list || []).filter(function (x) { return String(x.id) === String(id); })[0] : null;
+        var mineNow = t && (t.participants || []).filter(function (p) { return p.fid === me; })[0];
+        var done = kind === "cancel" || kind === "decline" ? L.state === "ok" && (!t || t.status === "cancelled") :
+          kind === "accept" ? L.state === "ok" && (!t || (mineNow && mineNow.state === "accepted") || t.status !== "collecting") : !lost;
+        var text = kind === "accept" ? (t && t.state_view && t.state_view.label ? String(t.state_view.label) + "." : "Confirmed.") : kind === "recheck" ? String(b.message || "Checked again.") : "Confirmed.";
+        trResult(Object.assign(head, done ? { state: "confirmed", text: text, key: key } : lost ? { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + lost + ") and the Ménage list doesn’t show the change." } : { state: "unconfirmed", title: "Not confirmed", text: "The trade list doesn’t show it yet.", key: key }));
+      });
+    };
+    (kind === "cancel" ? TT().threeCancel(cfg, me, id) : kind === "accept" || kind === "decline" ? TT().threeRespond(cfg, me, id, kind) : TT().threeRecheck(cfg, me, id)).then(function (r) {
+      var b = r.body || {};
+      if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing changed.", reason: U.trades.why(r), key: r.key }));
+      return check(b, r.key, "");
+    }, function (e) { return check({}, "", lostText(e)); });
+  }
+  function trSend(capAck) {
+    if (S.tr.mode === 3 && !S.tr.counter) return tr3Send();
+    var me = trMe(), B = me && U.trades.build(S, me), G = U.trades.gate(S), ctr = S.tr.counter;
+    if (!B || !U.trades.canSend(S, B, G)) return;
+    var head = ctr ? { okTitle: "Counter sent", noTitle: "Counter NOT sent" } : { okTitle: "Offer sent", noTitle: "Offer NOT sent" }, before = trOutIds();
+    S.tr.busy = true; S.sheet = null; S.tr.ack = null; render(true);
+    var check = function (key, lost) {
+      return readOffers(me).then(function (O) {
+        var fresh = O.state === "ok" ? (O.out || []).filter(function (o) { return before.indexOf(trId(o)) < 0; }) : [];
+        var found = O.state === "ok" ? U.trades.findSent(fresh, B.body.to_franchise_id, B.expect) : null;
+        if (found && ctr && trOffer(ctr.tid)) found = null;   // a counter is done only when the original offer is gone too
+        if (found) { S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.counter = null; S.tr.view = "list"; }
+        trResult(Object.assign(head, found ? { state: "confirmed", text: "Confirmed on MFL.", key: key } : lost ? { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + lost + ") and MFL’s offer list doesn’t show it. Check MFL before sending again." } : { state: "unconfirmed", title: "Sent, not confirmed", text: "MFL’s offer list doesn’t show it yet.", key: key }));
+      });
+    };
+    // A counter is the classic app's COUNTER: the worker declines the offer on MFL and sends this one back to the team that made it.
+    (ctr ? TT().counter(cfg, me, ctr.tid, B.body) : TT().create(cfg, B.body, capAck)).then(function (r) {
+      var b = r.body || {};
+      if (r.status === 409 && b.code === "cap_overage_ack_required" && b.cap_ack_needed && !capAck) { S.tr.busy = false; S.tr.ack = b.cap_ack_needed; S.sheet = "trackSend"; render(); return; }
+      if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing was sent to MFL.", reason: U.trades.why(r), key: r.key }));
+      return check(r.key, "");
+    }, function (e) { return check("", lostText(e)); });
+  }
+  function trOffer(tid) { var O = S.tr.offers; return O.state === "ok" ? (O.inc || []).concat(O.out || []).filter(function (o) { return String(o.trade_id || o.proposal_id || "").replace(/\D/g, "") === String(tid); })[0] || null : null; }
+  function trReview(tid) {
+    var me = trMe(), o = trOffer(tid); if (!me || !o) return;
+    var keep = S.tr.rv && S.tr.rv.tid === tid ? S.tr.rv.ackMsg : "";
+    S.tr.rv = { tid: tid, offer: o, state: "loading", ackMsg: keep }; S.tr.view = "review"; S.sheet = null; render(); ensurePts(false);
+    var x = U.trades.offerSides(S, o, me);
+    // An offer to me: the worker's accept review (read-only). One I sent: the same cap / loaded-contract check, from its movements.
+    var ask = x.inc ? TT().action(cfg, me, "preview", tid, "") : TT().check(cfg, me, trMovements(me, x)).then(function (r) {
+      return r.ok && r.body && r.body.ok !== false && r.body.compliance ? { ok: true, status: 200, body: { ok: true, compliance: r.body.compliance } } : r; });
+    ask.then(function (r) { if (S.tr.rv && S.tr.rv.tid === tid) { Object.assign(S.tr.rv, U.trades.review(r)); render(true); } },
+      function () { if (S.tr.rv && S.tr.rv.tid === tid) { S.tr.rv.state = "error"; S.tr.rv.why = "Couldn’t reach the test worker."; render(true); } });
+  }
+  function trMovements(me, x) {
+    var mv = function (from, to, toks) { var cap = 0, at = []; toks.forEach(function (t) { var m = /^BB_(\d+(?:\.\d+)?)$/.exec(t); if (m) cap += Math.round(Number(m[1]) / 1000); else at.push(/^\d+$/.test(t) ? "P_" + t : t); }); return { from: from, to: to, asset_tokens: at, cap_k: cap }; };
+    return [mv(me, x.other, x.give), mv(x.other, me, x.get)].filter(function (m) { return m.asset_tokens.length || m.cap_k > 0; });
+  }
+  // Lineup impact: MFL's projections for the current week through Week 17, and this season's points, read once per visit (Keith 2026-11-26).
+  function ensurePts(force) {
+    if (!S.tr || !U.tradeimpact || !TT() || !TT().weekProj) return;
+    if (!force && S.tr.pts && S.tr.pts.state !== "error") return;
+    var W = U.tradeimpact.weeks(S); if (!W.length) return;
+    S.tr.pts = { state: "loading" };
+    var rows = function (r, key) { var o = {}, b = r && r.ok && r.body && r.body[key], a = b && b.playerScore; (a == null ? [] : Array.isArray(a) ? a : [a]).forEach(function (x) { if (x && x.id != null) o[String(x.id)] = x.score; }); return b ? o : null; };
+    Promise.all(W.map(function (w) { return TT().weekProj(cfg, w).then(function (r) { return rows(r, "projectedScores"); }, function () { return null; }); })
+      .concat([TT().seasonScores(cfg, "YTD").then(function (r) { return rows(r, "playerScores"); }, function () { return null; }), TT().seasonScores(cfg, "AVG").then(function (r) { return rows(r, "playerScores"); }, function () { return null; })]))
+      .then(function (res) {
+        var proj = {}, any = false; W.forEach(function (w, i) { if (res[i]) { proj[w] = res[i]; any = true; } });
+        S.tr.pts = any ? { state: "ok", proj: proj, ytd: res[W.length] || {}, avg: res[W.length + 1] || {} } : { state: "error" };
+        render(true);
+      });
+  }
+  function tr3Review(id) {
+    var me = trMe(), L = S.tr.three, t = L.state === "ok" ? (L.list || []).filter(function (x) { return String(x.id) === String(id); })[0] : null; if (!me || !t) return;
+    S.tr.rv3 = { id: id, trade: t }; S.tr.view = "review3"; S.sheet = null; render(); ensurePts(false);
+    TT().threeDetail(cfg, me, id).then(function (r) { if (S.tr.rv3 && S.tr.rv3.id === id && r.ok && r.body && r.body.trade) { S.tr.rv3.trade = r.body.trade; render(true); } }, function () { /* the list's copy stays */ });
+  }
+  function trAckCap() {
+    var me = trMe(), rv = S.tr.rv; if (!me || !rv || rv.ackBusy) return;
+    rv.ackBusy = true; render(true);
+    TT().action(cfg, me, "ack_cap", rv.tid, "").then(function (r) { rv.ackBusy = false; rv.ackMsg = r.ok && r.body && r.body.ok === true ? "Acknowledged." : U.trades.why(r, "Couldn’t acknowledge."); trReview(rv.tid); },
+      function () { rv.ackBusy = false; rv.ackMsg = "Couldn’t reach the test worker."; render(true); });
+  }
+  // accept | reject | revoke. A confirmed result needs MFL's own answer afterwards: the offer is gone from the pending list, and for an accept the players
+  // received are on the owner's MFL roster.
+  var TR_ACT = { accept: { ok: "Trade accepted", no: "Trade NOT accepted" }, reject: { ok: "Offer declined", no: "Offer NOT declined" }, revoke: { ok: "Offer cancelled", no: "Offer NOT cancelled" } };
+  function trAct(verb, tid, note) {
+    var me = trMe(), o = trOffer(tid), M = TR_ACT[verb]; if (!me || !o || !M || S.tr.busy) return;
+    if (verb === "accept" && !(S.tr.rv && S.tr.rv.data && S.tr.rv.data.canAccept && U.trades.gate(S).ok)) return;
+    var x = U.trades.offerSides(S, o, me), head = { okTitle: M.ok, noTitle: M.no };
+    S.tr.busy = true; S.sheet = null; render(true);
+    var check = function (key, lost, review) {
+      var players = verb === "accept" ? x.get.filter(function (t) { return /^\d+$/.test(t); }) : [];
+      var rosterCheck = players.length ? TT().rosterIds(cfg, me).then(function (ids) { return players.every(function (p) { return ids.indexOf(p) >= 0; }); }, function () { return false; }) : Promise.resolve(true);
+      return Promise.all([readOffers(me), rosterCheck]).then(function (res) {
+        var gone = res[0].state === "ok" && !trOffer(tid), done = gone && res[1];
+        if (verb === "accept" && done) { S.profile = null; S.tr.inv = {}; S.penalty = { state: "idle" }; loadCore(); }
+        trResult(Object.assign(head, done ? { state: "confirmed", text: "Confirmed on MFL." + (review || ""), key: key } : lost ? { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + lost + ") and MFL " + (verb === "accept" ? "doesn’t show the trade yet." : "still lists the offer.") + " Check MFL before trying again." } : { state: "unconfirmed", title: "Sent, not confirmed", text: verb === "accept" ? "Your MFL roster doesn’t show it yet." : "MFL still lists the offer.", key: key }));
+      });
+    };
+    TT().action(cfg, me, verb, tid, note || "").then(function (r) {
+      var b = r.body || {};
+      if (b.code === "execution_unconfirmed" || b.code === "execution_in_progress") return trResult(Object.assign(head, { state: "unconfirmed", title: "Not confirmed", text: "Couldn’t confirm MFL processed it. It wasn’t sent again.", key: r.key }));
+      if ((!r.ok || b.ok === false) && b.code !== "already_executed") return trResult(Object.assign(head, { state: "refused", text: "Nothing changed on MFL.", reason: U.trades.why(r), key: r.key }));
+      return check(r.key, "", b.needs_review || b.execution_state === "executed_needs_review" ? " The commissioner finishes the contract step." : "");
+    }, function (e) { return check("", lostText(e), ""); });
+  }
+  function trHandle(act, v, el) {
+    var d = S.tr.d, d3 = S.tr.d3, me = trMe(), at = function (k) { return el && el.getAttribute ? el.getAttribute(k) : null; };
+    var fidOk = function (f) { return /^\d{4}$/.test(f || ""); };
+    if (act === "trimpact") { if (S.tr.view === "review" || S.tr.view === "review3") { S.tr.impFrom = S.tr.view; S.tr.impTeam = v || me; S.tr.view = "impact"; render(); } }
+    else if (act === "trimpteam") { S.tr.impTeam = v; render(true); }
+    else if (act === "trimpback") { S.tr.view = S.tr.impFrom || "list"; render(); }
+    else if (act === "trpts") ensurePts(true);
+    else if (act === "trpropose") { S.tr.view = "build"; S.tr.counter = null; S.tr.chk = { state: "idle", sig: "" }; loadInv(me, false); render(); }
+    else if (act === "trback") { if (S.tr.counter) { S.tr.counter = null; S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; } S.tr.view = "list"; S.sheet = null; S.tr.rv = null; S.tr.rv3 = null; render(); }
+    else if (act === "tr3review") tr3Review(v);
+    else if (act === "trcounter") {
+      var co = trOffer(v); if (!co || !me) return;
+      S.tr.d = U.trades.counterDraft(S, co, me); S.tr.counter = { tid: v }; S.tr.mode = 2; S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.view = "build";
+      loadInv(me, false); loadInv(S.tr.d.to, false); render();
+    }
+    else if (act === "trload") loadTrades(true);
+    else if (act === "trinv") { Object.keys(S.tr.inv).forEach(function (f) { if (S.tr.inv[f].state === "error") loadInv(f, true); }); }
+    else if (act === "trmode") { var m = v === "3" ? 3 : 2; if (S.tr.mode !== m) { S.tr.mode = m; S.tr.chk = { state: "idle", sig: "" }; } loadInv(me, false); render(true); }
+    else if (act === "trteams") { if (v === "to" || v === "b" || v === "c") { S.tr.tp = v; S.sheet = "trteams"; render(); } }
+    else if (act === "trteampick") {
+      var slot = S.tr.tp; if (!fidOk(v) || v === me || !slot) return;
+      if (slot === "to") { d.to = v; d.get = {}; d.capGet = 0; }
+      else {
+        var old = d3[slot]; d3[slot] = v;
+        if (old && old !== v) { delete d3.give[old]; delete d3.cap[old]; Object.keys(d3.give).forEach(function (g) { Object.keys(d3.give[g]).forEach(function (t) { if (d3.give[g][t] === old) d3.give[g][t] = U.trades.ringNext(S, me, g); }); if (d3.cap[g]) delete d3.cap[g][old]; }); }
+      }
+      S.tr.tp = null; S.sheet = null; S.tr.chk = { state: "idle", sig: "" }; loadInv(me, false); loadInv(v, false); render(true);
+    }
+    else if (act === "trpick") { var pf = at("data-fid"); if (fidOk(pf)) { S.tr.pk = { fid: pf }; loadInv(pf, false); S.sheet = "trpick"; render(); } }
+    else if (act === "trtoggle" || act === "trrm") {
+      var f = act === "trtoggle" ? S.tr.pk && S.tr.pk.fid : at("data-fid"); if (!fidOk(f) || !v) return;
+      if (S.tr.mode === 3) { var g = d3.give[f] = d3.give[f] || {}; if (g[v] || act === "trrm") delete g[v]; else g[v] = U.trades.ringNext(S, me, f); }
+      else { var ids = f === me ? d.give : f === d.to ? d.get : null; if (!ids) return; if (ids[v] || act === "trrm") delete ids[v]; else ids[v] = true; }
+      trDraftChanged();
+    }
+    else if (act === "trdest") {
+      var gf = at("data-fid"), gm = fidOk(gf) && d3.give[gf]; if (!gm || !gm[v]) return;
+      var two = U.trades.ring(S, me).filter(function (x) { return x !== gf; }); gm[v] = gm[v] === two[0] ? two[1] : two[0]; trDraftChanged();
+    }
+    else if (act === "trcapg" || act === "trcapt") { var k = act === "trcapg" ? "capGive" : "capGet"; d[k] = Math.max(0, (parseInt(d[k], 10) || 0) + (v === "1" ? 1 : -1)); trDraftChanged(); }
+    else if (act === "trcap3") {
+      var cg = at("data-fid"), ct = at("data-to"); if (!fidOk(cg) || !fidOk(ct)) return;
+      var c = d3.cap[cg] = d3.cap[cg] || {}; c[ct] = Math.max(0, Math.min((parseInt(c[ct], 10) || 0) + (v === "1" ? 1 : -1), U.trades.maxCapK(S.tr.inv[cg], d3.give[cg] || {}, ct))); trDraftChanged();
+    }
+    else if (act === "trnote") { S.tr.note = true; render(true); }
+    else if (act === "trcheck") trCheck();
+    else if (act === "trsend") trSend(null);
+    else if (act === "trsendack") { var sig = S.tr.ack && S.tr.ack.signature; if (sig) trSend(sig); }
+    else if (act === "trreview") trReview(v);
+    else if (act === "trretry") { if (S.tr.rv) trReview(S.tr.rv.tid); }
+    else if (act === "trackcap") trAckCap();
+    else if (act === "traccept") { if (S.tr.rv) trAct("accept", S.tr.rv.tid, ""); }
+    else if (act === "trdecline") { if (trOffer(v)) { S.tr.dec = { tid: v, note: "" }; S.sheet = "trdecline"; render(); } }
+    else if (act === "trdeclinego") { if (S.tr.dec) trAct("reject", S.tr.dec.tid, S.tr.dec.note); }
+    else if (act === "trcancel") { if (trOffer(v)) { S.tr.can = { tid: v }; S.sheet = "trcancel"; render(); } }
+    else if (act === "trcancelgo") { if (S.tr.can) trAct("revoke", S.tr.can.tid, ""); }
+    else if (act === "tr3cancel") { S.tr.can3 = { id: v }; S.sheet = "tr3cancel"; render(); }
+    else if (act === "tr3cancelgo") { if (S.tr.can3) tr3Act("cancel", S.tr.can3.id); }
+    else if (act === "tr3recheck") tr3Act("recheck", v);
+    else if (act === "tr3accept" || act === "tr3decline") { S.tr.can3 = { id: v }; S.sheet = act; render(); }
+    else if (act === "tr3acceptgo" || act === "tr3declinego") { if (S.tr.can3) tr3Act(act === "tr3acceptgo" ? "accept" : "decline", S.tr.can3.id); }
+    else if (act === "trclose") { S.sheet = null; S.tr.rv = null; S.tr.dec = null; S.tr.can = null; S.tr.can3 = null; S.tr.ack = null; S.tr.pk = null; S.tr.tp = null; render(true); }
   }
   function returnFromProfile() {
     var r = S.ret; S.ret = null;
@@ -572,7 +938,22 @@
     var el = ev.target.closest ? ev.target.closest("[data-act]") : null;
     if (!el || !appEl.contains(el)) return;
     var act = el.getAttribute("data-act"), v = el.getAttribute("data-v");
-    if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); }
+    if (leaveGuard(act, v, el)) return;   // R13 F3: a navigation that would leave unsubmitted lineup changes is held first
+    handle(act, v, el);
+  });
+  function handle(act, v, el) {
+    if (/^tr[a-z0-9]+$/.test(act || "")) { if (S.tr) trHandle(act, v, el); return; }   // Trades v1 (every trade tap starts "tr")
+    if (act === "submit") doSubmit();
+    else if (act === "optimal") doOptimal();
+    else if (act === "move") { if (S.profile && S.submitMode) { S.move = { pid: S.profile.pid, act: v }; S.sheet = "move"; render(); } }
+    else if (act === "movecancel") { S.move = null; S.sheet = null; render(true); }
+    else if (act === "moveconfirm") doMove();
+    else if (act === "resultok") { var nx = S.afterResult; S.afterResult = null; S.sheet = null; render(true); if (nx) nx(); }
+    else if (act === "leavesubmit") { var L0 = S.leave; S.leave = null; S.sheet = null; render(); doSubmit(function () { S.leave = L0; replayLeave(false); }); }
+    else if (act === "leavediscard") replayLeave(true);
+    else if (act === "leavestay") { S.leave = null; S.sheet = null; render(); }
+    else if (act === "signout") { if (U.submit) U.submit.signOut(); S.me = { signedIn: false, why: "Signed out" }; render(true); }
+    else if (act === "nav") { S.tab = v; S.profile = null; S.sheet = null; render(); ensureIntel(); if (v === "league" && S.tr) loadTrades(false); }
     else if (act === "sub") { S.sub = v; render(); ensureIntel(); }
     else if (act === "view") { if (v === "lineup" || v === "byes") { S.view = v; S.sheet = null; render(); ensureIntel(); } }
     else if (act === "weeks") { S.sheet = "weeks"; render(); }
@@ -611,7 +992,10 @@
     else if (act === "close") closeLayer();
     else if (act === "plan") planOpen(v);
     else if (act === "planpick") planPick(v);
-    else if (act === "planreset") { var tr = curTeam(); if (tr && S.plans) delete S.plans[tr.id]; render(true); }
+    else if (act === "planfor") planOpenFor(v);
+    else if (act === "planbench") planBench();
+    else if (act === "planforpick") planForPick(v);
+    else if (act === "planreset") { var tr = curTeam(); if (tr && S.plans) delete S.plans[tr.id]; S.optNote = null; render(true); }
     else if (act === "teams") { S.sheet = "teams"; render(); }
     else if (act === "pickteam") { S.teamId = el.getAttribute("data-fid"); setPref("team", S.teamId); S.open = {}; S.sheet = null; pfOnTeam(); render(); }
     else if (act === "about") { S.sheet = "about"; render(); }
@@ -622,11 +1006,28 @@
     else if (act === "ptab") { if (S.profile) { S.profile.tab = v; render(true); if (v === "perf") ensurePerformance(); } }
     else if (act === "retry") { S.sheet = null; S.penalty = { state: "idle" }; loadCore(); }
     else if (act === "retrypen") loadPenalty(true);
-  });
+  }
   // R8: Team › Performance "Search players". Only the list under the box is redrawn while typing, so the box itself (focus, cursor, the phone's
   // keyboard) is never replaced; anything else falls back to a full redraw, which keeps focus and cursor too (render). No request is made.
+  // Cap money typed into its box ($K): held to 0..max as it's typed, redrawn when the box is left (a short delay lets a tap on Check trade land first).
+  function trCapTyped(el, done) {
+    var act = el.getAttribute("data-cap"), g = el.getAttribute("data-fid"), t = el.getAttribute("data-to"), me = trMe();
+    var n = Math.max(0, parseInt(String(el.value || "").replace(/\D/g, ""), 10) || 0);
+    if (act === "trcapg" || act === "trcapt") {
+      var inv = act === "trcapg" ? S.tr.inv[me] : S.tr.inv[pad4s(S.tr.d.to)], ids = act === "trcapg" ? S.tr.d.give : S.tr.d.get;
+      S.tr.d[act === "trcapg" ? "capGive" : "capGet"] = Math.min(n, U.trades.maxCapK(inv, ids, null));
+    } else if (act === "trcap3" && /^\d{4}$/.test(g || "") && /^\d{4}$/.test(t || "")) {
+      var c = S.tr.d3.cap[g] = S.tr.d3.cap[g] || {}; c[t] = Math.min(n, U.trades.maxCapK(S.tr.inv[g], S.tr.d3.give[g] || {}, t));
+    } else return;
+    if (done) setTimeout(trDraftChanged, 250);
+  }
+  appEl.addEventListener("change", function (ev) { var el = ev.target; if (el && S.tr && el.classList && el.classList.contains("trcapin")) trCapTyped(el, true); });
   appEl.addEventListener("input", function (ev) {
     var el = ev.target;
+    if (el && S.tr && el.id === "trnote") { S.tr.d.note = String(el.value || "").slice(0, 2000); return; }                       // Trades v1: the offer's note (no redraw while typing)
+    if (el && S.tr && el.id === "trnote3") { S.tr.d3.note = String(el.value || "").slice(0, 2000); return; }
+    if (el && S.tr && el.id === "trdeclnote" && S.tr.dec) { S.tr.dec.note = String(el.value || "").slice(0, 2000); return; }    // and a decline's note
+    if (el && S.tr && el.classList && el.classList.contains("trcapin")) { trCapTyped(el, false); return; }                    // cap money typed in (no redraw while typing)
     if (!el || el.id !== "pfq") return;
     S.pf.q = String(el.value || "").slice(0, 40); S.pf.note = null;
     if (!S.pf.q.trim()) S.pf.xt = false;   // R9: clearing the search ends "Search other teams"; a new search starts on this team again

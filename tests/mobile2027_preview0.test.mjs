@@ -54,7 +54,7 @@ function state(over) {
     requestSummary: { requests: 0, ok: 0, failed: 0, refused: 0, nonGet: 0 }, ...(over || {}),
   };
 }
-const ALLOWED_ACTS = ["plan", "planpick", "planreset", "nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "ctl", "cts", "cty", "ctx", "cth", "pfs", "pfx", "pfres", "retryperf", "help", "ctbd", "ctcat", "nsx", "retryns", "bdv", "bdg", "retrybox", "retrylog"];
+const ALLOWED_ACTS = ["plan", "planpick", "planreset", "planfor", "planforpick", "planbench", /* F4, F9, Keith 2026-11-26: a bench player's badge opens his slots (plan only) */ "nav", "sub", "view", "grp", "expall", "card", "close", "teams", "pickteam", "about", "skin", "vib", "tog", "ptab", "retry", "retrypen", "sample", "weeks", "pickweek", "gdef", "ctf", "ctl", "cts", "cty", "ctx", "cth", "pfs", "pfx", "pfres", "retryperf", "help", "ctbd", "ctcat", "nsx", "retryns", "bdv", "bdg", "retrybox", "retrylog"];
 const findPlayer = (pred) => allPlayers().find(pred);
 
 // ───────────────────────── 1. contract text and schedule ─────────────────────────
@@ -393,7 +393,8 @@ test("nothing is drawn as $0 when the worker's answer is missing, loading, faile
     t.match(html, /Not available|Loading…/, name + ": says it is not available");
   });
   t.match(V.app(cases.failed), /data-act="retrypen"/);
-  t.match(V.app(cases.review), /Acquisition week unclear/);
+  // Keith 2026-11-26 ("WAYYYYY too much additional verbiage"): a row under review says one short line, never the worker's explanation
+  t.match(V.app(cases.review), /Not confirmed yet/); t.doesNotMatch(V.app(cases.review), /Acquisition week unclear/);
   const none = V.app(cases.absent);
   t.match(none, /The UPS cap calculation is not available/);
 });
