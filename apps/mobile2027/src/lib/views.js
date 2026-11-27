@@ -925,7 +925,8 @@
   // R8: in recorded mode the marker is one short line, "Test · Recorded data", with the "Known issues" button; the two capture times are in About.
   function envBar(S) {
     var on = sampleOn(S), rec = !on && !!S.recorded;
-    return '<div class="envbar' + (on ? " sample" : rec ? " rec" : "") + '"><span>' + esc(SM.envText(on, rec)) + "</span>" + (rec ? ' <button class="link" data-act="about">Known issues</button>' : "") + "</div>";
+    var txt = !on && S.submitMode ? "Test league · real MFL moves" : SM.envText(on, rec);   // the Test target writes to league 25625
+    return '<div class="envbar' + (on ? " sample" : rec ? " rec" : "") + '"><span>' + esc(txt) + "</span>" + (rec ? ' <button class="link" data-act="about">Known issues</button>' : "") + "</div>";
   }
   function sampleScreen() {
     return '<div id="scroll" class="scroll">' + header("Sample mode", "") + '<div id="screen"><div class="card hl"><h2>Sample mode</h2><div class="big2"><b>Nothing here is real, and nothing is sent.</b></div>' +

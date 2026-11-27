@@ -92,8 +92,10 @@ test("trades.js: tokens read as owners say them (MFL's DP_ is zero-indexed; BB_ 
   t.equal(T.tokenLabel(S, "99999999", "0001"), "Player 99999999");
   t.equal(T.tokenLabel(S, "DP_0_3", "0001"), "Pick 1.04");
   t.equal(T.tokenLabel(S, "BB_4000", "0001"), "$4K cap");
-  t.equal(T.tokenLabel(S, "FP_0006_2027_1", "0006"), "2027 R1");
-  t.match(T.tokenLabel(S, "FP_0002_2027_2", "0006"), /^2027 R2 \(.+\)$/);
+  const nm = (f) => S.model.teams.find((x) => x.id === f).name;
+  t.equal(T.tokenLabel(S, "FP_0006_2027_1"), "2027 R1 (" + nm("0006") + ")", "a pick always says whose it was (Keith 2026-11-26)");
+  t.equal(T.tokenLabel(S, "FP_0002_2027_2"), "2027 R2 (" + nm("0002") + ")");
+  t.deepEqual(T.tokens("123,BB_0,BB_2000"), ["123", "BB_2000"], "no $0 cap line");
 });
 
 test("the trade lock fails closed: Send and Accept need MFL's calendar read, and a time before the lock", async () => {
@@ -131,7 +133,7 @@ test("the builder: the classic app's offer body; cap money held to half the non-
   t.deepEqual(X.expect.receive, ["FP_" + to + "_2027_1", theirs[1].player_id].sort());
   t.ok(T.findSent([{ to_franchise_id: to, will_give_up: X.expect.giveUp.slice().reverse().join(","), will_receive: X.expect.receive.join(", ") }], to, X.expect), "the read-back finds the offer");
   t.equal(T.findSent([{ to_franchise_id: to, will_give_up: mine[0].player_id, will_receive: X.expect.receive.join(",") }], to, X.expect), null, "a different offer isn't it");
-  S.tr.lock = { state: "ok", data: LOCK_UP }; S.tr.sub = "new";
+  S.tr.lock = { state: "ok", data: LOCK_UP }; S.tr.view = "build";
   const html = V.app(S), give = html.split("<h2>You give</h2>")[1].split("<h2>You get</h2>")[0];
   t.equal((give.match(/class="trsel"/g) || []).length, 2, "the page lists only what is picked");
   t.doesNotMatch(html, /Round 6/, "the full lists live in the sheet, not on the page");
@@ -158,32 +160,43 @@ test("Send: only after a check of THIS offer with the loaded-contract limit met,
   S.tr.chk.c = Object.assign({}, C, { loaded_contracts: { status: "blocked" } }); t.equal(T.canSend(S, X, G), false, "over the loaded-contract limit");
   S.tr.chk.c = Object.assign({}, C, { loaded_contracts: { status: "unavailable" } }); t.equal(T.canSend(S, X, G), false, "couldn't be checked");
   S.tr.chk.c = Object.assign({}, C, { cap: { status: "blocked", rows: [] } }); t.equal(T.canSend(S, X, G), true, "over the cap: the worker asks for the acknowledgment at Send (classic flow)");
-  S.tr.chk.c = Object.assign({}, C, { cap: { status: "unavailable" } }); t.equal(T.canSend(S, X, G), false);
+  S.tr.chk.c = Object.assign({}, C, { cap: { status: "unavailable" } }); t.equal(T.canSend(S, X, G), true, "cap space never stops a send (Keith 2026-11-26)");
   S.tr.chk.c = C; S.tr.d.capGive = 1; t.equal(T.canSend(S, T.build(S, me), G), false, "a changed offer needs a new check");
+  t.equal(T.canSend(S, Object.assign({}, X, { three: true }), G), true);
+  S.tr.chk.c = Object.assign({}, C, { loaded_contracts: { status: "blocked" } });
+  t.equal(T.canSend(S, Object.assign({}, X, { three: true }), G), true, "a 3-team trade over 5 loaded can be sent (classic 3-way: it can't run until fixed)");
   t.match(appJs, /if \(!B \|\| !U\.trades\.canSend\(S, B, G\)\) return;/, "app.js sends nothing canSend refuses");
   t.match(appJs, /b\.code === "cap_overage_ack_required" && b\.cap_ack_needed && !capAck\) \{ S\.tr\.busy = false; S\.tr\.ack = b\.cap_ack_needed; S\.sheet = "trackSend"/);
 });
 
-test("offers: incoming shows Accept and Decline, outgoing shows Cancel; Accept is off while trades are locked", async () => {
+test("one list + Propose (Keith 2026-11-26): every pending trade opens its Review; Review has Accept / Counter / Decline, or Cancel for one I sent", async () => {
   const S = await fresh("0006");
   const a = ids(S, "0002", 1)[0], b = ids(S, "0006", 2);
   S.tr.lock = { state: "ok", data: LOCK_UP };
   S.tr.offers = { state: "ok", inc: [{ trade_id: "501", from_franchise_id: "0002", to_franchise_id: "0006", will_give_up: a + ",BB_2000", will_receive: b[0], message: "fair?" }],
     out: [{ trade_id: "502", from_franchise_id: "0006", to_franchise_id: "0003", will_give_up: b[1], will_receive: "FP_0003_2027_1" }] };
   const h = V.app(S), tx = text(h);
-  t.match(h, /data-act="trreview" data-v="501"/); t.match(h, /data-act="trdecline" data-v="501"/); t.match(h, /data-act="trcancel" data-v="502"/);
-  t.match(tx, /Get .*\$2K cap/); t.match(tx, /“fair\?”/); t.match(tx, /2027 R1/); t.match(tx, /To you · 1/); t.match(tx, /Yours · 1/);
-  S.tr.lock = { state: "ok", data: { state: "closed" } };
-  t.match(V.app(S), /data-act="trreview" data-v="501" disabled/, "locked: Accept off"); t.match(text(V.app(S)), /Trades are locked\./);
+  t.match(h, /data-act="trpropose">Propose trade/); t.doesNotMatch(h, /role="tab"/, "no Offers / New offer tabs");
+  t.match(h, /data-act="trreview" data-v="501"/); t.match(h, /data-act="trreview" data-v="502"/);
+  t.match(tx, /Get .*\$2K cap/); t.match(tx, /2027 R1 \(/); t.match(tx, /To you · 1/); t.match(tx, /You sent · 1/);
+  S.tr.view = "review"; S.tr.rv = { tid: "501", offer: S.tr.offers.inc[0], state: "loading" };
+  let r = V.app(S);
+  t.match(r, /data-act="trback">‹ Trades/); t.match(text(r), /“fair\?”/); t.match(text(r), /Cap space/);
+  t.match(r, /data-act="traccept" disabled/, "no Accept before the worker's review"); t.match(r, /data-act="trcounter" data-v="501">Counter/); t.match(r, /data-act="trdecline" data-v="501">Decline/);
+  S.tr.lock = { state: "ok", data: { state: "closed" } }; r = V.app(S);
+  t.match(r, /data-act="trcounter" data-v="501" disabled/, "locked: no Counter"); t.match(text(r), /Trades are locked\./);
+  S.tr.rv = { tid: "502", offer: S.tr.offers.out[0], state: "loading" };
+  t.match(V.app(S), /data-act="trcancel" data-v="502">Cancel offer/); t.doesNotMatch(V.app(S), /data-act="traccept"/);
+  S.tr.view = "list";
   S.tr.offers = { state: "error", why: "Your MFL sign-in expired." }; t.match(text(V.app(S)), /Your MFL sign-in expired\. Try again/);
   S.me = { signedIn: false }; t.match(text(V.app(S)), /Sign in with your own team to trade\./);
 });
 
 test("the accept review: the worker decides; Accept only when the cap is fine (or every overage acknowledged) and the loaded-contract limit can run", async () => {
-  const ok = { ok: true, status: 200, body: { ok: true, compliance: { cap: { status: "ok", rows: [{ franchise_name: "A", room_after: 5000, over_by: 0 }] }, roster: { status: "ok" }, loaded_contracts: { status: "ok", executable: true, max: 5, rows: [] } } } };
+  const ok = { ok: true, status: 200, body: { ok: true, compliance: { cap: { status: "ok", rows: [{ franchise_id: "0006", franchise_name: "A", room_after: 5000, over_by: 0 }] }, roster: { status: "ok" }, loaded_contracts: { status: "ok", executable: true, max: 5, rows: [] } } } };
   t.equal(T.review(ok).data.canAccept, true);
   const over = JSON.parse(JSON.stringify(ok)); over.body.compliance.cap.status = "blocked"; over.body.cap_ack = { satisfied: false, per_franchise: [{ franchise_id: "0006", amount_over: 3000, status: "missing" }] };
-  t.equal(T.review(over).data.canAccept, false); t.equal(T.review(over).data.message, "Over the salary cap.");
+  t.equal(T.review(over).data.canAccept, false); t.equal(T.review(over).data.message, "Over the salary cap: acknowledge it first.");
   over.body.cap_ack.satisfied = true; t.equal(T.review(over).data.canAccept, true, "an acknowledged overage");
   const lc = JSON.parse(JSON.stringify(ok)); lc.body.compliance.loaded_contracts.executable = false; t.equal(T.review(lc).data.canAccept, false); t.equal(T.review(lc).data.message, "Loaded contracts couldn’t be confirmed.");
   lc.body.compliance.loaded_contracts.status = "blocked"; t.equal(T.review(lc).data.message, "Over the loaded-contract limit.");
@@ -191,12 +204,12 @@ test("the accept review: the worker decides; Accept only when the cap is fine (o
   const S = await fresh("0006");
   S.tr.lock = { state: "ok", data: LOCK_UP };
   S.tr.offers = { state: "ok", inc: [{ trade_id: "501", from_franchise_id: "0002", to_franchise_id: "0006", will_give_up: ids(S, "0002", 1)[0], will_receive: ids(S, "0006", 1)[0] }], out: [] };
-  S.sheet = "trreview"; S.tr.rv = Object.assign({ tid: "501", offer: S.tr.offers.inc[0] }, T.review(over));
+  S.tr.view = "review"; S.tr.rv = Object.assign({ tid: "501", offer: S.tr.offers.inc[0] }, T.review(over));
   over.body.cap_ack.satisfied = false; S.tr.rv = Object.assign({ tid: "501", offer: S.tr.offers.inc[0] }, T.review(over));
   let h = V.app(S);
   t.match(h, /data-act="traccept" disabled/); t.match(text(h), /Acknowledge \$3K over the cap/);
   S.tr.rv = Object.assign({ tid: "501", offer: S.tr.offers.inc[0] }, T.review(ok)); h = V.app(S);
-  t.match(h, /data-act="traccept">Accept trade/); t.match(text(h), /A \$5K room/);
+  t.match(h, /data-act="traccept">Accept/); t.match(text(h), /\$5K after/);
   S.tr.lock = { state: "ok", data: { state: "closed" } }; t.match(V.app(S), /data-act="traccept" disabled/, "locked");
   t.match(appJs, /if \(verb === "accept" && !\(S\.tr\.rv && S\.tr\.rv\.data && S\.tr\.rv\.data\.canAccept && U\.trades\.gate\(S\)\.ok\)\) return;/, "app.js re-checks before it accepts");
 });
@@ -246,7 +259,7 @@ test("3 teams (the classic 3-way): each asset goes to one of the other two (ring
     [me, b, [P(me, 0)], 10], [me, c, [P(me, 1)], 4], [b, c, [P(b, 2)], 0], [c, me, ["FP_" + c + "_2027_1"], 0]]);
   t.equal(X.body.initiator.fid, me); t.equal(X.body.team_b.fid, b); t.equal(X.body.team_c.fid, c); t.deepEqual(X.body.extension_requests, []);
   t.deepEqual(X.movements[0], { from: me, to: b, asset_tokens: [P(me, 0)], cap_k: 10 }, "the check gets the same movements");
-  S.tr.lock = { state: "ok", data: LOCK_UP }; S.tr.sub = "new";
+  S.tr.lock = { state: "ok", data: LOCK_UP }; S.tr.view = "build";
   const h = V.app(S), tx = text(h);
   t.match(h, /data-act="trmode" data-v="3" aria-pressed="true"/); t.match(tx, /You send/); t.match(tx, /sends/);
   t.match(h, /data-act="trdest" data-v="P_[0-9]+" data-fid="0006">→ /); t.match(tx, /Cap to .* \$10K max \$10K/);

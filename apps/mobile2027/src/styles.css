@@ -512,3 +512,20 @@ button.btnrow{cursor:pointer}
 .trcs{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
 .trmode{margin:8px 0 2px}
 .sheet .trso{min-height:48px}
+/* Trades v3 (Keith 2026-11-26: one list + Propose, Review, Counter) */
+.trtap{display:flex;flex-direction:column;align-items:stretch;gap:4px;width:100%;text-align:left;color:var(--tx);font:inherit;cursor:pointer}
+.trtap .trh{display:flex;align-items:center;gap:8px}.trtap .trh b{flex:1;min-width:0}
+.trnm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.trst{font-size:12.5px;font-weight:600;color:var(--mu)}.trst.wn{color:var(--wn)}
+.trgo{align-self:flex-end;font-size:12.5px;font-weight:700;color:var(--ac)}
+.trprop{margin:4px 0 2px}
+.trback{display:flex;align-items:center;gap:10px;min-height:44px}.trbt{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mu)}
+.trtitle{display:flex;align-items:baseline;gap:8px;padding:2px 2px 0}.trtitle b{flex:1;min-width:0;font-size:17px;overflow-wrap:anywhere}
+.trd{display:flex;align-items:baseline;gap:8px;min-height:32px;border-bottom:1px solid var(--bd);font-size:13px}.trd:last-child{border-bottom:0}.trd .in{flex:1;min-width:0;overflow-wrap:anywhere}.trd .mu{flex:0 0 auto;font-size:12px}
+.trmsg{font-style:italic;overflow-wrap:anywhere}
+.trb3{display:flex;gap:8px;margin-top:6px}.trb3 .btn{flex:1;min-width:0}
+.trroom{float:right;text-transform:none;letter-spacing:0;font-weight:600}
+.trwith .trtm{display:flex;flex-direction:column;align-items:flex-start;gap:0;min-width:0;flex:1;text-align:left;padding:6px 10px;min-height:48px;justify-content:center}
+.trwith .trtm b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.trwith .trtm small{font-size:11.5px;color:var(--mu);font-weight:600}
+.trwith span.trtm{border:1.5px dashed var(--bd);border-radius:10px}
+.trr .trnm{flex:1}

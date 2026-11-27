@@ -183,11 +183,19 @@
   }
   function threeCreate(cfg, fid, body) { return threePost(cfg, fid, "/api/trades/3way", body); }
   function threeCancel(cfg, fid, id) { return threePost(cfg, fid, "/api/trades/3way/cancel", { id: String(id), acting_franchise_id: fid }); }
+  function threeDetail(cfg, fid, id) { if (!token()) return Promise.resolve({ ok: false, status: 401, body: null }); return getJson(address(cfg, "/api/trades/3way", threeParams(cfg, fid, { id: String(id), _: Date.now() }))); }
+  // A counter (the classic app's COUNTER): the worker declines offer `tradeId` on MFL and sends `body` (the builder's offer) back to the team that made it.
+  function tradeCounter(cfg, fid, tradeId, body) {
+    var key = newKey();
+    return post(cfg, "/api/trades/proposals/action", { action: "COUNTER", trade_id: String(tradeId), league_id: String(cfg.leagueId), season: String(cfg.season), year: String(cfg.season),
+      franchise_id: fid, acting_franchise_id: fid, message: body.message || "",
+      counter_offer: { from_franchise_id: fid, to_franchise_id: body.to_franchise_id, payload: body.payload, message: body.message || "" } }, key).then(function (r) { return keyed(r, key); });
+  }
   function threeRespond(cfg, fid, id, action) { return threePost(cfg, fid, "/api/trades/3way/respond", { id: String(id), action: action === "accept" ? "accept" : "decline", acting_franchise_id: fid }); }
   function threeRecheck(cfg, fid, id) { return threePost(cfg, fid, "/api/trades/3way/recheck", { id: String(id), acting_franchise_id: fid }); }
 
   root.UPS2027 = root.UPS2027 || {};
   root.UPS2027.submit = { token: token, signOut: signOut, whoami: whoami, lineup: lineup, rosterMove: rosterMove, mflStarters: mflStarters,
     trades: { offers: tradeOffers, assets: tradeAssets, lock: tradeLock, rosterIds: rosterIds, check: tradeCheck, action: tradeAction, create: tradeCreate,
-      threeList: threeList, threeCreate: threeCreate, threeCancel: threeCancel, threeRecheck: threeRecheck, threeRespond: threeRespond } };
+      threeList: threeList, threeCreate: threeCreate, threeCancel: threeCancel, threeRecheck: threeRecheck, threeRespond: threeRespond, threeDetail: threeDetail, counter: tradeCounter } };
 })(window);

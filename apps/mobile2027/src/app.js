@@ -680,7 +680,7 @@
       render(true);
     }, function () { if (S.tr.chk.sig === B.sig) { S.tr.chk = { state: "error", sig: B.sig, why: "Couldn’t reach the test worker." }; render(true); } });
   }
-  function trResult(r) { r.kind = "trade"; S.submit = r; S.sheet = "result"; S.tr.busy = false; render(); }
+  function trResult(r) { r.kind = "trade"; S.submit = r; S.sheet = "result"; S.tr.busy = false; if (r.state === "confirmed" && S.tr.view !== "build") S.tr.view = "list"; render(); }
   // 3-team: saved by the worker (it asks both teams); confirmed only when the worker's 3-team list for this team shows it.
   function tr3Send() {
     var me = trMe(), B = me && U.trades.build3(S, me), G = U.trades.gate(S);
@@ -692,7 +692,7 @@
       if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing was sent.", reason: U.trades.why(r), key: r.key }));
       return readThree(me).then(function (L) {
         var found = L.state === "ok" && id && (L.list || []).some(function (t) { return String(t.id) === id; });
-        if (found) { S.tr.d3 = U.trades.blankDraft3(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.sub = "offers"; }
+        if (found) { S.tr.d3 = U.trades.blankDraft3(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.view = "list"; }
         trResult(Object.assign(head, found ? { state: "confirmed", text: "Waiting on both teams.", key: r.key } : { state: "unconfirmed", title: "Sent, not confirmed", text: "The trade list doesn’t show it yet.", key: r.key }));
       });
     }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check before sending again." })); });
@@ -716,18 +716,20 @@
     }, function () { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer." })); });
   }
   function trSend(capAck) {
-    if (S.tr.mode === 3) return tr3Send();
-    var me = trMe(), B = me && U.trades.build(S, me), G = U.trades.gate(S);
+    if (S.tr.mode === 3 && !S.tr.counter) return tr3Send();
+    var me = trMe(), B = me && U.trades.build(S, me), G = U.trades.gate(S), ctr = S.tr.counter;
     if (!B || !U.trades.canSend(S, B, G)) return;
-    var head = { okTitle: "Offer sent", noTitle: "Offer NOT sent" };
+    var head = ctr ? { okTitle: "Counter sent", noTitle: "Counter NOT sent" } : { okTitle: "Offer sent", noTitle: "Offer NOT sent" };
     S.tr.busy = true; S.sheet = null; S.tr.ack = null; render(true);
-    TT().create(cfg, B.body, capAck).then(function (r) {
+    // A counter is the classic app's COUNTER: the worker declines the offer on MFL and sends this one back to the team that made it.
+    (ctr ? TT().counter(cfg, me, ctr.tid, B.body) : TT().create(cfg, B.body, capAck)).then(function (r) {
       var b = r.body || {};
       if (r.status === 409 && b.code === "cap_overage_ack_required" && b.cap_ack_needed && !capAck) { S.tr.busy = false; S.tr.ack = b.cap_ack_needed; S.sheet = "trackSend"; render(); return; }
       if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing was sent to MFL.", reason: U.trades.why(r), key: r.key }));
       return readOffers(me).then(function (O) {
         var found = O.state === "ok" ? U.trades.findSent(O.out, B.body.to_franchise_id, B.expect) : null;
-        if (found) { S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.sub = "offers"; }
+        if (found && ctr && trOffer(ctr.tid)) found = null;   // a counter is done only when the original offer is gone too
+        if (found) { S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.counter = null; S.tr.view = "list"; }
         trResult(Object.assign(head, found ? { state: "confirmed", text: "Confirmed on MFL.", key: r.key } : { state: "unconfirmed", title: "Sent, not confirmed", text: "MFL’s offer list doesn’t show it yet.", key: r.key }));
       });
     }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before sending again." })); });
@@ -736,9 +738,22 @@
   function trReview(tid) {
     var me = trMe(), o = trOffer(tid); if (!me || !o) return;
     var keep = S.tr.rv && S.tr.rv.tid === tid ? S.tr.rv.ackMsg : "";
-    S.tr.rv = { tid: tid, offer: o, state: "loading", ackMsg: keep }; S.sheet = "trreview"; render();
-    TT().action(cfg, me, "preview", tid, "").then(function (r) { if (S.tr.rv && S.tr.rv.tid === tid) { Object.assign(S.tr.rv, U.trades.review(r)); render(true); } },
+    S.tr.rv = { tid: tid, offer: o, state: "loading", ackMsg: keep }; S.tr.view = "review"; S.sheet = null; render();
+    var x = U.trades.offerSides(S, o, me);
+    // An offer to me: the worker's accept review (read-only). One I sent: the same cap / loaded-contract check, from its movements.
+    var ask = x.inc ? TT().action(cfg, me, "preview", tid, "") : TT().check(cfg, me, trMovements(me, x)).then(function (r) {
+      return r.ok && r.body && r.body.ok !== false && r.body.compliance ? { ok: true, status: 200, body: { ok: true, compliance: r.body.compliance } } : r; });
+    ask.then(function (r) { if (S.tr.rv && S.tr.rv.tid === tid) { Object.assign(S.tr.rv, U.trades.review(r)); render(true); } },
       function () { if (S.tr.rv && S.tr.rv.tid === tid) { S.tr.rv.state = "error"; S.tr.rv.why = "Couldn’t reach the test worker."; render(true); } });
+  }
+  function trMovements(me, x) {
+    var mv = function (from, to, toks) { var cap = 0, at = []; toks.forEach(function (t) { var m = /^BB_(\d+(?:\.\d+)?)$/.exec(t); if (m) cap += Math.round(Number(m[1]) / 1000); else at.push(/^\d+$/.test(t) ? "P_" + t : t); }); return { from: from, to: to, asset_tokens: at, cap_k: cap }; };
+    return [mv(me, x.other, x.give), mv(x.other, me, x.get)].filter(function (m) { return m.asset_tokens.length || m.cap_k > 0; });
+  }
+  function tr3Review(id) {
+    var me = trMe(), L = S.tr.three, t = L.state === "ok" ? (L.list || []).filter(function (x) { return String(x.id) === String(id); })[0] : null; if (!me || !t) return;
+    S.tr.rv3 = { id: id, trade: t }; S.tr.view = "review3"; S.sheet = null; render();
+    TT().threeDetail(cfg, me, id).then(function (r) { if (S.tr.rv3 && S.tr.rv3.id === id && r.ok && r.body && r.body.trade) { S.tr.rv3.trade = r.body.trade; render(true); } }, function () { /* the list's copy stays */ });
   }
   function trAckCap() {
     var me = trMe(), rv = S.tr.rv; if (!me || !rv || rv.ackBusy) return;
@@ -771,7 +786,14 @@
   function trHandle(act, v, el) {
     var d = S.tr.d, d3 = S.tr.d3, me = trMe(), at = function (k) { return el && el.getAttribute ? el.getAttribute(k) : null; };
     var fidOk = function (f) { return /^\d{4}$/.test(f || ""); };
-    if (act === "trsub") { if (v === "offers" || v === "new") { S.tr.sub = v; render(true); if (v === "new") loadInv(me, false); } }
+    if (act === "trpropose") { S.tr.view = "build"; S.tr.counter = null; S.tr.chk = { state: "idle", sig: "" }; loadInv(me, false); render(); }
+    else if (act === "trback") { if (S.tr.counter) { S.tr.counter = null; S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; } S.tr.view = "list"; S.sheet = null; S.tr.rv = null; S.tr.rv3 = null; render(); }
+    else if (act === "tr3review") tr3Review(v);
+    else if (act === "trcounter") {
+      var co = trOffer(v); if (!co || !me) return;
+      S.tr.d = U.trades.counterDraft(S, co, me); S.tr.counter = { tid: v }; S.tr.mode = 2; S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.view = "build";
+      loadInv(me, false); loadInv(S.tr.d.to, false); render();
+    }
     else if (act === "trload") loadTrades(true);
     else if (act === "trinv") { Object.keys(S.tr.inv).forEach(function (f) { if (S.tr.inv[f].state === "error") loadInv(f, true); }); }
     else if (act === "trmode") { var m = v === "3" ? 3 : 2; if (S.tr.mode !== m) { S.tr.mode = m; S.tr.chk = { state: "idle", sig: "" }; } loadInv(me, false); render(true); }

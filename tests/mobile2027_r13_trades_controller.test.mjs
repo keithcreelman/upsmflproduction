@@ -70,6 +70,13 @@ function boot() {
         const o = W.offers.incoming.find((x) => x.trade_id === tid); W.offers.incoming = W.offers.incoming.filter((x) => x.trade_id !== tid);
         W.roster.push(...o.will_give_up.split(",")); return answer(200, { ok: true });
       }
+      if (b.action === "COUNTER") {
+        const o = W.offers.incoming.find((x) => x.trade_id === tid); W.offers.incoming = W.offers.incoming.filter((x) => x.trade_id !== tid);
+        const P = b.counter_offer.payload, L = P.teams[0], R = P.teams[1], net = L.traded_salary_adjustment_k - R.traded_salary_adjustment_k;
+        const tok = (side, n) => side.selected_assets.map((x) => (x.type === "PLAYER" ? x.player_id : x.pick_key)).concat(n > 0 ? ["BB_" + n * 1000] : []);
+        W.offers.outgoing.push({ trade_id: String(W.next++), from_franchise_id: ME, to_franchise_id: o.from_franchise_id, will_give_up: tok(L, net).join(","), will_receive: tok(R, -net).join(",") });
+        return answer(200, { ok: true });
+      }
       if (b.action === "reject") { W.offers.incoming = W.offers.incoming.filter((x) => x.trade_id !== tid); return answer(200, { ok: true }); }
       if (b.action === "revoke") { W.offers.outgoing = W.offers.outgoing.filter((x) => x.trade_id !== tid); return answer(200, { ok: true }); }
     }
@@ -107,8 +114,8 @@ test("League › Trades: the owner's offers and the lock load; nothing is POSTed
   const a = boot(); await tick(60);
   await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
   const tx = text(a.html());
-  t.match(tx, /To you · 1/); t.match(tx, /Yours · 1/); t.match(tx, /Trades lock Thu, Dec 3, 8:15 PM ET\./);
-  t.match(a.html(), /data-act="trreview" data-v="777">Accept/); t.match(a.html(), /data-act="trcancel" data-v="778"/);
+  t.match(tx, /To you · 1/); t.match(tx, /You sent · 1/); t.match(tx, /Trades lock Thu, Dec 3, 8:15 PM ET\./);
+  t.match(a.html(), /data-act="trreview" data-v="777"/); t.match(a.html(), /data-act="trreview" data-v="778"/); t.match(a.html(), /data-act="trpropose"/);
   const off = a.calls.find((c) => c.path === "/api/trades/proposals"); t.equal(new URL(off.url).searchParams.get("MFL_USER_ID"), "owner-token"); t.equal(new URL(off.url).searchParams.get("franchise_id"), ME);
   t.equal(a.W.posts.length, 0, "reads only");
 });
@@ -116,7 +123,7 @@ test("League › Trades: the owner's offers and the lock load; nothing is POSTed
 test("New offer: pick a team and players (round 6 off), check, send once; confirmed when MFL's pending list shows the offer", async () => {
   const a = boot(); await tick(60);
   await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
-  await a.click({ "data-act": "trsub", "data-v": "new" }); await a.click({ "data-act": "trteams", "data-v": "to" }); await a.click({ "data-act": "trteampick", "data-v": THEM }); await tick(20);
+  await a.click({ "data-act": "trpropose" }); await a.click({ "data-act": "trteams", "data-v": "to" }); await a.click({ "data-act": "trteampick", "data-v": THEM }); await tick(20);
   await a.click({ "data-act": "trnote" }); t.match(a.html(), /id="trnote"/, "the note opens on a tap");
   const mine = team(ME).players[2].id, theirs = team(THEM).players[1].id;
   await a.click({ "data-act": "trpick", "data-fid": ME }); await a.click({ "data-act": "trtoggle", "data-v": "P_" + mine }); await a.click({ "data-act": "trclose" });
@@ -128,7 +135,7 @@ test("New offer: pick a team and players (round 6 off), check, send once; confir
   await a.type("trnote", "Let's deal");
   await a.click({ "data-act": "trcheck" }); await tick(20);
   t.equal(a.W.posts.length, 1); t.equal(a.W.posts[0].path, "/api/trades/compliance-preview");
-  t.match(text(a.html()), /Blake Bombers \$50K room/); t.match(a.html(), /data-act="trsend">Send offer/);
+  t.match(text(a.html()), /Cap space Blake Bombers — \$50K after/); t.match(a.html(), /data-act="trsend">Send offer/);
   a.W.holdCreate = new Promise((r) => { a.W.releaseCreate = r; });
   await a.click({ "data-act": "trsend" }); await a.click({ "data-act": "trsend" });   // a second tap while sending
   a.W.releaseCreate(); await tick(40);
@@ -138,7 +145,7 @@ test("New offer: pick a team and players (round 6 off), check, send once; confir
   t.equal(body.from_franchise_id, ME); t.equal(body.to_franchise_id, THEM); t.equal(body.message, "Let's deal");
   t.deepEqual(body.payload.teams[1].selected_assets.map((x) => x.asset_id), ["P_" + theirs], "round 6 was never selectable");
   t.match(text(a.html()), /Offer sent Confirmed on MFL\./);
-  await a.click({ "data-act": "resultok" }); t.match(text(a.html()), /Yours · 2/, "back on Offers, with the new one");
+  await a.click({ "data-act": "resultok" }); t.match(text(a.html()), /You sent · 2/, "back on the list, with the new one");
   t.equal(new Set(a.W.posts.map((p) => p.key)).size, a.W.posts.length, "every POST had its own key");
 });
 
@@ -148,7 +155,7 @@ test("Accept: reviewed first, confirmed only when the owner's MFL roster shows t
   await a.click({ "data-act": "traccept" }); t.equal(a.W.posts.length, 0, "no accept without a review");
   await a.click({ "data-act": "trreview", "data-v": "777" }); await tick(20);
   t.deepEqual(a.W.posts.map((p) => p.body.action), ["preview"]);
-  t.match(a.html(), /data-act="traccept">Accept trade/);
+  t.match(a.html(), /data-act="traccept">Accept/); t.match(text(a.html()), /Cap space/);
   await a.click({ "data-act": "traccept" }); await tick(40);
   t.deepEqual(a.W.posts.map((p) => p.body.action), ["preview", "accept"]);
   t.match(text(a.html()), /Trade accepted Confirmed on MFL\./);
@@ -175,7 +182,7 @@ test("Decline with a note, and Cancel: each confirmed only when the offer is gon
 test("3 teams: pick both teams, add assets, flip one's destination, check, send; it shows under 3-team and can be cancelled; a refusal says why", async () => {
   const a = boot(); await tick(60);
   await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
-  await a.click({ "data-act": "trsub", "data-v": "new" }); await a.click({ "data-act": "trmode", "data-v": "3" });
+  await a.click({ "data-act": "trpropose" }); await a.click({ "data-act": "trmode", "data-v": "3" });
   await a.click({ "data-act": "trteams", "data-v": "b" }); await a.click({ "data-act": "trteampick", "data-v": THEM });
   await a.click({ "data-act": "trteams", "data-v": "c" }); await a.click({ "data-act": "trteampick", "data-v": "0004" }); await tick(20);
   const mine = "P_" + team(ME).players[2].id, theirs = "P_" + team(THEM).players[1].id;
@@ -190,14 +197,15 @@ test("3 teams: pick both teams, add assets, flip one's destination, check, send;
   t.deepEqual(cr.body.movements.map((m) => [m.from, m.to, m.asset_tokens]), [[ME, THEM, [mine]], [THEM, ME, [theirs]]]);
   t.equal(cr.body.team_b.fid, THEM); t.equal(cr.body.team_c.fid, "0004");
   t.match(text(a.html()), /3-team trade sent Waiting on both teams\./);
-  await a.click({ "data-act": "resultok" }); t.match(text(a.html()), /3-team · 1/); t.match(a.html(), /data-act="tr3cancel"/);
+  await a.click({ "data-act": "resultok" }); t.match(text(a.html()), /3-team · 1/);
   const id = a.W.three[0].id;
+  await a.click({ "data-act": "tr3review", "data-v": id }); t.match(a.html(), /data-act="tr3cancel"/);
   await a.click({ "data-act": "tr3cancel", "data-v": id }); await a.click({ "data-act": "tr3cancelgo" }); await tick(30);
   t.equal(a.W.posts.at(-1).path, "/api/trades/3way/cancel"); t.equal(a.W.posts.at(-1).body.id, id);
   t.match(text(a.html()), /3-team trade cancelled Confirmed\./);
   const b = boot(); await tick(60); b.W.threeOff = true;
   await b.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
-  await b.click({ "data-act": "trsub", "data-v": "new" }); await b.click({ "data-act": "trmode", "data-v": "3" });
+  await b.click({ "data-act": "trpropose" }); await b.click({ "data-act": "trmode", "data-v": "3" });
   await b.click({ "data-act": "trteams", "data-v": "b" }); await b.click({ "data-act": "trteampick", "data-v": THEM });
   await b.click({ "data-act": "trteams", "data-v": "c" }); await b.click({ "data-act": "trteampick", "data-v": "0004" }); await tick(20);
   await b.click({ "data-act": "trpick", "data-fid": ME }); await b.click({ "data-act": "trtoggle", "data-v": mine }); await b.click({ "data-act": "trclose" });
@@ -211,16 +219,34 @@ test("3 teams, as a partner: Accept and Decline on the card; confirmed only when
     movements: [{ from: { fid: THEM }, to: { fid: ME }, assets: [{ label: "Player X" }] }] }); };
   const a = boot(); seed(a); await tick(60);
   await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
+  await a.click({ "data-act": "tr3review", "data-v": "t3-p" });
   t.match(a.html(), /data-act="tr3accept" data-v="t3-p">Accept/); t.match(a.html(), /data-act="tr3decline" data-v="t3-p"/); t.doesNotMatch(a.html(), /data-act="tr3cancel"/);
   await a.click({ "data-act": "tr3accept", "data-v": "t3-p" }); t.match(text(a.html()), /Accept this 3-team trade\?/); t.equal(a.W.posts.length, 0, "nothing until confirmed");
   await a.click({ "data-act": "tr3acceptgo" }); await tick(30);
   t.equal(a.W.posts[0].path, "/api/trades/3way/respond"); t.deepEqual([a.W.posts[0].body.id, a.W.posts[0].body.action], ["t3-p", "accept"]); t.match(a.W.posts[0].key, /^m27-/);
   t.match(text(a.html()), /Accepted Waiting on Pure Greatness\./);
-  await a.click({ "data-act": "resultok" }); t.doesNotMatch(a.html(), /data-act="tr3accept"/, "answered: no buttons");
+  await a.click({ "data-act": "resultok" }); await a.click({ "data-act": "tr3review", "data-v": "t3-p" }); t.doesNotMatch(a.html(), /data-act="tr3accept"/, "answered: no buttons");
   const b = boot(); seed(b); await tick(60);
   await b.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
-  await b.click({ "data-act": "tr3decline", "data-v": "t3-p" }); await b.click({ "data-act": "tr3declinego" }); await tick(30);
+  await b.click({ "data-act": "tr3review", "data-v": "t3-p" }); await b.click({ "data-act": "tr3decline", "data-v": "t3-p" }); await b.click({ "data-act": "tr3declinego" }); await tick(30);
   t.equal(b.W.posts[0].body.action, "decline"); t.match(text(b.html()), /3-team trade declined Confirmed\./);
+});
+
+test("Counter: from the Review, the builder starts from the offer; Send counter declines the original and sends ours back; confirmed when MFL shows both", async () => {
+  const a = boot(); await tick(60);
+  await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
+  await a.click({ "data-act": "trreview", "data-v": "777" }); await tick(20);
+  await a.click({ "data-act": "trcounter", "data-v": "777" }); await tick(20);
+  const h = text(a.html());
+  t.match(h, /Counter offer/); t.doesNotMatch(a.html(), /data-act="trmode"/, "a counter is two teams only"); t.doesNotMatch(a.html(), /data-act="trteams" data-v="to"/, "the other team is fixed");
+  t.match(h, new RegExp(team(ME).players[0].name.split(",")[0])); t.match(h, new RegExp(team(THEM).players[0].name.split(",")[0]), "starts from the offer");
+  await a.click({ "data-act": "trpick", "data-fid": THEM }); await a.click({ "data-act": "trtoggle", "data-v": "P_" + team(THEM).players[1].id }); await a.click({ "data-act": "trclose" });
+  await a.click({ "data-act": "trcheck" }); await tick(20); await a.click({ "data-act": "trsend" }); await tick(40);
+  const c = a.W.posts.find((x) => x.body && x.body.action === "COUNTER");
+  t.ok(c, "a COUNTER action"); t.equal(c.body.trade_id, "777"); t.equal(c.body.counter_offer.from_franchise_id, ME); t.equal(c.body.counter_offer.to_franchise_id, THEM);
+  t.deepEqual(c.body.counter_offer.payload.teams[1].selected_assets.map((x) => x.player_id).sort(), [team(THEM).players[0].id, team(THEM).players[1].id].sort());
+  t.match(text(a.html()), /Counter sent Confirmed on MFL\./);
+  await a.click({ "data-act": "resultok" }); t.match(text(a.html()), /You sent · 2/); t.doesNotMatch(text(a.html()), /To you/);
 });
 
 await run("mobile2027_r13_trades_controller");
