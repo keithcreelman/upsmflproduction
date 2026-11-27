@@ -1,0 +1,605 @@
+#!/usr/bin/env python3
+"""2013 player_contracts event-chain backfill.
+
+Methodology (carries from 2011/2012 work — see backfill_2011_2012_contracts.py):
+  Base: 2012 EOY rosters (L=37227 W=17 from MFL API on www45)
+  Layer 2013 events temporally (L=42721 on www46):
+    1. 2013 tags (D1 ups_tag_history) — 4 tags
+    2. 2013 AUCTION_WON (FA Auction late Jul/Aug)
+    3. 2013 BBID_WAIVER / FREE_AGENT in-season
+    4. 2013 MYAC (D1 ups_fa_auction_history) — 0 rows for 2013 (no forum data)
+    5. 2013 MYM (D1 ups_mym_history) — 8 rows (MYM rule new in 2013!)
+    6. 2013 extensions (D1 ups_extension_history) — 10 rows
+    7. 2013 TRADE — layer with trade-in stints
+    8. 2013 termination events from MFL salaryAdj → apply pre-2019 simple formula
+
+Validation: 2013 SUM(cap_hit_usd) == $94,400 (truth target, excludes $63,600 2012-carryover)
+
+Methodology nuances for 2013 vs 2012:
+- MFL salaryAdj for 2013 league includes 9 "for 2012"/"from 2012" carryover rows
+  totaling $63,600 — FILTER OUT, already in D1 from 2012 work.
+- Loaded contracts produce TWO MFL rows per cut: "Dropped X (Salary $Y)" +
+  "Additional Cap Hit for Nth year of X (20% of $Z)". AGGREGATE per player.
+- Cap-free reversals: Hernandez Jail Bird Provisional, Swope Retirement.
+- Rounding adjustments: 6 small rows netting -$800 league-wide. Capture as
+  separate 'rounding_adjustment' contracts (origin/termination=admin).
+"""
+from __future__ import annotations
+import json, re, sys, os
+from pathlib import Path
+from collections import defaultdict
+from datetime import datetime, timezone, date
+
+REPO = Path("/Users/keithcreelman/Code/MFL/upsmflproduction/.claude/worktrees/serene-mendeleev-62034a")
+WORK = Path("/tmp/2013_work")
+WORK.mkdir(exist_ok=True, parents=True)
+
+YEAR = 2013
+PREV_YEAR = 2012
+LEAGUE_ID = '42721'
+SERVER = 'www46'
+
+# ---------------------------------------------------------------------------
+# Data loads (MFL API + D1 dumps already on disk)
+# ---------------------------------------------------------------------------
+def load(p): return json.load(open(p))
+def iso_date(ts): return datetime.fromtimestamp(int(ts), timezone.utc).date()
+def iso_dt(ts): return datetime.fromtimestamp(int(ts), timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+eoy = load('/tmp/mfl_rosters_2012/W17.json')  # 2012 EOY base
+txns = load(f'/tmp/mfl_{YEAR}_txns.json')
+adj = load(f'/tmp/mfl_{YEAR}_salaryadj.json')
+players = load(f'/tmp/mfl_players_{YEAR}.json')
+
+# D1 dumps for current year
+ext_d1 = load(WORK / 'd1_dumps' / f'extension_{YEAR}.json')
+mym_d1 = load(WORK / 'd1_dumps' / f'mym_{YEAR}.json')
+tag_d1 = load(WORK / 'd1_dumps' / f'tag_{YEAR}.json')
+
+name_map = {p['id']: (p.get('name',''), p.get('position',''), p.get('team','')) for p in players['players']['player']}
+
+# Tag lookups by pid (4 rows)
+tag_by_pid = {t['player_id']: t for t in tag_d1 if t.get('player_id')}
+ext_by_pid = defaultdict(list)
+for e in ext_d1:
+    if e.get('player_id'): ext_by_pid[e['player_id']].append(e)
+mym_by_pid = defaultdict(list)
+for m in mym_d1:
+    if m.get('player_id'): mym_by_pid[m['player_id']].append(m)
+
+# ---------------------------------------------------------------------------
+# 2012 EOY base (= 2013 starting state, post 2012-cap-year termination events)
+# ---------------------------------------------------------------------------
+eoy_roster = {}
+eoy_by_fid = defaultdict(list)
+fr_list = eoy['rosters']['franchise']
+if isinstance(fr_list, dict): fr_list = [fr_list]
+for fr in fr_list:
+    fid = fr['id']
+    pls = fr.get('player', [])
+    if isinstance(pls, dict): pls = [pls]
+    for p in pls:
+        pid = p['id']
+        eoy_roster[pid] = {
+            'fid': fid, 'salary': int(float(p.get('salary', 0))),
+            'cy': int(p.get('contractYear', 0)),
+            'contractStatus': p.get('contractStatus', ''),
+            'contractInfo': p.get('contractInfo', ''),
+        }
+        eoy_by_fid[fid].append(pid)
+
+# ---------------------------------------------------------------------------
+# 2013 events by player + index franchise activity
+# ---------------------------------------------------------------------------
+events = defaultdict(list)
+trade_events = []
+for t in (txns['transactions'].get('transaction') or []):
+    if isinstance(t, str): continue
+    ts = int(t.get('timestamp', 0))
+    ttype = t.get('type', '')
+    fid = t.get('franchise', '')
+    raw = t.get('transaction', '')
+    added = [p for p in (t.get('added','') or '').replace(';',',').split(',') if p]
+    dropped = [p for p in (t.get('dropped','') or '').replace(';',',').split(',') if p]
+
+    if ttype == 'AUCTION_WON':
+        parts = raw.split('|')
+        if parts and parts[0].isdigit():
+            events[parts[0]].append({'ts': ts, 'type': ttype, 'fid': fid,
+                                       'amount': int(parts[1]) if len(parts)>1 and parts[1].isdigit() else 0,
+                                       'role': 'add'})
+    elif ttype in ('BBID_WAIVER', 'BBID_AUTO_PROCESS_WAIVERS', 'PROCESS_WAIVERS'):
+        if '|' in raw:
+            parts = raw.split('|')
+            if parts and parts[0].isdigit():
+                events[parts[0]].append({'ts': ts, 'type': ttype, 'fid': fid,
+                                            'amount': int(parts[1]) if len(parts)>1 and parts[1].isdigit() else 0,
+                                            'role': 'add'})
+                if len(parts) > 2 and parts[2] and parts[2] != '0000':
+                    events[parts[2]].append({'ts': ts, 'type': ttype, 'fid': fid, 'role': 'drop'})
+    elif ttype in ('FREE_AGENT', 'WAIVER'):
+        for pid in added: events[pid].append({'ts': ts, 'type': ttype, 'fid': fid, 'role': 'add'})
+        for pid in dropped: events[pid].append({'ts': ts, 'type': ttype, 'fid': fid, 'role': 'drop'})
+    elif ttype == 'TRADE':
+        # Capture trade for stint handling
+        f1 = t.get('franchise', '')
+        f2 = t.get('franchise2', '')
+        f1g = t.get('franchise1_gave_up', '')
+        f2g = t.get('franchise2_gave_up', '')
+        for pid in (f1g or '').replace(';',',').split(','):
+            pid = pid.strip()
+            if pid.isdigit() and len(pid) in (4,5):
+                events[pid].append({'ts': ts, 'type': 'TRADE', 'from_fid': f1, 'to_fid': f2, 'role': 'trade'})
+                trade_events.append({'ts': ts, 'pid': pid, 'from_fid': f1, 'to_fid': f2})
+        for pid in (f2g or '').replace(';',',').split(','):
+            pid = pid.strip()
+            if pid.isdigit() and len(pid) in (4,5):
+                events[pid].append({'ts': ts, 'type': 'TRADE', 'from_fid': f2, 'to_fid': f1, 'role': 'trade'})
+                trade_events.append({'ts': ts, 'pid': pid, 'from_fid': f2, 'to_fid': f1})
+
+for pid in events:
+    events[pid].sort(key=lambda e: e['ts'])
+
+# Franchise activity index (for ambiguous name resolution)
+fid_activity = defaultdict(set)
+for t in (txns['transactions'].get('transaction') or []):
+    if isinstance(t, str): continue
+    fid = t.get('franchise', '')
+    for pid in (t.get('dropped','') or '').replace(';',',').split(','):
+        if pid: fid_activity[fid].add(pid)
+    for pid in (t.get('added','') or '').replace(';',',').split(','):
+        if pid: fid_activity[fid].add(pid)
+    raw = t.get('transaction','')
+    if '|' in raw:
+        parts = raw.split('|')
+        if parts and parts[0].isdigit(): fid_activity[fid].add(parts[0])
+        if len(parts) >= 3 and parts[2] and parts[2] != '0000': fid_activity[fid].add(parts[2])
+
+# ---------------------------------------------------------------------------
+# Parse 2013 salaryAdj — filter carryovers, aggregate "Additional hit" rows
+# ---------------------------------------------------------------------------
+adj_list = adj.get('salaryAdjustments', {}).get('salaryAdjustment', [])
+if isinstance(adj_list, dict): adj_list = [adj_list]
+
+# Phase 1: classify rows
+carryover_rows = []     # "for 2012" / "from 2012"
+primary_rows = []       # "Dropped X (Salary $Y, ...)"
+additional_rows = []    # "Additional Cap Hit for Nth year of X Contract"
+reversal_rows = []      # "Jail Bird Provisional", "Retirement Cap Free"
+rounding_rows = []      # "Rounding"
+multi_player_rows = []  # "Player1 $X, Player2 $Y = $Z for 2013" (any year-aware aggregate)
+other_rows = []
+
+for i, a in enumerate(adj_list):
+    amt = float(a.get('amount', 0))
+    desc = a.get('description', '')
+    if 'for 2012' in desc or 'from 2012' in desc:
+        carryover_rows.append((i, a)); continue
+    if amt == 0:
+        other_rows.append((i, a)); continue
+    if desc.startswith('Dropped '):
+        primary_rows.append((i, a)); continue
+    if 'Additional Cap Hit' in desc or 'Additional hit' in desc:
+        additional_rows.append((i, a)); continue
+    if 'Cap Free' in desc or 'Jail Bird' in desc or 'Retirement' in desc:
+        reversal_rows.append((i, a)); continue
+    if desc.strip() == 'Rounding' or desc.startswith('Rounding'):
+        rounding_rows.append((i, a)); continue
+    if '$' in desc and ',' in desc and 'for' in desc:
+        multi_player_rows.append((i, a)); continue
+    # Catch-all
+    if 'Cap hit' in desc and 'years' in desc.lower():
+        # e.g., "Cap hit on years 2 & 3 of Kenny Stills" → additional/companion
+        additional_rows.append((i, a)); continue
+    other_rows.append((i, a))
+
+print(f'=== Row classification ===')
+print(f'  Carryover (filter out — already in D1):  {len(carryover_rows)} rows, ${sum(float(a.get("amount",0)) for _,a in carryover_rows):,.0f}')
+print(f'  Primary "Dropped X":                     {len(primary_rows)} rows, ${sum(float(a.get("amount",0)) for _,a in primary_rows):,.0f}')
+print(f'  Additional "for Nth year":               {len(additional_rows)} rows, ${sum(float(a.get("amount",0)) for _,a in additional_rows):,.0f}')
+print(f'  Reversals (Jail Bird/Retirement):        {len(reversal_rows)} rows, ${sum(float(a.get("amount",0)) for _,a in reversal_rows):,.0f}')
+print(f'  Rounding:                                {len(rounding_rows)} rows, ${sum(float(a.get("amount",0)) for _,a in rounding_rows):,.0f}')
+print(f'  Multi-player aggregates:                 {len(multi_player_rows)} rows')
+print(f'  Other:                                   {len(other_rows)} rows')
+
+# Compute 2013 truth = primary + additional + reversals + rounding (everything except carryover)
+truth_2013_total = sum(float(a.get("amount",0)) for _, a in primary_rows + additional_rows + reversal_rows + rounding_rows + multi_player_rows + other_rows)
+print(f'\n2013 truth total: ${truth_2013_total:,.0f}  (target $94,400 expected)')
+
+# Aggregate per player: primary + additional + reversal rows on same pid+fid
+NAME_PAT = re.compile(r"^Dropped\s+([A-Z][\w' \.\-,]+?)\s+([A-Z]{2,3}\*?)\s+([A-Z]{1,3})\s+\(Salary:\s*\$([\d,]+)", re.U)
+ADDL_PAT = re.compile(r"Additional (?:Cap Hit for|hit for) (\d+)(?:st|nd|rd|th)?\s*year (?:on|of)\s+([A-Z][\w'\.\-]+)\s+Contract\s+\(20%\s+of\s+\$([\d,]+)", re.U)
+CAP_HIT_YEARS_PAT = re.compile(r"Cap hit on years (\d+(?:\s*&\s*\d+)*) of (\w+)\s+(\w+)", re.U)
+
+def parse_primary(desc):
+    """Returns (lastname, first_initial, salary_at_drop, status_meta)."""
+    m = NAME_PAT.search(desc)
+    if not m: return None
+    lname = m.group(1).rsplit(',', 1)[0].strip()  # before comma
+    salary = int(m.group(4).replace(',',''))
+    return {'lname': lname, 'fname_or_init': m.group(1), 'salary': salary, 'desc': desc}
+
+# Build per-pid+fid penalty aggregate from primary+additional+reversal
+def find_pid_for_token(name_token, fid_adj):
+    """Resolve player token to pid given franchise."""
+    can = name_token.strip().rstrip(',').strip()
+    # Last name extraction
+    if ',' in can:
+        last = can.split(',', 1)[0].strip()
+    elif can.count(' ') >= 1:
+        last = can.split()[-1]
+    else:
+        last = can
+    cands = []
+    for pid, (nm, pos, team) in name_map.items():
+        if not nm: continue
+        parts = [s.strip() for s in nm.split(',', 1)]
+        if parts[0].lower() == last.lower():
+            cands.append((pid, nm, pos, team))
+    if len(cands) == 1: return cands[0]
+    # Filter by fid activity
+    filtered = [c for c in cands if c[0] in fid_activity.get(fid_adj, set()) or c[0] in eoy_by_fid.get(fid_adj, [])]
+    return filtered[0] if filtered else (cands[0] if cands else None)
+
+# Aggregate per (pid, fid) — primary + additional, then subtract reversals
+contract_aggregates = defaultdict(lambda: {'rows': [], 'total': 0, 'primary_salary': None, 'primary_desc': None})
+
+for i, a in primary_rows:
+    desc = a.get('description', '')
+    fid = a.get('franchise_id')
+    amt = float(a.get('amount', 0))
+    info = parse_primary(desc)
+    if not info:
+        print(f'  ! Could not parse primary: {desc[:100]}')
+        continue
+    cand = find_pid_for_token(info['lname'], fid)
+    if not cand:
+        print(f'  ! Could not resolve: {info["lname"]} on fid={fid}')
+        continue
+    pid = cand[0]
+    key = (pid, fid)
+    contract_aggregates[key]['rows'].append((i, a))
+    contract_aggregates[key]['total'] += amt
+    contract_aggregates[key]['primary_salary'] = info['salary']
+    contract_aggregates[key]['primary_desc'] = desc
+    contract_aggregates[key]['mfl_name'] = cand[1]
+    contract_aggregates[key]['mfl_pos'] = cand[2]
+    contract_aggregates[key]['ts'] = int(a.get('timestamp', 0))
+
+# Layer additional rows
+for i, a in additional_rows:
+    desc = a.get('description', '')
+    fid = a.get('franchise_id')
+    amt = float(a.get('amount', 0))
+    # Try ADDL_PAT first
+    m = ADDL_PAT.search(desc)
+    name_in = None
+    if m:
+        name_in = m.group(2)
+    else:
+        # Try CAP_HIT_YEARS_PAT
+        m2 = CAP_HIT_YEARS_PAT.search(desc)
+        if m2:
+            # 'Kenny Stills' → take last word
+            name_in = m2.group(3)
+    if not name_in:
+        # Try generic "of X Contract" or "of X"
+        gm = re.search(r"of\s+([A-Z][\w'\.\-]+)(?:\s+Contract)?", desc)
+        if gm: name_in = gm.group(1)
+    if not name_in:
+        print(f'  ! Could not parse additional: {desc[:100]}')
+        continue
+    cand = find_pid_for_token(name_in, fid)
+    if not cand:
+        print(f'  ! Could not resolve additional: {name_in} on fid={fid}')
+        continue
+    pid = cand[0]
+    key = (pid, fid)
+    contract_aggregates[key]['rows'].append((i, a))
+    contract_aggregates[key]['total'] += amt
+
+# Layer reversals (negative or +reversal — same player + fid)
+for i, a in reversal_rows:
+    desc = a.get('description', '')
+    fid = a.get('franchise_id')
+    amt = float(a.get('amount', 0))
+    # Extract player name
+    m = re.match(r"([A-Z][\w' \.\-]+?)\s+(Jail Bird|Retirement|Cap Free)", desc)
+    if not m:
+        print(f'  ! Could not parse reversal: {desc[:100]}')
+        continue
+    name_in = m.group(1).strip()
+    # Take last word as last name
+    last = name_in.split()[-1]
+    cand = find_pid_for_token(last, fid)
+    if not cand:
+        print(f'  ! Could not resolve reversal: {last} on fid={fid}')
+        continue
+    pid = cand[0]
+    key = (pid, fid)
+    contract_aggregates[key]['rows'].append((i, a))
+    contract_aggregates[key]['total'] += amt
+
+print(f'\n=== Per-contract aggregates: {len(contract_aggregates)} unique cuts ===')
+for (pid, fid), agg in sorted(contract_aggregates.items(), key=lambda x: x[1].get('ts', 0)):
+    print(f"  fid={fid} pid={pid} {agg.get('mfl_name','?'):28s} cap_hit=${agg['total']:>+7,.0f} ({len(agg['rows'])} salaryAdj rows)")
+
+agg_total = sum(a['total'] for a in contract_aggregates.values())
+multi_total = sum(float(a.get('amount',0)) for _, a in multi_player_rows)
+rounding_total = sum(float(a.get('amount',0)) for _, a in rounding_rows)
+print(f'\nDerived contract aggregates total: ${agg_total:,.0f}')
+print(f'+ multi-player aggregates: ${multi_total:,.0f} ({len(multi_player_rows)} rows)')
+print(f'+ rounding: ${rounding_total:,.0f}')
+print(f'GRAND TOTAL: ${agg_total + multi_total + rounding_total:,.0f}  (target $94,400)')
+
+# Write to JSON for SQL gen step
+out = {
+    'contract_aggregates': [
+        {'player_id': pid, 'fid_adj': fid, 'cap_hit': agg['total'],
+         'primary_salary': agg['primary_salary'], 'mfl_name': agg.get('mfl_name'),
+         'mfl_pos': agg.get('mfl_pos'), 'ts': agg.get('ts'),
+         'row_count': len(agg['rows']), 'primary_desc': agg.get('primary_desc',''),
+         'desc_summary': [r[1].get('description','')[:120] for r in agg['rows']]}
+        for (pid, fid), agg in contract_aggregates.items()
+    ],
+    'multi_player_rows': [{'idx': i, 'fid': a.get('franchise_id'), 'amt': float(a.get('amount',0)), 'desc': a.get('description','')} for i,a in multi_player_rows],
+    'rounding_rows': [{'idx': i, 'fid': a.get('franchise_id'), 'amt': float(a.get('amount',0))} for i,a in rounding_rows],
+    'carryover_rows_skipped': [{'idx': i, 'fid': a.get('franchise_id'), 'amt': float(a.get('amount',0)), 'desc': a.get('description','')[:100]} for i,a in carryover_rows],
+}
+with open(WORK / 'derived_2013_phase_a.json', 'w') as f:
+    json.dump(out, f, indent=2)
+print(f'\nWrote: {WORK / "derived_2013_phase_a.json"}')
+
+# ---------------------------------------------------------------------------
+# Phase B prep: full-year derivation (all-drops + trade-in stints)
+# ---------------------------------------------------------------------------
+
+# 2013 cap year window: Feb 3 2013 (after 2012-cap rollover entries dated 2013-02-02) → Feb 15 2014
+# Covers UPS calendar bucket 1 (post-2012-fantasy-season-end → 2013 Roster Lock = 2013 cap)
+# AND bucket 2 (2013 FA Auction → end of 2013 season). Per the 2013 salaryAdj endpoint timestamps
+# (Feb-Aug 2013), this is the right window.
+CAP_YEAR_2013_START = int(datetime(2013, 2, 3, tzinfo=timezone.utc).timestamp())
+CAP_YEAR_2013_END = int(datetime(2014, 2, 15, tzinfo=timezone.utc).timestamp())
+
+# Build drops list for 2013 cap year
+all_drops = []
+for t in (txns['transactions'].get('transaction') or []):
+    if isinstance(t, str): continue
+    ts = int(t.get('timestamp', 0))
+    if ts < CAP_YEAR_2013_START or ts > CAP_YEAR_2013_END: continue
+    ttype = t.get('type', '')
+    fid = t.get('franchise', '')
+    raw = t.get('transaction', '')
+    for pid in (t.get('dropped','') or '').replace(';',',').split(','):
+        if pid:
+            all_drops.append({'ts': ts, 'pid': pid, 'fid': fid, 'type': ttype, 'raw': raw})
+    if '|' in raw and ttype.startswith('BBID'):
+        parts = raw.split('|')
+        if len(parts) >= 3 and parts[2] and parts[2] != '0000':
+            all_drops.append({'ts': ts, 'pid': parts[2], 'fid': fid, 'type': ttype, 'raw': raw})
+
+# Dedup (pid, fid, ts)
+seen = set()
+all_drops_unique = []
+for d in all_drops:
+    k = (d['pid'], d['fid'], d['ts'])
+    if k in seen: continue
+    seen.add(k); all_drops_unique.append(d)
+
+# Build lookup: (pid, fid) → cap_hit from contract_aggregates
+cap_hit_lookup = {(pid, fid): agg['total'] for (pid, fid), agg in contract_aggregates.items()}
+agg_lookup = {(pid, fid): agg for (pid, fid), agg in contract_aggregates.items()}
+
+# Pre-2013 trade events — already in trade_events list
+# For each drop, find prior add (auction / BBID / trade-in / EOY carryover)
+def find_prior_add(pid, fid_target, before_ts):
+    adds = [e for e in events.get(pid, []) if e.get('role')=='add' and e['fid']==fid_target and e['ts'] < before_ts]
+    if adds: return adds[-1]
+    trades_in = [e for e in events.get(pid, []) if e.get('role')=='trade' and e.get('to_fid')==fid_target and e['ts'] < before_ts]
+    if trades_in: return {'ts': trades_in[-1]['ts'], 'type': 'TRADE_IN',
+                            'fid': fid_target, 'from_fid': trades_in[-1].get('from_fid'),
+                            'amount': eoy_roster.get(pid, {}).get('salary', 0)}
+    if pid in eoy_roster and eoy_roster[pid]['fid'] == fid_target:
+        return {'ts': int(datetime(2013,3,1,tzinfo=timezone.utc).timestamp()), 'type': '2012_EOY_CARRYOVER',
+                'fid': fid_target, 'amount': eoy_roster[pid]['salary']}
+    return None
+
+# Build final contract rows for 2013
+derived_2013 = []
+for d in all_drops_unique:
+    pid = d['pid']; fid = d['fid']; ts = d['ts']
+    add_event = find_prior_add(pid, fid, ts)
+    add_type = add_event.get('type', 'unknown') if add_event else 'unknown_no_add'
+    acq_amount = add_event.get('amount', 0) if add_event else 0
+
+    # Map add_type → origin_event + contract_type
+    if add_type == 'AUCTION_WON':
+        origin_event = 'auction'; contract_type = 'Veteran'
+    elif add_type.startswith('BBID') or add_type == 'PROCESS_WAIVERS':
+        origin_event = 'ww_bbid'; contract_type = 'WW'
+    elif add_type in ('FREE_AGENT','WAIVER'):
+        origin_event = 'fcfs'; contract_type = 'WW'
+    elif add_type == 'TRADE_IN':
+        origin_event = 'trade_in'; contract_type = 'Veteran'
+    elif add_type == '2012_EOY_CARRYOVER':
+        origin_event = 'carryover_2012_eoy'; contract_type = 'Veteran'
+    else:
+        origin_event = 'unknown'; contract_type = None
+
+    # cap_hit from aggregates if matches; else $0 (cap-free per buffer-zone / 1yr WW)
+    cap_hit = cap_hit_lookup.get((pid, fid), 0)
+
+    # Determine length/TCV — for cap-penalty rows, use desc_meta; for $0, use acquisition shape
+    agg = agg_lookup.get((pid, fid))
+    length = 1; tcv = max(acq_amount, 1000); year_salaries_json = json.dumps({'Y1': max(acq_amount, 1000)})
+    if agg:
+        # Derive from primary_desc if it has structured info
+        pdesc = agg.get('primary_desc', '')
+        # Try parsing year_salaries pattern e.g., "($7K, $17K,$24K)" or "($35K,$65K)"
+        m = re.search(r"\((\s*\$\d+K?\s*(?:,\s*\$\d+K?\s*)+)\)", pdesc)
+        if m:
+            parts = re.findall(r"\$(\d+)K?", m.group(1))
+            ys = [int(p) * (1000 if int(p) < 1000 else 1) for p in parts]
+            length = len(ys)
+            tcv = sum(ys)
+            year_salaries_json = json.dumps({f'Y{i+1}': ys[i] for i in range(len(ys))})
+        else:
+            # Single salary
+            length = 1; tcv = agg.get('primary_salary', acq_amount) or acq_amount
+            year_salaries_json = json.dumps({'Y1': tcv})
+
+    derived_2013.append({
+        'player_id': pid,
+        'origin_event': origin_event,
+        'origin_date_iso': iso_dt(add_event['ts']) if add_event else '2013-03-01T00:00:00Z',
+        'origin_franchise_id': fid,
+        'contract_type': contract_type if cap_hit > 0 else (contract_type or 'WW'),
+        'contract_length_cl': length,
+        'aav_usd': max(round(tcv / length), 1) if length and tcv else None,
+        'tcv_usd': tcv,
+        'year_salaries_json': year_salaries_json,
+        'origin_aav_usd': max(round(tcv / length), 1) if length and tcv else None,
+        'origin_tcv_usd': tcv,
+        'origin_cl': length,
+        'termination_event': 'cut',
+        'termination_date_iso': iso_dt(ts),
+        'termination_franchise_id': fid,
+        'cap_hit_usd': cap_hit,
+        'earned_at_termination_usd': 0,
+        'source': 'event_chain_2013_v1',
+        'notes': (f'2013 cap-year drop. add_type={add_type} acq=${acq_amount}. '
+                    f'cap_hit=${cap_hit} ({"derived from MFL salaryAdj" if cap_hit else "cap-free per pre-2019 buffer-zone OR 1yr WW"})'),
+        '_trade_in_from': add_event.get('from_fid') if add_event else None,
+        '_origin_acq_event': add_event,
+    })
+
+print(f'\n=== 2013 full-year derivation ===')
+print(f'  Total contracts: {len(derived_2013)}')
+print(f'  With cap_hit > 0: {sum(1 for r in derived_2013 if r["cap_hit_usd"] > 0)}')
+print(f'  Cap-free ($0): {sum(1 for r in derived_2013 if r["cap_hit_usd"] == 0)}')
+total = sum(r['cap_hit_usd'] for r in derived_2013)
+print(f'  Total cap_hit_usd: ${total:,}')
+
+# Rounding rows = admin adjustments (no contract per se; capture as separate rows)
+rounding_admin = []
+for i, a in rounding_rows:
+    ts = int(a.get('timestamp', 0))
+    fid = a.get('franchise_id')
+    amt = float(a.get('amount', 0))
+    rounding_admin.append({
+        'fid': fid, 'amt': int(amt), 'ts': ts, 'desc': a.get('description', ''),
+    })
+
+# Adjusted total with rounding
+print(f'  + rounding: ${sum(r["amt"] for r in rounding_admin)}')
+print(f'  GRAND TOTAL: ${total + sum(r["amt"] for r in rounding_admin):,}  (target $94,400)')
+
+# ---------------------------------------------------------------------------
+# Generate SQL
+# ---------------------------------------------------------------------------
+# 1) DELETE event_chain_2013_v1 prior runs
+# 2) INSERT player_contracts (sorted by origin_date_iso for chronological seq)
+# 3) INSERT player_contract_stints with trade-in handling
+
+# Fetch current max seq lookup (similar to 2011/2012)
+# For now use placeholder seq=1; will bump after wrangler-query for max_seqs
+
+# Build SQL
+def q(v):
+    if v is None: return 'NULL'
+    if isinstance(v, bool): return '1' if v else '0'
+    if isinstance(v, (int, float)): return str(v)
+    s = str(v).replace("'", "''")
+    return f"'{s}'"
+
+sql = []
+sql.append("-- Backfill 2013 player_contracts (event-chain derivation, all-drops + trade-in stints)")
+sql.append("-- Validation: 2013 SUM(cap_hit_usd) WHERE source='event_chain_2013_v1' = $94,400")
+sql.append("")
+sql.append("-- Step 1: Remove prior event_chain_2013_v1 rows (allow re-run)")
+sql.append("DELETE FROM player_contract_stints WHERE contract_id IN (SELECT contract_id FROM player_contracts WHERE source='event_chain_2013_v1');")
+sql.append("DELETE FROM player_contracts WHERE source='event_chain_2013_v1';")
+sql.append("")
+
+# Add rounding admin rows as synthetic contract entries
+# MFL salaryAdj contains standalone rounding entries totaling -$800.
+# Use synthetic player_id like '_ROUND_2013_NN' to make D1 cap_hit_usd sum reconcile to MFL truth.
+for idx, r in enumerate(rounding_admin):
+    derived_2013.append({
+        'player_id': f'_ROUND_2013_{idx:02d}',
+        'origin_event': 'mfl_rounding_adjustment',
+        'origin_date_iso': iso_dt(r['ts']),
+        'origin_franchise_id': r['fid'],
+        'contract_type': 'admin_adjustment',
+        'contract_length_cl': None, 'aav_usd': None, 'tcv_usd': None, 'year_salaries_json': None,
+        'origin_aav_usd': None, 'origin_tcv_usd': None, 'origin_cl': None,
+        'termination_event': 'mfl_rounding_adjustment',
+        'termination_date_iso': iso_dt(r['ts']),
+        'termination_franchise_id': r['fid'],
+        'cap_hit_usd': r['amt'],
+        'earned_at_termination_usd': 0,
+        'source': 'event_chain_2013_v1',
+        'notes': f'MFL rounding adjustment (synthetic player_id; not a real contract): {r["desc"]}',
+        '_trade_in_from': None, '_origin_acq_event': None,
+    })
+
+derived_for_sql = derived_2013
+sorted_rows = sorted(derived_for_sql, key=lambda r: r['origin_date_iso'])
+sql.append(f"-- Step 2: Insert {len(sorted_rows)} 2013 rows (real contracts + {len(rounding_admin)} synthetic rounding adjustment rows)")
+# Build seq counter — start from max seen seq per player in D1
+# Use NULL contract_seq won't work; we'll allocate via max_seqs file
+max_seqs_path = WORK / 'max_seqs.json'
+seq_counter = defaultdict(int)
+if max_seqs_path.exists():
+    existing = json.load(open(max_seqs_path))
+    for pid, mx in existing.items():
+        seq_counter[pid] = int(mx) if mx else 0
+
+for r in sorted_rows:
+    pid = r['player_id']
+    seq_counter[pid] += 1
+    seq = seq_counter[pid]
+    cols_vals = {
+        'player_id': pid, 'contract_seq': seq,
+        'origin_event': r['origin_event'], 'origin_date_iso': r['origin_date_iso'],
+        'origin_franchise_id': r['origin_franchise_id'],
+        'contract_type': r['contract_type'],
+        'contract_length_cl': r['contract_length_cl'],
+        'aav_usd': r['aav_usd'], 'tcv_usd': r['tcv_usd'],
+        'year_salaries_json': r['year_salaries_json'],
+        'origin_aav_usd': r['origin_aav_usd'], 'origin_tcv_usd': r['origin_tcv_usd'],
+        'origin_cl': r['origin_cl'],
+        'termination_event': r['termination_event'],
+        'termination_date_iso': r['termination_date_iso'],
+        'termination_franchise_id': r['termination_franchise_id'],
+        'cap_hit_usd': r['cap_hit_usd'],
+        'earned_at_termination_usd': r['earned_at_termination_usd'],
+        'source': r['source'], 'notes': r['notes'],
+    }
+    cols = ', '.join(cols_vals.keys())
+    vals = ', '.join(q(v) for v in cols_vals.values())
+    sql.append(f"INSERT INTO player_contracts ({cols}) VALUES ({vals});")
+
+sql.append("")
+sql.append("-- Step 3: Origin stints + trade-in stints will be inserted via a follow-up step")
+sql.append("-- (depends on D1 auto-assigned contract_ids; see build_2013_stints.py).")
+
+with open(WORK / 'backfill_2013.sql', 'w') as f:
+    f.write('\n'.join(sql))
+print(f'\nGenerated SQL: {WORK / "backfill_2013.sql"} ({len(sql)} lines)')
+
+# Stints data — write out trade-in info for downstream stint builder
+stints_data = []
+for r in derived_2013:
+    stints_data.append({
+        'player_id': r['player_id'],
+        'origin_date_iso': r['origin_date_iso'],
+        'origin_franchise_id': r['origin_franchise_id'],
+        'origin_event': r['origin_event'],
+        'termination_date_iso': r['termination_date_iso'],
+        'trade_in_from': r['_trade_in_from'],
+        'source': r['source'],
+    })
+with open(WORK / 'stints_data_2013.json', 'w') as f:
+    json.dump(stints_data, f, indent=2)
+print(f'Wrote: {WORK / "stints_data_2013.json"}')

@@ -1,0 +1,583 @@
+#!/usr/bin/env python3
+"""Pass 3 cycle financial enrichment — populates per-cycle financial columns
+in player_acquisition_cycles for the 2020–2024 closed-cycle scope.
+
+Source-of-truth: 80 staged weekly TYPE=rosters snapshots in
+/tmp/mfl_rosters_pass3_*.json (one per (year, week) for 2020-2024 × W=1..16).
+
+For each closed cycle in scope:
+  - Look up the player's snapshot at W=drop_week-1 in the drop_year.
+  - Parse contractInfo (TCV, AAV, Y[], CL, GF flag, contract_type).
+  - Compute weeks_active across all spanning seasons.
+  - Run cap_penalty.compute_cycle() with full inputs.
+  - Write all financial columns + 9 era comparison values + cap_free flag/reason.
+
+Deferral buckets (notes column):
+  - pass3_deferred_offseason_drop: drop_week NULL or < 2 (no snapshot to look up)
+  - pass3_deferred_snapshot_lookup_failed: player not in W=drop_week-1 snapshot
+  - pass3_deferred_tcv_unknown: couldn't derive TCV from any source
+  - pass3_restructure_overlap_in_window: enriched, but flagged for review
+                                          (offseason restructure landed mid-cycle)
+
+D1 batch size 100. Idempotent: re-running re-applies same UPDATEs.
+
+Usage:
+  python3 backfill_cycles_pass3.py [--dry-run | --apply]
+  Default: --dry-run.
+"""
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+import time
+from collections import defaultdict
+from datetime import date, datetime, timedelta
+from glob import glob
+from pathlib import Path
+from typing import Optional
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT / "pipelines" / "etl" / "lib"))
+
+import cap_penalty as cp                    # noqa: E402
+
+STAGE_DIR = Path("/tmp")
+SNAPSHOT_GLOB = "/tmp/mfl_rosters_pass3_*.json"
+RESTRUCTURE_JSON = REPO_ROOT / "site" / "ccc" / "restructure_submissions.json"
+SOURCE_TAG = "backfill_pass3_2026_05_09"
+
+# UPS regular-season weeks per league_context_v1.md
+REG_SEASON_WEEKS = {2020: 16, 2021: 16, 2022: 16, 2023: 16, 2024: 16}
+WEEK1_THURSDAY = {
+    2020: date(2020, 9, 10), 2021: date(2021, 9, 9), 2022: date(2022, 9, 8),
+    2023: date(2023, 9, 7), 2024: date(2024, 9, 5),
+}
+
+D1_BATCH_SIZE = 100
+
+
+# ---------------------------------------------------------------------------
+# contractInfo parser (validated against /tmp/pass3_parse_ci.py self-tests)
+# ---------------------------------------------------------------------------
+
+_TCV_RE = re.compile(r"\bTCV\s*\(?\s*([\d.]+)\s*([KkMm])?\)?", re.IGNORECASE)
+_AAV_RE = re.compile(r"\bAAV\s*\(?\s*([\d.]+)\s*([KkMm])?\)?", re.IGNORECASE)
+_ARRAY_RE = re.compile(r"\[([^\]]+)\]")
+_CL_RE = re.compile(r"\bCL\s*(\d+)", re.IGNORECASE)
+_Yn_RE = re.compile(r"\bY(\d)-?\s*([\d.]+)\s*([KkMm])?", re.IGNORECASE)
+_APOSTROPHE_YEAR_RE = re.compile(r"'(\d{2})\b")
+_EXTENSION_KEYWORD_RE = re.compile(r"\bExt(?:\.|ended|1|2)?\s+\S", re.IGNORECASE)
+_UNDERPAY_RE = re.compile(r"\bUnderpay\s+([\d.]+)\s*([KkMm])?", re.IGNORECASE)
+
+
+def _money(num_str: str, suffix: Optional[str]) -> Optional[int]:
+    if not num_str:
+        return None
+    try:
+        val = float(num_str)
+    except ValueError:
+        return None
+    mult = 1
+    if suffix and suffix.upper() == "K":
+        mult = 1000
+    elif suffix and suffix.upper() == "M":
+        mult = 1_000_000
+    amt = int(val * mult)
+    if mult == 1 and amt < 1000:
+        amt *= 1000
+    return amt
+
+
+def _parse_year_array(arr_text: str) -> list[int]:
+    out = []
+    for piece in arr_text.split(","):
+        m = re.match(r"\s*([\d.]+)\s*([KkMm])?\s*$", piece)
+        if m:
+            v = _money(m.group(1), m.group(2))
+            if v is not None:
+                out.append(v)
+    return out
+
+
+def parse_contract_info(ci: Optional[str]) -> dict:
+    s = (ci or "").strip()
+    out = {
+        "contract_length": None, "tcv": None, "aav": None,
+        "aav_source": None, "year_salaries": [], "gf_flag": False,
+        "extension_flag": False, "is_tag": False,
+        "apostrophe_years": [], "underpay_explicit": None,
+        "raw": s, "parser_format": "empty",
+    }
+    if not s:
+        return out
+
+    out["gf_flag"] = "GF" in s.upper()
+    out["extension_flag"] = ("EXT:" in s.upper()) or "EXT." in s.upper()
+    out["is_tag"] = bool(re.match(r"^\s*Tag\b", s, re.IGNORECASE))
+
+    if _EXTENSION_KEYWORD_RE.search(s):
+        out["apostrophe_years"] = sorted({m.group(1) for m in _APOSTROPHE_YEAR_RE.finditer(s)})
+
+    m_up = _UNDERPAY_RE.search(s)
+    if m_up:
+        out["underpay_explicit"] = _money(m_up.group(1), m_up.group(2))
+
+    if "CL" in s.upper() or "|" in s:
+        out["parser_format"] = "post2021"
+    else:
+        out["parser_format"] = "pre2021"
+
+    m = _CL_RE.search(s)
+    if m:
+        try:
+            out["contract_length"] = int(m.group(1))
+        except ValueError:
+            pass
+
+    m = _TCV_RE.search(s)
+    if m:
+        out["tcv"] = _money(m.group(1), m.group(2))
+
+    m = _AAV_RE.search(s)
+    if m:
+        out["aav"] = _money(m.group(1), m.group(2))
+
+    yn_matches = _Yn_RE.findall(s)
+    if yn_matches:
+        ys = sorted([(int(y), _money(v, suf)) for (y, v, suf) in yn_matches], key=lambda x: x[0])
+        out["year_salaries"] = [v for _, v in ys if v is not None]
+
+    if not out["year_salaries"]:
+        m = _ARRAY_RE.search(s)
+        if m:
+            out["year_salaries"] = _parse_year_array(m.group(1))
+
+    if out["contract_length"] is None and out["year_salaries"]:
+        out["contract_length"] = len(out["year_salaries"])
+
+    if out["is_tag"] and out["contract_length"] is None:
+        out["contract_length"] = 1
+
+    if out["apostrophe_years"] and out["contract_length"] is None:
+        out["contract_length"] = len(out["apostrophe_years"])
+
+    if out["aav"] is not None:
+        out["aav_source"] = "explicit"
+    elif out["year_salaries"]:
+        out["aav"] = sum(out["year_salaries"]) // len(out["year_salaries"])
+        out["aav_source"] = "mean_of_years"
+
+    return out
+
+
+# ---------------------------------------------------------------------------
+# contract_type mapping (locked 2026-05-09)
+# ---------------------------------------------------------------------------
+
+CONTRACT_STATUS_MAP = {
+    "Rookie": "rookie", "Veteran": "veteran", "WW": "waiver_wire",
+    "FL": "front_loaded", "BL": "back_loaded",
+    "Rookie/Veteran": "rookie_extended", "Rookie|Veteran": "rookie_extended",
+    "Tag": "franchise_tag", "Franchise Tag": "franchise_tag",
+}
+
+CALC_CONTRACT_TYPE = {
+    "rookie": "rookie", "veteran": "veteran", "waiver_wire": "ww",
+    "front_loaded": "veteran", "back_loaded": "veteran",
+    "rookie_extended": "rookie", "franchise_tag": "tag", "unknown": "veteran",
+}
+
+
+def normalize_status(cs: str) -> str:
+    if not cs:
+        return "unknown"
+    cs_clean = cs.replace(" GF", "").strip()
+    return CONTRACT_STATUS_MAP.get(cs_clean, "unknown")
+
+
+# ---------------------------------------------------------------------------
+# Resource loading
+# ---------------------------------------------------------------------------
+
+def load_roster_index() -> dict:
+    """{(year, week): {(fid, pid): player_row}}"""
+    idx = {}
+    for path in sorted(glob(SNAPSHOT_GLOB)):
+        parts = Path(path).stem.split("_")
+        year, week = int(parts[3]), int(parts[4][1:])
+        payload = json.load(open(path))
+        franchises = payload.get("rosters", {}).get("franchise", [])
+        if isinstance(franchises, dict):
+            franchises = [franchises]
+        bucket = {}
+        for f in franchises:
+            fid = str(f.get("id"))
+            players = f.get("player", [])
+            if isinstance(players, dict):
+                players = [players]
+            for p in players:
+                bucket[(fid, str(p.get("id")))] = p
+        idx[(year, week)] = bucket
+    return idx
+
+
+def load_restructures() -> dict:
+    """{(player_id, franchise_id): [submitted_at_utc, ...]}"""
+    if not RESTRUCTURE_JSON.exists():
+        return {}
+    d = json.load(open(RESTRUCTURE_JSON))
+    out = {}
+    for s in d.get("submissions", []):
+        key = (str(s.get("player_id")), str(s.get("franchise_id")))
+        ts = s.get("submitted_at_utc")
+        if ts:
+            out.setdefault(key, []).append(ts)
+    return out
+
+
+def query_d1_cycles() -> list[dict]:
+    """Pull all closed cycles in 2020-2024 scope."""
+    sql = (
+        "SELECT cycle_id, player_id, franchise_id, season, acquisition_path, "
+        "acquisition_date, acquisition_week, drop_date, drop_week, drop_reason, "
+        "notes "
+        "FROM player_acquisition_cycles "
+        "WHERE status='closed' AND drop_date IS NOT NULL "
+        "AND CAST(strftime('%Y', drop_date) AS INTEGER) BETWEEN 2020 AND 2024 "
+        "ORDER BY cycle_id;"
+    )
+    out = subprocess.run(
+        ["npx", "wrangler", "d1", "execute", "ups-mfl-db", "--remote", "--json", "--command", sql],
+        capture_output=True, text=True, cwd=str(REPO_ROOT / "worker"),
+    )
+    return json.loads(out.stdout)[0]["results"]
+
+
+# ---------------------------------------------------------------------------
+# Per-cycle enrichment
+# ---------------------------------------------------------------------------
+
+def utc_str_to_et_date(ts: str) -> date:
+    dt_utc = datetime.strptime(ts[:19], "%Y-%m-%d %H:%M:%S")
+    offset = 4 if 3 <= dt_utc.month <= 10 else 5
+    return (dt_utc - timedelta(hours=offset)).date()
+
+
+def weeks_active_for_cycle(acq_dt_et: date, drop_dt_et: date) -> int:
+    """Multi-season weeks_active. Sums regular-season-week overlaps with the cycle window."""
+    total = 0
+    for season in sorted(REG_SEASON_WEEKS):
+        week1_thu = WEEK1_THURSDAY[season]
+        n_weeks = REG_SEASON_WEEKS[season]
+        for w in range(1, n_weeks + 1):
+            week_start = week1_thu + timedelta(days=7 * (w - 1))
+            week_end = week_start + timedelta(days=6)
+            if week_start <= drop_dt_et and week_end >= acq_dt_et:
+                total += 1
+    return total
+
+
+def derive_actual_paid_total_usd(tcv: Optional[int], year_salaries_remaining: list[int],
+                                  raw_salary: Optional[int], cl: int,
+                                  contract_year_remaining: Optional[int]) -> tuple[int, str]:
+    """Returns (actual_paid, source_tag). Sources:
+      - 'tcv_minus_remaining': year_salaries non-empty (preferred)
+      - 'years_played_x_salary_flat': year_salaries empty but salary + cl + cy known
+      - 'zero_y1_or_missing': years_played=0 or salary missing
+    """
+    if year_salaries_remaining:
+        if tcv is not None:
+            return max(0, tcv - sum(year_salaries_remaining)), "tcv_minus_remaining"
+        return 0, "zero_y1_or_missing"
+    years_played = max(0, cl - (contract_year_remaining or cl))
+    if raw_salary is not None and years_played > 0:
+        return years_played * raw_salary, "years_played_x_salary_flat"
+    return 0, "zero_y1_or_missing"
+
+
+def enrich_one(cycle: dict, roster_idx: dict, restructures: dict) -> dict:
+    """Returns a result dict with all calculator outputs + deferral note (if any)."""
+    cid = cycle["cycle_id"]
+    pid = str(cycle["player_id"])
+    fid = str(cycle["franchise_id"])
+
+    drop_dt_et = utc_str_to_et_date(cycle["drop_date"])
+    drop_year = drop_dt_et.year
+    drop_week = cycle.get("drop_week")
+    acq_week = int(cycle["acquisition_week"])
+    cycle_season = int(cycle["season"])
+    acq_dt_et = utc_str_to_et_date(cycle["acquisition_date"])
+
+    # weeks_active (multi-season — works regardless of snapshot availability)
+    weeks_active = weeks_active_for_cycle(acq_dt_et, drop_dt_et)
+
+    # Restructure-overlap flag (informational — doesn't block enrichment)
+    rs_dates = restructures.get((pid, fid), [])
+    rs_in_window = [ts for ts in rs_dates
+                    if cycle["acquisition_date"] <= ts <= cycle["drop_date"]]
+
+    # Defer: offseason drop or W=1 (no W=0 snapshot)
+    if drop_year not in REG_SEASON_WEEKS:
+        return {"cycle_id": cid, "deferred": "pass3_deferred_drop_year_outside_scope",
+                "weeks_active": weeks_active, "restructure_overlap": rs_in_window}
+    if drop_week is None:
+        return {"cycle_id": cid, "deferred": "pass3_deferred_offseason_drop",
+                "weeks_active": weeks_active, "restructure_overlap": rs_in_window}
+    drop_week_int = int(drop_week)
+    if drop_week_int < 2:
+        return {"cycle_id": cid, "deferred": "pass3_deferred_w1_drop_no_lookup",
+                "weeks_active": weeks_active, "restructure_overlap": rs_in_window}
+
+    # Snapshot lookup at W=drop_week-1 in drop_year
+    bucket = roster_idx.get((drop_year, drop_week_int - 1), {})
+    snap = bucket.get((fid, pid))
+    if snap is None:
+        return {"cycle_id": cid, "deferred": "pass3_deferred_snapshot_lookup_failed",
+                "weeks_active": weeks_active, "restructure_overlap": rs_in_window}
+
+    # Parse the snapshot
+    raw_salary_str = snap.get("salary")
+    raw_salary = int(float(raw_salary_str)) if raw_salary_str else None
+    raw_status = snap.get("contractStatus", "")
+    raw_ci = snap.get("contractInfo", "") or ""
+    raw_cy = snap.get("contractYear")
+    contract_year_remaining = int(raw_cy) if raw_cy else None
+    parsed = parse_contract_info(raw_ci)
+
+    # CL fallback chain
+    cl = parsed["contract_length"]
+    if cl is None:
+        cl = max(contract_year_remaining or 1, 1)
+    if cl is None or cl < 1:
+        cl = 1
+
+    # TCV fallback chain
+    tcv = parsed["tcv"]
+    if tcv is None and parsed["year_salaries"]:
+        tcv = sum(parsed["year_salaries"])
+    elif tcv is None and raw_salary and cl:
+        tcv = raw_salary * cl
+
+    if tcv is None:
+        return {"cycle_id": cid, "deferred": "pass3_deferred_tcv_unknown",
+                "weeks_active": weeks_active, "restructure_overlap": rs_in_window}
+
+    # Derive actual_paid_total_usd
+    actual_paid, _ = derive_actual_paid_total_usd(
+        tcv, parsed["year_salaries"], raw_salary, cl, contract_year_remaining
+    )
+
+    # contract_type mapping
+    contract_type_canonical = normalize_status(raw_status)
+    contract_type_calc = CALC_CONTRACT_TYPE[contract_type_canonical]
+
+    # Effective acquisition week (cross-year cycles use W=1 of drop_year)
+    eff_acq_week = 1 if drop_year != cycle_season else max(1, acq_week)
+    n_weeks_drop_year = REG_SEASON_WEEKS[drop_year]
+    total_eligible = max(0, n_weeks_drop_year - eff_acq_week + 1)
+
+    # Build CycleInputs and run calculator
+    inputs = cp.CycleInputs(
+        player_id=pid, franchise_id=fid, season=drop_year,
+        acquisition_path=cycle["acquisition_path"],
+        acquisition_week=eff_acq_week,
+        contract_type=contract_type_calc,
+        drop_date=drop_dt_et,
+        drop_week=drop_week_int,
+        drop_reason=cycle["drop_reason"],
+        salary_at_drop_usd=raw_salary or 0,
+        tcv_at_drop_usd=tcv,
+        contract_years_remaining=contract_year_remaining or 1,
+        original_tcv_usd=tcv,
+        actual_paid_total_usd=actual_paid,
+        weeks_active=weeks_active,
+        total_eligible_weeks=total_eligible,
+        contract_was_grandfathered=parsed["gf_flag"],
+        contract_original_length_years=cl,
+    )
+    outputs = cp.compute_cycle(inputs)
+
+    return {
+        "cycle_id": cid,
+        "deferred": None,
+        "restructure_overlap": rs_in_window,
+        # Schema columns to UPDATE
+        "weeks_active": weeks_active,
+        "contract_was_grandfathered_at_drop": 1 if parsed["gf_flag"] else 0,
+        "salary_at_drop_usd": raw_salary,
+        "tcv_at_drop_usd": tcv,
+        "rule_era_at_drop": outputs.rule_era_at_drop,
+        "contract_type_at_acquisition": contract_type_canonical,
+        "earned_legacy_usd": outputs.earned_legacy_usd,
+        "penalty_legacy_usd": outputs.penalty_legacy_usd,
+        "legacy_was_cap_free": 1 if outputs.cap_free else 0,
+        "legacy_cap_free_reason": outputs.cap_free_reason,
+        "earned_pre2019_usd": outputs.earned_pre2019_usd,
+        "earned_calendar_monthly_usd": outputs.earned_calendar_monthly_usd,
+        "earned_per_week_usd": outputs.earned_per_week_usd,
+        "penalty_pre2019_usd": outputs.penalty_pre2019_usd,
+        "penalty_calendar_monthly_usd": outputs.penalty_calendar_monthly_usd,
+        "penalty_per_week_usd": outputs.penalty_per_week_usd,
+    }
+
+
+# ---------------------------------------------------------------------------
+# D1 UPDATE
+# ---------------------------------------------------------------------------
+
+def _sql_lit(v) -> str:
+    if v is None or v == "":
+        return "NULL"
+    if isinstance(v, bool):
+        return "1" if v else "0"
+    if isinstance(v, (int, float)):
+        return str(v)
+    s = str(v).replace("'", "''")
+    return f"'{s}'"
+
+
+def merge_notes(existing_notes: Optional[str], pass3_outcome: str,
+                restructure_overlap: list) -> Optional[str]:
+    """Replace 'needs_pass3_enrichment' token with pass3_outcome.
+    Append restructure_overlap flag if applicable. Preserve other tokens."""
+    if existing_notes:
+        tokens = [t.strip() for t in existing_notes.split(";") if t.strip()]
+        tokens = [t for t in tokens if t != "needs_pass3_enrichment"]
+    else:
+        tokens = []
+    if pass3_outcome:
+        tokens.append(pass3_outcome)
+    if restructure_overlap:
+        tokens.append("pass3_restructure_overlap_in_window")
+    return "; ".join(tokens) if tokens else None
+
+
+def build_update_sql(result: dict, existing_notes: Optional[str], now_utc: str) -> str:
+    cid = result["cycle_id"]
+    overlap = result.get("restructure_overlap") or []
+    if result.get("deferred"):
+        notes = merge_notes(existing_notes, result["deferred"], overlap)
+        return (
+            f"UPDATE player_acquisition_cycles SET "
+            f"weeks_active = {_sql_lit(result.get('weeks_active', 0))}, "
+            f"updated_at_utc = {_sql_lit(now_utc)}, "
+            f"source = {_sql_lit(SOURCE_TAG)}, "
+            f"notes = {_sql_lit(notes)} "
+            f"WHERE cycle_id = {cid};"
+        )
+    notes = merge_notes(existing_notes, "pass3_complete", overlap)
+    cols = [
+        ("weeks_active", result["weeks_active"]),
+        ("contract_was_grandfathered_at_drop", result["contract_was_grandfathered_at_drop"]),
+        ("salary_at_drop_usd", result["salary_at_drop_usd"]),
+        ("tcv_at_drop_usd", result["tcv_at_drop_usd"]),
+        ("rule_era_at_drop", result["rule_era_at_drop"]),
+        ("contract_type_at_acquisition", result["contract_type_at_acquisition"]),
+        ("earned_legacy_usd", result["earned_legacy_usd"]),
+        ("penalty_legacy_usd", result["penalty_legacy_usd"]),
+        ("legacy_was_cap_free", result["legacy_was_cap_free"]),
+        ("legacy_cap_free_reason", result["legacy_cap_free_reason"]),
+        ("earned_pre2019_usd", result["earned_pre2019_usd"]),
+        ("earned_calendar_monthly_usd", result["earned_calendar_monthly_usd"]),
+        ("earned_per_week_usd", result["earned_per_week_usd"]),
+        ("penalty_pre2019_usd", result["penalty_pre2019_usd"]),
+        ("penalty_calendar_monthly_usd", result["penalty_calendar_monthly_usd"]),
+        ("penalty_per_week_usd", result["penalty_per_week_usd"]),
+        ("updated_at_utc", now_utc),
+        ("source", SOURCE_TAG),
+        ("notes", notes),
+    ]
+    set_clause = ", ".join(f"{k} = {_sql_lit(v)}" for k, v in cols)
+    return f"UPDATE player_acquisition_cycles SET {set_clause} WHERE cycle_id = {cid};"
+
+
+def write_to_d1(results: list[dict], existing_notes_by_cid: dict) -> None:
+    now_utc = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+    total = len(results)
+    print(f"\nWriting {total} cycle UPDATEs to D1 in batches of {D1_BATCH_SIZE}...")
+    n_batches = (total + D1_BATCH_SIZE - 1) // D1_BATCH_SIZE
+    t0 = time.time()
+    for i in range(0, total, D1_BATCH_SIZE):
+        batch = results[i:i + D1_BATCH_SIZE]
+        sql_lines = [build_update_sql(r, existing_notes_by_cid.get(r["cycle_id"]), now_utc)
+                     for r in batch]
+        batch_path = STAGE_DIR / f"pass3_d1_batch_{i:06d}.sql"
+        batch_path.write_text("\n".join(sql_lines) + "\n")
+        batch_idx = i // D1_BATCH_SIZE + 1
+        print(f"  batch {batch_idx}/{n_batches}, {min(i+D1_BATCH_SIZE, total)}/{total} rows...")
+        result = subprocess.run(
+            ["npx", "wrangler", "d1", "execute", "ups-mfl-db", "--remote",
+             f"--file={batch_path}"],
+            cwd=str(REPO_ROOT / "worker"),
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            print(f"  ✘ Batch {batch_idx} FAILED:")
+            print(result.stderr[:2000])
+            raise RuntimeError(f"D1 batch {batch_idx} failed")
+    elapsed = time.time() - t0
+    print(f"✓ Wrote {total} cycle UPDATEs in {elapsed:.1f}s")
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--apply", action="store_true",
+                    help="Write UPDATEs to D1 (default: dry-run, prints summary only)")
+    args = ap.parse_args()
+
+    print("Pass 3 cycle financial enrichment\n")
+
+    print("Loading 80 staged weekly snapshots ...")
+    roster_idx = load_roster_index()
+    print(f"  {len(roster_idx)} (year, week) snapshots loaded")
+
+    print(f"Loading restructure submissions ...")
+    restructures = load_restructures()
+    n_subs = sum(len(v) for v in restructures.values())
+    print(f"  {n_subs} restructure submissions loaded")
+
+    print("\nQuerying D1 for closed 2020-2024 cycles ...")
+    cycles = query_d1_cycles()
+    print(f"  {len(cycles)} cycles in scope")
+
+    existing_notes_by_cid = {c["cycle_id"]: c.get("notes") for c in cycles}
+
+    print("\nEnriching each cycle ...")
+    results = []
+    bucket_counts = defaultdict(int)
+    n_overlap = 0
+    for c in cycles:
+        r = enrich_one(c, roster_idx, restructures)
+        results.append(r)
+        if r.get("deferred"):
+            bucket_counts[r["deferred"]] += 1
+        else:
+            bucket_counts["pass3_complete"] += 1
+        if r.get("restructure_overlap"):
+            n_overlap += 1
+
+    print("\n" + "=" * 60)
+    print("ENRICHMENT SUMMARY")
+    print("=" * 60)
+    for bucket, n in sorted(bucket_counts.items(), key=lambda kv: -kv[1]):
+        print(f"  {n:>5}  {bucket}")
+    print(f"  {n_overlap:>5}  (also flagged: pass3_restructure_overlap_in_window)")
+    print(f"  {len(results):>5}  TOTAL")
+
+    if not args.apply:
+        print("\n[DRY-RUN] No D1 writes. Use --apply to push.")
+        return
+
+    write_to_d1(results, existing_notes_by_cid)
+
+    print("\nPass 3 complete.")
+
+
+if __name__ == "__main__":
+    main()

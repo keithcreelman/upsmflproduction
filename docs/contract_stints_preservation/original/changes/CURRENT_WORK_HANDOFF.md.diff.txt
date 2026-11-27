@@ -1,0 +1,189 @@
+diff --git a/docs/CURRENT_WORK_HANDOFF.md b/docs/CURRENT_WORK_HANDOFF.md
+index 7e501f3d..4be2c4fd 100644
+--- a/docs/CURRENT_WORK_HANDOFF.md
++++ b/docs/CURRENT_WORK_HANDOFF.md
+@@ -2,7 +2,7 @@
+ 
+ **Last updated:** 2026-05-09 (during active work; update as we go)
+ 
+-**One-line status:** ✅ Pass 2 cycle backfill written to D1 (10,497 cycles, 2011-2024). Next is Pass 3 — financial enrichment from MFL contract_info (TCV, contract_type, GF flag, weeks_active).
++**One-line status:** ✅ Pass 3 + Pass 4 enrichment complete in D1 — **4,025 of 4,480 cycles (89.8%) fully enriched** (2,142 Pass 3 + 1,883 Pass 4). 455 cycles deferred for future work — 438 in Pass 4 final-defer buckets, 17 strays on Pass 3 source. Sources `backfill_pass3_2026_05_09` and `backfill_pass4_2026_05_09`.
+ 
+ ---
+ 
+@@ -79,17 +79,151 @@ overlapping warnings:           113
+   - B5: Spot-checks ✅ DONE
+   - B6: Compare local-DB vs canonical (deferred — not blocking)
+   - B7: Write Pass 2 to D1 ✅ DONE — 10,497 cycles in `player_acquisition_cycles`, source='backfill_pass2_2026_05_09'
+-  - **B8: Pass 3 — financial enrichment** ← WE ARE HERE
+-    - Pull MFL `TYPE=rosters` per (year, league_id) for `contract_info` strings
+-    - Parse contract_info → `salary_at_drop`, `tcv_at_drop`, `contract_type`, `contract_years_remaining`, `original_tcv_usd`, `actual_paid_total_usd`
+-    - Detect GF flag from contract_info (`GF` substring)
+-    - Re-run calculator on closed cycles with full financials → populate `earned_legacy_usd`, `penalty_legacy_usd`, comparison columns
+-    - For weeks_active: derive from MFL `TYPE=playerScores` per week (was player active for that week's lineup?)
++  - **B8: Pass 3 — financial enrichment ✅ DONE 2026-05-09** — runner: [pipelines/etl/scripts/backfill_cycles_pass3.py](pipelines/etl/scripts/backfill_cycles_pass3.py); source='backfill_pass3_2026_05_09'.
++    - **4,480 cycles** in scope (all closed cycles with drop_date in 2020-2024, including cross-year cycles whose cycle.season < 2020).
++    - **2,142 enriched** — full financial columns + 9 era comparison values populated. Notes column = `pass3_complete` (or `pass3_complete; pass3_restructure_overlap_in_window` for the 19 cycles flagged with offseason restructure mid-cycle).
++    - **2,338 deferred** for Pass 4 (financial columns NULL, deferral note populated):
++      - 1,872 `pass3_deferred_offseason_drop` — drop_week is NULL; need offseason fallback (canonical event salary or end-of-year roster).
++      - 403 `pass3_deferred_snapshot_lookup_failed` — player not on holding franchise in W=drop_week-1 snapshot (likely mid-week trade chain or data gap).
++      - 63 `pass3_deferred_w1_drop_no_lookup` — drop in W=1, no W=0 snapshot to look up.
++    - Snapshot source: 80 staged weekly TYPE=rosters JSON files at `/tmp/mfl_rosters_pass3_*.json` (5 yrs × W=1..16). Re-fetchable via the 80-call fetch script.
++  - **B9: Pass 4 — deferred-cycle enrichment ✅ DONE 2026-05-09** — runner: [pipelines/etl/scripts/backfill_cycles_pass4.py](pipelines/etl/scripts/backfill_cycles_pass4.py); source='backfill_pass4_2026_05_09'.
++    - **2,321 deferred cycles processed** (slight scope drift from 2,338 — 17 strays didn't match the `pass3_deferred%` notes filter, will be revisited in Pass 5 if needed).
++    - **1,883 enriched** (`pass4_complete`). Refinements:
++      - **Lookup refinement A** (any-franchise prior-year W=16) rescues most offseason / W=1 cycles where the contract was acquired via trade.
++      - **Bucket-2 boundary widening** (W=drop_week, W+1, W-2) rescues 47% / 3% / <2% of snapshot-failed cycles.
++      - **Bucket-2 trade-chain refinement** (read OTHER franchise's W=drop_week-1 snapshot) rescues the 7% trade-chain pattern.
++      - **2019 W=16 snapshot fetched fresh from MFL API** (1 call) — used for 2020-spring-offseason and W=1 cycles. CSV-as-primary path was rejected per the API-as-source-of-truth principle.
++      - **Tag-cut-pre-auction cap-free fix** in [cap_penalty.py:165](pipelines/etl/lib/cap_penalty.py:165) — `is_cap_free()` now returns `tag_cut_pre_auction` for `franchise_tag` cycles cut before that year's FA Auction window. ~10–30 cycles in Pass 4 hit this path.
++    - **438 still deferred** (final defer):
++      - 272 `pass4_no_snapshot_or_event` — no prior-year W=16 anywhere AND no canonical event with salary.
++      - 166 `pass4_no_rescue` — bucket 2 cycles where player isn't in any nearby snapshot AND no event salary.
++      - Plus 14 cycles flagged `pass4_restructure_overlap_in_window` (informational, subset of enriched).
++    - **Combined Pass 3 + Pass 4 coverage: 4,025 of 4,480 (89.8%) enriched.**
++    - **455 cycles still deferred (10.2%)** — these mostly need the Pass 2.5 canonical-event-salary extraction fix (see "Outstanding trackers" below).
+ - **Stage C — site/code repointing** to use the era-aware calculator (not started). Targets:
+   - `pipelines/etl/scripts/build_salary_adjustments_report.py` (currently uses 4-step milestone array; flagged as TODO in Stage A)
+   - `pipelines/etl/scripts/build_contract_history_snapshots.py` (same)
+   - Site files with cap-penalty math (low risk — most use 75% guarantee which is unchanged)
+ 
++### Pass 3 — scope and design (rev 2026-05-09)
++
++**Scope this iteration: 2020–2024 only.** Keith flagged 2026-05-09 that some assumptions in the pre-2020 picture are incorrect — he didn't pin down which (could be the W= cutover finding below, the canonical event coverage, or the AUCTION_WON-fallback assumption). Pre-2020 is parked until those concerns are revisited; the earlier sketch is preserved in the *Deferred* subsection but is **out of scope right now**.
++
++**Cycles touched** (counted in D1 2026-05-09):
++
++| Season | closed | open |
++|---|---|---|
++| 2020 | 854 | 0 |
++| 2021 | 877 | 5 |
++| 2022 | 920 | 9 |
++| 2023 | 865 | 58 |
++| 2024 | 620 | 305 |
++| **Total** | **4,136** | **377** |
++
++Pass 3 enriches the **4,136 closed cycles**. The 377 open cycles get `weeks_active` left NULL (penalty calc only fires at drop, so no urgency).
++
++**API call budget**: 5 years × 16 UPS regular-season weeks = **~80 weekly TYPE=rosters?W=N snapshots**. At the existing 2.5s throttle in `mfl_api.fetch_json`, ~3.5 min wall clock + 429 backoff. League-wide pull (`FRANCHISE=""`) per call → all 12 franchises in one response.
++
++**Pipeline steps**:
++
++1. **Fetch weekly rosters (80 calls).** For each (year, week) in {2020..2024} × {1..16}, call `TYPE=rosters?L=…&W=N&FRANCHISE=&JSON=1&APIKEY=…`. Stage to `/tmp/mfl_rosters_pass3_<year>_W<n>.json`. Each row: `(franchise_id, player_id, salary, contractYear, contractStatus, contractInfo, status)`.
++
++2. **Compute `weeks_active` (transaction-derived, no API).** For each closed cycle in 2020–2024, run a SQL pass: count rows in `nfl_season_calendar` for the cycle's season where the week's Thursday-anchor falls within `[acquisition_date, drop_date]` (ET). Pure D1 query — no rosters needed. Same logic would generalize to any year (this is what makes the W= cutover not actually block weeks_active for *closed* cycles).
++
++3. **Populate `salary_at_drop_usd` / `tcv_at_drop_usd` / `contract_type_at_acquisition` / GF flag.** For each closed cycle, look up `(franchise_id, player_id)` in the **W = drop_week − 1** snapshot (anchor probe 2026-05-09 confirmed `W=N` reflects end-of-week-N state, so drop_week itself is post-drop). Read `salary` and `contractInfo`. Then:
++   - `salary_at_drop_usd` ← snapshot.salary **read verbatim — never substitute a default by contractStatus**.
++   - `tcv_at_drop_usd` ← `parse_contract_info(contractInfo)` → TCV (parser already exists in [loadrosterscurrent:337](pipelines/etl/scripts/loadrosterscurrent:337))
++   - `contract_was_grandfathered_at_drop` ← `1 if 'GF' in contractInfo.upper() else 0`
++   - `rule_era_at_drop` ← `cap_penalty.determine_rule_era(drop_date, GF flag)`
++   - `contract_type_at_acquisition` ← from the locked `contractStatus` mapping (table below). Note: schema only has `contract_type_at_acquisition`, not `contract_type_at_drop`. We populate from the drop_week−1 snapshot since contract type rarely changes mid-cycle (extensions are the exception); flag as a known limitation if it bites later.
++   - **Edge case — same-week acquisition and drop**: cycles where `acquisition_week == drop_week`. The W=drop_week−1 snapshot won't have them either (acquired in week N, dropped in week N → not present in W=N−1 or W=N). Fallback: read salary from the canonical AUCTION_WON / BBID_WAIVER event at acquisition; `notes='same_week_acq_drop'`. These are typically very short cycles (1-2 days) where penalty math is degenerate, but the rule "never substitute defaults" still applies — read the actual event salary.
++   - **Player-missing fallback**: if player not in W=drop_week−1 for any other reason, leave fields NULL with `notes='salary_lookup_failed_pass3'` for manual triage.
++
++4. **Re-run calculator on enriched closed cycles.** With salary/TCV/GF/era populated, compute and persist:
++   - `earned_legacy_usd`, `penalty_legacy_usd`, `legacy_was_cap_free`, `legacy_cap_free_reason`
++   - `earned_pre2019_usd`, `earned_calendar_monthly_usd`, `earned_per_week_usd`
++   - `penalty_pre2019_usd`, `penalty_calendar_monthly_usd`, `penalty_per_week_usd`
++   - All three penalty columns get filled regardless of which era applies — that's the side-by-side comparison Keith asked for.
++
++5. **Batch-write to D1.** UPDATE-by-cycle_id in batches of ~100 statements per `wrangler d1 execute --file=…` invocation (D1 ~1MB SQL limit, same pattern Pass 2 used).
++
++6. **Spot-check.** Pick 5 cycles per Keith for verification before declaring Pass 3 done. McCloud (2021–2024) and Keenum (2020–2023 portion) are good candidates since they're already verified at the cycle level.
++
++**Pre-fetch probes — resolved 2026-05-09:**
++- ✅ **Drop-week anchor**: probed two clean closed-cut cycles (2022 cycle 7611, 2023 cycle 8642). Both showed player on target franchise at W=drop_week−1 and absent at W=drop_week. **`W=N` reflects end-of-week-N state. Use `W = drop_week − 1` for pre-drop lookup.** No need to also probe drop_week+1.
++- ✅ **`nfl_season_calendar` shape**: per-season anchor table with columns `season`, `regular_season_weeks`, `week1_thursday` (ET date), `week1_kickoff_utc`, `source`, `notes`. Any week N's Thursday-anchor derives via `date(week1_thursday, '+' || (N-1)*7 || ' days')`. Sufficient for the `weeks_active` SQL pass.
++- ✅ **`contractStatus` enumeration**: see locked mapping table below.
++
++**Locked `contractStatus` → `contract_type` mapping (2026-05-09)**
++
++Definitions confirmed by Keith — these are UPS-league-specific abbreviations not derivable from code (saved to memory `mfl_contract_status_vocabulary.md`).
++
++| `contractStatus` (raw) | `contract_type` (canonical) | Meaning |
++|---|---|---|
++| `Rookie` | `rookie` | Standard 4-year rookie deal |
++| `Veteran` | `veteran` | Standard veteran deal |
++| `WW` | `waiver_wire` | Waiver-wire acquired. **Salary varies — never assume $1k or any default; always read the actual salary field.** |
++| `FL` | `front_loaded` | Contract structure — cap hit weighted to early years (NOT a loyalty/extension type) |
++| `BL` | `back_loaded` | Contract structure — cap hit weighted to later years (NOT a loyalty/extension type) |
++| `Rookie/Veteran` | `rookie_extended` | Rookie contract extended in Year 1 — current deal is still Rookie, with a Veteran extension queued to roll in. Preserve as its own bucket; do NOT collapse to `veteran`. |
++| `Rookie\|Veteran` | `rookie_extended` | Same as `Rookie/Veteran` (separator drift between `/` and `\|`); normalize on read. |
++| `Tag` | `franchise_tag` | Franchise tag |
++| `Franchise Tag` | `franchise_tag` | Same as `Tag` (long-form name); normalize on read. |
++| `<empty>` / unknown | `unknown` | Leave `contract_type_at_acquisition` NULL; flag in notes for manual triage |
++
++Counts in the 4 fetched probe payloads (2022 W=5/W=6, 2023 W=7/W=8 — biased to lower weeks but representative):
++
++| Status | Count | → contract_type |
++|---|---|---|
++| Rookie | 696 | rookie |
++| WW | 522 | waiver_wire |
++| Veteran | 478 | veteran |
++| FL | 94 | front_loaded |
++| BL | 36 | back_loaded |
++| Rookie/Veteran | 18 | rookie_extended |
++| Tag | 18 | franchise_tag |
++| Rookie\|Veteran | 6 | rookie_extended |
++| Franchise Tag | 2 | franchise_tag |
++
++#### W= cutover empirical finding (probed 2026-05-09)
++
++Probed 2011–2024 with two methods: roster-set diffs across W=4 vs W=14, and known-cycle player presence checks. Full probe scripts in `/tmp/probe_w_param*.py`, `/tmp/probe_keenum_cutover.py`, `/tmp/probe_2022_clean.py`.
++
++| Year | W=4 vs W=14 set diff | Notes |
++|---|---|---|
++| 2011 | 0 / 7   | W=4 ⊂ W=14 only |
++| 2012 | 3 / 10  | tiny diff |
++| 2013 | 7 / 10  | tiny diff |
++| 2014 | 9 / 5   | **Daniels (8339) absent from ALL weekly snapshots despite 8 canonical events** — endpoint returns end-of-year subset, not point-in-time |
++| 2015 | 12 / 12 | tiny diff |
++| 2016 | not diffed | Keenum (10948) absent — consistent with no canonical events that year |
++| 2017 | not diffed | Keenum present W=4/W=8/W=12 on 0001, but W=4 reflects state his first canonical event 2017-10-04 (after Wk-4 end) — MFL anchors W=N to *end-of-week-N* state with ~1-week boundary slop |
++| 2018 | 158 / 165 | proper churn captured |
++| 2020 | 185 / 169 | proper churn captured |
++| 2022 | 171 / 176 | player 11721 (5 mid-season events): W=2/4/6/7/10 placements match canonical within ~1-week boundary slop ✓ |
++
++**Reading**: TYPE=rosters?W= is *partially* honored throughout (the API echoes a different `week` and player counts vary), but pre-2017 weekly snapshots silently drop players who churned mid-season. Post-2017 it's substantively faithful with ~1-week boundary slop. **For the 2020–2024 scope, W= is reliable.**
++
++#### Deferred — pre-2020 derivation sketch (DO NOT USE without revalidation)
++
++**Status**: Out of scope for this Pass 3 iteration. Keith flagged 2026-05-09 that some assumptions about the pre-2020 picture are incorrect; specific concern not yet pinned down. Preserved here so we don't re-derive when we come back to it — but treat as suspect until Keith identifies what's wrong.
++
++The earlier two-path strategy was:
++
++1. **Closed cycles in any year** — derive `weeks_active` from cycle bounds + `nfl_season_calendar`, pure SQL, no roster fetches. (This part is *probably* still right — it doesn't depend on the W= API at all and follows directly from the cycle definition + the 2026-05-08 ROSTER+IR+TAXI ruling. But hold off applying to pre-2020 cycles until Keith confirms.)
++
++2. **`salary_at_drop_usd` / `contract_info` at drop, pre-2017** — fall back in priority order:
++   1. Canonical AUCTION_WON event for the cycle's start — use cycle-start salary.
++   2. End-of-year TYPE=rosters (no W=) — final-year contract_info, won't help mid-season-cut players.
++   3. Local DB `rosters_current` history snapshots — same gaps that motivated Pass 2 affect this.
++
++3. **2017–2019 closed cycles** — TYPE=rosters?W= is faithful for these years per the probe data, so the same Pass 3 pipeline that's about to run for 2020–2024 *should* extend cleanly. But since 2019 straddles the 2019 rule-era cutover (75% guarantee start, GF flag introduction), there are extra edge cases worth eyeballing before turning it on.
++
++**Open sub-questions for the pre-2020 revisit** (carry-overs from the original sketch):
++- Pre-2017 fallback: mark cycles with missing salary as `pass='needs_manual_review'` rather than guess from auction-time? Depends on how many pre-2017 closed cycles lack an AUCTION_WON event at their start (count not yet pulled).
++- Whatever pre-2020 concern Keith has — once he identifies it, decide whether the deferred sketch above is salvageable or needs a redesign.
++
+ ---
+ 
+ ## Known minor display issue (not blocking)
+@@ -157,10 +291,15 @@ git push origin main
+ 
+ ## Open questions / pending Keith decisions
+ 
+-- **D1 batch size for cycle inserts.** D1 has a per-statement size limit (~1MB SQL). With 10K+ rows, need to batch. Default to 100/batch unless Keith says otherwise.
+-- **Pass 3 scope** (financial enrichment). Need to decide: pull `TYPE=rosters` per (year, league_id) for contract_info, OR `TYPE=salaries`. Both options on the table; I haven't run either yet.
++- **D1 batch size for cycle inserts.** D1 has a per-statement size limit (~1MB SQL). Pass 2/3/4 all use 100/batch — settled.
+ - **Stage C repointing** — when we get to Stage C, identify every script/page that does cap-penalty math and either repoint to the era-aware calculator OR add a "show legacy + current side-by-side" widget. Keith asked for this earlier in the work but it's deferred until cycles are in D1.
+ 
++## Outstanding trackers (Pass 5 / future work)
++
++- **Pass 2.5 — `mfl_transactions.py` salary extraction gap.** Only 5.5% of staged canonical events (1,252 / 22,596) have non-NULL salary; 2020-2024 AUCTION_WON / BBID_WAIVER are overwhelmingly NULL. The MFL transactions API encodes bid amount in the `transaction` field (e.g., `transaction="11244,76000"` for AUCTION_WON), but the parser at `_parse_transaction` only captures player_ids. **Fix needed**: extract salary alongside player_id, re-stage canonical events, then Pass 4's refinement B (canonical-event salary fallback) will rescue most of the 272 `pass4_no_snapshot_or_event` cycles + many of the 166 `pass4_no_rescue` cycles. Estimated additional ~300 cycles enrichable post-fix.
++- **17 stray Pass 3-deferred cycles** that didn't match Pass 4's `notes LIKE 'pass3_deferred%'` query filter. Likely had `notes` mutated by some other process between Pass 3 and Pass 4 runs. To resolve in a Pass 5 cleanup pass.
++- **Tag-cut-pre-auction FA Auction date hardcoded** in `cap_penalty.py:FA_AUCTION_START_BY_YEAR` — long-term, source from a `league_events` row (event=`fa_auction_start`) rather than the table.
++
+ ---
+ 
+ ## File paths cheat sheet
