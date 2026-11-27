@@ -1,0 +1,103 @@
+# UPS TEST deployment (#1475): league 25625 only, its own D1, test credentials only, no jobs.
+#
+# Test resources only (Keith's go 2026-11-24): deploy with `npx wrangler deploy --config wrangler.test.toml`.
+# Never deploy this file's code with wrangler.toml, and never add a production binding or secret here.
+# Runbook and verification steps: docs/test_env/TEST_ENVIRONMENT.md.
+#
+# What this file deliberately does NOT have, compared with wrangler.toml:
+#   - no cron jobs (an explicitly empty list, so a deploy also clears any that were added by hand)
+#   - no SELF service binding (production's points at the production worker)
+#   - no R2 bucket (production's is the production backup bucket)
+#   - no production D1: both D1 binding names point at the test database, which must carry the
+#     marker row from test_env/ups_test_db_setup.sql or the worker refuses every request
+#   - no production secrets. Secrets for this worker use TEST names only:
+#       MFLTEST_COMMISHCOOKIE   session of the dedicated MFL test account (commissioner of 25625,
+#                               NOT a member of 74598; checked against MFL on every write)
+#       MFLTEST_APIKEY          that account's API key for league 25625 (optional)
+#       TEST_ADMIN_API_KEY      admin key for this worker only (never production's COMMISH_API_KEY)
+#       TEST_DISCORD_WEBHOOK_URL  optional: a webhook in the test channel; the only Discord URL allowed
+#     The worker refuses to run if any production secret name is present (ups_env_guard.js
+#     FORBIDDEN_TEST_SECRETS: MFL_COOKIE, COMMISH_API_KEY, GITHUB_PAT, DISCORD_BOT_TOKEN, ...).
+name = "ups-test"
+main = "src/entry_test_env.js"
+compatibility_date = "2026-02-02"
+# AsyncLocalStorage, so each request's outbound calls (including ctx.waitUntil work) are attributed to it.
+# Test deployment only; production (wrangler.toml / entry.js) does not use or need it.
+compatibility_flags = ["nodejs_als"]
+workers_dev = true
+
+[vars]
+UPS_ENV = "test"
+LEAGUE_ID = "25625"
+WRITE_LEAGUES = "25625"
+# The test website (Pages project ups-test-25625). Only this origin may send the Idempotency-Key header the write
+# ledger requires (CORS preflight, test_env_runtime.js preflight()).
+TEST_SITE_ORIGINS = "https://ups-test-25625.pages.dev"
+YEAR = "2026"
+TEST_DISCORD_CHANNEL_ID = "1089538054236160010"
+# Every automation switch off. Flags read from the TEST database's ups_settings override these, and
+# that table starts empty. Waivers/FCFS need no flag here: the route arms itself for any league that
+# is not 74598 (index.js _wvWriteArmed), and the guard pins the league to 25625.
+RULE_PROPOSALS_ENABLED = "0"
+RULE_PROPOSALS_LIVE = "0"
+RULE_PROPOSALS_AI_ENABLED = "0"
+RULE_PROPOSALS_DRAFT_ENABLED = "0"
+OTB_LIVE_MODE = "0"
+BUG_REPORT_PUBLIC_WRITES_ENABLED = "0"
+TRADE_OFFERS_PUBLIC_WRITES_ENABLED = "0"
+LINEUP_AUTO_PUBLISH_ENABLED = "0"
+LINEUP_FORFEIT_REVERSAL_ENABLED = "0"
+TRADE_SENTINEL_ENABLED = "0"
+TRADE_SENTINEL_ACT_ENABLED = "0"
+TRADE_SENTINEL_ADOPT_NATIVE = "0"
+TRADE_SETTLEMENT_SWEEP_ENABLED = "0"
+DROP_TRACKER_ENABLED = "0"
+DROP_TRACKER_AUTO_POST = "0"
+DROP_TRACKER_POST_MFL = "0"
+DROP_TRACKER_DISCORD_TARGET = "test"
+WAIVERS_INAPP_ENABLED = "0"
+ADD_TRACKER_ENABLED = "0"
+ADD_TRACKER_AUTO_POST = "0"
+ADD_TRACKER_DISCORD_TARGET = "test"
+WW_CONTRACT_ANNOTATE_ENABLED = "0"
+WW_CONTRACT_STAMP_ENABLED = "0"
+IR_NATIVE_ANNOUNCE_ENABLED = "0"
+TRADE_DM_ENABLED = "0"
+# Keith 2026-11-26 ("A"): 3-team trades ON for the test league, with partners answering in the app (the route below; Discord is off here).
+# EXECUTE stays "0" (dry-run: when all three accept, the trade is recorded and no roster moves): live legs use the production commissioner
+# cookie (MFL_COOKIE, forbidden here) and outlast the guard's 20s background window. Running them live is a separate decision.
+TRADE_3WAY_ENABLED = "1"
+TRADE_3WAY_EXECUTE = "0"
+TRADE_3WAY_APP_RESPOND = "1"
+AUCTION_INAPP_BID_ENABLED = "0"
+AUCTION_ERA_ENABLED = "0"
+AUCTION_FAA_ENABLED = "0"
+AUCTION_FAA_FINALIZE_ENABLED = "0"
+AUCTION_FAA_PENALTIES_ENABLED = "0"
+AUCTION_NIGHTLY_NUDGE_ENABLED = "0"
+
+[triggers]
+crons = []
+
+[assets]
+directory = "./fpa_store"
+binding = "FPA_STORE"
+run_worker_first = true
+
+# Both names the worker code uses point at the TEST database (created 2026-11-24, id below; production is
+# ups-mfl-db 8cfe1ddd-..., which this file never names).
+[[d1_databases]]
+binding = "UPS_MFL_DB"
+database_name = "ups-test-db"
+database_id = "45ae1b65-f2c8-41c5-9e8c-20d4fa2b7340"
+migrations_dir = "migrations"
+
+[[d1_databases]]
+binding = "TWB_OUTBOX_DB"
+database_name = "ups-test-db"
+database_id = "45ae1b65-f2c8-41c5-9e8c-20d4fa2b7340"
+
+[[rules]]
+type = "Text"
+globs = ["**/league_context_v1.md"]
+fallthrough = true

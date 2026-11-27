@@ -51,10 +51,14 @@ const tradeTx = (mfl) => { const o = mfl.__offer; mfl.st.transactions = [{ type:
 // Wrap the stubbed network so a test can act at the exact moment MFL executes the trade.
 function onMflAccept(fn) {
   const inner = globalThis.fetch;
+  // 2026-11-26 (#1475 "Go fix probe"): the hook runs when the accept REACHES MFL, whether its answer arrives or is lost. It used to run only after an
+  // answer, and the lost-response cases passed only because the worker's old write-shaped probe (the same accept sent to api.*, answered 302) fired it.
   globalThis.fetch = async (u, i) => {
     const key = String(u) + " " + String((i && i.body) || "");
-    const res = await inner(u, i);
-    if (/TYPE=tradeResponse/.test(key) && /RESPONSE=accept/i.test(key)) await fn();
+    const isAccept = /TYPE=tradeResponse/.test(key) && /RESPONSE=accept/i.test(key);
+    let res;
+    try { res = await inner(u, i); } catch (e) { if (isAccept) await fn(); throw e; }
+    if (isAccept) await fn();
     return res;
   };
 }

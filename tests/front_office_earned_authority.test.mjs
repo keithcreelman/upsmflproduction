@@ -275,7 +275,7 @@ console.log('\n-- 18. desktop displayed penalty equals the worker preview respon
   // for field, so "desktop shows X" and "worker returned X" can never drift
   // by a renamed/misread key.
   const workerRoute = grab('if (path === "/api/cap-penalty/preview" && request.method === "GET") {',
-    'return jsonOut(200, { ok: true, season: pvSeason, league_id: pvLeague,\n            current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,\n            week_authority_source: pvWeekAuthority.source, acquisition_week_source: pvAcqSource,\n            ...(pvAcqError ? { acquisition_week_error: pvAcqError } : {}), calculated_at: new Date().toISOString(),\n            count: Object.keys(players).length, players });');
+    'return jsonOut(200, { ok: true, season: pvSeason, league_id: pvLeague,\n            current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,\n            week_authority_source: pvWeekAuthority.source, acquisition_week_source: pvAcqSource,\n            ...(pvAcqError ? { acquisition_week_error: pvAcqError } : {}), calculated_at: new Date().toISOString(),\n            charge: pvChargeOut, count: Object.keys(players).length, players });');   // 2026-11-26: the batch answer also carries the charge season
   for (const field of ['penalty', 'guaranteed', 'earned', 'tcv', 'exempt', 'exempt_reason', 'basis']) {
     check('worker batch response includes field "' + field + '"', () => {
       assert.ok(new RegExp(field + ':').test(workerRoute), 'penaltyFor() must return ' + field);

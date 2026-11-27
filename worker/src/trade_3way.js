@@ -906,15 +906,26 @@ export async function handle3WayButton(interaction, env, ctx) {
   const customId = safeStr(interaction?.data?.custom_id || "");
   const [pfx, action, id] = customId.split(":");
   if (pfx !== "tr3" || !action || !id) return ephemeral("Unknown button.");
-  if (!env.UPS_MFL_DB) return ephemeral("This trade isn't available anymore.");
-  const row = await getRow(env, id);
-  if (!row) return ephemeral("This 3-way trade no longer exists.");
-  if (safeStr(row.status) !== "collecting") return ephemeral(`This 3-way trade is already ${row.status}.`);
-
   const caller = digits(callerId(interaction));
-  const isB = String(row.team_b_discord_ids || "").split(",").map(digits).includes(caller);
-  const isC = String(row.team_c_discord_ids || "").split(",").map(digits).includes(caller);
-  if (!isB && !isC) return ephemeral("Only the two partners can respond to this trade.");
+  const r = await respond3Way(env, ctx, id, action, (row) => ({
+    isB: String(row.team_b_discord_ids || "").split(",").map(digits).includes(caller),
+    isC: String(row.team_c_discord_ids || "").split(",").map(digits).includes(caller),
+  }));
+  return ephemeral(r.message);
+}
+
+// The partner's accept / decline, shared by the Discord button (identity: the partner's Discord id) and, on the test deployment, the app
+// (POST /api/trades/3way/respond; identity: the partner's proven MFL session, trade_3way_http.js). `whoIs(row)` says whether the caller is team B
+// or team C. Returns { ok, code, message }; nothing about the rules differs by entry point.
+export async function respond3Way(env, ctx, id, action, whoIs) {
+  const R = (ok, code, message, extra) => ({ ok, code, message, ...(extra || {}) });
+  if (!env.UPS_MFL_DB) return R(false, "unavailable", "This trade isn't available anymore.");
+  const row = await getRow(env, id);
+  if (!row) return R(false, "not_found", "This 3-way trade no longer exists.");
+  if (safeStr(row.status) !== "collecting") return R(false, "not_collecting", `This 3-way trade is already ${row.status}.`, { status: safeStr(row.status) });
+
+  const { isB, isC } = whoIs(row) || {};
+  if (!isB && !isC) return R(false, "not_partner", "Only the two partners can respond to this trade.");
   const myFid = isB ? padFid(row.team_b_fid) : padFid(row.team_c_fid);
   const myCol = isB ? "team_b_state" : "team_c_state";
   const myState = safeStr(isB ? row.team_b_state : row.team_c_state);
@@ -925,7 +936,7 @@ export async function handle3WayButton(interaction, env, ctx) {
     const dres = await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET ${myCol}='declined', status='cancelled', failure_reason=?, updated_at_utc=? WHERE id=? AND status='collecting'`).bind(`declined_by_${myFid}`, nowIso(), id).run();
     if (!Number(dres?.meta?.changes ?? dres?.changes ?? 0)) {
       const cur = await getRow(env, id);
-      return ephemeral(`This 3-way trade is already ${safeStr(cur?.status) || "closed"}.`);
+      return R(false, "not_collecting", `This 3-way trade is already ${safeStr(cur?.status) || "closed"}.`);
     }
     const who = teamLabel(row, myFid);
     const alert = { content: `❌ **${who}** declined the 3-way trade — it's off.`.slice(0, 1990) };
@@ -935,11 +946,11 @@ export async function handle3WayButton(interaction, env, ctx) {
     });
     const fire = async () => { for (const c of others) await dmAll(env, c, alert); };
     if (ctx?.waitUntil) ctx.waitUntil(fire()); else await fire();
-    return ephemeral("Declined — I let the other two know. It's off.");
+    return R(true, "declined", "Declined — I let the other two know. It's off.");
   }
 
-  if (action !== "accept") return ephemeral("Button not recognized.");
-  if (myState === "accepted") return ephemeral("You're already in — waiting on the other team.");
+  if (action !== "accept") return R(false, "bad_action", "Button not recognized.");
+  if (myState === "accepted") return R(true, "already_accepted", "You're already in — waiting on the other team.");
 
   // ---- 🔒 PER-FRANCHISE DROP-FIRST HOLD (§8.6, Keith's ruling 2026-09-30, corrected
   // 2026-09-30 second pass) -----------------------------------------------------------
@@ -955,11 +966,11 @@ export async function handle3WayButton(interaction, env, ctx) {
   try {
     for (const fid of [padFid(row.initiator_fid), padFid(row.team_b_fid), padFid(row.team_c_fid)]) {
       if (await franchiseHasUnresolvedDropSequence(env, safeStr(row.league_id), safeStr(row.season), fid)) {
-        return ephemeral("One of the teams in this trade has another deal still being untangled by the commissioner — this can't be accepted until that resolves.");
+        return R(false, "franchise_has_unresolved_drop_sequence", "One of the teams in this trade has another deal still being untangled by the commissioner — this can't be accepted until that resolves.");
       }
     }
   } catch (e) {
-    return ephemeral("Couldn't confirm it's safe to accept this right now. Try again in a moment.");
+    return R(false, "unavailable", "Couldn't confirm it's safe to accept this right now. Try again in a moment.");
   }
 
   // Salary cap: recomputed NOW from live MFL data, and REPORTED. Consent is recorded either way (a partner's accept is preserved, never
@@ -967,13 +978,13 @@ export async function handle3WayButton(interaction, env, ctx) {
   const gate = await capGate(env, row);
   // A stale pre-trade EXTENSION is not a wait-it-out problem (the contract moved on / the window closed): a partner is never asked to consent to
   // a trade that can no longer run as built. (If it goes stale AFTER both accepted, execution blocks recoverably — see enterBlockedCap.)
-  if (!gate.ok && (String(gate.kind).startsWith("extension") || gate.kind === "pick_forfeited")) return ephemeral(`${gate.message} Your accept wasn't recorded and nothing was changed.`);
+  if (!gate.ok && (String(gate.kind).startsWith("extension") || gate.kind === "pick_forfeited")) return R(false, String(gate.kind), `${gate.message} Your accept wasn't recorded and nothing was changed.`);
   const heads = gate.ok ? rosterNote(gate.compliance) : `\n⚠️ ${gate.message} This can't run until that's resolved — your accept is saved and nothing has moved.`;
 
   const ares =await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET ${myCol}='accepted', updated_at_utc=? WHERE id=? AND status='collecting'`).bind(nowIso(), id).run();
   if (!Number(ares?.meta?.changes ?? ares?.changes ?? 0)) {
     const cur = await getRow(env, id);
-    return ephemeral(`This 3-way trade is already ${safeStr(cur?.status) || "closed"}.`);
+    return R(false, "not_collecting", `This 3-way trade is already ${safeStr(cur?.status) || "closed"}.`);
   }
   const fresh = await getRow(env, id);
   const bothIn = safeStr(fresh.team_b_state) === "accepted" && safeStr(fresh.team_c_state) === "accepted";
@@ -999,16 +1010,16 @@ export async function handle3WayButton(interaction, env, ctx) {
     const eres = await env.UPS_MFL_DB.prepare(`UPDATE ups_3way_trades SET status='executing', updated_at_utc=? WHERE id=? AND status='collecting'`).bind(nowIso(), id).run();
     if (!Number(eres?.meta?.changes ?? eres?.changes ?? 0)) {
       const cur = await getRow(env, id);
-      return ephemeral(cur && safeStr(cur.status) === "executing"
-        ? "You're in — that's everyone! The trade is already being processed."
-        : `This 3-way trade is already ${safeStr(cur?.status) || "closed"}.`);
+      return cur && safeStr(cur.status) === "executing"
+        ? R(true, "accepted_all_in", "You're in — that's everyone! The trade is already being processed.")
+        : R(false, "not_collecting", `This 3-way trade is already ${safeStr(cur?.status) || "closed"}.`);
     }
     if (ctx?.waitUntil) ctx.waitUntil(execute3Way(env, id)); else await execute3Way(env, id);
-    return ephemeral(gate.ok
+    return R(true, "accepted_all_in", gate.ok
       ? `You're in — that's everyone! I'm processing the trade now; you'll get a confirmation shortly.${heads}`
-      : `You're in — that's everyone.${heads}`);
+      : `You're in — that's everyone.${heads}`, { cap_ok: !!gate.ok });
   }
-  return ephemeral(`You're in. Waiting on ${teamLabel(fresh, waitingFid)} to accept.${heads}`);
+  return R(true, "accepted_waiting", `You're in. Waiting on ${teamLabel(fresh, waitingFid)} to accept.${heads}`, { cap_ok: !!gate.ok });
 }
 
 // Did this leg (a commissioner-run 2-party trade) actually execute in MFL? Read from MFL's trade ledger — never assumed from a response.

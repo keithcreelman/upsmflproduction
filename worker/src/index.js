@@ -17274,7 +17274,9 @@ export default {
             ? body.starters.map((s) => String(s).trim()).filter(Boolean)
             : [];
           if (!fidReq) return jsonOut(400, { ok: false, error: "franchiseId required", ...weekDiag });
-          if (!starters.length) return jsonOut(400, { ok: false, error: "starters[] required", ...weekDiag });
+          // Keith 2026-11-26 (#1475/#1537): an EMPTY lineup is allowed (not against the rules; an owner may sit everyone, e.g. to make room for a
+          // pickup). The list itself must be sent; an empty one is posted to MFL as STARTERS= (MFL's own answer decides).
+          if (!Array.isArray(body.starters)) return jsonOut(400, { ok: false, error: "starters[] required", ...weekDiag });
           // Caller-franchise identity check via MFL_USER_ID cookie.
           const cookieHeader = request.headers.get("Cookie") || "";
           const cookieMatch = cookieHeader.match(/MFL_USER_ID=([^;]+)/i);
@@ -19809,13 +19811,17 @@ export default {
         }
       }
 
+      // The league for the Pts Agst engine's routes: the request's L when it is a league id, else 74598 (was always 74598).
+      const _fpaLeague = () => (/^\d{4,6}$/.test(L) ? L : "74598");
       // ── GET /api/lineup-matchups?YEAR=&W=[&last=N] — Lineup matchup info ──
       // Mobile Lineup + Players picker and desktop Game Day. The defense numbers come
       // from the Pts Agst engine (./fpa_engine.js) through ./lineup_matchups.js, so
       // they match the Pts Agst board (review #1249).
       if (path === "/api/lineup-matchups" && request.method === "GET") {
         try {
-          return await handleLineupMatchups(request, env, ctx, { jsonOut, lid: "74598" });
+          // #1475 (Keith 2026-11-26): the league the request names (the test deployment pins L=25625); 74598 when none is
+          // given, so production, which never sends another league here, reads exactly what it did before.
+          return await handleLineupMatchups(request, env, ctx, { jsonOut, lid: _fpaLeague() });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -19832,7 +19838,7 @@ export default {
       // live weeks, current-team attribution, failures dropped, nflverse games.csv).
       if (path === "/api/fantasy-sos" && request.method === "GET") {
         try {
-          return await handleFpaRequest(request, env, ctx, { jsonOut, lid: "74598" });
+          return await handleFpaRequest(request, env, ctx, { jsonOut, lid: _fpaLeague() });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -19849,7 +19855,7 @@ export default {
       // /api/fantasy-sos (Stats → Sched) use it too.
       if ((path === "/api/fantasy-points-against" || path === "/api/fpa-detail") && request.method === "GET") {
         try {
-          return await handleFpaRequest(request, env, ctx, { jsonOut, lid: "74598" });
+          return await handleFpaRequest(request, env, ctx, { jsonOut, lid: _fpaLeague() });
         } catch (e) {
           return jsonOut(500, { ok: false, error: String(e && e.message || e) });
         }
@@ -29894,19 +29900,29 @@ const mflToSleeper = {};
           : baseImportUrl;
 
         let targetImportUrl = probeUrl;
+        // Keith 2026-11-26 ("Go fix probe"): found with a READ (TYPE=league&L=…), never with the write itself; see
+        // resolveMflImportTargetUrlForCookie. The import then goes to the league's server once, with the same query as before.
+        const probeL = safeStr(probeQs.get("L"));
         try {
-          const probeRes = await fetch(probeUrl, {
-            method: "GET",
-            redirect: "manual",
-            headers: {
-              Cookie: cookieHeader,
-              "User-Agent": "upsmflproduction-worker",
-            },
-            cf: { cacheTtl: 0, cacheEverything: false },
-          });
-          const loc = probeRes.headers.get("Location") || probeRes.headers.get("location");
-          if (probeRes.status >= 300 && probeRes.status < 400 && loc) {
-            targetImportUrl = new URL(loc, probeUrl).toString();
+          if (probeL) {
+            const readUrl = `https://api.myfantasyleague.com/${encodeURIComponent(String(season || YEAR || new Date().getUTCFullYear()))}/export?TYPE=league&L=${encodeURIComponent(probeL)}&JSON=1`;
+            const probeRes = await fetch(readUrl, {
+              method: "GET",
+              redirect: "manual",
+              headers: {
+                Cookie: cookieHeader,
+                "User-Agent": "upsmflproduction-worker",
+              },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            const loc = probeRes.headers.get("Location") || probeRes.headers.get("location");
+            if (probeRes.status >= 300 && probeRes.status < 400 && loc) {
+              const host = new URL(loc, readUrl);
+              const t = new URL(baseImportUrl);
+              t.protocol = host.protocol; t.host = host.host;
+              t.search = probeQs.toString();
+              targetImportUrl = t.toString();
+            }
           }
         } catch (_) {
           // Fall back to default API shard URL.
@@ -30034,19 +30050,32 @@ const mflToSleeper = {};
         }
         const probeUrl = probeQs.toString() ? `${baseImportUrl}?${probeQs.toString()}` : baseImportUrl;
         let targetImportUrl = probeUrl;
+        // Keith 2026-11-26 ("Go fix probe"; #1475/#1537): the league's home server is found with a READ, never with the write itself.
+        // This probe used to be the full import as a GET (e.g. TYPE=ir&DEACTIVATE=…), so every owner write reached MFL twice: once at
+        // api.* (answered with a 302 today, so nothing happened) and once at the league's server. Had api.* ever processed it, the write
+        // would have been applied twice. Now: a league read on api.* (TYPE=league&L=…), whose 302 names the same server; the import goes
+        // there once, with the same query it always carried. No L, or no redirect: the api.* import URL, as before.
+        const probeL = safeStr(probeQs.get("L"));
         try {
-          const probeRes = await fetch(probeUrl, {
-            method: "GET",
-            redirect: "manual",
-            headers: {
-              Cookie: cookieHeaderOverride,
-              "User-Agent": "upsmflproduction-worker",
-            },
-            cf: { cacheTtl: 0, cacheEverything: false },
-          });
-          const loc = probeRes.headers.get("Location") || probeRes.headers.get("location");
-          if (probeRes.status >= 300 && probeRes.status < 400 && loc) {
-            targetImportUrl = new URL(loc, probeUrl).toString();
+          if (probeL) {
+            const readUrl = `https://api.myfantasyleague.com/${encodeURIComponent(String(season || YEAR || new Date().getUTCFullYear()))}/export?TYPE=league&L=${encodeURIComponent(probeL)}&JSON=1`;
+            const probeRes = await fetch(readUrl, {
+              method: "GET",
+              redirect: "manual",
+              headers: {
+                Cookie: cookieHeaderOverride,
+                "User-Agent": "upsmflproduction-worker",
+              },
+              cf: { cacheTtl: 0, cacheEverything: false },
+            });
+            const loc = probeRes.headers.get("Location") || probeRes.headers.get("location");
+            if (probeRes.status >= 300 && probeRes.status < 400 && loc) {
+              const host = new URL(loc, readUrl);
+              const t = new URL(baseImportUrl);
+              t.protocol = host.protocol; t.host = host.host;
+              t.search = probeQs.toString();
+              targetImportUrl = t.toString();
+            }
           }
         } catch (_) {}
         return targetImportUrl;
@@ -55518,6 +55547,15 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
           // ?drop_date=YYYY-MM-DD and ?acquisition_week=W drive the per-week math.
           const pvDropIso = url.searchParams.get("drop_date") || new Date().toISOString();
           const pvAcqWhatIf = url.searchParams.get("acquisition_week");
+          // Keith 2026-11-18 (release dependency for any real Drop in the 2027 app, #1537): the preview names the cap season a drop's
+          // penalty is charged to, from the SAME rule and inputs the drop tracker posts with (_dropPenaltyCapSeason fed by
+          // _faaAuctionStartUnix(env, season), the scan's capYear). Fail-closed like the rule: ok:false (with its reason) when the season,
+          // the drop time or the auction start can't be resolved; the app then holds the drop rather than guess a year.
+          const pvAuctionStart = await _faaAuctionStartUnix(env, pvSeason);
+          const pvCharge = _dropPenaltyCapSeason({
+            season: Number(pvSeason) || 0, dropUnix: Math.floor(Date.parse(pvDropIso) / 1000) || 0, auctionStartUnix: pvAuctionStart && pvAuctionStart.unix,
+          });
+          const pvChargeOut = { ok: !!pvCharge.ok, applies_to_season: pvCharge.ok ? pvCharge.applies_to_season : null, bucket: pvCharge.bucket || "", reason: pvCharge.reason || "" };
           // Real Week-1 boundary from MFL's schedule (2026 opens Wednesday, so
           // the "Thursday after Labor Day" derivation is a day late). null →
           // _parseContractData falls back to that derivation.
@@ -55618,7 +55656,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
               current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,
               week_authority_source: pvWeekAuthority.source, acquisition_week_source: pvAcqSource,
               ...(pvAcqError ? { acquisition_week_error: pvAcqError } : {}), calculated_at: new Date().toISOString(),
-              ...penaltyFor(wf) });
+              charge: pvChargeOut, ...penaltyFor(wf) });
           }
 
           // BATCH
@@ -55636,7 +55674,7 @@ async function _waiverMissesForRun(env, season, leagueId, addedNames, periodUnix
             current_lineup_week: pvCurrentLineupWeek, earned_through_week: pvWeekAuthority.weeks,
             week_authority_source: pvWeekAuthority.source, acquisition_week_source: pvAcqSource,
             ...(pvAcqError ? { acquisition_week_error: pvAcqError } : {}), calculated_at: new Date().toISOString(),
-            count: Object.keys(players).length, players });
+            charge: pvChargeOut, count: Object.keys(players).length, players });
         } catch (pvErr) {
           return jsonOut(500, { ok: false, error: safeStr(pvErr && pvErr.message ? pvErr.message : String(pvErr)) });
         }
