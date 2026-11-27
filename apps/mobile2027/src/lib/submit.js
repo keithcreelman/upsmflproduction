@@ -73,7 +73,7 @@
   // Trades v1 (Keith 2026-11-26 "go trades v1"): the classic app's three trade POSTs. The compliance check and the accept review are POSTs that
   // change nothing on MFL; the test worker ledgers every POST, so each carries its own key too.
   var WRITES = ["/api/submit-lineup", "/roster-workbench/action", "/api/trades/proposals", "/api/trades/proposals/action", "/api/trades/compliance-preview",
-    "/api/trades/3way", "/api/trades/3way/cancel", "/api/trades/3way/recheck"];   // Trades v2 (Keith 2026-11-26): the classic app's 3-team routes
+    "/api/trades/3way", "/api/trades/3way/cancel", "/api/trades/3way/recheck", "/api/trades/3way/respond"];   // respond: a partner's answer (test worker only)   // Trades v2 (Keith 2026-11-26): the classic app's 3-team routes
   function post(cfg, route, bodyObj, key, params) {
     var t = token();
     if (WRITES.indexOf(route) < 0 || !t) return Promise.reject(new Error(!t ? "Not signed in" : "Unknown write"));
@@ -183,10 +183,11 @@
   }
   function threeCreate(cfg, fid, body) { return threePost(cfg, fid, "/api/trades/3way", body); }
   function threeCancel(cfg, fid, id) { return threePost(cfg, fid, "/api/trades/3way/cancel", { id: String(id), acting_franchise_id: fid }); }
+  function threeRespond(cfg, fid, id, action) { return threePost(cfg, fid, "/api/trades/3way/respond", { id: String(id), action: action === "accept" ? "accept" : "decline", acting_franchise_id: fid }); }
   function threeRecheck(cfg, fid, id) { return threePost(cfg, fid, "/api/trades/3way/recheck", { id: String(id), acting_franchise_id: fid }); }
 
   root.UPS2027 = root.UPS2027 || {};
   root.UPS2027.submit = { token: token, signOut: signOut, whoami: whoami, lineup: lineup, rosterMove: rosterMove, mflStarters: mflStarters,
     trades: { offers: tradeOffers, assets: tradeAssets, lock: tradeLock, rosterIds: rosterIds, check: tradeCheck, action: tradeAction, create: tradeCreate,
-      threeList: threeList, threeCreate: threeCreate, threeCancel: threeCancel, threeRecheck: threeRecheck } };
+      threeList: threeList, threeCreate: threeCreate, threeCancel: threeCancel, threeRecheck: threeRecheck, threeRespond: threeRespond } };
 })(window);

@@ -82,7 +82,10 @@
       return '<div class="trln"><span class="trk2">' + esc(pad4(to.fid) === me ? "You get" : (to.name || teamName(S, to.fid)) + " gets") + "</span><span>" +
         esc((m.assets || []).map(function (a) { return a.label; }).join(" · ")) + ' <span class="mu">from ' + esc(pad4(fr.fid) === me ? "you" : fr.name || teamName(S, fr.fid)) + "</span></span></div>";
     }).join("");
-    var btns = (perm.can_cancel ? '<button class="btn sm" data-act="tr3cancel" data-v="' + esc(tr.id) + '">Cancel</button>' : "") +
+    var mine = (tr.participants || []).filter(function (p) { return pad4(p.fid) === me; })[0];
+    var answer = tr.status === "collecting" && mine && mine.slot !== "initiator" && mine.state === "pending";   // Keith 2026-11-26 "A": partners answer here
+    var btns = (answer ? '<button class="btn sm pri" data-act="tr3accept" data-v="' + esc(tr.id) + '">Accept</button><button class="btn sm" data-act="tr3decline" data-v="' + esc(tr.id) + '">Decline</button>' : "") +
+      (perm.can_cancel ? '<button class="btn sm" data-act="tr3cancel" data-v="' + esc(tr.id) + '">Cancel</button>' : "") +
       (perm.can_recheck ? '<button class="btn sm pri" data-act="tr3recheck" data-v="' + esc(tr.id) + '">Re-check</button>' : "");
     return '<div class="card tro"><div class="trh"><b>3-team · ' + esc(others.join(" & ")) + '</b><span class="chip' + (sv.terminal ? "" : " wn") + '">' + esc(sv.label || tr.status || "") + "</span></div>" +
       moves + (btns ? '<div class="trb">' + btns + "</div>" : "") + "</div>";
@@ -355,6 +358,8 @@
     if (S.sheet === "trdecline") return declineSheet(S);
     if (S.sheet === "trcancel") return confirmSheet("Cancel this offer?", "", "trcancelgo", "Cancel offer");
     if (S.sheet === "tr3cancel") return confirmSheet("Cancel this 3-team trade?", "", "tr3cancelgo", "Cancel trade");
+    if (S.sheet === "tr3accept") return confirmSheet("Accept this 3-team trade?", "", "tr3acceptgo", "Accept");
+    if (S.sheet === "tr3decline") return confirmSheet("Decline this 3-team trade?", "It’s off for all three teams.", "tr3declinego", "Decline");
     if (S.sheet === "trackSend" && S.tr.ack) return confirmSheet("Over the salary cap", "You’d be " + k$(S.tr.ack.amount_over) + " over. MFL still allows it.", "trsendack", "Acknowledge and send");
     return "";
   }

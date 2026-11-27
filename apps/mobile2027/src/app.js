@@ -699,15 +699,19 @@
   }
   function tr3Act(kind, id) {
     var me = trMe(); if (!me || S.tr.busy) return;
-    var head = kind === "cancel" ? { okTitle: "3-team trade cancelled", noTitle: "Not cancelled" } : { okTitle: "Re-checked", noTitle: "Still held" };
+    var head = kind === "cancel" ? { okTitle: "3-team trade cancelled", noTitle: "Not cancelled" } : kind === "accept" ? { okTitle: "Accepted", noTitle: "NOT accepted" } :
+      kind === "decline" ? { okTitle: "3-team trade declined", noTitle: "NOT declined" } : { okTitle: "Re-checked", noTitle: "Still held" };
     S.tr.busy = true; S.sheet = null; render(true);
-    (kind === "cancel" ? TT().threeCancel(cfg, me, id) : TT().threeRecheck(cfg, me, id)).then(function (r) {
+    (kind === "cancel" ? TT().threeCancel(cfg, me, id) : kind === "accept" || kind === "decline" ? TT().threeRespond(cfg, me, id, kind) : TT().threeRecheck(cfg, me, id)).then(function (r) {
       var b = r.body || {};
       if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing changed.", reason: U.trades.why(r), key: r.key }));
       return readThree(me).then(function (L) {
         var t = L.state === "ok" ? (L.list || []).filter(function (x) { return String(x.id) === String(id); })[0] : null;
-        var done = kind === "cancel" ? L.state === "ok" && (!t || t.status === "cancelled") : true;
-        trResult(Object.assign(head, done ? { state: "confirmed", text: kind === "cancel" ? "Confirmed." : String(b.message || "Checked again."), key: r.key } : { state: "unconfirmed", title: "Not confirmed", text: "The trade list still shows it.", key: r.key }));
+        var mineNow = t && (t.participants || []).filter(function (p) { return p.fid === me; })[0];
+        var done = kind === "cancel" || kind === "decline" ? L.state === "ok" && (!t || t.status === "cancelled") :
+          kind === "accept" ? L.state === "ok" && (!t || (mineNow && mineNow.state === "accepted") || t.status !== "collecting") : true;
+        var text = kind === "accept" ? (t && t.state_view && t.state_view.label ? String(t.state_view.label) + "." : "Confirmed.") : kind === "recheck" ? String(b.message || "Checked again.") : "Confirmed.";
+        trResult(Object.assign(head, done ? { state: "confirmed", text: text, key: r.key } : { state: "unconfirmed", title: "Not confirmed", text: "The trade list doesn’t show it yet.", key: r.key }));
       });
     }, function () { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer." })); });
   }
@@ -812,6 +816,8 @@
     else if (act === "tr3cancel") { S.tr.can3 = { id: v }; S.sheet = "tr3cancel"; render(); }
     else if (act === "tr3cancelgo") { if (S.tr.can3) tr3Act("cancel", S.tr.can3.id); }
     else if (act === "tr3recheck") tr3Act("recheck", v);
+    else if (act === "tr3accept" || act === "tr3decline") { S.tr.can3 = { id: v }; S.sheet = act; render(); }
+    else if (act === "tr3acceptgo" || act === "tr3declinego") { if (S.tr.can3) tr3Act(act === "tr3acceptgo" ? "accept" : "decline", S.tr.can3.id); }
     else if (act === "trclose") { S.sheet = null; S.tr.rv = null; S.tr.dec = null; S.tr.can = null; S.tr.can3 = null; S.tr.ack = null; S.tr.pk = null; S.tr.tp = null; render(true); }
   }
   function returnFromProfile() {

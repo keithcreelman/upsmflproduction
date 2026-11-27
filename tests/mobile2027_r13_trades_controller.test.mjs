@@ -47,6 +47,12 @@ function boot() {
         participants: [b.initiator, b.team_b, b.team_c], movements: b.movements.map((x) => ({ from: { fid: x.from }, to: { fid: x.to }, assets: x.asset_tokens.map((tk) => ({ label: tk })) })) });
       return answer(200, { ok: true, trade: { id } });
     }
+    if (p === "/api/trades/3way/respond") {
+      const t3 = W.three.find((x) => x.id === b.id), mine = t3.participants.find((x) => x.fid === ME);
+      if (b.action === "decline") { mine.state = "declined"; t3.status = "cancelled"; t3.state_view = { label: "Declined", terminal: true }; }
+      else { mine.state = "accepted"; t3.state_view = { label: "Waiting on Pure Greatness", terminal: false }; }
+      return answer(200, { ok: true, code: b.action === "decline" ? "declined" : "accepted_waiting" });
+    }
     if (p === "/api/trades/3way/cancel") { const t3 = W.three.find((x) => x.id === b.id); t3.status = "cancelled"; t3.state_view = { label: "Called off", terminal: true }; t3.permissions = {}; return answer(200, { ok: true }); }
     if (p === "/api/trades/compliance-preview") return answer(200, { ok: true, compliance: COMPLIANCE });
     if (p === "/api/trades/proposals" && m === "POST") {
@@ -197,6 +203,24 @@ test("3 teams: pick both teams, add assets, flip one's destination, check, send;
   await b.click({ "data-act": "trpick", "data-fid": ME }); await b.click({ "data-act": "trtoggle", "data-v": mine }); await b.click({ "data-act": "trclose" });
   await b.click({ "data-act": "trcheck" }); await tick(20); await b.click({ "data-act": "trsend" }); await tick(30);
   t.match(text(b.html()), /3-team trade NOT sent Nothing was sent\. Why: 3-way trades aren.{1,5}t turned on right now\./);
+});
+
+test("3 teams, as a partner: Accept and Decline on the card; confirmed only when the worker's list shows the answer", async () => {
+  const seed = (a) => { a.W.three.push({ id: "t3-p", status: "collecting", state_view: { label: "Waiting on 2 teams", terminal: false }, permissions: { can_cancel: false },
+    participants: [{ slot: "initiator", fid: THEM, name: "C-Town", state: "" }, { slot: "team_b", fid: ME, name: "Blake Bombers", state: "pending" }, { slot: "team_c", fid: "0004", name: "Pure Greatness", state: "pending" }],
+    movements: [{ from: { fid: THEM }, to: { fid: ME }, assets: [{ label: "Player X" }] }] }); };
+  const a = boot(); seed(a); await tick(60);
+  await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
+  t.match(a.html(), /data-act="tr3accept" data-v="t3-p">Accept/); t.match(a.html(), /data-act="tr3decline" data-v="t3-p"/); t.doesNotMatch(a.html(), /data-act="tr3cancel"/);
+  await a.click({ "data-act": "tr3accept", "data-v": "t3-p" }); t.match(text(a.html()), /Accept this 3-team trade\?/); t.equal(a.W.posts.length, 0, "nothing until confirmed");
+  await a.click({ "data-act": "tr3acceptgo" }); await tick(30);
+  t.equal(a.W.posts[0].path, "/api/trades/3way/respond"); t.deepEqual([a.W.posts[0].body.id, a.W.posts[0].body.action], ["t3-p", "accept"]); t.match(a.W.posts[0].key, /^m27-/);
+  t.match(text(a.html()), /Accepted Waiting on Pure Greatness\./);
+  await a.click({ "data-act": "resultok" }); t.doesNotMatch(a.html(), /data-act="tr3accept"/, "answered: no buttons");
+  const b = boot(); seed(b); await tick(60);
+  await b.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
+  await b.click({ "data-act": "tr3decline", "data-v": "t3-p" }); await b.click({ "data-act": "tr3declinego" }); await tick(30);
+  t.equal(b.W.posts[0].body.action, "decline"); t.match(text(b.html()), /3-team trade declined Confirmed\./);
 });
 
 await run("mobile2027_r13_trades_controller");
