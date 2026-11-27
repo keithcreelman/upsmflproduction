@@ -30,7 +30,7 @@
 import { dmAll, resolveDiscordUserIds } from "./trade_dm.js";
 import { getFeatureFlag } from "./feature_flags.js";
 import { buildCanonical3Way, decideCancel, decideAdminCancel, ADMIN_CANCEL_BASIS, canView } from "./trade_3way_model.js";
-import { makeLedger, EXEC, findExecutedTrade, isMflExecuted, franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
+import { makeLedger, EXEC, findExecutedTrade, findOwnPendingTrade, pendingHasTrade, isMflExecuted, franchiseHasUnresolvedDropSequence } from "./trade_execution.js";
 import { makeCapAckStore, capAckSignature, evaluateCapAcknowledgment } from "./trade_cap_ack.js";
 import { makeConditionalDropStore } from "./trade_conditional_drops.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
@@ -165,22 +165,17 @@ export async function executeCommishTwoPartyTrade(env, { leagueId, year, fromFid
     const m = proposeResp.match(re); if (m && m[1]) { tradeId = m[1]; break; }
   }
   if (!tradeId) {
+    // Only OUR offer may be accepted: exactly one pending row with both teams, both exact asset sets and (when MFL echoes it) our comment
+    // tag. Anything looser could accept an unrelated offer between the same two teams.
+    let own = { match: "none" };
     try {
       const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${padFid(fromFid)}${keyQs}&JSON=1`;
       const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json", ...authHeaders } });
       const j = await r.json().catch(() => null);
-      const root = (j && (j.pendingTrades || j.pendingtrades)) || {};
-      let arr = root.pendingTrade || root.pendingtrade || root.trade || root.trades || [];
-      if (!Array.isArray(arr)) arr = arr ? [arr] : [];
-      // newest matching offer from->to
-      for (const t of arr) {
-        const tf = padFid(t?.offeringteam || t?.franchise_id || t?.offering_franchise);
-        const tt = padFid(t?.offeredto || t?.to_franchise);
-        if ((!tf || tf === padFid(fromFid)) && (!tt || tt === padFid(toFid))) {
-          const id = digits(t?.trade_id || t?.id); if (id) { tradeId = id; break; }
-        }
-      }
+      own = findOwnPendingTrade(j, { from: fromFid, to: toFid, give: giveMfl, receive: receiveMfl, commentTag });
     } catch (_) {}
+    if (own.match === "ambiguous") return { ok: false, step: "ambiguous_pending_match", error: `${own.count} pending offers match this leg exactly; not accepting any of them` };
+    if (own.match === "one") tradeId = own.tradeId;
   }
   if (!tradeId) return { ok: false, step: "extract_trade_id", error: "no trade_id from propose or pendingTrades" };
 
@@ -1012,15 +1007,44 @@ export async function handle3WayButton(interaction, env, ctx) {
 }
 
 // Did this leg (a commissioner-run 2-party trade) actually execute in MFL? Read from MFL's trade ledger — never assumed from a response.
+// { read_ok, hit }: read_ok=false means the ledger could not be read (so "no hit" proves nothing).
 async function legExecuted(env, leagueId, year, leg, row) {
   try {
     const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=transactions&L=${leagueId}&TRANS_TYPE=TRADE&APIKEY=${encodeURIComponent(safeStr(env.MFL_APIKEY))}&JSON=1`;
     const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
-    const j = await r.json().catch(() => null);
-    if (!j) return null;
+    const j = r && r.ok ? await r.json().catch(() => null) : null;
+    if (!j || typeof j !== "object" || j.error || !("transactions" in j)) return { read_ok: false, hit: null };
     const since = Math.floor(Date.parse(safeStr(row.updated_at_utc) || safeStr(row.created_at_utc)) / 1000) - 3600;
-    return findExecutedTrade(j, { from: leg.fromFid, to: leg.toFid, give: (leg.give || []).map((x) => toMflAsset(x)), receive: (leg.receive || []).map((x) => toMflAsset(x)), sinceUnix: since });
-  } catch (_) { return null; }
+    return { read_ok: true, hit: findExecutedTrade(j, { from: leg.fromFid, to: leg.toFid, give: (leg.give || []).map((x) => toMflAsset(x)), receive: (leg.receive || []).map((x) => toMflAsset(x)), sinceUnix: since }) };
+  } catch (_) { return { read_ok: false, hit: null }; }
+}
+
+// Is offer `tradeId` still pending at MFL (as the commissioner, for the offering franchise)? { read_ok, pending }
+async function legStillPending(env, leagueId, year, leg, tradeId) {
+  try {
+    const u = `https://www48.myfantasyleague.com/${year}/export?TYPE=pendingTrades&L=${leagueId}&FRANCHISE_ID=${padFid(leg.fromFid)}&APIKEY=${encodeURIComponent(safeStr(env.MFL_APIKEY))}&JSON=1`;
+    const r = await fetch(u, { headers: { "User-Agent": "upsmflproduction-worker", Accept: "application/json" } });
+    const j = r && r.ok ? await r.json().catch(() => null) : null;
+    if (!j || typeof j !== "object" || j.error || !(j.pendingTrades || j.pendingtrades)) return { read_ok: false, pending: false };
+    return { read_ok: true, pending: pendingHasTrade(j, tradeId) };
+  } catch (_) { return { read_ok: false, pending: false }; }
+}
+
+/**
+ * After a leg's accept came back unclear (an error, a lost response), ask MFL what happened — never assume, never re-send:
+ *   executed    — MFL's transactions export lists this exact trade
+ *   pending     — the export was read, it is not there, and MFL still holds the offer as pending ⇒ provably NOT executed
+ *   unconfirmed — anything else (an export unreadable, or neither listed nor pending) ⇒ it may have executed; a human must check MFL
+ * Exported for trade_2way.js's execute2Way (the same single-leg question).
+ */
+export async function classifyLeg(env, leagueId, year, leg, row, tradeId) {
+  const tx = await legExecuted(env, leagueId, year, leg, row);
+  if (tx.hit) return { outcome: "executed", evidence: tx.hit };
+  if (!tx.read_ok) return { outcome: "unconfirmed", reason: "transactions_unreadable" };
+  if (!safeStr(tradeId)) return { outcome: "unconfirmed", reason: "no_trade_id" };
+  const p = await legStillPending(env, leagueId, year, leg, tradeId);
+  if (!p.read_ok) return { outcome: "unconfirmed", reason: "pending_unreadable" };
+  return p.pending ? { outcome: "pending" } : { outcome: "unconfirmed", reason: "not_pending_and_not_in_transactions" };
 }
 
 /**
@@ -1271,19 +1295,30 @@ export async function execute3Way(env, id) {
       }
     }
     const r = await executeCommishTwoPartyTrade(env, { leagueId, year, fromFid: leg.fromFid, toFid: leg.toFid, give: leg.give, receive: leg.receive, comments: `3-way ${id} ${leg.label} (${mode})` });
-    // A leg's accept can succeed at MFL and still come back as an error (timeout, lost response). Ask MFL before calling it a failure; a leg found
-    // in MFL's trade ledger HAS executed and is never sent again.
-    if (!r.ok && r.tradeId) {
-      const hit = await legExecuted(env, leagueId, year, leg, row);
-      if (hit) { done.push(r.tradeId); await finish("executing", progressFields(done)); continue; }
+    // A leg's accept can succeed at MFL and still come back as an error (timeout, lost response). Ask MFL before calling it a failure: found in
+    // MFL's trade ledger ⇒ it HAS executed and is never sent again; still pending ⇒ provably not executed; neither ⇒ UNCONFIRMED (never re-sent).
+    let unconfirmed = null;
+    if (!r.ok && (r.step === "accept" || r.tradeId)) {
+      let cls = await classifyLeg(env, leagueId, year, leg, row, r.tradeId);
+      // MFL's lockout answer is itself an explicit refusal of the accept (nothing ran) — only a ledger hit overrides it, exactly as before.
+      if (r.step === "lockout" && cls.outcome !== "executed") cls = { outcome: "pending" };
+      if (cls.outcome === "executed") { done.push(r.tradeId); await finish("executing", progressFields(done)); continue; }
+      if (cls.outcome === "unconfirmed") unconfirmed = cls;
     }
     if (!r.ok) {
       const partial = done.length > 0;
       if (partial) {
-        console.error(`[3way] ${id} ${leg.label} FAILED — PARTIAL (already landed: ${done.join(",")}): ${r.step}/${r.error}`);
-        await finish("failed", { ...progressFields(done), failure_reason: `PARTIAL_${leg.label}_${r.step}: ${safeStr(r.error).slice(0, 150)} (done=${done.join(",")})` });
-        await ledger.move(key, { from: EXEC.EXECUTING, to: EXEC.NEEDS_REVIEW, token, set: { failed_step: leg.label, failure_detail: `${r.step}: ${safeStr(r.error).slice(0, 200)}`, mfl_evidence_json: { trade_ids: done }, mfl_executed_at_utc: nowIso() } }).catch(() => {});
+        const why = unconfirmed ? "unconfirmed" : r.step;
+        console.error(`[3way] ${id} ${leg.label} FAILED — PARTIAL (already landed: ${done.join(",")}): ${why}/${r.step}/${r.error}`);
+        await finish("failed", { ...progressFields(done), failure_reason: `PARTIAL_${leg.label}_${why}: ${safeStr(r.error).slice(0, 150)} (done=${done.join(",")})` });
+        await ledger.move(key, { from: EXEC.EXECUTING, to: EXEC.NEEDS_REVIEW, token, set: { failed_step: leg.label, failure_detail: `${unconfirmed ? `unconfirmed (${unconfirmed.reason}, trade ${r.tradeId || "?"}) ` : ""}${r.step}: ${safeStr(r.error).slice(0, 200)}`, mfl_evidence_json: { trade_ids: done }, mfl_executed_at_utc: nowIso() } }).catch(() => {});
         await dmAllThree(`🚨 The 3-way is **partially done** — ${done.length} leg(s) processed, the next failed. **Commish: manual intervention needed** (done: ${done.join(", ")}).`);
+      } else if (unconfirmed) {
+        // Nothing PROVABLY landed, but this leg may have: the ledger stays `executing` (so nothing can send it again) until a human checks MFL.
+        console.error(`[3way] ${id} ${leg.label} UNCONFIRMED (${unconfirmed.reason}) — not re-sent: ${r.step}/${r.error}`);
+        await finish("failed", { failure_reason: `UNCONFIRMED_${leg.label}: trade ${r.tradeId || "?"} ${unconfirmed.reason}; ${r.step}: ${safeStr(r.error).slice(0, 150)}`.slice(0, 250) });
+        await dmAllThree(`⚠️ The 3-way trade was sent to MFL, but we couldn't confirm whether it went through. It will **not** be re-sent. **Commish: check MFL** before anything else happens on this trade.`);
+        return { ok: false, leg: i + 1, error: r.error, partial: false, unconfirmed: true, reason: unconfirmed.reason };
       } else if (r.step === "lockout") {
         console.error(`[3way] ${id} ${leg.label} BLOCKED by MFL commissioner lockout — nothing moved.`);
         await finish("failed", { failure_reason: `lockout_${leg.label}: MFL commissioner lockout on` });

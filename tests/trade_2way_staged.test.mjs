@@ -5,12 +5,14 @@
 // every acceptance and before execution; a satisfied conditional-drop selection means
 // "awaiting review," never permission for an automatic MFL write.
 //
-// installDiscordRecorder() below THROWS on any fetch() that isn't to discord.com — since
-// TRADE_2WAY_STAGING_EXECUTE is never set to "1" anywhere in this file, execute2Way always
-// takes the DRY-RUN branch and never reaches executeCommishTwoPartyTrade's real
-// myfantasyleague.com fetch() at all. Any test that somehow DID reach a real MFL call would
+// installDiscordRecorder() below THROWS on any fetch() that isn't to discord.com — outside the
+// UNCLEAR ACCEPT section at the end, TRADE_2WAY_STAGING_EXECUTE is never set to "1" in this
+// file, so execute2Way takes the DRY-RUN branch and never reaches executeCommishTwoPartyTrade's
+// real myfantasyleague.com fetch() at all. Any test that somehow DID reach a real MFL call would
 // crash immediately with "unexpected network call in test" -- this is the zero-MFL-writes
-// guarantee, enforced structurally, not just asserted after the fact.
+// guarantee, enforced structurally, not just asserted after the fact. The UNCLEAR ACCEPT tests
+// alone run live execution, against worker_harness.mjs's stateful fake MFL, installed for that
+// one test and removed again in `finally`.
 //
 // Run: node tests/trade_2way_staged.test.mjs
 import { t, test, run } from "./fixtures/mini_test.mjs";
@@ -19,6 +21,7 @@ import { installDiscordRecorder, quietConsole, viewer, commishViewer, NAMES } fr
 await import("./fixtures/register_md_loader.mjs");
 const { createStaged2WayTrade, get2WayTrade, accept2WayTrade, cancel2WayTrade, select2WayLoadedContractDrops, execute2Way } = await import("../worker/src/trade_2way.js");
 const { handle2WayStagedHttp } = await import("../worker/src/trade_2way_http.js");
+const { makeMfl } = await import("./fixtures/worker_harness.mjs");
 
 const restoreConsole = quietConsole();
 const discord = installDiscordRecorder();
@@ -304,6 +307,66 @@ test("HTTP: only the proven viewer can create as their own team -- a proven sess
   const j = await resp.json();
   t.equal(j.code, "forbidden");
 });
+
+// ═══════════════════════ UNCLEAR ACCEPT (live execution, fake MFL): ask MFL, never re-send ═══════════════════════
+// The accept's answer is unclear (it threw, or came back an error). executed in MFL's ledger → completed; provably still pending →
+// not_executed (retryable); neither → UNCONFIRMED: the ledger stays `executing` so nothing can send it again.
+async function liveStaged(prep) {
+  const mfl = makeMfl(); mfl.install();
+  try {
+    const env = makeEnv({ env: { TRADE_2WAY_STAGING_EXECUTE: "1" } });
+    const created = await createStaged2WayTrade(env, {}, CREATE_SPEC());
+    const inner = globalThis.fetch;
+    globalThis.fetch = async (u, i) => {          // `prep.onAccept(offer)` runs as MFL handles the accept, before its (possibly lost) answer returns
+      const k = String(u) + " " + String((i && i.body) || "");
+      if (!/TYPE=tradeResponse/.test(k) || !/RESPONSE=accept/i.test(k) || !prep.onAccept) return inner(u, i);
+      const offer = mfl.st.pending.find((p) => p.trade_id === (/TRADE_ID=(\d+)/.exec(k) || [])[1]) || null;
+      try { return await inner(u, i); } finally { if (offer) prep.onAccept(mfl, offer); }
+    };
+    if (prep.before) prep.before(mfl);
+    const ctx = ctxWait();
+    const x = await accept2WayTrade(env, ctx, created.id, viewer(FR.B, { leagueId: "74598", season: "2026" }), {});
+    await ctx.flush();
+    const row = () => env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_2way_trades WHERE id=?").get(created.id);
+    const led = () => env.UPS_MFL_DB.raw.prepare("SELECT * FROM ups_trade_executions WHERE exec_key=?").get(created.id);
+    const dms = (re) => mfl.st.discord.filter((d) => /\/messages$/.test(d.url) && re.test(JSON.stringify(d.body || ""))).length;
+    const accepts = () => mfl.writes("tradeResponse").length;
+    // what a later execute would do (the row put back to `executing`, exactly as recheck/queue execute would before calling execute2Way)
+    const reExecute = async () => { env.UPS_MFL_DB.raw.prepare("UPDATE ups_2way_trades SET status='executing' WHERE id=?").run(created.id); return execute2Way(env, created.id); };
+    return await prep.check({ env, mfl, x, row, led, dms, accepts, reExecute });
+  } finally { mfl.restore(); }
+}
+
+test("UNCLEAR ACCEPT (staged): the accept throws and MFL can't be read (transactions 502, pendingTrades 502) → UNCONFIRMED, the ledger stays `executing`, one DM, and a later execute cannot send it again", () => liveStaged({
+  before: (mfl) => { mfl.st.loseResponseNext = "timeout"; },
+  onAccept: (mfl) => { mfl.st.exportFail = { transactions: 502, pendingTrades: 502 }; },
+  check: async ({ x, row, led, dms, accepts, reExecute }) => {
+    t.ok(x.ok && x.executing, JSON.stringify(x));
+    t.equal(row().status, "failed"); t.match(row().failure_reason, /^UNCONFIRMED_trade/); t.equal(row().mfl_trade_id, null);
+    t.equal(led().state, "executing", "the lock stays — never released to not_executed");
+    t.equal(dms(/couldn't confirm whether it went through/), 2, "one DM to each side"); t.equal(dms(/failed before anything moved/), 0);
+    const again = await reExecute();
+    t.equal(again.skipped, "execution_not_acquirable"); t.equal(accepts(), 1, "MFL was asked to accept exactly once, ever");
+  },
+}));
+test("UNCLEAR ACCEPT (staged): the accept throws but MFL's transactions export lists the trade → it continues as executed and completes", () => liveStaged({
+  before: (mfl) => { mfl.st.loseResponseNext = "timeout"; },
+  onAccept: (mfl, o) => { mfl.st.transactions = [{ type: "TRADE", franchise: o.offeringteam, franchise1_gave_up: o.will_give_up, franchise2: o.offeredto, franchise2_gave_up: o.will_receive, timestamp: String(Math.floor(Date.now() / 1000)) }]; },
+  check: async ({ row, led, dms, accepts }) => {
+    t.equal(row().status, "completed"); t.ok(row().mfl_trade_id); t.equal(led().state, "completed");
+    t.equal(dms(/went through on MFL/), 2); t.equal(accepts(), 1);
+  },
+}));
+test("UNCLEAR ACCEPT (staged): the accept returns an error, MFL's transactions export doesn't list it and the offer is still pending → not_executed, and a later execute is allowed and runs once", () => liveStaged({
+  before: (mfl) => { mfl.st.failNext = { type: "tradeResponse", status: 500 }; },
+  check: async ({ mfl, row, led, dms, accepts, reExecute }) => {
+    t.equal(row().status, "failed"); t.match(row().failure_reason, /^accept: /); t.equal(led().state, "not_executed", "provably not executed → released");
+    t.equal(dms(/failed before anything moved/), 2); t.equal(mfl.st.done.length, 0);
+    const again = await reExecute();
+    t.equal(again.ok, true, JSON.stringify(again)); t.equal(led().state, "completed"); t.equal(mfl.st.done.filter((d) => d.response === "accept").length, 1);
+    t.equal(accepts(), 2, "the refused accept + the one that executed");
+  },
+}));
 
 await run("trade_2way_staged");
 restoreConsole();
