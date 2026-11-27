@@ -1,0 +1,104 @@
+[
+  {
+    "detail": "",
+    "id": "T1",
+    "pass": true,
+    "title": "every asset, link and event carries a class and a source reference (nodes, events, possession periods, breaks, trade legs, cap entries, transfers, departures, points, contracts)"
+  },
+  {
+    "detail": "",
+    "id": "T2",
+    "pass": true,
+    "title": "every trade in the bundle equals its raw archive rows or snapshot entry, checked by a separate code path"
+  },
+  {
+    "detail": "",
+    "id": "T3",
+    "pass": true,
+    "title": "every transaction keeps its date, time, date quality, asset identity and both franchise ids"
+  },
+  {
+    "detail": "",
+    "id": "T4",
+    "pass": true,
+    "title": "every chain replays the recorded trades; every discontinuity is listed, none is filled"
+  },
+  {
+    "detail": "",
+    "id": "T5",
+    "pass": true,
+    "title": "every slot comes from an MFL slot token and the MFL draft result for that slot; a future pick is never confirmed to a slot"
+  },
+  {
+    "detail": "",
+    "id": "T6",
+    "pass": true,
+    "title": "uniqueness infers only when the holder owns one slot AND the round's inventory is demonstrably complete AND custody is observed to the evidence date (INFERRED, labeled); two slots, an incomplete or disagreeing inventory, an unobserved period or no evidence stay UNRESOLVED"
+  },
+  {
+    "detail": "",
+    "id": "T7",
+    "pass": true,
+    "title": "no owner field or owner name anywhere; every statement is about a franchise id"
+  },
+  {
+    "detail": "",
+    "id": "T8",
+    "pass": true,
+    "title": "possession periods come from trade, draft and add or drop events; weekly-roster disagreements are listed, not used"
+  },
+  {
+    "detail": "",
+    "id": "T9",
+    "pass": true,
+    "title": "the build fails if the extraction reads any ranking or forecast data (draft slots come only from MFL draft results, slot tokens and slot lists): the runtime table guard and the static source scan are both clean"
+  },
+  {
+    "detail": "",
+    "id": "T10",
+    "pass": true,
+    "title": "points are per franchise and per possession, copy weeks are excluded, disputed weeks are not verified, and an INFERRED asset never enters a confirmed-only total"
+  },
+  {
+    "detail": "",
+    "id": "T11",
+    "pass": true,
+    "title": "every salary and contract shown equals the recorded weekly roster row; none is estimated; team cap totals are explicitly not computed"
+  },
+  {
+    "detail": "",
+    "id": "T12",
+    "pass": true,
+    "title": "the trace stops at the stated generation limit and every untraced continuation is listed on the frontier"
+  },
+  {
+    "detail": "",
+    "id": "T13",
+    "pass": true,
+    "title": "the 2025-11-28 to 2026-03-07 trade-coverage gap is on the list and is shown on every chain (player or pick) that crosses it; no pick whose custody crosses it is resolved; every chain break is a listed gap"
+  },
+  {
+    "detail": "",
+    "id": "T14",
+    "pass": true,
+    "title": "two builds are byte-identical and match the committed bundle; the archive opens read-only; no extraction module contains a network call pattern (fetch, http, net, WebSocket)"
+  },
+  {
+    "detail": "",
+    "id": "T15",
+    "pass": true,
+    "title": "only franchise ids, team names and player names appear; no owner column is read; no email, credential or chat text"
+  },
+  {
+    "detail": "recorded on the pull request, not asserted by this file",
+    "id": "T16",
+    "pass": null,
+    "title": "independent review (Codex) on the exact head, and CI on the head and on the merge result of the head with the base, both SHAs named"
+  },
+  {
+    "detail": "",
+    "id": "T17",
+    "pass": true,
+    "title": "every trade is kept as one package with every asset and cap amount in its direction; lineage participation is separate from attributable return, which is established only for an exact one-for-one exchange; no number sits under an attribution field"
+  }
+]
