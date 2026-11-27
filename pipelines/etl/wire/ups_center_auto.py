@@ -427,6 +427,11 @@ def replay_week(season, week, workdir, out_dir, inputs=None, now=None, log=print
         res_out["reasons"].append("pack build failed: " + out.strip()[-400:])
         return done("blocked")
     pack = json.load(open(os.path.join(workdir, "site/wire/packs/%d/%d-wk%02d-recap.pack.json" % (season, season, week))))
+    # The trackers' committed notes (the QB bet's terms, injury captions) live with the repo's data, not with the forecast this
+    # replay just ran into out_dir: without them every replay printed "tracker:qb" although a scheduled run has them (Week 11).
+    notes = "tracker_notes_%d.json" % season
+    if os.path.exists(os.path.join(workdir, "site/wire/data", notes)) and not os.path.exists(os.path.join(data_out, notes)):
+        shutil.copy2(os.path.join(workdir, "site/wire/data", notes), os.path.join(data_out, notes))
     ctx = SRC.gather(season, week, now=now, pack=pack, data_dir=data_out, history=True)
     rep_path = os.path.join(workdir, "site/wire/data/elias_%d_wk%02d.json" % (season, week))
     ctx["eliasReport"] = json.load(open(rep_path)) if os.path.exists(rep_path) else None

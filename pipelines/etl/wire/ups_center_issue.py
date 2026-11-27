@@ -299,13 +299,19 @@ class Issue:
                 "plays:" + c["player"], "plays", "No verified highlight link for %s (%s); add one or leave it out."
                 % (e(c["player"]), e(link.get("why", "not checked"))))
             shown = self.L.put("pts:" + c["player"], round(float(c["score"]), 1), "pack playcard (src_weekly)")
+            # No NFL box score for the card (2026-11-24: Jonah Coleman, a rookie player_id_crosswalk could not map,
+            # crashed the whole build here). Never write one from memory: an editor box, which blocks publication.
+            box = (e(self.L.put("box:" + c["player"], tidy_box(c["boxLine"]), "pack playcard (nflverse box score)"))
+                   if c.get("boxLine") else self.gap("plays:box:" + c["player"], "plays",
+                                                     "No NFL box score was matched for %s, so his card has no stat line. "
+                                                     "Add it from a verified box score or leave the card without one."
+                                                     % e(c["player"])))
             out.append('<article class="play"><div class="div">Week %d play of the week</div><div class="top"><img class="head" '
                        'src="%s" alt="%s"><div class="crest"><div class="plate"><img src="%s" alt="%s"></div><div class="pts">'
                        '%s<small>UPS points &middot; %s</small></div></div></div><div class="body"><div class="pname">%s</div>'
                        '<div class="pmeta">%s &middot; %s</div><p class="box">%s</p>%s</div></article>' % (
                            self.week, e(c["playerPhotoUrl"]), e(c["player"]), self.logo[fid], e(self.team[fid]), shown,
-                           e(c["owner"]), e(c["player"]), e(c["position"]), e(c["nflMatchup"]), e(self.L.put("box:" + c["player"], tidy_box(c["boxLine"]),
-                                                                   "pack playcard (nflverse box score)")), watch))
+                           e(c["owner"]), e(c["player"]), e(c["position"]), e(c["nflMatchup"] or ""), box, watch))
         if not out:
             out.append(self.gap("plays:none", "plays", "The pack has no play cards this week."))
         return out

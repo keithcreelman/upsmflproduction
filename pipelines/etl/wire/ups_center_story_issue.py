@@ -986,7 +986,7 @@ class StoryIssue(TSEG.TrackerSegments, I.Issue):
             card = next((c for c in self.pack.get("playcards", []) if c["owner"] == self.owner[f]), None)
             withp = ""
             if card and f != big_team:
-                m = re.search(r"(\d+) catches", card["boxLine"])
+                m = re.search(r"(\d+) catches", card["boxLine"]) if card.get("boxLine") else None
                 self.L.put("pts:" + card["player"], round(float(card["score"]), 1), "pack playcard (src_weekly)")
                 withp = ", with %s from %s%s" % (I.n1(card["score"]), e(card["player"]), (" on %s catches" % m.group(1)) if m else "")
                 if m:
