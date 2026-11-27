@@ -1,62 +1,177 @@
 name: Log Contract Activity
 
+# Appends ONE worker contract event to
+#   site/rosters/contract_submissions/contract_activity_<season>.json   on main.
+#
+# Rebuilt 2026-09-12 after the log dropped 27 events (20 push/rebase failures,
+# 7 cancellations). Two rules, both load-bearing:
+#
+# 1. NO `concurrency:` BLOCK. GitHub allows one RUNNING and one PENDING run per
+#    concurrency group; when a third event arrives it CANCELS the older pending
+#    run. `cancel-in-progress: false` protects only the running one. Events were
+#    thrown away that way (e.g. run 34064243268 -- Brenen Thompson's MYAC,
+#    2026-09-06 22:31). Every event now gets its own run; git serialises them,
+#    because a push to main is a compare-and-swap on the ref.
+#
+# 2. NO REBASE. A repository_dispatch run is pinned to the SHA main had when the
+#    EVENT WAS CREATED, not when the run starts. A run created while a sibling
+#    is mid-flight starts from a file without the sibling's row; both commits
+#    rewrite meta.generated_at / meta.count and insert at the top of the
+#    newest-first array, so `git pull --rebase` conflicts every time (and under
+#    bash -e the old 3-try loop died on try 1). Instead: on a rejected push,
+#    reset to fresh origin/main and RE-RUN the append. log_contract_activity.py
+#    is idempotent by activity_id, so re-applying is safe.
+#
+# If the entry truly cannot land, the job FAILS (red X) and the payload is kept
+# in the run summary + an artifact so it can be replayed with workflow_dispatch.
+
 on:
   repository_dispatch:
     types: [log-contract-activity]
-
-concurrency:
-  group: log-contract-activity
-  cancel-in-progress: false
+  workflow_dispatch:
+    inputs:
+      payload_json:
+        description: "REPLAY a lost event: paste the client_payload.payload object (JSON)"
+        required: true
+        type: string
 
 permissions:
   contents: write
+  actions: write     # to start a Pages deploy after landing (see the last step)
 
 jobs:
   log:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PAYLOAD_JSON: ${{ github.event_name == 'workflow_dispatch' && inputs.payload_json || toJson(github.event.client_payload.payload || github.event.client_payload) }}
     steps:
-      - name: Checkout
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: main          # the branch tip, not the stale event SHA
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Append contract activity log
-        env:
-          PAYLOAD_JSON: ${{ toJson(github.event.client_payload.payload || github.event.client_payload) }}
+      - name: Validate payload and pick the season file
+        id: validate
         run: |
-          python pipelines/etl/scripts/log_contract_activity.py --json-path site/rosters/contract_submissions/contract_activity_2026.json
+          set -euo pipefail
+          printf '%s' "$PAYLOAD_JSON" > "$RUNNER_TEMP/payload.json"
+          python - <<'PY'
+          import json, os, re, sys
+          p = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "payload.json")))
+          if not isinstance(p, dict):
+              sys.exit("::error::payload is not a JSON object")
+          season = str(p.get("season") or p.get("year") or "").strip()
+          if not re.fullmatch(r"20\d\d", season):
+              sys.exit(f"::error::payload season {season!r} is not a 4-digit year")
+          path = f"site/rosters/contract_submissions/contract_activity_{season}.json"
+          if not os.path.exists(path):
+              print(f"::warning::{path} does not exist on main yet; it will be created (first {season} event)")
+          aid = str(p.get("activity_id") or p.get("submission_id") or "").strip()
+          with open(os.environ["GITHUB_OUTPUT"], "a") as fh:
+              fh.write(f"json_path={path}\n")
+          print(f"season={season} json_path={path} activity_id={aid or '(derived)'}")
+          PY
 
-      - name: Commit and push if changed
+      - name: Append and push (reset + re-apply on rejection)
+        env:
+          LOG_JSON_PATH: ${{ steps.validate.outputs.json_path }}
+          MAX_ATTEMPTS: "15"
         run: |
-          if git diff --quiet -- site/rosters/contract_submissions/contract_activity_2026.json; then
-            echo "No contract activity log changes to commit."
-            exit 0
-          fi
-          changed_files="$(git diff --name-only)"
-          unexpected="$(printf "%s\n" "$changed_files" | grep -Ev '^site/rosters/contract_submissions/contract_activity_2026\.json$' || true)"
-          if [ -n "$unexpected" ]; then
-            echo "Unexpected file changes detected; refusing to push."
-            printf "%s\n" "$unexpected"
-            git status --short
-            exit 1
-          fi
+          set -euo pipefail
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add site/rosters/contract_submissions/contract_activity_2026.json
-          git commit -m "Log contract activity"
-          for attempt in 1 2 3; do
-            git pull --rebase origin main
-            if git push origin HEAD:main; then
-              echo "Push succeeded on attempt ${attempt}."
-              exit 0
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          RESULT="$RUNNER_TEMP/result.json"
+
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            if git fetch --no-tags --depth=1 origin main; then
+              # Start from the CURRENT main every attempt -- never merge/rebase JSON.
+              git reset --hard -q FETCH_HEAD
+              git clean -fdq
+
+              # Deterministic errors (bad payload, missing field, unparseable log,
+              # season mismatch) exit non-zero HERE and set -e fails the job at once:
+              # retrying cannot fix them, and they must not be swallowed.
+              python pipelines/etl/scripts/log_contract_activity.py \
+                --json-path "$LOG_JSON_PATH" --result-json "$RESULT"
+              status="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["status"])' "$RESULT")"
+              aid="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["activity_id"])' "$RESULT")"
+
+              changed="$(git status --porcelain --untracked-files=all | cut -c4-)"
+              if [ "$status" = "unchanged" ]; then
+                if [ -n "$changed" ]; then
+                  echo "::error::script reported 'unchanged' but the tree is dirty:"; printf '%s\n' "$changed"; exit 1
+                fi
+                echo "Activity $aid is already on main (attempt $attempt) -- an earlier push landed. Done."
+                echo "Contract activity \`$aid\` was already on main." >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+
+              unexpected="$(printf '%s\n' "$changed" | grep -vxF -- "$LOG_JSON_PATH" | grep -v '^$' || true)"
+              if [ -n "$unexpected" ]; then
+                echo "::error::unexpected file changes; refusing to push:"; printf '%s\n' "$unexpected"; exit 1
+              fi
+              if [ -z "$changed" ]; then
+                echo "::error::script reported '$status' but $LOG_JSON_PATH did not change"; exit 1
+              fi
+
+              git add -- "$LOG_JSON_PATH"
+              git commit -q -m "Log contract activity ($aid)"
+              if git push origin HEAD:refs/heads/main; then
+                echo "Landed $aid ($status) on main as $(git rev-parse --short HEAD), attempt $attempt."
+                echo "Contract activity \`$aid\` $status on main in $(git rev-parse --short HEAD) (attempt $attempt)." >> "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+              echo "::warning::push rejected on attempt $attempt/$MAX_ATTEMPTS (main moved); resetting to fresh main and re-applying"
+            else
+              echo "::warning::git fetch failed on attempt $attempt/$MAX_ATTEMPTS"
             fi
-            echo "Push attempt ${attempt} failed; retrying..."
-            sleep 2
+
+            if [ "$attempt" -lt "$MAX_ATTEMPTS" ]; then
+              base=$(( attempt <= 5 ? 2 ** attempt : 60 ))    # 2,4,8,16,32,60,60,... s
+              delay=$(( base + RANDOM % 8 ))                   # jitter de-syncs a burst
+              echo "sleeping ${delay}s"
+              sleep "$delay"
+            fi
           done
-          echo "Failed to push after 3 attempts."
+
+          echo "::error title=Contract activity NOT logged::gave up after $MAX_ATTEMPTS attempts; payload preserved in the run summary and artifact for replay"
           exit 1
+
+      - name: Redeploy Pages so the Front Office sees the entry
+        # A push made with GITHUB_TOKEN does not trigger pages-deploy.yml, and the
+        # Front Office reads contract_activity_<yr>.json from Pages: the 09-06
+        # commits sat invisible until an unrelated deploy an hour later.
+        # workflow_dispatch IS allowed from GITHUB_TOKEN. pages-deploy cancels
+        # in-flight runs, so a burst ends in one deploy of the newest main.
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages-deploy.yml --ref main --repo "$GITHUB_REPOSITORY"
+
+      - name: NOT LOGGED -- preserve the event for replay
+        if: failure() || cancelled()
+        run: |
+          {
+            echo "## :rotating_light: Contract activity was NOT logged"
+            echo "Replay: Actions -> Log Contract Activity -> Run workflow, and paste this as payload_json:"
+            echo '```json'
+            if [ -s "$RUNNER_TEMP/payload.json" ]; then cat "$RUNNER_TEMP/payload.json"; else printf '%s' "$PAYLOAD_JSON"; fi
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -s "$RUNNER_TEMP/payload.json" ]; then printf '%s' "$PAYLOAD_JSON" > "$RUNNER_TEMP/payload.json"; fi
+
+      - name: Upload lost payload
+        if: failure() || cancelled()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lost-contract-activity-${{ github.run_id }}
+          path: ${{ runner.temp }}/payload.json
+          retention-days: 90
