@@ -205,7 +205,8 @@ export const EXPECTED_CSP = "default-src 'none'; script-src 'self'; style-src 's
 // credentials omitted, and every other Preview rule (no XHR, beacon, socket, eval, template literal, address rewrite, document write ...).
 export const SUBMIT_FETCH = "root.fetch(url, opts)";
 export const SUBMIT_ROUTES = ["/api/submit-lineup", "/roster-workbench/action", "/api/me", "/api/mfl-export",   // F8 (Keith 2026-11-26): the roster-move route
-  "/api/trades/proposals", "/api/trades/proposals/action", "/api/trades/compliance-preview", "/api/franchise-assets", "/api/league-events"];   // Trades v1 (Keith 2026-11-26)
+  "/api/trades/proposals", "/api/trades/proposals/action", "/api/trades/compliance-preview", "/api/franchise-assets", "/api/league-events",   // Trades v1 (Keith 2026-11-26)
+  "/api/trades/3way", "/api/trades/3way/cancel", "/api/trades/3way/recheck"];   // Trades v2: the classic app's 3-team routes
 export function scanSubmit(name, text) {
   const hits = [], code = stripComments(text);
   const relaxed = new Set(["a write verb as a string", "a request method other than a literal GET"]);

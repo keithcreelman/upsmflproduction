@@ -72,11 +72,12 @@
   // The ONE write request (both writes use it): a POST of a JSON body to one of the two write routes, with a new Idempotency-Key each time.
   // Trades v1 (Keith 2026-11-26 "go trades v1"): the classic app's three trade POSTs. The compliance check and the accept review are POSTs that
   // change nothing on MFL; the test worker ledgers every POST, so each carries its own key too.
-  var WRITES = ["/api/submit-lineup", "/roster-workbench/action", "/api/trades/proposals", "/api/trades/proposals/action", "/api/trades/compliance-preview"];
-  function post(cfg, route, bodyObj, key) {
+  var WRITES = ["/api/submit-lineup", "/roster-workbench/action", "/api/trades/proposals", "/api/trades/proposals/action", "/api/trades/compliance-preview",
+    "/api/trades/3way", "/api/trades/3way/cancel", "/api/trades/3way/recheck"];   // Trades v2 (Keith 2026-11-26): the classic app's 3-team routes
+  function post(cfg, route, bodyObj, key, params) {
     var t = token();
     if (WRITES.indexOf(route) < 0 || !t) return Promise.reject(new Error(!t ? "Not signed in" : "Unknown write"));
-    var p = {}; p[SESSION] = t;
+    var p = Object.assign({}, params || {}); p[SESSION] = t;
     return send(address(cfg, route, p), {
       method: "POST", mode: "cors", credentials: "omit", cache: "no-store", redirect: "error",
       headers: { "Content-Type": "application/json", "Idempotency-Key": key }, body: JSON.stringify(bodyObj),
@@ -169,7 +170,23 @@
     return post(cfg, "/api/trades/proposals", b, key).then(function (r) { return keyed(r, key); });
   }
 
+  // ---- 3-team trades (the classic app's /api/trades/3way routes) ----
+  function threeParams(cfg, fid, extra) { return signed(Object.assign({ YEAR: cfg.season, acting_franchise_id: fid }, extra || {})); }
+  function threeList(cfg, fid) {
+    if (!token()) return Promise.resolve({ ok: false, status: 401, body: null });
+    return getJson(address(cfg, "/api/trades/3way", threeParams(cfg, fid, { franchise_id: fid, _: Date.now() })));
+  }
+  function threePost(cfg, fid, route, bodyObj) {
+    var key = newKey();
+    if (!token()) return Promise.resolve({ ok: false, status: 401, body: { error: "Not signed in" }, key: key });
+    return post(cfg, route, bodyObj, key, { YEAR: cfg.season, acting_franchise_id: fid }).then(function (r) { return keyed(r, key); });
+  }
+  function threeCreate(cfg, fid, body) { return threePost(cfg, fid, "/api/trades/3way", body); }
+  function threeCancel(cfg, fid, id) { return threePost(cfg, fid, "/api/trades/3way/cancel", { id: String(id), acting_franchise_id: fid }); }
+  function threeRecheck(cfg, fid, id) { return threePost(cfg, fid, "/api/trades/3way/recheck", { id: String(id), acting_franchise_id: fid }); }
+
   root.UPS2027 = root.UPS2027 || {};
   root.UPS2027.submit = { token: token, signOut: signOut, whoami: whoami, lineup: lineup, rosterMove: rosterMove, mflStarters: mflStarters,
-    trades: { offers: tradeOffers, assets: tradeAssets, lock: tradeLock, rosterIds: rosterIds, check: tradeCheck, action: tradeAction, create: tradeCreate } };
+    trades: { offers: tradeOffers, assets: tradeAssets, lock: tradeLock, rosterIds: rosterIds, check: tradeCheck, action: tradeAction, create: tradeCreate,
+      threeList: threeList, threeCreate: threeCreate, threeCancel: threeCancel, threeRecheck: threeRecheck } };
 })(window);

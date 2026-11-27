@@ -630,6 +630,7 @@
   function loadTrades(force) {
     var me = trMe(); if (!me || !TT()) { render(true); return; }
     if (force || S.tr.offers.state !== "ok") readOffers(me);
+    if (force || S.tr.three.state !== "ok") readThree(me);
     if (force || S.tr.lock.state !== "ok") {
       S.tr.lock = { state: "loading" };
       TT().lock(cfg).then(function (r) { S.tr.lock = r.ok && r.body && r.body.trade_lock ? { state: "ok", data: r.body.trade_lock } : { state: "error" }; render(true); },
@@ -645,6 +646,13 @@
       render(true); return S.tr.offers;
     }, function () { S.tr.offers = { state: "error", why: "Couldn’t reach the test worker." }; render(true); return S.tr.offers; });
   }
+  function readThree(me) {
+    S.tr.three = { state: "loading" };
+    return TT().threeList(cfg, me).then(function (r) {
+      S.tr.three = r.ok && r.body && r.body.ok !== false ? { state: "ok", list: r.body.trades || r.body.three_way || [] } : { state: "error", why: U.trades.why(r) };
+      render(true); return S.tr.three;
+    }, function () { S.tr.three = { state: "error" }; render(true); return S.tr.three; });
+  }
   function loadInv(fid, force) {
     if (!fid || (!force && S.tr.inv[fid] && S.tr.inv[fid].state !== "error")) return;
     S.tr.inv[fid] = { state: "loading" };
@@ -653,9 +661,17 @@
       render(true);
     }, function () { S.tr.inv[fid] = { state: "error", why: "Couldn’t reach the test worker." }; render(true); });
   }
-  function trDraftChanged() { var me = trMe(), d = S.tr.d, B = U.trades.build(S, me); d.capGive = B.capGive; d.capGet = B.capGet; render(true); }
+  function trDraftChanged() {
+    var me = trMe();
+    if (S.tr.mode === 3) {   // cap money per movement, held to its maximum
+      var d3 = S.tr.d3;
+      Object.keys(d3.cap).forEach(function (g) { var inv = S.tr.inv[g]; Object.keys(d3.cap[g]).forEach(function (to) { d3.cap[g][to] = Math.min(d3.cap[g][to], U.trades.maxCapK(inv, d3.give[g] || {}, to)); }); });
+    } else { var d = S.tr.d, B = U.trades.build(S, me); d.capGive = B.capGive; d.capGet = B.capGet; }
+    render(true);
+  }
+  function trBuild(me) { return S.tr.mode === 3 ? U.trades.build3(S, me) : U.trades.build(S, me); }
   function trCheck() {
-    var me = trMe(), B = me && U.trades.build(S, me);
+    var me = trMe(), B = me && trBuild(me);
     if (!B || !B.ready) return;
     S.tr.chk = { state: "loading", sig: B.sig }; render(true);
     TT().check(cfg, me, B.movements).then(function (r) {
@@ -665,7 +681,38 @@
     }, function () { if (S.tr.chk.sig === B.sig) { S.tr.chk = { state: "error", sig: B.sig, why: "Couldn’t reach the test worker." }; render(true); } });
   }
   function trResult(r) { r.kind = "trade"; S.submit = r; S.sheet = "result"; S.tr.busy = false; render(); }
+  // 3-team: saved by the worker (it asks both teams); confirmed only when the worker's 3-team list for this team shows it.
+  function tr3Send() {
+    var me = trMe(), B = me && U.trades.build3(S, me), G = U.trades.gate(S);
+    if (!B || !U.trades.canSend(S, B, G)) return;
+    var head = { okTitle: "3-team trade sent", noTitle: "3-team trade NOT sent" };
+    S.tr.busy = true; render(true);
+    TT().threeCreate(cfg, me, B.body).then(function (r) {
+      var b = r.body || {}, id = String((b.trade && b.trade.id) || b.id || "");
+      if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing was sent.", reason: U.trades.why(r), key: r.key }));
+      return readThree(me).then(function (L) {
+        var found = L.state === "ok" && id && (L.list || []).some(function (t) { return String(t.id) === id; });
+        if (found) { S.tr.d3 = U.trades.blankDraft3(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.sub = "offers"; }
+        trResult(Object.assign(head, found ? { state: "confirmed", text: "Waiting on both teams.", key: r.key } : { state: "unconfirmed", title: "Sent, not confirmed", text: "The trade list doesn’t show it yet.", key: r.key }));
+      });
+    }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check before sending again." })); });
+  }
+  function tr3Act(kind, id) {
+    var me = trMe(); if (!me || S.tr.busy) return;
+    var head = kind === "cancel" ? { okTitle: "3-team trade cancelled", noTitle: "Not cancelled" } : { okTitle: "Re-checked", noTitle: "Still held" };
+    S.tr.busy = true; S.sheet = null; render(true);
+    (kind === "cancel" ? TT().threeCancel(cfg, me, id) : TT().threeRecheck(cfg, me, id)).then(function (r) {
+      var b = r.body || {};
+      if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing changed.", reason: U.trades.why(r), key: r.key }));
+      return readThree(me).then(function (L) {
+        var t = L.state === "ok" ? (L.list || []).filter(function (x) { return String(x.id) === String(id); })[0] : null;
+        var done = kind === "cancel" ? L.state === "ok" && (!t || t.status === "cancelled") : true;
+        trResult(Object.assign(head, done ? { state: "confirmed", text: kind === "cancel" ? "Confirmed." : String(b.message || "Checked again."), key: r.key } : { state: "unconfirmed", title: "Not confirmed", text: "The trade list still shows it.", key: r.key }));
+      });
+    }, function () { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer." })); });
+  }
   function trSend(capAck) {
+    if (S.tr.mode === 3) return tr3Send();
     var me = trMe(), B = me && U.trades.build(S, me), G = U.trades.gate(S);
     if (!B || !U.trades.canSend(S, B, G)) return;
     var head = { okTitle: "Offer sent", noTitle: "Offer NOT sent" };
@@ -676,7 +723,7 @@
       if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing was sent to MFL.", reason: U.trades.why(r), key: r.key }));
       return readOffers(me).then(function (O) {
         var found = O.state === "ok" ? U.trades.findSent(O.out, B.body.to_franchise_id, B.expect) : null;
-        if (found) { S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; S.tr.sub = "offers"; }
+        if (found) { S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.sub = "offers"; }
         trResult(Object.assign(head, found ? { state: "confirmed", text: "Confirmed on MFL.", key: r.key } : { state: "unconfirmed", title: "Sent, not confirmed", text: "MFL’s offer list doesn’t show it yet.", key: r.key }));
       });
     }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before sending again." })); });
@@ -717,15 +764,40 @@
       });
     }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before trying again." })); });
   }
-  function trHandle(act, v) {
-    var d = S.tr && S.tr.d, me = trMe();
-    if (!S.tr) return;
+  function trHandle(act, v, el) {
+    var d = S.tr.d, d3 = S.tr.d3, me = trMe(), at = function (k) { return el && el.getAttribute ? el.getAttribute(k) : null; };
+    var fidOk = function (f) { return /^\d{4}$/.test(f || ""); };
     if (act === "trsub") { if (v === "offers" || v === "new") { S.tr.sub = v; render(true); if (v === "new") loadInv(me, false); } }
     else if (act === "trload") loadTrades(true);
-    else if (act === "trinv") { loadInv(me, true); if (d.to) loadInv(d.to, true); }
-    else if (act === "trto") { d.to = /^\d{4}$/.test(v || "") && v !== me ? v : ""; d.get = {}; d.capGet = 0; S.tr.chk = { state: "idle", sig: "" }; if (d.to) { loadInv(me, false); loadInv(d.to, false); } render(true); }
-    else if (act === "trgive" || act === "trget") { var ids = act === "trgive" ? d.give : d.get; if (ids[v]) delete ids[v]; else ids[v] = true; trDraftChanged(); }
+    else if (act === "trinv") { Object.keys(S.tr.inv).forEach(function (f) { if (S.tr.inv[f].state === "error") loadInv(f, true); }); }
+    else if (act === "trmode") { var m = v === "3" ? 3 : 2; if (S.tr.mode !== m) { S.tr.mode = m; S.tr.chk = { state: "idle", sig: "" }; } loadInv(me, false); render(true); }
+    else if (act === "trteams") { if (v === "to" || v === "b" || v === "c") { S.tr.tp = v; S.sheet = "trteams"; render(); } }
+    else if (act === "trteampick") {
+      var slot = S.tr.tp; if (!fidOk(v) || v === me || !slot) return;
+      if (slot === "to") { d.to = v; d.get = {}; d.capGet = 0; }
+      else {
+        var old = d3[slot]; d3[slot] = v;
+        if (old && old !== v) { delete d3.give[old]; delete d3.cap[old]; Object.keys(d3.give).forEach(function (g) { Object.keys(d3.give[g]).forEach(function (t) { if (d3.give[g][t] === old) d3.give[g][t] = U.trades.ringNext(S, me, g); }); if (d3.cap[g]) delete d3.cap[g][old]; }); }
+      }
+      S.tr.tp = null; S.sheet = null; S.tr.chk = { state: "idle", sig: "" }; loadInv(me, false); loadInv(v, false); render(true);
+    }
+    else if (act === "trpick") { var pf = at("data-fid"); if (fidOk(pf)) { S.tr.pk = { fid: pf }; loadInv(pf, false); S.sheet = "trpick"; render(); } }
+    else if (act === "trtoggle" || act === "trrm") {
+      var f = act === "trtoggle" ? S.tr.pk && S.tr.pk.fid : at("data-fid"); if (!fidOk(f) || !v) return;
+      if (S.tr.mode === 3) { var g = d3.give[f] = d3.give[f] || {}; if (g[v] || act === "trrm") delete g[v]; else g[v] = U.trades.ringNext(S, me, f); }
+      else { var ids = f === me ? d.give : f === d.to ? d.get : null; if (!ids) return; if (ids[v] || act === "trrm") delete ids[v]; else ids[v] = true; }
+      trDraftChanged();
+    }
+    else if (act === "trdest") {
+      var gf = at("data-fid"), gm = fidOk(gf) && d3.give[gf]; if (!gm || !gm[v]) return;
+      var two = U.trades.ring(S, me).filter(function (x) { return x !== gf; }); gm[v] = gm[v] === two[0] ? two[1] : two[0]; trDraftChanged();
+    }
     else if (act === "trcapg" || act === "trcapt") { var k = act === "trcapg" ? "capGive" : "capGet"; d[k] = Math.max(0, (parseInt(d[k], 10) || 0) + (v === "1" ? 1 : -1)); trDraftChanged(); }
+    else if (act === "trcap3") {
+      var cg = at("data-fid"), ct = at("data-to"); if (!fidOk(cg) || !fidOk(ct)) return;
+      var c = d3.cap[cg] = d3.cap[cg] || {}; c[ct] = Math.max(0, Math.min((parseInt(c[ct], 10) || 0) + (v === "1" ? 1 : -1), U.trades.maxCapK(S.tr.inv[cg], d3.give[cg] || {}, ct))); trDraftChanged();
+    }
+    else if (act === "trnote") { S.tr.note = true; render(true); }
     else if (act === "trcheck") trCheck();
     else if (act === "trsend") trSend(null);
     else if (act === "trsendack") { var sig = S.tr.ack && S.tr.ack.signature; if (sig) trSend(sig); }
@@ -737,7 +809,10 @@
     else if (act === "trdeclinego") { if (S.tr.dec) trAct("reject", S.tr.dec.tid, S.tr.dec.note); }
     else if (act === "trcancel") { if (trOffer(v)) { S.tr.can = { tid: v }; S.sheet = "trcancel"; render(); } }
     else if (act === "trcancelgo") { if (S.tr.can) trAct("revoke", S.tr.can.tid, ""); }
-    else if (act === "trclose") { S.sheet = null; S.tr.rv = null; S.tr.dec = null; S.tr.can = null; S.tr.ack = null; render(true); }
+    else if (act === "tr3cancel") { S.tr.can3 = { id: v }; S.sheet = "tr3cancel"; render(); }
+    else if (act === "tr3cancelgo") { if (S.tr.can3) tr3Act("cancel", S.tr.can3.id); }
+    else if (act === "tr3recheck") tr3Act("recheck", v);
+    else if (act === "trclose") { S.sheet = null; S.tr.rv = null; S.tr.dec = null; S.tr.can = null; S.tr.can3 = null; S.tr.ack = null; S.tr.pk = null; S.tr.tp = null; render(true); }
   }
   function returnFromProfile() {
     var r = S.ret; S.ret = null;
@@ -797,7 +872,7 @@
     handle(act, v, el);
   });
   function handle(act, v, el) {
-    if (/^tr[a-z]+$/.test(act || "")) { if (S.tr) trHandle(act, v); return; }   // Trades v1 (every trade tap starts "tr")
+    if (/^tr[a-z0-9]+$/.test(act || "")) { if (S.tr) trHandle(act, v, el); return; }   // Trades v1 (every trade tap starts "tr")
     if (act === "submit") doSubmit();
     else if (act === "optimal") doOptimal();
     else if (act === "move") { if (S.profile && S.submitMode) { S.move = { pid: S.profile.pid, act: v }; S.sheet = "move"; render(); } }
@@ -867,6 +942,7 @@
   appEl.addEventListener("input", function (ev) {
     var el = ev.target;
     if (el && S.tr && el.id === "trnote") { S.tr.d.note = String(el.value || "").slice(0, 2000); return; }                       // Trades v1: the offer's note (no redraw while typing)
+    if (el && S.tr && el.id === "trnote3") { S.tr.d3.note = String(el.value || "").slice(0, 2000); return; }
     if (el && S.tr && el.id === "trdeclnote" && S.tr.dec) { S.tr.dec.note = String(el.value || "").slice(0, 2000); return; }    // and a decline's note
     if (!el || el.id !== "pfq") return;
     S.pf.q = String(el.value || "").slice(0, 40); S.pf.note = null;

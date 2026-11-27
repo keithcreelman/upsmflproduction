@@ -86,12 +86,14 @@ test("submit.js: offers is a GET with the owner's sign-in; check, create and eve
 
 test("trades.js: tokens read as owners say them (MFL's DP_ is zero-indexed; BB_ is dollars; a pick from another team names it)", async () => {
   const S = await fresh("0006"), p = S.model.teams[0].players[0];
-  t.match(T.tokenLabel(S, String(p.id), "0001"), new RegExp("^" + p.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + " · "));
+  t.equal(T.tokenLabel(S, String(p.id), "0001"), p.name + " " + p.pos + " " + T.k$(p.salary));
+  t.equal(T.tokenLabel(S, "P_" + p.id, "0001"), T.tokenLabel(S, String(p.id), "0001"), "a P_ token reads the same");
+  t.equal(T.k$(12000), "$12K"); t.equal(T.k$(1500), "$1.5K"); t.equal(T.k$(500), "$500");
   t.equal(T.tokenLabel(S, "99999999", "0001"), "Player 99999999");
   t.equal(T.tokenLabel(S, "DP_0_3", "0001"), "Pick 1.04");
-  t.equal(T.tokenLabel(S, "BB_4000", "0001"), "$4,000 cap money");
-  t.equal(T.tokenLabel(S, "FP_0006_2027_1", "0006"), "2027 Round 1");
-  t.match(T.tokenLabel(S, "FP_0002_2027_2", "0006"), /^2027 Round 2 \(.+\)$/);
+  t.equal(T.tokenLabel(S, "BB_4000", "0001"), "$4K cap");
+  t.equal(T.tokenLabel(S, "FP_0006_2027_1", "0006"), "2027 R1");
+  t.match(T.tokenLabel(S, "FP_0002_2027_2", "0006"), /^2027 R2 \(.+\)$/);
 });
 
 test("the trade lock fails closed: Send and Accept need MFL's calendar read, and a time before the lock", async () => {
@@ -130,17 +132,19 @@ test("the builder: the classic app's offer body; cap money held to half the non-
   t.ok(T.findSent([{ to_franchise_id: to, will_give_up: X.expect.giveUp.slice().reverse().join(","), will_receive: X.expect.receive.join(", ") }], to, X.expect), "the read-back finds the offer");
   t.equal(T.findSent([{ to_franchise_id: to, will_give_up: mine[0].player_id, will_receive: X.expect.receive.join(",") }], to, X.expect), null, "a different offer isn't it");
   S.tr.lock = { state: "ok", data: LOCK_UP }; S.tr.sub = "new";
-  const html = V.app(S);
-  t.doesNotMatch(html, /data-act="trget" data-v="FP_0002_2027_6"(?![^>]*disabled)/, "round 6 is drawn disabled");
-  t.match(text(html), /Round 6 can’t be traded/); t.match(text(html), /Forfeited — lineup penalty/);
-  t.match(text(html), /Cap money you give \$10,000 Max \$10,000/); t.match(html, /data-act="trsend" disabled/, "not checked yet: Send off");
-  t.match(html, /data-act="trcheck">Check trade/);
+  const html = V.app(S), give = html.split("<h2>You give</h2>")[1].split("<h2>You get</h2>")[0];
+  t.equal((give.match(/class="trsel"/g) || []).length, 2, "the page lists only what is picked");
+  t.doesNotMatch(html, /Round 6/, "the full lists live in the sheet, not on the page");
+  t.match(text(give), /Cap money \$10K max \$10K/);
+  t.doesNotMatch(html, /data-act="trsend"/, "not checked yet: no Send"); t.match(html, /data-act="trcheck">Check trade/);
+  S.sheet = "trpick"; S.tr.pk = { fid: to }; const sh = V.app(S);
+  t.match(sh, /data-act="trtoggle" data-v="FP_0002_2027_6" aria-pressed="false" disabled/, "round 6 is drawn disabled"); t.match(text(sh), /Round 6 can’t be traded/); t.match(text(sh), /Forfeited — lineup penalty/);
+  t.match(sh, new RegExp('data-v="P_' + theirs[1].player_id + '" aria-pressed="true"'), "picked ones are marked");
+  S.sheet = null;
   S.tr.d.give = { ["P_" + mine[2].player_id]: true }; S.tr.d.capGive = 0;   // $3,000 sent: half is $1,500, so $1K max
-  t.match(text(V.app(S)), /Cap money you give \$0 Max \$1,000/);
-  S.tr.d.give = { ["P_" + mine[3].player_id]: true };   // only a taxi player
-  t.match(text(V.app(S)), /Cap money you give: add a non-taxi player first\./);
-  S.tr.inv[me].players[2].salary = 1000; S.tr.d.give = { ["P_" + mine[2].player_id]: true };
-  t.match(text(V.app(S)), /Cap money you give: none \(half the salary sent is under \$1,000\)\./);
+  t.match(text(V.app(S)), /Cap money \$0 max \$1K/);
+  S.tr.d.give = { ["P_" + mine[3].player_id]: true };   // only a taxi player: no cap money row at all
+  t.doesNotMatch(V.app(S).split("<h2>You give</h2>")[1].split("<h2>You get</h2>")[0], /Cap money/);
 });
 
 test("Send: only after a check of THIS offer with the loaded-contract limit met, before the lock", async () => {
@@ -168,7 +172,7 @@ test("offers: incoming shows Accept and Decline, outgoing shows Cancel; Accept i
     out: [{ trade_id: "502", from_franchise_id: "0006", to_franchise_id: "0003", will_give_up: b[1], will_receive: "FP_0003_2027_1" }] };
   const h = V.app(S), tx = text(h);
   t.match(h, /data-act="trreview" data-v="501"/); t.match(h, /data-act="trdecline" data-v="501"/); t.match(h, /data-act="trcancel" data-v="502"/);
-  t.match(tx, /You get .*\$2,000 cap money/); t.match(tx, /“fair\?”/); t.match(tx, /2027 Round 1/);
+  t.match(tx, /Get .*\$2K cap/); t.match(tx, /“fair\?”/); t.match(tx, /2027 R1/); t.match(tx, /To you · 1/); t.match(tx, /Yours · 1/);
   S.tr.lock = { state: "ok", data: { state: "closed" } };
   t.match(V.app(S), /data-act="trreview" data-v="501" disabled/, "locked: Accept off"); t.match(text(V.app(S)), /Trades are locked\./);
   S.tr.offers = { state: "error", why: "Your MFL sign-in expired." }; t.match(text(V.app(S)), /Your MFL sign-in expired\. Try again/);
@@ -190,9 +194,9 @@ test("the accept review: the worker decides; Accept only when the cap is fine (o
   S.sheet = "trreview"; S.tr.rv = Object.assign({ tid: "501", offer: S.tr.offers.inc[0] }, T.review(over));
   over.body.cap_ack.satisfied = false; S.tr.rv = Object.assign({ tid: "501", offer: S.tr.offers.inc[0] }, T.review(over));
   let h = V.app(S);
-  t.match(h, /data-act="traccept" disabled/); t.match(text(h), /Acknowledge \$3,000 over/);
+  t.match(h, /data-act="traccept" disabled/); t.match(text(h), /Acknowledge \$3K over the cap/);
   S.tr.rv = Object.assign({ tid: "501", offer: S.tr.offers.inc[0] }, T.review(ok)); h = V.app(S);
-  t.match(h, /data-act="traccept">Accept trade/); t.match(text(h), /A \$5,000 room/);
+  t.match(h, /data-act="traccept">Accept trade/); t.match(text(h), /A \$5K room/);
   S.tr.lock = { state: "ok", data: { state: "closed" } }; t.match(V.app(S), /data-act="traccept" disabled/, "locked");
   t.match(appJs, /if \(verb === "accept" && !\(S\.tr\.rv && S\.tr\.rv\.data && S\.tr\.rv\.data\.canAccept && U\.trades\.gate\(S\)\.ok\)\) return;/, "app.js re-checks before it accepts");
 });
@@ -224,6 +228,30 @@ test("the Preview build: League stays a placeholder and carries no trade code; t
   const bad = B.build(tmp(), src, git, FIXSH, FIXLOCK, { dev: true, target: "test" });
   t.ok(!bad.ok); t.ok(bad.problems.some((x) => /lib\/trades\.js: network code/.test(x)), JSON.stringify(bad.problems));
   [pv, tt, src].forEach((d) => fs.rmSync(d, { recursive: true, force: true }));
+});
+
+test("3 teams (the classic 3-way): each asset goes to one of the other two (ring default, tap to flip); cap money per movement, held to half its non-taxi salary", async () => {
+  const S = await fresh("0006"), me = "0006", b = "0002", c = "0003";
+  [me, b, c].forEach((f) => { S.tr.inv[f] = inv(S, f); });
+  S.tr.mode = 3; S.tr.d3 = Object.assign(T.blankDraft3(), { b, c });
+  t.deepEqual(T.ring(S, me), [me, b, c]); t.equal(T.ringNext(S, me, me), b); t.equal(T.ringNext(S, me, b), c); t.equal(T.ringNext(S, me, c), me);
+  const P = (f, i) => "P_" + S.tr.inv[f].players[i].player_id;
+  S.tr.d3.give[me] = { [P(me, 0)]: b, [P(me, 1)]: c };            // $20,000 to B, $9,000 to C
+  S.tr.d3.give[b] = { [P(b, 2)]: c, ["FP_" + b + "_2027_6"]: me };  // round 6 is dropped
+  S.tr.d3.give[c] = { ["FP_" + c + "_2027_1"]: me };
+  S.tr.d3.cap[me] = { [b]: 99, [c]: 4 };
+  const X = T.build3(S, me);
+  t.equal(X.ready, true);
+  t.deepEqual(X.body.movements.map((m) => [m.from, m.to, m.asset_tokens, m.cap_k]), [
+    [me, b, [P(me, 0)], 10], [me, c, [P(me, 1)], 4], [b, c, [P(b, 2)], 0], [c, me, ["FP_" + c + "_2027_1"], 0]]);
+  t.equal(X.body.initiator.fid, me); t.equal(X.body.team_b.fid, b); t.equal(X.body.team_c.fid, c); t.deepEqual(X.body.extension_requests, []);
+  t.deepEqual(X.movements[0], { from: me, to: b, asset_tokens: [P(me, 0)], cap_k: 10 }, "the check gets the same movements");
+  S.tr.lock = { state: "ok", data: LOCK_UP }; S.tr.sub = "new";
+  const h = V.app(S), tx = text(h);
+  t.match(h, /data-act="trmode" data-v="3" aria-pressed="true"/); t.match(tx, /You send/); t.match(tx, /sends/);
+  t.match(h, /data-act="trdest" data-v="P_[0-9]+" data-fid="0006">→ /); t.match(tx, /Cap to .* \$10K max \$10K/);
+  t.match(h, /data-act="trcheck">Check trade/);
+  S.tr.d3 = Object.assign(T.blankDraft3(), { b }); t.equal(T.build3(S, me).ready, false, "needs both teams");
 });
 
 await run("mobile2027_r13_trades");
