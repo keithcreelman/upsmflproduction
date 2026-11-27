@@ -29,6 +29,9 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write   # data-alert issue (BL-I03)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -53,3 +56,20 @@ jobs:
           if [ -n "${MFL_YEAR:-}" ]; then SEASON_ARG="--season ${MFL_YEAR}"; fi
           echo "Syncing CONFIG tables (league ${LEAGUE_ID}); season=${MFL_YEAR:-auto}"
           python3 ../pipelines/etl/scripts/sync_config_to_d1.py ${SEASON_ARG} --league-id "${LEAGUE_ID}"
+
+      # BL-I03 (Keith 2026-11-22): data-alert issue + private Discord message for this job.
+      # See pipelines/ops/job_alert.py. The Discord target ids are secrets so the public log masks them.
+      - name: Alert (data-alert issue + private Discord)
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          ALERT_DISCORD_ENABLED: ${{ vars.ALERT_DISCORD_ENABLED }}
+          ALERT_DISCORD_USER_ID: ${{ secrets.ALERT_DISCORD_USER_ID }}
+          ALERT_DISCORD_CHANNEL_ID: ${{ secrets.ALERT_DISCORD_CHANNEL_ID }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 pipelines/ops/job_alert.py --job nightly-config-sync --status "$JOB_STATUS" \
+            --run-url "$RUN_URL" \
+            --affects "D1 franchise and season config (divisions, names, limits) used by standings and the site"

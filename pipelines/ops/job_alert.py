@@ -14,7 +14,9 @@ State lives in the issue body, in one HTML comment (`<!-- job-alert-state {...} 
 visible and auditable. No D1, no repo file.
 
 Discord is OFF unless ALERT_DISCORD_ENABLED is "1". Then it needs DISCORD_BOT_TOKEN and exactly one
-target: ALERT_DISCORD_USER_ID (a direct message) or ALERT_DISCORD_CHANNEL_ID. When Discord is off,
+target: ALERT_DISCORD_USER_ID (a direct message) or ALERT_DISCORD_CHANNEL_ID, a 15-21 digit id.
+The target ids are repository SECRETS, not variables: GitHub masks secrets in the public Actions
+logs, but prints variables in each step's environment. When Discord is off,
 the issue still records the failure and says Discord was not sent. When Discord is on and delivery
 fails, the issue says so and this script exits 2, so a broken alert path is never silent.
 A recovery whose Discord message fails leaves the issue open; the next success retries it.
@@ -116,6 +118,10 @@ def discord_config(env: dict) -> tuple:
         return True, "no Discord bot token available to this job", None, None
     if bool(user) == bool(chan):
         return True, "set exactly one of ALERT_DISCORD_USER_ID or ALERT_DISCORD_CHANNEL_ID", None, None
+    if not re.fullmatch(r"\d{15,21}", user or chan):
+        # The value itself is never echoed: it is private, and it may be a stray placeholder such as "-".
+        return True, (f"ALERT_DISCORD_{'USER' if user else 'CHANNEL'}_ID is not a Discord id "
+                      "(expected 15 to 21 digits)"), None, None
     return True, None, ("user" if user else "channel"), (user or chan)
 
 
