@@ -681,58 +681,79 @@
     }, function () { if (S.tr.chk.sig === B.sig) { S.tr.chk = { state: "error", sig: B.sig, why: "Couldn’t reach the test worker." }; render(true); } });
   }
   function trResult(r) { r.kind = "trade"; S.submit = r; S.sheet = "result"; S.tr.busy = false; if (r.state === "confirmed" && S.tr.view !== "build") S.tr.view = "list"; render(); }
-  // 3-team: saved by the worker (it asks both teams); confirmed only when the worker's 3-team list for this team shows it.
+  // Keith 2026-11-27: a counter went through on MFL but the phone showed "No answer" (the worker answered OK after 13 s; the reply never reached the
+  // phone). So a lost reply is never the last word: the app reads MFL (or the worker's Ménage list) back and reports what is actually there.
+  function pad4s(x) { var t = String(x == null ? "" : x).trim(); return t ? ("0000" + t).slice(-4) : ""; }
+  function lostText(e) { return String((e && e.message) || e || "no reply"); }
+  function trId(o) { return String((o && (o.trade_id || o.proposal_id)) || "").replace(/\D/g, ""); }
+  function trOutIds() { var O = S.tr.offers; return O && O.state === "ok" ? (O.out || []).map(trId) : []; }
+  function threeIds() { var T = S.tr.three; return T && T.state === "ok" ? (T.list || []).map(function (t) { return String(t.id); }) : []; }
+  // Ménage: saved by the worker (it asks both teams); confirmed only when the worker's Ménage list for this team shows it.
   function tr3Send() {
     var me = trMe(), B = me && U.trades.build3(S, me), G = U.trades.gate(S);
     if (!B || !U.trades.canSend(S, B, G)) return;
-    var head = { okTitle: "3-team trade sent", noTitle: "3-team trade NOT sent" };
+    var head = { okTitle: "Ménage sent", noTitle: "Ménage NOT sent" }, before = threeIds(), team = [pad4s(S.tr.d3.b), pad4s(S.tr.d3.c)].sort().join();
     S.tr.busy = true; render(true);
+    var check = function (id, key, lost) {
+      return readThree(me).then(function (L) {
+        var found = L.state === "ok" && (L.list || []).some(function (t) {
+          if (id) return String(t.id) === id;
+          var fids = (t.participants || []).map(function (p) { return pad4s(p.fid); }).filter(function (f) { return f !== me; }).sort().join();
+          return before.indexOf(String(t.id)) < 0 && fids === team;   // a lost reply: a new one with these two teams
+        });
+        if (found) { S.tr.d3 = U.trades.blankDraft3(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.view = "list"; }
+        trResult(Object.assign(head, found ? { state: "confirmed", text: "Waiting on both teams.", key: key } : lost ? { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + lost + ") and the Ménage list doesn’t show it. Check before sending again." } : { state: "unconfirmed", title: "Sent, not confirmed", text: "The trade list doesn’t show it yet.", key: key }));
+      });
+    };
     TT().threeCreate(cfg, me, B.body).then(function (r) {
       var b = r.body || {}, id = String((b.trade && b.trade.id) || b.id || "");
       if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing was sent.", reason: U.trades.why(r), key: r.key }));
-      return readThree(me).then(function (L) {
-        var found = L.state === "ok" && id && (L.list || []).some(function (t) { return String(t.id) === id; });
-        if (found) { S.tr.d3 = U.trades.blankDraft3(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.view = "list"; }
-        trResult(Object.assign(head, found ? { state: "confirmed", text: "Waiting on both teams.", key: r.key } : { state: "unconfirmed", title: "Sent, not confirmed", text: "The trade list doesn’t show it yet.", key: r.key }));
-      });
-    }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check before sending again." })); });
+      return check(id, r.key, "");
+    }, function (e) { return check("", "", lostText(e)); });
   }
   function tr3Act(kind, id) {
     var me = trMe(); if (!me || S.tr.busy) return;
-    var head = kind === "cancel" ? { okTitle: "3-team trade cancelled", noTitle: "Not cancelled" } : kind === "accept" ? { okTitle: "Accepted", noTitle: "NOT accepted" } :
-      kind === "decline" ? { okTitle: "3-team trade declined", noTitle: "NOT declined" } : { okTitle: "Re-checked", noTitle: "Still held" };
+    var head = kind === "cancel" ? { okTitle: "Ménage cancelled", noTitle: "Not cancelled" } : kind === "accept" ? { okTitle: "Accepted", noTitle: "NOT accepted" } :
+      kind === "decline" ? { okTitle: "Ménage declined", noTitle: "NOT declined" } : { okTitle: "Re-checked", noTitle: "Still held" };
     S.tr.busy = true; S.sheet = null; render(true);
-    (kind === "cancel" ? TT().threeCancel(cfg, me, id) : kind === "accept" || kind === "decline" ? TT().threeRespond(cfg, me, id, kind) : TT().threeRecheck(cfg, me, id)).then(function (r) {
-      var b = r.body || {};
-      if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing changed.", reason: U.trades.why(r), key: r.key }));
+    var check = function (b, key, lost) {
       return readThree(me).then(function (L) {
         var t = L.state === "ok" ? (L.list || []).filter(function (x) { return String(x.id) === String(id); })[0] : null;
         var mineNow = t && (t.participants || []).filter(function (p) { return p.fid === me; })[0];
         var done = kind === "cancel" || kind === "decline" ? L.state === "ok" && (!t || t.status === "cancelled") :
-          kind === "accept" ? L.state === "ok" && (!t || (mineNow && mineNow.state === "accepted") || t.status !== "collecting") : true;
+          kind === "accept" ? L.state === "ok" && (!t || (mineNow && mineNow.state === "accepted") || t.status !== "collecting") : !lost;
         var text = kind === "accept" ? (t && t.state_view && t.state_view.label ? String(t.state_view.label) + "." : "Confirmed.") : kind === "recheck" ? String(b.message || "Checked again.") : "Confirmed.";
-        trResult(Object.assign(head, done ? { state: "confirmed", text: text, key: r.key } : { state: "unconfirmed", title: "Not confirmed", text: "The trade list doesn’t show it yet.", key: r.key }));
+        trResult(Object.assign(head, done ? { state: "confirmed", text: text, key: key } : lost ? { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + lost + ") and the Ménage list doesn’t show the change." } : { state: "unconfirmed", title: "Not confirmed", text: "The trade list doesn’t show it yet.", key: key }));
       });
-    }, function () { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer." })); });
+    };
+    (kind === "cancel" ? TT().threeCancel(cfg, me, id) : kind === "accept" || kind === "decline" ? TT().threeRespond(cfg, me, id, kind) : TT().threeRecheck(cfg, me, id)).then(function (r) {
+      var b = r.body || {};
+      if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing changed.", reason: U.trades.why(r), key: r.key }));
+      return check(b, r.key, "");
+    }, function (e) { return check({}, "", lostText(e)); });
   }
   function trSend(capAck) {
     if (S.tr.mode === 3 && !S.tr.counter) return tr3Send();
     var me = trMe(), B = me && U.trades.build(S, me), G = U.trades.gate(S), ctr = S.tr.counter;
     if (!B || !U.trades.canSend(S, B, G)) return;
-    var head = ctr ? { okTitle: "Counter sent", noTitle: "Counter NOT sent" } : { okTitle: "Offer sent", noTitle: "Offer NOT sent" };
+    var head = ctr ? { okTitle: "Counter sent", noTitle: "Counter NOT sent" } : { okTitle: "Offer sent", noTitle: "Offer NOT sent" }, before = trOutIds();
     S.tr.busy = true; S.sheet = null; S.tr.ack = null; render(true);
+    var check = function (key, lost) {
+      return readOffers(me).then(function (O) {
+        var fresh = O.state === "ok" ? (O.out || []).filter(function (o) { return before.indexOf(trId(o)) < 0; }) : [];
+        var found = O.state === "ok" ? U.trades.findSent(fresh, B.body.to_franchise_id, B.expect) : null;
+        if (found && ctr && trOffer(ctr.tid)) found = null;   // a counter is done only when the original offer is gone too
+        if (found) { S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.counter = null; S.tr.view = "list"; }
+        trResult(Object.assign(head, found ? { state: "confirmed", text: "Confirmed on MFL.", key: key } : lost ? { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + lost + ") and MFL’s offer list doesn’t show it. Check MFL before sending again." } : { state: "unconfirmed", title: "Sent, not confirmed", text: "MFL’s offer list doesn’t show it yet.", key: key }));
+      });
+    };
     // A counter is the classic app's COUNTER: the worker declines the offer on MFL and sends this one back to the team that made it.
     (ctr ? TT().counter(cfg, me, ctr.tid, B.body) : TT().create(cfg, B.body, capAck)).then(function (r) {
       var b = r.body || {};
       if (r.status === 409 && b.code === "cap_overage_ack_required" && b.cap_ack_needed && !capAck) { S.tr.busy = false; S.tr.ack = b.cap_ack_needed; S.sheet = "trackSend"; render(); return; }
       if (!r.ok || b.ok === false) return trResult(Object.assign(head, { state: "refused", text: "Nothing was sent to MFL.", reason: U.trades.why(r), key: r.key }));
-      return readOffers(me).then(function (O) {
-        var found = O.state === "ok" ? U.trades.findSent(O.out, B.body.to_franchise_id, B.expect) : null;
-        if (found && ctr && trOffer(ctr.tid)) found = null;   // a counter is done only when the original offer is gone too
-        if (found) { S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; S.tr.note = false; S.tr.counter = null; S.tr.view = "list"; }
-        trResult(Object.assign(head, found ? { state: "confirmed", text: "Confirmed on MFL.", key: r.key } : { state: "unconfirmed", title: "Sent, not confirmed", text: "MFL’s offer list doesn’t show it yet.", key: r.key }));
-      });
-    }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before sending again." })); });
+      return check(r.key, "");
+    }, function (e) { return check("", lostText(e)); });
   }
   function trOffer(tid) { var O = S.tr.offers; return O.state === "ok" ? (O.inc || []).concat(O.out || []).filter(function (o) { return String(o.trade_id || o.proposal_id || "").replace(/\D/g, "") === String(tid); })[0] || null : null; }
   function trReview(tid) {
@@ -784,19 +805,21 @@
     if (verb === "accept" && !(S.tr.rv && S.tr.rv.data && S.tr.rv.data.canAccept && U.trades.gate(S).ok)) return;
     var x = U.trades.offerSides(S, o, me), head = { okTitle: M.ok, noTitle: M.no };
     S.tr.busy = true; S.sheet = null; render(true);
-    TT().action(cfg, me, verb, tid, note || "").then(function (r) {
-      var b = r.body || {};
-      if (b.code === "execution_unconfirmed" || b.code === "execution_in_progress") return trResult(Object.assign(head, { state: "unconfirmed", title: "Not confirmed", text: "Couldn’t confirm MFL processed it. It wasn’t sent again.", key: r.key }));
-      if ((!r.ok || b.ok === false) && b.code !== "already_executed") return trResult(Object.assign(head, { state: "refused", text: "Nothing changed on MFL.", reason: U.trades.why(r), key: r.key }));
-      var review = b.needs_review || b.execution_state === "executed_needs_review" ? " The commissioner finishes the contract step." : "";
+    var check = function (key, lost, review) {
       var players = verb === "accept" ? x.get.filter(function (t) { return /^\d+$/.test(t); }) : [];
       var rosterCheck = players.length ? TT().rosterIds(cfg, me).then(function (ids) { return players.every(function (p) { return ids.indexOf(p) >= 0; }); }, function () { return false; }) : Promise.resolve(true);
       return Promise.all([readOffers(me), rosterCheck]).then(function (res) {
         var gone = res[0].state === "ok" && !trOffer(tid), done = gone && res[1];
         if (verb === "accept" && done) { S.profile = null; S.tr.inv = {}; S.penalty = { state: "idle" }; loadCore(); }
-        trResult(Object.assign(head, done ? { state: "confirmed", text: "Confirmed on MFL." + review, key: r.key } : { state: "unconfirmed", title: "Sent, not confirmed", text: verb === "accept" ? "Your MFL roster doesn’t show it yet." : "MFL still lists the offer.", key: r.key }));
+        trResult(Object.assign(head, done ? { state: "confirmed", text: "Confirmed on MFL." + (review || ""), key: key } : lost ? { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + lost + ") and MFL " + (verb === "accept" ? "doesn’t show the trade yet." : "still lists the offer.") + " Check MFL before trying again." } : { state: "unconfirmed", title: "Sent, not confirmed", text: verb === "accept" ? "Your MFL roster doesn’t show it yet." : "MFL still lists the offer.", key: key }));
       });
-    }, function (e) { trResult(Object.assign(head, { state: "unconfirmed", title: "No answer", text: "The test worker didn’t answer (" + (e && e.message || e) + "). Check MFL before trying again." })); });
+    };
+    TT().action(cfg, me, verb, tid, note || "").then(function (r) {
+      var b = r.body || {};
+      if (b.code === "execution_unconfirmed" || b.code === "execution_in_progress") return trResult(Object.assign(head, { state: "unconfirmed", title: "Not confirmed", text: "Couldn’t confirm MFL processed it. It wasn’t sent again.", key: r.key }));
+      if ((!r.ok || b.ok === false) && b.code !== "already_executed") return trResult(Object.assign(head, { state: "refused", text: "Nothing changed on MFL.", reason: U.trades.why(r), key: r.key }));
+      return check(r.key, "", b.needs_review || b.execution_state === "executed_needs_review" ? " The commissioner finishes the contract step." : "");
+    }, function (e) { return check("", lostText(e), ""); });
   }
   function trHandle(act, v, el) {
     var d = S.tr.d, d3 = S.tr.d3, me = trMe(), at = function (k) { return el && el.getAttribute ? el.getAttribute(k) : null; };
@@ -986,11 +1009,25 @@
   }
   // R8: Team › Performance "Search players". Only the list under the box is redrawn while typing, so the box itself (focus, cursor, the phone's
   // keyboard) is never replaced; anything else falls back to a full redraw, which keeps focus and cursor too (render). No request is made.
+  // Cap money typed into its box ($K): held to 0..max as it's typed, redrawn when the box is left (a short delay lets a tap on Check trade land first).
+  function trCapTyped(el, done) {
+    var act = el.getAttribute("data-cap"), g = el.getAttribute("data-fid"), t = el.getAttribute("data-to"), me = trMe();
+    var n = Math.max(0, parseInt(String(el.value || "").replace(/\D/g, ""), 10) || 0);
+    if (act === "trcapg" || act === "trcapt") {
+      var inv = act === "trcapg" ? S.tr.inv[me] : S.tr.inv[pad4s(S.tr.d.to)], ids = act === "trcapg" ? S.tr.d.give : S.tr.d.get;
+      S.tr.d[act === "trcapg" ? "capGive" : "capGet"] = Math.min(n, U.trades.maxCapK(inv, ids, null));
+    } else if (act === "trcap3" && /^\d{4}$/.test(g || "") && /^\d{4}$/.test(t || "")) {
+      var c = S.tr.d3.cap[g] = S.tr.d3.cap[g] || {}; c[t] = Math.min(n, U.trades.maxCapK(S.tr.inv[g], S.tr.d3.give[g] || {}, t));
+    } else return;
+    if (done) setTimeout(trDraftChanged, 250);
+  }
+  appEl.addEventListener("change", function (ev) { var el = ev.target; if (el && S.tr && el.classList && el.classList.contains("trcapin")) trCapTyped(el, true); });
   appEl.addEventListener("input", function (ev) {
     var el = ev.target;
     if (el && S.tr && el.id === "trnote") { S.tr.d.note = String(el.value || "").slice(0, 2000); return; }                       // Trades v1: the offer's note (no redraw while typing)
     if (el && S.tr && el.id === "trnote3") { S.tr.d3.note = String(el.value || "").slice(0, 2000); return; }
     if (el && S.tr && el.id === "trdeclnote" && S.tr.dec) { S.tr.dec.note = String(el.value || "").slice(0, 2000); return; }    // and a decline's note
+    if (el && S.tr && el.classList && el.classList.contains("trcapin")) { trCapTyped(el, false); return; }                    // cap money typed in (no redraw while typing)
     if (!el || el.id !== "pfq") return;
     S.pf.q = String(el.value || "").slice(0, 40); S.pf.note = null;
     if (!S.pf.q.trim()) S.pf.xt = false;   // R9: clearing the search ends "Search other teams"; a new search starts on this team again

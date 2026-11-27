@@ -493,7 +493,8 @@ button.btnrow{cursor:pointer}
 .card .so .in{flex:1;min-width:0}.card .so small{display:block;color:var(--mu);font-size:12px;line-height:1.3}
 .card .so[aria-pressed="true"]{border-color:var(--ac);border-width:2px}.card .so.off{opacity:.6}
 .trk{flex:0 0 auto;font-size:18px;font-weight:800;color:var(--ac)}
-.trcap{display:flex;align-items:center;gap:8px;margin-top:8px}.trcap .in{flex:1;min-width:0;font-size:13px}.trcap small{display:block;color:var(--mu);font-size:12px}.trcap .btn{min-width:44px;padding:0}
+.trcap{display:flex;align-items:center;gap:8px;margin-top:8px}.trcap .in{flex:1;min-width:0;font-size:13px}.trcap small{display:block;color:var(--mu);font-size:12px}.trcap .btn{min-width:44px;padding:0}.trcapbox{display:inline-flex;align-items:center;gap:2px;font-weight:700}.trcapin{width:3.6em;min-height:36px;padding:4px 6px;font:inherit;font-size:16px;font-weight:700;text-align:right;color:var(--tx);background:var(--sf);border:1px solid var(--bd);border-radius:8px}
+.plk{all:unset;cursor:pointer;font-weight:700;color:inherit;text-decoration:underline;text-decoration-color:var(--mu);text-underline-offset:3px;min-height:24px}.plk:focus-visible{outline:2px solid var(--ac);outline-offset:2px}
 .trr{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px;font-size:13px}.trr span:first-child{min-width:0;overflow-wrap:anywhere}
 .trn{min-height:64px;padding:8px 12px;resize:vertical}
 /* Trades v2 (Keith 2026-11-26: concise) */

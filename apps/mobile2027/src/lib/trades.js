@@ -49,12 +49,14 @@
     if ((m = /^BB_(\d+(?:\.\d+)?)$/.exec(t))) return k$(Number(m[1])) + " cap";
     return t;
   }
+  // A player's name opens the app's player profile (the same "card" action the roster uses), without changing the selected team.
+  function plink(pid, name) { return '<button class="plk" data-act="card" data-pid="' + esc(pid) + '" data-x="1">' + esc(name) + "</button>"; }
   function line(S, toks) { return toks.length ? toks.map(function (t) { return esc(tokenLabel(S, t)); }).join(" · ") : '<span class="mu">Nothing</span>'; }
   // The review's detail row for one token: a player's salary and years left, a pick's original team, cap money.
   function detailRow(S, tok) {
     var t = String(tok || "").toUpperCase(); if (/^P_\d+$/.test(t)) t = t.slice(2);
     var p = /^\d+$/.test(t) && S.model ? S.model.byId[t] : null;
-    if (p) return '<div class="trd"><span class="in"><b>' + esc(p.name) + "</b> " + esc(p.pos) + '</span><span class="mu">' + esc((p.salary != null ? k$(p.salary) : "") + (p.years ? " · " + p.years + (p.years === 1 ? " yr" : " yrs") : "")) + "</span></div>";
+    if (p) return '<div class="trd"><span class="in">' + plink(p.id, p.name) + " " + esc(p.pos) + '</span><span class="mu">' + esc((p.salary != null ? k$(p.salary) : "") + (p.years ? " · " + p.years + (p.years === 1 ? " yr" : " yrs") : "")) + "</span></div>";
     return '<div class="trd"><span class="in">' + esc(tokenLabel(S, tok)) + "</span></div>";
   }
 
@@ -85,7 +87,7 @@
   function threeOthers(S, tr, me) { return (tr.participants || []).filter(function (p) { return pad4(p.fid) !== me; }).map(function (p) { return p.name || teamName(S, p.fid); }); }
   function threeCard(S, tr, me) {
     var sv = tr.state_view || {};
-    return '<button class="card tro trtap" data-act="tr3review" data-v="' + esc(tr.id) + '"><span class="trh"><b class="trnm">3-team · ' + esc(threeOthers(S, tr, me).join(" & ")) + "</b></span>" +
+    return '<button class="card tro trtap" data-act="tr3review" data-v="' + esc(tr.id) + '"><span class="trh"><b class="trnm">Ménage · ' + esc(threeOthers(S, tr, me).join(" & ")) + "</b></span>" +
       '<span class="trst' + (sv.terminal ? "" : " wn") + '">' + esc(sv.label || tr.status || "") + '</span><span class="trgo">Review ›</span></button>';
   }
   function listBody(S, me, G) {
@@ -96,9 +98,9 @@
     if (O.state !== "ok") return h + '<div class="card warnc"><div class="ex">' + esc(O.why || "Couldn’t read your trades.") + '</div><button class="btn blk" data-act="trload">Try again</button></div>';
     var inc = O.inc || [], out = O.out || [], three = T3.state === "ok" ? T3.list || [] : [];
     if (inc.length) h += '<div class="sec2">To you · ' + inc.length + "</div>" + inc.map(function (o) { return offerCard(S, o, me); }).join("");
-    if (three.length) h += '<div class="sec2">3-team · ' + three.length + "</div>" + three.map(function (t) { return threeCard(S, t, me); }).join("");
+    if (three.length) h += '<div class="sec2">Ménage · ' + three.length + "</div>" + three.map(function (t) { return threeCard(S, t, me); }).join("");
     if (out.length) h += '<div class="sec2">You sent · ' + out.length + "</div>" + out.map(function (o) { return offerCard(S, o, me); }).join("");
-    if (T3.state === "error") h += '<div class="ex wn pad">3-team trades couldn’t be read.</div>';
+    if (T3.state === "error") h += '<div class="ex wn pad">Ménage trades couldn’t be read.</div>';
     if (!inc.length && !out.length && !three.length) h += '<div class="ex pad">No pending trades.</div>';
     return h;
   }
@@ -234,18 +236,22 @@
   function capRow(label, val, max, act, giver, dest) {
     if (!max) return "";
     var a = ' data-fid="' + esc(giver || "") + '" data-to="' + esc(dest || "") + '"';
-    return '<div class="trcap"><span class="in">' + esc(label) + " <b>" + k$(val * 1000) + '</b> <small class="mu">max ' + k$(max * 1000) + '</small></span><button class="btn sm" data-act="' + act + '" data-v="-1"' + a + ' aria-label="Less"' + (val <= 0 ? " disabled" : "") + '>−</button><button class="btn sm" data-act="' + act + '" data-v="1"' + a + ' aria-label="More"' + (val >= max ? " disabled" : "") + ">+</button></div>";
+    var box = '<span class="trcapbox">$<input class="trcapin" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" value="' + val + '" data-cap="' + act + '"' + a + ' aria-label="' + esc(label) + ', in thousands">K</span>';
+    return '<div class="trcap"><span class="in">' + esc(label) + " " + box + ' <small class="mu">max ' + k$(max * 1000) + '</small></span><button class="btn sm" data-act="' + act + '" data-v="-1"' + a + ' aria-label="Less"' + (val <= 0 ? " disabled" : "") + '>−</button><button class="btn sm" data-act="' + act + '" data-v="1"' + a + ' aria-label="More"' + (val >= max ? " disabled" : "") + ">+</button></div>";
   }
   function picked(S, fid, toks, extra) {
     var inv = invOf(S, fid);
     if (inv.state === "loading" || inv.state === "idle") return '<div class="ex">Loading…</div>';
     if (inv.state === "error") return '<div class="ex wn">' + esc(inv.why || "Couldn’t read this team.") + ' <button class="link" data-act="trinv">Try again</button></div>';
     return toks.map(function (t) {
-      return '<div class="trsel"><span class="in">' + esc(assetText(S, inv, t)) + "</span>" + (extra ? extra(t) : "") + '<button class="btn sm" data-act="trrm" data-v="' + esc(t) + '" data-fid="' + esc(fid) + '" aria-label="Remove">✕</button></div>';
+      var pp = /^P_\d+$/.test(t) && S.model ? S.model.byId[t.slice(2)] : null, txt = esc(assetText(S, inv, t));
+      if (pp && txt.indexOf(esc(pp.name)) === 0) txt = plink(pp.id, pp.name) + txt.slice(esc(pp.name).length);
+      return '<div class="trsel"><span class="in">' + txt + "</span>" + (extra ? extra(t) : "") + '<button class="btn sm" data-act="trrm" data-v="' + esc(t) + '" data-fid="' + esc(fid) + '" aria-label="Remove">✕</button></div>';
     }).join("");
   }
   function addBtn(fid) { return '<button class="btn sm trad" data-act="trpick" data-fid="' + esc(fid) + '">+ Add</button>'; }
-  function noteBox(S, id, val) {
+  function noteBox(S, id, val, open) {
+    if (open) return '<textarea id="' + id + '" class="pfq trn" maxlength="2000" rows="2" placeholder="' + esc(open) + '">' + esc(val || "") + "</textarea>";
     return S.tr.note ? '<textarea id="' + id + '" class="pfq trn" maxlength="2000" rows="2" placeholder="Note (optional)">' + esc(val || "") + "</textarea>" : '<button class="link" data-act="trnote">+ Note</button>';
   }
   function sideHead(S, title, fid) { var r = roomText(S, fid); return "<h2>" + esc(title) + (r ? ' <span class="trroom">' + esc(r) + "</span>" : "") + "</h2>"; }
@@ -273,7 +279,7 @@
     var B = build(S, me), mine = invOf(S, me), theirs = invOf(S, to);
     h += '<div class="card">' + sideHead(S, "You give", "") + picked(S, me, Object.keys(d.give)) + addBtn(me) + capRow("Cap money", B.capGive, maxCapK(mine, d.give), "trcapg") + "</div>";
     h += '<div class="card">' + sideHead(S, "You get", "") + picked(S, to, Object.keys(d.get)) + addBtn(to) + capRow("Cap money", B.capGet, maxCapK(theirs, d.get), "trcapt") + "</div>";
-    h += '<div class="trnote">' + noteBox(S, "trnote", d.note) + "</div>";
+    h += '<div class="trnote">' + noteBox(S, "trnote", d.note, ctr ? "Note to " + teamName(S, to) + " (optional)" : "") + "</div>";
     return h + sendBlock(S, B, G, [me, to], ctr ? "Send counter" : "Send offer");
   }
   function build3Body(S, me, G) {
@@ -291,7 +297,7 @@
     return h + sendBlock(S, B, G, T, "Send to both teams");
   }
   function buildBody(S, me, G) {
-    var chips = S.tr.counter ? "" : '<div class="chs trmode" role="group" aria-label="Teams">' + [[2, "2 teams"], [3, "3 teams"]].map(function (o) {
+    var chips = S.tr.counter ? "" : '<div class="chs trmode" role="group" aria-label="Teams">' + [[2, "2 teams"], [3, "Ménage"]].map(function (o) {
       return '<button class="ch" data-act="trmode" data-v="' + o[0] + '" aria-pressed="' + (S.tr.mode === o[0]) + '">' + o[1] + "</button>";
     }).join("") + "</div>";
     return chips + (S.tr.mode === 3 && !S.tr.counter ? build3Body(S, me, G) : build2Body(S, me, G));
@@ -346,13 +352,13 @@
   function review3Body(S, me, G) {
     var tr = S.tr.rv3 && S.tr.rv3.trade; if (!tr) return '<div class="ex pad">That trade is no longer listed.</div>';
     var sv = tr.state_view || {}, perm = tr.permissions || {}, fids = (tr.participants || []).map(function (p) { return pad4(p.fid); });
-    var h = '<div class="trtitle"><b>3-team · ' + esc(threeOthers(S, tr, me).join(" & ")) + '</b></div><div class="trst' + (sv.terminal ? "" : " wn") + ' pad">' + esc(sv.label || tr.status || "") + "</div>";
+    var h = '<div class="trtitle"><b>Ménage · ' + esc(threeOthers(S, tr, me).join(" & ")) + '</b></div><div class="trst' + (sv.terminal ? "" : " wn") + ' pad">' + esc(sv.label || tr.status || "") + "</div>";
     fids.forEach(function (to) {
       var moves = (tr.movements || []).filter(function (m) { return pad4(m.to && m.to.fid) === to; });
       if (!moves.length) return;
       h += '<div class="card"><h2>' + esc(to === me ? "You get" : teamName(S, to) + " gets") + "</h2>" + moves.map(function (m) {
         var fr = pad4(m.from && m.from.fid);
-        return (m.assets || []).map(function (a) { return '<div class="trd"><span class="in">' + esc(threeAsset(S, a)) + '</span><span class="mu">from ' + esc(fr === me ? "you" : teamName(S, fr)) + "</span></div>"; }).join("");
+        return (m.assets || []).map(function (a) { var ap = a.kind === "player" ? pid(a.player_id || a.token || a.id) : "", apl = ap && S.model && S.model.byId[ap]; return '<div class="trd"><span class="in">' + (apl ? plink(ap, apl.name) + " " + esc(apl.pos) : esc(threeAsset(S, a))) + '</span><span class="mu">from ' + esc(fr === me ? "you" : teamName(S, fr)) + "</span></div>"; }).join("");
       }).join("") + "</div>";
     });
     h += impactCard(S, me, movesOf3(tr));
@@ -420,9 +426,9 @@
     if (S.sheet === "trteams" && S.tr.tp) return teamSheet(S, me);
     if (S.sheet === "trdecline") return declineSheet(S);
     if (S.sheet === "trcancel") return confirmSheet("Cancel this offer?", "", "trcancelgo", "Cancel offer");
-    if (S.sheet === "tr3cancel") return confirmSheet("Cancel this 3-team trade?", "", "tr3cancelgo", "Cancel trade");
-    if (S.sheet === "tr3accept") return confirmSheet("Accept this 3-team trade?", "", "tr3acceptgo", "Accept");
-    if (S.sheet === "tr3decline") return confirmSheet("Decline this 3-team trade?", "It’s off for all three teams.", "tr3declinego", "Decline");
+    if (S.sheet === "tr3cancel") return confirmSheet("Cancel this ménage?", "", "tr3cancelgo", "Cancel trade");
+    if (S.sheet === "tr3accept") return confirmSheet("Accept this ménage?", "", "tr3acceptgo", "Accept");
+    if (S.sheet === "tr3decline") return confirmSheet("Decline this ménage?", "It’s off for all three teams.", "tr3declinego", "Decline");
     if (S.sheet === "trackSend" && S.tr.ack) return confirmSheet("Over the salary cap", "You’d be " + k$(S.tr.ack.amount_over) + " over. MFL still allows it.", "trsendack", "Acknowledge and send");
     return "";
   }

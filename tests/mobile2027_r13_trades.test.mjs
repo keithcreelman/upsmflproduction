@@ -137,14 +137,14 @@ test("the builder: the classic app's offer body; cap money held to half the non-
   const html = V.app(S), give = html.split("<h2>You give</h2>")[1].split("<h2>You get</h2>")[0];
   t.equal((give.match(/class="trsel"/g) || []).length, 2, "the page lists only what is picked");
   t.doesNotMatch(html, /Round 6/, "the full lists live in the sheet, not on the page");
-  t.match(text(give), /Cap money \$10K max \$10K/);
+  t.match(text(give), /Cap money \$ ?K max \$10K/); t.match(give, /class="trcapin" type="text" inputmode="numeric"[^>]*value="10" data-cap="trcapg"/, "cap money can be typed as well as stepped");
   t.doesNotMatch(html, /data-act="trsend"/, "not checked yet: no Send"); t.match(html, /data-act="trcheck">Check trade/);
   S.sheet = "trpick"; S.tr.pk = { fid: to }; const sh = V.app(S);
   t.match(sh, /data-act="trtoggle" data-v="FP_0002_2027_6" aria-pressed="false" disabled/, "round 6 is drawn disabled"); t.match(text(sh), /Round 6 can’t be traded/); t.match(text(sh), /Forfeited — lineup penalty/);
   t.match(sh, new RegExp('data-v="P_' + theirs[1].player_id + '" aria-pressed="true"'), "picked ones are marked");
   S.sheet = null;
   S.tr.d.give = { ["P_" + mine[2].player_id]: true }; S.tr.d.capGive = 0;   // $3,000 sent: half is $1,500, so $1K max
-  t.match(text(V.app(S)), /Cap money \$0 max \$1K/);
+  t.match(text(V.app(S)), /Cap money \$ ?K max \$1K/); t.match(V.app(S), /class="trcapin"[^>]*value="0" data-cap="trcapg"/);
   S.tr.d.give = { ["P_" + mine[3].player_id]: true };   // only a taxi player: no cap money row at all
   t.doesNotMatch(V.app(S).split("<h2>You give</h2>")[1].split("<h2>You get</h2>")[0], /Cap money/);
 });
@@ -215,7 +215,7 @@ test("the accept review: the worker decides; Accept only when the cap is fine (o
 });
 
 test("results: confirmed only from MFL's answer afterwards (the offer list, and the roster for an accept); trade results don't borrow lineup hints", async () => {
-  t.match(appJs, /var found = O\.state === "ok" \? U\.trades\.findSent\(O\.out, B\.body\.to_franchise_id, B\.expect\) : null;/);
+  t.match(appJs, /var found = O\.state === "ok" \? U\.trades\.findSent\(fresh, B\.body\.to_franchise_id, B\.expect\) : null;/); t.match(appJs, /before\.indexOf\(trId\(o\)\) < 0/, "only an offer that wasn't there before the send counts");
   t.match(appJs, /var gone = res\[0\]\.state === "ok" && !trOffer\(tid\), done = gone && res\[1\];/);
   t.match(appJs, /return players\.every\(function \(p\) \{ return ids\.indexOf\(p\) >= 0; \}\);/);
   const S = await fresh("0006");
@@ -262,7 +262,7 @@ test("3 teams (the classic 3-way): each asset goes to one of the other two (ring
   S.tr.lock = { state: "ok", data: LOCK_UP }; S.tr.view = "build";
   const h = V.app(S), tx = text(h);
   t.match(h, /data-act="trmode" data-v="3" aria-pressed="true"/); t.match(tx, /You send/); t.match(tx, /sends/);
-  t.match(h, /data-act="trdest" data-v="P_[0-9]+" data-fid="0006">→ /); t.match(tx, /Cap to .* \$10K max \$10K/);
+  t.match(h, /data-act="trdest" data-v="P_[0-9]+" data-fid="0006">→ /); t.match(tx, /Cap to .* \$ ?K max \$10K/); t.match(h, /class="trcapin"[^>]*value="10" data-cap="trcap3"/);
   t.match(h, /data-act="trcheck">Check trade/);
   S.tr.d3 = Object.assign(T.blankDraft3(), { b }); t.equal(T.build3(S, me).ready, false, "needs both teams");
 });

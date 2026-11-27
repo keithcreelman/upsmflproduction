@@ -103,6 +103,8 @@
     return '<span class="ibar"><span class="ihalf l">' + (d < 0 ? '<span class="ifill dn w' + steps + '"></span>' : "") + '</span><span class="ihalf r">' + (d > 0 ? '<span class="ifill up w' + steps + '"></span>' : "") + "</span></span>";
   }
   // The drill-down: team chips, a hero figure, week by week, who moves in and out of the lineup, and every moving player's points.
+  // A player's name opens the app's player profile (the roster's "card" action), keeping the selected team.
+  function plk(x) { return '<button class="plk" data-act="card" data-pid="' + esc(x.pid) + '" data-x="1">' + esc(x.name) + "</button>"; }
   function detail(S, I, me, sel, nameOf) {
     if (!I) return '<div class="ex pad">Loading projections…</div>';
     var fids = Object.keys(I.teams); if (fids.indexOf(sel) < 0) sel = fids[0];
@@ -120,10 +122,10 @@
     }).join("") + (I.complete ? "" : '<div class="ex wn">Some weeks have no MFL projections yet.</div>') + "</div>";
     var inn = T.lineup.filter(function (x) { return x.inn; }), out = T.lineup.filter(function (x) { return x.out; });
     if (inn.length || out.length) h += '<div class="card"><h2>Lineup changes</h2>' +
-      inn.map(function (x) { return '<div class="trd"><span class="in"><span class="up">▲</span> <b>' + esc(x.name) + "</b> " + esc(x.pos) + '</span><span class="mu">starts ' + x.inn + " of " + T.weeksKnown + "</span></div>"; }).join("") +
-      out.map(function (x) { return '<div class="trd"><span class="in"><span class="dn">▼</span> <b>' + esc(x.name) + "</b> " + esc(x.pos) + '</span><span class="mu">' + x.out + " start" + (x.out === 1 ? "" : "s") + " lost</span></div>"; }).join("") + "</div>";
+      inn.map(function (x) { return '<div class="trd"><span class="in"><span class="up">▲</span> ' + plk(x) + " " + esc(x.pos) + '</span><span class="mu">starts ' + x.inn + " of " + T.weeksKnown + "</span></div>"; }).join("") +
+      out.map(function (x) { return '<div class="trd"><span class="in"><span class="dn">▼</span> ' + plk(x) + " " + esc(x.pos) + '</span><span class="mu">' + x.out + " start" + (x.out === 1 ? "" : "s") + " lost</span></div>"; }).join("") + "</div>";
     h += '<div class="card"><h2>Points changing hands</h2><div class="itbl"><div class="irow ihead"><span class="in">Player</span><span>Season</span><span>PPG</span><span>Next</span><span>Proj</span></div>' + I.players.map(function (p) {
-      return '<div class="irow"><span class="in"><b>' + esc(p.name) + "</b> " + esc(p.pos) + "<small>" + esc(nameOf(p.from) + " → " + nameOf(p.to)) + "</small></span><span>" + pts(p.ytd) + "</span><span>" + pts(p.avg) + "</span><span>" + pts(p.next) + "</span><span><b>" + pts(p.ros) + "</b></span></div>";
+      return '<div class="irow"><span class="in">' + plk(p) + " " + esc(p.pos) + "<small>" + esc(nameOf(p.from) + " → " + nameOf(p.to)) + "</small></span><span>" + pts(p.ytd) + "</span><span>" + pts(p.avg) + "</span><span>" + pts(p.next) + "</span><span><b>" + pts(p.ros) + "</b></span></div>";
     }).join("") + '</div><div class="ex">Season: points in this league so far. Proj: MFL projections, weeks ' + (I.weeks[0] || "") + "–" + LAST_WEEK + ".</div></div>";
     return h;
   }

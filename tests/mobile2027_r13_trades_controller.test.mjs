@@ -99,7 +99,15 @@ function boot() {
     localStorage: { getItem: (k) => (k in storage ? storage[k] : null), setItem: (k, v) => { storage[k] = String(v); }, removeItem: (k) => { delete storage[k]; } },
     history: { state: null, pushState() {}, replaceState() {}, back() {} }, location,
   });
-  ctx.window = ctx; ctx.self = ctx; ctx.fetch = fetchFake;
+  // W.loseReply: the worker does the write but its reply never reaches the phone (Safari's "Load failed"); W.dropWrite: the request never arrives.
+  ctx.window = ctx; ctx.self = ctx;
+  ctx.fetch = async (url, opts) => {
+    const post = opts && opts.method === "POST" && !/compliance-preview/.test(url) && !(opts.body && /"action":"preview"/.test(opts.body));
+    if (post && W.dropWrite) { W.dropWrite--; throw new TypeError("Load failed"); }
+    const r = await fetchFake(url, opts);
+    if (post && W.loseReply) { W.loseReply--; throw new TypeError("Load failed"); }
+    return r;
+  };
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = () => {};
   vm.runInContext(INJURY_PURE, ctx);
@@ -109,7 +117,13 @@ function boot() {
   }
   const click = async (attrs) => { const el = { getAttribute: (k) => (k in attrs ? attrs[k] : null) }; (listeners.click || []).forEach((fn) => fn({ target: { closest: () => el } })); await tick(); };
   const type = async (id, value) => { (listeners.input || []).forEach((fn) => fn({ target: { id, value } })); await tick(2); };
-  return { W, calls, click, type, html: () => appEl.innerHTML };
+  const typeCap = async (attrs, value, done) => {
+    const el = { value, classList: { contains: (c) => c === "trcapin" }, getAttribute: (k) => (k in attrs ? attrs[k] : null) };
+    (listeners.input || []).forEach((fn) => fn({ target: el }));
+    if (done) { (listeners.change || []).forEach((fn) => fn({ target: el })); await new Promise((r) => setTimeout(r, 300)); }
+    await tick(4);
+  };
+  return { W, calls, click, type, typeCap, html: () => appEl.innerHTML };
 }
 
 test("League › Trades: the owner's offers and the lock load; nothing is POSTed until a tap", async () => {
@@ -198,13 +212,13 @@ test("3 teams: pick both teams, add assets, flip one's destination, check, send;
   t.ok(cr, "sent to /api/trades/3way"); t.match(cr.key, /^m27-/);
   t.deepEqual(cr.body.movements.map((m) => [m.from, m.to, m.asset_tokens]), [[ME, THEM, [mine]], [THEM, ME, [theirs]]]);
   t.equal(cr.body.team_b.fid, THEM); t.equal(cr.body.team_c.fid, "0004");
-  t.match(text(a.html()), /3-team trade sent Waiting on both teams\./);
-  await a.click({ "data-act": "resultok" }); t.match(text(a.html()), /3-team · 1/);
+  t.match(text(a.html()), /Ménage sent Waiting on both teams\./);
+  await a.click({ "data-act": "resultok" }); t.match(text(a.html()), /Ménage · 1/);
   const id = a.W.three[0].id;
   await a.click({ "data-act": "tr3review", "data-v": id }); t.match(a.html(), /data-act="tr3cancel"/);
   await a.click({ "data-act": "tr3cancel", "data-v": id }); await a.click({ "data-act": "tr3cancelgo" }); await tick(30);
   t.equal(a.W.posts.at(-1).path, "/api/trades/3way/cancel"); t.equal(a.W.posts.at(-1).body.id, id);
-  t.match(text(a.html()), /3-team trade cancelled Confirmed\./);
+  t.match(text(a.html()), /Ménage cancelled Confirmed\./);
   const b = boot(); await tick(60); b.W.threeOff = true;
   await b.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
   await b.click({ "data-act": "trpropose" }); await b.click({ "data-act": "trmode", "data-v": "3" });
@@ -212,7 +226,7 @@ test("3 teams: pick both teams, add assets, flip one's destination, check, send;
   await b.click({ "data-act": "trteams", "data-v": "c" }); await b.click({ "data-act": "trteampick", "data-v": "0004" }); await tick(20);
   await b.click({ "data-act": "trpick", "data-fid": ME }); await b.click({ "data-act": "trtoggle", "data-v": mine }); await b.click({ "data-act": "trclose" });
   await b.click({ "data-act": "trcheck" }); await tick(20); await b.click({ "data-act": "trsend" }); await tick(30);
-  t.match(text(b.html()), /3-team trade NOT sent Nothing was sent\. Why: 3-way trades aren.{1,5}t turned on right now\./);
+  t.match(text(b.html()), /Ménage NOT sent Nothing was sent\. Why: 3-way trades aren.{1,5}t turned on right now\./);
 });
 
 test("3 teams, as a partner: Accept and Decline on the card; confirmed only when the worker's list shows the answer", async () => {
@@ -223,7 +237,7 @@ test("3 teams, as a partner: Accept and Decline on the card; confirmed only when
   await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
   await a.click({ "data-act": "tr3review", "data-v": "t3-p" });
   t.match(a.html(), /data-act="tr3accept" data-v="t3-p">Accept/); t.match(a.html(), /data-act="tr3decline" data-v="t3-p"/); t.doesNotMatch(a.html(), /data-act="tr3cancel"/);
-  await a.click({ "data-act": "tr3accept", "data-v": "t3-p" }); t.match(text(a.html()), /Accept this 3-team trade\?/); t.equal(a.W.posts.length, 0, "nothing until confirmed");
+  await a.click({ "data-act": "tr3accept", "data-v": "t3-p" }); t.match(text(a.html()), /Accept this ménage\?/); t.equal(a.W.posts.length, 0, "nothing until confirmed");
   await a.click({ "data-act": "tr3acceptgo" }); await tick(30);
   t.equal(a.W.posts[0].path, "/api/trades/3way/respond"); t.deepEqual([a.W.posts[0].body.id, a.W.posts[0].body.action], ["t3-p", "accept"]); t.match(a.W.posts[0].key, /^m27-/);
   t.match(text(a.html()), /Accepted Waiting on Pure Greatness\./);
@@ -231,7 +245,7 @@ test("3 teams, as a partner: Accept and Decline on the card; confirmed only when
   const b = boot(); seed(b); await tick(60);
   await b.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
   await b.click({ "data-act": "tr3review", "data-v": "t3-p" }); await b.click({ "data-act": "tr3decline", "data-v": "t3-p" }); await b.click({ "data-act": "tr3declinego" }); await tick(30);
-  t.equal(b.W.posts[0].body.action, "decline"); t.match(text(b.html()), /3-team trade declined Confirmed\./);
+  t.equal(b.W.posts[0].body.action, "decline"); t.match(text(b.html()), /Ménage declined Confirmed\./);
 });
 
 test("Counter: from the Review, the builder starts from the offer; Send counter declines the original and sends ours back; confirmed when MFL shows both", async () => {
@@ -264,6 +278,58 @@ test("Lineup impact: opening a Review reads MFL's projections (this week to 17) 
   await a.click({ "data-act": "trback" }); await a.click({ "data-act": "trreview", "data-v": "777" }); await tick(20);
   t.equal(a.calls.filter((c) => new URL(c.url).searchParams.get("TYPE") === "playerScores").length, 2, "read once per visit");
   t.deepEqual(a.W.posts.map((p) => p.body && p.body.action), ["preview", "preview"], "only the accept reviews (read-only)");
+});
+
+test("Keith 2026-11-27: a lost reply is checked against MFL. The counter went through: Confirmed. Nothing arrived: No answer, and nothing is resent", async () => {
+  const a = boot(); await tick(60);
+  await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
+  await a.click({ "data-act": "trreview", "data-v": "777" }); await tick(20);
+  await a.click({ "data-act": "trcounter", "data-v": "777" }); await tick(20);
+  await a.click({ "data-act": "trcheck" }); await tick(20);
+  a.W.loseReply = 1; await a.click({ "data-act": "trsend" }); await tick(40);
+  t.equal(a.W.posts.filter((x) => x.body && x.body.action === "COUNTER").length, 1, "sent once");
+  t.match(text(a.html()), /Counter sent Confirmed on MFL\./, "MFL shows the counter and the original is gone, so it's confirmed");
+  await a.click({ "data-act": "resultok" }); t.match(text(a.html()), /You sent · 2/);
+
+  const b = boot(); await tick(60);
+  await b.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
+  await b.click({ "data-act": "trpropose" }); await tick(20);
+  await b.click({ "data-act": "trteams", "data-v": "to" }); await b.click({ "data-act": "trteampick", "data-v": THEM }); await tick(20);
+  await b.click({ "data-act": "trpick", "data-fid": ME }); await b.click({ "data-act": "trtoggle", "data-v": "P_" + team(ME).players[0].id }); await b.click({ "data-act": "trclose" });
+  await b.click({ "data-act": "trpick", "data-fid": THEM }); await b.click({ "data-act": "trtoggle", "data-v": "P_" + team(THEM).players[0].id }); await b.click({ "data-act": "trclose" });
+  await b.click({ "data-act": "trcheck" }); await tick(20);
+  b.W.dropWrite = 1; const before = b.W.offers.outgoing.length; await b.click({ "data-act": "trsend" }); await tick(40);
+  t.equal(b.W.offers.outgoing.length, before, "nothing reached MFL");
+  t.match(text(b.html()), /No answer The test worker didn.t answer \(Load failed\) and MFL.s offer list doesn.t show it\./);
+
+  const c = boot(); await tick(60);
+  await c.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
+  await c.click({ "data-act": "trreview", "data-v": "778" }); await tick(20);
+  c.W.loseReply = 1; await c.click({ "data-act": "trcancel", "data-v": "778" }); await c.click({ "data-act": "trcancelgo" }); await tick(40);
+  t.match(text(c.html()), /Offer cancelled Confirmed on MFL\./, "a lost reply on Cancel: the offer is gone from MFL, so it's confirmed");
+});
+
+test("Keith 2026-11-27: a player's name opens his profile; cap money can be typed (held to its max); a counter has an open note that goes to MFL", async () => {
+  const a = boot(); await tick(60);
+  await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
+  await a.click({ "data-act": "trreview", "data-v": "777" }); await tick(20);
+  const pidThem = team(THEM).players[0].id;
+  t.match(a.html(), new RegExp('<button class="plk" data-act="card" data-pid="' + pidThem + '" data-x="1">'), "the name is a button");
+  await a.click({ "data-act": "card", "data-pid": pidThem, "data-x": "1" }); await tick(20);
+  t.match(a.html(), /aria-label="Player profile: /, "the site's player profile opens over the trade");
+  await a.click({ "data-act": "close" }); await tick(20);
+  t.doesNotMatch(a.html(), /aria-label="Player profile: /); t.match(text(a.html()), /Accept/, "back on the Review");
+
+  await a.click({ "data-act": "trcounter", "data-v": "777" }); await tick(20);
+  t.match(a.html(), /<textarea id="trnote" class="pfq trn" maxlength="2000" rows="2" placeholder="Note to [^"]+ \(optional\)">/, "the counter's note box is open");
+  await a.type("trnote", "Add a pick and it's done");
+  await a.typeCap({ "data-cap": "trcapt", "data-fid": "", "data-to": "" }, "999", true);
+  const max = (() => { const m = /value="(\d+)" data-cap="trcapt"/.exec(a.html()); return m ? Number(m[1]) : -1; })();
+  t.ok(max > 0 && max < 999, "typed 999: held to the max (" + max + ")");
+  await a.click({ "data-act": "trcheck" }); await tick(20); await a.click({ "data-act": "trsend" }); await tick(40);
+  const c = a.W.posts.find((x) => x.body && x.body.action === "COUNTER");
+  t.equal(c.body.message, "Add a pick and it's done", "the note is MFL's decline comment"); t.equal(c.body.counter_offer.message, "Add a pick and it's done", "and the counter's message");
+  t.equal(c.body.counter_offer.payload.teams[1].traded_salary_adjustment_k, max, "the typed cap money is sent");
 });
 
 await run("mobile2027_r13_trades_controller");
