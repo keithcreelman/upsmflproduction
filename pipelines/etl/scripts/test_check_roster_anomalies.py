@@ -32,6 +32,27 @@ WHAT IS PROVEN HERE
 6. BACKTEST — every consecutive pair of committed snapshots, to show the new
    check does not cry wolf on ordinary league days.
 
+   PINNED TO REVIEWED DAYS (Keith 2026-11-22). The backtest replays only the
+   committed snapshot pairs up to REVIEWED_THROUGH, a snapshot date that has been
+   reviewed. Newer daily snapshots, which land on main every day, are NOT replayed
+   here. They are the nightly `roster-anomaly-check` workflow's job. So an
+   unreviewed roster flag can never fail an unrelated PR, or the trade-bot cutover
+   (which runs this suite on origin/main). REVIEWED_THROUGH must be the date of a
+   committed snapshot. Raise it only in a reviewed PR that also records any newly
+   flagged day in KNOWN_FLAGGED_DAYS.
+
+   TWO SEPARATE CHECKS over the pinned days. A "day" is one consecutive pair of
+   committed daily snapshots.
+   (a) BASELINE: the flagged days must be exactly the reviewed days in
+       KNOWN_FLAGGED_DAYS, each with its reviewed drop count. An unlisted flagged
+       day FAILS. A listed day that no longer flags, or flags a different number of
+       drops, also FAILS: the check stopped catching something it used to catch,
+       for example a parsing regression.
+   (b) NOISE: more than 10% of the pinned days flagged FAILS. This limits overall
+       alarm noise; it is not a data-correctness check.
+   Passing means only that the pinned days match the reviewed baseline. It does
+   not verify contracts, salaries or cap-penalty charges.
+
 Usage:
   python3 pipelines/etl/scripts/test_check_roster_anomalies.py
   python3 pipelines/etl/scripts/test_check_roster_anomalies.py --no-backtest
@@ -360,11 +381,45 @@ def _truncate_log(snap: Path, before_ts: int):
     (snap / "transactions.json").write_text(json.dumps(data))
 
 
+# Newest committed snapshot date the baseline below was reviewed against. Pairs
+# after it are not replayed here (see the module docstring). Raise it only in a
+# reviewed PR, together with any new KNOWN_FLAGGED_DAYS entry.
+REVIEWED_THROUGH = "2026-11-21"
+
+# The reviewed baseline: every day the backtest flags, with its exact drop count
+# and what it is (reviewed 2026-11-22 against the committed snapshots). The
+# backtest FAILS if the flagged days or counts differ from this list.
+KNOWN_FLAGGED_DAYS = {
+    "2026-04-23->2026-04-24": (1, "commissioner bulk roster import (LOAD_ROSTERS, by_commish=1, "
+                                  "2026-04-23 14:37Z). Flagged by design."),
+    "2026-05-21->2026-05-22": (27, "commissioner bulk roster import (LOAD_ROSTERS, by_commish=1, "
+                                   "2026-05-22 10:49Z). Flagged by design."),
+    "2026-07-16->2026-07-17": (5, "auction winners on a roster for one day, then gone with no drop "
+                                  "transaction (documented as the FAA test-residue purge). "
+                                  "Unexplained by MFL's transaction log."),
+    "2026-07-18->2026-07-19": (2, "auction winners on a roster 1-2 days, then gone with no drop "
+                                  "transaction from that franchise (same purge). Unexplained by "
+                                  "MFL's transaction log."),
+}
+
+
 def check_backtest(tmp: Path) -> list:
     """Every consecutive committed pair — a check that is red on ordinary days is unread."""
-    dates = sorted(p.name for p in SNAP_DIR.iterdir()
-                   if p.is_dir() and re.match(r"\d{4}-\d{2}-\d{2}$", p.name)
-                   and (p / "rosters.json").exists() and (p / "transactions.json").exists())
+    all_dates = sorted(p.name for p in SNAP_DIR.iterdir()
+                       if p.is_dir() and re.match(r"\d{4}-\d{2}-\d{2}$", p.name)
+                       and (p / "rosters.json").exists() and (p / "transactions.json").exists())
+    # The cutoff must be a real committed snapshot, so it can never sit in the future
+    # and silently start replaying new daily snapshots in PR CI.
+    if REVIEWED_THROUGH not in all_dates:
+        return [f"BACKTEST PIN: REVIEWED_THROUGH {REVIEWED_THROUGH} is not a committed snapshot date"]
+    late_known = [d for d in KNOWN_FLAGGED_DAYS if d.split("->")[1] > REVIEWED_THROUGH]
+    if late_known:
+        return [f"BACKTEST PIN: KNOWN_FLAGGED_DAYS after REVIEWED_THROUGH {REVIEWED_THROUGH}: {late_known}"]
+    dates = [d for d in all_dates if d <= REVIEWED_THROUGH]
+    unpinned = len(all_dates) - len(dates)
+    print(f"  backtest pinned through {REVIEWED_THROUGH}: {len(dates) - 1} reviewed pair(s); "
+          f"{unpinned} newer snapshot day(s) not replayed here (the nightly "
+          "roster-anomaly-check workflow checks each new day)")
     hits, skipped = {}, 0
     for prev, curr in zip(dates, dates[1:]):
         report = tmp / f"bt_{curr}.json"
@@ -379,6 +434,10 @@ def check_backtest(tmp: Path) -> list:
           f"{sum(len(v) for v in hits.values())} drop(s) on {len(hits)} day(s)")
     for day, ds in sorted(hits.items()):
         print(f"    {day}  {len(ds)}: {', '.join(ds)}")
+        if day in KNOWN_FLAGGED_DAYS:
+            print(f"      known ({KNOWN_FLAGGED_DAYS[day][0]} reviewed): {KNOWN_FLAGGED_DAYS[day][1]}")
+        else:
+            print("      NEW: not in the reviewed baseline (KNOWN_FLAGGED_DAYS) -> FAIL")
     # The findings themselves are NOT asserted away — every historical hit was
     # reviewed and is a real event of exactly the kind this check exists for:
     #   2026-04-24 / 2026-05-22  bulk commissioner LOAD_ROSTERS imports
@@ -386,14 +445,32 @@ def check_backtest(tmp: Path) -> list:
     #   2026-07-17 / 2026-07-19  the FAA test-residue purge — players that sat
     #                            on a roster for one day and vanished with no
     #                            transaction at all. Genuinely unexplained.
+    # Before the BBID_WAIVER fix (#1501) the same 212 pairs flagged on 52 days (24.5%):
+    # all but the four reviewed days were blind-bid false alarms (figure first noted in
+    # #1506, re-measured 2026-11-22 on main bc607887).
     # What is asserted is the noise FLOOR: a check that lights up on ordinary
     # league days stops being read, and then the next silent drop is missed too.
+    fails = []
+    # (a) BASELINE: flagged days and counts must equal the reviewed list exactly.
+    for day in sorted(set(hits) - set(KNOWN_FLAGGED_DAYS)):
+        fails.append(f"BACKTEST BASELINE: {day} flags {len(hits[day])} drop(s) and is not in "
+                     "KNOWN_FLAGGED_DAYS. Investigate it; record it only after review.")
+    for day, (want, _label) in sorted(KNOWN_FLAGGED_DAYS.items()):
+        got = len(hits.get(day, []))
+        if got != want:
+            fails.append(f"BACKTEST BASELINE: {day} flags {got} drop(s), reviewed baseline is "
+                         f"{want}. The check changed what it catches on a reviewed day.")
+    # (b) NOISE: overall alarm rate over the pinned days, a separate limit.
     noisy = 100.0 * len(hits) / pairs if pairs else 0.0
-    print(f"    -> {noisy:.1f}% of days flag anything")
+    print(f"    -> baseline: {len(set(hits) & set(KNOWN_FLAGGED_DAYS))} of "
+          f"{len(KNOWN_FLAGGED_DAYS)} reviewed day(s) matched, "
+          f"{len(set(hits) - set(KNOWN_FLAGGED_DAYS))} new")
+    print(f"    -> noise: {noisy:.1f}% of days flag anything (limit 10%). Neither check "
+          "verifies contracts, salaries or cap-penalty charges.")
     if noisy > 10.0:
-        return [f"BACKTEST: {len(hits)}/{pairs} days flag a drop ({noisy:.1f}%) — "
-                "too noisy to be read"]
-    return []
+        fails.append(f"BACKTEST NOISE: {len(hits)}/{pairs} days flag a drop ({noisy:.1f}%) — "
+                     "too noisy to be read")
+    return fails
 
 
 def main():
