@@ -36,13 +36,13 @@ function sliceByAnchors(lines, startLineText, startLineNum, endLineText, endLine
 }
 
 test("DESKTOP: submitStagedOfferToQueue's own body never references the direct-MFL endpoint family, and never calls submitOfferToQueue/submitTradeCreateWithGates", () => {
-  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8729, "function init3WayTrade()", 8772);
+  const body = sliceByAnchors(deskLines, "async function submitStagedOfferToQueue()", 8672, "function init3WayTrade()", 8715);
   t.doesNotMatch(body, /resolveTradeOffersApiUrl|\/trade-offers|submitTradeCreateWithGates\(|submitOfferToQueue\(/);
   t.match(body, /tw2sUrl\(/, "it must go through the staged 2-way URL builder");
 });
 
 test("DESKTOP: submitOfferToQueue's own body never references the staged endpoint family, and never calls submitStagedOfferToQueue", () => {
-  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4314, "async function retryLastSubmitRequest()", 4460);
+  const body = sliceByAnchors(deskLines, "async function submitOfferToQueue()", 4257, "async function retryLastSubmitRequest()", 4403);
   t.doesNotMatch(body, /resolveStaged2WayApiUrl|\/api\/trades\/2way|submitStagedOfferToQueue\(/);
 });
 
